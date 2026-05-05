@@ -13,6 +13,7 @@ import { logger } from "@copilotkit/shared";
 type MiddlewareCapableAgent = AbstractAgent & {
   use?: (middleware: unknown) => void;
   headers?: Record<string, string>;
+  user?: { id: string; name: string };
 };
 
 export interface RunAgentParameters {

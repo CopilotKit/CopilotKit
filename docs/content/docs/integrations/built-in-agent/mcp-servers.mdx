@@ -69,6 +69,91 @@ const builtInAgent = new BuiltInAgent({
 
 The HTTP transport also accepts optional `options` for advanced configuration of the underlying `StreamableHTTPClientTransport`.
 
+### Authentication via static `headers`
+
+For project-level credentials that don't change per call (e.g. an API key shared across all of your users), put them in `headers` — they're sent on every outbound request to the server:
+
+```typescript
+const builtInAgent = new BuiltInAgent({
+  model: "openai:gpt-5.4-mini",
+  mcpServers: [
+    {
+      type: "http",
+      url: "https://my-mcp-server.example.com/mcp",
+      headers: { // [!code highlight:3]
+        Authorization: `Bearer ${process.env.MCP_API_KEY}`,
+      },
+    },
+  ],
+});
+```
+
+### Per-call headers (for values that change per request)
+
+Some MCP servers need a header that varies per call — for example a request-correlation id, a feature flag, or a token that depends on the current user. Use `getHeaders` for this. The resolver runs on **every** outbound MCP HTTP request (initialize, tools/list, tools/call, reconnects), so the value is never cached across calls:
+
+```typescript
+const builtInAgent = new BuiltInAgent({
+  model: "openai:gpt-5.4-mini",
+  mcpServers: [
+    {
+      type: "http",
+      url: "https://my-mcp-server.example.com/mcp",
+      headers: { // [!code highlight:3]
+        Authorization: `Bearer ${process.env.MCP_API_KEY}`,
+      },
+      getHeaders: ({ requestHeaders }) => ({ // [!code highlight:3]
+        "X-Trace-Id": requestHeaders["x-trace-id"] ?? "",
+      }),
+    },
+  ],
+});
+```
+
+The resolver receives a `MCPRequestContext`:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `requestHeaders` | `Record<string, string>` | Headers the runtime forwarded onto the agent for this run. The runtime's `extractForwardableHeaders` already lifts `Authorization` + every `x-*` header (lower-cased) from the incoming HTTP request. |
+| `input` | `RunAgentInput` | The agent's current run input — `threadId`, `runId`, `messages`, etc. |
+| `mcpServerUrl` | `string` | URL of the MCP server this request is going to (useful when one resolver is shared across multiple servers). |
+| `user` | `{ id; name }` | The end-user identity for this run, populated by the runtime's `identifyUser` callback. Undefined when the agent isn't running through a `CopilotRuntime` configured with `identifyUser`. |
+
+Headers from `getHeaders` are merged on top of static `headers` — last write wins, so the resolver can intentionally override any static value if needed.
+
+If `getHeaders` throws, the agent emits `RUN_ERROR` carrying a `MCPHeaderResolverError` so the failure attributes cleanly to the resolver instead of bubbling up as a generic transport error.
+
+### Wiring CopilotKit Intelligence
+
+If you're pointing the agent at CopilotKit Intelligence's MCP endpoint, use the `intelligence.toMCPServer()` shortcut. It wires both auth axes for you — the project Bearer (the `apiKey` you gave to `CopilotKitIntelligence`) and the per-call user id (resolved from the runtime's `identifyUser` callback). User-side code never has to know the wire-level header name:
+
+```typescript
+import {
+  BuiltInAgent,
+  CopilotKitIntelligence,
+  CopilotRuntime,
+} from "@copilotkit/runtime/v2";
+
+const intelligence = new CopilotKitIntelligence({
+  apiUrl: "https://api.copilotkit.ai",
+  wsUrl:  "wss://api.copilotkit.ai",
+  apiKey: process.env.INTELLIGENCE_API_KEY!,
+});
+
+const runtime = new CopilotRuntime({
+  intelligence,
+  identifyUser: (request) => resolveUserFromSession(request), // [!code highlight]
+  agents: {
+    myAgent: new BuiltInAgent({
+      model: "openai:gpt-5.4-mini",
+      mcpServers: [intelligence.toMCPServer()], // [!code highlight]
+    }),
+  },
+});
+```
+
+The helper throws if no user has been resolved for the current run — typically the runtime is missing `identifyUser`. Silent fallthrough to an empty user-id would collapse every browser session into one shared server-side state, which is exactly the isolation guarantee the per-call header exists to enforce.
+
 ## Multiple servers
 
 Connect multiple MCP servers — tools from all servers are available to the agent:
@@ -124,16 +209,22 @@ const builtInAgent = new BuiltInAgent({
 
 The `mcpServers` approach creates a fresh MCP connection on every agent run. For latency-sensitive setups — or when you need persistent connections, dynamic auth, or tool caching — use `mcpClients` instead. You create and manage the MCP client yourself; the agent just calls `.tools()` to get tool definitions.
 
+`mcpClients` accepts any `MCPClient` instance returned by `@ai-sdk/mcp`'s `createMCPClient` (or any object with a compatible `tools()` method — useful for caching wrappers and tests).
+
 ```typescript
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
 import { createMCPClient } from "@ai-sdk/mcp";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
-// Create a persistent client at startup
-const transport = new StreamableHTTPClientTransport(
-  new URL("https://my-mcp-server.example.com/mcp"),
-);
-const client = await createMCPClient({ transport });
+// Create a persistent client at startup. Vercel's createMCPClient accepts a
+// transport-config object directly — no need to instantiate a transport class
+// unless you have a custom one.
+const client = await createMCPClient({
+  transport: {
+    type: "http",
+    url: "https://my-mcp-server.example.com/mcp",
+    headers: { Authorization: `Bearer ${process.env.MCP_API_KEY}` },
+  },
+});
 
 const builtInAgent = new BuiltInAgent({
   model: "openai:gpt-5.4-mini",
@@ -142,6 +233,8 @@ const builtInAgent = new BuiltInAgent({
 ```
 
 Unlike `mcpServers`, the agent **never** creates or closes these clients — you control the full lifecycle.
+
+`MCPClient`, `MCPTransport`, `OAuthClientProvider`, and related types are re-exported from `@copilotkit/runtime/v2` so you don't need to add `@ai-sdk/mcp` to your dependencies just to type the client.
 
 ### Tool caching
 
@@ -214,5 +307,8 @@ const builtInAgent = new BuiltInAgent({
 |----------|-----|------|-------------|
 | `type` | `"sse"` | `"http"` | Transport type |
 | `url` | string | string | MCP server URL |
-| `headers` | `Record<string, string>` | — | Custom HTTP headers (SSE only) |
-| `options` | — | `StreamableHTTPClientTransportOptions` | Transport options (HTTP only) |
+| `headers` | `Record<string, string>` | `Record<string, string>` | Static HTTP headers, sent on every outbound request to the server. |
+| `options` | — | `StreamableHTTPClientTransportOptions` | Pre-existing escape hatch for advanced HTTP transport options (custom `fetch`, `requestInit`, OAuth `authProvider`, etc.). |
+| `getHeaders` | — | `(ctx) => Record<string, string>` | Per-call header resolver. Invoked on every outbound HTTP request — see [Per-call headers](#per-call-headers-for-values-that-change-per-request). |
+
+SSE does not currently support per-call header resolution; if you need a header that varies per call, use the HTTP transport.

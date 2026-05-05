@@ -1,8 +1,6 @@
-import {
-  AbstractAgent,
+import type {
   BaseEvent,
   RunAgentInput,
-  EventType,
   Message,
   ReasoningEndEvent,
   ReasoningMessageContentEvent,
@@ -20,9 +18,9 @@ import {
   StateSnapshotEvent,
   StateDeltaEvent,
 } from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
 import type { AgentCapabilities } from "@ag-ui/core";
-import {
-  streamText,
+import type {
   LanguageModel,
   ModelMessage,
   AssistantModelMessage,
@@ -34,29 +32,31 @@ import {
   TextPart,
   ImagePart,
   FilePart,
-  tool as createVercelAISDKTool,
   ToolChoice,
   ToolSet,
-  stepCountIs,
 } from "ai";
-import { experimental_createMCPClient as createMCPClient } from "@ai-sdk/mcp";
+import { streamText, tool as createVercelAISDKTool, stepCountIs } from "ai";
+import { createMCPClient } from "@ai-sdk/mcp";
+import type { MCPClient } from "@ai-sdk/mcp";
 import { Observable } from "rxjs";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createVertex } from "@ai-sdk/google-vertex";
-import { safeParseToolArgs } from "@copilotkit/shared";
+import { logger, safeParseToolArgs } from "@copilotkit/shared";
 import { z } from "zod";
 import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
 import { schemaToJsonSchema } from "@copilotkit/shared";
 import { jsonSchema as aiJsonSchema } from "ai";
 import { convertAISDKStream } from "./converters/aisdk";
 import { convertTanStackStream } from "./converters/tanstack";
+import type { StreamableHTTPClientTransportOptions } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import {
-  StreamableHTTPClientTransport,
-  StreamableHTTPClientTransportOptions,
-} from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+  CopilotKitMCPTransport,
+  MCPHeaderResolverError,
+  type MCPRequestContext,
+  type MCPRuntimeUser,
+} from "./mcp-transport";
 import { randomUUID } from "@copilotkit/shared";
 
 /**
@@ -113,58 +113,114 @@ export type BuiltInAgentModel =
  */
 export type ModelSpecifier = string | LanguageModel;
 
+// MCPRequestContext and MCPHeaderResolverError now live in mcp-transport.ts.
+// Re-export so existing imports of these symbols from agent/index continue to
+// work.
+export { MCPHeaderResolverError, type MCPRequestContext };
+
 /**
- * MCP Client configuration for HTTP transport
+ * MCP Client configuration for HTTP transport.
  */
 export interface MCPClientConfigHTTP {
-  /**
-   * Type of MCP client
-   */
+  /** Type of MCP client */
   type: "http";
-  /**
-   * URL of the MCP server
-   */
+  /** URL of the MCP server */
   url: string;
   /**
-   * Optional transport options for HTTP client
+   * Optional transport options for the underlying
+   * `StreamableHTTPClientTransport`. Pre-existing escape hatch for advanced
+   * use cases (custom `fetch`, `requestInit`, OAuth `authProvider`, etc.).
    */
   options?: StreamableHTTPClientTransportOptions;
+  /**
+   * Static HTTP headers, merged into every outbound request to this server.
+   * For per-call values, use {@link MCPClientConfigHTTP.getHeaders} instead.
+   */
+  headers?: Record<string, string>;
+  /**
+   * Per-call header resolver. Invoked on **every** outbound HTTP request to
+   * this server (initialize, tools/list, tools/call, SSE reconnects). The
+   * returned headers are merged on top of `headers` and any
+   * `options.requestInit.headers`, so a resolver can override either.
+   *
+   * Throwing from the resolver causes the agent run to emit `RUN_ERROR`
+   * carrying a {@link MCPHeaderResolverError}.
+   */
+  getHeaders?: (
+    ctx: MCPRequestContext,
+  ) => Record<string, string> | Promise<Record<string, string>>;
+  /** If true, the server is skipped at run-start when `agent.user` is unset. */
+  requiresUser?: boolean;
 }
 
 /**
- * MCP Client configuration for SSE transport
+ * MCP Client configuration for SSE transport.
  */
 export interface MCPClientConfigSSE {
-  /**
-   * Type of MCP client
-   */
+  /** Type of MCP client */
   type: "sse";
-  /**
-   * URL of the MCP server
-   */
+  /** URL of the MCP server */
   url: string;
-  /**
-   * Optional HTTP headers (e.g., for authentication)
-   */
+  /** Optional HTTP headers (e.g., for authentication). */
   headers?: Record<string, string>;
 }
 
 /**
- * MCP Client configuration
+ * MCP Client configuration.
  */
 export type MCPClientConfig = MCPClientConfigHTTP | MCPClientConfigSSE;
 
 /**
- * A user-managed MCP client that provides tools to the agent.
- * The user is responsible for creating, configuring, and closing the client.
- * Compatible with the return type of @ai-sdk/mcp's createMCPClient().
+ * A user-managed MCP client that provides tools to the agent. Structural
+ * alias for `@ai-sdk/mcp`'s `MCPClient.tools` slice — pass any value built by
+ * `createMCPClient()` directly, or supply a custom `{ tools(): ... }` object
+ * for tests/caching layers.
  *
- * Unlike mcpServers, the agent does NOT create or close these clients.
- * This allows persistent connections, custom auth, and tool caching.
+ * Unlike `mcpServers`, the agent does NOT create or close these clients. The
+ * user controls the full lifecycle.
  */
-export interface MCPClientProvider {
-  /** Return tools to be merged into the agent's tool set. */
-  tools(): Promise<ToolSet>;
+export type MCPClientProvider = Pick<MCPClient, "tools">;
+
+/**
+ * Open an MCP client for the given server config.
+ *
+ * - HTTP always goes through {@link CopilotKitMCPTransport} (preserves the
+ *   pre-existing `options` escape hatch and adds per-call `getHeaders`
+ *   resolution).
+ * - SSE goes through `@ai-sdk/mcp`'s `createMCPClient`, whose built-in
+ *   `SseMCPTransport` correctly applies static `headers` on every outbound
+ *   request.
+ */
+async function openMcpClient(
+  config: MCPClientConfig,
+  context: {
+    requestHeaders: Record<string, string>;
+    input: RunAgentInput;
+    user?: MCPRuntimeUser;
+  },
+): Promise<MCPClient> {
+  if (config.type === "http") {
+    const transport = new CopilotKitMCPTransport({
+      url: config.url,
+      headers: config.headers,
+      getHeaders: config.getHeaders,
+      options: config.options,
+      requestHeaders: context.requestHeaders,
+      input: context.input,
+      user: context.user,
+    });
+    return createMCPClient({ transport });
+  }
+
+  // SSE: hand to Vercel's transport. Static `headers` are applied via the
+  // SseMCPTransport's common-header pipeline.
+  return createMCPClient({
+    transport: {
+      type: "sse",
+      url: config.url,
+      headers: config.headers,
+    },
+  });
 }
 
 /**
@@ -851,6 +907,21 @@ function isFactoryConfig(
 
 export class BuiltInAgent extends AbstractAgent {
   private abortController?: AbortController;
+  /**
+   * Headers populated per-request by the runtime's
+   * `extractForwardableHeaders` (the incoming request's `Authorization` +
+   * every `x-*` header, lower-cased). Available to MCP header resolvers via
+   * {@link MCPRequestContext.requestHeaders}; kept here as a plain field so
+   * the runtime's `configureAgentForRequest` feature-detect activates.
+   */
+  public headers: Record<string, string> = {};
+  /**
+   * End-user identity for the current request, populated by the runtime by
+   * invoking `identifyUser(request)` (Intelligence mode). Surfaced to MCP
+   * header resolvers via {@link MCPRequestContext.user}; remains undefined
+   * for runs that aren't going through a runtime with `identifyUser` set.
+   */
+  public user?: { id: string; name: string };
 
   constructor(private config: BuiltInAgentConfiguration) {
     super();
@@ -1104,7 +1175,7 @@ export class BuiltInAgent extends AbstractAgent {
       }
 
       // Set up MCP clients if configured and process the stream
-      const mcpClients: Array<{ close: () => Promise<void> }> = [];
+      const mcpClients: MCPClient[] = [];
 
       (async () => {
         let terminalEventEmitted = false;
@@ -1189,33 +1260,39 @@ export class BuiltInAgent extends AbstractAgent {
 
           // Initialize MCP clients and get their tools
           if (this.config.mcpServers && this.config.mcpServers.length > 0) {
+            // Snapshot the agent's per-run state (forwarded headers + user)
+            // once at run-start. Resolvers see this immutable snapshot for the
+            // lifetime of the run, including any reconnections fired after the
+            // initial run completes.
+            const requestHeaders: Record<string, string> = { ...this.headers };
+            const user = this.user ? { ...this.user } : undefined;
+
             for (const serverConfig of this.config.mcpServers) {
-              let transport;
-
-              if (serverConfig.type === "http") {
-                const url = new URL(serverConfig.url);
-                transport = new StreamableHTTPClientTransport(
-                  url,
-                  serverConfig.options,
+              if (
+                serverConfig.type === "http" &&
+                serverConfig.requiresUser &&
+                !user
+              ) {
+                logger.warn(
+                  { url: serverConfig.url },
+                  "Skipping MCP server: requiresUser is set but no user is resolved for this run",
                 );
-              } else if (serverConfig.type === "sse") {
-                transport = new SSEClientTransport(
-                  new URL(serverConfig.url),
-                  serverConfig.headers,
-                );
+                continue;
               }
 
-              if (transport) {
-                const mcpClient = await createMCPClient({ transport });
-                mcpClients.push(mcpClient);
+              const mcpClient = await openMcpClient(serverConfig, {
+                requestHeaders,
+                input,
+                user,
+              });
+              mcpClients.push(mcpClient);
 
-                // Get tools from this MCP server and merge with existing tools
-                const mcpTools = await mcpClient.tools();
-                streamTextParams.tools = {
-                  ...streamTextParams.tools,
-                  ...mcpTools,
-                } as ToolSet;
-              }
+              // Get tools from this MCP server and merge with existing tools
+              const mcpTools = await mcpClient.tools();
+              streamTextParams.tools = {
+                ...streamTextParams.tools,
+                ...mcpTools,
+              } as ToolSet;
             }
           }
 
