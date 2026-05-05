@@ -21,7 +21,9 @@ describe("CopilotKitConfigDirective", () => {
     @Component({
       standalone: true,
       imports: [CopilotKitConfigDirective],
-      template: `<div [copilotkitConfig]="config"></div>`,
+      template: `
+        <div [copilotkitConfig]="config"></div>
+      `,
     })
     class HostComponent {
       config = {
@@ -47,10 +49,12 @@ describe("CopilotKitConfigDirective", () => {
       standalone: true,
       imports: [CopilotKitConfigDirective],
       template: `
-        <div copilotkitConfig
-             [runtimeUrl]="runtimeUrl"
-             [headers]="headers"
-             [properties]="properties"></div>
+        <div
+          copilotkitConfig
+          [runtimeUrl]="runtimeUrl"
+          [headers]="headers"
+          [properties]="properties"
+        ></div>
       `,
     })
     class HostComponent {
@@ -76,7 +80,9 @@ describe("CopilotKitConfigDirective", () => {
     @Component({
       standalone: true,
       imports: [CopilotKitConfigDirective],
-      template: `<div copilotkitConfig [runtimeUrl]="runtimeUrl"></div>`,
+      template: `
+        <div copilotkitConfig [runtimeUrl]="runtimeUrl"></div>
+      `,
     })
     class HostComponent {
       runtimeUrl = "https://first.example.com";
@@ -102,7 +108,9 @@ describe("CopilotKitConfigDirective", () => {
     @Component({
       standalone: true,
       imports: [CopilotKitConfigDirective],
-      template: `<div copilotkitConfig></div>`,
+      template: `
+        <div copilotkitConfig></div>
+      `,
     })
     class HostComponent {}
 
@@ -118,9 +126,11 @@ describe("CopilotKitConfigDirective", () => {
       standalone: true,
       imports: [CopilotKitConfigDirective],
       template: `
-        <div [copilotkitConfig]="config"
-             [runtimeUrl]="ignored"
-             [headers]="ignoredHeaders"></div>
+        <div
+          [copilotkitConfig]="config"
+          [runtimeUrl]="ignored"
+          [headers]="ignoredHeaders"
+        ></div>
       `,
     })
     class HostComponent {

@@ -35,9 +35,7 @@ import { CopilotKit } from "../copilotkit";
   selector: "[copilotkitAgent]",
   standalone: true,
 })
-export class CopilotKitAgentDirective
-  implements OnInit, OnChanges, OnDestroy
-{
+export class CopilotKitAgentDirective implements OnInit, OnChanges, OnDestroy {
   constructor(@Inject(CopilotKit) private readonly copilotkit: CopilotKit) {}
 
   /**

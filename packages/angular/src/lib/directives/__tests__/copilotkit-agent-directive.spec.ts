@@ -38,7 +38,9 @@ describe("CopilotKitAgentDirective", () => {
     @Component({
       standalone: true,
       imports: [CopilotKitAgentDirective],
-      template: `<div [copilotkitAgent]="agent" agentId="planner"></div>`,
+      template: `
+        <div [copilotkitAgent]="agent" agentId="planner"></div>
+      `,
     })
     class HostComponent {
       agent = planner;
@@ -63,7 +65,9 @@ describe("CopilotKitAgentDirective", () => {
     @Component({
       standalone: true,
       imports: [CopilotKitAgentDirective],
-      template: `<div [copilotkitAgent]="agents"></div>`,
+      template: `
+        <div [copilotkitAgent]="agents"></div>
+      `,
     })
     class HostComponent {
       agents = { planner, writer };
@@ -87,7 +91,9 @@ describe("CopilotKitAgentDirective", () => {
     @Component({
       standalone: true,
       imports: [CopilotKitAgentDirective],
-      template: `<div [copilotkitAgent]="agent"></div>`,
+      template: `
+        <div [copilotkitAgent]="agent"></div>
+      `,
     })
     class HostComponent {
       agent = orphan;
@@ -107,7 +113,9 @@ describe("CopilotKitAgentDirective", () => {
     @Component({
       standalone: true,
       imports: [CopilotKitAgentDirective],
-      template: `<div [copilotkitAgent]="agent" agentId="active"></div>`,
+      template: `
+        <div [copilotkitAgent]="agent" agentId="active"></div>
+      `,
     })
     class HostComponent {
       agent = first;
@@ -136,7 +144,9 @@ describe("CopilotKitAgentDirective", () => {
     @Component({
       standalone: true,
       imports: [CopilotKitAgentDirective],
-      template: `<div [copilotkitAgent]="agent" agentId="planner"></div>`,
+      template: `
+        <div [copilotkitAgent]="agent" agentId="planner"></div>
+      `,
     })
     class HostComponent {
       agent = planner;
