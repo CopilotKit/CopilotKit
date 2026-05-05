@@ -19,6 +19,13 @@ export default defineConfig(({ mode }) => ({
       '@angular/core/testing',
     ],
   },
+  // Inline @copilotkit/* so vi.mock("phoenix") intercepts the bundled
+  // imports inside @copilotkit/core's dist (mirrors react-core's config).
+  server: {
+    deps: {
+      inline: [/^@copilotkit/],
+    },
+  },
   test: {
     globals: true,
     environment: 'jsdom',
