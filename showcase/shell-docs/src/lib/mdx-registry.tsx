@@ -23,6 +23,7 @@ import { PropertyReference } from "@/components/property-reference";
 import { IntegrationGrid } from "@/components/integration-grid";
 import { DocsLandingNext } from "@/components/docs-landing-next";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
+import { AgentCoreCommandTabs } from "@/components/agentcore-command-tabs";
 import { getRegistry } from "@/lib/registry";
 
 const Callout = DocsCallout;
@@ -222,6 +223,7 @@ export const docsComponents = {
   // overrides this to inject `defaultFramework` from the URL — same
   // pattern as <Snippet>.
   WhenFrameworkHas,
+  AgentCoreCommandTabs,
   FeatureGrid: ({ children }: { children?: React.ReactNode }) => (
     <div
       style={{

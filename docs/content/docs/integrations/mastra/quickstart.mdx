@@ -71,11 +71,15 @@ Before you begin, you'll need the following:
             <Step>
                 ### Run our CLI
 
-                First, we'll use our CLI to create a new project for us.
-
                 ```bash
-                npx copilotkit@latest create -f mastra
+                npx copilotkit@latest create
                 ```
+
+                The CLI walks you through:
+
+                - **Project name**
+                - **Enterprise Intelligence Platform** — persistent threads, observability, and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard Mastra setup.
+                - **Framework** — pick **Mastra** when prompted.
             </Step>
             <Step>
                 ### Install dependencies
@@ -356,3 +360,4 @@ Now that you have your basic agent setup, explore these advanced features:
     icon={<WrenchIcon />}
   />
 </Cards>
+

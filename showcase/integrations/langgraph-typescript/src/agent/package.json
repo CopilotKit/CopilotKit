@@ -3,13 +3,13 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "npx @langchain/langgraph-cli dev --port 8123 --no-browser",
+    "dev": "npx @langchain/langgraph-cli@1.2.1 dev --port 8123 --no-browser",
     "start": "node --import tsx liveness.mjs"
   },
   "dependencies": {
     "@copilotkit/sdk-js": "1.56.5",
-    "@langchain/core": "1.1.41",
-    "@langchain/langgraph": "1.2.9",
+    "@langchain/core": "1.1.44",
+    "@langchain/langgraph": "1.3.0",
     "@langchain/langgraph-api": "1.1.17",
     "@langchain/langgraph-checkpoint": "1.0.0",
     "@langchain/langgraph-sdk": "1.6.5",

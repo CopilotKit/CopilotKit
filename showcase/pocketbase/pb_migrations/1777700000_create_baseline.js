@@ -13,7 +13,10 @@ migrate(
           name: "status",
           type: "select",
           required: true,
-          options: { values: ["works", "possible", "impossible", "unknown"], maxSelect: 1 },
+          options: {
+            values: ["works", "possible", "impossible", "unknown"],
+            maxSelect: 1,
+          },
         },
         { name: "tags", type: "json", options: { maxSize: 500 } },
         { name: "updated_at", type: "date", required: true },

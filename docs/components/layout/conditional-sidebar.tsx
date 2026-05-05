@@ -12,6 +12,7 @@ import { useMemo } from "react";
 import VersionSelector, {
   getVersionFromPathname,
 } from "@/components/ui/reference-sidebar/version-selector";
+import LearnHeader from "@/components/ui/learn-sidebar/learn-header";
 
 interface ConditionalSidebarProps {
   pageTree: DocsLayoutProps["tree"];
@@ -114,7 +115,13 @@ export default function ConditionalSidebar({
   }
 
   if (isLearnRoute && learnPageTree) {
-    return <Sidebar pageTree={learnPageTree} showIntegrationSelector={false} />;
+    return (
+      <Sidebar
+        pageTree={learnPageTree}
+        showIntegrationSelector={false}
+        headerSlot={<LearnHeader />}
+      />
+    );
   }
 
   if (isReferenceRoute && referencePageTree) {

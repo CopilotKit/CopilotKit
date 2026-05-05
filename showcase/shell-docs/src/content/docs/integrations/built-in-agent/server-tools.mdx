@@ -34,7 +34,7 @@ const getWeather = defineTool({
 const builtInAgent = new BuiltInAgent({
   model: "openai:gpt-5.4-mini",
   tools: [getWeather],
-  maxSteps: 2, // Important for tool calls
+  maxSteps: 2                   //Important for tool calls
 });
 ```
 
@@ -76,7 +76,7 @@ const createTicket = defineTool({
 const builtInAgent = new BuiltInAgent({
   model: "openai:gpt-5.4-mini",
   tools: [searchDocs, createTicket], // [!code highlight]
-  maxSteps: 2,
+  maxSteps: 2                        
 });
 ```
 

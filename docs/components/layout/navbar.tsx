@@ -51,7 +51,7 @@ export const LEFT_LINKS: NavbarLink[] = [
   {
     icon: <CloudIcon />,
     label: "Free Developer Access",
-    href: "https://cloud.copilotkit.ai",
+    href: "https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=navbar",
     target: "_blank",
     showExternalLinkIcon: true,
   },
@@ -60,7 +60,7 @@ export const LEFT_LINKS: NavbarLink[] = [
 const RIGHT_LINKS: NavbarLink[] = [
   {
     icon: <CloudIcon />,
-    href: "https://cloud.copilotkit.ai",
+    href: "https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=navbar",
     target: "_blank",
     label: "Free Developer Access",
   },
@@ -129,6 +129,10 @@ const Navbar = ({ pageTree }: NavbarProps) => {
     };
   }, [isMobileSidebarOpen]);
 
+  const handleTryForFreeClick = (location: string) => {
+    posthog?.capture("try_for_free_clicked", { location });
+  };
+
   const handleToggleTheme = () => {
     document.documentElement.classList.toggle("dark");
     localStorage.theme = localStorage.theme === "dark" ? "light" : "dark";
@@ -174,6 +178,12 @@ const Navbar = ({ pageTree }: NavbarProps) => {
                     <Link
                       href={href}
                       target={link.target}
+                      onClick={
+                        link.label === "Free Developer Access"
+                          ? () =>
+                              handleTryForFreeClick("docs_navbar_left")
+                          : undefined
+                      }
                       className={`h-full ${
                         activeRoute === link.href ? "opacity-100" : "opacity-50"
                       } hover:opacity-100 transition-opacity duration-300`}
@@ -264,6 +274,11 @@ const Navbar = ({ pageTree }: NavbarProps) => {
                   key={link.href}
                   href={link.href}
                   target={link.target}
+                  onClick={
+                    link.label === "Free Developer Access"
+                      ? () => handleTryForFreeClick("docs_navbar_right")
+                      : undefined
+                  }
                   className={`${isIconOnlyLink ? "[@media(width>=1028px)]:hidden [@media(width<768px)]:hidden" : "hidden"} justify-center items-center w-11 h-full md:flex`}
                   title={link.label}
                   suppressHydrationWarning={link.target === "_blank"}

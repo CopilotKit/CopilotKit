@@ -17,6 +17,7 @@
     "---App Control---",
     "frontend-tools",
     "shared-state",
+    "threads",
     "---Backend---",
     "...backend",
     "---Deploy---",

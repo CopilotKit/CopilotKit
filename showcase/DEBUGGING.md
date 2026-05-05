@@ -439,11 +439,13 @@ for item in items:
 ```
 
 **How to read it:**
+
 - `fail_count=1` → just flipped red on the last cycle (likely flapper)
 - `fail_count>=3` → consistently failing (likely a real bug)
 - `fail_count=0` with `state!=green` → transitional state, check again next cycle
 
 **Categorize errors** to find the root cause pattern:
+
 - `page.fill: Timeout` → React hydration too slow (probe infrastructure issue)
 - `assistant did not respond within 30000ms` → backend or aimock not returning
 - `chat input not found` → selector cascade failed (page didn't render)
@@ -451,6 +453,7 @@ for item in items:
 - `auth: after clicking sign-out` → auth probe timing race
 
 **Cross-reference with deploy history** to identify deploy churn:
+
 ```sh
 gh run list --branch main --limit 10 -R CopilotKit/CopilotKit --workflow "Showcase: Build & Push"
 ```
@@ -458,6 +461,7 @@ gh run list --branch main --limit 10 -R CopilotKit/CopilotKit --workflow "Showca
 If a feature flipped red right when a deploy happened and `fail_count=1`, it's deploy churn — the Railway service restarted mid-probe. Wait one cycle and re-check.
 
 **Get per-service flapping rates** from the harness API (last 10 probe runs):
+
 ```sh
 curl -s 'https://showcase-harness-production.up.railway.app/api/probes/probe:e2e-deep' | \
   python3 -c "

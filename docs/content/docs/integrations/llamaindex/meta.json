@@ -16,6 +16,7 @@
     "---App Control---",
     "frontend-tools",
     "shared-state",
+    "threads",
     "---LlamaIndex---",
     "multi-agent-flows",
     "---Backend---",

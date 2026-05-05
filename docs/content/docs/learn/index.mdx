@@ -1,12 +1,12 @@
 ---
-title: Learn
+title: Overview
 description: "Understand how CopilotKit works — architecture, protocols, generative UI concepts, and the design decisions behind the platform."
 icon: "lucide/BookOpen"
 doc_type: explanation
 hideTOC: true
 ---
 
-import { Layers, Network, Cpu, Sparkles, Newspaper } from "lucide-react"
+import { Layers, Network, Cpu, MessageSquareMore, Sparkles, Newspaper, Server } from "lucide-react"
 
 ## Understand CopilotKit
 
@@ -18,6 +18,20 @@ This section explains how CopilotKit works under the hood — the architecture, 
     <div>
       <div className="font-semibold text-foreground group-hover:text-primary transition-colors">Architecture &rsaquo;</div>
       <div className="text-sm text-muted-foreground leading-relaxed mt-0.5">The three-layer stack: Frontend, Runtime, and Agent.</div>
+    </div>
+  </a>
+  <a href="/learn/intelligence-platform" className="group flex items-start gap-4 no-underline">
+    <div className="flex-shrink-0 mt-1"><Server className="h-6 w-6 text-primary" /></div>
+    <div>
+      <div className="font-semibold text-foreground group-hover:text-primary transition-colors">Enterprise Intelligence Platform &rsaquo;</div>
+      <div className="text-sm text-muted-foreground leading-relaxed mt-0.5">The backend that powers threads, realtime sync, and the multi-tenancy model — hosted and self-hosted.</div>
+    </div>
+  </a>
+  <a href="/learn/threads" className="group flex items-start gap-4 no-underline">
+    <div className="flex-shrink-0 mt-1"><MessageSquareMore className="h-6 w-6 text-primary" /></div>
+    <div>
+      <div className="font-semibold text-foreground group-hover:text-primary transition-colors">Threads &amp; Persistence &rsaquo;</div>
+      <div className="text-sm text-muted-foreground leading-relaxed mt-0.5">How durable, resumable conversations work across sessions and devices.</div>
     </div>
   </a>
   <a href="/learn/generative-ui" className="group flex items-start gap-4 no-underline">

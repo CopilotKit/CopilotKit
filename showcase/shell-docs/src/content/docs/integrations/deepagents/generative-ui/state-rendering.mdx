@@ -1,0 +1,154 @@
+---
+title: State Rendering
+icon: "lucide/Bot"
+description: Render your agent's state with custom UI components in real-time.
+---
+{/* TODO: swap feature-viewer URLs back to /deepagents/ once the dojo supports that route */}
+<IframeSwitcher
+  id="agent-state-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_generative_ui?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_generative_ui?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+## What is this?
+
+State rendering lets you build UI that reflects your agent's state in real-time. As your agent progresses through nodes and emits state updates, your frontend renders those changes — showing progress, drafts, or intermediate results.
+
+## When should I use this?
+
+Use state rendering when you want to:
+- Show real-time progress (e.g. "Researching... 2/5 complete")
+- Display drafts that update as the agent works
+- Build dashboards that reflect agent state
+- Render structured output outside of the chat
+
+## Implementation
+
+<Steps>
+  <Step>
+    ### Run and connect your agent
+    <RunAndConnect />
+  </Step>
+  <Step>
+    ### Define your agent state
+
+    Add properties to your agent state that you want to render in the UI.
+
+    <Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
+      <Tab value="Python">
+        ```python title="agent.py"
+        from copilotkit import CopilotKitState
+
+        class AgentState(CopilotKitState):
+            searches: list[dict]
+        ```
+      </Tab>
+      <Tab value="TypeScript">
+        ```ts title="agent.ts"
+        import { createMiddleware } from "langchain";
+        import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+        import { z } from "zod";
+
+        export const searchesStateMiddleware = createMiddleware({
+            name: "AgentState",
+            stateSchema: z.object({
+                searches: z.array(z.object({
+                    query: z.string(),
+                    done: z.boolean(),
+                })).default([]),
+            }),
+        });
+
+        // Compose with copilotkitMiddleware when constructing the agent:
+        // createDeepAgent({ middleware: [searchesStateMiddleware, copilotkitMiddleware], ... })
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step>
+    ### Emit state updates from your agent
+
+    Use `copilotkit_emit_state` to push intermediate state to the frontend before a node finishes.
+
+    <Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
+      <Tab value="Python">
+        ```python title="agent.py"
+        import asyncio
+        from copilotkit.langgraph import copilotkit_emit_state # [!code highlight]
+        from langchain_core.runnables import RunnableConfig
+
+        # Inside a custom tool or middleware hook where you have access to state and config:
+        async def emit_research_progress(state: AgentState, config: RunnableConfig):
+            state["searches"] = [
+                {"query": "Initial research", "done": False},
+                {"query": "Retrieving sources", "done": False},
+                {"query": "Forming an answer", "done": False},
+            ]
+            await copilotkit_emit_state(config, state) # [!code highlight]
+
+            for search in state["searches"]:
+                await asyncio.sleep(1)
+                search["done"] = True
+                await copilotkit_emit_state(config, state) # [!code highlight]
+        ```
+      </Tab>
+      <Tab value="TypeScript">
+        ```ts title="agent.ts"
+        import { copilotkitEmitState } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+
+        // Inside a custom tool or middleware hook where you have config/state:
+        async function emitResearchProgress(state: any, config: any) {
+            state.searches = [
+                { query: "Initial research", done: false },
+                { query: "Retrieving sources", done: false },
+                { query: "Forming an answer", done: false },
+            ];
+            await copilotkitEmitState(config, state); // [!code highlight]
+
+            for (const search of state.searches) {
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+                search.done = true;
+                await copilotkitEmitState(config, state); // [!code highlight]
+            }
+        }
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step>
+    ### Render state in the UI
+
+    Use the `useAgent` hook to access agent state anywhere in your app. You can render it in the chat, in dashboards, sidebars, or custom layouts.
+
+    ```tsx title="app/page.tsx"
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+
+    function YourMainContent() {
+      // [!code highlight:3]
+      const { agent } = useAgent({
+        agentId: "sample_agent",
+      });
+
+      const searches = agent.state.searches as { query: string; done: boolean }[] ?? [];
+
+      return (
+        <div>
+          {searches.map((search, index) => (
+            <div key={index}>
+              {search.done ? "✅" : "⏳"} {search.query}
+            </div>
+          ))}
+        </div>
+      );
+    }
+    ```
+  </Step>
+  <Step>
+    ### Give it a try!
+
+    You'll see the search items appear and update in real-time as the agent progresses through each step.
+  </Step>
+</Steps>

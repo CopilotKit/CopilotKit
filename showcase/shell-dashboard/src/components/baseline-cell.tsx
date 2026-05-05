@@ -60,12 +60,9 @@ export function BaselineCellView({
   const statusCfg = STATUS_CONFIG[status];
 
   // Build a summary tooltip for the whole cell
-  const tagNames = tags
-    .map((t) => TAG_BADGE_CONFIG[t]?.title ?? t)
-    .join(", ");
-  const cellTitle = tags.length > 0
-    ? `${statusCfg.title}\n${tagNames}`
-    : statusCfg.title;
+  const tagNames = tags.map((t) => TAG_BADGE_CONFIG[t]?.title ?? t).join(", ");
+  const cellTitle =
+    tags.length > 0 ? `${statusCfg.title}\n${tagNames}` : statusCfg.title;
 
   return (
     <div
@@ -78,12 +75,12 @@ export function BaselineCellView({
       }}
       onClick={editing ? onClick : undefined}
     >
-      <span style={{ fontSize: 12, lineHeight: 1 }} data-tip={statusCfg.title}>{statusCfg.emoji}</span>
+      <span style={{ fontSize: 12, lineHeight: 1 }} data-tip={statusCfg.title}>
+        {statusCfg.emoji}
+      </span>
 
       {tags.length > 0 && (
-        <span
-          style={{ display: "inline-flex", alignItems: "center", gap: 1 }}
-        >
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 1 }}>
           {tags.map((tag) => (
             <TagBadge key={tag} tag={tag} />
           ))}

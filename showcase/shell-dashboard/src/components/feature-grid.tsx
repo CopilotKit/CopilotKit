@@ -226,164 +226,169 @@ interface CategorySectionProps {
   categoryColSpan: number;
 }
 
-const CategorySection = React.memo(function CategorySection({
-  cat,
-  integrations,
-  renderCell,
-  shellUrl,
-  liveStatus,
-  connection,
-  showRefDepth,
-  refCellsByFeature,
-  categoryColSpan,
-}: CategorySectionProps) {
-  const { isOpen, toggle } = useCollapsible({
-    name: cat.name,
-    defaultOpen: true,
-  });
+const CategorySection = React.memo(
+  function CategorySection({
+    cat,
+    integrations,
+    renderCell,
+    shellUrl,
+    liveStatus,
+    connection,
+    showRefDepth,
+    refCellsByFeature,
+    categoryColSpan,
+  }: CategorySectionProps) {
+    const { isOpen, toggle } = useCollapsible({
+      name: cat.name,
+      defaultOpen: true,
+    });
 
-  const wiredCount = cat.features.reduce((acc, feature) => {
+    const wiredCount = cat.features.reduce((acc, feature) => {
+      return (
+        acc +
+        integrations.filter((int) => int.demos.some((d) => d.id === feature.id))
+          .length
+      );
+    }, 0);
+    const totalCount = cat.features.length * integrations.length;
+    const countString = `${wiredCount}/${totalCount}`;
+
     return (
-      acc +
-      integrations.filter((int) => int.demos.some((d) => d.id === feature.id))
-        .length
-    );
-  }, 0);
-  const totalCount = cat.features.length * integrations.length;
-  const countString = `${wiredCount}/${totalCount}`;
-
-  return (
-    <Fragment>
-      <CategoryHeaderRow
-        name={cat.name}
-        count={countString}
-        colSpan={categoryColSpan}
-        isOpen={isOpen}
-        onToggle={toggle}
-      />
-      {isOpen &&
-        cat.features.map((feature, idx) => {
-          const testing = feature.kind === "testing";
-          const docsOnly = feature.kind === "docs-only";
-          const muted = testing;
-          const stripe = idx % 2 === 1;
-          const refCell = showRefDepth
-            ? refCellsByFeature.get(feature.id)
-            : undefined;
-          const refDepth = refCell
-            ? deriveDepth(refCell, liveStatus)
-            : undefined;
-          return (
-            <tr
-              key={feature.id}
-              className="grid-row border-t border-[var(--border)]"
-              style={stripe ? STRIPE_STYLE : undefined}
-            >
-              <td
-                className="sticky left-0 z-10 px-1 py-1 border-r border-[var(--border)] align-top"
-                style={stripe ? STRIPE_STYLE : SURFACE_STYLE}
+      <Fragment>
+        <CategoryHeaderRow
+          name={cat.name}
+          count={countString}
+          colSpan={categoryColSpan}
+          isOpen={isOpen}
+          onToggle={toggle}
+        />
+        {isOpen &&
+          cat.features.map((feature, idx) => {
+            const testing = feature.kind === "testing";
+            const docsOnly = feature.kind === "docs-only";
+            const muted = testing;
+            const stripe = idx % 2 === 1;
+            const refCell = showRefDepth
+              ? refCellsByFeature.get(feature.id)
+              : undefined;
+            const refDepth = refCell
+              ? deriveDepth(refCell, liveStatus)
+              : undefined;
+            return (
+              <tr
+                key={feature.id}
+                className="grid-row border-t border-[var(--border)]"
+                style={stripe ? STRIPE_STYLE : undefined}
               >
-                <div
-                  className={
-                    muted
-                      ? "font-normal text-[var(--text-muted)] italic"
-                      : "font-medium text-[var(--text)]"
-                  }
-                  title={feature.description}
+                <td
+                  className="sticky left-0 z-10 px-1 py-1 border-r border-[var(--border)] align-top"
+                  style={stripe ? STRIPE_STYLE : SURFACE_STYLE}
                 >
-                  {feature.name}
-                  {testing && (
-                    <span className="ml-2 text-[9px] uppercase tracking-wider text-[var(--text-muted)]">
-                      testing
-                    </span>
-                  )}
-                  {docsOnly && (
-                    <span className="ml-2 text-[9px] uppercase tracking-wider text-[var(--text-muted)]">
-                      docs-only
-                    </span>
-                  )}
-                </div>
-              </td>
-              {showRefDepth &&
-                (refCell && refDepth && !docsOnly ? (
-                  <RefDepthCell
-                    depth={refDepth.achieved}
-                    status={
-                      refDepth.unsupported ? "unsupported" : refCell.status
+                  <div
+                    className={
+                      muted
+                        ? "font-normal text-[var(--text-muted)] italic"
+                        : "font-medium text-[var(--text)]"
                     }
-                    regression={refDepth.isRegression}
-                  />
-                ) : (
-                  <td
-                    className="sticky left-[160px] z-10 px-1 py-1 border-r-2 border-r-[#c4b5fd] border-l border-[var(--border)] align-top"
-                    style={{ backgroundColor: "#f5f0ff" }}
+                    title={feature.description}
                   >
-                    <span className="text-[var(--text-muted)] text-[10px]">
-                      --
-                    </span>
-                  </td>
-                ))}
-              {integrations.map((integration) => {
-                const demo = integration.demos.find((d) => d.id === feature.id);
-                const isNotSupported =
-                  integration.not_supported_features?.includes(feature.id) ??
-                  false;
-                return (
-                  <td
-                    key={integration.slug}
-                    className="border-l border-[var(--border)] px-1 py-1 align-top text-center"
-                  >
-                    {demo ? (
-                      renderCell({
-                        integration,
-                        feature,
-                        demo,
-                        hostedUrl: demo.route
-                          ? `${integration.backend_url}${demo.route}`
-                          : "",
-                        shellUrl,
-                        liveStatus,
-                        connection,
-                      })
-                    ) : isNotSupported ? (
-                      // Architectural limit — framework cannot support this
-                      // feature. Distinct from the unshipped "no demo" ✗ so
-                      // viewers can tell "won't be done" apart from "to do".
-                      <span
-                        className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-base border border-slate-500/40 bg-slate-500/10 text-slate-400"
-                        title="Not supported by this framework"
-                      >
-                        🚫
+                    {feature.name}
+                    {testing && (
+                      <span className="ml-2 text-[9px] uppercase tracking-wider text-[var(--text-muted)]">
+                        testing
                       </span>
-                    ) : (
-                      <div
-                        className="text-center text-base text-[var(--danger)]"
-                        title="No demo"
-                      >
-                        ✗
-                      </div>
                     )}
-                  </td>
-                );
-              })}
-            </tr>
-          );
-        })}
-    </Fragment>
-  );
-}, (prev, next) => {
-  return (
-    prev.liveStatus === next.liveStatus &&
-    prev.connection === next.connection &&
-    prev.cat === next.cat &&
-    prev.renderCell === next.renderCell &&
-    prev.integrations === next.integrations &&
-    prev.shellUrl === next.shellUrl &&
-    prev.showRefDepth === next.showRefDepth &&
-    prev.refCellsByFeature === next.refCellsByFeature &&
-    prev.categoryColSpan === next.categoryColSpan
-  );
-});
+                    {docsOnly && (
+                      <span className="ml-2 text-[9px] uppercase tracking-wider text-[var(--text-muted)]">
+                        docs-only
+                      </span>
+                    )}
+                  </div>
+                </td>
+                {showRefDepth &&
+                  (refCell && refDepth && !docsOnly ? (
+                    <RefDepthCell
+                      depth={refDepth.achieved}
+                      status={
+                        refDepth.unsupported ? "unsupported" : refCell.status
+                      }
+                      maxDepth={refDepth.maxPossible}
+                    />
+                  ) : (
+                    <td
+                      className="sticky left-[160px] z-10 px-1 py-1 border-r-2 border-r-[#c4b5fd] border-l border-[var(--border)] align-top"
+                      style={{ backgroundColor: "#f5f0ff" }}
+                    >
+                      <span className="text-[var(--text-muted)] text-[10px]">
+                        --
+                      </span>
+                    </td>
+                  ))}
+                {integrations.map((integration) => {
+                  const demo = integration.demos.find(
+                    (d) => d.id === feature.id,
+                  );
+                  const isNotSupported =
+                    integration.not_supported_features?.includes(feature.id) ??
+                    false;
+                  return (
+                    <td
+                      key={integration.slug}
+                      className="border-l border-[var(--border)] px-1 py-1 align-top text-center"
+                    >
+                      {demo ? (
+                        renderCell({
+                          integration,
+                          feature,
+                          demo,
+                          hostedUrl: demo.route
+                            ? `${integration.backend_url}${demo.route}`
+                            : "",
+                          shellUrl,
+                          liveStatus,
+                          connection,
+                        })
+                      ) : isNotSupported ? (
+                        // Architectural limit — framework cannot support this
+                        // feature. Distinct from the unshipped "no demo" ✗ so
+                        // viewers can tell "won't be done" apart from "to do".
+                        <span
+                          className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-base border border-slate-500/40 bg-slate-500/10 text-slate-400"
+                          title="Not supported by this framework"
+                        >
+                          🚫
+                        </span>
+                      ) : (
+                        <div
+                          className="text-center text-base text-[var(--danger)]"
+                          title="No demo"
+                        >
+                          ✗
+                        </div>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
+      </Fragment>
+    );
+  },
+  (prev, next) => {
+    return (
+      prev.liveStatus === next.liveStatus &&
+      prev.connection === next.connection &&
+      prev.cat === next.cat &&
+      prev.renderCell === next.renderCell &&
+      prev.integrations === next.integrations &&
+      prev.shellUrl === next.shellUrl &&
+      prev.showRefDepth === next.showRefDepth &&
+      prev.refCellsByFeature === next.refCellsByFeature &&
+      prev.categoryColSpan === next.categoryColSpan
+    );
+  },
+);
 
 /* ------------------------------------------------------------------ */
 /*  FeatureGrid                                                        */

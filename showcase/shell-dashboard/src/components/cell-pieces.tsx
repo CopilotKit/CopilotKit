@@ -2,11 +2,11 @@
 // Shared cell-level helpers: docs links row, status (badges) row.
 import { useState } from "react";
 import type { CellContext } from "@/components/feature-grid";
-import { getDocsStatus } from '@/lib/docs-status';
-import type { DocState } from '@/lib/docs-status';
+import { getDocsStatus } from "@/lib/docs-status";
+import type { DocState } from "@/lib/docs-status";
 import { Badge, FlashOnChange } from "@/components/badges";
-import { keyFor, resolveCell } from '@/lib/live-status';
-import type { BadgeRender } from '@/lib/live-status';
+import { keyFor, resolveCell } from "@/lib/live-status";
+import type { BadgeRender } from "@/lib/live-status";
 import type { Feature, Integration } from "@/lib/registry";
 import { useLastTransition, deriveFromTo } from "@/hooks/useLastTransition";
 import { formatTs } from "@/lib/format-ts";

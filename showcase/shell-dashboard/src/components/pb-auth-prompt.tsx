@@ -77,9 +77,7 @@ export function PbAuthPrompt({ onSuccess, onCancel }: PbAuthPromptProps) {
         </p>
 
         {/* Error display */}
-        {error && (
-          <p className="mt-3 text-xs text-[var(--danger)]">{error}</p>
-        )}
+        {error && <p className="mt-3 text-xs text-[var(--danger)]">{error}</p>}
 
         {/* Email input */}
         <label className="mt-4 block">

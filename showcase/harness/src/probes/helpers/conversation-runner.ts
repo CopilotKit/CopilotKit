@@ -398,12 +398,17 @@ export async function runConversation(
               querySelector(s: string): unknown;
             };
           };
-          const bodyText = win.document.body?.innerText?.slice(0, 500) ?? "(no body)";
-          const hasTextarea = !!win.document.querySelector('textarea');
-          const hasErrorBoundary = bodyText.includes("Application error") || bodyText.includes("Internal Server Error");
+          const bodyText =
+            win.document.body?.innerText?.slice(0, 500) ?? "(no body)";
+          const hasTextarea = !!win.document.querySelector("textarea");
+          const hasErrorBoundary =
+            bodyText.includes("Application error") ||
+            bodyText.includes("Internal Server Error");
           return { bodyText, hasTextarea, hasErrorBoundary };
         });
-      } catch { /* diagnostics are best-effort */ }
+      } catch {
+        /* diagnostics are best-effort */
+      }
       console.warn(`[conversation-runner] turn ${turnNum}/${total} — FAILED`, {
         error: errorMessage(err),
         turnsCompleted: idx,

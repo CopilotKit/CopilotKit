@@ -110,13 +110,16 @@ def query_data(query: str):
 
 CATALOG_ID = "copilotkit://app-dashboard-catalog"
 SURFACE_ID = "flight-search-results"
-FLIGHT_SCHEMA = a2ui.load_schema(
-    _DATA_DIR / "schemas" / "flight_schema.json"
-)
 
 
-class Flight(TypedDict):
-    id: str
+class Flight(TypedDict, total=False):
+    # Only `airline`-through-`price` are read by `_build_flight_components`.
+    # All fields marked optional (`total=False`) so the LLM (or aimock fixture)
+    # can omit auxiliary fields like `id` / `statusIcon` without tripping
+    # langchain's tool-arg validation. Previously these were required and any
+    # missing field surfaced as `Error invoking tool 'search_flights' with
+    # kwargs ... flights.N.id: Field required` — the agent treated the error
+    # string as the tool result and the surface never rendered.
     airline: str
     airlineLogo: str
     flightNumber: str
@@ -127,12 +130,48 @@ class Flight(TypedDict):
     arrivalTime: str
     duration: str
     status: str
-    statusIcon: str
     price: str
 
 
+def _build_flight_components(flights: list[dict]) -> list[dict]:
+    """Build a flat A2UI component tree with one literal FlightCard per flight.
+
+    Avoids the structural-children template form (Row.children = { componentId,
+    path }), which the GenericBinder only expands correctly for components whose
+    schema declares STRUCTURAL children — sibling demos work because their
+    schemas use literal-string-array children. Inlining the values per-flight
+    sidesteps the template path entirely and renders identically.
+    """
+    flight_card_ids: list[str] = []
+    components: list[dict] = []
+    for index, flight in enumerate(flights):
+        card_id = f"flight-card-{index}"
+        flight_card_ids.append(card_id)
+        components.append({
+            "id": card_id,
+            "component": "FlightCard",
+            "airline": flight["airline"],
+            "airlineLogo": flight["airlineLogo"],
+            "flightNumber": flight["flightNumber"],
+            "origin": flight["origin"],
+            "destination": flight["destination"],
+            "date": flight["date"],
+            "departureTime": flight["departureTime"],
+            "arrivalTime": flight["arrivalTime"],
+            "duration": flight["duration"],
+            "status": flight["status"],
+            "price": flight["price"],
+        })
+    root: dict = {
+        "id": "root",
+        "component": "Row",
+        "children": flight_card_ids,
+    }
+    return [root, *components]
+
+
 @tool
-def search_flights(flights: list[Flight]) -> str:
+def search_flights(flights: list[dict]) -> str:
     """Search for flights and display the results as rich cards. Return exactly 2 flights.
 
     Each flight must have: id, airline (e.g. "United Airlines"),
@@ -153,8 +192,7 @@ def search_flights(flights: list[Flight]) -> str:
     return a2ui.render(
         operations=[
             a2ui.create_surface(SURFACE_ID, catalog_id=CATALOG_ID),
-            a2ui.update_components(SURFACE_ID, FLIGHT_SCHEMA),
-            a2ui.update_data_model(SURFACE_ID, {"flights": flights}),
+            a2ui.update_components(SURFACE_ID, _build_flight_components(flights)),
         ],
     )
 
@@ -267,10 +305,9 @@ agent = create_agent(
         - Flights: call search_flights to show flight cards with a pre-built schema.
         - Dashboards & rich UI: call generate_a2ui to create dashboard UIs with metrics,
           charts, tables, and cards. It handles rendering automatically.
-        - Charts: call query_data first, then render with the chart component.
-        - Todos: enable app mode first, then manage todos.
-        - A2UI actions: when you see a log_a2ui_event result (e.g. "view_details"),
-          respond with a brief confirmation. The UI already updated on the frontend.
+        - Charts: call query_data first, then render via pieChart or barChart (Controlled
+          Generative UI components registered on the frontend).
+        - Todos: call manage_todos to add, update, or remove todos.
     """,
 )
 

@@ -1,0 +1,21 @@
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+
+Pass `CopilotKitMiddleware()` to `create_deep_agent` — this is what makes frontend tools available to your agent:
+
+<Tabs groupId="language_langgraph_agent" items={['Python']} default="Python" persist>
+    <Tab value="Python">
+        ```python title="agent.py"
+        from deepagents import create_deep_agent
+        from copilotkit import CopilotKitMiddleware # [!code highlight]
+
+        agent = create_deep_agent(
+            model="openai:gpt-5.4",
+            tools=[],  # Backend tools go here
+            middleware=[CopilotKitMiddleware()], # [!code highlight]
+            system_prompt="You are a helpful assistant.",
+        )
+        ```
+    </Tab>
+</Tabs>
+
+The `CopilotKitMiddleware` injects frontend tools into the agent's tool list automatically at runtime.

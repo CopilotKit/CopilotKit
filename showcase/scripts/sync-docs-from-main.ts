@@ -54,6 +54,17 @@ const LANGCHAIN_EXCLUSIONS = [
  * `telemetry/` content across every framework; shell-docs owns the
  * canonical copy at root `(other)/`.
  *
+ * The `/learn/` tree is retired in shell-docs (PRs #4494/#4496 promoted
+ * the seven explanation pages into Concepts/Premium and the multi-
+ * conversation tutorial into /tutorials/). All `/learn/*` URLs are
+ * served via redirects in `next.config.ts`, and the physical files
+ * must NOT be re-introduced by the sync script.
+ *
+ * The root `ag-ui-middleware.mdx` was moved to
+ * `agentic-protocols/ag-ui-middleware.mdx` in PR #4496 (with a 302
+ * redirect). The root path stays excluded so future syncs don't restore
+ * the duplicate.
+ *
  * Upstream keeps all of these copies — removing them there means touching
  * every parallel framework tree, which is upstream-IA work outside this
  * branch's scope. The exclusion is the durable shell-docs-only fix.
@@ -62,10 +73,102 @@ const PATH_EXCLUSIONS: RegExp[] = [
   /^docs\/content\/docs\/integrations\/[^/]+\/\(other\)\//,
   /^docs\/content\/docs\/integrations\/[^/]+\/threads\.mdx$/,
   /^docs\/content\/docs\/integrations\/[^/]+\/premium\/self-hosting\.mdx$/,
+  /^docs\/content\/docs\/learn\//,
+  /^docs\/content\/docs\/\(root\)\/ag-ui-middleware\.mdx$/,
+  // PR #4494 dropped these stale workflow-execution / state-inputs-outputs
+  // duplicates from shell-docs. Each shared-state meta.json wires only one
+  // of the two files; the other was an orphan. Block the sync from
+  // restoring them.
+  /^docs\/content\/docs\/integrations\/langgraph\/shared-state\/workflow-execution\.mdx$/,
+  /^docs\/content\/docs\/integrations\/adk\/shared-state\/(workflow-execution|state-inputs-outputs)\.mdx$/,
+  /^docs\/content\/docs\/integrations\/llamaindex\/shared-state\/state-inputs-outputs\.mdx$/,
+  // AgentCore content was inlined into the canonical
+  // `deploy/agentcore.mdx` page (see PR #4514 follow-up). Block the
+  // upstream 3-shell + shared-snippet sources from re-flowing in:
+  // - the upstream root shell that delegates to `<Content />`
+  // - the per-framework shells that delegate to `<Content framework="..." />`
+  // - the 355-line shared snippet that powers them
+  /^docs\/content\/docs\/\(root\)\/deploy\/agentcore\.mdx$/,
+  /^docs\/content\/docs\/integrations\/[^/]+\/deploy-agentcore\.mdx$/,
+  /^docs\/snippets\/integrations\/agentcore\//,
 ];
 
 function isExcludedPath(relPath: string): boolean {
   return PATH_EXCLUSIONS.some((re) => re.test(relPath));
+}
+
+// ---------------------------------------------------------------------------
+// Re-introduction detector
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute the set of paths that exist in showcase docs git history as
+ * deletions but are NOT currently present in the working tree.
+ *
+ * Background: PATH_EXCLUSIONS is the durable mechanism for keeping retired
+ * upstream paths out of shell-docs. But it requires whoever retires a page
+ * to also remember to add the regex — and historically that step has been
+ * missed (PR #4521 brought back /learn/* and the root ag-ui-middleware
+ * duplicate that earlier PRs had deliberately removed).
+ *
+ * This detector is the safety net: if a sync run is about to create a file
+ * at a path that previously existed and was deleted, surface it in the
+ * "needs review" PR body so a human can confirm the re-introduction is
+ * intentional. If it isn't, the fix is to add the upstream regex to
+ * PATH_EXCLUSIONS and delete the file again — at which point this detector
+ * picks it up on the next sync, the loop closes.
+ *
+ * Cached: `git log` over the docs tree is non-trivial; we run it once.
+ */
+let cachedHistoricallyDeleted: Set<string> | null = null;
+function getHistoricallyDeletedShowcasePaths(): Set<string> {
+  if (cachedHistoricallyDeleted !== null) return cachedHistoricallyDeleted;
+  const result = new Set<string>();
+  try {
+    const out = execFileSync(
+      "git",
+      [
+        "log",
+        "--all",
+        "--diff-filter=D",
+        "--pretty=format:",
+        "--name-only",
+        "--",
+        "showcase/shell-docs/src/content/docs/",
+        "showcase/shell-docs/src/content/snippets/",
+      ],
+      { encoding: "utf-8", cwd: ROOT, stdio: ["ignore", "pipe", "pipe"] },
+    );
+    for (const line of out.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed || !trimmed.endsWith(".mdx")) continue;
+      // Only flag paths the working tree no longer carries — files that were
+      // deleted and later re-created intentionally aren't re-introductions.
+      if (!fs.existsSync(path.join(ROOT, trimmed))) {
+        result.add(trimmed);
+      }
+    }
+  } catch (err: unknown) {
+    console.warn(
+      `[WARN] could not compute historical deletions; re-intro detector disabled: ${err instanceof Error ? err.message : err}`,
+    );
+  }
+  cachedHistoricallyDeleted = result;
+  return result;
+}
+
+/**
+ * `true` when this sync would write to a showcase path that previously
+ * existed in shell-docs and was deleted. Caller flags for manual review.
+ *
+ * Returns `false` for files that currently exist in the worktree (those
+ * are updates, not re-introductions) and for any path that has no record
+ * of prior deletion in git history.
+ */
+function isReintroductionOfDeletedPath(showcaseAbsolutePath: string): boolean {
+  if (fs.existsSync(showcaseAbsolutePath)) return false;
+  const rel = path.relative(ROOT, showcaseAbsolutePath);
+  return getHistoricallyDeletedShowcasePaths().has(rel);
 }
 
 // ---------------------------------------------------------------------------
@@ -389,6 +492,7 @@ interface SyncResult {
   mergeConflict: string[];
   skipped: string[];
   deleted: string[];
+  reintroduced: string[];
   conflictManifest: ConflictEntry[];
 }
 
@@ -530,6 +634,7 @@ function main(): SyncResult {
     mergeConflict: [],
     skipped: [],
     deleted: [],
+    reintroduced: [],
     conflictManifest: [],
   };
 
@@ -637,6 +742,13 @@ function main(): SyncResult {
       }
     }
 
+    // Detect re-introduction of a previously-deleted showcase path BEFORE
+    // writing — fs.existsSync would flip to true after the write. The check
+    // is informational; we still write the file so the sync stays in flow,
+    // but we flag the path for manual review (and force the PR off the
+    // auto-merge path via exit 3).
+    const isReintro = isReintroductionOfDeletedPath(showcaseAbsolute);
+
     // Write
     if (!dryRun) {
       fs.mkdirSync(path.dirname(showcaseAbsolute), { recursive: true });
@@ -649,6 +761,13 @@ function main(): SyncResult {
     } else {
       result.transformed.push(relPath);
       console.log(`  [TRANSFORM] ${relPath}`);
+    }
+
+    if (isReintro) {
+      result.reintroduced.push(relPath);
+      console.log(
+        `  [REVIEW/REINTRODUCED] ${relPath} → ${path.relative(ROOT, showcaseAbsolute)} (previously deleted in shell-docs; verify intent)`,
+      );
     }
   }
 
@@ -681,6 +800,9 @@ function main(): SyncResult {
   console.log(`Needs review (total): ${result.needsReview.length}`);
   console.log(`Skipped (up to date): ${result.skipped.length}`);
   console.log(`Deleted on main: ${result.deleted.length}`);
+  console.log(
+    `Re-introduced from deletion history (review required): ${result.reintroduced.length}`,
+  );
 
   if (result.autoMerged.length > 0) {
     console.log("\nFiles auto-merged (3-way clean):");
@@ -696,6 +818,15 @@ function main(): SyncResult {
   if (result.deleted.length > 0) {
     console.log("\nFiles deleted on main (not auto-deleted in showcase):");
     for (const f of result.deleted) {
+      console.log(`  ${f}`);
+    }
+  }
+
+  if (result.reintroduced.length > 0) {
+    console.log(
+      "\nFiles re-introduced from shell-docs deletion history (verify intent before merging):",
+    );
+    for (const f of result.reintroduced) {
       console.log(`  ${f}`);
     }
   }
@@ -719,12 +850,17 @@ const hasAutoApplied =
 // - mergeConflict: 3-way merge failed, upstream-wins content staged to PR
 //   branch, human must reconcile
 // - deleted: files gone on main, not auto-deleted in showcase, human decides
+// - reintroduced: sync wrote to a path previously deleted in shell-docs;
+//   human confirms the re-introduction is intentional or adds the upstream
+//   regex to PATH_EXCLUSIONS
 // Auto-merged files (clean 3-way merge) are considered RESOLVED — they go
 // through the auto_push fast path and the marker advances. `needsReview`
 // is the superset tracker (local-mods detected pre-merge) and is NOT a
 // gating condition on its own.
 const hasReviewItems =
-  result.mergeConflict.length > 0 || result.deleted.length > 0;
+  result.mergeConflict.length > 0 ||
+  result.deleted.length > 0 ||
+  result.reintroduced.length > 0;
 
 if (!hasAutoApplied && !hasReviewItems) {
   process.exit(2);
@@ -752,6 +888,13 @@ if (!hasAutoApplied && !hasReviewItems) {
       "Files deleted on main (review whether to delete in showcase):",
     );
     for (const f of result.deleted) reviewLines.push(`  - ${f}`);
+  }
+  if (result.reintroduced.length > 0) {
+    reviewLines.push("");
+    reviewLines.push(
+      "Files re-introduced from shell-docs deletion history — these paths previously existed and were intentionally removed. Confirm the re-introduction is wanted; if not, add a PATH_EXCLUSIONS regex in showcase/scripts/sync-docs-from-main.ts and delete the file again:",
+    );
+    for (const f of result.reintroduced) reviewLines.push(`  - ${f}`);
   }
   // Write manifest + review items at the invocation cwd (the repo root
   // when run from CI, matching the workflow's `[ -f conflict-manifest.json ]`

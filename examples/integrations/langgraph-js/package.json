@@ -46,8 +46,8 @@
     "typescript": "^5"
   },
   "overrides": {
-    "@langchain/core": "1.0.1",
-    "@langchain/langgraph": "1.2.9"
+    "@langchain/core": "1.1.44",
+    "@langchain/langgraph": "1.3.0"
   },
   "engines": {
     "node": ">=18.0.0"

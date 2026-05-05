@@ -166,7 +166,9 @@ export function useOverlays(): UseOverlaysReturn {
   const [overlays, setOverlays] = useState<OverlaySet>(
     () => new Set(DEFAULT_OVERLAYS) as OverlaySet,
   );
-  const [activeTab, setActiveTabRaw] = useState<"matrix" | "baseline" | "ops">("matrix");
+  const [activeTab, setActiveTabRaw] = useState<"matrix" | "baseline" | "ops">(
+    "matrix",
+  );
   const [selectedProbeId, setSelectedProbeIdRaw] = useState<string | null>(
     null,
   );
