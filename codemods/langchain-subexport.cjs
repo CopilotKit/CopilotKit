@@ -190,69 +190,55 @@ module.exports = function transformer(file, api) {
   //   const { LangChainAdapter } = require("@copilotkit/runtime")
   // -------------------------------------------------------------------
   // Match by VariableDeclaration so we can replace the whole statement.
-  root
-    .find(j.VariableDeclaration)
-    .forEach((p) => {
-      const decl = p.node;
-      if (decl.declarations.length !== 1) return;
-      const declarator = decl.declarations[0];
-      if (
-        !declarator.id ||
-        declarator.id.type !== "ObjectPattern" ||
-        !declarator.init ||
-        declarator.init.type !== "CallExpression" ||
-        !declarator.init.callee ||
-        declarator.init.callee.name !== "require"
-      ) {
-        return;
-      }
-      const args = declarator.init.arguments;
-      if (
-        !args ||
-        args.length !== 1 ||
-        !args[0] ||
-        args[0].value !== ROOT_PKG
-      ) {
-        return;
-      }
-      const handled = rewriteDestructure(j, p, decl, declarator, "require");
-      if (handled) didChange = true;
-    });
+  root.find(j.VariableDeclaration).forEach((p) => {
+    const decl = p.node;
+    if (decl.declarations.length !== 1) return;
+    const declarator = decl.declarations[0];
+    if (
+      !declarator.id ||
+      declarator.id.type !== "ObjectPattern" ||
+      !declarator.init ||
+      declarator.init.type !== "CallExpression" ||
+      !declarator.init.callee ||
+      declarator.init.callee.name !== "require"
+    ) {
+      return;
+    }
+    const args = declarator.init.arguments;
+    if (!args || args.length !== 1 || !args[0] || args[0].value !== ROOT_PKG) {
+      return;
+    }
+    const handled = rewriteDestructure(j, p, decl, declarator, "require");
+    if (handled) didChange = true;
+  });
 
   // -------------------------------------------------------------------
   // Dynamic import destructure: case 7
   //   const { LangChainAdapter } = await import("@copilotkit/runtime")
   // -------------------------------------------------------------------
-  root
-    .find(j.VariableDeclaration)
-    .forEach((p) => {
-      const decl = p.node;
-      if (decl.declarations.length !== 1) return;
-      const declarator = decl.declarations[0];
-      if (
-        !declarator.id ||
-        declarator.id.type !== "ObjectPattern" ||
-        !declarator.init ||
-        declarator.init.type !== "AwaitExpression" ||
-        !declarator.init.argument ||
-        declarator.init.argument.type !== "CallExpression" ||
-        !declarator.init.argument.callee ||
-        declarator.init.argument.callee.type !== "Import"
-      ) {
-        return;
-      }
-      const args = declarator.init.argument.arguments;
-      if (
-        !args ||
-        args.length !== 1 ||
-        !args[0] ||
-        args[0].value !== ROOT_PKG
-      ) {
-        return;
-      }
-      const handled = rewriteDestructure(j, p, decl, declarator, "dynamicImport");
-      if (handled) didChange = true;
-    });
+  root.find(j.VariableDeclaration).forEach((p) => {
+    const decl = p.node;
+    if (decl.declarations.length !== 1) return;
+    const declarator = decl.declarations[0];
+    if (
+      !declarator.id ||
+      declarator.id.type !== "ObjectPattern" ||
+      !declarator.init ||
+      declarator.init.type !== "AwaitExpression" ||
+      !declarator.init.argument ||
+      declarator.init.argument.type !== "CallExpression" ||
+      !declarator.init.argument.callee ||
+      declarator.init.argument.callee.type !== "Import"
+    ) {
+      return;
+    }
+    const args = declarator.init.argument.arguments;
+    if (!args || args.length !== 1 || !args[0] || args[0].value !== ROOT_PKG) {
+      return;
+    }
+    const handled = rewriteDestructure(j, p, decl, declarator, "dynamicImport");
+    if (handled) didChange = true;
+  });
 
   return didChange ? root.toSource({ quote: "double" }) : null;
 };

@@ -11,15 +11,12 @@ const OUTPUT_DIR = path.join(FIXTURES_DIR, "output");
 
 function applyTransform(source: string, filename: string): string {
   const j = jscodeshift.withParser("tsx");
-  const result = transformer(
-    { source, path: filename },
-    {
-      jscodeshift: j,
-      j,
-      stats: () => {},
-      report: () => {},
-    } as Parameters<typeof transformer>[1],
-  );
+  const result = transformer({ source, path: filename }, {
+    jscodeshift: j,
+    j,
+    stats: () => {},
+    report: () => {},
+  } as Parameters<typeof transformer>[1]);
   return result === null || result === undefined ? source : result;
 }
 
