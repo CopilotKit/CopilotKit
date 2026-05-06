@@ -9,6 +9,10 @@ export * from "./lib/scroll-position";
 export * from "./lib/resize-observer";
 export * from "./lib/utils";
 export * from "./lib/agent-context";
+export * from "./lib/sandbox-functions";
+export * from "./lib/process-partial-html";
+export * from "./lib/components/copilot-open-generative-ui-tool-renderer";
+export * from "./lib/components/copilot-open-generative-ui-renderer";
 
 export * from "./lib/slots";
 
