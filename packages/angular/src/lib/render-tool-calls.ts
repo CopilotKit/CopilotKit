@@ -181,7 +181,10 @@ export class RenderToolCalls {
 
   #getToolMessage(toolCallId: string): ToolMessage | undefined {
     const message = this.messages().find(
-      (m): m is ToolMessage => m.role === "tool" && m.toolCallId === toolCallId,
+      (m): m is ToolMessage => {
+        const msg = m as Record<string, unknown>;
+        return msg.role === "tool" && msg.toolCallId === toolCallId;
+      },
     );
 
     return message;

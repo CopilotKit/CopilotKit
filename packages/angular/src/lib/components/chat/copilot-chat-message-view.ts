@@ -18,6 +18,18 @@ import { CopilotChatMessageViewCursor } from "./copilot-chat-message-view-cursor
 import { cn } from "../../utils";
 
 /**
+ * Structural base type for messages. The canonical `Message` from `@ag-ui/core`
+ * may resolve to `unknown` when the workspace has a zod-v4/v3 mismatch, so we
+ * define the minimal shape needed by this component.
+ */
+interface BaseMessage {
+  id: string;
+  role: string;
+  content?: string;
+  [key: string]: unknown;
+}
+
+/**
  * CopilotChatMessageView component - Angular port of the React component.
  * Renders a list of chat messages with support for custom slots and layouts.
  * DOM structure and Tailwind classes match the React implementation exactly.
@@ -147,7 +159,11 @@ export class CopilotChatMessageView {
   protected readonly defaultCursorComponent = CopilotChatMessageViewCursor;
 
   // Derived values from inputs
-  protected messagesValue = computed(() => this.messages());
+  // Cast to BaseMessage[] to work around Message resolving to `unknown`
+  // when zod v4 is present (see BaseMessage definition above).
+  protected messagesValue = computed(
+    () => this.messages() as unknown as BaseMessage[],
+  );
   protected showCursorValue = computed(() => this.showCursor());
   protected isLoadingValue = computed(() => this.isLoading());
 
@@ -160,7 +176,7 @@ export class CopilotChatMessageView {
     messages: this.messagesValue(),
     showCursor: this.showCursorValue(),
     messageElements: this.messagesValue().filter(
-      (m) => m && (m.role === "assistant" || m.role === "user"),
+      (m: BaseMessage) => m && (m.role === "assistant" || m.role === "user"),
     ),
   }));
 
@@ -176,7 +192,7 @@ export class CopilotChatMessageView {
   cursorSlot = computed(() => this.cursorComponent() || this.cursorClass());
 
   // Props merging helpers
-  mergeAssistantProps(message: Message) {
+  mergeAssistantProps(message: BaseMessage) {
     return {
       message,
       messages: this.messagesValue(),
@@ -185,7 +201,7 @@ export class CopilotChatMessageView {
     };
   }
 
-  mergeUserProps(message: Message) {
+  mergeUserProps(message: BaseMessage) {
     return {
       message,
       inputClass: this.userMessageClass(),
@@ -193,7 +209,7 @@ export class CopilotChatMessageView {
   }
 
   // TrackBy function for performance optimization
-  trackByMessageId(index: number, message: Message): string {
+  trackByMessageId(index: number, message: BaseMessage): string {
     return message?.id || `index-${index}`;
   }
 
