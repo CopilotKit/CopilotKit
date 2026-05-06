@@ -1181,46 +1181,43 @@ export class BuiltInAgent extends AbstractAgent {
           // Servers come from two sources, concatenated in order:
           //   - `config.mcpServers` — user-supplied static array.
           //   - The CopilotKit Intelligence MCP server, auto-attached when
-          //     the runtime forwards `intelligenceUserId` / `intelligenceApiKey`
-          //     / `intelligenceMcpUrl` via `input.forwardedProps`. Built
-          //     fresh per-request with a custom `options.fetch` that stamps
-          //     `Authorization: Bearer <apiKey>` and `X-Cpki-User-Id:
+          //     the runtime forwards a `copilotkitIntelligence` bag via
+          //     `input.forwardedProps`. The bag carries `userId` + `apiKey`
+          //     + `mcpUrl`. We build a per-request MCPClientConfigHTTP
+          //     whose `options.fetch` closes over `apiKey` + `userId` and
+          //     stamps `Authorization: Bearer <apiKey>` and `X-Cpki-User-Id:
           //     <userId>` on every outbound MCP call. Skipped when the user
           //     already configured a server pointing at the same URL.
           const allMcpServers: MCPClientConfig[] = [
             ...(this.config.mcpServers ?? []),
           ];
-          const fp = input.forwardedProps as
-            | Record<string, unknown>
+          const cki = (
+            input.forwardedProps as
+              | { copilotkitIntelligence?: unknown }
+              | undefined
+          )?.copilotkitIntelligence as
+            | { userId?: unknown; apiKey?: unknown; mcpUrl?: unknown }
             | undefined;
-          const intelligenceUserId =
-            typeof fp?.intelligenceUserId === "string"
-              ? fp.intelligenceUserId
-              : undefined;
-          const intelligenceApiKey =
-            typeof fp?.intelligenceApiKey === "string"
-              ? fp.intelligenceApiKey
-              : undefined;
-          const intelligenceMcpUrl =
-            typeof fp?.intelligenceMcpUrl === "string"
-              ? fp.intelligenceMcpUrl
-              : undefined;
+          const ckiUserId =
+            typeof cki?.userId === "string" ? cki.userId : undefined;
+          const ckiApiKey =
+            typeof cki?.apiKey === "string" ? cki.apiKey : undefined;
+          const ckiMcpUrl =
+            typeof cki?.mcpUrl === "string" ? cki.mcpUrl : undefined;
           if (
-            intelligenceUserId &&
-            intelligenceApiKey &&
-            intelligenceMcpUrl &&
-            !allMcpServers.some(
-              (s) => s.type === "http" && s.url === intelligenceMcpUrl,
-            )
+            ckiUserId &&
+            ckiApiKey &&
+            ckiMcpUrl &&
+            !allMcpServers.some((s) => s.type === "http" && s.url === ckiMcpUrl)
           ) {
             allMcpServers.push({
               type: "http",
-              url: intelligenceMcpUrl,
+              url: ckiMcpUrl,
               options: {
                 fetch: async (req, init) => {
                   const headers = new Headers(init?.headers);
-                  headers.set("Authorization", `Bearer ${intelligenceApiKey}`);
-                  headers.set("X-Cpki-User-Id", intelligenceUserId);
+                  headers.set("Authorization", `Bearer ${ckiApiKey}`);
+                  headers.set("X-Cpki-User-Id", ckiUserId);
                   return globalThis.fetch(req, { ...init, headers });
                 },
               },

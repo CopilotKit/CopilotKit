@@ -114,9 +114,11 @@ describe("BuiltInAgent — Intelligence MCP auto-attach via forwardedProps", () 
         agent["run"]({
           ...baseInput,
           forwardedProps: {
-            intelligenceUserId: "jordan-beamson",
-            intelligenceApiKey: "cpk-proj_short_long",
-            intelligenceMcpUrl: `${url}/mcp`,
+            copilotkitIntelligence: {
+              userId: "jordan-beamson",
+              apiKey: "cpk-proj_short_long",
+              mcpUrl: `${url}/mcp`,
+            },
           },
         }),
       );
@@ -165,9 +167,11 @@ describe("BuiltInAgent — Intelligence MCP auto-attach via forwardedProps", () 
         agent["run"]({
           ...baseInput,
           forwardedProps: {
-            // userId + apiKey but no mcpUrl — should not attach.
-            intelligenceUserId: "jordan",
-            intelligenceApiKey: "cpk-proj_xx",
+            copilotkitIntelligence: {
+              // userId + apiKey but no mcpUrl — should not attach.
+              userId: "jordan",
+              apiKey: "cpk-proj_xx",
+            },
           },
         }),
       );
@@ -212,9 +216,11 @@ describe("BuiltInAgent — Intelligence MCP auto-attach via forwardedProps", () 
         agent["run"]({
           ...baseInput,
           forwardedProps: {
-            intelligenceUserId: "from-runtime",
-            intelligenceApiKey: "cpk-proj_runtime",
-            intelligenceMcpUrl: mcpUrl,
+            copilotkitIntelligence: {
+              userId: "from-runtime",
+              apiKey: "cpk-proj_runtime",
+              mcpUrl,
+            },
           },
         }),
       );

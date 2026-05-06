@@ -164,16 +164,18 @@ export async function handleIntelligenceRun({
   // When Intelligence has `mcpServer: true`, hand the agent the per-request
   // bits it needs to attach the platform's MCP server: the resolved user-id,
   // the project Bearer (`apiKey`), and the MCP URL. These ride through
-  // `forwardedProps` so the agent doesn't need a typed reference to the
-  // Intelligence client. `BuiltInAgent` reads them and builds a per-request
-  // MCP config with a closure-baked fetch; non-BuiltInAgent agents naturally
-  // ignore them.
-  const intelligenceForwardedProps =
+  // `forwardedProps.copilotkitIntelligence` so the agent doesn't need a
+  // typed reference to the Intelligence client. `BuiltInAgent` reads the
+  // bag and builds a per-request MCP config with a closure-baked fetch;
+  // non-BuiltInAgent agents naturally ignore the key.
+  const copilotkitIntelligenceProps =
     runtime.intelligence.ɵisMcpServerEnabled?.()
       ? {
-          intelligenceUserId: userId,
-          intelligenceApiKey: runtime.intelligence.ɵgetApiKey(),
-          intelligenceMcpUrl: `${runtime.intelligence.ɵgetApiUrl()}/mcp`,
+          copilotkitIntelligence: {
+            userId,
+            apiKey: runtime.intelligence.ɵgetApiKey(),
+            mcpUrl: `${runtime.intelligence.ɵgetApiUrl()}/mcp`,
+          },
         }
       : {};
 
@@ -183,7 +185,7 @@ export async function handleIntelligenceRun({
     runId: canonicalRunId,
     forwardedProps: {
       ...input.forwardedProps,
-      ...intelligenceForwardedProps,
+      ...copilotkitIntelligenceProps,
     },
   };
 
