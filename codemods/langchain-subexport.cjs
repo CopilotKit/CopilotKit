@@ -152,6 +152,9 @@ module.exports = function transformer(file, api) {
       if (newStmts.length === 0) {
         j(p).remove();
       } else {
+        // Preserve leading comments (license headers, eslint-disable, etc.)
+        // by attaching them to the first replacement statement.
+        attachLeadingComments(node, newStmts[0]);
         j(p).replaceWith(newStmts);
       }
     });
@@ -182,6 +185,7 @@ module.exports = function transformer(file, api) {
         j.exportNamedDeclaration(null, moved, j.literal(SUBEXPORT_PKG)),
       );
 
+      attachLeadingComments(node, newStmts[0]);
       j(p).replaceWith(newStmts);
     });
 
@@ -286,6 +290,22 @@ function rewriteDestructure(j, declarationPath, decl, declarator, mode) {
     ]),
   ];
 
+  attachLeadingComments(decl, newDecls[0]);
   j(declarationPath).replaceWith(newDecls);
   return true;
+}
+
+// Move comments from the original node to the first replacement statement so
+// license headers and eslint-disable directives sitting above the original
+// import/export survive the rewrite. recast and jscodeshift expose comment
+// arrays under both `comments` and `leadingComments`/`trailingComments`
+// depending on the parser; copy whichever is present.
+function attachLeadingComments(originalNode, newNode) {
+  if (!originalNode || !newNode) return;
+  const sourceComments =
+    (Array.isArray(originalNode.comments) && originalNode.comments) ||
+    (Array.isArray(originalNode.leadingComments) && originalNode.leadingComments) ||
+    null;
+  if (!sourceComments || sourceComments.length === 0) return;
+  newNode.comments = sourceComments;
 }

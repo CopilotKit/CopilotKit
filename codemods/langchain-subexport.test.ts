@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import jscodeshift from "jscodeshift";
@@ -11,12 +11,15 @@ const OUTPUT_DIR = path.join(FIXTURES_DIR, "output");
 
 function applyTransform(source: string, filename: string): string {
   const j = jscodeshift.withParser("tsx");
-  const result = transformer({ source, path: filename }, {
-    jscodeshift: j,
-    j,
-    stats: () => {},
-    report: () => {},
-  } as Parameters<typeof transformer>[1]);
+  const result = transformer(
+    { source, path: filename },
+    {
+      jscodeshift: j,
+      j,
+      stats: () => {},
+      report: () => {},
+    },
+  );
   return result === null || result === undefined ? source : result;
 }
 
@@ -49,4 +52,22 @@ describe("langchain-subexport codemod", () => {
       expect(twice.trim()).toBe(once.trim());
     });
   }
+
+  it("logs a warning when skipping a wildcard import", () => {
+    const wildcardFixture = fixtureFiles.find((f) => f.includes("wildcard"));
+    if (!wildcardFixture) {
+      throw new Error("expected a wildcard fixture in __fixtures__/input/");
+    }
+    const { input } = loadFixturePair(wildcardFixture);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      applyTransform(input, wildcardFixture);
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      const message = warnSpy.mock.calls[0][0];
+      expect(message).toContain(wildcardFixture);
+      expect(message).toContain("LangChainAdapter");
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
 });
