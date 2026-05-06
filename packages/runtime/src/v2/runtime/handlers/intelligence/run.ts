@@ -11,7 +11,7 @@ import { logger } from "@copilotkit/shared";
 import { telemetry } from "../../telemetry";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 import { isHandlerResponse } from "../shared/json-response";
-import { INTELLIGENCE_USER_ID_HEADER } from "../../intelligence-platform/client";
+import { attachIntelligenceMcpServer } from "./attach-intelligence-mcp-server";
 import type { AgentRunnerRunRequest } from "../../runner/agent-runner";
 import type { Observable } from "rxjs";
 
@@ -81,17 +81,17 @@ export async function handleIntelligenceRun({
   }
   const userId = user.id;
 
-  // Forward the resolved user-id as a request header on the agent. Anything
-  // running per-request — middleware, MCP header resolvers, the
-  // configureAgentForRequest auto-attach — reads it from `agent.headers` /
-  // `MCPRequestContext.forwardedRequestHeaders` like any other forwarded value. Runs
-  // that don't go through this Intelligence path simply lack the header.
-  const agentWithHeaders = agent as unknown as {
-    headers?: Record<string, string>;
-  };
-  if (agentWithHeaders.headers) {
-    agentWithHeaders.headers[INTELLIGENCE_USER_ID_HEADER] = userId;
-  }
+  // If Intelligence has `mcpServer: true`, append the platform's MCP server
+  // to the agent's effective server list for this run. The MCP config is
+  // built fresh per-request, with `Authorization: Bearer <apiKey>` and
+  // `X-Cpki-User-Id: <userId>` baked into a custom fetch via closure. The
+  // agent's run code reads `runtimeMcpServers` (an `@internal` side
+  // channel) and concatenates it after `config.mcpServers`.
+  attachIntelligenceMcpServer({
+    intelligence: runtime.intelligence,
+    agent,
+    userId,
+  });
 
   try {
     const { thread, created } = await runtime.intelligence.getOrCreateThread({

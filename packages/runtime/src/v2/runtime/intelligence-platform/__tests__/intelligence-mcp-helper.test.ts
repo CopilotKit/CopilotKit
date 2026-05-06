@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { CopilotKitIntelligence } from "../client";
 import { BasicAgent } from "../../../../agent";
-import { EventType } from "@ag-ui/client";
 import { LLMock, MCPMock } from "@copilotkit/aimock";
 import { streamText } from "ai";
 import {
@@ -10,8 +9,7 @@ import {
   finish,
   collectEvents,
 } from "../../../../agent/__tests__/test-helpers";
-import { configureAgentForRequest } from "../../handlers/shared/agent-utils";
-import type { CopilotRuntimeLike } from "../../core/runtime";
+import { attachIntelligenceMcpServer } from "../../handlers/intelligence/attach-intelligence-mcp-server";
 
 vi.mock("ai", () => ({
   streamText: vi.fn(),
@@ -84,36 +82,7 @@ const baseInput = {
   state: {},
 };
 
-/**
- * Stand in for the runtime → handler boundary for these tests:
- *   1. `configureAgentForRequest` installs middleware + sets `agent.headers`
- *      from the request, AND installs the runtime-mcp auto-attach when
- *      Intelligence has `mcpServer: true`.
- *   2. `intelligence/run.ts` then writes `x-cpki-user-id` onto `agent.headers`
- *      (after `identifyUser` resolves). We simulate that here by setting the
- *      header directly on the agent.
- */
-function wireForRun(
-  agent: BasicAgent,
-  intelligence: CopilotKitIntelligence | undefined,
-  options: { userId?: string } = {},
-): void {
-  const runtime = {
-    agents: {},
-    ...(intelligence ? { intelligence } : {}),
-  } as unknown as CopilotRuntimeLike;
-  configureAgentForRequest({
-    runtime,
-    request: new Request("http://localhost/run"),
-    agentId: "default",
-    agent,
-  });
-  if (options.userId) {
-    agent.headers = { ...agent.headers, "x-cpki-user-id": options.userId };
-  }
-}
-
-describe("Intelligence auto-attach (configureAgentForRequest)", () => {
+describe("Intelligence MCP auto-attach (attachIntelligenceMcpServer)", () => {
   let llm: LLMock | undefined;
   const originalEnv = process.env;
 
@@ -131,7 +100,7 @@ describe("Intelligence auto-attach (configureAgentForRequest)", () => {
     }
   });
 
-  it("attaches the Intelligence MCP server when mcpServer=true AND a user-id is forwarded", async () => {
+  it("attaches the Intelligence MCP server when mcpServer=true; outbound headers carry Authorization + X-Cpki-User-Id", async () => {
     const { url, server } = await startMcpMock();
     llm = server;
 
@@ -145,7 +114,11 @@ describe("Intelligence auto-attach (configureAgentForRequest)", () => {
     const recorder = spyOnFetch(url);
     try {
       const agent = new BasicAgent({ model: "openai/gpt-4o" });
-      wireForRun(agent, intelligence, { userId: "jordan-beamson" });
+      attachIntelligenceMcpServer({
+        intelligence,
+        agent,
+        userId: "jordan-beamson",
+      });
 
       vi.mocked(streamText).mockReturnValue(
         mockStreamTextResponse([textDelta("hi"), finish()]) as any,
@@ -177,35 +150,11 @@ describe("Intelligence auto-attach (configureAgentForRequest)", () => {
     const recorder = spyOnFetch(url);
     try {
       const agent = new BasicAgent({ model: "openai/gpt-4o" });
-      wireForRun(agent, intelligence, { userId: "jordan-beamson" });
-
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
-      await collectEvents(agent["run"](baseInput));
-
-      expect(recorder.records.length).toBe(0);
-    } finally {
-      recorder.restore();
-    }
-  });
-
-  it("does NOT attach when mcpServer=true but no user-id has been forwarded", async () => {
-    const { url, server } = await startMcpMock();
-    llm = server;
-
-    const intelligence = new CopilotKitIntelligence({
-      apiUrl: url,
-      wsUrl: "wss://unused.example.com/socket",
-      apiKey: "cpk-proj_short_long",
-      mcpServer: true,
-    });
-
-    const recorder = spyOnFetch(url);
-    try {
-      const agent = new BasicAgent({ model: "openai/gpt-4o" });
-      // No userId → identifyUser hasn't placed the header onto agent.headers.
-      wireForRun(agent, intelligence);
+      attachIntelligenceMcpServer({
+        intelligence,
+        agent,
+        userId: "jordan-beamson",
+      });
 
       vi.mocked(streamText).mockReturnValue(
         mockStreamTextResponse([finish()]) as any,
@@ -229,25 +178,33 @@ describe("Intelligence auto-attach (configureAgentForRequest)", () => {
       mcpServer: true,
     });
 
-    let userServerInvocations = 0;
+    const userMcpUrl = `${url}/mcp`;
+    let userFetchCalls = 0;
     const agent = new BasicAgent({
       model: "openai/gpt-4o",
-      // User has explicitly configured the same URL with their own headers.
       mcpServers: [
         {
           type: "http",
-          url: `${url}/mcp`,
-          headers: { Authorization: "Bearer user-supplied" },
-          getHeaders: () => {
-            userServerInvocations++;
-            return { "X-Cpki-User-Id": "explicit-user" };
+          url: userMcpUrl,
+          options: {
+            fetch: async (input, init) => {
+              userFetchCalls++;
+              const h = new Headers(init?.headers ?? {});
+              h.set("Authorization", "Bearer user-supplied");
+              h.set("X-Cpki-User-Id", "explicit-user");
+              return globalThis.fetch(input, { ...init, headers: h });
+            },
           },
         },
       ],
     });
-    wireForRun(agent, intelligence, { userId: "from-runtime" });
+    attachIntelligenceMcpServer({
+      intelligence,
+      agent,
+      userId: "from-runtime",
+    });
 
-    const recorder = spyOnFetch(`${url}/mcp`);
+    const recorder = spyOnFetch(userMcpUrl);
     try {
       vi.mocked(streamText).mockReturnValue(
         mockStreamTextResponse([finish()]) as any,
@@ -255,23 +212,18 @@ describe("Intelligence auto-attach (configureAgentForRequest)", () => {
       await collectEvents(agent["run"](baseInput));
 
       expect(recorder.records.length).toBeGreaterThan(0);
-      // Only the user's server hits the wire — auto-attach skipped, so the
-      // user's explicit headers are the ones delivered.
+      // Only the user's fetch wrapper hit the wire — auto-attach skipped.
       for (const headers of recorder.records) {
         expect(headers["authorization"]).toBe("Bearer user-supplied");
         expect(headers["x-cpki-user-id"]).toBe("explicit-user");
       }
-      // The user's resolver was invoked (proves their server actually loaded
-      // tools rather than being silently bypassed).
-      expect(userServerInvocations).toBeGreaterThan(0);
+      expect(userFetchCalls).toBeGreaterThan(0);
     } finally {
       recorder.restore();
     }
   });
 
-  it("apiUrl trailing slash is normalized when building the auto-attached server URL", async () => {
-    // Start the mock so we have a real URL to point apiUrl at, then re-wrap
-    // with a trailing slash in the Intelligence config.
+  it("apiUrl trailing-slash is normalized when building the auto-attached server URL", async () => {
     const { url, server } = await startMcpMock();
     llm = server;
 
@@ -285,19 +237,18 @@ describe("Intelligence auto-attach (configureAgentForRequest)", () => {
     const recorder = spyOnFetch(url);
     try {
       const agent = new BasicAgent({ model: "openai/gpt-4o" });
-      wireForRun(agent, intelligence, { userId: "alice" });
+      attachIntelligenceMcpServer({ intelligence, agent, userId: "alice" });
 
       vi.mocked(streamText).mockReturnValue(
         mockStreamTextResponse([finish()]) as any,
       );
       await collectEvents(agent["run"](baseInput));
 
-      // Outbound URLs are `${apiUrl}/mcp`, never `${apiUrl}//mcp`.
-      const events: unknown[] = [];
-      expect(
-        events.find((e: any) => e?.type === EventType.RUN_ERROR),
-      ).toBeUndefined();
       expect(recorder.records.length).toBeGreaterThan(0);
+      // Outbound URLs are `${apiUrl}/mcp`, never `${apiUrl}//mcp`.
+      for (const headers of recorder.records) {
+        expect(headers["x-cpki-user-id"]).toBe("alice");
+      }
     } finally {
       recorder.restore();
     }

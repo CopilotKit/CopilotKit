@@ -2,14 +2,8 @@ import type { AbstractAgent, RunAgentInput } from "@ag-ui/client";
 import { RunAgentInputSchema } from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
-import type {
-  MCPClientConfig,
-  MCPClientConfigHTTP,
-  MCPServersConfig,
-} from "../../../../agent";
 import type { CopilotRuntimeLike } from "../../core/runtime";
 import { resolveAgents } from "../../core/runtime";
-import { INTELLIGENCE_USER_ID_HEADER } from "../../intelligence-platform/client";
 import { OpenGenerativeUIMiddleware } from "../../open-generative-ui-middleware";
 import { extractForwardableHeaders } from "../header-utils";
 import { logger } from "@copilotkit/shared";
@@ -17,8 +11,6 @@ import { logger } from "@copilotkit/shared";
 type MiddlewareCapableAgent = AbstractAgent & {
   use?: (middleware: unknown) => void;
   headers?: Record<string, string>;
-  /** Side channel exposed by `BuiltInAgent` for runtime-injected MCP servers. */
-  runtimeMcpServers?: MCPServersConfig;
 };
 
 export interface RunAgentParameters {
@@ -100,74 +92,6 @@ export function configureAgentForRequest(params: {
       ...extractForwardableHeaders(request),
     };
   }
-
-  // When the runtime is configured for Intelligence AND the Intelligence
-  // client has `mcpServer: true`, auto-attach the platform's MCP server on
-  // every request that has a resolved user. User identity flows through
-  // `forwardedRequestHeaders` like any other forwarded value —
-  // `intelligence/run.ts` puts `x-cpki-user-id` onto `agent.headers` before
-  // the run starts, the resolver below reads it back. We skip the
-  // auto-attach if the user has already configured a server pointing at the
-  // same URL (explicit opt-in wins).
-  const intelligence = (runtime as { intelligence?: unknown }).intelligence as
-    | {
-        ɵgetApiUrl?: () => string;
-        ɵgetApiKey?: () => string;
-        ɵisMcpServerEnabled?: () => boolean;
-      }
-    | undefined;
-  if (
-    intelligence?.ɵisMcpServerEnabled?.() &&
-    typeof intelligence.ɵgetApiUrl === "function" &&
-    typeof intelligence.ɵgetApiKey === "function"
-  ) {
-    const intelligenceMcpUrl = `${intelligence.ɵgetApiUrl()}/mcp`;
-    const intelligenceApiKey = intelligence.ɵgetApiKey();
-    const intelligenceServer: MCPClientConfigHTTP = {
-      type: "http",
-      url: intelligenceMcpUrl,
-      headers: { Authorization: `Bearer ${intelligenceApiKey}` },
-      getHeaders: ({ forwardedRequestHeaders }) => {
-        const userId =
-          forwardedRequestHeaders[INTELLIGENCE_USER_ID_HEADER]?.trim();
-        if (!userId) {
-          throw new Error(
-            "Intelligence MCP server: no user-id forwarded for this run. " +
-              "Configure `identifyUser` on the CopilotRuntime so the agent " +
-              "knows which end-user each MCP call is on behalf of.",
-          );
-        }
-        return { [INTELLIGENCE_USER_ID_HEADER]: userId };
-      },
-    };
-    agent.runtimeMcpServers = async (ctx) => {
-      if (!ctx.forwardedRequestHeaders[INTELLIGENCE_USER_ID_HEADER]?.trim()) {
-        return [];
-      }
-      const userResolved = await resolveUserMcpServers(params.agent, ctx);
-      if (
-        userResolved.some(
-          (s) => s.type === "http" && s.url === intelligenceMcpUrl,
-        )
-      ) {
-        return [];
-      }
-      return [intelligenceServer];
-    };
-  }
-}
-
-async function resolveUserMcpServers(
-  agent: AbstractAgent,
-  ctx: {
-    forwardedRequestHeaders: Record<string, string>;
-    input: RunAgentInput;
-  },
-): Promise<MCPClientConfig[]> {
-  const source = (agent as { config?: { mcpServers?: MCPServersConfig } })
-    .config?.mcpServers;
-  if (!source) return [];
-  return typeof source === "function" ? source(ctx) : source;
 }
 
 export async function parseRunRequest(
