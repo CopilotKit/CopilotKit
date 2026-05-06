@@ -1,33 +1,78 @@
-import { Analytics } from "@segment/analytics-node";
 import { AnalyticsEvents } from "./events";
 import { flattenObject } from "./utils";
 import { v4 as uuidv4 } from "uuid";
-import scarfClient from "./scarf-client";
 
 /**
- * Checks if telemetry is disabled via environment variables.
- * Users can opt out by setting:
- * - COPILOTKIT_TELEMETRY_DISABLED=true or COPILOTKIT_TELEMETRY_DISABLED=1
- * - DO_NOT_TRACK=true or DO_NOT_TRACK=1
+ * પર્યાવરણ ચલ (Environment Variables) દ્વારા ટેલિમેટ્રી અક્ષમ છે કે નહીં તે તપાસે છે.
  */
 export function isTelemetryDisabled(): boolean {
+  const env = process.env as Record<string, string | undefined>;
+
   return (
-    (process.env as Record<string, string | undefined>)
-      .COPILOTKIT_TELEMETRY_DISABLED === "true" ||
-    (process.env as Record<string, string | undefined>)
-      .COPILOTKIT_TELEMETRY_DISABLED === "1" ||
-    (process.env as Record<string, string | undefined>).DO_NOT_TRACK ===
-      "true" ||
-    (process.env as Record<string, string | undefined>).DO_NOT_TRACK === "1"
+    env.COPILOTKIT_TELEMETRY_DISABLED === "true" ||
+    env.COPILOTKIT_TELEMETRY_DISABLED === "1" ||
+    env.DO_NOT_TRACK === "true" ||
+    env.DO_NOT_TRACK === "1"
   );
 }
 
+// ------------------------------
+// Lazy-loaded dependencies (બ્રાઉઝર એરર રોકવા માટે)
+// ------------------------------
+
+let AnalyticsClass: any = null;
+let scarfClient: any = null;
+
+/**
+ * સેગમેન્ટ એનાલિટિક્સને ફક્ત Node એન્વાયરમેન્ટમાં લોડ કરે છે.
+ */
+async function loadAnalytics() {
+  // જો બ્રાઉઝર હોય તો લોડ ન કરો
+  if (typeof window !== "undefined") return null;
+
+  if (!AnalyticsClass) {
+    try {
+      // ડાયનેમિક ઇમ્પોર્ટ જે બિલ્ડ ટાઈમ વોર્નિંગ રોકશે
+      const mod = await import("@segment/analytics-node");
+      AnalyticsClass = mod.Analytics;
+    } catch (err) {
+      console.warn("Failed to load @segment/analytics-node:", err);
+      AnalyticsClass = null;
+    }
+  }
+
+  return AnalyticsClass;
+}
+
+/**
+ * Scarf ક્લાયન્ટને ફક્ત Node એન્વાયરમેન્ટમાં લોડ કરે છે.
+ */
+async function loadScarfClient() {
+  if (typeof window !== "undefined") return null;
+
+  if (!scarfClient) {
+    try {
+      scarfClient = (await import("./scarf-client")).default;
+    } catch (err) {
+      console.warn("Failed to load scarf-client:", err);
+      scarfClient = null;
+    }
+  }
+
+  return scarfClient;
+}
+
+// ------------------------------
+// Telemetry Client Class
+// ------------------------------
+
 export class TelemetryClient {
-  segment: Analytics | undefined;
+  segment: any | undefined;
   globalProperties: Record<string, any> = {};
   cloudConfiguration: { publicApiKey: string; baseUrl: string } | null = null;
   packageName: string;
   packageVersion: string;
+
   private telemetryDisabled: boolean = false;
   private sampleRate: number = 0.05;
   private anonymousId = `anon_${uuidv4()}`;
@@ -36,33 +81,23 @@ export class TelemetryClient {
     packageName,
     packageVersion,
     telemetryDisabled,
-    telemetryBaseUrl,
     sampleRate,
   }: {
     packageName: string;
     packageVersion: string;
     telemetryDisabled?: boolean;
-    telemetryBaseUrl?: string;
     sampleRate?: number;
   }) {
     this.packageName = packageName;
     this.packageVersion = packageVersion;
     this.telemetryDisabled = telemetryDisabled || isTelemetryDisabled();
 
-    if (this.telemetryDisabled) {
-      return;
-    }
+    if (this.telemetryDisabled) return;
 
     this.setSampleRate(sampleRate);
 
-    // eslint-disable-next-line
-    const writeKey =
-      process.env.COPILOTKIT_SEGMENT_WRITE_KEY ||
-      "n7XAZtQCGS2v1vvBy3LgBCv2h3Y8whja";
-
-    this.segment = new Analytics({
-      writeKey,
-    });
+    // એનાલિટિક્સ શરૂ કરો (Async છે પણ કન્સ્ટ્રક્ટરને બ્લોક નહીં કરે)
+    this.initAnalytics().catch(console.error);
 
     this.setGlobalProperties({
       "copilotkit.package.name": packageName,
@@ -70,56 +105,84 @@ export class TelemetryClient {
     });
   }
 
-  private shouldSendEvent() {
-    const randomNumber = Math.random();
-    return randomNumber < this.sampleRate;
+  /**
+   * સુરક્ષિત રીતે એનાલિટિક્સ ઇનિશિયલાઇઝ કરે છે.
+   */
+  private async initAnalytics() {
+    const Analytics = await loadAnalytics();
+    if (!Analytics) return;
+
+    const writeKey =
+      process.env.COPILOTKIT_SEGMENT_WRITE_KEY ||
+      "n7XAZtQCGS2v1vvBy3LgBCv2h3Y8whja";
+
+    try {
+      this.segment = new Analytics({ writeKey });
+    } catch (e) {
+      this.segment = undefined;
+    }
   }
 
+  private shouldSendEvent() {
+    return Math.random() < this.sampleRate;
+  }
+
+  /**
+   * ઇવેન્ટ કેપ્ચર કરે છે.
+   */
   async capture<K extends keyof AnalyticsEvents>(
     event: K,
     properties: AnalyticsEvents[K],
   ) {
-    if (!this.shouldSendEvent() || !this.segment) {
-      return;
+    if (this.telemetryDisabled || !this.shouldSendEvent()) return;
+
+    // જો સેગમેન્ટ હજુ લોડ થઈ રહ્યું હોય, તો થોડી રાહ જુઓ અથવા સ્કીપ કરો
+    if (!this.segment) {
+        await this.initAnalytics();
     }
+    
+    if (!this.segment) return;
 
-    const flattenedProperties = flattenObject(properties);
-    const propertiesWithGlobal = {
+    const flattened = flattenObject(properties);
+
+    const merged = {
       ...this.globalProperties,
-      ...flattenedProperties,
+      ...flattened,
     };
-    const orderedPropertiesWithGlobal = Object.keys(propertiesWithGlobal)
+
+    const ordered = Object.keys(merged)
       .sort()
-      .reduce(
-        (obj, key) => {
-          obj[key] = propertiesWithGlobal[key];
-          return obj;
-        },
-        {} as Record<string, any>,
-      );
+      .reduce((obj, key) => {
+        obj[key] = merged[key];
+        return obj;
+      }, {} as Record<string, any>);
 
-    this.segment.track({
-      anonymousId: this.anonymousId,
-      event,
-      properties: { ...orderedPropertiesWithGlobal },
-    });
+    try {
+      this.segment.track({
+        anonymousId: this.anonymousId,
+        event,
+        properties: ordered,
+      });
 
-    await scarfClient.logEvent({
-      event,
-    });
+      // Scarf લોગિંગ
+      const client = await loadScarfClient();
+      if (client && typeof client.logEvent === 'function') {
+        client.logEvent({ event });
+      }
+    } catch (e) {
+        // ટેલિમેટ્રી એરરથી મેઈન એપ ક્રેશ ન થવી જોઈએ
+    }
   }
 
   setGlobalProperties(properties: Record<string, any>) {
-    const flattenedProperties = flattenObject(properties);
     this.globalProperties = {
       ...this.globalProperties,
-      ...flattenedProperties,
+      ...flattenObject(properties),
     };
   }
 
   setCloudConfiguration(properties: { publicApiKey: string; baseUrl: string }) {
     this.cloudConfiguration = properties;
-
     this.setGlobalProperties({
       cloud: {
         publicApiKey: properties.publicApiKey,
@@ -129,24 +192,19 @@ export class TelemetryClient {
   }
 
   private setSampleRate(sampleRate: number | undefined) {
-    let _sampleRate: number;
+    let rate = sampleRate ?? 0.05;
 
-    _sampleRate = sampleRate ?? 0.05;
-
-    // eslint-disable-next-line
     if (process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE) {
-      // eslint-disable-next-line
-      _sampleRate = parseFloat(process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE);
+      rate = parseFloat(process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE);
     }
 
-    if (_sampleRate < 0 || _sampleRate > 1) {
-      throw new Error("Sample rate must be between 0 and 1");
+    if (isNaN(rate) || rate < 0 || rate > 1) {
+      rate = 0.05; // Default safe rate
     }
 
-    this.sampleRate = _sampleRate;
+    this.sampleRate = rate;
     this.setGlobalProperties({
       sampleRate: this.sampleRate,
-      sampleRateAdjustmentFactor: 1 - this.sampleRate,
       sampleWeight: 1 / this.sampleRate,
     });
   }

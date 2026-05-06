@@ -3,6 +3,7 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "apps/agent/src",
   "projectType": "application",
+  "tags": [],
   "targets": {
     "dev": {
       "executor": "nx:run-commands",
@@ -24,6 +25,5 @@
         "cwd": "examples/v2/interrupts-langgraph/apps/agent"
       }
     }
-  },
-  "tags": []
+  }
 }

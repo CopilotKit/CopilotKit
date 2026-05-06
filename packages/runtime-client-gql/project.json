@@ -1,4 +1,7 @@
 {
   "name": "@copilotkit/runtime-client-gql",
-  "implicitDependencies": ["@copilotkit/runtime"]
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "implicitDependencies": [
+    "@copilotkit/runtime"
+  ]
 }
