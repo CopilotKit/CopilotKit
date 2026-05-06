@@ -2345,11 +2345,6 @@ export class WebInspectorElement extends LitElement {
   private agentSubscriptions: Map<string, () => void> = new Map();
   private agentEvents: Map<string, InspectorEvent[]> = new Map();
   private agentMessages: Map<string, InspectorMessage[]> = new Map();
-  // Tracks which thread each agent is currently running on. Populated from the
-  // agent instance handed to `onAgentRunStarted` so that, when that agent
-  // subsequently emits message changes, we can bump the per-thread live
-  // version (below) only for the thread the messages actually belong to.
-  private agentRunThreadId: Map<string, string> = new Map();
   // Per-thread monotonic version that ticks every time an agent currently
   // running on that thread emits a message change. `cpk-thread-details`
   // watches this prop and re-fetches `/threads/:id/messages` when it changes,
@@ -2646,19 +2641,6 @@ export class WebInspectorElement extends LitElement {
         this._threadsByAgent.delete(agentId);
         this._threadsErrorByAgent.delete(agentId);
         this._threads = Array.from(this._threadsByAgent.values()).flat();
-        this.requestUpdate();
-      },
-      onAgentRunStarted: ({ agent }) => {
-        // Subscribe to the concrete agent instance about to run. This handles
-        // per-thread clones that are not in core.agents and therefore not
-        // reachable via onAgentsChanged. Replacing an existing subscription for
-        // the same agentId is safe: the previous instance emits no more events
-        // once a new run starts on a fresh clone.
-        this.subscribeToAgent(agent);
-        const runThreadId = (agent as { threadId?: string }).threadId;
-        if (agent.agentId && runThreadId) {
-          this.agentRunThreadId.set(agent.agentId, runThreadId);
-        }
         this.requestUpdate();
       },
     } satisfies CopilotKitCoreSubscriber;
@@ -3012,7 +2994,7 @@ export class WebInspectorElement extends LitElement {
       // selected thread and re-fetches `/threads/:id/messages` when it ticks,
       // so the conversation view stays in sync with the streaming agent
       // without the parent re-implementing AG-UI → ConversationItem mapping.
-      const runThreadId = this.agentRunThreadId.get(agent.agentId);
+      const runThreadId = (agent as { threadId?: string }).threadId;
       if (runThreadId) {
         this.liveMessageVersion.set(
           runThreadId,
