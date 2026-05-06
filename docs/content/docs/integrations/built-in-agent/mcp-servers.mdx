@@ -153,6 +153,29 @@ The auto-attach wires both auth axes for you — the project Bearer (the `apiKey
 
 If you've already added an MCP server pointing at the same URL via `mcpServers`, the auto-attach yields to your explicit configuration — your headers and resolver are the ones that hit the wire.
 
+## Dynamic `mcpServers` (function form)
+
+`mcpServers` accepts either a static array (everything above) or a function evaluated once per run. The function form lets you decide which servers to attach based on the current request — useful when an MCP server should only attach for certain tenants, when the URL itself depends on a forwarded header, or when you want to gate a server on input metadata:
+
+```typescript
+const builtInAgent = new BuiltInAgent({
+  model: "openai:gpt-5.4-mini",
+  mcpServers: ({ forwardedRequestHeaders, input }) => { // [!code highlight:8]
+    const tenant = forwardedRequestHeaders["x-tenant-id"];
+    if (!tenant) return [];
+    return [
+      {
+        type: "http",
+        url: `https://${tenant}.mcp.example.com/mcp`,
+        headers: { Authorization: `Bearer ${process.env.MCP_API_KEY}` },
+      },
+    ];
+  },
+});
+```
+
+The resolver receives the same `forwardedRequestHeaders` and `input` you'd see inside a per-call `getHeaders`. It runs once per run, before any MCP transport opens — return `[]` to skip attachment entirely. Sync and async (`Promise<MCPClientConfig[]>`) returns are both supported.
+
 ## Multiple servers
 
 Connect multiple MCP servers — tools from all servers are available to the agent:
@@ -234,6 +257,37 @@ const builtInAgent = new BuiltInAgent({
 Unlike `mcpServers`, the agent **never** creates or closes these clients — you control the full lifecycle.
 
 `MCPClient`, `MCPTransport`, `OAuthClientProvider`, and related types are re-exported from `@copilotkit/runtime/v2` so you don't need to add `@ai-sdk/mcp` to your dependencies just to type the client.
+
+#### Adding dynamic headers to a user-managed client
+
+If you're managing your own client and want the same static + per-call header semantics that `mcpServers` gives you (including `MCPHeaderResolverError` attribution), use `withDynamicMcpHeaders`. It returns a `fetch` you pass to `StreamableHTTPClientTransport`'s `fetch` option — the MCP TS SDK's documented extension point for per-request customization:
+
+```typescript
+import {
+  BuiltInAgent,
+  withDynamicMcpHeaders,
+} from "@copilotkit/runtime/v2";
+import { createMCPClient } from "@ai-sdk/mcp";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+
+const transport = new StreamableHTTPClientTransport(
+  new URL("https://my-mcp-server.example.com/mcp"),
+  {
+    fetch: withDynamicMcpHeaders({ // [!code highlight:9]
+      staticHeaders: { Authorization: `Bearer ${process.env.MCP_API_KEY}` },
+      getHeaders: ({ forwardedRequestHeaders }) => ({
+        "X-Trace-Id": forwardedRequestHeaders["x-trace-id"] ?? "",
+      }),
+      forwardedRequestHeaders: {}, // populate from the agent at run-start
+      input: someRunAgentInput,
+      mcpServerUrl: "https://my-mcp-server.example.com/mcp",
+    }),
+  },
+);
+const client = await createMCPClient({ transport });
+```
+
+`mcpServers` already wires this up internally — only reach for `withDynamicMcpHeaders` when you genuinely need to construct your own transport (e.g. you're sharing one connection across runs and need to refresh per-call headers without rebuilding the client).
 
 ### Tool caching
 
