@@ -11,7 +11,6 @@ import { logger } from "@copilotkit/shared";
 import { telemetry } from "../../telemetry";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 import { isHandlerResponse } from "../shared/json-response";
-import { attachIntelligenceMcpServer } from "./attach-intelligence-mcp-server";
 import type { AgentRunnerRunRequest } from "../../runner/agent-runner";
 import type { Observable } from "rxjs";
 
@@ -80,18 +79,6 @@ export async function handleIntelligenceRun({
     return user;
   }
   const userId = user.id;
-
-  // If Intelligence has `mcpServer: true`, append the platform's MCP server
-  // to the agent's effective server list for this run. The MCP config is
-  // built fresh per-request, with `Authorization: Bearer <apiKey>` and
-  // `X-Cpki-User-Id: <userId>` baked into a custom fetch via closure. The
-  // agent's run code reads `runtimeMcpServers` (an `@internal` side
-  // channel) and concatenates it after `config.mcpServers`.
-  attachIntelligenceMcpServer({
-    intelligence: runtime.intelligence,
-    agent,
-    userId,
-  });
 
   try {
     const { thread, created } = await runtime.intelligence.getOrCreateThread({
@@ -174,10 +161,30 @@ export async function handleIntelligenceRun({
     );
   }
 
+  // When Intelligence has `mcpServer: true`, hand the agent the per-request
+  // bits it needs to attach the platform's MCP server: the resolved user-id,
+  // the project Bearer (`apiKey`), and the MCP URL. These ride through
+  // `forwardedProps` so the agent doesn't need a typed reference to the
+  // Intelligence client. `BuiltInAgent` reads them and builds a per-request
+  // MCP config with a closure-baked fetch; non-BuiltInAgent agents naturally
+  // ignore them.
+  const intelligenceForwardedProps =
+    runtime.intelligence.ɵisMcpServerEnabled?.()
+      ? {
+          intelligenceUserId: userId,
+          intelligenceApiKey: runtime.intelligence.ɵgetApiKey(),
+          intelligenceMcpUrl: `${runtime.intelligence.ɵgetApiUrl()}/mcp`,
+        }
+      : {};
+
   const canonicalInput: RunAgentInput = {
     ...input,
     threadId: canonicalThreadId,
     runId: canonicalRunId,
+    forwardedProps: {
+      ...input.forwardedProps,
+      ...intelligenceForwardedProps,
+    },
   };
 
   let persistedInputMessages: Message[] | undefined;

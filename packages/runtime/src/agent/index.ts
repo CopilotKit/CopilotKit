@@ -840,16 +840,6 @@ function isFactoryConfig(
 
 export class BuiltInAgent extends AbstractAgent {
   private abortController?: AbortController;
-  /**
-   * Side-channel for runtime-injected MCP servers. Concatenated after the
-   * user-supplied `config.mcpServers` at run-start. Set by the runtime layer
-   * (e.g. to auto-attach the CopilotKit Intelligence MCP server when the
-   * runtime is configured for intelligence and a user has been resolved);
-   * not part of the user-facing API.
-   *
-   * @internal
-   */
-  public runtimeMcpServers?: MCPClientConfig[];
 
   constructor(private config: BuiltInAgentConfiguration) {
     super();
@@ -1186,15 +1176,56 @@ export class BuiltInAgent extends AbstractAgent {
             }
           }
 
-          // Initialize MCP clients and get their tools. Servers come from
-          // two sources, concatenated in order: `config.mcpServers` (user)
-          // followed by `this.runtimeMcpServers` (the @internal side channel
-          // the runtime uses to inject e.g. CopilotKit Intelligence's MCP
-          // server per-request).
+          // Initialize MCP clients and get their tools.
+          //
+          // Servers come from two sources, concatenated in order:
+          //   - `config.mcpServers` — user-supplied static array.
+          //   - The CopilotKit Intelligence MCP server, auto-attached when
+          //     the runtime forwards `intelligenceUserId` / `intelligenceApiKey`
+          //     / `intelligenceMcpUrl` via `input.forwardedProps`. Built
+          //     fresh per-request with a custom `options.fetch` that stamps
+          //     `Authorization: Bearer <apiKey>` and `X-Cpki-User-Id:
+          //     <userId>` on every outbound MCP call. Skipped when the user
+          //     already configured a server pointing at the same URL.
           const allMcpServers: MCPClientConfig[] = [
             ...(this.config.mcpServers ?? []),
-            ...(this.runtimeMcpServers ?? []),
           ];
+          const fp = input.forwardedProps as
+            | Record<string, unknown>
+            | undefined;
+          const intelligenceUserId =
+            typeof fp?.intelligenceUserId === "string"
+              ? fp.intelligenceUserId
+              : undefined;
+          const intelligenceApiKey =
+            typeof fp?.intelligenceApiKey === "string"
+              ? fp.intelligenceApiKey
+              : undefined;
+          const intelligenceMcpUrl =
+            typeof fp?.intelligenceMcpUrl === "string"
+              ? fp.intelligenceMcpUrl
+              : undefined;
+          if (
+            intelligenceUserId &&
+            intelligenceApiKey &&
+            intelligenceMcpUrl &&
+            !allMcpServers.some(
+              (s) => s.type === "http" && s.url === intelligenceMcpUrl,
+            )
+          ) {
+            allMcpServers.push({
+              type: "http",
+              url: intelligenceMcpUrl,
+              options: {
+                fetch: async (req, init) => {
+                  const headers = new Headers(init?.headers);
+                  headers.set("Authorization", `Bearer ${intelligenceApiKey}`);
+                  headers.set("X-Cpki-User-Id", intelligenceUserId);
+                  return globalThis.fetch(req, { ...init, headers });
+                },
+              },
+            });
+          }
           if (allMcpServers.length > 0) {
             for (const serverConfig of allMcpServers) {
               let transport;

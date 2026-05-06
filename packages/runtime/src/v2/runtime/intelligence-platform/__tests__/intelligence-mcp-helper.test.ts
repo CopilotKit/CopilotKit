@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { CopilotKitIntelligence } from "../client";
 import { BasicAgent } from "../../../../agent";
 import { LLMock, MCPMock } from "@copilotkit/aimock";
 import { streamText } from "ai";
@@ -9,7 +8,6 @@ import {
   finish,
   collectEvents,
 } from "../../../../agent/__tests__/test-helpers";
-import { attachIntelligenceMcpServer } from "../../handlers/intelligence/attach-intelligence-mcp-server";
 
 vi.mock("ai", () => ({
   streamText: vi.fn(),
@@ -82,7 +80,7 @@ const baseInput = {
   state: {},
 };
 
-describe("Intelligence MCP auto-attach (attachIntelligenceMcpServer)", () => {
+describe("BuiltInAgent — Intelligence MCP auto-attach via forwardedProps", () => {
   let llm: LLMock | undefined;
   const originalEnv = process.env;
 
@@ -100,31 +98,28 @@ describe("Intelligence MCP auto-attach (attachIntelligenceMcpServer)", () => {
     }
   });
 
-  it("attaches the Intelligence MCP server when mcpServer=true; outbound headers carry Authorization + X-Cpki-User-Id", async () => {
+  it("attaches the Intelligence MCP server when forwardedProps carries userId + apiKey + mcpUrl", async () => {
     const { url, server } = await startMcpMock();
     llm = server;
 
-    const intelligence = new CopilotKitIntelligence({
-      apiUrl: url,
-      wsUrl: "wss://unused.example.com/socket",
-      apiKey: "cpk-proj_short_long",
-      mcpServer: true,
-    });
-
-    const recorder = spyOnFetch(url);
+    const recorder = spyOnFetch(`${url}/mcp`);
     try {
       const agent = new BasicAgent({ model: "openai/gpt-4o" });
-      attachIntelligenceMcpServer({
-        intelligence,
-        agent,
-        userId: "jordan-beamson",
-      });
 
       vi.mocked(streamText).mockReturnValue(
         mockStreamTextResponse([textDelta("hi"), finish()]) as any,
       );
 
-      await collectEvents(agent["run"](baseInput));
+      await collectEvents(
+        agent["run"]({
+          ...baseInput,
+          forwardedProps: {
+            intelligenceUserId: "jordan-beamson",
+            intelligenceApiKey: "cpk-proj_short_long",
+            intelligenceMcpUrl: `${url}/mcp`,
+          },
+        }),
+      );
 
       expect(recorder.records.length).toBeGreaterThan(0);
       for (const headers of recorder.records) {
@@ -136,25 +131,13 @@ describe("Intelligence MCP auto-attach (attachIntelligenceMcpServer)", () => {
     }
   });
 
-  it("does NOT attach when mcpServer is unset (default opt-in)", async () => {
+  it("does NOT attach when forwardedProps is empty (no Intelligence wiring this run)", async () => {
     const { url, server } = await startMcpMock();
     llm = server;
 
-    const intelligence = new CopilotKitIntelligence({
-      apiUrl: url,
-      wsUrl: "wss://unused.example.com/socket",
-      apiKey: "cpk-proj_short_long",
-      // mcpServer omitted → default false
-    });
-
-    const recorder = spyOnFetch(url);
+    const recorder = spyOnFetch(`${url}/mcp`);
     try {
       const agent = new BasicAgent({ model: "openai/gpt-4o" });
-      attachIntelligenceMcpServer({
-        intelligence,
-        agent,
-        userId: "jordan-beamson",
-      });
 
       vi.mocked(streamText).mockReturnValue(
         mockStreamTextResponse([finish()]) as any,
@@ -167,25 +150,46 @@ describe("Intelligence MCP auto-attach (attachIntelligenceMcpServer)", () => {
     }
   });
 
-  it("does NOT attach when the user has already configured a server pointing at the same URL (explicit opt-in wins)", async () => {
+  it("does NOT attach when only some of the three props are present", async () => {
     const { url, server } = await startMcpMock();
     llm = server;
 
-    const intelligence = new CopilotKitIntelligence({
-      apiUrl: url,
-      wsUrl: "wss://unused.example.com/socket",
-      apiKey: "cpk-proj_short_long",
-      mcpServer: true,
-    });
+    const recorder = spyOnFetch(`${url}/mcp`);
+    try {
+      const agent = new BasicAgent({ model: "openai/gpt-4o" });
 
-    const userMcpUrl = `${url}/mcp`;
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
+      await collectEvents(
+        agent["run"]({
+          ...baseInput,
+          forwardedProps: {
+            // userId + apiKey but no mcpUrl — should not attach.
+            intelligenceUserId: "jordan",
+            intelligenceApiKey: "cpk-proj_xx",
+          },
+        }),
+      );
+
+      expect(recorder.records.length).toBe(0);
+    } finally {
+      recorder.restore();
+    }
+  });
+
+  it("does NOT attach when the user has already configured a server pointing at the same URL (explicit opt-in wins)", async () => {
+    const { url, server } = await startMcpMock();
+    llm = server;
+    const mcpUrl = `${url}/mcp`;
+
     let userFetchCalls = 0;
     const agent = new BasicAgent({
       model: "openai/gpt-4o",
       mcpServers: [
         {
           type: "http",
-          url: userMcpUrl,
+          url: mcpUrl,
           options: {
             fetch: async (input, init) => {
               userFetchCalls++;
@@ -198,18 +202,22 @@ describe("Intelligence MCP auto-attach (attachIntelligenceMcpServer)", () => {
         },
       ],
     });
-    attachIntelligenceMcpServer({
-      intelligence,
-      agent,
-      userId: "from-runtime",
-    });
 
-    const recorder = spyOnFetch(userMcpUrl);
+    const recorder = spyOnFetch(mcpUrl);
     try {
       vi.mocked(streamText).mockReturnValue(
         mockStreamTextResponse([finish()]) as any,
       );
-      await collectEvents(agent["run"](baseInput));
+      await collectEvents(
+        agent["run"]({
+          ...baseInput,
+          forwardedProps: {
+            intelligenceUserId: "from-runtime",
+            intelligenceApiKey: "cpk-proj_runtime",
+            intelligenceMcpUrl: mcpUrl,
+          },
+        }),
+      );
 
       expect(recorder.records.length).toBeGreaterThan(0);
       // Only the user's fetch wrapper hit the wire — auto-attach skipped.
@@ -218,37 +226,6 @@ describe("Intelligence MCP auto-attach (attachIntelligenceMcpServer)", () => {
         expect(headers["x-cpki-user-id"]).toBe("explicit-user");
       }
       expect(userFetchCalls).toBeGreaterThan(0);
-    } finally {
-      recorder.restore();
-    }
-  });
-
-  it("apiUrl trailing-slash is normalized when building the auto-attached server URL", async () => {
-    const { url, server } = await startMcpMock();
-    llm = server;
-
-    const intelligence = new CopilotKitIntelligence({
-      apiUrl: `${url}/`,
-      wsUrl: "wss://unused.example.com/socket",
-      apiKey: "cpk-proj_short_long",
-      mcpServer: true,
-    });
-
-    const recorder = spyOnFetch(url);
-    try {
-      const agent = new BasicAgent({ model: "openai/gpt-4o" });
-      attachIntelligenceMcpServer({ intelligence, agent, userId: "alice" });
-
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
-      await collectEvents(agent["run"](baseInput));
-
-      expect(recorder.records.length).toBeGreaterThan(0);
-      // Outbound URLs are `${apiUrl}/mcp`, never `${apiUrl}//mcp`.
-      for (const headers of recorder.records) {
-        expect(headers["x-cpki-user-id"]).toBe("alice");
-      }
     } finally {
       recorder.restore();
     }
