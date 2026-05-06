@@ -304,7 +304,8 @@ function attachLeadingComments(originalNode, newNode) {
   if (!originalNode || !newNode) return;
   const sourceComments =
     (Array.isArray(originalNode.comments) && originalNode.comments) ||
-    (Array.isArray(originalNode.leadingComments) && originalNode.leadingComments) ||
+    (Array.isArray(originalNode.leadingComments) &&
+      originalNode.leadingComments) ||
     null;
   if (!sourceComments || sourceComments.length === 0) return;
   newNode.comments = sourceComments;
