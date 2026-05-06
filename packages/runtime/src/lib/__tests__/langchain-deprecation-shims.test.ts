@@ -1,10 +1,11 @@
 /**
- * Pins the user-facing UX of the LangChain deprecation shims that live in
- * `lib/index.ts`. The error message thrown on construction is the entire
- * surface a user upgrading to 1.58.0 will see, so each piece (new path,
- * codemod URL, BuiltInAgent pointer, the symbol's own name) is asserted
- * independently. A future refactor that re-routes any of these to the real
- * adapter would make these tests fail.
+ * Pins the user-facing UX of the LangChain deprecation shims at
+ * `service-adapters/langchain-deprecated-shims.ts`. The error message
+ * thrown on construction is the entire surface a user upgrading to 1.58.0
+ * will see, so each piece (new path, codemod URL, BuiltInAgent pointer,
+ * the symbol's own name) is asserted independently. A future refactor
+ * that re-routes any of these to the real adapter would make these tests
+ * fail.
  */
 import { describe, it, expect } from "vitest";
 
@@ -13,7 +14,7 @@ import {
   BedrockAdapter,
   GoogleGenerativeAIAdapter,
   RemoteChain,
-} from "../langchain-deprecation-shims";
+} from "../../service-adapters/langchain-deprecated-shims";
 
 const SHIM_CASES = [
   { name: "LangChainAdapter", Ctor: LangChainAdapter },

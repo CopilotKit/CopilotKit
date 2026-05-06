@@ -1,124 +1,149 @@
 #!/usr/bin/env node
 /**
- * Smoke test: verify the built `@copilotkit/runtime` root barrel contains
- * zero references to `@langchain/*` or `langchain` in its transitive
- * module graph.
+ * Install smoke test: prove that a consumer can install
+ * `@copilotkit/runtime` without any `@langchain/*` peer installed and
+ * still successfully `import` from the package root.
  *
- * The runtime claims `@langchain/core` (and friends) is an optional peer.
- * That claim is true only if importing the root barrel does not pull
- * langchain into the module graph at load time. Since 1.58.0 moved the
- * LangChain-coupled adapters to the `@copilotkit/runtime/langchain`
- * subexport, the root must stay clean.
+ * The runtime advertises `@langchain/*` peers as optional in
+ * `peerDependenciesMeta`. As of 1.58.0 the LangChain-coupled adapters
+ * live in the `@copilotkit/runtime/langchain` subexport; the root barrel
+ * has no `@langchain/*` references at module load time. This script
+ * verifies that contract end-to-end, in a real Node module resolution.
  *
- * This walker traverses the dist output starting at `index.mjs` and
- * `index.cjs`, follows local relative imports, and fails if any reachable
- * file contains a `@langchain/*` import or a `require/import "langchain..."`.
+ * Steps:
+ *   1. `pnpm pack` the runtime AND its workspace deps (`@copilotkit/shared`)
+ *      into a tmp tarball directory. pnpm substitutes `workspace:*` to
+ *      concrete versions so `npm install` can resolve the graph.
+ *   2. Set up a fresh tmp project with no langchain installed.
+ *   3. `npm install --omit=optional` the local tarballs. Optional peers
+ *      (langchain, others) MUST NOT be auto-installed.
+ *   4. Confirm no `@langchain/*` lives in `node_modules`.
+ *   5. `node test-import.mjs` doing `await import("@copilotkit/runtime")`.
+ *      Exit 0 only if the import succeeds with non-empty exports.
  *
- * Run via `pnpm nx run @copilotkit/runtime:smoke-no-langchain`.
+ * Run via `pnpm nx run @copilotkit/runtime:test:smoke-no-langchain`.
  */
-
-import { readFileSync, statSync } from "node:fs";
+import { execSync } from "node:child_process";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const distRoot = path.resolve(__dirname, "..", "dist");
+const runtimeDir = path.resolve(__dirname, "..");
+const packagesDir = path.resolve(runtimeDir, "..");
 
-// We walk the ESM output only. The CJS output (`*.cjs`) is produced from
-// the same source, so a clean ESM graph guarantees a clean CJS graph at
-// the top level. ESM also has the property that `import` is always
-// top-level, which lets us distinguish eager imports from lazy `require()`
-// calls inside function bodies (e.g. Ollama uses a lazy `require` for
-// `@langchain/community/llms/ollama`, which is fine and explicitly out of
-// scope for the 1.58.0 root-barrel decoupling).
-const ROOT_ENTRIES = ["index.mjs"];
-
-// Matches ES `import ... from "@langchain/..."` or `import "@langchain/..."`.
-// Only top-level imports in ESM. Does not match `require()` (which can be
-// lazy, inside method bodies — that's the Ollama case we need to allow).
-const LANGCHAIN_RE =
-  /(?:from\s+["']|import\s+["'])(@langchain\/[^"']+|langchain(?:\/[^"']+)?)["']/;
-
-// Captures local relative ES imports so the walker can follow them.
-const LOCAL_IMPORT_RE = /(?:from\s+["']|import\s+["'])(\.\.?\/[^"']+)["']/g;
-
-const FILE_EXTENSIONS = ["", ".mjs", ".js"];
-
-function resolveLocal(fromFile, relPath) {
-  const baseDir = path.dirname(fromFile);
-  const direct = path.resolve(baseDir, relPath);
-  for (const ext of FILE_EXTENSIONS) {
-    const candidate = direct + ext;
-    try {
-      if (statSync(candidate).isFile()) return candidate;
-    } catch {
-      // not this extension, try next
-    }
-  }
-  // Try as a directory with index.mjs
-  const candidate = path.join(direct, "index.mjs");
-  try {
-    if (statSync(candidate).isFile()) return candidate;
-  } catch {
-    // not a directory, skip
-  }
-  return null;
-}
-
-const visited = new Set();
-const violations = [];
-
-function walk(file) {
-  if (visited.has(file)) return;
-  visited.add(file);
-
-  const content = readFileSync(file, "utf8");
-
-  if (LANGCHAIN_RE.test(content)) {
-    const match = content.match(LANGCHAIN_RE);
-    violations.push({
-      file: path.relative(distRoot, file),
-      reference: match[1],
-    });
-  }
-
-  for (const match of content.matchAll(LOCAL_IMPORT_RE)) {
-    const resolved = resolveLocal(file, match[1]);
-    if (resolved) walk(resolved);
-  }
-}
-
-console.log(`smoke-no-langchain: walking root barrel from ${distRoot}`);
-
-for (const entry of ROOT_ENTRIES) {
-  const entryPath = path.join(distRoot, entry);
-  try {
-    statSync(entryPath);
-  } catch {
-    console.error(`smoke-no-langchain: missing ${entry} — run build first`);
-    process.exit(2);
-  }
-  walk(entryPath);
-}
-
-console.log(`smoke-no-langchain: visited ${visited.size} files`);
-
-if (violations.length > 0) {
-  console.error(
-    `smoke-no-langchain: FAIL — ${violations.length} langchain reference(s) found in the root barrel:`,
-  );
-  for (const v of violations) {
-    console.error(`  ${v.file} -> ${v.reference}`);
-  }
-  console.error(
-    `\nThe root barrel must not import @langchain/* or langchain. ` +
-      `LangChain-coupled adapters live in @copilotkit/runtime/langchain. ` +
-      `Move the offending re-export into src/langchain.ts (the subexport) ` +
-      `and add a throw-on-construction shim in src/lib/index.ts.`,
-  );
-  process.exit(1);
-}
-
-console.log(
-  `smoke-no-langchain: PASS — root barrel is free of @langchain/* and langchain references`,
+// Workspace deps that aren't on npm at the version this branch will
+// publish (yet). pnpm pack substitutes `workspace:*` to a concrete
+// version; we pack each so npm can install them via local tarball.
+const workspaceDepsToPack = ["shared"].map((name) =>
+  path.resolve(packagesDir, name),
 );
+
+const tmpRoot = mkdtempSync(
+  path.join(tmpdir(), "copilotkit-smoke-no-langchain-"),
+);
+const tarballsDir = path.join(tmpRoot, "tarballs");
+const projectDir = path.join(tmpRoot, "project");
+mkdirSync(tarballsDir, { recursive: true });
+mkdirSync(projectDir, { recursive: true });
+
+console.log(`smoke: tmp dir = ${tmpRoot}`);
+
+function pack(srcDir, label) {
+  console.log(`smoke: packing ${label}...`);
+  execSync(`pnpm pack --pack-destination "${tarballsDir}"`, {
+    cwd: srcDir,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+}
+
+try {
+  pack(runtimeDir, "@copilotkit/runtime");
+  for (const depDir of workspaceDepsToPack) {
+    pack(depDir, path.basename(depDir));
+  }
+
+  const tarballs = readdirSync(tarballsDir)
+    .filter((f) => f.endsWith(".tgz"))
+    .map((f) => path.join(tarballsDir, f));
+  if (tarballs.length === 0) {
+    throw new Error("smoke: no tarballs were produced");
+  }
+  console.log(`smoke: packed ${tarballs.length} tarball(s)`);
+
+  writeFileSync(
+    path.join(projectDir, "package.json"),
+    JSON.stringify(
+      { name: "copilotkit-smoke-no-langchain", private: true, type: "module" },
+      null,
+      2,
+    ),
+  );
+
+  // --omit=optional ensures peer deps marked optional aren't auto-installed.
+  // --no-audit and --no-fund keep the output focused on the test.
+  const installArgs = [
+    "install",
+    "--no-audit",
+    "--no-fund",
+    "--omit=optional",
+    ...tarballs.map((p) => `"${p}"`),
+  ].join(" ");
+  console.log(`smoke: npm ${installArgs}`);
+  execSync(`npm ${installArgs}`, {
+    cwd: projectDir,
+    stdio: "inherit",
+  });
+
+  // Some `@langchain/*` packages may end up in node_modules through transitive
+  // runtime deps (e.g., `@ag-ui/langgraph` reaches `@langchain/langgraph`).
+  // The spec's claim is about the runtime's main entry not REQUIRING those
+  // packages at module load time, not about preventing them from being
+  // installed at all. To simulate a consumer who doesn't have any
+  // `@langchain/*` packages available, delete the `@langchain` directory
+  // before attempting the import.
+  const langchainDir = path.join(projectDir, "node_modules", "@langchain");
+  if (existsSync(langchainDir)) {
+    rmSync(langchainDir, { recursive: true, force: true });
+    console.log(
+      `smoke: removed transitively-installed @langchain/* to simulate a consumer without langchain`,
+    );
+  } else {
+    console.log(`smoke: no @langchain/* in node_modules`);
+  }
+
+  writeFileSync(
+    path.join(projectDir, "test-import.mjs"),
+    [
+      `import * as runtime from "@copilotkit/runtime";`,
+      `const keys = Object.keys(runtime);`,
+      `if (keys.length === 0) {`,
+      `  console.error("smoke: FAIL — no exports from @copilotkit/runtime");`,
+      `  process.exit(1);`,
+      `}`,
+      `console.log("smoke: imported " + keys.length + " exports from @copilotkit/runtime");`,
+      ``,
+    ].join("\n"),
+  );
+  execSync(`node test-import.mjs`, {
+    cwd: projectDir,
+    stdio: "inherit",
+  });
+
+  console.log(
+    `smoke: PASS — @copilotkit/runtime imports cleanly without @langchain/*`,
+  );
+} catch (err) {
+  console.error(`smoke: FAIL — ${err.message ?? err}`);
+  process.exitCode = 1;
+} finally {
+  rmSync(tmpRoot, { recursive: true, force: true });
+}

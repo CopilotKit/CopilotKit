@@ -12,8 +12,19 @@ export * from "./anthropic/anthropic-adapter";
 export * from "./experimental/ollama/ollama-adapter";
 export * from "./empty/empty-adapter";
 
-// LangChain-coupled adapters (LangChainAdapter, BedrockAdapter,
-// GoogleGenerativeAIAdapter, RemoteChain, RemoteChainParameters,
-// LangChainReturnType) moved to the @copilotkit/runtime/langchain subexport
-// in 1.58.0. The throw-on-construction shims live in lib/index.ts so the
-// runtime root barrel's module graph stays free of @langchain/*.
+// LangChain-coupled adapters moved to @copilotkit/runtime/langchain in 1.58.0.
+// Re-export the throw-on-construction shims so existing imports of these
+// symbols from `@copilotkit/runtime` resolve at the type level but throw on
+// construction with a pointer at the new subexport path. Importing nothing
+// from @langchain/* here keeps the root barrel's module graph clean (verified
+// by scripts/smoke-no-langchain.mjs).
+export {
+  LangChainAdapter,
+  BedrockAdapter,
+  GoogleGenerativeAIAdapter,
+  RemoteChain,
+} from "./langchain-deprecated-shims";
+export type {
+  RemoteChainParameters,
+  LangChainReturnType,
+} from "./langchain-deprecated-shims";

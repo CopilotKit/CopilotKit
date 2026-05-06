@@ -49,17 +49,7 @@ export type CustomEventNames = any;
  */
 export type PredictStateTool = any;
 
-// LangChain-coupled adapters moved to @copilotkit/runtime/langchain in 1.58.0.
-// The throw-on-construction shims and deprecated type re-exports live in
-// langchain-deprecation-shims.ts so they can be unit-tested without loading
-// the full runtime module graph.
-export {
-  LangChainAdapter,
-  BedrockAdapter,
-  GoogleGenerativeAIAdapter,
-  RemoteChain,
-} from "./langchain-deprecation-shims";
-export type {
-  RemoteChainParameters,
-  LangChainReturnType,
-} from "./langchain-deprecation-shims";
+// LangChain-coupled adapters moved to `@copilotkit/runtime/langchain` in 1.58.0.
+// The throw-on-construction shims live in
+// `service-adapters/langchain-deprecated-shims.ts` and reach the public
+// surface through `service-adapters/index.ts → src/index.ts`.

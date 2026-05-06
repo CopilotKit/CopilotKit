@@ -4,18 +4,21 @@
  *
  * Importing any of these symbols from `@copilotkit/runtime` still resolves
  * (so existing user code type-checks against the deprecated names), but
- * constructing them throws an error pointing at the new subexport path,
- * the migration codemod, and the v2 BuiltInAgent destination.
+ * constructing them throws `CopilotKitMisuseError` pointing at the new
+ * subexport path, the migration codemod, and the v2 BuiltInAgent
+ * destination.
  *
- * These are deliberately isolated from `lib/index.ts` so they can be
- * unit-tested without pulling in the full runtime module graph (which
- * triggers type-graphql decorators at load time). They are re-exported
- * from `lib/index.ts` to preserve the public surface.
+ * The deprecated type aliases re-export the real types so existing
+ * `import type { ... }` from the runtime root preserves its structural
+ * shape. Type re-exports are erased at build time; the runtime module
+ * graph stays free of `@langchain/*` imports (verified by
+ * `scripts/smoke-no-langchain.mjs`).
  *
  * v2 will delete this file along with the LangChain adapters themselves.
  */
+import { CopilotKitMisuseError } from "@copilotkit/shared";
 
-const langchainSubexportMessage = (symbol: string) =>
+const removedMessage = (symbol: string) =>
   `'${symbol}' is no longer exported from '@copilotkit/runtime'. ` +
   `Import it from '@copilotkit/runtime/langchain' instead.\n` +
   `Run the codemod:\n` +
@@ -27,7 +30,9 @@ const langchainSubexportMessage = (symbol: string) =>
  */
 export class LangChainAdapter {
   constructor() {
-    throw new Error(langchainSubexportMessage("LangChainAdapter"));
+    throw new CopilotKitMisuseError({
+      message: removedMessage("LangChainAdapter"),
+    });
   }
 }
 
@@ -36,7 +41,9 @@ export class LangChainAdapter {
  */
 export class BedrockAdapter {
   constructor() {
-    throw new Error(langchainSubexportMessage("BedrockAdapter"));
+    throw new CopilotKitMisuseError({
+      message: removedMessage("BedrockAdapter"),
+    });
   }
 }
 
@@ -45,7 +52,9 @@ export class BedrockAdapter {
  */
 export class GoogleGenerativeAIAdapter {
   constructor() {
-    throw new Error(langchainSubexportMessage("GoogleGenerativeAIAdapter"));
+    throw new CopilotKitMisuseError({
+      message: removedMessage("GoogleGenerativeAIAdapter"),
+    });
   }
 }
 
@@ -54,22 +63,18 @@ export class GoogleGenerativeAIAdapter {
  */
 export class RemoteChain {
   constructor() {
-    throw new Error(langchainSubexportMessage("RemoteChain"));
+    throw new CopilotKitMisuseError({
+      message: removedMessage("RemoteChain"),
+    });
   }
 }
 
-// Re-export the real types so `import type { RemoteChainParameters }` from
-// the runtime root keeps its structural shape instead of silently widening
-// to `any`. These are erased at runtime (no @langchain/* runtime import),
-// but they preserve type-checking for consumers who still reference them
-// via the deprecated path.
+/**
+ * @deprecated Import from `@copilotkit/runtime/langchain` instead. Removed in v2.
+ */
+export type { RemoteChainParameters } from "./langchain/langserve";
 
 /**
  * @deprecated Import from `@copilotkit/runtime/langchain` instead. Removed in v2.
  */
-export type { RemoteChainParameters } from "../service-adapters/langchain/langserve";
-
-/**
- * @deprecated Import from `@copilotkit/runtime/langchain` instead. Removed in v2.
- */
-export type { LangChainReturnType } from "../service-adapters/langchain/types";
+export type { LangChainReturnType } from "./langchain/types";

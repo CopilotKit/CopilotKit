@@ -8,9 +8,9 @@
  *
  * v2 will remove this subexport entirely. Migrate to `BuiltInAgent`.
  */
-export * from "./service-adapters/langchain/langchain-adapter";
-export * from "./service-adapters/bedrock/bedrock-adapter";
-export * from "./service-adapters/google/google-genai-adapter";
+export { LangChainAdapter } from "./service-adapters/langchain/langchain-adapter";
+export { BedrockAdapter } from "./service-adapters/bedrock/bedrock-adapter";
+export { GoogleGenerativeAIAdapter } from "./service-adapters/google/google-genai-adapter";
 export { RemoteChain } from "./service-adapters/langchain/langserve";
 export type { RemoteChainParameters } from "./service-adapters/langchain/langserve";
 export type { LangChainReturnType } from "./service-adapters/langchain/types";

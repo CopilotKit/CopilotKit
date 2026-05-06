@@ -13,7 +13,7 @@ import {
   BedrockAdapter as ShimBedrockAdapter,
   GoogleGenerativeAIAdapter as ShimGoogleGenerativeAIAdapter,
   RemoteChain as ShimRemoteChain,
-} from "../lib/langchain-deprecation-shims";
+} from "../service-adapters/langchain-deprecated-shims";
 import {
   LangChainAdapter,
   BedrockAdapter,
