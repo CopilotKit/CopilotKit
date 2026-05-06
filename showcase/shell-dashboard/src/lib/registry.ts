@@ -68,6 +68,10 @@ export interface Integration {
       }
     >;
   };
+  /** True when sourced from agents/<fw>/manifest.yaml (post-migration shape). */
+  unified?: boolean;
+  /** Actual agent service URL (only set when unified=true). */
+  agent_backend_url?: string;
 }
 
 export interface Package {

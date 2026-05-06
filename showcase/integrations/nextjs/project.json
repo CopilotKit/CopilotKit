@@ -1,0 +1,14 @@
+{
+  "name": "showcase-integrations-nextjs",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "showcase/integrations/nextjs/src",
+  "targets": {
+    "dev": { "executor": "nx:run-commands", "options": { "command": "next dev --turbopack", "cwd": "showcase/integrations/nextjs" } },
+    "build": { "executor": "nx:run-commands", "options": { "command": "next build", "cwd": "showcase/integrations/nextjs" } },
+    "start": { "executor": "nx:run-commands", "options": { "command": "next start", "cwd": "showcase/integrations/nextjs" } },
+    "lint": { "executor": "nx:run-commands", "options": { "command": "next lint", "cwd": "showcase/integrations/nextjs" } },
+    "test:e2e": { "executor": "nx:run-commands", "options": { "command": "playwright test", "cwd": "showcase/integrations/nextjs" } }
+  },
+  "tags": ["scope:showcase", "type:integration-frontend"]
+}

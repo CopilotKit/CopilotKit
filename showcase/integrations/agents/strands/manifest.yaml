@@ -1,0 +1,140 @@
+name: AWS Strands
+slug: strands
+category: emerging
+language: python
+logo: /logos/strands.svg
+description: CopilotKit integration with AWS Strands
+managed_platform:
+  name: AWS Bedrock AgentCore
+  url: https://aws.amazon.com/bedrock/agents/
+partner_docs: null
+repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/agents/strands
+copilotkit_version: 2.0.0
+backend_url: https://showcase-strands-backend.up.railway.app
+deployed: true
+sort_order: 130
+
+a2ui_pattern: llm-driven
+interrupt_pattern: promise-based
+agent_config_pattern: shared-state
+auth_pattern: runtime-onrequest
+
+# Phase 1: only agentic-chat. Remaining demos added in Task 22 sweep.
+demos:
+  - id: a2ui-fixed-schema
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: agentic-chat
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: agentic-chat-reasoning
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: chat-customization-css
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: chat-slots
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: declarative-gen-ui
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: frontend-tools
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: frontend-tools-async
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: gen-ui-agent
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: gen-ui-tool-based
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: headless-complete
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: headless-simple
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: hitl
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: hitl-in-app
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: hitl-in-chat
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: hitl-in-chat-booking
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: prebuilt-popup
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: prebuilt-sidebar
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: readonly-state-agent-context
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: reasoning-default-render
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: shared-state-read-write
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: shared-state-streaming
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: subagents
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: tool-rendering
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: tool-rendering-custom-catchall
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: tool-rendering-default-catchall
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: tool-rendering-reasoning-chain
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: multimodal
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: voice
+    backend_highlight:
+      - src/agents/voice_agent.py
+  - id: auth
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: agent-config
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: byoc-hashbrown
+    backend_highlight:
+      - src/agents/byoc_hashbrown.py
+  - id: byoc-json-render
+    backend_highlight:
+      - src/agents/byoc_json_render.py
+  - id: open-gen-ui
+    backend_highlight:
+      - src/agents/open_gen_ui.py
+  - id: open-gen-ui-advanced
+    backend_highlight:
+      - src/agents/open_gen_ui.py
+  - id: mcp-apps
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: beautiful-chat
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: gen-ui-interrupt
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: interrupt-headless
+    backend_highlight:
+      - src/agents/agentic_chat.py

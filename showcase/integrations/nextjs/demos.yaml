@@ -1,0 +1,349 @@
+# Populated during Phase 1.
+- id: a2ui-fixed-schema
+  name: A2UI Fixed Schema
+  description: Declarative Generative UI with a fixed component schema — agent streams data into a pre-defined flight card layout
+  tags: [generative-ui]
+  route_template: /demos/{framework}/a2ui-fixed-schema
+  frontend_highlight:
+    - src/app/demos/[framework]/a2ui-fixed-schema/page.tsx
+    - src/app/demos/[framework]/a2ui-fixed-schema/a2ui/catalog.ts
+    - src/app/demos/[framework]/a2ui-fixed-schema/a2ui/definitions.ts
+    - src/app/demos/[framework]/a2ui-fixed-schema/a2ui/renderers.tsx
+    - src/app/api/[framework]/a2ui-fixed-schema/[[...slug]]/route.ts
+- id: agentic-chat
+  name: Agentic Chat
+  description: Natural conversation with frontend tool execution
+  tags: [chat-ui]
+  route_template: /demos/{framework}/agentic-chat
+  frontend_highlight:
+    - src/app/demos/[framework]/agentic-chat/page.tsx
+    - src/app/api/[framework]/agentic-chat/[[...slug]]/route.ts
+- id: agentic-chat-reasoning
+  name: Reasoning
+  description: Visible reasoning/thinking chain alongside the final answer
+  tags: [generative-ui]
+  route_template: /demos/{framework}/agentic-chat-reasoning
+  frontend_highlight:
+    - src/app/demos/[framework]/agentic-chat-reasoning/page.tsx
+    - src/app/demos/[framework]/agentic-chat-reasoning/reasoning-block.tsx
+    - src/app/api/[framework]/agentic-chat-reasoning/[[...slug]]/route.ts
+- id: chat-customization-css
+  name: Chat Customization (CSS)
+  description: Default CopilotChat re-themed via CopilotKitCSSProperties
+  tags: [chat-ui]
+  route_template: /demos/{framework}/chat-customization-css
+  frontend_highlight:
+    - src/app/demos/[framework]/chat-customization-css/page.tsx
+    - src/app/demos/[framework]/chat-customization-css/theme.css
+    - src/app/api/[framework]/chat-customization-css/[[...slug]]/route.ts
+- id: chat-slots
+  name: Chat Customization (Slots)
+  description: Customize CopilotChat via its slot system
+  tags: [chat-ui]
+  route_template: /demos/{framework}/chat-slots
+  frontend_highlight:
+    - src/app/demos/[framework]/chat-slots/page.tsx
+    - src/app/demos/[framework]/chat-slots/custom-welcome-screen.tsx
+    - src/app/api/[framework]/chat-slots/[[...slug]]/route.ts
+- id: declarative-gen-ui
+  name: Declarative Generative UI
+  description: A2UI BYOC — agent drives a custom component catalog declared on the frontend
+  tags: [generative-ui]
+  route_template: /demos/{framework}/declarative-gen-ui
+  frontend_highlight:
+    - src/app/demos/[framework]/declarative-gen-ui/page.tsx
+    - src/app/demos/[framework]/declarative-gen-ui/a2ui/catalog.ts
+    - src/app/demos/[framework]/declarative-gen-ui/a2ui/definitions.ts
+    - src/app/demos/[framework]/declarative-gen-ui/a2ui/renderers.tsx
+    - src/app/api/[framework]/declarative-gen-ui/[[...slug]]/route.ts
+- id: frontend-tools
+  name: Frontend Tools (In-App Actions)
+  description: Agent invokes client-side handlers registered with useFrontendTool
+  tags: [interactivity]
+  route_template: /demos/{framework}/frontend-tools
+  frontend_highlight:
+    - src/app/demos/[framework]/frontend-tools/page.tsx
+    - src/app/api/[framework]/frontend-tools/[[...slug]]/route.ts
+- id: frontend-tools-async
+  name: Frontend Tools (Async)
+  description: useFrontendTool with an async handler
+  tags: [interactivity]
+  route_template: /demos/{framework}/frontend-tools-async
+  frontend_highlight:
+    - src/app/demos/[framework]/frontend-tools-async/page.tsx
+    - src/app/demos/[framework]/frontend-tools-async/notes-card.tsx
+    - src/app/api/[framework]/frontend-tools-async/[[...slug]]/route.ts
+- id: gen-ui-agent
+  name: Agentic Generative UI
+  description: Agent streams structured state updates rendered as a live task-progress tracker
+  tags: [generative-ui]
+  route_template: /demos/{framework}/gen-ui-agent
+  frontend_highlight:
+    - src/app/demos/[framework]/gen-ui-agent/page.tsx
+    - src/app/api/[framework]/gen-ui-agent/[[...slug]]/route.ts
+- id: gen-ui-tool-based
+  name: Tool-Based Generative UI
+  description: Agent calls a frontend-registered tool to render haiku cards with images and gradients
+  tags: [generative-ui]
+  route_template: /demos/{framework}/gen-ui-tool-based
+  frontend_highlight:
+    - src/app/demos/[framework]/gen-ui-tool-based/page.tsx
+    - src/app/api/[framework]/gen-ui-tool-based/[[...slug]]/route.ts
+- id: headless-complete
+  name: Headless Chat (Complete)
+  description: Full chat implementation built from scratch on useAgent
+  tags: [chat-ui]
+  route_template: /demos/{framework}/headless-complete
+  frontend_highlight:
+    - src/app/demos/[framework]/headless-complete/page.tsx
+    - src/app/demos/[framework]/headless-complete/message-list.tsx
+    - src/app/demos/[framework]/headless-complete/use-rendered-messages.tsx
+    - src/app/api/[framework]/headless-complete/[[...slug]]/route.ts
+- id: headless-simple
+  name: Headless Chat (Simple)
+  description: Minimal custom chat surface built on useAgent
+  tags: [chat-ui]
+  route_template: /demos/{framework}/headless-simple
+  frontend_highlight:
+    - src/app/demos/[framework]/headless-simple/page.tsx
+    - src/app/api/[framework]/headless-simple/[[...slug]]/route.ts
+- id: hitl
+  name: In-Chat HITL (Steps)
+  description: Agent pauses for user approval via step-based human-in-the-loop
+  tags: [interactivity]
+  route_template: /demos/{framework}/hitl
+  frontend_highlight:
+    - src/app/demos/[framework]/hitl/page.tsx
+    - src/app/api/[framework]/hitl/[[...slug]]/route.ts
+- id: hitl-in-app
+  name: In-App Human in the Loop
+  description: Agent requests approval via async useFrontendTool; UI pops as an app-level modal
+  tags: [interactivity]
+  route_template: /demos/{framework}/hitl-in-app
+  frontend_highlight:
+    - src/app/demos/[framework]/hitl-in-app/page.tsx
+    - src/app/demos/[framework]/hitl-in-app/approval-dialog.tsx
+    - src/app/api/[framework]/hitl-in-app/[[...slug]]/route.ts
+- id: hitl-in-chat
+  name: In-Chat HITL (useHumanInTheLoop)
+  description: Inline approval/decision surface via the ergonomic useHumanInTheLoop hook
+  tags: [interactivity]
+  route_template: /demos/{framework}/hitl-in-chat
+  frontend_highlight:
+    - src/app/demos/[framework]/hitl-in-chat/page.tsx
+    - src/app/demos/[framework]/hitl-in-chat/time-picker-card.tsx
+    - src/app/api/[framework]/hitl-in-chat/[[...slug]]/route.ts
+- id: hitl-in-chat-booking
+  name: In-Chat HITL (Booking)
+  description: Time-picker card rendered inline via useHumanInTheLoop for a booking flow
+  tags: [interactivity]
+  route_template: /demos/{framework}/hitl-in-chat
+  frontend_highlight:
+    - src/app/demos/[framework]/hitl-in-chat/page.tsx
+    - src/app/demos/[framework]/hitl-in-chat/time-picker-card.tsx
+    - src/app/api/[framework]/hitl-in-chat/[[...slug]]/route.ts
+- id: prebuilt-popup
+  name: "Pre-Built: Popup"
+  description: Floating popup chat via <CopilotPopup />
+  tags: [chat-ui]
+  route_template: /demos/{framework}/prebuilt-popup
+  frontend_highlight:
+    - src/app/demos/[framework]/prebuilt-popup/page.tsx
+    - src/app/api/[framework]/prebuilt-popup/[[...slug]]/route.ts
+- id: prebuilt-sidebar
+  name: "Pre-Built: Sidebar"
+  description: Docked sidebar chat via <CopilotSidebar />
+  tags: [chat-ui]
+  route_template: /demos/{framework}/prebuilt-sidebar
+  frontend_highlight:
+    - src/app/demos/[framework]/prebuilt-sidebar/page.tsx
+    - src/app/api/[framework]/prebuilt-sidebar/[[...slug]]/route.ts
+- id: readonly-state-agent-context
+  name: Readonly State (Agent Context)
+  description: Frontend provides read-only context to the agent via useAgentContext
+  tags: [agent-state]
+  route_template: /demos/{framework}/readonly-state-agent-context
+  frontend_highlight:
+    - src/app/demos/[framework]/readonly-state-agent-context/page.tsx
+    - src/app/api/[framework]/readonly-state-agent-context/[[...slug]]/route.ts
+- id: reasoning-default-render
+  name: Reasoning (Default Render)
+  description: Built-in CopilotChatReasoningMessage renders without a custom slot
+  tags: [generative-ui]
+  route_template: /demos/{framework}/reasoning-default-render
+  frontend_highlight:
+    - src/app/demos/[framework]/reasoning-default-render/page.tsx
+    - src/app/api/[framework]/reasoning-default-render/[[...slug]]/route.ts
+- id: shared-state-read-write
+  name: Shared State (Read + Write)
+  description: Bidirectional agent state — UI writes preferences, agent writes notes back
+  tags: [agent-state]
+  route_template: /demos/{framework}/shared-state-read-write
+  frontend_highlight:
+    - src/app/demos/[framework]/shared-state-read-write/page.tsx
+    - src/app/demos/[framework]/shared-state-read-write/preferences-card.tsx
+    - src/app/demos/[framework]/shared-state-read-write/notes-card.tsx
+    - src/app/api/[framework]/shared-state-read-write/[[...slug]]/route.ts
+- id: shared-state-streaming
+  name: State Streaming
+  description: Per-token state delta streaming from agent to UI
+  tags: [agent-state]
+  route_template: /demos/{framework}/shared-state-streaming
+  frontend_highlight:
+    - src/app/demos/[framework]/shared-state-streaming/page.tsx
+    - src/app/api/[framework]/shared-state-streaming/[[...slug]]/route.ts
+- id: subagents
+  name: Sub-Agents
+  description: Multiple agents with visible task delegation
+  tags: [multi-agent]
+  route_template: /demos/{framework}/subagents
+  frontend_highlight:
+    - src/app/demos/[framework]/subagents/page.tsx
+    - src/app/demos/[framework]/subagents/delegation-log.tsx
+    - src/app/api/[framework]/subagents/[[...slug]]/route.ts
+- id: tool-rendering
+  name: Tool Rendering
+  description: Custom render for tool calls inline in the chat stream
+  tags: [generative-ui]
+  route_template: /demos/{framework}/tool-rendering
+  frontend_highlight:
+    - src/app/demos/[framework]/tool-rendering/page.tsx
+    - src/app/api/[framework]/tool-rendering/[[...slug]]/route.ts
+- id: tool-rendering-custom-catchall
+  name: Tool Rendering (Custom Catch-all)
+  description: Single branded wildcard renderer via useDefaultRenderTool — the same app-designed card paints every tool call
+  tags: [generative-ui]
+  route_template: /demos/{framework}/tool-rendering-custom-catchall
+  frontend_highlight:
+    - src/app/demos/[framework]/tool-rendering-custom-catchall/page.tsx
+    - src/app/demos/[framework]/tool-rendering-custom-catchall/custom-catchall-renderer.tsx
+    - src/app/api/[framework]/tool-rendering-custom-catchall/[[...slug]]/route.ts
+- id: tool-rendering-default-catchall
+  name: Tool Rendering (Default Catch-all)
+  description: Out-of-the-box tool rendering — backend defines the tools; the frontend adds zero custom renderers and relies on CopilotKit's built-in default UI
+  tags: [generative-ui]
+  route_template: /demos/{framework}/tool-rendering-default-catchall
+  frontend_highlight:
+    - src/app/demos/[framework]/tool-rendering-default-catchall/page.tsx
+    - src/app/api/[framework]/tool-rendering-default-catchall/[[...slug]]/route.ts
+- id: tool-rendering-reasoning-chain
+  name: Tool Rendering + Reasoning Chain
+  description: Sequential tool calls with reasoning tokens rendered side-by-side
+  tags: [generative-ui]
+  route_template: /demos/{framework}/tool-rendering-reasoning-chain
+  frontend_highlight:
+    - src/app/demos/[framework]/tool-rendering-reasoning-chain/page.tsx
+    - src/app/demos/[framework]/tool-rendering-reasoning-chain/reasoning-block.tsx
+    - src/app/demos/[framework]/tool-rendering-reasoning-chain/weather-card.tsx
+    - src/app/demos/[framework]/tool-rendering-reasoning-chain/flight-list-card.tsx
+    - src/app/demos/[framework]/tool-rendering-reasoning-chain/custom-catchall-renderer.tsx
+    - src/app/api/[framework]/tool-rendering-reasoning-chain/[[...slug]]/route.ts
+- id: multimodal
+  name: Multimodal Attachments
+  description: Image and PDF uploads via CopilotChat attachments — ask questions about files inline
+  tags: [multimodal]
+  route_template: /demos/{framework}/multimodal
+  frontend_highlight:
+    - src/app/demos/[framework]/multimodal/page.tsx
+    - src/app/demos/[framework]/multimodal/sample-attachment-buttons.tsx
+    - src/app/api/[framework]/multimodal/[[...slug]]/route.ts
+- id: voice
+  name: Voice Input
+  description: Speech-to-text transcription via OpenAI Whisper with mic button in CopilotChat
+  tags: [voice]
+  route_template: /demos/{framework}/voice
+  frontend_highlight:
+    - src/app/demos/[framework]/voice/page.tsx
+    - src/app/demos/[framework]/voice/sample-audio-button.tsx
+    - src/app/api/[framework]/voice/[[...slug]]/route.ts
+- id: auth
+  name: Authentication
+  description: Bearer-token gate via V2 runtime onRequest hook — sign out to exercise the 401 path
+  tags: [auth]
+  route_template: /demos/{framework}/auth
+  frontend_highlight:
+    - src/app/demos/[framework]/auth/page.tsx
+    - src/app/demos/[framework]/auth/auth-banner.tsx
+    - src/app/demos/[framework]/auth/use-demo-auth.ts
+    - src/app/demos/[framework]/auth/demo-token.ts
+    - src/app/api/[framework]/auth/[[...slug]]/route.ts
+- id: agent-config
+  name: Agent Config Object
+  description: Forward a typed config object from the frontend to the agent per turn
+  tags: [agent-state]
+  route_template: /demos/{framework}/agent-config
+  frontend_highlight:
+    - src/app/demos/[framework]/agent-config/page.tsx
+    - src/app/demos/[framework]/agent-config/config-card.tsx
+    - src/app/demos/[framework]/agent-config/use-agent-config.ts
+    - src/app/demos/[framework]/agent-config/config-types.ts
+    - src/app/api/[framework]/agent-config/[[...slug]]/route.ts
+- id: byoc-hashbrown
+  name: "BYOC: Hashbrown"
+  description: Streaming structured output rendered via @hashbrownai/react's useUiKit + useJsonParser
+  tags: [generative-ui]
+  route_template: /demos/{framework}/byoc-hashbrown
+  frontend_highlight:
+    - src/app/demos/[framework]/byoc-hashbrown/page.tsx
+    - src/app/demos/[framework]/byoc-hashbrown/hashbrown-renderer.tsx
+    - src/app/api/[framework]/byoc-hashbrown/[[...slug]]/route.ts
+- id: byoc-json-render
+  name: "BYOC: json-render"
+  description: JSON spec rendered via @json-render/react against a Zod catalog
+  tags: [generative-ui]
+  route_template: /demos/{framework}/byoc-json-render
+  frontend_highlight:
+    - src/app/demos/[framework]/byoc-json-render/page.tsx
+    - src/app/demos/[framework]/byoc-json-render/json-render-renderer.tsx
+    - src/app/demos/[framework]/byoc-json-render/catalog.ts
+    - src/app/api/[framework]/byoc-json-render/[[...slug]]/route.ts
+- id: open-gen-ui
+  name: Open Generative UI (Minimal)
+  description: Agent-authored HTML/CSS/SVG streamed into a sandboxed iframe — no host functions
+  tags: [generative-ui]
+  route_template: /demos/{framework}/open-gen-ui
+  frontend_highlight:
+    - src/app/demos/[framework]/open-gen-ui/page.tsx
+    - src/app/api/[framework]/open-gen-ui/[[...slug]]/route.ts
+- id: open-gen-ui-advanced
+  name: Open Generative UI (Advanced)
+  description: Sandboxed iframe with Websandbox.connection.remote host-bridge functions
+  tags: [generative-ui]
+  route_template: /demos/{framework}/open-gen-ui-advanced
+  frontend_highlight:
+    - src/app/demos/[framework]/open-gen-ui-advanced/page.tsx
+    - src/app/demos/[framework]/open-gen-ui-advanced/sandbox-functions.ts
+    - src/app/api/[framework]/open-gen-ui-advanced/[[...slug]]/route.ts
+- id: mcp-apps
+  name: MCP Apps
+  description: MCP server-driven UI via activity renderers — agent calls MCP tools; CopilotKit renders sandboxed iframes inline
+  tags: [generative-ui]
+  route_template: /demos/{framework}/mcp-apps
+  frontend_highlight:
+    - src/app/demos/[framework]/mcp-apps/page.tsx
+    - src/app/api/[framework]/mcp-apps/[[...slug]]/route.ts
+- id: beautiful-chat
+  name: Beautiful Chat
+  description: Polished landing-style chat surface with brand theming and seeded suggestions
+  tags: [chat-ui]
+  route_template: /demos/{framework}/beautiful-chat
+  frontend_highlight:
+    - src/app/demos/[framework]/beautiful-chat/page.tsx
+    - src/app/api/[framework]/beautiful-chat/[[...slug]]/route.ts
+- id: gen-ui-interrupt
+  name: In-Chat HITL via useInterrupt
+  description: Agent-driven time-picker card rendered inline via a promise-based frontend tool — agent blocks until the user picks a slot
+  tags: [interactivity]
+  route_template: /demos/{framework}/gen-ui-interrupt
+  frontend_highlight:
+    - src/app/demos/[framework]/gen-ui-interrupt/page.tsx
+    - src/app/demos/[framework]/gen-ui-interrupt/time-picker-card.tsx
+    - src/app/api/[framework]/gen-ui-interrupt/[[...slug]]/route.ts
+- id: interrupt-headless
+  name: Headless Interrupt Resolution
+  description: Picker popup in the app surface (outside chat) via a headless promise-based frontend tool
+  tags: [interactivity]
+  route_template: /demos/{framework}/interrupt-headless
+  frontend_highlight:
+    - src/app/demos/[framework]/interrupt-headless/page.tsx
+    - src/app/api/[framework]/interrupt-headless/[[...slug]]/route.ts

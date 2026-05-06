@@ -1,0 +1,24 @@
+{
+  "name": "showcase-integrations-agents-strands",
+  "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "showcase/integrations/agents/strands/src",
+  "targets": {
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "PYTHONPATH=. python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload",
+        "cwd": "showcase/integrations/agents/strands/src"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": { "command": "pytest", "cwd": "showcase/integrations/agents/strands" }
+    },
+    "docker:build": {
+      "executor": "nx:run-commands",
+      "options": { "command": "docker build -t showcase-integrations-agents-strands .", "cwd": "showcase/integrations/agents/strands" }
+    }
+  },
+  "tags": ["scope:showcase", "type:integration-backend", "lang:python"]
+}
