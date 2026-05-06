@@ -29,7 +29,6 @@ import {
 import { GuardrailsResult } from "../graphql/types/guardrails-result.type";
 import { generateHelpfulErrorMessage } from "../lib/streaming";
 import telemetry from "../lib/telemetry-client";
-import { streamLangChainResponse } from "./langchain/utils";
 
 export enum RuntimeEventTypes {
   TextMessageStart = "TextMessageStart",
