@@ -351,7 +351,7 @@ const nextConfig: NextConfig = {
       // point.
       {
         source: "/migrate/1.10.X",
-        destination: "/migrate",
+        destination: "/migrate/v2",
         permanent: false,
       },
 
