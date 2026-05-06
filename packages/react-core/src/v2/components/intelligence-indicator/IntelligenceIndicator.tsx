@@ -30,7 +30,9 @@ const FADE_OUT_ANIMATION_MS = 480;
  * we add per-instance customization later (e.g. a `CopilotKitProvider`
  * prop or a runtime-info field), this constant becomes the fallback.
  */
-const DEFAULT_TOOL_PATTERNS: readonly RegExp[] = [/^bash$/];
+const DEFAULT_TOOL_PATTERNS: readonly RegExp[] = [
+  /^copilotkit_knowledge_base_shell$/,
+];
 
 type Phase = "idle" | "spinner" | "check" | "fading" | "hidden";
 

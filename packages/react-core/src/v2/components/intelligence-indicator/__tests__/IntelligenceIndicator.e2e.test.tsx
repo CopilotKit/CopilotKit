@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { EventType } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import type { Observable } from "rxjs";
-import { type Subject } from "rxjs";
+import type { Subject } from "rxjs";
 import { takeWhile } from "rxjs/operators";
 import {
   MockStepwiseAgent,
@@ -76,7 +76,7 @@ const emitAssistantMessageWithToolCalls = (
     agent.emit(
       toolCallChunkEvent({
         toolCallId: tc.id,
-        toolCallName: tc.name ?? "bash",
+        toolCallName: tc.name ?? "copilotkit_knowledge_base_shell",
         parentMessageId: messageId,
         delta: tc.arg,
       }),
@@ -347,7 +347,7 @@ describe('IntelligenceIndicator — "Using CopilotKit Intelligence" (auto-mounte
 
     // Second message has a bash call — pill should appear on it.
     emitAssistantMessageWithToolCalls(agent, "m_match", [
-      { id: "tc_match", name: "bash", arg: "{}" },
+      { id: "tc_match", name: "copilotkit_knowledge_base_shell", arg: "{}" },
     ]);
     await waitFor(() => expectPillOn("m_match"));
     expectPillCount(1);
