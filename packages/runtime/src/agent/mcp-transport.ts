@@ -5,16 +5,6 @@ import type { StreamableHTTPClientTransportOptions } from "@modelcontextprotocol
 import type { FetchLike } from "@modelcontextprotocol/sdk/shared/transport.js";
 
 /**
- * The end-user identity resolved by the runtime's `identifyUser` callback for
- * the current request. Surfaced on {@link MCPRequestContext} so MCP header
- * resolvers can read it without re-doing auth work.
- */
-export interface MCPRuntimeUser {
-  id: string;
-  name: string;
-}
-
-/**
  * Context handed to {@link MCPClientConfigHTTP.getHeaders} on every outbound
  * MCP HTTP request. The resolver is invoked fresh per request — initialize,
  * tools/list, tools/call, and reconnects — so values it depends on are never
@@ -31,13 +21,6 @@ export interface MCPRequestContext {
   input: RunAgentInput;
   /** URL of the MCP server this request is going to. */
   mcpServerUrl: string;
-  /**
-   * The end-user identity for this run, resolved by the runtime's
-   * `identifyUser` callback (only populated when the agent is run via a
-   * `CopilotRuntime` configured with `identifyUser`). Snapshotted at
-   * run-start.
-   */
-  user?: MCPRuntimeUser;
 }
 
 /**
@@ -76,8 +59,6 @@ export interface CopilotKitMCPTransportOptions {
   requestHeaders: Record<string, string>;
   /** RunAgentInput for the current run, exposed to the resolver via context. */
   input: RunAgentInput;
-  /** Per-run end-user identity from the runtime's `identifyUser`, if set. */
-  user?: MCPRuntimeUser;
 }
 
 /**
@@ -149,7 +130,6 @@ function buildWrappedFetch(options: CopilotKitMCPTransportOptions): FetchLike {
     requestHeaders,
     input,
     url: mcpServerUrl,
-    user,
     options: transportOptions,
   } = options;
   const baseFetch: FetchLike = transportOptions?.fetch ?? globalThis.fetch;
@@ -171,7 +151,6 @@ function buildWrappedFetch(options: CopilotKitMCPTransportOptions): FetchLike {
           requestHeaders,
           input,
           mcpServerUrl,
-          user,
         });
       } catch (err) {
         throw new MCPHeaderResolverError(

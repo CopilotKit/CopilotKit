@@ -43,7 +43,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createVertex } from "@ai-sdk/google-vertex";
-import { logger, safeParseToolArgs } from "@copilotkit/shared";
+import { safeParseToolArgs } from "@copilotkit/shared";
 import { z } from "zod";
 import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
 import { schemaToJsonSchema } from "@copilotkit/shared";
@@ -54,9 +54,8 @@ import type { StreamableHTTPClientTransportOptions } from "@modelcontextprotocol
 import {
   CopilotKitMCPTransport,
   MCPHeaderResolverError,
-  type MCPRequestContext,
-  type MCPRuntimeUser,
 } from "./mcp-transport";
+import type { MCPRequestContext } from "./mcp-transport";
 import { randomUUID } from "@copilotkit/shared";
 
 /**
@@ -149,8 +148,6 @@ export interface MCPClientConfigHTTP {
   getHeaders?: (
     ctx: MCPRequestContext,
   ) => Record<string, string> | Promise<Record<string, string>>;
-  /** If true, the server is skipped at run-start when `agent.user` is unset. */
-  requiresUser?: boolean;
 }
 
 /**
@@ -169,6 +166,32 @@ export interface MCPClientConfigSSE {
  * MCP Client configuration.
  */
 export type MCPClientConfig = MCPClientConfigHTTP | MCPClientConfigSSE;
+
+/**
+ * Context handed to a function-form `mcpServers`. Lets a caller decide which
+ * MCP servers to attach for a given run, e.g. branching on a request header
+ * or thread metadata. Resolved fresh at the start of every run.
+ */
+export interface MCPServersResolverContext {
+  /**
+   * Headers forwarded onto the agent for this run (the same value that ends
+   * up in {@link MCPRequestContext.requestHeaders}). Lower-cased keys.
+   */
+  requestHeaders: Record<string, string>;
+  /** The {@link RunAgentInput} the agent is currently running. */
+  input: RunAgentInput;
+}
+
+/**
+ * `mcpServers` accepts either a static array or a function evaluated at
+ * run-start. The function form lets the runtime (or user code) decide which
+ * MCP servers to attach based on the current request.
+ */
+export type MCPServersConfig =
+  | MCPClientConfig[]
+  | ((
+      ctx: MCPServersResolverContext,
+    ) => MCPClientConfig[] | Promise<MCPClientConfig[]>);
 
 /**
  * A user-managed MCP client that provides tools to the agent. Structural
@@ -196,7 +219,6 @@ async function openMcpClient(
   context: {
     requestHeaders: Record<string, string>;
     input: RunAgentInput;
-    user?: MCPRuntimeUser;
   },
 ): Promise<MCPClient> {
   if (config.type === "http") {
@@ -207,7 +229,6 @@ async function openMcpClient(
       options: config.options,
       requestHeaders: context.requestHeaders,
       input: context.input,
-      user: context.user,
     });
     return createMCPClient({ transport });
   }
@@ -840,9 +861,12 @@ export interface BuiltInAgentClassicConfig {
    */
   overridableProperties?: OverridableProperty[];
   /**
-   * Optional list of MCP server configurations
+   * Optional list of MCP server configurations, or a function that returns
+   * the list at run-start. The function form receives the agent's per-run
+   * forwarded headers and the {@link RunAgentInput}, so it can attach servers
+   * conditionally on request metadata.
    */
-  mcpServers?: MCPClientConfig[];
+  mcpServers?: MCPServersConfig;
   /**
    * Optional list of user-managed MCP clients.
    * Unlike mcpServers, the agent does NOT create or close these clients.
@@ -916,12 +940,15 @@ export class BuiltInAgent extends AbstractAgent {
    */
   public headers: Record<string, string> = {};
   /**
-   * End-user identity for the current request, populated by the runtime by
-   * invoking `identifyUser(request)` (Intelligence mode). Surfaced to MCP
-   * header resolvers via {@link MCPRequestContext.user}; remains undefined
-   * for runs that aren't going through a runtime with `identifyUser` set.
+   * Side-channel for runtime-injected MCP servers. Resolved at run-start the
+   * same way as `config.mcpServers` and concatenated after user-supplied
+   * servers. Set by the runtime layer (e.g. to auto-attach Intelligence's
+   * MCP server when the runtime is configured for intelligence and a user
+   * has been resolved); not part of the user-facing API.
+   *
+   * @internal
    */
-  public user?: { id: string; name: string };
+  public runtimeMcpServers?: MCPServersConfig;
 
   constructor(private config: BuiltInAgentConfiguration) {
     super();
@@ -1258,32 +1285,38 @@ export class BuiltInAgent extends AbstractAgent {
             }
           }
 
-          // Initialize MCP clients and get their tools
-          if (this.config.mcpServers && this.config.mcpServers.length > 0) {
-            // Snapshot the agent's per-run state (forwarded headers + user)
-            // once at run-start. Resolvers see this immutable snapshot for the
-            // lifetime of the run, including any reconnections fired after the
-            // initial run completes.
+          // Initialize MCP clients and get their tools.
+          //
+          // Servers come from two sources, concatenated in order:
+          //   - `config.mcpServers` — user-supplied (array or function form).
+          //   - `this.runtimeMcpServers` — runtime-injected side channel
+          //     (e.g. Intelligence auto-attach). Same shape as the public
+          //     field, also array or function.
+          //
+          // The agent does not distinguish between the two beyond ordering;
+          // both go through the same `openMcpClient` pipeline. Function-form
+          // values receive the per-run forwarded `requestHeaders` plus the
+          // current `input` so callers can branch dynamically.
+          if (this.config.mcpServers || this.runtimeMcpServers) {
             const requestHeaders: Record<string, string> = { ...this.headers };
-            const user = this.user ? { ...this.user } : undefined;
+            const ctx = { requestHeaders, input };
 
-            for (const serverConfig of this.config.mcpServers) {
-              if (
-                serverConfig.type === "http" &&
-                serverConfig.requiresUser &&
-                !user
-              ) {
-                logger.warn(
-                  { url: serverConfig.url },
-                  "Skipping MCP server: requiresUser is set but no user is resolved for this run",
-                );
-                continue;
-              }
+            const resolve = async (
+              source: MCPServersConfig | undefined,
+            ): Promise<MCPClientConfig[]> => {
+              if (!source) return [];
+              return typeof source === "function" ? source(ctx) : source;
+            };
 
+            const serverConfigs = [
+              ...(await resolve(this.config.mcpServers)),
+              ...(await resolve(this.runtimeMcpServers)),
+            ];
+
+            for (const serverConfig of serverConfigs) {
               const mcpClient = await openMcpClient(serverConfig, {
                 requestHeaders,
                 input,
-                user,
               });
               mcpClients.push(mcpClient);
 

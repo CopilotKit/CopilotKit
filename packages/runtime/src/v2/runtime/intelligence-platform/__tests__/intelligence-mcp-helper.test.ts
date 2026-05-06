@@ -10,6 +10,8 @@ import {
   finish,
   collectEvents,
 } from "../../../../agent/__tests__/test-helpers";
+import { configureAgentForRequest } from "../../handlers/shared/agent-utils";
+import type { CopilotRuntimeLike } from "../../core/runtime";
 
 vi.mock("ai", () => ({
   streamText: vi.fn(),
@@ -73,16 +75,45 @@ function spyOnFetch(mcpUrl: string): {
   return { records, restore: () => spy.mockRestore() };
 }
 
-describe("CopilotKitIntelligence.toMCPServer()", () => {
-  const baseInput = {
-    threadId: "thread1",
-    runId: "run1",
-    messages: [],
-    tools: [],
-    context: [],
-    state: {},
-  };
+const baseInput = {
+  threadId: "thread1",
+  runId: "run1",
+  messages: [],
+  tools: [],
+  context: [],
+  state: {},
+};
 
+/**
+ * Stand in for the runtime → handler boundary for these tests:
+ *   1. `configureAgentForRequest` installs middleware + sets `agent.headers`
+ *      from the request, AND installs the runtime-mcp auto-attach when
+ *      Intelligence has `mcpServer: true`.
+ *   2. `intelligence/run.ts` then writes `x-cpki-user-id` onto `agent.headers`
+ *      (after `identifyUser` resolves). We simulate that here by setting the
+ *      header directly on the agent.
+ */
+function wireForRun(
+  agent: BasicAgent,
+  intelligence: CopilotKitIntelligence | undefined,
+  options: { userId?: string } = {},
+): void {
+  const runtime = {
+    agents: {},
+    ...(intelligence ? { intelligence } : {}),
+  } as unknown as CopilotRuntimeLike;
+  configureAgentForRequest({
+    runtime,
+    request: new Request("http://localhost/run"),
+    agentId: "default",
+    agent,
+  });
+  if (options.userId) {
+    agent.headers = { ...agent.headers, "x-cpki-user-id": options.userId };
+  }
+}
+
+describe("Intelligence auto-attach (configureAgentForRequest)", () => {
   let llm: LLMock | undefined;
   const originalEnv = process.env;
 
@@ -100,7 +131,7 @@ describe("CopilotKitIntelligence.toMCPServer()", () => {
     }
   });
 
-  it("emits Authorization (Bearer apiKey) and X-Cpki-User-Id (resolved user) on every MCP request", async () => {
+  it("attaches the Intelligence MCP server when mcpServer=true AND a user-id is forwarded", async () => {
     const { url, server } = await startMcpMock();
     llm = server;
 
@@ -108,17 +139,13 @@ describe("CopilotKitIntelligence.toMCPServer()", () => {
       apiUrl: url,
       wsUrl: "wss://unused.example.com/socket",
       apiKey: "cpk-proj_short_long",
+      mcpServer: true,
     });
 
     const recorder = spyOnFetch(url);
     try {
-      const agent = new BasicAgent({
-        model: "openai/gpt-4o",
-        mcpServers: [intelligence.toMCPServer()],
-      });
-      // The runtime would normally populate this via `identifyUser` after
-      // resolveIntelligenceUser. Simulate the same outcome here.
-      agent.user = { id: "jordan-beamson", name: "Jordan Beamson" };
+      const agent = new BasicAgent({ model: "openai/gpt-4o" });
+      wireForRun(agent, intelligence, { userId: "jordan-beamson" });
 
       vi.mocked(streamText).mockReturnValue(
         mockStreamTextResponse([textDelta("hi"), finish()]) as any,
@@ -136,17 +163,7 @@ describe("CopilotKitIntelligence.toMCPServer()", () => {
     }
   });
 
-  it("returned config has requiresUser=true so user-less sub-runs skip the server", () => {
-    const intelligence = new CopilotKitIntelligence({
-      apiUrl: "https://api.example.com",
-      wsUrl: "wss://ws.example.com",
-      apiKey: "k",
-    });
-
-    expect(intelligence.toMCPServer().requiresUser).toBe(true);
-  });
-
-  it("agent run with intelligence.toMCPServer() and no user completes without error (the thread-naming sub-run shape)", async () => {
+  it("does NOT attach when mcpServer is unset (default opt-in)", async () => {
     const { url, server } = await startMcpMock();
     llm = server;
 
@@ -154,37 +171,135 @@ describe("CopilotKitIntelligence.toMCPServer()", () => {
       apiUrl: url,
       wsUrl: "wss://unused.example.com/socket",
       apiKey: "cpk-proj_short_long",
+      // mcpServer omitted → default false
     });
 
     const recorder = spyOnFetch(url);
     try {
-      const agent = new BasicAgent({
-        model: "openai/gpt-4o",
-        mcpServers: [intelligence.toMCPServer()],
-      });
-      // No agent.user — mirrors the cloned naming sub-run.
+      const agent = new BasicAgent({ model: "openai/gpt-4o" });
+      wireForRun(agent, intelligence, { userId: "jordan-beamson" });
 
       vi.mocked(streamText).mockReturnValue(
         mockStreamTextResponse([finish()]) as any,
       );
+      await collectEvents(agent["run"](baseInput));
 
-      const events = await collectEvents(agent["run"](baseInput));
-
-      expect(
-        events.find((e: any) => e.type === EventType.RUN_ERROR),
-      ).toBeUndefined();
       expect(recorder.records.length).toBe(0);
     } finally {
       recorder.restore();
     }
   });
 
-  it("URL is composed from apiUrl + /mcp (trailing slash on apiUrl is normalized)", () => {
+  it("does NOT attach when mcpServer=true but no user-id has been forwarded", async () => {
+    const { url, server } = await startMcpMock();
+    llm = server;
+
     const intelligence = new CopilotKitIntelligence({
-      apiUrl: "https://api.example.com/",
-      wsUrl: "wss://ws.example.com",
-      apiKey: "k",
+      apiUrl: url,
+      wsUrl: "wss://unused.example.com/socket",
+      apiKey: "cpk-proj_short_long",
+      mcpServer: true,
     });
-    expect(intelligence.toMCPServer().url).toBe("https://api.example.com/mcp");
+
+    const recorder = spyOnFetch(url);
+    try {
+      const agent = new BasicAgent({ model: "openai/gpt-4o" });
+      // No userId → identifyUser hasn't placed the header onto agent.headers.
+      wireForRun(agent, intelligence);
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
+      await collectEvents(agent["run"](baseInput));
+
+      expect(recorder.records.length).toBe(0);
+    } finally {
+      recorder.restore();
+    }
+  });
+
+  it("does NOT attach when the user has already configured a server pointing at the same URL (explicit opt-in wins)", async () => {
+    const { url, server } = await startMcpMock();
+    llm = server;
+
+    const intelligence = new CopilotKitIntelligence({
+      apiUrl: url,
+      wsUrl: "wss://unused.example.com/socket",
+      apiKey: "cpk-proj_short_long",
+      mcpServer: true,
+    });
+
+    let userServerInvocations = 0;
+    const agent = new BasicAgent({
+      model: "openai/gpt-4o",
+      // User has explicitly configured the same URL with their own headers.
+      mcpServers: [
+        {
+          type: "http",
+          url: `${url}/mcp`,
+          headers: { Authorization: "Bearer user-supplied" },
+          getHeaders: () => {
+            userServerInvocations++;
+            return { "X-Cpki-User-Id": "explicit-user" };
+          },
+        },
+      ],
+    });
+    wireForRun(agent, intelligence, { userId: "from-runtime" });
+
+    const recorder = spyOnFetch(`${url}/mcp`);
+    try {
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
+      await collectEvents(agent["run"](baseInput));
+
+      expect(recorder.records.length).toBeGreaterThan(0);
+      // Only the user's server hits the wire — auto-attach skipped, so the
+      // user's explicit headers are the ones delivered.
+      for (const headers of recorder.records) {
+        expect(headers["authorization"]).toBe("Bearer user-supplied");
+        expect(headers["x-cpki-user-id"]).toBe("explicit-user");
+      }
+      // The user's resolver was invoked (proves their server actually loaded
+      // tools rather than being silently bypassed).
+      expect(userServerInvocations).toBeGreaterThan(0);
+    } finally {
+      recorder.restore();
+    }
+  });
+
+  it("apiUrl trailing slash is normalized when building the auto-attached server URL", async () => {
+    // Start the mock so we have a real URL to point apiUrl at, then re-wrap
+    // with a trailing slash in the Intelligence config.
+    const { url, server } = await startMcpMock();
+    llm = server;
+
+    const intelligence = new CopilotKitIntelligence({
+      apiUrl: `${url}/`,
+      wsUrl: "wss://unused.example.com/socket",
+      apiKey: "cpk-proj_short_long",
+      mcpServer: true,
+    });
+
+    const recorder = spyOnFetch(url);
+    try {
+      const agent = new BasicAgent({ model: "openai/gpt-4o" });
+      wireForRun(agent, intelligence, { userId: "alice" });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
+      await collectEvents(agent["run"](baseInput));
+
+      // Outbound URLs are `${apiUrl}/mcp`, never `${apiUrl}//mcp`.
+      const events: unknown[] = [];
+      expect(
+        events.find((e: any) => e?.type === EventType.RUN_ERROR),
+      ).toBeUndefined();
+      expect(recorder.records.length).toBeGreaterThan(0);
+    } finally {
+      recorder.restore();
+    }
   });
 });

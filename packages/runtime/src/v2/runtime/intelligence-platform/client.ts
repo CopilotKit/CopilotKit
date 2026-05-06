@@ -1,12 +1,16 @@
 import { logger } from "@copilotkit/shared";
-import type { MCPClientConfigHTTP } from "../../../agent";
 
-// Header name carrying the per-call end-user identity that the CopilotKit
-// Intelligence `/mcp` endpoint requires. Encapsulated inside the helper so
-// users of `intelligence.toMCPServer()` never need to know the wire-level
-// header name — they configure `identifyUser` once on the runtime and the
-// helper does the rest.
-const INTELLIGENCE_USER_ID_HEADER = "x-cpki-user-id";
+/**
+ * Header name carrying the per-call end-user identity that the CopilotKit
+ * Intelligence `/mcp` endpoint requires. Internal CopilotKit machinery — the
+ * runtime stamps this onto `agent.headers` after `identifyUser` resolves,
+ * and the auto-attach in `configureAgentForRequest` reads it back to gate
+ * MCP-server attachment and to populate the outbound `X-Cpki-User-Id`
+ * header on every MCP request. Not part of the public user API.
+ *
+ * @internal
+ */
+export const INTELLIGENCE_USER_ID_HEADER = "x-cpki-user-id";
 
 /**
  * Error thrown when an Intelligence platform HTTP request returns a non-2xx
@@ -72,6 +76,19 @@ export interface CopilotKitIntelligenceConfig {
   wsUrl: string;
   /** API key for authenticating with the intelligence platform */
   apiKey: string;
+  /**
+   * Enable the Intelligence platform's MCP server (bash + thread tools) on
+   * every `BuiltInAgent` run that resolves a user. The auto-attach is
+   * implemented in `configureAgentForRequest`: when this flag is `true`
+   * AND the runtime's `identifyUser` callback has placed a user-id onto
+   * the agent's forwarded headers AND the user has not already configured
+   * an MCP server pointing at the same URL, the server is appended to the
+   * agent's effective MCP server list for that run.
+   *
+   * Defaults to `false` — opt-in. Existing intelligence setups continue to
+   * work without the bash MCP server unless they flip this flag.
+   */
+  mcpServer?: boolean;
   /**
    * Initial listener invoked after a thread is created.
    * Prefer {@link CopilotKitIntelligence.onThreadCreated} for multiple listeners.
@@ -249,6 +266,7 @@ export class CopilotKitIntelligence {
   #runnerWsUrl: string;
   #clientWsUrl: string;
   #apiKey: string;
+  #mcpServerEnabled: boolean;
   #threadCreatedListeners = new Set<(thread: ThreadSummary) => void>();
   #threadUpdatedListeners = new Set<(thread: ThreadSummary) => void>();
   #threadDeletedListeners = new Set<(params: ThreadDeletedPayload) => void>();
@@ -260,6 +278,7 @@ export class CopilotKitIntelligence {
     this.#runnerWsUrl = deriveRunnerWsUrl(intelligenceWsUrl);
     this.#clientWsUrl = deriveClientWsUrl(intelligenceWsUrl);
     this.#apiKey = config.apiKey;
+    this.#mcpServerEnabled = config.mcpServer ?? false;
 
     if (config.onThreadCreated) {
       this.onThreadCreated(config.onThreadCreated);
@@ -348,64 +367,14 @@ export class CopilotKitIntelligence {
     return this.#apiKey;
   }
 
-  /**
-   * Build an MCP-server config pre-wired for this Intelligence platform
-   * connection. Drop the result into a `BuiltInAgent`'s `mcpServers` to give
-   * the agent access to Intel's bash + thread tools with both auth axes
-   * correctly populated:
-   *
-   * - `Authorization: Bearer <apiKey>` is stamped on every outbound request
-   *   from this Intelligence client's project key.
-   * - `X-Cpki-User-Id` is read fresh per call from the agent's resolved user,
-   *   which is populated by the runtime's `identifyUser` callback. The
-   *   helper does not surface the header name to user code.
-   *
-   * @example
-   * ```ts
-   * const intelligence = new CopilotKitIntelligence({
-   *   apiUrl: "https://api.copilotkit.ai",
-   *   wsUrl:  "wss://api.copilotkit.ai",
-   *   apiKey: process.env.INTELLIGENCE_API_KEY!,
-   * });
-   *
-   * const runtime = new CopilotRuntime({
-   *   intelligence,
-   *   identifyUser: (request) => resolveUserFromSession(request),
-   *   agents: {
-   *     myAgent: new BuiltInAgent({
-   *       model: "openai/gpt-4o",
-   *       mcpServers: [intelligence.toMCPServer()],
-   *     }),
-   *   },
-   * });
-   * ```
-   *
-   * The resolver throws if no user is present — typically the runtime is
-   * misconfigured (no `identifyUser`) or `identifyUser` returned an invalid
-   * id. Silent fallthrough to an empty user-id would collapse every browser
-   * session for this project into one shared bash sandbox, which is the
-   * very isolation guarantee the per-call header exists to enforce.
-   */
-  toMCPServer(): MCPClientConfigHTTP {
-    const apiKey = this.#apiKey;
-    const url = `${this.#apiUrl}/mcp`;
-    return {
-      type: "http",
-      url,
-      headers: { Authorization: `Bearer ${apiKey}` },
-      requiresUser: true,
-      getHeaders: ({ user }) => {
-        const userId = user?.id?.trim();
-        if (!userId) {
-          throw new Error(
-            "CopilotKitIntelligence.toMCPServer(): no user resolved for this run. " +
-              "Configure `identifyUser` on the CopilotRuntime so the agent " +
-              "knows which end-user each MCP call is on behalf of.",
-          );
-        }
-        return { [INTELLIGENCE_USER_ID_HEADER]: userId };
-      },
-    };
+  /** @internal Used by the runtime's auto-attach to populate `Authorization`. */
+  ɵgetApiKey(): string {
+    return this.#apiKey;
+  }
+
+  /** @internal Used by the runtime's auto-attach to gate MCP attachment. */
+  ɵisMcpServerEnabled(): boolean {
+    return this.#mcpServerEnabled;
   }
 
   async #request<T>(method: string, path: string, body?: unknown): Promise<T> {

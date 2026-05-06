@@ -1,18 +1,19 @@
-import {
+import type {
   AbstractAgent,
   BaseEvent,
-  EventType,
   Message,
   RunAgentInput,
 } from "@ag-ui/client";
-import { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
+import { EventType } from "@ag-ui/client";
+import type { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
 import { generateThreadNameForNewThread } from "./thread-names";
 import { logger } from "@copilotkit/shared";
 import { telemetry } from "../../telemetry";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 import { isHandlerResponse } from "../shared/json-response";
-import { AgentRunnerRunRequest } from "../../runner/agent-runner";
-import { Observable } from "rxjs";
+import { INTELLIGENCE_USER_ID_HEADER } from "../../intelligence-platform/client";
+import type { AgentRunnerRunRequest } from "../../runner/agent-runner";
+import type { Observable } from "rxjs";
 
 /**
  * Builds browser-facing realtime connection metadata owned by the runtime.
@@ -80,14 +81,17 @@ export async function handleIntelligenceRun({
   }
   const userId = user.id;
 
-  // Surface the resolved user on the agent so MCP header resolvers (and any
-  // other per-run consumer) can read it via context. Snapshotted by the
-  // BuiltInAgent at run-start; runs that don't go through this Intelligence
-  // path leave `agent.user` undefined.
-  (agent as unknown as { user?: { id: string; name: string } }).user = {
-    id: user.id,
-    name: user.name,
+  // Forward the resolved user-id as a request header on the agent. Anything
+  // running per-request — middleware, MCP header resolvers, the
+  // configureAgentForRequest auto-attach — reads it from `agent.headers` /
+  // `MCPRequestContext.requestHeaders` like any other forwarded value. Runs
+  // that don't go through this Intelligence path simply lack the header.
+  const agentWithHeaders = agent as unknown as {
+    headers?: Record<string, string>;
   };
+  if (agentWithHeaders.headers) {
+    agentWithHeaders.headers[INTELLIGENCE_USER_ID_HEADER] = userId;
+  }
 
   try {
     const { thread, created } = await runtime.intelligence.getOrCreateThread({

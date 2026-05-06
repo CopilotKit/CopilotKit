@@ -3,7 +3,6 @@ import { BasicAgent, MCPHeaderResolverError } from "../index";
 import { EventType } from "@ag-ui/client";
 import { streamText } from "ai";
 import { LLMock, MCPMock } from "@copilotkit/aimock";
-import { logger } from "@copilotkit/shared";
 import {
   mockStreamTextResponse,
   textDelta,
@@ -523,7 +522,7 @@ describe("mcpServers — real MCP server integration", () => {
       expect(new Set(userIds).size).toBeGreaterThanOrEqual(2);
     });
 
-    it("getHeaders receives requestHeaders snapshot + input + mcpServerUrl", async () => {
+    it("getHeaders receives requestHeaders + input + mcpServerUrl (no user concept)", async () => {
       const result = await startMcpServerWithJournal([{ name: "get_weather" }]);
       llm = result.llm;
       mcpMock = result.mcpMock;
@@ -532,6 +531,7 @@ describe("mcpServers — real MCP server integration", () => {
         requestHeaders: Record<string, string>;
         threadId: string;
         mcpServerUrl: string;
+        keys: string[];
       }> = [];
 
       const agent = new BasicAgent({
@@ -540,11 +540,12 @@ describe("mcpServers — real MCP server integration", () => {
           {
             type: "http",
             url: result.mcpUrl,
-            getHeaders: ({ requestHeaders, input, mcpServerUrl }) => {
+            getHeaders: (ctx) => {
               seenContexts.push({
-                requestHeaders: { ...requestHeaders },
-                threadId: input.threadId,
-                mcpServerUrl,
+                requestHeaders: { ...ctx.requestHeaders },
+                threadId: ctx.input.threadId,
+                mcpServerUrl: ctx.mcpServerUrl,
+                keys: Object.keys(ctx),
               });
               return { "X-Cpki-User-Id": "anyone" };
             },
@@ -564,6 +565,10 @@ describe("mcpServers — real MCP server integration", () => {
       expect(ctx.requestHeaders["x-cpki-user-id"]).toBe("from-bff");
       expect(ctx.threadId).toBe("thread1");
       expect(ctx.mcpServerUrl).toBe(result.mcpUrl);
+      // Regression: the resolver context must not surface a `user` field —
+      // user identity flows through `requestHeaders` like any other
+      // forwarded value.
+      expect(ctx.keys).not.toContain("user");
     });
 
     it("getHeaders throwing surfaces RUN_ERROR carrying MCPHeaderResolverError", async () => {
@@ -678,132 +683,74 @@ describe("mcpServers — real MCP server integration", () => {
       }
     });
 
-    it("requiresUser=true: server is skipped when no user is on the agent", async () => {
+    it("mcpServers function form: resolved per run, sees the same forwarded headers as getHeaders", async () => {
+      const result = await startMcpServerWithJournal([{ name: "get_weather" }]);
+      llm = result.llm;
+      mcpMock = result.mcpMock;
+
+      const seenCtxKeys: string[] = [];
+      let resolverCalls = 0;
+
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+        mcpServers: (ctx) => {
+          resolverCalls++;
+          seenCtxKeys.push(...Object.keys(ctx));
+          // Branch on a forwarded header — only attach the server when a
+          // tenant id is present.
+          if (!ctx.requestHeaders["x-tenant-id"]) return [];
+          return [
+            {
+              type: "http",
+              url: result.mcpUrl,
+              headers: { Authorization: "Bearer dynamic" },
+            },
+          ];
+        },
+      });
+      agent.headers = { "x-tenant-id": "acme" };
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
+      await collectEvents(agent["run"](baseInput));
+
+      // Function called exactly once per run.
+      expect(resolverCalls).toBe(1);
+      // Context exposes only the documented fields.
+      expect(new Set(seenCtxKeys)).toEqual(
+        new Set(["requestHeaders", "input"]),
+      );
+      // The conditionally-attached server actually loaded tools.
+      const callArgs = vi.mocked(streamText).mock.calls[0][0];
+      expect(callArgs.tools).toHaveProperty("get_weather");
+    });
+
+    it("mcpServers function form: returns [] → no servers attached, no requests on the wire", async () => {
       const result = await startMcpServerWithJournal([{ name: "get_weather" }]);
       llm = result.llm;
       mcpMock = result.mcpMock;
 
       const recorder = spyOnFetch(result.mcpUrl);
-      const resolver = vi.fn(() => ({ "X-Cpki-User-Id": "never" }));
       try {
         const agent = new BasicAgent({
           model: "openai/gpt-4o",
-          mcpServers: [
-            {
-              type: "http",
-              url: result.mcpUrl,
-              requiresUser: true,
-              getHeaders: resolver,
-            },
-          ],
+          // No tenant header on the agent → resolver returns [].
+          mcpServers: (ctx) =>
+            ctx.requestHeaders["x-tenant-id"]
+              ? [{ type: "http", url: result.mcpUrl }]
+              : [],
         });
 
         vi.mocked(streamText).mockReturnValue(
           mockStreamTextResponse([finish()]) as any,
         );
 
-        const events = await collectEvents(agent["run"](baseInput));
+        await collectEvents(agent["run"](baseInput));
 
-        expect(
-          events.find((e) => e.type === EventType.RUN_ERROR),
-        ).toBeUndefined();
         expect(recorder.records.length).toBe(0);
-        // Skip happens before the transport opens — resolver never invoked.
-        expect(resolver).not.toHaveBeenCalled();
       } finally {
         recorder.restore();
-      }
-    });
-
-    it("requiresUser=true: server is included as normal when a user is set", async () => {
-      const result = await startMcpServerWithJournal([{ name: "get_weather" }]);
-      llm = result.llm;
-      mcpMock = result.mcpMock;
-
-      const recorder = spyOnFetch(result.mcpUrl);
-      try {
-        const agent = new BasicAgent({
-          model: "openai/gpt-4o",
-          mcpServers: [
-            {
-              type: "http",
-              url: result.mcpUrl,
-              requiresUser: true,
-              getHeaders: ({ user }) => ({ "X-Cpki-User-Id": user!.id }),
-            },
-          ],
-        });
-        agent.user = { id: "alice", name: "Alice" };
-
-        vi.mocked(streamText).mockReturnValue(
-          mockStreamTextResponse([finish()]) as any,
-        );
-
-        await collectEvents(agent["run"](baseInput));
-
-        expect(recorder.records.length).toBeGreaterThan(0);
-        for (const headers of recorder.records) {
-          expect(headers["x-cpki-user-id"]).toBe("alice");
-        }
-      } finally {
-        recorder.restore();
-      }
-    });
-
-    it("requiresUser only skips the flagged server: peers without the flag still load tools", async () => {
-      const flagged = await startMcpServerWithJournal([{ name: "alpha_tool" }]);
-      const peer = await startMcpServerWithJournal([{ name: "beta_tool" }]);
-      llm = flagged.llm;
-      mcpMock = flagged.mcpMock;
-
-      try {
-        const agent = new BasicAgent({
-          model: "openai/gpt-4o",
-          mcpServers: [
-            { type: "http", url: flagged.mcpUrl, requiresUser: true },
-            { type: "http", url: peer.mcpUrl },
-          ],
-        });
-
-        vi.mocked(streamText).mockReturnValue(
-          mockStreamTextResponse([finish()]) as any,
-        );
-
-        await collectEvents(agent["run"](baseInput));
-
-        const callArgs = vi.mocked(streamText).mock.calls[0][0];
-        expect(callArgs.tools).toHaveProperty("beta_tool");
-        expect(callArgs.tools).not.toHaveProperty("alpha_tool");
-      } finally {
-        await peer.llm.stop().catch(() => {});
-      }
-    });
-
-    it("requiresUser=true: skip is logged at warn level", async () => {
-      const result = await startMcpServerWithJournal([{ name: "get_weather" }]);
-      llm = result.llm;
-      mcpMock = result.mcpMock;
-
-      const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
-      try {
-        const agent = new BasicAgent({
-          model: "openai/gpt-4o",
-          mcpServers: [
-            { type: "http", url: result.mcpUrl, requiresUser: true },
-          ],
-        });
-
-        vi.mocked(streamText).mockReturnValue(
-          mockStreamTextResponse([finish()]) as any,
-        );
-        await collectEvents(agent["run"](baseInput));
-
-        expect(warnSpy).toHaveBeenCalledWith(
-          expect.objectContaining({ url: result.mcpUrl }),
-          expect.stringContaining("Skipping MCP server"),
-        );
-      } finally {
-        warnSpy.mockRestore();
       }
     });
 
