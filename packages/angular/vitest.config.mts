@@ -28,6 +28,13 @@ export default defineConfig(({ mode }) => ({
     poolOptions: { threads: { singleThread: true } },
     reporters: [["default", { summary: false }]],
     silent: true,
+    // Inline @copilotkit/* so vi.mock("phoenix") intercepts the bundled
+    // imports inside @copilotkit/core's dist (mirrors react-core's config).
+    server: {
+      deps: {
+        inline: [/^@copilotkit/],
+      },
+    },
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
