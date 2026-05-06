@@ -51,11 +51,12 @@ import { jsonSchema as aiJsonSchema } from "ai";
 import { convertAISDKStream } from "./converters/aisdk";
 import { convertTanStackStream } from "./converters/tanstack";
 import type { StreamableHTTPClientTransportOptions } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import {
-  CopilotKitMCPTransport,
-  MCPHeaderResolverError,
-} from "./mcp-transport";
-import type { MCPRequestContext } from "./mcp-transport";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { MCPHeaderResolverError, withDynamicMcpHeaders } from "./mcp-headers";
+import type {
+  MCPRequestContext,
+  WithDynamicMcpHeadersOptions,
+} from "./mcp-headers";
 import { randomUUID } from "@copilotkit/shared";
 
 /**
@@ -112,10 +113,10 @@ export type BuiltInAgentModel =
  */
 export type ModelSpecifier = string | LanguageModel;
 
-// MCPRequestContext and MCPHeaderResolverError now live in mcp-transport.ts.
-// Re-export so existing imports of these symbols from agent/index continue to
-// work.
-export { MCPHeaderResolverError, type MCPRequestContext };
+// Re-export the dynamic-header helpers so consumers can import them via the
+// public agent module.
+export { MCPHeaderResolverError, withDynamicMcpHeaders };
+export type { MCPRequestContext, WithDynamicMcpHeadersOptions };
 
 /**
  * MCP Client configuration for HTTP transport.
@@ -175,9 +176,9 @@ export type MCPClientConfig = MCPClientConfigHTTP | MCPClientConfigSSE;
 export interface MCPServersResolverContext {
   /**
    * Headers forwarded onto the agent for this run (the same value that ends
-   * up in {@link MCPRequestContext.requestHeaders}). Lower-cased keys.
+   * up in {@link MCPRequestContext.forwardedRequestHeaders}). Lower-cased keys.
    */
-  requestHeaders: Record<string, string>;
+  forwardedRequestHeaders: Record<string, string>;
   /** The {@link RunAgentInput} the agent is currently running. */
   input: RunAgentInput;
 }
@@ -207,9 +208,11 @@ export type MCPClientProvider = Pick<MCPClient, "tools">;
 /**
  * Open an MCP client for the given server config.
  *
- * - HTTP always goes through {@link CopilotKitMCPTransport} (preserves the
- *   pre-existing `options` escape hatch and adds per-call `getHeaders`
- *   resolution).
+ * - HTTP constructs `StreamableHTTPClientTransport` directly with a `fetch`
+ *   built by {@link withDynamicMcpHeaders}. That fetch is the MCP TS SDK's
+ *   documented extension point for per-request customization, so static
+ *   `headers` and per-call `getHeaders` both flow through it before the
+ *   underlying transport sees the outbound request.
  * - SSE goes through `@ai-sdk/mcp`'s `createMCPClient`, whose built-in
  *   `SseMCPTransport` correctly applies static `headers` on every outbound
  *   request.
@@ -217,18 +220,21 @@ export type MCPClientProvider = Pick<MCPClient, "tools">;
 async function openMcpClient(
   config: MCPClientConfig,
   context: {
-    requestHeaders: Record<string, string>;
+    forwardedRequestHeaders: Record<string, string>;
     input: RunAgentInput;
   },
 ): Promise<MCPClient> {
   if (config.type === "http") {
-    const transport = new CopilotKitMCPTransport({
-      url: config.url,
-      headers: config.headers,
-      getHeaders: config.getHeaders,
-      options: config.options,
-      requestHeaders: context.requestHeaders,
-      input: context.input,
+    const transport = new StreamableHTTPClientTransport(new URL(config.url), {
+      ...config.options,
+      fetch: withDynamicMcpHeaders({
+        staticHeaders: config.headers,
+        getHeaders: config.getHeaders,
+        forwardedRequestHeaders: context.forwardedRequestHeaders,
+        input: context.input,
+        mcpServerUrl: config.url,
+        baseFetch: config.options?.fetch,
+      }),
     });
     return createMCPClient({ transport });
   }
@@ -935,7 +941,7 @@ export class BuiltInAgent extends AbstractAgent {
    * Headers populated per-request by the runtime's
    * `extractForwardableHeaders` (the incoming request's `Authorization` +
    * every `x-*` header, lower-cased). Available to MCP header resolvers via
-   * {@link MCPRequestContext.requestHeaders}; kept here as a plain field so
+   * {@link MCPRequestContext.forwardedRequestHeaders}; kept here as a plain field so
    * the runtime's `configureAgentForRequest` feature-detect activates.
    */
   public headers: Record<string, string> = {};
@@ -1295,11 +1301,13 @@ export class BuiltInAgent extends AbstractAgent {
           //
           // The agent does not distinguish between the two beyond ordering;
           // both go through the same `openMcpClient` pipeline. Function-form
-          // values receive the per-run forwarded `requestHeaders` plus the
+          // values receive the per-run `forwardedRequestHeaders` plus the
           // current `input` so callers can branch dynamically.
           if (this.config.mcpServers || this.runtimeMcpServers) {
-            const requestHeaders: Record<string, string> = { ...this.headers };
-            const ctx = { requestHeaders, input };
+            const forwardedRequestHeaders: Record<string, string> = {
+              ...this.headers,
+            };
+            const ctx = { forwardedRequestHeaders, input };
 
             const resolve = async (
               source: MCPServersConfig | undefined,
@@ -1315,7 +1323,7 @@ export class BuiltInAgent extends AbstractAgent {
 
             for (const serverConfig of serverConfigs) {
               const mcpClient = await openMcpClient(serverConfig, {
-                requestHeaders,
+                forwardedRequestHeaders,
                 input,
               });
               mcpClients.push(mcpClient);

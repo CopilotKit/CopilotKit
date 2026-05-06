@@ -84,7 +84,7 @@ export async function handleIntelligenceRun({
   // Forward the resolved user-id as a request header on the agent. Anything
   // running per-request — middleware, MCP header resolvers, the
   // configureAgentForRequest auto-attach — reads it from `agent.headers` /
-  // `MCPRequestContext.requestHeaders` like any other forwarded value. Runs
+  // `MCPRequestContext.forwardedRequestHeaders` like any other forwarded value. Runs
   // that don't go through this Intelligence path simply lack the header.
   const agentWithHeaders = agent as unknown as {
     headers?: Record<string, string>;

@@ -522,13 +522,13 @@ describe("mcpServers — real MCP server integration", () => {
       expect(new Set(userIds).size).toBeGreaterThanOrEqual(2);
     });
 
-    it("getHeaders receives requestHeaders + input + mcpServerUrl (no user concept)", async () => {
+    it("getHeaders receives forwardedRequestHeaders + input + mcpServerUrl (no user concept)", async () => {
       const result = await startMcpServerWithJournal([{ name: "get_weather" }]);
       llm = result.llm;
       mcpMock = result.mcpMock;
 
       const seenContexts: Array<{
-        requestHeaders: Record<string, string>;
+        forwardedRequestHeaders: Record<string, string>;
         threadId: string;
         mcpServerUrl: string;
         keys: string[];
@@ -542,7 +542,7 @@ describe("mcpServers — real MCP server integration", () => {
             url: result.mcpUrl,
             getHeaders: (ctx) => {
               seenContexts.push({
-                requestHeaders: { ...ctx.requestHeaders },
+                forwardedRequestHeaders: { ...ctx.forwardedRequestHeaders },
                 threadId: ctx.input.threadId,
                 mcpServerUrl: ctx.mcpServerUrl,
                 keys: Object.keys(ctx),
@@ -562,11 +562,11 @@ describe("mcpServers — real MCP server integration", () => {
 
       expect(seenContexts.length).toBeGreaterThan(0);
       const ctx = seenContexts[0];
-      expect(ctx.requestHeaders["x-cpki-user-id"]).toBe("from-bff");
+      expect(ctx.forwardedRequestHeaders["x-cpki-user-id"]).toBe("from-bff");
       expect(ctx.threadId).toBe("thread1");
       expect(ctx.mcpServerUrl).toBe(result.mcpUrl);
       // Regression: the resolver context must not surface a `user` field —
-      // user identity flows through `requestHeaders` like any other
+      // user identity flows through `forwardedRequestHeaders` like any other
       // forwarded value.
       expect(ctx.keys).not.toContain("user");
     });
@@ -698,7 +698,7 @@ describe("mcpServers — real MCP server integration", () => {
           seenCtxKeys.push(...Object.keys(ctx));
           // Branch on a forwarded header — only attach the server when a
           // tenant id is present.
-          if (!ctx.requestHeaders["x-tenant-id"]) return [];
+          if (!ctx.forwardedRequestHeaders["x-tenant-id"]) return [];
           return [
             {
               type: "http",
@@ -719,7 +719,7 @@ describe("mcpServers — real MCP server integration", () => {
       expect(resolverCalls).toBe(1);
       // Context exposes only the documented fields.
       expect(new Set(seenCtxKeys)).toEqual(
-        new Set(["requestHeaders", "input"]),
+        new Set(["forwardedRequestHeaders", "input"]),
       );
       // The conditionally-attached server actually loaded tools.
       const callArgs = vi.mocked(streamText).mock.calls[0][0];
@@ -737,7 +737,7 @@ describe("mcpServers — real MCP server integration", () => {
           model: "openai/gpt-4o",
           // No tenant header on the agent → resolver returns [].
           mcpServers: (ctx) =>
-            ctx.requestHeaders["x-tenant-id"]
+            ctx.forwardedRequestHeaders["x-tenant-id"]
               ? [{ type: "http", url: result.mcpUrl }]
               : [],
         });

@@ -104,11 +104,11 @@ export function configureAgentForRequest(params: {
   // When the runtime is configured for Intelligence AND the Intelligence
   // client has `mcpServer: true`, auto-attach the platform's MCP server on
   // every request that has a resolved user. User identity flows through
-  // `requestHeaders` like any other forwarded value — `intelligence/run.ts`
-  // puts `x-cpki-user-id` onto `agent.headers` before the run starts, the
-  // resolver below reads it back. We skip the auto-attach if the user has
-  // already configured a server pointing at the same URL (explicit opt-in
-  // wins).
+  // `forwardedRequestHeaders` like any other forwarded value —
+  // `intelligence/run.ts` puts `x-cpki-user-id` onto `agent.headers` before
+  // the run starts, the resolver below reads it back. We skip the
+  // auto-attach if the user has already configured a server pointing at the
+  // same URL (explicit opt-in wins).
   const intelligence = (runtime as { intelligence?: unknown }).intelligence as
     | {
         ɵgetApiUrl?: () => string;
@@ -127,8 +127,9 @@ export function configureAgentForRequest(params: {
       type: "http",
       url: intelligenceMcpUrl,
       headers: { Authorization: `Bearer ${intelligenceApiKey}` },
-      getHeaders: ({ requestHeaders }) => {
-        const userId = requestHeaders[INTELLIGENCE_USER_ID_HEADER]?.trim();
+      getHeaders: ({ forwardedRequestHeaders }) => {
+        const userId =
+          forwardedRequestHeaders[INTELLIGENCE_USER_ID_HEADER]?.trim();
         if (!userId) {
           throw new Error(
             "Intelligence MCP server: no user-id forwarded for this run. " +
@@ -140,7 +141,9 @@ export function configureAgentForRequest(params: {
       },
     };
     agent.runtimeMcpServers = async (ctx) => {
-      if (!ctx.requestHeaders[INTELLIGENCE_USER_ID_HEADER]?.trim()) return [];
+      if (!ctx.forwardedRequestHeaders[INTELLIGENCE_USER_ID_HEADER]?.trim()) {
+        return [];
+      }
       const userResolved = await resolveUserMcpServers(params.agent, ctx);
       if (
         userResolved.some(
@@ -156,7 +159,10 @@ export function configureAgentForRequest(params: {
 
 async function resolveUserMcpServers(
   agent: AbstractAgent,
-  ctx: { requestHeaders: Record<string, string>; input: RunAgentInput },
+  ctx: {
+    forwardedRequestHeaders: Record<string, string>;
+    input: RunAgentInput;
+  },
 ): Promise<MCPClientConfig[]> {
   const source = (agent as { config?: { mcpServers?: MCPServersConfig } })
     .config?.mcpServers;

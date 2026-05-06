@@ -102,8 +102,8 @@ const builtInAgent = new BuiltInAgent({
       headers: { // [!code highlight:3]
         Authorization: `Bearer ${process.env.MCP_API_KEY}`,
       },
-      getHeaders: ({ requestHeaders }) => ({ // [!code highlight:3]
-        "X-Trace-Id": requestHeaders["x-trace-id"] ?? "",
+      getHeaders: ({ forwardedRequestHeaders }) => ({ // [!code highlight:3]
+        "X-Trace-Id": forwardedRequestHeaders["x-trace-id"] ?? "",
       }),
     },
   ],
@@ -114,7 +114,7 @@ The resolver receives a `MCPRequestContext`:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `requestHeaders` | `Record<string, string>` | Headers the runtime forwarded onto the agent for this run. The runtime's `extractForwardableHeaders` already lifts `Authorization` + every `x-*` header (lower-cased) from the incoming HTTP request. |
+| `forwardedRequestHeaders` | `Record<string, string>` | Headers the runtime forwarded onto the agent for this run. The runtime's `extractForwardableHeaders` already lifts `Authorization` + every `x-*` header (lower-cased) from the incoming HTTP request. |
 | `input` | `RunAgentInput` | The agent's current run input — `threadId`, `runId`, `messages`, etc. |
 | `mcpServerUrl` | `string` | URL of the MCP server this request is going to (useful when one resolver is shared across multiple servers). |
 
