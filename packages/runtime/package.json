@@ -23,6 +23,8 @@
   "sideEffects": [
     "./dist/index.mjs",
     "./dist/index.cjs",
+    "./dist/langchain.mjs",
+    "./dist/langchain.cjs",
     "./dist/v2/index.mjs",
     "./dist/v2/index.cjs"
   ],
@@ -31,6 +33,9 @@
   "types": "./dist/index.d.cts",
   "typesVersions": {
     "*": {
+      "langchain": [
+        "./dist/langchain.d.cts"
+      ],
       "v2": [
         "./dist/v2/index.d.cts"
       ],
@@ -49,6 +54,10 @@
     ".": {
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
+    },
+    "./langchain": {
+      "import": "./dist/langchain.mjs",
+      "require": "./dist/langchain.cjs"
     },
     "./langgraph": {
       "import": "./dist/langgraph.mjs",
@@ -80,6 +89,7 @@
     "dev": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:smoke-no-langchain": "node scripts/smoke-no-langchain.mjs",
     "check-types": "tsc --noEmit",
     "generate-graphql-schema": "rm -rf __snapshots__ && ts-node --transpile-only ./scripts/generate-gql-schema.ts",
     "link:global": "pnpm link --global",
@@ -168,6 +178,9 @@
       "optional": true
     },
     "@langchain/aws": {
+      "optional": true
+    },
+    "@langchain/core": {
       "optional": true
     },
     "@langchain/community": {

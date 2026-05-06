@@ -13,6 +13,7 @@
     "test": "nx run-many -t test --projects=packages/**",
     "test:watch": "pnpm run test && nx watch --all -- pnpm run test",
     "test:coverage": "nx run-many -t test:coverage --projects=packages/**",
+    "test:codemods": "vitest run --config codemods/vitest.config.ts",
     "dev": "pnpm run build && nx watch --projects=packages/** -- pnpm run build",
     "dev:examples": "pnpm run build:examples && nx watch --projects=examples/** -- pnpm run build:examples",
     "storybook:angular": "pnpm -C examples/v2/angular/storybook dev",
