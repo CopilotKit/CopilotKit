@@ -841,16 +841,6 @@ function isFactoryConfig(
 export class BuiltInAgent extends AbstractAgent {
   private abortController?: AbortController;
   /**
-   * Headers populated per-request by the runtime's
-   * `extractForwardableHeaders` (the incoming request's `Authorization` +
-   * every `x-*` header, lower-cased). Available to MCP header resolvers via
-   * Headers populated per-request by the runtime's
-   * `extractForwardableHeaders` (the incoming request's `Authorization` +
-   * every `x-*` header, lower-cased). Kept as a plain field so the
-   * runtime's `configureAgentForRequest` feature-detect activates.
-   */
-  public headers: Record<string, string> = {};
-  /**
    * Side-channel for runtime-injected MCP servers. Concatenated after the
    * user-supplied `config.mcpServers` at run-start. Set by the runtime layer
    * (e.g. to auto-attach the CopilotKit Intelligence MCP server when the
