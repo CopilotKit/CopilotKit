@@ -169,8 +169,11 @@ export async function DocsPageView({
   }
 
   return (
-    <div className="flex" style={{ height: "calc(100vh - 53px)" }}>
-      <SidebarNav className="w-[240px] shrink-0 rounded-l-2xl backdrop-blur-lg border border-r-0 border-[var(--border)] bg-[var(--glass-background)]/80 overflow-y-auto p-4">
+    <div
+      className="flex -mt-1 xl:-mt-2"
+      style={{ height: "calc(100vh - 53px)" }}
+    >
+      <SidebarNav className="w-[240px] shrink-0 rounded-l-2xl backdrop-blur-lg border border-r-0 border-[var(--border)] bg-[var(--glass-background)]/80 overflow-y-auto px-4 pb-4">
         <SidebarFrameworkSelector />
         <div className="mb-4" />
         {tree.map((node) => renderNavItem(node))}
