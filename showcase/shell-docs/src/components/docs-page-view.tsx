@@ -181,7 +181,7 @@ export async function DocsPageView({
        * by the inner wrapper. Previously `max-w-3xl` sat on <main>
        * directly, which parked the scrollbar mid-page. */}
       <main className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl px-8 py-8">
+        <div className="max-w-[860px] px-8 py-8">
           <nav className="flex items-center gap-1 text-xs text-[var(--text-muted)] mb-4 flex-wrap">
             {breadcrumbs.map((crumb, i) => (
               <React.Fragment key={i}>
@@ -202,7 +202,7 @@ export async function DocsPageView({
             ))}
           </nav>
 
-          <h1 className="text-[2rem] font-bold text-[var(--text)] tracking-tight mb-2 leading-tight">
+          <h1 className="text-[2.5rem] font-medium text-[var(--text)] mb-2 leading-[3rem]">
             {doc.fm.title}
           </h1>
           {doc.fm.description && (

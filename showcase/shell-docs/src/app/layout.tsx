@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, Spline_Sans_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import Script from "next/script";
 import { Suspense } from "react";
 import { AnalyticsClient } from "@/components/analytics-client";
@@ -24,12 +24,6 @@ export const RESERVED_ROUTE_SLUGS = [
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
   variable: "--font-prose",
-  display: "swap",
-});
-
-const splineSansMono = Spline_Sans_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
   display: "swap",
 });
 
@@ -86,10 +80,7 @@ export default function RootLayout({
   const REB2B_KEY = process.env.NEXT_PUBLIC_REB2B_KEY;
 
   return (
-    <html
-      lang="en"
-      className={`${plusJakartaSans.variable} ${splineSansMono.variable}`}
-    >
+    <html lang="en" className={plusJakartaSans.variable}>
       <head>
         {REO_KEY ? (
           <Script

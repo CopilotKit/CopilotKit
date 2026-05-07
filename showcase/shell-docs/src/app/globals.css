@@ -45,9 +45,11 @@
   --font-docs-prose:
     var(--font-prose, "Plus Jakarta Sans"), -apple-system, BlinkMacSystemFont,
     "Segoe UI", Roboto, sans-serif;
+  /* Code font: canonical docs.copilotkit.ai now uses system mono only,
+   * so we follow suit. No Google Font fetched for monospaced text. */
   --font-docs-code:
-    var(--font-mono, "Spline Sans Mono"), ui-monospace, SFMono-Regular,
-    "SF Mono", Menlo, monospace;
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
 }
 
 html,
@@ -78,12 +80,12 @@ samp {
 
 .reference-content h2 {
   font-size: 1.5rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
   margin-top: 2.5rem;
   margin-bottom: 0.75rem;
   padding-bottom: 0;
-  letter-spacing: -0.015em;
+  letter-spacing: normal;
 }
 
 .reference-content h3 {
@@ -185,15 +187,15 @@ samp {
 
 .reference-content table {
   width: 100%;
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   border-collapse: collapse;
   margin-bottom: 1rem;
 }
 
 .reference-content th,
 .reference-content td {
-  border: 1px solid var(--border);
-  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  padding: 0.625rem 0.75rem;
   text-align: left;
 }
 
