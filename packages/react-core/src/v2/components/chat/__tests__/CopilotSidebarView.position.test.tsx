@@ -101,6 +101,36 @@ describe("CopilotSidebarView position prop", () => {
       expect(aside.classList.contains("cpk:-translate-x-full")).toBe(true);
       expect(aside.classList.contains("cpk:translate-x-full")).toBe(false);
     });
+
+    it("anchors the toggle button to the left when position=\"left\"", () => {
+      const { container } = render(
+        <TestWrapper>
+          <CopilotSidebarView messages={sampleMessages} position="left" />
+        </TestWrapper>,
+      );
+
+      const toggle = container.querySelector(
+        '[data-slot="chat-toggle-button"]',
+      );
+      if (!toggle) throw new Error("toggle button not found");
+      expect(toggle.classList.contains("cpk:left-6")).toBe(true);
+      expect(toggle.classList.contains("cpk:right-auto")).toBe(true);
+    });
+
+    it("keeps the toggle button right-anchored by default", () => {
+      const { container } = render(
+        <TestWrapper>
+          <CopilotSidebarView messages={sampleMessages} />
+        </TestWrapper>,
+      );
+
+      const toggle = container.querySelector(
+        '[data-slot="chat-toggle-button"]',
+      );
+      if (!toggle) throw new Error("toggle button not found");
+      expect(toggle.classList.contains("cpk:right-6")).toBe(true);
+      expect(toggle.classList.contains("cpk:left-6")).toBe(false);
+    });
   });
 
   describe("CopilotSidebar wrapper", () => {
