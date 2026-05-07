@@ -5,39 +5,62 @@ import type { Page } from "../helpers/conversation-runner.js";
 import {
   buildTurns,
   buildAuthAssertion,
+  buildAuthPreFill,
+  SIGN_IN_BUTTON_SELECTOR,
+  SIGN_IN_CARD_SELECTOR,
   SIGN_OUT_BUTTON_SELECTOR,
-  AUTH_BANNER_UNAUTHENTICATED_SELECTOR,
-  ERROR_BANNER_SELECTOR,
-  ERROR_BOUNDARY_SELECTOR,
 } from "./d5-auth.js";
 
 interface FakeOpts {
+  /** Whether the sign-in button is initially visible. Default true. */
+  signInButtonVisible?: boolean;
+  /** Whether the chat textarea mounts after sign-in. Default true. */
+  textareaMountsAfterSignIn?: boolean;
+  /** Whether the sign-out button is visible after authentication. Default true. */
   signOutButtonVisible?: boolean;
-  /** Whether the banner flips to unauthenticated after sign-out. Default true. */
-  bannerFlipsToUnauth?: boolean;
-  errorAfterClick?: boolean;
+  /** Whether the SignInCard re-mounts after sign-out. Default true. */
+  signInCardRemounts?: boolean;
 }
 
 function makePage(opts: FakeOpts): {
   page: Page;
-  /** Inject as the `click` option to `buildAuthAssertion` so the fake
-   *  page's `clicked` flag flips when the assertion tries to sign out. */
   fakeClick: (p: Page, sel: string) => Promise<void>;
 } {
-  let clicked = false;
+  let signedIn = false;
+  let signedOut = false;
   const page: Page = {
     async waitForSelector(selector: string) {
-      // Sign-out button selector — gates on signOutButtonVisible
-      if (selector === SIGN_OUT_BUTTON_SELECTOR) {
-        if (!opts.signOutButtonVisible) {
-          throw new Error("waitForSelector timeout (test fake)");
+      if (selector === SIGN_IN_BUTTON_SELECTOR) {
+        if (!(opts.signInButtonVisible ?? true)) {
+          throw new Error("waitForSelector timeout (sign-in button missing)");
         }
         return;
       }
-      // Auth banner unauthenticated selector — gates on bannerFlipsToUnauth
-      if (selector === AUTH_BANNER_UNAUTHENTICATED_SELECTOR) {
-        if (!(opts.bannerFlipsToUnauth ?? true)) {
-          throw new Error("waitForSelector timeout (banner never flipped)");
+      // The chat-input cascade selector used by the preFill hook.
+      if (selector.includes("copilot-chat-textarea") || selector === "textarea") {
+        if (!signedIn) {
+          throw new Error(
+            "waitForSelector timeout (chat textarea not mounted before sign-in)",
+          );
+        }
+        if (!(opts.textareaMountsAfterSignIn ?? true)) {
+          throw new Error(
+            "waitForSelector timeout (chat textarea did not mount)",
+          );
+        }
+        return;
+      }
+      if (selector === SIGN_OUT_BUTTON_SELECTOR) {
+        if (!(opts.signOutButtonVisible ?? true)) {
+          throw new Error("waitForSelector timeout (sign-out button missing)");
+        }
+        return;
+      }
+      if (selector === SIGN_IN_CARD_SELECTOR) {
+        if (!signedOut || !(opts.signInCardRemounts ?? true)) {
+          throw new Error(
+            "waitForSelector timeout (SignInCard did not re-mount)",
+          );
         }
         return;
       }
@@ -45,13 +68,12 @@ function makePage(opts: FakeOpts): {
     async fill() {},
     async press() {},
     async evaluate() {
-      // probeErrorSurfaceVisible polls this — returns true when the
-      // error surface should be visible (after click + opts say yes).
-      return (clicked && (opts.errorAfterClick ?? true)) as never;
+      return undefined as never;
     },
   };
-  const fakeClick = async (_p: Page, _sel: string): Promise<void> => {
-    clicked = true;
+  const fakeClick = async (_p: Page, sel: string): Promise<void> => {
+    if (sel === SIGN_IN_BUTTON_SELECTOR) signedIn = true;
+    if (sel === SIGN_OUT_BUTTON_SELECTOR) signedOut = true;
   };
   return { page, fakeClick };
 }
@@ -64,71 +86,80 @@ describe("d5-auth script", () => {
     expect(script?.fixtureFile).toBe("auth.json");
   });
 
-  it("buildTurns input matches fixture", () => {
+  it("buildTurns produces one turn with preFill and assertion", () => {
     const ctx: D5BuildContext = {
       integrationSlug: "langgraph-python",
       featureType: "auth",
       baseUrl: "https://x.test",
     };
-    expect(buildTurns(ctx)[0]!.input).toBe("auth check turn 1");
+    const turns = buildTurns(ctx);
+    expect(turns).toHaveLength(1);
+    expect(turns[0]!.input).toBe("auth check turn 1");
+    expect(typeof turns[0]!.preFill).toBe("function");
+    expect(typeof turns[0]!.assertions).toBe("function");
   });
 
-  it("exposes the sign-out, banner, and error selectors", () => {
+  it("exposes the sign-in, sign-out, and SignInCard selectors", () => {
+    expect(SIGN_IN_BUTTON_SELECTOR).toBe(
+      '[data-testid="auth-sign-in-button"]',
+    );
+    expect(SIGN_IN_CARD_SELECTOR).toBe('[data-testid="auth-sign-in-card"]');
     expect(SIGN_OUT_BUTTON_SELECTOR).toBe(
       '[data-testid="auth-sign-out-button"]',
     );
-    expect(AUTH_BANNER_UNAUTHENTICATED_SELECTOR).toBe(
-      '[data-testid="auth-banner"][data-authenticated="false"]',
-    );
-    expect(ERROR_BANNER_SELECTOR).toBe('[data-testid="auth-demo-error"]');
-    expect(ERROR_BOUNDARY_SELECTOR).toBe(
-      '[data-testid="auth-demo-chat-boundary"]',
-    );
   });
 
-  it("assertion fails when sign-out button is not visible", async () => {
-    const { page, fakeClick } = makePage({ signOutButtonVisible: false });
-    const assertion = buildAuthAssertion({
-      signOutTimeoutMs: 50,
-      click: fakeClick,
+  describe("buildAuthPreFill", () => {
+    it("fails when sign-in button is not visible (demo loaded into wrong state)", async () => {
+      const { page, fakeClick } = makePage({ signInButtonVisible: false });
+      const preFill = buildAuthPreFill({ click: fakeClick });
+      await expect(preFill(page)).rejects.toThrow(
+        /sign-in button.*not visible/,
+      );
     });
-    await expect(assertion(page)).rejects.toThrow(
-      /sign-out button.*not visible/,
-    );
+
+    it("fails when chat textarea does not mount after sign-in", async () => {
+      const { page, fakeClick } = makePage({
+        textareaMountsAfterSignIn: false,
+      });
+      const preFill = buildAuthPreFill({ click: fakeClick });
+      await expect(preFill(page)).rejects.toThrow(
+        /chat textarea did not mount/,
+      );
+    });
+
+    it("succeeds when sign-in mounts the chat surface", async () => {
+      const { page, fakeClick } = makePage({});
+      const preFill = buildAuthPreFill({ click: fakeClick });
+      await expect(preFill(page)).resolves.toBeUndefined();
+    });
   });
 
-  it("assertion fails when banner does not flip to unauthenticated after sign-out", async () => {
-    const { page, fakeClick } = makePage({
-      signOutButtonVisible: true,
-      bannerFlipsToUnauth: false,
+  describe("buildAuthAssertion", () => {
+    it("fails when sign-out button is not visible (sign-in path didn't authenticate)", async () => {
+      const { page, fakeClick } = makePage({ signOutButtonVisible: false });
+      const assertion = buildAuthAssertion({
+        signOutTimeoutMs: 50,
+        click: fakeClick,
+      });
+      await expect(assertion(page)).rejects.toThrow(
+        /sign-out button.*not visible/,
+      );
     });
-    const assertion = buildAuthAssertion({
-      signOutTimeoutMs: 50,
-      click: fakeClick,
-    });
-    await expect(assertion(page)).rejects.toThrow(
-      /banner did not flip to unauthenticated/,
-    );
-  });
 
-  it("assertion fails when error surfaces never appear after sign-out", async () => {
-    const { page, fakeClick } = makePage({
-      signOutButtonVisible: true,
-      errorAfterClick: false,
+    it("fails when SignInCard does not re-mount after sign-out (tree didn't unmount)", async () => {
+      const { page, fakeClick } = makePage({ signInCardRemounts: false });
+      const assertion = buildAuthAssertion({
+        signOutTimeoutMs: 50,
+        click: fakeClick,
+      });
+      await expect(assertion(page)).rejects.toThrow(/SignInCard.*did not re-mount/);
     });
-    const assertion = buildAuthAssertion({
-      signOutTimeoutMs: 50,
-      click: fakeClick,
-    });
-    await expect(assertion(page)).rejects.toThrow(/neither.*appeared/);
-  });
 
-  it("assertion succeeds when error banner appears after sign-out", async () => {
-    const { page, fakeClick } = makePage({
-      signOutButtonVisible: true,
-      errorAfterClick: true,
+    it("succeeds when SignInCard re-mounts after clicking sign-out", async () => {
+      const { page, fakeClick } = makePage({});
+      const assertion = buildAuthAssertion({ click: fakeClick });
+      await expect(assertion(page)).resolves.toBeUndefined();
     });
-    const assertion = buildAuthAssertion({ click: fakeClick });
-    await expect(assertion(page)).resolves.toBeUndefined();
   });
 });
