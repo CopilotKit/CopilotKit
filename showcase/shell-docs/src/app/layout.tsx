@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, Spline_Sans_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import Script from "next/script";
 import { Suspense } from "react";
 import { AnalyticsClient } from "@/components/analytics-client";
+import { Banners } from "@/components/banners";
 import { BrandNav } from "@/components/brand-nav";
 import { FrameworkProvider } from "@/components/framework-provider";
 import { PostHogProvider } from "@/lib/providers/posthog-provider";
@@ -24,12 +25,6 @@ export const RESERVED_ROUTE_SLUGS = [
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
   variable: "--font-prose",
-  display: "swap",
-});
-
-const splineSansMono = Spline_Sans_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
   display: "swap",
 });
 
@@ -86,10 +81,7 @@ export default function RootLayout({
   const REB2B_KEY = process.env.NEXT_PUBLIC_REB2B_KEY;
 
   return (
-    <html
-      lang="en"
-      className={`${plusJakartaSans.variable} ${splineSansMono.variable}`}
-    >
+    <html lang="en" className={plusJakartaSans.variable}>
       <head>
         {REO_KEY ? (
           <Script
@@ -130,13 +122,24 @@ export default function RootLayout({
           />
         ) : null}
       </head>
-      <body className="min-h-screen">
+      <body>
         <AnalyticsClient />
         <Suspense fallback={null}>
           <PostHogProvider>
             <FrameworkProvider knownFrameworks={knownFrameworks}>
+              {/* Body is a fixed-height (100vh) flex column with hidden
+               * overflow (see globals.css). Banner + nav sit naturally
+               * at the top; <main> takes the remaining height and is
+               * the horizontal flex row that hosts sidebar + the
+               * scrolling `.docs-content-wrapper`. No sticky positioning
+               * is needed — chrome stays put because it's outside the
+               * scroll container. Mirrors canonical `#nd-home-layout`
+               * (margin: 0 4px; xl: 0 8px 8px 8px). */}
+              <Banners />
               <BrandNav />
-              <main>{children}</main>
+              <main className="flex flex-1 min-h-0 overflow-hidden mx-1 xl:mx-2 xl:mb-2">
+                {children}
+              </main>
             </FrameworkProvider>
           </PostHogProvider>
         </Suspense>

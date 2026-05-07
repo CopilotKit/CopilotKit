@@ -31,59 +31,63 @@ export default function ReferencePage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-12">
-      <h1 className="text-2xl font-bold text-[var(--text)] mb-2">
-        API Reference
-      </h1>
-      <p className="text-[var(--text-muted)] text-sm mb-10">{intro}</p>
+    <div className="flex-1 min-w-0 overflow-y-auto">
+      <div className="mx-auto max-w-4xl px-6 py-12">
+        <h1 className="text-2xl font-bold text-[var(--text)] mb-2">
+          API Reference
+        </h1>
+        <p className="text-[var(--text-muted)] text-sm mb-10">{intro}</p>
 
-      <section className="mb-10">
-        <h2 className="text-lg font-semibold text-[var(--text)] mb-4">
-          UI Components
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {components.map((item) => (
-            <Link
-              key={item.slug}
-              href={`/reference/${item.slug}`}
-              className="block rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 hover:bg-[var(--bg-elevated)] transition-colors"
-            >
-              <div className="font-mono text-sm font-semibold text-[var(--accent)]">
-                {"<"}
-                {item.title}
-                {" />"}
-              </div>
-              {item.description && (
-                <div className="text-xs text-[var(--text-muted)] mt-1">
-                  {item.description}
+        <section className="mb-10">
+          <h2 className="text-lg font-semibold text-[var(--text)] mb-4">
+            UI Components
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {components.map((item) => (
+              <Link
+                key={item.slug}
+                href={`/reference/${item.slug}`}
+                className="block rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 hover:bg-[var(--bg-elevated)] transition-colors"
+              >
+                <div className="font-mono text-sm font-semibold text-[var(--accent)]">
+                  {"<"}
+                  {item.title}
+                  {" />"}
                 </div>
-              )}
-            </Link>
-          ))}
-        </div>
-      </section>
+                {item.description && (
+                  <div className="text-xs text-[var(--text-muted)] mt-1">
+                    {item.description}
+                  </div>
+                )}
+              </Link>
+            ))}
+          </div>
+        </section>
 
-      <section>
-        <h2 className="text-lg font-semibold text-[var(--text)] mb-4">Hooks</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {hooks.map((item) => (
-            <Link
-              key={item.slug}
-              href={`/reference/${item.slug}`}
-              className="block rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 hover:bg-[var(--bg-elevated)] transition-colors"
-            >
-              <div className="font-mono text-sm font-semibold text-[var(--accent)]">
-                {item.title}()
-              </div>
-              {item.description && (
-                <div className="text-xs text-[var(--text-muted)] mt-1">
-                  {item.description}
+        <section>
+          <h2 className="text-lg font-semibold text-[var(--text)] mb-4">
+            Hooks
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {hooks.map((item) => (
+              <Link
+                key={item.slug}
+                href={`/reference/${item.slug}`}
+                className="block rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 hover:bg-[var(--bg-elevated)] transition-colors"
+              >
+                <div className="font-mono text-sm font-semibold text-[var(--accent)]">
+                  {item.title}()
                 </div>
-              )}
-            </Link>
-          ))}
-        </div>
-      </section>
+                {item.description && (
+                  <div className="text-xs text-[var(--text-muted)] mt-1">
+                    {item.description}
+                  </div>
+                )}
+              </Link>
+            ))}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

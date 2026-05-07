@@ -40,7 +40,7 @@ function DocsOverview() {
   const navTree = buildNavTree(CONTENT_DIR);
 
   return (
-    <div className="flex" style={{ height: "calc(100vh - 53px)" }}>
+    <div className="flex h-full w-full">
       <SidebarNav className="w-[240px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
         <SidebarFrameworkSelector />
         <div className="mb-4" />
