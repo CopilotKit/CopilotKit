@@ -281,6 +281,14 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
       resourceUri: string | null;
     }>({ inProgress: false, promise: null, resourceUri: null });
 
+    // Destructure resource identifiers so the fetch effect's deps array tracks
+    // primitives, not the `content` object reference. `content` gets a new
+    // identity on every ACTIVITY_SNAPSHOT from the MCP middleware, which would
+    // otherwise re-fire the effect mid-stream and race with `agent.messages`
+    // catching up to the server — triggering LangGraph's regenerate path and
+    // an infinite "Message not found" loop.
+    const { resourceUri, serverHash, serverId } = content;
+
     // Callback to send a message to the iframe
     const sendToIframe = useCallback((msg: JSONRPCMessage) => {
       if (iframeRef.current?.contentWindow) {
@@ -328,8 +336,6 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
     // Effect 0: Fetch the resource content on mount
     // Uses ref-based deduplication to handle React StrictMode double-mounting
     useEffect(() => {
-      const { resourceUri, serverHash, serverId } = content;
-
       // Check if we already have a fetch in progress for this resource
       // This handles StrictMode double-mounting - second mount reuses first mount's promise
       if (
@@ -416,7 +422,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
         });
 
       // No cleanup needed - we want the fetch to complete even if StrictMode unmounts
-    }, [agent, content]);
+    }, [agent, resourceUri, serverHash, serverId]);
 
     // Effect 1: Setup sandbox proxy iframe and communication (after resource is fetched)
     useEffect(() => {

@@ -788,6 +788,108 @@ describe("MCP Apps Activity Renderer E2E", () => {
     });
   });
 
+  describe("Effect Re-fire Prevention", () => {
+    // Helper: count proxied resources/read calls for a given URI.
+    const readCountFor = (agent: MockMCPProxyAgent, uri: string) =>
+      agent.runAgentCalls.filter(
+        (call) =>
+          call.input.forwardedProps?.__proxiedMCPRequest?.method ===
+            "resources/read" &&
+          (
+            call.input.forwardedProps?.__proxiedMCPRequest as {
+              params?: { uri?: string };
+            }
+          )?.params?.uri === uri,
+      ).length;
+
+    it("does not refetch when content reference changes but resourceUri/serverHash/serverId are unchanged", async () => {
+      // Regression: ACTIVITY_SNAPSHOT events from the MCP middleware mutate
+      // content.result on every chat re-render, giving `content` a new object
+      // identity. The fetch effect must depend on the resource identifiers
+      // (primitives), not the content reference, otherwise it re-fires
+      // mid-stream and races with `agent.messages` -> "Message not found" loop.
+      const agent = new MockMCPProxyAgent();
+      const agentId = "mcp-test-agent";
+      agent.agentId = agentId;
+
+      agent.setRunAgentResponse("resources/read", {
+        contents: [
+          {
+            uri: "ui://stable/resource",
+            mimeType: "text/html",
+            text: "<html><body>Stable</body></html>",
+          },
+        ],
+      });
+
+      renderWithCopilotKit({
+        agents: { [agentId]: agent },
+        agentId,
+      });
+
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Stable" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await waitFor(() => {
+        expect(screen.getByText("Stable")).toBeDefined();
+      });
+
+      const messageId = testId("mcp-stable");
+
+      // First snapshot: initial mount triggers a fetch.
+      agent.emit(runStartedEvent());
+      agent.emit(
+        activitySnapshotEvent({
+          messageId,
+          activityType: MCPAppsActivityType,
+          content: mcpAppsActivityContent({
+            resourceUri: "ui://stable/resource",
+            serverHash: "stable-hash",
+            result: {
+              content: [{ type: "text", text: "first" }],
+              isError: false,
+            },
+          }),
+        }),
+      );
+      agent.emit(runFinishedEvent());
+
+      await waitFor(
+        () => {
+          expect(readCountFor(agent, "ui://stable/resource")).toBe(1);
+        },
+        { timeout: 2000 },
+      );
+
+      // Second snapshot: same identifiers, fresh content reference (mutated
+      // result). Should NOT refire the fetch effect.
+      agent.emit(runStartedEvent());
+      agent.emit(
+        activitySnapshotEvent({
+          messageId,
+          activityType: MCPAppsActivityType,
+          content: mcpAppsActivityContent({
+            resourceUri: "ui://stable/resource",
+            serverHash: "stable-hash",
+            result: {
+              content: [{ type: "text", text: "second" }],
+              isError: false,
+            },
+          }),
+        }),
+      );
+      agent.emit(runFinishedEvent());
+
+      // Give any incorrect re-fire a chance to land before asserting.
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      });
+
+      expect(readCountFor(agent, "ui://stable/resource")).toBe(1);
+    });
+  });
+
   describe("Content Types", () => {
     it("handles text content from resource", async () => {
       const agent = new MockMCPProxyAgent();
