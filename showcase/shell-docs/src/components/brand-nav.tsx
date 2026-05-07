@@ -1,16 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import { SearchTrigger } from "./search-trigger";
+import RocketIcon from "./icons/rocket";
+import ConsoleIcon from "./icons/console";
+import CloudIcon from "./icons/cloud";
+import GithubIcon from "./icons/github";
+import DiscordIcon from "./icons/discord";
+import ExternalLinkIcon from "./icons/external-link";
+import BurgerMenuIcon from "./icons/burger-menu";
 
-function CopilotKitIcon({ className }: { className?: string }) {
+// Inline brand mark — kept from the prior brand-nav so the logo continues
+// to render before any /public asset swap. The visual structure around it
+// (two-piece glass panel with slanted separator) mirrors docs.copilotkit.ai.
+function CopilotKitMark({ className }: { className?: string }) {
   return (
     <svg
       viewBox="111 0 25 26"
-      width="18"
-      height="20"
+      width="22"
+      height="24"
       className={className}
       aria-hidden="true"
     >
@@ -89,70 +100,73 @@ function CopilotKitIcon({ className }: { className?: string }) {
   );
 }
 
-function CloudIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="14"
-      height="14"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M17.5 19a4.5 4.5 0 1 0-1.5-8.74A6 6 0 1 0 6.5 19h11Z" />
-    </svg>
-  );
-}
-
-function ExternalArrowIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="11"
-      height="11"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.25"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M7 17 17 7M9 7h8v8" />
-    </svg>
-  );
-}
-
-const CLOUD_CTA = {
-  label: "Free Developer Access",
-  href: "https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=navbar",
-};
+const CLOUD_CTA_HREF =
+  "https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=navbar";
 
 const SHELL_HOST = process.env.NEXT_PUBLIC_SHELL_URL ?? "http://localhost:3000";
 
-const COPILOTKIT_LINKS = [
-  { href: "/", label: "Docs" },
-  { href: `${SHELL_HOST}/integrations`, label: "Integrations" },
-  { href: "/reference", label: "Reference" },
+// LEFT cluster — preserves shell-docs's existing IA: Docs / Integrations /
+// Reference. Visual pattern (icon-next-to-label) mirrors canonical.
+type LeftLink = {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  target?: "_blank" | "_self";
+  showExternalLinkIcon?: boolean;
+};
+
+const LEFT_LINKS: LeftLink[] = [
+  {
+    icon: <RocketIcon className="text-[var(--text-secondary)]" />,
+    label: "Docs",
+    href: "/",
+  },
+  {
+    icon: <CloudIcon className="text-[var(--text-secondary)]" />,
+    label: "Integrations",
+    href: `${SHELL_HOST}/integrations`,
+  },
+  {
+    icon: <ConsoleIcon className="text-[var(--text-secondary)]" />,
+    label: "Reference",
+    href: "/reference",
+  },
 ];
 
 export interface BrandNavProps {
-  // Note: the framework selector previously lived in the top bar. It's
-  // now rendered at the top of the docs sidebar instead — mirroring the
-  // docs.copilotkit.ai reference. Props preserved for API compatibility
-  // with the current call site but intentionally unused here.
+  // Preserved for backwards compat with the original call site signature.
+  // The framework selector lives in the docs sidebar now, not the navbar.
   frameworkOptions?: unknown;
   frameworkCategoryOrder?: unknown;
 }
 
 export function BrandNav(_props: BrandNavProps = {}) {
-  const links = COPILOTKIT_LINKS;
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const pathname = usePathname();
   const posthog = usePostHog();
+
+  // Active-route detection: anything under /reference highlights Reference,
+  // anything under /integrations (cross-host) highlights Integrations,
+  // everything else (root, framework-scoped pages) highlights Docs.
+  const firstSegment = pathname === "/" ? "/" : `/${pathname.split("/")[1]}`;
+  const activeRoute =
+    firstSegment === "/reference"
+      ? "/reference"
+      : firstSegment === "/integrations"
+        ? `${SHELL_HOST}/integrations`
+        : "/";
+
+  // Close mobile sidebar when viewport expands beyond mobile breakpoint.
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768 && isMobileSidebarOpen) {
+        setIsMobileSidebarOpen(false);
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    handleResize();
+    return () => window.removeEventListener("resize", handleResize);
+  }, [isMobileSidebarOpen]);
 
   const handleTalkToEngineersClick = () => {
     posthog?.capture("talk_to_us_clicked", { location: "docs_nav" });
@@ -163,109 +177,230 @@ export function BrandNav(_props: BrandNavProps = {}) {
     posthog?.capture("try_for_free_clicked", { location });
   };
 
+  const handleToggleTheme = () => {
+    document.documentElement.classList.toggle("dark");
+    try {
+      localStorage.theme = localStorage.theme === "dark" ? "light" : "dark";
+    } catch {
+      // localStorage may be blocked (private mode, embedded contexts) —
+      // a class flip on documentElement is the load-bearing behavior.
+    }
+  };
+
   return (
-    <nav className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--bg-surface)]/90 backdrop-blur-lg">
-      <div className="mx-auto flex h-[52px] items-center justify-between px-6">
-        {/* Brand tabs */}
-        <div className="flex items-center gap-0">
-          <Link
-            href="/"
-            className="relative flex items-center gap-1.5 px-1 pb-1 text-sm font-bold tracking-tight transition-colors"
-            style={{ color: "var(--accent)" }}
+    <nav className="relative h-[68px] xl:h-[88px] p-1 xl:p-2 bg-[var(--bg)]">
+      <div className="flex justify-between items-center w-full h-full">
+        {/* Left half (logo + nav links) */}
+        <div className="flex w-full h-full">
+          <div
+            className="flex gap-11 items-center w-full h-full rounded-l-2xl border border-r-0 backdrop-blur-lg border-[var(--border)]"
+            style={{ backgroundColor: "var(--sidebar)" }}
           >
-            <CopilotKitIcon />
-            CopilotKit
-            <span
-              className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full"
-              style={{ background: "var(--accent)" }}
-            />
-          </Link>
-        </div>
-
-        {/* Context-dependent nav links (desktop) */}
-        <div className="hidden sm:flex items-center gap-1">
-          {links.map(({ href, label }) => (
             <Link
-              key={href}
-              href={href}
-              className="rounded-md px-3 py-1.5 text-[13px] font-medium text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-all"
+              href="/"
+              className="flex items-center gap-2 pl-6 shrink-0"
+              aria-label="CopilotKit Docs"
             >
-              {label}
+              <CopilotKitMark />
+              <span className="text-base font-bold tracking-tight text-[var(--text)]">
+                CopilotKit
+              </span>
+              <span
+                className="ml-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--accent)] bg-[var(--accent-dim)] border border-[var(--border)]"
+                aria-hidden="true"
+              >
+                Docs
+              </span>
             </Link>
-          ))}
+            <ul className="hidden gap-6 items-center h-full md:flex">
+              {LEFT_LINKS.map((link) => {
+                const hideIconAtNarrow =
+                  link.label === "Docs" ||
+                  link.label === "Reference" ||
+                  link.label === "Integrations";
+                const isActive = activeRoute === link.href;
+                return (
+                  <li key={link.href} className="relative h-full group">
+                    <Link
+                      href={link.href}
+                      target={link.target}
+                      className={`h-full ${
+                        isActive ? "opacity-100" : "opacity-50"
+                      } hover:opacity-100 transition-opacity duration-300`}
+                    >
+                      <span className="flex gap-2 items-center h-full text-[var(--text-secondary)]">
+                        <span
+                          className={
+                            hideIconAtNarrow
+                              ? "[@media(width<808px)]:hidden"
+                              : ""
+                          }
+                        >
+                          {link.icon}
+                        </span>
+                        <span className="text-sm font-medium">
+                          {link.label}
+                        </span>
+                        {link.showExternalLinkIcon && (
+                          <ExternalLinkIcon className="text-[var(--text-muted)]" />
+                        )}
+                      </span>
+                    </Link>
+                    {/* Active-tab underline. Mirrors canonical exactly:
+                     * every link renders the violet line persistently, and
+                     * active state is bound to opacity only (300ms ease-out
+                     * cubic-bezier) — so navigating between tabs cross-fades
+                     * the lines instead of snapping. Per-link width comes
+                     * from each li (icon + gap + label), which is why the
+                     * effect reads as "narrow → wider" between tabs of
+                     * different label lengths. The literal #7076D5 (not
+                     * --accent, which is a deeper violet) matches canonical. */}
+                    <div
+                      className="absolute bottom-0 left-0 w-full h-[3px] bg-[#7076D5] transition-opacity duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
+                      style={{ opacity: isActive ? 1 : 0 }}
+                      aria-hidden="true"
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+
+          {/* Slanted end border — plain <img> avoids next/image's
+           * static-import requirement and renders these decorative SVGs
+           * exactly as authored. The light/dark variants pair with the
+           * theme toggle below. */}
+          <img
+            src="/images/navbar/slanted-end-border-dark.svg"
+            alt=""
+            width={29}
+            height={72}
+            className="hidden -ml-px dark:inline-block shrink-0 h-full w-auto object-cover"
+          />
+          <img
+            src="/images/navbar/slanted-end-border-light.svg"
+            alt=""
+            width={29}
+            height={72}
+            className="-ml-px dark:hidden shrink-0 h-full w-auto object-cover"
+          />
         </div>
 
-        {/* Desktop: Talk-to-Engineers + Cloud CTA + search */}
-        <div className="hidden sm:flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleTalkToEngineersClick}
-            className="hidden [@media(width>=1400px)]:flex items-center rounded-md px-3 py-1.5 text-[13px] font-medium text-[var(--text-muted)] hover:text-[#7076D5] hover:bg-[#7076D5]/10 transition-colors duration-200 cursor-pointer whitespace-nowrap"
-            aria-label="Talk to our engineers"
-          >
-            Talk to Our Engineers
-          </button>
-          <a
-            href={CLOUD_CTA.href}
-            target="_blank"
-            rel="noreferrer"
-            onClick={() => handleFreeDeveloperAccessClick("docs_navbar")}
-            className="no-underline flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg-elevated)] transition-all"
-          >
-            <CloudIcon />
-            <span className="[@media(width<1100px)]:hidden">
-              {CLOUD_CTA.label}
-            </span>
-            <ExternalArrowIcon className="[@media(width<1100px)]:hidden opacity-70" />
-          </a>
-          <SearchTrigger />
-        </div>
+        {/* Right half (utilities + search + mobile burger) */}
+        <div className="flex items-center w-max h-full shrink-0 -ml-[7px]">
+          <img
+            src="/images/navbar/slanted-start-border-dark.svg"
+            alt=""
+            width={29}
+            height={72}
+            className="hidden -mr-px dark:inline-block shrink-0 h-full w-auto object-cover"
+          />
+          <img
+            src="/images/navbar/slanted-start-border-light.svg"
+            alt=""
+            width={29}
+            height={72}
+            className="-mr-px dark:hidden shrink-0 h-full w-auto object-cover"
+          />
 
-        {/* Mobile: search icon + hamburger */}
-        <div className="flex sm:hidden items-center gap-1">
-          <SearchTrigger iconOnly />
-          <button
-            onClick={() => setMobileMenuOpen(true)}
-            className="flex items-center justify-center w-8 h-8 rounded-md text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-colors cursor-pointer"
-            aria-label="Open menu"
+          <div
+            className="flex gap-1 items-center pr-2 w-max h-full rounded-r-2xl border border-l-0 backdrop-blur-lg md:pr-4 shrink-0 border-[var(--border)]"
+            style={{ backgroundColor: "var(--sidebar)" }}
           >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+            <button
+              type="button"
+              onClick={handleTalkToEngineersClick}
+              className="hidden [@media(width>=1400px)]:flex items-center h-9 px-4 mr-2 text-sm font-medium rounded-full border border-[var(--border)] bg-transparent text-[var(--text-muted)] hover:text-[var(--accent)] hover:border-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors duration-200 cursor-pointer whitespace-nowrap"
+              aria-label="Talk to our engineers"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
+              Talk to Our Engineers
+            </button>
+
+            {/* Free Developer Access — icon-only at narrow widths between
+             * 768px and 1028px (mirrors canonical visibility window). */}
+            <Link
+              href={CLOUD_CTA_HREF}
+              target="_blank"
+              onClick={() =>
+                handleFreeDeveloperAccessClick("docs_navbar_right")
+              }
+              className="[@media(width>=1028px)]:hidden [@media(width<768px)]:hidden justify-center items-center w-11 h-full md:flex text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
+              title="Free Developer Access"
+            >
+              <span className="flex items-center h-full">
+                <CloudIcon />
+              </span>
+            </Link>
+
+            <Link
+              href="https://github.com/copilotkit/copilotkit"
+              target="_blank"
+              className="hidden md:flex justify-center items-center w-11 h-full text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
+              title="GitHub"
+            >
+              <GithubIcon />
+            </Link>
+
+            <Link
+              href="https://discord.gg/6dffbvGU3D"
+              target="_blank"
+              className="hidden md:flex justify-center items-center w-11 h-full text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
+              title="Discord"
+            >
+              <DiscordIcon />
+            </Link>
+
+            <button
+              className="hidden justify-center items-center w-11 h-full cursor-pointer md:flex"
+              onClick={handleToggleTheme}
+              aria-label="Toggle theme"
+            >
+              <img
+                src="/images/navbar/theme-moon.svg"
+                alt=""
+                width={20}
+                height={20}
+                className="hidden dark:inline-block"
               />
-            </svg>
-          </button>
+              <img
+                src="/images/navbar/theme-sun.svg"
+                alt=""
+                width={20}
+                height={20}
+                className="dark:hidden"
+              />
+            </button>
+
+            <SearchTrigger />
+
+            <button
+              className="flex justify-center items-center w-11 h-full cursor-pointer md:hidden text-[var(--text-muted)]"
+              onClick={() => setIsMobileSidebarOpen((prev) => !prev)}
+              aria-label="Open menu"
+            >
+              <BurgerMenuIcon />
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Mobile slide-out menu */}
-      {mobileMenuOpen && (
+      {/* Mobile slide-out menu — kept simple; we expose the same LEFT_LINKS
+       * the desktop nav surfaces, plus the Free Developer Access CTA and
+       * Talk-to-Engineers button. The full mobile sidebar (with search +
+       * sidebar tree) is owned by the docs page shell, not this nav. */}
+      {isMobileSidebarOpen && (
         <>
-          {/* Backdrop */}
           <div
             className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
-            onClick={() => setMobileMenuOpen(false)}
+            onClick={() => setIsMobileSidebarOpen(false)}
           />
-          {/* Panel */}
           <div
             className="fixed top-0 right-0 bottom-0 z-50 w-[280px] bg-[var(--bg-surface)] border-l border-[var(--border)] flex flex-col"
-            style={{
-              boxShadow: "-8px 0 30px rgba(0,0,0,0.1)",
-              animation: "mobileMenuSlideIn 0.2s ease",
-            }}
+            style={{ boxShadow: "-8px 0 30px rgba(0,0,0,0.1)" }}
           >
-            {/* Close button */}
             <div className="flex items-center justify-end px-4 py-3 border-b border-[var(--border)]">
               <button
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={() => setIsMobileSidebarOpen(false)}
                 className="flex items-center justify-center w-8 h-8 rounded-md text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-colors cursor-pointer"
                 aria-label="Close menu"
               >
@@ -284,55 +419,44 @@ export function BrandNav(_props: BrandNavProps = {}) {
                 </svg>
               </button>
             </div>
-            {/* Nav links */}
             <div className="flex flex-col px-4 py-4 gap-1">
-              {links.map(({ href, label }) => (
+              {LEFT_LINKS.map(({ href, label, icon }) => (
                 <Link
                   key={href}
                   href={href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="rounded-md px-3 py-2.5 text-[14px] font-medium text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg-elevated)] transition-all"
+                  onClick={() => setIsMobileSidebarOpen(false)}
+                  className="flex items-center gap-2 rounded-md px-3 py-2.5 text-[14px] font-medium text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg-elevated)] transition-all"
                 >
+                  {icon}
                   {label}
                 </Link>
               ))}
-              <a
-                href={CLOUD_CTA.href}
+              <Link
+                href={CLOUD_CTA_HREF}
                 target="_blank"
-                rel="noreferrer"
                 onClick={() => {
-                  setMobileMenuOpen(false);
+                  setIsMobileSidebarOpen(false);
                   handleFreeDeveloperAccessClick("docs_navbar_mobile");
                 }}
-                className="no-underline flex items-center gap-2 rounded-md px-3 py-2.5 text-[14px] font-medium text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg-elevated)] transition-all"
+                className="flex items-center gap-2 rounded-md px-3 py-2.5 text-[14px] font-medium text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg-elevated)] transition-all"
               >
-                <CloudIcon />
-                {CLOUD_CTA.label}
-                <ExternalArrowIcon className="opacity-70" />
-              </a>
+                <CloudIcon className="text-[var(--text-secondary)]" />
+                Free Developer Access
+                <ExternalLinkIcon className="opacity-70 ml-auto" />
+              </Link>
               <button
                 type="button"
                 onClick={() => {
-                  setMobileMenuOpen(false);
+                  setIsMobileSidebarOpen(false);
                   handleTalkToEngineersClick();
                 }}
-                className="text-left rounded-md px-3 py-2.5 text-[14px] font-medium text-[var(--text-secondary)] hover:text-[#7076D5] hover:bg-[#7076D5]/10 transition-all cursor-pointer"
+                className="text-left rounded-md px-3 py-2.5 text-[14px] font-medium text-[var(--text-secondary)] hover:text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-all cursor-pointer"
                 aria-label="Talk to our engineers"
               >
                 Talk to Our Engineers
               </button>
             </div>
           </div>
-          <style jsx global>{`
-            @keyframes mobileMenuSlideIn {
-              from {
-                transform: translateX(100%);
-              }
-              to {
-                transform: translateX(0);
-              }
-            }
-          `}</style>
         </>
       )}
     </nav>

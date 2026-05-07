@@ -73,22 +73,48 @@ export function SearchTrigger({
     );
   }
 
+  // Mirrors the canonical `search-button.tsx` chrome: same height as the
+  // navbar's right-cluster controls, icon + label on lg+, ⌘K hint on xl+.
   return (
     <>
       <button
         onClick={() => setOpen((prev) => !prev)}
-        className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1.5 text-xs text-[var(--text-muted)] cursor-pointer hover:border-[var(--text-faint)] transition-colors min-w-[200px]"
+        className="-ml-2 lg:ml-0 flex gap-2 items-center px-3 h-11 rounded-lg lg:border cursor-pointer bg-transparent lg:bg-[var(--bg-surface)]/60 border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
       >
-        <span>⌕</span>
-        <span>Search docs, demos...</span>
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 20 20"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <path
+            d="M9.16667 15.8333C12.8486 15.8333 15.8333 12.8486 15.8333 9.16667C15.8333 5.48477 12.8486 2.5 9.16667 2.5C5.48477 2.5 2.5 5.48477 2.5 9.16667C2.5 12.8486 5.48477 15.8333 9.16667 15.8333Z"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M17.5 17.5L13.875 13.875"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+
+        <span className="hidden text-sm font-medium lg:block">Search...</span>
+
         <span
-          className="ml-auto font-mono text-[10px] border border-[var(--border)] px-1 py-0.5 rounded bg-[var(--bg-surface)]"
+          className="hidden xl:inline-flex items-center justify-center font-mono text-[11px] border border-[var(--border)] px-1.5 py-0.5 rounded text-[var(--text-faint)] bg-[var(--bg-surface)]"
           // Reserve horizontal room so the button doesn't reflow when the
           // shortcut hint appears after hydration.
-          style={{ minWidth: "3.25rem", textAlign: "center" }}
+          style={{ minWidth: "2.5rem" }}
           suppressHydrationWarning
         >
-          {isMac === null ? "\u00A0" : isMac ? "⌘K" : "Ctrl+K"}
+          {isMac === null ? " " : isMac ? "⌘K" : "Ctrl+K"}
         </span>
       </button>
       {open && <SearchModalWrapper onClose={() => setOpen(false)} />}
