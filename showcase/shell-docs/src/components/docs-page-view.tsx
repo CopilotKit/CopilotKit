@@ -9,6 +9,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -182,37 +183,60 @@ export async function DocsPageView({
        * scroll INTERNALLY when its own content exceeds the remaining
        * viewport height. Width is capped by the inner wrapper. */}
       <main className="flex-1 min-w-0">
-        <div className="max-w-[860px] px-8 py-8">
-          <nav className="flex items-center gap-1 text-xs text-[var(--text-muted)] mb-4 flex-wrap">
-            {breadcrumbs.map((crumb, i) => (
-              <React.Fragment key={i}>
-                {i > 0 && (
-                  <span className="text-[var(--text-faint)]">&gt;</span>
-                )}
-                {crumb.href ? (
-                  <Link
-                    href={crumb.href}
-                    className="hover:text-[var(--text-secondary)] transition-colors"
-                  >
-                    {crumb.label}
-                  </Link>
-                ) : (
-                  <span className="text-[var(--text)]">{crumb.label}</span>
-                )}
-              </React.Fragment>
-            ))}
-          </nav>
+        {/* Outer padding mirrors canonical docs.copilotkit.ai (px-8 py-6
+         * at the small end, xl:px-16 xl:py-12 once the rail has room).
+         * The inner max-w cap (~900px) keeps long-form text from running
+         * edge-to-edge on wide viewports, matching canonical's effective
+         * column width with sidebar+TOC accounted for. */}
+        <div className="px-8 py-6 xl:px-16 xl:py-12 max-sm:px-4 max-sm:py-6">
+          <div className="max-w-[900px]">
+            {/* Breadcrumb styling tracks canonical fumadocs PageBreadcrumb:
+             * text-sm with a ChevronRight separator, intermediate links
+             * muted, last segment in primary text + medium weight. */}
+            <nav className="flex items-center gap-1.5 text-sm text-[var(--text-muted)] mb-4 flex-wrap">
+              {breadcrumbs.map((crumb, i) => {
+                const isLast = i === breadcrumbs.length - 1;
+                const labelClass = `truncate ${isLast ? "text-[var(--text)] font-medium" : ""}`;
+                return (
+                  <React.Fragment key={i}>
+                    {i > 0 && (
+                      <ChevronRight
+                        className="size-3.5 shrink-0"
+                        aria-hidden="true"
+                      />
+                    )}
+                    {crumb.href ? (
+                      <Link
+                        href={crumb.href}
+                        className={`${labelClass} transition-opacity hover:opacity-80`}
+                      >
+                        {crumb.label}
+                      </Link>
+                    ) : (
+                      <span className={labelClass}>{crumb.label}</span>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </nav>
 
-          <h1 className="text-[2.5rem] font-medium text-[var(--text)] mb-2 leading-[3rem]">
-            {doc.fm.title}
-          </h1>
-          {doc.fm.description && (
-            <p className="text-base text-[var(--text-muted)] mb-6 leading-relaxed">
-              {doc.fm.description}
-            </p>
-          )}
+            {/* Title + description spacing mirrors canonical: gap-5
+             * between the H1 and the description, then a generous
+             * bottom margin before the body so the header reads as a
+             * distinct block. Title sizes scale from 32px to 40px at
+             * md+ to match docs.copilotkit.ai. */}
+            <div className="flex flex-col gap-5">
+              <h1 className="text-[32px] md:text-[40px] font-medium text-[var(--text)] leading-[1.2]">
+                {doc.fm.title}
+              </h1>
+              {doc.fm.description && (
+                <p className="text-lg text-[var(--text-muted)] mb-14 max-lg:mb-12 max-sm:mb-10 leading-relaxed">
+                  {doc.fm.description}
+                </p>
+              )}
+            </div>
 
-          {bannerSlot}
+            {bannerSlot}
 
           {!hideBody &&
             (() => {
@@ -291,22 +315,54 @@ export async function DocsPageView({
                       // #anchor links resolve. Slugify the child text with the
                       // same algorithm used by extractHeadings() so IDs line up
                       // with the TOC entries.
+                      // H2/H3 carry stable slug IDs (already used by the
+                      // right-rail TOC) and now also surface a hover-only
+                      // `#` anchor link for deep-linking, mirroring the
+                      // canonical fumadocs prose chrome.
                       h2: ({
                         children,
                         ...rest
-                      }: React.HTMLAttributes<HTMLHeadingElement>) => (
-                        <h2 id={slugify(childrenToText(children))} {...rest}>
-                          {children}
-                        </h2>
-                      ),
+                      }: React.HTMLAttributes<HTMLHeadingElement>) => {
+                        const id = slugify(childrenToText(children));
+                        return (
+                          <h2
+                            id={id}
+                            {...rest}
+                            className={`docs-heading group ${rest.className ?? ""}`}
+                          >
+                            {children}
+                            <a
+                              href={`#${id}`}
+                              aria-label="Link to this section"
+                              className="docs-heading-anchor"
+                            >
+                              #
+                            </a>
+                          </h2>
+                        );
+                      },
                       h3: ({
                         children,
                         ...rest
-                      }: React.HTMLAttributes<HTMLHeadingElement>) => (
-                        <h3 id={slugify(childrenToText(children))} {...rest}>
-                          {children}
-                        </h3>
-                      ),
+                      }: React.HTMLAttributes<HTMLHeadingElement>) => {
+                        const id = slugify(childrenToText(children));
+                        return (
+                          <h3
+                            id={id}
+                            {...rest}
+                            className={`docs-heading group ${rest.className ?? ""}`}
+                          >
+                            {children}
+                            <a
+                              href={`#${id}`}
+                              aria-label="Link to this section"
+                              className="docs-heading-anchor"
+                            >
+                              #
+                            </a>
+                          </h3>
+                        );
+                      },
                       // When rendering under a framework-scoped route, rewrite
                       // root-relative MDX links (/quickstart, /shared-state, …)
                       // to the framework-scoped equivalent so clicks never land
@@ -344,6 +400,7 @@ export async function DocsPageView({
               }
               return body;
             })()}
+          </div>
         </div>
       </main>
 

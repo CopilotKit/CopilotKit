@@ -216,6 +216,34 @@ samp {
   margin: 1.5rem 0;
 }
 
+/* Heading anchors — H2/H3 surface a hover-only `#` link aligned to the
+ * right of the heading text, matching canonical fumadocs prose. The
+ * anchor is part of the heading's normal flow (not absolute) so it
+ * never collides with the right-rail TOC at narrow widths. */
+.reference-content .docs-heading {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.reference-content .docs-heading-anchor {
+  color: var(--text-faint);
+  text-decoration: none;
+  font-weight: 400;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.reference-content .docs-heading:hover .docs-heading-anchor,
+.reference-content .docs-heading-anchor:focus-visible {
+  opacity: 1;
+}
+
+.reference-content .docs-heading-anchor:hover {
+  color: var(--accent);
+  opacity: 1;
+}
+
 /* <Steps> / <Step> — CSS counters so numbering survives WhenFrameworkHas
  * gating. The Steps wrapper resets the counter; each visible Step
  * increments and renders its number via ::before. Hidden gates render
