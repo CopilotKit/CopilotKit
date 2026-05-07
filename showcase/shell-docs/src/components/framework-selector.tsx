@@ -200,11 +200,11 @@ export function FrameworkSelector({
   // framework is active — matches the docs.copilotkit.ai reference.
   const sidebarBtnClasses = [
     "w-full flex items-center gap-2 px-3 py-2 rounded-lg border",
-    "bg-[var(--bg-surface)] transition-colors cursor-pointer",
+    "bg-[var(--accent-light)] transition-colors cursor-pointer",
     "text-[13px] font-medium text-[var(--text)]",
     current
-      ? "border-[var(--accent)] shadow-[0_0_0_1px_var(--accent-light)] hover:bg-[var(--accent-light)]"
-      : "border-dashed border-[var(--border)] hover:border-[var(--accent)]",
+      ? "border-[var(--accent-light)] hover:border-[var(--accent)]"
+      : "border-dashed border-[var(--border-dim)] hover:border-[var(--accent)]",
   ].join(" ");
 
   const topbarBtnClasses =
