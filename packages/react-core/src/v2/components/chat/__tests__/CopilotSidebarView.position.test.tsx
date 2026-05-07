@@ -18,9 +18,7 @@ const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   </CopilotKitProvider>
 );
 
-const sampleMessages = [
-  { id: "1", role: "user" as const, content: "Hello" },
-];
+const sampleMessages = [{ id: "1", role: "user" as const, content: "Hello" }];
 
 function getSidebarAside(container: HTMLElement) {
   const sidebar = container.querySelector("[data-copilot-sidebar]");
@@ -44,7 +42,7 @@ describe("CopilotSidebarView position prop", () => {
       expect(aside.classList.contains("cpk:border-r")).toBe(false);
     });
 
-    it("renders right-anchored when position=\"right\" explicitly", () => {
+    it('renders right-anchored when position="right" explicitly', () => {
       const { container } = render(
         <TestWrapper>
           <CopilotSidebarView messages={sampleMessages} position="right" />
@@ -58,7 +56,7 @@ describe("CopilotSidebarView position prop", () => {
       expect(aside.classList.contains("cpk:border-r")).toBe(false);
     });
 
-    it("renders left-anchored when position=\"left\"", () => {
+    it('renders left-anchored when position="left"', () => {
       const { container } = render(
         <TestWrapper>
           <CopilotSidebarView messages={sampleMessages} position="left" />
@@ -72,7 +70,7 @@ describe("CopilotSidebarView position prop", () => {
       expect(aside.classList.contains("cpk:border-l")).toBe(false);
     });
 
-    it("translates off-screen to the right when closed and position=\"right\"", () => {
+    it('translates off-screen to the right when closed and position="right"', () => {
       const { container } = render(
         <TestWrapper>
           <CopilotSidebarView
@@ -88,7 +86,7 @@ describe("CopilotSidebarView position prop", () => {
       expect(aside.classList.contains("cpk:-translate-x-full")).toBe(false);
     });
 
-    it("translates off-screen to the left when closed and position=\"left\"", () => {
+    it('translates off-screen to the left when closed and position="left"', () => {
       const { container } = render(
         <TestWrapper>
           <CopilotSidebarView
@@ -106,7 +104,7 @@ describe("CopilotSidebarView position prop", () => {
   });
 
   describe("CopilotSidebar wrapper", () => {
-    it("forwards position=\"left\" through to CopilotSidebarView", () => {
+    it('forwards position="left" through to CopilotSidebarView', () => {
       const { container } = renderWithCopilotKit({
         agent: new MockStepwiseAgent(),
         children: <CopilotSidebar position="left" />,
