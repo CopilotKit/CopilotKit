@@ -133,59 +133,34 @@ const CLOUD_CTA = {
   href: "https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=navbar",
 };
 
-function AgUiIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 57 66"
-      width="14"
-      height="16"
-      className={className}
-      aria-hidden="true"
-    >
-      <g
-        transform="translate(2, -2)"
-        stroke="currentColor"
-        strokeWidth="3.3125"
-        fill="none"
-      >
-        <g transform="translate(0, 4)">
-          <path
-            d="M0,25.9335975 L16.5448881,6.52325783e-15 C40.848296,5.37332138 53,8.05998207 53,8.05998207 L43.1229639,62 L0,25.9335975 Z"
-            strokeLinejoin="round"
-          />
-          <line x1="16.5828221" y1="-1.07552856e-15" x2="43.2453988" y2="62" />
-          <line x1="0" y1="25.9335975" x2="53" y2="8.48421053" />
-        </g>
-      </g>
-    </svg>
-  );
-}
-
-type Brand = "copilotkit" | "ag-ui";
-
-const AG_UI_PREFIXES = ["/ag-ui"];
-
 const SHELL_HOST = process.env.NEXT_PUBLIC_SHELL_URL ?? "http://localhost:3000";
 
-const COPILOTKIT_LINKS = [
-  { href: "/", label: "Docs" },
-  { href: `${SHELL_HOST}/integrations`, label: "Integrations" },
-  { href: "/reference", label: "Reference" },
+// Section tabs are the canonical center-cluster nav matching docs.copilotkit.ai.
+// The active tab is determined by URL prefix; root "/" only matches exactly so
+// reference/integrations sub-paths don't double-light the Docs tab.
+const SECTION_TABS: Array<{
+  label: string;
+  href: string;
+  match: (pathname: string) => boolean;
+  external?: boolean;
+}> = [
+  {
+    label: "Documentation",
+    href: "/",
+    match: (p) => !p.startsWith("/reference") && !p.startsWith("/ag-ui"),
+  },
+  {
+    label: "API Reference",
+    href: "/reference",
+    match: (p) => p.startsWith("/reference"),
+  },
+  {
+    label: "Integrations",
+    href: `${SHELL_HOST}/integrations`,
+    match: () => false,
+    external: true,
+  },
 ];
-
-const AG_UI_LINKS = [
-  { href: "/ag-ui", label: "Overview" },
-  { href: "/ag-ui/concepts/architecture", label: "Concepts" },
-  { href: "/ag-ui/quickstart/introduction", label: "Quick Start" },
-  { href: "/ag-ui/sdk/js/core/overview", label: "JS SDK" },
-  { href: "/ag-ui/sdk/python/core/overview", label: "Python SDK" },
-];
-
-function activeBrandFromPath(pathname: string): Brand {
-  return AG_UI_PREFIXES.some((p) => pathname.startsWith(p))
-    ? "ag-ui"
-    : "copilotkit";
-}
 
 export interface BrandNavProps {
   // Note: the framework selector previously lived in the top bar. It's
@@ -198,8 +173,6 @@ export interface BrandNavProps {
 
 export function BrandNav(_props: BrandNavProps = {}) {
   const pathname = usePathname();
-  const active = activeBrandFromPath(pathname);
-  const links = active === "copilotkit" ? COPILOTKIT_LINKS : AG_UI_LINKS;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const posthog = usePostHog();
 
@@ -213,108 +186,112 @@ export function BrandNav(_props: BrandNavProps = {}) {
   };
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--bg-surface)]/90 backdrop-blur-lg">
-      <div className="mx-auto flex h-[52px] items-center justify-between px-6">
-        {/* Brand tabs */}
-        <div className="flex items-center gap-0">
-          <Link
-            href="/"
-            className="relative flex items-center gap-1.5 px-1 pb-1 text-sm font-bold tracking-tight transition-colors"
-            style={{
-              color:
-                active === "copilotkit" ? "var(--accent)" : "var(--text-faint)",
-            }}
-          >
-            <CopilotKitIcon />
-            CopilotKit
-            {active === "copilotkit" && (
-              <span
-                className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full"
-                style={{ background: "var(--accent)" }}
-              />
-            )}
-          </Link>
-          <span className="mx-2 text-[var(--border)] select-none">|</span>
-          <Link
-            href="/ag-ui"
-            className="relative flex items-center gap-1.5 px-1 pb-1 text-sm font-bold tracking-tight transition-colors"
-            style={{
-              color: active === "ag-ui" ? "var(--accent)" : "var(--text-faint)",
-            }}
-          >
-            <AgUiIcon />
-            AG-UI
-            {active === "ag-ui" && (
-              <span
-                className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full"
-                style={{ background: "var(--accent)" }}
-              />
-            )}
-          </Link>
-        </div>
+    <nav
+      className="sticky top-2 z-40 mx-auto mt-2 flex h-[52px] max-w-[1400px] items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--glass-background)]/80 px-4 backdrop-blur-md sm:px-6"
+      style={{
+        // Pull the pill in from the page edges so it visually floats. The
+        // outer page padding in <main> handles broader gutter alignment.
+        width: "calc(100% - 1.5rem)",
+      }}
+    >
+      {/* Wordmark */}
+      <Link
+        href="/"
+        className="flex items-center gap-2 text-sm font-bold tracking-tight text-[var(--text)] no-underline"
+        aria-label="CopilotKit docs home"
+      >
+        <CopilotKitIcon />
+        <span>CopilotKit</span>
+      </Link>
 
-        {/* Context-dependent nav links (desktop) */}
-        <div className="hidden sm:flex items-center gap-1">
-          {links.map(({ href, label }) => (
+      {/* Center section tabs (desktop) */}
+      <div className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-1 sm:flex">
+        {SECTION_TABS.map((tab) => {
+          const isActive = tab.match(pathname);
+          const baseClasses =
+            "relative px-3 py-1.5 text-[13px] font-medium transition-colors no-underline";
+          const colorClasses = isActive
+            ? "text-[var(--text)]"
+            : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]";
+
+          if (tab.external) {
+            return (
+              <a
+                key={tab.href}
+                href={tab.href}
+                className={`${baseClasses} ${colorClasses}`}
+              >
+                {tab.label}
+              </a>
+            );
+          }
+          return (
             <Link
-              key={href}
-              href={href}
-              className="rounded-md px-3 py-1.5 text-[13px] font-medium text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-all"
+              key={tab.href}
+              href={tab.href}
+              className={`${baseClasses} ${colorClasses}`}
             >
-              {label}
+              {tab.label}
+              {isActive && (
+                <span
+                  className="absolute -bottom-0.5 left-3 right-3 h-[2px] rounded-full"
+                  style={{ background: "var(--accent)" }}
+                  aria-hidden="true"
+                />
+              )}
             </Link>
-          ))}
-        </div>
+          );
+        })}
+      </div>
 
-        {/* Desktop: Talk-to-Engineers + Cloud CTA + search */}
-        <div className="hidden sm:flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleTalkToEngineersClick}
-            className="hidden [@media(width>=1400px)]:flex items-center rounded-md px-3 py-1.5 text-[13px] font-medium text-[var(--text-muted)] hover:text-[#7076D5] hover:bg-[#7076D5]/10 transition-colors duration-200 cursor-pointer whitespace-nowrap"
-            aria-label="Talk to our engineers"
-          >
-            Talk to Our Engineers
-          </button>
-          <a
-            href={CLOUD_CTA.href}
-            target="_blank"
-            rel="noreferrer"
-            onClick={() => handleFreeDeveloperAccessClick("docs_navbar")}
-            className="no-underline flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg-elevated)] transition-all"
-          >
-            <CloudIcon />
-            <span className="[@media(width<1100px)]:hidden">
-              {CLOUD_CTA.label}
-            </span>
-            <ExternalArrowIcon className="[@media(width<1100px)]:hidden opacity-70" />
-          </a>
-          <SearchTrigger />
-        </div>
+      {/* Desktop right cluster: search + Cloud CTA + Talk-to-Engineers */}
+      <div className="hidden items-center gap-2 sm:flex">
+        <SearchTrigger />
+        <a
+          href={CLOUD_CTA.href}
+          target="_blank"
+          rel="noreferrer"
+          onClick={() => handleFreeDeveloperAccessClick("docs_navbar")}
+          className="no-underline flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg-elevated)] transition-all"
+        >
+          <CloudIcon />
+          <span className="[@media(width<1180px)]:hidden">
+            {CLOUD_CTA.label}
+          </span>
+          <ExternalArrowIcon className="[@media(width<1180px)]:hidden opacity-70" />
+        </a>
+        <button
+          type="button"
+          onClick={handleTalkToEngineersClick}
+          className="hidden [@media(width>=1400px)]:flex items-center rounded-md px-3 py-1.5 text-[13px] font-medium text-[var(--text-muted)] hover:text-[#7076D5] hover:bg-[#7076D5]/10 transition-colors duration-200 cursor-pointer whitespace-nowrap"
+          aria-label="Talk to our engineers"
+        >
+          Talk to Our Engineers
+        </button>
+      </div>
 
-        {/* Mobile: search icon + hamburger */}
-        <div className="flex sm:hidden items-center gap-1">
-          <SearchTrigger iconOnly />
-          <button
-            onClick={() => setMobileMenuOpen(true)}
-            className="flex items-center justify-center w-8 h-8 rounded-md text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-colors cursor-pointer"
-            aria-label="Open menu"
+      {/* Mobile: search icon + hamburger */}
+      <div className="flex sm:hidden items-center gap-1">
+        <SearchTrigger iconOnly />
+        <button
+          onClick={() => setMobileMenuOpen(true)}
+          className="flex items-center justify-center w-8 h-8 rounded-md text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-colors cursor-pointer"
+          aria-label="Open menu"
+        >
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-          </button>
-        </div>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 6h16M4 12h16M4 18h16"
+            />
+          </svg>
+        </button>
       </div>
 
       {/* Mobile slide-out menu */}
@@ -357,16 +334,27 @@ export function BrandNav(_props: BrandNavProps = {}) {
             </div>
             {/* Nav links */}
             <div className="flex flex-col px-4 py-4 gap-1">
-              {links.map(({ href, label }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="rounded-md px-3 py-2.5 text-[14px] font-medium text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg-elevated)] transition-all"
-                >
-                  {label}
-                </Link>
-              ))}
+              {SECTION_TABS.map((tab) =>
+                tab.external ? (
+                  <a
+                    key={tab.href}
+                    href={tab.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="rounded-md px-3 py-2.5 text-[14px] font-medium text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg-elevated)] transition-all no-underline"
+                  >
+                    {tab.label}
+                  </a>
+                ) : (
+                  <Link
+                    key={tab.href}
+                    href={tab.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="rounded-md px-3 py-2.5 text-[14px] font-medium text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg-elevated)] transition-all"
+                  >
+                    {tab.label}
+                  </Link>
+                ),
+              )}
               <a
                 href={CLOUD_CTA.href}
                 target="_blank"
@@ -392,17 +380,6 @@ export function BrandNav(_props: BrandNavProps = {}) {
               >
                 Talk to Our Engineers
               </button>
-            </div>
-            {/* AG-UI link at bottom */}
-            <div className="mt-auto px-4 py-4 border-t border-[var(--border)]">
-              <Link
-                href="/ag-ui"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-2 rounded-md px-3 py-2.5 text-[13px] font-medium text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-all"
-              >
-                <AgUiIcon />
-                AG-UI
-              </Link>
             </div>
           </div>
           <style jsx global>{`
