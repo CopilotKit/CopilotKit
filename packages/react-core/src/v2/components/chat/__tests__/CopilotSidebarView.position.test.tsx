@@ -102,7 +102,7 @@ describe("CopilotSidebarView position prop", () => {
       expect(aside.classList.contains("cpk:translate-x-full")).toBe(false);
     });
 
-    it("anchors the toggle button to the left when position=\"left\"", () => {
+    it('anchors the toggle button to the left when position="left"', () => {
       const { container } = render(
         <TestWrapper>
           <CopilotSidebarView messages={sampleMessages} position="left" />

@@ -149,9 +149,7 @@ function CopilotSidebarViewInternal({
   const toggleButtonElement = renderSlot(
     toggleButton,
     CopilotChatToggleButton,
-    position === "left"
-      ? { className: "cpk:left-6 cpk:right-auto" }
-      : {},
+    position === "left" ? { className: "cpk:left-6 cpk:right-auto" } : {},
   );
 
   return (
