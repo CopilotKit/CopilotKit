@@ -123,7 +123,7 @@ export async function DocsPageView({
       return (
         <div
           key={`section-${node.title}`}
-          className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mt-4 mb-2"
+          className="text-[12px] font-medium text-[var(--text-muted)] mt-4 mb-2"
           style={{ paddingLeft: `${indent}px` }}
         >
           {node.title}
@@ -142,9 +142,9 @@ export async function DocsPageView({
             scope={scope}
             fallbackHref={`${slugHrefPrefix}/${node.slug}`}
             active={isActive}
-            className={`block py-[5px] text-[13px] transition-colors ${
+            className={`block py-2 px-2 text-[14px] rounded-md transition-colors ${
               isActive
-                ? "text-[var(--accent)] font-medium"
+                ? "bg-[var(--bg-surface)] shadow-sm text-[var(--text)]"
                 : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
             }`}
           >
@@ -170,7 +170,7 @@ export async function DocsPageView({
 
   return (
     <div className="flex" style={{ height: "calc(100vh - 53px)" }}>
-      <SidebarNav className="w-[240px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
+      <SidebarNav className="w-[240px] shrink-0 rounded-l-2xl backdrop-blur-lg border border-r-0 border-[var(--border)] bg-[var(--glass-background)]/80 overflow-y-auto p-4">
         <SidebarFrameworkSelector />
         <div className="mb-4" />
         {tree.map((node) => renderNavItem(node))}
