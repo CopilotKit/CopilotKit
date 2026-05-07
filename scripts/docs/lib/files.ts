@@ -53,7 +53,8 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
   /* Classes */
   {
     sourcePath: "packages/react-core/src/lib/copilot-task.ts",
-    destinationPath: "showcase/shell-docs/src/content/reference/v1/classes/CopilotTask.mdx",
+    destinationPath:
+      "showcase/shell-docs/src/content/reference/v1/classes/CopilotTask.mdx",
     className: "CopilotTask",
     description:
       "CopilotTask is used to execute one-off tasks, for example on button click.",
@@ -78,7 +79,8 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
   {
     sourcePath:
       "packages/react-core/src/components/copilot-provider/copilotkit.tsx",
-    destinationPath: "showcase/shell-docs/src/content/reference/v1/components/CopilotKit.mdx",
+    destinationPath:
+      "showcase/shell-docs/src/content/reference/v1/components/CopilotKit.mdx",
     component: "CopilotKit",
     description:
       "The CopilotKit provider component, wrapping your application.",
@@ -111,7 +113,8 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
   /* Hooks */
   {
     sourcePath: "packages/react-core/src/hooks/use-copilot-chat.ts",
-    destinationPath: "showcase/shell-docs/src/content/reference/v1/hooks/useCopilotChat.mdx",
+    destinationPath:
+      "showcase/shell-docs/src/content/reference/v1/hooks/useCopilotChat.mdx",
     hook: "useCopilotChat",
   },
   {
@@ -146,7 +149,8 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
   },
   {
     sourcePath: "packages/react-core/src/hooks/use-coagent.ts",
-    destinationPath: "showcase/shell-docs/src/content/reference/v1/hooks/useCoAgent.mdx",
+    destinationPath:
+      "showcase/shell-docs/src/content/reference/v1/hooks/useCoAgent.mdx",
     hook: "useCoAgent",
     description:
       "The useCoAgent hook allows you to share state bidirectionally between your application and the agent.",
@@ -164,7 +168,8 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
 
   {
     sourcePath: "sdk-python/copilotkit/langgraph.py",
-    destinationPath: "showcase/shell-docs/src/content/reference/sdk/python/LangGraph.mdx",
+    destinationPath:
+      "showcase/shell-docs/src/content/reference/sdk/python/LangGraph.mdx",
     title: "LangGraph SDK",
     description:
       "The CopilotKit LangGraph SDK for Python allows you to build and run LangGraph workflows with CopilotKit.",
@@ -178,7 +183,8 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
   },
   {
     sourcePath: "sdk-python/copilotkit/crewai/crewai_sdk.py",
-    destinationPath: "showcase/shell-docs/src/content/reference/sdk/python/CrewAI.mdx",
+    destinationPath:
+      "showcase/shell-docs/src/content/reference/sdk/python/CrewAI.mdx",
     title: "CrewAI SDK",
     description:
       "The CopilotKit CrewAI SDK for Python allows you to build and run CrewAI agents with CopilotKit.",
@@ -203,7 +209,8 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
   },
   {
     sourcePath: "sdk-python/copilotkit/crewai/crewai_agent.py",
-    destinationPath: "showcase/shell-docs/src/content/reference/sdk/python/CrewAIAgent.mdx",
+    destinationPath:
+      "showcase/shell-docs/src/content/reference/sdk/python/CrewAIAgent.mdx",
     title: "CrewAIAgent",
     description:
       "CrewAIAgent lets you define your agent for use with CopilotKit.",
@@ -220,7 +227,8 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
   },
   {
     sourcePath: "packages/sdk-js/src/langgraph/index.ts",
-    destinationPath: "showcase/shell-docs/src/content/reference/sdk/js/LangGraph.mdx",
+    destinationPath:
+      "showcase/shell-docs/src/content/reference/sdk/js/LangGraph.mdx",
     title: "LangGraph SDK",
     description:
       "The CopilotKit LangGraph SDK for JavaScript allows you to build and run LangGraph workflows with CopilotKit.",
