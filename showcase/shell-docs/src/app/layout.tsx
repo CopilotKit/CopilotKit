@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 import Script from "next/script";
 import { Suspense } from "react";
 import { AnalyticsClient } from "@/components/analytics-client";
+import { Banners } from "@/components/banners";
 import { BrandNav } from "@/components/brand-nav";
 import { FrameworkProvider } from "@/components/framework-provider";
 import { PostHogProvider } from "@/lib/providers/posthog-provider";
@@ -126,6 +127,7 @@ export default function RootLayout({
         <Suspense fallback={null}>
           <PostHogProvider>
             <FrameworkProvider knownFrameworks={knownFrameworks}>
+              <Banners />
               <BrandNav />
               <main>{children}</main>
             </FrameworkProvider>
