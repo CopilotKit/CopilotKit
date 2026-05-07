@@ -1,4 +1,4 @@
-import { ReferenceDocConfiguration } from "./reference-doc";
+import type { ReferenceDocConfiguration } from "./reference-doc";
 
 export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
   /* Runtime */
@@ -199,13 +199,13 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
 
   /* Agents */
   {
-    sourcePath: "sdk-python/copilotkit/langgraph_agent.py",
+    sourcePath: "sdk-python/copilotkit/langgraph_agui_agent.py",
     destinationPath:
-      "showcase/shell-docs/src/content/reference/sdk/python/LangGraphAgent.mdx",
-    title: "LangGraphAgent",
+      "showcase/shell-docs/src/content/reference/sdk/python/LangGraphAGUIAgent.mdx",
+    title: "LangGraphAGUIAgent",
     description:
-      "LangGraphAgent lets you define your agent for use with CopilotKit.",
-    pythonSymbols: ["LangGraphAgent", "CopilotKitConfig"],
+      "LangGraphAGUIAgent lets you define your agent for use with CopilotKit.",
+    pythonSymbols: ["LangGraphAGUIAgent", "CopilotKitConfig"],
   },
   {
     sourcePath: "sdk-python/copilotkit/crewai/crewai_agent.py",
