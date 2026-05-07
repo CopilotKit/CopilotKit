@@ -31,6 +31,20 @@ export const Default: Story = {
   },
 };
 
+export const RightPosition: Story = {
+  args: {
+    autoScroll: true,
+    position: "right",
+  },
+};
+
+export const LeftPosition: Story = {
+  args: {
+    autoScroll: true,
+    position: "left",
+  },
+};
+
 export const CustomHeader: Story = {
   args: {
     header: {
