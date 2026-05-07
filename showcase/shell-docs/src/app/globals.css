@@ -12,21 +12,24 @@
   /* Backgrounds — match reference (oklch(0.9038 0.0149 286.1) ≈ #e6e6ec).
    * Shell keeps a slightly lighter cast so code blocks on white surface
    * still read well; key is that it's the same cool-gray family. */
-  --bg: #eaeaee;
+  --bg: #dedee9;
   --bg-surface: #ffffff;
   --bg-elevated: #f1f1f6;
   --bg-hover: #e5e5eb;
   --border: #d9d9e0;
   --border-dim: #e9e9ef;
   --sidebar: #efeff3;
+  /* Glass-panel surface (header, sidebar) — canonical exposes this for
+   * translucent chrome that sits above --bg. Wave 3 slots 2 + 3 consume it. */
+  --glass-background: #eaeaee;
   --text: #010507;
   --text-secondary: #2b3238;
   --text-muted: #6a7079;
   --text-faint: #a3a8af;
   /* Reference primary is oklch(0.55 0.25 285) — a blue-violet. Hex approx. */
-  --accent: #5a3cd1;
-  --accent-light: #ebe7fa;
-  --accent-dim: rgba(90, 60, 209, 0.06);
+  --accent: #6d45f9;
+  --accent-light: #ede5ff;
+  --accent-dim: rgba(109, 69, 249, 0.06);
   --blue: #1a5fb4;
   --violet: #5a3cd1;
   --violet-light: #ebe7fa;
