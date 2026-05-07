@@ -50,8 +50,7 @@ export function Banners() {
     setHydrated(true);
 
     const checkBannerExpiry = () => {
-      const isDismissed =
-        localStorage.getItem(BANNER_DISMISSED_KEY) === "true";
+      const isDismissed = localStorage.getItem(BANNER_DISMISSED_KEY) === "true";
 
       if (!isDismissed) {
         setDismissed(false);

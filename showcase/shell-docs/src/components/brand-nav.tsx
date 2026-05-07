@@ -180,8 +180,7 @@ export function BrandNav(_props: BrandNavProps = {}) {
   const handleToggleTheme = () => {
     document.documentElement.classList.toggle("dark");
     try {
-      localStorage.theme =
-        localStorage.theme === "dark" ? "light" : "dark";
+      localStorage.theme = localStorage.theme === "dark" ? "light" : "dark";
     } catch {
       // localStorage may be blocked (private mode, embedded contexts) —
       // a class flip on documentElement is the load-bearing behavior.
@@ -221,10 +220,7 @@ export function BrandNav(_props: BrandNavProps = {}) {
                   link.label === "Integrations";
                 const isActive = activeRoute === link.href;
                 return (
-                  <li
-                    key={link.href}
-                    className="relative h-full group"
-                  >
+                  <li key={link.href} className="relative h-full group">
                     <Link
                       href={link.href}
                       target={link.target}
