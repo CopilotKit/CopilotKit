@@ -157,9 +157,9 @@ Decommission candidates (zero hits):
   R12                       /coding-agent-setup → /coding-agents
   R13                       /copilot-suggestions → /prebuilt-components
   R14                       /direct-to-llm → /built-in-agent
-  R15                       /builtin-agent → /built-in-agent
+  R15                       /integrations/built-in-agent → /built-in-agent
   R16                       /direct-to-llm/:path* → /built-in-agent/:path*
-  R17                       /builtin-agent/:path* → /built-in-agent/:path*
+  R17                       /integrations/built-in-agent/:path* → /built-in-agent/:path*
   R18                       /mcp → /coding-agents
   R19                       /vibe-coding-mcp → /coding-agents
   R20                       /agentic-protocols → /agentic-protocols
