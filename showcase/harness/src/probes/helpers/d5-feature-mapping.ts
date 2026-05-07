@@ -41,7 +41,9 @@ import type { D5FeatureType } from "./d5-registry.js";
  * obvious at a glance:
  *   - `agentic-chat`           : 1 demo
  *   - `tool-rendering`         : 3 demos (all the tool-rendering variants)
- *   - `gen-ui-headless`        : 2 demos (headless chat surfaces)
+ *   - `headless-simple` / `gen-ui-headless-complete`: 1 demo each
+ *     (headless chat surfaces — simple is text-only post-refactor;
+ *     complete still drives the full gen-UI surface)
  *   - `gen-ui-custom`          : 1 demo
  *   - `hitl-text-input`        : 2 demos (in-chat HITL variants using useHumanInTheLoop)
  *   - `hitl-steps`             : 1 demo (step-selection confirmation)
@@ -74,13 +76,14 @@ export const REGISTRY_TO_D5: Readonly<Record<string, readonly D5FeatureType[]>> 
   "tool-rendering-default-catchall": ["tool-rendering-default-catchall"],
   "tool-rendering-custom-catchall": ["tool-rendering-custom-catchall"],
 
-  // gen-ui (headless tier) — `headless-simple` and `headless-complete`
-  // each have their own D5 script and fixture. They live on different
-  // routes (`/demos/headless-simple` vs `/demos/headless-complete`) and
-  // exercise different rendering surfaces (show_card via useComponent
-  // vs WeatherCard/StockCard/HighlightNote via useRenderTool +
-  // useComponent + MCP), so the mapping is one-to-one.
-  "headless-simple": ["gen-ui-headless"],
+  // headless tier — `headless-simple` and `headless-complete` each have
+  // their own D5 script and fixture. They live on different routes
+  // (`/demos/headless-simple` vs `/demos/headless-complete`).
+  // `headless-simple` is text-in/text-out (the literal mirrors the
+  // demo route post-refactor); `headless-complete` still drives the
+  // full gen-UI surface (`useComponent` + `useRenderTool` + MCP) so its
+  // literal keeps the `gen-ui-headless-complete` shape.
+  "headless-simple": ["headless-simple"],
   "headless-complete": ["gen-ui-headless-complete"],
 
   // gen-ui (custom tier)

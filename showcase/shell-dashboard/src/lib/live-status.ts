@@ -118,7 +118,7 @@ export const CATALOG_TO_D5_KEY: Readonly<Record<string, readonly string[]>> = {
   "tool-rendering": ["tool-rendering"],
   "tool-rendering-default-catchall": ["tool-rendering-default-catchall"],
   "tool-rendering-custom-catchall": ["tool-rendering-custom-catchall"],
-  "headless-simple": ["gen-ui-headless"],
+  "headless-simple": ["headless-simple"],
   "headless-complete": ["gen-ui-headless-complete"],
   "gen-ui-tool-based": ["gen-ui-custom"],
   "hitl-in-chat": ["hitl-text-input"],
