@@ -1182,20 +1182,25 @@ export class BuiltInAgent extends AbstractAgent {
           //   - `config.mcpServers` — user-supplied static array.
           //   - The CopilotKit Intelligence MCP server, auto-attached when
           //     the runtime forwards a `copilotkitIntelligence` bag via
-          //     `input.forwardedProps`. The bag carries `userId` + `apiKey`
-          //     + `mcpUrl`. We build a per-request MCPClientConfigHTTP
-          //     whose `options.fetch` closes over `apiKey` + `userId` and
-          //     stamps `Authorization: Bearer <apiKey>` and `X-Cpki-User-Id:
+          //     `input.forwardedProps.auth`. The bag carries `userId` +
+          //     `apiKey` + `mcpUrl`. We build a per-request
+          //     MCPClientConfigHTTP whose `options.fetch` closes over
+          //     `apiKey` + `userId` and stamps
+          //     `Authorization: Bearer <apiKey>` and `X-Cpki-User-Id:
           //     <userId>` on every outbound MCP call. Skipped when the user
-          //     already configured a server pointing at the same URL.
+          //     already configured a server pointing at the same URL. The
+          //     `auth` namespace is the convention for credentials that
+          //     downstream redaction policies strip before durable storage
+          //     and FE replay.
           const allMcpServers: MCPClientConfig[] = [
             ...(this.config.mcpServers ?? []),
           ];
-          const cki = (
+          const auth = (
             input.forwardedProps as
-              | { copilotkitIntelligence?: unknown }
+              | { auth?: { copilotkitIntelligence?: unknown } }
               | undefined
-          )?.copilotkitIntelligence as
+          )?.auth;
+          const cki = auth?.copilotkitIntelligence as
             | { userId?: unknown; apiKey?: unknown; mcpUrl?: unknown }
             | undefined;
           const ckiUserId =
