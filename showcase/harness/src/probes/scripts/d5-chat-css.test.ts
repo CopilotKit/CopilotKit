@@ -52,38 +52,56 @@ describe("d5-chat-css script", () => {
   });
 
   describe("validateChatCss", () => {
-    it("returns null when both bubbles carry the expected RGB anchors", () => {
+    it("returns null when all halcyon signals are present", () => {
       expect(
         validateChatCss({
-          userBg:
-            "linear-gradient(135deg, rgb(255, 0, 110) 0%, rgb(194, 24, 91) 100%) rgba(0, 0, 0, 0)",
-          assistantBg: "rgb(253, 224, 71)",
+          userBorderLeft: "rgb(196, 74, 31)",
+          userFontFamily:
+            '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace',
+          assistantFontFamily:
+            '"Fraunces", "Source Serif Pro", ui-serif, Georgia, "Times New Roman", serif',
         }),
       ).toBeNull();
     });
 
-    it("returns error when user bubble missing red anchor", () => {
+    it("returns error when user bubble missing ember left border", () => {
       expect(
         validateChatCss({
-          userBg: "rgb(0, 0, 255)",
-          assistantBg: "rgb(253, 224, 71)",
+          userBorderLeft: "rgb(0, 0, 0)",
+          userFontFamily: "JetBrains Mono",
+          assistantFontFamily: "Fraunces",
         }),
-      ).toMatch(/red\/pink anchor/);
+      ).toMatch(/halcyon-ember left border/);
     });
 
-    it("returns error when assistant bubble missing yellow anchor", () => {
+    it("returns error when user bubble missing halcyon-mono font", () => {
       expect(
         validateChatCss({
-          userBg: "rgb(255, 0, 110)",
-          assistantBg: "rgb(255, 255, 255)",
+          userBorderLeft: "rgb(196, 74, 31)",
+          userFontFamily: "Arial, sans-serif",
+          assistantFontFamily: "Fraunces",
         }),
-      ).toMatch(/yellow\/amber anchor/);
+      ).toMatch(/halcyon-mono font/);
+    });
+
+    it("returns error when assistant bubble missing halcyon-serif font", () => {
+      expect(
+        validateChatCss({
+          userBorderLeft: "rgb(196, 74, 31)",
+          userFontFamily: "JetBrains Mono",
+          assistantFontFamily: "Arial, sans-serif",
+        }),
+      ).toMatch(/halcyon-serif font/);
     });
 
     it("returns error when bubbles missing entirely", () => {
-      expect(validateChatCss({ userBg: null, assistantBg: null })).toMatch(
-        /user bubble.*not found/,
-      );
+      expect(
+        validateChatCss({
+          userBorderLeft: null,
+          userFontFamily: null,
+          assistantFontFamily: null,
+        }),
+      ).toMatch(/user bubble inner.*not found/);
     });
   });
 
@@ -94,14 +112,16 @@ describe("d5-chat-css script", () => {
     ).rejects.toThrow(/assistant bubble selector/);
   });
 
-  it("assertion succeeds when computed colors match", async () => {
+  it("assertion succeeds when computed styles match", async () => {
     const assertion = buildChatCssAssertion();
     await expect(
       assertion(
         makePage({
-          userBg:
-            "linear-gradient(135deg, rgb(255, 0, 110) 0%, rgb(194, 24, 91) 100%)",
-          assistantBg: "rgb(253, 224, 71)",
+          userBorderLeft: "rgb(196, 74, 31)",
+          userFontFamily:
+            '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace',
+          assistantFontFamily:
+            '"Fraunces", "Source Serif Pro", ui-serif, Georgia, "Times New Roman", serif',
         }),
       ),
     ).resolves.toBeUndefined();
