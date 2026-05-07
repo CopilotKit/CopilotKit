@@ -77,11 +77,12 @@ export function SearchTrigger({
     <>
       <button
         onClick={() => setOpen((prev) => !prev)}
-        className="flex flex-shrink-0 items-center gap-2 rounded-full bg-[var(--glass-background)]/70 px-3 py-1.5 text-xs text-[var(--text-muted)] cursor-pointer hover:bg-[var(--glass-background)] transition-colors w-[200px] whitespace-nowrap"
+        className="flex flex-shrink-0 items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--glass-background)]/70 pl-3 pr-2 py-1.5 text-xs text-[var(--text-muted)] cursor-pointer hover:bg-[var(--glass-background)] transition-colors w-[220px] whitespace-nowrap"
         aria-label="Search docs"
       >
+        {/* Search icon — left zone, fixed-size */}
         <svg
-          className="w-3.5 h-3.5 opacity-70"
+          className="w-3.5 h-3.5 flex-shrink-0 opacity-70"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -94,9 +95,13 @@ export function SearchTrigger({
             d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
           />
         </svg>
-        <span>Search docs, demos...</span>
+        {/* Label — middle zone, truncates if it would crash into the kbd */}
+        <span className="flex-1 min-w-0 truncate text-left">
+          Search docs, demos...
+        </span>
+        {/* ⌘K kbd — right zone, fixed-size, never overlaps the label */}
         <kbd
-          className="ml-auto font-mono text-[10px] border border-[var(--border)] px-1.5 py-0.5 rounded bg-[var(--bg-surface)]/80 text-[var(--text-muted)]"
+          className="flex-shrink-0 font-mono text-[10px] border border-[var(--border)] px-1.5 py-0.5 rounded bg-[var(--bg-surface)]/80 text-[var(--text-muted)]"
           // Reserve horizontal room so the button doesn't reflow when the
           // shortcut hint appears after hydration.
           style={{ minWidth: "2.75rem", textAlign: "center" }}

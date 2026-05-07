@@ -187,11 +187,15 @@ export function BrandNav(_props: BrandNavProps = {}) {
 
   return (
     <nav
-      className="sticky top-2 z-40 mx-auto mt-2 flex h-[52px] max-w-[1400px] items-center gap-4 rounded-2xl border border-[var(--border)] bg-[var(--glass-background)]/80 px-4 backdrop-blur-md sm:px-6 lg:gap-6"
+      className="sticky top-2 z-40 mx-auto mt-2 flex h-[52px] items-center gap-4 rounded-2xl border border-[var(--border)] bg-[var(--glass-background)]/80 px-4 backdrop-blur-md sm:px-6 lg:gap-6"
       style={{
-        // Pull the pill in from the page edges so it visually floats. The
-        // outer page padding in <main> handles broader gutter alignment.
-        width: "calc(100% - 1.5rem)",
+        // Span the same outer page rail as the floating sidebar (which is
+        // viewport-flush left with `rounded-l-2xl`). Using a tiny shared
+        // gutter makes the header pill and the sidebar look like a single
+        // floating chrome that wraps both. Matches docs.copilotkit.ai
+        // canonical, where the header pill sits visually above the
+        // sidebar+content rail rather than centering at max-w-1400px.
+        width: "calc(100% - 1rem)",
       }}
     >
       {/* Wordmark */}
@@ -248,7 +252,9 @@ export function BrandNav(_props: BrandNavProps = {}) {
         })}
       </div>
 
-      {/* Desktop right cluster: search + Cloud CTA + Talk-to-Engineers */}
+      {/* Desktop right cluster: search + Cloud CTA + Talk-to-Engineers.
+          Cloud CTA and Talk-to-Engineers are styled as outlined-pill buttons
+          to match the canonical docs.copilotkit.ai right-cluster pattern. */}
       <div className="hidden flex-shrink-0 items-center gap-2 sm:flex">
         <SearchTrigger />
         <a
@@ -256,18 +262,16 @@ export function BrandNav(_props: BrandNavProps = {}) {
           target="_blank"
           rel="noreferrer"
           onClick={() => handleFreeDeveloperAccessClick("docs_navbar")}
-          className="no-underline flex flex-shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg-elevated)] transition-all whitespace-nowrap"
+          className="no-underline hidden [@media(width>=1180px)]:flex flex-shrink-0 items-center gap-1.5 h-9 rounded-full border border-[var(--border)] bg-transparent px-4 text-[13px] font-medium text-[var(--text-muted)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-colors whitespace-nowrap"
         >
           <CloudIcon />
-          <span className="[@media(width<1180px)]:hidden">
-            {CLOUD_CTA.label}
-          </span>
-          <ExternalArrowIcon className="[@media(width<1180px)]:hidden opacity-70" />
+          <span>{CLOUD_CTA.label}</span>
+          <ExternalArrowIcon className="opacity-70" />
         </a>
         <button
           type="button"
           onClick={handleTalkToEngineersClick}
-          className="hidden [@media(width>=1400px)]:flex flex-shrink-0 items-center rounded-md px-3 py-1.5 text-[13px] font-medium text-[var(--text-muted)] hover:text-[#7076D5] hover:bg-[#7076D5]/10 transition-colors duration-200 cursor-pointer whitespace-nowrap"
+          className="hidden [@media(width>=1400px)]:flex flex-shrink-0 items-center h-9 rounded-full border border-[var(--border)] bg-transparent px-4 text-[13px] font-medium text-[var(--text-muted)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-colors cursor-pointer whitespace-nowrap"
           aria-label="Talk to our engineers"
         >
           Talk to Our Engineers
