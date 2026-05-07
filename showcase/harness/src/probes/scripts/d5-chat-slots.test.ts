@@ -43,16 +43,16 @@ describe("d5-chat-slots script", () => {
     expect(typeof turns[0]!.assertions).toBe("function");
   });
 
-  it("exposes the CustomAssistantMessage selector for the slot probe", () => {
+  it("exposes the assistant-message SlotMarker selector for the slot probe", () => {
     expect(CUSTOM_ASSISTANT_MESSAGE_SELECTOR).toBe(
-      '[data-testid="custom-assistant-message"]',
+      '[data-slot-label="MessageView.AssistantMessage"]',
     );
   });
 
   it("assertion fails when the slot wrapper does not appear in DOM", async () => {
     const assertion = buildChatSlotsAssertion({ waitTimeoutMs: 50 });
     await expect(assertion(makePage({ throwOnWait: true }))).rejects.toThrow(
-      /CustomAssistantMessage slot/,
+      /assistant-message SlotMarker/,
     );
   });
 
