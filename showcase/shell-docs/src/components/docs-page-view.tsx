@@ -169,21 +169,19 @@ export async function DocsPageView({
   }
 
   return (
-    <div
-      className="flex -mt-1 xl:-mt-2"
-      style={{ height: "calc(100vh - 53px)" }}
-    >
-      <SidebarNav className="w-[240px] shrink-0 rounded-l-2xl backdrop-blur-lg border border-r-0 border-[var(--border)] bg-[var(--glass-background)]/80 overflow-y-auto px-4 pb-4">
+    <div className="flex -mt-1 xl:-mt-2">
+      <SidebarNav className="w-[240px] shrink-0 self-start sticky top-[88px] xl:top-[112px] max-h-[calc(100vh-88px)] xl:max-h-[calc(100vh-112px)] rounded-l-2xl backdrop-blur-lg border border-r-0 border-[var(--border)] bg-[var(--glass-background)]/80 overflow-y-auto px-4 pb-4">
         <SidebarFrameworkSelector />
         <div className="mb-4" />
         {tree.map((node) => renderNavItem(node))}
       </SidebarNav>
 
-      {/* <main> is the full-width scroll container so the scrollbar
-       * lands at the viewport (or TOC) edge. Content width is capped
-       * by the inner wrapper. Previously `max-w-3xl` sat on <main>
-       * directly, which parked the scrollbar mid-page. */}
-      <main className="flex-1 overflow-y-auto">
+      {/* Page-level scroll model: <main> flows naturally and the only
+       * scrollbar is at the viewport edge. The sidebar and TOC are
+       * sticky so they stay in view as the page scrolls; each may
+       * scroll INTERNALLY when its own content exceeds the remaining
+       * viewport height. Width is capped by the inner wrapper. */}
+      <main className="flex-1 min-w-0">
         <div className="max-w-[860px] px-8 py-8">
           <nav className="flex items-center gap-1 text-xs text-[var(--text-muted)] mb-4 flex-wrap">
             {breadcrumbs.map((crumb, i) => (

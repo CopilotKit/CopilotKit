@@ -46,7 +46,7 @@ export function DocsToc({ headings }: DocsTocProps) {
   if (headings.length === 0) return null;
 
   return (
-    <aside className="hidden xl:block w-[200px] shrink-0 sticky top-0 self-start max-h-screen overflow-y-auto py-8 pl-6 pr-4">
+    <aside className="hidden xl:block w-[200px] shrink-0 sticky top-[88px] xl:top-[112px] self-start max-h-[calc(100vh-88px)] xl:max-h-[calc(100vh-112px)] overflow-y-auto py-8 pl-6 pr-4">
       <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-3">
         On this page
       </div>
