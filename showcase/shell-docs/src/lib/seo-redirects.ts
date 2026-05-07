@@ -171,8 +171,7 @@ const DEEP_COAGENTS: RedirectEntry[] = [
   {
     id: "D4",
     source: "/coagents/chat-ui/render-agent-state",
-    destination:
-      "/langgraph-python/generative-ui/your-components/display-only",
+    destination: "/langgraph-python/generative-ui/your-components/display-only",
   },
   {
     id: "D5",
@@ -321,8 +320,7 @@ const SPECIFIC_FRAMEWORK: RedirectEntry[] = [
   {
     id: "F8",
     source: "/langgraph/generative-ui/display",
-    destination:
-      "/langgraph-python/generative-ui/your-components/display-only",
+    destination: "/langgraph-python/generative-ui/your-components/display-only",
   },
   {
     id: "F9",
@@ -558,7 +556,7 @@ const LEGACY_CHAINS_EXACT: RedirectEntry[] = [
     destination: "/langgraph-python/videos",
   },
   // /crewai-crews is now the canonical slug — historical /crewai-crews
-    // URLs land directly on the new framework root.
+  // URLs land directly on the new framework root.
   {
     id: "L14",
     source: "/crewai-crews",
