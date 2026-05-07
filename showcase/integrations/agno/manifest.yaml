@@ -26,7 +26,6 @@ features:
   - tool-rendering
   - gen-ui-agent
   - gen-ui-tool-based
-  - shared-state-streaming
   - shared-state-read-write
   - subagents
   - prebuilt-sidebar
@@ -61,7 +60,8 @@ features:
   - beautiful-chat
   - a2ui-fixed-schema
   - declarative-gen-ui
-not_supported_features: []
+not_supported_features:
+  - shared-state-streaming
 agent_config_pattern: shared-state
 
 a2ui_pattern: schema-loading

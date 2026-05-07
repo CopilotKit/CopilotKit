@@ -18,6 +18,8 @@ interaction_modalities:
   - sidebar
   - embedded
   - chat
+not_supported_features:
+  - shared-state-streaming
 features:
   - cli-start
   - agentic-chat
@@ -28,7 +30,6 @@ features:
   - tool-rendering
   - gen-ui-agent
   - gen-ui-tool-based
-  - shared-state-streaming
   - shared-state-read-write
   - subagents
   - chat-customization-css
