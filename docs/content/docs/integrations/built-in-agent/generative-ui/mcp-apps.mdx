@@ -32,11 +32,10 @@ Key benefits:
     ```typescript title="app/api/copilotkit/route.ts"
     import {
       CopilotRuntime,
-      copilotRuntimeNextJSAppRouterEndpoint,
-    } from "@copilotkit/runtime";
-    import { BuiltInAgent } from "@copilotkit/runtime/v2"; // [!code highlight]
+      createCopilotRuntimeHandler,
+      BuiltInAgent, // [!code highlight]
+    } from "@copilotkit/runtime/v2";
     import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware"; // [!code highlight]
-    import { NextRequest } from "next/server";
 
     const agent = new BuiltInAgent({
       model: "openai:gpt-5.4-mini",
@@ -57,14 +56,10 @@ Key benefits:
       agents: { default: agent },
     });
 
-    export const POST = async (req: NextRequest) => {
-      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-        runtime,
-        endpoint: "/api/copilotkit",
-      });
-
-      return handleRequest(req);
-    };
+    export const POST = createCopilotRuntimeHandler({
+      runtime,
+      basePath: "/api/copilotkit",
+    });
     ```
 
     <Callout type="info" title="Server ID">

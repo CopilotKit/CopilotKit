@@ -32,14 +32,9 @@ Key benefits:
     ```
 
     ```typescript title="app/api/copilotkit/route.ts"
-    import {
-      CopilotRuntime,
-      ExperimentalEmptyAdapter,
-      copilotRuntimeNextJSAppRouterEndpoint,
-    } from "@copilotkit/runtime";
+    import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
     import { LangGraphAgent } from "@copilotkit/runtime/langgraph"; // [!code highlight]
     import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware"; // [!code highlight]
-    import { NextRequest } from "next/server";
 
     const agent = new LangGraphAgent({
       deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
@@ -60,19 +55,14 @@ Key benefits:
       }),
     );
 
-    export const POST = async (req: NextRequest) => {
-      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-        endpoint: "/api/copilotkit",
-        serviceAdapter: new ExperimentalEmptyAdapter(),
-        runtime: new CopilotRuntime({
-          agents: {
-            default: agent,
-          },
-        }),
-      });
-
-      return handleRequest(req);
-    };
+    export const POST = createCopilotRuntimeHandler({
+      runtime: new CopilotRuntime({
+        agents: {
+          default: agent,
+        },
+      }),
+      basePath: "/api/copilotkit",
+    });
     ```
 
     <Callout type="info" title="Server ID">

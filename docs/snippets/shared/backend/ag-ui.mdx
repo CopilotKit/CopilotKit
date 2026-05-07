@@ -111,7 +111,7 @@ This indirection is what enables the runtime to provide authentication, middlewa
 On the server side, the `CopilotRuntime` accepts a map of AG-UI `AbstractAgent` instances. Each agent framework provides its own implementation, but they all extend the same base type:
 
 ```ts title="app/api/copilotkit/route.ts"
-import { CopilotRuntime, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
 import { HttpAgent } from "@ag-ui/client";
 
 const runtime = new CopilotRuntime({
@@ -122,13 +122,10 @@ const runtime = new CopilotRuntime({
   },
 });
 
-export const POST = async (req: NextRequest) => {
-  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-    runtime,
-    endpoint: "/api/copilotkit",
-  });
-  return handleRequest(req);
-};
+export const POST = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
 ```
 
 When a request comes in:

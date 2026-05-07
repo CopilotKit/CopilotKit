@@ -161,13 +161,8 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         Create an API route:
 
         ```typescript title="app/api/copilotkit/route.ts"
-        import {
-          CopilotRuntime,
-          ExperimentalEmptyAdapter,
-          copilotRuntimeNextJSAppRouterEndpoint,
-        } from "@copilotkit/runtime";
+        import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
         import { HttpAgent } from "@ag-ui/client";
-        import { NextRequest } from "next/server";
         import { AgentCoreRunner } from "./agent-core-runner";
 
         const runtime = new CopilotRuntime({
@@ -182,14 +177,10 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
           runner: new AgentCoreRunner(),
         });
 
-        export const POST = async (req: NextRequest) => {
-          const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-            runtime,
-            serviceAdapter: new ExperimentalEmptyAdapter(),
-            endpoint: "/api/copilotkit",
-          });
-          return handleRequest(req);
-        };
+        export const POST = createCopilotRuntimeHandler({
+          runtime,
+          basePath: "/api/copilotkit",
+        });
         ```
 
         <Callout type="info" title="What is AGENTCORE_ENDPOINT_URL?">
@@ -228,7 +219,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
           type ToolCall,
           type ToolCallResultEvent,
         } from "@ag-ui/client";
-        import { InMemoryAgentRunner } from "@copilotkit/runtime";
+        import { InMemoryAgentRunner } from "@copilotkit/runtime/v2";
         import { concatMap, of } from "rxjs";
         import { randomUUID } from "node:crypto";
 

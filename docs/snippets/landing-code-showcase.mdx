@@ -66,9 +66,8 @@ import { MessageSquare, Layers, Code, Bot, Server, BookOpen, Play, Book } from "
   </CodePanel>
   <CodePanel>
     ```ts title="api/copilotkit/route.ts" linenumbers
-    import { NextRequest } from "next/server";
     import { HttpAgent } from "@ag-ui/client";
-    import { CopilotRuntime, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
+    import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
 
     const runtime = new CopilotRuntime({
       agents: {
@@ -76,13 +75,10 @@ import { MessageSquare, Layers, Code, Bot, Server, BookOpen, Play, Book } from "
       },
     });
 
-    export const POST = async (req: NextRequest) => {
-      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-        runtime,
-        endpoint: "/api/copilotkit",
-      });
-      return handleRequest(req);
-    };
+    export const POST = createCopilotRuntimeHandler({
+      runtime,
+      basePath: "/api/copilotkit",
+    });
     ```
   </CodePanel>
 </CodeShowcase>

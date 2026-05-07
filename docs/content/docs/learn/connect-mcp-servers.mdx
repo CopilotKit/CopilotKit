@@ -357,14 +357,7 @@ For detailed implementation guidance, refer to the [official MCP SDK documentati
 Here's a basic example of configuring the runtime:
 
 ```tsx
-import {
-  CopilotRuntime,
-  OpenAIAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import { NextRequest } from "next/server";
-
-const serviceAdapter = new OpenAIAdapter();
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
 
 const runtime = new CopilotRuntime({
   createMCPClient: async (config) => {
@@ -373,15 +366,10 @@ const runtime = new CopilotRuntime({
   },
 });
 
-export const POST = async (req: NextRequest) => {
-  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-    runtime,
-    serviceAdapter,
-    endpoint: "/api/copilotkit",
-  });
-
-  return handleRequest(req);
-};
+export const POST = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
 ```
 
 </details>

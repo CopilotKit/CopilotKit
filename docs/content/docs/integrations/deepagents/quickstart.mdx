@@ -268,15 +268,8 @@ Before you begin, you'll need the following:
         <Tabs groupId="deployment_method" items={['Deep Agent', 'FastAPI']}>
             <Tab value="Deep Agent">
                 ```tsx title="app/api/copilotkit/route.ts"
-                import {
-                    CopilotRuntime,
-                    ExperimentalEmptyAdapter,
-                    copilotRuntimeNextJSAppRouterEndpoint,
-                } from "@copilotkit/runtime";
+                import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
                 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
-                import { NextRequest } from "next/server";
-
-                const serviceAdapter = new ExperimentalEmptyAdapter();
 
                 const runtime = new CopilotRuntime({
                     agents: {
@@ -288,28 +281,16 @@ Before you begin, you'll need the following:
                     }
                 });
 
-                export const POST = async (req: NextRequest) => {
-                    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-                        runtime,
-                        serviceAdapter,
-                        endpoint: "/api/copilotkit",
-                    });
-
-                    return handleRequest(req);
-                };
+                export const POST = createCopilotRuntimeHandler({
+                    runtime,
+                    basePath: "/api/copilotkit",
+                });
                 ```
             </Tab>
             <Tab value="FastAPI">
                 ```tsx title="app/api/copilotkit/route.ts"
-                import {
-                    CopilotRuntime,
-                    ExperimentalEmptyAdapter,
-                    copilotRuntimeNextJSAppRouterEndpoint,
-                } from "@copilotkit/runtime";
+                import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
                 import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
-                import { NextRequest } from "next/server";
-
-                const serviceAdapter = new ExperimentalEmptyAdapter();
 
                 const runtime = new CopilotRuntime({
                     agents: {
@@ -319,15 +300,10 @@ Before you begin, you'll need the following:
                     }
                 });
 
-                export const POST = async (req: NextRequest) => {
-                    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-                        runtime,
-                        serviceAdapter,
-                        endpoint: "/api/copilotkit",
-                    });
-
-                    return handleRequest(req);
-                };
+                export const POST = createCopilotRuntimeHandler({
+                    runtime,
+                    basePath: "/api/copilotkit",
+                });
                 ```
             </Tab>
         </Tabs>

@@ -16,15 +16,7 @@ import { RiNextjsLine } from "react-icons/ri";
     Create a new route to handle the `/api/copilotkit` endpoint.
 
     ```ts title="app/api/copilotkit/route.ts"
-    import {
-      CopilotRuntime,
-      ExperimentalEmptyAdapter,
-      copilotRuntimeNextJSAppRouterEndpoint,
-    } from "@copilotkit/runtime";
-    import { NextRequest } from "next/server";
-
-    // You can use any service adapter here for multi-agent support.
-    const serviceAdapter = new ExperimentalEmptyAdapter();
+    import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
 
     const runtime = new CopilotRuntime({
       agents: {
@@ -32,15 +24,10 @@ import { RiNextjsLine } from "react-icons/ri";
       },
     });
 
-    export const POST = async (req: NextRequest) => {
-      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-        runtime,
-        serviceAdapter,
-        endpoint: "/api/copilotkit",
-      });
-
-      return handleRequest(req);
-    };
+    export const POST = createCopilotRuntimeHandler({
+      runtime,
+      basePath: "/api/copilotkit",
+    });
     ```
   </Tab>
 
@@ -86,30 +73,21 @@ import { RiNextjsLine } from "react-icons/ri";
 
         ```ts title="server.ts"
         import express from 'express';
-        import {
-          CopilotRuntime,
-          ExperimentalEmptyAdapter,
-          copilotRuntimeNodeHttpEndpoint,
-        } from '@copilotkit/runtime';
+        import { CopilotRuntime } from '@copilotkit/runtime/v2';
+        import { createCopilotExpressHandler } from '@copilotkit/runtime/v2/express';
 
         const app = express();
-        const serviceAdapter = new ExperimentalEmptyAdapter();
 
-        app.use('/copilotkit', (req, res, next) => {
         const runtime = new CopilotRuntime({
-            agents: {
-                // added in next step...
-            },
+          agents: {
+            // added in next step...
+          },
         });
 
-          const handler = copilotRuntimeNodeHttpEndpoint({
-            endpoint: '/copilotkit',
-            runtime,
-            serviceAdapter,
-          });
-
-          return handler(req, res, next);
-        });
+        app.use(createCopilotExpressHandler({
+          runtime,
+          basePath: '/copilotkit',
+        }));
 
         app.listen(4000, () => {
           console.log('Listening at http://localhost:4000/copilotkit');
@@ -129,31 +107,21 @@ import { RiNextjsLine } from "react-icons/ri";
 
         ```ts title="server.ts"
         import { createServer } from 'node:http';
-        import {
-          CopilotRuntime,
-          ExperimentalEmptyAdapter,
-          copilotRuntimeNodeHttpEndpoint,
-        } from '@copilotkit/runtime';
+        import { CopilotRuntime } from '@copilotkit/runtime/v2';
+        import { createCopilotNodeListener } from '@copilotkit/runtime/v2/node';
 
-        const serviceAdapter = new ExperimentalEmptyAdapter();
-
-        const server = createServer((req, res) => {
         const runtime = new CopilotRuntime({
-            agents: {
-                // added in next step...
-            },
+          agents: {
+            // added in next step...
+          },
         });
 
-          const handler = copilotRuntimeNodeHttpEndpoint({
-            endpoint: '/copilotkit',
-            runtime,
-            serviceAdapter,
-          });
-
-          return handler(req, res);
+        const listener = createCopilotNodeListener({
+          runtime,
+          basePath: '/copilotkit',
         });
 
-        server.listen(4000, () => {
+        createServer(listener).listen(4000, () => {
           console.log('Listening at http://localhost:4000/copilotkit');
         });
         ```
