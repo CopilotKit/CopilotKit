@@ -21,6 +21,7 @@ jobs:
       pull-requests: write
     env:
       SHOWCASE_BRANCH: main
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -364,7 +365,7 @@ jobs:
 
       - name: Notify Slack (auto-sync)
         id: notify-auto-sync
-        if: always() && steps.push.outcome == 'success' && steps.push.outputs.files_changed != '0' && steps.push.outputs.needs_review != 'true'
+        if: always() && env.SLACK_WEBHOOK != '' && steps.push.outcome == 'success' && steps.push.outputs.files_changed != '0' && steps.push.outputs.needs_review != 'true'
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
@@ -373,7 +374,7 @@ jobs:
 
       - name: Notify Slack (merge failed)
         id: notify-merge-failed
-        if: failure() && steps.push.outputs.pr_opened == 'true' && steps.push.outputs.needs_review != 'true'
+        if: failure() && env.SLACK_WEBHOOK != '' && steps.push.outputs.pr_opened == 'true' && steps.push.outputs.needs_review != 'true'
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
@@ -387,7 +388,7 @@ jobs:
       # PR URL (not on any error path that leaves pr_url empty).
       - name: Notify Slack (review needed, with PR)
         id: notify-review-with-pr
-        if: always() && steps.push.outputs.needs_review == 'true' && steps.push.outputs.pr_opened == 'true'
+        if: always() && env.SLACK_WEBHOOK != '' && steps.push.outputs.needs_review == 'true' && steps.push.outputs.pr_opened == 'true'
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
@@ -400,7 +401,7 @@ jobs:
       # the existing-PR collision path, which gets its own step below.
       - name: Notify Slack (review needed, no PR)
         id: notify-review-no-pr
-        if: always() && steps.sync.outputs.action == 'push_and_pr' && steps.push.outputs.pr_opened == 'false' && steps.push.outputs.existing_pr != 'true'
+        if: always() && env.SLACK_WEBHOOK != '' && steps.sync.outputs.action == 'push_and_pr' && steps.push.outputs.pr_opened == 'false' && steps.push.outputs.existing_pr != 'true'
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
@@ -411,7 +412,7 @@ jobs:
       # needs-review PR already exists — point reviewers at it.
       - name: Notify Slack (review needed, existing PR)
         id: notify-review-existing-pr
-        if: always() && steps.push.outputs.existing_pr == 'true'
+        if: always() && env.SLACK_WEBHOOK != '' && steps.push.outputs.existing_pr == 'true'
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
@@ -420,7 +421,7 @@ jobs:
 
       - name: Notify Slack (failure)
         id: notify-failure
-        if: failure() && steps.push.outputs.pr_opened != 'true'
+        if: failure() && env.SLACK_WEBHOOK != '' && steps.push.outputs.pr_opened != 'true'
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
@@ -440,7 +441,7 @@ jobs:
       # values cannot contain " or \.
       - name: Notify Slack (alert machinery failed)
         if: >-
-          always() && (
+          always() && env.SLACK_WEBHOOK != '' && (
             steps.notify-auto-sync.outcome == 'failure' ||
             steps.notify-merge-failed.outcome == 'failure' ||
             steps.notify-review-with-pr.outcome == 'failure' ||

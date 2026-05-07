@@ -47,6 +47,25 @@ if (!process.env.NEXT_PUBLIC_SHELL_URL) {
 }
 
 const nextConfig: NextConfig = {
+  async rewrites() {
+    return {
+      beforeFiles: [
+        // PostHog reverse proxy — routes analytics through this host so
+        // requests bypass ad blockers / tracking-protection that target
+        // the *.i.posthog.com hostname directly. Mirrors docs/.
+        {
+          source: "/ingest/static/:path*",
+          destination: "https://eu-assets.i.posthog.com/static/:path*",
+        },
+        {
+          source: "/ingest/:path*",
+          destination: "https://eu.i.posthog.com/:path*",
+        },
+      ],
+      afterFiles: [],
+      fallback: [],
+    };
+  },
   async redirects() {
     return [
       {
@@ -351,7 +370,7 @@ const nextConfig: NextConfig = {
       // point.
       {
         source: "/migrate/1.10.X",
-        destination: "/migrate",
+        destination: "/migrate/v2",
         permanent: false,
       },
 

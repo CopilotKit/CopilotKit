@@ -99,6 +99,23 @@ UI.
 
 </WhenFrameworkHas>
 
+<WhenFrameworkHas flag="interrupt_pattern" absent>
+
+## Resolving a pause from a button
+
+> **Interrupt-style pause/resume isn't available on this framework.**
+> The headless interrupt pattern shown above requires the underlying
+> runtime to expose either a native `interrupt(...)` primitive
+> (LangGraph) or a Promise-resolving frontend-tool path (Microsoft
+> Agent Framework). For all other integrations, drive pauses through
+> [`useHumanInTheLoop`](./human-in-the-loop) instead — it's the
+> standard hook for tool-call-based pause/resume flows and works on
+> every framework that supports tool calls. The `agent.addMessage`,
+> `copilotkit.runAgent`, and `agent.subscribe` primitives above still
+> apply — only the interrupt-resolution path is framework-specific.
+
+</WhenFrameworkHas>
+
 ## See also
 
 - [Headless UI](./headless) — the full `useRenderedMessages` composition

@@ -1,0 +1,92 @@
+{
+  "name": "@copilotkit/react-native",
+  "version": "1.56.5",
+  "private": false,
+  "keywords": [
+    "ai",
+    "assistant",
+    "copilot",
+    "copilotkit",
+    "mobile",
+    "react-native"
+  ],
+  "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git"
+  },
+  "type": "module",
+  "sideEffects": [
+    "./dist/polyfills.*",
+    "./dist/polyfills/**/*"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./polyfills": {
+      "import": "./dist/polyfills.mjs",
+      "require": "./dist/polyfills.cjs"
+    },
+    "./polyfills/streams": {
+      "import": "./dist/polyfills/streams.mjs",
+      "require": "./dist/polyfills/streams.cjs"
+    },
+    "./polyfills/encoding": {
+      "import": "./dist/polyfills/encoding.mjs",
+      "require": "./dist/polyfills/encoding.cjs"
+    },
+    "./polyfills/crypto": {
+      "import": "./dist/polyfills/crypto.mjs",
+      "require": "./dist/polyfills/crypto.cjs"
+    },
+    "./polyfills/dom": {
+      "import": "./dist/polyfills/dom.mjs",
+      "require": "./dist/polyfills/dom.cjs"
+    },
+    "./polyfills/location": {
+      "import": "./dist/polyfills/location.mjs",
+      "require": "./dist/polyfills/location.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest run",
+    "check-types": "tsc --noEmit",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16 --ignore-rules internal-resolution-error",
+    "link:global": "pnpm link --global",
+    "unlink:global": "pnpm unlink --global"
+  },
+  "dependencies": {
+    "@copilotkit/core": "workspace:*",
+    "@copilotkit/react-core": "workspace:*",
+    "@copilotkit/shared": "workspace:*",
+    "text-encoding": "^0.7.0",
+    "web-streams-polyfill": "^4.2.0"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.0",
+    "@types/react": "^19.2.0",
+    "jsdom": "^26.1.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tsdown": "^0.20.3",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  },
+  "peerDependencies": {
+    "react": "^18 || ^19",
+    "react-native": ">=0.70"
+  }
+}

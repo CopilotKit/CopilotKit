@@ -46,6 +46,14 @@
       "require": "./dist/v2/index.cjs"
     },
     "./package.json": "./package.json",
+    "./v2/context": {
+      "import": "./dist/v2/context.mjs",
+      "require": "./dist/v2/context.cjs"
+    },
+    "./v2/headless": {
+      "import": "./dist/v2/headless.mjs",
+      "require": "./dist/v2/headless.cjs"
+    },
     "./v2/styles.css": "./dist/v2/index.css"
   },
   "publishConfig": {

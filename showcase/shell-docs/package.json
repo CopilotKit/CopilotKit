@@ -12,10 +12,13 @@
   "dependencies": {
     "gray-matter": "^4.0.3",
     "highlight.js": "^11.11.1",
+    "lucide-react": "^0.469.0",
     "next": "^15.0.0",
     "next-mdx-remote": "^5.0.0",
+    "posthog-js": "^1.175.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-ga4": "^2.1.0",
     "rehype-highlight": "^7.0.2",
     "remark-gfm": "^4.0.0",
     "yaml": "^2.7.0"

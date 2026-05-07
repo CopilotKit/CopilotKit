@@ -25,7 +25,7 @@ Build **agent-native applications** with generative UI, shared state, and human-
   </a>
 
   <a href="https://github.com/copilotkit/copilotkit/blob/main/LICENSE" target="_blank">
-    <img src="https://img.shields.io/github/license/copilotkit/copilotkit?color=%236963ff&label=License" alt="MIT">
+    <img src="assets/license-badge.svg" alt="License: MIT" height="20">
   </a>
 
   <a href="https://discord.gg/6dffbvGU3D" target="_blank">

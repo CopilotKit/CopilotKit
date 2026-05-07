@@ -22,7 +22,8 @@ import type { NextFetchEvent, NextRequest } from "next/server";
 // NextResponse.next() returns.
 // ---------------------------------------------------------------------------
 
-const POSTHOG_HOST = "https://eu.i.posthog.com";
+const POSTHOG_HOST =
+  process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://eu.i.posthog.com";
 const DISTINCT_ID_COOKIE = "ph_distinct_id";
 // ~2 years — long enough to meaningfully track returning visitors.
 const DISTINCT_ID_COOKIE_MAX_AGE = 60 * 60 * 24 * 365 * 2;
@@ -31,18 +32,16 @@ const DISTINCT_ID_COOKIE_MAX_AGE = 60 * 60 * 24 * 365 * 2;
 // module globals are per-isolate and short-lived, so a request-scoped
 // warn-once flag is unreliable; module-load is the cleanest available hook.
 // `process` is always defined in Next.js Edge middleware — no guard needed.
-const POSTHOG_PROJECT_KEY = process.env.POSTHOG_PROJECT_KEY;
-if (!POSTHOG_PROJECT_KEY) {
-  console.warn(
-    "[middleware] POSTHOG_PROJECT_KEY is not set — analytics disabled",
-  );
+const POSTHOG_KEY = process.env.POSTHOG_KEY;
+if (!POSTHOG_KEY) {
+  console.warn("[middleware] POSTHOG_KEY is not set — analytics disabled");
 }
 
 async function capturePageView(
   pathname: string,
   distinctId: string,
 ): Promise<void> {
-  if (!POSTHOG_PROJECT_KEY) {
+  if (!POSTHOG_KEY) {
     return;
   }
 
@@ -51,7 +50,7 @@ async function capturePageView(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        api_key: POSTHOG_PROJECT_KEY,
+        api_key: POSTHOG_KEY,
         event: "docs_pageview",
         distinct_id: distinctId,
         properties: {
@@ -141,6 +140,6 @@ export const config = {
     // raw asset requests served from /public/** (logos, images, icons,
     // fonts, etc.) — without this, every asset fires a phantom
     // PostHog pageview.
-    "/((?!api/|_next/static|_next/image|favicon\\.ico|previews/|robots\\.txt|sitemap\\.xml|manifest\\.webmanifest|\\.well-known/)(?!.*\\.(?:png|jpg|jpeg|svg|gif|webp|ico|avif|woff2?|ttf|otf|eot|map)(?:\\?.*)?$).*)",
+    "/((?!api/|ingest/|_next/static|_next/image|favicon\\.ico|previews/|robots\\.txt|sitemap\\.xml|manifest\\.webmanifest|\\.well-known/)(?!.*\\.(?:png|jpg|jpeg|svg|gif|webp|ico|avif|woff2?|ttf|otf|eot|map)(?:\\?.*)?$).*)",
   ],
 };

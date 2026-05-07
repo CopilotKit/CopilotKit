@@ -69,7 +69,9 @@ export function useRequestApproval() {
     agentId: "finance_erp_agent",
     enabled: (event) => {
       const value = parseInterruptValue(event.value);
-      return value?.__copilotkit_interrupt_value__?.action === "request_approval";
+      return (
+        value?.__copilotkit_interrupt_value__?.action === "request_approval"
+      );
     },
     render: ({ event, resolve }) => {
       const value = parseInterruptValue(event.value);

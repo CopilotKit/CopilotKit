@@ -1,4 +1,4 @@
-import { useCopilotKit } from "../providers/CopilotKitProvider";
+import { useCopilotKit } from "../context";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
 import { useMemo, useEffect, useReducer, useRef } from "react";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
@@ -290,7 +290,7 @@ export function useAgent({
     };
 
     if (updateFlags.includes(UseAgentUpdate.OnMessagesChanged)) {
-      handlers.onMessagesChanged = forceUpdate;
+      handlers.onMessagesChanged = batchedForceUpdate;
     }
 
     if (updateFlags.includes(UseAgentUpdate.OnStateChanged)) {
