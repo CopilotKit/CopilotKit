@@ -11,8 +11,8 @@ import {
   AlertTriangle,
   AlertCircle,
   Pencil,
-  type LucideIcon,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 type CalloutType =
   | "info"
@@ -68,7 +68,8 @@ export function Callout({ type = "info", title, children }: CalloutProps) {
         paddingLeft: "0.25rem",
         fontSize: "0.875rem",
         color: "var(--text-secondary)",
-        boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)",
+        boxShadow:
+          "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)",
       }}
     >
       <div
