@@ -21,6 +21,8 @@ interaction_modalities:
 managed_platform:
   name: LangGraph Platform
   url: https://langsmith.com
+not_supported_features:
+  - shared-state-streaming
 features:
   - cli-start
   - agentic-chat
@@ -38,7 +40,6 @@ features:
   - a2ui-fixed-schema
   - mcp-apps
   - gen-ui-tool-based
-  - shared-state-streaming
   - shared-state-read-write
   - subagents
   - beautiful-chat
