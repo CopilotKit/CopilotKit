@@ -77,7 +77,7 @@ export function SearchTrigger({
     <>
       <button
         onClick={() => setOpen((prev) => !prev)}
-        className="flex items-center gap-2 rounded-full bg-[var(--glass-background)]/70 px-3 py-1.5 text-xs text-[var(--text-muted)] cursor-pointer hover:bg-[var(--glass-background)] transition-colors min-w-[220px]"
+        className="flex flex-shrink-0 items-center gap-2 rounded-full bg-[var(--glass-background)]/70 px-3 py-1.5 text-xs text-[var(--text-muted)] cursor-pointer hover:bg-[var(--glass-background)] transition-colors w-[200px] whitespace-nowrap"
         aria-label="Search docs"
       >
         <svg

@@ -187,7 +187,7 @@ export function BrandNav(_props: BrandNavProps = {}) {
 
   return (
     <nav
-      className="sticky top-2 z-40 mx-auto mt-2 flex h-[52px] max-w-[1400px] items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--glass-background)]/80 px-4 backdrop-blur-md sm:px-6"
+      className="sticky top-2 z-40 mx-auto mt-2 flex h-[52px] max-w-[1400px] items-center gap-4 rounded-2xl border border-[var(--border)] bg-[var(--glass-background)]/80 px-4 backdrop-blur-md sm:px-6 lg:gap-6"
       style={{
         // Pull the pill in from the page edges so it visually floats. The
         // outer page padding in <main> handles broader gutter alignment.
@@ -197,19 +197,23 @@ export function BrandNav(_props: BrandNavProps = {}) {
       {/* Wordmark */}
       <Link
         href="/"
-        className="flex items-center gap-2 text-sm font-bold tracking-tight text-[var(--text)] no-underline"
+        className="flex flex-shrink-0 items-center gap-2 text-sm font-bold tracking-tight text-[var(--text)] no-underline"
         aria-label="CopilotKit docs home"
       >
         <CopilotKitIcon />
         <span>CopilotKit</span>
       </Link>
 
-      {/* Center section tabs (desktop) */}
-      <div className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-1 sm:flex">
+      {/* Center section tabs (desktop) — true three-zone flex layout.
+          Using flex-1 + justify-center keeps the tabs visually centered
+          between the wordmark and the right cluster without absolute
+          positioning (which used to overlap the right cluster at common
+          widths). */}
+      <div className="hidden min-w-0 flex-1 items-center justify-center gap-1 sm:flex">
         {SECTION_TABS.map((tab) => {
           const isActive = tab.match(pathname);
           const baseClasses =
-            "relative px-3 py-1.5 text-[13px] font-medium transition-colors no-underline";
+            "relative whitespace-nowrap px-3 py-1.5 text-[13px] font-medium transition-colors no-underline";
           const colorClasses = isActive
             ? "text-[var(--text)]"
             : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]";
@@ -245,14 +249,14 @@ export function BrandNav(_props: BrandNavProps = {}) {
       </div>
 
       {/* Desktop right cluster: search + Cloud CTA + Talk-to-Engineers */}
-      <div className="hidden items-center gap-2 sm:flex">
+      <div className="hidden flex-shrink-0 items-center gap-2 sm:flex">
         <SearchTrigger />
         <a
           href={CLOUD_CTA.href}
           target="_blank"
           rel="noreferrer"
           onClick={() => handleFreeDeveloperAccessClick("docs_navbar")}
-          className="no-underline flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg-elevated)] transition-all"
+          className="no-underline flex flex-shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg-elevated)] transition-all whitespace-nowrap"
         >
           <CloudIcon />
           <span className="[@media(width<1180px)]:hidden">
@@ -263,7 +267,7 @@ export function BrandNav(_props: BrandNavProps = {}) {
         <button
           type="button"
           onClick={handleTalkToEngineersClick}
-          className="hidden [@media(width>=1400px)]:flex items-center rounded-md px-3 py-1.5 text-[13px] font-medium text-[var(--text-muted)] hover:text-[#7076D5] hover:bg-[#7076D5]/10 transition-colors duration-200 cursor-pointer whitespace-nowrap"
+          className="hidden [@media(width>=1400px)]:flex flex-shrink-0 items-center rounded-md px-3 py-1.5 text-[13px] font-medium text-[var(--text-muted)] hover:text-[#7076D5] hover:bg-[#7076D5]/10 transition-colors duration-200 cursor-pointer whitespace-nowrap"
           aria-label="Talk to our engineers"
         >
           Talk to Our Engineers
@@ -271,7 +275,7 @@ export function BrandNav(_props: BrandNavProps = {}) {
       </div>
 
       {/* Mobile: search icon + hamburger */}
-      <div className="flex sm:hidden items-center gap-1">
+      <div className="ml-auto flex sm:hidden items-center gap-1">
         <SearchTrigger iconOnly />
         <button
           onClick={() => setMobileMenuOpen(true)}
