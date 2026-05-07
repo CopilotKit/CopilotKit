@@ -199,15 +199,8 @@ Before you begin, you'll need the following:
                 Create an API route to connect CopilotKit to your Pydantic AI agent:
 
                 ```tsx title="app/api/copilotkit/route.ts"
-                import {
-                  CopilotRuntime,
-                  ExperimentalEmptyAdapter,
-                  copilotRuntimeNextJSAppRouterEndpoint,
-                } from "@copilotkit/runtime";
+                import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
                 import { HttpAgent } from "@ag-ui/client";
-                import { NextRequest } from "next/server";
-
-                const serviceAdapter = new ExperimentalEmptyAdapter();
 
                 const runtime = new CopilotRuntime({
                   agents: {
@@ -215,15 +208,10 @@ Before you begin, you'll need the following:
                   }
                 });
 
-                export const POST = async (req: NextRequest) => {
-                  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-                    runtime,
-                    serviceAdapter,
-                    endpoint: "/api/copilotkit",
-                  });
-
-                  return handleRequest(req);
-                };
+                export const POST = createCopilotRuntimeHandler({
+                  runtime,
+                  basePath: "/api/copilotkit",
+                });
                ```
             </Step>
             <Step>

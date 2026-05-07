@@ -1,8 +1,8 @@
-import { ForwardedParametersInput } from "@copilotkit/runtime-client-gql";
-import { ReactNode } from "react";
-import { AuthState } from "../../context/copilot-context";
-import { CopilotErrorHandler, DebugConfig } from "@copilotkit/shared";
-import { CopilotKitProviderProps } from "../../v2";
+import type { ForwardedParametersInput } from "@copilotkit/runtime-client-gql";
+import type { ReactNode } from "react";
+import type { AuthState } from "../../context/copilot-context";
+import type { CopilotErrorHandler, DebugConfig } from "@copilotkit/shared";
+import type { CopilotKitProviderProps } from "../../v2";
 /**
  * Props for CopilotKit.
  */
@@ -120,9 +120,9 @@ export interface CopilotKitProps extends Omit<
    * </CopilotKit>
    *
    * // Backend (https://api.myapp.com)
-   * copilotRuntimeNextJSAppRouterEndpoint({
+   * createCopilotRuntimeHandler({
    *   runtime,
-   *   endpoint: "/copilotkit",
+   *   basePath: "/copilotkit",
    *   cors: {
    *     origin: "https://myapp.com",
    *     credentials: true,

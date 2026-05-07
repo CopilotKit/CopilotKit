@@ -100,9 +100,9 @@ Indicates whether the user agent should send or receive cookies from the other d
   </CopilotKit>
 
   // Backend (https://api.myapp.com)
-  copilotRuntimeNextJSAppRouterEndpoint({
+  createCopilotRuntimeHandler({
     runtime,
-    endpoint: "/copilotkit",
+    basePath: "/copilotkit",
     cors: {
       origin: "https://myapp.com",
       credentials: true,

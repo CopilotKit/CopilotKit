@@ -67,11 +67,9 @@ If you're looking to add an MCP App into an existing application, let's walk thr
     ```typescript title="app/api/copilotkit/route.ts"
     import {
       CopilotRuntime,
-      ExperimentalEmptyAdapter,
-      copilotRuntimeNextJSAppRouterEndpoint,
-    } from "@copilotkit/runtime";
-    import { BuiltInAgent } from "@copilotkit/runtime/v2";
-    import { NextRequest } from "next/server";
+      createCopilotRuntimeHandler,
+      BuiltInAgent,
+    } from "@copilotkit/runtime/v2";
 
     // 1. Create your agent
     const agent = new BuiltInAgent({
@@ -79,10 +77,7 @@ If you're looking to add an MCP App into an existing application, let's walk thr
       prompt: "You are a helpful assistant.",
     });
 
-    // 2. Create a service adapter, empty if not relevant
-    const serviceAdapter = new ExperimentalEmptyAdapter();
-
-    // 3. Create the runtime with mcpApps configured
+    // 2. Create the runtime with mcpApps configured
     const runtime = new CopilotRuntime({
       agents: {
         default: agent,
@@ -98,16 +93,11 @@ If you're looking to add an MCP App into an existing application, let's walk thr
       },
     });
 
-    // 4. Create the API route
-    export const POST = async (req: NextRequest) => {
-      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-        runtime,
-        serviceAdapter,
-        endpoint: "/api/copilotkit",
-      });
-
-      return handleRequest(req);
-    };
+    // 3. Create the API route
+    export const POST = createCopilotRuntimeHandler({
+      runtime,
+      basePath: "/api/copilotkit",
+    });
 
     ```
 

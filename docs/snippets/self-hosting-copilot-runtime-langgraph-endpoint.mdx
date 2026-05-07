@@ -16,17 +16,8 @@ import { RiNextjsLine } from "react-icons/ri";
     Create a new route to handle the `/api/copilotkit` endpoint.
 
     ```ts title="app/api/copilotkit/route.ts"
-    import {
-      CopilotRuntime,
-      OpenAIAdapter,
-      copilotRuntimeNextJSAppRouterEndpoint,
-      LangGraphAgent
-    } from "@copilotkit/runtime";
-    import OpenAI from "openai";
-    import { NextRequest } from "next/server";
-
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const serviceAdapter = new OpenAIAdapter({ openai } as any);
+    import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
+    import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 
     const runtime = new CopilotRuntime({
       agents: {
@@ -39,15 +30,10 @@ import { RiNextjsLine } from "react-icons/ri";
       },
     });
 
-    export const POST = async (req: NextRequest) => {
-      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-        runtime,
-        serviceAdapter,
-        endpoint: "/api/copilotkit",
-      });
-
-      return handleRequest(req);
-    };
+    export const POST = createCopilotRuntimeHandler({
+      runtime,
+      basePath: "/api/copilotkit",
+    });
     ```
   </Tab>
 
@@ -101,38 +87,27 @@ import { RiNextjsLine } from "react-icons/ri";
 
         ```ts title="server.ts"
         import express from 'express';
-        import {
-          CopilotRuntime,
-          OpenAIAdapter,
-          copilotRuntimeNodeHttpEndpoint,
-          LangGraphAgent
-        } from '@copilotkit/runtime';
-        import OpenAI from "openai";
+        import { CopilotRuntime } from '@copilotkit/runtime/v2';
+        import { createCopilotExpressHandler } from '@copilotkit/runtime/v2/express';
+        import { LangGraphAgent } from '@copilotkit/runtime/langgraph';
 
         const app = express();
-        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        const serviceAdapter = new OpenAIAdapter({ openai } as any);
 
-        app.use('/copilotkit', (req, res, next) => {
-          const runtime = new CopilotRuntime({
-            agents: {
-              // [!code highlight:5]
-              'my_agent': new LangGraphAgent({
-                deploymentUrl: "your-api-url", // make sure to replace with your real deployment url
-                langsmithApiKey: process.env.LANGSMITH_API_KEY, // only used in LangGraph Platform deployments
-                graphId: 'my_agent', // usually the same as agent name
-              })
-            },
-          });
-
-          const handler = copilotRuntimeNodeHttpEndpoint({
-            endpoint: '/copilotkit',
-            runtime,
-            serviceAdapter,
-          });
-
-          return handler(req, res, next);
+        const runtime = new CopilotRuntime({
+          agents: {
+            // [!code highlight:5]
+            'my_agent': new LangGraphAgent({
+              deploymentUrl: "your-api-url", // make sure to replace with your real deployment url
+              langsmithApiKey: process.env.LANGSMITH_API_KEY, // only used in LangGraph Platform deployments
+              graphId: 'my_agent', // usually the same as agent name
+            })
+          },
         });
+
+        app.use(createCopilotExpressHandler({
+          runtime,
+          basePath: '/copilotkit',
+        }));
 
         app.listen(4000, () => {
           console.log('Listening at http://localhost:4000/copilotkit');
@@ -152,39 +127,27 @@ import { RiNextjsLine } from "react-icons/ri";
 
         ```ts title="server.ts"
         import { createServer } from 'node:http';
-        import {
-          CopilotRuntime,
-          OpenAIAdapter,
-          copilotRuntimeNodeHttpEndpoint,
-          LangGraphAgent
-        } from '@copilotkit/runtime';
-        import OpenAI from "openai";
+        import { CopilotRuntime } from '@copilotkit/runtime/v2';
+        import { createCopilotNodeListener } from '@copilotkit/runtime/v2/node';
+        import { LangGraphAgent } from '@copilotkit/runtime/langgraph';
 
-        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        const serviceAdapter = new OpenAIAdapter({ openai } as any);
-
-        const server = createServer((req, res) => {
-          const runtime = new CopilotRuntime({
-            agents: {
-              // [!code highlight:5]
-              'my_agent': new LangGraphAgent({
-                deploymentUrl: "your-api-url", // make sure to replace with your real deployment url
-                langsmithApiKey: process.env.LANGSMITH_API_KEY, // only used in LangGraph Platform deployments
-                graphId: 'my_agent', // usually the same as agent name
-              })
-            },
-          });
-
-          const handler = copilotRuntimeNodeHttpEndpoint({
-            endpoint: '/copilotkit',
-            runtime,
-            serviceAdapter,
-          });
-
-          return handler(req, res);
+        const runtime = new CopilotRuntime({
+          agents: {
+            // [!code highlight:5]
+            'my_agent': new LangGraphAgent({
+              deploymentUrl: "your-api-url", // make sure to replace with your real deployment url
+              langsmithApiKey: process.env.LANGSMITH_API_KEY, // only used in LangGraph Platform deployments
+              graphId: 'my_agent', // usually the same as agent name
+            })
+          },
         });
 
-        server.listen(4000, () => {
+        const listener = createCopilotNodeListener({
+          runtime,
+          basePath: '/copilotkit',
+        });
+
+        createServer(listener).listen(4000, () => {
           console.log('Listening at http://localhost:4000/copilotkit');
         });
         ```
