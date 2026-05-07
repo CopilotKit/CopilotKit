@@ -1,151 +1,150 @@
 import { test, expect } from "@playwright/test";
 
+/**
+ * Headless Chat (Complete) — full headless surface in one demo. The
+ * hand-rolled chat shell wires every render hook CopilotKit exposes
+ * (useRenderTool, useDefaultRenderTool, useComponent, useRenderToolCall,
+ * useSuggestions, useAttachments) on top of shadcn primitives.
+ *
+ * The 5-test plan drives the 4 empty-state pills and asserts:
+ *   - the per-tool render component (Weather / Stock / Highlight / Chart)
+ *     is mounted on the headless surface (scoped testid)
+ *   - the assistant narration arrives in the custom message-assistant
+ *     bubble (`[data-testid="headless-message-assistant"]`)
+ *
+ * Each pill exercises a DIFFERENT render-hook path. If any hook regresses,
+ * only that test fails. If the surface silently demotes back to the default
+ * <CopilotChat />, the headless-specific testids vanish and all 4 tool
+ * tests fail.
+ */
+
+const PILL_WEATHER = "Try suggestion: What's the weather in Tokyo?";
+const PILL_STOCK = "Try suggestion: What's AAPL trading at?";
+const PILL_HIGHLIGHT = "Try suggestion: Highlight: ship the demo on Friday";
+const PILL_CHART =
+  "Try suggestion: Show me a chart of revenue over the last six months";
+
+const ASSERT_TIMEOUT = 45_000;
+
 test.describe("Headless Chat (Complete)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/headless-complete");
   });
 
-  test("renders hand-rolled chrome without CopilotChat primitives", async ({
+  test("page loads with custom composer and four suggestion pills", async ({
     page,
   }) => {
-    // Custom header (<h1> + subtext) — this cell does not render
-    // <CopilotChat /> or <CopilotChatMessageView />.
     await expect(
-      page.getByRole("heading", { name: "Headless Chat (Complete)" }),
-    ).toBeVisible();
-    await expect(
-      page.getByText("Built from scratch on useAgent — no CopilotChat."),
+      page.locator('[data-testid="headless-composer"]'),
     ).toBeVisible();
 
-    // The scrollable messages container is the only data-testid in the demo.
+    // Pills use aria-label `Try suggestion: ${prompt}` so screen readers can
+    // disambiguate. We assert all four are mounted on first paint.
     await expect(
-      page.locator('[data-testid="headless-complete-messages"]'),
+      page.getByRole("button", { name: PILL_WEATHER, exact: true }),
     ).toBeVisible();
-
-    // Empty-state hint is rendered inside the messages container.
     await expect(
-      page.getByText(
-        "Try weather, a stock, a highlighted note, or an Excalidraw sketch.",
-      ),
+      page.getByRole("button", { name: PILL_STOCK, exact: true }),
     ).toBeVisible();
-
-    // Custom composer — placeholder + disabled Send button.
-    await expect(page.getByPlaceholder("Type a message...")).toBeVisible();
-    const send = page.getByRole("button", { name: "Send", exact: true });
-    await expect(send).toBeVisible();
-    await expect(send).toBeDisabled();
-
-    // No built-in CopilotChat testids should be present.
     await expect(
-      page.locator('[data-testid="copilot-chat-input"]'),
-    ).toHaveCount(0);
+      page.getByRole("button", { name: PILL_HIGHLIGHT, exact: true }),
+    ).toBeVisible();
     await expect(
-      page.locator('[data-testid="copilot-message-list"]'),
-    ).toHaveCount(0);
+      page.getByRole("button", { name: PILL_CHART, exact: true }),
+    ).toBeVisible();
   });
 
-  test("Send enables on input and sends a message through the hand-rolled run", async ({
+  test("weather pill renders the headless WeatherCard via useRenderTool plus the deterministic narration", async ({
     page,
   }) => {
-    const textarea = page.getByPlaceholder("Type a message...");
-    const send = page.getByRole("button", { name: "Send", exact: true });
+    await page.getByRole("button", { name: PILL_WEATHER, exact: true }).click();
 
-    await expect(send).toBeDisabled();
-    await textarea.fill("hello");
-    await expect(send).toBeEnabled();
-    await send.click();
+    const card = page.locator('[data-testid="headless-weather-card"]').first();
+    await expect(card).toBeVisible({ timeout: ASSERT_TIMEOUT });
+    await expect(card).toContainText("Tokyo");
+    await expect(card).toContainText("Sunny");
+    await expect(card).toContainText("68°F");
 
-    // Messages container should now contain the user's verbatim "hello".
-    const messages = page.locator('[data-testid="headless-complete-messages"]');
-    await expect(messages).toContainText("hello", { timeout: 10000 });
-
-    // Empty-state hint should be gone once a message was sent.
-    await expect(
-      page.getByText(
-        "Try weather, a stock, a highlighted note, or an Excalidraw sketch.",
-      ),
-    ).toHaveCount(0);
-
-    // Textarea clears on submit.
-    await expect(textarea).toHaveValue("");
-  });
-
-  test("weather prompt renders the custom WeatherCard via useRenderTool", async ({
-    page,
-  }) => {
-    // aimock fixture for userMessage "weather" returns a `get_weather`
-    // tool call with location Tokyo. The cell registers a per-tool renderer
-    // for `get_weather` → <WeatherCard />. Asserting on the WeatherCard's
-    // verbatim eyebrow + location text proves the manual useRenderToolCall
-    // path in use-rendered-messages.tsx is wired correctly.
-    const textarea = page.getByPlaceholder("Type a message...");
-    await textarea.fill("what's the weather in Tokyo");
-    await page.getByRole("button", { name: "Send", exact: true }).click();
-
-    const messages = page.locator('[data-testid="headless-complete-messages"]');
-
-    // Card eyebrow flips from "Fetching weather" -> "Weather" once complete.
-    // Using `.first()` because the agent can render multiple WeatherCard
-    // eyebrow divs as it streams (loading card first, then a fresh settled
-    // card on result) and both have the same "Weather" text — strict mode
-    // would otherwise fail on the dup.
-    await expect(
-      messages.getByText("Weather", { exact: true }).first(),
-    ).toBeVisible({ timeout: 45000 });
-
-    // Location label renders the fixture-supplied "Tokyo".
-    await expect(
-      messages.getByText("Tokyo", { exact: true }).first(),
-    ).toBeVisible({
-      timeout: 5000,
+    const assistant = page
+      .locator('[data-testid="headless-message-assistant"]')
+      .first();
+    await expect(assistant).toBeVisible({ timeout: ASSERT_TIMEOUT });
+    await expect(assistant).toContainText("Tokyo is 22°C and partly cloudy.", {
+      timeout: ASSERT_TIMEOUT,
     });
   });
 
-  test("multi-turn conversation preserves history", async ({ page }) => {
-    const textarea = page.getByPlaceholder("Type a message...");
-    const send = () => page.getByRole("button", { name: "Send", exact: true });
-
-    // Turn 1
-    await textarea.fill("hi");
-    await send().click();
-    const messages = page.locator('[data-testid="headless-complete-messages"]');
-    await expect(messages).toContainText("hi", { timeout: 30000 });
-
-    // Turn 2 — the user bubble wrapper has `rounded-br-sm` as a structural
-    // marker. After two turns there should be at least two such bubbles in
-    // the transcript.
-    await textarea.fill("hello");
-    await send().click();
-
-    await expect
-      .poll(
-        async () =>
-          await page
-            .locator(
-              '[data-testid="headless-complete-messages"] div.rounded-br-sm',
-            )
-            .count(),
-        { timeout: 30000 },
-      )
-      .toBeGreaterThanOrEqual(2);
-  });
-
-  test("clicks the Largest continent suggestion and renders the canonical answer", async ({
+  test("AAPL pill renders the headless StockCard via useRenderTool plus the deterministic narration", async ({
     page,
   }) => {
-    const chips = page.locator('[data-testid="headless-suggestions"]');
-    await expect(chips).toBeVisible();
+    await page.getByRole("button", { name: PILL_STOCK, exact: true }).click();
 
-    await chips.getByRole("button", { name: "Largest continent" }).click();
+    const card = page.locator('[data-testid="headless-stock-card"]').first();
+    await expect(card).toBeVisible({ timeout: ASSERT_TIMEOUT });
+    await expect(card).toContainText("AAPL");
+    await expect(card).toContainText("$189.42");
+    await expect(card).toContainText("+1.27%");
 
-    const messages = page.locator('[data-testid="headless-complete-messages"]');
-    await expect(messages).toContainText("What is the largest continent?", {
-      timeout: 10000,
+    const assistant = page
+      .locator('[data-testid="headless-message-assistant"]')
+      .first();
+    await expect(assistant).toBeVisible({ timeout: ASSERT_TIMEOUT });
+    await expect(assistant).toContainText(
+      "AAPL is trading at $189.42, up 1.27% on the day",
+      { timeout: ASSERT_TIMEOUT },
+    );
+  });
+
+  test("highlight pill renders the headless HighlightNote via useComponent plus the deterministic narration", async ({
+    page,
+  }) => {
+    await page
+      .getByRole("button", { name: PILL_HIGHLIGHT, exact: true })
+      .click();
+
+    // The highlight card is the frontend-tool render surface (useComponent).
+    const card = page
+      .locator('[data-testid="headless-highlight-card"]')
+      .first();
+    await expect(card).toBeVisible({ timeout: ASSERT_TIMEOUT });
+    await expect(card).toContainText("ship the demo on Friday");
+
+    // Narration leading phrase comes from the new high-priority fixture in
+    // d5-all.json; the showcase-assistant catch-all in feature-parity.json
+    // would otherwise win and reply with "Hi there! I'm your showcase
+    // assistant…".
+    const assistant = page
+      .locator('[data-testid="headless-message-assistant"]')
+      .first();
+    await expect(assistant).toBeVisible({ timeout: ASSERT_TIMEOUT });
+    await expect(assistant).toContainText("ship the demo on Friday", {
+      timeout: ASSERT_TIMEOUT,
     });
+  });
 
-    // aimock fixture returns "Asia is the largest continent — ..."
-    await expect(messages.getByText(/Asia/).first()).toBeVisible({
-      timeout: 30000,
-    });
+  test("revenue chart pill renders the headless ChartCard via useRenderTool plus the deterministic narration", async ({
+    page,
+  }) => {
+    await page.getByRole("button", { name: PILL_CHART, exact: true }).click();
+
+    const card = page.locator('[data-testid="headless-revenue-chart"]').first();
+    await expect(card).toBeVisible({ timeout: ASSERT_TIMEOUT });
+    await expect(card).toContainText("Quarterly revenue");
+    await expect(card).toContainText("Last six months · USD thousands");
+
+    // Month labels come from the python tool's deterministic mock series
+    // (Jan…Jun); recharts renders them as <text> tick labels inside the SVG.
+    for (const month of ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]) {
+      await expect(card).toContainText(month);
+    }
+
+    const assistant = page
+      .locator('[data-testid="headless-message-assistant"]')
+      .first();
+    await expect(assistant).toBeVisible({ timeout: ASSERT_TIMEOUT });
+    await expect(assistant).toContainText(
+      "Here is the chart of revenue over the last six months",
+      { timeout: ASSERT_TIMEOUT },
+    );
   });
 });

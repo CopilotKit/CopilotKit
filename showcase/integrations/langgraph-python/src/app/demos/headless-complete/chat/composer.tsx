@@ -66,6 +66,7 @@ export function Composer({
   return (
     <div
       ref={containerRef}
+      data-testid="headless-composer"
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}

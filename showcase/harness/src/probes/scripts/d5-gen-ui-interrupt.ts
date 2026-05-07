@@ -1,9 +1,20 @@
 /**
  * D5 — gen-ui-interrupt script.
  *
- * Drives `/demos/gen-ui-interrupt`. Turn 1 triggers the interrupt that
- * yields gen-UI; turn 2 resolves the user's choice through the gen-UI
- * component.
+ * Drives `/demos/gen-ui-interrupt`. The agent's `schedule_meeting`
+ * tool calls LangGraph's `interrupt(...)`; the frontend's
+ * `useInterrupt` renders the `<TimePickerCard>` inline. The user
+ * picks a slot — that calls `resolve(...)` which resumes the run.
+ *
+ * Genuine assertion: send the pill prompt; assert
+ * `[data-testid="time-picker-card"]` mounts; click the first slot
+ * (`[data-testid="time-picker-slot"]`); assert
+ * `[data-testid="time-picker-picked"]` mounts (the card flips into
+ * the booked-confirmation state). The picked-state mount is the
+ * downstream signal that the agent resumed and the resolve callback
+ * fired — a regression that drops `resolve` (or where the Card never
+ * renders the picked state) catches here, not by reading the
+ * transcript.
  */
 
 import {
@@ -11,80 +22,58 @@ import {
   type D5BuildContext,
 } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
+import {
+  FIRST_SIGNAL_TIMEOUT_MS,
+  SIBLING_TIMEOUT_MS,
+  asGenuinePage,
+  waitForTestId,
+} from "./_genuine-shared.js";
 
-const TRANSCRIPT_TIMEOUT_MS = 5_000;
+/** Pill prompts MUST mirror `gen-ui-interrupt/suggestions.ts`. */
+export const GEN_UI_INTERRUPT_PILLS = [
+  {
+    tag: "sales-call",
+    prompt: "Book an intro call with the sales team to discuss pricing.",
+  },
+  {
+    tag: "alice-1on1",
+    prompt: "Schedule a 1:1 with Alice next week to review Q2 goals.",
+  },
+] as const;
 
-async function readAssistantTranscript(page: Page): Promise<string> {
-  return (await page.evaluate(() => {
-    const win = globalThis as unknown as {
-      document: {
-        querySelectorAll(
-          sel: string,
-        ): ArrayLike<{ textContent: string | null }>;
-      };
-    };
-    const sels = [
-      '[data-testid="copilot-assistant-message"]',
-      '[role="article"]:not([data-message-role="user"])',
-      '[data-message-role="assistant"]',
-    ];
-    let nodes: ArrayLike<{ textContent: string | null }> = { length: 0 };
-    for (const s of sels) {
-      const f = win.document.querySelectorAll(s);
-      if (f.length > 0) {
-        nodes = f;
-        break;
-      }
-    }
-    let acc = "";
-    for (let i = 0; i < nodes.length; i++)
-      acc += " " + (nodes[i]!.textContent ?? "");
-    return acc.toLowerCase();
-  })) as string;
-}
-
-function buildKeywordAssertion(
-  label: string,
-  keywords: readonly string[],
-  timeoutMs = TRANSCRIPT_TIMEOUT_MS,
-) {
+export function buildInterruptAssertion(
+  pillTag: string,
+): (page: Page) => Promise<void> {
   return async (page: Page): Promise<void> => {
-    const deadline = Date.now() + timeoutMs;
-    let last = "";
-    while (Date.now() < deadline) {
-      last = await readAssistantTranscript(page);
-      if (keywords.some((kw) => last.includes(kw))) return;
-      await new Promise<void>((r) => setTimeout(r, 200));
+    const tag = `gen-ui-interrupt-${pillTag}`;
+    // Step 1: wait for the time picker to mount.
+    await waitForTestId(page, "time-picker-card", FIRST_SIGNAL_TIMEOUT_MS, tag);
+    // Step 2: click the first slot. The runner's structural Page
+    // doesn't expose `.click()`; runtime-cast and verify.
+    const clickable = asGenuinePage(page, tag);
+    const slotSelector = '[data-testid="time-picker-slot"]';
+    try {
+      await page.waitForSelector(slotSelector, {
+        state: "visible",
+        timeout: SIBLING_TIMEOUT_MS,
+      });
+    } catch {
+      throw new Error(
+        `${tag}: expected [data-testid="time-picker-slot"] within ${SIBLING_TIMEOUT_MS}ms`,
+      );
     }
-    throw new Error(
-      `${label}: transcript missing keyword (any of ${keywords.join(", ")}) — got "${last.slice(0, 200)}"`,
-    );
+    await clickable.click(slotSelector, { timeout: SIBLING_TIMEOUT_MS });
+    // Step 3: assert the picked-confirmation state mounts.
+    await waitForTestId(page, "time-picker-picked", SIBLING_TIMEOUT_MS, tag);
   };
 }
 
-export const RENDERED_KEYWORDS = [
-  "gen-ui interrupt",
-  "choice component",
-] as const;
-export const COMPLETE_KEYWORDS = ["resumed", "completing"] as const;
-
 export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
-  return [
-    {
-      input: "request the gen-ui interrupt",
-      assertions: buildKeywordAssertion(
-        "gen-ui-interrupt turn 1",
-        RENDERED_KEYWORDS,
-      ),
-    },
-    {
-      input: "confirm the gen-ui choice",
-      assertions: buildKeywordAssertion(
-        "gen-ui-interrupt turn 2",
-        COMPLETE_KEYWORDS,
-      ),
-    },
-  ];
+  return GEN_UI_INTERRUPT_PILLS.map(({ tag, prompt }) => ({
+    input: prompt,
+    assertions: buildInterruptAssertion(tag),
+    responseTimeoutMs: 60_000,
+  }));
 }
 
 registerD5Script({

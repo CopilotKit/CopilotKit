@@ -11,7 +11,7 @@ CopilotKit is two products in one repository: an **open-source frontend stack** 
 
 The OSS layer is everything you need to build a working agentic React app. It runs without any external service from CopilotKit:
 
-- **Frontend SDK** — `@copilotkit/react-core` (hooks: `useAgent`, `useFrontendTool`, `useAgentContext`, `useThreads`, etc.) and `@copilotkit/react-ui` (prebuilt components: `CopilotChat`, `CopilotSidebar`, `CopilotPopup`).
+- **Frontend SDK** — `@copilotkit/react-core`, exporting both hooks (`useAgent`, `useFrontendTool`, `useAgentContext`, `useThreads`, etc.) and prebuilt components (`CopilotChat`, `CopilotSidebar`, `CopilotPopup`).
 - **Runtime** — `@copilotkit/runtime`, the request handler that mounts in your application server. Framework-agnostic core plus thin adapters for Express, Hono, Bun, Deno, Cloudflare Workers.
 - **AG-UI protocol** — open standard for agent ↔ frontend communication. 16 standardized event types, transport-agnostic.
 - **Built-in Agent** — `BuiltInAgent` runs an in-process agent loop (OpenAI / Anthropic / Google / any AI-SDK model) without requiring an external framework.

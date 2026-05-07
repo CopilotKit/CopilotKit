@@ -25,7 +25,10 @@ export function AssistantBubble({
   if (!hasText && !hasChildren) return null;
 
   return (
-    <div className="flex w-full items-start gap-3">
+    <div
+      data-testid="headless-message-assistant"
+      className="flex w-full items-start gap-3"
+    >
       <Avatar className="h-8 w-8 shrink-0 border bg-muted text-muted-foreground">
         <AvatarFallback className="bg-muted text-muted-foreground">
           <Bot className="h-4 w-4" />

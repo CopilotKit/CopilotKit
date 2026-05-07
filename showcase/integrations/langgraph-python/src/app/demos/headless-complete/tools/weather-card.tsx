@@ -29,7 +29,7 @@ export function WeatherCard({
   loading: boolean;
 }) {
   return (
-    <Card className={cn("gap-2 py-3")}>
+    <Card data-testid="headless-weather-card" className={cn("gap-2 py-3")}>
       <CardHeader className="px-4 [.border-b]:pb-3">
         <CardTitle className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           <CloudSun className="h-4 w-4 text-foreground" />

@@ -60,18 +60,18 @@ The agent reads the latest typed config at the start of every turn, rebuilds the
 
 ## How it works
 
-The runtime owns the agent in-process, so config travels through the provider rather than agent state. There's no separate backend service to push state into, and no extra plumbing — the typed object you set on `<CopilotKitProvider>` becomes the input to the agent factory directly.
+The runtime owns the agent in-process, so config travels through the provider rather than agent state. There's no separate backend service to push state into, and no extra plumbing — the typed object you set on `<CopilotKit>` becomes the input to the agent factory directly.
 
 The UI side passes the typed object as `properties` on the provider:
 
 ```tsx title="frontend/src/app/page.tsx — config flows through the provider"
-<CopilotKitProvider
+<CopilotKit
   runtimeUrl="/api/copilotkit"
   properties={{ tone, expertise, responseLength }}
   useSingleEndpoint
 >
   <Demo />
-</CopilotKitProvider>
+</CopilotKit>
 ```
 
 The runtime hands the same object to the agent factory on every call as `input.forwardedProps`. The factory uses those fields to build a system prompt before returning the agent for that turn:

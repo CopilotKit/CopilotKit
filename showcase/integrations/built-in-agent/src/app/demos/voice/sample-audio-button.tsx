@@ -18,6 +18,7 @@ export interface SampleAudioButtonProps {
   sampleText: string;
 }
 
+// @region[sample-audio-button]
 export function SampleAudioButton({
   onTranscribed,
   sampleText,
@@ -39,3 +40,4 @@ export function SampleAudioButton({
     </div>
   );
 }
+// @endregion[sample-audio-button]

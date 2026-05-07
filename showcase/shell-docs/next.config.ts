@@ -153,6 +153,21 @@ const nextConfig: NextConfig = {
         destination: "/backend/copilot-runtime",
         permanent: true,
       },
+      // custom-agent: consolidate two divergent shell-docs copies onto the
+      // structurally-complete backend/custom-agent.mdx (508 lines, matches
+      // upstream snippet). The integrations/built-in-agent/custom-agent.mdx
+      // copy (240 lines, missing 5 sections) was retired; redirect both
+      // historical paths.
+      {
+        source: "/built-in-agent/custom-agent",
+        destination: "/backend/custom-agent",
+        permanent: true,
+      },
+      {
+        source: "/integrations/built-in-agent/custom-agent",
+        destination: "/backend/custom-agent",
+        permanent: true,
+      },
       // troubleshooting/migrate-to-* in unselected → existing
       // /migrate/* canonical (already redirected at the
       // /troubleshooting/migrate-to-* level).

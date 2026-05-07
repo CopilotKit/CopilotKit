@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
-// QA reference: qa/reasoning-default-render.md
-// Demo source: src/app/demos/reasoning-default-render/page.tsx
+// QA reference: qa/reasoning-default.md
+// Demo source: src/app/demos/reasoning-default/page.tsx
 //
 // This cell does NOT override the `reasoningMessage` slot. CopilotKit's
 // built-in `CopilotChatReasoningMessage` renders the reasoning as a
@@ -9,11 +9,11 @@ import { test, expect } from "@playwright/test";
 // whose message matches the aimock fixture in showcase/aimock/d5-all.json,
 // so streaming is deterministic in CI.
 
-test.describe("Reasoning (Default Render)", () => {
+test.describe("Reasoning: Default", () => {
   test.setTimeout(120_000);
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/reasoning-default-render");
+    await page.goto("/demos/reasoning-default");
   });
 
   test("page renders without errors", async ({ page }) => {

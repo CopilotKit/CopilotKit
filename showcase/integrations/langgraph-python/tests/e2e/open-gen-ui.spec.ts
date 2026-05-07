@@ -1,26 +1,30 @@
 import { test, expect } from "@playwright/test";
 
 // QA reference: qa/open-gen-ui.md
-// Demo source: src/app/demos/open-gen-ui/page.tsx
+// Demo source: src/app/demos/open-gen-ui/{page.tsx,suggestions.ts}
+// Aimock fixture: showcase/harness/fixtures/d5/gen-ui-open.json
+//                 (bundled into showcase/aimock/d5-all.json)
 //
 // Open-Ended Generative UI (minimal). The agent streams a single
 // `generateSandboxedUi` tool call; the runtime middleware at
-// `/api/copilotkit-ogui` converts the stream into
-// `open-generative-ui` activity events; the built-in
-// `OpenGenerativeUIActivityRenderer` mounts agent-authored HTML + CSS
-// inside a sandboxed <iframe sandbox="allow-scripts">. This page has no
-// host-side sandbox functions — visualisations are self-running SVG/CSS.
+// `/api/copilotkit-ogui` converts the stream into `open-generative-ui`
+// activity events which the built-in `OpenGenerativeUIActivityRenderer`
+// mounts inside a sandboxed `<iframe sandbox="allow-scripts">`.
 //
-// The demo exposes no app-level testid — the relevant signals are the
-// suggestion buttons (title text verbatim from `minimalSuggestions`) and
-// the mounted iframe. We keep assertions to:
-//   1) page load + 4 suggestion pills render
-//   2) typed "hi" prompt eventually produces an iframe inside the chat
-//      with the expected `sandbox="allow-scripts"` attribute
-//   3) neural-network suggestion prompt produces an iframe whose inner
-//      document contains an <svg> (visualisation renders SVG content)
-// End-to-end LLM renders can take 60s+ on Railway; we budget 90s and
-// skip the heavier visualisation test if it flakes — see W8 notes.
+// Assertion bar: iframe presence + non-empty `srcdoc` (or `src`). We do
+// NOT introspect iframe DOM via `contentFrame()` — sandbox="allow-scripts"
+// without `allow-same-origin` blocks cross-origin frame access from the
+// host, and the inner authored HTML varies between runs. "Renders
+// something" means the host successfully populated an iframe; whether
+// the inner HTML is correct is out of scope here.
+//
+// Aimock priority note: each pill `message` string is a verbatim short
+// label that matches a high-priority entry in `d5-all.json`. d5-all.json
+// loads BEFORE feature-parity.json, so its first-match-wins ordering
+// beats the broad `userMessage: "hi"` catch-all in feature-parity.json
+// that would otherwise return the showcase-assistant boilerplate
+// greeting (and never emit the open-gen-ui tool call). Keep the pill
+// message strings in `suggestions.ts` aligned with the fixture keys.
 
 test.describe("Open Generative UI (minimal)", () => {
   test.setTimeout(120_000);
@@ -36,9 +40,9 @@ test.describe("Open Generative UI (minimal)", () => {
       timeout: 15_000,
     });
 
-    // Suggestion titles are verbatim from minimalSuggestions in page.tsx.
+    // Suggestion titles are verbatim from minimalSuggestions in suggestions.ts.
     const expected = [
-      "3D axis visualization (model airplane)",
+      "3D axis visualization",
       "How a neural network works",
       "Quicksort visualization",
       "Fourier: square wave from sines",
@@ -51,66 +55,60 @@ test.describe("Open Generative UI (minimal)", () => {
     }
   });
 
-  // SKIP: the open-generative-ui pipeline on Railway (design-skill-tuned
-  // LLM authoring full HTML + CSS + inline <script>) is too slow and
-  // inconsistent to assert an iframe mount within any reasonable CI
-  // timeout. Observed end-to-end time ranges from 40s (hot cache) to
-  // >120s (cold, long HTML); the LLM sometimes streams multiple attempts
-  // before the runtime emits the `open-generative-ui` activity event, so
-  // a `iframe[sandbox*="allow-scripts"]` locator stays unresolved. The
-  // suggestion-pill render + sandbox-attribute intent are still covered
-  // above. Un-skip when a `data-testid="ogui-iframe"` marker is emitted
-  // on mount (short-circuits the LLM wait) or when Railway serves the
-  // generated HTML within a stable window. See W8-OGUI-1.
-  test.skip("Quicksort suggestion eventually mounts a sandboxed iframe", async ({
-    page,
-  }) => {
+  // Helper: click a pill and assert that a sandboxed iframe mounts with
+  // a non-empty source attribute. `srcdoc` is the expected attribute
+  // (the renderer composes the HTML+CSS into srcdoc); fall back to `src`
+  // for completeness.
+  const assertPillRendersIframe = async (
+    page: import("@playwright/test").Page,
+    pillTitle: string,
+  ) => {
     const suggestion = page
-      .locator('[data-testid="copilot-suggestion"]', {
-        hasText: "Quicksort visualization",
-      })
+      .locator('[data-testid="copilot-suggestion"]', { hasText: pillTitle })
       .first();
     await expect(suggestion).toBeVisible({ timeout: 15_000 });
     await suggestion.click();
 
     const iframe = page.locator('iframe[sandbox*="allow-scripts"]').first();
-    await expect(iframe).toBeVisible({ timeout: 120_000 });
+    await expect(iframe).toBeVisible({ timeout: 60_000 });
 
-    const sandbox = await iframe.getAttribute("sandbox");
-    expect(sandbox).toContain("allow-scripts");
-    expect(sandbox).not.toContain("allow-same-origin");
-    expect(sandbox).not.toContain("allow-forms");
+    // Either srcdoc (preferred — the renderer composes HTML into srcdoc)
+    // or src must be present and non-empty.
+    await expect
+      .poll(
+        async () => {
+          const srcdoc = await iframe.getAttribute("srcdoc");
+          if (srcdoc && srcdoc.length > 0) return true;
+          const src = await iframe.getAttribute("src");
+          if (src && src.length > 0) return true;
+          return false;
+        },
+        { timeout: 30_000 },
+      )
+      .toBe(true);
+  };
+
+  test("Fourier pill renders a sandboxed iframe with non-empty source", async ({
+    page,
+  }) => {
+    await assertPillRendersIframe(page, "Fourier: square wave from sines");
   });
 
-  // SKIP: the neural-network prompt asks the LLM for a non-trivial SVG
-  // scene; on Railway the sandbox HTML can take 60–120s to stream, and
-  // cross-origin iframe inspection via .contentFrame() is blocked because
-  // the iframe is srcdoc-loaded opaque to the host. We keep this test as
-  // documentation of the QA intent but skip until we have a non-LLM
-  // signal (e.g. a data-testid the renderer emits on mount). W8-OGUI-1.
-  test.skip("neural-network suggestion renders SVG inside the iframe", async ({
+  test("3D axis pill renders a sandboxed iframe with non-empty source", async ({
     page,
   }) => {
-    const suggestion = page
-      .locator('[data-testid="copilot-suggestion"]', {
-        hasText: "How a neural network works",
-      })
-      .first();
-    await expect(suggestion).toBeVisible({ timeout: 15_000 });
-    await suggestion.click();
+    await assertPillRendersIframe(page, "3D axis visualization");
+  });
 
-    const iframe = page.locator('iframe[sandbox*="allow-scripts"]').first();
-    await expect(iframe).toBeVisible({ timeout: 120_000 });
+  test("Neural network pill renders a sandboxed iframe with non-empty source", async ({
+    page,
+  }) => {
+    await assertPillRendersIframe(page, "How a neural network works");
+  });
 
-    // Try to inspect iframe contents. srcdoc iframes are same-origin in
-    // some browsers but the sandbox="allow-scripts"-only attribute blocks
-    // DOM access from the host. If contentFrame returns null we fall back
-    // to a timing-based pass: iframe was mounted with the correct sandbox.
-    const frame = await iframe.contentFrame();
-    if (frame) {
-      await expect(frame.locator("svg").first()).toBeVisible({
-        timeout: 30_000,
-      });
-    }
+  test("Quicksort pill renders a sandboxed iframe with non-empty source", async ({
+    page,
+  }) => {
+    await assertPillRendersIframe(page, "Quicksort visualization");
   });
 });

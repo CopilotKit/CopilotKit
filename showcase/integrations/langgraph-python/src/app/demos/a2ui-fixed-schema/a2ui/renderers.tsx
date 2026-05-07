@@ -33,7 +33,7 @@ export const renderers: CatalogRenderers<Definitions> = {
    * Column adds the vertical spacing.
    */
   Card: ({ props, children }) => (
-    <Card className="w-full max-w-md p-5">
+    <Card className="w-full max-w-md p-5" data-testid="a2ui-fixed-card">
       {props.child ? children(props.child) : null}
     </Card>
   ),

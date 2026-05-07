@@ -1,9 +1,9 @@
 {
-  "_comment": "D5 fixture for /demos/headless-complete. Five chips: weather (already covered by feature-parity weather fixture), AAPL stock (new — get_stock_price tool), highlight note (new — frontend useComponent), Excalidraw (text fallback so probe stays deterministic without depending on the MCP server), and largest continent (already covered by feature-parity continent fixture). Two-leg fixtures pin BOTH userMessage AND toolCallId on the narration leg, with the more-specific narration fixture placed BEFORE the bare userMessage toolCall fixture in this array. Reason: aimock matches in array order with first-match-wins, and its toolCallId match looks at the LAST tool message in the request — across multi-turn probes that 'last tool' can be a stale id from a previous turn. Pinning narration fixtures with userMessage too prevents one turn's narration from firing for another turn's prompt.",
+  "_comment": "D5 fixture for /demos/headless-complete. Five chips: weather (already covered by feature-parity weather fixture), AAPL stock (new — get_stock_price tool), highlight note (new — frontend useComponent), Excalidraw (text fallback so probe stays deterministic without depending on the MCP server), and largest continent (already covered by feature-parity continent fixture). Two-leg fixtures pin BOTH userMessage AND toolCallId on the narration leg, with the more-specific narration fixture placed BEFORE the bare userMessage toolCall fixture in this array. Reason: aimock matches in array order with first-match-wins, and its toolCallId match looks at the LAST tool message in the request — across multi-turn probes that 'last tool' can be a stale id from a previous turn. Pinning narration fixtures with userMessage too prevents one turn's narration from firing for another turn's prompt. Matchers use short distinctive substrings ('AAPL', 'ship the demo on Friday') so they fire for BOTH the empty-state pills (e.g. 'What's AAPL trading at?', 'Highlight: ship the demo on Friday') AND the SuggestionBar pills configured by use-headless-suggestions.ts (e.g. 'What's the price of AAPL right now?', 'Highlight this note for me: ...ship the demo on Friday...'). The tool-rendering AAPL fixture in d5-all.json (matcher 'What\\'s the current price of AAPL?') is more specific and stays at higher priority via array order; substring 'AAPL' here only catches headless-complete pills.",
   "fixtures": [
     {
       "match": {
-        "userMessage": "AAPL trading",
+        "userMessage": "AAPL",
         "toolCallId": "call_d5_get_stock_price_001"
       },
       "response": {
@@ -12,7 +12,7 @@
     },
     {
       "match": {
-        "userMessage": "AAPL trading"
+        "userMessage": "AAPL"
       },
       "response": {
         "toolCalls": [
@@ -26,23 +26,23 @@
     },
     {
       "match": {
-        "userMessage": "Highlight 'meeting at 3pm'",
+        "userMessage": "ship the demo on Friday",
         "toolCallId": "call_d5_highlight_note_001"
       },
       "response": {
-        "content": "Highlighted 'meeting at 3pm' in yellow above. Let me know if you want a different color or a longer note."
+        "content": "Highlighted 'ship the demo on Friday' in yellow above. Let me know if you want a different color or a longer note."
       }
     },
     {
       "match": {
-        "userMessage": "Highlight 'meeting at 3pm'"
+        "userMessage": "ship the demo on Friday"
       },
       "response": {
         "toolCalls": [
           {
             "id": "call_d5_highlight_note_001",
             "name": "highlight_note",
-            "arguments": "{\"text\":\"meeting at 3pm\",\"color\":\"yellow\"}"
+            "arguments": "{\"text\":\"ship the demo on Friday\",\"color\":\"yellow\"}"
           }
         ]
       }

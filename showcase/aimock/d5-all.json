@@ -1,6 +1,382 @@
 {
-  "_comment": "Bundled D5 (e2e-deep) fixtures. Source files: showcase/harness/fixtures/d5/*.json (auto-merged). Uses hasToolResult matching for multi-turn disambiguation. Loaded by aimock before feature-parity.json for match precedence.",
+  "_comment": "Bundled D5 (e2e-deep) fixtures. Source files: showcase/harness/fixtures/d5/*.json (auto-merged). Uses hasToolResult matching for multi-turn disambiguation. Loaded by aimock before feature-parity.json for match precedence. Ordering convention: high-priority verbatim-prompt fixtures appear first so they win first-match-wins ordering against the showcase-assistant 'hi' catch-all in feature-parity.json (and against any later, broader substring matchers in this file). The exact set of high-priority entries shifts as features land — do not rely on a specific position for any group; rely on the per-fixture _comment headers and the source-of-truth note on each per-feature file under showcase/harness/fixtures/d5/.",
   "fixtures": [
+    {
+      "_comment": "headless-simple pill 1: locks the deterministic greeting leading phrase. The reply is intentionally NON-boilerplate (i.e. NOT the showcase-assistant catch-all 'I can help you with weather lookups...') so the headless-simple spec's HELLO_LEADING assertion fails when fixture priority misroutes this prompt to the catch-all.",
+      "match": {
+        "userMessage": "Say hello in one short sentence"
+      },
+      "response": {
+        "content": "Hi! In one short sentence: I'm a CopilotKit demo agent here to help you try features."
+      }
+    },
+    {
+      "_comment": "headless-simple pill 2: locks the deterministic joke.",
+      "match": {
+        "userMessage": "Tell me a one-line joke"
+      },
+      "response": {
+        "content": "Why did the scarecrow win an award? Because he was outstanding in his field!"
+      }
+    },
+    {
+      "_comment": "headless-simple pill 3: locks the deterministic fun fact.",
+      "match": {
+        "userMessage": "Give me a fun fact"
+      },
+      "response": {
+        "content": "A fun fact: Honey never spoils! Archaeologists have found pots of honey in ancient Egyptian tombs that are over 3,000 years old and still perfectly edible."
+      }
+    },
+    {
+      "_comment": "headless-complete highlight pill: high-priority verbatim match. Without this, the showcase-assistant catch-all in feature-parity.json wins. Two-turn fixture: turn 1 emits the highlight_note tool call so the headless useComponent registration paints a Highlight card; turn 2 (after the tool result) emits the deterministic narration.",
+      "match": {
+        "userMessage": "Highlight: ship the demo on Friday",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_headless_highlight_001",
+            "name": "highlight_note",
+            "arguments": "{\"text\":\"ship the demo on Friday\",\"color\":\"yellow\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Highlight: ship the demo on Friday",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Highlighted 'ship the demo on Friday' for you above."
+      }
+    },
+    {
+      "_comment": "headless-complete revenue chart pill: locks the deterministic chart leading phrase. Two-turn fixture: turn 1 emits the get_revenue_chart tool call (no parameters per the python tool); turn 2 emits the narration that the headless message-assistant bubble renders alongside the ChartCard.",
+      "match": {
+        "userMessage": "chart of revenue over the last six months",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_headless_revenue_chart_001",
+            "name": "get_revenue_chart",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "chart of revenue over the last six months",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Here is the chart of revenue over the last six months — quarterly revenue grew steadily, peaking in June."
+      }
+    },
+    {
+      "_comment": "tool-rendering pill: Chain tools — emit 3 tool calls in one assistant turn (get_weather Tokyo + search_flights SFO->Tokyo + roll_d20=11). MUST appear before the bare 'weather in Tokyo' fixture below; substring match would otherwise leak into this prompt.",
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_chain_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          },
+          {
+            "id": "call_tr_chain_flights_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"Tokyo\"}"
+          },
+          {
+            "id": "call_tr_chain_roll_001",
+            "name": "roll_d20",
+            "arguments": "{\"value\":11}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "_comment": "tool-rendering pill: Weather in SF — verbatim pill prompt, deterministic San Francisco values.",
+      "match": {
+        "userMessage": "What's the weather in San Francisco?",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_weather_sf_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"San Francisco\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What's the weather in San Francisco?",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "San Francisco is currently 68°F and sunny with light winds."
+      }
+    },
+    {
+      "_comment": "tool-rendering pill: Find flights — verbatim pill prompt, dedicated search_flights fixture. MUST take precedence over the a2ui beautiful-chat fixture below (which uses the same tool name with non-flight-list args shape).",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK.",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_flights_sfo_jfk_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Find flights from SFO to JFK.",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289)."
+      }
+    },
+    {
+      "_comment": "tool-rendering pill: Stock price — verbatim pill prompt, AAPL with deterministic price/change.",
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_stock_aapl_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% on the day."
+      }
+    },
+    {
+      "_comment": "tool-rendering pill: Roll a d20 — exactly 5 sequential roll_d20 calls returning [7, 14, 3, 19, 20]. Disambiguated by turnIndex (count of assistant messages so far) so the sequence is stateless across test runs.",
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_seq_001",
+            "name": "roll_d20",
+            "arguments": "{\"value\":7}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "turnIndex": 1,
+        "hasToolResult": true
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_seq_002",
+            "name": "roll_d20",
+            "arguments": "{\"value\":14}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "turnIndex": 2,
+        "hasToolResult": true
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_seq_003",
+            "name": "roll_d20",
+            "arguments": "{\"value\":3}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "turnIndex": 3,
+        "hasToolResult": true
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_seq_004",
+            "name": "roll_d20",
+            "arguments": "{\"value\":19}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "turnIndex": 4,
+        "hasToolResult": true
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_seq_005",
+            "name": "roll_d20",
+            "arguments": "{\"value\":20}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "turnIndex": 5,
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Rolled the d20 five times — landed on 20 on the final roll."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "3D axis visualization (model airplane)"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_open_gen_ui_3d_axis_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing 3D axis scene…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}\",\"html\":\"<div class=\\\"wrap\\\"><h1>3D axis visualization (pitch / yaw / roll)</h1><svg width=\\\"320\\\" height=\\\"260\\\" viewBox=\\\"-80 -80 160 160\\\" data-testid=\\\"ogui-3d-axis\\\"><line x1=\\\"-60\\\" y1=\\\"0\\\" x2=\\\"60\\\" y2=\\\"0\\\" stroke=\\\"#f59e0b\\\"/><line x1=\\\"0\\\" y1=\\\"-60\\\" x2=\\\"0\\\" y2=\\\"60\\\" stroke=\\\"#6366f1\\\"/><line x1=\\\"-40\\\" y1=\\\"40\\\" x2=\\\"40\\\" y2=\\\"-40\\\" stroke=\\\"#10b981\\\"/><text x=\\\"62\\\" y=\\\"4\\\" font-size=\\\"8\\\" fill=\\\"#f59e0b\\\">X pitch</text><text x=\\\"4\\\" y=\\\"-62\\\" font-size=\\\"8\\\" fill=\\\"#6366f1\\\">Y yaw</text><text x=\\\"42\\\" y=\\\"-42\\\" font-size=\\\"8\\\" fill=\\\"#10b981\\\">Z roll</text></svg></div>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "How a neural network works"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_open_gen_ui_neural_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing neural network forward pass…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}circle{fill:#6366f1}\",\"html\":\"<div class=\\\"wrap\\\"><h1>Forward pass: input → hidden → output</h1><svg width=\\\"320\\\" height=\\\"220\\\" data-testid=\\\"ogui-neural-net\\\"><g><circle cx=\\\"40\\\" cy=\\\"40\\\" r=\\\"8\\\"/><circle cx=\\\"40\\\" cy=\\\"90\\\" r=\\\"8\\\"/><circle cx=\\\"40\\\" cy=\\\"140\\\" r=\\\"8\\\"/><circle cx=\\\"40\\\" cy=\\\"190\\\" r=\\\"8\\\"/></g><g fill=\\\"#a78bfa\\\"><circle cx=\\\"160\\\" cy=\\\"30\\\" r=\\\"8\\\"/><circle cx=\\\"160\\\" cy=\\\"75\\\" r=\\\"8\\\"/><circle cx=\\\"160\\\" cy=\\\"115\\\" r=\\\"8\\\"/><circle cx=\\\"160\\\" cy=\\\"155\\\" r=\\\"8\\\"/><circle cx=\\\"160\\\" cy=\\\"195\\\" r=\\\"8\\\"/></g><g fill=\\\"#10b981\\\"><circle cx=\\\"280\\\" cy=\\\"80\\\" r=\\\"8\\\"/><circle cx=\\\"280\\\" cy=\\\"140\\\" r=\\\"8\\\"/></g></svg></div>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Quicksort visualization"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_open_gen_ui_quicksort_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing quicksort animation…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}rect{fill:#64748b}\",\"html\":\"<div class=\\\"wrap\\\"><h1>Quicksort: partition around pivot</h1><svg width=\\\"320\\\" height=\\\"220\\\" data-testid=\\\"ogui-quicksort\\\"><rect x=\\\"10\\\"  y=\\\"170\\\" width=\\\"24\\\" height=\\\"40\\\"/><rect x=\\\"40\\\"  y=\\\"130\\\" width=\\\"24\\\" height=\\\"80\\\"/><rect x=\\\"70\\\"  y=\\\"100\\\" width=\\\"24\\\" height=\\\"110\\\"/><rect x=\\\"100\\\" y=\\\"60\\\"  width=\\\"24\\\" height=\\\"150\\\" fill=\\\"#f59e0b\\\"/><rect x=\\\"130\\\" y=\\\"80\\\"  width=\\\"24\\\" height=\\\"130\\\" fill=\\\"#6366f1\\\"/><rect x=\\\"160\\\" y=\\\"110\\\" width=\\\"24\\\" height=\\\"100\\\"/><rect x=\\\"190\\\" y=\\\"50\\\"  width=\\\"24\\\" height=\\\"160\\\"/><rect x=\\\"220\\\" y=\\\"90\\\"  width=\\\"24\\\" height=\\\"120\\\"/><rect x=\\\"250\\\" y=\\\"140\\\" width=\\\"24\\\" height=\\\"70\\\"/><rect x=\\\"280\\\" y=\\\"160\\\" width=\\\"24\\\" height=\\\"50\\\"/></svg></div>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Fourier: square wave from sines"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_open_gen_ui_fourier_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing Fourier series animation…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}\",\"html\":\"<div class=\\\"wrap\\\"><h1>Fourier series: square wave</h1><svg width=\\\"320\\\" height=\\\"220\\\" viewBox=\\\"0 -60 320 120\\\" data-testid=\\\"ogui-fourier\\\"><circle cx=\\\"60\\\" cy=\\\"0\\\" r=\\\"40\\\" stroke=\\\"#6366f1\\\" fill=\\\"none\\\"/><circle cx=\\\"60\\\" cy=\\\"0\\\" r=\\\"13\\\" stroke=\\\"#a78bfa\\\" fill=\\\"none\\\"/><circle cx=\\\"60\\\" cy=\\\"0\\\" r=\\\"8\\\"  stroke=\\\"#c4b5fd\\\" fill=\\\"none\\\"/><path d=\\\"M120 0 L300 0\\\" stroke=\\\"#10b981\\\" fill=\\\"none\\\"/></svg></div>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Calculator (calls evaluateExpression)"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_open_gen_ui_calc_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing calculator UI…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px;max-width:240px}.display{background:#1e293b;padding:8px;border-radius:8px;margin-bottom:8px;font-family:monospace;text-align:right}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}button{padding:10px;background:#334155;border:0;color:#e2e8f0;border-radius:6px;font-size:14px}\",\"html\":\"<div class=\\\"wrap\\\" data-testid=\\\"ogui-calculator\\\"><div class=\\\"display\\\" id=\\\"d\\\">0</div><div class=\\\"grid\\\"><button>7</button><button>8</button><button>9</button><button>+</button><button>4</button><button>5</button><button>6</button><button>-</button><button>1</button><button>2</button><button>3</button><button>*</button><button>0</button><button>.</button><button id=\\\"eq\\\">=</button><button>/</button></div></div>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Ping the host (calls notifyHost)"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_open_gen_ui_ping_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":320,\"placeholderMessages\":[\"Composing host-ping card…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.card{padding:24px;background:#1e293b;border-radius:12px;margin:16px;text-align:center}button{padding:10px 20px;background:#6366f1;border:0;color:#fff;border-radius:8px;font-size:14px;cursor:pointer}.out{margin-top:12px;font-size:12px;color:#94a3b8}\",\"html\":\"<div class=\\\"card\\\" data-testid=\\\"ogui-ping\\\"><h2>Notify the host</h2><button id=\\\"hi\\\">Say hi to the host</button><div class=\\\"out\\\" id=\\\"out\\\">awaiting click…</div></div>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Inline expression evaluator"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_open_gen_ui_inline_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":320,\"placeholderMessages\":[\"Composing expression evaluator…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.card{padding:16px;background:#1e293b;border-radius:12px;margin:16px}input{width:100%;padding:8px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;border-radius:6px;box-sizing:border-box}button{margin-top:8px;padding:8px 16px;background:#6366f1;border:0;color:#fff;border-radius:6px;cursor:pointer}.out{margin-top:8px;font-size:12px;color:#94a3b8}\",\"html\":\"<div class=\\\"card\\\" data-testid=\\\"ogui-inline-eval\\\"><h2>Inline expression evaluator</h2><input id=\\\"in\\\" placeholder=\\\"e.g. 2 + 2\\\"/><button id=\\\"go\\\">Evaluate</button><div class=\\\"out\\\" id=\\\"out\\\">awaiting input…</div></div>\"}"
+          }
+        ]
+      }
+    },
     {
       "match": {
         "userMessage": "introduce yourself per your config"
@@ -371,6 +747,261 @@
       }
     },
     {
+      "_comment": "Subagents pill 1 — 'Write a blog post' / cold exposure training. Drives supervisor → research_agent → writing_agent → critique_agent → final reply, plus three nested sub-agent turns.",
+      "match": {
+        "userMessage": "Produce a short blog post about the benefits of cold exposure training",
+        "hasToolResult": false,
+        "toolName": "research_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_subagents_p1_research_001",
+            "name": "research_agent",
+            "arguments": "{\"task\":\"Cold exposure training key facts\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: research sub-agent returns deterministic facts about cold exposure training.",
+      "match": {
+        "userMessage": "Cold exposure training key facts"
+      },
+      "response": {
+        "content": "- Brief cold immersion (cold showers, ice baths) triggers a sympathetic-nervous-system response that releases noradrenaline\n- Repeated exposure is associated with improved self-reported mood and stress tolerance\n- Activates brown adipose tissue, modestly increasing basal metabolic rate\n- May reduce post-exercise muscle soreness when used as a recovery modality\n- Health risk for people with cardiovascular conditions; sessions should be short (1-3 minutes) and supervised at first"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Produce a short blog post about the benefits of cold exposure training",
+        "turnIndex": 1,
+        "toolName": "writing_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_subagents_p1_writing_001",
+            "name": "writing_agent",
+            "arguments": "{\"task\":\"Short blog-post paragraph on the benefits of cold exposure training, grounded in the research facts.\\n\\nFacts:\\n- Brief cold immersion triggers a noradrenaline release\\n- Repeated exposure improves self-reported mood and stress tolerance\\n- Activates brown adipose tissue, modestly raises basal metabolic rate\\n- May reduce post-exercise muscle soreness\\n- Cardiovascular risk; keep early sessions short and supervised\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: writing sub-agent returns deterministic prose for cold exposure.",
+      "match": {
+        "userMessage": "Short blog-post paragraph on the benefits of cold exposure training"
+      },
+      "response": {
+        "content": "Cold exposure training — short, deliberate plunges into cold water or showers — has earned a foothold in modern recovery routines for reasons grounded in physiology rather than folklore. Each immersion produces a measurable surge of noradrenaline, the same chemistry that underpins the lift practitioners report in mood and focus afterward; with repetition, that response is associated with greater day-to-day stress tolerance. Cold also activates brown adipose tissue and can blunt post-exercise soreness, making it a low-cost adjunct for active people. The honest caveat is cardiovascular risk: keep early sessions to one to three minutes, and if you have a heart condition, get a green light before you start."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Produce a short blog post about the benefits of cold exposure training",
+        "turnIndex": 2,
+        "toolName": "critique_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_subagents_p1_critique_001",
+            "name": "critique_agent",
+            "arguments": "{\"task\":\"Critique the cold-exposure blog draft. Draft: Cold exposure training — short, deliberate plunges into cold water or showers — has earned a foothold in modern recovery routines for reasons grounded in physiology rather than folklore. Each immersion produces a measurable surge of noradrenaline...\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: critique sub-agent returns deterministic critique of cold-exposure draft.",
+      "match": {
+        "userMessage": "Critique the cold-exposure blog draft"
+      },
+      "response": {
+        "content": "1. The phrase 'measurable surge of noradrenaline' should cite a study or rough magnitude — without a number, the claim reads as marketing rather than evidence.\n2. 'Modern recovery routines' is filler; lead with the physiological mechanism instead and let the cultural framing follow.\n3. The cardiovascular caveat is buried at the end. Move it earlier or make it a standalone closing line so a reader who skims still sees it."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Produce a short blog post about the benefits of cold exposure training",
+        "turnIndex": 3
+      },
+      "response": {
+        "content": "Here is the polished blog post on cold exposure training, after research → drafting → critique:\n\nCold exposure training — short, deliberate plunges into cold water or showers — produces a measurable noradrenaline surge that practitioners feel as a mood and focus lift; repeated exposure is associated with greater stress tolerance, brown-adipose activation, and reduced post-exercise soreness. Keep early sessions to one to three minutes, and if you have a cardiovascular condition, clear it with a clinician first."
+      }
+    },
+    {
+      "_comment": "Subagents pill 2 — 'Explain a topic' / LLM tool calling.",
+      "match": {
+        "userMessage": "Explain how large language models handle tool calling",
+        "hasToolResult": false,
+        "toolName": "research_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_subagents_p2_research_001",
+            "name": "research_agent",
+            "arguments": "{\"task\":\"How LLMs handle tool calling\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: research sub-agent for LLM tool calling.",
+      "match": {
+        "userMessage": "How LLMs handle tool calling"
+      },
+      "response": {
+        "content": "- The model is shown a tool schema (name, description, JSON-schema parameters) inside the system or developer prompt at request time\n- During decoding, instead of emitting natural-language text, the model emits a structured tool_call block (function name + JSON-encoded arguments)\n- The application runs the tool, packages the result into a tool message, and resends the full conversation so the model can continue\n- Modern decoders use constrained decoding or grammars to keep the arguments syntactically valid JSON\n- The model decides on tool use turn-by-turn — there is no out-of-band channel; tool calls are just a different message role in the same chat thread"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Explain how large language models handle tool calling",
+        "turnIndex": 1,
+        "toolName": "writing_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_subagents_p2_writing_001",
+            "name": "writing_agent",
+            "arguments": "{\"task\":\"One-paragraph explanation of how LLMs handle tool calling, grounded in the research.\\n\\nFacts:\\n- Tool schemas (name, description, JSON-schema params) are passed in the prompt\\n- Models emit a structured tool_call block instead of text\\n- Application runs the tool and replays the result as a tool message\\n- Constrained decoding keeps arguments valid JSON\\n- Tool use is decided turn-by-turn in the same chat thread\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: writing sub-agent for LLM tool calling.",
+      "match": {
+        "userMessage": "One-paragraph explanation of how LLMs handle tool calling"
+      },
+      "response": {
+        "content": "Large language models handle tool calling by treating tools as a structured extension of the chat protocol rather than a separate channel. At request time the application supplies each tool's name, description, and JSON-schema parameters in the prompt; during decoding the model can emit a tool_call block — a function name plus JSON-encoded arguments — instead of plain text, with constrained decoding keeping the arguments syntactically valid. The application then executes the tool and replays the result back as a tool-role message, and the model continues the conversation from there. The decision to call a tool is made turn-by-turn, so a single user request can fan out into a chain of tool calls that the model orchestrates as it reads each result."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Explain how large language models handle tool calling",
+        "turnIndex": 2,
+        "toolName": "critique_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_subagents_p2_critique_001",
+            "name": "critique_agent",
+            "arguments": "{\"task\":\"Critique the LLM tool-calling explanation draft. Draft: Large language models handle tool calling by treating tools as a structured extension of the chat protocol rather than a separate channel. At request time the application supplies each tool's name, description, and JSON-schema parameters in the prompt...\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: critique sub-agent for LLM tool calling.",
+      "match": {
+        "userMessage": "Critique the LLM tool-calling explanation draft"
+      },
+      "response": {
+        "content": "1. The opening contrast 'rather than a separate channel' assumes the reader already knows what a 'separate channel' would mean — either drop the contrast or give a one-clause example (e.g., 'rather than a side API the model talks to in parallel').\n2. 'Constrained decoding keeping the arguments syntactically valid' is technically correct but vague; mention that this is what makes the JSON parseable on the application side.\n3. The final sentence introduces multi-tool chains without saying who controls the loop — clarify that the application is the runtime that decides whether to keep going, not the model itself."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Explain how large language models handle tool calling",
+        "turnIndex": 3
+      },
+      "response": {
+        "content": "Here is the explanation of LLM tool calling, after research → drafting → critique:\n\nLLMs treat tool calling as part of the chat protocol: each tool's name, description, and JSON-schema parameters are passed in the prompt, and during decoding the model can emit a structured tool_call block (function name + JSON arguments) instead of plain text. The application — not the model — runs the tool, returns the result as a tool-role message, and decides whether to keep looping. Constrained decoding keeps the arguments valid JSON the application can parse, and the model orchestrates multi-step chains turn-by-turn from inside the same conversation."
+      }
+    },
+    {
+      "_comment": "Subagents pill 3 — 'Summarize a topic' / reusable rockets. Note: the original Railway-side bug for this pill was the concurrent-update on `delegations`; the agent state reducer fix unblocks this fixture chain.",
+      "match": {
+        "userMessage": "Summarize the current state of reusable rockets",
+        "hasToolResult": false,
+        "toolName": "research_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_subagents_p3_research_001",
+            "name": "research_agent",
+            "arguments": "{\"task\":\"Current state of reusable rockets\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: research sub-agent for reusable rockets.",
+      "match": {
+        "userMessage": "Current state of reusable rockets"
+      },
+      "response": {
+        "content": "- SpaceX Falcon 9 routinely lands and re-flies first stages; individual boosters have flown more than 20 missions each\n- Falcon Heavy reuses both side boosters; the center core has been recovered on a subset of flights\n- Rocket Lab's Electron has demonstrated mid-air booster catch but routine reuse is still in development\n- SpaceX Starship is targeting full reuse of both stages; orbital test flights are ongoing as of 2024-2025\n- Reuse is the dominant lever on launch cost: Falcon 9 list pricing is set well below expendable competitors largely because of stage recovery"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Summarize the current state of reusable rockets",
+        "turnIndex": 1,
+        "toolName": "writing_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_subagents_p3_writing_001",
+            "name": "writing_agent",
+            "arguments": "{\"task\":\"One polished paragraph summarizing the current state of reusable rockets, grounded in the research.\\n\\nFacts:\\n- Falcon 9 first stages routinely re-fly, some 20+ flights\\n- Falcon Heavy reuses side boosters; center core recovered sometimes\\n- Rocket Lab Electron demonstrating mid-air catch, reuse still in development\\n- SpaceX Starship targeting full reuse of both stages, in flight test\\n- Reuse drives launch cost downward\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: writing sub-agent for reusable rockets.",
+      "match": {
+        "userMessage": "One polished paragraph summarizing the current state of reusable rockets"
+      },
+      "response": {
+        "content": "Reusable rockets have shifted from a research goal to the default cost lever in commercial spaceflight. SpaceX's Falcon 9 routinely lands and re-flies its first stage — individual boosters have now flown twenty-plus missions — and Falcon Heavy reuses both side boosters with intermittent recovery of the center core. Smaller-class operators like Rocket Lab have demonstrated mid-air booster catch but have not yet made reuse routine, while SpaceX's Starship is in active flight testing toward full two-stage reuse. The economic consequence is already visible: Falcon 9 list pricing sits well below expendable competitors precisely because the dominant cost — building a fresh first stage every flight — has been amortized across many missions."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Summarize the current state of reusable rockets",
+        "turnIndex": 2,
+        "toolName": "critique_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_subagents_p3_critique_001",
+            "name": "critique_agent",
+            "arguments": "{\"task\":\"Critique the reusable rockets summary draft. Draft: Reusable rockets have shifted from a research goal to the default cost lever in commercial spaceflight. SpaceX's Falcon 9 routinely lands and re-flies its first stage — individual boosters have now flown twenty-plus missions...\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: critique sub-agent for reusable rockets.",
+      "match": {
+        "userMessage": "Critique the reusable rockets summary draft"
+      },
+      "response": {
+        "content": "1. 'Default cost lever' is jargon that pre-supposes the reader already accepts the framing — open instead with the concrete result (Falcon 9 reflight count) and let the framing emerge.\n2. The Starship sentence is hedged ('in active flight testing toward full reuse') in a way that obscures the actual milestone reached as of writing — name the latest test outcome or drop the clause.\n3. The closing economic claim asserts pricing is 'well below expendable competitors' without a reference price; one number (e.g., $/kg-to-LEO) would land the point much harder than the qualitative claim alone."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Summarize the current state of reusable rockets",
+        "turnIndex": 3
+      },
+      "response": {
+        "content": "Here is the polished summary on reusable rockets, after research → drafting → critique:\n\nReusable rockets are now mainstream in commercial spaceflight. SpaceX's Falcon 9 lands and re-flies its first stage routinely — individual boosters have flown twenty-plus missions — and Falcon Heavy reuses both side boosters. Rocket Lab has demonstrated mid-air Electron booster catch but reuse is not yet routine, while SpaceX Starship is in active orbital flight testing with full two-stage reuse as the target. The economic impact is already priced in: Falcon 9 sits well below expendable competitors per kilogram to low Earth orbit because amortizing a recovered first stage across many missions removes the largest single cost from the launch."
+      }
+    },
+    {
       "match": {
         "userMessage": "describe the sample image"
       },
@@ -528,7 +1159,7 @@
     },
     {
       "match": {
-        "userMessage": "AAPL trading",
+        "userMessage": "AAPL",
         "toolCallId": "call_d5_get_stock_price_001"
       },
       "response": {
@@ -537,7 +1168,7 @@
     },
     {
       "match": {
-        "userMessage": "AAPL trading"
+        "userMessage": "AAPL"
       },
       "response": {
         "toolCalls": [
@@ -551,23 +1182,23 @@
     },
     {
       "match": {
-        "userMessage": "Highlight 'meeting at 3pm'",
+        "userMessage": "ship the demo on Friday",
         "toolCallId": "call_d5_highlight_note_001"
       },
       "response": {
-        "content": "Highlighted 'meeting at 3pm' in yellow above. Let me know if you want a different color or a longer note."
+        "content": "Highlighted 'ship the demo on Friday' in yellow above. Let me know if you want a different color or a longer note."
       }
     },
     {
       "match": {
-        "userMessage": "Highlight 'meeting at 3pm'"
+        "userMessage": "ship the demo on Friday"
       },
       "response": {
         "toolCalls": [
           {
             "id": "call_d5_highlight_note_001",
             "name": "highlight_note",
-            "arguments": "{\"text\":\"meeting at 3pm\",\"color\":\"yellow\"}"
+            "arguments": "{\"text\":\"ship the demo on Friday\",\"color\":\"yellow\"}"
           }
         ]
       }
@@ -698,6 +1329,791 @@
       },
       "response": {
         "content": "Theme toggled."
+      }
+    },
+    {
+      "_comment": "hitl-in-app — refund pill (#12345). 1st turn: emit request_user_approval tool call.",
+      "match": {
+        "userMessage": "$50 refund to Jordan Rivera on ticket #12345",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_hitl_refund_12345_001",
+            "name": "request_user_approval",
+            "arguments": "{\"message\":\"Issue a $50 refund to Jordan Rivera on ticket #12345 for the duplicate charge.\",\"context\":\"Ticket #12345 — duplicate-charge goodwill credit.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "hitl-in-app — refund pill (#12345), 2nd turn after approve. sequenceIndex 0 = approve branch (first match).",
+      "match": {
+        "userMessage": "$50 refund to Jordan Rivera on ticket #12345",
+        "hasToolResult": true,
+        "sequenceIndex": 0
+      },
+      "response": {
+        "content": "I am processing the $50 refund to Jordan Rivera on ticket #12345 now."
+      }
+    },
+    {
+      "_comment": "hitl-in-app — refund pill (#12345), 2nd turn after reject. sequenceIndex 1 = reject branch (second match).",
+      "match": {
+        "userMessage": "$50 refund to Jordan Rivera on ticket #12345",
+        "hasToolResult": true,
+        "sequenceIndex": 1
+      },
+      "response": {
+        "content": "Understood — the refund request was not approved. I will not issue the $50 refund on ticket #12345."
+      }
+    },
+    {
+      "_comment": "hitl-in-app — escalate pill (#12347). 1st turn: emit request_user_approval tool call.",
+      "match": {
+        "userMessage": "escalate ticket #12347 to the payments team",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_hitl_escalate_12347_001",
+            "name": "request_user_approval",
+            "arguments": "{\"message\":\"Escalate ticket #12347 to the payments team for Morgan Lee's stuck payment.\",\"context\":\"Ticket #12347 — payment stuck, needs payments-team triage.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "hitl-in-app — escalate pill (#12347), 2nd turn after approve. sequenceIndex 0 = approve branch.",
+      "match": {
+        "userMessage": "escalate ticket #12347 to the payments team",
+        "hasToolResult": true,
+        "sequenceIndex": 0
+      },
+      "response": {
+        "content": "Escalated ticket #12347 to the payments team for Morgan Lee — they will pick this up shortly."
+      }
+    },
+    {
+      "_comment": "hitl-in-app — escalate pill (#12347), 2nd turn after reject. sequenceIndex 1 = reject branch.",
+      "match": {
+        "userMessage": "escalate ticket #12347 to the payments team",
+        "hasToolResult": true,
+        "sequenceIndex": 1
+      },
+      "response": {
+        "content": "Not escalated — ticket #12347 will stay with the current owner per your decision."
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — project-planning pill. 1st turn: query_notes tool call. Specific match wins over the broad 'plan' fixture in feature-parity.json (d5-all.json loads first).",
+      "match": {
+        "userMessage": "Find my notes about project planning",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_query_notes_project_planning_001",
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"project planning\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — project-planning pill. 2nd turn: narration referencing the project-planning notes returned by the async handler.",
+      "match": {
+        "userMessage": "Find my notes about project planning",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "You have notes on project planning: \"Q2 project planning kickoff\" and \"Project planning retrospective notes\". Let me know if you want a summary of either."
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — auth pill. 1st turn: query_notes tool call. Beats the showcase-assistant catch-all in feature-parity.json by virtue of d5-all.json's load order and a longer specific substring match.",
+      "match": {
+        "userMessage": "Search my notes for anything related to auth",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_query_notes_auth_001",
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"auth\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — auth pill. 2nd turn: narration referencing the auth note returned by the async handler.",
+      "match": {
+        "userMessage": "Search my notes for anything related to auth",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "You have one note related to auth: \"Planning: migrate auth to passkeys\" — it covers WebAuthn library options and a fallback for unsupported browsers."
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — reading pill. 1st turn: query_notes tool call.",
+      "match": {
+        "userMessage": "Do I have any notes tagged reading",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_query_notes_reading_001",
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"reading\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — reading pill. 2nd turn: locked narration leading phrase per spec test #4 assertion.",
+      "match": {
+        "userMessage": "Do I have any notes tagged reading",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "You have a note titled \"Book recommendations\" that is tagged with \"reading.\" It includes the following books: Thinking Fast and Slow by Daniel Kahneman, The Design of Everyday Things by Don Norman."
+      }
+    },
+    {
+      "_comment": "readonly-state-agent-context — Who am I pill (B2 added with paraphrased prompt; locked verbatim).",
+      "match": {
+        "userMessage": "What do you know about me from my context?"
+      },
+      "response": {
+        "content": "I see you're Atai, and you're in the America/Los_Angeles timezone. Recently, you viewed the pricing page and watched the product demo video. How can I assist you today?"
+      }
+    },
+    {
+      "_comment": "readonly-state-agent-context — Suggest next steps pill (B2 added with paraphrased prompt; locked verbatim).",
+      "match": {
+        "userMessage": "Based on my recent activity, what should I try next?"
+      },
+      "response": {
+        "content": "Since you recently viewed the pricing page and watched the product demo video, it might be a good idea to explore user testimonials or case studies to see how others have benefited from the Pro Plan. You could also start the 14-day free trial to experience the features firsthand."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "tone:professional"
+      },
+      "response": {
+        "content": "Greetings. I am operating in professional tone. I will provide measured, formal responses calibrated to your stated preferences and refrain from colloquialisms in my replies."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "tone:casual"
+      },
+      "response": {
+        "content": "Hey! Casual mode here — I'll keep things friendly and easygoing. Just shoot me whatever you want to know and I'll riff on it without sounding like a press release."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "expertise:beginner"
+      },
+      "response": {
+        "content": "Sure! Think of CopilotKit as a friendly toolkit. It helps you add an AI helper to your app. The helper can answer questions, run small tasks, and show buttons or charts when needed."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "expertise:expert"
+      },
+      "response": {
+        "content": "CopilotKit composes a runtime adapter (Express/Hono) over the AG-UI SSE protocol; the React client wires hooks (useFrontendTool, useAgentContext) into a typed agent runner. The architecture front-runs round-trip latency by streaming TEXT_MESSAGE_CHUNK and TOOL_CALL events on the same channel."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "responseLength:concise"
+      },
+      "response": {
+        "content": "Agent context is a typed payload sent each turn."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "responseLength:detailed"
+      },
+      "response": {
+        "content": "Agent context is a typed payload published from the frontend on every turn through the useAgentContext hook. The payload is forwarded into the agent's runtime context (LangGraph 0.6 introduced the `context` channel as the supported relay for per-run frontend-supplied data; legacy `properties` flowed via `forwardedProps` and did not land in `RunnableConfig`). On the Python side, CopilotKitMiddleware reads the value off the runtime context, then routes it into the system-prompt builder so the model sees the user's tone, expertise, and length preferences before each call. The result is per-turn behavior change without a model swap."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Make the background a sunset gradient"
+      },
+      "response": {
+        "content": "Sunset gradient applied — warm orange-to-rose blend.",
+        "toolCalls": [
+          {
+            "name": "change_background",
+            "arguments": {
+              "background": "linear-gradient(135deg, #ff7e5f 0%, #feb47b 50%, #ff6b6b 100%)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "deep green forest gradient"
+      },
+      "response": {
+        "content": "Forest gradient applied — deep green hues.",
+        "toolCalls": [
+          {
+            "name": "change_background",
+            "arguments": {
+              "background": "linear-gradient(135deg, #0a3d2e 0%, #166534 50%, #059669 100%)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "navy → magenta cosmic gradient"
+      },
+      "response": {
+        "content": "Cosmic gradient applied — navy fading to magenta.",
+        "toolCalls": [
+          {
+            "name": "change_background",
+            "arguments": {
+              "background": "linear-gradient(135deg, #1e3a8a 0%, #6b21a8 50%, #9333ea 100%)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "project planning"
+      },
+      "response": {
+        "content": "I searched your notes and found a few results.",
+        "toolCalls": [
+          {
+            "name": "query_notes",
+            "arguments": {
+              "keyword": "project planning"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Plan a product launch"
+      },
+      "response": {
+        "content": "Planned. Step 1 begins now.",
+        "toolCalls": [
+          {
+            "name": "set_steps",
+            "arguments": {
+              "steps": [
+                {
+                  "id": "launch-1",
+                  "title": "Define launch goals and audience",
+                  "status": "completed"
+                },
+                {
+                  "id": "launch-2",
+                  "title": "Coordinate marketing and PR rollout",
+                  "status": "completed"
+                },
+                {
+                  "id": "launch-3",
+                  "title": "Track post-launch metrics for week 1",
+                  "status": "completed"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "team offsite"
+      },
+      "response": {
+        "content": "Itinerary ready.",
+        "toolCalls": [
+          {
+            "name": "set_steps",
+            "arguments": {
+              "steps": [
+                {
+                  "id": "offsite-1",
+                  "title": "Reserve venue near downtown for 30 engineers",
+                  "status": "completed"
+                },
+                {
+                  "id": "offsite-2",
+                  "title": "Build day-by-day agenda with workshop slots",
+                  "status": "completed"
+                },
+                {
+                  "id": "offsite-3",
+                  "title": "Arrange travel, lodging and group meals",
+                  "status": "completed"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Research our top competitor"
+      },
+      "response": {
+        "content": "Competitor brief assembled.",
+        "toolCalls": [
+          {
+            "name": "set_steps",
+            "arguments": {
+              "steps": [
+                {
+                  "id": "comp-1",
+                  "title": "Map competitor product surface and pricing tiers",
+                  "status": "completed"
+                },
+                {
+                  "id": "comp-2",
+                  "title": "Summarize their public differentiation themes",
+                  "status": "completed"
+                },
+                {
+                  "id": "comp-3",
+                  "title": "Identify weaknesses our positioning can exploit",
+                  "status": "completed"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "KPI dashboard",
+        "toolName": "generate_a2ui"
+      },
+      "response": {
+        "content": "Here is the KPI dashboard you requested.",
+        "toolCalls": [
+          {
+            "name": "generate_a2ui",
+            "arguments": {}
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "toolName": "generate_a2ui"
+      },
+      "response": {
+        "content": "Here is the pie chart by region.",
+        "toolCalls": [
+          {
+            "name": "generate_a2ui",
+            "arguments": {}
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "toolName": "generate_a2ui"
+      },
+      "response": {
+        "content": "Here is the bar chart of quarterly revenue.",
+        "toolCalls": [
+          {
+            "name": "generate_a2ui",
+            "arguments": {}
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "status report on system health",
+        "toolName": "generate_a2ui"
+      },
+      "response": {
+        "content": "Here is the system health status report.",
+        "toolCalls": [
+          {
+            "name": "generate_a2ui",
+            "arguments": {}
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "render_a2ui — KPI dashboard pill. Emits Card root with three Metric children (revenue, signups, churn) so the probe sees declarative-card + declarative-metric.",
+      "match": {
+        "userMessage": "KPI dashboard",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "type": "Card",
+                  "props": {
+                    "title": "KPI dashboard",
+                    "subtitle": "Last 30 days",
+                    "child": "metric-revenue"
+                  }
+                },
+                {
+                  "id": "metric-revenue",
+                  "type": "Metric",
+                  "props": {
+                    "label": "Revenue",
+                    "value": "$1.2M",
+                    "trend": "up"
+                  }
+                },
+                {
+                  "id": "metric-signups",
+                  "type": "Metric",
+                  "props": {
+                    "label": "Signups",
+                    "value": "4,820",
+                    "trend": "up"
+                  }
+                },
+                {
+                  "id": "metric-churn",
+                  "type": "Metric",
+                  "props": {
+                    "label": "Churn",
+                    "value": "2.1%",
+                    "trend": "down"
+                  }
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "render_a2ui — pie-chart pill. Emits a PieChart so the probe sees declarative-pie-chart.",
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "type": "PieChart",
+                  "props": {
+                    "title": "Sales by region",
+                    "description": "Q4 — share of total revenue",
+                    "data": [
+                      { "label": "North America", "value": 540 },
+                      { "label": "EMEA", "value": 320 },
+                      { "label": "APAC", "value": 210 },
+                      { "label": "LATAM", "value": 90 }
+                    ]
+                  }
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "render_a2ui — bar-chart pill. Emits a BarChart so the probe sees declarative-bar-chart.",
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "type": "BarChart",
+                  "props": {
+                    "title": "Quarterly revenue",
+                    "description": "FY24 — USD thousands",
+                    "data": [
+                      { "label": "Q1", "value": 820 },
+                      { "label": "Q2", "value": 940 },
+                      { "label": "Q3", "value": 1080 },
+                      { "label": "Q4", "value": 1240 }
+                    ]
+                  }
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "render_a2ui — status-report pill. Emits a Card root containing three StatusBadge children (API/database/workers) so the probe sees declarative-card + declarative-status-badge.",
+      "match": {
+        "userMessage": "status report on system health",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "type": "Card",
+                  "props": {
+                    "title": "System health",
+                    "subtitle": "All services",
+                    "child": "status-api"
+                  }
+                },
+                {
+                  "id": "status-api",
+                  "type": "StatusBadge",
+                  "props": { "text": "API: healthy", "variant": "success" }
+                },
+                {
+                  "id": "status-db",
+                  "type": "StatusBadge",
+                  "props": { "text": "Database: healthy", "variant": "success" }
+                },
+                {
+                  "id": "status-workers",
+                  "type": "StatusBadge",
+                  "props": { "text": "Workers: degraded", "variant": "warning" }
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "render_a2ui — fallback for any unmatched pill. Emits the original Card+Metric so unforeseen pills still render something deterministic instead of erroring.",
+      "match": {
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "type": "Card",
+                  "props": {
+                    "title": "Declarative Demo",
+                    "subtitle": "Catalog primitives",
+                    "child": "metric-1"
+                  }
+                },
+                {
+                  "id": "metric-1",
+                  "type": "Metric",
+                  "props": {
+                    "label": "Revenue",
+                    "value": "$1.2M",
+                    "trend": "up"
+                  }
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "SFO to JFK",
+        "toolName": "display_flight"
+      },
+      "response": {
+        "content": "Here is the SFO to JFK flight on United.",
+        "toolCalls": [
+          {
+            "name": "display_flight",
+            "arguments": {
+              "origin": "SFO",
+              "destination": "JFK",
+              "airline": "United",
+              "price": "$289"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "toolName": "schedule_meeting"
+      },
+      "response": {
+        "content": "Sure — let me check available times.",
+        "toolCalls": [
+          {
+            "name": "schedule_meeting",
+            "arguments": {
+              "topic": "Sales intro call",
+              "attendee": "Sales team",
+              "slots": [
+                {
+                  "label": "Mon 10:00 AM",
+                  "iso": "2026-05-11T10:00:00Z"
+                },
+                {
+                  "label": "Tue 2:00 PM",
+                  "iso": "2026-05-12T14:00:00Z"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolName": "schedule_meeting"
+      },
+      "response": {
+        "content": "Got it — pulling up next-week slots.",
+        "toolCalls": [
+          {
+            "name": "schedule_meeting",
+            "arguments": {
+              "topic": "1:1 with Alice — Q2 goals",
+              "attendee": "Alice",
+              "slots": [
+                {
+                  "label": "Wed 11:00 AM",
+                  "iso": "2026-05-13T11:00:00Z"
+                },
+                {
+                  "label": "Thu 3:30 PM",
+                  "iso": "2026-05-14T15:30:00Z"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "poem about autumn leaves",
+        "toolName": "write_document"
+      },
+      "response": {
+        "content": "Streaming the poem now.",
+        "toolCalls": [
+          {
+            "name": "write_document",
+            "arguments": {
+              "content": "Crimson and amber in slow descent, / each leaf a quiet ledger of summer spent. / The wind, a courier with nothing to say, / files them gently into the morning's gray. / Somewhere a kettle hums, and afternoons grow brief — / autumn keeps its books in vermilion and gold leaf."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "polite email declining",
+        "toolName": "write_document"
+      },
+      "response": {
+        "content": "Drafting the email now.",
+        "toolCalls": [
+          {
+            "name": "write_document",
+            "arguments": {
+              "content": "Hi — thanks for sending the invite for Tuesday afternoon. Unfortunately I won't be able to make it this week. I'd love to find time later in the month if your schedule allows. In the meantime, feel free to send any pre-reads my way and I'll review them async so we don't lose momentum. Best, [name]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "quantum computing for a curious teenager",
+        "toolName": "write_document"
+      },
+      "response": {
+        "content": "Streaming the explainer now.",
+        "toolCalls": [
+          {
+            "name": "write_document",
+            "arguments": {
+              "content": "A regular computer stores information in bits — tiny switches that are either on (1) or off (0). A quantum computer uses qubits, which can sit in a fuzzy superposition of both states at once until you check them. Stack many qubits together and they can explore lots of possibilities in parallel, which is why people are excited.\n\nThis doesn't make quantum computers faster at everything. They're great at problems with hidden structure — like factoring big numbers, simulating molecules, or searching certain databases — but useless for, say, opening Excel. Today's machines are noisy and small, so we mostly use them to test ideas rather than replace your laptop."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What do you know about me from my context"
+      },
+      "response": {
+        "content": "Based on your context I can see your name and recent activity. I'll keep responses calibrated to your timezone."
       }
     }
   ]

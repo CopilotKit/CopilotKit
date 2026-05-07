@@ -37,7 +37,6 @@ export type D5FeatureType =
   | "shared-state-read"
   | "shared-state-write"
   | "hitl-approve-deny"
-  | "hitl-steps"
   | "hitl-text-input"
   | "gen-ui-headless"
   | "gen-ui-headless-complete"
@@ -59,7 +58,6 @@ export type D5FeatureType =
   | "frontend-tools-async"
   // Reasoning family — reasoning/thinking block + final answer.
   | "reasoning-display"
-  | "tool-rendering-reasoning-chain"
   // State family — streaming state updates and read-only agent context.
   | "shared-state-streaming"
   | "readonly-state-context"
@@ -67,10 +65,17 @@ export type D5FeatureType =
   | "gen-ui-declarative"
   | "gen-ui-a2ui-fixed"
   | "gen-ui-open"
+  | "gen-ui-open-advanced"
   | "gen-ui-agent"
+  // Tool-rendering catchall family — split from the shared `tool-rendering`
+  // literal so the default catchall (built-in renderer) and the custom
+  // catchall (user-supplied wildcard renderer) get their own probes that
+  // assert distinct testid contracts. See Phase-2A in
+  // `.claude/specs/lgp-test-genuine-pass.md`.
+  | "tool-rendering-default-catchall"
+  | "tool-rendering-custom-catchall"
   // Interrupt family — LangGraph-interrupt-driven HITL (distinct from
   // useHumanInTheLoop hook patterns).
-  | "interrupt-headless"
   | "gen-ui-interrupt"
   // BYOC family — bring-your-own-component structured-output rendering
   // (one literal covers hashbrown + json-render via preNavigateRoute).
@@ -103,7 +108,6 @@ const D5_FEATURE_TYPES: readonly D5FeatureType[] = [
   "shared-state-read",
   "shared-state-write",
   "hitl-approve-deny",
-  "hitl-steps",
   "hitl-text-input",
   "gen-ui-headless",
   "gen-ui-headless-complete",
@@ -120,14 +124,15 @@ const D5_FEATURE_TYPES: readonly D5FeatureType[] = [
   "frontend-tools",
   "frontend-tools-async",
   "reasoning-display",
-  "tool-rendering-reasoning-chain",
   "shared-state-streaming",
   "readonly-state-context",
   "gen-ui-declarative",
   "gen-ui-a2ui-fixed",
   "gen-ui-open",
+  "gen-ui-open-advanced",
   "gen-ui-agent",
-  "interrupt-headless",
+  "tool-rendering-default-catchall",
+  "tool-rendering-custom-catchall",
   "gen-ui-interrupt",
   "byoc",
   "voice",

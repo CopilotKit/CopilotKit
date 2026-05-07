@@ -1,10 +1,100 @@
 {
-  "_comment": "D5 fixture for /demos/gen-ui-agent. Substring 'have the agent emit a ui' is unique.",
+  "_comment": "D5 fixture for /demos/gen-ui-agent. Three pill prompts (product launch / team offsite / competitor research) each produce a `set_steps` tool call with three pill-specific steps, so the per-pill assertion can verify steps differ across pills. The fixture matches on a unique substring per pill.",
   "fixtures": [
+    {
+      "match": { "userMessage": "Plan a product launch" },
+      "response": {
+        "content": "Planned. Step 1 begins now.",
+        "toolCalls": [
+          {
+            "name": "set_steps",
+            "arguments": {
+              "steps": [
+                {
+                  "id": "launch-1",
+                  "title": "Define launch goals and audience",
+                  "status": "completed"
+                },
+                {
+                  "id": "launch-2",
+                  "title": "Coordinate marketing and PR rollout",
+                  "status": "completed"
+                },
+                {
+                  "id": "launch-3",
+                  "title": "Track post-launch metrics for week 1",
+                  "status": "completed"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "team offsite" },
+      "response": {
+        "content": "Itinerary ready.",
+        "toolCalls": [
+          {
+            "name": "set_steps",
+            "arguments": {
+              "steps": [
+                {
+                  "id": "offsite-1",
+                  "title": "Reserve venue near downtown for 30 engineers",
+                  "status": "completed"
+                },
+                {
+                  "id": "offsite-2",
+                  "title": "Build day-by-day agenda with workshop slots",
+                  "status": "completed"
+                },
+                {
+                  "id": "offsite-3",
+                  "title": "Arrange travel, lodging and group meals",
+                  "status": "completed"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "Research our top competitor" },
+      "response": {
+        "content": "Competitor brief assembled.",
+        "toolCalls": [
+          {
+            "name": "set_steps",
+            "arguments": {
+              "steps": [
+                {
+                  "id": "comp-1",
+                  "title": "Map competitor product surface and pricing tiers",
+                  "status": "completed"
+                },
+                {
+                  "id": "comp-2",
+                  "title": "Summarize their public differentiation themes",
+                  "status": "completed"
+                },
+                {
+                  "id": "comp-3",
+                  "title": "Identify weaknesses our positioning can exploit",
+                  "status": "completed"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
     {
       "match": { "userMessage": "have the agent emit a ui" },
       "response": {
-        "content": "The agent emitted a UI block as part of its turn. The agent acts as the UI generator: its response payload describes the component and the renderer materialized it inline with the assistant message."
+        "content": "The agent emitted a UI block as part of its turn."
       }
     }
   ]

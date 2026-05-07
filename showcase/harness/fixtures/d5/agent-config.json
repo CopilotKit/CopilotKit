@@ -1,6 +1,42 @@
 {
-  "_comment": "D5 fixture for /demos/agent-config. The agent reads tone/expertise/responseLength from CopilotKit provider properties and builds its system prompt per turn. The D5 script verifies that a chat round-trip works (agent picks up the config and answers); the canned response here is generic but mentions 'tone' so the assertion can substring-check that the agent received and acknowledged the config keys. Substring 'introduce yourself per your config' is unique.",
+  "_comment": "D5 fixture for /demos/agent-config. Six prompts, three knob pairs (tone / expertise / responseLength), with each value producing a distinct response. Substring keys are uncommon enough not to collide with adjacent fixtures in d5-all.json.",
   "fixtures": [
+    {
+      "match": { "userMessage": "tone:professional" },
+      "response": {
+        "content": "Greetings. I am operating in professional tone. I will provide measured, formal responses calibrated to your stated preferences and refrain from colloquialisms in my replies."
+      }
+    },
+    {
+      "match": { "userMessage": "tone:casual" },
+      "response": {
+        "content": "Hey! Casual mode here — I'll keep things friendly and easygoing. Just shoot me whatever you want to know and I'll riff on it without sounding like a press release."
+      }
+    },
+    {
+      "match": { "userMessage": "expertise:beginner" },
+      "response": {
+        "content": "Sure! Think of CopilotKit as a friendly toolkit. It helps you add an AI helper to your app. The helper can answer questions, run small tasks, and show buttons or charts when needed."
+      }
+    },
+    {
+      "match": { "userMessage": "expertise:expert" },
+      "response": {
+        "content": "CopilotKit composes a runtime adapter (Express/Hono) over the AG-UI SSE protocol; the React client wires hooks (useFrontendTool, useAgentContext) into a typed agent runner. The architecture front-runs round-trip latency by streaming TEXT_MESSAGE_CHUNK and TOOL_CALL events on the same channel."
+      }
+    },
+    {
+      "match": { "userMessage": "responseLength:concise" },
+      "response": {
+        "content": "Agent context is a typed payload sent each turn."
+      }
+    },
+    {
+      "match": { "userMessage": "responseLength:detailed" },
+      "response": {
+        "content": "Agent context is a typed payload published from the frontend on every turn through the useAgentContext hook. The payload is forwarded into the agent's runtime context (LangGraph 0.6 introduced the `context` channel as the supported relay for per-run frontend-supplied data; legacy `properties` flowed via `forwardedProps` and did not land in `RunnableConfig`). On the Python side, CopilotKitMiddleware reads the value off the runtime context, then routes it into the system-prompt builder so the model sees the user's tone, expertise, and length preferences before each call. The result is per-turn behavior change without a model swap."
+      }
+    },
     {
       "match": { "userMessage": "introduce yourself per your config" },
       "response": {

@@ -54,15 +54,19 @@ const REGISTRY_TO_D5: Readonly<Record<string, readonly D5FeatureType[]>> = {
   // agentic-chat (1:1)
   "agentic-chat": ["agentic-chat"],
 
-  // tool-rendering — every variant exercises the per-tool render pipeline.
+  // tool-rendering — split per renderer contract. Each variant exercises
+  // a different testid surface so they need their own probe scripts:
+  //   - `tool-rendering`                   : per-tool renderer (WeatherCard).
+  //   - `tool-rendering-default-catchall`  : built-in default catchall renderer.
+  //   - `tool-rendering-custom-catchall`   : custom wildcard (`*`) renderer.
   // `tool-rendering-reasoning-chain` is intentionally NOT mapped here:
   // the D5 tool-rendering probe sends "weather in Tokyo" and asserts a
   // WeatherCard, which is the wrong test for the reasoning-chain demo.
   // Reasoning-chain pages need their own D5 probe script; until one
   // exists the demo ID is silently skipped by `demosToFeatureTypes`.
   "tool-rendering": ["tool-rendering"],
-  "tool-rendering-default-catchall": ["tool-rendering"],
-  "tool-rendering-custom-catchall": ["tool-rendering"],
+  "tool-rendering-default-catchall": ["tool-rendering-default-catchall"],
+  "tool-rendering-custom-catchall": ["tool-rendering-custom-catchall"],
 
   // gen-ui (headless tier) — `headless-simple` and `headless-complete`
   // each have their own D5 script and fixture. They live on different
@@ -90,7 +94,10 @@ const REGISTRY_TO_D5: Readonly<Record<string, readonly D5FeatureType[]>> = {
   // skipped by `demosToFeatureTypes`).
   "hitl-in-chat": ["hitl-text-input"],
   "hitl-in-chat-booking": ["hitl-text-input"],
-  hitl: ["hitl-steps"],
+  // `hitl` is used by ag2 / agno / built-in-agent / others as an alias of
+  // hitl-in-chat. Repointed to `hitl-text-input` after `d5-hitl-steps.ts`
+  // was removed in the genuine-pass Phase 0 cleanup.
+  hitl: ["hitl-text-input"],
 
   // hitl (approve/deny tier) — out-of-chat modal approval flow.
   "hitl-in-app": ["hitl-approve-deny"],
@@ -100,8 +107,12 @@ const REGISTRY_TO_D5: Readonly<Record<string, readonly D5FeatureType[]>> = {
   // preNavigateRoute split).
   "shared-state-read-write": ["shared-state-read", "shared-state-write"],
 
-  // mcp-apps + subagents (registry has both feature IDs; D5 script
-  // covers both featureTypes via one /demos/subagents conversation).
+  // mcp-apps + subagents — Phase-2A split: each registry feature ID
+  // points at its own D5 probe (was previously a shared `d5-mcp-subagents`
+  // probe that drove `/demos/subagents` for both, leaving `mcp-apps`
+  // wrong-targeted). `d5-mcp-apps.ts` drives `/demos/mcp-apps` and
+  // asserts the iframe shell; `d5-subagents.ts` drives `/demos/subagents`
+  // and asserts the 3 subagent-card testids.
   "mcp-apps": ["mcp-apps"],
   subagents: ["subagents"],
 
@@ -143,12 +154,11 @@ const REGISTRY_TO_D5: Readonly<Record<string, readonly D5FeatureType[]>> = {
   "frontend-tools-async": ["frontend-tools-async"],
 
   // Reasoning family — single `reasoning-display` literal covers both
-  // demo routes via preNavigateRoute. tool-rendering-reasoning-chain is
-  // split because its assertion shape interleaves tool render with
-  // reasoning block.
-  "agentic-chat-reasoning": ["reasoning-display"],
-  "reasoning-default-render": ["reasoning-display"],
-  "tool-rendering-reasoning-chain": ["tool-rendering-reasoning-chain"],
+  // demo routes via preNavigateRoute. The `tool-rendering-reasoning-chain`
+  // demo was removed in the LGP demo-pass; its mapping entry and probe
+  // script were deleted in the genuine-pass Phase 0 cleanup.
+  "reasoning-custom": ["reasoning-display"],
+  "reasoning-default": ["reasoning-display"],
 
   // State family — `shared-state-read` registry feature reuses the
   // existing `shared-state-read` D5 literal (already paired with
@@ -159,18 +169,21 @@ const REGISTRY_TO_D5: Readonly<Record<string, readonly D5FeatureType[]>> = {
   "shared-state-read": ["shared-state-read"],
 
   // Generative-UI family — split per protocol shape (declarative spec,
-  // A2UI fixed schema, open LLM-shape, agent-emitted UI). Open-tier
-  // collapses simple + advanced into one literal.
+  // A2UI fixed schema, open LLM-shape, agent-emitted UI). Open-tier is
+  // split into a basic literal and an advanced literal because the
+  // advanced demo embeds an iframe-rendered sandbox that the basic demo
+  // does not — the advanced probe asserts iframe presence as its
+  // distinguishing signal.
   "declarative-gen-ui": ["gen-ui-declarative"],
   "a2ui-fixed-schema": ["gen-ui-a2ui-fixed"],
   "open-gen-ui": ["gen-ui-open"],
-  "open-gen-ui-advanced": ["gen-ui-open"],
+  "open-gen-ui-advanced": ["gen-ui-open-advanced"],
   "gen-ui-agent": ["gen-ui-agent"],
 
   // Interrupt family — LangGraph interrupt-driven HITL, distinct from
-  // useHumanInTheLoop hook patterns. Two demos = two literals (one
-  // headless, one gen-UI yielding interrupt).
-  "interrupt-headless": ["interrupt-headless"],
+  // useHumanInTheLoop hook patterns. The `interrupt-headless` demo was
+  // removed in the LGP demo-pass; its mapping entry and probe script
+  // were deleted in the genuine-pass Phase 0 cleanup.
   "gen-ui-interrupt": ["gen-ui-interrupt"],
 
   // BYOC family — single literal covers hashbrown + json-render via

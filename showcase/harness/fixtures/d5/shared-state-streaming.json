@@ -1,10 +1,52 @@
 {
-  "_comment": "D5 fixture for /demos/shared-state-streaming. Substring 'stream the counter to 5' is unique.",
+  "_comment": "D5 fixture for /demos/shared-state-streaming. Three pill prompts produce `write_document` tool calls with non-trivial content payloads (≥ 100 chars) so the document streams into shared state and the DocumentView's char-count assertion can verify a substantive document was written.",
   "fixtures": [
+    {
+      "match": { "userMessage": "poem about autumn leaves" },
+      "response": {
+        "content": "Streaming the poem now.",
+        "toolCalls": [
+          {
+            "name": "write_document",
+            "arguments": {
+              "content": "Crimson and amber in slow descent, / each leaf a quiet ledger of summer spent. / The wind, a courier with nothing to say, / files them gently into the morning's gray. / Somewhere a kettle hums, and afternoons grow brief — / autumn keeps its books in vermilion and gold leaf."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "polite email declining" },
+      "response": {
+        "content": "Drafting the email now.",
+        "toolCalls": [
+          {
+            "name": "write_document",
+            "arguments": {
+              "content": "Hi — thanks for sending the invite for Tuesday afternoon. Unfortunately I won't be able to make it this week. I'd love to find time later in the month if your schedule allows. In the meantime, feel free to send any pre-reads my way and I'll review them async so we don't lose momentum. Best, [name]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "quantum computing for a curious teenager" },
+      "response": {
+        "content": "Streaming the explainer now.",
+        "toolCalls": [
+          {
+            "name": "write_document",
+            "arguments": {
+              "content": "A regular computer stores information in bits — tiny switches that are either on (1) or off (0). A quantum computer uses qubits, which can sit in a fuzzy superposition of both states at once until you check them. Stack many qubits together and they can explore lots of possibilities in parallel, which is why people are excited.\n\nThis doesn't make quantum computers faster at everything. They're great at problems with hidden structure — like factoring big numbers, simulating molecules, or searching certain databases — but useless for, say, opening Excel. Today's machines are noisy and small, so we mostly use them to test ideas rather than replace your laptop."
+            }
+          }
+        ]
+      }
+    },
     {
       "match": { "userMessage": "stream the counter to 5" },
       "response": {
-        "content": "Streaming state updates: counter advanced from 0 through 1, 2, 3, 4 to 5. Each intermediate value was reflected in the shared state and visible to the UI mid-stream."
+        "content": "Streaming counter from 0 to 5."
       }
     }
   ]

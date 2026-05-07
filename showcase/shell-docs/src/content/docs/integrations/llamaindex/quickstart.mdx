@@ -48,7 +48,19 @@ Before you begin, you'll need the following:
                 ### Run our CLI
 
                 ```bash
-                npx copilotkit@latest create -f llamaindex
+                npx copilotkit@latest create
+                ```
+
+                The CLI walks you through:
+
+                - **Project name**
+                - **Enterprise Intelligence Platform** — persistent threads, observability, and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard LlamaIndex setup.
+                - **Framework** — pick **LlamaIndex** when prompted.
+
+                Or skip the prompts and pin a framework directly:
+
+                ```bash
+                npx copilotkit@latest create --framework llamaindex
                 ```
             </Step>
             <Step>
@@ -220,7 +232,7 @@ Before you begin, you'll need the following:
                 ### Install CopilotKit packages
 
                 ```npm
-                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/llamaindex
+                npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/llamaindex
                 ```
             </Step>
             <Step>
@@ -263,7 +275,7 @@ Before you begin, you'll need the following:
 
                 ```tsx title="app/layout.tsx"
                 import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
-                import "@copilotkit/react-ui/v2/styles.css"; // [!code highlight]
+                import "@copilotkit/react-core/v2/styles.css"; // [!code highlight]
                 import './globals.css';
 
                 // ...

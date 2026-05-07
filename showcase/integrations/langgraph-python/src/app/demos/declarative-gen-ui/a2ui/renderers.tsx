@@ -163,7 +163,7 @@ function AnimatedBar(props: any) {
 // @region[renderers-react]
 export const myRenderers: CatalogRenderers<MyDefinitions> = {
   Card: ({ props, children }) => (
-    <Card className="min-w-[260px]">
+    <Card className="min-w-[260px]" data-testid="declarative-card">
       <CardHeader>
         <CardTitle>{props.title}</CardTitle>
         {props.subtitle && <CardDescription>{props.subtitle}</CardDescription>}
@@ -177,7 +177,12 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
   ),
 
   StatusBadge: ({ props }) => (
-    <Badge variant={props.variant ?? "info"}>{props.text}</Badge>
+    <Badge
+      variant={props.variant ?? "info"}
+      data-testid="declarative-status-badge"
+    >
+      {props.text}
+    </Badge>
   ),
 
   Metric: ({ props }) => {
@@ -190,7 +195,7 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
           ? "text-rose-600"
           : "text-[var(--foreground)]";
     return (
-      <div className="flex flex-col gap-1">
+      <div data-testid="declarative-metric" className="flex flex-col gap-1">
         <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
           {props.label}
         </div>
@@ -234,7 +239,10 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
     const total = safeData.reduce((sum, d) => sum + (Number(d.value) || 0), 0);
 
     return (
-      <Card className="mx-auto max-w-[520px] overflow-hidden">
+      <Card
+        className="mx-auto max-w-[520px] overflow-hidden"
+        data-testid="declarative-pie-chart"
+      >
         <CardHeader>
           <CardTitle>{props.title}</CardTitle>
           <CardDescription>{props.description}</CardDescription>
@@ -290,7 +298,10 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
     const safeData = Array.isArray(data) ? data : [];
 
     return (
-      <Card className="mx-auto max-w-[640px] overflow-hidden">
+      <Card
+        className="mx-auto max-w-[640px] overflow-hidden"
+        data-testid="declarative-bar-chart"
+      >
         {/* Scoped keyframe — no globals.css needed */}
         <style>{`
           @keyframes barSlideIn {
