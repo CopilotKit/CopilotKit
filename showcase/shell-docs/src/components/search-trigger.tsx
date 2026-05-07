@@ -73,42 +73,49 @@ export function SearchTrigger({
     );
   }
 
+  // Mirrors the canonical `search-button.tsx` chrome: same height as the
+  // navbar's right-cluster controls, icon + label on lg+, ⌘K hint on xl+.
   return (
     <>
       <button
         onClick={() => setOpen((prev) => !prev)}
-        className="flex flex-shrink-0 items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--glass-background)]/70 pl-3 pr-2 py-1.5 text-xs text-[var(--text-muted)] cursor-pointer hover:bg-[var(--glass-background)] transition-colors w-[220px] whitespace-nowrap"
-        aria-label="Search docs"
+        className="-ml-2 lg:ml-0 flex gap-2 items-center px-3 h-11 rounded-lg lg:border cursor-pointer bg-transparent lg:bg-[var(--bg-surface)]/60 border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
       >
-        {/* Search icon — left zone, fixed-size */}
         <svg
-          className="w-3.5 h-3.5 flex-shrink-0 opacity-70"
+          width="16"
+          height="16"
+          viewBox="0 0 20 20"
           fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
           aria-hidden="true"
         >
           <path
+            d="M9.16667 15.8333C12.8486 15.8333 15.8333 12.8486 15.8333 9.16667C15.8333 5.48477 12.8486 2.5 9.16667 2.5C5.48477 2.5 2.5 5.48477 2.5 9.16667C2.5 12.8486 5.48477 15.8333 9.16667 15.8333Z"
+            stroke="currentColor"
+            strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
-            strokeWidth={2}
-            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+          />
+          <path
+            d="M17.5 17.5L13.875 13.875"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
           />
         </svg>
-        {/* Label — middle zone, truncates if it would crash into the kbd */}
-        <span className="flex-1 min-w-0 truncate text-left">
-          Search docs, demos...
-        </span>
-        {/* ⌘K kbd — right zone, fixed-size, never overlaps the label */}
-        <kbd
-          className="flex-shrink-0 font-mono text-[10px] border border-[var(--border)] px-1.5 py-0.5 rounded bg-[var(--bg-surface)]/80 text-[var(--text-muted)]"
+
+        <span className="hidden text-sm font-medium lg:block">Search...</span>
+
+        <span
+          className="hidden xl:inline-flex items-center justify-center font-mono text-[11px] border border-[var(--border)] px-1.5 py-0.5 rounded text-[var(--text-faint)] bg-[var(--bg-surface)]"
           // Reserve horizontal room so the button doesn't reflow when the
           // shortcut hint appears after hydration.
-          style={{ minWidth: "2.75rem", textAlign: "center" }}
+          style={{ minWidth: "2.5rem" }}
           suppressHydrationWarning
         >
           {isMac === null ? " " : isMac ? "⌘K" : "Ctrl+K"}
-        </kbd>
+        </span>
       </button>
       {open && <SearchModalWrapper onClose={() => setOpen(false)} />}
     </>
