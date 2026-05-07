@@ -118,15 +118,16 @@ export async function DocsPageView({
   });
 
   function renderNavItem(node: NavNode, depth: number = 0): React.ReactNode {
-    const indent = depth * 16;
     if (node.type === "section") {
       return (
         <div
           key={`section-${node.title}`}
-          className="text-[12px] font-medium text-[var(--text-muted)] mt-4 mb-2"
-          style={{ paddingLeft: `${indent}px` }}
+          className="flex items-center gap-2 mt-6 mb-3 h-4"
         >
-          {node.title}
+          <span className="text-[10px] uppercase shrink-0 text-[var(--text-muted)]">
+            {node.title}
+          </span>
+          <div className="flex-1 h-px bg-[var(--border-dim)]" />
         </div>
       );
     }
@@ -136,41 +137,51 @@ export async function DocsPageView({
         ? "docs"
         : "framework";
       return (
-        <div style={{ paddingLeft: `${indent}px` }} key={node.slug}>
-          <SidebarLink
-            slug={node.slug}
-            scope={scope}
-            fallbackHref={`${slugHrefPrefix}/${node.slug}`}
-            active={isActive}
-            className={`block py-2 px-2 text-[14px] rounded-md transition-colors ${
-              isActive
-                ? "bg-[var(--bg-surface)] shadow-sm text-[var(--text)]"
-                : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-            }`}
-          >
-            {node.title}
-          </SidebarLink>
-        </div>
+        <SidebarLink
+          key={node.slug}
+          slug={node.slug}
+          scope={scope}
+          fallbackHref={`${slugHrefPrefix}/${node.slug}`}
+          active={isActive}
+          className={`flex items-center h-10 px-3 text-sm rounded-lg shrink-0 transition-all duration-200 ${
+            isActive
+              ? "bg-[var(--bg-surface)] text-[var(--text)] shadow-sm"
+              : "text-[var(--text-muted)] hover:bg-[var(--bg-surface)]/60 hover:text-[var(--text)]"
+          }`}
+        >
+          {node.title}
+        </SidebarLink>
       );
     }
+    // Group: a labeled folder with nested children. When the group has
+    // a visible title, render its children with an indent + vertical
+    // guide line (border-l) — the tree-connector look from the
+    // canonical docs sidebar. Title-less wrapper groups (used to flatten
+    // a section's content) skip the indent.
+    const hasTitle = !!node.title;
     return (
       <div key={`group-${node.slug}`} className="mt-1">
-        {node.title && (
-          <div
-            className="py-[5px] text-[13px] font-medium text-[var(--text-secondary)]"
-            style={{ paddingLeft: `${indent}px` }}
-          >
+        {hasTitle && (
+          <div className="flex items-center h-10 px-3 text-sm font-medium text-[var(--text)] shrink-0">
             {node.title}
           </div>
         )}
-        {node.children.map((child) => renderNavItem(child, depth + 1))}
+        <div
+          className={
+            hasTitle
+              ? "ml-3 pl-3 border-l border-[var(--border-dim)] flex flex-col"
+              : "flex flex-col"
+          }
+        >
+          {node.children.map((child) => renderNavItem(child, depth + 1))}
+        </div>
       </div>
     );
   }
 
   return (
     <div className="flex -mt-1 xl:-mt-2">
-      <SidebarNav className="w-[240px] shrink-0 self-start sticky top-[88px] xl:top-[112px] max-h-[calc(100vh-88px)] xl:max-h-[calc(100vh-112px)] rounded-l-2xl backdrop-blur-lg border border-r-0 border-[var(--border)] bg-[var(--glass-background)]/80 overflow-y-auto px-4 pb-4">
+      <SidebarNav className="w-[260px] shrink-0 self-start sticky top-[88px] xl:top-[112px] max-h-[calc(100vh-88px)] xl:max-h-[calc(100vh-112px)] rounded-l-2xl backdrop-blur-lg border border-r-0 border-[var(--border)] bg-[var(--glass-background)]/80 overflow-y-auto px-3 pb-4">
         <SidebarFrameworkSelector />
         <div className="mb-4" />
         {tree.map((node) => renderNavItem(node))}

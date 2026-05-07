@@ -195,16 +195,17 @@ export function FrameworkSelector({
     ? (options.find((o) => o.slug === "built-in-agent") ?? null)
     : null;
 
-  // Sidebar variant: full-width pill with integration logo on the left,
-  // framework name centered, chevron right. Violet accent border when a
-  // framework is active — matches the docs.copilotkit.ai reference.
+  // Sidebar variant: full-width pill with integration logo box on the
+  // left, framework name center, chevron right. Mirrors the canonical
+  // docs.copilotkit.ai reference: h-14 pill, lavender bg + accent border
+  // when a framework is active, soft surface bg when nothing is picked.
   const sidebarBtnClasses = [
-    "w-full flex items-center gap-2 px-3 py-2 rounded-lg border",
-    "bg-[var(--accent-light)] transition-colors cursor-pointer",
-    "text-[13px] font-medium text-[var(--text)]",
+    "w-full flex items-center gap-2 p-2 rounded-lg border h-14",
+    "transition-colors cursor-pointer",
+    "text-sm font-medium text-[var(--text)]",
     current
-      ? "border-[var(--accent-light)] hover:border-[var(--accent)]"
-      : "border-dashed border-[var(--border-dim)] hover:border-[var(--accent)]",
+      ? "bg-[var(--accent-light)] border-[var(--accent)] hover:border-[var(--accent)]"
+      : "bg-[var(--bg-surface)]/60 border-[var(--border)] hover:border-[var(--accent)]",
   ].join(" ");
 
   const topbarBtnClasses =
@@ -222,19 +223,25 @@ export function FrameworkSelector({
       >
         {isSidebar ? (
           <>
-            {current ? (
-              <FrameworkLogo
-                slug={current.slug}
-                fallbackSrc={current.logo}
-                size={20}
-                className="shrink-0 text-[var(--text-secondary)]"
-              />
-            ) : (
-              <span
-                className="w-5 h-5 shrink-0 rounded-full bg-[var(--accent)] opacity-70"
-                aria-hidden="true"
-              />
-            )}
+            <span
+              className={`flex justify-center items-center w-10 h-10 shrink-0 rounded-md ${
+                current
+                  ? "bg-[var(--accent)]/25"
+                  : "bg-[var(--bg-elevated)]"
+              }`}
+              aria-hidden="true"
+            >
+              {current ? (
+                <FrameworkLogo
+                  slug={current.slug}
+                  fallbackSrc={current.logo}
+                  size={20}
+                  className="text-[var(--text)]"
+                />
+              ) : (
+                <span className="w-3 h-3 rounded-full bg-[var(--accent)] opacity-70" />
+              )}
+            </span>
             <span className="flex-1 min-w-0 text-left">
               {current ? (
                 <span className="block truncate">{label}</span>
@@ -243,12 +250,12 @@ export function FrameworkSelector({
                   Pick a backend
                 </span>
               )}
-              <span className="block text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)]">
+              <span className="block text-[10px] uppercase tracking-wider text-[var(--text-faint)]">
                 Agentic backend
               </span>
             </span>
             <svg
-              className="w-3.5 h-3.5 shrink-0 text-[var(--text-muted)]"
+              className="w-4 h-4 mr-1 shrink-0 text-[var(--text-muted)]"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"

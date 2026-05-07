@@ -43,7 +43,7 @@ export function SidebarFrameworkSelector() {
     // Sticky so the selector stays visible as the user scrolls long
     // sidebars. The background + padding matches the sidebar surface so
     // content scrolling behind it doesn't bleed through.
-    <div className="sticky top-0 z-10 -mx-4 px-4 pt-4 pb-3 bg-[var(--glass-background)] backdrop-blur-lg border-b border-[var(--border-dim)] mb-3">
+    <div className="sticky top-0 z-10 -mx-3 px-3 pt-4 pb-2 bg-[var(--glass-background)] backdrop-blur-lg mb-1">
       <FrameworkSelector
         options={options}
         categoryOrder={categoryOrder}
