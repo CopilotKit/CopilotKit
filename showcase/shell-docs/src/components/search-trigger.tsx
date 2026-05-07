@@ -77,19 +77,33 @@ export function SearchTrigger({
     <>
       <button
         onClick={() => setOpen((prev) => !prev)}
-        className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1.5 text-xs text-[var(--text-muted)] cursor-pointer hover:border-[var(--text-faint)] transition-colors min-w-[200px]"
+        className="flex items-center gap-2 rounded-full bg-[var(--glass-background)]/70 px-3 py-1.5 text-xs text-[var(--text-muted)] cursor-pointer hover:bg-[var(--glass-background)] transition-colors min-w-[220px]"
+        aria-label="Search docs"
       >
-        <span>⌕</span>
+        <svg
+          className="w-3.5 h-3.5 opacity-70"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+          />
+        </svg>
         <span>Search docs, demos...</span>
-        <span
-          className="ml-auto font-mono text-[10px] border border-[var(--border)] px-1 py-0.5 rounded bg-[var(--bg-surface)]"
+        <kbd
+          className="ml-auto font-mono text-[10px] border border-[var(--border)] px-1.5 py-0.5 rounded bg-[var(--bg-surface)]/80 text-[var(--text-muted)]"
           // Reserve horizontal room so the button doesn't reflow when the
           // shortcut hint appears after hydration.
-          style={{ minWidth: "3.25rem", textAlign: "center" }}
+          style={{ minWidth: "2.75rem", textAlign: "center" }}
           suppressHydrationWarning
         >
-          {isMac === null ? "\u00A0" : isMac ? "⌘K" : "Ctrl+K"}
-        </span>
+          {isMac === null ? " " : isMac ? "⌘K" : "Ctrl+K"}
+        </kbd>
       </button>
       {open && <SearchModalWrapper onClose={() => setOpen(false)} />}
     </>
