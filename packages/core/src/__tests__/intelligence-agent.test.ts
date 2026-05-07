@@ -365,6 +365,188 @@ describe("IntelligenceAgent", () => {
     });
   });
 
+  describe("event dedup", () => {
+    it("does not re-emit a payload whose cpki_event_id was already delivered on the same thread", async () => {
+      const agent = createAgent();
+      const events: BaseEvent[] = [];
+      agent
+        .run(defaultInput)
+        .subscribe({ next: (e) => events.push(e), error: () => {} });
+      await waitForConnection(agent);
+
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+
+      const event = {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        messageId: "msg-1",
+        delta: "hello",
+        metadata: { cpki_event_id: "ev-1", cpki_event_seq: 1 },
+      } as BaseEvent;
+
+      channel.serverPush("ag_ui_event", event);
+      channel.serverPush("ag_ui_event", event);
+      channel.serverPush("ag_ui_event", event);
+
+      const matches = events.filter(
+        (e) =>
+          (e as BaseEvent & { metadata?: { cpki_event_id?: string } }).metadata
+            ?.cpki_event_id === "ev-1",
+      );
+      expect(matches).toHaveLength(1);
+    });
+
+    it("emits payloads whose cpki_event_ids differ even when other fields match", async () => {
+      const agent = createAgent();
+      const events: BaseEvent[] = [];
+      agent
+        .run(defaultInput)
+        .subscribe({ next: (e) => events.push(e), error: () => {} });
+      await waitForConnection(agent);
+
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+
+      const eventA = {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        messageId: "msg-1",
+        delta: "hello",
+        metadata: { cpki_event_id: "ev-a", cpki_event_seq: 1 },
+      } as BaseEvent;
+      const eventB = {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        messageId: "msg-1",
+        delta: "hello",
+        metadata: { cpki_event_id: "ev-b", cpki_event_seq: 2 },
+      } as BaseEvent;
+
+      channel.serverPush("ag_ui_event", eventA);
+      channel.serverPush("ag_ui_event", eventB);
+
+      expect(events).toHaveLength(2);
+    });
+
+    it("emits a payload with no cpki_event_id every time it arrives (no dedup applied)", async () => {
+      const agent = createAgent();
+      const events: BaseEvent[] = [];
+      agent
+        .run(defaultInput)
+        .subscribe({ next: (e) => events.push(e), error: () => {} });
+      await waitForConnection(agent);
+
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+
+      const event = {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        messageId: "msg-1",
+        delta: "hello",
+      } as BaseEvent;
+
+      channel.serverPush("ag_ui_event", event);
+      channel.serverPush("ag_ui_event", event);
+
+      expect(events).toHaveLength(2);
+    });
+
+    it("treats events on different threads as independent", async () => {
+      // Run on thread-1, deliver event "ev-1", finish the run cleanly.
+      const agent = createAgent();
+      const eventsA: BaseEvent[] = [];
+      agent.run(defaultInput).subscribe({
+        next: (e) => eventsA.push(e),
+        complete: () => {},
+        error: () => {},
+      });
+      await waitForConnection(agent);
+      const channelA = getChannel(agent)!;
+      channelA.triggerJoin("ok");
+      const sharedPayload = {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        messageId: "msg-1",
+        delta: "hi",
+        metadata: { cpki_event_id: "ev-1", cpki_event_seq: 1 },
+      } as BaseEvent;
+      channelA.serverPush("ag_ui_event", sharedPayload);
+      channelA.serverPush("ag_ui_event", {
+        type: EventType.RUN_FINISHED,
+        threadId: "thread-1",
+        runId: "run-1",
+      } as BaseEvent);
+      expect(eventsA.filter(
+        (e) =>
+          (e as BaseEvent & { metadata?: { cpki_event_id?: string } }).metadata
+            ?.cpki_event_id === "ev-1",
+      )).toHaveLength(1);
+
+      // New run on thread-2 with the SAME cpki_event_id. Different
+      // thread, so the dedup table for thread-2 is empty and the
+      // payload should be delivered.
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse(runtimeCredentials({ threadId: "thread-2" })),
+      );
+      const eventsB: BaseEvent[] = [];
+      agent
+        .run({ ...defaultInput, threadId: "thread-2", runId: "run-2" })
+        .subscribe({ next: (e) => eventsB.push(e), error: () => {} });
+      await waitForConnection(agent);
+      const channelB = getChannel(agent)!;
+      channelB.triggerJoin("ok");
+      channelB.serverPush("ag_ui_event", sharedPayload);
+
+      expect(eventsB.filter(
+        (e) =>
+          (e as BaseEvent & { metadata?: { cpki_event_id?: string } }).metadata
+            ?.cpki_event_id === "ev-1",
+      )).toHaveLength(1);
+    });
+
+    it("still completes the run on a duplicate RUN_FINISHED in run mode", async () => {
+      const agent = createAgent();
+      const promise = collectEvents(agent);
+      await waitForConnection(agent);
+
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+
+      const finished = {
+        type: EventType.RUN_FINISHED,
+        threadId: "thread-1",
+        runId: "run-1",
+        metadata: { cpki_event_id: "ev-finish", cpki_event_seq: 1 },
+      } as BaseEvent;
+
+      // First arrival: passes through and completes the observable.
+      channel.serverPush("ag_ui_event", finished);
+
+      const result = await promise;
+      expect(result.completed).toBe(true);
+      expect(result.events).toContainEqual(finished);
+    });
+
+    it("still errors the run on a duplicate RUN_ERROR in run mode", async () => {
+      const agent = createAgent();
+      const promise = collectEvents(agent);
+      await waitForConnection(agent);
+
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+
+      const errored = {
+        type: EventType.RUN_ERROR,
+        message: "boom",
+        metadata: { cpki_event_id: "ev-err", cpki_event_seq: 1 },
+      } as BaseEvent;
+
+      channel.serverPush("ag_ui_event", errored);
+
+      const result = await promise;
+      expect(result.completed).toBe(false);
+      expect(result.error).toBeInstanceOf(Error);
+      expect(result.error!.message).toBe("boom");
+    });
+  });
+
   describe("terminal events", () => {
     it("completes the observable on RUN_FINISHED", async () => {
       const agent = createAgent();

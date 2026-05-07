@@ -55,8 +55,31 @@ const REPLAY_COMPLETE_EVENT = "replay_complete";
 const STREAM_IDLE_EVENT = "stream_idle";
 const STOP_RUN_EVENT = "stop_run";
 
+/**
+ * Per-thread cap on how many `cpki_event_id`s the dedup table remembers.
+ * The realtime gateway replays a thread's full event history on every
+ * channel join, and the chat can re-open sockets for the same topic
+ * across React effect churn or transient reconnects. Without a dedup,
+ * every replay re-fires every `agent.subscribe(...)` callback for the
+ * already-delivered events. We keep an LRU-ish set per thread so the
+ * second/third delivery of the same persisted event is dropped before
+ * it reaches subscribers.
+ *
+ * Bounded so memory stays flat over long-lived sessions. 2000 gives
+ * comfortable headroom over a typical run's event count while capping
+ * per-thread RSS at well under a MB.
+ */
+const DEDUP_MAX_PER_THREAD = 2000;
+
 interface IntelligenceAgentSharedState {
   lastSeenEventIds: Map<string, string>;
+  /**
+   * `threadId -> Set<cpki_event_id>` of events already dispatched to
+   * subscribers on that thread. Bounded at {@link DEDUP_MAX_PER_THREAD}
+   * with FIFO eviction (`Set` insertion order). Lives on `sharedState`
+   * so `clone()` instances and recreated delegates share dedup memory.
+   */
+  deliveredEventIds: Map<string, Set<string>>;
 }
 
 interface RealtimeConnectionInfo {
@@ -104,11 +127,17 @@ export class IntelligenceAgent extends AbstractAgent {
     config: IntelligenceAgentConfig,
     sharedState: IntelligenceAgentSharedState = {
       lastSeenEventIds: new Map<string, string>(),
+      deliveredEventIds: new Map<string, Set<string>>(),
     },
   ) {
     super();
     this.config = config;
     this.sharedState = sharedState;
+    // Defensive: callers passing a sharedState shaped like older versions
+    // of this class (without `deliveredEventIds`) shouldn't crash.
+    if (!this.sharedState.deliveredEventIds) {
+      this.sharedState.deliveredEventIds = new Map<string, Set<string>>();
+    }
   }
 
   clone(): IntelligenceAgent {
@@ -585,7 +614,7 @@ export class IntelligenceAgent extends AbstractAgent {
       }),
       mergeMap(
         (payload) =>
-          this.createThreadNotifications(payload, {
+          this.createThreadNotifications(threadId, payload, {
             completeOnRunError: options.completeOnRunError,
             completeOnRunFinished: options.streamMode === "run",
             errorOnRunError: options.streamMode === "run",
@@ -618,6 +647,7 @@ export class IntelligenceAgent extends AbstractAgent {
   }
 
   private createThreadNotifications(
+    threadId: string,
     payload: BaseEvent,
     options: {
       completeOnRunError: boolean;
@@ -625,6 +655,29 @@ export class IntelligenceAgent extends AbstractAgent {
       errorOnRunError: boolean;
     },
   ): Array<Notification<BaseEvent>> {
+    const eventId = this.readEventId(payload);
+    if (eventId && this.recordDeliveredEvent(threadId, eventId)) {
+      // Verbatim replay of an event we've already dispatched for this
+      // thread. Drop the payload but preserve terminator semantics so
+      // run-mode observables still complete cleanly when the duplicate
+      // happens to be a RUN_FINISHED / RUN_ERROR.
+      if (payload.type === EventType.RUN_FINISHED) {
+        return options.completeOnRunFinished
+          ? [Notification.createComplete()]
+          : [];
+      }
+      if (payload.type === EventType.RUN_ERROR) {
+        const errorMessage =
+          (payload as BaseEvent & { message?: string }).message ?? "Run error";
+        if (options.completeOnRunError) return [Notification.createComplete()];
+        if (options.errorOnRunError) {
+          return [Notification.createError(new Error(errorMessage))];
+        }
+        return [];
+      }
+      return [];
+    }
+
     if (payload.type === EventType.RUN_FINISHED) {
       return options.completeOnRunFinished
         ? [Notification.createNext(payload), Notification.createComplete()]
@@ -646,6 +699,31 @@ export class IntelligenceAgent extends AbstractAgent {
     }
 
     return [Notification.createNext(payload)];
+  }
+
+  /**
+   * Returns `true` if (`threadId`, `eventId`) has already been dispatched
+   * to subscribers and the caller should drop the duplicate. Otherwise
+   * records the pair (with bounded FIFO eviction) and returns `false`.
+   */
+  private recordDeliveredEvent(threadId: string, eventId: string): boolean {
+    let delivered = this.sharedState.deliveredEventIds.get(threadId);
+    if (!delivered) {
+      delivered = new Set<string>();
+      this.sharedState.deliveredEventIds.set(threadId, delivered);
+    }
+    if (delivered.has(eventId)) {
+      return true;
+    }
+    delivered.add(eventId);
+    if (delivered.size > DEDUP_MAX_PER_THREAD) {
+      // `Set` iterates in insertion order, so this evicts the oldest entry.
+      const oldest = delivered.values().next().value;
+      if (oldest !== undefined) {
+        delivered.delete(oldest);
+      }
+    }
+    return false;
   }
 
   private buildRuntimeUrl(mode: "run" | "connect"): string {
