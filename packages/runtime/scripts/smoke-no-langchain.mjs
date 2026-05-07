@@ -103,22 +103,21 @@ try {
     stdio: "inherit",
   });
 
-  // Some `@langchain/*` packages may end up in node_modules through transitive
-  // runtime deps (e.g., `@ag-ui/langgraph` reaches `@langchain/langgraph`).
-  // The spec's claim is about the runtime's main entry not REQUIRING those
-  // packages at module load time, not about preventing them from being
-  // installed at all. To simulate a consumer who doesn't have any
-  // `@langchain/*` packages available, delete the `@langchain` directory
-  // before attempting the import.
+  // Per the spec, the smoke test verifies that the runtime can be imported
+  // when the consumer has not installed any `@langchain/*` package.
+  // Concretely: there must not be any `@langchain/*` directory in the
+  // installed `node_modules`. If there is, the runtime is dragging langchain
+  // in transitively and the optional-peer claim is not yet true.
   const langchainDir = path.join(projectDir, "node_modules", "@langchain");
   if (existsSync(langchainDir)) {
-    rmSync(langchainDir, { recursive: true, force: true });
-    console.log(
-      `smoke: removed transitively-installed @langchain/* to simulate a consumer without langchain`,
+    const installed = readdirSync(langchainDir);
+    throw new Error(
+      `@langchain/* installed despite no consumer request: ${installed.join(", ")}. ` +
+        `The runtime is dragging langchain into the consumer's tree through a transitive dep. ` +
+        `The optional-peer claim is not honest until that path is severed.`,
     );
-  } else {
-    console.log(`smoke: no @langchain/* in node_modules`);
   }
+  console.log(`smoke: no @langchain/* in node_modules`);
 
   writeFileSync(
     path.join(projectDir, "test-import.mjs"),
