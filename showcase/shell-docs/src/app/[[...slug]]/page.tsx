@@ -40,35 +40,39 @@ function DocsOverview() {
   const navTree = buildNavTree(CONTENT_DIR);
 
   return (
-    <div className="flex h-full w-full">
-      <SidebarNav className="w-[240px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
+    // Match docs-page-view shell: SidebarNav + .docs-content-wrapper as
+    // flex siblings of the root <main> (which provides the flex row).
+    // Keeps sidebar geometry, scrollbar treatment, and content centering
+    // consistent with the per-doc routes.
+    <>
+      <SidebarNav className="hidden md:flex flex-col w-[260px] shrink-0 rounded-l-2xl backdrop-blur-lg border border-r-0 border-[var(--border)] bg-[var(--glass-background)] overflow-hidden px-3">
         <SidebarFrameworkSelector />
         <div className="mb-4" />
-        {navTree.map((node) => (
-          <OverviewNavItem key={nodeKey(node)} node={node} />
-        ))}
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+          {navTree.map((node) => (
+            <OverviewNavItem key={nodeKey(node)} node={node} />
+          ))}
+        </div>
       </SidebarNav>
 
-      {/* <main> is the full-width scroll container so the scrollbar
-       * lands at the viewport edge. Content width is capped by the
-       * inner wrapper below. */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-4xl px-8 py-10">
-          <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
-            Documentation
-          </div>
-          <h1 className="text-[2.25rem] font-bold text-[var(--text)] tracking-tight mb-3 leading-tight">
-            Welcome to CopilotKit
-          </h1>
-          <p className="text-base text-[var(--text-secondary)] leading-relaxed mb-8 max-w-2xl">
-            CopilotKit is the <strong>frontend stack for agents</strong> and{" "}
-            <strong>generative UI</strong>. Connect any agent framework or model
-            to your React app for chat, generative UI, canvas apps, and
-            human-in-the-loop workflows.
-          </p>
+      <div className="docs-content-wrapper flex">
+        <div className="flex-1 min-w-0 px-4 py-6 md:px-6 md:pt-8 xl:px-8 xl:pt-14">
+          <div className="max-w-[900px] mx-auto">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
+              Documentation
+            </div>
+            <h1 className="text-[2.25rem] font-bold text-[var(--text)] tracking-tight mb-3 leading-tight">
+              Welcome to CopilotKit
+            </h1>
+            <p className="text-base text-[var(--text-secondary)] leading-relaxed mb-8 max-w-2xl">
+              CopilotKit is the <strong>frontend stack for agents</strong> and{" "}
+              <strong>generative UI</strong>. Connect any agent framework or
+              model to your React app for chat, generative UI, canvas apps,
+              and human-in-the-loop workflows.
+            </p>
 
-          {/* CLI command — universal entry point for fresh projects. */}
-          <div className="mb-10 max-w-2xl">
+            {/* CLI command — universal entry point for fresh projects. */}
+            <div className="mb-10 max-w-2xl">
             <p className="text-sm text-[var(--text-secondary)] mb-3">
               Starting from scratch? Bootstrap a full-stack agent in one
               command:
@@ -117,14 +121,15 @@ function DocsOverview() {
             </Link>
           </div>
 
-          {/* Conditional next-step block: framework picker if no
-            storedFramework, "what's next" pointers into that
-            framework's docs if there is one. Replaces the former
-            two-step "Pick a backend / Or jump into a topic" panels. */}
-          <DocsLandingNext />
+            {/* Conditional next-step block: framework picker if no
+              storedFramework, "what's next" pointers into that
+              framework's docs if there is one. Replaces the former
+              two-step "Pick a backend / Or jump into a topic" panels. */}
+            <DocsLandingNext />
+          </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </>
   );
 }
 
@@ -144,42 +149,59 @@ function OverviewNavItem({
   node: NavNode;
   depth?: number;
 }) {
-  const indent = depth * 16;
   if (node.type === "section") {
+    if (depth > 0) {
+      return (
+        <div className="px-3 mt-4 mb-1 text-[11px] uppercase tracking-wide text-[var(--text-faint)]">
+          {node.title}
+        </div>
+      );
+    }
     return (
-      <div
-        className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mt-4 mb-2"
-        style={{ paddingLeft: `${indent}px` }}
-      >
-        {node.title}
+      <div className="flex items-center gap-2 mt-6 mb-3">
+        <span className="text-[15px] uppercase tracking-wide shrink-0 text-[var(--text-secondary)]">
+          {node.title}
+        </span>
+        <div className="flex-1 h-px bg-[var(--border)]" />
       </div>
     );
   }
   if (node.type === "page") {
     return (
-      <div style={{ paddingLeft: `${indent}px` }}>
-        <SidebarLink
-          slug={node.slug}
-          className="block py-[5px] text-[13px] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
-        >
-          {node.title}
-        </SidebarLink>
-      </div>
+      <SidebarLink
+        slug={node.slug}
+        className="flex items-center h-10 px-3 text-sm rounded-lg shrink-0 transition-all duration-200 text-[var(--text-muted)] hover:bg-[var(--bg-surface)]/60 hover:text-[var(--text)] dark:hover:bg-white/5"
+      >
+        {node.title}
+      </SidebarLink>
     );
   }
+  // Group: a labeled folder with nested children. Title-less wrapper
+  // groups (used to flatten a section's content) skip the indent and
+  // tree-line so their children render at the parent's depth.
+  const hasTitle = !!node.title;
   return (
     <div className="mt-1">
-      {node.title && (
-        <div
-          className="py-[5px] text-[13px] font-medium text-[var(--text-secondary)]"
-          style={{ paddingLeft: `${indent}px` }}
-        >
+      {hasTitle && (
+        <div className="flex items-center h-10 px-3 text-sm font-medium text-[var(--text)] shrink-0">
           {node.title}
         </div>
       )}
-      {node.children.map((child) => (
-        <OverviewNavItem key={nodeKey(child)} node={child} depth={depth + 1} />
-      ))}
+      <div
+        className={
+          hasTitle
+            ? "ml-3 pl-3 border-l border-[var(--border-dim)] flex flex-col"
+            : "flex flex-col"
+        }
+      >
+        {node.children.map((child) => (
+          <OverviewNavItem
+            key={nodeKey(child)}
+            node={child}
+            depth={depth + 1}
+          />
+        ))}
+      </div>
     </div>
   );
 }

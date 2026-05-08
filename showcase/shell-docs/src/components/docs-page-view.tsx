@@ -120,15 +120,29 @@ export async function DocsPageView({
 
   function renderNavItem(node: NavNode, depth: number = 0): React.ReactNode {
     if (node.type === "section") {
+      // Nested sections (depth > 0) are inline subsection labels inside
+      // a parent group — small, no divider rule, no shouty banner. The
+      // top-level section banner already names the parent area, so a
+      // second full-size banner one level in reads as redundant.
+      if (depth > 0) {
+        return (
+          <div
+            key={`section-${node.title}`}
+            className="px-3 mt-4 mb-1 text-[11px] uppercase tracking-wide text-[var(--text-faint)]"
+          >
+            {node.title}
+          </div>
+        );
+      }
       return (
         <div
           key={`section-${node.title}`}
-          className="flex items-center gap-2 mt-6 mb-3 h-4"
+          className="flex items-center gap-2 mt-6 mb-3"
         >
-          <span className="text-[10px] uppercase shrink-0 text-[var(--text-muted)]">
+          <span className="text-[15px] uppercase tracking-wide shrink-0 text-[var(--text-secondary)]">
             {node.title}
           </span>
-          <div className="flex-1 h-px bg-[var(--border-dim)]" />
+          <div className="flex-1 h-px bg-[var(--border)]" />
         </div>
       );
     }
@@ -146,8 +160,8 @@ export async function DocsPageView({
           active={isActive}
           className={`flex items-center h-10 px-3 text-sm rounded-lg shrink-0 transition-all duration-200 ${
             isActive
-              ? "bg-[var(--bg-surface)] text-[var(--text)] shadow-sm"
-              : "text-[var(--text-muted)] hover:bg-[var(--bg-surface)]/60 hover:text-[var(--text)]"
+              ? "bg-[var(--bg-surface)] text-[var(--text)] shadow-sm dark:bg-[var(--bg-hover)] dark:shadow-none dark:ring-1 dark:ring-white/10"
+              : "text-[var(--text-muted)] hover:bg-[var(--bg-surface)]/60 hover:text-[var(--text)] dark:hover:bg-white/5"
           }`}
         >
           {node.title}
@@ -240,16 +254,17 @@ export async function DocsPageView({
             </nav>
 
             {/* Title + description spacing mirrors canonical: gap-5
-             * between the H1 and the description, then a generous
-             * bottom margin before the body so the header reads as a
-             * distinct block. Title sizes scale from 32px to 40px at
-             * md+ to match docs.copilotkit.ai. */}
+             * between the H1 and the description, then `mb-8` (32px)
+             * before the body. Canonical's first prose paragraph also
+             * uses mb-8 — anything bigger reads as a hole between the
+             * header block and the article. Title sizes scale from
+             * 32px to 40px at md+ to match docs.copilotkit.ai. */}
             <div className="flex flex-col gap-5">
               <h1 className="text-[32px] md:text-[40px] font-medium text-[var(--text)] leading-[1.2]">
                 {doc.fm.title}
               </h1>
               {doc.fm.description && (
-                <p className="text-lg text-[var(--text-muted)] mb-14 max-lg:mb-12 max-sm:mb-10 leading-relaxed">
+                <p className="text-lg text-[var(--text-muted)] mb-8 leading-relaxed">
                   {doc.fm.description}
                 </p>
               )}
