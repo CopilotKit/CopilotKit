@@ -139,11 +139,13 @@ async function capturePageView(
 // Framework slug short-circuit
 //
 // shell-docs serves canonical framework docs at /<fw-slug>/<...> using
-// the registry slugs (e.g. /langgraph-python/quickstart). Any path
-// whose first segment matches a registry slug is a first-class
-// framework-scoped URL — the SEO-redirect table must NOT hijack it. We
-// short-circuit those paths past the redirect lookup so the canonical
-// route handler renders normally.
+// the registry slugs (e.g. /langgraph-python/quickstart). A first-class
+// framework-scoped URL should fall through to the canonical route
+// handler when no explicit catalog rule matches — but explicit catalog
+// rules (e.g. slug-rename entries like S3×agno
+// /agno/frontend-actions → /agno/frontend-tools) MUST still fire. So
+// the catalog is consulted first; only on a catalog miss do we let
+// framework-scoped paths bypass the wildcard fallthroughs.
 // ---------------------------------------------------------------------------
 
 const REGISTRY_FRAMEWORK_SLUGS: Set<string> = new Set(
@@ -152,9 +154,13 @@ const REGISTRY_FRAMEWORK_SLUGS: Set<string> = new Set(
   ) ?? [],
 );
 
+function firstSegment(p: string): string | undefined {
+  return p.split("/").filter(Boolean)[0];
+}
+
 function pathIsFrameworkScoped(pathname: string): boolean {
-  const first = pathname.split("/").filter(Boolean)[0];
-  return Boolean(first) && REGISTRY_FRAMEWORK_SLUGS.has(first);
+  const first = firstSegment(pathname);
+  return first !== undefined && REGISTRY_FRAMEWORK_SLUGS.has(first);
 }
 
 // ---------------------------------------------------------------------------
@@ -167,33 +173,57 @@ export function middleware(
 ): NextResponse {
   const { pathname } = request.nextUrl;
 
-  // 1. Redirect lookup — but skip framework-scoped paths so canonical
-  //    /<fw-slug>/<...> URLs are never hijacked by legacy patterns.
-  if (!pathIsFrameworkScoped(pathname)) {
-    // Exact match (O(1) Map lookup)
-    const exact = exactMap.get(pathname);
-    if (exact) {
-      trackRedirect(exact.id, pathname, exact.destination);
-      return NextResponse.redirect(
-        new URL(exact.destination, request.url),
-        301,
-      );
-    }
+  // 1. Redirect lookup.
+  //
+  //   1a. Exact match (O(1) Map lookup) is consulted FIRST for every
+  //       request — including framework-scoped paths — so explicit
+  //       slug-rename catalog entries fire instead of being shadowed
+  //       by the framework short-circuit below.
+  const exact = exactMap.get(pathname);
+  if (exact && exact.destination !== pathname) {
+    trackRedirect(exact.id, pathname, exact.destination);
+    return NextResponse.redirect(new URL(exact.destination, request.url), 301);
+  }
 
-    // Wildcard match (linear scan — short-circuits on first match)
-    for (const wc of wildcardEntries) {
-      if (pathname.startsWith(wc.prefix)) {
-        const rest = pathname.slice(wc.prefix.length);
-        let destination: string;
-        if (wc.destinationTemplate.includes(":path*")) {
-          destination = wc.destinationTemplate.replace(":path*", rest);
-        } else {
-          destination = wc.destinationTemplate;
-        }
-        trackRedirect(wc.id, pathname, destination);
-        return NextResponse.redirect(new URL(destination, request.url), 301);
+  //   1b. Wildcard scan. We must avoid letting a too-broad legacy
+  //       wildcard (e.g. /coagents/:path*) hijack a canonical
+  //       framework-scoped URL (e.g. /langgraph-python/...). For a
+  //       framework-scoped request, only allow wildcards whose own
+  //       prefix is rooted in the SAME framework slug — those are
+  //       same-framework rewrites (e.g. /agno/concepts/:path* →
+  //       /agno) and are explicitly authored to fire. Wildcards
+  //       whose prefix is a different framework slug, or has no
+  //       framework slug at all, are skipped.
+  const requestFw = pathIsFrameworkScoped(pathname)
+    ? firstSegment(pathname)
+    : undefined;
+
+  for (const wc of wildcardEntries) {
+    if (!pathname.startsWith(wc.prefix)) {
+      continue;
+    }
+    if (requestFw !== undefined) {
+      const wcFw = firstSegment(wc.prefix);
+      if (wcFw !== requestFw) {
+        continue;
       }
     }
+    const rest = pathname.slice(wc.prefix.length);
+    let destination: string;
+    if (wc.destinationTemplate.includes(":path*")) {
+      destination = wc.destinationTemplate.replace(":path*", rest);
+    } else {
+      destination = wc.destinationTemplate;
+    }
+    // Defense-in-depth: skip if the wildcard expansion produced a
+    // destination identical to the source. Catches catalog drift
+    // (e.g. a future entry where source and destination templates
+    // resolve to the same path) before it 301-loops.
+    if (destination === pathname) {
+      continue;
+    }
+    trackRedirect(wc.id, pathname, destination);
+    return NextResponse.redirect(new URL(destination, request.url), 301);
   }
 
   // 2. Pageview tracking — only on real GET pageviews, not prefetches.
