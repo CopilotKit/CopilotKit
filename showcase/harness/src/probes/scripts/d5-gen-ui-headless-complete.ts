@@ -32,9 +32,13 @@ import { registerD5Script } from "../helpers/d5-registry.js";
 import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 
-interface ChipExpectation {
-  /** Visible chip label — must match the suggestion's `title`. */
-  chipTitle: string;
+interface TurnExpectation {
+  /** Tag for diagnostics; matches the suggestion's `title`. */
+  tag: string;
+  /** Message to send — same string the demo's chips would submit
+   *  (`useHeadlessSuggestions` `.message` for the SuggestionBar, and
+   *  the verbatim `EmptyState` SAMPLE for first paint). */
+  prompt: string;
   /** Selector that must mount once the agent's tool result lands. */
   cardSelector: string;
   /** Lowercase substrings that must appear in the messages region. */
@@ -43,27 +47,41 @@ interface ChipExpectation {
   responseTimeoutMs: number;
 }
 
-const TURN_EXPECTATIONS: readonly ChipExpectation[] = [
+/** The demo has TWO chip surfaces with diverging aria-label shapes:
+ *  - EmptyState (first paint): `aria-label="Try suggestion: <message>"`,
+ *    visible text = message
+ *  - SuggestionBar (post-first-message): `aria-label="Suggestion: <title>"`,
+ *    visible text = title
+ *  The chip surface visible at any given turn depends on whether the
+ *  chat has messages yet, which is timing-dependent. Skipping the chip
+ *  click and typing into the textarea avoids the surface-divergence
+ *  entirely — both chip clicks and textarea-Enter submit the same
+ *  message string, so the fixture matcher catches either path. */
+const TURN_EXPECTATIONS: readonly TurnExpectation[] = [
   {
-    chipTitle: "Weather",
+    tag: "weather",
+    prompt: "What's the weather in Tokyo?",
     cardSelector: '[data-testid="headless-weather-card"]',
     textTokens: ["tokyo"],
     responseTimeoutMs: 60_000,
   },
   {
-    chipTitle: "Stock price",
+    tag: "stock",
+    prompt: "What's the price of AAPL right now?",
     cardSelector: '[data-testid="headless-stock-card"]',
     textTokens: ["aapl"],
     responseTimeoutMs: 60_000,
   },
   {
-    chipTitle: "Highlight a note",
+    tag: "highlight",
+    prompt: "Highlight this note for me: 'ship the demo on Friday'.",
     cardSelector: '[data-testid="headless-highlight-card"]',
     textTokens: ["ship the demo"],
     responseTimeoutMs: 60_000,
   },
   {
-    chipTitle: "Revenue chart",
+    tag: "revenue",
+    prompt: "Show me a chart of revenue over the last six months.",
     cardSelector: '[data-testid="headless-revenue-chart"]',
     // The chart card's eyebrow / heading is just "Revenue", not the
     // chip text — the chart's own data labels are the only stable
@@ -72,33 +90,6 @@ const TURN_EXPECTATIONS: readonly ChipExpectation[] = [
     responseTimeoutMs: 60_000,
   },
 ];
-
-/** Click a suggestion chip by its visible title. The SuggestionBar
- *  renders chips as `<Badge asChild><button aria-label="Suggestion: ${title}">{title}</button></Badge>`,
- *  so the aria-label attribute selector is the most reliable hook —
- *  text-content selectors have to wait for hydration of the inner text
- *  node, while the aria-label is set inline at JSX time and shows up as
- *  soon as the button DOM exists. The bare-text fallback also catches
- *  any reordering / stripping of the aria-label.
- *
- *  Same runtime-guard cast pattern as `_beautiful-chat-shared.ts` —
- *  the runner's structural Page shim doesn't expose `click()` on its
- *  Page interface, but Playwright's real Page does and the driver's
- *  wrapper passes it through. */
-async function clickChip(page: Page, title: string): Promise<void> {
-  const candidate = page as Page & {
-    click?(selector: string, opts?: { timeout?: number }): Promise<void>;
-  };
-  if (typeof candidate.click !== "function") {
-    throw new Error(
-      "headless-complete probe: page.click is not available — runner " +
-        "must expose click() for chip-driven turns",
-    );
-  }
-  await candidate.click(`button[aria-label="Suggestion: ${title}"]`, {
-    timeout: 10_000,
-  });
-}
 
 /** Read all assistant-message bubbles' textContent and concatenate to
  *  lowercase. Captures BOTH the markdown prose AND the rendered tool
@@ -139,15 +130,12 @@ function assertContainsAll(
 
 export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
   return TURN_EXPECTATIONS.map((exp, idx) => ({
-    input: "",
-    preFill: async (page) => {
-      console.debug(
-        `[d5-gen-ui-headless-complete] turn ${idx + 1}: clicking '${exp.chipTitle}'`,
-      );
-      await clickChip(page, exp.chipTitle);
-    },
+    input: exp.prompt,
     responseTimeoutMs: exp.responseTimeoutMs,
     assertions: async (page) => {
+      console.debug(
+        `[d5-gen-ui-headless-complete] turn ${idx + 1}: ${exp.tag}`,
+      );
       // Wait for the per-card testid before reading text — the runner's
       // settle plateau gates on assistant-message count growing, but
       // the tool card mounts in a separate React update once the tool
@@ -159,7 +147,7 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
         });
       } catch {
         throw new Error(
-          `gen-ui-headless-complete ${exp.chipTitle}: expected ${exp.cardSelector} to mount within 15s — tool result may not have landed or the renderer wiring drifted`,
+          `gen-ui-headless-complete ${exp.tag}: expected ${exp.cardSelector} to mount within 15s — tool result may not have landed or the renderer wiring drifted`,
         );
       }
       const text = await readAllAssistantText(page);
@@ -169,7 +157,7 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
       assertContainsAll(
         text,
         exp.textTokens,
-        `gen-ui-headless-complete ${exp.chipTitle}`,
+        `gen-ui-headless-complete ${exp.tag}`,
       );
     },
   }));

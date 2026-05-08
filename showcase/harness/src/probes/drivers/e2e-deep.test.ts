@@ -562,27 +562,31 @@ describe("e2e-deep driver", () => {
       name: "showcase-langgraph-python",
       // No `features` field — production discovery shape.
       demos: [
-        "tool-rendering-default-catchall", // → tool-rendering (skipped, no script)
+        "tool-rendering-default-catchall", // → tool-rendering-default-catchall (skipped, no script in this test's mock loader)
         "shared-state-read-write", // → shared-state-read + shared-state-write (run)
-        "voice", // → voice (skipped, no script)
+        "voice", // → voice (skipped, no script in this test's mock loader)
       ],
       shape: "package",
     });
 
     expect(result.state).toBe("green");
     const sig = result.signal as E2eDeepAggregateSignal;
-    // 4 mapped D5 types: tool-rendering (skipped) + shared-state-read
-    // + shared-state-write (both run) + voice (skipped, no script).
+    // 4 mapped D5 types: tool-rendering-default-catchall (skipped) +
+    // shared-state-read + shared-state-write (both run) + voice
+    // (skipped). The Phase-2A registry split repointed
+    // `tool-rendering-default-catchall` (registry id) to its own D5
+    // type of the same name; mock loader here only registers
+    // shared-state-read/write scripts, so the other two skip.
     expect(sig.total).toBe(4);
     expect(sig.passed).toBe(2);
     expect(sig.failed).toEqual([]);
-    expect(sig.skipped).toEqual(["tool-rendering", "voice"]);
+    expect(sig.skipped).toEqual(["tool-rendering-default-catchall", "voice"]);
 
     const sideKeys = writes.map((w) => w.key).sort();
     expect(sideKeys).toEqual([
       "d5:langgraph-python/shared-state-read",
       "d5:langgraph-python/shared-state-write",
-      "d5:langgraph-python/tool-rendering",
+      "d5:langgraph-python/tool-rendering-default-catchall",
       "d5:langgraph-python/voice",
     ]);
   });
