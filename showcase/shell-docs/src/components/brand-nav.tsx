@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import { SearchTrigger } from "./search-trigger";
 
@@ -133,38 +132,6 @@ const CLOUD_CTA = {
   href: "https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=navbar",
 };
 
-function AgUiIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 57 66"
-      width="14"
-      height="16"
-      className={className}
-      aria-hidden="true"
-    >
-      <g
-        transform="translate(2, -2)"
-        stroke="currentColor"
-        strokeWidth="3.3125"
-        fill="none"
-      >
-        <g transform="translate(0, 4)">
-          <path
-            d="M0,25.9335975 L16.5448881,6.52325783e-15 C40.848296,5.37332138 53,8.05998207 53,8.05998207 L43.1229639,62 L0,25.9335975 Z"
-            strokeLinejoin="round"
-          />
-          <line x1="16.5828221" y1="-1.07552856e-15" x2="43.2453988" y2="62" />
-          <line x1="0" y1="25.9335975" x2="53" y2="8.48421053" />
-        </g>
-      </g>
-    </svg>
-  );
-}
-
-type Brand = "copilotkit" | "ag-ui";
-
-const AG_UI_PREFIXES = ["/ag-ui"];
-
 const SHELL_HOST = process.env.NEXT_PUBLIC_SHELL_URL ?? "http://localhost:3000";
 
 const COPILOTKIT_LINKS = [
@@ -172,20 +139,6 @@ const COPILOTKIT_LINKS = [
   { href: `${SHELL_HOST}/integrations`, label: "Integrations" },
   { href: "/reference", label: "Reference" },
 ];
-
-const AG_UI_LINKS = [
-  { href: "/ag-ui", label: "Overview" },
-  { href: "/ag-ui/concepts/architecture", label: "Concepts" },
-  { href: "/ag-ui/quickstart/introduction", label: "Quick Start" },
-  { href: "/ag-ui/sdk/js/core/overview", label: "JS SDK" },
-  { href: "/ag-ui/sdk/python/core/overview", label: "Python SDK" },
-];
-
-function activeBrandFromPath(pathname: string): Brand {
-  return AG_UI_PREFIXES.some((p) => pathname.startsWith(p))
-    ? "ag-ui"
-    : "copilotkit";
-}
 
 export interface BrandNavProps {
   // Note: the framework selector previously lived in the top bar. It's
@@ -197,9 +150,7 @@ export interface BrandNavProps {
 }
 
 export function BrandNav(_props: BrandNavProps = {}) {
-  const pathname = usePathname();
-  const active = activeBrandFromPath(pathname);
-  const links = active === "copilotkit" ? COPILOTKIT_LINKS : AG_UI_LINKS;
+  const links = COPILOTKIT_LINKS;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const posthog = usePostHog();
 
@@ -220,36 +171,14 @@ export function BrandNav(_props: BrandNavProps = {}) {
           <Link
             href="/"
             className="relative flex items-center gap-1.5 px-1 pb-1 text-sm font-bold tracking-tight transition-colors"
-            style={{
-              color:
-                active === "copilotkit" ? "var(--accent)" : "var(--text-faint)",
-            }}
+            style={{ color: "var(--accent)" }}
           >
             <CopilotKitIcon />
             CopilotKit
-            {active === "copilotkit" && (
-              <span
-                className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full"
-                style={{ background: "var(--accent)" }}
-              />
-            )}
-          </Link>
-          <span className="mx-2 text-[var(--border)] select-none">|</span>
-          <Link
-            href="/ag-ui"
-            className="relative flex items-center gap-1.5 px-1 pb-1 text-sm font-bold tracking-tight transition-colors"
-            style={{
-              color: active === "ag-ui" ? "var(--accent)" : "var(--text-faint)",
-            }}
-          >
-            <AgUiIcon />
-            AG-UI
-            {active === "ag-ui" && (
-              <span
-                className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full"
-                style={{ background: "var(--accent)" }}
-              />
-            )}
+            <span
+              className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full"
+              style={{ background: "var(--accent)" }}
+            />
           </Link>
         </div>
 
@@ -392,17 +321,6 @@ export function BrandNav(_props: BrandNavProps = {}) {
               >
                 Talk to Our Engineers
               </button>
-            </div>
-            {/* AG-UI link at bottom */}
-            <div className="mt-auto px-4 py-4 border-t border-[var(--border)]">
-              <Link
-                href="/ag-ui"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-2 rounded-md px-3 py-2.5 text-[13px] font-medium text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-all"
-              >
-                <AgUiIcon />
-                AG-UI
-              </Link>
             </div>
           </div>
           <style jsx global>{`

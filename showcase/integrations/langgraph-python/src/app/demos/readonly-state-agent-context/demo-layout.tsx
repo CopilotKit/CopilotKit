@@ -128,14 +128,23 @@ export function DemoLayout({
                   </Badge>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-indigo-100 text-2xl font-semibold text-indigo-700">
+                  <div
+                    data-testid="identity-avatar"
+                    className="flex h-14 w-14 items-center justify-center rounded-full bg-indigo-100 text-2xl font-semibold text-indigo-700"
+                  >
                     {userName.charAt(0).toUpperCase() || "?"}
                   </div>
                   <div>
-                    <div className="text-base font-semibold text-neutral-900">
+                    <div
+                      data-testid="identity-name"
+                      className="text-base font-semibold text-neutral-900"
+                    >
                       {userName || "Anonymous"}
                     </div>
-                    <div className="text-xs text-neutral-500">
+                    <div
+                      data-testid="identity-timezone"
+                      className="text-xs text-neutral-500"
+                    >
                       {userTimezone}
                     </div>
                   </div>
@@ -160,9 +169,14 @@ export function DemoLayout({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {ACTIVITIES.map((activity) => {
                   const selected = recentActivity.includes(activity);
+                  const slug = activity
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, "-")
+                    .replace(/^-|-$/g, "");
                   return (
                     <label
                       key={activity}
+                      data-testid={`activity-${slug}`}
                       className={`flex items-start gap-3 rounded-lg border p-4 cursor-pointer transition-colors ${
                         selected
                           ? "border-indigo-300 bg-indigo-50"

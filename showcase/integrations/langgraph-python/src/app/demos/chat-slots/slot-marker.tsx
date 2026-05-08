@@ -139,6 +139,7 @@ export function SlotMarker({
 
   return (
     <span
+      data-slot-label={label}
       className={`slot-marker relative ${inline ? "inline-flex" : "flex"} border border-dashed ${c.border} rounded-lg p-1 ${className ?? ""}`}
       style={{ flexDirection: inline ? "row" : "column" }}
     >

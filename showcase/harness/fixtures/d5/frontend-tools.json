@@ -1,10 +1,46 @@
 {
-  "_comment": "D5 fixture for /demos/frontend-tools. Triggers a frontend tool call ('change the theme to dark') that the demo handles client-side; the agent acknowledges the tool ran. Substring 'switch theme to dark mode' is unique.",
+  "_comment": "D5 fixture for /demos/frontend-tools. Three per-pill prompts (Sunset/Forest/Cosmic) drive the `change_background` frontend tool. Each fixture emits a tool call with a gradient containing the pill family's signature hex tokens, so the probe can assert the gradient mutated to the right family. Substrings 'Make the background a sunset gradient', 'deep green forest gradient', 'navy → magenta cosmic gradient' are unique per pill.",
   "fixtures": [
     {
-      "match": { "userMessage": "switch theme to dark mode" },
+      "match": { "userMessage": "Make the background a sunset gradient" },
       "response": {
-        "content": "Done — the change_theme tool was invoked and the page is now in dark mode. Frontend tools were registered via useCopilotAction and the agent dispatched the call client-side."
+        "content": "Sunset gradient applied — warm orange-to-rose blend.",
+        "toolCalls": [
+          {
+            "name": "change_background",
+            "arguments": {
+              "background": "linear-gradient(135deg, #ff7e5f 0%, #feb47b 50%, #ff6b6b 100%)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "deep green forest gradient" },
+      "response": {
+        "content": "Forest gradient applied — deep green hues.",
+        "toolCalls": [
+          {
+            "name": "change_background",
+            "arguments": {
+              "background": "linear-gradient(135deg, #0a3d2e 0%, #166534 50%, #059669 100%)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "navy → magenta cosmic gradient" },
+      "response": {
+        "content": "Cosmic gradient applied — navy fading to magenta.",
+        "toolCalls": [
+          {
+            "name": "change_background",
+            "arguments": {
+              "background": "linear-gradient(135deg, #1e3a8a 0%, #6b21a8 50%, #9333ea 100%)"
+            }
+          }
+        ]
       }
     }
   ]

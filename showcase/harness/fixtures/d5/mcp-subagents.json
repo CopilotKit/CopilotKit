@@ -81,6 +81,243 @@
       "response": {
         "content": "Here is the summary, after research → drafting → critique:\n\nRemote work returns roughly ten hours a week to employees by eliminating the commute, and repeated surveys show meaningfully higher job satisfaction among remote workers. Employers benefit too: a geographically unbounded talent pool and lower office overhead. The honest counterweight is that ad-hoc collaboration, mentorship of junior staff, and cultural cohesion all degrade without intentional rituals to replace what an office provided implicitly."
       }
+    },
+    {
+      "_comment": "Subagents pill 1 — 'Write a blog post' / cold exposure training.",
+      "match": {
+        "userMessage": "Produce a short blog post about the benefits of cold exposure training",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_subagents_p1_research_001",
+            "name": "research_agent",
+            "arguments": "{\"task\":\"Cold exposure training key facts\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Cold exposure training key facts"
+      },
+      "response": {
+        "content": "- Brief cold immersion (cold showers, ice baths) triggers a sympathetic-nervous-system response that releases noradrenaline\n- Repeated exposure is associated with improved self-reported mood and stress tolerance\n- Activates brown adipose tissue, modestly increasing basal metabolic rate\n- May reduce post-exercise muscle soreness when used as a recovery modality\n- Health risk for people with cardiovascular conditions; sessions should be short (1-3 minutes) and supervised at first"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Produce a short blog post about the benefits of cold exposure training",
+        "turnIndex": 1
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_subagents_p1_writing_001",
+            "name": "writing_agent",
+            "arguments": "{\"task\":\"Short blog-post paragraph on the benefits of cold exposure training, grounded in the research facts.\\n\\nFacts:\\n- Brief cold immersion triggers a noradrenaline release\\n- Repeated exposure improves self-reported mood and stress tolerance\\n- Activates brown adipose tissue, modestly raises basal metabolic rate\\n- May reduce post-exercise muscle soreness\\n- Cardiovascular risk; keep early sessions short and supervised\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Short blog-post paragraph on the benefits of cold exposure training"
+      },
+      "response": {
+        "content": "Cold exposure training — short, deliberate plunges into cold water or showers — has earned a foothold in modern recovery routines for reasons grounded in physiology rather than folklore. Each immersion produces a measurable surge of noradrenaline, the same chemistry that underpins the lift practitioners report in mood and focus afterward; with repetition, that response is associated with greater day-to-day stress tolerance. Cold also activates brown adipose tissue and can blunt post-exercise soreness, making it a low-cost adjunct for active people. The honest caveat is cardiovascular risk: keep early sessions to one to three minutes, and if you have a heart condition, get a green light before you start."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Produce a short blog post about the benefits of cold exposure training",
+        "turnIndex": 2
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_subagents_p1_critique_001",
+            "name": "critique_agent",
+            "arguments": "{\"task\":\"Critique the cold-exposure blog draft. Draft: Cold exposure training — short, deliberate plunges into cold water or showers — has earned a foothold in modern recovery routines for reasons grounded in physiology rather than folklore. Each immersion produces a measurable surge of noradrenaline...\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Critique the cold-exposure blog draft"
+      },
+      "response": {
+        "content": "1. The phrase 'measurable surge of noradrenaline' should cite a study or rough magnitude — without a number, the claim reads as marketing rather than evidence.\n2. 'Modern recovery routines' is filler; lead with the physiological mechanism instead and let the cultural framing follow.\n3. The cardiovascular caveat is buried at the end. Move it earlier or make it a standalone closing line so a reader who skims still sees it."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Produce a short blog post about the benefits of cold exposure training",
+        "turnIndex": 3
+      },
+      "response": {
+        "content": "Here is the polished blog post on cold exposure training, after research → drafting → critique:\n\nCold exposure training — short, deliberate plunges into cold water or showers — produces a measurable noradrenaline surge that practitioners feel as a mood and focus lift; repeated exposure is associated with greater stress tolerance, brown-adipose activation, and reduced post-exercise soreness. Keep early sessions to one to three minutes, and if you have a cardiovascular condition, clear it with a clinician first."
+      }
+    },
+    {
+      "_comment": "Subagents pill 2 — 'Explain a topic' / LLM tool calling.",
+      "match": {
+        "userMessage": "Explain how large language models handle tool calling",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_subagents_p2_research_001",
+            "name": "research_agent",
+            "arguments": "{\"task\":\"How LLMs handle tool calling\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "How LLMs handle tool calling"
+      },
+      "response": {
+        "content": "- The model is shown a tool schema (name, description, JSON-schema parameters) inside the system or developer prompt at request time\n- During decoding, instead of emitting natural-language text, the model emits a structured tool_call block (function name + JSON-encoded arguments)\n- The application runs the tool, packages the result into a tool message, and resends the full conversation so the model can continue\n- Modern decoders use constrained decoding or grammars to keep the arguments syntactically valid JSON\n- The model decides on tool use turn-by-turn — there is no out-of-band channel; tool calls are just a different message role in the same chat thread"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Explain how large language models handle tool calling",
+        "turnIndex": 1
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_subagents_p2_writing_001",
+            "name": "writing_agent",
+            "arguments": "{\"task\":\"One-paragraph explanation of how LLMs handle tool calling, grounded in the research.\\n\\nFacts:\\n- Tool schemas (name, description, JSON-schema params) are passed in the prompt\\n- Models emit a structured tool_call block instead of text\\n- Application runs the tool and replays the result as a tool message\\n- Constrained decoding keeps arguments valid JSON\\n- Tool use is decided turn-by-turn in the same chat thread\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "One-paragraph explanation of how LLMs handle tool calling"
+      },
+      "response": {
+        "content": "Large language models handle tool calling by treating tools as a structured extension of the chat protocol rather than a separate channel. At request time the application supplies each tool's name, description, and JSON-schema parameters in the prompt; during decoding the model can emit a tool_call block — a function name plus JSON-encoded arguments — instead of plain text, with constrained decoding keeping the arguments syntactically valid. The application then executes the tool and replays the result back as a tool-role message, and the model continues the conversation from there. The decision to call a tool is made turn-by-turn, so a single user request can fan out into a chain of tool calls that the model orchestrates as it reads each result."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Explain how large language models handle tool calling",
+        "turnIndex": 2
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_subagents_p2_critique_001",
+            "name": "critique_agent",
+            "arguments": "{\"task\":\"Critique the LLM tool-calling explanation draft. Draft: Large language models handle tool calling by treating tools as a structured extension of the chat protocol rather than a separate channel. At request time the application supplies each tool's name, description, and JSON-schema parameters in the prompt...\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Critique the LLM tool-calling explanation draft"
+      },
+      "response": {
+        "content": "1. The opening contrast 'rather than a separate channel' assumes the reader already knows what a 'separate channel' would mean — either drop the contrast or give a one-clause example (e.g., 'rather than a side API the model talks to in parallel').\n2. 'Constrained decoding keeping the arguments syntactically valid' is technically correct but vague; mention that this is what makes the JSON parseable on the application side.\n3. The final sentence introduces multi-tool chains without saying who controls the loop — clarify that the application is the runtime that decides whether to keep going, not the model itself."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Explain how large language models handle tool calling",
+        "turnIndex": 3
+      },
+      "response": {
+        "content": "Here is the explanation of LLM tool calling, after research → drafting → critique:\n\nLLMs treat tool calling as part of the chat protocol: each tool's name, description, and JSON-schema parameters are passed in the prompt, and during decoding the model can emit a structured tool_call block (function name + JSON arguments) instead of plain text. The application — not the model — runs the tool, returns the result as a tool-role message, and decides whether to keep looping. Constrained decoding keeps the arguments valid JSON the application can parse, and the model orchestrates multi-step chains turn-by-turn from inside the same conversation."
+      }
+    },
+    {
+      "_comment": "Subagents pill 3 — 'Summarize a topic' / reusable rockets. The original Railway-side bug for this pill was the concurrent-update on `delegations`; the agent state reducer fix unblocks this fixture chain.",
+      "match": {
+        "userMessage": "Summarize the current state of reusable rockets",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_subagents_p3_research_001",
+            "name": "research_agent",
+            "arguments": "{\"task\":\"Current state of reusable rockets\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Current state of reusable rockets"
+      },
+      "response": {
+        "content": "- SpaceX Falcon 9 routinely lands and re-flies first stages; individual boosters have flown more than 20 missions each\n- Falcon Heavy reuses both side boosters; the center core has been recovered on a subset of flights\n- Rocket Lab's Electron has demonstrated mid-air booster catch but routine reuse is still in development\n- SpaceX Starship is targeting full reuse of both stages; orbital test flights are ongoing as of 2024-2025\n- Reuse is the dominant lever on launch cost: Falcon 9 list pricing is set well below expendable competitors largely because of stage recovery"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Summarize the current state of reusable rockets",
+        "turnIndex": 1
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_subagents_p3_writing_001",
+            "name": "writing_agent",
+            "arguments": "{\"task\":\"One polished paragraph summarizing the current state of reusable rockets, grounded in the research.\\n\\nFacts:\\n- Falcon 9 first stages routinely re-fly, some 20+ flights\\n- Falcon Heavy reuses side boosters; center core recovered sometimes\\n- Rocket Lab Electron demonstrating mid-air catch, reuse still in development\\n- SpaceX Starship targeting full reuse of both stages, in flight test\\n- Reuse drives launch cost downward\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "One polished paragraph summarizing the current state of reusable rockets"
+      },
+      "response": {
+        "content": "Reusable rockets have shifted from a research goal to the default cost lever in commercial spaceflight. SpaceX's Falcon 9 routinely lands and re-flies its first stage — individual boosters have now flown twenty-plus missions — and Falcon Heavy reuses both side boosters with intermittent recovery of the center core. Smaller-class operators like Rocket Lab have demonstrated mid-air booster catch but have not yet made reuse routine, while SpaceX's Starship is in active flight testing toward full two-stage reuse. The economic consequence is already visible: Falcon 9 list pricing sits well below expendable competitors precisely because the dominant cost — building a fresh first stage every flight — has been amortized across many missions."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Summarize the current state of reusable rockets",
+        "turnIndex": 2
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_subagents_p3_critique_001",
+            "name": "critique_agent",
+            "arguments": "{\"task\":\"Critique the reusable rockets summary draft. Draft: Reusable rockets have shifted from a research goal to the default cost lever in commercial spaceflight. SpaceX's Falcon 9 routinely lands and re-flies its first stage — individual boosters have now flown twenty-plus missions...\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Critique the reusable rockets summary draft"
+      },
+      "response": {
+        "content": "1. 'Default cost lever' is jargon that pre-supposes the reader already accepts the framing — open instead with the concrete result (Falcon 9 reflight count) and let the framing emerge.\n2. The Starship sentence is hedged ('in active flight testing toward full reuse') in a way that obscures the actual milestone reached as of writing — name the latest test outcome or drop the clause.\n3. The closing economic claim asserts pricing is 'well below expendable competitors' without a reference price; one number (e.g., $/kg-to-LEO) would land the point much harder than the qualitative claim alone."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Summarize the current state of reusable rockets",
+        "turnIndex": 3
+      },
+      "response": {
+        "content": "Here is the polished summary on reusable rockets, after research → drafting → critique:\n\nReusable rockets are now mainstream in commercial spaceflight. SpaceX's Falcon 9 lands and re-flies its first stage routinely — individual boosters have flown twenty-plus missions — and Falcon Heavy reuses both side boosters. Rocket Lab has demonstrated mid-air Electron booster catch but reuse is not yet routine, while SpaceX Starship is in active orbital flight testing with full two-stage reuse as the target. The economic impact is already priced in: Falcon 9 sits well below expendable competitors per kilogram to low Earth orbit because amortizing a recovered first stage across many missions removes the largest single cost from the launch."
+      }
     }
   ]
 }

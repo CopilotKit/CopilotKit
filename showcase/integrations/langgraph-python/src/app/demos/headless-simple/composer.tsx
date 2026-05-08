@@ -19,7 +19,7 @@ export function Composer({
   disabled: boolean;
 }) {
   return (
-    <div className="bg-background p-3 sm:p-4">
+    <div data-testid="headless-composer" className="bg-background p-3 sm:p-4">
       <div
         className={cn(
           "flex items-end gap-2 rounded-2xl border border-border/60 bg-muted/50 p-2",

@@ -40,11 +40,11 @@ export const POST = async (req: NextRequest) => {
 Then point your frontend at the endpoint:
 
 ```tsx
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
-<CopilotKitProvider runtimeUrl="/api/copilotkit">
+<CopilotKit runtimeUrl="/api/copilotkit">
   <YourApp />
-</CopilotKitProvider>
+</CopilotKit>
 ```
 
 For Express, NestJS, or plain Node.js HTTP variants, see the [quickstart](./quickstart).
@@ -54,7 +54,7 @@ For Express, NestJS, or plain Node.js HTTP variants, see the [quickstart](./quic
 The runtime supports multiple agent types. `BuiltInAgent` is the primary agent class:
 
 - **Simple mode** — pass a model string, CopilotKit handles everything. Best for quick setup. See [Quickstart](./quickstart).
-- **Factory mode** — bring your own AI SDK, TanStack AI, or custom LLM backend. Best when you need full control. See [Factory Mode](/integrations/built-in-agent/custom-agent).
+- **Factory mode** — bring your own AI SDK, TanStack AI, or custom LLM backend. Best when you need full control. See [Factory Mode](/backend/custom-agent).
 
 ## The default agent
 
@@ -112,14 +112,14 @@ To scope it to specific agents only, pass an `agents` list:
 a2ui: { agents: ["my-agent"] }
 ```
 
-On the frontend, the A2UI renderer activates automatically — no extra configuration needed. If you want to override the default theme, pass an `a2ui` prop to `<CopilotKitProvider>`:
+On the frontend, the A2UI renderer activates automatically — no extra configuration needed. If you want to override the default theme, pass an `a2ui` prop to `<CopilotKit>`:
 
 ```tsx
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
-<CopilotKitProvider runtimeUrl="/api/copilotkit" a2ui={{ theme: myCustomTheme }}>
+<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ theme: myCustomTheme }}>
   {children}
-</CopilotKitProvider>
+</CopilotKit>
 ```
 
 ### mcpApps
@@ -141,19 +141,19 @@ Each server entry optionally accepts an `agentId` field to scope that server to 
 
 ## Connecting to an AG-UI agent directly
 
-CopilotKit is built on the [AG-UI protocol](./ag-ui), which is an open standard. If you want to connect your frontend directly to an AG-UI-compatible agent without the runtime, you can do so by passing agent instances straight to the `CopilotKitProvider`:
+CopilotKit is built on the [AG-UI protocol](./ag-ui), which is an open standard. If you want to connect your frontend directly to an AG-UI-compatible agent without the runtime, you can do so by passing agent instances straight to the `CopilotKit`:
 
 ```tsx
 import { HttpAgent } from "@ag-ui/client";
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 const myAgent = new HttpAgent({
   url: "https://my-agent.example.com",
 });
 
-<CopilotKitProvider agents__unsafe_dev_only={{ "my-agent": myAgent }}>
+<CopilotKit agents__unsafe_dev_only={{ "my-agent": myAgent }}>
   <YourApp />
-</CopilotKitProvider>;
+</CopilotKit>;
 ```
 
 <Callout type="warn">

@@ -55,6 +55,16 @@ export interface SubAgentActivityCardProps {
   result: string | undefined;
 }
 
+// Map the backend tool name (`research_agent`, `writing_agent`,
+// `critique_agent`) to the short role used in test selectors. The
+// per-role `[data-testid="subagent-card-<role>"]` testid is the stable
+// hook the e2e suite uses to count cards and assert per-card content.
+const ROLE_TESTID: Record<SubAgentName, "researcher" | "writer" | "critic"> = {
+  research_agent: "researcher",
+  writing_agent: "writer",
+  critique_agent: "critic",
+};
+
 export function SubAgentActivityCard({
   subAgent,
   task,
@@ -64,10 +74,12 @@ export function SubAgentActivityCard({
   const meta = SUB_AGENT_META[subAgent];
   const done = status === "complete";
   const running = !done;
+  const roleTestId = `subagent-card-${ROLE_TESTID[subAgent]}`;
 
   return (
     <div
-      data-testid="subagent-activity-card"
+      data-testid={roleTestId}
+      data-subagent-card={ROLE_TESTID[subAgent]}
       data-sub-agent={subAgent}
       data-status={status}
       className={`my-3 overflow-hidden rounded-2xl border bg-white shadow-sm ${meta.accent}`}
@@ -106,7 +118,8 @@ export function SubAgentActivityCard({
         <Section label="Result">
           {done ? (
             <div
-              data-testid="subagent-activity-result"
+              data-testid="subagent-result"
+              data-subagent-result-role={ROLE_TESTID[subAgent]}
               className="rounded-lg border border-[#E9E9EF] bg-white p-2.5 text-xs text-[#010507] whitespace-pre-wrap"
             >
               {result?.trim() ? result : "(empty)"}
@@ -150,7 +163,8 @@ function StatusBadge({
   const label = describeStatus(status);
   return (
     <span
-      data-testid="subagent-activity-status"
+      data-testid="subagent-status"
+      data-status={status}
       className={`rounded-full border px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] ${chipTone}`}
     >
       {label}

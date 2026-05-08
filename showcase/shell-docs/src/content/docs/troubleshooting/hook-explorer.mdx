@@ -14,7 +14,7 @@ By the end of this page you'll have:
 ## Prerequisites
 
 - The [CopilotKit VS Code extension](/vs-code-extension) installed.
-- `@copilotkit/react-core` or `@copilotkit/react-core/v2` imported somewhere in your workspace.
+- `@copilotkit/react-core` or `@copilotkit/react-core` imported somewhere in your workspace.
 
 <Callout type="info">
   The Hook Explorer runs entirely against your source files — no runtime, no API keys, no agent run required.
@@ -73,17 +73,17 @@ Every render-capable CopilotKit hook is discoverable and previewable:
 | `useCopilotAuthenticatedAction_c` | `@copilotkit/react-core` | action |
 | `useCoAgentStateRender` | `@copilotkit/react-core` | coagent-state (`state`, `status`, `nodeName`) |
 | `useLangGraphInterrupt` | `@copilotkit/react-core` | interrupt (`event`, `resolve`) |
-| `useRenderTool` | `@copilotkit/react-core/v2` | render-tool (`parameters`, `status`, `toolCallId`) |
-| `useRenderToolCall` | `@copilotkit/react-core/v2` | render-tool |
-| `useDefaultRenderTool` | `@copilotkit/react-core/v2` | render-tool |
-| `useLazyToolRenderer` | `@copilotkit/react-core/v2` | render-tool |
-| `useFrontendTool` | `@copilotkit/react-core/v2` | render-tool |
-| `useComponent` | `@copilotkit/react-core/v2` | render-tool |
-| `useDefaultTool` | `@copilotkit/react-core/v2` | action |
-| `useHumanInTheLoop` | `@copilotkit/react-core/v2` | action |
-| `useInterrupt` | `@copilotkit/react-core/v2` | interrupt |
-| `useRenderCustomMessages` | `@copilotkit/react-core/v2` | custom-messages (`message`) |
-| `useRenderActivityMessage` | `@copilotkit/react-core/v2` | activity-message (`message`) |
+| `useRenderTool` | `@copilotkit/react-core` | render-tool (`parameters`, `status`, `toolCallId`) |
+| `useRenderToolCall` | `@copilotkit/react-core` | render-tool |
+| `useDefaultRenderTool` | `@copilotkit/react-core` | render-tool |
+| `useLazyToolRenderer` | `@copilotkit/react-core` | render-tool |
+| `useFrontendTool` | `@copilotkit/react-core` | render-tool |
+| `useComponent` | `@copilotkit/react-core` | render-tool |
+| `useDefaultTool` | `@copilotkit/react-core` | action |
+| `useHumanInTheLoop` | `@copilotkit/react-core` | action |
+| `useInterrupt` | `@copilotkit/react-core` | interrupt |
+| `useRenderCustomMessages` | `@copilotkit/react-core` | custom-messages (`message`) |
+| `useRenderActivityMessage` | `@copilotkit/react-core` | activity-message (`message`) |
 
 Data hooks (`useCopilotReadable`, `useCoAgent`, `useAgent`, `useCopilotChat`, etc.) appear in the sidebar for navigation but have no preview — the row click opens the source.
 
@@ -97,7 +97,7 @@ Imported render components work too: if your `render` prop is a reference to a c
 
 ## Limitations
 
-- **Barrel-file re-exports aren't resolved** — import hooks directly from `@copilotkit/react-core` or `@copilotkit/react-core/v2`. If you re-export through your own index file, the scanner won't pick up the call sites.
+- **Barrel-file re-exports aren't resolved** — import hooks directly from `@copilotkit/react-core` or `@copilotkit/react-core`. If you re-export through your own index file, the scanner won't pick up the call sites.
 - **Non-CopilotKit providers**: if your component requires `<ThemeProvider>`, Redux, Auth, or another custom provider to render, the mount will throw. Isolate the hook into a provider-free component for preview, or stub the provider in the preview-only path.
 - **Agent state typing**: `useCoAgentStateRender` state has no runtime schema (types live in TypeScript only), so the state control falls back to a raw-JSON editor.
 - **Dynamic action names**: if `useCopilotAction({ name: someVariable })` uses a non-literal name, the sidebar labels the entry `(dynamic) · file:line` until the runtime capture resolves it.

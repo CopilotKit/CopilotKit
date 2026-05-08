@@ -1,9 +1,9 @@
 {
-  "_comment": "D5 fixture for /demos/headless-complete. Five chips: weather (already covered by feature-parity weather fixture), AAPL stock (new — get_stock_price tool), highlight note (new — frontend useComponent), Excalidraw (text fallback so probe stays deterministic without depending on the MCP server), and largest continent (already covered by feature-parity continent fixture). Two-leg fixtures pin BOTH userMessage AND toolCallId on the narration leg, with the more-specific narration fixture placed BEFORE the bare userMessage toolCall fixture in this array. Reason: aimock matches in array order with first-match-wins, and its toolCallId match looks at the LAST tool message in the request — across multi-turn probes that 'last tool' can be a stale id from a previous turn. Pinning narration fixtures with userMessage too prevents one turn's narration from firing for another turn's prompt.",
+  "_comment": "D5 fixture for /demos/headless-complete. Four chips: Weather (covered by feature-parity weather fixture for `What's the weather in Tokyo?`), Stock price (get_stock_price → StockCard), Highlight a note (highlight_note frontend useComponent → HighlightNote), Revenue chart (get_revenue_chart → ChartCard). Two-leg fixtures pin BOTH userMessage AND toolCallId on the narration leg, with the more-specific narration fixture placed BEFORE the bare userMessage toolCall fixture in this array — aimock matches in array order with first-match-wins. Matchers use short distinctive substrings ('AAPL', 'ship the demo on Friday', 'revenue over the last six months') so they fire for the SuggestionBar pills configured by use-headless-suggestions.ts.",
   "fixtures": [
     {
       "match": {
-        "userMessage": "AAPL trading",
+        "userMessage": "AAPL",
         "toolCallId": "call_d5_get_stock_price_001"
       },
       "response": {
@@ -12,7 +12,7 @@
     },
     {
       "match": {
-        "userMessage": "AAPL trading"
+        "userMessage": "AAPL"
       },
       "response": {
         "toolCalls": [
@@ -26,33 +26,49 @@
     },
     {
       "match": {
-        "userMessage": "Highlight 'meeting at 3pm'",
+        "userMessage": "ship the demo on Friday",
         "toolCallId": "call_d5_highlight_note_001"
       },
       "response": {
-        "content": "Highlighted 'meeting at 3pm' in yellow above. Let me know if you want a different color or a longer note."
+        "content": "Highlighted 'ship the demo on Friday' in yellow above. Let me know if you want a different color or a longer note."
       }
     },
     {
       "match": {
-        "userMessage": "Highlight 'meeting at 3pm'"
+        "userMessage": "ship the demo on Friday"
       },
       "response": {
         "toolCalls": [
           {
             "id": "call_d5_highlight_note_001",
             "name": "highlight_note",
-            "arguments": "{\"text\":\"meeting at 3pm\",\"color\":\"yellow\"}"
+            "arguments": "{\"text\":\"ship the demo on Friday\",\"color\":\"yellow\"}"
           }
         ]
       }
     },
     {
       "match": {
-        "userMessage": "Use Excalidraw to sketch"
+        "userMessage": "revenue over the last six months",
+        "toolCallId": "call_d5_get_revenue_chart_001"
       },
       "response": {
-        "content": "Sketched a simple system diagram for you above — three boxes (frontend, runtime, agent) connected by arrows showing the request flow. Ask if you'd like a different shape or more detail."
+        "content": "Revenue grew from $1.4M in January to $2.1M in June — a clean upward trend with one dip in April. The chart above shows the full six-month series."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "revenue over the last six months"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_revenue_chart_001",
+            "name": "get_revenue_chart",
+            "arguments": "{}",
+            "result": "{\"title\":\"Revenue (last 6 months)\",\"subtitle\":\"USD, millions\",\"data\":[{\"label\":\"Jan\",\"value\":1.4},{\"label\":\"Feb\",\"value\":1.6},{\"label\":\"Mar\",\"value\":1.7},{\"label\":\"Apr\",\"value\":1.5},{\"label\":\"May\",\"value\":1.9},{\"label\":\"Jun\",\"value\":2.1}]}"
+          }
+        ]
       }
     }
   ]

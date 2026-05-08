@@ -301,7 +301,7 @@ hideTOC: true
           ### Install CopilotKit packages
 
           ```npm
-          npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client
+          npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client
           ```
       </Step>
       <Step>
@@ -343,8 +343,8 @@ hideTOC: true
           Wrap your application with the CopilotKit provider:
 
           ```tsx title="app/layout.tsx"
-          import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
-          import "@copilotkit/react-ui/v2/styles.css";
+          import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+          import "@copilotkit/react-core/v2/styles.css";
           import './globals.css';
 
           // ...

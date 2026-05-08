@@ -1,13 +1,36 @@
 import { test, expect } from "@playwright/test";
 
+/**
+ * Auth demo lifecycle. The demo defaults to UNAUTHENTICATED on first
+ * paint and renders SignInCard. After sign-in, <CopilotKit> mounts
+ * with the bearer header attached and the chat boots. After sign-out,
+ * the entire <CopilotKit> tree unmounts and SignInCard reappears.
+ */
 test.describe("Authentication", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/auth");
   });
 
-  test("page loads authenticated with green banner + Sign out button", async ({
+  test("page loads unauthenticated with SignInCard visible", async ({
     page,
   }) => {
+    await expect(
+      page.locator('[data-testid="auth-sign-in-card"]'),
+    ).toBeVisible();
+    await expect(
+      page.locator('[data-testid="auth-sign-in-button"]'),
+    ).toBeEnabled();
+    await expect(page.locator('[data-testid="auth-demo-token"]')).toBeVisible();
+    // Chat surface and AuthBanner only render after sign-in.
+    await expect(page.locator('[data-testid="auth-banner"]')).toHaveCount(0);
+    await expect(page.getByPlaceholder("Type a message")).toHaveCount(0);
+  });
+
+  test("signing in mounts the chat surface with AuthBanner", async ({
+    page,
+  }) => {
+    await page.locator('[data-testid="auth-sign-in-button"]').click();
+
     const banner = page.locator('[data-testid="auth-banner"]');
     await expect(banner).toBeVisible();
     await expect(banner).toHaveAttribute("data-authenticated", "true");
@@ -17,12 +40,9 @@ test.describe("Authentication", () => {
     await expect(
       page.locator('[data-testid="auth-sign-out-button"]'),
     ).toBeEnabled();
-    await expect(
-      page.locator('[data-testid="auth-authenticate-button"]'),
-    ).toHaveCount(0);
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
-    // No error surface on first load.
-    await expect(page.locator('[data-testid="auth-demo-error"]')).toHaveCount(
+    // SignInCard is gone once we're authenticated.
+    await expect(page.locator('[data-testid="auth-sign-in-card"]')).toHaveCount(
       0,
     );
   });
@@ -30,73 +50,58 @@ test.describe("Authentication", () => {
   test("authenticated send produces an assistant response", async ({
     page,
   }) => {
+    await page.locator('[data-testid="auth-sign-in-button"]').click();
+    await expect(page.getByPlaceholder("Type a message")).toBeVisible();
+
     const input = page.getByPlaceholder("Type a message");
     await input.fill("Hello");
     await input.press("Enter");
 
-    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
-      timeout: 30000,
-    });
-    // No error surface should appear while authenticated.
-    await expect(page.locator('[data-testid="auth-demo-error"]')).toHaveCount(
-      0,
-    );
+    await expect(
+      page.locator('[data-testid="copilot-assistant-message"]').first(),
+    ).toBeVisible({ timeout: 30000 });
   });
 
-  test("signing out flips banner and surfaces 401 on next send without crashing", async ({
+  test("signing out unmounts the chat tree and re-renders SignInCard", async ({
     page,
   }) => {
-    const banner = page.locator('[data-testid="auth-banner"]');
-    await page.locator('[data-testid="auth-sign-out-button"]').click();
-
-    await expect(banner).toHaveAttribute("data-authenticated", "false", {
-      timeout: 2000,
-    });
-    await expect(page.locator('[data-testid="auth-status"]')).toContainText(
-      "Signed out",
-    );
-    await expect(
-      page.locator('[data-testid="auth-authenticate-button"]'),
-    ).toBeVisible();
+    await page.locator('[data-testid="auth-sign-in-button"]').click();
     await expect(
       page.locator('[data-testid="auth-sign-out-button"]'),
-    ).toHaveCount(0);
+    ).toBeVisible();
 
-    // Next send should 401 and show the error surface — no white-screen.
-    const input = page.getByPlaceholder("Type a message");
-    await input.fill("Hello again");
-    await input.press("Enter");
-    const errorSurface = page.locator('[data-testid="auth-demo-error"]');
-    await expect(errorSurface).toBeVisible({ timeout: 15000 });
-    await expect(errorSurface).toContainText(/401|unauthor/i);
+    await page.locator('[data-testid="auth-sign-out-button"]').click();
 
-    // Banner must still be rendered — a crash would unmount it.
-    await expect(banner).toBeVisible();
+    // SignInCard re-mounts; banner and chat are gone.
+    await expect(page.locator('[data-testid="auth-sign-in-card"]')).toBeVisible(
+      { timeout: 5000 },
+    );
+    await expect(page.locator('[data-testid="auth-banner"]')).toHaveCount(0);
+    await expect(page.getByPlaceholder("Type a message")).toHaveCount(0);
   });
 
-  test("signing back in clears the error and re-enables successful sends", async ({
-    page,
-  }) => {
-    // Sign out, fire a failing send to populate the error surface.
+  test("signing back in re-mounts a fresh chat surface", async ({ page }) => {
+    // Sign in, sign out, sign in again.
+    await page.locator('[data-testid="auth-sign-in-button"]').click();
+    await expect(
+      page.locator('[data-testid="auth-sign-out-button"]'),
+    ).toBeVisible();
     await page.locator('[data-testid="auth-sign-out-button"]').click();
-    const input = page.getByPlaceholder("Type a message");
-    await input.fill("Hello");
-    await input.press("Enter");
-    const errorSurface = page.locator('[data-testid="auth-demo-error"]');
-    await expect(errorSurface).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('[data-testid="auth-sign-in-card"]')).toBeVisible(
+      { timeout: 5000 },
+    );
 
-    // Sign back in — error clears, banner flips, chat works.
-    await page.locator('[data-testid="auth-authenticate-button"]').click();
+    await page.locator('[data-testid="auth-sign-in-button"]').click();
     const banner = page.locator('[data-testid="auth-banner"]');
-    await expect(banner).toHaveAttribute("data-authenticated", "true", {
-      timeout: 2000,
-    });
-    await expect(errorSurface).toHaveCount(0);
+    await expect(banner).toBeVisible({ timeout: 5000 });
+    await expect(banner).toHaveAttribute("data-authenticated", "true");
 
+    // Fresh chat surface accepts a send post-remount.
+    const input = page.getByPlaceholder("Type a message");
     await input.fill("Hello again");
     await input.press("Enter");
-    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
-      timeout: 30000,
-    });
+    await expect(
+      page.locator('[data-testid="copilot-assistant-message"]').first(),
+    ).toBeVisible({ timeout: 30000 });
   });
 });

@@ -26,6 +26,8 @@ interaction_modalities:
   - sidebar
   - embedded
   - chat
+not_supported_features:
+  - shared-state-streaming
 features:
   - cli-start
   - agentic-chat
@@ -64,7 +66,6 @@ features:
   - mcp-apps
   - byoc-hashbrown
   - byoc-json-render
-  - shared-state-streaming
   - gen-ui-interrupt
   - interrupt-headless
 a2ui_pattern: schema-inline

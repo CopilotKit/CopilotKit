@@ -1,16 +1,54 @@
 {
-  "_comment": "D5 fixture for /demos/gen-ui-interrupt. Two-turn flow: trigger interrupt that yields gen-UI, then resolve. Substrings 'request the gen-ui interrupt' and 'confirm the gen-ui choice' are unique.",
+  "_comment": "D5 fixture for /demos/gen-ui-interrupt. Two pill prompts (sales call / 1:1 with Alice). Each triggers the `schedule_meeting` tool which raises a LangGraph interrupt; the frontend renders the time picker, the user picks, and the agent resumes with a confirmation message.",
   "fixtures": [
+    {
+      "match": { "userMessage": "intro call with the sales team" },
+      "response": {
+        "content": "Sure — let me check available times.",
+        "toolCalls": [
+          {
+            "name": "schedule_meeting",
+            "arguments": {
+              "topic": "Sales intro call",
+              "attendee": "Sales team",
+              "slots": [
+                { "label": "Mon 10:00 AM", "iso": "2026-05-11T10:00:00Z" },
+                { "label": "Tue 2:00 PM", "iso": "2026-05-12T14:00:00Z" }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "1:1 with Alice" },
+      "response": {
+        "content": "Got it — pulling up next-week slots.",
+        "toolCalls": [
+          {
+            "name": "schedule_meeting",
+            "arguments": {
+              "topic": "1:1 with Alice — Q2 goals",
+              "attendee": "Alice",
+              "slots": [
+                { "label": "Wed 11:00 AM", "iso": "2026-05-13T11:00:00Z" },
+                { "label": "Thu 3:30 PM", "iso": "2026-05-14T15:30:00Z" }
+              ]
+            }
+          }
+        ]
+      }
+    },
     {
       "match": { "userMessage": "request the gen-ui interrupt" },
       "response": {
-        "content": "The agent paused at a gen-UI interrupt and rendered a choice component for the user. Choose to continue."
+        "content": "Choose to continue."
       }
     },
     {
       "match": { "userMessage": "confirm the gen-ui choice" },
       "response": {
-        "content": "Gen-UI interrupt resolved. The agent received the user's choice and resumed, completing the workflow."
+        "content": "Gen-UI interrupt resolved."
       }
     }
   ]

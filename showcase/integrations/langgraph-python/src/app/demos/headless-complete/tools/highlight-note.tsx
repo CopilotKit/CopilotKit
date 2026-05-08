@@ -50,7 +50,10 @@ export function HighlightNote({
 }) {
   const c = palette[color] ?? palette.yellow;
   return (
-    <Card className={cn("gap-2 py-3", c.card)}>
+    <Card
+      data-testid="headless-highlight-card"
+      className={cn("gap-2 py-3", c.card)}
+    >
       <CardHeader className="px-4">
         <CardTitle className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide">
           <Highlighter className={cn("h-4 w-4", c.text)} />
