@@ -231,8 +231,12 @@ public class SharedStateStreamingController {
                                     textAccumulator.append(content);
                                 }
 
-                                // Handle tool call chunks — detect write_document
-                                // and emit STATE_SNAPSHOT as content grows
+                                // @region[state-streaming-middleware]
+                                // Spring AI equivalent of LangGraph's
+                                // StateStreamingMiddleware(StateItem(...)): as the LLM
+                                // streams the `write_document` tool's `content` argument,
+                                // forward the growing partial value into state.document
+                                // and emit a STATE_SNAPSHOT so the UI re-renders per token.
                                 if (evt.hasToolCalls()) {
                                     var tcs = evt.getResult().getOutput().getToolCalls();
                                     for (var tc : tcs) {
@@ -250,7 +254,7 @@ public class SharedStateStreamingController {
                                             if (partialContent != null
                                                     && partialContent.length() > prev.length()) {
                                                 lastDocContent.set(partialContent);
-                                                // Update state and emit snapshot
+                                                // Forward tool argument -> state key
                                                 runState.set("document", partialContent);
                                                 this.emitEvent(
                                                         stateSnapshotEvent(runState),
@@ -259,6 +263,7 @@ public class SharedStateStreamingController {
                                         }
                                     }
                                 }
+                                // @endregion[state-streaming-middleware]
                             },
                             err -> {
                                 streamError.set(err);
