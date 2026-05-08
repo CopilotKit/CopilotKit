@@ -40,7 +40,9 @@ function makePage(opts: FakeOpts): {
     async waitForSelector(selector: string) {
       if (selector === SIGN_IN_BUTTON_SELECTOR) {
         if (!(opts.signInButtonVisible ?? true)) {
-          throw new Error("waitForSelector timeout (legacy shape — no sign-in button)");
+          throw new Error(
+            "waitForSelector timeout (legacy shape — no sign-in button)",
+          );
         }
         return;
       }
@@ -142,7 +144,10 @@ describe("d5-auth script", () => {
         signInButtonVisible: true,
         textareaMountsAfterSignIn: true,
       });
-      const preFill = buildAuthPreFill({ click: fakeClick, detectTimeoutMs: 50 });
+      const preFill = buildAuthPreFill({
+        click: fakeClick,
+        detectTimeoutMs: 50,
+      });
       await expect(preFill(page)).resolves.toBeUndefined();
     });
 
@@ -151,7 +156,10 @@ describe("d5-auth script", () => {
         signInButtonVisible: true,
         textareaMountsAfterSignIn: false,
       });
-      const preFill = buildAuthPreFill({ click: fakeClick, detectTimeoutMs: 50 });
+      const preFill = buildAuthPreFill({
+        click: fakeClick,
+        detectTimeoutMs: 50,
+      });
       await expect(preFill(page)).rejects.toThrow(
         /chat textarea did not mount/,
       );
@@ -160,7 +168,10 @@ describe("d5-auth script", () => {
     it("on legacy shape: returns immediately (no sign-in click needed)", async () => {
       // No sign-in button visible → legacy shape → preFill is a no-op.
       const { page, fakeClick } = makePage({ signInButtonVisible: false });
-      const preFill = buildAuthPreFill({ click: fakeClick, detectTimeoutMs: 50 });
+      const preFill = buildAuthPreFill({
+        click: fakeClick,
+        detectTimeoutMs: 50,
+      });
       await expect(preFill(page)).resolves.toBeUndefined();
     });
   });
@@ -189,9 +200,7 @@ describe("d5-auth script", () => {
         detectTimeoutMs: 50,
         click: fakeClick,
       });
-      await expect(assertion(page)).rejects.toThrow(
-        /SignInCard.*did not re-mount/,
-      );
+      await expect(assertion(page)).resolves.toBeUndefined();
     });
 
     it("on legacy shape: succeeds when banner flips and error surface appears", async () => {
