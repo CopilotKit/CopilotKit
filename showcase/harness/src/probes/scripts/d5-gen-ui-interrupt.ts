@@ -25,7 +25,7 @@ import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 import {
   FIRST_SIGNAL_TIMEOUT_MS,
   SIBLING_TIMEOUT_MS,
-  asGenuinePage,
+  clickByJs,
   waitForTestId,
 } from "./_genuine-shared.js";
 
@@ -48,9 +48,12 @@ export function buildInterruptAssertion(
     const tag = `gen-ui-interrupt-${pillTag}`;
     // Step 1: wait for the time picker to mount.
     await waitForTestId(page, "time-picker-card", FIRST_SIGNAL_TIMEOUT_MS, tag);
-    // Step 2: click the first slot. The runner's structural Page
-    // doesn't expose `.click()`; runtime-cast and verify.
-    const clickable = asGenuinePage(page, tag);
+    // Step 2: click the first slot. Use the JS-level clickByJs helper
+    // (not Playwright's pointer-based click) — the cpk-web-inspector
+    // overlay intercepts pointer events before the time-picker's
+    // onClick handler runs, so the picked-state never mounts and the
+    // probe times out at step 3 (`time-picker-picked` mount). Same
+    // workaround pattern as d5-auth.
     const slotSelector = '[data-testid="time-picker-slot"]';
     try {
       await page.waitForSelector(slotSelector, {
@@ -62,7 +65,7 @@ export function buildInterruptAssertion(
         `${tag}: expected [data-testid="time-picker-slot"] within ${SIBLING_TIMEOUT_MS}ms`,
       );
     }
-    await clickable.click(slotSelector, { timeout: SIBLING_TIMEOUT_MS });
+    await clickByJs(page, slotSelector);
     // Step 3: assert the picked-confirmation state mounts.
     await waitForTestId(page, "time-picker-picked", SIBLING_TIMEOUT_MS, tag);
   };

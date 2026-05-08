@@ -86,6 +86,36 @@ export function asGenuinePage(
 }
 
 /**
+ * Click an element via `page.evaluate(() => el.click())` instead of
+ * Playwright's `page.click()`. The CopilotKit web inspector overlay
+ * (`<cpk-web-inspector>`) intercepts pointer events before React's
+ * synthetic event system picks them up, so Playwright's pointer-based
+ * click can resolve while the demo's onClick handler never fires.
+ * The JS-level `.click()` triggers the DOM click event without
+ * pointer dispatch and bypasses the overlay.
+ *
+ * Originally implemented inline in `d5-auth.ts:defaultClick`; lifted
+ * here so other interrupt-/inspector-prone probes can reuse it.
+ */
+export async function clickByJs(
+  page: ConversationPage,
+  selector: string,
+): Promise<void> {
+  // The Page interface only exposes `evaluate<R>(fn: () => R)`, so we
+  // construct the click logic as a self-contained zero-arg function
+  // with the selector baked into the source via JSON.stringify.
+  const code = `
+    (() => {
+      const el = document.querySelector(${JSON.stringify(selector)});
+      if (!el) throw new Error("clickByJs: element " + ${JSON.stringify(selector)} + " not found in DOM");
+      el.click();
+    })()
+  `;
+  const fn = new Function(`return ${code.trim()};`) as () => void;
+  await page.evaluate(fn);
+}
+
+/**
  * Click the suggestion pill whose visible label matches `pillText`
  * (substring match). Pills are rendered with
  * `data-testid="copilot-suggestion"`; Playwright's `:has-text()`
