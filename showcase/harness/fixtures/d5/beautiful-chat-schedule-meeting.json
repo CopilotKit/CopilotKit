@@ -7,6 +7,7 @@
         "hasToolResult": false
       },
       "response": {
+        "content": "Sure — pulling up a 30-minute slot.",
         "toolCalls": [
           {
             "id": "call_d5_bc_schedule_time_001",

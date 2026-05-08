@@ -66,6 +66,8 @@ def manage_todos(todos: list[Todo], runtime: ToolRuntime) -> Command:
         "messages": [
             ToolMessage(
                 content="Successfully updated todos",
+                name="manage_todos",
+                id=str(uuid.uuid4()),
                 tool_call_id=runtime.tool_call_id
             )
         ]

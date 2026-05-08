@@ -111,7 +111,11 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
 
     prompt = f"{_GENERATE_A2UI_PROMPT_HEADER}\n\n{context_text}".strip()
 
-    model = ChatOpenAI(model="gpt-4.1")
+    # `streaming=True` so aimock's record/replay (which only intercepts
+    # SSE streams) sees this secondary LLM call. Without it the call
+    # bypasses fixture matching in replay mode, surfacing as
+    # "An internal error occurred" on the demo page.
+    model = ChatOpenAI(model="gpt-4.1", streaming=True)
     model_with_tool = model.bind_tools(
         [_design_a2ui_surface],
         tool_choice="_design_a2ui_surface",
