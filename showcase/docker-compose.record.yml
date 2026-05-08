@@ -21,8 +21,7 @@ services:
       # under this dir. Existing baseline fixtures stay :ro from the base
       # compose; only the recording dir is writable.
       - ./aimock/d5-recorded:/showcase-fixtures/d5-recorded:rw
-    command:
-      [
+    command: [
         "--port",
         "4010",
         "--host",

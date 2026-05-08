@@ -13,8 +13,7 @@ services:
       # Keep the recorded directory mounted (read-only is fine here — we're
       # not recording in this mode) so aimock loads the per-demo files.
       - ./aimock/d5-recorded:/showcase-fixtures/d5-recorded:ro
-    command:
-      [
+    command: [
         "--port",
         "4010",
         "--host",
