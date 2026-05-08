@@ -51,9 +51,9 @@ import {
   TELEMETRY_DOCS_URL,
   ensureTelemetryDistinctId,
   getTelemetryDistinctIdForUrl,
-  isTelemetryOptedOut,
+
   maybeShowDisclosure,
-  setTelemetryOptOut,
+
   trackBannerClicked,
   trackBannerViewed,
   trackThreadsTabClicked,
@@ -69,7 +69,7 @@ type MenuKey =
   | "frontend-tools"
   | "agent-context"
   | "threads"
-  | "privacy";
+  | "settings";
 
 type MenuItem = {
   key: MenuKey;
@@ -2520,11 +2520,6 @@ export class WebInspectorElement extends LitElement {
         label: "Threads",
         icon: "MessageSquare" as LucideIconName,
       },
-      {
-        key: "privacy",
-        label: "Privacy",
-        icon: "Shield" as LucideIconName,
-      },
     ];
   }
 
@@ -3947,6 +3942,11 @@ ${argsString}</pre
         color: #010507;
         font-weight: 600;
       }
+      .cpk-tab-icon {
+        display: inline-flex;
+        flex-shrink: 0;
+        align-items: center;
+      }
       .cpk-tab-active .cpk-tab-icon {
         color: #757cf2;
       }
@@ -4381,6 +4381,24 @@ ${argsString}</pre
                 <div class="min-w-[160px] max-w-xs">${agentSelector}</div>
                 <div class="flex items-center gap-1">
                   ${this.renderDockControls()}
+                  <button
+                    class="flex h-8 w-8 items-center justify-center rounded-md transition hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 ${
+                      this.selectedMenu === "settings"
+                        ? "bg-gray-100 text-gray-700"
+                        : "text-gray-400 hover:text-gray-600"
+                    }"
+                    type="button"
+                    aria-label="Settings"
+                    aria-pressed=${this.selectedMenu === "settings"}
+                    @click=${() =>
+                      this.handleMenuSelect(
+                        this.selectedMenu === "settings"
+                          ? "ag-ui-events"
+                          : "settings",
+                      )}
+                  >
+                    ${this.renderIcon("Settings")}
+                  </button>
                   <button
                     class="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400"
                     type="button"
@@ -5645,79 +5663,46 @@ ${argsString}</pre
       return this.renderThreadsView();
     }
 
-    if (this.selectedMenu === "privacy") {
-      return this.renderPrivacyPanel();
+    if (this.selectedMenu === "settings") {
+      return this.renderSettingsPanel();
     }
 
     return nothing;
   }
 
-  private renderPrivacyPanel() {
-    const optedOut = isTelemetryOptedOut();
+  private renderSettingsPanel() {
     return html`
       <div class="flex h-full flex-col overflow-hidden">
         <div class="overflow-auto p-4">
-          <div class="mx-auto max-w-2xl space-y-4">
-            <div class="flex items-start gap-3">
-              <span
-                class="inline-flex h-8 w-8 items-center justify-center rounded-md bg-slate-900 text-white shadow-sm"
-              >
-                ${this.renderIcon("Shield")}
-              </span>
-              <div class="space-y-1">
-                <h2 class="text-base font-semibold text-slate-900">Privacy</h2>
-                <p class="text-sm text-gray-600">
-                  We collect anonymous interaction events from the inspector
-                  (banner views, clicks, tab navigation) so we know which
-                  features people use. We never collect message content, agent
-                  state, prompts, completions, or any payload you inspect.
-                </p>
-              </div>
+          <div class="mx-auto max-w-2xl space-y-6">
+            <div>
+              <h2 class="text-base font-semibold text-slate-900">Settings</h2>
             </div>
 
-            <label
-              class="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3"
-            >
-              <div class="space-y-0.5">
-                <div class="text-sm font-medium text-slate-900">
-                  Send anonymous usage data
-                </div>
-                <div class="text-xs text-gray-500">
-                  Covers all anonymous interaction telemetry, including any
-                  future signup attribution.
-                </div>
+            <div class="space-y-3">
+              <h3 class="text-sm font-medium text-slate-700">Privacy</h3>
+              <div class="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
+                <p class="text-sm text-gray-600">
+                  CopilotKit collects anonymous interaction events from the
+                  inspector (banner views, clicks, tab navigation) so we know
+                  which features people use. We never collect message content,
+                  agent state, prompts, completions, or any payload you inspect.
+                </p>
+                <a
+                  class="inline-flex items-center gap-1 text-sm text-slate-700 underline hover:text-slate-900"
+                  href=${TELEMETRY_DOCS_URL}
+                  target="_blank"
+                  rel="noopener"
+                >
+                  I want to opt out — show me how →
+                </a>
               </div>
-              <input
-                type="checkbox"
-                class="h-4 w-4 cursor-pointer accent-slate-900"
-                .checked=${!optedOut}
-                @change=${this.handleTelemetryOptOutToggle}
-                aria-label="Send anonymous usage data"
-              />
-            </label>
-
-            <div class="text-xs text-gray-500">
-              <a
-                class="underline hover:text-slate-900"
-                href=${TELEMETRY_DOCS_URL}
-                target="_blank"
-                rel="noopener"
-              >
-                What we collect and how to opt out →
-              </a>
             </div>
           </div>
         </div>
       </div>
     `;
   }
-
-  private handleTelemetryOptOutToggle = (event: Event): void => {
-    if (!(event.target instanceof HTMLInputElement)) return;
-    // Toggle ON means telemetry is sending — i.e. opted out is FALSE.
-    setTelemetryOptOut(!event.target.checked);
-    this.requestUpdate();
-  };
 
   // Fires `banner_clicked` at most once per `${bannerId}:${cta}` per mount so
   // copy-button retries and accidental multi-clicks don't inflate funnel counts.
