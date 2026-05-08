@@ -34,12 +34,10 @@ import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import OpenAI from "openai";
 
 const LANGGRAPH_URL =
-  process.env.AGENT_URL ||
-  process.env.LANGGRAPH_DEPLOYMENT_URL ||
-  "http://localhost:8123";
+  process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123";
 
 const voiceDemoAgent = new LangGraphAgent({
-  deploymentUrl: `${LANGGRAPH_URL}/`,
+  deploymentUrl: LANGGRAPH_URL,
   graphId: "sample_agent",
 });
 

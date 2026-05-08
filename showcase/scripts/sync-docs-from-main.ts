@@ -65,6 +65,13 @@ const LANGCHAIN_EXCLUSIONS = [
  * redirect). The root path stays excluded so future syncs don't restore
  * the duplicate.
  *
+ * The shared `mcp-server-setup.mdx` snippet is also excluded
+ * (PDX-117 — https://linear.app/copilotkit/issue/PDX-117). Shell-docs
+ * ships an enhanced version with HTTP/SSE transport Tabs, the
+ * `mcp-remote` bridge, and a Tadata Callout; upstream still carries
+ * the older single-`url` JSON shape, so syncing would regress the
+ * shell-docs experience.
+ *
  * Upstream keeps all of these copies — removing them there means touching
  * every parallel framework tree, which is upstream-IA work outside this
  * branch's scope. The exclusion is the durable shell-docs-only fix.
@@ -75,6 +82,7 @@ const PATH_EXCLUSIONS: RegExp[] = [
   /^docs\/content\/docs\/integrations\/[^/]+\/premium\/self-hosting\.mdx$/,
   /^docs\/content\/docs\/learn\//,
   /^docs\/content\/docs\/\(root\)\/ag-ui-middleware\.mdx$/,
+  /^docs\/snippets\/shared\/guides\/mcp-server-setup\.mdx$/,
   // PR #4494 dropped these stale workflow-execution / state-inputs-outputs
   // duplicates from shell-docs. Each shared-state meta.json wires only one
   // of the two files; the other was an orphan. Block the sync from

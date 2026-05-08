@@ -16,8 +16,9 @@ export interface SampleAudioButtonProps {
   /** Called with the canned sample text when the button is clicked. */
   onTranscribed: (text: string) => void;
   /**
-   * Phrase that doubles as the visible caption AND the text injected
-   * into the composer when the button is clicked.
+   * Phrase injected into the composer when the button is clicked. Used as
+   * the tooltip so users can preview what the sample says without taking
+   * up visual space on the page.
    */
   sampleText: string;
 }
@@ -28,22 +29,16 @@ export function SampleAudioButton({
   sampleText,
 }: SampleAudioButtonProps) {
   return (
-    <div
-      data-testid="voice-sample-audio"
-      className="flex items-center gap-3 rounded-md border border-black/10 bg-black/[0.02] px-3 py-2 text-sm dark:border-white/10 dark:bg-white/[0.02]"
+    <button
+      type="button"
+      data-testid="voice-sample-audio-button"
+      onClick={() => onTranscribed(sampleText)}
+      title={`Inserts: "${sampleText}"`}
+      className="inline-flex w-fit items-center gap-2 rounded-md border border-black/10 bg-white px-3 py-1.5 text-xs font-medium hover:bg-black/5 dark:border-white/10 dark:bg-black/30 dark:hover:bg-white/10"
     >
-      <button
-        type="button"
-        data-testid="voice-sample-audio-button"
-        onClick={() => onTranscribed(sampleText)}
-        className="rounded border border-black/10 bg-white px-3 py-1 text-xs font-medium hover:bg-black/5 dark:border-white/10 dark:bg-black/30 dark:hover:bg-white/10"
-      >
-        Play sample
-      </button>
-      <span className="text-black/60 dark:text-white/60">
-        Sample: &ldquo;{sampleText}&rdquo;
-      </span>
-    </div>
+      <span aria-hidden>🎙</span>
+      <span>Try a sample question</span>
+    </button>
   );
 }
 // @endregion[sample-audio-button]

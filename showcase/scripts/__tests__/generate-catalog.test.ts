@@ -95,7 +95,7 @@ describe("Catalog Generator", () => {
     }
   });
 
-  it("cross-join produces 720 cells (40 features x 18 integrations); metadata.total_cells excludes docs-only", () => {
+  it("cross-join produces 756 cells (42 features x 18 integrations); metadata.total_cells excludes docs-only", () => {
     runGenerator();
     const catalog = readCatalog();
 
@@ -109,15 +109,15 @@ describe("Catalog Generator", () => {
       (c: any) => c.manifestation === "starter",
     );
 
-    expect(integrated.length).toBe(720); // 40 features x 18 integrations
+    expect(integrated.length).toBe(756); // 42 features x 18 integrations
     expect(starters.length).toBe(0);
-    expect(catalog.cells.length).toBe(720);
+    expect(catalog.cells.length).toBe(756);
     // total_cells excludes docs-only features (currently 1 feature x 18 integrations = 18)
-    expect(catalog.metadata.total_cells).toBe(702);
+    expect(catalog.metadata.total_cells).toBe(738);
     expect(catalog.metadata.docs_only).toBe(18);
   });
 
-  it("LGP has 40 cells: 37 wired + 1 stub + 2 unshipped", () => {
+  it("LGP has 42 cells: 35 wired + 1 stub + 6 unshipped", () => {
     runGenerator();
     const catalog = readCatalog();
 
@@ -126,16 +126,15 @@ describe("Catalog Generator", () => {
         c.integration === "langgraph-python" &&
         c.manifestation === "integrated",
     );
-    expect(lgpCells.length).toBe(40); // One cell per feature
+    expect(lgpCells.length).toBe(42); // One cell per feature
 
     const wired = lgpCells.filter((c: any) => c.status === "wired");
     const stub = lgpCells.filter((c: any) => c.status === "stub");
     const unshipped = lgpCells.filter((c: any) => c.status === "unshipped");
 
-    // LGP has 40 features: 39 wired + 1 stub (cli-start) + 0 unshipped
-    expect(wired.length).toBe(39);
+    expect(wired.length).toBe(35);
     expect(stub.length).toBe(1);
-    expect(unshipped.length).toBe(0);
+    expect(unshipped.length).toBe(6);
   });
 
   it("stub detection: LGP/cli-start has stub status (demo exists, no route)", () => {
@@ -198,7 +197,7 @@ describe("Catalog Generator", () => {
 
     expect(catalog.metadata).toBeDefined();
     // total_cells excludes docs-only features
-    expect(catalog.metadata.total_cells).toBe(702);
+    expect(catalog.metadata.total_cells).toBe(738);
 
     // Headline counts exclude docs-only cells; must sum to total_cells.
     expect(

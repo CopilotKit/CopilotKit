@@ -1,0 +1,48 @@
+# Record-mode override for aimock. Layer on top of docker-compose.local.yml
+# to flip aimock from replay-only into record+replay against real OpenAI /
+# Anthropic. Recorded fixtures land on the host at
+# `showcase/aimock/d5-recorded/recorded/` (one file per LLM call).
+#
+# Usage:
+#   docker compose -f showcase/docker-compose.local.yml \
+#                  -f showcase/docker-compose.record.yml \
+#                  --profile infra up -d aimock langgraph-python
+#
+# When recording is finished, switch back to base compose (no override) and
+# load any new fixtures from `d5-recorded/` via an additional `--fixtures`
+# entry on the aimock command.
+#
+# Authorization headers from the integration container are forwarded to the
+# real provider — no key needs to be set on aimock itself.
+services:
+  aimock:
+    volumes:
+      # RW mount so aimock can write `recorded/<provider>-<ts>-<uuid>.json`
+      # under this dir. Existing baseline fixtures stay :ro from the base
+      # compose; only the recording dir is writable.
+      - ./aimock/d5-recorded:/showcase-fixtures/d5-recorded:rw
+    command: [
+        "--port",
+        "4010",
+        "--host",
+        "0.0.0.0",
+        "--record",
+        "--provider-openai",
+        "https://api.openai.com",
+        "--provider-anthropic",
+        "https://api.anthropic.com",
+        # Load ONLY the recorded dir as the fixture source. The baseline
+        # d5-all.json / feature-parity.json fixtures are intentionally
+        # NOT loaded — if they were, aimock would short-circuit on
+        # already-matched prompts and never proxy them to the real
+        # provider, defeating the recording pass.
+        #
+        # smoke.json is also dropped here; the langgraph-python container
+        # doesn't use it during d5 probes, only the dedicated /api/smoke
+        # route which we aren't exercising.
+        #
+        # First --fixtures path is the recording destination base; aimock
+        # writes to `<base>/recorded/<provider>-<ts>-<uuid>.json`.
+        "--fixtures",
+        "/showcase-fixtures/d5-recorded",
+      ]

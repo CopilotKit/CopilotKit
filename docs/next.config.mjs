@@ -174,6 +174,17 @@ const config = {
 
     // Manual redirects for specific cases
     const manualRedirects = [
+      // llms.txt files are served from mcp.copilotkit.ai
+      {
+        source: '/llms.txt',
+        destination: 'https://mcp.copilotkit.ai/llms.txt',
+        permanent: true,
+      },
+      {
+        source: '/llms-full.txt',
+        destination: 'https://mcp.copilotkit.ai/llms-full.txt',
+        permanent: true,
+      },
       // Redirect /whats-new/v1-50 to /learn/whats-new/v1-50
       {
         source: '/whats-new/v1-50',

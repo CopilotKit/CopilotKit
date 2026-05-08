@@ -32,18 +32,18 @@ class AgentState(BaseAgentState):
 
 
 @tool
-def write_document(content: str, runtime: ToolRuntime) -> Command:
+def write_document(document: str, runtime: ToolRuntime) -> Command:
     """Write a document for the user.
 
     Always call this tool when the user asks you to write or draft
     something of any length (an essay, poem, email, summary, etc.).
-    The `content` argument is streamed *per token* into shared agent
+    The `document` argument is streamed *per token* into shared agent
     state under the `document` key, so the UI can render it as it is
     generated.
     """
     return Command(
         update={
-            "document": content,
+            "document": document,
             "messages": [
                 ToolMessage(
                     content="Document written to shared state.",
@@ -60,15 +60,20 @@ graph = create_agent(
     tools=[write_document],
     middleware=[
         CopilotKitMiddleware(),
-        # Forward every token of write_document's `content` argument
+        # Forward every token of write_document's `document` argument
         # straight into state["document"] while the tool call is still
         # streaming. Without this, `document` would only update once
         # the tool call completes.
+        #
+        # NOTE: the frontend `usePredictStateSubscription` hook indexes
+        # the (partial-JSON-parsed) tool args by `state_key`, so the
+        # tool's argument name MUST match `state_key` ("document") for
+        # per-token deltas to land in `state.document`.
         StateStreamingMiddleware(
             StateItem(
                 state_key="document",
                 tool="write_document",
-                tool_argument="content",
+                tool_argument="document",
             )
         ),
     ],
@@ -76,10 +81,10 @@ graph = create_agent(
     system_prompt=(
         "You are a collaborative writing assistant. Whenever the user asks "
         "you to write, draft, or revise any piece of text, ALWAYS call the "
-        "`write_document` tool with the full content as a single string. "
-        "Never paste the document into a chat message directly — the "
-        "document belongs in shared state and the UI renders it live as "
-        "you type."
+        "`write_document` tool with the full content as a single string in "
+        "the `document` argument. Never paste the document into a chat "
+        "message directly — the document belongs in shared state and the "
+        "UI renders it live as you type."
     ),
 )
 # @endregion[state-streaming-middleware]

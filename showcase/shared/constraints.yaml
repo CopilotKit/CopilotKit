@@ -42,6 +42,8 @@ generative_ui:
       - tool-rendering-reasoning-chain
       - agentic-chat-reasoning
       - reasoning-default-render
+      - reasoning-default
+      - reasoning-custom
       - prebuilt-sidebar
       - prebuilt-popup
       - chat-slots

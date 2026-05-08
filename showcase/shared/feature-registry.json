@@ -266,6 +266,22 @@
       "og_docs_url": "https://docs.copilotkit.ai/custom-look-and-feel/reasoning-messages"
     },
     {
+      "id": "reasoning-default",
+      "name": "Reasoning: Default",
+      "category": "operational-generative-ui",
+      "description": "Built-in CopilotChatReasoningMessage rendering with no slot override",
+      "shell_docs_path": "/custom-look-and-feel/reasoning-messages",
+      "og_docs_url": "https://docs.copilotkit.ai/custom-look-and-feel/reasoning-messages"
+    },
+    {
+      "id": "reasoning-custom",
+      "name": "Reasoning: Custom",
+      "category": "operational-generative-ui",
+      "description": "Custom reasoning slot override via messageView.reasoningMessage",
+      "shell_docs_path": "/custom-look-and-feel/reasoning-messages",
+      "og_docs_url": "https://docs.copilotkit.ai/custom-look-and-feel/reasoning-messages"
+    },
+    {
       "id": "gen-ui-agent",
       "name": "Agentic Generative UI (In-Chat State Rendering)",
       "category": "operational-generative-ui",

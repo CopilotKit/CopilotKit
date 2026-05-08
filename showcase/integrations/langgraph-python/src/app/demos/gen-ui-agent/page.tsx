@@ -1,15 +1,15 @@
 "use client";
 
 import React from "react";
-import { CopilotKit } from "@copilotkit/react-core";
 import {
   CopilotChat,
+  CopilotKit,
   useAgent,
   UseAgentUpdate,
-  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
-import { InlineAgentStateCard } from "./InlineAgentStateCard";
 import type { Step } from "./InlineAgentStateCard";
+import { MessageListWithState } from "./message-list-with-state";
+import { useSuggestions } from "./suggestions";
 
 /**
  * Agentic Generative UI — In-Chat State Rendering
@@ -51,24 +51,7 @@ function Chat() {
     updates: [UseAgentUpdate.OnStateChanged],
   });
 
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Plan a product launch",
-        message: "Plan a product launch for a new mobile app.",
-      },
-      {
-        title: "Organize a team offsite",
-        message: "Organize a three-day engineering team offsite.",
-      },
-      {
-        title: "Research a competitor",
-        message:
-          "Research our top competitor and summarize their strengths and weaknesses.",
-      },
-    ],
-    available: "always",
-  });
+  useSuggestions();
 
   const steps = (agent.state as AgentState | undefined)?.steps ?? [];
   const status = agent.isRunning ? "inProgress" : "complete";
@@ -79,13 +62,12 @@ function Chat() {
       className="h-full rounded-2xl"
       messageView={{
         children: ({ messageElements, interruptElement }) => (
-          <div data-testid="copilot-message-list" className="flex flex-col">
-            {messageElements}
-            {steps.length > 0 && (
-              <InlineAgentStateCard steps={steps} status={status} />
-            )}
-            {interruptElement}
-          </div>
+          <MessageListWithState
+            messageElements={messageElements}
+            interruptElement={interruptElement}
+            steps={steps}
+            status={status}
+          />
         ),
       }}
     />

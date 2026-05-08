@@ -1,7 +1,7 @@
 """Reasoning agent — emits AG-UI REASONING_MESSAGE_* events.
 
-Shared by agentic-chat-reasoning (custom amber ReasoningBlock) and
-reasoning-default-render (CopilotKit's built-in reasoning slot).
+Shared by reasoning-custom (custom amber ReasoningBlock) and
+reasoning-default (CopilotKit's built-in reasoning slot).
 
 Why a reasoning model + Responses API:
 The OpenAI Responses API streams `response.reasoning_summary_text.delta`

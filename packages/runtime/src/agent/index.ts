@@ -1,8 +1,6 @@
-import {
-  AbstractAgent,
+import type {
   BaseEvent,
   RunAgentInput,
-  EventType,
   Message,
   ReasoningEndEvent,
   ReasoningMessageContentEvent,
@@ -20,9 +18,9 @@ import {
   StateSnapshotEvent,
   StateDeltaEvent,
 } from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
 import type { AgentCapabilities } from "@ag-ui/core";
-import {
-  streamText,
+import type {
   LanguageModel,
   ModelMessage,
   AssistantModelMessage,
@@ -34,12 +32,12 @@ import {
   TextPart,
   ImagePart,
   FilePart,
-  tool as createVercelAISDKTool,
   ToolChoice,
   ToolSet,
-  stepCountIs,
 } from "ai";
-import { experimental_createMCPClient as createMCPClient } from "@ai-sdk/mcp";
+import { streamText, tool as createVercelAISDKTool, stepCountIs } from "ai";
+import { createMCPClient } from "@ai-sdk/mcp";
+import type { MCPClient } from "@ai-sdk/mcp";
 import { Observable } from "rxjs";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
@@ -52,10 +50,9 @@ import { schemaToJsonSchema } from "@copilotkit/shared";
 import { jsonSchema as aiJsonSchema } from "ai";
 import { convertAISDKStream } from "./converters/aisdk";
 import { convertTanStackStream } from "./converters/tanstack";
-import {
-  StreamableHTTPClientTransport,
-  StreamableHTTPClientTransportOptions,
-} from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import type { StreamableHTTPClientTransportOptions } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { INTELLIGENCE_USER_ID_HEADER } from "../v2/runtime/intelligence-platform/client";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { randomUUID } from "@copilotkit/shared";
 
@@ -117,16 +114,15 @@ export type ModelSpecifier = string | LanguageModel;
  * MCP Client configuration for HTTP transport
  */
 export interface MCPClientConfigHTTP {
-  /**
-   * Type of MCP client
-   */
+  /** Type of MCP client */
   type: "http";
-  /**
-   * URL of the MCP server
-   */
+  /** URL of the MCP server */
   url: string;
   /**
-   * Optional transport options for HTTP client
+   * Optional transport options for the underlying
+   * `StreamableHTTPClientTransport`. The SDK's documented extension point
+   * for per-request customization is `options.fetch` — pass a wrapped fetch
+   * here if you need static + dynamic headers on outbound MCP requests.
    */
   options?: StreamableHTTPClientTransportOptions;
 }
@@ -135,17 +131,11 @@ export interface MCPClientConfigHTTP {
  * MCP Client configuration for SSE transport
  */
 export interface MCPClientConfigSSE {
-  /**
-   * Type of MCP client
-   */
+  /** Type of MCP client */
   type: "sse";
-  /**
-   * URL of the MCP server
-   */
+  /** URL of the MCP server */
   url: string;
-  /**
-   * Optional HTTP headers (e.g., for authentication)
-   */
+  /** Optional HTTP headers (e.g., for authentication) */
   headers?: Record<string, string>;
 }
 
@@ -1104,7 +1094,7 @@ export class BuiltInAgent extends AbstractAgent {
       }
 
       // Set up MCP clients if configured and process the stream
-      const mcpClients: Array<{ close: () => Promise<void> }> = [];
+      const mcpClients: MCPClient[] = [];
 
       (async () => {
         let terminalEventEmitted = false;
@@ -1187,9 +1177,62 @@ export class BuiltInAgent extends AbstractAgent {
             }
           }
 
-          // Initialize MCP clients and get their tools
-          if (this.config.mcpServers && this.config.mcpServers.length > 0) {
-            for (const serverConfig of this.config.mcpServers) {
+          // Initialize MCP clients and get their tools.
+          //
+          // Servers come from two sources, concatenated in order:
+          //   - `config.mcpServers` — user-supplied static array.
+          //   - The CopilotKit Intelligence MCP server, auto-attached when
+          //     the runtime forwards a `copilotkitIntelligence` bag via
+          //     `input.forwardedProps.auth`. The bag carries `userId` +
+          //     `apiKey` + `mcpUrl`. We build a per-request
+          //     MCPClientConfigHTTP whose `options.fetch` closes over
+          //     `apiKey` + `userId` and stamps
+          //     `Authorization: Bearer <apiKey>` and `X-Cpki-User-Id:
+          //     <userId>` on every outbound MCP call. Skipped when the user
+          //     already configured a server pointing at the same URL. The
+          //     `auth` namespace is the convention for credentials that
+          //     downstream redaction policies strip before durable storage
+          //     and FE replay.
+          const allMcpServers: MCPClientConfig[] = [
+            ...(this.config.mcpServers ?? []),
+          ];
+          const auth = (
+            input.forwardedProps as
+              | { auth?: { copilotkitIntelligence?: unknown } }
+              | undefined
+          )?.auth;
+          const cpki = auth?.copilotkitIntelligence as
+            | { userId?: unknown; apiKey?: unknown; mcpUrl?: unknown }
+            | undefined;
+          const cpkiUserId =
+            typeof cpki?.userId === "string" ? cpki.userId : undefined;
+          const cpkiApiKey =
+            typeof cpki?.apiKey === "string" ? cpki.apiKey : undefined;
+          const cpkiMcpUrl =
+            typeof cpki?.mcpUrl === "string" ? cpki.mcpUrl : undefined;
+          if (
+            cpkiUserId &&
+            cpkiApiKey &&
+            cpkiMcpUrl &&
+            !allMcpServers.some(
+              (s) => s.type === "http" && s.url === cpkiMcpUrl,
+            )
+          ) {
+            allMcpServers.push({
+              type: "http",
+              url: cpkiMcpUrl,
+              options: {
+                fetch: async (req, init) => {
+                  const headers = new Headers(init?.headers);
+                  headers.set("Authorization", `Bearer ${cpkiApiKey}`);
+                  headers.set(INTELLIGENCE_USER_ID_HEADER, cpkiUserId);
+                  return globalThis.fetch(req, { ...init, headers });
+                },
+              },
+            });
+          }
+          if (allMcpServers.length > 0) {
+            for (const serverConfig of allMcpServers) {
               let transport;
 
               if (serverConfig.type === "http") {

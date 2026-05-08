@@ -5,7 +5,7 @@ format (`{ root, elements }`) so the frontend can feed it directly into
 `<Renderer />` against a Zod-validated catalog of three components —
 MetricCard, BarChart, PieChart.
 
-The scenario mirrors Wave 4a (hashbrown) so the two BYOC rows on the
+The scenario mirrors the byoc-hashbrown demo so the two BYOC rows on the
 dashboard are directly comparable. The only difference is the rendering
 technology; the catalog shape and suggestion prompts are identical.
 """

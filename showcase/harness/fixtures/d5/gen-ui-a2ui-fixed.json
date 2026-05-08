@@ -1,10 +1,27 @@
 {
-  "_comment": "D5 fixture for /demos/a2ui-fixed-schema. Substring 'render the a2ui schema' is unique.",
+  "_comment": "D5 fixture for /demos/a2ui-fixed-schema. The pill prompt 'Find me a flight from SFO to JFK on United for $289.' triggers the `display_flight` tool which returns an a2ui_operations container; the renderer materializes the fixed-schema component tree.",
   "fixtures": [
+    {
+      "match": { "userMessage": "SFO to JFK" },
+      "response": {
+        "content": "Here is the SFO to JFK flight on United.",
+        "toolCalls": [
+          {
+            "name": "display_flight",
+            "arguments": {
+              "origin": "SFO",
+              "destination": "JFK",
+              "airline": "United",
+              "price": "$289"
+            }
+          }
+        ]
+      }
+    },
     {
       "match": { "userMessage": "render the a2ui schema" },
       "response": {
-        "content": "The A2UI fixed-schema component was rendered. The schema-driven UI received the agent's payload and produced the corresponding UI element from the locked schema definition."
+        "content": "The A2UI fixed-schema component was rendered."
       }
     }
   ]

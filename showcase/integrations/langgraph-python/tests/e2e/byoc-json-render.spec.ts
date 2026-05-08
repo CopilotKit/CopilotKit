@@ -7,7 +7,7 @@ import { test, expect } from "@playwright/test";
  * Task 12 scope note).
  *
  * Structurally mirrors `gen-ui-tool-based.spec.ts` so the agent
- * dashboard's Wave 4a/4b rows exercise the same surfaces.
+ * dashboard's BYOC rows exercise the same surfaces.
  */
 test.describe("BYOC json-render", () => {
   test.beforeEach(async ({ page }) => {

@@ -5,7 +5,7 @@
 // A single cell that composes two previously-separate patterns:
 //
 //   1. Reasoning tokens rendered via a custom `reasoningMessage` slot —
-//      the same approach used by the `agentic-chat-reasoning` cell.
+//      the same approach used by the `reasoning-custom` cell.
 //   2. Sequential tool calls rendered with:
 //        get_weather     → <WeatherCard />
 //        search_flights  → <FlightListCard />

@@ -1,4 +1,4 @@
-"""LangGraph agent backing the byoc-hashbrown demo (Wave 4a).
+"""LangGraph agent backing the byoc-hashbrown demo.
 
 Emits hashbrown-shaped structured output that the ported HashBrownDashboard
 renderer (`src/app/demos/byoc-hashbrown/hashbrown-renderer.tsx`) progressively

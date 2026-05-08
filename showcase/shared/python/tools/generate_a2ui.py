@@ -15,9 +15,9 @@ _logger = logging.getLogger(__name__)
 
 CUSTOM_CATALOG_ID = "copilotkit://app-dashboard-catalog"
 
-# The render_a2ui tool schema that the secondary LLM is bound to.
-RENDER_A2UI_TOOL_SCHEMA = {
-    "name": "render_a2ui",
+# The _design_a2ui_surface tool schema that the secondary LLM is bound to.
+DESIGN_A2UI_SURFACE_TOOL_SCHEMA = {
+    "name": "_design_a2ui_surface",
     "description": (
         "Render a dynamic A2UI v0.9 surface.\n\n"
         "Args:\n"
@@ -55,7 +55,7 @@ def generate_a2ui_impl(
 
     Returns a dict with:
       - system_prompt: The system prompt for the secondary LLM (built from context)
-      - tool_schema: The render_a2ui tool schema to bind to the LLM
+      - tool_schema: The _design_a2ui_surface tool schema to bind to the LLM
       - tool_choice: The tool name to force
       - messages: The conversation messages to pass through
       - catalog_id: The default catalog ID
@@ -75,8 +75,8 @@ def generate_a2ui_impl(
 
     return {
         "system_prompt": context_text,
-        "tool_schema": RENDER_A2UI_TOOL_SCHEMA,
-        "tool_choice": "render_a2ui",
+        "tool_schema": DESIGN_A2UI_SURFACE_TOOL_SCHEMA,
+        "tool_choice": "_design_a2ui_surface",
         "messages": messages,
         "catalog_id": CUSTOM_CATALOG_ID,
     }

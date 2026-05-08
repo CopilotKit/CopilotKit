@@ -51,6 +51,6 @@
 
 ## Expected Results
 
-- Suggestion renders land within 60 seconds. Budget is slightly higher than Wave 4a because a JSON `{ root, elements }` spec is more verbose than hashbrown's token stream.
+- Suggestion renders land within 60 seconds. Budget is slightly higher than the hashbrown demo because a JSON `{ root, elements }` spec is more verbose than hashbrown's token stream.
 - No uncaught errors in the console.
 - Streaming falls back to plain text until the JSON parses, then swaps to rendered components.

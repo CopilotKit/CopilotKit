@@ -1,22 +1,10 @@
 # Agentic Generative UI
 
-## What This Demo Shows
+The agent renders custom UI as it works through long-running tasks, streaming
+status updates and intermediate results into the chat.
 
-Long-running agent tasks with generated UI
+Frontend uses `useAgentRender` to map agent-emitted UI types to React
+components, so the agent has full control over what appears in the transcript.
 
-## How to Interact
-
-Try asking your Copilot to:
-
-- "What's the weather like in San Francisco?"
-- "Show me current conditions in multiple cities"
-- "What should I wear in Tokyo today?"
-
-The agent generates custom UI components in the chat stream itself, rendering weather cards and interactive elements directly as part of its response.
-
-## Technical Details
-
-- **Agent-driven Generative UI** differs from tool-based — the agent directly emits UI components in the response stream
-- The agent's response includes structured data that CopilotKit renders as React components inline with the chat
-- Unlike tool-based gen UI, this approach gives the agent full control over when and how UI appears
-- The frontend registers renderers that map agent output types to React components
+The canonical description lives in the showcase manifest; this README is just
+a developer note alongside the demo source.

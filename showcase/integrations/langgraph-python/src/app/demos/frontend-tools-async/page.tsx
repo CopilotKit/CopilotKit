@@ -2,11 +2,11 @@
 
 import React from "react";
 import {
-  useFrontendTool,
-  useConfigureSuggestions,
   CopilotChat,
+  CopilotKit,
+  useConfigureSuggestions,
+  useFrontendTool,
 } from "@copilotkit/react-core/v2";
-import { CopilotKit } from "@copilotkit/react-core";
 import { z } from "zod";
 import { NotesCard, type Note } from "./notes-card";
 

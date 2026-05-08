@@ -19,6 +19,10 @@ Key benefits:
 - **Secure sandboxing** — content runs in isolated iframes
 - **Thread persistence** — MCP Apps are stored in conversation history and restored on reconnect
 
+<Callout type="info">
+  **Free course:** See this pattern built end-to-end in [Build Interactive Agents with Generative UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/) — a free DeepLearning.AI short course taught by CopilotKit's CEO covering the full Generative UI spectrum (Controlled, Declarative, and Open-Ended).
+</Callout>
+
 <InlineDemo demo="mcp-apps" />
 
 ## Wire the runtime to your MCP server(s)
@@ -41,7 +45,7 @@ resource and emits an `activity` event that the built-in
 ## No frontend renderer needed
 
 Unlike custom activity types, the MCP Apps renderer is already registered by
-`CopilotKitProvider` out of the box. A plain `<CopilotChat />` is enough;
+`CopilotKit` out of the box. A plain `<CopilotChat />` is enough;
 no `renderActivityMessages` prop, no manual
 `useRenderActivityMessage` wiring.
 
