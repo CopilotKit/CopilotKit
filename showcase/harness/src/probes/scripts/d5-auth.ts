@@ -161,27 +161,32 @@ export function buildAuthAssertion(
       );
     }
 
-    // Detect shape. Idiomatic: SignInCard testid existed at preFill time
-    // (we won't re-detect to avoid coupling to preFill state); we use
-    // the assistant-bubble presence as a proxy for "chat tree mounted".
-    // Simpler approach: just try the idiomatic assertion first (click
-    // sign-out, expect SignInCard re-mount) and if SignInCard never
-    // mounts within a short detection window, fall back to legacy.
-    //
-    // We split the timeout: if the idiomatic path is going to succeed,
-    // SignInCard re-mount is fast (a fresh React render — typically
-    // <500ms). If we don't see it within ~3s, we're on the legacy
-    // shape and should switch to the error-surface flow. The total
-    // wall-clock budget remains `timeout`.
+    // Single deadline gates the entire post-sign-out assertion so the
+    // total wall-clock STAYS within `timeout` (the previous version
+    // had a hardcoded 3s legacy banner-flip wait + 500ms sleep + 2s
+    // fill + 2s press + remaining error-poll, all of which could
+    // stack to ~15s when the caller asked for 8s — observable
+    // contract violation that only surfaced under tight test
+    // timeouts).
+    const deadline = Date.now() + timeout;
+    const remainingMs = (): number => Math.max(0, deadline - Date.now());
+    // Idiomatic detection gets the smaller of 3s or the caller's
+    // budget — fast-path for a fresh React render. Inner waitForSelector
+    // bound to remaining, so a 100ms deadline can't be overshot by a
+    // 200ms inner timeout the way the prior 3s-loop-with-200ms-inner
+    // could.
     await click(page, SIGN_OUT_BUTTON_SELECTOR);
 
-    const idiomaticDeadline = Date.now() + Math.min(3_000, timeout);
+    const idiomaticBudgetMs = Math.min(3_000, timeout);
+    const idiomaticDeadline = Date.now() + idiomaticBudgetMs;
     let signInCardMounted = false;
     while (Date.now() < idiomaticDeadline) {
+      const innerTimeout = Math.min(200, idiomaticDeadline - Date.now());
+      if (innerTimeout <= 0) break;
       try {
         await page.waitForSelector(SIGN_IN_CARD_SELECTOR, {
           state: "visible",
-          timeout: 200,
+          timeout: innerTimeout,
         });
         signInCardMounted = true;
         break;
@@ -197,23 +202,33 @@ export function buildAuthAssertion(
 
     // Legacy shape: SignInCard never re-mounts because <CopilotKit>
     // stays mounted. Run the legacy error-surface assertion against
-    // the remaining time budget.
-    const remaining = Math.max(2_000, timeout - 3_000);
+    // whatever budget remains. If the deadline is already exhausted
+    // (caller passed a tight timeout that the idiomatic path consumed),
+    // fail fast with a clean message instead of dragging through more
+    // hardcoded sub-timeouts.
+    if (remainingMs() <= 0) {
+      throw new Error(
+        `auth: neither idiomatic SignInCard re-mount nor legacy banner-flip happened within ${timeout}ms after sign-out — idiomatic detection consumed the budget`,
+      );
+    }
     // We already clicked sign-out above; legacy-path needs the
     // banner-flip + probe-send + error-surface flow but starts AFTER
-    // the click. Inline the rest of `assertLegacyErrorSurface` minus
-    // the click:
+    // the click.
     try {
       await page.waitForSelector(AUTH_BANNER_UNAUTHENTICATED_SELECTOR, {
         state: "visible",
-        timeout: 3_000,
+        timeout: Math.min(3_000, remainingMs()),
       });
     } catch {
       throw new Error(
-        `auth: neither idiomatic SignInCard re-mount nor legacy banner-flip happened after sign-out — auth flow may have regressed in BOTH shapes (idiomatic timeout: 3s; legacy banner-flip timeout: 3s)`,
+        `auth: neither idiomatic SignInCard re-mount nor legacy banner-flip happened within ${timeout}ms — auth flow may have regressed in BOTH shapes`,
       );
     }
-    await new Promise<void>((r) => setTimeout(r, 500));
+    // Allow useEffect to flush setHeaders() — capped at the remaining
+    // budget so a tight caller-timeout doesn't oversleep the deadline.
+    await new Promise<void>((r) =>
+      setTimeout(r, Math.min(500, remainingMs())),
+    );
     // Try to push a probe message through; if fill or press fails
     // (textarea not found, selector cascade mismatch, disabled control),
     // capture the error so the eventual "no error surface" failure
@@ -222,19 +237,20 @@ export function buildAuthAssertion(
     // the polling loop below handles that case — so we don't fail
     // hard on fill/press; we just preserve the diagnostic.
     let probeSendError: string | null = null;
+    const fillPressBudget = Math.min(2_000, remainingMs());
     try {
       await page.fill(
         '[data-testid="copilot-chat-textarea"]',
         "post-signout probe",
-        { timeout: 2_000 },
+        { timeout: fillPressBudget },
       );
       await page.press('[data-testid="copilot-chat-textarea"]', "Enter", {
-        timeout: 2_000,
+        timeout: Math.min(2_000, remainingMs()),
       });
     } catch (err) {
       probeSendError = err instanceof Error ? err.message : String(err);
     }
-    const errorDeadline = Date.now() + remaining;
+    const errorDeadline = deadline;
     while (Date.now() < errorDeadline) {
       if (await probeErrorSurfaceVisible(page)) return;
       await new Promise<void>((r) => setTimeout(r, POLL_INTERVAL_MS));
@@ -243,7 +259,7 @@ export function buildAuthAssertion(
       ? ` — probe send failed: ${probeSendError.slice(0, 140)}`
       : "";
     throw new Error(
-      `auth: legacy shape — banner flipped to unauthenticated but neither ${ERROR_BANNER_SELECTOR} nor ${ERROR_BOUNDARY_SELECTOR} appeared within ${remaining}ms after probe send — auth gate may have regressed${sendNote}`,
+      `auth: legacy shape — banner flipped to unauthenticated but neither ${ERROR_BANNER_SELECTOR} nor ${ERROR_BOUNDARY_SELECTOR} appeared within the ${timeout}ms total budget after probe send — auth gate may have regressed${sendNote}`,
     );
   };
 }

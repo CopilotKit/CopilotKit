@@ -234,13 +234,41 @@ describe("d5-auth script", () => {
         legacyBannerFlipsToUnauth: true,
         legacyErrorSurfaceAppears: false,
       });
+      // signOutTimeoutMs MUST be large enough that the idiomatic-
+      // detection window (Math.min(3_000, timeout)) doesn't consume
+      // the entire budget — otherwise the assertion fails with
+      // "idiomatic detection consumed the budget" before the legacy
+      // path runs. 4s gives idiomatic 3s + ~1s of budget for the
+      // legacy banner-flip + fill + press + error-surface poll.
       const assertion = buildAuthAssertion({
-        signOutTimeoutMs: 200,
+        signOutTimeoutMs: 4_000,
         detectTimeoutMs: 50,
         click: fakeClick,
       });
       await expect(assertion(page)).rejects.toThrow(
         /legacy shape.*neither.*appeared/,
+      );
+    });
+
+    it("fails fast with 'idiomatic detection consumed the budget' when caller passes a tight timeout", async () => {
+      const { page, fakeClick } = makePage({
+        signInButtonVisible: false,
+        signOutButtonVisible: true,
+        signInCardRemounts: false,
+        legacyBannerFlipsToUnauth: true,
+        legacyErrorSurfaceAppears: false,
+      });
+      // With a tight 100ms budget, the idiomatic-detection window
+      // (Math.min(3_000, 100) = 100ms) consumes the entire budget;
+      // the legacy fallback should bail immediately rather than
+      // pushing through more hardcoded sub-timeouts.
+      const assertion = buildAuthAssertion({
+        signOutTimeoutMs: 100,
+        detectTimeoutMs: 50,
+        click: fakeClick,
+      });
+      await expect(assertion(page)).rejects.toThrow(
+        /idiomatic detection consumed the budget/,
       );
     });
   });
