@@ -202,19 +202,19 @@ const MobileSidebar = ({
 
   return (
     <div
-      className={`flex fixed top-0 left-0 z-50 justify-end p-1 w-full h-full transition-colors duration-300 ${
+      className={`flex fixed top-[68px] left-0 z-50 justify-end p-1 w-full h-[calc(100vh-68px)] transition-colors duration-300 ${
         isVisible ? "bg-black/30" : "bg-black/0"
       }`}
       onClick={(e) => {
-        // Close when clicking the backdrop (outside the sidebar)
         if (e.target === e.currentTarget) handleClose();
       }}
     >
       <OpenedFoldersProvider>
         <aside
-          className={`flex flex-col w-full max-w-[280px] h-[calc(100vh-8px)] border backdrop-blur-3xl border-r-0 border-border bg-white/50 dark:bg-white/[0.01] rounded-2xl pl-3 pr-1 transition-transform duration-300 ease-out ${
+          className={`flex flex-col w-full max-w-[280px] h-full border backdrop-blur-lg border-r-0 border-border rounded-2xl pl-3 pr-1 transition-transform duration-300 ease-out ${
             isVisible ? "translate-x-0" : "translate-x-full"
           }`}
+          style={{ backgroundColor: "var(--sidebar)" }}
         >
           <div className="flex justify-between items-center my-2 w-full">
             <div className="flex gap-1 items-center">
