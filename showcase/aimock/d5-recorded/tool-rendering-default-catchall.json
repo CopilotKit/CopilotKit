@@ -1,0 +1,31 @@
+{
+  "_comment": "Recorded 2026-05-08T12:39:05.948Z by record-d5-fixtures.mjs (langgraph-python d5:tool-rendering-default-catchall)",
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}",
+            "id": "call_cbZTunaU7ZV1nN112EG34t0v"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "turnIndex": 1,
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "The current weather in Tokyo is sunny, with a temperature of 68°F, humidity at 55%, and wind speed of 10 mph."
+      }
+    }
+  ]
+}

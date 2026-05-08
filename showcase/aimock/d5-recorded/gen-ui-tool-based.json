@@ -1,0 +1,21 @@
+{
+  "_comment": "Recorded 2026-05-08T12:41:34.936Z by record-d5-fixtures.mjs (langgraph-python d5:gen-ui-tool-based)",
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "Show me a pie chart of revenue by category",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_pie_chart",
+            "arguments": "{\"title\":\"Revenue by Category\",\"description\":\"Composition of revenue across different categories\",\"data\":[{\"label\":\"Electronics\",\"value\":30000},{\"label\":\"Clothing\",\"value\":20000},{\"label\":\"Home Goods\",\"value\":15000},{\"label\":\"Sports Equipment\",\"value\":10000},{\"label\":\"Books\",\"value\":5000}]}",
+            "id": "call_bgsSjbOY92zb32d6tNsegqsN"
+          }
+        ]
+      }
+    }
+  ]
+}
