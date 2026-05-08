@@ -96,6 +96,16 @@ async function emitBatch(agent: MockStepwiseAgent, n: number) {
   );
 }
 
+async function drainAnimationFrames(frameCount = 25) {
+  await act(async () => {
+    for (let i = 0; i < frameCount; i++) {
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => resolve()),
+      );
+    }
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -230,16 +240,13 @@ describe("CopilotChat perf — re-render regression", () => {
     // Drain pending animation frames before unmounting. TanStack Virtual
     // schedules rAF callbacks for measurement; if they fire after jsdom tears
     // down (window === null) they produce a spurious uncaught exception.
-    await act(async () => {
-      await new Promise<void>((r) => requestAnimationFrame(() => r()));
-      await new Promise<void>((r) => requestAnimationFrame(() => r()));
-    });
+    await drainAnimationFrames();
     unmount();
   });
 
   it("renders 100 messages without error and within 5 s", async () => {
     const agent = new MockStepwiseAgent();
-    renderWithCopilotKit({ agent });
+    const { unmount } = renderWithCopilotKit({ agent });
 
     await triggerRun();
 
@@ -264,5 +271,8 @@ describe("CopilotChat perf — re-render regression", () => {
     // 5 000 ms is a generous CI-safe ceiling; the /perf page is the right tool
     // for tighter measurements against browser rendering.
     expect(elapsed).toBeLessThan(5_000);
+
+    await drainAnimationFrames();
+    unmount();
   });
 });
