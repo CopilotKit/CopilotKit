@@ -197,14 +197,23 @@ def search_flights(flights: list[Flight]) -> str:
 CUSTOM_CATALOG_ID = "copilotkit://app-dashboard-catalog"
 
 
+# Internal tool bound only to the secondary LLM inside `generate_a2ui` for
+# structured-output. Intentionally NOT named `render_a2ui` because the A2UI
+# middleware default-intercepts any tool call by that name from the run's
+# event stream and synthesises ACTIVITY_SNAPSHOT events from the LLM's RAW
+# streaming args (catalogId + components, before our Python code can validate
+# or normalise). That bypass is what surfaced the "Catalog not found:
+# declarative-gen-ui-catalog" hallucination on beautiful-chat and the
+# "Cannot create component root without a type" loop on declarative-gen-ui.
+# Renaming sidesteps the middleware's intercept list (`a2uiToolNames`).
 @lc_tool
-def render_a2ui(
+def _design_a2ui_surface(
     surfaceId: str,
     catalogId: str,
     components: list[dict],
     data: dict | None = None,
 ) -> str:
-    """Render a dynamic A2UI v0.9 surface.
+    """Design a dynamic A2UI v0.9 surface.
 
     Args:
         surfaceId: Unique surface identifier.
@@ -214,12 +223,12 @@ def render_a2ui(
         data: Optional initial data model for the surface (e.g. form values,
             list items for data-bound components).
     """
-    return "rendered"
+    return "designed"
 
 
 _GENERATE_A2UI_PROMPT_HEADER = f"""\
-You are designing a dynamic A2UI v0.9 surface. Call the `render_a2ui` tool with
-a flat component array.
+You are designing a dynamic A2UI v0.9 surface. Call the `_design_a2ui_surface`
+tool with a flat component array.
 
 Hard requirements (failing any of these breaks the renderer — be strict):
 - `catalogId` MUST be exactly: "{CUSTOM_CATALOG_ID}"
@@ -260,8 +269,8 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
 
     model = ChatOpenAI(model="gpt-4.1")
     model_with_tool = model.bind_tools(
-        [render_a2ui],
-        tool_choice="render_a2ui",
+        [_design_a2ui_surface],
+        tool_choice="_design_a2ui_surface",
     )
 
     response = model_with_tool.invoke(
@@ -269,7 +278,7 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     )
 
     if not response.tool_calls:
-        return json.dumps({"error": "LLM did not call render_a2ui"})
+        return json.dumps({"error": "LLM did not call _design_a2ui_surface"})
 
     tool_call = response.tool_calls[0]
     args = tool_call["args"]

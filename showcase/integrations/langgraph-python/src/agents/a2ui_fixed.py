@@ -53,6 +53,12 @@ def display_flight(origin: str, destination: str, airline: str, price: str) -> s
 
     Use short airport codes (e.g. "SFO", "JFK") for origin/destination and a
     price string like "$289".
+
+    After this tool returns, the flight card is already rendered to the user
+    via the A2UI surface — the JSON returned here is the surface descriptor
+    the renderer consumes, NOT a status code. Do NOT call this tool again
+    for the same flight (the user already sees the card). Reply with one
+    short confirmation sentence and stop.
     """
     # @region[backend-render-operations]
     # The A2UI middleware detects the `a2ui_operations` container in this
@@ -86,7 +92,10 @@ graph = create_agent(
     middleware=[CopilotKitMiddleware()],
     system_prompt=(
         "You help users find flights. When asked about a flight, call "
-        "display_flight with origin, destination, airline, and price. "
-        "Keep any chat reply to one short sentence."
+        "`display_flight` exactly ONCE with origin, destination, airline, "
+        "and price. The tool's JSON return value is an A2UI surface "
+        "descriptor — the flight card is already rendered to the user; do "
+        "NOT call `display_flight` again for the same trip. After the tool "
+        "returns, reply with one short confirmation sentence and stop."
     ),
 )
