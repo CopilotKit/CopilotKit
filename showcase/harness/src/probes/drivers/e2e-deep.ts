@@ -986,31 +986,67 @@ export function createE2eDeepDriver(
             // global hit). The synthetic timeout result is shaped like
             // a normal runFeature failure so the rest of the loop is
             // unchanged.
+            //
+            // Cancellation: per-feature abort controller's signal is
+            // forwarded to runFeature. When the timer wins the race we
+            // call `.abort()` so runFeature's in-flight Playwright ops
+            // (and the page/context they hold) get torn down via the
+            // existing finally chain — instead of orphaning the browser
+            // context until the global timeout eventually fires. This
+            // matters because Semaphore.release() runs immediately
+            // after the race resolves, and a new feature acquiring the
+            // slot while an orphan still holds a context can silently
+            // exceed FEATURE_CONCURRENCY's pool budget.
+            //
+            // Timer cleanup is in a try/finally so a thrown rejection
+            // from runFeature (defensive — the contract says it
+            // doesn't throw) doesn't leak the unref'd setTimeout.
+            const featureAbort = new AbortController();
+            // Propagate the parent abort (global timeout / external
+            // abort) into the per-feature controller so runFeature
+            // sees both signals through one input.
+            const onParentAbort = (): void => featureAbort.abort();
+            if (abort.signal.aborted) featureAbort.abort();
+            else
+              abort.signal.addEventListener("abort", onParentAbort, {
+                once: true,
+              });
+
             let featureTimer: ReturnType<typeof setTimeout> | undefined;
-            const featureResult = await Promise.race([
-              runFeature({
-                browser: browserRef,
-                url,
-                pageTimeoutMs,
-                script,
-                buildCtx: {
-                  integrationSlug: slug,
-                  featureType: ft,
-                  baseUrl: backendUrl,
-                },
-                abortSignal: abort.signal,
-              }),
-              new Promise<Awaited<ReturnType<typeof runFeature>>>((resolve) => {
-                featureTimer = setTimeout(() => {
-                  resolve({
-                    ok: false,
-                    errorClass: "feature-timeout",
-                    errorDesc: `feature exceeded ${featureTimeoutMs}ms wall-clock`,
-                  });
-                }, featureTimeoutMs);
-              }),
-            ]);
-            if (featureTimer) clearTimeout(featureTimer);
+            let featureResult: Awaited<ReturnType<typeof runFeature>>;
+            try {
+              featureResult = await Promise.race([
+                runFeature({
+                  browser: browserRef,
+                  url,
+                  pageTimeoutMs,
+                  script,
+                  buildCtx: {
+                    integrationSlug: slug,
+                    featureType: ft,
+                    baseUrl: backendUrl,
+                  },
+                  abortSignal: featureAbort.signal,
+                }),
+                new Promise<Awaited<ReturnType<typeof runFeature>>>(
+                  (resolve) => {
+                    featureTimer = setTimeout(() => {
+                      // Tell the in-flight runFeature to tear down so
+                      // its browser context releases promptly.
+                      featureAbort.abort();
+                      resolve({
+                        ok: false,
+                        errorClass: "feature-timeout",
+                        errorDesc: `feature exceeded ${featureTimeoutMs}ms wall-clock`,
+                      });
+                    }, featureTimeoutMs);
+                  },
+                ),
+              ]);
+            } finally {
+              if (featureTimer) clearTimeout(featureTimer);
+              abort.signal.removeEventListener("abort", onParentAbort);
+            }
 
             if (featureResult.ok) {
               await sideEmit(ctx, {

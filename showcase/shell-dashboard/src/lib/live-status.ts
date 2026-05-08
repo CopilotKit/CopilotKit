@@ -173,6 +173,29 @@ export const CATALOG_TO_D5_KEY: Readonly<Record<string, readonly string[]>> = {
   voice: ["voice"],
 };
 
+/**
+ * Resolve the rolled-up D5 row for `(slug, featureId)`.
+ *
+ * Precedence across the multi-key set (red > degraded > green) — the
+ * cell's badge tone reflects the worst-state row in the family. A
+ * naive "first non-null wins" or "only red wins" implementation
+ * silently masks degraded sub-rows behind green ones; for a cell like
+ * `beautiful-chat` which fans out to 5 per-pill keys, that means an
+ * amber sub-row would render the cell green and operators would never
+ * see the partial regression.
+ *
+ * Missing rows are treated as not-yet-emitted and are NOT a signal of
+ * health — but they also can't be "worst" because we can't compare
+ * them to anything. The caller (`resolveCell`) renders gray when no
+ * row is returned, which surfaces "no data yet" distinctly from
+ * green.
+ */
+const D5_STATE_RANK: Readonly<Record<State, number>> = {
+  red: 3,
+  degraded: 2,
+  green: 1,
+};
+
 function resolveD5Row(
   live: LiveStatusMap,
   slug: string,
@@ -186,7 +209,9 @@ function resolveD5Row(
   for (const d5Key of d5Keys) {
     const row = live.get(keyFor("d5", slug, d5Key)) ?? null;
     if (!row) continue;
-    if (!worst || row.state === "red") worst = row;
+    if (!worst || D5_STATE_RANK[row.state] > D5_STATE_RANK[worst.state]) {
+      worst = row;
+    }
   }
   return worst;
 }

@@ -364,6 +364,71 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     expect(c.d5.row).toBeNull();
     expect(c.d6.row).toBeNull();
   });
+
+  // ── multi-key D5 fan-out (e.g. beautiful-chat → 5 per-pill keys) ──
+  // The CATALOG_TO_D5_KEY mapping fans some catalog feature IDs to
+  // multiple D5 keys (beautiful-chat → 5 per-pill literals). The
+  // rolled-up cell must reflect the WORST-state row in the family —
+  // red > degraded > green — so a single amber pill turns the badge
+  // amber instead of staying green behind a co-iterated green sibling.
+  it("d5 multi-key fan-out: red beats green when red comes after green", () => {
+    const live = mapOf([
+      row("d5:agno/beautiful-chat-toggle-theme", "d5", "green"),
+      row("d5:agno/beautiful-chat-pie-chart", "d5", "red"),
+    ]);
+    const c = resolveCell(live, "agno", "beautiful-chat");
+    expect(c.d5.tone).toBe("red");
+    expect(c.d5.label).toBe("✗");
+  });
+
+  it("d5 multi-key fan-out: red beats green when red comes BEFORE green", () => {
+    const live = mapOf([
+      row("d5:agno/beautiful-chat-toggle-theme", "d5", "red"),
+      row("d5:agno/beautiful-chat-pie-chart", "d5", "green"),
+    ]);
+    const c = resolveCell(live, "agno", "beautiful-chat");
+    expect(c.d5.tone).toBe("red");
+  });
+
+  it("d5 multi-key fan-out: degraded beats green regardless of iteration order", () => {
+    // Pre-fix regression: only `red` could replace `worst`, so a degraded
+    // row encountered after a green row was silently dropped and the
+    // badge stayed green. With the fix, degraded > green wins.
+    const liveGreenFirst = mapOf([
+      row("d5:agno/beautiful-chat-toggle-theme", "d5", "green"),
+      row("d5:agno/beautiful-chat-pie-chart", "d5", "degraded"),
+    ]);
+    expect(resolveCell(liveGreenFirst, "agno", "beautiful-chat").d5.tone).toBe(
+      "amber",
+    );
+
+    const liveDegradedFirst = mapOf([
+      row("d5:agno/beautiful-chat-toggle-theme", "d5", "degraded"),
+      row("d5:agno/beautiful-chat-pie-chart", "d5", "green"),
+    ]);
+    expect(
+      resolveCell(liveDegradedFirst, "agno", "beautiful-chat").d5.tone,
+    ).toBe("amber");
+  });
+
+  it("d5 multi-key fan-out: red beats degraded", () => {
+    const live = mapOf([
+      row("d5:agno/beautiful-chat-toggle-theme", "d5", "degraded"),
+      row("d5:agno/beautiful-chat-pie-chart", "d5", "red"),
+    ]);
+    expect(resolveCell(live, "agno", "beautiful-chat").d5.tone).toBe("red");
+  });
+
+  it("d5 multi-key fan-out: all green stays green", () => {
+    const live = mapOf([
+      row("d5:agno/beautiful-chat-toggle-theme", "d5", "green"),
+      row("d5:agno/beautiful-chat-pie-chart", "d5", "green"),
+      row("d5:agno/beautiful-chat-bar-chart", "d5", "green"),
+      row("d5:agno/beautiful-chat-search-flights", "d5", "green"),
+      row("d5:agno/beautiful-chat-schedule-meeting", "d5", "green"),
+    ]);
+    expect(resolveCell(live, "agno", "beautiful-chat").d5.tone).toBe("green");
+  });
 });
 
 describe("formatTooltip behaviour (via resolveCell)", () => {

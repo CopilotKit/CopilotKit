@@ -42,8 +42,14 @@ export const ASSISTANT_BUBBLE_SELECTOR =
   ".copilotKitMessage.copilotKitAssistantMessage";
 /** The user bubble's inner v2 element — paints the halcyon-paper-elevated
  *  background plus the ember left border. The outer message wrapper is
- *  transparent in the new theme; signals all live on this inner node. */
-export const USER_BUBBLE_INNER_SELECTOR = `${USER_BUBBLE_SELECTOR} [class*="bg-muted"]`;
+ *  transparent in the new theme; signals all live on this inner node.
+ *
+ *  Uses `[class~="bg-muted"]` (whole-token match in space-separated
+ *  class lists) rather than `[class*="bg-muted"]` (substring match):
+ *  the latter accidentally also matches `bg-muted-foreground`, which
+ *  appears on nested children in real Tailwind output and would cause
+ *  the probe to read computed styles off the wrong element. */
+export const USER_BUBBLE_INNER_SELECTOR = `${USER_BUBBLE_SELECTOR} [class~="bg-muted"]`;
 
 // ── HALCYON theme anchors (langgraph-python) ──────────────────────────
 /** halcyon-ember rgb anchor (`#c44a1f`) on the user-bubble inner border-left. */
@@ -122,7 +128,7 @@ export async function probeChatCss(page: Page): Promise<ChatCssProbeResult> {
     // includes `bg-muted` on the bubble div.
     const userInner = (
       userOuter as { querySelector?(sel: string): unknown } | null
-    )?.querySelector?.('[class*="bg-muted"]');
+    )?.querySelector?.('[class~="bg-muted"]');
     const assistantEl = win.document.querySelector(
       ".copilotKitMessage.copilotKitAssistantMessage",
     );

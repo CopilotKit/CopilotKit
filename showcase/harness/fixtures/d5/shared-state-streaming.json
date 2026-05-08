@@ -1,5 +1,5 @@
 {
-  "_comment": "D5 fixture for /demos/shared-state-streaming. Three pill prompts produce `write_document` tool calls with non-trivial content payloads (≥ 100 chars) so the document streams into shared state and the DocumentView's char-count assertion can verify a substantive document was written. `arguments` MUST be a JSON-stringified string (not a raw object) — aimock follows the OpenAI tool-call wire shape; a raw object silently drops the call so write_document never executes and the document never streams.",
+  "_comment": "D5 fixture for /demos/shared-state-streaming. Three pill prompts produce `write_document` tool calls with non-trivial content payloads (≥ 100 chars) so the document streams into shared state and the DocumentView's char-count assertion can verify a substantive document was written. `arguments` is shown JSON-stringified here for parity with the OpenAI wire shape; aimock's `normalizeResponse` (see node_modules/@copilotkit/aimock/dist/fixture-loader) auto-stringifies object-valued arguments at load time, so raw-object form would also work.",
   "fixtures": [
     {
       "match": { "userMessage": "poem about autumn leaves" },

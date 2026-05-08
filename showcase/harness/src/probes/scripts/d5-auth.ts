@@ -214,6 +214,14 @@ export function buildAuthAssertion(
       );
     }
     await new Promise<void>((r) => setTimeout(r, 500));
+    // Try to push a probe message through; if fill or press fails
+    // (textarea not found, selector cascade mismatch, disabled control),
+    // capture the error so the eventual "no error surface" failure
+    // names the real cause instead of a generic timeout. The error
+    // surface MAY already be visible from the sign-out click alone —
+    // the polling loop below handles that case — so we don't fail
+    // hard on fill/press; we just preserve the diagnostic.
+    let probeSendError: string | null = null;
     try {
       await page.fill(
         '[data-testid="copilot-chat-textarea"]',
@@ -223,16 +231,19 @@ export function buildAuthAssertion(
       await page.press('[data-testid="copilot-chat-textarea"]', "Enter", {
         timeout: 2_000,
       });
-    } catch {
-      // Fall through — error surface may already be visible.
+    } catch (err) {
+      probeSendError = err instanceof Error ? err.message : String(err);
     }
     const errorDeadline = Date.now() + remaining;
     while (Date.now() < errorDeadline) {
       if (await probeErrorSurfaceVisible(page)) return;
       await new Promise<void>((r) => setTimeout(r, POLL_INTERVAL_MS));
     }
+    const sendNote = probeSendError
+      ? ` — probe send failed: ${probeSendError.slice(0, 140)}`
+      : "";
     throw new Error(
-      `auth: legacy shape — banner flipped to unauthenticated but neither ${ERROR_BANNER_SELECTOR} nor ${ERROR_BOUNDARY_SELECTOR} appeared within ${remaining}ms after probe send — auth gate may have regressed`,
+      `auth: legacy shape — banner flipped to unauthenticated but neither ${ERROR_BANNER_SELECTOR} nor ${ERROR_BOUNDARY_SELECTOR} appeared within ${remaining}ms after probe send — auth gate may have regressed${sendNote}`,
     );
   };
 }

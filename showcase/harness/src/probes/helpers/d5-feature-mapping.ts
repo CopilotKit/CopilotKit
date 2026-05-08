@@ -45,12 +45,19 @@ import type { D5FeatureType } from "./d5-registry.js";
  *     (headless chat surfaces — simple is text-only post-refactor;
  *     complete still drives the full gen-UI surface)
  *   - `gen-ui-custom`          : 1 demo
- *   - `hitl-text-input`        : 2 demos (in-chat HITL variants using useHumanInTheLoop)
- *   - `hitl-steps`             : 1 demo (step-selection confirmation)
+ *   - `hitl-text-input`        : 3 demos (the two in-chat HITL variants
+ *     using useHumanInTheLoop, plus the legacy `hitl` alias which was
+ *     repointed here after the standalone `hitl-steps` D5 script was
+ *     removed in genuine-pass Phase 0)
  *   - `hitl-approve-deny`      : 1 demo (modal/in-app approval)
  *   - `shared-state-read|write`: 1 demo, 2 D5 types (one-to-many)
- *   - `mcp-apps`               : 1 demo
- *   - `subagents`              : 1 demo
+ *   - `mcp-apps`               : 1 demo (own probe; was previously
+ *     bundled with subagents, split in Phase 2A)
+ *   - `subagents`              : 1 demo (split alongside mcp-apps)
+ *   - other registry families (auth, multimodal, voice, frontend-tools,
+ *     reasoning-display, gen-ui-*, byoc, beautiful-chat-*, …) follow
+ *     the same `<registry-id>: [<d5-feature-types>]` shape and live
+ *     directly in REGISTRY_TO_D5 below.
  */
 /**
  * Exported for the dashboard drift test (`d5-mapping-drift.test.ts`),
