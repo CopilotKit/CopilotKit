@@ -420,9 +420,13 @@ const ROOT_RENAMES: RedirectEntry[] = [
     source: "/copilot-suggestions",
     destination: "/prebuilt-components",
   },
-  // /direct-to-llm and /builtin-agent → built-in-agent (BIA canonical)
+  // /direct-to-llm and /integrations/built-in-agent → built-in-agent (BIA canonical)
   { id: "R14", source: "/direct-to-llm", destination: "/built-in-agent" },
-  { id: "R15", source: "/builtin-agent", destination: "/built-in-agent" },
+  {
+    id: "R15",
+    source: "/integrations/built-in-agent",
+    destination: "/built-in-agent",
+  },
   { id: "R18", source: "/mcp", destination: "/coding-agents" },
   { id: "R19", source: "/vibe-coding-mcp", destination: "/coding-agents" },
   {
@@ -709,7 +713,7 @@ const WILDCARD_REDIRECTS: RedirectEntry[] = [
     source: "/crewai-crews/:path*",
     destination: "/crewai-crews/:path*",
   },
-  // Category 4 wildcards — direct-to-llm and builtin-agent retire to BIA
+  // Category 4 wildcards — direct-to-llm and /integrations/built-in-agent retire to BIA
   {
     id: "R16",
     source: "/direct-to-llm/:path*",
@@ -717,7 +721,7 @@ const WILDCARD_REDIRECTS: RedirectEntry[] = [
   },
   {
     id: "R17",
-    source: "/builtin-agent/:path*",
+    source: "/integrations/built-in-agent/:path*",
     destination: "/built-in-agent/:path*",
   },
   { id: "R26", source: "/shared/:path*", destination: "/:path*" },
