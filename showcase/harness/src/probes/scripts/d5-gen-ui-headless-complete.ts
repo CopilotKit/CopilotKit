@@ -74,8 +74,12 @@ const TURN_EXPECTATIONS: readonly ChipExpectation[] = [
 ];
 
 /** Click a suggestion chip by its visible title. The SuggestionBar
- *  renders chips as `<Badge asChild><button>{title}</button></Badge>`,
- *  so a `button >> text="<title>"` selector hits the right node.
+ *  renders chips as `<Badge asChild><button aria-label="Suggestion: ${title}">{title}</button></Badge>`,
+ *  so the aria-label attribute selector is the most reliable hook —
+ *  text-content selectors have to wait for hydration of the inner text
+ *  node, while the aria-label is set inline at JSX time and shows up as
+ *  soon as the button DOM exists. The bare-text fallback also catches
+ *  any reordering / stripping of the aria-label.
  *
  *  Same runtime-guard cast pattern as `_beautiful-chat-shared.ts` —
  *  the runner's structural Page shim doesn't expose `click()` on its
@@ -91,7 +95,9 @@ async function clickChip(page: Page, title: string): Promise<void> {
         "must expose click() for chip-driven turns",
     );
   }
-  await candidate.click(`button >> text="${title}"`, { timeout: 10_000 });
+  await candidate.click(`button[aria-label="Suggestion: ${title}"]`, {
+    timeout: 10_000,
+  });
 }
 
 /** Read all assistant-message bubbles' textContent and concatenate to

@@ -44,12 +44,15 @@ export const ASSISTANT_BUBBLE_SELECTOR =
  *  background plus the ember left border. The outer message wrapper is
  *  transparent in the new theme; signals all live on this inner node.
  *
- *  Uses `[class~="bg-muted"]` (whole-token match in space-separated
- *  class lists) rather than `[class*="bg-muted"]` (substring match):
- *  the latter accidentally also matches `bg-muted-foreground`, which
- *  appears on nested children in real Tailwind output and would cause
- *  the probe to read computed styles off the wrong element. */
-export const USER_BUBBLE_INNER_SELECTOR = `${USER_BUBBLE_SELECTOR} [class~="bg-muted"]`;
+ *  v2 emits prefixed Tailwind utilities (e.g. `cpk:bg-muted`) on this
+ *  bubble, see CopilotChatUserMessage.tsx. Uses `[class~="cpk:bg-muted"]`
+ *  (whole-token match on the PREFIXED name) so:
+ *    - bare `[class~="bg-muted"]` wouldn't match (token is `cpk:bg-muted`)
+ *    - `[class*="bg-muted"]` would also match `cpk:bg-muted-foreground`
+ *      on nested children (Reasoning message dots) and read styles off
+ *      the wrong element.
+ *  The whole-token form on the prefixed string is unambiguous. */
+export const USER_BUBBLE_INNER_SELECTOR = `${USER_BUBBLE_SELECTOR} [class~="cpk:bg-muted"]`;
 
 // ── HALCYON theme anchors (langgraph-python) ──────────────────────────
 /** halcyon-ember rgb anchor (`#c44a1f`) on the user-bubble inner border-left. */
@@ -122,13 +125,12 @@ export async function probeChatCss(page: Page): Promise<ChatCssProbeResult> {
     const userOuter = win.document.querySelector(
       ".copilotKitMessage.copilotKitUserMessage",
     );
-    // The inner node is the v2 framework's bubble that consumes the
-    // `bg-muted` Tailwind utility — HALCYON hooks the substring
-    // class-match because the upstream Tailwind class composition
-    // includes `bg-muted` on the bubble div.
+    // The inner node is v2's CopilotChatUserMessage bubble. v2 emits
+    // PREFIXED Tailwind classes (`cpk:bg-muted`), so we whole-token-
+    // match on the prefixed name — see USER_BUBBLE_INNER_SELECTOR docs.
     const userInner = (
       userOuter as { querySelector?(sel: string): unknown } | null
-    )?.querySelector?.('[class~="bg-muted"]');
+    )?.querySelector?.('[class~="cpk:bg-muted"]');
     const assistantEl = win.document.querySelector(
       ".copilotKitMessage.copilotKitAssistantMessage",
     );

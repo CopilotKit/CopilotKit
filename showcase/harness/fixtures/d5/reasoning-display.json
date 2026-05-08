@@ -1,9 +1,10 @@
 {
-  "_comment": "D5 fixture for /demos/agentic-chat-reasoning AND /demos/reasoning-default-render (one fixture, two routes). Substring 'show your reasoning step by step' is unique.",
+  "_comment": "D5 fixture for /demos/reasoning-custom AND /demos/reasoning-default. Substring 'show your reasoning step by step' is unique. Includes a `reasoning` field so aimock emits REASONING_MESSAGE_* events (role='reasoning'); without it the v2 `<ReasoningBlock>` (rendered behind `[data-testid=\"reasoning-block\"]`) never mounts because no reasoning-role message lands in the transcript.",
   "fixtures": [
     {
       "match": { "userMessage": "show your reasoning step by step" },
       "response": {
+        "reasoning": "First, I identified that the question requires step-by-step reasoning. Then I broke it into sub-steps and worked through each one. Finally, I aggregated the partial answers into a single response.",
         "content": "Reasoning: first, I identified the question requires step-by-step thinking. Then, I broke it into sub-steps and worked through each one. Finally, I aggregated the partial answers into a single response. The reasoning block above the answer demonstrates intermediate-thought rendering."
       }
     }

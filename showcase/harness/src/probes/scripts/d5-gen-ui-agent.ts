@@ -66,50 +66,27 @@ async function readAgentStepState(page: Page): Promise<{
   })) as { stepCount: number; stepText: string };
 }
 
-/** Per-pill baseline ref for the step count BEFORE the pill is sent.
- *  Closed over by both the `preFill` hook (writes) and the assertion
- *  (reads). This is essential because `[data-testid="agent-step"]`
- *  rows from pill N persist into pill N+1's DOM — without baselining,
- *  the assertion can't distinguish "this pill produced ≥ 2 new rows"
- *  from "leftover rows from earlier pills". */
-export interface AgentStepBaselineRef {
-  stepCount: number;
-  stepText: string;
-  captured: boolean;
-}
-
-/** Build the `preFill` hook that captures the agent-step DOM state
- *  before the pill is sent. The runner invokes this once per turn,
- *  before the chat input fill+press. */
-export function buildBaselineCapture(
-  ref: AgentStepBaselineRef,
-): (page: Page) => Promise<void> {
-  return async (page: Page): Promise<void> => {
-    const state = await readAgentStepState(page);
-    ref.stepCount = state.stepCount;
-    ref.stepText = state.stepText;
-    ref.captured = true;
-  };
-}
-
 /** Build a per-pill assertion. `seenStepTextsRef` accumulates the
  *  observed step-text fingerprint across pills — a regression where
  *  every pill produces the SAME steps would fail at the second pill
  *  because `stepText` would equal a previous entry.
  *
- *  Primary signal: the step-count delta against the pre-pill baseline
- *  must be ≥ 2 (the pill produced at least two NEW step rows). The
- *  absolute count check used previously could trivially pass on
- *  leftover rows from an earlier pill — see Phase-2C gen-ui-agent
- *  cross-pill DOM accumulation finding.
+ *  Note on the swap-not-accumulate model: the backend's `set_steps`
+ *  reducer is `last-write-wins` (see `gen_ui_agent.py`), so each pill
+ *  REPLACES `state.steps` rather than appending. The DOM mirrors
+ *  state, so step-row count after pill N reflects ONLY pill N's
+ *  steps — earlier pills' rows unmount. An earlier "delta vs.
+ *  pre-pill baseline ≥ 2" check assumed accumulation and failed at
+ *  pill 2+ even when the new steps rendered correctly.
  *
- *  Secondary signal: cumulative-text fingerprint across pills must
- *  not duplicate a previous pill (catches a fixture that returns the
- *  same canned step list regardless of prompt).
+ *  Primary signal: ≥ 2 step rows visible after the pill settles. The
+ *  fingerprint deduplication keeps catching a fixture that returns
+ *  identical content regardless of prompt — that probe still works
+ *  under the swap model, since the textContent of the visible rows
+ *  IS the per-pill content.
  */
 export function buildAgentStateAssertion(
   pillTag: string,
-  baselineRef: AgentStepBaselineRef,
   seenStepTextsRef: { values: string[] },
 ): (page: Page) => Promise<void> {
   return async (page: Page): Promise<void> => {
@@ -119,57 +96,52 @@ export function buildAgentStateAssertion(
       FIRST_SIGNAL_TIMEOUT_MS,
       `gen-ui-agent-${pillTag}`,
     );
-    if (!baselineRef.captured) {
-      throw new Error(
-        `gen-ui-agent-${pillTag}: baseline was not captured by preFill (test wiring error)`,
-      );
-    }
-    // Wait briefly for step rows to settle (the agent streams them
-    // one set_steps call at a time). We need the step count to grow
-    // past the pre-pill baseline by at least 2.
+    // Wait briefly for the swap to settle. We need ≥ 2 step rows
+    // visible, AND we need the visible textContent to differ from
+    // any earlier pill (fingerprint dedup).
     const deadline = Date.now() + 15_000;
     let last = { stepCount: 0, stepText: "" };
-    let delta = 0;
     while (Date.now() < deadline) {
       last = await readAgentStepState(page);
-      delta = last.stepCount - baselineRef.stepCount;
-      if (delta >= 2) break;
+      if (last.stepCount >= 2) {
+        const fingerprint = last.stepText.trim().toLowerCase();
+        if (
+          seenStepTextsRef.values.length > 0 &&
+          seenStepTextsRef.values.includes(fingerprint)
+        ) {
+          // Same content as earlier pill — wait for the swap to
+          // finish landing. (Brief window where the DOM still
+          // shows the previous pill's rows.)
+          await new Promise((r) => setTimeout(r, 300));
+          continue;
+        }
+        // Stable, ≥ 2 rows, content differs from earlier pills.
+        seenStepTextsRef.values.push(fingerprint);
+        return;
+      }
       await new Promise((r) => setTimeout(r, 300));
     }
-    if (delta < 2) {
+    if (last.stepCount < 2) {
       throw new Error(
-        `gen-ui-agent-${pillTag}: expected ≥ 2 NEW [data-testid="agent-step"] rows ` +
-          `(baseline=${baselineRef.stepCount}, final=${last.stepCount}, delta=${delta})`,
+        `gen-ui-agent-${pillTag}: expected ≥ 2 [data-testid="agent-step"] rows ` +
+          `(observed=${last.stepCount}) within 15s — pill set_steps tool call may not have streamed state`,
       );
     }
-    const fingerprint = last.stepText.trim().toLowerCase();
-    if (
-      seenStepTextsRef.values.length > 0 &&
-      seenStepTextsRef.values.includes(fingerprint)
-    ) {
-      throw new Error(
-        `gen-ui-agent-${pillTag}: step content duplicates an earlier pill — fixture is not differentiating by prompt`,
-      );
-    }
-    seenStepTextsRef.values.push(fingerprint);
+    // Reached deadline with enough rows but content kept duplicating
+    // an earlier pill — fixture is not differentiating by prompt.
+    throw new Error(
+      `gen-ui-agent-${pillTag}: step content duplicates an earlier pill — fixture is not differentiating by prompt`,
+    );
   };
 }
 
 export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
   const seenStepTextsRef = { values: [] as string[] };
-  return GEN_UI_AGENT_PILLS.map(({ tag, prompt }) => {
-    const baselineRef: AgentStepBaselineRef = {
-      stepCount: 0,
-      stepText: "",
-      captured: false,
-    };
-    return {
-      input: prompt,
-      preFill: buildBaselineCapture(baselineRef),
-      assertions: buildAgentStateAssertion(tag, baselineRef, seenStepTextsRef),
-      responseTimeoutMs: 60_000,
-    };
-  });
+  return GEN_UI_AGENT_PILLS.map(({ tag, prompt }) => ({
+    input: prompt,
+    assertions: buildAgentStateAssertion(tag, seenStepTextsRef),
+    responseTimeoutMs: 60_000,
+  }));
 }
 
 registerD5Script({
