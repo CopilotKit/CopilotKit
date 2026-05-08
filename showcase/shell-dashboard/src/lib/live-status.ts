@@ -116,11 +116,18 @@ export function keyFor(
 export const CATALOG_TO_D5_KEY: Readonly<Record<string, readonly string[]>> = {
   "agentic-chat": ["agentic-chat"],
   "tool-rendering": ["tool-rendering"],
-  "headless-simple": ["gen-ui-headless"],
+  "tool-rendering-default-catchall": ["tool-rendering-default-catchall"],
+  "tool-rendering-custom-catchall": ["tool-rendering-custom-catchall"],
+  "headless-simple": ["headless-simple"],
   "headless-complete": ["gen-ui-headless-complete"],
   "gen-ui-tool-based": ["gen-ui-custom"],
   "hitl-in-chat": ["hitl-text-input"],
-  hitl: ["hitl-steps"],
+  "hitl-in-chat-booking": ["hitl-text-input"],
+  // `hitl` is an alias for hitl-in-chat used by some integrations. The harness
+  // remapped the alias to `hitl-text-input` in d5-feature-mapping.ts (the
+  // standalone `hitl-steps` D5 script was removed in genuine-pass Phase 0);
+  // this mapping mirrors it. See d5-mapping-drift.test.ts for enforcement.
+  hitl: ["hitl-text-input"],
   "hitl-in-app": ["hitl-approve-deny"],
   "shared-state-read-write": ["shared-state-read", "shared-state-write"],
   "mcp-apps": ["mcp-apps"],
@@ -146,19 +153,47 @@ export const CATALOG_TO_D5_KEY: Readonly<Record<string, readonly string[]>> = {
   "agent-config": ["agent-config"],
   "frontend-tools": ["frontend-tools"],
   "frontend-tools-async": ["frontend-tools-async"],
-  "agentic-chat-reasoning": ["reasoning-display"],
-  "tool-rendering-reasoning-chain": ["tool-rendering-reasoning-chain"],
+  // Reasoning family — both demos route through `reasoning-display` per the
+  // harness mapping; the legacy `agentic-chat-reasoning` and
+  // `tool-rendering-reasoning-chain` registry IDs were retired alongside
+  // their D5 scripts. Cells using those IDs max out at D4 (no mapping).
+  "reasoning-custom": ["reasoning-display"],
+  "reasoning-default": ["reasoning-display"],
   "shared-state-streaming": ["shared-state-streaming"],
   "readonly-state-agent-context": ["readonly-state-context"],
   "shared-state-read": ["shared-state-read"],
   "declarative-gen-ui": ["gen-ui-declarative"],
   "a2ui-fixed-schema": ["gen-ui-a2ui-fixed"],
   "open-gen-ui": ["gen-ui-open"],
+  "open-gen-ui-advanced": ["gen-ui-open-advanced"],
   "gen-ui-agent": ["gen-ui-agent"],
-  "interrupt-headless": ["interrupt-headless"],
   "gen-ui-interrupt": ["gen-ui-interrupt"],
   "byoc-hashbrown": ["byoc"],
+  "byoc-json-render": ["byoc"],
   voice: ["voice"],
+};
+
+/**
+ * Resolve the rolled-up D5 row for `(slug, featureId)`.
+ *
+ * Precedence across the multi-key set (red > degraded > green) — the
+ * cell's badge tone reflects the worst-state row in the family. A
+ * naive "first non-null wins" or "only red wins" implementation
+ * silently masks degraded sub-rows behind green ones; for a cell like
+ * `beautiful-chat` which fans out to 5 per-pill keys, that means an
+ * amber sub-row would render the cell green and operators would never
+ * see the partial regression.
+ *
+ * Missing rows are treated as not-yet-emitted and are NOT a signal of
+ * health — but they also can't be "worst" because we can't compare
+ * them to anything. The caller (`resolveCell`) renders gray when no
+ * row is returned, which surfaces "no data yet" distinctly from
+ * green.
+ */
+const D5_STATE_RANK: Readonly<Record<State, number>> = {
+  red: 3,
+  degraded: 2,
+  green: 1,
 };
 
 function resolveD5Row(
@@ -174,7 +209,9 @@ function resolveD5Row(
   for (const d5Key of d5Keys) {
     const row = live.get(keyFor("d5", slug, d5Key)) ?? null;
     if (!row) continue;
-    if (!worst || row.state === "red") worst = row;
+    if (!worst || D5_STATE_RANK[row.state] > D5_STATE_RANK[worst.state]) {
+      worst = row;
+    }
   }
   return worst;
 }

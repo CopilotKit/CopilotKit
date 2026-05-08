@@ -995,7 +995,7 @@ describe("e2e-deep feature-type filtering (driver level)", () => {
     const { writer, writes } = mkWriter();
 
     const ctx = mkCtx(writer);
-    ctx.featureTypes = ["hitl-steps"]; // not registered
+    ctx.featureTypes = ["hitl-text-input"]; // scriptLoader no-op so no probe loaded
 
     const result = await driver.run(ctx, {
       key: "e2e-deep:showcase-test",

@@ -156,7 +156,7 @@ export function BrandNav(_props: BrandNavProps = {}) {
 
   const handleTalkToEngineersClick = () => {
     posthog?.capture("talk_to_us_clicked", { location: "docs_nav" });
-    window.location.href = "https://copilotkit.ai/contact-us";
+    window.location.href = "https://copilotkit.ai/talk-to-an-engineer";
   };
 
   const handleFreeDeveloperAccessClick = (location: string) => {

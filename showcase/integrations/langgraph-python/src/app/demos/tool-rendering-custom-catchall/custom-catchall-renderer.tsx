@@ -34,7 +34,7 @@ export function CustomCatchallRenderer({
 
   return (
     <Card
-      data-testid="custom-catchall-card"
+      data-testid="custom-wildcard-card"
       data-tool-name={name}
       data-status={status}
       className="my-3 overflow-hidden"
@@ -42,7 +42,7 @@ export function CustomCatchallRenderer({
       <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b border-neutral-200 bg-neutral-50/60 py-3">
         <div className="flex items-center gap-2">
           <CardTitle
-            data-testid="custom-catchall-tool-name"
+            data-testid="custom-wildcard-tool-name"
             className="font-mono text-sm text-neutral-900"
           >
             {name}
@@ -57,7 +57,7 @@ export function CustomCatchallRenderer({
       <CardContent className="grid gap-3 p-4 text-sm">
         <Section label="Arguments">
           <pre
-            data-testid="custom-catchall-args"
+            data-testid="custom-wildcard-args"
             className="overflow-x-auto rounded-md border border-neutral-200 bg-neutral-50 p-2.5 font-mono text-xs text-neutral-900"
           >
             {safeStringify(parameters)}
@@ -67,7 +67,7 @@ export function CustomCatchallRenderer({
         <Section label="Result">
           {done ? (
             <pre
-              data-testid="custom-catchall-result"
+              data-testid="custom-wildcard-result"
               className="overflow-x-auto rounded-md border border-emerald-200 bg-emerald-50 p-2.5 font-mono text-xs text-neutral-900"
             >
               {parsedResult !== undefined
@@ -105,7 +105,7 @@ function Section({
 function StatusBadge({ status }: { status: CatchallToolStatus }) {
   const { label, variant, dot } = describeStatus(status);
   return (
-    <Badge data-testid="custom-catchall-status" variant={variant}>
+    <Badge data-testid="custom-wildcard-status" variant={variant}>
       <span
         className={`inline-block h-1.5 w-1.5 rounded-full ${dot}`}
         aria-hidden

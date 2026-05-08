@@ -730,6 +730,64 @@ describe("runConversation", () => {
     expect(recorded.presses).toEqual(["Enter"]);
   });
 
+  it("preFill mounts the chat input — resolution is deferred past preFill (auth-shape regression)", async () => {
+    // Idiomatic auth demos (langgraph-python) render a SignInCard until
+    // the user clicks "Sign in with demo token". The chat input only
+    // mounts AFTER that click, which preFill performs. Before this
+    // ordering fix, runConversation resolved the input cascade up
+    // front and timed out before preFill ever ran. This test pins the
+    // post-fix invariant: cascade probe throws while unmounted,
+    // preFill makes it visible, the runner then resolves and proceeds.
+    let chatMounted = false;
+    let assistantCalls = 0;
+    const order: string[] = [];
+    const page: Page = {
+      async waitForSelector(selector) {
+        order.push(`waitForSelector:${selector}`);
+        if (!chatMounted) {
+          throw new Error(`no match for ${selector}`);
+        }
+      },
+      async fill(_selector, value) {
+        order.push(`fill:${value}`);
+      },
+      async press() {
+        order.push("press");
+      },
+      evaluate: wrapEvaluateForUserMessages(async () => {
+        // Baseline read returns 0; subsequent assistant reads return
+        // 1 so the message-count growth check settles.
+        assistantCalls += 1;
+        return (assistantCalls === 1 ? 0 : 1) as never;
+      }),
+    };
+
+    const turns: ConversationTurn[] = [
+      {
+        input: "hello",
+        preFill: async () => {
+          order.push("preFill:click-sign-in");
+          chatMounted = true;
+        },
+      },
+    ];
+
+    const result = await runConversation(page, turns, {
+      assistantSettleMs: 30,
+    });
+
+    expect(result.turns_completed).toBe(1);
+    expect(result.failure_turn).toBeUndefined();
+    // preFill must precede the first waitForSelector (cascade probe)
+    // — that ordering is what makes the auth shape work.
+    const preFillIdx = order.indexOf("preFill:click-sign-in");
+    const firstWaitIdx = order.findIndex((s) =>
+      s.startsWith("waitForSelector:"),
+    );
+    expect(preFillIdx).toBeGreaterThanOrEqual(0);
+    expect(firstWaitIdx).toBeGreaterThan(preFillIdx);
+  });
+
   it("stringifies non-Error throws (e.g. a thrown string) into result.error", async () => {
     // Some libraries throw non-Error values. The runner's errorMessage
     // helper falls back to String(err) so callers always see a usable

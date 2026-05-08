@@ -4,6 +4,13 @@ import type { NextConfig } from "next";
 // because of the NEXT_PUBLIC_ prefix. Do NOT re-declare it in an `env` block —
 // doing so bakes the build-time value into server code and overrides runtime env.
 //
+// Consumers in production: src/app/sitemap.ts, src/app/robots.ts, and the
+// per-page `generateMetadata()` canonical URLs in the catch-all routes
+// (src/app/[[...slug]]/page.tsx, src/app/[framework]/[[...slug]]/page.tsx,
+// src/app/reference/[...slug]/page.tsx, src/app/ag-ui/[[...slug]]/page.tsx).
+// All read it through `getBaseUrl()` in src/lib/sitemap-helpers.ts, which
+// falls back to https://docs.copilotkit.ai when unset.
+//
 // Fail fast during an actual `next build` if the variable is missing, so we
 // never ship broken absolute URLs. Other invocations that also load this
 // config (e.g. `next lint`, `next dev`) only warn, because failing them on a

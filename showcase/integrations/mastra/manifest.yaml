@@ -24,6 +24,8 @@ interaction_modalities:
 managed_platform:
   name: Mastra Cloud
   url: https://mastra.ai/cloud
+not_supported_features:
+  - shared-state-streaming
 features:
   - cli-start
   - agentic-chat
@@ -33,7 +35,6 @@ features:
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
   - gen-ui-agent
-  - shared-state-streaming
   - readonly-state-agent-context
   - prebuilt-sidebar
   - prebuilt-popup

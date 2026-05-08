@@ -1,10 +1,242 @@
 {
-  "_comment": "D5 fixture for /demos/declarative-gen-ui. Substring 'render the declarative card' is unique.",
+  "_comment": "D5 fixture for /demos/declarative-gen-ui. Four pill prompts (KPI dashboard / pie chart / bar chart / status report). Each produces a `generate_a2ui` tool call; the secondary LLM (also routed through aimock) returns an a2ui_operations container with the pill's expected catalog components. Under real LLM on Railway the secondary call produces richer payloads; the fixture variants here are the minimum that satisfies the per-pill testid assertions in d5-gen-ui-declarative.ts (kpi-dashboard → declarative-card+declarative-metric; pie-chart → declarative-pie-chart; bar-chart → declarative-bar-chart; status-report → declarative-status-badge+declarative-card). The render_a2ui matchers AND together (userMessage substring + toolName) so each pill emits its own catalog payload — without per-pill branching the probe goes red on the second pill (every pill would render the same Card+Metric).",
   "fixtures": [
     {
-      "match": { "userMessage": "render the declarative card" },
+      "match": { "userMessage": "KPI dashboard" },
       "response": {
-        "content": "The declarative gen-UI specification has been resolved into a rendered card. The component descriptor was forwarded to the frontend renderer which materialized the card declaratively from the schema."
+        "content": "Here is the KPI dashboard you requested.",
+        "toolCalls": [{ "name": "generate_a2ui", "arguments": {} }]
+      }
+    },
+    {
+      "match": { "userMessage": "pie chart of sales by region" },
+      "response": {
+        "content": "Here is the pie chart by region.",
+        "toolCalls": [{ "name": "generate_a2ui", "arguments": {} }]
+      }
+    },
+    {
+      "match": { "userMessage": "bar chart of quarterly revenue" },
+      "response": {
+        "content": "Here is the bar chart of quarterly revenue.",
+        "toolCalls": [{ "name": "generate_a2ui", "arguments": {} }]
+      }
+    },
+    {
+      "match": { "userMessage": "status report on system health" },
+      "response": {
+        "content": "Here is the system health status report.",
+        "toolCalls": [{ "name": "generate_a2ui", "arguments": {} }]
+      }
+    },
+    {
+      "_comment": "render_a2ui — KPI dashboard pill. Emits Card root with three Metric children (revenue, signups, churn) so the probe sees declarative-card + declarative-metric.",
+      "match": {
+        "userMessage": "KPI dashboard",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "type": "Card",
+                  "props": {
+                    "title": "KPI dashboard",
+                    "subtitle": "Last 30 days",
+                    "child": "metric-revenue"
+                  }
+                },
+                {
+                  "id": "metric-revenue",
+                  "type": "Metric",
+                  "props": {
+                    "label": "Revenue",
+                    "value": "$1.2M",
+                    "trend": "up"
+                  }
+                },
+                {
+                  "id": "metric-signups",
+                  "type": "Metric",
+                  "props": {
+                    "label": "Signups",
+                    "value": "4,820",
+                    "trend": "up"
+                  }
+                },
+                {
+                  "id": "metric-churn",
+                  "type": "Metric",
+                  "props": {
+                    "label": "Churn",
+                    "value": "2.1%",
+                    "trend": "down"
+                  }
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "render_a2ui — pie-chart pill. Emits a PieChart so the probe sees declarative-pie-chart.",
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "type": "PieChart",
+                  "props": {
+                    "title": "Sales by region",
+                    "description": "Q4 — share of total revenue",
+                    "data": [
+                      { "label": "North America", "value": 540 },
+                      { "label": "EMEA", "value": 320 },
+                      { "label": "APAC", "value": 210 },
+                      { "label": "LATAM", "value": 90 }
+                    ]
+                  }
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "render_a2ui — bar-chart pill. Emits a BarChart so the probe sees declarative-bar-chart.",
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "type": "BarChart",
+                  "props": {
+                    "title": "Quarterly revenue",
+                    "description": "FY24 — USD thousands",
+                    "data": [
+                      { "label": "Q1", "value": 820 },
+                      { "label": "Q2", "value": 940 },
+                      { "label": "Q3", "value": 1080 },
+                      { "label": "Q4", "value": 1240 }
+                    ]
+                  }
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "render_a2ui — status-report pill. Emits a Card root containing three StatusBadge children (API/database/workers) so the probe sees declarative-card + declarative-status-badge.",
+      "match": {
+        "userMessage": "status report on system health",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "type": "Card",
+                  "props": {
+                    "title": "System health",
+                    "subtitle": "All services",
+                    "child": "status-api"
+                  }
+                },
+                {
+                  "id": "status-api",
+                  "type": "StatusBadge",
+                  "props": { "text": "API: healthy", "variant": "success" }
+                },
+                {
+                  "id": "status-db",
+                  "type": "StatusBadge",
+                  "props": { "text": "Database: healthy", "variant": "success" }
+                },
+                {
+                  "id": "status-workers",
+                  "type": "StatusBadge",
+                  "props": { "text": "Workers: degraded", "variant": "warning" }
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "render_a2ui — fallback for any unmatched pill. Emits the original Card+Metric so unforeseen pills still render something deterministic instead of erroring.",
+      "match": {
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "type": "Card",
+                  "props": {
+                    "title": "Declarative Demo",
+                    "subtitle": "Catalog primitives",
+                    "child": "metric-1"
+                  }
+                },
+                {
+                  "id": "metric-1",
+                  "type": "Metric",
+                  "props": {
+                    "label": "Revenue",
+                    "value": "$1.2M",
+                    "trend": "up"
+                  }
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
       }
     }
   ]

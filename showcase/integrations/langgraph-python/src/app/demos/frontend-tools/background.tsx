@@ -15,6 +15,8 @@ export function Background({
 }) {
   return (
     <div
+      data-testid="frontend-tools-background"
+      data-background-value={background}
       className="relative h-screen w-full overflow-hidden transition-[background] duration-700"
       style={{ background }}
     >

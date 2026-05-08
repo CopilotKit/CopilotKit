@@ -720,6 +720,12 @@ class GenerateHaikuTool(ToolMessage):
         return "Haiku generated!"
 
 
+# @region[backend-tool-call]
+# `schedule_meeting` is declared here as a `ToolMessage` subclass so Langroid's
+# LLM knows the tool's schema, but it executes client-side: the AG-UI adapter
+# intercepts the call and forwards it to the frontend's `useFrontendTool`
+# handler, which renders the time picker and resolves a Promise with the
+# user's choice. `handle()` only runs if that interception regresses.
 class ScheduleMeetingTool(ToolMessage):
     request: str = "schedule_meeting"
     purpose: str = "Schedule a meeting. The user will be asked to pick a time via the meeting time picker UI."
@@ -736,6 +742,7 @@ class ScheduleMeetingTool(ToolMessage):
                 error=_ToolErrorKind.SCHEDULE_MEETING_FAILED,
                 message=f"{exc.__class__.__name__}: {str(exc)[:200]}",
             )
+# @endregion[backend-tool-call]
 
 
 class SearchFlightsTool(ToolMessage):

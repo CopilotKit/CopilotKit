@@ -1,9 +1,12 @@
 /**
  * D5 — gen-UI shared helpers.
  *
- * Shared between `d5-gen-ui-headless.ts` (frontend-defined `show_card`)
- * and `d5-gen-ui-custom.ts` (frontend-defined `render_pie_chart`). Both
- * scripts:
+ * Used by `d5-gen-ui-custom.ts` (frontend-defined `render_pie_chart`).
+ * The headless tier no longer shares these helpers — `headless-simple`
+ * was downsized to text-only post-refactor; `headless-complete` has
+ * its own probe that asserts on its specific tool cards.
+ *
+ * The remaining caller:
  *   1. Wait for a custom-rendered component to appear in the DOM (NOT
  *      just the assistant's text bubble — gen-UI's whole point is that
  *      the tool call materialises into bespoke React).

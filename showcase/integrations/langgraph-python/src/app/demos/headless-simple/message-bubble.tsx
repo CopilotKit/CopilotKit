@@ -7,7 +7,11 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 export function UserBubble({ content }: { content: string }) {
   return (
-    <div className="flex w-full items-start gap-3 flex-row-reverse">
+    <div
+      data-testid="headless-message-user"
+      data-message-role="user"
+      className="flex w-full items-start gap-3 flex-row-reverse"
+    >
       <Avatar className="h-8 w-8 shrink-0 border bg-primary text-primary-foreground">
         <AvatarFallback className="bg-primary text-primary-foreground">
           <User className="h-4 w-4" />
@@ -22,7 +26,11 @@ export function UserBubble({ content }: { content: string }) {
 
 export function AssistantBubble({ content }: { content: string }) {
   return (
-    <div className="flex w-full items-start gap-3">
+    <div
+      data-testid="headless-message-assistant"
+      data-message-role="assistant"
+      className="flex w-full items-start gap-3"
+    >
       <Avatar className="h-8 w-8 shrink-0 border bg-muted text-muted-foreground">
         <AvatarFallback className="bg-muted text-muted-foreground">
           <Bot className="h-4 w-4" />

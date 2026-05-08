@@ -266,44 +266,43 @@ export async function runConversation(
     };
   }
 
-  // Resolve the chat input ONCE up front — same selector for every
-  // turn. The cascade probe is cheap on the canonical case (first
-  // selector wins on conformant showcases) and the resolved selector
-  // is reused so we don't re-probe per turn.
-  let chatInputSelector: string;
+  // Resolve the chat input lazily — same selector for every turn once
+  // resolved, but the first resolution is deferred until after turn 1's
+  // preFill runs. Demos with an unauthenticated landing surface (auth)
+  // don't mount the chat textarea until the user clicks "Sign in", so
+  // resolving up front would time out on the SignInCard before preFill
+  // ever got a chance to dismiss it. Subsequent turns reuse the cached
+  // selector so we don't re-probe per turn.
+  let chatInputSelector: string | null = null;
+  // Try to resolve the chat input AT BOOT first — when it works
+  // (every demo except idiomatic-shape auth), capture the baseline
+  // assistant-message count BEFORE turn 1's preFill runs. Demos like
+  // /demos/headless-complete fire the user message inside preFill (a
+  // chip click), so reading the baseline AFTER preFill would observe
+  // the assistant's response already appended and the settle would
+  // wait forever for further growth that never comes. The deferred
+  // path is only used when boot-time resolution fails — that's
+  // specifically the auth shape, where the chat tree mounts later.
+  let baselineCount = 0;
   try {
     chatInputSelector = await resolveChatInputSelector(
       page,
       opts.chatInputSelector,
     );
-    console.debug("[conversation-runner] resolved chat input selector", {
-      selector: chatInputSelector,
-    });
-  } catch (err) {
-    console.debug("[conversation-runner] chat input selector cascade FAILED", {
-      error: errorMessage(err),
-    });
-    return {
-      turns_completed: 0,
-      total_turns: total,
-      failure_turn: 1,
-      error: `chat input not found: ${errorMessage(err)}`,
-      turn_durations_ms: [],
-    };
+    console.debug(
+      "[conversation-runner] resolved chat input selector at boot",
+      { selector: chatInputSelector },
+    );
+    baselineCount = await readMessageCount(page);
+    console.debug(
+      "[conversation-runner] initial baseline assistant message count (boot)",
+      { baselineCount },
+    );
+  } catch {
+    console.debug(
+      "[conversation-runner] chat input cascade did not resolve at boot — deferring to post-preFill (auth shape)",
+    );
   }
-
-  // Initial assistant-message count BEFORE turn 1 — usually 0 on a
-  // fresh page, but a probe that lands on a page with prior history
-  // (e.g. a session that was rehydrated) would see a non-zero starting
-  // count, and we need to wait for growth from that baseline rather
-  // than from 0.
-  let baselineCount = await readMessageCount(page);
-  console.debug(
-    "[conversation-runner] initial baseline assistant message count",
-    {
-      baselineCount,
-    },
-  );
 
   for (let idx = 0; idx < total; idx++) {
     const turn = turns[idx]!;
@@ -329,6 +328,36 @@ export async function runConversation(
         console.debug(
           `[conversation-runner] turn ${turnNum}/${total} — preFill hook completed`,
         );
+      }
+
+      if (chatInputSelector === null) {
+        try {
+          chatInputSelector = await resolveChatInputSelector(
+            page,
+            opts.chatInputSelector,
+          );
+          console.debug("[conversation-runner] resolved chat input selector", {
+            selector: chatInputSelector,
+            turnNum,
+          });
+          baselineCount = await readMessageCount(page);
+          console.debug(
+            "[conversation-runner] initial baseline assistant message count",
+            { baselineCount },
+          );
+        } catch (err) {
+          console.debug(
+            "[conversation-runner] chat input selector cascade FAILED",
+            { error: errorMessage(err), turnNum },
+          );
+          return {
+            turns_completed: idx,
+            total_turns: total,
+            failure_turn: turnNum,
+            error: `chat input not found: ${errorMessage(err)}`,
+            turn_durations_ms: durations,
+          };
+        }
       }
 
       if (turn.skipFill) {
