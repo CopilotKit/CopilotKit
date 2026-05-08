@@ -8,6 +8,14 @@
   (prefers-color-scheme: dark);
 @import "tailwindcss";
 
+/* Activate `dark:` Tailwind variants based on the `.dark` class on an
+ * ancestor (typically <html>) instead of the default
+ * `prefers-color-scheme: dark` media query. Required for the navbar
+ * theme toggle to actually switch sun/moon icons and slanted-border
+ * SVG variants — they all key off `dark:` classes. Mirrors canonical
+ * docs.copilotkit.ai/app/global.css. */
+@custom-variant dark (&:is(.dark *));
+
 :root {
   /* Backgrounds — match reference (oklch(0.9038 0.0149 286.1) ≈ #e6e6ec).
    * Shell keeps a slightly lighter cast so code blocks on white surface
@@ -36,6 +44,10 @@
    * with existing class references; values track the canonical accent. */
   --violet: #6d45f9;
   --violet-light: #ede5ff;
+  /* Scrollbar tokens — applied to internal scroll containers (sidebar
+   * inner scroll, content wrapper) so thumb + track follow theme. */
+  --scrollbar-color: rgba(0, 0, 0, 0.2);
+  --scrollbar-track: transparent;
 
   /* Font stacks — fed by next/font CSS variables in layout.tsx with
    * safe fallbacks for environments where the font fails to load.
@@ -50,6 +62,44 @@
   --font-docs-code:
     ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
+}
+
+/* Dark token set — mirrors canonical docs.copilotkit.ai's `.dark` block.
+ * Activates when an ancestor (typically <html>) has class="dark". The
+ * navbar theme toggle adds/removes that class and persists the choice
+ * in localStorage; the inline script in <head> (see layout.tsx) reads
+ * the persisted value before paint to avoid a light-flash on first load. */
+.dark {
+  --bg: #050a0e;
+  --bg-surface: #1a1d1f;
+  --bg-elevated: #1f2326;
+  --bg-hover: #252a2e;
+  --border: rgba(255, 255, 255, 0.1);
+  --border-dim: rgba(255, 255, 255, 0.05);
+  --sidebar: #111618;
+  --glass-background: rgba(255, 255, 255, 0.06);
+  --text: #fafafa;
+  --text-secondary: #cbd2d8;
+  --text-muted: #9ba0a8;
+  --text-faint: #5e6168;
+  --accent: #8b6cff;
+  --accent-light: rgba(139, 108, 255, 0.18);
+  --accent-dim: rgba(139, 108, 255, 0.1);
+  --blue: #6ba6e8;
+  --violet: #8b6cff;
+  --violet-light: rgba(139, 108, 255, 0.18);
+  --scrollbar-color: rgba(255, 255, 255, 0.18);
+  --scrollbar-track: transparent;
+}
+
+/* Apply themed scrollbar to internal scroll containers. Targets the
+ * sidebar's inner scroll wrapper and the docs content wrapper so the
+ * thumb tracks the active theme instead of falling back to the
+ * browser default (a bright gray that pops against dark surfaces). */
+aside .overflow-y-auto,
+.docs-content-wrapper {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-color) var(--scrollbar-track);
 }
 
 html,

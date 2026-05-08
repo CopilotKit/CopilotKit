@@ -81,8 +81,31 @@ export default function RootLayout({
   const REB2B_KEY = process.env.NEXT_PUBLIC_REB2B_KEY;
 
   return (
-    <html lang="en" className={plusJakartaSans.variable}>
+    // suppressHydrationWarning is required because the inline theme-init
+    // script below adds/removes `class="dark"` on <html> before React
+    // hydrates. Without this, Next.js detects the className mismatch and
+    // reverts the client tree to match the server (which doesn't know the
+    // user's persisted theme), stripping the `.dark` class and breaking
+    // every `dark:` variant. This is the canonical Next.js recipe for a
+    // theme script in the document head.
+    <html
+      lang="en"
+      className={plusJakartaSans.variable}
+      suppressHydrationWarning
+    >
       <head>
+        {/* Apply the persisted theme before first paint to avoid a
+         * light-flash on dark-preferring loads. Mirrors canonical: read
+         * `localStorage.theme`, fall back to `prefers-color-scheme`, set
+         * `documentElement.classList`. The navbar toggle handler keeps
+         * `localStorage.theme` in sync on click. */}
+        <Script
+          id="theme-init"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.theme;if(!t){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}if(t==='dark'){document.documentElement.classList.add('dark');}}catch(e){}})();`,
+          }}
+        />
         {REO_KEY ? (
           <Script
             id="reo-init-script"

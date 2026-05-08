@@ -335,7 +335,7 @@ export function BrandNav(_props: BrandNavProps = {}) {
             <Link
               href="https://github.com/copilotkit/copilotkit"
               target="_blank"
-              className="hidden md:flex justify-center items-center w-11 h-full text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
+              className="hidden md:flex justify-center items-center w-9 h-9 mx-0.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
               title="GitHub"
             >
               <GithubIcon />
@@ -344,14 +344,14 @@ export function BrandNav(_props: BrandNavProps = {}) {
             <Link
               href="https://discord.gg/6dffbvGU3D"
               target="_blank"
-              className="hidden md:flex justify-center items-center w-11 h-full text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
+              className="hidden md:flex justify-center items-center w-9 h-9 mx-0.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
               title="Discord"
             >
               <DiscordIcon />
             </Link>
 
             <button
-              className="hidden justify-center items-center w-11 h-full cursor-pointer md:flex"
+              className="hidden justify-center items-center w-9 h-9 mx-0.5 rounded-md cursor-pointer md:flex text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
               onClick={handleToggleTheme}
               aria-label="Toggle theme"
             >
