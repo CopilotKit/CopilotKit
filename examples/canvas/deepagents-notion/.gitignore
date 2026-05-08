@@ -1,0 +1,36 @@
+node_modules
+.next
+dist
+*.tsbuildinfo
+__pycache__
+.venv
+*.egg-info
+uv.lock
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+bun.lockb
+.env
+.env.local
+postgres-data
+redis-data
+.DS_Store
+
+# LangGraph dev runtime state (per-session checkpoint cache)
+agent/.langgraph_api/
+
+# mcp-use widget build artifacts (per-widget vite temp dirs); only the
+# generated tool-registry.d.ts is tracked.
+mcp/.mcp-use/*
+!mcp/.mcp-use/tool-registry.d.ts
+
+# Local lead-store cache (auto-created from agent/data/leads.seed.json on
+# first read when Notion isn't configured). Per-checkout, never committed.
+agent/data/leads.local.json
+
+# Claude Code harness scaffolding (per-checkout, not for downstream teams)
+.claude/
+
+# Internal: starter-kit authoring docs, not for downstream hackathon teams
+COMPLIANCE.md
+PLAN.md

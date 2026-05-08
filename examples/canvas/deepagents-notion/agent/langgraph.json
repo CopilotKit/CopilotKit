@@ -1,0 +1,7 @@
+{
+  "python_version": "3.11",
+  "dependencies": ["."],
+  "package_manager": "uv",
+  "graphs": { "default": "./main.py:graph" },
+  "env": ".env"
+}
