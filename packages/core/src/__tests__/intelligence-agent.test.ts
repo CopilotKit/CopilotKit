@@ -473,11 +473,13 @@ describe("IntelligenceAgent", () => {
         threadId: "thread-1",
         runId: "run-1",
       } as BaseEvent);
-      expect(eventsA.filter(
-        (e) =>
-          (e as BaseEvent & { metadata?: { cpki_event_id?: string } }).metadata
-            ?.cpki_event_id === "ev-1",
-      )).toHaveLength(1);
+      expect(
+        eventsA.filter(
+          (e) =>
+            (e as BaseEvent & { metadata?: { cpki_event_id?: string } })
+              .metadata?.cpki_event_id === "ev-1",
+        ),
+      ).toHaveLength(1);
 
       // New run on thread-2 with the SAME cpki_event_id. Different
       // thread, so the dedup table for thread-2 is empty and the
@@ -494,11 +496,13 @@ describe("IntelligenceAgent", () => {
       channelB.triggerJoin("ok");
       channelB.serverPush("ag_ui_event", sharedPayload);
 
-      expect(eventsB.filter(
-        (e) =>
-          (e as BaseEvent & { metadata?: { cpki_event_id?: string } }).metadata
-            ?.cpki_event_id === "ev-1",
-      )).toHaveLength(1);
+      expect(
+        eventsB.filter(
+          (e) =>
+            (e as BaseEvent & { metadata?: { cpki_event_id?: string } })
+              .metadata?.cpki_event_id === "ev-1",
+        ),
+      ).toHaveLength(1);
     });
 
     it("still completes the run on a duplicate RUN_FINISHED in run mode", async () => {
