@@ -11,7 +11,7 @@ import {
 } from "../../../__tests__/utils/test-helpers";
 import { CopilotChat } from "../CopilotChat";
 import { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
-import CopilotChatMessageView from "../CopilotChatMessageView";
+import DefaultCopilotChatMessageView from "../CopilotChatMessageView";
 import { ScrollElementContext } from "../scroll-element-context";
 import type { Message } from "@ag-ui/core";
 
@@ -216,7 +216,7 @@ describe("CopilotChat perf — re-render regression", () => {
       children: (
         <ScrollElementContext.Provider value={fakeScrollEl}>
           <div style={{ height: 600 }}>
-            <CopilotChatMessageView messages={messages} />
+            <DefaultCopilotChatMessageView messages={messages} />
           </div>
         </ScrollElementContext.Provider>
       ),
