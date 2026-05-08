@@ -37,7 +37,10 @@ function makePage(opts: FakeOpts): {
         return;
       }
       // The chat-input cascade selector used by the preFill hook.
-      if (selector.includes("copilot-chat-textarea") || selector === "textarea") {
+      if (
+        selector.includes("copilot-chat-textarea") ||
+        selector === "textarea"
+      ) {
         if (!signedIn) {
           throw new Error(
             "waitForSelector timeout (chat textarea not mounted before sign-in)",
@@ -100,9 +103,7 @@ describe("d5-auth script", () => {
   });
 
   it("exposes the sign-in, sign-out, and SignInCard selectors", () => {
-    expect(SIGN_IN_BUTTON_SELECTOR).toBe(
-      '[data-testid="auth-sign-in-button"]',
-    );
+    expect(SIGN_IN_BUTTON_SELECTOR).toBe('[data-testid="auth-sign-in-button"]');
     expect(SIGN_IN_CARD_SELECTOR).toBe('[data-testid="auth-sign-in-card"]');
     expect(SIGN_OUT_BUTTON_SELECTOR).toBe(
       '[data-testid="auth-sign-out-button"]',
@@ -153,7 +154,9 @@ describe("d5-auth script", () => {
         signOutTimeoutMs: 50,
         click: fakeClick,
       });
-      await expect(assertion(page)).rejects.toThrow(/SignInCard.*did not re-mount/);
+      await expect(assertion(page)).rejects.toThrow(
+        /SignInCard.*did not re-mount/,
+      );
     });
 
     it("succeeds when SignInCard re-mounts after clicking sign-out", async () => {

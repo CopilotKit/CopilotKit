@@ -106,9 +106,9 @@ export async function probeChatCss(page: Page): Promise<ChatCssProbeResult> {
     // `bg-muted` Tailwind utility — the demo's CSS hooks the substring
     // class-match because the upstream Tailwind class composition
     // includes `bg-muted` on the bubble div.
-    const userInner = (userOuter as { querySelector?(sel: string): unknown } | null)?.querySelector?.(
-      '[class*="bg-muted"]',
-    );
+    const userInner = (
+      userOuter as { querySelector?(sel: string): unknown } | null
+    )?.querySelector?.('[class*="bg-muted"]');
     const assistantEl = win.document.querySelector(
       ".copilotKitMessage.copilotKitAssistantMessage",
     );

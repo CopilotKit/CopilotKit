@@ -47,13 +47,18 @@ function parseDashboardCatalogMap(): Record<string, string[]> {
   );
   for (const match of entries) {
     const key = (match[1] ?? match[2]) as string;
-    const values = Array.from(match[3].matchAll(/"([^"]+)"/g), (m) => m[1] as string);
+    const values = Array.from(
+      match[3].matchAll(/"([^"]+)"/g),
+      (m) => m[1] as string,
+    );
     out[key] = values;
   }
   return out;
 }
 
-function normalizeMap(m: Record<string, readonly string[]>): Record<string, string[]> {
+function normalizeMap(
+  m: Record<string, readonly string[]>,
+): Record<string, string[]> {
   const out: Record<string, string[]> = {};
   for (const k of Object.keys(m).sort()) {
     out[k] = [...m[k]].sort();
@@ -63,7 +68,9 @@ function normalizeMap(m: Record<string, readonly string[]>): Record<string, stri
 
 describe("d5-mapping-drift", () => {
   it("dashboard CATALOG_TO_D5_KEY structurally mirrors harness REGISTRY_TO_D5", () => {
-    const harnNorm = normalizeMap(REGISTRY_TO_D5 as Record<string, readonly string[]>);
+    const harnNorm = normalizeMap(
+      REGISTRY_TO_D5 as Record<string, readonly string[]>,
+    );
     const dashNorm = normalizeMap(parseDashboardCatalogMap());
     expect(dashNorm).toEqual(harnNorm);
   });

@@ -86,10 +86,9 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
       // because the composer's send button is disabled on empty input.
       input: "",
       preFill: async (page) => {
-        console.debug(
-          "[d5-headless-simple] turn 1: clicking sample chip",
-          { label: SAMPLE_CHIP_LABEL },
-        );
+        console.debug("[d5-headless-simple] turn 1: clicking sample chip", {
+          label: SAMPLE_CHIP_LABEL,
+        });
         await clickChip(page, SAMPLE_CHIP_LABEL);
       },
       assertions: async (page) => {

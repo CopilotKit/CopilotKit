@@ -230,7 +230,10 @@ export async function assertToggleTheme(page: ConversationPage): Promise<void> {
     ): Promise<unknown>;
   };
   const waiter = page as unknown as WaitFnPage;
-  if (typeof (waiter as { waitForFunction?: unknown }).waitForFunction !== "function") {
+  if (
+    typeof (waiter as { waitForFunction?: unknown }).waitForFunction !==
+    "function"
+  ) {
     throw new Error(
       `beautiful-chat-toggle-theme: page is missing waitForFunction() — runner did not provide a Playwright-shaped page`,
     );

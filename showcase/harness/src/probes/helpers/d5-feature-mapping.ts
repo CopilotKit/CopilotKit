@@ -58,7 +58,9 @@ import type { D5FeatureType } from "./d5-registry.js";
  * structurally mirrors this map. Internal callers should use
  * `demosToFeatureTypes` rather than reading the map directly.
  */
-export const REGISTRY_TO_D5: Readonly<Record<string, readonly D5FeatureType[]>> = {
+export const REGISTRY_TO_D5: Readonly<
+  Record<string, readonly D5FeatureType[]>
+> = {
   // agentic-chat (1:1)
   "agentic-chat": ["agentic-chat"],
 

@@ -20,9 +20,7 @@ test.describe("Authentication", () => {
     await expect(
       page.locator('[data-testid="auth-sign-in-button"]'),
     ).toBeEnabled();
-    await expect(
-      page.locator('[data-testid="auth-demo-token"]'),
-    ).toBeVisible();
+    await expect(page.locator('[data-testid="auth-demo-token"]')).toBeVisible();
     // Chat surface and AuthBanner only render after sign-in.
     await expect(page.locator('[data-testid="auth-banner"]')).toHaveCount(0);
     await expect(page.getByPlaceholder("Type a message")).toHaveCount(0);
@@ -44,9 +42,9 @@ test.describe("Authentication", () => {
     ).toBeEnabled();
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
     // SignInCard is gone once we're authenticated.
-    await expect(
-      page.locator('[data-testid="auth-sign-in-card"]'),
-    ).toHaveCount(0);
+    await expect(page.locator('[data-testid="auth-sign-in-card"]')).toHaveCount(
+      0,
+    );
   });
 
   test("authenticated send produces an assistant response", async ({
@@ -75,9 +73,9 @@ test.describe("Authentication", () => {
     await page.locator('[data-testid="auth-sign-out-button"]').click();
 
     // SignInCard re-mounts; banner and chat are gone.
-    await expect(
-      page.locator('[data-testid="auth-sign-in-card"]'),
-    ).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('[data-testid="auth-sign-in-card"]')).toBeVisible(
+      { timeout: 5000 },
+    );
     await expect(page.locator('[data-testid="auth-banner"]')).toHaveCount(0);
     await expect(page.getByPlaceholder("Type a message")).toHaveCount(0);
   });
@@ -89,9 +87,9 @@ test.describe("Authentication", () => {
       page.locator('[data-testid="auth-sign-out-button"]'),
     ).toBeVisible();
     await page.locator('[data-testid="auth-sign-out-button"]').click();
-    await expect(
-      page.locator('[data-testid="auth-sign-in-card"]'),
-    ).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('[data-testid="auth-sign-in-card"]')).toBeVisible(
+      { timeout: 5000 },
+    );
 
     await page.locator('[data-testid="auth-sign-in-button"]').click();
     const banner = page.locator('[data-testid="auth-banner"]');
