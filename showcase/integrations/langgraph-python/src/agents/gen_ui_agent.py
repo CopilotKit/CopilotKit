@@ -17,6 +17,7 @@ middleware-only workaround.
 
 from __future__ import annotations
 
+import uuid
 from typing import Annotated, Any, Literal
 
 from copilotkit import CopilotKitMiddleware
@@ -57,7 +58,10 @@ def set_steps(
             "steps": steps,
             "messages": [
                 ToolMessage(
-                    f"Published {len(steps)} step(s).", tool_call_id=tool_call_id
+                    f"Published {len(steps)} step(s).",
+                    name="set_steps",
+                    id=str(uuid.uuid4()),
+                    tool_call_id=tool_call_id,
                 )
             ],
         }

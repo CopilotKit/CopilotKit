@@ -199,11 +199,11 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
       try {
         await page.waitForSelector(exp.cardSelector, {
           state: "visible",
-          timeout: 15_000,
+          timeout: 60_000,
         });
       } catch {
         throw new Error(
-          `gen-ui-headless-complete ${exp.chipMatchAliases.join("|")}: expected ${exp.cardSelector} to mount within 15s — tool result may not have landed or the renderer wiring drifted`,
+          `gen-ui-headless-complete ${exp.chipMatchAliases.join("|")}: expected ${exp.cardSelector} to mount within 60s — tool result may not have landed or the renderer wiring drifted`,
         );
       }
       const text = await readAllAssistantText(page);

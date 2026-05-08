@@ -181,6 +181,8 @@ def _delegation_update(
             "messages": [
                 ToolMessage(
                     content=result,
+                    name=sub_agent,
+                    id=str(uuid.uuid4()),
                     tool_call_id=tool_call_id,
                 )
             ],
@@ -257,6 +259,8 @@ def critique_agent(task: str, runtime: ToolRuntime) -> Command:
                 "messages": [
                     ToolMessage(
                         content=skip_message,
+                        name="critique_agent",
+                        id=str(uuid.uuid4()),
                         tool_call_id=runtime.tool_call_id,
                     )
                 ],
