@@ -101,4 +101,28 @@ describe("d5-frontend-tools script", () => {
     const page = makePage(["#0a3d2e green gradient"]);
     await expect(assert(page)).rejects.toThrow(/sunset hint/);
   });
+
+  it("assertion accepts arbitrary green hex codes via channel-dominance fallback (real-LLM nondeterminism)", async () => {
+    // Real OpenAI returned `linear-gradient(to right, #005f00, #4caf50)`
+    // for the forest pill — perfectly valid green, but neither the
+    // word `green` nor any of the fixture-pinned hex codes
+    // (`#0a3d2e`/`#166534`/`#059669`) appears as a substring. The
+    // channel-dominance fallback parses the hex codes and accepts
+    // them because each one has G > R AND G > B. Without the
+    // fallback this assertion would throw.
+    const baseline = { current: "#4f46e5" };
+    const assert = buildPillAssertion("forest", baseline);
+    const page = makePage(["linear-gradient(to right, #005f00, #4caf50)"]);
+    await expect(assert(page)).resolves.toBeUndefined();
+  });
+
+  it("assertion still rejects a gradient with no on-family hex AND no on-family word", async () => {
+    // Forest pill, but page emitted only sunset-family hex codes.
+    // Word match misses (no green/forest etc.) AND channel-dominance
+    // misses (R-dominant, not G-dominant). Must throw.
+    const baseline = { current: "#4f46e5" };
+    const assert = buildPillAssertion("forest", baseline);
+    const page = makePage(["linear-gradient(to right, #ff7e5f, #ff6b6b)"]);
+    await expect(assert(page)).rejects.toThrow(/forest hint/);
+  });
 });

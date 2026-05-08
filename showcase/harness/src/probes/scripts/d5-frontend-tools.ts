@@ -114,6 +114,62 @@ export const PILL_GRADIENT_HINTS: Record<string, readonly string[]> = {
   ],
 } as const;
 
+/** Per-pill RGB-channel-dominance test for hex codes parsed out of the
+ *  gradient. The substring hint list above pins the fixture/aimock
+ *  output deterministically; this dominance check is the fallback for
+ *  real-LLM nondeterminism, where the model emits any chromatic-family
+ *  hex (e.g. forest as `#005f00 / #4caf50`) that the fixed substring
+ *  list can't enumerate. A green hex always satisfies G > R AND G > B
+ *  regardless of which exact green; sunset/cosmic mirror that on R/B.
+ *
+ *  The check requires the channel separation to clear MIN_DELTA so a
+ *  near-grey color like `#777` (R≈G≈B) doesn't accidentally satisfy
+ *  every family. MIN_VALUE filters out near-black so a single-channel
+ *  black-ish swatch (e.g. `#020000`) doesn't pass as red.
+ */
+const MIN_DOMINANCE_DELTA = 24;
+const MIN_DOMINANT_VALUE = 64;
+const PILL_HEX_DOMINANCE: Record<
+  string,
+  (rgb: { r: number; g: number; b: number }) => boolean
+> = {
+  sunset: ({ r, g, b }) =>
+    r >= MIN_DOMINANT_VALUE &&
+    r - g >= MIN_DOMINANCE_DELTA &&
+    r - b >= MIN_DOMINANCE_DELTA,
+  forest: ({ r, g, b }) =>
+    g >= MIN_DOMINANT_VALUE &&
+    g - r >= MIN_DOMINANCE_DELTA &&
+    g - b >= MIN_DOMINANCE_DELTA,
+  // Cosmic accepts navy (B dominant) AND purple/magenta (B and R both
+  // beat G — the `#9333ea` / `#6b21a8` family) — both are valid
+  // "cosmic" outputs in the wild.
+  cosmic: ({ r, g, b }) => {
+    const navy = b >= MIN_DOMINANT_VALUE && b - g >= MIN_DOMINANCE_DELTA;
+    const purple =
+      b >= MIN_DOMINANT_VALUE &&
+      r >= MIN_DOMINANT_VALUE &&
+      b - g >= MIN_DOMINANCE_DELTA &&
+      r - g >= MIN_DOMINANCE_DELTA;
+    return navy || purple;
+  },
+};
+
+/** Extract every 6-digit hex code from a CSS string and return them as
+ *  RGB triples. 3-digit shorthand (`#0f0`) is intentionally not
+ *  expanded — every gradient the demo emits uses 6-digit codes. */
+function parseHexes(css: string): { r: number; g: number; b: number }[] {
+  const matches = css.match(/#([0-9a-f]{6})/gi) ?? [];
+  return matches.map((hex) => {
+    const v = hex.slice(1);
+    return {
+      r: parseInt(v.slice(0, 2), 16),
+      g: parseInt(v.slice(2, 4), 16),
+      b: parseInt(v.slice(4, 6), 16),
+    };
+  });
+}
+
 /** Read the live background CSS off the testid'd container. */
 async function readBackgroundCss(page: Page): Promise<string> {
   return (await page.evaluate(() => {
@@ -174,10 +230,14 @@ export function buildPillAssertion(
       pillTag,
     );
     const lower = next.toLowerCase();
-    const matched = hints.some((h) => lower.includes(h));
-    if (!matched) {
+    const wordOrFixtureHexMatch = hints.some((h) => lower.includes(h));
+    const dominance = PILL_HEX_DOMINANCE[pillTag];
+    const hexes = parseHexes(next);
+    const dominanceMatch =
+      dominance !== undefined && hexes.some((rgb) => dominance(rgb));
+    if (!wordOrFixtureHexMatch && !dominanceMatch) {
       throw new Error(
-        `frontend-tools-${pillTag}: background "${next.slice(0, 200)}" does not contain any expected ${pillTag} hint (any of ${hints.join(", ")})`,
+        `frontend-tools-${pillTag}: background "${next.slice(0, 200)}" does not contain any expected ${pillTag} hint (words/fixture-hex: ${hints.join(", ")}; no parsed hex satisfied ${pillTag} channel-dominance either)`,
       );
     }
     baselineRef.current = next;
