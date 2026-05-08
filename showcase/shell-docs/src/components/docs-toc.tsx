@@ -58,30 +58,55 @@ export function DocsToc({ headings }: DocsTocProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const linkRefs = useRef<Map<string, HTMLAnchorElement>>(new Map());
 
-  // Scroll-spy: mark a heading active once its top crosses ~20% from
-  // the top of the viewport.
+  // Scroll-spy: pick the last heading whose top has crossed the
+  // trigger line (~25% from viewport top), with an explicit
+  // scrollMax override so the last heading is active when the user
+  // hits the bottom of the page. IntersectionObserver alone doesn't
+  // cover this case — once the last heading has scrolled past the
+  // trigger band, no entry fires "intersecting" so the previous
+  // active stays selected even though the user has clearly arrived
+  // at the last section.
   useEffect(() => {
     if (headings.length === 0) return;
 
-    const targets = headings
-      .map((h) => document.getElementById(h.slug))
-      .filter((el): el is HTMLElement => el !== null);
-    if (targets.length === 0) return;
+    // The actual scroll happens on `.docs-content-wrapper` (canonical
+    // page architecture: body has `overflow: hidden`). Fall back to
+    // window for safety on routes that don't wrap content this way.
+    const scrollEl =
+      document.querySelector<HTMLElement>(".docs-content-wrapper") ?? null;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const intersecting = entries.filter((e) => e.isIntersecting);
-        if (intersecting.length === 0) return;
-        intersecting.sort(
-          (a, b) => a.boundingClientRect.top - b.boundingClientRect.top,
-        );
-        setActiveSlug(intersecting[0].target.id);
-      },
-      { rootMargin: "-20% 0px -70% 0px", threshold: 0 },
-    );
+    const update = () => {
+      const triggerY = window.innerHeight * 0.25;
+      let activeIdx = 0;
+      for (let i = 0; i < headings.length; i++) {
+        const el = document.getElementById(headings[i].slug);
+        if (!el) continue;
+        if (el.getBoundingClientRect().top <= triggerY) {
+          activeIdx = i;
+        }
+      }
+      if (scrollEl) {
+        const atBottom =
+          scrollEl.scrollTop + scrollEl.clientHeight >=
+          scrollEl.scrollHeight - 4;
+        if (atBottom) activeIdx = headings.length - 1;
+      } else {
+        const docEl = document.documentElement;
+        const atBottom =
+          window.scrollY + window.innerHeight >= docEl.scrollHeight - 4;
+        if (atBottom) activeIdx = headings.length - 1;
+      }
+      setActiveSlug(headings[activeIdx]?.slug ?? null);
+    };
 
-    targets.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
+    update();
+    const target: HTMLElement | Window = scrollEl ?? window;
+    target.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      target.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
   }, [headings]);
 
   // Build the SVG mask path by tracing each item's vertical line
