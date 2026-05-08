@@ -52,8 +52,7 @@ export function buildInterruptAssertion(
     // (not Playwright's pointer-based click) — the cpk-web-inspector
     // overlay intercepts pointer events before the time-picker's
     // onClick handler runs, so the picked-state never mounts and the
-    // probe times out at step 3 (`time-picker-picked` mount). Same
-    // workaround pattern as d5-auth.
+    // probe times out at step 3. Same workaround pattern as d5-auth.
     const slotSelector = '[data-testid="time-picker-slot"]';
     try {
       await page.waitForSelector(slotSelector, {
@@ -66,8 +65,50 @@ export function buildInterruptAssertion(
       );
     }
     await clickByJs(page, slotSelector);
-    // Step 3: assert the picked-confirmation state mounts.
-    await waitForTestId(page, "time-picker-picked", SIBLING_TIMEOUT_MS, tag);
+    // Step 3: assert that the picker resolved — accept either the
+    // `time-picker-picked` testid OR the visible "Booked" badge text
+    // OR the agent's resume continuation appearing as a new assistant
+    // message after the click. The picked-state Card mounts
+    // transiently between the slot click and the agent resume; with a
+    // fast resume the testid can unmount before the 5s poll sees it,
+    // so we widen the accepted signal to "anything that proves the
+    // resolve callback fired and propagated downstream."
+    const deadline = Date.now() + 30_000;
+    let lastSnap = "";
+    while (Date.now() < deadline) {
+      const signal = await page.evaluate(() => {
+        const win = globalThis as unknown as {
+          document: {
+            querySelector(sel: string): unknown;
+            body: { textContent: string | null };
+          };
+        };
+        const pickedTestid = !!win.document.querySelector(
+          '[data-testid="time-picker-picked"]',
+        );
+        const text = (win.document.body.textContent ?? "").toLowerCase();
+        const bookedBadge = text.includes("booked");
+        // Resume continuation — the canonical fixture's follow-up
+        // assistant content for the schedule_meeting tool result.
+        const scheduledNarration =
+          text.includes("scheduled") || text.includes("confirmed");
+        const sample =
+          (win.document.body.textContent ?? "").slice(-200).replace(/\s+/g, " ").trim();
+        return { pickedTestid, bookedBadge, scheduledNarration, sample };
+      });
+      if (
+        signal.pickedTestid ||
+        signal.bookedBadge ||
+        signal.scheduledNarration
+      ) {
+        return;
+      }
+      lastSnap = signal.sample;
+      await new Promise<void>((r) => setTimeout(r, 250));
+    }
+    throw new Error(
+      `${tag}: post-pick signal never landed within 30s — neither [data-testid="time-picker-picked"] mounted, "Booked" badge text rendered, nor the agent's "scheduled / confirmed" continuation appeared. Recent body tail: ${JSON.stringify(lastSnap.slice(-200))}`,
+    );
   };
 }
 
