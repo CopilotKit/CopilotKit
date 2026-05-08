@@ -84,5 +84,25 @@ test.describe("A2UI Fixed Schema (flight card)", () => {
     await expect(page.getByRole("button", { name: "Book flight" })).toBeVisible(
       { timeout: 10_000 },
     );
+
+    // Regression guard (#4734): on Railway the deployed agent used to loop
+    // `display_flight` indefinitely because the LLM (gpt-4o-mini) couldn't
+    // tell the opaque `a2ui.render(...)` JSON return value was a success
+    // signal. The fix tightened the docstring + system prompt to spell out
+    // "card is rendered, do not call again". Assert that exactly ONE flight
+    // card is present after the round-trip — duplicates mean the loop
+    // re-emerged.
+    const flightDetailsCount = await page.getByText("Flight Details").count();
+    expect(flightDetailsCount).toBe(1);
+    const bookButtons = await page
+      .getByRole("button", { name: "Book flight" })
+      .count();
+    expect(bookButtons).toBe(1);
+
+    // Regression guard: no A2UI render-error banners on the page.
+    await expect(page.getByText(/Catalog not found/i)).toHaveCount(0);
+    await expect(
+      page.getByText(/Cannot create component .* without a type/i),
+    ).toHaveCount(0);
   });
 });
