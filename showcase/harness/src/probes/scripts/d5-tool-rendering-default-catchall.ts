@@ -85,27 +85,59 @@ export async function probeDefaultCatchall(
         querySelectorAll(sel: string): ArrayLike<{
           getAttribute(name: string): string | null;
           querySelector(sel: string): unknown;
+          textContent: string | null;
         }>;
         querySelector(sel: string): unknown;
       };
     };
+
+    const observedToolNames: string[] = [];
+    let containerWithToolName = false;
+    let statusPillPresent = false;
+
+    // Path A — strict testid contract. Lands once
+    // @copilotkit/react-core releases the
+    // `[data-testid="copilot-tool-render"]` wrapper added in commit
+    // ba60df5d3 (currently unreleased — neither 1.57.1 nor any 1.57
+    // canary include it).
     const containers = win.document.querySelectorAll(
       '[data-testid="copilot-tool-render"]',
     );
-    const observedToolNames: string[] = [];
-    let containerWithToolName = false;
     for (let i = 0; i < containers.length; i++) {
       const c = containers[i]!;
       const name = c.getAttribute("data-tool-name");
       if (name) observedToolNames.push(name);
       if (name === "get_weather") containerWithToolName = true;
     }
-    // Status pill: check the single pill testid anywhere in the doc.
-    // The renderer encodes the lifecycle state on the container's
-    // `data-status` attribute, not on the testid itself.
-    const statusPillPresent = !!win.document.querySelector(
-      '[data-testid="copilot-tool-render-status"]',
-    );
+    if (containerWithToolName) {
+      statusPillPresent = !!win.document.querySelector(
+        '[data-testid="copilot-tool-render-status"]',
+      );
+    }
+
+    // Path B — fallback for the published 1.56.5 default renderer
+    // shape, which carries no testids: scan assistant-message bubbles
+    // for the literal tool name plus the "Done" status label that
+    // DefaultToolCallRenderer emits inline. Both have to land in the
+    // SAME bubble so we don't false-positive on (e.g.) the agent's
+    // narration mentioning "get_weather" without an actual tool card.
+    if (!containerWithToolName) {
+      const assistantBubbles = win.document.querySelectorAll(
+        '[data-testid="copilot-assistant-message"]',
+      );
+      for (let i = 0; i < assistantBubbles.length; i++) {
+        const text = (assistantBubbles[i]!.textContent ?? "").toLowerCase();
+        if (text.includes("get_weather")) {
+          observedToolNames.push("get_weather");
+          if (text.includes("done") || text.includes("running")) {
+            containerWithToolName = true;
+            statusPillPresent = true;
+            break;
+          }
+        }
+      }
+    }
+
     return { containerWithToolName, statusPillPresent, observedToolNames };
   });
 }

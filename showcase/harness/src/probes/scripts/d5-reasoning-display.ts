@@ -43,16 +43,23 @@ const REASONING_TIMEOUT_MS = 5_000;
 
 /** Stable selectors that indicate a reasoning-role message has
  *  rendered. The first three are the testids emitted by
- *  showcase/integrations/* ReasoningBlock components; the last is
- *  the AG-UI role marker used by the v2 frontend. Integrations that
- *  render reasoning via CopilotKit's default slot without a stable
- *  testid will fail this probe — by design, so we don't accept
- *  weak text-based signals. */
+ *  showcase/integrations/* ReasoningBlock components (the
+ *  `reasoning-custom` demo override). The fourth is the AG-UI role
+ *  marker. The fifth is a body-text signal: the published
+ *  CopilotChatReasoningMessage built-in slot (used by the
+ *  `reasoning-default` demo) renders a "Thought for X seconds" /
+ *  "Thinking…" header verbatim and carries no testid in
+ *  @copilotkit/react-core ≤ 1.57.1 — until that release ships a
+ *  stable testid (mirroring the tool-rendering testid release path),
+ *  the visible header text is the only stable hook we have for the
+ *  built-in slot. */
 export const REASONING_SELECTORS = [
   '[data-testid="reasoning-block"]',
   '[data-testid="reasoning-content"]',
   '[data-testid="reasoning-default"]',
   '[data-message-role="reasoning"]',
+  "text=Thought for",
+  "text=Thinking…",
 ] as const;
 
 async function hasReasoningMessage(page: Page): Promise<boolean> {
@@ -60,6 +67,7 @@ async function hasReasoningMessage(page: Page): Promise<boolean> {
     const win = globalThis as unknown as {
       document: {
         querySelector(sel: string): unknown;
+        body: { textContent: string | null };
       };
     };
     const sels = [
@@ -68,7 +76,13 @@ async function hasReasoningMessage(page: Page): Promise<boolean> {
       '[data-testid="reasoning-default"]',
       '[data-message-role="reasoning"]',
     ];
-    return sels.some((s) => win.document.querySelector(s) !== null);
+    if (sels.some((s) => win.document.querySelector(s) !== null)) return true;
+    // Fallback: built-in CopilotChatReasoningMessage's verbatim header
+    // text. Both spellings are emitted by the published component
+    // depending on whether reasoning is in-flight ("Thinking…") or
+    // finalised ("Thought for N seconds").
+    const body = (win.document.body.textContent ?? "").toLowerCase();
+    return body.includes("thought for") || body.includes("thinking…");
   })) as boolean;
 }
 
