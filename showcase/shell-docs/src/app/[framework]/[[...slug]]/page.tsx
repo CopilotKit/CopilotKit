@@ -21,6 +21,7 @@ import Link from "next/link";
 import { DocsLandingNext } from "@/components/docs-landing-next";
 import { DocsPageView } from "@/components/docs-page-view";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
+import { SidebarNav } from "@/components/sidebar-nav";
 import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
 import {
   CONTENT_DIR,
@@ -343,83 +344,92 @@ function FrameworkLandingPage({ framework }: { framework: string }) {
   const tree = mergeFrameworkNav(rootNav, overrideNav, integration.name);
 
   return (
-    <div className="flex h-full w-full">
-      <aside className="w-[240px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
+    // Match docs-page-view shell (SidebarNav + .docs-content-wrapper as
+    // flex siblings of the root <main>). Same chrome the per-doc routes
+    // use, so the framework landing reads as a docs page rather than
+    // a separate landing surface.
+    <>
+      <SidebarNav className="hidden md:flex flex-col w-[260px] shrink-0 rounded-l-2xl backdrop-blur-lg border border-r-0 border-[var(--border)] bg-[var(--glass-background)] overflow-hidden px-3">
         <SidebarFrameworkSelector />
-        {tree.map((node, i) => (
-          <RenderNav key={i} node={node} framework={framework} />
-        ))}
-      </aside>
+        <div className="mb-4" />
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+          {tree.map((node, i) => (
+            <RenderNav key={i} node={node} framework={framework} />
+          ))}
+        </div>
+      </SidebarNav>
 
       {/* Same docs-landing shell as `/` (DocsOverview). DocsLandingNext
        * reads the URL-active framework from FrameworkProvider and
        * renders the "Continue with {framework}" branch — Quickstart,
        * Browse docs, Switch framework — instead of the picker. */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-4xl px-8 py-10">
-          <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
-            Documentation
-          </div>
-          <h1 className="text-[2.25rem] font-bold text-[var(--text)] tracking-tight mb-3 leading-tight">
-            Welcome to CopilotKit
-          </h1>
-          <p className="text-base text-[var(--text-secondary)] leading-relaxed mb-8 max-w-2xl">
-            CopilotKit is the <strong>frontend stack for agents</strong> and{" "}
-            <strong>generative UI</strong>. Connect any agent framework or model
-            to your React app for chat, generative UI, canvas apps, and
-            human-in-the-loop workflows.
-          </p>
-
-          <div className="mb-10 max-w-2xl">
-            <p className="text-sm text-[var(--text-secondary)] mb-3">
-              Starting from scratch? Bootstrap a full-stack agent in one
-              command:
+      <div className="docs-content-wrapper flex">
+        <div className="flex-1 min-w-0 px-4 py-6 md:px-6 md:pt-8 xl:px-8 xl:pt-14">
+          <div className="max-w-[900px] mx-auto">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
+              Documentation
+            </div>
+            <h1 className="text-[2.25rem] font-bold text-[var(--text)] tracking-tight mb-3 leading-tight">
+              Welcome to CopilotKit
+            </h1>
+            <p className="text-base text-[var(--text-secondary)] leading-relaxed mb-8 max-w-2xl">
+              CopilotKit is the <strong>frontend stack for agents</strong> and{" "}
+              <strong>generative UI</strong>. Connect any agent framework or
+              model to your React app for chat, generative UI, canvas apps, and
+              human-in-the-loop workflows.
             </p>
-            <pre className="rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-4 py-3 text-sm font-mono overflow-x-auto">
-              <code>npx copilotkit@latest create</code>
-            </pre>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-10">
-            <Link
-              href={`/${framework}/concepts/architecture`}
-              className="group flex flex-col gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 no-underline hover:border-[var(--accent)] hover:shadow-sm transition"
-            >
-              <div className="font-semibold text-[var(--text)] group-hover:text-[var(--accent)]">
-                Concepts
-              </div>
-              <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
-                Architecture, gen UI types, OSS vs Enterprise.
-              </div>
-            </Link>
-            <Link
-              href="/reference"
-              className="group flex flex-col gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 no-underline hover:border-[var(--accent)] hover:shadow-sm transition"
-            >
-              <div className="font-semibold text-[var(--text)] group-hover:text-[var(--accent)]">
-                API Reference
-              </div>
-              <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
-                Hooks, components, and config.
-              </div>
-            </Link>
-            <Link
-              href={`/${framework}/generative-ui/your-components/display-only`}
-              className="group flex flex-col gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 no-underline hover:border-[var(--accent)] hover:shadow-sm transition"
-            >
-              <div className="font-semibold text-[var(--text)] group-hover:text-[var(--accent)]">
-                Generative UI
-              </div>
-              <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
-                Render tools as React components.
-              </div>
-            </Link>
-          </div>
+            <div className="mb-10 max-w-2xl">
+              <p className="text-sm text-[var(--text-secondary)] mb-3">
+                Starting from scratch? Bootstrap a full-stack agent in one
+                command:
+              </p>
+              <pre className="rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-4 py-3 text-sm font-mono overflow-x-auto">
+                <code>npx copilotkit@latest create</code>
+              </pre>
+            </div>
 
-          <DocsLandingNext />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-10">
+              <Link
+                href={`/${framework}/concepts/architecture`}
+                className="group flex flex-col gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 no-underline hover:border-[var(--accent)] hover:shadow-sm transition"
+              >
+                <div className="font-semibold text-[var(--text)] group-hover:text-[var(--accent)]">
+                  Concepts
+                </div>
+                <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                  Architecture, gen UI types, OSS vs Enterprise.
+                </div>
+              </Link>
+              <Link
+                href="/reference"
+                className="group flex flex-col gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 no-underline hover:border-[var(--accent)] hover:shadow-sm transition"
+              >
+                <div className="font-semibold text-[var(--text)] group-hover:text-[var(--accent)]">
+                  API Reference
+                </div>
+                <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                  Hooks, components, and config.
+                </div>
+              </Link>
+              <Link
+                href={`/${framework}/generative-ui/your-components/display-only`}
+                className="group flex flex-col gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 no-underline hover:border-[var(--accent)] hover:shadow-sm transition"
+              >
+                <div className="font-semibold text-[var(--text)] group-hover:text-[var(--accent)]">
+                  Generative UI
+                </div>
+                <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                  Render tools as React components.
+                </div>
+              </Link>
+            </div>
+
+            <DocsLandingNext />
+          </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </>
   );
 }
 
@@ -446,66 +456,70 @@ function NotAvailableForFrameworkPage({
 }) {
   const title = humanizeSlug(slugPath);
   return (
-    <div className="flex h-full w-full">
-      <aside className="w-[240px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
+    <>
+      <SidebarNav className="hidden md:flex flex-col w-[260px] shrink-0 rounded-l-2xl backdrop-blur-lg border border-r-0 border-[var(--border)] bg-[var(--glass-background)] overflow-hidden px-3">
         <SidebarFrameworkSelector />
         <Link
           href={`/${framework.slug}`}
-          className="block text-xs font-mono uppercase tracking-widest text-[var(--accent)] mb-4"
+          className="block text-xs font-mono uppercase tracking-widest text-[var(--accent)] mb-4 px-3"
         >
           {framework.name}
         </Link>
-        {navTree.map((node, i) => (
-          <RenderNav key={i} node={node} framework={framework.slug} />
-        ))}
-      </aside>
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl px-8 py-8">
-          <h1 className="text-[2rem] font-bold text-[var(--text)] tracking-tight mb-2 leading-tight">
-            {title}
-          </h1>
-          <p className="text-base text-[var(--text-muted)] mb-6 leading-relaxed">
-            This topic isn't available for {framework.name}.
-          </p>
-          <div className="rounded-lg border border-yellow-500/40 bg-yellow-500/5 p-5 mb-6">
-            <div className="text-sm font-semibold text-[var(--text)] mb-2">
-              Available in other integrations
-            </div>
-            <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed mb-3">
-              <code>{slugPath}</code> is a topic specific to other integrations.
-              Pick one to continue reading:
-            </p>
-            <ul className="space-y-2">
-              {availableIn.map((slug) => {
-                const alt = getIntegration(slug);
-                if (!alt) return null;
-                return (
-                  <li key={slug}>
-                    <Link
-                      href={`/${slug}/${slugPath}`}
-                      className="text-sm text-[var(--accent)] hover:underline"
-                    >
-                      {alt.name}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-          <p className="text-[13px] text-[var(--text-muted)]">
-            Or return to{" "}
-            <Link
-              href={`/${framework.slug}`}
-              className="text-[var(--accent)] hover:underline"
-            >
-              the {framework.name} docs
-            </Link>
-            .
-          </p>
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+          {navTree.map((node, i) => (
+            <RenderNav key={i} node={node} framework={framework.slug} />
+          ))}
         </div>
-      </main>
-    </div>
+      </SidebarNav>
+
+      <div className="docs-content-wrapper flex">
+        <div className="flex-1 min-w-0 px-4 py-6 md:px-6 md:pt-8 xl:px-8 xl:pt-14">
+          <div className="max-w-[900px] mx-auto">
+            <h1 className="text-[2rem] font-bold text-[var(--text)] tracking-tight mb-2 leading-tight">
+              {title}
+            </h1>
+            <p className="text-base text-[var(--text-muted)] mb-6 leading-relaxed">
+              This topic isn't available for {framework.name}.
+            </p>
+            <div className="rounded-lg border border-yellow-500/40 bg-yellow-500/5 p-5 mb-6">
+              <div className="text-sm font-semibold text-[var(--text)] mb-2">
+                Available in other integrations
+              </div>
+              <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed mb-3">
+                <code>{slugPath}</code> is a topic specific to other
+                integrations. Pick one to continue reading:
+              </p>
+              <ul className="space-y-2">
+                {availableIn.map((slug) => {
+                  const alt = getIntegration(slug);
+                  if (!alt) return null;
+                  return (
+                    <li key={slug}>
+                      <Link
+                        href={`/${slug}/${slugPath}`}
+                        className="text-sm text-[var(--accent)] hover:underline"
+                      >
+                        {alt.name}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+            <p className="text-[13px] text-[var(--text-muted)]">
+              Or return to{" "}
+              <Link
+                href={`/${framework.slug}`}
+                className="text-[var(--accent)] hover:underline"
+              >
+                the {framework.name} docs
+              </Link>
+              .
+            </p>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -526,14 +540,20 @@ function RenderNav({
   framework: string;
   depth?: number;
 }) {
-  const indent = depth * 16;
   if (node.type === "section") {
+    if (depth > 0) {
+      return (
+        <div className="px-3 mt-4 mb-1 text-[11px] uppercase tracking-wide text-[var(--text-faint)]">
+          {node.title}
+        </div>
+      );
+    }
     return (
-      <div
-        className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mt-4 mb-2"
-        style={{ paddingLeft: `${indent}px` }}
-      >
-        {node.title}
+      <div className="flex items-center gap-2 mt-6 mb-3">
+        <span className="text-[15px] uppercase tracking-wide shrink-0 text-[var(--text-secondary)]">
+          {node.title}
+        </span>
+        <div className="flex-1 h-px bg-[var(--border)]" />
       </div>
     );
   }
@@ -541,31 +561,39 @@ function RenderNav({
     return (
       <Link
         href={`/${framework}/${node.slug}`}
-        className="block py-[5px] text-[13px] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
-        style={{ paddingLeft: `${indent}px` }}
+        className="flex items-center h-10 px-3 text-sm rounded-lg shrink-0 transition-all duration-200 text-[var(--text-muted)] hover:bg-[var(--bg-surface)]/60 hover:text-[var(--text)] dark:hover:bg-white/5"
       >
         {node.title}
       </Link>
     );
   }
+  // Group: a labeled folder with nested children. Title-less wrapper
+  // groups (used to flatten a section's content) skip the indent and
+  // tree-line so their children render at the parent's depth.
+  const hasTitle = !!node.title;
   return (
     <div className="mt-1">
-      {node.title && (
-        <div
-          className="py-[5px] text-[13px] font-medium text-[var(--text-secondary)]"
-          style={{ paddingLeft: `${indent}px` }}
-        >
+      {hasTitle && (
+        <div className="flex items-center h-10 px-3 text-sm font-medium text-[var(--text)] shrink-0">
           {node.title}
         </div>
       )}
-      {node.children.map((child, i) => (
-        <RenderNav
-          key={i}
-          node={child}
-          framework={framework}
-          depth={depth + 1}
-        />
-      ))}
+      <div
+        className={
+          hasTitle
+            ? "ml-3 pl-3 border-l border-[var(--border-dim)] flex flex-col"
+            : "flex flex-col"
+        }
+      >
+        {node.children.map((child, i) => (
+          <RenderNav
+            key={i}
+            node={child}
+            framework={framework}
+            depth={depth + 1}
+          />
+        ))}
+      </div>
     </div>
   );
 }
