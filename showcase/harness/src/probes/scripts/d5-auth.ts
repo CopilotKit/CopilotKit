@@ -2,45 +2,57 @@
  * D5 — auth script.
  *
  * Drives `/demos/auth` through one user turn that proves the demo's
- * mount/unmount auth lifecycle works end-to-end:
+ * auth lifecycle works end-to-end. Two demo shapes coexist in the
+ * showcase right now and the probe accepts EITHER:
  *
- *   1. preFill: the demo defaults to UNAUTHENTICATED on first paint —
- *      the chat surface isn't mounted until the user signs in. Click
- *      the SignInCard's sign-in button to mount `<CopilotKit>` +
- *      `<CopilotChat>` so the runner's chat-input cascade can find
- *      the textarea for turn 1.
- *   2. Runner sends the user message and waits for the assistant
- *      response to settle (proves the bearer header reached the
- *      runtime and the runtime accepted it).
- *   3. assertion: click sign-out, then wait for the SignInCard to
- *      re-mount. The demo unmounts the entire `<CopilotKit>` tree on
- *      sign-out, so SignInCard re-appearing is the canonical proof
- *      that the auth state flipped — no chat-send-and-401 dance is
- *      needed (or possible — there's no chat surface to send into
- *      after unmount).
+ *   - **Idiomatic shape (langgraph-python)**: defaults to UNAUTHENTICATED
+ *     on first paint and renders SignInCard. After sign-in, mounts
+ *     `<CopilotKit>` + `<CopilotChat>`. Sign-out unmounts the entire
+ *     tree. Probe flow: preFill clicks sign-in to mount chat → runner
+ *     sends a turn → assertion clicks sign-out and waits for SignInCard
+ *     to re-mount (unmount IS the assertion).
+ *   - **Legacy shape (the other 17 integrations)**: loads directly into
+ *     authenticated state with chat already mounted. Sign-out flips the
+ *     banner to `data-authenticated="false"` but leaves <CopilotKit>
+ *     mounted; the next request 401s and surfaces an error banner.
+ *     Probe flow: preFill is a no-op → runner sends a turn → assertion
+ *     clicks sign-out, fires a probe message, and waits for the legacy
+ *     error surface.
  *
- * The previous incarnation chased a 401-error-banner surface that
- * existed in the OLD demo (when CopilotKit stayed mounted with stale
- * tokens). The post-refactor demo deliberately avoids that path by
- * unmounting the whole tree, so the unmount marker is the right
- * signal.
+ * The probe detects which shape is on the page by waiting briefly for
+ * the SignInCard's sign-in button. Present → idiomatic; absent →
+ * legacy. Either path satisfies the assertion.
  */
 
 import { registerD5Script } from "../helpers/d5-registry.js";
 import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 
+// ── Idiomatic-shape selectors (langgraph-python) ─────────────────────
 export const SIGN_IN_BUTTON_SELECTOR = '[data-testid="auth-sign-in-button"]';
 export const SIGN_IN_CARD_SELECTOR = '[data-testid="auth-sign-in-card"]';
+
+// ── Shared selector (both shapes have this) ──────────────────────────
 export const SIGN_OUT_BUTTON_SELECTOR = '[data-testid="auth-sign-out-button"]';
 
+// ── Legacy-shape selectors (the other 17 integrations) ───────────────
+export const AUTH_BANNER_UNAUTHENTICATED_SELECTOR =
+  '[data-testid="auth-banner"][data-authenticated="false"]';
+export const ERROR_BANNER_SELECTOR = '[data-testid="auth-demo-error"]';
+export const ERROR_BOUNDARY_SELECTOR =
+  '[data-testid="auth-demo-chat-boundary"]';
+
 const POST_SIGN_OUT_TIMEOUT_MS = 8_000;
+const SIGN_IN_DETECT_TIMEOUT_MS = 1_500;
 const SIGN_IN_MOUNT_TIMEOUT_MS = 5_000;
 const POST_SIGN_IN_CHAT_TIMEOUT_MS = 15_000;
+const POLL_INTERVAL_MS = 200;
 
 export interface AuthAssertionOpts {
   /** Override the post-sign-out wait. Tests use a short value. */
   signOutTimeoutMs?: number;
+  /** Override the sign-in-shape detection wait. Tests use a short value. */
+  detectTimeoutMs?: number;
   /** Click handler injection — page.click() isn't on the structural Page
    * type the runner uses. We expose a hook here so tests can simulate
    * the click without a real Playwright page. */
@@ -69,30 +81,51 @@ const defaultClick = async (page: Page, selector: string): Promise<void> => {
   await page.evaluate(fn);
 };
 
-/** Pre-turn-1 hook: click the SignInCard's sign-in button to mount the
- *  `<CopilotKit>` + chat tree, then wait for the chat input to appear
- *  so the runner's fill+press has somewhere to land. */
+/** Probe whether either legacy error surface is currently visible. */
+async function probeErrorSurfaceVisible(page: Page): Promise<boolean> {
+  return (await page.evaluate(() => {
+    const win = globalThis as unknown as {
+      document: {
+        querySelector(sel: string): unknown;
+      };
+    };
+    return Boolean(
+      win.document.querySelector('[data-testid="auth-demo-error"]') ||
+        win.document.querySelector('[data-testid="auth-demo-chat-boundary"]'),
+    );
+  })) as boolean;
+}
+
+/** Pre-turn-1 hook: detect which demo shape is on the page. If
+ *  SignInCard's sign-in button is visible within `detectTimeoutMs`,
+ *  treat as idiomatic shape — click it and wait for the chat textarea
+ *  to mount. Otherwise treat as legacy shape (already-authenticated)
+ *  and return immediately so the runner's normal fill+press hits the
+ *  pre-mounted chat. */
 export function buildAuthPreFill(
   opts: AuthAssertionOpts = {},
 ): (page: Page) => Promise<void> {
   const click = opts.click ?? defaultClick;
+  const detectTimeout = opts.detectTimeoutMs ?? SIGN_IN_DETECT_TIMEOUT_MS;
   return async (page: Page): Promise<void> => {
-    // Demo defaults to unauthenticated; SignInCard should be on screen.
+    let isIdiomaticShape = false;
     try {
       await page.waitForSelector(SIGN_IN_BUTTON_SELECTOR, {
         state: "visible",
-        timeout: SIGN_IN_MOUNT_TIMEOUT_MS,
+        timeout: detectTimeout,
       });
+      isIdiomaticShape = true;
     } catch {
-      throw new Error(
-        `auth: sign-in button ${SIGN_IN_BUTTON_SELECTOR} not visible — demo did not load in unauthenticated state (SignInCard missing)`,
-      );
+      // Sign-in button not visible — assume legacy shape (demo loads
+      // directly into authenticated state, chat already mounted). The
+      // runner's normal fill+press will hit it without preFill help.
+      isIdiomaticShape = false;
     }
-    await click(page, SIGN_IN_BUTTON_SELECTOR);
 
-    // After click, the parent re-renders into the authenticated branch
-    // and mounts <CopilotKit> + <CopilotChat>. Wait for the textarea
-    // so the runner's first fill+press doesn't race the mount.
+    if (!isIdiomaticShape) return;
+
+    // Idiomatic shape — click sign-in to mount the chat tree.
+    await click(page, SIGN_IN_BUTTON_SELECTOR);
     try {
       await page.waitForSelector(
         '[data-testid="copilot-chat-textarea"], [data-testid="copilot-chat-input"] textarea, textarea',
@@ -113,35 +146,94 @@ export function buildAuthAssertion(
   opts: AuthAssertionOpts = {},
 ): (page: Page) => Promise<void> {
   const timeout = opts.signOutTimeoutMs ?? POST_SIGN_OUT_TIMEOUT_MS;
+  const detectTimeout = opts.detectTimeoutMs ?? SIGN_IN_MOUNT_TIMEOUT_MS;
   const click = opts.click ?? defaultClick;
   return async (page: Page): Promise<void> => {
-    // Step 1 — sign-out button must be visible (we successfully
-    // authenticated and the chat surface mounted with AuthBanner).
+    // Sign-out button must be visible — both shapes show it after auth.
     try {
       await page.waitForSelector(SIGN_OUT_BUTTON_SELECTOR, {
         state: "visible",
-        timeout: 5_000,
+        timeout: detectTimeout,
       });
     } catch {
       throw new Error(
-        `auth: sign-out button ${SIGN_OUT_BUTTON_SELECTOR} not visible — demo did not transition to authenticated state after sign-in`,
+        `auth: sign-out button ${SIGN_OUT_BUTTON_SELECTOR} not visible — demo did not reach authenticated state (idiomatic: sign-in click failed; legacy: demo did not load authenticated)`,
       );
     }
+
+    // Detect shape. Idiomatic: SignInCard testid existed at preFill time
+    // (we won't re-detect to avoid coupling to preFill state); we use
+    // the assistant-bubble presence as a proxy for "chat tree mounted".
+    // Simpler approach: just try the idiomatic assertion first (click
+    // sign-out, expect SignInCard re-mount) and if SignInCard never
+    // mounts within a short detection window, fall back to legacy.
+    //
+    // We split the timeout: if the idiomatic path is going to succeed,
+    // SignInCard re-mount is fast (a fresh React render — typically
+    // <500ms). If we don't see it within ~3s, we're on the legacy
+    // shape and should switch to the error-surface flow. The total
+    // wall-clock budget remains `timeout`.
     await click(page, SIGN_OUT_BUTTON_SELECTOR);
 
-    // Step 2 — wait for SignInCard to re-mount. The demo unmounts
-    // <CopilotKit> entirely on sign-out, so SignInCard reappearing is
-    // the canonical proof that the auth state flipped.
+    const idiomaticDeadline = Date.now() + Math.min(3_000, timeout);
+    let signInCardMounted = false;
+    while (Date.now() < idiomaticDeadline) {
+      try {
+        await page.waitForSelector(SIGN_IN_CARD_SELECTOR, {
+          state: "visible",
+          timeout: 200,
+        });
+        signInCardMounted = true;
+        break;
+      } catch {
+        // Not yet — continue polling.
+      }
+    }
+
+    if (signInCardMounted) {
+      // Idiomatic shape: SignInCard re-mounted. Pass.
+      return;
+    }
+
+    // Legacy shape: SignInCard never re-mounts because <CopilotKit>
+    // stays mounted. Run the legacy error-surface assertion against
+    // the remaining time budget.
+    const remaining = Math.max(2_000, timeout - 3_000);
+    // We already clicked sign-out above; legacy-path needs the
+    // banner-flip + probe-send + error-surface flow but starts AFTER
+    // the click. Inline the rest of `assertLegacyErrorSurface` minus
+    // the click:
     try {
-      await page.waitForSelector(SIGN_IN_CARD_SELECTOR, {
+      await page.waitForSelector(AUTH_BANNER_UNAUTHENTICATED_SELECTOR, {
         state: "visible",
-        timeout,
+        timeout: 3_000,
       });
     } catch {
       throw new Error(
-        `auth: SignInCard ${SIGN_IN_CARD_SELECTOR} did not re-mount within ${timeout}ms after clicking sign-out — auth gate may have regressed (tree didn't unmount) or the SignInCard testid drifted`,
+        `auth: neither idiomatic SignInCard re-mount nor legacy banner-flip happened after sign-out — auth flow may have regressed in BOTH shapes (idiomatic timeout: 3s; legacy banner-flip timeout: 3s)`,
       );
     }
+    await new Promise<void>((r) => setTimeout(r, 500));
+    try {
+      await page.fill(
+        '[data-testid="copilot-chat-textarea"]',
+        "post-signout probe",
+        { timeout: 2_000 },
+      );
+      await page.press('[data-testid="copilot-chat-textarea"]', "Enter", {
+        timeout: 2_000,
+      });
+    } catch {
+      // Fall through — error surface may already be visible.
+    }
+    const errorDeadline = Date.now() + remaining;
+    while (Date.now() < errorDeadline) {
+      if (await probeErrorSurfaceVisible(page)) return;
+      await new Promise<void>((r) => setTimeout(r, POLL_INTERVAL_MS));
+    }
+    throw new Error(
+      `auth: legacy shape — banner flipped to unauthenticated but neither ${ERROR_BANNER_SELECTOR} nor ${ERROR_BOUNDARY_SELECTOR} appeared within ${remaining}ms after probe send — auth gate may have regressed`,
+    );
   };
 }
 

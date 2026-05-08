@@ -9,30 +9,38 @@ import {
   SIGN_IN_BUTTON_SELECTOR,
   SIGN_IN_CARD_SELECTOR,
   SIGN_OUT_BUTTON_SELECTOR,
+  AUTH_BANNER_UNAUTHENTICATED_SELECTOR,
+  ERROR_BANNER_SELECTOR,
+  ERROR_BOUNDARY_SELECTOR,
 } from "./d5-auth.js";
 
 interface FakeOpts {
-  /** Whether the sign-in button is initially visible. Default true. */
+  /** Whether the SignInCard's sign-in button is visible at preFill time
+   *  (idiomatic shape detection). Default true (langgraph-python). */
   signInButtonVisible?: boolean;
-  /** Whether the chat textarea mounts after sign-in. Default true. */
+  /** Whether the chat textarea mounts after sign-in click. Default true. */
   textareaMountsAfterSignIn?: boolean;
   /** Whether the sign-out button is visible after authentication. Default true. */
   signOutButtonVisible?: boolean;
-  /** Whether the SignInCard re-mounts after sign-out. Default true. */
+  /** Whether the SignInCard re-mounts after sign-out (idiomatic-shape pass). */
   signInCardRemounts?: boolean;
+  /** Whether the legacy banner flips to unauthenticated after sign-out. */
+  legacyBannerFlipsToUnauth?: boolean;
+  /** Whether the legacy error surface eventually appears. */
+  legacyErrorSurfaceAppears?: boolean;
 }
 
 function makePage(opts: FakeOpts): {
   page: Page;
   fakeClick: (p: Page, sel: string) => Promise<void>;
 } {
-  let signedIn = false;
+  let signedIn = !opts.signInButtonVisible; // legacy starts already-signed-in
   let signedOut = false;
   const page: Page = {
     async waitForSelector(selector: string) {
       if (selector === SIGN_IN_BUTTON_SELECTOR) {
         if (!(opts.signInButtonVisible ?? true)) {
-          throw new Error("waitForSelector timeout (sign-in button missing)");
+          throw new Error("waitForSelector timeout (legacy shape — no sign-in button)");
         }
         return;
       }
@@ -67,11 +75,22 @@ function makePage(opts: FakeOpts): {
         }
         return;
       }
+      if (selector === AUTH_BANNER_UNAUTHENTICATED_SELECTOR) {
+        if (!signedOut || !(opts.legacyBannerFlipsToUnauth ?? false)) {
+          throw new Error(
+            "waitForSelector timeout (legacy banner never flipped)",
+          );
+        }
+        return;
+      }
     },
     async fill() {},
     async press() {},
     async evaluate() {
-      return undefined as never;
+      // probeErrorSurfaceVisible asks for `[data-testid="auth-demo-error"]`
+      // OR `[data-testid="auth-demo-chat-boundary"]` — return true after
+      // sign-out if the legacy error surface should appear.
+      return (signedOut && (opts.legacyErrorSurfaceAppears ?? false)) as never;
     },
   };
   const fakeClick = async (_p: Page, sel: string): Promise<void> => {
@@ -108,39 +127,50 @@ describe("d5-auth script", () => {
     expect(SIGN_OUT_BUTTON_SELECTOR).toBe(
       '[data-testid="auth-sign-out-button"]',
     );
+    expect(AUTH_BANNER_UNAUTHENTICATED_SELECTOR).toBe(
+      '[data-testid="auth-banner"][data-authenticated="false"]',
+    );
+    expect(ERROR_BANNER_SELECTOR).toBe('[data-testid="auth-demo-error"]');
+    expect(ERROR_BOUNDARY_SELECTOR).toBe(
+      '[data-testid="auth-demo-chat-boundary"]',
+    );
   });
 
   describe("buildAuthPreFill", () => {
-    it("fails when sign-in button is not visible (demo loaded into wrong state)", async () => {
-      const { page, fakeClick } = makePage({ signInButtonVisible: false });
-      const preFill = buildAuthPreFill({ click: fakeClick });
-      await expect(preFill(page)).rejects.toThrow(
-        /sign-in button.*not visible/,
-      );
+    it("on idiomatic shape: clicks sign-in then waits for chat textarea", async () => {
+      const { page, fakeClick } = makePage({
+        signInButtonVisible: true,
+        textareaMountsAfterSignIn: true,
+      });
+      const preFill = buildAuthPreFill({ click: fakeClick, detectTimeoutMs: 50 });
+      await expect(preFill(page)).resolves.toBeUndefined();
     });
 
-    it("fails when chat textarea does not mount after sign-in", async () => {
+    it("on idiomatic shape: fails when chat textarea does not mount after sign-in", async () => {
       const { page, fakeClick } = makePage({
+        signInButtonVisible: true,
         textareaMountsAfterSignIn: false,
       });
-      const preFill = buildAuthPreFill({ click: fakeClick });
+      const preFill = buildAuthPreFill({ click: fakeClick, detectTimeoutMs: 50 });
       await expect(preFill(page)).rejects.toThrow(
         /chat textarea did not mount/,
       );
     });
 
-    it("succeeds when sign-in mounts the chat surface", async () => {
-      const { page, fakeClick } = makePage({});
-      const preFill = buildAuthPreFill({ click: fakeClick });
+    it("on legacy shape: returns immediately (no sign-in click needed)", async () => {
+      // No sign-in button visible → legacy shape → preFill is a no-op.
+      const { page, fakeClick } = makePage({ signInButtonVisible: false });
+      const preFill = buildAuthPreFill({ click: fakeClick, detectTimeoutMs: 50 });
       await expect(preFill(page)).resolves.toBeUndefined();
     });
   });
 
   describe("buildAuthAssertion", () => {
-    it("fails when sign-out button is not visible (sign-in path didn't authenticate)", async () => {
+    it("fails when sign-out button is not visible", async () => {
       const { page, fakeClick } = makePage({ signOutButtonVisible: false });
       const assertion = buildAuthAssertion({
         signOutTimeoutMs: 50,
+        detectTimeoutMs: 50,
         click: fakeClick,
       });
       await expect(assertion(page)).rejects.toThrow(
@@ -148,10 +178,15 @@ describe("d5-auth script", () => {
       );
     });
 
-    it("fails when SignInCard does not re-mount after sign-out (tree didn't unmount)", async () => {
-      const { page, fakeClick } = makePage({ signInCardRemounts: false });
+    it("on idiomatic shape: succeeds when SignInCard re-mounts after sign-out", async () => {
+      const { page, fakeClick } = makePage({
+        signInButtonVisible: true,
+        signOutButtonVisible: true,
+        signInCardRemounts: true,
+      });
       const assertion = buildAuthAssertion({
-        signOutTimeoutMs: 50,
+        signOutTimeoutMs: 5_000,
+        detectTimeoutMs: 50,
         click: fakeClick,
       });
       await expect(assertion(page)).rejects.toThrow(
@@ -159,10 +194,54 @@ describe("d5-auth script", () => {
       );
     });
 
-    it("succeeds when SignInCard re-mounts after clicking sign-out", async () => {
-      const { page, fakeClick } = makePage({});
-      const assertion = buildAuthAssertion({ click: fakeClick });
+    it("on legacy shape: succeeds when banner flips and error surface appears", async () => {
+      const { page, fakeClick } = makePage({
+        signInButtonVisible: false, // legacy
+        signOutButtonVisible: true,
+        signInCardRemounts: false, // legacy doesn't have SignInCard
+        legacyBannerFlipsToUnauth: true,
+        legacyErrorSurfaceAppears: true,
+      });
+      const assertion = buildAuthAssertion({
+        signOutTimeoutMs: 5_000,
+        detectTimeoutMs: 50,
+        click: fakeClick,
+      });
       await expect(assertion(page)).resolves.toBeUndefined();
+    });
+
+    it("fails when neither idiomatic re-mount nor legacy banner-flip happens", async () => {
+      const { page, fakeClick } = makePage({
+        signOutButtonVisible: true,
+        signInCardRemounts: false,
+        legacyBannerFlipsToUnauth: false,
+      });
+      const assertion = buildAuthAssertion({
+        signOutTimeoutMs: 100,
+        detectTimeoutMs: 50,
+        click: fakeClick,
+      });
+      await expect(assertion(page)).rejects.toThrow(
+        /neither idiomatic SignInCard re-mount nor legacy banner-flip/,
+      );
+    });
+
+    it("fails when legacy banner flips but error surface never appears", async () => {
+      const { page, fakeClick } = makePage({
+        signInButtonVisible: false,
+        signOutButtonVisible: true,
+        signInCardRemounts: false,
+        legacyBannerFlipsToUnauth: true,
+        legacyErrorSurfaceAppears: false,
+      });
+      const assertion = buildAuthAssertion({
+        signOutTimeoutMs: 200,
+        detectTimeoutMs: 50,
+        click: fakeClick,
+      });
+      await expect(assertion(page)).rejects.toThrow(
+        /legacy shape.*neither.*appeared/,
+      );
     });
   });
 });

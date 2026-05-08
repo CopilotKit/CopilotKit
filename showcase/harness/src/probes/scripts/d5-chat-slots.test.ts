@@ -5,6 +5,8 @@ import {
   buildTurns,
   buildChatSlotsAssertion,
   CUSTOM_ASSISTANT_MESSAGE_SELECTOR,
+  SLOT_MARKER_SELECTOR,
+  LEGACY_TESTID_SELECTOR,
 } from "./d5-chat-slots.js";
 
 const FIXTURE_USER_MESSAGE = "verify chat slots are wired";
@@ -43,16 +45,27 @@ describe("d5-chat-slots script", () => {
     expect(typeof turns[0]!.assertions).toBe("function");
   });
 
-  it("exposes the assistant-message SlotMarker selector for the slot probe", () => {
-    expect(CUSTOM_ASSISTANT_MESSAGE_SELECTOR).toBe(
+  it("exposes both the idiomatic and legacy slot selectors", () => {
+    expect(SLOT_MARKER_SELECTOR).toBe(
       '[data-slot-label="MessageView.AssistantMessage"]',
+    );
+    expect(LEGACY_TESTID_SELECTOR).toBe(
+      '[data-testid="custom-assistant-message"]',
     );
   });
 
-  it("assertion fails when the slot wrapper does not appear in DOM", async () => {
+  it("the combined selector accepts either marker via CSS OR", () => {
+    // The combined selector hands Playwright a CSS list that matches
+    // either the idiomatic SlotMarker or the legacy testid wrapper.
+    expect(CUSTOM_ASSISTANT_MESSAGE_SELECTOR).toBe(
+      `${SLOT_MARKER_SELECTOR}, ${LEGACY_TESTID_SELECTOR}`,
+    );
+  });
+
+  it("assertion fails when neither slot marker appears in DOM", async () => {
     const assertion = buildChatSlotsAssertion({ waitTimeoutMs: 50 });
     await expect(assertion(makePage({ throwOnWait: true }))).rejects.toThrow(
-      /assistant-message SlotMarker/,
+      /assistant-message slot marker/,
     );
   });
 

@@ -7,6 +7,7 @@ import {
   validateChatCss,
   USER_BUBBLE_SELECTOR,
   ASSISTANT_BUBBLE_SELECTOR,
+  type ChatCssProbeResult,
 } from "./d5-chat-css.js";
 
 function makePage(probe: unknown, opts: { throwOnWait?: boolean } = {}): Page {
@@ -20,6 +21,38 @@ function makePage(probe: unknown, opts: { throwOnWait?: boolean } = {}): Page {
     async evaluate() {
       return probe as never;
     },
+  };
+}
+
+/** Build a HALCYON-shaped probe result. */
+function halcyonProbe(
+  overrides: Partial<ChatCssProbeResult> = {},
+): ChatCssProbeResult {
+  return {
+    userBorderLeft: "rgb(196, 74, 31)",
+    userFontFamily:
+      '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace',
+    assistantFontFamily:
+      '"Fraunces", "Source Serif Pro", ui-serif, Georgia, "Times New Roman", serif',
+    userBackground: "rgba(0, 0, 0, 0)",
+    assistantBackground: "rgba(0, 0, 0, 0)",
+    ...overrides,
+  };
+}
+
+/** Build a legacy-shaped probe result. */
+function legacyProbe(
+  overrides: Partial<ChatCssProbeResult> = {},
+): ChatCssProbeResult {
+  return {
+    userBorderLeft: "rgb(255, 111, 165)",
+    userFontFamily: '"Georgia", "Cambria", serif',
+    assistantFontFamily:
+      '"JetBrains Mono", "Fira Code", "SF Mono", Menlo, Consolas, monospace',
+    userBackground:
+      "linear-gradient(135deg, rgb(255, 0, 110) 0%, rgb(194, 24, 91) 100%)",
+    assistantBackground: "rgb(253, 224, 71)",
+    ...overrides,
   };
 }
 
@@ -52,56 +85,48 @@ describe("d5-chat-css script", () => {
   });
 
   describe("validateChatCss", () => {
-    it("returns null when all halcyon signals are present", () => {
-      expect(
-        validateChatCss({
-          userBorderLeft: "rgb(196, 74, 31)",
-          userFontFamily:
-            '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace',
-          assistantFontFamily:
-            '"Fraunces", "Source Serif Pro", ui-serif, Georgia, "Times New Roman", serif',
-        }),
-      ).toBeNull();
+    it("returns null when full HALCYON signals are present", () => {
+      expect(validateChatCss(halcyonProbe())).toBeNull();
     });
 
-    it("returns error when user bubble missing ember left border", () => {
-      expect(
-        validateChatCss({
-          userBorderLeft: "rgb(0, 0, 0)",
-          userFontFamily: "JetBrains Mono",
-          assistantFontFamily: "Fraunces",
-        }),
-      ).toMatch(/halcyon-ember left border/);
+    it("returns null when full legacy signals are present", () => {
+      expect(validateChatCss(legacyProbe())).toBeNull();
     });
 
-    it("returns error when user bubble missing halcyon-mono font", () => {
-      expect(
-        validateChatCss({
-          userBorderLeft: "rgb(196, 74, 31)",
-          userFontFamily: "Arial, sans-serif",
-          assistantFontFamily: "Fraunces",
-        }),
-      ).toMatch(/halcyon-mono font/);
+    it("returns null when HALCYON anchors are present even if legacy anchors are absent", () => {
+      // The integration is on HALCYON: bg is transparent (no legacy
+      // anchors), but ember + Mono + Fraunces all match.
+      expect(validateChatCss(halcyonProbe())).toBeNull();
     });
 
-    it("returns error when assistant bubble missing halcyon-serif font", () => {
-      expect(
-        validateChatCss({
-          userBorderLeft: "rgb(196, 74, 31)",
-          userFontFamily: "JetBrains Mono",
-          assistantFontFamily: "Arial, sans-serif",
-        }),
-      ).toMatch(/halcyon-serif font/);
+    it("returns null when legacy anchors are present even if HALCYON anchors are absent", () => {
+      // Legacy theme: no ember on user inner, no Fraunces on assistant.
+      // Bg anchors carry the signal.
+      expect(validateChatCss(legacyProbe())).toBeNull();
+    });
+
+    it("returns combined error when neither theme matches", () => {
+      const err = validateChatCss({
+        userBorderLeft: "rgb(0, 0, 0)",
+        userFontFamily: "Arial, sans-serif",
+        assistantFontFamily: "Arial, sans-serif",
+        userBackground: "rgb(255, 255, 255)",
+        assistantBackground: "rgb(255, 255, 255)",
+      });
+      expect(err).toMatch(/neither HALCYON nor legacy theme matched/);
+      expect(err).toMatch(/halcyon:/);
+      expect(err).toMatch(/legacy:/);
     });
 
     it("returns error when bubbles missing entirely", () => {
-      expect(
-        validateChatCss({
-          userBorderLeft: null,
-          userFontFamily: null,
-          assistantFontFamily: null,
-        }),
-      ).toMatch(/user bubble inner.*not found/);
+      const err = validateChatCss({
+        userBorderLeft: null,
+        userFontFamily: null,
+        assistantFontFamily: null,
+        userBackground: null,
+        assistantBackground: null,
+      });
+      expect(err).toMatch(/neither HALCYON nor legacy theme matched/);
     });
   });
 
@@ -112,18 +137,15 @@ describe("d5-chat-css script", () => {
     ).rejects.toThrow(/assistant bubble selector/);
   });
 
-  it("assertion succeeds when computed styles match", async () => {
+  it("assertion succeeds when HALCYON computed styles match", async () => {
     const assertion = buildChatCssAssertion();
     await expect(
-      assertion(
-        makePage({
-          userBorderLeft: "rgb(196, 74, 31)",
-          userFontFamily:
-            '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace',
-          assistantFontFamily:
-            '"Fraunces", "Source Serif Pro", ui-serif, Georgia, "Times New Roman", serif',
-        }),
-      ),
+      assertion(makePage(halcyonProbe())),
     ).resolves.toBeUndefined();
+  });
+
+  it("assertion succeeds when legacy computed styles match", async () => {
+    const assertion = buildChatCssAssertion();
+    await expect(assertion(makePage(legacyProbe()))).resolves.toBeUndefined();
   });
 });
