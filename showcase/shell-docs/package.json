@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "postinstall": "cd ../scripts && npm install --no-audit --no-fund --silent",
     "predev": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts && tsx ../scripts/generate-search-index.ts",
     "dev": "next dev --port 3003",
     "build": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts && tsx ../scripts/generate-search-index.ts && next build",

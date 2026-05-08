@@ -14,6 +14,16 @@ import { loadDoc } from "@/lib/docs-render";
 // to the page at `<slug>` (the trailing `og.png` is stripped, matching
 // upstream's `generateStaticParams` which appends it).
 
+// Per-route override for Vercel's serverless function timeout. Lives
+// here rather than in `vercel.json`'s `functions` block because that
+// block only resolves paths under `api/` (or `app/api/...`); App
+// Router route handlers at non-api paths like this one have to set
+// `maxDuration` inline via the Next.js segment config. Font fetches
+// + ImageResponse rendering can sit close to the default 10s ceiling
+// on cold starts, so we lift it to 60s to match the upstream `docs/`
+// package.
+export const maxDuration = 60;
+
 const getInter = async () => {
   try {
     const response = await fetch(
