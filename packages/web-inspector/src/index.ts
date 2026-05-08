@@ -51,9 +51,7 @@ import {
   TELEMETRY_DOCS_URL,
   ensureTelemetryDistinctId,
   getTelemetryDistinctIdForUrl,
-
   maybeShowDisclosure,
-
   trackBannerClicked,
   trackBannerViewed,
   trackThreadsTabClicked,
