@@ -45,6 +45,7 @@ import {
 export type { AgentsConfig, AgentsFactory, AgentFactoryContext };
 import { TelemetryAgentRunner } from "./telemetry-agent-runner";
 import telemetry from "../telemetry-client";
+import { logRuntimeTelemetryDisclosure } from "../telemetry-disclosure";
 
 import type { MessageInput } from "../../graphql/inputs/message.input";
 import type { Message } from "../../graphql/types/converted";
@@ -356,6 +357,8 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     params?: CopilotRuntimeConstructorParams<T> &
       PartialBy<CopilotRuntimeOptions, "agents">,
   ) {
+    logRuntimeTelemetryDisclosure();
+
     const agents = params?.agents ?? {};
     const endpointAgents = this.assignEndpointsToAgents(
       params?.remoteEndpoints ?? [],

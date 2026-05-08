@@ -39,14 +39,23 @@ import {
   clampSize as clampSizeToViewport,
 } from "./lib/context-helpers";
 import {
+  isTelemetryOptedOut,
   loadInspectorState,
   saveInspectorState,
+  setTelemetryOptOut,
   isValidAnchor,
   isValidPosition,
   isValidSize,
   isValidDockMode,
 } from "./lib/persistence";
 import type { PersistedState } from "./lib/persistence";
+import {
+  TELEMETRY_DOCS_URL,
+  TELEMETRY_EVENTS,
+  getTelemetryDistinctIdForUrl,
+  maybeShowDisclosure,
+  track,
+} from "./lib/telemetry";
 
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 
@@ -57,7 +66,8 @@ type MenuKey =
   | "agents"
   | "frontend-tools"
   | "agent-context"
-  | "threads";
+  | "threads"
+  | "privacy";
 
 type MenuItem = {
   key: MenuKey;
@@ -2408,11 +2418,24 @@ export class WebInspectorElement extends LitElement {
   private announcementHtml: string | null = null;
   private announcementTimestamp: string | null = null;
   private announcementPreviewText: string | null = null;
+  // Forward-compat for an optional `cta_label` field on the announcement
+  // CDN payload (e.g. "Try threads", "New feature"). The current schema
+  // ({timestamp, previewText, announcement}) doesn't carry it, so this is
+  // null in production today; we read it defensively in fetchAnnouncement
+  // so a future Sam-side schema bump lights up `cta_label` on banner_clicked
+  // without an inspector release. See OSS-96 PR Gap 1.
+  private announcementCtaLabel: string | null = null;
   private hasUnseenAnnouncement = false;
   private announcementLoaded = false;
   private announcementPromise: Promise<void> | null = null;
   private showAnnouncementPreview = true;
   private announcementExpanded = false;
+  // Per-instance dedup for `oss.inspector.banner_viewed` so the event fires
+  // at most once per announcement timestamp per inspector mount. Plan calls
+  // for "de-dup per timestamp per session"; instance-scoping is closer
+  // to per-mount than per-tab (sessionStorage), but for the inspector the
+  // distinction is academic — inspector instances rarely outlive the page.
+  private viewedBannerTimestamps: Set<string> = new Set();
 
   get core(): CopilotKitCore | null {
     return this._core;
@@ -2490,6 +2513,11 @@ export class WebInspectorElement extends LitElement {
         key: "threads",
         label: "Threads",
         icon: "MessageSquare" as LucideIconName,
+      },
+      {
+        key: "privacy",
+        label: "Privacy",
+        icon: "Shield" as LucideIconName,
       },
     ];
   }
@@ -4156,6 +4184,16 @@ ${argsString}</pre
       return;
     }
 
+    // First-run console disclosure for anonymous interaction telemetry.
+    // No-ops when the user has opted out or has already seen the message.
+    maybeShowDisclosure();
+
+    // Ensure the anonymous distinct-ID is set on inspector load (per
+    // OSS-96 acceptance criteria), so it's available for cross-domain
+    // propagation onto banner-CTA links even before the first event
+    // fires. No-op when the user has opted out.
+    getTelemetryDistinctIdForUrl();
+
     if (!this._core) {
       this.tryAutoAttachCore();
     }
@@ -5601,8 +5639,79 @@ ${argsString}</pre
       return this.renderThreadsView();
     }
 
+    if (this.selectedMenu === "privacy") {
+      return this.renderPrivacyPanel();
+    }
+
     return nothing;
   }
+
+  private renderPrivacyPanel() {
+    const optedOut = isTelemetryOptedOut();
+    return html`
+      <div class="flex h-full flex-col overflow-hidden">
+        <div class="overflow-auto p-4">
+          <div class="mx-auto max-w-2xl space-y-4">
+            <div class="flex items-start gap-3">
+              <span
+                class="inline-flex h-8 w-8 items-center justify-center rounded-md bg-slate-900 text-white shadow-sm"
+              >
+                ${this.renderIcon("Shield")}
+              </span>
+              <div class="space-y-1">
+                <h2 class="text-base font-semibold text-slate-900">Privacy</h2>
+                <p class="text-sm text-gray-600">
+                  We collect anonymous interaction events from the inspector
+                  (banner views, clicks, tab navigation) so we know which
+                  features people use. We never collect message content, agent
+                  state, prompts, completions, or any payload you inspect.
+                </p>
+              </div>
+            </div>
+
+            <label
+              class="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3"
+            >
+              <div class="space-y-0.5">
+                <div class="text-sm font-medium text-slate-900">
+                  Send anonymous usage data
+                </div>
+                <div class="text-xs text-gray-500">
+                  Covers all anonymous interaction telemetry, including any
+                  future signup attribution.
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                class="h-4 w-4 cursor-pointer accent-slate-900"
+                .checked=${!optedOut}
+                @change=${this.handleTelemetryOptOutToggle}
+                aria-label="Send anonymous usage data"
+              />
+            </label>
+
+            <div class="text-xs text-gray-500">
+              <a
+                class="underline hover:text-slate-900"
+                href=${TELEMETRY_DOCS_URL}
+                target="_blank"
+                rel="noopener"
+              >
+                What we collect and how to opt out →
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private handleTelemetryOptOutToggle = (event: Event): void => {
+    const checked = (event.target as HTMLInputElement | null)?.checked ?? true;
+    // Toggle ON means telemetry is sending — i.e. opted out is FALSE.
+    setTelemetryOptOut(!checked);
+    this.requestUpdate();
+  };
 
   private handleThreadDividerPointerDown = (event: PointerEvent) => {
     this.threadDividerResizing = true;
@@ -6410,6 +6519,7 @@ ${prettyEvent}</pre
     }
 
     if (key === "threads") {
+      track(TELEMETRY_EVENTS.threadsTabClicked, {});
       this.autoSelectLatestThread();
     }
 
@@ -7326,6 +7436,19 @@ ${prettyEvent}</pre
   }
 
   private handleDismissAnnouncement = (): void => {
+    // OSS-96 Gap 1: we treat dismiss as a banner-click signal with
+    // cta:"dismiss" until Sam confirms whether dismiss should be its
+    // own event (`banner_dismissed`). PR body lists this as a deferred
+    // decision pending Sam's input.
+    if (this.announcementTimestamp) {
+      track(TELEMETRY_EVENTS.bannerClicked, {
+        banner_id: this.announcementTimestamp,
+        cta: "dismiss",
+        ...(this.announcementCtaLabel
+          ? { cta_label: this.announcementCtaLabel }
+          : {}),
+      });
+    }
     this.markAnnouncementSeen();
   };
 
@@ -7340,6 +7463,10 @@ ${prettyEvent}</pre
         timestamp?: unknown;
         previewText?: unknown;
         announcement?: unknown;
+        // OSS-96 Gap 1: opt-in field, not part of the current schema. Read
+        // defensively so a future CDN-side bump activates `cta_label` on
+        // banner_clicked without an inspector release.
+        cta_label?: unknown;
       };
 
       const timestamp =
@@ -7348,6 +7475,8 @@ ${prettyEvent}</pre
         typeof data?.previewText === "string" ? data.previewText : null;
       const markdown =
         typeof data?.announcement === "string" ? data.announcement : null;
+      const ctaLabel =
+        typeof data?.cta_label === "string" ? data.cta_label : null;
 
       if (!timestamp || !markdown) {
         throw new Error("Malformed announcement payload");
@@ -7357,12 +7486,26 @@ ${prettyEvent}</pre
 
       this.announcementTimestamp = timestamp;
       this.announcementPreviewText = previewText ?? "";
+      this.announcementCtaLabel = ctaLabel;
       this.hasUnseenAnnouncement =
         (!storedTimestamp || storedTimestamp !== timestamp) &&
         !!this.announcementPreviewText;
       this.showAnnouncementPreview = this.hasUnseenAnnouncement;
       this.announcementHtml = await this.convertMarkdownToHtml(markdown);
       this.announcementLoaded = true;
+
+      // banner_viewed: gate on actual visibility (hasUnseenAnnouncement)
+      // and per-mount de-dup so re-fetches don't double-count.
+      if (
+        this.hasUnseenAnnouncement &&
+        !this.viewedBannerTimestamps.has(timestamp)
+      ) {
+        this.viewedBannerTimestamps.add(timestamp);
+        track(TELEMETRY_EVENTS.bannerViewed, {
+          banner_id: timestamp,
+          ...(ctaLabel ? { cta_label: ctaLabel } : {}),
+        });
+      }
 
       this.requestUpdate();
     } catch (error) {
@@ -7419,6 +7562,20 @@ ${prettyEvent}</pre
   }
 
   private handleAnnouncementContentClick = (event: Event): void => {
+    // banner_clicked fires on every click within the banner body region
+    // (links, copy buttons, plain text). Property `cta:"body"` distinguishes
+    // it from the dismiss path. We fire BEFORE the early return below so
+    // non-copy-button clicks still count.
+    if (this.announcementTimestamp) {
+      track(TELEMETRY_EVENTS.bannerClicked, {
+        banner_id: this.announcementTimestamp,
+        cta: "body",
+        ...(this.announcementCtaLabel
+          ? { cta_label: this.announcementCtaLabel }
+          : {}),
+      });
+    }
+
     const target = event.target instanceof HTMLElement ? event.target : null;
     const button = target?.closest(".announcement-code__copy");
     if (!(button instanceof HTMLButtonElement)) {
@@ -7465,6 +7622,17 @@ ${prettyEvent}</pre
       );
       if (!url.searchParams.has("ref")) {
         url.searchParams.append("ref", "cpk-inspector");
+      }
+      // Propagate the inspector's anonymous distinct-ID so the website /
+      // Ops API can call posthog.alias(...) on signup-flow landing and
+      // close the banner_viewed → banner_clicked → signup_attributed
+      // funnel. Returns null when the user has opted out, so opt-out
+      // suppresses cross-domain ID leaks too.
+      if (!url.searchParams.has("posthog_distinct_id")) {
+        const distinctId = getTelemetryDistinctIdForUrl();
+        if (distinctId) {
+          url.searchParams.append("posthog_distinct_id", distinctId);
+        }
       }
       return url.toString();
     } catch {
