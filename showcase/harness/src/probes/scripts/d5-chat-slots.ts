@@ -35,7 +35,8 @@ export const SLOT_MARKER_SELECTOR =
   '[data-slot-label="MessageView.AssistantMessage"]';
 /** Legacy-shape selector — emitted directly on the custom assistant
  *  message component in the 17 other integrations. */
-export const LEGACY_TESTID_SELECTOR = '[data-testid="custom-assistant-message"]';
+export const LEGACY_TESTID_SELECTOR =
+  '[data-testid="custom-assistant-message"]';
 /** Combined selector that matches EITHER marker. Playwright's CSS engine
  *  treats this as an OR — first-match wins. Exported for tests. */
 export const CUSTOM_ASSISTANT_MESSAGE_SELECTOR = `${SLOT_MARKER_SELECTOR}, ${LEGACY_TESTID_SELECTOR}`;

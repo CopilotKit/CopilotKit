@@ -139,9 +139,7 @@ describe("d5-chat-css script", () => {
 
   it("assertion succeeds when HALCYON computed styles match", async () => {
     const assertion = buildChatCssAssertion();
-    await expect(
-      assertion(makePage(halcyonProbe())),
-    ).resolves.toBeUndefined();
+    await expect(assertion(makePage(halcyonProbe()))).resolves.toBeUndefined();
   });
 
   it("assertion succeeds when legacy computed styles match", async () => {

@@ -91,7 +91,7 @@ async function probeErrorSurfaceVisible(page: Page): Promise<boolean> {
     };
     return Boolean(
       win.document.querySelector('[data-testid="auth-demo-error"]') ||
-        win.document.querySelector('[data-testid="auth-demo-chat-boundary"]'),
+      win.document.querySelector('[data-testid="auth-demo-chat-boundary"]'),
     );
   })) as boolean;
 }
@@ -226,9 +226,7 @@ export function buildAuthAssertion(
     }
     // Allow useEffect to flush setHeaders() — capped at the remaining
     // budget so a tight caller-timeout doesn't oversleep the deadline.
-    await new Promise<void>((r) =>
-      setTimeout(r, Math.min(500, remainingMs())),
-    );
+    await new Promise<void>((r) => setTimeout(r, Math.min(500, remainingMs())));
     // Try to push a probe message through; if fill or press fails
     // (textarea not found, selector cascade mismatch, disabled control),
     // capture the error so the eventual "no error surface" failure
