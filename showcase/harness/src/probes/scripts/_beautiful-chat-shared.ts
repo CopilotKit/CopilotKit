@@ -239,36 +239,38 @@ export async function assertToggleTheme(page: ConversationPage): Promise<void> {
     );
   }
   try {
-    await waiter.waitForFunction(
-      () => {
-        const win = globalThis as unknown as {
-          document: {
-            documentElement: { classList: { contains(s: string): boolean } };
-            body: { textContent: string | null };
+    await waiter
+      .waitForFunction(
+        () => {
+          const win = globalThis as unknown as {
+            document: {
+              documentElement: { classList: { contains(s: string): boolean } };
+              body: { textContent: string | null };
+            };
           };
-        };
-        const isDark =
-          win.document.documentElement.classList.contains("dark");
-        const text = (win.document.body.textContent ?? "").toLowerCase();
-        const themeToggledRendered = text.includes("theme toggled");
-        // Track (a): class flipped from the initial reading.
-        // Track (b): the agent's confirmation text landed.
-        // We have to read `initiallyDark` via the closure trick — the
-        // runner's structural `waitForFunction` doesn't expose
-        // Playwright's optional `arg` parameter, so we split the
-        // closure capture into two specialised branches at registration
-        // time (see the if/else below) and unify the OR here.
-        // Because we can't smuggle `initiallyDark` into the page
-        // closure, the OR is rewritten as two separate predicates
-        // outside this function.
-        return isDark !== isDark || themeToggledRendered; // overwritten below
-      },
-      { timeout: 30_000 },
-    ).catch(() => {
-      // Predicate above is intentionally never satisfied — it's just
-      // a placeholder so the type-check is happy. Real waiting happens
-      // in the branched call below.
-    });
+          const isDark =
+            win.document.documentElement.classList.contains("dark");
+          const text = (win.document.body.textContent ?? "").toLowerCase();
+          const themeToggledRendered = text.includes("theme toggled");
+          // Track (a): class flipped from the initial reading.
+          // Track (b): the agent's confirmation text landed.
+          // We have to read `initiallyDark` via the closure trick — the
+          // runner's structural `waitForFunction` doesn't expose
+          // Playwright's optional `arg` parameter, so we split the
+          // closure capture into two specialised branches at registration
+          // time (see the if/else below) and unify the OR here.
+          // Because we can't smuggle `initiallyDark` into the page
+          // closure, the OR is rewritten as two separate predicates
+          // outside this function.
+          return isDark !== isDark || themeToggledRendered; // overwritten below
+        },
+        { timeout: 30_000 },
+      )
+      .catch(() => {
+        // Predicate above is intentionally never satisfied — it's just
+        // a placeholder so the type-check is happy. Real waiting happens
+        // in the branched call below.
+      });
     // Real wait — branched on initiallyDark so the closure can capture
     // it without crossing the page boundary.
     if (initiallyDark) {
@@ -284,9 +286,7 @@ export async function assertToggleTheme(page: ConversationPage): Promise<void> {
           };
           const flipped =
             !win.document.documentElement.classList.contains("dark");
-          const themeToggledRendered = (
-            win.document.body.textContent ?? ""
-          )
+          const themeToggledRendered = (win.document.body.textContent ?? "")
             .toLowerCase()
             .includes("theme toggled");
           return flipped || themeToggledRendered;
@@ -306,9 +306,7 @@ export async function assertToggleTheme(page: ConversationPage): Promise<void> {
           };
           const flipped =
             win.document.documentElement.classList.contains("dark");
-          const themeToggledRendered = (
-            win.document.body.textContent ?? ""
-          )
+          const themeToggledRendered = (win.document.body.textContent ?? "")
             .toLowerCase()
             .includes("theme toggled");
           return flipped || themeToggledRendered;

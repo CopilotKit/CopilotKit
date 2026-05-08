@@ -58,8 +58,8 @@ export const REASONING_SELECTORS = [
   '[data-testid="reasoning-content"]',
   '[data-testid="reasoning-default"]',
   '[data-message-role="reasoning"]',
-  'text=Thought for',
-  'text=Thinking…',
+  "text=Thought for",
+  "text=Thinking…",
 ] as const;
 
 async function hasReasoningMessage(page: Page): Promise<boolean> {

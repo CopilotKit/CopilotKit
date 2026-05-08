@@ -92,8 +92,10 @@ export function buildInterruptAssertion(
         // assistant content for the schedule_meeting tool result.
         const scheduledNarration =
           text.includes("scheduled") || text.includes("confirmed");
-        const sample =
-          (win.document.body.textContent ?? "").slice(-200).replace(/\s+/g, " ").trim();
+        const sample = (win.document.body.textContent ?? "")
+          .slice(-200)
+          .replace(/\s+/g, " ")
+          .trim();
         return { pickedTestid, bookedBadge, scheduledNarration, sample };
       });
       if (
