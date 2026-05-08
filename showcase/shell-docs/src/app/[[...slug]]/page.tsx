@@ -67,59 +67,59 @@ function DocsOverview() {
             <p className="text-base text-[var(--text-secondary)] leading-relaxed mb-8 max-w-2xl">
               CopilotKit is the <strong>frontend stack for agents</strong> and{" "}
               <strong>generative UI</strong>. Connect any agent framework or
-              model to your React app for chat, generative UI, canvas apps,
-              and human-in-the-loop workflows.
+              model to your React app for chat, generative UI, canvas apps, and
+              human-in-the-loop workflows.
             </p>
 
             {/* CLI command — universal entry point for fresh projects. */}
             <div className="mb-10 max-w-2xl">
-            <p className="text-sm text-[var(--text-secondary)] mb-3">
-              Starting from scratch? Bootstrap a full-stack agent in one
-              command:
-            </p>
-            <pre className="rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-4 py-3 text-sm font-mono overflow-x-auto">
-              <code>npx copilotkit@latest create</code>
-            </pre>
-          </div>
+              <p className="text-sm text-[var(--text-secondary)] mb-3">
+                Starting from scratch? Bootstrap a full-stack agent in one
+                command:
+              </p>
+              <pre className="rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-4 py-3 text-sm font-mono overflow-x-auto">
+                <code>npx copilotkit@latest create</code>
+              </pre>
+            </div>
 
-          {/* Utility cards: orientation + reference + gen-UI. The
+            {/* Utility cards: orientation + reference + gen-UI. The
             framework-aware Quickstart entry lives in <DocsLandingNext />
             below, where it can branch on storedFramework. */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-10">
-            <Link
-              href="/concepts/architecture"
-              className="group flex flex-col gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 no-underline hover:border-[var(--accent)] hover:shadow-sm transition"
-            >
-              <div className="font-semibold text-[var(--text)] group-hover:text-[var(--accent)]">
-                Concepts
-              </div>
-              <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
-                Architecture, gen UI types, OSS vs Enterprise.
-              </div>
-            </Link>
-            <Link
-              href="/reference"
-              className="group flex flex-col gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 no-underline hover:border-[var(--accent)] hover:shadow-sm transition"
-            >
-              <div className="font-semibold text-[var(--text)] group-hover:text-[var(--accent)]">
-                API Reference
-              </div>
-              <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
-                Hooks, components, and config.
-              </div>
-            </Link>
-            <Link
-              href="/generative-ui/your-components/display-only"
-              className="group flex flex-col gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 no-underline hover:border-[var(--accent)] hover:shadow-sm transition"
-            >
-              <div className="font-semibold text-[var(--text)] group-hover:text-[var(--accent)]">
-                Generative UI
-              </div>
-              <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
-                Render tools as React components.
-              </div>
-            </Link>
-          </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-10">
+              <Link
+                href="/concepts/architecture"
+                className="group flex flex-col gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 no-underline hover:border-[var(--accent)] hover:shadow-sm transition"
+              >
+                <div className="font-semibold text-[var(--text)] group-hover:text-[var(--accent)]">
+                  Concepts
+                </div>
+                <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                  Architecture, gen UI types, OSS vs Enterprise.
+                </div>
+              </Link>
+              <Link
+                href="/reference"
+                className="group flex flex-col gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 no-underline hover:border-[var(--accent)] hover:shadow-sm transition"
+              >
+                <div className="font-semibold text-[var(--text)] group-hover:text-[var(--accent)]">
+                  API Reference
+                </div>
+                <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                  Hooks, components, and config.
+                </div>
+              </Link>
+              <Link
+                href="/generative-ui/your-components/display-only"
+                className="group flex flex-col gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 no-underline hover:border-[var(--accent)] hover:shadow-sm transition"
+              >
+                <div className="font-semibold text-[var(--text)] group-hover:text-[var(--accent)]">
+                  Generative UI
+                </div>
+                <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                  Render tools as React components.
+                </div>
+              </Link>
+            </div>
 
             {/* Conditional next-step block: framework picker if no
               storedFramework, "what's next" pointers into that
