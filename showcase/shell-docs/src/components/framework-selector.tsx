@@ -225,7 +225,9 @@ export function FrameworkSelector({
           <>
             <span
               className={`flex justify-center items-center w-10 h-10 shrink-0 rounded-md ${
-                current ? "bg-[var(--accent)]/25" : "bg-[var(--bg-elevated)]"
+                current
+                  ? "bg-[var(--accent)]/25 dark:bg-white/10"
+                  : "bg-[var(--bg-elevated)]"
               }`}
               aria-hidden="true"
             >
