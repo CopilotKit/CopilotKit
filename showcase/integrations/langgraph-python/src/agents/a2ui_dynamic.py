@@ -5,8 +5,10 @@ Pattern (ported from the canonical
 `examples/integrations/langgraph-python/agent/src/a2ui_dynamic_schema.py`):
 
 - The agent binds an explicit `generate_a2ui` tool. When called, `generate_a2ui`
-  invokes a secondary LLM bound to `render_a2ui` (tool_choice forced) with the
-  registered client catalog injected as `copilotkit.context`.
+  invokes a secondary LLM bound to `_design_a2ui_surface` (tool_choice forced)
+  with the registered client catalog injected as `copilotkit.context`. The
+  internal tool is intentionally NOT named `render_a2ui` to avoid the A2UI
+  middleware's default tool-call intercept (`a2uiToolNames`).
 - The tool result returns an `a2ui_operations` container which the A2UI
   middleware detects in the tool-call result and forwards to the frontend
   renderer.
@@ -37,14 +39,22 @@ from langchain_openai import ChatOpenAI
 CUSTOM_CATALOG_ID = "declarative-gen-ui-catalog"
 
 
+# Internal tool bound only to the secondary LLM inside `generate_a2ui` for
+# structured output. Intentionally NOT named `render_a2ui` because the A2UI
+# middleware default-intercepts tool calls by that name from the run's event
+# stream and synthesises ACTIVITY_SNAPSHOT events from the LLM's RAW streaming
+# args (catalogId + components, before our Python code can validate). That
+# bypass is what surfaced the "Cannot create component root without a type"
+# infinite-loop on the deployed declarative-gen-ui demo. Renaming sidesteps
+# the middleware's intercept list (`a2uiToolNames`).
 @lc_tool
-def render_a2ui(
+def _design_a2ui_surface(
     surfaceId: str,
     catalogId: str,
     components: list[dict],
     data: dict | None = None,
 ) -> str:
-    """Render a dynamic A2UI v0.9 surface.
+    """Design a dynamic A2UI v0.9 surface.
 
     Args:
         surfaceId: Unique surface identifier.
@@ -53,12 +63,12 @@ def render_a2ui(
             component must have id "root".
         data: Optional initial data model for the surface.
     """
-    return "rendered"
+    return "designed"
 
 
 _GENERATE_A2UI_PROMPT_HEADER = f"""\
-You are designing a dynamic A2UI v0.9 surface. Call the `render_a2ui` tool with
-a flat component array.
+You are designing a dynamic A2UI v0.9 surface. Call the `_design_a2ui_surface`
+tool with a flat component array.
 
 Hard requirements (failing any of these breaks the renderer — be strict):
 - `catalogId` MUST be exactly: "{CUSTOM_CATALOG_ID}"
@@ -103,8 +113,8 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
 
     model = ChatOpenAI(model="gpt-4.1")
     model_with_tool = model.bind_tools(
-        [render_a2ui],
-        tool_choice="render_a2ui",
+        [_design_a2ui_surface],
+        tool_choice="_design_a2ui_surface",
     )
 
     response = model_with_tool.invoke(
@@ -112,7 +122,7 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     )
 
     if not response.tool_calls:
-        return json.dumps({"error": "LLM did not call render_a2ui"})
+        return json.dumps({"error": "LLM did not call _design_a2ui_surface"})
 
     tool_call = response.tool_calls[0]
     args = tool_call["args"]
