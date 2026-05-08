@@ -84,7 +84,7 @@ const Navbar = ({ pageTree }: NavbarProps) => {
 
   const handleTalkToEngineersClick = () => {
     posthog?.capture("talk_to_us_clicked", { location: "docs_nav" });
-    window.location.href = "https://copilotkit.ai/contact-us";
+    window.location.href = "https://copilotkit.ai/talk-to-an-engineer";
   };
 
   // Read sessionStorage on client only to avoid hydration mismatch (tab-specific)
