@@ -32,10 +32,8 @@
  * dismiss timing race that beautiful-chat probes documented.
  */
 
-import {
-  registerD5Script,
-  type D5BuildContext,
-} from "../helpers/d5-registry.js";
+import { registerD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 import {
   FIRST_SIGNAL_TIMEOUT_MS,
@@ -62,19 +60,20 @@ export const FRONTEND_TOOL_PILLS = [
   },
 ] as const;
 
-/** Per-pill keyword families. The agent's gradient string is free-form
- *  CSS, but a real LLM (and our fixtures) consistently mention at least
- *  ONE color name from each family. Matching against ANY token in the
- *  family is robust to wording drift while still catching a regression
- *  that returns the same gradient for every pill.
+/** Per-pill hint families. Color-name keywords cover wording drift
+ *  when the response narrates the gradient ("a sunset orange…") while
+ *  full 6-digit hex codes pin the exact fixture output for the
+ *  hex-only case (the deterministic d5 fixtures emit pure hex with
+ *  no narration, e.g. `linear-gradient(135deg, #ff7e5f 0%, #feb47b
+ *  50%, #ff6b6b 100%)`).
  *
- *  IMPORTANT: keep these to color-name keywords ONLY (no naked hex
- *  prefixes like `"#0"` or `"#ff"`). Naked hex prefixes accidentally
- *  cross-match across families (e.g. cosmic's `#1e3a8a` matches a
- *  hypothetical forest prefix `"#1"`), letting a regression that
- *  returns the same gradient for every pill silently pass. If a hex
- *  signal is ever required, use a FULL 6-digit code drawn from the
- *  actual fixture rather than a 1-2 character prefix. */
+ *  IMPORTANT: never use naked hex prefixes like `"#0"` or `"#ff"`.
+ *  Short prefixes accidentally cross-match across families (e.g.
+ *  cosmic's `#1e3a8a` matches a hypothetical forest prefix `"#1"`),
+ *  letting a regression that returns the same gradient for every pill
+ *  silently pass. The 6-digit hex codes here are the literal values
+ *  from the corresponding fixture pill — adding/removing a fixture
+ *  color requires updating the matching family entry in lock-step. */
 export const PILL_GRADIENT_HINTS: Record<string, readonly string[]> = {
   sunset: [
     "sunset",
@@ -85,8 +84,21 @@ export const PILL_GRADIENT_HINTS: Record<string, readonly string[]> = {
     "amber",
     "coral",
     "peach",
+    "#ff7e5f",
+    "#feb47b",
+    "#ff6b6b",
   ],
-  forest: ["forest", "green", "emerald", "lime", "olive", "teal"],
+  forest: [
+    "forest",
+    "green",
+    "emerald",
+    "lime",
+    "olive",
+    "teal",
+    "#0a3d2e",
+    "#166534",
+    "#059669",
+  ],
   cosmic: [
     "cosmic",
     "space",
@@ -96,6 +108,9 @@ export const PILL_GRADIENT_HINTS: Record<string, readonly string[]> = {
     "violet",
     "indigo",
     "fuchsia",
+    "#1e3a8a",
+    "#6b21a8",
+    "#9333ea",
   ],
 } as const;
 

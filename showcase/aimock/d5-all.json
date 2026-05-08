@@ -1623,26 +1623,9 @@
         "content": "Planned. Step 1 begins now.",
         "toolCalls": [
           {
+            "id": "call_d5_set_steps_launch_001",
             "name": "set_steps",
-            "arguments": {
-              "steps": [
-                {
-                  "id": "launch-1",
-                  "title": "Define launch goals and audience",
-                  "status": "completed"
-                },
-                {
-                  "id": "launch-2",
-                  "title": "Coordinate marketing and PR rollout",
-                  "status": "completed"
-                },
-                {
-                  "id": "launch-3",
-                  "title": "Track post-launch metrics for week 1",
-                  "status": "completed"
-                }
-              ]
-            }
+            "arguments": "{\"steps\":[{\"id\":\"launch-1\",\"title\":\"Define launch goals and audience\",\"status\":\"completed\"},{\"id\":\"launch-2\",\"title\":\"Coordinate marketing and PR rollout\",\"status\":\"completed\"},{\"id\":\"launch-3\",\"title\":\"Track post-launch metrics for week 1\",\"status\":\"completed\"}]}"
           }
         ]
       }
@@ -1655,26 +1638,9 @@
         "content": "Itinerary ready.",
         "toolCalls": [
           {
+            "id": "call_d5_set_steps_offsite_001",
             "name": "set_steps",
-            "arguments": {
-              "steps": [
-                {
-                  "id": "offsite-1",
-                  "title": "Reserve venue near downtown for 30 engineers",
-                  "status": "completed"
-                },
-                {
-                  "id": "offsite-2",
-                  "title": "Build day-by-day agenda with workshop slots",
-                  "status": "completed"
-                },
-                {
-                  "id": "offsite-3",
-                  "title": "Arrange travel, lodging and group meals",
-                  "status": "completed"
-                }
-              ]
-            }
+            "arguments": "{\"steps\":[{\"id\":\"offsite-1\",\"title\":\"Reserve venue near downtown for 30 engineers\",\"status\":\"completed\"},{\"id\":\"offsite-2\",\"title\":\"Build day-by-day agenda with workshop slots\",\"status\":\"completed\"},{\"id\":\"offsite-3\",\"title\":\"Arrange travel, lodging and group meals\",\"status\":\"completed\"}]}"
           }
         ]
       }
@@ -1687,26 +1653,9 @@
         "content": "Competitor brief assembled.",
         "toolCalls": [
           {
+            "id": "call_d5_set_steps_competitor_001",
             "name": "set_steps",
-            "arguments": {
-              "steps": [
-                {
-                  "id": "comp-1",
-                  "title": "Map competitor product surface and pricing tiers",
-                  "status": "completed"
-                },
-                {
-                  "id": "comp-2",
-                  "title": "Summarize their public differentiation themes",
-                  "status": "completed"
-                },
-                {
-                  "id": "comp-3",
-                  "title": "Identify weaknesses our positioning can exploit",
-                  "status": "completed"
-                }
-              ]
-            }
+            "arguments": "{\"steps\":[{\"id\":\"comp-1\",\"title\":\"Map competitor product surface and pricing tiers\",\"status\":\"completed\"},{\"id\":\"comp-2\",\"title\":\"Summarize their public differentiation themes\",\"status\":\"completed\"},{\"id\":\"comp-3\",\"title\":\"Identify weaknesses our positioning can exploit\",\"status\":\"completed\"}]}"
           }
         ]
       }
@@ -2066,10 +2015,9 @@
         "content": "Streaming the poem now.",
         "toolCalls": [
           {
+            "id": "call_d5_write_document_poem_001",
             "name": "write_document",
-            "arguments": {
-              "content": "Crimson and amber in slow descent, / each leaf a quiet ledger of summer spent. / The wind, a courier with nothing to say, / files them gently into the morning's gray. / Somewhere a kettle hums, and afternoons grow brief — / autumn keeps its books in vermilion and gold leaf."
-            }
+            "arguments": "{\"content\":\"Crimson and amber in slow descent, / each leaf a quiet ledger of summer spent. / The wind, a courier with nothing to say, / files them gently into the morning's gray. / Somewhere a kettle hums, and afternoons grow brief — / autumn keeps its books in vermilion and gold leaf.\"}"
           }
         ]
       }
@@ -2083,10 +2031,9 @@
         "content": "Drafting the email now.",
         "toolCalls": [
           {
+            "id": "call_d5_write_document_email_001",
             "name": "write_document",
-            "arguments": {
-              "content": "Hi — thanks for sending the invite for Tuesday afternoon. Unfortunately I won't be able to make it this week. I'd love to find time later in the month if your schedule allows. In the meantime, feel free to send any pre-reads my way and I'll review them async so we don't lose momentum. Best, [name]"
-            }
+            "arguments": "{\"content\":\"Hi — thanks for sending the invite for Tuesday afternoon. Unfortunately I won't be able to make it this week. I'd love to find time later in the month if your schedule allows. In the meantime, feel free to send any pre-reads my way and I'll review them async so we don't lose momentum. Best, [name]\"}"
           }
         ]
       }
@@ -2100,10 +2047,9 @@
         "content": "Streaming the explainer now.",
         "toolCalls": [
           {
+            "id": "call_d5_write_document_quantum_001",
             "name": "write_document",
-            "arguments": {
-              "content": "A regular computer stores information in bits — tiny switches that are either on (1) or off (0). A quantum computer uses qubits, which can sit in a fuzzy superposition of both states at once until you check them. Stack many qubits together and they can explore lots of possibilities in parallel, which is why people are excited.\n\nThis doesn't make quantum computers faster at everything. They're great at problems with hidden structure — like factoring big numbers, simulating molecules, or searching certain databases — but useless for, say, opening Excel. Today's machines are noisy and small, so we mostly use them to test ideas rather than replace your laptop."
-            }
+            "arguments": "{\"content\":\"A regular computer stores information in bits — tiny switches that are either on (1) or off (0). A quantum computer uses qubits, which can sit in a fuzzy superposition of both states at once until you check them. Stack many qubits together and they can explore lots of possibilities in parallel, which is why people are excited.\\n\\nThis doesn't make quantum computers faster at everything. They're great at problems with hidden structure — like factoring big numbers, simulating molecules, or searching certain databases — but useless for, say, opening Excel. Today's machines are noisy and small, so we mostly use them to test ideas rather than replace your laptop.\"}"
           }
         ]
       }

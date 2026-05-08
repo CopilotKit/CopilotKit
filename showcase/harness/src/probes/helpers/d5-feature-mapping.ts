@@ -41,16 +41,33 @@ import type { D5FeatureType } from "./d5-registry.js";
  * obvious at a glance:
  *   - `agentic-chat`           : 1 demo
  *   - `tool-rendering`         : 3 demos (all the tool-rendering variants)
- *   - `gen-ui-headless`        : 2 demos (headless chat surfaces)
+ *   - `headless-simple` / `gen-ui-headless-complete`: 1 demo each
+ *     (headless chat surfaces — simple is text-only post-refactor;
+ *     complete still drives the full gen-UI surface)
  *   - `gen-ui-custom`          : 1 demo
- *   - `hitl-text-input`        : 2 demos (in-chat HITL variants using useHumanInTheLoop)
- *   - `hitl-steps`             : 1 demo (step-selection confirmation)
+ *   - `hitl-text-input`        : 3 demos (the two in-chat HITL variants
+ *     using useHumanInTheLoop, plus the legacy `hitl` alias which was
+ *     repointed here after the standalone `hitl-steps` D5 script was
+ *     removed in genuine-pass Phase 0)
  *   - `hitl-approve-deny`      : 1 demo (modal/in-app approval)
  *   - `shared-state-read|write`: 1 demo, 2 D5 types (one-to-many)
- *   - `mcp-apps`               : 1 demo
- *   - `subagents`              : 1 demo
+ *   - `mcp-apps`               : 1 demo (own probe; was previously
+ *     bundled with subagents, split in Phase 2A)
+ *   - `subagents`              : 1 demo (split alongside mcp-apps)
+ *   - other registry families (auth, multimodal, voice, frontend-tools,
+ *     reasoning-display, gen-ui-*, byoc, beautiful-chat-*, …) follow
+ *     the same `<registry-id>: [<d5-feature-types>]` shape and live
+ *     directly in REGISTRY_TO_D5 below.
  */
-const REGISTRY_TO_D5: Readonly<Record<string, readonly D5FeatureType[]>> = {
+/**
+ * Exported for the dashboard drift test (`d5-mapping-drift.test.ts`),
+ * which asserts `CATALOG_TO_D5_KEY` in `shell-dashboard/src/lib/live-status.ts`
+ * structurally mirrors this map. Internal callers should use
+ * `demosToFeatureTypes` rather than reading the map directly.
+ */
+export const REGISTRY_TO_D5: Readonly<
+  Record<string, readonly D5FeatureType[]>
+> = {
   // agentic-chat (1:1)
   "agentic-chat": ["agentic-chat"],
 
@@ -68,13 +85,14 @@ const REGISTRY_TO_D5: Readonly<Record<string, readonly D5FeatureType[]>> = {
   "tool-rendering-default-catchall": ["tool-rendering-default-catchall"],
   "tool-rendering-custom-catchall": ["tool-rendering-custom-catchall"],
 
-  // gen-ui (headless tier) — `headless-simple` and `headless-complete`
-  // each have their own D5 script and fixture. They live on different
-  // routes (`/demos/headless-simple` vs `/demos/headless-complete`) and
-  // exercise different rendering surfaces (show_card via useComponent
-  // vs WeatherCard/StockCard/HighlightNote via useRenderTool +
-  // useComponent + MCP), so the mapping is one-to-one.
-  "headless-simple": ["gen-ui-headless"],
+  // headless tier — `headless-simple` and `headless-complete` each have
+  // their own D5 script and fixture. They live on different routes
+  // (`/demos/headless-simple` vs `/demos/headless-complete`).
+  // `headless-simple` is text-in/text-out (the literal mirrors the
+  // demo route post-refactor); `headless-complete` still drives the
+  // full gen-UI surface (`useComponent` + `useRenderTool` + MCP) so its
+  // literal keeps the `gen-ui-headless-complete` shape.
+  "headless-simple": ["headless-simple"],
   "headless-complete": ["gen-ui-headless-complete"],
 
   // gen-ui (custom tier)

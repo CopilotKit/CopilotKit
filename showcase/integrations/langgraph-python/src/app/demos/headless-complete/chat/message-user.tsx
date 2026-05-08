@@ -38,6 +38,7 @@ export function UserBubble({
   return (
     <div
       data-testid="headless-message-user"
+      data-message-role="user"
       className="flex w-full items-start gap-3 flex-row-reverse"
     >
       <Avatar className="h-8 w-8 shrink-0 border bg-primary text-primary-foreground">

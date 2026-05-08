@@ -209,14 +209,75 @@ export function asClickablePage(
  */
 export async function assertToggleTheme(page: ConversationPage): Promise<void> {
   const initiallyDark = await readIsHtmlDark(page);
-  const deadline = Date.now() + 30_000;
-  while (Date.now() < deadline) {
-    if ((await readIsHtmlDark(page)) !== initiallyDark) return;
-    await new Promise((r) => setTimeout(r, 200));
+  // Use `waitForFunction` over a manual page.evaluate poll because:
+  //   1. Playwright drives the polling internally and disconnects
+  //      cleanly if the page closes (no "Target page closed" leak —
+  //      historically this assertion accumulated fc=97 in production
+  //      from page-close races during multi-turn renders).
+  //   2. Event-driven inside the page is cheaper than 150 round-trip
+  //      page.evaluate calls over 30s.
+  // The boolean predicate captures `initiallyDark` via separate
+  // branches because the runner's structural `waitForFunction` doesn't
+  // expose Playwright's optional `arg` parameter, and a closure-capture
+  // would cross the page boundary (the fn runs in browser context).
+  // Cast to access waitForFunction — same pattern as asClickablePage.
+  // ConversationPage is the minimal runner-facing surface; real Playwright
+  // pages (and E2eDeepPage) expose waitForFunction natively.
+  type WaitFnPage = {
+    waitForFunction(
+      fn: () => boolean,
+      opts?: { timeout?: number },
+    ): Promise<unknown>;
+  };
+  const waiter = page as unknown as WaitFnPage;
+  if (
+    typeof (waiter as { waitForFunction?: unknown }).waitForFunction !==
+    "function"
+  ) {
+    throw new Error(
+      `beautiful-chat-toggle-theme: page is missing waitForFunction() — runner did not provide a Playwright-shaped page`,
+    );
   }
-  throw new Error(
-    `beautiful-chat-toggle-theme: html.dark class did not flip from ${initiallyDark ? "dark" : "light"} within 30s — toggleTheme tool did not fire`,
-  );
+  try {
+    if (initiallyDark) {
+      await waiter.waitForFunction(
+        () => {
+          const win = globalThis as unknown as {
+            document: {
+              documentElement: { classList: { contains(s: string): boolean } };
+            };
+          };
+          return !win.document.documentElement.classList.contains("dark");
+        },
+        { timeout: 30_000 },
+      );
+    } else {
+      await waiter.waitForFunction(
+        () => {
+          const win = globalThis as unknown as {
+            document: {
+              documentElement: { classList: { contains(s: string): boolean } };
+            };
+          };
+          return win.document.documentElement.classList.contains("dark");
+        },
+        { timeout: 30_000 },
+      );
+    }
+  } catch (err) {
+    const closeAware = page as ConversationPage & {
+      isClosed?: () => boolean;
+    };
+    if (closeAware.isClosed?.()) {
+      throw new Error(
+        `beautiful-chat-toggle-theme: page closed before theme flipped from ${initiallyDark ? "dark" : "light"} — likely a renderer crash in the demo's toggleTheme handler or surrounding tree`,
+      );
+    }
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `beautiful-chat-toggle-theme: html.dark class did not flip from ${initiallyDark ? "dark" : "light"} within 30s — toggleTheme tool did not fire (${msg.slice(0, 120)})`,
+    );
+  }
 }
 
 /**

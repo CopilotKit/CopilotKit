@@ -38,7 +38,14 @@ export type D5FeatureType =
   | "shared-state-write"
   | "hitl-approve-deny"
   | "hitl-text-input"
-  | "gen-ui-headless"
+  // `headless-simple` is named after the demo route it covers
+  // (`/demos/headless-simple`). It used to be `gen-ui-headless`, but
+  // the simple template was refactored to text-in/text-out without any
+  // gen-UI surface — the literal was renamed in lock-step so the slug
+  // describes what it actually probes. `headless-complete` keeps its
+  // `gen-ui-headless-complete` literal because that demo still drives
+  // the full gen-UI surface (`useComponent` + `useRenderTool` + MCP).
+  | "headless-simple"
   | "gen-ui-headless-complete"
   | "gen-ui-custom"
   | "mcp-apps"
@@ -109,7 +116,7 @@ const D5_FEATURE_TYPES: readonly D5FeatureType[] = [
   "shared-state-write",
   "hitl-approve-deny",
   "hitl-text-input",
-  "gen-ui-headless",
+  "headless-simple",
   "gen-ui-headless-complete",
   "gen-ui-custom",
   "mcp-apps",

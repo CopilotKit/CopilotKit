@@ -27,6 +27,7 @@ export function AssistantBubble({
   return (
     <div
       data-testid="headless-message-assistant"
+      data-message-role="assistant"
       className="flex w-full items-start gap-3"
     >
       <Avatar className="h-8 w-8 shrink-0 border bg-muted text-muted-foreground">
