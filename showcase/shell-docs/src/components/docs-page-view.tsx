@@ -22,8 +22,8 @@ import { DocsToc } from "@/components/docs-toc";
 import { Tabs as DocsTabs } from "@/components/docs-tabs";
 import { docsComponents } from "@/lib/mdx-registry";
 import { getIntegration, getTabDefault } from "@/lib/registry";
+import type { NavNode } from "@/lib/docs-render";
 import {
-  NavNode,
   buildBreadcrumbs,
   buildNavTree,
   convertTablesInJSX,
@@ -191,7 +191,7 @@ export async function DocsPageView({
       <SidebarNav className="hidden md:flex flex-col w-[260px] shrink-0 rounded-l-2xl backdrop-blur-lg border border-r-0 border-[var(--border)] bg-[var(--glass-background)] overflow-hidden px-3">
         <SidebarFrameworkSelector />
         <div className="mb-4" />
-        <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1">
           {tree.map((node) => renderNavItem(node))}
         </div>
       </SidebarNav>
@@ -201,13 +201,14 @@ export async function DocsPageView({
        * wrapper so it sees the same near-white surface, sticks within
        * this scroll context, and doesn't bleed onto the page-bg gray. */}
       <div className="docs-content-wrapper flex">
-        {/* Outer padding mirrors canonical docs.copilotkit.ai (px-8 py-6
-         * at the small end, xl:px-16 xl:py-12 once the rail has room).
-         * The inner max-w cap (~900px) keeps long-form text from running
-         * edge-to-edge on wide viewports, matching canonical's effective
-         * column width with sidebar+TOC accounted for. */}
-        <div className="flex-1 min-w-0 px-8 py-6 xl:px-16 xl:py-12 max-sm:px-4 max-sm:py-6">
-          <div className="max-w-[900px]">
+        {/* Padding + cap mirror canonical docs.copilotkit.ai's article
+         * column: `px-4 py-6 md:px-6 md:pt-8 xl:px-8 xl:pt-14` outside,
+         * `max-w-[900px] mx-auto` inside. mx-auto centers the column when
+         * the available area exceeds 900px so content sits between sidebar
+         * and TOC the same way it does on the canonical site, instead of
+         * left-anchored with a wide right gap. */}
+        <div className="flex-1 min-w-0 px-4 py-6 md:px-6 md:pt-8 xl:px-8 xl:pt-14">
+          <div className="max-w-[900px] mx-auto">
             {/* Breadcrumb styling tracks canonical fumadocs PageBreadcrumb:
              * text-sm with a ChevronRight separator, intermediate links
              * muted, last segment in primary text + medium weight. */}
