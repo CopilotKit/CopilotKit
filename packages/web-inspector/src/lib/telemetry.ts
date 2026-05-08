@@ -21,6 +21,7 @@ import {
   hasTelemetryDisclosureBeenShown,
   isTelemetryOptedOut,
   markTelemetryDisclosureShown,
+  setTelemetryOptOut,
 } from "./persistence";
 
 // V1 funnel events. Namespaced `oss.inspector.*` so the lambda's
@@ -43,6 +44,7 @@ export const TELEMETRY_INGEST_URL = "https://telemetry.copilotkit.ai/ingest";
 // Surfaced in console disclosure and the in-product opt-out panel.
 // Keep in sync with the canonical telemetry docs page on main
 // (`docs/content/docs/(root)/(other)/telemetry/index.mdx`).
+// Mirror constant: packages/runtime/src/lib/telemetry-disclosure.ts
 export const TELEMETRY_DOCS_URL = "https://docs.copilotkit.ai/telemetry";
 
 const PACKAGE_NAME = "@copilotkit/web-inspector";
@@ -65,23 +67,40 @@ export function track(
 ): void {
   if (isTelemetryOptedOut()) return;
 
-  // Body shape is conservative: a flat `properties` object with the
-  // distinct-ID and package attribution riding inside it. The OSS-96
-  // ticket confirms the endpoint and event allowlist but doesn't pin
-  // the JSON shape; if Ben's lambda expects a richer envelope (e.g.
-  // top-level `package`/`global_properties`), this is the only place
-  // to change.
   const body = JSON.stringify({
     event,
     properties: {
       ...properties,
       distinct_id: getOrCreateTelemetryDistinctId(),
-      package: PACKAGE_NAME,
     },
+    package: { name: PACKAGE_NAME },
     ts: Math.floor(Date.now() / 1000),
   });
 
   void postBestEffort(TELEMETRY_INGEST_URL, body);
+}
+
+// --- Typed per-event helpers ---
+// These enforce the known property shape for each V1 event at the call
+// site, so callers can't accidentally include PII under a wrong key.
+
+export function trackBannerViewed(props: {
+  banner_id: string;
+  cta_label?: string;
+}): void {
+  track(TELEMETRY_EVENTS.bannerViewed, props);
+}
+
+export function trackBannerClicked(props: {
+  banner_id: string;
+  cta: "body" | "dismiss";
+  cta_label?: string;
+}): void {
+  track(TELEMETRY_EVENTS.bannerClicked, props);
+}
+
+export function trackThreadsTabClicked(): void {
+  track(TELEMETRY_EVENTS.threadsTabClicked);
 }
 
 /**
@@ -105,6 +124,16 @@ export function getTelemetryDistinctIdForUrl(): string | null {
 }
 
 /**
+ * Seeds the anonymous distinct-ID into localStorage on inspector mount
+ * so it is ready for cross-domain propagation onto banner-CTA links
+ * even before the first event fires. No-op when the user has opted out.
+ */
+export function ensureTelemetryDistinctId(): void {
+  if (isTelemetryOptedOut()) return;
+  getOrCreateTelemetryDistinctId();
+}
+
+/**
  * Fires the one-time console disclosure on inspector mount, when the
  * user is not opted out and hasn't seen it before. Idempotent across
  * calls within a single session because `markTelemetryDisclosureShown`
@@ -123,23 +152,25 @@ export function maybeShowDisclosure(): void {
   markTelemetryDisclosureShown();
 }
 
+// Re-exported so index.ts only imports telemetry concerns from this
+// module, keeping persistence.ts as an internal implementation detail.
+export { isTelemetryOptedOut, setTelemetryOptOut };
+
 async function postBestEffort(url: string, body: string): Promise<void> {
   if (typeof fetch === "undefined") return;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-    try {
-      await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body,
-        signal: controller.signal,
-        // No credentials / no Authorization header — anonymous endpoint.
-      });
-    } finally {
-      clearTimeout(timeoutId);
-    }
+    await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      signal: controller.signal,
+      // No credentials / no Authorization header — anonymous endpoint.
+    });
   } catch {
     // Silent failure — telemetry must not break the application.
+  } finally {
+    clearTimeout(timeoutId);
   }
 }

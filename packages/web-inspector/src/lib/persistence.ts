@@ -117,6 +117,12 @@ const TELEMETRY_OPT_OUT_KEY = "cpk:inspector:telemetry:opt_out";
 const TELEMETRY_DISCLOSURE_SHOWN_KEY =
   "cpk:inspector:telemetry:disclosure_shown";
 
+// Module-level fallback for when localStorage is unavailable (private mode,
+// quota exceeded, etc.). Cached so that banner_viewed and banner_clicked from
+// the same page-load share one distinct_id even without persistent storage —
+// funnel coherence within a session is preserved even when storage fails.
+let inMemoryFallbackId: string | null = null;
+
 export function getOrCreateTelemetryDistinctId(): string {
   if (typeof window === "undefined") {
     // SSR / test fallback. A non-persistent ID is preferable to throwing
@@ -131,12 +137,13 @@ export function getOrCreateTelemetryDistinctId(): string {
     window.localStorage.setItem(TELEMETRY_DISTINCT_ID_KEY, fresh);
     return fresh;
   } catch {
-    // localStorage unavailable (private mode, quota, etc.) — degrade to
-    // an in-memory ID for this mount. Different mounts will see
-    // different IDs in this state, but the alternative (throwing) is
-    // worse.
-    return generateUuidV4();
+    return (inMemoryFallbackId ??= generateUuidV4());
   }
+}
+
+// Test-only reset so the in-memory fallback doesn't leak between test cases.
+export function _resetTelemetryPersistenceForTesting(): void {
+  inMemoryFallbackId = null;
 }
 
 export function isTelemetryOptedOut(): boolean {

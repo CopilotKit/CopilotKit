@@ -31,7 +31,7 @@ The CopilotKit dev-console Inspector emits a small set of anonymous interaction 
 | `oss.inspector.banner_clicked` | A click on the banner body or the dismiss button | `banner_id`, `cta` (`"body"` or `"dismiss"`), `cta_label` (optional) |
 | `oss.inspector.threads_tab_clicked` | A click on the Threads tab in the inspector header | none |
 
-Every event also carries a `distinct_id` (a UUID v4 generated on first inspector mount and stored in your browser's localStorage; never tied to your account) and a `package` attribution string. Events POST directly to `https://telemetry.copilotkit.ai/ingest`, the CopilotKit-controlled telemetry sink that fans out to PostHog, Reo, and Scarf.
+Every event also carries a `distinct_id` (a UUID v4 generated on first inspector mount and stored in your browser's localStorage; never tied to your account) and a top-level `package` object (`{ name }`) identifying the inspector package. Events POST directly to `https://telemetry.copilotkit.ai/ingest`, the CopilotKit-controlled telemetry sink that fans out to PostHog, Reo, and Scarf.
 
 When the inspector renders a banner CTA link, it appends the same anonymous `distinct_id` to outbound URLs as a `posthog_distinct_id` query parameter. This lets the destination site (typically `copilotkit.ai`) bridge the visit back to the inspector session for funnel correlation, without storing any cookie or identifier from the host page. The URL parameter is suppressed when you opt out.
 

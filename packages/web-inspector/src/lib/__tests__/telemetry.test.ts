@@ -8,11 +8,16 @@ import {
   getTelemetryDistinctIdForUrl,
   maybeShowDisclosure,
   track,
+  trackBannerClicked,
+  trackBannerViewed,
+  trackThreadsTabClicked,
 } from "../telemetry";
 import {
+  _resetTelemetryPersistenceForTesting,
   getOrCreateTelemetryDistinctId,
   hasTelemetryDisclosureBeenShown,
   isTelemetryOptedOut,
+  markTelemetryDisclosureShown,
   setTelemetryOptOut,
 } from "../persistence";
 
@@ -26,6 +31,7 @@ beforeEach(() => {
   // Each test starts from a clean localStorage so distinct-ID + opt-out
   // + disclosure-shown flags don't leak across cases.
   window.localStorage.clear();
+  _resetTelemetryPersistenceForTesting();
 
   // The wrapper POSTs via globalThis.fetch with a 3s AbortController
   // timeout. Stub it with a resolving Response so happy-path sends
@@ -39,16 +45,17 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
+// ─── Wire body shape ────────────────────────────────────────────────────────
+
 describe("track()", () => {
-  it("posts to telemetry.copilotkit.ai/ingest with event + flat properties", async () => {
+  it("posts to telemetry.copilotkit.ai/ingest with confirmed IngestPayload shape", async () => {
     track(TELEMETRY_EVENTS.bannerViewed, {
       banner_id: "2025-05-01T00:00:00Z",
     });
 
-    // The wrapper's send is fire-and-forget; flush microtasks so the
-    // synchronous fetch call lands before assertions.
     await Promise.resolve();
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -59,19 +66,20 @@ describe("track()", () => {
       "application/json",
     );
 
+    // Ben confirmed shape (telemetry-sink-ingest/index.ts:127-134):
+    // package is a top-level object { name, version? }, NOT inside properties.
     const body = JSON.parse((init?.body as string) ?? "{}") as {
       event: string;
       properties: Record<string, unknown>;
+      package: { name: string; version?: string };
       ts: number;
     };
     expect(body.event).toBe("oss.inspector.banner_viewed");
-    // Conservative body shape (pending Ben confirmation, see PR body):
-    // distinct_id and package attribution ride inside `properties` next
-    // to the caller's payload. If Ben's lambda expects a different
-    // envelope, this is the assertion to update.
     expect(body.properties.banner_id).toBe("2025-05-01T00:00:00Z");
     expect(typeof body.properties.distinct_id).toBe("string");
-    expect(body.properties.package).toBe("@copilotkit/web-inspector");
+    // package is top-level object, not a string inside properties
+    expect(body.package).toEqual({ name: "@copilotkit/web-inspector" });
+    expect(body.properties).not.toHaveProperty("package");
     expect(typeof body.ts).toBe("number");
   });
 
@@ -91,27 +99,87 @@ describe("track()", () => {
   it("swallows fetch failures (telemetry is best-effort)", async () => {
     fetchMock.mockRejectedValueOnce(new Error("network down"));
 
-    expect(() => track(TELEMETRY_EVENTS.threadsTabClicked, {})).not.toThrow();
+    expect(() => track(TELEMETRY_EVENTS.threadsTabClicked)).not.toThrow();
 
-    // Drain microtasks so the rejected fetch promise resolves before
-    // the test ends; the wrapper's `void` should have caught it.
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
 
+  it("does not send when fetch is unavailable (SSR / pre-fetch environment)", async () => {
+    vi.stubGlobal("fetch", undefined);
+
+    expect(() =>
+      track(TELEMETRY_EVENTS.bannerViewed, { banner_id: "abc" }),
+    ).not.toThrow();
+
+    // No fetch call possible — restore happens in afterEach via unstubAllGlobals
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("never includes message content or agent state in the payload", async () => {
-    // Negative content audit: enforce that nothing the caller might
-    // accidentally pass under a privacy-relevant key reaches the wire
-    // in V1. The contract is: properties are an opaque record, and we
-    // expect callers not to put PII in. This test pins the shape of
-    // the request body so reviewers can see the wire surface.
     track(TELEMETRY_EVENTS.bannerViewed, { banner_id: "abc" });
     await Promise.resolve();
 
     const [, init] = fetchMock.mock.calls[0]!;
     const raw = (init?.body as string) ?? "{}";
-    expect(raw).not.toMatch(/messages|completion|prompt|state_snapshot/i);
+    // Forbidden content keys (privacy invariant — never send inspector content)
+    expect(raw).not.toMatch(
+      /messages|completion|prompt|state_snapshot|agent_state|content|user_id/i,
+    );
   });
 });
+
+// ─── Typed per-event helpers ─────────────────────────────────────────────────
+
+describe("typed helpers", () => {
+  it("trackBannerViewed sends banner_id and optional cta_label", async () => {
+    trackBannerViewed({ banner_id: "ts-2025", cta_label: "Try threads" });
+    await Promise.resolve();
+    const [, init] = fetchMock.mock.calls[0]!;
+    const body = JSON.parse((init?.body as string) ?? "{}") as {
+      event: string;
+      properties: Record<string, unknown>;
+    };
+    expect(body.event).toBe(TELEMETRY_EVENTS.bannerViewed);
+    expect(body.properties.banner_id).toBe("ts-2025");
+    expect(body.properties.cta_label).toBe("Try threads");
+  });
+
+  it("trackBannerViewed omits cta_label when undefined (JSON.stringify drops it)", async () => {
+    trackBannerViewed({ banner_id: "ts-2025" });
+    await Promise.resolve();
+    const [, init] = fetchMock.mock.calls[0]!;
+    const raw = (init?.body as string) ?? "{}";
+    expect(raw).not.toContain("cta_label");
+  });
+
+  it("trackBannerClicked sends banner_id, cta, and optional cta_label", async () => {
+    trackBannerClicked({ banner_id: "ts-2025", cta: "body" });
+    await Promise.resolve();
+    const [, init] = fetchMock.mock.calls[0]!;
+    const body = JSON.parse((init?.body as string) ?? "{}") as {
+      event: string;
+      properties: Record<string, unknown>;
+    };
+    expect(body.event).toBe(TELEMETRY_EVENTS.bannerClicked);
+    expect(body.properties.banner_id).toBe("ts-2025");
+    expect(body.properties.cta).toBe("body");
+  });
+
+  it("trackThreadsTabClicked sends no caller-supplied properties", async () => {
+    trackThreadsTabClicked();
+    await Promise.resolve();
+    const [, init] = fetchMock.mock.calls[0]!;
+    const body = JSON.parse((init?.body as string) ?? "{}") as {
+      event: string;
+      properties: Record<string, unknown>;
+    };
+    expect(body.event).toBe(TELEMETRY_EVENTS.threadsTabClicked);
+    // Only distinct_id should be in properties (no caller keys)
+    expect(Object.keys(body.properties)).toEqual(["distinct_id"]);
+  });
+});
+
+// ─── Distinct ID lifecycle ───────────────────────────────────────────────────
 
 describe("distinct ID lifecycle", () => {
   it("persists across calls within the same session", () => {
@@ -129,7 +197,68 @@ describe("distinct ID lifecycle", () => {
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
     );
   });
+
+  it("returns a UUID without throwing in SSR (window undefined)", () => {
+    vi.stubGlobal("window", undefined);
+    expect(() => getOrCreateTelemetryDistinctId()).not.toThrow();
+    const id = getOrCreateTelemetryDistinctId();
+    expect(id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+  });
+
+  it("returns a UUID without throwing when localStorage.getItem throws", () => {
+    vi.spyOn(window.localStorage, "getItem").mockImplementation(() => {
+      throw new DOMException("QuotaExceededError");
+    });
+    expect(() => getOrCreateTelemetryDistinctId()).not.toThrow();
+    const id = getOrCreateTelemetryDistinctId();
+    expect(id).toMatch(/^[0-9a-f]{8}-/);
+  });
+
+  it("returns the same UUID across calls when localStorage throws (funnel coherence)", () => {
+    vi.spyOn(window.localStorage, "getItem").mockImplementation(() => {
+      throw new DOMException("QuotaExceededError");
+    });
+    vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
+      throw new DOMException("QuotaExceededError");
+    });
+    const first = getOrCreateTelemetryDistinctId();
+    const second = getOrCreateTelemetryDistinctId();
+    expect(first).toBe(second);
+  });
 });
+
+// ─── Persistence error-resilience ───────────────────────────────────────────
+
+describe("persistence error-resilience", () => {
+  it("isTelemetryOptedOut returns false (not disabled) when localStorage throws", () => {
+    vi.spyOn(window.localStorage, "getItem").mockImplementation(() => {
+      throw new DOMException("SecurityError");
+    });
+    // Must fail to "not opted out" — if it returned true, all users in
+    // restricted-storage contexts would have telemetry silently disabled.
+    expect(isTelemetryOptedOut()).toBe(false);
+  });
+
+  it("setTelemetryOptOut does not throw when localStorage.setItem throws", () => {
+    vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
+      throw new DOMException("QuotaExceededError");
+    });
+    expect(() => setTelemetryOptOut(true)).not.toThrow();
+  });
+
+  it("markTelemetryDisclosureShown does not throw when localStorage.setItem throws", () => {
+    vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
+      throw new DOMException("QuotaExceededError");
+    });
+    // Failure means the disclosure fires on every mount instead of once —
+    // a UX regression, not a data leak. The important invariant is no throw.
+    expect(() => markTelemetryDisclosureShown()).not.toThrow();
+  });
+});
+
+// ─── maybeShowDisclosure() ───────────────────────────────────────────────────
 
 describe("maybeShowDisclosure()", () => {
   it("logs once and sets the disclosure-shown flag", () => {
@@ -156,6 +285,8 @@ describe("maybeShowDisclosure()", () => {
   });
 });
 
+// ─── getTelemetryDistinctIdForUrl() ─────────────────────────────────────────
+
 describe("getTelemetryDistinctIdForUrl()", () => {
   it("returns the persisted distinct-ID when not opted out", () => {
     const id = getTelemetryDistinctIdForUrl();
@@ -173,6 +304,8 @@ describe("getTelemetryDistinctIdForUrl()", () => {
     expect(getTelemetryDistinctIdForUrl()).toBeNull();
   });
 });
+
+// ─── Opt-out round-trip ──────────────────────────────────────────────────────
 
 describe("opt-out round-trip", () => {
   it("setTelemetryOptOut(true) → isTelemetryOptedOut() is true", () => {

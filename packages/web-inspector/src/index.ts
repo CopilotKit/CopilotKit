@@ -39,10 +39,8 @@ import {
   clampSize as clampSizeToViewport,
 } from "./lib/context-helpers";
 import {
-  isTelemetryOptedOut,
   loadInspectorState,
   saveInspectorState,
-  setTelemetryOptOut,
   isValidAnchor,
   isValidPosition,
   isValidSize,
@@ -51,10 +49,14 @@ import {
 import type { PersistedState } from "./lib/persistence";
 import {
   TELEMETRY_DOCS_URL,
-  TELEMETRY_EVENTS,
+  ensureTelemetryDistinctId,
   getTelemetryDistinctIdForUrl,
+  isTelemetryOptedOut,
   maybeShowDisclosure,
-  track,
+  setTelemetryOptOut,
+  trackBannerClicked,
+  trackBannerViewed,
+  trackThreadsTabClicked,
 } from "./lib/telemetry";
 
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
@@ -2436,6 +2438,10 @@ export class WebInspectorElement extends LitElement {
   // to per-mount than per-tab (sessionStorage), but for the inspector the
   // distinction is academic — inspector instances rarely outlive the page.
   private viewedBannerTimestamps: Set<string> = new Set();
+  // Per-instance dedup for `oss.inspector.banner_clicked` (keyed by
+  // `${bannerId}:${cta}`) so copy-button retries and accidental multi-clicks
+  // don't inflate funnel counts beyond one signal per intent type per banner.
+  private clickedBannerIds: Set<string> = new Set();
 
   get core(): CopilotKitCore | null {
     return this._core;
@@ -4192,7 +4198,7 @@ ${argsString}</pre
     // OSS-96 acceptance criteria), so it's available for cross-domain
     // propagation onto banner-CTA links even before the first event
     // fires. No-op when the user has opted out.
-    getTelemetryDistinctIdForUrl();
+    ensureTelemetryDistinctId();
 
     if (!this._core) {
       this.tryAutoAttachCore();
@@ -5707,11 +5713,26 @@ ${argsString}</pre
   }
 
   private handleTelemetryOptOutToggle = (event: Event): void => {
-    const checked = (event.target as HTMLInputElement | null)?.checked ?? true;
+    if (!(event.target instanceof HTMLInputElement)) return;
     // Toggle ON means telemetry is sending — i.e. opted out is FALSE.
-    setTelemetryOptOut(!checked);
+    setTelemetryOptOut(!event.target.checked);
     this.requestUpdate();
   };
+
+  // Fires `banner_clicked` at most once per `${bannerId}:${cta}` per mount so
+  // copy-button retries and accidental multi-clicks don't inflate funnel counts.
+  private trackBannerClickedOnce(opts: { cta: "body" | "dismiss" }): void {
+    const id = this.announcementTimestamp;
+    if (!id) return;
+    const key = `${id}:${opts.cta}`;
+    if (this.clickedBannerIds.has(key)) return;
+    this.clickedBannerIds.add(key);
+    trackBannerClicked({
+      banner_id: id,
+      cta: opts.cta,
+      cta_label: this.announcementCtaLabel ?? undefined,
+    });
+  }
 
   private handleThreadDividerPointerDown = (event: PointerEvent) => {
     this.threadDividerResizing = true;
@@ -6519,7 +6540,9 @@ ${prettyEvent}</pre
     }
 
     if (key === "threads") {
-      track(TELEMETRY_EVENTS.threadsTabClicked, {});
+      if (this.selectedMenu !== "threads") {
+        trackThreadsTabClicked();
+      }
       this.autoSelectLatestThread();
     }
 
@@ -7440,15 +7463,7 @@ ${prettyEvent}</pre
     // cta:"dismiss" until Sam confirms whether dismiss should be its
     // own event (`banner_dismissed`). PR body lists this as a deferred
     // decision pending Sam's input.
-    if (this.announcementTimestamp) {
-      track(TELEMETRY_EVENTS.bannerClicked, {
-        banner_id: this.announcementTimestamp,
-        cta: "dismiss",
-        ...(this.announcementCtaLabel
-          ? { cta_label: this.announcementCtaLabel }
-          : {}),
-      });
-    }
+    this.trackBannerClickedOnce({ cta: "dismiss" });
     this.markAnnouncementSeen();
   };
 
@@ -7501,9 +7516,9 @@ ${prettyEvent}</pre
         !this.viewedBannerTimestamps.has(timestamp)
       ) {
         this.viewedBannerTimestamps.add(timestamp);
-        track(TELEMETRY_EVENTS.bannerViewed, {
+        trackBannerViewed({
           banner_id: timestamp,
-          ...(ctaLabel ? { cta_label: ctaLabel } : {}),
+          cta_label: ctaLabel ?? undefined,
         });
       }
 
@@ -7562,19 +7577,10 @@ ${prettyEvent}</pre
   }
 
   private handleAnnouncementContentClick = (event: Event): void => {
-    // banner_clicked fires on every click within the banner body region
-    // (links, copy buttons, plain text). Property `cta:"body"` distinguishes
-    // it from the dismiss path. We fire BEFORE the early return below so
-    // non-copy-button clicks still count.
-    if (this.announcementTimestamp) {
-      track(TELEMETRY_EVENTS.bannerClicked, {
-        banner_id: this.announcementTimestamp,
-        cta: "body",
-        ...(this.announcementCtaLabel
-          ? { cta_label: this.announcementCtaLabel }
-          : {}),
-      });
-    }
+    // banner_clicked fires once per banner per cta-type per mount. Dedup
+    // prevents copy-button retries and accidental multi-clicks from inflating
+    // funnel counts beyond one "body" signal and one "dismiss" signal per banner.
+    this.trackBannerClickedOnce({ cta: "body" });
 
     const target = event.target instanceof HTMLElement ? event.target : null;
     const button = target?.closest(".announcement-code__copy");
