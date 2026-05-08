@@ -1232,6 +1232,85 @@ describe("Activity Message Re-render Prevention", () => {
     });
   });
 
+  it("should re-render an activity message when its content changes in place", async () => {
+    const renderCounts: Record<string, number> = {};
+    const capturedContent: { status: string; percent: number }[] = [];
+
+    const activityRenderer: ReactActivityMessageRenderer<{
+      status: string;
+      percent: number;
+    }> = {
+      activityType: "progress",
+      content: z.object({ status: z.string(), percent: z.number() }),
+      render: ({ content, message }) => {
+        renderCounts[message.id] = (renderCounts[message.id] || 0) + 1;
+        capturedContent.push({ ...content });
+        return (
+          <div data-testid={`activity-${message.id}`}>
+            <span data-testid={`activity-status-${message.id}`}>
+              {content.status}
+            </span>
+            <span data-testid={`activity-percent-${message.id}`}>
+              {content.percent}
+            </span>
+          </div>
+        );
+      },
+    };
+
+    const activityMessage = {
+      id: "activity-1",
+      role: "activity",
+      activityType: "progress",
+      content: { status: "Starting", percent: 0 },
+    } as ActivityMessage;
+    const initialMessages: Message[] = [activityMessage];
+
+    const { rerender } = render(
+      <CopilotKitProvider renderActivityMessages={[activityRenderer]}>
+        <CopilotChatConfigurationProvider agentId="default" threadId="test">
+          <CopilotChatMessageView messages={initialMessages} isRunning={true} />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("activity-activity-1")).toBeDefined();
+    });
+
+    const renderCountAfterInitial = renderCounts["activity-1"]!;
+    expect(renderCountAfterInitial).toBe(1);
+
+    activityMessage.content = { status: "Processing", percent: 50 };
+    const updatedMessages: Message[] = [activityMessage];
+
+    rerender(
+      <CopilotKitProvider renderActivityMessages={[activityRenderer]}>
+        <CopilotChatConfigurationProvider agentId="default" threadId="test">
+          <CopilotChatMessageView messages={updatedMessages} isRunning={true} />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("activity-status-activity-1").textContent).toBe(
+        "Processing",
+      );
+      expect(
+        screen.getByTestId("activity-percent-activity-1").textContent,
+      ).toBe("50");
+    });
+
+    const renderCountAfterUpdate = renderCounts["activity-1"]!;
+
+    expect(renderCountAfterUpdate).toBeGreaterThan(renderCountAfterInitial);
+    expect(capturedContent).toContainEqual({ status: "Starting", percent: 0 });
+    expect(capturedContent).toContainEqual({
+      status: "Processing",
+      percent: 50,
+    });
+  });
+
   it("should re-render an activity message when its activityType changes", async () => {
     const renderCounts: Record<string, number> = {};
 

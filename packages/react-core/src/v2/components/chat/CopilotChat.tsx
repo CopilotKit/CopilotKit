@@ -84,6 +84,24 @@ export type CopilotChatProps = Omit<
    */
   throttleMs?: number;
 };
+
+function getContentMemoKey(message: {
+  role: string;
+  content?: unknown;
+}): number | string {
+  if (message.role === "activity") {
+    try {
+      return JSON.stringify(message.content) ?? "";
+    } catch {
+      return "unserializable";
+    }
+  }
+
+  if (typeof message.content === "string") return message.content.length;
+  if (Array.isArray(message.content)) return message.content.length;
+  return 0;
+}
+
 export function CopilotChat({
   agentId,
   threadId,
@@ -524,14 +542,14 @@ export function CopilotChat({
   //   - message id, role, content length (text streaming)
   //   - content part count (multimodal additions)
   //   - tool call ids + argument lengths (tool call streaming)
+  //   - serialized activity content (activity snapshots are object-shaped)
   const messagesMemoKey = agent.messages
     .map((m) => {
-      const contentKey =
-        typeof m.content === "string"
-          ? m.content.length
-          : Array.isArray(m.content)
-            ? m.content.length
-            : 0;
+      const contentKey = getContentMemoKey(m);
+      const activityTypeKey =
+        m.role === "activity" && "activityType" in m
+          ? String(m.activityType)
+          : "";
       const toolCallsKey =
         "toolCalls" in m && Array.isArray(m.toolCalls)
           ? m.toolCalls
@@ -540,7 +558,7 @@ export function CopilotChat({
               )
               .join(";")
           : "";
-      return `${m.id}:${m.role}:${contentKey}:${toolCallsKey}`;
+      return `${m.id}:${m.role}:${activityTypeKey}:${contentKey}:${toolCallsKey}`;
     })
     .join(",");
   const messages = useMemo(

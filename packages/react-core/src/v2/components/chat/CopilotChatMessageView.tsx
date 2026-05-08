@@ -56,6 +56,16 @@ function resolveSlotComponent<T extends React.ComponentType<any>>(
   return { Component: DefaultComponent, slotProps: undefined };
 }
 
+function getActivityContentMemoKey(
+  content: ActivityMessage["content"],
+): string {
+  try {
+    return JSON.stringify(content) ?? "";
+  } catch {
+    return "unserializable";
+  }
+}
+
 /**
  * Memoized wrapper for assistant messages to prevent re-renders when other messages change.
  */
@@ -183,6 +193,8 @@ const MemoizedActivityMessage = React.memo(
     renderActivityMessage,
   }: {
     message: ActivityMessage;
+    activityType: string;
+    contentKey: string;
     renderActivityMessage: (
       message: ActivityMessage,
     ) => React.ReactElement | null;
@@ -194,15 +206,10 @@ const MemoizedActivityMessage = React.memo(
     if (prevProps.message.id !== nextProps.message.id) return false;
 
     // Activity type changed = must re-render
-    if (prevProps.message.activityType !== nextProps.message.activityType)
-      return false;
+    if (prevProps.activityType !== nextProps.activityType) return false;
 
-    // Compare content using JSON.stringify (native code, handles deep comparison)
-    if (
-      JSON.stringify(prevProps.message.content) !==
-      JSON.stringify(nextProps.message.content)
-    )
-      return false;
+    // Compare the render-time content key so in-place message mutation is visible.
+    if (prevProps.contentKey !== nextProps.contentKey) return false;
 
     return true;
   },
@@ -574,10 +581,13 @@ export function CopilotChatMessageView({
         />,
       );
     } else if (message.role === "activity") {
+      const activityMessage = message as ActivityMessage;
       elements.push(
         <MemoizedActivityMessage
           key={message.id}
-          message={message as ActivityMessage}
+          message={activityMessage}
+          activityType={activityMessage.activityType}
+          contentKey={getActivityContentMemoKey(activityMessage.content)}
           renderActivityMessage={renderActivityMessage}
         />,
       );

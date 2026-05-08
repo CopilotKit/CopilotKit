@@ -220,6 +220,63 @@ describe("CopilotChat activity message rendering", () => {
     });
   });
 
+  it("re-renders replaced activity snapshots with the same message id", async () => {
+    const agent = new MockStepwiseAgent();
+
+    const activityRenderer: ReactActivityMessageRenderer<{
+      page: number;
+    }> = {
+      activityType: "pagination",
+      content: z.object({ page: z.number() }),
+      render: ({ content }) => (
+        <div data-testid="activity-page">Page {content.page}</div>
+      ),
+    };
+
+    renderWithCopilotKit({
+      agent,
+      renderActivityMessages: [activityRenderer],
+    });
+
+    const input = await screen.findByRole("textbox");
+    fireEvent.change(input, { target: { value: "Show page" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.getByText("Show page")).toBeDefined();
+    });
+
+    const activityMessageId = testId("activity-replace");
+    agent.emit(runStartedEvent());
+    agent.emit({
+      ...activitySnapshotEvent({
+        messageId: activityMessageId,
+        activityType: "pagination",
+        content: { page: 1 },
+      }),
+      replace: true,
+    } as ReturnType<typeof activitySnapshotEvent> & { replace: true });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("activity-page").textContent).toBe("Page 1");
+    });
+
+    agent.emit({
+      ...activitySnapshotEvent({
+        messageId: activityMessageId,
+        activityType: "pagination",
+        content: { page: 2 },
+      }),
+      replace: true,
+    } as ReturnType<typeof activitySnapshotEvent> & { replace: true });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("activity-page").textContent).toBe("Page 2");
+    });
+
+    agent.emit(runFinishedEvent());
+  });
+
   it("skips unmatched activity types when no renderer exists", async () => {
     const agent = new MockStepwiseAgent();
 
