@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { SearchModal } from "./search-modal";
 
 function isEditableTarget(target: EventTarget | null): boolean {
@@ -123,9 +124,17 @@ export function SearchTrigger({
 }
 
 function SearchModalWrapper({ onClose }: { onClose: () => void }) {
-  return (
+  // Portal to document.body so the modal's `position: fixed` resolves
+  // against the viewport. The trigger renders inside the navbar's right
+  // cluster, which uses `backdrop-blur-lg` — backdrop-filter creates a
+  // containing block for fixed-position descendants, which would
+  // otherwise clamp the overlay to the cluster's bounding rect instead
+  // of covering the page.
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <div data-search-modal>
       <SearchModal onClose={onClose} />
-    </div>
+    </div>,
+    document.body,
   );
 }
