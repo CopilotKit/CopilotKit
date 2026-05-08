@@ -23,6 +23,8 @@ AI agent framework with three layers: **Frontend** (React/Angular/Vanilla) → *
 - **Flat package structure** — all packages live directly under `packages/` (no `v1/` or `v2/` subdirectories). Every package uses the `@copilotkit/` scope.
 - **Simplicity** — prefer the simplest correct solution. For non-trivial changes, consider if there's a cleaner approach before committing.
 - **Worktrees** — always work in a git worktree for isolation. See [Git & PRs](.claude/docs/git.md) for the full workflow.
+- **Main is the only source of truth.** Don't reference, rebase onto, or vendor from non-`main` branches — they're unfinished work that may carry a wrong design. Search `main` for the concept first; if it isn't there, ask before pulling from a branch.
+- **Don't @-tag people on GitHub.** Use plain names (e.g. "Ben to confirm…") in PR bodies and comments. GitHub usernames aren't always the same as first names, and a wrong @-tag pings the wrong person.
 
 ## Reference (read when relevant to your task)
 
