@@ -21,6 +21,7 @@ export default function FrontendToolsDemo() {
 function Chat() {
   const [background, setBackground] = useState<string>(DEFAULT_BACKGROUND);
 
+  // @region[frontend-tool-registration]
   useFrontendTool({
     name: "change_background",
     description:
@@ -30,11 +31,14 @@ function Chat() {
         .string()
         .describe("The CSS background value. Prefer gradients."),
     }),
+    // @region[frontend-tool-handler]
     handler: async ({ background }) => {
       setBackground(background);
       return { status: "success" };
     },
+    // @endregion[frontend-tool-handler]
   });
+  // @endregion[frontend-tool-registration]
 
   useFrontendToolsSuggestions();
 
