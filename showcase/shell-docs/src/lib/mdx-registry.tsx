@@ -350,6 +350,13 @@ export const docsComponents = {
   SharedContent: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
+  // <Content framework="..." /> is used by orphaned `deploy-agentcore`
+  // pages (langgraph/* + aws-strands) as a placeholder for content
+  // that was never authored. Without a registered shim, MDX rendering
+  // throws and ships a 500 in the public sitemap.
+  Content: ({ children }: { children?: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
   IframeSwitcher: RealIframeSwitcher,
   IframeSwitcherGroup: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
@@ -691,6 +698,15 @@ export const docsComponents = {
   }: {
     children?: React.ReactNode;
   }) => <div>{children}</div>,
+  // Alias of CopilotCloudConfigureCopilotKitProvider — historical
+  // spelling without the `Provider` suffix appears in tutorials
+  // (`ai-powered-textarea/step-2`, `ai-todo-app/step-2`). Keeping both
+  // keys so existing MDX renders without throwing.
+  CopilotCloudConfigureCopilotKit: ({
+    children,
+  }: {
+    children?: React.ReactNode;
+  }) => <div>{children}</div>,
   GenerativeUISpecsOverview: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
@@ -876,12 +892,26 @@ export const docsComponents = {
   CloudCopilotKitProvider: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
+  // Alias of CloudCopilotKitProvider — `crewai-flows/quickstart` and
+  // other historical MDX use the unsuffixed spelling. Without this,
+  // MDX rendering throws "Expected component CloudCopilotKit to be
+  // defined" at runtime → 500 in production.
+  CloudCopilotKit: ({ children }: { children?: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
   SelfHostingCopilotRuntimeCreateEndpoint: ({
     children,
   }: {
     children?: React.ReactNode;
   }) => <div>{children}</div>,
   SelfHostingCopilotRuntimeConfigureCopilotKitProvider: ({
+    children,
+  }: {
+    children?: React.ReactNode;
+  }) => <div>{children}</div>,
+  // Alias of SelfHostingCopilotRuntimeConfigureCopilotKitProvider —
+  // `ai-todo-app/step-2-setup-copilotkit` uses the unsuffixed name.
+  SelfHostingCopilotRuntimeConfigureCopilotKit: ({
     children,
   }: {
     children?: React.ReactNode;
