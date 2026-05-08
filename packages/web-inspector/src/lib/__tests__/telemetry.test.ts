@@ -1,12 +1,5 @@
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-  type MockInstance,
-} from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { MockInstance } from "vitest";
 
 import {
   TELEMETRY_DOCS_URL,
@@ -62,9 +55,9 @@ describe("track()", () => {
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(url).toBe(TELEMETRY_INGEST_URL);
     expect(init?.method).toBe("POST");
-    expect(
-      (init?.headers as Record<string, string>)["Content-Type"],
-    ).toBe("application/json");
+    expect((init?.headers as Record<string, string>)["Content-Type"]).toBe(
+      "application/json",
+    );
 
     const body = JSON.parse((init?.body as string) ?? "{}") as {
       event: string;
@@ -98,9 +91,7 @@ describe("track()", () => {
   it("swallows fetch failures (telemetry is best-effort)", async () => {
     fetchMock.mockRejectedValueOnce(new Error("network down"));
 
-    expect(() =>
-      track(TELEMETRY_EVENTS.threadsTabClicked, {}),
-    ).not.toThrow();
+    expect(() => track(TELEMETRY_EVENTS.threadsTabClicked, {})).not.toThrow();
 
     // Drain microtasks so the rejected fetch promise resolves before
     // the test ends; the wrapper's `void` should have caught it.
@@ -127,8 +118,9 @@ describe("distinct ID lifecycle", () => {
     const first = getOrCreateTelemetryDistinctId();
     const second = getOrCreateTelemetryDistinctId();
     expect(first).toBe(second);
-    expect(window.localStorage.getItem("cpk:inspector:telemetry:distinct_id"))
-      .toBe(first);
+    expect(
+      window.localStorage.getItem("cpk:inspector:telemetry:distinct_id"),
+    ).toBe(first);
   });
 
   it("generates a UUID-v4-shaped value", () => {
