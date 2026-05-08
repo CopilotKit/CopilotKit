@@ -58,7 +58,7 @@ test.describe("Authentication", () => {
     await input.press("Enter");
 
     await expect(
-      page.locator('[data-message-role="assistant"]').first(),
+      page.locator('[data-testid="copilot-assistant-message"]').first(),
     ).toBeVisible({ timeout: 30000 });
   });
 
@@ -101,7 +101,7 @@ test.describe("Authentication", () => {
     await input.fill("Hello again");
     await input.press("Enter");
     await expect(
-      page.locator('[data-message-role="assistant"]').first(),
+      page.locator('[data-testid="copilot-assistant-message"]').first(),
     ).toBeVisible({ timeout: 30000 });
   });
 });
