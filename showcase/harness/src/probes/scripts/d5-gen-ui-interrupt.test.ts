@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { getD5Script, type D5BuildContext } from "../helpers/d5-registry.js";
+import { getD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { Page } from "../helpers/conversation-runner.js";
 import {
   buildTurns,
@@ -33,24 +34,32 @@ describe("d5-gen-ui-interrupt script", () => {
     ]);
   });
 
-  it("assertion clicks slot then waits for picked state", async () => {
-    const click = vi.fn().mockResolvedValue(undefined);
+  it("assertion clicks slot via evaluate (JS-level click) then waits for picked state", async () => {
+    // The probe now uses `clickByJs` (page.evaluate-driven .click()) to
+    // bypass the cpk-web-inspector overlay. Assert the evaluate call
+    // fires with a function whose body contains the slot selector,
+    // followed by waitForSelector for the picked-state testid.
+    const evaluate = vi.fn<(fn: () => unknown) => Promise<unknown>>(
+      async () => undefined,
+    );
     const waitForSelector = vi.fn().mockResolvedValue(undefined);
     const page = {
       waitForSelector,
       async fill() {},
       async press() {},
-      async evaluate<R>() {
-        return undefined as unknown as R;
-      },
-      click,
+      evaluate,
     } as unknown as Page;
     const assertion = buildInterruptAssertion("sales-call");
     await expect(assertion(page)).resolves.toBeUndefined();
-    expect(click).toHaveBeenCalledWith(
-      '[data-testid="time-picker-slot"]',
-      expect.any(Object),
-    );
+    // clickByJs builds a zero-arg function whose source contains the
+    // selector via JSON.stringify. The first evaluate call is the click;
+    // assert the function body references the slot selector.
+    expect(evaluate).toHaveBeenCalled();
+    const firstCall = evaluate.mock.calls[0];
+    expect(firstCall).toBeDefined();
+    const clickFn = firstCall![0];
+    expect(typeof clickFn).toBe("function");
+    expect(clickFn.toString()).toContain("time-picker-slot");
     expect(waitForSelector).toHaveBeenCalledWith(
       '[data-testid="time-picker-picked"]',
       expect.objectContaining({ state: "visible" }),
@@ -69,22 +78,8 @@ describe("d5-gen-ui-interrupt script", () => {
       async evaluate<R>() {
         return undefined as unknown as R;
       },
-      async click() {},
     } as unknown as Page;
     const assertion = buildInterruptAssertion("sales-call");
     await expect(assertion(page)).rejects.toThrow(/time-picker-card.*mount/);
-  });
-
-  it("assertion fails when page is missing click()", async () => {
-    const page: Page = {
-      async waitForSelector() {},
-      async fill() {},
-      async press() {},
-      async evaluate<R>() {
-        return undefined as unknown as R;
-      },
-    };
-    const assertion = buildInterruptAssertion("sales-call");
-    await expect(assertion(page)).rejects.toThrow(/missing click/);
   });
 });
