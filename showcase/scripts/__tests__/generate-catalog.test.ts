@@ -109,15 +109,22 @@ describe("Catalog Generator", () => {
       (c: any) => c.manifestation === "starter",
     );
 
-    expect(integrated.length).toBe(774); // 43 features x 18 integrations
+    // 43 features x 18 integrations = 774 nominal, but 4 deprecated
+    // features (agentic-chat-reasoning, hitl, hitl-in-chat-booking,
+    // reasoning-default-render) are filtered when an integration's
+    // manifest doesn't declare them — see deprecatedFeatureIds in
+    // generate-registry.ts. LGP doesn't declare any of the 4 (gold-
+    // standard reference uses the modern shape), so 4 LGP cells are
+    // dropped: 774 - 4 = 770.
+    expect(integrated.length).toBe(770);
     expect(starters.length).toBe(0);
-    expect(catalog.cells.length).toBe(774);
+    expect(catalog.cells.length).toBe(770);
     // total_cells excludes docs-only features (currently 1 feature x 18 integrations = 18)
-    expect(catalog.metadata.total_cells).toBe(756);
+    expect(catalog.metadata.total_cells).toBe(752);
     expect(catalog.metadata.docs_only).toBe(18);
   });
 
-  it("LGP has 43 cells: 38 wired + 1 stub + 4 unshipped", () => {
+  it("LGP has 39 cells: 38 wired + 1 stub (deprecated features filtered)", () => {
     runGenerator();
     const catalog = readCatalog();
 
@@ -126,7 +133,10 @@ describe("Catalog Generator", () => {
         c.integration === "langgraph-python" &&
         c.manifestation === "integrated",
     );
-    expect(lgpCells.length).toBe(43); // One cell per feature
+    // 39 = 39 features in LGP manifest (the 4 deprecated features are
+    // filtered out at catalog-generation time since LGP doesn't declare
+    // them — see deprecatedFeatureIds in generate-registry.ts).
+    expect(lgpCells.length).toBe(39);
 
     const wired = lgpCells.filter((c: any) => c.status === "wired");
     const stub = lgpCells.filter((c: any) => c.status === "stub");
@@ -134,7 +144,38 @@ describe("Catalog Generator", () => {
 
     expect(wired.length).toBe(38);
     expect(stub.length).toBe(1);
-    expect(unshipped.length).toBe(4);
+    expect(unshipped.length).toBe(0);
+  });
+
+  it("deprecated features are emitted only for integrations that declare them", () => {
+    runGenerator();
+    const catalog = readCatalog();
+
+    // 4 features marked deprecated:true in feature-registry.json. LGP
+    // doesn't declare any of them (modern-shape reference); other
+    // integrations that DO declare them still get a cell so the
+    // cross-integration audit trail is preserved.
+    const deprecated = [
+      "agentic-chat-reasoning",
+      "hitl",
+      "hitl-in-chat-booking",
+      "reasoning-default-render",
+    ];
+
+    for (const feat of deprecated) {
+      const lgpCell = catalog.cells.find(
+        (c: any) => c.integration === "langgraph-python" && c.feature === feat,
+      );
+      expect(lgpCell).toBeUndefined();
+    }
+
+    // ag2 declares agentic-chat-reasoning + hitl + reasoning-default-render
+    // (per its manifest), so those cells exist.
+    const ag2Acr = catalog.cells.find(
+      (c: any) =>
+        c.integration === "ag2" && c.feature === "agentic-chat-reasoning",
+    );
+    expect(ag2Acr).toBeDefined();
   });
 
   it("stub detection: LGP/cli-start has stub status (demo exists, no route)", () => {
@@ -196,8 +237,10 @@ describe("Catalog Generator", () => {
     const catalog = readCatalog();
 
     expect(catalog.metadata).toBeDefined();
-    // total_cells excludes docs-only features
-    expect(catalog.metadata.total_cells).toBe(756);
+    // total_cells excludes docs-only features (and deprecated-feature cells
+    // that were filtered during catalog generation when an integration
+    // didn't declare them).
+    expect(catalog.metadata.total_cells).toBe(752);
 
     // Headline counts exclude docs-only cells; must sum to total_cells.
     expect(

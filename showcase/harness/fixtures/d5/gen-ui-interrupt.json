@@ -1,12 +1,16 @@
 {
-  "_comment": "D5 fixture for /demos/gen-ui-interrupt. Two pill prompts (sales call / 1:1 with Alice). Each triggers the `schedule_meeting` tool which raises a LangGraph interrupt; the frontend renders the time picker, the user picks, and the agent resumes with a confirmation message.",
+  "_comment": "D5 fixture for /demos/gen-ui-interrupt. Two pill prompts (sales call / 1:1 with Alice). Each pill is a 2-leg flow — first leg returns a `schedule_meeting` tool call (which triggers the Python agent's `interrupt(...)` suspension); second leg matches `toolCallId` after the user picks a slot and returns a confirmation narration. Both legs are SHARED with /demos/interrupt-headless.json (same agent, same chip prompts, different frontend rendering — `useInterrupt` inline vs `useHeadlessInterrupt` in a separate pane). The `call_d5_schedule_sales_001` / `_alice_001` toolCallIds match `interrupt-headless.json` and `showcase/aimock/d5-all.json` so all three sources stay in lockstep.",
   "fixtures": [
     {
-      "match": { "userMessage": "intro call with the sales team" },
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "toolName": "schedule_meeting"
+      },
       "response": {
         "content": "Sure — let me check available times.",
         "toolCalls": [
           {
+            "id": "call_d5_schedule_sales_001",
             "name": "schedule_meeting",
             "arguments": {
               "topic": "Sales intro call",
@@ -21,11 +25,24 @@
       }
     },
     {
-      "match": { "userMessage": "1:1 with Alice" },
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "toolCallId": "call_d5_schedule_sales_001"
+      },
+      "response": {
+        "content": "Booked: Sales intro call confirmed for the slot you picked."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolName": "schedule_meeting"
+      },
       "response": {
         "content": "Got it — pulling up next-week slots.",
         "toolCalls": [
           {
+            "id": "call_d5_schedule_alice_001",
             "name": "schedule_meeting",
             "arguments": {
               "topic": "1:1 with Alice — Q2 goals",
@@ -40,15 +57,12 @@
       }
     },
     {
-      "match": { "userMessage": "request the gen-ui interrupt" },
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolCallId": "call_d5_schedule_alice_001"
+      },
       "response": {
-        "content": "Choose to continue."
-      }
-    },
-    {
-      "match": { "userMessage": "confirm the gen-ui choice" },
-      "response": {
-        "content": "Gen-UI interrupt resolved."
+        "content": "Scheduled: 1:1 with Alice locked in for the slot you picked."
       }
     }
   ]
