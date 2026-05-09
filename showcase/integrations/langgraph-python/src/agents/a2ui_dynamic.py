@@ -115,7 +115,7 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     # SSE streams) sees this secondary LLM call. Without it the call
     # bypasses fixture matching in replay mode, surfacing as
     # "An internal error occurred" on the demo page.
-    model = ChatOpenAI(model="gpt-4.1", streaming=True)
+    model = ChatOpenAI(model="gpt-5.4", streaming=True)
     model_with_tool = model.bind_tools(
         [_design_a2ui_surface],
         tool_choice="_design_a2ui_surface",
@@ -180,7 +180,7 @@ SYSTEM_PROMPT = (
 
 
 graph = create_agent(
-    model=ChatOpenAI(model="gpt-4.1"),
+    model=ChatOpenAI(model="gpt-5.4"),
     tools=[generate_a2ui],
     middleware=[CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT,

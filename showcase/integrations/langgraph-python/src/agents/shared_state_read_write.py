@@ -136,7 +136,7 @@ class PreferencesInjectorMiddleware(AgentMiddleware[AgentState, Any]):
 
 
 graph = create_agent(
-    model=ChatOpenAI(model="gpt-4o-mini"),
+    model=ChatOpenAI(model="gpt-5.4"),
     tools=[set_notes],
     middleware=[CopilotKitMiddleware(), PreferencesInjectorMiddleware()],
     state_schema=AgentState,

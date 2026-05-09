@@ -134,7 +134,7 @@ def roll_d20(value: int = 0) -> dict:
     return {"sides": 20, "value": rolled, "result": rolled}
 
 
-model = ChatOpenAI(model="gpt-4o-mini")
+model = ChatOpenAI(model="gpt-5.4")
 
 graph = create_agent(
     model=model,
