@@ -43,6 +43,7 @@ features:
   - hitl-in-chat
   - hitl-in-app
   - gen-ui-interrupt
+  - interrupt-headless
   - declarative-gen-ui
   - a2ui-fixed-schema
   - mcp-apps
@@ -50,6 +51,8 @@ features:
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
   - tool-rendering
+  - tool-rendering-reasoning-chain
+  - shared-state-read
   - shared-state-read-write
   - shared-state-streaming
   - readonly-state-agent-context
@@ -179,6 +182,21 @@ demos:
       - src/app/demos/tool-rendering/weather-card.tsx
       - src/app/demos/tool-rendering/flight-list-card.tsx
       - src/app/api/copilotkit/route.ts
+  - id: tool-rendering-reasoning-chain
+    name: "Generative UI: Tool Rendering + Reasoning Chain"
+    description: "Per-tool renderers (WeatherCard, FlightListCard, custom catchall) interleaved with a reasoningMessage slot rendering the agent's reasoning tokens — combines reasoning-display + tool-rendering in one chat surface."
+    tags:
+      - generative-ui
+    route: /demos/tool-rendering-reasoning-chain
+    animated_preview_url:
+    highlight:
+      - src/agents/tool_rendering_reasoning_chain_agent.py
+      - src/app/demos/tool-rendering-reasoning-chain/page.tsx
+      - src/app/demos/tool-rendering-reasoning-chain/reasoning-block.tsx
+      - src/app/demos/tool-rendering-reasoning-chain/weather-card.tsx
+      - src/app/demos/tool-rendering-reasoning-chain/flight-list-card.tsx
+      - src/app/demos/tool-rendering-reasoning-chain/custom-catchall-renderer.tsx
+      - src/app/api/copilotkit/route.ts
   - id: gen-ui-tool-based
     name: "Generative UI: useComponent"
     description: Agent uses tools to trigger UI generation
@@ -227,6 +245,16 @@ demos:
       - src/app/demos/shared-state-read-write/page.tsx
       - src/app/demos/shared-state-read-write/preferences-card.tsx
       - src/app/demos/shared-state-read-write/notes-card.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: shared-state-read
+    name: "Shared State: Read-Only Recipe Editor"
+    description: "Recipe editor publishes form state via agent.setState; the agent reads the recipe context but does not mutate it (no backend tool — neutral default agent)."
+    tags:
+      - agent-state
+    route: /demos/shared-state-read
+    animated_preview_url:
+    highlight:
+      - src/app/demos/shared-state-read/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: subagents
     name: Sub-Agents
@@ -336,6 +364,17 @@ demos:
       - src/agents/interrupt_agent.py
       - src/app/demos/gen-ui-interrupt/page.tsx
       - src/app/demos/gen-ui-interrupt/_components/time-picker-card.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: interrupt-headless
+    name: "Human in the Loop: Headless Interrupt"
+    description: "Same interrupt(...) backend pattern as gen-ui-interrupt, but the time-picker mounts in a separate app-surface pane (left) instead of inline inside the chat — uses useHeadlessInterrupt (custom-event subscribe + manual runAgent forwardedProps.command.resume)."
+    tags:
+      - interactivity
+    route: /demos/interrupt-headless
+    animated_preview_url:
+    highlight:
+      - src/agents/interrupt_agent.py
+      - src/app/demos/interrupt-headless/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: declarative-gen-ui
     name: "Declarative UI: A2UI"

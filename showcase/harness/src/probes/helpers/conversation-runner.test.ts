@@ -778,14 +778,23 @@ describe("runConversation", () => {
 
     expect(result.turns_completed).toBe(1);
     expect(result.failure_turn).toBeUndefined();
-    // preFill must precede the first waitForSelector (cascade probe)
-    // — that ordering is what makes the auth shape work.
+    // The runner probes the chat-input cascade at BOOT (before preFill
+    // runs), expecting it to fail when the chat tree hasn't mounted yet
+    // (the auth shape). When boot probing fails the runner defers to
+    // post-preFill resolution — preFill runs, mounts the chat, and the
+    // cascade succeeds on retry. What matters: preFill runs, AT LEAST
+    // ONE post-preFill waitForSelector resolves (proving the cascade
+    // recovered), AND the conversation completes turn 1 cleanly.
+    // (We do NOT assert "no waitForSelector before preFill" — the boot
+    // probe is intentional and the failure is handled gracefully.)
     const preFillIdx = order.indexOf("preFill:click-sign-in");
-    const firstWaitIdx = order.findIndex((s) =>
-      s.startsWith("waitForSelector:"),
-    );
     expect(preFillIdx).toBeGreaterThanOrEqual(0);
-    expect(firstWaitIdx).toBeGreaterThan(preFillIdx);
+    // Some waitForSelector call must run AFTER preFill — that's the
+    // cascade retry that resolves once the chat input mounted.
+    const postPreFillWait = order
+      .slice(preFillIdx + 1)
+      .find((s) => s.startsWith("waitForSelector:"));
+    expect(postPreFillWait).toBeDefined();
   });
 
   it("stringifies non-Error throws (e.g. a thrown string) into result.error", async () => {

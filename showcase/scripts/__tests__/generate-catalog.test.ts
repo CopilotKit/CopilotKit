@@ -109,15 +109,15 @@ describe("Catalog Generator", () => {
       (c: any) => c.manifestation === "starter",
     );
 
-    expect(integrated.length).toBe(756); // 42 features x 18 integrations
+    expect(integrated.length).toBe(774); // 43 features x 18 integrations
     expect(starters.length).toBe(0);
-    expect(catalog.cells.length).toBe(756);
+    expect(catalog.cells.length).toBe(774);
     // total_cells excludes docs-only features (currently 1 feature x 18 integrations = 18)
-    expect(catalog.metadata.total_cells).toBe(738);
+    expect(catalog.metadata.total_cells).toBe(756);
     expect(catalog.metadata.docs_only).toBe(18);
   });
 
-  it("LGP has 42 cells: 35 wired + 1 stub + 6 unshipped", () => {
+  it("LGP has 43 cells: 38 wired + 1 stub + 4 unshipped", () => {
     runGenerator();
     const catalog = readCatalog();
 
@@ -126,15 +126,15 @@ describe("Catalog Generator", () => {
         c.integration === "langgraph-python" &&
         c.manifestation === "integrated",
     );
-    expect(lgpCells.length).toBe(42); // One cell per feature
+    expect(lgpCells.length).toBe(43); // One cell per feature
 
     const wired = lgpCells.filter((c: any) => c.status === "wired");
     const stub = lgpCells.filter((c: any) => c.status === "stub");
     const unshipped = lgpCells.filter((c: any) => c.status === "unshipped");
 
-    expect(wired.length).toBe(35);
+    expect(wired.length).toBe(38);
     expect(stub.length).toBe(1);
-    expect(unshipped.length).toBe(6);
+    expect(unshipped.length).toBe(4);
   });
 
   it("stub detection: LGP/cli-start has stub status (demo exists, no route)", () => {
@@ -197,7 +197,7 @@ describe("Catalog Generator", () => {
 
     expect(catalog.metadata).toBeDefined();
     // total_cells excludes docs-only features
-    expect(catalog.metadata.total_cells).toBe(738);
+    expect(catalog.metadata.total_cells).toBe(756);
 
     // Headline counts exclude docs-only cells; must sum to total_cells.
     expect(

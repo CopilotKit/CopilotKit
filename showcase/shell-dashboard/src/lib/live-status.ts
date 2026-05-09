@@ -118,6 +118,7 @@ export const CATALOG_TO_D5_KEY: Readonly<Record<string, readonly string[]>> = {
   "tool-rendering": ["tool-rendering"],
   "tool-rendering-default-catchall": ["tool-rendering-default-catchall"],
   "tool-rendering-custom-catchall": ["tool-rendering-custom-catchall"],
+  "tool-rendering-reasoning-chain": ["tool-rendering-reasoning-chain"],
   "headless-simple": ["headless-simple"],
   "headless-complete": ["gen-ui-headless-complete"],
   "gen-ui-tool-based": ["gen-ui-custom"],
@@ -129,7 +130,9 @@ export const CATALOG_TO_D5_KEY: Readonly<Record<string, readonly string[]>> = {
   // this mapping mirrors it. See d5-mapping-drift.test.ts for enforcement.
   hitl: ["hitl-text-input"],
   "hitl-in-app": ["hitl-approve-deny"],
-  "shared-state-read-write": ["shared-state-read", "shared-state-write"],
+  // shared-state-read-write covers ONLY the write half — the read literal
+  // is owned by the standalone /demos/shared-state-read recipe-editor probe.
+  "shared-state-read-write": ["shared-state-write"],
   "mcp-apps": ["mcp-apps"],
   subagents: ["subagents"],
   // ── LGP D5 coverage wave (mirrors REGISTRY_TO_D5 in
@@ -153,10 +156,7 @@ export const CATALOG_TO_D5_KEY: Readonly<Record<string, readonly string[]>> = {
   "agent-config": ["agent-config"],
   "frontend-tools": ["frontend-tools"],
   "frontend-tools-async": ["frontend-tools-async"],
-  // Reasoning family — both demos route through `reasoning-display` per the
-  // harness mapping; the legacy `agentic-chat-reasoning` and
-  // `tool-rendering-reasoning-chain` registry IDs were retired alongside
-  // their D5 scripts. Cells using those IDs max out at D4 (no mapping).
+  // Reasoning family — both demos route through `reasoning-display`.
   "reasoning-custom": ["reasoning-display"],
   "reasoning-default": ["reasoning-display"],
   "shared-state-streaming": ["shared-state-streaming"],
@@ -168,6 +168,7 @@ export const CATALOG_TO_D5_KEY: Readonly<Record<string, readonly string[]>> = {
   "open-gen-ui-advanced": ["gen-ui-open-advanced"],
   "gen-ui-agent": ["gen-ui-agent"],
   "gen-ui-interrupt": ["gen-ui-interrupt"],
+  "interrupt-headless": ["interrupt-headless"],
   "byoc-hashbrown": ["byoc"],
   "byoc-json-render": ["byoc"],
   voice: ["voice"],

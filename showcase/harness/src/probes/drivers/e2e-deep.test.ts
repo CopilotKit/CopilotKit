@@ -533,21 +533,21 @@ describe("e2e-deep driver", () => {
     // to drive a service whose declared `demos[]` carry IDs that
     // DON'T match a D5 type verbatim:
     //   - `tool-rendering-default-catchall` → `tool-rendering`
-    //   - `shared-state-read-write` → BOTH `shared-state-read` AND
-    //     `shared-state-write` (one-to-many)
+    //   - `shared-state-read-write` → `shared-state-write` (write half;
+    //     the read half is owned by the standalone recipe-editor probe)
     //   - `voice` → `voice` (mapped, but no script → skipped).
-    // Only the shared-state script is registered, so
+    // Only the shared-state-write script is registered, so
     // `tool-rendering` lands in `skipped[]` — the test exercises
     // both the mapping AND the closed-set filter without paying
     // the per-feature ~1.5s settle window for every demo.
     registerD5Script(
       makeScript({
-        featureTypes: ["shared-state-read", "shared-state-write"],
+        featureTypes: ["shared-state-write"],
         fixtureFile: "shared-state.json",
       }),
     );
 
-    const { browser } = makeBrowser([{}, {}]);
+    const { browser } = makeBrowser([{}]);
     const driver = createE2eDeepDriver({
       launcher: async () => browser,
       scriptLoader: async () => {
@@ -563,7 +563,7 @@ describe("e2e-deep driver", () => {
       // No `features` field — production discovery shape.
       demos: [
         "tool-rendering-default-catchall", // → tool-rendering (skipped, no script)
-        "shared-state-read-write", // → shared-state-read + shared-state-write (run)
+        "shared-state-read-write", // → shared-state-write (run)
         "voice", // → voice (skipped, no script)
       ],
       shape: "package",
@@ -571,18 +571,17 @@ describe("e2e-deep driver", () => {
 
     expect(result.state).toBe("green");
     const sig = result.signal as E2eDeepAggregateSignal;
-    // 4 mapped D5 types: tool-rendering (skipped) + shared-state-read
-    // + shared-state-write (both run) + voice (skipped, no script).
-    expect(sig.total).toBe(4);
-    expect(sig.passed).toBe(2);
+    // 3 mapped D5 types: tool-rendering-default-catchall (skipped) +
+    // shared-state-write (run) + voice (skipped, no script).
+    expect(sig.total).toBe(3);
+    expect(sig.passed).toBe(1);
     expect(sig.failed).toEqual([]);
-    expect(sig.skipped).toEqual(["tool-rendering", "voice"]);
+    expect(sig.skipped).toEqual(["tool-rendering-default-catchall", "voice"]);
 
     const sideKeys = writes.map((w) => w.key).sort();
     expect(sideKeys).toEqual([
-      "d5:langgraph-python/shared-state-read",
       "d5:langgraph-python/shared-state-write",
-      "d5:langgraph-python/tool-rendering",
+      "d5:langgraph-python/tool-rendering-default-catchall",
       "d5:langgraph-python/voice",
     ]);
   });

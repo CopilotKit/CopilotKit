@@ -322,6 +322,15 @@
       "shell_docs_path": "/shared-state"
     },
     {
+      "id": "shared-state-read",
+      "name": "Shared State (Read-Only Recipe Editor)",
+      "category": "agent-state",
+      "description": "Frontend recipe form publishes shared state via agent.setState; agent reads but does not mutate the recipe (neutral default agent, no backend tool)",
+      "kind": "testing",
+      "og_docs_url": "https://docs.copilotkit.ai/shared-state",
+      "shell_docs_path": "/shared-state"
+    },
+    {
       "id": "shared-state-streaming",
       "name": "State Streaming",
       "category": "agent-state",

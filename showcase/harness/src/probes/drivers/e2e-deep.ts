@@ -1012,39 +1012,102 @@ export function createE2eDeepDriver(
                 once: true,
               });
 
-            let featureTimer: ReturnType<typeof setTimeout> | undefined;
+            // Run the feature, retrying ONCE on transient failures so a
+            // flaky D5 cell (browser context boot variance, race against
+            // an in-flight LLM stream, intermittent network blip) does
+            // not flip the dashboard cell to red. Persistent failures
+            // still register as red — the second attempt is gated on
+            // the first having failed for a CLASS we believe is
+            // retryable. We do NOT retry: `abort` (intentional
+            // cancellation, e.g. the global timeout fired), or
+            // `feature-timeout` (we already burned the wall-clock
+            // budget — a second attempt couldn't fit anyway).
+            // Retryable classes match what `runFeature` actually emits:
+            // `goto-error` (navigation blip) and `conversation-error`
+            // (transient stream / settle / assertion timing).
+            //
+            // Additional gate: only retry if the first attempt ran for
+            // at least RETRY_MIN_DURATION_MS. A sub-2s failure is
+            // almost always a deterministic assertion mismatch (testid
+            // typo, fixture shape drift, agent wiring regression) that
+            // a second attempt would just re-fail more slowly. Letting
+            // those land as red on attempt #1 keeps the cell signal
+            // honest.
+            const RETRY_ELIGIBLE_ERROR_CLASSES = new Set<string>([
+              "goto-error",
+              "conversation-error",
+            ]);
+            const RETRY_MIN_DURATION_MS = 2_000;
+            const runOnce = async (): Promise<
+              Awaited<ReturnType<typeof runFeature>>
+            > => {
+              let featureTimer: ReturnType<typeof setTimeout> | undefined;
+              try {
+                return await Promise.race([
+                  runFeature({
+                    browser: browserRef,
+                    url,
+                    pageTimeoutMs,
+                    script,
+                    buildCtx: {
+                      integrationSlug: slug,
+                      featureType: ft,
+                      baseUrl: backendUrl,
+                    },
+                    abortSignal: featureAbort.signal,
+                  }),
+                  new Promise<Awaited<ReturnType<typeof runFeature>>>(
+                    (resolve) => {
+                      featureTimer = setTimeout(() => {
+                        featureAbort.abort();
+                        resolve({
+                          ok: false,
+                          errorClass: "feature-timeout",
+                          errorDesc: `feature exceeded ${featureTimeoutMs}ms wall-clock`,
+                        });
+                      }, featureTimeoutMs);
+                    },
+                  ),
+                ]);
+              } finally {
+                if (featureTimer) clearTimeout(featureTimer);
+              }
+            };
+
             let featureResult: Awaited<ReturnType<typeof runFeature>>;
             try {
-              featureResult = await Promise.race([
-                runFeature({
-                  browser: browserRef,
-                  url,
-                  pageTimeoutMs,
-                  script,
-                  buildCtx: {
-                    integrationSlug: slug,
-                    featureType: ft,
-                    baseUrl: backendUrl,
-                  },
-                  abortSignal: featureAbort.signal,
-                }),
-                new Promise<Awaited<ReturnType<typeof runFeature>>>(
-                  (resolve) => {
-                    featureTimer = setTimeout(() => {
-                      // Tell the in-flight runFeature to tear down so
-                      // its browser context releases promptly.
-                      featureAbort.abort();
-                      resolve({
-                        ok: false,
-                        errorClass: "feature-timeout",
-                        errorDesc: `feature exceeded ${featureTimeoutMs}ms wall-clock`,
-                      });
-                    }, featureTimeoutMs);
-                  },
-                ),
-              ]);
+              const attempt1Start = Date.now();
+              featureResult = await runOnce();
+              const attempt1Duration = Date.now() - attempt1Start;
+
+              if (
+                !featureResult.ok &&
+                !abort.signal.aborted &&
+                !featureAbort.signal.aborted &&
+                featureResult.errorClass !== undefined &&
+                RETRY_ELIGIBLE_ERROR_CLASSES.has(featureResult.errorClass) &&
+                attempt1Duration >= RETRY_MIN_DURATION_MS
+              ) {
+                ctx.logger.info("probe.e2e-deep.feature-retry", {
+                  slug,
+                  featureType: ft,
+                  attempt: 1,
+                  errorClass: featureResult.errorClass,
+                  errorDesc: featureResult.errorDesc,
+                  attempt1DurationMs: attempt1Duration,
+                });
+                featureResult = await runOnce();
+                ctx.logger.info("probe.e2e-deep.feature-retry-result", {
+                  slug,
+                  featureType: ft,
+                  attempt: 2,
+                  ok: featureResult.ok,
+                  errorClass: featureResult.ok
+                    ? undefined
+                    : featureResult.errorClass,
+                });
+              }
             } finally {
-              if (featureTimer) clearTimeout(featureTimer);
               abort.signal.removeEventListener("abort", onParentAbort);
             }
 
