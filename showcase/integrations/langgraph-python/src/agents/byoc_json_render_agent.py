@@ -150,7 +150,7 @@ Respond with the JSON object only.
 # which is exactly what `<Renderer />` needs.
 graph = create_agent(
     model=ChatOpenAI(
-        model="gpt-4o-mini",
+        model="gpt-5.4",
         temperature=0.2,
         model_kwargs={"response_format": {"type": "json_object"}},
     ),

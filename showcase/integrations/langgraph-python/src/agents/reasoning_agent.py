@@ -24,7 +24,7 @@ SYSTEM_PROMPT = (
     "step-by-step about the approach, then give a concise answer."
 )
 
-REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", "gpt-5-mini")
+REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", "gpt-5.4")
 
 graph = create_deep_agent(
     model=init_chat_model(

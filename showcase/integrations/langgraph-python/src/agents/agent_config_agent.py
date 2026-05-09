@@ -46,7 +46,7 @@ SYSTEM_PROMPT = (
 
 
 graph = create_agent(
-    model=ChatOpenAI(model="gpt-4o-mini", temperature=0.4),
+    model=ChatOpenAI(model="gpt-5.4", temperature=0.4),
     tools=[],
     middleware=[CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT,

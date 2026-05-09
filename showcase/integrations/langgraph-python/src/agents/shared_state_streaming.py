@@ -60,7 +60,7 @@ def write_document(document: str, runtime: ToolRuntime) -> Command:
 
 # @region[state-streaming-middleware]
 graph = create_agent(
-    model=ChatOpenAI(model="gpt-4o-mini"),
+    model=ChatOpenAI(model="gpt-5.4"),
     tools=[write_document],
     middleware=[
         CopilotKitMiddleware(),
