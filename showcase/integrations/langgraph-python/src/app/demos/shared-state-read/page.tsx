@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { Sparkles, X } from "lucide-react";
 import {
   CopilotKit,
   CopilotSidebar,
@@ -9,6 +10,21 @@ import {
   useCopilotKit,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Spinner } from "@/components/ui/spinner";
+import { Textarea } from "@/components/ui/textarea";
 
 enum SkillLevel {
   BEGINNER = "Beginner",
@@ -71,15 +87,17 @@ const INITIAL_STATE: RecipeAgentState = {
       { icon: "🥕", name: "Carrots", amount: "3 large, grated" },
       { icon: "🌾", name: "All-Purpose Flour", amount: "2 cups" },
     ],
-    instructions: ["Preheat oven to 350\u00B0F (175\u00B0C)"],
+    instructions: ["Preheat oven to 350°F (175°C)"],
   },
 };
 
 export default function SharedStateReadDemo() {
   return (
     <CopilotKit runtimeUrl="/api/copilotkit" agent="shared-state-read">
-      <div className="min-h-screen w-full flex items-center justify-center">
-        <Recipe />
+      <div className="min-h-screen w-full bg-gray-50">
+        <div className="mx-auto max-w-2xl px-4 py-8 md:py-12">
+          <Recipe />
+        </div>
         <CopilotSidebar
           defaultOpen={true}
           labels={{
@@ -184,10 +202,8 @@ function Recipe() {
     updateRecipe({ title: event.target.value });
   };
 
-  const handleSkillLevelChange = (
-    event: React.ChangeEvent<HTMLSelectElement>,
-  ) => {
-    updateRecipe({ skill_level: event.target.value as SkillLevel });
+  const handleSkillLevelChange = (level: string) => {
+    updateRecipe({ skill_level: level as SkillLevel });
   };
 
   const handleDietaryChange = (preference: string, checked: boolean) => {
@@ -204,11 +220,9 @@ function Recipe() {
     }
   };
 
-  const handleCookingTimeChange = (
-    event: React.ChangeEvent<HTMLSelectElement>,
-  ) => {
+  const handleCookingTimeChange = (value: string) => {
     updateRecipe({
-      cooking_time: cookingTimeValues[Number(event.target.value)].label,
+      cooking_time: cookingTimeValues[Number(value)].label,
     });
   };
 
@@ -258,201 +272,234 @@ function Recipe() {
     updateRecipe({ instructions: updatedInstructions });
   };
 
+  const cookingTimeIndex = String(
+    cookingTimeValues.find((t) => t.label === recipe.cooking_time)?.value ?? 3,
+  );
+
   return (
-    <form
-      data-testid="recipe-card"
-      className="max-w-2xl mx-auto p-6 bg-white rounded-2xl shadow-lg border border-gray-100"
-    >
-      {/* Recipe Title */}
-      <div className="mb-6">
-        <input
-          type="text"
-          value={recipe.title || ""}
-          onChange={handleTitleChange}
-          className="text-3xl font-bold w-full border-none outline-none bg-transparent"
-        />
+    <form data-testid="recipe-card">
+      <Card className="gap-0 border-border/60 py-0 shadow-xs">
+        <CardContent className="space-y-6 px-6 py-6 md:px-8 md:py-8">
+          <header className="space-y-3">
+            <Input
+              type="text"
+              value={recipe.title || ""}
+              onChange={handleTitleChange}
+              aria-label="Recipe title"
+              className="h-auto border-0 bg-transparent px-0 py-1 text-2xl font-bold shadow-none focus-visible:ring-0 md:text-3xl"
+            />
 
-        <div className="flex gap-4 mt-3">
-          <div className="flex items-center gap-1">
-            <span>🕒</span>
-            <select
-              className="text-sm border rounded px-2 py-1"
-              value={
-                cookingTimeValues.find((t) => t.label === recipe.cooking_time)
-                  ?.value || 3
-              }
-              onChange={handleCookingTimeChange}
-            >
-              {cookingTimeValues.map((time) => (
-                <option key={time.value} value={time.value}>
-                  {time.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex items-center gap-1">
-            <span>🏆</span>
-            <select
-              className="text-sm border rounded px-2 py-1"
-              value={recipe.skill_level}
-              onChange={handleSkillLevelChange}
-            >
-              {Object.values(SkillLevel).map((level) => (
-                <option key={level} value={level}>
-                  {level}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Dietary Preferences */}
-      <div className="mb-6 relative">
-        {changedKeysRef.current.includes("special_preferences") && <Ping />}
-        <h2 className="text-lg font-semibold mb-2">Dietary Preferences</h2>
-        <div className="flex flex-wrap gap-2">
-          {Object.values(SpecialPreferences).map((option) => (
-            <label
-              key={option}
-              className="flex items-center gap-1 text-sm bg-gray-50 px-3 py-1.5 rounded-full cursor-pointer hover:bg-gray-100"
-            >
-              <input
-                type="checkbox"
-                checked={recipe.special_preferences.includes(option)}
-                onChange={(e) => handleDietaryChange(option, e.target.checked)}
-              />
-              <span>{option}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* Ingredients */}
-      <div className="mb-6 relative">
-        {changedKeysRef.current.includes("ingredients") && <Ping />}
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-semibold">Ingredients</h2>
-          <button
-            data-testid="add-ingredient-button"
-            type="button"
-            className="text-sm text-blue-600 hover:text-blue-800"
-            onClick={addIngredient}
-          >
-            + Add Ingredient
-          </button>
-        </div>
-        <div data-testid="ingredients-container" className="space-y-2">
-          {recipe.ingredients.map((ingredient, index) => (
-            <div
-              key={index}
-              data-testid="ingredient-card"
-              className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
-            >
-              <div className="text-2xl">{ingredient.icon || "🍴"}</div>
-              <div className="flex-1 flex gap-2">
-                <input
-                  type="text"
-                  value={ingredient.name || ""}
-                  onChange={(e) =>
-                    updateIngredient(index, "name", e.target.value)
-                  }
-                  placeholder="Ingredient name"
-                  className="flex-1 text-sm border rounded px-2 py-1"
-                />
-                <input
-                  type="text"
-                  value={ingredient.amount || ""}
-                  onChange={(e) =>
-                    updateIngredient(index, "amount", e.target.value)
-                  }
-                  placeholder="Amount"
-                  className="w-32 text-sm border rounded px-2 py-1"
-                />
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span aria-hidden>🕒</span>
+                <Select
+                  value={cookingTimeIndex}
+                  onValueChange={handleCookingTimeChange}
+                >
+                  <SelectTrigger size="sm" aria-label="Cooking time">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {cookingTimeValues.map((time) => (
+                      <SelectItem key={time.value} value={String(time.value)}>
+                        {time.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <button
-                type="button"
-                className="text-gray-400 hover:text-red-500 text-xl"
-                onClick={() => removeIngredient(index)}
-              >
-                x
-              </button>
+
+              <div className="flex items-center gap-2">
+                <span aria-hidden>🏆</span>
+                <Select
+                  value={recipe.skill_level}
+                  onValueChange={handleSkillLevelChange}
+                >
+                  <SelectTrigger size="sm" aria-label="Skill level">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.values(SkillLevel).map((level) => (
+                      <SelectItem key={level} value={level}>
+                        {level}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          ))}
-        </div>
-      </div>
+          </header>
 
-      {/* Instructions */}
-      <div className="mb-6 relative">
-        {changedKeysRef.current.includes("instructions") && <Ping />}
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-semibold">Instructions</h2>
-          <button
-            type="button"
-            className="text-sm text-blue-600 hover:text-blue-800"
-            onClick={addInstruction}
-          >
-            + Add Step
-          </button>
-        </div>
-        <div data-testid="instructions-container" className="space-y-3">
-          {recipe.instructions.map((instruction, index) => (
-            <div key={index} className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-7 h-7 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold">
-                {index + 1}
-              </div>
-              <div
-                className="flex-1 relative"
-                onClick={() => setEditingInstructionIndex(index)}
-              >
-                <textarea
-                  className="w-full text-sm border rounded px-3 py-2 resize-none"
-                  value={instruction || ""}
-                  onChange={(e) => updateInstruction(index, e.target.value)}
-                  placeholder="Enter cooking instruction..."
-                  onFocus={() => setEditingInstructionIndex(index)}
-                  onBlur={() => setEditingInstructionIndex(null)}
-                  rows={2}
-                />
-              </div>
-              <button
-                type="button"
-                className="text-gray-400 hover:text-red-500 text-xl mt-1"
-                onClick={() => removeInstruction(index)}
-              >
-                x
-              </button>
+          <Separator />
+
+          <section className="relative space-y-3">
+            {changedKeysRef.current.includes("special_preferences") && <Ping />}
+            <h2 className="text-base font-semibold">Dietary Preferences</h2>
+            <div className="flex flex-wrap gap-2">
+              {Object.values(SpecialPreferences).map((option) => {
+                const selected = recipe.special_preferences.includes(option);
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => handleDietaryChange(option, !selected)}
+                    aria-pressed={selected}
+                    className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                  >
+                    <Badge
+                      variant={selected ? "default" : "outline"}
+                      className="cursor-pointer px-3 py-1 text-sm"
+                    >
+                      {option}
+                    </Badge>
+                  </button>
+                );
+              })}
             </div>
-          ))}
-        </div>
-      </div>
+          </section>
 
-      {/* Improve with AI Button */}
-      <div className="flex justify-center">
-        <button
-          data-testid="improve-button"
-          className={`px-6 py-3 rounded-xl font-semibold text-white transition-all ${
-            isLoading
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 shadow-lg"
-          }`}
-          type="button"
-          onClick={() => {
-            if (!isLoading) {
-              agent.addMessage({
-                id: crypto.randomUUID(),
-                role: "user",
-                content: "Improve the recipe",
-              });
-              copilotkit.runAgent({ agent });
-            }
-          }}
-          disabled={isLoading}
-        >
-          {isLoading ? "Please Wait..." : "Improve with AI"}
-        </button>
-      </div>
+          <Separator />
+
+          <section className="relative space-y-3">
+            {changedKeysRef.current.includes("ingredients") && <Ping />}
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold">Ingredients</h2>
+              <Button
+                data-testid="add-ingredient-button"
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={addIngredient}
+              >
+                + Add Ingredient
+              </Button>
+            </div>
+            <div data-testid="ingredients-container" className="space-y-2">
+              {recipe.ingredients.map((ingredient, index) => (
+                <div
+                  key={index}
+                  data-testid="ingredient-card"
+                  className="flex items-center gap-3 rounded-lg border border-border/50 bg-muted/30 p-3"
+                >
+                  <div className="shrink-0 text-2xl" aria-hidden>
+                    {ingredient.icon || "🍴"}
+                  </div>
+                  <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-[1fr_8rem]">
+                    <Input
+                      type="text"
+                      value={ingredient.name || ""}
+                      onChange={(e) =>
+                        updateIngredient(index, "name", e.target.value)
+                      }
+                      placeholder="Ingredient name"
+                    />
+                    <Input
+                      type="text"
+                      value={ingredient.amount || ""}
+                      onChange={(e) =>
+                        updateIngredient(index, "amount", e.target.value)
+                      }
+                      placeholder="Amount"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Remove ingredient"
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => removeIngredient(index)}
+                  >
+                    <X />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <Separator />
+
+          <section className="relative space-y-3">
+            {changedKeysRef.current.includes("instructions") && <Ping />}
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold">Instructions</h2>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={addInstruction}
+              >
+                + Add Step
+              </Button>
+            </div>
+            <div data-testid="instructions-container" className="space-y-3">
+              {recipe.instructions.map((instruction, index) => (
+                <div key={index} className="flex items-start gap-3">
+                  <div className="mt-1 flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                    {index + 1}
+                  </div>
+                  <div
+                    className="relative flex-1"
+                    onClick={() => setEditingInstructionIndex(index)}
+                  >
+                    <Textarea
+                      value={instruction || ""}
+                      onChange={(e) => updateInstruction(index, e.target.value)}
+                      placeholder="Enter cooking instruction..."
+                      onFocus={() => setEditingInstructionIndex(index)}
+                      onBlur={() => setEditingInstructionIndex(null)}
+                      rows={2}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Remove step"
+                    className="mt-1 shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => removeInstruction(index)}
+                  >
+                    <X />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <Separator />
+
+          <div className="flex justify-center">
+            <Button
+              data-testid="improve-button"
+              type="button"
+              size="lg"
+              onClick={() => {
+                if (!isLoading) {
+                  agent.addMessage({
+                    id: crypto.randomUUID(),
+                    role: "user",
+                    content: "Improve the recipe",
+                  });
+                  copilotkit.runAgent({ agent });
+                }
+              }}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Spinner />
+                  Please Wait...
+                </>
+              ) : (
+                <>
+                  <Sparkles />
+                  Improve with AI
+                </>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </form>
   );
 }
@@ -460,8 +507,8 @@ function Recipe() {
 function Ping() {
   return (
     <span className="absolute -top-1 -right-1 flex h-3 w-3">
-      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
-      <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500" />
+      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary/60" />
+      <span className="relative inline-flex rounded-full h-3 w-3 bg-primary" />
     </span>
   );
 }
