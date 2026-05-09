@@ -34,10 +34,8 @@
  * OR the tool renderer wiring is caught here.
  */
 
-import {
-  registerD5Script,
-  type D5BuildContext,
-} from "../helpers/d5-registry.js";
+import { registerD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 
 interface PillExpectation {
@@ -130,10 +128,13 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
       //    probe — if this never mounts, the reasoning slot wiring
       //    regressed.
       try {
-        await page.waitForSelector(`[data-testid="${REASONING_BLOCK_TESTID}"]`, {
-          state: "visible",
-          timeout: REASONING_TIMEOUT_MS,
-        });
+        await page.waitForSelector(
+          `[data-testid="${REASONING_BLOCK_TESTID}"]`,
+          {
+            state: "visible",
+            timeout: REASONING_TIMEOUT_MS,
+          },
+        );
       } catch {
         throw new Error(
           `${tag}: expected [data-testid="${REASONING_BLOCK_TESTID}"] to mount within ${REASONING_TIMEOUT_MS}ms — reasoningMessage slot may be unwired or agent's reasoning tokens never streamed`,
