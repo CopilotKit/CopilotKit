@@ -149,6 +149,14 @@ const config = {
           source: '/ingest/:path*',
           destination: 'https://eu.i.posthog.com/:path*',
         },
+        {
+          source: '/index.md',
+          destination: '/llms.mdx',
+        },
+        {
+          source: '/:path*.md',
+          destination: '/llms.mdx/:path*',
+        },
         // Map /guides/* to /built-in-agent/guides/* (legacy path)
         {
           source: '/guides/:path*',
@@ -174,17 +182,6 @@ const config = {
 
     // Manual redirects for specific cases
     const manualRedirects = [
-      // llms.txt files are served from mcp.copilotkit.ai
-      {
-        source: '/llms.txt',
-        destination: 'https://mcp.copilotkit.ai/llms.txt',
-        permanent: true,
-      },
-      {
-        source: '/llms-full.txt',
-        destination: 'https://mcp.copilotkit.ai/llms-full.txt',
-        permanent: true,
-      },
       // Redirect /whats-new/v1-50 to /learn/whats-new/v1-50
       {
         source: '/whats-new/v1-50',
