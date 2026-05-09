@@ -67,6 +67,7 @@ generative_ui:
       - multimodal
       - suggestions
       - shared-state-read-write
+      - shared-state-read
       - readonly-state-agent-context
       - shared-state-streaming
       - subagents
