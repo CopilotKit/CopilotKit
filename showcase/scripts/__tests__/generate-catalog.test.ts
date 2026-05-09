@@ -164,8 +164,7 @@ describe("Catalog Generator", () => {
 
     for (const feat of deprecated) {
       const lgpCell = catalog.cells.find(
-        (c: any) =>
-          c.integration === "langgraph-python" && c.feature === feat,
+        (c: any) => c.integration === "langgraph-python" && c.feature === feat,
       );
       expect(lgpCell).toBeUndefined();
     }
