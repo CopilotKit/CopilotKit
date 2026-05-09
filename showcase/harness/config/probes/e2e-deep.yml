@@ -35,14 +35,25 @@
 # Cron string: `5,20,35,50 * * * *` (every 15 min, offset from :00 to
 # avoid Chromium EAGAIN when co-firing with e2e-smoke's browser pool).
 #
-# ── timeout_ms: 180_000 (3 min) ─────────────────────────────────────────
+# ── timeout_ms: 600_000 (10 min) ────────────────────────────────────────
 #
 # Outer driver-invocation cap. Per-feature run subdivides further: the
 # conversation-runner's per-turn `responseTimeoutMs` defaults to 30s,
-# the driver's per-page goto timeout is 30s. With higher concurrency
-# (4 workers) fewer features queue per worker, so the per-invocation
-# wall-clock drops. 3 min cap catches pathological stalls without
-# starving siblings; revisit if production ticks regularly approach it.
+# the driver's per-page goto timeout is 30s, and the per-feature
+# wall-clock cap (`DEFAULT_FEATURE_TIMEOUT_MS` in e2e-deep.ts) is 5
+# min so a single wedged feature can't drain the global budget for
+# downstream features.
+#
+# Sized for the worst-case integration. langgraph-python now declares
+# ~28 D5 features (Phase 2 LGP coverage wave) — 28 / FEATURE_CONCURRENCY(2)
+# = 14 per worker × ~15s realistic per-feature wall-clock = ~210s, which
+# blows the prior 3-min cap before any slack. 10 min gives ~5x headroom
+# at current feature count; lighter integrations (5–10 features) still
+# finish in <60s and exit early without sitting on the cap.
+#
+# Other knobs that bound the slug: increasing `FEATURE_CONCURRENCY` (in
+# e2e-deep.ts, currently 2) cuts wall-clock proportionally but doubles
+# concurrent Chromium contexts; revisit before raising the cap further.
 #
 # ── max_concurrency: 4 ──────────────────────────────────────────────────
 #
@@ -62,7 +73,7 @@
 kind: e2e_deep
 id: e2e-deep
 schedule: "5,20,35,50 * * * *"
-timeout_ms: 180000
+timeout_ms: 600000
 max_concurrency: 4
 discovery:
   source: railway-services

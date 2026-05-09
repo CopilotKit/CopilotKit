@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { useCopilotKit } from "../providers/CopilotKitProvider";
+import { useCopilotKit } from "../context";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import type {

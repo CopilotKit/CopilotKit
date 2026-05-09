@@ -41,36 +41,55 @@ import type { D5FeatureType } from "./d5-registry.js";
  * obvious at a glance:
  *   - `agentic-chat`           : 1 demo
  *   - `tool-rendering`         : 3 demos (all the tool-rendering variants)
- *   - `gen-ui-headless`        : 2 demos (headless chat surfaces)
+ *   - `headless-simple` / `gen-ui-headless-complete`: 1 demo each
+ *     (headless chat surfaces — simple is text-only post-refactor;
+ *     complete still drives the full gen-UI surface)
  *   - `gen-ui-custom`          : 1 demo
- *   - `hitl-text-input`        : 2 demos (in-chat HITL variants using useHumanInTheLoop)
- *   - `hitl-steps`             : 1 demo (step-selection confirmation)
+ *   - `hitl-text-input`        : 3 demos (the two in-chat HITL variants
+ *     using useHumanInTheLoop, plus the legacy `hitl` alias which was
+ *     repointed here after the standalone `hitl-steps` D5 script was
+ *     removed in genuine-pass Phase 0)
  *   - `hitl-approve-deny`      : 1 demo (modal/in-app approval)
  *   - `shared-state-read|write`: 1 demo, 2 D5 types (one-to-many)
- *   - `mcp-apps`               : 1 demo
- *   - `subagents`              : 1 demo
+ *   - `mcp-apps`               : 1 demo (own probe; was previously
+ *     bundled with subagents, split in Phase 2A)
+ *   - `subagents`              : 1 demo (split alongside mcp-apps)
+ *   - other registry families (auth, multimodal, voice, frontend-tools,
+ *     reasoning-display, gen-ui-*, byoc, beautiful-chat-*, …) follow
+ *     the same `<registry-id>: [<d5-feature-types>]` shape and live
+ *     directly in REGISTRY_TO_D5 below.
  */
-const REGISTRY_TO_D5: Readonly<Record<string, readonly D5FeatureType[]>> = {
+/**
+ * Exported for the dashboard drift test (`d5-mapping-drift.test.ts`),
+ * which asserts `CATALOG_TO_D5_KEY` in `shell-dashboard/src/lib/live-status.ts`
+ * structurally mirrors this map. Internal callers should use
+ * `demosToFeatureTypes` rather than reading the map directly.
+ */
+export const REGISTRY_TO_D5: Readonly<
+  Record<string, readonly D5FeatureType[]>
+> = {
   // agentic-chat (1:1)
   "agentic-chat": ["agentic-chat"],
 
-  // tool-rendering — every variant exercises the per-tool render pipeline.
-  // `tool-rendering-reasoning-chain` is intentionally NOT mapped here:
-  // the D5 tool-rendering probe sends "weather in Tokyo" and asserts a
-  // WeatherCard, which is the wrong test for the reasoning-chain demo.
-  // Reasoning-chain pages need their own D5 probe script; until one
-  // exists the demo ID is silently skipped by `demosToFeatureTypes`.
+  // tool-rendering — split per renderer contract. Each variant exercises
+  // a different testid surface so they need their own probe scripts:
+  //   - `tool-rendering`                   : per-tool renderer (WeatherCard).
+  //   - `tool-rendering-default-catchall`  : built-in default catchall renderer.
+  //   - `tool-rendering-custom-catchall`   : custom wildcard (`*`) renderer.
+  //   - `tool-rendering-reasoning-chain`   : per-tool renderer + reasoning-block slot.
   "tool-rendering": ["tool-rendering"],
-  "tool-rendering-default-catchall": ["tool-rendering"],
-  "tool-rendering-custom-catchall": ["tool-rendering"],
+  "tool-rendering-default-catchall": ["tool-rendering-default-catchall"],
+  "tool-rendering-custom-catchall": ["tool-rendering-custom-catchall"],
+  "tool-rendering-reasoning-chain": ["tool-rendering-reasoning-chain"],
 
-  // gen-ui (headless tier) — `headless-simple` and `headless-complete`
-  // each have their own D5 script and fixture. They live on different
-  // routes (`/demos/headless-simple` vs `/demos/headless-complete`) and
-  // exercise different rendering surfaces (show_card via useComponent
-  // vs WeatherCard/StockCard/HighlightNote via useRenderTool +
-  // useComponent + MCP), so the mapping is one-to-one.
-  "headless-simple": ["gen-ui-headless"],
+  // headless tier — `headless-simple` and `headless-complete` each have
+  // their own D5 script and fixture. They live on different routes
+  // (`/demos/headless-simple` vs `/demos/headless-complete`).
+  // `headless-simple` is text-in/text-out (the literal mirrors the
+  // demo route post-refactor); `headless-complete` still drives the
+  // full gen-UI surface (`useComponent` + `useRenderTool` + MCP) so its
+  // literal keeps the `gen-ui-headless-complete` shape.
+  "headless-simple": ["headless-simple"],
   "headless-complete": ["gen-ui-headless-complete"],
 
   // gen-ui (custom tier)
@@ -90,18 +109,27 @@ const REGISTRY_TO_D5: Readonly<Record<string, readonly D5FeatureType[]>> = {
   // skipped by `demosToFeatureTypes`).
   "hitl-in-chat": ["hitl-text-input"],
   "hitl-in-chat-booking": ["hitl-text-input"],
-  hitl: ["hitl-steps"],
+  // `hitl` is used by ag2 / agno / built-in-agent / others as an alias of
+  // hitl-in-chat. Repointed to `hitl-text-input` after `d5-hitl-steps.ts`
+  // was removed in the genuine-pass Phase 0 cleanup.
+  hitl: ["hitl-text-input"],
 
   // hitl (approve/deny tier) — out-of-chat modal approval flow.
   "hitl-in-app": ["hitl-approve-deny"],
 
-  // shared-state — one demo covers both read+write (the D5 script
-  // claims both feature types and runs once per type via
-  // preNavigateRoute split).
-  "shared-state-read-write": ["shared-state-read", "shared-state-write"],
+  // shared-state-read-write — bidirectional read+write demo, covered by
+  // d5-shared-state.ts which claims `shared-state-write` only. The
+  // standalone `shared-state-read` literal is owned by
+  // d5-shared-state-read.ts which probes the recipe-editor demo at
+  // `/demos/shared-state-read` (separate page, separate state shape).
+  "shared-state-read-write": ["shared-state-write"],
 
-  // mcp-apps + subagents (registry has both feature IDs; D5 script
-  // covers both featureTypes via one /demos/subagents conversation).
+  // mcp-apps + subagents — Phase-2A split: each registry feature ID
+  // points at its own D5 probe (was previously a shared `d5-mcp-subagents`
+  // probe that drove `/demos/subagents` for both, leaving `mcp-apps`
+  // wrong-targeted). `d5-mcp-apps.ts` drives `/demos/mcp-apps` and
+  // asserts the iframe shell; `d5-subagents.ts` drives `/demos/subagents`
+  // and asserts the 3 subagent-card testids.
   "mcp-apps": ["mcp-apps"],
   subagents: ["subagents"],
 
@@ -111,11 +139,22 @@ const REGISTRY_TO_D5: Readonly<Record<string, readonly D5FeatureType[]>> = {
   // Chat-surface family: each surface gets its own D5 literal because
   // assertions are surface-specific (custom slot rendered, computed
   // theme colors, sidebar/popup root scoping).
-  // Beautiful Chat owns a dedicated D5 probe (`d5-beautiful-chat.ts`) that
-  // asserts the A2UI fixed-schema FlightCard surface — the previous
-  // `["agentic-chat"]` alias would freeload agentic-chat's green status
-  // without exercising any of the A2UI render path the surface depends on.
-  "beautiful-chat": ["beautiful-chat"],
+  // Beautiful Chat owns a per-pill probe family rather than a single
+  // aggregated probe — see `d5-beautiful-chat-*.ts` and
+  // `_beautiful-chat-shared.ts`. Each literal runs its own browser
+  // session against /demos/beautiful-chat so per-pill failure isolation
+  // surfaces in PB by row name, and the multi-turn `useComponent`
+  // rendering quirk on this surface is sidestepped. `isD5Green` uses
+  // `every`, so the cell advances to D5 only when all seven probes are
+  // green. Excalidraw + Calculator are intentionally excluded — see the
+  // shared module for the rationale.
+  "beautiful-chat": [
+    "beautiful-chat-toggle-theme",
+    "beautiful-chat-pie-chart",
+    "beautiful-chat-bar-chart",
+    "beautiful-chat-search-flights",
+    "beautiful-chat-schedule-meeting",
+  ],
   "chat-slots": ["chat-slots"],
   "chat-customization-css": ["chat-css"],
   "prebuilt-sidebar": ["prebuilt-sidebar"],
@@ -132,35 +171,38 @@ const REGISTRY_TO_D5: Readonly<Record<string, readonly D5FeatureType[]>> = {
   "frontend-tools-async": ["frontend-tools-async"],
 
   // Reasoning family — single `reasoning-display` literal covers both
-  // demo routes via preNavigateRoute. tool-rendering-reasoning-chain is
-  // split because its assertion shape interleaves tool render with
-  // reasoning block.
-  "agentic-chat-reasoning": ["reasoning-display"],
-  "reasoning-default-render": ["reasoning-display"],
-  "tool-rendering-reasoning-chain": ["tool-rendering-reasoning-chain"],
+  // demo routes via preNavigateRoute.
+  "reasoning-custom": ["reasoning-display"],
+  "reasoning-default": ["reasoning-display"],
 
-  // State family — `shared-state-read` registry feature reuses the
-  // existing `shared-state-read` D5 literal (already paired with
-  // `shared-state-write` on the read-write demo). Streaming and
-  // readonly variants get their own literals.
+  // State family — `shared-state-read` registry feature owns the
+  // recipe-editor demo at `/demos/shared-state-read` (probed by
+  // d5-shared-state-read.ts). Streaming and readonly variants get their
+  // own literals.
   "shared-state-streaming": ["shared-state-streaming"],
   "readonly-state-agent-context": ["readonly-state-context"],
   "shared-state-read": ["shared-state-read"],
 
   // Generative-UI family — split per protocol shape (declarative spec,
-  // A2UI fixed schema, open LLM-shape, agent-emitted UI). Open-tier
-  // collapses simple + advanced into one literal.
+  // A2UI fixed schema, open LLM-shape, agent-emitted UI). Open-tier is
+  // split into a basic literal and an advanced literal because the
+  // advanced demo embeds an iframe-rendered sandbox that the basic demo
+  // does not — the advanced probe asserts iframe presence as its
+  // distinguishing signal.
   "declarative-gen-ui": ["gen-ui-declarative"],
   "a2ui-fixed-schema": ["gen-ui-a2ui-fixed"],
   "open-gen-ui": ["gen-ui-open"],
-  "open-gen-ui-advanced": ["gen-ui-open"],
+  "open-gen-ui-advanced": ["gen-ui-open-advanced"],
   "gen-ui-agent": ["gen-ui-agent"],
 
   // Interrupt family — LangGraph interrupt-driven HITL, distinct from
-  // useHumanInTheLoop hook patterns. Two demos = two literals (one
-  // headless, one gen-UI yielding interrupt).
-  "interrupt-headless": ["interrupt-headless"],
+  // useHumanInTheLoop hook patterns. `gen-ui-interrupt` mounts the
+  // time-picker INLINE inside the chat bubble (via `useInterrupt`).
+  // `interrupt-headless` mounts it in a separate "app surface" pane
+  // (via `useHeadlessInterrupt`). Same backend `interrupt(...)` payload,
+  // different rendering surface.
   "gen-ui-interrupt": ["gen-ui-interrupt"],
+  "interrupt-headless": ["interrupt-headless"],
 
   // BYOC family — single literal covers hashbrown + json-render via
   // preNavigateRoute swap (both render structured-output via a user

@@ -15,6 +15,7 @@
 // correctly even though Next.js routes them here before [[...slug]].
 
 import React from "react";
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { DocsLandingNext } from "@/components/docs-landing-next";
@@ -32,8 +33,30 @@ import {
 import type { NavNode } from "@/lib/docs-render";
 import { getDocsFolder, getIntegration, getIntegrations } from "@/lib/registry";
 import type { Integration } from "@/lib/registry";
+import { getBaseUrl } from "@/lib/sitemap-helpers";
 import { RESERVED_ROUTE_SLUGS } from "@/app/layout";
 import demoContent from "@/data/demo-content.json";
+
+// Per-framework self-canonical: /<framework>/<slug> declares itself
+// canonical (NOT the bare /<slug>) so search engines index each
+// framework variant at its own URL. When the URL's first segment
+// doesn't match a registered integration, the route falls through to
+// UnscopedDocsPage but the canonical still points at the same URL —
+// the page's identity is defined by its URL, not the resolution
+// strategy used to render it.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ framework: string; slug?: string[] }>;
+}): Promise<Metadata> {
+  const { framework, slug } = await params;
+  const slugTail = slug && slug.length > 0 ? `/${slug.join("/")}` : "";
+  return {
+    alternates: {
+      canonical: `${getBaseUrl()}/${framework}${slugTail}`,
+    },
+  };
+}
 
 export async function generateStaticParams() {
   // Rely on the catch-all's dynamic behaviour at runtime; returning an

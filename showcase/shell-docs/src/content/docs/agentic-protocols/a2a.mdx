@@ -146,8 +146,8 @@ To use A2A agents with CopilotKit, you need to first install the CopilotKit midd
   </Step>
 
   <Step>
-    ### Add a `useCopilotAction` to your Frontend
-    Inside the chat component, we'll display the messages between the orchestrator and the a2a agents using the `useCopilotAction` hook.
+    ### Add a `useFrontendTool` to your Frontend
+    Inside the chat component, we'll display the messages between the orchestrator and the a2a agents using the `useFrontendTool` hook.
     The tool the middleware provides for communication is called `send_message_to_a2a_agent`.
 
     ```tsx title="components/chat.tsx"

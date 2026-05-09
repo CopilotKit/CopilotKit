@@ -1,0 +1,30 @@
+{
+  "_comment": "D5 fixture for /demos/beautiful-chat — Schedule Meeting pill. Single-shot scheduleTime call. The HITL pauses the agent until the picker UI is resolved; the probe assertion CLICKS a slot to resume. After the slot click, MeetingTimePicker calls respond('Meeting scheduled for Tomorrow at 2:00 PM (30 min)') which the agent processes via the tool-result match below.",
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: schedule a 30-minute meeting to learn about CopilotKit",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Sure — pulling up a 30-minute slot.",
+        "toolCalls": [
+          {
+            "id": "call_d5_bc_schedule_time_001",
+            "name": "scheduleTime",
+            "arguments": "{\"reasonForScheduling\":\"Learn about CopilotKit\",\"meetingDuration\":30}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: schedule a 30-minute meeting to learn about CopilotKit",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Meeting scheduled — calendar invite is on its way."
+      }
+    }
+  ]
+}

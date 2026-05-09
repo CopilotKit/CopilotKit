@@ -38,7 +38,6 @@ features:
   - gen-ui-tool-based
   - gen-ui-agent
   - shared-state-read-write
-  - shared-state-streaming
   - readonly-state-agent-context
   - subagents
   - mcp-apps
@@ -63,6 +62,7 @@ features:
   - interrupt-headless
 not_supported_features:
   - hitl
+  - shared-state-streaming
 agent_config_pattern: runtime-properties
 
 a2ui_pattern: schema-inline

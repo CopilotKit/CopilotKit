@@ -2,7 +2,7 @@
 
 /**
  * BarChart ported from showcase/starters/template/frontend/components/charts/bar-chart.tsx
- * for the byoc-hashbrown demo (Wave 4a).
+ * for the byoc-hashbrown demo.
  *
  * Adds data-testid="bar-chart" on the top-level container for E2E coverage.
  */

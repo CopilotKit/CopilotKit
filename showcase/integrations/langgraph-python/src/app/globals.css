@@ -3,13 +3,43 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Map the CSS variables declared on :root below into Tailwind v4 theme tokens
+ * so utilities like `bg-background`, `text-foreground`, `bg-muted`,
+ * `border-border`, etc. actually generate CSS. Without this block the
+ * shadcn / AI Elements / prompt-kit primitives fall back to no styling. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--card);
+  --color-popover-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
 :root {
-  --copilot-kit-background-color: #fafaf9;
+  --copilot-kit-background-color: #ffff;
   --copilot-kit-primary-color: #0d6e3f;
   --copilot-kit-response-button-background-color: #f5f5f3;
   --copilot-kit-response-button-color: #1a1a18;
 
-  --background: #fafaf9;
+  --background: #ffff;
   --foreground: #1a1a18;
   --card: #ffffff;
   --card-foreground: #1a1a18;
@@ -54,8 +84,7 @@
   box-sizing: border-box;
 }
 
-html,
-body {
+html {
   height: 100%;
   width: 100%;
   overflow: hidden;
@@ -63,4 +92,53 @@ body {
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: var(--background);
   color: var(--foreground);
+}
+
+/* `body` deliberately does NOT have `width: 100%`. Letting it auto-size
+ * lets <CopilotSidebar /> shrink the document via `margin-inline-end` so
+ * the sidebar pushes the page content instead of overlapping it. */
+body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.demo-card {
+  display: block;
+  padding: 1rem 1.125rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-decoration: none;
+  color: inherit;
+  transition:
+    transform 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    background 120ms ease;
+}
+
+.demo-card:hover {
+  border-color: color-mix(in oklab, var(--ring) 70%, var(--border));
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 4px 16px rgba(0, 0, 0, 0.04);
+  transform: translateY(-1px);
+  background: var(--card);
+}
+
+.demo-card:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Slot Atlas: each marker shows its label only when the cursor is on THAT
+ * marker, not on a descendant. Markers nest (welcomeScreen wraps the input
+ * and suggestions, each of which is its own marker), so a plain
+ * `:hover .slot-label { opacity: 1 }` would light up every nested label as
+ * soon as the cursor entered the outermost marker. The `:not(:has(...))`
+ * predicate excludes the case where a descendant marker is also hovered. */
+.slot-marker:hover:not(:has(.slot-marker:hover)) > .slot-label {
+  opacity: 1;
 }

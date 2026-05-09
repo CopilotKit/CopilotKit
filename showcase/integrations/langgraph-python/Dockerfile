@@ -58,6 +58,14 @@ COPY --chown=app:app --from=frontend /app/public ./public
 COPY --chown=app:app langgraph.json ./
 COPY --chown=app:app src/agents/ ./src/agents/
 
+# Manifest is read at runtime by `src/app/demos/layout.tsx` (`generateMetadata`
+# calls `headers()`, which opts every `/demos/*` route into dynamic rendering,
+# so Next can't bake the demo titles into the build). Without this copy every
+# demo page throws "An error occurred in the Server Components render"
+# (ENOENT on /app/manifest.yaml) — the home page is unaffected because it has
+# no dynamic APIs and is statically prerendered at build time.
+COPY --chown=app:app manifest.yaml ./
+
 # Shared Python tools (symlinked in source, copied into build context by CI)
 COPY --chown=app:app tools/ /app/tools/
 ENV PYTHONPATH=/app

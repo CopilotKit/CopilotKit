@@ -279,6 +279,7 @@ function generateCatalog(
       name: string;
       category: string;
       kind?: string;
+      deprecated?: boolean;
     }>;
     categories: Array<{ id: string; name: string }>;
   },
@@ -314,6 +315,16 @@ function generateCatalog(
       .map((f) => f.id),
   );
 
+  // Deprecated features — consolidated/replaced patterns that LGP (the
+  // gold-standard reference integration) intentionally does NOT implement,
+  // but legacy integrations still serve. The catalog emits cells for all
+  // (integration × feature) pairs uniformly; visibility is controlled at
+  // the dashboard layer via a "Show deprecated" toggle that filters whole
+  // FEATURE ROWS based on `feature.deprecated`. That way toggle-on
+  // surfaces both the audit trail (integrations that declare these
+  // legacy patterns) and the empty cells (LGP shows N/A for them) in one
+  // pass without missing-data artifacts.
+
   // Step 1: Cross-join to produce integrated cells and collect wired features
   // and unsupported features per integration.
   const wiredFeaturesPerIntegration = new Map<string, Set<string>>();
@@ -328,6 +339,7 @@ function generateCatalog(
 
     for (const featureId of allFeatureIds) {
       const status = determineCellStatus(featureId, integration);
+
       if (status === "wired") {
         wiredFeatures.add(featureId);
       }

@@ -38,16 +38,17 @@ for (const entry of seoRedirects) {
 // PostHog tracking via fetch (Edge Runtime compatible — no posthog-node SDK)
 // ---------------------------------------------------------------------------
 
-const POSTHOG_HOST = "https://eu.i.posthog.com";
+const POSTHOG_HOST =
+  process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://eu.i.posthog.com";
 
 let posthogKeyWarned = false;
 
 function trackRedirect(id: string, fromPath: string, toPath: string): void {
-  const apiKey = process.env.POSTHOG_PROJECT_KEY;
+  const apiKey = process.env.POSTHOG_KEY;
   if (!apiKey) {
     if (!posthogKeyWarned) {
       console.warn(
-        "[middleware] POSTHOG_PROJECT_KEY is not set — redirect tracking disabled",
+        "[middleware] POSTHOG_KEY is not set — redirect tracking disabled",
       );
       posthogKeyWarned = true;
     }

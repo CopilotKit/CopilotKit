@@ -16,20 +16,20 @@ If you're getting network or API errors, here's how to troubleshoot.
 
 <Accordions>
 <Accordion title="Check your endpoint configuration">
-Verify your `runtimeUrl` in `CopilotKitProvider`:
+Verify your `runtimeUrl` in `CopilotKit`:
 
 ```tsx
-<CopilotKitProvider runtimeUrl="/api/copilotkit">
+<CopilotKit runtimeUrl="/api/copilotkit">
   {/* Your app */}
-</CopilotKitProvider>
+</CopilotKit>
 ```
 
 Or, if you're using CopilotCloud:
 
 ```tsx
-<CopilotKitProvider publicApiKey="<your-copilot-cloud-public-api-key>">
+<CopilotKit publicApiKey="<your-copilot-cloud-public-api-key>">
   {/* Your app */}
-</CopilotKitProvider>
+</CopilotKit>
 ```
 
 Common issues:

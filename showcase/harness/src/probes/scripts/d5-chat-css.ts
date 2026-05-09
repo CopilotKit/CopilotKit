@@ -2,20 +2,24 @@
  * D5 — chat-css script.
  *
  * Drives `/demos/chat-customization-css` through one user turn and
- * verifies the demo's CSS theme is actually applied in the browser by
- * reading computed styles on the user-message and assistant-message
- * bubbles. The demo (see
- * `showcase/integrations/langgraph-python/src/app/demos/chat-customization-css/theme.css`)
- * paints user bubbles with a hot-pink gradient (`#ff006e` → `#c2185b`)
- * and assistant bubbles with amber (`#fde047`). A failure here means
- * either the CSS import broke, the `chat-css-demo-scope` wrapper class
- * was lost, or the upstream `.copilotKit*` class names drifted.
+ * verifies the demo's CSS theme is actually applied in the browser.
+ * The probe accepts EITHER of two themes — langgraph-python was
+ * refactored to "HALCYON" (parchment + ember on the user bubble's
+ * inner element + JetBrains Mono / Fraunces fonts), while the other
+ * 17 integrations still ship the legacy hot-pink-on-user / amber-on-
+ * assistant theme. A failure here means either the CSS import broke,
+ * the `chat-css-demo-scope` wrapper class was lost, or the upstream
+ * `.copilotKit*` class names drifted.
  *
- * Assertions look for the substantive theme color signature:
- *   - user bubble's background contains `255, 0, 110` (the pink/red rgb
- *     anchor) — gradient resolves to either `linear-gradient(...)` or to
- *     a flattened color depending on browser
- *   - assistant bubble's background resolves to `rgb(253, 224, 71)` (amber)
+ * HALCYON path (langgraph-python only):
+ *   1. user bubble's inner element border-left-color contains
+ *      `196, 74, 31` (the halcyon-ember rgb anchor)
+ *   2. user bubble's inner element font-family contains "JetBrains Mono"
+ *   3. assistant bubble's font-family contains "Fraunces"
+ *
+ * Legacy path (the other 17 integrations):
+ *   1. user bubble background contains `255, 0, 110` (#ff006e hot pink)
+ *   2. assistant bubble background contains `253, 224, 71` (#fde047 amber)
  *
  * One turn matches the recorded fixture (`chat-css.json`).
  */
@@ -36,26 +40,68 @@ export const USER_BUBBLE_SELECTOR = ".copilotKitMessage.copilotKitUserMessage";
 /** Assistant-bubble selector. */
 export const ASSISTANT_BUBBLE_SELECTOR =
   ".copilotKitMessage.copilotKitAssistantMessage";
+/** The user bubble's inner v2 element — paints the halcyon-paper-elevated
+ *  background plus the ember left border. The outer message wrapper is
+ *  transparent in the new theme; signals all live on this inner node.
+ *
+ *  v2 emits prefixed Tailwind utilities (e.g. `cpk:bg-muted`) on this
+ *  bubble, see CopilotChatUserMessage.tsx. Uses `[class~="cpk:bg-muted"]`
+ *  (whole-token match on the PREFIXED name) so:
+ *    - bare `[class~="bg-muted"]` wouldn't match (token is `cpk:bg-muted`)
+ *    - `[class*="bg-muted"]` would also match `cpk:bg-muted-foreground`
+ *      on nested children (Reasoning message dots) and read styles off
+ *      the wrong element.
+ *  The whole-token form on the prefixed string is unambiguous. */
+export const USER_BUBBLE_INNER_SELECTOR = `${USER_BUBBLE_SELECTOR} [class~="cpk:bg-muted"]`;
 
-/** Hot-pink rgb anchor present in the user-bubble gradient (#ff006e). */
-const USER_RGB_FRAGMENT = "255, 0, 110";
-/** Amber rgb on the assistant bubble (#fde047). */
-const ASSISTANT_RGB_FRAGMENT = "253, 224, 71";
+// ── HALCYON theme anchors (langgraph-python) ──────────────────────────
+/** halcyon-ember rgb anchor (`#c44a1f`) on the user-bubble inner border-left. */
+const HALCYON_EMBER_RGB_FRAGMENT = "196, 74, 31";
+/** Editorial mono token (`var(--halcyon-mono)`) — JetBrains Mono with
+ *  a CSS fallback chain. The fallback covers Linux runners that lack
+ *  the webfont, so we accept either the real face or one of the
+ *  declared fallbacks. */
+const HALCYON_USER_MONO_FONT_FRAGMENTS = [
+  "JetBrains Mono",
+  "ui-monospace",
+  "SF Mono",
+  "Menlo",
+  "Consolas",
+];
+/** Editorial serif token (`var(--halcyon-serif)`) — Fraunces with
+ *  fallbacks. Same rationale as the mono fragments. */
+const HALCYON_ASSISTANT_SERIF_FONT_FRAGMENTS = [
+  "Fraunces",
+  "Source Serif Pro",
+  "ui-serif",
+];
+
+// ── Legacy theme anchors (the other 17 integrations) ──────────────────
+/** Hot-pink rgb (`#ff006e`) on the legacy user-bubble background. */
+const LEGACY_USER_RGB_FRAGMENT = "255, 0, 110";
+/** Amber rgb (`#fde047`) on the legacy assistant-bubble background. */
+const LEGACY_ASSISTANT_RGB_FRAGMENT = "253, 224, 71";
 
 const PROBE_TIMEOUT_MS = 5_000;
 
 /**
- * Probe-result shape: per-bubble computed background string. `null` means
- * the selector didn't match, which the assertion treats as
- * "missing bubble" — distinct from "matched but wrong color".
+ * Probe-result shape. `null` means the selector didn't match, distinct
+ * from "matched but wrong style". HALCYON path consumes `userBorderLeft`,
+ * `userFontFamily`, `assistantFontFamily`. Legacy path consumes
+ * `userBackground`, `assistantBackground`. Both are read on every probe
+ * so the validator can pick a path without a second round-trip.
  */
 export interface ChatCssProbeResult {
-  userBg: string | null;
-  assistantBg: string | null;
+  // HALCYON anchors
+  userBorderLeft: string | null;
+  userFontFamily: string | null;
+  assistantFontFamily: string | null;
+  // Legacy anchors
+  userBackground: string | null;
+  assistantBackground: string | null;
 }
 
-/** Read computed `background` / `background-color` for both bubbles
- *  inside the demo scope.
+/** Read computed styles on both bubbles inside the demo scope.
  *
  *  Notes on the page.evaluate body shape:
  *  - We do NOT declare local const-arrows or TS interfaces inside the
@@ -70,41 +116,134 @@ export async function probeChatCss(page: Page): Promise<ChatCssProbeResult> {
     const win = globalThis as unknown as {
       document: { querySelector(sel: string): unknown };
       getComputedStyle(el: unknown): {
+        borderLeftColor?: string;
+        fontFamily?: string;
         background?: string;
         backgroundColor?: string;
       };
     };
-    const userEl = win.document.querySelector(
+    const userOuter = win.document.querySelector(
       ".copilotKitMessage.copilotKitUserMessage",
     );
+    // The inner node is v2's CopilotChatUserMessage bubble. v2 emits
+    // PREFIXED Tailwind classes (`cpk:bg-muted`), so we whole-token-
+    // match on the prefixed name — see USER_BUBBLE_INNER_SELECTOR docs.
+    const userInner = (
+      userOuter as { querySelector?(sel: string): unknown } | null
+    )?.querySelector?.('[class~="cpk:bg-muted"]');
     const assistantEl = win.document.querySelector(
       ".copilotKitMessage.copilotKitAssistantMessage",
     );
-    const userBg = userEl
-      ? `${win.getComputedStyle(userEl).background ?? ""} ${win.getComputedStyle(userEl).backgroundColor ?? ""}`.trim()
+    // HALCYON anchors live on the inner node; legacy anchors live on
+    // the outer wrapper. Read both so the validator picks the path.
+    const userInnerStyle = userInner ? win.getComputedStyle(userInner) : null;
+    const userOuterStyle = userOuter ? win.getComputedStyle(userOuter) : null;
+    const assistantStyle = assistantEl
+      ? win.getComputedStyle(assistantEl)
       : null;
-    const assistantBg = assistantEl
-      ? `${win.getComputedStyle(assistantEl).background ?? ""} ${win.getComputedStyle(assistantEl).backgroundColor ?? ""}`.trim()
+    const userBackgroundCombined = userOuterStyle
+      ? `${userOuterStyle.background ?? ""} ${userOuterStyle.backgroundColor ?? ""}`.trim()
       : null;
-    return { userBg, assistantBg };
+    const assistantBackgroundCombined = assistantStyle
+      ? `${assistantStyle.background ?? ""} ${assistantStyle.backgroundColor ?? ""}`.trim()
+      : null;
+    return {
+      userBorderLeft: userInnerStyle?.borderLeftColor ?? null,
+      userFontFamily: userInnerStyle?.fontFamily ?? null,
+      assistantFontFamily: assistantStyle?.fontFamily ?? null,
+      userBackground: userBackgroundCombined,
+      assistantBackground: assistantBackgroundCombined,
+    };
   })) as ChatCssProbeResult;
 }
 
-/** Validate the probe — returns null on pass, error string on fail. */
-export function validateChatCss(probe: ChatCssProbeResult): string | null {
-  if (probe.userBg === null) {
-    return `chat-css: user bubble (${USER_BUBBLE_SELECTOR}) not found in DOM`;
+interface PathError {
+  path: "halcyon" | "legacy";
+  reason: string;
+}
+
+/** Try the HALCYON path; null on pass, structured error on fail. */
+function tryHalcyon(probe: ChatCssProbeResult): PathError | null {
+  if (probe.userBorderLeft === null || probe.userFontFamily === null) {
+    return {
+      path: "halcyon",
+      reason: `user bubble inner (${USER_BUBBLE_INNER_SELECTOR}) not found in DOM`,
+    };
   }
-  if (probe.assistantBg === null) {
-    return `chat-css: assistant bubble (${ASSISTANT_BUBBLE_SELECTOR}) not found in DOM`;
+  if (probe.assistantFontFamily === null) {
+    return {
+      path: "halcyon",
+      reason: `assistant bubble (${ASSISTANT_BUBBLE_SELECTOR}) not found in DOM`,
+    };
   }
-  if (!probe.userBg.includes(USER_RGB_FRAGMENT)) {
-    return `chat-css: user bubble background missing red/pink anchor (${USER_RGB_FRAGMENT}) — got "${probe.userBg.slice(0, 200)}"`;
+  if (!probe.userBorderLeft.includes(HALCYON_EMBER_RGB_FRAGMENT)) {
+    return {
+      path: "halcyon",
+      reason: `user bubble missing halcyon-ember left border (${HALCYON_EMBER_RGB_FRAGMENT}) — got "${probe.userBorderLeft.slice(0, 120)}"`,
+    };
   }
-  if (!probe.assistantBg.includes(ASSISTANT_RGB_FRAGMENT)) {
-    return `chat-css: assistant bubble background missing yellow/amber anchor (${ASSISTANT_RGB_FRAGMENT}) — got "${probe.assistantBg.slice(0, 200)}"`;
+  if (
+    !HALCYON_USER_MONO_FONT_FRAGMENTS.some((f) =>
+      probe.userFontFamily!.includes(f),
+    )
+  ) {
+    return {
+      path: "halcyon",
+      reason: `user bubble missing halcyon-mono font — got "${probe.userFontFamily.slice(0, 120)}"`,
+    };
+  }
+  if (
+    !HALCYON_ASSISTANT_SERIF_FONT_FRAGMENTS.some((f) =>
+      probe.assistantFontFamily!.includes(f),
+    )
+  ) {
+    return {
+      path: "halcyon",
+      reason: `assistant bubble missing halcyon-serif font — got "${probe.assistantFontFamily.slice(0, 120)}"`,
+    };
   }
   return null;
+}
+
+/** Try the legacy path; null on pass, structured error on fail. */
+function tryLegacy(probe: ChatCssProbeResult): PathError | null {
+  if (probe.userBackground === null) {
+    return {
+      path: "legacy",
+      reason: `user bubble (${USER_BUBBLE_SELECTOR}) not found in DOM`,
+    };
+  }
+  if (probe.assistantBackground === null) {
+    return {
+      path: "legacy",
+      reason: `assistant bubble (${ASSISTANT_BUBBLE_SELECTOR}) not found in DOM`,
+    };
+  }
+  if (!probe.userBackground.includes(LEGACY_USER_RGB_FRAGMENT)) {
+    return {
+      path: "legacy",
+      reason: `user bubble background missing red/pink anchor (${LEGACY_USER_RGB_FRAGMENT}) — got "${probe.userBackground.slice(0, 120)}"`,
+    };
+  }
+  if (!probe.assistantBackground.includes(LEGACY_ASSISTANT_RGB_FRAGMENT)) {
+    return {
+      path: "legacy",
+      reason: `assistant bubble background missing yellow/amber anchor (${LEGACY_ASSISTANT_RGB_FRAGMENT}) — got "${probe.assistantBackground.slice(0, 120)}"`,
+    };
+  }
+  return null;
+}
+
+/** Validate the probe — returns null on pass (either path), error string
+ *  on fail (both paths). The error includes both path-specific reasons
+ *  so operators can see WHICH theme the integration was supposed to
+ *  match against and what failed. */
+export function validateChatCss(probe: ChatCssProbeResult): string | null {
+  const halcyonErr = tryHalcyon(probe);
+  if (halcyonErr === null) return null; // HALCYON theme matched
+  const legacyErr = tryLegacy(probe);
+  if (legacyErr === null) return null; // Legacy theme matched
+  return `chat-css: neither HALCYON nor legacy theme matched — halcyon: ${halcyonErr.reason} | legacy: ${legacyErr.reason}`;
 }
 
 export function buildChatCssAssertion(opts?: {

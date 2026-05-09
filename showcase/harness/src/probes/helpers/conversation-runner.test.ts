@@ -730,6 +730,73 @@ describe("runConversation", () => {
     expect(recorded.presses).toEqual(["Enter"]);
   });
 
+  it("preFill mounts the chat input — resolution is deferred past preFill (auth-shape regression)", async () => {
+    // Idiomatic auth demos (langgraph-python) render a SignInCard until
+    // the user clicks "Sign in with demo token". The chat input only
+    // mounts AFTER that click, which preFill performs. Before this
+    // ordering fix, runConversation resolved the input cascade up
+    // front and timed out before preFill ever ran. This test pins the
+    // post-fix invariant: cascade probe throws while unmounted,
+    // preFill makes it visible, the runner then resolves and proceeds.
+    let chatMounted = false;
+    let assistantCalls = 0;
+    const order: string[] = [];
+    const page: Page = {
+      async waitForSelector(selector) {
+        order.push(`waitForSelector:${selector}`);
+        if (!chatMounted) {
+          throw new Error(`no match for ${selector}`);
+        }
+      },
+      async fill(_selector, value) {
+        order.push(`fill:${value}`);
+      },
+      async press() {
+        order.push("press");
+      },
+      evaluate: wrapEvaluateForUserMessages(async () => {
+        // Baseline read returns 0; subsequent assistant reads return
+        // 1 so the message-count growth check settles.
+        assistantCalls += 1;
+        return (assistantCalls === 1 ? 0 : 1) as never;
+      }),
+    };
+
+    const turns: ConversationTurn[] = [
+      {
+        input: "hello",
+        preFill: async () => {
+          order.push("preFill:click-sign-in");
+          chatMounted = true;
+        },
+      },
+    ];
+
+    const result = await runConversation(page, turns, {
+      assistantSettleMs: 30,
+    });
+
+    expect(result.turns_completed).toBe(1);
+    expect(result.failure_turn).toBeUndefined();
+    // The runner probes the chat-input cascade at BOOT (before preFill
+    // runs), expecting it to fail when the chat tree hasn't mounted yet
+    // (the auth shape). When boot probing fails the runner defers to
+    // post-preFill resolution — preFill runs, mounts the chat, and the
+    // cascade succeeds on retry. What matters: preFill runs, AT LEAST
+    // ONE post-preFill waitForSelector resolves (proving the cascade
+    // recovered), AND the conversation completes turn 1 cleanly.
+    // (We do NOT assert "no waitForSelector before preFill" — the boot
+    // probe is intentional and the failure is handled gracefully.)
+    const preFillIdx = order.indexOf("preFill:click-sign-in");
+    expect(preFillIdx).toBeGreaterThanOrEqual(0);
+    // Some waitForSelector call must run AFTER preFill — that's the
+    // cascade retry that resolves once the chat input mounted.
+    const postPreFillWait = order
+      .slice(preFillIdx + 1)
+      .find((s) => s.startsWith("waitForSelector:"));
+    expect(postPreFillWait).toBeDefined();
+  });
+
   it("stringifies non-Error throws (e.g. a thrown string) into result.error", async () => {
     // Some libraries throw non-Error values. The runner's errorMessage
     // helper falls back to String(err) so callers always see a usable

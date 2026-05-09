@@ -1,10 +1,16 @@
 {
-  "_comment": "D5 fixture for /demos/readonly-state-agent-context. Asserts the agent received and used a value from read-only context. Substring 'recall the user preference' is unique.",
+  "_comment": "D5 fixture for /demos/readonly-state-agent-context. The probe seeds a sentinel into the user-name input and asserts the value lands in the outgoing /api/copilotkit request body — a network-payload assertion that catches a regression where useAgentContext stops plumbing the value end-to-end.",
   "fixtures": [
+    {
+      "match": { "userMessage": "What do you know about me from my context" },
+      "response": {
+        "content": "Based on your context I can see your name and recent activity. I'll keep responses calibrated to your timezone."
+      }
+    },
     {
       "match": { "userMessage": "recall the user preference" },
       "response": {
-        "content": "Per the read-only context the user prefers concise responses. The agent received this preference via the shared-state context and is honoring it without writing back to state."
+        "content": "The agent received the preference via read-only context."
       }
     }
   ]

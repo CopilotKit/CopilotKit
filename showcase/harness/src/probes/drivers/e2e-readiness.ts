@@ -241,6 +241,13 @@ const READY_SELECTORS = [
   'input[placeholder="Type a message"]',
   'input[type="text"]',
   '[role="textbox"]',
+  // /demos/auth (and any future demo using the same pattern) renders a
+  // sign-in card BEFORE mounting the chat surface — the chat-input
+  // testids only appear post-authentication. Treat the SignInCard as a
+  // valid "demo mounted" signal so the readiness probe doesn't time
+  // out on the auth landing state. Per-demo end-to-end auth flow is
+  // covered by auth.spec.ts (e2e-demos), not this readiness probe.
+  '[data-testid="auth-sign-in-card"]',
 ] as const;
 
 /** Compound CSS selector: Playwright matches ANY of the comma-separated

@@ -163,7 +163,9 @@ test.describe("Beautiful Chat", () => {
     page,
   }) => {
     test.setTimeout(180_000);
-    // Backend: generate_a2ui tool calls a secondary LLM bound to render_a2ui;
+    // Backend: generate_a2ui tool calls a secondary LLM bound to
+    // `_design_a2ui_surface` (renamed from `render_a2ui` to avoid the A2UI
+    // middleware's default tool-call intercept on `render_a2ui`);
     // both calls hit aimock fixtures
     // (showcase/aimock/feature-parity.json — userMessage + toolName matchers
     // differentiate primary vs secondary calls; a toolCallId match breaks the

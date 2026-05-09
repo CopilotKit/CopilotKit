@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Spline_Sans_Mono } from "next/font/google";
+import Script from "next/script";
+import { Suspense } from "react";
+import { AnalyticsClient } from "@/components/analytics-client";
 import { BrandNav } from "@/components/brand-nav";
 import { FrameworkProvider } from "@/components/framework-provider";
+import { PostHogProvider } from "@/lib/providers/posthog-provider";
+import { ScarfPixel } from "@/lib/providers/scarf-pixel";
 import { getIntegrations } from "@/lib/registry";
 import "./globals.css";
 
@@ -77,16 +82,64 @@ export default function RootLayout({
         ? "unknown"
         : rawSha.slice(0, 7);
 
+  const REO_KEY = process.env.NEXT_PUBLIC_REO_KEY;
+  const REB2B_KEY = process.env.NEXT_PUBLIC_REB2B_KEY;
+
   return (
     <html
       lang="en"
       className={`${plusJakartaSans.variable} ${splineSansMono.variable}`}
     >
+      <head>
+        {REO_KEY ? (
+          <Script
+            id="reo-init-script"
+            strategy="afterInteractive"
+            dangerouslySetInnerHTML={{
+              __html: `
+                  !function(){
+                    var e, t, n;
+                    e = ${JSON.stringify(REO_KEY)};
+                    t = function() {
+                      if (window.Reo) {
+                        window.Reo.init({ clientID: e });
+                      }
+                    };
+                    n = document.createElement("script");
+                    n.src = "https://static.reo.dev/" + e + "/reo.js";
+                    n.defer = true;
+                    n.onload = t;
+                    document.head.appendChild(n);
+                  }();
+                `,
+            }}
+          />
+        ) : null}
+        <Script
+          id="hubspot-script"
+          type="text/javascript"
+          src="https://js.hs-scripts.com/45532593.js"
+          async
+          defer
+        />
+        {REB2B_KEY ? (
+          <Script
+            id="reb2b-script"
+            strategy="afterInteractive"
+            src={`https://b2bjsstore.s3.us-west-2.amazonaws.com/b/${REB2B_KEY}/${REB2B_KEY}.js.gz`}
+          />
+        ) : null}
+      </head>
       <body className="min-h-screen">
-        <FrameworkProvider knownFrameworks={knownFrameworks}>
-          <BrandNav />
-          <main>{children}</main>
-        </FrameworkProvider>
+        <AnalyticsClient />
+        <Suspense fallback={null}>
+          <PostHogProvider>
+            <FrameworkProvider knownFrameworks={knownFrameworks}>
+              <BrandNav />
+              <main>{children}</main>
+            </FrameworkProvider>
+          </PostHogProvider>
+        </Suspense>
         <div
           aria-hidden="true"
           style={{
@@ -103,6 +156,7 @@ export default function RootLayout({
         >
           {commitLabel}
         </div>
+        <ScarfPixel />
       </body>
     </html>
   );

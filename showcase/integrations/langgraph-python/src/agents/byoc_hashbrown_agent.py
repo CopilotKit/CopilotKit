@@ -1,4 +1,4 @@
-"""LangGraph agent backing the byoc-hashbrown demo (Wave 4a).
+"""LangGraph agent backing the byoc-hashbrown demo.
 
 Emits hashbrown-shaped structured output that the ported HashBrownDashboard
 renderer (`src/app/demos/byoc-hashbrown/hashbrown-renderer.tsx`) progressively
@@ -95,7 +95,7 @@ Example response (sales dashboard):
 # aligns the wire-level contract with what the parser accepts.
 graph = create_agent(
     model=ChatOpenAI(
-        model="gpt-4o-mini",
+        model="gpt-5.4",
         model_kwargs={"response_format": {"type": "json_object"}},
     ),
     tools=[],

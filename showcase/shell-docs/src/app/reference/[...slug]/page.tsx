@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
@@ -19,6 +20,23 @@ import {
 } from "@/lib/reference-items";
 import { stripLeadingImports } from "@/lib/docs-render";
 import { safeReadFileSync } from "@/lib/safe-fs";
+import { getBaseUrl } from "@/lib/sitemap-helpers";
+
+// Self-canonical for /reference/<slug>. Reference pages are not
+// per-framework, but we still emit a canonical so the production URL
+// is unambiguous and any future host aliases can't fragment indexing.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string[] }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  return {
+    alternates: {
+      canonical: `${getBaseUrl()}/reference/${slug.join("/")}`,
+    },
+  };
+}
 
 // next-mdx-remote components map
 const mdxComponents = {

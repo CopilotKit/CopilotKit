@@ -3,29 +3,29 @@ import { test, expect } from "@playwright/test";
 // QA reference: qa/open-gen-ui-advanced.md
 // Demo source: src/app/demos/open-gen-ui-advanced/{page.tsx,
 //   sandbox-functions.ts, suggestions.ts}
+// Aimock fixture: showcase/harness/fixtures/d5/gen-ui-open.json
+//                 (bundled into showcase/aimock/d5-all.json)
 //
 // Advanced Open-Gen-UI: the sandboxed iframe can call two host-side
-// sandbox functions via Websandbox.connection.remote.*:
-//   - evaluateExpression({ expression }) → console.log
-//       "[open-gen-ui/advanced] evaluateExpression <expr> = <value>"
-//   - notifyHost({ message })             → console.log
-//       "[open-gen-ui/advanced] notifyHost: <message>"
-// Both handlers live in sandbox-functions.ts (host page).
+// sandbox functions via Websandbox.connection.remote.* — but those
+// round-trips are intentionally NOT asserted here. Driving DOM inside
+// the sandboxed iframe is unreliable (the sandbox="allow-scripts"-only
+// attribute blocks cross-origin frame access from Playwright's host
+// page, and the inner authored HTML varies between runs).
 //
-// We assert on:
-//   1) page load + 3 suggestion pills render
-//   2) typed "hi" prompt mounts an iframe with sandbox="allow-scripts"
-//      (no allow-forms, no allow-same-origin)
-//   3) clicking the Calculator / Ping suggestions eventually mounts an
-//      iframe (end-to-end round-trip is skipped — see W8 note).
+// Assertion bar: each pill click produces an iframe with a non-empty
+// `srcdoc` (or `src`) — the open-gen-ui pipeline mounted SOMETHING.
+// Whether the inner DOM correctly invokes evaluateExpression / notifyHost
+// is deferred to a follow-up that adds a host-side spy on the runtime's
+// `sandbox-function-call` event (or a same-origin sandbox option).
 //
-// Driving buttons INSIDE the sandboxed iframe is not reliable: the
-// iframe is srcdoc-loaded with sandbox="allow-scripts" only, which in
-// Playwright often blocks same-origin frame access, and the generated
-// HTML layout varies between LLM runs. We therefore skip the deep
-// "click a digit and assert console.log" flow and keep a mount-level
-// assertion that the advanced demo wires the sandbox attribute
-// correctly. Un-skip when a stable post-mount testid is added.
+// Aimock priority note: each pill `message` string is a verbatim short
+// label that matches a high-priority entry in `d5-all.json`. d5-all.json
+// loads BEFORE feature-parity.json, so its first-match-wins ordering
+// beats the broad `userMessage: "hi"` catch-all in feature-parity.json
+// that would otherwise return the showcase-assistant boilerplate
+// greeting. Keep pill message strings in `suggestions.ts` aligned with
+// the fixture keys.
 
 test.describe("Open Generative UI (advanced)", () => {
   test.setTimeout(120_000);
@@ -43,8 +43,8 @@ test.describe("Open Generative UI (advanced)", () => {
 
     // Suggestion titles are verbatim from openGenUiSuggestions.
     const expected = [
-      "Calculator (calls evaluateExpression)",
-      "Ping the host (calls notifyHost)",
+      "Calculator",
+      "Ping the host",
       "Inline expression evaluator",
     ];
     const suggestions = page.locator('[data-testid="copilot-suggestion"]');
@@ -55,74 +55,48 @@ test.describe("Open Generative UI (advanced)", () => {
     }
   });
 
-  // SKIP: same Railway latency as the minimal open-gen-ui demo — the
-  // LLM authors full HTML/CSS/JS for an interactive sandboxed UI, which
-  // consistently exceeds a 120s timeout. The suggestion-pill render +
-  // sandbox-attribute intent are documented in the assertion body; the
-  // round-trip end-to-end cannot be asserted until a post-mount testid
-  // is added. See W8-OGUI-2.
-  test.skip('Ping suggestion mounts a sandbox="allow-scripts" iframe', async ({
-    page,
-  }) => {
+  const assertPillRendersIframe = async (
+    page: import("@playwright/test").Page,
+    pillTitle: string,
+  ) => {
     const suggestion = page
-      .locator('[data-testid="copilot-suggestion"]', {
-        hasText: "Ping the host (calls notifyHost)",
-      })
+      .locator('[data-testid="copilot-suggestion"]', { hasText: pillTitle })
       .first();
     await expect(suggestion).toBeVisible({ timeout: 15_000 });
     await suggestion.click();
 
     const iframe = page.locator('iframe[sandbox*="allow-scripts"]').first();
-    await expect(iframe).toBeVisible({ timeout: 120_000 });
-
-    const sandbox = await iframe.getAttribute("sandbox");
-    expect(sandbox).toContain("allow-scripts");
-    expect(sandbox).not.toContain("allow-forms");
-    expect(sandbox).not.toContain("allow-same-origin");
-  });
-
-  // SKIP: this test exercises the sandbox→host round-trip by clicking
-  // the "Ping the host (calls notifyHost)" suggestion, waiting for the
-  // iframe to mount, then looking for the distinctive host-side
-  // console.log ("[open-gen-ui/advanced] notifyHost: ..."). Two
-  // blockers on Railway: (a) LLM iframe authoring can take 60–120s and
-  // sometimes times out, (b) interacting with buttons inside the
-  // allow-scripts-only iframe is not reliable via Playwright's
-  // contentFrame. Un-skip once a post-mount testid or a console-log
-  // fixture is available. See W8-OGUI-2.
-  test.skip("notifyHost round-trip logs the expected console message", async ({
-    page,
-  }) => {
-    const logs: string[] = [];
-    page.on("console", (msg) => logs.push(msg.text()));
-
-    const suggestion = page
-      .locator('[data-testid="copilot-suggestion"]', {
-        hasText: "Ping the host (calls notifyHost)",
-      })
-      .first();
-    await expect(suggestion).toBeVisible({ timeout: 15_000 });
-    await suggestion.click();
-
-    await expect(
-      page.locator('iframe[sandbox*="allow-scripts"]').first(),
-    ).toBeVisible({ timeout: 120_000 });
-
-    // Attempt to drive the "Say hi to the host" button inside the iframe.
-    const frame = await page
-      .locator('iframe[sandbox*="allow-scripts"]')
-      .first()
-      .contentFrame();
-    if (frame) {
-      await frame.getByRole("button").first().click({ timeout: 10_000 });
-    }
+    await expect(iframe).toBeVisible({ timeout: 60_000 });
 
     await expect
       .poll(
-        () =>
-          logs.some((l) => l.includes("[open-gen-ui/advanced] notifyHost:")),
+        async () => {
+          const srcdoc = await iframe.getAttribute("srcdoc");
+          if (srcdoc && srcdoc.length > 0) return true;
+          const src = await iframe.getAttribute("src");
+          if (src && src.length > 0) return true;
+          return false;
+        },
         { timeout: 30_000 },
       )
       .toBe(true);
+  };
+
+  test("Inline expression evaluator pill renders a sandboxed iframe with non-empty source", async ({
+    page,
+  }) => {
+    await assertPillRendersIframe(page, "Inline expression evaluator");
+  });
+
+  test("Calculator pill renders a sandboxed iframe with non-empty source", async ({
+    page,
+  }) => {
+    await assertPillRendersIframe(page, "Calculator");
+  });
+
+  test("Ping the host pill renders a sandboxed iframe with non-empty source", async ({
+    page,
+  }) => {
+    await assertPillRendersIframe(page, "Ping the host");
   });
 });

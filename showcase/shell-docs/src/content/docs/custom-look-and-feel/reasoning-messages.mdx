@@ -77,7 +77,7 @@ receives these props:
 
 ```tsx
 import { CopilotChat } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-ui/v2/styles.css";
+import "@copilotkit/react-core/v2/styles.css";
 
 function CustomHeader({
   isOpen,
@@ -178,9 +178,9 @@ without reimplementing them:
 ```tsx
 import {
   CopilotChatReasoningMessage,
-} from "@copilotkit/react-ui";
+} from "@copilotkit/react-core/v2";
 import { CopilotChat } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-ui/v2/styles.css";
+import "@copilotkit/react-core/v2/styles.css";
 
 function MyReasoningLayout(props: React.ComponentProps<typeof CopilotChatReasoningMessage>) {
   return (
