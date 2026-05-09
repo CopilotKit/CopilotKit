@@ -282,29 +282,69 @@ describe("deriveDepth", () => {
     expect(result.achieved).toBe(4);
   });
 
-  it("returns D5 for multi-key D5 mapping (shared-state-read-write)", () => {
+  it("returns D5 for shared-state-read-write when its single d5 row (write) is green", () => {
+    // shared-state-read-write maps to ["shared-state-write"] only —
+    // the read literal is owned by the standalone /demos/shared-state-read
+    // recipe-editor probe and writes to its own d5:lgp/shared-state-read
+    // row that does NOT factor into this cell's depth calculation.
     const c = cell("lgp", "shared-state-read-write");
     const live = mapOf([
       row("health:lgp", "health", "green"),
       row("agent:lgp", "agent", "green"),
       row("e2e:lgp/shared-state-read-write", "e2e", "green"),
       row("tools:lgp", "tools", "green"),
-      row("d5:lgp/shared-state-read", "d5", "green"),
       row("d5:lgp/shared-state-write", "d5", "green"),
     ]);
     const result = deriveDepth(c, live);
     expect(result.achieved).toBe(5);
   });
 
-  it("returns D4 when one of multi-key D5 rows is red", () => {
+  it("returns D4 when shared-state-read-write's d5 write row is red", () => {
     const c = cell("lgp", "shared-state-read-write");
     const live = mapOf([
       row("health:lgp", "health", "green"),
       row("agent:lgp", "agent", "green"),
       row("e2e:lgp/shared-state-read-write", "e2e", "green"),
       row("tools:lgp", "tools", "green"),
-      row("d5:lgp/shared-state-read", "d5", "green"),
       row("d5:lgp/shared-state-write", "d5", "red"),
+    ]);
+    const result = deriveDepth(c, live);
+    expect(result.achieved).toBe(4);
+  });
+
+  it("returns D5 for multi-key D5 mapping (beautiful-chat → 5 per-pill literals)", () => {
+    // beautiful-chat is the canonical multi-key example: it maps to 5
+    // per-pill literals (toggle-theme / pie-chart / bar-chart /
+    // search-flights / schedule-meeting). The cell hits D5 only when
+    // every pill row is green.
+    const c = cell("lgp", "beautiful-chat");
+    const live = mapOf([
+      row("health:lgp", "health", "green"),
+      row("agent:lgp", "agent", "green"),
+      row("e2e:lgp/beautiful-chat", "e2e", "green"),
+      row("chat:lgp", "chat", "green"),
+      row("d5:lgp/beautiful-chat-toggle-theme", "d5", "green"),
+      row("d5:lgp/beautiful-chat-pie-chart", "d5", "green"),
+      row("d5:lgp/beautiful-chat-bar-chart", "d5", "green"),
+      row("d5:lgp/beautiful-chat-search-flights", "d5", "green"),
+      row("d5:lgp/beautiful-chat-schedule-meeting", "d5", "green"),
+    ]);
+    const result = deriveDepth(c, live);
+    expect(result.achieved).toBe(5);
+  });
+
+  it("returns D4 when ONE of beautiful-chat's 5 multi-key D5 rows is red", () => {
+    const c = cell("lgp", "beautiful-chat");
+    const live = mapOf([
+      row("health:lgp", "health", "green"),
+      row("agent:lgp", "agent", "green"),
+      row("e2e:lgp/beautiful-chat", "e2e", "green"),
+      row("chat:lgp", "chat", "green"),
+      row("d5:lgp/beautiful-chat-toggle-theme", "d5", "green"),
+      row("d5:lgp/beautiful-chat-pie-chart", "d5", "red"),
+      row("d5:lgp/beautiful-chat-bar-chart", "d5", "green"),
+      row("d5:lgp/beautiful-chat-search-flights", "d5", "green"),
+      row("d5:lgp/beautiful-chat-schedule-meeting", "d5", "green"),
     ]);
     const result = deriveDepth(c, live);
     expect(result.achieved).toBe(4);
