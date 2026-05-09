@@ -159,7 +159,8 @@
             "name": "search_flights",
             "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\"}"
           }
-        ]
+        ],
+        "reasoning": "The user wants flights from SFO to JFK. I'll call search_flights with those airports to look up options."
       }
     },
     {
@@ -1192,7 +1193,8 @@
             "name": "get_weather",
             "arguments": "{\"location\":\"Tokyo\"}"
           }
-        ]
+        ],
+        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions."
       }
     },
     {
@@ -1209,7 +1211,8 @@
             "name": "get-weather",
             "arguments": "{\"location\":\"Tokyo\"}"
           }
-        ]
+        ],
+        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions."
       }
     },
     {

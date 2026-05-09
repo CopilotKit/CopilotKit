@@ -153,7 +153,8 @@
       "description": "Time-picker card rendered inline via useHumanInTheLoop for a booking flow",
       "kind": "primary",
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/your-components/interactive",
-      "shell_docs_path": "/generative-ui/your-components/interactive"
+      "shell_docs_path": "/generative-ui/your-components/interactive",
+      "deprecated": true
     },
     {
       "id": "hitl",
@@ -162,7 +163,8 @@
       "description": "Original HITL demo kept for backwards compatibility",
       "kind": "primary",
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/your-components/interactive",
-      "shell_docs_path": "/generative-ui/your-components/interactive"
+      "shell_docs_path": "/generative-ui/your-components/interactive",
+      "deprecated": true
     },
     {
       "id": "interrupt-headless",
@@ -254,7 +256,8 @@
       "category": "operational-generative-ui",
       "description": "Visible reasoning/thinking chain alongside the final answer",
       "og_docs_url": "https://docs.copilotkit.ai/custom-look-and-feel/reasoning-messages",
-      "shell_docs_path": "/custom-look-and-feel/reasoning-messages"
+      "shell_docs_path": "/custom-look-and-feel/reasoning-messages",
+      "deprecated": true
     },
     {
       "id": "reasoning-default-render",
@@ -263,7 +266,8 @@
       "description": "Built-in CopilotChatReasoningMessage renders without a custom slot",
       "kind": "testing",
       "shell_docs_path": "/custom-look-and-feel/reasoning-messages",
-      "og_docs_url": "https://docs.copilotkit.ai/custom-look-and-feel/reasoning-messages"
+      "og_docs_url": "https://docs.copilotkit.ai/custom-look-and-feel/reasoning-messages",
+      "deprecated": true
     },
     {
       "id": "reasoning-default",
