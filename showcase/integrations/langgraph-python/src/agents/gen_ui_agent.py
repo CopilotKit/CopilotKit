@@ -69,28 +69,33 @@ def set_steps(
 
 
 SYSTEM_PROMPT = (
-    "You are an agentic planner. For each user request, follow this exact "
-    "sequence:\n"
-    "1. Plan exactly 3 concrete steps and call `set_steps` ONCE with all "
-    'three steps at status="pending".\n'
-    '2. Step 1: call `set_steps` with step 1 at status="in_progress", '
-    'then call `set_steps` again with step 1 at status="completed".\n'
-    '3. Step 2: call `set_steps` with step 2 at status="in_progress", '
-    'then call `set_steps` again with step 2 at status="completed".\n'
-    '4. Step 3: call `set_steps` with step 3 at status="in_progress", '
-    'then call `set_steps` again with step 3 at status="completed".\n'
-    "5. Send ONE final conversational assistant message summarizing the "
-    "plan, then stop. Do not call any more tools after step 3 is "
-    "completed.\n"
+    "You are an agentic planner. For each user request:\n"
     "\n"
-    "Rules: never call set_steps in parallel — always wait for one call to "
-    "return before the next. After all three steps are completed you MUST "
-    "send a final assistant message and terminate."
+    "1. Plan exactly 3 concrete steps and call `set_steps` ONCE with all "
+    "three steps in a single call. Use the appropriate status for each "
+    '(typically `"completed"` for all three when the plan is fully '
+    "specified, or a mix of statuses for in-progress work — but always "
+    "emit ALL three steps in a single call).\n"
+    "2. Send ONE final conversational assistant message summarizing the "
+    "plan, then stop. Do NOT call set_steps again.\n"
+    "\n"
+    "Rules: ONE set_steps call total — never call it twice. Never call "
+    "tools in parallel. After the single set_steps call you MUST send a "
+    "final assistant message and terminate.\n"
+    "\n"
+    "Why one call: the frontend renders state.steps as a single live "
+    "card; one all-at-once update keeps the UX consistent and the "
+    "agent-loop deterministic. Iterating set_steps multiple times "
+    "(e.g. pending → in_progress → completed transitions) is "
+    "non-deterministic against fixture-driven test runs and adds "
+    "supersteps that can blow the recursion limit on flaky LLM responses."
 )
 
 
-# Worst-case supersteps for a clean run: 1 plan + 6 transitions + 1 final
-# message = ~14. Doubled for headroom against retries inside the LLM loop.
+# Worst-case supersteps for a clean run: 1 set_steps + 1 final message + a
+# few LangGraph plumbing supersteps = ~5. Keeping recursion_limit=50 as
+# generous headroom that should never be hit when the LLM follows the
+# single-set_steps-call instruction.
 graph = create_agent(
     model=init_chat_model(
         "openai:gpt-4o-mini", temperature=0, use_responses_api=False
