@@ -317,18 +317,13 @@ function generateCatalog(
 
   // Deprecated features — consolidated/replaced patterns that LGP (the
   // gold-standard reference integration) intentionally does NOT implement,
-  // but legacy integrations still serve. We only EMIT a cell for a
-  // deprecated feature when the integration's manifest actively declares
-  // it; integrations that don't claim it (notably the gold-standard
-  // reference) get no row at all, so the dashboard's gold-standard view
-  // doesn't render confusing X-marked rows for patterns LGP intentionally
-  // skipped. The cross-integration audit trail is preserved on the
-  // integrations that DO declare the feature.
-  const deprecatedFeatureIds = new Set(
-    featureRegistry.features
-      .filter((f) => f.deprecated === true)
-      .map((f) => f.id),
-  );
+  // but legacy integrations still serve. The catalog emits cells for all
+  // (integration × feature) pairs uniformly; visibility is controlled at
+  // the dashboard layer via a "Show deprecated" toggle that filters whole
+  // FEATURE ROWS based on `feature.deprecated`. That way toggle-on
+  // surfaces both the audit trail (integrations that declare these
+  // legacy patterns) and the empty cells (LGP shows N/A for them) in one
+  // pass without missing-data artifacts.
 
   // Step 1: Cross-join to produce integrated cells and collect wired features
   // and unsupported features per integration.
@@ -344,16 +339,6 @@ function generateCatalog(
 
     for (const featureId of allFeatureIds) {
       const status = determineCellStatus(featureId, integration);
-
-      // Deprecated-feature filter: skip emitting the cell entirely when
-      // the feature is deprecated AND this integration's manifest does
-      // NOT declare it. The cell would otherwise render as an
-      // unshipped/X row that's misleading — it implies LGP is missing
-      // something it intentionally doesn't have. Integrations that DO
-      // declare the deprecated feature still get their row (audit trail).
-      if (deprecatedFeatureIds.has(featureId) && status === "unshipped") {
-        continue;
-      }
 
       if (status === "wired") {
         wiredFeatures.add(featureId);

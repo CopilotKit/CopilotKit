@@ -1,5 +1,5 @@
 "use client";
-import React, { Fragment, useMemo } from "react";
+import React, { Fragment, useMemo, useState } from "react";
 import {
   getIntegrations,
   getFeatures,
@@ -484,15 +484,33 @@ export function FeatureGrid({
     return map;
   }, [catalog, showRefDepth]);
 
+  // "Show deprecated" toggle — default OFF so the LGP gold-standard view
+  // doesn't render rows for legacy/replaced patterns (e.g. `hitl`,
+  // `agentic-chat-reasoning`). Operators can flip it on to surface
+  // deprecated features for cross-integration audit.
+  const [showDeprecated, setShowDeprecated] = useState(false);
+
+  const visibleFeatures = useMemo(
+    () =>
+      showDeprecated
+        ? features
+        : features.filter((f) => f.deprecated !== true),
+    [features, showDeprecated],
+  );
+  const deprecatedCount = useMemo(
+    () => features.filter((f) => f.deprecated === true).length,
+    [features],
+  );
+
   const featuresByCategory = useMemo(
     () =>
       categories
         .map((cat) => ({
           ...cat,
-          features: features.filter((f) => f.category === cat.id),
+          features: visibleFeatures.filter((f) => f.category === cat.id),
         }))
         .filter((cat) => cat.features.length > 0),
-    [categories, features],
+    [categories, visibleFeatures],
   );
 
   // Colspan for category separator row: base (Feature col) + integrations + optional ref-depth
@@ -504,10 +522,35 @@ export function FeatureGrid({
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
           <LiveIndicator status={connection} />
+          {deprecatedCount > 0 && (
+            <label
+              data-testid="show-deprecated-toggle"
+              className="ml-auto flex cursor-pointer items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              title={`${deprecatedCount} deprecated feature${deprecatedCount === 1 ? "" : "s"} hidden by default — toggle to show legacy/replaced patterns.`}
+            >
+              <input
+                type="checkbox"
+                checked={showDeprecated}
+                onChange={(e) => setShowDeprecated(e.target.checked)}
+                className="h-3.5 w-3.5 cursor-pointer accent-[var(--accent)]"
+              />
+              <span>
+                Show deprecated{" "}
+                <span className="text-[var(--text-muted)]">
+                  ({deprecatedCount})
+                </span>
+              </span>
+            </label>
+          )}
         </div>
         <p className="mt-1 text-sm text-[var(--text-secondary)]">
           {subtitle ? <>{subtitle} · </> : null}
-          {features.length} features × {integrations.length} integrations.
+          {visibleFeatures.length} features × {integrations.length}{" "}
+          integrations
+          {!showDeprecated && deprecatedCount > 0
+            ? ` (${deprecatedCount} deprecated hidden)`
+            : ""}
+          .
         </p>
       </header>
 

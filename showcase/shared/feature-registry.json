@@ -67,7 +67,7 @@
     },
     {
       "id": "agentic-chat",
-      "name": "Pre-Built CopilotChat",
+      "name": "Pre-Built: CopilotChat",
       "category": "chat-ui",
       "description": "Pre-built <CopilotChat /> component for full-screen/embedded chat",
       "kind": "primary",
@@ -92,7 +92,7 @@
     },
     {
       "id": "chat-slots",
-      "name": "Chat Customization (Slots)",
+      "name": "Chat Customization: Slots",
       "category": "chat-ui",
       "description": "Customizing chat components via the slot system",
       "og_docs_url": "https://docs.copilotkit.ai/custom-look-and-feel/slots",
@@ -100,7 +100,7 @@
     },
     {
       "id": "chat-customization-css",
-      "name": "Chat Customization (CSS)",
+      "name": "Chat Customization: CSS",
       "category": "chat-ui",
       "description": "Customizing chat components via CSS",
       "og_docs_url": "https://docs.copilotkit.ai/custom-look-and-feel",
@@ -108,7 +108,7 @@
     },
     {
       "id": "headless-simple",
-      "name": "Headless Chat (Simple)",
+      "name": "Headless UI: Simple",
       "category": "chat-ui",
       "description": "Simple headless UI getting started",
       "og_docs_url": "https://docs.copilotkit.ai/headless",
@@ -116,7 +116,7 @@
     },
     {
       "id": "headless-complete",
-      "name": "Headless Chat (Complete)",
+      "name": "Headless UI: Complete",
       "category": "chat-ui",
       "description": "Full headless UI with messages, tools, gen UI",
       "og_docs_url": "https://docs.copilotkit.ai/headless",
@@ -124,7 +124,7 @@
     },
     {
       "id": "gen-ui-tool-based",
-      "name": "Controlled Gen-UI (Display)",
+      "name": "Generative UI: useComponent",
       "category": "controlled-generative-ui",
       "description": "Agent renders typed React components via the useComponent hook",
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/your-components/display-only",
@@ -132,7 +132,7 @@
     },
     {
       "id": "hitl-in-chat",
-      "name": "In-Chat HITL (useHumanInTheLoop \u2014 ergonomic API)",
+      "name": "Human In the Loop: In-chat",
       "category": "controlled-generative-ui",
       "description": "Interactive approval/decision surface rendered inline in the chat. Uses the high-level `useHumanInTheLoop` hook \u2014 handles the interrupt lifecycle for you.",
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/your-components/interactive",
@@ -140,7 +140,7 @@
     },
     {
       "id": "gen-ui-interrupt",
-      "name": "In-Chat HITL (useInterrupt \u2014 low-level primitive)",
+      "name": "Human in the Loop: Interrupts",
       "category": "controlled-generative-ui",
       "description": "Interactive component rendered inline in the chat via the lower-level `useInterrupt` primitive \u2014 direct control over the LangGraph interrupt lifecycle.",
       "og_docs_url": "https://docs.copilotkit.ai/human-in-the-loop",
@@ -168,7 +168,7 @@
     },
     {
       "id": "interrupt-headless",
-      "name": "Headless Interrupt",
+      "name": "Human in the Loop: Headless Interrupts",
       "category": "controlled-generative-ui",
       "description": "Resolve langgraph interrupts headlessly via agent.subscribe + copilotkit.runAgent \u2014 no chat, no useInterrupt render prop",
       "kind": "testing",
@@ -177,7 +177,7 @@
     },
     {
       "id": "declarative-gen-ui",
-      "name": "Declarative Generative UI (A2UI \u2014 Dynamic Schema)",
+      "name": "Declarative UI: Dynamic A2UI",
       "category": "declarative-generative-ui",
       "description": "Canonical A2UI BYOC \u2014 custom catalog wired via a2ui.catalog; runtime injects render_a2ui automatically",
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/a2ui",
@@ -185,7 +185,7 @@
     },
     {
       "id": "a2ui-fixed-schema",
-      "name": "Declarative Generative UI (A2UI \u2014 Fixed Schema)",
+      "name": "Declarative UI: Fixed A2UI",
       "category": "declarative-generative-ui",
       "description": "A2UI rendering against a known, fixed client-side schema",
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/a2ui",
@@ -201,7 +201,7 @@
     },
     {
       "id": "open-gen-ui",
-      "name": "Fully Open-Ended Generative UI",
+      "name": "Open Generative UI: Default",
       "category": "open-generative-ui",
       "description": "Agent-generated UI from arbitrary component libraries",
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/open-generative-ui",
@@ -209,7 +209,7 @@
     },
     {
       "id": "open-gen-ui-advanced",
-      "name": "Open-Ended Gen UI (Advanced: with frontend function calling)",
+      "name": "Open Generative UI: Custom",
       "category": "open-generative-ui",
       "description": "Agent-authored UI that can invoke frontend sandbox functions from inside the iframe",
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/open-generative-ui",
@@ -217,7 +217,7 @@
     },
     {
       "id": "tool-rendering-default-catchall",
-      "name": "Tool Rendering (Default Catch-all)",
+      "name": "Generative UI: Tool Rendering (Default)",
       "category": "operational-generative-ui",
       "description": "Out-of-the-box rendering: backend tools surfaced via CopilotKit's built-in default catch-all renderer; no frontend customization",
       "kind": "primary",
@@ -226,7 +226,7 @@
     },
     {
       "id": "tool-rendering-custom-catchall",
-      "name": "Tool Rendering (Custom Catch-all)",
+      "name": "Generative UI: Tool Rendering (Custom default)",
       "category": "operational-generative-ui",
       "description": "Single branded wildcard renderer that paints every tool call \u2014 one card handles them all",
       "kind": "primary",
@@ -235,7 +235,7 @@
     },
     {
       "id": "tool-rendering",
-      "name": "Tool Rendering",
+      "name": "Generative UI: Tool Rendering (Specific)",
       "category": "operational-generative-ui",
       "description": "Custom per-tool renderers for the tools you care about, plus a wildcard catch-all for the rest",
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/tool-rendering",
@@ -243,7 +243,7 @@
     },
     {
       "id": "tool-rendering-reasoning-chain",
-      "name": "Tool Rendering + Reasoning Chain",
+      "name": "Generative UI: Rendering multiple tools",
       "category": "operational-generative-ui",
       "description": "Sequential tool calls with reasoning tokens rendered side-by-side",
       "kind": "testing",
@@ -287,7 +287,7 @@
     },
     {
       "id": "gen-ui-agent",
-      "name": "Agentic Generative UI (In-Chat State Rendering)",
+      "name": "Generative UI: Agent State",
       "category": "operational-generative-ui",
       "description": "Agent-state-driven inline UI: the agent emits a live `steps` plan via copilotkit_emit_state and the frontend renders it with useCoAgentStateRender (v1 hook)",
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/state-rendering",
@@ -295,7 +295,7 @@
     },
     {
       "id": "frontend-tools",
-      "name": "Frontend Tools (In-app actions)",
+      "name": "Frontend Tools: In-app Actions",
       "category": "interactivity",
       "description": "Frontend tool execution triggered by the agent",
       "og_docs_url": "https://docs.copilotkit.ai/frontend-tools",
@@ -303,7 +303,7 @@
     },
     {
       "id": "frontend-tools-async",
-      "name": "Frontend Tools (Async)",
+      "name": "Frontend Tools: Async",
       "category": "interactivity",
       "description": "useFrontendTool with an async handler \u2014 agent awaits a client-side async operation (e.g. DB query) and uses the returned result",
       "og_docs_url": "https://docs.copilotkit.ai/frontend-tools",
@@ -311,7 +311,7 @@
     },
     {
       "id": "hitl-in-app",
-      "name": "In-App Human in the Loop (Frontend Tools + async HITL)",
+      "name": "Human in the Loop: In-app",
       "category": "interactivity",
       "description": "Agent calls useFrontendTool with an async handler; the approval UI pops up as an app-level modal OUTSIDE the chat, and a completion callback resolves the pending tool Promise with the user's decision",
       "og_docs_url": "https://docs.copilotkit.ai/human-in-the-loop",
@@ -319,7 +319,7 @@
     },
     {
       "id": "shared-state-read-write",
-      "name": "Shared State (Read + Write)",
+      "name": "Shared State: Read + Write",
       "category": "agent-state",
       "description": "Bidirectional agent state \u2014 UI writes preferences, agent writes notes back",
       "og_docs_url": "https://docs.copilotkit.ai/shared-state",
@@ -327,7 +327,7 @@
     },
     {
       "id": "shared-state-read",
-      "name": "Shared State (Read-Only Recipe Editor)",
+      "name": "Shared State: Read-only",
       "category": "agent-state",
       "description": "Frontend recipe form publishes shared state via agent.setState; agent reads but does not mutate the recipe (neutral default agent, no backend tool)",
       "kind": "testing",
@@ -336,7 +336,7 @@
     },
     {
       "id": "shared-state-streaming",
-      "name": "State Streaming",
+      "name": "Shared State: Streaming",
       "category": "agent-state",
       "description": "Per-token state delta streaming from agent to UI",
       "og_docs_url": "https://docs.copilotkit.ai/shared-state",
@@ -344,7 +344,7 @@
     },
     {
       "id": "readonly-state-agent-context",
-      "name": "Readonly State (Agent Context)",
+      "name": "Shared State: Frontend Context",
       "category": "agent-state",
       "description": "Frontend provides read-only context to the agent via useAgentContext",
       "og_docs_url": "https://docs.copilotkit.ai/shared-state",
@@ -381,7 +381,7 @@
     },
     {
       "id": "multimodal",
-      "name": "Multi-modal / File Uploads",
+      "name": "Attachments",
       "category": "platform",
       "description": "File upload and agent processing",
       "shell_docs_path": "/multimodal-attachments",
@@ -389,13 +389,13 @@
     },
     {
       "id": "byoc-hashbrown",
-      "name": "BYOC Hashbrown",
+      "name": "Declarative UI: Hashbrown",
       "category": "byoc",
       "description": "Hashbrown-style generative UI"
     },
     {
       "id": "byoc-json-render",
-      "name": "BYOC json-render",
+      "name": "Declarative UI: json-render",
       "category": "byoc",
       "description": "Streaming structured-output generative UI via @json-render/react"
     }
