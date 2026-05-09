@@ -147,10 +147,19 @@
       }
     },
     {
-      "_comment": "tool-rendering pill: Find flights — verbatim pill prompt, dedicated search_flights fixture. MUST take precedence over the a2ui beautiful-chat fixture below (which uses the same tool name with non-flight-list args shape).",
+      "_comment": "tool-rendering pill: Find flights — second leg (after search_flights tool result). MUST come BEFORE the first-leg fixture below — the matcher is first-match-wins, and the second leg is uniquely identified by `toolCallId` (last message is a tool with this id), so it cannot accidentally swallow the first-leg request (whose last message is the user prompt).",
       "match": {
         "userMessage": "Find flights from SFO to JFK.",
-        "hasToolResult": false
+        "toolCallId": "call_tr_flights_sfo_jfk_001"
+      },
+      "response": {
+        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289)."
+      }
+    },
+    {
+      "_comment": "tool-rendering pill: Find flights — first leg (verbatim pill prompt, dedicated search_flights fixture). MUST take precedence over the a2ui beautiful-chat fixture below (which uses the same tool name with non-flight-list args shape). Intentionally omits `hasToolResult` so this fixture also matches when SFO/JFK is the SECOND turn of a multi-turn flow (e.g. tool-rendering-reasoning-chain probe sends weather→flights). With `hasToolResult: false`, Turn 1's tool result would prevent this fixture from matching Turn 2's first leg, and the matcher would fall through to the second-leg fixture above (which now requires a matching `toolCallId` so it cannot swallow this request).",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK."
       },
       "response": {
         "toolCalls": [
@@ -160,16 +169,8 @@
             "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\"}"
           }
         ],
-        "reasoning": "The user wants flights from SFO to JFK. I'll call search_flights with those airports to look up options."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "Find flights from SFO to JFK.",
-        "hasToolResult": true
-      },
-      "response": {
-        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289)."
+        "reasoning": "The user wants flights from SFO to JFK. I'll call search_flights with those airports to look up options.",
+        "content": "Searching flights from SFO to JFK."
       }
     },
     {
@@ -1194,7 +1195,8 @@
             "arguments": "{\"location\":\"Tokyo\"}"
           }
         ],
-        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions."
+        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions.",
+        "content": "Looking up the weather in Tokyo for you."
       }
     },
     {
@@ -1212,7 +1214,8 @@
             "arguments": "{\"location\":\"Tokyo\"}"
           }
         ],
-        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions."
+        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions.",
+        "content": "Looking up the weather in Tokyo for you."
       }
     },
     {
