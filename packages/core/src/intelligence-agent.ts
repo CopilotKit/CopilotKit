@@ -279,10 +279,22 @@ export class IntelligenceAgent extends AbstractAgent {
    * Reconnect to an existing thread by fetching websocket credentials and
    * joining the realtime thread channel.
    */
+  /**
+   * Reconnect to an existing thread by fetching websocket credentials
+   * and joining the realtime thread channel.
+   *
+   * Note: this method does NOT clear the replay cursor. Whether to
+   * request a full historical replay vs. resume from
+   * `lastSeenEventId` is a decision the caller (typically
+   * `RunHandler.connectAgent`) makes by calling
+   * {@link clearReconnectCursor} ahead of time on a fresh thread
+   * restore. Same-thread churn re-connects preserve the cursor so the
+   * gateway only streams events past it instead of replaying the
+   * entire history every time the chat re-opens a socket.
+   */
   protected connect(input: RunAgentInput): Observable<BaseEvent> {
     this.threadId = input.threadId;
     this.canonicalRunId = null;
-    this.clearReconnectCursor(input.threadId);
 
     return defer(() => this.requestJoinCredentials$("connect", input)).pipe(
       switchMap((credentials) => {
@@ -685,7 +697,15 @@ export class IntelligenceAgent extends AbstractAgent {
     return this.getLastSeenEventId(input.threadId);
   }
 
-  private clearReconnectCursor(threadId: string): void {
+  /**
+   * Drop the cached `lastSeenEventId` cursor for `threadId` so the
+   * next connect to that topic asks the gateway for a full historical
+   * replay (rather than resuming). Public because
+   * `RunHandler.connectAgent` calls it on a detected thread switch
+   * to rebuild local state from scratch, and skips it on same-thread
+   * churn so the gateway can resume.
+   */
+  public clearReconnectCursor(threadId: string): void {
     this.sharedState.lastSeenEventIds.delete(threadId);
   }
 
