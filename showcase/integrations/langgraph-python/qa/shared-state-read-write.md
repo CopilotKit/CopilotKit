@@ -9,7 +9,7 @@
 
 ### 1. Basic Functionality
 
-- [ ] Navigate to `/demos/shared-state-read-write`; verify the page renders within 3s with the left sidebar (preferences + notes cards) and the right-side `CopilotChat` pane
+- [ ] Navigate to `/demos/shared-state-read-write`; verify the page renders within 3s with the preferences + notes cards in the main column and the `CopilotSidebar` open by default on the right (cards stack vertically once the viewport drops below `xl` / 1280px)
 - [ ] Verify `data-testid="preferences-card"` is visible with heading "Your preferences"
 - [ ] Verify `data-testid="notes-card"` is visible with heading "Agent notes" and empty-state `data-testid="notes-empty"` reading "No notes yet. Ask the agent to remember something."
 - [ ] Verify the chat input placeholder is "Chat with the agent..."
