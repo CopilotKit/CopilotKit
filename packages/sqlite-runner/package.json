@@ -34,11 +34,11 @@
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:*",
     "@types/better-sqlite3": "^7.6.13",
-    "@types/node": "^22.15.3",
+    "@types/node": "^24.0.0",
     "better-sqlite3": "^12.2.0",
     "tsdown": "^0.20.3",
-    "typescript": "5.8.2",
-    "vitest": "^3.0.5"
+    "typescript": "6.0.3",
+    "vitest": "^4.0.0"
   },
   "peerDependencies": {
     "better-sqlite3": "^12.2.0"
