@@ -47,7 +47,7 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@a2ui/web_core": "0.9.0",
+    "@a2ui/web_core": "0.9.2",
     "clsx": "^2.1.1",
     "zod": "^3.25.75",
     "zod-to-json-schema": "^3.24.1"
@@ -58,8 +58,8 @@
     "@types/react": "^19.2.3",
     "@types/react-dom": "^19.2.3",
     "jsdom": "^26.1.0",
-    "tsdown": "^0.20.3",
-    "typescript": "5.9.2",
+    "tsdown": "^0.22.0",
+    "typescript": "5.9.3",
     "vitest": "^3.2.4"
   },
   "peerDependencies": {
