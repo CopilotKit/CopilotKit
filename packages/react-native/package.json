@@ -78,12 +78,12 @@
   "devDependencies": {
     "@testing-library/react": "^16.3.0",
     "@types/react": "^19.2.0",
-    "jsdom": "^26.1.0",
+    "jsdom": "^29.0.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tsdown": "^0.20.3",
-    "typescript": "^5.8.3",
-    "vitest": "^3.2.4"
+    "typescript": "^6.0.0",
+    "vitest": "^4.0.0"
   },
   "peerDependencies": {
     "react": "^18 || ^19",

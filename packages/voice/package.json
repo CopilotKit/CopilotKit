@@ -31,14 +31,14 @@
   },
   "dependencies": {
     "@copilotkit/runtime": "workspace:*",
-    "openai": "^5.9.0"
+    "openai": "^6.0.0"
   },
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:*",
-    "@types/node": "^22.15.3",
+    "@types/node": "^24.0.0",
     "tsdown": "^0.20.3",
-    "typescript": "5.8.2",
-    "vitest": "^3.0.5"
+    "typescript": "6.0.3",
+    "vitest": "^4.0.0"
   },
   "engines": {
     "node": ">=18"

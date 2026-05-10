@@ -51,25 +51,25 @@
   "dependencies": {
     "@ag-ui/client": "0.0.53",
     "@copilotkit/license-verifier": "0.4.0",
-    "@segment/analytics-node": "^2.1.2",
+    "@segment/analytics-node": "^3.0.0",
     "@standard-schema/spec": "^1.0.0",
-    "chalk": "4.1.2",
+    "chalk": "5.6.2",
     "graphql": "^16.8.1",
     "partial-json": "^0.1.7",
-    "uuid": "^11.1.0",
-    "zod": "^3.23.3",
+    "uuid": "^14.0.0",
+    "zod": "^4.0.0",
     "zod-to-json-schema": "^3.23.5"
   },
   "devDependencies": {
-    "@types/uuid": "^10.0.0",
+    "@types/uuid": "^11.0.0",
     "@valibot/to-json-schema": "^1.5.0",
     "arktype": "^2.1.29",
-    "eslint": "^8.56.0",
+    "eslint": "^10.0.0",
     "tsconfig": "workspace:*",
     "tsdown": "^0.20.3",
-    "typescript": "^5.2.3",
+    "typescript": "^6.0.0",
     "valibot": "^1.2.0",
-    "vitest": "^3.2.4"
+    "vitest": "^4.0.0"
   },
   "peerDependencies": {
     "@ag-ui/core": ">=0.0.48"
