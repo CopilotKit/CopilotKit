@@ -32,7 +32,7 @@ This hook takes no parameters.
 
   <PropertyReference name="copilotkit" type="CopilotKitCoreReact">
     The live CopilotKit core instance. This is the central coordinator that manages agents, tools, suggestions, and runtime communication. It exposes methods for:
-    - Agent management (`agents`, `getAgent`)
+    - Agent management (`agents`, `getAgent`, `registerProxiedAgent`)
     - Tool registration and execution
     - Suggestion configuration and retrieval
     - Runtime connection management
@@ -167,6 +167,67 @@ function ExportButton() {
 
   <PropertyReference name="error" type="string | undefined">
     Error message if the handler threw. The tool result message will contain `"Error: ..."`.
+  </PropertyReference>
+</PropertyReference>
+
+### Registering a Proxied Agent
+
+`copilotkit.registerProxiedAgent()` mounts a new frontend agent under a local `agentId` that routes its outbound runtime requests to a different runtime agent (`runtimeAgentId`). Use this when you want multiple frontend agents — e.g. one per chat window — backed by a single runtime agent, with isolated message and state bookkeeping per frontend instance.
+
+```tsx
+import { useEffect } from "react";
+import { useCopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+
+function ChatWindow({ id }: { id: string }) {
+  const { copilotkit } = useCopilotKit();
+
+  useEffect(() => {
+    // Mount a proxy under a unique local id, all routing to the same
+    // runtime agent ("default"). Each ChatWindow gets isolated messages
+    // and state, even though they share a backend.
+    const { unregister } = copilotkit.registerProxiedAgent({
+      agentId: id,
+      runtimeAgentId: "default",
+    });
+    return unregister;
+  }, [copilotkit, id]);
+
+  return <CopilotChat agentId={id} />;
+}
+
+function App() {
+  return (
+    <>
+      <ChatWindow id="chat-customer" />
+      <ChatWindow id="chat-internal" />
+    </>
+  );
+}
+```
+
+The local `agentId` is what `useAgent`, state-manager subscriptions, and `onAgentsChanged` see. The `runtimeAgentId` is invisible to subscribers — it only changes the URL path the proxy hits (`/agent/<runtimeAgentId>/run`).
+
+#### `registerProxiedAgent` Parameters
+
+<PropertyReference name="params" type="CopilotKitCoreRegisterProxiedAgentParams">
+  <PropertyReference name="agentId" type="string" required>
+    The local registry id under which the proxy is registered. Used by `useAgent`, state-manager subscriptions, and all subscriber bookkeeping. Must not collide with any existing local agent or runtime-discovered agent — registration throws on collision.
+  </PropertyReference>
+
+  <PropertyReference name="runtimeAgentId" type="string" required>
+    The id of the runtime agent that this proxy routes outbound HTTP requests to. Invisible to subscribers — only affects URL paths and single-route envelopes.
+  </PropertyReference>
+</PropertyReference>
+
+#### `registerProxiedAgent` Return Value
+
+<PropertyReference name="result" type="CopilotKitCoreRegisterProxiedAgentResult">
+  <PropertyReference name="agent" type="ProxiedCopilotRuntimeAgent">
+    The minted proxy. Callers can hold this reference to call `setMessages`, `setState`, etc. directly. The same instance is returned by `copilotkit.getAgent(agentId)` and `useAgent({ agentId })` after registration.
+  </PropertyReference>
+
+  <PropertyReference name="unregister" type="() => void">
+    Removes the proxy from the registry and emits `onAgentsChanged`. Idempotent — calling twice is a no-op. If a subsequent `registerProxiedAgent` replaced the slot at the same `agentId`, a stale `unregister` from a previous registration will not strip the new entry.
   </PropertyReference>
 </PropertyReference>
 

@@ -12,12 +12,9 @@ import { test, expect } from "@playwright/test";
 // PriceTag, Button) bind path strings like "/airline" / "/price" to the
 // incoming data model.
 //
-// The "Book flight" Button has a stateful override (ActionButton in
-// a2ui/renderers.tsx) that transitions to a "Booked" state with a green
-// check SVG on click — purely local, because the SDK doesn't yet support
-// `action_handlers=` on the Python side (see the comment in
-// a2ui_fixed.py). The `booked_schema.json` swap path is therefore NOT
-// expected to fire and is intentionally not tested.
+// This is a pure-presentation demo: the "Book flight" Button is inert —
+// schema-swap-on-action will be wired up once the Python SDK exposes
+// `action_handlers=` on `a2ui.render` (see comment in a2ui_fixed.py).
 //
 // No data-testid anywhere in the demo. Assertions ride on:
 //   - verbatim label text hardcoded in flight_schema.json ("Flight
@@ -87,28 +84,5 @@ test.describe("A2UI Fixed Schema (flight card)", () => {
     await expect(page.getByRole("button", { name: "Book flight" })).toBeVisible(
       { timeout: 10_000 },
     );
-  });
-
-  test("Book flight button transitions to Booked on click", async ({
-    page,
-  }) => {
-    const suggestions = page.locator('[data-testid="copilot-suggestion"]');
-    await suggestions.filter({ hasText: "Find SFO → JFK" }).first().click();
-
-    // Render budget is 90s here: the first click after cold-start can
-    // burn most of a minute before `display_flight` emits the
-    // a2ui_operations container, and we then need the full 12-node tree
-    // to resolve before the Book flight button exists.
-    const bookBtn = page.getByRole("button", { name: "Book flight" });
-    await expect(bookBtn).toBeVisible({ timeout: 90_000 });
-    await bookBtn.click();
-
-    // After click: label switches to "Booked" and the button becomes
-    // disabled. This is the purely-local ActionButton state transition;
-    // no agent round-trip is involved.
-    await expect(page.getByRole("button", { name: "Booked" })).toBeVisible({
-      timeout: 10_000,
-    });
-    await expect(page.getByRole("button", { name: "Booked" })).toBeDisabled();
   });
 });

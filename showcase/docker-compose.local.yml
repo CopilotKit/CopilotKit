@@ -98,6 +98,17 @@ services:
       context: ../
       dockerfile: showcase/shell-dashboard/Dockerfile
       args:
+        # PocketBase URL the browser hits at runtime — pinned to the host
+        # binding so the user's browser (not the container) can resolve it.
+        NEXT_PUBLIC_POCKETBASE_URL: http://localhost:8090
+        # Showcase shell URL the dashboard links to for Demo / Code /
+        # docs-shell jumps. Points at the langgraph-python integration's
+        # host port for now (no shared "shell" service in the local stack).
+        NEXT_PUBLIC_SHELL_URL: http://localhost:3100
+        # /api/ops/* rewrites here. There's no harness HTTP server in the
+        # local stack, so this points back at the dashboard itself; the
+        # rewrites will 404 but the matrix view reads from PocketBase
+        # directly and doesn't depend on /api/ops.
         OPS_BASE_URL: http://localhost:3200
     image: showcase-dashboard:local
     container_name: showcase-dashboard

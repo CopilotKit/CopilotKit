@@ -37,9 +37,16 @@ export type D5FeatureType =
   | "shared-state-read"
   | "shared-state-write"
   | "hitl-approve-deny"
-  | "hitl-steps"
   | "hitl-text-input"
-  | "gen-ui-headless"
+  // `headless-simple` is named after the demo route it covers
+  // (`/demos/headless-simple`). It used to be `gen-ui-headless`, but
+  // the simple template was refactored to text-in/text-out without any
+  // gen-UI surface — the literal was renamed in lock-step so the slug
+  // describes what it actually probes. `headless-complete` keeps its
+  // `gen-ui-headless-complete` literal because that demo still drives
+  // the full gen-UI surface (`useComponent` + `useRenderTool` + MCP).
+  | "headless-simple"
+  | "gen-ui-headless-complete"
   | "gen-ui-custom"
   | "mcp-apps"
   | "subagents"
@@ -58,7 +65,6 @@ export type D5FeatureType =
   | "frontend-tools-async"
   // Reasoning family — reasoning/thinking block + final answer.
   | "reasoning-display"
-  | "tool-rendering-reasoning-chain"
   // State family — streaming state updates and read-only agent context.
   | "shared-state-streaming"
   | "readonly-state-context"
@@ -66,16 +72,48 @@ export type D5FeatureType =
   | "gen-ui-declarative"
   | "gen-ui-a2ui-fixed"
   | "gen-ui-open"
+  | "gen-ui-open-advanced"
   | "gen-ui-agent"
+  // Tool-rendering catchall family — split from the shared `tool-rendering`
+  // literal so the default catchall (built-in renderer) and the custom
+  // catchall (user-supplied wildcard renderer) get their own probes that
+  // assert distinct testid contracts. See Phase-2A in
+  // `.claude/specs/lgp-test-genuine-pass.md`.
+  | "tool-rendering-default-catchall"
+  | "tool-rendering-custom-catchall"
   // Interrupt family — LangGraph-interrupt-driven HITL (distinct from
   // useHumanInTheLoop hook patterns).
-  | "interrupt-headless"
   | "gen-ui-interrupt"
+  // Headless-interrupt — same `interrupt(...)` backend pattern as
+  // gen-ui-interrupt, but the time-picker mounts in a separate "app
+  // surface" pane (left) instead of inline inside the chat bubble.
+  // Probes `useHeadlessInterrupt` (custom-event subscribe + manual
+  // `runAgent({forwardedProps:{command:{resume,...}}})`).
+  | "interrupt-headless"
+  // Tool-rendering with reasoning chain — combines per-tool renderers
+  // (WeatherCard / FlightListCard / catchall) with a `reasoningMessage`
+  // slot rendering reasoning tokens. Distinct from `tool-rendering`
+  // (no reasoning) and `reasoning-display` (no per-tool renderers).
+  | "tool-rendering-reasoning-chain"
   // BYOC family — bring-your-own-component structured-output rendering
   // (one literal covers hashbrown + json-render via preNavigateRoute).
   | "byoc"
   // Voice family — voice input/output.
-  | "voice";
+  | "voice"
+  // Beautiful Chat family — one literal per pill on /demos/beautiful-chat
+  // because CopilotKit v2 only renders the FIRST useComponent tool call
+  // in a conversation. Splitting into per-pill scripts means each probe
+  // gets its own browser launch (fresh page, fresh conversation), which
+  // sidesteps the multi-turn rendering quirk. CATALOG_TO_D5_KEY maps
+  // `beautiful-chat` to all five listed literals; `isD5Green` requires
+  // every listed key to be green for the cell to advance to D5. See
+  // `_beautiful-chat-shared.ts` for the full rationale and the
+  // Excalidraw / Calculator / Sales Dashboard / Task Manager exclusions.
+  | "beautiful-chat-toggle-theme"
+  | "beautiful-chat-pie-chart"
+  | "beautiful-chat-bar-chart"
+  | "beautiful-chat-search-flights"
+  | "beautiful-chat-schedule-meeting";
 
 /**
  * Closed-set runtime mirror of `D5FeatureType`. Kept in lock-step with
@@ -88,9 +126,9 @@ const D5_FEATURE_TYPES: readonly D5FeatureType[] = [
   "shared-state-read",
   "shared-state-write",
   "hitl-approve-deny",
-  "hitl-steps",
   "hitl-text-input",
-  "gen-ui-headless",
+  "headless-simple",
+  "gen-ui-headless-complete",
   "gen-ui-custom",
   "mcp-apps",
   "subagents",
@@ -104,17 +142,25 @@ const D5_FEATURE_TYPES: readonly D5FeatureType[] = [
   "frontend-tools",
   "frontend-tools-async",
   "reasoning-display",
-  "tool-rendering-reasoning-chain",
   "shared-state-streaming",
   "readonly-state-context",
   "gen-ui-declarative",
   "gen-ui-a2ui-fixed",
   "gen-ui-open",
+  "gen-ui-open-advanced",
   "gen-ui-agent",
-  "interrupt-headless",
+  "tool-rendering-default-catchall",
+  "tool-rendering-custom-catchall",
   "gen-ui-interrupt",
+  "interrupt-headless",
+  "tool-rendering-reasoning-chain",
   "byoc",
   "voice",
+  "beautiful-chat-toggle-theme",
+  "beautiful-chat-pie-chart",
+  "beautiful-chat-bar-chart",
+  "beautiful-chat-search-flights",
+  "beautiful-chat-schedule-meeting",
 ] as const satisfies readonly D5FeatureType[];
 
 /**

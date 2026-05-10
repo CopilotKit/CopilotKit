@@ -35,6 +35,7 @@ function ShowCard({ title, body }: { title: string; body: string }) {
 
 function HeadlessChat() {
   // @region[use-agent-simple]
+  // @region[headless-hooks]
   const { agent } = useAgent({ agentId: "headless-simple" });
   const { copilotkit } = useCopilotKit();
   const [input, setInput] = useState("");
@@ -50,19 +51,34 @@ function HeadlessChat() {
   });
 
   const renderToolCall = useRenderToolCall();
+  // @endregion[headless-hooks]
   // @endregion[use-agent-simple]
 
-  const send = () => {
-    const text = input.trim();
+  const send = (override?: string) => {
+    const text = (override ?? input).trim();
     if (!text || agent.isRunning) return;
     agent.addMessage({
       id: crypto.randomUUID(),
       role: "user",
       content: text,
     });
+    // Use copilotkit.runAgent so frontend tools registered via useComponent are
+    // forwarded to the agent. Calling agent.runAgent() directly would bypass
+    // tool registration and the agent would never see `show_card`.
     void copilotkit.runAgent({ agent }).catch(() => {});
     setInput("");
   };
+
+  const suggestions = [
+    {
+      title: "Profile card",
+      message: "Show me a profile card for Ada Lovelace",
+    },
+    {
+      title: "Largest continent",
+      message: "What is the largest continent?",
+    },
+  ];
 
   return (
     <div className="flex flex-col gap-3">
@@ -111,6 +127,19 @@ function HeadlessChat() {
         )}
         {/* @endregion[message-list-simple] */}
       </div>
+      <div data-testid="headless-suggestions" className="flex flex-wrap gap-2">
+        {suggestions.map((s) => (
+          <button
+            key={s.title}
+            type="button"
+            onClick={() => send(s.message)}
+            disabled={agent.isRunning}
+            className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {s.title}
+          </button>
+        ))}
+      </div>
       <div className="flex gap-2">
         <textarea
           className="flex-1 rounded-lg border border-gray-300 p-2 text-sm"
@@ -127,7 +156,7 @@ function HeadlessChat() {
         />
         <button
           className="rounded-lg bg-blue-600 px-4 py-2 text-white text-sm font-medium disabled:opacity-50"
-          onClick={send}
+          onClick={() => send()}
           disabled={agent.isRunning || !input.trim()}
         >
           Send

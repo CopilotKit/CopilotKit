@@ -18,6 +18,8 @@ jobs:
     name: Sync QA Instructions
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
 
     steps:
       - name: Checkout
@@ -46,7 +48,7 @@ jobs:
         run: npx tsx sync-qa-to-notion.ts
 
       - name: Notify Slack (failure)
-        if: failure()
+        if: failure() && env.SLACK_WEBHOOK != ''
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}

@@ -1,7 +1,10 @@
 /**
- * D5 — shared-state script.
+ * D5 — shared-state-write script.
  *
- * Owns BOTH `shared-state-read` and `shared-state-write` feature types.
+ * Owns `shared-state-write` only (the `shared-state-read` literal moved
+ * to d5-shared-state-read.ts which probes the standalone recipe-editor
+ * demo at `/demos/shared-state-read`).
+ *
  * The conversation exercises the agent-write half of bidirectional
  * shared state vs the LangGraph Python `shared_state_read_write`
  * agent: turn 1 the user asks the agent to remember something, the
@@ -17,19 +20,8 @@
  *     matches the fixture's `userMessage` matcher; the matcher is
  *     prefix-loose so the question form is fine)
  *
- * Why both feature types in one script: the D5 registry fans out one
- * probe per feature type, but the underlying demo page, LangGraph
- * agent, and aimock fixture are shared. Both `shared-state-read` and
- * `shared-state-write` navigate to `/demos/shared-state-read-write`
- * where the bidirectional `set_notes` agent lives. The registry's
- * single-script / multi-feature-type shape exists for exactly this case.
- *
- * Route override: both feature types map to `/demos/shared-state-read-write`.
- * The legacy split paths `/demos/shared-state-read` (a recipe-editor
- * page with a different agent) and `/demos/shared-state-write` (a TODO
- * stub in most packages) do not match the D5 fixture's conversation
- * shape. `preNavigateRoute` is set explicitly so this script is the
- * single source of truth for its route map.
+ * Route: `/demos/shared-state-read-write` (where the bidirectional
+ * `set_notes` agent lives).
  */
 
 import {
@@ -67,23 +59,16 @@ export const TURN_2_INPUT = "What is my favorite color?";
 /**
  * Route map. Centralised so the unit test can verify it directly.
  *
- * Both feature types navigate to `/demos/shared-state-read-write`
- * because the working demo page (with bidirectional agent state and
- * the `set_notes` tool the fixture exercises) lives there. The legacy
- * split paths `/demos/shared-state-read` and `/demos/shared-state-write`
- * are either recipe-editor pages (wrong agent, wrong conversation
- * shape) or TODO stubs — neither matches the D5 fixture.
+ * `shared-state-write` navigates to `/demos/shared-state-read-write`
+ * where the bidirectional `set_notes` agent lives.
  */
 export function preNavigateRoute(featureType: D5FeatureType): string {
-  if (
-    featureType === "shared-state-read" ||
-    featureType === "shared-state-write"
-  ) {
+  if (featureType === "shared-state-write") {
     return "/demos/shared-state-read-write";
   }
   // Defensive: registry is closed-typed so callers can't reach this
   // branch through public API, but a future feature-type rename that
-  // dropped one of the two would land here. Surface it loudly.
+  // dropped this would land here. Surface it loudly.
   throw new Error(
     `d5-shared-state: preNavigateRoute called with unsupported featureType "${featureType}"`,
   );
@@ -258,7 +243,7 @@ function truncate(text: string, max: number): string {
 // this file at boot; importing it triggers this call which writes the
 // script under both feature types in `D5_REGISTRY`.
 registerD5Script({
-  featureTypes: ["shared-state-read", "shared-state-write"],
+  featureTypes: ["shared-state-write"],
   fixtureFile: "shared-state.json",
   buildTurns,
   preNavigateRoute,

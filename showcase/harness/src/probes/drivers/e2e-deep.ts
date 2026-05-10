@@ -210,6 +210,37 @@ export interface E2eDeepPage extends Page {
    * out to enrich the error signal.
    */
   getDiagnostics?(): { consoleLogs: string[]; requestFailures: string[] };
+  /**
+   * Whether the underlying page has been closed. Optional so test fakes
+   * don't have to track it. The runner uses this to skip best-effort
+   * diagnostic page.evaluate calls when the page is gone — they'd just
+   * throw a "Target page closed" message that's already implicit in
+   * the surrounding failure context. Probes that loop on page.evaluate
+   * (e.g. polling assertions) can also use this to short-circuit
+   * gracefully when a renderer crash closes the page underneath them.
+   */
+  isClosed?(): boolean;
+  /**
+   * Install a request interceptor on the underlying Playwright page.
+   * Optional — only the d5-readonly-state-context probe currently uses
+   * this surface. Test fakes can omit it; the probe falls back with a
+   * clear error message ("page is missing route()") when absent. The
+   * handler is invoked with route/request objects matching Playwright's
+   * shape; callers must call `route.continue()` to forward the request.
+   */
+  route?(
+    url: string | RegExp,
+    handler: (
+      route: { continue(): Promise<void> },
+      request: { url(): string; method(): string; postData(): string | null },
+    ) => void | Promise<void>,
+  ): Promise<unknown>;
+  /**
+   * Remove a previously-installed `route()` interceptor. Probes pair
+   * `route()` + `unroute()` to keep request mocking scoped to a single
+   * assertion.
+   */
+  unroute?(url: string | RegExp): Promise<unknown>;
 }
 
 export interface E2eDeepBrowserContext {
@@ -239,6 +270,8 @@ export interface E2eDeepDriverDeps {
   launcher?: E2eDeepBrowserLauncher;
   pageTimeoutMs?: number;
   timeoutMs?: number;
+  /** Per-feature wall-clock cap; see `DEFAULT_FEATURE_TIMEOUT_MS`. */
+  featureTimeoutMs?: number;
   scriptLoader?: E2eDeepScriptLoader;
   /**
    * Override the navigation URL builder. Defaults to
@@ -247,8 +280,26 @@ export interface E2eDeepDriverDeps {
    */
 }
 
-const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
+/**
+ * Global wall-clock for the entire e2e-deep slug — covers all features
+ * for one integration. With ~30 features × ~45s avg / FEATURE_CONCURRENCY,
+ * the budget needs to comfortably exceed sequential-equivalent time.
+ * The previous 5-min ceiling tripped during normal runs and aborted
+ * every still-pending feature, producing the fc=1 cascade in PB.
+ *
+ * Per-feature time is bounded separately by `DEFAULT_FEATURE_TIMEOUT_MS`
+ * so a single hung feature can't monopolize this budget.
+ */
+const DEFAULT_TIMEOUT_MS = 30 * 60 * 1000;
 const DEFAULT_PAGE_TIMEOUT_MS = 30 * 1000;
+/**
+ * Per-feature wall-clock — wraps `runFeature(...)` in a Promise.race so
+ * a single wedged feature (browser hang, infinite assertion loop,
+ * unkilled page) can't drain the global budget for downstream
+ * features. The synthetic timeout result is recorded as red with a
+ * `feature-timeout` errorClass; the feature loop continues.
+ */
+const DEFAULT_FEATURE_TIMEOUT_MS = 5 * 60 * 1000;
 
 /**
  * Maximum number of features that run concurrently within a single service
@@ -372,6 +423,10 @@ const defaultLauncher: E2eDeepBrowserLauncher =
                 consoleLogs: consoleLogs.slice(-20),
                 requestFailures: requestFailures.slice(-10),
               }),
+              isClosed: () => page.isClosed(),
+              route: (url, handler) =>
+                page.route(url, handler as Parameters<typeof page.route>[1]),
+              unroute: (url) => page.unroute(url),
             };
             return wrapped;
           },
@@ -487,6 +542,10 @@ export function createPooledE2eDeepLauncher(
                 consoleLogs: consoleLogs.slice(-20),
                 requestFailures: requestFailures.slice(-10),
               }),
+              isClosed: () => page.isClosed(),
+              route: (url, handler) =>
+                page.route(url, handler as Parameters<typeof page.route>[1]),
+              unroute: (url) => page.unroute(url),
             };
             return wrapped;
           },
@@ -593,6 +652,7 @@ export function createE2eDeepDriver(
   const launcher = deps.launcher ?? defaultLauncher;
   const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const pageTimeoutMs = deps.pageTimeoutMs ?? DEFAULT_PAGE_TIMEOUT_MS;
+  const featureTimeoutMs = deps.featureTimeoutMs ?? DEFAULT_FEATURE_TIMEOUT_MS;
   const scriptLoader = deps.scriptLoader ?? defaultScriptLoader;
 
   return {
@@ -919,18 +979,137 @@ export function createE2eDeepDriver(
               };
             }
 
-            const featureResult = await runFeature({
-              browser: browserRef,
-              url,
-              pageTimeoutMs,
-              script,
-              buildCtx: {
-                integrationSlug: slug,
-                featureType: ft,
-                baseUrl: backendUrl,
-              },
-              abortSignal: abort.signal,
-            });
+            // Race runFeature against a per-feature wall-clock so a
+            // single wedged feature can't drain the global budget for
+            // downstream features (was the cascade source — every
+            // pending feature flipped to fc=1 'aborted' once the
+            // global hit). The synthetic timeout result is shaped like
+            // a normal runFeature failure so the rest of the loop is
+            // unchanged.
+            //
+            // Cancellation: per-feature abort controller's signal is
+            // forwarded to runFeature. When the timer wins the race we
+            // call `.abort()` so runFeature's in-flight Playwright ops
+            // (and the page/context they hold) get torn down via the
+            // existing finally chain — instead of orphaning the browser
+            // context until the global timeout eventually fires. This
+            // matters because Semaphore.release() runs immediately
+            // after the race resolves, and a new feature acquiring the
+            // slot while an orphan still holds a context can silently
+            // exceed FEATURE_CONCURRENCY's pool budget.
+            //
+            // Timer cleanup is in a try/finally so a thrown rejection
+            // from runFeature (defensive — the contract says it
+            // doesn't throw) doesn't leak the unref'd setTimeout.
+            const featureAbort = new AbortController();
+            // Propagate the parent abort (global timeout / external
+            // abort) into the per-feature controller so runFeature
+            // sees both signals through one input.
+            const onParentAbort = (): void => featureAbort.abort();
+            if (abort.signal.aborted) featureAbort.abort();
+            else
+              abort.signal.addEventListener("abort", onParentAbort, {
+                once: true,
+              });
+
+            // Run the feature, retrying ONCE on transient failures so a
+            // flaky D5 cell (browser context boot variance, race against
+            // an in-flight LLM stream, intermittent network blip) does
+            // not flip the dashboard cell to red. Persistent failures
+            // still register as red — the second attempt is gated on
+            // the first having failed for a CLASS we believe is
+            // retryable. We do NOT retry: `abort` (intentional
+            // cancellation, e.g. the global timeout fired), or
+            // `feature-timeout` (we already burned the wall-clock
+            // budget — a second attempt couldn't fit anyway).
+            // Retryable classes match what `runFeature` actually emits:
+            // `goto-error` (navigation blip) and `conversation-error`
+            // (transient stream / settle / assertion timing).
+            //
+            // Additional gate: only retry if the first attempt ran for
+            // at least RETRY_MIN_DURATION_MS. A sub-2s failure is
+            // almost always a deterministic assertion mismatch (testid
+            // typo, fixture shape drift, agent wiring regression) that
+            // a second attempt would just re-fail more slowly. Letting
+            // those land as red on attempt #1 keeps the cell signal
+            // honest.
+            const RETRY_ELIGIBLE_ERROR_CLASSES = new Set<string>([
+              "goto-error",
+              "conversation-error",
+            ]);
+            const RETRY_MIN_DURATION_MS = 2_000;
+            const runOnce = async (): Promise<
+              Awaited<ReturnType<typeof runFeature>>
+            > => {
+              let featureTimer: ReturnType<typeof setTimeout> | undefined;
+              try {
+                return await Promise.race([
+                  runFeature({
+                    browser: browserRef,
+                    url,
+                    pageTimeoutMs,
+                    script,
+                    buildCtx: {
+                      integrationSlug: slug,
+                      featureType: ft,
+                      baseUrl: backendUrl,
+                    },
+                    abortSignal: featureAbort.signal,
+                  }),
+                  new Promise<Awaited<ReturnType<typeof runFeature>>>(
+                    (resolve) => {
+                      featureTimer = setTimeout(() => {
+                        featureAbort.abort();
+                        resolve({
+                          ok: false,
+                          errorClass: "feature-timeout",
+                          errorDesc: `feature exceeded ${featureTimeoutMs}ms wall-clock`,
+                        });
+                      }, featureTimeoutMs);
+                    },
+                  ),
+                ]);
+              } finally {
+                if (featureTimer) clearTimeout(featureTimer);
+              }
+            };
+
+            let featureResult: Awaited<ReturnType<typeof runFeature>>;
+            try {
+              const attempt1Start = Date.now();
+              featureResult = await runOnce();
+              const attempt1Duration = Date.now() - attempt1Start;
+
+              if (
+                !featureResult.ok &&
+                !abort.signal.aborted &&
+                !featureAbort.signal.aborted &&
+                featureResult.errorClass !== undefined &&
+                RETRY_ELIGIBLE_ERROR_CLASSES.has(featureResult.errorClass) &&
+                attempt1Duration >= RETRY_MIN_DURATION_MS
+              ) {
+                ctx.logger.info("probe.e2e-deep.feature-retry", {
+                  slug,
+                  featureType: ft,
+                  attempt: 1,
+                  errorClass: featureResult.errorClass,
+                  errorDesc: featureResult.errorDesc,
+                  attempt1DurationMs: attempt1Duration,
+                });
+                featureResult = await runOnce();
+                ctx.logger.info("probe.e2e-deep.feature-retry-result", {
+                  slug,
+                  featureType: ft,
+                  attempt: 2,
+                  ok: featureResult.ok,
+                  errorClass: featureResult.ok
+                    ? undefined
+                    : featureResult.errorClass,
+                });
+              }
+            } finally {
+              abort.signal.removeEventListener("abort", onParentAbort);
+            }
 
             if (featureResult.ok) {
               await sideEmit(ctx, {
@@ -1310,6 +1489,23 @@ async function captureDiagnostics(
   page: E2eDeepPage,
 ): Promise<Record<string, unknown> | undefined> {
   let diagnostics: Record<string, unknown> | undefined;
+  // Skip the DOM read if the page has already been closed (renderer
+  // crash, browser teardown). page.evaluate would throw "Target page
+  // closed" — already swallowed by the try/catch below, but skipping
+  // up-front keeps logs clean and avoids paying for the round-trip.
+  // Probes that loop on page.evaluate (e.g. assertToggleTheme) should
+  // also check isClosed() to short-circuit gracefully.
+  if (page.isClosed?.()) {
+    const browserDiag = page.getDiagnostics?.();
+    if (browserDiag) {
+      return {
+        pageClosed: true,
+        consoleLogs: browserDiag.consoleLogs,
+        requestFailures: browserDiag.requestFailures,
+      };
+    }
+    return { pageClosed: true };
+  }
   try {
     // DOM types reached via a type-erased indirection because the
     // package's tsconfig intentionally excludes the `dom` lib

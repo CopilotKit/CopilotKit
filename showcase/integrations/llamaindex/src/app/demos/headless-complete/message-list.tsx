@@ -19,18 +19,22 @@ export function MessageList({
   }, [messages, isRunning]);
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+    <div
+      data-testid="headless-complete-messages"
+      className="flex-1 overflow-y-auto px-4 py-3 space-y-3"
+    >
       {messages.length === 0 && (
-        <div className="text-sm text-gray-400">No messages yet. Say hi!</div>
+        <div className="text-center text-sm text-gray-400 mt-8">
+          Try weather, a stock, a highlighted note, or an Excalidraw sketch.
+        </div>
       )}
       {messages.map((m) => {
         if (m.role === "user") {
           return (
-            <div
-              key={m.id}
-              className="self-end ml-auto max-w-[80%] rounded-lg bg-blue-600 px-3 py-2 text-white"
-            >
-              {typeof m.content === "string" ? m.content : ""}
+            <div key={m.id} className="flex justify-end">
+              <div className="max-w-[75%] rounded-2xl rounded-br-sm ml-auto bg-blue-600 px-3 py-2 text-white">
+                {typeof m.content === "string" ? m.content : ""}
+              </div>
             </div>
           );
         }

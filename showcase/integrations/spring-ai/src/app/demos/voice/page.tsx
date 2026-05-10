@@ -6,8 +6,7 @@ import { SampleAudioButton } from "./sample-audio-button";
 
 const RUNTIME_URL = "/api/copilotkit-voice";
 const AGENT_ID = "voice-demo";
-const SAMPLE_AUDIO_PATH = "/demo-audio/sample.wav";
-const SAMPLE_LABEL = "What is the weather in Tokyo?";
+const SAMPLE_TEXT = "What is the weather in Tokyo?";
 
 /**
  * Voice demo (Spring AI port).
@@ -61,9 +60,7 @@ export default function VoiceDemoPage() {
         </header>
         <SampleAudioButton
           onTranscribed={handleTranscribed}
-          runtimeUrl={RUNTIME_URL}
-          audioSrc={SAMPLE_AUDIO_PATH}
-          sampleLabel={SAMPLE_LABEL}
+          sampleText={SAMPLE_TEXT}
         />
         <div className="min-h-0 flex-1 overflow-hidden rounded-md border border-black/10 dark:border-white/10">
           <CopilotChat agentId={AGENT_ID} className="h-full" />

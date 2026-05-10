@@ -10,13 +10,13 @@
  */
 import { createCatalog } from "@copilotkit/a2ui-renderer";
 
-import { flightDefinitions } from "./definitions";
-import { flightRenderers } from "./renderers";
+import { definitions } from "./definitions";
+import { renderers } from "./renderers";
 
 export const CATALOG_ID = "copilotkit://flight-fixed-catalog";
 
 // @region[catalog-creation]
-export const fixedCatalog = createCatalog(flightDefinitions, flightRenderers, {
+export const catalog = createCatalog(definitions, renderers, {
   catalogId: CATALOG_ID,
   includeBasicCatalog: true,
 });

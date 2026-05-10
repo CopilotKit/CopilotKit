@@ -7,7 +7,7 @@ Everything in CopilotKit — messages, state updates, tool calls, and more — f
 The `useAgent` hook is your primary interface to the AG-UI agent powering your copilot. It returns an [`AbstractAgent`](https://github.com/ag-ui-protocol/ag-ui/blob/main/typescript/packages/client/src/agents/abstract-agent.ts) from the AG-UI client library — the same base type that all AG-UI agents implement.
 
 ```tsx
-import { useAgent } from "@copilotkit/react-core";
+import { useAgent } from "@copilotkit/react-core/v2";
 
 function MyComponent() {
   const { agent } = useAgent();
@@ -31,7 +31,7 @@ The returned `agent` is a standard AG-UI `AbstractAgent`. You can subscribe to i
 Every agent exposes a `subscribe` method that lets you listen for specific AG-UI events as they stream in. Each callback receives the event and the current agent state:
 
 ```tsx
-import { useAgent } from "@copilotkit/react-core";
+import { useAgent } from "@copilotkit/react-core/v2";
 import { useEffect } from "react";
 
 function MyComponent() {

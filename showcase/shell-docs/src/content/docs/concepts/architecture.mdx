@@ -49,11 +49,11 @@ A protocol-based architecture means you can swap the agent layer without rewriti
 4. Agent emits text, tool calls, and state updates as AG-UI events.
 5. Runtime streams the events back; the frontend renders them in real time.
 6. If the agent calls a frontend tool, the runtime relays the request, your hook handler runs in the browser, and the result flows back to the agent.
-7. Threads, persistence, and realtime sync (when configured) are mediated by the [Intelligence Platform](/premium/intelligence-platform) — the Enterprise backend that sits beside the runtime.
+7. Threads, persistence, and realtime sync (when configured) are mediated by the [Enterprise Intelligence Platform](/premium/intelligence-platform) — the Enterprise backend that sits beside the runtime.
 
 ## Where to go next
 
 - **Practical setup** — [Quickstart](/quickstart) walks through wiring all three layers in ~10 minutes against the Built-in Agent.
 - **Protocol depth** — [AG-UI documentation](/agentic-protocols/ag-ui) covers every event type, transport option, and middleware hook.
 - **Backend choices** — [Agents & Backends](/built-in-agent) explains the runtime, custom agents, and the trade-offs between Built-in, external frameworks, and bring-your-own.
-- **Enterprise deployment** — [Intelligence Platform](/premium/intelligence-platform) covers Threads, Persistence, Observability, and the hosted-vs-self-hosted decision.
+- **Enterprise deployment** — [Enterprise Intelligence Platform](/premium/intelligence-platform) covers Threads, Persistence, Observability, and the hosted-vs-self-hosted decision.

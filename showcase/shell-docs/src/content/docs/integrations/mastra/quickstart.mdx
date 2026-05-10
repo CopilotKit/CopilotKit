@@ -46,10 +46,20 @@ Before you begin, you'll need the following:
             <Step>
                 ### Run our CLI
 
-                First, we'll use our CLI to create a new project for us.
+                ```bash
+                npx copilotkit@latest create
+                ```
+
+                The CLI walks you through:
+
+                - **Project name**
+                - **Enterprise Intelligence Platform** — persistent threads, observability, and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard Mastra setup.
+                - **Framework** — pick **Mastra** when prompted.
+
+                Or skip the prompts and pin a framework directly:
 
                 ```bash
-                npx copilotkit@latest create -f mastra
+                npx copilotkit@latest create --framework mastra
                 ```
             </Step>
             <Step>
@@ -166,7 +176,7 @@ Before you begin, you'll need the following:
                 ### Install CopilotKit packages
 
                 ```npm
-                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/mastra @ag-ui/core @ag-ui/client @mastra/client-js @ai-sdk/openai
+                npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/mastra @ag-ui/core @ag-ui/client @mastra/client-js @ai-sdk/openai
                 ```
             </Step>
             <Step>
@@ -208,7 +218,7 @@ Before you begin, you'll need the following:
 
                 ```tsx title="app/layout.tsx"
                 import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
-                import "@copilotkit/react-ui/v2/styles.css"; // [!code highlight]
+                import "@copilotkit/react-core/v2/styles.css"; // [!code highlight]
                 import './globals.css';
 
                 // ...

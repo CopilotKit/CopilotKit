@@ -22,11 +22,11 @@ All observability hooks require a `publicLicenseKey` (self-hosted) or `publicApi
 Track user interactions and chat events:
 
 ```tsx
-import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 
 export default function App() {
   return (
-    <CopilotKitProvider
+    <CopilotKit
       publicApiKey="ck_pub_your_key" // [!code highlight] — Copilot Cloud
       // OR
       publicLicenseKey="ck_pub_your_key" // [!code highlight] — self-hosted
@@ -44,7 +44,7 @@ export default function App() {
           },
         }}
       />
-    </CopilotKitProvider>
+    </CopilotKit>
   );
 }
 ```
@@ -56,9 +56,9 @@ export default function App() {
 Monitor runtime errors:
 
 ```tsx
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
-<CopilotKitProvider
+<CopilotKit
   publicApiKey="ck_pub_your_key" // [!code highlight]
   // OR
   publicLicenseKey="ck_pub_your_key" // [!code highlight]
@@ -73,7 +73,7 @@ import { CopilotKitProvider } from "@copilotkit/react-core/v2";
   showDevConsole={false} // hide dev console in production
 >
   {/* Your app */}
-</CopilotKitProvider>;
+</CopilotKit>;
 ```
 </Step>
 
@@ -140,7 +140,7 @@ Forward error events to Sentry using its `captureException` API:
 ```tsx
 import * as Sentry from "@sentry/react";
 
-<CopilotKitProvider
+<CopilotKit
   publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
   onError={(errorEvent) => {
     if (errorEvent.type === "error") {
@@ -158,7 +158,7 @@ import * as Sentry from "@sentry/react";
   }}
 >
   {/* Your app */}
-</CopilotKitProvider>;
+</CopilotKit>;
 ```
 
 ### Custom analytics
@@ -166,7 +166,7 @@ import * as Sentry from "@sentry/react";
 Route all CopilotKit events to your analytics pipeline via the `onError` callback:
 
 ```tsx
-<CopilotKitProvider
+<CopilotKit
   publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
   onError={(errorEvent) => {
     analytics.track("copilotkit_event", {
@@ -180,7 +180,7 @@ Route all CopilotKit events to your analytics pipeline via the `onError` callbac
   }}
 >
   {/* Your app */}
-</CopilotKitProvider>
+</CopilotKit>
 ```
 
 ## Development vs production
@@ -190,7 +190,7 @@ Route all CopilotKit events to your analytics pipeline via the `onError` callbac
 Enable the dev console and attach lightweight logging hooks for local iteration:
 
 ```tsx
-<CopilotKitProvider
+<CopilotKit
   runtimeUrl="http://localhost:3000/api/copilotkit"
   publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
   showDevConsole={true}
@@ -202,7 +202,7 @@ Enable the dev console and attach lightweight logging hooks for local iteration:
       onChatExpanded: () => console.log("Chat expanded"),
     }}
   />
-</CopilotKitProvider>
+</CopilotKit>
 ```
 
 ### Production
@@ -210,7 +210,7 @@ Enable the dev console and attach lightweight logging hooks for local iteration:
 Disable the dev console and route errors to your logging and monitoring services:
 
 ```tsx
-<CopilotKitProvider
+<CopilotKit
   runtimeUrl="https://your-app.com/api/copilotkit"
   publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
   showDevConsole={false} // hide from end users
@@ -237,7 +237,7 @@ Disable the dev console and route errors to your logging and monitoring services
         analytics.track("chat_feedback", { messageId, type }),
     }}
   />
-</CopilotKitProvider>
+</CopilotKit>
 ```
 
 ## Getting started with Premium
@@ -252,7 +252,7 @@ Disable the dev console and route errors to your logging and monitoring services
    NEXT_PUBLIC_COPILOTKIT_API_KEY=ck_pub_your_key_here
    ```
 
-4. Pass it to `CopilotKitProvider` and start wiring up observability hooks.
+4. Pass it to `CopilotKit` and start wiring up observability hooks.
 
 <Callout type="info">
 CopilotKit Premium is free to get started and provides production-ready infrastructure for your AI copilots, including comprehensive observability for tracking user behavior and monitoring system health.

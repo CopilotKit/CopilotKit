@@ -1,4 +1,4 @@
-// Dedicated runtime for the byoc-hashbrown demo (Wave 4a).
+// Dedicated runtime for the byoc-hashbrown demo.
 //
 // The demo page (`src/app/demos/byoc-hashbrown/page.tsx`) wraps CopilotChat
 // in the HashBrownDashboard provider and overrides the assistant message

@@ -16,7 +16,8 @@ generative_ui:
   - constrained-explicit
   - a2ui-fixed-schema
   - a2ui-dynamic-schema
-not_supported_features: []
+not_supported_features:
+  - shared-state-streaming
 interaction_modalities:
   - sidebar
   - embedded
@@ -39,7 +40,6 @@ features:
   - mcp-apps
   - open-gen-ui
   - open-gen-ui-advanced
-  - shared-state-streaming
   - prebuilt-sidebar
   - prebuilt-popup
   - chat-slots

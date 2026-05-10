@@ -192,10 +192,20 @@ export function buildSmokeInputs(
   const slugs = [target.slug];
 
   return slugs.map((slug) => {
-    const manifest = loadManifest(slug, config);
+    void loadManifest(slug, config); // ensures the slug is real
+    // The driver's `deriveSlug` for discovery-mode inputs takes
+    // `input.name` and strips a leading `showcase-` prefix. In production
+    // discovery `name` is the Railway service name (`showcase-<slug>`),
+    // so the derived slug matches the rest of the row keyspace
+    // (`smoke:<slug>`, `health:<slug>`, etc.). The CLI was previously
+    // passing `manifest.name` (the display name like "LangGraph (Python)")
+    // which stripped to itself, producing rows like
+    // `health:LangGraph (Python)` that didn't join with anything else
+    // on the dashboard. Use the showcase-prefixed slug shape to mirror
+    // production.
     return {
       key: `smoke:${slug}`,
-      name: manifest.name,
+      name: `showcase-${slug}`,
       publicUrl: getPackageUrl(slug, config),
       shape: "package" as const,
     };

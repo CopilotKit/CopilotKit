@@ -1,44 +1,16 @@
 "use client";
 
 /**
- * HashBrown message renderer for the byoc-hashbrown demo (Wave 4a).
- *
- * Ported from showcase/starters/template/frontend/components/renderers/hashbrown/index.tsx
- * with these adjustments:
- * - MetricCard lives in ./metric-card (extracted module).
- * - Charts live under ./charts/ (co-located in the demo).
- * - SalesStage type lives in ./types.
+ * HashBrown message renderer for the byoc-hashbrown demo.
  *
  * Registers MetricCard + PieChart + BarChart + DealCard + Markdown against the
  * hashbrown schema via `@hashbrownai/react`'s `useUiKit`. Renders assistant
- * messages through `useJsonParser` for progressive JSON→UI streaming.
+ * messages through `useJsonParser` for progressive JSON->UI streaming.
  *
- * Wire format
- * -----------
- * `useJsonParser(content, kit.schema)` parses a streaming JSON object of the
- * shape produced by `createUiKit(...).schema`:
- *
- *   {
- *     "ui": [
- *       { "metric":   { "props": { "label": "...", "value": "..." } } },
- *       { "pieChart": { "props": { "title": "...", "data": "[{...}]" } } },
- *       { "Markdown": { "props": { "children": "..." } } }
- *     ]
- *   }
- *
- * The `useUiKit({ examples: ... })` `<ui>` JSX is hashbrown's prompt DSL used
- * when hashbrown drives the LLM directly (e.g. `useUiChat`). Because this
- * demo drives the LLM via langgraph, the backend agent
- * (`src/agents/byoc_hashbrown_agent.py`) is responsible for emitting the JSON
- * shape shown above.
- *
- * Consume the renderer like this in a page:
- *
- *   <HashBrownDashboard>
- *     <CopilotChat RenderMessage={useHashBrownMessageRenderer()} />
- *   </HashBrownDashboard>
+ * The agent (`src/agents/byoc_hashbrown_agent.py`) emits JSON of the shape:
+ *   { "ui": [ { "metric": { "props": {...} } }, ... ] }
  */
-import React, { memo } from "react";
+import React, { createContext, memo, useContext } from "react";
 import { s, prompt } from "@hashbrownai/core";
 import {
   exposeComponent,
@@ -51,26 +23,16 @@ import { BarChart } from "./charts/bar-chart";
 import { MetricCard } from "./metric-card";
 import type { SalesStage } from "./types";
 
-/**
- * The underlying PieChart / BarChart components take `data` as a real
- * array, but hashbrown's build-time validator (0.5.0-beta.4) rejects
- * example prompts whose JSX attribute values don't match the schema
- * type — i.e. `data='[{"label":"A","value":1}]'` (string) doesn't pass
- * an `s.streaming.array(...)` schema. And since the LLM streams JSON as
- * text anyway, modeling `data` as a string prop and parsing inside the
- * component is the path the example syntax naturally supports.
- *
- * These wrappers accept `data: string`, JSON-parse it, and render the
- * real chart. Defensive — silently render nothing if parse fails mid-
- * stream (hashbrown feeds partial tokens while streaming).
- */
+// Charts take `data` as a real array, but hashbrown's schema validator rejects
+// example prompts whose JSX attribute values don't match the schema type. The
+// LLM streams JSON as text anyway, so we model `data` as a string and parse
+// inside the wrapper. Render nothing if parse fails mid-stream.
 type ChartSlice = { label: string; value: number };
 
 function parseChartData(data: string): ChartSlice[] | null {
   try {
     const parsed = JSON.parse(data);
-    if (!Array.isArray(parsed)) return null;
-    return parsed as ChartSlice[];
+    return Array.isArray(parsed) ? (parsed as ChartSlice[]) : null;
   } catch {
     return null;
   }
@@ -84,8 +46,9 @@ function PieChartWithStringData({
   data: string;
 }) {
   const parsed = parseChartData(data);
-  if (!parsed) return null;
-  return <PieChart title={title} description="" data={parsed} />;
+  return parsed ? (
+    <PieChart title={title} description="" data={parsed} />
+  ) : null;
 }
 
 function BarChartWithStringData({
@@ -96,43 +59,9 @@ function BarChartWithStringData({
   data: string;
 }) {
   const parsed = parseChartData(data);
-  if (!parsed) return null;
-  return <BarChart title={title} description="" data={parsed} />;
-}
-
-/**
- * Minimal local types for the CopilotChat RenderMessage slot + AG-UI
- * assistant message shape. These mirror `RenderMessageProps` from
- * `@copilotkit/react-ui` and `AssistantMessage` from `@ag-ui/core`, inlined
- * to avoid adding those packages as direct dependencies of langgraph-python
- * (they come in transitively via `@copilotkit/react-core`).
- *
- * Only the fields the renderer reads are declared.
- */
-interface LocalAssistantMessage {
-  role: "assistant";
-  content?: string;
-}
-
-interface LocalChatMessage {
-  role: string;
-  content?: string;
-}
-
-interface LocalRenderMessageProps {
-  message: LocalChatMessage;
-}
-
-// ---------------------------------------------------------------------------
-// Standalone DealCard for the kit (flat props, no SalesTodo dependency)
-// ---------------------------------------------------------------------------
-
-interface HashBrownDealCardProps {
-  title: string;
-  stage: SalesStage;
-  value: number;
-  assignee?: string;
-  dueDate?: string;
+  return parsed ? (
+    <BarChart title={title} description="" data={parsed} />
+  ) : null;
 }
 
 const STAGE_COLORS: Record<SalesStage, string> = {
@@ -147,13 +76,19 @@ const STAGE_COLORS: Record<SalesStage, string> = {
   "closed-lost": "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
 };
 
-function DealCardComponent({
+function DealCard({
   title,
   stage,
   value,
   assignee,
   dueDate,
-}: HashBrownDealCardProps) {
+}: {
+  title: string;
+  stage: SalesStage;
+  value: number;
+  assignee?: string;
+  dueDate?: string;
+}) {
   const badgeClass =
     STAGE_COLORS[stage] ??
     "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200";
@@ -184,11 +119,7 @@ function DealCardComponent({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Kit definition
-// ---------------------------------------------------------------------------
-
-export function useSalesDashboardKit() {
+function useSalesDashboardKit() {
   return useUiKit({
     examples: prompt`
       # Mixing components and Markdown:
@@ -210,11 +141,6 @@ export function useSalesDashboardKit() {
       exposeComponent(MetricCard, {
         name: "metric",
         description: "A KPI metric card with label, value, and optional trend",
-        // Note on "optional" props: @hashbrownai/core@0.5.0-beta.4 dropped
-        // the `.optional()` chain in favor of treating component prop schemas
-        // as Partial at the exposeComponent layer. We omit optional keys from
-        // the schema and surface their existence to the LLM via the
-        // `examples` prompt above and the natural-language `description`.
         props: {
           label: s.string("The metric label/name"),
           value: s.string("The metric value (formatted)"),
@@ -223,9 +149,7 @@ export function useSalesDashboardKit() {
       exposeComponent(PieChartWithStringData, {
         name: "pieChart",
         description:
-          "A donut/pie chart. `data` is a JSON-encoded string of an " +
-          "array of {label, value} segments, e.g. " +
-          '\'[{"label":"A","value":1}]\'.',
+          'A donut/pie chart. `data` is a JSON-encoded string of an array of {label, value} segments, e.g. \'[{"label":"A","value":1}]\'.',
         props: {
           title: s.string("Chart title"),
           data: s.string("JSON array of {label, value} segments"),
@@ -234,15 +158,13 @@ export function useSalesDashboardKit() {
       exposeComponent(BarChartWithStringData, {
         name: "barChart",
         description:
-          "A vertical bar chart. `data` is a JSON-encoded string of an " +
-          "array of {label, value} bars, e.g. " +
-          '\'[{"label":"A","value":1}]\'.',
+          'A vertical bar chart. `data` is a JSON-encoded string of an array of {label, value} bars, e.g. \'[{"label":"A","value":1}]\'.',
         props: {
           title: s.string("Chart title"),
           data: s.string("JSON array of {label, value} bars"),
         },
       }),
-      exposeComponent(DealCardComponent, {
+      exposeComponent(DealCard, {
         name: "dealCard",
         description: "A sales deal card showing pipeline stage and value",
         props: {
@@ -262,28 +184,35 @@ export function useSalesDashboardKit() {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Custom message renderer
-// ---------------------------------------------------------------------------
+type Kit = ReturnType<typeof useSalesDashboardKit>;
+const HashBrownKitContext = createContext<Kit | null>(null);
 
-const AssistantMessageRenderer = memo(function AssistantMessageRenderer({
-  message,
+export function HashBrownDashboard({
+  children,
+}: {
+  children?: React.ReactNode;
+}) {
+  const kit = useSalesDashboardKit();
+  return (
+    <HashBrownKitContext.Provider value={kit}>
+      {children}
+    </HashBrownKitContext.Provider>
+  );
+}
+
+const AssistantMessage = memo(function AssistantMessage({
+  content,
   kit,
 }: {
-  message: LocalAssistantMessage;
-  kit: ReturnType<typeof useSalesDashboardKit>;
+  content: string;
+  kit: Kit;
 }) {
-  const { value } = useJsonParser(message.content ?? "", kit.schema);
-
+  const { value } = useJsonParser(content, kit.schema);
   if (!value) return null;
 
-  // The CopilotChat default assistantMessage slot renders a wrapper with
-  // `data-testid="copilot-assistant-message"` — used by the harness'
-  // `e2e-deep` conversation runner to count settled responses. Overriding
-  // the slot drops that testid, so any tooling that waits for "an
-  // assistant message landed" never sees a count change. Re-attaching it
-  // here keeps the slot override behaviorally identical to the default
-  // for response-detection purposes.
+  // Re-attach `data-testid="copilot-assistant-message"` so the e2e harness'
+  // assistant-message-landed detection still works when this slot overrides
+  // the default CopilotChatAssistantMessage.
   return (
     <div
       data-testid="copilot-assistant-message"
@@ -295,71 +224,16 @@ const AssistantMessageRenderer = memo(function AssistantMessageRenderer({
   );
 });
 
-// ---------------------------------------------------------------------------
-// Exported dashboard provider + renderer hook
-// ---------------------------------------------------------------------------
-
-export interface HashBrownDashboardProps {
-  /**
-   * Optional custom wrapper for the assistant message area.
-   * Defaults to rendering messages inline.
-   */
-  children?: React.ReactNode;
-}
-
-/**
- * Provider that instantiates the HashBrown kit ONCE and shares it via context.
- * Both the dashboard layout and message renderer consume the same kit instance.
- *
- * The kit registers MetricCard, PieChart, BarChart, DealCard, and Markdown
- * components. Agent context forwarding for output_schema is omitted because
- * the npm-published react-core may not export useAgentContext yet.
- */
-const HashBrownKitContext = React.createContext<ReturnType<
-  typeof useSalesDashboardKit
-> | null>(null);
-
-function useHashBrownKit() {
-  const kit = React.useContext(HashBrownKitContext);
+export function HashBrownRenderMessage({
+  message,
+}: {
+  message: { role: string; content?: string };
+}) {
+  const kit = useContext(HashBrownKitContext);
   if (!kit)
-    throw new Error("useHashBrownKit must be used within HashBrownDashboard");
-  return kit;
-}
-
-export function HashBrownDashboard({ children }: HashBrownDashboardProps) {
-  const kit = useSalesDashboardKit();
-
-  // Note: Agent context forwarding (useAgentContext) for output_schema is
-  // omitted because the npm-published react-core may not export it yet.
-
-  return (
-    <HashBrownKitContext.Provider value={kit}>
-      {children}
-    </HashBrownKitContext.Provider>
-  );
-}
-
-/**
- * Stable message renderer component that consumes the kit from context.
- * Defined at module level to avoid unstable function identity.
- */
-function HashBrownRenderMessage({ message }: LocalRenderMessageProps) {
-  const kit = useHashBrownKit();
-  if (message.role === "assistant") {
-    return (
-      <AssistantMessageRenderer
-        message={message as LocalAssistantMessage}
-        kit={kit}
-      />
+    throw new Error(
+      "HashBrownRenderMessage must be used within HashBrownDashboard",
     );
-  }
-  return null;
-}
-
-/**
- * Returns the stable HashBrownRenderMessage component.
- * Must be used within a HashBrownDashboard provider.
- */
-export function useHashBrownMessageRenderer() {
-  return HashBrownRenderMessage;
+  if (message.role !== "assistant") return null;
+  return <AssistantMessage content={message.content ?? ""} kit={kit} />;
 }

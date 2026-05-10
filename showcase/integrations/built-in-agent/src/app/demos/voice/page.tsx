@@ -5,17 +5,17 @@
 // 1. The default mic button rendered by <CopilotChat /> when the runtime at
 //    RUNTIME_URL advertises `audioFileTranscriptionEnabled: true`. Click,
 //    speak, click again — text is transcribed into the composer.
-// 2. <SampleAudioButton /> fetches a bundled sample.wav and POSTs it to the
-//    same /transcribe endpoint, then writes the result into the composer
-//    textarea (bypassing mic permissions for screenshots/Playwright).
+// 2. <SampleAudioButton /> synchronously injects a canned phrase into the
+//    composer (bypassing mic permissions and the runtime entirely so
+//    screenshots/Playwright work too). Real transcription only flows through
+//    the mic path.
 
 import { useCallback } from "react";
 import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core/v2";
 import { SampleAudioButton } from "./sample-audio-button";
 
 const RUNTIME_URL = "/api/copilotkit-voice";
-const SAMPLE_AUDIO_PATH = "/demo-audio/sample.wav";
-const SAMPLE_LABEL = "What is the weather in Tokyo?";
+const SAMPLE_TEXT = "What is the weather in Tokyo?";
 
 // @region[voice-page]
 export default function VoiceDemoPage() {
@@ -55,9 +55,7 @@ export default function VoiceDemoPage() {
         </header>
         <SampleAudioButton
           onTranscribed={handleTranscribed}
-          runtimeUrl={RUNTIME_URL}
-          audioSrc={SAMPLE_AUDIO_PATH}
-          sampleLabel={SAMPLE_LABEL}
+          sampleText={SAMPLE_TEXT}
         />
         <div className="min-h-0 flex-1 overflow-hidden rounded-md border border-black/10">
           <CopilotChat className="h-full" />

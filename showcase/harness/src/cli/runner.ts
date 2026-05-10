@@ -30,13 +30,12 @@ import {
 import { up, down, rebuild, isRunning } from "./lifecycle.js";
 
 import {
-  type TerminalResult,
-  type PbWriteConfig,
   printResult,
   printSummary,
   probeResultToTerminal,
   createPbWriter,
 } from "./results.js";
+import type { TerminalResult, PbWriteConfig } from "./results.js";
 
 import { livenessDriver } from "../probes/drivers/liveness.js";
 import { e2eChatToolsDriver } from "../probes/drivers/e2e-chat-tools.js";
@@ -201,6 +200,13 @@ export async function run(
     logger,
     env: { ...process.env, SHOWCASE_LOCAL: "1" },
     abortSignal: abortController.signal,
+    // Wire the PB writer into the probe context so drivers that emit
+    // per-feature side rows (e2e-deep emits `d5:<slug>/<featureType>`)
+    // actually land in PocketBase. Without this the runner only wrote
+    // the aggregate `e2e-deep:<slug>` row and every D5 cell stayed gray
+    // on the dashboard. `pbWriter` is null when --live wasn't passed,
+    // matching the legacy behaviour of skipping side emission.
+    ...(pbWriter !== null && { writer: pbWriter }),
   };
 
   // -- 6. Create headed-mode deep driver if needed --------------------------

@@ -28,7 +28,6 @@ import {
   CopilotChatConfigurationProvider,
   useAgent,
   useCopilotKit,
-  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import type { Message } from "@ag-ui/core";
 import { MessageList } from "./message-list";
@@ -96,22 +95,25 @@ function Chat() {
   const messages = agent.messages as Message[];
   const isRunning = agent.isRunning;
 
-  const handleSubmit = useCallback(async () => {
-    const text = input.trim();
-    if (!text || isRunning) return;
-    setInput("");
-    agent.addMessage({
-      id: crypto.randomUUID(),
-      role: "user",
-      content: text,
-    });
-    try {
-      await copilotkit.runAgent({ agent });
-    } catch (err) {
-      console.error("headless-complete: runAgent failed", err);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent, input, isRunning]);
+  const handleSubmit = useCallback(
+    async (override?: string) => {
+      const text = (override ?? input).trim();
+      if (!text || isRunning) return;
+      setInput("");
+      agent.addMessage({
+        id: crypto.randomUUID(),
+        role: "user",
+        content: text,
+      });
+      try {
+        await copilotkit.runAgent({ agent });
+      } catch (err) {
+        console.error("headless-complete: runAgent failed", err);
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [agent, input, isRunning],
+  );
 
   const handleStop = useCallback(() => {
     try {
@@ -164,36 +166,44 @@ function ChatBody({
   isRunning: boolean;
   input: string;
   setInput: (next: string) => void;
-  handleSubmit: () => void;
+  handleSubmit: (override?: string) => void;
   handleStop: () => void;
 }) {
   useHeadlessCompleteToolRenderers();
 
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Weather in Tokyo",
-        message: "What's the weather in Tokyo?",
-      },
-      {
-        title: "AAPL stock price",
-        message: "What's AAPL trading at right now?",
-      },
-      {
-        title: "Highlight a note",
-        message: "Highlight 'meeting at 3pm' in yellow.",
-      },
-      {
-        title: "Sketch a diagram",
-        message: "Use Excalidraw to sketch a simple system diagram.",
-      },
-    ],
-    available: "always",
-  });
+  const suggestions = [
+    { title: "Weather in Tokyo", message: "What's the weather in Tokyo?" },
+    { title: "AAPL stock price", message: "What's AAPL trading at right now?" },
+    {
+      title: "Highlight a note",
+      message: "Highlight 'meeting at 3pm' in yellow.",
+    },
+    {
+      title: "Sketch a diagram",
+      message: "Use Excalidraw to sketch a simple system diagram.",
+    },
+    { title: "Largest continent", message: "What is the largest continent?" },
+  ];
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
       <MessageList messages={messages} isRunning={isRunning} />
+      <div
+        data-testid="headless-suggestions"
+        className="flex flex-wrap gap-2 px-4 py-2 border-t border-[#E9E9EF] bg-white"
+      >
+        {suggestions.map((s) => (
+          <button
+            key={s.title}
+            type="button"
+            onClick={() => handleSubmit(s.message)}
+            disabled={isRunning}
+            className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {s.title}
+          </button>
+        ))}
+      </div>
       <InputBar
         value={input}
         onChange={setInput}

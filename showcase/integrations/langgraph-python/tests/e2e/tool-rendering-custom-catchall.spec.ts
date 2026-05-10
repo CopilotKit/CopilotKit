@@ -4,164 +4,195 @@ import { test, expect } from "@playwright/test";
 // Demo source: src/app/demos/tool-rendering-custom-catchall/page.tsx
 // Renderer source: src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx
 //
-// The cell calls `useDefaultRenderTool({ render: CustomCatchallRenderer })`
-// with a SINGLE branded wildcard renderer. Every tool call the backend
-// emits must paint via this one card. The renderer exposes a stable set of
-// testids on the card root:
-//
-//   - custom-catchall-card         (card root, carries data-tool-name + data-status)
-//   - custom-catchall-tool-name    (monospaced tool name)
-//   - custom-catchall-status       (status badge: streaming / running / done)
-//   - custom-catchall-args         (pretty-printed JSON args pre block)
-//   - custom-catchall-result       (green result pre, only when status=complete)
-//
-// Backend is shared with the default-catchall demo and chains at least two
-// tools per user turn. We assert on the testid contracts rather than any
-// LLM text so the suite is stable against Railway's live agent.
+// This cell registers a SINGLE branded wildcard renderer via
+// `useDefaultRenderTool`. Every tool call must paint via the same
+// `[data-testid="custom-wildcard-card"]` shell — no per-tool
+// specialization. Test 6 is the load-bearing assertion: every card on
+// the page after each pill click shares the same testid signature.
+
+const SUGGESTION_TIMEOUT = 15000;
+const TOOL_TIMEOUT = 60000;
+
+const PILLS = ["Weather in SF", "Find flights", "Roll a d20", "Chain tools"];
 
 test.describe("Tool Rendering — Custom Catch-all (branded wildcard)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/tool-rendering-custom-catchall");
-  });
-
-  test("page loads with chat input and suggestion pills", async ({ page }) => {
-    await expect(page.getByPlaceholder("Type a message")).toBeVisible();
-
-    // useConfigureSuggestions registers three pills with available: "always".
-    const suggestions = page.locator('[data-testid="copilot-suggestion"]');
-    await expect(
-      suggestions.filter({ hasText: "Weather in SF" }).first(),
-    ).toBeVisible({ timeout: 15000 });
-    await expect(
-      suggestions.filter({ hasText: "Find flights" }).first(),
-    ).toBeVisible({ timeout: 15000 });
-    await expect(
-      suggestions.filter({ hasText: "Roll a d20" }).first(),
-    ).toBeVisible({ timeout: 15000 });
-  });
-
-  test("weather prompt paints the branded custom-catchall card", async ({
-    page,
-  }) => {
-    const input = page.getByPlaceholder("Type a message");
-    await input.fill("What's the weather in San Francisco?");
-    await page.locator('[data-testid="copilot-send-button"]').first().click();
-
-    const card = page.locator('[data-testid="custom-catchall-card"]').first();
-    await expect(card).toBeVisible({ timeout: 60000 });
-
-    // The card root carries data-tool-name and data-status attributes.
-    // get_weather is the only plausible first tool for "weather in SF".
-    await expect
-      .poll(async () => await card.getAttribute("data-tool-name"), {
-        timeout: 60000,
-      })
-      .toBe("get_weather");
-
-    // The monospaced tool-name label mirrors the attribute.
-    await expect(
-      card.locator('[data-testid="custom-catchall-tool-name"]'),
-    ).toHaveText("get_weather");
-
-    // Arguments section renders the pretty-printed JSON pre block from the
-    // start of the call (streaming args are visible before completion).
-    await expect(
-      card.locator('[data-testid="custom-catchall-args"]'),
-    ).toBeVisible({ timeout: 60000 });
-
-    // Status badge eventually lands on "done" once the tool resolves. The
-    // describeStatus helper lowercases the label, so the pill text is
-    // literal "done" (not "Done").
-    const status = card.locator('[data-testid="custom-catchall-status"]');
-    await expect(status).toHaveText(/^(streaming|running|done)$/i, {
-      timeout: 60000,
+    await expect(page.getByPlaceholder("Type a message")).toBeVisible({
+      timeout: SUGGESTION_TIMEOUT,
     });
-    await expect(status).toHaveText("done", { timeout: 60000 });
-
-    // Result pre only exists once status === "complete".
-    await expect(
-      card.locator('[data-testid="custom-catchall-result"]'),
-    ).toBeVisible({ timeout: 60000 });
   });
 
-  test("dice prompt paints the same branded card for roll_dice", async ({
+  test("page loads with composer and 4 suggestion pills", async ({ page }) => {
+    const suggestions = page.locator('[data-testid="copilot-suggestion"]');
+    for (const title of PILLS) {
+      await expect(suggestions.filter({ hasText: title }).first()).toBeVisible({
+        timeout: SUGGESTION_TIMEOUT,
+      });
+    }
+
+    // Sanity: per-tool branded testids from sibling cells stay at zero.
+    await expect(page.locator('[data-testid="weather-card"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="flights-card"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="stock-card"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="d20-card"]')).toHaveCount(0);
+    // Sanity: the OOTB default-renderer testid does NOT appear here.
+    await expect(
+      page.locator('[data-testid="copilot-tool-render"]'),
+    ).toHaveCount(0);
+  });
+
+  test("Weather in SF pill paints the branded wildcard card for get_weather", async ({
     page,
   }) => {
-    const input = page.getByPlaceholder("Type a message");
-    await input.fill("Roll a 20-sided die.");
-    await page.locator('[data-testid="copilot-send-button"]').first().click();
+    await page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Weather in SF" })
+      .first()
+      .click();
 
-    // Poll for a card whose data-tool-name is roll_dice — the backend may
-    // chain additional tools before or after, and we only care that the
-    // branded wildcard renderer is used for this one.
-    const diceCard = page.locator(
-      '[data-testid="custom-catchall-card"][data-tool-name="roll_dice"]',
+    const card = page
+      .locator(
+        '[data-testid="custom-wildcard-card"][data-tool-name="get_weather"]',
+      )
+      .first();
+    await expect(card).toBeVisible({ timeout: TOOL_TIMEOUT });
+    await expect(
+      card.locator('[data-testid="custom-wildcard-tool-name"]'),
+    ).toHaveText("get_weather");
+    await expect(
+      card.locator('[data-testid="custom-wildcard-args"]'),
+    ).toContainText("San Francisco", { timeout: TOOL_TIMEOUT });
+  });
+
+  test("Find flights pill paints the SAME branded wildcard card for search_flights", async ({
+    page,
+  }) => {
+    await page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Find flights" })
+      .first()
+      .click();
+
+    const card = page
+      .locator(
+        '[data-testid="custom-wildcard-card"][data-tool-name="search_flights"]',
+      )
+      .first();
+    await expect(card).toBeVisible({ timeout: TOOL_TIMEOUT });
+    await expect(
+      card.locator('[data-testid="custom-wildcard-tool-name"]'),
+    ).toHaveText("search_flights");
+
+    // Result block surfaces the deterministic flights from our fixture
+    // (NOT the a2ui beautiful-chat boilerplate).
+    await expect(
+      card.locator('[data-testid="custom-wildcard-result"]'),
+    ).toContainText(/United|Delta|JetBlue/, { timeout: TOOL_TIMEOUT });
+  });
+
+  test("Roll a d20 pill paints exactly 5 wildcard cards, last result is 20", async ({
+    page,
+  }) => {
+    await page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Roll a d20" })
+      .first()
+      .click();
+
+    const cards = page.locator(
+      '[data-testid="custom-wildcard-card"][data-tool-name="roll_d20"]',
     );
-    await expect(diceCard.first()).toBeVisible({ timeout: 60000 });
+    await expect
+      .poll(async () => cards.count(), { timeout: TOOL_TIMEOUT })
+      .toBe(5);
 
-    // Same testid contract as get_weather — identical branded shell.
+    // 5th card's result is 20.
     await expect(
-      diceCard.first().locator('[data-testid="custom-catchall-tool-name"]'),
-    ).toHaveText("roll_dice");
+      cards.nth(4).locator('[data-testid="custom-wildcard-result"]'),
+    ).toContainText(/"value":\s*20|"result":\s*20/, { timeout: TOOL_TIMEOUT });
+
+    // First 4 are non-20.
+    for (let i = 0; i < 4; i++) {
+      const txt = await cards
+        .nth(i)
+        .locator('[data-testid="custom-wildcard-result"]')
+        .innerText();
+      expect(txt).not.toMatch(/"value":\s*20|"result":\s*20/);
+    }
   });
 
-  test("Tokyo weather prompt chains >=2 branded cards, all identical shell", async ({
+  test("Chain tools pill paints 3 wildcard cards (one per tool)", async ({
     page,
   }) => {
-    // The shared backend's SYSTEM_PROMPT chains tools: "weather in Tokyo"
-    // -> get_weather then search_flights. Every chained call must still
-    // paint the single branded wildcard card — this is the core invariant
-    // of the custom-catchall demo.
-    const input = page.getByPlaceholder("Type a message");
-    await input.fill("What's the weather in Tokyo?");
-    await page.locator('[data-testid="copilot-send-button"]').first().click();
+    await page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Chain tools" })
+      .first()
+      .click();
 
-    const cards = page.locator('[data-testid="custom-catchall-card"]');
+    await expect(
+      page
+        .locator(
+          '[data-testid="custom-wildcard-card"][data-tool-name="get_weather"]',
+        )
+        .first(),
+    ).toBeVisible({ timeout: TOOL_TIMEOUT });
+    await expect(
+      page
+        .locator(
+          '[data-testid="custom-wildcard-card"][data-tool-name="search_flights"]',
+        )
+        .first(),
+    ).toBeVisible({ timeout: TOOL_TIMEOUT });
+    await expect(
+      page
+        .locator(
+          '[data-testid="custom-wildcard-card"][data-tool-name="roll_d20"]',
+        )
+        .first(),
+    ).toBeVisible({ timeout: TOOL_TIMEOUT });
+  });
 
-    // At least two cards eventually render.
+  test("every rendered card shares the same wildcard testid signature", async ({
+    page,
+  }) => {
+    // Cross-tool sanity: drive Chain tools (3 distinct tools → 3
+    // cards) and assert every card matches the same wildcard shell.
+    await page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Chain tools" })
+      .first()
+      .click();
+
+    const cards = page.locator('[data-testid="custom-wildcard-card"]');
     await expect
-      .poll(async () => await cards.count(), { timeout: 60000 })
-      .toBeGreaterThanOrEqual(2);
+      .poll(async () => cards.count(), { timeout: TOOL_TIMEOUT })
+      .toBeGreaterThanOrEqual(3);
 
-    // Every card shares the same testid structure: tool-name + status +
-    // args present. Asserting on testid counts is the cleanest proof that
-    // the branded shell is reused identically for every chained tool.
     const total = await cards.count();
     await expect(
-      page.locator('[data-testid="custom-catchall-tool-name"]'),
+      page.locator('[data-testid="custom-wildcard-tool-name"]'),
     ).toHaveCount(total);
     await expect(
-      page.locator('[data-testid="custom-catchall-status"]'),
-    ).toHaveCount(total);
-    await expect(
-      page.locator('[data-testid="custom-catchall-args"]'),
+      page.locator('[data-testid="custom-wildcard-args"]'),
     ).toHaveCount(total);
 
-    // Each card exposes a distinct data-tool-name but the same shell.
+    // All cards expose distinct tool names but the SAME shell.
     const toolNames = await cards.evaluateAll((nodes) =>
       nodes.map((n) => n.getAttribute("data-tool-name")),
     );
-    expect(new Set(toolNames).size).toBeGreaterThanOrEqual(1);
-    // Every name is a known backend tool; no unexpected renderers leak in.
-    const known = new Set([
-      "get_weather",
-      "search_flights",
-      "get_stock_price",
-      "roll_dice",
-    ]);
-    for (const n of toolNames) {
-      expect(n && known.has(n)).toBeTruthy();
+    const uniqueNames = new Set(toolNames);
+    expect(uniqueNames.size).toBeGreaterThanOrEqual(3);
+    for (const name of toolNames) {
+      expect(["get_weather", "search_flights", "roll_d20"]).toContain(name);
     }
 
-    // Every card ends in a terminal status ("done" for complete, or one of
-    // the in-flight labels if the later tool is still running when we
-    // finish polling). All three labels are legal outputs from the
-    // describeStatus helper, and each card shows exactly one badge.
-    const statuses = await page
-      .locator('[data-testid="custom-catchall-status"]')
-      .allTextContents();
-    for (const s of statuses) {
-      expect(["streaming", "running", "done"]).toContain(s.trim());
-    }
+    // The OOTB default-renderer testid stays at zero — proves the
+    // single custom wildcard is what painted, not the framework
+    // fallback.
+    await expect(
+      page.locator('[data-testid="copilot-tool-render"]'),
+    ).toHaveCount(0);
   });
 });

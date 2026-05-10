@@ -19,7 +19,7 @@ export function InputBar({
 }: {
   value: string;
   onChange: (v: string) => void;
-  onSubmit: () => void;
+  onSubmit: (override?: string) => void;
   onStop: () => void;
   isRunning: boolean;
   canStop: boolean;

@@ -33,7 +33,7 @@ export function FlightListCard({
 }: FlightListCardProps) {
   return (
     <div
-      data-testid="flight-list-card"
+      data-testid="flights-card"
       className="my-3 rounded-2xl border border-[#DBDBE5] bg-white p-5 shadow-sm"
     >
       <div className="mb-4 flex items-center justify-between">

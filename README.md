@@ -25,7 +25,7 @@ Build **agent-native applications** with generative UI, shared state, and human-
   </a>
 
   <a href="https://github.com/copilotkit/copilotkit/blob/main/LICENSE" target="_blank">
-    <img src="https://img.shields.io/github/license/copilotkit/copilotkit?color=%236963ff&label=License" alt="MIT">
+    <img src="assets/license-badge.svg" alt="License: MIT" height="20">
   </a>
 
   <a href="https://discord.gg/6dffbvGU3D" target="_blank">
@@ -53,9 +53,9 @@ Build **agent-native applications** with generative UI, shared state, and human-
 
 CopilotKit is a best-in-class SDK for building full-stack agentic applications, Generative UI, and chat applications.
 
-We are the company behind the **AG-UI Protocol**, adopted by Google, LangChain, AWS, Microsoft, Mastra, PydanticAI, and more!
+We are the company behind the **[AG-UI Protocol](https://github.com/ag-ui-protocol/ag-ui)** - adopted by Google, LangChain, AWS, Microsoft, Mastra, PydanticAI, and more!
 
-https://github.com/user-attachments/assets/6f06c63f-9bd1-4762-99ac-24898ee227bc
+https://github.com/user-attachments/assets/72b7b4f3-b6e7-460c-a932-5746fe3c8db3
 
 <div align="center"> Add AI to your app in 1 minute</div>
 

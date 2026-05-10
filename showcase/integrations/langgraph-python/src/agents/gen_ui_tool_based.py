@@ -19,7 +19,7 @@ categories; pick pie for composition / share-of-whole.
 Keep chat responses brief -- let the chart do the talking."""
 
 graph = create_agent(
-    model=ChatOpenAI(model="gpt-4o-mini"),
+    model=ChatOpenAI(model="gpt-5.4"),
     tools=[],
     middleware=[CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT,

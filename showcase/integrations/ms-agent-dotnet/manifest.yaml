@@ -21,6 +21,8 @@ interaction_modalities:
   - sidebar
   - embedded
   - chat
+not_supported_features:
+  - shared-state-streaming
 features:
   - beautiful-chat
   - cli-start
@@ -50,7 +52,6 @@ features:
   - tool-rendering-custom-catchall
   - tool-rendering
   - tool-rendering-reasoning-chain
-  - shared-state-streaming
   - shared-state-read-write
   - subagents
   - readonly-state-agent-context

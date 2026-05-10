@@ -5,8 +5,10 @@ Pattern (ported from the canonical
 `examples/integrations/langgraph-python/agent/src/a2ui_dynamic_schema.py`):
 
 - The agent binds an explicit `generate_a2ui` tool. When called, `generate_a2ui`
-  invokes a secondary LLM bound to `render_a2ui` (tool_choice forced) with the
-  registered client catalog injected as `copilotkit.context`.
+  invokes a secondary LLM bound to `_design_a2ui_surface` (tool_choice forced)
+  with the registered client catalog injected as `copilotkit.context`. The
+  internal tool is intentionally NOT named `render_a2ui` to avoid the A2UI
+  middleware's default tool-call intercept (`a2uiToolNames`).
 - The tool result returns an `a2ui_operations` container which the A2UI
   middleware detects in the tool-call result and forwards to the frontend
   renderer.
@@ -37,14 +39,22 @@ from langchain_openai import ChatOpenAI
 CUSTOM_CATALOG_ID = "declarative-gen-ui-catalog"
 
 
+# Internal tool bound only to the secondary LLM inside `generate_a2ui` for
+# structured output. Intentionally NOT named `render_a2ui` because the A2UI
+# middleware default-intercepts tool calls by that name from the run's event
+# stream and synthesises ACTIVITY_SNAPSHOT events from the LLM's RAW streaming
+# args (catalogId + components, before our Python code can validate). That
+# bypass is what surfaced the "Cannot create component root without a type"
+# infinite-loop on the deployed declarative-gen-ui demo. Renaming sidesteps
+# the middleware's intercept list (`a2uiToolNames`).
 @lc_tool
-def render_a2ui(
+def _design_a2ui_surface(
     surfaceId: str,
     catalogId: str,
     components: list[dict],
     data: dict | None = None,
 ) -> str:
-    """Render a dynamic A2UI v0.9 surface.
+    """Design a dynamic A2UI v0.9 surface.
 
     Args:
         surfaceId: Unique surface identifier.
@@ -53,7 +63,26 @@ def render_a2ui(
             component must have id "root".
         data: Optional initial data model for the surface.
     """
-    return "rendered"
+    return "designed"
+
+
+_GENERATE_A2UI_PROMPT_HEADER = f"""\
+You are designing a dynamic A2UI v0.9 surface. Call the `_design_a2ui_surface`
+tool with a flat component array.
+
+Hard requirements (failing any of these breaks the renderer — be strict):
+- `catalogId` MUST be exactly: "{CUSTOM_CATALOG_ID}"
+- `surfaceId` is a short kebab-case identifier (e.g. "kpi-dashboard").
+- `components` is a FLAT array. Every entry MUST include both an `id` (unique
+  string) AND a `component` (string — the catalog component name). The root
+  entry MUST have `id: "root"` AND a valid `component` field — never emit
+  a root entry without a component type.
+- Container components (Row, Column, Card) reference children by id via their
+  `children` (array of strings) or `child` (single string) prop. Do NOT inline
+  children objects. Define each child as its own entry in the flat array and
+  reference its id.
+- Use only catalog component names listed in the schema below.
+"""
 
 
 @tool()
@@ -69,6 +98,10 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     # Pull the A2UI component schema + usage guidelines from the runtime's
     # `copilotkit.context` (the runtime injects them automatically when the
     # frontend registers a catalog via `<CopilotKit a2ui={{ catalog }}>`).
+    # We prepend an explicit instruction header because the runtime context
+    # alone leaves room for the LLM to hallucinate catalog IDs or emit a root
+    # component without a `component` field — both surface as "Cannot create
+    # component root without a type" infinite-loops in the renderer.
     context_entries = runtime.state.get("copilotkit", {}).get("context", [])
     context_text = "\n\n".join(
         entry.get("value", "")
@@ -76,26 +109,47 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
         if isinstance(entry, dict) and entry.get("value")
     )
 
-    model = ChatOpenAI(model="gpt-4.1")
+    prompt = f"{_GENERATE_A2UI_PROMPT_HEADER}\n\n{context_text}".strip()
+
+    # `streaming=True` so aimock's record/replay (which only intercepts
+    # SSE streams) sees this secondary LLM call. Without it the call
+    # bypasses fixture matching in replay mode, surfacing as
+    # "An internal error occurred" on the demo page.
+    model = ChatOpenAI(model="gpt-5.4", streaming=True)
     model_with_tool = model.bind_tools(
-        [render_a2ui],
-        tool_choice="render_a2ui",
+        [_design_a2ui_surface],
+        tool_choice="_design_a2ui_surface",
     )
 
     response = model_with_tool.invoke(
-        [SystemMessage(content=context_text), *messages],
+        [SystemMessage(content=prompt), *messages],
     )
 
     if not response.tool_calls:
-        return json.dumps({"error": "LLM did not call render_a2ui"})
+        return json.dumps({"error": "LLM did not call _design_a2ui_surface"})
 
     tool_call = response.tool_calls[0]
     args = tool_call["args"]
 
     surface_id = args.get("surfaceId", "dynamic-surface")
-    catalog_id = args.get("catalogId", CUSTOM_CATALOG_ID)
+    # Force the canonical catalog ID — the secondary LLM has been observed
+    # hallucinating IDs from sibling demos when context is sparse.
+    catalog_id = CUSTOM_CATALOG_ID
     components = args.get("components", [])
     data = args.get("data", {})
+
+    # Defensive: every component must have an `id` AND a `component` field, or
+    # the frontend renderer throws "Cannot create component <id> without a
+    # type" and never recovers. Drop malformed entries so a valid surface
+    # still renders.
+    components = [
+        c for c in components
+        if isinstance(c, dict) and c.get("id") and c.get("component")
+    ]
+    if not any(c.get("id") == "root" for c in components):
+        return json.dumps({
+            "error": "LLM produced no valid root component for the A2UI surface."
+        })
 
     ops = [
         a2ui.create_surface(surface_id, catalog_id=catalog_id),
@@ -126,7 +180,7 @@ SYSTEM_PROMPT = (
 
 
 graph = create_agent(
-    model=ChatOpenAI(model="gpt-4.1"),
+    model=ChatOpenAI(model="gpt-5.4"),
     tools=[generate_a2ui],
     middleware=[CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT,

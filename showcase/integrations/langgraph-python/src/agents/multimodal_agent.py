@@ -238,7 +238,7 @@ class _PdfFlattenMiddleware(AgentMiddleware):
 
 
 # Vision-capable model. gpt-4o consumes `image_url` content parts natively.
-_MODEL = ChatOpenAI(model="gpt-4o", temperature=0.2)
+_MODEL = ChatOpenAI(model="gpt-5.4", temperature=0.2)
 
 
 graph = create_agent(

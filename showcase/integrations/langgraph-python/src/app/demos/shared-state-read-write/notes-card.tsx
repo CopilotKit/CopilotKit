@@ -1,6 +1,14 @@
 "use client";
 
 import React from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./_components/card";
+import { Button } from "./_components/button";
 
 export interface NotesCardProps {
   notes: string[];
@@ -24,53 +32,63 @@ export interface NotesCardProps {
 // a small write-back, exposed as an `onClear` prop.
 export function NotesCard({ notes, onClear }: NotesCardProps) {
   return (
-    <div
-      data-testid="notes-card"
-      className="w-full max-w-md p-6 bg-white rounded-2xl shadow-sm border border-[#DBDBE5] space-y-4"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold text-[#010507]">Agent notes</h2>
-          <p className="text-xs text-[#57575B] mt-1">
-            The agent writes here via its{" "}
-            <code className="font-mono text-[11px] text-[#010507]">
-              set_notes
-            </code>{" "}
-            tool. The UI re-renders from shared state.
-          </p>
+    <Card data-testid="notes-card" className="w-full">
+      <CardHeader>
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1.5">
+            <CardTitle>Agent Scratch pad</CardTitle>
+            <CardDescription>
+              The agent writes here via its{" "}
+              <code className="font-mono text-[11px] text-[#010507]">
+                set_notes
+              </code>{" "}
+              tool. The UI re-renders from shared state.
+            </CardDescription>
+          </div>
+          {notes.length > 0 && (
+            <Button
+              type="button"
+              onClick={onClear}
+              data-testid="notes-clear-button"
+              variant="destructive"
+              size="sm"
+              className="uppercase tracking-[0.14em] text-[10px]"
+            >
+              Clear
+            </Button>
+          )}
         </div>
-        {notes.length > 0 && (
-          <button
-            type="button"
-            onClick={onClear}
-            data-testid="notes-clear-button"
-            className="text-[10px] uppercase tracking-[0.14em] font-medium text-[#57575B] hover:text-[#FA5F67] border border-[#DBDBE5] hover:border-[#FA5F67] rounded-full px-2.5 py-1 transition-colors"
-          >
-            Clear
-          </button>
-        )}
-      </div>
+      </CardHeader>
 
-      {notes.length === 0 ? (
-        <div
-          data-testid="notes-empty"
-          className="text-sm text-[#838389] italic pt-1"
-        >
-          No notes yet. Ask the agent to remember something.
-        </div>
-      ) : (
-        <ul
-          data-testid="notes-list"
-          className="list-disc list-inside space-y-1 text-sm text-[#010507]"
-        >
-          {notes.map((note, i) => (
-            <li key={i} data-testid="note-item">
-              {note}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+      <CardContent>
+        {notes.length === 0 ? (
+          <div
+            data-testid="notes-empty"
+            className="text-sm text-[#838389] italic min-h-[160px] flex items-center justify-center text-center px-4 border border-dashed border-[#E9E9EF] rounded-xl bg-[#FAFAFC]"
+          >
+            the agent will make observations about you and note them here!
+          </div>
+        ) : (
+          <ul
+            data-testid="notes-list"
+            className="space-y-2 text-sm text-[#010507]"
+          >
+            {notes.map((note, i) => (
+              <li
+                key={i}
+                data-testid="note-item"
+                className="flex gap-2 rounded-lg border border-[#E9E9EF] bg-[#FAFAFC] px-3 py-2"
+              >
+                <span className="text-[#838389] font-mono text-xs leading-5 select-none">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span className="flex-1">{note}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 // @endregion[notes-card-render]

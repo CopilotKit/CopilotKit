@@ -1,23 +1,80 @@
 /**
  * D5 — tool-rendering-reasoning-chain script.
  *
- * Drives `/demos/tool-rendering-reasoning-chain` through one turn that
- * exercises a tool call interleaved with a reasoning chain. Asserts the
- * transcript contains both reasoning and tool keywords — proves the
- * interleaving renders correctly (split off from `tool-rendering`
- * because the assertion shape interleaves tool render with reasoning).
+ * Drives `/demos/tool-rendering-reasoning-chain`. The demo composes
+ * two patterns into one chat surface:
+ *
+ *   1. Reasoning tokens streamed by `init_chat_model("openai:gpt-5-mini",
+ *      use_responses_api=True, reasoning={"effort":"low"})` and rendered
+ *      via a custom `messageView.reasoningMessage` slot
+ *      (`<ReasoningBlock data-testid="reasoning-block">`).
+ *   2. Per-tool renderers wired through `useRenderTool`:
+ *        get_weather    → <WeatherCard />
+ *        search_flights → <FlightListCard />
+ *        get_stock_price / roll_dice → <CustomCatchallRenderer />
+ *
+ * Two-turn flow (chip-driven):
+ *   1. "What's the weather in Tokyo?" → reasoning-block + WeatherCard.
+ *      Asserts BOTH the reasoning-block testid AND the weather-card
+ *      testid mount, plus assistant transcript mentions "tokyo".
+ *   2. "Find flights from SFO to JFK." → reasoning-block + FlightListCard.
+ *      Asserts BOTH the reasoning-block testid AND the flight-list-card
+ *      testid mount, plus assistant transcript mentions a flight token
+ *      ("flight" / "sfo" / "jfk").
+ *
+ * Two pills (vs all four — dice / AAPL) keep wall-clock under the
+ * default per-feature ceiling; the two we pick are the ones with
+ * deterministic per-tool renderers (WeatherCard + FlightListCard), so
+ * the assertion ladder stays sharp. The catchall variants (dice / AAPL)
+ * are covered separately by `tool-rendering-custom-catchall`.
+ *
+ * The reasoning-block assertion is what makes this probe distinct from
+ * `tool-rendering` (no reasoning slot) and from `reasoning-display`
+ * (no per-tool renderers). A regression that drops the reasoning slot
+ * OR the tool renderer wiring is caught here.
  */
 
-import {
-  registerD5Script,
-  type D5BuildContext,
-} from "../helpers/d5-registry.js";
+import { registerD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 
-const TRANSCRIPT_TIMEOUT_MS = 8_000;
+interface PillExpectation {
+  /** Chip prompt — MUST mirror `tool-rendering-reasoning-chain/page.tsx`
+   *  suggestion-chip messages verbatim so aimock's `userMessage`
+   *  substring matcher selects the right canned response. */
+  prompt: string;
+  /** Per-tool card testid to wait for (after the agent's tool result
+   *  lands). */
+  cardTestId: string;
+  /** Lowercase substrings the assistant transcript must contain. */
+  textTokens: readonly string[];
+  /** Per-turn budget — agent reasoning + tool call + render. */
+  responseTimeoutMs: number;
+}
 
+const TURN_EXPECTATIONS: readonly PillExpectation[] = [
+  {
+    prompt: "What's the weather in Tokyo?",
+    cardTestId: "weather-card",
+    textTokens: ["tokyo"],
+    responseTimeoutMs: 60_000,
+  },
+  {
+    prompt: "Find flights from SFO to JFK.",
+    cardTestId: "flight-list-card",
+    textTokens: ["sfo"],
+    responseTimeoutMs: 60_000,
+  },
+];
+
+const REASONING_BLOCK_TESTID = "reasoning-block";
+const REASONING_TIMEOUT_MS = 30_000;
+const CARD_TIMEOUT_MS = 30_000;
+
+/** Read concatenated assistant transcript text (lowercased). Mirrors
+ *  the selector cascade used in agentic-chat / multimodal probes. */
 async function readAssistantTranscript(page: Page): Promise<string> {
-  return (await page.evaluate(() => {
+  return await page.evaluate(() => {
     const win = globalThis as unknown as {
       document: {
         querySelectorAll(
@@ -32,9 +89,9 @@ async function readAssistantTranscript(page: Page): Promise<string> {
     ];
     let nodes: ArrayLike<{ textContent: string | null }> = { length: 0 };
     for (const s of sels) {
-      const f = win.document.querySelectorAll(s);
-      if (f.length > 0) {
-        nodes = f;
+      const found = win.document.querySelectorAll(s);
+      if (found.length > 0) {
+        nodes = found;
         break;
       }
     }
@@ -43,37 +100,73 @@ async function readAssistantTranscript(page: Page): Promise<string> {
       acc += " " + (nodes[i]!.textContent ?? "");
     }
     return acc.toLowerCase();
-  })) as string;
+  });
 }
 
-export const REASONING_TOOL_KEYWORDS = ["reasoning", "tool"] as const;
-
-export function buildReasoningChainAssertion(opts?: {
-  timeoutMs?: number;
-}): (page: Page) => Promise<void> {
-  const timeout = opts?.timeoutMs ?? TRANSCRIPT_TIMEOUT_MS;
-  return async (page: Page): Promise<void> => {
-    const deadline = Date.now() + timeout;
-    let last = "";
-    while (Date.now() < deadline) {
-      last = await readAssistantTranscript(page);
-      if (REASONING_TOOL_KEYWORDS.every((kw) => last.includes(kw))) return;
-      await new Promise<void>((r) => setTimeout(r, 200));
-    }
-    const missing = REASONING_TOOL_KEYWORDS.filter((kw) => !last.includes(kw));
+function assertContainsAll(
+  text: string,
+  tokens: readonly string[],
+  context: string,
+): void {
+  const missing = tokens.filter((t) => !text.includes(t.toLowerCase()));
+  if (missing.length > 0) {
     throw new Error(
-      `tool-rendering-reasoning-chain: transcript missing keyword(s) [${missing.join(", ")}] — got "${last.slice(0, 200)}"`,
+      `${context}: assistant text missing tokens [${missing.join(", ")}]; got (truncated): ${text.slice(0, 300)}`,
     );
-  };
+  }
 }
 
 export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
-  return [
-    {
-      input: "analyze data and call the tool",
-      assertions: buildReasoningChainAssertion(),
+  return TURN_EXPECTATIONS.map((exp, idx) => ({
+    input: exp.prompt,
+    responseTimeoutMs: exp.responseTimeoutMs,
+    assertions: async (page) => {
+      const tag = `tool-rendering-reasoning-chain turn ${idx + 1}`;
+
+      // 1. Wait for the reasoning-block to mount. The agent's reasoning
+      //    chain is the distinguishing signal vs the plain tool-rendering
+      //    probe — if this never mounts, the reasoning slot wiring
+      //    regressed.
+      try {
+        await page.waitForSelector(
+          `[data-testid="${REASONING_BLOCK_TESTID}"]`,
+          {
+            state: "visible",
+            timeout: REASONING_TIMEOUT_MS,
+          },
+        );
+      } catch {
+        throw new Error(
+          `${tag}: expected [data-testid="${REASONING_BLOCK_TESTID}"] to mount within ${REASONING_TIMEOUT_MS}ms — reasoningMessage slot may be unwired or agent's reasoning tokens never streamed`,
+        );
+      }
+
+      // 2. Wait for the per-tool card to mount. This proves the tool
+      //    call landed AND the per-tool renderer fired (NOT the
+      //    catchall fallback).
+      try {
+        await page.waitForSelector(`[data-testid="${exp.cardTestId}"]`, {
+          state: "visible",
+          timeout: CARD_TIMEOUT_MS,
+        });
+      } catch {
+        throw new Error(
+          `${tag}: expected [data-testid="${exp.cardTestId}"] to mount within ${CARD_TIMEOUT_MS}ms — tool result may not have landed or the per-tool renderer wiring drifted`,
+        );
+      }
+
+      // 3. Verify the assistant transcript references the right context
+      //    (tokyo for weather, sfo for flights). The card mounting alone
+      //    proves wiring; the text token catches the case where a stale
+      //    fixture from a prior turn satisfies the testid wait but
+      //    contains the wrong city/route.
+      const text = await readAssistantTranscript(page);
+      console.debug(`[d5-tool-rendering-reasoning-chain] ${tag} text`, {
+        text: text.slice(0, 300),
+      });
+      assertContainsAll(text, exp.textTokens, tag);
     },
-  ];
+  }));
 }
 
 registerD5Script({

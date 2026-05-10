@@ -7,6 +7,7 @@
 // the user chooses one — code without a backend context is incomplete.
 
 import React from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { DocsLandingNext } from "@/components/docs-landing-next";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
@@ -15,6 +16,25 @@ import { SidebarNav } from "@/components/sidebar-nav";
 import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
 import { CONTENT_DIR, buildNavTree } from "@/lib/docs-render";
 import type { NavNode } from "@/lib/docs-render";
+import { getBaseUrl } from "@/lib/sitemap-helpers";
+
+// Per-framework self-canonical: each variant of a doc page declares
+// itself canonical so search engines index every framework's quickstart
+// (etc.) at its own URL rather than collapsing them all onto the bare
+// /quickstart. Done at the page level so the metadata depends on params.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug?: string[] }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const slugPath = slug && slug.length > 0 ? `/${slug.join("/")}` : "";
+  return {
+    alternates: {
+      canonical: `${getBaseUrl()}${slugPath}`,
+    },
+  };
+}
 
 function DocsOverview() {
   const navTree = buildNavTree(CONTENT_DIR);

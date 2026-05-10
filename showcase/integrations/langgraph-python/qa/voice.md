@@ -7,7 +7,7 @@
 - `OPENAI_API_KEY` is set on the Railway service (shared with other demos)
 - A modern browser that supports `MediaRecorder` (Chromium, Firefox, Safari 14+)
 - Microphone hardware available (required only for the mic path in section 3)
-- A bundled `public/demo-audio/sample.wav` saying "What is the weather in Tokyo?" is present
+- A bundled `public/demo-audio/sample.wav` is present (used for screenshot/preview generation; the in-app sample button no longer fetches it)
 
 ## Test Steps
 
@@ -24,9 +24,8 @@
 ### 2. Sample-audio path (no mic permission required)
 
 - [ ] Click the "Play sample" button
-- [ ] Verify the button label flips to "Transcribing…" and the button is disabled
-- [ ] Within 5 seconds, the chat textarea (`data-testid="copilot-chat-textarea"`) contains text that includes "weather" (case-insensitive) AND/OR "Tokyo" (case-insensitive)
-- [ ] The button label returns to "Play sample" and the button is re-enabled
+- [ ] Immediately, the chat textarea (`data-testid="copilot-chat-textarea"`) contains the canned phrase "What is the weather in Tokyo?" (no async round-trip; no "Transcribing…" state)
+- [ ] The button stays enabled
 - [ ] Click send (`data-testid="copilot-send-button"`)
 - [ ] Within 10 seconds, the agent responds with a weather-related tool render (WeatherCard, custom-catchall card, or default tool card — depending on which tool-rendering mode is active on this page)
 
@@ -41,19 +40,12 @@
 
 ### 4. Error Handling
 
-- [ ] In DevTools → Network, block requests to `/demo-audio/sample.wav`
-- [ ] Click "Play sample"
-- [ ] Verify the row shows the error state (`data-testid="voice-sample-audio-error"`) reading "Error — see console"
-- [ ] Verify no page crash; composer remains interactive
-- [ ] Remove the block and click "Play sample" again — verify the button recovers and completes the round-trip
-
 - [ ] Deny microphone permission, click the mic button
 - [ ] Verify the UI handles permission denial gracefully (no crash, mic button remains visible)
 
 ## Expected Results
 
-- Sample-audio transcription completes within 5 seconds for the 3-5s clip
+- Sample button click populates the textarea synchronously (no perceptible delay)
 - Weather-related tool response renders within 10 seconds of send
 - No console errors during the successful paths
-- Error states are visible and recoverable (re-clicking after a block removal should succeed)
-- Whisper transcription is stable enough that "weather" OR "Tokyo" keywords appear in the transcribed text across runs
+- Whisper transcription via the mic path returns text resembling what was spoken (deployment must have `OPENAI_API_KEY` configured)
