@@ -1,26 +1,21 @@
 /**
- * E2E spec for the byoc-hashbrown demo.
- *
- * Authored but not executed pre-deploy — Railway stabilization runs happen
- * post-deploy per the plan's scope modification. Selectors match the ported
- * chart/metric components' `data-testid` hooks.
- *
- * Covers 3 suggestion flows + page-load smoke. Assertion timeouts favor
- * streaming-friendly budgets because hashbrown assembles UI progressively
- * from structured output.
+ * E2E spec for the Declarative UI: Hashbrown demo. Selectors match the
+ * chart/metric components' `data-testid` hooks. Covers 3 suggestion
+ * flows + page-load smoke; timeouts are streaming-friendly because
+ * hashbrown assembles UI progressively from structured output.
  */
 import { test, expect } from "@playwright/test";
 
-test.describe("BYOC Hashbrown", () => {
+test.describe("Declarative UI: Hashbrown", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/byoc-hashbrown");
+    await page.goto("/demos/declarative-hashbrown");
   });
 
   test("page loads with header, suggestion pills, and chat composer", async ({
     page,
   }) => {
     await expect(
-      page.getByRole("heading", { name: "BYOC: Hashbrown" }),
+      page.getByRole("heading", { name: "Declarative UI: Hashbrown" }),
     ).toBeVisible();
     await expect(page.getByText("Sales dashboard").first()).toBeVisible();
     await expect(page.getByText("Revenue by category").first()).toBeVisible();

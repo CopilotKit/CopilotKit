@@ -83,7 +83,7 @@ test.describe("HITL In-App (approval dialog portaled to <body>)", () => {
     // Approve branch: deterministic fixture leading phrase.
     await expect(
       page
-        .locator('[data-role="assistant"]')
+        .locator('[data-testid="copilot-assistant-message"]')
         .filter({ hasText: "I am processing the $50 refund" })
         .first(),
     ).toBeVisible({ timeout: 60_000 });
@@ -113,7 +113,7 @@ test.describe("HITL In-App (approval dialog portaled to <body>)", () => {
     // assertion is intentional — locks the reject-branch identity.
     await expect(
       page
-        .locator('[data-role="assistant"]')
+        .locator('[data-testid="copilot-assistant-message"]')
         .filter({ hasText: "refund request was not approved" })
         .first(),
     ).toBeVisible({ timeout: 60_000 });
@@ -142,7 +142,7 @@ test.describe("HITL In-App (approval dialog portaled to <body>)", () => {
     // Approve branch leading phrase: "Escalated ticket #12347 ...".
     await expect(
       page
-        .locator('[data-role="assistant"]')
+        .locator('[data-testid="copilot-assistant-message"]')
         .filter({ hasText: "Escalated ticket #12347" })
         .first(),
     ).toBeVisible({ timeout: 60_000 });
@@ -171,7 +171,7 @@ test.describe("HITL In-App (approval dialog portaled to <body>)", () => {
     // Reject branch leading phrase: "Not escalated ...".
     await expect(
       page
-        .locator('[data-role="assistant"]')
+        .locator('[data-testid="copilot-assistant-message"]')
         .filter({ hasText: "Not escalated" })
         .first(),
     ).toBeVisible({ timeout: 60_000 });

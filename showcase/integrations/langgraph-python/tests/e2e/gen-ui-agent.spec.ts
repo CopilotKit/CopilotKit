@@ -14,7 +14,7 @@ test.describe("Agentic Generative UI", () => {
     await input.fill("Hello");
     await input.press("Enter");
 
-    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+    await expect(page.locator('[data-testid="copilot-assistant-message"]').first()).toBeVisible({
       timeout: 30000,
     });
   });

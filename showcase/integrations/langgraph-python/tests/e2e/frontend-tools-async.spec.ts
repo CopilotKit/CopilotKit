@@ -128,7 +128,7 @@ test.describe("Frontend Tools (async query_notes)", () => {
     // fixture wired correctly through the async tool result.
     await expect(
       page
-        .locator('[data-role="assistant"]')
+        .locator('[data-testid="copilot-assistant-message"]')
         .filter({
           hasText:
             'You have a note titled "Book recommendations" that is tagged with "reading',

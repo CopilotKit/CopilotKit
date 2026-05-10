@@ -1,8 +1,8 @@
-# QA: Reasoning (Default Render) — LangGraph (Python)
+# QA: Reasoning (Default) — LangGraph (Python)
 
-> Stub — authored for column completeness. This is a testing-kind demo
-> (see `kind: "testing"` in feature-registry.json) and does not warrant a
-> full manual checklist.
+> Stub — authored for column completeness. This demo verifies the
+> built-in `CopilotChatReasoningMessage` renders without a custom slot
+> and does not warrant a full manual checklist.
 
 ## Prerequisites
 
@@ -11,7 +11,7 @@
 
 ## Test Steps
 
-- [ ] Navigate to /demos/reasoning-default-render
+- [ ] Navigate to /demos/reasoning-default
 - [ ] Send any prompt that elicits a reasoning response and verify the built-in `CopilotChatReasoningMessage` collapsible card renders the reasoning tokens
 - [ ] Verify no custom reasoning slot is wired (default styling only — no `ReasoningBlock` or bespoke container)
 
