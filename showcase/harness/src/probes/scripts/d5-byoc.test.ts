@@ -43,9 +43,9 @@ describe("d5-byoc script", () => {
   });
 
   it("preNavigateRoute routes declarative-hashbrown to its renamed slug", () => {
-    expect(
-      preNavigateRoute("byoc", { demos: ["declarative-hashbrown"] }),
-    ).toBe("/demos/declarative-hashbrown");
+    expect(preNavigateRoute("byoc", { demos: ["declarative-hashbrown"] })).toBe(
+      "/demos/declarative-hashbrown",
+    );
   });
 
   it("preNavigateRoute routes declarative-json-render to its renamed slug", () => {

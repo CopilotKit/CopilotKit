@@ -34,8 +34,8 @@ test.describe("Reasoning: Default", () => {
     // streaming/complete header label ("Thinking…" while streaming,
     // "Thought for …" once complete). Asserting on either label proves
     // the reasoning collapsible mounted.
-    await expect(
-      page.getByText(/Thinking…|Thought for/i).first(),
-    ).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText(/Thinking…|Thought for/i).first()).toBeVisible({
+      timeout: 60_000,
+    });
   });
 });

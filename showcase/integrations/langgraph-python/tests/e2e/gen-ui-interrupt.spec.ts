@@ -92,7 +92,9 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
       0,
     );
 
-    await expect(page.locator('[data-testid="copilot-assistant-message"]').first()).toBeVisible({
+    await expect(
+      page.locator('[data-testid="copilot-assistant-message"]').first(),
+    ).toBeVisible({
       timeout: 45_000,
     });
   });
@@ -118,7 +120,9 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
     await expect(cancelled).toBeVisible({ timeout: 10_000 });
     await expect(cancelled).toContainText("Cancelled");
 
-    await expect(page.locator('[data-testid="copilot-assistant-message"]').first()).toBeVisible({
+    await expect(
+      page.locator('[data-testid="copilot-assistant-message"]').first(),
+    ).toBeVisible({
       timeout: 45_000,
     });
   });

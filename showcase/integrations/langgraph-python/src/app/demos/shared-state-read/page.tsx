@@ -92,7 +92,9 @@ function Recipe() {
     });
     void copilotkit
       .runAgent({ agent })
-      .catch((err) => console.error("[shared-state-read] runAgent failed", err));
+      .catch((err) =>
+        console.error("[shared-state-read] runAgent failed", err),
+      );
   };
 
   return (

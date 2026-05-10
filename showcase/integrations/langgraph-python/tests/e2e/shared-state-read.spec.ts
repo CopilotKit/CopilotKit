@@ -32,9 +32,9 @@ test.describe("Shared State (Reading)", () => {
       "Make it healthier",
       "Suggest variations",
     ]) {
-      await expect(
-        page.getByRole("button", { name: title }),
-      ).toBeVisible({ timeout: 15000 });
+      await expect(page.getByRole("button", { name: title })).toBeVisible({
+        timeout: 15000,
+      });
     }
   });
 

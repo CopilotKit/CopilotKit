@@ -57,7 +57,8 @@ function groupByTag(
   // simplest start → variants). Demos missing from the features list
   // fall to the end of their tag.
   const featureIndex = new Map(features.map((id, i) => [id, i]));
-  const orderOf = (id: string) => featureIndex.get(id) ?? Number.MAX_SAFE_INTEGER;
+  const orderOf = (id: string) =>
+    featureIndex.get(id) ?? Number.MAX_SAFE_INTEGER;
 
   const map = new Map<string, Demo[]>();
   for (const demo of demos) {

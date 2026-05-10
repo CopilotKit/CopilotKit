@@ -94,7 +94,9 @@ test.describe("Multimodal Attachments", () => {
     await page.locator(SEND_BUTTON).click();
 
     // Assistant message renders — use role-based locator as a stable anchor.
-    const assistantMessage = page.locator('[data-testid="copilot-assistant-message"]').first();
+    const assistantMessage = page
+      .locator('[data-testid="copilot-assistant-message"]')
+      .first();
     await expect(assistantMessage).toBeVisible({ timeout: 90000 });
     // Soft assertion: mentions CopilotKit, logo, or image-ish keywords.
     // Loosened to avoid flakes when the vision model paraphrases; the
@@ -115,7 +117,9 @@ test.describe("Multimodal Attachments", () => {
     await page.locator(CHAT_TEXTAREA).fill("Summarize this document");
     await page.locator(SEND_BUTTON).click();
 
-    const assistantMessage = page.locator('[data-testid="copilot-assistant-message"]').first();
+    const assistantMessage = page
+      .locator('[data-testid="copilot-assistant-message"]')
+      .first();
     await expect(assistantMessage).toBeVisible({ timeout: 90000 });
     // The sample PDF contains the word "CopilotKit" multiple times and the
     // aimock fixture mirrors that in its response.

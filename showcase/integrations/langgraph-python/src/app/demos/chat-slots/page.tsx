@@ -51,26 +51,23 @@ function Chat() {
   // Slot overrides go through `makeSlotOverride<TDefault>(component)` so
   // the cast is centralized in one named helper instead of sprinkled
   // through this file. See `../_shared/slot-override.ts` for the why.
-  const welcomeScreen = makeSlotOverride<typeof CopilotChatView.WelcomeScreen>(
-    CustomWelcomeScreen,
-  );
+  const welcomeScreen =
+    makeSlotOverride<typeof CopilotChatView.WelcomeScreen>(CustomWelcomeScreen);
 
   // The input prop accepts both slot overrides AND CopilotChatInput's rest
   // props (toolsMenu, mode, etc.) merged together. We seed `toolsMenu` so the
   // addMenuButton slot has a reason to render.
   const input = {
-    textArea: makeSlotOverride<typeof CopilotChatInput.TextArea>(
-      CustomTextArea,
-    ),
-    sendButton: makeSlotOverride<typeof CopilotChatInput.SendButton>(
-      CustomSendButton,
-    ),
-    disclaimer: makeSlotOverride<typeof CopilotChatInput.Disclaimer>(
-      CustomDisclaimer,
-    ),
-    addMenuButton: makeSlotOverride<typeof CopilotChatInput.AddMenuButton>(
-      CustomAddMenuButton,
-    ),
+    textArea:
+      makeSlotOverride<typeof CopilotChatInput.TextArea>(CustomTextArea),
+    sendButton:
+      makeSlotOverride<typeof CopilotChatInput.SendButton>(CustomSendButton),
+    disclaimer:
+      makeSlotOverride<typeof CopilotChatInput.Disclaimer>(CustomDisclaimer),
+    addMenuButton:
+      makeSlotOverride<typeof CopilotChatInput.AddMenuButton>(
+        CustomAddMenuButton,
+      ),
     toolsMenu: [
       {
         label: "Demo tool (no-op)",
@@ -83,9 +80,8 @@ function Chat() {
     assistantMessage: makeSlotOverride<typeof CopilotChatAssistantMessage>(
       CustomAssistantMessage,
     ),
-    userMessage: makeSlotOverride<typeof CopilotChatUserMessage>(
-      CustomUserMessage,
-    ),
+    userMessage:
+      makeSlotOverride<typeof CopilotChatUserMessage>(CustomUserMessage),
     reasoningMessage: makeSlotOverride<typeof CopilotChatReasoningMessage>(
       CustomReasoningMessage,
     ),
