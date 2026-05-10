@@ -89,8 +89,8 @@ export type CopilotChatViewProps = WithSlots<
     /**
      * When `true`, suppresses the welcome screen while a thread's initial
      * connect is in flight. Prevents the "How can I help you today?" flash
-     * that would otherwise appear between mounting an empty cloned agent and
-     * the bootstrap messages arriving from /connect.
+     * that would otherwise appear between mounting an empty agent instance
+     * and the bootstrap messages arriving from /connect.
      */
     isConnecting?: boolean;
     /**

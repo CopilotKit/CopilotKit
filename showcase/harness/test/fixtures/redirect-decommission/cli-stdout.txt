@@ -1,8 +1,8 @@
 :bar_chart: *SEO Redirect Decommission Report* (last 30 days)
-Total redirects defined: 339
+Total redirects defined: 390
 Total hits: 12,537
 
-:warning: *326 redirect(s) with zero hits — decommission candidates:*
+:warning: *377 redirect(s) with zero hits — decommission candidates:*
   • B1
   • B2
   • B3
@@ -28,6 +28,12 @@ Total hits: 12,537
   • D7
   • D8
   • D9
+  • DI-index
+  • DI-index-wild
+  • DI-root: 13 entries (DI-root×a2a, DI-root×adk, DI-root×ag2, ...)
+  • DI-wild: 13 entries (DI-wild×a2a, DI-wild×adk, DI-wild×ag2, ...)
+  • DOCS-root
+  • DOCS-wild
   • F1
   • F10
   • F11
@@ -48,6 +54,11 @@ Total hits: 12,537
   • F7
   • F8
   • F9
+  • FI-concepts
+  • FI-migrate
+  • FI-premium
+  • FI-reference
+  • FI-troubleshooting
   • L10
   • L11
   • L12
@@ -67,6 +78,10 @@ Total hits: 12,537
   • M6
   • M7
   • M8
+  • MG1
+  • MG2
+  • MG3
+  • MG4
   • P10
   • P11
   • P12
@@ -120,6 +135,8 @@ Total hits: 12,537
   • S7: 13 entries (S7×a2a, S7×adk, S7×ag2, ...)
   • S8: 13 entries (S8×a2a, S8×adk, S8×ag2, ...)
   • S9: 13 entries (S9×a2a, S9×adk, S9×ag2, ...)
+  • SR-root: 6 entries (SR-root×adk, SR-root×aws-strands, SR-root×crewai-flows, ...)
+  • SR-wild: 6 entries (SR-wild×adk, SR-wild×aws-strands, SR-wild×crewai-flows, ...)
 
 Cross-reference: <https://www.notion.so/33c3aa38185281d7b243c5cf0a7c14cb|SEO Redirect Inventory>
 

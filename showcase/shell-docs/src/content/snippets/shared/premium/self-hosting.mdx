@@ -10,17 +10,17 @@ CopilotKit Intelligence — the platform that powers threads, shared state, the 
 - Your organization requires CopilotKit Intelligence to run inside your own VPC or data center for compliance, data residency, or security reasons
 - You want to connect Intelligence to internal databases, identity providers, or secret stores that are not reachable from Copilot Cloud
 - You need to operate the platform under your existing Kubernetes tooling, CI/CD, and observability stack
-- You have a CopilotKit Intelligence Platform license and the platform-engineering capacity to run a production Kubernetes workload
+- You have an Enterprise Intelligence Platform license and the platform-engineering capacity to run a production Kubernetes workload
 
 If none of these apply, use [Copilot Cloud](https://cloud.copilotkit.ai) — it is the fastest path to a working Intelligence deployment and requires no cluster operations.
 
 ## Prerequisites
 
-Before starting, make sure the following are in place. The [How the Intelligence Platform Works](/learn/intelligence-platform) page explains the layering in more depth.
+Before starting, make sure the following are in place. The [How the Enterprise Intelligence Platform Works](/learn/intelligence-platform) page explains the layering in more depth.
 
 **License and registry access:**
 
-- A valid CopilotKit Intelligence Platform license key (contact your CopilotKit account team if you do not have one)
+- A valid Enterprise Intelligence Platform license key (contact your CopilotKit account team if you do not have one)
 - Read access to the chart OCI registry at `oci://ghcr.io/copilotkit/charts/copilot-intelligence`
 
 **Cluster and tooling:**
@@ -370,6 +370,6 @@ Per-service keys `podDisruptionBudget`, `podAntiAffinity`, and `networkPolicy` a
 
 ## Next steps
 
-- **Understand how it works:** [How the Intelligence Platform Works](/learn/intelligence-platform) — architecture, multi-tenancy model, platform layering, and the decision between hosted and self-hosted
+- **Understand how it works:** [How the Enterprise Intelligence Platform Works](/learn/intelligence-platform) — architecture, multi-tenancy model, platform layering, and the decision between hosted and self-hosted
 - **Premium features overview:** [CopilotKit Premium](/premium/overview) — all premium capabilities that require an Intelligence license
-- **Use threads in your app:** [Threads](/threads) — the persistent-conversation surface powered by the Intelligence Platform you just deployed
+- **Use threads in your app:** [Threads](/threads) — the persistent-conversation surface powered by the Enterprise Intelligence Platform you just deployed

@@ -56,7 +56,7 @@ graph = create_agent(
     # gpt-4o-mini for speed — Excalidraw element emission is simple
     # JSON and we're biasing hard toward sub-30s generation. A faster
     # model produces shorter, quicker outputs with acceptable layouts.
-    model=ChatOpenAI(model="gpt-4o-mini"),
+    model=ChatOpenAI(model="gpt-5.4"),
     tools=[],
     middleware=[CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT,

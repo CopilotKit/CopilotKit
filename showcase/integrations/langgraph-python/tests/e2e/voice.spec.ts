@@ -2,10 +2,16 @@ import { test, expect } from "@playwright/test";
 
 // E2E for the voice demo — sample-audio path only.
 //
+// The "Play sample" button is a deterministic test/demo affordance: it
+// synchronously injects the canned phrase ("What is the weather in Tokyo?")
+// into the chat composer without touching the runtime's `/transcribe`
+// endpoint. That keeps this suite stable across environments where Whisper
+// or aimock might be unavailable.
+//
 // The microphone path is intentionally out of scope: MediaRecorder is hard
-// to exercise headlessly without mocking, and the Wave 2a plan constrains
-// E2E to the sample-audio round-trip for stability. The mic path is
-// covered by the manual QA checklist at qa/voice.md.
+// to exercise headlessly without mocking, and the mic is the only path that
+// actually exercises real transcription. It's covered by the manual QA
+// checklist at qa/voice.md.
 //
 // Stability expectation: 3 consecutive runs against Railway must pass.
 
@@ -40,7 +46,7 @@ test.describe("Voice Input", () => {
     ).toBeVisible();
   });
 
-  test("sample audio button transcribes and populates the input", async ({
+  test("sample audio button injects the canned phrase into the input", async ({
     page,
   }) => {
     const sampleButton = page.locator(
@@ -49,16 +55,14 @@ test.describe("Voice Input", () => {
     const textarea = page.locator('[data-testid="copilot-chat-textarea"]');
 
     await expect(sampleButton).toBeEnabled();
+    await expect(textarea).toHaveValue("");
     await sampleButton.click();
 
-    // Button flips to "Transcribing…" while the round-trip is in flight.
-    await expect(sampleButton).toHaveText(/transcribing/i, { timeout: 2000 });
-
-    // Within 15s the textarea should contain the transcribed sample. Whisper
-    // is deterministic enough for a fixed clip that weather/tokyo keywords
-    // are stable across runs, though punctuation may vary.
-    await expect(textarea).toHaveValue(/weather|tokyo/i, { timeout: 15000 });
-    await expect(sampleButton).toBeEnabled({ timeout: 2000 });
+    // The button is synchronous — clicking immediately populates the
+    // textarea with the canned sample text. No transient "Transcribing…"
+    // state, no /transcribe round trip.
+    await expect(textarea).toHaveValue(/weather|tokyo/i, { timeout: 1000 });
+    await expect(sampleButton).toBeEnabled();
   });
 
   test("sending the transcribed text produces a weather tool render", async ({
@@ -71,7 +75,7 @@ test.describe("Voice Input", () => {
     const sendButton = page.locator('[data-testid="copilot-send-button"]');
 
     await sampleButton.click();
-    await expect(textarea).toHaveValue(/weather|tokyo/i, { timeout: 15000 });
+    await expect(textarea).toHaveValue(/weather|tokyo/i, { timeout: 1000 });
     await sendButton.click();
 
     // The voice-demo route reuses the neutral sample_agent graph, which

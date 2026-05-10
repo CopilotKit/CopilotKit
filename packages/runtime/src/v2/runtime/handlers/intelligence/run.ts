@@ -1,18 +1,18 @@
-import {
+import type {
   AbstractAgent,
   BaseEvent,
-  EventType,
   Message,
   RunAgentInput,
 } from "@ag-ui/client";
-import { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
+import { EventType } from "@ag-ui/client";
+import type { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
 import { generateThreadNameForNewThread } from "./thread-names";
 import { logger } from "@copilotkit/shared";
 import { telemetry } from "../../telemetry";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 import { isHandlerResponse } from "../shared/json-response";
-import { AgentRunnerRunRequest } from "../../runner/agent-runner";
-import { Observable } from "rxjs";
+import type { AgentRunnerRunRequest } from "../../runner/agent-runner";
+import type { Observable } from "rxjs";
 
 /**
  * Builds browser-facing realtime connection metadata owned by the runtime.
@@ -161,10 +161,38 @@ export async function handleIntelligenceRun({
     );
   }
 
+  // When Intelligence has `mcpServer: true`, hand the agent the per-request
+  // bits it needs to attach the platform's MCP server: the resolved user-id,
+  // the project Bearer (`apiKey`), and the MCP URL. These ride through
+  // `forwardedProps.auth.copilotkitIntelligence` so the agent doesn't need a
+  // typed reference to the Intelligence client. `BuiltInAgent` reads the
+  // bag and builds a per-request MCP config with a closure-baked fetch;
+  // non-BuiltInAgent agents naturally ignore the key. The `auth` namespace
+  // is the convention for credentials that downstream redaction policies
+  // strip before durable storage and FE replay.
+  const upstreamAuth =
+    (input.forwardedProps as { auth?: Record<string, unknown> } | undefined)
+      ?.auth ?? {};
+  const copilotkitIntelligenceAuth =
+    runtime.intelligence.ɵisMcpServerEnabled?.()
+      ? {
+          copilotkitIntelligence: {
+            userId,
+            apiKey: runtime.intelligence.ɵgetApiKey(),
+            mcpUrl: `${runtime.intelligence.ɵgetApiUrl()}/mcp`,
+          },
+        }
+      : {};
+  const mergedAuth = { ...upstreamAuth, ...copilotkitIntelligenceAuth };
+
   const canonicalInput: RunAgentInput = {
     ...input,
     threadId: canonicalThreadId,
     runId: canonicalRunId,
+    forwardedProps: {
+      ...input.forwardedProps,
+      ...(Object.keys(mergedAuth).length > 0 ? { auth: mergedAuth } : {}),
+    },
   };
 
   let persistedInputMessages: Message[] | undefined;

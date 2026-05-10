@@ -2,7 +2,7 @@
 
 /**
  * PieChart ported from showcase/starters/template/frontend/components/charts/pie-chart.tsx
- * for the byoc-hashbrown demo (Wave 4a).
+ * for the byoc-hashbrown demo.
  *
  * Adds data-testid="pie-chart" on the top-level container for E2E coverage.
  */

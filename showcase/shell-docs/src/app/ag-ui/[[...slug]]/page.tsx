@@ -2,6 +2,7 @@ import React from "react";
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
@@ -11,6 +12,23 @@ import { SidebarNav } from "@/components/sidebar-nav";
 import { docsComponents } from "@/lib/mdx-registry";
 import { stripLeadingImports } from "@/lib/docs-render";
 import { resolveWithinDir, safeReadFileSync } from "@/lib/safe-fs";
+import { getBaseUrl } from "@/lib/sitemap-helpers";
+
+// Self-canonical for /ag-ui[/<slug>]. AG-UI pages aren't per-framework
+// but get a canonical for parity with the rest of the docs surface.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug?: string[] }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const slugTail = slug && slug.length > 0 ? `/${slug.join("/")}` : "";
+  return {
+    alternates: {
+      canonical: `${getBaseUrl()}/ag-ui${slugTail}`,
+    },
+  };
+}
 
 const CONTENT_DIR = path.join(process.cwd(), "src/content/ag-ui");
 

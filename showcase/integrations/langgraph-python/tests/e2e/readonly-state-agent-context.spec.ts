@@ -4,17 +4,17 @@ import { test, expect } from "@playwright/test";
 // Demo source: src/app/demos/readonly-state-agent-context/page.tsx
 //
 // The demo publishes three frontend-only values to the agent via
-// `useAgentContext`: `userName` (default "Atai"),
-// `userTimezone` (default "America/Los_Angeles"), and `recentActivity`
-// (array of strings with two entries checked by default). The context
-// card lives in the left sidebar (`data-testid="context-card"`) with
-// per-field testids: `ctx-name`, `ctx-timezone`, `ctx-state-json`. The
-// chat pane on the right uses the placeholder "Ask about your context..."
-// No frontend tool — the agent simply reads the context and replies. We
-// assert on (a) card + default values, (b) JSON preview reactivity to
-// local state edits, and (c) the round-trip signal that the agent
-// produced an assistant turn after a context-referencing prompt. We
-// deliberately avoid asserting on LLM wording.
+// `useAgentContext`: `userName` (default "Atai"), `userTimezone`
+// (default "America/Los_Angeles"), and `recentActivity` (defaults to
+// ACTIVITIES[0] "Viewed the pricing page" + ACTIVITIES[2] "Watched the
+// product demo video"). Suggestion pills render verbatim message bodies:
+//   - "Who am I?" → "What do you know about me from my context?"
+//   - "Suggest next steps" → "Based on my recent activity, what should I try next?"
+// Both prompts are pinned to deterministic aimock fixtures (see
+// showcase/aimock/d5-all.json) so the assistant's leading phrase is
+// stable in CI. On Railway, the same prompts produce a real LLM reply
+// that mentions the published context fields — proving end-to-end
+// `useAgentContext` wiring.
 
 test.describe("Readonly Agent Context (useAgentContext)", () => {
   test.setTimeout(90_000);
@@ -23,31 +23,10 @@ test.describe("Readonly Agent Context (useAgentContext)", () => {
     await page.goto("/demos/readonly-state-agent-context");
   });
 
-  test("context card renders with default values and chat composer", async ({
-    page,
-  }) => {
+  test("page loads: context-card + composer render", async ({ page }) => {
     await expect(page.getByTestId("context-card")).toBeVisible({
       timeout: 15_000,
     });
-
-    // Name input defaults to "Atai" (verbatim in page.tsx).
-    await expect(page.getByTestId("ctx-name")).toHaveValue("Atai");
-
-    // Timezone <select> defaults to America/Los_Angeles.
-    await expect(page.getByTestId("ctx-timezone")).toHaveValue(
-      "America/Los_Angeles",
-    );
-
-    // Published Context JSON reflects both defaults plus the 2-entry
-    // recentActivity array. We don't assert on exact whitespace — just on
-    // presence of the three expected keys + the "Atai" default.
-    const json = page.getByTestId("ctx-state-json");
-    await expect(json).toBeVisible();
-    await expect(json).toContainText('"name": "Atai"');
-    await expect(json).toContainText('"timezone": "America/Los_Angeles"');
-    await expect(json).toContainText('"recentActivity"');
-
-    // Chat composer: placeholder is the demo-specific override.
     await expect(
       page.getByPlaceholder("Ask about your context..."),
     ).toBeVisible();
@@ -58,7 +37,7 @@ test.describe("Readonly Agent Context (useAgentContext)", () => {
   }) => {
     const json = page.getByTestId("ctx-state-json");
 
-    // Edit name → "Jamie". Clearing first so the .fill() replaces cleanly.
+    // Edit name → "Jamie".
     await page.getByTestId("ctx-name").fill("Jamie");
     await expect(json).toContainText('"name": "Jamie"');
 
@@ -67,43 +46,75 @@ test.describe("Readonly Agent Context (useAgentContext)", () => {
     await expect(json).toContainText('"timezone": "Asia/Tokyo"');
   });
 
-  // SKIP: this suggestion round-trips a real LLM reply through Railway
-  // via the `readonly_state_agent_context` graph. v2 CopilotChat renders
-  // assistant turns with `data-message-role="assistant"`, but on Railway
-  // the reply sometimes takes longer than 60s to surface the first
-  // message DOM node (no deterministic side effect to race against).
-  // Un-skip when the agent deployment is stable or a
-  // `data-testid="assistant-message"` marker is added. See W8-READONLY-1.
-  test.skip('"Who am I?" suggestion round-trips to an assistant reply', async ({
+  test('"Who am I?" pill — assistant acknowledges identity + identity card matches defaults', async ({
     page,
   }) => {
-    const suggestion = page.locator('[data-testid="copilot-suggestion"]', {
-      hasText: "Who am I?",
-    });
-    await expect(suggestion.first()).toBeVisible({ timeout: 15_000 });
-    await suggestion.click();
+    // Identity card shows the defaults BEFORE we click the pill — these
+    // assertions don't depend on the round-trip and lock the testids.
+    await expect(page.getByTestId("identity-name")).toHaveText("Atai");
+    await expect(page.getByTestId("identity-timezone")).toHaveText(
+      "America/Los_Angeles",
+    );
+    await expect(page.getByTestId("identity-avatar")).toHaveText("A");
 
-    // v2 CopilotChat: AssistantMessage receives `data-message-role="assistant"`
-    // from RenderMessage; fall back to the legacy `data-role="assistant"`
-    // selector that other specs use.
+    const suggestion = page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Who am I?" });
+    await expect(suggestion.first()).toBeVisible({ timeout: 15_000 });
+    await suggestion.first().click();
+
+    // Aimock fixture for the verbatim pill prompt
+    // ("What do you know about me from my context?") returns a content reply
+    // beginning with "I see you're Atai".
     const assistant = page.locator(
       '[data-message-role="assistant"], [data-role="assistant"]',
     );
-    await expect(assistant.first()).toBeVisible({ timeout: 60_000 });
+    await expect(
+      assistant.filter({ hasText: "I see you're Atai" }).first(),
+    ).toBeVisible({ timeout: 60_000 });
   });
 
-  // SKIP: same Railway round-trip flakiness as the suggestion path. See
-  // W8-READONLY-1.
-  test.skip("typed prompt referencing context produces an assistant reply", async ({
+  test("activity checkboxes default-checked: pricing page + product demo video", async ({
     page,
   }) => {
-    const input = page.getByPlaceholder("Ask about your context...");
-    await input.fill("What is my name?");
-    await page.locator('[data-testid="copilot-send-button"]').first().click();
+    // ACTIVITIES[0] and ACTIVITIES[2] are the default-selected entries in
+    // page.tsx. Their <label> testids embed the kebab-cased activity name.
+    const pricingLabel = page.getByTestId("activity-viewed-the-pricing-page");
+    const demoLabel = page.getByTestId(
+      "activity-watched-the-product-demo-video",
+    );
+    await expect(pricingLabel).toBeVisible();
+    await expect(demoLabel).toBeVisible();
 
+    // Each <label> wraps a <Checkbox> whose `checked` prop reflects
+    // selection. Assert the underlying input is checked.
+    await expect(pricingLabel.locator('input[type="checkbox"]')).toBeChecked();
+    await expect(demoLabel.locator('input[type="checkbox"]')).toBeChecked();
+  });
+
+  test('"Suggest next steps" pill — assistant grounds reply in default activities', async ({
+    page,
+  }) => {
+    const suggestion = page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Suggest next steps" });
+    await expect(suggestion.first()).toBeVisible({ timeout: 15_000 });
+    await suggestion.first().click();
+
+    // Aimock fixture for the verbatim pill prompt
+    // ("Based on my recent activity, what should I try next?") returns a
+    // content reply beginning with "Since you recently viewed the pricing
+    // page and watched the product demo video".
     const assistant = page.locator(
       '[data-message-role="assistant"], [data-role="assistant"]',
     );
-    await expect(assistant.first()).toBeVisible({ timeout: 60_000 });
+    await expect(
+      assistant
+        .filter({
+          hasText:
+            "Since you recently viewed the pricing page and watched the product demo video",
+        })
+        .first(),
+    ).toBeVisible({ timeout: 60_000 });
   });
 });

@@ -59,7 +59,7 @@ export function MessageList({
       <div className="space-y-3">
         {renderedMessages.length === 0 && (
           <div className="text-center text-sm text-[#838389] mt-8">
-            Try weather, a flight search, a highlighted note, or a card.
+            Try weather, a stock, a highlighted note, or an Excalidraw sketch.
           </div>
         )}
         {renderedMessages.map((m) => {

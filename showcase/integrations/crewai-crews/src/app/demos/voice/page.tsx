@@ -6,8 +6,7 @@ import { SampleAudioButton } from "./sample-audio-button";
 
 const RUNTIME_URL = "/api/copilotkit-voice";
 const AGENT_ID = "voice-demo";
-const SAMPLE_AUDIO_PATH = "/demo-audio/sample.wav";
-const SAMPLE_LABEL = "What is the weather in Tokyo?";
+const SAMPLE_TEXT = "What is the weather in Tokyo?";
 
 // Voice demo.
 //
@@ -17,10 +16,10 @@ const SAMPLE_LABEL = "What is the weather in Tokyo?";
 //    RUNTIME_URL advertises `audioFileTranscriptionEnabled: true`. Click it,
 //    speak, click again — text is transcribed into the composer.
 //
-// 2. The <SampleAudioButton /> below the chat, which fetches a bundled
-//    sample.wav, POSTs it to the same transcription endpoint, and writes the
-//    result into the chat's textarea (bypassing mic permissions so Playwright
-//    and screenshot flows work too).
+// 2. The <SampleAudioButton /> below the chat, which synchronously injects a
+//    canned phrase into the chat's textarea (bypassing mic permissions and
+//    the runtime so Playwright and screenshot flows work too). Real
+//    transcription only happens on the mic path.
 //
 // Backend: the agent is the shared CrewAI crew — voice is an input-modality
 // concern implemented entirely in the Next.js runtime via TranscriptionService.
@@ -76,9 +75,7 @@ export default function VoiceDemoPage() {
         </header>
         <SampleAudioButton
           onTranscribed={handleTranscribed}
-          runtimeUrl={RUNTIME_URL}
-          audioSrc={SAMPLE_AUDIO_PATH}
-          sampleLabel={SAMPLE_LABEL}
+          sampleText={SAMPLE_TEXT}
         />
         <div className="min-h-0 flex-1 overflow-hidden rounded-md border border-black/10 dark:border-white/10">
           <CopilotChat agentId={AGENT_ID} className="h-full" />

@@ -1,5 +1,5 @@
 /**
- * E2E spec for the byoc-hashbrown demo (Wave 4a).
+ * E2E spec for the byoc-hashbrown demo.
  *
  * Authored but not executed pre-deploy — Railway stabilization runs happen
  * post-deploy per the plan's scope modification. Selectors match the ported

@@ -5,6 +5,7 @@ packages:
   - "examples/v2/*/apps/*"
   - "examples/v2/react/*"
   - "examples/v2/angular/*"
+  - "examples/v2/react-native/*"
   - "examples/v2/runtime/*"
   - "examples/showcases/generative-ui-playground"
   - "!examples/v1/_legacy"

@@ -1,0 +1,6 @@
+# aimock writes per-call fixture files to `recorded/` while it runs in
+# `--record` mode. The `record-d5-fixtures.mjs` orchestrator merges those
+# into the per-demo `<slug>.json` files at the parent level and deletes
+# the per-call files. Anything left in `recorded/` is recording-session
+# scratch and must not be committed.
+recorded/

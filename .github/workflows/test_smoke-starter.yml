@@ -21,6 +21,8 @@ jobs:
   smoke-starter:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
     strategy:
       matrix:
         starter:
@@ -137,7 +139,7 @@ jobs:
       # same pattern used in test_smoke-starter-deployed.yml (PR #4068) and
       # showcase_validate.yml.
       - name: Prepare Slack alert fields
-        if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
+        if: failure() && env.SLACK_WEBHOOK != '' && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
         env:
           SUMMARY_RAW: ${{ steps.failure-cause.outputs.summary }}
         run: |
@@ -158,7 +160,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Alert Slack on failure
-        if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
+        if: failure() && env.SLACK_WEBHOOK != '' && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}

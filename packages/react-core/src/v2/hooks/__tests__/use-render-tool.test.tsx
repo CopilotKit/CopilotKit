@@ -3,10 +3,10 @@ import { render } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { z } from "zod";
 import { useRenderTool, type RenderToolProps } from "../use-render-tool";
-import { useCopilotKit } from "../../providers/CopilotKitProvider";
+import { useCopilotKit } from "../../context";
 import type { ReactToolCallRenderer } from "../../types/react-tool-call-renderer";
 
-vi.mock("../../providers/CopilotKitProvider", () => ({
+vi.mock("../../context", () => ({
   useCopilotKit: vi.fn(),
 }));
 

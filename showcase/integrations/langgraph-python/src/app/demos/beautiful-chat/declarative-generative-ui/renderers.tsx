@@ -150,11 +150,27 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
             width: "100%",
           }}
         >
-          {items.map((id: string, i: number) => (
-            <div key={`${id}-${i}`} style={{ flex: "1 1 0", minWidth: 0 }}>
-              {children(id)}
-            </div>
-          ))}
+          {items.map((item: any, i: number) => {
+            if (typeof item === "string")
+              return (
+                <div
+                  key={`${item}-${i}`}
+                  style={{ flex: "1 1 0", minWidth: 0 }}
+                >
+                  {children(item)}
+                </div>
+              );
+            if (item && typeof item === "object" && "id" in item)
+              return (
+                <div
+                  key={`${item.id}-${i}`}
+                  style={{ flex: "1 1 0", minWidth: 0 }}
+                >
+                  {(children as any)(item.id, item.basePath)}
+                </div>
+              );
+            return null;
+          })}
         </div>
       );
     },
@@ -170,9 +186,21 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
             width: "100%",
           }}
         >
-          {items.map((id: string, i: number) => (
-            <React.Fragment key={`${id}-${i}`}>{children(id)}</React.Fragment>
-          ))}
+          {items.map((item: any, i: number) => {
+            if (typeof item === "string")
+              return (
+                <React.Fragment key={`${item}-${i}`}>
+                  {children(item)}
+                </React.Fragment>
+              );
+            if (item && typeof item === "object" && "id" in item)
+              return (
+                <React.Fragment key={`${item.id}-${i}`}>
+                  {(children as any)(item.id, item.basePath)}
+                </React.Fragment>
+              );
+            return null;
+          })}
         </div>
       );
     },

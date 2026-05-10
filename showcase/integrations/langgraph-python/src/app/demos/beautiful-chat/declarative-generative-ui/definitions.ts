@@ -28,30 +28,36 @@ export const demonstrationCatalogDefinitions = {
   },
 
   // Custom Row/Column: override the basic catalog's versions so we can
-  // honour `gap` (basic Row/Column from web_core ignores it). We accept
-  // children as a literal-string array only — the agent
-  // (`src/agents/beautiful_chat.py` + the dashboard fixture) expands any
-  // per-item iteration server-side, so we don't need the binder's
-  // structural-children form here. `Text` is still provided by the basic
-  // catalog (path-binding support there is non-trivial to replicate).
+  // honour `gap` (basic Row/Column from web_core ignores it). Children may
+  // be a literal-string array (flat trees) OR a structural template form
+  // `{ componentId, path }` so the GenericBinder expands per-row templates
+  // from the data model — required for fixed-schema flows like
+  // flight_schema.json (Row.children = { componentId, path: "/flights" }).
   Row: {
-    description:
-      "Horizontal layout container. Children must be an array of component IDs.",
+    description: "Horizontal layout container.",
     props: z.object({
       gap: z.number().optional(),
       align: z.string().optional(),
       justify: z.string().optional(),
-      children: z.array(z.string()),
+      // Union with { componentId, path } so GenericBinder treats this as
+      // STRUCTURAL and resolves template children from the data model.
+      children: z.union([
+        z.array(z.string()),
+        z.object({ componentId: z.string(), path: z.string() }),
+      ]),
     }),
   },
 
   Column: {
-    description:
-      "Vertical layout container. Children must be an array of component IDs.",
+    description: "Vertical layout container.",
     props: z.object({
       gap: z.number().optional(),
       align: z.string().optional(),
-      children: z.array(z.string()),
+      // Same union as Row — required for template children support.
+      children: z.union([
+        z.array(z.string()),
+        z.object({ componentId: z.string(), path: z.string() }),
+      ]),
     }),
   },
 

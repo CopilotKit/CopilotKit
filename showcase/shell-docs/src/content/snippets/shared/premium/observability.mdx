@@ -4,6 +4,14 @@ description: "Monitor your CopilotKit application with comprehensive observabili
 icon: "lucide/Activity"
 ---
 
+<OpsPlatformCTA
+  variant="card"
+  title="Observability requires an Enterprise Intelligence Platform license key"
+  body="Sign up for a free account to get a public license key and start monitoring your agents."
+  ctaLabel="Create a free account"
+  surface="docs_premium_observability"
+/>
+
 Monitor CopilotKit with first‑class observability hooks that emit structured signals for chat events, user interactions, and runtime errors. Send these signals straight to your existing stack, including Sentry, Datadog, New Relic, and OpenTelemetry, or route them to your analytics pipeline. The hooks expose stable schemas and IDs so you can join agent events with app telemetry, trace sessions end to end, and alert on failures in real time. Works with Copilot Cloud via `publicApiKey`, or self‑hosted via `publicLicenseKey`.
 
 ## Quick Start
@@ -22,7 +30,7 @@ Track user interactions and chat events with comprehensive observability hooks:
 
 ```tsx
 import { CopilotChat } from "@copilotkit/react-core/v2";
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 export default function App() {
   return (
@@ -69,7 +77,7 @@ export default function App() {
 Monitor system errors and performance with error observability hooks:
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 export default function App() {
   return (

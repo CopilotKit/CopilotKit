@@ -42,6 +42,8 @@ generative_ui:
       - tool-rendering-reasoning-chain
       - agentic-chat-reasoning
       - reasoning-default-render
+      - reasoning-default
+      - reasoning-custom
       - prebuilt-sidebar
       - prebuilt-popup
       - chat-slots
@@ -65,6 +67,7 @@ generative_ui:
       - multimodal
       - suggestions
       - shared-state-read-write
+      - shared-state-read
       - readonly-state-agent-context
       - shared-state-streaming
       - subagents

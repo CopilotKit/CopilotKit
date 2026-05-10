@@ -7,16 +7,16 @@ import { SampleAudioButton } from "./sample-audio-button";
 
 const RUNTIME_URL = "/api/copilotkit-voice";
 const AGENT_ID = "voice-demo";
-const SAMPLE_AUDIO_PATH = "/demo-audio/sample.wav";
-const SAMPLE_LABEL = "What is the weather in Tokyo?";
+const SAMPLE_TEXT = "What is the weather in Tokyo?";
 
 // Voice demo (AG2). Two affordances on this page:
 //
 // 1. The default mic button rendered by <CopilotChat /> when the runtime at
 //    RUNTIME_URL advertises `audioFileTranscriptionEnabled: true`.
-// 2. A "Play sample" button that POSTs a bundled clip to /transcribe and
-//    injects the transcript into the chat composer (bypasses mic perms so
-//    Playwright + screenshot flows work too).
+// 2. A "Play sample" button that synchronously injects a canned phrase into
+//    the composer (bypasses mic perms and the runtime entirely so Playwright
+//    + screenshot flows work too). Real transcription only happens through
+//    the mic path.
 // @region[voice-page]
 export default function VoiceDemoPage() {
   const handleTranscribed = useCallback((text: string) => {
@@ -59,9 +59,7 @@ export default function VoiceDemoPage() {
         </header>
         <SampleAudioButton
           onTranscribed={handleTranscribed}
-          runtimeUrl={RUNTIME_URL}
-          audioSrc={SAMPLE_AUDIO_PATH}
-          sampleLabel={SAMPLE_LABEL}
+          sampleText={SAMPLE_TEXT}
         />
         <div className="min-h-0 flex-1 overflow-hidden rounded-md border border-black/10 dark:border-white/10">
           <CopilotChat agentId={AGENT_ID} className="h-full" />

@@ -1,10 +1,82 @@
 {
-  "_comment": "D5 fixture for /demos/frontend-tools-async. Triggers an async frontend tool that returns its result asynchronously; the agent waits for it before producing the final reply. Substring 'fetch the async metric' is unique.",
+  "_comment": "D5 fixture for /demos/frontend-tools-async. Three per-pill prompts (project planning / auth / reading) drive the async `query_notes` frontend tool. Each pill is a two-turn fixture: turn 1 emits the tool call; the in-browser handler resolves it (NOTES_DB lookup) and the agent paints the resulting NotesCard. Turn 2 (after the tool result) emits the deterministic narration that locks the spec assertion. Substrings 'project planning', 'auth', 'reading' are unique per pill — must stay in sync with showcase/aimock/d5-all.json (auto-merged).",
   "fixtures": [
     {
-      "match": { "userMessage": "fetch the async metric" },
+      "_comment": "frontend-tools-async — project-planning pill. 1st turn: query_notes tool call. Specific match wins over the broad 'plan' fixture in feature-parity.json (d5-all.json loads first).",
+      "match": {
+        "userMessage": "Find my notes about project planning",
+        "hasToolResult": false
+      },
       "response": {
-        "content": "The async tool resolved with the requested metric. The frontend handler awaited completion before forwarding the result back to the agent — async-streaming behavior confirmed."
+        "toolCalls": [
+          {
+            "id": "call_d5_query_notes_project_planning_001",
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"project planning\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — project-planning pill. 2nd turn: narration referencing the project-planning notes returned by the async handler.",
+      "match": {
+        "userMessage": "Find my notes about project planning",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "You have notes on project planning: \"Q2 project planning kickoff\" and \"Project planning retrospective notes\". Let me know if you want a summary of either."
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — auth pill. 1st turn: query_notes tool call. Beats the showcase-assistant catch-all in feature-parity.json by virtue of d5-all.json's load order and a longer specific substring match.",
+      "match": {
+        "userMessage": "Search my notes for anything related to auth",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_query_notes_auth_001",
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"auth\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — auth pill. 2nd turn: narration referencing the auth note returned by the async handler.",
+      "match": {
+        "userMessage": "Search my notes for anything related to auth",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "You have one note related to auth: \"Planning: migrate auth to passkeys\" — it covers WebAuthn library options and a fallback for unsupported browsers."
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — reading pill. 1st turn: query_notes tool call.",
+      "match": {
+        "userMessage": "Do I have any notes tagged reading",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_query_notes_reading_001",
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"reading\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — reading pill. 2nd turn: locked narration leading phrase per spec test #4 assertion.",
+      "match": {
+        "userMessage": "Do I have any notes tagged reading",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "You have a note titled \"Book recommendations\" that is tagged with \"reading.\" It includes the following books: Thinking Fast and Slow by Daniel Kahneman, The Design of Everyday Things by Don Norman."
       }
     }
   ]

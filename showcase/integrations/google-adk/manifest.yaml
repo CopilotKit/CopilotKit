@@ -25,6 +25,8 @@ interaction_modalities:
 managed_platform:
   name: Google AI Studio
   url: https://aistudio.google.com
+not_supported_features:
+  - shared-state-streaming
 features:
   - beautiful-chat
   - cli-start
@@ -52,7 +54,6 @@ features:
   - tool-rendering
   - tool-rendering-reasoning-chain
   - shared-state-read-write
-  - shared-state-streaming
   - readonly-state-agent-context
   - subagents
   - multimodal

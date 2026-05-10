@@ -4,6 +4,13 @@ import type { NextConfig } from "next";
 // because of the NEXT_PUBLIC_ prefix. Do NOT re-declare it in an `env` block —
 // doing so bakes the build-time value into server code and overrides runtime env.
 //
+// Consumers in production: src/app/sitemap.ts, src/app/robots.ts, and the
+// per-page `generateMetadata()` canonical URLs in the catch-all routes
+// (src/app/[[...slug]]/page.tsx, src/app/[framework]/[[...slug]]/page.tsx,
+// src/app/reference/[...slug]/page.tsx, src/app/ag-ui/[[...slug]]/page.tsx).
+// All read it through `getBaseUrl()` in src/lib/sitemap-helpers.ts, which
+// falls back to https://docs.copilotkit.ai when unset.
+//
 // Fail fast during an actual `next build` if the variable is missing, so we
 // never ship broken absolute URLs. Other invocations that also load this
 // config (e.g. `next lint`, `next dev`) only warn, because failing them on a
@@ -47,6 +54,25 @@ if (!process.env.NEXT_PUBLIC_SHELL_URL) {
 }
 
 const nextConfig: NextConfig = {
+  async rewrites() {
+    return {
+      beforeFiles: [
+        // PostHog reverse proxy — routes analytics through this host so
+        // requests bypass ad blockers / tracking-protection that target
+        // the *.i.posthog.com hostname directly. Mirrors docs/.
+        {
+          source: "/ingest/static/:path*",
+          destination: "https://eu-assets.i.posthog.com/static/:path*",
+        },
+        {
+          source: "/ingest/:path*",
+          destination: "https://eu.i.posthog.com/:path*",
+        },
+      ],
+      afterFiles: [],
+      fallback: [],
+    };
+  },
   async redirects() {
     return [
       {
@@ -132,6 +158,21 @@ const nextConfig: NextConfig = {
       {
         source: "/unselected/copilot-runtime",
         destination: "/backend/copilot-runtime",
+        permanent: true,
+      },
+      // custom-agent: consolidate two divergent shell-docs copies onto the
+      // structurally-complete backend/custom-agent.mdx (508 lines, matches
+      // upstream snippet). The integrations/built-in-agent/custom-agent.mdx
+      // copy (240 lines, missing 5 sections) was retired; redirect both
+      // historical paths.
+      {
+        source: "/built-in-agent/custom-agent",
+        destination: "/backend/custom-agent",
+        permanent: true,
+      },
+      {
+        source: "/integrations/built-in-agent/custom-agent",
+        destination: "/backend/custom-agent",
         permanent: true,
       },
       // troubleshooting/migrate-to-* in unselected → existing
@@ -351,7 +392,7 @@ const nextConfig: NextConfig = {
       // point.
       {
         source: "/migrate/1.10.X",
-        destination: "/migrate",
+        destination: "/migrate/v2",
         permanent: false,
       },
 

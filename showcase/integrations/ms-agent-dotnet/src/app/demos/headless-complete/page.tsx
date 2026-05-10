@@ -23,19 +23,12 @@
  * per-message role dispatch lives in `use-rendered-messages.tsx`.
  */
 
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CopilotKit,
   CopilotChatConfigurationProvider,
   useAgent,
   useCopilotKit,
-  useConfigureSuggestions,
   useRenderTool,
   useDefaultRenderTool,
   useComponent,
@@ -43,6 +36,7 @@ import {
 import type { Message } from "@ag-ui/core";
 import { z } from "zod";
 import { MessageList } from "./message-list";
+import { InputBar } from "./input-bar";
 
 const AGENT_ID = "headless-complete";
 
@@ -103,22 +97,25 @@ function Chat() {
   const messages = agent.messages as Message[];
   const isRunning = agent.isRunning;
 
-  const handleSubmit = useCallback(async () => {
-    const text = input.trim();
-    if (!text || isRunning) return;
-    setInput("");
-    agent.addMessage({
-      id: crypto.randomUUID(),
-      role: "user",
-      content: text,
-    });
-    try {
-      await copilotkit.runAgent({ agent });
-    } catch (err) {
-      console.error("headless-complete: runAgent failed", err);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent, input, isRunning]);
+  const handleSubmit = useCallback(
+    async (override?: string) => {
+      const text = (override ?? input).trim();
+      if (!text || isRunning) return;
+      setInput("");
+      agent.addMessage({
+        id: crypto.randomUUID(),
+        role: "user",
+        content: text,
+      });
+      try {
+        await copilotkit.runAgent({ agent });
+      } catch (err) {
+        console.error("headless-complete: runAgent failed", err);
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [agent, input, isRunning],
+  );
 
   const handleStop = useCallback(() => {
     try {
@@ -167,36 +164,44 @@ function ChatBody({
   isRunning: boolean;
   input: string;
   setInput: (next: string) => void;
-  handleSubmit: () => void;
+  handleSubmit: (override?: string) => void;
   handleStop: () => void;
 }) {
   useHeadlessCompleteToolRenderers();
 
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Weather in Tokyo",
-        message: "What's the weather in Tokyo?",
-      },
-      {
-        title: "Flights SFO → JFK",
-        message: "Search for flights from SFO to JFK.",
-      },
-      {
-        title: "Highlight a note",
-        message: "Highlight 'meeting at 3pm' in yellow.",
-      },
-      {
-        title: "Show a card",
-        message: "Show a card titled 'Reminder' with body 'Call the client.'",
-      },
-    ],
-    available: "always",
-  });
+  const suggestions = [
+    { title: "Weather in Tokyo", message: "What's the weather in Tokyo?" },
+    { title: "AAPL stock price", message: "What's AAPL trading at right now?" },
+    {
+      title: "Highlight a note",
+      message: "Highlight 'meeting at 3pm' in yellow.",
+    },
+    {
+      title: "Sketch a diagram",
+      message: "Use Excalidraw to sketch a simple system diagram.",
+    },
+    { title: "Largest continent", message: "What is the largest continent?" },
+  ];
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
       <MessageList messages={messages} isRunning={isRunning} />
+      <div
+        data-testid="headless-suggestions"
+        className="flex flex-wrap gap-2 px-4 py-2 border-t border-[#E9E9EF] bg-white"
+      >
+        {suggestions.map((s) => (
+          <button
+            key={s.title}
+            type="button"
+            onClick={() => handleSubmit(s.message)}
+            disabled={isRunning}
+            className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {s.title}
+          </button>
+        ))}
+      </div>
       <InputBar
         value={input}
         onChange={setInput}
@@ -294,7 +299,7 @@ function parseJsonResult<T>(result: unknown): T {
 }
 
 // =========================================================================
-// Presentational components (bubbles, typing indicator, input bar, cards)
+// Presentational components (cards)
 // =========================================================================
 
 function WeatherCard({
@@ -372,68 +377,5 @@ function ShowCard({ title, body }: { title: string; body: string }) {
         {body}
       </div>
     </div>
-  );
-}
-
-function InputBar({
-  value,
-  onChange,
-  onSubmit,
-  onStop,
-  isRunning,
-  canStop,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  onSubmit: () => void;
-  onStop: () => void;
-  isRunning: boolean;
-  canStop: boolean;
-}) {
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      onSubmit();
-    }
-  };
-
-  return (
-    <form
-      className="border-t border-[#E9E9EF] p-3 flex gap-2 items-end bg-white"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSubmit();
-      }}
-    >
-      <textarea
-        ref={inputRef}
-        rows={1}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder={isRunning ? "Agent is working..." : "Type a message..."}
-        disabled={isRunning}
-        className="flex-1 resize-none rounded-2xl border border-[#DBDBE5] bg-white px-4 py-2 text-sm leading-6 text-[#010507] focus:border-[#BEC2FF] focus:outline-none focus:ring-2 focus:ring-[#BEC2FF33] disabled:bg-[#FAFAFC] disabled:text-[#AFAFB7]"
-      />
-      {canStop ? (
-        <button
-          type="button"
-          onClick={onStop}
-          className="rounded-full px-4 py-2 text-sm font-medium bg-[#FA5F67] text-white hover:opacity-90 transition-opacity"
-        >
-          Stop
-        </button>
-      ) : (
-        <button
-          type="submit"
-          disabled={isRunning || value.trim().length === 0}
-          className="rounded-full px-4 py-2 text-sm font-medium bg-[#010507] text-white hover:bg-[#2B2B2B] disabled:bg-[#DBDBE5] disabled:cursor-not-allowed transition-colors"
-        >
-          Send
-        </button>
-      )}
-    </form>
   );
 }

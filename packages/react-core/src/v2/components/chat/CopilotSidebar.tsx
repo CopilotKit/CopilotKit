@@ -14,6 +14,7 @@ export type CopilotSidebarProps = Omit<CopilotChatProps, "chatView"> & {
   toggleButton?: CopilotSidebarViewProps["toggleButton"];
   defaultOpen?: boolean;
   width?: number | string;
+  position?: CopilotSidebarViewProps["position"];
 };
 
 export function CopilotSidebar({
@@ -21,6 +22,7 @@ export function CopilotSidebar({
   toggleButton,
   defaultOpen,
   width,
+  position,
   ...chatProps
 }: CopilotSidebarProps) {
   const { checkFeature } = useLicenseContext();
@@ -41,6 +43,7 @@ export function CopilotSidebar({
         toggleButton: viewToggleButton,
         width: viewWidth,
         defaultOpen: viewDefaultOpen,
+        position: viewPosition,
         ...restProps
       } = viewProps as CopilotSidebarViewProps;
 
@@ -51,12 +54,13 @@ export function CopilotSidebar({
           toggleButton={toggleButton ?? viewToggleButton}
           width={width ?? viewWidth}
           defaultOpen={defaultOpen ?? viewDefaultOpen}
+          position={position ?? viewPosition}
         />
       );
     };
 
     return Object.assign(Component, CopilotChatView);
-  }, [header, toggleButton, width, defaultOpen]);
+  }, [header, toggleButton, width, defaultOpen, position]);
 
   return (
     <>

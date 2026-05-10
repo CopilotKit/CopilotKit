@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePostHog } from "posthog-js/react";
 import { SearchTrigger } from "./search-trigger";
 
 function CopilotKitIcon({ className }: { className?: string }) {
@@ -128,41 +128,9 @@ function ExternalArrowIcon({ className }: { className?: string }) {
 }
 
 const CLOUD_CTA = {
-  href: "https://cloud.copilotkit.ai",
   label: "Free Developer Access",
+  href: "https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=navbar",
 };
-
-function AgUiIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 57 66"
-      width="14"
-      height="16"
-      className={className}
-      aria-hidden="true"
-    >
-      <g
-        transform="translate(2, -2)"
-        stroke="currentColor"
-        strokeWidth="3.3125"
-        fill="none"
-      >
-        <g transform="translate(0, 4)">
-          <path
-            d="M0,25.9335975 L16.5448881,6.52325783e-15 C40.848296,5.37332138 53,8.05998207 53,8.05998207 L43.1229639,62 L0,25.9335975 Z"
-            strokeLinejoin="round"
-          />
-          <line x1="16.5828221" y1="-1.07552856e-15" x2="43.2453988" y2="62" />
-          <line x1="0" y1="25.9335975" x2="53" y2="8.48421053" />
-        </g>
-      </g>
-    </svg>
-  );
-}
-
-type Brand = "copilotkit" | "ag-ui";
-
-const AG_UI_PREFIXES = ["/ag-ui"];
 
 const SHELL_HOST = process.env.NEXT_PUBLIC_SHELL_URL ?? "http://localhost:3000";
 
@@ -171,20 +139,6 @@ const COPILOTKIT_LINKS = [
   { href: `${SHELL_HOST}/integrations`, label: "Integrations" },
   { href: "/reference", label: "Reference" },
 ];
-
-const AG_UI_LINKS = [
-  { href: "/ag-ui", label: "Overview" },
-  { href: "/ag-ui/concepts/architecture", label: "Concepts" },
-  { href: "/ag-ui/quickstart/introduction", label: "Quick Start" },
-  { href: "/ag-ui/sdk/js/core/overview", label: "JS SDK" },
-  { href: "/ag-ui/sdk/python/core/overview", label: "Python SDK" },
-];
-
-function activeBrandFromPath(pathname: string): Brand {
-  return AG_UI_PREFIXES.some((p) => pathname.startsWith(p))
-    ? "ag-ui"
-    : "copilotkit";
-}
 
 export interface BrandNavProps {
   // Note: the framework selector previously lived in the top bar. It's
@@ -196,10 +150,18 @@ export interface BrandNavProps {
 }
 
 export function BrandNav(_props: BrandNavProps = {}) {
-  const pathname = usePathname();
-  const active = activeBrandFromPath(pathname);
-  const links = active === "copilotkit" ? COPILOTKIT_LINKS : AG_UI_LINKS;
+  const links = COPILOTKIT_LINKS;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const posthog = usePostHog();
+
+  const handleTalkToEngineersClick = () => {
+    posthog?.capture("talk_to_us_clicked", { location: "docs_nav" });
+    window.location.href = "https://copilotkit.ai/talk-to-an-engineer";
+  };
+
+  const handleFreeDeveloperAccessClick = (location: string) => {
+    posthog?.capture("try_for_free_clicked", { location });
+  };
 
   return (
     <nav className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--bg-surface)]/90 backdrop-blur-lg">
@@ -209,36 +171,14 @@ export function BrandNav(_props: BrandNavProps = {}) {
           <Link
             href="/"
             className="relative flex items-center gap-1.5 px-1 pb-1 text-sm font-bold tracking-tight transition-colors"
-            style={{
-              color:
-                active === "copilotkit" ? "var(--accent)" : "var(--text-faint)",
-            }}
+            style={{ color: "var(--accent)" }}
           >
             <CopilotKitIcon />
             CopilotKit
-            {active === "copilotkit" && (
-              <span
-                className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full"
-                style={{ background: "var(--accent)" }}
-              />
-            )}
-          </Link>
-          <span className="mx-2 text-[var(--border)] select-none">|</span>
-          <Link
-            href="/ag-ui"
-            className="relative flex items-center gap-1.5 px-1 pb-1 text-sm font-bold tracking-tight transition-colors"
-            style={{
-              color: active === "ag-ui" ? "var(--accent)" : "var(--text-faint)",
-            }}
-          >
-            <AgUiIcon />
-            AG-UI
-            {active === "ag-ui" && (
-              <span
-                className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full"
-                style={{ background: "var(--accent)" }}
-              />
-            )}
+            <span
+              className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full"
+              style={{ background: "var(--accent)" }}
+            />
           </Link>
         </div>
 
@@ -255,20 +195,29 @@ export function BrandNav(_props: BrandNavProps = {}) {
           ))}
         </div>
 
-        {/* Desktop: Cloud CTA + search */}
+        {/* Desktop: Talk-to-Engineers + Cloud CTA + search */}
         <div className="hidden sm:flex items-center gap-2">
-          <Link
+          <button
+            type="button"
+            onClick={handleTalkToEngineersClick}
+            className="hidden [@media(width>=1400px)]:flex items-center rounded-md px-3 py-1.5 text-[13px] font-medium text-[var(--text-muted)] hover:text-[#7076D5] hover:bg-[#7076D5]/10 transition-colors duration-200 cursor-pointer whitespace-nowrap"
+            aria-label="Talk to our engineers"
+          >
+            Talk to Our Engineers
+          </button>
+          <a
             href={CLOUD_CTA.href}
             target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg-elevated)] transition-all"
+            rel="noreferrer"
+            onClick={() => handleFreeDeveloperAccessClick("docs_navbar")}
+            className="no-underline flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg-elevated)] transition-all"
           >
             <CloudIcon />
             <span className="[@media(width<1100px)]:hidden">
               {CLOUD_CTA.label}
             </span>
             <ExternalArrowIcon className="[@media(width<1100px)]:hidden opacity-70" />
-          </Link>
+          </a>
           <SearchTrigger />
         </div>
 
@@ -347,28 +296,31 @@ export function BrandNav(_props: BrandNavProps = {}) {
                   {label}
                 </Link>
               ))}
-              <Link
+              <a
                 href={CLOUD_CTA.href}
                 target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-2 rounded-md px-3 py-2.5 text-[14px] font-medium text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg-elevated)] transition-all"
+                rel="noreferrer"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  handleFreeDeveloperAccessClick("docs_navbar_mobile");
+                }}
+                className="no-underline flex items-center gap-2 rounded-md px-3 py-2.5 text-[14px] font-medium text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg-elevated)] transition-all"
               >
                 <CloudIcon />
                 {CLOUD_CTA.label}
                 <ExternalArrowIcon className="opacity-70" />
-              </Link>
-            </div>
-            {/* AG-UI link at bottom */}
-            <div className="mt-auto px-4 py-4 border-t border-[var(--border)]">
-              <Link
-                href="/ag-ui"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-2 rounded-md px-3 py-2.5 text-[13px] font-medium text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-all"
+              </a>
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  handleTalkToEngineersClick();
+                }}
+                className="text-left rounded-md px-3 py-2.5 text-[14px] font-medium text-[var(--text-secondary)] hover:text-[#7076D5] hover:bg-[#7076D5]/10 transition-all cursor-pointer"
+                aria-label="Talk to our engineers"
               >
-                <AgUiIcon />
-                AG-UI
-              </Link>
+                Talk to Our Engineers
+              </button>
             </div>
           </div>
           <style jsx global>{`

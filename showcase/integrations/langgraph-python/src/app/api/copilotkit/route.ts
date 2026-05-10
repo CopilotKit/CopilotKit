@@ -82,9 +82,12 @@ agents["frontend-tools-async"] = createAgent("frontend_tools_async");
 agents["gen-ui-agent"] = createAgent("gen_ui_agent");
 // Tool-Based Generative UI — chart-viz system prompt lives in its own graph.
 agents["gen-ui-tool-based"] = createAgent("gen_ui_tool_based");
-// Reasoning variants.
-agents["agentic-chat-reasoning"] = createAgent("reasoning_agent");
-agents["reasoning-default-render"] = createAgent("reasoning_agent");
+// Reasoning variants. The Custom demo (`reasoning-custom`) and the
+// Default demo (`reasoning-default`) both share the same backend graph;
+// the only difference is whether the frontend overrides the
+// `messageView.reasoningMessage` slot.
+agents["reasoning-custom"] = createAgent("reasoning_agent");
+agents["reasoning-default"] = createAgent("reasoning_agent");
 // Interrupt variants.
 agents["gen-ui-interrupt"] = createAgent("interrupt_agent");
 agents["interrupt-headless"] = createAgent("interrupt_agent");

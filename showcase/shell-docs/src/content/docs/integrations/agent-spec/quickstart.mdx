@@ -4,6 +4,15 @@ description: Set up Agent Spec + AG‑UI and connect a CopilotKit UI. Includes p
 icon: "lucide/Play"
 hideTOC: true
 ---
+
+<OpsPlatformCTA
+  variant="card"
+  title="Ship Agent Spec to production"
+  body="Add persistent threads, observability, and the inspector with the Enterprise Intelligence Platform."
+  ctaLabel="Create a free account"
+  surface="docs_agent_spec_quickstart"
+/>
+
 ## Prerequisites
 
 - Node.js 20+
@@ -292,7 +301,7 @@ hideTOC: true
           ### Install CopilotKit packages
 
           ```npm
-          npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client
+          npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client
           ```
       </Step>
       <Step>
@@ -334,8 +343,8 @@ hideTOC: true
           Wrap your application with the CopilotKit provider:
 
           ```tsx title="app/layout.tsx"
-          import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
-          import "@copilotkit/react-ui/v2/styles.css";
+          import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+          import "@copilotkit/react-core/v2/styles.css";
           import './globals.css';
 
           // ...

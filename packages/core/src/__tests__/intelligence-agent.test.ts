@@ -839,7 +839,13 @@ describe("IntelligenceAgent", () => {
       expect(channel.pushLog).toHaveLength(0);
     });
 
-    it("clears the latest cpki_event_id value on fresh thread restore", async () => {
+    // The reconnect cursor is now controlled explicitly by the caller.
+    // `connect()` preserves whatever cursor is in `sharedState.lastSeenEventIds`
+    // so churn re-connects can resume from `lastSeenEventId` instead of
+    // forcing the gateway to replay the entire thread history. Callers
+    // that *want* a full historical replay (e.g. RunHandler on a detected
+    // thread switch) call `agent.clearReconnectCursor(threadId)` first.
+    it("preserves the cursor on a direct connect() (resume semantics)", async () => {
       const agent = createAgent();
       agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
       await waitForConnection(agent);
@@ -853,6 +859,40 @@ describe("IntelligenceAgent", () => {
           cpki_event_seq: 1,
         },
       } as BaseEvent);
+
+      mockFetch.mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
+
+      connectWithTestAccess(agent, defaultInput).subscribe({
+        next: () => {},
+        error: () => {},
+      });
+      await waitForConnection(agent);
+
+      const connectChannel = getChannel(agent)!;
+      expect(connectChannel.params).toEqual({
+        stream_mode: "connect",
+        last_seen_event_id: "event-1",
+      });
+    });
+
+    it("clearReconnectCursor() empties the cursor for the next connect", async () => {
+      const agent = createAgent();
+      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+      await waitForConnection(agent);
+
+      const runChannel = getChannel(agent)!;
+      runChannel.triggerJoin("ok");
+      runChannel.serverPush("ag_ui_event", {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        metadata: {
+          cpki_event_id: "event-1",
+          cpki_event_seq: 1,
+        },
+      } as BaseEvent);
+
+      // Explicitly clear the cursor — this is what RunHandler does on a
+      // detected thread switch.
+      agent.clearReconnectCursor("thread-1");
 
       mockFetch.mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
 
@@ -935,6 +975,12 @@ describe("IntelligenceAgent", () => {
 
       setThreadIdForTest(agent, "thread-a");
       replaceMessagesForTest(agent, []);
+      // Mimic RunHandler's behaviour on a detected thread switch:
+      // explicitly clear the cursor so the gateway is asked for a full
+      // historical replay of thread-a. Without this, the cursor from
+      // the first thread-a pass ("event-a-1") is preserved and the
+      // gateway would resume from there.
+      agent.clearReconnectCursor("thread-a");
       const secondThreadAPromise = agent.connectAgent({ runId: "run-a" });
       await waitForConnection(agent);
 
@@ -947,6 +993,11 @@ describe("IntelligenceAgent", () => {
         last_seen_event_id: null,
       });
 
+      // Mike's regression: persisted replays reuse the original
+      // `cpki_event_id`. Push event-a-1 (NOT event-a-2) and verify the
+      // rehydrate still produces the user message — i.e. nothing
+      // downstream is suppressing it as a duplicate of the earlier
+      // pass.
       secondThreadAChannel.triggerJoin("ok");
       secondThreadAChannel.serverPush("ag_ui_event", {
         type: EventType.RUN_STARTED,
@@ -956,12 +1007,12 @@ describe("IntelligenceAgent", () => {
           messages: [{ id: "msg-a", role: "user", content: "thread A" }],
         },
         metadata: {
-          cpki_event_id: "event-a-2",
-          cpki_event_seq: 2,
+          cpki_event_id: "event-a-1",
+          cpki_event_seq: 1,
         },
       } as BaseEvent);
       secondThreadAChannel.serverPush("stream_idle", {
-        latestEventId: "event-a-2",
+        latestEventId: "event-a-1",
       });
 
       const secondThreadAResult = await secondThreadAPromise;
@@ -1306,7 +1357,7 @@ describe("IntelligenceAgent", () => {
       expect(getConfigForTest(cloned)).toEqual(getConfigForTest(agent));
     });
 
-    it("clears shared replay cursor state across clones on fresh thread restore", async () => {
+    it("shares the replay cursor across clones (clearing on one clears for both)", async () => {
       const agent = createAgent();
       agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
       await waitForConnection(agent);
@@ -1322,6 +1373,12 @@ describe("IntelligenceAgent", () => {
       } as BaseEvent);
 
       const cloned = agent.clone();
+      // Clearing the cursor on the original should be reflected on the
+      // clone because they share `sharedState`. This is what makes a
+      // RunHandler-driven thread switch work end-to-end across the
+      // proxy clones returned by useAgent's per-thread WeakMap.
+      agent.clearReconnectCursor("thread-1");
+
       const reconnectInput: RunAgentInput = {
         ...defaultInput,
         messages: [
@@ -1346,7 +1403,7 @@ describe("IntelligenceAgent", () => {
       });
     });
 
-    it("does not reuse a cached replay cursor on fresh thread restore with no local messages", async () => {
+    it("a clone's connect() resumes from the cursor inherited via sharedState", async () => {
       const agent = createAgent();
       agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
       await waitForConnection(agent);
@@ -1369,14 +1426,16 @@ describe("IntelligenceAgent", () => {
       });
       await waitForConnection(cloned);
 
+      // No explicit clearReconnectCursor — the clone inherits the
+      // original's `lastSeenEventIds` map and resumes from event-2.
       expect(JSON.parse(mockFetch.mock.calls[1]![1].body)).toMatchObject({
-        lastSeenEventId: null,
+        lastSeenEventId: "event-2",
       });
 
       const connectChannel = getChannel(cloned)!;
       expect(connectChannel.params).toEqual({
         stream_mode: "connect",
-        last_seen_event_id: null,
+        last_seen_event_id: "event-2",
       });
     });
   });

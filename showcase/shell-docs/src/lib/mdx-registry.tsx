@@ -19,12 +19,14 @@ import {
   TailoredContentOption as RealTailoredContentOption,
 } from "@/components/react/tailored-content";
 import { FrameworkTabs } from "@/components/framework-tabs";
+import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
+import { IframeSwitcher as RealIframeSwitcher } from "@/components/content";
 import { PropertyReference } from "@/components/property-reference";
 import { IntegrationGrid } from "@/components/integration-grid";
 import { DocsLandingNext } from "@/components/docs-landing-next";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
 import { AgentCoreCommandTabs } from "@/components/agentcore-command-tabs";
-import { getRegistry } from "@/lib/registry";
+import { getRegistry, getDocsFolder } from "@/lib/registry";
 
 const Callout = DocsCallout;
 
@@ -81,6 +83,7 @@ export const docsComponents = {
   Accordions,
   Accordion,
   PropertyReference,
+  OpsPlatformCTA,
   FeatureIntegrations: ({ feature }: { feature?: string }) => {
     if (!feature) {
       warnSilentNull("FeatureIntegrations", "no `feature` prop provided");
@@ -159,6 +162,22 @@ export const docsComponents = {
     const shellHost =
       process.env.NEXT_PUBLIC_SHELL_URL || "https://showcase.copilotkit.ai";
     const profileUrl = `${shellHost}/integrations/${integration}?demo=${demo}`;
+    // Feature-viewer expects the upstream framework folder name (e.g.
+    // `langgraph`), not the registry's URL slug (e.g. `langgraph-python`).
+    // `getDocsFolder` performs the same translation used elsewhere in
+    // shell-docs so both URL variants resolve to the right viewer entry.
+    const upstreamFramework = getDocsFolder(integration);
+    // Feature-viewer slugs are underscore-form (`agentic_chat`,
+    // `human_in_the_loop`); the registry uses dash-form (`agentic-chat`).
+    // Translate so the Code iframe resolves.
+    const codeFeatureSlug = demo.replace(/-/g, "_");
+    const codeUrl = `https://feature-viewer.copilotkit.ai/${upstreamFramework}/feature/${codeFeatureSlug}?view=code&sidebar=false&codeLayout=tabs`;
+    const iframeStyle: React.CSSProperties = {
+      width: "100%",
+      height: "500px",
+      border: "none",
+      background: "var(--bg-surface)",
+    };
     return (
       <div className="my-6 rounded-xl border border-[var(--border)] overflow-hidden">
         <div className="flex items-center justify-between px-4 py-2 bg-[var(--bg-elevated)] border-b border-[var(--border)]">
@@ -172,13 +191,24 @@ export const docsComponents = {
             Open full demo →
           </a>
         </div>
-        <iframe
-          src={demoUrl}
-          className="w-full"
-          style={{ height: "500px" }}
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-          loading="lazy"
-        />
+        <DocsTabs items={["Demo", "Code"]}>
+          <DocsTab value="Demo">
+            <iframe
+              src={demoUrl}
+              style={iframeStyle}
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+              loading="lazy"
+            />
+          </DocsTab>
+          <DocsTab value="Code">
+            <iframe
+              src={codeUrl}
+              style={iframeStyle}
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+              loading="lazy"
+            />
+          </DocsTab>
+        </DocsTabs>
       </div>
     );
   },
@@ -192,8 +222,9 @@ export const docsComponents = {
   ThreadsEarlyAccess: ({ children }: { children: React.ReactNode }) => (
     <>
       <Callout type="info">
-        <strong>Early access:</strong> Threads and the Intelligence Platform are
-        in early access. APIs may change before general availability.
+        <strong>Early access:</strong> Threads and the Enterprise Intelligence
+        Platform are in early access. APIs may change before general
+        availability.
       </Callout>
       {children}
     </>
@@ -298,35 +329,7 @@ export const docsComponents = {
   SharedContent: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  IframeSwitcher: ({
-    children,
-    src,
-    title,
-  }: {
-    children?: React.ReactNode;
-    src?: string;
-    title?: string;
-  }) =>
-    src ? (
-      <div
-        style={{
-          border: "1px solid var(--border)",
-          borderRadius: "0.5rem",
-          overflow: "hidden",
-          marginBottom: "1rem",
-        }}
-      >
-        <iframe
-          src={src}
-          title={title || "Embedded content"}
-          style={{ width: "100%", height: "400px", border: "none" }}
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-          loading="lazy"
-        />
-      </div>
-    ) : (
-      <div>{children}</div>
-    ),
+  IframeSwitcher: RealIframeSwitcher,
   IframeSwitcherGroup: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
