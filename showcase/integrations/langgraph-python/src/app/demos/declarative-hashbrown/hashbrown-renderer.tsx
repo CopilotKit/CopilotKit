@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * HashBrown message renderer for the byoc-hashbrown demo.
+ * HashBrown message renderer for the declarative-hashbrown demo.
  *
  * Registers MetricCard + PieChart + BarChart + DealCard + Markdown against the
  * hashbrown schema via `@hashbrownai/react`'s `useUiKit`. Renders assistant

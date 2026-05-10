@@ -15,6 +15,7 @@ type Manifest = {
   name: string;
   slug: string;
   description?: string;
+  features?: string[];
   demos: Demo[];
 };
 
@@ -47,12 +48,25 @@ function loadManifest(): Manifest {
   return parse(fs.readFileSync(manifestPath, "utf8")) as Manifest;
 }
 
-function groupByTag(demos: Demo[]): { tag: string; demos: Demo[] }[] {
+function groupByTag(
+  demos: Demo[],
+  features: string[],
+): { tag: string; demos: Demo[] }[] {
+  // Demos within each tag follow `manifest.features` ordering — that's
+  // the team's curated "first-impression" arc (polished flagship →
+  // simplest start → variants). Demos missing from the features list
+  // fall to the end of their tag.
+  const featureIndex = new Map(features.map((id, i) => [id, i]));
+  const orderOf = (id: string) => featureIndex.get(id) ?? Number.MAX_SAFE_INTEGER;
+
   const map = new Map<string, Demo[]>();
   for (const demo of demos) {
     const tag = demo.tags?.[0] ?? "other";
     if (!map.has(tag)) map.set(tag, []);
     map.get(tag)!.push(demo);
+  }
+  for (const list of map.values()) {
+    list.sort((a, b) => orderOf(a.id) - orderOf(b.id));
   }
   const tags = Array.from(map.keys()).sort((a, b) => {
     const ai = TAG_ORDER.indexOf(a);
@@ -65,7 +79,7 @@ function groupByTag(demos: Demo[]): { tag: string; demos: Demo[] }[] {
 export default function Home() {
   const manifest = loadManifest();
   const runnable = (manifest.demos ?? []).filter((d) => d.route);
-  const groups = groupByTag(runnable);
+  const groups = groupByTag(runnable, manifest.features ?? []);
 
   return (
     <div

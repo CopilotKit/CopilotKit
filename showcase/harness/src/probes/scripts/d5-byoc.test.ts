@@ -42,6 +42,30 @@ describe("d5-byoc script", () => {
     );
   });
 
+  it("preNavigateRoute routes declarative-hashbrown to its renamed slug", () => {
+    expect(
+      preNavigateRoute("byoc", { demos: ["declarative-hashbrown"] }),
+    ).toBe("/demos/declarative-hashbrown");
+  });
+
+  it("preNavigateRoute routes declarative-json-render to its renamed slug", () => {
+    expect(
+      preNavigateRoute("byoc", { demos: ["declarative-json-render"] }),
+    ).toBe("/demos/declarative-json-render");
+  });
+
+  it("preNavigateRoute prefers declarative-hashbrown over byoc-hashbrown when both ID forms are declared", () => {
+    // langgraph-python uses `declarative-*`; if a manifest ever lists both
+    // forms (e.g. during a transitional release) the renamed slug wins so
+    // the probe doesn't 404 against an integration that has retired the
+    // legacy slug.
+    expect(
+      preNavigateRoute("byoc", {
+        demos: ["byoc-hashbrown", "declarative-hashbrown"],
+      }),
+    ).toBe("/demos/declarative-hashbrown");
+  });
+
   it("exposes the rendered-component selectors", () => {
     expect(METRIC_CARD_SELECTOR).toBe('[data-testid="metric-card"]');
     expect(CHART_SELECTORS).toContain('[data-testid="bar-chart"]');

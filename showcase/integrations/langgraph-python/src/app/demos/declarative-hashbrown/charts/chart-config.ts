@@ -1,8 +1,8 @@
 /**
  * CopilotKit brand chart palette -- Plus Jakarta Sans / brand color system.
  *
- * Ported verbatim from showcase/starters/template/frontend/components/charts/chart-config.ts
- * for the byoc-hashbrown demo.
+ * Ported verbatim from showcase/shared/starter-template/components/charts/chart-config.ts
+ * for the declarative-hashbrown demo.
  */
 export const CHART_COLORS = [
   "#BEC2FF", // lilac-400

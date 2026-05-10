@@ -398,6 +398,18 @@
       "name": "Declarative UI: json-render",
       "category": "byoc",
       "description": "Streaming structured-output generative UI via @json-render/react"
+    },
+    {
+      "id": "declarative-hashbrown",
+      "name": "Declarative UI: Hashbrown",
+      "category": "byoc",
+      "description": "Hashbrown-style generative UI (renamed slug — both `byoc-hashbrown` and `declarative-hashbrown` map to the same demo concept; langgraph-python uses the renamed form, every other integration uses the legacy form until the cross-codebase rename lands)"
+    },
+    {
+      "id": "declarative-json-render",
+      "name": "Declarative UI: json-render",
+      "category": "byoc",
+      "description": "Streaming structured-output generative UI via @json-render/react (renamed slug — see `declarative-hashbrown` for the legacy/declarative duality)"
     }
   ]
 }
