@@ -1,5 +1,5 @@
 {
-  "_comment": "D5 fixture for /demos/tool-rendering-reasoning-chain (LangGraph Python). The demo composes a reasoningMessage slot (<ReasoningBlock data-testid=\"reasoning-block\">) with per-tool renderers (WeatherCard / FlightListCard). Two chip prompts probed: 'What's the weather in Tokyo?' and 'Find flights from SFO to JFK.' — each is a 2-leg flow: first leg emits the tool call (get_weather / search_flights) AND a `reasoning` field so aimock emits REASONING_MESSAGE_* events (role='reasoning'); without the reasoning field the v2 <ReasoningBlock> never mounts (mirrors the convention documented in reasoning-display.json). Second leg matches `hasToolResult: true` and emits the deterministic narration. The agent uses `init_chat_model(... use_responses_api=True, reasoning={effort:'low'})` — Responses-API mode delivers reasoning summaries alongside tool calls. Mirrored verbatim into showcase/aimock/d5-all.json so re-bundling stays consistent.",
+  "_comment": "D5 fixture for /demos/tool-rendering-reasoning-chain (LangGraph Python). The demo composes a reasoningMessage slot (<ReasoningBlock data-testid=\"reasoning-block\">) with per-tool renderers (WeatherCard / FlightListCard). Two chip prompts probed: 'What's the weather in Tokyo?' and 'Find flights from SFO to JFK.' — each is a 2-leg flow: first leg emits the tool call (get_weather / search_flights), a `reasoning` field, AND a non-empty `content` field. The non-empty `content` is load-bearing: aimock's Responses-API dispatch routes tool-call-only responses (no `content`) through `buildToolCallResponse`, which silently drops the `reasoning` payload. Adding a `content` string shifts dispatch to `buildContentWithToolCallsResponse`, which emits the reasoning_summary events the v2 <ReasoningBlock> needs to mount. Second leg matches `hasToolResult: true` and emits the deterministic narration. The agent uses `init_chat_model(... use_responses_api=True, reasoning={effort:'medium', summary:'detailed'})` — Responses-API mode delivers reasoning summaries alongside tool calls. Mirrored verbatim into showcase/aimock/d5-all.json so re-bundling stays consistent.",
   "fixtures": [
     {
       "match": {
@@ -9,6 +9,7 @@
       },
       "response": {
         "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions.",
+        "content": "Looking up the weather in Tokyo for you.",
         "toolCalls": [
           {
             "id": "call_d5_get_weather_001",
@@ -34,6 +35,7 @@
       },
       "response": {
         "reasoning": "The user wants flights from SFO to JFK. I'll call search_flights with those airports to look up options.",
+        "content": "Searching for flights from SFO to JFK.",
         "toolCalls": [
           {
             "id": "call_tr_flights_sfo_jfk_001",

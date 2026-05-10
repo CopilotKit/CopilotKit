@@ -40,8 +40,10 @@ const PDF_CHIP_LOCATOR = "text=sample.pdf";
 
 async function openDemo(page: Page) {
   await page.goto(ROUTE);
+  // Demo has no header — assert on the root testid that the
+  // MultimodalChat component owns.
   await expect(
-    page.getByRole("heading", { name: "Multimodal attachments" }),
+    page.locator('[data-testid="multimodal-demo-root"]'),
   ).toBeVisible();
 }
 
@@ -92,7 +94,9 @@ test.describe("Multimodal Attachments", () => {
     await page.locator(SEND_BUTTON).click();
 
     // Assistant message renders — use role-based locator as a stable anchor.
-    const assistantMessage = page.locator('[data-role="assistant"]').first();
+    const assistantMessage = page
+      .locator('[data-testid="copilot-assistant-message"]')
+      .first();
     await expect(assistantMessage).toBeVisible({ timeout: 90000 });
     // Soft assertion: mentions CopilotKit, logo, or image-ish keywords.
     // Loosened to avoid flakes when the vision model paraphrases; the
@@ -113,7 +117,9 @@ test.describe("Multimodal Attachments", () => {
     await page.locator(CHAT_TEXTAREA).fill("Summarize this document");
     await page.locator(SEND_BUTTON).click();
 
-    const assistantMessage = page.locator('[data-role="assistant"]').first();
+    const assistantMessage = page
+      .locator('[data-testid="copilot-assistant-message"]')
+      .first();
     await expect(assistantMessage).toBeVisible({ timeout: 90000 });
     // The sample PDF contains the word "CopilotKit" multiple times and the
     // aimock fixture mirrors that in its response.

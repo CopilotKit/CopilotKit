@@ -1,11 +1,17 @@
 /**
  * D5 — byoc script.
  *
- * Covers `/demos/byoc-hashbrown` and `/demos/byoc-json-render` via
- * `preNavigateRoute`. Both demos render structured-output via a
- * user-supplied component (the BYOC contract): the agent emits a JSON
- * payload, the demo's custom renderer materializes it as structured DOM
- * (metric cards + charts).
+ * Covers `/demos/{byoc,declarative}-hashbrown` and
+ * `/demos/{byoc,declarative}-json-render` via `preNavigateRoute` —
+ * both slug families resolve to the same `byoc` D5 featureType.
+ * (Most integrations still use the legacy `byoc-*` slugs;
+ * langgraph-python's were renamed to `declarative-*` to drop internal
+ * jargon — see d5-feature-mapping.ts for the map and the
+ * integration's manifest for the per-cell ID.)
+ * Both demos render structured-output via a user-supplied component
+ * (the BYOC contract): the agent emits a JSON payload, the demo's
+ * custom renderer materializes it as structured DOM (metric cards +
+ * charts).
  *
  * Fixture matching: the BYOC pill prompts have dedicated fixtures in
  * `showcase/aimock/feature-parity.json` (added in main:f0a89b843)
@@ -100,9 +106,11 @@ export function buildByocAssertion(opts?: {
 
 export function buildTurns(ctx: D5BuildContext): ConversationTurn[] {
   // The driver fans out one run per featureType per integration. The
-  // `byoc` literal covers BOTH byoc-hashbrown and byoc-json-render via
-  // preNavigateRoute (below). The pill prompt that aimock matches
-  // depends on which route we navigated to.
+  // `byoc` literal covers BOTH the hashbrown demo and the json-render
+  // demo via preNavigateRoute (below). Both slug families resolve here
+  // (legacy `byoc-{hashbrown,json-render}` plus langgraph-python's
+  // renamed `declarative-{hashbrown,json-render}`). The pill prompt
+  // that aimock matches depends on which route we navigated to.
   //
   // Since buildTurns runs BEFORE we know which route was navigated to
   // (the runner doesn't expose post-nav info), we send the
@@ -112,19 +120,19 @@ export function buildTurns(ctx: D5BuildContext): ConversationTurn[] {
   // prompts.
   //
   // We default to the hashbrown pill (longer, more specific). If the
-  // integration only declares byoc-json-render, the route will navigate
-  // there and the SHORTER json-render pill prompt would be needed
-  // instead — but `forwardedProps` on each pill match independently,
-  // so sending the hashbrown prompt on the json-render page will fall
-  // through to a different fixture (or the generic chat fixture). To
-  // avoid that ambiguity, peek at the integration's demos via the
-  // build context and pick the right pill.
+  // integration only declares the json-render demo, the route will
+  // navigate there and the SHORTER json-render pill prompt would be
+  // needed instead — but `forwardedProps` on each pill match
+  // independently, so sending the hashbrown prompt on the json-render
+  // page will fall through to a different fixture (or the generic
+  // chat fixture). To avoid that ambiguity, peek at the integration's
+  // demos via the build context and pick the right pill.
   //
   // NOTE: D5BuildContext doesn't currently expose `demos[]` — the
   // route fan-out info lives only in D5RouteContext used by
   // preNavigateRoute. The pragmatic behaviour: always use the
-  // hashbrown pill. byoc-hashbrown is the more common deployment
-  // (per main); byoc-json-render integrations would need a separate
+  // hashbrown pill. The hashbrown demo is the more common deployment
+  // (per main); json-render-only integrations would need a separate
   // featureType split if they need their own assertion.
   const _ = ctx;
   return [
@@ -140,10 +148,19 @@ export function preNavigateRoute(
   _ft: D5FeatureType,
   ctx?: D5RouteContext,
 ): string {
-  if (ctx?.demos && ctx.demos.includes("byoc-hashbrown")) {
+  // Both ID forms — the legacy `byoc-*` and langgraph-python's renamed
+  // `declarative-*` — point at the same demo. Match either, navigating
+  // to the slug the integration actually serves.
+  if (ctx?.demos?.includes("declarative-hashbrown")) {
+    return "/demos/declarative-hashbrown";
+  }
+  if (ctx?.demos?.includes("byoc-hashbrown")) {
     return "/demos/byoc-hashbrown";
   }
-  if (ctx?.demos && ctx.demos.includes("byoc-json-render")) {
+  if (ctx?.demos?.includes("declarative-json-render")) {
+    return "/demos/declarative-json-render";
+  }
+  if (ctx?.demos?.includes("byoc-json-render")) {
     return "/demos/byoc-json-render";
   }
   return "/demos/byoc-hashbrown";

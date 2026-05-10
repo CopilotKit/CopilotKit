@@ -9,7 +9,7 @@ test.describe("Agent Config Object", () => {
     page,
   }) => {
     await expect(
-      page.getByRole("heading", { name: "Agent Config Object" }),
+      page.getByRole("heading", { name: "Agent Config" }),
     ).toBeVisible();
     await expect(
       page.locator('[data-testid="agent-config-card"]'),
@@ -50,7 +50,9 @@ test.describe("Agent Config Object", () => {
     const input = page.getByPlaceholder("Type a message");
     await input.fill("Hello");
     await input.press("Enter");
-    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+    await expect(
+      page.locator('[data-testid="copilot-assistant-message"]').first(),
+    ).toBeVisible({
       timeout: 30000,
     });
   });
@@ -110,7 +112,9 @@ test.describe("Agent Config Object", () => {
     // Send 1 with defaults
     await input.fill("First");
     await input.press("Enter");
-    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+    await expect(
+      page.locator('[data-testid="copilot-assistant-message"]').first(),
+    ).toBeVisible({
       timeout: 30000,
     });
     const firstCount = requestBodies.length;

@@ -1,8 +1,8 @@
-# QA: BYOC Hashbrown — LangGraph (Python)
+# QA: Declarative UI — Hashbrown — LangGraph (Python)
 
 ## Prerequisites
 
-- Demo deployed at `/demos/byoc-hashbrown`
+- Demo deployed at `/demos/declarative-hashbrown`
 - Railway service `showcase-langgraph-python-production` healthy
 - `OPENAI_API_KEY` set in the Railway environment
 - `@hashbrownai/core` + `@hashbrownai/react` installed in the package
@@ -12,8 +12,8 @@
 
 ### 1. Page load
 
-- [ ] Navigate to `/demos/byoc-hashbrown`
-- [ ] Header "BYOC: Hashbrown" visible
+- [ ] Navigate to `/demos/declarative-hashbrown`
+- [ ] Header "Declarative UI: Hashbrown" visible
 - [ ] Short description mentioning `@hashbrownai/react` visible
 - [ ] Chat composer visible at the bottom of the chat area
 - [ ] 3 suggestion pills visible inside the composer with labels:

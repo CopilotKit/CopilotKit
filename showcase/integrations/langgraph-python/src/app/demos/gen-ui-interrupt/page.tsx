@@ -6,7 +6,7 @@ import {
   useInterrupt,
 } from "@copilotkit/react-core/v2";
 import { TimePickerCard, TimeSlot } from "./_components/time-picker-card";
-import { FALLBACK_SLOTS } from "./fallback-slots";
+import { generateFallbackSlots } from "../_shared/interrupt-fallback-slots";
 import { useGenUiInterruptSuggestions } from "./suggestions";
 
 export default function GenUiInterruptDemo() {
@@ -42,7 +42,7 @@ function Chat() {
       const slots =
         payload.slots && payload.slots.length > 0
           ? payload.slots
-          : FALLBACK_SLOTS;
+          : generateFallbackSlots();
       return (
         <TimePickerCard
           topic={payload.topic ?? "a call"}

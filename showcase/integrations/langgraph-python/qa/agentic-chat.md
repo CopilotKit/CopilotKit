@@ -1,62 +1,52 @@
 # QA: Agentic Chat — LangGraph (Python)
 
+The minimum-viable CopilotChat demo: vanilla `<CopilotChat>` wired to a
+neutral helpful-assistant agent, with three starter-prompt suggestions.
+No tools, no custom rendering — anything richer belongs in dedicated
+demos (frontend-tools, tool-rendering, hitl-in-chat, etc.).
+
 ## Prerequisites
 
 - Demo is deployed and accessible
-- Agent backend is healthy (check /api/health)
+- Agent backend is healthy (check `/api/health`)
 
 ## Test Steps
 
-### 1. Basic Functionality
+### 1. Initial render
 
-- [ ] Navigate to the agentic-chat demo page
-- [ ] Verify the chat interface loads with a text input placeholder "Type a message"
-- [ ] Verify the background container (`data-testid="background-container"`) is visible
-- [ ] Verify the default background color is the theme default (rgb(250, 250, 249))
-- [ ] Send a basic message (e.g. "Hello")
-- [ ] Verify the agent responds with a text message
+- [ ] Navigate to `/demos/agentic-chat`
+- [ ] Verify the chat input renders with placeholder "Type a message..."
+- [ ] Verify all three suggestion pills are visible:
+  - "Write a sonnet"
+  - "Tell me a joke"
+  - "Is 17 prime?"
 
-### 2. Feature-Specific Checks
+### 2. Free-form chat
 
-#### Suggestions
+- [ ] Type a basic message (e.g. "Say hello") and press Enter
+- [ ] Verify the assistant streams back a text response
 
-- [ ] Verify "Change background" suggestion button is visible
-- [ ] Verify "Generate sonnet" suggestion button is visible
-- [ ] Click the "Change background" suggestion
-- [ ] Verify the suggestion either populates the input or sends the message
+### 3. Suggestion pills
 
-#### Background Change (useFrontendTool)
+- [ ] Click the "Tell me a joke" pill
+- [ ] Verify the message is sent and the assistant streams back a joke
 
-- [ ] Ask "Change the background to a sunset gradient"
-- [ ] Verify the background container style changes from the default
-- [ ] Verify the change_background tool returns a success status
+### 4. Multi-turn context
 
-#### Weather Render Tool (useRenderTool)
+- [ ] Send "My name is Alice."
+- [ ] Wait for the assistant response
+- [ ] Send "What name did I just give you?"
+- [ ] Verify the assistant's second response contains "Alice"
 
-- [ ] Type "What's the weather in Tokyo?"
-- [ ] Verify loading state shows "Loading weather..." (`data-testid="weather-info-loading"`)
-- [ ] Verify WeatherCard renders (`data-testid="weather-info"`) with:
-  - [ ] City name displayed
-  - [ ] Temperature in degrees C
-  - [ ] Humidity percentage
-  - [ ] Wind speed in mph
-  - [ ] Conditions text
+### 5. Hygiene
 
-#### Agent Context
-
-- [ ] Verify the agent knows the user's name is "Bob" (provided via useAgentContext)
-- [ ] Ask "What is my name?" and verify the agent responds with "Bob"
-
-### 3. Error Handling
-
-- [ ] Send an empty message (should be handled gracefully)
-- [ ] Verify no console errors during normal usage
-- [ ] Send a very long message and verify no UI breakage
+- [ ] No console errors during normal usage
+- [ ] No layout breakage with a very long input
 
 ## Expected Results
 
-- Chat loads within 3 seconds
-- Agent responds within 10 seconds
-- Background changes are instant after tool execution
-- Weather card renders with all data fields populated
-- No UI errors or broken layouts
+- Chat input mounts within ~3 seconds
+- Assistant first-token latency is under ~5 seconds for short prompts;
+  full responses complete within ~30 seconds
+- Suggestion pills render alongside an empty chat and disappear once a
+  conversation is in progress

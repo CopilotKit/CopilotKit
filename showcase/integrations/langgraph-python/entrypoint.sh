@@ -44,7 +44,6 @@ fi
 echo "[entrypoint] Checking files..."
 ls -la langgraph.json 2>/dev/null && echo "[entrypoint] langgraph.json: OK" || echo "[entrypoint] ERROR: langgraph.json missing!"
 ls -la src/agents/main.py 2>/dev/null && echo "[entrypoint] src/agents/main.py: OK" || echo "[entrypoint] ERROR: src/agents/main.py missing!"
-ls -la src/agents/tools.py 2>/dev/null && echo "[entrypoint] src/agents/tools.py: OK" || echo "[entrypoint] ERROR: src/agents/tools.py missing!"
 ls -la .next/server 2>/dev/null > /dev/null && echo "[entrypoint] .next/server: OK" || echo "[entrypoint] ERROR: .next build missing!"
 
 echo "[entrypoint] langgraph.json contents:"

@@ -25,6 +25,7 @@ import {
   CustomScrollToBottomButton,
   CustomFeather,
 } from "./slot-wrappers";
+import { makeSlotOverride } from "../_shared/slot-override";
 import { useChatSlotsSuggestions } from "./suggestions";
 
 // "Slot Atlas" — every overrideable slot on CopilotChat is wrapped in a
@@ -47,24 +48,26 @@ export default function ChatSlotsDemo() {
 function Chat() {
   useChatSlotsSuggestions();
 
-  // Each slot type below is cast through `unknown` because @copilotkit/react-
-  // core's WithSlots types want the EXACT default component identity, while
-  // our wrappers return ReactElements that are structurally compatible but
-  // not nominally identical. The runtime contract still holds.
+  // Slot overrides go through `makeSlotOverride<TDefault>(component)` so
+  // the cast is centralized in one named helper instead of sprinkled
+  // through this file. See `../_shared/slot-override.ts` for the why.
   const welcomeScreen =
-    CustomWelcomeScreen as unknown as typeof CopilotChatView.WelcomeScreen;
+    makeSlotOverride<typeof CopilotChatView.WelcomeScreen>(CustomWelcomeScreen);
 
   // The input prop accepts both slot overrides AND CopilotChatInput's rest
   // props (toolsMenu, mode, etc.) merged together. We seed `toolsMenu` so the
   // addMenuButton slot has a reason to render.
   const input = {
-    textArea: CustomTextArea as unknown as typeof CopilotChatInput.TextArea,
+    textArea:
+      makeSlotOverride<typeof CopilotChatInput.TextArea>(CustomTextArea),
     sendButton:
-      CustomSendButton as unknown as typeof CopilotChatInput.SendButton,
+      makeSlotOverride<typeof CopilotChatInput.SendButton>(CustomSendButton),
     disclaimer:
-      CustomDisclaimer as unknown as typeof CopilotChatInput.Disclaimer,
+      makeSlotOverride<typeof CopilotChatInput.Disclaimer>(CustomDisclaimer),
     addMenuButton:
-      CustomAddMenuButton as unknown as typeof CopilotChatInput.AddMenuButton,
+      makeSlotOverride<typeof CopilotChatInput.AddMenuButton>(
+        CustomAddMenuButton,
+      ),
     toolsMenu: [
       {
         label: "Demo tool (no-op)",
@@ -74,11 +77,14 @@ function Chat() {
   };
 
   const messageView = {
-    assistantMessage:
-      CustomAssistantMessage as unknown as typeof CopilotChatAssistantMessage,
-    userMessage: CustomUserMessage as unknown as typeof CopilotChatUserMessage,
-    reasoningMessage:
-      CustomReasoningMessage as unknown as typeof CopilotChatReasoningMessage,
+    assistantMessage: makeSlotOverride<typeof CopilotChatAssistantMessage>(
+      CustomAssistantMessage,
+    ),
+    userMessage:
+      makeSlotOverride<typeof CopilotChatUserMessage>(CustomUserMessage),
+    reasoningMessage: makeSlotOverride<typeof CopilotChatReasoningMessage>(
+      CustomReasoningMessage,
+    ),
     cursor: CustomCursor,
   };
 

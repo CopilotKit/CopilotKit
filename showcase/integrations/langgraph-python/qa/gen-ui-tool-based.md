@@ -1,59 +1,56 @@
 # QA: Tool-Based Generative UI — LangGraph (Python)
 
+The demo registers two `useComponent` renderers (`render_bar_chart`,
+`render_pie_chart`) on a centered `<CopilotChat>`. The agent emits
+chart-shaped tool calls and the frontend materializes them as Recharts
+SVG inside the assistant message bubble.
+
 ## Prerequisites
 
-- Demo is deployed and accessible
-- Agent backend is healthy (check /api/health)
+- Demo is deployed and accessible at `/demos/gen-ui-tool-based`
+- Agent backend is healthy (`/api/health`)
 
 ## Test Steps
 
-### 1. Basic Functionality
+### 1. Initial render
 
-- [ ] Navigate to the gen-ui-tool-based demo page
-- [ ] Verify the CopilotSidebar opens by default with title "Haiku Generator"
-- [ ] Verify a placeholder haiku card is displayed on the main area
-- [ ] Send a basic message via the sidebar
-- [ ] Verify the agent responds
+- [ ] Navigate to `/demos/gen-ui-tool-based`
+- [ ] Verify the chat composer mounts (`textarea` with placeholder
+      matching `/message/i`)
+- [ ] Verify all three suggestion pills are visible
+      (`data-testid="copilot-suggestion"`):
+  - "Sales bar chart"
+  - "Traffic pie chart"
+  - "Market share"
 
-### 2. Feature-Specific Checks
+### 2. Bar chart flow
 
-#### Suggestions
+- [ ] Click the "Sales bar chart" suggestion (or type "Show me a bar
+      chart of monthly expenses")
+- [ ] Verify the assistant message bubble
+      (`[data-testid="copilot-assistant-message"]`) renders, and its inner
+      Recharts SVG is visible
 
-- [ ] Verify "Nature Haiku" suggestion button is visible
-- [ ] Verify "Ocean Haiku" suggestion button is visible
-- [ ] Verify "Spring Haiku" suggestion button is visible
+### 3. Pie chart flow
 
-#### Haiku Generation (useFrontendTool)
+- [ ] Click the "Traffic pie chart" or "Market share" suggestion
+- [ ] Verify the assistant message bubble renders an SVG (the donut
+      pie) inside
 
-- [ ] Click the "Nature Haiku" suggestion or type "Write me a haiku about nature"
-- [ ] Verify a HaikuCard renders (`data-testid="haiku-card"`) with:
-  - [ ] Three Japanese text lines (`data-testid="haiku-japanese-line"`)
-  - [ ] Three English translation lines (`data-testid="haiku-english-line"`)
-  - [ ] A background gradient style applied to the card
-- [ ] Verify the Japanese text contains actual Japanese characters (not Latin)
-- [ ] Verify the English lines are a readable English translation
+### 4. Free-form chat
 
-#### Image Display
+- [ ] Type "Hello" and press Enter
+- [ ] Verify the assistant streams back a text response in a fresh
+      `[data-testid="copilot-assistant-message"]` bubble
 
-- [ ] After haiku generation, verify an image renders (`data-testid="haiku-image"`) if the agent provides an image_name
-- [ ] Verify the image src points to /images/ with a valid filename from the predefined list
+### 5. Hygiene
 
-#### Multiple Haikus
-
-- [ ] Generate a second haiku (e.g. "Ocean Haiku")
-- [ ] Verify the new haiku card appears at the top
-- [ ] Verify the previous haiku card is still visible below
-- [ ] Verify the initial placeholder haiku is removed
-
-### 3. Error Handling
-
-- [ ] Send an empty message (should be handled gracefully)
-- [ ] Verify no console errors during normal usage
+- [ ] No console errors during normal usage
+- [ ] No layout breakage with a very long input
 
 ## Expected Results
 
-- Sidebar loads within 3 seconds
-- Agent responds and generates haiku within 10 seconds
-- Haiku cards display with Japanese and English text
-- Generated haikus stack with newest on top
-- No UI errors or broken layouts
+- Chat composer mounts within ~3 seconds
+- Suggestion pills render alongside an empty chat
+- Tool-driven chart bubbles materialize within ~30 seconds for short
+  prompts; the SVG renders progressively as Recharts mounts
