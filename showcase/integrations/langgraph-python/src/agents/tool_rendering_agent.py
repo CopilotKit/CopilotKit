@@ -5,11 +5,11 @@ Backs the three tool-rendering cells:
   - tool-rendering-default-catchall  (no frontend renderers)
   - tool-rendering-custom-catchall   (wildcard renderer on frontend)
   - tool-rendering                   (per-tool + catch-all on frontend)
-  - tool-rendering-reasoning-chain   (testing — also streams reasoning)
 
-All cells share this backend — they differ only in how the frontend
-renders the same tool calls. Kept separate from `main.py` so the
-tool-rendering demo has a tightly-scoped tool set.
+All three share this backend — they differ only in how the frontend
+renders the same tool calls. The `tool-rendering-reasoning-chain` cell
+has its own agent (`tool_rendering_reasoning_chain_agent.py`) because
+it routes through the OpenAI Responses API for reasoning streaming.
 """
 
 from random import choice, randint
@@ -28,21 +28,12 @@ from copilotkit import CopilotKitMiddleware
 # aimock fixtures can script the exact dice sequence the e2e tests
 # assert against.
 SYSTEM_PROMPT = (
-    "You are a helpful travel & lifestyle concierge. You have mock tools "
-    "for weather, flights, stock prices, and dice rolls — they all return "
-    "fake data.\n\n"
-    "Routing rules:\n"
-    "  - Weather questions → call `get_weather` with the location.\n"
-    "  - Flight questions → call `search_flights` with origin and "
-    "destination (default origin to 'SFO' if the user only names a "
-    "destination).\n"
-    "  - Stock questions → call `get_stock_price` with the ticker.\n"
-    "  - d20 rolls → call `roll_d20` (it returns a deterministic value).\n"
-    "  - Anything else → reply in plain text.\n\n"
-    "When the user asks you to chain or call multiple tools in a single "
-    "turn, call each tool they requested. After tools return, write one "
-    "short sentence summarizing the result. Never fabricate data a tool "
-    "could provide."
+    "You are a travel & lifestyle concierge. Use the mock tools for "
+    "weather, flights, stock prices, or d20 rolls when the user asks; "
+    "otherwise reply in plain text. For flights, default origin to 'SFO' "
+    "if the user only names a destination. Call multiple tools in one "
+    "turn if asked. After tools return, summarize in one short sentence. "
+    "Never fabricate data a tool could provide."
 )
 
 
