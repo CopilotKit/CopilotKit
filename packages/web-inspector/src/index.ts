@@ -2436,7 +2436,10 @@ export class WebInspectorElement extends LitElement {
   // to per-mount than per-tab (sessionStorage), but for the inspector the
   // distinction is academic — inspector instances rarely outlive the page.
   private viewedBannerTimestamps: Set<string> = new Set();
-  private pendingBannerViewed: { banner_id: string; cta_label?: string } | null = null;
+  private pendingBannerViewed: {
+    banner_id: string;
+    cta_label?: string;
+  } | null = null;
   // Per-instance dedup for `oss.inspector.banner_clicked` (keyed by
   // `${bannerId}:${cta}`) so copy-button retries and accidental multi-clicks
   // don't inflate funnel counts beyond one signal per intent type per banner.
