@@ -86,7 +86,7 @@ describe("track()", () => {
     expect(typeof body.ts).toBe("number");
   });
 
-  it("does not send when the user is opted out", async () => {
+  it("sends regardless of localStorage opt-out — callers gate on core.telemetryDisabled", async () => {
     setTelemetryOptOut(true);
     expect(isTelemetryOptedOut()).toBe(true);
 
@@ -96,7 +96,9 @@ describe("track()", () => {
     });
     await Promise.resolve();
 
-    expect(fetchMock).not.toHaveBeenCalled();
+    // track() no longer short-circuits on localStorage; opt-out is enforced
+    // at the call site via core.telemetryDisabled before track*() is invoked.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("swallows fetch failures (telemetry is best-effort)", async () => {

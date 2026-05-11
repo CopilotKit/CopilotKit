@@ -2436,6 +2436,7 @@ export class WebInspectorElement extends LitElement {
   // to per-mount than per-tab (sessionStorage), but for the inspector the
   // distinction is academic — inspector instances rarely outlive the page.
   private viewedBannerTimestamps: Set<string> = new Set();
+  private pendingBannerViewed: { banner_id: string; cta_label?: string } | null = null;
   // Per-instance dedup for `oss.inspector.banner_clicked` (keyed by
   // `${bannerId}:${cta}`) so copy-button retries and accidental multi-clicks
   // don't inflate funnel counts beyond one signal per intent type per banner.
@@ -2634,6 +2635,7 @@ export class WebInspectorElement extends LitElement {
             ensureTelemetryDistinctId();
             maybeShowDisclosure();
           }
+          this.flushPendingBannerViewed();
           for (const agentId of this._ownedThreadStores.keys()) {
             this.refreshOwnedThreadStore(agentId);
           }
@@ -7401,6 +7403,16 @@ ${prettyEvent}</pre
     </div>`;
   }
 
+  private flushPendingBannerViewed(): void {
+    if (!this.pendingBannerViewed || this.core?.telemetryDisabled) {
+      this.pendingBannerViewed = null;
+      return;
+    }
+    if (this.runtimeStatus !== "connected") return;
+    trackBannerViewed(this.pendingBannerViewed);
+    this.pendingBannerViewed = null;
+  }
+
   private ensureAnnouncementLoading(): void {
     if (
       this.announcementPromise ||
@@ -7484,19 +7496,20 @@ ${prettyEvent}</pre
       this.announcementHtml = await this.convertMarkdownToHtml(markdown);
       this.announcementLoaded = true;
 
-      // banner_viewed: gate on actual visibility (hasUnseenAnnouncement)
-      // and per-mount de-dup so re-fetches don't double-count.
+      // banner_viewed: gate on actual visibility and per-mount dedup.
+      // Store as pending rather than firing immediately — telemetryDisabled
+      // may not be known yet if /info hasn't returned. Flushed in
+      // onRuntimeConnectionStatusChanged once the handshake completes.
       if (
         this.hasUnseenAnnouncement &&
         !this.viewedBannerTimestamps.has(timestamp)
       ) {
         this.viewedBannerTimestamps.add(timestamp);
-        if (!this.core?.telemetryDisabled) {
-          trackBannerViewed({
-            banner_id: timestamp,
-            cta_label: ctaLabel ?? undefined,
-          });
-        }
+        this.pendingBannerViewed = {
+          banner_id: timestamp,
+          cta_label: ctaLabel ?? undefined,
+        };
+        this.flushPendingBannerViewed();
       }
 
       this.requestUpdate();

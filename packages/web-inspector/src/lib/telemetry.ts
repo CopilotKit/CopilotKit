@@ -64,8 +64,6 @@ export function track(
   event: TelemetryEvent,
   properties: Record<string, unknown> = {},
 ): void {
-  if (isTelemetryOptedOut()) return;
-
   const distinctId = getOrCreateTelemetryDistinctId();
   const body = JSON.stringify({
     event,
