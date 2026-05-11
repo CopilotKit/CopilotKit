@@ -49,19 +49,6 @@ const CHART_COLORS = [
   "#27272A", // zinc-800
 ] as const;
 
-// Tailwind arbitrary variant that injects a gap into any descendant flex
-// container — the basic catalog's Row/Column primitives are bare
-// `display: flex` divs with no gap, so when the agent drops multiple
-// Metrics or charts into one, the children end up glued together.
-// We can't reach inside Row/Column from the outside, but we can detect
-// them by their inline `flex-direction` style and apply a gap on the
-// flex container itself (which then propagates to its children).
-// Underscores in the arbitrary value compile to literal spaces in the
-// emitted CSS selector, matching React's serialized inline style.
-const NESTED_FLEX_GAP =
-  "[&_div[style*='flex-direction:_row']]:gap-4 " +
-  "[&_div[style*='flex-direction:_column']]:gap-2";
-
 const CHART_TOOLTIP_STYLE: React.CSSProperties = {
   backgroundColor: "var(--card)",
   border: "1px solid var(--border)",
@@ -184,7 +171,7 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
         {props.subtitle && <CardDescription>{props.subtitle}</CardDescription>}
       </CardHeader>
       {props.child && (
-        <CardContent className={`flex flex-col gap-4 ${NESTED_FLEX_GAP}`}>
+        <CardContent className="flex flex-col gap-4">
           {children(props.child)}
         </CardContent>
       )}
