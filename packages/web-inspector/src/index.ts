@@ -5681,9 +5681,11 @@ ${argsString}</pre
                 <p class="text-sm text-gray-600 flex items-start gap-2">
                   <span>${optedOut ? "❌" : "✅"}</span>
                   <span>
-                    ${optedOut
-                      ? "You have disabled anonymous interaction data collection."
-                      : "CopilotKit is currently collecting anonymous interaction data from the inspector so we know which features people use. We never collect message content, agent state, prompts, or completions."}
+                    ${
+                      optedOut
+                        ? "You have disabled anonymous interaction data collection."
+                        : "CopilotKit is currently collecting anonymous interaction data from the inspector so we know which features people use. We never collect message content, agent state, prompts, or completions."
+                    }
                   </span>
                 </p>
                 <a
@@ -6483,7 +6485,10 @@ ${prettyEvent}</pre
   }
 
   private handleMenuSelect(key: MenuKey): void {
-    if (key !== "settings" && !this.menuItems.some((item) => item.key === key)) {
+    if (
+      key !== "settings" &&
+      !this.menuItems.some((item) => item.key === key)
+    ) {
       return;
     }
 
@@ -7618,7 +7623,10 @@ ${prettyEvent}</pre
       // close the banner_viewed → banner_clicked → signup_attributed
       // funnel. Returns null when the user has opted out, so opt-out
       // suppresses cross-domain ID leaks too.
-      if (!url.searchParams.has("posthog_distinct_id") && !this.core?.telemetryDisabled) {
+      if (
+        !url.searchParams.has("posthog_distinct_id") &&
+        !this.core?.telemetryDisabled
+      ) {
         const distinctId = getTelemetryDistinctIdForUrl();
         if (distinctId) {
           url.searchParams.append("posthog_distinct_id", distinctId);
