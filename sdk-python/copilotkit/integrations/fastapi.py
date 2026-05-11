@@ -20,6 +20,7 @@ from ..exc import (
 )
 from ..action import ActionDict
 from ..html import generate_info_html
+from ..header_propagation import set_forwarded_headers
 logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
@@ -78,6 +79,9 @@ async def handler(request: Request, sdk: CopilotKitRemoteEndpoint):
         body = await request.json()
     except: # pylint: disable=bare-except
         body = None
+
+    # Propagate x-aimock-* headers to outgoing LLM calls via ContextVar
+    set_forwarded_headers(dict(request.headers))
 
     path = request.path_params.get('path')
     method = request.method
