@@ -1,5 +1,5 @@
 {
-  "_comment": "D5 fixture for /demos/tool-rendering-reasoning-chain (LangGraph Python). The demo composes a reasoningMessage slot (<ReasoningBlock data-testid=\"reasoning-block\">) with per-tool renderers (WeatherCard / FlightListCard). Two chip prompts probed: 'What's the weather in Tokyo?' and 'Find flights from SFO to JFK.' — each is a 2-leg flow: first leg emits the tool call (get_weather / search_flights), a `reasoning` field, AND a non-empty `content` field. The non-empty `content` is load-bearing: aimock's Responses-API dispatch routes tool-call-only responses (no `content`) through `buildToolCallResponse`, which silently drops the `reasoning` payload. Adding a `content` string shifts dispatch to `buildContentWithToolCallsResponse`, which emits the reasoning_summary events the v2 <ReasoningBlock> needs to mount. Second leg matches `hasToolResult: true` and emits the deterministic narration. The agent uses `init_chat_model(... use_responses_api=True, reasoning={effort:'medium', summary:'detailed'})` — Responses-API mode delivers reasoning summaries alongside tool calls. Mirrored verbatim into showcase/aimock/d5-all.json so re-bundling stays consistent.",
+  "_comment": "D5 fixture for /demos/tool-rendering-reasoning-chain (LangGraph Python). The demo composes a reasoningMessage slot (<ReasoningBlock data-testid=\"reasoning-block\">) with per-tool renderers (WeatherCard / FlightListCard). Two chip prompts probed: 'What's the weather in Tokyo?' (Turn 1) and 'Find flights from SFO to JFK.' (Turn 2). Each pill is a 2-leg flow: first leg emits the tool call (get_weather / search_flights), a `reasoning` field, AND a non-empty `content` field. The non-empty `content` is load-bearing: aimock's Responses-API dispatch routes tool-call-only responses (no `content`) through `buildToolCallResponse`, which silently drops the `reasoning` payload. Adding a `content` string shifts dispatch to `buildContentWithToolCallsResponse`, which emits the reasoning_summary events the v2 <ReasoningBlock> needs to mount. SFO/JFK (Turn 2) deliberately uses `toolCallId` matching for its second leg and omits `hasToolResult` from its first leg — `hasToolResult` is broken for the second turn of a multi-turn flow because Turn 1's tool result is still in the conversation, so a `hasToolResult: false` first-leg fixture would not match Turn 2's first leg and the matcher would fall through to the `hasToolResult: true` second-leg fixture, returning narration without the tool call and breaking the FlightListCard assertion. With `toolCallId` matching, the second-leg fixture only matches when the LAST conversation message is the tool result for that specific call_id, so it cannot accidentally swallow first-leg requests. The second-leg fixture must come BEFORE the first-leg in this file because the matcher is first-match-wins. Tokyo (Turn 1) keeps the simpler `hasToolResult` pattern because it has no prior turns. The agent uses `init_chat_model(... use_responses_api=True, reasoning={effort:'medium', summary:'detailed'})` — Responses-API mode delivers reasoning summaries alongside tool calls. Mirrored verbatim into showcase/aimock/d5-all.json so re-bundling stays consistent.",
   "fixtures": [
     {
       "match": {
@@ -31,7 +31,15 @@
     {
       "match": {
         "userMessage": "Find flights from SFO to JFK.",
-        "hasToolResult": false
+        "toolCallId": "call_tr_flights_sfo_jfk_001"
+      },
+      "response": {
+        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289)."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Find flights from SFO to JFK."
       },
       "response": {
         "reasoning": "The user wants flights from SFO to JFK. I'll call search_flights with those airports to look up options.",
@@ -43,15 +51,6 @@
             "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\"}"
           }
         ]
-      }
-    },
-    {
-      "match": {
-        "userMessage": "Find flights from SFO to JFK.",
-        "hasToolResult": true
-      },
-      "response": {
-        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289)."
       }
     }
   ]
