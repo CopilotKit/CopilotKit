@@ -73,10 +73,7 @@ rendered visualisation.";
 
         _openAiClient = new OpenAIClient(
             new ApiKeyCredential(githubToken),
-            new OpenAIClientOptions
-            {
-                Endpoint = new Uri(endpoint),
-            });
+            AimockHeaderPolicy.CreateOpenAIClientOptions(endpoint));
     }
 
     public AIAgent CreateAgent()
