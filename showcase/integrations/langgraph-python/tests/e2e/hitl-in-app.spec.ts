@@ -184,4 +184,61 @@ test.describe("HITL In-App (approval dialog portaled to <body>)", () => {
     // for the genuine-pass rewrite. Re-enable when the upstream demo
     // reliably emits request_user_approval for the downgrade prompt.
   });
+
+  // Regression for the aimock multi-pill bug:
+  // The refund (#12345) and escalate (#12347) fixtures used
+  // `hasToolResult: false/true` to split the request_user_approval emit
+  // from the approve/reject narration. After approving the first pill, the
+  // thread already had a tool result, so the second pill's first-turn
+  // fixture was skipped — the approve/reject branch fired immediately with
+  // no approval dialog. Fix: chain the follow-up fixtures via the
+  // request_user_approval `toolCallId`, drop `hasToolResult: false` from
+  // the tool-emitting fixture. This test approves refund #12345 then
+  // clicks escalate #12347 in the same thread and asserts the second pill
+  // mounts its own approval dialog.
+  test("approve refund then click escalate — each pill mounts its own approval dialog", async ({
+    page,
+  }) => {
+    test.setTimeout(240_000);
+
+    await page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Approve refund for #12345" })
+      .first()
+      .click();
+
+    const refundDialog = page.locator(
+      'body > [data-testid="approval-dialog-overlay"]',
+    );
+    await expect(refundDialog).toBeVisible({ timeout: 60_000 });
+    // The first dialog targets ticket #12345.
+    await expect(refundDialog.getByText(/#12345/)).toBeVisible();
+
+    await page.getByTestId("approval-dialog-approve").click();
+    await expect(
+      page.locator('[data-testid="approval-dialog-overlay"]'),
+    ).toHaveCount(0, { timeout: 5_000 });
+
+    // First pill's approve narration lands before we click the next pill.
+    await expect(
+      page
+        .locator('[data-testid="copilot-assistant-message"]')
+        .filter({ hasText: "processing the $50 refund" })
+        .first(),
+    ).toBeVisible({ timeout: 60_000 });
+
+    // Second pill: must trigger its OWN request_user_approval tool call
+    // and mount a fresh approval dialog targeting ticket #12347.
+    await page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Escalate ticket #12347" })
+      .first()
+      .click();
+
+    const escalateDialog = page.locator(
+      'body > [data-testid="approval-dialog-overlay"]',
+    );
+    await expect(escalateDialog).toBeVisible({ timeout: 60_000 });
+    await expect(escalateDialog.getByText(/#12347/)).toBeVisible();
+  });
 });

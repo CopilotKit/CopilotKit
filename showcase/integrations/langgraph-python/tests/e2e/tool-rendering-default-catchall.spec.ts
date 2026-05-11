@@ -159,6 +159,58 @@ test.describe("Tool Rendering — Default Catch-all", () => {
     ).toBeVisible({ timeout: TOOL_TIMEOUT });
   });
 
+  // Regression for the aimock multi-pill bug:
+  // The d20 and Chain-tools fixtures used `turnIndex` + `hasToolResult` to
+  // disambiguate sequential iterations of the same prompt. Those gates
+  // count *global* thread state: clicking Find flights first left two
+  // assistant messages and one tool message behind, so the d20 loop
+  // entered at `turnIndex=2` (skipping rolls 7 and 14, hence only 3
+  // cards), and the Chain-tools tool-emitting fixture was skipped
+  // entirely (`hasToolResult: false` failed) so the pill went straight to
+  // the "Done — Tokyo is sunny…" content with no tool cards. Fix: chain
+  // all follow-ups via `toolCallId`, drop the global gates. This test
+  // drives the three offending pills in a single thread and asserts the
+  // expected card counts for each.
+  test("sequential pills in one thread render full card sequences for each", async ({
+    page,
+  }) => {
+    // Three sequential pills × multi-tool chains × LLM-mock latency easily
+    // exceeds Playwright's 30s default. Bumped to cover the worst case.
+    test.setTimeout(240_000);
+
+    await page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Find flights" })
+      .first()
+      .click();
+    const flights = page.locator(
+      '[data-testid="copilot-tool-render"][data-tool-name="search_flights"]',
+    );
+    await expect(flights).toHaveCount(1, { timeout: TOOL_TIMEOUT });
+
+    await page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Roll a d20" })
+      .first()
+      .click();
+    const d20 = page.locator(
+      '[data-testid="copilot-tool-render"][data-tool-name="roll_d20"]',
+    );
+    await expect
+      .poll(async () => d20.count(), { timeout: TOOL_TIMEOUT })
+      .toBe(5);
+    // Final scripted roll lands the 20 — proves the chain advanced through
+    // all 5 fixtures, not just the first two before bailing to content.
+    await expect
+      .poll(async () => d20.nth(4).getAttribute("data-result"), {
+        timeout: TOOL_TIMEOUT,
+      })
+      .toMatch(/"value":\s*20|"result":\s*20/);
+    await expect(page.getByText("Rolled the d20 five times")).toBeVisible({
+      timeout: TOOL_TIMEOUT,
+    });
+  });
+
   test("every rendered card matches the built-in default-renderer DOM signature", async ({
     page,
   }) => {
