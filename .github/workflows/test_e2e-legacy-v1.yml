@@ -67,6 +67,16 @@ jobs:
         with:
           version: 10.13.1
 
+      - name: Detect fork PR
+        id: fork-check
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" && \
+                "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]]; then
+            echo "prefix=fork-" >> "$GITHUB_OUTPUT"
+          else
+            echo "prefix=" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Resolve pnpm store path
         id: pnpm-store
         run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
@@ -75,9 +85,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ steps.pnpm-store.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          key: ${{ steps.fork-check.outputs.prefix }}${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
-            ${{ runner.os }}-pnpm-store-
+            ${{ steps.fork-check.outputs.prefix }}${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
