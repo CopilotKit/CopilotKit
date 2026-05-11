@@ -1,5 +1,6 @@
 {
   "dependencies": ["."],
+  "env": ".env",
   "graphs": {
     "sample_agent": "./src/agents/main.py:graph",
     "tool_rendering": "./src/agents/tool_rendering_agent.py:graph",
