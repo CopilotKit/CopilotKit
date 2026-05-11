@@ -87,10 +87,37 @@
       }
     },
     {
-      "_comment": "tool-rendering pill: Chain tools — emit 3 tool calls in one assistant turn (get_weather Tokyo + search_flights SFO->Tokyo + roll_d20=11). MUST appear before the bare 'weather in Tokyo' fixture below; substring match would otherwise leak into this prompt.",
+      "_comment": "tool-rendering pill: Chain tools — follow-up after all 3 tools ran. Matches whichever of the 3 chain-tools tool_call_ids appears last in the request (LangGraph's ToolNode preserves tool_calls order, so roll_d20 is typically last; we register all 3 for safety). MUST come before the toolCalls-emitting fixture below so iteration 2 of the chain-tools loop hits this branch instead of re-emitting.",
       "match": {
         "userMessage": "Chain a few tools in this single turn",
-        "hasToolResult": false
+        "toolCallId": "call_tr_chain_roll_001"
+      },
+      "response": {
+        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "toolCallId": "call_tr_chain_flights_001"
+      },
+      "response": {
+        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "toolCallId": "call_tr_chain_weather_001"
+      },
+      "response": {
+        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "_comment": "tool-rendering pill: Chain tools — emit 3 tool calls in one assistant turn (get_weather Tokyo + search_flights SFO->Tokyo + roll_d20=11). MUST appear before the bare 'weather in Tokyo' fixture below; substring match would otherwise leak into this prompt. No hasToolResult gate: in multi-pill demo sessions prior clicks leave tool results in the thread, which previously caused this fixture to be skipped in favour of the follow-up content fixture and the pill rendered no cards.",
+      "match": {
+        "userMessage": "Chain a few tools in this single turn"
       },
       "response": {
         "toolCalls": [
@@ -113,19 +140,18 @@
       }
     },
     {
+      "_comment": "tool-rendering pill: Weather in SF — follow-up content after get_weather tool ran. MUST come before the tool-emitting fixture below (first-match-wins) so iteration 2 of the loop hits this branch instead of re-emitting. toolCallId chain keeps the fixture stateless across multi-pill thread history (hasToolResult breaks when a prior pill left tool results in the thread).",
       "match": {
-        "userMessage": "Chain a few tools in this single turn",
-        "hasToolResult": true
+        "userMessage": "What's the weather in San Francisco?",
+        "toolCallId": "call_tr_weather_sf_001"
       },
       "response": {
-        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+        "content": "San Francisco is currently 68°F and sunny with light winds."
       }
     },
     {
-      "_comment": "tool-rendering pill: Weather in SF — verbatim pill prompt, deterministic San Francisco values.",
       "match": {
-        "userMessage": "What's the weather in San Francisco?",
-        "hasToolResult": false
+        "userMessage": "What's the weather in San Francisco?"
       },
       "response": {
         "toolCalls": [
@@ -135,15 +161,6 @@
             "arguments": "{\"location\":\"San Francisco\"}"
           }
         ]
-      }
-    },
-    {
-      "match": {
-        "userMessage": "What's the weather in San Francisco?",
-        "hasToolResult": true
-      },
-      "response": {
-        "content": "San Francisco is currently 68°F and sunny with light winds."
       }
     },
     {
@@ -174,10 +191,18 @@
       }
     },
     {
-      "_comment": "tool-rendering pill: Stock price — verbatim pill prompt, AAPL with deterministic price/change.",
+      "_comment": "tool-rendering pill: Stock price — follow-up content after get_stock_price tool ran. MUST come before the tool-emitting fixture below (first-match-wins) so iteration 2 of the loop hits this branch instead of re-emitting an infinite loop of tool calls.",
       "match": {
         "userMessage": "What's the current price of AAPL?",
-        "hasToolResult": false
+        "toolCallId": "call_tr_stock_aapl_001"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% on the day."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What's the current price of AAPL?"
       },
       "response": {
         "toolCalls": [
@@ -190,36 +215,10 @@
       }
     },
     {
-      "match": {
-        "userMessage": "What's the current price of AAPL?",
-        "toolCallId": "call_tr_stock_aapl_001"
-      },
-      "response": {
-        "content": "AAPL is trading at $338.37, down 2.96% on the day."
-      }
-    },
-    {
-      "_comment": "tool-rendering pill: Roll a d20 — exactly 5 sequential roll_d20 calls returning [7, 14, 3, 19, 20]. Disambiguated by turnIndex (count of assistant messages so far) so the sequence is stateless across test runs.",
+      "_comment": "tool-rendering pill: Roll a d20 — exactly 5 sequential roll_d20 calls returning [7, 14, 3, 19, 20]. Chained by toolCallId so the sequence is stateless across thread history (turnIndex/hasToolResult break in multi-pill demo sessions where prior clicks leave assistant/tool messages in the thread). Specific-toolCallId fixtures MUST come before the userMessage-only fixture below; first-match-wins.",
       "match": {
         "userMessage": "Roll a 20-sided die.",
-        "turnIndex": 0,
-        "hasToolResult": false
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_tr_d20_seq_001",
-            "name": "roll_d20",
-            "arguments": "{\"value\":7}"
-          }
-        ]
-      }
-    },
-    {
-      "match": {
-        "userMessage": "Roll a 20-sided die.",
-        "turnIndex": 1,
-        "hasToolResult": true
+        "toolCallId": "call_tr_d20_seq_001"
       },
       "response": {
         "toolCalls": [
@@ -234,8 +233,7 @@
     {
       "match": {
         "userMessage": "Roll a 20-sided die.",
-        "turnIndex": 2,
-        "hasToolResult": true
+        "toolCallId": "call_tr_d20_seq_002"
       },
       "response": {
         "toolCalls": [
@@ -250,8 +248,7 @@
     {
       "match": {
         "userMessage": "Roll a 20-sided die.",
-        "turnIndex": 3,
-        "hasToolResult": true
+        "toolCallId": "call_tr_d20_seq_003"
       },
       "response": {
         "toolCalls": [
@@ -266,8 +263,7 @@
     {
       "match": {
         "userMessage": "Roll a 20-sided die.",
-        "turnIndex": 4,
-        "hasToolResult": true
+        "toolCallId": "call_tr_d20_seq_004"
       },
       "response": {
         "toolCalls": [
@@ -282,11 +278,25 @@
     {
       "match": {
         "userMessage": "Roll a 20-sided die.",
-        "turnIndex": 5,
-        "hasToolResult": true
+        "toolCallId": "call_tr_d20_seq_005"
       },
       "response": {
         "content": "Rolled the d20 five times — landed on 20 on the final roll."
+      }
+    },
+    {
+      "_comment": "First roll. Matches the initial user prompt (no prior d20 tool result in this chain yet). Comes after the toolCallId-chained fixtures above so iterations 2-6 of the loop hit those first.",
+      "match": {
+        "userMessage": "Roll a 20-sided die."
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_seq_001",
+            "name": "roll_d20",
+            "arguments": "{\"value\":7}"
+          }
+        ]
       }
     },
     {
@@ -1193,9 +1203,18 @@
       }
     },
     {
+      "_comment": "Follow-up content after get_weather (or get-weather Mastra alias) ran for Tokyo. Keyed on the prior tool's id so it fires after iteration 1 regardless of thread history. Must come BEFORE the tool-emitting fixtures so iteration 2 hits this branch instead of re-emitting get_weather.",
       "match": {
         "userMessage": "weather in Tokyo",
-        "hasToolResult": false,
+        "toolCallId": "call_d5_get_weather_001"
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "weather in Tokyo",
         "toolName": "get_weather"
       },
       "response": {
@@ -1214,7 +1233,6 @@
       "_comment": "Mastra registers the weather tool as get-weather (hyphen); duplicate for compat",
       "match": {
         "userMessage": "weather in Tokyo",
-        "hasToolResult": false,
         "toolName": "get-weather"
       },
       "response": {
@@ -1230,15 +1248,7 @@
       }
     },
     {
-      "match": {
-        "userMessage": "weather in Tokyo",
-        "hasToolResult": true
-      },
-      "response": {
-        "content": "Tokyo is 22°C and partly cloudy."
-      }
-    },
-    {
+      "_comment": "Final fallback when the agent has neither get_weather nor get-weather registered — return narrated content with no tool call. Comes last so the tool-emitting fixtures above win when the tool IS available.",
       "match": {
         "userMessage": "weather in Tokyo"
       },
@@ -1485,10 +1495,31 @@
       }
     },
     {
-      "_comment": "hitl-in-app — refund pill (#12345). 1st turn: emit request_user_approval tool call.",
+      "_comment": "hitl-in-app — refund pill (#12345), 2nd turn after approve. Keyed on the request_user_approval toolCallId AND sequenceIndex 0 (first match = approve branch). Must come BEFORE the tool-emitting fixture so iteration 2 hits this branch.",
       "match": {
         "userMessage": "$50 refund to Jordan Rivera on ticket #12345",
-        "hasToolResult": false
+        "toolCallId": "call_d5_hitl_refund_12345_001",
+        "sequenceIndex": 0
+      },
+      "response": {
+        "content": "I am processing the $50 refund to Jordan Rivera on ticket #12345 now."
+      }
+    },
+    {
+      "_comment": "hitl-in-app — refund pill (#12345), 2nd turn after reject. sequenceIndex 1 = reject branch.",
+      "match": {
+        "userMessage": "$50 refund to Jordan Rivera on ticket #12345",
+        "toolCallId": "call_d5_hitl_refund_12345_001",
+        "sequenceIndex": 1
+      },
+      "response": {
+        "content": "Understood — the refund request was not approved. I will not issue the $50 refund on ticket #12345."
+      }
+    },
+    {
+      "_comment": "hitl-in-app — refund pill (#12345). 1st turn: emit request_user_approval tool call. hasToolResult gate was dropped — broke after the user clicked another tool-using pill earlier in the same thread.",
+      "match": {
+        "userMessage": "$50 refund to Jordan Rivera on ticket #12345"
       },
       "response": {
         "toolCalls": [
@@ -1501,32 +1532,31 @@
       }
     },
     {
-      "_comment": "hitl-in-app — refund pill (#12345), 2nd turn after approve. sequenceIndex 0 = approve branch (first match).",
+      "_comment": "hitl-in-app — escalate pill (#12347), 2nd turn after approve. sequenceIndex 0 = approve branch. Must come BEFORE the tool-emitting fixture.",
       "match": {
-        "userMessage": "$50 refund to Jordan Rivera on ticket #12345",
-        "hasToolResult": true,
+        "userMessage": "escalate ticket #12347 to the payments team",
+        "toolCallId": "call_d5_hitl_escalate_12347_001",
         "sequenceIndex": 0
       },
       "response": {
-        "content": "I am processing the $50 refund to Jordan Rivera on ticket #12345 now."
+        "content": "Escalated ticket #12347 to the payments team for Morgan Lee — they will pick this up shortly."
       }
     },
     {
-      "_comment": "hitl-in-app — refund pill (#12345), 2nd turn after reject. sequenceIndex 1 = reject branch (second match).",
+      "_comment": "hitl-in-app — escalate pill (#12347), 2nd turn after reject. sequenceIndex 1 = reject branch.",
       "match": {
-        "userMessage": "$50 refund to Jordan Rivera on ticket #12345",
-        "hasToolResult": true,
+        "userMessage": "escalate ticket #12347 to the payments team",
+        "toolCallId": "call_d5_hitl_escalate_12347_001",
         "sequenceIndex": 1
       },
       "response": {
-        "content": "Understood — the refund request was not approved. I will not issue the $50 refund on ticket #12345."
+        "content": "Not escalated — ticket #12347 will stay with the current owner per your decision."
       }
     },
     {
       "_comment": "hitl-in-app — escalate pill (#12347). 1st turn: emit request_user_approval tool call.",
       "match": {
-        "userMessage": "escalate ticket #12347 to the payments team",
-        "hasToolResult": false
+        "userMessage": "escalate ticket #12347 to the payments team"
       },
       "response": {
         "toolCalls": [
@@ -1539,32 +1569,19 @@
       }
     },
     {
-      "_comment": "hitl-in-app — escalate pill (#12347), 2nd turn after approve. sequenceIndex 0 = approve branch.",
+      "_comment": "frontend-tools-async — project-planning pill, follow-up content keyed on the prior tool's id. Comes BEFORE the tool-emitting fixture so iteration 2 (after the async handler returns) hits this branch instead of re-emitting query_notes. hasToolResult gates were dropped because they broke after the user clicked another tool-using pill earlier in the same thread.",
       "match": {
-        "userMessage": "escalate ticket #12347 to the payments team",
-        "hasToolResult": true,
-        "sequenceIndex": 0
+        "userMessage": "Find my notes about project planning",
+        "toolCallId": "call_d5_query_notes_project_planning_001"
       },
       "response": {
-        "content": "Escalated ticket #12347 to the payments team for Morgan Lee — they will pick this up shortly."
-      }
-    },
-    {
-      "_comment": "hitl-in-app — escalate pill (#12347), 2nd turn after reject. sequenceIndex 1 = reject branch.",
-      "match": {
-        "userMessage": "escalate ticket #12347 to the payments team",
-        "hasToolResult": true,
-        "sequenceIndex": 1
-      },
-      "response": {
-        "content": "Not escalated — ticket #12347 will stay with the current owner per your decision."
+        "content": "You have notes on project planning: \"Q2 project planning kickoff\" and \"Project planning retrospective notes\". Let me know if you want a summary of either."
       }
     },
     {
       "_comment": "frontend-tools-async — project-planning pill. 1st turn: query_notes tool call. Specific match wins over the broad 'plan' fixture in feature-parity.json (d5-all.json loads first).",
       "match": {
-        "userMessage": "Find my notes about project planning",
-        "hasToolResult": false
+        "userMessage": "Find my notes about project planning"
       },
       "response": {
         "toolCalls": [
@@ -1577,20 +1594,19 @@
       }
     },
     {
-      "_comment": "frontend-tools-async — project-planning pill. 2nd turn: narration referencing the project-planning notes returned by the async handler.",
+      "_comment": "frontend-tools-async — auth pill, follow-up content keyed on the prior tool's id. Must come BEFORE the tool-emitting fixture.",
       "match": {
-        "userMessage": "Find my notes about project planning",
-        "hasToolResult": true
+        "userMessage": "Search my notes for anything related to auth",
+        "toolCallId": "call_d5_query_notes_auth_001"
       },
       "response": {
-        "content": "You have notes on project planning: \"Q2 project planning kickoff\" and \"Project planning retrospective notes\". Let me know if you want a summary of either."
+        "content": "You have one note related to auth: \"Planning: migrate auth to passkeys\" — it covers WebAuthn library options and a fallback for unsupported browsers."
       }
     },
     {
       "_comment": "frontend-tools-async — auth pill. 1st turn: query_notes tool call. Beats the showcase-assistant catch-all in feature-parity.json by virtue of d5-all.json's load order and a longer specific substring match.",
       "match": {
-        "userMessage": "Search my notes for anything related to auth",
-        "hasToolResult": false
+        "userMessage": "Search my notes for anything related to auth"
       },
       "response": {
         "toolCalls": [
@@ -1603,20 +1619,19 @@
       }
     },
     {
-      "_comment": "frontend-tools-async — auth pill. 2nd turn: narration referencing the auth note returned by the async handler.",
+      "_comment": "frontend-tools-async — reading pill, follow-up content keyed on the prior tool's id. Must come BEFORE the tool-emitting fixture. Locked narration leading phrase per spec test #4 assertion.",
       "match": {
-        "userMessage": "Search my notes for anything related to auth",
-        "hasToolResult": true
+        "userMessage": "Do I have any notes tagged reading",
+        "toolCallId": "call_d5_query_notes_reading_001"
       },
       "response": {
-        "content": "You have one note related to auth: \"Planning: migrate auth to passkeys\" — it covers WebAuthn library options and a fallback for unsupported browsers."
+        "content": "You have a note titled \"Book recommendations\" that is tagged with \"reading.\" It includes the following books: Thinking Fast and Slow by Daniel Kahneman, The Design of Everyday Things by Don Norman."
       }
     },
     {
       "_comment": "frontend-tools-async — reading pill. 1st turn: query_notes tool call.",
       "match": {
-        "userMessage": "Do I have any notes tagged reading",
-        "hasToolResult": false
+        "userMessage": "Do I have any notes tagged reading"
       },
       "response": {
         "toolCalls": [
@@ -1626,16 +1641,6 @@
             "arguments": "{\"keyword\":\"reading\"}"
           }
         ]
-      }
-    },
-    {
-      "_comment": "frontend-tools-async — reading pill. 2nd turn: locked narration leading phrase per spec test #4 assertion.",
-      "match": {
-        "userMessage": "Do I have any notes tagged reading",
-        "hasToolResult": true
-      },
-      "response": {
-        "content": "You have a note titled \"Book recommendations\" that is tagged with \"reading.\" It includes the following books: Thinking Fast and Slow by Daniel Kahneman, The Design of Everyday Things by Don Norman."
       }
     },
     {

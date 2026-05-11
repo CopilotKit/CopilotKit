@@ -195,4 +195,59 @@ test.describe("Tool Rendering — Custom Catch-all (branded wildcard)", () => {
       page.locator('[data-testid="copilot-tool-render"]'),
     ).toHaveCount(0);
   });
+
+  // Regression for the aimock multi-pill bug:
+  // The d20 and Chain-tools fixtures used global thread state
+  // (`turnIndex`, `hasToolResult`) to drive sequencing. After clicking
+  // Find flights, the d20 loop entered at turnIndex=2 (rendering only 3
+  // cards instead of 5) and the Chain-tools tool-emitting fixture was
+  // skipped entirely (no tool cards, just the final "Done — Tokyo is
+  // sunny…" content). Fix: chain all follow-ups via `toolCallId`. This
+  // test drives Find flights → Roll a d20 → Chain tools in one thread
+  // and asserts the wildcard renderer paints the full card sequence for
+  // every pill (1 + 5 + 3 = 9 cards).
+  test("sequential pills in one thread render full card sequences for each", async ({
+    page,
+  }) => {
+    // Three sequential pills × multi-tool chains × LLM-mock latency easily
+    // exceeds Playwright's 30s default. Bumped to cover the worst case.
+    test.setTimeout(240_000);
+
+    await page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Find flights" })
+      .first()
+      .click();
+    const cards = page.locator('[data-testid="custom-wildcard-card"]');
+    await expect
+      .poll(async () => cards.count(), { timeout: TOOL_TIMEOUT })
+      .toBe(1);
+
+    await page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Roll a d20" })
+      .first()
+      .click();
+    // 1 (flights) + 5 (d20) = 6 cards once d20 chain finishes.
+    await expect
+      .poll(async () => cards.count(), { timeout: TOOL_TIMEOUT })
+      .toBe(6);
+    await expect(page.getByText("Rolled the d20 five times")).toBeVisible({
+      timeout: TOOL_TIMEOUT,
+    });
+
+    await page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Chain tools" })
+      .first()
+      .click();
+    // 1 + 5 + 3 = 9 once chain tools mounts get_weather + search_flights +
+    // roll_d20 cards.
+    await expect
+      .poll(async () => cards.count(), { timeout: TOOL_TIMEOUT })
+      .toBe(9);
+    await expect(page.getByText("Done — Tokyo is sunny")).toBeVisible({
+      timeout: TOOL_TIMEOUT,
+    });
+  });
 });

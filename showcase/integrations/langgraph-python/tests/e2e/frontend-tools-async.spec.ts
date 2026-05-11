@@ -136,4 +136,51 @@ test.describe("Frontend Tools (async query_notes)", () => {
         .first(),
     ).toBeVisible({ timeout: 60_000 });
   });
+
+  // Regression for the aimock multi-pill bug:
+  // The three frontend-tools-async fixtures used `hasToolResult: false/true`
+  // gates to split first-turn (emit `query_notes`) vs. follow-up (narration).
+  // After the user clicked a tool-using pill earlier in the same thread, the
+  // first-turn fixture was skipped (the thread already had a prior tool
+  // result), the follow-up fixture fired immediately with just narration,
+  // and the Notes DB card never rendered. Fix: chain via `toolCallId`, drop
+  // the gates. This test drives all three pills in a single thread and
+  // asserts every pill renders its own Notes DB card.
+  test("sequential pills in one thread each render their own Notes DB card", async ({
+    page,
+  }) => {
+    // Three pills × async-handler latency × LLM mock chain; the existing
+    // describe-level 120s is not enough once we drive all three in one test.
+    test.setTimeout(240_000);
+
+    const cards = page.locator('[data-testid="notes-card"]');
+
+    await page
+      .getByRole("button", { name: /Find project-planning notes/i })
+      .click();
+    await expect.poll(() => cards.count(), { timeout: 60_000 }).toBe(1);
+    await expect(
+      page.locator('[data-testid="notes-keyword"]', {
+        hasText: /Matching\s+"project planning"/i,
+      }),
+    ).toBeVisible({ timeout: 60_000 });
+
+    await page.getByRole("button", { name: /Search for 'auth'/i }).click();
+    await expect.poll(() => cards.count(), { timeout: 60_000 }).toBe(2);
+    await expect(
+      page.locator('[data-testid="notes-keyword"]', {
+        hasText: /Matching\s+"auth"/i,
+      }),
+    ).toBeVisible({ timeout: 60_000 });
+
+    await page
+      .getByRole("button", { name: /What do I have about reading\?/i })
+      .click();
+    await expect.poll(() => cards.count(), { timeout: 60_000 }).toBe(3);
+    await expect(
+      page.locator('[data-testid="notes-keyword"]', {
+        hasText: /Matching\s+"reading"/i,
+      }),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });
