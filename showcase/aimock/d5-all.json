@@ -1612,18 +1612,42 @@
       }
     },
     {
-      "_comment": "readonly-state-agent-context — Who am I pill (B2 added with paraphrased prompt; locked verbatim).",
+      "_comment": "readonly-state-agent-context — Who am I pill. systemMessage array gates on ALL three default-state tokens (AND semantics): name=Atai, timezone=America/Los_Angeles, and the full default activity-list substring. CopilotKitMiddleware serialises useAgentContext entries into one 'App Context: [...]' system message whose entry order is not stable, so a single substring can only cover one token at a time; the array form lets all three be required simultaneously. Any change in the demo UI (rename, timezone select, activity toggle) breaks one of the substrings and the fixture falls through to the next fixture or to upstream proxy. Requires @copilotkit/aimock >=1.21.0.",
       "match": {
-        "userMessage": "What do you know about me from my context?"
+        "userMessage": "What do you know about me from my context?",
+        "systemMessage": [
+          "\"value\": \"Atai\"",
+          "\"value\": \"America/Los_Angeles\"",
+          "[\\\"Viewed the pricing page\\\",\\\"Watched the product demo video\\\"]"
+        ]
       },
       "response": {
         "content": "I see you're Atai, and you're in the America/Los_Angeles timezone. Recently, you viewed the pricing page and watched the product demo video. How can I assist you today?"
       }
     },
     {
-      "_comment": "readonly-state-agent-context — Suggest next steps pill (B2 added with paraphrased prompt; locked verbatim).",
+      "_comment": "readonly-state-agent-context — Plan my morning pill. systemMessage array gates on ALL three default-state tokens since the canned response mentions name, timezone, and specific past activities. Any deviation falls through to upstream proxy. Requires @copilotkit/aimock >=1.21.0.",
       "match": {
-        "userMessage": "Based on my recent activity, what should I try next?"
+        "userMessage": "What time is it in my timezone and what should I do for the next hour?",
+        "systemMessage": [
+          "\"value\": \"Atai\"",
+          "\"value\": \"America/Los_Angeles\"",
+          "[\\\"Viewed the pricing page\\\",\\\"Watched the product demo video\\\"]"
+        ]
+      },
+      "response": {
+        "content": "Atai, I don't have live clock access here, but your timezone is America/Los_Angeles, so the local time for you is Pacific Time.\n\nBased on your recent activity, a good next hour could be:\n\n- 10 min: Write down your top 3 questions after the demo\n- 15 min: Review the pricing page and compare the plans relevant to you\n- 20 min: Decide what you need most: features, budget fit, or implementation details\n- 15 min: Reach out to sales/support or start a trial if it looks promising\n\nIf you want, I can also help you turn that into a more specific 60-minute plan."
+      }
+    },
+    {
+      "_comment": "readonly-state-agent-context — Suggest next steps pill. systemMessage array gates on ALL three default-state tokens since the canned response mentions name, timezone, and specific past activities. Any deviation falls through. Requires @copilotkit/aimock >=1.21.0.",
+      "match": {
+        "userMessage": "Based on my recent activity, what should I try next?",
+        "systemMessage": [
+          "\"value\": \"Atai\"",
+          "\"value\": \"America/Los_Angeles\"",
+          "[\\\"Viewed the pricing page\\\",\\\"Watched the product demo video\\\"]"
+        ]
       },
       "response": {
         "content": "Since you recently viewed the pricing page and watched the product demo video, it might be a good idea to explore user testimonials or case studies to see how others have benefited from the Pro Plan. You could also start the 14-day free trial to experience the features firsthand."
@@ -2428,8 +2452,10 @@
       }
     },
     {
+      "_comment": "readonly-state-agent-context — D5 harness probe fixture. The probe (showcase/harness/src/probes/scripts/d5-readonly-state-context.ts) seeds the user-name input with sentinel 'CTX-PROBE-7g3kqz' before clicking the pill, then asserts the sentinel appears in the outgoing /api/copilotkit request body. systemMessage gates on that sentinel so this fixture only matches the harness probe, NOT real users whose name is anything else. Without the gate this fixture catches every state-changed 'Who am I?' request as fall-through (because the offender at the top of this file has its own systemMessage gate on 'value: \"Atai\"'), masking the proxy-to-LLM behaviour we want. Requires @copilotkit/aimock >=1.20.0.",
       "match": {
-        "userMessage": "What do you know about me from my context"
+        "userMessage": "What do you know about me from my context",
+        "systemMessage": "CTX-PROBE-7g3kqz"
       },
       "response": {
         "content": "Based on your context I can see your name and recent activity. I'll keep responses calibrated to your timezone."

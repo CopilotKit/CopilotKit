@@ -273,9 +273,9 @@ jobs:
           # An unrestricted `@latest` means a bad aimock publish silently
           # poisons CI for everyone; pinning makes the upgrade explicit and
           # keeps this PR's CI signal reproducible.
-          npm install -g "@copilotkit/aimock@^1.16.4" --ignore-scripts
+          npm install -g "@copilotkit/aimock@^1.21.0" --ignore-scripts
           # Invoke the installed global binary directly rather than `npx`.
-          # `npx @copilotkit/aimock@^1.16.4` re-resolves the spec against the
+          # `npx @copilotkit/aimock@^1.21.0` re-resolves the spec against the
           # registry and MAY re-fetch a package even when an identical global
           # install exists — which would defeat `--ignore-scripts` on the
           # npm-install step above (npx's transient install does not inherit
