@@ -1,15 +1,10 @@
 import type { AgentCapabilities } from "@ag-ui/core";
-import {
-  CopilotRuntimeLike,
-  isIntelligenceRuntime,
-  resolveAgents,
-} from "../core/runtime";
-import {
-  AgentDescription,
-  RuntimeInfo,
-  type RuntimeLicenseStatus,
-} from "@copilotkit/shared";
+import type { CopilotRuntimeLike } from "../core/runtime";
+import { isIntelligenceRuntime, resolveAgents } from "../core/runtime";
+import type { AgentDescription, RuntimeInfo } from "@copilotkit/shared";
+import { type RuntimeLicenseStatus } from "@copilotkit/shared";
 import { VERSION } from "../core/runtime";
+import { isTelemetryDisabled } from "../telemetry/telemetry-client";
 
 function resolveLicenseStatus(
   runtime: CopilotRuntimeLike,
@@ -84,6 +79,7 @@ export async function handleGetRuntimeInfo({
       ...(isIntelligenceRuntime(runtime)
         ? { licenseStatus: resolveLicenseStatus(runtime) }
         : {}),
+      telemetryDisabled: isTelemetryDisabled(),
     };
 
     return new Response(JSON.stringify(runtimeInfo), {

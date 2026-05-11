@@ -48,4 +48,5 @@ export interface RuntimeInfo {
   a2uiEnabled?: boolean;
   openGenerativeUIEnabled?: boolean;
   licenseStatus?: RuntimeLicenseStatus;
+  telemetryDisabled?: boolean;
 }

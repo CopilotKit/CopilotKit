@@ -47,6 +47,15 @@ import {
   isValidDockMode,
 } from "./lib/persistence";
 import type { PersistedState } from "./lib/persistence";
+import {
+  TELEMETRY_DOCS_URL,
+  ensureTelemetryDistinctId,
+  getTelemetryDistinctIdForUrl,
+  maybeShowDisclosure,
+  trackBannerClicked,
+  trackBannerViewed,
+  trackThreadsTabClicked,
+} from "./lib/telemetry";
 
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 
@@ -57,7 +66,8 @@ type MenuKey =
   | "agents"
   | "frontend-tools"
   | "agent-context"
-  | "threads";
+  | "threads"
+  | "settings";
 
 type MenuItem = {
   key: MenuKey;
@@ -2408,11 +2418,32 @@ export class WebInspectorElement extends LitElement {
   private announcementHtml: string | null = null;
   private announcementTimestamp: string | null = null;
   private announcementPreviewText: string | null = null;
+  // Forward-compat for an optional `cta_label` field on the announcement
+  // CDN payload (e.g. "Try threads", "New feature"). The current schema
+  // ({timestamp, previewText, announcement}) doesn't carry it, so this is
+  // null in production today; we read it defensively in fetchAnnouncement
+  // so a future CDN-side schema bump lights up `cta_label` on banner_clicked
+  // without an inspector release.
+  private announcementCtaLabel: string | null = null;
   private hasUnseenAnnouncement = false;
   private announcementLoaded = false;
   private announcementPromise: Promise<void> | null = null;
   private showAnnouncementPreview = true;
   private announcementExpanded = false;
+  // Per-instance dedup for `oss.inspector.banner_viewed` so the event fires
+  // at most once per announcement timestamp per inspector mount. Plan calls
+  // for "de-dup per timestamp per session"; instance-scoping is closer
+  // to per-mount than per-tab (sessionStorage), but for the inspector the
+  // distinction is academic — inspector instances rarely outlive the page.
+  private viewedBannerTimestamps: Set<string> = new Set();
+  private pendingBannerViewed: {
+    banner_id: string;
+    cta_label?: string;
+  } | null = null;
+  // Per-instance dedup for `oss.inspector.banner_clicked` (keyed by
+  // `${bannerId}:${cta}`) so copy-button retries and accidental multi-clicks
+  // don't inflate funnel counts beyond one signal per intent type per banner.
+  private clickedBannerIds: Set<string> = new Set();
 
   get core(): CopilotKitCore | null {
     return this._core;
@@ -2603,6 +2634,11 @@ export class WebInspectorElement extends LitElement {
       onRuntimeConnectionStatusChanged: ({ status }) => {
         this.runtimeStatus = status;
         if (status === "connected") {
+          if (!core.telemetryDisabled) {
+            ensureTelemetryDistinctId();
+            maybeShowDisclosure();
+          }
+          this.flushPendingBannerViewed();
           for (const agentId of this._ownedThreadStores.keys()) {
             this.refreshOwnedThreadStore(agentId);
           }
@@ -3913,6 +3949,11 @@ ${argsString}</pre
         color: #010507;
         font-weight: 600;
       }
+      .cpk-tab-icon {
+        display: inline-flex;
+        flex-shrink: 0;
+        align-items: center;
+      }
       .cpk-tab-active .cpk-tab-icon {
         color: #757cf2;
       }
@@ -4337,6 +4378,24 @@ ${argsString}</pre
                 <div class="min-w-[160px] max-w-xs">${agentSelector}</div>
                 <div class="flex items-center gap-1">
                   ${this.renderDockControls()}
+                  <button
+                    class="flex h-8 w-8 items-center justify-center rounded-md transition hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 ${
+                      this.selectedMenu === "settings"
+                        ? "bg-gray-100 text-gray-700"
+                        : "text-gray-400 hover:text-gray-600"
+                    }"
+                    type="button"
+                    aria-label="Settings"
+                    aria-pressed=${this.selectedMenu === "settings"}
+                    @click=${() =>
+                      this.handleMenuSelect(
+                        this.selectedMenu === "settings"
+                          ? "ag-ui-events"
+                          : "settings",
+                      )}
+                  >
+                    ${this.renderIcon("Settings")}
+                  </button>
                   <button
                     class="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400"
                     type="button"
@@ -5601,7 +5660,62 @@ ${argsString}</pre
       return this.renderThreadsView();
     }
 
+    if (this.selectedMenu === "settings") {
+      return this.renderSettingsPanel();
+    }
+
     return nothing;
+  }
+
+  private renderSettingsPanel() {
+    const optedOut = this.core?.telemetryDisabled ?? false;
+    return html`
+      <div class="flex h-full flex-col overflow-hidden">
+        <div class="overflow-auto p-4">
+          <div class="space-y-3">
+            <h2 class="text-sm font-semibold text-slate-900">Settings</h2>
+
+            <div class="space-y-2">
+              <h3 class="text-sm text-slate-500">Privacy</h3>
+              <div class="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
+                <p class="text-sm text-gray-600 flex items-start gap-2">
+                  <span>${optedOut ? "❌" : "✅"}</span>
+                  <span>
+                    ${
+                      optedOut
+                        ? "You have disabled anonymous interaction data collection."
+                        : "CopilotKit is currently collecting anonymous interaction data from the inspector so we know which features people use. We never collect message content, agent state, prompts, or completions."
+                    }
+                  </span>
+                </p>
+                <a
+                  class="inline-flex items-center gap-1 text-sm text-slate-700 underline hover:text-slate-900"
+                  href=${TELEMETRY_DOCS_URL}
+                  target="_blank"
+                  rel="noopener"
+                >Learn more →</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Fires `banner_clicked` at most once per `${bannerId}:${cta}` per mount so
+  // copy-button retries and accidental multi-clicks don't inflate funnel counts.
+  private trackBannerClickedOnce(opts: { cta: "body" | "dismiss" }): void {
+    if (this.core?.telemetryDisabled) return;
+    const id = this.announcementTimestamp;
+    if (!id) return;
+    const key = `${id}:${opts.cta}`;
+    if (this.clickedBannerIds.has(key)) return;
+    this.clickedBannerIds.add(key);
+    trackBannerClicked({
+      banner_id: id,
+      cta: opts.cta,
+      cta_label: this.announcementCtaLabel ?? undefined,
+    });
   }
 
   private handleThreadDividerPointerDown = (event: PointerEvent) => {
@@ -6371,7 +6485,10 @@ ${prettyEvent}</pre
   }
 
   private handleMenuSelect(key: MenuKey): void {
-    if (!this.menuItems.some((item) => item.key === key)) {
+    if (
+      key !== "settings" &&
+      !this.menuItems.some((item) => item.key === key)
+    ) {
       return;
     }
 
@@ -6410,6 +6527,9 @@ ${prettyEvent}</pre
     }
 
     if (key === "threads") {
+      if (this.selectedMenu !== "threads" && !this.core?.telemetryDisabled) {
+        trackThreadsTabClicked();
+      }
       this.autoSelectLatestThread();
     }
 
@@ -7286,6 +7406,16 @@ ${prettyEvent}</pre
     </div>`;
   }
 
+  private flushPendingBannerViewed(): void {
+    if (!this.pendingBannerViewed || this.core?.telemetryDisabled) {
+      this.pendingBannerViewed = null;
+      return;
+    }
+    if (this.runtimeStatus !== "connected") return;
+    trackBannerViewed(this.pendingBannerViewed);
+    this.pendingBannerViewed = null;
+  }
+
   private ensureAnnouncementLoading(): void {
     if (
       this.announcementPromise ||
@@ -7326,6 +7456,7 @@ ${prettyEvent}</pre
   }
 
   private handleDismissAnnouncement = (): void => {
+    this.trackBannerClickedOnce({ cta: "dismiss" });
     this.markAnnouncementSeen();
   };
 
@@ -7340,6 +7471,7 @@ ${prettyEvent}</pre
         timestamp?: unknown;
         previewText?: unknown;
         announcement?: unknown;
+        cta_label?: unknown;
       };
 
       const timestamp =
@@ -7348,6 +7480,8 @@ ${prettyEvent}</pre
         typeof data?.previewText === "string" ? data.previewText : null;
       const markdown =
         typeof data?.announcement === "string" ? data.announcement : null;
+      const ctaLabel =
+        typeof data?.cta_label === "string" ? data.cta_label : null;
 
       if (!timestamp || !markdown) {
         throw new Error("Malformed announcement payload");
@@ -7357,12 +7491,29 @@ ${prettyEvent}</pre
 
       this.announcementTimestamp = timestamp;
       this.announcementPreviewText = previewText ?? "";
+      this.announcementCtaLabel = ctaLabel;
       this.hasUnseenAnnouncement =
         (!storedTimestamp || storedTimestamp !== timestamp) &&
         !!this.announcementPreviewText;
       this.showAnnouncementPreview = this.hasUnseenAnnouncement;
       this.announcementHtml = await this.convertMarkdownToHtml(markdown);
       this.announcementLoaded = true;
+
+      // banner_viewed: gate on actual visibility and per-mount dedup.
+      // Store as pending rather than firing immediately — telemetryDisabled
+      // may not be known yet if /info hasn't returned. Flushed in
+      // onRuntimeConnectionStatusChanged once the handshake completes.
+      if (
+        this.hasUnseenAnnouncement &&
+        !this.viewedBannerTimestamps.has(timestamp)
+      ) {
+        this.viewedBannerTimestamps.add(timestamp);
+        this.pendingBannerViewed = {
+          banner_id: timestamp,
+          cta_label: ctaLabel ?? undefined,
+        };
+        this.flushPendingBannerViewed();
+      }
 
       this.requestUpdate();
     } catch (error) {
@@ -7422,6 +7573,10 @@ ${prettyEvent}</pre
     const target = event.target instanceof HTMLElement ? event.target : null;
     const button = target?.closest(".announcement-code__copy");
     if (!(button instanceof HTMLButtonElement)) {
+      // banner_clicked fires once per banner per cta-type per mount. Dedup
+      // prevents accidental multi-clicks from inflating funnel counts beyond
+      // one "body" signal and one "dismiss" signal per banner.
+      this.trackBannerClickedOnce({ cta: "body" });
       return;
     }
     event.preventDefault();
@@ -7465,6 +7620,20 @@ ${prettyEvent}</pre
       );
       if (!url.searchParams.has("ref")) {
         url.searchParams.append("ref", "cpk-inspector");
+      }
+      // Propagate the inspector's anonymous distinct-ID so the website /
+      // Ops API can call posthog.alias(...) on signup-flow landing and
+      // close the banner_viewed → banner_clicked → signup_attributed
+      // funnel. Returns null when the user has opted out, so opt-out
+      // suppresses cross-domain ID leaks too.
+      if (
+        !url.searchParams.has("posthog_distinct_id") &&
+        !this.core?.telemetryDisabled
+      ) {
+        const distinctId = getTelemetryDistinctIdForUrl();
+        if (distinctId) {
+          url.searchParams.append("posthog_distinct_id", distinctId);
+        }
       }
       return url.toString();
     } catch {

@@ -23,6 +23,7 @@ import type {
   AfterRequestMiddleware,
 } from "./middleware";
 import { createLogger, type CopilotRuntimeLogger } from "../../../lib/logger";
+import { logRuntimeTelemetryDisclosure } from "../../../lib/telemetry-disclosure";
 import { TranscriptionService } from "../transcription-service/transcription-service";
 import { DebugEventBus } from "./debug-event-bus";
 import { AgentRunner } from "../runner/agent-runner";
@@ -229,6 +230,8 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   abstract readonly mode: RuntimeMode;
 
   constructor(options: BaseCopilotRuntimeOptions, runner: AgentRunner) {
+    logRuntimeTelemetryDisclosure();
+
     const {
       agents,
       transcriptionService,
