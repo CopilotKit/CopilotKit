@@ -37,10 +37,22 @@ export default function DeclarativeGenUIDemo() {
       agent="declarative-gen-ui"
       a2ui={{ catalog: myCatalog }}
     >
-      <div className="flex justify-center items-center h-screen w-full">
-        <div className="h-full w-full max-w-4xl">
+      <div className="declarative-gen-ui-wide flex justify-center items-center h-screen w-full">
+        <div className="h-full w-full max-w-6xl">
           <Chat />
         </div>
+        {/*
+          The chat surface caps its internal scroll column and input row at
+          `cpk:max-w-3xl` (~768px). For this demo we want the generated A2UI
+          cards (KPI dashboards, charts, status reports) to breathe wider, so
+          we widen those wrappers locally to ~64rem. Attribute selector avoids
+          escaping the `:` in the Tailwind class name.
+        */}
+        <style>{`
+          .declarative-gen-ui-wide [class~="cpk:max-w-3xl"] {
+            max-width: 64rem;
+          }
+        `}</style>
       </div>
     </CopilotKit>
     // @endregion[provider-a2ui-prop]

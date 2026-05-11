@@ -35,7 +35,6 @@ import {
 } from "../_components/card";
 import { Badge } from "../_components/badge";
 import { Button } from "../_components/button";
-import { Separator } from "../_components/separator";
 
 // ─── ShadCN-friendly chart palette ─────────────────────────────────────────
 // Neutral, slightly muted hues that pair with `bg-card` / `--border`
@@ -163,7 +162,10 @@ function AnimatedBar(props: any) {
 // @region[renderers-react]
 export const myRenderers: CatalogRenderers<MyDefinitions> = {
   Card: ({ props, children }) => (
-    <Card className="min-w-[260px]" data-testid="declarative-card">
+    <Card
+      className="w-full min-w-[260px] overflow-hidden"
+      data-testid="declarative-card"
+    >
       <CardHeader>
         <CardTitle>{props.title}</CardTitle>
         {props.subtitle && <CardDescription>{props.subtitle}</CardDescription>}
@@ -210,16 +212,16 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
   },
 
   InfoRow: ({ props }) => (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-baseline justify-between gap-4 py-1">
-        <span className="text-sm text-[var(--muted-foreground)]">
-          {props.label}
-        </span>
-        <span className="text-sm font-medium text-[var(--foreground)]">
-          {props.value}
-        </span>
-      </div>
-      <Separator />
+    // Divider via `border-b last:border-b-0` so the final row doesn't dangle
+    // a trailing line, regardless of whether the agent wraps these in a
+    // Column or drops them directly into a Card's child slot.
+    <div className="flex items-baseline justify-between gap-4 py-2 border-b border-[var(--border)] last:border-b-0 last:pb-0 first:pt-0">
+      <span className="text-sm text-[var(--muted-foreground)]">
+        {props.label}
+      </span>
+      <span className="text-sm font-medium text-[var(--foreground)] text-right tabular-nums">
+        {props.value}
+      </span>
     </div>
   ),
 
