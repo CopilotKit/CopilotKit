@@ -191,5 +191,25 @@ test.describe("Beautiful Chat", () => {
 
     const chartRoot = page.locator(".recharts-responsive-container").first();
     await expect(chartRoot).toBeVisible({ timeout: 15_000 });
+
+    // Regression guard (#4733 / #4734): the deployed Sales Dashboard used to
+    // surface "A2UI render error: Catalog not found: declarative-gen-ui-catalog"
+    // because the secondary LLM's `render_a2ui` tool call was intercepted by
+    // the A2UI middleware before our Python force-pin could normalise the
+    // catalog id. Renaming the inner tool to `_design_a2ui_surface` killed
+    // the bypass. Assert the error string is absent so any future revert of
+    // the rename / force-pin trips this test.
+    await expect(page.getByText(/Catalog not found/i)).toHaveCount(0);
+    await expect(
+      page.getByText(/Cannot create component .* without a type/i),
+    ).toHaveCount(0);
+
+    // Regression guard: only ONE dashboard surface should render. Pre-fix,
+    // tool-call loops produced N stacked surfaces (each with its own
+    // ResponsiveContainer) rather than a single render.
+    const allCharts = page.locator(".recharts-responsive-container");
+    await expect
+      .poll(async () => await allCharts.count(), { timeout: 5_000 })
+      .toBeLessThanOrEqual(2); // 1 pie + 1 bar = 2 charts in one dashboard
   });
 });
