@@ -95,7 +95,7 @@ describe("Catalog Generator", () => {
     }
   });
 
-  it("cross-join produces 756 cells (42 features x 18 integrations); metadata.total_cells excludes docs-only", () => {
+  it("cross-join produces 792 cells (44 features x 18 integrations); metadata.total_cells excludes docs-only", () => {
     runGenerator();
     const catalog = readCatalog();
 
@@ -109,20 +109,22 @@ describe("Catalog Generator", () => {
       (c: any) => c.manifestation === "starter",
     );
 
-    // 43 features × 18 integrations = 774 cells. The catalog emits cells
+    // 45 features × 18 integrations = 810 cells. The catalog emits cells
     // uniformly for all (integration × feature) pairs; deprecated-feature
     // visibility is controlled at the dashboard layer via the "Show
     // deprecated" toggle in feature-grid.tsx so the catalog stays
-    // shape-stable.
-    expect(integrated.length).toBe(774);
+    // shape-stable. The 45 includes 2 byoc legacy IDs (`byoc-hashbrown`,
+    // `byoc-json-render`) plus their renamed aliases (`declarative-*`)
+    // that langgraph-python uses for the visible URL slugs.
+    expect(integrated.length).toBe(810);
     expect(starters.length).toBe(0);
-    expect(catalog.cells.length).toBe(774);
+    expect(catalog.cells.length).toBe(810);
     // total_cells excludes docs-only features (currently 1 feature x 18 integrations = 18)
-    expect(catalog.metadata.total_cells).toBe(756);
+    expect(catalog.metadata.total_cells).toBe(792);
     expect(catalog.metadata.docs_only).toBe(18);
   });
 
-  it("LGP has 43 cells: 38 wired + 1 stub + 4 unshipped (deprecated features included; dashboard hides them by default)", () => {
+  it("LGP has 45 cells: 38 wired + 1 stub + 6 unshipped (deprecated features included; dashboard hides them by default)", () => {
     runGenerator();
     const catalog = readCatalog();
 
@@ -131,11 +133,15 @@ describe("Catalog Generator", () => {
         c.integration === "langgraph-python" &&
         c.manifestation === "integrated",
     );
-    // 43 = 39 LGP-declared features + 4 deprecated features (cells
-    // emitted as `unshipped` since LGP doesn't declare them in its
-    // manifest). The dashboard's `Show deprecated` toggle in
-    // feature-grid.tsx hides those rows by default.
-    expect(lgpCells.length).toBe(43);
+    // 45 = 39 LGP-declared features + 4 deprecated features + 2 legacy
+    // `byoc-*` aliases (LGP declares `declarative-{hashbrown,json-render}`
+    // for the visible URL slugs while every other integration still
+    // declares the legacy `byoc-*` IDs; the catalog emits cells for both
+    // since both are in the registry, and the LGP cells for the legacy
+    // IDs are `unshipped` because LGP's manifest only declares the
+    // renamed form). Dashboard's "Show deprecated" toggle hides
+    // deprecated rows by default.
+    expect(lgpCells.length).toBe(45);
 
     const wired = lgpCells.filter((c: any) => c.status === "wired");
     const stub = lgpCells.filter((c: any) => c.status === "stub");
@@ -143,7 +149,7 @@ describe("Catalog Generator", () => {
 
     expect(wired.length).toBe(38);
     expect(stub.length).toBe(1);
-    expect(unshipped.length).toBe(4);
+    expect(unshipped.length).toBe(6);
   });
 
   it("stub detection: LGP/cli-start has stub status (demo exists, no route)", () => {
@@ -206,7 +212,7 @@ describe("Catalog Generator", () => {
 
     expect(catalog.metadata).toBeDefined();
     // total_cells excludes docs-only features
-    expect(catalog.metadata.total_cells).toBe(756);
+    expect(catalog.metadata.total_cells).toBe(792);
 
     // Headline counts exclude docs-only cells; must sum to total_cells.
     expect(

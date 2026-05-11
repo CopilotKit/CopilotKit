@@ -31,7 +31,7 @@ export function middleware(request: NextRequest) {
     "/coagents/shared-state": "/langgraph/shared-state",
     "/coagents/human-in-the-loop": "/langgraph/human-in-the-loop",
     "/coagents/multi-agent-flows": "/langgraph/multi-agent-flows",
-    "/coagents/persistence": "/langgraph/persistence",
+    "/coagents/persistence": "/langgraph/threads",
     "/coagents/advanced": "/langgraph/advanced",
     "/coagents/videos": "/langgraph/videos",
     "/coagents/tutorials": "/langgraph/tutorials",

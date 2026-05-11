@@ -36,6 +36,8 @@ from langchain_core.messages import SystemMessage
 from langchain_core.tools import tool as lc_tool
 from langchain_openai import ChatOpenAI
 
+from src.agents._a2ui_utils import has_root_component, sanitize_a2ui_components
+
 CUSTOM_CATALOG_ID = "declarative-gen-ui-catalog"
 
 
@@ -135,18 +137,10 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     # Force the canonical catalog ID — the secondary LLM has been observed
     # hallucinating IDs from sibling demos when context is sparse.
     catalog_id = CUSTOM_CATALOG_ID
-    components = args.get("components", [])
+    components = sanitize_a2ui_components(args.get("components", []))
     data = args.get("data", {})
 
-    # Defensive: every component must have an `id` AND a `component` field, or
-    # the frontend renderer throws "Cannot create component <id> without a
-    # type" and never recovers. Drop malformed entries so a valid surface
-    # still renders.
-    components = [
-        c for c in components
-        if isinstance(c, dict) and c.get("id") and c.get("component")
-    ]
-    if not any(c.get("id") == "root" for c in components):
+    if not has_root_component(components):
         return json.dumps({
             "error": "LLM produced no valid root component for the A2UI surface."
         })

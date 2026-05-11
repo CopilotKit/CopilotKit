@@ -104,6 +104,18 @@ body {
   color: var(--foreground);
 }
 
+/* When a Radix overlay (Select / Dialog / Popover) opens, react-remove-scroll
+ * adds `body[data-scroll-locked]` with `padding-right` equal to what it
+ * thinks is the scrollbar width. Because our <body> uses `margin-inline-end`
+ * to make room for <CopilotSidebar />, the lib mis-detects the sidebar
+ * width as scrollbar width and injects a matching padding-right, which
+ * shrinks the page on every dropdown open. We have no real scrollbar
+ * (`overflow: hidden` above) so the compensation is unnecessary — neutralize
+ * it here. */
+body[data-scroll-locked] {
+  padding-right: 0 !important;
+}
+
 .demo-card {
   display: block;
   padding: 1rem 1.125rem;

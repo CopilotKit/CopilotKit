@@ -1,23 +1,28 @@
 import { test, expect } from "@playwright/test";
 
+// Each custom slot wraps the default in a `SlotMarker` that emits
+// `data-slot-label="<slot-path>"`. That attribute is the canonical
+// signal that a slot override wired through end-to-end (the welcome
+// screen + disclaimer also expose dedicated `data-testid` attributes
+// for ergonomics).
+const SLOT_LABEL_ASSISTANT = '[data-slot-label="MessageView.AssistantMessage"]';
+
 test.describe("Chat Slots", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/chat-slots");
   });
 
   test("custom welcome screen slot renders on first load", async ({ page }) => {
-    // The custom welcomeScreen slot replaces the default welcome. Its testid
-    // + verbatim heading together prove the slot override wired through.
+    // The custom welcomeScreen slot replaces the default welcome. Both its
+    // own testid and the nested welcomeMessage sub-slot's testid prove the
+    // override wired through end-to-end. Asserting both catches accidental
+    // fallback to the default CopilotChat welcome.
     const welcome = page.locator('[data-testid="custom-welcome-screen"]');
     await expect(welcome).toBeVisible();
 
     await expect(
-      page.getByRole("heading", { name: "Welcome to the Slots demo" }),
+      welcome.locator('[data-testid="custom-welcome-message"]'),
     ).toBeVisible();
-
-    // The gradient card exposes its own literal label — "Custom Slot" —
-    // which makes accidental fallback to the default welcome easy to detect.
-    await expect(welcome.getByText("Custom Slot")).toBeVisible();
   });
 
   test("both suggestion pills render with verbatim titles", async ({
@@ -42,26 +47,20 @@ test.describe("Chat Slots", () => {
     page,
   }) => {
     // Click the suggestion pill — this sends "Tell me a short joke." The
-    // assistant will respond with text (neutral agent, no tools), and its
-    // bubble must be wrapped in the custom slot container.
+    // assistant responds with text (neutral agent, no tools), and its
+    // bubble must be wrapped in the CustomAssistantMessage SlotMarker.
     await page
       .locator('[data-testid="copilot-suggestion"]')
       .filter({ hasText: "Tell me a joke" })
       .first()
       .click();
 
-    // Custom assistant-message slot is the defining slot-override signal:
-    // every assistant bubble flows through CustomAssistantMessage, which
-    // wraps the default in a tinted card with this testid.
-    const customMsg = page
-      .locator('[data-testid="custom-assistant-message"]')
-      .first();
-    await expect(customMsg).toBeVisible({ timeout: 45000 });
-
-    // The "slot" badge is absolutely-positioned inside the custom wrapper —
-    // its presence proves our wrapper rendered rather than the default
-    // CopilotChatAssistantMessage bare.
-    await expect(customMsg.getByText("slot", { exact: true })).toBeVisible();
+    // The MessageView.AssistantMessage slot-marker wraps every assistant
+    // bubble; its presence proves the slot override took effect rather
+    // than the default CopilotChatAssistantMessage rendering bare.
+    await expect(page.locator(SLOT_LABEL_ASSISTANT).first()).toBeVisible({
+      timeout: 45000,
+    });
   });
 
   test("custom disclaimer slot renders after the first user message", async ({
@@ -76,9 +75,9 @@ test.describe("Chat Slots", () => {
     await page.locator('[data-testid="copilot-send-button"]').first().click();
 
     // Assistant replies and is wrapped in the custom slot.
-    await expect(
-      page.locator('[data-testid="custom-assistant-message"]').first(),
-    ).toBeVisible({ timeout: 45000 });
+    await expect(page.locator(SLOT_LABEL_ASSISTANT).first()).toBeVisible({
+      timeout: 45000,
+    });
 
     // The custom disclaimer slot lives below the input on the post-welcome
     // chat view. The welcome-screen state hides it; once the assistant
@@ -98,9 +97,9 @@ test.describe("Chat Slots", () => {
     // Turn 1
     await input.fill("Hi");
     await sendBtn().click();
-    await expect(
-      page.locator('[data-testid="custom-assistant-message"]').first(),
-    ).toBeVisible({ timeout: 45000 });
+    await expect(page.locator(SLOT_LABEL_ASSISTANT).first()).toBeVisible({
+      timeout: 45000,
+    });
 
     // Turn 2 — the slot should wrap every assistant turn, not just the first.
     await input.fill("Say something short");
@@ -108,13 +107,9 @@ test.describe("Chat Slots", () => {
 
     // Expect at least two custom-wrapped assistant messages.
     await expect
-      .poll(
-        async () =>
-          await page
-            .locator('[data-testid="custom-assistant-message"]')
-            .count(),
-        { timeout: 45000 },
-      )
+      .poll(async () => await page.locator(SLOT_LABEL_ASSISTANT).count(), {
+        timeout: 45000,
+      })
       .toBeGreaterThanOrEqual(2);
   });
 });

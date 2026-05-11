@@ -49,6 +49,7 @@ from langchain.agents import create_agent
 from langchain.agents.middleware import AgentMiddleware
 from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
+from pypdf import PdfReader
 
 
 SYSTEM_PROMPT = (
@@ -78,36 +79,19 @@ def _extract_data_url_parts(url: str) -> tuple[str, str]:
 
 
 def _extract_pdf_text(b64: str) -> str:
-    """Decode an inline-base64 PDF and extract its text.
-
-    Returns an empty string if decoding or extraction fails — callers must
-    treat the extracted text as best-effort. Any exception here is logged
-    and swallowed so one malformed attachment does not tank the whole
-    user turn.
-    """
+    """Decode an inline-base64 PDF and extract its text. Returns "" on
+    any failure so one malformed attachment doesn't tank the user turn —
+    callers must treat the extracted text as best-effort."""
     try:
         raw = base64.b64decode(b64, validate=False)
-    except Exception as exc:  # pragma: no cover - defensive
-        print(f"[multimodal_agent] base64 decode failed: {exc}")
-        return ""
-
-    try:
-        # Lazy import — keeps the module importable even if pypdf is missing
-        # at dev-server boot (we only need it when a PDF actually arrives).
-        from pypdf import PdfReader  # type: ignore[import-not-found]
-    except ImportError as exc:  # pragma: no cover - defensive
-        print(
-            "[multimodal_agent] pypdf not installed — PDF text extraction "
-            f"unavailable: {exc}",
-        )
-        return ""
-
-    try:
         reader = PdfReader(io.BytesIO(raw))
         pages = [page.extract_text() or "" for page in reader.pages]
         return "\n\n".join(pages).strip()
     except Exception as exc:  # pragma: no cover - defensive
-        print(f"[multimodal_agent] pypdf extraction failed: {exc}")
+        # One log line so a malformed attachment stays triageable in
+        # Railway logs without restoring the per-stage noise the
+        # cleanup removed.
+        print(f"[multimodal_agent] PDF extract failed: {exc!r}")
         return ""
 
 
@@ -216,25 +200,36 @@ def _rewrite_messages(messages: list[Any]) -> list[Any]:
 
 
 class _PdfFlattenMiddleware(AgentMiddleware):
-    """Flatten PDF content parts to text before the model call.
+    """Flatten PDF content parts to text for the model call only.
 
-    We run this in ``before_model`` so every model invocation — including
-    retries after tool calls — sees the flattened view. The middleware is
-    idempotent: once a part has been rewritten to ``{"type": "text", ...}``
-    it is returned unchanged on subsequent passes.
+    Uses ``wrap_model_call`` instead of ``before_model`` so the PDF→text
+    rewrite is scoped to the outgoing model request and never persists
+    back into agent state. This matters because the agent state is
+    streamed verbatim to the chat UI: if we mutated state with a
+    ``{"type": "text", "text": "[Attached document]\\n<pdf body>"}``
+    part, the chat would render that flattened text inline in the user
+    message bubble (in addition to the PDF chip preview the modern
+    ``document`` part already drives), turning a clean attachment chip
+    into a wall of raw PDF text.
+
+    With ``wrap_model_call`` we copy the request, rewrite messages on
+    the copy, hand the copy to the model, and return the model's
+    response unchanged. The handler closure keeps state untouched.
     """
 
-    def before_model(self, state, runtime):  # type: ignore[override]
-        del runtime  # unused
-        messages = state.get("messages") if isinstance(state, dict) else None
-        if not messages:
-            return None
+    def wrap_model_call(self, request, handler):  # type: ignore[override]
+        messages = list(request.messages) if request.messages else []
         rewritten = _rewrite_messages(messages)
-        # Only emit a patch if anything actually changed — avoids a
-        # superfluous state update on every model hop.
         if rewritten == messages:
-            return None
-        return {"messages": rewritten}
+            return handler(request)
+        return handler(request.override(messages=rewritten))
+
+    async def awrap_model_call(self, request, handler):  # type: ignore[override]
+        messages = list(request.messages) if request.messages else []
+        rewritten = _rewrite_messages(messages)
+        if rewritten == messages:
+            return await handler(request)
+        return await handler(request.override(messages=rewritten))
 
 
 # Vision-capable model. gpt-4o consumes `image_url` content parts natively.

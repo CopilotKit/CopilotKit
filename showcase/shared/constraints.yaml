@@ -75,6 +75,8 @@ generative_ui:
       - auth
       - byoc-hashbrown
       - byoc-json-render
+      - declarative-hashbrown
+      - declarative-json-render
       - open-gen-ui
       - open-gen-ui-advanced
 

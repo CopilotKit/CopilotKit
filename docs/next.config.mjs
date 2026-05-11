@@ -743,10 +743,51 @@ const config = {
         permanent: true,
       },
 
-      // /langgraph/persistence/* moved under /langgraph/advanced/persistence/*
+      // Old low-level threads/persistence docs were removed in favor of the
+      // useThreads-based /langgraph/threads and /crewai-flows/threads pages.
       {
         source: '/langgraph/persistence/message-persistence',
-        destination: '/langgraph/advanced/persistence/message-persistence',
+        destination: '/langgraph/threads',
+        permanent: true,
+      },
+      {
+        source: '/langgraph/persistence/loading-message-history',
+        destination: '/langgraph/threads',
+        permanent: true,
+      },
+      {
+        source: '/langgraph/persistence/loading-agent-state',
+        destination: '/langgraph/threads',
+        permanent: true,
+      },
+      {
+        source: '/langgraph/advanced/persistence/message-persistence',
+        destination: '/langgraph/threads',
+        permanent: true,
+      },
+      {
+        source: '/langgraph/advanced/persistence/loading-message-history',
+        destination: '/langgraph/threads',
+        permanent: true,
+      },
+      {
+        source: '/langgraph/advanced/persistence/loading-agent-state',
+        destination: '/langgraph/threads',
+        permanent: true,
+      },
+      {
+        source: '/crewai-flows/persistence/message-persistence',
+        destination: '/crewai-flows/threads',
+        permanent: true,
+      },
+      {
+        source: '/crewai-flows/persistence/loading-message-history',
+        destination: '/crewai-flows/threads',
+        permanent: true,
+      },
+      {
+        source: '/crewai-flows/persistence/loading-agent-state',
+        destination: '/crewai-flows/threads',
         permanent: true,
       },
 

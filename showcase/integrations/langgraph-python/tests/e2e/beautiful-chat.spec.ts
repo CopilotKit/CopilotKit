@@ -3,11 +3,13 @@ import { test, expect } from "@playwright/test";
 test.describe("Beautiful Chat", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/beautiful-chat");
-    // The chat client (CopilotKit v2) needs a moment to attach its provider
-    // before suggestion clicks dispatch reliably. Without this the click can
-    // race the hydration and silently no-op. Existing pill tests above were
-    // tolerant of this — the A2UI tests need the round-trip to succeed.
-    await page.waitForTimeout(3000);
+    // Wait for a suggestion pill to render before dispatching clicks —
+    // otherwise the click can race hydration and silently no-op. Picking
+    // any visible pill as the readiness signal works because all 9 pills
+    // mount in the same render pass.
+    await expect(
+      page.getByRole("button", { name: "Toggle Theme (Frontend Tools)" }),
+    ).toBeVisible({ timeout: 15000 });
   });
 
   test("page loads with logo, mode toggle, and chat input", async ({
@@ -69,7 +71,7 @@ test.describe("Beautiful Chat", () => {
 
     // Round-trip signal: the html `dark` class flips — proves both that the
     // agent responded AND that the frontend tool fired. The beautiful-chat
-    // demo does not emit `[data-role="assistant"]` on its chat turns (tool
+    // demo does not emit `[data-testid="copilot-assistant-message"]` on its chat turns (tool
     // calls render in-transcript without a text bubble), so we assert on the
     // tool's observable side effect instead of a chat-bubble selector.
     await expect
@@ -189,5 +191,25 @@ test.describe("Beautiful Chat", () => {
 
     const chartRoot = page.locator(".recharts-responsive-container").first();
     await expect(chartRoot).toBeVisible({ timeout: 15_000 });
+
+    // Regression guard (#4733 / #4734): the deployed Sales Dashboard used to
+    // surface "A2UI render error: Catalog not found: declarative-gen-ui-catalog"
+    // because the secondary LLM's `render_a2ui` tool call was intercepted by
+    // the A2UI middleware before our Python force-pin could normalise the
+    // catalog id. Renaming the inner tool to `_design_a2ui_surface` killed
+    // the bypass. Assert the error string is absent so any future revert of
+    // the rename / force-pin trips this test.
+    await expect(page.getByText(/Catalog not found/i)).toHaveCount(0);
+    await expect(
+      page.getByText(/Cannot create component .* without a type/i),
+    ).toHaveCount(0);
+
+    // Regression guard: only ONE dashboard surface should render. Pre-fix,
+    // tool-call loops produced N stacked surfaces (each with its own
+    // ResponsiveContainer) rather than a single render.
+    const allCharts = page.locator(".recharts-responsive-container");
+    await expect
+      .poll(async () => await allCharts.count(), { timeout: 5_000 })
+      .toBeLessThanOrEqual(2); // 1 pie + 1 bar = 2 charts in one dashboard
   });
 });

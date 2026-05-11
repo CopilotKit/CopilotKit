@@ -110,6 +110,24 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
     await expect
       .poll(async () => await bars.count(), { timeout: 15_000 })
       .toBeGreaterThanOrEqual(2);
+
+    // Regression guard (#4734): the deployed KPI / dashboard pills used to
+    // loop with "A2UI render error: Cannot create component root without a
+    // type" because the secondary LLM's `render_a2ui` tool call was
+    // intercepted by the A2UI middleware before our defensive validation
+    // could drop malformed components. Renaming to `_design_a2ui_surface`
+    // killed the bypass; assert no A2UI render-error banners are visible.
+    await expect(
+      page.getByText(/Cannot create component .* without a type/i),
+    ).toHaveCount(0);
+    await expect(page.getByText(/Catalog not found/i)).toHaveCount(0);
+
+    // Regression guard: only one bar chart surface (one ResponsiveContainer)
+    // should render — looping renders would stack multiple.
+    const allCharts = page.locator(".recharts-responsive-container");
+    await expect
+      .poll(async () => await allCharts.count(), { timeout: 5_000 })
+      .toBeLessThanOrEqual(1);
   });
 
   // SKIP: KPI dashboard prompt drives `generate_a2ui` to emit a Card +

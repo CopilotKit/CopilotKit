@@ -147,10 +147,19 @@
       }
     },
     {
-      "_comment": "tool-rendering pill: Find flights — verbatim pill prompt, dedicated search_flights fixture. MUST take precedence over the a2ui beautiful-chat fixture below (which uses the same tool name with non-flight-list args shape).",
+      "_comment": "tool-rendering pill: Find flights — second leg (after search_flights tool result). MUST come BEFORE the first-leg fixture below — the matcher is first-match-wins, and the second leg is uniquely identified by `toolCallId` (last message is a tool with this id), so it cannot accidentally swallow the first-leg request (whose last message is the user prompt). Must also take precedence over the a2ui beautiful-chat fixture below (which uses the same tool name with non-flight-list args shape).",
       "match": {
         "userMessage": "Find flights from SFO to JFK.",
-        "hasToolResult": false
+        "toolCallId": "call_tr_flights_sfo_jfk_001"
+      },
+      "response": {
+        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289)."
+      }
+    },
+    {
+      "_comment": "tool-rendering pill: Find flights — first leg (verbatim pill prompt, dedicated search_flights fixture). MUST take precedence over the a2ui beautiful-chat fixture below (which uses the same tool name with non-flight-list args shape). Intentionally omits `hasToolResult` so this fixture also matches when SFO/JFK is the SECOND turn of a multi-turn flow (e.g. tool-rendering-reasoning-chain probe sends weather→flights). With `hasToolResult: false`, Turn 1's tool result would prevent this fixture from matching Turn 2's first leg, and the matcher would fall through to the second-leg fixture above (which now requires a matching `toolCallId` so it cannot swallow this request).",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK."
       },
       "response": {
         "toolCalls": [
@@ -160,16 +169,8 @@
             "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\"}"
           }
         ],
-        "reasoning": "The user wants flights from SFO to JFK. I'll call search_flights with those airports to look up options."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "Find flights from SFO to JFK.",
-        "hasToolResult": true
-      },
-      "response": {
-        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289)."
+        "reasoning": "The user wants flights from SFO to JFK. I'll call search_flights with those airports to look up options.",
+        "content": "Searching for flights from SFO to JFK."
       }
     },
     {
@@ -1106,6 +1107,17 @@
       }
     },
     {
+      "_comment": "reasoning-default e2e test pill prompt. Substring 'sky appears blue' matches 'Explain step by step why the sky appears blue during the day but red at sunset.' Includes a `reasoning` field so aimock emits REASONING_MESSAGE_* events; without it the built-in CopilotChatReasoningMessage 'Thinking…/Thought for…' label never lands.",
+      "match": {
+        "userMessage": "sky appears blue"
+      },
+      "response": {
+        "reasoning": "First, I considered that visible sunlight contains all wavelengths. Then I noted that air molecules scatter shorter wavelengths (blue) more efficiently than longer ones (Rayleigh scattering). At sunset the path through the atmosphere is much longer, so even more blue is scattered out and the remaining direct light skews red.",
+        "content": "Daytime sky looks blue because air molecules scatter short-wavelength light more strongly than long-wavelength light (Rayleigh scattering). At sunset the sun's light traverses far more atmosphere, scattering out most of the blue and leaving the remaining direct light dominated by red and orange wavelengths."
+      }
+    },
+    {
+      "_comment": "D5 reasoning-display probe (harness/src/probes/scripts/d5-reasoning-display.ts) sends 'show your reasoning step by step' verbatim. Mirrored from showcase/harness/fixtures/d5/reasoning-display.json so the bundled aimock has a match (the harness fixture file isn't loaded by the Docker-baked aimock).",
       "match": {
         "userMessage": "show your reasoning step by step"
       },
@@ -1194,7 +1206,8 @@
             "arguments": "{\"location\":\"Tokyo\"}"
           }
         ],
-        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions."
+        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions.",
+        "content": "Looking up the weather in Tokyo for you."
       }
     },
     {
@@ -1212,7 +1225,8 @@
             "arguments": "{\"location\":\"Tokyo\"}"
           }
         ],
-        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions."
+        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions.",
+        "content": "Looking up the weather in Tokyo for you."
       }
     },
     {
@@ -1286,6 +1300,60 @@
             "arguments": "{\"text\":\"ship the demo on Friday\",\"color\":\"yellow\"}"
           }
         ]
+      }
+    },
+    {
+      "_comment": "D5 mcp-apps probe — verbatim probe prompt drives a real `create_view` MCP tool call so the runtime's MCP Apps middleware fetches the UI resource and mounts the iframe. Mirrored in showcase/harness/fixtures/d5/mcp-apps.json. Non-empty `content` is load-bearing (see tool-rendering-reasoning-chain.json header).",
+      "match": {
+        "userMessage": "Open Excalidraw and sketch a system diagram",
+        "toolName": "create_view"
+      },
+      "response": {
+        "reasoning": "The user wants a sketch of a client/server/database architecture. I'll call create_view once with three labelled rectangles connected by arrows and a title, framed by a cameraUpdate.",
+        "content": "Sketching a client → server → database diagram in Excalidraw.",
+        "toolCalls": [
+          {
+            "id": "call_d5_mcp_apps_create_view_001",
+            "name": "create_view",
+            "arguments": "{\"elements\":[{\"id\":\"title\",\"type\":\"text\",\"x\":260,\"y\":40,\"text\":\"System Diagram\",\"fontSize\":24},{\"id\":\"client\",\"type\":\"rectangle\",\"x\":80,\"y\":160,\"width\":160,\"height\":70,\"label\":{\"text\":\"Client\",\"fontSize\":18}},{\"id\":\"server\",\"type\":\"rectangle\",\"x\":320,\"y\":160,\"width\":160,\"height\":70,\"label\":{\"text\":\"Server\",\"fontSize\":18}},{\"id\":\"database\",\"type\":\"rectangle\",\"x\":560,\"y\":160,\"width\":160,\"height\":70,\"label\":{\"text\":\"Database\",\"fontSize\":18}},{\"id\":\"a1\",\"type\":\"arrow\",\"x\":240,\"y\":195,\"endX\":320,\"endY\":195},{\"id\":\"a2\",\"type\":\"arrow\",\"x\":480,\"y\":195,\"endX\":560,\"endY\":195},{\"id\":\"camera\",\"type\":\"cameraUpdate\",\"x\":40,\"y\":0,\"width\":800,\"height\":600}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Open Excalidraw and sketch a system diagram",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Sketched a three-box system diagram (Client → Server → Database). Tap the iframe to open it in Excalidraw."
+      }
+    },
+    {
+      "_comment": "D5 mcp-apps suggestion pill #1 (\"Draw a flowchart\"). Sends the verbatim suggestion message \"Use Excalidraw to draw a simple flowchart with three steps.\" The distinctive substring \"draw a simple flowchart\" prevents collision with feature-parity.json's generic `{userMessage: \"steps\"}` fixture, which would otherwise absorb the prompt and return a tool-call-free planning blurb (breaking the iframe). Turn 1 emits `create_view` with three-step flowchart elements so the MCP middleware fetches the Excalidraw UI resource and mounts the iframe; turn 2 (after the tool result) emits the deterministic narration.",
+      "match": {
+        "userMessage": "draw a simple flowchart",
+        "toolName": "create_view"
+      },
+      "response": {
+        "reasoning": "The user wants a simple three-step flowchart. I'll call create_view once with three labelled rectangles connected by arrows and a title, framed by a cameraUpdate.",
+        "content": "Drawing a simple three-step flowchart in Excalidraw.",
+        "toolCalls": [
+          {
+            "id": "call_d5_mcp_apps_create_view_flowchart_001",
+            "name": "create_view",
+            "arguments": "{\"elements\":[{\"id\":\"title\",\"type\":\"text\",\"x\":300,\"y\":40,\"text\":\"Flowchart\",\"fontSize\":24},{\"id\":\"step1\",\"type\":\"rectangle\",\"x\":80,\"y\":160,\"width\":160,\"height\":70,\"label\":{\"text\":\"Start\",\"fontSize\":18}},{\"id\":\"step2\",\"type\":\"rectangle\",\"x\":320,\"y\":160,\"width\":160,\"height\":70,\"label\":{\"text\":\"Process\",\"fontSize\":18}},{\"id\":\"step3\",\"type\":\"rectangle\",\"x\":560,\"y\":160,\"width\":160,\"height\":70,\"label\":{\"text\":\"End\",\"fontSize\":18}},{\"id\":\"a1\",\"type\":\"arrow\",\"x\":240,\"y\":195,\"endX\":320,\"endY\":195},{\"id\":\"a2\",\"type\":\"arrow\",\"x\":480,\"y\":195,\"endX\":560,\"endY\":195},{\"id\":\"camera\",\"type\":\"cameraUpdate\",\"x\":40,\"y\":0,\"width\":800,\"height\":600}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "draw a simple flowchart",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Drew a three-step flowchart (Start → Process → End). Tap the iframe to open it in Excalidraw."
       }
     },
     {

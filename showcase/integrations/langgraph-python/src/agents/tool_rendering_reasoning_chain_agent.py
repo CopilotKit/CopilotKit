@@ -64,6 +64,10 @@ SYSTEM_PROMPT = (
 
 REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", "gpt-5.4")
 
+# No CopilotKitMiddleware — this demo combines reasoning-token streaming with
+# backend tool rendering, but doesn't consume any frontend tools or app context.
+# The frontend renders the tool calls via `useRenderTool`, which works off the
+# AG-UI tool-call event stream and doesn't require server-side middleware.
 graph = create_deep_agent(
     model=init_chat_model(
         f"openai:{REASONING_MODEL}",

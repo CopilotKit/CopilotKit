@@ -27,8 +27,8 @@
  *     e.g. `shared-state-read-write` covers both read and write).
  *
  * Demo IDs not in this map are silently dropped — D5 covers a closed
- * set and registry features outside it (e.g. `auth`,
- * `multimodal`, `byoc-*`) have no D5 conversation script.
+ * set and registry features outside it (e.g. `auth`, `multimodal`,
+ * `chat-slots`) have no D5 conversation script.
  */
 
 import type { D5FeatureType } from "./d5-registry.js";
@@ -206,9 +206,16 @@ export const REGISTRY_TO_D5: Readonly<
 
   // BYOC family — single literal covers hashbrown + json-render via
   // preNavigateRoute swap (both render structured-output via a user
-  // component; only the schema/component differs).
+  // component; only the schema/component differs). langgraph-python's
+  // cells were renamed `byoc-*` -> `declarative-*` to drop internal
+  // jargon; the other integrations still use the legacy slugs. Both
+  // ID forms map to the same `byoc` D5 featureType so the probe
+  // covers both. (A repo-wide rename would touch ~32 files across all
+  // integrations + the registry; intentionally out of scope here.)
   "byoc-hashbrown": ["byoc"],
   "byoc-json-render": ["byoc"],
+  "declarative-hashbrown": ["byoc"],
+  "declarative-json-render": ["byoc"],
 
   // Voice family — voice input/output.
   voice: ["voice"],

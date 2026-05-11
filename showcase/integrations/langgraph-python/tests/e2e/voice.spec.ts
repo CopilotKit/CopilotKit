@@ -27,23 +27,20 @@ test.describe("Voice Input", () => {
       page.getByRole("heading", { name: "Voice input" }),
     ).toBeVisible();
     await expect(
-      page.locator('[data-testid="voice-sample-audio"]'),
-    ).toBeVisible();
-    await expect(
       page.locator('[data-testid="voice-sample-audio-button"]'),
     ).toBeEnabled();
-    await expect(
-      page.getByText('Sample: "What is the weather in Tokyo?"'),
-    ).toBeVisible();
+    await expect(page.getByText("Try a sample audio")).toBeVisible();
     await expect(
       page.locator('[data-testid="copilot-chat-input"]'),
     ).toBeVisible();
     // The mic button is the authoritative signal that the runtime advertised
     // `audioFileTranscriptionEnabled: true` — i.e. transcriptionService is
     // wired on /api/copilotkit-voice. Exposed by react-core's v2 CopilotChatInput.
+    // It renders after the /info round trip resolves on the client, which on
+    // a cold dev server can exceed Playwright's 5s default — give it room.
     await expect(
       page.locator('[data-testid="copilot-start-transcribe-button"]'),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   test("sample audio button injects the canned phrase into the input", async ({
@@ -68,6 +65,10 @@ test.describe("Voice Input", () => {
   test("sending the transcribed text produces a weather tool render", async ({
     page,
   }) => {
+    // The end-to-end flow (click → run agent → first assistant chunk) can run
+    // up to ~50s on a cold langgraph dev server, so override the default 30s
+    // suite timeout to give the locator's own 45s timeout headroom.
+    test.setTimeout(90_000);
     const sampleButton = page.locator(
       '[data-testid="voice-sample-audio-button"]',
     );
@@ -89,7 +90,7 @@ test.describe("Voice Input", () => {
         [
           '[data-testid="weather-card"]',
           '[data-testid="custom-catchall-card"][data-tool-name="get_weather"]',
-          '[data-role="assistant"]',
+          '[data-testid="copilot-assistant-message"]',
         ].join(", "),
       )
       .first();
