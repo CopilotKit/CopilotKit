@@ -628,6 +628,10 @@ export class CopilotKitCore {
     return this.agentRegistry.licenseStatus;
   }
 
+  get telemetryDisabled(): boolean {
+    return this.agentRegistry.telemetryDisabled;
+  }
+
   /**
    * Configuration updates
    */

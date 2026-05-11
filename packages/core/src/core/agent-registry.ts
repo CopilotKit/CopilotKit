@@ -69,6 +69,7 @@ export class AgentRegistry {
   private _a2uiEnabled: boolean = false;
   private _openGenerativeUIEnabled: boolean = false;
   private _licenseStatus?: RuntimeLicenseStatus;
+  private _telemetryDisabled: boolean = false;
 
   constructor(private core: CopilotKitCore) {}
 
@@ -117,6 +118,10 @@ export class AgentRegistry {
 
   get licenseStatus(): RuntimeLicenseStatus | undefined {
     return this._licenseStatus;
+  }
+
+  get telemetryDisabled(): boolean {
+    return this._telemetryDisabled;
   }
 
   /**
@@ -404,6 +409,7 @@ export class AgentRegistry {
       this._openGenerativeUIEnabled =
         runtimeInfoResponse.openGenerativeUIEnabled ?? false;
       this._licenseStatus = runtimeInfoResponse.licenseStatus;
+      this._telemetryDisabled = runtimeInfoResponse.telemetryDisabled ?? false;
 
       await this.notifyRuntimeStatusChanged(
         CopilotKitCoreRuntimeConnectionStatus.Connected,

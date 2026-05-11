@@ -2630,6 +2630,9 @@ export class WebInspectorElement extends LitElement {
       onRuntimeConnectionStatusChanged: ({ status }) => {
         this.runtimeStatus = status;
         if (status === "connected") {
+          if (!core.telemetryDisabled) {
+            maybeShowDisclosure();
+          }
           for (const agentId of this._ownedThreadStores.keys()) {
             this.refreshOwnedThreadStore(agentId);
           }
@@ -4188,10 +4191,6 @@ ${argsString}</pre
       return;
     }
 
-    // First-run console disclosure for anonymous interaction telemetry.
-    // No-ops when the user has opted out or has already seen the message.
-    maybeShowDisclosure();
-
     // Ensure the anonymous distinct-ID is set on inspector load (per
     // OSS-96 acceptance criteria), so it's available for cross-domain
     // propagation onto banner-CTA links even before the first event
@@ -5669,31 +5668,30 @@ ${argsString}</pre
   }
 
   private renderSettingsPanel() {
+    const optedOut = this.core?.telemetryDisabled ?? false;
     return html`
       <div class="flex h-full flex-col overflow-hidden">
         <div class="overflow-auto p-4">
-          <div class="mx-auto max-w-2xl space-y-6">
-            <div>
-              <h2 class="text-base font-semibold text-slate-900">Settings</h2>
-            </div>
+          <div class="space-y-3">
+            <h2 class="text-sm font-semibold text-slate-900">Settings</h2>
 
-            <div class="space-y-3">
-              <h3 class="text-sm font-medium text-slate-700">Privacy</h3>
+            <div class="space-y-2">
+              <h3 class="text-sm text-slate-500">Privacy</h3>
               <div class="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
-                <p class="text-sm text-gray-600">
-                  CopilotKit collects anonymous interaction events from the
-                  inspector (banner views, clicks, tab navigation) so we know
-                  which features people use. We never collect message content,
-                  agent state, prompts, completions, or any payload you inspect.
+                <p class="text-sm text-gray-600 flex items-start gap-2">
+                  <span>${optedOut ? "❌" : "✅"}</span>
+                  <span>
+                    ${optedOut
+                      ? "You have disabled anonymous interaction data collection."
+                      : "CopilotKit is currently collecting anonymous interaction data from the inspector so we know which features people use. We never collect message content, agent state, prompts, or completions."}
+                  </span>
                 </p>
                 <a
                   class="inline-flex items-center gap-1 text-sm text-slate-700 underline hover:text-slate-900"
                   href=${TELEMETRY_DOCS_URL}
                   target="_blank"
                   rel="noopener"
-                >
-                  I want to opt out — show me how →
-                </a>
+                >Learn more →</a>
               </div>
             </div>
           </div>
@@ -5705,6 +5703,7 @@ ${argsString}</pre
   // Fires `banner_clicked` at most once per `${bannerId}:${cta}` per mount so
   // copy-button retries and accidental multi-clicks don't inflate funnel counts.
   private trackBannerClickedOnce(opts: { cta: "body" | "dismiss" }): void {
+    if (this.core?.telemetryDisabled) return;
     const id = this.announcementTimestamp;
     if (!id) return;
     const key = `${id}:${opts.cta}`;
@@ -6484,7 +6483,7 @@ ${prettyEvent}</pre
   }
 
   private handleMenuSelect(key: MenuKey): void {
-    if (!this.menuItems.some((item) => item.key === key)) {
+    if (key !== "settings" && !this.menuItems.some((item) => item.key === key)) {
       return;
     }
 
@@ -6523,7 +6522,7 @@ ${prettyEvent}</pre
     }
 
     if (key === "threads") {
-      if (this.selectedMenu !== "threads") {
+      if (this.selectedMenu !== "threads" && !this.core?.telemetryDisabled) {
         trackThreadsTabClicked();
       }
       this.autoSelectLatestThread();
@@ -7499,10 +7498,12 @@ ${prettyEvent}</pre
         !this.viewedBannerTimestamps.has(timestamp)
       ) {
         this.viewedBannerTimestamps.add(timestamp);
-        trackBannerViewed({
-          banner_id: timestamp,
-          cta_label: ctaLabel ?? undefined,
-        });
+        if (!this.core?.telemetryDisabled) {
+          trackBannerViewed({
+            banner_id: timestamp,
+            cta_label: ctaLabel ?? undefined,
+          });
+        }
       }
 
       this.requestUpdate();
@@ -7617,7 +7618,7 @@ ${prettyEvent}</pre
       // close the banner_viewed → banner_clicked → signup_attributed
       // funnel. Returns null when the user has opted out, so opt-out
       // suppresses cross-domain ID leaks too.
-      if (!url.searchParams.has("posthog_distinct_id")) {
+      if (!url.searchParams.has("posthog_distinct_id") && !this.core?.telemetryDisabled) {
         const distinctId = getTelemetryDistinctIdForUrl();
         if (distinctId) {
           url.searchParams.append("posthog_distinct_id", distinctId);

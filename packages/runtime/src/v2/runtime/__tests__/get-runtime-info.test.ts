@@ -1,7 +1,7 @@
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { CopilotRuntime } from "../core/runtime";
 import { TranscriptionService } from "../transcription-service/transcription-service";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 
 // Mock transcription service
@@ -35,6 +35,7 @@ describe("handleGetRuntimeInfo", () => {
       mode: "sse",
       a2uiEnabled: false,
       openGenerativeUIEnabled: false,
+      telemetryDisabled: false,
     });
   });
 
@@ -60,6 +61,7 @@ describe("handleGetRuntimeInfo", () => {
       mode: "sse",
       a2uiEnabled: false,
       openGenerativeUIEnabled: false,
+      telemetryDisabled: false,
     });
   });
 
@@ -97,6 +99,7 @@ describe("handleGetRuntimeInfo", () => {
       mode: "sse",
       a2uiEnabled: false,
       openGenerativeUIEnabled: false,
+      telemetryDisabled: false,
     });
   });
 
@@ -248,6 +251,61 @@ describe("handleGetRuntimeInfo", () => {
     );
 
     warnSpy.mockRestore();
+  });
+
+  describe("telemetryDisabled", () => {
+    beforeEach(() => {
+      delete process.env.COPILOTKIT_TELEMETRY_DISABLED;
+      delete process.env.DO_NOT_TRACK;
+    });
+
+    afterEach(() => {
+      delete process.env.COPILOTKIT_TELEMETRY_DISABLED;
+      delete process.env.DO_NOT_TRACK;
+    });
+
+    it("returns telemetryDisabled: false when env var is not set", async () => {
+      const runtime = new CopilotRuntime({ agents: {} });
+      const response = await handleGetRuntimeInfo({
+        runtime,
+        request: mockRequest,
+      });
+      const data = await response.json();
+      expect(data.telemetryDisabled).toBe(false);
+    });
+
+    it("returns telemetryDisabled: true when COPILOTKIT_TELEMETRY_DISABLED=true", async () => {
+      process.env.COPILOTKIT_TELEMETRY_DISABLED = "true";
+      const runtime = new CopilotRuntime({ agents: {} });
+      const response = await handleGetRuntimeInfo({
+        runtime,
+        request: mockRequest,
+      });
+      const data = await response.json();
+      expect(data.telemetryDisabled).toBe(true);
+    });
+
+    it("returns telemetryDisabled: true when COPILOTKIT_TELEMETRY_DISABLED=1", async () => {
+      process.env.COPILOTKIT_TELEMETRY_DISABLED = "1";
+      const runtime = new CopilotRuntime({ agents: {} });
+      const response = await handleGetRuntimeInfo({
+        runtime,
+        request: mockRequest,
+      });
+      const data = await response.json();
+      expect(data.telemetryDisabled).toBe(true);
+    });
+
+    it("returns telemetryDisabled: true when DO_NOT_TRACK=1", async () => {
+      process.env.DO_NOT_TRACK = "1";
+      const runtime = new CopilotRuntime({ agents: {} });
+      const response = await handleGetRuntimeInfo({
+        runtime,
+        request: mockRequest,
+      });
+      const data = await response.json();
+      expect(data.telemetryDisabled).toBe(true);
+    });
   });
 
   it("should return 500 error when runtime.agents throws an error", async () => {
