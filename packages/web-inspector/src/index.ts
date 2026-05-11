@@ -2422,8 +2422,8 @@ export class WebInspectorElement extends LitElement {
   // CDN payload (e.g. "Try threads", "New feature"). The current schema
   // ({timestamp, previewText, announcement}) doesn't carry it, so this is
   // null in production today; we read it defensively in fetchAnnouncement
-  // so a future Sam-side schema bump lights up `cta_label` on banner_clicked
-  // without an inspector release. See OSS-96 PR Gap 1.
+  // so a future CDN-side schema bump lights up `cta_label` on banner_clicked
+  // without an inspector release.
   private announcementCtaLabel: string | null = null;
   private hasUnseenAnnouncement = false;
   private announcementLoaded = false;
@@ -7441,10 +7441,6 @@ ${prettyEvent}</pre
   }
 
   private handleDismissAnnouncement = (): void => {
-    // OSS-96 Gap 1: we treat dismiss as a banner-click signal with
-    // cta:"dismiss" until Sam confirms whether dismiss should be its
-    // own event (`banner_dismissed`). PR body lists this as a deferred
-    // decision pending Sam's input.
     this.trackBannerClickedOnce({ cta: "dismiss" });
     this.markAnnouncementSeen();
   };
@@ -7460,9 +7456,6 @@ ${prettyEvent}</pre
         timestamp?: unknown;
         previewText?: unknown;
         announcement?: unknown;
-        // OSS-96 Gap 1: opt-in field, not part of the current schema. Read
-        // defensively so a future CDN-side bump activates `cta_label` on
-        // banner_clicked without an inspector release.
         cta_label?: unknown;
       };
 
