@@ -4,7 +4,6 @@ description: Turn your Agno agent into an agent-native application in 10 minutes
 icon: "lucide/Play"
 hideTOC: true
 ---
-
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
   className="rounded-lg shadow-xl"
@@ -56,12 +55,6 @@ Before you begin, you'll need the following:
                 - **Project name**
                 - **Enterprise Intelligence Platform** — persistent threads, observability, and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard Agno setup.
                 - **Framework** — pick **Agno** when prompted.
-
-                Or skip the prompts and pin a framework directly:
-
-                ```bash
-                npx copilotkit@latest create --framework agno
-                ```
             </Step>
             <Step>
                 ### Install dependencies
@@ -191,7 +184,7 @@ Before you begin, you'll need the following:
                 ### Install CopilotKit packages
 
                 ```npm
-                npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/agno
+                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/agno
                 ```
             </Step>
             <Step>
@@ -233,8 +226,8 @@ Before you begin, you'll need the following:
                 Wrap your application with the CopilotKit provider:
 
                 ```tsx title="app/layout.tsx"
-                import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
-                import "@copilotkit/react-core/v2/styles.css"; // [!code highlight]
+                import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
+                import "@copilotkit/react-ui/v2/styles.css";
                 import './globals.css';
 
                 // ...
@@ -259,7 +252,7 @@ Before you begin, you'll need the following:
               Add the CopilotSidebar component to your page:
 
               ```tsx title="app/page.tsx"
-              import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight]
+              import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
 
               export default function Page() {
                 return (
@@ -345,7 +338,6 @@ Before you begin, you'll need the following:
         </Accordions>
 
     </Step>
-
 </Steps>
 
 ## What's next?
@@ -372,3 +364,4 @@ Now that you have your basic agent setup, explore these advanced features:
     icon={<WrenchIcon />}
   />
 </Cards>
+

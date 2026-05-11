@@ -4,7 +4,9 @@ description: "Manage persistent, resumable conversations with useThreads and the
 icon: "lucide/MessageSquareMore"
 doc_type: how-to
 ---
-<ThreadsEarlyAccess>
+## What is this?
+
+CopilotKit threads enable persistent, resumable multi-turn conversations. The `useThreads` hook lists, creates, renames, archives, and deletes threads with realtime synchronization via WebSocket. Threads work with any agent framework — the Enterprise Intelligence Platform stores conversation history server-side, so users can close their browser and pick up where they left off. Thread metadata updates (renames, archives, new threads) are pushed to all connected clients in realtime without polling.
 
 <OpsPlatformCTA
   variant="inline"
@@ -12,10 +14,6 @@ doc_type: how-to
   body="Get persistent threads, realtime sync, and observability on the free Developer tier."
   surface="docs_threads"
 />
-
-## What is this?
-
-CopilotKit threads enable persistent, resumable multi-turn conversations. The `useThreads` hook lists, creates, renames, archives, and deletes threads with realtime synchronization via WebSocket. Threads work with any agent framework — the Enterprise Intelligence Platform stores conversation history server-side, so users can close their browser and pick up where they left off. Thread metadata updates (renames, archives, new threads) are pushed to all connected clients in realtime without polling.
 
 ## When should I use this?
 
@@ -26,7 +24,7 @@ CopilotKit threads enable persistent, resumable multi-turn conversations. The `u
 
 ## Prerequisites
 
-- The Enterprise Intelligence Platform (available via [Copilot Cloud](https://cloud.copilotkit.ai) or [self-hosted on your own Kubernetes cluster](/premium/self-hosting))
+- The Enterprise Intelligence Platform
 - An OpenAI API key
 - For the manual path: an existing CopilotKit project on `@copilotkit/react-core` v1.56+
 
@@ -57,7 +55,7 @@ CopilotKit threads enable persistent, resumable multi-turn conversations. The `u
 
         ```bash
         # When prompted, choose: "Yes — enable Intelligence (threads, persistence, insights)"
-        npx -y @copilotkit/cli-vnext@latest create
+        npx -y @copilotkit/cli@latest create
         ```
       </Step>
 
@@ -262,7 +260,6 @@ CopilotKit threads enable persistent, resumable multi-turn conversations. The `u
 ## Next steps
 
 - **Understand how it works:** [How Threads & Persistence Work](/learn/threads) — architecture, event replay model, and WebSocket sync
-- **API reference:** [useThreads](/reference/hooks/useThreads) — parameters, return values, types
+- **API reference:** [useThreads](/reference/v2/hooks/useThreads) — parameters, return values, types
 - **Tutorial:** [Build a Multi-Conversation Chat App](/learn/tutorials/multi-conversation-chat) — end-to-end walkthrough building a chat app with thread history
 
-</ThreadsEarlyAccess>

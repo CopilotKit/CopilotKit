@@ -1,17 +1,27 @@
 ---
 title: Quickstart
-description: Get started with CopilotKit — pick your framework to see the full quickstart guide.
+description: Get started with CopilotKit by choosing your integration.
 icon: "lucide/Play"
 hideTOC: true
 ---
+## Start from our CLI
+Starting from scratch? Use our CLI to get started in minutes, it will bootstrap a
+full stack agent for you.
 
-{/* This file exists so the sidebar's "Quickstart" entry has a backing
-   page (buildNavTree skips entries without one). The real per-framework
-   quickstart guides live at /<framework>/quickstart. SidebarLink
-   prepends the user's stored framework when present, so clicks from
-   anywhere in the docs land on the right framework's guide. The few
-   visitors who do hit /quickstart directly are 308-redirected to / by
-   next.config.ts, where the merged docs landing handles the picker
-   experience. */}
+```
+npx copilotkit@latest create
+```
 
-This page is a routing shim. Pick your framework from the sidebar selector or [the docs landing](/) to see the full quickstart for your stack.
+<OpsPlatformCTA
+  variant="inline"
+  title="Building for production?"
+  body="Get persistent threads, observability, and the full Enterprise Intelligence Platform. Try it for free."
+  surface="docs_quickstart_after_cli"
+/>
+
+## Start from an AI backend
+
+To get started, choose the shape of your backend to get started with CopilotKit. This will
+route you to the appropriate quickstart.
+
+<IntegrationGrid path="quickstart"/>

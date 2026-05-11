@@ -1,0 +1,264 @@
+---
+title: "useCopilotKit"
+description: "Low-level React hook for accessing the CopilotKit context"
+---
+## Overview
+
+`useCopilotKit` is a low-level React hook that returns the CopilotKit context value, providing direct access to the core instance and provider-level state. It subscribes to runtime connection status changes and triggers re-renders when the connection status updates.
+
+<Callout type="info">
+  `useCopilotKit` is a low-level hook. Most applications should use higher-level hooks like `useAgent` or `useFrontendTool` instead.
+</Callout>
+
+**Throws an error** if used outside of a `CopilotKitProvider` (or the `<CopilotKit>` wrapper component).
+
+## Signature
+
+```tsx
+import { useCopilotKit } from "@copilotkit/react-core/v2";
+
+function useCopilotKit(): CopilotKitContextValue
+```
+
+## Parameters
+
+This hook takes no parameters.
+
+## Return Value
+
+<PropertyReference name="context" type="CopilotKitContextValue">
+  The context object containing the core instance and provider-level state.
+
+  <PropertyReference name="copilotkit" type="CopilotKitCoreReact">
+    The live CopilotKit core instance. This is the central coordinator that manages agents, tools, suggestions, and runtime communication. It exposes methods for:
+    - Agent management (`agents`, `getAgent`, `registerProxiedAgent`)
+    - Tool registration and execution
+    - Suggestion configuration and retrieval
+    - Runtime connection management
+    - Event subscription via `subscribe()`
+
+    The core instance is created once per `CopilotKitProvider` and is stable across re-renders.
+  </PropertyReference>
+
+  <PropertyReference name="executingToolCallIds" type="ReadonlySet<string>">
+    Set of tool call IDs currently being executed. This is tracked at the provider level to ensure tool execution events are captured even before child components mount. This is important for scenarios like human-in-the-loop reconnection, where pending tool calls may already exist when the component tree mounts.
+  </PropertyReference>
+</PropertyReference>
+
+## Usage
+
+### Accessing the Core Instance
+
+```tsx
+import { useCopilotKit } from "@copilotkit/react-core/v2";
+
+function DebugPanel() {
+  const { copilotkit } = useCopilotKit();
+
+  const agents = Object.keys(copilotkit.agents ?? {});
+
+  return (
+    <div>
+      <h3>Registered Agents</h3>
+      <ul>
+        {agents.map((id) => (
+          <li key={id}>{id}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+### Subscribing to Core Events
+
+```tsx
+import { useEffect } from "react";
+import { useCopilotKit } from "@copilotkit/react-core/v2";
+
+function ConnectionMonitor() {
+  const { copilotkit } = useCopilotKit();
+
+  useEffect(() => {
+    const subscription = copilotkit.subscribe({
+      onRuntimeConnectionStatusChanged: () => {
+        console.log("Runtime connection status changed");
+      },
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [copilotkit]);
+
+  return null;
+}
+```
+
+### Running a Tool Programmatically
+
+`copilotkit.runTool()` lets you execute a registered frontend tool directly from code — no LLM turn required. The tool's handler runs, render components appear in the UI, and both the tool call and result are added to the agent's message history.
+
+```tsx
+import { useCopilotKit, useFrontendTool } from "@copilotkit/react-core/v2";
+
+function ExportButton() {
+  const { copilotkit } = useCopilotKit();
+
+  // Register the tool
+  useFrontendTool({
+    name: "exportData",
+    description: "Export data as CSV",
+    parameters: [{ name: "format", type: "string" }],
+    handler: async ({ format }) => {
+      const csv = await generateCsv(format);
+      downloadFile(csv);
+      return `Exported as ${format}`;
+    },
+  });
+
+  // Trigger it from a button — no LLM needed
+  const handleExport = async () => {
+    const { result, error } = await copilotkit.runTool({
+      name: "exportData",
+      parameters: { format: "csv" },
+    });
+    if (error) console.error(error);
+  };
+
+  return <button onClick={handleExport}>Export CSV</button>;
+}
+```
+
+#### `runTool` Parameters
+
+<PropertyReference name="params" type="CopilotKitCoreRunToolParams">
+  <PropertyReference name="name" type="string" required>
+    Name of the registered frontend tool to execute.
+  </PropertyReference>
+
+  <PropertyReference name="agentId" type="string">
+    Agent ID for tool and message scoping. Defaults to `"default"`.
+  </PropertyReference>
+
+  <PropertyReference name="parameters" type="Record<string, unknown>" default="{}">
+    Arguments passed to the tool handler.
+  </PropertyReference>
+
+  <PropertyReference name="followUp" type="string | false" default="false">
+    Controls whether an LLM follow-up is triggered after execution:
+    - `false` — execute tool and stop (default)
+    - `"generate"` — trigger an agent run so the LLM responds to the tool result
+    - Any other string — add a user message with this text, then trigger an agent run
+  </PropertyReference>
+</PropertyReference>
+
+#### `runTool` Return Value
+
+<PropertyReference name="result" type="CopilotKitCoreRunToolResult">
+  <PropertyReference name="toolCallId" type="string">
+    Unique ID of the tool call, matching the message added to history.
+  </PropertyReference>
+
+  <PropertyReference name="result" type="string">
+    Stringified return value from the tool handler (empty string for render-only tools).
+  </PropertyReference>
+
+  <PropertyReference name="error" type="string | undefined">
+    Error message if the handler threw. The tool result message will contain `"Error: ..."`.
+  </PropertyReference>
+</PropertyReference>
+
+### Registering a Proxied Agent
+
+`copilotkit.registerProxiedAgent()` mounts a new frontend agent under a local `agentId` that routes its outbound runtime requests to a different runtime agent (`runtimeAgentId`). Use this when you want multiple frontend agents — e.g. one per chat window — backed by a single runtime agent, with isolated message and state bookkeeping per frontend instance.
+
+```tsx
+import { useEffect } from "react";
+import { useCopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+
+function ChatWindow({ id }: { id: string }) {
+  const { copilotkit } = useCopilotKit();
+
+  useEffect(() => {
+    // Mount a proxy under a unique local id, all routing to the same
+    // runtime agent ("default"). Each ChatWindow gets isolated messages
+    // and state, even though they share a backend.
+    const { unregister } = copilotkit.registerProxiedAgent({
+      agentId: id,
+      runtimeAgentId: "default",
+    });
+    return unregister;
+  }, [copilotkit, id]);
+
+  return <CopilotChat agentId={id} />;
+}
+
+function App() {
+  return (
+    <>
+      <ChatWindow id="chat-customer" />
+      <ChatWindow id="chat-internal" />
+    </>
+  );
+}
+```
+
+The local `agentId` is what `useAgent`, state-manager subscriptions, and `onAgentsChanged` see. The `runtimeAgentId` is invisible to subscribers — it only changes the URL path the proxy hits (`/agent/<runtimeAgentId>/run`).
+
+#### `registerProxiedAgent` Parameters
+
+<PropertyReference name="params" type="CopilotKitCoreRegisterProxiedAgentParams">
+  <PropertyReference name="agentId" type="string" required>
+    The local registry id under which the proxy is registered. Used by `useAgent`, state-manager subscriptions, and all subscriber bookkeeping. Must not collide with any existing local agent or runtime-discovered agent — registration throws on collision.
+  </PropertyReference>
+
+  <PropertyReference name="runtimeAgentId" type="string" required>
+    The id of the runtime agent that this proxy routes outbound HTTP requests to. Invisible to subscribers — only affects URL paths and single-route envelopes.
+  </PropertyReference>
+</PropertyReference>
+
+#### `registerProxiedAgent` Return Value
+
+<PropertyReference name="result" type="CopilotKitCoreRegisterProxiedAgentResult">
+  <PropertyReference name="agent" type="ProxiedCopilotRuntimeAgent">
+    The minted proxy. Callers can hold this reference to call `setMessages`, `setState`, etc. directly. The same instance is returned by `copilotkit.getAgent(agentId)` and `useAgent({ agentId })` after registration.
+  </PropertyReference>
+
+  <PropertyReference name="unregister" type="() => void">
+    Removes the proxy from the registry and emits `onAgentsChanged`. Idempotent — calling twice is a no-op. If a subsequent `registerProxiedAgent` replaced the slot at the same `agentId`, a stale `unregister` from a previous registration will not strip the new entry.
+  </PropertyReference>
+</PropertyReference>
+
+### Checking Tool Execution State
+
+```tsx
+import { useCopilotKit } from "@copilotkit/react-core/v2";
+
+function ToolExecutionIndicator() {
+  const { executingToolCallIds } = useCopilotKit();
+
+  if (executingToolCallIds.size === 0) {
+    return null;
+  }
+
+  return (
+    <div>
+      Executing {executingToolCallIds.size} tool call(s)...
+    </div>
+  );
+}
+```
+
+## Behavior
+
+- **Error on Missing Provider**: Throws an error if the hook is used outside of `CopilotKitProvider` or the `<CopilotKit>` wrapper component.
+- **Runtime Status Subscription**: The hook subscribes to `onRuntimeConnectionStatusChanged` events, so components re-render when the runtime connection completes or fails.
+- **Stable Core Reference**: The `copilotkit` instance is created once per provider and remains stable across re-renders. Only the `executingToolCallIds` set changes as tool calls begin and complete.
+- **Provider-Level Tool Tracking**: `executingToolCallIds` is tracked at the provider level rather than in individual components. This ensures that tool execution start events fired before child components mount are not lost.
+
+## Related
+
+- [`useAgent`](/reference/v2/hooks/useAgent) -- High-level hook for accessing agent instances
+- [`useFrontendTool`](/reference/v2/hooks/useFrontendTool) -- Register frontend tools that `runTool()` can execute
+- [`CopilotKitProvider`](/reference/v2) -- The provider component that creates the context
