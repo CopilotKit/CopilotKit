@@ -67,17 +67,18 @@ export function track(
 ): void {
   if (isTelemetryOptedOut()) return;
 
+  const distinctId = getOrCreateTelemetryDistinctId();
   const body = JSON.stringify({
     event,
     properties: {
       ...properties,
-      distinct_id: getOrCreateTelemetryDistinctId(),
+      distinct_id: distinctId,
     },
     package: { name: PACKAGE_NAME },
     ts: Math.floor(Date.now() / 1000),
   });
 
-  void postBestEffort(TELEMETRY_INGEST_URL, body);
+  void postBestEffort(TELEMETRY_INGEST_URL, body, distinctId);
 }
 
 // --- Typed per-event helpers ---
@@ -156,14 +157,17 @@ export function maybeShowDisclosure(): void {
 // module, keeping persistence.ts as an internal implementation detail.
 export { isTelemetryOptedOut, setTelemetryOptOut };
 
-async function postBestEffort(url: string, body: string): Promise<void> {
+async function postBestEffort(url: string, body: string, distinctId: string): Promise<void> {
   if (typeof fetch === "undefined") return;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
     await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-CopilotKit-Telemetry-Id": distinctId,
+      },
       body,
       signal: controller.signal,
       // No credentials / no Authorization header — anonymous endpoint.

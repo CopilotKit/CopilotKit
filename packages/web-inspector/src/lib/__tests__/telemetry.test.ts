@@ -65,6 +65,9 @@ describe("track()", () => {
     expect((init?.headers as Record<string, string>)["Content-Type"]).toBe(
       "application/json",
     );
+    expect(
+      (init?.headers as Record<string, string>)["X-CopilotKit-Telemetry-Id"],
+    ).toMatch(/^[0-9a-f-]{36}$/);
 
     // Ben confirmed shape (telemetry-sink-ingest/index.ts:127-134):
     // package is a top-level object { name, version? }, NOT inside properties.
