@@ -73,7 +73,7 @@ class AgentState(BaseAgentState):
 # Each sub-agent is a full-fledged `create_agent(...)` with its own
 # system prompt. They don't share memory or tools with the supervisor —
 # the supervisor only sees their return value.
-_sub_model = ChatOpenAI(model="gpt-4o-mini")
+_sub_model = ChatOpenAI(model="gpt-5.4")
 
 _research_agent = create_agent(
     model=_sub_model,
@@ -181,6 +181,8 @@ def _delegation_update(
             "messages": [
                 ToolMessage(
                     content=result,
+                    name=sub_agent,
+                    id=str(uuid.uuid4()),
                     tool_call_id=tool_call_id,
                 )
             ],
@@ -257,6 +259,8 @@ def critique_agent(task: str, runtime: ToolRuntime) -> Command:
                 "messages": [
                     ToolMessage(
                         content=skip_message,
+                        name="critique_agent",
+                        id=str(uuid.uuid4()),
                         tool_call_id=runtime.tool_call_id,
                     )
                 ],
@@ -274,7 +278,7 @@ def critique_agent(task: str, runtime: ToolRuntime) -> Command:
 # ---------------------------------------------------------------------------
 
 graph = create_agent(
-    model=ChatOpenAI(model="gpt-4o-mini"),
+    model=ChatOpenAI(model="gpt-5.4"),
     tools=[research_agent, writing_agent, critique_agent],
     middleware=[CopilotKitMiddleware()],
     state_schema=AgentState,

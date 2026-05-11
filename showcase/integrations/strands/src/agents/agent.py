@@ -373,6 +373,18 @@ def get_sales_todos():
     return "Check the sales pipeline provided in the context."
 
 
+# @region[backend-tool-call]
+# Strands has no native interrupt primitive, so the gen-ui-interrupt and
+# interrupt-headless demos register `schedule_meeting` as a frontend tool
+# via `useFrontendTool`. Its async handler returns a Promise that only
+# resolves once the user picks a slot or cancels in the in-chat picker
+# (the Strands shim for LangGraph's `interrupt()` / `resolve()` pair).
+#
+# This `@tool` declaration is the backend's contract with the LLM: the
+# docstring and signature are what the model sees when deciding to call
+# `schedule_meeting`. CopilotKit's runtime routes the call to the frontend
+# handler registered with `useFrontendTool` (same name), so the local
+# `schedule_meeting_impl` body acts as a fallback for non-UI invocations.
 @tool
 def schedule_meeting(reason: str):
     """Schedule a meeting with user approval.
@@ -387,6 +399,7 @@ def schedule_meeting(reason: str):
         Meeting scheduling result as JSON string
     """
     return json.dumps(schedule_meeting_impl(reason))
+# @endregion[backend-tool-call]
 
 
 @tool

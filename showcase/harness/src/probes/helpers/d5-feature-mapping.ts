@@ -76,14 +76,11 @@ export const REGISTRY_TO_D5: Readonly<
   //   - `tool-rendering`                   : per-tool renderer (WeatherCard).
   //   - `tool-rendering-default-catchall`  : built-in default catchall renderer.
   //   - `tool-rendering-custom-catchall`   : custom wildcard (`*`) renderer.
-  // `tool-rendering-reasoning-chain` is intentionally NOT mapped here:
-  // the D5 tool-rendering probe sends "weather in Tokyo" and asserts a
-  // WeatherCard, which is the wrong test for the reasoning-chain demo.
-  // Reasoning-chain pages need their own D5 probe script; until one
-  // exists the demo ID is silently skipped by `demosToFeatureTypes`.
+  //   - `tool-rendering-reasoning-chain`   : per-tool renderer + reasoning-block slot.
   "tool-rendering": ["tool-rendering"],
   "tool-rendering-default-catchall": ["tool-rendering-default-catchall"],
   "tool-rendering-custom-catchall": ["tool-rendering-custom-catchall"],
+  "tool-rendering-reasoning-chain": ["tool-rendering-reasoning-chain"],
 
   // headless tier — `headless-simple` and `headless-complete` each have
   // their own D5 script and fixture. They live on different routes
@@ -120,10 +117,12 @@ export const REGISTRY_TO_D5: Readonly<
   // hitl (approve/deny tier) — out-of-chat modal approval flow.
   "hitl-in-app": ["hitl-approve-deny"],
 
-  // shared-state — one demo covers both read+write (the D5 script
-  // claims both feature types and runs once per type via
-  // preNavigateRoute split).
-  "shared-state-read-write": ["shared-state-read", "shared-state-write"],
+  // shared-state-read-write — bidirectional read+write demo, covered by
+  // d5-shared-state.ts which claims `shared-state-write` only. The
+  // standalone `shared-state-read` literal is owned by
+  // d5-shared-state-read.ts which probes the recipe-editor demo at
+  // `/demos/shared-state-read` (separate page, separate state shape).
+  "shared-state-read-write": ["shared-state-write"],
 
   // mcp-apps + subagents — Phase-2A split: each registry feature ID
   // points at its own D5 probe (was previously a shared `d5-mcp-subagents`
@@ -172,16 +171,14 @@ export const REGISTRY_TO_D5: Readonly<
   "frontend-tools-async": ["frontend-tools-async"],
 
   // Reasoning family — single `reasoning-display` literal covers both
-  // demo routes via preNavigateRoute. The `tool-rendering-reasoning-chain`
-  // demo was removed in the LGP demo-pass; its mapping entry and probe
-  // script were deleted in the genuine-pass Phase 0 cleanup.
+  // demo routes via preNavigateRoute.
   "reasoning-custom": ["reasoning-display"],
   "reasoning-default": ["reasoning-display"],
 
-  // State family — `shared-state-read` registry feature reuses the
-  // existing `shared-state-read` D5 literal (already paired with
-  // `shared-state-write` on the read-write demo). Streaming and
-  // readonly variants get their own literals.
+  // State family — `shared-state-read` registry feature owns the
+  // recipe-editor demo at `/demos/shared-state-read` (probed by
+  // d5-shared-state-read.ts). Streaming and readonly variants get their
+  // own literals.
   "shared-state-streaming": ["shared-state-streaming"],
   "readonly-state-agent-context": ["readonly-state-context"],
   "shared-state-read": ["shared-state-read"],
@@ -199,10 +196,13 @@ export const REGISTRY_TO_D5: Readonly<
   "gen-ui-agent": ["gen-ui-agent"],
 
   // Interrupt family — LangGraph interrupt-driven HITL, distinct from
-  // useHumanInTheLoop hook patterns. The `interrupt-headless` demo was
-  // removed in the LGP demo-pass; its mapping entry and probe script
-  // were deleted in the genuine-pass Phase 0 cleanup.
+  // useHumanInTheLoop hook patterns. `gen-ui-interrupt` mounts the
+  // time-picker INLINE inside the chat bubble (via `useInterrupt`).
+  // `interrupt-headless` mounts it in a separate "app surface" pane
+  // (via `useHeadlessInterrupt`). Same backend `interrupt(...)` payload,
+  // different rendering surface.
   "gen-ui-interrupt": ["gen-ui-interrupt"],
+  "interrupt-headless": ["interrupt-headless"],
 
   // BYOC family — single literal covers hashbrown + json-render via
   // preNavigateRoute swap (both render structured-output via a user

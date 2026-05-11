@@ -66,6 +66,8 @@ def manage_todos(todos: list[Todo], runtime: ToolRuntime) -> Command:
         "messages": [
             ToolMessage(
                 content="Successfully updated todos",
+                name="manage_todos",
+                id=str(uuid.uuid4()),
                 tool_call_id=runtime.tool_call_id
             )
         ]
@@ -108,11 +110,15 @@ def query_data(query: str):
 
 CATALOG_ID = "copilotkit://app-dashboard-catalog"
 SURFACE_ID = "flight-search-results"
-FLIGHT_SCHEMA = a2ui.load_schema(_DATA_DIR / "schemas" / "flight_schema.json")
 
 
-class Flight(TypedDict):
-    id: str
+class Flight(TypedDict, total=False):
+    # All fields marked optional (`total=False`) so the LLM (or aimock fixture)
+    # can omit auxiliary fields like `id` / `statusIcon` without tripping
+    # langchain's tool-arg validation. Previously these were required and any
+    # missing field surfaced as `Error invoking tool 'search_flights' with
+    # kwargs ... flights.N.id: Field required` — the agent treated the error
+    # string as the tool result and the surface never rendered.
     airline: str
     airlineLogo: str
     flightNumber: str
@@ -123,15 +129,52 @@ class Flight(TypedDict):
     arrivalTime: str
     duration: str
     status: str
-    statusIcon: str
     price: str
+
+
+def _build_flight_components(flights: list[dict]) -> list[dict]:
+    """Build a flat A2UI component tree with one literal FlightCard per flight.
+
+    Avoids the structural-children template form (Row.children = { componentId,
+    path }), which the GenericBinder only expands correctly for components whose
+    schema declares STRUCTURAL children — sibling demos work because their
+    schemas use literal-string-array children. Inlining the values per-flight
+    sidesteps the template path entirely and renders identically.
+    """
+    flight_card_ids: list[str] = []
+    components: list[dict] = []
+    for index, flight in enumerate(flights):
+        card_id = f"flight-card-{index}"
+        flight_card_ids.append(card_id)
+        components.append({
+            "id": card_id,
+            "component": "FlightCard",
+            "airline": flight.get("airline", ""),
+            "airlineLogo": flight.get("airlineLogo", ""),
+            "flightNumber": flight.get("flightNumber", ""),
+            "origin": flight.get("origin", ""),
+            "destination": flight.get("destination", ""),
+            "date": flight.get("date", ""),
+            "departureTime": flight.get("departureTime", ""),
+            "arrivalTime": flight.get("arrivalTime", ""),
+            "duration": flight.get("duration", ""),
+            "status": flight.get("status", ""),
+            "price": flight.get("price", ""),
+        })
+    root: dict = {
+        "id": "root",
+        "component": "Row",
+        "children": flight_card_ids,
+        "gap": 16,
+    }
+    return [root, *components]
 
 
 @tool
 def search_flights(flights: list[Flight]) -> str:
     """Search for flights and display the results as rich cards. Return exactly 2 flights.
 
-    Each flight must have: id, airline (e.g. "United Airlines"),
+    Each flight must have: airline (e.g. "United Airlines"),
     airlineLogo (use Google favicon API: https://www.google.com/s2/favicons?domain={airline_domain}&sz=128
     e.g. "https://www.google.com/s2/favicons?domain=united.com&sz=128" for United,
     "https://www.google.com/s2/favicons?domain=delta.com&sz=128" for Delta,
@@ -141,16 +184,12 @@ def search_flights(flights: list[Flight]) -> str:
     date (short readable format like "Tue, Mar 18" — use near-future dates),
     departureTime, arrivalTime,
     duration (e.g. "4h 25m"), status (e.g. "On Time" or "Delayed"),
-    statusIcon (colored dot: use "https://placehold.co/12/22c55e/22c55e.png"
-    for On Time, "https://placehold.co/12/eab308/eab308.png" for Delayed,
-    "https://placehold.co/12/ef4444/ef4444.png" for Cancelled),
     and price (e.g. "$289").
     """
     return a2ui.render(
         operations=[
             a2ui.create_surface(SURFACE_ID, catalog_id=CATALOG_ID),
-            a2ui.update_components(SURFACE_ID, FLIGHT_SCHEMA),
-            a2ui.update_data_model(SURFACE_ID, {"flights": flights}),
+            a2ui.update_components(SURFACE_ID, _build_flight_components(flights)),
         ],
     )
 
@@ -160,14 +199,23 @@ def search_flights(flights: list[Flight]) -> str:
 CUSTOM_CATALOG_ID = "copilotkit://app-dashboard-catalog"
 
 
+# Internal tool bound only to the secondary LLM inside `generate_a2ui` for
+# structured-output. Intentionally NOT named `render_a2ui` because the A2UI
+# middleware default-intercepts any tool call by that name from the run's
+# event stream and synthesises ACTIVITY_SNAPSHOT events from the LLM's RAW
+# streaming args (catalogId + components, before our Python code can validate
+# or normalise). That bypass is what surfaced the "Catalog not found:
+# declarative-gen-ui-catalog" hallucination on beautiful-chat and the
+# "Cannot create component root without a type" loop on declarative-gen-ui.
+# Renaming sidesteps the middleware's intercept list (`a2uiToolNames`).
 @lc_tool
-def render_a2ui(
+def _design_a2ui_surface(
     surfaceId: str,
     catalogId: str,
     components: list[dict],
     data: dict | None = None,
 ) -> str:
-    """Render a dynamic A2UI v0.9 surface.
+    """Design a dynamic A2UI v0.9 surface.
 
     Args:
         surfaceId: Unique surface identifier.
@@ -177,7 +225,26 @@ def render_a2ui(
         data: Optional initial data model for the surface (e.g. form values,
             list items for data-bound components).
     """
-    return "rendered"
+    return "designed"
+
+
+_GENERATE_A2UI_PROMPT_HEADER = f"""\
+You are designing a dynamic A2UI v0.9 surface. Call the `_design_a2ui_surface`
+tool with a flat component array.
+
+Hard requirements (failing any of these breaks the renderer — be strict):
+- `catalogId` MUST be exactly: "{CUSTOM_CATALOG_ID}"
+- `surfaceId` is a short kebab-case identifier (e.g. "sales-dashboard").
+- `components` is a FLAT array. Every entry MUST include both an `id` (unique
+  string) AND a `component` (string — the catalog component name). The root
+  entry MUST have `id: "root"` AND a valid `component` field — never emit
+  a root entry without a component type.
+- Container components (Row, Column, DashboardCard, Card) reference children
+  by id via their `children` (array of strings) or `child` (single string)
+  prop. Do NOT inline children objects. Define each child as its own entry in
+  the flat array and reference its id.
+- Use only catalog component names listed in the schema below.
+"""
 
 
 @tool()
@@ -189,19 +256,23 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     """
     messages = runtime.state["messages"][:-1]
 
-    # Get context entries from copilotkit state (catalog capabilities + component schema)
+    # Pull catalog descriptor + component schemas the runtime injects from the
+    # frontend's registered catalog. We prepend an explicit instruction header
+    # because `injectA2UITool: false` can leave the context sparse, in which
+    # case the secondary LLM hallucinates catalog IDs and root components
+    # without a `component` field — both of which break the renderer.
     context_entries = runtime.state.get("copilotkit", {}).get("context", [])
     context_text = "\n\n".join(
         entry.get("value", "") for entry in context_entries
         if isinstance(entry, dict) and entry.get("value")
     )
 
-    prompt = context_text
+    prompt = f"{_GENERATE_A2UI_PROMPT_HEADER}\n\n{context_text}".strip()
 
-    model = ChatOpenAI(model="gpt-4.1")
+    model = ChatOpenAI(model="gpt-5.4")
     model_with_tool = model.bind_tools(
-        [render_a2ui],
-        tool_choice="render_a2ui",
+        [_design_a2ui_surface],
+        tool_choice="_design_a2ui_surface",
     )
 
     response = model_with_tool.invoke(
@@ -209,15 +280,30 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     )
 
     if not response.tool_calls:
-        return json.dumps({"error": "LLM did not call render_a2ui"})
+        return json.dumps({"error": "LLM did not call _design_a2ui_surface"})
 
     tool_call = response.tool_calls[0]
     args = tool_call["args"]
 
     surface_id = args.get("surfaceId", "dynamic-surface")
-    catalog_id = args.get("catalogId", CUSTOM_CATALOG_ID)
+    # Force the canonical catalog ID — the secondary LLM has been observed
+    # hallucinating IDs from sibling demos when context is sparse.
+    catalog_id = CUSTOM_CATALOG_ID
     components = args.get("components", [])
     data = args.get("data", {})
+
+    # Defensive: every component must have an `id` AND a `component` field, or
+    # the frontend renderer throws "Cannot create component <id> without a
+    # type" and never recovers. Drop malformed entries so a valid surface
+    # still renders.
+    components = [
+        c for c in components
+        if isinstance(c, dict) and c.get("id") and c.get("component")
+    ]
+    if not any(c.get("id") == "root" for c in components):
+        return json.dumps({
+            "error": "LLM produced no valid root component for the A2UI surface."
+        })
 
     ops = [
         a2ui.create_surface(surface_id, catalog_id=catalog_id),
@@ -231,7 +317,7 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
 
 # ─── Graph ──────────────────────────────────────────────────────────
 
-model = ChatOpenAI(model="gpt-5-mini", model_kwargs={"parallel_tool_calls": False})
+model = ChatOpenAI(model="gpt-5.4", model_kwargs={"parallel_tool_calls": False})
 
 agent = create_agent(
     model=model,

@@ -21,6 +21,8 @@ interaction_modalities:
 managed_platform:
   name: CrewAI Enterprise
   url: https://crewai.com/amp
+not_supported_features:
+  - shared-state-streaming
 features:
   - cli-start
   - agentic-chat
@@ -44,7 +46,6 @@ features:
   - gen-ui-tool-based
   - frontend-tools
   - frontend-tools-async
-  - shared-state-streaming
   - shared-state-read-write
   - subagents
   - readonly-state-agent-context

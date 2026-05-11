@@ -1,0 +1,32 @@
+# Replay-mode override for aimock — load existing baseline fixtures PLUS
+# the freshly-recorded per-demo files in `aimock/d5-recorded/*.json`. No
+# `--record` flag, no provider URLs: every request must match a loaded
+# fixture or aimock returns 404.
+#
+# Usage:
+#   docker compose -f showcase/docker-compose.local.yml \
+#                  -f showcase/docker-compose.replay.yml \
+#                  --profile infra up -d aimock langgraph-python
+services:
+  aimock:
+    volumes:
+      # Keep the recorded directory mounted (read-only is fine here — we're
+      # not recording in this mode) so aimock loads the per-demo files.
+      - ./aimock/d5-recorded:/showcase-fixtures/d5-recorded:ro
+    command: [
+        "--port",
+        "4010",
+        "--host",
+        "0.0.0.0",
+        # Recorded per-demo fixtures first so they take precedence over the
+        # baseline files when match criteria collide. aimock's matcher
+        # iterates fixtures in registration order.
+        "--fixtures",
+        "/showcase-fixtures/d5-recorded",
+        "--fixtures",
+        "/showcase-fixtures/d5-all.json",
+        "--fixtures",
+        "/showcase-fixtures/smoke.json",
+        "--fixtures",
+        "/showcase-fixtures/feature-parity.json",
+      ]

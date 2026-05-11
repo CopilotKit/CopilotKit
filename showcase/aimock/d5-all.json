@@ -2,6 +2,15 @@
   "_comment": "Bundled D5 (e2e-deep) fixtures. Source files: showcase/harness/fixtures/d5/*.json (auto-merged). Uses hasToolResult matching for multi-turn disambiguation. Loaded by aimock before feature-parity.json for match precedence. Ordering convention: high-priority verbatim-prompt fixtures appear first so they win first-match-wins ordering against the showcase-assistant 'hi' catch-all in feature-parity.json (and against any later, broader substring matchers in this file). The exact set of high-priority entries shifts as features land — do not rely on a specific position for any group; rely on the per-fixture _comment headers and the source-of-truth note on each per-feature file under showcase/harness/fixtures/d5/.",
   "fixtures": [
     {
+      "_comment": "Voice probe fast-path: exact-match content-only response.",
+      "match": {
+        "userMessage": "What is the weather in Tokyo?"
+      },
+      "response": {
+        "content": "The weather in Tokyo is currently 22°C with partly cloudy skies and light easterly winds."
+      }
+    },
+    {
       "_comment": "headless-simple pill 1: locks the deterministic greeting leading phrase. The reply is intentionally NON-boilerplate (i.e. NOT the showcase-assistant catch-all 'I can help you with weather lookups...') so the headless-simple spec's HELLO_LEADING assertion fails when fixture priority misroutes this prompt to the catch-all.",
       "match": {
         "userMessage": "Say hello in one short sentence"
@@ -54,10 +63,18 @@
       }
     },
     {
-      "_comment": "headless-complete revenue chart pill: locks the deterministic chart leading phrase. Two-turn fixture: turn 1 emits the get_revenue_chart tool call (no parameters per the python tool); turn 2 emits the narration that the headless message-assistant bubble renders alongside the ChartCard.",
       "match": {
         "userMessage": "chart of revenue over the last six months",
-        "hasToolResult": false
+        "toolCallId": "call_d5_headless_revenue_chart_001"
+      },
+      "response": {
+        "content": "Here is the chart of revenue over the last six months — quarterly revenue grew steadily, peaking in June."
+      }
+    },
+    {
+      "_comment": "headless-complete revenue chart pill: locks the deterministic chart leading phrase. Two-turn fixture: turn 1 emits the get_revenue_chart tool call (no parameters per the python tool); turn 2 emits the narration that the headless message-assistant bubble renders alongside the ChartCard.",
+      "match": {
+        "userMessage": "chart of revenue over the last six months"
       },
       "response": {
         "toolCalls": [
@@ -67,15 +84,6 @@
             "arguments": "{}"
           }
         ]
-      }
-    },
-    {
-      "match": {
-        "userMessage": "chart of revenue over the last six months",
-        "hasToolResult": true
-      },
-      "response": {
-        "content": "Here is the chart of revenue over the last six months — quarterly revenue grew steadily, peaking in June."
       }
     },
     {
@@ -151,7 +159,8 @@
             "name": "search_flights",
             "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\"}"
           }
-        ]
+        ],
+        "reasoning": "The user wants flights from SFO to JFK. I'll call search_flights with those airports to look up options."
       }
     },
     {
@@ -182,7 +191,7 @@
     {
       "match": {
         "userMessage": "What's the current price of AAPL?",
-        "hasToolResult": true
+        "toolCallId": "call_tr_stock_aapl_001"
       },
       "response": {
         "content": "AAPL is trading at $338.37, down 2.96% on the day."
@@ -281,6 +290,15 @@
     },
     {
       "match": {
+        "userMessage": "3D axis visualization (model airplane)",
+        "toolCallId": "call_d5_open_gen_ui_3d_axis_001"
+      },
+      "response": {
+        "content": "Generated. The sandboxed UI is rendered above."
+      }
+    },
+    {
+      "match": {
         "userMessage": "3D axis visualization (model airplane)"
       },
       "response": {
@@ -291,6 +309,15 @@
             "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing 3D axis scene…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}\",\"html\":\"<div class=\\\"wrap\\\"><h1>3D axis visualization (pitch / yaw / roll)</h1><svg width=\\\"320\\\" height=\\\"260\\\" viewBox=\\\"-80 -80 160 160\\\" data-testid=\\\"ogui-3d-axis\\\"><line x1=\\\"-60\\\" y1=\\\"0\\\" x2=\\\"60\\\" y2=\\\"0\\\" stroke=\\\"#f59e0b\\\"/><line x1=\\\"0\\\" y1=\\\"-60\\\" x2=\\\"0\\\" y2=\\\"60\\\" stroke=\\\"#6366f1\\\"/><line x1=\\\"-40\\\" y1=\\\"40\\\" x2=\\\"40\\\" y2=\\\"-40\\\" stroke=\\\"#10b981\\\"/><text x=\\\"62\\\" y=\\\"4\\\" font-size=\\\"8\\\" fill=\\\"#f59e0b\\\">X pitch</text><text x=\\\"4\\\" y=\\\"-62\\\" font-size=\\\"8\\\" fill=\\\"#6366f1\\\">Y yaw</text><text x=\\\"42\\\" y=\\\"-42\\\" font-size=\\\"8\\\" fill=\\\"#10b981\\\">Z roll</text></svg></div>\"}"
           }
         ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "How a neural network works",
+        "toolCallId": "call_d5_open_gen_ui_neural_001"
+      },
+      "response": {
+        "content": "Generated. The sandboxed UI is rendered above."
       }
     },
     {
@@ -309,6 +336,15 @@
     },
     {
       "match": {
+        "userMessage": "Quicksort visualization",
+        "toolCallId": "call_d5_open_gen_ui_quicksort_001"
+      },
+      "response": {
+        "content": "Generated. The sandboxed UI is rendered above."
+      }
+    },
+    {
+      "match": {
         "userMessage": "Quicksort visualization"
       },
       "response": {
@@ -319,6 +355,15 @@
             "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing quicksort animation…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}rect{fill:#64748b}\",\"html\":\"<div class=\\\"wrap\\\"><h1>Quicksort: partition around pivot</h1><svg width=\\\"320\\\" height=\\\"220\\\" data-testid=\\\"ogui-quicksort\\\"><rect x=\\\"10\\\"  y=\\\"170\\\" width=\\\"24\\\" height=\\\"40\\\"/><rect x=\\\"40\\\"  y=\\\"130\\\" width=\\\"24\\\" height=\\\"80\\\"/><rect x=\\\"70\\\"  y=\\\"100\\\" width=\\\"24\\\" height=\\\"110\\\"/><rect x=\\\"100\\\" y=\\\"60\\\"  width=\\\"24\\\" height=\\\"150\\\" fill=\\\"#f59e0b\\\"/><rect x=\\\"130\\\" y=\\\"80\\\"  width=\\\"24\\\" height=\\\"130\\\" fill=\\\"#6366f1\\\"/><rect x=\\\"160\\\" y=\\\"110\\\" width=\\\"24\\\" height=\\\"100\\\"/><rect x=\\\"190\\\" y=\\\"50\\\"  width=\\\"24\\\" height=\\\"160\\\"/><rect x=\\\"220\\\" y=\\\"90\\\"  width=\\\"24\\\" height=\\\"120\\\"/><rect x=\\\"250\\\" y=\\\"140\\\" width=\\\"24\\\" height=\\\"70\\\"/><rect x=\\\"280\\\" y=\\\"160\\\" width=\\\"24\\\" height=\\\"50\\\"/></svg></div>\"}"
           }
         ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Fourier: square wave from sines",
+        "toolCallId": "call_d5_open_gen_ui_fourier_001"
+      },
+      "response": {
+        "content": "Generated. The sandboxed UI is rendered above."
       }
     },
     {
@@ -337,6 +382,15 @@
     },
     {
       "match": {
+        "userMessage": "Calculator (calls evaluateExpression)",
+        "toolCallId": "call_d5_open_gen_ui_calc_001"
+      },
+      "response": {
+        "content": "Generated. The sandboxed UI is rendered above."
+      }
+    },
+    {
+      "match": {
         "userMessage": "Calculator (calls evaluateExpression)"
       },
       "response": {
@@ -347,6 +401,15 @@
             "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing calculator UI…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px;max-width:240px}.display{background:#1e293b;padding:8px;border-radius:8px;margin-bottom:8px;font-family:monospace;text-align:right}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}button{padding:10px;background:#334155;border:0;color:#e2e8f0;border-radius:6px;font-size:14px}\",\"html\":\"<div class=\\\"wrap\\\" data-testid=\\\"ogui-calculator\\\"><div class=\\\"display\\\" id=\\\"d\\\">0</div><div class=\\\"grid\\\"><button>7</button><button>8</button><button>9</button><button>+</button><button>4</button><button>5</button><button>6</button><button>-</button><button>1</button><button>2</button><button>3</button><button>*</button><button>0</button><button>.</button><button id=\\\"eq\\\">=</button><button>/</button></div></div>\"}"
           }
         ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Ping the host (calls notifyHost)",
+        "toolCallId": "call_d5_open_gen_ui_ping_001"
+      },
+      "response": {
+        "content": "Generated. The sandboxed UI is rendered above."
       }
     },
     {
@@ -365,6 +428,15 @@
     },
     {
       "match": {
+        "userMessage": "Inline expression evaluator",
+        "toolCallId": "call_d5_open_gen_ui_inline_001"
+      },
+      "response": {
+        "content": "Generated. The sandboxed UI is rendered above."
+      }
+    },
+    {
+      "match": {
         "userMessage": "Inline expression evaluator"
       },
       "response": {
@@ -375,14 +447,6 @@
             "arguments": "{\"initialHeight\":320,\"placeholderMessages\":[\"Composing expression evaluator…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.card{padding:16px;background:#1e293b;border-radius:12px;margin:16px}input{width:100%;padding:8px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;border-radius:6px;box-sizing:border-box}button{margin-top:8px;padding:8px 16px;background:#6366f1;border:0;color:#fff;border-radius:6px;cursor:pointer}.out{margin-top:8px;font-size:12px;color:#94a3b8}\",\"html\":\"<div class=\\\"card\\\" data-testid=\\\"ogui-inline-eval\\\"><h2>Inline expression evaluator</h2><input id=\\\"in\\\" placeholder=\\\"e.g. 2 + 2\\\"/><button id=\\\"go\\\">Evaluate</button><div class=\\\"out\\\" id=\\\"out\\\">awaiting input…</div></div>\"}"
           }
         ]
-      }
-    },
-    {
-      "match": {
-        "userMessage": "introduce yourself per your config"
-      },
-      "response": {
-        "content": "Hello — I'm operating with the configured tone, expertise, and responseLength forwarded by the CopilotKit provider. Adjust the controls above the chat and my system prompt will rebuild on the next turn."
       }
     },
     {
@@ -1091,6 +1155,24 @@
       }
     },
     {
+      "_comment": "D5 fixture for /demos/shared-state-read (recipe-editor) turn 1. Substring 'Italian pasta recipe' is unique. Text-only — agent has no tools.",
+      "match": {
+        "userMessage": "Italian pasta recipe"
+      },
+      "response": {
+        "content": "Great choice — looking at your current recipe state, I'd build an Italian pasta around the existing ingredients: a quick spaghetti aglio e olio, finishing with parmesan and a squeeze of lemon. Want me to suggest substitutions or adjust the cooking time?"
+      }
+    },
+    {
+      "_comment": "D5 fixture for /demos/shared-state-read (recipe-editor) turn 2. Reply mentions recipe-context tokens so the probe's soft assertion lands.",
+      "match": {
+        "userMessage": "healthier with more vegetables"
+      },
+      "response": {
+        "content": "Here are a few healthier ingredient additions for the recipe: roasted bell peppers, baby spinach folded in at the end, and cherry tomatoes for brightness. The Italian flavor profile holds up well, and the vegetable swap keeps the dish lighter without losing the comfort of pasta."
+      }
+    },
+    {
       "match": {
         "userMessage": "analyze data and call the tool"
       },
@@ -1111,7 +1193,8 @@
             "name": "get_weather",
             "arguments": "{\"location\":\"Tokyo\"}"
           }
-        ]
+        ],
+        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions."
       }
     },
     {
@@ -1128,7 +1211,8 @@
             "name": "get-weather",
             "arguments": "{\"location\":\"Tokyo\"}"
           }
-        ]
+        ],
+        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions."
       }
     },
     {
@@ -1554,12 +1638,22 @@
     },
     {
       "match": {
+        "userMessage": "Make the background a sunset gradient",
+        "toolCallId": "call_d5_change_background_sunset"
+      },
+      "response": {
+        "content": "Done — sunset gradient is live."
+      }
+    },
+    {
+      "match": {
         "userMessage": "Make the background a sunset gradient"
       },
       "response": {
         "content": "Sunset gradient applied — warm orange-to-rose blend.",
         "toolCalls": [
           {
+            "id": "call_d5_change_background_sunset",
             "name": "change_background",
             "arguments": {
               "background": "linear-gradient(135deg, #ff7e5f 0%, #feb47b 50%, #ff6b6b 100%)"
@@ -1570,12 +1664,22 @@
     },
     {
       "match": {
+        "userMessage": "deep green forest gradient",
+        "toolCallId": "call_d5_change_background_forest"
+      },
+      "response": {
+        "content": "Done — forest gradient is live."
+      }
+    },
+    {
+      "match": {
         "userMessage": "deep green forest gradient"
       },
       "response": {
         "content": "Forest gradient applied — deep green hues.",
         "toolCalls": [
           {
+            "id": "call_d5_change_background_forest",
             "name": "change_background",
             "arguments": {
               "background": "linear-gradient(135deg, #0a3d2e 0%, #166534 50%, #059669 100%)"
@@ -1586,12 +1690,22 @@
     },
     {
       "match": {
+        "userMessage": "navy → magenta cosmic gradient",
+        "toolCallId": "call_d5_change_background_cosmic"
+      },
+      "response": {
+        "content": "Done — cosmic gradient is live."
+      }
+    },
+    {
+      "match": {
         "userMessage": "navy → magenta cosmic gradient"
       },
       "response": {
         "content": "Cosmic gradient applied — navy fading to magenta.",
         "toolCalls": [
           {
+            "id": "call_d5_change_background_cosmic",
             "name": "change_background",
             "arguments": {
               "background": "linear-gradient(135deg, #1e3a8a 0%, #6b21a8 50%, #9333ea 100%)"
@@ -1618,6 +1732,15 @@
     },
     {
       "match": {
+        "userMessage": "Plan a product launch",
+        "toolCallId": "call_d5_set_steps_launch_001"
+      },
+      "response": {
+        "content": "All steps complete."
+      }
+    },
+    {
+      "match": {
         "userMessage": "Plan a product launch"
       },
       "response": {
@@ -1633,6 +1756,15 @@
     },
     {
       "match": {
+        "userMessage": "team offsite",
+        "toolCallId": "call_d5_set_steps_offsite_001"
+      },
+      "response": {
+        "content": "Itinerary fully set."
+      }
+    },
+    {
+      "match": {
         "userMessage": "team offsite"
       },
       "response": {
@@ -1644,6 +1776,15 @@
             "arguments": "{\"steps\":[{\"id\":\"offsite-1\",\"title\":\"Reserve venue near downtown for 30 engineers\",\"status\":\"completed\"},{\"id\":\"offsite-2\",\"title\":\"Build day-by-day agenda with workshop slots\",\"status\":\"completed\"},{\"id\":\"offsite-3\",\"title\":\"Arrange travel, lodging and group meals\",\"status\":\"completed\"}]}"
           }
         ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Research our top competitor",
+        "toolCallId": "call_d5_set_steps_competitor_001"
+      },
+      "response": {
+        "content": "Brief assembled."
       }
     },
     {
@@ -1664,6 +1805,15 @@
     {
       "match": {
         "userMessage": "KPI dashboard",
+        "toolCallId": "call_d5_a2ui_dynamic_kpi_001"
+      },
+      "response": {
+        "content": "KPI dashboard rendered."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "KPI dashboard",
         "toolName": "generate_a2ui"
       },
       "response": {
@@ -1671,9 +1821,34 @@
         "toolCalls": [
           {
             "name": "generate_a2ui",
-            "arguments": {}
+            "arguments": {},
+            "id": "call_d5_a2ui_dynamic_kpi_001"
           }
         ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "KPI dashboard",
+        "toolName": "_design_a2ui_surface"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_design_a2ui_kpi_001",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\": \"kpi-dashboard\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"Card\", \"title\": \"Quarterly KPIs\", \"subtitle\": \"Revenue, signups, and churn\", \"child\": \"metrics-row\"}, {\"id\": \"metrics-row\", \"component\": \"Row\", \"children\": [\"m-rev\", \"m-sign\", \"m-churn\"], \"gap\": 16}, {\"id\": \"m-rev\", \"component\": \"Metric\", \"label\": \"Revenue\", \"value\": \"$1.24M\", \"trend\": \"up\"}, {\"id\": \"m-sign\", \"component\": \"Metric\", \"label\": \"Signups\", \"value\": \"8,420\", \"trend\": \"up\"}, {\"id\": \"m-churn\", \"component\": \"Metric\", \"label\": \"Churn\", \"value\": \"2.3%\", \"trend\": \"down\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "toolCallId": "call_d5_a2ui_dynamic_pie_001"
+      },
+      "response": {
+        "content": "Pie chart rendered."
       }
     },
     {
@@ -1686,9 +1861,34 @@
         "toolCalls": [
           {
             "name": "generate_a2ui",
-            "arguments": {}
+            "arguments": {},
+            "id": "call_d5_a2ui_dynamic_pie_001"
           }
         ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "toolName": "_design_a2ui_surface"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_design_a2ui_pie_001",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\": \"pie-sales\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"PieChart\", \"title\": \"Sales by region\", \"description\": \"Q4 revenue split\", \"data\": [{\"label\": \"NA\", \"value\": 540}, {\"label\": \"EMEA\", \"value\": 320}, {\"label\": \"APAC\", \"value\": 210}, {\"label\": \"LATAM\", \"value\": 90}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "toolCallId": "call_d5_a2ui_dynamic_bar_001"
+      },
+      "response": {
+        "content": "Bar chart rendered."
       }
     },
     {
@@ -1701,9 +1901,34 @@
         "toolCalls": [
           {
             "name": "generate_a2ui",
-            "arguments": {}
+            "arguments": {},
+            "id": "call_d5_a2ui_dynamic_bar_001"
           }
         ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "toolName": "_design_a2ui_surface"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_design_a2ui_bar_001",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\": \"bar-quarterly\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"BarChart\", \"title\": \"Quarterly revenue\", \"description\": \"FY 2025 per quarter\", \"data\": [{\"label\": \"Q1\", \"value\": 820}, {\"label\": \"Q2\", \"value\": 950}, {\"label\": \"Q3\", \"value\": 1100}, {\"label\": \"Q4\", \"value\": 1240}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "status report on system health",
+        "toolCallId": "call_d5_a2ui_dynamic_status_001"
+      },
+      "response": {
+        "content": "Status report rendered."
       }
     },
     {
@@ -1716,7 +1941,23 @@
         "toolCalls": [
           {
             "name": "generate_a2ui",
-            "arguments": {}
+            "arguments": {},
+            "id": "call_d5_a2ui_dynamic_status_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "status report on system health",
+        "toolName": "_design_a2ui_surface"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_design_a2ui_status_001",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\": \"status-report\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"Card\", \"title\": \"System health\", \"subtitle\": \"Live status\", \"child\": \"rows\"}, {\"id\": \"rows\", \"component\": \"Column\", \"children\": [\"r-api\", \"r-db\", \"r-bg\"], \"gap\": 8}, {\"id\": \"r-api\", \"component\": \"Row\", \"children\": [\"l-api\", \"b-api\"], \"gap\": 8}, {\"id\": \"l-api\", \"component\": \"InfoRow\", \"label\": \"API\", \"value\": \"p99 142ms\"}, {\"id\": \"b-api\", \"component\": \"StatusBadge\", \"text\": \"Healthy\", \"variant\": \"success\"}, {\"id\": \"r-db\", \"component\": \"Row\", \"children\": [\"l-db\", \"b-db\"], \"gap\": 8}, {\"id\": \"l-db\", \"component\": \"InfoRow\", \"label\": \"Database\", \"value\": \"Replication lag 220ms\"}, {\"id\": \"b-db\", \"component\": \"StatusBadge\", \"text\": \"Degraded\", \"variant\": \"warning\"}, {\"id\": \"r-bg\", \"component\": \"Row\", \"children\": [\"l-bg\", \"b-bg\"], \"gap\": 8}, {\"id\": \"l-bg\", \"component\": \"InfoRow\", \"label\": \"Background workers\", \"value\": \"Queue depth 12\"}, {\"id\": \"b-bg\", \"component\": \"StatusBadge\", \"text\": \"Healthy\", \"variant\": \"success\"}]}"
           }
         ]
       }
@@ -1799,10 +2040,22 @@
                     "title": "Sales by region",
                     "description": "Q4 — share of total revenue",
                     "data": [
-                      { "label": "North America", "value": 540 },
-                      { "label": "EMEA", "value": 320 },
-                      { "label": "APAC", "value": 210 },
-                      { "label": "LATAM", "value": 90 }
+                      {
+                        "label": "North America",
+                        "value": 540
+                      },
+                      {
+                        "label": "EMEA",
+                        "value": 320
+                      },
+                      {
+                        "label": "APAC",
+                        "value": 210
+                      },
+                      {
+                        "label": "LATAM",
+                        "value": 90
+                      }
                     ]
                   }
                 }
@@ -1834,10 +2087,22 @@
                     "title": "Quarterly revenue",
                     "description": "FY24 — USD thousands",
                     "data": [
-                      { "label": "Q1", "value": 820 },
-                      { "label": "Q2", "value": 940 },
-                      { "label": "Q3", "value": 1080 },
-                      { "label": "Q4", "value": 1240 }
+                      {
+                        "label": "Q1",
+                        "value": 820
+                      },
+                      {
+                        "label": "Q2",
+                        "value": 940
+                      },
+                      {
+                        "label": "Q3",
+                        "value": 1080
+                      },
+                      {
+                        "label": "Q4",
+                        "value": 1240
+                      }
                     ]
                   }
                 }
@@ -1874,17 +2139,26 @@
                 {
                   "id": "status-api",
                   "type": "StatusBadge",
-                  "props": { "text": "API: healthy", "variant": "success" }
+                  "props": {
+                    "text": "API: healthy",
+                    "variant": "success"
+                  }
                 },
                 {
                   "id": "status-db",
                   "type": "StatusBadge",
-                  "props": { "text": "Database: healthy", "variant": "success" }
+                  "props": {
+                    "text": "Database: healthy",
+                    "variant": "success"
+                  }
                 },
                 {
                   "id": "status-workers",
                   "type": "StatusBadge",
-                  "props": { "text": "Workers: degraded", "variant": "warning" }
+                  "props": {
+                    "text": "Workers: degraded",
+                    "variant": "warning"
+                  }
                 }
               ],
               "data": {}
@@ -1934,6 +2208,15 @@
     {
       "match": {
         "userMessage": "SFO to JFK",
+        "toolCallId": "call_d5_display_flight_001"
+      },
+      "response": {
+        "content": "Flight rendered. Tap 'Book flight' to confirm."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "SFO to JFK",
         "toolName": "display_flight"
       },
       "response": {
@@ -1946,9 +2229,19 @@
               "destination": "JFK",
               "airline": "United",
               "price": "$289"
-            }
+            },
+            "id": "call_d5_display_flight_001"
           }
         ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "toolCallId": "call_d5_schedule_sales_001"
+      },
+      "response": {
+        "content": "Booked: Sales intro call confirmed for the slot you picked."
       }
     },
     {
@@ -1974,9 +2267,19 @@
                   "iso": "2026-05-12T14:00:00Z"
                 }
               ]
-            }
+            },
+            "id": "call_d5_schedule_sales_001"
           }
         ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolCallId": "call_d5_schedule_alice_001"
+      },
+      "response": {
+        "content": "Scheduled: 1:1 with Alice locked in for the slot you picked."
       }
     },
     {
@@ -2002,9 +2305,19 @@
                   "iso": "2026-05-14T15:30:00Z"
                 }
               ]
-            }
+            },
+            "id": "call_d5_schedule_alice_001"
           }
         ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "poem about autumn leaves",
+        "toolCallId": "call_d5_write_document_poem_001"
+      },
+      "response": {
+        "content": "Done — the poem has been written into the shared document state."
       }
     },
     {
@@ -2026,6 +2339,15 @@
     {
       "match": {
         "userMessage": "polite email declining",
+        "toolCallId": "call_d5_write_document_email_001"
+      },
+      "response": {
+        "content": "Done — the decline-email draft has been written into the shared document state."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "polite email declining",
         "toolName": "write_document"
       },
       "response": {
@@ -2037,6 +2359,15 @@
             "arguments": "{\"document\":\"Hi — thanks for sending the invite for Tuesday afternoon. Unfortunately I won't be able to make it this week. I'd love to find time later in the month if your schedule allows. In the meantime, feel free to send any pre-reads my way and I'll review them async so we don't lose momentum. Best, [name]\"}"
           }
         ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "quantum computing for a curious teenager",
+        "toolCallId": "call_d5_write_document_quantum_001"
+      },
+      "response": {
+        "content": "Done — the quantum-computing explainer has been written into the shared document state."
       }
     },
     {
