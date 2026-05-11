@@ -7,12 +7,6 @@ import { SampleAttachmentButtons } from "./sample-attachment-buttons";
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 const ACCEPT_MIME = "image/*,application/pdf";
-/**
- * Selector used by <SampleAttachmentButtons /> to locate CopilotChat's
- * hidden file input. Kept as a constant so the wrapper element and the
- * sample buttons cannot drift.
- */
-const CHAT_ROOT_SELECTOR = "[data-multimodal-demo-chat-root]";
 
 export function MultimodalChat() {
   // `onUpload` is passed into CopilotChat's `AttachmentsConfig`. Both the
@@ -65,7 +59,7 @@ export function MultimodalChat() {
         data-testid="multimodal-demo-root"
         className="mx-auto flex h-screen max-w-4xl flex-col gap-3 p-4 sm:p-6"
       >
-        <SampleAttachmentButtons rootSelector={CHAT_ROOT_SELECTOR} />
+        <SampleAttachmentButtons agentId="multimodal-demo" />
 
         <div
           data-multimodal-demo-chat-root
