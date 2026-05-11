@@ -25,18 +25,6 @@ For the **Inspector** dev-console, set `COPILOTKIT_TELEMETRY_DISABLED=true` in y
 
 The default sample rate is `0.05` (5%). You can adjust it by setting the `COPILOTKIT_TELEMETRY_SAMPLE_RATE` to any value between 0 and 1.
 
-## What the Inspector collects
-
-The CopilotKit dev-console Inspector emits a small set of anonymous interaction events so we can tell which features are useful:
-
-| Event | When it fires | Properties |
-| --- | --- | --- |
-| `oss.inspector.banner_viewed` | An announcement banner becomes visible (deduped per timestamp per inspector mount) | `banner_id` (announcement timestamp), `cta_label` (optional, when the CDN payload provides one) |
-| `oss.inspector.banner_clicked` | A click on the banner body or the dismiss button | `banner_id`, `cta` (`"body"` or `"dismiss"`), `cta_label` (optional) |
-| `oss.inspector.threads_tab_clicked` | A click on the Threads tab in the inspector header | none |
-
-The inspector never sends message content, agent state, prompts, completions, or any payload you inspect. The opt-out covers all anonymous interaction telemetry, including any future signup attribution.
-
 ## Get in touch
 
 If you have any questions or concerns, please reach out at [hello@copilotkit.ai](mailto:hello@copilotkit.ai).
