@@ -11,8 +11,19 @@ import { handle } from "hono/vercel";
 // or LangGraphHttpAgent — those target LangGraph-shaped endpoints).
 // Everything else — runtime config, v2 endpoint wiring, MCP apps,
 // openGenerativeUI, a2ui — mirrors the canonical demo.
+// Resolution order:
+//   1. AGENT_URL / STRANDS_AGENT_URL — explicit overrides for local dev.
+//   2. LANGGRAPH_DEPLOYMENT_URL — set by the canonical docker-compose.test.yml
+//      smoke stack (verbatim from langgraph-python) so the strands agent gets
+//      wired up without per-instance compose edits.
+//   3. localhost:8000 — local default for `npm run dev:agent`.
 const defaultAgent = new HttpAgent({
-  url: `${process.env.AGENT_URL || process.env.STRANDS_AGENT_URL || "http://localhost:8000"}/`,
+  url: `${
+    process.env.AGENT_URL ||
+    process.env.STRANDS_AGENT_URL ||
+    process.env.LANGGRAPH_DEPLOYMENT_URL ||
+    "http://localhost:8000"
+  }/`,
 });
 
 const runtime = new CopilotRuntime({
