@@ -562,9 +562,9 @@ describe("e2e-deep driver", () => {
       name: "showcase-langgraph-python",
       // No `features` field — production discovery shape.
       demos: [
-        "tool-rendering-default-catchall", // → tool-rendering (skipped, no script)
-        "shared-state-read-write", // → shared-state-write (run)
-        "voice", // → voice (skipped, no script)
+        "tool-rendering-default-catchall", // → tool-rendering-default-catchall (skipped, no script in this test's mock loader)
+        "shared-state-read-write", // → shared-state-write (run); the read half is owned by the standalone recipe-editor probe
+        "voice", // → voice (skipped, no script in this test's mock loader)
       ],
       shape: "package",
     });
@@ -572,7 +572,10 @@ describe("e2e-deep driver", () => {
     expect(result.state).toBe("green");
     const sig = result.signal as E2eDeepAggregateSignal;
     // 3 mapped D5 types: tool-rendering-default-catchall (skipped) +
-    // shared-state-write (run) + voice (skipped, no script).
+    // shared-state-write (run) + voice (skipped). The Phase-2A
+    // registry split repointed `tool-rendering-default-catchall`
+    // (registry id) to its own D5 type of the same name; mock loader
+    // here only registers shared-state-write, so the other two skip.
     expect(sig.total).toBe(3);
     expect(sig.passed).toBe(1);
     expect(sig.failed).toEqual([]);

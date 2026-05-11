@@ -32,19 +32,13 @@ import { registerD5Script } from "../helpers/d5-registry.js";
 import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 
-interface ChipExpectation {
-  /** Ordered list of lowercase substrings to try against the chip's
-   *  aria-label, in preference order. The first one that hits a
-   *  visible chip is used. Two-form list per chip because the demo's
-   *  SuggestionBar oscillates between agent-generated phrasing
-   *  (chip's aria-label is the verbose `message`, e.g. "Try
-   *  suggestion: What's the weather in Tokyo?") and the static
-   *  `useConfigureSuggestions` configuration (chip's aria-label is
-   *  the short `title`, e.g. "Try suggestion: Weather"). The
-   *  AI-suggestions hook flips between them as the conversation
-   *  progresses; we accept either form so the probe doesn't flake
-   *  on the choice. */
-  chipMatchAliases: readonly string[];
+interface TurnExpectation {
+  /** Tag for diagnostics; matches the suggestion's `title`. */
+  tag: string;
+  /** Message to send — same string the demo's chips would submit
+   *  (`useHeadlessSuggestions` `.message` for the SuggestionBar, and
+   *  the verbatim `EmptyState` SAMPLE for first paint). */
+  prompt: string;
   /** Selector that must mount once the agent's tool result lands. */
   cardSelector: string;
   /** Lowercase substrings that must appear in the messages region. */
@@ -53,36 +47,41 @@ interface ChipExpectation {
   responseTimeoutMs: number;
 }
 
-const TURN_EXPECTATIONS: readonly ChipExpectation[] = [
+/** The demo has TWO chip surfaces with diverging aria-label shapes:
+ *  - EmptyState (first paint): `aria-label="Try suggestion: <message>"`,
+ *    visible text = message
+ *  - SuggestionBar (post-first-message): `aria-label="Suggestion: <title>"`,
+ *    visible text = title
+ *  The chip surface visible at any given turn depends on whether the
+ *  chat has messages yet, which is timing-dependent. Skipping the chip
+ *  click and typing into the textarea avoids the surface-divergence
+ *  entirely — both chip clicks and textarea-Enter submit the same
+ *  message string, so the fixture matcher catches either path. */
+const TURN_EXPECTATIONS: readonly TurnExpectation[] = [
   {
-    // "weather" is a substring of both "Weather" (title) and
-    // "weather in Tokyo" (message), so one alias covers both forms.
-    chipMatchAliases: ["weather"],
+    tag: "weather",
+    prompt: "What's the weather in Tokyo?",
     cardSelector: '[data-testid="headless-weather-card"]',
     textTokens: ["tokyo"],
     responseTimeoutMs: 60_000,
   },
   {
-    // Title is "Stock price"; the message form is "AAPL trading at".
-    // Need both aliases — "stock" hits the title form, "aapl" hits
-    // the message form.
-    chipMatchAliases: ["stock", "aapl"],
+    tag: "stock",
+    prompt: "What's the price of AAPL right now?",
     cardSelector: '[data-testid="headless-stock-card"]',
     textTokens: ["aapl"],
     responseTimeoutMs: 60_000,
   },
   {
-    // "highlight" is a substring of both "Highlight a note" (title)
-    // and "Highlight: ship the demo on Friday" (message).
-    chipMatchAliases: ["highlight"],
+    tag: "highlight",
+    prompt: "Highlight this note for me: 'ship the demo on Friday'.",
     cardSelector: '[data-testid="headless-highlight-card"]',
     textTokens: ["ship the demo"],
     responseTimeoutMs: 60_000,
   },
   {
-    // "revenue" is a substring of both "Revenue chart" (title) and
-    // "Show me a chart of revenue over the last six months" (message).
-    chipMatchAliases: ["revenue"],
+    tag: "revenue",
+    prompt: "Show me a chart of revenue over the last six months.",
     cardSelector: '[data-testid="headless-revenue-chart"]',
     // The chart card's eyebrow / heading is just "Revenue", not the
     // chip text — the chart's own data labels are the only stable
@@ -91,58 +90,6 @@ const TURN_EXPECTATIONS: readonly ChipExpectation[] = [
     responseTimeoutMs: 60_000,
   },
 ];
-
-/** Click a suggestion chip whose aria-label contains the given
- *  substring (case-insensitive). The hand-rolled SuggestionBar in
- *  this demo renders chips as
- *  `<button aria-label="Try suggestion: ${message}">{message}</button>`
- *  — visible text and aria-label both come from the suggestion's
- *  `message`, NOT its `title`, and the AI-suggestions hook overrides
- *  configured titles with agent-generated phrasing on each render.
- *  Substring matching against `aria-label` is stable through that
- *  drift.
- *
- *  CSS attribute selector with the `i` modifier is case-insensitive
- *  and self-contained — no zero-arg-evaluate gymnastics required.
- *  Quote-escape the substring so a future message text containing a
- *  literal `"` doesn't break the selector. */
-async function clickChip(
-  page: Page,
-  aliases: readonly string[],
-): Promise<void> {
-  const clickable = page as Page & {
-    click?(selector: string, opts?: { timeout?: number }): Promise<void>;
-  };
-  if (typeof clickable.click !== "function") {
-    throw new Error(
-      "headless-complete probe: page.click is not available — runner " +
-        "must expose click() for chip-driven turns",
-    );
-  }
-  // Each alias gets a short visibility budget so the total wait
-  // across N aliases stays reasonable; the longest realistic chip-
-  // mount window is the suggestions hook deciding between the
-  // agent-generated and static-configured form, which settles within
-  // ~2s of the prior turn finishing.
-  const perAliasTimeout = 4_000;
-  for (const alias of aliases) {
-    const escaped = alias.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-    const selector = `button[aria-label*="${escaped}" i]`;
-    try {
-      await page.waitForSelector(selector, {
-        state: "visible",
-        timeout: perAliasTimeout,
-      });
-    } catch {
-      continue;
-    }
-    await clickable.click(selector, { timeout: perAliasTimeout });
-    return;
-  }
-  throw new Error(
-    `headless-complete probe: no chip with aria-label containing any of [${aliases.join(", ")}] became visible (each alias polled for ${perAliasTimeout}ms)`,
-  );
-}
 
 /** Read all assistant-message bubbles' textContent and concatenate to
  *  lowercase. Captures BOTH the markdown prose AND the rendered tool
@@ -183,15 +130,12 @@ function assertContainsAll(
 
 export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
   return TURN_EXPECTATIONS.map((exp, idx) => ({
-    input: "",
-    preFill: async (page) => {
-      console.debug(
-        `[d5-gen-ui-headless-complete] turn ${idx + 1}: clicking chip matching '${exp.chipMatchAliases.join("|")}'`,
-      );
-      await clickChip(page, exp.chipMatchAliases);
-    },
+    input: exp.prompt,
     responseTimeoutMs: exp.responseTimeoutMs,
     assertions: async (page) => {
+      console.debug(
+        `[d5-gen-ui-headless-complete] turn ${idx + 1}: ${exp.tag}`,
+      );
       // Wait for the per-card testid before reading text — the runner's
       // settle plateau gates on assistant-message count growing, but
       // the tool card mounts in a separate React update once the tool
@@ -203,7 +147,7 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
         });
       } catch {
         throw new Error(
-          `gen-ui-headless-complete ${exp.chipMatchAliases.join("|")}: expected ${exp.cardSelector} to mount within 60s — tool result may not have landed or the renderer wiring drifted`,
+          `gen-ui-headless-complete ${exp.tag}: expected ${exp.cardSelector} to mount within 60s — tool result may not have landed or the renderer wiring drifted`,
         );
       }
       const text = await readAllAssistantText(page);
@@ -213,7 +157,7 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
       assertContainsAll(
         text,
         exp.textTokens,
-        `gen-ui-headless-complete ${exp.chipMatchAliases.join("|")}`,
+        `gen-ui-headless-complete ${exp.tag}`,
       );
     },
   }));
