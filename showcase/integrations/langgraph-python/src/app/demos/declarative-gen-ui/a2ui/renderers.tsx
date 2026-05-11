@@ -49,6 +49,19 @@ const CHART_COLORS = [
   "#27272A", // zinc-800
 ] as const;
 
+// Tailwind arbitrary variant that injects a gap into any descendant flex
+// container — the basic catalog's Row/Column primitives are bare
+// `display: flex` divs with no gap, so when the agent drops multiple
+// Metrics or charts into one, the children end up glued together.
+// We can't reach inside Row/Column from the outside, but we can detect
+// them by their inline `flex-direction` style and apply a gap on the
+// flex container itself (which then propagates to its children).
+// Underscores in the arbitrary value compile to literal spaces in the
+// emitted CSS selector, matching React's serialized inline style.
+const NESTED_FLEX_GAP =
+  "[&_div[style*='flex-direction:_row']]:gap-4 " +
+  "[&_div[style*='flex-direction:_column']]:gap-2";
+
 const CHART_TOOLTIP_STYLE: React.CSSProperties = {
   backgroundColor: "var(--card)",
   border: "1px solid var(--border)",
@@ -163,7 +176,7 @@ function AnimatedBar(props: any) {
 export const myRenderers: CatalogRenderers<MyDefinitions> = {
   Card: ({ props, children }) => (
     <Card
-      className="w-full min-w-[260px] overflow-hidden"
+      className="w-full min-w-0 overflow-hidden"
       data-testid="declarative-card"
     >
       <CardHeader>
@@ -171,7 +184,7 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
         {props.subtitle && <CardDescription>{props.subtitle}</CardDescription>}
       </CardHeader>
       {props.child && (
-        <CardContent className="flex flex-col gap-3">
+        <CardContent className={`flex flex-col gap-4 ${NESTED_FLEX_GAP}`}>
           {children(props.child)}
         </CardContent>
       )}
@@ -197,7 +210,13 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
           ? "text-rose-600"
           : "text-[var(--foreground)]";
     return (
-      <div data-testid="declarative-metric" className="flex flex-col gap-1">
+      // `flex-1 min-w-[120px]` lets a row of Metrics distribute evenly
+      // inside the basic catalog's gap-less Row — 3 metrics in a 600px
+      // card column get ~200px each instead of squishing to content width.
+      <div
+        data-testid="declarative-metric"
+        className="flex flex-1 min-w-[120px] flex-col gap-1"
+      >
         <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
           {props.label}
         </div>
@@ -241,8 +260,11 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
     const total = safeData.reduce((sum, d) => sum + (Number(d.value) || 0), 0);
 
     return (
+      // `flex-1 min-w-0` so multiple charts in a basic-catalog Row
+      // distribute the available width evenly instead of each insisting
+      // on its content size and overflowing.
       <Card
-        className="mx-auto max-w-[520px] overflow-hidden"
+        className="w-full flex-1 min-w-0 overflow-hidden"
         data-testid="declarative-pie-chart"
       >
         <CardHeader>
@@ -301,7 +323,7 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
 
     return (
       <Card
-        className="mx-auto max-w-[640px] overflow-hidden"
+        className="w-full flex-1 min-w-0 overflow-hidden"
         data-testid="declarative-bar-chart"
       >
         {/* Scoped keyframe — no globals.css needed */}
