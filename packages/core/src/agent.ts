@@ -431,6 +431,27 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     return cloned;
   }
 
+  /**
+   * Drop the delegate's cached `lastSeenEventId` for this thread so
+   * the next connect requests a full historical replay from the
+   * gateway. Used by `RunHandler.connectAgent` on a detected thread
+   * switch (the chat moved between threads, so its local
+   * messages/state are about to be cleared and need rebuilding from
+   * the gateway). Skipped on same-thread churn re-connects so the
+   * gateway can resume from the cursor instead.
+   *
+   * No-op for non-Intelligence runtime modes — the HTTP transport
+   * doesn't replay.
+   */
+  public clearReplayCursor(threadId: string): void {
+    if (this.runtimeMode !== RUNTIME_MODE_INTELLIGENCE) return;
+    const delegate = this.delegate as
+      | { clearReconnectCursor?: (id: string) => void }
+      | null
+      | undefined;
+    delegate?.clearReconnectCursor?.(threadId);
+  }
+
   private async resolveDelegate(): Promise<RunnableAgent> {
     await this.ensureRuntimeMode();
 
