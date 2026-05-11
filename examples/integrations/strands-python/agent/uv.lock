@@ -38,22 +38,16 @@ wheels = [
 [[package]]
 name = "ag-ui-strands"
 version = "0.1.8"
-source = { editable = "/Users/ran/Desktop/ag-ui/integrations/aws-strands/python" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ag-ui-protocol" },
     { name = "fastapi" },
     { name = "strands-agents" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "ag-ui-protocol", specifier = ">=0.1.10" },
-    { name = "fastapi", specifier = ">=0.115.12" },
-    { name = "strands-agents", specifier = ">=1.15.0" },
+sdist = { url = "https://files.pythonhosted.org/packages/82/de/c808ae76175bcc065ddbd7ea8da9b0a7b027d07a7802a33687cd0141c665/ag_ui_strands-0.1.8.tar.gz", hash = "sha256:0d170d0b7351690a98a8dd24537bc4b02f38404b29641e61a2945b5f69ec620d", size = 211487, upload-time = "2026-05-08T12:42:16.675Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/61/4b/fa4e3f93c721a4c2e91650613f0898927d103c581aa9fa5f643d36f6ade8/ag_ui_strands-0.1.8-py3-none-any.whl", hash = "sha256:ca58cf22065c7f8447b90a059f434b958e6054768d048fe4819b66253b78e1c7", size = 23990, upload-time = "2026-05-08T12:42:15.476Z" },
 ]
-
-[package.metadata.requires-dev]
-dev = [{ name = "pytest-asyncio", specifier = ">=1.3.0" }]
 
 [[package]]
 name = "aiohappyeyeballs"
@@ -201,17 +195,17 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "ag-ui-protocol", specifier = ">=0.1.18" },
-    { name = "ag-ui-strands", editable = "/Users/ran/Desktop/ag-ui/integrations/aws-strands/python" },
+    { name = "ag-ui-protocol", specifier = "==0.1.18" },
+    { name = "ag-ui-strands", specifier = "==0.1.8" },
     { name = "copilotkit", specifier = "==0.1.87" },
     { name = "fastapi", specifier = ">=0.115.12" },
     { name = "langchain", specifier = "==1.2.15" },
-    { name = "langchain-openai", specifier = ">=1.1.0" },
-    { name = "openai", specifier = ">=1.68.2,<2.0.0" },
+    { name = "langchain-openai", specifier = "==1.1.9" },
+    { name = "openai", specifier = "==1.109.1" },
     { name = "pydantic", specifier = ">=2.0.0,<3.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.0,<2.0.0" },
-    { name = "strands-agents", extras = ["openai"], specifier = ">=1.15.0" },
-    { name = "strands-agents-tools", specifier = ">=0.2.14" },
+    { name = "strands-agents", extras = ["openai"], specifier = "==1.18.0" },
+    { name = "strands-agents-tools", specifier = "==0.2.16" },
     { name = "uvicorn", specifier = ">=0.34.3" },
 ]
 

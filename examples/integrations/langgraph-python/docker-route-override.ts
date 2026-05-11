@@ -10,7 +10,7 @@ import {
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 
 const agentUrl = process.env.AGENT_URL || "http://localhost:8123";
 
