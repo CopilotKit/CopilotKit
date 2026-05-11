@@ -2,13 +2,17 @@ package com.copilotkit.showcase.springai;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.web.client.RestClientCustomizer;
 import org.springframework.boot.web.reactive.function.client.WebClientCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.reactive.JdkClientHttpConnector;
+import org.springframework.web.reactive.function.client.ClientRequest;
+import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 
 import java.net.http.HttpClient;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -36,6 +40,9 @@ import java.util.Optional;
 public class WebClientConfig {
 
     private static final Logger log = LoggerFactory.getLogger(WebClientConfig.class);
+
+    @Autowired
+    private AimockHeaderRequestInterceptor aimockHeaderRequestInterceptor;
 
     /** Property name we manage. */
     static final String KEEPALIVE_PROPERTY = "jdk.httpclient.keepalive.timeout";
@@ -137,7 +144,9 @@ public class WebClientConfig {
      */
     @Bean
     public RestClientCustomizer connectionCloseRestClientCustomizer() {
-        return builder -> builder.defaultHeader("Connection", "close");
+        return builder -> builder
+                .defaultHeader("Connection", "close")
+                .requestInterceptor(aimockHeaderRequestInterceptor);
     }
 
     @Bean
@@ -170,6 +179,24 @@ public class WebClientConfig {
                 .version(HttpClient.Version.HTTP_1_1)
                 .build();
         JdkClientHttpConnector connector = new JdkClientHttpConnector(jdkClient);
-        return builder -> builder.clientConnector(connector);
+
+        // ExchangeFilterFunction that forwards x-aimock-* headers from the
+        // AimockHeaderContext (set by the inbound HandlerInterceptor) onto
+        // every outgoing WebClient request. This covers Spring AI's reactive
+        // .stream() path — the synchronous .call() path is handled by the
+        // AimockHeaderRequestInterceptor registered on the RestClient above.
+        ExchangeFilterFunction aimockFilter = (request, next) -> {
+            Map<String, String> aimockHeaders = AimockHeaderContext.get();
+            if (aimockHeaders.isEmpty()) {
+                return next.exchange(request);
+            }
+            ClientRequest.Builder mutated = ClientRequest.from(request);
+            aimockHeaders.forEach(mutated::header);
+            return next.exchange(mutated.build());
+        };
+
+        return builder -> builder
+                .clientConnector(connector)
+                .filter(aimockFilter);
     }
 }
