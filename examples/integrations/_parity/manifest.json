@@ -162,6 +162,7 @@
         "src/app/api/copilotkit/**",
         "Dockerfile",
         "docker/Dockerfile.agent",
+        "docker-compose.test.yml",
         "serve.py",
         "scripts/**"
       ],

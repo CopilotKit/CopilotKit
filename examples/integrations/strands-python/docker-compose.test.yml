@@ -1,5 +1,5 @@
 # Docker Compose stack for e2e smoke testing with aimock.
-# Mirrors the user experience: Next.js frontend + langgraph dev agent + aimock as LLM.
+# Mirrors the user experience: Next.js frontend + ag_ui_strands (uvicorn) agent + aimock as LLM.
 # Usage: docker compose -f docker-compose.test.yml up -d
 services:
   aimock:
@@ -25,7 +25,7 @@ services:
           "CMD",
           "python",
           "-c",
-          "import urllib.request; urllib.request.urlopen('http://localhost:8123/ok')",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')",
         ]
       interval: 5s
       timeout: 5s
@@ -37,7 +37,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile.app
     environment:
-      - LANGGRAPH_DEPLOYMENT_URL=http://agent:8123
+      - AGENT_URL=http://agent:8000
     depends_on:
       agent:
         condition: service_healthy

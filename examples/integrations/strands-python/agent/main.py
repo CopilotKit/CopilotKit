@@ -349,15 +349,6 @@ async def health():
     return {"status": "ok"}
 
 
-# `/ok` is the readiness probe expected by docker-compose.test.yml (the
-# verbatim smoke-test stack from the canonical langgraph-python instance).
-# Kept alongside `/health` so local dev/observability tools that hit
-# `/health` continue to work.
-@app.get("/ok")
-async def ok():
-    return {"status": "ok"}
-
-
 if __name__ == "__main__":
     import uvicorn
 
