@@ -19,7 +19,7 @@ In CopilotRuntime, simply set `COPILOTKIT_TELEMETRY_DISABLED=true`. We also resp
 
 Alternatively, you can directly set the `telemetryDisabled` flag to `true` when configuring your Copilot Runtime endpoint.
 
-In the **Inspector** dev-console, open the **Privacy** tab and toggle off **Send anonymous usage data**. The setting is stored in your browser's localStorage and short-circuits all sends from the inspector.
+For the **Inspector** dev-console, set `COPILOTKIT_TELEMETRY_DISABLED=true` in your runtime environment. The inspector reads this from the runtime at startup and suppresses all anonymous interaction events.
 
 ## How to adjust telemetry sample rate
 
@@ -39,7 +39,7 @@ Every event also carries a `distinct_id` (a UUID v4 generated on first inspector
 
 When the inspector renders a banner CTA link, it appends the same anonymous `distinct_id` to outbound URLs as a `posthog_distinct_id` query parameter. This lets the destination site (typically `copilotkit.ai`) bridge the visit back to the inspector session for funnel correlation, without storing any cookie or identifier from the host page. The URL parameter is suppressed when you opt out.
 
-The inspector telemetry pipeline never sends message content, agent state, prompts, completions, banner markdown text, or any payload you inspect. The opt-out toggle covers all anonymous interaction telemetry, including any future signup attribution.
+The inspector telemetry pipeline never sends message content, agent state, prompts, completions, banner markdown text, or any payload you inspect. The opt-out covers all anonymous interaction telemetry, including any future signup attribution.
 
 ## Get in touch
 

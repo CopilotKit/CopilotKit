@@ -21,7 +21,6 @@ import {
   hasTelemetryDisclosureBeenShown,
   isTelemetryOptedOut,
   markTelemetryDisclosureShown,
-  setTelemetryOptOut,
 } from "./persistence";
 
 // V1 funnel events. Namespaced `oss.inspector.*` so the lambda's
@@ -153,9 +152,7 @@ export function maybeShowDisclosure(): void {
   markTelemetryDisclosureShown();
 }
 
-// Re-exported so index.ts only imports telemetry concerns from this
-// module, keeping persistence.ts as an internal implementation detail.
-export { isTelemetryOptedOut, setTelemetryOptOut };
+export { isTelemetryOptedOut };
 
 async function postBestEffort(
   url: string,

@@ -2631,6 +2631,7 @@ export class WebInspectorElement extends LitElement {
         this.runtimeStatus = status;
         if (status === "connected") {
           if (!core.telemetryDisabled) {
+            ensureTelemetryDistinctId();
             maybeShowDisclosure();
           }
           for (const agentId of this._ownedThreadStores.keys()) {
@@ -4190,12 +4191,6 @@ ${argsString}</pre
     if (typeof window === "undefined") {
       return;
     }
-
-    // Ensure the anonymous distinct-ID is set on inspector load (per
-    // OSS-96 acceptance criteria), so it's available for cross-domain
-    // propagation onto banner-CTA links even before the first event
-    // fires. No-op when the user has opted out.
-    ensureTelemetryDistinctId();
 
     if (!this._core) {
       this.tryAutoAttachCore();
@@ -7566,14 +7561,13 @@ ${prettyEvent}</pre
   }
 
   private handleAnnouncementContentClick = (event: Event): void => {
-    // banner_clicked fires once per banner per cta-type per mount. Dedup
-    // prevents copy-button retries and accidental multi-clicks from inflating
-    // funnel counts beyond one "body" signal and one "dismiss" signal per banner.
-    this.trackBannerClickedOnce({ cta: "body" });
-
     const target = event.target instanceof HTMLElement ? event.target : null;
     const button = target?.closest(".announcement-code__copy");
     if (!(button instanceof HTMLButtonElement)) {
+      // banner_clicked fires once per banner per cta-type per mount. Dedup
+      // prevents accidental multi-clicks from inflating funnel counts beyond
+      // one "body" signal and one "dismiss" signal per banner.
+      this.trackBannerClickedOnce({ cta: "body" });
       return;
     }
     event.preventDefault();
