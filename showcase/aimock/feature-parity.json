@@ -808,6 +808,14 @@
     },
     {
       "match": {
+        "userMessage": "What recipe am I making"
+      },
+      "response": {
+        "content": "Looking at your recipe state, you're working on a dish built around carrots and all-purpose flour — the form is set to Intermediate skill and 45 minutes. Want suggestions for ingredients or instructions to round it out?"
+      }
+    },
+    {
+      "match": {
         "userMessage": "city"
       },
       "response": {
