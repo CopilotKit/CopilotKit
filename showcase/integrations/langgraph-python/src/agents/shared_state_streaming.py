@@ -12,6 +12,8 @@ This is the canonical per-token state-streaming pattern:
 docs.copilotkit.ai/integrations/langgraph/shared-state/predictive-state-updates
 """
 
+import uuid
+
 from langchain.agents import AgentState as BaseAgentState, create_agent
 from langchain.tools import ToolRuntime, tool
 from langchain_core.messages import ToolMessage
@@ -47,6 +49,8 @@ def write_document(document: str, runtime: ToolRuntime) -> Command:
             "messages": [
                 ToolMessage(
                     content="Document written to shared state.",
+                    name="write_document",
+                    id=str(uuid.uuid4()),
                     tool_call_id=runtime.tool_call_id,
                 )
             ],
@@ -56,7 +60,7 @@ def write_document(document: str, runtime: ToolRuntime) -> Command:
 
 # @region[state-streaming-middleware]
 graph = create_agent(
-    model=ChatOpenAI(model="gpt-4o-mini"),
+    model=ChatOpenAI(model="gpt-5.4"),
     tools=[write_document],
     middleware=[
         CopilotKitMiddleware(),

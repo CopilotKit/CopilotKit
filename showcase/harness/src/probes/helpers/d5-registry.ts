@@ -84,6 +84,17 @@ export type D5FeatureType =
   // Interrupt family — LangGraph-interrupt-driven HITL (distinct from
   // useHumanInTheLoop hook patterns).
   | "gen-ui-interrupt"
+  // Headless-interrupt — same `interrupt(...)` backend pattern as
+  // gen-ui-interrupt, but the time-picker mounts in a separate "app
+  // surface" pane (left) instead of inline inside the chat bubble.
+  // Probes `useHeadlessInterrupt` (custom-event subscribe + manual
+  // `runAgent({forwardedProps:{command:{resume,...}}})`).
+  | "interrupt-headless"
+  // Tool-rendering with reasoning chain — combines per-tool renderers
+  // (WeatherCard / FlightListCard / catchall) with a `reasoningMessage`
+  // slot rendering reasoning tokens. Distinct from `tool-rendering`
+  // (no reasoning) and `reasoning-display` (no per-tool renderers).
+  | "tool-rendering-reasoning-chain"
   // BYOC family — bring-your-own-component structured-output rendering
   // (one literal covers hashbrown + json-render via preNavigateRoute).
   | "byoc"
@@ -141,6 +152,8 @@ const D5_FEATURE_TYPES: readonly D5FeatureType[] = [
   "tool-rendering-default-catchall",
   "tool-rendering-custom-catchall",
   "gen-ui-interrupt",
+  "interrupt-headless",
+  "tool-rendering-reasoning-chain",
   "byoc",
   "voice",
   "beautiful-chat-toggle-theme",

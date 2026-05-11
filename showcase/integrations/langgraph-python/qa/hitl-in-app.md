@@ -10,11 +10,11 @@
 
 ### 1. Basic Functionality
 
-- [ ] Navigate to `/demos/hitl-in-app`; verify the page renders within 3s as a two-column layout — left column is the "Support Inbox" panel, right column is the `CopilotChat` surface (bordered, `w-[420px]`)
+- [ ] Navigate to `/demos/hitl-in-app`; verify the page renders within 3s with the "Support Inbox" panel filling the viewport and the `CopilotPopup` open by default in the bottom-right corner
 - [ ] Verify the left header shows the eyebrow "Support Inbox", heading "Open tickets", and the instruction text mentioning "approval dialog here in the app — outside the chat"
 - [ ] Verify exactly 3 ticket cards render with test ids `ticket-12345`, `ticket-12346`, `ticket-12347`, each showing the customer name (Jordan Rivera / Priya Shah / Morgan Lee), subject line, and status pill ("Open" green, "Escalating" amber)
 - [ ] Verify ticket #12345 displays "Disputed amount: $50.00"
-- [ ] Verify the `CopilotChat` input placeholder is visible and no approval dialog is rendered on initial load
+- [ ] Verify the `CopilotPopup` chat input placeholder is visible (popup opens by default) and no approval dialog is rendered on initial load
 - [ ] Send "Hello" and verify the agent responds within 10s
 
 ### 2. Feature-Specific Checks
@@ -30,7 +30,7 @@
 
 - [ ] Click the "Approve refund for #12345" suggestion (or type the equivalent prompt)
 - [ ] Within 15s verify an approval modal appears with `data-testid="approval-dialog-overlay"` (fullscreen fixed backdrop with `backdrop-blur-sm`) and `data-testid="approval-dialog"` (centered card with `role="dialog"` and `aria-modal="true"`)
-- [ ] Verify the modal is rendered at the document root (portaled via `createPortal(content, document.body)`) — confirm in DevTools that `approval-dialog-overlay` is a direct descendant of `<body>`, NOT nested inside the `CopilotChat` container
+- [ ] Verify the modal is rendered at the document root (portaled via `createPortal(content, document.body)`) — confirm in DevTools that `approval-dialog-overlay` is a direct descendant of `<body>`, NOT nested inside the `CopilotPopup` container
 - [ ] Verify the modal shows the eyebrow "Action requires your approval", a heading containing the action summary (with concrete numbers such as "$50" and "#12345"), and optional context block below
 - [ ] Verify the textarea `data-testid="approval-dialog-reason"` is present with placeholder "Add a short note the assistant will see…"
 - [ ] Type a short note (e.g. "Verified duplicate charge") into the reason textarea
@@ -55,7 +55,7 @@
 
 #### Modal Is Outside the Chat (Contract Check)
 
-- [ ] While the modal is open, verify the chat transcript is still scrollable / visible on the right and does NOT contain an inline copy of the approval UI
+- [ ] While the modal is open, verify the chat transcript inside the popup is still scrollable / visible and does NOT contain an inline copy of the approval UI
 - [ ] Confirm that closing the modal via Approve/Reject is the only resolution path — there is no inline "approve" button rendered inside a chat bubble
 
 ### 3. Error Handling

@@ -10,8 +10,9 @@ turns into a human-readable result the agent uses to confirm the booking.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta
 from typing import Any, List, Optional
+from zoneinfo import ZoneInfo
 
 from langchain.agents import create_agent
 from langchain_core.tools import tool
@@ -29,31 +30,35 @@ SYSTEM_PROMPT = (
     "cancelled."
 )
 
+# Demo-only fixed timezone. A real app would use the user's calendar +
+# locale (e.g. zoneinfo.ZoneInfo(user.timezone) and Google Calendar /
+# Outlook availability); we hardcode Pacific so screenshots are stable.
+_DEMO_TZ = ZoneInfo("America/Los_Angeles")
+
 
 def _candidate_slots() -> List[dict]:
-    """Generate a small set of upcoming candidate time slots.
-
-    Returned slots are surfaced to the frontend as part of the interrupt
-    payload so the picker UI shows times relative to "now", not stale
-    hardcoded dates baked into the frontend.
-    """
-    # Pacific Time offset (PDT). Showcase only — a real app would use a
-    # proper timezone library and the user's calendar availability.
-    tz = timezone(timedelta(hours=-7))
-    now = datetime.now(tz)
+    """Upcoming candidate slots, relative to "now" so the picker never
+    shows stale dates."""
+    now = datetime.now(_DEMO_TZ)
     tomorrow = (now + timedelta(days=1)).date()
-    next_monday = (now + timedelta(days=(7 - now.weekday()) % 7 or 7)).date()
-
-    def at(d, hour: int, minute: int = 0) -> datetime:
-        return datetime(d.year, d.month, d.day, hour, minute, tzinfo=tz)
-
+    # Skip a week when the result would collide with `tomorrow` — i.e.
+    # today is Mon (0 days away, picker would show two slots both
+    # labelled "Monday") or Sun (1 day away, picker would show
+    # "Tomorrow" and "Monday" both pointing at the same date).
+    days_to_monday = (7 - now.weekday()) % 7
+    if days_to_monday <= 1:
+        days_to_monday += 7
+    next_monday = (now + timedelta(days=days_to_monday)).date()
     candidates = [
-        ("Tomorrow 10:00 AM", at(tomorrow, 10)),
-        ("Tomorrow 2:00 PM", at(tomorrow, 14)),
-        ("Monday 9:00 AM", at(next_monday, 9)),
-        ("Monday 3:30 PM", at(next_monday, 15, 30)),
+        ("Tomorrow 10:00 AM", tomorrow, time(10, 0)),
+        ("Tomorrow 2:00 PM", tomorrow, time(14, 0)),
+        ("Monday 9:00 AM", next_monday, time(9, 0)),
+        ("Monday 3:30 PM", next_monday, time(15, 30)),
     ]
-    return [{"label": label, "iso": dt.isoformat()} for label, dt in candidates]
+    return [
+        {"label": label, "iso": datetime.combine(d, t, _DEMO_TZ).isoformat()}
+        for label, d, t in candidates
+    ]
 
 
 # @region[backend-interrupt-tool]
@@ -92,7 +97,7 @@ def schedule_meeting(topic: str, attendee: Optional[str] = None) -> str:
 # @endregion[backend-interrupt-tool]
 
 
-model = ChatOpenAI(model="gpt-4o-mini")
+model = ChatOpenAI(model="gpt-5.4")
 
 graph = create_agent(
     model=model,

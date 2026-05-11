@@ -10,19 +10,16 @@
 
 ### 1. Basic Functionality
 
-- [ ] Navigate to `/demos/chat-slots`; verify the page renders a centered chat surface (max-width 4xl, full viewport height) within 3s
+- [ ] Navigate to `/demos/chat-slots`; verify the page renders a centered chat surface (max-width 5xl, full viewport height) within 3s
 - [ ] Verify the custom welcome screen is visible (`data-testid="custom-welcome-screen"`), replacing the default welcome
-- [ ] Verify the custom welcome card contains ALL of the following verbatim elements:
-  - a pill/badge reading "Custom Slot" (uppercase, rounded, white text on indigo/purple gradient background)
-  - a heading (h1) reading "Welcome to the Slots demo"
-  - body text reading "This welcome card is rendered via the `welcomeScreen` slot." (the word `welcomeScreen` is in monospace)
+- [ ] Verify the nested welcomeMessage sub-slot renders inside the welcome screen (`data-testid="custom-welcome-message"`) with body text reading "Hover any region to see its slot path · click the badge to copy"
 - [ ] Verify the welcome card wraps the default chat `input` element and a `suggestionView` row beneath it (both passed in as props by CopilotChatView)
 
 ### 2. Feature-Specific Checks
 
 #### Welcome Screen Slot (`welcomeScreen`)
 
-- [ ] Confirm the welcome card has a gradient background (Tailwind `from-indigo-500 to-purple-600`) with white text and a shadow — visually distinct from the default CopilotChat welcome
+- [ ] Confirm the welcome card displays a hoverable SlotMarker badge (the gradient indigo/violet ring) — visually distinct from the default CopilotChat welcome
 - [ ] Confirm NO default CopilotChat welcome heading is rendered (the custom card fully replaces it)
 
 #### Suggestions (`useConfigureSuggestions`)
@@ -51,7 +48,7 @@
 ### 3. Error Handling
 
 - [ ] Attempt to send an empty message; verify it is a no-op (no user bubble, no network request)
-- [ ] Send a ~500-character message; verify it wraps within the max-w-4xl container without horizontal scroll or layout break; the custom assistant-message card grows to fit the response
+- [ ] Send a ~500-character message; verify it wraps within the max-w-5xl container without horizontal scroll or layout break; the custom assistant-message card grows to fit the response
 - [ ] Verify DevTools → Console shows no uncaught errors or missing-prop warnings during any flow above
 
 ## Expected Results

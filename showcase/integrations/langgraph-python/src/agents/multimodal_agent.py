@@ -49,6 +49,7 @@ from langchain.agents import create_agent
 from langchain.agents.middleware import AgentMiddleware
 from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
+from pypdf import PdfReader
 
 
 SYSTEM_PROMPT = (
@@ -78,36 +79,19 @@ def _extract_data_url_parts(url: str) -> tuple[str, str]:
 
 
 def _extract_pdf_text(b64: str) -> str:
-    """Decode an inline-base64 PDF and extract its text.
-
-    Returns an empty string if decoding or extraction fails — callers must
-    treat the extracted text as best-effort. Any exception here is logged
-    and swallowed so one malformed attachment does not tank the whole
-    user turn.
-    """
+    """Decode an inline-base64 PDF and extract its text. Returns "" on
+    any failure so one malformed attachment doesn't tank the user turn —
+    callers must treat the extracted text as best-effort."""
     try:
         raw = base64.b64decode(b64, validate=False)
-    except Exception as exc:  # pragma: no cover - defensive
-        print(f"[multimodal_agent] base64 decode failed: {exc}")
-        return ""
-
-    try:
-        # Lazy import — keeps the module importable even if pypdf is missing
-        # at dev-server boot (we only need it when a PDF actually arrives).
-        from pypdf import PdfReader  # type: ignore[import-not-found]
-    except ImportError as exc:  # pragma: no cover - defensive
-        print(
-            "[multimodal_agent] pypdf not installed — PDF text extraction "
-            f"unavailable: {exc}",
-        )
-        return ""
-
-    try:
         reader = PdfReader(io.BytesIO(raw))
         pages = [page.extract_text() or "" for page in reader.pages]
         return "\n\n".join(pages).strip()
     except Exception as exc:  # pragma: no cover - defensive
-        print(f"[multimodal_agent] pypdf extraction failed: {exc}")
+        # One log line so a malformed attachment stays triageable in
+        # Railway logs without restoring the per-stage noise the
+        # cleanup removed.
+        print(f"[multimodal_agent] PDF extract failed: {exc!r}")
         return ""
 
 
@@ -238,7 +222,7 @@ class _PdfFlattenMiddleware(AgentMiddleware):
 
 
 # Vision-capable model. gpt-4o consumes `image_url` content parts natively.
-_MODEL = ChatOpenAI(model="gpt-4o", temperature=0.2)
+_MODEL = ChatOpenAI(model="gpt-5.4", temperature=0.2)
 
 
 graph = create_agent(

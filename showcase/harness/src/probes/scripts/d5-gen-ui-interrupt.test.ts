@@ -34,13 +34,31 @@ describe("d5-gen-ui-interrupt script", () => {
     ]);
   });
 
-  it("assertion clicks slot via evaluate (JS-level click) then waits for picked state", async () => {
-    // The probe now uses `clickByJs` (page.evaluate-driven .click()) to
-    // bypass the cpk-web-inspector overlay. Assert the evaluate call
-    // fires with a function whose body contains the slot selector,
-    // followed by waitForSelector for the picked-state testid.
+  it("assertion clicks slot via evaluate (JS-level click) then polls for resolved-state signal", async () => {
+    // The probe uses `clickByJs` (page.evaluate-driven .click()) to
+    // bypass the cpk-web-inspector overlay, then polls page.evaluate
+    // for one of three resume signals: `pickedTestid` (the
+    // time-picker-picked testid mounted), `bookedBadge` (the visible
+    // "Booked" badge text), or `scheduledNarration` (the agent's
+    // resume continuation containing "scheduled" / "confirmed"). Any
+    // of those means resolve() fired and propagated.
+    //
+    // Test mock: first evaluate call is the click (returns undefined),
+    // second evaluate call is the poll (returns a signal that satisfies
+    // one of the three conditions so the assertion resolves cleanly).
+    let evaluateCallCount = 0;
     const evaluate = vi.fn<(fn: () => unknown) => Promise<unknown>>(
-      async () => undefined,
+      async () => {
+        evaluateCallCount += 1;
+        if (evaluateCallCount === 1) return undefined; // click
+        // Subsequent polling calls — return a signal that triggers exit.
+        return {
+          pickedTestid: true,
+          bookedBadge: false,
+          scheduledNarration: false,
+          sample: "",
+        };
+      },
     );
     const waitForSelector = vi.fn().mockResolvedValue(undefined);
     const page = {
@@ -60,8 +78,10 @@ describe("d5-gen-ui-interrupt script", () => {
     const clickFn = firstCall![0];
     expect(typeof clickFn).toBe("function");
     expect(clickFn.toString()).toContain("time-picker-slot");
+    // The probe waits on the time-picker-card AND the time-picker-slot
+    // testids before clicking; both should have been waitForSelector'd.
     expect(waitForSelector).toHaveBeenCalledWith(
-      '[data-testid="time-picker-picked"]',
+      '[data-testid="time-picker-card"]',
       expect.objectContaining({ state: "visible" }),
     );
   });

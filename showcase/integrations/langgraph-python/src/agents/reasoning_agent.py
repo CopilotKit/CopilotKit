@@ -24,8 +24,12 @@ SYSTEM_PROMPT = (
     "step-by-step about the approach, then give a concise answer."
 )
 
-REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", "gpt-5-mini")
+REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", "gpt-5.4")
 
+# No CopilotKitMiddleware — this demo exercises only reasoning-token streaming
+# through the OpenAI Responses API and doesn't consume frontend tools or app
+# context. The other showcase agents that *do* expose CopilotKit features add
+# `middleware=[CopilotKitMiddleware()]` explicitly.
 graph = create_deep_agent(
     model=init_chat_model(
         f"openai:{REASONING_MODEL}",

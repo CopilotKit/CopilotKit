@@ -73,7 +73,7 @@ class AgentState(BaseAgentState):
 # Each sub-agent is a full-fledged `create_agent(...)` with its own
 # system prompt. They don't share memory or tools with the supervisor —
 # the supervisor only sees their return value.
-_sub_model = ChatOpenAI(model="gpt-4o-mini")
+_sub_model = ChatOpenAI(model="gpt-5.4")
 
 _research_agent = create_agent(
     model=_sub_model,
@@ -113,45 +113,33 @@ SUB_AGENT_EMPTY_SENTINEL = "<sub-agent produced no output>"
 
 
 def _invoke_sub_agent(agent, task: str) -> str:
-    """Run a sub-agent on `task` and return its final prose message.
-
-    Walks the sub-agent's returned messages list newest → oldest and
-    returns the first AIMessage with non-empty string content. This
-    avoids two failure modes:
-
-      1. The final message may be an empty AIMessage that only carries
-         `tool_calls` (no text content) — falling back to `messages[-1]`
-         would surface an empty string.
-      2. If the supervisor's chat history leaks into the sub-agent's
-         result list, we still pick the AI's actual prose answer for
-         this task instead of a stale assistant intro.
-    """
+    """Run a sub-agent on `task` and return its final prose message."""
     result = agent.invoke({"messages": [HumanMessage(content=task)]})
     messages = result.get("messages", [])
+    # Walk newest -> oldest so we pick the answer for THIS task, not a stale
+    # intro. Skip empty AIMessages that only carry tool_calls.
     for msg in reversed(messages):
         if isinstance(msg, AIMessage):
             content = msg.content
             if isinstance(content, str) and content.strip():
                 return content
             # Some providers stream content as a list of content blocks
-            # (e.g. {"type": "text", "text": "..."}). Concatenate any
-            # text blocks we find.
+            # (e.g. {"type": "text", "text": "..."}); concatenate the text.
+            # The `isinstance(block.get("text"), str)` guard rejects
+            # `{"type": "text", "text": null}` payloads — a known provider
+            # quirk — that would otherwise crash `"".join(...)` with
+            # `TypeError: sequence item N: expected str instance, NoneType found`.
             if isinstance(content, list):
-                parts: list[str] = []
-                for block in content:
-                    if isinstance(block, dict) and block.get("type") == "text":
-                        text = block.get("text")
-                        if isinstance(text, str):
-                            parts.append(text)
+                parts = [
+                    block["text"]
+                    for block in content
+                    if isinstance(block, dict)
+                    and block.get("type") == "text"
+                    and isinstance(block.get("text"), str)
+                ]
                 joined = "".join(parts).strip()
                 if joined:
                     return joined
-    # Last-resort fallback: surface an explicit sentinel rather than ""
-    # or a Python repr like "[{'type': 'text', ...}]" leaking from a
-    # block-list `content`. The d5-subagents probe asserts this exact
-    # sentinel against its boilerplate-marker list so an empty/garbled
-    # sub-agent result fails the genuine-pass test instead of silently
-    # rendering an empty card.
     return SUB_AGENT_EMPTY_SENTINEL
 
 
@@ -181,6 +169,8 @@ def _delegation_update(
             "messages": [
                 ToolMessage(
                     content=result,
+                    name=sub_agent,
+                    id=str(uuid.uuid4()),
                     tool_call_id=tool_call_id,
                 )
             ],
@@ -257,6 +247,8 @@ def critique_agent(task: str, runtime: ToolRuntime) -> Command:
                 "messages": [
                     ToolMessage(
                         content=skip_message,
+                        name="critique_agent",
+                        id=str(uuid.uuid4()),
                         tool_call_id=runtime.tool_call_id,
                     )
                 ],
@@ -274,7 +266,7 @@ def critique_agent(task: str, runtime: ToolRuntime) -> Command:
 # ---------------------------------------------------------------------------
 
 graph = create_agent(
-    model=ChatOpenAI(model="gpt-4o-mini"),
+    model=ChatOpenAI(model="gpt-5.4"),
     tools=[research_agent, writing_agent, critique_agent],
     middleware=[CopilotKitMiddleware()],
     state_schema=AgentState,

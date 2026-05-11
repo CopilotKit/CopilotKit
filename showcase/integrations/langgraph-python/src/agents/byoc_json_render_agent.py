@@ -5,7 +5,7 @@ format (`{ root, elements }`) so the frontend can feed it directly into
 `<Renderer />` against a Zod-validated catalog of three components —
 MetricCard, BarChart, PieChart.
 
-The scenario mirrors the byoc-hashbrown demo so the two BYOC rows on the
+The scenario mirrors the declarative-hashbrown demo so the two BYOC rows on the
 dashboard are directly comparable. The only difference is the rendering
 technology; the catalog shape and suggestion prompts are identical.
 """
@@ -150,7 +150,7 @@ Respond with the JSON object only.
 # which is exactly what `<Renderer />` needs.
 graph = create_agent(
     model=ChatOpenAI(
-        model="gpt-4o-mini",
+        model="gpt-5.4",
         temperature=0.2,
         model_kwargs={"response_format": {"type": "json_object"}},
     ),

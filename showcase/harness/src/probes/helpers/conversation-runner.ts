@@ -274,18 +274,35 @@ export async function runConversation(
   // ever got a chance to dismiss it. Subsequent turns reuse the cached
   // selector so we don't re-probe per turn.
   let chatInputSelector: string | null = null;
-  // Initial assistant-message count is also computed lazily (after
-  // preFill) for the same reason: on idiomatic-shape auth demos the
-  // chat tree isn't mounted until preFill clicks sign-in, so reading
-  // before preFill would always observe 0 (correct here, but the read
-  // belongs alongside the resolution it pairs with).
+  // Try to resolve the chat input AT BOOT first — when it works
+  // (every demo except idiomatic-shape auth), capture the baseline
+  // assistant-message count BEFORE turn 1's preFill runs. Demos like
+  // /demos/headless-complete fire the user message inside preFill (a
+  // chip click), so reading the baseline AFTER preFill would observe
+  // the assistant's response already appended and the settle would
+  // wait forever for further growth that never comes. The deferred
+  // path is only used when boot-time resolution fails — that's
+  // specifically the auth shape, where the chat tree mounts later.
   let baselineCount = 0;
-  console.debug(
-    "[conversation-runner] initial baseline assistant message count",
-    {
-      baselineCount,
-    },
-  );
+  try {
+    chatInputSelector = await resolveChatInputSelector(
+      page,
+      opts.chatInputSelector,
+    );
+    console.debug(
+      "[conversation-runner] resolved chat input selector at boot",
+      { selector: chatInputSelector },
+    );
+    baselineCount = await readMessageCount(page);
+    console.debug(
+      "[conversation-runner] initial baseline assistant message count (boot)",
+      { baselineCount },
+    );
+  } catch {
+    console.debug(
+      "[conversation-runner] chat input cascade did not resolve at boot — deferring to post-preFill (auth shape)",
+    );
+  }
 
   for (let idx = 0; idx < total; idx++) {
     const turn = turns[idx]!;

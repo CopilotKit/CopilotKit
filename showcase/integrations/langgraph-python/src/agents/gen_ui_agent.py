@@ -1,22 +1,14 @@
 """gen-ui-agent — minimal agent with explicit state + state-editing tool.
 
-The agent plans a task as a list of steps and walks each step pending ->
-in_progress -> completed, calling `set_steps` to publish state after each
-transition. The frontend subscribes to `state.steps` and renders a single
-live progress card.
-
-This used to wrap `deepagents.create_deep_agent`, which adds a planner +
-sub-agent + write_todos middleware on top of the core ReAct loop. For a
-task this simple (one tool, sequential calls) that planner ate enough
-supersteps to repeatedly trip LangGraph's recursion limit before the
-agent finished. Switched to the plain `langchain.agents.create_agent`
-ReAct loop — one superstep per LLM/tool call — and pass the custom
-state schema directly via `state_schema=` instead of through a
-middleware-only workaround.
+The agent plans a task as 3 steps and walks each pending -> in_progress
+-> completed, calling `set_steps` after every transition. The frontend
+subscribes to `state.steps` via `useAgent` and renders a live progress
+card.
 """
 
 from __future__ import annotations
 
+import uuid
 from typing import Annotated, Any, Literal
 
 from copilotkit import CopilotKitMiddleware
@@ -57,7 +49,10 @@ def set_steps(
             "steps": steps,
             "messages": [
                 ToolMessage(
-                    f"Published {len(steps)} step(s).", tool_call_id=tool_call_id
+                    f"Published {len(steps)} step(s).",
+                    name="set_steps",
+                    id=str(uuid.uuid4()),
+                    tool_call_id=tool_call_id,
                 )
             ],
         }
@@ -85,8 +80,14 @@ SYSTEM_PROMPT = (
 )
 
 
-# Worst-case supersteps for a clean run: 1 plan + 6 transitions + 1 final
-# message = ~14. Doubled for headroom against retries inside the LLM loop.
+# Uses `langchain.agents.create_agent` (not `deepagents.create_deep_agent`)
+# because `create_deep_agent`'s planner+sub-agent middleware ate enough
+# supersteps on this single-tool ReAct loop to repeatedly trip
+# LangGraph's default recursion limit. The ReAct loop here is two
+# supersteps per LLM/tool cycle (model node + tool node); the prompt
+# drives ~7 set_steps cycles + 1 final model turn, so nominal cost is
+# ~15 supersteps. `recursion_limit=50` gives ~3× headroom for retries
+# inside the LLM loop.
 graph = create_agent(
     model=init_chat_model(
         "openai:gpt-4o-mini", temperature=0, use_responses_api=False

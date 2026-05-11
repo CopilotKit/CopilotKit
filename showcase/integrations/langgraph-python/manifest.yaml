@@ -43,6 +43,7 @@ features:
   - hitl-in-chat
   - hitl-in-app
   - gen-ui-interrupt
+  - interrupt-headless
   - declarative-gen-ui
   - a2ui-fixed-schema
   - mcp-apps
@@ -50,14 +51,16 @@ features:
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
   - tool-rendering
+  - tool-rendering-reasoning-chain
+  - shared-state-read
   - shared-state-read-write
   - shared-state-streaming
   - readonly-state-agent-context
   - subagents
   - multimodal
   - auth
-  - byoc-hashbrown
-  - byoc-json-render
+  - declarative-hashbrown
+  - declarative-json-render
   - open-gen-ui
   - open-gen-ui-advanced
   - voice
@@ -74,8 +77,8 @@ demos:
       - chat-ui
     command: "npx copilotkit@latest init --framework langgraph-python"
   - id: agentic-chat
-    name: "Prebuilt: CopilotChat"
-    description: Natural conversation with frontend tool execution
+    name: "Pre-Built: CopilotChat"
+    description: Vanilla CopilotChat with three starter-prompt suggestions — the minimum-viable surface for free-form chat
     tags:
       - chat-ui
     route: /demos/agentic-chat
@@ -97,7 +100,7 @@ demos:
       - src/app/demos/chat-customization-css/theme.css
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering-default-catchall
-    name: "Generative UI: Tool Rendering - Default"
+    name: "Generative UI: Tool Rendering (Default)"
     description: Out-of-the-box tool rendering — backend defines the tools; the frontend adds zero custom renderers and relies on CopilotKit's built-in default UI
     tags:
       - generative-ui
@@ -108,7 +111,7 @@ demos:
       - src/agents/tool_rendering_agent.py
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering-custom-catchall
-    name: "Generative UI: Tool Rendering - Custom Default"
+    name: "Generative UI: Tool Rendering (Catch-all)"
     description: Single branded wildcard renderer via useDefaultRenderTool — the same app-designed card paints every tool call
     tags:
       - generative-ui
@@ -120,7 +123,7 @@ demos:
       - src/agents/tool_rendering_agent.py
       - src/app/api/copilotkit/route.ts
   - id: frontend-tools
-    name: "Frontend Tools: In-App Actions"
+    name: "Frontend Tools: In-app Actions"
     description: Agent invokes client-side handlers registered with useFrontendTool
     tags:
       - interactivity
@@ -143,7 +146,7 @@ demos:
       - src/app/demos/frontend-tools-async/notes-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: hitl-in-chat
-    name: "Human in the Loop: In-chat"
+    name: "Human In the Loop: In-chat"
     description: Time-slot picker rendered inline in the chat via `useHumanInTheLoop` — the agent requests user input, the frontend renders a TimePickerCard, and the user's choice resumes the agent.
     tags:
       - interactivity
@@ -155,7 +158,7 @@ demos:
       - src/agents/hitl_in_chat_agent.py
       - src/app/api/copilotkit/route.ts
   - id: hitl-in-app
-    name: "Human in the Loop: In-App"
+    name: "Human in the Loop: In-app"
     description: Agent requests approval via useFrontendTool with an async handler; the approval UI pops up as an app-level modal OUTSIDE the chat, and a completion callback resolves the pending tool Promise with the user's decision
     tags:
       - interactivity
@@ -167,7 +170,7 @@ demos:
       - src/app/demos/hitl-in-app/approval-dialog.tsx
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering
-    name: "Generative UI: Tool Rendering - Specific"
+    name: "Generative UI: Tool Rendering (Custom)"
     description: Custom per-tool renderers (WeatherCard, FlightListCard) plus a wildcard catch-all for every other tool
     tags:
       - generative-ui
@@ -178,6 +181,21 @@ demos:
       - src/app/demos/tool-rendering/page.tsx
       - src/app/demos/tool-rendering/weather-card.tsx
       - src/app/demos/tool-rendering/flight-list-card.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: tool-rendering-reasoning-chain
+    name: "Generative UI: Tool calls + reasoning"
+    description: "Per-tool renderers (WeatherCard, FlightListCard, custom catchall) interleaved with a reasoningMessage slot rendering the agent's reasoning tokens — combines reasoning-display + tool-rendering in one chat surface."
+    tags:
+      - generative-ui
+    route: /demos/tool-rendering-reasoning-chain
+    animated_preview_url:
+    highlight:
+      - src/agents/tool_rendering_reasoning_chain_agent.py
+      - src/app/demos/tool-rendering-reasoning-chain/page.tsx
+      - src/app/demos/tool-rendering-reasoning-chain/reasoning-block.tsx
+      - src/app/demos/tool-rendering-reasoning-chain/weather-card.tsx
+      - src/app/demos/tool-rendering-reasoning-chain/flight-list-card.tsx
+      - src/app/demos/tool-rendering-reasoning-chain/custom-catchall-renderer.tsx
       - src/app/api/copilotkit/route.ts
   - id: gen-ui-tool-based
     name: "Generative UI: useComponent"
@@ -228,6 +246,16 @@ demos:
       - src/app/demos/shared-state-read-write/preferences-card.tsx
       - src/app/demos/shared-state-read-write/notes-card.tsx
       - src/app/api/copilotkit/route.ts
+  - id: shared-state-read
+    name: "Shared State: Read-only"
+    description: "Recipe editor publishes form state via agent.setState; the agent reads the recipe context but does not mutate it (no backend tool — neutral default agent)."
+    tags:
+      - agent-state
+    route: /demos/shared-state-read
+    animated_preview_url:
+    highlight:
+      - src/app/demos/shared-state-read/page.tsx
+      - src/app/api/copilotkit/route.ts
   - id: subagents
     name: Sub-Agents
     description: Multiple agents with visible task delegation
@@ -263,7 +291,7 @@ demos:
       - src/app/demos/prebuilt-popup/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: chat-slots
-    name: Chat Customization (Slots)
+    name: "Chat Customization: Slots"
     description: Customize CopilotChat via its slot system
     tags:
       - chat-ui
@@ -326,7 +354,7 @@ demos:
       - src/agents/reasoning_agent.py
       - src/app/api/copilotkit/route.ts
   - id: gen-ui-interrupt
-    name: "Human in the Loop: Interrupt based"
+    name: "Human in the Loop: Interrupts"
     description: Interactive component rendered inline in the chat via the lower-level `useInterrupt` primitive — direct control over the LangGraph interrupt lifecycle
     tags:
       - interactivity
@@ -337,8 +365,19 @@ demos:
       - src/app/demos/gen-ui-interrupt/page.tsx
       - src/app/demos/gen-ui-interrupt/_components/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
+  - id: interrupt-headless
+    name: "Human in the Loop: Headless Interrupts"
+    description: "Same interrupt(...) backend pattern as gen-ui-interrupt, but the time-picker mounts in a separate app-surface pane (left) instead of inline inside the chat — uses useHeadlessInterrupt (custom-event subscribe + manual runAgent forwardedProps.command.resume)."
+    tags:
+      - interactivity
+    route: /demos/interrupt-headless
+    animated_preview_url:
+    highlight:
+      - src/agents/interrupt_agent.py
+      - src/app/demos/interrupt-headless/page.tsx
+      - src/app/api/copilotkit/route.ts
   - id: declarative-gen-ui
-    name: "Declarative UI: A2UI"
+    name: "Declarative UI: Dynamic A2UI"
     description: Canonical A2UI BYOC — custom catalog (Card/StatusBadge/Metric/InfoRow/PrimaryButton) wired via a2ui.catalog on the provider; runtime injects the render_a2ui tool automatically
     tags:
       - generative-ui
@@ -352,7 +391,7 @@ demos:
       - src/app/demos/declarative-gen-ui/a2ui/renderers.tsx
       - src/app/api/copilotkit/route.ts
   - id: a2ui-fixed-schema
-    name: "Declarative UI: A2UI (Fixed Schema)"
+    name: "Declarative UI: Fixed A2UI"
     description: Render an A2UI tree from a fixed, server-side schema — the agent streams data into a pre-authored component tree
     tags:
       - generative-ui
@@ -378,7 +417,7 @@ demos:
       - src/app/demos/mcp-apps/page.tsx
       - src/app/api/copilotkit-mcp-apps/[[...slug]]/route.ts
   - id: readonly-state-agent-context
-    name: Frontend Context Sharing
+    name: "Shared State: Frontend Context"
     description: Frontend provides read-only context to the agent via useAgentContext
     tags:
       - agent-state
@@ -388,25 +427,25 @@ demos:
       - src/agents/readonly_state_agent_context.py
       - src/app/demos/readonly-state-agent-context/page.tsx
       - src/app/api/copilotkit/route.ts
-  - id: byoc-json-render
+  - id: declarative-json-render
     name: "Declarative UI: json-render"
     description: Streaming hierarchical JSON UI spec rendered via @json-render/react, with a Zod-validated catalog (MetricCard + PieChart + BarChart)
     tags:
       - generative-ui
-    route: /demos/byoc-json-render
+    route: /demos/declarative-json-render
     animated_preview_url:
     highlight:
       - src/agents/byoc_json_render_agent.py
-      - src/app/demos/byoc-json-render/page.tsx
-      - src/app/demos/byoc-json-render/json-render-renderer.tsx
-      - src/app/demos/byoc-json-render/registry.tsx
-      - src/app/demos/byoc-json-render/catalog.ts
-      - src/app/demos/byoc-json-render/metric-card.tsx
-      - src/app/demos/byoc-json-render/charts/bar-chart.tsx
-      - src/app/demos/byoc-json-render/charts/pie-chart.tsx
-      - src/app/demos/byoc-json-render/types.ts
-      - src/app/demos/byoc-json-render/suggestions.ts
-      - src/app/api/copilotkit-byoc-json-render/route.ts
+      - src/app/demos/declarative-json-render/page.tsx
+      - src/app/demos/declarative-json-render/json-render-renderer.tsx
+      - src/app/demos/declarative-json-render/registry.tsx
+      - src/app/demos/declarative-json-render/catalog.ts
+      - src/app/demos/declarative-json-render/metric-card.tsx
+      - src/app/demos/declarative-json-render/charts/bar-chart.tsx
+      - src/app/demos/declarative-json-render/charts/pie-chart.tsx
+      - src/app/demos/declarative-json-render/types.ts
+      - src/app/demos/declarative-json-render/suggestions.ts
+      - src/app/api/copilotkit-declarative-json-render/route.ts
   - id: beautiful-chat
     name: Beautiful Chat
     description: Canonical polished starter chat — brand fonts, theme tokens, suggestion pills
@@ -425,7 +464,7 @@ demos:
       - src/app/demos/beautiful-chat/hooks/use-generative-ui-examples.tsx
       - src/app/api/copilotkit-beautiful-chat/route.ts
   - id: multimodal
-    name: Multimodal Attachments
+    name: Attachments
     description: Image and PDF uploads via CopilotChat attachments, processed by a vision-capable agent
     tags:
       - chat-ui
@@ -450,26 +489,26 @@ demos:
       - src/app/demos/auth/use-demo-auth.ts
       - src/app/demos/auth/demo-token.ts
       - src/app/api/copilotkit-auth/[[...slug]]/route.ts
-  - id: byoc-hashbrown
+  - id: declarative-hashbrown
     name: "Declarative UI: Hashbrown"
     description: Streaming structured output via @hashbrownai/react, rendering a sales dashboard catalog (MetricCard + PieChart + BarChart)
     tags:
       - generative-ui
-    route: /demos/byoc-hashbrown
+    route: /demos/declarative-hashbrown
     animated_preview_url:
     highlight:
       - src/agents/byoc_hashbrown_agent.py
-      - src/app/demos/byoc-hashbrown/page.tsx
-      - src/app/demos/byoc-hashbrown/hashbrown-renderer.tsx
-      - src/app/demos/byoc-hashbrown/metric-card.tsx
-      - src/app/demos/byoc-hashbrown/charts/bar-chart.tsx
-      - src/app/demos/byoc-hashbrown/charts/pie-chart.tsx
-      - src/app/demos/byoc-hashbrown/types.ts
-      - src/app/demos/byoc-hashbrown/suggestions.ts
-      - src/app/api/copilotkit-byoc-hashbrown/route.ts
+      - src/app/demos/declarative-hashbrown/page.tsx
+      - src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx
+      - src/app/demos/declarative-hashbrown/metric-card.tsx
+      - src/app/demos/declarative-hashbrown/charts/bar-chart.tsx
+      - src/app/demos/declarative-hashbrown/charts/pie-chart.tsx
+      - src/app/demos/declarative-hashbrown/types.ts
+      - src/app/demos/declarative-hashbrown/suggestions.ts
+      - src/app/api/copilotkit-declarative-hashbrown/route.ts
   - id: open-gen-ui
     name: "Open Generative UI: Default"
-    description: Agent generates UI from an arbitrary component library
+    description: "Agent composes UI from a registered component library — distinct from Tool Rendering, which attaches a custom renderer to a *named* backend tool. Use Open Generative UI when you want the agent to assemble UI freely from a palette you control."
     tags:
       - generative-ui
     route: /demos/open-gen-ui
@@ -479,8 +518,8 @@ demos:
       - src/app/demos/open-gen-ui/page.tsx
       - src/app/api/copilotkit-ogui/route.ts
   - id: open-gen-ui-advanced
-    name: "Open Generative UI: Advanced"
-    description: Agent-authored UI that can invoke frontend sandbox functions from inside the iframe
+    name: "Open Generative UI: Custom"
+    description: "Same Open Generative UI surface, with the iframe-rendered components able to call back into frontend sandbox functions (e.g., a Calculator app whose buttons trigger handlers in the host page)."
     tags:
       - generative-ui
     route: /demos/open-gen-ui-advanced
@@ -492,7 +531,7 @@ demos:
       - src/app/demos/open-gen-ui-advanced/suggestions.ts
       - src/app/api/copilotkit-ogui/route.ts
   - id: voice
-    name: Voice Input
+    name: Voice
     description: Speech-to-text via @copilotkit/voice with a bundled sample audio button
     tags:
       - chat-ui

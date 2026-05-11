@@ -67,6 +67,7 @@ generative_ui:
       - multimodal
       - suggestions
       - shared-state-read-write
+      - shared-state-read
       - readonly-state-agent-context
       - shared-state-streaming
       - subagents
@@ -74,6 +75,8 @@ generative_ui:
       - auth
       - byoc-hashbrown
       - byoc-json-render
+      - declarative-hashbrown
+      - declarative-json-render
       - open-gen-ui
       - open-gen-ui-advanced
 

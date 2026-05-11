@@ -3,11 +3,13 @@ import { test, expect } from "@playwright/test";
 test.describe("Beautiful Chat", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/beautiful-chat");
-    // The chat client (CopilotKit v2) needs a moment to attach its provider
-    // before suggestion clicks dispatch reliably. Without this the click can
-    // race the hydration and silently no-op. Existing pill tests above were
-    // tolerant of this — the A2UI tests need the round-trip to succeed.
-    await page.waitForTimeout(3000);
+    // Wait for a suggestion pill to render before dispatching clicks —
+    // otherwise the click can race hydration and silently no-op. Picking
+    // any visible pill as the readiness signal works because all 9 pills
+    // mount in the same render pass.
+    await expect(
+      page.getByRole("button", { name: "Toggle Theme (Frontend Tools)" }),
+    ).toBeVisible({ timeout: 15000 });
   });
 
   test("page loads with logo, mode toggle, and chat input", async ({
@@ -69,7 +71,7 @@ test.describe("Beautiful Chat", () => {
 
     // Round-trip signal: the html `dark` class flips — proves both that the
     // agent responded AND that the frontend tool fired. The beautiful-chat
-    // demo does not emit `[data-role="assistant"]` on its chat turns (tool
+    // demo does not emit `[data-testid="copilot-assistant-message"]` on its chat turns (tool
     // calls render in-transcript without a text bubble), so we assert on the
     // tool's observable side effect instead of a chat-bubble selector.
     await expect

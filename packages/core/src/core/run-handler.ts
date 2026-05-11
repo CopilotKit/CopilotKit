@@ -91,6 +91,24 @@ export class RunHandler {
    */
   private _runDepth = 0;
 
+  /**
+   * Tracks the threadId of the most recent `connectAgent` call so we
+   * can distinguish a fresh thread restore (different threadId than
+   * last time — chat is rebuilding state from scratch, must clear
+   * messages/state and ask the gateway for a full replay) from a
+   * same-thread churn re-connect (effect-dep churn or transient
+   * disconnect — local messages/state are still meaningful, must
+   * preserve them and let the gateway resume from
+   * `lastSeenEventId`).
+   *
+   * Tyler's bug fired because every `connectAgent` was treated as a
+   * fresh restore, which forced the gateway to replay the full
+   * thread history on every churn re-connect and amplified the
+   * downstream churn into duplicate `cpki_event_id` rows in the
+   * inspector and intermittent "Message not found" toasts.
+   */
+  private _lastConnectedThreadId: string | null = null;
+
   constructor(private core: CopilotKitCore) {}
 
   /**
@@ -195,10 +213,32 @@ export class RunHandler {
     agent,
   }: CopilotKitCoreConnectAgentParams): Promise<RunAgentResult> {
     try {
-      // Detach any active run before connecting to avoid previous runs interfering
+      const incomingThreadId = agent.threadId ?? null;
+      const isFreshRestore = incomingThreadId !== this._lastConnectedThreadId;
+      this._lastConnectedThreadId = incomingThreadId;
+
+      // Detach any active run before connecting to avoid previous runs
+      // interfering. This stays unconditional — both fresh restores and
+      // churn re-connects need the previous socket torn down before a new
+      // one can open.
       await agent.detachActiveRun();
-      agent.setMessages([]);
-      agent.setState({});
+
+      // State reset + replay-cursor clear are gated on actually moving
+      // to a different thread. On same-thread churn, the local
+      // messages/state are still the right view of the thread, and the
+      // gateway can resume from `lastSeenEventId` instead of replaying
+      // the full history.
+      if (isFreshRestore) {
+        agent.setMessages([]);
+        agent.setState({});
+        const proxied = agent as { clearReplayCursor?: (id: string) => void };
+        if (
+          incomingThreadId &&
+          typeof proxied.clearReplayCursor === "function"
+        ) {
+          proxied.clearReplayCursor(incomingThreadId);
+        }
+      }
 
       if (agent instanceof HttpAgent) {
         agent.headers = {

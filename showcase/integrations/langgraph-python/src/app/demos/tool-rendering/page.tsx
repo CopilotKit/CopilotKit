@@ -28,7 +28,7 @@ import {
   CustomCatchallRenderer,
   type CatchallToolStatus,
 } from "./custom-catchall-renderer";
-import { parseJsonResult } from "./parse-json-result";
+import { parseJsonResult } from "../_shared/parse-json-result";
 import { useSuggestions } from "./suggestions";
 
 interface WeatherResult {

@@ -62,13 +62,24 @@ SYSTEM_PROMPT = (
     "reason step-by-step and call 2+ tools in succession when relevant."
 )
 
-REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", "gpt-5-mini")
+REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", "gpt-5.4")
 
+# No CopilotKitMiddleware — this demo combines reasoning-token streaming with
+# backend tool rendering, but doesn't consume any frontend tools or app context.
+# The frontend renders the tool calls via `useRenderTool`, which works off the
+# AG-UI tool-call event stream and doesn't require server-side middleware.
 graph = create_deep_agent(
     model=init_chat_model(
         f"openai:{REASONING_MODEL}",
         use_responses_api=True,
-        reasoning={"effort": "low", "summary": "auto"},
+        # `summary: "detailed"` forces reasoning-summary emission on every
+        # response. The previous `"auto"` lets the model decide, and with
+        # tools present the model often skips reasoning summaries entirely
+        # (the chain-of-thought goes straight to a tool call without the
+        # summary step). That breaks the `<ReasoningBlock>` mount because
+        # no reasoning-role message lands. Match the working
+        # `reasoning_agent.py` config: medium effort + detailed summary.
+        reasoning={"effort": "medium", "summary": "detailed"},
     ),
     tools=[get_weather, search_flights, get_stock_price, roll_dice],
     system_prompt=SYSTEM_PROMPT,

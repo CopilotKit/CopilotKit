@@ -17,19 +17,21 @@ import {
 } from "./d5-shared-state.js";
 
 /**
- * Unit tests for the D5 shared-state script.
+ * Unit tests for the D5 shared-state-write script.
  *
  * Coverage:
  *   1. Side-effect registration: the import alone registered the
- *      script under BOTH `shared-state-read` and `shared-state-write`
- *      with `fixtureFile: "shared-state.json"`.
+ *      script under `shared-state-write` only with
+ *      `fixtureFile: "shared-state.json"`. (The `shared-state-read`
+ *      literal moved to d5-shared-state-read.ts which probes the
+ *      standalone recipe-editor demo.)
  *   2. `buildTurns` returns ≥ 2 turns whose inputs mirror the
  *      canonical fixture's `userMessage` matchers verbatim.
  *   3. Turn 2's assertion catches missing state retention — i.e. a
  *      response that doesn't contain "blue" must throw. This is THE
  *      invariant the probe enforces.
- *   4. `preNavigateRoute` returns split paths per featureType and
- *      defends against unknown values.
+ *   4. `preNavigateRoute` returns the bidirectional read-write route
+ *      for the write featureType and defends against unknown values.
  */
 
 interface PageScript {
@@ -59,41 +61,40 @@ function makePage(script: PageScript): Page {
 
 const CTX: D5BuildContext = {
   integrationSlug: "langgraph-python",
-  featureType: "shared-state-read",
+  featureType: "shared-state-write",
   baseUrl: "https://showcase-langgraph-python.example.com",
 };
 
 describe("d5-shared-state script registration", () => {
-  it("registers under BOTH shared-state-read and shared-state-write on import", () => {
-    const read = getD5Script("shared-state-read");
+  it("registers under shared-state-write only on import", () => {
     const write = getD5Script("shared-state-write");
 
-    expect(read).toBeDefined();
     expect(write).toBeDefined();
-    // Single script registered twice — same object reference under both keys.
-    expect(read).toBe(write);
-    expect(read?.fixtureFile).toBe("shared-state.json");
-    expect(read?.featureTypes).toEqual([
-      "shared-state-read",
-      "shared-state-write",
-    ]);
+    expect(write?.fixtureFile).toBe("shared-state.json");
+    expect(write?.featureTypes).toEqual(["shared-state-write"]);
+  });
+
+  it("does NOT register shared-state-read (owned by d5-shared-state-read)", () => {
+    const read = getD5Script("shared-state-read");
+    const write = getD5Script("shared-state-write");
+    // shared-state-read may or may not be registered (depends on
+    // whether d5-shared-state-read.ts has been imported in this test
+    // run). What matters is that if it IS registered, it's NOT this
+    // script — they own distinct conversations and routes.
+    if (read) {
+      expect(read).not.toBe(write);
+    }
   });
 
   it("registered script's buildTurns is the same function the module exports", () => {
-    const script = getD5Script("shared-state-read");
+    const script = getD5Script("shared-state-write");
     expect(script?.buildTurns).toBe(buildTurns);
   });
 
   it("registered script's preNavigateRoute matches the exported route map", () => {
-    const script = getD5Script("shared-state-read");
+    const script = getD5Script("shared-state-write");
 
     expect(script?.preNavigateRoute).toBe(preNavigateRoute);
-    // Both feature types route to the shared-state-read-write demo
-    // page — the split read/write pages are stubs or recipe editors
-    // that don't match the D5 fixture.
-    expect(script?.preNavigateRoute?.("shared-state-read")).toBe(
-      "/demos/shared-state-read-write",
-    );
     expect(script?.preNavigateRoute?.("shared-state-write")).toBe(
       "/demos/shared-state-read-write",
     );
@@ -203,12 +204,6 @@ describe("d5-shared-state turn 1 relevance check", () => {
 });
 
 describe("d5-shared-state preNavigateRoute", () => {
-  it("returns /demos/shared-state-read-write for shared-state-read", () => {
-    expect(preNavigateRoute("shared-state-read")).toBe(
-      "/demos/shared-state-read-write",
-    );
-  });
-
   it("returns /demos/shared-state-read-write for shared-state-write", () => {
     expect(preNavigateRoute("shared-state-write")).toBe(
       "/demos/shared-state-read-write",
@@ -220,7 +215,7 @@ describe("d5-shared-state preNavigateRoute", () => {
     // exists for runtime robustness against a future feature-type
     // rename, and the test exercises that runtime branch.
     expect(() =>
-      (preNavigateRoute as (ft: string) => string)("agentic-chat"),
-    ).toThrow(/unsupported featureType "agentic-chat"/);
+      (preNavigateRoute as (ft: string) => string)("shared-state-read"),
+    ).toThrow(/unsupported featureType "shared-state-read"/);
   });
 });
