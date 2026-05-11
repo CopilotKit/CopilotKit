@@ -72,7 +72,10 @@ async function openDemo(page: Page) {
 async function waitForRoundTrip(
   page: Page,
   index = 0,
-): Promise<{ userMsg: ReturnType<Page["locator"]>; asstMsg: ReturnType<Page["locator"]> }> {
+): Promise<{
+  userMsg: ReturnType<Page["locator"]>;
+  asstMsg: ReturnType<Page["locator"]>;
+}> {
   const userMsg = page.locator(USER_MESSAGE).nth(index);
   await expect(userMsg).toBeVisible({ timeout: 60_000 });
   const asstMsg = page.locator(ASSISTANT_MESSAGE).nth(index);
