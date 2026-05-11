@@ -9,20 +9,19 @@ concurrency:
   group: publish-release
   cancel-in-progress: false
 
-permissions:
-  contents: write
-
 env:
   NX_VERBOSE_LOGGING: true
 
 jobs:
-  publish:
+  build:
     # Only run when a release PR is merged (not just closed)
     if: >
       github.event.pull_request.merged == true &&
       startsWith(github.event.pull_request.head.ref, 'release/publish/')
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
       - name: Extract scope from branch
         id: meta
@@ -50,6 +49,45 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20.x
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm run build
+
+      - name: Upload workspace
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace
+          path: .
+          include-hidden-files: true
+          retention-days: 1
+
+    outputs:
+      scope: ${{ steps.meta.outputs.scope }}
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - name: Download workspace
+        uses: actions/download-artifact@v4
+        with:
+          name: workspace
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.13.1"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
           registry-url: https://registry.npmjs.org
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -60,12 +98,9 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-
       - name: Publish to npm
         id: publish
-        run: pnpm tsx scripts/release/publish-release.ts --scope ${{ steps.meta.outputs.scope }}
+        run: pnpm tsx scripts/release/publish-release.ts --scope ${{ needs.build.outputs.scope }}
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -78,7 +113,7 @@ jobs:
 
       - name: Check for pre-existing tags
         run: |
-          SCOPE="${{ steps.meta.outputs.scope }}"
+          SCOPE="${{ needs.build.outputs.scope }}"
           VERSION="${{ steps.publish.outputs.version }}"
           if [ "$SCOPE" == "monorepo" ]; then
             TAG="v${VERSION}"
@@ -92,7 +127,7 @@ jobs:
 
       - name: Create and push git tag
         run: |
-          SCOPE="${{ steps.meta.outputs.scope }}"
+          SCOPE="${{ needs.build.outputs.scope }}"
           VERSION="${{ steps.publish.outputs.version }}"
           if [ "$SCOPE" == "monorepo" ]; then
             TAG="v${VERSION}"
@@ -108,7 +143,7 @@ jobs:
         uses: actions/github-script@v7
         env:
           RELEASE_TAG: ${{ steps.tag.outputs.tag }}
-          RELEASE_SCOPE: ${{ steps.meta.outputs.scope }}
+          RELEASE_SCOPE: ${{ needs.build.outputs.scope }}
           RELEASE_VERSION: ${{ steps.publish.outputs.version }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -148,6 +183,6 @@ jobs:
         run: |
           echo "## Release Published" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Scope:** ${{ steps.meta.outputs.scope }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Scope:** ${{ needs.build.outputs.scope }}" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** ${{ steps.publish.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "**Tag:** ${{ steps.tag.outputs.tag }}" >> $GITHUB_STEP_SUMMARY

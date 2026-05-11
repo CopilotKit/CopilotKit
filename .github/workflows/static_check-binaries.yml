@@ -8,6 +8,15 @@ permissions:
   contents: read
 
 jobs:
+  check-config-files:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check build config allowlist
+        run: bash .github/scripts/check-config-allowlist.sh
+
   check-binaries:
     runs-on: ubuntu-latest
     steps:
