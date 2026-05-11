@@ -1,17 +1,13 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * E2E spec for BYOC json-render — authored in Wave 4b but NOT yet run
- * against Railway. The Playwright pass is deferred to post-deploy
- * stabilization (see `docs/superpowers/plans/2026-04-23-wave4b-byoc-json-render-demo.md`
- * Task 12 scope note).
- *
- * Structurally mirrors `gen-ui-tool-based.spec.ts` so the agent
- * dashboard's BYOC rows exercise the same surfaces.
+ * E2E spec for the Declarative UI: json-render demo. Structurally
+ * mirrors `gen-ui-tool-based.spec.ts` so the dashboard's BYOC rows
+ * exercise the same surfaces (json-render-root + metric-card + chart).
  */
-test.describe("BYOC json-render", () => {
+test.describe("Declarative UI: json-render", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/byoc-json-render");
+    await page.goto("/demos/declarative-json-render");
   });
 
   test("page loads with chat composer and suggestion pills", async ({

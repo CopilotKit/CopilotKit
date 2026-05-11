@@ -7,13 +7,13 @@ import { Chat } from "./chat";
 export default function ByocHashbrownDemoPage() {
   return (
     <CopilotKit
-      runtimeUrl="/api/copilotkit-byoc-hashbrown"
-      agent="byoc-hashbrown-demo"
+      runtimeUrl="/api/copilotkit-declarative-hashbrown"
+      agent="declarative-hashbrown-demo"
     >
       <HashBrownDashboard>
         <div className="flex h-screen flex-col gap-3 p-6">
           <header>
-            <h1 className="text-lg font-semibold">BYOC: Hashbrown</h1>
+            <h1 className="text-lg font-semibold">Declarative UI: Hashbrown</h1>
             <p className="text-sm text-[var(--muted-foreground)]">
               Streaming structured output via <code>@hashbrownai/react</code>.
               The agent emits a catalog-constrained UI envelope that renders

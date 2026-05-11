@@ -89,7 +89,7 @@ test.describe("Voice Input", () => {
         [
           '[data-testid="weather-card"]',
           '[data-testid="custom-catchall-card"][data-tool-name="get_weather"]',
-          '[data-role="assistant"]',
+          '[data-testid="copilot-assistant-message"]',
         ].join(", "),
       )
       .first();

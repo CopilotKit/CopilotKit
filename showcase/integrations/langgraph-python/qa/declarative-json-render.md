@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Demo deployed at `/demos/byoc-json-render`.
+- Demo deployed at `/demos/declarative-json-render`.
 - Railway backend healthy (`showcase-langgraph-python-production.up.railway.app`).
 - `OPENAI_API_KEY` and `LANGGRAPH_DEPLOYMENT_URL` configured on the Next.js app.
 - `@json-render/core` + `@json-render/react` present in `package.json` (pinned to `0.18.0`).
@@ -12,7 +12,7 @@
 
 ### 1. Page load
 
-- [ ] Navigate to `/demos/byoc-json-render`.
+- [ ] Navigate to `/demos/declarative-json-render`.
 - [ ] Chat composer is visible.
 - [ ] Three suggestion pills appear with titles: "Sales dashboard", "Revenue by category", "Expense trend".
 - [ ] No console errors.

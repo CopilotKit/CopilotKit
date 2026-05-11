@@ -171,6 +171,12 @@ export const CATALOG_TO_D5_KEY: Readonly<Record<string, readonly string[]>> = {
   "interrupt-headless": ["interrupt-headless"],
   "byoc-hashbrown": ["byoc"],
   "byoc-json-render": ["byoc"],
+  // langgraph-python's `byoc-*` cells were renamed to `declarative-*`
+  // to drop internal jargon. Both ID forms map to the same `byoc` D5
+  // featureType so dashboard rolls up either form. Mirrors
+  // d5-feature-mapping.ts.
+  "declarative-hashbrown": ["byoc"],
+  "declarative-json-render": ["byoc"],
   voice: ["voice"],
 };
 

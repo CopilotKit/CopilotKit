@@ -29,14 +29,13 @@ test.describe("Reasoning: Default", () => {
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
 
-    // The cell uses CopilotKit's default CopilotChatReasoningMessage. We
-    // accept either its testid or the role-attribute marker — whichever
-    // the runtime emits first.
-    const reasoningRole = page
-      .locator(
-        '[data-testid="copilot-reasoning-message"], [data-message-role="reasoning"]',
-      )
-      .first();
-    await expect(reasoningRole).toBeVisible({ timeout: 60_000 });
+    // The cell uses CopilotKit's default `CopilotChatReasoningMessage`,
+    // which doesn't emit a testid — its visible signal is the
+    // streaming/complete header label ("Thinking…" while streaming,
+    // "Thought for …" once complete). Asserting on either label proves
+    // the reasoning collapsible mounted.
+    await expect(page.getByText(/Thinking…|Thought for/i).first()).toBeVisible({
+      timeout: 60_000,
+    });
   });
 });

@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import {
-  CopilotChat,
   CopilotKit,
+  CopilotPopup,
   useFrontendTool,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
@@ -86,11 +86,15 @@ function Layout() {
   };
 
   return (
-    <div className="grid h-screen grid-cols-[1fr_420px] bg-gray-50">
+    <div className="h-screen bg-gray-50">
       <TicketsPanel />
-      <div className="border-l border-gray-200 bg-white">
-        <CopilotChat agentId="hitl-in-app" className="h-full" />
-      </div>
+      <CopilotPopup
+        agentId="hitl-in-app"
+        defaultOpen={true}
+        labels={{
+          chatInputPlaceholder: "Type a message",
+        }}
+      />
       {dialog.open && (
         <ApprovalDialog pending={dialog.pending} onResolve={handleResolve} />
       )}

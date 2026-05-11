@@ -17,14 +17,7 @@
  * demos read as a pair.
  */
 
-import React, {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useState } from "react";
 import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 import type { Attachment, InputContent } from "@copilotkit/shared";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,6 +25,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useAttachmentsConfig } from "../attachments/use-attachments-config";
+import { useAutoScroll } from "../hooks/use-auto-scroll";
+import { useTypingIndicator } from "../hooks/use-typing-indicator";
 import { Composer } from "./composer";
 import { EmptyState } from "./empty-state";
 import { Header } from "./header";
@@ -57,47 +52,11 @@ export function Chat({ agentId }: { agentId: string }) {
   } = useAttachmentsConfig();
 
   const [input, setInput] = useState("");
-
-  // Track the Radix ScrollArea viewport so we can attach scroll listeners
-  // and auto-stick to the bottom on new messages.
-  const listRef = useRef<HTMLDivElement | null>(null);
-  const bottomRef = useRef<HTMLDivElement | null>(null);
-  const viewportRef = useRef<HTMLElement | null>(null);
-  const stickToBottom = useRef(true);
-
   const messages = agent.messages;
-
-  useEffect(() => {
-    const node = listRef.current;
-    if (!node) return;
-    viewportRef.current = node.closest(
-      "[data-slot='scroll-area-viewport']",
-    ) as HTMLElement | null;
-  }, []);
-
-  const onScroll = useCallback(() => {
-    const el = viewportRef.current;
-    if (!el) return;
-    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
-    stickToBottom.current = distance < 80;
-  }, []);
-
-  useEffect(() => {
-    const el = viewportRef.current;
-    if (!el) return;
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
-  }, [onScroll]);
-
-  useLayoutEffect(() => {
-    if (!stickToBottom.current) return;
-    const el = viewportRef.current;
-    if (el) {
-      el.scrollTop = el.scrollHeight;
-    } else {
-      bottomRef.current?.scrollIntoView({ block: "end" });
-    }
-  }, [messages, agent.isRunning]);
+  const { listRef, bottomRef, stickRef } = useAutoScroll(
+    messages,
+    agent.isRunning,
+  );
 
   // Send pipeline: consume any ready attachments at submit time, build
   // the multimodal `content` array if needed, then dispatch the run.
@@ -110,7 +69,7 @@ export function Chat({ agentId }: { agentId: string }) {
       if (!trimmed && ready.length === 0) return;
       if (agent.isRunning) return;
 
-      stickToBottom.current = true;
+      stickRef.current = true;
 
       const content = buildContent(trimmed, ready);
       agent.addMessage({
@@ -118,7 +77,11 @@ export function Chat({ agentId }: { agentId: string }) {
         role: "user",
         content,
       });
-      void copilotkit.runAgent({ agent }).catch(() => {});
+      void copilotkit
+        .runAgent({ agent })
+        .catch((err) =>
+          console.error("[headless-complete] runAgent failed", err),
+        );
     },
     [agent, copilotkit, consumeAttachments],
   );
@@ -145,25 +108,10 @@ export function Chat({ agentId }: { agentId: string }) {
     }
     agent.setMessages([]);
     setInput("");
-    stickToBottom.current = true;
+    stickRef.current = true;
   }, [agent]);
 
-  const showTypingIndicator = useMemo(() => {
-    if (!agent.isRunning) return false;
-    const last = messages[messages.length - 1];
-    if (!last) return true;
-    if (last.role === "user") return true;
-    if (last.role === "assistant") {
-      const hasContent =
-        typeof last.content === "string" && last.content.length > 0;
-      const hasToolCalls =
-        "toolCalls" in last &&
-        Array.isArray(last.toolCalls) &&
-        last.toolCalls.length > 0;
-      return !hasContent && !hasToolCalls;
-    }
-    return false;
-  }, [agent.isRunning, messages]);
+  const showTypingIndicator = useTypingIndicator(messages, agent.isRunning);
 
   const hasUploadingAttachment = attachments.some(
     (a) => a.status === "uploading",

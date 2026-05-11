@@ -800,6 +800,14 @@
     },
     {
       "match": {
+        "userMessage": "What name did I just give"
+      },
+      "response": {
+        "content": "You said your name is Alice."
+      }
+    },
+    {
+      "match": {
         "userMessage": "city"
       },
       "response": {

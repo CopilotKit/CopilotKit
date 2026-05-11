@@ -66,9 +66,7 @@ test.describe("Readonly Agent Context (useAgentContext)", () => {
     // Aimock fixture for the verbatim pill prompt
     // ("What do you know about me from my context?") returns a content reply
     // beginning with "I see you're Atai".
-    const assistant = page.locator(
-      '[data-message-role="assistant"], [data-role="assistant"]',
-    );
+    const assistant = page.locator('[data-testid="copilot-assistant-message"]');
     await expect(
       assistant.filter({ hasText: "I see you're Atai" }).first(),
     ).toBeVisible({ timeout: 60_000 });
@@ -105,9 +103,7 @@ test.describe("Readonly Agent Context (useAgentContext)", () => {
     // ("Based on my recent activity, what should I try next?") returns a
     // content reply beginning with "Since you recently viewed the pricing
     // page and watched the product demo video".
-    const assistant = page.locator(
-      '[data-message-role="assistant"], [data-role="assistant"]',
-    );
+    const assistant = page.locator('[data-testid="copilot-assistant-message"]');
     await expect(
       assistant
         .filter({
