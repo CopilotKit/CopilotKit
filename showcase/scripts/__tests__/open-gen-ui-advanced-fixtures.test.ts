@@ -15,12 +15,7 @@ import path from "path";
 // Calculator's HTML needs JS to do anything. This test plugs that gap.
 
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..");
-const FIXTURE_PATH = path.join(
-  REPO_ROOT,
-  "showcase",
-  "aimock",
-  "d5-all.json",
-);
+const FIXTURE_PATH = path.join(REPO_ROOT, "showcase", "aimock", "d5-all.json");
 
 type Fixture = {
   match: { userMessage?: string; toolCallId?: string };
