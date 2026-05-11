@@ -430,11 +430,6 @@ const ROOT_RENAMES: RedirectEntry[] = [
   { id: "R18", source: "/mcp", destination: "/coding-agents" },
   { id: "R19", source: "/vibe-coding-mcp", destination: "/coding-agents" },
   {
-    id: "R20",
-    source: "/agentic-protocols",
-    destination: "/agentic-protocols",
-  },
-  {
     id: "R21",
     source: "/ag-ui-protocol",
     destination: "/agentic-protocols/ag-ui",
@@ -459,27 +454,8 @@ const ROOT_RENAMES: RedirectEntry[] = [
     source: "/runtime-server-adapter",
     destination: "/backend/copilot-runtime",
   },
-  {
-    id: "R27",
-    source: "/whats-new/v1-50",
-    destination: "/whats-new/v1-50",
-  },
   // Manual overrides (Category 7) — root-level doc pages
   { id: "M2", source: "/quickstart", destination: "/" },
-  { id: "M3", source: "/faq", destination: "/faq" },
-  { id: "M4", source: "/frontend-tools", destination: "/frontend-tools" },
-  {
-    id: "M5",
-    source: "/human-in-the-loop",
-    destination: "/human-in-the-loop",
-  },
-  {
-    id: "M6",
-    source: "/prebuilt-components",
-    destination: "/prebuilt-components",
-  },
-  { id: "M7", source: "/coding-agents", destination: "/coding-agents" },
-  { id: "M8", source: "/telemetry", destination: "/telemetry" },
   // Broken link fixes (B1-B3)
   {
     id: "B1",
@@ -558,13 +534,6 @@ const LEGACY_CHAINS_EXACT: RedirectEntry[] = [
     id: "L11",
     source: "/coagents/videos",
     destination: "/langgraph-python/videos",
-  },
-  // /crewai-crews is now the canonical slug — historical /crewai-crews
-  // URLs land directly on the new framework root.
-  {
-    id: "L14",
-    source: "/crewai-crews",
-    destination: "/crewai-crews",
   },
 ];
 
@@ -708,11 +677,6 @@ const WILDCARD_REDIRECTS: RedirectEntry[] = [
     source: "/coagents/:path*",
     destination: "/langgraph-python/:path*",
   },
-  {
-    id: "L13",
-    source: "/crewai-crews/:path*",
-    destination: "/crewai-crews/:path*",
-  },
   // Category 4 wildcards — direct-to-llm and /integrations/built-in-agent retire to BIA
   {
     id: "R16",
@@ -742,48 +706,22 @@ const WILDCARD_REDIRECTS: RedirectEntry[] = [
     destination: "/generative-ui/specs/:path*",
   },
   // Category 1: Pattern rules (bulk coverage)
-  {
-    id: "P9",
-    source: "/reference/v2/:path*",
-    destination: "/reference/v2/:path*",
-  },
   { id: "P10", source: "/reference/v1/:path*", destination: "/reference/v2" },
   {
     id: "P11",
     source: "/guides/:path*",
     destination: "/built-in-agent/guides/:path*",
   },
-  { id: "P12", source: "/backend/:path*", destination: "/backend/:path*" },
   { id: "P3", source: "/learn/:path*", destination: "/concepts/:path*" },
-  {
-    id: "P4",
-    source: "/troubleshooting/:path*",
-    destination: "/troubleshooting/:path*",
-  },
-  {
-    id: "P5",
-    source: "/custom-look-and-feel/:path*",
-    destination: "/custom-look-and-feel/:path*",
-  },
-  {
-    id: "P6",
-    source: "/generative-ui/:path*",
-    destination: "/generative-ui/:path*",
-  },
-  { id: "P7", source: "/premium/:path*", destination: "/premium/:path*" },
-  {
-    id: "P8",
-    source: "/contributing/:path*",
-    destination: "/contributing/:path*",
-  },
   // P1 + P2: Per-framework catch-alls (MUST be last — they match any /{framework}/*)
-  // Source is the legacy slug; destination uses canonical slug.
-  ...FRAMEWORKS.map((fw) => ({
+  // Source is the legacy slug; destination uses canonical slug. Skip
+  // frameworks whose slug is unchanged — those would be self-loops.
+  ...FRAMEWORKS.filter((fw) => canonicalSlug(fw) !== fw).map((fw) => ({
     id: `P1×${fw}`,
     source: `/${fw}/:path*`,
     destination: `/${canonicalSlug(fw)}/:path*`,
   })),
-  ...FRAMEWORKS.map((fw) => ({
+  ...FRAMEWORKS.filter((fw) => canonicalSlug(fw) !== fw).map((fw) => ({
     id: `P2×${fw}`,
     source: `/${fw}`,
     destination: `/${canonicalSlug(fw)}`,
