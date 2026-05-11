@@ -157,7 +157,11 @@ export function maybeShowDisclosure(): void {
 // module, keeping persistence.ts as an internal implementation detail.
 export { isTelemetryOptedOut, setTelemetryOptOut };
 
-async function postBestEffort(url: string, body: string, distinctId: string): Promise<void> {
+async function postBestEffort(
+  url: string,
+  body: string,
+  distinctId: string,
+): Promise<void> {
   if (typeof fetch === "undefined") return;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
