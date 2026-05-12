@@ -5,6 +5,8 @@
     "apps/*"
   ],
   "scripts": {
+    "preinstall": "node scripts/check-prereqs.mjs install",
+    "predev": "node scripts/check-prereqs.mjs dev",
     "dev:infra": "docker compose up -d --wait",
     "dev": "npm run dev:infra && concurrently -k -n app,bff,agent -c auto \"npm run dev:app\" \"npm run dev:bff\" \"npm run dev:agent\"",
     "dev:app": "npm run dev --workspace @repo/app",

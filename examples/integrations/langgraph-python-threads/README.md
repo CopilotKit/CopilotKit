@@ -26,7 +26,8 @@ When threads are enabled, additional infrastructure runs via Docker Compose:
 - Python 3.12+
 - npm 10+
 - OpenAI API Key
-- Docker (for threads/intelligence support)
+- [`uv`](https://docs.astral.sh/uv/getting-started/installation/) — required to install the Python agent's dependencies
+- [Docker](https://docs.docker.com/get-started/get-docker/) — required for the threads/intelligence services (must be running)
 
 ## Getting Started
 
