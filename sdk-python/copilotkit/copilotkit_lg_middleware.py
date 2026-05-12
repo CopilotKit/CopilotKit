@@ -18,7 +18,7 @@ import json
 import re
 from typing import Any, Callable, Awaitable, ClassVar, Iterable, List, Union
 
-from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, RemoveMessage, SystemMessage, ToolMessage
 from langchain.agents.middleware import (
     AgentMiddleware,
     AgentState,
@@ -73,6 +73,43 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
 
     state_schema = StateSchema
     tools: ClassVar[list] = []
+
+    # Delimiters wrapping the CopilotKit-managed App Context block. When a
+    # system message already exists, the block is merged into it so the
+    # model only sees a single system message. Anthropic's API rejects
+    # messages containing more than one SystemMessage, so emitting a
+    # separate SystemMessage here would crash agents running on Anthropic
+    # via langchain-anthropic.
+    APP_CONTEXT_BLOCK_START: ClassVar[str] = "<!-- BEGIN COPILOTKIT APP CONTEXT -->"
+    APP_CONTEXT_BLOCK_END: ClassVar[str] = "<!-- END COPILOTKIT APP CONTEXT -->"
+
+    @classmethod
+    def _build_app_context_block(cls, context_content: str) -> str:
+        return (
+            f"{cls.APP_CONTEXT_BLOCK_START}\n"
+            f"App Context:\n{context_content}\n"
+            f"{cls.APP_CONTEXT_BLOCK_END}"
+        )
+
+    @classmethod
+    def _strip_app_context_block(cls, content: str) -> str:
+        start_idx = content.find(cls.APP_CONTEXT_BLOCK_START)
+        if start_idx == -1:
+            return content
+        end_marker_idx = content.find(cls.APP_CONTEXT_BLOCK_END, start_idx)
+        if end_marker_idx == -1:
+            return content
+        end_idx = end_marker_idx + len(cls.APP_CONTEXT_BLOCK_END)
+        before = re.sub(r"\n{2,}$", "\n", content[:start_idx])
+        after = re.sub(r"^\n+", "", content[end_idx:])
+        if not before and not after:
+            return ""
+        if not after:
+            return re.sub(r"\n+$", "", before)
+        if not before:
+            return after
+        before_trimmed = re.sub(r"\n+$", "", before)
+        return f"{before_trimmed}\n\n{after}"
 
     def __init__(
         self,
@@ -344,13 +381,71 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         copilotkit_state = state.get("copilotkit", {})
         app_context = copilotkit_state.get("context") or getattr(runtime, "context", None)
 
-        # Check if app_context is missing or empty
-        if not app_context:
+        # Determine whether app_context is missing or empty
+        is_empty_context = (
+            not app_context
+            or (isinstance(app_context, str) and app_context.strip() == "")
+            or (isinstance(app_context, dict) and len(app_context) == 0)
+        )
+
+        # Helper to get message content as string
+        def get_content_string(msg: Any) -> str | None:
+            content = getattr(msg, "content", None)
+            if isinstance(content, str):
+                return content
+            if isinstance(content, list) and content and isinstance(content[0], dict):
+                return content[0].get("text")
             return None
-        if isinstance(app_context, str) and app_context.strip() == "":
-            return None
-        if isinstance(app_context, dict) and len(app_context) == 0:
-            return None
+
+        # Find the first system/developer message we should merge into.
+        # Legacy standalone "App Context:\n…" SystemMessages persisted from
+        # earlier CopilotKit versions are intentionally NOT cleaned up here —
+        # touching pre-existing checkpoint state could remove a user-authored
+        # prompt that happens to share the prefix. Users upgrading with stale
+        # state must clear their checkpoint; this fix applies to fresh
+        # threads only.
+        first_system_index = -1
+        for i, msg in enumerate(messages):
+            msg_type = getattr(msg, "type", None)
+            if msg_type not in ("system", "developer"):
+                continue
+            first_system_index = i
+            break
+
+        updated_messages = list(messages)
+        # RemoveMessage entries we need the add_messages reducer to actually
+        # drop from graph state (currently only the self-inserted marker-only
+        # system message when context becomes empty).
+        removals: list[RemoveMessage] = []
+
+        if is_empty_context:
+            # No context to inject; strip any stale block from the existing
+            # system message.
+            if first_system_index == -1:
+                return None
+            target = updated_messages[first_system_index]
+            original = get_content_string(target) or ""
+            cleaned = self._strip_app_context_block(original)
+            if cleaned == original:
+                return None
+            target_id = getattr(target, "id", None)
+            if cleaned == "":
+                # The system message held nothing but a CopilotKit block (one
+                # we inserted on a previous run when no user system message
+                # existed). Drop it entirely instead of leaving an empty
+                # SystemMessage in graph state.
+                del updated_messages[first_system_index]
+                if target_id is not None:
+                    removals.append(RemoveMessage(id=target_id))
+            else:
+                updated_messages[first_system_index] = SystemMessage(
+                    content=cleaned,
+                    id=target_id,
+                )
+            return {
+                **state,
+                "messages": [*removals, *updated_messages],
+            }
 
         # Create the context content
         if isinstance(app_context, str):
@@ -366,64 +461,32 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
                 ]
             context_content = json.dumps(app_context, indent=2)
 
-        context_message_content = f"App Context:\n{context_content}"
-        context_message_prefix = "App Context:\n"
+        context_block = self._build_app_context_block(context_content)
 
-        # Helper to get message content as string
-        def get_content_string(msg: Any) -> str | None:
-            content = getattr(msg, "content", None)
-            if isinstance(content, str):
-                return content
-            if isinstance(content, list) and content and isinstance(content[0], dict):
-                return content[0].get("text")
-            return None
-
-        # Find the first system/developer message (not our context message)
-        # to determine where to insert our context message (right after it)
-        first_system_index = -1
-
-        for i, msg in enumerate(messages):
-            msg_type = getattr(msg, "type", None)
-            if msg_type in ("system", "developer"):
-                content = get_content_string(msg)
-                # Skip if this is our own context message
-                if content and content.startswith(context_message_prefix):
-                    continue
-                first_system_index = i
-                break
-
-        # Check if our context message already exists
-        existing_context_index = -1
-        for i, msg in enumerate(messages):
-            msg_type = getattr(msg, "type", None)
-            if msg_type in ("system", "developer"):
-                content = get_content_string(msg)
-                if content and content.startswith(context_message_prefix):
-                    existing_context_index = i
-                    break
-
-        # Create the context message.
-        # When replacing an existing context message, reuse its ID so the
-        # add_messages reducer updates in-place instead of appending a
-        # duplicate at the end of the message list.
-        if existing_context_index != -1:
-            existing_id = getattr(messages[existing_context_index], "id", None)
-            context_message = SystemMessage(content=context_message_content, id=existing_id)
+        if first_system_index != -1:
+            # Merge the App Context block into the existing system message so
+            # only a single SystemMessage reaches the model. Reuse the
+            # existing ID so the add_messages reducer updates in-place
+            # instead of appending a duplicate.
+            target = updated_messages[first_system_index]
+            base_content = self._strip_app_context_block(
+                get_content_string(target) or ""
+            )
+            if base_content:
+                base_trimmed = re.sub(r"\n+$", "", base_content)
+                merged_content = f"{base_trimmed}\n\n{context_block}"
+            else:
+                merged_content = context_block
+            updated_messages[first_system_index] = SystemMessage(
+                content=merged_content,
+                id=getattr(target, "id", None),
+            )
         else:
-            context_message = SystemMessage(content=context_message_content)
-
-        if existing_context_index != -1:
-            # Replace existing context message
-            updated_messages = list(messages)
-            updated_messages[existing_context_index] = context_message
-        else:
-            # Insert after the first system message, or at position 0 if no system message
-            insert_index = first_system_index + 1 if first_system_index != -1 else 0
-            updated_messages = [
-                *messages[:insert_index],
-                context_message,
-                *messages[insert_index:],
-            ]
+            # No existing system message — insert one at the start. Use the
+            # marker-wrapped form so subsequent runs detect the block via
+            # `_strip_app_context_block` and merge into it instead of
+            # inserting a second.
+            updated_messages.insert(0, SystemMessage(content=context_block))
 
         return {
             **state,
