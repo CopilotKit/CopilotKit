@@ -7,89 +7,58 @@ Shared by two demos:
 
 Approach
 --------
-The LangGraph reference agent relies on AG-UI REASONING_MESSAGE_* events, which
-CopilotKit renders natively via `CopilotChatReasoningMessage`. The MS Agent
-Framework's current AG-UI bridge does not surface reasoning tokens as
-first-class REASONING_MESSAGE events, so we fall back to the closest portable
-pattern: a `think` tool.
+Routes through ``OpenAIChatClient`` (Responses API) on a reasoning-capable
+model (``gpt-5.2``) with ``reasoning={"effort":"medium","summary":"detailed"}``.
+The agent-framework AG-UI bridge converts the streamed reasoning summaries
+into first-class ``REASONING_MESSAGE_*`` events, which CopilotKit renders
+via its built-in ``CopilotChatReasoningMessage`` slot (default) or a custom
+``messageView.reasoningMessage`` slot override (custom variant).
 
-Flow:
-  1. The agent MUST call `think(thought=...)` before producing its final
-     answer. Its `thought` field contains the step-by-step reasoning.
-  2. The frontend renders the tool call with `useRenderTool("think", ...)` as
-     a visible reasoning block (custom or default style, per demo).
-  3. The agent then produces a concise final answer as a normal assistant
-     message.
+No tool plumbing required — the model emits reasoning content natively.
 """
 
 from __future__ import annotations
 
 from textwrap import dedent
-from typing import Annotated
 
-from agent_framework import Agent, BaseChatClient, tool
+from agent_framework import Agent, BaseChatClient
 from agent_framework_ag_ui import AgentFrameworkAgent
-from pydantic import Field
-
-
-@tool(
-    name="think",
-    description=(
-        "Record a step-by-step reasoning trace that the UI will render as a "
-        "visible thinking block. Always call this tool BEFORE answering the "
-        "user's question. Use a single call per user turn."
-    ),
-)
-def think(
-    thought: Annotated[
-        str,
-        Field(
-            description=(
-                "A concise, step-by-step reasoning chain leading toward the "
-                "final answer. Write in first person (e.g., 'First I'll..., "
-                "then I'll...'). Keep it under ~5 short steps."
-            )
-        ),
-    ],
-) -> str:
-    """Accept the reasoning; the UI displays it as a thinking block."""
-    # The tool body is intentionally trivial: the useful payload is `thought`,
-    # which the frontend receives via the tool-call args (rendered live).
-    return "Reasoning recorded."
 
 
 def create_reasoning_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
-    """Create the MS Agent Framework reasoning demo agent."""
+    """Create the MS Agent Framework reasoning demo agent.
+
+    The ``chat_client`` MUST point at a reasoning-capable model (gpt-5*,
+    o3, o4-mini, …). ``OpenAIChatClient`` (Responses API) is required —
+    ``OpenAIChatCompletionClient`` does NOT surface reasoning content
+    against vanilla OpenAI.
+    """
     base_agent = Agent(
         client=chat_client,
         name="reasoning_agent",
         instructions=dedent(
             """
-            You are a helpful assistant that shows its work.
-
-            Required workflow for EVERY user question:
-              1. Call the `think` tool exactly once with a concise,
-                 step-by-step reasoning chain describing how you will
-                 approach the answer.
-              2. After the tool call returns, produce a clear, concise
-                 final assistant message with the actual answer.
-
-            Rules:
-              - You MUST call `think` before your final answer. Never skip it.
-              - Keep the `thought` focused on reasoning, not the final answer.
-              - Keep the final answer short (1-3 short paragraphs).
-              - Do NOT repeat the reasoning in the final answer; just give
-                the user the conclusion.
-            """.strip()
-        ),
-        tools=[think],
+            You are a helpful assistant. For each user question, think
+            step-by-step about the approach, then give a clear, concise
+            final answer. Keep the final answer short (1-3 short
+            paragraphs).
+            """
+        ).strip(),
+        # Per OpenAIChatOptions (agent_framework_openai/_chat_client.py).
+        # `effort: "medium"` balances depth vs. latency; `summary: "detailed"`
+        # is required for the reasoning summary text to be visible in the
+        # stream (`"auto"` may collapse it).
+        # See: https://platform.openai.com/docs/guides/reasoning
+        default_options={
+            "reasoning": {"effort": "medium", "summary": "detailed"},
+        },
     )
 
     return AgentFrameworkAgent(
         agent=base_agent,
         name="CopilotKitMicrosoftAgentFrameworkReasoningAgent",
         description=(
-            "Demonstrates a visible reasoning chain via the `think` tool."
+            "Streams real REASONING_MESSAGE_* events via gpt-5.2 + Responses API."
         ),
         require_confirmation=False,
     )

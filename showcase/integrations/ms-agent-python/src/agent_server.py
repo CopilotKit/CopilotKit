@@ -11,7 +11,7 @@ import os
 
 import uvicorn
 from agent_framework import BaseChatClient
-from agent_framework.openai import OpenAIChatClient
+from agent_framework.openai import OpenAIChatClient, OpenAIChatCompletionClient
 from agent_framework_ag_ui import add_agent_framework_fastapi_endpoint
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -51,7 +51,7 @@ def _build_chat_client(model_override: str | None = None) -> BaseChatClient:
     try:
         if bool(os.getenv("OPENAI_API_KEY")):
             return OpenAIChatClient(
-                model=model_override or os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o-mini"),
+                model=model_override or os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-5.2"),
                 api_key=os.getenv("OPENAI_API_KEY"),
             )
 
@@ -67,11 +67,31 @@ chat_client = _build_chat_client()
 my_agent = create_agent(chat_client)
 voice_agent = create_voice_agent(chat_client)
 agent_config_agent = create_agent_config_agent(chat_client)
-reasoning_agent = create_reasoning_agent(chat_client)
+
+# Reasoning: dedicated client carrying `reasoning={"effort","summary"}` so
+# the Responses API streams real REASONING_MESSAGE_* events. Scoped here
+# (not the shared `chat_client`) so other demos don't pay reasoning-token
+# latency on every turn.
+reasoning_chat_client = _build_chat_client(
+    os.getenv("OPENAI_REASONING_MODEL_ID", "gpt-5.2")
+)
+reasoning_agent = create_reasoning_agent(reasoning_chat_client)
 tool_rendering_reasoning_chain_agent = create_tool_rendering_reasoning_chain_agent(
     chat_client
 )
-a2ui_dynamic_agent = create_a2ui_dynamic_agent(chat_client)
+# A2UI dynamic: dedicated chat.completions client. The OUTER agent calls
+# `generate_a2ui` and produces a short summary -- gpt-5.x via the
+# Responses API silently drops function-call replay items between turns
+# (reasoning items have to be reproduced in the exact original order, and
+# MAF cannot recover them on a subsequent run), so the second turn 400s
+# with "No tool output found for function call ...". The chat.completions
+# API has no such constraint -- assistant + tool messages replay cleanly.
+# Same model (gpt-5.2), no reasoning surface needed for this agent.
+a2ui_dynamic_chat_client = OpenAIChatCompletionClient(
+    model=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-5.2"),
+    api_key=os.getenv("OPENAI_API_KEY"),
+)
+a2ui_dynamic_agent = create_a2ui_dynamic_agent(a2ui_dynamic_chat_client)
 a2ui_fixed_agent = create_a2ui_fixed_agent(chat_client)
 open_gen_ui_agent = create_open_gen_ui_agent(chat_client)
 open_gen_ui_advanced_agent = create_open_gen_ui_advanced_agent(chat_client)
@@ -85,9 +105,10 @@ interrupt_agent = create_interrupt_agent(chat_client)
 shared_state_read_write_agent = create_shared_state_read_write_agent(chat_client)
 subagents_agent = create_subagents_agent(chat_client)
 
-# Multimodal: vision-capable; gpt-4o-mini natively handles `image` parts.
-# Scoped to its own endpoint so other demos don't silently upgrade to vision.
-multimodal_chat_client = _build_chat_client("gpt-4o-mini")
+# Multimodal: vision-capable; gpt-5.2 natively handles `image` AND `document`
+# (PDF) parts via the Responses API. Kept on its own client so the demo can
+# pin a specific vision model independently of the shared chat client.
+multimodal_chat_client = _build_chat_client()
 multimodal_agent = create_multimodal_agent(multimodal_chat_client)
 
 # Beautiful Chat: flagship polished sales dashboard demo. Combines A2UI

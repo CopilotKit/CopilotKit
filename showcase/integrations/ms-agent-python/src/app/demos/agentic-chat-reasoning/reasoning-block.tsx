@@ -1,24 +1,27 @@
 "use client";
 
-// Custom reasoning block renderer for the `think` tool.
+// Custom `reasoningMessage` slot renderer.
 //
-// MS Agent Framework's AG-UI bridge doesn't currently emit
-// REASONING_MESSAGE_* events, so we surface reasoning by having the agent
-// call a `think(thought)` tool and rendering the tool call as a visible
-// amber-tagged block matching the LangGraph reference's visual language.
+// Receives the `ReasoningMessage` plus (optionally) the full message list and
+// the running state from the slot system. Renders the content inline with a
+// visibly tagged amber banner so the user can always see the agent's thinking
+// chain -- this is the focal UI of the demo.
 
 import React from "react";
+import type { ReasoningMessage, Message } from "@ag-ui/core";
 
 export function ReasoningBlock({
-  args,
-  status,
+  message,
+  messages,
+  isRunning,
 }: {
-  args: { thought?: string };
-  status?: string;
+  message: ReasoningMessage;
+  messages?: Message[];
+  isRunning?: boolean;
 }) {
-  const isStreaming = status !== "complete";
-  const thought = args?.thought ?? "";
-  const hasContent = thought.length > 0;
+  const isLatest = messages?.[messages.length - 1]?.id === message.id;
+  const isStreaming = !!(isRunning && isLatest);
+  const hasContent = !!(message.content && message.content.length > 0);
 
   return (
     <div
@@ -35,7 +38,7 @@ export function ReasoningBlock({
       </div>
       {hasContent && (
         <div className="mt-1.5 whitespace-pre-wrap italic text-[#57575B]">
-          {thought}
+          {message.content}
         </div>
       )}
     </div>

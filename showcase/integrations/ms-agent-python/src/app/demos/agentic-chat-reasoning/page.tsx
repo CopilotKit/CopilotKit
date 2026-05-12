@@ -1,33 +1,30 @@
 "use client";
 
-// Agentic Chat (Reasoning) — visible reasoning chain alongside the final
+// Agentic Chat (Reasoning) -- visible reasoning chain alongside the final
 // answer for the Microsoft Agent Framework backend.
 //
 // How reasoning surfaces here:
-//   - LangGraph reference relies on AG-UI REASONING_MESSAGE_* events, which
-//     CopilotKit renders via the first-class `reasoningMessage` slot on
-//     CopilotChat.
-//   - The MS Agent Framework AG-UI bridge does not currently emit those
-//     events. To provide the equivalent UX, the backend agent is instructed
-//     to call a `think(thought=...)` tool before every answer, and the
-//     frontend uses `useRenderTool` to render that tool call as a visibly
-//     tagged amber block — the same visual language as the reference.
+//   - The backend agent (src/agents/reasoning_agent.py) routes through
+//     `OpenAIChatClient` (Responses API) on `gpt-5.2` with
+//     `reasoning={"effort":"medium","summary":"detailed"}`. The
+//     agent-framework AG-UI bridge converts the streamed reasoning
+//     summary into first-class AG-UI REASONING_MESSAGE_* events.
+//   - The frontend overrides the `messageView.reasoningMessage` slot on
+//     `<CopilotChat />` with `<ReasoningBlock />` -- the same pattern the
+//     LangGraph reference uses. No tool plumbing, no `useRenderTool`.
 
-import React from "react";
 import {
   CopilotKit,
   CopilotChat,
-  useRenderTool,
+  CopilotChatReasoningMessage,
 } from "@copilotkit/react-core/v2";
-import { z } from "zod";
 import { ReasoningBlock } from "./reasoning-block";
+
+const AGENT_ID = "agentic-chat-reasoning";
 
 export default function AgenticChatReasoningDemo() {
   return (
-    <CopilotKit
-      runtimeUrl="/api/copilotkit-reasoning"
-      agent="agentic-chat-reasoning"
-    >
+    <CopilotKit runtimeUrl="/api/copilotkit-reasoning" agent={AGENT_ID}>
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />
@@ -38,22 +35,16 @@ export default function AgenticChatReasoningDemo() {
 }
 
 function Chat() {
-  // @region[reasoning-block-render]
-  useRenderTool({
-    name: "think",
-    parameters: z.object({
-      thought: z.string(),
-    }),
-    render: ({ args, status }: any) => (
-      <ReasoningBlock args={args} status={status} />
-    ),
-  });
-  // @endregion[reasoning-block-render]
-
   return (
     <CopilotChat
-      agentId="agentic-chat-reasoning"
+      agentId={AGENT_ID}
       className="h-full rounded-2xl"
+      messageView={{
+        // @region[reasoning-block-render]
+        reasoningMessage:
+          ReasoningBlock as unknown as typeof CopilotChatReasoningMessage,
+        // @endregion[reasoning-block-render]
+      }}
     />
   );
 }

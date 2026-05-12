@@ -157,62 +157,104 @@ def search_flights(
     return json.dumps(result)
 
 
-@tool(
-    name="generate_a2ui",
-    description=(
-        "Generate a dynamic A2UI dashboard based on the conversation. A "
-        "secondary LLM designs the UI schema and data. Use this for rich "
-        "custom dashboards (sales metrics, charts, tables, cards)."
-    ),
-)
-def generate_a2ui(
-    context: Annotated[
-        str,
-        Field(description="Conversation context to generate UI from."),
-    ],
-) -> str:
-    """Generate a dynamic A2UI dashboard from conversation context."""
-    from openai import OpenAI
-
-    client = OpenAI()
-    tool_schema = {
-        "type": "function",
-        "function": {
-            "name": "render_a2ui",
-            "description": "Render a dynamic A2UI v0.9 surface.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "surfaceId": {"type": "string"},
-                    "catalogId": {"type": "string"},
-                    "components": {"type": "array", "items": {"type": "object"}},
-                    "data": {"type": "object"},
+# Shared A2UI secondary-call schema + prompt. See ``a2ui_dynamic.py`` for
+# the detailed write-up of why we use ``chat_client.client`` directly
+# rather than ``BaseChatClient.get_response`` (the latter triggers MAF's
+# function-invocation auto-loop, which never returns raw structured args).
+_RENDER_A2UI_TOOL_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "render_a2ui",
+        "description": (
+            "Render a dynamic A2UI v0.9 surface. The `components` array "
+            "MUST be non-empty: emit at least a root component plus its "
+            "children."
+        ),
+        "strict": False,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "surfaceId": {"type": "string"},
+                "catalogId": {"type": "string"},
+                "components": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "component": {"type": "string"},
+                            "props": {"type": "object"},
+                            "children": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
+                            "child": {"type": "string"},
+                        },
+                        "required": ["id", "component"],
+                    },
                 },
-                "required": ["surfaceId", "catalogId", "components"],
+                "data": {"type": "object"},
             },
+            "required": ["surfaceId", "catalogId", "components"],
         },
-    }
+    },
+}
 
-    response = client.chat.completions.create(
-        model="gpt-4.1",
-        messages=[
-            {"role": "system", "content": context or "Generate a useful dashboard UI."},
-            {
-                "role": "user",
-                "content": "Generate a dynamic A2UI dashboard based on the conversation.",
-            },
-        ],
-        tools=[tool_schema],
-        tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+
+_GENERATE_A2UI_PROMPT_HEADER = """\
+You are designing a dynamic A2UI v0.9 surface. Call the `render_a2ui` tool
+with a flat component array.
+
+Hard requirements (failing any of these breaks the renderer -- be strict):
+- `surfaceId` is a short kebab-case identifier (e.g. "kpi-dashboard").
+- `components` is a FLAT (non-empty) array. Every entry MUST include both
+  an `id` (unique string) AND a `component` (string -- the catalog
+  component name). The root entry MUST have `id: "root"` AND a valid
+  `component` field.
+- Container components (Row, Column, Card) reference children by id via
+  their `children` (array of strings) or `child` (single string) prop. Do
+  NOT inline children objects.
+"""
+
+
+def _make_generate_a2ui_tool(chat_client: BaseChatClient):
+    """Factory for ``generate_a2ui`` bound to the configured chat client."""
+
+    @tool(
+        name="generate_a2ui",
+        description=(
+            "Generate a dynamic A2UI dashboard based on the conversation. A "
+            "secondary LLM designs the UI schema and data. Use this for rich "
+            "custom dashboards (sales metrics, charts, tables, cards)."
+        ),
     )
+    async def generate_a2ui(
+        context: Annotated[
+            str,
+            Field(description="Conversation context to generate UI from."),
+        ],
+    ) -> str:
+        """Generate a dynamic A2UI dashboard from conversation context."""
+        user_request = context or "Generate a useful dashboard UI."
+        response = await chat_client.client.chat.completions.create(
+            model=chat_client.model,
+            messages=[
+                {"role": "system", "content": _GENERATE_A2UI_PROMPT_HEADER},
+                {"role": "user", "content": user_request},
+            ],
+            tools=[_RENDER_A2UI_TOOL_SCHEMA],
+            tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+        )
 
-    if not response.choices[0].message.tool_calls:
-        return json.dumps({"error": "LLM did not call render_a2ui"})
+        tool_calls = response.choices[0].message.tool_calls or []
+        if not tool_calls:
+            return json.dumps({"error": "LLM did not call render_a2ui"})
 
-    tool_call = response.choices[0].message.tool_calls[0]
-    args = json.loads(tool_call.function.arguments)
-    result = build_a2ui_operations_from_tool_call(args)
-    return json.dumps(result)
+        args = json.loads(tool_calls[0].function.arguments)
+        return json.dumps(build_a2ui_operations_from_tool_call(args))
+
+    return generate_a2ui
 
 
 # ---------------------------------------------------------------------
@@ -256,7 +298,7 @@ def create_beautiful_chat_agent(chat_client: BaseChatClient) -> AgentFrameworkAg
         client=chat_client,
         name="beautiful_chat_agent",
         instructions=SYSTEM_PROMPT,
-        tools=[manage_todos, query_data, search_flights, generate_a2ui],
+        tools=[manage_todos, query_data, search_flights, _make_generate_a2ui_tool(chat_client)],
     )
 
     return AgentFrameworkAgent(
