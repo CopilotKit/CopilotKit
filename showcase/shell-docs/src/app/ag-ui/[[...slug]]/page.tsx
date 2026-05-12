@@ -376,9 +376,15 @@ export default async function AgUiDocPage({
     );
   }
 
-  // Overview page: no sidebar, card-based landing
+  // Overview page: no sidebar, card-based landing. Wrap in a scroll
+  // container because <main> in the root layout is fixed-height with
+  // hidden overflow (canonical layout architecture).
   if (isOverview) {
-    return <OverviewContent />;
+    return (
+      <div className="flex-1 min-w-0 overflow-y-auto">
+        <OverviewContent />
+      </div>
+    );
   }
 
   // Doc page: sidebar + MDX content. slugPath is user-supplied (URL
@@ -434,7 +440,7 @@ export default async function AgUiDocPage({
   }
 
   return (
-    <div className="flex" style={{ height: "calc(100vh - 53px)" }}>
+    <div className="flex h-full w-full">
       {/* Sidebar */}
       <SidebarNav className="w-[220px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
         <Link
