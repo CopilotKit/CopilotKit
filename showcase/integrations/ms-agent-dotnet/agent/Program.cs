@@ -24,7 +24,7 @@ builder.Services.AddAGUI();
 
 WebApplication app = builder.Build();
 
-// STOPGAP: Extract x-aimock-* headers from incoming AG-UI requests into AsyncLocal
+// STOPGAP: Extract x-* prefixed headers from incoming AG-UI requests into AsyncLocal
 // so AimockHeaderPolicy can forward them to outgoing OpenAI calls.
 // TODO(copilotkit-sdk-dotnet): migrate to SDK-level header propagation
 app.UseMiddleware<AimockHeaderMiddleware>();

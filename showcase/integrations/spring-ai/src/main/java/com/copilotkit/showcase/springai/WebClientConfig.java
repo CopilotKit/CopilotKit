@@ -180,7 +180,7 @@ public class WebClientConfig {
                 .build();
         JdkClientHttpConnector connector = new JdkClientHttpConnector(jdkClient);
 
-        // ExchangeFilterFunction that forwards x-aimock-* headers from the
+        // ExchangeFilterFunction that forwards x-* prefixed headers from the
         // AimockHeaderContext (set by the inbound HandlerInterceptor) onto
         // every outgoing WebClient request. This covers Spring AI's reactive
         // .stream() path — the synchronous .call() path is handled by the

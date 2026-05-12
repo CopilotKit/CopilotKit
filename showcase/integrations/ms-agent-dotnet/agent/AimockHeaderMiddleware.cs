@@ -13,7 +13,7 @@ public class AimockHeaderMiddleware
     public async Task InvokeAsync(HttpContext context)
     {
         var headers = context.Request.Headers
-            .Where(h => h.Key.StartsWith("x-aimock-", StringComparison.OrdinalIgnoreCase))
+            .Where(h => h.Key.StartsWith("x-", StringComparison.OrdinalIgnoreCase))
             .ToDictionary(h => h.Key, h => h.Value.ToString());
         AimockHeaderContext.Set(headers);
         try

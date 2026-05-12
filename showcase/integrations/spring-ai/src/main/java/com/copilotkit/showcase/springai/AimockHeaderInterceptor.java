@@ -10,7 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Extracts {@code x-aimock-*} headers from incoming HTTP requests and stores
+ * Extracts {@code x-*} prefixed headers from incoming HTTP requests and stores
  * them in {@link AimockHeaderContext} so outbound LLM calls can forward them.
  *
  * <p>Registered via {@link AimockWebMvcConfig#addInterceptors}.
@@ -27,7 +27,7 @@ public class AimockHeaderInterceptor implements HandlerInterceptor {
         if (headerNames != null) {
             while (headerNames.hasMoreElements()) {
                 String name = headerNames.nextElement();
-                if (name.toLowerCase(java.util.Locale.ROOT).startsWith("x-aimock-")) {
+                if (name.toLowerCase(java.util.Locale.ROOT).startsWith("x-")) {
                     headers.put(name, request.getHeader(name));
                 }
             }

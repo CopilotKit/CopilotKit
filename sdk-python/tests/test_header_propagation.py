@@ -1,4 +1,4 @@
-"""Tests for header propagation (x-aimock-* headers to outgoing LLM calls)."""
+"""Tests for header propagation (x-* prefixed headers to outgoing LLM calls)."""
 
 import contextvars
 import warnings
@@ -13,12 +13,14 @@ from copilotkit.header_propagation import (
 
 
 class TestSetForwardedHeaders:
-    """set_forwarded_headers filters to x-aimock-* only."""
+    """set_forwarded_headers filters to x-* prefixed headers only."""
 
-    def test_filters_to_aimock_headers(self):
+    def test_filters_to_x_prefixed_headers(self):
         set_forwarded_headers({
             "x-aimock-strict": "true",
             "x-aimock-session": "abc123",
+            "x-request-id": "req-456",
+            "x-custom-trace": "xyz",
             "authorization": "Bearer token",
             "content-type": "application/json",
         })
@@ -26,6 +28,8 @@ class TestSetForwardedHeaders:
         assert result == {
             "x-aimock-strict": "true",
             "x-aimock-session": "abc123",
+            "x-request-id": "req-456",
+            "x-custom-trace": "xyz",
         }
 
     def test_case_insensitive_prefix_match(self):
@@ -39,7 +43,7 @@ class TestSetForwardedHeaders:
             "x-aimock-session": "xyz",
         }
 
-    def test_empty_when_no_aimock_headers(self):
+    def test_empty_when_no_x_headers(self):
         set_forwarded_headers({
             "authorization": "Bearer token",
             "content-type": "application/json",

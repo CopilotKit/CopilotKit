@@ -24,9 +24,9 @@ public class AimockHeaderPolicy : PipelinePolicy
     }
 
     /// <summary>
-    /// Creates an <see cref="OpenAIClientOptions"/> with the aimock header policy
+    /// Creates an <see cref="OpenAIClientOptions"/> with the header forwarding policy
     /// pre-configured. All OpenAI client instantiations should use this to ensure
-    /// x-aimock-* headers propagate to outgoing calls.
+    /// x-* prefixed headers propagate to outgoing calls.
     /// </summary>
     // TODO(copilotkit-sdk-dotnet): migrate to SDK-level header propagation
     public static OpenAIClientOptions CreateOpenAIClientOptions(string endpoint)

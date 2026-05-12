@@ -10,7 +10,7 @@ import java.io.IOException;
 import java.util.Map;
 
 /**
- * Injects {@code x-aimock-*} headers (from {@link AimockHeaderContext}) into
+ * Injects {@code x-*} prefixed headers (from {@link AimockHeaderContext}) into
  * outgoing HTTP requests made through Spring's {@code RestClient}.
  *
  * <p>This covers Spring AI's synchronous {@code .call()} path

@@ -13,10 +13,12 @@ describe("header-propagation", () => {
   });
 
   describe("withForwardedHeaders", () => {
-    it("filters to only x-aimock-* headers", () => {
+    it("filters to only x-* prefixed headers", () => {
       const input = {
         "x-aimock-strict": "true",
         "x-aimock-fixture": "demo",
+        "x-request-id": "req-123",
+        "x-custom-trace": "abc",
         authorization: "Bearer secret",
         "content-type": "application/json",
       };
@@ -26,6 +28,8 @@ describe("header-propagation", () => {
         expect(forwarded).toEqual({
           "x-aimock-strict": "true",
           "x-aimock-fixture": "demo",
+          "x-request-id": "req-123",
+          "x-custom-trace": "abc",
         });
         expect(forwarded).not.toHaveProperty("authorization");
         expect(forwarded).not.toHaveProperty("content-type");
@@ -47,7 +51,7 @@ describe("header-propagation", () => {
       });
     });
 
-    it("returns empty when no x-aimock-* headers present", () => {
+    it("returns empty when no x-* headers present", () => {
       const input = {
         authorization: "Bearer token",
         "content-type": "application/json",

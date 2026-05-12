@@ -11,7 +11,7 @@ public static class AimockHeaderContext
     public static void Set(Dictionary<string, string> headers)
     {
         var filtered = headers
-            .Where(h => h.Key.StartsWith("x-aimock-", StringComparison.OrdinalIgnoreCase))
+            .Where(h => h.Key.StartsWith("x-", StringComparison.OrdinalIgnoreCase))
             .ToDictionary(h => h.Key.ToLowerInvariant(), h => h.Value);
         _headers.Value = filtered;
     }

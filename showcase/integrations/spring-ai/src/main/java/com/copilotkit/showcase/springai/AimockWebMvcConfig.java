@@ -7,7 +7,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
  * Registers the {@link AimockHeaderInterceptor} on all incoming requests so
- * that {@code x-aimock-*} headers are captured into
+ * that {@code x-*} prefixed headers are captured into
  * {@link AimockHeaderContext} before any controller runs.
  */
 @Configuration

@@ -1,7 +1,8 @@
-"""Header propagation for forwarding x-aimock-* headers to outgoing LLM calls.
+"""Header propagation for forwarding x-* prefixed headers to outgoing LLM calls.
 
 Uses Python contextvars for per-request ambient state in async FastAPI handlers.
 An httpx event hook reads the ContextVar and injects headers on outgoing requests.
+Matches the CopilotKit runtime's extractForwardableHeaders() behavior.
 """
 
 import contextvars
@@ -16,8 +17,8 @@ _forwarded_headers: contextvars.ContextVar[Dict[str, str]] = contextvars.Context
 
 def set_forwarded_headers(headers: Dict[str, str]) -> None:
     """Store headers to forward to outgoing LLM calls.
-    Filters to x-aimock-* headers only."""
-    filtered = {k.lower(): v for k, v in headers.items() if k.lower().startswith('x-aimock-')}
+    Filters to x-* prefixed headers only."""
+    filtered = {k.lower(): v for k, v in headers.items() if k.lower().startswith('x-')}
     _forwarded_headers.set(filtered)
 
 
@@ -52,6 +53,6 @@ def install_httpx_hook(client) -> None:
     else:
         warnings.warn(
             f"install_httpx_hook: client of type {type(client).__name__} has no "
-            "recognized event_hooks attribute; x-aimock-* headers will not be forwarded",
+            "recognized event_hooks attribute; x-* headers will not be forwarded",
             stacklevel=2,
         )

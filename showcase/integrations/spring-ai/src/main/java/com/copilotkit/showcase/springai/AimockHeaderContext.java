@@ -5,7 +5,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Thread-local holder for {@code x-aimock-*} headers extracted from incoming
+ * Thread-local holder for {@code x-*} prefixed headers extracted from incoming
  * AG-UI requests.
  *
  * <p>Uses {@link InheritableThreadLocal} so the headers propagate into child
@@ -33,13 +33,13 @@ public final class AimockHeaderContext {
     }
 
     /**
-     * Stores the given headers after filtering to only {@code x-aimock-*} keys.
+     * Stores the given headers after filtering to only {@code x-*} prefixed keys.
      * Keys are lower-cased for consistent matching on the outbound side.
      */
     public static void set(Map<String, String> headers) {
         Map<String, String> filtered = headers.entrySet().stream()
                 .filter(e -> e.getKey().toLowerCase(java.util.Locale.ROOT)
-                        .startsWith("x-aimock-"))
+                        .startsWith("x-"))
                 .collect(Collectors.toMap(
                         e -> e.getKey().toLowerCase(java.util.Locale.ROOT),
                         Map.Entry::getValue));
@@ -47,7 +47,7 @@ public final class AimockHeaderContext {
     }
 
     /**
-     * Returns the current thread's {@code x-aimock-*} headers, or an empty map
+     * Returns the current thread's {@code x-*} prefixed headers, or an empty map
      * if none have been set.
      */
     public static Map<String, String> get() {
