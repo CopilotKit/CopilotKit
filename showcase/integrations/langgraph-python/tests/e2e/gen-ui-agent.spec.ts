@@ -80,4 +80,35 @@ test.describe("Agentic Generative UI", () => {
     );
     await expect(completed).toHaveCount(total);
   });
+
+  // Regression: the aimock fixture used to emit a single set_steps tool call
+  // with all three steps already `completed`, so the card mounted in its
+  // final state with no sequential animation. The pill's whole point is the
+  // pending → in_progress → completed progression spelled out in the
+  // backend's SYSTEM_PROMPT, which requires a 7-call chain of set_steps
+  // emissions threaded via toolCallId. This test pins that we observe at
+  // least one step in `pending` state during the run — proof that the chain
+  // is starting from the all-pending leg, not short-circuiting to all-done.
+  test("steps animate through pending before completing (no fixture short-circuit)", async ({
+    page,
+  }) => {
+    await page.getByRole("button", { name: /Plan a product launch/i }).click();
+
+    await expect(page.locator('[data-testid="agent-state-card"]')).toBeVisible({
+      timeout: 60000,
+    });
+
+    // At least one step must be observed in `pending` state. With the
+    // short-circuit bug the steps went straight to `completed` and this
+    // count would always be 0.
+    await expect
+      .poll(
+        () =>
+          page
+            .locator('[data-testid="agent-step"][data-status="pending"]')
+            .count(),
+        { intervals: [250], timeout: 30000 },
+      )
+      .toBeGreaterThan(0);
+  });
 });

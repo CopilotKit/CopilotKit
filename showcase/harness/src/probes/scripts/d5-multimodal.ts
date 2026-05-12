@@ -120,15 +120,30 @@ export async function preTurnAttachPdf(page: Page): Promise<void> {
 }
 
 export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
+  // `skipSend: true` because the sample buttons auto-send the user
+  // message via `agent.addMessage` + `copilotkit.runAgent` (see
+  // showcase/integrations/langgraph-python/src/app/demos/multimodal/
+  // sample-attachment-buttons.tsx). Without `skipSend` the runner
+  // would ALSO type `input` and press Enter, sending a second user
+  // message that competes with the in-flight image upload — the v1
+  // LangGraph runtime stream gets tangled and neither response makes
+  // it back to the UI. `input` is kept as a descriptive label for
+  // logs only. Timeout bumped to 60s to cover image-attachment payload
+  // round-trip latency (the e2e Playwright spec uses 60-90s for the
+  // same path — see tests/e2e/multimodal.spec.ts).
   return [
     {
-      input: "describe the sample image",
+      input: "image-sample-button (auto-sent)",
       preFill: preTurnAttachImage,
+      skipSend: true,
+      responseTimeoutMs: 60_000,
       assertions: buildModalityAssertion("image"),
     },
     {
-      input: "summarize the sample document",
+      input: "pdf-sample-button (auto-sent)",
       preFill: preTurnAttachPdf,
+      skipSend: true,
+      responseTimeoutMs: 60_000,
       assertions: buildModalityAssertion("document"),
     },
   ];

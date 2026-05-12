@@ -11,6 +11,15 @@ export interface DemoAuthHandle {
   token: string | null;
   /** The full `Bearer <token>` value when authenticated, otherwise null. */
   authorizationHeader: string | null;
+  /**
+   * Whether the user has signed in at least once during the current page
+   * session. Used by the page to decide between the first-paint SignInCard
+   * (never signed in) and the persistent chat-with-amber-banner state
+   * (signed in, then signed out) — the latter is the only state that
+   * actually showcases the runtime rejecting unauthenticated requests.
+   * Resets on full page reload by design.
+   */
+  hasEverSignedIn: boolean;
   /** Sign in with the provided token. */
   signIn: (token: string) => void;
   /** Clear the stored token. */
@@ -29,6 +38,7 @@ export interface DemoAuthHandle {
  */
 export function useDemoAuth(): DemoAuthHandle {
   const [token, setToken] = useState<string | null>(null);
+  const [hasEverSignedIn, setHasEverSignedIn] = useState(false);
 
   // Hydrate from localStorage after mount. Reading on initial render would
   // mismatch SSR (where window is undefined); deferring to useEffect keeps
@@ -37,7 +47,10 @@ export function useDemoAuth(): DemoAuthHandle {
     if (typeof window === "undefined") return;
     try {
       const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (stored) setToken(stored);
+      if (stored) {
+        setToken(stored);
+        setHasEverSignedIn(true);
+      }
     } catch {
       // localStorage unavailable (privacy mode, etc.) — fall back to
       // in-memory only.
@@ -46,6 +59,7 @@ export function useDemoAuth(): DemoAuthHandle {
 
   const signIn = useCallback((nextToken: string) => {
     setToken(nextToken);
+    setHasEverSignedIn(true);
     try {
       window.localStorage.setItem(STORAGE_KEY, nextToken);
     } catch {
@@ -55,6 +69,9 @@ export function useDemoAuth(): DemoAuthHandle {
 
   const signOut = useCallback(() => {
     setToken(null);
+    // hasEverSignedIn intentionally stays true so the page keeps showing
+    // the chat surface (with amber banner) after sign-out. That is the
+    // state that demonstrates the runtime returning 401.
     try {
       window.localStorage.removeItem(STORAGE_KEY);
     } catch {
@@ -70,6 +87,7 @@ export function useDemoAuth(): DemoAuthHandle {
     isAuthenticated: token !== null,
     token,
     authorizationHeader: token ? `Bearer ${token}` : null,
+    hasEverSignedIn,
     signIn,
     signOut,
   };

@@ -566,7 +566,7 @@
         "userMessage": "can you tell me what is in this demo pdf I just attached"
       },
       "response": {
-        "content": "The attached PDF is the CopilotKit Quickstart guide. It walks through three steps: install `@copilotkit/react-core` and `@copilotkit/react-ui`, wrap your app in a `<CopilotKit runtimeUrl=\"/api/copilotkit\">` provider, and drop a `<CopilotChat />` wherever you want the assistant to appear."
+        "content": "The attached PDF document is the CopilotKit Quickstart guide. It walks through three steps: install `@copilotkit/react-core` and `@copilotkit/react-ui`, wrap your app in a `<CopilotKit runtimeUrl=\"/api/copilotkit\">` provider, and drop a `<CopilotChat />` wherever you want the assistant to appear."
       }
     },
     {
