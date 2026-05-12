@@ -25,7 +25,6 @@ in-stream STATE_DELTA path used by useAgent, just not via the optional
 import os
 import uvicorn
 from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
-import ag_ui_adk.client_proxy_tool as _cpt
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -35,64 +34,6 @@ from dotenv import load_dotenv
 from agents.registry import AGENT_REGISTRY
 
 load_dotenv()
-
-
-# Gemini's function-calling API silently rejects function declarations that
-# carry a `required` field inside nested object schemas (e.g. on
-# `items.properties` of an array, or on properties of an object property).
-# The model emits no TOOL_CALL_* events and no error — it just returns an
-# empty response, which manifests as the agent appearing to hang. Strip
-# `required` from any schema that isn't the top-level parameters object
-# before ag_ui_adk hands the tool definition to genai.
-#
-# Top-level `required` is preserved (Gemini supports it there).
-_original_clean_schema = _cpt._clean_schema_for_genai
-
-
-def _strip_nested_required(schema, _top_level=False):
-    if isinstance(schema, dict):
-        out = {}
-        for k, v in schema.items():
-            if k == "required" and not _top_level:
-                continue
-            if k in ("properties", "defs") and isinstance(v, dict):
-                out[k] = {
-                    pn: _strip_nested_required(ps, _top_level=False)
-                    for pn, ps in v.items()
-                }
-            elif isinstance(v, (dict, list)):
-                out[k] = _strip_nested_required(v, _top_level=False)
-            else:
-                out[k] = v
-        return out
-    if isinstance(schema, list):
-        return [_strip_nested_required(item, _top_level=False) for item in schema]
-    return schema
-
-
-def _patched_clean_schema_for_genai(schema):
-    cleaned = _original_clean_schema(schema)
-    # Walk the cleaned schema and remove `required` everywhere except the
-    # outermost object (which Gemini does accept).
-    if isinstance(cleaned, dict):
-        top = {}
-        for k, v in cleaned.items():
-            if k == "required":
-                top[k] = v  # preserve top-level required
-            elif k in ("properties", "defs") and isinstance(v, dict):
-                top[k] = {
-                    pn: _strip_nested_required(ps, _top_level=False)
-                    for pn, ps in v.items()
-                }
-            elif isinstance(v, (dict, list)):
-                top[k] = _strip_nested_required(v, _top_level=False)
-            else:
-                top[k] = v
-        return top
-    return cleaned
-
-
-_cpt._clean_schema_for_genai = _patched_clean_schema_for_genai
 
 app = FastAPI(title="Google ADK Agent Server")
 
