@@ -42,7 +42,7 @@ const runtime = new CopilotRuntime({
   // MaybePromise<NonEmptyRecord<...>> which rejects plain Records;
   // fixed in source, pending release.
   agents: {
-    mcp_apps: mcpAppsAgent,
+    "mcp-apps": mcpAppsAgent,
     "headless-complete": headlessCompleteAgent,
   },
   mcpApps: {
