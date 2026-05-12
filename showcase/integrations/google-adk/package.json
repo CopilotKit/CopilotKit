@@ -20,11 +20,18 @@
     "@hashbrownai/react": "0.5.0-beta.4",
     "@json-render/core": "0.18.0",
     "@json-render/react": "0.18.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.14.0",
     "next": "^15.5.15",
     "openai": "^5.9.0",
+    "radix-ui": "^1.4.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
     "recharts": "^2.15.0",
+    "remark-gfm": "^4.0.1",
+    "tailwind-merge": "^3.5.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {
