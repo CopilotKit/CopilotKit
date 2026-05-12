@@ -20,41 +20,39 @@ const agentNames = [
   "tool-rendering",
   "gen-ui-tool-based",
   "gen-ui-agent",
-  "human_in_the_loop",
   "shared-state-read",
-  "shared-state-write",
   "shared-state-read-write",
   "shared-state-streaming",
   "subagents",
   // frontend-only demos (share simple chat agent on the backend)
   "frontend_tools",
-  "frontend_tools_async",
-  "prebuilt_sidebar",
-  "prebuilt_popup",
-  "chat_slots",
-  "chat_customization_css",
-  "headless_simple",
+  "frontend-tools-async",
+  "prebuilt-sidebar",
+  "prebuilt-popup",
+  "chat-slots",
+  "chat-customization-css",
+  "headless-simple",
   "headless_complete",
   "voice",
   // reasoning
-  "agentic_chat_reasoning",
-  "reasoning_default_render",
+  "reasoning-custom",
+  "reasoning-default",
   // tool-rendering variants
-  "tool_rendering_default_catchall",
-  "tool_rendering_custom_catchall",
-  "tool_rendering_reasoning_chain",
+  "tool-rendering-default-catchall",
+  "tool-rendering-custom-catchall",
+  "tool-rendering-reasoning-chain",
   // hitl variants
-  "hitl_in_chat",
-  "hitl_in_app",
+  "hitl-in-chat",
+  "hitl-in-app",
   // multimodal & state-context
   "multimodal",
-  "readonly_state_agent_context",
+  "readonly-state-agent-context",
   "agent_config",
   // a2ui
   "declarative_gen_ui",
   "a2ui_fixed_schema",
-  // byoc
-  "byoc_hashbrown",
+  // byoc / declarative
+  "declarative-hashbrown",
   "byoc_json_render",
   // open gen ui
   "open_gen_ui",
@@ -64,7 +62,7 @@ const agentNames = [
   // auth
   "auth",
   // mcp apps (also wired via separate runtime route copilotkit-mcp-apps)
-  "mcp_apps",
+  "mcp-apps",
   // interrupt-adapted demos (Strategy B: useFrontendTool + async Promise)
   "gen_ui_interrupt",
   "interrupt_headless",

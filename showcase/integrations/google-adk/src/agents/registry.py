@@ -114,9 +114,7 @@ AGENT_REGISTRY: dict[str, AgentSpec] = {
     "tool-rendering": AgentSpec(tool_rendering_agent),
     "gen-ui-tool-based": AgentSpec(gen_ui_tool_based_agent),
     "gen-ui-agent": AgentSpec(gen_ui_agent),
-    "human_in_the_loop": AgentSpec(hitl_in_chat_agent),
-    "shared-state-read": AgentSpec(shared_state_read_agent),
-    "shared-state-write": AgentSpec(shared_state_read_write_agent),
+    "shared-state-read": AgentSpec(_simple_chat),
     "shared-state-read-write": AgentSpec(shared_state_read_write_agent),
     "shared-state-streaming": AgentSpec(
         shared_state_streaming_agent,
@@ -127,41 +125,41 @@ AGENT_REGISTRY: dict[str, AgentSpec] = {
     # ----- Frontend-only demos that share the simple chat agent -----
     # (manifest declares them as separate features; agent path is shared)
     "frontend_tools": AgentSpec(_simple_chat),
-    "frontend_tools_async": AgentSpec(_simple_chat),
-    "prebuilt_sidebar": AgentSpec(_simple_chat),
-    "prebuilt_popup": AgentSpec(_simple_chat),
-    "chat_slots": AgentSpec(_simple_chat),
-    "chat_customization_css": AgentSpec(_simple_chat),
-    "headless_simple": AgentSpec(_simple_chat),
+    "frontend-tools-async": AgentSpec(_simple_chat),
+    "prebuilt-sidebar": AgentSpec(_simple_chat),
+    "prebuilt-popup": AgentSpec(_simple_chat),
+    "chat-slots": AgentSpec(_simple_chat),
+    "chat-customization-css": AgentSpec(_simple_chat),
+    "headless-simple": AgentSpec(_simple_chat),
     "headless_complete": AgentSpec(_simple_chat),
     "voice": AgentSpec(_simple_chat),
     # ----- Reasoning demos -----
-    "agentic_chat_reasoning": AgentSpec(_thinking_chat),
-    "reasoning_default_render": AgentSpec(_thinking_chat),
+    "reasoning-custom": AgentSpec(_thinking_chat),
+    "reasoning-default": AgentSpec(_thinking_chat),
     # ----- Tool-rendering variants -----
-    "tool_rendering_default_catchall": AgentSpec(
+    "tool-rendering-default-catchall": AgentSpec(
         tool_rendering_default_catchall_agent
     ),
-    "tool_rendering_custom_catchall": AgentSpec(
+    "tool-rendering-custom-catchall": AgentSpec(
         tool_rendering_custom_catchall_agent
     ),
-    "tool_rendering_reasoning_chain": AgentSpec(
+    "tool-rendering-reasoning-chain": AgentSpec(
         tool_rendering_reasoning_chain_agent
     ),
     # ----- HITL variants -----
-    "hitl_in_chat": AgentSpec(hitl_in_chat_book_call_agent),
-    "hitl_in_app": AgentSpec(hitl_in_app_agent),
+    "hitl-in-chat": AgentSpec(hitl_in_chat_book_call_agent),
+    "hitl-in-app": AgentSpec(hitl_in_app_agent),
     # ----- MCP Apps -----
-    "mcp_apps": AgentSpec(mcp_apps_agent),
+    "mcp-apps": AgentSpec(mcp_apps_agent),
     # ----- Multimodal & state-context -----
     "multimodal": AgentSpec(multimodal_agent),
-    "readonly_state_agent_context": AgentSpec(readonly_state_agent_context_agent),
+    "readonly-state-agent-context": AgentSpec(readonly_state_agent_context_agent),
     "agent_config": AgentSpec(agent_config_agent),
     # ----- A2UI -----
     "declarative_gen_ui": AgentSpec(declarative_gen_ui_agent),
     "a2ui_fixed_schema": AgentSpec(a2ui_fixed_agent),
-    # ----- BYOC -----
-    "byoc_hashbrown": AgentSpec(byoc_agent),
+    # ----- BYOC / Declarative -----
+    "declarative-hashbrown": AgentSpec(byoc_agent),
     "byoc_json_render": AgentSpec(byoc_agent),
     # ----- Open Gen UI -----
     "open_gen_ui": AgentSpec(open_gen_ui_agent),

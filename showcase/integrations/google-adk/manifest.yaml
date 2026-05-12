@@ -25,8 +25,6 @@ interaction_modalities:
 managed_platform:
   name: Google AI Studio
   url: https://aistudio.google.com
-not_supported_features:
-  - shared-state-streaming
 features:
   - beautiful-chat
   - cli-start
@@ -37,15 +35,13 @@ features:
   - chat-customization-css
   - headless-simple
   - headless-complete
-  - agentic-chat-reasoning
-  - reasoning-default-render
+  - reasoning-custom
+  - reasoning-default
   - frontend-tools
   - frontend-tools-async
   - gen-ui-tool-based
-  - hitl
   - hitl-in-app
   - hitl-in-chat
-  - hitl-in-chat-booking
   - declarative-gen-ui
   - a2ui-fixed-schema
   - gen-ui-agent
@@ -53,13 +49,15 @@ features:
   - tool-rendering-custom-catchall
   - tool-rendering
   - tool-rendering-reasoning-chain
+  - shared-state-read
   - shared-state-read-write
+  - shared-state-streaming
   - readonly-state-agent-context
   - subagents
   - multimodal
   - auth
-  - byoc-hashbrown
-  - byoc-json-render
+  - declarative-hashbrown
+  - declarative-json-render
   - open-gen-ui
   - open-gen-ui-advanced
   - voice
@@ -148,32 +146,9 @@ demos:
       - src/app/demos/frontend-tools-async/page.tsx
       - src/app/demos/frontend-tools-async/notes-card.tsx
       - src/app/api/copilotkit/route.ts
-  - id: hitl
-    name: In-Chat Human in the Loop (Original)
-    description: User approves agent actions before execution
-    tags:
-      - interactivity
-    route: /demos/hitl
-    animated_preview_url:
-    highlight:
-      - src/app/demos/hitl/agent.py
-      - src/app/demos/hitl/page.tsx
-      - src/app/api/copilotkit/route.ts
   - id: hitl-in-chat
-    name: In-Chat HITL (book_call)
-    description: Frontend-tool HITL via useHumanInTheLoop — agent calls book_call, frontend renders an in-chat time-picker, user's selection is forwarded back as the tool result
-    tags:
-      - interactivity
-    route: /demos/hitl-in-chat
-    animated_preview_url:
-    highlight:
-      - src/agents/hitl_in_chat_book_call_agent.py
-      - src/app/demos/hitl-in-chat/page.tsx
-      - src/app/demos/hitl-in-chat/time-picker-card.tsx
-      - src/app/api/copilotkit/route.ts
-  - id: hitl-in-chat-booking
-    name: In-Chat HITL (Booking)
-    description: Time-picker card rendered inline via useHumanInTheLoop for a booking flow
+    name: "Human In the Loop: In-chat"
+    description: Time-slot picker rendered inline in the chat via `useHumanInTheLoop` — the agent requests user input, the frontend renders a TimePickerCard, and the user's choice resumes the agent.
     tags:
       - interactivity
     route: /demos/hitl-in-chat
@@ -240,9 +215,19 @@ demos:
       - src/agents/gen_ui_agent.py
       - src/app/demos/gen-ui-agent/page.tsx
       - src/app/api/copilotkit/route.ts
+  - id: shared-state-read
+    name: "Shared State: Read-only"
+    description: "Recipe editor publishes form state via agent.setState; the agent reads the recipe context but does not mutate it (no backend tool — neutral default agent)."
+    tags:
+      - agent-state
+    route: /demos/shared-state-read
+    animated_preview_url:
+    highlight:
+      - src/app/demos/shared-state-read/page.tsx
+      - src/app/api/copilotkit/route.ts
   - id: shared-state-read-write
-    name: Shared State (Read + Write)
-    description: Bidirectional agent state — UI writes preferences, agent writes notes back
+    name: "Shared State: Read + Write"
+    description: Bidirectional shared state — UI writes preferences via agent.setState; agent writes notes via a Command-returning tool
     tags:
       - agent-state
     route: /demos/shared-state-read-write
@@ -334,28 +319,28 @@ demos:
       - src/app/demos/headless-complete/page.tsx
       - src/app/demos/headless-complete/message-list.tsx
       - src/app/api/copilotkit/route.ts
-  - id: agentic-chat-reasoning
-    name: Reasoning
+  - id: reasoning-custom
+    name: "Reasoning: Custom"
     description: Visible reasoning/thinking chain alongside the final answer (Gemini 2.5 thinking mode)
     tags:
-      - generative-ui
-    route: /demos/agentic-chat-reasoning
+      - chat-ui
+    route: /demos/reasoning-custom
     animated_preview_url:
     highlight:
-      - src/app/demos/agentic-chat-reasoning/page.tsx
-      - src/app/demos/agentic-chat-reasoning/reasoning-block.tsx
+      - src/app/demos/reasoning-custom/page.tsx
+      - src/app/demos/reasoning-custom/reasoning-block.tsx
       - src/agents/shared_chat.py
       - src/app/api/copilotkit/route.ts
-  - id: reasoning-default-render
-    name: Reasoning (Default Render)
-    description: Built-in CopilotChatReasoningMessage renders without a custom slot
+  - id: reasoning-default
+    name: "Reasoning: Default"
+    description: Built-in CopilotChatReasoningMessage rendering with no slot override.
     tags:
-      - generative-ui
-    route: /demos/reasoning-default-render
+      - chat-ui
+    route: /demos/reasoning-default
     animated_preview_url:
     highlight:
       - src/agents/shared_chat.py
-      - src/app/demos/reasoning-default-render/page.tsx
+      - src/app/demos/reasoning-default/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: declarative-gen-ui
     name: Declarative Generative UI (A2UI)
@@ -411,18 +396,18 @@ demos:
       - src/agents/tool_rendering_common.py
       - src/app/demos/tool-rendering-reasoning-chain/page.tsx
       - src/app/api/copilotkit/route.ts
-  - id: byoc-json-render
-    name: BYOC json-render
+  - id: declarative-json-render
+    name: "Declarative UI: json-render"
     description: Streaming hierarchical JSON UI spec rendered via @json-render/react, with a Zod-validated catalog (MetricCard + PieChart + BarChart)
     tags:
       - generative-ui
-    route: /demos/byoc-json-render
+    route: /demos/declarative-json-render
     animated_preview_url:
     highlight:
       - src/agents/byoc_agents.py
-      - src/app/demos/byoc-json-render/page.tsx
-      - src/app/demos/byoc-json-render/json-render-renderer.tsx
-      - src/app/api/copilotkit-byoc-json-render/route.ts
+      - src/app/demos/declarative-json-render/page.tsx
+      - src/app/demos/declarative-json-render/json-render-renderer.tsx
+      - src/app/api/copilotkit-declarative-json-render/route.ts
   - id: beautiful-chat
     name: Beautiful Chat
     description: Canonical polished starter chat — brand fonts, theme tokens, suggestion pills
@@ -457,16 +442,16 @@ demos:
       - src/app/demos/auth/auth-banner.tsx
       - src/app/demos/auth/demo-token.ts
       - src/app/api/copilotkit-auth/route.ts
-  - id: byoc-hashbrown
-    name: BYOC Hashbrown
+  - id: declarative-hashbrown
+    name: "Declarative UI: Hashbrown"
     description: Streaming structured output via @hashbrownai/react, rendering a sales dashboard catalog (MetricCard + PieChart + BarChart)
     tags:
       - generative-ui
-    route: /demos/byoc-hashbrown
+    route: /demos/declarative-hashbrown
     animated_preview_url:
     highlight:
       - src/agents/byoc_agents.py
-      - src/app/demos/byoc-hashbrown/page.tsx
+      - src/app/demos/declarative-hashbrown/page.tsx
       - src/app/api/copilotkit-byoc-hashbrown/route.ts
   - id: open-gen-ui
     name: Fully Open-Ended Generative UI
