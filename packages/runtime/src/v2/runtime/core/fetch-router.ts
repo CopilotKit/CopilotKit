@@ -199,5 +199,10 @@ function matchSegments(path: string): RouteInfo | null {
     return { method: "threads/list" };
   }
 
+  // /user-actions (1 segment) — record a UI interaction
+  if (len >= 1 && segments[len - 1] === "user-actions") {
+    return { method: "user-actions/record" };
+  }
+
   return null;
 }

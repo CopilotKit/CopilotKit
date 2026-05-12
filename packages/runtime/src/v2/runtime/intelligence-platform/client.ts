@@ -199,6 +199,51 @@ export interface AcquireThreadLockResponse extends ThreadConnectionResponse {
   runId: string;
 }
 
+/**
+ * Parameters for recording a user UI interaction via
+ * {@link CopilotKitIntelligence.recordUserAction}. The runtime resolves
+ * `userId` from the customer's BFF auth before calling this; the
+ * platform prefixes it with the project id at write time.
+ */
+export interface RecordUserActionRequest {
+  /** The user the action belongs to. */
+  userId: string;
+  /** The thread the action is associated with. May be unknown to the platform. */
+  threadId: string;
+  /** Short, agent-readable summary of what the user did. Optional. */
+  title?: string | null;
+  /** Optional longer explanation. */
+  description?: string | null;
+  /** Optional snapshot of state before the action. JSON-serializable. */
+  previousData?: unknown;
+  /** Optional snapshot of state after the action. JSON-serializable. */
+  newData?: unknown;
+  /** Optional caller-defined metadata. Stored verbatim. */
+  metadata?: Record<string, unknown> | null;
+  /** ISO-8601 client-asserted timestamp. Defaults to server NOW() when absent. */
+  occurredAt?: string;
+  /**
+   * Caller-supplied idempotency key (any RFC-compliant UUID; the
+   * frontend hook `useRecordUserAction` auto-generates one per call,
+   * so retries are safe by default). Every call hits the platform's
+   * idempotent PUT endpoint; a retry with the same id collapses to
+   * the original row.
+   */
+  clientEventId: string;
+}
+
+/** Response from {@link CopilotKitIntelligence.recordUserAction}. */
+export interface RecordUserActionResponse {
+  /** Database id of the user-action row (BIGINT, returned as a string). */
+  id: string;
+  /**
+   * True when the platform recognized the `clientEventId` as a retry of
+   * a previous call and returned the original row id instead of inserting
+   * a new one.
+   */
+  duplicate: boolean;
+}
+
 /** A single message within a thread's persisted history. */
 export interface ThreadMessage {
   /** Unique identifier for this message. */
@@ -711,6 +756,51 @@ export class CopilotKitIntelligence {
       },
     );
     this.#invokeLifecycleCallback("onThreadDeleted", params);
+  }
+
+  /**
+   * Record a user UI interaction in the Intelligence platform's user-actions
+   * stream. Used by the auto-curated knowledge base loop: a background agent
+   * distills these actions (and finished agent runs) into a per-(org, project)
+   * markdown knowledge base.
+   *
+   * `userId` must be resolved on the runtime side before calling this — the
+   * platform prefixes it with the project id from the API key.
+   *
+   * Always hits the idempotent `PUT /connector/user-actions/record/:clientEventId`
+   * endpoint. A retry with the same `clientEventId` returns
+   * `{ id: <original>, duplicate: true }` instead of creating a new row.
+   *
+   * `clientEventId` is also included in the request body for the connector's
+   * URL/body parity check — the platform 400s if the two don't match. Sending
+   * both is intentional, not a redundancy.
+   *
+   * @throws {@link PlatformRequestError} on non-2xx responses, OR when the
+   *   platform returns an empty 2xx body (which would otherwise corrupt the
+   *   caller's typed result).
+   */
+  async recordUserAction(
+    params: RecordUserActionRequest,
+  ): Promise<RecordUserActionResponse> {
+    const { clientEventId, ...rest } = params;
+    const path = `/connector/user-actions/record/${encodeURIComponent(clientEventId)}`;
+    const response = await this.#request<
+      RecordUserActionResponse | null | undefined
+    >("PUT", path, { ...rest, clientEventId });
+    // `== null` catches both `undefined` (empty body from `#request`)
+    // and JSON `null` (which would otherwise corrupt the typed result
+    // and surface as a `TypeError` deep in caller code).
+    if (response == null) {
+      logger.error(
+        { path },
+        "recordUserAction: Intelligence platform returned 200 with empty or null body",
+      );
+      throw new PlatformRequestError(
+        "recordUserAction: empty or null response body from Intelligence platform",
+        502,
+      );
+    }
+    return response;
   }
 
   async ɵacquireThreadLock(

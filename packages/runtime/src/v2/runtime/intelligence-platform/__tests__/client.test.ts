@@ -598,4 +598,126 @@ describe("CopilotKitIntelligence", () => {
       expect(result).toEqual(payload);
     });
   });
+
+  describe("recordUserAction", () => {
+    const validParams = {
+      userId: "user-1",
+      threadId: "thread-1",
+      title: "Renamed project",
+      previousData: { name: "Foo" },
+      newData: { name: "Bar" },
+      metadata: { source: "settings-page" },
+      clientEventId: "0190a1b2-c3d4-7890-abcd-ef1234567890",
+    };
+
+    it("uses PUT (idempotent) and URL-encodes the clientEventId in the path", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({ id: "42", duplicate: false }),
+      );
+
+      const result = await client.recordUserAction(validParams);
+
+      expect(result).toEqual({ id: "42", duplicate: false });
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe(
+        "https://api.example.com/connector/user-actions/record/0190a1b2-c3d4-7890-abcd-ef1234567890",
+      );
+      expect(opts.method).toBe("PUT");
+    });
+
+    it("sends clientEventId in the body for the connector's URL/body parity check", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({ id: "1", duplicate: false }),
+      );
+
+      await client.recordUserAction(validParams);
+
+      const [, opts] = fetchMock.mock.calls[0];
+      const body = JSON.parse(opts.body);
+      expect(body.clientEventId).toBe(validParams.clientEventId);
+    });
+
+    it("forwards all action fields verbatim", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({ id: "1", duplicate: false }),
+      );
+
+      await client.recordUserAction(validParams);
+
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(JSON.parse(opts.body)).toMatchObject({
+        userId: "user-1",
+        threadId: "thread-1",
+        title: "Renamed project",
+        previousData: { name: "Foo" },
+        newData: { name: "Bar" },
+        metadata: { source: "settings-page" },
+        clientEventId: validParams.clientEventId,
+      });
+    });
+
+    it("sends Authorization Bearer with the configured apiKey", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({ id: "1", duplicate: false }),
+      );
+
+      await client.recordUserAction(validParams);
+
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(opts.headers.Authorization).toBe("Bearer test-key");
+      expect(opts.headers["Content-Type"]).toBe("application/json");
+    });
+
+    it("encodes special characters in clientEventId path segments", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({ id: "1", duplicate: false }),
+      );
+
+      await client.recordUserAction({
+        ...validParams,
+        clientEventId: "id/with?special&chars",
+      });
+
+      const [url] = fetchMock.mock.calls[0];
+      expect(url).toBe(
+        "https://api.example.com/connector/user-actions/record/id%2Fwith%3Fspecial%26chars",
+      );
+    });
+
+    it("throws PlatformRequestError on non-2xx with the platform's status", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ error: "bad" }, 400));
+
+      await expect(client.recordUserAction(validParams)).rejects.toMatchObject(
+        { status: 400 },
+      );
+    });
+
+    it("throws PlatformRequestError 502 when the platform returns an empty body", async () => {
+      fetchMock.mockReturnValue(emptyResponse(200));
+
+      await expect(client.recordUserAction(validParams)).rejects.toMatchObject(
+        { status: 502 },
+      );
+    });
+
+    it("throws PlatformRequestError 502 when the platform returns JSON null", async () => {
+      // `JSON.parse("null")` returns `null` (not `undefined`), so the
+      // empty-body guard must use `== null` (loose) to catch both
+      // shapes. A `=== undefined` guard would let `null` slip past
+      // and surface as a TypeError in caller code.
+      fetchMock.mockReturnValue(
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          json: () => Promise.resolve(null),
+          text: () => Promise.resolve("null"),
+        } as Response),
+      );
+
+      await expect(client.recordUserAction(validParams)).rejects.toMatchObject(
+        { status: 502 },
+      );
+    });
+  });
 });

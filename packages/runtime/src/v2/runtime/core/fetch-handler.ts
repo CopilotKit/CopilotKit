@@ -58,6 +58,7 @@ import {
   handleGetThreadEvents,
   handleGetThreadState,
 } from "../handlers/handle-threads";
+import { handleRecordUserAction } from "../handlers/handle-user-actions";
 import {
   parseMethodCall,
   createJsonRequest,
@@ -360,6 +361,8 @@ function dispatchRoute(
         request,
         threadId: route.threadId,
       });
+    case "user-actions/record":
+      return handleRecordUserAction({ runtime, request });
     case "cpk-debug-events":
       return Promise.resolve(handleDebugEvents({ runtime, request }));
   }
