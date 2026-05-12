@@ -1,5 +1,7 @@
-// Dedicated runtime for the byoc-hashbrown demo. Mirrors langgraph-python's
-// /api/copilotkit-byoc-hashbrown route.
+// Dedicated runtime for the declarative-hashbrown demo. Mirrors
+// langgraph-python's /api/copilotkit-declarative-hashbrown route, but uses
+// the HttpAgent + AGENT_URL pattern that talks to the Python ADK backend
+// process (mounted at /declarative-hashbrown by agent_server.py).
 
 import { NextRequest, NextResponse } from "next/server";
 import {
@@ -11,17 +13,17 @@ import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-const byocHashbrownAgent = new HttpAgent({
-  url: `${AGENT_URL}/byoc_hashbrown`,
+const declarativeHashbrownAgent = new HttpAgent({
+  url: `${AGENT_URL}/declarative-hashbrown`,
 });
 
 const runtime = new CopilotRuntime({
   // @ts-expect-error -- see main route.ts
-  agents: { "byoc-hashbrown-demo": byocHashbrownAgent },
+  agents: { "declarative-hashbrown-demo": declarativeHashbrownAgent },
 });
 
 const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-  endpoint: "/api/copilotkit-byoc-hashbrown",
+  endpoint: "/api/copilotkit-declarative-hashbrown",
   serviceAdapter: new ExperimentalEmptyAdapter(),
   runtime,
 });
