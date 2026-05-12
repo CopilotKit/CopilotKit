@@ -189,9 +189,7 @@ function assertContainsAll(
  *  turn's dice cards in a multi-pill thread. */
 function cardSelector(card: CardSelector): string {
   const base = `[data-testid="${card.testId}"]`;
-  return card.toolName
-    ? `${base}[data-tool-name="${card.toolName}"]`
-    : base;
+  return card.toolName ? `${base}[data-tool-name="${card.toolName}"]` : base;
 }
 
 export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {

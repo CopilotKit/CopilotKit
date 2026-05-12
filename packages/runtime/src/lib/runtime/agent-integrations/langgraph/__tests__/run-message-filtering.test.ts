@@ -37,14 +37,15 @@ function createAgent() {
 function withMockedParentRun(agent: LangGraphAgent) {
   const parentProto = Object.getPrototypeOf(Object.getPrototypeOf(agent));
   const calls: any[] = [];
-  const spy = vi
-    .spyOn(parentProto, "run")
-    .mockImplementation(function (this: unknown, input: unknown) {
-      calls.push(input);
-      // Return an empty Observable — none of our assertions consume it,
-      // we only care about what was passed in.
-      return of();
-    });
+  const spy = vi.spyOn(parentProto, "run").mockImplementation(function (
+    this: unknown,
+    input: unknown,
+  ) {
+    calls.push(input);
+    // Return an empty Observable — none of our assertions consume it,
+    // we only care about what was passed in.
+    return of();
+  });
   return { spy, calls };
 }
 

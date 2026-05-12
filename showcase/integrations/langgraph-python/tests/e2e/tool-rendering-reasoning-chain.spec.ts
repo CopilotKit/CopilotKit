@@ -56,9 +56,9 @@ test.describe("Tool Rendering — Reasoning Chain", () => {
     await expect(page.locator('[data-testid="flight-list-card"]')).toHaveCount(
       0,
     );
-    await expect(page.locator('[data-testid="custom-catchall-card"]')).toHaveCount(
-      0,
-    );
+    await expect(
+      page.locator('[data-testid="custom-catchall-card"]'),
+    ).toHaveCount(0);
     await expect(page.locator('[data-testid="reasoning-block"]')).toHaveCount(
       0,
     );
@@ -137,10 +137,9 @@ test.describe("Tool Rendering — Reasoning Chain", () => {
     // Flights card uses its branded renderer (not the catchall).
     const flights = page.locator('[data-testid="flight-list-card"]').first();
     await expect(flights).toBeVisible({ timeout: TOOL_TIMEOUT });
-    await expect(flights.locator('[data-testid="flight-origin"]')).toContainText(
-      "SFO",
-      { timeout: TOOL_TIMEOUT },
-    );
+    await expect(
+      flights.locator('[data-testid="flight-origin"]'),
+    ).toContainText("SFO", { timeout: TOOL_TIMEOUT });
     await expect(
       flights.locator('[data-testid="flight-destination"]'),
     ).toContainText("JFK", { timeout: TOOL_TIMEOUT });
