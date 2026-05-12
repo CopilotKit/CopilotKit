@@ -1,8 +1,8 @@
 """Agent backing the Tool-Based Generative UI demo.
 
-The agent has no backend tools; the frontend registers `generate_haiku` (or
-similar) via `useFrontendTool({ render })` so the agent calls it and the
-React-side renderer paints the result.
+The frontend registers `render_bar_chart` and `render_pie_chart` tools via
+`useComponent`. The ADKAgent middleware injects those tools into the model
+request at runtime so the agent can call them.
 """
 
 from __future__ import annotations
@@ -12,12 +12,12 @@ from google.adk.agents import LlmAgent
 from agents.shared_chat import get_model
 
 _INSTRUCTION = (
-    "You are a helpful assistant that generates richly-formatted UI via "
-    "frontend tools. When the user asks for a haiku, call the generate_haiku "
-    "tool with three lines in Japanese, three lines translated to English, "
-    "a fitting image_name, and a CSS gradient string for the background. "
-    "Always invoke the tool — never answer with plain text when a tool is "
-    "available."
+    "You are a data visualization assistant.\n\n"
+    "When the user asks for a chart, call `render_bar_chart` or "
+    "`render_pie_chart` with a concise title, short description, and a "
+    "`data` array of `{label, value}` items. Pick bar for comparisons over "
+    "a small set of categories; pick pie for composition / share-of-whole.\n\n"
+    "Keep chat responses brief -- let the chart do the talking."
 )
 
 gen_ui_tool_based_agent = LlmAgent(
