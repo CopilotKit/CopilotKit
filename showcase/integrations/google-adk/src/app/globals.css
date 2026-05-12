@@ -84,13 +84,34 @@
   box-sizing: border-box;
 }
 
-html,
-body {
+html {
   height: 100%;
   width: 100%;
   overflow: hidden;
   font-family:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background: #fafaf9;
-  color: #1a1a18;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* `body` deliberately does NOT have `width: 100%`. Letting it auto-size
+ * lets <CopilotSidebar /> shrink the document via `margin-inline-end` so
+ * the sidebar pushes the page content instead of overlapping it. */
+body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* When a Radix overlay (Select / Dialog / Popover) opens, react-remove-scroll
+ * adds `body[data-scroll-locked]` with `padding-right` equal to what it
+ * thinks is the scrollbar width. Because our <body> uses `margin-inline-end`
+ * to make room for <CopilotSidebar />, the lib mis-detects the sidebar
+ * width as scrollbar width and injects a matching padding-right, which
+ * shrinks the page on every dropdown open. We have no real scrollbar
+ * (`overflow: hidden` above) so the compensation is unnecessary — neutralize
+ * it here. */
+body[data-scroll-locked] {
+  padding-right: 0 !important;
 }
