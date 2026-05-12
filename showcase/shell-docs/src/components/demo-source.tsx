@@ -143,8 +143,8 @@ export function DemoSource({
   if (displayFiles.length === 0) {
     return (
       <WarningBox>
-        Demo <code>{key}</code> has no bundled source files. The manifest may
-        be missing a <code>route:</code> or its demo folder is empty.
+        Demo <code>{key}</code> has no bundled source files. The manifest may be
+        missing a <code>route:</code> or its demo folder is empty.
       </WarningBox>
     );
   }
