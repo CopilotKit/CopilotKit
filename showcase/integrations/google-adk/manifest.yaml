@@ -78,8 +78,8 @@ demos:
       - chat-ui
     command: "npx copilotkit@latest init --framework google-adk"
   - id: agentic-chat
-    name: Agentic Chat
-    description: Natural conversation with frontend tool execution
+    name: "Pre-Built: CopilotChat"
+    description: Vanilla CopilotChat with three starter-prompt suggestions — the minimum-viable surface for free-form chat
     tags:
       - chat-ui
     route: /demos/agentic-chat
