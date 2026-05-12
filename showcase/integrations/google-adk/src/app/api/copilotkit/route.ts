@@ -1,10 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 // The agent backend runs as a separate process on port 8000.
 // agent_server.py mounts ONE ADKAgent middleware per demo at /<agent_name>;
@@ -63,9 +65,6 @@ const agentNames = [
   "auth",
   // mcp apps (also wired via separate runtime route copilotkit-mcp-apps)
   "mcp-apps",
-  // interrupt-adapted demos (Strategy B: useFrontendTool + async Promise)
-  "gen_ui_interrupt",
-  "interrupt_headless",
 ];
 
 const agents: Record<string, AbstractAgent> = {};

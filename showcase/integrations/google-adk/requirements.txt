@@ -7,4 +7,4 @@ google-adk
 # the secondary generate_a2ui planner call. Explicit pin keeps the version
 # floor independent of google-adk's transitive resolution.
 google-genai>=0.8.0
-ag-ui-adk
+ag-ui-adk==0.6.1

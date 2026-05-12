@@ -60,7 +60,6 @@ from agents.readonly_state_agent_context_agent import (
 )
 from agents.beautiful_chat_agent import beautiful_chat_agent
 from agents.shared_state_read_agent import shared_state_read_agent
-from agents.interrupt_agent import interrupt_agent
 
 
 @dataclass
@@ -168,7 +167,4 @@ AGENT_REGISTRY: dict[str, AgentSpec] = {
     "beautiful_chat": AgentSpec(beautiful_chat_agent),
     # ----- Auth (uses simple chat — auth gate is in route.ts) -----
     "auth": AgentSpec(_simple_chat),
-    # ----- Interrupt-adapted demos (Strategy B: useFrontendTool) -----
-    "gen_ui_interrupt": AgentSpec(interrupt_agent),
-    "interrupt_headless": AgentSpec(interrupt_agent),
 }
