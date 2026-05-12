@@ -17,6 +17,7 @@ import logging
 import os
 import uuid
 
+from ag_ui_adk import AGUIToolset
 from google import genai
 from google.adk.agents import LlmAgent
 from google.adk.tools import ToolContext
@@ -280,6 +281,6 @@ subagents_root_agent = LlmAgent(
     name="SubagentsSupervisor",
     model=get_model(_SUB_MODEL),
     instruction=_SUPERVISOR_INSTRUCTION,
-    tools=[research_agent, writing_agent, critique_agent],
+    tools=[research_agent, writing_agent, critique_agent, AGUIToolset()],
 )
 # @endregion[subagent-setup]

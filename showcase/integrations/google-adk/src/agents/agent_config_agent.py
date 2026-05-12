@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
+from ag_ui_adk import AGUIToolset
 from google.adk.agents import LlmAgent
 from google.adk.agents.callback_context import CallbackContext
 from google.adk.models.llm_request import LlmRequest
@@ -144,6 +145,6 @@ agent_config_agent = LlmAgent(
     name="AgentConfigAgent",
     model=get_model(),
     instruction=_INSTRUCTION,
-    tools=[],
+    tools=[AGUIToolset()],
     before_model_callback=_inject_config,
 )

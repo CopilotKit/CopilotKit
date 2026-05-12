@@ -28,6 +28,7 @@ setup.
 
 from __future__ import annotations
 
+from ag_ui_adk import AGUIToolset
 from ag_ui_adk.config import PredictStateMapping
 from google.adk.agents import LlmAgent
 from google.adk.tools import ToolContext
@@ -59,7 +60,7 @@ shared_state_streaming_agent = LlmAgent(
     name="SharedStateStreamingAgent",
     model=get_model(),
     instruction=_INSTRUCTION,
-    tools=[write_document],
+    tools=[write_document, AGUIToolset()],
 )
 
 

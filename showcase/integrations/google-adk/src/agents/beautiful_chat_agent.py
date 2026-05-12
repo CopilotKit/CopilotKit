@@ -8,6 +8,7 @@ fonts, theme tokens, and suggestion pills on the frontend.
 
 from __future__ import annotations
 
+from ag_ui_adk import AGUIToolset
 from google.adk.agents import LlmAgent
 from google.adk.tools import ToolContext
 
@@ -49,5 +50,5 @@ beautiful_chat_agent = LlmAgent(
     name="BeautifulChatAgent",
     model=get_model(),
     instruction=_INSTRUCTION,
-    tools=[query_data, search_flights, schedule_meeting],
+    tools=[query_data, search_flights, schedule_meeting, AGUIToolset()],
 )

@@ -7,6 +7,7 @@ variant.
 
 from __future__ import annotations
 
+from ag_ui_adk import AGUIToolset
 from google.adk.agents import LlmAgent
 
 from agents.shared_chat import get_model
@@ -21,5 +22,5 @@ tool_rendering_custom_catchall_agent = LlmAgent(
     name="ToolRenderingCustomCatchallAgent",
     model=get_model(),
     instruction=TOOL_RENDERING_INSTRUCTION,
-    tools=[get_weather, search_flights, query_data],
+    tools=[get_weather, search_flights, query_data, AGUIToolset()],
 )

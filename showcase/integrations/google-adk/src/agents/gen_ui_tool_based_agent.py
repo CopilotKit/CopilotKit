@@ -8,6 +8,7 @@ request at runtime so the agent can call them.
 from __future__ import annotations
 
 from google.adk.agents import LlmAgent
+from ag_ui_adk import AGUIToolset
 
 from agents.shared_chat import get_model
 
@@ -24,5 +25,5 @@ gen_ui_tool_based_agent = LlmAgent(
     name="GenUiToolBasedAgent",
     model=get_model(),
     instruction=_INSTRUCTION,
-    tools=[],
+    tools=[AGUIToolset()],
 )

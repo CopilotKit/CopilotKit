@@ -8,6 +8,7 @@ the result.
 
 from __future__ import annotations
 
+from ag_ui_adk import AGUIToolset
 from google.adk.agents import LlmAgent
 from google.adk.tools import ToolContext
 
@@ -31,5 +32,5 @@ byoc_agent = LlmAgent(
     name="ByocAgent",
     model=get_model(),
     instruction=_INSTRUCTION,
-    tools=[query_data],
+    tools=[query_data, AGUIToolset()],
 )

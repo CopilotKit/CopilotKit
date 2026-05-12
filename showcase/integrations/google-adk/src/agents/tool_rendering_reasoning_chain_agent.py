@@ -8,6 +8,7 @@ result).
 
 from __future__ import annotations
 
+from ag_ui_adk import AGUIToolset
 from google.adk.agents import LlmAgent
 from google.genai import types
 
@@ -23,7 +24,7 @@ tool_rendering_reasoning_chain_agent = LlmAgent(
     name="ToolRenderingReasoningChainAgent",
     model=get_model(),
     instruction=TOOL_RENDERING_INSTRUCTION,
-    tools=[get_weather, search_flights, query_data],
+    tools=[get_weather, search_flights, query_data, AGUIToolset()],
     generate_content_config=types.GenerateContentConfig(
         thinking_config=types.ThinkingConfig(
             include_thoughts=True,

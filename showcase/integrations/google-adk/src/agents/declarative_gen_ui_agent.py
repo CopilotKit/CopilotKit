@@ -9,6 +9,7 @@ detects the a2ui_operations container in the tool result.
 
 from __future__ import annotations
 
+from ag_ui_adk import AGUIToolset
 from google.adk.agents import LlmAgent
 
 from agents.shared_chat import get_model
@@ -27,5 +28,5 @@ declarative_gen_ui_agent = LlmAgent(
     name="DeclarativeGenUiAgent",
     model=get_model(),
     instruction=_INSTRUCTION,
-    tools=[generate_a2ui],
+    tools=[generate_a2ui, AGUIToolset()],
 )

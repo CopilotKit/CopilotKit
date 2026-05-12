@@ -9,6 +9,7 @@ concern, the agent's job is identical.
 
 from __future__ import annotations
 
+from ag_ui_adk import AGUIToolset
 from google.adk.agents import LlmAgent
 
 from agents.shared_chat import get_model
@@ -35,12 +36,12 @@ open_gen_ui_agent = LlmAgent(
     name="OpenGenUiAgent",
     model=get_model(),
     instruction=_OPEN_GEN_UI_INSTRUCTION,
-    tools=[],
+    tools=[AGUIToolset()],
 )
 
 open_gen_ui_advanced_agent = LlmAgent(
     name="OpenGenUiAdvancedAgent",
     model=get_model(),
     instruction=_OPEN_GEN_UI_ADVANCED_INSTRUCTION,
-    tools=[],
+    tools=[AGUIToolset()],
 )

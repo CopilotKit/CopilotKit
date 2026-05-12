@@ -10,6 +10,7 @@ gen_ui_agent.py — each step is `{id, title, status}` with status one of
 
 from __future__ import annotations
 
+from ag_ui_adk import AGUIToolset
 from google.adk.agents import LlmAgent
 from google.adk.tools import ToolContext
 
@@ -55,5 +56,5 @@ gen_ui_agent = LlmAgent(
     name="GenUiAgent",
     model=get_model(),
     instruction=_INSTRUCTION,
-    tools=[set_steps],
+    tools=[set_steps, AGUIToolset()],
 )

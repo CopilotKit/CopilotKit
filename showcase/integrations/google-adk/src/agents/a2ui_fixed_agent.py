@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from ag_ui_adk import AGUIToolset
 from google.adk.agents import LlmAgent
 from google.adk.tools import ToolContext
 
@@ -98,5 +99,5 @@ a2ui_fixed_agent = LlmAgent(
     name="A2uiFixedAgent",
     model=get_model(),
     instruction=_INSTRUCTION,
-    tools=[display_flight],
+    tools=[display_flight, AGUIToolset()],
 )

@@ -8,6 +8,7 @@ about uploaded attachments.
 
 from __future__ import annotations
 
+from ag_ui_adk import AGUIToolset
 from google.adk.agents import LlmAgent
 
 from agents.shared_chat import get_model
@@ -24,5 +25,5 @@ multimodal_agent = LlmAgent(
     name="MultimodalAgent",
     model=get_model(),
     instruction=_INSTRUCTION,
-    tools=[],
+    tools=[AGUIToolset()],
 )
