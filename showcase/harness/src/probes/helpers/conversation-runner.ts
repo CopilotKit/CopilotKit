@@ -171,6 +171,24 @@ export interface ConversationTurn {
    */
   skipFill?: boolean;
   /**
+   * When true, the runner skips BOTH `page.fill()` AND the Enter press
+   * for this turn — `preFill` is expected to have already issued the
+   * user message via some other path (e.g. clicking a sample-attachment
+   * button that dispatches `agent.addMessage` + `copilotkit.runAgent`).
+   *
+   * Distinct from `skipFill` (which still presses Enter once the
+   * textarea has content): a `skipFill` turn assumes preFill populated
+   * the textarea but didn't submit it, while a `skipSend` turn assumes
+   * preFill handled the whole submission and the textarea was never
+   * touched. Used by the multimodal-sample flow where the sample
+   * button auto-sends via the agent surface and the chat textarea
+   * stays empty for the entire turn.
+   *
+   * `skipSend` takes precedence over `skipFill` when both are set.
+   * `input` is ignored (used only for log labels).
+   */
+  skipSend?: boolean;
+  /**
    * Optional callback executed BEFORE the runner fills the chat input
    * and presses Enter for this turn. Use this to click attachment
    * buttons, set up DOM state, or perform any per-turn pre-work that
@@ -360,7 +378,11 @@ export async function runConversation(
         }
       }
 
-      if (turn.skipFill) {
+      if (turn.skipSend) {
+        console.debug(
+          `[conversation-runner] turn ${turnNum}/${total} — skipSend=true, preFill handled submission; not touching textarea`,
+        );
+      } else if (turn.skipFill) {
         console.debug(
           `[conversation-runner] turn ${turnNum}/${total} — skipFill=true, waiting for textarea content then pressing Enter`,
         );
