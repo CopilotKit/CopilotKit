@@ -5,6 +5,7 @@ This executor handles incoming A2A requests, processes A2UI ClientEvents
 (like button clicks and form submissions), and routes them to the UIGeneratorAgent.
 """
 
+import asyncio
 import json
 import logging
 
@@ -17,14 +18,12 @@ from a2a.types import (
     Task,
     TaskState,
     TextPart,
-    UnsupportedOperationError,
 )
 from a2a.utils import (
     new_agent_parts_message,
     new_agent_text_message,
     new_task,
 )
-from a2a.utils.errors import ServerError
 
 from .a2ui_extension import create_a2ui_part, try_activate_a2ui_extension
 from .agent import UIGeneratorAgent
@@ -45,6 +44,9 @@ class UIGeneratorExecutor(AgentExecutor):
         # Create both agent variants - appropriate one chosen at execution time
         self.ui_agent = UIGeneratorAgent(base_url=base_url, use_ui=True)
         self.text_agent = UIGeneratorAgent(base_url=base_url, use_ui=False)
+        self._running_tasks: dict[str, asyncio.Task] = {}
+        self._cancelled_task_ids: set[str] = set()
+        self._cancel_finalized_task_ids: set[str] = set()
 
     async def execute(
         self,
@@ -117,78 +119,129 @@ class UIGeneratorExecutor(AgentExecutor):
             await event_queue.enqueue_event(task)
         updater = TaskUpdater(event_queue, task.id, task.context_id)
 
-        # Stream agent response
-        async for item in agent.stream(query, task.context_id):
-            is_task_complete = item["is_task_complete"]
+        current_task = asyncio.current_task()
+        if current_task:
+            self._running_tasks[task.id] = current_task
 
-            if not is_task_complete:
-                # Send progress update
-                await updater.update_status(
-                    TaskState.working,
-                    new_agent_text_message(item["updates"], task.context_id, task.id),
+        try:
+            # Stream agent response
+            async for item in agent.stream(query, task.context_id):
+                if task.id in self._cancelled_task_ids:
+                    logger.info(f"Task {task.id} was cancelled")
+                    await self._mark_task_cancelled(updater, task)
+                    return
+
+                is_task_complete = item["is_task_complete"]
+
+                if not is_task_complete:
+                    # Send progress update
+                    await updater.update_status(
+                        TaskState.working,
+                        new_agent_text_message(
+                            item["updates"], task.context_id, task.id
+                        ),
+                    )
+                    continue
+
+                # Determine final state based on action
+                # Form submissions complete the task, other interactions require more input
+                final_state = (
+                    TaskState.completed
+                    if action == "submit_form"
+                    else TaskState.input_required
                 )
-                continue
 
-            # Determine final state based on action
-            # Form submissions complete the task, other interactions require more input
-            final_state = (
-                TaskState.completed
-                if action == "submit_form"
-                else TaskState.input_required
-            )
+                content = item["content"]
+                final_parts = []
 
-            content = item["content"]
-            final_parts = []
+                # Parse response for A2UI JSON
+                if "---a2ui_JSON---" in content:
+                    logger.info("Splitting response into text and UI parts")
+                    text_content, json_string = content.split("---a2ui_JSON---", 1)
 
-            # Parse response for A2UI JSON
-            if "---a2ui_JSON---" in content:
-                logger.info("Splitting response into text and UI parts")
-                text_content, json_string = content.split("---a2ui_JSON---", 1)
-
-                if text_content.strip():
-                    final_parts.append(Part(root=TextPart(text=text_content.strip())))
-
-                if json_string.strip():
-                    try:
-                        json_string_cleaned = (
-                            json_string.strip().lstrip("```json").rstrip("```").strip()
+                    if text_content.strip():
+                        final_parts.append(
+                            Part(root=TextPart(text=text_content.strip()))
                         )
-                        json_data = json.loads(json_string_cleaned)
 
-                        if isinstance(json_data, list):
-                            logger.info(
-                                f"Found {len(json_data)} A2UI messages"
+                    if json_string.strip():
+                        try:
+                            json_string_cleaned = (
+                                json_string.strip()
+                                .lstrip("```json")
+                                .rstrip("```")
+                                .strip()
                             )
-                            for message in json_data:
-                                tmp = create_a2ui_part(message)
-                                logger.info(f"A2UI message: {tmp}")
-                                final_parts.append(tmp)
-                        else:
-                            # Single JSON object
-                            logger.info("Single A2UI message")
-                            final_parts.append(create_a2ui_part(json_data))
+                            json_data = json.loads(json_string_cleaned)
 
-                    except json.JSONDecodeError as e:
-                        logger.error(f"Failed to parse UI JSON: {e}")
-                        final_parts.append(Part(root=TextPart(text=json_string)))
-            else:
-                # Text-only response
-                final_parts.append(Part(root=TextPart(text=content.strip())))
+                            if isinstance(json_data, list):
+                                logger.info(f"Found {len(json_data)} A2UI messages")
+                                for message in json_data:
+                                    tmp = create_a2ui_part(message)
+                                    logger.info(f"A2UI message: {tmp}")
+                                    final_parts.append(tmp)
+                            else:
+                                # Single JSON object
+                                logger.info("Single A2UI message")
+                                final_parts.append(create_a2ui_part(json_data))
 
-            logger.info(f"Sending {len(final_parts)} parts")
+                        except json.JSONDecodeError as e:
+                            logger.error(f"Failed to parse UI JSON: {e}")
+                            final_parts.append(Part(root=TextPart(text=json_string)))
+                else:
+                    # Text-only response
+                    final_parts.append(Part(root=TextPart(text=content.strip())))
 
-            await updater.update_status(
-                final_state,
-                new_agent_parts_message(final_parts, task.context_id, task.id),
-                final=(final_state == TaskState.completed),
-            )
-            break
+                logger.info(f"Sending {len(final_parts)} parts")
+
+                await updater.update_status(
+                    final_state,
+                    new_agent_parts_message(final_parts, task.context_id, task.id),
+                    final=(final_state == TaskState.completed),
+                )
+                break
+        except asyncio.CancelledError:
+            if task.id in self._cancelled_task_ids:
+                logger.info(f"Task {task.id} execution coroutine cancelled")
+                if task.id not in self._cancel_finalized_task_ids:
+                    await self._mark_task_cancelled(updater, task)
+                return
+            raise
+        finally:
+            self._running_tasks.pop(task.id, None)
+            self._cancelled_task_ids.discard(task.id)
+            self._cancel_finalized_task_ids.discard(task.id)
 
     async def cancel(
         self, request: RequestContext, event_queue: EventQueue
     ) -> Task | None:
-        """Cancel operation - not supported."""
-        raise ServerError(error=UnsupportedOperationError())
+        """Cancel an active A2A task."""
+        task = request.current_task
+        if not task:
+            logger.info("Cancel requested without an active task")
+            return None
+
+        logger.info(f"Cancel requested for task {task.id}")
+        self._cancelled_task_ids.add(task.id)
+        self._cancel_finalized_task_ids.add(task.id)
+
+        updater = TaskUpdater(event_queue, task.id, task.context_id)
+        await self._mark_task_cancelled(updater, task)
+
+        running_task = self._running_tasks.get(task.id)
+        if running_task and not running_task.done():
+            running_task.cancel()
+
+        return task
+
+    async def _mark_task_cancelled(
+        self, updater: TaskUpdater, task: Task
+    ) -> None:
+        await updater.update_status(
+            TaskState.canceled,
+            new_agent_text_message("Canceled.", task.context_id, task.id),
+            final=True,
+        )
 
 
 # Backward compatibility alias

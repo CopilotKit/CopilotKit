@@ -5,7 +5,7 @@ description = "A2A agent with A2UI support for the UI Protocols Demo - general-p
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "a2a-sdk>=0.3.0",
+    "a2a-sdk>=0.3.0,<1",
     "click>=8.1.8",
     "langchain-core>=0.3.0",
     "langchain-openai>=0.2.0",

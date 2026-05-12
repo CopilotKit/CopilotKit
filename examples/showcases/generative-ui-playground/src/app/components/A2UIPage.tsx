@@ -3,16 +3,17 @@
 /**
  * A2UI Page Component
  *
- * Uses @copilotkitnext/react for A2A compatibility.
+ * Uses @copilotkit/react-* packages for A2A compatibility.
  * The A2AAgent from @ag-ui/a2a works with the v2 runtime API.
  */
 
 import {
   CopilotKitProvider,
   CopilotChat,
-} from "@copilotkitnext/react";
-import { createA2UIMessageRenderer } from "@copilotkit/a2ui-renderer";
+  createA2UIMessageRenderer,
+} from "@copilotkit/react-core/v2";
 import { a2uiTheme } from "../theme";
+import { useState } from "react";
 
 // Create A2UI renderer with custom theme - module level for stable reference
 const A2UIRenderer = createA2UIMessageRenderer({ theme: a2uiTheme });
@@ -23,6 +24,12 @@ interface A2UIPageProps {
 }
 
 export function A2UIPage({ children }: A2UIPageProps) {
+  const [sessionId, setSessionId] = useState(() => crypto.randomUUID());
+
+  const handleNewChat = () => {
+    setSessionId(crypto.randomUUID());
+  };
+
   return (
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit-a2ui"
@@ -31,6 +38,7 @@ export function A2UIPage({ children }: A2UIPageProps) {
     >
       <div className="immersive-chat-shell">
         {children}
+        <button onClick={handleNewChat}>New conversation</button>
         <CopilotChat
           className="immersive-copilot-chat"
           labels={{
@@ -38,6 +46,7 @@ export function A2UIPage({ children }: A2UIPageProps) {
             chatInputPlaceholder:
               "Ask me to generate any UI!",
           }}
+          key={sessionId}
         />
       </div>
     </CopilotKitProvider>

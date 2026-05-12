@@ -1,7 +1,7 @@
 "use client";
 
 import { A2UIPage } from "./components/A2UIPage";
-import "@copilotkitnext/react/styles.css";
+import "@copilotkit/react-core/v2/styles.css";
 
 export default function Home() {
   return <A2UIPage />;
