@@ -59,10 +59,7 @@ public sealed class InterruptAgentFactory
 
         _openAiClient = new(
             new ApiKeyCredential(githubToken),
-            new OpenAIClientOptions
-            {
-                Endpoint = new Uri(endpoint),
-            });
+            AimockHeaderPolicy.CreateOpenAIClientOptions(endpoint));
     }
 
     // @region[backend-tool-call]

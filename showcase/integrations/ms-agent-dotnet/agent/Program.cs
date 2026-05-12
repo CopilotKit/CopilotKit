@@ -24,6 +24,11 @@ builder.Services.AddAGUI();
 
 WebApplication app = builder.Build();
 
+// STOPGAP: Extract x-* prefixed headers from incoming AG-UI requests into AsyncLocal
+// so AimockHeaderPolicy can forward them to outgoing OpenAI calls.
+// TODO(copilotkit-sdk-dotnet): migrate to SDK-level header propagation
+app.UseMiddleware<AimockHeaderMiddleware>();
+
 // Create the agent factory and map the AG-UI agent endpoint
 var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
 var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
@@ -391,10 +396,7 @@ public class SalesAgentFactory
 
         _openAiClient = new(
             new ApiKeyCredential(githubToken),
-            new OpenAIClientOptions
-            {
-                Endpoint = new Uri(endpoint),
-            });
+            AimockHeaderPolicy.CreateOpenAIClientOptions(endpoint));
     }
 
     public AIAgent CreateSalesAgent()
