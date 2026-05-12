@@ -26,11 +26,8 @@ import { IntegrationGrid } from "@/components/integration-grid";
 import { DocsLandingNext } from "@/components/docs-landing-next";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
 import { AgentCoreCommandTabs } from "@/components/agentcore-command-tabs";
-import {
-  getRegistry,
-  getFeatureViewerSlug,
-  getFeatureViewerDemoId,
-} from "@/lib/registry";
+import { DemoSource } from "@/components/demo-source";
+import { getRegistry } from "@/lib/registry";
 
 const Callout = DocsCallout;
 
@@ -166,24 +163,6 @@ export const docsComponents = {
     const shellHost =
       process.env.NEXT_PUBLIC_SHELL_URL || "https://showcase.copilotkit.ai";
     const profileUrl = `${shellHost}/integrations/${integration}?demo=${demo}`;
-    // Feature-viewer.copilotkit.ai uses its own framework slug + demo-ID
-    // scheme, distinct from both the registry URL slug AND the docs
-    // folder name (e.g. `crewai-crews` → `crewai`, `gen-ui-tool-based`
-    // → `tool_based_generative_ui`). `getFeatureViewerSlug` returns
-    // `null` for integrations with no feature-viewer page (built-in-agent,
-    // google-adk, claude-sdk-*, ms-agent-*); `getFeatureViewerDemoId`
-    // returns `null` for demos that have no feature-viewer counterpart
-    // (anything outside the canonical six: agentic_chat,
-    // tool_based_generative_ui, agentic_generative_ui,
-    // predictive_state_updates, shared_state, human_in_the_loop). In
-    // either case the Code tab is suppressed and the Demo iframe
-    // renders standalone.
-    const featureViewerSlug = getFeatureViewerSlug(integration);
-    const codeDemoSlug = getFeatureViewerDemoId(demo.replace(/-/g, "_"));
-    const codeUrl =
-      featureViewerSlug && codeDemoSlug
-        ? `https://feature-viewer.copilotkit.ai/${featureViewerSlug}/feature/${codeDemoSlug}?view=code&sidebar=false&codeLayout=tabs`
-        : null;
     const iframeStyle: React.CSSProperties = {
       width: "100%",
       height: "500px",
@@ -203,33 +182,19 @@ export const docsComponents = {
             Open full demo →
           </a>
         </div>
-        {codeUrl ? (
-          <DocsTabs items={["Demo", "Code"]}>
-            <DocsTab value="Demo">
-              <iframe
-                src={demoUrl}
-                style={iframeStyle}
-                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-                loading="lazy"
-              />
-            </DocsTab>
-            <DocsTab value="Code">
-              <iframe
-                src={codeUrl}
-                style={iframeStyle}
-                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-                loading="lazy"
-              />
-            </DocsTab>
-          </DocsTabs>
-        ) : (
-          <iframe
-            src={demoUrl}
-            style={iframeStyle}
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-            loading="lazy"
-          />
-        )}
+        <DocsTabs items={["Demo", "Code"]}>
+          <DocsTab value="Demo">
+            <iframe
+              src={demoUrl}
+              style={iframeStyle}
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+              loading="lazy"
+            />
+          </DocsTab>
+          <DocsTab value="Code">
+            <DemoSource integration={integration} demo={demo} />
+          </DocsTab>
+        </DocsTabs>
       </div>
     );
   },
