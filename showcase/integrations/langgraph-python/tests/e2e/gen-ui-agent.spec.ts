@@ -92,13 +92,11 @@ test.describe("Agentic Generative UI", () => {
   test("steps animate through pending before completing (no fixture short-circuit)", async ({
     page,
   }) => {
-    await page
-      .getByRole("button", { name: /Plan a product launch/i })
-      .click();
+    await page.getByRole("button", { name: /Plan a product launch/i }).click();
 
-    await expect(
-      page.locator('[data-testid="agent-state-card"]'),
-    ).toBeVisible({ timeout: 60000 });
+    await expect(page.locator('[data-testid="agent-state-card"]')).toBeVisible({
+      timeout: 60000,
+    });
 
     // At least one step must be observed in `pending` state. With the
     // short-circuit bug the steps went straight to `completed` and this
