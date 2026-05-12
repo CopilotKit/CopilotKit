@@ -304,7 +304,7 @@ jobs:
             # inlined into client JS chunks. Sourced from repo secrets;
             # Railway runtime env doesn't reach this build step.
             ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_POSTHOG_KEY=${{ secrets.POSTHOG_PROJECT_KEY }}"
-            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_RB2B_ID=${{ secrets.RB2B_ID }}"
+            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_REB2B_KEY=${{ secrets.REB2B_KEY }}"
             ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_SCARF_PIXEL_ID=${{ secrets.SCARF_PIXEL_ID }}"
             ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_REO_KEY=${{ secrets.REO_PROJECT_KEY }}"
             ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_GOOGLE_ANALYTICS_TRACKING_ID=${{ secrets.GOOGLE_ANALYTICS_TRACKING_ID }}"
