@@ -73,15 +73,18 @@ We're going to have the agent ask us to name it, so we'll need a state property 
     <Tab value="TypeScript">
         ```ts title="agent.ts"
         import { createMiddleware } from "langchain";
-        import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+        import { copilotkitMiddleware, zodState } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
         import { z } from "zod";
+        import { StateSchema } from "@langchain/langgraph";
 
-        // Define the agent's custom state as a middleware.
+        // Define the agent's custom state and include schema in middleware.
+        const AgentStateSchema = new StateSchema({
+            agentName: zodState(z.string().optional()),
+        });
+
         export const agentNameMiddleware = createMiddleware({
             name: "AgentState",
-            stateSchema: z.object({
-                agentName: z.string().optional(),
-            }),
+            stateSchema: AgentStateSchema,
         });
 
         // createDeepAgent({ middleware: [agentNameMiddleware, copilotkitMiddleware], ... })
@@ -128,21 +131,34 @@ We're going to have the agent ask us to name it, so we'll need a state property 
             In Deep Agents TypeScript, wire the interrupt into a middleware hook rather than a custom node. The hook below runs before the model call and asks the user for a name the first time.
 
             ```ts title="agent.ts"
-            import { createMiddleware } from "langchain";
-            import { interrupt } from "@langchain/langgraph"; // [!code highlight]
+            import { createMiddleware, SystemMessage, tool } from "langchain";
+            import { interrupt,  StateSchema } from "@langchain/langgraph"; // [!code highlight]
+            import { zodState } from "@copilotkit/sdk-js/langgraph";
             import { z } from "zod";
+
+            const AgentStateSchema = new StateSchema({
+                agentName: zodState(z.string().optional()),
+            });
 
             export const agentNameMiddleware = createMiddleware({
                 name: "AgentState",
-                stateSchema: z.object({
-                    agentName: z.string().optional(),
-                }),
+                stateSchema: AgentStateSchema,
                 beforeModel: async (state) => {
                     if (!state.agentName) {
                         // Interrupt and wait for the user to respond with a name
                         const name = await interrupt("Before we start, what would you like to call me?"); // [!code highlight]
                         return { agentName: name };
                     }
+                },
+                wrapModelCall: async (request, handler) => {
+                const name = request.state?.agentName;
+                if (!name) return handler(request);
+                const existing = request.systemMessage?.content;
+                const baseText = typeof existing === "string" ? existing : "";
+                return handler({
+                    ...request,
+                    systemMessage: new SystemMessage(`${baseText}\n\nYour name is ${name}. Refer to yourself by this name when asked.`),
+                });
                 },
             });
             ```
