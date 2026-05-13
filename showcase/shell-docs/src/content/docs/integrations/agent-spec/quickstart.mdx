@@ -20,18 +20,21 @@ hideTOC: true
 ## Getting started
 
 <Steps>
-  <TailoredContent
-    className="step"
-    id="agent-spec-quickstart-path"
-    header={
-      <div>
-        <p className="text-xl font-semibold">Choose your starting point</p>
-        <p className="text-base">
-          You can either start fresh with our starter template or connect CopilotKit to an existing Agent Spec agent.
-        </p>
-      </div>
-    }
-  >
+  <Step>
+    ### Create a free account
+
+    <SignupLink surface="docs_agent_spec_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads, observability, and the inspector.
+  </Step>
+
+  <Step>
+      ### Choose your starting point
+
+      You can either start fresh with our starter template or connect CopilotKit to an existing Agent Spec agent.
+
+      <TailoredContent
+          className="step"
+          id="agent-spec-quickstart-path"
+      >
     <TailoredContentOption
       id="starter"
       title="Start from scratch"
@@ -455,6 +458,7 @@ hideTOC: true
     </Step>
     </TailoredContentOption>
   </TailoredContent>
+  </Step>
 </Steps>
 
 ## Tools and tool registry

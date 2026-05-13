@@ -43,22 +43,25 @@ export function Step({ title, children }: StepProps) {
         paddingBottom: "1.5rem",
       }}
     >
-      {/* numbered badge — number rendered via CSS counter (globals.css) */}
+      {/* numbered badge — number rendered via CSS counter (globals.css).
+       * Appearance (background/border/color) lives in globals.css so
+       * `.docs-steps > div:first-child .docs-step__badge` can override
+       * it for Step 1 without fighting inline-style specificity. */}
       <div
         aria-hidden
         className="docs-step__badge"
         style={{
           position: "absolute",
           left: "-2.75rem",
-          top: "-0.125rem",
+          // Badge center sits ~midway up the first heading line:
+          // h3 is 1.125rem with line-height 1.65 ≈ 29.7px → text center at
+          // ~14.85px from the Step's top. Badge is 1.5rem (24px) so its
+          // half-height is 12px; top = 14.85 − 12 ≈ 0.1875rem.
+          top: "0.1875rem",
           width: "1.5rem",
           height: "1.5rem",
           borderRadius: "999px",
-          background: "var(--bg-surface)",
-          border: "1px solid var(--border)",
-          color: "var(--text)",
           fontSize: "0.75rem",
-          fontWeight: 600,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",

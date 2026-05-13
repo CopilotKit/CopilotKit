@@ -20,6 +20,7 @@ import {
 } from "@/components/react/tailored-content";
 import { FrameworkTabs } from "@/components/framework-tabs";
 import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
+import { SignupLink } from "@/components/react/signup-link";
 import { IframeSwitcher as RealIframeSwitcher } from "@/components/content";
 import { PropertyReference } from "@/components/property-reference";
 import { IntegrationGrid } from "@/components/integration-grid";
@@ -85,6 +86,7 @@ export const docsComponents = {
   Accordion,
   PropertyReference,
   OpsPlatformCTA,
+  SignupLink,
   FeatureIntegrations: ({ feature }: { feature?: string }) => {
     if (!feature) {
       warnSilentNull("FeatureIntegrations", "no `feature` prop provided");
