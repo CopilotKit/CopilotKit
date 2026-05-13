@@ -2,8 +2,8 @@
 
 // Shared State (Read-only) — the UI publishes a recipe to the agent via
 // `agent.setState`; the agent reads that recipe on every turn but does
-// not mutate it (the wired graph is the neutral default agent with no
-// tools — see manifest entry `shared-state-read`).
+// not mutate it (the wired graph is the neutral simple-chat agent with
+// no tools — see registry entry `shared-state-read`).
 //
 // Single source of truth: `agent.state.recipe`. The form is a pure
 // controlled component on top of that — every edit flows straight into

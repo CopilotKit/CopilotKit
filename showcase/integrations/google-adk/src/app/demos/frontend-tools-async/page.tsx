@@ -14,7 +14,7 @@ import { parseJsonResult } from "../_shared/parse-json-result";
 
 export default function FrontendToolsAsyncDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="frontend-tools-async">
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="frontend_tools_async">
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />
@@ -99,7 +99,7 @@ function Chat() {
 
   return (
     <CopilotChat
-      agentId="frontend-tools-async"
+      agentId="frontend_tools_async"
       className="h-full rounded-2xl"
     />
   );

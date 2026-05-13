@@ -2,12 +2,17 @@
 
 Mirrors langgraph-python/src/agents/subagents.py: a supervisor LlmAgent
 delegates to three specialized "sub-agents" (research / writing / critique)
-exposed as tools. Each delegation appends an entry to state["delegations"]
-so the UI can render a live delegation log via useAgent.
+exposed as tools. Each delegation appends one entry (with `status: "completed"`)
+to state["delegations"] so the UI can render a live delegation log via useAgent.
 
 We invoke each sub-agent via google.genai.Client.models.generate_content
 with a sub-agent-specific system prompt. This is conceptually identical to
 running a separate LlmAgent + single-turn Runner, with much less boilerplate.
+
+Delegation-log behaviour mirrors LP's frontend contract: only completed
+entries are appended (no `running` placeholder). Sub-agent failures are
+still recorded as `status: "completed"` with the error message in `result`,
+so the LP frontend's completion-only renderer stays 1:1.
 """
 
 from __future__ import annotations
@@ -17,7 +22,6 @@ import logging
 import os
 import uuid
 
-from ag_ui_adk import AGUIToolset
 from google import genai
 from google.adk.agents import LlmAgent
 from google.adk.tools import ToolContext
@@ -67,8 +71,8 @@ def _invoke_sub_agent(system_prompt: str, task: str) -> str:
     `(APIError, ValueError)` set so transport-layer failures (timeouts,
     `httpx.ConnectError`, `RuntimeError` from cancelled tasks) do not
     crash the supervisor's tool call. Failures are re-raised as
-    `_SubAgentError` so callers can map them to `status: "failed"` in the
-    delegation log instead of recording them as `"completed"`.
+    `_SubAgentError` so callers can surface a useful error message in
+    the delegation log without crashing the supervisor.
     """
     try:
         response = _client().models.generate_content(
@@ -108,133 +112,100 @@ def _invoke_sub_agent(system_prompt: str, task: str) -> str:
     return text
 
 
-def _append_delegation(
+def _append_completed_delegation(
     tool_context: ToolContext,
     *,
     sub_agent: str,
     task: str,
-    status: str,
     result: str,
-) -> str:
-    """Append a delegation entry and return its id."""
+) -> None:
+    """Append a completed delegation entry to shared state.
+
+    LP-parity: the LP frontend renders the delegation log on `status:
+    "completed"` only. We never emit a "running" placeholder, so the log
+    grows by exactly one entry per sub-agent call when it finishes.
+    Failures still write a `"completed"` entry whose `result` is the
+    user-facing error string — the renderer keeps a single visual treatment
+    instead of needing a separate failed-state branch.
+    """
     delegations = list(tool_context.state.get("delegations") or [])
-    entry_id = str(uuid.uuid4())
     delegations.append(
         {
-            "id": entry_id,
+            "id": str(uuid.uuid4()),
             "sub_agent": sub_agent,
             "task": task,
-            "status": status,
+            "status": "completed",
             "result": result,
         }
     )
     tool_context.state["delegations"] = delegations
-    return entry_id
 
 
-def _update_delegation(
-    tool_context: ToolContext,
-    *,
-    entry_id: str,
-    status: str,
-    result: str,
-) -> None:
-    """Mutate the delegation entry with `entry_id`, replacing its status + result.
-
-    Pure read-modify-write (the LLM is instructed to delegate sequentially,
-    so concurrent updates within a single turn are not expected). If the
-    entry has gone missing — e.g., another part of the system replaced
-    `state["delegations"]` — we log loudly and skip rather than appending
-    a synthetic entry. The frontend's `Delegation.sub_agent` type union is
-    `"research_agent"|"writing_agent"|"critique_agent"`; falling back to a
-    `"unknown"` value would slip past Python's untyped state writes and
-    render as undefined badge text + className in `delegation-log.tsx`.
-    Skipping is the honest signal: the in-flight delegation row is gone,
-    and no row is more useful than a malformed row.
-    """
-    delegations = list(tool_context.state.get("delegations") or [])
-    for entry in delegations:
-        if entry.get("id") == entry_id:
-            entry["status"] = status
-            entry["result"] = result
-            tool_context.state["delegations"] = delegations
-            return
-    logger.warning(
-        "subagent: delegation entry %s missing on update — final %s state "
-        "(result_length=%d) will not be rendered; this means another part "
-        "of the system replaced state['delegations'] mid-turn",
-        entry_id,
-        status,
-        len(result),
-    )
+_SUB_AGENT_ERROR_PREFIX = "[sub-agent error] "
 
 
 def _delegate(
     tool_context: ToolContext, *, sub_agent: str, system_prompt: str, task: str
-) -> dict:
-    """Common delegation flow: append running entry → invoke → update final.
+) -> str:
+    """Common delegation flow: invoke sub-agent → append completed entry → return text.
 
     The frontend's delegation log subscribes to `state["delegations"]` and
-    shows entries with `status: "running"` while the secondary Gemini call
-    is in flight, then flips them to `"completed"` or `"failed"` once we
-    return.
+    the supervisor LLM reads the returned string as the tool result. We
+    only append AFTER the sub-agent returns so the log mirrors LP's
+    completion-only behaviour. Sub-agent failures are surfaced as a plain
+    error string prefixed with `[sub-agent error]` — the supervisor LLM
+    can detect this and apologise instead of fabricating an answer, and
+    the frontend renders the prefixed error inline alongside successful
+    outputs.
     """
-    entry_id = _append_delegation(
-        tool_context,
-        sub_agent=sub_agent,
-        task=task,
-        status="running",
-        result="",
-    )
     try:
         result = _invoke_sub_agent(system_prompt, task)
     except _SubAgentError as exc:
-        _update_delegation(
+        # LP-parity: failures still surface as a `completed` entry. We
+        # return plain text (with an error prefix) so the supervisor LLM
+        # and the frontend renderer see the same shape on success and
+        # failure, just like LP's ToolMessage(content=result, ...).
+        error_message = f"{_SUB_AGENT_ERROR_PREFIX}{exc}"
+        _append_completed_delegation(
             tool_context,
-            entry_id=entry_id,
-            status="failed",
-            result=str(exc),
+            sub_agent=sub_agent,
+            task=task,
+            result=error_message,
         )
-        # Surface the failure to the supervisor LLM so it can decide whether
-        # to retry, fall back to a different sub-agent, or apologise to the
-        # user. The fail-loud return shape contrasts with the prior
-        # behaviour, which masked failures as `result: "(sub-agent error: …)"`
-        # under `status: "completed"`.
-        return {"status": "failed", "error": str(exc)}
+        return error_message
 
-    _update_delegation(
+    _append_completed_delegation(
         tool_context,
-        entry_id=entry_id,
-        status="completed",
+        sub_agent=sub_agent,
+        task=task,
         result=result,
     )
-    return {"status": "completed", "result": result}
+    return result
 
 
 # @region[supervisor-delegation-tools]
-def research_agent(tool_context: ToolContext, topic: str) -> dict:
+def research_agent(tool_context: ToolContext, task: str) -> str:
     """Delegate a research task to the research sub-agent.
 
     Use for: gathering facts, background, definitions, statistics. Returns
-    a dict of {status, result} on success or {status: "failed", error} on
-    sub-agent failure — read both keys before continuing.
+    the sub-agent's plain-text response, or an `[sub-agent error] …`
+    string on failure — surface either to the user without rephrasing.
     """
     return _delegate(
         tool_context,
         sub_agent="research_agent",
         system_prompt=_RESEARCH_SYSTEM,
-        task=topic,
+        task=task,
     )
 
 
-def writing_agent(tool_context: ToolContext, brief: str, facts: str = "") -> dict:
+def writing_agent(tool_context: ToolContext, task: str) -> str:
     """Delegate a drafting task to the writing sub-agent.
 
-    Use for: producing a polished paragraph, draft, or summary. Pass a
-    brief describing the deliverable and optional source facts. Same
-    return shape as research_agent.
+    Use for: producing a polished paragraph, draft, or summary. Pass the
+    brief (and any relevant facts) through `task`. Same return shape as
+    research_agent.
     """
-    task = brief if not facts else f"{brief}\n\nFacts:\n{facts}"
     return _delegate(
         tool_context,
         sub_agent="writing_agent",
@@ -243,17 +214,17 @@ def writing_agent(tool_context: ToolContext, brief: str, facts: str = "") -> dic
     )
 
 
-def critique_agent(tool_context: ToolContext, draft: str) -> dict:
+def critique_agent(tool_context: ToolContext, task: str) -> str:
     """Delegate a critique task to the critique sub-agent.
 
-    Use for: reviewing a draft and suggesting concrete improvements. Same
-    return shape as research_agent.
+    Use for: reviewing a draft and suggesting concrete improvements. Pass
+    the draft through `task`. Same return shape as research_agent.
     """
     return _delegate(
         tool_context,
         sub_agent="critique_agent",
         system_prompt=_CRITIQUE_SYSTEM,
-        task=draft,
+        task=task,
     )
 # @endregion[supervisor-delegation-tools]
 
@@ -262,18 +233,22 @@ _SUPERVISOR_INSTRUCTION = (
     "You are a supervisor agent that coordinates three specialized "
     "sub-agents to produce high-quality deliverables.\n\n"
     "Available sub-agents (call them as tools):\n"
-    "  - research_agent(topic): gathers facts on a topic.\n"
-    "  - writing_agent(brief, facts): turns facts + a brief into a polished draft.\n"
-    "  - critique_agent(draft): reviews a draft and suggests improvements.\n\n"
-    "For most non-trivial user requests, delegate in sequence: research -> "
-    "write -> critique. Pass the relevant facts/draft through the appropriate "
-    "argument of each tool. Each tool returns a dict shaped "
-    "`{status: 'completed' | 'failed', result?: str, error?: str}`. If a "
-    "sub-agent fails, surface the failure briefly to the user (don't "
-    "fabricate a result) and decide whether to retry. Keep your own "
-    "messages short — explain the plan once, delegate, then return a "
-    "concise summary once done. The UI shows the user a live log of "
-    "every sub-agent delegation, including the in-flight 'running' state."
+    "  - research_agent(task): gathers facts on a topic.\n"
+    "  - writing_agent(task): turns facts + a brief into a polished draft.\n"
+    "  - critique_agent(task): reviews a draft and suggests improvements.\n\n"
+    "For every non-trivial user request, delegate in sequence: "
+    "research_agent -> writing_agent -> critique_agent. "
+    "IMPORTANT: call EACH sub-agent EXACTLY ONCE per user request. "
+    "After critique_agent returns, do NOT call any sub-agent "
+    "again — return a concise final answer to the user that "
+    "incorporates the critique. Pass the relevant facts/draft "
+    "through the `task` argument of each tool. Each tool returns the "
+    "sub-agent's plain-text output. If the result is prefixed with "
+    "`[sub-agent error]`, surface the failure briefly to the user "
+    "(don't fabricate a result) and decide whether to retry. "
+    "Keep your own messages short — explain the plan once, delegate, "
+    "then return a concise summary once done. The UI shows the user a "
+    "live log of every sub-agent delegation."
 )
 
 # @region[subagent-setup]
@@ -281,6 +256,6 @@ subagents_root_agent = LlmAgent(
     name="SubagentsSupervisor",
     model=get_model(_SUB_MODEL),
     instruction=_SUPERVISOR_INSTRUCTION,
-    tools=[research_agent, writing_agent, critique_agent, AGUIToolset()],
+    tools=[research_agent, writing_agent, critique_agent],
 )
 # @endregion[subagent-setup]

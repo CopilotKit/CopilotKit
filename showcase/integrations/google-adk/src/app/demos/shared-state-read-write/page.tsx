@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   CopilotKit,
   useAgent,
@@ -54,28 +54,41 @@ function DemoContent() {
   const preferences = agentState?.preferences ?? INITIAL_PREFERENCES;
   const notes = agentState?.notes ?? [];
 
-  // Seed initial preferences + empty notes into agent state once, so the
-  // agent has something to read on the very first turn.
+  // Seed initial preferences exactly once, AFTER agent.state has been
+  // observed at least once. The previous mount-only effect with empty
+  // deps could fire before the runtime hydrated state on reload, wiping
+  // backend-persisted preferences with INITIAL_PREFERENCES.
+  const seededRef = useRef(false);
   useEffect(() => {
+    if (seededRef.current) return;
+    if (agentState === undefined) return; // wait for first state event
+    seededRef.current = true;
     if (!agentState?.preferences) {
+      // Spread the observed state so any keys the runtime owns
+      // (`copilotkit` slot, future framework additions) survive the
+      // seed write — `agent.setState` replaces the whole state object
+      // rather than merging. `notes` falls back to the observed value
+      // (or `[]` if absent) so an existing notes list isn't wiped just
+      // because the user landed without persisted preferences.
       agent.setState({
+        ...(agentState as object | undefined),
         preferences: INITIAL_PREFERENCES,
-        notes: [],
+        notes: agentState?.notes ?? [],
       } as RWAgentState);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [agent, agentState]);
 
   // @region[set-state]
   // @region[use-agent-write]
   // WRITE: every edit in the sidebar goes straight into agent state.
-  // On the agent's next turn, `PreferencesInjectorMiddleware` reads this
-  // back out of state and adds it to the system prompt — so the UI's
+  // On the agent's next turn, `_inject_preferences` reads this back out
+  // of state and prepends a preferences SystemMessage — so the UI's
   // writes visibly steer the model.
   const handlePreferencesChange = (next: Preferences) => {
     agent.setState({
+      ...(agentState as object | undefined),
       preferences: next,
-      notes, // preserve what the agent has written
+      notes: agentState?.notes ?? [],
     } as RWAgentState);
   };
   // @endregion[use-agent-write]
@@ -83,7 +96,11 @@ function DemoContent() {
 
   // WRITE: let the user clear the agent-authored notes from the UI.
   const handleClearNotes = () => {
-    agent.setState({ preferences, notes: [] } as RWAgentState);
+    agent.setState({
+      ...(agentState as object | undefined),
+      preferences: agentState?.preferences ?? INITIAL_PREFERENCES,
+      notes: [],
+    } as RWAgentState);
   };
 
   return (

@@ -6,14 +6,10 @@
  *
  * Wiring: the toggles live in `useAgentConfig`. Each render the resolved
  * config is published to the agent via `useAgentContext` — the v2 idiom
- * for "frontend → agent runtime context" in LangGraph 0.6+. The Python
- * graph picks it up through `CopilotKitMiddleware`, which routes the
- * context entry into the model's prompt before each call.
- *
- * (LangGraph 0.6 deprecated `configurable` in favor of `context`; the
- * `properties` prop on `<CopilotKit>` still works for v1-style relays
- * but goes through `forwardedProps` and does not land in `RunnableConfig`
- * in @ag-ui/langgraph 0.0.31. `useAgentContext` is the supported path.)
+ * for "frontend → agent runtime context". The Python agent picks it up
+ * through a before-model callback that reads
+ * `state["copilotkit"]["context"]` and injects a derived directive block
+ * into the model's system instruction before each call.
  */
 
 import { CopilotKit } from "@copilotkit/react-core/v2";

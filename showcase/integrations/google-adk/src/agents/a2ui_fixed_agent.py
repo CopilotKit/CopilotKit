@@ -83,16 +83,31 @@ def display_flight(
 
     Use short airport codes (e.g. "SFO", "JFK") for origin/destination and a
     price string like "$289".
+
+    After this tool returns, the flight card is already rendered to the user
+    via the A2UI surface — the JSON returned here is the surface descriptor
+    the renderer consumes, NOT a status code. Do NOT call this tool again
+    for the same flight (the user already sees the card). Reply with one
+    short confirmation sentence and stop.
     """
     return _build_flight_operations(
         origin=origin, destination=destination, airline=airline, price=price
     )
 
 
+# Mirrors the LangGraph-Python sibling's system prompt (see
+# `showcase/integrations/langgraph-python/src/agents/a2ui_fixed.py`).
+# Regression #4734: tighter "exactly ONCE" guard + "do NOT call again"
+# stop language is the fix for the Railway loop where the LLM kept
+# re-calling display_flight because it couldn't tell the opaque
+# `a2ui.render(...)` JSON return value was a success signal.
 _INSTRUCTION = (
     "You help users find flights. When asked about a flight, call "
-    "display_flight with origin, destination, airline, and price. Keep any "
-    "chat reply to one short sentence."
+    "display_flight exactly ONCE with origin, destination, airline, and "
+    "price. The tool's JSON return value is an A2UI surface descriptor — "
+    "the flight card is already rendered to the user; do NOT call "
+    "display_flight again for the same trip. After the tool returns, reply "
+    "with one short confirmation sentence and stop."
 )
 
 a2ui_fixed_agent = LlmAgent(

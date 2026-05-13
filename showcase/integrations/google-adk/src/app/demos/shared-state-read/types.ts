@@ -1,6 +1,6 @@
 // Shape of the recipe the UI writes into agent state via `agent.setState`.
-// The agent only *reads* this — there's no backend tool that mutates it,
-// so the UI is the single source of truth.
+// The agent only *reads* this — the wired graph is the neutral default
+// chat agent (no backend tool), so the UI is the single source of truth.
 
 export enum SkillLevel {
   BEGINNER = "Beginner",

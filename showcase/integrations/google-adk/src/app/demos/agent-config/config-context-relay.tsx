@@ -3,9 +3,9 @@
 /**
  * Publishes the current agent-config toggles to the agent runtime via
  * `useAgentContext`. Lives inside the `<CopilotKit>` provider so the
- * context store is reachable. The middleware on the Python side reads
- * this entry off the agent's runtime context on every turn and routes
- * it into the model's prompt.
+ * context store is reachable. The before-model callback on the Python
+ * side reads this entry off `state["copilotkit"]["context"]` on every
+ * turn and routes it into the model's prompt.
  */
 
 import { useAgentContext } from "@copilotkit/react-core/v2";

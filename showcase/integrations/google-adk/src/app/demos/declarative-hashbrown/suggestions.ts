@@ -1,7 +1,17 @@
-import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
-
+/**
+ * Pre-seeded suggestion prompts for the byoc-hashbrown demo.
+ *
+ * Mirrors LP's `declarative-hashbrown/suggestions.ts` verbatim so the
+ * dashboard's BYOC rows behave identically across the langgraph-python and
+ * google-adk showcases. Each prompt steers the agent toward emitting the
+ * hashbrown-shaped `{ ui: [...] }` structured output that the ported
+ * renderer (MetricCard + PieChart + BarChart + DealCard) progressively
+ * assembles via `@hashbrownai/react`'s `useUiKit` + `useJsonParser`.
+ */
 export interface Suggestion {
+  /** Short label rendered on the pill + used in data-testid suffix. */
   label: string;
+  /** Full prompt sent to the agent when the pill is clicked. */
   prompt: string;
 }
 
@@ -22,13 +32,3 @@ export const BYOC_HASHBROWN_SUGGESTIONS: Suggestion[] = [
       "Show me monthly operating expenses for the last six months as a bar chart with one bar per month.",
   },
 ];
-
-export function useByocHashbrownSuggestions() {
-  useConfigureSuggestions({
-    suggestions: BYOC_HASHBROWN_SUGGESTIONS.map((s) => ({
-      title: s.label,
-      message: s.prompt,
-    })),
-    available: "always",
-  });
-}

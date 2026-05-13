@@ -21,7 +21,7 @@ const DEFAULT_SLOTS: TimeSlot[] = [
 
 export default function HitlInChatDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="hitl-in-chat">
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="hitl_in_chat">
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />
@@ -49,7 +49,7 @@ function Chat() {
 
   // @region[hitl-hook]
   useHumanInTheLoop({
-    agentId: "hitl-in-chat",
+    agentId: "hitl_in_chat",
     name: "book_call",
     description:
       "Ask the user to pick a time slot for a call. The picker UI presents fixed candidate slots; the user's choice is returned to the agent.",
@@ -73,5 +73,5 @@ function Chat() {
   });
   // @endregion[hitl-hook]
 
-  return <CopilotChat agentId="hitl-in-chat" className="h-full rounded-2xl" />;
+  return <CopilotChat agentId="hitl_in_chat" className="h-full rounded-2xl" />;
 }

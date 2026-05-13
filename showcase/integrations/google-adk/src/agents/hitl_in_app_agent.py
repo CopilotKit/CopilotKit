@@ -1,4 +1,4 @@
-"""ADK agent backing the In-App HITL (frontend-tool + popup) demo.
+"""Agent backing the In-App HITL (frontend-tool + popup) demo.
 
 The agent is a support assistant that processes customer-care requests
 (refunds, account changes, escalations). Any action that materially
@@ -21,7 +21,7 @@ from ag_ui_adk import AGUIToolset
 from agents.shared_chat import get_model
 
 
-_INSTRUCTION = (
+SYSTEM_PROMPT = (
     "You are a support operations copilot working alongside a human operator "
     "inside an internal support console. The operator can see a list of open "
     "support tickets on the left side of their screen and is chatting with "
@@ -59,6 +59,6 @@ _INSTRUCTION = (
 hitl_in_app_agent = LlmAgent(
     name="HitlInAppAgent",
     model=get_model(),
-    instruction=_INSTRUCTION,
+    instruction=SYSTEM_PROMPT,
     tools=[AGUIToolset()],
 )

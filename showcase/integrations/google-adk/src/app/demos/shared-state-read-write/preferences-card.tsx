@@ -40,8 +40,9 @@ export interface PreferencesCardProps {
  *
  * Every change invokes `onChange`, which the parent page routes straight into
  * `agent.setState({ preferences: ... })`. On the next turn, the backend's
- * `PreferencesInjectorMiddleware` reads that same object out of agent state
- * and injects it into the system prompt, so the agent's reply visibly adapts.
+ * `_inject_preferences` before-model callback reads that same object out of
+ * agent state and prepends a preferences SystemMessage, so the agent's
+ * reply visibly adapts.
  */
 // @region[preferences-card-render]
 // Write-side render: every edit here bubbles up through `onChange`, and
