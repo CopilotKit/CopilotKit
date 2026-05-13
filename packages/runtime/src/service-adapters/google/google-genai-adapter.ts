@@ -4,7 +4,8 @@
  * ## Example
  *
  * ```ts
- * import { CopilotRuntime, GoogleGenerativeAIAdapter } from "@copilotkit/runtime";
+ * import { CopilotRuntime } from "@copilotkit/runtime";
+ * import { GoogleGenerativeAIAdapter } from "@copilotkit/runtime/langchain";
  * const { GoogleGenerativeAI } = require("@google/generative-ai");
  *
  * const genAI = new GoogleGenerativeAI(process.env["GOOGLE_API_KEY"]);

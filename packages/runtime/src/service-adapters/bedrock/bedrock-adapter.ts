@@ -4,7 +4,8 @@
  * ## Example
  *
  * ```ts
- * import { CopilotRuntime, BedrockAdapter } from "@copilotkit/runtime";
+ * import { CopilotRuntime } from "@copilotkit/runtime";
+ * import { BedrockAdapter } from "@copilotkit/runtime/langchain";
  *
  * const copilotKit = new CopilotRuntime();
  *

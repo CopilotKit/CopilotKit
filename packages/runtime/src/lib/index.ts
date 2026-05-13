@@ -1,6 +1,4 @@
 export * from "../service-adapters/openai/openai-adapter";
-export * from "../service-adapters/langchain/langchain-adapter";
-export * from "../service-adapters/google/google-genai-adapter";
 export * from "../service-adapters/openai/openai-assistant-adapter";
 export * from "../service-adapters/unify/unify-adapter";
 export * from "../service-adapters/groq/groq-adapter";
@@ -50,3 +48,8 @@ export type CustomEventNames = any;
  * @deprecated PredictStateTool import from `@copilotkit/runtime` is deprecated. Please import it from `@copilotkit/runtime/langgraph` instead
  */
 export type PredictStateTool = any;
+
+// LangChain-coupled adapters moved to `@copilotkit/runtime/langchain` in 1.58.0.
+// The throw-on-construction shims live in
+// `service-adapters/langchain-deprecated-shims.ts` and reach the public
+// surface through `service-adapters/index.ts → src/index.ts`.

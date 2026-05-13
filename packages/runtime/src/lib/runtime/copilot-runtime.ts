@@ -27,10 +27,8 @@ import {
 } from "@copilotkit/shared";
 import type { RunAgentInput } from "@ag-ui/core";
 import { aguiToGQL } from "../../graphql/message-conversion/agui-to-gql";
-import type {
-  CopilotServiceAdapter,
-  RemoteChainParameters,
-} from "../../service-adapters";
+import type { CopilotServiceAdapter } from "../../service-adapters";
+import type { RemoteChainParameters } from "../../service-adapters/langchain/langserve";
 import {
   CopilotRuntime as CopilotRuntimeVNext,
   type CopilotRuntimeOptions,

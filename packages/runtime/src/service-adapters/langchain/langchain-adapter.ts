@@ -4,7 +4,8 @@
  * ## Example
  *
  * ```ts
- * import { CopilotRuntime, LangChainAdapter } from "@copilotkit/runtime";
+ * import { CopilotRuntime } from "@copilotkit/runtime";
+ * import { LangChainAdapter } from "@copilotkit/runtime/langchain";
  * import { ChatOpenAI } from "@langchain/openai";
  *
  * const copilotKit = new CopilotRuntime();

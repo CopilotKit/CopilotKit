@@ -1,0 +1,115 @@
+import { Callout } from "fumadocs-ui/components/callout";
+
+## Does this affect me?
+
+<Callout type="info">
+  **Skip this guide if you don't use any of these:**
+  `LangChainAdapter`, `BedrockAdapter`, `GoogleGenerativeAIAdapter`,
+  `RemoteChain`, `RemoteChainParameters`, `LangChainReturnType`.
+
+  If you only use OpenAI / Anthropic / Groq adapters or the built-in agent,
+  the 1.58.0 upgrade is a no-op for your code. You can stop reading.
+</Callout>
+
+## What changed in 1.58.0
+
+The four LangChain-coupled service adapters and their types moved from the
+`@copilotkit/runtime` root export to a new `@copilotkit/runtime/langchain`
+subexport. The root path no longer pulls `@langchain/*` into your module
+graph at import time.
+
+| Symbol                         | Was                          | Now                                       |
+| ------------------------------ | ---------------------------- | ----------------------------------------- |
+| `LangChainAdapter`             | `@copilotkit/runtime`        | `@copilotkit/runtime/langchain`           |
+| `BedrockAdapter`               | `@copilotkit/runtime`        | `@copilotkit/runtime/langchain`           |
+| `GoogleGenerativeAIAdapter`    | `@copilotkit/runtime`        | `@copilotkit/runtime/langchain`           |
+| `RemoteChain`                  | `@copilotkit/runtime`        | `@copilotkit/runtime/langchain`           |
+| `RemoteChainParameters` (type) | `@copilotkit/runtime`        | `@copilotkit/runtime/langchain`           |
+| `LangChainReturnType` (type)   | `@copilotkit/runtime`        | `@copilotkit/runtime/langchain`           |
+
+Importing any of those from `@copilotkit/runtime` still type-checks against
+deprecated shims, but constructing them throws at runtime with a pointer to
+the new path and the codemod below.
+
+## Why we did this
+
+Before 1.58.0, `@copilotkit/runtime`'s root barrel reached into adapter
+files that eagerly imported `@langchain/core`. Even consumers who only used
+the OpenAI or Anthropic adapter still had to install `@langchain/core` or
+hit `Cannot find module '@langchain/core/messages'` at import time. The
+peer dependency was advertised as optional, but it wasn't.
+
+Moving the LangChain-coupled adapters to a scoped subexport makes the
+optional-peer claim genuine. Consumers who don't import from
+`@copilotkit/runtime/langchain` no longer install or resolve any
+`@langchain/*` package.
+
+## Migrate in one command
+
+Run the codemod:
+
+```bash
+npx jscodeshift \
+  -t https://raw.githubusercontent.com/CopilotKit/CopilotKit/main/codemods/langchain-subexport.cjs \
+  --parser=tsx \
+  --extensions=ts,tsx,js,jsx,mts,cts,mjs,cjs \
+  src/
+```
+
+The codemod handles:
+
+- Plain named imports
+- Mixed imports (root + langchain symbols, splits into two statements)
+- Type-only imports (preserves `import type`)
+- Mixed value/type imports (splits values to root, types to subexport)
+- Aliased imports (preserves `as`)
+- CommonJS `require` destructure
+- Dynamic `await import()` destructure
+- Plain re-exports (`export { ... } from "@copilotkit/runtime"`)
+- Mixed re-exports (splits)
+- Idempotent merge into existing `/langchain` import blocks
+
+Re-runs are safe; already-migrated files are not modified.
+
+### Wildcard imports
+
+The codemod cannot safely rewrite `import * as rt from "@copilotkit/runtime"` —
+it would need to inspect every usage of `rt.X` to know which property
+accesses reference moved symbols. These files are skipped with a per-file
+warning. Migrate them by hand:
+
+```ts
+// Before
+import * as rt from "@copilotkit/runtime";
+const adapter = new rt.LangChainAdapter();
+
+// After
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { LangChainAdapter } from "@copilotkit/runtime/langchain";
+const adapter = new LangChainAdapter();
+```
+
+## Verifying the upgrade
+
+After running the codemod, your server should boot without
+`CopilotKitMisuseError`. If you see one in the logs, search the project for
+the symbol named in the error and update its import path.
+
+For consumers who do not use any LangChain-coupled symbol, you can also drop
+`@langchain/core` (and any other `@langchain/*` package) from your direct
+dependencies if you only had it installed to satisfy the previous
+`@copilotkit/runtime` peer requirement.
+
+## Looking ahead
+
+In v2, the LangChain-coupled adapters will be removed entirely. The
+`@copilotkit/runtime/langchain` subexport will disappear, and the
+`@langchain/*` peer dependency block will be deleted from
+`@copilotkit/runtime`'s `package.json`.
+
+If you currently use `LangChainAdapter` or one of its subclasses, the
+long-term migration target is the [built-in agent](/coagents/built-in-agent)
+model router. The codemod-driven move from `@copilotkit/runtime` to
+`@copilotkit/runtime/langchain` is the import-path change. The
+adapter-to-built-in-agent change is a separate API migration covered in a
+future v2-prep guide.

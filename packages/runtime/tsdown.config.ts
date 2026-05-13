@@ -8,6 +8,7 @@ export default defineConfig({
     "src/v2/hono.ts",
     "src/v2/node.ts",
     "src/langgraph.ts",
+    "src/langchain.ts",
   ],
   format: ["esm", "cjs"],
   dts: true,

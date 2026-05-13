@@ -23,6 +23,8 @@
   "sideEffects": [
     "./dist/index.mjs",
     "./dist/index.cjs",
+    "./dist/langchain.mjs",
+    "./dist/langchain.cjs",
     "./dist/v2/index.mjs",
     "./dist/v2/index.cjs"
   ],
@@ -31,6 +33,9 @@
   "types": "./dist/index.d.cts",
   "typesVersions": {
     "*": {
+      "langchain": [
+        "./dist/langchain.d.cts"
+      ],
       "v2": [
         "./dist/v2/index.d.cts"
       ],
@@ -49,6 +54,10 @@
     ".": {
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
+    },
+    "./langchain": {
+      "import": "./dist/langchain.mjs",
+      "require": "./dist/langchain.cjs"
     },
     "./langgraph": {
       "import": "./dist/langgraph.mjs",
@@ -80,6 +89,7 @@
     "dev": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:smoke-no-langchain": "node scripts/smoke-no-langchain.mjs",
     "check-types": "tsc --noEmit",
     "generate-graphql-schema": "rm -rf __snapshots__ && ts-node --transpile-only ./scripts/generate-gql-schema.ts",
     "link:global": "pnpm link --global",
@@ -92,7 +102,6 @@
     "@ag-ui/client": "0.0.53",
     "@ag-ui/core": "0.0.53",
     "@ag-ui/encoder": "0.0.53",
-    "@ag-ui/langgraph": "0.0.31",
     "@ag-ui/mcp-apps-middleware": "0.0.3",
     "@ai-sdk/anthropic": "^3.0.49",
     "@ai-sdk/google": "^3.0.33",
@@ -130,6 +139,7 @@
     "zod": "^3.23.3"
   },
   "devDependencies": {
+    "@ag-ui/langgraph": "0.0.31",
     "@copilotkit/aimock": "latest",
     "@swc/core": "1.5.28",
     "@types/cors": "^2.8.17",
@@ -152,6 +162,7 @@
     "vitest": "^3.2.4"
   },
   "peerDependencies": {
+    "@ag-ui/langgraph": ">=0.0.31",
     "@anthropic-ai/sdk": "^0.57.0",
     "@langchain/aws": ">=0.1.9",
     "@langchain/community": ">=0.3.58",
@@ -164,10 +175,16 @@
     "openai": "^4.85.1 || >=5.0.0"
   },
   "peerDependenciesMeta": {
+    "@ag-ui/langgraph": {
+      "optional": true
+    },
     "@anthropic-ai/sdk": {
       "optional": true
     },
     "@langchain/aws": {
+      "optional": true
+    },
+    "@langchain/core": {
       "optional": true
     },
     "@langchain/community": {
