@@ -295,7 +295,7 @@ demos:
     highlight:
       - src/agents/shared_chat.py
       - src/app/demos/chat-slots/page.tsx
-      - src/app/demos/chat-slots/custom-welcome-screen.tsx
+      - src/app/demos/chat-slots/slot-wrappers.tsx
       - src/app/api/copilotkit/route.ts
   - id: headless-simple
     name: Headless Chat (Simple)
@@ -318,7 +318,7 @@ demos:
     highlight:
       - src/agents/shared_chat.py
       - src/app/demos/headless-complete/page.tsx
-      - src/app/demos/headless-complete/message-list.tsx
+      - src/app/demos/headless-complete/chat/chat.tsx
       - src/app/api/copilotkit/route.ts
   - id: reasoning-custom
     name: "Reasoning: Custom"
@@ -453,7 +453,7 @@ demos:
     highlight:
       - src/agents/byoc_agents.py
       - src/app/demos/declarative-hashbrown/page.tsx
-      - src/app/api/copilotkit-byoc-hashbrown/route.ts
+      - src/app/api/copilotkit-declarative-hashbrown/route.ts
   - id: open-gen-ui
     name: Fully Open-Ended Generative UI
     description: Agent generates UI from an arbitrary component library
