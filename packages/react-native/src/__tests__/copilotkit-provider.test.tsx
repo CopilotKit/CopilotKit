@@ -26,7 +26,10 @@ function createMockCore() {
     setRuntimeUrl: vi.fn(),
     setRuntimeTransport: vi.fn(),
     setHeaders: vi.fn(),
+    setCredentials: vi.fn(),
     setProperties: vi.fn(),
+    setDebug: vi.fn(),
+    setDefaultThrottleMs: vi.fn(),
   };
 }
 
