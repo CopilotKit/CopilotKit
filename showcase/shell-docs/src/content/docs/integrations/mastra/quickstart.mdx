@@ -4,7 +4,6 @@ description: Turn your Mastra Agents into an agent-native application in 10 minu
 icon: "lucide/Play"
 hideTOC: true
 ---
-
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
   className="rounded-lg shadow-xl"
@@ -55,12 +54,6 @@ Before you begin, you'll need the following:
                 - **Project name**
                 - **Enterprise Intelligence Platform** — persistent threads, observability, and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard Mastra setup.
                 - **Framework** — pick **Mastra** when prompted.
-
-                Or skip the prompts and pin a framework directly:
-
-                ```bash
-                npx copilotkit@latest create --framework mastra
-                ```
             </Step>
             <Step>
                 ### Install dependencies
@@ -132,6 +125,8 @@ Before you begin, you'll need the following:
                 Create a new agent file in your Mastra project:
 
                 ```ts title="src/mastra/agents/index.ts"
+                import { openai } from "@ai-sdk/openai";
+                import { Agent } from "@mastra/core/agent";
 
                 export const myAgent = new Agent({
                   name: "My Agent",
@@ -143,6 +138,8 @@ Before you begin, you'll need the following:
                 Then export it from your Mastra instance:
 
                 ```ts title="src/mastra/index.ts"
+                import { Mastra } from "@mastra/core";
+                import { myAgent } from "./agents";
 
                 export const mastra = new Mastra({
                   agents: { myAgent },
@@ -176,7 +173,7 @@ Before you begin, you'll need the following:
                 ### Install CopilotKit packages
 
                 ```npm
-                npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/mastra @ag-ui/core @ag-ui/client @mastra/client-js @ai-sdk/openai
+                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/mastra @ag-ui/core @ag-ui/client @mastra/client-js @ai-sdk/openai
                 ```
             </Step>
             <Step>
@@ -190,9 +187,9 @@ Before you begin, you'll need the following:
                   ExperimentalEmptyAdapter,
                   copilotRuntimeNextJSAppRouterEndpoint,
                 } from "@copilotkit/runtime";
-                import { MastraAgent } from "@ag-ui/mastra";
-                import { mastra } from "@/mastra";
                 import { NextRequest } from "next/server";
+                import { MastraAgent } from "@ag-ui/mastra"
+                import { mastra } from "@/mastra"; // the path to your Mastra instance
 
                 const serviceAdapter = new ExperimentalEmptyAdapter();
 
@@ -218,7 +215,7 @@ Before you begin, you'll need the following:
 
                 ```tsx title="app/layout.tsx"
                 import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
-                import "@copilotkit/react-core/v2/styles.css"; // [!code highlight]
+                import "@copilotkit/react-ui/v2/styles.css";
                 import './globals.css';
 
                 // ...
@@ -243,7 +240,7 @@ Before you begin, you'll need the following:
               Add the CopilotSidebar component to your page:
 
               ```tsx title="app/page.tsx"
-              import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight]
+              import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
 
               export default function Page() {
                 return (
@@ -311,7 +308,6 @@ Before you begin, you'll need the following:
             </Accordion>
         </Accordions>
     </Step>
-
 </Steps>
 
 ## What's next?
@@ -338,3 +334,4 @@ Now that you have your basic agent setup, explore these advanced features:
     icon={<WrenchIcon />}
   />
 </Cards>
+

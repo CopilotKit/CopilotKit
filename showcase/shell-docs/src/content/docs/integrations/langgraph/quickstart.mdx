@@ -1,10 +1,9 @@
 ---
 title: Quickstart
-description: Turn your LangChain agent into an agent-native application in 10 minutes.
+description: Turn your LangGraph agent into an agent-native application in 10 minutes.
 icon: "lucide/Play"
 hideTOC: true
 ---
-
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
   className="rounded-lg shadow-xl"
@@ -22,7 +21,7 @@ Before you begin, you'll need the following:
 - An OpenAI API key
 - Node.js 20+
 - Your favorite package manager
-- (Optional) A LangSmith API key - only required if using an existing LangChain agent
+- (Optional) A LangSmith API key - only required if using an existing LangGraph agent
 
 ## Getting started
 
@@ -34,7 +33,7 @@ Before you begin, you'll need the following:
             <div>
                 <p className="text-xl font-semibold">Choose your starting point</p>
                 <p className="text-base">
-                    You can either start fresh with our starter template or integrate CopilotKit into your existing LangChain agent.
+                    You can either start fresh with our starter template or integrate CopilotKit into your existing LangGraph agent.
                 </p>
             </div>
         }
@@ -55,17 +54,7 @@ Before you begin, you'll need the following:
 
                 - **Project name**
                 - **Enterprise Intelligence Platform** — persistent threads, observability, and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard LangGraph setup.
-                - **Framework** — pick **LangGraph (Python)** or **LangGraph (JavaScript)** when prompted.
-
-                Or skip the prompts and pin a framework directly:
-
-                ```bash
-                # Python
-                npx copilotkit@latest create --framework langgraph-py
-
-                # JavaScript
-                npx copilotkit@latest create --framework langgraph-js
-                ```
+                - **Framework** — pick **LangGraph (Python)** or **LangGraph (JavaScript)**.
             </Step>
             <Step>
                 ### Install dependencies
@@ -84,7 +73,7 @@ Before you begin, you'll need the following:
                 ```
 
                 <Callout type="info" title="What about other models?">
-                  The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by LangChain.
+                  The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by LangGraph.
                 </Callout>
             </Step>
             <Step>
@@ -119,7 +108,7 @@ Before you begin, you'll need the following:
         <TailoredContentOption
             id="bring-your-own"
             title="Use an existing agent"
-            description="I already have a LangChain agent and want to add CopilotKit."
+            description="I already have a LangGraph agent and want to add CopilotKit."
         >
           <Step>
               ### Initialize your agent project
@@ -143,11 +132,11 @@ Before you begin, you'll need the following:
           <Step>
             ### Expose your agent via AG-UI
 
-            If you already have a LangChain agent written, just reference the following code. In this step
-            we create a simple LangChain agent for the sake of demonstration.
+            If you already have a LangGraph agent written, just reference the following code. In this step
+            we create a simple LangGraph agent for the sake of demonstration.
               <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
                 <Tab value="LangSmith">
-                  First, we'll create a simple LangChain agent:
+                  First, we'll create a simple LangGraph agent:
 
                   ```python title="main.py"
                   from dotenv import load_dotenv
@@ -200,9 +189,10 @@ Before you begin, you'll need the following:
                   uv add ag-ui-langgraph fastapi uvicorn copilotkit
                   ```
 
-                  Then create a simple LangChain agent, add a FastAPI app, and build attach our agent as an AG-UI endpoint.
+                  Then create a simple LangGraph agent, add a FastAPI app, and build attach our agent as an AG-UI endpoint.
 
-                  ```python title="main.py"
+                  ```python title="main.py" doctest="server"
+                  import os
 
                   # [!code highlight:2]
                   from dotenv import load_dotenv
@@ -212,6 +202,7 @@ Before you begin, you'll need the following:
                   from langgraph.graph import END, START, MessagesState, StateGraph
                   from langchain_core.messages import SystemMessage
                   from langchain_openai import ChatOpenAI
+                  from langgraph.checkpoint.memory import MemorySaver
                   import uvicorn
                   load_dotenv()
 
@@ -231,7 +222,9 @@ Before you begin, you'll need the following:
                   graph.add_node(mock_llm)
                   graph.add_edge(START, "mock_llm")
                   graph.add_edge("mock_llm", END)
-                  graph = graph.compile()
+                  graph = graph.compile(
+                    checkpointer=MemorySaver()
+                  )
 
                   app = FastAPI()
 
@@ -251,7 +244,7 @@ Before you begin, you'll need the following:
                     uvicorn.run(
                       "main:app",
                       host="0.0.0.0",
-                      port="8123",
+                      port=8123,
                       reload=True,
                     )
 
@@ -275,7 +268,7 @@ Before you begin, you'll need the following:
               ```
 
               <Callout type="info" title="What about other models?">
-                The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by LangChain.
+                The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by LangGraph.
               </Callout>
           </Step>
           <Step>
@@ -292,13 +285,13 @@ Before you begin, you'll need the following:
               ### Install CopilotKit packages
 
               ```npm
-              npm install @copilotkit/react-core @copilotkit/runtime
+              npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime
               ```
           </Step>
           <Step>
               ### Setup Copilot Runtime
 
-              Create an API route to connect CopilotKit to your LangChain agent:
+              Create an API route to connect CopilotKit to your LangGraph agent:
 
               ```sh
               mkdir -p app/api/copilotkit && touch app/api/copilotkit/route.ts
@@ -312,9 +305,9 @@ Before you begin, you'll need the following:
                     ExperimentalEmptyAdapter,
                     copilotRuntimeNextJSAppRouterEndpoint,
                   } from "@copilotkit/runtime";
-                  import { LangGraphAgent } from "@copilotkit/runtime";
-                  import { NextRequest } from "next/server";
                   // [!code highlight]
+                  import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+                  import { NextRequest } from "next/server";
 
                   const serviceAdapter = new ExperimentalEmptyAdapter();
 
@@ -347,9 +340,9 @@ Before you begin, you'll need the following:
                   ExperimentalEmptyAdapter,
                   copilotRuntimeNextJSAppRouterEndpoint,
                 } from "@copilotkit/runtime";
-                import { LangGraphHttpAgent } from "@copilotkit/runtime";
-                import { NextRequest } from "next/server";
                 // [!code highlight]
+                import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
+                import { NextRequest } from "next/server";
 
                 const serviceAdapter = new ExperimentalEmptyAdapter();
 
@@ -381,8 +374,9 @@ Before you begin, you'll need the following:
               Wrap your application with the CopilotKit provider:
 
               ```tsx title="app/layout.tsx"
-              import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
-              import "@copilotkit/react-core/v2/styles.css"; // [!code highlight]
+              // [!code highlight:2]
+              import { CopilotKit } from "@copilotkit/react-core/v2";
+              import "@copilotkit/react-ui/v2/styles.css";
               import './globals.css';
 
               // ...
@@ -407,7 +401,7 @@ Before you begin, you'll need the following:
             Add the CopilotSidebar component to your page:
 
             ```tsx title="app/page.tsx"
-            import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight]
+            import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
 
             export default function Page() {
               return (
@@ -506,7 +500,6 @@ Before you begin, you'll need the following:
         </Accordions>
 
     </Step>
-
 </Steps>
 
 ## Deploying to AWS?
@@ -543,3 +536,4 @@ Now that you have your basic agent setup, explore these advanced features:
     icon={<WrenchIcon />}
   />
 </Cards>
+

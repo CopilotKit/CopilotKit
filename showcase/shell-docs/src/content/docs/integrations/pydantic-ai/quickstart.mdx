@@ -4,7 +4,6 @@ description: Turn your Pydantic AI agent into an agent-native application in 10 
 icon: "lucide/Play"
 hideTOC: true
 ---
-
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
   className="rounded-lg shadow-xl"
@@ -56,12 +55,6 @@ Before you begin, you'll need the following:
                 - **Project name**
                 - **Enterprise Intelligence Platform** — persistent threads, observability, and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard Pydantic AI setup.
                 - **Framework** — pick **Pydantic AI** when prompted.
-
-                Or skip the prompts and pin a framework directly:
-
-                ```bash
-                npx copilotkit@latest create --framework pydantic-ai
-                ```
             </Step>
             <Step>
                 ### Install dependencies
@@ -133,7 +126,7 @@ Before you begin, you'll need the following:
                 Add Pydantic AI with AG-UI support and uvicorn to your project:
 
                 ```bash
-                uv add 'pydantic-ai-slim[ag-ui]' 'pydantic-ai-slim[openai]' uvicorn
+                uv add 'pydantic-ai-slim[ag-ui]' 'pydantic-ai-slim[openai]' uvicorn starlette==0.45.3
                 ```
             </Step>
             <Step>
@@ -161,6 +154,7 @@ Before you begin, you'll need the following:
                 app = agent.to_ag_ui()
 
                 if __name__ == "__main__":
+                    import uvicorn
                     uvicorn.run(app, host="localhost", port=8000)
                 ```
 
@@ -182,7 +176,7 @@ Before you begin, you'll need the following:
                 ### Install CopilotKit packages
 
                 ```npm
-                npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client
+                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client
                 ```
             </Step>
             <Step>
@@ -225,7 +219,7 @@ Before you begin, you'll need the following:
 
                 ```tsx title="app/layout.tsx"
                 import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
-                import "@copilotkit/react-core/v2/styles.css"; // [!code highlight]
+                import "@copilotkit/react-ui/v2/styles.css";
                 import './globals.css';
 
                 // ...
@@ -250,7 +244,7 @@ Before you begin, you'll need the following:
               Add the CopilotSidebar component to your page:
 
               ```tsx title="app/page.tsx"
-              import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight]
+              import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
 
               export default function Page() {
                 return (
@@ -336,7 +330,6 @@ Before you begin, you'll need the following:
         </Accordions>
 
     </Step>
-
 </Steps>
 
 ## What's next?
@@ -369,3 +362,4 @@ Now that you have your basic agent setup, explore these advanced features:
     icon={<WrenchIcon />}
   />
 </Cards>
+
