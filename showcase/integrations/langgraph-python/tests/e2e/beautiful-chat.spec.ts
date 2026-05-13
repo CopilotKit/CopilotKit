@@ -212,4 +212,28 @@ test.describe("Beautiful Chat", () => {
       .poll(async () => await allCharts.count(), { timeout: 5_000 })
       .toBeLessThanOrEqual(2); // 1 pie + 1 bar = 2 charts in one dashboard
   });
+
+  test("Task Manager pill streams 3 todos into the shared-state canvas", async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    await page.waitForLoadState("networkidle");
+
+    await page
+      .getByRole("button", { name: "Task Manager (Shared State)" })
+      .click();
+
+    const todoColumn = page.locator('section[aria-label="To Do column"]');
+    await expect(todoColumn).toBeVisible({ timeout: 60_000 });
+
+    await expect(page.getByText("Read the CopilotKit docs")).toBeVisible({
+      timeout: 60_000,
+    });
+    await expect(page.getByText("Build a CopilotKit prototype")).toBeVisible({
+      timeout: 5_000,
+    });
+    await expect(page.getByText("Explore shared agent state")).toBeVisible({
+      timeout: 5_000,
+    });
+  });
 });
