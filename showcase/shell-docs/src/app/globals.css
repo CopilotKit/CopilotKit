@@ -347,7 +347,45 @@ samp {
 .docs-steps {
   counter-reset: docs-step;
 }
+.docs-step__badge {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-weight: 600;
+}
 .docs-step__badge::before {
   counter-increment: docs-step;
   content: counter(docs-step);
+}
+
+/* Brand-tint the first Step's heading. Indigo→purple gradient text
+ * matches the CopilotKit accent (OpsPlatformCTA, nav). Subtle cue
+ * that Step 1 is the entry point — the badge itself stays in its
+ * default styling so the contrast comes from the heading, not chrome.
+ * The :is() drops the anchor-link `#` (which uses .docs-heading-anchor). */
+.docs-steps > div:first-child h3,
+.docs-steps > div:first-child h3 > :is(:not(.docs-heading-anchor)) {
+  background-image: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Mute the SignupLink color in Step 1 so it doesn't clash with the
+ * gradient heading above it. The link stays underlined for affordance,
+ * inherits hover (opacity: 0.8) from .reference-content a. */
+.docs-steps > div:first-child a[data-cta-surface] {
+  color: var(--text);
+}
+
+/* Align each Step's first heading with its number badge.
+ * `.reference-content h2/h3/h4` ship with `margin-top` (1.25–2.5rem) so
+ * the heading would otherwise float well below the absolutely-positioned
+ * `.docs-step__badge` (anchored at `top: -0.125rem`). Zero out the top
+ * margin when the heading is the first thing rendered inside a Step. */
+.docs-steps h2:first-child,
+.docs-steps h3:first-child,
+.docs-steps h4:first-child {
+  margin-top: 0;
 }

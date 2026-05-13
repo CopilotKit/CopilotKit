@@ -38,18 +38,21 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
 ## Getting started
 
 <Steps>
-<TailoredContent
-    className="step"
-    id="path"
-    header={
-        <div>
-            <p className="text-xl font-semibold">How do you want to get started?</p>
-            <p className="text-base">
-                Bootstrap with the new <span className="text-indigo-500 dark:text-indigo-400">CopilotKit CLI (Beta)</span> or code along with us to get started.
-            </p>
-        </div>
-    }
->
+<Step>
+    ### Create a free account
+
+    <SignupLink surface="docs_crewai_flows_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads, observability, and the inspector.
+</Step>
+
+<Step>
+    ### How do you want to get started?
+
+    Bootstrap with the new CopilotKit CLI (Beta) or code along with us to get started.
+
+    <TailoredContent
+        className="step"
+        id="path"
+    >
     <TailoredContentOption
         id="cli"
         title="Use the CopilotKit CLI (NextJS only)"
@@ -221,6 +224,7 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
         </Step>
     </TailoredContentOption>
     </TailoredContent>
+</Step>
 
 </Steps>
 
