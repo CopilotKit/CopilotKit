@@ -1,9 +1,7 @@
 import { WebInspectorElement, ɵCpkThreadDetails } from "../index";
 import type { CopilotKitCore } from "@copilotkit/core";
-import {
-  CopilotKitCoreRuntimeConnectionStatus,
-  type CopilotKitCoreSubscriber,
-} from "@copilotkit/core";
+import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+import type { CopilotKitCoreSubscriber } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
@@ -22,6 +20,13 @@ type InspectorContextInternals = {
   contextStore: Record<string, { description?: string; value: unknown }>;
   copyContextValue: (value: unknown, id: string) => Promise<void>;
   persistState: () => void;
+};
+
+// Owned thread stores are real `ɵThreadStore` instances created internally by
+// the inspector — the test only reads the subset of state it asserts on, so
+// a partial view avoids depending on the full `ɵThreadStore` surface.
+type RegisteredStoreView = {
+  getState: () => { context: { headers: Record<string, string> } | null };
 };
 
 // --- Mock agent factory ---
@@ -140,7 +145,12 @@ function createMockCore(
 
   return {
     core,
-    registeredStores,
+    getRegisteredStore(agentId: string): RegisteredStoreView | undefined {
+      return registeredStores.get(agentId) as RegisteredStoreView | undefined;
+    },
+    registeredStoreCount(): number {
+      return registeredStores.size;
+    },
     emitAgentsChanged(nextAgents = core.agents) {
       core.agents = nextAgents;
       // CopilotKitCore is a full class — our mock only covers what the
@@ -228,6 +238,15 @@ describe("WebInspectorElement", () => {
     // the mock requires a cast in jsdom-style test environments.
     (navigator as unknown as { clipboard: typeof mockClipboard }).clipboard =
       mockClipboard;
+
+    // Owned thread stores started by the inspector eagerly call `fetch` to
+    // populate the threads list. Stub it to a never-resolving Promise so the
+    // request starts (exercising the headers code path) but the test stays
+    // synchronous and doesn't trigger jsdom network errors.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise(() => {})),
+    );
   });
 
   afterEach(() => {
@@ -297,12 +316,8 @@ describe("WebInspectorElement", () => {
     // a runtimeUrl. The bug (issue #4793): `ensureOwnedThreadStore` was passing
     // `headers: {}` to `setContext`, so auth headers from `CopilotKitProvider`
     // never reached the DevConsole Threads list fetch.
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() => new Promise(() => {})),
-    );
     const { agent } = createMockAgent("alpha");
-    const { core, registeredStores } = createMockCore(
+    const { core, getRegisteredStore, registeredStoreCount } = createMockCore(
       { alpha: agent },
       {
         runtimeUrl: "http://example.com",
@@ -312,11 +327,8 @@ describe("WebInspectorElement", () => {
     const inspector = createInspectorWithCore(core);
     await inspector.updateComplete;
 
-    expect(registeredStores.size).toBe(1);
-    const store = registeredStores.get("alpha") as {
-      getState: () => { context: { headers: Record<string, string> } | null };
-    };
-    expect(store.getState().context?.headers).toEqual({
+    expect(registeredStoreCount()).toBe(1);
+    expect(getRegisteredStore("alpha")?.getState().context?.headers).toEqual({
       Authorization: "Bearer initial",
     });
   });
@@ -325,12 +337,8 @@ describe("WebInspectorElement", () => {
     // Second half of the fix for issue #4793: when `core.setHeaders()` fires
     // (e.g. after an async auth handshake), `attachToCore` must re-apply the
     // new headers to every already-owned thread store via `setContext`.
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() => new Promise(() => {})),
-    );
     const { agent } = createMockAgent("alpha");
-    const { core, registeredStores, setHeaders } = createMockCore(
+    const { core, getRegisteredStore, setHeaders } = createMockCore(
       { alpha: agent },
       {
         runtimeUrl: "http://example.com",
@@ -343,10 +351,7 @@ describe("WebInspectorElement", () => {
     setHeaders({ Authorization: "Bearer refreshed" });
     await inspector.updateComplete;
 
-    const store = registeredStores.get("alpha") as {
-      getState: () => { context: { headers: Record<string, string> } | null };
-    };
-    expect(store.getState().context?.headers).toEqual({
+    expect(getRegisteredStore("alpha")?.getState().context?.headers).toEqual({
       Authorization: "Bearer refreshed",
     });
   });
