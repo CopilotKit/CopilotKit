@@ -26,7 +26,7 @@ Plus a `database-migrations` Job, a `thread-culler` CronJob, and the usual suppo
 - Your organization requires CopilotKit Intelligence to run inside your own VPC or data center for compliance, data residency, or security reasons
 - You want to connect Intelligence to internal databases, identity providers, or secret stores that are not reachable from Copilot Cloud
 - You need to operate the platform under your existing Kubernetes tooling, CI/CD, and observability stack
-- You have a CopilotKit Intelligence Platform license and the platform-engineering capacity to run a production Kubernetes workload
+- You have a Enterprise Intelligence Platform license and the platform-engineering capacity to run a production Kubernetes workload
 
 <Callout type="info" title="Validate locally before committing to a real cluster">
 The chart installs the same way against a local Docker Desktop or k3d cluster as against a production one, so walk this guide end-to-end on your laptop first. Two local paths are supported:
@@ -43,11 +43,11 @@ Both paths use the same install commands described below — pick whichever fits
 
 ## Prerequisites
 
-Before starting, make sure the following are in place. The [How the Intelligence Platform Works](/learn/intelligence-platform) page explains the layering in more depth.
+Before starting, make sure the following are in place. The [How the Enterprise Intelligence Platform Works](/learn/intelligence-platform) page explains the layering in more depth.
 
 **License and registry access:**
 
-- A valid CopilotKit Intelligence Platform license key (contact your CopilotKit account team if you do not have one)
+- A valid Enterprise Intelligence Platform license key (contact your CopilotKit account team if you do not have one)
 - Read access to the chart OCI registry at `oci://ghcr.io/copilotkit/charts/intelligence` (anonymous pulls are allowed for the released chart)
 - The latest released chart version. Check the [chart releases](https://github.com/CopilotKit/Intelligence/pkgs/container/charts%2Fintelligence) on GHCR; substitute the value into the `<chart-version>` placeholder used throughout this guide (e.g. `0.1.0-rc.16`).
 
@@ -554,6 +554,6 @@ Per-service keys `podDisruptionBudget`, `podAntiAffinity`, and `networkPolicy` a
 
 ## Next steps
 
-- **Understand how it works:** [How the Intelligence Platform Works](/learn/intelligence-platform) — architecture, multi-tenancy model, platform layering, and the decision between hosted and self-hosted
+- **Understand how it works:** [How the Enterprise Intelligence Platform Works](/learn/intelligence-platform) — architecture, multi-tenancy model, platform layering, and the decision between hosted and self-hosted
 - **Premium features overview:** [CopilotKit Premium](/premium/overview) — all premium capabilities that require an Intelligence license
 - **Use threads in your app:** [Threads](/threads) — the persistent-conversation surface powered by the Intelligence Platform you just deployed
