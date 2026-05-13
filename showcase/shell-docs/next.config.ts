@@ -106,13 +106,13 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
 
-      // /unselected/* tree retired. Most files were either canonical at
-      // root or duplicated content from `integrations/built-in-agent/`.
-      // Per-path redirects below handle the BIA-canonical mappings; the
-      // catch-all at the bottom funnels everything else to root (where
-      // either the canonical version now lives or the soft-default
-      // serves the right framework view).
-      { source: "/unselected", destination: "/", permanent: true },
+      // /unselected/* tree retired. Files moved to integrations/built-in-agent/
+      // (BIA replaced the old "unselected" slot as the default integration).
+      // Per-path entries below cover BIA-canonical mappings (direct moves +
+      // slug renames from SUBPATH_RENAMES in seo-redirects.ts); the catch-all
+      // at the bottom routes everything else into /built-in-agent/ to preserve
+      // SEO equity, since these legacy URLs historically served BIA content.
+      { source: "/unselected", destination: "/built-in-agent", permanent: true },
       {
         source: "/unselected/quickstart",
         destination: "/built-in-agent/quickstart",
@@ -219,12 +219,88 @@ const nextConfig: NextConfig = {
         destination: "/",
         permanent: true,
       },
-      // Catch-all: any remaining /unselected/* path lands on its
-      // canonical root equivalent (Cat A files: coding-agents,
-      // custom-look-and-feel/*, frontend-tools, etc.).
+      // Slug-rename entries (mirror SUBPATH_RENAMES in seo-redirects.ts).
+      // These MUST come before the catch-all so the rename wins. Each
+      // historical slug under /unselected/ has been renamed under
+      // /built-in-agent/; e.g. agentic-chat-ui → prebuilt-components.
+      {
+        source: "/unselected/agentic-chat-ui",
+        destination: "/built-in-agent/prebuilt-components",
+        permanent: true,
+      },
+      {
+        source: "/unselected/use-agent-hook",
+        destination: "/built-in-agent/programmatic-control",
+        permanent: true,
+      },
+      {
+        source: "/unselected/frontend-actions",
+        destination: "/built-in-agent/frontend-tools",
+        permanent: true,
+      },
+      {
+        source: "/unselected/vibe-coding-mcp",
+        destination: "/built-in-agent/coding-agents",
+        permanent: true,
+      },
+      {
+        source: "/unselected/generative-ui/agentic",
+        destination:
+          "/built-in-agent/generative-ui/your-components/display-only",
+        permanent: true,
+      },
+      {
+        source: "/unselected/generative-ui/backend-tools",
+        destination: "/built-in-agent/generative-ui/tool-rendering",
+        permanent: true,
+      },
+      {
+        source: "/unselected/generative-ui/frontend-tools",
+        destination: "/built-in-agent/frontend-tools",
+        permanent: true,
+      },
+      {
+        source: "/unselected/generative-ui/render-only",
+        destination:
+          "/built-in-agent/generative-ui/your-components/display-only",
+        permanent: true,
+      },
+      {
+        source: "/unselected/generative-ui/tool-based",
+        destination: "/built-in-agent/generative-ui/tool-rendering",
+        permanent: true,
+      },
+      {
+        source: "/unselected/custom-look-and-feel/bring-your-own-components",
+        destination: "/built-in-agent/custom-look-and-feel/slots",
+        permanent: true,
+      },
+      {
+        source: "/unselected/custom-look-and-feel/customize-built-in-ui-components",
+        destination: "/built-in-agent/custom-look-and-feel/slots",
+        permanent: true,
+      },
+      {
+        source: "/unselected/custom-look-and-feel/markdown-rendering",
+        destination: "/built-in-agent/custom-look-and-feel/slots",
+        permanent: true,
+      },
+      {
+        source: "/unselected/guide",
+        destination: "/built-in-agent/guides",
+        permanent: true,
+      },
+      {
+        source: "/unselected/mcp",
+        destination: "/built-in-agent/coding-agents",
+        permanent: true,
+      },
+      // Catch-all: route remaining /unselected/* paths into /built-in-agent/.
+      // BIA is the canonical owner of the legacy unselected/ content tree;
+      // matches P1×unselected in seo-redirects.ts.
       {
         source: "/unselected/:path*",
-        destination: "/:path*",
+        destination: "/built-in-agent/:path*",
         permanent: true,
       },
 
