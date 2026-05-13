@@ -9,6 +9,13 @@
  * If native fetch already supports ReadableStream bodies (newer RN / Hermes),
  * the replacement is skipped entirely.
  *
+ * THREADING NOTE: In React Native, XHR callbacks (onprogress, onload, etc.)
+ * may fire on a native networking thread. Pushing data into the ReadableStream
+ * from that thread can trigger downstream React setState calls on the wrong
+ * thread, causing iOS to kill the process with "deleted thread with uncommitted
+ * CATransaction". All stream-mutating operations are therefore deferred via
+ * setTimeout(fn, 0) to bounce back to the JS thread (main thread in Hermes).
+ *
  * Call `installStreamingFetch()` once at app startup after polyfills.
  */
 
@@ -199,33 +206,49 @@ export function installStreamingFetch(): void {
         },
       });
 
+      // All XHR callbacks are wrapped with setTimeout(fn, 0) to ensure they
+      // run on the JS thread. In React Native, XHR callbacks may fire on a
+      // native networking thread; calling streamController.enqueue() there
+      // triggers downstream React setState on the wrong thread, which causes
+      // iOS to kill the process ("deleted thread with uncommitted CATransaction").
+      // setTimeout(fn, 0) defers execution to the JS event loop (main thread
+      // in Hermes) with negligible latency — streaming still feels real-time.
+
       xhr.onprogress = function () {
-        try {
-          flushChunks();
-        } catch (err) {
-          fail(err instanceof Error ? err : new Error(String(err)));
-          xhr.abort();
-        }
+        setTimeout(() => {
+          try {
+            flushChunks();
+          } catch (err) {
+            fail(err instanceof Error ? err : new Error(String(err)));
+            xhr.abort();
+          }
+        }, 0);
       };
 
       xhr.onload = function () {
-        cleanupAbortListener();
-        try {
-          flushChunks();
-        } catch (err) {
-          fail(err instanceof Error ? err : new Error(String(err)));
-          return;
-        }
-        closeStream();
-        resolveFullText(xhr.responseText);
+        setTimeout(() => {
+          cleanupAbortListener();
+          try {
+            flushChunks();
+          } catch (err) {
+            fail(err instanceof Error ? err : new Error(String(err)));
+            return;
+          }
+          closeStream();
+          resolveFullText(xhr.responseText);
+        }, 0);
       };
 
       xhr.onerror = function () {
-        fail(new TypeError("Network request failed"));
+        setTimeout(() => {
+          fail(new TypeError("Network request failed"));
+        }, 0);
       };
 
       xhr.ontimeout = function () {
-        fail(new TypeError("Network request timed out"));
+        setTimeout(() => {
+          fail(new TypeError("Network request timed out"));
+        }, 0);
       };
 
       // Resolve with Response once headers arrive.
@@ -233,97 +256,105 @@ export function installStreamingFetch(): void {
       // DNS errors, and mixed-content blocks — let onerror handle those.
       let resp: StreamingFetchResponse | null = null;
       xhr.onreadystatechange = function () {
-        // Safety net: if XHR completed but we never resolved/rejected, fail explicitly.
-        // This can happen when status === 0 and onerror doesn't fire (some RN networking impls).
-        if (xhr.readyState === 4 && !settled && !resp) {
-          fail(
-            new TypeError(
-              `Network request to ${url} completed with status ${xhr.status} but no response was produced. ` +
-                `This may indicate a CORS failure, DNS error, or React Native networking issue.`,
-            ),
-          );
-          return;
-        }
+        // Capture XHR state synchronously before deferring — XHR properties
+        // may change between now and when setTimeout fires.
+        const readyState = xhr.readyState;
+        const xhrStatus = xhr.status;
+        const xhrStatusText = xhr.statusText;
+        const rawHeaders = xhr.getAllResponseHeaders() || "";
 
-        if (xhr.readyState >= 2 && !resp && xhr.status !== 0) {
-          const respHeaders: Record<string, string> = {};
-          const rawHeaders = xhr.getAllResponseHeaders() || "";
-          for (const line of rawHeaders.trim().split("\r\n")) {
-            const idx = line.indexOf(": ");
-            if (idx > 0) {
-              respHeaders[line.slice(0, idx).toLowerCase()] = line.slice(
-                idx + 2,
-              );
-            }
+        setTimeout(() => {
+          // Safety net: if XHR completed but we never resolved/rejected, fail explicitly.
+          // This can happen when status === 0 and onerror doesn't fire (some RN networking impls).
+          if (readyState === 4 && !settled && !resp) {
+            fail(
+              new TypeError(
+                `Network request to ${url} completed with status ${xhrStatus} but no response was produced. ` +
+                  `This may indicate a CORS failure, DNS error, or React Native networking issue.`,
+              ),
+            );
+            return;
           }
 
-          const responseHeaders = new Headers(respHeaders);
-
-          let bodyUsed = false;
-
-          resp = {
-            // Duck-typed Response object (not a native Response instance)
-            ok: xhr.status >= 200 && xhr.status < 300,
-            status: xhr.status,
-            statusText: xhr.statusText,
-            url: url,
-            type: "basic",
-            redirected: false,
-            get bodyUsed() {
-              return bodyUsed;
-            },
-            headers: responseHeaders,
-            body: stream,
-            json: async () => {
-              bodyUsed = true;
-              const text = await fullTextPromise;
-              try {
-                return JSON.parse(text);
-              } catch (e) {
-                throw new TypeError(
-                  `Failed to parse JSON from ${method} ${url} (status ${xhr.status}): ${
-                    text.length > 200 ? text.slice(0, 200) + "..." : text
-                  }`,
+          if (readyState >= 2 && !resp && xhrStatus !== 0) {
+            const respHeaders: Record<string, string> = {};
+            for (const line of rawHeaders.trim().split("\r\n")) {
+              const idx = line.indexOf(": ");
+              if (idx > 0) {
+                respHeaders[line.slice(0, idx).toLowerCase()] = line.slice(
+                  idx + 2,
                 );
               }
-            },
-            text: async () => {
-              bodyUsed = true;
-              return fullTextPromise;
-            },
-            arrayBuffer: async () => {
-              bodyUsed = true;
-              return encoder.encode(await fullTextPromise).buffer;
-            },
-            blob: async () => {
-              bodyUsed = true;
-              const buf = encoder.encode(await fullTextPromise);
-              if (typeof Blob !== "undefined") {
-                return new Blob([buf], {
-                  type: responseHeaders.get("content-type") || "",
-                });
-              }
-              throw new Error(
-                "Blob is not available in this React Native environment.",
-              );
-            },
-            clone: () => {
-              throw new Error(
-                "Response.clone() is not supported by the React Native streaming fetch polyfill.",
-              );
-            },
-            formData: async () => {
-              throw new Error(
-                "Response.formData() is not supported by the React Native streaming fetch polyfill.",
-              );
-            },
-          };
-          settled = true;
-          // NOTE: abort listener is NOT removed here — the signal must remain
-          // wired to xhr.abort() for mid-stream cancellation. Cleanup happens
-          // in terminal handlers (onload, onerror, ontimeout) or onAbort itself.
-          resolve(resp as unknown as Response);
-        }
+            }
+
+            const responseHeaders = new Headers(respHeaders);
+
+            let bodyUsed = false;
+
+            resp = {
+              // Duck-typed Response object (not a native Response instance)
+              ok: xhrStatus >= 200 && xhrStatus < 300,
+              status: xhrStatus,
+              statusText: xhrStatusText,
+              url: url,
+              type: "basic",
+              redirected: false,
+              get bodyUsed() {
+                return bodyUsed;
+              },
+              headers: responseHeaders,
+              body: stream,
+              json: async () => {
+                bodyUsed = true;
+                const text = await fullTextPromise;
+                try {
+                  return JSON.parse(text);
+                } catch (e) {
+                  throw new TypeError(
+                    `Failed to parse JSON from ${method} ${url} (status ${xhrStatus}): ${
+                      text.length > 200 ? text.slice(0, 200) + "..." : text
+                    }`,
+                  );
+                }
+              },
+              text: async () => {
+                bodyUsed = true;
+                return fullTextPromise;
+              },
+              arrayBuffer: async () => {
+                bodyUsed = true;
+                return encoder.encode(await fullTextPromise).buffer;
+              },
+              blob: async () => {
+                bodyUsed = true;
+                const buf = encoder.encode(await fullTextPromise);
+                if (typeof Blob !== "undefined") {
+                  return new Blob([buf], {
+                    type: responseHeaders.get("content-type") || "",
+                  });
+                }
+                throw new Error(
+                  "Blob is not available in this React Native environment.",
+                );
+              },
+              clone: () => {
+                throw new Error(
+                  "Response.clone() is not supported by the React Native streaming fetch polyfill.",
+                );
+              },
+              formData: async () => {
+                throw new Error(
+                  "Response.formData() is not supported by the React Native streaming fetch polyfill.",
+                );
+              },
+            };
+            settled = true;
+            // NOTE: abort listener is NOT removed here — the signal must remain
+            // wired to xhr.abort() for mid-stream cancellation. Cleanup happens
+            // in terminal handlers (onload, onerror, ontimeout) or onAbort itself.
+            resolve(resp as unknown as Response);
+          }
+        }, 0);
       };
 
       xhr.send(body ?? null);

@@ -1,24 +1,24 @@
-import React, {
-  type ReactNode,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import {
   CopilotKitContext,
-  type CopilotKitContextValue,
   LicenseContext,
 } from "@copilotkit/react-core/v2/context";
+import type { CopilotKitContextValue } from "@copilotkit/react-core/v2/context";
 import { CopilotKitCoreReact } from "@copilotkit/react-core/v2/headless";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
+import type { DebugConfig } from "@copilotkit/shared";
 
 export interface CopilotKitNativeProviderProps {
   children: ReactNode;
   /** URL of the CopilotKit runtime endpoint */
   runtimeUrl: string;
   /** Custom headers sent with every request */
-  headers?: Record<string, string>;
+  headers?: Record<string, string> | (() => Record<string, string>);
+  /**
+   * Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies in cross-origin requests).
+   */
+  credentials?: RequestCredentials;
   /** Whether the runtime uses a single-route endpoint */
   useSingleEndpoint?: boolean;
   /** Custom properties forwarded to agents */
@@ -32,7 +32,18 @@ export interface CopilotKitNativeProviderProps {
     error: Error;
     code: CopilotKitCoreErrorCode;
     context: Record<string, any>;
-  }) => void;
+  }) => void | Promise<void>;
+  /**
+   * Enable debug logging for the client-side event pipeline.
+   * When `true`, enables verbose logging from the core instance.
+   */
+  debug?: DebugConfig;
+  /**
+   * Default throttle interval (ms) for `onMessagesChanged` / `onStateChanged`
+   * subscriptions. Individual subscriptions can override with their own `throttleMs`.
+   */
+  defaultThrottleMs?: number;
+  // Cloud features (publicApiKey, licenseToken) — not yet supported on React Native
 }
 
 /**
@@ -41,9 +52,12 @@ export interface CopilotKitNativeProviderProps {
  * A lightweight alternative to the web CopilotKitProvider that avoids
  * web-only dependencies (DOM, CSS, Radix UI, Lit, etc).
  *
+ * Polyfills are auto-imported when `@copilotkit/react-native` is loaded,
+ * so a separate `import "@copilotkit/react-native/polyfills"` is no longer
+ * required (though it remains available for advanced use).
+ *
  * Usage:
  * ```tsx
- * import "@copilotkit/react-native/polyfills";
  * import { CopilotKitProvider } from "@copilotkit/react-native";
  *
  * function App() {
@@ -58,15 +72,25 @@ export interface CopilotKitNativeProviderProps {
 export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
   children,
   runtimeUrl,
-  headers,
+  headers: headersProp,
+  credentials,
   useSingleEndpoint,
   properties,
   onError,
+  debug,
+  defaultThrottleMs,
 }) => {
+  // Resolve headers from function or static object (matches web provider pattern)
+  const resolvedHeaders =
+    typeof headersProp === "function" ? headersProp() : headersProp;
+
   // Stabilize headers/properties references to avoid effect churn when callers
   // pass inline object literals (e.g. headers={{}} or the undefined default).
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const stableHeaders = useMemo(() => headers ?? {}, [JSON.stringify(headers)]);
+  const stableHeaders = useMemo(
+    () => resolvedHeaders ?? {},
+    [JSON.stringify(resolvedHeaders)],
+  );
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const stableProperties = useMemo(
     () => properties ?? {},
@@ -85,8 +109,15 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
             ? "rest"
             : "auto",
       headers: stableHeaders,
+      credentials,
       properties: stableProperties,
+      debug,
     });
+    // Set initial defaultThrottleMs synchronously so child hooks see the
+    // correct value on their first render (before useEffect fires).
+    if (defaultThrottleMs !== undefined) {
+      copilotkitRef.current.setDefaultThrottleMs(defaultThrottleMs);
+    }
   }
 
   const copilotkit = copilotkitRef.current;
@@ -102,14 +133,25 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
           : "auto",
     );
     copilotkit.setHeaders(stableHeaders);
+    copilotkit.setCredentials(credentials);
     copilotkit.setProperties(stableProperties);
+    copilotkit.setDebug(debug);
   }, [
     runtimeUrl,
     useSingleEndpoint,
     stableHeaders,
+    credentials,
     stableProperties,
+    debug,
     copilotkit,
   ]);
+
+  // Sync defaultThrottleMs to the core instance on prop changes.
+  // Initial value is set synchronously during instance creation (inside the
+  // ref guard above), so this only handles subsequent updates.
+  useEffect(() => {
+    copilotkit.setDefaultThrottleMs(defaultThrottleMs);
+  }, [copilotkit, defaultThrottleMs]);
 
   // Track executing tool call IDs at the provider level.
   // Critical for HITL reconnection: onToolExecutionStart fires before child

@@ -4,6 +4,58 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
+// react-native uses Flow syntax that Vitest/Rollup can't parse outside of
+// Metro. Mock it so barrel imports from ../index don't trigger a parse error.
+vi.mock("react-native", () => {
+  const _React = require("react");
+  const View = ({ children, style, testID }: any) =>
+    _React.createElement("div", { "data-testid": testID, style }, children);
+  const Text = ({ children, style, testID }: any) =>
+    _React.createElement("span", { "data-testid": testID, style }, children);
+  const Pressable = ({ children, onPress, testID, style }: any) =>
+    _React.createElement(
+      "div",
+      { "data-testid": testID, onClick: onPress, style },
+      children,
+    );
+  const TouchableOpacity = ({ children, onPress, testID, style }: any) =>
+    _React.createElement(
+      "button",
+      { "data-testid": testID, onClick: onPress, style },
+      children,
+    );
+  const Modal = ({ children, visible, testID }: any) => {
+    if (!visible) return null;
+    return _React.createElement("div", { "data-testid": testID }, children);
+  };
+  return {
+    View,
+    Text,
+    Pressable,
+    TouchableOpacity,
+    Modal,
+    Animated: {
+      View,
+      Text,
+      createAnimatedComponent: (comp: any) => comp,
+      timing: () => ({ start: (cb?: any) => cb?.() }),
+      Value: class {
+        _value: number;
+        constructor(v: number) {
+          this._value = v;
+        }
+        setValue(v: number) {
+          this._value = v;
+        }
+      },
+    },
+    Dimensions: { get: () => ({ width: 375, height: 812 }) },
+    StyleSheet: { create: (styles: any) => styles, hairlineWidth: 1 },
+    useWindowDimensions: () => ({ width: 375, height: 812 }),
+    Platform: { OS: "ios" },
+  };
+});
+
 // vi.hoisted runs before vi.mock factories, making these available to both
 const hoisted = vi.hoisted(() => {
   const _React = require("react");
@@ -28,7 +80,10 @@ function createMockCore() {
     setRuntimeUrl: vi.fn(),
     setRuntimeTransport: vi.fn(),
     setHeaders: vi.fn(),
+    setCredentials: vi.fn(),
     setProperties: vi.fn(),
+    setDebug: vi.fn(),
+    setDefaultThrottleMs: vi.fn(),
     getAgent: vi.fn(() => undefined),
     runtimeUrl: "https://api.test",
     runtimeTransport: "auto",
@@ -374,5 +429,4 @@ describe("Headless integration", () => {
       spy.mockRestore();
     });
   });
-
 });

@@ -26,7 +26,13 @@ export { useAgent, type UseAgentUpdate } from "./hooks/use-agent";
 export { useFrontendTool } from "./hooks/use-frontend-tool";
 export { useComponent } from "./hooks/use-component";
 export { useHumanInTheLoop } from "./hooks/use-human-in-the-loop";
-export { useInterrupt, type UseInterruptConfig } from "./hooks/use-interrupt";
+export {
+  useInterrupt,
+  type UseInterruptConfig,
+  type InterruptEvent,
+  type InterruptHandlerProps,
+  type InterruptRenderProps,
+} from "./hooks/use-interrupt";
 export { useSuggestions } from "./hooks/use-suggestions";
 export { useConfigureSuggestions } from "./hooks/use-configure-suggestions";
 export {
@@ -40,3 +46,19 @@ export {
   type UseThreadsInput,
   type UseThreadsResult,
 } from "./hooks/use-threads";
+
+export {
+  useRenderTool,
+  type RenderToolProps,
+  type RenderToolInProgressProps,
+  type RenderToolExecutingProps,
+  type RenderToolCompleteProps,
+} from "./hooks/use-render-tool";
+export { defineToolCallRenderer } from "./types/defineToolCallRenderer";
+
+// Platform-agnostic types
+export type { ReactFrontendTool } from "./types/frontend-tool";
+export type { ReactHumanInTheLoop } from "./types/human-in-the-loop";
+
+// Platform-agnostic capability introspection
+export { useCapabilities } from "./hooks/use-capabilities";
