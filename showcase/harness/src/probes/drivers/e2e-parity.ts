@@ -331,7 +331,9 @@ const defaultLauncher: E2eParityBrowserLauncher =
     });
     return {
       async newContext(): Promise<E2eParityBrowserContext> {
-        const ctx = await browser.newContext();
+        const ctx = await browser.newContext({
+          extraHTTPHeaders: { "X-AIMock-Strict": "true" },
+        });
         return {
           async newPage(): Promise<E2eParityPage> {
             const page = await ctx.newPage();
@@ -357,7 +359,9 @@ export function createPooledE2eParityLauncher(
     const browser = await pool.acquire();
     return {
       async newContext(): Promise<E2eParityBrowserContext> {
-        const ctx = await browser.newContext();
+        const ctx = await browser.newContext({
+          extraHTTPHeaders: { "X-AIMock-Strict": "true" },
+        });
         return {
           async newPage(): Promise<E2eParityPage> {
             const page = await ctx.newPage();

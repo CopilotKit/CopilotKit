@@ -5,6 +5,7 @@ import type {
   StandardSchemaV1,
 } from "@standard-schema/spec";
 import * as z from "zod";
+import { getForwardedHeaders } from "../header-propagation";
 
 type WithJsonSchema<T> = T extends { "~standard": infer S }
   ? Omit<T, "~standard"> & {
@@ -302,9 +303,25 @@ const buildMiddlewareInput = (exposeState: ExposeStateOption) => ({
 
   stateSchema: copilotKitStateSchema as unknown as InteropZodObject,
 
-  // Inject frontend tools and surface user state before model call
+  // Inject frontend tools, surface user state, and forward x-aimock-* headers
   wrapModelCall: async (request: any, handler: (req: any) => Promise<any>) => {
     request = applyStateNote(request, exposeState);
+
+    // Forward x-aimock-* headers from the incoming AG-UI request
+    const forwardedHeaders = getForwardedHeaders();
+    if (Object.keys(forwardedHeaders).length > 0) {
+      const existingSettings = request.modelSettings ?? {};
+      const existingHeaders =
+        (existingSettings.headers as Record<string, string>) ?? {};
+      request = {
+        ...request,
+        modelSettings: {
+          ...existingSettings,
+          headers: { ...existingHeaders, ...forwardedHeaders },
+        },
+      };
+    }
+
     const frontendTools = request.state["copilotkit"]?.actions ?? [];
 
     if (frontendTools.length === 0) {

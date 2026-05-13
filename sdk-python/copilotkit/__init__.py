@@ -7,6 +7,7 @@ from .agent import Agent
 from .langgraph_agui_agent import LangGraphAGUIAgent
 from .copilotkit_lg_middleware import CopilotKitMiddleware
 from ag_ui_langgraph.middlewares.state_streaming import StateStreamingMiddleware, StateItem
+from .header_propagation import set_forwarded_headers, get_forwarded_headers, install_httpx_hook
 
 
 
@@ -24,4 +25,7 @@ __all__ = [
     "CopilotKitMiddleware",
     "StateStreamingMiddleware",
     "StateItem",
+    "set_forwarded_headers",
+    "get_forwarded_headers",
+    "install_httpx_hook",
 ]
