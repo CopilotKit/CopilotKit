@@ -115,6 +115,34 @@ describe("CopilotChat perf — re-render regression", () => {
     renderCounts.clear();
   });
 
+  // TanStack Virtual schedules rAF callbacks for measurement. On Node 20 the
+  // jsdom timing is different — draining a fixed number of rAF rounds is not
+  // enough because the observer keeps scheduling new callbacks. When
+  // @testing-library/react's auto-cleanup unmounts the component AFTER our
+  // afterEach, any pending rAF fires against a torn-down window (null) and
+  // throws: TypeError: Cannot read properties of null ('requestAnimationFrame').
+  //
+  // Fix: after draining what we can, replace rAF with a no-op so any callback
+  // scheduled during (or after) RTL cleanup is silently swallowed. Restore the
+  // real rAF at the start of the next test via beforeEach.
+  const realRAF = globalThis.requestAnimationFrame;
+
+  afterEach(async () => {
+    // Best-effort drain of already-queued rAF callbacks.
+    await act(async () => {
+      await new Promise<void>((r) => realRAF(() => r()));
+      await new Promise<void>((r) => realRAF(() => r()));
+    });
+    // Neuter rAF so callbacks scheduled during RTL cleanup are harmless.
+    globalThis.requestAnimationFrame = ((_cb: FrameRequestCallback) =>
+      0) as typeof requestAnimationFrame;
+  });
+
+  beforeEach(() => {
+    // Restore real rAF for the upcoming test.
+    globalThis.requestAnimationFrame = realRAF;
+  });
+
   it("completed messages do not re-render when a new message is added", async () => {
     const agent = new MockStepwiseAgent();
     renderWithSpy(agent);
