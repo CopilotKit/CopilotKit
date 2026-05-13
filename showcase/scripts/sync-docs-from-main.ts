@@ -116,6 +116,19 @@ const PATH_EXCLUSIONS: RegExp[] = [
   // per-framework landing files.
   /^docs\/content\/docs\/integrations\/langgraph\/index\.mdx$/,
   /^docs\/content\/docs\/integrations\/microsoft-agent-framework\/index\.mdx$/,
+  // reference/v2/* duplicates: shell-docs's canonical reference path is
+  // `showcase/shell-docs/src/content/reference/**` (no `v2` segment, no
+  // `docs/` prefix). The upstream `docs/content/docs/reference/v2/*`
+  // files mirror that content under a parallel `docs/`-prefixed path
+  // that doesn't exist in shell-docs's routing. Syncing them in creates
+  // duplicate parallel files. Per-file follow-up: mirror legitimate
+  // updates from upstream's reference/v2 into the canonical reference/
+  // tree as needed (see e.g. `useCopilotKit.mdx` diff in PR #4771).
+  /^docs\/content\/docs\/reference\/v2\/index\.mdx$/,
+  /^docs\/content\/docs\/reference\/v2\/components\/CopilotChat\.mdx$/,
+  /^docs\/content\/docs\/reference\/v2\/components\/CopilotKit\.mdx$/,
+  /^docs\/content\/docs\/reference\/v2\/hooks\/useCopilotKit\.mdx$/,
+  /^docs\/content\/docs\/reference\/v2\/hooks\/useThreads\.mdx$/,
 ];
 
 function isExcludedPath(relPath: string): boolean {
