@@ -79,6 +79,10 @@ jobs:
         with:
           name: workspace
 
+      - name: Configure git credentials
+        run: |
+          git config --local url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
