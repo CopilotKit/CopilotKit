@@ -38,15 +38,7 @@ export function TimePickerCard({
   if (cancelled) {
     return (
       <div
-        style={{
-          borderRadius: "16px",
-          border: "1px solid #DBDBE5",
-          background: "#F7F7F9",
-          padding: "16px",
-          fontSize: "14px",
-          color: "#57575B",
-          maxWidth: "28rem",
-        }}
+        className="rounded-2xl border border-[#DBDBE5] bg-[#F7F7F9] p-4 text-sm text-[#57575B] max-w-md"
         data-testid="time-picker-cancelled"
       >
         Cancelled — no time picked.
@@ -57,17 +49,11 @@ export function TimePickerCard({
   if (picked) {
     return (
       <div
-        style={{
-          borderRadius: "16px",
-          border: "1px solid #85ECCE4D",
-          background: "rgba(133, 236, 206, 0.1)",
-          padding: "16px",
-          maxWidth: "28rem",
-        }}
+        className="rounded-2xl border border-[#85ECCE4D] bg-[#85ECCE]/10 p-4 max-w-md"
         data-testid="time-picker-picked"
       >
-        <p style={{ fontSize: "14px", color: "#010507" }}>
-          Booked for <span style={{ fontWeight: 600 }}>{picked.label}</span>
+        <p className="text-sm text-[#010507]">
+          Booked for <span className="font-semibold">{picked.label}</span>
         </p>
       </div>
     );
@@ -75,60 +61,19 @@ export function TimePickerCard({
 
   return (
     <div
-      style={{
-        borderRadius: "16px",
-        border: "1px solid #DBDBE5",
-        background: "#fff",
-        padding: "20px",
-        boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-        maxWidth: "28rem",
-      }}
+      className="rounded-2xl border border-[#DBDBE5] bg-white p-5 shadow-sm max-w-md"
       data-testid="time-picker-card"
     >
-      <p
-        style={{
-          fontSize: "10px",
-          textTransform: "uppercase",
-          letterSpacing: "0.14em",
-          color: "#57575B",
-          fontWeight: 500,
-        }}
-      >
+      <p className="text-[10px] uppercase tracking-[0.14em] text-[#57575B] font-medium">
         Book a call
       </p>
-      <h3
-        style={{
-          fontSize: "16px",
-          fontWeight: 600,
-          color: "#010507",
-          marginTop: "6px",
-        }}
-      >
-        {topic}
-      </h3>
+      <h3 className="text-base font-semibold text-[#010507] mt-1.5">{topic}</h3>
       {attendee && (
-        <p style={{ fontSize: "14px", color: "#57575B", marginTop: "2px" }}>
-          With {attendee}
-        </p>
+        <p className="text-sm text-[#57575B] mt-0.5">With {attendee}</p>
       )}
 
-      <p
-        style={{
-          fontSize: "14px",
-          color: "#57575B",
-          marginTop: "16px",
-          marginBottom: "8px",
-        }}
-      >
-        Pick a time:
-      </p>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "8px",
-        }}
-      >
+      <p className="text-sm text-[#57575B] mt-4 mb-2">Pick a time:</p>
+      <div className="grid grid-cols-2 gap-2">
         {slots.map((s) => (
           <button
             key={s.iso}
@@ -138,18 +83,7 @@ export function TimePickerCard({
               setPicked(s);
               onSubmit({ chosen_time: s.iso, chosen_label: s.label });
             }}
-            style={{
-              borderRadius: "12px",
-              border: "1px solid #DBDBE5",
-              background: "#fff",
-              padding: "8px 12px",
-              fontSize: "14px",
-              fontWeight: 500,
-              color: "#010507",
-              opacity: disabled ? 0.5 : 1,
-              cursor: disabled ? "not-allowed" : "pointer",
-              transition: "border-color 0.15s, background 0.15s",
-            }}
+            className="rounded-xl border border-[#DBDBE5] bg-white px-3 py-2 text-sm font-medium text-[#010507] hover:border-[#BEC2FF] hover:bg-[#BEC2FF1A] disabled:opacity-50 transition-colors"
           >
             {s.label}
           </button>
@@ -161,18 +95,7 @@ export function TimePickerCard({
           setCancelled(true);
           onSubmit({ cancelled: true });
         }}
-        style={{
-          marginTop: "12px",
-          width: "100%",
-          borderRadius: "12px",
-          border: "1px solid #E9E9EF",
-          padding: "6px 12px",
-          fontSize: "12px",
-          color: "#838389",
-          background: "transparent",
-          opacity: disabled ? 0.5 : 1,
-          cursor: disabled ? "not-allowed" : "pointer",
-        }}
+        className="mt-3 w-full rounded-xl border border-[#E9E9EF] px-3 py-1.5 text-xs text-[#838389] hover:bg-[#FAFAFC] disabled:opacity-50 transition-colors"
       >
         None of these work
       </button>

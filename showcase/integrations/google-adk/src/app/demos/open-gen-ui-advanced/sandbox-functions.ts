@@ -28,7 +28,7 @@ export const openGenUiSandboxFunctions = [
     handler: async ({ expression }: { expression: string }) => {
       // Evaluate only arithmetic-safe expressions. Reject anything with
       // identifiers or suspicious characters so we never exec arbitrary JS.
-      if (!/^[\d+\-*/().\s]+$/.test(expression) || /\*\*/.test(expression)) {
+      if (!/^[\d+\-*/().\s]+$/.test(expression)) {
         return { ok: false, error: "Unsupported characters in expression." };
       }
       try {

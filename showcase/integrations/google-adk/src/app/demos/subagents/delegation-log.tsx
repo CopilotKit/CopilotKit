@@ -2,104 +2,167 @@
 
 import React from "react";
 
-// @region[delegation-log-frontend]
+export type SubAgentName =
+  | "research_agent"
+  | "writing_agent"
+  | "critique_agent";
+
 export interface Delegation {
   id: string;
-  sub_agent: "research_agent" | "writing_agent" | "critique_agent";
+  sub_agent: SubAgentName;
   task: string;
-  status: "running" | "completed" | "failed";
+  status: "completed";
   result: string;
 }
 
-const SUB_AGENT_BADGE_CLASS: Record<Delegation["sub_agent"], string> = {
-  research_agent: "bg-blue-50 text-blue-700 border-blue-200",
-  writing_agent: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  critique_agent: "bg-purple-50 text-purple-700 border-purple-200",
+export interface DelegationLogProps {
+  delegations: Delegation[];
+  /** True while the supervisor is actively running. */
+  isRunning: boolean;
+}
+
+const SUB_AGENT_STYLE: Record<
+  SubAgentName,
+  { label: string; color: string; emoji: string }
+> = {
+  research_agent: {
+    label: "Research",
+    color: "bg-[#BEC2FF1A] text-[#010507] border-[#BEC2FF]",
+    emoji: "🔎",
+  },
+  writing_agent: {
+    label: "Writing",
+    color: "bg-[#85ECCE]/15 text-[#189370] border-[#85ECCE4D]",
+    emoji: "✍️",
+  },
+  critique_agent: {
+    label: "Critique",
+    color: "bg-[#FFAC4D]/12 text-[#010507] border-[#FFAC4D33]",
+    emoji: "🧐",
+  },
 };
 
-const SUB_AGENT_LABEL: Record<Delegation["sub_agent"], string> = {
-  research_agent: "Research",
-  writing_agent: "Writing",
-  critique_agent: "Critique",
-};
+// @region[delegation-log-frontend]
+/**
+ * Live delegation log — renders the `delegations` slot of agent state.
+ *
+ * Each entry corresponds to one invocation of a sub-agent. The list
+ * grows in real time as the supervisor fans work out to its children.
+ * The parent header shows how many sub-agents have been called and
+ * whether the supervisor is still running.
+ */
+// Fixed list of the three sub-agent roles the supervisor can call.
+// Rendered as always-visible indicator chips at the top of the log
+// (regardless of whether the supervisor has delegated yet) so the user
+// — and the e2e suite — can see at a glance which sub-agents exist and
+// which are currently active.
+const INDICATOR_ROLES: ReadonlyArray<{
+  role: "researcher" | "writer" | "critic";
+  subAgent: SubAgentName;
+}> = [
+  { role: "researcher", subAgent: "research_agent" },
+  { role: "writer", subAgent: "writing_agent" },
+  { role: "critic", subAgent: "critique_agent" },
+];
 
-const STATUS_BADGE_CLASS: Record<Delegation["status"], string> = {
-  running: "bg-amber-50 text-amber-700 border-amber-200",
-  completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  failed: "bg-red-50 text-red-700 border-red-200",
-};
+export function DelegationLog({ delegations, isRunning }: DelegationLogProps) {
+  const calledRoles = new Set<SubAgentName>(
+    delegations.map((d) => d.sub_agent),
+  );
 
-const STATUS_LABEL: Record<Delegation["status"], string> = {
-  running: "running…",
-  completed: "completed",
-  failed: "failed",
-};
-
-const ENTRY_BORDER_BY_STATUS: Record<Delegation["status"], string> = {
-  running: "border-amber-200 bg-amber-50/40",
-  completed: "border-[#E9E9EF] bg-[#FAFAFC]",
-  failed: "border-red-200 bg-red-50/40",
-};
-
-export function DelegationLog({ delegations }: { delegations: Delegation[] }) {
   return (
     <div
       data-testid="delegation-log"
-      className="h-full flex flex-col rounded-2xl bg-white border border-[#DBDBE5] shadow-sm"
+      className="w-full h-full flex flex-col bg-white rounded-2xl shadow-sm border border-[#DBDBE5] overflow-hidden"
     >
-      <header className="px-5 py-3 border-b border-[#E9E9EF]">
-        <h2 className="text-sm font-semibold text-[#010507]">Delegation log</h2>
-        <p className="text-xs text-[#838389] mt-0.5">
-          Each entry shows a sub-agent invocation by the supervisor.
-        </p>
-      </header>
+      <div className="flex items-center justify-between px-6 py-3 border-b border-[#E9E9EF] bg-[#FAFAFC]">
+        <div className="flex items-center gap-3">
+          <span className="text-lg font-semibold text-[#010507]">
+            Sub-agent delegations
+          </span>
+          {isRunning && (
+            <span
+              data-testid="supervisor-running"
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-[#BEC2FF] bg-[#BEC2FF1A] text-[#010507] text-[10px] font-semibold uppercase tracking-[0.12em]"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-[#010507] animate-pulse" />
+              Supervisor running
+            </span>
+          )}
+        </div>
+        <span
+          data-testid="delegation-count"
+          className="text-xs font-mono text-[#838389]"
+        >
+          {delegations.length} calls
+        </span>
+      </div>
+
+      <div
+        data-testid="subagent-indicators"
+        className="flex items-center gap-2 border-b border-[#E9E9EF] bg-white px-6 py-2"
+      >
+        {INDICATOR_ROLES.map(({ role, subAgent }) => {
+          const style = SUB_AGENT_STYLE[subAgent];
+          const fired = calledRoles.has(subAgent);
+          return (
+            <span
+              key={role}
+              data-testid={`subagent-indicator-${role}`}
+              data-role={role}
+              data-fired={fired ? "true" : "false"}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.1em] border ${style.color} ${
+                fired ? "" : "opacity-60"
+              }`}
+            >
+              <span aria-hidden>{style.emoji}</span>
+              <span>{style.label}</span>
+            </span>
+          );
+        })}
+      </div>
+
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {delegations.length === 0 ? (
-          <p className="text-sm text-[#838389] italic">
-            No delegations yet. Ask the supervisor to plan a deliverable.
+          <p className="text-[#838389] italic text-sm">
+            Ask the supervisor to complete a task. Every sub-agent it calls will
+            appear here.
           </p>
         ) : (
-          delegations.map((d) => (
-            <article
-              key={d.id}
-              data-testid="delegation-entry"
-              data-status={d.status}
-              className={`rounded-xl border p-3 ${ENTRY_BORDER_BY_STATUS[d.status]}`}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <span
-                  className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${SUB_AGENT_BADGE_CLASS[d.sub_agent]}`}
-                >
-                  {SUB_AGENT_LABEL[d.sub_agent]}
-                </span>
-                <span
-                  className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${STATUS_BADGE_CLASS[d.status]}`}
-                >
-                  {STATUS_LABEL[d.status]}
-                </span>
-              </div>
-              <div className="text-xs text-[#57575B] mb-2">
-                <strong className="text-[#010507]">Task:</strong> {d.task}
-              </div>
-              {d.status === "running" ? (
-                <div className="flex items-center gap-2 text-xs text-amber-700">
-                  <span
-                    className="inline-block w-3 h-3 rounded-full border-2 border-amber-500 border-t-transparent animate-spin"
-                    aria-hidden
-                  />
-                  Sub-agent is working…
+          delegations.map((d, idx) => {
+            const style = SUB_AGENT_STYLE[d.sub_agent];
+            return (
+              <div
+                key={d.id}
+                data-testid="delegation-entry"
+                className="border border-[#E9E9EF] rounded-xl p-3 bg-[#FAFAFC]"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono text-[#AFAFB7]">
+                      #{idx + 1}
+                    </span>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.1em] border ${style.color}`}
+                    >
+                      <span>{style.emoji}</span>
+                      <span>{style.label}</span>
+                    </span>
+                  </div>
+                  <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-[#189370]">
+                    {d.status}
+                  </span>
                 </div>
-              ) : (
-                <div
-                  className={`text-xs whitespace-pre-wrap ${
-                    d.status === "failed" ? "text-red-700" : "text-[#010507]"
-                  }`}
-                >
+                <div className="text-xs text-[#57575B] mb-2">
+                  <span className="font-semibold text-[#010507]">Task: </span>
+                  {d.task}
+                </div>
+                <div className="text-sm text-[#010507] whitespace-pre-wrap bg-white rounded-lg p-2.5 border border-[#E9E9EF]">
                   {d.result}
                 </div>
-              )}
-            </article>
-          ))
+              </div>
+            );
+          })
         )}
       </div>
     </div>

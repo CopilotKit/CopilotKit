@@ -9,7 +9,7 @@ x-integration-defaults: &integration-defaults
     - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-sk-mock-anthropic}
     - ANTHROPIC_BASE_URL=http://aimock:4010
     - GOOGLE_API_KEY=${GOOGLE_API_KEY:-fake-gemini-key}
-    - GOOGLE_GEMINI_BASE_URL=http://aimock:4010
+    - GOOGLE_GEMINI_BASE_URL=${GOOGLE_GEMINI_BASE_URL-http://aimock:4010}
     - SPRING_AI_OPENAI_BASE_URL=http://aimock:4010
     - AIMOCK_URL=http://aimock:4010
     - GitHubToken=${GitHubToken:-gh-mock-local-dev}

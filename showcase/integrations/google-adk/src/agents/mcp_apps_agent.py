@@ -13,6 +13,7 @@ https://docs.copilotkit.ai/integrations/langgraph/generative-ui/mcp-apps
 
 from __future__ import annotations
 
+from ag_ui_adk import AGUIToolset
 from google.adk.agents import LlmAgent
 
 from agents.shared_chat import get_model
@@ -55,5 +56,5 @@ mcp_apps_agent = LlmAgent(
     name="McpAppsAgent",
     model=get_model(),
     instruction=_INSTRUCTION,
-    tools=[],
+    tools=[AGUIToolset()],
 )

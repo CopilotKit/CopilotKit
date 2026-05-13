@@ -20,8 +20,8 @@ from agents.shared_chat import get_model
 _INSTRUCTION = (
     "You help users book an onboarding call with the sales team. "
     "When they ask to book a call, call the frontend-provided "
-    "`book_call` tool with a short topic and the user's name (or 'the team' "
-    "if they don't specify). Keep any chat reply to one short sentence."
+    "`book_call` tool with a short topic and the user's name. "
+    "Keep any chat reply to one short sentence."
 )
 
 hitl_in_chat_book_call_agent = LlmAgent(
