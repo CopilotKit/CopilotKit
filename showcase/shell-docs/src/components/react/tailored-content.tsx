@@ -1,7 +1,7 @@
 "use client";
 
+import type { ReactNode } from "react";
 import React, {
-  ReactNode,
   Suspense,
   useCallback,
   useEffect,
@@ -217,7 +217,9 @@ function TailoredContentInner({
                   )}
                 </div>
                 <div>
-                  <p className="font-semibold text-base">{option.props.title}</p>
+                  <p className="font-semibold text-base">
+                    {option.props.title}
+                  </p>
                   <p className="text-xs md:text-sm">
                     {option.props.description}
                   </p>
