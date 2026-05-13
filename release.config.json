@@ -16,6 +16,7 @@
         "@copilotkit/shared",
         "@copilotkit/sqlite-runner",
         "@copilotkit/voice",
+        "@copilotkit/vue",
         "@copilotkit/web-inspector"
       ],
       "versionSource": "@copilotkit/react-core",
