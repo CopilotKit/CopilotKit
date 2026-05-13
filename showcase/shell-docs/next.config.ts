@@ -112,7 +112,11 @@ const nextConfig: NextConfig = {
       // slug renames from SUBPATH_RENAMES in seo-redirects.ts); the catch-all
       // at the bottom routes everything else into /built-in-agent/ to preserve
       // SEO equity, since these legacy URLs historically served BIA content.
-      { source: "/unselected", destination: "/built-in-agent", permanent: true },
+      {
+        source: "/unselected",
+        destination: "/built-in-agent",
+        permanent: true,
+      },
       {
         source: "/unselected/quickstart",
         destination: "/built-in-agent/quickstart",
@@ -276,7 +280,8 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
-        source: "/unselected/custom-look-and-feel/customize-built-in-ui-components",
+        source:
+          "/unselected/custom-look-and-feel/customize-built-in-ui-components",
         destination: "/built-in-agent/custom-look-and-feel/slots",
         permanent: true,
       },
