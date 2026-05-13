@@ -22,7 +22,7 @@
       return (
         <div>
           {/* [!code highlight:4] */}
-          <p>Agent ID: {agent.id}</p>
+          <p>Agent ID: {agent.agentId}</p>
           <p>Thread ID: {agent.threadId}</p>
           <p>Status: {agent.isRunning ? "Running" : "Idle"}</p>
           <p>Messages: {agent.messages.length}</p>
@@ -30,6 +30,13 @@
       );
     }
     ```
+
+    <Callout type="info">
+      Note: If you are not using CopilotKit Cloud public access/license key, then you need to pass your agentId to useAgent() hook.
+      ```ts
+      const { agent } = useAgent({agentId: "myAgent"})
+      ```
+    </Callout>
 
     The hook will throw an error if no agent is configured, so you can safely use `agent` without null checks.
 
@@ -95,7 +102,7 @@
     ```tsx title="page.tsx"
     import { useAgent } from "@copilotkit/react-core/v2";
     import { useCopilotKit } from "@copilotkit/react-core/v2";
-    import { randomUUID } from "@copilotkit/shared/v2";
+    import { randomUUID } from "@copilotkit/shared";
 
     export function RunAgent() {
       const { agent } = useAgent();
@@ -216,7 +223,7 @@ export function EventLogger() {
     // [!code highlight:2]
     const { unsubscribe } = agent.subscribe(subscriber);
     return () => unsubscribe();
-  }, []);
+  }, [agent]);
 
   return null;
 }

@@ -4,15 +4,6 @@ description: Turn your CrewAI Flows into an agent-native application in 10 minut
 icon: "lucide/Play"
 hideTOC: true
 ---
-
-<OpsPlatformCTA
-  variant="card"
-  title="Ship CrewAI Flows to production"
-  body="Add persistent threads, observability, and the inspector with the Enterprise Intelligence Platform."
-  ctaLabel="Create a free account"
-  surface="docs_crewai_flows_quickstart"
-/>
-
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
   className="rounded-lg shadow-xl"
@@ -53,6 +44,7 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
         className="step"
         id="path"
     >
+    {/*
     <TailoredContentOption
         id="cli"
         title="Use the CopilotKit CLI (NextJS only)"
@@ -95,6 +87,7 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
             ```
         </Step>
     </TailoredContentOption>
+    */}
     <TailoredContentOption
         id="code-along"
         title="Code along"
@@ -115,7 +108,7 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
             ### Install CopilotKit
             First, install the latest packages for CopilotKit into your frontend.
             ```npm
-            npm install @copilotkit/react-core
+            npm install @copilotkit/react-ui @copilotkit/react-core
             ```
         </Step>
 
@@ -124,7 +117,7 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
             The [`<CopilotKit>`](/reference/v1/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
             it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
 
-            <CloudCopilotKit />
+            <CloudCopilotKitProvider />
         </Step>
         <Step>
             ### Choose a Copilot UI
@@ -137,6 +130,12 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
 
             ```tsx title="page.tsx"
             "use client";
+            import "@copilotkit/react-ui/v2/styles.css";
+            import { CopilotKit } from "@copilotkit/react-core";
+            import { z } from "zod";
+            import { useFrontendTool } from "@copilotkit/react-core/v2";
+            import { CopilotChat } from "@copilotkit/react-core/v2";
+            import React, { useState } from "react";
 
             const publicApiKey = process.env.NEXT_PUBLIC_COPILOT_API_KEY || "";
             /**
