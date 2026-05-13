@@ -61,6 +61,16 @@ services:
         "--proxy-only",
         "--provider-openai",
         "https://api.openai.com",
+        # Natural-feel streaming so demos look like a real LLM rather than
+        # an instant dump. 8 chars/chunk × 60 ms = ~130 chars/sec ≈ 30-40
+        # tokens/sec, the lower end of Gemini 2.5-flash's real streaming
+        # rate. Total wall-clock for a 500-char response is ~4s, well
+        # inside the 30s default test timeout. Tune here if specific
+        # demos feel sluggish; CI doc-tests intentionally don't slow.
+        "--chunk-size",
+        "8",
+        "--latency",
+        "60",
         "--fixtures",
         "/showcase-fixtures/d5-all.json",
         "--fixtures",
