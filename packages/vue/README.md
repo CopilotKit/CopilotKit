@@ -7,16 +7,16 @@ Vue 3 bindings for CopilotKit2: providers, composables, and chat rendering primi
 Vue-specific documentation does not belong in the shared `docs/` V2 reference unless the repository adds a dedicated Vue docs section there.
 
 - Keep package usage and API guidance in this README.
-- Keep parity policy, architectural translation decisions, strict test-port rules, and the living React-to-Vue matrix in [PARITY.md](./PARITY.md).
+- Keep parity policy, architectural translation decisions, strict test-port rules, and the living React-to-Vue matrix in [PARITY.md](https://github.com/CopilotKit/CopilotKit/blob/main/packages/vue/PARITY.md).
 - Put public-facing Vue API and component documentation in Vue Storybook under `examples/v2/vue/storybook`.
 
 ## Parity Delivery Checklist
 
-The parity checklist and strict translatability rules are maintained in [PARITY.md](./PARITY.md). Use it as the source of truth for parity completion and for deciding when tests must mirror React literally.
+The parity checklist and strict translatability rules are maintained in [PARITY.md](https://github.com/CopilotKit/CopilotKit/blob/main/packages/vue/PARITY.md). Use it as the source of truth for parity completion and for deciding when tests must mirror React literally.
 
 ## Parity Workflow
 
-Follow [PARITY.md](./PARITY.md) for parity workflow. If a feature is not clearly near-100% translatable, discuss the API/test divergence before introducing a Vue-specific translation. Update the matrix in the same change when behavior or tests change.
+Follow [PARITY.md](https://github.com/CopilotKit/CopilotKit/blob/main/packages/vue/PARITY.md) for parity workflow. If a feature is not clearly near-100% translatable, discuss the API/test divergence before introducing a Vue-specific translation. Update the matrix in the same change when behavior or tests change.
 
 ## Installation
 
