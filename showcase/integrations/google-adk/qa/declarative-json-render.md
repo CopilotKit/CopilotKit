@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Demo deployed at `/demos/byoc-json-render`.
+- Demo deployed at `/demos/declarative-json-render`.
 - ADK agent backend healthy and reachable at `${AGENT_URL}/byoc_json_render`.
 - `GOOGLE_API_KEY` and `AGENT_URL` configured on the Next.js app.
 - `@json-render/core` + `@json-render/react` present in `package.json`.
@@ -12,7 +12,7 @@
 
 ### 1. Page load
 
-- [ ] Navigate to `/demos/byoc-json-render`.
+- [ ] Navigate to `/demos/declarative-json-render`.
 - [ ] Chat composer is visible.
 - [ ] Three suggestion pills appear with titles: "Sales dashboard", "Revenue by category", "Expense trend".
 - [ ] No console errors.

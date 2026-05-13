@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Demo deployed at `/demos/byoc-hashbrown`
+- Demo deployed at `/demos/declarative-hashbrown`
 - ADK agent backend healthy and reachable at `${AGENT_URL}/byoc_hashbrown`
 - `GOOGLE_API_KEY` set in the runtime environment
 - `@hashbrownai/core` + `@hashbrownai/react` installed in the package
@@ -12,7 +12,7 @@
 
 ### 1. Page load
 
-- [ ] Navigate to `/demos/byoc-hashbrown`
+- [ ] Navigate to `/demos/declarative-hashbrown`
 - [ ] Header "Declarative UI: Hashbrown" visible
 - [ ] Short description mentioning `@hashbrownai/react` visible
 - [ ] Chat composer visible at the bottom of the chat area

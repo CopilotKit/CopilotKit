@@ -2,14 +2,14 @@ import { test, expect } from "@playwright/test";
 
 /**
  * E2E spec for the Declarative UI: json-render demo (ADK route
- * `/demos/byoc-json-render`). Ported from LP's
+ * `/demos/declarative-json-render`). Ported from LP's
  * `declarative-json-render.spec.ts` so the dashboard's json-render row
  * exercises the same surfaces (json-render-root + metric-card + chart)
  * across showcases.
  */
 test.describe("Declarative UI: json-render", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/byoc-json-render");
+    await page.goto("/demos/declarative-json-render");
   });
 
   test("page loads with chat composer and suggestion pills", async ({

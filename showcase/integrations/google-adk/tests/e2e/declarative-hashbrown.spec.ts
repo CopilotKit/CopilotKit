@@ -1,6 +1,6 @@
 /**
  * E2E spec for the Declarative UI: Hashbrown demo (ADK route
- * `/demos/byoc-hashbrown`). Ported from LP's
+ * `/demos/declarative-hashbrown`). Ported from LP's
  * `declarative-hashbrown.spec.ts` so the dashboard's hashbrown row
  * exercises the same surfaces (metric-card + chart) across showcases.
  *
@@ -12,7 +12,7 @@ import { test, expect } from "@playwright/test";
 
 test.describe("Declarative UI: Hashbrown", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/byoc-hashbrown");
+    await page.goto("/demos/declarative-hashbrown");
   });
 
   test("page loads with header, suggestion pills, and chat composer", async ({
