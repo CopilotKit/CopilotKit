@@ -42,7 +42,7 @@ from __future__ import annotations
 from google.adk.agents import LlmAgent
 from google.genai import types
 
-from agents.shared_chat import get_model
+from agents.shared_chat import get_model, stop_on_terminal_text
 
 
 # ─── System prompt ────────────────────────────────────────────────────────────
@@ -247,6 +247,7 @@ byoc_agent = LlmAgent(
         response_mime_type="application/json",
         temperature=0.2,
     ),
+    after_model_callback=stop_on_terminal_text,
 )
 
 

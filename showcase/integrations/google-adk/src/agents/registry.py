@@ -43,7 +43,14 @@ from agents.shared_state_streaming_agent import (
 )
 from agents.subagents_agent import subagents_root_agent
 from agents.hitl_in_chat_book_call_agent import hitl_in_chat_book_call_agent
-from agents.hitl_in_chat_agent import hitl_in_chat_agent
+
+# `hitl_in_chat_agent` (the langgraph-python-mirrored "task steps" flavor)
+# is intentionally imported but NOT wired to the "hitl-in-chat" slot below
+# — the live demo at /demos/hitl-in-chat uses the book-call flow. The
+# steps-flow agent stays here so the file isn't an orphan import and so
+# the eventual hitl-steps demo (planned, not yet shipped) can pick it up
+# without re-implementing.
+from agents.hitl_in_chat_agent import hitl_in_chat_agent  # noqa: F401
 from agents.hitl_in_app_agent import hitl_in_app_agent
 from agents.mcp_apps_agent import mcp_apps_agent
 from agents.multimodal_agent import multimodal_agent

@@ -38,7 +38,7 @@ from google.genai import errors as genai_errors
 from google.genai import types
 from ag_ui_adk import AGUIToolset
 
-from agents.shared_chat import get_model
+from agents.shared_chat import get_model, stop_on_terminal_text
 
 # Shared tool implementations (via tools symlink -> ../../shared/python/tools).
 from tools import (
@@ -218,6 +218,12 @@ def generate_a2ui(tool_context: ToolContext) -> Union[_A2uiError, dict[str, Any]
                                 )
                             )
 
+    # Stricter components schema — without per-item `id`/`component`
+    # required, Gemini emits `[{}, {}, {}]`. Common optional props are
+    # declared explicitly so Gemini's structured-output path keeps them
+    # (it silently drops fields not in the schema even with the default
+    # `additionalProperties: true`). Mirrors the same fix in
+    # `agents/main.py:generate_a2ui`.
     render_a2ui_declaration = types.FunctionDeclaration(
         name="render_a2ui",
         description="Render a dynamic A2UI v0.9 surface.",
@@ -226,7 +232,27 @@ def generate_a2ui(tool_context: ToolContext) -> Union[_A2uiError, dict[str, Any]
             "properties": {
                 "surfaceId": {"type": "string"},
                 "catalogId": {"type": "string"},
-                "components": {"type": "array", "items": {"type": "object"}},
+                "components": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "component": {"type": "string"},
+                            "text": {"type": "string"},
+                            "label": {"type": "string"},
+                            "value": {},
+                            "children": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
+                            "child": {"type": "string"},
+                            "data": {},
+                        },
+                        "required": ["id", "component"],
+                    },
+                },
                 "data": {"type": "object"},
             },
             "required": ["surfaceId", "catalogId", "components"],
@@ -241,10 +267,34 @@ def generate_a2ui(tool_context: ToolContext) -> Union[_A2uiError, dict[str, Any]
         ),
     )
 
+    # Beautiful-chat's catalog ID is the package default
+    # (`copilotkit://app-dashboard-catalog`) so we don't need the
+    # per-agent pinning that declarative-gen-ui requires. Still prepend
+    # the hard-requirements clause so Gemini doesn't emit empty entries.
+    hard_requirements = (
+        "You are designing a dynamic A2UI v0.9 surface. Call `render_a2ui` "
+        "with a flat component array.\n\n"
+        "Hard requirements (failing any of these breaks the renderer — be strict):"
+        "\n- `catalogId` MUST be exactly: \"copilotkit://app-dashboard-catalog\"."
+        "\n- `surfaceId` is a short kebab-case identifier (e.g. \"sales-dashboard\")."
+        "\n- `components` is a FLAT array. Every entry MUST include both an"
+        " `id` (unique string) AND a `component` (string — the catalog"
+        " component name). The root entry MUST have `id: \"root\"` AND a"
+        " valid `component` field."
+        "\n- Container components reference children by id via their"
+        " `children` (array of strings) or `child` (single string) prop."
+        "\n- Use only catalog component names listed in the schema below.\n"
+    )
+    system_instruction = (
+        hard_requirements + "\n\n" + context_text
+        if context_text
+        else hard_requirements
+    )
+
     generate_config = types.GenerateContentConfig(
         tools=[render_a2ui_tool],
         tool_config=tool_config,
-        system_instruction=context_text or "Generate a useful dashboard UI.",
+        system_instruction=system_instruction,
     )
 
     try:
@@ -340,6 +390,16 @@ def generate_a2ui(tool_context: ToolContext) -> Union[_A2uiError, dict[str, Any]
             message=f"render_a2ui arguments had unexpected type: {type(args).__name__}",
             remediation="Retry the request; the secondary LLM emitted a non-dict payload.",
         )
+    # Force-pin the catalogId so Gemini can't hallucinate a non-existent ID.
+    # The pinning table lives in `agents.main` to keep one source of truth;
+    # this file's local `generate_a2ui` and `main.py`'s shared one both
+    # delegate to it.
+    from agents.main import _resolve_pinned_catalog_id
+
+    pinned_catalog_id = _resolve_pinned_catalog_id(tool_context)
+    if pinned_catalog_id:
+        args = {**args, "catalogId": pinned_catalog_id}
+
     return build_a2ui_operations_from_tool_call(args)
 
 
@@ -378,4 +438,5 @@ beautiful_chat_agent = LlmAgent(
         generate_a2ui,
         AGUIToolset(),
     ],
+    after_model_callback=stop_on_terminal_text,
 )

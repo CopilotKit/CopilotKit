@@ -19,7 +19,7 @@ from google.adk.models.llm_request import LlmRequest
 from google.adk.models.llm_response import LlmResponse
 from google.genai import types
 
-from agents.shared_chat import get_model
+from agents.shared_chat import get_model, stop_on_terminal_text
 
 logger = logging.getLogger(__name__)
 
@@ -145,4 +145,5 @@ readonly_state_agent_context_agent = LlmAgent(
     instruction=_INSTRUCTION,
     tools=[AGUIToolset()],
     before_model_callback=_inject_context,
+    after_model_callback=stop_on_terminal_text,
 )

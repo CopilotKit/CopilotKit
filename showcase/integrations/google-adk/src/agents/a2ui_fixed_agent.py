@@ -16,7 +16,7 @@ from ag_ui_adk import AGUIToolset
 from google.adk.agents import LlmAgent
 from google.adk.tools import ToolContext
 
-from agents.shared_chat import get_model
+from agents.shared_chat import get_model, stop_on_terminal_text
 
 CATALOG_ID = "copilotkit://flight-fixed-catalog"
 SURFACE_ID = "flight-fixed-schema"
@@ -44,27 +44,44 @@ BOOKED_SCHEMA = _load_schema("booked_schema.json")  # noqa: F841
 def _build_flight_operations(
     *, origin: str, destination: str, airline: str, price: str
 ) -> dict[str, Any]:
-    """Build the v0.9 a2ui_operations container the runtime detects."""
+    """Build the v0.9 a2ui_operations container the runtime detects.
+
+    Each op uses the v0.9 nested shape (`createSurface` / `updateComponents` /
+    `updateDataModel` keys with surfaceId inside) that
+    `@ag-ui/a2ui-middleware`'s `getOperationSurfaceId` walks. The previous
+    flat shape (`type: "create_surface"`, surfaceId at top level) silently
+    grouped under the fallback `"default"` surface, so the renderer never
+    saw the schema. Mirrors `copilotkit.a2ui.create_surface` /
+    `update_components` / `update_data_model` from the langgraph-python
+    north-star.
+    """
     return {
         "a2ui_operations": [
             {
-                "type": "create_surface",
-                "surfaceId": SURFACE_ID,
-                "catalogId": CATALOG_ID,
+                "version": "v0.9",
+                "createSurface": {
+                    "surfaceId": SURFACE_ID,
+                    "catalogId": CATALOG_ID,
+                },
             },
             {
-                "type": "update_components",
-                "surfaceId": SURFACE_ID,
-                "components": FLIGHT_SCHEMA,
+                "version": "v0.9",
+                "updateComponents": {
+                    "surfaceId": SURFACE_ID,
+                    "components": FLIGHT_SCHEMA,
+                },
             },
             {
-                "type": "update_data_model",
-                "surfaceId": SURFACE_ID,
-                "data": {
-                    "origin": origin,
-                    "destination": destination,
-                    "airline": airline,
-                    "price": price,
+                "version": "v0.9",
+                "updateDataModel": {
+                    "surfaceId": SURFACE_ID,
+                    "path": "/",
+                    "value": {
+                        "origin": origin,
+                        "destination": destination,
+                        "airline": airline,
+                        "price": price,
+                    },
                 },
             },
         ]
@@ -115,4 +132,5 @@ a2ui_fixed_agent = LlmAgent(
     model=get_model(),
     instruction=_INSTRUCTION,
     tools=[display_flight, AGUIToolset()],
+    after_model_callback=stop_on_terminal_text,
 )

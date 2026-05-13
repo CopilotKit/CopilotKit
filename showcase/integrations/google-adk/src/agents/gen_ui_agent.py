@@ -14,7 +14,7 @@ from ag_ui_adk import AGUIToolset
 from google.adk.agents import LlmAgent
 from google.adk.tools import ToolContext
 
-from agents.shared_chat import get_model
+from agents.shared_chat import get_model, stop_on_terminal_text
 
 
 def set_steps(tool_context: ToolContext, steps: list[dict]) -> dict:
@@ -57,4 +57,5 @@ gen_ui_agent = LlmAgent(
     model=get_model(),
     instruction=_INSTRUCTION,
     tools=[set_steps, AGUIToolset()],
+    after_model_callback=stop_on_terminal_text,
 )

@@ -14,19 +14,93 @@ endpoint when `GOOGLE_GEMINI_BASE_URL` is set, or the default model string
 otherwise. All agent modules should call `get_model()` instead of
 hard-coding `"gemini-2.5-flash"` so Railway deployments route through
 aimock.
+
+`stop_on_terminal_text` is the canonical after_model_callback shared by every
+registered LlmAgent. Gemini 2.5-flash does not naturally end its agentic
+loop after a successful tool call — it keeps re-issuing the same tool. The
+callback inspects each non-partial model response and, when it contains
+text with no pending function_call, sets `_invocation_context.end_invocation
+= True` so ADK terminates the loop. Without this guard every backend or
+frontend tool in this package fires infinitely.
 """
 
 from __future__ import annotations
 
+import logging
 import os
-from typing import Union
+from typing import Optional, Union
 
 from google.adk.agents import LlmAgent
+from google.adk.agents.callback_context import CallbackContext
 from google.adk.models.google_llm import Gemini
+from google.adk.models.llm_response import LlmResponse
 from google.genai import types
 from ag_ui_adk import AGUIToolset
 
+logger = logging.getLogger(__name__)
+
 DEFAULT_MODEL = "gemini-2.5-flash"
+
+
+def stop_on_terminal_text(
+    callback_context: CallbackContext, llm_response: LlmResponse
+) -> Optional[LlmResponse]:
+    """Terminate the ADK agentic loop on a final text-only model turn.
+
+    Lifted from the (orphaned) `simple_after_model_modifier` in
+    `agents/main.py`, with the SalesPipelineAgent name-gate removed so it
+    applies to every registered agent. Guards:
+
+    1. Skip partial streaming events — never end on a mid-stream chunk
+       (belt-and-suspenders with `ADK_DISABLE_PROGRESSIVE_SSE_STREAMING=1`
+       in `entrypoint.sh`).
+    2. Only terminate when the final non-partial response contains TEXT
+       and NO pending function_call — mixed text+function_call responses
+       (a known Gemini 2.5-flash quirk) must NOT terminate.
+    3. `_invocation_context` is an ADK private attribute; if it disappears
+       in a future ADK release, log-and-degrade rather than crash the
+       callback (which would stall the request).
+
+    Without this guard, Gemini calls the same tool indefinitely after a
+    successful tool result because no native termination condition fires.
+    """
+    content = llm_response.content
+    if not content or not content.parts:
+        if llm_response.error_message:
+            logger.warning(
+                "stop_on_terminal_text: Gemini returned error_message for "
+                "agent=%s: %s",
+                callback_context.agent_name,
+                llm_response.error_message,
+            )
+        return None
+
+    if getattr(llm_response, "partial", False):
+        return None
+
+    has_text = any(getattr(part, "text", None) for part in content.parts)
+    has_function_call = any(
+        getattr(part, "function_call", None) for part in content.parts
+    )
+    if content.role != "model" or not has_text or has_function_call:
+        return None
+
+    invocation_context = getattr(callback_context, "_invocation_context", None)
+    if invocation_context is None:
+        logger.debug(
+            "stop_on_terminal_text: callback_context has no "
+            "_invocation_context attribute; skipping end_invocation."
+        )
+        return None
+
+    try:
+        invocation_context.end_invocation = True
+    except AttributeError:
+        logger.debug(
+            "stop_on_terminal_text: _invocation_context lacks "
+            "end_invocation; ADK private-API shape may have drifted."
+        )
+    return None
 
 
 def get_model(model: str = DEFAULT_MODEL) -> Union[str, Gemini]:
@@ -48,7 +122,13 @@ def build_simple_chat_agent(
     instruction: str,
     model: str = DEFAULT_MODEL,
 ) -> LlmAgent:
-    return LlmAgent(name=name, model=get_model(model), instruction=instruction, tools=[AGUIToolset()])
+    return LlmAgent(
+        name=name,
+        model=get_model(model),
+        instruction=instruction,
+        tools=[AGUIToolset()],
+        after_model_callback=stop_on_terminal_text,
+    )
 
 
 def build_thinking_chat_agent(
@@ -75,4 +155,5 @@ def build_thinking_chat_agent(
                 thinking_budget=-1,
             ),
         ),
+        after_model_callback=stop_on_terminal_text,
     )
