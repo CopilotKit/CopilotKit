@@ -1,6 +1,6 @@
 import { WebInspectorElement, ɵCpkThreadDetails } from "../index";
+import type { CopilotKitCore } from "@copilotkit/core";
 import {
-  CopilotKitCore,
   CopilotKitCoreRuntimeConnectionStatus,
   type CopilotKitCoreSubscriber,
 } from "@copilotkit/core";
@@ -86,39 +86,61 @@ function createMockAgent(
 
 // --- Mock core factory ---
 
+type MockCoreOptions = {
+  runtimeUrl?: string;
+  headers?: Record<string, string>;
+};
+
 type MockCore = {
   agents: Record<string, AbstractAgent>;
   context: Record<string, unknown>;
   properties: Record<string, unknown>;
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
+  runtimeUrl?: string;
+  headers: Record<string, string>;
   subscribe: (subscriber: CopilotKitCoreSubscriber) => {
     unsubscribe: () => void;
   };
-  getThreadStores: () => Record<string, never>;
+  getThreadStores: () => Record<string, unknown>;
   getThreadStore: (agentId: string) => undefined;
+  registerThreadStore: (agentId: string, store: unknown) => void;
+  unregisterThreadStore: (agentId: string) => void;
 };
 
-function createMockCore(initialAgents: Record<string, AbstractAgent> = {}) {
+function createMockCore(
+  initialAgents: Record<string, AbstractAgent> = {},
+  options: MockCoreOptions = {},
+) {
   const subscribers = new Set<CopilotKitCoreSubscriber>();
+  const registeredStores = new Map<string, unknown>();
   const core: MockCore = {
     agents: initialAgents,
     context: {},
     properties: {},
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
+    runtimeUrl: options.runtimeUrl,
+    headers: options.headers ?? {},
     subscribe(subscriber: CopilotKitCoreSubscriber) {
       subscribers.add(subscriber);
       return { unsubscribe: () => subscribers.delete(subscriber) };
     },
     getThreadStores() {
-      return {};
+      return Object.fromEntries(registeredStores);
     },
     getThreadStore(_agentId: string) {
       return undefined;
+    },
+    registerThreadStore(agentId: string, store: unknown) {
+      registeredStores.set(agentId, store);
+    },
+    unregisterThreadStore(agentId: string) {
+      registeredStores.delete(agentId);
     },
   };
 
   return {
     core,
+    registeredStores,
     emitAgentsChanged(nextAgents = core.agents) {
       core.agents = nextAgents;
       // CopilotKitCore is a full class — our mock only covers what the
@@ -138,6 +160,15 @@ function createMockCore(initialAgents: Record<string, AbstractAgent> = {}) {
           context: core.context as unknown as Readonly<
             Record<string, { value: string; description: string }>
           >,
+        }),
+      );
+    },
+    setHeaders(nextHeaders: Record<string, string>) {
+      core.headers = nextHeaders;
+      subscribers.forEach((subscriber) =>
+        subscriber.onHeadersChanged?.({
+          copilotkit: core as unknown as CopilotKitCore,
+          headers: core.headers,
         }),
       );
     },
@@ -259,6 +290,65 @@ describe("WebInspectorElement", () => {
 
     contextInternals.persistState();
     expect(localStorage.getItem("cpk:inspector:state")).toBeTruthy();
+  });
+
+  it("propagates core.headers to owned thread store on initial attach", async () => {
+    // Owned thread stores are created when an agent appears on a core that has
+    // a runtimeUrl. The bug (issue #4793): `ensureOwnedThreadStore` was passing
+    // `headers: {}` to `setContext`, so auth headers from `CopilotKitProvider`
+    // never reached the DevConsole Threads list fetch.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise(() => {})),
+    );
+    const { agent } = createMockAgent("alpha");
+    const { core, registeredStores } = createMockCore(
+      { alpha: agent },
+      {
+        runtimeUrl: "http://example.com",
+        headers: { Authorization: "Bearer initial" },
+      },
+    );
+    const inspector = createInspectorWithCore(core);
+    await inspector.updateComplete;
+
+    expect(registeredStores.size).toBe(1);
+    const store = registeredStores.get("alpha") as {
+      getState: () => { context: { headers: Record<string, string> } | null };
+    };
+    expect(store.getState().context?.headers).toEqual({
+      Authorization: "Bearer initial",
+    });
+  });
+
+  it("propagates updated core.headers to existing owned stores on onHeadersChanged", async () => {
+    // Second half of the fix for issue #4793: when `core.setHeaders()` fires
+    // (e.g. after an async auth handshake), `attachToCore` must re-apply the
+    // new headers to every already-owned thread store via `setContext`.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise(() => {})),
+    );
+    const { agent } = createMockAgent("alpha");
+    const { core, registeredStores, setHeaders } = createMockCore(
+      { alpha: agent },
+      {
+        runtimeUrl: "http://example.com",
+        headers: { Authorization: "Bearer initial" },
+      },
+    );
+    const inspector = createInspectorWithCore(core);
+    await inspector.updateComplete;
+
+    setHeaders({ Authorization: "Bearer refreshed" });
+    await inspector.updateComplete;
+
+    const store = registeredStores.get("alpha") as {
+      getState: () => { context: { headers: Record<string, string> } | null };
+    };
+    expect(store.getState().context?.headers).toEqual({
+      Authorization: "Bearer refreshed",
+    });
   });
 
   it("syncs agent state on direct setState (onStateChanged without pipeline events)", async () => {
