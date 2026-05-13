@@ -484,9 +484,9 @@ demos:
     route: /demos/voice
     animated_preview_url:
     highlight:
-      - src/agents/shared_chat.py
       - src/app/demos/voice/page.tsx
-      - src/app/api/copilotkit/route.ts
+      - src/app/demos/voice/sample-audio-button.tsx
+      - src/app/api/copilotkit-voice/[[...slug]]/route.ts
   - id: agent-config
     name: Agent Config Object
     description: Forward a typed config object (tone / expertise / response length) from the provider to the agent's dynamic system prompt
