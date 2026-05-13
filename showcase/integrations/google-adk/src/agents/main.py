@@ -18,7 +18,7 @@ from google.adk.tools import ToolContext
 from google.genai import errors as genai_errors
 from google.genai import types
 
-from agents.shared_chat import get_model
+from agents.shared_chat import get_model, stop_on_terminal_text
 
 # Shared tool implementations (via tools symlink -> ../../shared/python/tools)
 from tools import (
@@ -97,6 +97,38 @@ class _A2uiError(TypedDict):
     error: str
     message: str
     remediation: str
+
+
+# LlmAgent.name → frontend catalogId mapping for the shared `generate_a2ui`
+# helper. Each entry mirrors the `catalogId` declared in the demo's
+# `a2ui/catalog.ts` by `<CopilotKit a2ui={{ catalog }}>`. The North-Star
+# pattern (langgraph-python) hardcodes a single `CUSTOM_CATALOG_ID` per
+# agent file; the ADK package reuses one `generate_a2ui` across demos, so
+# we dispatch by agent name instead. Add new demos here when wiring a
+# fresh A2UI dynamic-schema flow.
+_AGENT_NAME_TO_CATALOG_ID: dict[str, str] = {
+    "DeclarativeGenUiAgent": "declarative-gen-ui-catalog",
+    "BeautifulChatAgent": "copilotkit://app-dashboard-catalog",
+}
+
+
+def _resolve_pinned_catalog_id(tool_context: ToolContext) -> Optional[str]:
+    """Return the catalogId pinned for the agent that called this tool.
+
+    Reads the current LlmAgent's name from ADK's private `_invocation_context`
+    and looks it up in `_AGENT_NAME_TO_CATALOG_ID`. Returns None if the agent
+    isn't registered (in which case the caller falls back to the LLM-supplied
+    catalogId, which may or may not work — but unknown agents shouldn't crash
+    here).
+    """
+    invocation_context = getattr(tool_context, "_invocation_context", None)
+    if invocation_context is None:
+        return None
+    agent = getattr(invocation_context, "agent", None)
+    agent_name = getattr(agent, "name", None) if agent is not None else None
+    if not agent_name:
+        return None
+    return _AGENT_NAME_TO_CATALOG_ID.get(agent_name)
 
 
 def _a2ui_error(*, error: str, message: str, remediation: str) -> _A2uiError:
@@ -266,6 +298,16 @@ def generate_a2ui(tool_context: ToolContext) -> Union[_A2uiError, dict[str, Any]
     # Build the render_a2ui function declaration. `parametersJsonSchema` lets
     # us pass a raw JSON schema dict directly — google.genai converts it
     # internally — instead of constructing a `types.Schema` object tree.
+    # Gemini structured-output is far more reliable when each `components`
+    # entry has an explicit shape with required fields. Without this the
+    # model produces `[{}, {}, {}]` despite the system instruction begging
+    # for `id` + `component`. We declare common optional A2UI props
+    # explicitly (text, label, value, children, child, data) so Gemini
+    # actually emits them — its structured-output path silently drops
+    # fields not present in the parameters JSON Schema, even with the
+    # default `additionalProperties: true`. Catalog-specific props
+    # (`color`, `dataPath`, etc.) still ride through additionalProperties
+    # for less-common cases.
     render_a2ui_declaration = types.FunctionDeclaration(
         name="render_a2ui",
         description="Render a dynamic A2UI v0.9 surface.",
@@ -274,7 +316,30 @@ def generate_a2ui(tool_context: ToolContext) -> Union[_A2uiError, dict[str, Any]
             "properties": {
                 "surfaceId": {"type": "string"},
                 "catalogId": {"type": "string"},
-                "components": {"type": "array", "items": {"type": "object"}},
+                "components": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "component": {"type": "string"},
+                            # Common content props
+                            "text": {"type": "string"},
+                            "label": {"type": "string"},
+                            "value": {},
+                            # Container references
+                            "children": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
+                            "child": {"type": "string"},
+                            # Inline data binding for charts / lists
+                            "data": {},
+                        },
+                        "required": ["id", "component"],
+                    },
+                },
                 "data": {"type": "object"},
             },
             "required": ["surfaceId", "catalogId", "components"],
@@ -293,10 +358,70 @@ def generate_a2ui(tool_context: ToolContext) -> Union[_A2uiError, dict[str, Any]
         ),
     )
 
+    # Hard requirements the secondary LLM keeps violating without an explicit
+    # prompt prefix:
+    # - empty `{}` component entries (it ignores `components: list[dict]` schema
+    #   because we don't auto-generate it from a Pydantic model)
+    # - hallucinated catalogIds when no enum is available
+    # - root entry with no `component` field — surfaces a "Cannot create
+    #   component root without a type" loop in the renderer.
+    # Mirrors `_GENERATE_A2UI_PROMPT_HEADER` from langgraph-python's
+    # a2ui_dynamic.py — prepended before the catalog context so the rules
+    # come FIRST in the system instruction.
+    pinned_for_prompt = _resolve_pinned_catalog_id(tool_context)
+    catalog_id_clause = (
+        f"\n- `catalogId` MUST be exactly: \"{pinned_for_prompt}\"."
+        if pinned_for_prompt
+        else ""
+    )
+    hard_requirements = (
+        "You are designing a dynamic A2UI v0.9 surface. Call `render_a2ui` "
+        "with a flat component array.\n\n"
+        "Hard requirements (failing any of these breaks the renderer — be strict):"
+        + catalog_id_clause
+        + "\n- `surfaceId` is a short kebab-case identifier (e.g. \"kpi-dashboard\")."
+        + "\n- `components` is a FLAT array. Every entry MUST include both"
+        + " an `id` (unique string) AND a `component` (string — the catalog"
+        + " component name). The root entry MUST have `id: \"root\"` AND a"
+        + " valid `component` field — never emit a root entry without a"
+        + " component type."
+        + "\n- Container components (Row, Column, Card) reference children"
+        + " by id via their `children` (array of strings) or `child` (single"
+        + " string) prop. Do NOT inline children objects. Define each child"
+        + " as its own entry in the flat array and reference its id."
+        + "\n- Use only catalog component names listed in the schema below."
+        + "\n- POPULATE EVERY DATA PROP. For charts (PieChart, BarChart) emit"
+        + " a `data` field with an array of `{label, value, color?}` objects"
+        + " directly on the component. For Metric / InfoRow emit `label` and"
+        + " `value` strings on the component. The renderer shows a"
+        + " 'No data available' placeholder if the component has no data"
+        + " props — that is a USER-VISIBLE FAILURE."
+        + "\n- ALSO emit a top-level `data` argument with an initial data"
+        + " model for the surface (e.g."
+        + " `{\"regions\": [{\"label\": \"NA\", \"value\": 45}, ...]}`)."
+        + " The renderer's path bindings (`{path: \"/regions\"}`) resolve"
+        + " against this object."
+        + "\n- Never emit `{\"id\": \"...\", \"component\": \"...\"}` alone."
+        + " If a component has no other props, you have under-specified the"
+        + " surface — go back and add the data fields the catalog schema"
+        + " describes for that component.\n"
+        + "\nExample valid `components` entry for a pie chart with inline"
+        + " data:\n"
+        + '  {"id": "root", "component": "PieChart",'
+        + ' "data": [{"label":"NA","value":45,"color":"#3b82f6"},'
+        + ' {"label":"EMEA","value":30,"color":"#10b981"},'
+        + ' {"label":"APAC","value":25,"color":"#f59e0b"}]}\n'
+    )
+    system_instruction = (
+        hard_requirements + "\n\n" + context_text
+        if context_text
+        else hard_requirements
+    )
+
     generate_config = types.GenerateContentConfig(
         tools=[render_a2ui_tool],
         tool_config=tool_config,
-        system_instruction=context_text or "Generate a useful dashboard UI.",
+        system_instruction=system_instruction,
     )
 
     # Wrap the Gemini call so expected transport / auth / rate-limit failures
@@ -417,6 +542,21 @@ def generate_a2ui(tool_context: ToolContext) -> Union[_A2uiError, dict[str, Any]
             message=f"render_a2ui arguments had unexpected type: {type(args).__name__}",
             remediation="Retry the request; the secondary LLM emitted a non-dict payload.",
         )
+
+    # FORCE-PIN catalogId per calling agent. The secondary LLM's schema for
+    # `catalogId` is `{type: "string"}` with no enum/constraint, so Gemini
+    # routinely hallucinates IDs like "default" or "a2ui-charts" that the
+    # frontend renderer can't resolve ("Catalog not found"). The
+    # langgraph-python north-star solves this by hardcoding a
+    # `CUSTOM_CATALOG_ID` per agent file and ignoring the LLM's choice. We
+    # mirror that here with a name→id table so one shared `generate_a2ui`
+    # keeps working across multiple demos. To add a demo: register its agent
+    # name (the `LlmAgent(name=...)` value) and the catalogId its frontend
+    # declares via `<CopilotKit a2ui={{ catalog }}>`.
+    pinned_catalog_id = _resolve_pinned_catalog_id(tool_context)
+    if pinned_catalog_id:
+        args = {**args, "catalogId": pinned_catalog_id}
+
     return build_a2ui_operations_from_tool_call(args)
 
 
@@ -503,106 +643,14 @@ def before_model_modifier(
     return None
 
 
-def simple_after_model_modifier(
-    callback_context: CallbackContext, llm_response: LlmResponse
-) -> Optional[LlmResponse]:
-    """Stop consecutive tool-calling loops after the model produces a
-    terminal text-only response, skipping partial streaming events and
-    degrading gracefully when ADK's private `_invocation_context` drifts.
-
-    This callback has three defensive guards beyond the plain "terminate on
-    text" check:
-
-    1. **Partial-event skip**: returns early when `llm_response.partial` is
-       truthy so we never end invocation on a mid-stream chunk.
-    2. **Mixed text + function_call detection**: only terminates when the
-       response has text AND no pending function_call.
-    3. **`_invocation_context` fallback**: ADK's `_invocation_context` is a
-       private attribute; if it disappears or loses `end_invocation`, the
-       callback logs and returns instead of raising (which would stall the
-       whole request).
-
-    IMPORTANT: we must only terminate on a FINAL, non-partial response that
-    contains TEXT and NO pending function_call. Two Gemini 2.5-flash quirks
-    made the original implementation (check `parts[0].text` only) unsafe:
-
-    1. Partial streaming events: with `PROGRESSIVE_SSE_STREAMING` enabled, the
-       model emits partial events before the final turn_complete event. Ending
-       invocation on a partial event cuts the stream off mid-tool-call and
-       leaves the backend emitting only a "partial" event with no TOOL_CALL_*
-       or TEXT_MESSAGE_* events — so the tool-rendering UI never receives a
-       weather card.
-    2. Mixed text + function_call responses: Gemini sometimes returns a
-       response whose parts contain BOTH text ("I'll check the weather...") AND
-       a function_call. Terminating on text alone would skip the tool call and
-       strand the UI.
-
-    The partial-event guard below is belt-and-suspenders with
-    `ADK_DISABLE_PROGRESSIVE_SSE_STREAMING=1` in `entrypoint.sh`: the env var
-    is the primary workaround (operator-level, ADK-wide), and this guard is
-    the in-callback fallback. Both layers are intentional — do NOT remove one
-    thinking the other makes it redundant. The env var is operator-level and
-    can be disabled; this guard runs regardless.
-    """
-    agent_name = callback_context.agent_name
-    if agent_name == "SalesPipelineAgent":
-        if llm_response.content and llm_response.content.parts:
-            # Skip partial events — only consider final (turn_complete) LLM
-            # responses. Terminating on a partial interrupts the stream before
-            # tool calls or full text can be emitted.
-            if getattr(llm_response, "partial", False):
-                return None
-
-            has_text = any(
-                getattr(part, "text", None) for part in llm_response.content.parts
-            )
-            has_function_call = any(
-                getattr(part, "function_call", None)
-                for part in llm_response.content.parts
-            )
-            if (
-                llm_response.content.role == "model"
-                and has_text
-                and not has_function_call
-            ):
-                # `_invocation_context` is an ADK private attribute — guard
-                # against shape drift. If the attr disappears in a future ADK
-                # release, log and degrade gracefully rather than crash the
-                # callback (which would stall the whole request).
-                invocation_context = getattr(
-                    callback_context, "_invocation_context", None
-                )
-                if invocation_context is not None:
-                    try:
-                        invocation_context.end_invocation = True
-                    except AttributeError:
-                        logger.debug(
-                            "simple_after_model_modifier: _invocation_context "
-                            "lacks end_invocation; ADK private-API shape may "
-                            "have drifted."
-                        )
-                else:
-                    logger.debug(
-                        "simple_after_model_modifier: callback_context has no "
-                        "_invocation_context attribute; skipping end_invocation."
-                    )
-
-        elif llm_response.error_message:
-            # Gemini surfaced an error (quota exhausted, safety-filter block,
-            # context-overflow, etc.). Previously this branch returned None
-            # silently, making these failures invisible in the server log.
-            # Log at WARNING with agent name so operators can correlate the
-            # failure to the request.
-            logger.warning(
-                "simple_after_model_modifier: Gemini returned error_message "
-                "for agent=%s: %s",
-                agent_name,
-                llm_response.error_message,
-            )
-            return None
-        else:
-            return None
-    return None
+# Backwards-compatible alias. `simple_after_model_modifier` used to be a
+# SalesPipelineAgent-gated copy of the loop terminator; the generic
+# implementation now lives in `shared_chat.stop_on_terminal_text` and is
+# wired into every registered agent. The alias survives only so the
+# unit-test file `tests/python/test_after_model_modifier.py` keeps
+# resolving the symbol. Both functions MUST behave identically; if you
+# need to evolve termination logic, edit `stop_on_terminal_text` only.
+simple_after_model_modifier = stop_on_terminal_text
 
 
 sales_pipeline_agent = LlmAgent(

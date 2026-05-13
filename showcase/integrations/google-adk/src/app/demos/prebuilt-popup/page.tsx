@@ -11,10 +11,10 @@ import {
 export default function PrebuiltPopupDemo() {
   return (
     // @region[popup-basic-setup]
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="prebuilt_popup">
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="prebuilt-popup">
       <MainContent />
       <CopilotPopup
-        agentId="prebuilt_popup"
+        agentId="prebuilt-popup"
         defaultOpen={true}
         labels={{
           chatInputPlaceholder: "Ask the popup anything...",

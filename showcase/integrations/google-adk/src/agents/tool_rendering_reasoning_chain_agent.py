@@ -12,7 +12,7 @@ from __future__ import annotations
 from google.adk.agents import LlmAgent
 from google.genai import types
 
-from agents.shared_chat import get_model
+from agents.shared_chat import get_model, stop_on_terminal_text
 from agents.tool_rendering_common import (
     TOOL_RENDERING_REASONING_CHAIN_INSTRUCTION,
     get_stock_price,
@@ -32,4 +32,5 @@ tool_rendering_reasoning_chain_agent = LlmAgent(
             thinking_budget=-1,
         ),
     ),
+    after_model_callback=stop_on_terminal_text,
 )

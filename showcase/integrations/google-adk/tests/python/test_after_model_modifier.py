@@ -144,13 +144,12 @@ def test_non_model_role_never_terminates(role):
 # ---------------------------------------------------------------------------
 
 
-def test_non_sales_pipeline_agent_is_noop():
-    ctx = FakeCallbackContext(agent_name="SomeOtherAgent")
-    response = _make_response(role="model", has_text=True, has_function_call=False, partial=False)
-
-    simple_after_model_modifier(ctx, response)
-
-    assert ctx._invocation_context.end_invocation is False
+# Note: the legacy `test_non_sales_pipeline_agent_is_noop` test asserted the
+# SalesPipelineAgent name-gate that used to live in this callback. That gate
+# was lifted out when the loop terminator became universal across every
+# registered LlmAgent (see `shared_chat.stop_on_terminal_text`); the
+# behavior coverage moved to `tests/python/test_stop_on_terminal_text.py`
+# which exercises the truth table without any agent-name filter.
 
 
 # ---------------------------------------------------------------------------
@@ -232,21 +231,10 @@ def test_error_message_logs_warning_with_agent_name(caplog):
     )
 
 
-def test_error_message_on_non_sales_agent_is_noop(caplog):
-    """For non-SalesPipelineAgent agents the whole callback is a no-op,
-    so the error_message branch is never reached and no warning is logged."""
-    ctx = FakeCallbackContext(agent_name="SomeOtherAgent")
-    response = SimpleNamespace(
-        content=None,
-        partial=False,
-        error_message="quota exceeded",
-    )
-
-    with caplog.at_level(logging.WARNING, logger="agents.main"):
-        simple_after_model_modifier(ctx, response)
-
-    # No error_message WARNING for non-matching agents.
-    for rec in caplog.records:
-        assert "error_message" not in rec.getMessage(), (
-            f"unexpected error_message warning for non-matching agent: {rec.getMessage()}"
-        )
+# Note: the legacy `test_error_message_on_non_sales_agent_is_noop` test
+# asserted that error_message warnings only fired for SalesPipelineAgent.
+# With the unified `stop_on_terminal_text`, the error_message branch
+# warns for EVERY agent (still a no-op for `end_invocation`), so the
+# old assertion no longer holds. Error-message logging is now covered
+# generically by `test_handles_error_message_branch_without_crashing`
+# in `tests/python/test_stop_on_terminal_text.py`.
