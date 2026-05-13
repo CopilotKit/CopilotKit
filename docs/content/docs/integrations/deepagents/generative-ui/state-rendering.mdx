@@ -44,9 +44,14 @@ Use state rendering when you want to:
       <Tab value="Python">
         ```python title="agent.py"
         from copilotkit import CopilotKitState
+        from langchain.agents.middleware import AgentMiddleware
+        from typing import Any
 
         class AgentState(CopilotKitState):
             searches: list[dict]
+
+        class AgentSearchMiddleware(AgentMiddleware[AgentState, Any]):
+            state_schema = AgentState
         ```
       </Tab>
       <Tab value="TypeScript">
@@ -83,19 +88,32 @@ Use state rendering when you want to:
         from copilotkit.langgraph import copilotkit_emit_state # [!code highlight]
         from langchain_core.runnables import RunnableConfig
 
-        # Inside a custom tool or middleware hook where you have access to state and config:
-        async def emit_research_progress(state: AgentState, config: RunnableConfig):
-            state["searches"] = [
+        # Inside a custom tool or middleware hook where you have access to state and config: (right now using tool)
+        async def research(topic: str, config: RunnableConfig):
+            """Research a topic and stream progress to the UI."""
+
+            state = {"searches": [
                 {"query": "Initial research", "done": False},
                 {"query": "Retrieving sources", "done": False},
                 {"query": "Forming an answer", "done": False},
-            ]
+            ]}
             await copilotkit_emit_state(config, state) # [!code highlight]
 
             for search in state["searches"]:
                 await asyncio.sleep(1)
                 search["done"] = True
                 await copilotkit_emit_state(config, state) # [!code highlight]
+
+        agent = create_deep_agent(
+            model="openai:gpt-4o",
+            tools=[research],
+            middleware=[CopilotKitMiddleware(), AgentSearchMiddleware()],
+            system_prompt=(
+                "You are a helpful research assistant. "
+                "When the user asks to research, search, look up, or find information, "
+                "call the `research` tool."
+            ),
+        )
         ```
       </Tab>
       <Tab value="TypeScript">
