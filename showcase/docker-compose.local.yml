@@ -52,8 +52,7 @@ services:
     # these flags aimock returns 404 on no-match, the LangGraph SDK
     # interprets that as `NotFoundError`, and the demo crashes with
     # "Failed to fetch" instead of seeing a real model response.
-    command:
-      [
+    command: [
         "--port",
         "4010",
         "--host",
