@@ -18,6 +18,7 @@ export default defineConfig({
   external: [
     "react",
     "react-native",
+    "@ag-ui/client",
     "@copilotkit/react-core",
     "@copilotkit/core",
     "@copilotkit/shared",
