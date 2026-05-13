@@ -84,12 +84,13 @@ test.describe("State Streaming", () => {
     expect(text.length, "document should be non-empty").toBeGreaterThan(0);
 
     // Char counter reflects the streamed content.
-    const charCountText = (await page
-      .getByTestId("document-char-count")
-      .textContent()) ?? "";
+    const charCountText =
+      (await page.getByTestId("document-char-count").textContent()) ?? "";
     const m = charCountText.match(/(\d+)\s+chars/);
-    expect(m, `char-count display "${charCountText}" should match "N chars"`)
-      .not.toBeNull();
+    expect(
+      m,
+      `char-count display "${charCountText}" should match "N chars"`,
+    ).not.toBeNull();
     if (m) {
       expect(Number(m[1])).toBeGreaterThan(0);
     }

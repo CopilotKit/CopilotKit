@@ -61,9 +61,9 @@ test.describe("Authentication", () => {
     await input.fill("Hello");
     await input.press("Enter");
 
-    await expect(
-      page.locator('[data-role="assistant"]').first(),
-    ).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 30000,
+    });
   });
 
   test("signing out flips the banner amber and keeps the chat surface mounted", async ({
@@ -116,9 +116,7 @@ test.describe("Authentication", () => {
     await expect(errorSurface).toBeVisible({ timeout: 15000 });
     // Page chrome stays visible — no white-screen.
     await expect(page.locator('[data-testid="auth-banner"]')).toBeVisible();
-    await expect(
-      page.locator('[data-role="assistant"]'),
-    ).toHaveCount(0);
+    await expect(page.locator('[data-role="assistant"]')).toHaveCount(0);
   });
 
   test("re-signing in from the amber banner clears the error and resumes chat", async ({
@@ -146,8 +144,8 @@ test.describe("Authentication", () => {
     const input = page.getByPlaceholder("Type a message");
     await input.fill("Hello again");
     await input.press("Enter");
-    await expect(
-      page.locator('[data-role="assistant"]').first(),
-    ).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 30000,
+    });
   });
 });
