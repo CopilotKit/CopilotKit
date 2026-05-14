@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import {
   getIntegrations,
   getFeatureCategories,
@@ -137,6 +137,41 @@ export default function DojoPage() {
     setSelectedDemoId(demoId);
     setSelectedFileIndex(0);
   }, []);
+
+  // URL ↔ selection sync. On mount we hydrate from ?integration=&demo=; after
+  // mount, every selection change is written back via history.replaceState so
+  // refreshing the page lands on the same integration + demo.
+  const urlHydratedRef = useRef(false);
+
+  useEffect(() => {
+    if (!urlHydratedRef.current) {
+      const params = new URLSearchParams(window.location.search);
+      const urlSlug = params.get("integration");
+      const urlDemo = params.get("demo");
+      if (urlSlug) {
+        const found = integrations.find((i) => i.slug === urlSlug);
+        if (found) {
+          setSelectedSlug(urlSlug);
+          if (urlDemo && found.demos.some((d) => d.id === urlDemo)) {
+            setSelectedDemoId(urlDemo);
+          } else if (found.demos.length > 0) {
+            setSelectedDemoId(found.demos[0].id);
+          }
+        }
+      }
+      urlHydratedRef.current = true;
+      return;
+    }
+    if (!selectedSlug) return;
+    const params = new URLSearchParams();
+    params.set("integration", selectedSlug);
+    if (selectedDemoId) params.set("demo", selectedDemoId);
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}?${params.toString()}`,
+    );
+  }, [integrations, selectedSlug, selectedDemoId]);
 
   const previewUrl =
     integration && selectedDemo
@@ -601,7 +636,7 @@ export default function DojoPage() {
           <div
             style={{
               display: "flex",
-              flexDirection: "column",
+              flexDirection: "row",
               height: "100%",
               borderRadius: 8,
               overflow: "hidden",
@@ -609,52 +644,38 @@ export default function DojoPage() {
               border: "2px solid var(--border-default)",
             }}
           >
-            {/* File tabs */}
             <div
               style={{
+                flex: 1,
+                minWidth: 0,
                 display: "flex",
-                gap: 0,
-                borderBottom: "1px solid var(--border-container)",
-                background: "#f8f8fb",
-                overflowX: "auto",
-                flexShrink: 0,
+                flexDirection: "column",
+                overflow: "hidden",
               }}
             >
-              {allFiles.map((file, idx) => (
-                <button
-                  key={file.filename}
-                  onClick={() => setSelectedFileIndex(idx)}
-                  style={{
-                    padding: "10px 18px",
-                    fontSize: 13,
-                    border: "none",
-                    borderBottom:
-                      idx === selectedFileIndex
-                        ? "2px solid var(--text-primary)"
-                        : "2px solid transparent",
-                    cursor: "pointer",
-                    background:
-                      idx === selectedFileIndex ? "#ffffff" : "transparent",
-                    color:
-                      idx === selectedFileIndex
-                        ? "var(--text-primary)"
-                        : "var(--text-disabled)",
-                    fontWeight: idx === selectedFileIndex ? 500 : 400,
-                    whiteSpace: "nowrap",
-                    fontFamily:
-                      "'Spline Sans Mono', ui-monospace, SFMono-Regular, monospace",
-                  }}
-                >
-                  {file.filename}
-                </button>
-              ))}
+              {allFiles[selectedFileIndex] && (
+                <CodeBlock
+                  code={allFiles[selectedFileIndex].content}
+                  language={allFiles[selectedFileIndex].language}
+                />
+              )}
             </div>
-            {allFiles[selectedFileIndex] && (
-              <CodeBlock
-                code={allFiles[selectedFileIndex].content}
-                language={allFiles[selectedFileIndex].language}
+            <aside
+              style={{
+                width: 248,
+                flexShrink: 0,
+                borderLeft: "1px solid var(--border-container)",
+                background: "#fafbfd",
+                overflow: "auto",
+                padding: "12px 8px",
+              }}
+            >
+              <FileTree
+                files={allFiles}
+                selectedFileIndex={selectedFileIndex}
+                onSelect={setSelectedFileIndex}
               />
-            )}
+            </aside>
           </div>
         ) : (
           <div
@@ -674,6 +695,177 @@ export default function DojoPage() {
         )}
       </main>
     </div>
+  );
+}
+
+type FileTreeNode = {
+  name: string;
+  fileIndex: number | null;
+  children: Map<string, FileTreeNode>;
+};
+
+function buildFileTree(files: { filename: string }[]): FileTreeNode {
+  const root: FileTreeNode = {
+    name: "",
+    fileIndex: null,
+    children: new Map(),
+  };
+  files.forEach((file, idx) => {
+    const parts = file.filename.split("/").filter(Boolean);
+    let current = root;
+    parts.forEach((part, i) => {
+      const isFile = i === parts.length - 1;
+      const existing = current.children.get(part);
+      if (existing) {
+        if (isFile) existing.fileIndex = idx;
+        current = existing;
+      } else {
+        const node: FileTreeNode = {
+          name: part,
+          fileIndex: isFile ? idx : null,
+          children: new Map(),
+        };
+        current.children.set(part, node);
+        current = node;
+      }
+    });
+  });
+  return root;
+}
+
+function sortedChildren(node: FileTreeNode): FileTreeNode[] {
+  return Array.from(node.children.values()).sort((a, b) => {
+    const aIsFolder = a.fileIndex === null;
+    const bIsFolder = b.fileIndex === null;
+    if (aIsFolder !== bIsFolder) return aIsFolder ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+function FileTree({
+  files,
+  selectedFileIndex,
+  onSelect,
+}: {
+  files: { filename: string }[];
+  selectedFileIndex: number;
+  onSelect: (idx: number) => void;
+}) {
+  const root = useMemo(() => buildFileTree(files), [files]);
+  return (
+    <div style={{ fontSize: 13 }}>
+      <div style={{ padding: "0 6px 8px" }}>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            color: "var(--text-primary)",
+          }}
+        >
+          Files
+        </span>
+      </div>
+      {sortedChildren(root).map((node) => (
+        <FileTreeRow
+          key={node.name}
+          node={node}
+          depth={0}
+          selectedFileIndex={selectedFileIndex}
+          onSelect={onSelect}
+        />
+      ))}
+    </div>
+  );
+}
+
+function FileTreeRow({
+  node,
+  depth,
+  selectedFileIndex,
+  onSelect,
+}: {
+  node: FileTreeNode;
+  depth: number;
+  selectedFileIndex: number;
+  onSelect: (idx: number) => void;
+}) {
+  const isFolder = node.fileIndex === null;
+  const isSelected = !isFolder && node.fileIndex === selectedFileIndex;
+  const padLeft = 8 + depth * 12;
+  if (isFolder) {
+    return (
+      <div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            padding: `2px 6px 2px ${padLeft}px`,
+            color: "var(--text-secondary)",
+            fontFamily:
+              "'Spline Sans Mono', ui-monospace, SFMono-Regular, monospace",
+            fontSize: 12.5,
+            lineHeight: 1.6,
+            userSelect: "none",
+          }}
+        >
+          <span style={{ opacity: 0.6, fontSize: 11 }}>▾</span>
+          <span>{node.name}</span>
+        </div>
+        {sortedChildren(node).map((child) => (
+          <FileTreeRow
+            key={child.name}
+            node={child}
+            depth={depth + 1}
+            selectedFileIndex={selectedFileIndex}
+            onSelect={onSelect}
+          />
+        ))}
+      </div>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(node.fileIndex!)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 4,
+        width: "100%",
+        padding: `2px 6px 2px ${padLeft + 14}px`,
+        border: "none",
+        background: isSelected ? "rgba(0, 0, 0, 0.05)" : "transparent",
+        color: isSelected ? "var(--text-primary)" : "var(--text-secondary)",
+        fontWeight: isSelected ? 500 : 400,
+        textAlign: "left",
+        cursor: "pointer",
+        borderRadius: 4,
+        fontFamily:
+          "'Spline Sans Mono', ui-monospace, SFMono-Regular, monospace",
+        fontSize: 12.5,
+        lineHeight: 1.6,
+      }}
+      onMouseEnter={(e) => {
+        if (!isSelected)
+          e.currentTarget.style.background = "rgba(0, 0, 0, 0.03)";
+      }}
+      onMouseLeave={(e) => {
+        if (!isSelected) e.currentTarget.style.background = "transparent";
+      }}
+    >
+      <span
+        style={{
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}
+      >
+        {node.name}
+      </span>
+    </button>
   );
 }
 
