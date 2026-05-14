@@ -11,6 +11,7 @@
 // can live alongside the production demo without being wired into the
 // route. See: showcase/scripts/bundle-demo-content.ts.
 
+  // @region[use-agent-simple]
 import React, { useState } from "react";
 import {
   useAgent,
@@ -32,7 +33,6 @@ function ShowCard({ title, body }: { title: string; body: string }) {
 }
 
 export function HeadlessChat() {
-  // @region[use-agent-simple]
   const { agent } = useAgent({ agentId: "headless-simple" });
   const { copilotkit } = useCopilotKit();
   const [input, setInput] = useState("");

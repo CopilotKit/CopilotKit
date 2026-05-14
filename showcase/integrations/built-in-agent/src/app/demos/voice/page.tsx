@@ -10,6 +10,7 @@
 //    screenshots/Playwright work too). Real transcription only flows through
 //    the mic path.
 
+// @region[voice-page]
 import { useCallback } from "react";
 import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core/v2";
 import { SampleAudioButton } from "./sample-audio-button";
@@ -17,7 +18,6 @@ import { SampleAudioButton } from "./sample-audio-button";
 const RUNTIME_URL = "/api/copilotkit-voice";
 const SAMPLE_TEXT = "What is the weather in Tokyo?";
 
-// @region[voice-page]
 export default function VoiceDemoPage() {
   const handleTranscribed = useCallback((text: string) => {
     if (typeof document === "undefined") return;

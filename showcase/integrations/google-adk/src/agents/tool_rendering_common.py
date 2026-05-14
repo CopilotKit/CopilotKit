@@ -11,6 +11,7 @@ shared aimock fixtures (showcase/aimock/d5-all.json) and Playwright e2e
 specs (`tool-rendering*.spec.ts`) work against both integrations.
 """
 
+# @region[weather-tool-backend]
 from __future__ import annotations
 
 from random import choice, randint
@@ -18,7 +19,6 @@ from random import choice, randint
 from google.adk.tools import ToolContext
 
 
-# @region[weather-tool-backend]
 def get_weather(tool_context: ToolContext, location: str) -> dict:
     """Get the current weather for a given location."""
     return {

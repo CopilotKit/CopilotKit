@@ -1,5 +1,7 @@
 "use client";
 
+// @region[frontend-tool]
+// @region[frontend-tool-registration]
 import React, { useState } from "react";
 import {
   CopilotKit,
@@ -79,8 +81,6 @@ function Layout() {
     available: "always",
   });
 
-  // @region[frontend-tool]
-  // @region[frontend-tool-registration]
   useFrontendTool({
     name: "request_user_approval",
     description:

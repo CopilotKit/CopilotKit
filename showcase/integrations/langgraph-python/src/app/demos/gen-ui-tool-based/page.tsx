@@ -1,5 +1,6 @@
 "use client";
 
+// @region[bar-chart-renderer]
 import React from "react";
 import {
   CopilotChat,
@@ -10,16 +11,7 @@ import { BarChart, barChartPropsSchema } from "./bar-chart";
 import { PieChart, pieChartPropsSchema } from "./pie-chart";
 import { useSuggestions } from "./suggestions";
 
-export default function ControlledGenUiDemo() {
-  return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-tool-based">
-      <Chat />
-    </CopilotKit>
-  );
-}
-
 function Chat() {
-  // @region[bar-chart-renderer]
   useComponent({
     name: "render_bar_chart",
     description: "Display a bar chart with labeled numeric values.",
@@ -48,5 +40,13 @@ function Chat() {
         />
       </div>
     </div>
+  );
+}
+
+export default function ControlledGenUiDemo() {
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-tool-based">
+      <Chat />
+    </CopilotKit>
   );
 }

@@ -9,6 +9,7 @@
 // not inside the chat. Picking a slot resolves the interrupt, the
 // popup vanishes, and the agent confirms back in chat.
 
+// @region[headless-useinterrupt-primitives]
 import React, { useEffect, useMemo, useState } from "react";
 import {
   CopilotKit,
@@ -70,7 +71,6 @@ function Layout() {
   );
 }
 
-// @region[headless-useinterrupt-primitives]
 function useHeadlessInterrupt(agentId: string): {
   pending: InterruptEvent | null;
   resolve: (response: unknown) => void;

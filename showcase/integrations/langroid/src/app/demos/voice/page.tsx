@@ -1,5 +1,6 @@
 "use client";
 
+// @region[voice-page]
 import { useCallback } from "react";
 import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 import { SampleAudioButton } from "./sample-audio-button";
@@ -27,7 +28,6 @@ const SAMPLE_TEXT = "What is the weather in Tokyo?";
 // value via the native HTMLTextareaElement value setter and dispatching a
 // synthetic `input` event is the React-compatible way to flip the managed
 // state without reaching into CopilotChat's internals.
-// @region[voice-page]
 export default function VoiceDemoPage() {
   const handleTranscribed = useCallback((text: string) => {
     if (typeof document === "undefined") return;

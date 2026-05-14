@@ -12,6 +12,8 @@
 // `transcriptionService` option. V2 URL-routes on `/info`, `/agent/:id/run`,
 // `/transcribe`, etc., so the route lives at `[[...slug]]/route.ts`.
 
+// @region[voice-runtime]
+// @region[transcription-service-guard]
 import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
@@ -27,7 +29,6 @@ const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 const voiceDemoAgent = new HttpAgent({ url: `${AGENT_URL}/` });
 
-// @region[transcription-service-guard]
 class GuardedOpenAITranscriptionService extends TranscriptionService {
   private delegate: TranscriptionServiceOpenAI | null;
 
@@ -55,7 +56,6 @@ let cachedHandler: ((req: Request) => Promise<Response>) | null = null;
 function getHandler(): (req: Request) => Promise<Response> {
   if (cachedHandler) return cachedHandler;
 
-  // @region[voice-runtime]
   const runtime = new CopilotRuntime({
     // @ts-ignore -- see main route.ts; published agents type generic mismatch
     agents: {

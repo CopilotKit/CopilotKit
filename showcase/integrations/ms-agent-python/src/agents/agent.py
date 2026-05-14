@@ -5,6 +5,7 @@ and HITL schedule meeting tool.
 Adapted from examples/integrations/ms-agent-framework-python/agent/src/agent.py
 """
 
+# @region[weather-tool-backend]
 from __future__ import annotations
 
 import json
@@ -89,7 +90,6 @@ def get_sales_todos() -> str:
     return json.dumps(result)
 
 
-# @region[weather-tool-backend]
 @tool(
     name="get_weather",
     description="Get the current weather for a location. Use this to render the frontend weather card.",

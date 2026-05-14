@@ -18,6 +18,8 @@
 // route lives at `[[...slug]]/route.ts` to catch all sub-paths under
 // `/api/copilotkit-voice`.
 
+// @region[voice-runtime]
+// @region[transcription-service-guard]
 import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
@@ -47,7 +49,6 @@ if (!voiceDemoAgent) {
  * OPENAI_API_KEY is not configured. When the key is present we delegate to
  * the real OpenAI-backed service.
  */
-// @region[transcription-service-guard]
 class GuardedOpenAITranscriptionService extends TranscriptionService {
   private delegate: TranscriptionServiceOpenAI | null;
 
@@ -76,7 +77,6 @@ let cachedHandler: ((req: Request) => Promise<Response>) | null = null;
 function getHandler(): (req: Request) => Promise<Response> {
   if (cachedHandler) return cachedHandler;
 
-  // @region[voice-runtime]
   const runtime = new CopilotRuntime({
     // @ts-ignore -- see main route.ts
     agents: {

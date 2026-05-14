@@ -1,5 +1,6 @@
 "use client";
 
+// @region[frontend-tool-registration]
 import React, { useState } from "react";
 import {
   CopilotKit,
@@ -10,18 +11,9 @@ import { z } from "zod";
 import { Background, DEFAULT_BACKGROUND } from "./background";
 import { useFrontendToolsSuggestions } from "./suggestions";
 
-export default function FrontendToolsDemo() {
-  return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="frontend_tools">
-      <Chat />
-    </CopilotKit>
-  );
-}
-
 function Chat() {
   const [background, setBackground] = useState<string>(DEFAULT_BACKGROUND);
 
-  // @region[frontend-tool-registration]
   useFrontendTool({
     name: "change_background",
     description:
@@ -46,5 +38,13 @@ function Chat() {
     <Background background={background}>
       <CopilotSidebar agentId="frontend_tools" defaultOpen />
     </Background>
+  );
+}
+
+export default function FrontendToolsDemo() {
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="frontend_tools">
+      <Chat />
+    </CopilotKit>
   );
 }

@@ -11,6 +11,8 @@ Reference:
     examples/integrations/langgraph-python/agent/src/a2ui_fixed_schema.py
 """
 
+# @region[backend-render-operations]
+# @region[backend-schema-json-load]
 from __future__ import annotations
 
 from pathlib import Path
@@ -26,7 +28,6 @@ SURFACE_ID = "flight-fixed-schema"
 
 _SCHEMAS_DIR = Path(__file__).parent / "a2ui_schemas"
 
-# @region[backend-schema-json-load]
 # The schema is JSON so it can be authored and reviewed independently of the
 # Python code. `a2ui.load_schema` is just a thin `json.load` wrapper.
 FLIGHT_SCHEMA = a2ui.load_schema(_SCHEMAS_DIR / "flight_schema.json")
@@ -60,7 +61,6 @@ def display_flight(origin: str, destination: str, airline: str, price: str) -> s
     for the same flight (the user already sees the card). Reply with one
     short confirmation sentence and stop.
     """
-    # @region[backend-render-operations]
     # The A2UI middleware detects the `a2ui_operations` container in this
     # tool result and forwards the ops to the frontend renderer. The frontend
     # catalog resolves component names to the local React components.

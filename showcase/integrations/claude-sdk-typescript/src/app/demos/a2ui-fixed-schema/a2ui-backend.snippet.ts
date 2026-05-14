@@ -7,6 +7,8 @@
 //
 // Mirrors the convention from `tool-rendering/render-flight-tool.snippet.tsx`.
 
+// @region[backend-render-operations]
+// @region[backend-schema-json-load]
 import path from "path";
 import fs from "fs";
 
@@ -24,7 +26,6 @@ declare const a2ui: {
 const SURFACE_ID = "flight-fixed-schema";
 const CATALOG_ID = "flight-catalog";
 
-// @region[backend-schema-json-load]
 // Schemas are JSON so they can be authored and reviewed independently of
 // the backend code. `a2ui.loadSchema` is a thin wrapper around
 // `JSON.parse(fs.readFileSync(...))` that resolves the path against the
@@ -40,7 +41,6 @@ export function emitRenderOperations(args: {
   airline: string;
   price: number;
 }) {
-  // @region[backend-render-operations]
   // The a2ui middleware detects the `a2ui_operations` container in this
   // tool result and forwards the ops to the frontend renderer. The
   // frontend catalog resolves component names to local React components.

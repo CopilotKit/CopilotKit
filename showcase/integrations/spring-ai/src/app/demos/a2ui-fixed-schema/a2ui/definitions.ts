@@ -5,13 +5,13 @@
  * catalog (Card, Column, Row, Text, Button, …) ships with CopilotKit and
  * is mixed in via `createCatalog(..., { includeBasicCatalog: true })`.
  */
+// @region[definitions-types]
 import { z } from "zod";
 import type { CatalogDefinitions } from "@copilotkit/a2ui-renderer";
 
 /** Dynamic string: literal OR a data-model path binding. */
 const DynString = z.union([z.string(), z.object({ path: z.string() })]);
 
-// @region[definitions-types]
 export const flightDefinitions = {
   Title: {
     description: "A prominent heading for the flight card.",

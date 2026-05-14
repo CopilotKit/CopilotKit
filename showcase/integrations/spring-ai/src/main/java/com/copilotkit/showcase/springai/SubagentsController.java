@@ -1,5 +1,7 @@
 package com.copilotkit.showcase.springai;
 
+// @region[supervisor-delegation-tools]
+// @region[subagent-setup]
 import com.agui.core.agent.AgentSubscriber;
 import com.agui.core.agent.AgentSubscriberParams;
 import com.agui.core.agent.RunAgentInput;
@@ -103,7 +105,6 @@ public class SubagentsController {
             of every sub-agent delegation.
             """;
 
-    // @region[subagent-setup]
     // Each sub-agent is its own Spring AI ChatClient call (built per-request
     // in SubAgentHandler.apply), with its own system prompt. They don't
     // share memory or tools with the supervisor — the supervisor only sees
@@ -197,7 +198,6 @@ public class SubagentsController {
             // tool-call ids returned by ChatResponse.
             List<HandlerInvocation> handlerInvocations = new CopyOnWriteArrayList<>();
 
-            // @region[supervisor-delegation-tools]
             // Each sub-agent is exposed to the supervisor LLM as a Spring AI
             // ToolCallback. When the supervisor invokes one, the matching
             // SubAgentHandler runs a fresh ChatClient call with that

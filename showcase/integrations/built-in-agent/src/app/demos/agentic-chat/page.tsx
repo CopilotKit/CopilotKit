@@ -1,5 +1,7 @@
 "use client";
 
+// @region[frontend-tool]
+// @region[frontend-tool-registration]
 import { useState } from "react";
 import {
   CopilotKitProvider,
@@ -21,8 +23,6 @@ export default function AgenticChat() {
 function Demo() {
   const [bg, setBg] = useState<string>("var(--copilot-kit-background-color)");
 
-  // @region[frontend-tool]
-  // @region[frontend-tool-registration]
   useFrontendTool({
     name: "setBackground",
     description:

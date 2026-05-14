@@ -23,6 +23,8 @@ read the prior list out of a per-request `ContextVar` populated by an
 `session.metadata` on every turn) before the supervisor runs.
 """
 
+# @region[supervisor-delegation-tools]
+# @region[subagent-setup]
 from __future__ import annotations
 
 import asyncio
@@ -142,7 +144,6 @@ async def capture_current_state(
 # ---------------------------------------------------------------------------
 
 
-# @region[subagent-setup]
 # Each sub-agent is a full-fledged `Agent(...)` with its own system
 # prompt. They don't share memory or tools with the supervisor — the
 # supervisor only sees their return value (final text content).
@@ -288,7 +289,6 @@ def _delegate(sub_agent_name: str, task: str) -> Content:
 # ---------------------------------------------------------------------------
 
 
-# @region[supervisor-delegation-tools]
 # Each @tool wraps a sub-agent invocation. The supervisor LLM "calls"
 # these tools to delegate work; each call synchronously runs the
 # matching sub-agent (via `_delegate`), appends the entry to the

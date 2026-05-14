@@ -22,6 +22,7 @@
  * typing indicator, input bar) live in sibling files.
  */
 
+  // @region[page-send-message]
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CopilotKitProvider,
@@ -62,7 +63,6 @@ export default function HeadlessCompleteDemo() {
 // agent, wires up the connect/run/stop lifecycle, and hands the pure
 // presentational pieces their props.
 function Chat() {
-  // @region[page-send-message]
   const threadId = useMemo(() => crypto.randomUUID(), []);
   const { agent } = useAgent({ agentId: AGENT_ID, threadId });
   const { copilotkit } = useCopilotKit();

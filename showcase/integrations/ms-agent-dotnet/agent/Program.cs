@@ -1,3 +1,4 @@
+// @region[weather-tool-backend]
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
 using Microsoft.AspNetCore.Http.Json;
@@ -496,7 +497,6 @@ public class SalesAgentFactory
         return JsonSerializer.Serialize(results);
     }
 
-    // @region[weather-tool-backend]
     [Description("Get the weather for a given location. Ensure location is fully spelled out.")]
     private WeatherInfo GetWeather([Description("The location to get the weather for")] string location)
     {
