@@ -1453,7 +1453,8 @@
     },
     {
       "match": {
-        "userMessage": "ship the demo on Friday"
+        "userMessage": "ship the demo on Friday",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
