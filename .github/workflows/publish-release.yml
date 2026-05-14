@@ -4,6 +4,27 @@ on:
   pull_request:
     types: [closed]
     branches: [main]
+  # Escape hatch for failed releases. Covers failures BEFORE the "Publish to
+  # npm" step succeeds (build errors, infra blips, git config bugs). Does
+  # NOT cover post-npm-publish failures: if npm publish already succeeded
+  # but a later step failed, the retry will fail at "Publish to npm" with
+  # an "already published" error, and the "Check for pre-existing tags"
+  # step will also block retries where the tag was pushed. For those cases,
+  # remediate by hand using release-notes.md from the merged release PR.
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: |
+          ⚠️ MANUAL RETRIGGER — republishes from the latest commit on main,
+          bypassing the normal release-PR flow. Only use this when the
+          normal flow failed BEFORE npm publish succeeded. If npm publish
+          already happened, finish the release by hand instead — dispatching
+          here will fail at "Publish to npm" with "already published".
+        required: true
+        type: choice
+        options:
+          - monorepo
+          - angular
 
 permissions:
   contents: read
@@ -17,23 +38,28 @@ env:
 
 jobs:
   build:
-    # Only run when a release PR is merged (not just closed)
+    # Run on a merged release PR (normal flow) or a manual workflow_dispatch (escape hatch).
     if: >
-      github.event.pull_request.merged == true &&
-      startsWith(github.event.pull_request.head.ref, 'release/publish/')
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true &&
+        startsWith(github.event.pull_request.head.ref, 'release/publish/'))
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
     steps:
-      - name: Extract scope from branch
+      - name: Determine scope
         id: meta
         env:
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          INPUT_SCOPE: ${{ inputs.scope }}
         run: |
-          BRANCH="${PR_HEAD_REF}"
-          # Branch format: release/publish/<scope>/v<version>
-          SCOPE=$(echo "$BRANCH" | sed 's|release/publish/\([^/]*\)/v.*|\1|')
+          if [ -n "$INPUT_SCOPE" ]; then
+            SCOPE="$INPUT_SCOPE"
+          else
+            # Branch format: release/publish/<scope>/v<version>
+            SCOPE=$(echo "$PR_HEAD_REF" | sed 's|release/publish/\([^/]*\)/v.*|\1|')
+          fi
           echo "scope=$SCOPE" >> $GITHUB_OUTPUT
           echo "Detected scope: $SCOPE"
 
