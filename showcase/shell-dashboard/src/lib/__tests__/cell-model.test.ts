@@ -198,7 +198,7 @@ describe("buildCellModel", () => {
 
   // ── D3 fails → D0 achieved, red chip ───────────────────────────────
   describe("D3 fails", () => {
-    it("returns achievedDepth=0 and gray chip when D3 fails (achieved=0 always gray)", () => {
+    it("returns achievedDepth=0 and red chip when D3 fails (tests exist but none pass)", () => {
       const live = mapOf([
         row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "red"),
         row(keyFor("chat", "agno"), "chat", "green"),
@@ -208,19 +208,42 @@ describe("buildCellModel", () => {
       expect(model.d3!.status).toBe("red");
       expect(model.achievedDepth).toBe(0);
       expect(model.ceilingDepth).toBe(5);
-      // achieved === 0 → gray (per spec: gray when achieved === 0)
-      expect(model.chipColor).toBe("gray");
+      // tests exist (ceiling > 0) but none pass → red
+      expect(model.chipColor).toBe("red");
     });
 
-    it("returns gray chip when D3 is only depth and it fails", () => {
+    it("returns red chip when D3 is only depth and it fails", () => {
       const live = mapOf([
         row(keyFor("e2e", "agno", "no-d5-feature"), "e2e", "red"),
       ]);
       const model = buildCellModel(live, wiredInput("agno", "no-d5-feature"));
       expect(model.achievedDepth).toBe(0);
       expect(model.ceilingDepth).toBe(3);
-      // achieved === 0 → gray
+      // tests exist (ceiling=3) but none pass → red
+      expect(model.chipColor).toBe("red");
+    });
+  });
+
+  // ── Gray vs red: no tests at all vs tests-exist-but-all-fail ────────
+  describe("gray vs red chip for achievedDepth=0", () => {
+    it("gray when ceilingDepth=0 (no tests exist at all)", () => {
+      const model = buildCellModel(
+        mapOf([]),
+        wiredInput("agno", "no-d5-feature"),
+      );
+      expect(model.ceilingDepth).toBe(0);
+      expect(model.achievedDepth).toBe(0);
       expect(model.chipColor).toBe("gray");
+    });
+
+    it("red when tests exist but all fail (ceilingDepth > 0)", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "no-d5-feature"), "e2e", "red"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "no-d5-feature"));
+      expect(model.ceilingDepth).toBe(3);
+      expect(model.achievedDepth).toBe(0);
+      expect(model.chipColor).toBe("red");
     });
   });
 
@@ -321,7 +344,7 @@ describe("buildCellModel", () => {
       // ceilingDepth requires contiguity: D5 only counts if D3+D4 exist
       expect(model.ceilingDepth).toBe(0);
       expect(model.achievedDepth).toBe(0);
-      // both zero → gray (achieved === 0 guard fires first)
+      // both zero → gray (ceilingDepth === 0 → no tests exist at all)
       expect(model.chipColor).toBe("gray");
     });
 

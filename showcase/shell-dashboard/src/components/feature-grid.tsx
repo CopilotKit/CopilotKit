@@ -70,8 +70,8 @@ export function computeColumnTally(
   let red = 0;
 
   for (const feature of features) {
-    const isSupported = !(
-      integration.not_supported_features?.includes(feature.id) ?? false
+    const isSupported = !integration.not_supported_features?.includes(
+      feature.id,
     );
     const isWired = integration.demos.some((d) => d.id === feature.id);
 
@@ -113,8 +113,8 @@ export function computeColumnTallyDetail(
   const red: TallyItem[] = [];
 
   for (const feature of features) {
-    const isSupported = !(
-      integration.not_supported_features?.includes(feature.id) ?? false
+    const isSupported = !integration.not_supported_features?.includes(
+      feature.id,
     );
     const isWired = integration.demos.some((d) => d.id === feature.id);
 
@@ -128,9 +128,21 @@ export function computeColumnTallyDetail(
     // Gray → skip (no data / unsupported / unwired)
     if (model.chipColor === "gray") continue;
 
+    // Derive dimension from model: D4/D5 failures are "health" (live
+    // round-trip/conversation checks); D3 failures are "e2e" (page-load).
+    const dimension: TallyItem["dimension"] =
+      (model.d5?.exists &&
+        model.d5.status !== null &&
+        model.d5.status !== "green") ||
+      (model.d4?.exists &&
+        model.d4.status !== null &&
+        model.d4.status !== "green")
+        ? "health"
+        : "e2e";
+
     const item: TallyItem = {
       label: feature.name,
-      dimension: "e2e",
+      dimension,
       featureId: feature.id,
     };
 
@@ -308,8 +320,7 @@ const CategorySection = React.memo(
                     (d) => d.id === feature.id,
                   );
                   const isNotSupported =
-                    integration.not_supported_features?.includes(feature.id) ??
-                    false;
+                    !!integration.not_supported_features?.includes(feature.id);
                   return (
                     <td
                       key={integration.slug}
@@ -562,8 +573,6 @@ export function FeatureGrid({
                       tally={tally}
                       tallyDetail={tallyDetails.get(integration.slug)}
                       overlays={overlays}
-                      liveStatus={liveStatus}
-                      connection={connection}
                       parityTier={parityTierMap.get(integration.slug)}
                       minWidth={minColWidth}
                     />
