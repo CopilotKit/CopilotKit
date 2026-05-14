@@ -20,7 +20,9 @@ import { Snippet } from "@/components/snippet";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
 import { DocsToc } from "@/components/docs-toc";
 import { Tabs as DocsTabs } from "@/components/docs-tabs";
+import { MdxCodeBlock } from "@/components/mdx-code-block";
 import { docsComponents } from "@/lib/mdx-registry";
+import { rehypeCodeMeta } from "@/lib/rehype-code-meta";
 import { getIntegration, getTabDefault } from "@/lib/registry";
 import type { NavNode } from "@/lib/docs-render";
 import {
@@ -280,6 +282,14 @@ export async function DocsPageView({
                       source={content}
                       components={{
                         ...docsComponents,
+                        // Wrap MDX-rendered <pre> blocks (triple-fenced code)
+                        // with the same figure chrome <Snippet> uses — copy
+                        // button always visible, file-path caption when the
+                        // fence carries `title="..."`. The rehypeCodeMeta
+                        // plugin (wired in `options.mdxOptions.rehypePlugins`
+                        // below) is what puts `data-title` / `data-language`
+                        // on the <pre> for this component to read.
+                        pre: MdxCodeBlock,
                         Snippet: (props: Record<string, unknown>) => (
                           <Snippet
                             {...(props as Record<string, string | undefined>)}
@@ -423,7 +433,15 @@ export async function DocsPageView({
                       options={{
                         mdxOptions: {
                           remarkPlugins: [remarkGfm],
-                          rehypePlugins: [rehypeHighlight],
+                          // `rehypeCodeMeta` runs AFTER rehype-highlight so
+                          // it sees the `language-<name>` className the
+                          // highlighter pushes onto the <code> element, and
+                          // can surface both that and the original fence
+                          // metastring (`title="..."`) as data-attrs on the
+                          // <pre>. The MdxCodeBlock `pre` override below
+                          // reads those data-attrs to render a copy button
+                          // + file-path caption.
+                          rehypePlugins: [rehypeHighlight, rehypeCodeMeta],
                         },
                       }}
                     />
