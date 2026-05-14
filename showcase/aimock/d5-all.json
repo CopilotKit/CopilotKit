@@ -445,7 +445,8 @@
     },
     {
       "match": {
-        "userMessage": "3D axis visualization (model airplane)"
+        "userMessage": "3D axis visualization (model airplane)",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -468,7 +469,8 @@
     },
     {
       "match": {
-        "userMessage": "How a neural network works"
+        "userMessage": "How a neural network works",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -491,7 +493,8 @@
     },
     {
       "match": {
-        "userMessage": "Quicksort visualization"
+        "userMessage": "Quicksort visualization",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -514,7 +517,8 @@
     },
     {
       "match": {
-        "userMessage": "Fourier: square wave from sines"
+        "userMessage": "Fourier: square wave from sines",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -537,7 +541,8 @@
     },
     {
       "match": {
-        "userMessage": "Calculator (calls evaluateExpression)"
+        "userMessage": "Calculator (calls evaluateExpression)",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -560,7 +565,8 @@
     },
     {
       "match": {
-        "userMessage": "Ping the host (calls notifyHost)"
+        "userMessage": "Ping the host (calls notifyHost)",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -583,7 +589,8 @@
     },
     {
       "match": {
-        "userMessage": "Inline expression evaluator"
+        "userMessage": "Inline expression evaluator",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [

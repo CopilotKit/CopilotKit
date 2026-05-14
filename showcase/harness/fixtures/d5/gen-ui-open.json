@@ -2,7 +2,10 @@
   "_comment": "D5 fixture for /demos/open-gen-ui and /demos/open-gen-ui-advanced. Pill-prompt fixtures emit deterministic generateSandboxedUi tool calls so iframe-presence assertions are stable; these MUST appear before the showcase-assistant 'hi' catch-all in feature-parity.json (d5-all.json loads first, so first-match-wins ordering is the priority lever). Each pill `userMessage` matches the verbatim short message string in `langgraph-python/src/app/demos/open-gen-ui/suggestions.ts` and `open-gen-ui-advanced/suggestions.ts`. Inline HTML is intentionally minimal — the assertion bar is iframe presence + non-empty srcdoc, not iframe DOM introspection (cross-origin blocked). Substrings 'render an open gen-ui element' and 'continue the advanced gen-ui flow' are unique narration entries kept for back-compat probes.",
   "fixtures": [
     {
-      "match": { "userMessage": "3D axis visualization (model airplane)" },
+      "match": {
+        "userMessage": "3D axis visualization (model airplane)",
+        "hasToolResult": false
+      },
       "response": {
         "toolCalls": [
           {
@@ -14,7 +17,10 @@
       }
     },
     {
-      "match": { "userMessage": "How a neural network works" },
+      "match": {
+        "userMessage": "How a neural network works",
+        "hasToolResult": false
+      },
       "response": {
         "toolCalls": [
           {
@@ -26,7 +32,10 @@
       }
     },
     {
-      "match": { "userMessage": "Quicksort visualization" },
+      "match": {
+        "userMessage": "Quicksort visualization",
+        "hasToolResult": false
+      },
       "response": {
         "toolCalls": [
           {
@@ -38,7 +47,10 @@
       }
     },
     {
-      "match": { "userMessage": "Fourier: square wave from sines" },
+      "match": {
+        "userMessage": "Fourier: square wave from sines",
+        "hasToolResult": false
+      },
       "response": {
         "toolCalls": [
           {
@@ -50,7 +62,10 @@
       }
     },
     {
-      "match": { "userMessage": "Calculator (calls evaluateExpression)" },
+      "match": {
+        "userMessage": "Calculator (calls evaluateExpression)",
+        "hasToolResult": false
+      },
       "response": {
         "toolCalls": [
           {
@@ -62,7 +77,10 @@
       }
     },
     {
-      "match": { "userMessage": "Ping the host (calls notifyHost)" },
+      "match": {
+        "userMessage": "Ping the host (calls notifyHost)",
+        "hasToolResult": false
+      },
       "response": {
         "toolCalls": [
           {
@@ -74,7 +92,10 @@
       }
     },
     {
-      "match": { "userMessage": "Inline expression evaluator" },
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "hasToolResult": false
+      },
       "response": {
         "toolCalls": [
           {
