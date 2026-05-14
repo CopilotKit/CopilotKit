@@ -301,13 +301,23 @@ def generate_a2ui(tool_context: ToolContext) -> Union[_A2uiError, dict[str, Any]
     # Gemini structured-output is far more reliable when each `components`
     # entry has an explicit shape with required fields. Without this the
     # model produces `[{}, {}, {}]` despite the system instruction begging
-    # for `id` + `component`. We declare common optional A2UI props
-    # explicitly (text, label, value, children, child, data) so Gemini
-    # actually emits them — its structured-output path silently drops
-    # fields not present in the parameters JSON Schema, even with the
-    # default `additionalProperties: true`. Catalog-specific props
-    # (`color`, `dataPath`, etc.) still ride through additionalProperties
-    # for less-common cases.
+    # for `id` + `component`.
+    #
+    # CRITICAL — Gemini's structured-output path SILENTLY DROPS any property
+    # not enumerated in `items.properties`, even when `additionalProperties`
+    # defaults to true. This was the bug behind "declarative-gen-ui renders
+    # blank surfaces": every catalog-specific prop (`title`, `subtitle`,
+    # `description`, `variant`, `trend`, etc.) got stripped, so PieChart
+    # rendered with no title, Card rendered with no header, Metric rendered
+    # with no trend arrow. We now:
+    #   1. Set `additionalProperties: True` explicitly (belt-and-suspenders).
+    #   2. Enumerate every prop the registered catalogs declare (custom
+    #      `declarative-gen-ui-catalog` + the `app-dashboard-catalog` used
+    #      by beautiful-chat + the basic catalog primitives Row / Column /
+    #      Heading / Image / Markdown / Divider). The list is intentionally
+    #      a superset — extra props on a component that doesn't use them
+    #      are harmless; missing props strip the renderer's visible
+    #      content.
     render_a2ui_declaration = types.FunctionDeclaration(
         name="render_a2ui",
         description="Render a dynamic A2UI v0.9 surface.",
@@ -321,21 +331,41 @@ def generate_a2ui(tool_context: ToolContext) -> Union[_A2uiError, dict[str, Any]
                     "minItems": 1,
                     "items": {
                         "type": "object",
+                        "additionalProperties": True,
                         "properties": {
                             "id": {"type": "string"},
                             "component": {"type": "string"},
-                            # Common content props
-                            "text": {"type": "string"},
-                            "label": {"type": "string"},
-                            "value": {},
                             # Container references
                             "children": {
                                 "type": "array",
                                 "items": {"type": "string"},
                             },
                             "child": {"type": "string"},
+                            # Common content props
+                            "text": {"type": "string"},
+                            "label": {"type": "string"},
+                            "value": {},
+                            # Card / Chart / heading props
+                            "title": {"type": "string"},
+                            "subtitle": {"type": "string"},
+                            "description": {"type": "string"},
+                            "level": {"type": "integer"},
+                            # Status / Metric variants
+                            "variant": {"type": "string"},
+                            "trend": {"type": "string"},
+                            "trendValue": {"type": "string"},
                             # Inline data binding for charts / lists
                             "data": {},
+                            # Layout (Row / Column / List)
+                            "gap": {"type": "integer"},
+                            "align": {"type": "string"},
+                            "justify": {"type": "string"},
+                            "direction": {"type": "string"},
+                            # Media
+                            "src": {"type": "string"},
+                            "alt": {"type": "string"},
+                            # Interactivity (Button / PrimaryButton)
+                            "action": {},
                         },
                         "required": ["id", "component"],
                     },

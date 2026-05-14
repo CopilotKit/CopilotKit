@@ -2436,7 +2436,7 @@
       }
     },
     {
-      "_comment": "render_a2ui — KPI dashboard pill. Emits Card root with three Metric children (revenue, signups, churn) so the probe sees declarative-card + declarative-metric.",
+      "_comment": "render_a2ui — KPI dashboard pill. ADK secondary LLM emits v0.9 FLAT shape {id, component, ...flatProps} (NOT the legacy {id, type, props} envelope). Card root with three Metric children (revenue, signups, churn) so the probe sees declarative-card + declarative-metric.",
       "match": {
         "userMessage": "KPI dashboard",
         "toolName": "render_a2ui"
@@ -2451,39 +2451,31 @@
               "components": [
                 {
                   "id": "root",
-                  "type": "Card",
-                  "props": {
-                    "title": "KPI dashboard",
-                    "subtitle": "Last 30 days",
-                    "child": "metric-revenue"
-                  }
+                  "component": "Card",
+                  "title": "KPI dashboard",
+                  "subtitle": "Last 30 days",
+                  "child": "metric-revenue"
                 },
                 {
                   "id": "metric-revenue",
-                  "type": "Metric",
-                  "props": {
-                    "label": "Revenue",
-                    "value": "$1.2M",
-                    "trend": "up"
-                  }
+                  "component": "Metric",
+                  "label": "Revenue",
+                  "value": "$1.2M",
+                  "trend": "up"
                 },
                 {
                   "id": "metric-signups",
-                  "type": "Metric",
-                  "props": {
-                    "label": "Signups",
-                    "value": "4,820",
-                    "trend": "up"
-                  }
+                  "component": "Metric",
+                  "label": "Signups",
+                  "value": "4,820",
+                  "trend": "up"
                 },
                 {
                   "id": "metric-churn",
-                  "type": "Metric",
-                  "props": {
-                    "label": "Churn",
-                    "value": "2.1%",
-                    "trend": "down"
-                  }
+                  "component": "Metric",
+                  "label": "Churn",
+                  "value": "2.1%",
+                  "trend": "down"
                 }
               ],
               "data": {}
@@ -2493,7 +2485,7 @@
       }
     },
     {
-      "_comment": "render_a2ui — pie-chart pill. Emits a PieChart so the probe sees declarative-pie-chart.",
+      "_comment": "render_a2ui — pie-chart pill. v0.9 FLAT shape. Emits a PieChart so the probe sees declarative-pie-chart.",
       "match": {
         "userMessage": "pie chart of sales by region",
         "toolName": "render_a2ui"
@@ -2508,29 +2500,27 @@
               "components": [
                 {
                   "id": "root",
-                  "type": "PieChart",
-                  "props": {
-                    "title": "Sales by region",
-                    "description": "Q4 — share of total revenue",
-                    "data": [
-                      {
-                        "label": "North America",
-                        "value": 540
-                      },
-                      {
-                        "label": "EMEA",
-                        "value": 320
-                      },
-                      {
-                        "label": "APAC",
-                        "value": 210
-                      },
-                      {
-                        "label": "LATAM",
-                        "value": 90
-                      }
-                    ]
-                  }
+                  "component": "PieChart",
+                  "title": "Sales by region",
+                  "description": "Q4 — share of total revenue",
+                  "data": [
+                    {
+                      "label": "North America",
+                      "value": 540
+                    },
+                    {
+                      "label": "EMEA",
+                      "value": 320
+                    },
+                    {
+                      "label": "APAC",
+                      "value": 210
+                    },
+                    {
+                      "label": "LATAM",
+                      "value": 90
+                    }
+                  ]
                 }
               ],
               "data": {}
@@ -2540,7 +2530,7 @@
       }
     },
     {
-      "_comment": "render_a2ui — bar-chart pill. Emits a BarChart so the probe sees declarative-bar-chart.",
+      "_comment": "render_a2ui — bar-chart pill. v0.9 FLAT shape. Emits a BarChart so the probe sees declarative-bar-chart.",
       "match": {
         "userMessage": "bar chart of quarterly revenue",
         "toolName": "render_a2ui"
@@ -2555,29 +2545,27 @@
               "components": [
                 {
                   "id": "root",
-                  "type": "BarChart",
-                  "props": {
-                    "title": "Quarterly revenue",
-                    "description": "FY24 — USD thousands",
-                    "data": [
-                      {
-                        "label": "Q1",
-                        "value": 820
-                      },
-                      {
-                        "label": "Q2",
-                        "value": 940
-                      },
-                      {
-                        "label": "Q3",
-                        "value": 1080
-                      },
-                      {
-                        "label": "Q4",
-                        "value": 1240
-                      }
-                    ]
-                  }
+                  "component": "BarChart",
+                  "title": "Quarterly revenue",
+                  "description": "FY24 — USD thousands",
+                  "data": [
+                    {
+                      "label": "Q1",
+                      "value": 820
+                    },
+                    {
+                      "label": "Q2",
+                      "value": 940
+                    },
+                    {
+                      "label": "Q3",
+                      "value": 1080
+                    },
+                    {
+                      "label": "Q4",
+                      "value": 1240
+                    }
+                  ]
                 }
               ],
               "data": {}
@@ -2587,7 +2575,7 @@
       }
     },
     {
-      "_comment": "render_a2ui — status-report pill. Emits a Card root containing three StatusBadge children (API/database/workers) so the probe sees declarative-card + declarative-status-badge.",
+      "_comment": "render_a2ui — status-report pill. v0.9 FLAT shape. Emits a Card root containing three StatusBadge children (API/database/workers) so the probe sees declarative-card + declarative-status-badge.",
       "match": {
         "userMessage": "status report on system health",
         "toolName": "render_a2ui"
@@ -2602,36 +2590,28 @@
               "components": [
                 {
                   "id": "root",
-                  "type": "Card",
-                  "props": {
-                    "title": "System health",
-                    "subtitle": "All services",
-                    "child": "status-api"
-                  }
+                  "component": "Card",
+                  "title": "System health",
+                  "subtitle": "All services",
+                  "child": "status-api"
                 },
                 {
                   "id": "status-api",
-                  "type": "StatusBadge",
-                  "props": {
-                    "text": "API: healthy",
-                    "variant": "success"
-                  }
+                  "component": "StatusBadge",
+                  "text": "API: healthy",
+                  "variant": "success"
                 },
                 {
                   "id": "status-db",
-                  "type": "StatusBadge",
-                  "props": {
-                    "text": "Database: healthy",
-                    "variant": "success"
-                  }
+                  "component": "StatusBadge",
+                  "text": "Database: healthy",
+                  "variant": "success"
                 },
                 {
                   "id": "status-workers",
-                  "type": "StatusBadge",
-                  "props": {
-                    "text": "Workers: degraded",
-                    "variant": "warning"
-                  }
+                  "component": "StatusBadge",
+                  "text": "Workers: degraded",
+                  "variant": "warning"
                 }
               ],
               "data": {}
@@ -2641,7 +2621,7 @@
       }
     },
     {
-      "_comment": "render_a2ui — fallback for any unmatched pill. Emits the original Card+Metric so unforeseen pills still render something deterministic instead of erroring.",
+      "_comment": "render_a2ui — fallback for any unmatched pill. v0.9 FLAT shape. Emits a default Card+Metric so unforeseen pills still render something deterministic instead of erroring.",
       "match": {
         "toolName": "render_a2ui"
       },
@@ -2655,21 +2635,17 @@
               "components": [
                 {
                   "id": "root",
-                  "type": "Card",
-                  "props": {
-                    "title": "Declarative Demo",
-                    "subtitle": "Catalog primitives",
-                    "child": "metric-1"
-                  }
+                  "component": "Card",
+                  "title": "Declarative Demo",
+                  "subtitle": "Catalog primitives",
+                  "child": "metric-1"
                 },
                 {
                   "id": "metric-1",
-                  "type": "Metric",
-                  "props": {
-                    "label": "Revenue",
-                    "value": "$1.2M",
-                    "trend": "up"
-                  }
+                  "component": "Metric",
+                  "label": "Revenue",
+                  "value": "$1.2M",
+                  "trend": "up"
                 }
               ],
               "data": {}
