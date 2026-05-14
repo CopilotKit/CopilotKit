@@ -29,6 +29,23 @@ const demoContent = demoContentData as {
   demos: Record<string, DemoContent>;
 };
 
+// Hand-curated "look at these first" entry-point demos. Lives in the shell on
+// purpose (the user wants the dojo's editorial pick to evolve independently
+// of the underlying feature-registry, and these demos still show up in their
+// real category groups below). Order here is the display order.
+const FEATURED_DEMO_IDS: readonly string[] = [
+  "multimodal",
+  "gen-ui-tool-based",
+  "declarative-gen-ui",
+  "mcp-apps",
+  "open-gen-ui",
+];
+
+const FEATURED_CATEGORY: FeatureCategory = {
+  id: "__featured__",
+  name: "Featured",
+};
+
 function groupDemosByCategory(
   integration: Integration,
   categories: FeatureCategory[],
@@ -43,6 +60,16 @@ function groupDemosByCategory(
       demoByCategoryId.set(catId, []);
     }
     demoByCategoryId.get(catId)!.push(demo);
+  }
+
+  // Featured comes first. Pull each ID from the current integration's demos,
+  // preserving the curated order, and silently skip any the integration hasn't
+  // implemented. The same demos still appear in their real category below.
+  const featured = FEATURED_DEMO_IDS.map((id) =>
+    integration.demos.find((d) => d.id === id),
+  ).filter((d): d is Demo => !!d);
+  if (featured.length > 0) {
+    groups.push({ category: FEATURED_CATEGORY, demos: featured });
   }
 
   for (const cat of categories) {
