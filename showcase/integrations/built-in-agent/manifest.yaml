@@ -1,12 +1,11 @@
-name: Built-in Agent (TanStack AI)
+name: CopilotKit's Built-in Agent
 slug: built-in-agent
 category: popular
 language: typescript
 logo: /logos/built-in-agent.svg
 description: >-
-  CopilotKit's Built-in Agent in factory mode with TanStack AI as the LLM
-  backend. The agent runs in-process inside the Next.js route handler — no
-  separate agent server.
+  CopilotKit's Built-in Agent in factory mode. The agent runs in-process
+  inside the Next.js route handler — no separate agent server.
 partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/built-in-agent
 copilotkit_version: 2.0.0

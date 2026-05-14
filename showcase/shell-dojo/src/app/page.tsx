@@ -5,10 +5,8 @@ import {
   getIntegrations,
   getFeatureCategories,
   getFeature,
-  type Integration,
-  type Demo,
-  type FeatureCategory,
 } from "@/lib/registry";
+import type { Integration, Demo, FeatureCategory } from "@/lib/registry";
 import { CodeBlock } from "@/components/code-block";
 import demoContentData from "@/data/demo-content.json";
 
@@ -447,31 +445,25 @@ export default function DojoPage() {
 
         {/* Demo list — dojo: flex-1 overflow-auto */}
         <div className="sidebar-scroll" style={{ flex: 1, overflow: "auto" }}>
-          {/* dojo: px-4 pt-3 pb-2 */}
-          <div style={{ padding: "12px 16px 8px" }}>
-            <span
-              style={{
-                fontSize: 10,
-                fontWeight: 400,
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                color: "var(--text-secondary)",
-              }}
-            >
-              Demos
-            </span>
-          </div>
           {/* dojo: px-2 space-y-1 */}
           <div
             style={{
-              padding: "0 8px",
+              padding: "12px 8px 0",
               display: "flex",
               flexDirection: "column",
-              gap: 4,
+              gap: 12,
             }}
           >
             {groupedDemos.map(({ category, demos }) => (
-              <div key={category.id}>
+              <div
+                key={category.id}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 4,
+                }}
+              >
+                <SectionTitle title={category.name} />
                 {demos.map((demo) => {
                   const isSelected = demo.id === selectedDemoId;
                   return (
@@ -698,11 +690,11 @@ function SectionTitle({ title }: { title: string }) {
     >
       <span
         style={{
-          fontSize: 10,
-          fontWeight: 400,
+          fontSize: 11,
+          fontWeight: 600,
           textTransform: "uppercase",
-          letterSpacing: "0.05em",
-          color: "var(--text-secondary)",
+          letterSpacing: "0.06em",
+          color: "var(--text-primary)",
           whiteSpace: "nowrap",
         }}
       >
