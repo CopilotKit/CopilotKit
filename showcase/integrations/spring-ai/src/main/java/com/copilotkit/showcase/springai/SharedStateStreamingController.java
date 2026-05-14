@@ -1,5 +1,6 @@
 package com.copilotkit.showcase.springai;
 
+// @region[state-streaming-middleware]
 import com.agui.core.agent.AgentSubscriber;
 import com.agui.core.agent.AgentSubscriberParams;
 import com.agui.core.agent.RunAgentInput;
@@ -231,7 +232,6 @@ public class SharedStateStreamingController {
                                     textAccumulator.append(content);
                                 }
 
-                                // @region[state-streaming-middleware]
                                 // Spring AI equivalent of LangGraph's
                                 // StateStreamingMiddleware(StateItem(...)): as the LLM
                                 // streams the `write_document` tool's `content` argument,

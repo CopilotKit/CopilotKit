@@ -1,3 +1,5 @@
+// @region[backend-render-operations]
+// @region[weather-tool-backend]
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { openai } from "@ai-sdk/openai";
@@ -22,7 +24,6 @@ export {
   critiqueAgentTool,
 } from "./subagents";
 
-// @region[weather-tool-backend]
 export const weatherTool = createTool({
   id: "get_weather",
   description: "Get current weather for a location",
@@ -145,7 +146,6 @@ export const searchFlightsTool = createTool({
   execute: async ({ flights }) => JSON.stringify(searchFlightsImpl(flights)),
 });
 
-// @region[backend-render-operations]
 // The `generate-a2ui` tool runs a secondary LLM call with a forced
 // `render_a2ui` tool, then converts that tool call's args into the
 // A2UI `a2ui_operations` container that the middleware forwards to

@@ -1,3 +1,5 @@
+// @region[supervisor-delegation-tools]
+// @region[subagent-setup]
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { openai } from "@ai-sdk/openai";
@@ -5,7 +7,6 @@ import { Agent } from "@mastra/core/agent";
 import crypto from "node:crypto";
 import { writeDelegationsToWorkingMemory } from "./working-memory";
 
-// @region[subagent-setup]
 // Each sub-agent is a full Mastra `Agent` with its own system prompt. They
 // don't share memory or tools with the supervisor — the supervisor only sees
 // their final text output via the tools below. Mirrors the LangGraph-Python
@@ -86,7 +87,6 @@ async function invokeSubAgent(
   }
 }
 
-// @region[supervisor-delegation-tools]
 /**
  * Delegate a research task to the research sub-agent.
  *

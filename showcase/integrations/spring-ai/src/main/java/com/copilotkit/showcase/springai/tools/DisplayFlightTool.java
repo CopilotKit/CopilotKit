@@ -1,5 +1,7 @@
 package com.copilotkit.showcase.springai.tools;
 
+// @region[backend-render-operations]
+// @region[backend-schema-json-load]
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.List;
@@ -25,7 +27,6 @@ public class DisplayFlightTool implements Function<DisplayFlightTool.Request, St
 
     public record Request(String origin, String destination, String airline, String price) {}
 
-    // @region[backend-schema-json-load]
     // The fixed-schema flight component tree. Spring AI doesn't ship a
     // JSON-loading helper analogous to `a2ui.load_schema(...)`, so the
     // schema is declared inline as a Java constant — equivalent to
@@ -70,7 +71,6 @@ public class DisplayFlightTool implements Function<DisplayFlightTool.Request, St
     @Override
     public String apply(Request request) {
         try {
-            // @region[backend-render-operations]
             // The A2UI middleware detects the `a2ui_operations` container in
             // this tool result and forwards the ops to the frontend renderer.
             // The frontend catalog resolves component names to the local

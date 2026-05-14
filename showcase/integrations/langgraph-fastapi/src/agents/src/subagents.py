@@ -21,6 +21,8 @@ This is the FastAPI variant — the graph is exported and registered in
 reference; only the server framework differs.
 """
 
+# @region[supervisor-delegation-tools]
+# @region[subagent-setup]
 import uuid
 from operator import add
 from typing import Annotated, Literal, TypedDict
@@ -64,7 +66,6 @@ class AgentState(BaseAgentState):
 # Sub-agents (real LLM agents under the hood)
 # ---------------------------------------------------------------------------
 
-# @region[subagent-setup]
 # Each sub-agent is a full-fledged `create_agent(...)` with its own
 # system prompt. They don't share memory or tools with the supervisor —
 # the supervisor only sees their return value.
@@ -183,7 +184,6 @@ def _delegate(
 # ---------------------------------------------------------------------------
 
 
-# @region[supervisor-delegation-tools]
 # Each @tool wraps a sub-agent invocation. The supervisor LLM "calls"
 # these tools to delegate work; each call synchronously runs the
 # matching sub-agent, records the delegation into shared state, and

@@ -8,6 +8,8 @@
 //
 // See chat-component.snippet.tsx in agentic-chat for the same pattern.
 
+// @region[render-flight-tool]
+// @region[render-weather-tool]
 import { useRenderTool, useDefaultRenderTool } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 
@@ -61,7 +63,6 @@ function parseJsonResult<T>(_result: unknown): T {
 }
 
 export function ToolRenderers() {
-  // @region[render-weather-tool]
   // Per-tool renderer #1: get_weather → branded WeatherCard.
   useRenderTool(
     {
@@ -88,7 +89,6 @@ export function ToolRenderers() {
   );
   // @endregion[render-weather-tool]
 
-  // @region[render-flight-tool]
   // Per-tool renderer #2: search_flights → branded FlightListCard.
   useRenderTool(
     {

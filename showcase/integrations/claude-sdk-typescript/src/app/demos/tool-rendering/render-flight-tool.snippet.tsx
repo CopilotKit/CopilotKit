@@ -9,6 +9,7 @@
 //
 // See chat-component.snippet.tsx in agentic-chat for the same pattern.
 
+// @region[render-flight-tool]
 import { useRenderTool, useDefaultRenderTool } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 
@@ -43,7 +44,6 @@ function parseJsonResult<T>(_result: unknown): T {
 }
 
 export function FlightToolRenderers() {
-  // @region[render-flight-tool]
   // Per-tool renderer: search_flights → branded FlightListCard.
   useRenderTool(
     {
