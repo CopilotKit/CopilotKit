@@ -16,6 +16,7 @@ interface DemoContentFile {
   filename: string;
   language: string;
   content: string;
+  highlighted?: boolean;
 }
 
 interface DemoContent {
@@ -87,7 +88,8 @@ export default function DojoPage() {
     integrations[0]?.demos[0]?.id || "",
   );
   const [viewMode, setViewMode] = useState<ViewMode>("preview");
-  const [selectedFileIndex, setSelectedFileIndex] = useState(0);
+  const [selectedFilename, setSelectedFilename] = useState<string | null>(null);
+  const [codeViewMode, setCodeViewMode] = useState<"core" | "all">("core");
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const integration = useMemo(
@@ -115,10 +117,38 @@ export default function DojoPage() {
     return [...content.files, ...content.backend_files];
   }, [content]);
 
+  const hasHighlights = useMemo(
+    () => allFiles.some((f) => f.highlighted),
+    [allFiles],
+  );
+
+  const visibleFiles = useMemo(
+    () =>
+      codeViewMode === "core" && hasHighlights
+        ? allFiles.filter((f) => f.highlighted)
+        : allFiles,
+    [allFiles, codeViewMode, hasHighlights],
+  );
+
+  // When the demo changes: reset code-view mode + selected file to defaults.
+  // Default mode is "core" if any file is highlighted; otherwise "all" (which
+  // is identical to the full list since core would be empty).
+  useEffect(() => {
+    setCodeViewMode(hasHighlights ? "core" : "all");
+    const firstHighlighted = allFiles.find((f) => f.highlighted);
+    setSelectedFilename(
+      firstHighlighted?.filename ?? allFiles[0]?.filename ?? null,
+    );
+  }, [contentKey, hasHighlights, allFiles]);
+
+  const activeFile = useMemo(
+    () => allFiles.find((f) => f.filename === selectedFilename) ?? allFiles[0],
+    [allFiles, selectedFilename],
+  );
+
   const handleIntegrationChange = useCallback(
     (slug: string) => {
       setSelectedSlug(slug);
-      setSelectedFileIndex(0);
       setDropdownOpen(false);
       const newIntegration = integrations.find((i) => i.slug === slug);
       if (newIntegration) {
@@ -135,7 +165,6 @@ export default function DojoPage() {
 
   const handleDemoSelect = useCallback((demoId: string) => {
     setSelectedDemoId(demoId);
-    setSelectedFileIndex(0);
   }, []);
 
   // URL ↔ selection sync. On mount we hydrate from ?integration=&demo=; after
@@ -653,10 +682,10 @@ export default function DojoPage() {
                 overflow: "hidden",
               }}
             >
-              {allFiles[selectedFileIndex] && (
+              {activeFile && (
                 <CodeBlock
-                  code={allFiles[selectedFileIndex].content}
-                  language={allFiles[selectedFileIndex].language}
+                  code={activeFile.content}
+                  language={activeFile.language}
                 />
               )}
             </div>
@@ -671,9 +700,14 @@ export default function DojoPage() {
               }}
             >
               <FileTree
-                files={allFiles}
-                selectedFileIndex={selectedFileIndex}
-                onSelect={setSelectedFileIndex}
+                files={visibleFiles}
+                activeFilename={activeFile?.filename}
+                onSelect={setSelectedFilename}
+                hasHighlights={hasHighlights}
+                showAll={codeViewMode === "all"}
+                onToggleShowAll={() =>
+                  setCodeViewMode(codeViewMode === "all" ? "core" : "all")
+                }
               />
             </aside>
           </div>
@@ -698,63 +732,86 @@ export default function DojoPage() {
   );
 }
 
+type FileLeaf = { filename: string; highlighted?: boolean };
+
 type FileTreeNode = {
   name: string;
-  fileIndex: number | null;
+  file: FileLeaf | null;
   children: Map<string, FileTreeNode>;
 };
 
-function buildFileTree(files: { filename: string }[]): FileTreeNode {
+function buildFileTree(files: FileLeaf[]): FileTreeNode {
   const root: FileTreeNode = {
     name: "",
-    fileIndex: null,
+    file: null,
     children: new Map(),
   };
-  files.forEach((file, idx) => {
+  for (const file of files) {
     const parts = file.filename.split("/").filter(Boolean);
     let current = root;
     parts.forEach((part, i) => {
       const isFile = i === parts.length - 1;
       const existing = current.children.get(part);
       if (existing) {
-        if (isFile) existing.fileIndex = idx;
+        if (isFile) existing.file = file;
         current = existing;
       } else {
         const node: FileTreeNode = {
           name: part,
-          fileIndex: isFile ? idx : null,
+          file: isFile ? file : null,
           children: new Map(),
         };
         current.children.set(part, node);
         current = node;
       }
     });
-  });
+  }
   return root;
 }
 
+// Folders before files; within each group, highlighted files float to the top,
+// then alphabetical. Matches the standalone shell's code-view ordering.
 function sortedChildren(node: FileTreeNode): FileTreeNode[] {
   return Array.from(node.children.values()).sort((a, b) => {
-    const aIsFolder = a.fileIndex === null;
-    const bIsFolder = b.fileIndex === null;
+    const aIsFolder = a.file === null;
+    const bIsFolder = b.file === null;
     if (aIsFolder !== bIsFolder) return aIsFolder ? -1 : 1;
+    if (a.file && b.file) {
+      if (!!a.file.highlighted !== !!b.file.highlighted) {
+        return a.file.highlighted ? -1 : 1;
+      }
+    }
     return a.name.localeCompare(b.name);
   });
 }
 
 function FileTree({
   files,
-  selectedFileIndex,
+  activeFilename,
   onSelect,
+  hasHighlights,
+  showAll,
+  onToggleShowAll,
 }: {
-  files: { filename: string }[];
-  selectedFileIndex: number;
-  onSelect: (idx: number) => void;
+  files: FileLeaf[];
+  activeFilename: string | undefined;
+  onSelect: (filename: string) => void;
+  hasHighlights: boolean;
+  showAll: boolean;
+  onToggleShowAll: () => void;
 }) {
   const root = useMemo(() => buildFileTree(files), [files]);
   return (
     <div style={{ fontSize: 13 }}>
-      <div style={{ padding: "0 6px 8px" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          padding: "0 6px 8px",
+        }}
+      >
         <span
           style={{
             fontSize: 11,
@@ -766,13 +823,66 @@ function FileTree({
         >
           Files
         </span>
+        {hasHighlights && (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={showAll}
+            onClick={onToggleShowAll}
+            title="Include scaffolding (configs, lockfiles, etc.)"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              padding: 0,
+              color: "var(--text-secondary)",
+              fontSize: 10,
+              fontWeight: 500,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+            }}
+          >
+            <span>show all</span>
+            <span
+              style={{
+                position: "relative",
+                display: "inline-block",
+                width: 22,
+                height: 12,
+                borderRadius: 999,
+                background: showAll
+                  ? "var(--text-primary)"
+                  : "rgba(0,0,0,0.15)",
+                transition: "background 0.15s",
+              }}
+            >
+              <span
+                style={{
+                  position: "absolute",
+                  top: 1,
+                  left: 1,
+                  width: 10,
+                  height: 10,
+                  borderRadius: "50%",
+                  background: "#ffffff",
+                  transform: showAll ? "translateX(10px)" : "translateX(0)",
+                  transition: "transform 0.15s",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
+                }}
+              />
+            </span>
+          </button>
+        )}
       </div>
       {sortedChildren(root).map((node) => (
         <FileTreeRow
           key={node.name}
           node={node}
           depth={0}
-          selectedFileIndex={selectedFileIndex}
+          activeFilename={activeFilename}
           onSelect={onSelect}
         />
       ))}
@@ -783,18 +893,16 @@ function FileTree({
 function FileTreeRow({
   node,
   depth,
-  selectedFileIndex,
+  activeFilename,
   onSelect,
 }: {
   node: FileTreeNode;
   depth: number;
-  selectedFileIndex: number;
-  onSelect: (idx: number) => void;
+  activeFilename: string | undefined;
+  onSelect: (filename: string) => void;
 }) {
-  const isFolder = node.fileIndex === null;
-  const isSelected = !isFolder && node.fileIndex === selectedFileIndex;
   const padLeft = 8 + depth * 12;
-  if (isFolder) {
+  if (!node.file) {
     return (
       <div>
         <div
@@ -819,17 +927,21 @@ function FileTreeRow({
             key={child.name}
             node={child}
             depth={depth + 1}
-            selectedFileIndex={selectedFileIndex}
+            activeFilename={activeFilename}
             onSelect={onSelect}
           />
         ))}
       </div>
     );
   }
+  const file = node.file;
+  const isSelected = file.filename === activeFilename;
+  const isHighlighted = !!file.highlighted;
   return (
     <button
       type="button"
-      onClick={() => onSelect(node.fileIndex!)}
+      onClick={() => onSelect(file.filename)}
+      title={isHighlighted ? "Core file" : undefined}
       style={{
         display: "flex",
         alignItems: "center",
@@ -838,8 +950,12 @@ function FileTreeRow({
         padding: `2px 6px 2px ${padLeft + 14}px`,
         border: "none",
         background: isSelected ? "rgba(0, 0, 0, 0.05)" : "transparent",
-        color: isSelected ? "var(--text-primary)" : "var(--text-secondary)",
-        fontWeight: isSelected ? 500 : 400,
+        color: isSelected
+          ? "var(--text-primary)"
+          : isHighlighted
+            ? "var(--text-primary)"
+            : "var(--text-disabled)",
+        fontWeight: isHighlighted ? 600 : isSelected ? 500 : 400,
         textAlign: "left",
         cursor: "pointer",
         borderRadius: 4,
@@ -856,6 +972,19 @@ function FileTreeRow({
         if (!isSelected) e.currentTarget.style.background = "transparent";
       }}
     >
+      {isHighlighted && (
+        <span
+          aria-hidden="true"
+          style={{
+            color: "#f59e0b",
+            fontSize: 11,
+            lineHeight: 1,
+            flexShrink: 0,
+          }}
+        >
+          ★
+        </span>
+      )}
       <span
         style={{
           whiteSpace: "nowrap",
