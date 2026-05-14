@@ -539,6 +539,43 @@
     },
     {
       "match": {
+        "toolCallId": "call_fp_beautiful_chat_manage_todos_001"
+      },
+      "response": {
+        "content": "Done — added three todos about learning CopilotKit to your task manager."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_beautiful_chat_enable_app_mode_001"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_beautiful_chat_manage_todos_001",
+            "name": "manage_todos",
+            "arguments": "{\"todos\":[{\"id\":\"todo-cpk-1\",\"title\":\"Read the CopilotKit docs\",\"description\":\"Start with the quickstart and explore the core hooks.\",\"emoji\":\"📚\",\"status\":\"pending\"},{\"id\":\"todo-cpk-2\",\"title\":\"Build a CopilotKit prototype\",\"description\":\"Wire up a basic chat and register a frontend tool.\",\"emoji\":\"🚀\",\"status\":\"pending\"},{\"id\":\"todo-cpk-3\",\"title\":\"Explore shared agent state\",\"description\":\"Watch the canvas re-render as the agent writes to state.\",\"emoji\":\"🎯\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "three todos about learning CopilotKit",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_beautiful_chat_enable_app_mode_001",
+            "name": "enableAppMode",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
         "userMessage": "hello"
       },
       "response": {
