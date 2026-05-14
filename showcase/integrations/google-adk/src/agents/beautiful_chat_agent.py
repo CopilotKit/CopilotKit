@@ -56,7 +56,7 @@ logger = logging.getLogger(__name__)
 # Model used for the secondary A2UI planner call. Mirrors main.py so the
 # A2UI surface generated for Beautiful Chat behaves identically to the
 # Sales Pipeline demo.
-_DEFAULT_A2UI_MODEL = "gemini-2.5-flash"
+_DEFAULT_A2UI_MODEL = "gemini-3.1-flash"
 
 
 def _a2ui_model() -> str:

@@ -5,7 +5,7 @@
 - Demo deployed and accessible at `/demos/multimodal`
 - Railway service `showcase-google-adk` is healthy
 - `GOOGLE_API_KEY` set on the Railway service (Gemini calls require it)
-- Agent is using a natively-multimodal Gemini model (`gemini-2.5-flash` or
+- Agent is using a natively-multimodal Gemini model (`gemini-3.1-flash` or
   equivalent) — verifiable by inspecting the Railway logs for
   `src/agents/multimodal_agent.py` or by running one image round-trip
 - Sample files are bundled under `public/demo-files/`:

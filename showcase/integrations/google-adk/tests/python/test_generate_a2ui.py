@@ -447,7 +447,7 @@ def test_a2ui_model_env_override(monkeypatch):
     assert _a2ui_model() == "gemini-pro-custom"
     monkeypatch.delenv("A2UI_MODEL", raising=False)
     # Falls back to the hard-coded default.
-    assert _a2ui_model() == "gemini-2.5-flash"
+    assert _a2ui_model() == "gemini-3.1-flash"
 
 
 def test_generate_a2ui_passes_model_to_client(monkeypatch):

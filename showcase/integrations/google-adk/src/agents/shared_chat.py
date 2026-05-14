@@ -12,11 +12,11 @@ renders these via CopilotChatReasoningMessage.
 `get_model` returns a `Gemini` instance configured with the aimock proxy
 endpoint when `GOOGLE_GEMINI_BASE_URL` is set, or the default model string
 otherwise. All agent modules should call `get_model()` instead of
-hard-coding `"gemini-2.5-flash"` so Railway deployments route through
+hard-coding `"gemini-3.1-flash"` so Railway deployments route through
 aimock.
 
 `stop_on_terminal_text` is the canonical after_model_callback shared by every
-registered LlmAgent. Gemini 2.5-flash does not naturally end its agentic
+registered LlmAgent. Gemini 3.1-flash does not naturally end its agentic
 loop after a successful tool call — it keeps re-issuing the same tool. The
 callback inspects each non-partial model response and, when it contains
 text with no pending function_call, sets `_invocation_context.end_invocation
@@ -39,7 +39,7 @@ from ag_ui_adk import AGUIToolset
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-3.1-flash"
 
 
 def stop_on_terminal_text(
