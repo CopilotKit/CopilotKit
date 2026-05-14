@@ -131,8 +131,12 @@ export function computeColumnTallyDetail(
     // Derive dimension from model: D4/D5 failures are "health" (live
     // round-trip/conversation checks); D3 failures are "e2e" (page-load).
     const dimension: TallyItem["dimension"] =
-      (model.d5?.exists && model.d5.status !== "green") ||
-      (model.d4?.exists && model.d4.status !== "green")
+      (model.d5?.exists &&
+        model.d5.status !== null &&
+        model.d5.status !== "green") ||
+      (model.d4?.exists &&
+        model.d4.status !== null &&
+        model.d4.status !== "green")
         ? "health"
         : "e2e";
 

@@ -241,13 +241,16 @@ export function buildCellModel(
   }
 
   // chipColor derivation:
-  //   green  → achieved === ceiling
-  //   gray   → achieved === 0
+  //   gray   → no tests exist at all (ceilingDepth === 0)
+  //   red    → tests exist but none pass (achievedDepth === 0, ceiling > 0)
+  //   green  → achieved === ceiling (all passing)
   //   amber  → ceiling - achieved <= 1 (close gap)
   //   red    → ceiling - achieved > 1 (wide gap)
   let chipColor: ChipColor;
-  if (achievedDepth === 0) {
+  if (ceilingDepth === 0) {
     chipColor = "gray";
+  } else if (achievedDepth === 0) {
+    chipColor = "red";
   } else if (achievedDepth >= ceilingDepth) {
     chipColor = "green";
   } else if (ceilingDepth - achievedDepth <= 1) {
