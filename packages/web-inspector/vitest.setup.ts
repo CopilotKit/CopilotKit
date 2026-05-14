@@ -16,7 +16,8 @@ class MemoryStorage implements Storage {
   }
 
   getItem(key: string): string | null {
-    return this.store.has(key) ? this.store.get(key)! : null;
+    const k = String(key);
+    return this.store.has(k) ? this.store.get(k)! : null;
   }
 
   setItem(key: string, value: string): void {
@@ -24,7 +25,7 @@ class MemoryStorage implements Storage {
   }
 
   removeItem(key: string): void {
-    this.store.delete(key);
+    this.store.delete(String(key));
   }
 
   key(index: number): string | null {

@@ -40,6 +40,43 @@ interface CodeBlockProps {
   highlightedLines?: ReadonlySet<number>;
 }
 
+const SCROLL_CONTAINER_STYLE = {
+  display: "flex",
+  flex: 1,
+  overflow: "auto",
+  background: "#ffffff",
+  fontFamily: "'Spline Sans Mono', 'SF Mono', Menlo, Consolas, monospace",
+  fontSize: 13,
+  lineHeight: 1.5,
+} as const;
+
+const LINES_WRAPPER_STYLE = {
+  display: "inline-block",
+  minWidth: "100%",
+  padding: "16px 0",
+} as const;
+
+const LINE_ROW_BASE_STYLE = {
+  display: "flex",
+} as const;
+
+const LINE_NUMBER_STYLE = {
+  flexShrink: 0,
+  textAlign: "right",
+  userSelect: "none",
+  color: "#838389",
+  padding: "0 12px 0 16px",
+  whiteSpace: "pre",
+} as const;
+
+const LINE_CODE_STYLE = {
+  flex: 1,
+  whiteSpace: "pre",
+  paddingRight: 16,
+} as const;
+
+const HIGHLIGHTED_BG = "rgba(250, 204, 21, 0.22)";
+
 export function CodeBlock({
   code,
   language,
@@ -65,56 +102,27 @@ export function CodeBlock({
 
   const pad = String(lineHtml.length).length;
 
+  const highlightedRowStyle = useMemo(
+    () => ({ ...LINE_ROW_BASE_STYLE, background: HIGHLIGHTED_BG }),
+    [],
+  );
+
   return (
-    <div
-      style={{
-        display: "flex",
-        flex: 1,
-        overflow: "auto",
-        background: "#ffffff",
-        fontFamily: "'Spline Sans Mono', 'SF Mono', Menlo, Consolas, monospace",
-        fontSize: 13,
-        lineHeight: 1.5,
-      }}
-    >
-      <div
-        style={{
-          display: "inline-block",
-          minWidth: "100%",
-          padding: "16px 0",
-        }}
-      >
+    <div style={SCROLL_CONTAINER_STYLE}>
+      <div style={LINES_WRAPPER_STYLE}>
         {lineHtml.map((html, i) => {
           const lineNum = i + 1;
           const isHighlighted = highlightedLines?.has(lineNum) ?? false;
           return (
             <div
               key={i}
-              style={{
-                display: "flex",
-                background: isHighlighted
-                  ? "rgba(250, 204, 21, 0.22)"
-                  : "transparent",
-              }}
+              style={isHighlighted ? highlightedRowStyle : LINE_ROW_BASE_STYLE}
             >
-              <div
-                style={{
-                  flexShrink: 0,
-                  textAlign: "right",
-                  userSelect: "none",
-                  color: "#838389",
-                  padding: "0 12px 0 16px",
-                  whiteSpace: "pre",
-                }}
-              >
+              <div style={LINE_NUMBER_STYLE}>
                 {String(lineNum).padStart(pad, " ")}
               </div>
               <div
-                style={{
-                  flex: 1,
-                  whiteSpace: "pre",
-                  paddingRight: 16,
-                }}
+                style={LINE_CODE_STYLE}
                 // hljs returns sanitized HTML and the highlighted source is
                 // not user input — this content is bundled at build time
                 // from files in `showcase/integrations/`.

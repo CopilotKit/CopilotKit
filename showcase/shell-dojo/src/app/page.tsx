@@ -168,9 +168,8 @@ export default function DojoPage() {
     [allFiles, codeViewMode, hasHighlights],
   );
 
-  // When the demo changes: reset code-view mode + selected file to defaults.
-  // Default mode is "core" if any file is highlighted; otherwise "all" (which
-  // is identical to the full list since core would be empty).
+  // Reset code-view mode + selected file when the demo changes. Default mode
+  // is "core" if any file is highlighted, else "all" (would be empty otherwise).
   useEffect(() => {
     setCodeViewMode(hasHighlights ? "core" : "all");
     const firstHighlighted = allFiles.find((f) => f.highlighted);
@@ -250,11 +249,9 @@ export default function DojoPage() {
     const params = new URLSearchParams();
     params.set("integration", selectedSlug);
     if (selectedDemoId) params.set("demo", selectedDemoId);
-    window.history.replaceState(
-      null,
-      "",
-      `${window.location.pathname}?${params.toString()}`,
-    );
+    const next = `?${params.toString()}`;
+    if (window.location.search === next) return;
+    window.history.replaceState(null, "", `${window.location.pathname}${next}`);
   }, [integrations, selectedSlug, selectedDemoId]);
 
   const previewUrl =
@@ -1006,9 +1003,8 @@ function FileTreeRow({
         padding: `2px 6px 2px ${padLeft + 14}px`,
         border: "none",
         background: isSelected ? "rgba(0, 0, 0, 0.05)" : "transparent",
-        color: isSelected
-          ? "var(--text-primary)"
-          : isHighlighted
+        color:
+          isSelected || isHighlighted
             ? "var(--text-primary)"
             : "var(--text-disabled)",
         fontWeight: isHighlighted ? 600 : isSelected ? 500 : 400,
