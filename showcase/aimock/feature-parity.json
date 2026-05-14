@@ -5,13 +5,14 @@
         "toolCallId": "call_fp_generate_a2ui_sales_dashboard_001"
       },
       "response": {
-        "content": "Here's your sales dashboard \u2014 total revenue is $1.2M (+12% MoM), 342 new customers, and 4.2% conversion. The pie shows revenue split by category and the bar chart tracks monthly sales."
+        "content": "Here's your sales dashboard — total revenue is $1.2M (+12% MoM), 342 new customers, and 4.2% conversion. The pie shows revenue split by category and the bar chart tracks monthly sales."
       }
     },
     {
       "match": {
         "userMessage": "with total revenue, new customers, and conversion rate metrics",
-        "toolName": "_design_a2ui_surface"
+        "toolName": "_design_a2ui_surface",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -26,7 +27,8 @@
     {
       "match": {
         "userMessage": "with total revenue, new customers, and conversion rate metrics",
-        "toolName": "render_a2ui"
+        "toolName": "render_a2ui",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -41,7 +43,8 @@
     {
       "match": {
         "userMessage": "with total revenue, new customers, and conversion rate metrics",
-        "toolName": "generate_a2ui"
+        "toolName": "generate_a2ui",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -58,7 +61,7 @@
         "toolCallId": "call_fp_get_weather_001"
       },
       "response": {
-        "content": "The current weather in Tokyo is 22\u00b0C with partly cloudy skies. Humidity is at 65% with light winds from the east at 12 km/h. Perfect weather for a walk outside!"
+        "content": "The current weather in Tokyo is 22°C with partly cloudy skies. Humidity is at 65% with light winds from the east at 12 km/h. Perfect weather for a walk outside!"
       }
     },
     {
@@ -66,7 +69,7 @@
         "toolCallId": "call_fp_render_pie_chart_001"
       },
       "response": {
-        "content": "Pie chart rendered above \u2014 Electronics is the largest slice at $42,000, followed by Clothing, Food, and Books."
+        "content": "Pie chart rendered above — Electronics is the largest slice at $42,000, followed by Clothing, Food, and Books."
       }
     },
     {
@@ -74,7 +77,7 @@
         "toolCallId": "call_fp_show_card_001"
       },
       "response": {
-        "content": "Here is a quick card for Ada Lovelace \u2014 the rendered card above shows a short biography. Let me know if you want a deeper dive on her work or a different historical figure."
+        "content": "Here is a quick card for Ada Lovelace — the rendered card above shows a short biography. Let me know if you want a deeper dive on her work or a different historical figure."
       }
     },
     {
@@ -82,7 +85,7 @@
         "toolCallId": "call_fp_request_approval_001"
       },
       "response": {
-        "content": "Approved \u2014 processing the $50 refund to customer #12345 now."
+        "content": "Approved — processing the $50 refund to customer #12345 now."
       }
     },
     {
@@ -90,7 +93,7 @@
         "toolCallId": "call_fp_book_call_001"
       },
       "response": {
-        "content": "Booked Alice's onboarding call for the time you selected \u2014 calendar invite is on its way."
+        "content": "Booked Alice's onboarding call for the time you selected — calendar invite is on its way."
       }
     },
     {
@@ -98,7 +101,7 @@
         "toolCallId": "call_fp_set_notes_001"
       },
       "response": {
-        "content": "Got it \u2014 I have noted that your favorite color is blue."
+        "content": "Got it — I have noted that your favorite color is blue."
       }
     },
     {
@@ -106,7 +109,7 @@
         "toolCallId": "call_fp_critique_agent_001"
       },
       "response": {
-        "content": "Here is the summary, after research \u2192 drafting \u2192 critique:\n\nRemote work returns roughly ten hours a week to employees by eliminating the commute, and repeated surveys show meaningfully higher job satisfaction among remote workers. Employers benefit too: a geographically unbounded talent pool and lower office overhead. The honest counterweight is that ad-hoc collaboration, mentorship of junior staff, and cultural cohesion all degrade without intentional rituals to replace what an office provided implicitly."
+        "content": "Here is the summary, after research → drafting → critique:\n\nRemote work returns roughly ten hours a week to employees by eliminating the commute, and repeated surveys show meaningfully higher job satisfaction among remote workers. Employers benefit too: a geographically unbounded talent pool and lower office overhead. The honest counterweight is that ad-hoc collaboration, mentorship of junior staff, and cultural cohesion all degrade without intentional rituals to replace what an office provided implicitly."
       }
     },
     {
@@ -251,21 +254,23 @@
     },
     {
       "match": {
-        "userMessage": "Show me a profile card for Ada Lovelace"
+        "userMessage": "Show me a profile card for Ada Lovelace",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
           {
             "id": "call_fp_show_card_001",
             "name": "show_card",
-            "arguments": "{\"title\":\"Ada Lovelace\",\"body\":\"English mathematician (1815\u20131852), credited as the first computer programmer for her notes on Charles Babbage's Analytical Engine \u2014 including what is now recognized as the first algorithm intended to be carried out by a machine.\"}"
+            "arguments": "{\"title\":\"Ada Lovelace\",\"body\":\"English mathematician (1815–1852), credited as the first computer programmer for her notes on Charles Babbage's Analytical Engine — including what is now recognized as the first algorithm intended to be carried out by a machine.\"}"
           }
         ]
       }
     },
     {
       "match": {
-        "userMessage": "Issue a $50 refund to customer #12345"
+        "userMessage": "Issue a $50 refund to customer #12345",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -279,7 +284,8 @@
     },
     {
       "match": {
-        "userMessage": "Book a 30-minute onboarding call for Alice"
+        "userMessage": "Book a 30-minute onboarding call for Alice",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -293,7 +299,8 @@
     },
     {
       "match": {
-        "userMessage": "remember that my favorite color is blue"
+        "userMessage": "remember that my favorite color is blue",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -310,12 +317,13 @@
         "userMessage": "favorite color"
       },
       "response": {
-        "content": "Your favorite color is blue \u2014 I noted it earlier."
+        "content": "Your favorite color is blue — I noted it earlier."
       }
     },
     {
       "match": {
-        "userMessage": "Research the benefits of remote work and draft a one-paragraph summary"
+        "userMessage": "Research the benefits of remote work and draft a one-paragraph summary",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -329,7 +337,8 @@
     },
     {
       "match": {
-        "userMessage": "weather"
+        "userMessage": "weather",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -346,12 +355,13 @@
         "userMessage": "weather summary"
       },
       "response": {
-        "content": "The current weather in Tokyo is 22\u00b0C with partly cloudy skies. Humidity is at 65% with light winds from the east at 12 km/h. Perfect weather for a walk outside!"
+        "content": "The current weather in Tokyo is 22°C with partly cloudy skies. Humidity is at 65% with light winds from the east at 12 km/h. Perfect weather for a walk outside!"
       }
     },
     {
       "match": {
-        "userMessage": "revenue distribution by category"
+        "userMessage": "revenue distribution by category",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -365,7 +375,8 @@
     },
     {
       "match": {
-        "userMessage": "expenses by category"
+        "userMessage": "expenses by category",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -379,7 +390,8 @@
     },
     {
       "match": {
-        "userMessage": "pie chart of website traffic by source"
+        "userMessage": "pie chart of website traffic by source",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -393,7 +405,8 @@
     },
     {
       "match": {
-        "userMessage": "smartphone market share by brand"
+        "userMessage": "smartphone market share by brand",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -407,7 +420,8 @@
     },
     {
       "match": {
-        "userMessage": "bar chart of quarterly sales for Q1, Q2, Q3, Q4"
+        "userMessage": "bar chart of quarterly sales for Q1, Q2, Q3, Q4",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -469,7 +483,8 @@
     },
     {
       "match": {
-        "userMessage": "revenue by category as a pie chart"
+        "userMessage": "revenue by category as a pie chart",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -483,7 +498,8 @@
     },
     {
       "match": {
-        "userMessage": "monthly expenses as a bar chart"
+        "userMessage": "monthly expenses as a bar chart",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -497,7 +513,8 @@
     },
     {
       "match": {
-        "userMessage": "30-minute meeting to learn about CopilotKit"
+        "userMessage": "30-minute meeting to learn about CopilotKit",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -511,7 +528,8 @@
     },
     {
       "match": {
-        "userMessage": "flights from SFO to JFK"
+        "userMessage": "flights from SFO to JFK",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -525,7 +543,8 @@
     },
     {
       "match": {
-        "userMessage": "toggle"
+        "userMessage": "toggle",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -736,7 +755,8 @@
     },
     {
       "match": {
-        "userMessage": "deal"
+        "userMessage": "deal",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -749,7 +769,8 @@
     },
     {
       "match": {
-        "userMessage": "sample deals"
+        "userMessage": "sample deals",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -762,7 +783,8 @@
     },
     {
       "match": {
-        "userMessage": "paris"
+        "userMessage": "paris",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -784,7 +806,8 @@
     {
       "match": {
         "userMessage": "Please book an intro call with the sales team to discuss pricing.",
-        "toolName": "book_call"
+        "toolName": "book_call",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -807,7 +830,8 @@
     {
       "match": {
         "userMessage": "Schedule a 1:1 with Alice next week to review Q2 goals.",
-        "toolName": "book_call"
+        "toolName": "book_call",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -853,7 +877,8 @@
     },
     {
       "match": {
-        "userMessage": "sunset-themed gradient"
+        "userMessage": "sunset-themed gradient",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -877,12 +902,13 @@
         "userMessage": "Summarize this document"
       },
       "response": {
-        "content": "This is an excerpt from the CopilotKit documentation covering the quickstart \u2014 installing the packages and wrapping the app in a CopilotKitProvider pointing at a runtime endpoint."
+        "content": "This is an excerpt from the CopilotKit documentation covering the quickstart — installing the packages and wrapping the app in a CopilotKitProvider pointing at a runtime endpoint."
       }
     },
     {
       "match": {
-        "userMessage": "blue gradient"
+        "userMessage": "blue gradient",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -903,7 +929,8 @@
     },
     {
       "match": {
-        "userMessage": "Search my notes for 'auth'"
+        "userMessage": "Search my notes for 'auth'",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -916,7 +943,8 @@
     },
     {
       "match": {
-        "userMessage": "xyzzy-nonsense-keyword"
+        "userMessage": "xyzzy-nonsense-keyword",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -929,7 +957,8 @@
     },
     {
       "match": {
-        "userMessage": "Show me a pie chart of revenue by category"
+        "userMessage": "Show me a pie chart of revenue by category",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -943,7 +972,8 @@
     },
     {
       "match": {
-        "userMessage": "bar chart of monthly expenses"
+        "userMessage": "bar chart of monthly expenses",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -964,7 +994,8 @@
     },
     {
       "match": {
-        "userMessage": "Roll a 20-sided die"
+        "userMessage": "Roll a 20-sided die",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
