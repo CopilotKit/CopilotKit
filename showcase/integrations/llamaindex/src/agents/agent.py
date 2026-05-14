@@ -13,6 +13,7 @@ parent_message_id, and incorrect tool-result message roles). See
 hitl_in_chat_agent.py module docstring for details.
 """
 
+# @region[weather-tool-backend]
 import json
 import os
 from typing import Annotated
@@ -83,7 +84,6 @@ def show_card(
 # --- Backend tools (executed server-side, using shared implementations) ---
 
 
-# @region[weather-tool-backend]
 async def get_weather(
     location: Annotated[str, "The location to get the weather for."],
 ) -> str:

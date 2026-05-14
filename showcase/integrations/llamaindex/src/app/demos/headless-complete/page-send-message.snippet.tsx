@@ -6,6 +6,7 @@
 //
 // Mirrors the convention from `tool-rendering/render-flight-tool.snippet.tsx`.
 
+  // @region[page-send-message]
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 import type { Message } from "@ag-ui/core";
@@ -13,7 +14,6 @@ import type { Message } from "@ag-ui/core";
 const AGENT_ID = "headless-complete";
 
 export function HeadlessSendMessageWiring() {
-  // @region[page-send-message]
   const threadId = useMemo(() => crypto.randomUUID(), []);
   const { agent } = useAgent({ agentId: AGENT_ID, threadId });
   const { copilotkit } = useCopilotKit();

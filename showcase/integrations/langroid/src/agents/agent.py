@@ -21,6 +21,7 @@ Sibling provider-agnostic A2UI planner implementations live in
 aligned.
 """
 
+# @region[weather-tool-backend]
 from __future__ import annotations
 
 import functools
@@ -600,7 +601,6 @@ def _tool_error(*, error: _ToolErrorKind, message: str) -> str:
     return _json_dumps({"error": error.value, "message": message})
 
 
-# @region[weather-tool-backend]
 class GetWeatherTool(ToolMessage):
     request: str = "get_weather"
     purpose: str = "Get current weather for a location."

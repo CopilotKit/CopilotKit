@@ -1,5 +1,6 @@
 "use client";
 
+  // @region[frontend-tool-registration]
 import React, { useState } from "react";
 import {
   CopilotKit,
@@ -21,7 +22,6 @@ export default function FrontendToolsDemo() {
 function Chat() {
   const [background, setBackground] = useState<string>(DEFAULT_BACKGROUND);
 
-  // @region[frontend-tool-registration]
   useFrontendTool({
     name: "change_background",
     description:

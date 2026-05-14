@@ -21,6 +21,7 @@
 // served at /reasoning/agui, with `reasoning=True` so the AGUI interface
 // emits REASONING_MESSAGE_* events.
 
+  // @region[reasoning-block-render]
 import React from "react";
 import {
   CopilotKit,
@@ -45,7 +46,6 @@ export default function AgenticChatReasoningDemo() {
 // Inner — wires a custom `reasoningMessage` slot that makes the thinking
 // chain visually prominent, then renders the chat.
 function Chat() {
-  // @region[reasoning-block-render]
   return (
     <CopilotChat
       agentId="agentic-chat-reasoning"

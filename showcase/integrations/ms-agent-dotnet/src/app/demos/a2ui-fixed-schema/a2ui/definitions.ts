@@ -14,6 +14,7 @@
  * plain `z.string()` causes the raw `{ path }` object to reach the
  * renderer, which React then throws on (error #31 "object with keys {path}").
  */
+// @region[definitions-types]
 import { z } from "zod";
 import type { CatalogDefinitions } from "@copilotkit/a2ui-renderer";
 
@@ -23,7 +24,6 @@ import type { CatalogDefinitions } from "@copilotkit/a2ui-renderer";
  */
 const DynString = z.union([z.string(), z.object({ path: z.string() })]);
 
-// @region[definitions-types]
 export const flightDefinitions = {
   Title: {
     description: "A prominent heading for the flight card.",

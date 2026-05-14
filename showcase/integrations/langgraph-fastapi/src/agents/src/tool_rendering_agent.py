@@ -12,6 +12,7 @@ renders the same tool calls. Kept separate from `agent.py` so the
 tool-rendering demo has a tightly-scoped tool set.
 """
 
+# @region[weather-tool-backend]
 from random import choice, randint
 
 from langchain.agents import create_agent
@@ -50,7 +51,6 @@ SYSTEM_PROMPT = (
 )
 
 
-# @region[weather-tool-backend]
 @tool
 def get_weather(location: str) -> dict:
     """Get the current weather for a given location.

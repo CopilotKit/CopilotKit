@@ -1,5 +1,6 @@
 "use client";
 
+  // @region[use-agent-simple]
 import React, { useMemo, useState } from "react";
 import {
   CopilotKit,
@@ -107,7 +108,6 @@ function deduplicateMessages(
 }
 
 function HeadlessChat() {
-  // @region[use-agent-simple]
   // @region[headless-hooks]
   const { agent } = useAgent({ agentId: "headless-simple" });
   const { copilotkit } = useCopilotKit();

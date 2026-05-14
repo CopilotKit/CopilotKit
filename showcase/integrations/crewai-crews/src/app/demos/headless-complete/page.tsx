@@ -7,6 +7,7 @@
  * `<CopilotChat />` / `<CopilotChatMessageView>` / `<CopilotChatAssistantMessage>`.
  */
 
+  // @region[page-send-message]
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CopilotKit,
@@ -42,7 +43,6 @@ export default function HeadlessCompleteDemo() {
 }
 
 function Chat() {
-  // @region[page-send-message]
   const threadId = useMemo(() => crypto.randomUUID(), []);
   const { agent } = useAgent({ agentId: AGENT_ID, threadId });
   const { copilotkit } = useCopilotKit();

@@ -1,5 +1,6 @@
 """Agno Sales Pipeline Agent with shared tools for showcase demos."""
 
+# @region[weather-tool-backend]
 import json
 
 from agno.agent.agent import Agent
@@ -20,7 +21,6 @@ from tools.types import Flight
 load_dotenv()
 
 
-# @region[weather-tool-backend]
 @tool
 def get_weather(location: str):
     """

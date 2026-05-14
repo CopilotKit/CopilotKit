@@ -8,6 +8,7 @@ All module-level side effects (agent construction, model init,
 so import failures are localized and testable.
 """
 
+# @region[weather-tool-backend]
 import json
 import logging
 import os
@@ -317,7 +318,6 @@ class _A2uiError(TypedDict):
 # ---- Tools --------------------------------------------------------------
 
 
-# @region[weather-tool-backend]
 @tool
 def get_weather(location: str):
     """Get current weather for a location.

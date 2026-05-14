@@ -26,6 +26,7 @@ middleware. This matches langgraph-python's StateStreamingMiddleware
 setup.
 """
 
+# @region[state-streaming-middleware]
 from __future__ import annotations
 
 from ag_ui_adk import AGUIToolset
@@ -55,7 +56,6 @@ _INSTRUCTION = (
     "belongs in shared state and the UI renders it live as you type."
 )
 
-# @region[state-streaming-middleware]
 shared_state_streaming_agent = LlmAgent(
     name="SharedStateStreamingAgent",
     model=get_model(),

@@ -20,6 +20,7 @@
  *   https://docs.copilotkit.ai/integrations/langgraph/generative-ui/a2ui
  */
 
+    // @region[provider-a2ui-prop]
 import React from "react";
 import { CopilotKit } from "@copilotkit/react-core";
 import {
@@ -31,7 +32,6 @@ import { myCatalog } from "./a2ui/catalog";
 
 export default function DeclarativeGenUIDemo() {
   return (
-    // @region[provider-a2ui-prop]
     <CopilotKit
       runtimeUrl="/api/copilotkit"
       agent="declarative-gen-ui"
