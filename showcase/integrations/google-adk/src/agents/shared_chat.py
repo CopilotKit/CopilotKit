@@ -39,8 +39,6 @@ from google.adk.agents.callback_context import CallbackContext
 from google.adk.models.google_llm import Gemini
 from google.adk.models.llm_response import LlmResponse
 from google.genai import types
-from ag_ui_adk import AGUIToolset
-
 logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL = "gemini-2.5-flash"
@@ -167,6 +165,8 @@ def build_simple_chat_agent(
     instruction: str,
     model: str = DEFAULT_MODEL,
 ) -> LlmAgent:
+    from ag_ui_adk import AGUIToolset
+
     return LlmAgent(
         name=name,
         model=get_model(model),
@@ -190,6 +190,8 @@ def build_thinking_chat_agent(
     so v2's CopilotChatReasoningMessage / useRenderReasoning can show them.
     `thinking_budget=-1` lets the model decide how much to think.
     """
+    from ag_ui_adk import AGUIToolset
+
     return LlmAgent(
         name=name,
         model=get_model(model),
