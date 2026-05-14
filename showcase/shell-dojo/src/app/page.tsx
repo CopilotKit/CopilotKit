@@ -41,11 +41,15 @@ const demoContent = demoContentData as {
 // of the underlying feature-registry, and these demos still show up in their
 // real category groups below). Order here is the display order.
 const FEATURED_DEMO_IDS: readonly string[] = [
-  "multimodal",
+  "beautiful-chat",
+  "agentic-chat",
+  "chat-customization-css",
+  "headless-simple",
   "gen-ui-tool-based",
   "declarative-gen-ui",
   "mcp-apps",
   "open-gen-ui",
+  "frontend-tools",
 ];
 
 const FEATURED_CATEGORY: FeatureCategory = {
