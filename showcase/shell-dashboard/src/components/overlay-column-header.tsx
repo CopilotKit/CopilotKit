@@ -1,26 +1,26 @@
 "use client";
 /**
  * OverlayColumnHeader -- overlay-aware column header that conditionally
- * shows LevelStrip, ParityBadge, and tally based on active overlays.
+ * shows ParityBadge and tally based on active overlays.
+ *
+ * LevelStrip (U/W/C/T badges) was removed from this component because
+ * those badges read integration-level probes (health/agent/chat/tools)
+ * which are independent of per-feature cell data and can show
+ * contradictory states. The tally derived from buildCellModel is now
+ * the sole column summary for the Coverage tab.
  */
-import { LevelStrip } from "@/components/level-strip";
 import { ParityBadge } from "@/components/parity-badge";
 import type { ParityTier } from "@/components/parity-badge";
 import { TallyTrigger } from "@/components/tally-breakdown";
 import type { TallyDetail } from "@/components/tally-types";
 import type { Integration } from "@/lib/registry";
-import type { ConnectionStatus, LiveStatusMap } from "@/lib/live-status";
-
-/** Overlay modes toggled by the dashboard toolbar. */
-type Overlay = "links" | "depth" | "health" | "parity" | "docs";
+import type { Overlay } from "@/lib/overlay-types";
 
 export interface OverlayColumnHeaderProps {
   integration: Integration;
   tally?: { green: number; amber: number; red: number; unknown: boolean };
   tallyDetail?: TallyDetail;
   overlays: Set<Overlay>;
-  liveStatus: LiveStatusMap;
-  connection: ConnectionStatus;
   parityTier?: ParityTier;
   /** Minimum column width in pixels. */
   minWidth?: number;
@@ -31,8 +31,6 @@ export function OverlayColumnHeader({
   tally,
   tallyDetail,
   overlays,
-  liveStatus,
-  connection: _connection,
   parityTier,
   minWidth = 220,
 }: OverlayColumnHeaderProps) {
@@ -61,17 +59,10 @@ export function OverlayColumnHeader({
         {integration.language}
       </div>
 
-      {/* Parity overlay: ParityBadge (renders above LevelStrip when both active) */}
+      {/* Parity overlay: ParityBadge */}
       {showParity && parityTier && (
         <div className="mt-1">
           <ParityBadge tier={parityTier} />
-        </div>
-      )}
-
-      {/* Health overlay: LevelStrip */}
-      {showHealth && (
-        <div className="mt-1">
-          <LevelStrip integration={integration} liveStatus={liveStatus} />
         </div>
       )}
 

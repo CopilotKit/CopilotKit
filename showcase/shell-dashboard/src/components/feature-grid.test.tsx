@@ -85,15 +85,15 @@ describe("computeColumnTally", () => {
     expect(t).toEqual({ green: 2, amber: 0, red: 0, unknown: false });
   });
 
-  it("red D3 → gray chip (achievedDepth=0), not counted", () => {
+  it("red D3 → red chip (tests exist but fail), counted as red", () => {
     const live: LiveStatusMap = new Map();
-    // f1: D3=red → achievedDepth=0, ceilingDepth=3 → chipColor=gray
+    // f1: D3=red → achievedDepth=0, ceilingDepth=3 → chipColor=red
     live.set("e2e:i1/f1", row("e2e:i1/f1", "e2e", "red"));
     // f2: D3=green → chipColor=green
     live.set("e2e:i1/f2", row("e2e:i1/f2", "e2e", "green"));
     const t = computeColumnTally(integration, features, live);
-    // f1 gray (skipped), f2 green
-    expect(t).toEqual({ green: 1, amber: 0, red: 0, unknown: false });
+    // f1 red (tests exist but all fail), f2 green
+    expect(t).toEqual({ green: 1, amber: 0, red: 1, unknown: false });
   });
 
   it("health row alone does not contribute to tally", () => {

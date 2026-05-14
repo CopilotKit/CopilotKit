@@ -8,8 +8,7 @@ import { CoverageBar } from "./coverage-bar";
 import { ParityBadge } from "./parity-badge";
 import type { ParityTier } from "./parity-badge";
 import type { CatalogData } from "../data/catalog-types";
-
-type Overlay = "links" | "depth" | "health" | "parity" | "docs";
+import type { Overlay } from "@/lib/overlay-types";
 
 /** Depth distribution: count of cells at each depth level. */
 export interface DepthDistribution {

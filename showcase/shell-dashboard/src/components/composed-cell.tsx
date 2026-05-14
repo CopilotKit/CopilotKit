@@ -20,8 +20,8 @@ import { deriveDepth } from "@/components/depth-utils";
 import type { CatalogCell } from "@/components/depth-utils";
 import { keyFor } from "@/lib/live-status";
 
-/** Overlay types — defined locally; canonical types live in a sibling module. */
-export type Overlay = "links" | "depth" | "health" | "parity" | "docs";
+import type { Overlay } from "@/lib/overlay-types";
+export type { Overlay };
 
 export interface ComposedCellProps {
   ctx: CellContext;
