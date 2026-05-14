@@ -165,7 +165,7 @@ function TailoredContentInner({
   };
 
   const itemCn =
-    "border p-3 pl-4 rounded-md flex-1 flex md:block md:space-y-0.5 items-center md:items-start gap-4 cursor-pointer bg-white dark:bg-secondary relative overflow-hidden group transition-all";
+    "border p-3 pl-4 rounded-md flex-1 flex md:block md:space-y-0.5 items-center md:items-start gap-4 cursor-pointer bg-white dark:bg-[var(--bg-elevated)] relative overflow-hidden group transition-all";
   const selectedCn =
     "shadow-lg ring-1 ring-indigo-400 selected bg-gradient-to-r from-slate-50 to-indigo-50/30 dark:from-slate-800/40 dark:to-indigo-950/20";
   const iconCn =
