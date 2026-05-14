@@ -99,8 +99,20 @@ def search_flights_impl(flights: list[Flight]) -> dict[str, Any]:
     """
     return {
         "a2ui_operations": [
-            {"type": "create_surface", "surfaceId": SURFACE_ID, "catalogId": CATALOG_ID},
-            {"type": "update_components", "surfaceId": SURFACE_ID, "components": _flight_schema},
-            {"type": "update_data_model", "surfaceId": SURFACE_ID, "data": {"flights": flights}},
+            {
+                "type": "create_surface",
+                "surfaceId": SURFACE_ID,
+                "catalogId": CATALOG_ID,
+            },
+            {
+                "type": "update_components",
+                "surfaceId": SURFACE_ID,
+                "components": _flight_schema,
+            },
+            {
+                "type": "update_data_model",
+                "surfaceId": SURFACE_ID,
+                "data": {"flights": flights},
+            },
         ]
     }

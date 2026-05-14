@@ -69,4 +69,6 @@ def create_interrupt_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
         ),
         require_confirmation=False,
     )
+
+
 # @endregion[backend-tool-call]

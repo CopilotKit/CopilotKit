@@ -185,7 +185,9 @@ def get_sales_todos(tool_context: ToolContext) -> list:
     return get_sales_todos_impl(tool_context.state.get("todos"))
 
 
-def schedule_meeting(tool_context: ToolContext, reason: str, duration_minutes: int = 30) -> dict:
+def schedule_meeting(
+    tool_context: ToolContext, reason: str, duration_minutes: int = 30
+) -> dict:
     """Schedule a meeting. The user will be asked to pick a time via the UI."""
     return schedule_meeting_impl(reason, duration_minutes)
 
@@ -280,7 +282,11 @@ def generate_a2ui(tool_context: ToolContext) -> Union[_A2uiError, dict[str, Any]
         session = getattr(invocation_context, "session", None)
         if session and hasattr(session, "events"):
             for event in session.events:
-                if hasattr(event, "content") and event.content and hasattr(event.content, "parts"):
+                if (
+                    hasattr(event, "content")
+                    and event.content
+                    and hasattr(event.content, "parts")
+                ):
                     role_str = getattr(event.content, "role", "")
                     if role_str in ("user", "model"):
                         text_parts = []
@@ -370,7 +376,7 @@ def generate_a2ui(tool_context: ToolContext) -> Union[_A2uiError, dict[str, Any]
     # come FIRST in the system instruction.
     pinned_for_prompt = _resolve_pinned_catalog_id(tool_context)
     catalog_id_clause = (
-        f"\n- `catalogId` MUST be exactly: \"{pinned_for_prompt}\"."
+        f'\n- `catalogId` MUST be exactly: "{pinned_for_prompt}".'
         if pinned_for_prompt
         else ""
     )
@@ -379,10 +385,10 @@ def generate_a2ui(tool_context: ToolContext) -> Union[_A2uiError, dict[str, Any]
         "with a flat component array.\n\n"
         "Hard requirements (failing any of these breaks the renderer — be strict):"
         + catalog_id_clause
-        + "\n- `surfaceId` is a short kebab-case identifier (e.g. \"kpi-dashboard\")."
+        + '\n- `surfaceId` is a short kebab-case identifier (e.g. "kpi-dashboard").'
         + "\n- `components` is a FLAT array. Every entry MUST include both"
         + " an `id` (unique string) AND a `component` (string — the catalog"
-        + " component name). The root entry MUST have `id: \"root\"` AND a"
+        + ' component name). The root entry MUST have `id: "root"` AND a'
         + " valid `component` field — never emit a root entry without a"
         + " component type."
         + "\n- Container components (Row, Column, Card) reference children"
@@ -398,10 +404,10 @@ def generate_a2ui(tool_context: ToolContext) -> Union[_A2uiError, dict[str, Any]
         + " props — that is a USER-VISIBLE FAILURE."
         + "\n- ALSO emit a top-level `data` argument with an initial data"
         + " model for the surface (e.g."
-        + " `{\"regions\": [{\"label\": \"NA\", \"value\": 45}, ...]}`)."
-        + " The renderer's path bindings (`{path: \"/regions\"}`) resolve"
+        + ' `{"regions": [{"label": "NA", "value": 45}, ...]}`).'
+        + ' The renderer\'s path bindings (`{path: "/regions"}`) resolve'
         + " against this object."
-        + "\n- Never emit `{\"id\": \"...\", \"component\": \"...\"}` alone."
+        + '\n- Never emit `{"id": "...", "component": "..."}` alone.'
         + " If a component has no other props, you have under-specified the"
         + " surface — go back and add the data fields the catalog schema"
         + " describes for that component.\n"
@@ -413,9 +419,7 @@ def generate_a2ui(tool_context: ToolContext) -> Union[_A2uiError, dict[str, Any]
         + ' {"label":"APAC","value":25,"color":"#f59e0b"}]}\n'
     )
     system_instruction = (
-        hard_requirements + "\n\n" + context_text
-        if context_text
-        else hard_requirements
+        hard_requirements + "\n\n" + context_text if context_text else hard_requirements
     )
 
     generate_config = types.GenerateContentConfig(
@@ -594,7 +598,9 @@ def before_model_modifier(
         # and to strip a previously-inserted prefix so we don't stack it
         # when ADK calls the before_model_callback on the same request more
         # than once (observed in retry / reprompt paths).
-        PREFIX_SIGNATURE = "You are a helpful sales assistant for managing a sales pipeline."
+        PREFIX_SIGNATURE = (
+            "You are a helpful sales assistant for managing a sales pipeline."
+        )
         prefix = f"""{PREFIX_SIGNATURE}
         This is the current state of the sales todos: {todos_json}
         When you modify the sales todos (whether to add, remove, or modify one or more todos), use the manage_sales_todos tool to update the list."""
@@ -684,7 +690,15 @@ sales_pipeline_agent = LlmAgent(
 
         ALWAYS provide a textual response after any tool call.
         """,
-    tools=[get_weather, query_data, manage_sales_todos, get_sales_todos, schedule_meeting, search_flights, generate_a2ui],
+    tools=[
+        get_weather,
+        query_data,
+        manage_sales_todos,
+        get_sales_todos,
+        schedule_meeting,
+        search_flights,
+        generate_a2ui,
+    ],
     before_agent_callback=on_before_agent,
     before_model_callback=before_model_modifier,
     after_model_callback=simple_after_model_modifier,

@@ -168,10 +168,12 @@ def test_processed_todos_pass_through_shared_impl(monkeypatch):
 
     result = _run(sales_state_from_args(ctx))
 
-    assert result == {"todos": [
-        {"id": "x", "normalized": True},
-        {"id": "y", "normalized": True},
-    ]}
+    assert result == {
+        "todos": [
+            {"id": "x", "normalized": True},
+            {"id": "y", "normalized": True},
+        ]
+    }
 
 
 def test_logger_warning_on_malformed_input(_patched_impl, caplog):

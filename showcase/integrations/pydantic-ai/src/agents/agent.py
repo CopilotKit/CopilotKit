@@ -34,6 +34,7 @@ load_dotenv()
 # =====
 class SalesTodosState(BaseModel):
     """Sales pipeline todos managed by the agent."""
+
     todos: list[dict[str, Any]] = Field(
         default_factory=list,
         description="The list of sales pipeline todos",
@@ -75,6 +76,8 @@ def get_weather(ctx: RunContext[StateDeps[SalesTodosState]], location: str) -> s
     city whose weather the user has just asked about.
     """
     return json.dumps(get_weather_impl(location))
+
+
 # @endregion[weather-tool-backend]
 
 
@@ -104,13 +107,17 @@ def get_sales_todos(ctx: RunContext[StateDeps[SalesTodosState]]) -> str:
 
 
 @agent.tool
-def schedule_meeting(ctx: RunContext[StateDeps[SalesTodosState]], reason: str, duration_minutes: int = 30) -> str:
+def schedule_meeting(
+    ctx: RunContext[StateDeps[SalesTodosState]], reason: str, duration_minutes: int = 30
+) -> str:
     """Schedule a meeting. The user will be asked to pick a time via the UI."""
     return json.dumps(schedule_meeting_impl(reason, duration_minutes))
 
 
 @agent.tool
-def search_flights(ctx: RunContext[StateDeps[SalesTodosState]], flights: list[dict[str, Any]]) -> str:
+def search_flights(
+    ctx: RunContext[StateDeps[SalesTodosState]], flights: list[dict[str, Any]]
+) -> str:
     """Search for flights and display the results as rich cards. Return exactly 2 flights.
 
     Each flight must have: airline, airlineLogo, flightNumber, origin, destination,
@@ -142,7 +149,7 @@ def generate_a2ui(ctx: RunContext[StateDeps[SalesTodosState]]) -> str:
     context_entries: list[dict] = []
     if copilotkit_state:
         if hasattr(copilotkit_state, "messages"):
-            for msg in (copilotkit_state.messages or []):
+            for msg in copilotkit_state.messages or []:
                 role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
                 if role in ("user", "assistant"):
                     content = ""
@@ -188,7 +195,10 @@ def generate_a2ui(ctx: RunContext[StateDeps[SalesTodosState]]) -> str:
     }
 
     llm_messages: list[dict] = [
-        {"role": "system", "content": context_text or "Generate a useful dashboard UI."},
+        {
+            "role": "system",
+            "content": context_text or "Generate a useful dashboard UI.",
+        },
     ]
     llm_messages.extend(conversation_messages)
 

@@ -253,7 +253,9 @@ def test_existing_openai_base_url_same_as_aimock_url_no_warning(caplog):
         for r in caplog.records
         if r.levelno >= logging.WARNING and "overwritten" in r.getMessage()
     ]
-    assert warnings == [], f"no override warning expected when URLs match, got {warnings!r}"
+    assert warnings == [], (
+        f"no override warning expected when URLs match, got {warnings!r}"
+    )
 
 
 def test_existing_base_url_whitespace_wrapped_still_warns(caplog):
@@ -350,8 +352,12 @@ def test_default_arg_path_no_op_when_unset(monkeypatch):
         "RAILWAY_ENVIRONMENT_NAME",
     ],
 )
-@pytest.mark.parametrize("prod_value", ["production", "prod", "PRODUCTION", " Production "])
-def test_production_env_refuses_toggle_even_with_aimock_url(prod_var, prod_value, caplog):
+@pytest.mark.parametrize(
+    "prod_value", ["production", "prod", "PRODUCTION", " Production "]
+)
+def test_production_env_refuses_toggle_even_with_aimock_url(
+    prod_var, prod_value, caplog
+):
     """Any of the recognized prod env vars set to a prod-ish value must refuse
     the aimock toggle even when AIMOCK_URL is set — a misconfigured deploy
     that accidentally exports AIMOCK_URL should never silently redirect real
@@ -415,7 +421,9 @@ def test_production_env_refuses_toggle_even_with_aimock_url(prod_var, prod_value
     ],
 )
 @pytest.mark.parametrize("prod_value", ["production", "prod"])
-def test_production_env_without_aimock_url_is_silent_no_op(prod_var, prod_value, caplog):
+def test_production_env_without_aimock_url_is_silent_no_op(
+    prod_var, prod_value, caplog
+):
     """<prod_var>=production without AIMOCK_URL: normal production path — no
     warning, no mutation, no reason text about 'refused'. The guard must
     only raise its voice when an actual refusal is happening.

@@ -101,16 +101,38 @@ def _execute_tool(name: str, args: dict[str, Any]) -> dict[str, Any]:
             "origin": args.get("origin", ""),
             "destination": args.get("destination", ""),
             "flights": [
-                {"airline": "United", "flight": "UA231", "depart": "08:15", "arrive": "16:45", "price_usd": 348},
-                {"airline": "Delta", "flight": "DL412", "depart": "11:20", "arrive": "19:55", "price_usd": 312},
-                {"airline": "JetBlue", "flight": "B6722", "depart": "17:05", "arrive": "01:30", "price_usd": 289},
+                {
+                    "airline": "United",
+                    "flight": "UA231",
+                    "depart": "08:15",
+                    "arrive": "16:45",
+                    "price_usd": 348,
+                },
+                {
+                    "airline": "Delta",
+                    "flight": "DL412",
+                    "depart": "11:20",
+                    "arrive": "19:55",
+                    "price_usd": 312,
+                },
+                {
+                    "airline": "JetBlue",
+                    "flight": "B6722",
+                    "depart": "17:05",
+                    "arrive": "01:30",
+                    "price_usd": 289,
+                },
             ],
         }
     if name == "get_stock_price":
         return {
             "ticker": str(args.get("ticker", "")).upper(),
-            "price_usd": round(100 + random.randint(0, 400) + random.randint(0, 99) / 100, 2),
-            "change_pct": round(random.choice([-1, 1]) * (random.randint(0, 300) / 100), 2),
+            "price_usd": round(
+                100 + random.randint(0, 400) + random.randint(0, 99) / 100, 2
+            ),
+            "change_pct": round(
+                random.choice([-1, 1]) * (random.randint(0, 300) / 100), 2
+            ),
         }
     if name == "roll_dice":
         sides = int(args.get("sides", 6) or 6)
@@ -125,7 +147,7 @@ async def run_tool_rendering_reasoning_chain_agent(
     client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
 
     messages: list[dict[str, Any]] = []
-    for msg in (input_data.messages or []):
+    for msg in input_data.messages or []:
         role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
         if role not in ("user", "assistant"):
             continue
@@ -146,9 +168,9 @@ async def run_tool_rendering_reasoning_chain_agent(
 
     thread_id = input_data.thread_id or "default"
     run_id = input_data.run_id or "run-1"
-    yield encoder.encode(RunStartedEvent(
-        type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id
-    ))
+    yield encoder.encode(
+        RunStartedEvent(type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id)
+    )
 
     REASONING_OPEN = "<reasoning>"
     REASONING_CLOSE = "</reasoning>"
@@ -172,16 +194,20 @@ async def run_tool_rendering_reasoning_chain_agent(
                 return
             if not reasoning_started:
                 reasoning_started = True
-                yield encoder.encode(ReasoningMessageStartEvent(
-                    type=EventType.REASONING_MESSAGE_START,
+                yield encoder.encode(
+                    ReasoningMessageStartEvent(
+                        type=EventType.REASONING_MESSAGE_START,
+                        message_id=reasoning_msg_id,
+                        role="reasoning",
+                    )
+                )
+            yield encoder.encode(
+                ReasoningMessageContentEvent(
+                    type=EventType.REASONING_MESSAGE_CONTENT,
                     message_id=reasoning_msg_id,
-                    role="reasoning",
-                ))
-            yield encoder.encode(ReasoningMessageContentEvent(
-                type=EventType.REASONING_MESSAGE_CONTENT,
-                message_id=reasoning_msg_id,
-                delta=chunk,
-            ))
+                    delta=chunk,
+                )
+            )
 
         try:
             async with client.messages.stream(
@@ -208,25 +234,33 @@ async def run_tool_rendering_reasoning_chain_agent(
                                 else:
                                     if not text_started:
                                         text_started = True
-                                        yield encoder.encode(TextMessageStartEvent(
-                                            type=EventType.TEXT_MESSAGE_START,
-                                            message_id=msg_id, role="assistant",
-                                        ))
-                                    yield encoder.encode(TextMessageContentEvent(
-                                        type=EventType.TEXT_MESSAGE_CONTENT,
-                                        message_id=msg_id, delta=buffer,
-                                    ))
+                                        yield encoder.encode(
+                                            TextMessageStartEvent(
+                                                type=EventType.TEXT_MESSAGE_START,
+                                                message_id=msg_id,
+                                                role="assistant",
+                                            )
+                                        )
+                                    yield encoder.encode(
+                                        TextMessageContentEvent(
+                                            type=EventType.TEXT_MESSAGE_CONTENT,
+                                            message_id=msg_id,
+                                            delta=buffer,
+                                        )
+                                    )
                                     response_text += buffer
                                 buffer = ""
                             current_tool_id = block.id
                             current_tool_name = block.name
                             current_tool_args = ""
-                            yield encoder.encode(ToolCallStartEvent(
-                                type=EventType.TOOL_CALL_START,
-                                tool_call_id=current_tool_id,
-                                tool_call_name=current_tool_name,
-                                parent_message_id=msg_id,
-                            ))
+                            yield encoder.encode(
+                                ToolCallStartEvent(
+                                    type=EventType.TOOL_CALL_START,
+                                    tool_call_id=current_tool_id,
+                                    tool_call_name=current_tool_name,
+                                    parent_message_id=msg_id,
+                                )
+                            )
                     elif etype == "RawContentBlockDeltaEvent":
                         delta = event.delta  # type: ignore[attr-defined]
                         if delta.type == "text_delta":
@@ -236,7 +270,9 @@ async def run_tool_rendering_reasoning_chain_agent(
                                 if in_reasoning:
                                     close_idx = buffer.find(REASONING_CLOSE)
                                     if close_idx == -1:
-                                        keep = max(0, len(buffer) - len(REASONING_CLOSE))
+                                        keep = max(
+                                            0, len(buffer) - len(REASONING_CLOSE)
+                                        )
                                         chunk = buffer[:keep]
                                         buffer = buffer[keep:]
                                         async for ev in flush_reasoning(chunk):
@@ -246,12 +282,14 @@ async def run_tool_rendering_reasoning_chain_agent(
                                     async for ev in flush_reasoning(chunk):
                                         yield ev
                                     if reasoning_started:
-                                        yield encoder.encode(ReasoningMessageEndEvent(
-                                            type=EventType.REASONING_MESSAGE_END,
-                                            message_id=reasoning_msg_id,
-                                        ))
+                                        yield encoder.encode(
+                                            ReasoningMessageEndEvent(
+                                                type=EventType.REASONING_MESSAGE_END,
+                                                message_id=reasoning_msg_id,
+                                            )
+                                        )
                                         reasoning_started = False
-                                    buffer = buffer[close_idx + len(REASONING_CLOSE):]
+                                    buffer = buffer[close_idx + len(REASONING_CLOSE) :]
                                     in_reasoning = False
                                     continue
                                 else:
@@ -263,56 +301,83 @@ async def run_tool_rendering_reasoning_chain_agent(
                                         if chunk:
                                             if not text_started:
                                                 text_started = True
-                                                yield encoder.encode(TextMessageStartEvent(
-                                                    type=EventType.TEXT_MESSAGE_START,
-                                                    message_id=msg_id, role="assistant",
-                                                ))
-                                            yield encoder.encode(TextMessageContentEvent(
-                                                type=EventType.TEXT_MESSAGE_CONTENT,
-                                                message_id=msg_id, delta=chunk,
-                                            ))
+                                                yield encoder.encode(
+                                                    TextMessageStartEvent(
+                                                        type=EventType.TEXT_MESSAGE_START,
+                                                        message_id=msg_id,
+                                                        role="assistant",
+                                                    )
+                                                )
+                                            yield encoder.encode(
+                                                TextMessageContentEvent(
+                                                    type=EventType.TEXT_MESSAGE_CONTENT,
+                                                    message_id=msg_id,
+                                                    delta=chunk,
+                                                )
+                                            )
                                             response_text += chunk
                                         break
                                     chunk = buffer[:open_idx]
                                     if chunk:
                                         if not text_started:
                                             text_started = True
-                                            yield encoder.encode(TextMessageStartEvent(
-                                                type=EventType.TEXT_MESSAGE_START,
-                                                message_id=msg_id, role="assistant",
-                                            ))
-                                        yield encoder.encode(TextMessageContentEvent(
-                                            type=EventType.TEXT_MESSAGE_CONTENT,
-                                            message_id=msg_id, delta=chunk,
-                                        ))
+                                            yield encoder.encode(
+                                                TextMessageStartEvent(
+                                                    type=EventType.TEXT_MESSAGE_START,
+                                                    message_id=msg_id,
+                                                    role="assistant",
+                                                )
+                                            )
+                                        yield encoder.encode(
+                                            TextMessageContentEvent(
+                                                type=EventType.TEXT_MESSAGE_CONTENT,
+                                                message_id=msg_id,
+                                                delta=chunk,
+                                            )
+                                        )
                                         response_text += chunk
                                     # New reasoning message id per block.
-                                    reasoning_msg_id = f"reason-{run_id}-{iteration}-{len(buffer)}"
-                                    buffer = buffer[open_idx + len(REASONING_OPEN):]
+                                    reasoning_msg_id = (
+                                        f"reason-{run_id}-{iteration}-{len(buffer)}"
+                                    )
+                                    buffer = buffer[open_idx + len(REASONING_OPEN) :]
                                     in_reasoning = True
                                     continue
                         elif delta.type == "input_json_delta":
                             current_tool_args += delta.partial_json
-                            yield encoder.encode(ToolCallArgsEvent(
-                                type=EventType.TOOL_CALL_ARGS,
-                                tool_call_id=current_tool_id or "",
-                                delta=delta.partial_json,
-                            ))
-                    elif etype in ("RawContentBlockStopEvent", "ParsedContentBlockStopEvent"):
+                            yield encoder.encode(
+                                ToolCallArgsEvent(
+                                    type=EventType.TOOL_CALL_ARGS,
+                                    tool_call_id=current_tool_id or "",
+                                    delta=delta.partial_json,
+                                )
+                            )
+                    elif etype in (
+                        "RawContentBlockStopEvent",
+                        "ParsedContentBlockStopEvent",
+                    ):
                         if current_tool_id and current_tool_name:
-                            yield encoder.encode(ToolCallEndEvent(
-                                type=EventType.TOOL_CALL_END,
-                                tool_call_id=current_tool_id,
-                            ))
+                            yield encoder.encode(
+                                ToolCallEndEvent(
+                                    type=EventType.TOOL_CALL_END,
+                                    tool_call_id=current_tool_id,
+                                )
+                            )
                             try:
-                                parsed_args = json.loads(current_tool_args) if current_tool_args else {}
+                                parsed_args = (
+                                    json.loads(current_tool_args)
+                                    if current_tool_args
+                                    else {}
+                                )
                             except json.JSONDecodeError:
                                 parsed_args = {}
-                            tool_calls.append({
-                                "id": current_tool_id,
-                                "name": current_tool_name,
-                                "input": parsed_args,
-                            })
+                            tool_calls.append(
+                                {
+                                    "id": current_tool_id,
+                                    "name": current_tool_name,
+                                    "input": parsed_args,
+                                }
+                            )
                             current_tool_id = None
                             current_tool_name = None
                             current_tool_args = ""
@@ -320,14 +385,20 @@ async def run_tool_rendering_reasoning_chain_agent(
             err_text = f"Agent error: {traceback.format_exc()}"
             if not text_started:
                 text_started = True
-                yield encoder.encode(TextMessageStartEvent(
-                    type=EventType.TEXT_MESSAGE_START,
-                    message_id=msg_id, role="assistant",
-                ))
-            yield encoder.encode(TextMessageContentEvent(
-                type=EventType.TEXT_MESSAGE_CONTENT,
-                message_id=msg_id, delta=err_text,
-            ))
+                yield encoder.encode(
+                    TextMessageStartEvent(
+                        type=EventType.TEXT_MESSAGE_START,
+                        message_id=msg_id,
+                        role="assistant",
+                    )
+                )
+            yield encoder.encode(
+                TextMessageContentEvent(
+                    type=EventType.TEXT_MESSAGE_CONTENT,
+                    message_id=msg_id,
+                    delta=err_text,
+                )
+            )
 
         # Flush remaining buffer.
         if buffer:
@@ -335,37 +406,49 @@ async def run_tool_rendering_reasoning_chain_agent(
                 async for ev in flush_reasoning(buffer):
                     yield ev
                 if reasoning_started:
-                    yield encoder.encode(ReasoningMessageEndEvent(
-                        type=EventType.REASONING_MESSAGE_END,
-                        message_id=reasoning_msg_id,
-                    ))
+                    yield encoder.encode(
+                        ReasoningMessageEndEvent(
+                            type=EventType.REASONING_MESSAGE_END,
+                            message_id=reasoning_msg_id,
+                        )
+                    )
                     reasoning_started = False
             else:
                 if not text_started:
                     text_started = True
-                    yield encoder.encode(TextMessageStartEvent(
-                        type=EventType.TEXT_MESSAGE_START,
-                        message_id=msg_id, role="assistant",
-                    ))
-                yield encoder.encode(TextMessageContentEvent(
-                    type=EventType.TEXT_MESSAGE_CONTENT,
-                    message_id=msg_id, delta=buffer,
-                ))
+                    yield encoder.encode(
+                        TextMessageStartEvent(
+                            type=EventType.TEXT_MESSAGE_START,
+                            message_id=msg_id,
+                            role="assistant",
+                        )
+                    )
+                yield encoder.encode(
+                    TextMessageContentEvent(
+                        type=EventType.TEXT_MESSAGE_CONTENT,
+                        message_id=msg_id,
+                        delta=buffer,
+                    )
+                )
                 response_text += buffer
             buffer = ""
 
         if reasoning_started:
-            yield encoder.encode(ReasoningMessageEndEvent(
-                type=EventType.REASONING_MESSAGE_END,
-                message_id=reasoning_msg_id,
-            ))
+            yield encoder.encode(
+                ReasoningMessageEndEvent(
+                    type=EventType.REASONING_MESSAGE_END,
+                    message_id=reasoning_msg_id,
+                )
+            )
             reasoning_started = False
 
         if text_started:
-            yield encoder.encode(TextMessageEndEvent(
-                type=EventType.TEXT_MESSAGE_END,
-                message_id=msg_id,
-            ))
+            yield encoder.encode(
+                TextMessageEndEvent(
+                    type=EventType.TEXT_MESSAGE_END,
+                    message_id=msg_id,
+                )
+            )
 
         if not tool_calls:
             break
@@ -375,30 +458,38 @@ async def run_tool_rendering_reasoning_chain_agent(
         if response_text:
             assistant_content.append({"type": "text", "text": response_text})
         for tc in tool_calls:
-            assistant_content.append({
-                "type": "tool_use",
-                "id": tc["id"],
-                "name": tc["name"],
-                "input": tc["input"],
-            })
+            assistant_content.append(
+                {
+                    "type": "tool_use",
+                    "id": tc["id"],
+                    "name": tc["name"],
+                    "input": tc["input"],
+                }
+            )
         messages.append({"role": "assistant", "content": assistant_content})
 
         tool_results: list[dict[str, Any]] = []
         for tc in tool_calls:
             result = _execute_tool(tc["name"], tc["input"])
-            yield encoder.encode(ToolCallResultEvent(
-                type=EventType.TOOL_CALL_RESULT,
-                tool_call_id=tc["id"],
-                message_id=f"{msg_id}-tr-{tc['id']}",
-                content=json.dumps(result),
-            ))
-            tool_results.append({
-                "type": "tool_result",
-                "tool_use_id": tc["id"],
-                "content": json.dumps(result),
-            })
+            yield encoder.encode(
+                ToolCallResultEvent(
+                    type=EventType.TOOL_CALL_RESULT,
+                    tool_call_id=tc["id"],
+                    message_id=f"{msg_id}-tr-{tc['id']}",
+                    content=json.dumps(result),
+                )
+            )
+            tool_results.append(
+                {
+                    "type": "tool_result",
+                    "tool_use_id": tc["id"],
+                    "content": json.dumps(result),
+                }
+            )
         messages.append({"role": "user", "content": tool_results})
 
-    yield encoder.encode(RunFinishedEvent(
-        type=EventType.RUN_FINISHED, thread_id=thread_id, run_id=run_id
-    ))
+    yield encoder.encode(
+        RunFinishedEvent(
+            type=EventType.RUN_FINISHED, thread_id=thread_id, run_id=run_id
+        )
+    )

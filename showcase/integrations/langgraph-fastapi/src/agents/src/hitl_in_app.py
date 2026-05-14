@@ -39,7 +39,7 @@ SYSTEM_PROMPT = (
     "  one or two short sentences.\n"
     "\n"
     "The tool returns an object of the shape "
-    "`{\"approved\": boolean, \"reason\": string | null}`.\n"
+    '`{"approved": boolean, "reason": string | null}`.\n'
     "- If `approved` is `true`: confirm in one short sentence that you are "
     "  processing the action. You do not actually need to call any other "
     "  tool — this is a demo. Just acknowledge.\n"

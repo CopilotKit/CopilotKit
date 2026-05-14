@@ -72,6 +72,8 @@ async def set_notes(
     state["notes"] = list(notes)
     await ctx.store.set("state", state)
     return f"Notes updated. {len(notes)} note(s) saved."
+
+
 # @endregion[set-notes-tool]
 
 

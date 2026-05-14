@@ -67,9 +67,7 @@ agent = Agent(
 
 
 @agent.tool
-def get_weather(
-    ctx: RunContext[StateDeps[EmptyState]], location: str
-) -> str:
+def get_weather(ctx: RunContext[StateDeps[EmptyState]], location: str) -> str:
     """Get the current weather for a given location.
 
     Returns a mock payload with city, temperature in Fahrenheit, humidity,
@@ -87,9 +85,7 @@ def get_weather(
 
 
 @agent.tool
-def get_stock_price(
-    ctx: RunContext[StateDeps[EmptyState]], ticker: str
-) -> str:
+def get_stock_price(ctx: RunContext[StateDeps[EmptyState]], ticker: str) -> str:
     """Get a mock current price for a stock ticker.
 
     Returns a payload with the ticker symbol (uppercased), price in USD,

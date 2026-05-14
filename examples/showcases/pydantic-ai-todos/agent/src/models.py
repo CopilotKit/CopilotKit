@@ -10,29 +10,37 @@ These models define:
 from enum import Enum
 from pydantic import BaseModel, Field
 
+
 class TodoStatus(str, Enum):
-  """Status of a todo - determines which column it appears in."""
-  TODO = "todo"
-  IN_PROGRESS = "in-progress"
-  DONE = "done"
+    """Status of a todo - determines which column it appears in."""
+
+    TODO = "todo"
+    IN_PROGRESS = "in-progress"
+    DONE = "done"
+
 
 class TodoItem(BaseModel):
-  """
-  A single todo item.
+    """
+    A single todo item.
 
-  The 'description' parameter on each Field is used by the LLM to understand
-  what data to provide when calling tools that use these models.
-  """
-  id: str = Field(description='Unique identifier for the todo')
-  title: str = Field(description='Title of the todo')
-  description: str | None = Field(default=None, description='Optional description')
-  status: TodoStatus = Field(default=TodoStatus.TODO, description='Status of the todo')
+    The 'description' parameter on each Field is used by the LLM to understand
+    what data to provide when calling tools that use these models.
+    """
+
+    id: str = Field(description="Unique identifier for the todo")
+    title: str = Field(description="Title of the todo")
+    description: str | None = Field(default=None, description="Optional description")
+    status: TodoStatus = Field(
+        default=TodoStatus.TODO, description="Status of the todo"
+    )
+
 
 class TodoState(BaseModel):
-  """
-  The complete state of the todo board.
+    """
+    The complete state of the todo board.
 
-  This is passed to all tools via the RunContext and can be mutated by tools.
-  AG-UI automatically syncs state changes to the frontend.
-  """
-  todos: list[TodoItem] = Field(default_factory=list, description='The list of todos')
+    This is passed to all tools via the RunContext and can be mutated by tools.
+    AG-UI automatically syncs state changes to the frontend.
+    """
+
+    todos: list[TodoItem] = Field(default_factory=list, description="The list of todos")

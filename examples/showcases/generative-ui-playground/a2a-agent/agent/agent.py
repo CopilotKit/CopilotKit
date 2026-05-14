@@ -125,7 +125,9 @@ class UIGeneratorAgent:
             tools=[],  # No tools needed - UI is generated from user descriptions
         )
 
-    async def stream(self, query: str, session_id: str) -> AsyncIterable[dict[str, Any]]:
+    async def stream(
+        self, query: str, session_id: str
+    ) -> AsyncIterable[dict[str, Any]]:
         """
         Stream agent responses for a query.
 
@@ -207,7 +209,9 @@ class UIGeneratorAgent:
                     }
 
             if final_response_content is None:
-                logger.warning(f"No final response content from runner (Attempt {attempt}).")
+                logger.warning(
+                    f"No final response content from runner (Attempt {attempt})."
+                )
                 if attempt <= max_retries:
                     current_query_text = (
                         f"I received no response. Please retry: '{query}'"

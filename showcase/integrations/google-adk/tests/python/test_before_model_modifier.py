@@ -113,7 +113,9 @@ def test_non_serializable_todos_do_not_leak_error_into_prompt():
 
 
 def test_non_sales_pipeline_agent_is_noop():
-    ctx = FakeCallbackContext(agent_name="SomeOtherAgent", state={"todos": [{"id": "x"}]})
+    ctx = FakeCallbackContext(
+        agent_name="SomeOtherAgent", state={"todos": [{"id": "x"}]}
+    )
     request = _make_request()
 
     before_model_modifier(ctx, request)
@@ -143,7 +145,9 @@ def test_before_model_modifier_does_not_stack_prefix_on_repeated_calls():
 
     # Prefix signature must appear exactly once after each call, not twice
     # after the second.
-    prefix_signature = "You are a helpful sales assistant for managing a sales pipeline."
+    prefix_signature = (
+        "You are a helpful sales assistant for managing a sales pipeline."
+    )
     assert first_text.count(prefix_signature) == 1, (
         f"expected prefix once on first call, got {first_text.count(prefix_signature)}: {first_text!r}"
     )
@@ -194,7 +198,9 @@ def test_before_model_modifier_preserves_suffix_when_end_marker_missing():
     Instead it should leave `original_text` untouched and prepend a fresh
     prefix. Worst case is a single duplicated signature — that is explicitly
     preferred over data loss."""
-    prefix_signature = "You are a helpful sales assistant for managing a sales pipeline."
+    prefix_signature = (
+        "You are a helpful sales assistant for managing a sales pipeline."
+    )
     # Build a mangled system_instruction: starts with the signature (so the
     # `find(PREFIX_SIGNATURE)` branch fires), but DOES NOT contain the end
     # marker sentence. A real-world user suffix follows that should survive.

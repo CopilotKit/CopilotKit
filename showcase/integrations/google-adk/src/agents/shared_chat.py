@@ -68,8 +68,7 @@ def stop_on_terminal_text(
     if not content or not content.parts:
         if llm_response.error_message:
             logger.warning(
-                "stop_on_terminal_text: Gemini returned error_message for "
-                "agent=%s: %s",
+                "stop_on_terminal_text: Gemini returned error_message for agent=%s: %s",
                 callback_context.agent_name,
                 llm_response.error_message,
             )

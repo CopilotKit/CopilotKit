@@ -7,7 +7,7 @@ that the LLM uses to generate declarative UI responses for any type of UI.
 
 # The A2UI schema defines the structure of A2UI messages for rendering dynamic UIs.
 # This schema supports text-only components (no images) for flexibility.
-A2UI_SCHEMA = r'''
+A2UI_SCHEMA = r"""
 {
   "title": "A2UI Message Schema",
   "description": "Describes a JSON payload for an A2UI (Agent to UI) message, which is used to dynamically construct and update user interfaces. A message MUST contain exactly ONE of the action properties: 'beginRendering', 'surfaceUpdate', 'dataModelUpdate', or 'deleteSurface'.",
@@ -332,7 +332,7 @@ A2UI_SCHEMA = r'''
     }
   }
 }
-'''
+"""
 
 # Generic UI examples for the A2UI agent
 # These templates show how to build forms, lists, cards, and confirmations

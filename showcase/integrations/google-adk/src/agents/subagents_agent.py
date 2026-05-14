@@ -226,6 +226,8 @@ def critique_agent(tool_context: ToolContext, task: str) -> str:
         system_prompt=_CRITIQUE_SYSTEM,
         task=task,
     )
+
+
 # @endregion[supervisor-delegation-tools]
 
 

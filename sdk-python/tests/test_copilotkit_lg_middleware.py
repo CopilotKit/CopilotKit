@@ -362,9 +362,7 @@ def test_before_agent_injects_app_context_system_message():
     middleware = CopilotKitMiddleware()
     state = {
         "messages": [HumanMessage("hi")],
-        "copilotkit": {
-            "context": [{"description": "viewer role", "value": "admin"}]
-        },
+        "copilotkit": {"context": [{"description": "viewer role", "value": "admin"}]},
     }
     runtime = MagicMock(name="runtime", context=None)
 
@@ -389,7 +387,8 @@ def test_before_agent_idempotent_does_not_duplicate_context():
 
     sys_messages = [m for m in second["messages"] if isinstance(m, SystemMessage)]
     app_context_messages = [
-        m for m in sys_messages
+        m
+        for m in sys_messages
         if isinstance(m.content, str) and m.content.startswith("App Context:")
     ]
     assert len(app_context_messages) == 1
@@ -419,9 +418,7 @@ def test_after_model_no_frontend_tools_is_noop():
             HumanMessage("hi"),
             AIMessage(
                 content="",
-                tool_calls=[
-                    {"id": "1", "name": "backend_only", "args": {}}
-                ],
+                tool_calls=[{"id": "1", "name": "backend_only", "args": {}}],
             ),
         ],
         "copilotkit": {"actions": []},

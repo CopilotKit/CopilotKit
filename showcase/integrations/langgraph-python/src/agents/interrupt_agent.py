@@ -94,6 +94,8 @@ def schedule_meeting(topic: str, attendee: Optional[str] = None) -> str:
             return f"Meeting scheduled for {chosen_label}: {topic}"
 
     return f"User did not pick a time. Meeting NOT scheduled: {topic}"
+
+
 # @endregion[backend-interrupt-tool]
 
 

@@ -141,9 +141,9 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     data = args.get("data", {})
 
     if not has_root_component(components):
-        return json.dumps({
-            "error": "LLM produced no valid root component for the A2UI surface."
-        })
+        return json.dumps(
+            {"error": "LLM produced no valid root component for the A2UI surface."}
+        )
 
     ops = [
         a2ui.create_surface(surface_id, catalog_id=catalog_id),

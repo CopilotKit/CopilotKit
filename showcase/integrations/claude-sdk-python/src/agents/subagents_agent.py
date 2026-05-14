@@ -169,13 +169,15 @@ async def _invoke_sub_agent(
     if not text:
         raise RuntimeError("sub-agent returned empty response")
     return text
+
+
 # @endregion[subagents-invocation]
 # @endregion[subagent-setup]
 
 
 def _convert_messages(input_data: RunAgentInput) -> list[dict[str, Any]]:
     messages: list[dict[str, Any]] = []
-    for msg in (input_data.messages or []):
+    for msg in input_data.messages or []:
         role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
         if role not in ("user", "assistant"):
             continue
@@ -214,9 +216,7 @@ async def run_subagents_agent(
     client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
 
     state: dict[str, Any] = {
-        "delegations": list(
-            (input_data.state or {}).get("delegations") or []
-        )
+        "delegations": list((input_data.state or {}).get("delegations") or [])
         if isinstance(input_data.state, dict)
         else []
     }
@@ -226,9 +226,7 @@ async def run_subagents_agent(
     run_id = input_data.run_id or "run-1"
 
     yield encoder.encode(
-        RunStartedEvent(
-            type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id
-        )
+        RunStartedEvent(type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id)
     )
     yield encoder.encode(
         StateSnapshotEvent(type=EventType.STATE_SNAPSHOT, snapshot=state)
@@ -297,7 +295,10 @@ async def run_subagents_agent(
                             )
                         )
 
-                elif etype in ("RawContentBlockStopEvent", "ParsedContentBlockStopEvent"):
+                elif etype in (
+                    "RawContentBlockStopEvent",
+                    "ParsedContentBlockStopEvent",
+                ):
                     if current_tool_id and current_tool_name:
                         yield encoder.encode(
                             ToolCallEndEvent(

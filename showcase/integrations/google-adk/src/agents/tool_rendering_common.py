@@ -28,12 +28,12 @@ def get_weather(tool_context: ToolContext, location: str) -> dict:
         "wind_speed": 10,
         "conditions": "Sunny",
     }
+
+
 # @endregion[weather-tool-backend]
 
 
-def search_flights(
-    tool_context: ToolContext, origin: str, destination: str
-) -> dict:
+def search_flights(tool_context: ToolContext, origin: str, destination: str) -> dict:
     """Search mock flights from an origin airport to a destination airport."""
     return {
         "origin": origin,
@@ -101,9 +101,7 @@ def roll_d20(tool_context: ToolContext, value: int = 0) -> dict:
     the result. When called without `value` (or with 0), the tool
     returns a random natural d20 roll.
     """
-    rolled = (
-        value if isinstance(value, int) and 1 <= value <= 20 else randint(1, 20)
-    )
+    rolled = value if isinstance(value, int) and 1 <= value <= 20 else randint(1, 20)
     return {"sides": 20, "value": rolled, "result": rolled}
 
 

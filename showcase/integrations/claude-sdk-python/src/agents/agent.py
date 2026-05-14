@@ -50,6 +50,7 @@ class HealthMiddleware(BaseHTTPMiddleware):
             return JSONResponse({"status": "ok"})
         return await call_next(request)
 
+
 load_dotenv()
 
 # Import shared tool implementations (via tools symlink -> ../../shared/python/tools)
@@ -122,14 +123,28 @@ TOOLS: list[dict[str, Any]] = [
                             "title": {"type": "string"},
                             "stage": {
                                 "type": "string",
-                                "enum": ["prospect", "qualified", "proposal", "negotiation", "closed-won", "closed-lost"],
+                                "enum": [
+                                    "prospect",
+                                    "qualified",
+                                    "proposal",
+                                    "negotiation",
+                                    "closed-won",
+                                    "closed-lost",
+                                ],
                             },
                             "value": {"type": "number"},
                             "dueDate": {"type": "string"},
                             "assignee": {"type": "string"},
                             "completed": {"type": "boolean"},
                         },
-                        "required": ["title", "stage", "value", "dueDate", "assignee", "completed"],
+                        "required": [
+                            "title",
+                            "stage",
+                            "value",
+                            "dueDate",
+                            "assignee",
+                            "completed",
+                        ],
                     },
                     "description": "The complete list of sales todos.",
                 },
@@ -296,11 +311,17 @@ SYSTEM_PROMPT = dedent("""
 # AG-UI runner
 # ===========
 
+
 class AgentState(BaseModel):
     todos: list[dict] = []
 
 
-def _execute_tool(name: str, tool_input: dict[str, Any], state: AgentState, conversation_messages: list[dict[str, Any]] | None = None) -> tuple[str, AgentState | None]:
+def _execute_tool(
+    name: str,
+    tool_input: dict[str, Any],
+    state: AgentState,
+    conversation_messages: list[dict[str, Any]] | None = None,
+) -> tuple[str, AgentState | None]:
     """Execute backend tools and return (result_text, new_state_or_None)."""
     if name == "get_weather":
         return json.dumps(get_weather_impl(tool_input["location"])), None
@@ -314,7 +335,9 @@ def _execute_tool(name: str, tool_input: dict[str, Any], state: AgentState, conv
         return json.dumps({"status": "updated", "count": len(result)}), state
 
     if name == "get_sales_todos":
-        return json.dumps(get_sales_todos_impl(state.todos if state.todos else None)), None
+        return json.dumps(
+            get_sales_todos_impl(state.todos if state.todos else None)
+        ), None
 
     if name == "schedule_meeting":
         return json.dumps(schedule_meeting_impl(tool_input["reason"])), None
@@ -337,6 +360,7 @@ def _execute_tool(name: str, tool_input: dict[str, Any], state: AgentState, conv
     if name == "generate_a2ui":
         context = tool_input.get("context", "")
         import openai
+
         client = openai.OpenAI()
         llm_messages: list[dict[str, Any]] = [
             {"role": "system", "content": context or "Generate a useful dashboard UI."},
@@ -345,7 +369,12 @@ def _execute_tool(name: str, tool_input: dict[str, Any], state: AgentState, conv
         if conversation_messages:
             llm_messages.extend(conversation_messages)
         else:
-            llm_messages.append({"role": "user", "content": "Generate a dynamic A2UI dashboard based on the conversation."})
+            llm_messages.append(
+                {
+                    "role": "user",
+                    "content": "Generate a dynamic A2UI dashboard based on the conversation.",
+                }
+            )
         response = client.chat.completions.create(
             model="gpt-4.1",
             messages=llm_messages,
@@ -372,7 +401,7 @@ def _build_frontend_tools(input_data: RunAgentInput) -> list[dict[str, Any]]:
     tool-call events and routes them to the frontend for resolution.
     """
     out: list[dict[str, Any]] = []
-    for t in (input_data.tools or []):
+    for t in input_data.tools or []:
         name = getattr(t, "name", None) or (
             t.get("name") if isinstance(t, dict) else None
         )
@@ -384,11 +413,13 @@ def _build_frontend_tools(input_data: RunAgentInput) -> list[dict[str, Any]]:
         )
         if not name:
             continue
-        out.append({
-            "name": name,
-            "description": description or "",
-            "input_schema": parameters or {"type": "object", "properties": {}},
-        })
+        out.append(
+            {
+                "name": name,
+                "description": description or "",
+                "input_schema": parameters or {"type": "object", "properties": {}},
+            }
+        )
     return out
 
 
@@ -439,7 +470,7 @@ async def run_agent(
     # AG-UI "tool" messages into that shape so the LLM sees the resolved
     # result and aimock's ``hasToolResult`` matcher fires correctly.
     messages: list[dict[str, Any]] = []
-    for msg in (input_data.messages or []):
+    for msg in input_data.messages or []:
         role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
 
         # Handle tool result messages from AG-UI (resolved frontend tools).
@@ -469,14 +500,18 @@ async def run_agent(
                 # tool_use to precede this tool_result message. The runtime
                 # ensures message ordering, so we just need to emit the
                 # tool_result in the right shape.
-                messages.append({
-                    "role": "user",
-                    "content": [{
-                        "type": "tool_result",
-                        "tool_use_id": tool_call_id,
-                        "content": result_text,
-                    }],
-                })
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": tool_call_id,
+                                "content": result_text,
+                            }
+                        ],
+                    }
+                )
             continue
 
         if role not in ("user", "assistant"):
@@ -484,7 +519,11 @@ async def run_agent(
 
         raw_content = getattr(msg, "content", None)
 
-        if preprocess_user_parts is not None and role == "user" and isinstance(raw_content, list):
+        if (
+            preprocess_user_parts is not None
+            and role == "user"
+            and isinstance(raw_content, list)
+        ):
             converted_parts: list[Any] = []
             for part in raw_content:
                 # AG-UI emits pydantic models; normalise to a plain dict
@@ -525,24 +564,40 @@ async def run_agent(
                     content_blocks.append({"type": "text", "text": text_content})
                 for tc in msg_tool_calls:
                     # AG-UI ToolCall: {id, function: {name, arguments}}
-                    tc_id = getattr(tc, "id", None) or (tc.get("id") if isinstance(tc, dict) else None)
-                    func = getattr(tc, "function", None) or (tc.get("function") if isinstance(tc, dict) else None)
+                    tc_id = getattr(tc, "id", None) or (
+                        tc.get("id") if isinstance(tc, dict) else None
+                    )
+                    func = getattr(tc, "function", None) or (
+                        tc.get("function") if isinstance(tc, dict) else None
+                    )
                     if func:
-                        tc_name = getattr(func, "name", None) or (func.get("name") if isinstance(func, dict) else "unknown")
-                        tc_args_str = getattr(func, "arguments", None) or (func.get("arguments", "{}") if isinstance(func, dict) else "{}")
+                        tc_name = getattr(func, "name", None) or (
+                            func.get("name") if isinstance(func, dict) else "unknown"
+                        )
+                        tc_args_str = getattr(func, "arguments", None) or (
+                            func.get("arguments", "{}")
+                            if isinstance(func, dict)
+                            else "{}"
+                        )
                     else:
                         tc_name = "unknown"
                         tc_args_str = "{}"
                     try:
-                        tc_args = json.loads(tc_args_str) if isinstance(tc_args_str, str) else tc_args_str
+                        tc_args = (
+                            json.loads(tc_args_str)
+                            if isinstance(tc_args_str, str)
+                            else tc_args_str
+                        )
                     except json.JSONDecodeError:
                         tc_args = {}
-                    content_blocks.append({
-                        "type": "tool_use",
-                        "id": tc_id or "unknown",
-                        "name": tc_name,
-                        "input": tc_args,
-                    })
+                    content_blocks.append(
+                        {
+                            "type": "tool_use",
+                            "id": tc_id or "unknown",
+                            "name": tc_name,
+                            "input": tc_args,
+                        }
+                    )
                 messages.append({"role": "assistant", "content": content_blocks})
                 continue
             elif text_content:
@@ -576,7 +631,9 @@ async def run_agent(
     thread_id = input_data.thread_id or "default"
     run_id = input_data.run_id or "run-1"
 
-    yield encoder.encode(RunStartedEvent(type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id))
+    yield encoder.encode(
+        RunStartedEvent(type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id)
+    )
 
     # Agentic loop -- keep calling Claude until no more tool calls
     while True:
@@ -584,11 +641,13 @@ async def run_agent(
         tool_calls: list[dict[str, Any]] = []
         msg_id = f"msg-{run_id}-{len(messages)}"
 
-        yield encoder.encode(TextMessageStartEvent(
-            type=EventType.TEXT_MESSAGE_START,
-            message_id=msg_id,
-            role="assistant",
-        ))
+        yield encoder.encode(
+            TextMessageStartEvent(
+                type=EventType.TEXT_MESSAGE_START,
+                message_id=msg_id,
+                role="assistant",
+            )
+        )
 
         # Build the combined tools list: backend TOOLS + any frontend-
         # defined tools forwarded by the CopilotKit runtime in
@@ -634,45 +693,62 @@ async def run_agent(
                             current_tool_id = block.id
                             current_tool_name = block.name
                             current_tool_args = ""
-                            yield encoder.encode(ToolCallStartEvent(
-                                type=EventType.TOOL_CALL_START,
-                                tool_call_id=current_tool_id,
-                                tool_call_name=current_tool_name,
-                                parent_message_id=msg_id,
-                            ))
+                            yield encoder.encode(
+                                ToolCallStartEvent(
+                                    type=EventType.TOOL_CALL_START,
+                                    tool_call_id=current_tool_id,
+                                    tool_call_name=current_tool_name,
+                                    parent_message_id=msg_id,
+                                )
+                            )
 
                     elif etype == "RawContentBlockDeltaEvent":
                         delta = event.delta  # type: ignore[attr-defined]
                         if delta.type == "text_delta":
                             response_text += delta.text
-                            yield encoder.encode(TextMessageContentEvent(
-                                type=EventType.TEXT_MESSAGE_CONTENT,
-                                message_id=msg_id,
-                                delta=delta.text,
-                            ))
+                            yield encoder.encode(
+                                TextMessageContentEvent(
+                                    type=EventType.TEXT_MESSAGE_CONTENT,
+                                    message_id=msg_id,
+                                    delta=delta.text,
+                                )
+                            )
                         elif delta.type == "input_json_delta":
                             current_tool_args += delta.partial_json
-                            yield encoder.encode(ToolCallArgsEvent(
-                                type=EventType.TOOL_CALL_ARGS,
-                                tool_call_id=current_tool_id or "",
-                                delta=delta.partial_json,
-                            ))
+                            yield encoder.encode(
+                                ToolCallArgsEvent(
+                                    type=EventType.TOOL_CALL_ARGS,
+                                    tool_call_id=current_tool_id or "",
+                                    delta=delta.partial_json,
+                                )
+                            )
 
-                    elif etype in ("RawContentBlockStopEvent", "ParsedContentBlockStopEvent"):
+                    elif etype in (
+                        "RawContentBlockStopEvent",
+                        "ParsedContentBlockStopEvent",
+                    ):
                         if current_tool_id and current_tool_name:
-                            yield encoder.encode(ToolCallEndEvent(
-                                type=EventType.TOOL_CALL_END,
-                                tool_call_id=current_tool_id,
-                            ))
+                            yield encoder.encode(
+                                ToolCallEndEvent(
+                                    type=EventType.TOOL_CALL_END,
+                                    tool_call_id=current_tool_id,
+                                )
+                            )
                             try:
-                                parsed_args = json.loads(current_tool_args) if current_tool_args else {}
+                                parsed_args = (
+                                    json.loads(current_tool_args)
+                                    if current_tool_args
+                                    else {}
+                                )
                             except json.JSONDecodeError:
                                 parsed_args = {}
-                            tool_calls.append({
-                                "id": current_tool_id,
-                                "name": current_tool_name,
-                                "input": parsed_args,
-                            })
+                            tool_calls.append(
+                                {
+                                    "id": current_tool_id,
+                                    "name": current_tool_name,
+                                    "input": parsed_args,
+                                }
+                            )
                             current_tool_id = None
                             current_tool_name = None
                             current_tool_args = ""
@@ -682,16 +758,20 @@ async def run_agent(
             # silent broken SSE stream. Full traceback is logged
             # server-side by FastAPI's exception handler.
             err_text = f"Agent error: {traceback.format_exc()}"
-            yield encoder.encode(TextMessageContentEvent(
-                type=EventType.TEXT_MESSAGE_CONTENT,
-                message_id=msg_id,
-                delta=err_text,
-            ))
+            yield encoder.encode(
+                TextMessageContentEvent(
+                    type=EventType.TEXT_MESSAGE_CONTENT,
+                    message_id=msg_id,
+                    delta=err_text,
+                )
+            )
 
-        yield encoder.encode(TextMessageEndEvent(
-            type=EventType.TEXT_MESSAGE_END,
-            message_id=msg_id,
-        ))
+        yield encoder.encode(
+            TextMessageEndEvent(
+                type=EventType.TEXT_MESSAGE_END,
+                message_id=msg_id,
+            )
+        )
 
         # No tool calls -- we're done
         if not tool_calls:
@@ -703,9 +783,7 @@ async def run_agent(
         # frontend_tool_names) is a frontend tool even if the backend also
         # defines it — the frontend registration takes precedence because
         # hooks like useHumanInTheLoop rely on intercepting the tool call.
-        has_frontend_tool = any(
-            tc["name"] in frontend_tool_names for tc in tool_calls
-        )
+        has_frontend_tool = any(tc["name"] in frontend_tool_names for tc in tool_calls)
 
         if has_frontend_tool:
             # At least one tool call targets a frontend tool. Break the
@@ -726,38 +804,52 @@ async def run_agent(
         if response_text:
             assistant_content.append({"type": "text", "text": response_text})
         for tc in tool_calls:
-            assistant_content.append({
-                "type": "tool_use",
-                "id": tc["id"],
-                "name": tc["name"],
-                "input": tc["input"],
-            })
+            assistant_content.append(
+                {
+                    "type": "tool_use",
+                    "id": tc["id"],
+                    "name": tc["name"],
+                    "input": tc["input"],
+                }
+            )
         messages.append({"role": "assistant", "content": assistant_content})
 
         # Execute tools and build tool-result turn
         tool_results: list[dict[str, Any]] = []
         for tc in tool_calls:
-            result_text, new_state = _execute_tool(tc["name"], tc["input"], state, conversation_messages=messages)
+            result_text, new_state = _execute_tool(
+                tc["name"], tc["input"], state, conversation_messages=messages
+            )
             if new_state is not None:
                 state = new_state
-                yield encoder.encode(StateSnapshotEvent(
-                    type=EventType.STATE_SNAPSHOT,
-                    snapshot=state.model_dump(),
-                ))
-            yield encoder.encode(ToolCallResultEvent(
-                type=EventType.TOOL_CALL_RESULT,
-                tool_call_id=tc["id"],
-                message_id=f"{msg_id}-tool-result-{tc['id']}",
-                content=result_text,
-            ))
-            tool_results.append({
-                "type": "tool_result",
-                "tool_use_id": tc["id"],
-                "content": result_text,
-            })
+                yield encoder.encode(
+                    StateSnapshotEvent(
+                        type=EventType.STATE_SNAPSHOT,
+                        snapshot=state.model_dump(),
+                    )
+                )
+            yield encoder.encode(
+                ToolCallResultEvent(
+                    type=EventType.TOOL_CALL_RESULT,
+                    tool_call_id=tc["id"],
+                    message_id=f"{msg_id}-tool-result-{tc['id']}",
+                    content=result_text,
+                )
+            )
+            tool_results.append(
+                {
+                    "type": "tool_result",
+                    "tool_use_id": tc["id"],
+                    "content": result_text,
+                }
+            )
         messages.append({"role": "user", "content": tool_results})
 
-    yield encoder.encode(RunFinishedEvent(type=EventType.RUN_FINISHED, thread_id=thread_id, run_id=run_id))
+    yield encoder.encode(
+        RunFinishedEvent(
+            type=EventType.RUN_FINISHED, thread_id=thread_id, run_id=run_id
+        )
+    )
 
 
 def create_app() -> FastAPI:

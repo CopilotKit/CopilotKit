@@ -129,8 +129,7 @@ def _convert_agui_messages(messages: List[AGUIMessage]) -> List[Message]:
             tool_calls = None
             if msg.tool_calls:
                 filtered = [
-                    tc for tc in msg.tool_calls
-                    if tc.id in tool_ids_with_results
+                    tc for tc in msg.tool_calls if tc.id in tool_ids_with_results
                 ]
                 if filtered:
                     tool_calls = [tc.model_dump(exclude_none=True) for tc in filtered]
@@ -177,7 +176,9 @@ async def _run_main_agent_hitl_aware(
             # Second leg: convert full conversation so the LLM sees the
             # tool result and can generate a follow-up response.
             agent_input = _convert_agui_messages(messages)
-            log_debug("HITL-aware handler: forwarding full messages (tool results present)")
+            log_debug(
+                "HITL-aware handler: forwarding full messages (tool results present)"
+            )
         else:
             # First leg: extract only the user message (stock behaviour).
             agent_input = extract_agui_user_input(messages)
@@ -219,9 +220,7 @@ async def _run_main_agent_hitl_aware(
         yield RunErrorEvent(type=EventType.RUN_ERROR, message=str(exc))
 
 
-def _attach_hitl_aware_route(
-    app: FastAPI, agent: Agent, prefix: str
-) -> None:
+def _attach_hitl_aware_route(app: FastAPI, agent: Agent, prefix: str) -> None:
     """Mount a HITL-aware AGUI POST endpoint at `<prefix>/agui`."""
     encoder = EventEncoder()
     route = f"{prefix.rstrip('/')}/agui"
@@ -330,9 +329,7 @@ async def _run_agent_with_state_snapshot(
         if not isinstance(final_state, dict):
             final_state = session_state if isinstance(session_state, dict) else {}
 
-        yield StateSnapshotEvent(
-            type=EventType.STATE_SNAPSHOT, snapshot=final_state
-        )
+        yield StateSnapshotEvent(type=EventType.STATE_SNAPSHOT, snapshot=final_state)
         yield RunFinishedEvent(
             type=EventType.RUN_FINISHED, thread_id=thread_id, run_id=run_id
         )
@@ -343,9 +340,7 @@ async def _run_agent_with_state_snapshot(
         yield RunErrorEvent(type=EventType.RUN_ERROR, message=str(exc))
 
 
-def _attach_state_aware_route(
-    app: FastAPI, agent: Agent, prefix: str
-) -> None:
+def _attach_state_aware_route(app: FastAPI, agent: Agent, prefix: str) -> None:
     """Mount a single state-aware AGUI POST endpoint at `<prefix>/agui`."""
     encoder = EventEncoder()
     route = f"{prefix.rstrip('/')}/agui"
@@ -617,9 +612,7 @@ async def _run_reasoning_agent(
         yield RunErrorEvent(type=EventType.RUN_ERROR, message=str(exc))
 
 
-def _attach_reasoning_route(
-    app: FastAPI, agent: Agent, prefix: str
-) -> None:
+def _attach_reasoning_route(app: FastAPI, agent: Agent, prefix: str) -> None:
     """Mount a reasoning-aware AGUI POST endpoint at `<prefix>/agui`."""
     encoder = EventEncoder()
     route = f"{prefix.rstrip('/')}/agui"

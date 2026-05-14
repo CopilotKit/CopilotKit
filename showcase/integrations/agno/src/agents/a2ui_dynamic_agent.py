@@ -96,9 +96,7 @@ def generate_a2ui(run_context: RunContext, context: str) -> str:
     catalog_context = "\n\n".join(context_text_parts)
 
     system_prompt = (
-        catalog_context
-        if catalog_context
-        else "Generate a useful dashboard UI."
+        catalog_context if catalog_context else "Generate a useful dashboard UI."
     )
     if context and context.strip():
         system_prompt = f"{system_prompt}\n\nConversation context:\n{context}"
@@ -111,8 +109,7 @@ def generate_a2ui(run_context: RunContext, context: str) -> str:
             {
                 "role": "user",
                 "content": (
-                    "Generate a dynamic A2UI dashboard based on the "
-                    "conversation."
+                    "Generate a dynamic A2UI dashboard based on the conversation."
                 ),
             },
         ],

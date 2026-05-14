@@ -65,7 +65,9 @@ def _make_response(
         parts.append(
             _make_part(
                 text="hello" if has_text else None,
-                function_call=SimpleNamespace(name="get_weather") if has_function_call else None,
+                function_call=SimpleNamespace(name="get_weather")
+                if has_function_call
+                else None,
             )
         )
     content = SimpleNamespace(role=role, parts=parts) if with_parts else None
@@ -84,7 +86,9 @@ def _make_response(
 
 def test_flips_end_invocation_on_final_text_only_model_response():
     ctx = FakeCallbackContext()
-    response = _make_response(role="model", has_text=True, has_function_call=False, partial=False)
+    response = _make_response(
+        role="model", has_text=True, has_function_call=False, partial=False
+    )
 
     result = simple_after_model_modifier(ctx, response)
 
@@ -101,12 +105,12 @@ def test_flips_end_invocation_on_final_text_only_model_response():
     ("partial", "has_text", "has_function_call", "expected_end"),
     [
         # (partial=False already covered above for the True case)
-        (False, True, True, False),   # text + function_call => must NOT terminate
+        (False, True, True, False),  # text + function_call => must NOT terminate
         (False, False, True, False),  # function_call only => tool call pending
-        (False, False, False, False), # empty parts => nothing to terminate on
-        (True, True, False, False),   # partial text => wait for turn_complete
-        (True, True, True, False),    # partial text + fc => wait
-        (True, False, True, False),   # partial fc => wait
+        (False, False, False, False),  # empty parts => nothing to terminate on
+        (True, True, False, False),  # partial text => wait for turn_complete
+        (True, True, True, False),  # partial text + fc => wait
+        (True, False, True, False),  # partial fc => wait
         (True, False, False, False),  # partial empty => wait
     ],
 )
@@ -132,7 +136,9 @@ def test_truth_table_model_role(partial, has_text, has_function_call, expected_e
 @pytest.mark.parametrize("role", ["user", "tool", ""])
 def test_non_model_role_never_terminates(role):
     ctx = FakeCallbackContext()
-    response = _make_response(role=role, has_text=True, has_function_call=False, partial=False)
+    response = _make_response(
+        role=role, has_text=True, has_function_call=False, partial=False
+    )
 
     simple_after_model_modifier(ctx, response)
 
@@ -169,7 +175,9 @@ def test_no_content_no_parts_is_safe():
 
 def test_error_message_only_is_safe():
     ctx = FakeCallbackContext()
-    response = SimpleNamespace(content=None, partial=False, error_message="something broke")
+    response = SimpleNamespace(
+        content=None, partial=False, error_message="something broke"
+    )
 
     result = simple_after_model_modifier(ctx, response)
 
@@ -184,7 +192,9 @@ def test_error_message_only_is_safe():
 
 def test_missing_invocation_context_does_not_crash():
     ctx = SimpleNamespace(agent_name="SalesPipelineAgent")  # no _invocation_context
-    response = _make_response(role="model", has_text=True, has_function_call=False, partial=False)
+    response = _make_response(
+        role="model", has_text=True, has_function_call=False, partial=False
+    )
 
     # The callback must handle the missing attribute gracefully (see the
     # getattr(..., None) guard) and not raise.

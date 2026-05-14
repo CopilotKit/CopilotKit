@@ -33,7 +33,7 @@ _INSTRUCTION = (
     "sequence:\n"
     "1. Plan exactly 3 concrete steps and call `set_steps` ONCE with all "
     'three steps at status="pending". Each step is an object with `id` '
-    "(short unique string like \"s1\", \"s2\", \"s3\"), `title` (concise "
+    '(short unique string like "s1", "s2", "s3"), `title` (concise '
     "description of the step), and `status`.\n"
     '2. Step 1: call `set_steps` with step 1 at status="in_progress", '
     'then call `set_steps` again with step 1 at status="completed".\n'

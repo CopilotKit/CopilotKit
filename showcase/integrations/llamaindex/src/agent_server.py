@@ -80,17 +80,13 @@ app.include_router(byoc_hashbrown_router, prefix="/byoc-hashbrown")
 app.include_router(agent_config_router, prefix="/agent-config")
 app.include_router(multimodal_router, prefix="/multimodal")
 app.include_router(open_gen_ui_router, prefix="/open-gen-ui")
-app.include_router(
-    open_gen_ui_advanced_router, prefix="/open-gen-ui-advanced"
-)
+app.include_router(open_gen_ui_advanced_router, prefix="/open-gen-ui-advanced")
 app.include_router(mcp_apps_router, prefix="/mcp-apps")
 app.include_router(gen_ui_tool_based_router, prefix="/gen-ui-tool-based")
 app.include_router(beautiful_chat_router, prefix="/beautiful-chat")
 app.include_router(hitl_in_chat_router, prefix="/hitl-in-chat")
 app.include_router(hitl_in_app_router, prefix="/hitl-in-app")
-app.include_router(
-    shared_state_read_write_router, prefix="/shared-state-read-write"
-)
+app.include_router(shared_state_read_write_router, prefix="/shared-state-read-write")
 app.include_router(subagents_router, prefix="/subagents")
 app.include_router(interrupt_router, prefix="/interrupt")
 app.include_router(voice_router, prefix="/voice")

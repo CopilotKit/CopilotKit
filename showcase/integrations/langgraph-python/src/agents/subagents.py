@@ -197,9 +197,7 @@ def research_agent(task: str, runtime: ToolRuntime) -> Command:
     Returns a bulleted list of key facts.
     """
     result = _invoke_sub_agent(_research_agent, task)
-    return _delegation_update(
-        "research_agent", task, result, runtime.tool_call_id
-    )
+    return _delegation_update("research_agent", task, result, runtime.tool_call_id)
 
 
 @tool
@@ -210,9 +208,7 @@ def writing_agent(task: str, runtime: ToolRuntime) -> Command:
     relevant facts from prior research inside `task`.
     """
     result = _invoke_sub_agent(_writing_agent, task)
-    return _delegation_update(
-        "writing_agent", task, result, runtime.tool_call_id
-    )
+    return _delegation_update("writing_agent", task, result, runtime.tool_call_id)
 
 
 @tool
@@ -255,9 +251,9 @@ def critique_agent(task: str, runtime: ToolRuntime) -> Command:
             }
         )
     result = _invoke_sub_agent(_critique_agent, task)
-    return _delegation_update(
-        "critique_agent", task, result, runtime.tool_call_id
-    )
+    return _delegation_update("critique_agent", task, result, runtime.tool_call_id)
+
+
 # @endregion[supervisor-delegation-tools]
 
 

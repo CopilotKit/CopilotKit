@@ -31,8 +31,8 @@ class StackAgentState(CopilotKitState):
     tool_logs: List[Dict[str, Any]]
     analysis: Dict[str, Any]
     show_cards: bool
-    context : Dict[str, Any]
-    last_user_content : str
+    context: Dict[str, Any]
+    last_user_content: str
 
 
 # -------------------- Structured Output Schema --------------------
@@ -93,7 +93,6 @@ class StructuredStackAnalysis(BaseModel):
     key_root_files: List[KeyRootFileSpec] = Field(default_factory=list)
     how_to_run: Optional[HowToRunSpec] = None
     risks_notes: List[RiskNoteSpec] = Field(default_factory=list)
-
 
 
 # Expose a tool to return the structured stack analysis to the caller
@@ -282,19 +281,18 @@ async def gather_context_node(state: StackAgentState, config: RunnableConfig):
     # Parse the last user message for a GitHub URL; fall back when absent
     last_user_content = state["messages"][-1].content if state["messages"] else ""
     parsed = _parse_github_url(last_user_content)
-    
+
     if not parsed:
         return Command(
-            goto= "analyze",
-            update = {
+            goto="analyze",
+            update={
                 "analysis": state["analysis"],
                 "context": {},
                 "tool_logs": state["tool_logs"],
                 "show_cards": False,
-                "last_user_content": last_user_content
-            }
-        )        
- 
+                "last_user_content": last_user_content,
+            },
+        )
 
     # 2. Create a log entry for URL extraction
     state["tool_logs"] = state.get("tool_logs", [])
@@ -306,7 +304,6 @@ async def gather_context_node(state: StackAgentState, config: RunnableConfig):
         }
     )
     await copilotkit_emit_state(config, state)
-
 
     owner, repo = parsed
     state["tool_logs"][-1]["status"] = "completed"
@@ -345,30 +342,30 @@ async def gather_context_node(state: StackAgentState, config: RunnableConfig):
     await copilotkit_emit_state(config, state)
 
     return Command(
-        goto= "analyze",
-        update = {
+        goto="analyze",
+        update={
             "analysis": state["analysis"],
             "context": context,
             "tool_logs": state["tool_logs"],
             "show_cards": False,
-            "last_user_content": last_user_content
-        }
+            "last_user_content": last_user_content,
+        },
     )
 
 
 async def analyze_with_gemini_node(state: StackAgentState, config: RunnableConfig):
     # 6. Short-circuit when no context exists and request a valid URL
-    
+
     context = state.get("context", {})
     if not context:
-        state["messages"].append(AIMessage(content= "Please provide a valid GitHub URL"))
+        state["messages"].append(AIMessage(content="Please provide a valid GitHub URL"))
         return Command(
-            goto= "end",
-            update = {
+            goto="end",
+            update={
                 "messages": state["messages"],
                 "show_cards": state["show_cards"],
-                "analysis": state["analysis"]
-            }
+                "analysis": state["analysis"],
+            },
         )
 
     # 7. Begin analysis and emit progress
@@ -413,8 +410,8 @@ async def analyze_with_gemini_node(state: StackAgentState, config: RunnableConfi
                 for call in tool_calls:
                     if call.get("name") == "return_stack_analysis":
                         args = call.get("args", {}) or {}
-                        state['analysis'] = json.dumps(args)
-                        state['show_cards'] = True
+                        state["analysis"] = json.dumps(args)
+                        state["show_cards"] = True
                         await copilotkit_emit_state(config, state)
                         try:
                             structured_payload = StructuredStackAnalysis(
@@ -448,10 +445,20 @@ async def analyze_with_gemini_node(state: StackAgentState, config: RunnableConfi
     await copilotkit_emit_state(config, state)
     messages[-1].content = state["last_user_content"]
     if tool_calls and tool_msg:
-        messages.append(AIMessage(tool_calls=tool_calls, id=tool_msg.id, type="ai", content=''))
-        messages.append(ToolMessage(content="The GitHub Repository has been analyzed", tool_call_id=tool_calls[0]["id"], type="tool"))
-    messages[0].content = "Generate a summary of the GitHub Repository. It should be in a concise and strictly textual"
-    
+        messages.append(
+            AIMessage(tool_calls=tool_calls, id=tool_msg.id, type="ai", content="")
+        )
+        messages.append(
+            ToolMessage(
+                content="The GitHub Repository has been analyzed",
+                tool_call_id=tool_calls[0]["id"],
+                type="tool",
+            )
+        )
+    messages[
+        0
+    ].content = "Generate a summary of the GitHub Repository. It should be in a concise and strictly textual"
+
     # 13. Generate a user-facing summary referencing the tool call outcome
     client = ChatGoogleGenerativeAI(
         model="gemini-2.5-pro",
@@ -459,7 +466,13 @@ async def analyze_with_gemini_node(state: StackAgentState, config: RunnableConfi
         max_retries=2,
         google_api_key=os.getenv("GOOGLE_API_KEY"),
     )
-    state["tool_logs"].append({"id": str(uuid.uuid4()), "message": "Generating Summary", "status": "processing"})
+    state["tool_logs"].append(
+        {
+            "id": str(uuid.uuid4()),
+            "message": "Generating Summary",
+            "status": "processing",
+        }
+    )
     await copilotkit_emit_state(config, state)
     model_response = await client.ainvoke(messages, config)
     state["tool_logs"][-1]["status"] = "completed"
@@ -467,12 +480,12 @@ async def analyze_with_gemini_node(state: StackAgentState, config: RunnableConfi
     state["messages"].append(AIMessage(content=model_response.content))
     # 14. Return a message containing the analysis
     return Command(
-        goto= "end",
-        update = {
+        goto="end",
+        update={
             "messages": state["messages"],
             "show_cards": True,
-            "analysis": state["analysis"]
-        }
+            "analysis": state["analysis"],
+        },
     )
 
 
@@ -482,12 +495,12 @@ async def end_node(state: StackAgentState, config: RunnableConfig):
     state["tool_logs"] = []
     await copilotkit_emit_state(config or RunnableConfig(recursion_limit=25), state)
     return Command(
-        goto= END,
-        update = {
+        goto=END,
+        update={
             "messages": state["messages"],
             "show_cards": state["show_cards"],
-            "analysis": state["analysis"]
-        }
+            "analysis": state["analysis"],
+        },
     )
 
 

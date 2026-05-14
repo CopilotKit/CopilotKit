@@ -203,7 +203,11 @@ def generate_a2ui(tool_context: ToolContext) -> Union[_A2uiError, dict[str, Any]
         session = getattr(invocation_context, "session", None)
         if session and hasattr(session, "events"):
             for event in session.events:
-                if hasattr(event, "content") and event.content and hasattr(event.content, "parts"):
+                if (
+                    hasattr(event, "content")
+                    and event.content
+                    and hasattr(event.content, "parts")
+                ):
                     role_str = getattr(event.content, "role", "")
                     if role_str in ("user", "model"):
                         text_parts = []
@@ -275,20 +279,18 @@ def generate_a2ui(tool_context: ToolContext) -> Union[_A2uiError, dict[str, Any]
         "You are designing a dynamic A2UI v0.9 surface. Call `render_a2ui` "
         "with a flat component array.\n\n"
         "Hard requirements (failing any of these breaks the renderer — be strict):"
-        "\n- `catalogId` MUST be exactly: \"copilotkit://app-dashboard-catalog\"."
-        "\n- `surfaceId` is a short kebab-case identifier (e.g. \"sales-dashboard\")."
+        '\n- `catalogId` MUST be exactly: "copilotkit://app-dashboard-catalog".'
+        '\n- `surfaceId` is a short kebab-case identifier (e.g. "sales-dashboard").'
         "\n- `components` is a FLAT array. Every entry MUST include both an"
         " `id` (unique string) AND a `component` (string — the catalog"
-        " component name). The root entry MUST have `id: \"root\"` AND a"
+        ' component name). The root entry MUST have `id: "root"` AND a'
         " valid `component` field."
         "\n- Container components reference children by id via their"
         " `children` (array of strings) or `child` (single string) prop."
         "\n- Use only catalog component names listed in the schema below.\n"
     )
     system_instruction = (
-        hard_requirements + "\n\n" + context_text
-        if context_text
-        else hard_requirements
+        hard_requirements + "\n\n" + context_text if context_text else hard_requirements
     )
 
     generate_config = types.GenerateContentConfig(

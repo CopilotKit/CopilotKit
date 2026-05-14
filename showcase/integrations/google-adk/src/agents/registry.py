@@ -143,15 +143,9 @@ AGENT_REGISTRY: dict[str, AgentSpec] = {
     "reasoning-custom": AgentSpec(_thinking_chat),
     "reasoning-default": AgentSpec(_thinking_chat),
     # ----- Tool-rendering variants -----
-    "tool-rendering-default-catchall": AgentSpec(
-        tool_rendering_default_catchall_agent
-    ),
-    "tool-rendering-custom-catchall": AgentSpec(
-        tool_rendering_custom_catchall_agent
-    ),
-    "tool-rendering-reasoning-chain": AgentSpec(
-        tool_rendering_reasoning_chain_agent
-    ),
+    "tool-rendering-default-catchall": AgentSpec(tool_rendering_default_catchall_agent),
+    "tool-rendering-custom-catchall": AgentSpec(tool_rendering_custom_catchall_agent),
+    "tool-rendering-reasoning-chain": AgentSpec(tool_rendering_reasoning_chain_agent),
     # ----- HITL variants -----
     "hitl-in-chat": AgentSpec(hitl_in_chat_book_call_agent),
     "hitl-in-app": AgentSpec(hitl_in_app_agent),

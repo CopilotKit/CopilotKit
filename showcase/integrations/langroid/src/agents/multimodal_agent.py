@@ -231,9 +231,7 @@ def _build_messages(messages: Any, system_prompt: str) -> list[dict[str, Any]]:
         return out
     for msg in messages:
         role = (
-            getattr(msg, "role", None)
-            if not isinstance(msg, dict)
-            else msg.get("role")
+            getattr(msg, "role", None) if not isinstance(msg, dict) else msg.get("role")
         )
         if not isinstance(role, str):
             continue
@@ -274,9 +272,7 @@ async def handle_run(request: Request) -> StreamingResponse:
     try:
         body = await request.json()
     except (json.JSONDecodeError, ValueError) as exc:
-        logger.exception(
-            "multimodal: failed to parse body (error_id=%s)", error_id
-        )
+        logger.exception("multimodal: failed to parse body (error_id=%s)", error_id)
         return JSONResponse(
             {
                 "error": "Invalid JSON body",
@@ -288,9 +284,7 @@ async def handle_run(request: Request) -> StreamingResponse:
     try:
         run_input = RunAgentInput(**body)
     except (pydantic.ValidationError, TypeError, ValueError) as exc:
-        logger.exception(
-            "multimodal: invalid RunAgentInput (error_id=%s)", error_id
-        )
+        logger.exception("multimodal: invalid RunAgentInput (error_id=%s)", error_id)
         return JSONResponse(
             {
                 "error": "Invalid RunAgentInput payload",
@@ -367,9 +361,7 @@ async def handle_run(request: Request) -> StreamingResponse:
             return
 
         yield _sse_line(
-            TextMessageEndEvent(
-                type=EventType.TEXT_MESSAGE_END, message_id=message_id
-            )
+            TextMessageEndEvent(type=EventType.TEXT_MESSAGE_END, message_id=message_id)
         )
         yield _sse_line(
             RunFinishedEvent(

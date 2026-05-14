@@ -15,9 +15,7 @@ from __future__ import annotations
 def sanitize_a2ui_components(raw: list) -> list[dict]:
     """Drop entries that aren't dicts or are missing `id`/`component`."""
     return [
-        c
-        for c in raw
-        if isinstance(c, dict) and c.get("id") and c.get("component")
+        c for c in raw if isinstance(c, dict) and c.get("id") and c.get("component")
     ]
 
 

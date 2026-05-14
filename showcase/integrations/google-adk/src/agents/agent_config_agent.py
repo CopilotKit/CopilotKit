@@ -98,9 +98,7 @@ def _format_config(config: dict | None) -> str | None:
         )
         return None
     tone = _coerce(config.get("tone"), _TONE_OPTIONS, _DEFAULT_TONE)
-    expertise = _coerce(
-        config.get("expertise"), _EXPERTISE_OPTIONS, _DEFAULT_EXPERTISE
-    )
+    expertise = _coerce(config.get("expertise"), _EXPERTISE_OPTIONS, _DEFAULT_EXPERTISE)
     response_length = _coerce(
         config.get("responseLength"),
         _RESPONSE_LENGTH_OPTIONS,

@@ -18,6 +18,7 @@ from __future__ import annotations
 from google.adk.agents import LlmAgent
 
 from agents.shared_chat import get_model, stop_on_terminal_text
+
 # `agents.main` defines `generate_a2ui` — reuse it here instead of cloning.
 from agents.main import generate_a2ui
 

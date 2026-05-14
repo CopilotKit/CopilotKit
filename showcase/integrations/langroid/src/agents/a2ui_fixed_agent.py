@@ -203,7 +203,9 @@ def _agui_messages_to_openai(messages: Any) -> list[dict[str, Any]]:
                         tc_id = tc.get("id")
                         fn = tc.get("function", {})
                         fn_name = fn.get("name", "") if isinstance(fn, dict) else ""
-                        fn_args = fn.get("arguments", "") if isinstance(fn, dict) else ""
+                        fn_args = (
+                            fn.get("arguments", "") if isinstance(fn, dict) else ""
+                        )
                     else:
                         tc_id = getattr(tc, "id", None)
                         fn = getattr(tc, "function", None)
@@ -275,9 +277,7 @@ async def handle_run(request: Request) -> StreamingResponse:
     try:
         run_input = RunAgentInput(**body)
     except (pydantic.ValidationError, TypeError, ValueError) as exc:
-        logger.exception(
-            "a2ui_fixed: invalid RunAgentInput (error_id=%s)", error_id
-        )
+        logger.exception("a2ui_fixed: invalid RunAgentInput (error_id=%s)", error_id)
         return JSONResponse(
             {
                 "error": "Invalid RunAgentInput payload",

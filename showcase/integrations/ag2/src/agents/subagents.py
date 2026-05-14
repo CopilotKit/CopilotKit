@@ -274,6 +274,8 @@ async def critique_agent(
     return await _run_delegation(
         context_variables, "critique_agent", _critique_agent, task
     )
+
+
 # @endregion[supervisor-delegation-tools]
 
 
