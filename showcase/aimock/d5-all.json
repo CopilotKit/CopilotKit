@@ -39,6 +39,16 @@
       }
     },
     {
+      "_comment": "tool-rendering-reasoning-chain pill 1 (stocks) — hasToolResult: true fallback for integrations (Google ADK + older aimock <1.23) where the synthesized tool_call_id chain breaks. Without this fallback the loop never terminates on Google ADK: the toolCallId-gated MSFT and final-narration fixtures above can't match (synthesized ids differ from `call_rc_stock_aapl_001`/`call_rc_stock_msft_001`), and the bare userMessage first-leg fixture below re-emits the AAPL tool call indefinitely. ADK collapses to a single AAPL fetch → narration to break the loop. Trade-off: ADK demo only shows AAPL stock card, not the AAPL+MSFT comparison the LangGraph variant produces. Will be lifted when aimock 1.24.0+ is deployed.",
+      "match": {
+        "userMessage": "Compare AAPL and MSFT stocks",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% on the day."
+      }
+    },
+    {
       "_comment": "tool-rendering-reasoning-chain pill 1 (stocks) — first leg: emit get_stock_price(AAPL). The `Compare AAPL and MSFT stocks` substring is unique to this demo's pill prompt — other integrations' reasoning-chain demos still send the older `How is AAPL doing?` prompt — so we don't need a tool-name gate and the fixture stays scoped to langgraph-python without affecting fleet-wide aimock traffic. MUST appear before the bare 'AAPL' fixtures later in this file.",
       "match": {
         "userMessage": "Compare AAPL and MSFT stocks"
@@ -84,6 +94,16 @@
       }
     },
     {
+      "_comment": "tool-rendering-reasoning-chain pill 2 (dice) — hasToolResult: true fallback for integrations (Google ADK + older aimock <1.23). Mirrors the AAPL/MSFT fallback pattern. Without this the d20 result loop never terminates on ADK because the toolCallId-gated d6 second-leg and final-narration fixtures above can't match (synthesized ids differ). ADK collapses to a single d20 roll → narration.",
+      "match": {
+        "userMessage": "compare it to a smaller one",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "The d20 came up 14 — wide range for a single die."
+      }
+    },
+    {
       "_comment": "tool-rendering-reasoning-chain pill 2 (dice) — first leg: emit roll_dice(sides=20). Unique substring 'compare it to a smaller one' keeps us scoped to this demo (other integrations' dice pills still send 'Roll a 20-sided die for me.' and fall through to the older 5x roll_d20 fixtures further down). NB: aimock's `toolName` gate is a tool-LIST gate, not a tool-CALL gate; we don't use it here because the reasoning-chain agents across the fleet all register `roll_dice`, so a `toolName: roll_dice` claim would NOT have distinguished this demo from the others.",
       "match": {
         "userMessage": "compare it to a smaller one"
@@ -126,6 +146,16 @@
             "arguments": "{\"location\":\"JFK\"}"
           }
         ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-reasoning-chain pill 3 (flights + destination weather) — hasToolResult: true fallback for integrations (Google ADK + older aimock <1.23). Mirrors the other reasoning-chain pill fallbacks. Without this the flights→weather chain loops infinitely on ADK because the toolCallId-gated weather second-leg and final-narration fixtures can't match (synthesized ids differ). ADK collapses to a single flights search → narration.",
+      "match": {
+        "userMessage": "show me the weather there",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289)."
       }
     },
     {
@@ -250,6 +280,16 @@
       }
     },
     {
+      "_comment": "tool-rendering pill: Chain tools — hasToolResult: true fallback for integrations (Google ADK + older aimock <1.23) where the synthesized tool_call_id on the Gemini→OpenAI translation doesn't match any of the three fixture-emitted ids (call_tr_chain_weather_001 / call_tr_chain_flights_001 / call_tr_chain_roll_001). Without this fallback the loop never terminates: none of the toolCallId-gated fixtures above match (synthesized ids differ), and the bare userMessage fixture below re-emits the three tool calls indefinitely.",
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
       "_comment": "tool-rendering pill: Chain tools — emit 3 tool calls in one assistant turn (get_weather Tokyo + search_flights SFO->Tokyo + roll_d20=11). MUST appear before the bare 'weather in Tokyo' fixture below; substring match would otherwise leak into this prompt. No hasToolResult gate: in multi-pill demo sessions prior clicks leave tool results in the thread, which previously caused this fixture to be skipped in favour of the follow-up content fixture and the pill rendered no cards.",
       "match": {
         "userMessage": "Chain a few tools in this single turn"
@@ -275,10 +315,20 @@
       }
     },
     {
-      "_comment": "tool-rendering pill: Weather in SF — follow-up content after get_weather tool ran. MUST come before the tool-emitting fixture below (first-match-wins) so iteration 2 of the loop hits this branch instead of re-emitting. toolCallId chain keeps the fixture stateless across multi-pill thread history (hasToolResult breaks when a prior pill left tool results in the thread).",
+      "_comment": "tool-rendering pill: Weather in SF — follow-up content after get_weather tool ran. MUST come before the tool-emitting fixture below (first-match-wins) so iteration 2 of the loop hits this branch instead of re-emitting. toolCallId chain keeps the fixture stateless across multi-pill thread history when the integration's runtime preserves call IDs end-to-end (OpenAI/LangGraph).",
       "match": {
         "userMessage": "What's the weather in San Francisco?",
         "toolCallId": "call_tr_weather_sf_001"
+      },
+      "response": {
+        "content": "San Francisco is currently 68°F and sunny with light winds."
+      }
+    },
+    {
+      "_comment": "tool-rendering pill: Weather in SF — hasToolResult: true fallback for integrations (Google ADK + older aimock <1.23) where the synthesized tool_call_id on the Gemini→OpenAI translation does not match the fixture-emitted id. Without this fallback the loop never terminates: the toolCallId-gated fixture above can't match (synthesized id differs), and the bare userMessage fixture below re-emits the tool call indefinitely. First-match-wins ordering means this fires only when a tool result is already in the thread. Trade-off: in a multi-pill session, this can fire prematurely on a fresh Pill 2 click before the SF tool runs (if a prior pill left a tool result), short-circuiting the tool emission. That's an acceptable degradation until the deployed aimock is bumped to 1.24.0+ where toolCallId matching works for Gemini.",
+      "match": {
+        "userMessage": "What's the weather in San Francisco?",
+        "hasToolResult": true
       },
       "response": {
         "content": "San Francisco is currently 68°F and sunny with light winds."
@@ -309,6 +359,16 @@
       }
     },
     {
+      "_comment": "tool-rendering pill: Find flights — hasToolResult: true fallback for integrations (Google ADK + older aimock <1.23) where the synthesized tool_call_id on the Gemini→OpenAI translation does not match the fixture-emitted id. Mirrors the SF weather fallback pattern above. Without this fallback the loop never terminates on Google ADK: the toolCallId-gated fixture above can't match (synthesized id differs from `call_tr_flights_sfo_jfk_001`), and the bare userMessage fixture below re-emits the tool call indefinitely.",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK.",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289)."
+      }
+    },
+    {
       "_comment": "tool-rendering pill: Find flights — first leg (verbatim pill prompt, dedicated search_flights fixture). MUST take precedence over the a2ui beautiful-chat fixture below (which uses the same tool name with non-flight-list args shape). Intentionally omits `hasToolResult` so this fixture also matches when SFO/JFK is the SECOND turn of a multi-turn flow (e.g. tool-rendering-reasoning-chain probe sends weather→flights). With `hasToolResult: false`, Turn 1's tool result would prevent this fixture from matching Turn 2's first leg, and the matcher would fall through to the second-leg fixture above (which now requires a matching `toolCallId` so it cannot swallow this request).",
       "match": {
         "userMessage": "Find flights from SFO to JFK."
@@ -330,6 +390,16 @@
       "match": {
         "userMessage": "What's the current price of AAPL?",
         "toolCallId": "call_tr_stock_aapl_001"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% on the day."
+      }
+    },
+    {
+      "_comment": "tool-rendering pill: Stock price — hasToolResult: true fallback for integrations (Google ADK + older aimock <1.23) where the synthesized tool_call_id on the Gemini→OpenAI translation does not match the fixture-emitted id. Mirrors the SF weather and SFO/JFK flights fallback pattern. Without this fallback the loop never terminates on Google ADK.",
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
+        "hasToolResult": true
       },
       "response": {
         "content": "AAPL is trading at $338.37, down 2.96% on the day."
@@ -417,6 +487,16 @@
       },
       "response": {
         "content": "Rolled the d20 five times — landed on 20 on the final roll."
+      }
+    },
+    {
+      "_comment": "tool-rendering pill: Roll a d20 — hasToolResult: true fallback for integrations (Google ADK + older aimock <1.23) where the synthesized tool_call_id chain breaks because the gemini→OpenAI translator generates new ids each request. Without this, ADK's first roll_d20 result would loop infinitely (the toolCallId-chained next-roll fixtures above can't match). The five-roll sequence is a LangGraph-specific narrative; ADK collapses it to a single roll → narration to break the loop cleanly. Trade-off documented in the SF-weather fallback comment above.",
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Rolled the d20 — landed on 7."
       }
     },
     {
