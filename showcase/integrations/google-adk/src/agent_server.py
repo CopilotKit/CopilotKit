@@ -31,7 +31,9 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 from dotenv import load_dotenv
 
+from google.adk.agents.run_config import RunConfig, StreamingMode
 from agents.registry import AGENT_REGISTRY
+from agents.shared_chat import MAX_LLM_CALLS
 
 load_dotenv()
 
@@ -60,6 +62,28 @@ app.add_middleware(
 
 # Mount one ADKAgent per registered agent at /<agent_name>.
 for agent_name, spec in AGENT_REGISTRY.items():
+    effective_max_llm_calls = spec.max_llm_calls if spec.max_llm_calls is not None else MAX_LLM_CALLS
+
+    def _make_run_config_factory(max_calls: int):
+        """Capture max_calls in a closure so each agent gets its own value."""
+        def factory(run_input):
+            kwargs = {
+                "streaming_mode": StreamingMode.SSE,
+                "save_input_blobs_as_artifacts": True,
+                "max_llm_calls": max_calls,
+            }
+            # Replicate ADKAgent._default_run_config's custom_metadata behavior
+            # so context from RunAgentInput is available via run_config.
+            if getattr(run_input, "context", None):
+                kwargs["custom_metadata"] = {
+                    "ag_ui_context": [
+                        {"description": ctx.description, "value": ctx.value}
+                        for ctx in run_input.context
+                    ]
+                }
+            return RunConfig(**kwargs)
+        return factory
+
     middleware = ADKAgent(
         adk_agent=spec.llm_agent,
         user_id="demo_user",
@@ -68,6 +92,7 @@ for agent_name, spec in AGENT_REGISTRY.items():
         predict_state=spec.predict_state,
         emit_messages_snapshot=spec.emit_messages_snapshot,
         streaming_function_call_arguments=spec.streaming_function_call_arguments,
+        run_config_factory=_make_run_config_factory(effective_max_llm_calls),
     )
     add_adk_fastapi_endpoint(app, middleware, path=f"/{agent_name}")
 

@@ -87,6 +87,7 @@ class AgentSpec:
     # shared-state-streaming demo so the UI sees the document grow as the
     # tool arguments arrive.
     streaming_function_call_arguments: bool = False
+    max_llm_calls: Optional[int] = field(default=None)
 
 
 # Simple conversational agents (no backend tools — frontend may inject tools).

@@ -202,8 +202,37 @@ def search_flights(tool_context: ToolContext, flights: list[dict]) -> dict:
 
     For airlineLogo use Google favicon API:
     https://www.google.com/s2/favicons?domain={airline_domain}&sz=128
+
+    Returns a dict with:
+      - "result": A human-readable summary of the flights found (so the LLM
+        can confirm success and does NOT need to re-call this tool).
+      - "a2ui_operations": The A2UI rendering operations for the middleware.
+
+    IMPORTANT: When this tool returns successfully, the flight cards are
+    already displayed to the user. Do NOT call this tool again for the same
+    request.
     """
-    return search_flights_impl(flights)
+    a2ui_result = search_flights_impl(flights)
+
+    # Build human-readable summary so Gemini can interpret success
+    flight_summaries = []
+    for f in flights:
+        airline = f.get("airline", "Unknown")
+        flight_number = f.get("flightNumber", "?")
+        origin = f.get("origin", "?")
+        destination = f.get("destination", "?")
+        departure_time = f.get("departureTime", "?")
+        price = f.get("price", "?")
+        flight_summaries.append(
+            f"{airline} {flight_number}: {origin}->{destination} at {departure_time}, {price}"
+        )
+    summary = (
+        f"Found {len(flights)} flight(s). "
+        + "; ".join(flight_summaries)
+        + ". The flight cards are now displayed to the user."
+    )
+
+    return {"result": summary, **a2ui_result}
 
 
 def generate_a2ui(tool_context: ToolContext) -> Union[_A2uiError, dict[str, Any]]:
@@ -557,7 +586,24 @@ def generate_a2ui(tool_context: ToolContext) -> Union[_A2uiError, dict[str, Any]
     if pinned_catalog_id:
         args = {**args, "catalogId": pinned_catalog_id}
 
-    return build_a2ui_operations_from_tool_call(args)
+    a2ui_result = build_a2ui_operations_from_tool_call(args)
+
+    # Build human-readable summary so Gemini can interpret success and does
+    # NOT re-call this tool for the same request.
+    surface_id = args.get("surfaceId", "dynamic-surface")
+    components = args.get("components", [])
+    component_names = [
+        c.get("component", "unknown")
+        for c in components
+        if isinstance(c, dict) and c.get("component")
+    ]
+    summary = (
+        f"Successfully rendered A2UI surface '{surface_id}' with "
+        f"{len(component_names)} component(s): {', '.join(component_names)}. "
+        f"The UI is now displayed to the user."
+    )
+
+    return {"result": summary, **a2ui_result}
 
 
 def on_before_agent(callback_context: CallbackContext):
