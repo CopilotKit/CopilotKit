@@ -102,7 +102,7 @@ _simple_chat = build_simple_chat_agent(
     name="SimpleChatAgent", instruction=_SIMPLE_CHAT_INSTRUCTION
 )
 
-# Reasoning-mode agent (Gemini 2.5 thinking). One shared instance for both
+# Reasoning-mode agent (Gemini 3.1 thinking). One shared instance for both
 # reasoning demos — they differ only in frontend wiring.
 _thinking_chat = build_thinking_chat_agent(
     name="ThinkingChatAgent",

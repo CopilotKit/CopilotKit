@@ -2,7 +2,7 @@
 
 Same tool surface as the other tool-rendering variants (minus `roll_d20`
 plus `roll_dice` — the reasoning-chain pills script a d20 → d6 contrast
-via the sides parameter), plus Gemini 2.5 thinking mode so reasoning
+via the sides parameter), plus Gemini 3.1 thinking mode so reasoning
 tokens are interleaved with sequential tool calls (the demo's frontend
 renders the thought trace alongside each tool result).
 """

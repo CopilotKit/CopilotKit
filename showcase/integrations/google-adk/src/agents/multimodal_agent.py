@@ -1,6 +1,6 @@
 """Agent backing the Multimodal Attachments demo.
 
-Gemini 2.5 Flash is natively multimodal — image and PDF parts forwarded
+Gemini 3.1 Flash-Lite is natively multimodal — image and PDF parts forwarded
 through ADK as `types.Part` blobs are processed by the model directly.
 No backend tools needed; the model just describes / answers questions
 about uploaded attachments.

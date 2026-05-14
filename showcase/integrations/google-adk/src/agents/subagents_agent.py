@@ -31,7 +31,7 @@ from agents.shared_chat import get_model, stop_on_terminal_text
 
 logger = logging.getLogger(__name__)
 
-_SUB_MODEL = "gemini-2.5-flash"
+_SUB_MODEL = "gemini-3.1-flash-lite"
 
 _RESEARCH_SYSTEM = (
     "You are a research sub-agent. Given a topic, produce a concise "

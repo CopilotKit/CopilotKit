@@ -7,7 +7,7 @@ every registered LlmAgent in `agents/registry.py` via the `build_*`
 factories in shared_chat plus a manual `after_model_callback=` on every
 dedicated agent (tool_rendering, gen_ui_*, hitl_*, a2ui_*, etc.).
 
-Without this callback Gemini 2.5-flash re-issues the same tool indefinitely
+Without this callback Gemini 3.1 Flash-Lite re-issues the same tool indefinitely
 after each successful tool result; PR #4792's "all tools repeat infinitely"
 symptom was the visible manifestation. Pinning the truth table here prevents
 silent regressions when the callback or its wiring is refactored.

@@ -322,7 +322,7 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: reasoning-custom
     name: "Reasoning: Custom"
-    description: Visible reasoning/thinking chain alongside the final answer (Gemini 2.5 thinking mode)
+    description: Visible reasoning/thinking chain alongside the final answer (Gemini 3.1 thinking mode)
     tags:
       - chat-ui
     route: /demos/reasoning-custom
