@@ -38,7 +38,7 @@ from google.genai import errors as genai_errors
 from google.genai import types
 from ag_ui_adk import AGUIToolset
 
-from agents.shared_chat import get_model, stop_on_terminal_text
+from agents.shared_chat import get_model, prevent_duplicate_tool_calls, stop_on_terminal_text
 
 # Shared tool implementations (via tools symlink -> ../../shared/python/tools).
 from tools import (
@@ -438,5 +438,6 @@ beautiful_chat_agent = LlmAgent(
         generate_a2ui,
         AGUIToolset(),
     ],
+    before_model_callback=prevent_duplicate_tool_calls,
     after_model_callback=stop_on_terminal_text,
 )

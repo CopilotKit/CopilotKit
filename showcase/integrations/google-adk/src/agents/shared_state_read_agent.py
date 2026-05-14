@@ -11,7 +11,7 @@ from __future__ import annotations
 from google.adk.agents import LlmAgent
 from google.adk.tools import ToolContext
 
-from agents.shared_chat import get_model, stop_on_terminal_text
+from agents.shared_chat import get_model, prevent_duplicate_tool_calls, stop_on_terminal_text
 
 
 def set_recipe(tool_context: ToolContext, recipe: dict) -> dict:
@@ -38,5 +38,6 @@ shared_state_read_agent = LlmAgent(
     model=get_model(),
     instruction=_INSTRUCTION,
     tools=[set_recipe],
+    before_model_callback=prevent_duplicate_tool_calls,
     after_model_callback=stop_on_terminal_text,
 )

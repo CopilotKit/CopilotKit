@@ -33,7 +33,7 @@ from ag_ui_adk.config import PredictStateMapping
 from google.adk.agents import LlmAgent
 from google.adk.tools import ToolContext
 
-from agents.shared_chat import get_model, stop_on_terminal_text
+from agents.shared_chat import get_model, prevent_duplicate_tool_calls, stop_on_terminal_text
 
 
 def write_document(tool_context: ToolContext, content: str) -> dict:
@@ -61,6 +61,7 @@ shared_state_streaming_agent = LlmAgent(
     model=get_model(),
     instruction=_INSTRUCTION,
     tools=[write_document, AGUIToolset()],
+    before_model_callback=prevent_duplicate_tool_calls,
     after_model_callback=stop_on_terminal_text,
 )
 

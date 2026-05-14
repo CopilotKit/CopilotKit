@@ -27,7 +27,7 @@ from google.adk.models.llm_request import LlmRequest
 from google.adk.models.llm_response import LlmResponse
 from google.genai import types
 
-from agents.shared_chat import get_model, stop_on_terminal_text
+from agents.shared_chat import get_model, prevent_duplicate_tool_calls, stop_on_terminal_text
 
 logger = logging.getLogger(__name__)
 
@@ -193,11 +193,17 @@ _INSTRUCTION = (
     "user — just apply them."
 )
 
+def _before_model(callback_context, llm_request):
+    """Compose config injection with duplicate tool-call prevention."""
+    _inject_config(callback_context, llm_request)
+    return prevent_duplicate_tool_calls(callback_context, llm_request)
+
+
 agent_config_agent = LlmAgent(
     name="AgentConfigAgent",
     model=get_model(),
     instruction=_INSTRUCTION,
     tools=[],
-    before_model_callback=_inject_config,
+    before_model_callback=_before_model,
     after_model_callback=stop_on_terminal_text,
 )

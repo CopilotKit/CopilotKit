@@ -20,7 +20,7 @@ from ag_ui_adk import AGUIToolset
 from google.adk.agents import LlmAgent
 from google.adk.agents.callback_context import CallbackContext
 
-from agents.shared_chat import get_model, stop_on_terminal_text
+from agents.shared_chat import get_model, prevent_duplicate_tool_calls, stop_on_terminal_text
 from google.adk.models.llm_request import LlmRequest
 from google.adk.models.llm_response import LlmResponse
 from google.adk.tools import ToolContext
@@ -146,11 +146,17 @@ _INSTRUCTION = (
     "short notes."
 )
 
+def _before_model(callback_context, llm_request):
+    """Compose preferences injection with duplicate tool-call prevention."""
+    _inject_preferences(callback_context, llm_request)
+    return prevent_duplicate_tool_calls(callback_context, llm_request)
+
+
 shared_state_read_write_agent = LlmAgent(
     name="SharedStateReadWriteAgent",
     model=get_model(),
     instruction=_INSTRUCTION,
     tools=[set_notes, AGUIToolset()],
-    before_model_callback=_inject_preferences,
+    before_model_callback=_before_model,
     after_model_callback=stop_on_terminal_text,
 )

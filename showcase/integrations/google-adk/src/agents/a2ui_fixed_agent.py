@@ -16,7 +16,7 @@ from ag_ui_adk import AGUIToolset
 from google.adk.agents import LlmAgent
 from google.adk.tools import ToolContext
 
-from agents.shared_chat import get_model, stop_on_terminal_text
+from agents.shared_chat import get_model, prevent_duplicate_tool_calls, stop_on_terminal_text
 
 CATALOG_ID = "copilotkit://flight-fixed-catalog"
 SURFACE_ID = "flight-fixed-schema"
@@ -101,15 +101,25 @@ def display_flight(
     Use short airport codes (e.g. "SFO", "JFK") for origin/destination and a
     price string like "$289".
 
+    Returns a dict with two keys:
+    - ``result``: a human-readable confirmation string (e.g.
+      "Flight card displayed: United from SFO to JFK at $289. …").
+    - ``a2ui_operations``: the v0.9 operation list the runtime consumes to
+      render the card.
+
     After this tool returns, the flight card is already rendered to the user
-    via the A2UI surface — the JSON returned here is the surface descriptor
-    the renderer consumes, NOT a status code. Do NOT call this tool again
-    for the same flight (the user already sees the card). Reply with one
-    short confirmation sentence and stop.
+    via the A2UI surface. Do NOT call this tool again for the same flight
+    (the user already sees the card). Reply with one short confirmation
+    sentence and stop.
     """
-    return _build_flight_operations(
+    a2ui_result = _build_flight_operations(
         origin=origin, destination=destination, airline=airline, price=price
     )
+    summary = (
+        f"Flight card displayed: {airline} from {origin} to {destination} "
+        f"at {price}. The card is now visible to the user."
+    )
+    return {"result": summary, **a2ui_result}
 
 
 # Mirrors the LangGraph-Python sibling's system prompt (see
@@ -132,5 +142,6 @@ a2ui_fixed_agent = LlmAgent(
     model=get_model(),
     instruction=_INSTRUCTION,
     tools=[display_flight, AGUIToolset()],
+    before_model_callback=prevent_duplicate_tool_calls,
     after_model_callback=stop_on_terminal_text,
 )

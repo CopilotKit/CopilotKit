@@ -16,7 +16,7 @@ from __future__ import annotations
 from ag_ui_adk import AGUIToolset
 from google.adk.agents import LlmAgent
 
-from agents.shared_chat import get_model, stop_on_terminal_text
+from agents.shared_chat import get_model, prevent_duplicate_tool_calls, stop_on_terminal_text
 
 _INSTRUCTION = """\
 You draw simple diagrams in Excalidraw via the MCP tool.
@@ -57,5 +57,6 @@ mcp_apps_agent = LlmAgent(
     model=get_model(),
     instruction=_INSTRUCTION,
     tools=[AGUIToolset()],
+    before_model_callback=prevent_duplicate_tool_calls,
     after_model_callback=stop_on_terminal_text,
 )

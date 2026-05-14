@@ -27,7 +27,7 @@ from google.adk.agents import LlmAgent
 from google.adk.tools import ToolContext
 from google.genai import types
 
-from agents.shared_chat import get_model, stop_on_terminal_text
+from agents.shared_chat import get_model, prevent_duplicate_tool_calls, stop_on_terminal_text
 
 logger = logging.getLogger(__name__)
 
@@ -257,6 +257,7 @@ subagents_root_agent = LlmAgent(
     model=get_model(_SUB_MODEL),
     instruction=_SUPERVISOR_INSTRUCTION,
     tools=[research_agent, writing_agent, critique_agent],
+    before_model_callback=prevent_duplicate_tool_calls,
     after_model_callback=stop_on_terminal_text,
 )
 # @endregion[subagent-setup]

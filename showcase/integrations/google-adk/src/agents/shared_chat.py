@@ -1,7 +1,7 @@
 """Shared LlmAgent factories used across multiple demos.
 
 `build_simple_chat_agent` produces a plain Gemini chat agent with no backend
-tools — appropriate for any demo whose only customisation is on the frontend
+tools -- appropriate for any demo whose only customisation is on the frontend
 (prebuilt-sidebar, prebuilt-popup, chat-slots, chat-customization-css,
 headless-simple, headless-complete, voice, frontend-tools, agentic-chat).
 
@@ -15,13 +15,17 @@ otherwise. All agent modules should call `get_model()` instead of
 hard-coding `"gemini-2.5-flash"` so Railway deployments route through
 aimock.
 
+`prevent_duplicate_tool_calls` is the canonical before_model_callback shared
+by every registered LlmAgent. Gemini 2.5-flash re-issues the same tool call
+with the same arguments after receiving a valid function_response. The
+callback inspects session history for consecutive identical function_call
+events and, when detected, sets FunctionCallingConfig(mode="NONE") to force
+the model to produce text instead of re-calling.
+
 `stop_on_terminal_text` is the canonical after_model_callback shared by every
-registered LlmAgent. Gemini 2.5-flash does not naturally end its agentic
-loop after a successful tool call — it keeps re-issuing the same tool. The
-callback inspects each non-partial model response and, when it contains
-text with no pending function_call, sets `_invocation_context.end_invocation
-= True` so ADK terminates the loop. Without this guard every backend or
-frontend tool in this package fires infinitely.
+registered LlmAgent. It inspects each non-partial model response and, when
+it contains text with no pending function_call, sets
+`_invocation_context.end_invocation = True` so ADK terminates the loop.
 """
 
 from __future__ import annotations
@@ -40,6 +44,39 @@ from ag_ui_adk import AGUIToolset
 logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL = "gemini-2.5-flash"
+MAX_LLM_CALLS = 15
+
+
+def _same_function_calls(a, b):
+    """Check if two lists of FunctionCall objects are identical (same name + args)."""
+    if len(a) != len(b):
+        return False
+    return all(
+        getattr(fa, "name", None) == getattr(fb, "name", None)
+        and getattr(fa, "args", None) == getattr(fb, "args", None)
+        for fa, fb in zip(a, b)
+    )
+
+
+def prevent_duplicate_tool_calls(callback_context, llm_request):
+    """Prevent Gemini from re-calling the same tool with the same arguments.
+
+    This is a before_model_callback that fires before every LLM call in the
+    agentic loop. When it detects that the last two function_call events in
+    the session have identical tool names and arguments, it sets
+    FunctionCallingConfig(mode="NONE") to force Gemini to produce text
+    instead of re-calling.
+    """
+    events = callback_context.session.events
+    call_events = [e for e in events if e.get_function_calls()]
+    if len(call_events) >= 2:
+        last = call_events[-1].get_function_calls()
+        prev = call_events[-2].get_function_calls()
+        if _same_function_calls(last, prev):
+            llm_request.config.tool_config = types.ToolConfig(
+                function_calling_config=types.FunctionCallingConfig(mode="NONE")
+            )
+    return None
 
 
 def stop_on_terminal_text(
@@ -47,22 +84,20 @@ def stop_on_terminal_text(
 ) -> Optional[LlmResponse]:
     """Terminate the ADK agentic loop on a final text-only model turn.
 
-    Lifted from the (orphaned) `simple_after_model_modifier` in
-    `agents/main.py`, with the SalesPipelineAgent name-gate removed so it
-    applies to every registered agent. Guards:
+    Guards:
 
-    1. Skip partial streaming events — never end on a mid-stream chunk
+    1. Skip partial streaming events -- never end on a mid-stream chunk
        (belt-and-suspenders with `ADK_DISABLE_PROGRESSIVE_SSE_STREAMING=1`
        in `entrypoint.sh`).
     2. Only terminate when the final non-partial response contains TEXT
-       and NO pending function_call — mixed text+function_call responses
+       and NO pending function_call -- mixed text+function_call responses
        (a known Gemini 2.5-flash quirk) must NOT terminate.
     3. `_invocation_context` is an ADK private attribute; if it disappears
        in a future ADK release, log-and-degrade rather than crash the
        callback (which would stall the request).
 
-    Without this guard, Gemini calls the same tool indefinitely after a
-    successful tool result because no native termination condition fires.
+    Without this guard, Gemini does not naturally end its agentic loop
+    after a successful tool call.
     """
     content = llm_response.content
     if not content or not content.parts:
@@ -78,6 +113,7 @@ def stop_on_terminal_text(
     if getattr(llm_response, "partial", False):
         return None
 
+    # --- Original guard: text-only model response ---
     has_text = any(getattr(part, "text", None) for part in content.parts)
     has_function_call = any(
         getattr(part, "function_call", None) for part in content.parts
@@ -127,6 +163,7 @@ def build_simple_chat_agent(
         model=get_model(model),
         instruction=instruction,
         tools=[AGUIToolset()],
+        before_model_callback=prevent_duplicate_tool_calls,
         after_model_callback=stop_on_terminal_text,
     )
 
@@ -155,5 +192,6 @@ def build_thinking_chat_agent(
                 thinking_budget=-1,
             ),
         ),
+        before_model_callback=prevent_duplicate_tool_calls,
         after_model_callback=stop_on_terminal_text,
     )

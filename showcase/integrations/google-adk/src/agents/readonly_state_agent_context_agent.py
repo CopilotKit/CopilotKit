@@ -19,7 +19,7 @@ from google.adk.models.llm_request import LlmRequest
 from google.adk.models.llm_response import LlmResponse
 from google.genai import types
 
-from agents.shared_chat import get_model, stop_on_terminal_text
+from agents.shared_chat import get_model, prevent_duplicate_tool_calls, stop_on_terminal_text
 
 logger = logging.getLogger(__name__)
 
@@ -139,11 +139,17 @@ _INSTRUCTION = (
     "turn. Use them when relevant."
 )
 
+def _before_model(callback_context, llm_request):
+    """Compose context injection with duplicate tool-call prevention."""
+    _inject_context(callback_context, llm_request)
+    return prevent_duplicate_tool_calls(callback_context, llm_request)
+
+
 readonly_state_agent_context_agent = LlmAgent(
     name="ReadonlyStateAgentContextAgent",
     model=get_model(),
     instruction=_INSTRUCTION,
     tools=[AGUIToolset()],
-    before_model_callback=_inject_context,
+    before_model_callback=_before_model,
     after_model_callback=stop_on_terminal_text,
 )

@@ -19,7 +19,7 @@ from __future__ import annotations
 from ag_ui_adk import AGUIToolset
 from google.adk.agents import LlmAgent
 
-from agents.shared_chat import get_model, stop_on_terminal_text
+from agents.shared_chat import get_model, prevent_duplicate_tool_calls, stop_on_terminal_text
 
 # Ported verbatim from
 # showcase/integrations/langgraph-python/src/agents/open_gen_ui_agent.py
@@ -120,6 +120,7 @@ open_gen_ui_agent = LlmAgent(
     model=get_model(),
     instruction=_OPEN_GEN_UI_INSTRUCTION,
     tools=[AGUIToolset()],
+    before_model_callback=prevent_duplicate_tool_calls,
     after_model_callback=stop_on_terminal_text,
 )
 
@@ -128,5 +129,6 @@ open_gen_ui_advanced_agent = LlmAgent(
     model=get_model(),
     instruction=_OPEN_GEN_UI_ADVANCED_INSTRUCTION,
     tools=[AGUIToolset()],
+    before_model_callback=prevent_duplicate_tool_calls,
     after_model_callback=stop_on_terminal_text,
 )
