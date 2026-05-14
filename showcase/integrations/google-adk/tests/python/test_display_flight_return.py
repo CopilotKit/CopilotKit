@@ -60,6 +60,7 @@ def _load_display_flight():
     stub_shared_chat = types.ModuleType("agents.shared_chat")
     stub_shared_chat.get_model = lambda: "gemini-2.0-flash"
     stub_shared_chat.stop_on_terminal_text = None
+    stub_shared_chat.prevent_duplicate_tool_calls = None
 
     # Temporarily inject stubs
     saved = {}
