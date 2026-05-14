@@ -29,7 +29,7 @@ pre-commit:
       # still invokes this hook with an empty expansion, and oxlint/oxfmt
       # would default to operating on the current directory, defeating the
       # scoping entirely. stage_fixed re-stages whatever the hooks modify.
-      glob: "*.{js,jsx,ts,tsx,mjs,cjs}"
+      glob: "*.{js,jsx,ts,tsx,mjs,cjs,json,jsonc,json5,md,css,yml,yaml,html,vue,py}"
       # Mirror the ignorePatterns in .oxlintrc.json / .oxfmtrc.json at the
       # hook layer. Without this, a docs-only commit expands {staged_files}
       # to a single docs/** path; oxlint silently processes 0 files, then
@@ -39,7 +39,9 @@ pre-commit:
         - "docs/**"
       run: |
         if [ -n "{staged_files}" ]; then
-          pnpm exec oxlint --fix {staged_files} && pnpm exec oxfmt --write {staged_files}
+          pnpm exec oxlint --fix {staged_files} &&
+          pnpm exec oxfmt --write {staged_files} ;
+          ruff format {staged_files} 2>/dev/null || true
         fi
       stage_fixed: true
     test-and-check-packages:
