@@ -1,6 +1,6 @@
 "use client";
 
-  // @region[frontend-tool-registration]
+// @region[frontend-tool-registration]
 import React, { useState } from "react";
 import {
   CopilotKit,

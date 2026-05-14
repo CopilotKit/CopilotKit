@@ -17,7 +17,7 @@
 // Runtime: talks to `/api/copilotkit-reasoning` which proxies to the .NET
 // backend's `/reasoning` AG-UI endpoint.
 
-  // @region[reasoning-block-render]
+// @region[reasoning-block-render]
 import React from "react";
 import {
   CopilotKit,

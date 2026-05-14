@@ -12,7 +12,7 @@
  * host-registered `sandboxFunctions`.
  */
 
-    // @region[sandbox-function-registration]
+// @region[sandbox-function-registration]
 import React from "react";
 import {
   CopilotChat,

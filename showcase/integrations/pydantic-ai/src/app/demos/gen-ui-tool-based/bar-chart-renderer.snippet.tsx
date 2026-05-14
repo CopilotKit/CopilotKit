@@ -8,7 +8,7 @@
 //
 // Mirrors the convention from `tool-rendering/render-flight-tool.snippet.tsx`.
 
-  // @region[bar-chart-renderer]
+// @region[bar-chart-renderer]
 import { useComponent } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 

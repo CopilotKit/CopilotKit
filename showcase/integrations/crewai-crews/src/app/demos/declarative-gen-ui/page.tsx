@@ -18,7 +18,7 @@
  *      tool knows which components to emit.
  */
 
-    // @region[provider-a2ui-prop]
+// @region[provider-a2ui-prop]
 import React from "react";
 import {
   CopilotKit,

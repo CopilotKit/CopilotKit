@@ -23,7 +23,7 @@
  * composition hook lives in `use-rendered-messages.tsx`.
  */
 
-  // @region[page-send-message]
+// @region[page-send-message]
 import React, {
   useCallback,
   useEffect,

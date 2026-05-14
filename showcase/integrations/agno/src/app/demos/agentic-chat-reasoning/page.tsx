@@ -21,7 +21,7 @@
 // served at /reasoning/agui, with `reasoning=True` so the AGUI interface
 // emits REASONING_MESSAGE_* events.
 
-  // @region[reasoning-block-render]
+// @region[reasoning-block-render]
 import React from "react";
 import {
   CopilotKit,

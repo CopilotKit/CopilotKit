@@ -13,7 +13,7 @@
 //     frontend uses `useRenderTool` to render that tool call as a visibly
 //     tagged amber block — the same visual language as the reference.
 
-  // @region[reasoning-block-render]
+// @region[reasoning-block-render]
 import React from "react";
 import {
   CopilotKit,

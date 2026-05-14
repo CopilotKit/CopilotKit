@@ -6,7 +6,7 @@
 // (aliased as `agentic-chat-reasoning`) — if the underlying model emits
 // reasoning tokens, they'll stream through AG-UI REASONING_MESSAGE_* events.
 
-  // @region[reasoning-block-render]
+// @region[reasoning-block-render]
 import React from "react";
 import { CopilotKit } from "@copilotkit/react-core";
 import {

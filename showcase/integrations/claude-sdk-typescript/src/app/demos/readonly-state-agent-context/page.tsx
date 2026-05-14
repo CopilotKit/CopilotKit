@@ -1,6 +1,6 @@
 "use client";
 
-  // @region[context-provider-sketch]
+// @region[context-provider-sketch]
 import React, { useState } from "react";
 import {
   CopilotKit,

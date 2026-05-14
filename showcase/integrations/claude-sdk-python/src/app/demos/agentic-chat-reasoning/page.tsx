@@ -1,6 +1,6 @@
 "use client";
 
-  // @region[reasoning-block-render]
+// @region[reasoning-block-render]
 import React from "react";
 import {
   CopilotKit,

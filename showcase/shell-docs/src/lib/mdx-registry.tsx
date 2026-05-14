@@ -55,7 +55,8 @@ const STUB_PARTIAL_MAP: Record<string, string> = {
   HeadlessUI: "shared/basics/headless-ui.mdx",
   Overview: "shared/premium/overview.mdx",
   Observability: "shared/premium/observability.mdx",
-  ObservabilityConnectors: "shared/troubleshooting/observability-connectors.mdx",
+  ObservabilityConnectors:
+    "shared/troubleshooting/observability-connectors.mdx",
   CommonIssues: "shared/troubleshooting/common-issues.mdx",
   ErrorDebugging: "shared/troubleshooting/error-debugging.mdx",
   DebugMode: "shared/troubleshooting/debug-mode.mdx",

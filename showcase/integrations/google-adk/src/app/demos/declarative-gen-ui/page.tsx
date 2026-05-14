@@ -23,7 +23,7 @@
  *   https://docs.copilotkit.ai/integrations/langgraph/generative-ui/a2ui
  */
 
-    // @region[provider-a2ui-prop]
+// @region[provider-a2ui-prop]
 import React from "react";
 import { CopilotKit } from "@copilotkit/react-core/v2";
 

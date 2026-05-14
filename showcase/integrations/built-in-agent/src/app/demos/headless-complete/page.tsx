@@ -22,7 +22,7 @@
  * typing indicator, input bar) live in sibling files.
  */
 
-  // @region[page-send-message]
+// @region[page-send-message]
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CopilotKitProvider,

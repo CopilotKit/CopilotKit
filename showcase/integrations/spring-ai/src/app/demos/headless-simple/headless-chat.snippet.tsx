@@ -11,7 +11,7 @@
 // can live alongside the production demo without being wired into the
 // route. See: showcase/scripts/bundle-demo-content.ts.
 
-  // @region[use-agent-simple]
+// @region[use-agent-simple]
 import React, { useState } from "react";
 import {
   useAgent,

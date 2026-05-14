@@ -62,7 +62,11 @@ function readPartial(relativePath: string): string | null {
     // stub shape (nothing) and let the user-visible warning in
     // mdx-registry catch the regression.
     // eslint-disable-next-line no-console
-    console.error("[mdx-registry-loader] failed to read partial", resolved, err);
+    console.error(
+      "[mdx-registry-loader] failed to read partial",
+      resolved,
+      err,
+    );
     partialCache.set(resolved, null);
     return null;
   }
@@ -89,10 +93,7 @@ export async function PartialLoader({
   if (body === null) {
     if (process.env.NODE_ENV !== "production") {
       // eslint-disable-next-line no-console
-      console.warn(
-        "[mdx-registry-loader] partial not found:",
-        relativePath,
-      );
+      console.warn("[mdx-registry-loader] partial not found:", relativePath);
       return (
         <div className="my-4 rounded-md border border-dashed border-[var(--border)] px-3 py-2 text-xs font-mono text-[var(--text-faint)]">
           [mdx-registry-loader] partial not found: {relativePath}
@@ -115,7 +116,9 @@ export async function PartialLoader({
   return (
     <MDXRemote
       source={preprocessed}
-      components={components as React.ComponentProps<typeof MDXRemote>["components"]}
+      components={
+        components as React.ComponentProps<typeof MDXRemote>["components"]
+      }
       options={{
         mdxOptions: {
           remarkPlugins: [remarkGfm],

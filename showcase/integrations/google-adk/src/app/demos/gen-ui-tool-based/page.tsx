@@ -1,6 +1,6 @@
 "use client";
 
-  // @region[bar-chart-renderer]
+// @region[bar-chart-renderer]
 import React from "react";
 import {
   CopilotChat,

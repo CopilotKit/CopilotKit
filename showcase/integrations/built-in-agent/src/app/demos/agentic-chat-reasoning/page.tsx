@@ -11,7 +11,7 @@
 // REASONING_END, and CopilotKit renders them via the
 // `reasoningMessage` slot — overridden below for visual emphasis.
 
-  // @region[reasoning-block-render]
+// @region[reasoning-block-render]
 import React from "react";
 import {
   CopilotKit,

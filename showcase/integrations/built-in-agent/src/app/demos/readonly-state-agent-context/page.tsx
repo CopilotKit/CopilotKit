@@ -5,7 +5,7 @@
 // (`<description>:\n<value>`) so the agent can read them per turn without
 // the user having to retype anything.
 
-  // @region[context-provider-sketch]
+// @region[context-provider-sketch]
 import React, { useState } from "react";
 import {
   CopilotKitProvider,

@@ -15,7 +15,7 @@
  * Reference: https://docs.copilotkit.ai/generative-ui/open-generative-ui
  */
 
-    // @region[sandbox-function-registration]
+// @region[sandbox-function-registration]
 import React from "react";
 import {
   CopilotKit,

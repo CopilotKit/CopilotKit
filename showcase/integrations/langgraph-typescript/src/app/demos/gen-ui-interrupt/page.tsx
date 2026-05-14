@@ -1,6 +1,6 @@
 "use client";
 
-  // @region[frontend-useinterrupt-render]
+// @region[frontend-useinterrupt-render]
 import React from "react";
 import {
   CopilotKit,

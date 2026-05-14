@@ -1,6 +1,6 @@
 "use client";
 
-  // @region[use-agent-simple]
+// @region[use-agent-simple]
 import React, { useMemo, useState } from "react";
 import {
   CopilotKit,

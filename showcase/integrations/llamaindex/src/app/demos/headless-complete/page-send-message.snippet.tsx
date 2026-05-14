@@ -6,7 +6,7 @@
 //
 // Mirrors the convention from `tool-rendering/render-flight-tool.snippet.tsx`.
 
-  // @region[page-send-message]
+// @region[page-send-message]
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 import type { Message } from "@ag-ui/core";

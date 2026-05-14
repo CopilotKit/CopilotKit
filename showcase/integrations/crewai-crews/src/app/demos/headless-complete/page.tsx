@@ -7,7 +7,7 @@
  * `<CopilotChat />` / `<CopilotChatMessageView>` / `<CopilotChatAssistantMessage>`.
  */
 
-  // @region[page-send-message]
+// @region[page-send-message]
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CopilotKit,

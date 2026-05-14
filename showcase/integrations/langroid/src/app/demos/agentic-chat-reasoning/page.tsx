@@ -7,7 +7,7 @@
 // The custom slot renderer is wired and exercised, but reasoning messages
 // will only appear if a future agent iteration emits them.
 
-  // @region[reasoning-block-render]
+// @region[reasoning-block-render]
 import React from "react";
 import {
   CopilotKit,

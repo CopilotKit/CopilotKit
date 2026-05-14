@@ -17,7 +17,7 @@
 // summaries from the Responses API as REASONING / THINKING events on the
 // AG-UI stream, which the v2 chat renders through the slot above.
 
-  // @region[reasoning-block-render]
+// @region[reasoning-block-render]
 import React from "react";
 import {
   CopilotKit,

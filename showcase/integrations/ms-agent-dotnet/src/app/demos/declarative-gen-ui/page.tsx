@@ -21,7 +21,7 @@
  *   https://docs.copilotkit.ai/integrations/microsoft-agent-framework/generative-ui/a2ui
  */
 
-    // @region[provider-a2ui-prop]
+// @region[provider-a2ui-prop]
 import React from "react";
 import {
   CopilotKit,

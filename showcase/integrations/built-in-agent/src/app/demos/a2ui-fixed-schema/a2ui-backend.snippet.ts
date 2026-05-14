@@ -19,7 +19,6 @@ declare const a2ui: {
 const SURFACE_ID = "flight-fixed-schema";
 const CATALOG_ID = "flight-catalog";
 
-
 // In the schema-inline pattern, the schema is declared as a typed literal
 // in source rather than loaded from JSON at startup. Same shape as the
 // schema-loading variant; just no file I/O.

@@ -13,7 +13,7 @@
  * UI and app-side capability.
  */
 
-    // @region[sandbox-function-registration]
+// @region[sandbox-function-registration]
 import {
   CopilotKitProvider,
   CopilotChat,
