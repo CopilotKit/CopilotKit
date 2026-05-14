@@ -21,6 +21,8 @@
 // `${AGENT_URL}/` (port 8000 by default). We register an `HttpAgent` against
 // it under the "voice-demo" slug used by the page.
 
+// @region[voice-runtime]
+// @region[transcription-service-guard]
 import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
@@ -44,7 +46,6 @@ const voiceDemoAgent = new HttpAgent({ url: `${AGENT_URL}/` });
  * "api key" substring in the thrown error is matched by the V2 runtime's
  * `handleTranscribe` and mapped to `AUTH_FAILED → HTTP 401`.
  */
-// @region[transcription-service-guard]
 class GuardedOpenAITranscriptionService extends TranscriptionService {
   private delegate: TranscriptionServiceOpenAI | null;
 
@@ -74,7 +75,6 @@ let cachedHandler: ((req: Request) => Promise<Response>) | null = null;
 function getHandler(): (req: Request) => Promise<Response> {
   if (cachedHandler) return cachedHandler;
 
-  // @region[voice-runtime]
   const runtime = new CopilotRuntime({
     // @ts-ignore -- Published CopilotRuntime agents type wraps Record in
     // MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in
