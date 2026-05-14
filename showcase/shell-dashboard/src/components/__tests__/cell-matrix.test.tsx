@@ -286,8 +286,19 @@ describe("CellMatrix", () => {
   });
 
   it("filters to rows with regressions when filter=regressions", () => {
-    // lgp/agentic-chat has D5 mapping → maxPossible=5, achieved=2 → regression
-    // lgp/no-d5-feature has NO D5 mapping → maxPossible=4, achieved=4 → no regression
+    // Uses buildCellModel D3/D4/D5 depth model (not the old D0-D6 ladder).
+    //
+    // lgp/agentic-chat: e2e row GREEN (D3 passes), chat row GREEN (D4 passes),
+    //   but "agentic-chat" has a CATALOG_TO_D5_KEY mapping so ceiling=5.
+    //   No D5 PB rows → D5 status=null → achieved=4 < ceiling=5 → REGRESSION.
+    //
+    // lgp/no-d5-feature: e2e row GREEN (D3 passes), chat row GREEN (D4 passes),
+    //   "no-d5-feature" has NO CATALOG_TO_D5_KEY mapping → ceiling=4.
+    //   achieved=4 === ceiling=4 → NOT a regression.
+    const regressFeatures = [
+      { id: "agentic-chat", name: "Agentic Chat", category: "chat-ui" },
+      { id: "no-d5-feature", name: "No D5 Feature", category: "platform" },
+    ];
     const regressCells: CatalogCell[] = [
       {
         id: "lgp/agentic-chat",
@@ -313,8 +324,7 @@ describe("CellMatrix", () => {
       },
     ];
     const live = mapOf([
-      row("health:lgp", "health", "green"),
-      row("agent:lgp", "agent", "green"),
+      row("e2e:lgp/agentic-chat", "e2e", "green"),
       row("e2e:lgp/no-d5-feature", "e2e", "green"),
       row("chat:lgp", "chat", "green"),
     ]);
@@ -325,7 +335,7 @@ describe("CellMatrix", () => {
       <CellMatrix
         cells={regressCells}
         categories={categories}
-        features={features}
+        features={regressFeatures}
         integrations={oneIntegration}
         liveStatus={live}
         defaultOpenCategories={new Set(["chat-ui", "platform"])}
@@ -333,9 +343,9 @@ describe("CellMatrix", () => {
         referenceSlug="lgp"
       />,
     );
-    // agentic-chat has regression (achieved=2 < maxPossible=5) → visible
+    // agentic-chat: achieved=4 < ceiling=5 → regression → visible
     expect(queryByText("Agentic Chat")).not.toBeNull();
-    // no-d5-feature at ceiling (achieved=4 === maxPossible=4) → hidden
+    // no-d5-feature: achieved=4 === ceiling=4 → at ceiling → hidden
     expect(queryByText("No D5 Feature")).toBeNull();
   });
 

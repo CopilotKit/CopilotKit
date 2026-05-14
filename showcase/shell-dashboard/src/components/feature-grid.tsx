@@ -16,7 +16,7 @@ import type { ConnectionStatus, LiveStatusMap } from "@/lib/live-status";
 import { LevelStrip } from "@/components/level-strip";
 import { OverlayColumnHeader } from "@/components/overlay-column-header";
 import { RefDepthHeader, RefDepthCell } from "@/components/ref-depth-column";
-import { deriveDepth } from "@/components/depth-utils";
+import { buildCellModel } from "@/lib/cell-model";
 import type { CatalogCell } from "@/components/depth-utils";
 import type { Overlay } from "@/lib/overlay-types";
 import type { ParityTier } from "@/components/parity-badge";
@@ -271,8 +271,14 @@ const CategorySection = React.memo(
             const refCell = showRefDepth
               ? refCellsByFeature.get(feature.id)
               : undefined;
-            const refDepth = refCell
-              ? deriveDepth(refCell, liveStatus)
+            const refModel = refCell
+              ? buildCellModel(liveStatus, {
+                  slug: refCell.integration,
+                  featureId: refCell.feature ?? feature.id,
+                  isSupported: refCell.status !== "unsupported",
+                  isWired:
+                    refCell.status === "wired" || refCell.status === "stub",
+                })
               : undefined;
             return (
               <tr
@@ -306,13 +312,13 @@ const CategorySection = React.memo(
                   </div>
                 </td>
                 {showRefDepth &&
-                  (refCell && refDepth && !docsOnly ? (
+                  (refCell && refModel && !docsOnly ? (
                     <RefDepthCell
-                      depth={refDepth.achieved}
+                      depth={refModel.achievedDepth}
                       status={
-                        refDepth.unsupported ? "unsupported" : refCell.status
+                        !refModel.supported ? "unsupported" : refCell.status
                       }
-                      maxDepth={refDepth.maxPossible}
+                      maxDepth={refModel.ceilingDepth}
                     />
                   ) : (
                     <td

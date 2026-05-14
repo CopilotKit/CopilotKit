@@ -4,7 +4,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
-import { DepthChip, depthColorClass } from "../depth-chip";
+import { DepthChip, depthColorClass, chipColorToClass } from "../depth-chip";
 
 describe("DepthChip", () => {
   it.each([0, 1, 2, 3, 4, 5, 6])(
@@ -257,5 +257,87 @@ describe("depthColorClass (direct)", () => {
   // Additional: D1 with maxDepth=6 → red (5 below)
   it("depthColorClass(1, 6) → red", () => {
     expect(depthColorClass(1, false, 6)).toContain("danger");
+  });
+});
+
+describe("DepthChip with chipColor prop", () => {
+  it("renders green when chipColor='green' regardless of depth", () => {
+    const { getByTestId } = render(
+      <DepthChip depth={3} status="wired" chipColor="green" />,
+    );
+    const chip = getByTestId("depth-chip");
+    expect(chip.className).toContain("emerald");
+  });
+
+  it("renders amber when chipColor='amber'", () => {
+    const { getByTestId } = render(
+      <DepthChip depth={4} status="wired" chipColor="amber" />,
+    );
+    const chip = getByTestId("depth-chip");
+    expect(chip.className).toContain("amber");
+  });
+
+  it("renders red when chipColor='red'", () => {
+    const { getByTestId } = render(
+      <DepthChip depth={3} status="wired" chipColor="red" />,
+    );
+    const chip = getByTestId("depth-chip");
+    expect(chip.className).toContain("danger");
+  });
+
+  it("renders gray when chipColor='gray'", () => {
+    const { getByTestId } = render(
+      <DepthChip depth={0} status="wired" chipColor="gray" />,
+    );
+    const chip = getByTestId("depth-chip");
+    expect(chip.className).toContain("text-muted");
+  });
+
+  it("chipColor takes precedence over maxDepth when both provided", () => {
+    // maxDepth=5 with depth=4 would normally be amber, but chipColor overrides
+    const { getByTestId } = render(
+      <DepthChip depth={4} status="wired" maxDepth={5} chipColor="green" />,
+    );
+    const chip = getByTestId("depth-chip");
+    expect(chip.className).toContain("emerald");
+  });
+
+  it("falls back to depthColorClass when chipColor not provided", () => {
+    // Backwards compat: D5 with no chipColor should still be green via fallback
+    const { getByTestId } = render(<DepthChip depth={5} status="wired" />);
+    const chip = getByTestId("depth-chip");
+    expect(chip.className).toContain("emerald");
+  });
+
+  it("regression overrides chipColor='green' with danger", () => {
+    const { getByTestId } = render(
+      <DepthChip depth={5} status="wired" chipColor="green" regression />,
+    );
+    const chip = getByTestId("depth-chip");
+    expect(chip.className).toContain("danger");
+  });
+});
+
+describe("chipColorToClass (direct)", () => {
+  it("green → emerald class", () => {
+    expect(chipColorToClass("green")).toContain("emerald");
+  });
+
+  it("amber → amber class", () => {
+    expect(chipColorToClass("amber")).toContain("amber");
+  });
+
+  it("red → danger class", () => {
+    expect(chipColorToClass("red")).toContain("danger");
+  });
+
+  it("gray → text-muted class", () => {
+    expect(chipColorToClass("gray")).toContain("text-muted");
+  });
+
+  it("regression overrides any color to danger", () => {
+    expect(chipColorToClass("green", true)).toContain("danger");
+    expect(chipColorToClass("amber", true)).toContain("danger");
+    expect(chipColorToClass("gray", true)).toContain("danger");
   });
 });

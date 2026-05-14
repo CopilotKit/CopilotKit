@@ -1,4 +1,7 @@
 /**
+ * @deprecated deriveDepth() has been replaced by buildCellModel() in @/lib/cell-model.ts.
+ * CatalogCell type is still used by cell-matrix.tsx and other consumers.
+ *
  * Pure depth-derivation utility for the D0-D6 depth ladder.
  *
  * Walks D0 through D6 checking PocketBase live-status rows:

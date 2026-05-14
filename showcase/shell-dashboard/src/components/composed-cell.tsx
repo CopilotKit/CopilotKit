@@ -1,5 +1,8 @@
 "use client";
 /**
+ * @deprecated Use UnifiedCell from @/components/unified-cell instead.
+ * Retained for backwards compatibility during transition.
+ *
  * ComposedCell — overlay-aware cell renderer.
  *
  * Composes different content layers (Links, Depth, Health, Docs) based on
