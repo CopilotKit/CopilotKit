@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import type { LiveStatusMap, StatusRow } from "@/lib/live-status";
 import type { Integration, Feature } from "@/lib/registry";
 
@@ -10,62 +10,27 @@ vi.mock("@/lib/registry", () => ({
   getFeatureCategories: vi.fn(() => []),
 }));
 
-// Mock live-status module before importing the function under test
-vi.mock("@/lib/live-status", async () => {
-  const actual =
-    await vi.importActual<typeof import("@/lib/live-status")>(
-      "@/lib/live-status",
-    );
-  return {
-    ...actual,
-    keyFor: vi.fn(actual.keyFor),
-    resolveCell: vi.fn(),
-  };
-});
-
 import { computeColumnTallyDetail } from "@/components/feature-grid";
-import { keyFor, resolveCell } from "@/lib/live-status";
-import type { CellState, BadgeRender } from "@/lib/live-status";
-
-const mockedResolveCell = vi.mocked(resolveCell);
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
-function makeRow(overrides: Partial<StatusRow> = {}): StatusRow {
+function makeRow(
+  key: string,
+  dimension: string,
+  state: StatusRow["state"],
+): StatusRow {
   return {
-    id: "row-1",
-    key: "health:test-slug",
-    dimension: "health",
-    state: "green",
+    id: key,
+    key,
+    dimension,
+    state,
     signal: null,
     observed_at: "2026-04-28T00:00:00Z",
     transitioned_at: "2026-04-28T00:00:00Z",
     fail_count: 0,
     first_failure_at: null,
-    ...overrides,
-  };
-}
-
-function makeBadge(tone: string): BadgeRender {
-  return {
-    tone: tone as BadgeRender["tone"],
-    label: tone,
-    tooltip: "",
-    row: null,
-  };
-}
-
-function makeCellState(e2eTone: string): CellState {
-  return {
-    e2e: makeBadge(e2eTone),
-    smoke: makeBadge("gray"),
-    health: makeBadge("gray"),
-    d2: makeBadge("gray"),
-    d5: makeBadge("gray"),
-    d6: makeBadge("gray"),
-    rollup: e2eTone as CellState["rollup"],
   };
 }
 
@@ -100,10 +65,6 @@ function makeFeature(id: string, name: string): Feature {
 /* ------------------------------------------------------------------ */
 
 describe("computeColumnTallyDetail", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("returns unknown: true with empty arrays when connection is error", () => {
     const integration = makeIntegration("test-int", ["feat-1"]);
     const features = [makeFeature("feat-1", "Feature 1")];
@@ -122,26 +83,20 @@ describe("computeColumnTallyDetail", () => {
       red: [],
       unknown: true,
     });
-    // resolveCell should NOT be called when connection is error
-    expect(mockedResolveCell).not.toHaveBeenCalled();
   });
 
-  it("collects health green + 1 e2e green + 1 e2e red", () => {
+  it("green D3 cells land in green bucket", () => {
     const integration = makeIntegration("my-int", ["feat-a", "feat-b"]);
     const features = [
       makeFeature("feat-a", "Feature A"),
       makeFeature("feat-b", "Feature B"),
     ];
 
-    const healthKey = keyFor("health", "my-int");
+    // Both features have green D3 → achievedDepth=3, ceilingDepth=3 → green chip
     const liveStatus: LiveStatusMap = new Map([
-      [healthKey, makeRow({ key: healthKey, state: "green" })],
+      ["e2e:my-int/feat-a", makeRow("e2e:my-int/feat-a", "e2e", "green")],
+      ["e2e:my-int/feat-b", makeRow("e2e:my-int/feat-b", "e2e", "green")],
     ]);
-
-    // feat-a e2e → green, feat-b e2e → red
-    mockedResolveCell
-      .mockReturnValueOnce(makeCellState("green"))
-      .mockReturnValueOnce(makeCellState("red"));
 
     const result = computeColumnTallyDetail(
       integration,
@@ -152,27 +107,26 @@ describe("computeColumnTallyDetail", () => {
 
     expect(result.unknown).toBe(false);
     expect(result.green).toEqual([
-      { label: "Health (Up)", dimension: "health" },
       { label: "Feature A", dimension: "e2e", featureId: "feat-a" },
-    ]);
-    expect(result.red).toEqual([
       { label: "Feature B", dimension: "e2e", featureId: "feat-b" },
     ]);
     expect(result.amber).toEqual([]);
+    expect(result.red).toEqual([]);
   });
 
-  it("collects amber e2e features when no health data exists", () => {
-    const integration = makeIntegration("no-health", ["feat-x", "feat-y"]);
+  it("red D3 cells are gray (achievedDepth=0) and excluded", () => {
+    const integration = makeIntegration("my-int", ["feat-a", "feat-b"]);
     const features = [
-      makeFeature("feat-x", "Feature X"),
-      makeFeature("feat-y", "Feature Y"),
+      makeFeature("feat-a", "Feature A"),
+      makeFeature("feat-b", "Feature B"),
     ];
-    const liveStatus: LiveStatusMap = new Map();
 
-    // Both features → amber
-    mockedResolveCell
-      .mockReturnValueOnce(makeCellState("amber"))
-      .mockReturnValueOnce(makeCellState("amber"));
+    // feat-a: D3=red → achievedDepth=0, ceilingDepth=3 → gray (skipped)
+    // feat-b: D3=green → green chip
+    const liveStatus: LiveStatusMap = new Map([
+      ["e2e:my-int/feat-a", makeRow("e2e:my-int/feat-a", "e2e", "red")],
+      ["e2e:my-int/feat-b", makeRow("e2e:my-int/feat-b", "e2e", "green")],
+    ]);
 
     const result = computeColumnTallyDetail(
       integration,
@@ -182,24 +136,24 @@ describe("computeColumnTallyDetail", () => {
     );
 
     expect(result.unknown).toBe(false);
-    expect(result.green).toEqual([]);
-    expect(result.red).toEqual([]);
-    expect(result.amber).toEqual([
-      { label: "Feature X", dimension: "e2e", featureId: "feat-x" },
-      { label: "Feature Y", dimension: "e2e", featureId: "feat-y" },
+    expect(result.green).toEqual([
+      { label: "Feature B", dimension: "e2e", featureId: "feat-b" },
     ]);
+    expect(result.amber).toEqual([]);
+    expect(result.red).toEqual([]);
   });
 
-  it("skips features that have no matching demo", () => {
+  it("features without demos are gray (unwired) and excluded", () => {
     // Integration only has demo for feat-1, not feat-2
     const integration = makeIntegration("partial", ["feat-1"]);
     const features = [
       makeFeature("feat-1", "Feature 1"),
       makeFeature("feat-2", "Feature 2"),
     ];
-    const liveStatus: LiveStatusMap = new Map();
 
-    mockedResolveCell.mockReturnValueOnce(makeCellState("green"));
+    const liveStatus: LiveStatusMap = new Map([
+      ["e2e:partial/feat-1", makeRow("e2e:partial/feat-1", "e2e", "green")],
+    ]);
 
     const result = computeColumnTallyDetail(
       integration,
@@ -209,23 +163,20 @@ describe("computeColumnTallyDetail", () => {
     );
 
     expect(result.unknown).toBe(false);
-    // Only feat-1 appears (has a demo); feat-2 is absent
+    // Only feat-1 appears (has a demo); feat-2 is unwired → gray → excluded
     expect(result.green).toEqual([
       { label: "Feature 1", dimension: "e2e", featureId: "feat-1" },
     ]);
     expect(result.amber).toEqual([]);
     expect(result.red).toEqual([]);
-    // resolveCell was only called once (for feat-1)
-    expect(mockedResolveCell).toHaveBeenCalledTimes(1);
   });
 
-  it("routes degraded health to amber bucket", () => {
-    const integration = makeIntegration("degraded-int", []);
+  it("health-only data produces no tally items (health not in cell model)", () => {
+    const integration = makeIntegration("health-only", []);
     const features: Feature[] = [];
 
-    const healthKey = keyFor("health", "degraded-int");
     const liveStatus: LiveStatusMap = new Map([
-      [healthKey, makeRow({ key: healthKey, state: "degraded" })],
+      ["health:health-only", makeRow("health:health-only", "health", "red")],
     ]);
 
     const result = computeColumnTallyDetail(
@@ -235,21 +186,26 @@ describe("computeColumnTallyDetail", () => {
       "live",
     );
 
-    expect(result.amber).toEqual([
-      { label: "Health (Up)", dimension: "health" },
-    ]);
+    // No features → no cells → nothing counted
     expect(result.green).toEqual([]);
+    expect(result.amber).toEqual([]);
     expect(result.red).toEqual([]);
     expect(result.unknown).toBe(false);
   });
 
-  it("routes red health to red bucket", () => {
-    const integration = makeIntegration("red-int", []);
-    const features: Feature[] = [];
+  it("not_supported_features are gray and excluded", () => {
+    const integration = {
+      ...makeIntegration("ns-int", ["feat-a", "feat-b"]),
+      not_supported_features: ["feat-b"],
+    };
+    const features = [
+      makeFeature("feat-a", "Feature A"),
+      makeFeature("feat-b", "Feature B"),
+    ];
 
-    const healthKey = keyFor("health", "red-int");
     const liveStatus: LiveStatusMap = new Map([
-      [healthKey, makeRow({ key: healthKey, state: "red" })],
+      ["e2e:ns-int/feat-a", makeRow("e2e:ns-int/feat-a", "e2e", "green")],
+      ["e2e:ns-int/feat-b", makeRow("e2e:ns-int/feat-b", "e2e", "green")],
     ]);
 
     const result = computeColumnTallyDetail(
@@ -259,9 +215,12 @@ describe("computeColumnTallyDetail", () => {
       "live",
     );
 
-    expect(result.red).toEqual([{ label: "Health (Up)", dimension: "health" }]);
-    expect(result.green).toEqual([]);
-    expect(result.amber).toEqual([]);
     expect(result.unknown).toBe(false);
+    // feat-a: green; feat-b: unsupported → gray → excluded
+    expect(result.green).toEqual([
+      { label: "Feature A", dimension: "e2e", featureId: "feat-a" },
+    ]);
+    expect(result.amber).toEqual([]);
+    expect(result.red).toEqual([]);
   });
 });
