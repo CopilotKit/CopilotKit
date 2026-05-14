@@ -59,7 +59,7 @@ test.describe("HITL in chat — booking flow", () => {
     // Agent's follow-up confirmation arrives next.
     await expect(
       page
-        .locator('[data-role="assistant"]')
+        .locator('[data-testid="copilot-assistant-message"]')
         .filter({ hasText: /Booked.*Alice/i })
         .first(),
     ).toBeVisible({ timeout: 30000 });
@@ -92,7 +92,7 @@ test.describe("HITL in chat — booking flow", () => {
 
     await expect(
       page
-        .locator('[data-role="assistant"]')
+        .locator('[data-testid="copilot-assistant-message"]')
         .filter({ hasText: /Booked.*sales team/i })
         .first(),
     ).toBeVisible({ timeout: 30000 });
@@ -123,7 +123,7 @@ test.describe("HITL in chat — booking flow", () => {
     await page.locator('[data-testid="time-picker-slot"]').first().click();
     await expect(
       page
-        .locator('[data-role="assistant"]')
+        .locator('[data-testid="copilot-assistant-message"]')
         .filter({ hasText: /Booked.*Alice/i })
         .first(),
     ).toBeVisible({ timeout: 30000 });
@@ -144,7 +144,7 @@ test.describe("HITL in chat — booking flow", () => {
     await page.locator('[data-testid="time-picker-slot"]').last().click();
     await expect(
       page
-        .locator('[data-role="assistant"]')
+        .locator('[data-testid="copilot-assistant-message"]')
         .filter({ hasText: /Booked.*sales team/i })
         .first(),
     ).toBeVisible({ timeout: 30000 });

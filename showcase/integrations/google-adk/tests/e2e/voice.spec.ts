@@ -29,7 +29,7 @@ test.describe("Voice Input", () => {
     await expect(
       page.locator('[data-testid="voice-sample-audio-button"]'),
     ).toBeEnabled();
-    await expect(page.getByText("Play sample")).toBeVisible();
+    await expect(page.getByText("Try a sample audio")).toBeVisible();
     await expect(
       page.locator('[data-testid="copilot-chat-input"]'),
     ).toBeVisible();
@@ -62,11 +62,11 @@ test.describe("Voice Input", () => {
     await expect(sampleButton).toBeEnabled();
   });
 
-  test("sending the transcribed text produces an assistant response", async ({
+  test("sending the transcribed text produces a weather tool render", async ({
     page,
   }) => {
     // The end-to-end flow (click → run agent → first assistant chunk) can run
-    // up to ~50s on a cold ADK dev server, so override the default 30s
+    // up to ~50s on a cold langgraph dev server, so override the default 30s
     // suite timeout to give the locator's own 45s timeout headroom.
     test.setTimeout(90_000);
     const sampleButton = page.locator(
@@ -79,7 +79,7 @@ test.describe("Voice Input", () => {
     await expect(textarea).toHaveValue(/weather|tokyo/i, { timeout: 1000 });
     await sendButton.click();
 
-    // The voice-demo route reuses the neutral _simple_chat agent, which
+    // The voice-demo route reuses the neutral sample_agent graph, which
     // doesn't itself render a weather card — but if the runtime has a
     // tool-rendering configuration that handles weather, one of these will
     // be visible. The assertion is permissive: we care that *some*

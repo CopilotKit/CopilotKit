@@ -21,11 +21,11 @@ import { test, expect } from "@playwright/test";
 // frame and is not introspectable from Playwright's page context, so we
 // only assert presence + the sandbox contract.
 //
-// The MCP round-trip (agent → create_view → server-side resource
-// fetch → activity event) is the slowest flow in the suite, regularly
-// sitting above 60s on Railway. The end-to-end tool-driven tests are
-// skipped by default; the deterministic suggestion-pill render is the
-// stable signal.
+// W8-9: the MCP round-trip (agent → create_view → server-side resource
+// fetch → activity event) is the slowest flow in the suite on Railway,
+// regularly sitting above 60s. The end-to-end tool-driven test uses a
+// 90s budget and is kept un-skipped; the deterministic draw-prompt
+// version is covered by the suggestion pill flow.
 
 test.describe("MCP Apps (Excalidraw activity iframe)", () => {
   test.setTimeout(180_000);
@@ -57,7 +57,7 @@ test.describe("MCP Apps (Excalidraw activity iframe)", () => {
   // SKIP: on Railway the MCP round-trip (agent -> create_view ->
   // server-side resource fetch -> activity event -> iframe render)
   // regularly sits above 90s and intermittently fails to paint an
-  // iframe at all when the Excalidraw MCP server is slow.
+  // iframe at all when the Excalidraw MCP server is slow. See W8-9.
   // Un-skip when the MCP Apps middleware / Excalidraw upstream
   // stabilises on Railway.
   test.skip("Draw-a-flowchart pill renders a sandboxed activity iframe", async ({
@@ -74,7 +74,7 @@ test.describe("MCP Apps (Excalidraw activity iframe)", () => {
   });
 
   // SKIP: same root cause as the flowchart flow — the typed-prompt
-  // variant also depends on the MCP round-trip.
+  // variant also depends on the MCP round-trip. See W8-9.
   test.skip("explicit create_view prompt renders a sandboxed iframe", async ({
     page,
   }) => {

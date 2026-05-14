@@ -67,6 +67,7 @@ from agents.readonly_state_agent_context_agent import (
 )
 from agents.beautiful_chat_agent import beautiful_chat_agent
 from agents.shared_state_read_agent import shared_state_read_agent
+from agents.headless_complete_agent import headless_complete_agent
 
 
 @dataclass
@@ -137,7 +138,7 @@ AGENT_REGISTRY: dict[str, AgentSpec] = {
     "chat-slots": AgentSpec(_simple_chat),
     "chat-customization-css": AgentSpec(_simple_chat),
     "headless-simple": AgentSpec(_simple_chat),
-    "headless_complete": AgentSpec(_simple_chat),
+    "headless_complete": AgentSpec(headless_complete_agent),
     "voice": AgentSpec(_simple_chat),
     # ----- Reasoning demos -----
     "reasoning-custom": AgentSpec(_thinking_chat),
