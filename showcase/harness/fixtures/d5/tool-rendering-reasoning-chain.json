@@ -30,6 +30,16 @@
       }
     },
     {
+      "_comment": "Pill 1 (stocks) — hasToolResult: true fallback for integrations (Google ADK + older aimock <1.23) where the synthesized tool_call_id chain breaks. Without this fallback the loop never terminates on Google ADK: the toolCallId-gated MSFT and final-narration fixtures above can't match (synthesized ids differ from `call_rc_stock_aapl_001`/`call_rc_stock_msft_001`), and the bare userMessage first-leg fixture below re-emits the AAPL tool call indefinitely. ADK collapses to a single AAPL fetch → narration to break the loop. Trade-off: ADK demo only shows the AAPL stock card, not the AAPL+MSFT comparison the LangGraph variant produces. Will be lifted when aimock 1.24.0+ is deployed.",
+      "match": {
+        "userMessage": "Compare AAPL and MSFT stocks",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% on the day."
+      }
+    },
+    {
       "_comment": "Pill 1 (stocks) — first leg: emit get_stock_price(AAPL). The `Compare AAPL and MSFT stocks` substring is unique to this demo's pill — other integrations' reasoning-chain demos still ship the older `How is AAPL doing?` prompt — so we don't need an additional tool-name gate.",
       "match": {
         "userMessage": "Compare AAPL and MSFT stocks"
@@ -75,6 +85,16 @@
       }
     },
     {
+      "_comment": "Pill 2 (dice) — hasToolResult: true fallback for integrations (Google ADK + older aimock <1.23). Mirrors the AAPL/MSFT fallback pattern. Without this the d20 result loop never terminates on ADK because the toolCallId-gated d6 second-leg and final-narration fixtures above can't match (synthesized ids differ). ADK collapses to a single d20 roll → narration.",
+      "match": {
+        "userMessage": "compare it to a smaller one",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "The d20 came up 14 — wide range for a single die."
+      }
+    },
+    {
       "_comment": "Pill 2 (dice) — first leg: emit roll_dice(sides=20). Unique substring keeps us scoped to this demo (other integrations send the bare 'Roll a 20-sided die for me.' which falls through to the older 5x roll_d20 fixtures further down in d5-all.json).",
       "match": {
         "userMessage": "compare it to a smaller one"
@@ -117,6 +137,16 @@
             "arguments": "{\"location\":\"JFK\"}"
           }
         ]
+      }
+    },
+    {
+      "_comment": "Pill 3 (flights + destination weather) — hasToolResult: true fallback for integrations (Google ADK + older aimock <1.23). Mirrors the other reasoning-chain pill fallbacks. Without this the flights→weather chain loops infinitely on ADK because the toolCallId-gated weather second-leg and final-narration fixtures can't match (synthesized ids differ). ADK collapses to a single flights search → narration.",
+      "match": {
+        "userMessage": "show me the weather there",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289)."
       }
     },
     {
