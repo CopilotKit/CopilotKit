@@ -27,7 +27,7 @@ env:
 jobs:
   format:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     permissions:
       contents: write
 
@@ -41,21 +41,11 @@ jobs:
           # tip to scope the formatter to PR-changed files.
           fetch-depth: 0
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: "10.13.1"
+      - name: Install oxfmt
+        run: npm install -g oxfmt@0.36
 
-      - name: Use Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.x
-          # setup-node built-in cache is fork-safe (fork PRs can't write to base repo cache)
-          cache: "pnpm"
-          cache-dependency-path: "**/pnpm-lock.yaml"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Install ruff
+        run: pipx install ruff
 
       - name: Collect PR-changed files for formatting
         if: github.event_name == 'pull_request'
@@ -84,7 +74,7 @@ jobs:
             '*.js' '*.jsx' '*.ts' '*.tsx' '*.mjs' '*.cjs' \
             '*.json' '*.jsonc' '*.json5' \
             '*.md' \
-            '*.css' '*.yml' '*.yaml' '*.html' '*.vue' \
+            '*.css' '*.yml' '*.yaml' '*.html' '*.vue' '*.py' \
             ':!**/package-lock.json' ':!**/pnpm-lock.yaml' ':!**/yarn.lock' \
             > .pr-format-files.txt
           : > .pr-format-files.existing.txt
@@ -100,18 +90,29 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             if [ "${{ steps.changed.outputs.count }}" = "0" ]; then
-              echo "No formattable files changed in this PR — skipping oxfmt."
+              echo "No formattable files changed in this PR — skipping."
               exit 0
             fi
-            if ! xargs -a .pr-format-files.existing.txt pnpm exec oxfmt --no-error-on-unmatched-pattern --write; then
-              echo "::warning::Formatter exited with error — auto-fix may be incomplete"
+            # oxfmt: auto-fix JS/TS/JSON/MD/CSS/YAML/HTML/Vue
+            if ! xargs -a .pr-format-files.existing.txt oxfmt --no-error-on-unmatched-pattern --write; then
+              echo "::warning::oxfmt exited with error — auto-fix may be incomplete"
+            fi
+            # ruff: auto-fix Python
+            py_files=$(grep -E '\.py$' .pr-format-files.existing.txt || true)
+            if [ -n "$py_files" ]; then
+              echo "$py_files" | xargs ruff format || echo "::warning::ruff format exited with error"
             fi
             if [ -n "$(git diff --name-only)" ]; then
               echo "format_fixed=true" >> $GITHUB_ENV
             fi
-            xargs -a .pr-format-files.existing.txt pnpm exec oxfmt --no-error-on-unmatched-pattern --check
+            # Check mode: verify everything is formatted
+            xargs -a .pr-format-files.existing.txt oxfmt --no-error-on-unmatched-pattern --check
+            if [ -n "$py_files" ]; then
+              echo "$py_files" | xargs ruff format --check
+            fi
           else
-            pnpm run check-format
+            oxfmt --check .
+            ruff format --check .
           fi
 
       - name: Commit formatting fixes
