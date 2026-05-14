@@ -1,11 +1,19 @@
 /* highlight.js themes load BEFORE tailwindcss so Tailwind utility
- * layers can override specific selectors if ever needed. Both light
- * and dark themes are imported; the dark variant is scoped via
- * `prefers-color-scheme: dark` so only one paints at a time. shell-docs
- * does not yet ship a dark theme, but the stylesheet is ready for it. */
+ * layers can override specific selectors if ever needed.
+ *
+ * Theme switching: shell-docs's dark mode is class-driven (the navbar
+ * toggle adds/removes `.dark` on <html>), but the upstream hljs dark
+ * stylesheet only knows how to switch via `prefers-color-scheme`. If
+ * we imported it with the media-query gate, a user on a light OS who
+ * clicked the dark toggle would get the dark surface chrome (page bg,
+ * code-block bg) but the LIGHT hljs token colors — black text on
+ * black backgrounds.
+ *
+ * Fix: import the light github theme unconditionally and inline the
+ * github-dark-dimmed token colors below, scoped to `.dark`. Source:
+ * highlight.js/styles/github-dark-dimmed.css (kept in sync manually;
+ * the upstream sheet is small enough that drift is easy to spot). */
 @import "highlight.js/styles/github.css" layer(highlightjs);
-@import "highlight.js/styles/github-dark-dimmed.css" layer(highlightjs)
-  (prefers-color-scheme: dark);
 @import "tailwindcss";
 
 /* Activate `dark:` Tailwind variants based on the `.dark` class on an
@@ -389,3 +397,125 @@ samp {
 .docs-steps h4:first-child {
   margin-top: 0;
 }
+
+/* highlight.js — class-driven dark overrides.
+ *
+ * The light `github.css` theme is imported unconditionally at the top of
+ * this file. The block below mirrors `github-dark-dimmed.css` but scoped
+ * to `.dark`, so the user's manual theme toggle (which only flips a
+ * class, not the OS color-scheme) actually re-themes the syntax colors
+ * inside code blocks. Without this scoping, dark-mode users saw black
+ * `.hljs` text against the dark `var(--bg-surface)` we set on <pre>,
+ * which is the "CSS Disruptive for Dark Mode" report on the Quickstart. */
+.dark .hljs {
+  color: #adbac7;
+  background: transparent;
+}
+.dark .hljs-doctag,
+.dark .hljs-keyword,
+.dark .hljs-meta .hljs-keyword,
+.dark .hljs-template-tag,
+.dark .hljs-template-variable,
+.dark .hljs-type,
+.dark .hljs-variable.language_ {
+  color: #f47067;
+}
+.dark .hljs-title,
+.dark .hljs-title.class_,
+.dark .hljs-title.class_.inherited__,
+.dark .hljs-title.function_ {
+  color: #dcbdfb;
+}
+.dark .hljs-attr,
+.dark .hljs-attribute,
+.dark .hljs-literal,
+.dark .hljs-meta,
+.dark .hljs-number,
+.dark .hljs-operator,
+.dark .hljs-variable,
+.dark .hljs-selector-attr,
+.dark .hljs-selector-class,
+.dark .hljs-selector-id {
+  color: #6cb6ff;
+}
+.dark .hljs-regexp,
+.dark .hljs-string,
+.dark .hljs-meta .hljs-string {
+  color: #96d0ff;
+}
+.dark .hljs-built_in,
+.dark .hljs-symbol {
+  color: #f69d50;
+}
+.dark .hljs-comment,
+.dark .hljs-code,
+.dark .hljs-formula {
+  color: #768390;
+}
+.dark .hljs-name,
+.dark .hljs-quote,
+.dark .hljs-selector-tag,
+.dark .hljs-selector-pseudo {
+  color: #8ddb8c;
+}
+.dark .hljs-subst {
+  color: #adbac7;
+}
+.dark .hljs-section {
+  color: #316dca;
+  font-weight: bold;
+}
+.dark .hljs-bullet {
+  color: #eac55f;
+}
+.dark .hljs-emphasis {
+  color: #adbac7;
+  font-style: italic;
+}
+.dark .hljs-strong {
+  color: #adbac7;
+  font-weight: bold;
+}
+.dark .hljs-addition {
+  color: #b4f1b4;
+  background-color: #1b4721;
+}
+.dark .hljs-deletion {
+  color: #ffd8d3;
+  background-color: #78191b;
+}
+
+/* Light-mode hljs: the upstream `github.css` paints `.hljs` with an opaque
+ * `#fff` background that punches a white rectangle out of dark surfaces
+ * AND fights the figure's `var(--bg-surface)`. Setting it to transparent
+ * lets our own chrome (Snippet, DemoSource, MdxCodeBlock) own the
+ * background so theme-driven surfaces actually paint through. */
+.hljs {
+  background: transparent;
+}
+
+/* <MdxCodeBlock> — the `pre` override used by triple-fenced MDX code
+ * blocks. We want the figure chrome to win over the default
+ * `.reference-content pre` rule (border + shadow + padding) so the
+ * captioned/copy-button surface doesn't double up borders or padding. */
+.reference-content .mdx-code-block {
+  background: var(--bg-surface);
+}
+
+.reference-content .mdx-code-block .mdx-code-block__pre {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  margin: 0;
+  /* `.reference-content pre` ships with its own font-size; the inline
+   * class on .mdx-code-block__pre also sets one (`text-[12.5px]`). Using
+   * `font-size: inherit` here is the wrong direction — the inline class
+   * is what should win, so we don't override font-size at all. */
+}
+
+/* Soften the prose link underline rule inside our code-block surfaces.
+ * `.reference-content a { text-decoration: underline; color: accent }`
+ * fires on any <a> that bleeds into a code block (e.g. a link inside
+ * a callout that sits above the code), which is fine. We don't touch
+ * that here; this is just the documented expectation. */
