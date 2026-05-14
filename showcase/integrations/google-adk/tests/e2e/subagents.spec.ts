@@ -1,23 +1,26 @@
 import { expect, Page, test } from "@playwright/test";
 
-// Sub-Agents demo — Google ADK.
-//
-// Mirrors langgraph-python/tests/e2e/subagents.spec.ts.
+// Sub-Agents demo (Phase-1D, multi-agent family).
 //
 // Demo source: src/app/demos/subagents/page.tsx
-// Backend agent: src/agents/subagents_agent.py (supervisor + 3 sub-agents)
+// Backend agent: src/agents/subagents.py (supervisor + 3 sub-agents)
+// Aimock fixtures: showcase/aimock/d5-all.json (3 pill chains)
 //
 // The supervisor delegates to research → writing → critique sub-agents.
 // Each delegation renders an inline tool-card in the chat stream via
 // `useRenderTool` plus an entry in the side-panel delegation log.
 //
 // Each test drives a verbatim suggestion-pill prompt (see
-// `src/app/demos/subagents/suggestions.ts`) end-to-end and asserts:
+// `src/app/demos/subagents/suggestions.ts`) end-to-end through the
+// fixture chain and asserts:
 //   1. all three role-scoped cards render
 //      (`[data-testid="subagent-card-<role>"]`),
 //   2. each card's `[data-testid="subagent-result"]` is non-empty AND
-//      does not echo the showcase-assistant boilerplate, and
-//   3. exactly one critic card renders per supervisor run.
+//      does not echo the showcase-assistant boilerplate (catches the
+//      previous bug where Writer/Critic cards leaked the chat
+//      welcome text), and
+//   3. exactly one critic card renders per supervisor run, with a
+//      stable `done` status (catches the previous critic-loop bug).
 
 const PILLS = {
   blog: "Write a blog post",
@@ -28,10 +31,10 @@ const PILLS = {
 const ROLES = ["researcher", "writer", "critic"] as const;
 type Role = (typeof ROLES)[number];
 
-// Boilerplate strings that would indicate the showcase assistant intro
-// leaked into a sub-agent card. Asserting these are absent guards
-// against regressions where the assistant intro overwrites real
-// sub-agent output.
+// Showcase boilerplate strings the previous wiring leaked into Writer
+// and Critic cards. Asserting these are absent guards against any
+// regression where the assistant intro overwrites real sub-agent
+// output.
 const BOILERPLATE_FRAGMENTS = [
   "Hi there! I'm your showcase assistant",
   "Here are the things I can help with",
@@ -132,11 +135,16 @@ test.describe("Sub-Agents", () => {
     }
   });
 
-  test("Summarize a topic pill produces 3 subagent cards", async ({ page }) => {
-    // ADK appends a single `completed` delegation entry per sub-agent
-    // call (no `running` placeholder), matching LP's reducer semantics.
-    // Reaching `done` on all three cards confirms the completion-only
-    // append in `subagents_agent.py` is in place.
+  test("Summarize a topic pill produces 3 subagent cards (regression: delegations reducer)", async ({
+    page,
+  }) => {
+    // This pill historically returned HTTP 400 with
+    // INVALID_CONCURRENT_GRAPH_UPDATE on the `delegations` state key
+    // because the TypedDict didn't declare a reducer. Reaching `done`
+    // on all three cards confirms the `Annotated[..., operator.add]`
+    // reducer in `subagents.py` is in place — without it the supervisor
+    // run would error out and at least one card would never reach
+    // `complete`.
     await clickPill(page, PILLS.summarize);
     await waitForAllCardsDone(page);
     for (const role of ROLES) {

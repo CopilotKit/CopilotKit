@@ -1,12 +1,8 @@
 /**
- * E2E spec for the Declarative UI: Hashbrown demo (ADK route
- * `/demos/declarative-hashbrown`). Ported from LP's
- * `declarative-hashbrown.spec.ts` so the dashboard's hashbrown row
- * exercises the same surfaces (metric-card + chart) across showcases.
- *
- * Selectors match the chart/metric components' `data-testid` hooks.
- * Streaming-friendly timeouts because hashbrown assembles UI
- * progressively from structured output.
+ * E2E spec for the Declarative UI: Hashbrown demo. Selectors match the
+ * chart/metric components' `data-testid` hooks. Covers 3 suggestion
+ * flows + page-load smoke; timeouts are streaming-friendly because
+ * hashbrown assembles UI progressively from structured output.
  */
 import { test, expect } from "@playwright/test";
 
