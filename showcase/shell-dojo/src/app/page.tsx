@@ -19,10 +19,17 @@ interface DemoContentFile {
   highlighted?: boolean;
 }
 
+interface DemoRegion {
+  file: string;
+  startLine: number;
+  endLine: number;
+}
+
 interface DemoContent {
   readme: string | null;
   files: DemoContentFile[];
   backend_files: DemoContentFile[];
+  regions?: Record<string, DemoRegion>;
 }
 
 const demoContent = demoContentData as {
@@ -172,6 +179,23 @@ export default function DojoPage() {
     () => allFiles.find((f) => f.filename === selectedFilename) ?? allFiles[0],
     [allFiles, selectedFilename],
   );
+
+  // Region markers (`// @region[name] … // @endregion[name]` in the demo
+  // source) get bundled as { file, startLine, endLine } pairs in
+  // demo-content.json. Surface them as a yellow per-line background so the
+  // author-marked "this is the interesting bit" sections jump out without
+  // any data-format change.
+  const highlightedLines = useMemo(() => {
+    const set = new Set<number>();
+    if (!content?.regions || !activeFile) return set;
+    for (const region of Object.values(content.regions)) {
+      if (region.file !== activeFile.filename) continue;
+      for (let line = region.startLine; line <= region.endLine; line++) {
+        set.add(line);
+      }
+    }
+    return set;
+  }, [content, activeFile]);
 
   const handleIntegrationChange = useCallback(
     (slug: string) => {
@@ -713,6 +737,7 @@ export default function DojoPage() {
                 <CodeBlock
                   code={activeFile.content}
                   language={activeFile.language}
+                  highlightedLines={highlightedLines}
                 />
               )}
             </div>
