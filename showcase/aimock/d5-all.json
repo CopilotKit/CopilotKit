@@ -2046,6 +2046,7 @@
     },
     {
       "match": {
+        "userMessage": "Plan a product launch",
         "toolCallId": "call_d5_set_steps_launch_007"
       },
       "response": {
@@ -2054,6 +2055,7 @@
     },
     {
       "match": {
+        "userMessage": "Plan a product launch",
         "toolCallId": "call_d5_set_steps_launch_006"
       },
       "response": {
@@ -2068,6 +2070,7 @@
     },
     {
       "match": {
+        "userMessage": "Plan a product launch",
         "toolCallId": "call_d5_set_steps_launch_005"
       },
       "response": {
@@ -2082,6 +2085,7 @@
     },
     {
       "match": {
+        "userMessage": "Plan a product launch",
         "toolCallId": "call_d5_set_steps_launch_004"
       },
       "response": {
@@ -2096,6 +2100,7 @@
     },
     {
       "match": {
+        "userMessage": "Plan a product launch",
         "toolCallId": "call_d5_set_steps_launch_003"
       },
       "response": {
@@ -2110,6 +2115,7 @@
     },
     {
       "match": {
+        "userMessage": "Plan a product launch",
         "toolCallId": "call_d5_set_steps_launch_002"
       },
       "response": {
@@ -2124,6 +2130,7 @@
     },
     {
       "match": {
+        "userMessage": "Plan a product launch",
         "toolCallId": "call_d5_set_steps_launch_001"
       },
       "response": {
@@ -2152,6 +2159,7 @@
     },
     {
       "match": {
+        "userMessage": "team offsite",
         "toolCallId": "call_d5_set_steps_offsite_007"
       },
       "response": {
@@ -2160,6 +2168,7 @@
     },
     {
       "match": {
+        "userMessage": "team offsite",
         "toolCallId": "call_d5_set_steps_offsite_006"
       },
       "response": {
@@ -2174,6 +2183,7 @@
     },
     {
       "match": {
+        "userMessage": "team offsite",
         "toolCallId": "call_d5_set_steps_offsite_005"
       },
       "response": {
@@ -2188,6 +2198,7 @@
     },
     {
       "match": {
+        "userMessage": "team offsite",
         "toolCallId": "call_d5_set_steps_offsite_004"
       },
       "response": {
@@ -2202,6 +2213,7 @@
     },
     {
       "match": {
+        "userMessage": "team offsite",
         "toolCallId": "call_d5_set_steps_offsite_003"
       },
       "response": {
@@ -2216,6 +2228,7 @@
     },
     {
       "match": {
+        "userMessage": "team offsite",
         "toolCallId": "call_d5_set_steps_offsite_002"
       },
       "response": {
@@ -2230,6 +2243,7 @@
     },
     {
       "match": {
+        "userMessage": "team offsite",
         "toolCallId": "call_d5_set_steps_offsite_001"
       },
       "response": {
@@ -2258,6 +2272,7 @@
     },
     {
       "match": {
+        "userMessage": "Research our top competitor",
         "toolCallId": "call_d5_set_steps_competitor_007"
       },
       "response": {
@@ -2266,6 +2281,7 @@
     },
     {
       "match": {
+        "userMessage": "Research our top competitor",
         "toolCallId": "call_d5_set_steps_competitor_006"
       },
       "response": {
@@ -2280,6 +2296,7 @@
     },
     {
       "match": {
+        "userMessage": "Research our top competitor",
         "toolCallId": "call_d5_set_steps_competitor_005"
       },
       "response": {
@@ -2294,6 +2311,7 @@
     },
     {
       "match": {
+        "userMessage": "Research our top competitor",
         "toolCallId": "call_d5_set_steps_competitor_004"
       },
       "response": {
@@ -2308,6 +2326,7 @@
     },
     {
       "match": {
+        "userMessage": "Research our top competitor",
         "toolCallId": "call_d5_set_steps_competitor_003"
       },
       "response": {
@@ -2322,6 +2341,7 @@
     },
     {
       "match": {
+        "userMessage": "Research our top competitor",
         "toolCallId": "call_d5_set_steps_competitor_002"
       },
       "response": {
@@ -2336,6 +2356,7 @@
     },
     {
       "match": {
+        "userMessage": "Research our top competitor",
         "toolCallId": "call_d5_set_steps_competitor_001"
       },
       "response": {
