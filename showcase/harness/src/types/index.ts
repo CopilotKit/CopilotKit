@@ -63,6 +63,10 @@ export const DIMENSIONS = [
   // side-row dimension need closed-enum slots here.
   "e2e_parity",
   "d6",
+  // System-level dimension. The `system` dimension covers infrastructure-
+  // level signals (e.g. discovery auth status) that are not tied to any
+  // specific probe driver but need closed-enum validation in rule YAMLs.
+  "system",
 ] as const;
 export type Dimension = (typeof DIMENSIONS)[number];
 
