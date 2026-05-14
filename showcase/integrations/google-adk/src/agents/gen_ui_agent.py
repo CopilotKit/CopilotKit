@@ -29,27 +29,37 @@ def set_steps(tool_context: ToolContext, steps: list[dict]) -> dict:
 
 
 _INSTRUCTION = (
-    "You are an agentic planner. For each user request, follow this exact "
-    "sequence:\n"
-    "1. Plan exactly 3 concrete steps and call `set_steps` ONCE with all "
-    'three steps at status="pending". Each step is an object with `id` '
-    "(short unique string like \"s1\", \"s2\", \"s3\"), `title` (concise "
-    "description of the step), and `status`.\n"
-    '2. Step 1: call `set_steps` with step 1 at status="in_progress", '
-    'then call `set_steps` again with step 1 at status="completed".\n'
-    '3. Step 2: call `set_steps` with step 2 at status="in_progress", '
-    'then call `set_steps` again with step 2 at status="completed".\n'
-    '4. Step 3: call `set_steps` with step 3 at status="in_progress", '
-    'then call `set_steps` again with step 3 at status="completed".\n'
-    "5. Send ONE final conversational assistant message summarizing the "
-    "plan, then stop. Do not call any more tools after step 3 is "
-    "completed.\n"
+    "You are an agentic planner. For each user request, you MUST execute "
+    "EXACTLY 7 sequential `set_steps` tool calls followed by exactly ONE "
+    "final assistant text message. Do NOT emit any text between tool "
+    "calls — text between calls terminates the agent loop early and "
+    "leaves the progress card stuck. Output ONLY tool calls until step 3 "
+    "is completed.\n"
     "\n"
-    "Always pass the FULL list of all three steps every call (preserving "
+    "The exact sequence (7 calls, no text between them):\n"
+    "  Call 1: `set_steps` with all three steps at status=\"pending\". "
+    "Each step is an object with `id` (short unique string like \"s1\", "
+    "\"s2\", \"s3\"), `title` (concise description), and `status`.\n"
+    '  Call 2: `set_steps` with step 1 at status="in_progress", steps 2 '
+    'and 3 still "pending".\n'
+    '  Call 3: `set_steps` with step 1 at status="completed", step 2 '
+    '"pending", step 3 "pending".\n'
+    '  Call 4: `set_steps` with step 1 "completed", step 2 '
+    '"in_progress", step 3 "pending".\n'
+    '  Call 5: `set_steps` with step 1 "completed", step 2 "completed", '
+    'step 3 "pending".\n'
+    '  Call 6: `set_steps` with step 1 "completed", step 2 "completed", '
+    'step 3 "in_progress".\n'
+    '  Call 7: `set_steps` with all three steps at status="completed".\n'
+    "  Final: ONE short assistant message summarizing the plan. Do NOT "
+    "call any more tools after call 7.\n"
+    "\n"
+    "Always pass the FULL list of all three steps every call (preserve "
     "each step's `id` and `title` across calls; only `status` changes). "
     "Never call set_steps in parallel — always wait for one call to "
-    "return before the next. After all three steps are completed you MUST "
-    "send a final assistant message and terminate."
+    "return before the next. Calls 1 through 7 MUST be tool-call-only "
+    "responses (no accompanying text); only after call 7 returns may you "
+    "send a final assistant message."
 )
 
 gen_ui_agent = LlmAgent(
