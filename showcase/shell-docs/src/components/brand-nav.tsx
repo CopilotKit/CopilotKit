@@ -241,9 +241,7 @@ export function BrandNav(_props: BrandNavProps = {}) {
                       onClick={
                         link.label === "Free Developer Access"
                           ? () =>
-                              handleFreeDeveloperAccessClick(
-                                "docs_navbar_left",
-                              )
+                              handleFreeDeveloperAccessClick("docs_navbar_left")
                           : undefined
                       }
                       className={`h-full ${
