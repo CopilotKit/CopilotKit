@@ -63,12 +63,21 @@ def prevent_duplicate_tool_calls(callback_context, llm_request):
 
     This is a before_model_callback that fires before every LLM call in the
     agentic loop. When it detects that the last two function_call events in
-    the session have identical tool names and arguments, it sets
+    the CURRENT INVOCATION have identical tool names and arguments, it sets
     FunctionCallingConfig(mode="NONE") to force Gemini to produce text
     instead of re-calling.
+
+    Scoped to the current invocation so that repeated user requests across
+    turns (e.g. "weather in NYC" asked twice) are not blocked.
     """
+    inv_ctx = getattr(callback_context, "_invocation_context", None)
+    inv_id = getattr(inv_ctx, "invocation_id", None) if inv_ctx else None
     events = callback_context.session.events
-    call_events = [e for e in events if e.get_function_calls()]
+    call_events = [
+        e for e in events
+        if e.get_function_calls()
+        and (inv_id is None or getattr(e, "invocation_id", None) == inv_id)
+    ]
     if len(call_events) >= 2:
         last = call_events[-1].get_function_calls()
         prev = call_events[-2].get_function_calls()

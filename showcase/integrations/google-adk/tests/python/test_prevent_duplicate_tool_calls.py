@@ -19,11 +19,18 @@ import pytest
 # --- Test fixtures that simulate ADK structures ---
 
 
+class FakeInvocationContext:
+    def __init__(self, invocation_id="inv-1"):
+        self.invocation_id = invocation_id
+        self.end_invocation = False
+
+
 class FakeEvent:
     """Simulates google.adk.events.Event."""
 
-    def __init__(self, function_calls=None):
+    def __init__(self, function_calls=None, invocation_id="inv-1"):
         self._function_calls = function_calls or []
+        self.invocation_id = invocation_id
 
     def get_function_calls(self):
         return self._function_calls
@@ -43,9 +50,10 @@ class FakeSession:
 
 
 class FakeCallbackContext:
-    def __init__(self, events=None):
+    def __init__(self, events=None, invocation_id="inv-1"):
         self.session = FakeSession(events or [])
         self.agent_name = "test_agent"
+        self._invocation_context = FakeInvocationContext(invocation_id)
 
 
 class FakeLlmRequest:
@@ -221,3 +229,26 @@ def test_parallel_calls_different_order_not_duplicate():
     # This is debatable -- same set but different order. Safe to NOT trigger.
     # The next iteration would catch it if it's truly a loop.
     assert req.config.tool_config is None
+
+
+def test_cross_turn_same_call_does_not_trigger():
+    """Same tool+args across different invocations (user asks twice) must NOT
+    trigger. The fix is scoped to the current invocation only."""
+    from agents.shared_chat import prevent_duplicate_tool_calls
+
+    fc = FakeFunctionCall("get_weather", {"location": "NYC"})
+    events = [
+        FakeEvent([fc], invocation_id="inv-1"),  # turn 1
+        FakeEvent(invocation_id="inv-1"),
+        FakeEvent([fc], invocation_id="inv-2"),  # turn 2 — same call, different invocation
+        FakeEvent(invocation_id="inv-2"),
+    ]
+    ctx = FakeCallbackContext(events, invocation_id="inv-2")
+    req = FakeLlmRequest()
+
+    prevent_duplicate_tool_calls(ctx, req)
+
+    assert req.config.tool_config is None, (
+        "Same tool+args across different invocations should NOT trigger — "
+        "the user legitimately asked for the same thing twice"
+    )
