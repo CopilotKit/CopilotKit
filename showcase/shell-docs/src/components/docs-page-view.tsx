@@ -33,7 +33,12 @@ import {
   loadDoc,
   CONTENT_DIR,
 } from "@/lib/docs-render";
-import { childrenToText, extractHeadings, slugify } from "@/lib/toc";
+import {
+  childrenToText,
+  extractHeadings,
+  filterFrameworkScopedBlocks,
+  slugify,
+} from "@/lib/toc";
 
 export interface DocsPageViewProps {
   /** Slug path relative to `CONTENT_DIR` (no leading slash). */
@@ -97,14 +102,21 @@ export async function DocsPageView({
   const inlined = inlineSnippets(rawContent, slugPath);
   const content = convertTablesInJSX(inlined);
 
+  const defaultFramework = frameworkOverride ?? doc.fm.defaultFramework;
+  const defaultCell = doc.fm.defaultCell;
+
   // Extract H2/H3 headings for the right-rail TOC. Run on the final
   // content (post-snippet-inlining) so a page like threads.mdx whose
   // body comes from a shared snippet still surfaces its sections.
+  //
+  // Filter `<WhenFrameworkHas>` branches against the active framework
+  // first so the TOC only lists the headings that actually render in
+  // the body. Without this, framework-gated pages like `/auth` surface
+  // every per-framework variant's headings simultaneously even though
+  // only one variant's body renders.
+  const tocSource = filterFrameworkScopedBlocks(content, defaultFramework);
   const tocHeadings =
-    hideBody || doc.fm.hideTOC ? [] : extractHeadings(content);
-
-  const defaultFramework = frameworkOverride ?? doc.fm.defaultFramework;
-  const defaultCell = doc.fm.defaultCell;
+    hideBody || doc.fm.hideTOC ? [] : extractHeadings(tocSource);
 
   const tree = navTree ?? buildNavTree(CONTENT_DIR);
   // Breadcrumb root label tracks the framework whose content is being
