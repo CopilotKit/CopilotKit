@@ -1,5 +1,7 @@
 "use client";
 
+// @region[frontend-tool]
+// @region[frontend-tool-registration]
 import React, { useState } from "react";
 import {
   useFrontendTool,
@@ -22,8 +24,6 @@ function Chat() {
     "var(--copilot-kit-background-color)",
   );
 
-  // @region[frontend-tool]
-  // @region[frontend-tool-registration]
   useFrontendTool({
     name: "change_background",
     description:
