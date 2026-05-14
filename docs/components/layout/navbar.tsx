@@ -173,7 +173,7 @@ const Navbar = ({ pageTree }: NavbarProps) => {
                 return (
                   <li
                     key={link.href}
-                    className={`relative h-full group ${hideAtNarrow ? "[@media(width<1028px)]:hidden" : ""}`}
+                    className={`relative h-full group ${hideAtNarrow ? "[@media(width<1100px)]:hidden" : ""}`}
                   >
                     <Link
                       href={href}
@@ -200,7 +200,7 @@ const Navbar = ({ pageTree }: NavbarProps) => {
                           {link.icon}
                         </span>
 
-                        <span className="text-sm font-medium">
+                        <span className="text-sm font-medium whitespace-nowrap">
                           {link.label}
                         </span>
 
@@ -256,17 +256,44 @@ const Navbar = ({ pageTree }: NavbarProps) => {
             className="flex gap-1 items-center pr-2 w-max h-full rounded-r-2xl border border-l-0 backdrop-blur-lg md:pr-4 shrink-0 border-border"
             style={{ backgroundColor: "var(--sidebar)" }}
           >
+            {/* Talk to an Engineer — text pill at ≥1100px, compact
+             * calendar icon at md-to-1099px (when the rest of the
+             * right cluster is icon-only). Both share gradient +
+             * shimmer treatment. */}
             <button
               type="button"
               onClick={handleTalkToEngineersClick}
-              className="hidden [@media(width>=1400px)]:flex items-center h-9 px-4 mr-2 text-sm font-medium rounded-full border border-border bg-transparent text-muted-foreground hover:text-[#7076D5] hover:border-[#7076D5] hover:bg-[#7076D5]/10 transition-colors duration-200 cursor-pointer whitespace-nowrap"
-              aria-label="Talk to our engineers"
+              className="hidden [@media(width>=1100px)]:flex items-center h-9 px-4 mr-2 text-sm font-medium rounded-full bg-gradient-to-r from-indigo-500/90 to-purple-500/90 text-white shadow-sm hover:from-indigo-500 hover:to-purple-500 hover:shadow-md transition-all duration-200 cursor-pointer whitespace-nowrap relative overflow-hidden after:content-[''] after:absolute after:inset-0 after:bg-gradient-to-r after:from-transparent after:via-white/30 after:to-transparent after:-translate-x-full hover:after:translate-x-[100%] after:transition-transform after:duration-700 after:pointer-events-none"
+              aria-label="Talk to an engineer"
             >
-              Talk to Our Engineers
+              Talk to an Engineer
+            </button>
+            <button
+              type="button"
+              onClick={handleTalkToEngineersClick}
+              className="hidden md:flex [@media(width>=1100px)]:hidden justify-center items-center w-9 h-9 mr-2 rounded-full bg-gradient-to-r from-indigo-500/90 to-purple-500/90 text-white shadow-sm hover:from-indigo-500 hover:to-purple-500 hover:shadow-md transition-all duration-200 cursor-pointer relative overflow-hidden after:content-[''] after:absolute after:inset-0 after:bg-gradient-to-r after:from-transparent after:via-white/30 after:to-transparent after:-translate-x-full hover:after:translate-x-[100%] after:transition-transform after:duration-700 after:pointer-events-none"
+              aria-label="Talk to an engineer"
+              title="Talk to an Engineer"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
             </button>
 
             {RIGHT_LINKS.map((link) => {
-              // Only show Free Developer Access at narrow widths (between 768px and 1028px)
+              // Only show Free Developer Access icon at narrow widths (between 768px and 1099px) — matches Talk-to-Engineer pill↔calendar-icon transition.
               const isIconOnlyLink = link.label === "Free Developer Access";
 
               return (
@@ -279,7 +306,7 @@ const Navbar = ({ pageTree }: NavbarProps) => {
                       ? () => handleTryForFreeClick("docs_navbar_right")
                       : undefined
                   }
-                  className={`${isIconOnlyLink ? "[@media(width>=1028px)]:hidden [@media(width<768px)]:hidden" : "hidden"} justify-center items-center w-11 h-full md:flex`}
+                  className={`${isIconOnlyLink ? "[@media(width>=1100px)]:hidden [@media(width<768px)]:hidden" : "hidden"} justify-center items-center w-11 h-full md:flex`}
                   title={link.label}
                   suppressHydrationWarning={link.target === "_blank"}
                 >

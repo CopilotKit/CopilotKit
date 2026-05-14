@@ -131,6 +131,13 @@ const LEFT_LINKS: LeftLink[] = [
     label: "Reference",
     href: "/reference",
   },
+  {
+    icon: <CloudIcon className="text-[var(--text-secondary)]" />,
+    label: "Free Developer Access",
+    href: CLOUD_CTA_HREF,
+    target: "_blank",
+    showExternalLinkIcon: true,
+  },
 ];
 
 export interface BrandNavProps {
@@ -218,12 +225,27 @@ export function BrandNav(_props: BrandNavProps = {}) {
                   link.label === "Docs" ||
                   link.label === "Reference" ||
                   link.label === "Integrations";
+                // Free Developer Access only shows at ≥1100px; below that the
+                // cloud icon in the right cluster takes over (matched to the
+                // Talk-to-Engineer pill↔calendar-icon transition).
+                const hideAtNarrow = link.label === "Free Developer Access";
                 const isActive = activeRoute === link.href;
                 return (
-                  <li key={link.href} className="relative h-full group">
+                  <li
+                    key={link.href}
+                    className={`relative h-full group ${hideAtNarrow ? "[@media(width<1100px)]:hidden" : ""}`}
+                  >
                     <Link
                       href={link.href}
                       target={link.target}
+                      onClick={
+                        link.label === "Free Developer Access"
+                          ? () =>
+                              handleFreeDeveloperAccessClick(
+                                "docs_navbar_left",
+                              )
+                          : undefined
+                      }
                       className={`h-full ${
                         isActive ? "opacity-100" : "opacity-50"
                       } hover:opacity-100 transition-opacity duration-300`}
@@ -238,7 +260,7 @@ export function BrandNav(_props: BrandNavProps = {}) {
                         >
                           {link.icon}
                         </span>
-                        <span className="text-sm font-medium">
+                        <span className="text-sm font-medium whitespace-nowrap">
                           {link.label}
                         </span>
                         {link.showExternalLinkIcon && (
@@ -307,24 +329,52 @@ export function BrandNav(_props: BrandNavProps = {}) {
             className="flex gap-1 items-center pr-2 w-max h-full rounded-r-2xl border border-l-0 backdrop-blur-lg md:pr-4 shrink-0 border-[var(--border)]"
             style={{ backgroundColor: "var(--sidebar)" }}
           >
+            {/* Talk to an Engineer — text pill at ≥1100px, compact
+             * calendar icon at md-to-1099px (when the rest of the
+             * right cluster is icon-only). Both share gradient +
+             * shimmer treatment. */}
             <button
               type="button"
               onClick={handleTalkToEngineersClick}
-              className="hidden [@media(width>=1400px)]:flex items-center h-9 px-4 mr-2 text-sm font-medium rounded-full border border-[var(--border)] bg-transparent text-[var(--text-muted)] hover:text-[var(--accent)] hover:border-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors duration-200 cursor-pointer whitespace-nowrap"
-              aria-label="Talk to our engineers"
+              className="hidden [@media(width>=1100px)]:flex items-center h-9 px-4 mr-2 text-sm font-medium rounded-full bg-gradient-to-r from-indigo-500/90 to-purple-500/90 text-white shadow-sm hover:from-indigo-500 hover:to-purple-500 hover:shadow-md transition-all duration-200 cursor-pointer whitespace-nowrap relative overflow-hidden after:content-[''] after:absolute after:inset-0 after:bg-gradient-to-r after:from-transparent after:via-white/30 after:to-transparent after:-translate-x-full hover:after:translate-x-[100%] after:transition-transform after:duration-700 after:pointer-events-none"
+              aria-label="Talk to an engineer"
             >
-              Talk to Our Engineers
+              Talk to an Engineer
+            </button>
+            <button
+              type="button"
+              onClick={handleTalkToEngineersClick}
+              className="hidden md:flex [@media(width>=1100px)]:hidden justify-center items-center w-9 h-9 mr-2 rounded-full bg-gradient-to-r from-indigo-500/90 to-purple-500/90 text-white shadow-sm hover:from-indigo-500 hover:to-purple-500 hover:shadow-md transition-all duration-200 cursor-pointer relative overflow-hidden after:content-[''] after:absolute after:inset-0 after:bg-gradient-to-r after:from-transparent after:via-white/30 after:to-transparent after:-translate-x-full hover:after:translate-x-[100%] after:transition-transform after:duration-700 after:pointer-events-none"
+              aria-label="Talk to an engineer"
+              title="Talk to an Engineer"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
             </button>
 
             {/* Free Developer Access — icon-only at narrow widths between
-             * 768px and 1028px (mirrors canonical visibility window). */}
+             * 768px and 1099px. At ≥1100px it's replaced by the text link
+             * in LEFT_LINKS, matching the Talk-to-Engineer pill transition. */}
             <Link
               href={CLOUD_CTA_HREF}
               target="_blank"
               onClick={() =>
                 handleFreeDeveloperAccessClick("docs_navbar_right")
               }
-              className="[@media(width>=1028px)]:hidden [@media(width<768px)]:hidden justify-center items-center w-11 h-full md:flex text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
+              className="[@media(width>=1100px)]:hidden [@media(width<768px)]:hidden justify-center items-center w-11 h-full md:flex text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
               title="Free Developer Access"
             >
               <span className="flex items-center h-full">
@@ -386,7 +436,7 @@ export function BrandNav(_props: BrandNavProps = {}) {
 
       {/* Mobile slide-out menu — kept simple; we expose the same LEFT_LINKS
        * the desktop nav surfaces, plus the Free Developer Access CTA and
-       * Talk-to-Engineers button. The full mobile sidebar (with search +
+       * Talk-to-an-Engineer button. The full mobile sidebar (with search +
        * sidebar tree) is owned by the docs page shell, not this nav. */}
       {isMobileSidebarOpen && (
         <>
@@ -420,7 +470,24 @@ export function BrandNav(_props: BrandNavProps = {}) {
               </button>
             </div>
             <div className="flex flex-col px-4 py-4 gap-1">
-              {LEFT_LINKS.map(({ href, label, icon }) => (
+              {/* Talk to an Engineer pinned to the top — primary CTA in
+               * the mobile drawer. */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileSidebarOpen(false);
+                  handleTalkToEngineersClick();
+                }}
+                className="text-left rounded-md px-3 py-2.5 text-[14px] font-medium bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)]/20 transition-all cursor-pointer mb-2"
+                aria-label="Talk to an engineer"
+              >
+                Talk to an Engineer
+              </button>
+              {/* Free Developer Access is rendered separately below with
+               * mobile-specific analytics + external-link affordance. */}
+              {LEFT_LINKS.filter(
+                (l) => l.label !== "Free Developer Access",
+              ).map(({ href, label, icon }) => (
                 <Link
                   key={href}
                   href={href}
@@ -444,17 +511,6 @@ export function BrandNav(_props: BrandNavProps = {}) {
                 Free Developer Access
                 <ExternalLinkIcon className="opacity-70 ml-auto" />
               </Link>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMobileSidebarOpen(false);
-                  handleTalkToEngineersClick();
-                }}
-                className="text-left rounded-md px-3 py-2.5 text-[14px] font-medium text-[var(--text-secondary)] hover:text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-all cursor-pointer"
-                aria-label="Talk to our engineers"
-              >
-                Talk to Our Engineers
-              </button>
             </div>
           </div>
         </>
