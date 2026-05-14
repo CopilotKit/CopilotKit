@@ -1,5 +1,6 @@
 "use client";
 
+// @region[frontend-useinterrupt-render]
 import {
   CopilotKit,
   CopilotChat,
@@ -24,7 +25,6 @@ export default function GenUiInterruptDemo() {
 function Chat() {
   useGenUiInterruptSuggestions();
 
-  // @region[frontend-useinterrupt-render]
   // `useInterrupt` is the low-level primitive for handling LangGraph
   // `interrupt(...)` events. The backend's `schedule_meeting` tool surfaces
   // a structured payload — `{ topic, attendee, slots }` — which we render

@@ -22,6 +22,8 @@
 // etc., so the route file lives at `[[...slug]]/route.ts` to catch all
 // sub-paths under `/api/copilotkit-voice`.
 
+// @region[voice-runtime]
+// @region[transcription-service-guard]
 import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
@@ -57,7 +59,6 @@ const voiceDemoAgent = new LangGraphAgent({
  * is the deterministic affordance (synchronous text injection); the mic is
  * the only path that should exercise real Whisper.
  */
-// @region[transcription-service-guard]
 class GuardedOpenAITranscriptionService extends TranscriptionService {
   private delegate: TranscriptionServiceOpenAI | null;
 
@@ -95,7 +96,6 @@ let cachedHandler: ((req: Request) => Promise<Response>) | null = null;
 function getHandler(): (req: Request) => Promise<Response> {
   if (cachedHandler) return cachedHandler;
 
-  // @region[voice-runtime]
   const runtime = new CopilotRuntime({
     // @ts-ignore -- Published CopilotRuntime agents type wraps Record in
     // MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in
