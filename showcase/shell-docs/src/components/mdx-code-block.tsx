@@ -70,7 +70,9 @@ export function MdxCodeBlock(props: MdxCodeBlockProps) {
       (k) => isValidElement(k) && (k.type === "code" || k.type === "CODE"),
     );
     if (codeEl && isValidElement(codeEl)) {
-      return extractText((codeEl.props as { children?: React.ReactNode }).children);
+      return extractText(
+        (codeEl.props as { children?: React.ReactNode }).children,
+      );
     }
     return extractText(children);
   })();

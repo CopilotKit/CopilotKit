@@ -55,9 +55,7 @@ function extractMetaValue(meta: string, key: string): string | undefined {
  * `code` element's className. rehype-highlight pushes both `hljs` and
  * `language-<name>` onto the array; we want just the `<name>` part.
  */
-function readLanguageFromClassName(
-  className: unknown,
-): string | undefined {
+function readLanguageFromClassName(className: unknown): string | undefined {
   if (!Array.isArray(className)) return undefined;
   for (const c of className) {
     if (typeof c !== "string") continue;
