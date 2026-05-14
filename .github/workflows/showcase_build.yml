@@ -56,18 +56,25 @@ on:
 env:
   RAILWAY_ENV_ID: "b14919f4-6417-429f-848d-c6ae2201e04f"
 
+permissions:
+  contents: read
+
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
     outputs:
       matrix: ${{ steps.build-matrix.outputs.matrix }}
       has_changes: ${{ steps.build-matrix.outputs.has_changes }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
       - name: Detect changed paths
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3
         id: filter
         with:
           # All filter values use list form for consistency. `shell`
@@ -141,6 +148,11 @@ jobs:
 
       - name: Build service matrix
         id: build-matrix
+        env:
+          DISPATCH_SERVICE: ${{ github.event.inputs.service }}
+          GITHUB_SHA_ENV: ${{ github.sha }}
+          GITHUB_REF_NAME_ENV: ${{ github.ref_name }}
+          FILTER_CHANGES: ${{ steps.filter.outputs.changes }}
         run: |
           # Full service config as JSON
           # Fields: dispatch_name, filter_key, context, image, railway_id, timeout, lfs, build_args, build_args_sha, build_args_branch, dockerfile, health_path
@@ -150,7 +162,7 @@ jobs:
           # to 200 at the other path. Misconfigured paths are a config bug to
           # fix in the matrix, not runtime behavior to hide.
           ALL_SERVICES='[
-            {"dispatch_name":"shell","filter_key":"shell","context":".","image":"showcase-shell","railway_id":"40eea0da-6071-4ea8-bdb9-39afb19225ec","timeout":10,"lfs":true,"build_args_sha":"${{ github.sha }}","build_args_branch":"${{ github.ref_name }}","dockerfile":"showcase/shell/Dockerfile","health_path":"/"},
+            {"dispatch_name":"shell","filter_key":"shell","context":".","image":"showcase-shell","railway_id":"40eea0da-6071-4ea8-bdb9-39afb19225ec","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell/Dockerfile","health_path":"/"},
             {"dispatch_name":"langgraph-python","filter_key":"langgraph_python","context":"showcase/integrations/langgraph-python","image":"showcase-langgraph-python","railway_id":"90d03214-4569-41b0-b4c1-6438a8a7b203","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"mastra","filter_key":"mastra","context":"showcase/integrations/mastra","image":"showcase-mastra","railway_id":"d7979eb7-2405-4aab-ad21-438f4a1b08af","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"crewai-crews","filter_key":"crewai_crews","context":"showcase/integrations/crewai-crews","image":"showcase-crewai-crews","railway_id":"0e9c284d-8d87-4fcf-9f82-6b704d7e4bd4","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
@@ -170,15 +182,19 @@ jobs:
             {"dispatch_name":"claude-sdk-python","filter_key":"claude_sdk_python","context":"showcase/integrations/claude-sdk-python","image":"showcase-claude-sdk-python","railway_id":"b122ab65-9854-4cb2-a68e-b50ff13f7481","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"built-in-agent","filter_key":"built_in_agent","context":"showcase/integrations/built-in-agent","image":"showcase-built-in-agent","railway_id":"f4f8371a-bc46-45b2-b6d4-9c9af608bdbf","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"shell-dojo","filter_key":"shell_dojo","context":".","image":"showcase-shell-dojo","railway_id":"7ad1ece7-2228-49cd-8a78-bddf30322907","timeout":10,"lfs":false,"build_args":"","dockerfile":"showcase/shell-dojo/Dockerfile","health_path":"/"},
-            {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","railway_id":"4d5dfd74-be61-40b2-8564-b53b7dd4c15b","timeout":10,"lfs":true,"build_args_sha":"${{ github.sha }}","build_args_branch":"${{ github.ref_name }}","build_args_pb_url":"https://showcase-pocketbase-production.up.railway.app","build_args_shell_url":"https://showcase.copilotkit.ai","build_args_ops_url":"https://showcase-harness-production.up.railway.app","dockerfile":"showcase/shell-dashboard/Dockerfile","health_path":"/"},
-            {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","railway_id":"7badfb8d-4228-414c-9145-b4026803714f","timeout":10,"lfs":true,"build_args_sha":"${{ github.sha }}","build_args_branch":"${{ github.ref_name }}","build_args_analytics":"yes","dockerfile":"showcase/shell-docs/Dockerfile","health_path":"/"},
+            {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","railway_id":"4d5dfd74-be61-40b2-8564-b53b7dd4c15b","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","build_args_pb_url":"https://showcase-pocketbase-production.up.railway.app","build_args_shell_url":"https://showcase.copilotkit.ai","build_args_ops_url":"https://showcase-harness-production.up.railway.app","dockerfile":"showcase/shell-dashboard/Dockerfile","health_path":"/"},
+            {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","railway_id":"7badfb8d-4228-414c-9145-b4026803714f","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","build_args_analytics":"yes","dockerfile":"showcase/shell-docs/Dockerfile","health_path":"/"},
             {"dispatch_name":"showcase-harness","filter_key":"showcase_harness","context":".","image":"showcase-harness","railway_id":"3a14bfed-0537-4d71-897b-7c593dca161d","timeout":20,"lfs":false,"build_args":"","dockerfile":"showcase/harness/Dockerfile","health_path":"/health"},
             {"dispatch_name":"showcase-aimock","filter_key":"showcase_aimock","context":"showcase/aimock","image":"showcase-aimock","railway_id":"0fa0435d-8a66-46f0-84fd-e4250b580013","timeout":5,"lfs":false,"build_args":"","dockerfile":"showcase/aimock/Dockerfile","health_path":"/health"}
           ]'
 
-          DISPATCH="${{ github.event.inputs.service }}"
-          CHANGES='${{ steps.filter.outputs.changes }}'
-          CHANGES="${CHANGES:-[]}"
+          # Substitute trusted git context (sha, ref_name) into JSON placeholders.
+          # Routed through env: above to satisfy zizmor template-injection check.
+          ALL_SERVICES="${ALL_SERVICES//__GH_SHA__/$GITHUB_SHA_ENV}"
+          ALL_SERVICES="${ALL_SERVICES//__GH_REF_NAME__/$GITHUB_REF_NAME_ENV}"
+
+          DISPATCH="$DISPATCH_SERVICE"
+          CHANGES="${FILTER_CHANGES:-[]}"
 
           # Filter services based on three dispatch modes:
           #   dispatch == "all": manual "deploy all" — include every service unconditionally.
@@ -220,16 +236,20 @@ jobs:
   check-lockfile:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
       # Omit `version:` so pnpm/action-setup inherits from the repo's
       # `packageManager` field in package.json (enforced via corepack).
       # Earlier revisions hard-pinned `version: 10.13.1` which silently
       # drifted from package.json whenever the repo bumped pnpm —
       # resulting in lockfile-vs-engine mismatches that only surfaced on
       # the slow `--frozen-lockfile` path.
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22.x
       - run: pnpm install --frozen-lockfile --ignore-scripts
@@ -239,9 +259,13 @@ jobs:
     if: needs.detect-changes.outputs.has_changes == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 3
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22.x
       - name: Verify Railway image refs
@@ -265,15 +289,16 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           lfs: ${{ matrix.service.lfs }}
+          persist-credentials: false
 
       - name: Setup Depot
-        uses: depot/setup-action@v1
+        uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
 
       - name: Login to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -350,7 +375,7 @@ jobs:
           done
 
       - name: Build and push
-        uses: depot/build-push-action@v1
+        uses: depot/build-push-action@5f3b3c2e5a00f0093de47f657aeaefcedff27d18 # v1
         with:
           project: m2kw2wmmcp
           context: ${{ matrix.service.context }}
@@ -407,7 +432,7 @@ jobs:
     steps:
       - name: Slack alert
         if: env.SLACK_WEBHOOK != ''
-        uses: slackapi/slack-github-action@v2.1.0
+        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
@@ -415,7 +440,7 @@ jobs:
             { "text": ${{ toJSON(format(':x: *Showcase Build Failed*\nCommit: `{0}` by {1}\n<https://github.com/{2}/actions/runs/{3}|View run>', github.sha, github.actor, github.repository, github.run_id)) }} }
 
       - name: Comment on PR
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({

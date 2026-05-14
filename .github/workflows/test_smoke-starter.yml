@@ -41,10 +41,11 @@ jobs:
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 1
           lfs: false
+          persist-credentials: false
 
       - name: Run starter smoke tests
         working-directory: examples/integrations/${{ matrix.starter }}
@@ -120,7 +121,7 @@ jobs:
 
       - name: Upload test artifacts on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: smoke-starter-${{ matrix.starter }}
           path: showcase/tests/test-results/
@@ -161,7 +162,7 @@ jobs:
 
       - name: Alert Slack on failure
         if: failure() && env.SLACK_WEBHOOK != '' && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
-        uses: slackapi/slack-github-action@v2.1.0
+        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook

@@ -1,0 +1,33 @@
+# Dependabot config — keeps SHA-pinned GitHub Actions current.
+#
+# Without this, every action pinned to a commit SHA in .github/workflows
+# silently rots: vulnerabilities discovered upstream don't reach us, and
+# our pinned SHAs drift further from the action's release tags every week.
+#
+# Scope: GitHub Actions only. Node/Python/pnpm dependency updates are
+# already handled by Renovate / manual upgrades and don't belong here.
+
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(ci)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "security"
+    # Group low-risk version bumps so reviewers don't drown in tiny PRs.
+    # Major bumps stay separate so they get a real review.
+    groups:
+      actions-minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"

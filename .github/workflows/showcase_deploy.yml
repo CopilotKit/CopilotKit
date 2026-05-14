@@ -56,10 +56,16 @@ concurrency:
 env:
   RAILWAY_ENV_ID: "b14919f4-6417-429f-848d-c6ae2201e04f"
 
+permissions:
+  contents: read
+
 jobs:
   resolve-matrix:
     runs-on: ubuntu-latest
     timeout-minutes: 3
+    permissions:
+      contents: read
+      actions: read
     # Only run verification when the build workflow succeeded.
     # On workflow_dispatch, always run (workflow_run context is absent).
     if: >-
@@ -71,12 +77,18 @@ jobs:
       build_run_id: ${{ steps.build-matrix.outputs.build_run_id }}
       build_run_url: ${{ steps.build-matrix.outputs.build_run_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
       - name: Build verification matrix
         id: build-matrix
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DISPATCH_SERVICE: ${{ github.event.inputs.service }}
+          WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+          WORKFLOW_RUN_URL: ${{ github.event.workflow_run.html_url }}
+          REPO_FULL: ${{ github.repository }}
         run: |
           # Service registry: same as showcase_build.yml but only the fields
           # needed for verification (dispatch_name, railway_id, health_path).
@@ -107,16 +119,16 @@ jobs:
             {"dispatch_name":"showcase-aimock","railway_id":"0fa0435d-8a66-46f0-84fd-e4250b580013","health_path":"/health"}
           ]'
 
-          DISPATCH="${{ github.event.inputs.service }}"
-          BUILD_RUN_ID="${{ github.event.workflow_run.id }}"
-          BUILD_RUN_URL="${{ github.event.workflow_run.html_url }}"
+          DISPATCH="$DISPATCH_SERVICE"
+          BUILD_RUN_ID="$WORKFLOW_RUN_ID"
+          BUILD_RUN_URL="$WORKFLOW_RUN_URL"
 
           if [ "$DISPATCH" = "all" ] || [ -z "$DISPATCH" ]; then
             if [ -n "$BUILD_RUN_ID" ]; then
               # workflow_run trigger: discover which services the build
               # workflow actually built by inspecting its matrix job names.
               # Job names follow "build (<dispatch_name>, ...)" pattern.
-              JOBS_JSON=$(gh api "repos/${{ github.repository }}/actions/runs/${BUILD_RUN_ID}/jobs" --paginate 2>/dev/null \
+              JOBS_JSON=$(gh api "repos/${REPO_FULL}/actions/runs/${BUILD_RUN_ID}/jobs" --paginate 2>/dev/null \
                 | jq -cs '[.[].jobs[]?]' 2>/dev/null || echo '[]')
               BUILD_JOBS=$(echo "$JOBS_JSON" | jq -c '[.[] | select((.name // "") | startswith("build"))]')
               # Extract dispatch_names from successful build job names
@@ -274,6 +286,7 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_FULL: ${{ github.repository }}
         run: |
           set -euo pipefail
 
@@ -290,7 +303,7 @@ jobs:
             CANCELLED=false
           else
             # Partial failure: query per-job conclusions from the verify matrix
-            JOBS_JSON=$(gh api "repos/${{ github.repository }}/actions/runs/${RUN_ID}/jobs" --paginate 2>/dev/null \
+            JOBS_JSON=$(gh api "repos/${REPO_FULL}/actions/runs/${RUN_ID}/jobs" --paginate 2>/dev/null \
               | jq -cs '[.[].jobs[]?]' 2>/dev/null || echo '[]')
             VERIFY_JOBS=$(echo "$JOBS_JSON" | jq -c '[.[] | select((.name // "") | startswith("verify"))]' 2>/dev/null || echo '[]')
             FAILED=$(echo "$SERVICES" | jq -c --argjson jobs "$VERIFY_JOBS" '

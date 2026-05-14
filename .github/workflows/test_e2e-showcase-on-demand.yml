@@ -120,7 +120,7 @@ jobs:
       - name: Resolve PR HEAD ref
         id: pr-ref
         if: github.event_name == 'issue_comment'
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             const { data: pr } = await github.rest.pulls.get({
@@ -139,7 +139,7 @@ jobs:
             core.setOutput('ref', pr.head.sha);
             core.setOutput('pr_number', pr.number);
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: ${{ steps.pr-ref.outputs.ref || github.sha }}
           # Do NOT leave the workflow's GITHUB_TOKEN in `.git/config` after
@@ -150,13 +150,13 @@ jobs:
           # depth cheap — disable credential persistence.
           persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22.x
 
-      - uses: pnpm/action-setup@v4.4.0
-        with:
-          version: "10.13.1"
+      # Omit `version:` so pnpm/action-setup inherits from the repo's
+      # `packageManager` field in package.json (via corepack).
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
 
       - name: Determine slug
         id: slug
@@ -325,7 +325,7 @@ jobs:
 
       - name: Setup Python agent
         if: steps.pkg-type.outputs.has_python == 'true'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
           # Cache pip to avoid reinstalling CrewAI's heavy transitive dep
@@ -501,7 +501,7 @@ jobs:
 
       - name: Upload test artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: playwright-report-${{ steps.slug.outputs.slug }}
           path: showcase/integrations/${{ steps.slug.outputs.slug }}/playwright-report/
@@ -526,7 +526,7 @@ jobs:
       issues: write
     steps:
       - name: Post result to PR
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         # Pass dynamic values through env (NOT `${{ ... }}` interpolation into
         # the script body). Even though the slug is whitelisted upstream, the
         # env-var pattern is the defensive default: any future additions that

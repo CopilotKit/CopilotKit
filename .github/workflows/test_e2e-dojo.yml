@@ -32,15 +32,22 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       ts-changed: ${{ steps.changes.outputs.ts }}
       python-changed: ${{ steps.changes.outputs.python }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3
         id: changes
         with:
           filters: |
@@ -56,6 +63,8 @@ jobs:
     name: ${{ matrix.suite }}
     runs-on: depot-ubuntu-24.04
     timeout-minutes: 30
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -153,9 +162,13 @@ jobs:
 
       - name: Detect fork PR
         id: fork-check
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO_FULL: ${{ github.repository }}
         run: |
-          if [[ "${{ github.event_name }}" == "pull_request" && \
-                "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]]; then
+          if [[ "$EVENT_NAME" == "pull_request" && \
+                "$PR_HEAD_REPO" != "$REPO_FULL" ]]; then
             echo "prefix=fork-" >> "$GITHUB_OUTPUT"
           else
             echo "prefix=" >> "$GITHUB_OUTPUT"
@@ -163,31 +176,33 @@ jobs:
 
       - name: Checkout CPK
         if: steps.should-run.outputs.skip != 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           lfs: true
           path: CopilotKit
           ref: ${{ github.event.inputs.branch || github.ref }}
+          persist-credentials: false
 
       - name: Checkout AGUI
         if: steps.should-run.outputs.skip != 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           repository: ag-ui-protocol/ag-ui
           path: ag-ui
           ref: main
+          persist-credentials: false
 
       - name: Set up Node.js
         if: steps.should-run.outputs.skip != 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
 
       - name: Install pnpm
+        # Omit `version:` so pnpm/action-setup inherits from the repo's
+        # `packageManager` field in package.json (via corepack).
         if: steps.should-run.outputs.skip != 'true'
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.13.1
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
 
       # Now that pnpm is available, cache its store to speed installs
       - name: Resolve pnpm store path
@@ -197,7 +212,7 @@ jobs:
 
       - name: Cache pnpm store
         if: steps.should-run.outputs.skip != 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ steps.pnpm-store.outputs.STORE_PATH }}
           key: ${{ steps.fork-check.outputs.prefix }}${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
@@ -208,7 +223,7 @@ jobs:
       - name: Cache Python dependencies (restore-only)
         if: steps.should-run.outputs.skip != 'true' && matrix.needs_python
         id: cache-python
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             ~/.cache/pip
@@ -221,7 +236,7 @@ jobs:
 
       - name: Install Poetry
         if: steps.should-run.outputs.skip != 'true' && matrix.needs_python
-        uses: snok/install-poetry@v1
+        uses: snok/install-poetry@76e04a911780d5b312d89783f7b1cd627778900a # v1
         with:
           version: latest
           virtualenvs-create: true
@@ -229,7 +244,7 @@ jobs:
 
       - name: Install uv
         if: steps.should-run.outputs.skip != 'true' && matrix.needs_python
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
 
       - name: Install cpk dependencies
         if: steps.should-run.outputs.skip != 'true'
@@ -288,7 +303,7 @@ jobs:
           echo "LANGSMITH_API_KEY=${LANGSMITH_API_KEY}" >> typescript/examples/.env
 
       - name: Run dojo+agents
-        uses: JarvusInnovations/background-action@v1
+        uses: JarvusInnovations/background-action@2428e7b970a846423095c79d43f759abf979a635 # v1
         env:
           NODE_OPTIONS: --max-old-space-size=8192
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -314,7 +329,7 @@ jobs:
 
       - name: Upload traces – ${{ matrix.suite }}
         if: always() && steps.should-run.outputs.skip != 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ matrix.suite }}-playwright-traces
           path: |

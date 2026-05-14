@@ -56,13 +56,14 @@ jobs:
         # it for checkout + push. Mirrors the pattern in
         # CopilotKit/internal-skills's sync-versions.yml.
         id: app-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
         with:
           app-id: "1108748"
           private-key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
 
+      # persist-credentials required: subsequent "Commit registry updates" step uses git push (via devops-bot app token)
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           lfs: true
           ref: ${{ github.event.workflow_run.head_branch || github.ref }}
@@ -79,12 +80,12 @@ jobs:
             --latest=false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
 
       - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
@@ -113,24 +114,32 @@ jobs:
           npx tsx generate-registry.ts
 
       - name: Capture previews
+        env:
+          INPUT_SLUG: ${{ inputs.slug }}
+          INPUT_DEMO: ${{ inputs.demo }}
+          EVENT_NAME: ${{ github.event_name }}
+          DETECTED_SLUGS: ${{ steps.detect.outputs.slugs }}
         run: |
-          ARGS=""
+          # Build the args as an array (not a space-joined string) so a
+          # slug or demo value containing whitespace or shell metacharacters
+          # stays a single argument rather than being re-tokenized by the shell.
+          ARGS=()
           # Use input slug/demo if provided (manual dispatch)
-          if [ -n "${{ inputs.slug }}" ]; then
-            ARGS="$ARGS --slug ${{ inputs.slug }}"
+          if [ -n "$INPUT_SLUG" ]; then
+            ARGS+=(--slug "$INPUT_SLUG")
           fi
-          if [ -n "${{ inputs.demo }}" ]; then
-            ARGS="$ARGS --demo ${{ inputs.demo }}"
+          if [ -n "$INPUT_DEMO" ]; then
+            ARGS+=(--demo "$INPUT_DEMO")
           fi
           # Use detected slugs for push events (capture only changed)
-          if [ "${{ github.event_name }}" = "push" ] && [ -n "${{ steps.detect.outputs.slugs }}" ]; then
+          if [ "$EVENT_NAME" = "push" ] && [ -n "$DETECTED_SLUGS" ]; then
             # Capture each changed slug
-            IFS=',' read -ra SLUGS <<< "${{ steps.detect.outputs.slugs }}"
+            IFS=',' read -ra SLUGS <<< "$DETECTED_SLUGS"
             for slug in "${SLUGS[@]}"; do
               npx tsx showcase/scripts/capture-previews.ts --slug "$slug" || true
             done
           else
-            npx tsx showcase/scripts/capture-previews.ts $ARGS || true
+            npx tsx showcase/scripts/capture-previews.ts "${ARGS[@]}" || true
           fi
 
       - name: Commit registry updates
@@ -250,7 +259,7 @@ jobs:
 
       - name: Notify Slack (failure)
         if: failure() && env.SLACK_WEBHOOK != ''
-        uses: slackapi/slack-github-action@v2.1.0
+        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook

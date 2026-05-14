@@ -34,16 +34,17 @@ jobs:
     permissions:
       contents: read
     steps:
+      # persist-credentials required: release workflow may push tags/commits via subsequent steps
       - name: Checkout Repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: "10.13.1"
+        # Omit `version:` so pnpm/action-setup inherits from the repo's
+        # `packageManager` field in package.json (via corepack).
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20.x
 
@@ -57,7 +58,7 @@ jobs:
         run: pnpm run test
 
       - name: Upload workspace
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: workspace
           path: .
@@ -72,17 +73,17 @@ jobs:
       contents: read
     steps:
       - name: Download workspace
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: workspace
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: "10.13.1"
+        # Omit `version:` so pnpm/action-setup inherits from the repo's
+        # `packageManager` field in package.json (via corepack).
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20.x
           registry-url: https://registry.npmjs.org
@@ -96,15 +97,18 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish prerelease
-        run: |
-          ARGS="--scope ${{ inputs.scope }}"
-          if [ -n "${{ inputs.suffix }}" ]; then
-            ARGS="$ARGS --suffix ${{ inputs.suffix }}"
-          fi
-          if [ "${{ inputs.dry_run }}" == "true" ]; then
-            ARGS="$ARGS --dry-run"
-          fi
-          pnpm tsx scripts/release/prerelease.ts $ARGS
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          INPUT_SCOPE: ${{ inputs.scope }}
+          INPUT_SUFFIX: ${{ inputs.suffix }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          ARGS="--scope $INPUT_SCOPE"
+          if [ -n "$INPUT_SUFFIX" ]; then
+            ARGS="$ARGS --suffix $INPUT_SUFFIX"
+          fi
+          if [ "$INPUT_DRY_RUN" == "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+          pnpm tsx scripts/release/prerelease.ts $ARGS
