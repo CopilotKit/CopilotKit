@@ -535,6 +535,21 @@ const LEGACY_CHAINS_EXACT: RedirectEntry[] = [
     source: "/coagents/videos",
     destination: "/langgraph-python/videos",
   },
+  // Deep Agents was promoted from a langgraph subpath to its own
+  // top-level integration. Catch the legacy (langgraph) and the
+  // post-slug-rename (langgraph-python) variants both, pointing them at
+  // the canonical /deepagents placeholder. When the showcase
+  // integration ships, these targets continue to resolve unchanged.
+  {
+    id: "L12",
+    source: "/langgraph/deep-agents",
+    destination: "/deepagents",
+  },
+  {
+    id: "L13",
+    source: "/langgraph-python/deep-agents",
+    destination: "/deepagents",
+  },
 ];
 
 // ---------------------------------------------------------------------------
