@@ -17,6 +17,7 @@ import { AdaptiveStatsBar } from "@/components/adaptive-stats-bar";
 import { AdaptiveLegend } from "@/components/adaptive-legend";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BaselineTab } from "@/components/baseline-tab";
+import { DiscoveryAuthBanner } from "@/components/discovery-auth-banner";
 import type { ParityTier } from "@/components/parity-badge";
 import { getDocsStatus } from "@/lib/docs-status";
 import type { DepthDistribution } from "@/components/adaptive-stats-bar";
@@ -234,6 +235,8 @@ export default function Page() {
           <ThemeToggle />
         </div>
       </div>
+
+      <DiscoveryAuthBanner rows={allStatus.rows} />
 
       {activeTab === "matrix" && (
         <>
