@@ -72,8 +72,7 @@ export function CodeBlock({
         flex: 1,
         overflow: "auto",
         background: "#ffffff",
-        fontFamily:
-          "'Spline Sans Mono', 'SF Mono', Menlo, Consolas, monospace",
+        fontFamily: "'Spline Sans Mono', 'SF Mono', Menlo, Consolas, monospace",
         fontSize: 13,
         lineHeight: 1.5,
       }}
@@ -130,8 +129,5 @@ export function CodeBlock({
 }
 
 function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
