@@ -23,15 +23,18 @@ RENDER_A2UI_TOOL_SCHEMA = {
         "Render a dynamic A2UI v0.9 surface.\n\n"
         "Args:\n"
         "    surfaceId: Unique surface identifier.\n"
-        "    catalogId: The catalog ID (use \"copilotkit://app-dashboard-catalog\").\n"
+        '    catalogId: The catalog ID (use "copilotkit://app-dashboard-catalog").\n'
         "    components: A2UI v0.9 component array (flat format). "
-        "The root component must have id \"root\".\n"
+        'The root component must have id "root".\n'
         "    data: Optional initial data model for the surface."
     ),
     "parameters": {
         "type": "object",
         "properties": {
-            "surfaceId": {"type": "string", "description": "Unique surface identifier."},
+            "surfaceId": {
+                "type": "string",
+                "description": "Unique surface identifier.",
+            },
             "catalogId": {"type": "string", "description": "The catalog ID."},
             "components": {
                 "type": "array",
@@ -183,9 +186,15 @@ def build_a2ui_operations_from_tool_call(args: dict[str, Any]) -> dict[str, Any]
         },
     ]
     if data:
-        ops.append({
-            "version": "v0.9",
-            "updateDataModel": {"surfaceId": surface_id, "path": "/", "value": data},
-        })
+        ops.append(
+            {
+                "version": "v0.9",
+                "updateDataModel": {
+                    "surfaceId": surface_id,
+                    "path": "/",
+                    "value": data,
+                },
+            }
+        )
 
     return {"a2ui_operations": ops}

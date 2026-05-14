@@ -71,9 +71,7 @@ def _build_prefs_block(prefs: dict | None) -> str | None:
         # [SIGNATURE, "Tailor every response..."] block. Mirrors the
         # same guard in agent_config_agent._format_config.
         return None
-    lines.append(
-        "Tailor every response to these preferences. " + PREFS_END_MARKER
-    )
+    lines.append("Tailor every response to these preferences. " + PREFS_END_MARKER)
     return "\n".join(lines)
 
 

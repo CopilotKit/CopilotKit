@@ -45,7 +45,9 @@ def _registry_mounts() -> set[str]:
     keeps it runnable without the full agent dependency stack.
     """
     text = REGISTRY_PATH.read_text(encoding="utf-8")
-    return set(re.findall(r'^\s+["\']([a-zA-Z0-9_-]+)["\']\s*:\s*AgentSpec', text, re.M))
+    return set(
+        re.findall(r'^\s+["\']([a-zA-Z0-9_-]+)["\']\s*:\s*AgentSpec', text, re.M)
+    )
 
 
 def _all_runtime_agent_ids() -> set[str]:
@@ -85,24 +87,16 @@ def _all_runtime_agent_ids() -> set[str]:
             text,
             re.DOTALL,
         ):
-            ids.update(
-                re.findall(r'["\']([a-zA-Z0-9_-]+)["\']\s*:', block.group(1))
-            )
+            ids.update(re.findall(r'["\']([a-zA-Z0-9_-]+)["\']\s*:', block.group(1)))
         # (b) array-form agents list (e.g. openGenerativeUI.agents).
-        for block in re.finditer(
-            r"agents\s*:\s*\[([^\]]*)\]", text
-        ):
-            ids.update(
-                re.findall(r'["\']([a-zA-Z0-9_-]+)["\']', block.group(1))
-            )
+        for block in re.finditer(r"agents\s*:\s*\[([^\]]*)\]", text):
+            ids.update(re.findall(r'["\']([a-zA-Z0-9_-]+)["\']', block.group(1)))
     return ids
 
 
 def _harvest_page_agents() -> dict[str, set[str]]:
     """Parse each demo page.tsx and harvest the agent IDs it claims."""
-    pattern = re.compile(
-        r"""(?:agent|agentId)\s*[=:]\s*["']([a-zA-Z0-9_-]+)["']"""
-    )
+    pattern = re.compile(r"""(?:agent|agentId)\s*[=:]\s*["']([a-zA-Z0-9_-]+)["']""")
     out: dict[str, set[str]] = {}
     for demo in sorted(DEMOS_DIR.iterdir()):
         if not demo.is_dir() or demo.name.startswith("_"):
@@ -161,9 +155,7 @@ def test_main_route_agent_map_aligns_with_registry():
     mounts = _registry_mounts()
     text = MAIN_ROUTE_PATH.read_text(encoding="utf-8")
     # The agentNames list looks like: `const agentNames = [ "a", "b", ... ];`
-    list_match = re.search(
-        r"const\s+agentNames\s*=\s*\[(.*?)\]", text, re.S
-    )
+    list_match = re.search(r"const\s+agentNames\s*=\s*\[(.*?)\]", text, re.S)
     assert list_match, "Could not locate agentNames array in route.ts"
     names = re.findall(r'["\']([a-zA-Z0-9_-]+)["\']', list_match.group(1))
     assert names, "agentNames array parsed but contained zero string entries"

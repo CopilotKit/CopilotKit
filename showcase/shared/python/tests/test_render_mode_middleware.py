@@ -7,9 +7,7 @@ import sys
 import os
 
 # Ensure the shared python package is importable.
-sys.path.insert(
-    0, os.path.join(os.path.dirname(__file__), "..")
-)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from middleware.render_mode import (
     get_render_mode,
@@ -22,6 +20,7 @@ from middleware.render_mode import (
 # ---------------------------------------------------------------------------
 # get_render_mode
 # ---------------------------------------------------------------------------
+
 
 class TestGetRenderMode:
     def test_default_when_empty(self):
@@ -113,6 +112,7 @@ class TestGetRenderMode:
 # get_output_schema
 # ---------------------------------------------------------------------------
 
+
 class TestGetOutputSchema:
     def test_none_when_empty(self):
         assert get_output_schema([]) is None
@@ -201,6 +201,7 @@ class TestGetOutputSchema:
 # apply_render_mode_prompt
 # ---------------------------------------------------------------------------
 
+
 class TestApplyRenderModePrompt:
     BASE = "You are a helpful agent."
 
@@ -250,7 +251,7 @@ class TestApplyRenderModePrompt:
 
     def test_prompt_injection_content_preserved(self):
         """Base prompt with special characters is preserved verbatim."""
-        tricky_base = 'You are an agent. Do NOT output ```json blocks.'
+        tricky_base = "You are an agent. Do NOT output ```json blocks."
         result = apply_render_mode_prompt(tricky_base, "json-render")
         assert result.startswith(tricky_base)
         assert JSONL_RENDER_INSTRUCTION in result
@@ -269,6 +270,7 @@ class TestApplyRenderModePrompt:
 # ---------------------------------------------------------------------------
 # HashBrown mode with missing output_schema (should not crash)
 # ---------------------------------------------------------------------------
+
 
 class TestHashBrownMissingSchema:
     def test_no_output_schema_entry_returns_none(self):

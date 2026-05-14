@@ -42,15 +42,17 @@ def manage_sales_todos_impl(todos: list[dict]) -> list[SalesTodo]:
     """Assign UUIDs to any todos missing an ID, then return the updated list."""
     result: list[SalesTodo] = []
     for todo in todos:
-        result.append(SalesTodo(
-            id=todo.get("id") or str(uuid.uuid4()),
-            title=todo.get("title", ""),
-            stage=todo.get("stage", "prospect"),
-            value=todo.get("value", 0),
-            dueDate=todo.get("dueDate", ""),
-            assignee=todo.get("assignee", ""),
-            completed=todo.get("completed", False),
-        ))
+        result.append(
+            SalesTodo(
+                id=todo.get("id") or str(uuid.uuid4()),
+                title=todo.get("title", ""),
+                stage=todo.get("stage", "prospect"),
+                value=todo.get("value", 0),
+                dueDate=todo.get("dueDate", ""),
+                assignee=todo.get("assignee", ""),
+                completed=todo.get("completed", False),
+            )
+        )
     return result
 
 

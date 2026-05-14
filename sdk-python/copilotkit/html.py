@@ -1,6 +1,7 @@
 """
 HTML templates, used when the info endpoint is accessed from the browser.
 """
+
 import json
 from copilotkit.sdk import InfoDict
 
@@ -86,7 +87,7 @@ HEAD_HTML = """
 </head>
 """
 
-INFO_TEMPLATE= """
+INFO_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
 {head_html}
@@ -142,6 +143,7 @@ NO_AGENTS_FOUND_HTML = """
     <p>No agents found</p>
 </div>
 """
+
 
 def generate_info_html(info: InfoDict) -> str:
     """

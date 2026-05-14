@@ -86,9 +86,7 @@ def test_a2ui_fixed_display_flight_name_unchanged():
     """`display_flight` is the OUTER tool the primary agent calls. Renaming
     it to anything in the middleware's intercept list would break the
     fixed-schema demo in the same way."""
-    assert (
-        a2ui_fixed_display_flight.name not in A2UI_MIDDLEWARE_INTERCEPTED_NAMES
-    ), (
+    assert a2ui_fixed_display_flight.name not in A2UI_MIDDLEWARE_INTERCEPTED_NAMES, (
         f"a2ui_fixed.display_flight is named {a2ui_fixed_display_flight.name!r}, "
         f"which collides with the A2UI middleware's intercept list."
     )
@@ -198,7 +196,9 @@ def test_generate_a2ui_force_pins_canonical_catalog_id(
 
     with patch(f"src.agents.{agent_module_name}.ChatOpenAI") as mock_chat:
         mock_chat.return_value = _StubChatOpenAI(response)
-        rendered = generate_a2ui_fn.func(_FakeRuntime())  # `.func` unwraps the @tool decorator
+        rendered = generate_a2ui_fn.func(
+            _FakeRuntime()
+        )  # `.func` unwraps the @tool decorator
 
     parsed = _parse_render_output(rendered)
     create_surface = _create_surface_op(parsed)

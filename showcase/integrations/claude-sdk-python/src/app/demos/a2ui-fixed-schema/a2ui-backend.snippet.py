@@ -14,6 +14,7 @@ import json
 
 _SCHEMAS_DIR = Path(__file__).parent / "a2ui_schemas"
 
+
 # Stand-in for the real a2ui SDK helpers. In a real backend, import
 # `a2ui` from your runtime SDK; the calls below match its shape.
 class _A2UI:
@@ -21,6 +22,7 @@ class _A2UI:
     def load_schema(path):
         with open(path) as fh:
             return json.load(fh)
+
     @staticmethod
     def create_surface(*args, **kwargs): ...
     @staticmethod
@@ -29,6 +31,8 @@ class _A2UI:
     def update_data_model(*args, **kwargs): ...
     @staticmethod
     def render(*args, **kwargs): ...
+
+
 a2ui = _A2UI()
 SURFACE_ID = "flight-fixed-schema"
 CATALOG_ID = "flight-catalog"

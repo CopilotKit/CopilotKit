@@ -278,6 +278,8 @@ async def critique_agent(
         sub_agent_obj=_critique_agent,
         task=task,
     )
+
+
 # @endregion[supervisor-delegation-tools]
 
 

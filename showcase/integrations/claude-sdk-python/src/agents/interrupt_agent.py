@@ -72,7 +72,7 @@ async def run_interrupt_agent(input_data: RunAgentInput) -> AsyncIterator[str]:
 
     # Convert AG-UI messages to Anthropic format.
     messages: list[dict[str, Any]] = []
-    for msg in (input_data.messages or []):
+    for msg in input_data.messages or []:
         role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
 
         # Handle tool result messages from AG-UI (resolved frontend tools).
@@ -97,14 +97,18 @@ async def run_interrupt_agent(input_data: RunAgentInput) -> AsyncIterator[str]:
                 else:
                     result_text = json.dumps(raw)
             if tool_call_id:
-                messages.append({
-                    "role": "user",
-                    "content": [{
-                        "type": "tool_result",
-                        "tool_use_id": tool_call_id,
-                        "content": result_text,
-                    }],
-                })
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": tool_call_id,
+                                "content": result_text,
+                            }
+                        ],
+                    }
+                )
             continue
 
         if role not in ("user", "assistant"):
@@ -130,24 +134,40 @@ async def run_interrupt_agent(input_data: RunAgentInput) -> AsyncIterator[str]:
                 if text_content:
                     content_blocks.append({"type": "text", "text": text_content})
                 for tc in msg_tool_calls:
-                    tc_id = getattr(tc, "id", None) or (tc.get("id") if isinstance(tc, dict) else None)
-                    func = getattr(tc, "function", None) or (tc.get("function") if isinstance(tc, dict) else None)
+                    tc_id = getattr(tc, "id", None) or (
+                        tc.get("id") if isinstance(tc, dict) else None
+                    )
+                    func = getattr(tc, "function", None) or (
+                        tc.get("function") if isinstance(tc, dict) else None
+                    )
                     if func:
-                        tc_name = getattr(func, "name", None) or (func.get("name") if isinstance(func, dict) else "unknown")
-                        tc_args_str = getattr(func, "arguments", None) or (func.get("arguments", "{}") if isinstance(func, dict) else "{}")
+                        tc_name = getattr(func, "name", None) or (
+                            func.get("name") if isinstance(func, dict) else "unknown"
+                        )
+                        tc_args_str = getattr(func, "arguments", None) or (
+                            func.get("arguments", "{}")
+                            if isinstance(func, dict)
+                            else "{}"
+                        )
                     else:
                         tc_name = "unknown"
                         tc_args_str = "{}"
                     try:
-                        tc_args = json.loads(tc_args_str) if isinstance(tc_args_str, str) else tc_args_str
+                        tc_args = (
+                            json.loads(tc_args_str)
+                            if isinstance(tc_args_str, str)
+                            else tc_args_str
+                        )
                     except json.JSONDecodeError:
                         tc_args = {}
-                    content_blocks.append({
-                        "type": "tool_use",
-                        "id": tc_id or "unknown",
-                        "name": tc_name,
-                        "input": tc_args,
-                    })
+                    content_blocks.append(
+                        {
+                            "type": "tool_use",
+                            "id": tc_id or "unknown",
+                            "name": tc_name,
+                            "input": tc_args,
+                        }
+                    )
                 messages.append({"role": "assistant", "content": content_blocks})
                 continue
             elif text_content:
@@ -172,29 +192,41 @@ async def run_interrupt_agent(input_data: RunAgentInput) -> AsyncIterator[str]:
     # to Claude. AG-UI sends them in `input_data.tools` with JSON-Schema
     # parameters; Claude expects `input_schema` of the same shape.
     tools: list[dict[str, Any]] = []
-    for t in (input_data.tools or []):
-        name = getattr(t, "name", None) or (t.get("name") if isinstance(t, dict) else None)
-        description = getattr(t, "description", None) or (t.get("description", "") if isinstance(t, dict) else "")
-        parameters = getattr(t, "parameters", None) or (t.get("parameters", {}) if isinstance(t, dict) else {})
+    for t in input_data.tools or []:
+        name = getattr(t, "name", None) or (
+            t.get("name") if isinstance(t, dict) else None
+        )
+        description = getattr(t, "description", None) or (
+            t.get("description", "") if isinstance(t, dict) else ""
+        )
+        parameters = getattr(t, "parameters", None) or (
+            t.get("parameters", {}) if isinstance(t, dict) else {}
+        )
         if not name:
             continue
-        tools.append({
-            "name": name,
-            "description": description or "",
-            "input_schema": parameters or {"type": "object", "properties": {}},
-        })
+        tools.append(
+            {
+                "name": name,
+                "description": description or "",
+                "input_schema": parameters or {"type": "object", "properties": {}},
+            }
+        )
 
     thread_id = input_data.thread_id or "default"
     run_id = input_data.run_id or "run-1"
 
-    yield encoder.encode(RunStartedEvent(type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id))
+    yield encoder.encode(
+        RunStartedEvent(type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id)
+    )
 
     msg_id = f"msg-{run_id}-0"
-    yield encoder.encode(TextMessageStartEvent(
-        type=EventType.TEXT_MESSAGE_START,
-        message_id=msg_id,
-        role="assistant",
-    ))
+    yield encoder.encode(
+        TextMessageStartEvent(
+            type=EventType.TEXT_MESSAGE_START,
+            message_id=msg_id,
+            role="assistant",
+        )
+    )
 
     stream_kwargs: dict[str, Any] = {
         "model": os.getenv("ANTHROPIC_MODEL", "claude-opus-4-5"),
@@ -218,47 +250,66 @@ async def run_interrupt_agent(input_data: RunAgentInput) -> AsyncIterator[str]:
                     if block.type == "tool_use":
                         current_tool_id = block.id
                         current_tool_name = block.name
-                        yield encoder.encode(ToolCallStartEvent(
-                            type=EventType.TOOL_CALL_START,
-                            tool_call_id=current_tool_id,
-                            tool_call_name=current_tool_name,
-                            parent_message_id=msg_id,
-                        ))
+                        yield encoder.encode(
+                            ToolCallStartEvent(
+                                type=EventType.TOOL_CALL_START,
+                                tool_call_id=current_tool_id,
+                                tool_call_name=current_tool_name,
+                                parent_message_id=msg_id,
+                            )
+                        )
 
                 elif etype == "RawContentBlockDeltaEvent":
                     delta = event.delta  # type: ignore[attr-defined]
                     if delta.type == "text_delta":
-                        yield encoder.encode(TextMessageContentEvent(
-                            type=EventType.TEXT_MESSAGE_CONTENT,
-                            message_id=msg_id,
-                            delta=delta.text,
-                        ))
+                        yield encoder.encode(
+                            TextMessageContentEvent(
+                                type=EventType.TEXT_MESSAGE_CONTENT,
+                                message_id=msg_id,
+                                delta=delta.text,
+                            )
+                        )
                     elif delta.type == "input_json_delta":
-                        yield encoder.encode(ToolCallArgsEvent(
-                            type=EventType.TOOL_CALL_ARGS,
-                            tool_call_id=current_tool_id or "",
-                            delta=delta.partial_json,
-                        ))
+                        yield encoder.encode(
+                            ToolCallArgsEvent(
+                                type=EventType.TOOL_CALL_ARGS,
+                                tool_call_id=current_tool_id or "",
+                                delta=delta.partial_json,
+                            )
+                        )
 
-                elif etype in ("RawContentBlockStopEvent", "ParsedContentBlockStopEvent"):
+                elif etype in (
+                    "RawContentBlockStopEvent",
+                    "ParsedContentBlockStopEvent",
+                ):
                     if current_tool_id:
-                        yield encoder.encode(ToolCallEndEvent(
-                            type=EventType.TOOL_CALL_END,
-                            tool_call_id=current_tool_id,
-                        ))
+                        yield encoder.encode(
+                            ToolCallEndEvent(
+                                type=EventType.TOOL_CALL_END,
+                                tool_call_id=current_tool_id,
+                            )
+                        )
                         current_tool_id = None
                         current_tool_name = None
     except Exception:
         err_text = f"Agent error: {traceback.format_exc()}"
-        yield encoder.encode(TextMessageContentEvent(
-            type=EventType.TEXT_MESSAGE_CONTENT,
+        yield encoder.encode(
+            TextMessageContentEvent(
+                type=EventType.TEXT_MESSAGE_CONTENT,
+                message_id=msg_id,
+                delta=err_text,
+            )
+        )
+
+    yield encoder.encode(
+        TextMessageEndEvent(
+            type=EventType.TEXT_MESSAGE_END,
             message_id=msg_id,
-            delta=err_text,
-        ))
+        )
+    )
 
-    yield encoder.encode(TextMessageEndEvent(
-        type=EventType.TEXT_MESSAGE_END,
-        message_id=msg_id,
-    ))
-
-    yield encoder.encode(RunFinishedEvent(type=EventType.RUN_FINISHED, thread_id=thread_id, run_id=run_id))
+    yield encoder.encode(
+        RunFinishedEvent(
+            type=EventType.RUN_FINISHED, thread_id=thread_id, run_id=run_id
+        )
+    )

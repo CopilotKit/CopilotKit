@@ -113,9 +113,7 @@ async def _invoke_sub_agent(agent: FunctionAgent, task: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-async def _append_running_delegation(
-    ctx: Context, *, sub_agent: str, task: str
-) -> str:
+async def _append_running_delegation(ctx: Context, *, sub_agent: str, task: str) -> str:
     """Append a `running` delegation entry; return its id."""
     state: dict[str, Any] = await ctx.store.get("state", default={})
     delegations = list(state.get("delegations") or [])
@@ -186,6 +184,7 @@ async def _delegate(
 # Supervisor tools — each delegates to one sub-agent.
 # ---------------------------------------------------------------------------
 
+
 # @region[supervisor-delegation-tools]
 async def research_agent(
     ctx: Context,
@@ -244,6 +243,8 @@ async def critique_agent(
         task=task,
     )
     return _stringify_outcome(outcome)
+
+
 # @endregion[supervisor-delegation-tools]
 
 
@@ -284,5 +285,3 @@ subagents_router = get_ag_ui_workflow_router(
     system_prompt=SUPERVISOR_SYSTEM_PROMPT,
     initial_state={"delegations": []},
 )
-
-

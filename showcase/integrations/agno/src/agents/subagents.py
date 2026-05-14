@@ -236,6 +236,8 @@ def critique_agent(run_context: RunContext, task: str) -> dict[str, Any]:
         sub_agent=_critique_agent,
         task=task,
     )
+
+
 # @endregion[supervisor-delegation-tools]
 
 

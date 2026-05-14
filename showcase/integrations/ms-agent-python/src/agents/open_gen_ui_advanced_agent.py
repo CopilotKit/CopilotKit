@@ -87,7 +87,9 @@ SYSTEM_PROMPT = dedent(
 ).strip()
 
 
-def create_open_gen_ui_advanced_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
+def create_open_gen_ui_advanced_agent(
+    chat_client: BaseChatClient,
+) -> AgentFrameworkAgent:
     """Instantiate the advanced Open Generative UI agent."""
     base_agent = Agent(
         client=chat_client,

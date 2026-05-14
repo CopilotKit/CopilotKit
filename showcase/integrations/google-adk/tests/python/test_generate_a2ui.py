@@ -255,9 +255,12 @@ def test_generate_a2ui_happy_path_returns_operations_container():
         ]
     )
     sentinel = {"ok": True, "built": "operations"}
-    with patch("agents.main._get_genai_client", return_value=fake_client), patch(
-        "agents.main.build_a2ui_operations_from_tool_call", return_value=sentinel
-    ) as mock_builder:
+    with (
+        patch("agents.main._get_genai_client", return_value=fake_client),
+        patch(
+            "agents.main.build_a2ui_operations_from_tool_call", return_value=sentinel
+        ) as mock_builder,
+    ):
         result = generate_a2ui(FakeToolContext())
     assert result is sentinel
     mock_builder.assert_called_once_with(

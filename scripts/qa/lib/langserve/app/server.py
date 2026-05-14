@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 """Example LangChain server exposes multiple runnables (LLMs in this case)."""
+
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from fastapi import FastAPI
@@ -48,10 +50,11 @@ vectorstore = FAISS.from_texts(
 retriever = vectorstore.as_retriever()
 
 add_routes(
-    app, 
+    app,
     retriever,
     path="/retriever",
 )
+
 
 # Agent
 # -----
@@ -62,6 +65,7 @@ add_routes(
 def get_eugene_thoughts(query: str) -> list:
     """Returns Eugene's thoughts on a topic."""
     return retriever.get_relevant_documents(query)
+
 
 tools = [get_eugene_thoughts]
 llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0, streaming=True)
@@ -86,11 +90,14 @@ agent = (
 )
 agent_executor = AgentExecutor(graph=agent, tools=tools)
 
+
 class Input(BaseModel):
     input: str
 
+
 class Output(BaseModel):
     output: Any
+
 
 add_routes(
     app,

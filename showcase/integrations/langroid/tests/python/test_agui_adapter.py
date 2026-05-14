@@ -45,8 +45,10 @@ class _FakeRequest:
 
 def _install_fake_openai(monkeypatch: pytest.MonkeyPatch, response: Any) -> None:
     """Replace ``_call_openai`` with a coroutine that returns *response*."""
+
     async def _fake_call_openai(messages, tools, model):
         return response
+
     monkeypatch.setattr(agui_adapter, "_call_openai", _fake_call_openai)
 
 
@@ -87,7 +89,7 @@ def _parse_events(lines: list[str]) -> list[dict]:
         line = line.strip()
         if not line.startswith("data:"):
             continue
-        events.append(json.loads(line[len("data:"):].strip()))
+        events.append(json.loads(line[len("data:") :].strip()))
     return events
 
 
@@ -336,9 +338,7 @@ def test_parse_tool_args_non_dict_json_is_malformed(caplog):
         parsed = _parse_tool_args("[1, 2, 3]")
     assert parsed.status == "malformed"
     assert parsed.usable is False
-    assert any(
-        "parsed to non-dict" in rec.getMessage() for rec in caplog.records
-    )
+    assert any("parsed to non-dict" in rec.getMessage() for rec in caplog.records)
 
 
 def test_parse_tool_args_unknown_type_is_empty():
@@ -421,12 +421,12 @@ async def test_backend_tool_execution_happy_path(monkeypatch):
     # wrapped in a parent TEXT_MESSAGE_START/END pair.
     assert types == [
         "RUN_STARTED",
-        "TEXT_MESSAGE_START",      # parent message wrapper
+        "TEXT_MESSAGE_START",  # parent message wrapper
         "TOOL_CALL_START",
         "TOOL_CALL_ARGS",
         "TOOL_CALL_END",
-        "TOOL_CALL_RESULT",        # backend tool result
-        "TEXT_MESSAGE_END",        # parent message close
+        "TOOL_CALL_RESULT",  # backend tool result
+        "TEXT_MESSAGE_END",  # parent message close
         "RUN_FINISHED",
     ], f"unexpected event sequence: {types}"
 
@@ -617,10 +617,9 @@ def test_try_parse_tool_non_str_content_warns_and_returns_none(caplog):
         result = _try_parse_tool(12345)  # type: ignore[arg-type]
 
     assert result is None
-    assert any(
-        "non-str/bytes content" in rec.getMessage()
-        for rec in caplog.records
-    ), f"expected type-guard warning, got: {[r.getMessage() for r in caplog.records]}"
+    assert any("non-str/bytes content" in rec.getMessage() for rec in caplog.records), (
+        f"expected type-guard warning, got: {[r.getMessage() for r in caplog.records]}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -833,7 +832,8 @@ async def test_plain_text_turn_does_not_warn(monkeypatch, caplog):
 
     # The key assertion: NO warning-level log records from the adapter.
     adapter_warnings = [
-        r for r in caplog.records
+        r
+        for r in caplog.records
         if r.name == agui_adapter.logger.name and r.levelno >= logging.WARNING
     ]
     assert adapter_warnings == [], (

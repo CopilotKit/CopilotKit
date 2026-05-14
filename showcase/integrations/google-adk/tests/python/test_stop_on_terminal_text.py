@@ -116,9 +116,7 @@ def test_handles_invocation_context_without_end_invocation_attr():
     """If `_invocation_context` exists but doesn't expose `end_invocation`
     (ADK shape drift), the callback logs and continues without raising."""
     bad_ctx = object()  # no end_invocation attribute
-    ctx = SimpleNamespace(
-        agent_name="ToolRenderingAgent", _invocation_context=bad_ctx
-    )
+    ctx = SimpleNamespace(agent_name="ToolRenderingAgent", _invocation_context=bad_ctx)
     resp = _make_response(parts=[_make_part(text="terminal text")])
     # Must not raise — the AttributeError on setattr is swallowed and logged.
     stop_on_terminal_text(ctx, resp)

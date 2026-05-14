@@ -34,6 +34,7 @@ from opentelemetry.instrumentation.threading import (  # noqa: E402  (must prece
     ThreadingInstrumentor as _ThreadingInstrumentor,
 )
 
+
 # Import-order guard: if ``strands`` was already imported above this line
 # (directly or transitively), the Tracer may have been constructed with
 # the original ``instrument`` — and patching the class now has no effect

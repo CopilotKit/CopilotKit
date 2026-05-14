@@ -51,7 +51,8 @@ def _build_chat_client(model_override: str | None = None) -> BaseChatClient:
     try:
         if bool(os.getenv("OPENAI_API_KEY")):
             return OpenAIChatClient(
-                model=model_override or os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o-mini"),
+                model=model_override
+                or os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o-mini"),
                 api_key=os.getenv("OPENAI_API_KEY"),
             )
 
@@ -123,26 +124,52 @@ app.add_middleware(
 # at the root that shadows any route registered AFTER it. FastAPI resolves
 # routes in registration order, so specific paths must come first.
 
-add_agent_framework_fastapi_endpoint(app=app, agent=multimodal_agent, path="/multimodal")
-add_agent_framework_fastapi_endpoint(app=app, agent=beautiful_chat_agent, path="/beautiful-chat")
-add_agent_framework_fastapi_endpoint(app=app, agent=agent_config_agent, path="/agent-config")
+add_agent_framework_fastapi_endpoint(
+    app=app, agent=multimodal_agent, path="/multimodal"
+)
+add_agent_framework_fastapi_endpoint(
+    app=app, agent=beautiful_chat_agent, path="/beautiful-chat"
+)
+add_agent_framework_fastapi_endpoint(
+    app=app, agent=agent_config_agent, path="/agent-config"
+)
 add_agent_framework_fastapi_endpoint(app=app, agent=reasoning_agent, path="/reasoning")
 add_agent_framework_fastapi_endpoint(
-    app=app, agent=tool_rendering_reasoning_chain_agent, path="/tool-rendering-reasoning-chain"
+    app=app,
+    agent=tool_rendering_reasoning_chain_agent,
+    path="/tool-rendering-reasoning-chain",
 )
-add_agent_framework_fastapi_endpoint(app=app, agent=a2ui_dynamic_agent, path="/a2ui_dynamic")
-add_agent_framework_fastapi_endpoint(app=app, agent=a2ui_fixed_agent, path="/a2ui_fixed")
-add_agent_framework_fastapi_endpoint(app=app, agent=open_gen_ui_agent, path="/open-gen-ui")
-add_agent_framework_fastapi_endpoint(app=app, agent=open_gen_ui_advanced_agent, path="/open-gen-ui-advanced")
-add_agent_framework_fastapi_endpoint(app=app, agent=byoc_hashbrown_agent, path="/byoc-hashbrown")
-add_agent_framework_fastapi_endpoint(app=app, agent=byoc_json_render_agent, path="/byoc-json-render")
+add_agent_framework_fastapi_endpoint(
+    app=app, agent=a2ui_dynamic_agent, path="/a2ui_dynamic"
+)
+add_agent_framework_fastapi_endpoint(
+    app=app, agent=a2ui_fixed_agent, path="/a2ui_fixed"
+)
+add_agent_framework_fastapi_endpoint(
+    app=app, agent=open_gen_ui_agent, path="/open-gen-ui"
+)
+add_agent_framework_fastapi_endpoint(
+    app=app, agent=open_gen_ui_advanced_agent, path="/open-gen-ui-advanced"
+)
+add_agent_framework_fastapi_endpoint(
+    app=app, agent=byoc_hashbrown_agent, path="/byoc-hashbrown"
+)
+add_agent_framework_fastapi_endpoint(
+    app=app, agent=byoc_json_render_agent, path="/byoc-json-render"
+)
 add_agent_framework_fastapi_endpoint(app=app, agent=mcp_apps_agent, path="/mcp-apps")
-add_agent_framework_fastapi_endpoint(app=app, agent=hitl_in_app_agent, path="/hitl-in-app")
-add_agent_framework_fastapi_endpoint(app=app, agent=hitl_in_chat_agent, path="/hitl-in-chat")
+add_agent_framework_fastapi_endpoint(
+    app=app, agent=hitl_in_app_agent, path="/hitl-in-app"
+)
+add_agent_framework_fastapi_endpoint(
+    app=app, agent=hitl_in_chat_agent, path="/hitl-in-chat"
+)
 add_agent_framework_fastapi_endpoint(
     app=app, agent=gen_ui_tool_based_agent, path="/gen-ui-tool-based"
 )
-add_agent_framework_fastapi_endpoint(app=app, agent=interrupt_agent, path="/interrupt-adapted")
+add_agent_framework_fastapi_endpoint(
+    app=app, agent=interrupt_agent, path="/interrupt-adapted"
+)
 add_agent_framework_fastapi_endpoint(
     app=app, agent=shared_state_read_write_agent, path="/shared-state-read-write"
 )

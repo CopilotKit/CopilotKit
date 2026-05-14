@@ -48,6 +48,8 @@ def get_weather(location: str) -> dict:
         "wind_speed": 10,
         "conditions": "Sunny",
     }
+
+
 # @endregion[weather-tool-backend]
 
 

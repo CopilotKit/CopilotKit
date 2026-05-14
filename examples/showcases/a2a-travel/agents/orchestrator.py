@@ -11,6 +11,7 @@ send_message_to_a2a_agent tool to communicate with other agents.
 from __future__ import annotations
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 import os
@@ -105,7 +106,7 @@ adk_orchestrator_agent = ADKAgent(
     app_name="orchestrator_app",
     user_id="demo_user",
     session_timeout_seconds=3600,
-    use_in_memory_services=True
+    use_in_memory_services=True,
 )
 
 app = FastAPI(title="Travel Planning Orchestrator (ADK)")

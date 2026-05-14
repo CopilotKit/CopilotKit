@@ -88,8 +88,6 @@ def create_reasoning_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
     return AgentFrameworkAgent(
         agent=base_agent,
         name="CopilotKitMicrosoftAgentFrameworkReasoningAgent",
-        description=(
-            "Demonstrates a visible reasoning chain via the `think` tool."
-        ),
+        description=("Demonstrates a visible reasoning chain via the `think` tool."),
         require_confirmation=False,
     )

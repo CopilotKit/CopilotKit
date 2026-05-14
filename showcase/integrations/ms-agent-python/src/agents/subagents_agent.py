@@ -161,15 +161,15 @@ _CRITIQUE_INSTRUCTIONS = (
 )
 
 
-def _make_sub_agent(
-    chat_client: BaseChatClient, name: str, instructions: str
-) -> Agent:
+def _make_sub_agent(chat_client: BaseChatClient, name: str, instructions: str) -> Agent:
     return Agent(
         client=chat_client,
         name=name,
         instructions=instructions,
         tools=[],
     )
+
+
 # @endregion[subagent-setup]
 
 
@@ -202,9 +202,7 @@ async def _invoke_sub_agent_async(sub_agent_name: str, task: str) -> str:
                 fallback = str(content_text).strip()
                 if fallback:
                     return fallback
-    raise RuntimeError(
-        f"sub-agent '{sub_agent_name}' returned no text content"
-    )
+    raise RuntimeError(f"sub-agent '{sub_agent_name}' returned no text content")
 
 
 def _invoke_sub_agent(sub_agent_name: str, task: str) -> str:
@@ -248,9 +246,7 @@ def _delegate(sub_agent_name: str, task: str) -> Content:
     try:
         result_text = _invoke_sub_agent(sub_agent_name, task)
     except Exception as exc:
-        logger.exception(
-            "subagents: %s delegation failed", sub_agent_name
-        )
+        logger.exception("subagents: %s delegation failed", sub_agent_name)
         delegations.append(
             {
                 "id": entry_id,
@@ -260,18 +256,14 @@ def _delegate(sub_agent_name: str, task: str) -> Content:
                 # Surface only the exception class — sub-agent error
                 # messages can leak chat client URLs / quota details
                 # in deployed environments.
-                "result": (
-                    f"sub-agent error: {exc.__class__.__name__}"
-                ),
+                "result": (f"sub-agent error: {exc.__class__.__name__}"),
             }
         )
         # Mirror the contextvar so a follow-up sub-agent call within the
         # same supervisor turn sees this entry.
         _current_delegations.set(delegations)
         return state_update(
-            text=(
-                f"{sub_agent_name} failed; surfaced in delegation log."
-            ),
+            text=(f"{sub_agent_name} failed; surfaced in delegation log."),
             state={"delegations": delegations},
         )
 
@@ -365,6 +357,8 @@ def critique_agent(
 ) -> Content:
     """Delegate a critique task to the critique sub-agent."""
     return _delegate("critique_agent", task)
+
+
 # @endregion[supervisor-delegation-tools]
 
 

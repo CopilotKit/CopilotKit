@@ -58,7 +58,9 @@ def get_weather(
 )
 def search_flights(
     origin: Annotated[str, Field(description="Origin airport code, e.g. SFO.")],
-    destination: Annotated[str, Field(description="Destination airport code, e.g. JFK.")],
+    destination: Annotated[
+        str, Field(description="Destination airport code, e.g. JFK.")
+    ],
 ) -> str:
     """Return mock flight search results as JSON."""
     return json.dumps(

@@ -26,20 +26,30 @@ class TestCrewAIImportCompat:
         """When old crewai (<0.177.0) is installed, old import path should work."""
         # The old path: crewai.utilities.events.flow_events
         # If it exists, the import should succeed
-        fake_events = _make_fake_module({
-            "FlowEvent": type("FlowEvent", (), {}),
-            "FlowStartedEvent": type("FlowStartedEvent", (), {}),
-            "MethodExecutionStartedEvent": type("MethodExecutionStartedEvent", (), {}),
-            "MethodExecutionFinishedEvent": type("MethodExecutionFinishedEvent", (), {}),
-            "FlowFinishedEvent": type("FlowFinishedEvent", (), {}),
-        })
+        fake_events = _make_fake_module(
+            {
+                "FlowEvent": type("FlowEvent", (), {}),
+                "FlowStartedEvent": type("FlowStartedEvent", (), {}),
+                "MethodExecutionStartedEvent": type(
+                    "MethodExecutionStartedEvent", (), {}
+                ),
+                "MethodExecutionFinishedEvent": type(
+                    "MethodExecutionFinishedEvent", (), {}
+                ),
+                "FlowFinishedEvent": type("FlowFinishedEvent", (), {}),
+            }
+        )
 
-        with patch.dict(sys.modules, {
-            "crewai.utilities.events.flow_events": fake_events,
-        }):
+        with patch.dict(
+            sys.modules,
+            {
+                "crewai.utilities.events.flow_events": fake_events,
+            },
+        ):
             # Simulate what our try/except does
             try:
                 from crewai.utilities.events.flow_events import FlowEvent
+
                 old_path_works = True
             except ImportError:
                 old_path_works = False
@@ -49,13 +59,19 @@ class TestCrewAIImportCompat:
     def test_new_import_path_fallback(self):
         """When new crewai (>=0.177.0) is installed, new import path should work."""
         # The new path: crewai.events.types.flow_events
-        fake_events = _make_fake_module({
-            "FlowEvent": type("FlowEvent", (), {}),
-            "FlowStartedEvent": type("FlowStartedEvent", (), {}),
-            "MethodExecutionStartedEvent": type("MethodExecutionStartedEvent", (), {}),
-            "MethodExecutionFinishedEvent": type("MethodExecutionFinishedEvent", (), {}),
-            "FlowFinishedEvent": type("FlowFinishedEvent", (), {}),
-        })
+        fake_events = _make_fake_module(
+            {
+                "FlowEvent": type("FlowEvent", (), {}),
+                "FlowStartedEvent": type("FlowStartedEvent", (), {}),
+                "MethodExecutionStartedEvent": type(
+                    "MethodExecutionStartedEvent", (), {}
+                ),
+                "MethodExecutionFinishedEvent": type(
+                    "MethodExecutionFinishedEvent", (), {}
+                ),
+                "FlowFinishedEvent": type("FlowFinishedEvent", (), {}),
+            }
+        )
 
         # Remove old path, add new path
         old_mod_key = "crewai.utilities.events.flow_events"
@@ -65,12 +81,17 @@ class TestCrewAIImportCompat:
             # Make old path fail
             sys.modules[old_mod_key] = None  # type: ignore
 
-            with patch.dict(sys.modules, {
-                "crewai.events.types.flow_events": fake_events,
-            }, clear=False):
+            with patch.dict(
+                sys.modules,
+                {
+                    "crewai.events.types.flow_events": fake_events,
+                },
+                clear=False,
+            ):
                 # Simulate fallback logic
                 try:
                     from crewai.utilities.events.flow_events import FlowEvent  # type: ignore
+
                     new_path_needed = False
                 except ImportError:
                     new_path_needed = True
@@ -78,6 +99,7 @@ class TestCrewAIImportCompat:
                 assert new_path_needed, "Old path should fail, triggering fallback"
 
                 from crewai.events.types.flow_events import FlowEvent  # type: ignore
+
                 assert FlowEvent is not None, "New path should work"
         finally:
             if saved is not None:

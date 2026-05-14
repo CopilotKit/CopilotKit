@@ -329,6 +329,8 @@ def get_weather(location: str):
         Weather information as JSON string
     """
     return json.dumps(get_weather_impl(location))
+
+
 # @endregion[weather-tool-backend]
 
 
@@ -399,6 +401,8 @@ def schedule_meeting(reason: str):
         Meeting scheduling result as JSON string
     """
     return json.dumps(schedule_meeting_impl(reason))
+
+
 # @endregion[backend-tool-call]
 
 
@@ -498,44 +502,56 @@ def generate_a2ui(context: str) -> str:
         response = client.chat.completions.create(
             model="gpt-4.1",
             messages=[
-                {"role": "system", "content": context or "Generate a useful dashboard UI."},
-                {"role": "user", "content": "Generate a dynamic A2UI dashboard based on the conversation."},
+                {
+                    "role": "system",
+                    "content": context or "Generate a useful dashboard UI.",
+                },
+                {
+                    "role": "user",
+                    "content": "Generate a dynamic A2UI dashboard based on the conversation.",
+                },
             ],
             tools=[tool_schema],
             tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
         )
     except (_openai_mod.OpenAIError, _httpx_mod.HTTPError) as exc:
         logger.exception("generate_a2ui: OpenAI API call failed")
-        return json.dumps(_A2uiError(
-            error="a2ui_llm_error",
-            message=f"Secondary A2UI LLM call failed: {exc.__class__.__name__}",
-            remediation=(
-                "Verify OPENAI_API_KEY is set and the OpenAI service is reachable. "
-                "See server logs for the full traceback."
-            ),
-        ))
+        return json.dumps(
+            _A2uiError(
+                error="a2ui_llm_error",
+                message=f"Secondary A2UI LLM call failed: {exc.__class__.__name__}",
+                remediation=(
+                    "Verify OPENAI_API_KEY is set and the OpenAI service is reachable. "
+                    "See server logs for the full traceback."
+                ),
+            )
+        )
 
     if not response.choices:
         logger.warning("generate_a2ui: OpenAI response contained no choices")
-        return json.dumps(_A2uiError(
-            error="a2ui_empty_response",
-            message="Secondary A2UI LLM returned no choices.",
-            remediation="Retry; if this persists, check OpenAI status.",
-        ))
+        return json.dumps(
+            _A2uiError(
+                error="a2ui_empty_response",
+                message="Secondary A2UI LLM returned no choices.",
+                remediation="Retry; if this persists, check OpenAI status.",
+            )
+        )
 
     tool_calls = response.choices[0].message.tool_calls
     if not tool_calls:
         logger.warning(
             "generate_a2ui: OpenAI response had no tool_calls despite forced tool_choice"
         )
-        return json.dumps(_A2uiError(
-            error="a2ui_no_tool_call",
-            message="Secondary A2UI LLM did not call render_a2ui.",
-            remediation=(
-                "Retry the request. If this persists, verify the tool_choice "
-                "schema matches the OpenAI API contract."
-            ),
-        ))
+        return json.dumps(
+            _A2uiError(
+                error="a2ui_no_tool_call",
+                message="Secondary A2UI LLM did not call render_a2ui.",
+                remediation=(
+                    "Retry the request. If this persists, verify the tool_choice "
+                    "schema matches the OpenAI API contract."
+                ),
+            )
+        )
 
     tool_call = tool_calls[0]
     try:
@@ -544,14 +560,18 @@ def generate_a2ui(context: str) -> str:
         logger.exception(
             "generate_a2ui: failed to parse render_a2ui tool arguments as JSON"
         )
-        return json.dumps(_A2uiError(
-            error="a2ui_invalid_arguments",
-            message=f"Could not parse render_a2ui arguments: {exc}",
-            remediation="Retry the request; the secondary LLM emitted malformed JSON.",
-        ))
+        return json.dumps(
+            _A2uiError(
+                error="a2ui_invalid_arguments",
+                message=f"Could not parse render_a2ui arguments: {exc}",
+                remediation="Retry the request; the secondary LLM emitted malformed JSON.",
+            )
+        )
 
     result = build_a2ui_operations_from_tool_call(args)
     return json.dumps(result)
+
+
 # @endregion[backend-render-operations]
 
 
@@ -767,9 +787,7 @@ def _invoke_subagent_llm(system_prompt: str, task: str) -> str:
         )
     except (_openai_mod.OpenAIError, _httpx_mod.HTTPError) as exc:
         logger.exception("sub-agent: OpenAI call failed")
-        raise RuntimeError(
-            f"sub-agent call failed: {exc.__class__.__name__}"
-        ) from exc
+        raise RuntimeError(f"sub-agent call failed: {exc.__class__.__name__}") from exc
 
     if not response.choices:
         raise RuntimeError("sub-agent returned no choices")
@@ -852,6 +870,8 @@ def critique_agent(task: str) -> str:
         task: The draft to critique.
     """
     return _run_subagent("critique_agent", task)
+
+
 # @endregion[supervisor-delegation-tools]
 
 
@@ -865,8 +885,13 @@ def _make_subagent_state_from_result(sub_agent_name: str):
     """
 
     async def _hook(context):
-        thread_id = getattr(getattr(context, "input_data", None), "thread_id", None) or "default"
-        existing = _seed_delegations_from_state(thread_id, getattr(context.input_data, "state", None))
+        thread_id = (
+            getattr(getattr(context, "input_data", None), "thread_id", None)
+            or "default"
+        )
+        existing = _seed_delegations_from_state(
+            thread_id, getattr(context.input_data, "state", None)
+        )
 
         # Pull the task argument out of tool_input.
         raw_input = getattr(context, "tool_input", None)
@@ -895,7 +920,9 @@ def _make_subagent_state_from_result(sub_agent_name: str):
         # ``_SUBAGENT_FAILURE_MARKER`` block above for the full rationale.
         if result_text.startswith(_SUBAGENT_FAILURE_MARKER):
             status = "failed"
-            failure_class = result_text[len(_SUBAGENT_FAILURE_MARKER):].strip() or "RuntimeError"
+            failure_class = (
+                result_text[len(_SUBAGENT_FAILURE_MARKER) :].strip() or "RuntimeError"
+            )
             display_result = f"Sub-agent call failed ({failure_class})."
         else:
             status = "completed"
@@ -1090,9 +1117,7 @@ async def sales_state_from_args(context):
     # narrowly logged.
     raw_input = getattr(context, "tool_input", None)
     if raw_input is None:
-        logger.warning(
-            "sales_state_from_args: context has no tool_input attribute"
-        )
+        logger.warning("sales_state_from_args: context has no tool_input attribute")
         return None
 
     tool_input = raw_input
@@ -1389,9 +1414,7 @@ def _build_model() -> OpenAIModel:
     """Construct the OpenAI model, failing fast on missing credentials."""
     api_key = os.getenv("OPENAI_API_KEY", "")
     if not api_key:
-        raise RuntimeError(
-            "OPENAI_API_KEY must be set for the strands showcase agent"
-        )
+        raise RuntimeError("OPENAI_API_KEY must be set for the strands showcase agent")
     return OpenAIModel(
         client_args={"api_key": api_key},
         model_id="gpt-4o",

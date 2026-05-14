@@ -16,14 +16,16 @@ class TestSetForwardedHeaders:
     """set_forwarded_headers filters to x-* prefixed headers only."""
 
     def test_filters_to_x_prefixed_headers(self):
-        set_forwarded_headers({
-            "x-aimock-strict": "true",
-            "x-aimock-session": "abc123",
-            "x-request-id": "req-456",
-            "x-custom-trace": "xyz",
-            "authorization": "Bearer token",
-            "content-type": "application/json",
-        })
+        set_forwarded_headers(
+            {
+                "x-aimock-strict": "true",
+                "x-aimock-session": "abc123",
+                "x-request-id": "req-456",
+                "x-custom-trace": "xyz",
+                "authorization": "Bearer token",
+                "content-type": "application/json",
+            }
+        )
         result = get_forwarded_headers()
         assert result == {
             "x-aimock-strict": "true",
@@ -33,10 +35,12 @@ class TestSetForwardedHeaders:
         }
 
     def test_case_insensitive_prefix_match(self):
-        set_forwarded_headers({
-            "X-AIMock-Strict": "true",
-            "X-AIMOCK-SESSION": "xyz",
-        })
+        set_forwarded_headers(
+            {
+                "X-AIMock-Strict": "true",
+                "X-AIMOCK-SESSION": "xyz",
+            }
+        )
         result = get_forwarded_headers()
         assert result == {
             "x-aimock-strict": "true",
@@ -44,10 +48,12 @@ class TestSetForwardedHeaders:
         }
 
     def test_empty_when_no_x_headers(self):
-        set_forwarded_headers({
-            "authorization": "Bearer token",
-            "content-type": "application/json",
-        })
+        set_forwarded_headers(
+            {
+                "authorization": "Bearer token",
+                "content-type": "application/json",
+            }
+        )
         result = get_forwarded_headers()
         assert result == {}
 
@@ -86,6 +92,7 @@ class TestInstallHttpxHook:
 
     def test_appends_to_raw_httpx_client(self):
         """Mock a raw httpx client with event_hooks dict."""
+
         class FakeClient:
             def __init__(self):
                 self.event_hooks = {"request": []}
@@ -96,6 +103,7 @@ class TestInstallHttpxHook:
 
     def test_appends_to_sdk_wrapped_client(self):
         """Mock an OpenAI/Anthropic SDK client with _client attribute."""
+
         class FakeTransport:
             def __init__(self):
                 self.event_hooks = {"request": []}
@@ -110,8 +118,10 @@ class TestInstallHttpxHook:
 
     def test_hook_injects_headers(self):
         """The installed hook reads from ContextVar and injects headers."""
+
         class FakeHeaders(dict):
             """Dict that also supports item assignment like httpx Headers."""
+
             pass
 
         class FakeRequest:
@@ -136,6 +146,7 @@ class TestInstallHttpxHook:
 
     def test_hook_noop_when_no_headers(self):
         """Hook is a no-op when ContextVar is empty (demo traffic)."""
+
         class FakeRequest:
             def __init__(self):
                 self.headers = {}
@@ -189,6 +200,7 @@ class TestContextVarIsolation:
 
     def test_child_context_does_not_pollute_parent(self):
         """Setting headers in a child context does not affect the parent."""
+
         # Ensure clean state in a fresh context
         def _run():
             parent_before = get_forwarded_headers()

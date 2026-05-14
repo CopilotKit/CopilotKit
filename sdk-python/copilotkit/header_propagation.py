@@ -11,14 +11,14 @@ from typing import Dict
 
 # Ambient per-request state for headers to forward to LLM calls
 _forwarded_headers: contextvars.ContextVar[Dict[str, str]] = contextvars.ContextVar(
-    'copilotkit_forwarded_headers'
+    "copilotkit_forwarded_headers"
 )
 
 
 def set_forwarded_headers(headers: Dict[str, str]) -> None:
     """Store headers to forward to outgoing LLM calls.
     Filters to x-* prefixed headers only."""
-    filtered = {k.lower(): v for k, v in headers.items() if k.lower().startswith('x-')}
+    filtered = {k.lower(): v for k, v in headers.items() if k.lower().startswith("x-")}
     _forwarded_headers.set(filtered)
 
 
@@ -39,17 +39,18 @@ def install_httpx_hook(client) -> None:
         An OpenAI/Anthropic client instance, or a raw httpx.Client/AsyncClient.
         For SDK clients the underlying transport lives at ``client._client``.
     """
+
     def _inject_headers(request):
         headers = get_forwarded_headers()
         for key, value in headers.items():
             request.headers[key] = value
 
     # OpenAI / Anthropic SDKs wrap an httpx client at client._client
-    if hasattr(client, '_client') and hasattr(client._client, 'event_hooks'):
-        client._client.event_hooks['request'].append(_inject_headers)
-    elif hasattr(client, 'event_hooks'):
+    if hasattr(client, "_client") and hasattr(client._client, "event_hooks"):
+        client._client.event_hooks["request"].append(_inject_headers)
+    elif hasattr(client, "event_hooks"):
         # Raw httpx.Client / httpx.AsyncClient
-        client.event_hooks['request'].append(_inject_headers)
+        client.event_hooks["request"].append(_inject_headers)
     else:
         warnings.warn(
             f"install_httpx_hook: client of type {type(client).__name__} has no "

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 
 import dotenv
+
 dotenv.load_dotenv()
 
 from pyagentspec.agent import Agent
@@ -17,7 +18,9 @@ from datetime import datetime
 import json
 
 a2ui_prompts_folder = Path(__file__).resolve().parent / "a2ui_prompts"
-A2UI_JSON_SCHEMA = (a2ui_prompts_folder / "a2ui_schema.json").read_text(encoding="utf-8")
+A2UI_JSON_SCHEMA = (a2ui_prompts_folder / "a2ui_schema.json").read_text(
+    encoding="utf-8"
+)
 A2UI_PROMPT = (a2ui_prompts_folder / "a2ui_prompt.txt").read_text(encoding="utf-8")
 
 A2UI_JSON_SCHEMA_PROMPT = f"""
@@ -324,13 +327,18 @@ agent_llm = OpenAiCompatibleConfig(
     model_id=os.environ.get("OPENAI_MODEL", "gpt-5.2"),
     url=os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
     api_type=OpenAIAPIType.RESPONSES,
-    default_generation_parameters=LlmGenerationConfig(reasoning={"effort": "low"})
+    default_generation_parameters=LlmGenerationConfig(reasoning={"effort": "low"}),
 )
 
 send_a2ui_json_to_client_tool = ClientTool(
     name="send_a2ui_json_to_client",
     description="Legacy fallback for rendering raw A2UI JSON. Do not use directly — use render_calendar, render_inbox, render_email_compose, or render_daily_brief instead.",
-    inputs=[StringProperty(title="a2ui_json", description="Valid A2UI JSON Schema to send to the client.")]
+    inputs=[
+        StringProperty(
+            title="a2ui_json",
+            description="Valid A2UI JSON Schema to send to the client.",
+        )
+    ],
 )
 
 render_calendar_tool = ClientTool(
@@ -341,8 +349,11 @@ render_calendar_tool = ClientTool(
     inputs=[
         StringProperty(title="date", description="The date, e.g. '2026-02-02'"),
         StringProperty(title="dayName", description="The day name, e.g. 'Monday'"),
-        StringProperty(title="events", description="JSON array string of event objects with startTime, endTime, title, isAvailable fields"),
-    ]
+        StringProperty(
+            title="events",
+            description="JSON array string of event objects with startTime, endTime, title, isAvailable fields",
+        ),
+    ],
 )
 
 render_email_compose_tool = ClientTool(
@@ -351,8 +362,11 @@ render_email_compose_tool = ClientTool(
     "Call this when the user wants to compose, draft, or reply to an email. "
     "Pass a JSON object string with to, subject, and body fields.",
     inputs=[
-        StringProperty(title="email", description="JSON object string with to, subject, body fields"),
-    ]
+        StringProperty(
+            title="email",
+            description="JSON object string with to, subject, body fields",
+        ),
+    ],
 )
 
 render_inbox_tool = ClientTool(
@@ -361,8 +375,11 @@ render_inbox_tool = ClientTool(
     "Call this after checking the user's inbox with check_user_inbox. "
     "Pass the emails as a JSON array string.",
     inputs=[
-        StringProperty(title="emails", description="JSON array string of email objects with from, subject, body, date, isRead fields"),
-    ]
+        StringProperty(
+            title="emails",
+            description="JSON array string of email objects with from, subject, body, date, isRead fields",
+        ),
+    ],
 )
 
 check_user_inbox_tool = ServerTool(
@@ -396,10 +413,16 @@ render_daily_brief_tool = ClientTool(
     description="Renders a daily brief dashboard in the canvas workspace using A2UI components. "
     "Pass the A2UI component definitions, data, and root component ID as JSON strings.",
     inputs=[
-        StringProperty(title="components", description="JSON array string of A2UI ComponentInstance objects"),
-        StringProperty(title="data", description="JSON object string with data values for the dashboard"),
+        StringProperty(
+            title="components",
+            description="JSON array string of A2UI ComponentInstance objects",
+        ),
+        StringProperty(
+            title="data",
+            description="JSON object string with data values for the dashboard",
+        ),
         StringProperty(title="root", description="ID of the root component"),
-    ]
+    ],
 )
 
 agent = Agent(
@@ -416,14 +439,17 @@ agent = Agent(
         get_user_schedule_tool,
         get_daily_brief_tool,
         send_email_tool,
-    ]
+    ],
 )
 
 a2ui_chat_json = AgentSpecSerializer().to_json(agent)
 
 demo_schedule = [
     {
-        "startTime": "08:00", "endTime": "09:00", "title": "Morning Meeting", "isAvailable": False,
+        "startTime": "08:00",
+        "endTime": "09:00",
+        "title": "Morning Meeting",
+        "isAvailable": False,
         "guests": [
             {"email": "sarah.chen@company.org", "status": "accepted"},
             {"email": "mike.johnson@company.org", "status": "accepted"},
@@ -431,25 +457,49 @@ demo_schedule = [
         ],
     },
     {
-        "startTime": "09:00", "endTime": "10:00", "title": "Project Work", "isAvailable": False,
+        "startTime": "09:00",
+        "endTime": "10:00",
+        "title": "Project Work",
+        "isAvailable": False,
         "guests": [
             {"email": "david.dave@company.org", "status": "accepted"},
             {"email": "sarah.chen@company.org", "status": "accepted"},
         ],
     },
-    {"startTime": "10:00", "endTime": "11:00", "title": "Available", "isAvailable": True},
     {
-        "startTime": "11:00", "endTime": "11:30", "title": "Client Call", "isAvailable": False,
+        "startTime": "10:00",
+        "endTime": "11:00",
+        "title": "Available",
+        "isAvailable": True,
+    },
+    {
+        "startTime": "11:00",
+        "endTime": "11:30",
+        "title": "Client Call",
+        "isAvailable": False,
         "guests": [
             {"email": "alex.rivera@client.com", "status": "accepted"},
             {"email": "sarah.chen@company.org", "status": "declined"},
             {"email": "nathan.ward@company.org", "status": "pending"},
         ],
     },
-    {"startTime": "12:00", "endTime": "13:00", "title": "Lunch Break", "isAvailable": False},
-    {"startTime": "13:00", "endTime": "14:00", "title": "Available", "isAvailable": True},
     {
-        "startTime": "14:00", "endTime": "15:00", "title": "Team Sync", "isAvailable": False,
+        "startTime": "12:00",
+        "endTime": "13:00",
+        "title": "Lunch Break",
+        "isAvailable": False,
+    },
+    {
+        "startTime": "13:00",
+        "endTime": "14:00",
+        "title": "Available",
+        "isAvailable": True,
+    },
+    {
+        "startTime": "14:00",
+        "endTime": "15:00",
+        "title": "Team Sync",
+        "isAvailable": False,
         "guests": [
             {"email": "sarah.chen@company.org", "status": "accepted"},
             {"email": "mike.johnson@company.org", "status": "accepted"},
@@ -458,9 +508,17 @@ demo_schedule = [
             {"email": "anmol.kapoor@company.org", "status": "pending"},
         ],
     },
-    {"startTime": "15:00", "endTime": "16:00", "title": "Available", "isAvailable": True},
     {
-        "startTime": "16:00", "endTime": "16:30", "title": "Report Review", "isAvailable": False,
+        "startTime": "15:00",
+        "endTime": "16:00",
+        "title": "Available",
+        "isAvailable": True,
+    },
+    {
+        "startTime": "16:00",
+        "endTime": "16:30",
+        "title": "Report Review",
+        "isAvailable": False,
         "guests": [
             {"email": "sarah.chen@company.org", "status": "accepted"},
         ],
@@ -520,7 +578,9 @@ def send_email_tool_fn(*args, **kwargs):
 
 
 def get_daily_brief_fn(*args, **kwargs):
-    meetings = [e for e in demo_schedule if not e["isAvailable"] and e["title"] != "Lunch Break"]
+    meetings = [
+        e for e in demo_schedule if not e["isAvailable"] and e["title"] != "Lunch Break"
+    ]
     available_slots = [e for e in demo_schedule if e["isAvailable"]]
     unread_emails = [e for e in demo_inbox if not e["isRead"]]
 
@@ -546,7 +606,9 @@ def get_daily_brief_fn(*args, **kwargs):
                 "endTime": e["endTime"],
                 "guestCount": len(e.get("guests", [])),
                 "guestNames": ", ".join(
-                    " ".join(p.capitalize() for p in g["email"].split("@")[0].split("."))
+                    " ".join(
+                        p.capitalize() for p in g["email"].split("@")[0].split(".")
+                    )
                     for g in e.get("guests", [])
                 ),
             }
