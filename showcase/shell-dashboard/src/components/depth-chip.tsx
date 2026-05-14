@@ -27,6 +27,12 @@ export interface DepthChipProps {
    * go to D4 show green at D4 instead of the old hardcoded amber.
    */
   maxDepth?: number;
+  /**
+   * Pre-computed color override. When provided, bypasses the internal
+   * `depthColorClass()` derivation entirely. Useful when the caller has
+   * already determined the correct color (e.g. green when achieved == ceiling).
+   */
+  chipColor?: "green" | "amber" | "red" | "gray";
 }
 
 /**
@@ -58,11 +64,33 @@ export function depthColorClass(
   return "bg-[var(--danger)] text-white";
 }
 
+/**
+ * Map a pre-computed chip color to the corresponding CSS class string.
+ * Regression always wins (renders danger red).
+ */
+export function chipColorToClass(
+  color: "green" | "amber" | "red" | "gray",
+  regression?: boolean,
+): string {
+  if (regression) return "bg-[var(--danger)] text-white";
+  switch (color) {
+    case "green":
+      return "bg-emerald-600 text-white";
+    case "amber":
+      return "bg-[var(--amber)] text-white";
+    case "red":
+      return "bg-[var(--danger)] text-white";
+    case "gray":
+      return "bg-[var(--text-muted)]/20 text-[var(--text-muted)]";
+  }
+}
+
 export function DepthChip({
   depth,
   status,
   regression,
   maxDepth,
+  chipColor,
 }: DepthChipProps) {
   if (status === "unshipped") {
     return (
@@ -93,7 +121,9 @@ export function DepthChip({
     );
   }
 
-  const colorClass = depthColorClass(depth, regression, maxDepth);
+  const colorClass = chipColor
+    ? chipColorToClass(chipColor, regression)
+    : depthColorClass(depth, regression, maxDepth);
 
   return (
     <span
