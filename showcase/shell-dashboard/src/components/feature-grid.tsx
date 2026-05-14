@@ -11,7 +11,6 @@ import type {
   Demo,
   FeatureCategory,
 } from "@/lib/registry";
-import { keyFor, resolveCell } from "@/lib/live-status";
 import type { ConnectionStatus, LiveStatusMap } from "@/lib/live-status";
 import { LevelStrip } from "@/components/level-strip";
 import { OverlayColumnHeader } from "@/components/overlay-column-header";
@@ -43,14 +42,14 @@ export interface CellContext {
 export type CellRenderer = (ctx: CellContext) => React.ReactNode;
 
 /**
- * Counts green / amber / red signals for a single integration column across
- * all features.
+ * Counts green / amber / red cells for a single integration column across
+ * all features, derived from `buildCellModel().chipColor`.
  *
- * Signal scoping (spec §5.4):
- *   - Feature-level dimensions (`e2e`) are counted per feature.
- *   - Integration-level dimensions (`health`) are counted EXACTLY ONCE
- *     per integration — the health row keyed `health:<slug>` is a single
- *     signal for the whole column, not one signal per feature.
+ * This ensures the header tally matches what the Coverage-tab cells actually
+ * render — both use `buildCellModel` as the single source of truth.
+ *
+ * Gray cells (no data yet, unsupported, or unwired) are excluded from the
+ * count so the tally reflects only cells with actionable signal.
  *
  * When the SSE stream is down (`connection === "error"`) we return all-zero —
  * the column header falls back to an "unknown" rendering so stale counts
@@ -70,39 +69,23 @@ export function computeColumnTally(
   let amber = 0;
   let red = 0;
 
-  const tallyTone = (tone: string): void => {
-    if (tone === "green") green++;
-    else if (tone === "amber") amber++;
-    else if (tone === "red") red++;
-  };
-
-  // Integration-level health — count once, regardless of how many features
-  // the integration declares.
-  const healthRow = liveStatus.get(keyFor("health", integration.slug)) ?? null;
-  if (healthRow) {
-    switch (healthRow.state) {
-      case "green":
-        tallyTone("green");
-        break;
-      case "red":
-        tallyTone("red");
-        break;
-      case "degraded":
-        tallyTone("amber");
-        break;
-    }
-  }
-
-  // Feature-level dimensions: e2e per feature-with-demo.
   for (const feature of features) {
-    const demo = integration.demos.find((d) => d.id === feature.id);
-    if (!demo) continue;
+    const isSupported = !(
+      integration.not_supported_features?.includes(feature.id) ?? false
+    );
+    const isWired = integration.demos.some((d) => d.id === feature.id);
 
-    const cell = resolveCell(liveStatus, integration.slug, feature.id, {
-      connection,
+    const model = buildCellModel(liveStatus, {
+      slug: integration.slug,
+      featureId: feature.id,
+      isSupported,
+      isWired,
     });
 
-    tallyTone(cell.e2e.tone);
+    if (model.chipColor === "green") green++;
+    else if (model.chipColor === "amber") amber++;
+    else if (model.chipColor === "red") red++;
+    // gray → skip (no data / unsupported / unwired)
   }
 
   return { green, amber, red, unknown: false };
@@ -112,8 +95,8 @@ export function computeColumnTally(
  * Per-bucket feature lists for a single integration column — companion to
  * `computeColumnTally()` that returns `TallyItem[]` arrays instead of counts.
  *
- * Logic mirrors `computeColumnTally()` exactly: same signal scoping (health
- * counted once, e2e per feature-with-demo) and same connection-error guard.
+ * Logic mirrors `computeColumnTally()` exactly: both derive from
+ * `buildCellModel().chipColor`. Gray cells are excluded.
  */
 export function computeColumnTallyDetail(
   integration: Integration,
@@ -129,31 +112,21 @@ export function computeColumnTallyDetail(
   const amber: TallyItem[] = [];
   const red: TallyItem[] = [];
 
-  // Integration-level health — counted once per integration.
-  const healthRow = liveStatus.get(keyFor("health", integration.slug)) ?? null;
-  if (healthRow) {
-    const item: TallyItem = { label: "Health (Up)", dimension: "health" };
-    switch (healthRow.state) {
-      case "green":
-        green.push(item);
-        break;
-      case "red":
-        red.push(item);
-        break;
-      case "degraded":
-        amber.push(item);
-        break;
-    }
-  }
-
-  // Feature-level dimensions: e2e per feature-with-demo.
   for (const feature of features) {
-    const demo = integration.demos.find((d) => d.id === feature.id);
-    if (!demo) continue;
+    const isSupported = !(
+      integration.not_supported_features?.includes(feature.id) ?? false
+    );
+    const isWired = integration.demos.some((d) => d.id === feature.id);
 
-    const cell = resolveCell(liveStatus, integration.slug, feature.id, {
-      connection,
+    const model = buildCellModel(liveStatus, {
+      slug: integration.slug,
+      featureId: feature.id,
+      isSupported,
+      isWired,
     });
+
+    // Gray → skip (no data / unsupported / unwired)
+    if (model.chipColor === "gray") continue;
 
     const item: TallyItem = {
       label: feature.name,
@@ -161,9 +134,9 @@ export function computeColumnTallyDetail(
       featureId: feature.id,
     };
 
-    if (cell.e2e.tone === "green") green.push(item);
-    else if (cell.e2e.tone === "amber") amber.push(item);
-    else if (cell.e2e.tone === "red") red.push(item);
+    if (model.chipColor === "green") green.push(item);
+    else if (model.chipColor === "amber") amber.push(item);
+    else if (model.chipColor === "red") red.push(item);
   }
 
   return { green, amber, red, unknown: false };
