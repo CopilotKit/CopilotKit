@@ -23,13 +23,9 @@ function row(
 
 describe("DiscoveryAuthBanner", () => {
   it("renders when system row is red (discovery-auth-failed)", () => {
-    const rows: StatusRow[] = [
-      row("system:discovery-auth-failed", "red"),
-    ];
+    const rows: StatusRow[] = [row("system:discovery-auth-failed", "red")];
     render(<DiscoveryAuthBanner rows={rows} />);
-    expect(
-      screen.queryByTestId("discovery-auth-banner"),
-    ).toBeInTheDocument();
+    expect(screen.queryByTestId("discovery-auth-banner")).toBeInTheDocument();
   });
 
   it("shows cached variant when signal.cacheStatus is serving-stale", () => {
@@ -61,9 +57,7 @@ describe("DiscoveryAuthBanner", () => {
   });
 
   it("returns null when no system row is present", () => {
-    const rows: StatusRow[] = [
-      row("health:some-integration", "green"),
-    ];
+    const rows: StatusRow[] = [row("health:some-integration", "green")];
     const { container } = render(<DiscoveryAuthBanner rows={rows} />);
     expect(container.innerHTML).toBe("");
     expect(
@@ -72,9 +66,7 @@ describe("DiscoveryAuthBanner", () => {
   });
 
   it("returns null when system row state is green", () => {
-    const rows: StatusRow[] = [
-      row("system:discovery-auth-failed", "green"),
-    ];
+    const rows: StatusRow[] = [row("system:discovery-auth-failed", "green")];
     const { container } = render(<DiscoveryAuthBanner rows={rows} />);
     expect(container.innerHTML).toBe("");
     expect(
@@ -102,9 +94,7 @@ describe("DiscoveryAuthBanner", () => {
       row("system:discovery-auth-failed", "red", "unexpected string"),
     ];
     render(<DiscoveryAuthBanner rows={rows} />);
-    expect(
-      screen.queryByTestId("discovery-auth-banner"),
-    ).toBeInTheDocument();
+    expect(screen.queryByTestId("discovery-auth-banner")).toBeInTheDocument();
     // With a non-object signal, the banner should fall back to default
     // message (no-cache variant with generic source name).
     expect(
@@ -115,21 +105,15 @@ describe("DiscoveryAuthBanner", () => {
   });
 
   it("has role=alert for accessibility", () => {
-    const rows: StatusRow[] = [
-      row("system:discovery-auth-failed", "red"),
-    ];
+    const rows: StatusRow[] = [row("system:discovery-auth-failed", "red")];
     render(<DiscoveryAuthBanner rows={rows} />);
     expect(screen.getByRole("alert")).toBeInTheDocument();
   });
 
   it("renders browser-pool-banner when system:browser-pool-degraded row is red", () => {
-    const rows: StatusRow[] = [
-      row("system:browser-pool-degraded", "red"),
-    ];
+    const rows: StatusRow[] = [row("system:browser-pool-degraded", "red")];
     render(<DiscoveryAuthBanner rows={rows} />);
-    expect(
-      screen.queryByTestId("browser-pool-banner"),
-    ).toBeInTheDocument();
+    expect(screen.queryByTestId("browser-pool-banner")).toBeInTheDocument();
     expect(
       screen.getByText(
         "Browser pool initialization failed — e2e probes running in degraded mode with stub drivers.",
@@ -153,14 +137,10 @@ describe("DiscoveryAuthBanner", () => {
   });
 
   it("does not render browser-pool-banner when row state is green", () => {
-    const rows: StatusRow[] = [
-      row("system:browser-pool-degraded", "green"),
-    ];
+    const rows: StatusRow[] = [row("system:browser-pool-degraded", "green")];
     const { container } = render(<DiscoveryAuthBanner rows={rows} />);
     expect(container.innerHTML).toBe("");
-    expect(
-      screen.queryByTestId("browser-pool-banner"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("browser-pool-banner")).not.toBeInTheDocument();
   });
 
   it("renders both banners simultaneously when both conditions are red", () => {
@@ -174,11 +154,7 @@ describe("DiscoveryAuthBanner", () => {
       }),
     ];
     render(<DiscoveryAuthBanner rows={rows} />);
-    expect(
-      screen.queryByTestId("discovery-auth-banner"),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByTestId("browser-pool-banner"),
-    ).toBeInTheDocument();
+    expect(screen.queryByTestId("discovery-auth-banner")).toBeInTheDocument();
+    expect(screen.queryByTestId("browser-pool-banner")).toBeInTheDocument();
   });
 });

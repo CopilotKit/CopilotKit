@@ -129,7 +129,10 @@ export function withCache<T>(
               opts.logger?.warn("discovery.cache.tracker-error", {
                 source: source.name,
                 phase: "success",
-                error: trackerErr instanceof Error ? trackerErr.message : String(trackerErr),
+                error:
+                  trackerErr instanceof Error
+                    ? trackerErr.message
+                    : String(trackerErr),
               });
             }
           }
@@ -156,7 +159,10 @@ export function withCache<T>(
               opts.logger?.warn("discovery.cache.tracker-error", {
                 source: source.name,
                 phase: "failure",
-                error: trackerErr instanceof Error ? trackerErr.message : String(trackerErr),
+                error:
+                  trackerErr instanceof Error
+                    ? trackerErr.message
+                    : String(trackerErr),
               });
             }
           }

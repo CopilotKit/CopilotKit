@@ -1374,7 +1374,10 @@ export function createRailwayAdapter(
     { name: string; id: string }[]
   > => {
     const now = Date.now();
-    if (cachedServices && now - cachedServices.fetchedAt < SERVICE_CACHE_TTL_MS) {
+    if (
+      cachedServices &&
+      now - cachedServices.fetchedAt < SERVICE_CACHE_TTL_MS
+    ) {
       return cachedServices.data;
     }
     const data = await listServices();

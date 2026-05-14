@@ -1,10 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { z } from "zod";
 import { withCache, cacheKey } from "./caching-source.js";
-import {
-  DiscoverySourceAuthError,
-  DiscoverySourceError,
-} from "./errors.js";
+import { DiscoverySourceAuthError, DiscoverySourceError } from "./errors.js";
 import type { DiscoveryContext, DiscoverySource } from "../types.js";
 import type { Logger } from "../../types/index.js";
 
@@ -65,11 +62,7 @@ function makeTracker() {
   return {
     recordSuccess: vi.fn(async (_name: string) => {}),
     recordFailure: vi.fn(
-      async (
-        _name: string,
-        _error: unknown,
-        _cacheStatus: string,
-      ) => {},
+      async (_name: string, _error: unknown, _cacheStatus: string) => {},
     ),
   };
 }
@@ -262,9 +255,7 @@ describe("CachingDiscoverySource", () => {
       async (_ctx: DiscoveryContext, config: unknown) => {
         await new Promise((r) => setTimeout(r, 50));
         const cfg = config as { filter: string };
-        return cfg.filter === "a"
-          ? [{ id: "result-a" }]
-          : [{ id: "result-b" }];
+        return cfg.filter === "a" ? [{ id: "result-a" }] : [{ id: "result-b" }];
       },
     );
     const source = makeSource<{ id: string }>("test", enumerateFn);
@@ -286,21 +277,16 @@ describe("CachingDiscoverySource", () => {
 
   it("cache key isolation — different configs get separate entries", async () => {
     let callCount = 0;
-    const source = makeSource<{ id: string }>(
-      "test",
-      async (_ctx, config) => {
-        callCount++;
-        const cfg = config as { env: string };
-        if (callCount <= 2) {
-          // First two calls succeed (one per config)
-          return cfg.env === "prod"
-            ? [{ id: "prod1" }]
-            : [{ id: "stg1" }];
-        }
-        // Subsequent calls fail
-        throw new DiscoverySourceAuthError("test", "401 Unauthorized");
-      },
-    );
+    const source = makeSource<{ id: string }>("test", async (_ctx, config) => {
+      callCount++;
+      const cfg = config as { env: string };
+      if (callCount <= 2) {
+        // First two calls succeed (one per config)
+        return cfg.env === "prod" ? [{ id: "prod1" }] : [{ id: "stg1" }];
+      }
+      // Subsequent calls fail
+      throw new DiscoverySourceAuthError("test", "401 Unauthorized");
+    });
 
     const cached = withCache(source, { ttlMs: TTL });
     const ctx = makeCtx();
@@ -323,16 +309,13 @@ describe("CachingDiscoverySource", () => {
   it("stale entries evicted after 2x TTL", async () => {
     let clock = 1000;
     let shouldFail = false;
-    const source = makeSource<{ id: string }>(
-      "test",
-      async (_ctx, config) => {
-        const cfg = config as { env: string };
-        if (shouldFail) {
-          throw new DiscoverySourceAuthError("test", "gone");
-        }
-        return [{ id: cfg.env }];
-      },
-    );
+    const source = makeSource<{ id: string }>("test", async (_ctx, config) => {
+      const cfg = config as { env: string };
+      if (shouldFail) {
+        throw new DiscoverySourceAuthError("test", "gone");
+      }
+      return [{ id: cfg.env }];
+    });
 
     const cached = withCache(source, {
       ttlMs: TTL,
@@ -354,9 +337,9 @@ describe("CachingDiscoverySource", () => {
     shouldFail = true;
 
     // Config A was evicted — no stale cache to serve, so it must throw
-    await expect(
-      cached.enumerate(ctx, { env: "alpha" }),
-    ).rejects.toThrow(DiscoverySourceAuthError);
+    await expect(cached.enumerate(ctx, { env: "alpha" })).rejects.toThrow(
+      DiscoverySourceAuthError,
+    );
 
     // Config B is still fresh (just fetched) — stale serve should work
     const staleB = await cached.enumerate(ctx, { env: "bravo" });
