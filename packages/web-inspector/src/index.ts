@@ -2590,7 +2590,7 @@ export class WebInspectorElement extends LitElement {
     store.start();
     store.setContext({
       runtimeUrl: core.runtimeUrl,
-      headers: {},
+      headers: { ...core.headers },
       agentId,
     });
     this._ownedThreadStores.set(agentId, store);
