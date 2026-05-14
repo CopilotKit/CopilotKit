@@ -1,11 +1,9 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * E2E spec for the Declarative UI: json-render demo (ADK route
- * `/demos/declarative-json-render`). Ported from LP's
- * `declarative-json-render.spec.ts` so the dashboard's json-render row
- * exercises the same surfaces (json-render-root + metric-card + chart)
- * across showcases.
+ * E2E spec for the Declarative UI: json-render demo. Structurally
+ * mirrors `gen-ui-tool-based.spec.ts` so the dashboard's BYOC rows
+ * exercise the same surfaces (json-render-root + metric-card + chart).
  */
 test.describe("Declarative UI: json-render", () => {
   test.beforeEach(async ({ page }) => {

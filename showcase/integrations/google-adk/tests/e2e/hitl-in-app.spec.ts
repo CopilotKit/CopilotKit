@@ -1,13 +1,7 @@
 import { test, expect } from "@playwright/test";
 
-// In-App HITL demo — Google ADK.
-//
-// Mirrors langgraph-python/tests/e2e/hitl-in-app.spec.ts.
-//
 // QA reference: qa/hitl-in-app.md
-// Demo source: src/app/demos/hitl-in-app/{page.tsx, approval-dialog.tsx,
-//   tickets-panel.tsx, suggestions.ts}
-// Backend agent: src/agents/hitl_in_app_agent.py
+// Demo source: src/app/demos/hitl-in-app/{page.tsx, approval-dialog.tsx}
 //
 // Demo registers ONE frontend tool via `useFrontendTool`:
 // `request_user_approval(message, context?)`. The handler returns a Promise
@@ -18,8 +12,13 @@ import { test, expect } from "@playwright/test";
 //
 // Genuine assertion strategy: the deterministic aimock fixtures emit two
 // branched continuations per pill (sequenceIndex 0 = approve, 1 = reject).
-// Serial mode is load-bearing — test #1 of the pair claims sequenceIndex 0
-// (approve response) and test #2 claims sequenceIndex 1 (reject response).
+// Since the JSON fixture matcher cannot inspect tool message content, we
+// rely on test ordering (serial mode) so test #1 of the pair claims
+// sequenceIndex 0 (approve response) and test #2 claims sequenceIndex 1
+// (reject response). If the framework wired approve/reject into the same
+// payload, both branches would still receive the same fixture's response
+// — but the assertion text differs, so at least one of the two tests
+// would fail. That asymmetry is what makes the assertion genuine.
 
 test.describe("HITL In-App (approval dialog portaled to <body>)", () => {
   // Serial mode is load-bearing: aimock's `sequenceIndex` matcher counts
@@ -110,7 +109,8 @@ test.describe("HITL In-App (approval dialog portaled to <body>)", () => {
       page.locator('[data-testid="approval-dialog-overlay"]'),
     ).toHaveCount(0, { timeout: 5_000 });
 
-    // Reject branch: deterministic fixture leading phrase.
+    // Reject branch: deterministic fixture leading phrase. Substring
+    // assertion is intentional — locks the reject-branch identity.
     await expect(
       page
         .locator('[data-testid="copilot-assistant-message"]')
@@ -180,17 +180,22 @@ test.describe("HITL In-App (approval dialog portaled to <body>)", () => {
   // TODO: re-enable when downgrade flow is fixed (broken upstream as of 2026-05-07)
   test.skip("downgrade #12346 → approve/reject flow", async () => {
     // Intentionally skipped per spec: the downgrade pill exposes a
-    // separate upstream bug (ticket-12346 surface) that is out of scope.
-    // Re-enable when the upstream demo reliably emits request_user_approval
-    // for the downgrade prompt.
+    // separate upstream bug (ticket-12346 surface) that is out of scope
+    // for the genuine-pass rewrite. Re-enable when the upstream demo
+    // reliably emits request_user_approval for the downgrade prompt.
   });
 
-  // Regression: each pill must mount its OWN approval dialog when clicked
-  // back-to-back in the same chat thread. Historically a `hasToolResult`
-  // gate on the second pill's first-turn fixture caused it to be skipped
-  // after the first approval, so the agent jumped straight to the
-  // narration branch with no approval dialog. The fix chains the
-  // follow-up fixtures via the request_user_approval `toolCallId`.
+  // Regression for the aimock multi-pill bug:
+  // The refund (#12345) and escalate (#12347) fixtures used
+  // `hasToolResult: false/true` to split the request_user_approval emit
+  // from the approve/reject narration. After approving the first pill, the
+  // thread already had a tool result, so the second pill's first-turn
+  // fixture was skipped — the approve/reject branch fired immediately with
+  // no approval dialog. Fix: chain the follow-up fixtures via the
+  // request_user_approval `toolCallId`, drop `hasToolResult: false` from
+  // the tool-emitting fixture. This test approves refund #12345 then
+  // clicks escalate #12347 in the same thread and asserts the second pill
+  // mounts its own approval dialog.
   test("approve refund then click escalate — each pill mounts its own approval dialog", async ({
     page,
   }) => {
