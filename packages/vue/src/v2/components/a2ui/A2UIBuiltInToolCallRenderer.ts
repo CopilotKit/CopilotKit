@@ -33,7 +33,10 @@ export function registerA2UIBuiltInToolCallRenderer(
       const renderer = defineToolCallRenderer({
         name: RENDER_A2UI_TOOL_NAME,
         args: z.any(),
-        render: ({ status, args: parameters }: {
+        render: ({
+          status,
+          args: parameters,
+        }: {
           status: ToolCallStatus;
           args: unknown;
           [key: string]: unknown;
@@ -52,18 +55,14 @@ export function registerA2UIBuiltInToolCallRenderer(
       // Register via props-based mechanism so useRenderTool hooks take priority
       const existing = core.propRenderToolCalls;
       core.setRenderToolCalls([
-        ...existing.filter(
-          (rc) => rc.name !== RENDER_A2UI_TOOL_NAME,
-        ),
+        ...existing.filter((rc) => rc.name !== RENDER_A2UI_TOOL_NAME),
         renderer,
       ]);
 
       onCleanup(() => {
         const current = core.propRenderToolCalls;
         core.setRenderToolCalls(
-          current.filter(
-            (rc) => rc.name !== RENDER_A2UI_TOOL_NAME,
-          ),
+          current.filter((rc) => rc.name !== RENDER_A2UI_TOOL_NAME),
         );
         progressState.clear();
       });
@@ -76,7 +75,10 @@ export function registerA2UIBuiltInToolCallRenderer(
  * Vue render-function equivalent of the React A2UIProgressIndicator.
  * Shows a skeleton wireframe that progressively reveals as tokens stream in.
  */
-const progressState = new Map<string, { lastTime: number; lastTokens: number }>();
+const progressState = new Map<
+  string,
+  { lastTime: number; lastTokens: number }
+>();
 
 function renderA2UIProgressIndicator(parameters: unknown): VNodeChild {
   const params = parameters as Record<string, unknown> | null | undefined;
@@ -182,7 +184,14 @@ function renderA2UIProgressIndicator(parameters: unknown): VNodeChild {
               dot(),
               dot(),
             ]),
-            bar(64, 6, "#e4e4e7", undefined, phase >= 1 ? 1 : 0.4, "opacity 0.5s"),
+            bar(
+              64,
+              6,
+              "#e4e4e7",
+              undefined,
+              phase >= 1 ? 1 : 0.4,
+              "opacity 0.5s",
+            ),
           ],
         ),
         // Skeleton lines
@@ -281,7 +290,9 @@ function renderA2UIProgressIndicator(parameters: unknown): VNodeChild {
       ],
     ),
     // Keyframe styles
-    h("style", `
+    h(
+      "style",
+      `
       @keyframes cpk-a2ui-fade {
         0%, 100% { opacity: 1; }
         50% { opacity: 0.5; }
@@ -290,6 +301,7 @@ function renderA2UIProgressIndicator(parameters: unknown): VNodeChild {
         0% { background-position: 250% 0; }
         100% { background-position: -250% 0; }
       }
-    `),
+    `,
+    ),
   ]);
 }

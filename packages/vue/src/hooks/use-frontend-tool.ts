@@ -51,13 +51,13 @@ export function useFrontendTool<const T extends Parameter[] = []>(
   // Component rather than a function, leave it unchanged.
   const normalizedRender =
     typeof render === "function"
-      ? ((props: { result?: unknown }) => {
+      ? (props: { result?: unknown }) => {
           const renderProps =
             typeof props.result === "string"
               ? { ...props, result: parseJson(props.result, props.result) }
               : props;
           return (render as (p: unknown) => unknown)(renderProps);
-        })
+        }
       : render;
 
   useFrontendToolV2<MappedParameterTypes<T>>(

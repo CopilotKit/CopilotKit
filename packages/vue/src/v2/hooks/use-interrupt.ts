@@ -139,17 +139,22 @@ export function useInterrupt<TValue = unknown, TResult = never>(
 
     const interruptEventValue = interrupt.value?.value;
     interrupt.value = null;
-    void copilotkit.value.runAgent({
-      agent: resolvedAgent,
-      forwardedProps: {
-        command: {
-          resume: response,
-          interruptEvent: interruptEventValue,
+    void copilotkit.value
+      .runAgent({
+        agent: resolvedAgent,
+        forwardedProps: {
+          command: {
+            resume: response,
+            interruptEvent: interruptEventValue,
+          },
         },
-      },
-    }).catch((error) => {
-      console.error("[CopilotKit] useInterrupt: failed to resume agent:", error);
-    });
+      })
+      .catch((error) => {
+        console.error(
+          "[CopilotKit] useInterrupt: failed to resume agent:",
+          error,
+        );
+      });
   };
 
   watch(

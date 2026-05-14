@@ -315,7 +315,8 @@ const builtInFrontendTools = computed<VueFrontendTool[]>(() => {
       parameters: GenerateSandboxedUiArgsSchema,
       handler: async () => "UI generated",
       followUp: true,
-      render: OpenGenerativeUIToolRenderer as unknown as VueFrontendTool["render"],
+      render:
+        OpenGenerativeUIToolRenderer as unknown as VueFrontendTool["render"],
     } as VueFrontendTool,
   ];
 });
@@ -327,7 +328,8 @@ const builtInActivityRenderers = computed<
     {
       activityType: MCPAppsActivityType,
       content: MCPAppsActivityContentSchema as unknown as z.ZodSchema<unknown>,
-      render: MCPAppsActivityRenderer as unknown as VueActivityMessageRenderer<unknown>["render"],
+      render:
+        MCPAppsActivityRenderer as unknown as VueActivityMessageRenderer<unknown>["render"],
     },
   ];
 
@@ -335,7 +337,8 @@ const builtInActivityRenderers = computed<
     renderers.push({
       activityType: OpenGenerativeUIActivityType,
       content: OpenGenerativeUIContentSchema as unknown as z.ZodSchema<unknown>,
-      render: OpenGenerativeUIActivityRenderer as unknown as VueActivityMessageRenderer<unknown>["render"],
+      render:
+        OpenGenerativeUIActivityRenderer as unknown as VueActivityMessageRenderer<unknown>["render"],
     });
   }
 
@@ -545,10 +548,7 @@ const a2uiLoadingComponent = computed(() => props.a2ui?.loadingComponent);
 const a2uiIncludeSchema = computed(() => props.a2ui?.includeSchema ?? true);
 
 // A2UI tool call renderer (progress indicator) — auto-registered when A2UI enabled
-registerA2UIBuiltInToolCallRenderer(
-  copilotkit,
-  () => runtimeA2UIEnabled.value,
-);
+registerA2UIBuiltInToolCallRenderer(copilotkit, () => runtimeA2UIEnabled.value);
 
 // A2UI catalog context, schema, and generation/design guidelines
 registerA2UICatalogContext(copilotkit, {

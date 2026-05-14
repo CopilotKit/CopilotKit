@@ -82,9 +82,10 @@ function buildCatalogContextValue(catalog?: Catalog<ComponentApi>): string {
  * Extract component schemas from a catalog in A2UI v0.9 inline format.
  * Vue-native equivalent of extractCatalogComponentSchemas.
  */
-function extractCatalogComponentSchemas(
-  catalog?: Catalog<ComponentApi>,
-): { catalogId: string; components: Record<string, Record<string, unknown>> } {
+function extractCatalogComponentSchemas(catalog?: Catalog<ComponentApi>): {
+  catalogId: string;
+  components: Record<string, Record<string, unknown>>;
+} {
   const resolved = catalog ?? vueBasicCatalog;
   const components: Record<string, Record<string, unknown>> = {};
 
@@ -148,9 +149,7 @@ export function registerA2UICatalogContext(
   // Register schema + generation/design guidelines
   const schemaValue = computed(() => {
     if (!options.includeSchema()) return null;
-    return JSON.stringify(
-      extractCatalogComponentSchemas(options.catalog()),
-    );
+    return JSON.stringify(extractCatalogComponentSchemas(options.catalog()));
   });
 
   watch(

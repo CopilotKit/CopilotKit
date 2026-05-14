@@ -452,127 +452,144 @@ const Button = createVueComponent(ButtonApi, ({ props, buildChild }) => {
   );
 });
 
-const TextField = createVueComponent(TextFieldApi, ({ props, state }) => {
-  const uniqueId = state.id;
-  const isLong = props.variant === "longText";
-  const type =
-    props.variant === "number"
-      ? "number"
-      : props.variant === "obscured"
-        ? "password"
-        : "text";
+const TextField = createVueComponent(
+  TextFieldApi,
+  ({ props, state }) => {
+    const uniqueId = state.id;
+    const isLong = props.variant === "longText";
+    const type =
+      props.variant === "number"
+        ? "number"
+        : props.variant === "obscured"
+          ? "password"
+          : "text";
 
-  const inputStyle = {
-    padding: "8px",
-    width: "100%",
-    border:
-      props.validationErrors && props.validationErrors.length > 0
-        ? "1px solid red"
-        : STANDARD_BORDER,
-    borderRadius: STANDARD_RADIUS,
-    boxSizing: "border-box",
-  };
+    const inputStyle = {
+      padding: "8px",
+      width: "100%",
+      border:
+        props.validationErrors && props.validationErrors.length > 0
+          ? "1px solid red"
+          : STANDARD_BORDER,
+      borderRadius: STANDARD_RADIUS,
+      boxSizing: "border-box",
+    };
 
-  const hasError = props.validationErrors && props.validationErrors.length > 0;
+    const hasError =
+      props.validationErrors && props.validationErrors.length > 0;
 
-  return h(
-    "div",
-    {
-      style: {
-        display: "flex",
-        flexDirection: "column",
-        gap: "4px",
-        width: "100%",
-        margin: LEAF_MARGIN,
+    return h(
+      "div",
+      {
+        style: {
+          display: "flex",
+          flexDirection: "column",
+          gap: "4px",
+          width: "100%",
+          margin: LEAF_MARGIN,
+        },
       },
-    },
-    [
-      props.label
-        ? h(
-            "label",
-            { for: uniqueId, style: { fontSize: "14px", fontWeight: "bold" } },
-            props.label,
-          )
-        : null,
-      isLong
-        ? h("textarea", {
-            id: uniqueId,
-            style: inputStyle,
-            value: props.value || "",
-            onInput: (e: Event) =>
-              props.setValue((e.target as HTMLTextAreaElement).value),
-          })
-        : h("input", {
-            id: uniqueId,
-            type,
-            style: inputStyle,
-            value: props.value || "",
-            onInput: (e: Event) =>
-              props.setValue((e.target as HTMLInputElement).value),
-          }),
-      hasError
-        ? h(
-            "span",
-            { style: { fontSize: "12px", color: "red" } },
-            props.validationErrors![0],
-          )
-        : null,
-    ],
-  );
-}, () => ({ id: useA2UIUniqueId() }));
+      [
+        props.label
+          ? h(
+              "label",
+              {
+                for: uniqueId,
+                style: { fontSize: "14px", fontWeight: "bold" },
+              },
+              props.label,
+            )
+          : null,
+        isLong
+          ? h("textarea", {
+              id: uniqueId,
+              style: inputStyle,
+              value: props.value || "",
+              onInput: (e: Event) =>
+                props.setValue((e.target as HTMLTextAreaElement).value),
+            })
+          : h("input", {
+              id: uniqueId,
+              type,
+              style: inputStyle,
+              value: props.value || "",
+              onInput: (e: Event) =>
+                props.setValue((e.target as HTMLInputElement).value),
+            }),
+        hasError
+          ? h(
+              "span",
+              { style: { fontSize: "12px", color: "red" } },
+              props.validationErrors![0],
+            )
+          : null,
+      ],
+    );
+  },
+  () => ({ id: useA2UIUniqueId() }),
+);
 
-const CheckBox = createVueComponent(CheckBoxApi, ({ props, state }) => {
-  const uniqueId = state.id;
-  const hasError = props.validationErrors && props.validationErrors.length > 0;
+const CheckBox = createVueComponent(
+  CheckBoxApi,
+  ({ props, state }) => {
+    const uniqueId = state.id;
+    const hasError =
+      props.validationErrors && props.validationErrors.length > 0;
 
-  return h(
-    "div",
-    {
-      style: { display: "flex", flexDirection: "column", margin: LEAF_MARGIN },
-    },
-    [
-      h(
-        "div",
-        { style: { display: "flex", alignItems: "center", gap: "8px" } },
-        [
-          h("input", {
-            id: uniqueId,
-            type: "checkbox",
-            checked: !!props.value,
-            onChange: (e: Event) =>
-              props.setValue((e.target as HTMLInputElement).checked),
-            style: {
-              cursor: "pointer",
-              outline: hasError ? "1px solid red" : "none",
-            },
-          }),
-          props.label
-            ? h(
-                "label",
-                {
-                  for: uniqueId,
-                  style: {
-                    cursor: "pointer",
-                    color: hasError ? "red" : "inherit",
+    return h(
+      "div",
+      {
+        style: {
+          display: "flex",
+          flexDirection: "column",
+          margin: LEAF_MARGIN,
+        },
+      },
+      [
+        h(
+          "div",
+          { style: { display: "flex", alignItems: "center", gap: "8px" } },
+          [
+            h("input", {
+              id: uniqueId,
+              type: "checkbox",
+              checked: !!props.value,
+              onChange: (e: Event) =>
+                props.setValue((e.target as HTMLInputElement).checked),
+              style: {
+                cursor: "pointer",
+                outline: hasError ? "1px solid red" : "none",
+              },
+            }),
+            props.label
+              ? h(
+                  "label",
+                  {
+                    for: uniqueId,
+                    style: {
+                      cursor: "pointer",
+                      color: hasError ? "red" : "inherit",
+                    },
                   },
-                },
-                props.label,
-              )
-            : null,
-        ],
-      ),
-      hasError
-        ? h(
-            "span",
-            {
-              style: { fontSize: "12px", color: "red", marginTop: "4px" },
-            },
-            props.validationErrors?.[0],
-          )
-        : null,
-    ],
-  );
-}, () => ({ id: useA2UIUniqueId() }));
+                  props.label,
+                )
+              : null,
+          ],
+        ),
+        hasError
+          ? h(
+              "span",
+              {
+                style: { fontSize: "12px", color: "red", marginTop: "4px" },
+              },
+              props.validationErrors?.[0],
+            )
+          : null,
+      ],
+    );
+  },
+  () => ({ id: useA2UIUniqueId() }),
+);
 
 const ChoicePicker = createVueComponent(
   ChoicePickerApi,
@@ -704,106 +721,114 @@ const ChoicePicker = createVueComponent(
   () => ({ filter: ref("") }),
 );
 
-const Slider = createVueComponent(SliderApi, ({ props, state }) => {
-  const uniqueId = state.id;
+const Slider = createVueComponent(
+  SliderApi,
+  ({ props, state }) => {
+    const uniqueId = state.id;
 
-  return h(
-    "div",
-    {
-      style: {
-        display: "flex",
-        flexDirection: "column",
-        gap: "4px",
-        margin: LEAF_MARGIN,
-        width: "100%",
+    return h(
+      "div",
+      {
+        style: {
+          display: "flex",
+          flexDirection: "column",
+          gap: "4px",
+          margin: LEAF_MARGIN,
+          width: "100%",
+        },
       },
-    },
-    [
-      h(
-        "div",
-        { style: { display: "flex", justifyContent: "space-between" } },
-        [
-          props.label
-            ? h(
-                "label",
-                {
-                  for: uniqueId,
-                  style: { fontSize: "14px", fontWeight: "bold" },
-                },
-                props.label,
-              )
-            : null,
-          h(
-            "span",
-            { style: { fontSize: "12px", color: "#666" } },
-            String(props.value),
-          ),
-        ],
-      ),
-      h("input", {
-        id: uniqueId,
-        type: "range",
-        min: props.min ?? 0,
-        max: props.max,
-        value: props.value ?? 0,
-        onInput: (e: Event) =>
-          props.setValue(Number((e.target as HTMLInputElement).value)),
-        style: { width: "100%", cursor: "pointer" },
-      }),
-    ],
-  );
-}, () => ({ id: useA2UIUniqueId() }));
+      [
+        h(
+          "div",
+          { style: { display: "flex", justifyContent: "space-between" } },
+          [
+            props.label
+              ? h(
+                  "label",
+                  {
+                    for: uniqueId,
+                    style: { fontSize: "14px", fontWeight: "bold" },
+                  },
+                  props.label,
+                )
+              : null,
+            h(
+              "span",
+              { style: { fontSize: "12px", color: "#666" } },
+              String(props.value),
+            ),
+          ],
+        ),
+        h("input", {
+          id: uniqueId,
+          type: "range",
+          min: props.min ?? 0,
+          max: props.max,
+          value: props.value ?? 0,
+          onInput: (e: Event) =>
+            props.setValue(Number((e.target as HTMLInputElement).value)),
+          style: { width: "100%", cursor: "pointer" },
+        }),
+      ],
+    );
+  },
+  () => ({ id: useA2UIUniqueId() }),
+);
 
-const DateTimeInput = createVueComponent(DateTimeInputApi, ({ props, state }) => {
-  const uniqueId = state.id;
+const DateTimeInput = createVueComponent(
+  DateTimeInputApi,
+  ({ props, state }) => {
+    const uniqueId = state.id;
 
-  let type = "datetime-local";
-  if (props.enableDate && !props.enableTime) type = "date";
-  if (!props.enableDate && props.enableTime) type = "time";
+    let type = "datetime-local";
+    if (props.enableDate && !props.enableTime) type = "date";
+    if (!props.enableDate && props.enableTime) type = "time";
 
-  const style = {
-    padding: "8px",
-    width: "100%",
-    border: STANDARD_BORDER,
-    borderRadius: STANDARD_RADIUS,
-    boxSizing: "border-box",
-  };
+    const style = {
+      padding: "8px",
+      width: "100%",
+      border: STANDARD_BORDER,
+      borderRadius: STANDARD_RADIUS,
+      boxSizing: "border-box",
+    };
 
-  return h(
-    "div",
-    {
-      style: {
-        display: "flex",
-        flexDirection: "column",
-        gap: "4px",
-        width: "100%",
-        margin: LEAF_MARGIN,
+    return h(
+      "div",
+      {
+        style: {
+          display: "flex",
+          flexDirection: "column",
+          gap: "4px",
+          width: "100%",
+          margin: LEAF_MARGIN,
+        },
       },
-    },
-    [
-      props.label
-        ? h(
-            "label",
-            {
-              for: uniqueId,
-              style: { fontSize: "14px", fontWeight: "bold" },
-            },
-            props.label,
-          )
-        : null,
-      h("input", {
-        id: uniqueId,
-        type,
-        style,
-        value: props.value || "",
-        onInput: (e: Event) =>
-          props.setValue((e.target as HTMLInputElement).value),
-        min: typeof props.min === "string" ? props.min : undefined,
-        max: typeof props.max === "string" ? props.max : undefined,
-      }),
-    ],
-  );
-}, () => ({ id: useA2UIUniqueId() }));
+      [
+        props.label
+          ? h(
+              "label",
+              {
+                for: uniqueId,
+                style: { fontSize: "14px", fontWeight: "bold" },
+              },
+              props.label,
+            )
+          : null,
+        h("input", {
+          id: uniqueId,
+          type,
+          style,
+          value: props.value || "",
+          onInput: (e: Event) =>
+            props.setValue((e.target as HTMLInputElement).value),
+          min: typeof props.min === "string" ? props.min : undefined,
+          max: typeof props.max === "string" ? props.max : undefined,
+        }),
+      ],
+    );
+  },
+  () => ({ id: useA2UIUniqueId() }),
+);
 
 // ============================================================
 // Catalog Assembly

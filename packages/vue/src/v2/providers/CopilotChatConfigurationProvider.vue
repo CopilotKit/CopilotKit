@@ -55,9 +55,7 @@ const resolvedHasExplicitThreadId = computed(() => {
 const shouldCreateModalState = computed(
   () => props.isModalDefaultOpen !== undefined,
 );
-const resolvedDefaultOpen = computed(
-  () => props.isModalDefaultOpen ?? true,
-);
+const resolvedDefaultOpen = computed(() => props.isModalDefaultOpen ?? true);
 
 const internalModalOpen = ref<boolean>(
   parentConfigValue.value?.isModalOpen ?? resolvedDefaultOpen.value,

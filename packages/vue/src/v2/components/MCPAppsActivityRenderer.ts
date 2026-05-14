@@ -137,9 +137,7 @@ class MCPAppsRequestQueue {
         clearInterval(checkInterval);
         sub.unsubscribe();
         reject(
-          new Error(
-            "[CopilotKit] Timed out waiting for agent to become idle",
-          ),
+          new Error("[CopilotKit] Timed out waiting for agent to become idle"),
         );
       }, 30_000);
 

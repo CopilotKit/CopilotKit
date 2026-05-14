@@ -492,9 +492,7 @@ export function FeatureGrid({
 
   const visibleFeatures = useMemo(
     () =>
-      showDeprecated
-        ? features
-        : features.filter((f) => f.deprecated !== true),
+      showDeprecated ? features : features.filter((f) => f.deprecated !== true),
     [features, showDeprecated],
   );
   const deprecatedCount = useMemo(
@@ -545,8 +543,7 @@ export function FeatureGrid({
         </div>
         <p className="mt-1 text-sm text-[var(--text-secondary)]">
           {subtitle ? <>{subtitle} · </> : null}
-          {visibleFeatures.length} features × {integrations.length}{" "}
-          integrations
+          {visibleFeatures.length} features × {integrations.length} integrations
           {!showDeprecated && deprecatedCount > 0
             ? ` (${deprecatedCount} deprecated hidden)`
             : ""}

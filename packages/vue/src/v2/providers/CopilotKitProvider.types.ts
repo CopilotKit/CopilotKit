@@ -54,7 +54,10 @@ export interface CopilotKitProviderProps {
    * Only used on first load before the user drags to a custom position.
    * Defaults to `{ horizontal: "right", vertical: "top" }`.
    */
-  inspectorDefaultAnchor?: { horizontal: "left" | "right"; vertical: "top" | "bottom" };
+  inspectorDefaultAnchor?: {
+    horizontal: "left" | "right";
+    vertical: "top" | "bottom";
+  };
   /**
    * Enable debug logging for the client-side event pipeline.
    *

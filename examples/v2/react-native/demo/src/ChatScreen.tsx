@@ -116,10 +116,7 @@ export function ChatScreen() {
       ),
     }),
     handler: async (args) => {
-      setCharts((prev) => [
-        ...prev,
-        { id: `chart-${Date.now()}`, ...args },
-      ]);
+      setCharts((prev) => [...prev, { id: `chart-${Date.now()}`, ...args }]);
       return "Pie chart rendered successfully.";
     },
   });
@@ -325,14 +322,13 @@ export function ChatScreen() {
 
       {appMode && (
         <View
-          style={[
-            styles.taskManagerPanel,
-            { borderBottomColor: theme.border },
-          ]}
+          style={[styles.taskManagerPanel, { borderBottomColor: theme.border }]}
         >
           <TaskManager
             todos={agent?.state?.todos || []}
-            onUpdate={(updatedTodos) => agent?.setState({ todos: updatedTodos })}
+            onUpdate={(updatedTodos) =>
+              agent?.setState({ todos: updatedTodos })
+            }
             isAgentRunning={isLoading}
             theme={theme}
           />

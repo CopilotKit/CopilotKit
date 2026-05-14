@@ -392,9 +392,7 @@ describe("CopilotChat activity message rendering", () => {
     // React's useEffect which defers). The connectAgent path calls
     // setMessages([]) which would race with the submit's addMessage.
     await waitFor(() => {
-      expect(
-        screen.queryByTestId("copilot-chat-view"),
-      ).not.toBeNull();
+      expect(screen.queryByTestId("copilot-chat-view")).not.toBeNull();
     });
     await new Promise((r) => setTimeout(r, 50));
 
@@ -634,9 +632,7 @@ describe("CopilotChat activity message rendering", () => {
     // Allow the /connect bootstrap cycle to settle before submitting.
     // See the A2UI reconnect test above for the full rationale.
     await waitFor(() => {
-      expect(
-        screen.queryByTestId("copilot-chat-view"),
-      ).not.toBeNull();
+      expect(screen.queryByTestId("copilot-chat-view")).not.toBeNull();
     });
     await new Promise((r) => setTimeout(r, 50));
 

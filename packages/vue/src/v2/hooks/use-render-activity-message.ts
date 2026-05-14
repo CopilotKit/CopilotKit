@@ -26,11 +26,11 @@ interface ActivityRendererResult {
 export function useRenderActivityMessage() {
   const { copilotkit } = useCopilotKit();
   const config = useCopilotChatConfiguration();
-  const agentId = computed(
-    () => config.value?.agentId ?? DEFAULT_AGENT_ID,
-  );
+  const agentId = computed(() => config.value?.agentId ?? DEFAULT_AGENT_ID);
 
-  const renderers = computed(() => [...copilotkit.value.renderActivityMessages]);
+  const renderers = computed(() => [
+    ...copilotkit.value.renderActivityMessages,
+  ]);
 
   function findRenderer(
     activityType: string,
@@ -72,8 +72,9 @@ export function useRenderActivityMessage() {
       return null;
     }
 
-    const agent: AbstractAgent | undefined =
-      copilotkit.value.getAgent(agentId.value);
+    const agent: AbstractAgent | undefined = copilotkit.value.getAgent(
+      agentId.value,
+    );
 
     return {
       renderer: renderer.render as Component<
