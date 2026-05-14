@@ -54,15 +54,22 @@ Use state rendering when you want to:
         import { createMiddleware } from "langchain";
         import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
         import { z } from "zod";
+        import { zodState } from "@copilotkit/sdk-js/langgraph";
+        import { StateSchema } from "@langchain/langgraph";
+
+        // Define the agent's custom state and include schema in middleware.
+        const AgentStateSchema = new StateSchema({
+            searches: zodState(
+                            z.array(z.object({
+                                query: z.string(),
+                                done: z.boolean(),
+                            })).default([]),
+                        ),
+        });
 
         export const searchesStateMiddleware = createMiddleware({
             name: "AgentState",
-            stateSchema: z.object({
-                searches: z.array(z.object({
-                    query: z.string(),
-                    done: z.boolean(),
-                })).default([]),
-            }),
+            stateSchema: AgentStateSchema,
         });
 
         // Compose with copilotkitMiddleware when constructing the agent:
@@ -101,22 +108,46 @@ Use state rendering when you want to:
       <Tab value="TypeScript">
         ```ts title="agent.ts"
         import { copilotkitEmitState } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+        import { createDeepAgent } from "deepagents";
+        import { createMiddleware, tool } from "langchain";
+        import { z } from "zod";
+        import { zodState } from "@copilotkit/sdk-js/langgraph";
+        import { getConfig } from "@langchain/langgraph";
+
 
         // Inside a custom tool or middleware hook where you have config/state:
-        async function emitResearchProgress(state: any, config: any) {
-            state.searches = [
-                { query: "Initial research", done: false },
-                { query: "Retrieving sources", done: false },
-                { query: "Forming an answer", done: false },
-            ];
-            await copilotkitEmitState(config, state); // [!code highlight]
-
+        const research = tool(
+        async ({ topic: _topic }) => {
+            const config = getConfig();
+            const state = {
+                searches: [
+                    { query: "Initial research", done: false },
+                    { query: "Retrieving sources", done: false },
+                    { query: "Forming an answer", done: false },
+                ],
+            };
+            await copilotkitEmitState(config, state);
             for (const search of state.searches) {
                 await new Promise((resolve) => setTimeout(resolve, 1000));
                 search.done = true;
-                await copilotkitEmitState(config, state); // [!code highlight]
+                await copilotkitEmitState(config, state);
             }
-        }
+            },
+            {
+                name: "research",
+                description: "Research a topic and stream progress to the UI.",
+                schema: z.object({
+                    topic: z.string().describe("The topic to research"),
+                }),
+            }
+        );
+
+        export const agent = createDeepAgent({
+            model: "openai:gpt-4o",
+            tools: [research],
+            middleware: [copilotkitMiddleware, searchesStateMiddleware],
+            systemPrompt: "You are a helpful research assistant. "
+        });
         ```
       </Tab>
     </Tabs>
