@@ -237,7 +237,8 @@ def test_generate_a2ui_non_dict_args_returns_full_error_shape():
 
 def test_generate_a2ui_happy_path_returns_operations_container():
     """function_call with a valid dict payload → build_a2ui_operations_from_tool_call
-    is invoked and its return value becomes generate_a2ui's return value."""
+    is invoked and its return value is merged into generate_a2ui's return value
+    alongside a human-readable 'result' key."""
     fake_client = MagicMock()
     fake_client.models.generate_content.return_value = _genai_response(
         candidates=[
@@ -254,12 +255,13 @@ def test_generate_a2ui_happy_path_returns_operations_container():
             )
         ]
     )
-    sentinel = {"ok": True, "built": "operations"}
+    sentinel = {"a2ui_operations": [{"version": "v0.9", "createSurface": {"surfaceId": "demo"}}]}
     with patch("agents.main._get_genai_client", return_value=fake_client), patch(
         "agents.main.build_a2ui_operations_from_tool_call", return_value=sentinel
     ) as mock_builder:
         result = generate_a2ui(FakeToolContext())
-    assert result is sentinel
+    assert "a2ui_operations" in result, f"missing a2ui_operations: {result.keys()}"
+    assert "result" in result, f"missing human-readable result: {result.keys()}"
     mock_builder.assert_called_once_with(
         {
             "surfaceId": "demo",

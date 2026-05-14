@@ -12,9 +12,8 @@ after each successful tool result; PR #4792's "all tools repeat infinitely"
 symptom was the visible manifestation. Pinning the truth table here prevents
 silent regressions when the callback or its wiring is refactored.
 
-Mirrors the parallel `test_after_model_modifier.py` which covers the
-SalesPipelineAgent-scoped legacy `simple_after_model_modifier` — the new
-test asserts the SAME behavior but for the demos that actually ship.
+Duplicate tool-call detection is now handled by `prevent_duplicate_tool_calls`
+(a before_model_callback) -- see test_prevent_duplicate_tool_calls.py.
 """
 
 from __future__ import annotations
@@ -51,9 +50,9 @@ def _make_response(*, parts=None, partial: bool = False, role: str = "model"):
 
 
 def test_terminates_on_final_text_only_model_response():
-    """The happy path: final response is text without a function_call → stop."""
+    """The happy path: final response is text without a function_call -> stop."""
     ctx = FakeCallbackContext()
-    resp = _make_response(parts=[_make_part(text="Tokyo is sunny, 68°F.")])
+    resp = _make_response(parts=[_make_part(text="Tokyo is sunny, 68 F.")])
     stop_on_terminal_text(ctx, resp)
     assert ctx._invocation_context.end_invocation is True
 
@@ -72,7 +71,7 @@ def test_does_not_terminate_on_mixed_text_and_function_call():
 
 
 def test_does_not_terminate_on_pure_function_call():
-    """No text, only function_call → keep going."""
+    """No text, only function_call -> keep going."""
     ctx = FakeCallbackContext()
     resp = _make_response(
         parts=[_make_part(function_call=SimpleNamespace(name="get_weather"))]
@@ -82,7 +81,7 @@ def test_does_not_terminate_on_pure_function_call():
 
 
 def test_does_not_terminate_on_partial_stream_chunk():
-    """Belt-and-suspenders with ADK_DISABLE_PROGRESSIVE_SSE_STREAMING — never
+    """Belt-and-suspenders with ADK_DISABLE_PROGRESSIVE_SSE_STREAMING -- never
     end on a partial event even if it happens to contain text-only parts."""
     ctx = FakeCallbackContext()
     resp = _make_response(
@@ -103,13 +102,13 @@ def test_does_not_terminate_on_non_model_role():
 
 
 def test_handles_missing_invocation_context_gracefully():
-    """ADK's `_invocation_context` is private — log-and-degrade instead of
+    """ADK's `_invocation_context` is private -- log-and-degrade instead of
     crashing the callback when it disappears (would stall the whole request)."""
     ctx = SimpleNamespace(agent_name="ToolRenderingAgent", _invocation_context=None)
     resp = _make_response(parts=[_make_part(text="terminal text")])
     # Must not raise.
     stop_on_terminal_text(ctx, resp)
-    # No invocation_context to flip — nothing to assert beyond no-raise.
+    # No invocation_context to flip -- nothing to assert beyond no-raise.
 
 
 def test_handles_invocation_context_without_end_invocation_attr():
@@ -120,7 +119,7 @@ def test_handles_invocation_context_without_end_invocation_attr():
         agent_name="ToolRenderingAgent", _invocation_context=bad_ctx
     )
     resp = _make_response(parts=[_make_part(text="terminal text")])
-    # Must not raise — the AttributeError on setattr is swallowed and logged.
+    # Must not raise -- the AttributeError on setattr is swallowed and logged.
     stop_on_terminal_text(ctx, resp)
 
 
