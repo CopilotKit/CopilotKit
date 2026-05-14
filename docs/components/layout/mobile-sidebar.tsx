@@ -221,7 +221,7 @@ const MobileSidebar = ({
     >
       <OpenedFoldersProvider>
         <aside
-          className={`flex flex-col w-full max-w-[280px] h-[calc(100vh-8px)] border backdrop-blur-3xl border-r-0 border-border bg-white/50 dark:bg-white/[0.01] rounded-2xl pl-3 pr-1 transition-transform duration-300 ease-out ${
+          className={`flex flex-col w-full max-w-[280px] h-[calc(100vh-8px)] border border-r-0 border-border bg-sidebar rounded-2xl pl-3 pr-1 transition-transform duration-300 ease-out ${
             isVisible ? "translate-x-0" : "translate-x-full"
           }`}
         >
