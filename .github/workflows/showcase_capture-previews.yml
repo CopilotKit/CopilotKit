@@ -61,13 +61,13 @@ jobs:
           app-id: "1108748"
           private-key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
 
-      # persist-credentials required: subsequent "Commit registry updates" step uses git push (via devops-bot app token)
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           lfs: true
           ref: ${{ github.event.workflow_run.head_branch || github.ref }}
           token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
 
       - name: Ensure preview release exists
         env:
@@ -142,14 +142,16 @@ jobs:
             npx tsx showcase/scripts/capture-previews.ts "${ARGS[@]}" || true
           fi
 
-      - name: Commit registry updates
+      - name: Configure git for push
         run: |
-          # Commit as the devops-bot installation. The `<app-id>+<slug>[bot]`
-          # email is the conventional GitHub App noreply form; paired with
-          # the app-token used for checkout, the push lands on protected
-          # main via the bot's PROTECT_OUR_MAIN bypass.
           git config user.name "devops-bot[bot]"
           git config user.email "1108748+devops-bot[bot]@users.noreply.github.com"
+          git config --local url."https://x-access-token:${TOKEN}@github.com/".insteadOf "https://github.com/"
+        env:
+          TOKEN: ${{ steps.app-token.outputs.token }}
+
+      - name: Commit registry updates
+        run: |
           cd showcase/shell/src/data
           if git diff --quiet registry.json; then
             echo "No registry changes"

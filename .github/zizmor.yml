@@ -88,7 +88,6 @@ rules:
       # branch. Origin URL is overridden with the devops-bot app token,
       # but the default checkout credential must persist past checkout.
       - showcase_docs-sync.yml
-      # showcase_capture-previews.yml: commits regenerated registry
-      # entries to main via the devops-bot app token (PROTECT_OUR_MAIN
-      # bypass actor).
-      - showcase_capture-previews.yml
+      # showcase_capture-previews.yml: now uses persist-credentials: false
+      # and injects credentials only before push via insteadOf — no
+      # longer needs an artipacked suppression.
