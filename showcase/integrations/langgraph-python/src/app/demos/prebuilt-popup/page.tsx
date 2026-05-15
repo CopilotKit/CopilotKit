@@ -1,7 +1,9 @@
 "use client";
 
 import React from "react";
+// @region[popup-imports]
 import { CopilotKit, CopilotPopup } from "@copilotkit/react-core/v2";
+// @endregion[popup-imports]
 import { MainContent } from "./main-content";
 import { Suggestions } from "./suggestions-mount";
 

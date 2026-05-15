@@ -1,7 +1,9 @@
 "use client";
 
 import React from "react";
+// @region[sidebar-imports]
 import { CopilotKit, CopilotSidebar } from "@copilotkit/react-core/v2";
+// @endregion[sidebar-imports]
 import { MainContent } from "./main-content";
 import { Suggestions } from "./suggestions-mount";
 

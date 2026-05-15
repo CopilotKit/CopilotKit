@@ -42,6 +42,16 @@ agent registry) and drop `<CopilotSidebar>` alongside your main content.
 The sidebar renders as a sibling so it can slide out without reflowing
 your page:
 
+Here are the basic imports you'll need
+
+<Snippet region="sidebar-imports" title="frontend/src/app/page.tsx — Needed imports" />
+
+Here is an example component which uses `useConfigureSuggestions` to give suggestions to users
+
+<Snippet region="suggestions-component-example" title="frontend/src/app/page.tsx — Suggestions" />
+
+Lastly, you can wrap your components like this.
+
 <Snippet region="sidebar-basic-setup" title="frontend/src/app/page.tsx — CopilotSidebar wired up" />
 
 ## Configuring the sidebar

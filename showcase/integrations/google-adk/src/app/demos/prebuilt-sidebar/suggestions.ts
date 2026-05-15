@@ -2,6 +2,7 @@
 
 import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
 
+// @region[suggestions-component-example]
 export function usePrebuiltSidebarSuggestions() {
   useConfigureSuggestions({
     suggestions: [
@@ -18,3 +19,5 @@ export function usePrebuiltSidebarSuggestions() {
     available: "always",
   });
 }
+
+// @endregion[suggestions-component-example]

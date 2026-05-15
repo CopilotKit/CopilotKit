@@ -1,11 +1,13 @@
 "use client";
 
 import React from "react";
+// @region[popup-imports]
 import {
   CopilotPopup,
-  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { CopilotKit } from "@copilotkit/react-core";
+// @endregion[popup-imports]
+import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
 
 // Outer layer — provider + main content + floating popup launcher.
 export default function PrebuiltPopupDemo() {

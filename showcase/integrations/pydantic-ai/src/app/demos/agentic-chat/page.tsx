@@ -21,7 +21,6 @@ export default function AgenticChatDemo() {
   );
 }
 
-// @region[chat-component]
 function Chat() {
   // @region[configure-suggestions]
   useConfigureSuggestions({
@@ -34,4 +33,3 @@ function Chat() {
 
   return <CopilotChat agentId="agentic_chat" className="h-full rounded-2xl" />;
 }
-// @endregion[chat-component]

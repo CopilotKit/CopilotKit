@@ -1,11 +1,13 @@
 "use client";
 
 import React from "react";
+// @region[sidebar-imports]
 import {
   CopilotKit,
   CopilotSidebar,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
+// @endregion[sidebar-imports]
 
 export default function PrebuiltSidebarDemo() {
   return (
@@ -37,6 +39,7 @@ function MainContent() {
   );
 }
 
+// @region[suggestions-component-example]
 function Suggestions() {
   useConfigureSuggestions({
     suggestions: [{ title: "Say hi", message: "Say hi!" }],
@@ -44,3 +47,4 @@ function Suggestions() {
   });
   return null;
 }
+// @endregion[suggestions-component-example]
