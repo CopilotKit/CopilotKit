@@ -875,24 +875,18 @@
       }
     },
     {
+      "_comment": "Scoped showcase-assistant 'hello' fixture — anchored so it doesn't substring-match arbitrary prompts containing 'hello' (e.g. 'mellow', 'fellow'). Matches both 'hello' and 'Hello' as standalone greeting attempts only.",
       "match": {
-        "userMessage": "hello"
+        "userMessage": "hello, what can you do"
       },
       "response": {
         "content": "Hello! I can help you with weather lookups, creating pie and bar charts, scheduling meetings, managing sales todos, searching flights, and toggling the theme. What would you like to do?"
       }
     },
     {
+      "_comment": "Scoped showcase-assistant help fixture — anchored on 'what can you help me with' so it doesn't substring-match arbitrary prompts that happen to contain 'help' (e.g. 'helpful', 'helping').",
       "match": {
-        "userMessage": "Hello"
-      },
-      "response": {
-        "content": "Hello! I can help you with weather lookups, creating pie and bar charts, scheduling meetings, managing sales todos, searching flights, and toggling the theme. What would you like to do?"
-      }
-    },
-    {
-      "match": {
-        "userMessage": "help"
+        "userMessage": "what can you help me with"
       },
       "response": {
         "content": "Here are the things I can help with:\n- Check the weather for any location\n- Create pie charts and bar charts from data\n- Schedule meetings with a reason and duration\n- Manage your sales pipeline and todos\n- Search for flights between cities\n- Toggle the UI theme between light and dark\n\nJust ask me about any of these!"
@@ -939,8 +933,9 @@
       }
     },
     {
+      "_comment": "Scoped showcase-assistant intro fixture. Anchored on 'Hi, who are you' so it doesn't substring-match arbitrary prompts that happen to contain 'hi' inside other words (e.g. 'this', 'history', 'while') — those caused subagents writer/critique sub-LLM calls to return this boilerplate, breaking the demo.",
       "match": {
-        "userMessage": "hi"
+        "userMessage": "Hi, who are you"
       },
       "response": {
         "content": "Hi there! I'm your showcase assistant. I can help with weather, charts, meetings, sales todos, flights, and theme toggling. What would you like to try?"
@@ -995,8 +990,9 @@
       }
     },
     {
+      "_comment": "Scoped sales-pipeline 'add a deal' fixture — anchored on the full intent phrase so it doesn't substring-match arbitrary prompts that happen to contain 'deal' (e.g. 'dealing with', 'idealized').",
       "match": {
-        "userMessage": "deal",
+        "userMessage": "add a new enterprise deal",
         "hasToolResult": false
       },
       "response": {
@@ -1024,7 +1020,7 @@
     },
     {
       "match": {
-        "userMessage": "paris",
+        "userMessage": "flights to Paris",
         "hasToolResult": false
       },
       "response": {
@@ -1106,8 +1102,9 @@
       }
     },
     {
+      "_comment": "Scoped 'what city do I live in' fixture — anchored so it doesn't substring-match arbitrary prompts containing 'city' (e.g. 'capacity', 'velocity', 'specificity').",
       "match": {
-        "userMessage": "city"
+        "userMessage": "what city do I live in"
       },
       "response": {
         "content": "Based on our conversation, you said you live in Tokyo!"
