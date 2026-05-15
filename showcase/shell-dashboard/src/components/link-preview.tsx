@@ -11,6 +11,9 @@ import { createPortal } from "react-dom";
 
 export const HOVER_DELAY_MS = 300;
 export const DISMISS_DELAY_MS = 200;
+export const LOAD_TIMEOUT_MS = 8000;
+
+type LoadState = "loading" | "loaded" | "unavailable";
 
 let activeDismiss: (() => void) | null = null;
 
@@ -35,12 +38,15 @@ interface LinkPreviewProps {
 export function LinkPreview({ href, children }: LinkPreviewProps) {
   const [visible, setVisible] = useState(false);
   const [position, setPosition] = useState<"below" | "above">("below");
+  const [loadState, setLoadState] = useState<LoadState>("loading");
   const wrapperRef = useRef<HTMLSpanElement>(null);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const dismiss = useCallback(() => {
     setVisible(false);
+    setLoadState("loading");
     if (hoverTimerRef.current) {
       clearTimeout(hoverTimerRef.current);
       hoverTimerRef.current = null;
@@ -49,7 +55,28 @@ export function LinkPreview({ href, children }: LinkPreviewProps) {
       clearTimeout(dismissTimerRef.current);
       dismissTimerRef.current = null;
     }
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+      loadTimeoutRef.current = null;
+    }
   }, []);
+
+  // Start the load timeout when popup becomes visible; reset when hidden
+  useEffect(() => {
+    if (visible) {
+      loadTimeoutRef.current = setTimeout(() => {
+        setLoadState((prev) => (prev === "loading" ? "unavailable" : prev));
+      }, LOAD_TIMEOUT_MS);
+    } else {
+      setLoadState("loading");
+    }
+    return () => {
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
+      }
+    };
+  }, [visible]);
 
   useEffect(() => {
     return () => {
@@ -104,6 +131,14 @@ export function LinkPreview({ href, children }: LinkPreviewProps) {
   const handlePopupMouseLeave = useCallback(() => {
     startDismiss();
   }, [startDismiss]);
+
+  const handleIframeLoad = useCallback(() => {
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+      loadTimeoutRef.current = null;
+    }
+    setLoadState("loaded");
+  }, []);
 
   const handleOverlayClick = useCallback(() => {
     window.open(href, "_blank", "noopener,noreferrer");
@@ -164,6 +199,7 @@ export function LinkPreview({ href, children }: LinkPreviewProps) {
             <iframe
               src={href}
               title="Link preview"
+              onLoad={handleIframeLoad}
               style={{
                 width: 1200,
                 height: 900,
@@ -171,10 +207,56 @@ export function LinkPreview({ href, children }: LinkPreviewProps) {
                 pointerEvents: "none",
                 transform: "scale(0.333)",
                 transformOrigin: "top left",
+                opacity: loadState === "loaded" ? 1 : 0,
+                transition: "opacity 200ms ease-in",
               }}
               sandbox="allow-scripts allow-same-origin"
               loading="lazy"
             />
+            {loadState === "loading" && (
+              <div
+                data-testid="link-preview-loading"
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <span
+                  style={{
+                    color: "var(--text-muted)",
+                    fontSize: 13,
+                    animation: "lp-pulse 1.5s ease-in-out infinite",
+                  }}
+                >
+                  Loading preview&hellip;
+                </span>
+                <style>{`@keyframes lp-pulse { 0%,100% { opacity: .4 } 50% { opacity: 1 } }`}</style>
+              </div>
+            )}
+            {loadState === "unavailable" && (
+              <div
+                data-testid="link-preview-unavailable"
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 4,
+                }}
+              >
+                <span style={{ color: "var(--text-muted)", fontSize: 13 }}>
+                  Preview unavailable
+                </span>
+                <span style={{ color: "var(--text-muted)", fontSize: 11 }}>
+                  Click to visit &rarr;
+                </span>
+              </div>
+            )}
             <div
               data-testid="link-preview-overlay"
               onClick={handleOverlayClick}

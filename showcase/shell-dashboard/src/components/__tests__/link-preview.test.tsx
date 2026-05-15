@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, fireEvent, act, cleanup } from "@testing-library/react";
-import { LinkPreview, HOVER_DELAY_MS, DISMISS_DELAY_MS } from "../link-preview";
+import { LinkPreview, HOVER_DELAY_MS, DISMISS_DELAY_MS, LOAD_TIMEOUT_MS } from "../link-preview";
 
 function flushTimers() {
   act(() => {
@@ -214,6 +214,111 @@ describe("LinkPreview", () => {
     fireEvent.mouseEnter(wrapper);
     advanceBy(HOVER_DELAY_MS + 100);
     expect(queryByTestId("link-preview-popup")).not.toBeInTheDocument();
+  });
+});
+
+describe("LinkPreview load states", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
+    if (!document.getElementById("link-preview-root")) {
+      const el = document.createElement("div");
+      el.id = "link-preview-root";
+      document.body.appendChild(el);
+    }
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    const root = document.getElementById("link-preview-root");
+    if (root) root.innerHTML = "";
+  });
+
+  it("shows loading state initially when popup appears", () => {
+    const { getByTestId } = render(
+      <LinkPreview href="https://example.com">
+        <span data-testid="trigger">Demo</span>
+      </LinkPreview>,
+    );
+    fireEvent.mouseEnter(getByTestId("trigger").parentElement!);
+    advanceBy(HOVER_DELAY_MS);
+    const portalRoot = document.getElementById("link-preview-root")!;
+    expect(portalRoot.querySelector("[data-testid='link-preview-loading']")).toBeTruthy();
+  });
+
+  it("shows loaded state after iframe onLoad fires", () => {
+    const { getByTestId } = render(
+      <LinkPreview href="https://example.com">
+        <span data-testid="trigger">Demo</span>
+      </LinkPreview>,
+    );
+    fireEvent.mouseEnter(getByTestId("trigger").parentElement!);
+    advanceBy(HOVER_DELAY_MS);
+    const portalRoot = document.getElementById("link-preview-root")!;
+    const iframe = portalRoot.querySelector("iframe")!;
+    act(() => {
+      fireEvent.load(iframe);
+    });
+    expect(portalRoot.querySelector("[data-testid='link-preview-loading']")).toBeNull();
+    expect(iframe.style.opacity).toBe("1");
+  });
+
+  it("shows unavailable state after 8s timeout", () => {
+    const { getByTestId } = render(
+      <LinkPreview href="https://example.com">
+        <span data-testid="trigger">Demo</span>
+      </LinkPreview>,
+    );
+    fireEvent.mouseEnter(getByTestId("trigger").parentElement!);
+    advanceBy(HOVER_DELAY_MS);
+    const portalRoot = document.getElementById("link-preview-root")!;
+    expect(portalRoot.querySelector("[data-testid='link-preview-loading']")).toBeTruthy();
+    advanceBy(LOAD_TIMEOUT_MS);
+    expect(portalRoot.querySelector("[data-testid='link-preview-unavailable']")).toBeTruthy();
+    expect(portalRoot.querySelector("[data-testid='link-preview-loading']")).toBeNull();
+    expect(portalRoot.textContent).toContain("Preview unavailable");
+  });
+
+  it("resets load state when popup is dismissed and reopened", () => {
+    const { getByTestId, queryByTestId } = render(
+      <LinkPreview href="https://example.com">
+        <span data-testid="trigger">Demo</span>
+      </LinkPreview>,
+    );
+    const wrapper = getByTestId("trigger").parentElement!;
+
+    // Show popup and load iframe
+    fireEvent.mouseEnter(wrapper);
+    advanceBy(HOVER_DELAY_MS);
+    const portalRoot = document.getElementById("link-preview-root")!;
+    const iframe = portalRoot.querySelector("iframe")!;
+    act(() => {
+      fireEvent.load(iframe);
+    });
+    expect(portalRoot.querySelector("[data-testid='link-preview-loading']")).toBeNull();
+
+    // Dismiss popup
+    fireEvent.mouseLeave(wrapper);
+    advanceBy(DISMISS_DELAY_MS);
+    expect(queryByTestId("link-preview-popup")).not.toBeInTheDocument();
+
+    // Re-hover — should show loading again
+    fireEvent.mouseEnter(wrapper);
+    advanceBy(HOVER_DELAY_MS);
+    expect(portalRoot.querySelector("[data-testid='link-preview-loading']")).toBeTruthy();
   });
 });
 
