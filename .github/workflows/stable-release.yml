@@ -62,12 +62,12 @@ jobs:
               );
             }
 
-      # persist-credentials required: release workflow pushes the release branch via GITHUB_TOKEN
       - name: Checkout Repo
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
 
       - name: Setup pnpm
         # Omit `version:` so pnpm/action-setup inherits from the repo's

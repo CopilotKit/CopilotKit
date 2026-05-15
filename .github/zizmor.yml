@@ -80,14 +80,6 @@ rules:
       # publish job downloads the artifact and sets up its own git auth via
       # `git config insteadOf`.
       - prerelease.yml
-      - stable-release.yml
       # pkg-pr-new posts snapshot comments on the PR using the repo token
       # — credentials must remain persisted for the action to authenticate.
       - publish-commit.yml
-      # showcase_docs-sync.yml: opens a docs-sync PR by pushing a new
-      # branch. Origin URL is overridden with the devops-bot app token,
-      # but the default checkout credential must persist past checkout.
-      - showcase_docs-sync.yml
-      # showcase_capture-previews.yml: now uses persist-credentials: false
-      # and injects credentials only before push via insteadOf — no
-      # longer needs an artipacked suppression.
