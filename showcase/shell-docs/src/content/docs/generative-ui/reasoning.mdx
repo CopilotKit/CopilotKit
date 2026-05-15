@@ -62,7 +62,14 @@ For full control over the reasoning card, pass a component to the
 `messages` list, and `isRunning`, enough to decide whether this block is
 still streaming and whether it's the active trailing message:
 
-<Snippet region="reasoning-block-render" title="frontend/src/app/page.tsx — custom reasoning slot" />
+<Tabs items={['page.tsx', 'reasoning-block.tsx']}>
+  <Tab value="page.tsx">
+    <Snippet region="reasoning-block-render" noCaption />
+  </Tab>
+  <Tab value="reasoning-block.tsx">
+    <Snippet file="src/app/demos/agentic-chat-reasoning/reasoning-block.tsx" noCaption />
+  </Tab>
+</Tabs>
 
 The `ReasoningBlock` (imported above) renders the reasoning as an
 amber-tagged inline banner, intentionally louder than the default card

@@ -40,5 +40,5 @@ function Chat() {
       }}
     />
   );
-  // @endregion[reasoning-block-render]
 }
+// @endregion[reasoning-block-render]
