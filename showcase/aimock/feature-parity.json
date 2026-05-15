@@ -1,6 +1,64 @@
 {
   "fixtures": [
     {
+      "_comment": "beautiful-chat Sales Dashboard pill — turn 0: call query_data before building dashboard.",
+      "match": {
+        "userMessage": "fetch the financial sales data",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_query_data_sales_001",
+            "name": "query_data",
+            "arguments": "{\"query\":\"financial sales data\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "beautiful-chat Sales Dashboard pill — turn 1: after query_data returns, call generate_a2ui.",
+      "match": {
+        "userMessage": "with total revenue, new customers, and conversion rate metrics",
+        "hasToolResult": true,
+        "turnIndex": 1
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_generate_a2ui_sales_dashboard_001",
+            "name": "generate_a2ui",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "beautiful-chat Calculator pill — call generateSandboxedUi with metric shortcuts.",
+      "match": {
+        "userMessage": "build a modern calculator",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_open_gen_ui_calc_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":520,\"placeholderMessages\":[\"Composing calculator UI…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px;max-width:260px}.display{background:#1e293b;padding:12px;border-radius:8px;margin-bottom:8px;font-family:monospace;text-align:right;font-size:18px;min-height:24px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}button{padding:10px;background:#334155;border:0;color:#e2e8f0;border-radius:6px;font-size:14px;cursor:pointer}button:hover{background:#475569}.shortcuts{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}.shortcuts button{background:#1e3a5f;font-size:11px;padding:8px 4px}.shortcuts button:hover{background:#2563eb}\",\"html\":\"<div class=\\\"wrap\\\" data-testid=\\\"ogui-calculator\\\"><div class=\\\"display\\\" id=\\\"d\\\">0</div><div class=\\\"grid\\\"><button>7</button><button>8</button><button>9</button><button>+</button><button>4</button><button>5</button><button>6</button><button>-</button><button>1</button><button>2</button><button>3</button><button>*</button><button>0</button><button>.</button><button id=\\\"eq\\\">=</button><button>/</button></div><div class=\\\"shortcuts\\\"><button data-val=\\\"1200000\\\">Revenue $1.2M</button><button data-val=\\\"342\\\">Customers 342</button><button data-val=\\\"4.2\\\">Conv 4.2%</button><button data-val=\\\"42000\\\">Electronics $42K</button><button data-val=\\\"28000\\\">Clothing $28K</button><button data-val=\\\"18000\\\">Food $18K</button></div></div>\",\"jsFunctions\":\"(function(){var expr='';var display=document.getElementById('d');document.querySelectorAll('.grid button').forEach(function(btn){btn.addEventListener('click',async function(){if(btn.id==='eq'){var res=await Websandbox.connection.remote.evaluateExpression({expression:expr});if(res&&res.ok){display.textContent=String(res.value);expr=String(res.value);}else{display.textContent='err';expr='';}}else{expr+=btn.textContent;display.textContent=expr;}});});document.querySelectorAll('.shortcuts button').forEach(function(btn){btn.addEventListener('click',function(){var val=btn.getAttribute('data-val');expr+=val;display.textContent=expr;});});})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "beautiful-chat Calculator pill — toolCallId response after generateSandboxedUi renders.",
+      "match": {
+        "toolCallId": "call_fp_open_gen_ui_calc_001"
+      },
+      "response": {
+        "content": "Here's your calculator with metric shortcut buttons. The shortcuts insert sample company values (revenue, customers, conversion rate, category breakdowns) into the display. Tap any shortcut, then use the standard buttons to do math with those values."
+      }
+    },
+    {
       "match": {
         "toolCallId": "call_fp_generate_a2ui_sales_dashboard_001"
       },
@@ -11,8 +69,7 @@
     {
       "match": {
         "userMessage": "with total revenue, new customers, and conversion rate metrics",
-        "toolName": "_design_a2ui_surface",
-        "hasToolResult": false
+        "toolName": "_design_a2ui_surface"
       },
       "response": {
         "toolCalls": [
@@ -27,8 +84,7 @@
     {
       "match": {
         "userMessage": "with total revenue, new customers, and conversion rate metrics",
-        "toolName": "render_a2ui",
-        "hasToolResult": false
+        "toolName": "render_a2ui"
       },
       "response": {
         "toolCalls": [
