@@ -187,15 +187,15 @@ export function Chart({ title, data }: z.infer<typeof ChartProps>) {
       <TailoredContentOption
         id="prebuilt"
         title="Prebuilt agent"
-        description="I'm using a prebuilt agent like create_react_agent by LangGraph"
+        description="I'm using a prebuilt agent like create_agent by LangGraph"
       >
         <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
           <Tab value="Python">
             ```python title="agent.py"
-            from langchain.agents import create_react_agent
+            from langchain.agents import create_agent
             from copilotkit import CopilotKitMiddleware, CopilotKitState # [!code highlight]
 
-            graph = create_react_agent(
+            graph = create_agent(
                 model="openai:gpt-4o",
                 tools=[],
                 middleware=[CopilotKitMiddleware()], # [!code highlight]
@@ -221,7 +221,7 @@ export function Chart({ title, data }: z.infer<typeof ChartProps>) {
   <Step>
     ### Give it a try!
 
-    Ask your agent something that would trigger the component (e.g. "What's the weather in San Francisco?"). You should see your component rendered directly in the chat.
+    Ask your agent something that would trigger the component (e.g. "Create a bar chart showing the ratio of men to women in California."). You should see your component rendered directly in the chat.
   </Step>
 </Steps>
 
