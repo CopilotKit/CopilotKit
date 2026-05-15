@@ -34,9 +34,12 @@ jobs:
     permissions:
       contents: read
     steps:
-      # persist-credentials required: release workflow may push tags/commits via subsequent steps
+      # No credential persistence needed: the build job only reads source.
+      # Keeping credentials out of the artifact avoids leaking tokens.
       - name: Checkout Repo
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
       - name: Setup pnpm
         # Omit `version:` so pnpm/action-setup inherits from the repo's
@@ -50,6 +53,17 @@ jobs:
 
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Bump prerelease versions
+        env:
+          INPUT_SCOPE: ${{ inputs.scope }}
+          INPUT_SUFFIX: ${{ inputs.suffix }}
+        run: |
+          ARGS="--scope $INPUT_SCOPE"
+          if [ -n "$INPUT_SUFFIX" ]; then
+            ARGS="$ARGS --suffix $INPUT_SUFFIX"
+          fi
+          pnpm tsx scripts/release/bump-prerelease.ts $ARGS
 
       - name: Build packages
         run: pnpm run build
