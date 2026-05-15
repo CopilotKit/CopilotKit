@@ -53,7 +53,11 @@
                 {
                   "id": "metrics-col",
                   "component": "Column",
-                  "children": ["metric-revenue", "metric-signups", "metric-churn"],
+                  "children": [
+                    "metric-revenue",
+                    "metric-signups",
+                    "metric-churn"
+                  ],
                   "gap": 12
                 },
                 {
@@ -108,7 +112,11 @@
                 {
                   "id": "metrics-col",
                   "component": "Column",
-                  "children": ["metric-revenue", "metric-signups", "metric-churn"],
+                  "children": [
+                    "metric-revenue",
+                    "metric-signups",
+                    "metric-churn"
+                  ],
                   "gap": 12
                 },
                 {

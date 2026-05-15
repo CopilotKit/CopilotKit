@@ -92,9 +92,7 @@ def stop_on_terminal_text(
     # None mean "more chunks are inbound" — defer.
     finish_reason = getattr(llm_response, "finish_reason", None)
     finish_reason_name = (
-        getattr(finish_reason, "name", None)
-        if finish_reason is not None
-        else None
+        getattr(finish_reason, "name", None) if finish_reason is not None else None
     )
     if finish_reason_name != "STOP" and finish_reason != "STOP":
         return None
