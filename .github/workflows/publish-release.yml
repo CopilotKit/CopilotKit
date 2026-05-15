@@ -80,6 +80,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    environment: npm
     permissions:
       contents: write
     steps:

@@ -160,6 +160,7 @@ jobs:
     if: needs.resolve-matrix.outputs.has_services == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    environment: railway
     permissions:
       contents: read
       actions: read
