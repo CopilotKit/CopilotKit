@@ -87,6 +87,9 @@ export class ImageMessageInput {
 
   @Field(() => MessageRole)
   role: MessageRole;
+
+  @Field(() => String, { nullable: true })
+  url?: string;
 }
 
 // GraphQL does not support union types in inputs, so we need to use

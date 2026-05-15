@@ -161,6 +161,21 @@ export function convertMessageToAnthropicMessage(
       };
     }
   } else if (message.isImageMessage()) {
+    if (message.url) {
+      return {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: {
+              type: "url",
+              url: message.url,
+            },
+          },
+        ],
+      };
+    }
+
     let mediaType: "image/jpeg" | "image/png" | "image/webp" | "image/gif";
     switch (message.format) {
       case "jpeg":

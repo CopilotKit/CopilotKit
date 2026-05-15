@@ -159,6 +159,7 @@ export class ImageMessage
   bytes: ImageMessageInput["bytes"];
   role: ImageMessageInput["role"];
   parentMessageId: ImageMessageInput["parentMessageId"];
+  url: ImageMessageInput["url"];
 
   constructor(props: ImageMessageConstructorOptions) {
     super(props);

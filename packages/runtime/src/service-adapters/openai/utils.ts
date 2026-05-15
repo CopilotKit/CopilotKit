@@ -258,13 +258,16 @@ export function convertMessageToOpenAIMessage(
       content: message.content,
     } satisfies UsedMessageParams;
   } else if (message.isImageMessage()) {
+    const imageUrl = message.url
+      ? message.url
+      : `data:image/${message.format};base64,${message.bytes}`;
     return {
       role: "user",
       content: [
         {
           type: "image_url",
           image_url: {
-            url: `data:image/${message.format};base64,${message.bytes}`,
+            url: imageUrl,
           },
         },
       ],
