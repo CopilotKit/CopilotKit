@@ -51,6 +51,34 @@ function extractText(node: React.ReactNode): string {
   return "";
 }
 
+/**
+ * Strip uniform leading whitespace from a multi-line code body.
+ *
+ * Why: when a triple-fenced block sits inside JSX (e.g. ```python inside
+ * `<Tab>`/`<Step>`), MDX preserves the JSX nesting's leading indent on
+ * every body line. extractText() recovers that text faithfully, so the
+ * clipboard payload comes out with 16-24 leading spaces per line and
+ * pasted code is invalid. This helper measures the minimum indent
+ * across non-blank lines and strips it from every line — turning a
+ * uniformly-indented block back into column-0 code.
+ *
+ * Tabs are counted as 1 unit (we don't expand to N spaces); the goal
+ * is to fix uniform-indent leakage, not normalize mixed indentation.
+ * Blank lines are left as-is rather than over-trimmed.
+ */
+function dedent(text: string): string {
+  const lines = text.split("\n");
+  const nonBlank = lines.filter((l) => l.trim().length > 0);
+  if (nonBlank.length === 0) return text;
+  const minIndent = Math.min(
+    ...nonBlank.map((l) => l.match(/^[\s]*/)![0].length),
+  );
+  if (minIndent === 0) return text;
+  return lines
+    .map((l) => (l.length >= minIndent ? l.slice(minIndent) : l))
+    .join("\n");
+}
+
 export function MdxCodeBlock(props: MdxCodeBlockProps) {
   const {
     "data-title": title,
@@ -64,7 +92,7 @@ export function MdxCodeBlock(props: MdxCodeBlockProps) {
   // rehype-highlight always emits a single <code> child, but we walk
   // defensively so an unhighlighted fallback (plain text child) still
   // copies correctly.
-  const codeText = (() => {
+  const rawCodeText = (() => {
     const kids = Children.toArray(children);
     const codeEl = kids.find(
       (k) => isValidElement(k) && (k.type === "code" || k.type === "CODE"),
@@ -76,6 +104,15 @@ export function MdxCodeBlock(props: MdxCodeBlockProps) {
     }
     return extractText(children);
   })();
+
+  // Strip uniform JSX-nesting indent (see `dedent` doc-comment above).
+  // When `codeText !== rawCodeText`, a non-zero indent was leaking from
+  // the fence's JSX container — in that case we also need to dedent the
+  // visible <pre> body so the on-page render matches the copy payload.
+  // Otherwise the user sees correctly-indented code in clipboard but
+  // 24-sp-indented code on the page (or vice versa).
+  const codeText = dedent(rawCodeText);
+  const indentLeaked = codeText !== rawCodeText;
 
   // No title and no need for chrome? Fall through to the global
   // `.reference-content pre` styling — keeps backwards compatibility with
@@ -106,7 +143,17 @@ export function MdxCodeBlock(props: MdxCodeBlockProps) {
           {...rest}
           className={`mdx-code-block__pre text-[12.5px] leading-[1.55] overflow-x-auto p-4 m-0 ${className ?? ""}`}
         >
-          {children}
+          {indentLeaked ? (
+            // Fence body was uniformly indented (JSX-nested fence). Render
+            // the dedented plain text so what the user sees matches what
+            // they copy. We lose syntax highlighting on these blocks, but
+            // the alternative is indented-and-invalid code on screen.
+            <code className={`language-${language ?? "plaintext"}`}>
+              {codeText}
+            </code>
+          ) : (
+            children
+          )}
         </pre>
       </div>
     </figure>

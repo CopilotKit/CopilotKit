@@ -74,8 +74,14 @@ To use A2A agents with CopilotKit, you need to first install the CopilotKit midd
   <Step>
     ### Configure the A2A middleware
     ```tsx title="app/api/copilotkit/route.ts"
-
-    ...
+    import {
+      CopilotRuntime,
+      ExperimentalEmptyAdapter,
+      copilotRuntimeNextJSAppRouterEndpoint,
+    } from "@copilotkit/runtime";
+    import { HttpAgent } from "@ag-ui/client";
+    import { A2AMiddlewareAgent } from "@ag-ui/a2a-middleware";
+    import { NextRequest } from "next/server";
 
     // These first two are the urls to the a2a agents
     const researchAgentUrl = process.env.RESEARCH_AGENT_URL || "http://localhost:9001";
@@ -140,7 +146,17 @@ To use A2A agents with CopilotKit, you need to first install the CopilotKit midd
       },
     });
 
+    // Standard Next.js App Router handler that hands requests to the runtime.
+    const serviceAdapter = new ExperimentalEmptyAdapter();
 
+    export const POST = async (req: NextRequest) => {
+      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+        runtime,
+        serviceAdapter,
+        endpoint: "/api/copilotkit",
+      });
+      return handleRequest(req);
+    };
     ```
 
   </Step>
