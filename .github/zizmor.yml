@@ -63,10 +63,14 @@ rules:
   # `artipacked` flags `actions/checkout` calls that leave the default
   # GITHUB_TOKEN persisted in the local git config. Every other checkout
   # in the repo sets `persist-credentials: false`. The suppressions below
-  # are the four workflows that legitimately need the persisted token to
-  # push back to the repo (release tagging, auto-formatting, docs sync,
-  # PR comment from pkg-pr-new). Each call site carries a `persist-
-  # credentials required:` comment immediately above it.
+  # are the workflows that legitimately need the persisted token to push
+  # back to the repo (release tagging, docs sync, PR comment from
+  # pkg-pr-new). Each call site carries a `persist-credentials required:`
+  # comment immediately above it.
+  #
+  # static_quality.yml was removed: its format job now uses
+  # persist-credentials: false and injects credentials via insteadOf
+  # only before the push step.
   artipacked:
     ignore:
       # Release workflows that push tags / branches via GITHUB_TOKEN.
@@ -79,10 +83,3 @@ rules:
       # pkg-pr-new posts snapshot comments on the PR using the repo token
       # — credentials must remain persisted for the action to authenticate.
       - publish-commit.yml
-      # static_quality.yml's `format` job pushes auto-formatting fixes
-      # back to the PR branch when the formatter modifies files.
-      - static_quality.yml
-      # showcase_capture-previews.yml: commits regenerated registry
-      # entries to main via the devops-bot app token (PROTECT_OUR_MAIN
-      # bypass actor).
-      - showcase_capture-previews.yml
