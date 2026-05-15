@@ -29,14 +29,33 @@ const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 const voiceDemoAgent = new HttpAgent({ url: `${AGENT_URL}/voice` });
 
+/**
+ * Transcription service wrapper that pins `baseURL` to real OpenAI (or
+ * `OPENAI_TRANSCRIPTION_BASE_URL` when explicitly set) instead of falling
+ * through to `OPENAI_BASE_URL`. In local docker / Railway preview
+ * environments `OPENAI_BASE_URL` points at aimock so LLM completions stay
+ * deterministic, but aimock's proxy mode mangles multipart audio bodies on
+ * forward — Whisper rejects with `502 Invalid file format` even when the
+ * recorded webm/opus bytes are valid. Bypassing aimock for transcription
+ * lets real Whisper see the original bytes and the demo's mic round-trip
+ * actually works. Mirrors what langgraph-python does in its voice route.
+ *
+ * The sample-audio button is the deterministic affordance (synchronous
+ * text injection); the mic is the only path that should exercise real
+ * Whisper.
+ */
 class GuardedOpenAITranscriptionService extends TranscriptionService {
   private delegate: TranscriptionServiceOpenAI | null;
 
   constructor() {
     super();
     const apiKey = process.env.OPENAI_API_KEY;
+    const baseURL =
+      process.env.OPENAI_TRANSCRIPTION_BASE_URL ?? "https://api.openai.com/v1";
     this.delegate = apiKey
-      ? new TranscriptionServiceOpenAI({ openai: new OpenAI({ apiKey }) })
+      ? new TranscriptionServiceOpenAI({
+          openai: new OpenAI({ apiKey, baseURL }),
+        })
       : null;
   }
 
