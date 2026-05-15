@@ -204,6 +204,22 @@ export function buildNavTree(dir: string, prefix: string = ""): NavNode[] {
     const indexFile = path.join(dir, entry, "index.mdx");
     const subDir = path.join(dir, entry);
 
+    // Special case: a literal `"index"` entry in a folder's meta.json
+    // represents the folder's root page (URL = `/<folder>` with no
+    // trailing slug). Always emit a page node — even when `index.mdx`
+    // doesn't yet exist on disk — so the framework override nav can
+    // rewrite it onto the bare `/<framework>` URL where the data-driven
+    // `FrameworkOverview` renders. Title falls back to "Introduction"
+    // when no MDX is present to read from. `buildFrameworkOverridesNav`
+    // handles the final slug rewrite (`"index"` → `""`).
+    if (entry === "index") {
+      const title = fs.existsSync(mdxFile)
+        ? readTitle(mdxFile) || "Introduction"
+        : "Introduction";
+      nodes.push({ type: "page", title, slug });
+      continue;
+    }
+
     if (fs.existsSync(mdxFile)) {
       const title =
         readTitle(mdxFile) || entry.split("/").pop()!.replace(/-/g, " ");
@@ -320,6 +336,16 @@ export function buildFrameworkOverridesNav(folder: string): NavNode[] {
       // node.slug looks like `integrations/<folder>/<topic>`. Strip
       // the prefix to check the root-level equivalent.
       const rootSlug = node.slug.replace(prefix, "");
+      // Literal `"index"` is the framework-root page — it lives at the
+      // bare `/<framework>` URL, not at `/<framework>/index`. Rewrite to
+      // empty-slug so consumers (`SidebarLink`, `RenderNav`) build the
+      // correct href. The framework root never has a root-level
+      // equivalent at `CONTENT_DIR/index.mdx`, so the existence checks
+      // below would never filter it; we short-circuit instead.
+      if (rootSlug === "index") {
+        filtered.push({ ...node, slug: "" });
+        continue;
+      }
       const rootMdx = path.join(CONTENT_DIR, `${rootSlug}.mdx`);
       const rootIndex = path.join(CONTENT_DIR, rootSlug, "index.mdx");
       if (fs.existsSync(rootMdx) || fs.existsSync(rootIndex)) continue;
@@ -332,13 +358,16 @@ export function buildFrameworkOverridesNav(folder: string): NavNode[] {
         .filter((c) => {
           if (c.type !== "page") return true;
           const rootSlug = c.slug.replace(prefix, "");
+          if (rootSlug === "index") return true;
           const rootMdx = path.join(CONTENT_DIR, `${rootSlug}.mdx`);
           const rootIndex = path.join(CONTENT_DIR, rootSlug, "index.mdx");
           return !fs.existsSync(rootMdx) && !fs.existsSync(rootIndex);
         })
-        .map((c) =>
-          c.type === "page" ? { ...c, slug: c.slug.replace(prefix, "") } : c,
-        );
+        .map((c) => {
+          if (c.type !== "page") return c;
+          const rootSlug = c.slug.replace(prefix, "");
+          return { ...c, slug: rootSlug === "index" ? "" : rootSlug };
+        });
       if (children.length > 0) {
         filtered.push({ ...node, children });
       }
