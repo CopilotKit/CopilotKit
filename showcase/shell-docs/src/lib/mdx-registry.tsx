@@ -946,6 +946,7 @@ export const docsComponents = {
   Cog: () => <span>⚙️</span>,
   Server: () => <span>🖥️</span>,
   ArrowLeftRight: () => <span>↔️</span>,
+  Blocks: () => <span>🧩</span>,
   Banknote: () => <span>💰</span>,
   AlertCircle: () => <span>⚠️</span>,
   PiMonitor: () => <span>🖥️</span>,
