@@ -164,9 +164,7 @@ def search_flights(flight_list: FlightList) -> str:
         operations=[
             a2ui.create_surface(FLIGHT_SURFACE_ID, catalog_id=CATALOG_ID),
             a2ui.update_components(FLIGHT_SURFACE_ID, FLIGHT_SCHEMA),
-            a2ui.update_data_model(
-                FLIGHT_SURFACE_ID, {"flights": flights_payload}
-            ),
+            a2ui.update_data_model(FLIGHT_SURFACE_ID, {"flights": flights_payload}),
         ],
     )
 
@@ -210,7 +208,8 @@ def generate_a2ui(user_intent: str, agent) -> str:
         context_entries = []
 
     context_text = "\n\n".join(
-        e.get("value", "") for e in context_entries
+        e.get("value", "")
+        for e in context_entries
         if isinstance(e, dict) and e.get("value")
     )
     prompt = f"{context_text}\n\n{user_intent}" if context_text else user_intent
@@ -259,9 +258,7 @@ def build_todos_prompt(input_data, user_message: str) -> str:
     state_dict = getattr(input_data, "state", None)
     if isinstance(state_dict, dict) and "todos" in state_dict:
         todos_json = json.dumps(state_dict.get("todos", []), indent=2)
-        return (
-            f"Current todos list:\n{todos_json}\n\nUser request: {user_message}"
-        )
+        return f"Current todos list:\n{todos_json}\n\nUser request: {user_message}"
     return user_message
 
 
