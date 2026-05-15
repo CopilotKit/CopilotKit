@@ -1,5 +1,6 @@
 "use client";
 
+// @region[use-rendered-messages-hook]
 import React, { useMemo } from "react";
 import type {
   Message,
@@ -40,7 +41,6 @@ import {
  * a chunk of formatting decisions behind an opaque black box. Apps that want
  * markdown can drop Streamdown / react-markdown in at this exact line.
  */
-// @region[use-rendered-messages-hook]
 export type RenderedMessage = Message & { renderedContent: React.ReactNode };
 
 export function useRenderedMessages(

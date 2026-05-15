@@ -13,6 +13,7 @@
 //     frontend uses `useRenderTool` to render that tool call as a visibly
 //     tagged amber block — the same visual language as the reference.
 
+// @region[reasoning-block-render]
 import React from "react";
 import {
   CopilotKit,
@@ -38,7 +39,6 @@ export default function AgenticChatReasoningDemo() {
 }
 
 function Chat() {
-  // @region[reasoning-block-render]
   useRenderTool({
     name: "think",
     parameters: z.object({

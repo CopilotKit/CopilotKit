@@ -1,3 +1,4 @@
+// @region[sandbox-function-registration]
 import { z } from "zod";
 
 /**
@@ -9,7 +10,6 @@ import { z } from "zod";
  * generates HTML/JS. Each handler runs on the HOST page and its return
  * value is awaited by the in-iframe caller.
  */
-// @region[sandbox-function-registration]
 export const openGenUiSandboxFunctions = [
   {
     name: "evaluateExpression",

@@ -8,6 +8,10 @@ All module-level side effects (agent construction, model init,
 so import failures are localized and testable.
 """
 
+# @region[supervisor-delegation-tools]
+# @region[subagent-setup]
+# @region[backend-render-operations]
+# @region[weather-tool-backend]
 import json
 import logging
 import os
@@ -317,7 +321,6 @@ class _A2uiError(TypedDict):
 # ---- Tools --------------------------------------------------------------
 
 
-# @region[weather-tool-backend]
 @tool
 def get_weather(location: str):
     """Get current weather for a location.
@@ -430,7 +433,6 @@ def search_flights(flights: list[dict]):
     return json.dumps(result)
 
 
-# @region[backend-render-operations]
 # The `generate_a2ui` tool runs a secondary LLM call with a forced
 # `render_a2ui` tool, then converts that tool call's args into the
 # A2UI `a2ui_operations` container via
@@ -679,7 +681,6 @@ async def notes_state_from_args(context):
 # entry the moment the tool returns.
 
 
-# @region[subagent-setup]
 # Each sub-agent is a single-shot OpenAI completion driven by its own
 # system prompt. They don't share memory or tools with the supervisor —
 # the supervisor only sees the returned text. We keep the prompts in a
@@ -826,7 +827,6 @@ def _run_subagent(name: str, task: str) -> str:
         return f"{_SUBAGENT_FAILURE_MARKER}{exc.__class__.__name__}"
 
 
-# @region[supervisor-delegation-tools]
 # Each @tool wraps a sub-agent invocation. The supervisor LLM "calls"
 # these tools to delegate work; ``_run_subagent`` synchronously runs the
 # matching sub-agent (a single-shot OpenAI completion), and the result

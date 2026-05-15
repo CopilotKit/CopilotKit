@@ -10,6 +10,7 @@
  * renders the same tool calls.
  */
 
+// @region[weather-tool-backend]
 import { z } from "zod";
 import { tool } from "@langchain/core/tools";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
@@ -37,7 +38,6 @@ const SYSTEM_PROMPT =
   "atomic answer and more tool calls would feel intrusive. Never " +
   "fabricate data that a tool could provide.";
 
-// @region[weather-tool-backend]
 const getWeather = tool(
   async ({ location }) => ({
     city: location,

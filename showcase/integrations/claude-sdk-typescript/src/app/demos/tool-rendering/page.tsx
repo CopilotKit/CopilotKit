@@ -1,5 +1,6 @@
 "use client";
 
+// @region[render-weather-tool]
 import React from "react";
 import { CopilotKit } from "@copilotkit/react-core";
 import {
@@ -47,7 +48,6 @@ function Chat() {
     }),
   });
 
-  // @region[render-weather-tool]
   useRenderTool({
     name: "get_weather",
     parameters: z.object({

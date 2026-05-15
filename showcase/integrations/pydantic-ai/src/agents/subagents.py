@@ -26,6 +26,8 @@ sees a sub-agent's return value, exactly like the LangGraph-Python and
 Google ADK references.
 """
 
+# @region[supervisor-delegation-tools]
+# @region[subagent-setup]
 from __future__ import annotations
 
 import logging
@@ -66,7 +68,6 @@ class SubagentsState(BaseModel):
 # ── Sub-agents (real PydanticAI Agents) ─────────────────────────────
 
 
-# @region[subagent-setup]
 # Each sub-agent is a full-fledged ``Agent(model=..., system_prompt=...)``
 # with its own system prompt. They don't share memory or tools with the
 # supervisor — the supervisor only sees their return value.
@@ -221,7 +222,6 @@ async def _delegate(
     return result
 
 
-# @region[supervisor-delegation-tools]
 # Each ``@agent.tool`` wraps a sub-agent invocation. The supervisor LLM
 # "calls" these tools to delegate work; each call asynchronously runs the
 # matching sub-agent, records the delegation into shared state, and

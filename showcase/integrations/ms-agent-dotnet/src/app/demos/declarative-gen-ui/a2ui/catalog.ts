@@ -11,12 +11,12 @@
  * Reference:
  *   https://docs.copilotkit.ai/integrations/microsoft-agent-framework/generative-ui/a2ui
  */
+// @region[create-catalog]
 import { createCatalog } from "@copilotkit/a2ui-renderer";
 
 import { myDefinitions } from "./definitions";
 import { myRenderers } from "./renderers";
 
-// @region[create-catalog]
 export const myCatalog = createCatalog(myDefinitions, myRenderers, {
   catalogId: "declarative-gen-ui-catalog",
   includeBasicCatalog: true,

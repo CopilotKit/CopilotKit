@@ -7,17 +7,17 @@
 // chat-component.snippet.tsx in agentic-chat for the same sibling-file
 // pattern.
 
+// @region[register-assistant-message-slot]
+// @region[register-disclaimer-slot]
 import type { CopilotChatAssistantMessage } from "@copilotkit/react-core/v2";
 
 declare const CustomDisclaimer: React.ComponentType;
 declare const CustomAssistantMessage: React.ComponentType;
 
 export function ChatSlotsExtras() {
-  // @region[register-disclaimer-slot]
   const input = { disclaimer: CustomDisclaimer };
   // @endregion[register-disclaimer-slot]
 
-  // @region[register-assistant-message-slot]
   const messageView = {
     assistantMessage:
       CustomAssistantMessage as unknown as typeof CopilotChatAssistantMessage,

@@ -8,6 +8,8 @@
 // tool's handler runs locally in the page on invocation. No backend
 // tool wiring required.
 
+// @region[frontend-tool]
+// @region[frontend-tool-registration]
 import React, { useState } from "react";
 import {
   CopilotKitProvider,
@@ -30,8 +32,6 @@ function Chat() {
     "var(--copilot-kit-background-color)",
   );
 
-  // @region[frontend-tool]
-  // @region[frontend-tool-registration]
   useFrontendTool({
     name: "change_background",
     description:

@@ -13,6 +13,7 @@
  * Reference: https://docs.copilotkit.ai/generative-ui/open-generative-ui
  */
 
+// @region[sandbox-function-registration]
 import React from "react";
 import {
   CopilotKit,
@@ -24,7 +25,6 @@ import { openGenUiSuggestions } from "./suggestions";
 
 export default function OpenGenUiAdvancedDemo() {
   return (
-    // @region[sandbox-function-registration]
     <CopilotKit
       runtimeUrl="/api/copilotkit-ogui"
       agent="open-gen-ui-advanced"

@@ -23,6 +23,7 @@
  * composition hook lives in `use-rendered-messages.tsx`.
  */
 
+// @region[page-send-message]
 import React, {
   useCallback,
   useEffect,
@@ -70,7 +71,6 @@ export default function HeadlessCompleteDemo() {
 // agent, wires up the connect/run/stop lifecycle, and hands the pure
 // presentational pieces their props.
 function Chat() {
-  // @region[page-send-message]
   const threadId = useMemo(() => crypto.randomUUID(), []);
   const { agent } = useAgent({ agentId: AGENT_ID, threadId });
   const { copilotkit } = useCopilotKit();

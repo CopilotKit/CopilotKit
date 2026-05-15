@@ -15,6 +15,8 @@ still recorded as `status: "completed"` with the error message in `result`,
 so the LP frontend's completion-only renderer stays 1:1.
 """
 
+# @region[subagent-setup]
+# @region[supervisor-delegation-tools]
 from __future__ import annotations
 
 import functools
@@ -183,7 +185,6 @@ def _delegate(
     return result
 
 
-# @region[supervisor-delegation-tools]
 def research_agent(tool_context: ToolContext, task: str) -> str:
     """Delegate a research task to the research sub-agent.
 
@@ -253,7 +254,6 @@ _SUPERVISOR_INSTRUCTION = (
     "live log of every sub-agent delegation."
 )
 
-# @region[subagent-setup]
 subagents_root_agent = LlmAgent(
     name="SubagentsSupervisor",
     model=get_model(_SUB_MODEL),

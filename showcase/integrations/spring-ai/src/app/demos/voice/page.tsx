@@ -1,5 +1,6 @@
 "use client";
 
+// @region[voice-page]
 import { useCallback } from "react";
 import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 import { SampleAudioButton } from "./sample-audio-button";
@@ -18,7 +19,6 @@ const SAMPLE_TEXT = "What is the weather in Tokyo?";
  * as a plain message to the same Spring-AI ChatClient used by the other
  * demos — the Java backend is unchanged.
  */
-// @region[voice-page]
 export default function VoiceDemoPage() {
   const handleTranscribed = useCallback((text: string) => {
     if (typeof document === "undefined") return;

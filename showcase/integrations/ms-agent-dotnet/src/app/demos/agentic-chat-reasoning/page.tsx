@@ -17,6 +17,7 @@
 // Runtime: talks to `/api/copilotkit-reasoning` which proxies to the .NET
 // backend's `/reasoning` AG-UI endpoint.
 
+// @region[reasoning-block-render]
 import React from "react";
 import {
   CopilotKit,
@@ -41,7 +42,6 @@ export default function AgenticChatReasoningDemo() {
 }
 
 function Chat() {
-  // @region[reasoning-block-render]
   return (
     <CopilotChat
       agentId="agentic-chat-reasoning"

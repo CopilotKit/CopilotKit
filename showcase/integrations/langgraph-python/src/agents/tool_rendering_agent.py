@@ -12,6 +12,7 @@ has its own agent (`tool_rendering_reasoning_chain_agent.py`) because
 it routes through the OpenAI Responses API for reasoning streaming.
 """
 
+# @region[weather-tool-backend]
 from random import choice, randint
 
 from langchain.agents import create_agent
@@ -37,7 +38,6 @@ SYSTEM_PROMPT = (
 )
 
 
-# @region[weather-tool-backend]
 @tool
 def get_weather(location: str) -> dict:
     """Get the current weather for a given location."""

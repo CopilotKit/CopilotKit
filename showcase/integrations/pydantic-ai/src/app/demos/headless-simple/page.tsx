@@ -1,5 +1,6 @@
 "use client";
 
+// @region[use-agent-simple]
 import React, { useState } from "react";
 import {
   CopilotKit,
@@ -34,7 +35,6 @@ function ShowCard({ title, body }: { title: string; body: string }) {
 }
 
 function HeadlessChat() {
-  // @region[use-agent-simple]
   const { agent } = useAgent({ agentId: "headless-simple" });
   const { copilotkit } = useCopilotKit();
   const [input, setInput] = useState("");

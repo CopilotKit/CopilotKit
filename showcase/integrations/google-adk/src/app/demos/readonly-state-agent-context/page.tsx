@@ -1,5 +1,6 @@
 "use client";
 
+// @region[context-provider-sketch]
 import React, { useState } from "react";
 import {
   CopilotKit,
@@ -30,7 +31,6 @@ export default function ReadonlyStateAgentContextDemo() {
 }
 
 function DemoContent() {
-  // @region[context-provider-sketch]
   const [userName, setUserName] = useState("Atai");
   const [userTimezone, setUserTimezone] = useState("America/Los_Angeles");
   const [recentActivity, setRecentActivity] = useState<string[]>([

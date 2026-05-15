@@ -8,6 +8,7 @@
 //
 // See chat-component.snippet.tsx in agentic-chat for the same pattern.
 
+// @region[render-flight-tool]
 import { useComponent } from "@copilotkit/react-core/v2";
 
 declare const FlightListCard: React.ComponentType<{
@@ -24,7 +25,6 @@ type FlightToolProps = {
 };
 
 export function FlightToolRenderer() {
-  // @region[render-flight-tool]
   // Per-tool renderer: search_flights → branded FlightListCard.
   useComponent({
     name: "search_flights",

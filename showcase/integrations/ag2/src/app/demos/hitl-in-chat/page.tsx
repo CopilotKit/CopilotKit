@@ -1,5 +1,7 @@
 "use client";
 
+// @region[hitl-hook]
+// @region[time-slots]
 import React from "react";
 import {
   CopilotKit,
@@ -10,7 +12,6 @@ import {
 import { z } from "zod";
 import { TimePickerCard, TimeSlot } from "./time-picker-card";
 
-// @region[time-slots]
 const DEFAULT_SLOTS: TimeSlot[] = [
   { label: "Tomorrow 10:00 AM", iso: "2026-04-19T10:00:00-07:00" },
   { label: "Tomorrow 2:00 PM", iso: "2026-04-19T14:00:00-07:00" },
@@ -47,7 +48,6 @@ function Chat() {
     available: "always",
   });
 
-  // @region[hitl-hook]
   useHumanInTheLoop({
     agentId: "hitl-in-chat",
     name: "book_call",

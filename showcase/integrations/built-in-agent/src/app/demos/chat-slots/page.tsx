@@ -1,5 +1,8 @@
 "use client";
 
+// @region[register-assistant-message-slot]
+// @region[register-disclaimer-slot]
+// @region[register-welcome-slot]
 import React from "react";
 import {
   CopilotKitProvider,
@@ -37,13 +40,10 @@ function Chat() {
   // Each slot is wired in as a prop on <CopilotChat>. Extracting the
   // overrides up here keeps the JSX readable and gives the docs something
   // to point at with `@region` markers for the slot system guide.
-  // @region[register-welcome-slot]
   const welcomeScreen = CustomWelcomeScreen;
   // @endregion[register-welcome-slot]
-  // @region[register-disclaimer-slot]
   const input = { disclaimer: CustomDisclaimer };
   // @endregion[register-disclaimer-slot]
-  // @region[register-assistant-message-slot]
   const messageView = {
     assistantMessage:
       CustomAssistantMessage as unknown as typeof CopilotChatAssistantMessage,

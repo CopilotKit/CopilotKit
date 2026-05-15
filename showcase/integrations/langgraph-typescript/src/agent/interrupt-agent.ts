@@ -10,6 +10,7 @@
  * Ported from `src/agents/interrupt_agent.py` in the langgraph-python package.
  */
 
+// @region[backend-interrupt-tool]
 import { z } from "zod";
 import { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
@@ -42,7 +43,6 @@ const AgentStateAnnotation = Annotation.Root({
 
 export type AgentState = typeof AgentStateAnnotation.State;
 
-// @region[backend-interrupt-tool]
 const scheduleMeeting = tool(
   async ({ topic, attendee }: { topic: string; attendee?: string | null }) => {
     // langgraph's `interrupt()` pauses execution and forwards the payload to
