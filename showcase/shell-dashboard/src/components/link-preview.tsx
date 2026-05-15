@@ -165,10 +165,12 @@ export function LinkPreview({ href, children }: LinkPreviewProps) {
               src={href}
               title="Link preview"
               style={{
-                width: "100%",
-                height: "100%",
+                width: 1200,
+                height: 900,
                 border: "none",
                 pointerEvents: "none",
+                transform: "scale(0.333)",
+                transformOrigin: "top left",
               }}
               sandbox="allow-scripts allow-same-origin"
               loading="lazy"
