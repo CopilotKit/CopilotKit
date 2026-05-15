@@ -20,7 +20,9 @@ import { Snippet } from "@/components/snippet";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
 import { DocsToc } from "@/components/docs-toc";
 import { Tabs as DocsTabs } from "@/components/docs-tabs";
+import { MdxCodeBlock } from "@/components/mdx-code-block";
 import { docsComponents } from "@/lib/mdx-registry";
+import { rehypeCodeMeta } from "@/lib/rehype-code-meta";
 import { getIntegration, getTabDefault } from "@/lib/registry";
 import type { NavNode } from "@/lib/docs-render";
 import {
@@ -31,7 +33,12 @@ import {
   loadDoc,
   CONTENT_DIR,
 } from "@/lib/docs-render";
-import { childrenToText, extractHeadings, slugify } from "@/lib/toc";
+import {
+  childrenToText,
+  extractHeadings,
+  filterFrameworkScopedBlocks,
+  slugify,
+} from "@/lib/toc";
 
 export interface DocsPageViewProps {
   /** Slug path relative to `CONTENT_DIR` (no leading slash). */
@@ -95,14 +102,21 @@ export async function DocsPageView({
   const inlined = inlineSnippets(rawContent, slugPath);
   const content = convertTablesInJSX(inlined);
 
+  const defaultFramework = frameworkOverride ?? doc.fm.defaultFramework;
+  const defaultCell = doc.fm.defaultCell;
+
   // Extract H2/H3 headings for the right-rail TOC. Run on the final
   // content (post-snippet-inlining) so a page like threads.mdx whose
   // body comes from a shared snippet still surfaces its sections.
+  //
+  // Filter `<WhenFrameworkHas>` branches against the active framework
+  // first so the TOC only lists the headings that actually render in
+  // the body. Without this, framework-gated pages like `/auth` surface
+  // every per-framework variant's headings simultaneously even though
+  // only one variant's body renders.
+  const tocSource = filterFrameworkScopedBlocks(content, defaultFramework);
   const tocHeadings =
-    hideBody || doc.fm.hideTOC ? [] : extractHeadings(content);
-
-  const defaultFramework = frameworkOverride ?? doc.fm.defaultFramework;
-  const defaultCell = doc.fm.defaultCell;
+    hideBody || doc.fm.hideTOC ? [] : extractHeadings(tocSource);
 
   const tree = navTree ?? buildNavTree(CONTENT_DIR);
   // Breadcrumb root label tracks the framework whose content is being
@@ -280,6 +294,14 @@ export async function DocsPageView({
                       source={content}
                       components={{
                         ...docsComponents,
+                        // Wrap MDX-rendered <pre> blocks (triple-fenced code)
+                        // with the same figure chrome <Snippet> uses — copy
+                        // button always visible, file-path caption when the
+                        // fence carries `title="..."`. The rehypeCodeMeta
+                        // plugin (wired in `options.mdxOptions.rehypePlugins`
+                        // below) is what puts `data-title` / `data-language`
+                        // on the <pre> for this component to read.
+                        pre: MdxCodeBlock,
                         Snippet: (props: Record<string, unknown>) => (
                           <Snippet
                             {...(props as Record<string, string | undefined>)}
@@ -423,7 +445,15 @@ export async function DocsPageView({
                       options={{
                         mdxOptions: {
                           remarkPlugins: [remarkGfm],
-                          rehypePlugins: [rehypeHighlight],
+                          // `rehypeCodeMeta` runs AFTER rehype-highlight so
+                          // it sees the `language-<name>` className the
+                          // highlighter pushes onto the <code> element, and
+                          // can surface both that and the original fence
+                          // metastring (`title="..."`) as data-attrs on the
+                          // <pre>. The MdxCodeBlock `pre` override below
+                          // reads those data-attrs to render a copy button
+                          // + file-path caption.
+                          rehypePlugins: [rehypeHighlight, rehypeCodeMeta],
                         },
                       }}
                     />

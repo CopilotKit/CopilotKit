@@ -9,8 +9,10 @@ import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import Link from "next/link";
 import { SidebarNav } from "@/components/sidebar-nav";
+import { MdxCodeBlock } from "@/components/mdx-code-block";
 import { docsComponents } from "@/lib/mdx-registry";
 import { stripLeadingImports } from "@/lib/docs-render";
+import { rehypeCodeMeta } from "@/lib/rehype-code-meta";
 import { resolveWithinDir, safeReadFileSync } from "@/lib/safe-fs";
 import { getBaseUrl } from "@/lib/sitemap-helpers";
 
@@ -237,6 +239,9 @@ function getNavTabs(): ResolvedTab[] {
 // shim that discarded numbering.
 const components = {
   ...docsComponents,
+  // Same `pre` override the docs renderer uses — surfaces a copy button
+  // and the optional file-path caption (driven by `rehypeCodeMeta` below).
+  pre: MdxCodeBlock,
 };
 
 function OverviewContent() {
@@ -481,7 +486,11 @@ export default async function AgUiDocPage({
               options={{
                 mdxOptions: {
                   remarkPlugins: [remarkGfm],
-                  rehypePlugins: [rehypeHighlight],
+                  // Order matters: rehypeCodeMeta runs after rehype-highlight
+                  // so it can read the `language-<name>` className the
+                  // highlighter pushed onto the `<code>` element and copy
+                  // the fence's `title="..."` meta onto the parent `<pre>`.
+                  rehypePlugins: [rehypeHighlight, rehypeCodeMeta],
                 },
               }}
             />
