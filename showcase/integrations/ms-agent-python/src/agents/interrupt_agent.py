@@ -16,6 +16,7 @@ See `src/agents/agent.py` for the related `approval_mode="always_require"`
 pattern used elsewhere in this package.
 """
 
+# @region[backend-interrupt-tool]
 from __future__ import annotations
 
 from textwrap import dedent
@@ -72,3 +73,4 @@ def create_interrupt_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
 
 
 # @endregion[backend-tool-call]
+# @endregion[backend-interrupt-tool]
