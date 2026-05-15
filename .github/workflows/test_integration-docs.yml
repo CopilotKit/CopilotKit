@@ -54,7 +54,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Install and start aimock
         run: |
-          npm install -g @copilotkit/aimock@latest
+          npm install -g @copilotkit/aimock@1.24.1
           AIMOCK_BIN=$(npm root -g)/../bin/aimock
           echo "aimock binary: $AIMOCK_BIN"
           ls -la "$AIMOCK_BIN" || echo "binary not found at expected path"
