@@ -428,6 +428,25 @@ _INSTRUCTION = """
           benefits from a live, interactive UI — calculators, color pickers,
           quizzes, etc. Keep the chat reply to one short sentence; the rendered
           widget is the real output.
+
+          Sandbox iframe restrictions (CRITICAL — these are silently enforced by
+          the browser, so the LLM has to know):
+          - The iframe runs with `sandbox="allow-scripts"` ONLY. `<form>` and
+            `<button type="submit">` are blocked BEFORE any onsubmit handler
+            runs — never use a form for interactivity.
+          - Use plain `<button type="button">` elements and wire them with
+            `addEventListener('click', ...)`. Do the same for keyboard input:
+            attach a `keydown` listener that checks `e.key === 'Enter'` and
+            calls your handler directly instead of wrapping inputs in a form.
+          - All click/keypress handlers must live inside a `<script>` tag in
+            the generated `html` (the iframe runs the html plus a small
+            postMessage shim). Top-level expressions are fine; no `fetch`,
+            no `localStorage`, no `document.cookie`.
+          - For calculators: render `<button type="button" data-key="7">7</button>`
+            etc. and a single `document.addEventListener('click', e => { ... })`
+            that reads `e.target.dataset.key` and updates an output `<div>`.
+            Wire the metric-shortcut buttons the same way; reading their
+            `data-value` to push the numeric value into the display.
         - A2UI actions: when you see a log_a2ui_event result (e.g. "view_details"),
           respond with a brief confirmation. The UI already updated on the frontend.
         - Meeting scheduling is handled entirely on the frontend via the
