@@ -1,5 +1,6 @@
 "use client";
 
+// @region[frontend-useinterrupt-render]
 import React from "react";
 import {
   CopilotKit,
@@ -43,7 +44,6 @@ function Chat() {
     available: "always",
   });
 
-  // @region[frontend-useinterrupt-render]
   useInterrupt({
     agentId: "gen-ui-interrupt",
     renderInChat: true,

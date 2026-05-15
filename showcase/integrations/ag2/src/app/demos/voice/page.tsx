@@ -1,5 +1,6 @@
 "use client";
 
+// @region[voice-page]
 import { useCallback } from "react";
 import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotChat } from "@copilotkit/react-core/v2";
@@ -17,7 +18,6 @@ const SAMPLE_TEXT = "What is the weather in Tokyo?";
 //    the composer (bypasses mic perms and the runtime entirely so Playwright
 //    + screenshot flows work too). Real transcription only happens through
 //    the mic path.
-// @region[voice-page]
 export default function VoiceDemoPage() {
   const handleTranscribed = useCallback((text: string) => {
     if (typeof document === "undefined") return;

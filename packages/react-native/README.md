@@ -36,7 +36,11 @@ import "@copilotkit/react-native/polyfills/location";
 ## Quick start
 
 ```tsx
-import { CopilotKitProvider, useAgent, useCopilotKit } from "@copilotkit/react-native";
+import {
+  CopilotKitProvider,
+  useAgent,
+  useCopilotKit,
+} from "@copilotkit/react-native";
 
 export default function App() {
   return (
@@ -48,6 +52,12 @@ export default function App() {
 ```
 
 Re-exports hooks from `@copilotkit/react-core`: `useAgent`, `useFrontendTool`, `useComponent`, `useHumanInTheLoop`, `useInterrupt`, `useSuggestions`, `useConfigureSuggestions`, `useAgentContext`, `useThreads`, and `useCopilotKit`.
+
+## API Surface
+
+The root import (`@copilotkit/react-native`) IS the v2 API.
+Unlike the web SDK which has `/v2` subpath, React Native exports
+the v2 API directly from the package root.
 
 ## Documentation
 

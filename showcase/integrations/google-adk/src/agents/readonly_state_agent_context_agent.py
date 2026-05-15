@@ -12,13 +12,14 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
+from ag_ui_adk import AGUIToolset
 from google.adk.agents import LlmAgent
 from google.adk.agents.callback_context import CallbackContext
 from google.adk.models.llm_request import LlmRequest
 from google.adk.models.llm_response import LlmResponse
 from google.genai import types
 
-from agents.shared_chat import get_model
+from agents.shared_chat import get_model, stop_on_terminal_text
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +143,7 @@ readonly_state_agent_context_agent = LlmAgent(
     name="ReadonlyStateAgentContextAgent",
     model=get_model(),
     instruction=_INSTRUCTION,
-    tools=[],
+    tools=[AGUIToolset()],
     before_model_callback=_inject_context,
+    after_model_callback=stop_on_terminal_text,
 )

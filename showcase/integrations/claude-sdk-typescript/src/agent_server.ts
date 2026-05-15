@@ -13,6 +13,7 @@
 // listening but /health probes never succeed.
 console.log(`[agent_server] module loaded ${new Date().toISOString()}`);
 
+// @region[weather-tool-backend]
 import express, { Request, Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { EventEncoder } from "@ag-ui/encoder";
@@ -626,7 +627,6 @@ async function executeBackendTool(
     };
   }
 
-  // @region[weather-tool-backend]
   if (toolName === "get_weather") {
     const location =
       typeof toolInput.location === "string" ? toolInput.location : "";

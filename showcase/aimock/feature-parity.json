@@ -5,13 +5,14 @@
         "toolCallId": "call_fp_generate_a2ui_sales_dashboard_001"
       },
       "response": {
-        "content": "Here's your sales dashboard \u2014 total revenue is $1.2M (+12% MoM), 342 new customers, and 4.2% conversion. The pie shows revenue split by category and the bar chart tracks monthly sales."
+        "content": "Here's your sales dashboard — total revenue is $1.2M (+12% MoM), 342 new customers, and 4.2% conversion. The pie shows revenue split by category and the bar chart tracks monthly sales."
       }
     },
     {
       "match": {
         "userMessage": "with total revenue, new customers, and conversion rate metrics",
-        "toolName": "_design_a2ui_surface"
+        "toolName": "_design_a2ui_surface",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -26,7 +27,8 @@
     {
       "match": {
         "userMessage": "with total revenue, new customers, and conversion rate metrics",
-        "toolName": "render_a2ui"
+        "toolName": "render_a2ui",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -41,7 +43,8 @@
     {
       "match": {
         "userMessage": "with total revenue, new customers, and conversion rate metrics",
-        "toolName": "generate_a2ui"
+        "toolName": "generate_a2ui",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -58,7 +61,7 @@
         "toolCallId": "call_fp_get_weather_001"
       },
       "response": {
-        "content": "The current weather in Tokyo is 22\u00b0C with partly cloudy skies. Humidity is at 65% with light winds from the east at 12 km/h. Perfect weather for a walk outside!"
+        "content": "The current weather in Tokyo is 22°C with partly cloudy skies. Humidity is at 65% with light winds from the east at 12 km/h. Perfect weather for a walk outside!"
       }
     },
     {
@@ -66,7 +69,7 @@
         "toolCallId": "call_fp_render_pie_chart_001"
       },
       "response": {
-        "content": "Pie chart rendered above \u2014 Electronics is the largest slice at $42,000, followed by Clothing, Food, and Books."
+        "content": "Pie chart rendered above — Electronics is the largest slice at $42,000, followed by Clothing, Food, and Books."
       }
     },
     {
@@ -74,7 +77,7 @@
         "toolCallId": "call_fp_show_card_001"
       },
       "response": {
-        "content": "Here is a quick card for Ada Lovelace \u2014 the rendered card above shows a short biography. Let me know if you want a deeper dive on her work or a different historical figure."
+        "content": "Here is a quick card for Ada Lovelace — the rendered card above shows a short biography. Let me know if you want a deeper dive on her work or a different historical figure."
       }
     },
     {
@@ -82,7 +85,7 @@
         "toolCallId": "call_fp_request_approval_001"
       },
       "response": {
-        "content": "Approved \u2014 processing the $50 refund to customer #12345 now."
+        "content": "Approved — processing the $50 refund to customer #12345 now."
       }
     },
     {
@@ -90,7 +93,7 @@
         "toolCallId": "call_fp_book_call_001"
       },
       "response": {
-        "content": "Booked Alice's onboarding call for the time you selected \u2014 calendar invite is on its way."
+        "content": "Booked Alice's onboarding call for the time you selected — calendar invite is on its way."
       }
     },
     {
@@ -98,7 +101,7 @@
         "toolCallId": "call_fp_set_notes_001"
       },
       "response": {
-        "content": "Got it \u2014 I have noted that your favorite color is blue."
+        "content": "Got it — I have noted that your favorite color is blue."
       }
     },
     {
@@ -106,7 +109,7 @@
         "toolCallId": "call_fp_critique_agent_001"
       },
       "response": {
-        "content": "Here is the summary, after research \u2192 drafting \u2192 critique:\n\nRemote work returns roughly ten hours a week to employees by eliminating the commute, and repeated surveys show meaningfully higher job satisfaction among remote workers. Employers benefit too: a geographically unbounded talent pool and lower office overhead. The honest counterweight is that ad-hoc collaboration, mentorship of junior staff, and cultural cohesion all degrade without intentional rituals to replace what an office provided implicitly."
+        "content": "Here is the summary, after research → drafting → critique:\n\nRemote work returns roughly ten hours a week to employees by eliminating the commute, and repeated surveys show meaningfully higher job satisfaction among remote workers. Employers benefit too: a geographically unbounded talent pool and lower office overhead. The honest counterweight is that ad-hoc collaboration, mentorship of junior staff, and cultural cohesion all degrade without intentional rituals to replace what an office provided implicitly."
       }
     },
     {
@@ -251,21 +254,23 @@
     },
     {
       "match": {
-        "userMessage": "Show me a profile card for Ada Lovelace"
+        "userMessage": "Show me a profile card for Ada Lovelace",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
           {
             "id": "call_fp_show_card_001",
             "name": "show_card",
-            "arguments": "{\"title\":\"Ada Lovelace\",\"body\":\"English mathematician (1815\u20131852), credited as the first computer programmer for her notes on Charles Babbage's Analytical Engine \u2014 including what is now recognized as the first algorithm intended to be carried out by a machine.\"}"
+            "arguments": "{\"title\":\"Ada Lovelace\",\"body\":\"English mathematician (1815–1852), credited as the first computer programmer for her notes on Charles Babbage's Analytical Engine — including what is now recognized as the first algorithm intended to be carried out by a machine.\"}"
           }
         ]
       }
     },
     {
       "match": {
-        "userMessage": "Issue a $50 refund to customer #12345"
+        "userMessage": "Issue a $50 refund to customer #12345",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -279,7 +284,8 @@
     },
     {
       "match": {
-        "userMessage": "Book a 30-minute onboarding call for Alice"
+        "userMessage": "Book a 30-minute onboarding call for Alice",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -293,7 +299,8 @@
     },
     {
       "match": {
-        "userMessage": "remember that my favorite color is blue"
+        "userMessage": "remember that my favorite color is blue",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -310,12 +317,13 @@
         "userMessage": "favorite color"
       },
       "response": {
-        "content": "Your favorite color is blue \u2014 I noted it earlier."
+        "content": "Your favorite color is blue — I noted it earlier."
       }
     },
     {
       "match": {
-        "userMessage": "Research the benefits of remote work and draft a one-paragraph summary"
+        "userMessage": "Research the benefits of remote work and draft a one-paragraph summary",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -328,8 +336,290 @@
       }
     },
     {
+      "_comment": "shared-state-read-write — Greet pill. systemMessage array gate (all-present substring match) fires ONLY when every preference is at its INITIAL_PREFERENCES default. (1) 'preferences:\\n- Preferred tone: casual\\n' breaks if name is set (Name line inserts) or tone changes. (2) '- Preferred language: English\\nTailor every response' breaks if language changes or interests are added (Interests line inserts between language and Tailor). Any state change → fixture skips → aimock --provider-gemini proxies to real Gemini for a personalised reply.",
       "match": {
-        "userMessage": "weather"
+        "userMessage": "Say hi and introduce yourself.",
+        "systemMessage": [
+          "preferences:\n- Preferred tone: casual\n",
+          "- Preferred language: English\nTailor every response"
+        ]
+      },
+      "response": {
+        "content": "Hi — I'm your shared-state co-pilot. Your Preferences panel (name, tone, language, interests) is fed to me on every turn, and I jot notes back into the Agent Scratch Pad via set_notes so the UI re-renders. Try setting your name or asking me to remember something."
+      }
+    },
+    {
+      "_comment": "shared-state-read-write — Plan-a-weekend pill. Same default-state gate as the Greet pill.",
+      "match": {
+        "userMessage": "Suggest a weekend plan based on my interests.",
+        "systemMessage": [
+          "preferences:\n- Preferred tone: casual\n",
+          "- Preferred language: English\nTailor every response"
+        ]
+      },
+      "response": {
+        "content": "A weekend tailored to your interests panel: if you haven't picked any yet, try Cooking + Travel for a market-and-day-trip combo, or Tech + Books for a maker session and a long reading afternoon. Add interests in the Preferences panel and re-ask for a more specific plan."
+      }
+    },
+    {
+      "_comment": "Subagents pill 1 — 'Write a blog post' / cold exposure training. Drives supervisor → research_agent → writing_agent → critique_agent → final reply, plus three nested sub-agent turns. Mirrors d5-all.json content so production aimock (which loads feature-parity.json + d5-all.json) serves the same chain regardless of which file wins first-match.",
+      "match": {
+        "userMessage": "Produce a short blog post about the benefits of cold exposure training",
+        "hasToolResult": false,
+        "toolName": "research_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_subagents_p1_research_001",
+            "name": "research_agent",
+            "arguments": "{\"task\":\"Cold exposure training key facts\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: research sub-agent returns deterministic facts about cold exposure training.",
+      "match": {
+        "userMessage": "Cold exposure training key facts"
+      },
+      "response": {
+        "content": "- Brief cold immersion (cold showers, ice baths) triggers a sympathetic-nervous-system response that releases noradrenaline\n- Repeated exposure is associated with improved self-reported mood and stress tolerance\n- Activates brown adipose tissue, modestly increasing basal metabolic rate\n- May reduce post-exercise muscle soreness when used as a recovery modality\n- Health risk for people with cardiovascular conditions; sessions should be short (1-3 minutes) and supervised at first"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Produce a short blog post about the benefits of cold exposure training",
+        "turnIndex": 1,
+        "toolName": "writing_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_subagents_p1_writing_001",
+            "name": "writing_agent",
+            "arguments": "{\"task\":\"Short blog-post paragraph on the benefits of cold exposure training, grounded in the research facts.\\n\\nFacts:\\n- Brief cold immersion triggers a noradrenaline release\\n- Repeated exposure improves self-reported mood and stress tolerance\\n- Activates brown adipose tissue, modestly raises basal metabolic rate\\n- May reduce post-exercise muscle soreness\\n- Cardiovascular risk; keep early sessions short and supervised\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: writing sub-agent returns deterministic prose for cold exposure.",
+      "match": {
+        "userMessage": "Short blog-post paragraph on the benefits of cold exposure training"
+      },
+      "response": {
+        "content": "Cold exposure training — short, deliberate plunges into cold water or showers — has earned a foothold in modern recovery routines for reasons grounded in physiology rather than folklore. Each immersion produces a measurable surge of noradrenaline, the same chemistry that underpins the lift practitioners report in mood and focus afterward; with repetition, that response is associated with greater day-to-day stress tolerance. Cold also activates brown adipose tissue and can blunt post-exercise soreness, making it a low-cost adjunct for active people. The honest caveat is cardiovascular risk: keep early sessions to one to three minutes, and if you have a heart condition, get a green light before you start."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Produce a short blog post about the benefits of cold exposure training",
+        "turnIndex": 2,
+        "toolName": "critique_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_subagents_p1_critique_001",
+            "name": "critique_agent",
+            "arguments": "{\"task\":\"Critique the cold-exposure blog draft. Draft: Cold exposure training — short, deliberate plunges into cold water or showers — has earned a foothold in modern recovery routines for reasons grounded in physiology rather than folklore. Each immersion produces a measurable surge of noradrenaline...\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: critique sub-agent returns deterministic critique of cold-exposure draft.",
+      "match": {
+        "userMessage": "Critique the cold-exposure blog draft"
+      },
+      "response": {
+        "content": "1. The phrase 'measurable surge of noradrenaline' should cite a study or rough magnitude — without a number, the claim reads as marketing rather than evidence.\n2. 'Modern recovery routines' is filler; lead with the physiological mechanism instead and let the cultural framing follow.\n3. The cardiovascular caveat is buried at the end. Move it earlier or make it a standalone closing line so a reader who skims still sees it."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Produce a short blog post about the benefits of cold exposure training",
+        "turnIndex": 3
+      },
+      "response": {
+        "content": "Here is the polished blog post on cold exposure training, after research → drafting → critique:\n\nCold exposure training — short, deliberate plunges into cold water or showers — produces a measurable noradrenaline surge that practitioners feel as a mood and focus lift; repeated exposure is associated with greater stress tolerance, brown-adipose activation, and reduced post-exercise soreness. Keep early sessions to one to three minutes, and if you have a cardiovascular condition, clear it with a clinician first."
+      }
+    },
+    {
+      "_comment": "Subagents pill 2 — 'Explain a topic' / LLM tool calling.",
+      "match": {
+        "userMessage": "Explain how large language models handle tool calling",
+        "hasToolResult": false,
+        "toolName": "research_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_subagents_p2_research_001",
+            "name": "research_agent",
+            "arguments": "{\"task\":\"How LLMs handle tool calling\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: research sub-agent for LLM tool calling.",
+      "match": {
+        "userMessage": "How LLMs handle tool calling"
+      },
+      "response": {
+        "content": "- The model is shown a tool schema (name, description, JSON-schema parameters) inside the system or developer prompt at request time\n- During decoding, instead of emitting natural-language text, the model emits a structured tool_call block (function name + JSON-encoded arguments)\n- The application runs the tool, packages the result into a tool message, and resends the full conversation so the model can continue\n- Modern decoders use constrained decoding or grammars to keep the arguments syntactically valid JSON\n- The model decides on tool use turn-by-turn — there is no out-of-band channel; tool calls are just a different message role in the same chat thread"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Explain how large language models handle tool calling",
+        "turnIndex": 1,
+        "toolName": "writing_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_subagents_p2_writing_001",
+            "name": "writing_agent",
+            "arguments": "{\"task\":\"One-paragraph explanation of how LLMs handle tool calling, grounded in the research.\\n\\nFacts:\\n- Tool schemas (name, description, JSON-schema params) are passed in the prompt\\n- Models emit a structured tool_call block instead of text\\n- Application runs the tool and replays the result as a tool message\\n- Constrained decoding keeps arguments valid JSON\\n- Tool use is decided turn-by-turn in the same chat thread\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: writing sub-agent for LLM tool calling.",
+      "match": {
+        "userMessage": "One-paragraph explanation of how LLMs handle tool calling"
+      },
+      "response": {
+        "content": "Large language models handle tool calling by treating tools as a structured extension of the chat protocol rather than a separate channel. At request time the application supplies each tool's name, description, and JSON-schema parameters in the prompt; during decoding the model can emit a tool_call block — a function name plus JSON-encoded arguments — instead of plain text, with constrained decoding keeping the arguments syntactically valid. The application then executes the tool and replays the result back as a tool-role message, and the model continues the conversation from there. The decision to call a tool is made turn-by-turn, so a single user request can fan out into a chain of tool calls that the model orchestrates as it reads each result."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Explain how large language models handle tool calling",
+        "turnIndex": 2,
+        "toolName": "critique_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_subagents_p2_critique_001",
+            "name": "critique_agent",
+            "arguments": "{\"task\":\"Critique the LLM tool-calling explanation draft. Draft: Large language models handle tool calling by treating tools as a structured extension of the chat protocol rather than a separate channel. At request time the application supplies each tool's name, description, and JSON-schema parameters in the prompt...\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: critique sub-agent for LLM tool calling.",
+      "match": {
+        "userMessage": "Critique the LLM tool-calling explanation draft"
+      },
+      "response": {
+        "content": "1. The opening contrast 'rather than a separate channel' assumes the reader already knows what a 'separate channel' would mean — either drop the contrast or give a one-clause example (e.g., 'rather than a side API the model talks to in parallel').\n2. 'Constrained decoding keeping the arguments syntactically valid' is technically correct but vague; mention that this is what makes the JSON parseable on the application side.\n3. The final sentence introduces multi-tool chains without saying who controls the loop — clarify that the application is the runtime that decides whether to keep going, not the model itself."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Explain how large language models handle tool calling",
+        "turnIndex": 3
+      },
+      "response": {
+        "content": "Here is the explanation of LLM tool calling, after research → drafting → critique:\n\nLLMs treat tool calling as part of the chat protocol: each tool's name, description, and JSON-schema parameters are passed in the prompt, and during decoding the model can emit a structured tool_call block (function name + JSON arguments) instead of plain text. The application — not the model — runs the tool, returns the result as a tool-role message, and decides whether to keep looping. Constrained decoding keeps the arguments valid JSON the application can parse, and the model orchestrates multi-step chains turn-by-turn from inside the same conversation."
+      }
+    },
+    {
+      "_comment": "Subagents pill 3 — 'Summarize a topic' / reusable rockets.",
+      "match": {
+        "userMessage": "Summarize the current state of reusable rockets",
+        "hasToolResult": false,
+        "toolName": "research_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_subagents_p3_research_001",
+            "name": "research_agent",
+            "arguments": "{\"task\":\"Current state of reusable rockets\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: research sub-agent for reusable rockets.",
+      "match": {
+        "userMessage": "Current state of reusable rockets"
+      },
+      "response": {
+        "content": "- SpaceX Falcon 9 routinely lands and re-flies first stages; individual boosters have flown more than 20 missions each\n- Falcon Heavy reuses both side boosters; the center core has been recovered on a subset of flights\n- Rocket Lab's Electron has demonstrated mid-air booster catch but routine reuse is still in development\n- SpaceX Starship is targeting full reuse of both stages; orbital test flights are ongoing as of 2024-2025\n- Reuse is the dominant lever on launch cost: Falcon 9 list pricing is set well below expendable competitors largely because of stage recovery"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Summarize the current state of reusable rockets",
+        "turnIndex": 1,
+        "toolName": "writing_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_subagents_p3_writing_001",
+            "name": "writing_agent",
+            "arguments": "{\"task\":\"One polished paragraph summarizing the current state of reusable rockets, grounded in the research.\\n\\nFacts:\\n- Falcon 9 first stages routinely re-fly, some 20+ flights\\n- Falcon Heavy reuses side boosters; center core recovered sometimes\\n- Rocket Lab Electron demonstrating mid-air catch, reuse still in development\\n- SpaceX Starship targeting full reuse of both stages, in flight test\\n- Reuse drives launch cost downward\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: writing sub-agent for reusable rockets.",
+      "match": {
+        "userMessage": "One polished paragraph summarizing the current state of reusable rockets"
+      },
+      "response": {
+        "content": "Reusable rockets have shifted from a research goal to the default cost lever in commercial spaceflight. SpaceX's Falcon 9 routinely lands and re-flies its first stage — individual boosters have now flown twenty-plus missions — and Falcon Heavy reuses both side boosters with intermittent recovery of the center core. Smaller-class operators like Rocket Lab have demonstrated mid-air booster catch but have not yet made reuse routine, while SpaceX's Starship is in active flight testing toward full two-stage reuse. The economic consequence is already visible: Falcon 9 list pricing sits well below expendable competitors precisely because the dominant cost — building a fresh first stage every flight — has been amortized across many missions."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Summarize the current state of reusable rockets",
+        "turnIndex": 2,
+        "toolName": "critique_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_subagents_p3_critique_001",
+            "name": "critique_agent",
+            "arguments": "{\"task\":\"Critique the reusable rockets summary draft. Draft: Reusable rockets have shifted from a research goal to the default cost lever in commercial spaceflight. SpaceX's Falcon 9 routinely lands and re-flies its first stage — individual boosters have now flown twenty-plus missions...\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: critique sub-agent for reusable rockets.",
+      "match": {
+        "userMessage": "Critique the reusable rockets summary draft"
+      },
+      "response": {
+        "content": "1. 'Default cost lever' is jargon that pre-supposes the reader already accepts the framing — open instead with the concrete result (Falcon 9 reflight count) and let the framing emerge.\n2. The Starship sentence is hedged ('in active flight testing toward full reuse') in a way that obscures the actual milestone reached as of writing — name the latest test outcome or drop the clause.\n3. The closing economic claim asserts pricing is 'well below expendable competitors' without a reference price; one number (e.g., $/kg-to-LEO) would land the point much harder than the qualitative claim alone."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Summarize the current state of reusable rockets",
+        "turnIndex": 3
+      },
+      "response": {
+        "content": "Here is the polished summary on reusable rockets, after research → drafting → critique:\n\nReusable rockets are now mainstream in commercial spaceflight. SpaceX's Falcon 9 lands and re-flies its first stage routinely — individual boosters have flown twenty-plus missions — and Falcon Heavy reuses both side boosters. Rocket Lab has demonstrated mid-air Electron booster catch but reuse is not yet routine, while SpaceX Starship is in active orbital flight testing with full two-stage reuse as the target. The economic impact is already priced in: Falcon 9 sits well below expendable competitors per kilogram to low Earth orbit because amortizing a recovered first stage across many missions removes the largest single cost from the launch."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "weather",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -346,12 +636,13 @@
         "userMessage": "weather summary"
       },
       "response": {
-        "content": "The current weather in Tokyo is 22\u00b0C with partly cloudy skies. Humidity is at 65% with light winds from the east at 12 km/h. Perfect weather for a walk outside!"
+        "content": "The current weather in Tokyo is 22°C with partly cloudy skies. Humidity is at 65% with light winds from the east at 12 km/h. Perfect weather for a walk outside!"
       }
     },
     {
       "match": {
-        "userMessage": "revenue distribution by category"
+        "userMessage": "revenue distribution by category",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -365,7 +656,8 @@
     },
     {
       "match": {
-        "userMessage": "expenses by category"
+        "userMessage": "expenses by category",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -379,7 +671,8 @@
     },
     {
       "match": {
-        "userMessage": "pie chart of website traffic by source"
+        "userMessage": "pie chart of website traffic by source",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -393,7 +686,8 @@
     },
     {
       "match": {
-        "userMessage": "smartphone market share by brand"
+        "userMessage": "smartphone market share by brand",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -407,7 +701,8 @@
     },
     {
       "match": {
-        "userMessage": "bar chart of quarterly sales for Q1, Q2, Q3, Q4"
+        "userMessage": "bar chart of quarterly sales for Q1, Q2, Q3, Q4",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -469,7 +764,8 @@
     },
     {
       "match": {
-        "userMessage": "revenue by category as a pie chart"
+        "userMessage": "revenue by category as a pie chart",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -483,7 +779,8 @@
     },
     {
       "match": {
-        "userMessage": "monthly expenses as a bar chart"
+        "userMessage": "monthly expenses as a bar chart",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -497,7 +794,8 @@
     },
     {
       "match": {
-        "userMessage": "30-minute meeting to learn about CopilotKit"
+        "userMessage": "30-minute meeting to learn about CopilotKit",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -511,7 +809,8 @@
     },
     {
       "match": {
-        "userMessage": "flights from SFO to JFK"
+        "userMessage": "flights from SFO to JFK",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -525,13 +824,51 @@
     },
     {
       "match": {
-        "userMessage": "toggle"
+        "userMessage": "toggle",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
           {
             "id": "call_fp_toggle_theme_001",
             "name": "toggleTheme",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_beautiful_chat_manage_todos_001"
+      },
+      "response": {
+        "content": "Done — added three todos about learning CopilotKit to your task manager."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_beautiful_chat_enable_app_mode_001"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_beautiful_chat_manage_todos_001",
+            "name": "manage_todos",
+            "arguments": "{\"todos\":[{\"id\":\"todo-cpk-1\",\"title\":\"Read the CopilotKit docs\",\"description\":\"Start with the quickstart and explore the core hooks.\",\"emoji\":\"📚\",\"status\":\"pending\"},{\"id\":\"todo-cpk-2\",\"title\":\"Build a CopilotKit prototype\",\"description\":\"Wire up a basic chat and register a frontend tool.\",\"emoji\":\"🚀\",\"status\":\"pending\"},{\"id\":\"todo-cpk-3\",\"title\":\"Explore shared agent state\",\"description\":\"Watch the canvas re-render as the agent writes to state.\",\"emoji\":\"🎯\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "three todos about learning CopilotKit",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_beautiful_chat_enable_app_mode_001",
+            "name": "enableAppMode",
             "arguments": "{}"
           }
         ]
@@ -566,7 +903,7 @@
         "userMessage": "can you tell me what is in this demo pdf I just attached"
       },
       "response": {
-        "content": "The attached PDF is the CopilotKit Quickstart guide. It walks through three steps: install `@copilotkit/react-core` and `@copilotkit/react-ui`, wrap your app in a `<CopilotKit runtimeUrl=\"/api/copilotkit\">` provider, and drop a `<CopilotChat />` wherever you want the assistant to appear."
+        "content": "The attached PDF document is the CopilotKit Quickstart guide. It walks through three steps: install `@copilotkit/react-core` and `@copilotkit/react-ui`, wrap your app in a `<CopilotKit runtimeUrl=\"/api/copilotkit\">` provider, and drop a `<CopilotChat />` wherever you want the assistant to appear."
       }
     },
     {
@@ -619,46 +956,6 @@
     },
     {
       "match": {
-        "userMessage": "plan"
-      },
-      "response": {
-        "content": "Here is my plan:\n1. Research the topic\n2. Outline key points\n3. Draft the content\n4. Review and refine\n5. Finalize"
-      }
-    },
-    {
-      "match": {
-        "userMessage": "steps"
-      },
-      "response": {
-        "content": "Here is my plan:\n1. Research the topic\n2. Outline key points\n3. Draft the content\n4. Review and refine\n5. Finalize"
-      }
-    },
-    {
-      "match": {
-        "userMessage": "mars"
-      },
-      "response": {
-        "content": "Here is my plan:\n1. Research the topic\n2. Outline key points\n3. Draft the content\n4. Review and refine\n5. Finalize"
-      }
-    },
-    {
-      "match": {
-        "userMessage": "dashboard"
-      },
-      "response": {
-        "content": "Working on your request. Step 1: Gathering data... Step 2: Analyzing results... Step 3: Generating report. Done!"
-      }
-    },
-    {
-      "match": {
-        "userMessage": "report"
-      },
-      "response": {
-        "content": "Working on your request. Step 1: Gathering data... Step 2: Analyzing results... Step 3: Generating report. Done!"
-      }
-    },
-    {
-      "match": {
         "userMessage": "summarize"
       },
       "response": {
@@ -699,7 +996,8 @@
     },
     {
       "match": {
-        "userMessage": "deal"
+        "userMessage": "deal",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -712,7 +1010,8 @@
     },
     {
       "match": {
-        "userMessage": "sample deals"
+        "userMessage": "sample deals",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -725,7 +1024,8 @@
     },
     {
       "match": {
-        "userMessage": "paris"
+        "userMessage": "paris",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -747,7 +1047,8 @@
     {
       "match": {
         "userMessage": "Please book an intro call with the sales team to discuss pricing.",
-        "toolName": "book_call"
+        "toolName": "book_call",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -760,17 +1061,22 @@
       }
     },
     {
+      "_comment": "hitl-in-chat — Schedule 1:1 with Alice pill, 2nd turn (book_call tool result returned). Keyed on userMessage + toolCallId + hasToolResult so it wins ahead of the bare 'alice' / 'Alice' substring fixtures further below in this file, regardless of prior pill state in the thread.",
       "match": {
-        "toolCallId": "call_hitl_book_1on1_alice_001"
+        "userMessage": "Schedule a 1:1 with Alice next week to review Q2 goals.",
+        "toolCallId": "call_hitl_book_1on1_alice_001",
+        "hasToolResult": true
       },
       "response": {
         "content": "Booked the 1:1 with Alice for the time you selected — calendar invite is on its way."
       }
     },
     {
+      "_comment": "hitl-in-chat — Schedule 1:1 with Alice pill, 1st turn (emit book_call). Exact pill substring + toolName + hasToolResult: false ensures this fires ONLY for the intended pill, not for arbitrary messages containing 'alice'.",
       "match": {
         "userMessage": "Schedule a 1:1 with Alice next week to review Q2 goals.",
-        "toolName": "book_call"
+        "toolName": "book_call",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -783,16 +1089,9 @@
       }
     },
     {
+      "_comment": "Scoped 'Alice' greeting fixture for the showcase-assistant 'Hi, my name is Alice' / introduction flow. Anchored on the longer phrase so it doesn't substring-match the hitl-in-chat 'Schedule a 1:1 with Alice' pill or other prompts that merely mention Alice.",
       "match": {
-        "userMessage": "alice"
-      },
-      "response": {
-        "content": "Nice to meet you, Alice! I see you're in Tokyo -- wonderful city. How can I help you today? I can check the weather, look up flights, manage your sales pipeline, or help with other tasks."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "Alice"
+        "userMessage": "Hi, my name is Alice"
       },
       "response": {
         "content": "Nice to meet you, Alice! I see you're in Tokyo -- wonderful city. How can I help you today? I can check the weather, look up flights, manage your sales pipeline, or help with other tasks."
@@ -816,7 +1115,8 @@
     },
     {
       "match": {
-        "userMessage": "sunset-themed gradient"
+        "userMessage": "sunset-themed gradient",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -840,12 +1140,13 @@
         "userMessage": "Summarize this document"
       },
       "response": {
-        "content": "This is an excerpt from the CopilotKit documentation covering the quickstart \u2014 installing the packages and wrapping the app in a CopilotKitProvider pointing at a runtime endpoint."
+        "content": "This is an excerpt from the CopilotKit documentation covering the quickstart — installing the packages and wrapping the app in a CopilotKitProvider pointing at a runtime endpoint."
       }
     },
     {
       "match": {
-        "userMessage": "blue gradient"
+        "userMessage": "blue gradient",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -866,7 +1167,8 @@
     },
     {
       "match": {
-        "userMessage": "Search my notes for 'auth'"
+        "userMessage": "Search my notes for 'auth'",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -879,7 +1181,8 @@
     },
     {
       "match": {
-        "userMessage": "xyzzy-nonsense-keyword"
+        "userMessage": "xyzzy-nonsense-keyword",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -892,7 +1195,8 @@
     },
     {
       "match": {
-        "userMessage": "Show me a pie chart of revenue by category"
+        "userMessage": "Show me a pie chart of revenue by category",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -906,7 +1210,8 @@
     },
     {
       "match": {
-        "userMessage": "bar chart of monthly expenses"
+        "userMessage": "bar chart of monthly expenses",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -927,7 +1232,8 @@
     },
     {
       "match": {
-        "userMessage": "Roll a 20-sided die"
+        "userMessage": "Roll a 20-sided die",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [

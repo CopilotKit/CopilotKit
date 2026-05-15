@@ -7,6 +7,7 @@ shows a time picker and resolves with `{chosen_time, chosen_label}` or
 `{cancelled: true}`, which this tool turns into a human-readable result.
 """
 
+# @region[backend-interrupt-tool]
 from __future__ import annotations
 
 from typing import Any, Optional
@@ -28,7 +29,6 @@ SYSTEM_PROMPT = (
 )
 
 
-# @region[backend-interrupt-tool]
 @tool
 def schedule_meeting(topic: str, attendee: Optional[str] = None) -> str:
     """Ask the user to pick a time slot for a call, via an in-chat picker.
@@ -54,6 +54,8 @@ def schedule_meeting(topic: str, attendee: Optional[str] = None) -> str:
             return f"Meeting scheduled for {chosen_label}: {topic}"
 
     return f"User did not pick a time. Meeting NOT scheduled: {topic}"
+
+
 # @endregion[backend-interrupt-tool]
 
 

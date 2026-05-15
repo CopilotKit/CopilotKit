@@ -2,65 +2,105 @@
 
 import React from "react";
 import {
-  CopilotKit,
   CopilotChat,
-  useFrontendTool,
+  CopilotKit,
   useConfigureSuggestions,
+  useFrontendTool,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
-
-import { NotesCard, queryLocalNotes } from "./notes-card";
+import { NotesCard, type Note } from "./notes-card";
+import { NOTES_DB, sleep } from "./fake-notes-db";
+import { parseJsonResult } from "../_shared/parse-json-result";
 
 export default function FrontendToolsAsyncDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="frontend_tools_async">
-      <DemoContent />
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="frontend-tools-async">
+      <div className="flex justify-center items-center h-screen w-full">
+        <div className="h-full w-full max-w-4xl">
+          <Chat />
+        </div>
+      </div>
     </CopilotKit>
   );
 }
 
-function DemoContent() {
+function Chat() {
+  // @region[frontend-tool-async]
+  // @region[frontend-tool-async-registration]
   useFrontendTool({
-    name: "find_notes",
+    name: "query_notes",
     description:
-      "Search the user's local notes database. Pass a single query string. Returns the list of matching notes (id, title, body).",
+      "Search the user's local notes database for notes whose title, " +
+      "excerpt, or tags contain the given keyword (case-insensitive). " +
+      "Returns up to 5 matching notes.",
     parameters: z.object({
-      query: z.string().describe("Free-text search query."),
+      keyword: z
+        .string()
+        .describe("Keyword or phrase to search notes for (case-insensitive)."),
     }),
-    handler: async ({ query }: { query: string }) => {
-      const matches = await queryLocalNotes(query);
-      return { count: matches.length, notes: matches };
+    // @region[frontend-tool-async-handler]
+    // Async handler: awaits a simulated client-side DB round-trip (500ms)
+    // and returns the matching notes. The agent then uses the returned
+    // result to summarize what it found — exercising the full async
+    // frontend-tool path end-to-end.
+    handler: async ({ keyword }: { keyword: string }) => {
+      await sleep(500);
+      const q = keyword.toLowerCase();
+      const matches = NOTES_DB.filter((n) => {
+        return (
+          n.title.toLowerCase().includes(q) ||
+          n.excerpt.toLowerCase().includes(q) ||
+          (n.tags ?? []).some((t) => t.toLowerCase().includes(q))
+        );
+      }).slice(0, 5);
+      return {
+        keyword,
+        count: matches.length,
+        notes: matches,
+      };
+    },
+    // @endregion[frontend-tool-async-handler]
+    render: ({ args, result, status }) => {
+      const loading = status !== "complete";
+      const parsed = parseJsonResult<{
+        keyword?: string;
+        count?: number;
+        notes?: Note[];
+      }>(result);
+      return (
+        <NotesCard
+          loading={loading}
+          keyword={args?.keyword ?? parsed.keyword ?? ""}
+          notes={parsed.notes}
+        />
+      );
     },
   });
+  // @endregion[frontend-tool-async-registration]
+  // @endregion[frontend-tool-async]
 
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Find Q4 plan",
-        message: "What's our Q4 strategy? Look it up in my notes.",
+        title: "Find project-planning notes",
+        message: "Find my notes about project planning.",
       },
       {
-        title: "Reading list?",
-        message: "Show me my current reading list.",
+        title: "Search for 'auth'",
+        message: "Search my notes for anything related to auth.",
+      },
+      {
+        title: "What do I have about reading?",
+        message: "Do I have any notes tagged reading?",
       },
     ],
     available: "always",
   });
 
   return (
-    <div className="flex h-screen w-full bg-gray-50">
-      <aside className="md:w-[320px] md:shrink-0 p-4 overflow-y-auto">
-        <NotesCard />
-      </aside>
-      <main className="flex-1 flex flex-col min-h-0">
-        <CopilotChat
-          agentId="frontend_tools_async"
-          className="flex-1 min-h-0"
-          labels={{
-            chatInputPlaceholder: "Ask the agent to search your notes...",
-          }}
-        />
-      </main>
-    </div>
+    <CopilotChat
+      agentId="frontend-tools-async"
+      className="h-full rounded-2xl"
+    />
   );
 }

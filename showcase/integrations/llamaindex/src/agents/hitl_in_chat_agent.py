@@ -109,10 +109,7 @@ def _fix_tool_messages(chat_history: List[ChatMessage]) -> None:
     fails on the second leg.
     """
     for msg in chat_history:
-        if (
-            msg.role.value == "user"
-            and "tool_call_id" in msg.additional_kwargs
-        ):
+        if msg.role.value == "user" and "tool_call_id" in msg.additional_kwargs:
             msg.role = MessageRole.TOOL
 
 
@@ -128,6 +125,7 @@ class ToolCallResultWorkflowEvent(ToolCallEndWorkflowEvent):
     Subclasses ToolCallEndWorkflowEvent so it passes the AG_UI_EVENTS
     isinstance filter in the router's stream_events loop.
     """
+
     message_id: str = ""
     content: str = ""
     role: Optional[str] = "tool"
@@ -146,11 +144,10 @@ class FixedAGUIChatWorkflow(AGUIChatWorkflow):
     status "complete". Interactive tools (useHumanInTheLoop,
     useComponent) must NOT be in this set.
     """
+
     render_only_tool_names: set = set()
 
-    def _snapshot_messages(
-        self, ctx: Context, chat_history: List[ChatMessage]
-    ) -> None:
+    def _snapshot_messages(self, ctx: Context, chat_history: List[ChatMessage]) -> None:
         """Emit MESSAGES_SNAPSHOT without toolCalls on assistant messages.
 
         We create clean copies of assistant messages that strip both
@@ -180,9 +177,7 @@ class FixedAGUIChatWorkflow(AGUIChatWorkflow):
             else:
                 cleaned.append(msg)
 
-        ag_ui_messages = [
-            llama_index_message_to_ag_ui_message(m) for m in cleaned
-        ]
+        ag_ui_messages = [llama_index_message_to_ag_ui_message(m) for m in cleaned]
 
         ctx.write_event_to_stream(
             MessagesSnapshotWorkflowEvent(
@@ -351,12 +346,10 @@ class FixedAGUIChatWorkflow(AGUIChatWorkflow):
             return None
 
         frontend_tool_calls = [
-            r for r in tool_call_results
-            if r.tool_name in self.frontend_tools
+            r for r in tool_call_results if r.tool_name in self.frontend_tools
         ]
         backend_tool_calls = [
-            r for r in tool_call_results
-            if r.tool_name in self.backend_tools
+            r for r in tool_call_results if r.tool_name in self.backend_tools
         ]
 
         new_tool_messages = []

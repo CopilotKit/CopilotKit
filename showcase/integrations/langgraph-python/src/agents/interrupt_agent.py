@@ -8,6 +8,7 @@ renderer shows a time picker inline in the chat and resolves with
 turns into a human-readable result the agent uses to confirm the booking.
 """
 
+# @region[backend-interrupt-tool]
 from __future__ import annotations
 
 from datetime import datetime, time, timedelta
@@ -61,7 +62,6 @@ def _candidate_slots() -> List[dict]:
     ]
 
 
-# @region[backend-interrupt-tool]
 @tool
 def schedule_meeting(topic: str, attendee: Optional[str] = None) -> str:
     """Ask the user to pick a time slot for a call, via an in-chat picker.
@@ -94,6 +94,8 @@ def schedule_meeting(topic: str, attendee: Optional[str] = None) -> str:
             return f"Meeting scheduled for {chosen_label}: {topic}"
 
     return f"User did not pick a time. Meeting NOT scheduled: {topic}"
+
+
 # @endregion[backend-interrupt-tool]
 
 

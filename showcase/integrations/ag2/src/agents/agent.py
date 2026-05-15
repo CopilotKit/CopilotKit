@@ -5,6 +5,7 @@ Uses AG2's ConversableAgent with AGUIStream to expose
 the agent via the AG-UI protocol.
 """
 
+# @region[weather-tool-backend]
 from __future__ import annotations
 
 import json
@@ -34,7 +35,6 @@ from tools.types import Flight
 # =====
 # Tools
 # =====
-# @region[weather-tool-backend]
 async def get_weather(
     location: Annotated[str, "City name to get weather for"],
 ) -> dict[str, str | float]:
@@ -48,6 +48,8 @@ async def get_weather(
         "wind_speed": result["wind_speed"],
         "conditions": result["conditions"],
     }
+
+
 # @endregion[weather-tool-backend]
 
 
@@ -78,7 +80,9 @@ async def schedule_meeting(
 
 
 async def search_flights(
-    flights: Annotated[list[dict[str, Any]], "List of flight objects to display as rich A2UI cards"],
+    flights: Annotated[
+        list[dict[str, Any]], "List of flight objects to display as rich A2UI cards"
+    ],
 ) -> str:
     """Search for flights and display the results as rich cards. Return exactly 2 flights.
 
@@ -113,12 +117,17 @@ async def generate_a2ui(
         model="gpt-4.1",
         messages=[
             {"role": "system", "content": context or "Generate a useful dashboard UI."},
-            {"role": "user", "content": "Generate a dynamic A2UI dashboard based on the conversation."},
+            {
+                "role": "user",
+                "content": "Generate a dynamic A2UI dashboard based on the conversation.",
+            },
         ],
-        tools=[{
-            "type": "function",
-            "function": RENDER_A2UI_TOOL_SCHEMA,
-        }],
+        tools=[
+            {
+                "type": "function",
+                "function": RENDER_A2UI_TOOL_SCHEMA,
+            }
+        ],
         tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
     )
 

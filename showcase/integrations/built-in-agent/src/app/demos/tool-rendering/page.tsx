@@ -1,5 +1,6 @@
 "use client";
 
+// @region[render-weather-tool]
 import {
   CopilotKitProvider,
   CopilotChat,
@@ -17,7 +18,6 @@ export default function ToolRendering() {
 }
 
 function Demo() {
-  // @region[render-weather-tool]
   useRenderTool({
     name: "get_weather",
     parameters: z.object({ location: z.string() }),

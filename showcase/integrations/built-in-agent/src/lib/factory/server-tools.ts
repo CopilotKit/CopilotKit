@@ -1,7 +1,7 @@
+// @region[weather-tool-backend]
 import { z } from "zod";
 import { toolDefinition } from "@tanstack/ai";
 
-// @region[weather-tool-backend]
 export const weatherTool = toolDefinition({
   name: "weather",
   description: "Get current weather for a city",

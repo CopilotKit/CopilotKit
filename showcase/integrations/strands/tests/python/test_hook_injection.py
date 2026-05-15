@@ -137,7 +137,12 @@ def test_existing_entries_preserved_on_wrap(patched_agent):
 
     assert "preexisting-thread" in hook_dict
     assert hook_dict["preexisting-thread"].label == "pre"
-    assert _count_cap_hooks(hook_dict["preexisting-thread"], patched_agent._ToolCallCapHook) == 1
+    assert (
+        _count_cap_hooks(
+            hook_dict["preexisting-thread"], patched_agent._ToolCallCapHook
+        )
+        == 1
+    )
 
 
 def test_no_double_injection_on_reinsert(patched_agent):

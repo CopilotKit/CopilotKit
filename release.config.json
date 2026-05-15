@@ -4,6 +4,7 @@
     "monorepo": {
       "packages": [
         "@copilotkit/a2ui-renderer",
+        "@copilotkit/agentcore-runner",
         "@copilotkit/core",
         "@copilotkit/react-core",
         "@copilotkit/react-native",
@@ -15,6 +16,7 @@
         "@copilotkit/shared",
         "@copilotkit/sqlite-runner",
         "@copilotkit/voice",
+        "@copilotkit/vue",
         "@copilotkit/web-inspector"
       ],
       "versionSource": "@copilotkit/react-core",

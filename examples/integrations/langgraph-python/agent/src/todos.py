@@ -5,6 +5,7 @@ from langgraph.types import Command
 from typing import TypedDict, Literal
 import uuid
 
+
 class Todo(TypedDict):
     id: str
     title: str
@@ -12,8 +13,10 @@ class Todo(TypedDict):
     emoji: str
     status: Literal["pending", "completed"]
 
+
 class AgentState(BaseAgentState):
     todos: list[Todo]
+
 
 @tool
 def manage_todos(todos: list[Todo], runtime: ToolRuntime) -> Command:
@@ -26,15 +29,18 @@ def manage_todos(todos: list[Todo], runtime: ToolRuntime) -> Command:
             todo["id"] = str(uuid.uuid4())
 
     # Update the state
-    return Command(update={
-        "todos": todos,
-        "messages": [
-            ToolMessage(
-                content="Successfully updated todos",
-                tool_call_id=runtime.tool_call_id
-            )
-        ]
-    })
+    return Command(
+        update={
+            "todos": todos,
+            "messages": [
+                ToolMessage(
+                    content="Successfully updated todos",
+                    tool_call_id=runtime.tool_call_id,
+                )
+            ],
+        }
+    )
+
 
 @tool
 def get_todos(runtime: ToolRuntime):
@@ -42,6 +48,7 @@ def get_todos(runtime: ToolRuntime):
     Get the current todos.
     """
     return runtime.state.get("todos", [])
+
 
 todo_tools = [
     manage_todos,

@@ -1,3 +1,5 @@
+// @region[backend-render-operations]
+// @region[backend-schema-json-load]
 using System.ClientModel;
 using System.ComponentModel;
 using System.Text.Json;
@@ -47,10 +49,7 @@ public class A2uiFixedSchemaAgent
 
         _openAiClient = new(
             new ApiKeyCredential(githubToken),
-            new OpenAIClientOptions
-            {
-                Endpoint = new Uri(endpoint),
-            });
+            AimockHeaderPolicy.CreateOpenAIClientOptions(endpoint));
     }
 
     public AIAgent Create()
@@ -69,7 +68,6 @@ string like ""$289"". Keep any chat reply to one short sentence.",
             ]);
     }
 
-    // @region[backend-schema-json-load]
     // The fixed-schema flight component tree. .NET doesn't ship a
     // JSON-loading helper analogous to LangGraph Python's
     // `a2ui.load_schema(...)`, so the schema is declared inline as a
@@ -128,7 +126,6 @@ string like ""$289"". Keep any chat reply to one short sentence.",
     };
     // @endregion[backend-schema-json-load]
 
-    // @region[backend-render-operations]
     [Description("Show a flight card for the given trip. Use short airport codes (e.g. SFO, JFK) for origin/destination and a price string like $289.")]
     private string SearchFlights(
         [Description("Origin airport code (e.g. SFO)")] string origin,

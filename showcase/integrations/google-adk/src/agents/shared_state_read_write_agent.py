@@ -16,10 +16,11 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
+from ag_ui_adk import AGUIToolset
 from google.adk.agents import LlmAgent
 from google.adk.agents.callback_context import CallbackContext
 
-from agents.shared_chat import get_model
+from agents.shared_chat import get_model, stop_on_terminal_text
 from google.adk.models.llm_request import LlmRequest
 from google.adk.models.llm_response import LlmResponse
 from google.adk.tools import ToolContext
@@ -70,9 +71,7 @@ def _build_prefs_block(prefs: dict | None) -> str | None:
         # [SIGNATURE, "Tailor every response..."] block. Mirrors the
         # same guard in agent_config_agent._format_config.
         return None
-    lines.append(
-        "Tailor every response to these preferences. " + PREFS_END_MARKER
-    )
+    lines.append("Tailor every response to these preferences. " + PREFS_END_MARKER)
     return "\n".join(lines)
 
 
@@ -149,6 +148,7 @@ shared_state_read_write_agent = LlmAgent(
     name="SharedStateReadWriteAgent",
     model=get_model(),
     instruction=_INSTRUCTION,
-    tools=[set_notes],
+    tools=[set_notes, AGUIToolset()],
     before_model_callback=_inject_preferences,
+    after_model_callback=stop_on_terminal_text,
 )

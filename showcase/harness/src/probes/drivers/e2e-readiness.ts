@@ -270,7 +270,9 @@ const defaultLauncher: E2eDemosBrowserLauncher = async (
   });
   return {
     async newContext(): Promise<E2eDemosBrowserContext> {
-      const ctx = await browser.newContext();
+      const ctx = await browser.newContext({
+        extraHTTPHeaders: { "X-AIMock-Strict": "true" },
+      });
       return {
         async newPage(): Promise<E2eDemosPage> {
           const page = await ctx.newPage();
@@ -340,7 +342,9 @@ export function createPooledE2eDemosLauncher(
 
     return {
       async newContext(): Promise<E2eDemosBrowserContext> {
-        const ctx = await browser.newContext();
+        const ctx = await browser.newContext({
+          extraHTTPHeaders: { "X-AIMock-Strict": "true" },
+        });
         const ctxHandle = { close: () => ctx.close() };
         openContexts.add(ctxHandle);
         return {

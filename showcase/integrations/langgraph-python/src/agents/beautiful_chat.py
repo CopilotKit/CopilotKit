@@ -38,6 +38,7 @@ from src.agents._a2ui_utils import has_root_component, sanitize_a2ui_components
 
 # ─── Shared state schema ────────────────────────────────────────────
 
+
 class Todo(TypedDict):
     id: str
     title: str
@@ -52,6 +53,7 @@ class AgentState(BaseAgentState):
 
 # ─── Todo tools ─────────────────────────────────────────────────────
 
+
 @tool
 def manage_todos(todos: list[Todo], runtime: ToolRuntime) -> Command:
     """
@@ -63,17 +65,19 @@ def manage_todos(todos: list[Todo], runtime: ToolRuntime) -> Command:
             todo["id"] = str(uuid.uuid4())
 
     # Update the state
-    return Command(update={
-        "todos": todos,
-        "messages": [
-            ToolMessage(
-                content="Successfully updated todos",
-                name="manage_todos",
-                id=str(uuid.uuid4()),
-                tool_call_id=runtime.tool_call_id
-            )
-        ]
-    })
+    return Command(
+        update={
+            "todos": todos,
+            "messages": [
+                ToolMessage(
+                    content="Successfully updated todos",
+                    name="manage_todos",
+                    id=str(uuid.uuid4()),
+                    tool_call_id=runtime.tool_call_id,
+                )
+            ],
+        }
+    )
 
 
 @tool
@@ -148,21 +152,23 @@ def _build_flight_components(flights: list[dict]) -> list[dict]:
     for index, flight in enumerate(flights):
         card_id = f"flight-card-{index}"
         flight_card_ids.append(card_id)
-        components.append({
-            "id": card_id,
-            "component": "FlightCard",
-            "airline": flight.get("airline", ""),
-            "airlineLogo": flight.get("airlineLogo", ""),
-            "flightNumber": flight.get("flightNumber", ""),
-            "origin": flight.get("origin", ""),
-            "destination": flight.get("destination", ""),
-            "date": flight.get("date", ""),
-            "departureTime": flight.get("departureTime", ""),
-            "arrivalTime": flight.get("arrivalTime", ""),
-            "duration": flight.get("duration", ""),
-            "status": flight.get("status", ""),
-            "price": flight.get("price", ""),
-        })
+        components.append(
+            {
+                "id": card_id,
+                "component": "FlightCard",
+                "airline": flight.get("airline", ""),
+                "airlineLogo": flight.get("airlineLogo", ""),
+                "flightNumber": flight.get("flightNumber", ""),
+                "origin": flight.get("origin", ""),
+                "destination": flight.get("destination", ""),
+                "date": flight.get("date", ""),
+                "departureTime": flight.get("departureTime", ""),
+                "arrivalTime": flight.get("arrivalTime", ""),
+                "duration": flight.get("duration", ""),
+                "status": flight.get("status", ""),
+                "price": flight.get("price", ""),
+            }
+        )
     root: dict = {
         "id": "root",
         "component": "Row",
@@ -265,7 +271,8 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     # without a `component` field — both of which break the renderer.
     context_entries = runtime.state.get("copilotkit", {}).get("context", [])
     context_text = "\n\n".join(
-        entry.get("value", "") for entry in context_entries
+        entry.get("value", "")
+        for entry in context_entries
         if isinstance(entry, dict) and entry.get("value")
     )
 
@@ -299,9 +306,9 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     data = args.get("data", {})
 
     if not has_root_component(components):
-        return json.dumps({
-            "error": "LLM produced no valid root component for the A2UI surface."
-        })
+        return json.dumps(
+            {"error": "LLM produced no valid root component for the A2UI surface."}
+        )
 
     ops = [
         a2ui.create_surface(surface_id, catalog_id=catalog_id),

@@ -11,12 +11,11 @@ import type {
   Demo,
   FeatureCategory,
 } from "@/lib/registry";
-import { keyFor, resolveCell } from "@/lib/live-status";
 import type { ConnectionStatus, LiveStatusMap } from "@/lib/live-status";
 import { LevelStrip } from "@/components/level-strip";
 import { OverlayColumnHeader } from "@/components/overlay-column-header";
 import { RefDepthHeader, RefDepthCell } from "@/components/ref-depth-column";
-import { deriveDepth } from "@/components/depth-utils";
+import { buildCellModel } from "@/lib/cell-model";
 import type { CatalogCell } from "@/components/depth-utils";
 import type { Overlay } from "@/lib/overlay-types";
 import type { ParityTier } from "@/components/parity-badge";
@@ -43,14 +42,14 @@ export interface CellContext {
 export type CellRenderer = (ctx: CellContext) => React.ReactNode;
 
 /**
- * Counts green / amber / red signals for a single integration column across
- * all features.
+ * Counts green / amber / red cells for a single integration column across
+ * all features, derived from `buildCellModel().chipColor`.
  *
- * Signal scoping (spec §5.4):
- *   - Feature-level dimensions (`e2e`) are counted per feature.
- *   - Integration-level dimensions (`health`) are counted EXACTLY ONCE
- *     per integration — the health row keyed `health:<slug>` is a single
- *     signal for the whole column, not one signal per feature.
+ * This ensures the header tally matches what the Coverage-tab cells actually
+ * render — both use `buildCellModel` as the single source of truth.
+ *
+ * Gray cells (no data yet, unsupported, or unwired) are excluded from the
+ * count so the tally reflects only cells with actionable signal.
  *
  * When the SSE stream is down (`connection === "error"`) we return all-zero —
  * the column header falls back to an "unknown" rendering so stale counts
@@ -70,39 +69,23 @@ export function computeColumnTally(
   let amber = 0;
   let red = 0;
 
-  const tallyTone = (tone: string): void => {
-    if (tone === "green") green++;
-    else if (tone === "amber") amber++;
-    else if (tone === "red") red++;
-  };
-
-  // Integration-level health — count once, regardless of how many features
-  // the integration declares.
-  const healthRow = liveStatus.get(keyFor("health", integration.slug)) ?? null;
-  if (healthRow) {
-    switch (healthRow.state) {
-      case "green":
-        tallyTone("green");
-        break;
-      case "red":
-        tallyTone("red");
-        break;
-      case "degraded":
-        tallyTone("amber");
-        break;
-    }
-  }
-
-  // Feature-level dimensions: e2e per feature-with-demo.
   for (const feature of features) {
-    const demo = integration.demos.find((d) => d.id === feature.id);
-    if (!demo) continue;
+    const isSupported = !integration.not_supported_features?.includes(
+      feature.id,
+    );
+    const isWired = integration.demos.some((d) => d.id === feature.id);
 
-    const cell = resolveCell(liveStatus, integration.slug, feature.id, {
-      connection,
+    const model = buildCellModel(liveStatus, {
+      slug: integration.slug,
+      featureId: feature.id,
+      isSupported,
+      isWired,
     });
 
-    tallyTone(cell.e2e.tone);
+    if (model.chipColor === "green") green++;
+    else if (model.chipColor === "amber") amber++;
+    else if (model.chipColor === "red") red++;
+    // gray → skip (no data / unsupported / unwired)
   }
 
   return { green, amber, red, unknown: false };
@@ -112,8 +95,8 @@ export function computeColumnTally(
  * Per-bucket feature lists for a single integration column — companion to
  * `computeColumnTally()` that returns `TallyItem[]` arrays instead of counts.
  *
- * Logic mirrors `computeColumnTally()` exactly: same signal scoping (health
- * counted once, e2e per feature-with-demo) and same connection-error guard.
+ * Logic mirrors `computeColumnTally()` exactly: both derive from
+ * `buildCellModel().chipColor`. Gray cells are excluded.
  */
 export function computeColumnTallyDetail(
   integration: Integration,
@@ -129,41 +112,43 @@ export function computeColumnTallyDetail(
   const amber: TallyItem[] = [];
   const red: TallyItem[] = [];
 
-  // Integration-level health — counted once per integration.
-  const healthRow = liveStatus.get(keyFor("health", integration.slug)) ?? null;
-  if (healthRow) {
-    const item: TallyItem = { label: "Health (Up)", dimension: "health" };
-    switch (healthRow.state) {
-      case "green":
-        green.push(item);
-        break;
-      case "red":
-        red.push(item);
-        break;
-      case "degraded":
-        amber.push(item);
-        break;
-    }
-  }
-
-  // Feature-level dimensions: e2e per feature-with-demo.
   for (const feature of features) {
-    const demo = integration.demos.find((d) => d.id === feature.id);
-    if (!demo) continue;
+    const isSupported = !integration.not_supported_features?.includes(
+      feature.id,
+    );
+    const isWired = integration.demos.some((d) => d.id === feature.id);
 
-    const cell = resolveCell(liveStatus, integration.slug, feature.id, {
-      connection,
+    const model = buildCellModel(liveStatus, {
+      slug: integration.slug,
+      featureId: feature.id,
+      isSupported,
+      isWired,
     });
+
+    // Gray → skip (no data / unsupported / unwired)
+    if (model.chipColor === "gray") continue;
+
+    // Derive dimension from model: D4/D5 failures are "health" (live
+    // round-trip/conversation checks); D3 failures are "e2e" (page-load).
+    const dimension: TallyItem["dimension"] =
+      (model.d5?.exists &&
+        model.d5.status !== null &&
+        model.d5.status !== "green") ||
+      (model.d4?.exists &&
+        model.d4.status !== null &&
+        model.d4.status !== "green")
+        ? "health"
+        : "e2e";
 
     const item: TallyItem = {
       label: feature.name,
-      dimension: "e2e",
+      dimension,
       featureId: feature.id,
     };
 
-    if (cell.e2e.tone === "green") green.push(item);
-    else if (cell.e2e.tone === "amber") amber.push(item);
-    else if (cell.e2e.tone === "red") red.push(item);
+    if (model.chipColor === "green") green.push(item);
+    else if (model.chipColor === "amber") amber.push(item);
+    else if (model.chipColor === "red") red.push(item);
   }
 
   return { green, amber, red, unknown: false };
@@ -271,8 +256,14 @@ const CategorySection = React.memo(
             const refCell = showRefDepth
               ? refCellsByFeature.get(feature.id)
               : undefined;
-            const refDepth = refCell
-              ? deriveDepth(refCell, liveStatus)
+            const refModel = refCell
+              ? buildCellModel(liveStatus, {
+                  slug: refCell.integration,
+                  featureId: refCell.feature ?? feature.id,
+                  isSupported: refCell.status !== "unsupported",
+                  isWired:
+                    refCell.status === "wired" || refCell.status === "stub",
+                })
               : undefined;
             return (
               <tr
@@ -306,13 +297,13 @@ const CategorySection = React.memo(
                   </div>
                 </td>
                 {showRefDepth &&
-                  (refCell && refDepth && !docsOnly ? (
+                  (refCell && refModel && !docsOnly ? (
                     <RefDepthCell
-                      depth={refDepth.achieved}
+                      depth={refModel.achievedDepth}
                       status={
-                        refDepth.unsupported ? "unsupported" : refCell.status
+                        !refModel.supported ? "unsupported" : refCell.status
                       }
-                      maxDepth={refDepth.maxPossible}
+                      maxDepth={refModel.ceilingDepth}
                     />
                   ) : (
                     <td
@@ -329,8 +320,7 @@ const CategorySection = React.memo(
                     (d) => d.id === feature.id,
                   );
                   const isNotSupported =
-                    integration.not_supported_features?.includes(feature.id) ??
-                    false;
+                    !!integration.not_supported_features?.includes(feature.id);
                   return (
                     <td
                       key={integration.slug}
@@ -492,9 +482,7 @@ export function FeatureGrid({
 
   const visibleFeatures = useMemo(
     () =>
-      showDeprecated
-        ? features
-        : features.filter((f) => f.deprecated !== true),
+      showDeprecated ? features : features.filter((f) => f.deprecated !== true),
     [features, showDeprecated],
   );
   const deprecatedCount = useMemo(
@@ -545,8 +533,7 @@ export function FeatureGrid({
         </div>
         <p className="mt-1 text-sm text-[var(--text-secondary)]">
           {subtitle ? <>{subtitle} · </> : null}
-          {visibleFeatures.length} features × {integrations.length}{" "}
-          integrations
+          {visibleFeatures.length} features × {integrations.length} integrations
           {!showDeprecated && deprecatedCount > 0
             ? ` (${deprecatedCount} deprecated hidden)`
             : ""}
@@ -586,8 +573,6 @@ export function FeatureGrid({
                       tally={tally}
                       tallyDetail={tallyDetails.get(integration.slug)}
                       overlays={overlays}
-                      liveStatus={liveStatus}
-                      connection={connection}
                       parityTier={parityTierMap.get(integration.slug)}
                       minWidth={minColWidth}
                     />

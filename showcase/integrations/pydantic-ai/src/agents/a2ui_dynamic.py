@@ -87,7 +87,7 @@ def generate_a2ui(ctx: RunContext[StateDeps[EmptyState]]) -> str:
     context_entries: list[dict] = []
     if copilotkit_state:
         if hasattr(copilotkit_state, "messages"):
-            for msg in (copilotkit_state.messages or []):
+            for msg in copilotkit_state.messages or []:
                 role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
                 if role in ("user", "assistant"):
                     content = ""

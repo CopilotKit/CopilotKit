@@ -1,8 +1,9 @@
 /**
  * All polyfills required for CopilotKit to work in React Native.
  *
- * Import this BEFORE any CopilotKit code in your app entry point:
- *   import "@copilotkit/react-native/polyfills";
+ * These are auto-imported when `@copilotkit/react-native` is loaded.
+ * A manual `import "@copilotkit/react-native/polyfills"` is no longer
+ * required but still works for advanced / selective bootstrap scenarios.
  *
  * For granular control, import individual polyfills instead:
  *   import "@copilotkit/react-native/polyfills/streams";

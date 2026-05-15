@@ -175,9 +175,7 @@ async def run_mcp_apps_agent(input_data: RunAgentInput) -> AsyncIterator[str]:
     msg_id = f"msg-{run_id}"
 
     yield encoder.encode(
-        RunStartedEvent(
-            type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id
-        )
+        RunStartedEvent(type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id)
     )
 
     tools = _build_anthropic_tools(input_data.tools)
@@ -239,7 +237,10 @@ async def run_mcp_apps_agent(input_data: RunAgentInput) -> AsyncIterator[str]:
                                 delta=delta.partial_json,
                             )
                         )
-                elif etype in ("RawContentBlockStopEvent", "ParsedContentBlockStopEvent"):
+                elif etype in (
+                    "RawContentBlockStopEvent",
+                    "ParsedContentBlockStopEvent",
+                ):
                     if current_tool_id:
                         yield encoder.encode(
                             ToolCallEndEvent(

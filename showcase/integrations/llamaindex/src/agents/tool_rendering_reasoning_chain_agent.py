@@ -43,9 +43,27 @@ async def search_flights(
             "origin": origin,
             "destination": destination,
             "flights": [
-                {"airline": "United", "flight": "UA231", "depart": "08:15", "arrive": "16:45", "price_usd": 348},
-                {"airline": "Delta", "flight": "DL412", "depart": "11:20", "arrive": "19:55", "price_usd": 312},
-                {"airline": "JetBlue", "flight": "B6722", "depart": "17:05", "arrive": "01:30", "price_usd": 289},
+                {
+                    "airline": "United",
+                    "flight": "UA231",
+                    "depart": "08:15",
+                    "arrive": "16:45",
+                    "price_usd": 348,
+                },
+                {
+                    "airline": "Delta",
+                    "flight": "DL412",
+                    "depart": "11:20",
+                    "arrive": "19:55",
+                    "price_usd": 312,
+                },
+                {
+                    "airline": "JetBlue",
+                    "flight": "B6722",
+                    "depart": "17:05",
+                    "arrive": "01:30",
+                    "price_usd": 289,
+                },
             ],
         }
     )

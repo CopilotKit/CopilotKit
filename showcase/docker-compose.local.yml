@@ -9,7 +9,7 @@ x-integration-defaults: &integration-defaults
     - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-sk-mock-anthropic}
     - ANTHROPIC_BASE_URL=http://aimock:4010
     - GOOGLE_API_KEY=${GOOGLE_API_KEY:-fake-gemini-key}
-    - GOOGLE_GEMINI_BASE_URL=http://aimock:4010
+    - GOOGLE_GEMINI_BASE_URL=${GOOGLE_GEMINI_BASE_URL-http://aimock:4010}
     - SPRING_AI_OPENAI_BASE_URL=http://aimock:4010
     - AIMOCK_URL=http://aimock:4010
     - GitHubToken=${GitHubToken:-gh-mock-local-dev}
@@ -52,8 +52,7 @@ services:
     # these flags aimock returns 404 on no-match, the LangGraph SDK
     # interprets that as `NotFoundError`, and the demo crashes with
     # "Failed to fetch" instead of seeing a real model response.
-    command:
-      [
+    command: [
         "--port",
         "4010",
         "--host",
@@ -61,6 +60,16 @@ services:
         "--proxy-only",
         "--provider-openai",
         "https://api.openai.com",
+        # Natural-feel streaming so demos look like a real LLM rather than
+        # an instant dump. 8 chars/chunk × 60 ms = ~130 chars/sec ≈ 30-40
+        # tokens/sec, the lower end of Gemini 2.5-flash's real streaming
+        # rate. Total wall-clock for a 500-char response is ~4s, well
+        # inside the 30s default test timeout. Tune here if specific
+        # demos feel sluggish; CI doc-tests intentionally don't slow.
+        "--chunk-size",
+        "8",
+        "--latency",
+        "60",
         "--fixtures",
         "/showcase-fixtures/d5-all.json",
         "--fixtures",

@@ -26,7 +26,21 @@ class MockXHR {
 
 let mockXhr: MockXHR;
 
-function simulateHeaders(
+/**
+ * Flush pending setTimeout(fn, 0) callbacks and microtasks.
+ * The streaming-fetch polyfill defers all XHR callbacks via setTimeout(fn, 0)
+ * to ensure they run on the JS thread in React Native. In tests we need to
+ * flush these timers after each simulated XHR event.
+ *
+ * We flush multiple ticks to ensure all chained timers and microtasks settle.
+ */
+async function flushTimers() {
+  for (let i = 0; i < 3; i++) {
+    await new Promise((r) => setTimeout(r, 0));
+  }
+}
+
+async function simulateHeaders(
   xhr: MockXHR,
   status: number,
   headers = "content-type: text/plain\r\n",
@@ -37,24 +51,29 @@ function simulateHeaders(
   xhr.statusText = statusText;
   xhr.getAllResponseHeaders.mockReturnValue(headers);
   xhr.onreadystatechange?.();
+  await flushTimers();
 }
 
-function simulateProgress(xhr: MockXHR, text: string) {
+async function simulateProgress(xhr: MockXHR, text: string) {
   xhr.responseText = text;
   xhr.onprogress?.();
+  await flushTimers();
 }
 
-function simulateLoad(xhr: MockXHR) {
+async function simulateLoad(xhr: MockXHR) {
   xhr.readyState = 4;
   xhr.onload?.();
+  await flushTimers();
 }
 
-function simulateError(xhr: MockXHR) {
+async function simulateError(xhr: MockXHR) {
   xhr.onerror?.();
+  await flushTimers();
 }
 
-function simulateTimeout(xhr: MockXHR) {
+async function simulateTimeout(xhr: MockXHR) {
   xhr.ontimeout?.();
+  await flushTimers();
 }
 
 // ─── Globals save/restore ─────────────────────────────────────────────────────
@@ -69,7 +88,10 @@ beforeEach(() => {
   savedResponse = globalThis.Response;
 
   mockXhr = new MockXHR();
-  (globalThis as any).XMLHttpRequest = vi.fn(() => mockXhr);
+  // Must use a regular function (not arrow) so it can be called with `new`
+  (globalThis as any).XMLHttpRequest = vi.fn(function () {
+    return mockXhr;
+  });
 
   // Make feature detection fail so the polyfill installs
   (globalThis as any).Response = class {
@@ -88,6 +110,8 @@ afterEach(() => {
 async function install() {
   // Reset module cache so installStreamingFetch runs fresh
   vi.resetModules();
+  // Ensure __DEV__ survives module reset (React Native global)
+  (globalThis as any).__DEV__ = true;
   const mod = await import("../streaming-fetch");
   mod.installStreamingFetch();
 }
@@ -208,7 +232,7 @@ describe("installStreamingFetch", () => {
   describe("response resolution", () => {
     it("resolves when headers arrive with non-zero status", async () => {
       const { fetchPromise, xhr } = await fetchAndCapture();
-      simulateHeaders(xhr, 200);
+      await simulateHeaders(xhr, 200);
       const resp = await fetchPromise;
       expect(resp.status).toBe(200);
     });
@@ -217,7 +241,7 @@ describe("installStreamingFetch", () => {
       const { fetchPromise, xhr } = await fetchAndCapture(
         "https://api.test/not-found",
       );
-      simulateHeaders(xhr, 404, "", "Not Found");
+      await simulateHeaders(xhr, 404, "", "Not Found");
       const resp = await fetchPromise;
       expect(resp.ok).toBe(false);
       expect(resp.status).toBe(404);
@@ -227,7 +251,7 @@ describe("installStreamingFetch", () => {
 
     it("parses response headers into a Headers object", async () => {
       const { fetchPromise, xhr } = await fetchAndCapture();
-      simulateHeaders(
+      await simulateHeaders(
         xhr,
         200,
         "content-type: application/json\r\nx-request-id: abc123\r\n",
@@ -239,7 +263,7 @@ describe("installStreamingFetch", () => {
 
     it("provides a ReadableStream body on the response", async () => {
       const { fetchPromise, xhr } = await fetchAndCapture();
-      simulateHeaders(xhr, 200);
+      await simulateHeaders(xhr, 200);
       const resp = await fetchPromise;
       expect(resp.body).toBeInstanceOf(ReadableStream);
     });
@@ -250,27 +274,27 @@ describe("installStreamingFetch", () => {
   describe("streaming chunks", () => {
     it("delivers chunks incrementally as XHR fires onprogress", async () => {
       const { fetchPromise, xhr } = await fetchAndCapture();
-      simulateHeaders(xhr, 200);
+      await simulateHeaders(xhr, 200);
       const resp = await fetchPromise;
       const reader = resp.body!.getReader();
 
-      simulateProgress(xhr, "chunk1");
+      await simulateProgress(xhr, "chunk1");
       const { value: c1 } = await reader.read();
       expect(new TextDecoder().decode(c1)).toBe("chunk1");
 
-      simulateProgress(xhr, "chunk1chunk2");
+      await simulateProgress(xhr, "chunk1chunk2");
       const { value: c2 } = await reader.read();
       expect(new TextDecoder().decode(c2)).toBe("chunk2");
     });
 
     it("closes stream on onload after delivering final chunks", async () => {
       const { fetchPromise, xhr } = await fetchAndCapture();
-      simulateHeaders(xhr, 200);
+      await simulateHeaders(xhr, 200);
       const resp = await fetchPromise;
       const reader = resp.body!.getReader();
 
       xhr.responseText = "all data";
-      simulateLoad(xhr);
+      await simulateLoad(xhr);
 
       const { value, done } = await reader.read();
       expect(new TextDecoder().decode(value)).toBe("all data");
@@ -280,11 +304,11 @@ describe("installStreamingFetch", () => {
 
     it("encodes chunks as Uint8Array", async () => {
       const { fetchPromise, xhr } = await fetchAndCapture();
-      simulateHeaders(xhr, 200);
+      await simulateHeaders(xhr, 200);
       const resp = await fetchPromise;
       const reader = resp.body!.getReader();
 
-      simulateProgress(xhr, "hello");
+      await simulateProgress(xhr, "hello");
       const { value } = await reader.read();
       // Cross-realm safe check (jsdom TextEncoder may produce a different Uint8Array)
       expect(ArrayBuffer.isView(value)).toBe(true);
@@ -297,22 +321,22 @@ describe("installStreamingFetch", () => {
   describe("convenience methods", () => {
     it("text() returns full response text after XHR completes", async () => {
       const { fetchPromise, xhr } = await fetchAndCapture();
-      simulateHeaders(xhr, 200);
+      await simulateHeaders(xhr, 200);
       const resp = await fetchPromise;
 
       xhr.responseText = "hello world";
-      simulateLoad(xhr);
+      await simulateLoad(xhr);
 
       expect(await resp.text()).toBe("hello world");
     });
 
     it("json() parses full response text as JSON", async () => {
       const { fetchPromise, xhr } = await fetchAndCapture();
-      simulateHeaders(xhr, 200);
+      await simulateHeaders(xhr, 200);
       const resp = await fetchPromise;
 
       xhr.responseText = '{"key":"value"}';
-      simulateLoad(xhr);
+      await simulateLoad(xhr);
 
       expect(await resp.json()).toEqual({ key: "value" });
     });
@@ -322,11 +346,11 @@ describe("installStreamingFetch", () => {
         "https://api.test/bad",
         { method: "POST" },
       );
-      simulateHeaders(xhr, 200);
+      await simulateHeaders(xhr, 200);
       const resp = await fetchPromise;
 
       xhr.responseText = "not json";
-      simulateLoad(xhr);
+      await simulateLoad(xhr);
 
       await expect(resp.json()).rejects.toThrow(TypeError);
       await expect(resp.json()).rejects.toThrow(/api\.test\/bad/);
@@ -334,26 +358,26 @@ describe("installStreamingFetch", () => {
 
     it("clone() always throws", async () => {
       const { fetchPromise, xhr } = await fetchAndCapture();
-      simulateHeaders(xhr, 200);
+      await simulateHeaders(xhr, 200);
       const resp = await fetchPromise;
       expect(() => resp.clone()).toThrow(/not supported/);
     });
 
     it("formData() always throws", async () => {
       const { fetchPromise, xhr } = await fetchAndCapture();
-      simulateHeaders(xhr, 200);
+      await simulateHeaders(xhr, 200);
       const resp = await fetchPromise;
       await expect(resp.formData()).rejects.toThrow(/not supported/);
     });
 
     it("marks bodyUsed after calling text()", async () => {
       const { fetchPromise, xhr } = await fetchAndCapture();
-      simulateHeaders(xhr, 200);
+      await simulateHeaders(xhr, 200);
       const resp = await fetchPromise;
       expect(resp.bodyUsed).toBe(false);
 
       xhr.responseText = "data";
-      simulateLoad(xhr);
+      await simulateLoad(xhr);
       await resp.text();
 
       expect(resp.bodyUsed).toBe(true);
@@ -391,7 +415,7 @@ describe("installStreamingFetch", () => {
         signal: controller.signal,
       });
 
-      simulateHeaders(xhr, 200);
+      await simulateHeaders(xhr, 200);
       const resp = await fetchPromise;
       const reader = resp.body!.getReader();
 
@@ -403,7 +427,7 @@ describe("installStreamingFetch", () => {
 
     it("cancelling the ReadableStream aborts the XHR", async () => {
       const { fetchPromise, xhr } = await fetchAndCapture();
-      simulateHeaders(xhr, 200);
+      await simulateHeaders(xhr, 200);
       const resp = await fetchPromise;
       const reader = resp.body!.getReader();
 
@@ -419,11 +443,11 @@ describe("installStreamingFetch", () => {
       const { fetchPromise, xhr } = await fetchAndCapture("https://api.test", {
         signal: controller.signal,
       });
-      simulateHeaders(xhr, 200);
+      await simulateHeaders(xhr, 200);
       await fetchPromise;
 
       xhr.responseText = "done";
-      simulateLoad(xhr);
+      await simulateLoad(xhr);
 
       expect(removeSpy).toHaveBeenCalledWith("abort", expect.any(Function));
     });
@@ -434,43 +458,59 @@ describe("installStreamingFetch", () => {
   describe("error handling", () => {
     it("rejects with TypeError on XHR onerror", async () => {
       const { fetchPromise, xhr } = await fetchAndCapture();
-      simulateError(xhr);
-      await expect(fetchPromise).rejects.toThrow("Network request failed");
+      // Attach rejection handler BEFORE triggering error to avoid
+      // Node's unhandled rejection warning (setTimeout defers the rejection)
+      const rejection = expect(fetchPromise).rejects.toThrow(
+        "Network request failed",
+      );
+      await simulateError(xhr);
+      await rejection;
     });
 
     it("rejects with TypeError on XHR ontimeout", async () => {
       const { fetchPromise, xhr } = await fetchAndCapture();
-      simulateTimeout(xhr);
-      await expect(fetchPromise).rejects.toThrow("Network request timed out");
+      const rejection = expect(fetchPromise).rejects.toThrow(
+        "Network request timed out",
+      );
+      await simulateTimeout(xhr);
+      await rejection;
     });
 
     it("rejects with descriptive error on readyState=4 with status=0 (CORS/DNS)", async () => {
       const { fetchPromise, xhr } = await fetchAndCapture();
+      const rejection = expect(fetchPromise).rejects.toThrow(/CORS failure/);
       xhr.readyState = 4;
       xhr.status = 0;
       xhr.onreadystatechange?.();
-      await expect(fetchPromise).rejects.toThrow(/CORS failure/);
+      await flushTimers();
+      await rejection;
     });
 
     it("errors stream and rejects text() when onerror fires after headers", async () => {
       const { fetchPromise, xhr } = await fetchAndCapture();
-      simulateHeaders(xhr, 200);
+      await simulateHeaders(xhr, 200);
       const resp = await fetchPromise;
 
-      simulateError(xhr);
-
-      await expect(resp.text()).rejects.toThrow("Network request failed");
+      // text() rejection handler must be attached before triggering error
+      const textRejection = expect(resp.text()).rejects.toThrow(
+        "Network request failed",
+      );
+      await simulateError(xhr);
+      await textRejection;
     });
 
     it("does not double-reject (settled guard)", async () => {
       const { fetchPromise, xhr } = await fetchAndCapture();
 
-      // First error settles the promise
-      simulateError(xhr);
-      await expect(fetchPromise).rejects.toThrow("Network request failed");
+      // Attach rejection handler before triggering error
+      const rejection = expect(fetchPromise).rejects.toThrow(
+        "Network request failed",
+      );
+      await simulateError(xhr);
+      await rejection;
 
       // Second error should not throw unhandled rejection
-      expect(() => simulateTimeout(xhr)).not.toThrow();
+      await simulateTimeout(xhr);
     });
   });
 

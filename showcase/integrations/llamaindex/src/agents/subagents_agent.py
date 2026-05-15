@@ -24,6 +24,8 @@ Implementation notes:
   tools; the router's state snapshot picks up the change automatically.
 """
 
+# @region[supervisor-delegation-tools]
+# @region[subagent-setup]
 import logging
 import os
 import uuid
@@ -43,7 +45,6 @@ logger = logging.getLogger(__name__)
 # the supervisor only sees the final text the sub-agent returns.
 # ---------------------------------------------------------------------------
 
-# @region[subagent-setup]
 _openai_kwargs = {}
 if os.environ.get("OPENAI_BASE_URL"):
     _openai_kwargs["api_base"] = os.environ["OPENAI_BASE_URL"]
@@ -113,9 +114,7 @@ async def _invoke_sub_agent(agent: FunctionAgent, task: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-async def _append_running_delegation(
-    ctx: Context, *, sub_agent: str, task: str
-) -> str:
+async def _append_running_delegation(ctx: Context, *, sub_agent: str, task: str) -> str:
     """Append a `running` delegation entry; return its id."""
     state: dict[str, Any] = await ctx.store.get("state", default={})
     delegations = list(state.get("delegations") or [])
@@ -186,7 +185,7 @@ async def _delegate(
 # Supervisor tools — each delegates to one sub-agent.
 # ---------------------------------------------------------------------------
 
-# @region[supervisor-delegation-tools]
+
 async def research_agent(
     ctx: Context,
     task: Annotated[
@@ -244,6 +243,8 @@ async def critique_agent(
         task=task,
     )
     return _stringify_outcome(outcome)
+
+
 # @endregion[supervisor-delegation-tools]
 
 
@@ -284,5 +285,3 @@ subagents_router = get_ag_ui_workflow_router(
     system_prompt=SUPERVISOR_SYSTEM_PROMPT,
     initial_state={"delegations": []},
 )
-
-

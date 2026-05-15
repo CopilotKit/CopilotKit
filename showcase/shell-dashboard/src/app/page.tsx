@@ -11,15 +11,15 @@ import { useProbes, useTriggerProbe } from "@/hooks/use-probes";
 import { mergeRowsToMap } from "@/lib/live-status";
 import { useOverlays } from "@/hooks/useOverlays";
 import { OverlayToggleBar } from "@/components/overlay-toggle-bar";
-import { ComposedCell } from "@/components/composed-cell";
+import { UnifiedCell } from "@/components/unified-cell";
+import { buildCellModel } from "@/lib/cell-model";
 import { AdaptiveStatsBar } from "@/components/adaptive-stats-bar";
 import { AdaptiveLegend } from "@/components/adaptive-legend";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BaselineTab } from "@/components/baseline-tab";
+import { DiscoveryAuthBanner } from "@/components/discovery-auth-banner";
 import type { ParityTier } from "@/components/parity-badge";
 import { getDocsStatus } from "@/lib/docs-status";
-import { deriveDepth } from "@/components/depth-utils";
-import type { CatalogCell } from "@/components/depth-utils";
 import type { DepthDistribution } from "@/components/adaptive-stats-bar";
 import catalog from "@/data/catalog.json";
 import type { CatalogData } from "@/data/catalog-types";
@@ -72,37 +72,34 @@ export default function Page() {
     selectProbe,
   } = useOverlays();
 
-  // Build a cell-lookup map: integration slug + feature id -> CatalogCell
-  const cellLookup = useMemo(() => {
-    const map = new Map<string, CatalogCell>();
-    for (const cell of catalogData.cells) {
-      if (cell.feature !== null) {
-        map.set(`${cell.integration}:${cell.feature}`, cell);
-      }
-    }
-    return map;
-  }, []);
-
-  // Compute health stats using the SAME color logic as the depth chips.
-  // A cell's chip color depends on achieved vs maxPossible (from deriveDepth),
-  // so the stats bar matches what's visually displayed in the table.
+  // Compute health stats using buildCellModel — single source of truth for
+  // chip color, so the stats bar matches what's visually displayed in the table.
   const healthStats = useMemo(() => {
     let green = 0;
     let amber = 0;
     let red = 0;
     for (const cell of catalogData.cells) {
       if (cell.status !== "wired" || cell.feature === null) continue;
-      const result = deriveDepth(cell as CatalogCell, liveStatus);
-      if (result.unsupported) continue;
-      const { achieved, maxPossible } = result;
-      if (achieved === 0) {
-        green++; // D0 = no probe data yet, not a failure
-      } else if (achieved >= maxPossible) {
-        green++; // At ceiling — same as green chip
-      } else if (maxPossible - achieved <= 2) {
-        amber++; // 1-2 below max — same as amber chip
-      } else {
-        red++; // 3+ below max — same as red chip
+      // "wired" status implies supported — no need to check unsupported here
+      const model = buildCellModel(liveStatus, {
+        slug: cell.integration,
+        featureId: cell.feature,
+        isSupported: true,
+        isWired: true,
+      });
+      switch (model.chipColor) {
+        case "green":
+          green++;
+          break;
+        case "amber":
+          amber++;
+          break;
+        case "red":
+          red++;
+          break;
+        case "gray":
+          green++;
+          break; // no data yet, not a failure
       }
     }
     return { green, amber, red };
@@ -161,25 +158,37 @@ export default function Page() {
     };
     for (const cell of catalogData.cells) {
       if (cell.status !== "wired" || cell.feature === null) continue;
-      const result = deriveDepth(cell, liveStatus);
-      if (result.unsupported) continue;
-      const key = `d${result.achieved}` as keyof DepthDistribution;
+      // "wired" status implies supported — no need to check unsupported here
+      const model = buildCellModel(liveStatus, {
+        slug: cell.integration,
+        featureId: cell.feature,
+        isSupported: true,
+        isWired: true,
+      });
+      const key = `d${model.achievedDepth}` as keyof DepthDistribution;
       dist[key]++;
     }
     return dist;
   }, [liveStatus]);
 
-  // renderCell callback wrapping ComposedCell
+  // renderCell callback wrapping UnifiedCell + buildCellModel.
+  // buildCellModel is the single source of truth for cell state — it handles
+  // not-supported features, ceiling detection, and chip color derivation.
   const renderCell = useCallback(
     (ctx: CellContext) => {
-      const catalogCell = cellLookup.get(
-        `${ctx.integration.slug}:${ctx.feature.id}`,
+      const isSupported = !(
+        ctx.integration.not_supported_features?.includes(ctx.feature.id) ??
+        false
       );
-      return (
-        <ComposedCell ctx={ctx} overlays={overlays} catalogCell={catalogCell} />
-      );
+      const model = buildCellModel(ctx.liveStatus, {
+        slug: ctx.integration.slug,
+        featureId: ctx.feature.id,
+        isSupported,
+        isWired: true, // renderCell only called when demo exists
+      });
+      return <UnifiedCell ctx={ctx} model={model} overlays={overlays} />;
     },
-    [overlays, cellLookup],
+    [overlays],
   );
 
   return (
@@ -226,6 +235,8 @@ export default function Page() {
           <ThemeToggle />
         </div>
       </div>
+
+      <DiscoveryAuthBanner rows={allStatus.rows} />
 
       {activeTab === "matrix" && (
         <>

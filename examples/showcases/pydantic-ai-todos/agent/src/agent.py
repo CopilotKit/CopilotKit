@@ -20,7 +20,7 @@ load_dotenv()
 # - deps_type: The type of dependencies/state passed to tools (StateDeps wraps TodoState for AG-UI)
 # - tools: Functions the agent can call to interact with the todo list
 agent = Agent(
-  model=OpenAIResponsesModel('gpt-4.1-mini'),
-  deps_type=StateDeps[TodoState],
-  tools=tools,
+    model=OpenAIResponsesModel("gpt-4.1-mini"),
+    deps_type=StateDeps[TodoState],
+    tools=tools,
 )

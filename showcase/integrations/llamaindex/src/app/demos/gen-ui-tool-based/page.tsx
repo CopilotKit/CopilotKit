@@ -1,5 +1,6 @@
 "use client";
 
+// @region[bar-chart-renderer]
 import React from "react";
 import { CopilotKit } from "@copilotkit/react-core";
 import {
@@ -60,7 +61,6 @@ function HaikuCard({ haiku }: { haiku: Partial<Haiku> }) {
 }
 
 function Chat() {
-  // @region[bar-chart-renderer]
   useComponent({
     name: "render_bar_chart",
     description: "Display a bar chart with labeled numeric values.",

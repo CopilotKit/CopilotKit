@@ -21,6 +21,8 @@ This is the FastAPI variant — the graph is exported and registered in
 reference; only the server framework differs.
 """
 
+# @region[supervisor-delegation-tools]
+# @region[subagent-setup]
 import uuid
 from operator import add
 from typing import Annotated, Literal, TypedDict
@@ -64,7 +66,6 @@ class AgentState(BaseAgentState):
 # Sub-agents (real LLM agents under the hood)
 # ---------------------------------------------------------------------------
 
-# @region[subagent-setup]
 # Each sub-agent is a full-fledged `create_agent(...)` with its own
 # system prompt. They don't share memory or tools with the supervisor —
 # the supervisor only sees their return value.
@@ -183,7 +184,6 @@ def _delegate(
 # ---------------------------------------------------------------------------
 
 
-# @region[supervisor-delegation-tools]
 # Each @tool wraps a sub-agent invocation. The supervisor LLM "calls"
 # these tools to delegate work; each call synchronously runs the
 # matching sub-agent, records the delegation into shared state, and
@@ -196,9 +196,7 @@ def research_agent(task: str, runtime: ToolRuntime) -> Command:
     Use for: gathering facts, background, definitions, statistics.
     Returns a bulleted list of key facts.
     """
-    return _delegate(
-        "research_agent", _research_agent, task, runtime.tool_call_id
-    )
+    return _delegate("research_agent", _research_agent, task, runtime.tool_call_id)
 
 
 @tool
@@ -208,9 +206,7 @@ def writing_agent(task: str, runtime: ToolRuntime) -> Command:
     Use for: producing a polished paragraph, draft, or summary. Pass
     relevant facts from prior research inside `task`.
     """
-    return _delegate(
-        "writing_agent", _writing_agent, task, runtime.tool_call_id
-    )
+    return _delegate("writing_agent", _writing_agent, task, runtime.tool_call_id)
 
 
 @tool
@@ -219,9 +215,9 @@ def critique_agent(task: str, runtime: ToolRuntime) -> Command:
 
     Use for: reviewing a draft and suggesting concrete improvements.
     """
-    return _delegate(
-        "critique_agent", _critique_agent, task, runtime.tool_call_id
-    )
+    return _delegate("critique_agent", _critique_agent, task, runtime.tool_call_id)
+
+
 # @endregion[supervisor-delegation-tools]
 
 

@@ -5,8 +5,7 @@
  */
 
 import { useState } from "react";
-
-type Overlay = "links" | "depth" | "health" | "parity" | "docs";
+import type { Overlay } from "@/lib/overlay-types";
 
 export interface AdaptiveLegendProps {
   overlays: Set<Overlay>;

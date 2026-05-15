@@ -45,7 +45,9 @@ try:
         _logger.warning("CSV at %s is empty, falling back to mock data", _csv_path)
         _cached_data = _MOCK_DATA
 except (FileNotFoundError, OSError) as exc:
-    _logger.warning("Could not load CSV at %s (%s), falling back to mock data", _csv_path, exc)
+    _logger.warning(
+        "Could not load CSV at %s (%s), falling back to mock data", _csv_path, exc
+    )
     _cached_data = _MOCK_DATA
 
 

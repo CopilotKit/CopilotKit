@@ -1,5 +1,6 @@
 "use client";
 
+// @region[use-rendered-messages-hook]
 import React, { useMemo } from "react";
 import type {
   Message,
@@ -16,7 +17,6 @@ import {
   useRenderCustomMessages,
 } from "@copilotkit/react-core/v2";
 
-// @region[use-rendered-messages-hook]
 export type RenderedMessage = Message & { renderedContent: React.ReactNode };
 
 export function useRenderedMessages(

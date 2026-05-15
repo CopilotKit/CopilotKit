@@ -1,5 +1,8 @@
 "use client";
 /**
+ * @deprecated Use UnifiedCell from @/components/unified-cell instead.
+ * Retained for backwards compatibility during transition.
+ *
  * ComposedCell — overlay-aware cell renderer.
  *
  * Composes different content layers (Links, Depth, Health, Docs) based on
@@ -17,8 +20,8 @@ import { deriveDepth } from "@/components/depth-utils";
 import type { CatalogCell } from "@/components/depth-utils";
 import { keyFor } from "@/lib/live-status";
 
-/** Overlay types — defined locally; canonical types live in a sibling module. */
-export type Overlay = "links" | "depth" | "health" | "parity" | "docs";
+import type { Overlay } from "@/lib/overlay-types";
+export type { Overlay };
 
 export interface ComposedCellProps {
   ctx: CellContext;

@@ -6,7 +6,8 @@
  * individual visual overlays; presets apply curated combinations.
  */
 
-export type Overlay = "links" | "depth" | "health" | "parity" | "docs";
+import type { Overlay } from "@/lib/overlay-types";
+export type { Overlay };
 
 export interface OverlayPreset {
   id: string;

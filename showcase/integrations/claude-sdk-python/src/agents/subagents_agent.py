@@ -19,6 +19,8 @@ Every delegation appends an entry to ``state["delegations"]`` with shape
 sub-agent returns, so the UI's delegation log animates in real time.
 """
 
+# @region[subagent-setup]
+# @region[supervisor-delegation-tools]
 from __future__ import annotations
 
 import json
@@ -54,7 +56,6 @@ logger = logging.getLogger(__name__)
 DEFAULT_ANTHROPIC_MODEL = "claude-3-5-sonnet-20241022"
 
 
-# @region[subagent-setup]
 # Each sub-agent is defined by its own system prompt; `_invoke_sub_agent`
 # (below) issues a single-shot Anthropic call as that sub-agent. They
 # don't share memory or tools with the supervisor — the supervisor only
@@ -94,7 +95,6 @@ SUPERVISOR_SYSTEM_PROMPT = (
 )
 
 
-# @region[supervisor-delegation-tools]
 # The supervisor delegates by calling tools. Each entry in
 # `SUPERVISOR_TOOLS` is an Anthropic tool schema that the supervisor LLM
 # "calls" to delegate work; the run loop in `run_subagents_agent` (see
@@ -169,13 +169,15 @@ async def _invoke_sub_agent(
     if not text:
         raise RuntimeError("sub-agent returned empty response")
     return text
+
+
 # @endregion[subagents-invocation]
 # @endregion[subagent-setup]
 
 
 def _convert_messages(input_data: RunAgentInput) -> list[dict[str, Any]]:
     messages: list[dict[str, Any]] = []
-    for msg in (input_data.messages or []):
+    for msg in input_data.messages or []:
         role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
         if role not in ("user", "assistant"):
             continue
@@ -214,9 +216,7 @@ async def run_subagents_agent(
     client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
 
     state: dict[str, Any] = {
-        "delegations": list(
-            (input_data.state or {}).get("delegations") or []
-        )
+        "delegations": list((input_data.state or {}).get("delegations") or [])
         if isinstance(input_data.state, dict)
         else []
     }
@@ -226,9 +226,7 @@ async def run_subagents_agent(
     run_id = input_data.run_id or "run-1"
 
     yield encoder.encode(
-        RunStartedEvent(
-            type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id
-        )
+        RunStartedEvent(type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id)
     )
     yield encoder.encode(
         StateSnapshotEvent(type=EventType.STATE_SNAPSHOT, snapshot=state)
@@ -297,7 +295,10 @@ async def run_subagents_agent(
                             )
                         )
 
-                elif etype in ("RawContentBlockStopEvent", "ParsedContentBlockStopEvent"):
+                elif etype in (
+                    "RawContentBlockStopEvent",
+                    "ParsedContentBlockStopEvent",
+                ):
                     if current_tool_id and current_tool_name:
                         yield encoder.encode(
                             ToolCallEndEvent(

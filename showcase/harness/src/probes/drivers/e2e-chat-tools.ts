@@ -238,7 +238,9 @@ const defaultLauncher: E2eBrowserLauncher = async (): Promise<E2eBrowser> => {
   // so tests can swap in fakes without importing playwright's types.
   return {
     async newContext(): Promise<E2eBrowserContext> {
-      const ctx = await browser.newContext();
+      const ctx = await browser.newContext({
+        extraHTTPHeaders: { "X-AIMock-Strict": "true" },
+      });
       return {
         async newPage(): Promise<E2ePage> {
           const page = await ctx.newPage();
@@ -266,7 +268,9 @@ export function createPooledE2eSmokeLauncher(
     const browser = await pool.acquire();
     return {
       async newContext(): Promise<E2eBrowserContext> {
-        const ctx = await browser.newContext();
+        const ctx = await browser.newContext({
+          extraHTTPHeaders: { "X-AIMock-Strict": "true" },
+        });
         return {
           async newPage(): Promise<E2ePage> {
             const page = await ctx.newPage();

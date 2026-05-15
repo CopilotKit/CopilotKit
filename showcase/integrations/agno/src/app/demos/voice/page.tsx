@@ -1,5 +1,6 @@
 "use client";
 
+// @region[voice-page]
 import { useCallback } from "react";
 import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 import { SampleAudioButton } from "./sample-audio-button";
@@ -15,7 +16,6 @@ const SAMPLE_TEXT = "What is the weather in Tokyo?";
 // is transcribed into the composer. The <SampleAudioButton /> below the
 // chat synchronously injects a canned phrase so screenshot & playwright runs
 // work without mic permissions; the runtime is not involved on that path.
-// @region[voice-page]
 export default function VoiceDemoPage() {
   const handleTranscribed = useCallback((text: string) => {
     if (typeof document === "undefined") return;

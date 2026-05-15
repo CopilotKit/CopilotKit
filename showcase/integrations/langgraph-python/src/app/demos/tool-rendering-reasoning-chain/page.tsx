@@ -123,14 +123,16 @@ function Chat() {
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Weather + flights to Tokyo",
-        message: "What's the weather in Tokyo?",
+        title: "Compare two stocks",
+        message: "Compare AAPL and MSFT stocks for me.",
       },
-      { title: "Compare two stocks", message: "How is AAPL doing?" },
-      { title: "Chain of dice rolls", message: "Roll a 20-sided die for me." },
+      {
+        title: "Chain of dice rolls",
+        message: "Roll a 20-sided die for me and compare it to a smaller one.",
+      },
       {
         title: "Flights + destination weather",
-        message: "Find flights from SFO to JFK.",
+        message: "Find flights from SFO to JFK and show me the weather there.",
       },
     ],
     available: "always",

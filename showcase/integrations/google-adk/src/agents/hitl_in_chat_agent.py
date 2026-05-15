@@ -16,7 +16,7 @@ from __future__ import annotations
 from google.adk.agents import LlmAgent
 from ag_ui_adk import AGUIToolset
 
-from agents.shared_chat import get_model
+from agents.shared_chat import get_model, stop_on_terminal_text
 
 
 _INSTRUCTION = (
@@ -33,4 +33,5 @@ hitl_in_chat_agent = LlmAgent(
     model=get_model(),
     instruction=_INSTRUCTION,
     tools=[AGUIToolset()],
+    after_model_callback=stop_on_terminal_text,
 )

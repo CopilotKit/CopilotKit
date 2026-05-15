@@ -8,12 +8,12 @@
 #
 # Mirrors the convention from `tool-rendering/render-flight-tool.snippet.tsx`.
 
+# @region[state-streaming-middleware]
 from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 from copilotkit import CopilotKitMiddleware
 from copilotkit.middleware import StateStreamingMiddleware, StateItem
 
-# @region[state-streaming-middleware]
 graph = create_agent(
     model=ChatOpenAI(model="gpt-4o-mini"),
     tools=[write_document],

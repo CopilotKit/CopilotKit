@@ -30,10 +30,12 @@ from google.adk.memory.in_memory_memory_service import InMemoryMemoryService
 from google.adk.artifacts import InMemoryArtifactService
 from google.genai import types
 
+
 class InsightItem(BaseModel):
     title: str = Field(description="Title of the insight")
     description: str = Field(description="Detailed description of the insight")
     importance: str = Field(description="Why this insight matters")
+
 
 class StructuredAnalysis(BaseModel):
     topic: str = Field(description="The topic being analyzed")
@@ -41,10 +43,11 @@ class StructuredAnalysis(BaseModel):
     insights: List[InsightItem] = Field(description="List of key insights")
     conclusion: str = Field(description="Concluding thoughts")
 
+
 class AnalysisAgent:
     def __init__(self):
         self._agent = self._build_agent()
-        self._user_id = 'remote_agent'
+        self._user_id = "remote_agent"
         self._runner = Runner(
             app_name=self._agent.name,
             agent=self._agent,
@@ -54,11 +57,11 @@ class AnalysisAgent:
         )
 
     def _build_agent(self) -> LlmAgent:
-        model_name = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
+        model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
         return LlmAgent(
             model=model_name,
-            name='analysis_agent',
-            description='An agent that analyzes research findings and provides insights',
+            name="analysis_agent",
+            description="An agent that analyzes research findings and provides insights",
             instruction="""
 You are an analysis agent. Your role is to analyze research findings and provide meaningful insights.
 
@@ -103,9 +106,7 @@ Return ONLY valid JSON, no markdown code blocks, no other text.
             session_id=session_id,
         )
 
-        content = types.Content(
-            role='user', parts=[types.Part.from_text(text=query)]
-        )
+        content = types.Content(role="user", parts=[types.Part.from_text(text=query)])
 
         if session is None:
             session = await self._runner.session_service.create_session(
@@ -115,11 +116,9 @@ Return ONLY valid JSON, no markdown code blocks, no other text.
                 session_id=session_id,
             )
 
-        response_text = ''
+        response_text = ""
         async for event in self._runner.run_async(
-            user_id=self._user_id,
-            session_id=session.id,
-            new_message=content
+            user_id=self._user_id, session_id=session.id, new_message=content
         ):
             if event.is_final_response():
                 if (
@@ -127,7 +126,7 @@ Return ONLY valid JSON, no markdown code blocks, no other text.
                     and event.content.parts
                     and event.content.parts[0].text
                 ):
-                    response_text = '\n'.join(
+                    response_text = "\n".join(
                         [p.text for p in event.content.parts if p.text]
                     )
                 break
@@ -148,19 +147,19 @@ Return ONLY valid JSON, no markdown code blocks, no other text.
         except json.JSONDecodeError as e:
             print(f"❌ JSON parsing error: {e}")
             print(f"Content: {content_str}")
-            return json.dumps({
-                "error": "Failed to generate structured analysis",
-                "raw_content": content_str[:200]
-            })
+            return json.dumps(
+                {
+                    "error": "Failed to generate structured analysis",
+                    "raw_content": content_str[:200],
+                }
+            )
         except Exception as e:
             print(f"❌ Validation error: {e}")
-            return json.dumps({
-                "error": f"Validation failed: {str(e)}"
-            })
+            return json.dumps({"error": f"Validation failed: {str(e)}"})
+
 
 # A2A Protocol executor wraps the ADK agent
 class AnalysisAgentExecutor(AgentExecutor):
-
     def __init__(self):
         self.agent = AnalysisAgent()
 
@@ -170,40 +169,40 @@ class AnalysisAgentExecutor(AgentExecutor):
         event_queue: EventQueue,
     ) -> None:
         query = context.get_user_input()
-        session_id = getattr(context, 'context_id', 'default_session')
+        session_id = getattr(context, "context_id", "default_session")
         final_content = await self.agent.invoke(query, session_id)
         await event_queue.enqueue_event(new_agent_text_message(final_content))
 
-    async def cancel(
-        self, context: RequestContext, event_queue: EventQueue
-    ) -> None:
-        raise Exception('cancel not supported')
+    async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
+        raise Exception("cancel not supported")
+
 
 port = int(os.getenv("ANALYSIS_PORT", 9002))
 
 skill = AgentSkill(
-    id='analysis_agent',
-    name='Analysis Agent',
-    description='Analyzes research findings and provides meaningful insights using ADK',
-    tags=['research', 'analysis', 'insights', 'adk'],
+    id="analysis_agent",
+    name="Analysis Agent",
+    description="Analyzes research findings and provides meaningful insights using ADK",
+    tags=["research", "analysis", "insights", "adk"],
     examples=[
-        'Analyze this research about quantum computing',
-        'What are the key insights from this data?',
-        'Provide analysis of these research findings'
+        "Analyze this research about quantum computing",
+        "What are the key insights from this data?",
+        "Provide analysis of these research findings",
     ],
 )
 
 public_agent_card = AgentCard(
-    name='Analysis Agent',
-    description='ADK-powered agent that analyzes research findings and provides meaningful insights',
-    url=f'http://localhost:{port}/',
-    version='1.0.0',
-    defaultInputModes=['text'],
-    defaultOutputModes=['text'],
+    name="Analysis Agent",
+    description="ADK-powered agent that analyzes research findings and provides meaningful insights",
+    url=f"http://localhost:{port}/",
+    version="1.0.0",
+    defaultInputModes=["text"],
+    defaultOutputModes=["text"],
     capabilities=AgentCapabilities(streaming=True),
     skills=[skill],
     supportsAuthenticatedExtendedCard=False,
 )
+
 
 def main():
     if not os.getenv("GOOGLE_API_KEY") and not os.getenv("GEMINI_API_KEY"):
@@ -226,8 +225,8 @@ def main():
     print(f"💡 Starting Analysis Agent (ADK + A2A) on http://localhost:{port}")
     print(f"   Agent: {public_agent_card.name}")
     print(f"   Description: {public_agent_card.description}")
-    uvicorn.run(server.build(), host='0.0.0.0', port=port)
+    uvicorn.run(server.build(), host="0.0.0.0", port=port)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

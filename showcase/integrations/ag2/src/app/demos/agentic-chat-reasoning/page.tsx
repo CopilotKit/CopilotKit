@@ -17,6 +17,7 @@
 // labeled "Agent reasoning"). That is the "per-message conditional rendering
 // via slots" path — the public, stable way to customize reasoning output.
 
+// @region[reasoning-block-render]
 import React from "react";
 import {
   CopilotKit,
@@ -44,7 +45,6 @@ export default function AgenticChatReasoningDemo() {
 // Inner — wires a custom `reasoningMessage` slot that makes the thinking
 // chain visually prominent, then renders the chat.
 function Chat() {
-  // @region[reasoning-block-render]
   return (
     <CopilotChat
       agentId="agentic-chat-reasoning"

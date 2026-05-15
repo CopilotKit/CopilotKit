@@ -54,6 +54,7 @@ from agents.mcp_apps_agent import MCPApps
 from agents.interrupt_crew import InterruptScheduling
 from agents.shared_state_read_write import shared_state_read_write_flow
 from agents.subagents import subagents_flow
+
 try:
     from agents.tool_rendering import tool_rendering_flow
 except ImportError:
@@ -100,12 +101,9 @@ class HealthMiddleware(BaseHTTPMiddleware):
 _AGENT_CONFIG_KEYS = ("tone", "expertise", "responseLength")
 
 _TONE_RULES = {
-    "professional": (
-        "Use neutral, precise language. No emoji. Short sentences."
-    ),
+    "professional": ("Use neutral, precise language. No emoji. Short sentences."),
     "casual": (
-        "Use friendly, conversational language. Contractions OK. "
-        "Light humor welcome."
+        "Use friendly, conversational language. Contractions OK. Light humor welcome."
     ),
     "enthusiastic": (
         "Use upbeat, energetic language. Exclamation points OK. Emoji OK."
@@ -113,18 +111,12 @@ _TONE_RULES = {
 }
 _EXPERTISE_RULES = {
     "beginner": "Assume no prior knowledge. Define jargon. Use analogies.",
-    "intermediate": (
-        "Assume common terms are understood; explain specialized terms."
-    ),
-    "expert": (
-        "Assume technical fluency. Use precise terminology. Skip basics."
-    ),
+    "intermediate": ("Assume common terms are understood; explain specialized terms."),
+    "expert": ("Assume technical fluency. Use precise terminology. Skip basics."),
 }
 _LENGTH_RULES = {
     "concise": "Respond in 1-3 sentences.",
-    "detailed": (
-        "Respond in multiple paragraphs with examples where relevant."
-    ),
+    "detailed": ("Respond in multiple paragraphs with examples where relevant."),
 }
 
 
@@ -142,9 +134,7 @@ def _build_agent_config_guidance(
     expertise_rule = _EXPERTISE_RULES.get(
         str(expertise), _EXPERTISE_RULES["intermediate"]
     )
-    length_rule = _LENGTH_RULES.get(
-        str(response_length), _LENGTH_RULES["concise"]
-    )
+    length_rule = _LENGTH_RULES.get(str(response_length), _LENGTH_RULES["concise"])
     return (
         "Follow these style rules for your response to the user. "
         f"TONE: {tone_rule} "
@@ -335,9 +325,7 @@ class ForwardedPropsASGIMiddleware:
         # from `receive`, not from content-length, so this is safe and
         # avoids tripping any downstream length-validating layer.
         if new_raw is not raw:
-            new_headers = [
-                (k, v) for k, v in headers if k.lower() != b"content-length"
-            ]
+            new_headers = [(k, v) for k, v in headers if k.lower() != b"content-length"]
             new_headers.append((b"content-length", str(len(new_raw)).encode()))
             scope = dict(scope)
             scope["headers"] = new_headers
@@ -432,9 +420,7 @@ add_crewai_flow_fastapi_endpoint(app, subagents_flow, "/subagents")
 if tool_rendering_flow is not None:
     add_crewai_flow_fastapi_endpoint(app, tool_rendering_flow, "/tool-rendering")
 
-add_crewai_crew_fastapi_endpoint(
-    app, InterruptScheduling(), "/interrupt-adapted"
-)
+add_crewai_crew_fastapi_endpoint(app, InterruptScheduling(), "/interrupt-adapted")
 
 add_crewai_crew_fastapi_endpoint(app, LatestAiDevelopment(), "/")
 

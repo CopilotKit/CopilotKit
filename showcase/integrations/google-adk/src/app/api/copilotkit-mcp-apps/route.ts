@@ -20,7 +20,19 @@ import { AbstractAgent, HttpAgent } from "@ag-ui/client";
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 const mcpAppsAgent: AbstractAgent = new HttpAgent({
-  url: `${AGENT_URL}/mcp_apps`,
+  // Backend mounts this agent at `/mcp-apps` (dash) per
+  // agents/registry.py — not `/mcp_apps`. Stale underscore here caused
+  // every MCP Apps request to 404 at the ADK FastAPI layer, surfacing
+  // as `HTTP 404: {"detail":"Not Found"}` in the chat.
+  url: `${AGENT_URL}/mcp-apps`,
+});
+
+// headless-complete shares this runtime because its cell also exercises
+// MCP Apps rendering (via useRenderActivityMessage). The backend path
+// `/headless_complete` is mounted by the ADK agent_server from the
+// registry entry of the same name (mapped to _simple_chat).
+const headlessCompleteAgent: AbstractAgent = new HttpAgent({
+  url: `${AGENT_URL}/headless_complete`,
 });
 
 // @region[runtime-mcpapps-config]
@@ -34,7 +46,8 @@ const runtime = new CopilotRuntime({
   // MaybePromise<NonEmptyRecord<...>> which rejects plain Records;
   // fixed in source, pending release.
   agents: {
-    mcp_apps: mcpAppsAgent,
+    "mcp-apps": mcpAppsAgent,
+    "headless-complete": headlessCompleteAgent,
   },
   mcpApps: {
     servers: [

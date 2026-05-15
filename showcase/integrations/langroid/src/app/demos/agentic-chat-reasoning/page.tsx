@@ -7,6 +7,7 @@
 // The custom slot renderer is wired and exercised, but reasoning messages
 // will only appear if a future agent iteration emits them.
 
+// @region[reasoning-block-render]
 import React from "react";
 import {
   CopilotKit,
@@ -28,7 +29,6 @@ export default function AgenticChatReasoningDemo() {
 }
 
 function Chat() {
-  // @region[reasoning-block-render]
   return (
     <CopilotChat
       agentId="agentic-chat-reasoning"

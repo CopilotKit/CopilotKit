@@ -1,5 +1,8 @@
 "use client";
 
+// @region[register-assistant-message-slot]
+// @region[register-disclaimer-slot]
+// @region[register-welcome-slot]
 import React from "react";
 import { CopilotKit } from "@copilotkit/react-core";
 import {
@@ -33,13 +36,10 @@ function Chat() {
     available: "always",
   });
 
-  // @region[register-welcome-slot]
   const welcomeScreen = CustomWelcomeScreen;
   // @endregion[register-welcome-slot]
-  // @region[register-disclaimer-slot]
   const input = { disclaimer: CustomDisclaimer };
   // @endregion[register-disclaimer-slot]
-  // @region[register-assistant-message-slot]
   const messageView = {
     assistantMessage:
       CustomAssistantMessage as unknown as typeof CopilotChatAssistantMessage,

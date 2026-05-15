@@ -13,6 +13,8 @@ Mirrors `langgraph-python/src/agents/a2ui_fixed.py`:
 Reference: langgraph-python/src/agents/a2ui_fixed.py
 """
 
+# @region[backend-render-operations]
+# @region[backend-schema-json-load]
 from __future__ import annotations
 
 import json
@@ -32,7 +34,6 @@ CREW_NAME = "A2UIFixedSchema"
 
 _SCHEMAS_DIR = Path(__file__).parent / "a2ui_schemas"
 
-# @region[backend-schema-json-load]
 # Load flight schema at module load so the first request does not pay I/O
 # for the JSON parse. The schema is authored as JSON so it can be reviewed
 # independently of the Python code.
@@ -68,7 +69,6 @@ class DisplayFlightTool(BaseTool):
     args_schema: Type[BaseModel] = DisplayFlightInput
 
     def _run(self, origin: str, destination: str, airline: str, price: str) -> str:
-        # @region[backend-render-operations]
         # The A2UI middleware detects the `a2ui_operations` container in this
         # tool result and forwards the ops to the frontend renderer. The
         # frontend catalog resolves component names to local React components.

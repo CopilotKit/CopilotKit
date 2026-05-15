@@ -13,7 +13,11 @@ interface TimeSlot {
   duration: string;
 }
 
-export type MeetingTimePickerStatus = "loading" | "selecting" | "confirmed" | "declined";
+export type MeetingTimePickerStatus =
+  | "loading"
+  | "selecting"
+  | "confirmed"
+  | "declined";
 
 interface Props {
   status: MeetingTimePickerStatus;
@@ -174,7 +178,12 @@ const styles = StyleSheet.create({
   },
   iconText: { fontSize: 18, color: "#fff", fontWeight: "700" },
   title: { fontSize: 17, fontWeight: "700", color: "#1a1a1a", marginBottom: 4 },
-  subtitle: { fontSize: 13, color: "#666", marginBottom: 12, textAlign: "center" },
+  subtitle: {
+    fontSize: 13,
+    color: "#666",
+    marginBottom: 12,
+    textAlign: "center",
+  },
   spinner: { marginVertical: 16 },
   slotsContainer: { width: "100%", gap: 8 },
   slotButton: {

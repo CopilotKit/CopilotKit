@@ -5,6 +5,7 @@
 // (`<description>:\n<value>`) so the agent can read them per turn without
 // the user having to retype anything.
 
+// @region[context-provider-sketch]
 import React, { useState } from "react";
 import {
   CopilotKitProvider,
@@ -39,7 +40,6 @@ const ACTIVITIES = [
 ];
 
 function DemoContent() {
-  // @region[context-provider-sketch]
   const [userName, setUserName] = useState("Atai");
   const [userTimezone, setUserTimezone] = useState("America/Los_Angeles");
   const [recentActivity, setRecentActivity] = useState<string[]>([

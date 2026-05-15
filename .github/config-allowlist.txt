@@ -86,6 +86,7 @@ packages/sdk-js/tsdown.config.ts
 packages/shared/tsdown.config.ts
 packages/sqlite-runner/tsdown.config.ts
 packages/voice/tsdown.config.ts
+packages/vue/vite.config.ts
 packages/web-inspector/tsdown.config.ts
 showcase/integrations/ag2/next.config.ts
 showcase/integrations/agno/next.config.ts

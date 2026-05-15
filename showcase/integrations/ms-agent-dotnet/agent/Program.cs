@@ -1,3 +1,4 @@
+// @region[weather-tool-backend]
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
 using Microsoft.AspNetCore.Http.Json;
@@ -23,6 +24,11 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.AddAGUI();
 
 WebApplication app = builder.Build();
+
+// STOPGAP: Extract x-* prefixed headers from incoming AG-UI requests into AsyncLocal
+// so AimockHeaderPolicy can forward them to outgoing OpenAI calls.
+// TODO(copilotkit-sdk-dotnet): migrate to SDK-level header propagation
+app.UseMiddleware<AimockHeaderMiddleware>();
 
 // Create the agent factory and map the AG-UI agent endpoint
 var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
@@ -391,10 +397,7 @@ public class SalesAgentFactory
 
         _openAiClient = new(
             new ApiKeyCredential(githubToken),
-            new OpenAIClientOptions
-            {
-                Endpoint = new Uri(endpoint),
-            });
+            AimockHeaderPolicy.CreateOpenAIClientOptions(endpoint));
     }
 
     public AIAgent CreateSalesAgent()
@@ -494,7 +497,6 @@ public class SalesAgentFactory
         return JsonSerializer.Serialize(results);
     }
 
-    // @region[weather-tool-backend]
     [Description("Get the weather for a given location. Ensure location is fully spelled out.")]
     private WeatherInfo GetWeather([Description("The location to get the weather for")] string location)
     {

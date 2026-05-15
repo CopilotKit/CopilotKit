@@ -9,10 +9,13 @@
 #
 # Mirrors the convention from `tool-rendering/render-flight-tool.snippet.tsx`.
 
+# @region[backend-render-operations]
+# @region[backend-schema-json-load]
 from pathlib import Path
 import json
 
 _SCHEMAS_DIR = Path(__file__).parent / "a2ui_schemas"
+
 
 # Stand-in for the real a2ui SDK helpers. In a real backend, import
 # `a2ui` from your runtime SDK; the calls below match its shape.
@@ -21,6 +24,7 @@ class _A2UI:
     def load_schema(path):
         with open(path) as fh:
             return json.load(fh)
+
     @staticmethod
     def create_surface(*args, **kwargs): ...
     @staticmethod
@@ -29,12 +33,13 @@ class _A2UI:
     def update_data_model(*args, **kwargs): ...
     @staticmethod
     def render(*args, **kwargs): ...
+
+
 a2ui = _A2UI()
 SURFACE_ID = "flight-fixed-schema"
 CATALOG_ID = "flight-catalog"
 
 
-# @region[backend-schema-json-load]
 # Schemas are JSON so they can be authored and reviewed independently of
 # the backend code. `a2ui.load_schema` is just a thin `json.load` wrapper
 # that resolves the path against the schemas directory.
@@ -43,7 +48,6 @@ FLIGHT_SCHEMA = a2ui.load_schema(_SCHEMAS_DIR / "flight_schema.json")
 
 
 def emit_render_operations(origin: str, destination: str, airline: str, price: float):
-    # @region[backend-render-operations]
     # The a2ui middleware detects the `a2ui_operations` container in this
     # tool result and forwards the ops to the frontend renderer. The
     # frontend catalog resolves component names to local React components.

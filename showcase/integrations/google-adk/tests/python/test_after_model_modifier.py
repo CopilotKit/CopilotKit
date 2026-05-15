@@ -59,13 +59,23 @@ def _make_response(
     partial: bool = False,
     with_parts: bool = True,
     error_message: str | None = None,
+    finish_reason: object = "STOP",
 ):
+    """Build a fake LlmResponse.
+
+    `finish_reason` defaults to "STOP" — the real terminal-response shape.
+    `simple_after_model_modifier` / `stop_on_terminal_text` only terminate
+    when finish_reason is STOP, to avoid premature termination on Gemini
+    thinking-mode chunks that arrive non-partial with `finish_reason=None`.
+    """
     parts = []
     if with_parts:
         parts.append(
             _make_part(
                 text="hello" if has_text else None,
-                function_call=SimpleNamespace(name="get_weather") if has_function_call else None,
+                function_call=SimpleNamespace(name="get_weather")
+                if has_function_call
+                else None,
             )
         )
     content = SimpleNamespace(role=role, parts=parts) if with_parts else None
@@ -73,6 +83,8 @@ def _make_response(
         content=content,
         partial=partial,
         error_message=error_message,
+        finish_reason=finish_reason,
+        turn_complete=None,
     )
     return response
 
@@ -84,7 +96,9 @@ def _make_response(
 
 def test_flips_end_invocation_on_final_text_only_model_response():
     ctx = FakeCallbackContext()
-    response = _make_response(role="model", has_text=True, has_function_call=False, partial=False)
+    response = _make_response(
+        role="model", has_text=True, has_function_call=False, partial=False
+    )
 
     result = simple_after_model_modifier(ctx, response)
 
@@ -101,12 +115,12 @@ def test_flips_end_invocation_on_final_text_only_model_response():
     ("partial", "has_text", "has_function_call", "expected_end"),
     [
         # (partial=False already covered above for the True case)
-        (False, True, True, False),   # text + function_call => must NOT terminate
+        (False, True, True, False),  # text + function_call => must NOT terminate
         (False, False, True, False),  # function_call only => tool call pending
-        (False, False, False, False), # empty parts => nothing to terminate on
-        (True, True, False, False),   # partial text => wait for turn_complete
-        (True, True, True, False),    # partial text + fc => wait
-        (True, False, True, False),   # partial fc => wait
+        (False, False, False, False),  # empty parts => nothing to terminate on
+        (True, True, False, False),  # partial text => wait for turn_complete
+        (True, True, True, False),  # partial text + fc => wait
+        (True, False, True, False),  # partial fc => wait
         (True, False, False, False),  # partial empty => wait
     ],
 )
@@ -132,7 +146,9 @@ def test_truth_table_model_role(partial, has_text, has_function_call, expected_e
 @pytest.mark.parametrize("role", ["user", "tool", ""])
 def test_non_model_role_never_terminates(role):
     ctx = FakeCallbackContext()
-    response = _make_response(role=role, has_text=True, has_function_call=False, partial=False)
+    response = _make_response(
+        role=role, has_text=True, has_function_call=False, partial=False
+    )
 
     simple_after_model_modifier(ctx, response)
 
@@ -144,13 +160,12 @@ def test_non_model_role_never_terminates(role):
 # ---------------------------------------------------------------------------
 
 
-def test_non_sales_pipeline_agent_is_noop():
-    ctx = FakeCallbackContext(agent_name="SomeOtherAgent")
-    response = _make_response(role="model", has_text=True, has_function_call=False, partial=False)
-
-    simple_after_model_modifier(ctx, response)
-
-    assert ctx._invocation_context.end_invocation is False
+# Note: the legacy `test_non_sales_pipeline_agent_is_noop` test asserted the
+# SalesPipelineAgent name-gate that used to live in this callback. That gate
+# was lifted out when the loop terminator became universal across every
+# registered LlmAgent (see `shared_chat.stop_on_terminal_text`); the
+# behavior coverage moved to `tests/python/test_stop_on_terminal_text.py`
+# which exercises the truth table without any agent-name filter.
 
 
 # ---------------------------------------------------------------------------
@@ -170,7 +185,9 @@ def test_no_content_no_parts_is_safe():
 
 def test_error_message_only_is_safe():
     ctx = FakeCallbackContext()
-    response = SimpleNamespace(content=None, partial=False, error_message="something broke")
+    response = SimpleNamespace(
+        content=None, partial=False, error_message="something broke"
+    )
 
     result = simple_after_model_modifier(ctx, response)
 
@@ -185,7 +202,9 @@ def test_error_message_only_is_safe():
 
 def test_missing_invocation_context_does_not_crash():
     ctx = SimpleNamespace(agent_name="SalesPipelineAgent")  # no _invocation_context
-    response = _make_response(role="model", has_text=True, has_function_call=False, partial=False)
+    response = _make_response(
+        role="model", has_text=True, has_function_call=False, partial=False
+    )
 
     # The callback must handle the missing attribute gracefully (see the
     # getattr(..., None) guard) and not raise.
@@ -232,21 +251,10 @@ def test_error_message_logs_warning_with_agent_name(caplog):
     )
 
 
-def test_error_message_on_non_sales_agent_is_noop(caplog):
-    """For non-SalesPipelineAgent agents the whole callback is a no-op,
-    so the error_message branch is never reached and no warning is logged."""
-    ctx = FakeCallbackContext(agent_name="SomeOtherAgent")
-    response = SimpleNamespace(
-        content=None,
-        partial=False,
-        error_message="quota exceeded",
-    )
-
-    with caplog.at_level(logging.WARNING, logger="agents.main"):
-        simple_after_model_modifier(ctx, response)
-
-    # No error_message WARNING for non-matching agents.
-    for rec in caplog.records:
-        assert "error_message" not in rec.getMessage(), (
-            f"unexpected error_message warning for non-matching agent: {rec.getMessage()}"
-        )
+# Note: the legacy `test_error_message_on_non_sales_agent_is_noop` test
+# asserted that error_message warnings only fired for SalesPipelineAgent.
+# With the unified `stop_on_terminal_text`, the error_message branch
+# warns for EVERY agent (still a no-op for `end_invocation`), so the
+# old assertion no longer holds. Error-message logging is now covered
+# generically by `test_handles_error_message_branch_without_crashing`
+# in `tests/python/test_stop_on_terminal_text.py`.

@@ -15,8 +15,8 @@ import { DepthChip } from "./depth-chip";
 import { CellDrilldown } from "./cell-drilldown";
 import { IntegrationHeader } from "./integration-header";
 import { useCollapsible, CategoryHeaderRow } from "./collapsible-category";
-import { deriveDepth } from "./depth-utils";
-import type { CatalogCell, DepthResult } from "./depth-utils";
+import { buildCellModel } from "@/lib/cell-model";
+import type { CatalogCell } from "./depth-utils";
 import type { ParityTier } from "./parity-badge";
 import type { FilterMode } from "./filter-chips";
 import { resolveCell } from "@/lib/live-status";
@@ -143,15 +143,14 @@ function CategorySection({
             </td>
             {visibleIntegrations.map((int) => {
               const cell = cellIndex.get(`${int.slug}/${feature.id}`);
-              const depth: DepthResult = cell
-                ? deriveDepth(cell, liveStatus)
-                : {
-                    achieved: 0,
-                    maxPossible: 0,
-                    isRegression: false,
-                    unsupported: false,
-                  };
-              const cellStatus = depth.unsupported
+              const isNotSupported = cell?.status === "unsupported";
+              const model = buildCellModel(liveStatus, {
+                slug: int.slug,
+                featureId: feature.id,
+                isSupported: !isNotSupported,
+                isWired: cell?.status === "wired" || cell?.status === "stub",
+              });
+              const cellStatus = !model.supported
                 ? "unsupported"
                 : (cell?.status ?? "unshipped");
 
@@ -180,9 +179,9 @@ function CategorySection({
                     }
                   >
                     <DepthChip
-                      depth={depth.achieved}
+                      depth={model.achievedDepth as 0 | 1 | 2 | 3 | 4 | 5 | 6}
                       status={cellStatus}
-                      maxDepth={depth.maxPossible}
+                      chipColor={model.chipColor}
                     />
                   </button>
                   {isSelected && (
@@ -309,8 +308,16 @@ export function CellMatrix({
       return visibleIntegrations.some((int) => {
         const cell = cellIndex.get(`${int.slug}/${featureId}`);
         if (!cell) return false;
-        const depth = deriveDepth(cell, liveStatus);
-        return depth.isRegression;
+        const isNotSupported = cell.status === "unsupported";
+        const model = buildCellModel(liveStatus, {
+          slug: int.slug,
+          featureId,
+          isSupported: !isNotSupported,
+          isWired: cell.status === "wired" || cell.status === "stub",
+        });
+        return (
+          model.ceilingDepth > 0 && model.achievedDepth < model.ceilingDepth
+        );
       });
     }
     return true;

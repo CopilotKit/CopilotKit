@@ -3,6 +3,12 @@ title: "AG-UI Event Inspector"
 description: "Inspect AG-UI events in real time with the VSCode extension"
 icon: "lucide/Activity"
 ---
+The AG-UI Event Inspector gives you a live view of every event flowing between your CopilotKit runtime and client. Instead of sprinkling `console.log` statements through your agent code, you can watch the full AG-UI event stream in a filterable, color-coded panel inside VS Code.
+
+Use it when:
+- An agent interaction isn't behaving as expected and you need to see which events the runtime is actually emitting
+- You want to understand the AG-UI event lifecycle (e.g., how `RUN_STARTED` flows through `TEXT_MESSAGE_CONTENT` chunks to `RUN_FINISHED`)
+- You need to inspect tool call arguments or state deltas for a specific interaction
 
 <OpsPlatformCTA
   variant="inline"
@@ -10,13 +16,6 @@ icon: "lucide/Activity"
   body="When you open the Inspector, threads is the default tab. Sign up for the free Developer tier to see your conversation history."
   surface="docs_event_inspector"
 />
-
-The AG-UI Event Inspector gives you a live view of every event flowing between your CopilotKit runtime and client. Instead of sprinkling `console.log` statements through your agent code, you can watch the full AG-UI event stream in a filterable, color-coded panel inside VS Code.
-
-Use it when:
-- An agent interaction isn't behaving as expected and you need to see which events the runtime is actually emitting
-- You want to understand the AG-UI event lifecycle (e.g., how `RUN_STARTED` flows through `TEXT_MESSAGE_CONTENT` chunks to `RUN_FINISHED`)
-- You need to inspect tool call arguments or state deltas for a specific interaction
 
 ## Prerequisites
 

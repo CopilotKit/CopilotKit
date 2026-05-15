@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/react-native",
-  "version": "1.57.1",
+  "version": "1.57.2",
   "private": false,
   "keywords": [
     "ai",
@@ -18,6 +18,7 @@
   },
   "type": "module",
   "sideEffects": [
+    "./dist/index.*",
     "./dist/polyfills.*",
     "./dist/polyfills/**/*"
   ],
@@ -69,6 +70,7 @@
     "unlink:global": "pnpm unlink --global"
   },
   "dependencies": {
+    "@ag-ui/client": "0.0.53",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/shared": "workspace:*",
@@ -86,7 +88,21 @@
     "vitest": "^3.2.4"
   },
   "peerDependencies": {
+    "expo-document-picker": ">=12.0.0",
+    "expo-file-system": ">=17.0.0",
     "react": "^18 || ^19",
-    "react-native": ">=0.70"
+    "react-native": ">=0.70",
+    "zod": ">=3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "expo-document-picker": {
+      "optional": true
+    },
+    "expo-file-system": {
+      "optional": true
+    },
+    "zod": {
+      "optional": true
+    }
   }
 }

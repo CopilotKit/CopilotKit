@@ -3,6 +3,7 @@
 // Agentic Chat (Reasoning) — overrides the `reasoningMessage` slot to
 // emphasize the agent's thinking chain.
 
+// @region[reasoning-block-render]
 import React from "react";
 import {
   CopilotKit,
@@ -24,7 +25,6 @@ export default function AgenticChatReasoningDemo() {
 }
 
 function Chat() {
-  // @region[reasoning-block-render]
   return (
     <CopilotChat
       agentId="agentic-chat-reasoning"

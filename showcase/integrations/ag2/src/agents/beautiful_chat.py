@@ -83,7 +83,9 @@ short sentence — let the visual do the talking.
 
 
 async def generate_a2ui(
-    context: Annotated[str, "Conversation context summary the secondary LLM should design UI from"],
+    context: Annotated[
+        str, "Conversation context summary the secondary LLM should design UI from"
+    ],
 ) -> str:
     """Generate dynamic A2UI components based on the conversation.
 
@@ -105,10 +107,12 @@ async def generate_a2ui(
                 "content": "Generate a dynamic A2UI dashboard based on the conversation.",
             },
         ],
-        tools=[{
-            "type": "function",
-            "function": RENDER_A2UI_TOOL_SCHEMA,
-        }],
+        tools=[
+            {
+                "type": "function",
+                "function": RENDER_A2UI_TOOL_SCHEMA,
+            }
+        ],
         tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
     )
 

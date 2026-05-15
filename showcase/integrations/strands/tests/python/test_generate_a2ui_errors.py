@@ -38,6 +38,7 @@ def _install_openai_stub():
 
     class OpenAIError(Exception):
         """Base class for all openai-SDK errors. Matches the real SDK's hierarchy."""
+
         pass
 
     class APIError(OpenAIError):
@@ -74,6 +75,7 @@ def _install_httpx_stub():
 
     class HTTPError(Exception):
         """Base class for all httpx transport errors."""
+
         pass
 
     class ConnectError(HTTPError):
@@ -171,9 +173,13 @@ def test_openai_exceptions_return_structured_error(monkeypatch, exc_name):
     base_cls = getattr(openai, exc_name)
 
     # Build a lightweight subclass that carries the bare string message.
-    TestExc = type(f"Test{exc_name}", (base_cls,), {
-        "__init__": lambda self, msg: Exception.__init__(self, msg),
-    })
+    TestExc = type(
+        f"Test{exc_name}",
+        (base_cls,),
+        {
+            "__init__": lambda self, msg: Exception.__init__(self, msg),
+        },
+    )
 
     def _raise(**_kwargs):
         raise TestExc(f"simulated {exc_name}")
@@ -232,7 +238,9 @@ def test_malformed_tool_args_returns_structured_error(monkeypatch):
     result = _invoke_generate_a2ui()
 
     assert result["error"] == "a2ui_invalid_arguments"
-    assert "parse" in result["message"].lower() or "arguments" in result["message"].lower()
+    assert (
+        "parse" in result["message"].lower() or "arguments" in result["message"].lower()
+    )
     assert result["remediation"]
 
 
@@ -313,12 +321,14 @@ def test_happy_path_returns_a2ui_operations(monkeypatch):
     ``build_a2ui_operations_from_tool_call`` and returns a non-error payload."""
     import openai
 
-    valid_args = json.dumps({
-        "surfaceId": "test-surface",
-        "catalogId": "test-catalog",
-        "components": [],
-        "data": {},
-    })
+    valid_args = json.dumps(
+        {
+            "surfaceId": "test-surface",
+            "catalogId": "test-catalog",
+            "components": [],
+            "data": {},
+        }
+    )
     FakeOpenAI = _make_fake_openai_client(
         create_behavior=lambda **_: _response_with_tool_args(valid_args),
     )

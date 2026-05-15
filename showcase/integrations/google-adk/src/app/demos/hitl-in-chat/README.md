@@ -36,7 +36,9 @@ returned to the agent, which confirms the outcome in chat.
 
 ## Building With This
 
-Use inline styles inside the chat-rendered card (Tailwind v4 may purge
-classes used only inside CopilotKit's chat tree); see the
+The `TimePickerCard` uses Tailwind classes to match the langgraph-python
+reference 1:1; Tailwind v4's automatic source-file scanning picks them up
+inside CopilotKit's chat tree. See the
 [Styling Guide](https://github.com/CopilotKit/CopilotKit/blob/main/showcase/STYLING-GUIDE.md)
-for details.
+for the rare cases where inline styles are still needed (dynamically
+generated class names from props/state).

@@ -68,7 +68,7 @@ async def run_reasoning_agent(
     client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
 
     messages: list[dict[str, Any]] = []
-    for msg in (input_data.messages or []):
+    for msg in input_data.messages or []:
         role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
         if role not in ("user", "assistant"):
             continue
@@ -90,9 +90,9 @@ async def run_reasoning_agent(
     thread_id = input_data.thread_id or "default"
     run_id = input_data.run_id or "run-1"
 
-    yield encoder.encode(RunStartedEvent(
-        type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id
-    ))
+    yield encoder.encode(
+        RunStartedEvent(type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id)
+    )
 
     system = system_prompt or REASONING_SYSTEM_PROMPT
     text_msg_id = f"msg-{run_id}-text"
@@ -143,39 +143,49 @@ async def run_reasoning_agent(
                             buffer = buffer[keep:]
                             if chunk:
                                 if not reasoning_started:
-                                    yield encoder.encode(ReasoningMessageStartEvent(
-                                        type=EventType.REASONING_MESSAGE_START,
-                                        message_id=reasoning_msg_id,
-                                        role="reasoning",
-                                    ))
+                                    yield encoder.encode(
+                                        ReasoningMessageStartEvent(
+                                            type=EventType.REASONING_MESSAGE_START,
+                                            message_id=reasoning_msg_id,
+                                            role="reasoning",
+                                        )
+                                    )
                                     reasoning_started = True
-                                yield encoder.encode(ReasoningMessageContentEvent(
-                                    type=EventType.REASONING_MESSAGE_CONTENT,
-                                    message_id=reasoning_msg_id,
-                                    delta=chunk,
-                                ))
+                                yield encoder.encode(
+                                    ReasoningMessageContentEvent(
+                                        type=EventType.REASONING_MESSAGE_CONTENT,
+                                        message_id=reasoning_msg_id,
+                                        delta=chunk,
+                                    )
+                                )
                             break
                         # Found close tag — emit remaining reasoning, end it, switch mode.
                         chunk = buffer[:close_idx]
                         if chunk:
                             if not reasoning_started:
-                                yield encoder.encode(ReasoningMessageStartEvent(
-                                    type=EventType.REASONING_MESSAGE_START,
-                                    message_id=reasoning_msg_id,
-                                    role="reasoning",
-                                ))
+                                yield encoder.encode(
+                                    ReasoningMessageStartEvent(
+                                        type=EventType.REASONING_MESSAGE_START,
+                                        message_id=reasoning_msg_id,
+                                        role="reasoning",
+                                    )
+                                )
                                 reasoning_started = True
-                            yield encoder.encode(ReasoningMessageContentEvent(
-                                type=EventType.REASONING_MESSAGE_CONTENT,
-                                message_id=reasoning_msg_id,
-                                delta=chunk,
-                            ))
+                            yield encoder.encode(
+                                ReasoningMessageContentEvent(
+                                    type=EventType.REASONING_MESSAGE_CONTENT,
+                                    message_id=reasoning_msg_id,
+                                    delta=chunk,
+                                )
+                            )
                         if reasoning_started:
-                            yield encoder.encode(ReasoningMessageEndEvent(
-                                type=EventType.REASONING_MESSAGE_END,
-                                message_id=reasoning_msg_id,
-                            ))
-                        buffer = buffer[close_idx + len(REASONING_CLOSE):]
+                            yield encoder.encode(
+                                ReasoningMessageEndEvent(
+                                    type=EventType.REASONING_MESSAGE_END,
+                                    message_id=reasoning_msg_id,
+                                )
+                            )
+                        buffer = buffer[close_idx + len(REASONING_CLOSE) :]
                         in_reasoning = False
                         continue
                     else:
@@ -189,34 +199,42 @@ async def run_reasoning_agent(
                                 # Skip leading whitespace-only fragments before any reasoning
                                 # so the empty assistant message doesn't appear.
                                 if not text_started:
-                                    yield encoder.encode(TextMessageStartEvent(
-                                        type=EventType.TEXT_MESSAGE_START,
-                                        message_id=text_msg_id,
-                                        role="assistant",
-                                    ))
+                                    yield encoder.encode(
+                                        TextMessageStartEvent(
+                                            type=EventType.TEXT_MESSAGE_START,
+                                            message_id=text_msg_id,
+                                            role="assistant",
+                                        )
+                                    )
                                     text_started = True
-                                yield encoder.encode(TextMessageContentEvent(
-                                    type=EventType.TEXT_MESSAGE_CONTENT,
-                                    message_id=text_msg_id,
-                                    delta=chunk,
-                                ))
+                                yield encoder.encode(
+                                    TextMessageContentEvent(
+                                        type=EventType.TEXT_MESSAGE_CONTENT,
+                                        message_id=text_msg_id,
+                                        delta=chunk,
+                                    )
+                                )
                             break
                         # Found open tag — flush text up to it, switch to reasoning mode.
                         chunk = buffer[:open_idx]
                         if chunk:
                             if not text_started:
-                                yield encoder.encode(TextMessageStartEvent(
-                                    type=EventType.TEXT_MESSAGE_START,
-                                    message_id=text_msg_id,
-                                    role="assistant",
-                                ))
+                                yield encoder.encode(
+                                    TextMessageStartEvent(
+                                        type=EventType.TEXT_MESSAGE_START,
+                                        message_id=text_msg_id,
+                                        role="assistant",
+                                    )
+                                )
                                 text_started = True
-                            yield encoder.encode(TextMessageContentEvent(
-                                type=EventType.TEXT_MESSAGE_CONTENT,
-                                message_id=text_msg_id,
-                                delta=chunk,
-                            ))
-                        buffer = buffer[open_idx + len(REASONING_OPEN):]
+                            yield encoder.encode(
+                                TextMessageContentEvent(
+                                    type=EventType.TEXT_MESSAGE_CONTENT,
+                                    message_id=text_msg_id,
+                                    delta=chunk,
+                                )
+                            )
+                        buffer = buffer[open_idx + len(REASONING_OPEN) :]
                         in_reasoning = True
                         continue
 
@@ -224,55 +242,73 @@ async def run_reasoning_agent(
         if buffer:
             if in_reasoning:
                 if not reasoning_started:
-                    yield encoder.encode(ReasoningMessageStartEvent(
-                        type=EventType.REASONING_MESSAGE_START,
-                        message_id=reasoning_msg_id,
-                        role="reasoning",
-                    ))
+                    yield encoder.encode(
+                        ReasoningMessageStartEvent(
+                            type=EventType.REASONING_MESSAGE_START,
+                            message_id=reasoning_msg_id,
+                            role="reasoning",
+                        )
+                    )
                     reasoning_started = True
-                yield encoder.encode(ReasoningMessageContentEvent(
-                    type=EventType.REASONING_MESSAGE_CONTENT,
-                    message_id=reasoning_msg_id,
-                    delta=buffer,
-                ))
-                yield encoder.encode(ReasoningMessageEndEvent(
-                    type=EventType.REASONING_MESSAGE_END,
-                    message_id=reasoning_msg_id,
-                ))
+                yield encoder.encode(
+                    ReasoningMessageContentEvent(
+                        type=EventType.REASONING_MESSAGE_CONTENT,
+                        message_id=reasoning_msg_id,
+                        delta=buffer,
+                    )
+                )
+                yield encoder.encode(
+                    ReasoningMessageEndEvent(
+                        type=EventType.REASONING_MESSAGE_END,
+                        message_id=reasoning_msg_id,
+                    )
+                )
             else:
                 if not text_started:
-                    yield encoder.encode(TextMessageStartEvent(
-                        type=EventType.TEXT_MESSAGE_START,
-                        message_id=text_msg_id,
-                        role="assistant",
-                    ))
+                    yield encoder.encode(
+                        TextMessageStartEvent(
+                            type=EventType.TEXT_MESSAGE_START,
+                            message_id=text_msg_id,
+                            role="assistant",
+                        )
+                    )
                     text_started = True
-                yield encoder.encode(TextMessageContentEvent(
-                    type=EventType.TEXT_MESSAGE_CONTENT,
-                    message_id=text_msg_id,
-                    delta=buffer,
-                ))
+                yield encoder.encode(
+                    TextMessageContentEvent(
+                        type=EventType.TEXT_MESSAGE_CONTENT,
+                        message_id=text_msg_id,
+                        delta=buffer,
+                    )
+                )
     except Exception:
         err_text = f"Agent error: {traceback.format_exc()}"
         if not text_started:
-            yield encoder.encode(TextMessageStartEvent(
-                type=EventType.TEXT_MESSAGE_START,
-                message_id=text_msg_id,
-                role="assistant",
-            ))
+            yield encoder.encode(
+                TextMessageStartEvent(
+                    type=EventType.TEXT_MESSAGE_START,
+                    message_id=text_msg_id,
+                    role="assistant",
+                )
+            )
             text_started = True
-        yield encoder.encode(TextMessageContentEvent(
-            type=EventType.TEXT_MESSAGE_CONTENT,
-            message_id=text_msg_id,
-            delta=err_text,
-        ))
+        yield encoder.encode(
+            TextMessageContentEvent(
+                type=EventType.TEXT_MESSAGE_CONTENT,
+                message_id=text_msg_id,
+                delta=err_text,
+            )
+        )
 
     if text_started:
-        yield encoder.encode(TextMessageEndEvent(
-            type=EventType.TEXT_MESSAGE_END,
-            message_id=text_msg_id,
-        ))
+        yield encoder.encode(
+            TextMessageEndEvent(
+                type=EventType.TEXT_MESSAGE_END,
+                message_id=text_msg_id,
+            )
+        )
 
-    yield encoder.encode(RunFinishedEvent(
-        type=EventType.RUN_FINISHED, thread_id=thread_id, run_id=run_id
-    ))
+    yield encoder.encode(
+        RunFinishedEvent(
+            type=EventType.RUN_FINISHED, thread_id=thread_id, run_id=run_id
+        )
+    )

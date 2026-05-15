@@ -48,6 +48,11 @@ const CHART_INTEGRATIONS = new Set([
   "langgraph-python",
   "ms-agent-python",
   "spring-ai",
+  // google-adk's gen-ui-tool-based page was ported from langgraph-python
+  // verbatim during the D5 parity push, so it registers
+  // `render_pie_chart` + `render_bar_chart` via `useComponent` like LGP
+  // does, not the legacy `generate_haiku` shape.
+  "google-adk",
 ]);
 
 /**

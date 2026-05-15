@@ -6,6 +6,7 @@
 // thinking. This page overrides the `reasoningMessage` slot to render the
 // thinking chain in a tagged amber banner.
 
+// @region[reasoning-block-render]
 import React from "react";
 import {
   CopilotKit,
@@ -30,7 +31,6 @@ export default function AgenticChatReasoningDemo() {
 }
 
 function Chat() {
-  // @region[reasoning-block-render]
   return (
     <CopilotChat
       agentId="agentic-chat-reasoning"

@@ -229,7 +229,9 @@ export async function run(
           });
           return {
             async newContext() {
-              const bCtx = await browser.newContext();
+              const bCtx = await browser.newContext({
+                extraHTTPHeaders: { "X-AIMock-Strict": "true" },
+              });
               return {
                 async newPage() {
                   const page = await bCtx.newPage();

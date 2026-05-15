@@ -8,9 +8,10 @@ about uploaded attachments.
 
 from __future__ import annotations
 
+from ag_ui_adk import AGUIToolset
 from google.adk.agents import LlmAgent
 
-from agents.shared_chat import get_model
+from agents.shared_chat import get_model, stop_on_terminal_text
 
 _INSTRUCTION = (
     "You are a multimodal assistant. The user can upload images and PDFs "
@@ -24,5 +25,6 @@ multimodal_agent = LlmAgent(
     name="MultimodalAgent",
     model=get_model(),
     instruction=_INSTRUCTION,
-    tools=[],
+    tools=[AGUIToolset()],
+    after_model_callback=stop_on_terminal_text,
 )

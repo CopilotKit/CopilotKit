@@ -3,7 +3,6 @@ title: Quickstart
 description: Get started with Deep Agents and CopilotKit in minutes.
 icon: "lucide/Rocket"
 ---
-
 <OpsPlatformCTA
   variant="card"
   title="Ship Deep Agents to production"
@@ -22,7 +21,14 @@ Before you begin, you'll need the following:
 - A LangGraph Platform API key - only required if deploying to the Deep Agent platform
 
 ## Getting started
+
 <Steps>
+    <Step>
+        ### Create a free account
+
+        <SignupLink surface="docs_deepagents_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads, observability, and the inspector.
+    </Step>
+
     <Step>
         ### Initialize your agent project
 
@@ -76,7 +82,6 @@ Before you begin, you'll need the following:
                 ```python title="main.py"
                 from deepagents import create_deep_agent
                 from copilotkit import CopilotKitMiddleware
-                from langgraph.checkpoint.memory import MemorySaver
 
                 def get_weather(location: str):
                     """Get weather for a location"""
@@ -87,7 +92,6 @@ Before you begin, you'll need the following:
                     tools=[get_weather],
                     middleware=[CopilotKitMiddleware()], # for frontend tools and context
                     system_prompt="You are a helpful research assistant.",
-                    checkpointer=MemorySaver()
                 )
                 ```
 
@@ -245,7 +249,7 @@ Before you begin, you'll need the following:
         ### Install CopilotKit packages
 
         ```npm
-        npm install @copilotkit/react-core @copilotkit/runtime
+        npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime
         ```
     </Step>
     <Step>
@@ -337,7 +341,7 @@ Before you begin, you'll need the following:
 
         ```tsx title="app/layout.tsx"
         import { CopilotKit } from "@copilotkit/react-core/v2";
-        import "@copilotkit/react-core/v2/styles.css";
+        import "@copilotkit/react-ui/v2/styles.css";
 
         // ...
 
@@ -439,5 +443,5 @@ Before you begin, you'll need the following:
             </Tab>
         </Tabs>
     </Step>
-</Steps>
 
+</Steps>

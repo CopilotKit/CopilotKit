@@ -47,6 +47,7 @@ def _make_tool_event(metadata: dict) -> ToolCallStartEvent:
 
 # ---------- Bug 1: dict metadata reading via .get() ----------
 
+
 class TestDictMetadataReading:
     """raw_event is a dict — metadata must be read with .get(), not getattr()."""
 
@@ -84,6 +85,7 @@ class TestDictMetadataReading:
 
 # ---------- Bug 2: filtered returns None, not "" ----------
 
+
 class TestFilteredReturnValue:
     """Filtered events must return None (not empty string) to avoid encoder crash."""
 
@@ -101,6 +103,7 @@ class TestFilteredReturnValue:
 
 
 # ---------- run() filters out None values ----------
+
 
 class TestRunFiltersNone:
     """The run() override must strip None values from the event stream."""
@@ -121,9 +124,7 @@ class TestRunFiltersNone:
             "run",
             new=mock_super_run,
         ):
-            results = asyncio.run(
-                _collect_async_gen(agent.run(MagicMock()))
-            )
+            results = asyncio.run(_collect_async_gen(agent.run(MagicMock())))
 
         assert results == [real_event, real_event]
         assert None not in results
@@ -138,6 +139,7 @@ async def _collect_async_gen(agen):
 
 
 # ---------- Edge cases: missing / None rawEvent ----------
+
 
 class TestMissingOrNoneRawEvent:
     """Events where rawEvent is absent or None should pass through to super() without crashing."""
@@ -167,6 +169,7 @@ class TestMissingOrNoneRawEvent:
 
 # ---------- Edge cases: None values for emit metadata keys ----------
 
+
 class TestNoneEmitMetadataValues:
     """None values for emit metadata keys should NOT filter events (only False filters)."""
 
@@ -174,7 +177,9 @@ class TestNoneEmitMetadataValues:
         """copilotkit:emit-messages=None should not suppress text events (only False does)."""
         event = _make_text_event({"copilotkit:emit-messages": None})
         result = agent._dispatch_event(event)
-        assert result is not None, "None value should not filter — only False suppresses"
+        assert result is not None, (
+            "None value should not filter — only False suppresses"
+        )
 
     def test_none_emit_tool_calls_does_not_filter(self, agent):
         """copilotkit:emit-tool-calls=None should not suppress tool events."""

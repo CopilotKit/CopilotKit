@@ -13,6 +13,7 @@ parent_message_id, and incorrect tool-result message roles). See
 hitl_in_chat_agent.py module docstring for details.
 """
 
+# @region[weather-tool-backend]
 import json
 import os
 from typing import Annotated
@@ -36,6 +37,7 @@ from tools import (
 
 # --- Frontend tools (executed client-side, agent just returns a confirmation) ---
 
+
 def change_background(
     background: Annotated[str, "CSS background value. Prefer gradients."],
 ) -> str:
@@ -56,7 +58,7 @@ def generate_haiku(
 def generate_task_steps(
     steps: Annotated[
         list[dict],
-        "Array of step objects with 'description' (string) and 'status' ('enabled' or 'disabled')"
+        "Array of step objects with 'description' (string) and 'status' ('enabled' or 'disabled')",
     ],
 ) -> str:
     """Generate a list of task steps for the user to review and approve."""
@@ -81,12 +83,14 @@ def show_card(
 
 # --- Backend tools (executed server-side, using shared implementations) ---
 
-# @region[weather-tool-backend]
+
 async def get_weather(
     location: Annotated[str, "The location to get the weather for."],
 ) -> str:
     """Get the weather for a given location. Returns temperature, conditions, humidity, wind speed, and feels-like temperature."""
     return json.dumps(get_weather_impl(location))
+
+
 # @endregion[weather-tool-backend]
 
 
@@ -98,11 +102,15 @@ async def query_data(
 
 
 async def manage_sales_todos(
-    todos: Annotated[list[dict], "Complete list of sales todos to replace the current list."],
+    todos: Annotated[
+        list[dict], "Complete list of sales todos to replace the current list."
+    ],
 ) -> str:
     """Manage the sales pipeline by replacing the entire list of todos."""
     result = manage_sales_todos_impl(todos)
-    return json.dumps({"status": "updated", "count": len(result), "todos": [dict(t) for t in result]})
+    return json.dumps(
+        {"status": "updated", "count": len(result), "todos": [dict(t) for t in result]}
+    )
 
 
 async def get_sales_todos_tool() -> str:
@@ -118,7 +126,10 @@ async def schedule_meeting(
 
 
 async def search_flights(
-    flights: Annotated[list[dict], "List of flight objects to search and display as rich cards. Return exactly 2 flights."],
+    flights: Annotated[
+        list[dict],
+        "List of flight objects to search and display as rich cards. Return exactly 2 flights.",
+    ],
 ) -> str:
     """Search for flights and display the results as rich A2UI cards.
 
@@ -162,7 +173,10 @@ async def generate_a2ui(
         model="gpt-4.1",
         messages=[
             {"role": "system", "content": context or "Generate a useful dashboard UI."},
-            {"role": "user", "content": "Generate a dynamic A2UI dashboard based on the conversation."},
+            {
+                "role": "user",
+                "content": "Generate a dynamic A2UI dashboard based on the conversation.",
+            },
         ],
         tools=[tool_schema],
         tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
@@ -205,8 +219,22 @@ _AGENT_SYSTEM_PROMPT = (
 async def _agent_workflow_factory():
     wf = FixedAGUIChatWorkflow(
         llm=OpenAI(model="gpt-4.1", **_openai_kwargs),
-        frontend_tools=[change_background, generate_haiku, generate_task_steps, book_call, show_card, get_weather],
-        backend_tools=[query_data, manage_sales_todos, get_sales_todos_tool, schedule_meeting, search_flights, generate_a2ui],
+        frontend_tools=[
+            change_background,
+            generate_haiku,
+            generate_task_steps,
+            book_call,
+            show_card,
+            get_weather,
+        ],
+        backend_tools=[
+            query_data,
+            manage_sales_todos,
+            get_sales_todos_tool,
+            schedule_meeting,
+            search_flights,
+            generate_a2ui,
+        ],
         system_prompt=_AGENT_SYSTEM_PROMPT,
         initial_state={
             "todos": [],

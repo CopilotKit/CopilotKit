@@ -221,6 +221,16 @@ export interface E2eDeepPage extends Page {
    */
   isClosed?(): boolean;
   /**
+   * Resolve a Playwright Locator for the given CSS selector. The probe
+   * scripts use it for count-based assertions
+   * (`page.locator(sel).count()`) when polling for an expected number of
+   * elements to appear; the harness `Page.evaluate` path only supports
+   * zero-arg functions, so dynamic selectors need a Locator. Optional so
+   * test fakes can omit it; the only production probe that needs it is
+   * `d5-tool-rendering-reasoning-chain`.
+   */
+  locator?(selector: string): { count(): Promise<number> };
+  /**
    * Install a request interceptor on the underlying Playwright page.
    * Optional — only the d5-readonly-state-context probe currently uses
    * this surface. Test fakes can omit it; the probe falls back with a
@@ -371,7 +381,9 @@ const defaultLauncher: E2eDeepBrowserLauncher =
     });
     return {
       async newContext(): Promise<E2eDeepBrowserContext> {
-        const ctx = await browser.newContext();
+        const ctx = await browser.newContext({
+          extraHTTPHeaders: { "X-AIMock-Strict": "true" },
+        });
         return {
           async newPage(): Promise<E2eDeepPage> {
             const page = await ctx.newPage();
@@ -424,6 +436,7 @@ const defaultLauncher: E2eDeepBrowserLauncher =
                 requestFailures: requestFailures.slice(-10),
               }),
               isClosed: () => page.isClosed(),
+              locator: (s) => page.locator(s),
               route: (url, handler) =>
                 page.route(url, handler as Parameters<typeof page.route>[1]),
               unroute: (url) => page.unroute(url),
@@ -497,7 +510,9 @@ export function createPooledE2eDeepLauncher(
 
     return {
       async newContext(): Promise<E2eDeepBrowserContext> {
-        const ctx = await browser.newContext();
+        const ctx = await browser.newContext({
+          extraHTTPHeaders: { "X-AIMock-Strict": "true" },
+        });
         const ctxHandle = { close: () => ctx.close() };
         openContexts.add(ctxHandle);
         return {
@@ -543,6 +558,7 @@ export function createPooledE2eDeepLauncher(
                 requestFailures: requestFailures.slice(-10),
               }),
               isClosed: () => page.isClosed(),
+              locator: (s) => page.locator(s),
               route: (url, handler) =>
                 page.route(url, handler as Parameters<typeof page.route>[1]),
               unroute: (url) => page.unroute(url),

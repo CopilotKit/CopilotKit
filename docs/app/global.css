@@ -377,3 +377,30 @@ h2, h3, p {
 .dark .quickstart-select-bg {
   background: linear-gradient(to right, rgba(1, 5, 7, 0.10), rgba(1, 5, 7, 0)), #111618;
 }
+
+/* Brand-tint the first Step's heading in any <Steps> block. Indigo→
+ * purple gradient text matches the CopilotKit accent (OpsPlatformCTA,
+ * nav). Subtle cue that Step 1 is the entry point — the badge itself
+ * stays in its default Fumadocs styling so the contrast comes from
+ * the heading, not chrome.
+ *
+ * `> .fd-step:first-child` (direct-child) is load-bearing: without it,
+ * `.fd-step:first-child` also matches the first inner <Step> inside
+ * each <TailoredContentOption>, so e.g. "Run our CLI" gets the
+ * gradient too. The outer Step 1 is the only direct child of the
+ * top-level .fd-steps wrapper. */
+.fd-steps > .fd-step:first-child h3 {
+  background-image: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  /* `background-clip: text` renders glyphs through a transparent fill,
+   * which uses grayscale antialiasing on macOS WebKit rather than the
+   * subpixel AA used for solid-fill text. The result is visibly
+   * lighter/smaller-looking glyphs at the same nominal font-size.
+   * Compensate by bumping weight + size so Step 1 reads as visually
+   * equal-or-larger than the adjacent solid 600/20px headings. */
+  font-weight: 700;
+  font-size: 1.375rem;
+}

@@ -38,6 +38,7 @@ from tools import get_weather_impl
 
 class ToolRenderingState(CopilotKitState):
     """Minimal state -- just the conversation messages."""
+
     pass
 
 
@@ -127,9 +128,7 @@ class ToolRenderingFlow(Flow[ToolRenderingState]):
 
                 if tool_name == "get_weather":
                     try:
-                        args = json.loads(
-                            tool_call["function"]["arguments"] or "{}"
-                        )
+                        args = json.loads(tool_call["function"]["arguments"] or "{}")
                     except json.JSONDecodeError:
                         args = {}
                     location = args.get("location", "Unknown")

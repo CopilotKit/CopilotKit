@@ -1,20 +1,30 @@
 "use client";
 
+// Tool Rendering — CUSTOM CATCH-ALL variant (middle of the progression).
+//
+// Same backend tools as `tool-rendering-default-catchall`, but this
+// cell opts out of CopilotKit's built-in default tool-call UI by
+// registering a SINGLE custom wildcard renderer via
+// `useDefaultRenderTool`. The same branded card now paints every tool
+// call — no per-tool renderers yet.
+
 import React from "react";
 import {
   CopilotKit,
   CopilotChat,
   useDefaultRenderTool,
-  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
-
-import { CustomCatchallRenderer } from "./custom-catchall-renderer";
+import {
+  CustomCatchallRenderer,
+  type CatchallToolStatus,
+} from "./custom-catchall-renderer";
+import { useSuggestions } from "./suggestions";
 
 export default function ToolRenderingCustomCatchallDemo() {
   return (
     <CopilotKit
       runtimeUrl="/api/copilotkit"
-      agent="tool_rendering_custom_catchall"
+      agent="tool-rendering-custom-catchall"
     >
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
@@ -26,19 +36,17 @@ export default function ToolRenderingCustomCatchallDemo() {
 }
 
 function Chat() {
-  // The render prop is typed by useDefaultRenderTool's `DefaultRenderProps`
-  // — destructure without casting and let inference flow through. The
-  // runtime emits `"inProgress" | "executing" | "complete"`; both
-  // pre-completion states render identically, so collapse them to
-  // "executing" before handing off to the renderer.
   // @region[use-default-render-tool-wildcard]
+  // `useDefaultRenderTool` is a convenience wrapper around
+  // `useRenderTool({ name: "*", ... })` — a single wildcard renderer
+  // that handles every tool call not claimed by a named renderer.
   useDefaultRenderTool(
     {
       render: ({ name, parameters, status, result }) => (
         <CustomCatchallRenderer
           name={name}
-          args={(parameters ?? {}) as Record<string, unknown>}
-          status={status === "complete" ? "complete" : "executing"}
+          parameters={parameters}
+          status={status as CatchallToolStatus}
           result={result}
         />
       ),
@@ -47,24 +55,11 @@ function Chat() {
   );
   // @endregion[use-default-render-tool-wildcard]
 
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Weather in SF",
-        message: "What's the weather in San Francisco?",
-      },
-      { title: "Find flights", message: "Find flights from SFO to JFK." },
-      {
-        title: "Sales chart",
-        message: "Show me a quarterly revenue pie chart.",
-      },
-    ],
-    available: "always",
-  });
+  useSuggestions();
 
   return (
     <CopilotChat
-      agentId="tool_rendering_custom_catchall"
+      agentId="tool-rendering-custom-catchall"
       className="h-full rounded-2xl"
     />
   );

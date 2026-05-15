@@ -62,6 +62,8 @@ import { BrowserPool } from "./probes/helpers/browser-pool.js";
 import { qaDriver } from "./probes/drivers/qa.js";
 import { railwayServicesSource } from "./probes/discovery/railway-services.js";
 import { pnpmPackagesDiscoverySource } from "./probes/discovery/pnpm-packages.js";
+import { withCache } from "./probes/discovery/caching-source.js";
+import { DiscoveryAuthTracker } from "./probes/discovery/auth-tracker.js";
 import { logger, reloadLogLevel } from "./logger.js";
 import { logErrorWithStack } from "./probes/loader/probe-invoker.js";
 import { makeGql } from "./probes/discovery/railway-services.js";
@@ -288,8 +290,33 @@ export async function boot(opts: BootOptions = {}): Promise<{
   try {
     await browserPool.init();
     browserPoolReady = true;
+    try {
+      await writer.write({
+        key: "system:browser-pool-degraded",
+        state: "green",
+        signal: { recovered: true, recoveredAt: new Date().toISOString() },
+        observedAt: new Date().toISOString(),
+      });
+    } catch {
+      // best-effort -- pool is healthy, status write failure is non-critical
+    }
   } catch (err) {
     logger.error("boot.browser-pool-init-failed", { error: String(err) });
+    try {
+      await writer.write({
+        key: "system:browser-pool-degraded",
+        state: "red",
+        signal: {
+          errorMessage: err instanceof Error ? err.message : String(err),
+          degradedSince: new Date().toISOString(),
+        },
+        observedAt: new Date().toISOString(),
+      });
+    } catch (writeErr) {
+      logger.warn("boot.browser-pool-status-write-failed", {
+        error: writeErr instanceof Error ? writeErr.message : String(writeErr),
+      });
+    }
   }
 
   const probeRegistry = createProbeRegistry();
@@ -298,7 +325,20 @@ export async function boot(opts: BootOptions = {}): Promise<{
     probeRegistry,
     browserPoolReady ? browserPool : undefined,
   );
-  discoveryRegistry.register(railwayServicesSource);
+  const authTracker = new DiscoveryAuthTracker({
+    threshold: 3,
+    writer,
+    logger,
+    now: () => Date.now(),
+  });
+
+  discoveryRegistry.register(
+    withCache(railwayServicesSource, {
+      ttlMs: 86_400_000,
+      logger,
+      authTracker,
+    }),
+  );
   discoveryRegistry.register(pnpmPackagesDiscoverySource);
   const probeConfigDir =
     opts.configDir !== undefined
@@ -1320,16 +1360,39 @@ export function createRailwayAdapter(
     return data.project.services.edges.map((e) => e.node);
   };
 
+  // In-memory cache for the service list so N getServiceEnv() calls
+  // within a single probe tick don't issue N redundant listServices()
+  // GraphQL round-trips. TTL of 60s ensures fresh data across ticks
+  // while collapsing intra-tick fan-out into a single fetch.
+  let cachedServices: {
+    data: { name: string; id: string }[];
+    fetchedAt: number;
+  } | null = null;
+  const SERVICE_CACHE_TTL_MS = 60_000;
+
+  const cachedListServices = async (): Promise<
+    { name: string; id: string }[]
+  > => {
+    const now = Date.now();
+    if (
+      cachedServices &&
+      now - cachedServices.fetchedAt < SERVICE_CACHE_TTL_MS
+    ) {
+      return cachedServices.data;
+    }
+    const data = await listServices();
+    cachedServices = { data, fetchedAt: now };
+    return data;
+  };
+
   const getServiceEnv = async (
     name: string,
   ): Promise<Record<string, string | undefined>> => {
-    // No cross-tick cache: the aimock-wiring probe always calls
-    // `listServices` first (see buildCronProbeResolver), and per-tick
-    // refetch costs one GraphQL round-trip but ensures
-    // newly-renamed/added Railway services are visible without a
-    // restart. If a future caller invokes `getServiceEnv` directly
-    // without `listServices`, fetch the list here too.
-    const services = await listServices();
+    // Use the cached service list so N getServiceEnv() calls within a
+    // single probe tick share one listServices() round-trip. The cache
+    // TTL (60s) ensures cross-tick freshness while eliminating the N+1
+    // fan-out within a tick.
+    const services = await cachedListServices();
     const match = services.find((s) => s.name === name);
     if (!match) {
       throw new Error(`railway service not found: ${name}`);
@@ -1369,7 +1432,7 @@ export function createRailwayAdapter(
     return out;
   };
 
-  return { listServices, getServiceEnv };
+  return { listServices: cachedListServices, getServiceEnv };
 }
 
 // Only run boot() when executed directly (not when imported). Use fileURLToPath

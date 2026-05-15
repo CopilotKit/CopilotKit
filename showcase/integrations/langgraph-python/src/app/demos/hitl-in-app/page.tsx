@@ -1,5 +1,7 @@
 "use client";
 
+// @region[frontend-tool]
+// @region[frontend-tool-registration]
 import { useState } from "react";
 import {
   CopilotKit,
@@ -33,8 +35,6 @@ function Layout() {
 
   useHitlInAppSuggestions();
 
-  // @region[frontend-tool]
-  // @region[frontend-tool-registration]
   useFrontendTool({
     name: "request_user_approval",
     description:

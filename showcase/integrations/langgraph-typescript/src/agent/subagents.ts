@@ -19,6 +19,8 @@
  * package.
  */
 
+// @region[supervisor-delegation-tools]
+// @region[subagent-setup]
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { RunnableConfig } from "@langchain/core/runnables";
@@ -85,7 +87,6 @@ export type AgentState = typeof AgentStateAnnotation.State;
 // value.
 // ---------------------------------------------------------------------------
 
-// @region[subagent-setup]
 const SUB_MODEL = new ChatOpenAI({ temperature: 0, model: "gpt-4o-mini" });
 
 const SUB_AGENT_PROMPTS: Record<SubAgentName, string> = {
@@ -212,7 +213,6 @@ function requireToolCallId(
 // ToolMessage the supervisor can read on its next step.
 // ---------------------------------------------------------------------------
 
-// @region[supervisor-delegation-tools]
 const researchAgentTool = tool(
   async ({ task }, config: ToolRunnableConfig) => {
     const toolCallId = requireToolCallId(config, "research_agent");

@@ -155,7 +155,13 @@ def start_local_agent(
 
     # Build command: uv run with requirements if available, else plain python3
     if requirements_path.exists():
-        cmd = ["uv", "run", "--with-requirements", str(requirements_path), str(agent_path)]
+        cmd = [
+            "uv",
+            "run",
+            "--with-requirements",
+            str(requirements_path),
+            str(agent_path),
+        ]
     else:
         cmd = ["python3", str(agent_path)]
 

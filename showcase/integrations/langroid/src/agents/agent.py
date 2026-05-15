@@ -21,6 +21,7 @@ Sibling provider-agnostic A2UI planner implementations live in
 aligned.
 """
 
+# @region[weather-tool-backend]
 from __future__ import annotations
 
 import functools
@@ -131,9 +132,7 @@ class _A2uiSuccess(TypedDict):
     a2ui_operations: list[dict[str, Any]]
 
 
-def _a2ui_error(
-    *, error: _A2uiErrorKind, message: str, remediation: str
-) -> _A2uiError:
+def _a2ui_error(*, error: _A2uiErrorKind, message: str, remediation: str) -> _A2uiError:
     """Construct and contract-check an ``_A2uiError``.
 
     Centralizing construction lets us enforce at runtime that every error
@@ -184,11 +183,7 @@ def _resolve_a2ui_model() -> str:
          langroid convention (and ``OpenAIChatModel.GPT4_1.value``) is
          the bare name.
     """
-    return (
-        os.getenv("A2UI_MODEL")
-        or os.getenv("LANGROID_MODEL")
-        or "gpt-4.1"
-    )
+    return os.getenv("A2UI_MODEL") or os.getenv("LANGROID_MODEL") or "gpt-4.1"
 
 
 # Memoize the A2UI planner LLM so we don't rebuild ``OpenAIGPT`` (and re-run
@@ -448,8 +443,7 @@ def generate_a2ui_via_llm(*, context: str) -> _A2uiError | _A2uiSuccess:
         return _a2ui_error(
             error=_A2uiErrorKind.INVALID_ARGUMENTS,
             message=(
-                "Secondary A2UI LLM emitted a tool-call with no arguments "
-                "payload."
+                "Secondary A2UI LLM emitted a tool-call with no arguments payload."
             ),
             remediation=(
                 "Retry the request; if this persists, check server logs for a "
@@ -607,7 +601,6 @@ def _tool_error(*, error: _ToolErrorKind, message: str) -> str:
     return _json_dumps({"error": error.value, "message": message})
 
 
-# @region[weather-tool-backend]
 class GetWeatherTool(ToolMessage):
     request: str = "get_weather"
     purpose: str = "Get current weather for a location."
@@ -623,6 +616,8 @@ class GetWeatherTool(ToolMessage):
                 error=_ToolErrorKind.GET_WEATHER_FAILED,
                 message=f"{exc.__class__.__name__}: {str(exc)[:200]}",
             )
+
+
 # @endregion[weather-tool-backend]
 
 
@@ -683,6 +678,7 @@ class GetSalesTodosTool(ToolMessage):
 # We define them so Langroid's LLM knows the tool schemas; the AG-UI
 # adapter intercepts the call and forwards it to the frontend.
 
+
 class ChangeBackgroundTool(ToolMessage):
     request: str = "change_background"
     purpose: str = "Change the background color/gradient of the chat area. ONLY call this when the user explicitly asks."
@@ -742,6 +738,8 @@ class ScheduleMeetingTool(ToolMessage):
                 error=_ToolErrorKind.SCHEDULE_MEETING_FAILED,
                 message=f"{exc.__class__.__name__}: {str(exc)[:200]}",
             )
+
+
 # @endregion[backend-tool-call]
 
 
@@ -802,8 +800,7 @@ class GenerateA2UITool(ToolMessage):
                 _a2ui_error(
                     error=_A2uiErrorKind.INVALID_ARGUMENTS,
                     message=(
-                        f"Could not serialize A2UI result: "
-                        f"{exc.__class__.__name__}"
+                        f"Could not serialize A2UI result: {exc.__class__.__name__}"
                     ),
                     remediation=(
                         "This indicates an upstream planner contract bug; "
@@ -995,9 +992,7 @@ def build_agent_config_system_prompt(
     if not directives:
         return SYSTEM_PROMPT
 
-    return SYSTEM_PROMPT + "\n\nUser-selected style:\n- " + "\n- ".join(
-        directives
-    )
+    return SYSTEM_PROMPT + "\n\nUser-selected style:\n- " + "\n- ".join(directives)
 
 
 def extract_agent_config_properties(
