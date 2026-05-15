@@ -8,16 +8,17 @@
 // tool's handler runs locally in the page on invocation. No backend
 // tool wiring required.
 
-// @region[frontend-tool]
-// @region[frontend-tool-registration]
-import React, { useState } from "react";
+import React from "react";
 import {
   CopilotKitProvider,
   CopilotChat,
-  useFrontendTool,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
+// @region[frontend-tool-import]
+import { useFrontendTool } from "@copilotkit/react-core/v2";
+import { useState } from "react";
+// @endregion[frontend-tool-import]
 
 export default function FrontendToolsDemo() {
   return (
@@ -28,6 +29,7 @@ export default function FrontendToolsDemo() {
 }
 
 function Chat() {
+  // @region[frontend-tool-registration]
   const [background, setBackground] = useState<string>(
     "var(--copilot-kit-background-color)",
   );
@@ -52,7 +54,6 @@ function Chat() {
     // @endregion[frontend-tool-handler]
   });
   // @endregion[frontend-tool-registration]
-  // @endregion[frontend-tool]
 
   useConfigureSuggestions({
     suggestions: [

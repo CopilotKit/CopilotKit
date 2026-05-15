@@ -1,15 +1,16 @@
 "use client";
 
-// @region[frontend-tool]
-// @region[frontend-tool-registration]
-import React, { useState } from "react";
+import React from "react";
 import {
-  useFrontendTool,
   useConfigureSuggestions,
   CopilotChat,
 } from "@copilotkit/react-core/v2";
 import { CopilotKit } from "@copilotkit/react-core";
 import { z } from "zod";
+// @region[frontend-tool-import]
+import { useFrontendTool } from "@copilotkit/react-core/v2";
+import { useState } from "react";
+// @endregion[frontend-tool-import]
 
 export default function FrontendToolsDemo() {
   return (
@@ -20,6 +21,7 @@ export default function FrontendToolsDemo() {
 }
 
 function Chat() {
+  // @region[frontend-tool-registration]
   const [background, setBackground] = useState<string>(
     "var(--copilot-kit-background-color)",
   );
@@ -44,7 +46,6 @@ function Chat() {
     // @endregion[frontend-tool-handler]
   });
   // @endregion[frontend-tool-registration]
-  // @endregion[frontend-tool]
 
   useConfigureSuggestions({
     suggestions: [

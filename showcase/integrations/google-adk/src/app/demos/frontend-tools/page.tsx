@@ -1,15 +1,17 @@
 "use client";
 
-// @region[frontend-tool-registration]
-import React, { useState } from "react";
+import React from "react";
 import {
   CopilotKit,
   CopilotSidebar,
-  useFrontendTool,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 import { Background, DEFAULT_BACKGROUND } from "./background";
 import { useFrontendToolsSuggestions } from "./suggestions";
+// @region[frontend-tool-import]
+import { useFrontendTool } from "@copilotkit/react-core/v2";
+import { useState } from "react";
+// @endregion[frontend-tool-import]
 
 export default function FrontendToolsDemo() {
   return (
@@ -20,6 +22,7 @@ export default function FrontendToolsDemo() {
 }
 
 function Chat() {
+  // @region[frontend-tool-registration]
   const [background, setBackground] = useState<string>(DEFAULT_BACKGROUND);
 
   useFrontendTool({
