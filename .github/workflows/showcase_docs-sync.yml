@@ -81,6 +81,8 @@ jobs:
         with:
           app-id: 1108748
           private-key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
 
       # Create PR. For action=auto_push (no review items) the PR is
       # auto-merged via the devops bot (bypasses branch protection). For
