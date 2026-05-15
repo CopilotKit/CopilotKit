@@ -14,18 +14,25 @@ concurrency:
   group: showcase-build-check-${{ github.head_ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
     outputs:
       matrix: ${{ steps.build-matrix.outputs.matrix }}
       has_changes: ${{ steps.build-matrix.outputs.has_changes }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
       - name: Detect changed paths
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3
         id: filter
         with:
           filters: |
@@ -95,6 +102,10 @@ jobs:
 
       - name: Build service matrix
         id: build-matrix
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_HEAD_REF: ${{ github.head_ref }}
+          FILTER_CHANGES: ${{ steps.filter.outputs.changes }}
         run: |
           # Mirror of the ALL_SERVICES definition from showcase_build.yml.
           # Keep in sync — the matrix here must match the production build
@@ -105,7 +116,7 @@ jobs:
           # timeout, lfs, build_args_*, dockerfile.
           # Fields omitted (not needed for build-only): railway_id, health_path.
           ALL_SERVICES='[
-            {"dispatch_name":"shell","filter_key":"shell","context":".","image":"showcase-shell","timeout":10,"lfs":true,"build_args_sha":"${{ github.event.pull_request.head.sha }}","build_args_branch":"${{ github.head_ref }}","dockerfile":"showcase/shell/Dockerfile"},
+            {"dispatch_name":"shell","filter_key":"shell","context":".","image":"showcase-shell","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell/Dockerfile"},
             {"dispatch_name":"langgraph-python","filter_key":"langgraph_python","context":"showcase/integrations/langgraph-python","image":"showcase-langgraph-python","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"mastra","filter_key":"mastra","context":"showcase/integrations/mastra","image":"showcase-mastra","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"crewai-crews","filter_key":"crewai_crews","context":"showcase/integrations/crewai-crews","image":"showcase-crewai-crews","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
@@ -125,14 +136,20 @@ jobs:
             {"dispatch_name":"claude-sdk-python","filter_key":"claude_sdk_python","context":"showcase/integrations/claude-sdk-python","image":"showcase-claude-sdk-python","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"built-in-agent","filter_key":"built_in_agent","context":"showcase/integrations/built-in-agent","image":"showcase-built-in-agent","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"shell-dojo","filter_key":"shell_dojo","context":".","image":"showcase-shell-dojo","timeout":10,"lfs":false,"build_args":"","dockerfile":"showcase/shell-dojo/Dockerfile"},
-            {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","timeout":10,"lfs":true,"build_args_sha":"${{ github.event.pull_request.head.sha }}","build_args_branch":"${{ github.head_ref }}","build_args_pb_url":"https://showcase-pocketbase-production.up.railway.app","build_args_shell_url":"https://showcase.copilotkit.ai","build_args_ops_url":"https://showcase-harness-production.up.railway.app","dockerfile":"showcase/shell-dashboard/Dockerfile"},
-            {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","timeout":10,"lfs":true,"build_args_sha":"${{ github.event.pull_request.head.sha }}","build_args_branch":"${{ github.head_ref }}","dockerfile":"showcase/shell-docs/Dockerfile"},
+            {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","build_args_pb_url":"https://showcase-pocketbase-production.up.railway.app","build_args_shell_url":"https://showcase.copilotkit.ai","build_args_ops_url":"https://showcase-harness-production.up.railway.app","dockerfile":"showcase/shell-dashboard/Dockerfile"},
+            {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-docs/Dockerfile"},
             {"dispatch_name":"showcase-harness","filter_key":"showcase_harness","context":".","image":"showcase-harness","timeout":20,"lfs":false,"build_args":"","dockerfile":"showcase/harness/Dockerfile"},
             {"dispatch_name":"showcase-aimock","filter_key":"showcase_aimock","context":"showcase/aimock","image":"showcase-aimock","timeout":5,"lfs":false,"build_args":"","dockerfile":"showcase/aimock/Dockerfile"}
           ]'
 
-          CHANGES='${{ steps.filter.outputs.changes }}'
-          CHANGES="${CHANGES:-[]}"
+          # Substitute trusted PR head sha/ref into JSON placeholders.
+          # Routed through env: above to satisfy zizmor template-injection check.
+          # Note: PR_HEAD_REF is attacker-controllable (fork branch name) but is only
+          # consumed as a Docker build-arg label inside the isolated build context.
+          ALL_SERVICES="${ALL_SERVICES//__GH_SHA__/$PR_HEAD_SHA}"
+          ALL_SERVICES="${ALL_SERVICES//__GH_REF_NAME__/$PR_HEAD_REF}"
+
+          CHANGES="${FILTER_CHANGES:-[]}"
 
           # PR event only — filter to changed services
           MATRIX=$(echo "$ALL_SERVICES" | jq -c --argjson changes "$CHANGES" '
@@ -163,12 +180,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           lfs: ${{ matrix.service.lfs }}
+          persist-credentials: false
 
       - name: Setup Depot
-        uses: depot/setup-action@v1
+        uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
 
       - name: Prepare build args
         id: build-args
@@ -218,7 +236,7 @@ jobs:
           done
 
       - name: Build Docker image (no push)
-        uses: depot/build-push-action@v1
+        uses: depot/build-push-action@5f3b3c2e5a00f0093de47f657aeaefcedff27d18 # v1
         with:
           project: m2kw2wmmcp
           context: ${{ matrix.service.context }}

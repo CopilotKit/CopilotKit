@@ -42,7 +42,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Check for existing release PR
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -62,19 +62,20 @@ jobs:
               );
             }
 
+      # persist-credentials required: release workflow pushes the release branch via GITHUB_TOKEN
       - name: Checkout Repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: "10.13.1"
+        # Omit `version:` so pnpm/action-setup inherits from the repo's
+        # `packageManager` field in package.json (via corepack).
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20.x
 
@@ -102,7 +103,7 @@ jobs:
       - name: Create release PR
         if: inputs.dry_run != true
         id: create_pr
-        uses: peter-evans/create-pull-request@v8
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: release/publish/${{ inputs.scope }}/v${{ steps.prepare.outputs.version }}
@@ -147,7 +148,7 @@ jobs:
 
       - name: Comment Notion link on PR
         if: inputs.dry_run != true && steps.ai_notes.outputs.notion_url
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         env:
           NOTION_URL: ${{ steps.ai_notes.outputs.notion_url }}
           PR_NUMBER: ${{ steps.create_pr.outputs.pull-request-number }}

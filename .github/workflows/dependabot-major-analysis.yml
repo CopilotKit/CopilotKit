@@ -1,0 +1,144 @@
+name: Dependabot Major Version Analysis
+
+on:
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  analyze-major:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@21025c705c08248db411dc16f3619e6b5f9ea21a # v2.5.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Analyze major version bump
+        if: >-
+          steps.metadata.outputs.package-ecosystem == 'github_actions' &&
+          steps.metadata.outputs.update-type == 'version-update:semver-major'
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          DEP_NAME: ${{ steps.metadata.outputs.dependency-names }}
+          PREV_VERSION: ${{ steps.metadata.outputs.previous-version }}
+          NEW_VERSION: ${{ steps.metadata.outputs.new-version }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const depName = process.env.DEP_NAME;
+            const prevVersion = process.env.PREV_VERSION;
+            const newVersion = process.env.NEW_VERSION;
+            const parts = depName.split('/');
+            const owner = parts[0];
+            const repo = parts[1];
+            const repoSlug = `${owner}/${repo}`;
+
+            let releases = [];
+            try {
+              const { data } = await github.rest.repos.listReleases({ owner, repo, per_page: 50 });
+              releases = data;
+            } catch (err) {
+              core.warning(`Could not fetch releases for ${repoSlug}: ${err.message}`);
+            }
+
+            const prevMajor = parseInt(prevVersion.replace(/^v/, ''), 10);
+            const newMajor = parseInt(newVersion.replace(/^v/, ''), 10);
+
+            const relevantReleases = releases.filter(r => {
+              const major = parseInt(r.tag_name.replace(/^v/, ''), 10);
+              return major > prevMajor && major <= newMajor;
+            });
+
+            let releaseNotesSummary = '';
+            let breakingChanges = '';
+
+            if (relevantReleases.length === 0) {
+              releaseNotesSummary = '_No releases found between these versions._';
+              breakingChanges = `_Unable to determine breaking changes automatically. Please review the [full changelog](https://github.com/${repoSlug}/releases)._`;
+            } else {
+              for (const release of relevantReleases.slice(0, 10)) {
+                const body = release.body || '_No release notes._';
+                releaseNotesSummary += `### ${release.tag_name}${release.name && release.name !== release.tag_name ? ' — ' + release.name : ''}\n\n`;
+                releaseNotesSummary += body.substring(0, 2000);
+                if (body.length > 2000) releaseNotesSummary += '\n\n_...truncated_';
+                releaseNotesSummary += '\n\n---\n\n';
+                const lines = body.split('\n');
+                for (const line of lines) {
+                  if (/breaking|BREAKING|removed|deprecated|incompatible|migration/i.test(line)) {
+                    breakingChanges += `- ${line.trim()}\n`;
+                  }
+                }
+              }
+            }
+
+            if (!breakingChanges) {
+              breakingChanges = '_No explicit breaking changes detected in release notes. Manual review recommended._';
+            }
+
+            let commentBody = `## :warning: Major Version Update — Manual Review Required
+
+            | Field | Value |
+            |-------|-------|
+            | **Action** | [\`${depName}\`](https://github.com/${repoSlug}) |
+            | **Previous** | \`v${prevVersion}\` |
+            | **New** | \`v${newVersion}\` |
+            | **Type** | Major (\`v${prevMajor}\` → \`v${newMajor}\`) |
+
+            ### Breaking Changes
+
+            ${breakingChanges}
+
+            ### Release Notes (v${prevMajor + 1} → v${newMajor})
+
+            ${releaseNotesSummary}
+
+            ### Next Steps
+
+            1. Review breaking changes above
+            2. Check if workflow inputs/outputs changed
+            3. Verify compatibility with your CI/CD configuration
+
+            > Full changelog: https://github.com/${repoSlug}/releases
+
+            ---
+            _Generated automatically for Dependabot major version PRs._`.replace(/^            /gm, '');
+
+            if (commentBody.length > 64000) {
+              commentBody = commentBody.substring(0, 63900) + '\n\n_...comment truncated due to size limit._';
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: commentBody,
+            });
+
+            try {
+              const labelsToAdd = ['major-update', 'needs-review'];
+              for (const label of labelsToAdd) {
+                try {
+                  await github.rest.issues.getLabel({ owner: context.repo.owner, repo: context.repo.repo, name: label });
+                } catch {
+                  const colors = { 'major-update': 'B60205', 'needs-review': 'FBCA04' };
+                  await github.rest.issues.createLabel({
+                    owner: context.repo.owner, repo: context.repo.repo,
+                    name: label, color: colors[label] || 'EDEDED',
+                  });
+                }
+              }
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                labels: labelsToAdd,
+              });
+            } catch (err) {
+              core.warning(`Could not add labels: ${err.message}`);
+            }
