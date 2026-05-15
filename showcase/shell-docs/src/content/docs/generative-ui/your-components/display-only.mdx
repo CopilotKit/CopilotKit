@@ -3,6 +3,7 @@ title: Display Components
 icon: "lucide/Eye"
 description: Register React components that your agent can render in the chat.
 hideTOC: true
+snippet_cell: gen-ui-tool-based
 ---
 
 ## What is this?
@@ -12,6 +13,8 @@ Display-only generative UI lets you register React components as tools your agen
 <Callout type="info">
   **Free course:** See this pattern built end-to-end in [Build Interactive Agents with Generative UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/) — a free DeepLearning.AI short course taught by CopilotKit's CEO covering the full Generative UI spectrum (Controlled, Declarative, and Open-Ended).
 </Callout>
+
+<InlineDemo demo="gen-ui-tool-based" />
 
 <Tabs items={['page.tsx', 'chart.tsx']}>
   <Tab value="page.tsx">
@@ -60,5 +63,15 @@ Use display-only generative UI when you want to:
 - Show structured data from agent responses
 - Render previews, status indicators, or visual feedback
 - Let the agent present information beyond plain text
+
+## How it works in code
+
+The renderer component receives the tool's arguments as typed props and
+mounts inline in the chat. Below is the chart renderer wired up in the
+canonical demo — the agent emits the data, the component draws it.
+
+<Snippet region="bar-chart-renderer" title="frontend/src/app/page.tsx — bar chart renderer" />
+
+<FeatureIntegrations feature="gen-ui-tool-based" />
 
 <IntegrationGrid path="generative-ui/your-components/display-only" />
