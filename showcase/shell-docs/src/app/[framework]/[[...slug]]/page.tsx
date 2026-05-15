@@ -212,11 +212,16 @@ export default async function FrameworkScopedDocsPage({
   let contentSlugPath: string = slugPath;
   let doc: ReturnType<typeof loadDoc> = null;
 
-  // `/quickstart` at the root is a routing shim — it exists only so
-  // the sidebar's Quickstart entry has a backing page. Real quickstart
-  // content lives per-framework at `integrations/<framework>/quickstart.mdx`,
-  // so for framework-scoped URLs the override always wins over the shim.
-  if (slugPath === "quickstart") {
+  // Some root pages are generic overview shims — real per-framework
+  // content lives at `integrations/<framework>/<slug>.mdx` and should
+  // always win over the root shim when an override exists.
+  // `/quickstart` was the original case; add paths here as needed.
+  const INTEGRATION_OVERRIDE_SLUGS = new Set([
+    "quickstart",
+    "generative-ui/your-components/display-only",
+  ]);
+
+  if (INTEGRATION_OVERRIDE_SLUGS.has(slugPath)) {
     const overridePath = `integrations/${docsFolder}/${slugPath}`;
     doc = loadDoc(overridePath);
     if (doc) contentSlugPath = overridePath;

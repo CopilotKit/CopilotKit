@@ -16,7 +16,7 @@ Display-only generative UI lets you register React components as tools your agen
 <Tabs items={['page.tsx', 'chart.tsx']}>
   <Tab value="page.tsx">
   ```tsx
-import { useComponent } from "@copilotkit/react-core/v2"; 
+import { useComponent } from "@copilotkit/react-core/v2";
 import { Chart, ChartProps } from "./chart"; // chart.tsx (see next tab)
 
 function YourMainContent() {
@@ -28,11 +28,10 @@ function YourMainContent() {
   });
   return <div>{/* ... */}</div>;
 }
-
-````
-</Tab>
-<Tab value="chart.tsx">
-```tsx
+  ```
+  </Tab>
+  <Tab value="chart.tsx">
+  ```tsx
 import { z } from "zod";
 import {
   ResponsiveContainer,
@@ -61,8 +60,7 @@ export function Chart({ title, data }: z.infer<typeof ChartProps>) {
     </div>
   );
 }
-````
-
+  ```
   </Tab>
 </Tabs>
 
