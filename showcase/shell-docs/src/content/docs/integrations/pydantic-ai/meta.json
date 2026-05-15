@@ -2,6 +2,7 @@
   "title": "Pydantic AI",
   "root": true,
   "pages": [
+    "index",
     "---Generative UI---",
     "...generative-ui",
     "---App Control---",

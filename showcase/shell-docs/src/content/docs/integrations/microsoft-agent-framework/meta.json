@@ -2,6 +2,7 @@
   "title": "Microsoft Agent Framework",
   "root": true,
   "pages": [
+    "index",
     "---Basics---",
     "custom-look-and-feel",
     "---Generative UI---",
