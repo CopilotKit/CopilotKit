@@ -2,7 +2,7 @@
  * Parity Validator
  *
  * Enforces demo <-> spec <-> QA-markdown parity across all packages under
- * showcase/packages/. For each package:
+ * showcase/integrations/. For each package:
  *   1. Reads manifest.yaml to extract declared demo IDs.
  *   2. Lists tests/e2e/*.spec.ts files.
  *   3. Lists qa/*.md files.
@@ -52,9 +52,9 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // ROOT = showcase/ (NOT the repo root). validate-parity.ts lives at
 // showcase/scripts/validate-parity.ts, so path.resolve(__dirname, "..")
-// resolves to showcase/. DEFAULT_PACKAGES_DIR is showcase/packages/.
+// resolves to showcase/. DEFAULT_PACKAGES_DIR is showcase/integrations/.
 const ROOT = path.resolve(__dirname, "..");
-const DEFAULT_PACKAGES_DIR = path.join(ROOT, "packages");
+const DEFAULT_PACKAGES_DIR = path.join(ROOT, "integrations");
 
 /**
  * Baseline expected demo count per package. Packages that deviate from
@@ -340,7 +340,7 @@ export interface ListResult {
  *
  * ENOTDIR handling: ENOTDIR from statSync means "a component of the
  * path is a regular file, not a directory" (e.g. stray file committed
- * at packages/foo/tests so walking to packages/foo/tests/e2e fails).
+ * at integrations/foo/tests so walking to integrations/foo/tests/e2e fails).
  * That is a misconfiguration signal, NOT a legitimately-absent
  * directory. Classifying it as `missing` silently drops the whole
  * subtree from parity checks with zero diagnostic. Instead, surface
@@ -364,7 +364,7 @@ function probeDir(p: string): ProbeResult {
     // to the caller's readdirSync, which will throw ENOTDIR and land
     // in the existing listing-failed / "could not read" path. Doing
     // the isDirectory check here would reclassify "file at
-    // packages/" as "missing" and produce a confusing "not found"
+    // integrations/" as "missing" and produce a confusing "not found"
     // diagnostic when the real problem is ENOTDIR.
     fs.statSync(p);
     return { kind: "ok" };
@@ -1069,7 +1069,7 @@ function runParityImpl(
   const resolvedPackagesDir =
     packagesDir ??
     (envRoot && envRoot.length > 0
-      ? path.join(envRoot, "packages")
+      ? path.join(envRoot, "integrations")
       : DEFAULT_PACKAGES_DIR);
 
   // Only read process.argv when invoked from the top-level

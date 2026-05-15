@@ -2,18 +2,23 @@
 
 // FrameworkProvider — tracks the currently "active" agentic backend.
 //
-// IMPORTANT: `framework` is STRICTLY URL-derived. It's non-null only when
-// the user is actually on a framework-scoped route (`/<framework>/...`).
-// On `/docs/...`, `/`, and other non-scoped routes, `framework` is null
-// and the page renders the "no agentic backend selected" state.
+// Three fields, three different jobs:
 //
-// `storedFramework` is a separate, advisory signal: the user's last
-// remembered choice from localStorage. Consumers use it to mark "this
-// was your last pick" (e.g. highlight that card in the framework picker)
-// WITHOUT treating it as the active framework. Visiting `/docs/` after
-// previously picking LangChain must still show the unselected state —
-// only explicit navigation to `/langgraph-python/...` (or clicking the
-// card) makes LangChain active.
+// - `framework` — STRICTLY URL-derived. Non-null only on `/<framework>/...`
+//   routes. Use this when chrome legitimately needs to know "is the URL
+//   scoped to a framework?" (e.g. RouterPivot's redirect-target logic, or
+//   a banner that only shows when the URL is genuinely scoped).
+//
+// - `storedFramework` — last REMEMBERED choice from localStorage. Use to
+//   mark the user's last pick in a picker UI (e.g. ring around their card)
+//   without treating it as the active selection.
+//
+// - `effectiveFramework` — what the page renders as. Falls back through
+//   URL → stored → DEFAULT_FRAMEWORK so it's never null. This is the
+//   field every snippet renderer, sidebar link, and "Continue with X"
+//   pointer should read. Treating no-choice as Built-in Agent removes
+//   the dead-end where fresh visitors saw a forced picker before any
+//   working code.
 //
 // Whenever the URL asserts a framework, we persist it as the new
 // storedFramework so the preference carries.
@@ -29,18 +34,24 @@ import { usePathname } from "next/navigation";
 
 export interface FrameworkContextValue {
   /**
-   * Currently ACTIVE framework — strictly URL-derived. Non-null only on
-   * `/<framework>/...` routes. Consumers that render "is this a
-   * framework-scoped view?" chrome (selectors, banners, snippets) should
-   * branch on this field.
+   * URL-derived framework. Non-null only on `/<framework>/...` routes.
+   * Use only when chrome needs to know "is the URL scoped to a
+   * framework?" (e.g. redirect logic). For rendering content, prefer
+   * `effectiveFramework`.
    */
   framework: string | null;
   /**
-   * Last REMEMBERED framework from localStorage — advisory, does NOT
-   * auto-activate. Use to mark the user's last pick in a picker UI
-   * without implying the current view is scoped to it.
+   * Last remembered framework from localStorage — advisory only. Use to
+   * mark the user's last pick in a picker UI without implying the
+   * current view is scoped to it.
    */
   storedFramework: string | null;
+  /**
+   * Framework the page should render as — never null. Falls through
+   * URL → stored → DEFAULT_FRAMEWORK. Snippet renderers, sidebar links,
+   * and "Continue with X" affordances should read this.
+   */
+  effectiveFramework: string;
   /** All known framework slugs derived from the registry. */
   knownFrameworks: string[];
   /** Persist a new framework preference (does not navigate). */
@@ -50,6 +61,14 @@ export interface FrameworkContextValue {
 const FrameworkContext = createContext<FrameworkContextValue | null>(null);
 
 const STORAGE_KEY = "selectedFramework";
+
+/**
+ * Built-in Agent is the default integration: zero config, runs in-process
+ * via the Next.js runtime, no external agent server. Treating fresh
+ * visitors as if they'd picked it removes the forced-picker dead end and
+ * gives them working code on first paint.
+ */
+export const DEFAULT_FRAMEWORK = "built-in-agent";
 
 // Log each failure mode once per session so we don't spam the console
 // on repeated reads/writes when localStorage is unavailable (SSR, private
@@ -132,6 +151,14 @@ export function FrameworkProvider({
   // scoped to it.
   const framework = urlFramework;
 
+  // Effective framework falls through URL → stored → default so content
+  // always has a target to render against. Validate `stored` against the
+  // known registry before honouring it, so a stale entry from a renamed
+  // or removed integration doesn't poison the render.
+  const storedIsValid = stored !== null && knownFrameworks.includes(stored);
+  const effectiveFramework =
+    framework ?? (storedIsValid ? stored! : DEFAULT_FRAMEWORK);
+
   const setStoredFramework = (slug: string | null) => {
     // Validate the slug against the known registry. Callers passing a
     // slug we don't recognise would poison the stored preference (e.g.
@@ -149,6 +176,7 @@ export function FrameworkProvider({
   const value: FrameworkContextValue = {
     framework,
     storedFramework: stored,
+    effectiveFramework,
     knownFrameworks,
     setStoredFramework,
   };

@@ -1,6 +1,6 @@
 /**
  * Shared types + key helpers for the live-status path (§5.4, §5 of the
- * showcase-ops design spec).
+ * showcase-harness design spec).
  *
  * PB row keys: `<dimension>:<slug>` for integration-level dimensions
  * (e.g. `health`, `agent`, `chat`, `tools`), or
@@ -10,6 +10,8 @@
  * (D5/D6 spec) — featureId here is the D5 featureType (e.g.
  * `agentic-chat`) so the existing per-cell lookup pattern stays uniform.
  */
+
+import { formatTs } from "./format-ts";
 
 export type State = "green" | "red" | "degraded";
 
@@ -42,6 +44,15 @@ export interface CellState {
   e2e: BadgeRender;
   smoke: BadgeRender;
   health: BadgeRender;
+  /**
+   * D2 (API) per-integration badge. Sourced from `agent:<slug>` rows
+   * emitted by the agent-check probe. Integration-scoped — every feature
+   * within the same integration sees the same D2 badge. Does NOT
+   * contribute to the rollup (agent is informational, same model as
+   * smoke). Stays `gray` / `?` until the agent probe has ticked for
+   * this integration.
+   */
+  d2: BadgeRender;
   /**
    * D5 (deep / multi-turn conversation) per-feature badge. Sourced from
    * `d5:<slug>/<featureId>` rows emitted by the `e2e-deep` driver. Stays
@@ -93,6 +104,123 @@ export function keyFor(
   return featureId
     ? `${dimension}:${slug}/${featureId}`
     : `${dimension}:${slug}`;
+}
+
+/**
+ * Catalog feature ID → D5 PB row key suffix. The harness writes D5 rows
+ * keyed by `d5:<slug>/<d5FeatureType>`, but the dashboard resolves cells
+ * by catalog `featureId`. This map bridges the two namespaces.
+ *
+ * Mirrors `REGISTRY_TO_D5` in `harness/src/probes/helpers/d5-feature-mapping.ts`.
+ */
+export const CATALOG_TO_D5_KEY: Readonly<Record<string, readonly string[]>> = {
+  "agentic-chat": ["agentic-chat"],
+  "tool-rendering": ["tool-rendering"],
+  "tool-rendering-default-catchall": ["tool-rendering-default-catchall"],
+  "tool-rendering-custom-catchall": ["tool-rendering-custom-catchall"],
+  "tool-rendering-reasoning-chain": ["tool-rendering-reasoning-chain"],
+  "headless-simple": ["headless-simple"],
+  "headless-complete": ["gen-ui-headless-complete"],
+  "gen-ui-tool-based": ["gen-ui-custom"],
+  "hitl-in-chat": ["hitl-text-input"],
+  "hitl-in-chat-booking": ["hitl-text-input"],
+  // `hitl` is an alias for hitl-in-chat used by some integrations. The harness
+  // remapped the alias to `hitl-text-input` in d5-feature-mapping.ts (the
+  // standalone `hitl-steps` D5 script was removed in genuine-pass Phase 0);
+  // this mapping mirrors it. See d5-mapping-drift.test.ts for enforcement.
+  hitl: ["hitl-text-input"],
+  "hitl-in-app": ["hitl-approve-deny"],
+  // shared-state-read-write covers ONLY the write half — the read literal
+  // is owned by the standalone /demos/shared-state-read recipe-editor probe.
+  "shared-state-read-write": ["shared-state-write"],
+  "mcp-apps": ["mcp-apps"],
+  subagents: ["subagents"],
+  // ── LGP D5 coverage wave (mirrors REGISTRY_TO_D5 in
+  //    harness/src/probes/helpers/d5-feature-mapping.ts) ──
+  // Beautiful Chat: 5 per-pill literals — see harness/_beautiful-chat-shared.ts
+  // for why Excalidraw / Calculator / Sales Dashboard / Task Manager are
+  // intentionally out of scope for this PR.
+  "beautiful-chat": [
+    "beautiful-chat-toggle-theme",
+    "beautiful-chat-pie-chart",
+    "beautiful-chat-bar-chart",
+    "beautiful-chat-search-flights",
+    "beautiful-chat-schedule-meeting",
+  ],
+  "chat-slots": ["chat-slots"],
+  "chat-customization-css": ["chat-css"],
+  "prebuilt-sidebar": ["prebuilt-sidebar"],
+  "prebuilt-popup": ["prebuilt-popup"],
+  auth: ["auth"],
+  multimodal: ["multimodal"],
+  "agent-config": ["agent-config"],
+  "frontend-tools": ["frontend-tools"],
+  "frontend-tools-async": ["frontend-tools-async"],
+  // Reasoning family — both demos route through `reasoning-display`.
+  "reasoning-custom": ["reasoning-display"],
+  "reasoning-default": ["reasoning-display"],
+  "shared-state-streaming": ["shared-state-streaming"],
+  "readonly-state-agent-context": ["readonly-state-context"],
+  "shared-state-read": ["shared-state-read"],
+  "declarative-gen-ui": ["gen-ui-declarative"],
+  "a2ui-fixed-schema": ["gen-ui-a2ui-fixed"],
+  "open-gen-ui": ["gen-ui-open"],
+  "open-gen-ui-advanced": ["gen-ui-open-advanced"],
+  "gen-ui-agent": ["gen-ui-agent"],
+  "gen-ui-interrupt": ["gen-ui-interrupt"],
+  "interrupt-headless": ["interrupt-headless"],
+  "byoc-hashbrown": ["byoc"],
+  "byoc-json-render": ["byoc"],
+  // langgraph-python's `byoc-*` cells were renamed to `declarative-*`
+  // to drop internal jargon. Both ID forms map to the same `byoc` D5
+  // featureType so dashboard rolls up either form. Mirrors
+  // d5-feature-mapping.ts.
+  "declarative-hashbrown": ["byoc"],
+  "declarative-json-render": ["byoc"],
+  voice: ["voice"],
+};
+
+/**
+ * Resolve the rolled-up D5 row for `(slug, featureId)`.
+ *
+ * Precedence across the multi-key set (red > degraded > green) — the
+ * cell's badge tone reflects the worst-state row in the family. A
+ * naive "first non-null wins" or "only red wins" implementation
+ * silently masks degraded sub-rows behind green ones; for a cell like
+ * `beautiful-chat` which fans out to 5 per-pill keys, that means an
+ * amber sub-row would render the cell green and operators would never
+ * see the partial regression.
+ *
+ * Missing rows are treated as not-yet-emitted and are NOT a signal of
+ * health — but they also can't be "worst" because we can't compare
+ * them to anything. The caller (`resolveCell`) renders gray when no
+ * row is returned, which surfaces "no data yet" distinctly from
+ * green.
+ */
+const D5_STATE_RANK: Readonly<Record<State, number>> = {
+  red: 3,
+  degraded: 2,
+  green: 1,
+};
+
+function resolveD5Row(
+  live: LiveStatusMap,
+  slug: string,
+  featureId: string,
+): StatusRow | null {
+  const d5Keys = CATALOG_TO_D5_KEY[featureId];
+  if (!d5Keys) {
+    return live.get(keyFor("d5", slug, featureId)) ?? null;
+  }
+  let worst: StatusRow | null = null;
+  for (const d5Key of d5Keys) {
+    const row = live.get(keyFor("d5", slug, d5Key)) ?? null;
+    if (!row) continue;
+    if (!worst || D5_STATE_RANK[row.state] > D5_STATE_RANK[worst.state]) {
+      worst = row;
+    }
+  }
+  return worst;
 }
 
 function rowTone(row: StatusRow | null): BadgeTone {
@@ -198,16 +326,16 @@ function formatTooltip(
     // surface the row's last-known state alongside the offline banner so
     // operators can triage without waiting for reconnect.
     if (row && (row.state === "red" || row.state === "degraded")) {
-      return `dashboard offline (§5.3) — last observed: ${dim} ${row.state} since ${row.transitioned_at}`;
+      return `dashboard offline (§5.3) — last observed: ${dim} ${row.state} since ${formatTs(row.transitioned_at)}`;
     }
     return "dashboard offline (§5.3)";
   }
   if (!row) return "no data — probe pending";
   switch (row.state) {
     case "green":
-      return `${dim} green since ${row.observed_at}`;
+      return `${dim} green since ${formatTs(row.observed_at)}`;
     case "red": {
-      const base = `${dim} red since ${row.first_failure_at ?? row.transitioned_at}`;
+      const base = `${dim} red since ${formatTs(row.first_failure_at ?? row.transitioned_at)}`;
       const sig = summarizeSignal(row.signal);
       return sig ? `${base} — ${sig}` : base;
     }
@@ -219,7 +347,7 @@ function formatTooltip(
       // for a degraded row that timestamp is when degradation was
       // last observed. Earlier copy ("last pass @ ...") was misleading
       // operators into reading it as the last green tick.
-      const base = `${dim} stale — last seen @ ${row.observed_at}`;
+      const base = `${dim} stale — last seen @ ${formatTs(row.observed_at)}`;
       const sig = summarizeSignal(row.signal);
       return sig ? `${base} — ${sig}` : base;
     }
@@ -273,13 +401,18 @@ export function resolveCell(
   // shape always misses, leaving every smoke badge gray. Use the
   // integration-scoped key so the badge actually populates.
   const smokeRow = live.get(keyFor("smoke", slug)) ?? null;
+  // D2 / agent row: integration-scoped `agent:<slug>`, emitted by the
+  // agent-check probe. Every feature within the same integration sees
+  // the same D2 badge. Informational — does NOT contribute to the
+  // rollup (same model as smoke).
+  const agentRow = live.get(keyFor("agent", slug)) ?? null;
   // D5 / D6 per-feature rows (`d5:<slug>/<featureType>` /
   // `d6:<slug>/<featureType>`) emitted by the e2e-deep / e2e-parity
   // drivers. Informational — they do NOT contribute to the rollup
   // (alert engine routes them independently, same model as smoke). A
   // missing row resolves to a gray "?" badge, which is the expected
   // resting state for D6 cells outside their weekly-rotation slot.
-  const d5Row = live.get(keyFor("d5", slug, featureId)) ?? null;
+  const d5Row = resolveD5Row(live, slug, featureId);
   const d6Row = live.get(keyFor("d6", slug, featureId)) ?? null;
 
   // Rollup contributors: health + e2e (Decision #7: smokeRow dropped).
@@ -336,6 +469,12 @@ export function resolveCell(
       label: formatLabel("health", healthRow),
       tooltip: formatTooltip("health", healthRow, connection),
       row: healthRow,
+    },
+    d2: {
+      tone: rowTone(agentRow),
+      label: formatLabel("agent", agentRow),
+      tooltip: formatTooltip("agent", agentRow, connection),
+      row: agentRow,
     },
     d5: {
       tone: rowTone(d5Row),

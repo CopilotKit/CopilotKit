@@ -58,7 +58,7 @@ services:
   # ---------------------------------------------------------------------------
 
   intelligence:
-    image: ghcr.io/copilotkit/intelligence/composite:0.0.0-ghcr.20260422.1
+    image: ghcr.io/copilotkit/intelligence/composite:0.1.0
     ports:
       - "${APP_API_HOST_PORT:-4201}:4201"
       - "${REALTIME_GATEWAY_HOST_PORT:-4401}:4401"

@@ -8,9 +8,24 @@ snippet_cell: a2ui-fixed-schema
 
 In the fixed-schema approach, you design the UI schema once (by hand,
 or using the [A2UI Composer](https://a2ui-composer.ag-ui.com/)) and
-save it as JSON next to your agent. The agent tool only provides the
-*data*; the surface appears instantly when the tool returns because
-nothing has to be generated at runtime.
+keep it on the agent side. The agent tool only provides the *data*;
+the surface appears instantly when the tool returns because nothing
+has to be generated at runtime.
+
+How the schema is *delivered* to the runtime is the only thing that
+varies between integrations:
+
+- **Schema-loading** (langgraph-python, langgraph-typescript,
+  langgraph-fastapi, llamaindex, crewai-crews, pydantic-ai,
+  ms-agent-python, google-adk) — the schema is saved as a `.json`
+  file next to the agent and loaded once at startup.
+- **Schema-inline** (spring-ai, ms-agent-dotnet) — the schema is
+  declared inline as a typed literal in source. The host language
+  doesn't ship a `load_schema` JSON loader, so the structure is
+  compiled in directly.
+- **LLM-driven** (mastra, strands) — the agent runs a secondary LLM
+  call to produce the operations container per-request. The catalog
+  is still fixed; the schema is generated on demand.
 
 Ask about a flight and the agent renders a fully structured card from a pre-defined schema:
 
@@ -18,8 +33,9 @@ Ask about a flight and the agent renders a fully structured card from a pre-defi
 
 ## How it works
 
-1. The schema is loaded from a JSON file at startup via
-   `a2ui.load_schema(...)`, a thin `json.load` wrapper.
+1. The schema is made available to the agent — either loaded from a
+   JSON file at startup, declared inline, or generated per-request,
+   depending on the integration.
 2. The agent's `display_flight` tool receives data from the primary LLM
    (origin / destination / airline / price).
 3. The tool returns `a2ui.render(...)` with `createSurface` +
@@ -28,7 +44,7 @@ Ask about a flight and the agent renders a fully structured card from a pre-defi
    renders the surface using the matching 5-component client catalog
    (Title, Airport, Arrow, AirlineBadge, PriceTag, plus the built-ins).
 
-## Schemas as JSON: compositional trees
+## Compositional schemas
 
 The example below ships a flight card assembled compositionally from
 small sub-components rather than one monolithic `FlightCard`:
@@ -42,7 +58,8 @@ Card
      └─ Button       (Book)
 ```
 
-That tree lives in `backend/schemas/flight_schema.json`. Components
+That tree lives backend-side — as a JSON file, an inline literal, or
+a per-request LLM output, depending on the integration. Components
 without data bindings (like `Title` or `Arrow`) carry their value
 inline; components bound to the LLM's data (like `Airport`) reference
 fields via JSON Pointer paths such as `{ "path": "/origin" }`. The
@@ -86,13 +103,14 @@ renderers with CopilotKit's built-ins so the schema can reference
 <Snippet region="catalog-creation" />
 </Step>
 
+<WhenFrameworkHas flag="a2ui_pattern" equals="schema-loading">
 <Step>
 ### Load the schema JSON at startup
 
-`a2ui.load_schema(path)` is a thin `json.load` wrapper that parses the
-schema file once at module-import time. The sibling `booked_schema.json`
-is kept ready for the button-click "booked" optimistic swap (see the
-note on action handlers below):
+`a2ui.load_schema(path)` (or the framework's equivalent thin `json.load`
+wrapper) parses the schema file once at module-import time. The
+sibling `booked_schema.json` is kept ready for the button-click
+"booked" optimistic swap (see the note on action handlers below):
 
 <Snippet region="backend-schema-json-load" />
 </Step>
@@ -100,14 +118,56 @@ note on action handlers below):
 <Step>
 ### Return render operations from the tool
 
-The `display_flight` tool returns `a2ui.render(operations=[…])`. The
-A2UI middleware detects the operations container in the tool result
-and forwards it to the frontend renderer. The LLM only generates the
-four data fields (`origin`, `destination`, `airline`, `price`); the
-schema does the rest:
+The agent tool returns `a2ui.render(operations=[…])`. The A2UI
+middleware detects the operations container in the tool result and
+forwards it to the frontend renderer. The LLM only generates the four
+data fields (`origin`, `destination`, `airline`, `price`); the schema
+does the rest:
 
 <Snippet region="backend-render-operations" />
 </Step>
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="a2ui_pattern" equals="schema-inline">
+<Step>
+### Define the schema inline
+
+Spring AI / .NET don't ship a `load_schema` JSON helper, so the
+component tree is declared inline as a typed literal in source —
+equivalent to deserialising a `flight_schema.json` but compiled into
+the agent class. The structure is identical to the JSON form; only
+the surface syntax changes:
+
+<Snippet region="backend-schema-json-load" />
+</Step>
+
+<Step>
+### Return render operations from the tool
+
+The agent tool builds the same `createSurface` + `updateComponents` +
+`updateDataModel` operations container and returns it. The A2UI
+middleware detects the operations in the tool result and forwards
+them to the frontend renderer; the LLM only supplies the four data
+fields:
+
+<Snippet region="backend-render-operations" />
+</Step>
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="a2ui_pattern" equals="llm-driven">
+<Step>
+### Generate the schema dynamically
+
+Mastra and Strands take a different route: the agent tool runs a
+*secondary* LLM call with a forced tool choice that produces the
+operations container per-request. The frontend catalog is still fixed
+(same `Title`/`Airport`/`Arrow`/`AirlineBadge`/`PriceTag` primitives),
+but the schema is built on the fly. Schema construction and render
+emission happen in the same tool call:
+
+<Snippet region="backend-render-operations" />
+</Step>
+</WhenFrameworkHas>
 </Steps>
 
 ## Why compositional beats monolithic
@@ -167,7 +227,7 @@ When available, a button declares its action like this:
 
 And the Python tool matches it with a handler keyed by the action
 name (plus a `"*"` catch-all). Until the SDK lands, see the reference
-[fixed-schema guide](https://docs.copilotkit.ai/integrations/langgraph/generative-ui/a2ui/fixed-schema)
+[fixed-schema guide](/integrations/langgraph/generative-ui/a2ui/fixed-schema)
 for the full pattern.
 
 ## When should I use fixed schemas?

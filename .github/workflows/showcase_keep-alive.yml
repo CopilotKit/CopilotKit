@@ -1,6 +1,6 @@
-# INTERIM — superseded by showcase-ops smoke cadence (see Notion).
+# INTERIM — superseded by showcase-harness smoke cadence (see Notion).
 #
-# Goal: curl /api/health on each showcase starter every 5 min so the agent's
+# Goal: curl /api/health on each showcase service every 5 min so the agent's
 # in-memory state (JIT, module cache, connection pools) stays warm. Railway Pro
 # tier doesn't sleep containers, but warm-state decays over idle.
 #

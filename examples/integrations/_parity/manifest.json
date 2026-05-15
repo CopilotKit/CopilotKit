@@ -1,0 +1,155 @@
+{
+  "version": 1,
+  "northStar": "langgraph-python",
+  "canonicalPromptFile": "_parity/canonical/PROMPT.md",
+  "tracked": {
+    "verbatimFiles": [
+      "postcss.config.mjs",
+      "tsconfig.json",
+      "next.config.ts",
+      "next-env.d.ts",
+      "public/copilotkit-logo-mark.svg",
+      "public/copilotkit-logo.svg",
+      "public/file.svg",
+      "public/globe.svg",
+      "public/next.svg",
+      "public/vercel.svg",
+      "public/window.svg",
+      "src/app/favicon.ico",
+      "src/app/globals.css",
+      "src/app/layout.tsx",
+      "src/app/page.tsx",
+      "src/app/declarative-generative-ui/definitions.ts",
+      "src/app/declarative-generative-ui/renderers.tsx",
+      "src/components/example-canvas/index.tsx",
+      "src/components/example-canvas/todo-card.tsx",
+      "src/components/example-canvas/todo-column.tsx",
+      "src/components/example-canvas/todo-list.tsx",
+      "src/components/example-layout/index.tsx",
+      "src/components/example-layout/mode-toggle.tsx",
+      "src/components/generative-ui/charts/bar-chart.tsx",
+      "src/components/generative-ui/charts/config.ts",
+      "src/components/generative-ui/charts/pie-chart.tsx",
+      "src/components/generative-ui/meeting-time-picker.tsx",
+      "src/components/headless-chat.tsx",
+      "src/components/tool-rendering.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/checkbox.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/spinner.tsx",
+      "src/hooks/index.ts",
+      "src/hooks/use-example-suggestions.tsx",
+      "src/hooks/use-generative-ui-examples.tsx",
+      "src/hooks/use-theme.tsx",
+      "src/lib/a2ui-theme.css",
+      "src/lib/utils.ts",
+      "Dockerfile",
+      "docker/Dockerfile.app",
+      "docker/Dockerfile.agent",
+      "docker-compose.test.yml",
+      "docker-route-override.ts",
+      "entrypoint.sh",
+      "serve.py",
+      "showcase.json"
+    ],
+    "packageJsonPaths": [
+      "scripts.dev",
+      "scripts.dev:debug",
+      "scripts.dev:ui",
+      "scripts.build",
+      "scripts.start",
+      "scripts.postinstall",
+      "dependencies.@copilotkit/react-core",
+      "dependencies.@copilotkit/react-ui",
+      "dependencies.@copilotkit/runtime",
+      "dependencies.@copilotkit/shared",
+      "dependencies.@copilotkit/a2ui-renderer",
+      "dependencies.@radix-ui/react-checkbox",
+      "dependencies.@radix-ui/react-label",
+      "dependencies.@radix-ui/react-separator",
+      "dependencies.class-variance-authority",
+      "dependencies.clsx",
+      "dependencies.hono",
+      "dependencies.lucide-react",
+      "dependencies.next",
+      "dependencies.react",
+      "dependencies.react-dom",
+      "dependencies.react-rnd",
+      "dependencies.react18-json-view",
+      "dependencies.recharts",
+      "dependencies.tailwind-merge",
+      "dependencies.zod",
+      "devDependencies.@tailwindcss/postcss",
+      "devDependencies.@types/node",
+      "devDependencies.@types/react",
+      "devDependencies.@types/react-dom",
+      "devDependencies.concurrently",
+      "devDependencies.tailwindcss",
+      "devDependencies.typescript"
+    ],
+    "agentSurface": {
+      "toolNames": [
+        "manage_todos",
+        "get_todos",
+        "query_data",
+        "generate_a2ui",
+        "search_flights"
+      ],
+      "stateKeys": ["todos", "messages"],
+      "modelFamily": "openai"
+    }
+  },
+  "instances": {
+    "langgraph-python": {
+      "role": "north-star",
+      "agent": {
+        "language": "python",
+        "runtime": "langgraph-create-agent"
+      },
+      "allowedDivergence": [],
+      "packageJsonOverrides": {}
+    },
+    "langgraph-js": {
+      "role": "instance",
+      "agent": {
+        "language": "typescript",
+        "runtime": "langgraph-stategraph"
+      },
+      "allowedDivergence": [
+        "agent/**",
+        "src/app/api/copilotkit/**",
+        "Dockerfile",
+        "docker/Dockerfile.agent",
+        "docker-compose.test.yml",
+        "entrypoint.sh",
+        "serve.py",
+        "scripts/**"
+      ],
+      "packageJsonOverrides": {
+        "scripts.dev:agent": "./scripts/run-agent.sh || scripts\\\\run-agent.bat",
+        "scripts.install:agent": "cd agent && npm install"
+      }
+    },
+    "langgraph-fastapi": {
+      "role": "instance",
+      "agent": {
+        "language": "python",
+        "runtime": "fastapi-langgraph"
+      },
+      "allowedDivergence": [
+        "agent/**",
+        "src/app/api/copilotkit/**",
+        "docker/Dockerfile.agent",
+        "docker-compose.test.yml",
+        "scripts/**"
+      ],
+      "packageJsonOverrides": {
+        "scripts.dev:agent": "cd agent && uv run main.py",
+        "scripts.install:agent": "cd agent && uv sync"
+      }
+    }
+  }
+}

@@ -100,18 +100,32 @@ query {
 
 ## 4. Fixture sources
 
-Two fixtures are served, fetched remotely at container boot:
+Three fixtures are served, fetched remotely at container boot:
 
+- D5 fixture bundle: <https://raw.githubusercontent.com/CopilotKit/CopilotKit/main/showcase/aimock/d5-all.json>
+  — 22 fixtures across 9 fixture files covering all 11 D5 feature types. Bundled
+  from `showcase/harness/fixtures/d5/*.json`. Must load BEFORE feature-parity
+  to win match precedence (D5 uses specific prompts that overlap with
+  feature-parity's broader substring matches).
 - Smoke fixture: <https://raw.githubusercontent.com/CopilotKit/CopilotKit/main/showcase/aimock/smoke.json>
   — minimal "OK" ping for health verification.
 - Feature-parity fixture: <https://raw.githubusercontent.com/CopilotKit/CopilotKit/main/showcase/aimock/feature-parity.json>
   — realistic tool-call / reasoning / streaming responses used by the
   showcase demos.
 
-Both files sit in this same directory (`showcase/aimock/`). Edits land in the
+All files sit in this directory (`showcase/aimock/`). Edits land in the
 container on the next Railway restart — aimock fetches fixtures at boot and
 caches to disk. Note the `raw.githubusercontent.com` edge cache is ~5 minutes,
 so propagation after a merge is usually ~5 min + restart latency.
+
+When updating D5 fixtures, edit the individual files in `showcase/harness/fixtures/d5/`,
+then re-bundle into `d5-all.json` by running the merge script or manually
+combining the `fixtures` arrays. The bundle must stay in sync.
+
+> **showcase-harness memory budget.** D5 e2e-deep runs up to 4 services x 2
+> features = 8 concurrent Chromium contexts (~2.4 GB peak). If OOM occurs,
+> reduce `FEATURE_CONCURRENCY` in `e2e-deep.ts` or `max_concurrency` in
+> `e2e-deep.yml`.
 
 ## 5. Start command
 
@@ -128,6 +142,7 @@ node /app/dist/cli.js \
   --provider-openai https://api.openai.com \
   --provider-anthropic https://api.anthropic.com \
   --provider-gemini https://generativelanguage.googleapis.com \
+  --fixtures https://raw.githubusercontent.com/CopilotKit/CopilotKit/main/showcase/aimock/d5-all.json \
   --fixtures https://raw.githubusercontent.com/CopilotKit/CopilotKit/main/showcase/aimock/smoke.json \
   --fixtures https://raw.githubusercontent.com/CopilotKit/CopilotKit/main/showcase/aimock/feature-parity.json \
   --validate-on-load \
@@ -137,18 +152,18 @@ node /app/dist/cli.js \
 
 Flag-by-flag:
 
-| Flag                    | Value                                       | Purpose                                                                                   |
-| ----------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `node /app/dist/cli.js` | —                                           | Explicit bin invocation — required because Railway's `startCommand` overrides ENTRYPOINT. |
-| `--proxy-only`          | —                                           | Forward unmatched requests to upstream providers instead of failing.                      |
-| `--provider-openai`     | `https://api.openai.com`                    | Upstream URL for OpenAI passthrough.                                                      |
-| `--provider-anthropic`  | `https://api.anthropic.com`                 | Upstream URL for Anthropic passthrough.                                                   |
-| `--provider-gemini`     | `https://generativelanguage.googleapis.com` | Upstream URL for Gemini passthrough.                                                      |
-| `--fixtures` (×2 URLs)  | Remote URLs above                           | Repeatable flag; each loads one JSON fixture at boot, with cache-fallback on failure.     |
-| `--validate-on-load`    | —                                           | Fail-loud on schema errors; allows cache-fallback only when network fetch fails.          |
-| `--host`                | `0.0.0.0`                                   | Bind all interfaces so Railway can route to the container.                                |
-| `--port`                | `4010`                                      | Hardcoded listen port — matches the legacy wrapper container convention and the fixed     |
-|                         |                                             | Railway domain routing. Railway injects `$PORT` but the image defaults align with 4010.   |
+| Flag                    | Value                                       | Purpose                                                                                                                          |
+| ----------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `node /app/dist/cli.js` | —                                           | Explicit bin invocation — required because Railway's `startCommand` overrides ENTRYPOINT.                                        |
+| `--proxy-only`          | —                                           | Forward unmatched requests to upstream providers instead of failing.                                                             |
+| `--provider-openai`     | `https://api.openai.com`                    | Upstream URL for OpenAI passthrough.                                                                                             |
+| `--provider-anthropic`  | `https://api.anthropic.com`                 | Upstream URL for Anthropic passthrough.                                                                                          |
+| `--provider-gemini`     | `https://generativelanguage.googleapis.com` | Upstream URL for Gemini passthrough.                                                                                             |
+| `--fixtures` (×3 URLs)  | Remote URLs above                           | Repeatable flag; each loads one JSON fixture at boot, with cache-fallback on failure. D5 must appear first for match precedence. |
+| `--validate-on-load`    | —                                           | Fail-loud on schema errors; allows cache-fallback only when network fetch fails.                                                 |
+| `--host`                | `0.0.0.0`                                   | Bind all interfaces so Railway can route to the container.                                                                       |
+| `--port`                | `4010`                                      | Hardcoded listen port — matches the legacy wrapper container convention and the fixed                                            |
+|                         |                                             | Railway domain routing. Railway injects `$PORT` but the image defaults align with 4010.                                          |
 
 If adopting `$PORT` interpolation in the future, both startCommand and any
 upstream `OPENAI_BASE_URL` env vars pointing at this service stay unchanged —

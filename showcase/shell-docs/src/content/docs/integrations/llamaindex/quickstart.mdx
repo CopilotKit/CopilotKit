@@ -4,7 +4,6 @@ description: Turn your LlamaIndex Agents into an agent-native application in 10 
 icon: "lucide/Play"
 hideTOC: true
 ---
-
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
   className="rounded-lg shadow-xl"
@@ -27,18 +26,21 @@ Before you begin, you'll need the following:
 ## Getting started
 
 <Steps>
-    <TailoredContent
-        className="step"
-        id="agent"
-        header={
-            <div>
-                <p className="text-xl font-semibold">Choose your starting point</p>
-                <p className="text-base">
-                    You can either start fresh with our starter template or integrate CopilotKit into your existing LlamaIndex agent.
-                </p>
-            </div>
-        }
-    >
+    <Step>
+        ### Create a free account
+
+        <SignupLink surface="docs_llamaindex_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads, observability, and the inspector.
+    </Step>
+
+    <Step>
+        ### Choose your starting point
+
+        You can either start fresh with our starter template or integrate CopilotKit into your existing LlamaIndex agent.
+
+        <TailoredContent
+            className="step"
+            id="agent"
+        >
         <TailoredContentOption
             id="starter"
             title="Start from scratch"
@@ -48,8 +50,14 @@ Before you begin, you'll need the following:
                 ### Run our CLI
 
                 ```bash
-                npx copilotkit@latest create -f llamaindex
+                npx copilotkit@latest create
                 ```
+
+                The CLI walks you through:
+
+                - **Project name**
+                - **Enterprise Intelligence Platform** — persistent threads, observability, and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard LlamaIndex setup.
+                - **Framework** — pick **LlamaIndex** when prompted.
             </Step>
             <Step>
                 ### Install dependencies
@@ -179,7 +187,7 @@ Before you begin, you'll need the following:
                 from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
 
                 # Initialize the LLM
-                llm = OpenAI(model="gpt-5.2")
+                llm = OpenAI(model="gpt-5.4")
 
                 # Create the AG-UI workflow router
                 agentic_chat_router = get_ag_ui_workflow_router(
@@ -203,6 +211,7 @@ Before you begin, you'll need the following:
                     return {"status": "healthy", "agent": "llamaindex"}
 
                 if __name__ == "__main__":
+                    import uvicorn
                     uvicorn.run(app, host="localhost", port=8000)
                 ```
             </Step>
@@ -229,17 +238,20 @@ Before you begin, you'll need the following:
                 Create an API route to connect CopilotKit to your LlamaIndex agent:
 
                 ```tsx title="app/api/copilotkit/route.ts"
+                import {
                   CopilotRuntime,
                   ExperimentalEmptyAdapter,
                   copilotRuntimeNextJSAppRouterEndpoint,
                 } from "@copilotkit/runtime";
+                import { LlamaIndexAgent } from "@ag-ui/llamaindex";
+                import { NextRequest } from "next/server";
 
                 const serviceAdapter = new ExperimentalEmptyAdapter();
 
                 const runtime = new CopilotRuntime({
                   agents: {
                     my_agent: new LlamaIndexAgent({ url: "http://localhost:8000/run" }),
-                  }
+                  }   
                 });
 
                 export const POST = async (req: NextRequest) => {
@@ -259,6 +271,9 @@ Before you begin, you'll need the following:
                 Wrap your application with the CopilotKit provider:
 
                 ```tsx title="app/layout.tsx"
+                import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import "@copilotkit/react-ui/v2/styles.css";
+                import './globals.css';
 
                 // ...
 
@@ -282,6 +297,7 @@ Before you begin, you'll need the following:
               Add the CopilotSidebar component to your page:
 
               ```tsx title="app/page.tsx"
+              import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
 
               export default function Page() {
                 return (
@@ -366,7 +382,7 @@ Before you begin, you'll need the following:
             </Step>
         </TailoredContentOption>
     </TailoredContent>
-
+    </Step>
 </Steps>
 
 ## What's next?
@@ -399,3 +415,4 @@ Now that you have your basic agent setup, explore these advanced features:
     icon={<WrenchIcon />}
   />
 </Cards>
+

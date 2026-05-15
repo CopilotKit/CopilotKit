@@ -64,6 +64,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+          # setup-node built-in cache is fork-safe (fork PRs can't write to base repo cache)
           cache: "pnpm"
           cache-dependency-path: "**/pnpm-lock.yaml"
 

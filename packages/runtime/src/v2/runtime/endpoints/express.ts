@@ -147,13 +147,19 @@ export function createCopilotExpressHandler({
     router.post(normalizedBase, expressHandler);
     router.options(normalizedBase, expressHandler);
   } else if (normalizedBase === "/") {
-    router.all("*", expressHandler);
+    router.all(/.*/, expressHandler);
   } else {
-    router.all(`${normalizedBase}/*`, expressHandler);
-    router.all(normalizedBase, expressHandler);
+    router.all(
+      new RegExp(`^${escapeRegExp(normalizedBase)}(\\/.*)?$`),
+      expressHandler,
+    );
   }
 
   return router;
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function normalizeBasePath(path: string): string {

@@ -9,7 +9,12 @@ import os
 import traceback
 
 from ag_ui.core import RunAgentInput, RunErrorEvent
-from ag_ui_strands import StrandsAgent, StrandsAgentConfig, ToolBehavior, PredictStateMapping
+from ag_ui_strands import (
+    StrandsAgent,
+    StrandsAgentConfig,
+    ToolBehavior,
+    PredictStateMapping,
+)
 from ag_ui_strands.config import ToolCallContext
 from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemoryConfig
 from bedrock_agentcore.memory.integrations.strands.session_manager import (
@@ -104,7 +109,6 @@ def create_strands_agent(actor_id: str, session_id: str) -> StrandsAgent:
     async def todos_state_from_args(ctx: ToolCallContext) -> dict:
         todos = (ctx.tool_input or {}).get("todos", [])
         return {"todos": todos}
-
 
     # Frontend tools (generative UI / canvas controls): let the agent continue after
     # calling them so it generates a proper conclusion text. The run then finishes

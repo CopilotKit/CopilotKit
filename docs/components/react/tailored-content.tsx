@@ -165,11 +165,11 @@ function TailoredContentInner({
   };
 
   const itemCn =
-    "border p-4 rounded-md flex-1 flex md:block md:space-y-1 items-center md:items-start gap-4 cursor-pointer bg-white dark:bg-secondary relative overflow-hidden group transition-all";
+    "border p-3 pl-4 rounded-md flex-1 flex md:block md:space-y-0.5 items-center md:items-start gap-4 cursor-pointer bg-white dark:bg-secondary relative overflow-hidden group transition-all";
   const selectedCn =
-    "shadow-lg ring-1 ring-indigo-400 selected bg-gradient-to-r from-indigo-100/80 to-purple-200 dark:from-indigo-900/20 dark:to-purple-900/30";
+    "shadow-lg ring-1 ring-indigo-400 selected bg-gradient-to-r from-slate-50 to-indigo-50/30 dark:from-slate-800/40 dark:to-indigo-950/20";
   const iconCn =
-    "w-10 h-10 mb-4 top-0 transition-all opacity-20 group-[.selected]:text-indigo-500 group-[.selected]:opacity-60 dark:group-[.selected]:text-indigo-400 dark:group-[.selected]:opacity-60 dark:text-gray-400";
+    "w-8 h-8 mb-2 top-0 transition-all opacity-20 group-[.selected]:text-indigo-500 group-[.selected]:opacity-60 dark:group-[.selected]:text-indigo-400 dark:group-[.selected]:opacity-60 dark:text-gray-400";
 
   const tablistId = `tailored-content-tablist-${id}`;
   const tabId = (optId: string) => `tailored-content-tab-${id}-${optId}`;
@@ -217,7 +217,7 @@ function TailoredContentInner({
                   )}
                 </div>
                 <div>
-                  <p className="font-semibold text-lg">{option.props.title}</p>
+                  <p className="font-semibold text-base">{option.props.title}</p>
                   <p className="text-xs md:text-sm">{option.props.description}</p>
                 </div>
               </div>

@@ -141,7 +141,6 @@ export function CopilotChat({
 
   const { agent } = useAgent({
     agentId: resolvedAgentId,
-    threadId: resolvedThreadId,
     throttleMs,
   });
   const { copilotkit } = useCopilotKit();
@@ -284,6 +283,8 @@ export function CopilotChat({
     if (agent instanceof HttpAgent) {
       agent.abortController = connectAbortController;
     }
+
+    agent.threadId = resolvedThreadId;
 
     const connect = async (agent: AbstractAgent) => {
       try {

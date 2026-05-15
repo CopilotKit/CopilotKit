@@ -174,25 +174,58 @@ export function StatusTable({
         </thead>
         <tbody>
           {entries.map((e) => {
-            const tone = lastRunTone(e.lastRun);
+            const inflight = e.inflight;
+            const slugs = inflight?.services.map((s) => s.slug) ?? [];
+
+            let tone: Tone;
+            let result: string;
+            let lastStartMs: number | null;
+            let durationText: string;
+
+            if (inflight && inflight.services.length > 0) {
+              const total = inflight.services.length;
+              const completed = inflight.services.filter(
+                (s) => s.state === "completed" || s.state === "failed",
+              ).length;
+              const passed = inflight.services.filter(
+                (s) => s.state === "completed" && s.result === "green",
+              ).length;
+              const failed = inflight.services.filter(
+                (s) =>
+                  s.state === "failed" ||
+                  (s.state === "completed" &&
+                    (s.result === "red" || s.result === "yellow")),
+              ).length;
+
+              if (failed > 0) tone = "red";
+              else if (completed < total) tone = "amber";
+              else tone = "green";
+
+              result = `${passed}/${total} pass`;
+              if (failed > 0) result += ` (${failed} fail)`;
+              if (completed < total) result += ` — running`;
+
+              lastStartMs = Date.parse(inflight.startedAt);
+              durationText = formatDuration(inflight.elapsedMs);
+            } else {
+              tone = lastRunTone(e.lastRun);
+              lastStartMs = e.lastRun ? Date.parse(e.lastRun.startedAt) : null;
+              durationText = e.lastRun
+                ? formatDuration(e.lastRun.durationMs)
+                : "—";
+              const summary = e.lastRun?.summary;
+              result = e.lastRun
+                ? summary
+                  ? summary.failed > 0
+                    ? `${summary.passed}/${summary.total} pass (${summary.failed} fail)`
+                    : summary.passed < summary.total
+                      ? `${summary.passed}/${summary.total} (${summary.total - summary.passed} skipped)`
+                      : `${summary.total}/${summary.total} pass`
+                  : "—"
+                : "never run";
+            }
+
             const nextRunMs = e.nextRunAt ? Date.parse(e.nextRunAt) : null;
-            const lastStartMs = e.lastRun
-              ? Date.parse(e.lastRun.startedAt)
-              : null;
-            // R3-B.1: result-text mirrors lastRunTone — green = "N/N pass",
-            // red = "P/T pass (F fail)", amber = "P/T (S skipped)" so the
-            // operator can read the row without re-translating the tone.
-            const summary = e.lastRun?.summary;
-            const result = e.lastRun
-              ? summary
-                ? summary.failed > 0
-                  ? `${summary.passed}/${summary.total} pass (${summary.failed} fail)`
-                  : summary.passed < summary.total
-                    ? `${summary.passed}/${summary.total} (${summary.total - summary.passed} skipped)`
-                    : `${summary.total}/${summary.total} pass`
-                : "—"
-              : "never run";
-            const slugs = e.inflight?.services.map((s) => s.slug) ?? [];
             return (
               <tr
                 key={e.id}
@@ -215,7 +248,7 @@ export function StatusTable({
                     : "never"}
                 </td>
                 <td className="py-2 pr-4 text-xs tabular-nums">
-                  {e.lastRun ? formatDuration(e.lastRun.durationMs) : "—"}
+                  {durationText}
                 </td>
                 <td
                   className={`py-2 pr-4 text-xs ${TONE_CLASS[tone]}`}

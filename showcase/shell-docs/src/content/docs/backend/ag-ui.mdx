@@ -1,26 +1,26 @@
 ---
-title: AG-UI
+title: "AG-UI"
 icon: "lucide/Zap"
-description: How CopilotKit uses the AG-UI protocol to connect your frontend to your AI agents.
+description: "How CopilotKit uses the AG-UI protocol to connect your frontend to your Built-in Agent."
 ---
 
-CopilotKit is built on the [AG-UI protocol](https://ag-ui.com), a lightweight, event-based standard that defines how AI agents communicate with user-facing applications over Server-Sent Events (SSE).
+CopilotKit is built on the [AG-UI protocol](https://ag-ui.com) — a lightweight, event-based standard that defines how AI agents communicate with user-facing applications over Server-Sent Events (SSE).
 
 Everything in CopilotKit — messages, state updates, tool calls, and more — flows through AG-UI events. Understanding this layer helps you debug, extend, and build on top of CopilotKit more effectively.
 
-## Accessing Your Agent with `useAgent`
+## Accessing your agent with `useAgent`
 
 The `useAgent` hook is your primary interface to the AG-UI agent powering your copilot. It returns an `AbstractAgent` from the AG-UI client library — the same base type that all AG-UI agents implement.
 
 ```tsx
-import { useAgent } from "@copilotkit/react-core";
+import { useAgent } from "@copilotkit/react-core/v2";
 
 function MyComponent() {
   const { agent } = useAgent();
 
-  // agent.messages - conversation history
-  // agent.state - current agent state
-  // agent.isRunning - whether the agent is currently running
+  // agent.messages   — conversation history
+  // agent.state      — current agent state
+  // agent.isRunning  — whether the agent is currently running
 }
 ```
 
@@ -32,12 +32,12 @@ const { agent } = useAgent({ agentId: "research-agent" });
 
 The returned `agent` is a standard AG-UI `AbstractAgent`. You can subscribe to its events, read its state, and interact with it using the same interface defined by the [AG-UI specification](https://docs.ag-ui.com).
 
-### Subscribing to AG-UI Events
+### Subscribing to AG-UI events
 
 Every agent exposes a `subscribe` method that lets you listen for specific AG-UI events as they stream in. Each callback receives the event and the current agent state:
 
 ```tsx
-import { useAgent } from "@copilotkit/react-core";
+import { useAgent } from "@copilotkit/react-core/v2";
 import { useEffect } from "react";
 
 function MyComponent() {
@@ -46,22 +46,22 @@ function MyComponent() {
   useEffect(() => {
     const subscription = agent.subscribe({
       // Called on every event
-      onEvent({ event, agent }) {
+      onEvent({ event }) {
         console.log("Event:", event.type, event);
       },
 
       // Text message streaming
-      onTextMessageContentEvent({ event, textMessageBuffer, agent }) {
+      onTextMessageContentEvent({ textMessageBuffer }) {
         console.log("Streaming text:", textMessageBuffer);
       },
 
       // Tool calls
-      onToolCallEndEvent({ event, toolCallName, toolCallArgs, agent }) {
+      onToolCallEndEvent({ toolCallName, toolCallArgs }) {
         console.log("Tool called:", toolCallName, toolCallArgs);
       },
 
       // State updates
-      onStateSnapshotEvent({ event, agent }) {
+      onStateSnapshotEvent({ agent }) {
         console.log("State snapshot:", agent.state);
       },
 
@@ -92,17 +92,17 @@ The full list of subscribable events maps directly to the [AG-UI event types](ht
 | Custom | `onCustomEvent`, `onRawEvent` | Custom and raw events for extensibility |
 | High-level | `onMessagesChanged`, `onStateChanged` | Aggregate notifications after any message or state mutation |
 
-## The Proxy Pattern
+## The proxy pattern
 
 When you use CopilotKit with a runtime, your frontend never talks directly to your agent. Instead, CopilotKit creates a **proxy agent** on the frontend that forwards requests through the Copilot Runtime.
 
-On startup, CopilotKit calls the runtime's `/info` endpoint to discover which agents are available. Each agent is wrapped in a `ProxiedCopilotRuntimeAgent` — a thin client that extends AG-UI's `HttpAgent`. From your component's perspective, this proxy behaves identically to a local AG-UI agent: same `AbstractAgent` interface, same subscribe API, same properties. But under the hood, every `run` call is an HTTP request to your server, and every response is an SSE stream of AG-UI events flowing back.
+On startup, CopilotKit calls the runtime's `/info` endpoint to discover which agents are available. Each agent is wrapped in a `ProxiedCopilotRuntimeAgent` — a thin client that extends AG-UI's `HttpAgent`. From your component's perspective, this proxy behaves identically to a local AG-UI agent: same `AbstractAgent` interface, same subscribe API, same properties. Under the hood, every `run` call is an HTTP request to your server, and every response is an SSE stream of AG-UI events flowing back.
 
 ```tsx title="What your component sees"
 const { agent } = useAgent(); // Returns an AbstractAgent
-agent.messages;               // Read messages
-agent.state;                  // Read state
-agent.subscribe({ ... });     // Subscribe to events
+agent.messages; // Read messages
+agent.state; // Read state
+agent.subscribe({ /* … */ }); // Subscribe to events
 ```
 
 ```tsx title="What actually happens"
@@ -110,55 +110,16 @@ agent.subscribe({ ... });     // Subscribe to events
 // agent.runAgent() → HTTP POST to runtime → runtime routes to your agent → SSE stream back
 ```
 
-This indirection is what enables the runtime to provide authentication, middleware, agent routing, and ecosystem features like threads and observability — without changing how you interact with agents on the frontend.
+This indirection is what enables the runtime to provide authentication, middleware, agent routing, and premium features — without changing how you interact with agents on the frontend.
 
-## How Agents Slot into the Runtime
+## How the Built-in Agent slots into AG-UI
 
-On the server side, the `CopilotRuntime` accepts a map of AG-UI `AbstractAgent` instances. Each agent framework provides its own implementation, but they all extend the same base type.
+Even though `BuiltInAgent` looks like a "single-function convenience", it's still an AG-UI `AbstractAgent` under the hood. When you register it with the runtime:
 
-Here's a real example from the `langgraph-python` integration — registering a `LangGraphAgent` (which is an `AbstractAgent`) under multiple agent IDs that all share the same backend graph:
+1. A request comes in to your runtime endpoint
+2. The runtime resolves the target agent by ID (`"default"`, `"research-agent"`, …)
+3. It clones the agent (for thread safety) and populates messages, state, and thread context from the request
+4. The `AgentRunner` executes the agent, which produces a stream of AG-UI `BaseEvent`s
+5. Events are encoded as SSE and streamed back to the frontend proxy
 
-```ts title="app/api/copilotkit/route.ts"
-import {
-  CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
-import { NextRequest } from "next/server";
-
-const LANGGRAPH_URL =
-  process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123";
-
-function createAgent(graphId: string = "sample_agent") {
-  return new LangGraphAgent({
-    deploymentUrl: LANGGRAPH_URL,
-    graphId,
-    langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
-  });
-}
-
-const agents = {
-  agentic_chat: createAgent(),
-  tool_rendering: createAgent("tool_rendering"),
-  default: createAgent(),
-};
-
-export const POST = async (req: NextRequest) => {
-  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-    endpoint: "/api/copilotkit",
-    serviceAdapter: new ExperimentalEmptyAdapter(),
-    runtime: new CopilotRuntime({ agents }),
-  });
-  return handleRequest(req);
-};
-```
-
-When a request comes in:
-
-1. The runtime resolves the target agent by ID
-2. It clones the agent (for thread safety) and sets messages, state, and thread context from the request
-3. The `AgentRunner` executes the agent, which produces a stream of AG-UI `BaseEvent`s
-4. Events are encoded as SSE and streamed back to the frontend proxy
-
-Because every agent is an `AbstractAgent`, you can register any AG-UI-compatible agent — whether it's an `HttpAgent` pointing at a remote server, a framework-specific adapter like `LangGraphAgent`, or a custom implementation — and the runtime handles routing, middleware, and delivery uniformly.
+Because every agent is an `AbstractAgent`, the same plumbing routes requests to a `BuiltInAgent`, an `HttpAgent` pointing at a remote server, or any custom implementation you register alongside — the frontend never has to care.

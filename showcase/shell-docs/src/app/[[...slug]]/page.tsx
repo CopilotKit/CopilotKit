@@ -7,238 +7,129 @@
 // the user chooses one — code without a backend context is incomplete.
 
 import React from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
+import { DocsLandingNext } from "@/components/docs-landing-next";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { SidebarLink } from "@/components/sidebar-link";
 import { SidebarNav } from "@/components/sidebar-nav";
-import { StoredFrameworkHighlight } from "@/components/stored-framework-highlight";
 import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
-import {
-  CONTENT_DIR,
-  FRAMEWORK_CATEGORY_ORDER,
-  buildNavTree,
-  type NavNode,
-} from "@/lib/docs-render";
-import {
-  getIntegrations,
-  getCategoryLabel,
-  type Integration,
-} from "@/lib/registry";
+import { CONTENT_DIR, buildNavTree } from "@/lib/docs-render";
+import type { NavNode } from "@/lib/docs-render";
+import { getBaseUrl } from "@/lib/sitemap-helpers";
 
-// Category ordering for the framework picker grid is imported from
-// @/lib/docs-render so the landing grid, sidebar dropdown, and this
-// overview share a single source of truth.
-
-// Docs-section cards shown beneath the framework picker. Each href
-// targets the framework-agnostic root route — when the user already
-// has a framework stored, `<RouterPivot>` on the destination page
-// redirects them into the scoped view.
-const DOCS_SECTIONS: {
-  href: string;
-  title: string;
-  description: string;
-  category: string;
-}[] = [
-  {
-    href: "/quickstart",
-    title: "Quickstart",
-    description: "Five-minute setup for a working copilot",
-    category: "Getting Started",
-  },
-  {
-    href: "/coding-agents",
-    title: "Coding Agents",
-    description: "Bootstrap with Claude Code, Cursor, Windsurf, and friends",
-    category: "Getting Started",
-  },
-  {
-    href: "/agentic-chat-ui",
-    title: "Chat Components",
-    description: "Drop-in CopilotChat & CopilotSidebar for agentic chat",
-    category: "Basics",
-  },
-  {
-    href: "/custom-look-and-feel",
-    title: "Custom Look & Feel",
-    description: "Theme, slot, and fully-headless chat UI",
-    category: "Basics",
-  },
-  {
-    href: "/generative-ui",
-    title: "Generative UI",
-    description: "Render live React components from the agent's stream",
-    category: "Generative UI",
-  },
-  {
-    href: "/frontend-tools",
-    title: "Frontend Tools",
-    description: "Expose client-side actions to the agent",
-    category: "App Control",
-  },
-  {
-    href: "/shared-state",
-    title: "Shared State",
-    description: "Two-way state binding between the UI and the agent",
-    category: "App Control",
-  },
-  {
-    href: "/human-in-the-loop",
-    title: "Human-in-the-Loop",
-    description: "Intercept tool calls for explicit user approval",
-    category: "App Control",
-  },
-];
+// Per-framework self-canonical: each variant of a doc page declares
+// itself canonical so search engines index every framework's quickstart
+// (etc.) at its own URL rather than collapsing them all onto the bare
+// /quickstart. Done at the page level so the metadata depends on params.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug?: string[] }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const slugPath = slug && slug.length > 0 ? `/${slug.join("/")}` : "";
+  return {
+    alternates: {
+      canonical: `${getBaseUrl()}${slugPath}`,
+    },
+  };
+}
 
 function DocsOverview() {
-  const integrations = getIntegrations()
-    .slice()
-    .sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999));
-
-  // Bucket integrations by category, honoring the canonical ordering.
-  const buckets = new Map<string, Integration[]>();
-  for (const cat of FRAMEWORK_CATEGORY_ORDER) buckets.set(cat, []);
-  buckets.set("other", []);
-  for (const i of integrations) {
-    const key = buckets.has(i.category) ? i.category : "other";
-    buckets.get(key)!.push(i);
-  }
-
   const navTree = buildNavTree(CONTENT_DIR);
 
-  // Preserve insertion order while grouping section cards by category.
-  const sectionsByCategory = new Map<string, typeof DOCS_SECTIONS>();
-  for (const s of DOCS_SECTIONS) {
-    if (!sectionsByCategory.has(s.category))
-      sectionsByCategory.set(s.category, []);
-    sectionsByCategory.get(s.category)!.push(s);
-  }
-
   return (
-    <div className="flex" style={{ height: "calc(100vh - 53px)" }}>
-      <SidebarNav className="w-[240px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
+    // Match docs-page-view shell: SidebarNav + .docs-content-wrapper as
+    // flex siblings of the root <main> (which provides the flex row).
+    // Keeps sidebar geometry, scrollbar treatment, and content centering
+    // consistent with the per-doc routes.
+    <>
+      <SidebarNav className="hidden md:flex flex-col w-[260px] shrink-0 rounded-l-2xl backdrop-blur-lg border border-r-0 border-[var(--border)] bg-[var(--glass-background)] overflow-hidden px-3">
         <SidebarFrameworkSelector />
-        <Link
-          href="/"
-          className="block text-xs font-mono uppercase tracking-widest text-[var(--accent)] mb-4"
-        >
-          CopilotKit Docs
-        </Link>
-        {navTree.map((node) => (
-          <OverviewNavItem key={nodeKey(node)} node={node} />
-        ))}
+        <div className="mb-4" />
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+          {navTree.map((node) => (
+            <OverviewNavItem key={nodeKey(node)} node={node} />
+          ))}
+        </div>
       </SidebarNav>
 
-      {/* <main> is the full-width scroll container so the scrollbar
-       * lands at the viewport edge. Content width is capped by the
-       * inner wrapper below. Previously `max-w-4xl` sat on <main>
-       * directly, which parked the scrollbar mid-page. */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-4xl px-8 py-10">
-          <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
-            Documentation
-          </div>
-          <h1 className="text-[2.25rem] font-bold text-[var(--text)] tracking-tight mb-3 leading-tight">
-            Build AI-powered apps with CopilotKit
-          </h1>
-          <p className="text-base text-[var(--text-secondary)] leading-relaxed mb-10 max-w-2xl">
-            CopilotKit ships deep integrations across every major agent
-            framework and SDK. Pick your <em>agentic backend</em> below — the
-            rest of the docs adapt every snippet and code sample to that
-            framework.
-          </p>
-
-          {/* Framework picker — big grid of all integrations, grouped by category */}
-          <section className="mb-12">
+      <div className="docs-content-wrapper flex">
+        <div className="flex-1 min-w-0 px-4 py-6 md:px-6 md:pt-8 xl:px-8 xl:pt-14">
+          <div className="max-w-[900px] mx-auto">
             <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
-              Step 1
+              Documentation
             </div>
-            <h2 className="text-xl font-semibold text-[var(--text)] mb-1">
-              Pick an agentic backend
-            </h2>
-            <p className="text-sm text-[var(--text-secondary)] mb-5">
-              We store your choice locally so every page renders the right code.
+            <h1 className="text-[2.25rem] font-bold text-[var(--text)] tracking-tight mb-3 leading-tight">
+              Welcome to CopilotKit
+            </h1>
+            <p className="text-base text-[var(--text-secondary)] leading-relaxed mb-8 max-w-2xl">
+              CopilotKit is the <strong>frontend stack for agents</strong> and{" "}
+              <strong>generative UI</strong>. Connect any agent framework or
+              model to your React app for chat, generative UI, canvas apps, and
+              human-in-the-loop workflows.
             </p>
 
-            {[...buckets.entries()].map(([catId, items]) => {
-              if (items.length === 0) return null;
-              const label =
-                catId === "other" ? "Other" : getCategoryLabel(catId);
-              return (
-                <div key={catId} className="mb-6">
-                  <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-3">
-                    {label}
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {items.map((i) => (
-                      <Link
-                        key={i.slug}
-                        href={`/${i.slug}`}
-                        className="group relative flex items-center gap-2 p-3 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] hover:shadow-sm transition-all"
-                      >
-                        {i.logo ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={i.logo}
-                            alt=""
-                            className="w-5 h-5 shrink-0"
-                          />
-                        ) : (
-                          <span className="w-5 h-5 shrink-0" />
-                        )}
-                        <span className="flex-1 min-w-0 truncate text-sm font-medium text-[var(--text)] group-hover:text-[var(--accent)]">
-                          {i.name}
-                        </span>
-                        {/* Marks the framework currently stored in
-                          localStorage so repeat visitors can spot "their"
-                          choice at a glance without an auto-redirect. */}
-                        <StoredFrameworkHighlight slug={i.slug} />
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </section>
-
-          {/* Section cards — grouped by broad topic. Clicking any of
-            these before picking a framework lands on the per-feature
-            pivot; once a framework is stored the destination's
-            <RouterPivot /> redirects into the scoped view. */}
-          <section>
-            <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
-              Step 2
+            {/* CLI command — universal entry point for fresh projects. */}
+            <div className="mb-10 max-w-2xl">
+              <p className="text-sm text-[var(--text-secondary)] mb-3">
+                Starting from scratch? Bootstrap a full-stack agent in one
+                command:
+              </p>
+              <pre className="rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-4 py-3 text-sm font-mono overflow-x-auto">
+                <code>npx copilotkit@latest create</code>
+              </pre>
             </div>
-            <h2 className="text-xl font-semibold text-[var(--text)] mb-5">
-              Or jump into a topic
-            </h2>
 
-            {[...sectionsByCategory.entries()].map(([catLabel, sections]) => (
-              <div key={catLabel} className="mb-6">
-                <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-3">
-                  {catLabel}
+            {/* Utility cards: orientation + reference + gen-UI. The
+            framework-aware Quickstart entry lives in <DocsLandingNext />
+            below, where it can branch on storedFramework. */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-10">
+              <Link
+                href="/concepts/architecture"
+                className="group flex flex-col gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 no-underline hover:border-[var(--accent)] hover:shadow-sm transition"
+              >
+                <div className="font-semibold text-[var(--text)] group-hover:text-[var(--accent)]">
+                  Concepts
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {sections.map((s) => (
-                    <SidebarLink
-                      key={s.href}
-                      slug={s.href.slice(1)}
-                      className="group p-4 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] transition-all"
-                    >
-                      <div className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
-                        {s.title}
-                      </div>
-                      <div className="text-xs text-[var(--text-muted)] leading-relaxed">
-                        {s.description}
-                      </div>
-                    </SidebarLink>
-                  ))}
+                <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                  Architecture, gen UI types, OSS vs Enterprise.
                 </div>
-              </div>
-            ))}
-          </section>
+              </Link>
+              <Link
+                href="/reference"
+                className="group flex flex-col gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 no-underline hover:border-[var(--accent)] hover:shadow-sm transition"
+              >
+                <div className="font-semibold text-[var(--text)] group-hover:text-[var(--accent)]">
+                  API Reference
+                </div>
+                <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                  Hooks, components, and config.
+                </div>
+              </Link>
+              <Link
+                href="/generative-ui/your-components/display-only"
+                className="group flex flex-col gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 no-underline hover:border-[var(--accent)] hover:shadow-sm transition"
+              >
+                <div className="font-semibold text-[var(--text)] group-hover:text-[var(--accent)]">
+                  Generative UI
+                </div>
+                <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                  Render tools as React components.
+                </div>
+              </Link>
+            </div>
+
+            {/* Conditional next-step block: framework picker if no
+              storedFramework, "what's next" pointers into that
+              framework's docs if there is one. Replaces the former
+              two-step "Pick a backend / Or jump into a topic" panels. */}
+            <DocsLandingNext />
+          </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </>
   );
 }
 
@@ -258,40 +149,59 @@ function OverviewNavItem({
   node: NavNode;
   depth?: number;
 }) {
-  const indent = depth * 16;
   if (node.type === "section") {
+    if (depth > 0) {
+      return (
+        <div className="px-3 mt-4 mb-1 text-[11px] uppercase tracking-wide text-[var(--text-faint)]">
+          {node.title}
+        </div>
+      );
+    }
     return (
-      <div
-        className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mt-4 mb-2"
-        style={{ paddingLeft: `${indent}px` }}
-      >
-        {node.title}
+      <div className="flex items-center gap-2 mt-6 mb-3">
+        <span className="text-[15px] uppercase tracking-wide shrink-0 text-[var(--text-secondary)]">
+          {node.title}
+        </span>
+        <div className="flex-1 h-px bg-[var(--border)]" />
       </div>
     );
   }
   if (node.type === "page") {
     return (
-      <div style={{ paddingLeft: `${indent}px` }}>
-        <SidebarLink
-          slug={node.slug}
-          className="block py-[5px] text-[13px] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
-        >
-          {node.title}
-        </SidebarLink>
-      </div>
-    );
-  }
-  return (
-    <div className="mt-1">
-      <div
-        className="py-[5px] text-[13px] font-medium text-[var(--text-secondary)]"
-        style={{ paddingLeft: `${indent}px` }}
+      <SidebarLink
+        slug={node.slug}
+        className="flex items-center h-10 px-3 text-sm rounded-lg shrink-0 transition-all duration-200 text-[var(--text-muted)] hover:bg-[var(--bg-surface)]/60 hover:text-[var(--text)] dark:hover:bg-white/5"
       >
         {node.title}
+      </SidebarLink>
+    );
+  }
+  // Group: a labeled folder with nested children. Title-less wrapper
+  // groups (used to flatten a section's content) skip the indent and
+  // tree-line so their children render at the parent's depth.
+  const hasTitle = !!node.title;
+  return (
+    <div className="mt-1">
+      {hasTitle && (
+        <div className="flex items-center h-10 px-3 text-sm font-medium text-[var(--text)] shrink-0">
+          {node.title}
+        </div>
+      )}
+      <div
+        className={
+          hasTitle
+            ? "ml-3 pl-3 border-l border-[var(--border-dim)] flex flex-col"
+            : "flex flex-col"
+        }
+      >
+        {node.children.map((child) => (
+          <OverviewNavItem
+            key={nodeKey(child)}
+            node={child}
+            depth={depth + 1}
+          />
+        ))}
       </div>
-      {node.children.map((child) => (
-        <OverviewNavItem key={nodeKey(child)} node={child} depth={depth + 1} />
-      ))}
     </div>
   );
 }

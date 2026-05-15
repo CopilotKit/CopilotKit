@@ -2,15 +2,35 @@ import React from "react";
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import Link from "next/link";
 import { SidebarNav } from "@/components/sidebar-nav";
+import { MdxCodeBlock } from "@/components/mdx-code-block";
 import { docsComponents } from "@/lib/mdx-registry";
 import { stripLeadingImports } from "@/lib/docs-render";
+import { rehypeCodeMeta } from "@/lib/rehype-code-meta";
 import { resolveWithinDir, safeReadFileSync } from "@/lib/safe-fs";
+import { getBaseUrl } from "@/lib/sitemap-helpers";
+
+// Self-canonical for /ag-ui[/<slug>]. AG-UI pages aren't per-framework
+// but get a canonical for parity with the rest of the docs surface.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug?: string[] }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const slugTail = slug && slug.length > 0 ? `/${slug.join("/")}` : "";
+  return {
+    alternates: {
+      canonical: `${getBaseUrl()}/ag-ui${slugTail}`,
+    },
+  };
+}
 
 const CONTENT_DIR = path.join(process.cwd(), "src/content/ag-ui");
 
@@ -219,6 +239,9 @@ function getNavTabs(): ResolvedTab[] {
 // shim that discarded numbering.
 const components = {
   ...docsComponents,
+  // Same `pre` override the docs renderer uses — surfaces a copy button
+  // and the optional file-path caption (driven by `rehypeCodeMeta` below).
+  pre: MdxCodeBlock,
 };
 
 function OverviewContent() {
@@ -358,9 +381,15 @@ export default async function AgUiDocPage({
     );
   }
 
-  // Overview page: no sidebar, card-based landing
+  // Overview page: no sidebar, card-based landing. Wrap in a scroll
+  // container because <main> in the root layout is fixed-height with
+  // hidden overflow (canonical layout architecture).
   if (isOverview) {
-    return <OverviewContent />;
+    return (
+      <div className="flex-1 min-w-0 overflow-y-auto">
+        <OverviewContent />
+      </div>
+    );
   }
 
   // Doc page: sidebar + MDX content. slugPath is user-supplied (URL
@@ -416,7 +445,7 @@ export default async function AgUiDocPage({
   }
 
   return (
-    <div className="flex" style={{ height: "calc(100vh - 53px)" }}>
+    <div className="flex h-full w-full">
       {/* Sidebar */}
       <SidebarNav className="w-[220px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
         <Link
@@ -457,7 +486,11 @@ export default async function AgUiDocPage({
               options={{
                 mdxOptions: {
                   remarkPlugins: [remarkGfm],
-                  rehypePlugins: [rehypeHighlight],
+                  // Order matters: rehypeCodeMeta runs after rehype-highlight
+                  // so it can read the `language-<name>` className the
+                  // highlighter pushed onto the `<code>` element and copy
+                  // the fence's `title="..."` meta onto the parent `<pre>`.
+                  rehypePlugins: [rehypeHighlight, rehypeCodeMeta],
                 },
               }}
             />

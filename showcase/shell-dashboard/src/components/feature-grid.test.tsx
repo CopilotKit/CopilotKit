@@ -2,8 +2,9 @@
  * Unit tests for the header `LiveIndicator` color-map (spec §5.7) and
  * `computeColumnTally` (§5.4 rollup + §5.3 offline handling).
  *
- * Phase 3: QA removed, smoke removed from per-cell tally. E2E uses
- * e2e dimension. Tally now counts health (once) + e2e per feature.
+ * Tallies now derive from `buildCellModel().chipColor`, matching what
+ * Coverage-tab cells actually render. Health is no longer counted
+ * separately — the cell model incorporates all relevant signals.
  */
 import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
@@ -74,30 +75,59 @@ describe("computeColumnTally", () => {
     { id: "f2", name: "f2", category: "c", description: "" },
   ];
 
-  it("counts health once + e2e per feature", () => {
+  it("counts by chipColor — green D3 only → green chip", () => {
     const live: LiveStatusMap = new Map();
-    live.set("e2e:i1/f1", row("e2e:i1/f1", "e2e", "red"));
+    // f1: D3=green → achievedDepth=3, ceilingDepth=3 → chipColor=green
+    live.set("e2e:i1/f1", row("e2e:i1/f1", "e2e", "green"));
+    // f2: D3=green → achievedDepth=3, ceilingDepth=3 → chipColor=green
     live.set("e2e:i1/f2", row("e2e:i1/f2", "e2e", "green"));
-    live.set("health:i1", row("health:i1", "health", "green"));
     const t = computeColumnTally(integration, features, live);
-    // health (integration): green → +1g
-    // f1: e2e=red (+1r)
-    // f2: e2e=green (+1g)
-    // Total: 2 green, 0 amber, 1 red.
-    expect(t).toEqual({ green: 2, amber: 0, red: 1, unknown: false });
+    expect(t).toEqual({ green: 2, amber: 0, red: 0, unknown: false });
   });
 
-  it("health red contributes exactly one red to the column tally", () => {
+  it("red D3 → red chip (tests exist but fail), counted as red", () => {
+    const live: LiveStatusMap = new Map();
+    // f1: D3=red → achievedDepth=0, ceilingDepth=3 → chipColor=red
+    live.set("e2e:i1/f1", row("e2e:i1/f1", "e2e", "red"));
+    // f2: D3=green → chipColor=green
+    live.set("e2e:i1/f2", row("e2e:i1/f2", "e2e", "green"));
+    const t = computeColumnTally(integration, features, live);
+    // f1 red (tests exist but all fail), f2 green
+    expect(t).toEqual({ green: 1, amber: 0, red: 1, unknown: false });
+  });
+
+  it("health row alone does not contribute to tally", () => {
     const live: LiveStatusMap = new Map();
     live.set("health:i1", row("health:i1", "health", "red"));
     const t = computeColumnTally(integration, features, live);
-    expect(t).toEqual({ green: 0, amber: 0, red: 1, unknown: false });
+    // No D3 rows → all cells gray → nothing counted
+    expect(t).toEqual({ green: 0, amber: 0, red: 0, unknown: false });
   });
 
-  it("missing health row contributes zero (does not count as red)", () => {
+  it("features without demos are gray (unwired), not counted", () => {
     const live: LiveStatusMap = new Map();
     live.set("e2e:i1/f1", row("e2e:i1/f1", "e2e", "green"));
-    const t = computeColumnTally(integration, features, live);
+    // integration only has demo for f1, not f2 — but test fixture has
+    // demos for both. Use a modified integration.
+    const partialInt: Integration = {
+      ...integration,
+      demos: [demo("f1")],
+    };
+    const t = computeColumnTally(partialInt, features, live);
+    // f1: wired + D3=green → green; f2: unwired → gray (skipped)
+    expect(t).toEqual({ green: 1, amber: 0, red: 0, unknown: false });
+  });
+
+  it("not_supported_features are gray, not counted", () => {
+    const live: LiveStatusMap = new Map();
+    live.set("e2e:i1/f1", row("e2e:i1/f1", "e2e", "green"));
+    live.set("e2e:i1/f2", row("e2e:i1/f2", "e2e", "green"));
+    const unsupportedInt: Integration = {
+      ...integration,
+      not_supported_features: ["f2"],
+    };
+    const t = computeColumnTally(unsupportedInt, features, live);
+    // f1: green; f2: unsupported → gray (skipped)
     expect(t).toEqual({ green: 1, amber: 0, red: 0, unknown: false });
   });
 
@@ -113,5 +143,38 @@ describe("computeColumnTally", () => {
   it("returns zeros with unknown=false when no rows", () => {
     const t = computeColumnTally(integration, features, new Map());
     expect(t).toEqual({ green: 0, amber: 0, red: 0, unknown: false });
+  });
+
+  it("amber chip from D3=green + D4=green + D5 missing (gap=1)", () => {
+    const live: LiveStatusMap = new Map();
+    // f1: D3=green, D4(chat)=green → achievedDepth=4
+    // D5 key mapped but no row → exists=true, status=null → ceilingDepth=5
+    // gap = 5-4 = 1 → amber
+    live.set("e2e:i1/f1", row("e2e:i1/f1", "e2e", "green"));
+    live.set("chat:i1", row("chat:i1", "chat", "green"));
+    // Use a feature ID with a D5 mapping to get ceilingDepth=5
+    const mappedFeatures: Feature[] = [
+      {
+        id: "agentic-chat",
+        name: "Agentic Chat",
+        category: "c",
+        description: "",
+      },
+    ];
+    const mappedInt: Integration = {
+      ...integration,
+      features: ["agentic-chat"],
+      demos: [demo("agentic-chat")],
+    };
+    const mappedLive: LiveStatusMap = new Map();
+    mappedLive.set(
+      "e2e:i1/agentic-chat",
+      row("e2e:i1/agentic-chat", "e2e", "green"),
+    );
+    mappedLive.set("chat:i1", row("chat:i1", "chat", "green"));
+    const t = computeColumnTally(mappedInt, mappedFeatures, mappedLive);
+    // D3=green, D4=green (chat only, no tools), D5 mapped but no row →
+    // ceilingDepth=5, achievedDepth=4, gap=1 → amber
+    expect(t).toEqual({ green: 0, amber: 1, red: 0, unknown: false });
   });
 });

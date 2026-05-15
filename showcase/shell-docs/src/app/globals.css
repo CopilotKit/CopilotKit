@@ -1,35 +1,61 @@
 /* highlight.js themes load BEFORE tailwindcss so Tailwind utility
- * layers can override specific selectors if ever needed. Both light
- * and dark themes are imported; the dark variant is scoped via
- * `prefers-color-scheme: dark` so only one paints at a time. shell-docs
- * does not yet ship a dark theme, but the stylesheet is ready for it. */
+ * layers can override specific selectors if ever needed.
+ *
+ * Theme switching: shell-docs's dark mode is class-driven (the navbar
+ * toggle adds/removes `.dark` on <html>), but the upstream hljs dark
+ * stylesheet only knows how to switch via `prefers-color-scheme`. If
+ * we imported it with the media-query gate, a user on a light OS who
+ * clicked the dark toggle would get the dark surface chrome (page bg,
+ * code-block bg) but the LIGHT hljs token colors — black text on
+ * black backgrounds.
+ *
+ * Fix: import the light github theme unconditionally and inline the
+ * github-dark-dimmed token colors below, scoped to `.dark`. Source:
+ * highlight.js/styles/github-dark-dimmed.css (kept in sync manually;
+ * the upstream sheet is small enough that drift is easy to spot). */
 @import "highlight.js/styles/github.css" layer(highlightjs);
-@import "highlight.js/styles/github-dark-dimmed.css" layer(highlightjs)
-  (prefers-color-scheme: dark);
 @import "tailwindcss";
+
+/* Activate `dark:` Tailwind variants based on the `.dark` class on an
+ * ancestor (typically <html>) instead of the default
+ * `prefers-color-scheme: dark` media query. Required for the navbar
+ * theme toggle to actually switch sun/moon icons and slanted-border
+ * SVG variants — they all key off `dark:` classes. Mirrors canonical
+ * docs.copilotkit.ai/app/global.css. */
+@custom-variant dark (&:is(.dark *));
 
 :root {
   /* Backgrounds — match reference (oklch(0.9038 0.0149 286.1) ≈ #e6e6ec).
    * Shell keeps a slightly lighter cast so code blocks on white surface
    * still read well; key is that it's the same cool-gray family. */
-  --bg: #eaeaee;
+  --bg: #dedee9;
   --bg-surface: #ffffff;
   --bg-elevated: #f1f1f6;
   --bg-hover: #e5e5eb;
   --border: #d9d9e0;
   --border-dim: #e9e9ef;
   --sidebar: #efeff3;
+  /* Glass-panel surface (header, sidebar) — canonical exposes this for
+   * translucent chrome that sits above --bg. Wave 3 slots 2 + 3 consume it. */
+  --glass-background: #eaeaee;
   --text: #010507;
   --text-secondary: #2b3238;
   --text-muted: #6a7079;
   --text-faint: #a3a8af;
   /* Reference primary is oklch(0.55 0.25 285) — a blue-violet. Hex approx. */
-  --accent: #5a3cd1;
-  --accent-light: #ebe7fa;
-  --accent-dim: rgba(90, 60, 209, 0.06);
+  --accent: #6d45f9;
+  --accent-light: #ede5ff;
+  --accent-dim: rgba(109, 69, 249, 0.06);
   --blue: #1a5fb4;
-  --violet: #5a3cd1;
-  --violet-light: #ebe7fa;
+  /* Aliased to --accent / --accent-light. Consumed by AG-UI section pages
+   * and OpsPlatformCTA. Kept as separate names for backwards compatibility
+   * with existing class references; values track the canonical accent. */
+  --violet: #6d45f9;
+  --violet-light: #ede5ff;
+  /* Scrollbar tokens — applied to internal scroll containers (sidebar
+   * inner scroll, content wrapper) so thumb + track follow theme. */
+  --scrollbar-color: rgba(0, 0, 0, 0.2);
+  --scrollbar-track: transparent;
 
   /* Font stacks — fed by next/font CSS variables in layout.tsx with
    * safe fallbacks for environments where the font fails to load.
@@ -39,9 +65,49 @@
   --font-docs-prose:
     var(--font-prose, "Plus Jakarta Sans"), -apple-system, BlinkMacSystemFont,
     "Segoe UI", Roboto, sans-serif;
+  /* Code font: canonical docs.copilotkit.ai now uses system mono only,
+   * so we follow suit. No Google Font fetched for monospaced text. */
   --font-docs-code:
-    var(--font-mono, "Spline Sans Mono"), ui-monospace, SFMono-Regular,
-    "SF Mono", Menlo, monospace;
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+/* Dark token set — mirrors canonical docs.copilotkit.ai's `.dark` block.
+ * Activates when an ancestor (typically <html>) has class="dark". The
+ * navbar theme toggle adds/removes that class and persists the choice
+ * in localStorage; the inline script in <head> (see layout.tsx) reads
+ * the persisted value before paint to avoid a light-flash on first load. */
+.dark {
+  --bg: #050a0e;
+  --bg-surface: #1a1d1f;
+  --bg-elevated: #1f2326;
+  --bg-hover: #252a2e;
+  --border: rgba(255, 255, 255, 0.1);
+  --border-dim: rgba(255, 255, 255, 0.05);
+  --sidebar: #111618;
+  --glass-background: rgba(255, 255, 255, 0.06);
+  --text: #fafafa;
+  --text-secondary: #cbd2d8;
+  --text-muted: #9ba0a8;
+  --text-faint: #5e6168;
+  --accent: #8b6cff;
+  --accent-light: rgba(139, 108, 255, 0.18);
+  --accent-dim: rgba(139, 108, 255, 0.1);
+  --blue: #6ba6e8;
+  --violet: #8b6cff;
+  --violet-light: rgba(139, 108, 255, 0.18);
+  --scrollbar-color: rgba(255, 255, 255, 0.18);
+  --scrollbar-track: transparent;
+}
+
+/* Apply themed scrollbar to internal scroll containers. Targets the
+ * sidebar's inner scroll wrapper and the docs content wrapper so the
+ * thumb tracks the active theme instead of falling back to the
+ * browser default (a bright gray that pops against dark surfaces). */
+aside .overflow-y-auto,
+.docs-content-wrapper {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-color) var(--scrollbar-track);
 }
 
 html,
@@ -53,12 +119,58 @@ body {
   letter-spacing: -0.005em;
 }
 
+/* Canonical layout architecture (mirrors docs.copilotkit.ai global.css):
+ * body is a fixed-height flex column with no scroll. The banner + nav sit
+ * at the top of body; the horizontal flex row (sidebar + content) takes
+ * the remaining height. The ONLY scroll container is `.docs-content-wrapper`,
+ * so chrome that should stay put (banner, nav, sidebar) is naturally
+ * outside the scroll context — no `position: sticky` required, and no
+ * sub-pixel sticky-compositing drift on first scroll. */
+body {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 /* Code font inherits Spline Sans Mono via CSS variable */
 code,
 pre,
 kbd,
 samp {
   font-family: var(--font-docs-code);
+}
+
+/* Main content panel — mirrors canonical's `.docs-content-wrapper`.
+ * The horizontal flex row (`<main>`) supplies a fixed height; this
+ * element is the ONLY scroll container in the docs view, so banner,
+ * nav and sidebar (all naturally placed siblings outside this wrapper)
+ * stay put when the user scrolls long content. The `min-width: 0`
+ * allows the column to shrink inside the flex row even when the
+ * inline content has its own intrinsic min-content. */
+.docs-content-wrapper {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow-y: auto;
+  position: relative;
+  background-color: var(--bg-surface);
+  background-image: linear-gradient(
+    90deg,
+    rgba(1, 5, 7, 0.1),
+    rgba(1, 5, 7, 0)
+  );
+  scrollbar-width: thin;
+}
+
+[data-theme="dark"] .docs-content-wrapper,
+.dark .docs-content-wrapper {
+  background-color: var(--glass-background);
+  background-image: linear-gradient(
+    90deg,
+    rgba(1, 5, 7, 0.1),
+    rgba(1, 5, 7, 0)
+  );
 }
 
 /* Reference content (MDX) typography — calibrated against docs.copilotkit.ai.
@@ -72,12 +184,12 @@ samp {
 
 .reference-content h2 {
   font-size: 1.5rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
   margin-top: 2.5rem;
   margin-bottom: 0.75rem;
   padding-bottom: 0;
-  letter-spacing: -0.015em;
+  letter-spacing: normal;
 }
 
 .reference-content h3 {
@@ -147,7 +259,8 @@ samp {
 .reference-content pre {
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: 0.5rem;
+  border-radius: 0.875rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   padding: 1rem;
   overflow-x: auto;
   margin-bottom: 1.25rem;
@@ -179,15 +292,15 @@ samp {
 
 .reference-content table {
   width: 100%;
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   border-collapse: collapse;
   margin-bottom: 1rem;
 }
 
 .reference-content th,
 .reference-content td {
-  border: 1px solid var(--border);
-  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  padding: 0.625rem 0.75rem;
   text-align: left;
 }
 
@@ -206,3 +319,203 @@ samp {
   border-top: 1px solid var(--border);
   margin: 1.5rem 0;
 }
+
+/* Heading anchors — H2/H3 surface a hover-only `#` link aligned to the
+ * right of the heading text, matching canonical fumadocs prose. The
+ * anchor is part of the heading's normal flow (not absolute) so it
+ * never collides with the right-rail TOC at narrow widths. */
+.reference-content .docs-heading {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.reference-content .docs-heading-anchor {
+  color: var(--text-faint);
+  text-decoration: none;
+  font-weight: 400;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.reference-content .docs-heading:hover .docs-heading-anchor,
+.reference-content .docs-heading-anchor:focus-visible {
+  opacity: 1;
+}
+
+.reference-content .docs-heading-anchor:hover {
+  color: var(--accent);
+  opacity: 1;
+}
+
+/* <Steps> / <Step> — CSS counters so numbering survives WhenFrameworkHas
+ * gating. The Steps wrapper resets the counter; each visible Step
+ * increments and renders its number via ::before. Hidden gates render
+ * nothing, so the counter doesn't advance across them. */
+.docs-steps {
+  counter-reset: docs-step;
+}
+.docs-step__badge {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-weight: 600;
+}
+.docs-step__badge::before {
+  counter-increment: docs-step;
+  content: counter(docs-step);
+}
+
+/* Brand-tint the first Step's heading. Indigo→purple gradient text
+ * matches the CopilotKit accent (OpsPlatformCTA, nav). Subtle cue
+ * that Step 1 is the entry point — the badge itself stays in its
+ * default styling so the contrast comes from the heading, not chrome.
+ * The :is() drops the anchor-link `#` (which uses .docs-heading-anchor). */
+.docs-steps > div:first-child h3,
+.docs-steps > div:first-child h3 > :is(:not(.docs-heading-anchor)) {
+  background-image: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Mute the SignupLink color in Step 1 so it doesn't clash with the
+ * gradient heading above it. The link stays underlined for affordance,
+ * inherits hover (opacity: 0.8) from .reference-content a. */
+.docs-steps > div:first-child a[data-cta-surface] {
+  color: var(--text);
+}
+
+/* Align each Step's first heading with its number badge.
+ * `.reference-content h2/h3/h4` ship with `margin-top` (1.25–2.5rem) so
+ * the heading would otherwise float well below the absolutely-positioned
+ * `.docs-step__badge` (anchored at `top: -0.125rem`). Zero out the top
+ * margin when the heading is the first thing rendered inside a Step. */
+.docs-steps h2:first-child,
+.docs-steps h3:first-child,
+.docs-steps h4:first-child {
+  margin-top: 0;
+}
+
+/* highlight.js — class-driven dark overrides.
+ *
+ * The light `github.css` theme is imported unconditionally at the top of
+ * this file. The block below mirrors `github-dark-dimmed.css` but scoped
+ * to `.dark`, so the user's manual theme toggle (which only flips a
+ * class, not the OS color-scheme) actually re-themes the syntax colors
+ * inside code blocks. Without this scoping, dark-mode users saw black
+ * `.hljs` text against the dark `var(--bg-surface)` we set on <pre>,
+ * which is the "CSS Disruptive for Dark Mode" report on the Quickstart. */
+.dark .hljs {
+  color: #adbac7;
+  background: transparent;
+}
+.dark .hljs-doctag,
+.dark .hljs-keyword,
+.dark .hljs-meta .hljs-keyword,
+.dark .hljs-template-tag,
+.dark .hljs-template-variable,
+.dark .hljs-type,
+.dark .hljs-variable.language_ {
+  color: #f47067;
+}
+.dark .hljs-title,
+.dark .hljs-title.class_,
+.dark .hljs-title.class_.inherited__,
+.dark .hljs-title.function_ {
+  color: #dcbdfb;
+}
+.dark .hljs-attr,
+.dark .hljs-attribute,
+.dark .hljs-literal,
+.dark .hljs-meta,
+.dark .hljs-number,
+.dark .hljs-operator,
+.dark .hljs-variable,
+.dark .hljs-selector-attr,
+.dark .hljs-selector-class,
+.dark .hljs-selector-id {
+  color: #6cb6ff;
+}
+.dark .hljs-regexp,
+.dark .hljs-string,
+.dark .hljs-meta .hljs-string {
+  color: #96d0ff;
+}
+.dark .hljs-built_in,
+.dark .hljs-symbol {
+  color: #f69d50;
+}
+.dark .hljs-comment,
+.dark .hljs-code,
+.dark .hljs-formula {
+  color: #768390;
+}
+.dark .hljs-name,
+.dark .hljs-quote,
+.dark .hljs-selector-tag,
+.dark .hljs-selector-pseudo {
+  color: #8ddb8c;
+}
+.dark .hljs-subst {
+  color: #adbac7;
+}
+.dark .hljs-section {
+  color: #316dca;
+  font-weight: bold;
+}
+.dark .hljs-bullet {
+  color: #eac55f;
+}
+.dark .hljs-emphasis {
+  color: #adbac7;
+  font-style: italic;
+}
+.dark .hljs-strong {
+  color: #adbac7;
+  font-weight: bold;
+}
+.dark .hljs-addition {
+  color: #b4f1b4;
+  background-color: #1b4721;
+}
+.dark .hljs-deletion {
+  color: #ffd8d3;
+  background-color: #78191b;
+}
+
+/* Light-mode hljs: the upstream `github.css` paints `.hljs` with an opaque
+ * `#fff` background that punches a white rectangle out of dark surfaces
+ * AND fights the figure's `var(--bg-surface)`. Setting it to transparent
+ * lets our own chrome (Snippet, DemoSource, MdxCodeBlock) own the
+ * background so theme-driven surfaces actually paint through. */
+.hljs {
+  background: transparent;
+}
+
+/* <MdxCodeBlock> — the `pre` override used by triple-fenced MDX code
+ * blocks. We want the figure chrome to win over the default
+ * `.reference-content pre` rule (border + shadow + padding) so the
+ * captioned/copy-button surface doesn't double up borders or padding. */
+.reference-content .mdx-code-block {
+  background: var(--bg-surface);
+}
+
+.reference-content .mdx-code-block .mdx-code-block__pre {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  margin: 0;
+  /* `.reference-content pre` ships with its own font-size; the inline
+   * class on .mdx-code-block__pre also sets one (`text-[12.5px]`). Using
+   * `font-size: inherit` here is the wrong direction — the inline class
+   * is what should win, so we don't override font-size at all. */
+}
+
+/* Soften the prose link underline rule inside our code-block surfaces.
+ * `.reference-content a { text-decoration: underline; color: accent }`
+ * fires on any <a> that bleeds into a code block (e.g. a link inside
+ * a callout that sits above the code), which is fine. We don't touch
+ * that here; this is just the documented expectation. */

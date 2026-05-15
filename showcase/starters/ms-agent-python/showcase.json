@@ -1,8 +1,0 @@
-{
-  "slug": "ms-agent-python",
-  "name": "Microsoft Agent Python",
-  "language": "python",
-  "agentDir": "agent",
-  "agentPort": 8123,
-  "generated": true
-}

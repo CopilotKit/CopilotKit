@@ -1,0 +1,29 @@
+{
+  "_comment": "D5 fixture for /demos/hitl — step selection via generate_task_steps frontend tool. Uses hasToolResult matching: aimock checks for role:tool messages in the request to disambiguate multi-turn fixtures sharing the same userMessage. Fixtures ordered by hasToolResult false→true for readability.",
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "trip to mars",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_generate_steps_001",
+            "name": "generate_task_steps",
+            "arguments": "{\"steps\":[{\"description\":\"Research Mars mission requirements and timeline\",\"status\":\"enabled\"},{\"description\":\"Design spacecraft and life support systems\",\"status\":\"enabled\"},{\"description\":\"Recruit and train the crew\",\"status\":\"enabled\"},{\"description\":\"Launch and navigate to Mars\",\"status\":\"enabled\"},{\"description\":\"Land and establish base camp\",\"status\":\"enabled\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "trip to mars",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Great choices! I will proceed with executing the selected steps for your trip to Mars. Let me work through each one."
+      }
+    }
+  ]
+}

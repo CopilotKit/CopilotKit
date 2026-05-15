@@ -1,5 +1,5 @@
 # Docker Compose stack for e2e smoke testing with aimock.
-# Mirrors the user experience: Next.js frontend + LangGraph JS agent + aimock as LLM.
+# Mirrors the user experience: Next.js frontend + langgraph dev agent + aimock as LLM.
 # Usage: docker compose -f docker-compose.test.yml up -d
 services:
   aimock:
@@ -20,13 +20,7 @@ services:
       aimock:
         condition: service_started
     healthcheck:
-      test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "const http = require('http'); http.get('http://localhost:8123/ok', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))",
-        ]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8123/ok"]
       interval: 5s
       timeout: 5s
       retries: 30

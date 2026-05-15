@@ -25,11 +25,6 @@ vi.mock("./config.js", async () => {
           versionSource: "@copilotkit/react-core",
           sharedVersion: true,
         },
-        cli: {
-          packages: ["copilotkit"],
-          versionSource: "copilotkit",
-          sharedVersion: false,
-        },
         angular: {
           packages: ["@copilotkitnext/angular"],
           versionSource: "@copilotkitnext/angular",
@@ -43,11 +38,6 @@ vi.mock("./config.js", async () => {
           packages: ["@copilotkit/shared", "@copilotkit/react-core"],
           versionSource: "@copilotkit/react-core",
           sharedVersion: true,
-        },
-        cli: {
-          packages: ["copilotkit"],
-          versionSource: "copilotkit",
-          sharedVersion: false,
         },
         angular: {
           packages: ["@copilotkitnext/angular"],

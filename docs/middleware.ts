@@ -4,6 +4,7 @@ import type { NextRequest } from "next/server";
 // All framework slugs for pattern-based redirects
 const FRAMEWORKS = [
   "langgraph",
+  "deepagents",
   "adk",
   "agno",
   "crewai-flows",
@@ -30,7 +31,7 @@ export function middleware(request: NextRequest) {
     "/coagents/shared-state": "/langgraph/shared-state",
     "/coagents/human-in-the-loop": "/langgraph/human-in-the-loop",
     "/coagents/multi-agent-flows": "/langgraph/multi-agent-flows",
-    "/coagents/persistence": "/langgraph/persistence",
+    "/coagents/persistence": "/langgraph/threads",
     "/coagents/advanced": "/langgraph/advanced",
     "/coagents/videos": "/langgraph/videos",
     "/coagents/tutorials": "/langgraph/tutorials",
@@ -148,6 +149,6 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      */
-    "/((?!api|_next/static|_next/image|favicon.ico).*)",
+    "/((?!api|ingest|_next/static|_next/image|favicon.ico).*)",
   ],
 };

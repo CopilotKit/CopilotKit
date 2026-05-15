@@ -1,0 +1,69 @@
+{
+  "_comment": "D5 fixture for /demos/interrupt-headless (LangGraph Python). Two chip prompts: 'sales-call' and 'alice-1on1'. Each pill is a 2-leg flow — first leg returns a `schedule_meeting` tool call (which triggers the Python agent's interrupt(...) suspension); second leg matches `toolCallId` after the user picks a slot and returns a confirmation narration. The `intro call with the sales team` and `1:1 with Alice` substrings are unique enough that aimock's userMessage matcher selects these even though the chip text is longer ('Book an intro call with the sales team to discuss pricing.' / 'Schedule a 1:1 with Alice next week to review Q2 goals.'). Mirrored verbatim into showcase/aimock/d5-all.json (fixtures #176-#179) so re-bundling stays consistent.",
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "toolName": "schedule_meeting"
+      },
+      "response": {
+        "content": "Sure — let me check available times.",
+        "toolCalls": [
+          {
+            "name": "schedule_meeting",
+            "id": "call_d5_schedule_sales_001",
+            "arguments": {
+              "topic": "Sales intro call",
+              "attendee": "Sales team",
+              "slots": [
+                { "label": "Mon 10:00 AM", "iso": "2026-05-11T10:00:00Z" },
+                { "label": "Tue 2:00 PM", "iso": "2026-05-12T14:00:00Z" }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "toolCallId": "call_d5_schedule_sales_001"
+      },
+      "response": {
+        "content": "Booked: Sales intro call confirmed for the slot you picked."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolName": "schedule_meeting"
+      },
+      "response": {
+        "content": "Got it — pulling up next-week slots.",
+        "toolCalls": [
+          {
+            "name": "schedule_meeting",
+            "id": "call_d5_schedule_alice_001",
+            "arguments": {
+              "topic": "1:1 with Alice — Q2 goals",
+              "attendee": "Alice",
+              "slots": [
+                { "label": "Wed 11:00 AM", "iso": "2026-05-13T11:00:00Z" },
+                { "label": "Thu 3:30 PM", "iso": "2026-05-14T15:30:00Z" }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolCallId": "call_d5_schedule_alice_001"
+      },
+      "response": {
+        "content": "Scheduled: 1:1 with Alice locked in for the slot you picked."
+      }
+    }
+  ]
+}

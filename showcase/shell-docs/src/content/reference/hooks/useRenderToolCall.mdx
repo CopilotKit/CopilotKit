@@ -50,7 +50,7 @@ The renderer determines the `ToolCallStatus` based on the inputs:
 
 ## ToolCallStatus
 
-The `ToolCallStatus` enum is exported from `@copilotkit/react-core/v2`:
+The `ToolCallStatus` enum is exported from `@copilotkit/react-core`:
 
 | Value                       | Description                                          |
 | --------------------------- | ---------------------------------------------------- |
@@ -139,7 +139,7 @@ If no exact name match is found, the hook falls back to a wildcard `"*"` rendere
 ```tsx
 function App() {
   return (
-    <CopilotKitProvider
+    <CopilotKit
       runtimeUrl="/api/copilotkit"
       renderToolCalls={[
         {
@@ -161,7 +161,7 @@ function App() {
       ]}
     >
       <YourApp />
-    </CopilotKitProvider>
+    </CopilotKit>
   );
 }
 ```
@@ -178,4 +178,4 @@ function App() {
 
 - [`useFrontendTool`](/reference/hooks/useFrontendTool) -- register tools with render components
 - [`useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop) -- register interactive tools with render components
-- [`CopilotKitProvider`](/reference/v2) -- configure static render tool calls at the provider level
+- [`CopilotKit`](/reference/v2) -- configure static render tool calls at the provider level

@@ -12,7 +12,7 @@ RUN cd scripts && npm install --silent && cd ../shell && npm install --silent
 
 # Copy source
 COPY showcase/shared/ ./shared/
-COPY showcase/packages/ ./packages/
+COPY showcase/integrations/ ./integrations/
 COPY showcase/scripts/ ./scripts/
 COPY showcase/shell/ ./shell/
 COPY showcase/shell-docs/src/content/ ./shell-docs/src/content/

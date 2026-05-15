@@ -1,5 +1,5 @@
-# Dockerfile for the Python LangGraph-FastAPI agent.
-# Mirrors the user experience: uv sync + uv run main.py (same as pnpm dev:agent).
+# Dockerfile for the Python LangGraph FastAPI agent.
+# Mirrors the user experience: uv sync + uv run main.py (same as npm run dev:agent).
 FROM python:3.12-slim
 
 # Install uv by copying from the official image (avoids curl|sh pipe-swallow bug
@@ -17,5 +17,4 @@ RUN uv sync
 
 EXPOSE 8123
 
-# Run main.py the same way the npm wrapper does (cd agent && uv run main.py)
 CMD ["uv", "run", "main.py"]

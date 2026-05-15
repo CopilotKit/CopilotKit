@@ -151,6 +151,16 @@ jobs:
             echo "⏭️ Skipping ${{ matrix.suite }} — no relevant changes"
           fi
 
+      - name: Detect fork PR
+        id: fork-check
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" && \
+                "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]]; then
+            echo "prefix=fork-" >> "$GITHUB_OUTPUT"
+          else
+            echo "prefix=" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout CPK
         if: steps.should-run.outputs.skip != 'true'
         uses: actions/checkout@v4
@@ -190,9 +200,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ steps.pnpm-store.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          key: ${{ steps.fork-check.outputs.prefix }}${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
-            ${{ runner.os }}-pnpm-store-
+            ${{ steps.fork-check.outputs.prefix }}${{ runner.os }}-pnpm-store-
 
       # Cache Python tool caches and virtualenvs; restore only to avoid long saves
       - name: Cache Python dependencies (restore-only)
@@ -205,9 +215,9 @@ jobs:
             ~/.cache/pypoetry
             ~/.cache/uv
             **/.venv
-          key: ${{ runner.os }}-pydeps-${{ hashFiles('**/poetry.lock', '**/pyproject.toml') }}
+          key: ${{ steps.fork-check.outputs.prefix }}${{ runner.os }}-pydeps-${{ hashFiles('**/poetry.lock', '**/pyproject.toml') }}
           restore-keys: |
-            ${{ runner.os }}-pydeps-
+            ${{ steps.fork-check.outputs.prefix }}${{ runner.os }}-pydeps-
 
       - name: Install Poetry
         if: steps.should-run.outputs.skip != 'true' && matrix.needs_python

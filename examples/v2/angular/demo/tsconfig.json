@@ -14,7 +14,7 @@
     "paths": {
       "@copilotkit/angular": [
         "../../packages/angular/dist/index.d.ts",
-        "../../packages/angular/dist/fesm2022/copilotkit-angular.mjs"
+        "../../packages/angular/dist/fesm2022/copilotkitnext-angular.mjs"
       ],
       "@copilotkit/core": [
         "../../packages/core/dist/index.d.ts",

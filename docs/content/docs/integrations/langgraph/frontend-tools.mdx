@@ -96,14 +96,15 @@ Use frontend tools when you need your agent to interact with client-side primiti
             </Tab>
             <Tab value="TypeScript">
                 ```typescript title="agent-js/src/agent.ts"
-                import { Annotation } from "@langchain/langgraph";
-                import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+                import { StateSchema } from "@langchain/langgraph";
+                import { CopilotKitStateSchema } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+                import { z } from "zod";
 
-                export const YourAgentStateAnnotation = Annotation.Root({
-                    yourAdditionalProperty: Annotation<string>,
-                    ...CopilotKitStateAnnotation.spec, // [!code highlight]
+                export const YourAgentStateSchema = new StateSchema({
+                    yourAdditionalProperty: z.string(),
+                    ...CopilotKitStateSchema.fields, // [!code highlight]
                 });
-                export type YourAgentState = typeof YourAgentStateAnnotation.State;
+                export type YourAgentState = typeof YourAgentStateSchema.State;
                 ```
             </Tab>
         </Tabs>

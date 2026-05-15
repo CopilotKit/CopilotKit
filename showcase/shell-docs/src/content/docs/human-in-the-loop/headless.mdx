@@ -1,7 +1,7 @@
 ---
-title: Headless interrupts
+title: Headless Interrupts
 icon: "lucide/SquareDashedBottomCode"
-description: Resolve LangGraph interrupts from any UI, without a useInterrupt render slot.
+description: Resolve agent interrupts from any UI, without a useInterrupt render slot.
 hideTOC: true
 snippet_cell: interrupt-headless
 ---
@@ -12,12 +12,44 @@ snippet_cell: interrupt-headless
 glued to a `<CopilotChat>` transcript and handles "when to show the
 picker" logic for you. This page covers the escape hatch: a
 **render-less** interrupt resolver you assemble from the same
-primitives `useInterrupt` uses internally.
-
-The result is a pattern that lives anywhere in your React tree, takes
-any shape you like (plain button grid, form, modal, keyboard shortcut,
-anything), and resolves `langgraph.interrupt(...)` without
+primitives `useInterrupt` uses internally — a pattern that lives
+anywhere in your React tree, takes any shape you like (button grid,
+form, modal, keyboard shortcut), and resolves the interrupt without
 mounting a chat at all.
+
+<WhenFrameworkHas flag="interrupt_pattern" equals="native">
+
+On LangGraph the underlying primitive is the framework's
+`interrupt()` call, surfaced to the client as an `on_interrupt`
+custom event. The headless variant subscribes to that event directly
+and resumes the run by calling `copilotkit.runAgent({...})` with the
+matching `resume` payload — no chat surface required.
+
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="interrupt_pattern" equals="promise-based">
+
+On Microsoft Agent Framework there's no native interrupt primitive,
+so the headless variant uses `useFrontendTool` with a Promise-based
+handler. The handler exposes its pending payload via React state — so
+a separate "app surface" can render the picker outside the chat — and
+resolves the Promise once the user interacts. Same UX, different
+mechanism.
+
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="interrupt_pattern" absent>
+
+> **Not available on this framework.** Headless interrupts are built on
+> top of `useInterrupt` / `useFrontendTool` patterns that require the
+> runtime to expose either a native `interrupt(...)` primitive
+> (LangGraph) or a Promise-resolving frontend-tool path (Microsoft Agent
+> Framework). For all other integrations, use
+> [`useHumanInTheLoop`](../human-in-the-loop) instead — it's the
+> standard hook for tool-call-based pause/resume flows and works on
+> every framework that supports tool calls.
+
+</WhenFrameworkHas>
 
 <InlineDemo demo="interrupt-headless" />
 
@@ -36,6 +68,8 @@ mounting a chat at all.
 
 If you just want "a picker in chat", just use
 [`useInterrupt`](./useInterrupt).
+
+<WhenFrameworkHas flag="interrupt_pattern" equals="native">
 
 ## The primitives
 
@@ -65,6 +99,32 @@ A few things this hook is careful about:
   new turn always starts from a clean slate.
 - `onRunFailed` drops the staged event so a transport hiccup doesn't
   leave the UI stuck showing a picker for a run that never paused.
+
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="interrupt_pattern" equals="promise-based">
+
+## The primitives
+
+The render callback intentionally returns `null` — the picker UI lives
+in the app surface, not in the chat transcript. The handler's pending
+state drives whether the picker is shown:
+
+<Snippet region="headless-promise-primitives" title="frontend/src/app/page.tsx — useFrontendTool (headless Promise-based)" />
+
+A few things this pattern is careful about:
+
+- The handler stages its `resolve` callback in a ref keyed by tool-call
+  id, so concurrent tool calls don't trample each other's resolvers.
+- `setPending` is called from inside the handler so the app surface
+  re-renders the picker as soon as the agent calls the tool, and again
+  with `null` after the user interacts so the picker disappears.
+- `render: () => null` keeps the chat transcript clean — the headless
+  variant deliberately bypasses inline rendering.
+
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="interrupt_pattern" equals="native">
 
 ## Driving it from plain UI
 
@@ -101,9 +161,12 @@ function HeadlessInterruptPanel() {
 }
 ```
 
+</WhenFrameworkHas>
+
 ## Going further
 
 - [Tool-based HITL with `useHumanInTheLoop`](../human-in-the-loop) — for
-  LLM-initiated pauses that don't involve a LangGraph `interrupt()`.
+  LLM-initiated pauses where the model decides on the fly to ask the
+  user, rather than the runtime forcing the pause itself.
 - [`useInterrupt`](./useInterrupt) — the render-prop version of this
   page, with `enabled` gating and `handler` preprocessing.

@@ -9,11 +9,7 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - ".github/workflows/showcase_validate.yml"
-      # Also re-run when starter/workflow files change — the
-      # validate-workflow-starters step below verifies parity between
-      # showcase/starters/* and the SERVICES/options lists in these files.
       - ".github/workflows/showcase_deploy.yml"
-      - ".github/workflows/showcase_smoke-monitor.yml"
   push:
     branches: [main]
     paths:
@@ -117,7 +113,7 @@ jobs:
           fi
           failed=0
           found=0
-          for pkg_dir in showcase/packages/*/; do
+          for pkg_dir in showcase/integrations/*/; do
             [ -d "$pkg_dir" ] || continue
             pkg=$(basename "$pkg_dir")
             # Skip manifest-only packages (no src/ directory) — these are
@@ -173,7 +169,7 @@ jobs:
             fi
           done
           if [ "$found" -eq 0 ]; then
-            echo "::error::No showcase/packages/*/ directories found — baseline check cannot run"
+            echo "::error::No showcase/integrations/*/ directories found — baseline check cannot run"
             exit 1
           fi
           exit "$failed"
@@ -200,17 +196,6 @@ jobs:
         # See showcase/scripts/validate-fixture-tool-surface.ts and the
         # postmortem linked from there.
         run: pnpm exec tsx validate-fixture-tool-surface.ts
-
-      - name: Run validate-workflow-starters (parity with workflows)
-        working-directory: showcase/scripts
-        # Gate: for every directory under showcase/starters/ (excluding
-        # template/), verify `starter-<slug>` is registered in
-        # showcase_deploy.yml (workflow_dispatch options AND the
-        # ALL_SERVICES matrix) and in showcase_smoke-monitor.yml's
-        # SERVICES array. Catches the silent-drift failure mode where a
-        # new starter ships on disk but is invisible to deploy dispatch
-        # or drift detection.
-        run: pnpm exec tsx validate-workflow-starters.ts
 
       - name: Run validate-pins (ratchet)
         working-directory: showcase/scripts
@@ -536,7 +521,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
           cache-dependency-path: |
-            showcase/packages/*/requirements.txt
+            showcase/integrations/*/requirements.txt
 
       - name: Install minimal test deps
         # Always need pytest + typing_extensions. pytest-asyncio is required
@@ -553,7 +538,7 @@ jobs:
         run: python -m pip install --quiet pytest pytest-asyncio pytest-mock typing_extensions
 
       - name: Run showcase package Python unit tests
-        # Keep scope narrow: only showcase/packages/*/tests/python/ directories
+        # Keep scope narrow: only showcase/integrations/*/tests/python/ directories
         # (not e2e, not langgraph which has its own runtime). Each package has
         # its own conftest.py that wires up import paths; we cd into the pkg
         # dir so those apply.
@@ -570,7 +555,7 @@ jobs:
           # below to skip packages whose runtime deps are incompatible
           # with the matrix Python on this job.
           py_mm=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
-          for pkg_dir in showcase/packages/*/; do
+          for pkg_dir in showcase/integrations/*/; do
             tests_dir="${pkg_dir}tests/python"
             [ -d "$tests_dir" ] || continue
             found=$((found + 1))
@@ -600,9 +585,14 @@ jobs:
                 continue
               }
             fi
-            (cd "$pkg_dir" && python -m pytest tests/python/ -v) || failed=1
+            # Export PYTHONPATH so `from tools import ...` in agent modules
+            # resolves via the `tools` symlink at the integration root.
+            # Also include src/ so `from agents.X import ...` works even if
+            # a conftest.py omits the sys.path setup. Mirrors the local dev
+            # convention (`PYTHONPATH=. python ...` in package.json scripts).
+            (cd "$pkg_dir" && PYTHONPATH=".:src:${PYTHONPATH:-}" python -m pytest tests/python/ -v) || failed=1
           done
           if [ "$found" -eq 0 ]; then
-            echo "::warning::No showcase/packages/*/tests/python/ directories found"
+            echo "::warning::No showcase/integrations/*/tests/python/ directories found"
           fi
           exit "$failed"

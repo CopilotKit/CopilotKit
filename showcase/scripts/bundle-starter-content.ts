@@ -317,10 +317,13 @@ function main() {
   for (const integration of integrations) {
     if (!integration.starter) continue;
 
-    const starterPath = path.join(REPO_ROOT, integration.starter.path);
+    // Read starter content directly from the integration directory.
+    // Previously this read from showcase/starters/<slug>/ but starters
+    // are now extracted on-demand from integrations via extract-starter.ts.
+    const starterPath = path.join(ROOT, "integrations", integration.slug);
     if (!fs.existsSync(starterPath)) {
       console.log(
-        `  WARN: ${integration.slug} starter path not found: ${integration.starter.path}`,
+        `  WARN: ${integration.slug} integration not found at: ${starterPath}`,
       );
       continue;
     }

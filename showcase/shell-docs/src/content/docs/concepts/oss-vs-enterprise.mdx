@@ -1,0 +1,66 @@
+---
+title: OSS vs Enterprise
+description: What ships in CopilotKit's open-source core versus what's part of the Enterprise (Enterprise Intelligence Platform) layer — Threads, Persistence, Observability, Self-Hosting.
+icon: "lucide/Cloud"
+doc_type: explanation
+---
+
+CopilotKit is two products in one repository: an **open-source frontend stack** that anyone can install from npm and run with no service dependencies, and an **Enterprise Intelligence Platform** that adds durable conversations, realtime sync, observability, and an admin console. The two are layered — Enterprise extends OSS — so picking the right scope means understanding what each one gives you and where the boundary lives.
+
+## What's in the open-source core
+
+The OSS layer is everything you need to build a working agentic React app. It runs without any external service from CopilotKit:
+
+- **Frontend SDK** — `@copilotkit/react-core`, exporting both hooks (`useAgent`, `useFrontendTool`, `useAgentContext`, `useThreads`, etc.) and prebuilt components (`CopilotChat`, `CopilotSidebar`, `CopilotPopup`).
+- **Runtime** — `@copilotkit/runtime`, the request handler that mounts in your application server. Framework-agnostic core plus thin adapters for Express, Hono, Bun, Deno, Cloudflare Workers.
+- **AG-UI protocol** — open standard for agent ↔ frontend communication. 16 standardized event types, transport-agnostic.
+- **Built-in Agent** — `BuiltInAgent` runs an in-process agent loop (OpenAI / Anthropic / Google / any AI-SDK model) without requiring an external framework.
+- **Integrations** — first-party adapters for LangGraph (Python / TypeScript / FastAPI), Mastra, CrewAI, Pydantic AI, Microsoft Agent Framework, AWS Strands, Google ADK, and others.
+- **Generative UI primitives** — tool rendering, state rendering, headless hooks, Slots-based theming.
+
+Apache 2.0 licensed. Run it on any host, in any cloud, with any LLM provider.
+
+## What's in Enterprise (Enterprise Intelligence Platform)
+
+Enterprise is a separate **backend service** that sits beside your runtime and unlocks capabilities that need durable, multi-tenant infrastructure to be honest about:
+
+- **Threads & Persistence** — durable, resumable conversations that survive page reloads, span devices, and sync in realtime via WebSocket. Backed by Postgres + Redis with single-writer locks on active runs.
+- **Observability** — structured logging, traces of every AG-UI event, agent run metrics, and connectors for Datadog / OpenTelemetry / your existing observability stack.
+- **Inspector & Admin Console** — a hosted web UI for browsing thread history, inspecting agent traces, rotating API keys, and managing projects and organizations.
+- **Multi-tenancy** — three-level isolation (organizations, projects, users) so a single deployment can host production and staging side by side without one reading the other's data.
+
+Two deployment modes — same Enterprise Intelligence Platform, you pick where it runs:
+
+- **[Copilot Cloud](https://cloud.copilotkit.ai)** — the hosted service. Sign up, get an API key, point your runtime at it, done. Right when you want zero ops on the platform side.
+- **Self-Hosted** — install the `copilot-intelligence` Helm chart into your own Kubernetes cluster. Right when you need data residency, on-prem requirements, or compliance control. You operate the workload (Postgres, Redis, ingress, OIDC, secret rotation) but the chart and the same Enterprise Intelligence Platform image power the install.
+
+Application code does not change between Cloud and Self-Hosted. Same SDK, same runtime, same hooks — just a different `INTELLIGENCE_URL` environment variable.
+
+## Where the boundary lives
+
+The OSS runtime knows how to talk to the Enterprise Intelligence Platform but doesn't require it. Concretely:
+
+| Capability | OSS only | Needs Enterprise Intelligence Platform |
+|---|---|---|
+| Agent chat with prebuilt components | ✅ | |
+| Frontend tools, agent state, generative UI | ✅ | |
+| Tool rendering, state rendering, A2UI, MCP apps | ✅ | |
+| Headless hooks for fully custom UIs | ✅ | |
+| Any AG-UI integration (LangGraph, Mastra, etc.) | ✅ | |
+| Built-in Agent + custom AG-UI agents | ✅ | |
+| Conversation history that persists across page reloads | | ✅ |
+| `useThreads` (list, create, rename, archive, sync) | | ✅ |
+| Realtime sync of threads across tabs / devices | | ✅ |
+| Hosted inspector and admin console | | ✅ |
+| Enterprise observability connectors | | ✅ |
+| Self-hosted multi-tenant deployment | | ✅ |
+
+If your app keeps state in your own backend (Postgres, your own auth) and you're fine reconstructing thread context from your own store, OSS may be enough. The moment you want CopilotKit to *be* the conversation persistence layer — across users, devices, and sessions — Enterprise is the right answer.
+
+## Where to go next
+
+- **Open-source quickstart** — [Quickstart](/quickstart) gets a working agentic app running in ~10 minutes against the Built-in Agent. No platform credentials needed.
+- **Enterprise overview** — [Premium Overview](/premium/overview) lists every Enterprise capability and the per-feature setup.
+- **Hosted setup** — [Copilot Cloud](https://cloud.copilotkit.ai) for the hosted Enterprise Intelligence Platform.
+- **Self-hosted deployment** — [Self-Hosting Intelligence](/premium/self-hosting) for the Helm-chart install on your own Kubernetes cluster.
+- **Architecture deep-dive** — [Enterprise Intelligence Platform internals](/premium/intelligence-platform) covers the control-plane / data-plane split, the three workloads, and the operational model.

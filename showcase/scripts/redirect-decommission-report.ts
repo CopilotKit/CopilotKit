@@ -20,10 +20,10 @@
  * are also skipped in this mode. Intended for tests and reproducible
  * diffs — do not use in scheduled runs.
  *
- * Formatter logic lives in `./redirect-decommission-core.ts` so showcase-ops
+ * Formatter logic lives in `./redirect-decommission-core.ts` so showcase-harness
  * can drive the same body from a probe tick. Any drift between this CLI
  * and that core is caught by a byte-for-byte cross-check in
- * `showcase/ops/test/fixtures/redirect-decommission/cli-stdout.txt`.
+ * `showcase/harness/test/fixtures/redirect-decommission/cli-stdout.txt`.
  */
 
 import fs from "fs";

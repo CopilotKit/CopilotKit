@@ -73,7 +73,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
         api_key = os.getenv("OPENAI_API_KEY", "")
         model = OpenAIModel(
             client_args={"api_key": api_key},
-            model_id="gpt-5.2",
+            model_id="gpt-5.4",
         )
 
         agent = Agent(

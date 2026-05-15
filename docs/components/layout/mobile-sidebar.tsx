@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "fumadocs-core/link";
 import { usePathname } from "next/navigation";
 import { useMemo, useState, useEffect, useCallback } from "react";
+import { usePostHog } from "posthog-js/react";
 // Components
 import Separator from "@/components/ui/sidebar/separator";
 import Page from "@/components/ui/sidebar/page";
@@ -66,9 +67,17 @@ const MobileSidebar = ({
   handleToggleTheme,
 }: MobileSidebarProps) => {
   const pathname = usePathname();
+  const posthog = usePostHog();
   const [selectedIntegration, setSelectedIntegration] =
     useState<Integration | null>(null);
   const [isVisible, setIsVisible] = useState(false);
+
+  const handleTalkToEngineerClick = () => {
+    posthog?.capture("talk_to_us_clicked", {
+      location: "docs_navbar_mobile",
+    });
+    window.location.href = "https://copilotkit.ai/talk-to-an-engineer";
+  };
 
   // Trigger slide-in animation on mount
   useEffect(() => {
@@ -212,7 +221,7 @@ const MobileSidebar = ({
     >
       <OpenedFoldersProvider>
         <aside
-          className={`flex flex-col w-full max-w-[280px] h-[calc(100vh-8px)] border backdrop-blur-3xl border-r-0 border-border bg-white/50 dark:bg-white/[0.01] rounded-2xl pl-3 pr-1 transition-transform duration-300 ease-out ${
+          className={`flex flex-col w-full max-w-[280px] h-[calc(100vh-8px)] border border-r-0 border-border bg-sidebar rounded-2xl pl-3 pr-1 transition-transform duration-300 ease-out ${
             isVisible ? "translate-x-0" : "translate-x-full"
           }`}
         >
@@ -255,6 +264,20 @@ const MobileSidebar = ({
               <CrossIcon />
             </button>
           </div>
+
+          {/* Talk to an Engineer — pinned at the top of the mobile
+           * drawer as a primary CTA. */}
+          <button
+            type="button"
+            onClick={() => {
+              handleClose();
+              handleTalkToEngineerClick();
+            }}
+            className="text-left rounded-md px-3 py-2.5 mb-2 text-[14px] font-medium bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 transition-all cursor-pointer"
+            aria-label="Talk to an engineer"
+          >
+            Talk to an Engineer
+          </button>
 
           <Dropdown onSelect={handleClose} />
 

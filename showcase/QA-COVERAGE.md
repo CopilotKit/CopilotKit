@@ -25,18 +25,18 @@ This matrix tracks what testing exists for each demo and the Sales Dashboard sta
 
 ## Starter Hero Coverage
 
-| Feature                         | Manual QA | Vitest Unit                                                      | Playwright E2E (smoke)                  | Playwright E2E (interaction)                    | Aimock Fixtures                    | CI Auto                                     |
-| ------------------------------- | --------- | ---------------------------------------------------------------- | --------------------------------------- | ----------------------------------------------- | ---------------------------------- | ------------------------------------------- |
-| **Sales Dashboard (page load)** | FAIL      | PASS generate-starters tests (17 starters exist, file structure) | PASS header, 4 renderer pills           | PASS pill switching, content verification       | WARN `sales`/`todo`/`deal` matches | WARN validate + aimock-e2e (manual trigger) |
-| **Renderer Selector**           | FAIL      | FAIL                                                             | PASS 4 pills visible, default selection | PASS mutual exclusion, content changes per mode | FAIL                               | WARN validate only                          |
-| **Tool-Based mode**             | FAIL      | FAIL                                                             | PASS pipeline heading, KPI cards        | PASS Add a deal, multiple deals, empty state    | WARN `sales`/`todo` matches        | WARN validate only                          |
-| **A2UI Catalog mode**           | FAIL      | FAIL                                                             | PASS same pipeline content              | FAIL                                            | FAIL                               | WARN validate only                          |
-| **json-render mode**            | FAIL      | FAIL                                                             | PASS fallback note + pipeline           | FAIL                                            | FAIL                               | WARN validate only                          |
-| **HashBrown mode**              | FAIL      | FAIL                                                             | PASS pipeline content                   | FAIL                                            | FAIL                               | WARN validate only                          |
+| Feature                         | Manual QA | Vitest Unit                                       | Playwright E2E (smoke)                  | Playwright E2E (interaction)                    | Aimock Fixtures                    | CI Auto                                     |
+| ------------------------------- | --------- | ------------------------------------------------- | --------------------------------------- | ----------------------------------------------- | ---------------------------------- | ------------------------------------------- |
+| **Sales Dashboard (page load)** | FAIL      | PASS extract-starter tests (on-demand extraction) | PASS header, 4 renderer pills           | PASS pill switching, content verification       | WARN `sales`/`todo`/`deal` matches | WARN validate + aimock-e2e (manual trigger) |
+| **Renderer Selector**           | FAIL      | FAIL                                              | PASS 4 pills visible, default selection | PASS mutual exclusion, content changes per mode | FAIL                               | WARN validate only                          |
+| **Tool-Based mode**             | FAIL      | FAIL                                              | PASS pipeline heading, KPI cards        | PASS Add a deal, multiple deals, empty state    | WARN `sales`/`todo` matches        | WARN validate only                          |
+| **A2UI Catalog mode**           | FAIL      | FAIL                                              | PASS same pipeline content              | FAIL                                            | FAIL                               | WARN validate only                          |
+| **json-render mode**            | FAIL      | FAIL                                              | PASS fallback note + pipeline           | FAIL                                            | FAIL                               | WARN validate only                          |
+| **HashBrown mode**              | FAIL      | FAIL                                              | PASS pipeline content                   | FAIL                                            | FAIL                               | WARN validate only                          |
 
 ## Test Infrastructure Details
 
-### Manual QA Checklists (`showcase/packages/*/qa/*.md`)
+### Manual QA Checklists (`showcase/integrations/*/qa/*.md`)
 
 - 153 files across 17 packages (17 × 9 demos)
 - All 17 packages have checklists for all 9 demos: agentic-chat, hitl-in-chat, tool-rendering, gen-ui-tool-based, gen-ui-agent, shared-state-read, shared-state-write, shared-state-streaming, subagents
@@ -44,8 +44,6 @@ This matrix tracks what testing exists for each demo and the Sales Dashboard sta
 
 ### Vitest Unit Tests (`showcase/scripts/__tests__/*.test.ts`)
 
-- `generate-starters.test.ts` -- verifies all 17 starters generate correctly, file structure, Python import rewriting
-- `starter-consistency.test.ts` -- validates starter consistency across packages
 - `generate-registry.test.ts` -- registry generation
 - `validate-constraints.test.ts` -- constraint validation
 - `bundle-demo-content.test.ts` -- demo content bundling
@@ -59,7 +57,7 @@ This matrix tracks what testing exists for each demo and the Sales Dashboard sta
 - `screenshots.spec.ts` -- screenshot capture
 - **Gap:** No shared E2E tests for gen-ui-tool-based, gen-ui-agent, shared-state-\*, subagents
 
-### Playwright E2E -- Per-Package (`showcase/packages/*/tests/e2e/`)
+### Playwright E2E -- Per-Package (`showcase/integrations/*/tests/e2e/`)
 
 - Every one of the 17 packages ships 9 per-demo spec files (agentic-chat, hitl-in-chat, tool-rendering, gen-ui-tool-based, gen-ui-agent, shared-state-read, shared-state-write, shared-state-streaming, subagents).
 - `langgraph-python` additionally ships a 10th spec (`renderer-selector.spec.ts`) covering the Sales Dashboard renderer-selector flow; no other package has this spec.

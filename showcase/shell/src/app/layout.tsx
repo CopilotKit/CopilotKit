@@ -18,8 +18,16 @@ const splineSansMono = Spline_Sans_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CopilotKit Docs",
-  description: "Docs, live demos, and integrations for CopilotKit",
+  title: "CopilotKit Showcase",
+  description:
+    "Live integration gallery for CopilotKit — 17 AI frameworks, real-time health probes, and interactive demos",
+  icons: { icon: "/icon.svg" },
+  openGraph: {
+    title: "CopilotKit Showcase",
+    description:
+      "Live integration gallery for CopilotKit — 17 AI frameworks, real-time health probes, and interactive demos",
+    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
+  },
 };
 
 export default function RootLayout({

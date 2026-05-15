@@ -3,6 +3,7 @@ Thin wrapper to serve the LangGraph agent via AG-UI protocol.
 Used in Docker where langgraph-cli dev (which needs Docker) is unavailable.
 The original main.py and all agent code remain unmodified.
 """
+
 import os
 import sys
 
@@ -19,7 +20,7 @@ from main import graph
 
 # The create_agent() graph may not have a checkpointer (it's normally
 # provided by the LangGraph Platform server). Add one for standalone serving.
-if not hasattr(graph, 'checkpointer') or graph.checkpointer is None:
+if not hasattr(graph, "checkpointer") or graph.checkpointer is None:
     # Recompile with a checkpointer
     graph = graph.copy()
     graph.checkpointer = MemorySaver()

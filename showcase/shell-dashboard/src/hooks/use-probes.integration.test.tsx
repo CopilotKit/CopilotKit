@@ -3,7 +3,7 @@
  * mocks between the hook and the real client. This is the missing
  * coverage that masked the production bug where the dashboard rendered
  * "All probes idle" because the resolved URL was hitting the dashboard
- * origin (404) instead of the showcase-ops proxy path.
+ * origin (404) instead of the showcase-harness proxy path.
  *
  * Why both layers must be exercised together:
  *   - `use-probes.test.ts` mocks the entire `lib/ops-api` module, so it

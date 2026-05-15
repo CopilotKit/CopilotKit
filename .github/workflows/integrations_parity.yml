@@ -1,0 +1,47 @@
+name: "Integrations: Parity Check"
+
+on:
+  pull_request:
+    paths:
+      - "examples/integrations/**"
+      - ".github/workflows/integrations_parity.yml"
+  push:
+    branches: [main]
+    paths:
+      - "examples/integrations/**"
+      - ".github/workflows/integrations_parity.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  parity-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.13.1
+          run_install: false
+
+      - name: Install root dev dependencies (tsx)
+        run: pnpm install --frozen-lockfile --ignore-scripts --filter=.
+
+      - name: Verify integration-demo parity
+        run: |
+          echo "Checking examples/integrations/* against north-star..."
+          echo "If this fails, run: pnpm parity:sync --target=<instance>"
+          echo "and resolve agent-surface drift manually (see _parity/README.md)."
+          pnpm parity:check

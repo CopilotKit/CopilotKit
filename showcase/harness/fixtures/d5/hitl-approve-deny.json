@@ -1,0 +1,29 @@
+{
+  "_comment": "D5 fixture for /demos/hitl-in-app against LangGraph Python (LGP). Approve/deny HITL via the frontend-defined `request_user_approval` tool. Uses hasToolResult matching: aimock checks for role:tool messages in the request to disambiguate multi-turn fixtures sharing the same userMessage. Fixtures ordered by hasToolResult false→true for readability.",
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "Issue a $50 refund to customer #12345",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_request_approval_001",
+            "name": "request_user_approval",
+            "arguments": "{\"message\":\"Issue a $50 refund to customer #12345.\",\"context\":\"Per the standard goodwill-credit policy for shipping delays.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Issue a $50 refund to customer #12345",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Approved — processing the $50 refund to customer #12345 now."
+      }
+    }
+  ]
+}

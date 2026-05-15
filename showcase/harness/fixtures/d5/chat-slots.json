@@ -1,0 +1,11 @@
+{
+  "_comment": "D5 fixture for /demos/chat-slots. The demo wires three custom slots (welcomeScreen, input.disclaimer, messageView.assistantMessage = CustomAssistantMessage). The D5 assertion verifies CustomAssistantMessage actually wraps assistant replies in DOM (data-testid='custom-assistant-message') after the user sends a message. One-turn fixture — substring 'verify chat slots are wired' is unique across the d5-all bundle.",
+  "fixtures": [
+    {
+      "match": { "userMessage": "verify chat slots are wired" },
+      "response": {
+        "content": "Confirmed — the chat-slots demo is rendering through the custom slot wrappers. The CustomAssistantMessage component should be visible as a tinted card with a 'slot' badge in the corner."
+      }
+    }
+  ]
+}

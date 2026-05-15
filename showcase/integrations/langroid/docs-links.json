@@ -1,0 +1,10 @@
+{
+  "framework": "langroid",
+  "features": {},
+  "missing": [
+    {
+      "feature": "all",
+      "reason": "No langroid-scoped docs tree exists on docs.copilotkit.ai (returns SPA fallback). Most demos in langroid's manifest fall through to the framework-agnostic feature-level og_docs_url + shell_docs_path in showcase/shared/feature-registry.json, which renders green. The `auth` and `agent-config` demos have no registry-level entry and render red — a deliberate honest signal that no documentation page exists yet. This file is kept as a placeholder so contributors know the choice to defer to the registry was deliberate, not an oversight."
+    }
+  ]
+}

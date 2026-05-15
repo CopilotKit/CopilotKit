@@ -32,10 +32,14 @@ Key benefits:
     ```
 
     ```typescript title="app/api/copilotkit/route.ts"
+    import {
       CopilotRuntime,
       ExperimentalEmptyAdapter,
       copilotRuntimeNextJSAppRouterEndpoint,
     } from "@copilotkit/runtime";
+    import { LangGraphAgent } from "@copilotkit/runtime";
+    import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
+    import { NextRequest } from "next/server";
 
     const agent = new LangGraphAgent({
       deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",

@@ -1,16 +1,23 @@
 ---
-title: "How the Intelligence Platform Works"
-description: "Architecture of the CopilotKit Intelligence Platform — the app-api, app-frontend, and realtime-gateway services, the control-plane/data-plane split, the multi-tenancy model, and the operational model for self-hosted Helm deployments (secret rotation, health checks, scaling, and the hosted-vs-self-hosted decision)."
+title: "How the Enterprise Intelligence Platform Works"
+description: "Architecture of the Enterprise Intelligence Platform — the app-api, app-frontend, and realtime-gateway services, the control-plane/data-plane split, the multi-tenancy model, and the operational model for self-hosted Helm deployments (secret rotation, health checks, scaling, and the hosted-vs-self-hosted decision)."
 icon: "lucide/Server"
 doc_type: explanation
 premium: true
 ---
 
-## What is the Intelligence Platform?
+## What is the Enterprise Intelligence Platform?
 
-The CopilotKit Intelligence Platform is the backend that powers threads, shared state, the inspector, observability, and other premium capabilities. The same platform architecture runs whether you consume it as a hosted service at [Copilot Cloud](https://cloud.copilotkit.ai) or install it into your own Kubernetes cluster via the `copilot-intelligence` Helm chart — your application code (and the CopilotKit runtime it talks to) does not change based on which one you point at.
+The Enterprise Intelligence Platform is the backend that powers threads, shared state, the inspector, observability, and other premium capabilities. The same platform architecture runs whether you consume it as a hosted service at [Copilot Cloud](https://cloud.copilotkit.ai) or install it into your own Kubernetes cluster via the `copilot-intelligence` Helm chart — your application code (and the CopilotKit runtime it talks to) does not change based on which one you point at.
 
 This page covers the logical architecture that applies to both deployment modes, plus the operational concerns specific to running the platform in your own cluster. Self-hosting is a premium deployment mode: it gives you data residency and compliance control at the cost of running a production Kubernetes workload.
+
+<OpsPlatformCTA
+  variant="inline"
+  title="Try the Enterprise Intelligence Platform"
+  body="Spin up a hosted project on Copilot Cloud — no credit card, free Developer tier."
+  surface="docs_learn_intelligence_platform"
+/>
 
 ## Key concepts
 
@@ -28,7 +35,7 @@ The Helm chart deploys three Deployments:
 
 ### Multi-tenancy model
 
-The Intelligence Platform is multi-tenant. Three hierarchical concepts scope every request: an **organization** (the billing or contract boundary), a **project** (an application or environment within an organization), and a **user** (an authenticated identity from your OIDC provider). API keys are issued per project — threads, events, and platform state are visible only within the project that owns them, so a single deployment can host production and staging projects side by side without one reading the other's data.
+The Enterprise Intelligence Platform is multi-tenant. Three hierarchical concepts scope every request: an **organization** (the billing or contract boundary), a **project** (an application or environment within an organization), and a **user** (an authenticated identity from your OIDC provider). API keys are issued per project — threads, events, and platform state are visible only within the project that owns them, so a single deployment can host production and staging projects side by side without one reading the other's data.
 
 Self-hosted deployments choose a tenancy posture via `auth.deploymentMode`:
 

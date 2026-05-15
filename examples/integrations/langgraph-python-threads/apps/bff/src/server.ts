@@ -2,7 +2,7 @@ import { serve } from "@hono/node-server";
 import {
   CopilotRuntime,
   CopilotKitIntelligence,
-  createCopilotEndpoint,
+  createCopilotHonoHandler,
 } from "@copilotkit/runtime/v2";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 
@@ -11,7 +11,6 @@ const intelligence = new CopilotKitIntelligence({
     process.env.INTELLIGENCE_API_KEY ?? "cpk_sPRVSEED_seed0privat0longtoken00",
   apiUrl: process.env.INTELLIGENCE_API_URL ?? "http://localhost:4201",
   wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:4401",
-  organizationId: process.env.INTELLIGENCE_ORGANIZATION_ID ?? "casa-de-erlang",
 });
 
 const agent = new LangGraphAgent({
@@ -21,7 +20,7 @@ const agent = new LangGraphAgent({
   langsmithApiKey: process.env.LANGSMITH_API_KEY ?? "",
 });
 
-const app = createCopilotEndpoint({
+const app = createCopilotHonoHandler({
   basePath: "/api/copilotkit",
   runtime: new CopilotRuntime({
     intelligence,

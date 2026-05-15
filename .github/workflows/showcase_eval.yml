@@ -1,0 +1,620 @@
+name: "showcase / eval"
+
+# SECURITY — residual trust model (read before editing):
+#
+# This workflow executes `showcase/bin/showcase eval` against PR-HEAD code.
+# Hardening layers mirror test_e2e-showcase-on-demand.yml:
+#   - `getCollaboratorPermissionLevel` gate limits the trigger to users with
+#     write (or higher) access — third-party commenters cannot spawn runs.
+#   - workflow-level `permissions: contents: read` means the eval job's
+#     GITHUB_TOKEN cannot mutate the repo; the `post-result` job gets write
+#     perms scoped to just the final PR comment.
+#   - `persist-credentials: false` on `actions/checkout` prevents the token
+#     from leaking to PR-HEAD build hooks.
+#   - `env:`-based pattern for UNTRUSTED values (comment body) prevents shell
+#     injection.
+#   - Slug whitelist (`^[a-z0-9-]+$`) prevents path traversal.
+#
+# Known TOCTOU — comment-trigger vs resolved HEAD SHA:
+#   Same gap as test_e2e-showcase-on-demand.yml. The `pulls.get` call resolves
+#   whatever HEAD is current at job start, not at comment time. The permission
+#   gate + code-review social contract are the mitigations.
+
+on:
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to evaluate"
+        required: true
+        type: string
+      check_run_id:
+        description: "Check Run ID to update with results"
+        required: false
+        type: string
+      level:
+        description: "Eval depth level"
+        required: false
+        default: "d5"
+        type: string
+
+concurrency:
+  group: showcase-eval-${{ github.event.inputs.pr_number || github.event.issue.number || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    if: >
+      github.event.issue.pull_request
+      && startsWith(github.event.comment.body, '/eval')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    outputs:
+      pr_sha: ${{ steps.pr-ref.outputs.sha }}
+      pr_number: ${{ steps.pr-ref.outputs.pr_number }}
+      level: ${{ steps.parse.outputs.level }}
+      scope_flag: ${{ steps.parse.outputs.scope_flag }}
+      scope_display: ${{ steps.parse.outputs.scope_display }}
+
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Check commenter has write access
+        id: auth
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: perm } = await github.rest.repos.getCollaboratorPermissionLevel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              username: context.payload.comment.user.login,
+            });
+            const level = perm.permission;
+            if (!['admin', 'write'].includes(level)) {
+              core.setFailed(`User ${context.payload.comment.user.login} has '${level}' access — write access required to trigger /eval.`);
+              return;
+            }
+            core.info(`User ${context.payload.comment.user.login} has '${level}' access — authorized.`);
+
+      - name: Parse /eval command
+        id: parse
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          set -euo pipefail
+
+          # Extract the first line of the comment to parse the command.
+          FIRST_LINE=$(printf '%s' "$COMMENT_BODY" | head -n1)
+
+          # Parse: /eval → d5 affected
+          #        /eval d5 → d5 affected
+          #        /eval d5 all → d5 all
+          #        /eval d5 mastra,agno → d5 specific slugs
+          ARGS=$(printf '%s' "$FIRST_LINE" | sed 's|^/eval[[:space:]]*||')
+
+          # Default level
+          LEVEL="d5"
+          SCOPE=""
+          SCOPE_FLAG=""
+          SCOPE_DISPLAY=""
+
+          if [ -z "$ARGS" ]; then
+            # Bare /eval — d5 affected
+            SCOPE_FLAG="--scope affected"
+            SCOPE_DISPLAY="affected integrations"
+          else
+            # First token is the level (only d5 supported for now)
+            LEVEL_TOKEN=$(printf '%s' "$ARGS" | awk '{print $1}')
+            REST=$(printf '%s' "$ARGS" | sed "s|^${LEVEL_TOKEN}[[:space:]]*||")
+
+            # Validate level
+            case "$LEVEL_TOKEN" in
+              d5) LEVEL="d5" ;;
+              *)
+                echo "::error::Unknown eval level '$LEVEL_TOKEN'. Supported: d5"
+                exit 1
+                ;;
+            esac
+
+            if [ -z "$REST" ]; then
+              # /eval d5 — affected
+              SCOPE_FLAG="--scope affected"
+              SCOPE_DISPLAY="affected integrations"
+            elif [ "$REST" = "all" ]; then
+              # /eval d5 all
+              SCOPE_FLAG="--scope all"
+              SCOPE_DISPLAY="all integrations"
+            else
+              # /eval d5 mastra,agno → specific slugs
+              # Validate each slug against ^[a-z0-9-]+$ to prevent injection
+              IFS=',' read -ra SLUGS <<< "$REST"
+              for s in "${SLUGS[@]}"; do
+                s=$(printf '%s' "$s" | xargs)  # trim whitespace
+                case "$s" in
+                  ''|*[!a-z0-9-]*)
+                    echo "::error::Invalid slug '$s' — must match ^[a-z0-9-]+$"
+                    exit 1
+                    ;;
+                esac
+              done
+              # Reassemble validated slugs into a clean comma-separated string
+              # (trims whitespace the user may have typed, e.g. "mastra, agno")
+              CLEAN_REST=$(printf '%s' "$REST" | tr -d ' ')
+              SCOPE_FLAG="--slug $CLEAN_REST"
+              SCOPE_DISPLAY="$CLEAN_REST"
+            fi
+          fi
+
+          echo "level=$LEVEL" >> "$GITHUB_OUTPUT"
+          echo "scope_flag=$SCOPE_FLAG" >> "$GITHUB_OUTPUT"
+          echo "scope_display=$SCOPE_DISPLAY" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve PR HEAD ref
+        id: pr-ref
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            if (pr.state !== 'open') {
+              core.setFailed(`PR #${pr.number} is ${pr.state} (not open). Refusing to run eval on a non-open PR.`);
+              return;
+            }
+            core.setOutput('sha', pr.head.sha);
+            core.setOutput('pr_number', pr.number);
+
+      - name: React with rocket emoji
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'rocket',
+            });
+
+      - name: Post running status comment
+        uses: actions/github-script@v7
+        env:
+          LEVEL: ${{ steps.parse.outputs.level }}
+          SCOPE_DISPLAY: ${{ steps.parse.outputs.scope_display }}
+        with:
+          script: |
+            const level = process.env.LEVEL;
+            const scope = process.env.SCOPE_DISPLAY;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                `<!-- showcase-eval-status -->`,
+                `### Showcase Eval`,
+                ``,
+                `| | |`,
+                `|---|---|`,
+                `| **Status** | Running... |`,
+                `| **Level** | \`${level}\` |`,
+                `| **Scope** | ${scope} |`,
+                `| **Run** | [View workflow](${runUrl}) |`,
+              ].join('\n'),
+            });
+
+  dispatch-gate:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      pr_sha: ${{ steps.resolve.outputs.sha }}
+      pr_number: ${{ github.event.inputs.pr_number }}
+      level: ${{ github.event.inputs.level || 'd5' }}
+      scope_flag: "--scope affected"
+      scope_display: "affected"
+      check_run_id: ${{ github.event.inputs.check_run_id }}
+    steps:
+      - name: Resolve PR HEAD SHA
+        id: resolve
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: Number(process.env.PR_NUMBER),
+            });
+            if (pr.data.state !== 'open') {
+              core.setFailed(`PR #${process.env.PR_NUMBER} is not open`);
+              return;
+            }
+            core.setOutput('sha', pr.data.head.sha);
+        env:
+          PR_NUMBER: ${{ github.event.inputs.pr_number }}
+
+  eval:
+    needs: [gate, dispatch-gate]
+    if: always() && (needs.gate.result == 'success' || needs.dispatch-gate.result == 'success')
+    runs-on: depot-ubuntu-24.04-16
+    timeout-minutes: 45
+
+    permissions:
+      contents: read
+
+    env:
+      PR_SHA: ${{ needs.gate.outputs.pr_sha || needs.dispatch-gate.outputs.pr_sha }}
+      PR_NUMBER: ${{ needs.gate.outputs.pr_number || needs.dispatch-gate.outputs.pr_number }}
+      EVAL_LEVEL: ${{ needs.gate.outputs.level || needs.dispatch-gate.outputs.level || 'd5' }}
+      EVAL_SCOPE_FLAG: ${{ needs.gate.outputs.scope_flag || needs.dispatch-gate.outputs.scope_flag }}
+      CHECK_RUN_ID: ${{ needs.dispatch-gate.outputs.check_run_id || '' }}
+
+    outputs:
+      result_json: ${{ steps.run-eval.outputs.result_json }}
+      exit_code: ${{ steps.run-eval.outputs.exit_code }}
+      stderr_excerpt: ${{ steps.run-eval.outputs.stderr_excerpt }}
+
+    steps:
+      - name: Checkout PR HEAD
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PR_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - uses: pnpm/action-setup@v4.4.0
+        with:
+          version: "10.13.1"
+
+      - name: Install dependencies
+        run: pnpm install --ignore-scripts
+
+      - name: Install Playwright chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Run showcase eval
+        id: run-eval
+        run: |
+          set -o pipefail
+
+          # Build the command. EVAL_SCOPE_FLAG may contain spaces (e.g. "--slug mastra,agno")
+          # so we intentionally leave it unquoted for word splitting.
+          # shellcheck disable=SC2086
+          CMD="showcase/bin/showcase eval --${EVAL_LEVEL} ${EVAL_SCOPE_FLAG} --parallel 8 --json --baseline compare --timeout 60000 --ci"
+          echo "::group::Running: $CMD"
+
+          EXIT_CODE=0
+          # Capture both stdout (JSON results) and stderr separately.
+          # Tee stderr to a file for excerpt extraction on failure.
+          $CMD > eval-results.json 2> eval-stderr.log || EXIT_CODE=$?
+
+          echo "::endgroup::"
+          echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+
+          if [ -f eval-results.json ] && [ -s eval-results.json ]; then
+            # GitHub outputs have a 1MB limit; truncate if needed
+            RESULT_SIZE=$(wc -c < eval-results.json)
+            if [ "$RESULT_SIZE" -gt 900000 ]; then
+              echo "::warning::eval-results.json exceeds 900KB ($RESULT_SIZE bytes), truncating for output"
+              head -c 900000 eval-results.json > eval-results-truncated.json
+              echo "result_json<<GHEOF" >> "$GITHUB_OUTPUT"
+              cat eval-results-truncated.json >> "$GITHUB_OUTPUT"
+              echo "GHEOF" >> "$GITHUB_OUTPUT"
+            else
+              echo "result_json<<GHEOF" >> "$GITHUB_OUTPUT"
+              cat eval-results.json >> "$GITHUB_OUTPUT"
+              echo "GHEOF" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo 'result_json={}' >> "$GITHUB_OUTPUT"
+          fi
+
+          # Capture last 50 lines of stderr for failure reporting
+          if [ -f eval-stderr.log ] && [ -s eval-stderr.log ]; then
+            echo "stderr_excerpt<<GHEOF" >> "$GITHUB_OUTPUT"
+            tail -n 50 eval-stderr.log >> "$GITHUB_OUTPUT"
+            echo "GHEOF" >> "$GITHUB_OUTPUT"
+          else
+            echo "stderr_excerpt=" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Propagate the exit code so the job status reflects eval outcome
+          exit $EXIT_CODE
+
+      - name: Upload eval artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: showcase-eval-results
+          path: |
+            eval-results.json
+            eval-stderr.log
+          retention-days: 14
+          if-no-files-found: ignore
+
+  post-result:
+    needs: [gate, dispatch-gate, eval]
+    if: always() && (needs.gate.result == 'success' || needs.dispatch-gate.result == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    permissions:
+      pull-requests: write
+      issues: write
+      checks: write
+
+    steps:
+      - name: Post eval results to PR
+        uses: actions/github-script@v7
+        env:
+          EVAL_STATUS: ${{ needs.eval.result }}
+          RESULT_JSON: ${{ needs.eval.outputs.result_json }}
+          STDERR_EXCERPT: ${{ needs.eval.outputs.stderr_excerpt }}
+          EXIT_CODE: ${{ needs.eval.outputs.exit_code }}
+          LEVEL: ${{ needs.gate.outputs.level || needs.dispatch-gate.outputs.level || 'd5' }}
+          SCOPE_DISPLAY: ${{ needs.gate.outputs.scope_display || needs.dispatch-gate.outputs.scope_display || 'affected' }}
+          PR_NUMBER: ${{ needs.gate.outputs.pr_number || needs.dispatch-gate.outputs.pr_number }}
+        with:
+          script: |
+            const evalStatus = process.env.EVAL_STATUS;
+            const resultJson = process.env.RESULT_JSON || '{}';
+            const stderrExcerpt = process.env.STDERR_EXCERPT || '';
+            const exitCode = process.env.EXIT_CODE || 'unknown';
+            const level = process.env.LEVEL;
+            const scope = process.env.SCOPE_DISPLAY;
+            const prNumber = parseInt(process.env.PR_NUMBER, 10);
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            let body = '';
+
+            if (evalStatus === 'success') {
+              // Parse JSON results and build markdown table
+              let results;
+              try {
+                results = JSON.parse(resultJson);
+              } catch (e) {
+                // JSON parse failed — report raw
+                body = [
+                  `<!-- showcase-eval-result -->`,
+                  `### Showcase Eval Results`,
+                  ``,
+                  `| | |`,
+                  `|---|---|`,
+                  `| **Verdict** | :warning: PARSE ERROR |`,
+                  `| **Level** | \`${level}\` |`,
+                  `| **Scope** | ${scope} |`,
+                  `| **Run** | [View workflow](${runUrl}) |`,
+                  ``,
+                  `Could not parse eval JSON output:`,
+                  '```',
+                  e.message,
+                  '```',
+                  ``,
+                  `<details><summary>Raw output</summary>`,
+                  ``,
+                  '```json',
+                  resultJson.substring(0, 50000),
+                  '```',
+                  ``,
+                  `</details>`,
+                ].join('\n');
+
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  body,
+                });
+                return;
+              }
+
+              // Build results table from the JSON.
+              // Expected shape: { summary: { total, pass, fail, skip, duration_ms },
+              //   results: { slug: { testName: { status, duration_ms, error? } } } }
+              const summary = results.summary || {};
+              const resultsMap = results.results || {};
+              const total = summary.total || 0;
+              const passed = summary.pass || 0;
+              const failed = summary.fail || 0;
+              const skipped = summary.skip || 0;
+
+              const verdict = failed === 0
+                ? ':white_check_mark: **SAFE TO MERGE**'
+                : `:x: **FAILURES DETECTED** (${failed}/${total} failed)`;
+
+              // Build per-integration results table from nested object
+              let tableRows = '';
+              const rows = [];
+              for (const [slug, tests] of Object.entries(resultsMap)) {
+                for (const [testName, r] of Object.entries(tests)) {
+                  const icon = r.status === 'pass' ? ':white_check_mark:'
+                    : r.status === 'fail' ? ':x:'
+                    : r.status === 'skip' ? ':fast_forward:'
+                    : r.status === 'error' ? ':boom:'
+                    : r.status === 'build_failed' ? ':hammer:'
+                    : r.status === 'unhealthy' ? ':warning:'
+                    : ':question:';
+                  const duration = r.duration_ms ? `${(r.duration_ms / 1000).toFixed(1)}s` : '-';
+                  const detail = r.error ? r.error.substring(0, 120) : '-';
+                  rows.push(`| ${icon} | \`${slug}\` | ${testName} | ${r.status || 'unknown'} | ${duration} | ${detail} |`);
+                }
+              }
+              if (rows.length > 0) {
+                tableRows = rows.join('\n');
+              }
+
+              body = [
+                `<!-- showcase-eval-result -->`,
+                `### Showcase Eval Results`,
+                ``,
+                `| | |`,
+                `|---|---|`,
+                `| **Verdict** | ${verdict} |`,
+                `| **Level** | \`${level}\` |`,
+                `| **Scope** | ${scope} |`,
+                `| **Total** | ${total} |`,
+                `| **Passed** | ${passed} |`,
+                `| **Failed** | ${failed} |`,
+                `| **Skipped** | ${skipped} |`,
+                `| **Run** | [View workflow](${runUrl}) |`,
+                ``,
+              ].join('\n');
+
+              if (tableRows) {
+                body += [
+                  `#### Per-Integration Results`,
+                  ``,
+                  `| | Integration | Test | Status | Duration | Details |`,
+                  `|---|---|---|---|---|---|`,
+                  tableRows,
+                  ``,
+                ].join('\n');
+              }
+
+              // Collapsible full JSON
+              body += [
+                `<details><summary>Full JSON details</summary>`,
+                ``,
+                '```json',
+                JSON.stringify(results, null, 2).substring(0, 60000),
+                '```',
+                ``,
+                `</details>`,
+              ].join('\n');
+
+            } else {
+              // Eval failed — post error with stderr excerpt
+              body = [
+                `<!-- showcase-eval-result -->`,
+                `### Showcase Eval Results`,
+                ``,
+                `| | |`,
+                `|---|---|`,
+                `| **Verdict** | :x: **EVAL FAILED** (exit code: ${exitCode}) |`,
+                `| **Level** | \`${level}\` |`,
+                `| **Scope** | ${scope} |`,
+                `| **Run** | [View workflow](${runUrl}) |`,
+                ``,
+              ].join('\n');
+
+              if (stderrExcerpt) {
+                body += [
+                  `<details><summary>Error output (last 50 lines)</summary>`,
+                  ``,
+                  '```',
+                  stderrExcerpt.substring(0, 30000),
+                  '```',
+                  ``,
+                  `</details>`,
+                  ``,
+                ].join('\n');
+              }
+
+              // If we got partial JSON, include it
+              if (resultJson && resultJson !== '{}') {
+                body += [
+                  `<details><summary>Partial JSON output</summary>`,
+                  ``,
+                  '```json',
+                  resultJson.substring(0, 30000),
+                  '```',
+                  ``,
+                  `</details>`,
+                ].join('\n');
+              }
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body,
+            });
+
+      - name: Generate devops-bot token
+        id: bot-token
+        if: needs.dispatch-gate.outputs.check_run_id != ''
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: 1108748
+          private-key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
+
+      - name: Update Check Run with results
+        if: needs.dispatch-gate.outputs.check_run_id != ''
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.bot-token.outputs.token }}
+          script: |
+            const checkRunId = Number(process.env.CHECK_RUN_ID);
+            const resultJson = process.env.RESULT_JSON || '{}';
+            const evalStatus = '${{ needs.eval.result }}';
+
+            let conclusion = 'failure';
+            let title = 'Showcase Eval — error';
+            let summary = 'The evaluation encountered an error.';
+
+            try {
+              const results = JSON.parse(resultJson);
+              const s = results.summary || {};
+
+              if (evalStatus === 'success' && s.fail === 0) {
+                conclusion = 'success';
+                title = `${s.pass}/${s.total} passed (${(s.duration_ms / 1000).toFixed(1)}s)`;
+              } else if (s.total === 0) {
+                conclusion = 'neutral';
+                title = 'No showcase integrations affected';
+              } else {
+                conclusion = 'failure';
+                title = `${s.fail} failed, ${s.pass} passed`;
+              }
+
+              const lines = ['## Eval Results\n'];
+              lines.push('| Integration | Status |');
+              lines.push('|-------------|--------|');
+              if (results.results) {
+                for (const [slug, tests] of Object.entries(results.results)) {
+                  const statuses = Object.values(tests);
+                  const pass = statuses.filter(t => t.status === 'pass').length;
+                  const total = statuses.length;
+                  const icon = pass === total ? '✅' : '❌';
+                  lines.push(`| ${slug} | ${icon} ${pass}/${total} |`);
+                }
+              }
+              lines.push(`\n**Total:** ${s.pass} passed, ${s.fail} failed, ${s.skip} skipped (${(s.duration_ms / 1000).toFixed(1)}s)`);
+              summary = lines.join('\n');
+            } catch (e) {
+              summary = `Parse error: ${e.message}`;
+            }
+
+            await github.rest.checks.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              check_run_id: checkRunId,
+              status: 'completed',
+              conclusion,
+              output: { title, summary },
+              actions: [{
+                label: 'Re-run Eval',
+                description: 'Run D5 evaluation',
+                identifier: 'run-eval',
+              }],
+            });
+        env:
+          CHECK_RUN_ID: ${{ needs.dispatch-gate.outputs.check_run_id }}
+          RESULT_JSON: ${{ needs.eval.outputs.result_json }}

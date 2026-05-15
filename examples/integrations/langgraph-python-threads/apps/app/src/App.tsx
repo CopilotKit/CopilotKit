@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   CopilotChat,
   CopilotChatConfigurationProvider,
+  CopilotKit,
   CopilotKitProvider,
 } from "@copilotkit/react-core/v2";
 import { ExampleLayout } from "@/components/example-layout";
@@ -55,14 +56,14 @@ function HomePage() {
 export default function App() {
   return (
     <ThemeProvider>
-      <CopilotKitProvider
+      <CopilotKit
         runtimeUrl={runtimeUrl}
         a2ui={{ catalog: demonstrationCatalog }}
         openGenerativeUI={{}}
         useSingleEndpoint={false}
       >
         <HomePage />
-      </CopilotKitProvider>
+      </CopilotKit>
     </ThemeProvider>
   );
 }

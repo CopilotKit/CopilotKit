@@ -67,7 +67,7 @@ You can use this when you want to provide user input or control to your agent's 
     // 3. Create the agent
     export const languageAgent = new Agent({
       name: "Language Agent",
-      model: openai("gpt-5.2"),
+      model: openai("gpt-5.4"),
       instructions: "Always communicate in the preferred language of the user as defined in your working memory. Do not communicate in any other language.",
       memory: new Memory({
         storage: new LibSQLStore({ id: "mastra-storage", url: ":memory:" }),

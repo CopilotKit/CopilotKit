@@ -1,0 +1,112 @@
+# Probe: e2e-deep (D5 — multi-turn complex-interact parity vs reference)
+#
+# Drives a Playwright multi-turn conversation through every D5 feature
+# type wired on each showcase Railway service. Where `e2e-demos` does a
+# cheap goto + chat-input-ready check (1 page-load per cell) and
+# `e2e-smoke` does a single chat round-trip on two canonical demos,
+# `e2e-deep` runs the full conversation script — multiple turns,
+# tool-call routing, hitl, gen-ui — captured as fixtures under
+# `showcase/harness/fixtures/d5/`.
+#
+# Rows emitted per driver invocation (see `src/probes/drivers/e2e-deep.ts`):
+#   - Primary `e2e-deep:<slug>`     ProbeResult carrying the aggregate
+#                                   { total, passed, failed[], skipped[],
+#                                     shape, backendUrl } signal.
+#                                   Green iff every runnable feature
+#                                   completed without a failure_turn.
+#                                   Red if ANY runnable feature flipped.
+#   - Side    `d5:<slug>/<featureType>`   One per declared feature type.
+#                                   Green when the conversation completed
+#                                   cleanly; red with `errorClass` ∈
+#                                   { goto-error, conversation-error,
+#                                     abort, driver-error } and a Slack-
+#                                   safe `errorDesc`. Green-with-note
+#                                   `"no script registered"` when Wave 2b
+#                                   hasn't landed the script for that
+#                                   featureType yet — coverage gap, not
+#                                   regression.
+#
+# ── Cadence: */15 (every 15 minutes) ────────────────────────────────────
+#
+# All showcase integrations are aimock-backed — zero LLM cost per tick.
+# D5 ticks take ~3.5 min with max_concurrency=4; every-15-min gives
+# continuous regression coverage within a single deploy window.
+#
+# Cron string: `5,20,35,50 * * * *` (every 15 min, offset from :00 to
+# avoid Chromium EAGAIN when co-firing with e2e-smoke's browser pool).
+#
+# ── timeout_ms: 600_000 (10 min) ────────────────────────────────────────
+#
+# Outer driver-invocation cap. Per-feature run subdivides further: the
+# conversation-runner's per-turn `responseTimeoutMs` defaults to 30s,
+# the driver's per-page goto timeout is 30s, and the per-feature
+# wall-clock cap (`DEFAULT_FEATURE_TIMEOUT_MS` in e2e-deep.ts) is 5
+# min so a single wedged feature can't drain the global budget for
+# downstream features.
+#
+# Sized for the worst-case integration. langgraph-python now declares
+# ~28 D5 features (Phase 2 LGP coverage wave) — 28 / FEATURE_CONCURRENCY(2)
+# = 14 per worker × ~15s realistic per-feature wall-clock = ~210s, which
+# blows the prior 3-min cap before any slack. 10 min gives ~5x headroom
+# at current feature count; lighter integrations (5–10 features) still
+# finish in <60s and exit early without sitting on the cap.
+#
+# Other knobs that bound the slug: increasing `FEATURE_CONCURRENCY` (in
+# e2e-deep.ts, currently 2) cuts wall-clock proportionally but doubles
+# concurrent Chromium contexts; revisit before raising the cap further.
+#
+# ── max_concurrency: 4 ──────────────────────────────────────────────────
+#
+# 4 services (max_concurrency) × FEATURE_CONCURRENCY(2) features per
+# service = up to 8 concurrent chromium contexts. Each context
+# resident-set is ~300MB; 8 parallel ≈ 2.4GB peak. Production memory
+# headroom on the orchestrator's Railway footprint has been measured and
+# can sustain this. Higher service concurrency cuts tail latency roughly
+# in half vs. the prior max_concurrency=2.
+#
+# ── Scope: all showcase packages ────────────────────────────────────────
+#
+# Discovery matches all `showcase-*` Railway services via `namePrefix`.
+# Infra services are excluded — same list as smoke / e2e-smoke / e2e-
+# demos so a new infra service added there lands here too during review.
+# Starters short-circuit green inside the driver (no /demos routing).
+kind: e2e_deep
+id: e2e-deep
+schedule: "5,20,35,50 * * * *"
+timeout_ms: 600000
+max_concurrency: 4
+discovery:
+  source: railway-services
+  filter:
+    namePrefix: "showcase-"
+    nameExcludes:
+      - showcase-aimock
+      - showcase-harness
+      - showcase-pocketbase
+      - showcase-shell
+      - showcase-shell-dashboard
+      - showcase-shell-docs
+      - showcase-shell-dojo
+      # Decommissioned starters — Railway services stopped (PR #4390)
+      - showcase-starter-ag2
+      - showcase-starter-agno
+      - showcase-starter-claude-sdk-python
+      - showcase-starter-claude-sdk-typescript
+      - showcase-starter-crewai-crews
+      - showcase-starter-google-adk
+      - showcase-starter-langgraph-fastapi
+      - showcase-starter-langgraph-python
+      - showcase-starter-langgraph-typescript
+      - showcase-starter-langroid
+      - showcase-starter-llamaindex
+      - showcase-starter-mastra
+      - showcase-starter-ms-agent-dotnet
+      - showcase-starter-ms-agent-python
+      - showcase-starter-pydantic-ai
+      - showcase-starter-spring-ai
+      - showcase-starter-strands
+  # Primary row key uses the Railway service name (not the stripped
+  # slug) to stay consistent with sibling driver families. The driver
+  # strips `showcase-` from the name internally for the per-feature
+  # side-row keys (`d5:<slug>/<featureType>`).
+  key_template: "e2e-deep:${name}"

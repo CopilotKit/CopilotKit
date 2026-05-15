@@ -1,5 +1,6 @@
 import logging
 
+
 def configure_logging() -> None:
     """Enable INFO logs for ag_ui_agentspec and pyagentspec and attach a console handler.
 
@@ -9,7 +10,9 @@ def configure_logging() -> None:
     root = logging.getLogger()
     if not root.handlers:
         handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s"))
+        handler.setFormatter(
+            logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s")
+        )
         root.addHandler(handler)
     root.setLevel(logging.INFO)
     for h in root.handlers:

@@ -63,7 +63,7 @@ export function useDefaultRenderTool(
   );
 }
 
-function DefaultToolCallRenderer({
+export function DefaultToolCallRenderer({
   name,
   parameters,
   status,
@@ -86,6 +86,11 @@ function DefaultToolCallRenderer({
 
   return (
     <div
+      data-testid="copilot-tool-render"
+      data-tool-name={name}
+      data-status={statusString}
+      data-args={safeStringifyForAttr(parameters)}
+      data-result={safeStringifyForAttr(result)}
       style={{
         marginTop: "8px",
         paddingBottom: "8px",
@@ -150,6 +155,7 @@ function DefaultToolCallRenderer({
               }}
             />
             <span
+              data-testid="copilot-tool-render-name"
               style={{
                 fontSize: "13px",
                 fontWeight: 600,
@@ -164,6 +170,7 @@ function DefaultToolCallRenderer({
           </div>
 
           <span
+            data-testid="copilot-tool-render-status"
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -251,4 +258,14 @@ function DefaultToolCallRenderer({
       </div>
     </div>
   );
+}
+
+function safeStringifyForAttr(value: unknown): string {
+  if (value === undefined || value === null) return "";
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
 }

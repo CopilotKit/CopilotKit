@@ -86,10 +86,10 @@ describe("EACCES on examples/integrations/<slug> routes to EXIT_UNREADABLE", () 
       withTmp((tmp) => {
         // Build a minimal repo layout:
         //   <tmp>/examples/integrations/<slug>/     (mode 0000)
-        //   <tmp>/showcase/packages/<slug>/package.json
+        //   <tmp>/showcase/integrations/<slug>/package.json
         const slug = "mastra";
         const examplesDir = path.join(tmp, "examples", "integrations");
-        const packagesDir = path.join(tmp, "showcase", "packages");
+        const packagesDir = path.join(tmp, "showcase", "integrations");
         const exampleSlugDir = path.join(examplesDir, slug);
         const pkgSlugDir = path.join(packagesDir, slug);
         fs.mkdirSync(exampleSlugDir, { recursive: true });
@@ -152,7 +152,7 @@ describe("validateAll: infra parse error routes to EXIT_UNREADABLE", () => {
         // EXIT_DRIFT (1), and then the assertion accepted [1, 3] which
         // defeated the fix it was meant to guard.
         const examplesDir = path.join(tmp, "examples", "integrations");
-        const packagesDir = path.join(tmp, "showcase", "packages");
+        const packagesDir = path.join(tmp, "showcase", "integrations");
         const exampleSlugDir = path.join(examplesDir, slug);
         const pkgSlugDir = path.join(packagesDir, slug);
         fs.mkdirSync(exampleSlugDir, { recursive: true });
@@ -204,7 +204,7 @@ describe("validateAll: readFileSync EACCES routes to EXIT_UNREADABLE", () => {
       withTmp((tmp) => {
         const slug = "mastra";
         const examplesDir = path.join(tmp, "examples", "integrations");
-        const packagesDir = path.join(tmp, "showcase", "packages");
+        const packagesDir = path.join(tmp, "showcase", "integrations");
         const exampleSlugDir = path.join(examplesDir, slug);
         const pkgSlugDir = path.join(packagesDir, slug);
         fs.mkdirSync(exampleSlugDir, { recursive: true });
@@ -255,7 +255,7 @@ describe("validateAll: readdirSync(PACKAGES_DIR) failure routes to EXIT_UNREADAB
     "exits 3 when PACKAGES_DIR is traverseable but not readable",
     () => {
       withTmp((tmp) => {
-        const packagesDir = path.join(tmp, "showcase", "packages");
+        const packagesDir = path.join(tmp, "showcase", "integrations");
         const examplesDir = path.join(tmp, "examples", "integrations");
         fs.mkdirSync(packagesDir, { recursive: true });
         fs.mkdirSync(examplesDir, { recursive: true });
@@ -296,9 +296,9 @@ describe("validateAll: readdirSync(PACKAGES_DIR) failure routes to EXIT_UNREADAB
   );
 });
 describe("validateAll: missing packages dir routes to EXIT_UNREADABLE", () => {
-  it("exits 3 when showcase/packages does not exist", () => {
+  it("exits 3 when showcase/integrations does not exist", () => {
     withTmp((tmp) => {
-      // Deliberately do NOT create showcase/packages. examples/integrations
+      // Deliberately do NOT create showcase/integrations. examples/integrations
       // exists so paths() resolves cleanly to its usual shape.
       fs.mkdirSync(path.join(tmp, "examples", "integrations"), {
         recursive: true,
@@ -318,13 +318,13 @@ describe("validateAll: missing packages dir routes to EXIT_UNREADABLE", () => {
   });
 });
 describe("validateAll: empty packages dir routes to EXIT_UNREADABLE", () => {
-  it("exits 3 when showcase/packages exists but contains no slugs", () => {
+  it("exits 3 when showcase/integrations exists but contains no slugs", () => {
     withTmp((tmp) => {
       fs.mkdirSync(path.join(tmp, "examples", "integrations"), {
         recursive: true,
       });
-      // Create showcase/packages but leave it empty. readdir returns [].
-      fs.mkdirSync(path.join(tmp, "showcase", "packages"), {
+      // Create showcase/integrations but leave it empty. readdir returns [].
+      fs.mkdirSync(path.join(tmp, "showcase", "integrations"), {
         recursive: true,
       });
       const r = spawnSync("npx", ["tsx", VALIDATE_PINS_SCRIPT], {

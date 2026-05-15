@@ -1,14 +1,22 @@
 ---
-title: useInterrupt (LangGraph)
+title: Pausing the Agent for Input
 icon: "lucide/CirclePause"
-description: Pause an agent run with LangGraph's interrupt() and resolve it from the client via a render prop.
+description: Pause an agent run mid-tool, hand control to a custom React component, and resume with the user's answer.
 hideTOC: true
 snippet_cell: gen-ui-interrupt
 ---
 
 ## What is this?
 
-LangGraph ships a first-class [`interrupt()`](https://docs.langchain.com/oss/python/langgraph/interrupts)
+`useInterrupt` lets your agent pause mid-run, hand control to the user
+through a custom React component, and resume with whatever the user
+returns. How that pause is implemented depends on the framework's
+runtime.
+
+<WhenFrameworkHas flag="interrupt_pattern" equals="native">
+
+LangGraph ships a first-class
+[`interrupt()`](https://docs.langchain.com/oss/python/langgraph/interrupts)
 primitive that lets a running node suspend itself and hand control to
 the client. The run is frozen server-side until the client resolves the
 interrupt with a payload, at which point the node resumes as if
@@ -17,6 +25,32 @@ interrupt with a payload, at which point the node resumes as if
 CopilotKit's `useInterrupt` is the frontend half of that contract: it
 subscribes to the paused run, renders whatever component you give it,
 and calls the agent back with the user's answer.
+
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="interrupt_pattern" equals="promise-based">
+
+The Microsoft Agent Framework runtime can't pause a run mid-tool the
+way LangGraph's `interrupt()` does, so this demo uses `useFrontendTool`
+with a Promise-based handler instead. The agent calls `schedule_meeting`
+like any other tool; the client-side handler renders the picker, holds
+the request open, and only resolves the Promise once the user picks a
+slot or cancels. Same UX from the reader's perspective — agent pauses,
+user answers, agent resumes — different mechanism underneath.
+
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="interrupt_pattern" absent>
+
+> **Not available on this framework.** `useInterrupt` is only meaningful
+> when the underlying runtime exposes either a native `interrupt(...)`
+> primitive (LangGraph) or a Promise-resolving frontend tool path
+> (Microsoft Agent Framework). For all other integrations, use
+> [`useHumanInTheLoop`](../human-in-the-loop) instead — it's the
+> standard hook for tool-call-based pause/resume flows and works on
+> every framework that supports tool calls.
+
+</WhenFrameworkHas>
 
 <InlineDemo demo="gen-ui-interrupt" />
 
@@ -33,6 +67,8 @@ not an LLM-initiated tool call. Typical cases:
 
 For LLM-initiated pauses where the model decides on the fly to ask
 the user, prefer [`useHumanInTheLoop`](../human-in-the-loop).
+
+<WhenFrameworkHas flag="interrupt_pattern" equals="native">
 
 ## The backend: `interrupt()` inside a tool
 
@@ -63,6 +99,33 @@ and `resolve(...)` is how you resume the run:
 
 Whatever you pass to `resolve` is round-tripped back to the agent as
 the return value of the matching `interrupt(...)` call.
+
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="interrupt_pattern" equals="promise-based">
+
+## The frontend: `useFrontendTool` with a Promise-resolving handler
+
+The handler stores its `resolve` callback in a ref, returns a Promise
+that the user's pick eventually resolves, and renders the picker
+inline in the chat. This is the MS Agent equivalent of
+`useInterrupt`'s `event` / `resolve` pair:
+
+<Snippet region="frontend-promise-handler" title="frontend/src/app/page.tsx — useFrontendTool (Promise-based)" />
+
+## The backend: agent instructed to call the frontend tool
+
+The agent has no local `schedule_meeting` implementation — the tool is
+registered entirely on the frontend. The backend's only job is to
+instruct the model to call `schedule_meeting` whenever the user wants
+to book a meeting. AG-UI routes the tool call to the client, where
+the Promise-returning handler takes over:
+
+<Snippet region="backend-tool-call" title="backend — agent instructed to call schedule_meeting" />
+
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="interrupt_pattern" equals="native">
 
 ### Key props
 
@@ -126,6 +189,8 @@ useInterrupt({
   ),
 });
 ```
+
+</WhenFrameworkHas>
 
 ## Going further
 

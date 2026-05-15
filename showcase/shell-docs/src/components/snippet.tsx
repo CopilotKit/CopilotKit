@@ -38,6 +38,7 @@
 import React from "react";
 import hljs from "highlight.js";
 import demoContent from "../data/demo-content.json";
+import catalogData from "../data/catalog.json";
 import { CopyButton } from "./copy-button";
 
 interface Region {
@@ -69,6 +70,28 @@ interface WarningMessage {
 const demos: Record<string, DemoRecord> = (
   demoContent as { demos: Record<string, DemoRecord> }
 ).demos;
+
+// Build a `(framework, cell) → catalog entry` lookup at module scope so we
+// can detect when a (framework × cell) pair is explicitly flagged
+// `unsupported` and render a friendlier placeholder instead of the yellow
+// "Missing snippet" warning that fires for genuine docs gaps.
+interface CatalogCell {
+  id: string;
+  integration: string;
+  integration_name?: string;
+  feature: string;
+  feature_name?: string;
+  status: string;
+}
+
+const catalogByKey: Map<string, CatalogCell> = (() => {
+  const m = new Map<string, CatalogCell>();
+  const cells = (catalogData as { cells?: CatalogCell[] }).cells ?? [];
+  for (const c of cells) {
+    m.set(`${c.integration}::${c.feature}`, c);
+  }
+  return m;
+})();
 
 interface SnippetProps {
   /** Region name declared via `@region[<name>]` in the cell's source. */
@@ -116,6 +139,43 @@ function WarningBox({ children }: { children: React.ReactNode }) {
         Missing snippet
       </div>
       {children}
+    </div>
+  );
+}
+
+/**
+ * `UnsupportedBox` — neutral, intentional-looking placeholder used when the
+ * dashboard catalog flags a (framework × cell) pair as `unsupported`.
+ *
+ * Distinct from `WarningBox` (yellow / "something is broken") — this signals
+ * "the framework deliberately doesn't implement this feature", which is an
+ * expected state, not a docs gap.
+ */
+function UnsupportedBox({
+  integrationName,
+  featureName,
+}: {
+  integrationName: string;
+  featureName: string;
+}) {
+  return (
+    <div
+      className="my-4 rounded-md border-l-4 border-blue-500/40 bg-blue-500/5 p-4 text-sm text-[var(--text-secondary)]"
+      role="note"
+    >
+      <div className="font-semibold mb-1 text-[var(--text)]">
+        Not supported on {integrationName}
+      </div>
+      <div>
+        {integrationName} doesn't support {featureName}. See{" "}
+        <a
+          href="/"
+          className="underline decoration-[var(--border)] underline-offset-2 hover:decoration-[var(--text-secondary)]"
+        >
+          the framework grid
+        </a>{" "}
+        for which integrations support this feature.
+      </div>
     </div>
   );
 }
@@ -288,6 +348,22 @@ export function Snippet({
   }
 
   const key = `${resolvedFramework}::${resolvedCell}`;
+
+  // If the catalog explicitly marks this (framework × cell) pair as
+  // `unsupported`, render a neutral "not supported" placeholder instead of
+  // falling through to the yellow "Missing snippet" warning. The latter
+  // implies a docs gap that needs filling; the former is an intentional
+  // statement that the framework doesn't implement this feature.
+  const catalogEntry = catalogByKey.get(key);
+  if (catalogEntry?.status === "unsupported") {
+    return (
+      <UnsupportedBox
+        integrationName={catalogEntry.integration_name ?? resolvedFramework}
+        featureName={catalogEntry.feature_name ?? resolvedCell}
+      />
+    );
+  }
+
   const demo = demos[key];
   if (!demo) {
     return (
@@ -394,7 +470,7 @@ export function Snippet({
       : "hljs";
 
   return (
-    <figure className="my-5 rounded-lg border border-[var(--border)] overflow-hidden bg-[var(--bg-surface)]">
+    <figure className="my-5 rounded-xl border border-[var(--border)] shadow-sm overflow-hidden bg-[var(--bg-surface)]">
       {!noCaption && (
         <figcaption className="flex items-center justify-between px-3 py-2 border-b border-[var(--border)] bg-[var(--bg-elevated)] text-[11px] font-mono text-[var(--text-muted)]">
           <span className="truncate">{caption}</span>

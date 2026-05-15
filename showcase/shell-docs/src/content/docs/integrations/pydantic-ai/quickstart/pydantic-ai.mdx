@@ -126,7 +126,7 @@ Before you begin, you'll need the following:
                 ### Install CopilotKit
                 First, install the latest packages for CopilotKit into your frontend.
                 ```package-install
-                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime
+                npm install @copilotkit/react-core @copilotkit/runtime
                 ```
             </Step>
             <Step>
@@ -137,10 +137,13 @@ Before you begin, you'll need the following:
                 For now, let's start with a minimal setup.
 
                 ```tsx title="app/api/copilotkit/route.ts"
+                import {
                   CopilotRuntime,
                   ExperimentalEmptyAdapter,
                   copilotRuntimeNextJSAppRouterEndpoint,
                 } from "@copilotkit/runtime";
+                import { HttpAgent } from "@ag-ui/client";
+                import { NextRequest } from "next/server";
 
                 // 1. You can use any service adapter here for multi-agent support. We use
                 //    the empty adapter since we're only using one agent.

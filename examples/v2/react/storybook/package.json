@@ -9,19 +9,19 @@
     "storybook:build": "storybook build"
   },
   "dependencies": {
-    "@storybook/nextjs": "^10.1.10",
-    "@storybook/react": "^10.1.10",
+    "@storybook/nextjs": "^10.2.10",
+    "@storybook/react": "^10.2.10",
     "next": "^15",
     "react": "^19",
     "react-dom": "^19",
-    "storybook": "^10.1.10"
+    "storybook": "^10.2.10"
   },
   "devDependencies": {
     "@copilotkit/core": "workspace:*",
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/typescript-config": "workspace:*",
     "@storybook/addon-docs": "^10",
-    "@storybook/addon-themes": "^10.1.10",
+    "@storybook/addon-themes": "^10.2.10",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",

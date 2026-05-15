@@ -1,0 +1,54 @@
+---
+title: Voice
+description: Real-time speech-to-text in the chat composer. The user speaks, the runtime transcribes, the agent runs the resulting prompt.
+icon: "lucide/Mic"
+snippet_cell: voice
+---
+
+You have a working chat surface and you want users to be able to speak instead of type. By the end of this guide, the chat composer will sprout a mic button, recorded audio will be transcribed by the runtime, and the transcript will auto-send to the agent like any other message.
+
+## When to use this
+
+- **Hands-free or accessibility flows** where typing isn't the right input modality.
+- **Mobile or kiosk surfaces** where a long voice query is faster than thumb-typing.
+- **Demo and test loops** where you want canned audio to drive the chat without a microphone.
+
+If you only need file uploads (audio, images, video, documents), use [Multimodal Attachments](/multimodal-attachments) instead. Voice is specifically about live transcription of recorded speech into chat input.
+
+<InlineDemo demo="voice" />
+
+## Frontend
+
+`<CopilotChat />` renders the mic button automatically when the runtime advertises `audioFileTranscriptionEnabled: true` on its `/info` endpoint. There's nothing to wire up on the chat surface itself:
+
+<Snippet region="voice-page" title="frontend/src/app/page.tsx — chat surface" />
+
+When the user clicks the mic, the chat captures audio, POSTs it to the runtime's `/transcribe` endpoint, drops the resulting transcript into the composer, and submits.
+
+### Driving the demo without a mic
+
+For Playwright runs, screenshots, or any flow where prompting for mic permissions is awkward, ship a button that POSTs a bundled audio clip directly to the same `/transcribe` endpoint:
+
+<Snippet region="sample-audio-button" title="frontend/src/app/sample-audio-button.tsx" />
+
+The caller can drop the resulting text into the composer's textarea (matched via `data-testid="copilot-chat-textarea"`) using the native value setter and a synthetic `input` event so React's managed state updates correctly.
+
+## Backend
+
+Wire up the V2 runtime with a `TranscriptionService`. The V1 wrapper drops the `transcriptionService` option, so use `createCopilotRuntimeHandler` from `@copilotkit/runtime/v2` directly:
+
+<Snippet region="voice-runtime" title="app/api/copilotkit-voice/[[...slug]]/route.ts" />
+
+With `transcriptionService` set, the runtime advertises `audioFileTranscriptionEnabled: true` on `/info` (which is what tells the chat to render the mic button) and routes `POST /transcribe` to the service.
+
+### Custom transcription backends
+
+`TranscriptionService` from `@copilotkit/runtime/v2` is an abstract class. Subclass it to plug in any transcription provider — Whisper, AssemblyAI, Deepgram, your own model. The library ships `TranscriptionServiceOpenAI` as the canonical reference implementation.
+
+A useful pattern is wrapping your service in a guard that returns a clean 4xx when credentials aren't configured, instead of an opaque 5xx from the underlying SDK:
+
+<Snippet region="transcription-service-guard" title="backend — guarded transcription service" />
+
+<FeatureIntegrations feature="voice" />
+
+<IntegrationGrid path="voice" />

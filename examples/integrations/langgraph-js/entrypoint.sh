@@ -1,20 +1,29 @@
 #!/bin/bash
 set -e
 
-# Start LangGraph agent server on port 8123
+echo "[entrypoint] Starting: langgraph-js starter"
+
+if [ -z "$OPENAI_API_KEY" ]; then
+  echo "[entrypoint] WARNING: OPENAI_API_KEY not set!"
+else
+  echo "[entrypoint] OPENAI_API_KEY: set"
+fi
+
+# Start agent via LangGraph CLI
+echo "[entrypoint] Starting agent on port 8123..."
 cd /app/agent
-npx @langchain/langgraph-cli dev --port 8123 --no-browser &
+AGENT_PORT=8123 npx --yes @langchain/langgraph-cli dev \
+  --host 0.0.0.0 --port 8123 --no-browser 2>&1 &
 AGENT_PID=$!
 cd /app
 
 sleep 3
 
-# Start Next.js frontend
-cd /app
-PORT=${PORT:-3000} npx next start --port ${PORT:-3000} &
+# Start Next.js standalone
+echo "[entrypoint] Starting Next.js on port ${PORT:-3000}..."
+HOSTNAME=0.0.0.0 PORT=${PORT:-3000} node server.js 2>&1 &
 NEXT_PID=$!
 
+echo "[entrypoint] Agent=$AGENT_PID Next=$NEXT_PID"
 wait -n $AGENT_PID $NEXT_PID
-EXIT_CODE=$?
-kill $AGENT_PID $NEXT_PID 2>/dev/null || true
-exit $EXIT_CODE
+exit $?

@@ -1,14 +1,17 @@
 "use client";
 
 import {
+  CopilotChatAssistantMessage,
   CopilotSidebar,
   CopilotSidebarView,
   useAgentContext,
   useAgent,
+  useConfigureSuggestions,
   useCopilotKit,
   useRenderTool,
   ToolCallStatus,
 } from "@copilotkit/react-core/v2";
+import type React from "react";
 import { ToolCard } from "@/components/chat/tool-card";
 import { cn } from "@/lib/utils";
 import { useRenderChatVisual } from "@/hooks/use-render-chat-visual";
@@ -55,6 +58,70 @@ const demoSuggestions = [
       "I'm concerned about the Marketing overspend — set up a cost control view with budget tracking and spending trends",
   },
 ];
+
+// Static portion of the follow-up chips. The third chip rotates based on
+// which dashboard is currently loaded so the suggestion always points the
+// user at a different view than the one they're already on.
+const baseFollowUpSuggestions = [
+  {
+    title: "Cash Position Chart",
+    message:
+      "Render an inline cash position visual comparing cash and liabilities",
+  },
+  {
+    title: "Approve Payments",
+    message: "Process payment for all overdue invoices",
+  },
+];
+
+function getDashboardSuggestion(currentDashboardName: string | null) {
+  switch (currentDashboardName) {
+    case "Cost Control":
+      return {
+        title: "Cash Flow Risk",
+        message: "Are we going to run out of cash any time soon?",
+      };
+    case "Cash Flow Risk":
+      return {
+        title: "Cost Control",
+        message: "Show me where the company is spending its money",
+      };
+    case "Revenue Overview":
+      return {
+        title: "Cost Control",
+        message: "Show me where the company is spending its money",
+      };
+    case "Executive Summary":
+      return {
+        title: "Cash Flow Risk",
+        message: "Are we going to run out of cash any time soon?",
+      };
+    default:
+      return {
+        title: "Cost Control",
+        message: "Show me where the company is spending its money",
+      };
+  }
+}
+
+// Custom assistant message: only shows the toolbar (copy button) for the
+// latest assistant turn, and reveals it on hover instead of leaving it
+// pinned in the middle of the conversation.
+function HoverToolbarAssistantMessage(
+  props: React.ComponentProps<typeof CopilotChatAssistantMessage>,
+) {
+  const { messages, message, className } = props;
+  const isLatest =
+    messages !== undefined && messages[messages.length - 1]?.id === message.id;
+  return (
+    <CopilotChatAssistantMessage
+      {...props}
+      toolbarVisible={isLatest}
+      className={cn(className, "group")}
+      toolbar="opacity-0 group-hover:opacity-100 transition-opacity"
+    />
+  );
+}
 
 function FinanceSidebarWelcomeScreen({
   input,
@@ -111,7 +178,20 @@ export function Shell({ children }: { children: React.ReactNode }) {
 }
 
 function ShellInner({ children }: { children: React.ReactNode }) {
-  const { widgets, savedDashboards } = useDashboard();
+  const { widgets, savedDashboards, currentDashboardName } = useDashboard();
+
+  // Persistent follow-up chips that appear above the input after the first
+  // turn — the dashboard suggestion rotates based on the current layout so
+  // we never suggest switching to the dashboard the user is already viewing.
+  const dashboardSuggestion = getDashboardSuggestion(currentDashboardName);
+  useConfigureSuggestions(
+    {
+      suggestions: [...baseFollowUpSuggestions, dashboardSuggestion],
+      available: "after-first-message",
+      consumerAgentId: "finance_erp_agent",
+    },
+    [currentDashboardName],
+  );
 
   // Lightweight context — detailed data is available via backend research tools
   useAgentContext({
@@ -176,6 +256,10 @@ function ShellInner({ children }: { children: React.ReactNode }) {
         agentId="finance_erp_agent"
         defaultOpen={false}
         welcomeScreen={FinanceSidebarWelcomeScreen}
+        messageView={{
+          assistantMessage:
+            HoverToolbarAssistantMessage as unknown as typeof CopilotChatAssistantMessage,
+        }}
         instructions="You are the FinanceOS AI assistant. Always use do_research for data queries and do_projections for forecasts. Prefer rendering rich UI components (charts, cards, dashboard widgets) over plain text whenever possible."
         labels={{
           modalHeaderTitle: "FinanceOS AI",

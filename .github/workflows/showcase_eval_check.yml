@@ -1,0 +1,105 @@
+name: "Showcase: Eval Check"
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  create-check:
+    if: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Generate devops-bot token
+        id: bot-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: 1108748
+          private-key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
+
+      - name: Create Check Run
+        id: check-run
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.bot-token.outputs.token }}
+          script: |
+            const result = await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: "Showcase Eval",
+              head_sha: context.payload.pull_request.head.sha,
+              status: "completed",
+              conclusion: "neutral",
+              external_id: String(context.payload.pull_request.number),
+              output: {
+                title: "Showcase Eval — click to run",
+                summary: "Evaluates this PR against the showcase integration matrix.\n\n_For targeted runs, comment `/eval d5 slug1,slug2` on the PR._",
+              },
+              actions: [
+                {
+                  label: "Run Showcase Eval",
+                  description: "Run D5 evaluation",
+                  identifier: "run-eval",
+                },
+              ],
+            });
+            core.setOutput('check_run_id', result.data.id);
+
+      - name: Post or update bot comment with trigger link
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.bot-token.outputs.token }}
+          script: |
+            const crypto = require('crypto');
+            const pr = String(context.payload.pull_request.number);
+            const checkRunId = String(${{ steps.check-run.outputs.check_run_id }});
+            const secret = process.env.WEBHOOK_SECRET;
+
+            const sig = crypto
+              .createHmac('sha256', secret)
+              .update(`${pr}:${checkRunId}`)
+              .digest('hex');
+
+            const baseUrl = 'https://hooks.showcase.copilotkit.ai';
+            const triggerUrl = `${baseUrl}/trigger/eval?pr=${pr}&check_run_id=${checkRunId}&sig=${sig}`;
+
+            const marker = '<!-- showcase-eval-button -->';
+            const body = `${marker}\n\n` +
+              `### 🔬 Showcase Eval\n\n` +
+              `Evaluate this PR against the showcase integration matrix.\n\n` +
+              `[**▶ Run Evaluation**](${triggerUrl})\n\n` +
+              `_For targeted runs: \`/eval d5 slug1,slug2\`_`;
+
+            // Find existing bot comment
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              per_page: 100,
+            });
+            const existing = comments.data.find(c => c.body?.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body,
+              });
+            }
+        env:
+          WEBHOOK_SECRET: ${{ secrets.EVAL_WEBHOOK_SECRET }}

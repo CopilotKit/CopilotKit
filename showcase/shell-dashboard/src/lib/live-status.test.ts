@@ -4,9 +4,9 @@ import {
   mergeRowsToMap,
   resolveCell,
   upsertByKey,
-  type LiveStatusMap,
-  type StatusRow,
 } from "./live-status";
+import type { LiveStatusMap, StatusRow } from "./live-status";
+import { formatTs } from "./format-ts";
 
 function row(
   key: string,
@@ -279,6 +279,32 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     expect(c).not.toHaveProperty("qa");
   });
 
+  it("resolves d2 (agent) integration-scoped row when present", () => {
+    const live = mapOf([row("agent:agno", "agent", "green")]);
+    const c = resolveCell(live, "agno", "agentic-chat");
+    expect(c.d2.tone).toBe("green");
+    expect(c.d2.label).toBe("✓");
+    expect(c.d2.row?.key).toBe("agent:agno");
+  });
+
+  it("falls through to gray '?' when d2 (agent) row is absent", () => {
+    const c = resolveCell(mapOf([]), "agno", "agentic-chat");
+    expect(c.d2.tone).toBe("gray");
+    expect(c.d2.label).toBe("?");
+    expect(c.d2.row).toBeNull();
+  });
+
+  it("d2 (agent) does NOT contribute to the rollup (informational only)", () => {
+    const live = mapOf([
+      row("health:agno", "health", "green"),
+      row("agent:agno", "agent", "red"),
+    ]);
+    const c = resolveCell(live, "agno", "ac");
+    // health is green but e2e is missing → rollup is gray (not red from agent)
+    expect(c.rollup).toBe("gray");
+    expect(c.d2.tone).toBe("red");
+  });
+
   it("resolves d5 / d6 per-feature rows when present", () => {
     const live = mapOf([
       row("d5:agno/agentic-chat", "d5", "green"),
@@ -338,6 +364,71 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     expect(c.d5.row).toBeNull();
     expect(c.d6.row).toBeNull();
   });
+
+  // ── multi-key D5 fan-out (e.g. beautiful-chat → 5 per-pill keys) ──
+  // The CATALOG_TO_D5_KEY mapping fans some catalog feature IDs to
+  // multiple D5 keys (beautiful-chat → 5 per-pill literals). The
+  // rolled-up cell must reflect the WORST-state row in the family —
+  // red > degraded > green — so a single amber pill turns the badge
+  // amber instead of staying green behind a co-iterated green sibling.
+  it("d5 multi-key fan-out: red beats green when red comes after green", () => {
+    const live = mapOf([
+      row("d5:agno/beautiful-chat-toggle-theme", "d5", "green"),
+      row("d5:agno/beautiful-chat-pie-chart", "d5", "red"),
+    ]);
+    const c = resolveCell(live, "agno", "beautiful-chat");
+    expect(c.d5.tone).toBe("red");
+    expect(c.d5.label).toBe("✗");
+  });
+
+  it("d5 multi-key fan-out: red beats green when red comes BEFORE green", () => {
+    const live = mapOf([
+      row("d5:agno/beautiful-chat-toggle-theme", "d5", "red"),
+      row("d5:agno/beautiful-chat-pie-chart", "d5", "green"),
+    ]);
+    const c = resolveCell(live, "agno", "beautiful-chat");
+    expect(c.d5.tone).toBe("red");
+  });
+
+  it("d5 multi-key fan-out: degraded beats green regardless of iteration order", () => {
+    // Pre-fix regression: only `red` could replace `worst`, so a degraded
+    // row encountered after a green row was silently dropped and the
+    // badge stayed green. With the fix, degraded > green wins.
+    const liveGreenFirst = mapOf([
+      row("d5:agno/beautiful-chat-toggle-theme", "d5", "green"),
+      row("d5:agno/beautiful-chat-pie-chart", "d5", "degraded"),
+    ]);
+    expect(resolveCell(liveGreenFirst, "agno", "beautiful-chat").d5.tone).toBe(
+      "amber",
+    );
+
+    const liveDegradedFirst = mapOf([
+      row("d5:agno/beautiful-chat-toggle-theme", "d5", "degraded"),
+      row("d5:agno/beautiful-chat-pie-chart", "d5", "green"),
+    ]);
+    expect(
+      resolveCell(liveDegradedFirst, "agno", "beautiful-chat").d5.tone,
+    ).toBe("amber");
+  });
+
+  it("d5 multi-key fan-out: red beats degraded", () => {
+    const live = mapOf([
+      row("d5:agno/beautiful-chat-toggle-theme", "d5", "degraded"),
+      row("d5:agno/beautiful-chat-pie-chart", "d5", "red"),
+    ]);
+    expect(resolveCell(live, "agno", "beautiful-chat").d5.tone).toBe("red");
+  });
+
+  it("d5 multi-key fan-out: all green stays green", () => {
+    const live = mapOf([
+      row("d5:agno/beautiful-chat-toggle-theme", "d5", "green"),
+      row("d5:agno/beautiful-chat-pie-chart", "d5", "green"),
+      row("d5:agno/beautiful-chat-bar-chart", "d5", "green"),
+      row("d5:agno/beautiful-chat-search-flights", "d5", "green"),
+      row("d5:agno/beautiful-chat-schedule-meeting", "d5", "green"),
+    ]);
+    expect(resolveCell(live, "agno", "beautiful-chat").d5.tone).toBe("green");
+  });
 });
 
 describe("formatTooltip behaviour (via resolveCell)", () => {
@@ -350,7 +441,7 @@ describe("formatTooltip behaviour (via resolveCell)", () => {
     const c = resolveCell(live, "a", "b");
     expect(c.e2e.tooltip).not.toMatch(/>6h/);
     expect(c.e2e.tooltip).toContain("stale");
-    expect(c.e2e.tooltip).toContain("2026-04-22T08:00:00Z");
+    expect(c.e2e.tooltip).toContain(formatTs("2026-04-22T08:00:00Z"));
   });
 
   // D1: `observed_at` on a degraded row is when the dim was last *seen*
@@ -365,7 +456,9 @@ describe("formatTooltip behaviour (via resolveCell)", () => {
       }),
     ]);
     const c = resolveCell(live, "a", "b");
-    expect(c.e2e.tooltip).toContain("last seen @ 2026-04-22T08:00:00Z");
+    expect(c.e2e.tooltip).toContain(
+      `last seen @ ${formatTs("2026-04-22T08:00:00Z")}`,
+    );
     expect(c.e2e.tooltip).not.toContain("last pass");
   });
 
@@ -411,7 +504,7 @@ describe("formatTooltip behaviour (via resolveCell)", () => {
     expect(c.e2e.tooltip).toContain("dashboard offline (§5.3)");
     expect(c.e2e.tooltip).toContain("last observed");
     expect(c.e2e.tooltip).toContain("e2e red");
-    expect(c.e2e.tooltip).toContain("2026-04-22T09:00:00Z");
+    expect(c.e2e.tooltip).toContain(formatTs("2026-04-22T09:00:00Z"));
   });
 
   it("connection=error + green row: plain offline tooltip (no last-observed context)", () => {

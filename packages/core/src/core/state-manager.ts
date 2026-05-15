@@ -39,31 +39,19 @@ export class StateManager {
 
   /**
    * Subscribe to an agent's events to track state and messages.
-   *
-   * Registry agents (subscribed via `onAgentsChanged`) use the bare `agentId`
-   * key so that `unsubscribeFromAgent(agentId)` can remove them when they
-   * are replaced. Per-thread clones (subscribed via `subscribeAgentToStateManager`)
-   * pass `{ isClone: true }` to use a composite `agentId:threadId` key, keeping
-   * their subscription independent of the registry agent's.
    */
-  subscribeToAgent(
-    agent: AbstractAgent,
-    /** @param isClone When true, uses a composite `agentId:threadId` key for per-thread isolation. */
-    { isClone = false }: { isClone?: boolean } = {},
-  ): void {
+  subscribeToAgent(agent: AbstractAgent): void {
     if (!agent.agentId) {
       return; // Skip agents without IDs
     }
 
     const agentId = agent.agentId;
-    const subscriptionKey =
-      isClone && agent.threadId ? `${agentId}:${agent.threadId}` : agentId;
 
-    // Unsubscribe existing subscription for this key only
-    const existingUnsubscribe = this.agentSubscriptions.get(subscriptionKey);
+    // Unsubscribe existing subscription for this agent only
+    const existingUnsubscribe = this.agentSubscriptions.get(agentId);
     if (existingUnsubscribe) {
       existingUnsubscribe();
-      this.agentSubscriptions.delete(subscriptionKey);
+      this.agentSubscriptions.delete(agentId);
     }
 
     // Subscribe to agent events.
@@ -79,8 +67,8 @@ export class StateManager {
     // 2. Run isolation within one subscription: in tests (and edge cases), a new
     //    run's events can arrive through the same subscription before the new
     //    pipeline is set up. Concretely: the test emits RUN_STARTED for run2
-    //    before copilotkit.runAgent() has called subscribeAgentToStateManager for
-    //    run2. At that point S1 is still active and sees run2's events with
+    //    before copilotkit.runAgent() has had a chance to set up the new
+    //    pipeline. At that point S1 is still active and sees run2's events with
     //    input1.runId. To prevent both runs from sharing the same runId key, we
     //    detect the "seen RUN_FINISHED, then RUN_STARTED again" pattern and
     //    generate a fresh runId for the second logical run.
@@ -148,17 +136,14 @@ export class StateManager {
       },
     });
 
-    this.agentSubscriptions.set(subscriptionKey, () => {
+    this.agentSubscriptions.set(agentId, () => {
       revoked = true;
       unsubscribe();
     });
   }
 
   /**
-   * Unsubscribe a registry agent's subscription (bare `agentId` key).
-   * Per-thread clone subscriptions use composite `agentId:threadId` keys and
-   * are replaced (not removed) by subsequent subscribeToAgent(agent, { isClone: true })
-   * calls for the same (agentId, threadId) pair.
+   * Unsubscribe an agent's subscription.
    */
   unsubscribeFromAgent(agentId: string): void {
     const unsubscribe = this.agentSubscriptions.get(agentId);

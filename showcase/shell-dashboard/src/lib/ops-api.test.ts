@@ -1,8 +1,8 @@
 /**
- * Tests for the showcase-ops fetch client.
+ * Tests for the showcase-harness fetch client.
  *
  * Mocks `globalThis.fetch` and asserts the on-the-wire contract that B3
- * (the showcase-ops HTTP API) is being built to satisfy:
+ * (the showcase-harness HTTP API) is being built to satisfy:
  *   - GET  <base>/probes                  → ProbesResponse
  *   - GET  <base>/probes/<id>             → { probe, runs }
  *   - POST <base>/probes/<id>/trigger     → TriggerResponse

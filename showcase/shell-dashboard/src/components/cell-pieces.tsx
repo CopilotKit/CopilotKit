@@ -2,21 +2,14 @@
 // Shared cell-level helpers: docs links row, status (badges) row.
 import { useState } from "react";
 import type { CellContext } from "@/components/feature-grid";
-import { getDocsStatus, type DocState } from "@/lib/docs-status";
+import { getDocsStatus } from "@/lib/docs-status";
+import type { DocState } from "@/lib/docs-status";
 import { Badge, FlashOnChange } from "@/components/badges";
-import { keyFor, resolveCell, type BadgeRender } from "@/lib/live-status";
+import { keyFor, resolveCell } from "@/lib/live-status";
+import type { BadgeRender } from "@/lib/live-status";
 import type { Feature, Integration } from "@/lib/registry";
 import { useLastTransition, deriveFromTo } from "@/hooks/useLastTransition";
-
-/**
- * Magic path segment used by the shell when no framework column is selected.
- * Coupled to the shell's routing under `/<slug>/<framework-or-unselected>/...`
- * — if the shell ever renames or removes this fallback segment, this constant
- * MUST move in lockstep. Kept here as a local const because no shared
- * registry constant exists today; promote to a shared module if a second
- * caller appears.
- */
-const SHELL_UNSELECTED_PATH = "unselected";
+import { formatTs } from "@/lib/format-ts";
 
 export function urlsFor(ctx: CellContext): {
   demoUrl: string;
@@ -47,14 +40,24 @@ export function DocsRow({
   const probed = getDocsStatus(feature.id);
   const override = integration.docs_links?.features?.[feature.id];
 
-  const ogHref = override?.og_docs_url ?? feature.og_docs_url ?? undefined;
-  const shellPath = override?.shell_docs_path ?? undefined;
-  const shellHref = shellPath
-    ? `${shellUrl}/${integration.slug}/${SHELL_UNSELECTED_PATH}${shellPath}`
-    : undefined;
-
   const hasOgOverride = override?.og_docs_url !== undefined;
   const hasShellOverride = override?.shell_docs_path !== undefined;
+  // Override resolution. When the framework has an explicit override (even
+  // an explicit null = opt-out), it wins. When no override is set, fall
+  // back to the feature-registry default so cells inherit the canonical
+  // doc location without each integration having to repeat it.
+  const ogHref = hasOgOverride
+    ? (override?.og_docs_url ?? undefined)
+    : (feature.og_docs_url ?? undefined);
+  const shellPath = hasShellOverride
+    ? (override?.shell_docs_path ?? undefined)
+    : (feature.shell_docs_path ?? undefined);
+  // The shell-docs route handler resolves `/<framework>/<slug>` directly —
+  // the legacy `/<framework>/unselected/<slug>` shape was retired by the
+  // JTBD IA restructure (commit c11976819).
+  const shellHref = shellPath
+    ? `${shellUrl}/${integration.slug}${shellPath}`
+    : undefined;
   // CP5: distinguish the two "missing" sub-cases so the tooltip is honest.
   // The override shape (`og_docs_url: string | null`) lets us tell apart:
   //   (a) framework explicitly set `og_docs_url: null` → opt-out
@@ -80,7 +83,7 @@ export function DocsRow({
     : probed.shell;
 
   return (
-    <div className="flex items-center gap-2.5">
+    <div className="flex items-center justify-center gap-2.5">
       <DocsLink
         label="docs-og"
         href={ogHref}
@@ -258,28 +261,36 @@ function formatTransitionLine(row: {
   observed_at: string;
 }): string {
   if (row.transition === "first") {
-    return ` — since ${row.observed_at} (initial: ${row.state})`;
+    return ` — since ${formatTs(row.observed_at)} (initial: ${row.state})`;
   }
   if (row.transition === "error") {
-    return ` — since ${row.observed_at} (error → ${row.state})`;
+    return ` — since ${formatTs(row.observed_at)} (error → ${row.state})`;
   }
   const { from, to } = deriveFromTo(row.transition);
   // Any non-first/non-error transition that deriveFromTo can't decode
   // (unexpected enum value) falls back to the row's current state so we
   // never render "null → null" copy.
   const pair = from && to ? `${from} → ${to}` : row.state;
-  return ` — since ${row.observed_at} (${pair})`;
+  return ` — since ${formatTs(row.observed_at)} (${pair})`;
 }
 
 /**
- * Shared status row: docs-og/docs-shell line + E2E badge.
+ * Shared status row: API / RT / CV badges (D2 API / D4 Round Trip / D5 Conversation).
  * QA and HealthDot removed in Phase 3 (3.3 + 3.4). L1 health now in strip.
  * Smoke per-cell badge removed — integration-scoped smoke lives in the strip.
- * Consumes `liveStatus` from `ctx` (spec §5.4 wiring). Hides the docs row
- * for `testing`-kind features to match previous behavior.
+ * Docs rendering removed — handled exclusively by DocsLayer in ComposedCell,
+ * gated on the `overlays.has("docs")` toggle.
+ * Consumes `liveStatus` from `ctx` (spec §5.4 wiring).
  */
 export function CellStatus({ ctx }: { ctx: CellContext }) {
   const isTesting = ctx.feature.kind === "testing";
+  const isDocsOnly = ctx.feature.kind === "docs-only";
+
+  // docs-only features have no runnable probes — rendering badge chips
+  // would show perpetual gray "?" for every dimension. Return null so the
+  // cell stays clean; the docs row is rendered separately by DocsLayer.
+  if (isDocsOnly) return null;
+
   const cell = resolveCell(
     ctx.liveStatus,
     ctx.integration.slug,
@@ -297,49 +308,40 @@ export function CellStatus({ ctx }: { ctx: CellContext }) {
   // worktree) and is tracked in the cross-worktree concerns of this fix.
 
   return (
-    <>
-      {!isTesting && (
-        <DocsRow
-          integration={ctx.integration}
-          feature={ctx.feature}
-          shellUrl={ctx.shellUrl}
-        />
-      )}
-      <div className="flex items-center gap-2.5">
-        <LiveBadge
-          name="E2E"
-          badge={cell.e2e}
-          dimensionKey={keyFor("e2e", ctx.integration.slug, ctx.feature.id)}
-        />
-        {/*
-          CP8: D5/D6 producers (`e2e-deep`, `e2e-parity`) only emit rows for
-          primary features per spec; testing-kind features never get a D5 or
-          D6 row, so the badge would render a perpetual gray "?" that adds
-          noise without information. Hide for `isTesting` to mirror the
-          docs-row visibility rule.
+    <div className="flex items-center justify-center gap-2.5">
+      <LiveBadge
+        name="API"
+        badge={cell.d2}
+        dimensionKey={keyFor("agent", ctx.integration.slug)}
+      />
+      <LiveBadge
+        name="RT"
+        badge={cell.e2e}
+        dimensionKey={keyFor("e2e", ctx.integration.slug, ctx.feature.id)}
+      />
+      {/*
+        CP8: CV producers (`e2e-deep`) only emit rows for primary features
+        per spec; testing-kind features never get a CV row, so the badge
+        would render a perpetual gray "?" that adds noise without
+        information. Hide for `isTesting` so operators only see badges
+        backed by real data.
 
-          CP9: D5/D6 chips intentionally have no `href` — there is no
-          per-feature drilldown URL convention in shell-dashboard today.
-          When a drilldown route exists (e.g. a per-(slug, feature) D5 run
-          history page), wire the URL through `keyFor` here.
-          TODO(showcase-dashboard): D5/D6 drilldown URL — see
-          docs/spec §5.6 follow-up.
-        */}
-        {!isTesting && (
-          <>
-            <LiveBadge
-              name="D5"
-              badge={cell.d5}
-              dimensionKey={keyFor("d5", ctx.integration.slug, ctx.feature.id)}
-            />
-            <LiveBadge
-              name="D6"
-              badge={cell.d6}
-              dimensionKey={keyFor("d6", ctx.integration.slug, ctx.feature.id)}
-            />
-          </>
-        )}
-      </div>
-    </>
+        CP9: CV badges intentionally have no `href` — there is no
+        per-feature drilldown URL convention in shell-dashboard today.
+        When a drilldown route exists (e.g. a per-(slug, feature) D5 run
+        history page), wire the URL through `keyFor` here.
+        TODO(showcase-dashboard): CV drilldown URL — see
+        docs/spec §5.6 follow-up.
+      */}
+      {!isTesting && (
+        <>
+          <LiveBadge
+            name="CV"
+            badge={cell.d5}
+            dimensionKey={keyFor("d5", ctx.integration.slug, ctx.feature.id)}
+          />
+        </>
+      )}
+    </div>
   );
 }

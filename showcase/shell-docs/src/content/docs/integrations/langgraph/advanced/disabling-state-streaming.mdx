@@ -36,7 +36,7 @@ You can disable all message streaming and tool call streaming by passing `emit_m
             )
 
             # 2) Provide the actions to the LLM
-            model = ChatOpenAI(model="gpt-5.2").bind_tools([
+            model = ChatOpenAI(model="gpt-5.4").bind_tools([
               *state["copilotkit"]["actions"],
               # ... any tools you want to make available to the model
             ])
@@ -73,7 +73,7 @@ You can disable all message streaming and tool call streaming by passing `emit_m
             });
 
             // 2) Provide the actions to the LLM
-            const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.2" });
+            const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.4" });
             const modelWithTools = model.bindTools!([
                 ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions || []),
                 ...tools,

@@ -3,16 +3,19 @@ name = "agent"
 version = "0.1.0"
 description = ""
 readme = "README.md"
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.12"
 dependencies = [
-  "copilotkit==0.1.74",
-  "langchain==1.0.1",
-  "langchain-openai==1.0.1",
-  "langgraph==1.0.1",
+  "copilotkit==0.1.87",
+  "langchain==1.2.15",
+  "langchain-openai==1.1.9",
+  "langchain-anthropic==1.4.1",
+  "langgraph==1.1.6",
+  "langsmith==0.7.33",
   "openai==1.109.1",
-  "fastapi==0.115.12",
-  "uvicorn>=0.38.0",
-  "python-dotenv>=1.0.0",
-  "ag-ui-langgraph==0.0.22",
+  "fastapi>=0.115.5,<1.0.0",
+  "uvicorn>=0.29.0,<1.0.0",
+  "python-dotenv>=1.0.0,<2.0.0",
+  "ag-ui-langgraph==0.0.34",
+  "ag-ui-protocol==0.1.18",
   "pydantic>=2.0.0,<3.0.0",
 ]

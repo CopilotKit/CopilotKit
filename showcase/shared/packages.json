@@ -1,7 +1,7 @@
 [
   { "slug": "ag2", "name": "AG2" },
   { "slug": "agno", "name": "Agno" },
-  { "slug": "built-in-agent", "name": "Built-in Agent" },
+  { "slug": "built-in-agent", "name": "Built-in Agent (TanStack AI)" },
   { "slug": "claude-sdk-python", "name": "Claude SDK Python" },
   { "slug": "claude-sdk-typescript", "name": "Claude SDK TypeScript" },
   { "slug": "crewai-crews", "name": "CrewAI Crews" },

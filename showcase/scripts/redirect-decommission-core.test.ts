@@ -23,14 +23,14 @@ const seoRedirects: RedirectEntryLite[] = ((
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Fixture directory is owned by the showcase-ops package so the cross-check
+// Fixture directory is owned by the showcase-harness package so the cross-check
 // golden ships alongside the driver tests that also consume it. The core
-// tests reach out to the ops tree rather than duplicate the fixture — one
+// tests reach out to the harness tree rather than duplicate the fixture — one
 // source of truth for "what the CLI printed" keeps both sides honest.
 const FIXTURES = path.resolve(
   __dirname,
   "..",
-  "ops",
+  "harness",
   "test",
   "fixtures",
   "redirect-decommission",

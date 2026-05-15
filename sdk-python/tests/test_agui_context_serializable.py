@@ -21,22 +21,22 @@ class TestAGUIContextSerialization:
         ctx2 = Context(name="session", description="Session data", value="abc123")
 
         merged_state = {
-            'ag-ui': {
-                'tools': [],
-                'context': [ctx1, ctx2],
+            "ag-ui": {
+                "tools": [],
+                "context": [ctx1, ctx2],
             },
-            'messages': [],
+            "messages": [],
         }
 
         with patch.object(
             type(agent).__mro__[1],  # LangGraphAgent (parent class)
             "langgraph_default_merge_state",
-            return_value=merged_state
+            return_value=merged_state,
         ):
             result = agent.langgraph_default_merge_state({}, [], None)
 
         # Context items must be plain dicts, not Pydantic objects
-        for item in result['copilotkit']['context']:
+        for item in result["copilotkit"]["context"]:
             assert isinstance(item, dict), f"Expected dict, got {type(item)}"
             json.dumps(item)  # Must be JSON-serializable
 
@@ -52,20 +52,20 @@ class TestAGUIContextSerialization:
         ctx_dict = {"name": "key2", "description": "desc2", "value": "val2"}
 
         merged_state = {
-            'ag-ui': {
-                'tools': [],
-                'context': [ctx_pydantic, ctx_dict],
+            "ag-ui": {
+                "tools": [],
+                "context": [ctx_pydantic, ctx_dict],
             },
-            'messages': [],
+            "messages": [],
         }
 
         with patch.object(
             type(agent).__mro__[1],
             "langgraph_default_merge_state",
-            return_value=merged_state
+            return_value=merged_state,
         ):
             result = agent.langgraph_default_merge_state({}, [], None)
 
-        for item in result['copilotkit']['context']:
+        for item in result["copilotkit"]["context"]:
             assert isinstance(item, dict), f"Expected dict, got {type(item)}"
             json.dumps(item)

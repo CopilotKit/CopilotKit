@@ -3,7 +3,7 @@ title: "API Reference"
 description: "API Reference for the next-generation CopilotKit React API."
 ---
 
-The v2 React API (`@copilotkit/react-core/v2`) is the next-generation interface for building copilot-powered applications. It provides a streamlined set of hooks and components built on top of the [AG-UI](https://docs.ag-ui.com) agent protocol.
+The v2 React API (`@copilotkit/react-core`) is the next-generation interface for building copilot-powered applications. It provides a streamlined set of hooks and components built on top of the [AG-UI](https://docs.ag-ui.com) agent protocol.
 
 ## Provider Setup
 
@@ -22,18 +22,18 @@ function App() {
 ```
 
 <Accordions>
-<Accordion title="Advanced: Using CopilotKitProvider directly">
+<Accordion title="Advanced: Using CopilotKit directly">
 
 <Callout type="warn">
-  `CopilotKitProvider` is a low-level provider intended for advanced use cases. Most applications should use the `<CopilotKit>` component from `@copilotkit/react-core` instead.
+  `CopilotKit` is a low-level provider intended for advanced use cases. Most applications should use the `<CopilotKit>` component from `@copilotkit/react-core` instead.
 </Callout>
 
-If you need direct control over the v2 provider (e.g. for custom integrations), you can import `CopilotKitProvider` from `@copilotkit/react-core/v2`:
+If you need direct control over the v2 provider (e.g. for custom integrations), you can import `CopilotKit` from `@copilotkit/react-core`:
 
 ```tsx
-<CopilotKitProvider runtimeUrl="/api/copilotkit">
+<CopilotKit runtimeUrl="/api/copilotkit">
   <App />
-</CopilotKitProvider>
+</CopilotKit>
 ```
 
 ### Props
@@ -118,14 +118,14 @@ If you need direct control over the v2 provider (e.g. for custom integrations), 
 Unlike the v1 `onError`, this does **not** require a `publicApiKey` — error handling works with any configuration.
 
 ```tsx
-<CopilotKitProvider
+<CopilotKit
   runtimeUrl="/api/copilotkit"
   onError={(event) => {
     console.error(`[${event.code}]`, event.error.message, event.context);
   }}
 >
   <App />
-</CopilotKitProvider>
+</CopilotKit>
 ```
 
 </PropertyReference>

@@ -4,8 +4,12 @@ console.warn(
 
 export {
   CopilotKitPropertiesAnnotation,
+  CopilotKitPropertiesSchema,
   CopilotKitStateAnnotation,
+  CopilotKitStateSchema,
   type CopilotKitState,
+  type CopilotKitSchemaState,
+  type CopilotKitSchemaUpdate,
   type CopilotKitProperties,
   copilotkitCustomizeConfig as copilotKitCustomizeConfig,
   copilotkitExit as copilotKitExit,

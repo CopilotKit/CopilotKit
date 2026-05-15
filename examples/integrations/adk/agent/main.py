@@ -191,6 +191,7 @@ add_adk_fastapi_endpoint(app, adk_proverbs_agent, path="/")
 async def health():
     return {"status": "ok"}
 
+
 if __name__ == "__main__":
     import os
 

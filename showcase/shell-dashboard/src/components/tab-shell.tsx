@@ -2,6 +2,11 @@
 /**
  * TabShell — tab bar + content panels.
  *
+ * @deprecated Superseded by `useOverlays` hook (src/hooks/useOverlays.ts)
+ * which manages the 2-tab (Matrix | Ops) layout with composable overlay
+ * toggles. page.tsx now renders tabs directly without this component.
+ * Kept for backwards compatibility — no active callers.
+ *
  * Active tab stored in URL hash (#cells, #parity, #packages) with
  * localStorage fallback. Tabs are mounted on first switch and kept
  * in the DOM to preserve SSE subscription state.

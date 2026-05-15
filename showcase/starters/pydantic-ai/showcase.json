@@ -1,8 +1,0 @@
-{
-  "slug": "pydantic-ai",
-  "name": "Pydantic AI",
-  "language": "python",
-  "agentDir": "agent",
-  "agentPort": 8123,
-  "generated": true
-}

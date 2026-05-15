@@ -6,7 +6,7 @@ Two checklists: what makes a **complete package**, and what **external setup** i
 
 ## A. Complete Package (what `pnpm create-integration` generates)
 
-Everything below should exist in `showcase/packages/<slug>/`:
+Everything below should exist in `showcase/integrations/<slug>/`:
 
 ### Source Files
 
@@ -61,28 +61,28 @@ One per declared feature. Each demo must:
 
 ---
 
-## Source of Truth: `examples/integrations/*` vs `showcase/packages/*`
+## Source of Truth: `examples/integrations/*` vs `showcase/integrations/*`
 
 Two directories hold integration code, and they play different roles. Understanding the relationship is critical before adding or modifying a package.
 
 ### Roles
 
 - **`examples/integrations/<name>/`** — the **Dojo example**. This is the dep-pinning source of truth: minimal, focused agent code used to prove a framework works against CopilotKit/AG-UI. The weekly drift-detection workflow and the "Always pin agent framework and SDK versions to exact versions from the working Dojo example" rule (see "Dependency Pinning" below) both treat this directory as canonical.
-- **`showcase/packages/<slug>/`** — the **full triple-duty integration**:
+- **`showcase/integrations/<slug>/`** — the **full triple-duty integration**:
   1. Partner-facing demo (lives on `showcase.copilotkit.dev`)
-  2. Cloneable starter source (composed into `showcase/starters/<slug>/` by `generate-starters.ts`)
+  2. Cloneable starter source (extracted on-demand via `extract-starter.ts`)
   3. Iframe-embedded experience inside the public showcase shell
 
 ### Automation Direction (one-way)
 
 ```
-examples/integrations/<name>/  ──(migrate-integration-examples.ts)──▶  showcase/packages/<slug>/src/agents/
-showcase/packages/<slug>/     ──(generate-starters.ts)────────────▶  showcase/starters/<slug>/
+examples/integrations/<name>/  ──(migrate-integration-examples.ts)──▶  showcase/integrations/<slug>/src/agents/
+showcase/integrations/<slug>/  ──(extract-starter.ts)────────────────▶  standalone starter (on-demand)
 ```
 
-- `showcase/scripts/migrate-integration-examples.ts` copies agent code **from** `examples/integrations/<name>/` **into** `showcase/packages/<slug>/src/agents/`. It never runs in reverse.
-- `showcase/scripts/generate-starters.ts` composes a template frontend plus the showcase package into a self-contained starter under `showcase/starters/<slug>/`.
-- Do not hand-edit agent code inside `showcase/packages/<slug>/src/agents/` if the package has a Dojo counterpart — fix it upstream in `examples/integrations/<name>/` and re-run the migration script.
+- `showcase/scripts/migrate-integration-examples.ts` copies agent code **from** `examples/integrations/<name>/` **into** `showcase/integrations/<slug>/src/agents/`. It never runs in reverse.
+- `showcase/scripts/extract-starter.ts` extracts a clean standalone starter from any integration on demand, dereferencing symlinks and stripping test/CI artifacts.
+- Do not hand-edit agent code inside `showcase/integrations/<slug>/src/agents/` if the package has a Dojo counterpart — fix it upstream in `examples/integrations/<name>/` and re-run the migration script.
 
 ### Born-in-Showcase Packages (no Dojo counterpart)
 
@@ -94,19 +94,19 @@ Five packages exist only in showcase and have no `examples/integrations/<name>/`
 - `langroid`
 - `spring-ai`
 
-These are authored directly in `showcase/packages/<slug>/` and are **exempt from the pin-to-Dojo rule** — there is no Dojo to pin to. They still must pin exact versions (see "Dependency Pinning"), but the reference is whatever the framework's own examples or release notes recommend, not a sibling `examples/integrations/` directory.
+These are authored directly in `showcase/integrations/<slug>/` and are **exempt from the pin-to-Dojo rule** — there is no Dojo to pin to. They still must pin exact versions (see "Dependency Pinning"), but the reference is whatever the framework's own examples or release notes recommend, not a sibling `examples/integrations/` directory.
 
 ### Slug Aliasing
 
-Several packages have different names in `examples/integrations/` vs `showcase/packages/`. The aliasing is historical — showcase standardized on shorter, marketing-friendly slugs while the Dojo kept the original framework-canonical names.
+Several packages have different names in `examples/integrations/` vs `showcase/integrations/`. The aliasing is historical — showcase standardized on shorter, marketing-friendly slugs while the Dojo kept the original framework-canonical names.
 
-| `showcase/packages/` slug | `examples/integrations/` name | Why different                                             |
-| ------------------------- | ----------------------------- | --------------------------------------------------------- |
-| `google-adk`              | `adk`                         | Showcase prefixes with vendor for disambiguation          |
-| `langgraph-typescript`    | `langgraph-js`                | Showcase prefers full language name (`-typescript`)       |
-| `ms-agent-dotnet`         | `ms-agent-framework-dotnet`   | Showcase shortens `-framework-` out of the slug           |
-| `ms-agent-python`         | `ms-agent-framework-python`   | Same — shorter slug in showcase                           |
-| `strands`                 | `strands-python`              | Showcase drops the language suffix (no TS variant exists) |
+| `showcase/integrations/` slug | `examples/integrations/` name | Why different                                             |
+| ----------------------------- | ----------------------------- | --------------------------------------------------------- |
+| `google-adk`                  | `adk`                         | Showcase prefixes with vendor for disambiguation          |
+| `langgraph-typescript`        | `langgraph-js`                | Showcase prefers full language name (`-typescript`)       |
+| `ms-agent-dotnet`             | `ms-agent-framework-dotnet`   | Showcase shortens `-framework-` out of the slug           |
+| `ms-agent-python`             | `ms-agent-framework-python`   | Same — shorter slug in showcase                           |
+| `strands`                     | `strands-python`              | Showcase drops the language suffix (no TS variant exists) |
 
 When running `migrate-integration-examples.ts` or reasoning about drift, remember that the script internally maps these aliases — don't "fix" them by renaming one side.
 
@@ -130,7 +130,7 @@ When running `migrate-integration-examples.ts` or reasoning about drift, remembe
 ### 3. CI/CD Workflow (`.github/workflows/showcase_deploy.yml`)
 
 - [ ] Add slug to `workflow_dispatch.inputs.service.options`
-- [ ] Add change detection filter for `showcase/packages/<slug>/**`
+- [ ] Add change detection filter for `showcase/integrations/<slug>/**`
 - [ ] Add build job: build Docker image → push to GHCR → trigger Railway deploy
 - [ ] Wire up the `RAILWAY_TOKEN` secret
 
@@ -192,11 +192,11 @@ LangGraph supports two agent authoring styles, and showcase uses both. When touc
 
 ### Current Showcase State
 
-| Package                                  | Style      | Evidence                                              |
-| ---------------------------------------- | ---------- | ----------------------------------------------------- |
-| `showcase/packages/langgraph-python`     | Prebuilt   | `create_react_agent` in `src/agents/main.py:53`       |
-| `showcase/packages/langgraph-fastapi`    | Prebuilt   | `create_react_agent` in `src/agents/src/agent.py:166` |
-| `showcase/packages/langgraph-typescript` | Node-based | `StateGraph` in `src/agent/graph.ts:271`              |
+| Package                                      | Style      | Evidence                                              |
+| -------------------------------------------- | ---------- | ----------------------------------------------------- |
+| `showcase/integrations/langgraph-python`     | Prebuilt   | `create_react_agent` in `src/agents/main.py:53`       |
+| `showcase/integrations/langgraph-fastapi`    | Prebuilt   | `create_react_agent` in `src/agents/src/agent.py:166` |
+| `showcase/integrations/langgraph-typescript` | Node-based | `StateGraph` in `src/agent/graph.ts:271`              |
 
 ### Dojo Coverage Gap
 

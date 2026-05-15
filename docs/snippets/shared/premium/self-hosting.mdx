@@ -3,7 +3,23 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 ## What is this?
 
-CopilotKit Intelligence — the platform that powers threads, shared state, the inspector, and observability — can be self-hosted on your own Kubernetes cluster using the `copilot-intelligence` Helm chart. Self-hosting is a licensed deployment mode: you run the control plane and data plane inside your own network boundary, bring your own Postgres and Redis (or run bundled Bitnami subcharts), point the chart at your own OIDC provider, and manage secrets with External Secrets Operator or direct Kubernetes Secrets. The chart deploys three core workloads — `app-api` (the backend service, port 4201), `app-frontend` (the web UI, port 8080), and an optional `realtime-gateway` (a WebSocket service for realtime sync, port 4401) — plus supporting Services, Ingress, HPAs, PodDisruptionBudgets, and ExternalSecret resources.
+CopilotKit Intelligence — the platform that powers threads, shared state, the inspector, and observability — can be self-hosted on your own Kubernetes cluster using the `copilot-intelligence` Helm chart. You run the control plane and data plane inside your own network boundary; the chart leaves you in charge of identity, storage, and secrets.
+
+**What you bring:**
+
+- Postgres and Redis — your own, or the bundled Bitnami subcharts
+- An OIDC provider for identity
+- Secrets via External Secrets Operator, direct Kubernetes Secrets, or chart-managed credentials
+
+**What the chart deploys:**
+
+| Component | Role | Port |
+|---|---|---|
+| `app-api` | Backend service | 4201 |
+| `app-frontend` | Web UI | 8080 |
+| `realtime-gateway` *(optional)* | WebSocket service for realtime sync | 4401 |
+
+Plus a `database-migrations` Job, a `thread-culler` CronJob, and the usual supporting resources (Services, Ingress, HPAs, PodDisruptionBudgets, ConfigMaps, and — when ESO is enabled — ExternalSecret resources).
 
 ## When should I use this?
 
@@ -12,7 +28,18 @@ CopilotKit Intelligence — the platform that powers threads, shared state, the 
 - You need to operate the platform under your existing Kubernetes tooling, CI/CD, and observability stack
 - You have a CopilotKit Intelligence Platform license and the platform-engineering capacity to run a production Kubernetes workload
 
-If none of these apply, use [Copilot Cloud](https://cloud.copilotkit.ai) — it is the fastest path to a working Intelligence deployment and requires no cluster operations.
+<Callout type="info" title="Validate locally before committing to a real cluster">
+The chart installs the same way against a local Docker Desktop or k3d cluster as against a production one, so walk this guide end-to-end on your laptop first. Two local paths are supported:
+
+- **Bundled overlay** — install with the `values-quickstart-local.yaml` overlay shipped in the chart. It enables in-cluster Postgres, Redis, and (optionally) Keycloak; you drive the install yourself, following this guide.
+- **One-shot script** — `scripts/local-demo.sh` spins up a disposable k3d cluster, installs the released chart from GHCR, and brings up bundled Keycloak in one command:
+
+```bash title="Terminal"
+./scripts/local-demo.sh --version <chart-version>
+```
+
+Both paths use the same install commands described below — pick whichever fits.
+</Callout>
 
 ## Prerequisites
 
@@ -21,7 +48,8 @@ Before starting, make sure the following are in place. The [How the Intelligence
 **License and registry access:**
 
 - A valid CopilotKit Intelligence Platform license key (contact your CopilotKit account team if you do not have one)
-- Read access to the chart OCI registry at `oci://ghcr.io/copilotkit/charts/copilot-intelligence`
+- Read access to the chart OCI registry at `oci://ghcr.io/copilotkit/charts/intelligence` (anonymous pulls are allowed for the released chart)
+- The latest released chart version. Check the [chart releases](https://github.com/CopilotKit/Intelligence/pkgs/container/charts%2Fintelligence) on GHCR; substitute the value into the `<chart-version>` placeholder used throughout this guide (e.g. `0.1.0-rc.16`).
 
 **Cluster and tooling:**
 
@@ -33,7 +61,7 @@ Before starting, make sure the following are in place. The [How the Intelligence
 
 - An ingress controller — either `nginx-ingress` or the AWS Load Balancer Controller
 - `cert-manager` (or a cloud-managed certificate alternative such as AWS ACM) for TLS on the public hostnames
-- `External Secrets Operator` if you plan to sync secrets from AWS Secrets Manager, HashiCorp Vault, or GCP Secret Manager (strongly recommended for production)
+- `External Secrets Operator` if you plan to sync secrets from AWS Secrets Manager, HashiCorp Vault, or GCP Secret Manager (recommended for production, but not required — see [Secrets](#create-secrets))
 
 **External dependencies (reachable from the cluster):**
 
@@ -59,7 +87,7 @@ Before starting, make sure the following are in place. The [How the Intelligence
     kubectl auth can-i create namespace --all-namespaces
     ```
 
-    The context shown should be the target cluster, and the permission check should return `yes`. If either is wrong, fix your kubeconfig before proceeding.
+    Confirm the context names your target cluster and that the permission check returns `yes`. If not, fix your kubeconfig before proceeding.
   </Step>
 
   <Step>
@@ -67,7 +95,7 @@ Before starting, make sure the following are in place. The [How the Intelligence
 
     These components are cluster-wide and installed once per cluster, independently of the application chart.
 
-    <Tabs items={["AWS (EKS)", "On-prem / generic"]}>
+    <Tabs items={["AWS (EKS)", "On-prem / generic", "Local (Docker Desktop / k3d)"]}>
       <Tab value="AWS (EKS)">
         ```bash title="Terminal"
         # AWS Load Balancer Controller (kube-system)
@@ -82,7 +110,7 @@ Before starting, make sure the following are in place. The [How the Intelligence
           -n cert-manager --create-namespace \
           --set installCRDs=true
 
-        # External Secrets Operator
+        # External Secrets Operator (optional — see Secrets step)
         helm repo add external-secrets https://charts.external-secrets.io
         helm install external-secrets external-secrets/external-secrets \
           -n external-secrets --create-namespace
@@ -102,6 +130,19 @@ Before starting, make sure the following are in place. The [How the Intelligence
           --set installCRDs=true
         ```
       </Tab>
+      <Tab value="Local (Docker Desktop / k3d)">
+        ```bash title="Terminal"
+        # NGINX Ingress Controller as ClusterIP — you will reach it via
+        # `kubectl port-forward` later, so no LoadBalancer service is needed.
+        helm upgrade --install ingress-nginx ingress-nginx \
+          --repo https://kubernetes.github.io/ingress-nginx \
+          --namespace ingress-nginx --create-namespace \
+          --set controller.service.type=ClusterIP \
+          --wait
+        ```
+
+        cert-manager and External Secrets Operator are not required for a local validation pass — TLS is terminated outside the cluster and secrets are managed by the chart (Path C below) or pre-created by hand (Path B).
+      </Tab>
     </Tabs>
 
     After each controller is running, its pods should be `Ready` in their respective namespaces.
@@ -120,51 +161,63 @@ Before starting, make sure the following are in place. The [How the Intelligence
 
     **Using the bundled in-cluster subcharts:**
 
-    Set `postgresql.enabled: true` and `redis-subchart.enabled: true` in your values file (covered in the next step). A matching `StorageClass` must exist in the cluster. The bundled Keycloak subchart is available via `keycloak.enabled: true` if you also need a quick OIDC provider for evaluation; do not use the bundled Keycloak for production workloads.
+    Set `postgresql.enabled: true` and `redis-subchart.enabled: true` in your values file (covered in the next step). A matching `StorageClass` must exist in the cluster. The bundled Keycloak subchart is available via `keycloak.enabled: true` if you also need a quick OIDC provider for evaluation; do not use the bundled Keycloak for production workloads. See [Bundled Keycloak (eval only)](#bundled-keycloak-eval-only) for the realm and credentials it creates.
+
+    The chart already ships a tested overlay for this shape — `values-quickstart-local.yaml` — which enables bundled Postgres + Redis, sets `migrations.enabled: true`, sizes resources for a laptop, and creates disposable secrets so the install runs end-to-end with no manual prep. Layer your own overlay on top of it (see the next step) to plug in your IdP and ingress.
   </Step>
 
   <Step>
     ### Create a values file
 
-    The chart ships with example values files for the two most common shapes. Pull the chart, then copy the example closest to your environment.
+    The released chart ships several example values files for the common deployment shapes. Pick the one closest to your environment and copy it into a working overlay you can edit. Pull and untar the chart so you have local copies to diff against:
 
     ```bash title="Terminal"
-    helm pull oci://ghcr.io/copilotkit/charts/copilot-intelligence --version 0.1.0 --untar
+    helm pull oci://ghcr.io/copilotkit/charts/intelligence --version <chart-version> --untar
 
     # AWS-flavored (ALB, IRSA, External Secrets from AWS Secrets Manager)
-    cp copilot-intelligence/values-aws-example.yaml my-values.yaml
+    cp intelligence/values-aws-example.yaml my-values.yaml
 
     # Or on-prem-flavored (nginx, manual Kubernetes Secrets)
-    cp copilot-intelligence/values-onprem-example.yaml my-values.yaml
+    cp intelligence/values-onprem-example.yaml my-values.yaml
+
+    # Or self-hosted eval (bundled Keycloak + in-cluster Postgres/Redis)
+    cp intelligence/values-self-hosted-eval.yaml.example my-values.yaml
     ```
+
+    The chart untars into a directory named `intelligence/` (the published chart name on GHCR; the chart's `nameOverride` keeps release-prefixed resources named `cpki-*`).
 
     Edit `my-values.yaml` to set at minimum:
 
-    - `database.host`, `database.port`, `database.name` — your Postgres connection
-    - `redis.host`, `redis.port`, `redis.tls` — your Redis connection
+    - `database.host`, `database.port`, `database.name` — your Postgres connection (`name` defaults to `intelligence`)
+    - `redis.host`, `redis.port`, `redis.tls` — your Redis connection (TLS is on by default; managed Redis requires it)
     - `auth.issuer` — your OIDC provider's issuer URL
-    - `auth.existingSecret` — name of the Kubernetes Secret containing `auth-secret`, `auth-client-id`, `auth-client-secret`
+    - `auth.existingSecret` — name of the Kubernetes Secret containing `auth-secret`, `auth-client-id`, `auth-client-secret` (or use one of the alternate paths in [Secrets](#create-secrets))
     - `ingress.ui.host` — the hostname users will load the Intelligence UI on (for example `intelligence.example.com`)
-    - `ingress.api.host` — an optional dedicated API hostname (defaults to `ingress.ui.host`)
+    - `ingress.api.host` — optional dedicated API hostname. When omitted, the `ui.host` rule routes `/api` and `/auth` paths to `app-api`, so a single hostname is fine for most installs.
     - `ingress.tls` — TLS configuration for the hosts above
+    - `migrations.enabled: true` — **required for first install**; defaults to `false`. Without it the database schema is never applied and `app-api` will crashloop. (The eval overlay `values-quickstart-local.yaml` sets this for you when you layer on top of it.)
+
+    <Callout type="warn" title="OIDC issuer URL — trailing slash matters">
+      Some providers (Auth0 in particular) only accept the issuer URL with a trailing slash (e.g. `https://your-tenant.auth0.com/`). A missing or extra slash produces an opaque "issuer mismatch" failure at login time. Match the value exactly to what your provider's discovery endpoint advertises.
+    </Callout>
 
     See the [Configuration reference](#configuration-reference) section for the full set of values.
   </Step>
 
-  <Step>
+  <Step id="create-secrets">
     ### Create secrets
 
-    You have two paths — External Secrets Operator (recommended) or direct Kubernetes Secrets.
+    The chart supports three paths for secrets management. Pick exactly one.
 
-    **External Secrets Operator:**
+    **Path A — External Secrets Operator (recommended for production):**
 
     1. Ensure your secret backend (AWS Secrets Manager, Vault, etc.) has entries for the database URL, Redis URL, and auth credentials.
     2. Create a `ClusterSecretStore` (or `SecretStore`) that references that backend.
-    3. In `my-values.yaml`, set `externalSecrets.enabled: true`, `externalSecrets.store.kind`, and `externalSecrets.store.name` to match. The chart generates `ExternalSecret` resources that sync those entries into Kubernetes Secrets at the names `app-api` expects.
+    3. In `my-values.yaml`, set `externalSecrets.enabled: true`, `externalSecrets.store.kind`, and `externalSecrets.store.name` to match. The chart then generates `ExternalSecret` resources that sync those entries into Kubernetes Secrets at the names `app-api` expects.
 
-    **Direct Kubernetes Secrets:**
+    **Path B — Direct Kubernetes Secrets (you manage the rotations):**
 
-    Set `externalSecrets.enabled: false` in your values file, then create the Secrets manually:
+    Leave `externalSecrets.enabled: false` (the default) and create the Secrets manually before installing:
 
     ```bash title="Terminal"
     kubectl create namespace copilot-intelligence
@@ -178,20 +231,51 @@ Before starting, make sure the following are in place. The [How the Intelligence
       -n copilot-intelligence
 
     kubectl create secret generic cpki-auth \
-      --from-literal=auth-secret='<32+ character random string>' \
+      --from-literal=auth-secret="$(openssl rand -hex 32)" \
       --from-literal=auth-client-id='<OIDC client id>' \
       --from-literal=auth-client-secret='<OIDC client secret>' \
       -n copilot-intelligence
     ```
 
-    The exact Secret names referenced in your values file must match whatever you create.
+    Reference these names in your values file via `database.existingSecret`, `redis.existingSecret`, and `auth.existingSecret`. The Secret keys are lowercase-hyphenated (`auth-secret`, `database-url`, `runner-auth-secret`); the workloads consume them as the corresponding uppercase env vars (`AUTH_SECRET`, `DATABASE_URL`, `RUNNER_AUTH_SECRET`).
+
+    **Path C — Chart-managed self-hosted secrets (simplest BYOC):**
+
+    Useful when you do not run a secret manager and prefer Helm to create the Kubernetes Secrets directly from values you provide at install time. Set `selfHostedSecrets.enabled: true` and supply the credentials inline:
+
+    ```yaml title="my-values.yaml"
+    selfHostedSecrets:
+      enabled: true
+      db:
+        url: "postgresql://user:pass@host:5432/intelligence"
+      redis:
+        url: "rediss://:password@host:6379"
+      auth:
+        # Auto-generated when left empty.
+        secret: ""
+        clientId: "<OIDC client id>"
+        clientSecret: "<OIDC client secret>"
+      realtimeGateway:
+        # Auto-generated when left empty.
+        runnerAuthSecret: ""
+        secretKeyBase: ""
+      beam:
+        # Auto-generated when left empty.
+        releaseCookie: ""
+    ```
+
+    The chart auto-generates `auth.secret`, the realtime-gateway runner/key-base, and the BEAM cookie when those fields are empty, so you only need to provide what you actually have.
   </Step>
 
   <Step>
     ### Install the chart
 
+    The release can be installed directly from the GHCR OCI registry — no local untar is required for the install itself. Use `helm upgrade --install` so the same command works for first-time installs and upgrades.
+
     ```bash title="Terminal"
-    helm install copilot-intelligence ./copilot-intelligence \
+    helm upgrade --install copilot-intelligence \
+      oci://ghcr.io/copilotkit/charts/intelligence \
+      --version <chart-version> \
       -f my-values.yaml \
       -n copilot-intelligence \
       --create-namespace \
@@ -199,7 +283,23 @@ Before starting, make sure the following are in place. The [How the Intelligence
       --timeout 10m
     ```
 
-    `--wait` blocks until the `Deployments` report healthy replicas; `--timeout 10m` allows enough time for image pulls and the initial database migration job.
+    Layering multiple values files is supported and is the recommended pattern for evaluation: combine the chart's bundled `values-quickstart-local.yaml` (in-cluster Postgres/Redis, eval-sized resources, `migrations.enabled: true`, disposable secrets) with your own overlay (IdP, ingress, anything cluster-specific). Pull the chart first so you have a local copy of `values-quickstart-local.yaml` to reference:
+
+    ```bash title="Terminal"
+    helm upgrade --install copilot-intelligence \
+      oci://ghcr.io/copilotkit/charts/intelligence \
+      --version <chart-version> \
+      -f intelligence/values-quickstart-local.yaml \
+      -f my-values.yaml \
+      -n copilot-intelligence --create-namespace \
+      --wait --timeout 10m
+    ```
+
+    `--wait` blocks until the `Deployments` report healthy replicas; `--timeout 10m` allows enough time for image pulls and the initial database migration job. Right-most `-f` files win on conflicts, so put your overlay last.
+
+    <Callout type="info" title="When the migrations Job runs">
+    The migrations Job runs as a **pre-install/pre-upgrade** hook (weight `-5`) when secrets are pre-created (Path A or Path B above), so the schema is ready before app pods start. It runs as a **post-install/post-upgrade** hook (weight `5`) when secrets are managed by Helm (Path C, or when using `postgresql.enabled: true`), because the Secret resources don't exist until Helm has created them.
+    </Callout>
   </Step>
 
   <Step>
@@ -222,20 +322,42 @@ Before starting, make sure the following are in place. The [How the Intelligence
 
     The endpoint returns `200 OK` only when the database is reachable — a failed health check is almost always a database connectivity problem.
 
+    Service-specific health endpoints, useful when port-forwarding to an individual pod:
+
+    | Service | Path |
+    |---|---|
+    | `app-api` | `/api/health` |
+    | `app-frontend` | `/healthz` |
+    | `realtime-gateway` | `/health` |
+
     Finally, browse to `https://<ingress.ui.host>` and log in via your OIDC provider. A successful login confirms end-to-end wiring.
+
+    <Callout type="info" title="Local validation — port-forward the ingress controller">
+    On a local cluster (Docker Desktop, k3d) without a public DNS name, port-forward the **ingress controller** rather than the frontend service so the UI host rule still routes `/api` and `/auth` to `app-api`. Set `ingress.ui.host: "localhost"` in your overlay, then leave this terminal open for as long as you're using the app:
+
+    ```bash title="Terminal"
+    kubectl -n ingress-nginx port-forward svc/ingress-nginx-controller 8080:80
+    ```
+
+    Browse to `http://localhost:8080`. Port-forwarding the `app-frontend` service directly bypasses the ingress and breaks `/api` and `/auth` routing.
+    </Callout>
   </Step>
 
   <Step>
     ### Upgrade and uninstall
 
-    **Upgrade** — bump the chart version in your `helm pull` command, regenerate example values to diff against, then run:
+    **Upgrade** — bump the version in your install command and re-run it. Because the install command already uses `helm upgrade --install`, the same invocation works for both fresh installs and upgrades:
 
     ```bash title="Terminal"
-    helm upgrade copilot-intelligence ./copilot-intelligence \
+    helm upgrade --install copilot-intelligence \
+      oci://ghcr.io/copilotkit/charts/intelligence \
+      --version <new-chart-version> \
       -f my-values.yaml \
       -n copilot-intelligence \
       --wait
     ```
+
+    Before upgrading, regenerate the example values for the target version (`helm pull ... --version <new-chart-version> --untar`) and diff against your overlay to catch new keys.
 
     **Uninstall** — releases leave PersistentVolumes in place by default if you enabled bundled subcharts; delete them manually if you intend to tear down state.
 
@@ -244,6 +366,19 @@ Before starting, make sure the following are in place. The [How the Intelligence
     ```
   </Step>
 </Steps>
+
+## Bundled Keycloak (eval only)
+
+When `keycloak.enabled: true`, the chart deploys the Bitnami Keycloak subchart with a pre-seeded realm and demo user. This is for evaluation and demos — not production. The realm import creates:
+
+- **Realm:** `cpk-dev`
+- **OIDC client:** `cpk-self-hosted` with secret `cpk-self-hosted-secret` (override via `auth.keycloakClient.clientId` / `auth.keycloakClient.clientSecret`)
+- **Demo user:** `engineer` / `engineer` (override via `auth.keycloakDemoUser`)
+- **Redirect URIs / web origins:** default `["*"]` for eval flexibility (override via `auth.keycloakClient.redirectUris` / `webOrigins`)
+
+The chart auto-wires `auth.issuer` to the in-cluster Keycloak service, so leaving `auth.issuer` empty when `keycloak.enabled: true` is intentional.
+
+For production self-hosted deployments, leave `keycloak.enabled: false` and point `auth.issuer` at your own IdP.
 
 ## Configuration reference
 
@@ -254,6 +389,7 @@ The tables below summarize the most common values. For every option, see `values
 | Key | Description | Default |
 |---|---|---|
 | `global.imageRegistry` | Registry prefix for unqualified image names | `""` |
+| `global.intelligenceImageRegistry` | Registry prefix specifically for the five Intelligence service images | `""` |
 | `global.imagePullSecrets` | Image pull secrets for private registries | `[]` |
 | `global.storageClass` | StorageClass override for bundled subcharts | `""` |
 
@@ -265,6 +401,7 @@ The tables below summarize the most common values. For every option, see `values
 | `database.port` | Postgres port | `5432` |
 | `database.name` | Database name | `intelligence` |
 | `database.existingSecret` | Pre-existing Secret with `database-url` | `""` |
+| `database.secretKeys.url` | Key inside the Secret holding the connection string | `database-url` |
 
 ### Redis
 
@@ -274,15 +411,28 @@ The tables below summarize the most common values. For every option, see `values
 | `redis.port` | Redis port | `6379` |
 | `redis.tls` | Require TLS (ElastiCache defaults to on) | `true` |
 | `redis.existingSecret` | Pre-existing Secret with `redis-url` | `""` |
+| `redis.secretKeys.url` | Key inside the Secret holding the connection URL | `redis-url` |
+
+### OpenSearch (optional)
+
+| Key | Description | Default |
+|---|---|---|
+| `openSearch.host` | OpenSearch domain endpoint | `""` |
+| `openSearch.port` | Port | `443` |
+| `openSearch.tls` | Require TLS | `true` |
+| `openSearch.existingSecret` | Pre-existing Secret with `opensearch-url` | `""` |
 
 ### Authentication
 
 | Key | Description | Default |
 |---|---|---|
-| `auth.deploymentMode` | `self-hosted` or `hosted` | `self-hosted` |
-| `auth.issuer` | OIDC issuer URL | `""` (required) |
+| `auth.deploymentMode` | `self-hosted` (single org) or `hosted` (multi-org) | `self-hosted` |
+| `auth.issuer` | OIDC issuer URL (auto-set when `keycloak.enabled: true`) | `""` |
 | `auth.existingSecret` | Secret with `auth-secret`, `auth-client-id`, `auth-client-secret` | `""` |
 | `auth.defaultOrganizationId` | Default organization ID in self-hosted mode | `default` |
+| `auth.providerId` | Stable identifier for the OIDC provider | `enterprise-sso` |
+| `auth.providerName` | Display name shown in the UI | `Enterprise SSO` |
+| `auth.trustHost` | Trust the `X-Forwarded-Host` header (set behind a reverse proxy) | `"true"` |
 
 ### Ingress
 
@@ -290,36 +440,35 @@ The tables below summarize the most common values. For every option, see `values
 |---|---|---|
 | `ingress.enabled` | Create Ingress resources | `true` |
 | `ingress.className` | `nginx` or `alb` | `nginx` |
-| `ingress.ui.host` | UI hostname | `""` (required) |
-| `ingress.api.host` | Dedicated API hostname (optional) | `""` (falls back to ui host) |
-| `ingress.realtimePlane.host` | Dedicated realtime hostname (optional) | `""` |
+| `ingress.ui.host` | UI hostname; the rule for this host routes `/api` and `/auth` to `app-api` and `/` to `app-frontend` | `""` (required) |
+| `ingress.api.host` | Optional dedicated API hostname. When set, this hostname routes `/` to `app-api`. When empty, no separate API rule is created — the UI host already serves the API. | `""` |
+| `ingress.realtimePlane.host` | Optional dedicated realtime hostname (only used when `realtimeGateway.enabled: true`) | `""` |
 | `ingress.tls` | TLS configuration | `[]` |
-| `ingress.websocket.enabled` | Add WebSocket-friendly annotations for the realtime plane | `false` |
+| `ingress.websocket.enabled` | Add WebSocket-friendly annotations (auto-enabled when realtime-gateway is enabled with nginx) | `false` |
 | `ingress.annotations` | Additional ingress annotations | `{}` |
 
-### Services (`appApi` and `appFrontend`)
+### Services (`appApi`, `appFrontend`, `realtimeGateway`)
 
-Both services accept the same shape.
+| Key | Description | Default (`appApi`) | Default (`appFrontend`) | Default (`realtimeGateway`) |
+|---|---|---|---|---|
+| `<svc>.enabled` | Enable the service | `true` | `true` | `false` |
+| `<svc>.replicaCount` | Replicas | `2` | `2` | `2` |
+| `<svc>.image.repository` | Image repository (published chart fully-qualifies these to `ghcr.io/copilotkit/intelligence/<svc>`) | `intelligence/app-api` | `intelligence/app-frontend` | `intelligence/realtime-gateway` |
+| `<svc>.image.tag` | Image tag (defaults to chart `appVersion`) | `""` | `""` | `""` |
+| `<svc>.resources` | CPU/memory requests | `250m` / `512Mi` | `100m` / `128Mi` | `500m` / `512Mi` |
+| `<svc>.autoscaling.enabled` | Enable HPA | `true` | `false` | `true` |
+| `<svc>.autoscaling.minReplicas` | HPA minimum | `2` | `2` | `2` |
+| `<svc>.autoscaling.maxReplicas` | HPA maximum | `10` | `4` | `10` |
+| `<svc>.serviceAccount.annotations` | Annotations on the ServiceAccount (IRSA, workload identity) | `{}` | `{}` | `{}` |
+| `<svc>.podAnnotations` | Pod template annotations (e.g. for Stakater Reloader on ESO secret rotation) | `{}` | n/a | `{}` |
 
-| Key | Description | Default (`appApi`) | Default (`appFrontend`) |
-|---|---|---|---|
-| `<svc>.enabled` | Enable the service | `true` | `true` |
-| `<svc>.replicaCount` | Replicas | `2` | `2` |
-| `<svc>.image.repository` | Image repository | `cpk-intelligence-app-api` | `cpk-intelligence-app-frontend` |
-| `<svc>.image.tag` | Image tag (defaults to chart `appVersion`) | `""` | `""` |
-| `<svc>.resources` | CPU/memory requests and limits | `250m` / `512Mi` | `100m` / `128Mi` |
-| `<svc>.autoscaling.enabled` | Enable HPA | `true` | `false` |
-| `<svc>.autoscaling.minReplicas` | HPA minimum | `2` | `2` |
-| `<svc>.autoscaling.maxReplicas` | HPA maximum | `10` | `4` |
-| `<svc>.serviceAccount.annotations` | Annotations on the ServiceAccount (IRSA, workload identity) | `{}` | `{}` |
-
-### Realtime gateway
+### Realtime gateway (additional keys)
 
 | Key | Description | Default |
 |---|---|---|
 | `realtimeGateway.enabled` | Enable the gateway | `false` |
 | `realtimeGateway.host` | `PHX_HOST` override | `""` |
-| `realtimeGateway.existingSecret` | Secret containing `RUNNER_AUTH_SECRET` and `SECRET_KEY_BASE` | `""` |
+| `realtimeGateway.existingSecret` | Secret containing keys `runner-auth-secret` and `secret-key-base` (mapped to env vars `RUNNER_AUTH_SECRET` / `SECRET_KEY_BASE`) | `""` |
 | `realtimeGateway.beam.clustering.enabled` | BEAM clustering across replicas | `true` |
 | `realtimeGateway.beam.cookieSecret.name` | Secret containing the BEAM cookie | `cpki-beam-cookie` |
 
@@ -329,11 +478,23 @@ Enabling the realtime gateway requires that either `realtimeGateway.existingSecr
 
 | Key | Description | Default |
 |---|---|---|
-| `externalSecrets.enabled` | Generate `ExternalSecret` resources | `true` |
+| `externalSecrets.enabled` | Generate `ExternalSecret` resources | `false` |
 | `externalSecrets.store.kind` | `ClusterSecretStore` or `SecretStore` | `ClusterSecretStore` |
 | `externalSecrets.store.name` | SecretStore name | `""` (required when enabled) |
 | `externalSecrets.refreshInterval` | How often ESO syncs | `1h` |
 | `externalSecrets.secrets.*` | Per-secret mappings — see `values.yaml` | — |
+
+### Self-hosted (chart-managed) secrets
+
+| Key | Description | Default |
+|---|---|---|
+| `selfHostedSecrets.enabled` | Create Kubernetes Secrets from inline values; auto-generates blank fields | `false` |
+| `selfHostedSecrets.db.url` | Postgres connection URL | `""` (required when enabled) |
+| `selfHostedSecrets.redis.url` | Redis connection URL | `""` (required when enabled) |
+| `selfHostedSecrets.auth.clientId` / `clientSecret` | OIDC client credentials | `""` (required when enabled) |
+| `selfHostedSecrets.auth.secret` | Internal auth signing secret | auto-generated when empty |
+| `selfHostedSecrets.realtimeGateway.runnerAuthSecret` / `secretKeyBase` | Runtime gateway secrets | auto-generated when empty |
+| `selfHostedSecrets.beam.releaseCookie` | BEAM clustering cookie | auto-generated when empty |
 
 ### Bundled subcharts (evaluation only)
 
@@ -352,17 +513,40 @@ Enabling the realtime gateway requires that either `realtimeGateway.existingSecr
 | `objectStorage.enabled` | Persist AG-UI events from the realtime gateway to S3-compatible storage | `false` |
 | `objectStorage.bucket` | Bucket name | `""` |
 | `objectStorage.region` | Bucket region | `us-east-1` |
-| `objectStorage.endpoint` | S3-compatible endpoint override | `""` |
+| `objectStorage.endpoint` | S3-compatible endpoint override (e.g. for MinIO) | `""` |
+| `objectStorage.forcePathStyle` | Force path-style addressing (required for MinIO) | `false` |
 | `objectStorage.existingSecret` | Secret with static access keys (optional if using IRSA) | `""` |
 
 ### Database migrations
 
 | Key | Description | Default |
 |---|---|---|
-| `migrations.enabled` | Run the migrations Job as a pre-install/pre-upgrade hook | `false` |
-| `migrations.image.repository` | Migrations image repository | `cpk-intelligence-db-migrations` |
+| `migrations.enabled` | Run the migrations Job. **Required for first install** — defaults to `false`. | `false` |
+| `migrations.image.repository` | Migrations image repository | `intelligence/db-migrations` |
 | `migrations.activeDeadlineSeconds` | Job deadline | `1800` |
 | `migrations.backoffLimit` | Retry count before failing | `3` |
+
+The migrations Job runs as a **pre-install/pre-upgrade** Helm hook (weight `-5`) when secrets are pre-created (External Secrets path or manual `existingSecret`) and as a **post-install/post-upgrade** hook (weight `5`) when secrets are managed by Helm itself (`selfHostedSecrets.enabled` or `postgresql.enabled`).
+
+### Thread culler (CronJob)
+
+| Key | Description | Default |
+|---|---|---|
+| `threadCuller.enabled` | Run a CronJob that soft-deletes stale threads in unlicensed deployments | `false` |
+| `threadCuller.schedule` | Cron expression | `0 * * * *` |
+| `threadCuller.staleHours` | Threads older than this many hours (since last update) are culled | `"3"` |
+| `threadCuller.batchSize` | Maximum threads to cull per run | `"1000"` |
+| `threadCuller.licenseSecret.existingSecret` | Secret containing `COPILOTKIT_LICENSE_TOKEN`. When set, the CronJob skips culling (licensed install). When empty, it culls. | `""` |
+
+### Shared config (CORS, logging)
+
+| Key | Description | Default |
+|---|---|---|
+| `config.logLevel` | Log level for all services (`trace`/`debug`/`info`/`warn`/`error`/`fatal`) | `info` |
+| `config.nodeEnv` | Node environment; affects cookie security and runtime defaults | `production` |
+| `config.appFrontendOrigin` | Browser origin allowed to perform authenticated bootstrap writes | `""` |
+| `config.publicAppOrigin` | Public UI origin used by server-side callbacks when distinct from `appFrontendOrigin` | `""` |
+| `config.allowedOrigins` | Additional CORS allowlist (comma-separated). Entries are exact origins (`https://app.example.com`) or Phoenix-style `//host` patterns | `""` |
 
 ### Pod-level controls
 

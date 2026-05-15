@@ -1,10 +1,17 @@
 import { Observable } from "rxjs";
 import { describe, it, expect, vi } from "vitest";
-import { AbstractAgent, BaseEvent, EventType, HttpAgent } from "@ag-ui/client";
+import {
+  AbstractAgent,
+  BaseEvent,
+  EventType,
+  HttpAgent,
+  RunAgentInput,
+} from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { handleRunAgent } from "../handlers/handle-run";
 import { CopilotRuntime } from "../core/runtime";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
+import { InMemoryAgentRunner } from "../runner/in-memory";
 
 describe("handleRunAgent", () => {
   const createMockRuntime = (
@@ -1287,6 +1294,95 @@ describe("handleRunAgent", () => {
       } finally {
         captureSpy.mockRestore();
       }
+    });
+  });
+
+  describe("agentId tagging on cloned agents", () => {
+    /**
+     * Pins handle-run.ts:40 — `agent.agentId = agentId` is set on the clone
+     * BEFORE the agent reaches the runner. Without it, InMemoryAgentRunner
+     * falls back to "default" when stamping historic runs, and listThreads
+     * returns rows with the wrong agentId. This breaks the agentId filter
+     * in `GET /threads?agentId=...` for the local-dev fallback.
+     *
+     * This test runs the full flow through InMemoryAgentRunner with an
+     * AbstractAgent whose own `agentId` field is undefined (matches the
+     * shape after `clone()` returns a fresh instance), and asserts the
+     * runner records the registry key, NOT "default".
+     */
+    class TaggingTestAgent extends AbstractAgent {
+      async runAgent(
+        _input: RunAgentInput,
+        options: { onEvent: (event: { event: BaseEvent }) => void },
+      ): Promise<void> {
+        // Emit a single TEXT_MESSAGE_END event so the run produces at least
+        // one event and gets persisted to historicRuns. RUN_STARTED /
+        // RUN_FINISHED are appended by the runner itself.
+        options.onEvent({
+          event: {
+            type: EventType.TEXT_MESSAGE_END,
+            messageId: "msg-1",
+          } as BaseEvent,
+        });
+      }
+
+      clone(): AbstractAgent {
+        // The fresh clone has NO agentId — the only way the runner can know
+        // the registry key is if handle-run.ts:40 stamps it before the run.
+        return new TaggingTestAgent();
+      }
+    }
+
+    const createRunRequestForAgent = (agentId: string, threadId: string) =>
+      new Request(`https://example.com/agent/${agentId}/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          threadId,
+          runId: `run-${threadId}`,
+          state: {},
+          messages: [],
+          tools: [],
+          context: [],
+          forwardedProps: {},
+        }),
+      });
+
+    it("propagates the registry agentId onto historic runs (NOT 'default')", async () => {
+      const runner = new InMemoryAgentRunner();
+      const agent = new TaggingTestAgent();
+      const runtime = new CopilotRuntime({
+        agents: { tagged: agent },
+        runner,
+      });
+
+      // Use a unique threadId so this test does not collide with other
+      // tests that share the InMemoryAgentRunner GLOBAL_STORE.
+      const threadId = `thread-tagged-${Date.now()}-${Math.random()}`;
+
+      const response = await handleRunAgent({
+        runtime,
+        request: createRunRequestForAgent("tagged", threadId),
+        agentId: "tagged",
+      });
+      expect(response.status).toBe(200);
+
+      // Drain the SSE stream so the underlying observable run completes —
+      // historicRuns is only populated AFTER the run finalizes.
+      const reader = response.body!.getReader();
+      while (true) {
+        const { done } = await reader.read();
+        if (done) break;
+      }
+
+      const threads = runner.listThreads();
+      const thisThread = threads.find((t) => t.id === threadId);
+      expect(thisThread).toBeDefined();
+      expect(thisThread!.agentId).toBe("tagged");
+      // Negative assertion locks the regression: a future change that drops
+      // the `agent.agentId = agentId` line in handle-run will surface as
+      // "default" here, not as a missing thread.
+      expect(thisThread!.agentId).not.toBe("default");
     });
   });
 });

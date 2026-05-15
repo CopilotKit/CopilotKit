@@ -2,9 +2,6 @@
   "title": "Agno",
   "root": true,
   "pages": [
-    "---Getting Started---",
-    "index",
-    "quickstart",
     "---Generative UI---",
     "...generative-ui",
     "---App Control---",

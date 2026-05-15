@@ -12,7 +12,7 @@
  *   NOTION_API_KEY    — for reading edited release notes from Notion (optional)
  *   GITHUB_OUTPUT     — CI output file
  *
- * Usage: tsx scripts/release/publish-release.ts --scope <monorepo|cli|angular>
+ * Usage: tsx scripts/release/publish-release.ts --scope <monorepo|angular>
  */
 
 import fs from "fs";
@@ -67,7 +67,7 @@ function isGreaterVersion(next: string, current: string): boolean {
   return a.patch > b.patch;
 }
 
-const VALID_SCOPES = ["monorepo", "cli", "angular"];
+const VALID_SCOPES = ["monorepo", "angular"];
 
 async function main() {
   const argv = process.argv.slice(2);

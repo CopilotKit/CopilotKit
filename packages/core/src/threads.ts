@@ -25,17 +25,17 @@ import {
   ofType,
   on,
   props,
-  type Store,
 } from "./utils/micro-redux";
+import type { Store } from "./utils/micro-redux";
 import {
   ɵphoenixChannel$,
   ɵphoenixSocket$,
-  type ɵPhoenixChannelSession,
   ɵobservePhoenixEvent$,
   ɵobservePhoenixJoinOutcome$,
   ɵobservePhoenixSocketHealth$,
   ɵobservePhoenixSocketSignals$,
 } from "./utils/phoenix-observable";
+import type { ɵPhoenixChannelSession } from "./utils/phoenix-observable";
 
 const THREADS_CHANNEL_EVENT = "thread_metadata";
 const THREAD_SUBSCRIBE_PATH = "/threads/subscribe";
@@ -380,6 +380,8 @@ interface ThreadStore {
   start(): void;
   stop(): void;
   setContext(context: ThreadRuntimeContext | null): void;
+  /** Re-fetches the thread list without resetting the current list to empty. */
+  refresh(): void;
   fetchNextPage(): void;
   renameThread(threadId: string, name: string): Promise<void>;
   archiveThread(threadId: string): Promise<void>;
@@ -965,6 +967,11 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
     setContext(context: ThreadRuntimeContext | null): void {
       store.dispatch(threadAdapterEvents.contextChanged({ context }));
     },
+    refresh(): void {
+      const { sessionId, context } = store.getState();
+      if (!context) return;
+      store.dispatch(threadRestEvents.listRequested({ sessionId }));
+    },
     fetchNextPage(): void {
       store.dispatch(threadAdapterEvents.fetchNextPageRequested());
     },
@@ -1012,3 +1019,10 @@ export const ɵselectThreadsError = selectThreadsError;
 export const ɵselectHasNextPage = selectHasNextPage;
 export const ɵselectIsFetchingNextPage = selectIsFetchingNextPage;
 export { createThreadStore as ɵcreateThreadStore };
+/**
+ * Number of consecutive WebSocket connection failures after which the
+ * threads channel tears itself down rather than retrying indefinitely.
+ * Exposed for tests so they can assert teardown semantics without
+ * hardcoding the threshold separately from production.
+ */
+export const ɵMAX_SOCKET_RETRIES = MAX_SOCKET_RETRIES;

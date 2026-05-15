@@ -40,6 +40,11 @@ export function Badge({
     openedRef.current = true;
     onTooltipOpen?.();
   };
+  // When the label is "?" (no probe data), hide the badge entirely —
+  // don't show tests that don't exist.
+  const isUnavailable = state.label === "?";
+  if (isUnavailable) return null;
+
   const inner = (
     <span
       className="whitespace-nowrap"

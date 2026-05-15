@@ -339,7 +339,6 @@ export function useCopilotChatInternal({
   const resolvedAgentId = existingConfig?.agentId ?? "default";
   const { agent } = useAgent({
     agentId: resolvedAgentId,
-    threadId: existingConfig?.threadId,
   });
 
   // Track the last agent instance we called connect() on. Without this,

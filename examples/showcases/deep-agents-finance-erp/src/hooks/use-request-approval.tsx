@@ -1,131 +1,127 @@
 "use client";
 
-import { useHumanInTheLoop, ToolCallStatus } from "@copilotkit/react-core/v2";
-import { z } from "zod";
+import {
+  ToolCallStatus,
+  useInterrupt,
+  useRenderTool,
+} from "@copilotkit/react-core/v2";
 import { InvoiceApprovalCard } from "@/components/chat/invoice-approval-card";
 import { InventoryReorderCard } from "@/components/chat/inventory-reorder-card";
 
-const invoiceSchema = z.object({
-  number: z.string().describe("Invoice number, e.g. INV-2026-003"),
-  client: z.string().describe("Client name"),
-  amount: z.number().describe("Invoice amount in USD"),
-  dueDate: z.string().describe("Due date in YYYY-MM-DD format"),
-});
+type ApprovalArgs = {
+  type: "invoice_payment" | "inventory_reorder";
+  invoices?: Array<{
+    number: string;
+    client: string;
+    amount: number;
+    dueDate: string;
+  }>;
+  totalAmount?: number;
+  action?: string;
+  items?: Array<{
+    sku: string;
+    name: string;
+    currentQty: number;
+    reorderQty: number;
+    unitCost: number;
+  }>;
+  estimatedTotal?: number;
+  supplier?: string;
+};
 
-const reorderItemSchema = z.object({
-  sku: z.string().describe("Item SKU"),
-  name: z.string().describe("Item name"),
-  currentQty: z.number().describe("Current quantity in stock"),
-  reorderQty: z.number().describe("Proposed quantity to order"),
-  unitCost: z.number().describe("Unit cost in USD"),
-});
+type InterruptValue = {
+  __copilotkit_interrupt_value__?: {
+    action?: string;
+    args?: ApprovalArgs;
+  };
+};
+
+// `event.value` arrives as a JSON-encoded string from the runtime, not an
+// object. Decode here so the rest of the hook can work with structured data.
+function parseInterruptValue(raw: unknown): InterruptValue | undefined {
+  if (raw == null) return undefined;
+  if (typeof raw === "string") {
+    try {
+      return JSON.parse(raw) as InterruptValue;
+    } catch {
+      return undefined;
+    }
+  }
+  if (typeof raw === "object") return raw as InterruptValue;
+  return undefined;
+}
 
 export function useRequestApproval() {
-  useHumanInTheLoop({
+  // Suppress the wildcard `useRenderTool({ name: "*" })` from rendering a generic
+  // ToolCard for `request_approval`. The actual approval UI is handled by
+  // useInterrupt below — the agent's `copilotkit_interrupt(action="request_approval", ...)`
+  // pauses the LangGraph run and emits an `on_interrupt` custom event, not a
+  // normal tool execution.
+  useRenderTool(
+    {
+      name: "request_approval",
+      render: () => null,
+    },
+    [],
+  );
+
+  useInterrupt({
     agentId: "finance_erp_agent",
-    name: "request_approval",
-    description:
-      "Request human approval for a financial action. MANDATORY before processing any payment or reorder. Use type 'invoice_payment' for invoice payments, 'inventory_reorder' for purchase orders.",
-    parameters: z.object({
-      type: z
-        .enum(["invoice_payment", "inventory_reorder"])
-        .describe("Approval type"),
-      invoices: z
-        .array(invoiceSchema)
-        .optional()
-        .describe("(invoice_payment) Invoices to approve"),
-      totalAmount: z
-        .number()
-        .optional()
-        .describe("(invoice_payment) Sum of all invoice amounts"),
-      action: z
-        .string()
-        .optional()
-        .describe("(invoice_payment) Action description"),
-      items: z
-        .array(reorderItemSchema)
-        .optional()
-        .describe("(inventory_reorder) Items to reorder"),
-      estimatedTotal: z
-        .number()
-        .optional()
-        .describe("(inventory_reorder) Total estimated cost"),
-      supplier: z
-        .string()
-        .optional()
-        .describe("(inventory_reorder) Supplier name"),
-    }),
-    render: (props: any) => {
-      const { args, status, respond, result } = props;
+    enabled: (event) => {
+      const value = parseInterruptValue(event.value);
+      return (
+        value?.__copilotkit_interrupt_value__?.action === "request_approval"
+      );
+    },
+    render: ({ event, resolve }) => {
+      const value = parseInterruptValue(event.value);
+      const args = value?.__copilotkit_interrupt_value__?.args;
+      if (!args) return null;
 
-      if (args?.type === "inventory_reorder") {
-        const cardArgs = {
-          items: args.items ?? [],
-          estimatedTotal: args.estimatedTotal ?? 0,
-          supplier: args.supplier,
-        };
+      const respond = async (result: unknown) => {
+        resolve(result);
+      };
 
-        if (status === ToolCallStatus.InProgress) {
-          return (
-            <InventoryReorderCard
-              status={status}
-              args={cardArgs}
-              respond={undefined}
-              result={undefined}
-            />
-          );
-        }
-        if (status === ToolCallStatus.Complete) {
-          return (
-            <InventoryReorderCard
-              status={status}
-              args={cardArgs}
-              respond={undefined}
-              result={result}
-            />
-          );
-        }
+      if (args.type === "inventory_reorder") {
+        const formatCurrency = (n: number) =>
+          new Intl.NumberFormat("en-US", {
+            style: "currency",
+            currency: "USD",
+          }).format(n);
+        const items = args.items ?? [];
+        const estimatedTotal = args.estimatedTotal ?? 0;
         return (
           <InventoryReorderCard
-            status={status}
-            args={cardArgs}
-            respond={respond}
+            status={ToolCallStatus.Executing}
+            args={{
+              items,
+              estimatedTotal,
+              supplier: args.supplier,
+            }}
+            respond={async (result) => {
+              if (result === undefined || result === null) {
+                await respond({
+                  approved: false,
+                  message: "Reorder skipped by user",
+                });
+              } else {
+                await respond(result);
+              }
+            }}
             result={undefined}
           />
         );
+        void formatCurrency;
       }
 
       // Default: invoice_payment
-      const cardArgs = {
-        invoices: args?.invoices ?? [],
-        totalAmount: args?.totalAmount ?? 0,
-        action: args?.action ?? "Process payment",
-      };
-
-      if (status === ToolCallStatus.InProgress) {
-        return (
-          <InvoiceApprovalCard
-            status={status}
-            args={cardArgs}
-            respond={undefined}
-            result={undefined}
-          />
-        );
-      }
-      if (status === ToolCallStatus.Complete) {
-        return (
-          <InvoiceApprovalCard
-            status={status}
-            args={cardArgs}
-            respond={undefined}
-            result={result}
-          />
-        );
-      }
+      const invoices = args.invoices ?? [];
+      const totalAmount = args.totalAmount ?? 0;
+      const action = args.action ?? "Process payment";
       return (
         <InvoiceApprovalCard
-          status={status}
-          args={cardArgs}
+          status={ToolCallStatus.Executing}
+          args={{ invoices, totalAmount, action }}
           respond={respond}
           result={undefined}
         />

@@ -10,16 +10,26 @@
  * Uses a single flat <table> — category headers and feature rows are
  * sibling <tr> elements sharing the same column structure.
  */
-import { useMemo } from "react";
+import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { DepthChip } from "./depth-chip";
+import { CellDrilldown } from "./cell-drilldown";
 import { IntegrationHeader } from "./integration-header";
 import { useCollapsible, CategoryHeaderRow } from "./collapsible-category";
-import { deriveDepth } from "./depth-utils";
-import type { CatalogCell, DepthResult } from "./depth-utils";
+import { buildCellModel } from "@/lib/cell-model";
+import type { CatalogCell } from "./depth-utils";
 import type { ParityTier } from "./parity-badge";
 import type { FilterMode } from "./filter-chips";
-import type { LiveStatusMap } from "@/lib/live-status";
+import { resolveCell } from "@/lib/live-status";
+import type { LiveStatusMap, ConnectionStatus } from "@/lib/live-status";
 import type { FeatureCategory } from "@/lib/registry";
+
+/** Identifies a selected cell for drilldown. */
+export interface SelectedCell {
+  slug: string;
+  featureId: string;
+  integrationName: string;
+  featureName: string;
+}
 
 export interface IntegrationInfo {
   slug: string;
@@ -42,6 +52,7 @@ export interface CellMatrixProps {
   defaultOpenCategories: Set<string>;
   filter: FilterMode;
   referenceSlug: string;
+  connection?: ConnectionStatus;
 }
 
 /** Tier sort order — reference first. */
@@ -73,6 +84,9 @@ interface CategorySectionProps {
   defaultOpen: boolean;
   filter: FilterMode;
   filterFeatureRow: (featureId: string) => boolean;
+  selectedCell: SelectedCell | null;
+  onCellClick: (cell: SelectedCell | null) => void;
+  connection: ConnectionStatus;
 }
 
 function CategorySection({
@@ -83,6 +97,9 @@ function CategorySection({
   defaultOpen,
   filter,
   filterFeatureRow,
+  selectedCell,
+  onCellClick,
+  connection,
 }: CategorySectionProps) {
   const { isOpen, toggle } = useCollapsible({
     name: cat.name,
@@ -126,21 +143,58 @@ function CategorySection({
             </td>
             {visibleIntegrations.map((int) => {
               const cell = cellIndex.get(`${int.slug}/${feature.id}`);
-              const cellStatus = cell?.status ?? "unshipped";
-              const depth: DepthResult = cell
-                ? deriveDepth(cell, liveStatus)
-                : { achieved: 0, isRegression: false };
+              const isNotSupported = cell?.status === "unsupported";
+              const model = buildCellModel(liveStatus, {
+                slug: int.slug,
+                featureId: feature.id,
+                isSupported: !isNotSupported,
+                isWired: cell?.status === "wired" || cell?.status === "stub",
+              });
+              const cellStatus = !model.supported
+                ? "unsupported"
+                : (cell?.status ?? "unshipped");
+
+              const isSelected =
+                selectedCell?.slug === int.slug &&
+                selectedCell?.featureId === feature.id;
 
               return (
                 <td
                   key={int.slug}
-                  className="border-l border-[var(--border)] px-3 py-1.5 align-middle text-center"
+                  className="border-l border-[var(--border)] px-3 py-1.5 align-middle text-center relative"
                 >
-                  <DepthChip
-                    depth={depth.achieved}
-                    status={cellStatus}
-                    regression={depth.isRegression}
-                  />
+                  <button
+                    type="button"
+                    data-testid={`cell-btn-${int.slug}-${feature.id}`}
+                    className="cursor-pointer bg-transparent border-none p-0"
+                    onClick={() =>
+                      isSelected
+                        ? onCellClick(null)
+                        : onCellClick({
+                            slug: int.slug,
+                            featureId: feature.id,
+                            integrationName: int.name,
+                            featureName: feature.name,
+                          })
+                    }
+                  >
+                    <DepthChip
+                      depth={model.achievedDepth as 0 | 1 | 2 | 3 | 4 | 5 | 6}
+                      status={cellStatus}
+                      chipColor={model.chipColor}
+                    />
+                  </button>
+                  {isSelected && (
+                    <CellDrilldown
+                      slug={int.slug}
+                      featureId={feature.id}
+                      integrationName={int.name}
+                      featureName={feature.name}
+                      liveStatus={liveStatus}
+                      connection={connection}
+                      onClose={() => onCellClick(null)}
+                    />
+                  )}
                 </td>
               );
             })}
@@ -163,7 +217,36 @@ export function CellMatrix({
   defaultOpenCategories,
   filter,
   referenceSlug,
+  connection = "live",
 }: CellMatrixProps) {
+  const [selectedCell, setSelectedCell] = useState<SelectedCell | null>(null);
+  const matrixRef = useRef<HTMLDivElement>(null);
+
+  // Close drilldown on click-outside
+  useEffect(() => {
+    if (!selectedCell) return;
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node;
+      const drilldown = document.querySelector(
+        "[data-testid='cell-drilldown']",
+      );
+      if (drilldown && !drilldown.contains(target)) {
+        // Don't interfere with cell button clicks — their onClick handles toggle
+        const cellBtn = (target as Element).closest?.(
+          "[data-testid^='cell-btn-']",
+        );
+        if (cellBtn) return;
+        setSelectedCell(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [selectedCell]);
+
+  const handleCellClick = useCallback((cell: SelectedCell | null) => {
+    setSelectedCell(cell);
+  }, []);
+
   const sortedIntegrations = useMemo(
     () => sortIntegrations(integrations),
     [integrations],
@@ -178,12 +261,9 @@ export function CellMatrix({
   }, [sortedIntegrations, filter, referenceSlug]);
 
   // Index cells by integration+feature for O(1) lookup.
-  // Skip starter cells (feature === null) — they have no feature row to render
-  // and would otherwise produce a bogus "<slug>/null" key that orphans them.
   const cellIndex = useMemo(() => {
     const idx = new Map<string, CatalogCell>();
     for (const c of cells) {
-      if (c.feature === null) continue;
       idx.set(`${c.integration}/${c.feature}`, c);
     }
     return idx;
@@ -211,34 +291,41 @@ export function CellMatrix({
     if (filter === "gaps") {
       return visibleIntegrations.some((int) => {
         const cell = cellIndex.get(`${int.slug}/${featureId}`);
-        return cell && cell.status === "unshipped";
+        // Unshipped = structural gap. Unsupported is NOT a gap — the
+        // framework architecturally cannot support it, so it's not work
+        // we expect to do.
+        if (!cell || cell.status === "unshipped") return true;
+        if (cell.status === "unsupported") return false;
+        // Red probes = functional gap (cell exists but failing)
+        if (cell.feature !== null) {
+          const cellState = resolveCell(liveStatus, int.slug, cell.feature);
+          if (cellState.rollup === "red") return true;
+        }
+        return false;
       });
     }
     if (filter === "regressions") {
-      // TODO: regression detection not yet implemented — see DepthResult.isRegression
-      // (always false). Until that lands, this filter shows no rows; the matrix
-      // surfaces an explicit empty-state below so users see *why*.
-      return false;
+      return visibleIntegrations.some((int) => {
+        const cell = cellIndex.get(`${int.slug}/${featureId}`);
+        if (!cell) return false;
+        const isNotSupported = cell.status === "unsupported";
+        const model = buildCellModel(liveStatus, {
+          slug: int.slug,
+          featureId,
+          isSupported: !isNotSupported,
+          isWired: cell.status === "wired" || cell.status === "stub",
+        });
+        return (
+          model.ceilingDepth > 0 && model.achievedDepth < model.ceilingDepth
+        );
+      });
     }
     return true;
   };
 
-  // Regressions filter has no implementation yet; surface an explicit empty
-  // state instead of silently rendering an empty grid.
-  if (filter === "regressions") {
-    return (
-      <div
-        data-testid="cell-matrix"
-        data-empty-reason="regressions-not-implemented"
-        className="rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-6 text-center text-sm text-[var(--text-muted)]"
-      >
-        Regression detection not yet implemented.
-      </div>
-    );
-  }
-
   return (
     <div
+      ref={matrixRef}
       data-testid="cell-matrix"
       className="overflow-auto rounded-lg border border-[var(--border)] bg-[var(--bg-surface)]"
     >
@@ -281,6 +368,9 @@ export function CellMatrix({
                 defaultOpen={defaultOpenCategories.has(cat.id)}
                 filter={filter}
                 filterFeatureRow={filterFeatureRow}
+                selectedCell={selectedCell}
+                onCellClick={handleCellClick}
+                connection={connection}
               />
             );
           })}

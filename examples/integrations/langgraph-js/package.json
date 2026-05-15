@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "concurrently \"npm run dev:ui\" \"npm run dev:agent\" --names ui,agent --prefix-colors blue,green --kill-others",
     "dev:debug": "LOG_LEVEL=debug npm run dev",
-    "dev:ui": "next dev",
-    "dev:agent": "./scripts/run-agent.sh || scripts\\run-agent.bat",
+    "dev:ui": "next dev --turbopack",
+    "dev:agent": "./scripts/run-agent.sh || scripts\\\\run-agent.bat",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -14,14 +14,27 @@
     "postinstall": "npm run install:agent"
   },
   "dependencies": {
-    "@copilotkit/react-core": "1.56.2",
-    "@copilotkit/react-ui": "1.56.2",
-    "@copilotkit/runtime": "1.56.2",
-    "next": "16.0.8",
-    "react": "^19.2.1",
-    "react-dom": "^19.2.1",
+    "@copilotkit/a2ui-renderer": "1.56.5",
+    "@copilotkit/react-core": "1.56.5",
+    "@copilotkit/react-ui": "1.56.5",
+    "@copilotkit/runtime": "1.56.5",
+    "@copilotkit/shared": "1.56.5",
+    "@radix-ui/react-checkbox": "^1.3.3",
+    "@radix-ui/react-label": "^2.1.8",
+    "@radix-ui/react-separator": "^1.1.8",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "hono": "^4.12.10",
+    "lucide-react": "^0.577.0",
+    "next": "16.1.6",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-rnd": "^10.5.2",
+    "react18-json-view": "^0.2.9",
+    "recharts": "^3.7.0",
     "shiki": "^3.22.0",
-    "zod": "^3.24.4"
+    "tailwind-merge": "^3.5.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -33,8 +46,8 @@
     "typescript": "^5"
   },
   "overrides": {
-    "@langchain/core": "^1.0.1",
-    "@langchain/langgraph": "1.0.2"
+    "@langchain/core": "1.1.44",
+    "@langchain/langgraph": "1.3.0"
   },
   "engines": {
     "node": ">=18.0.0"

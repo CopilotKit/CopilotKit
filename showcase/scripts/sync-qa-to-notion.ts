@@ -28,7 +28,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const ROOT = path.resolve(__dirname, "..");
-const PACKAGES_DIR = path.join(ROOT, "packages");
+const PACKAGES_DIR = path.join(ROOT, "integrations");
 const FEATURE_REGISTRY_PATH = path.join(
   ROOT,
   "shared",
@@ -341,9 +341,9 @@ async function syncToNotion(qaFiles: QAFile[]): Promise<void> {
               },
               {
                 text: {
-                  content: `showcase/packages/${file.integrationSlug}/qa/${file.featureId}.md`,
+                  content: `showcase/integrations/${file.integrationSlug}/qa/${file.featureId}.md`,
                   link: {
-                    url: `https://github.com/CopilotKit/CopilotKit/blob/main/showcase/packages/${file.integrationSlug}/qa/${file.featureId}.md`,
+                    url: `https://github.com/CopilotKit/CopilotKit/blob/main/showcase/integrations/${file.integrationSlug}/qa/${file.featureId}.md`,
                   },
                 },
                 annotations: { italic: true, color: "gray", code: true },

@@ -2,7 +2,7 @@
  * Pure formatter core for the SEO redirect-decommission report.
  *
  * Extracted from `redirect-decommission-report.ts` so the same body-rendering
- * logic the CLI prints to stdout can be driven from the showcase-ops probe
+ * logic the CLI prints to stdout can be driven from the showcase-harness probe
  * path without re-importing the PostHog HTTP client or spawning the CLI.
  * The CLI (`redirect-decommission-report.ts`) is now a thin wrapper around
  * `computeRedirectDecommission` — both code paths produce byte-identical
@@ -11,7 +11,7 @@
  *
  * Inputs are fully provided by the caller (events list + redirect
  * definitions + lookback window) so this module has no filesystem or
- * network side effects. That's the contract that lets the showcase-ops
+ * network side effects. That's the contract that lets the showcase-harness
  * probe driver call it from a cron tick without dragging PostHog or the
  * shell import graph in.
  */

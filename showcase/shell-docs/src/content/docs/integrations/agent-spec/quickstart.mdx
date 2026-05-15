@@ -4,6 +4,14 @@ description: Set up Agent Spec + AG‑UI and connect a CopilotKit UI. Includes p
 icon: "lucide/Play"
 hideTOC: true
 ---
+<OpsPlatformCTA
+  variant="card"
+  title="Ship Agent Spec to production"
+  body="Add persistent threads, observability, and the inspector with the Enterprise Intelligence Platform."
+  ctaLabel="Create a free account"
+  surface="docs_agent_spec_quickstart"
+/>
+
 ## Prerequisites
 
 - Node.js 20+
@@ -12,18 +20,21 @@ hideTOC: true
 ## Getting started
 
 <Steps>
-  <TailoredContent
-    className="step"
-    id="agent-spec-quickstart-path"
-    header={
-      <div>
-        <p className="text-xl font-semibold">Choose your starting point</p>
-        <p className="text-base">
-          You can either start fresh with our starter template or connect CopilotKit to an existing Agent Spec agent.
-        </p>
-      </div>
-    }
-  >
+  <Step>
+    ### Create a free account
+
+    <SignupLink surface="docs_agent_spec_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads, observability, and the inspector.
+  </Step>
+
+  <Step>
+      ### Choose your starting point
+
+      You can either start fresh with our starter template or connect CopilotKit to an existing Agent Spec agent.
+
+      <TailoredContent
+          className="step"
+          id="agent-spec-quickstart-path"
+      >
     <TailoredContentOption
       id="starter"
       title="Start from scratch"
@@ -108,7 +119,6 @@ hideTOC: true
           Clone the starter template
 
           ```bash
-          # If you are in the path integrations/agent-spec/python, then run the following command to go to root
           git clone https://github.com/CopilotKit/with-agent-spec.git
           cd with-agent-spec
           ```
@@ -335,7 +345,7 @@ hideTOC: true
           Wrap your application with the CopilotKit provider:
 
           ```tsx title="app/layout.tsx"
-          import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
+          import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
           import "@copilotkit/react-ui/v2/styles.css";
           import './globals.css';
 
@@ -448,6 +458,7 @@ hideTOC: true
     </Step>
     </TailoredContentOption>
   </TailoredContent>
+  </Step>
 </Steps>
 
 ## Tools and tool registry
@@ -495,3 +506,4 @@ Follow per-adapter tutorials: [LangGraph integration](/agent-spec/langgraph) and
 - Agent Spec docs: https://oracle.github.io/agent-spec/development/docs_home.html
 - Agent Spec x AG-UI tutorial: https://oracle.github.io/agent-spec/26.1.0/howtoguides/howto_ag_ui.html
 - Agent Spec Tracing: https://oracle.github.io/agent-spec/development/agentspec/tracing.html
+

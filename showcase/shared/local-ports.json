@@ -1,5 +1,5 @@
 {
-  "langgraph-python": 4100,
+  "langgraph-python": 3100,
   "langgraph-typescript": 3101,
   "langgraph-fastapi": 3102,
   "google-adk": 3103,
@@ -15,5 +15,6 @@
   "langroid": 3113,
   "ms-agent-python": 3114,
   "ms-agent-dotnet": 3115,
-  "spring-ai": 3116
+  "spring-ai": 3116,
+  "built-in-agent": 3117
 }

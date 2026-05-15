@@ -2,65 +2,80 @@
 title: Documentation Contributions
 ---
 
-We understand that as we move quickly, sometimes our documentation website can be a bit outdated. Therefore, we highly value contributions to our documentation.
+We move quickly and our docs sometimes lag the code, so contributions to the documentation site are very welcome.
+
+The documentation site lives in `showcase/shell-docs` inside the [CopilotKit](https://github.com/CopilotKit/CopilotKit) monorepo. It is a [Fumadocs](https://fumadocs.dev/) site; the legacy Nextra `docs/` tree is being phased out and is no longer the right place to author new content.
 
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/en/) 20.x or later
 - [pnpm](https://pnpm.io/) v9.x installed globally (`npm i -g pnpm@^9`)
+- [Nx](https://nx.dev/) — used to drive all tasks in the monorepo. You don't need to install it globally; the repo's `pnpm install` provides everything.
 
 ## How To Contribute
 
 <Steps>
   <Step>
-  ### Fork The Repository
+  ### Fork and clone the repository
 
-First, head over to the [CopilotKit GitHub repository](https://github.com/CopilotKit/CopilotKit) and create a fork.
-
-Then, clone the forked repository to your local machine:
+First, fork the [CopilotKit GitHub repository](https://github.com/CopilotKit/CopilotKit), then clone your fork:
 
 ```shell
 git clone https://github.com/<your-username>/CopilotKit
-cd CopilotKit/docs
+cd CopilotKit
+pnpm install
 ```
+
+`pnpm install` at the repo root installs every package in the workspace and wires up the lefthook pre-commit hook (lint, format, test) — running it once is required before your first commit.
 
   </Step>
   <Step>
-  ### Run the Documentation Site Locally
+  ### Run the documentation site locally
 
-To run the documentation site locally, install the dependencies and then start the docs in development mode:
+The shell-docs site is an Nx project (`@copilotkit/showcase-shell-docs`). Run it through Nx from the repo root:
 
 ```shell
-pnpm install
-pnpm run dev
+nx run shell-docs:dev
 ```
 
-The documentation site should be available at [http://localhost:3000](http://localhost:3000).
+The site is served at [http://localhost:3003](http://localhost:3003). If you prefer to run it from the package directory, `cd showcase/shell-docs && pnpm dev` works too — both go through the same script.
+
+<Callout type="info">
+Always prefer running tasks via Nx (`nx run`, `nx run-many`, `nx affected`) rather than the underlying tooling directly. This is the convention across the monorepo and ensures task dependencies are respected.
+</Callout>
 
   </Step>
   <Step>
-  ### Make Your Changes
+  ### Make your changes
 
-Now, you can make your changes to the documentation website.
+Documentation pages live under:
 
-- All documentation-related files are located in the docs repository
-- You may want to familiarize yourself with [Nextra](https://nextra.site/) to understand how the documentation website is structured.
+```
+showcase/shell-docs/src/content/docs/
+```
 
-        <Callout type="info">
+A few conventions to keep in mind:
 
-  Please ensure you review your changes for grammar, spelling and formatting errors. Also, ensure that links and images are working.
+- The site is built with **Fumadocs**. Content is authored in MDX. Frontmatter (`title`, `description`, `icon`, etc.) drives the sidebar and metadata.
+- For code samples, prefer the **`<Snippet>` region pattern** over hand-inlining code blocks. `<Snippet>` pulls real source from the showcase integrations under `showcase/integrations/<framework>/...` using region markers (e.g. `// region:my-region` … `// endregion:my-region`). This keeps every code sample tied to runnable demo code and lets us catch drift automatically. When in doubt, look at how an adjacent page references the same integration and follow that pattern.
+- Reference pages for hooks, components, and runtime APIs use a `<PropertyReference>` component to render the prop / parameter table. Match the style of an existing reference page in the same directory.
 
-    </Callout>
-</Step>
-<Step>
+<Callout type="info">
+Please review your changes for grammar, spelling, and formatting, and confirm that links, code blocks, and images render correctly in the local dev server before opening a PR.
+</Callout>
 
-### Review Changes & Submit Pull Request
+  </Step>
+  <Step>
 
-Once you are happy with your changes, you can commit and push them. Then, head over to the [Pull Requests page](https://github.com/CopilotKit/CopilotKit/pulls) and create a pull request. Thank you for your contribution!
+  ### Review changes and submit a pull request
+
+Before pushing, the lefthook pre-commit hook will run lint, format, and tests on the affected projects via Nx. If anything fails, fix the issue and commit again — don't bypass the hook.
+
+When you're happy with the result, push and open a PR against the [CopilotKit/CopilotKit](https://github.com/CopilotKit/CopilotKit/pulls) repo. Thank you for your contribution!
 
   </Step>
 </Steps>
 
 ## Need help?
 
-If you need help with anything, please don't hesitate to reach out to us on [Discord](https://discord.gg/6dffbvGU3D). We have a dedicated [#contributing](https://discord.com/channels/1122926057641742418/1183863183149117561) channel.
+If you need help with anything, please don't hesitate to reach out on [Discord](https://discord.gg/6dffbvGU3D). There's a dedicated [#contributing](https://discord.com/channels/1122926057641742418/1183863183149117561) channel.

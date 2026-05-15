@@ -1,4 +1,10 @@
 import { defineConfig } from "tsdown";
+import path from "path";
+
+// Resolved path to src/v2/context.ts — used to redirect the headless build's
+// relative ../context imports to the external @copilotkit/react-core/v2/context
+// package path, ensuring a shared React context instance at runtime.
+const contextModulePath = path.resolve(import.meta.dirname, "src/v2/context");
 
 export default defineConfig([
   {
@@ -21,9 +27,78 @@ export default defineConfig([
     exports: {
       customExports: (exports) => ({
         ...exports,
+        "./v2/context": {
+          import: "./dist/v2/context.mjs",
+          require: "./dist/v2/context.cjs",
+        },
+        "./v2/headless": {
+          import: "./dist/v2/headless.mjs",
+          require: "./dist/v2/headless.cjs",
+        },
         "./v2/styles.css": "./dist/v2/index.css",
       }),
     },
+  },
+  // v2/context is built separately into dist/v2/ so it produces a standalone
+  // file instead of being absorbed into shared chunks.
+  {
+    entry: {
+      context: "src/v2/context.ts",
+    },
+    format: ["esm", "cjs"],
+    dts: true,
+    sourcemap: true,
+    target: "es2022",
+    outDir: "dist/v2",
+    external: ["react", "@copilotkit/core", "@copilotkit/shared"],
+  },
+  // v2/headless: platform-agnostic hooks + CopilotKitCoreReact, used by
+  // @copilotkit/react-native. All @copilotkit/* deps are external — they
+  // contain no Node-only code that would break Metro. Keeping them external
+  // (rather than inlining) ensures the CopilotKitCoreReact class is the same
+  // nominal type as the one in v2/context, avoiding unsafe `as unknown as` casts.
+  {
+    entry: {
+      headless: "src/v2/headless.ts",
+    },
+    format: ["esm", "cjs"],
+    dts: true,
+    sourcemap: true,
+    target: "es2022",
+    outDir: "dist/v2",
+    plugins: [
+      {
+        name: "externalize-context",
+        resolveId(source, importer) {
+          // When any file imports ../context or ./context, redirect to
+          // the external package path so the context singleton is shared.
+          if (importer && /context(\.ts)?$/.test(source)) {
+            const resolved = path.resolve(path.dirname(importer), source);
+            if (
+              resolved === contextModulePath ||
+              resolved === contextModulePath + ".ts"
+            ) {
+              return {
+                id: "@copilotkit/react-core/v2/context",
+                external: true,
+              };
+            }
+          }
+          return null;
+        },
+      },
+    ],
+    external: [
+      "react",
+      "@ag-ui/client",
+      "@ag-ui/core",
+      "@copilotkit/core",
+      "@copilotkit/shared",
+      "@copilotkit/react-core/v2/context",
+      "uuid",
+      "zod",
+      "rxjs",
+    ],
   },
   {
     entry: ["src/index.tsx"],

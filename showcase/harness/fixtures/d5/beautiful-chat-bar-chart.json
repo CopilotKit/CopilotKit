@@ -1,0 +1,29 @@
+{
+  "_comment": "D5 fixture for /demos/beautiful-chat — Bar Chart pill. Direct barChart toolCall, mirrors feature-parity's 'expenses by category' fixture.",
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: bar chart of expenses by category",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_bc_bar_chart_001",
+            "name": "barChart",
+            "arguments": "{\"title\":\"Expenses by Category\",\"description\":\"Monthly expense breakdown\",\"data\":[{\"label\":\"Rent\",\"value\":15000},{\"label\":\"Salaries\",\"value\":80000},{\"label\":\"Marketing\",\"value\":12000},{\"label\":\"Travel\",\"value\":5000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: bar chart of expenses by category",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Bar chart rendered above — Salaries dominate at $80k, with Rent at $15k as the next-largest category."
+      }
+    }
+  ]
+}

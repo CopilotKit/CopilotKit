@@ -84,6 +84,7 @@ const cells: CatalogCell[] = [
     feature: "agentic-chat",
     feature_name: "Agentic Chat",
     status: "wired",
+    max_depth: 0,
     category: "chat-ui",
     category_name: "Chat & UI",
   },
@@ -94,6 +95,7 @@ const cells: CatalogCell[] = [
     feature: "agentic-chat",
     feature_name: "Agentic Chat",
     status: "unshipped",
+    max_depth: 0,
     category: "chat-ui",
     category_name: "Chat & UI",
   },
@@ -104,6 +106,7 @@ const cells: CatalogCell[] = [
     feature: "auth",
     feature_name: "Authentication",
     status: "wired",
+    max_depth: 0,
     category: "platform",
     category_name: "Platform",
   },
@@ -114,6 +117,7 @@ const cells: CatalogCell[] = [
     feature: "auth",
     feature_name: "Authentication",
     status: "stub",
+    max_depth: 0,
     category: "platform",
     category_name: "Platform",
   },
@@ -237,6 +241,7 @@ describe("CellMatrix", () => {
         feature: "voice",
         feature_name: "Voice",
         status: "unshipped",
+        max_depth: 0,
         category: "lab",
         category_name: "Lab",
       },
@@ -247,6 +252,7 @@ describe("CellMatrix", () => {
         feature: "voice",
         feature_name: "Voice",
         status: "unshipped",
+        max_depth: 0,
         category: "lab",
         category_name: "Lab",
       },
@@ -279,61 +285,68 @@ describe("CellMatrix", () => {
     expect(wired.queryByText("Authentication")).not.toBeNull();
   });
 
-  it("renders empty-state when filter=regressions (not yet implemented)", () => {
-    const { getByTestId, getByText } = render(
+  it("filters to rows with regressions when filter=regressions", () => {
+    // Uses buildCellModel D3/D4/D5 depth model (not the old D0-D6 ladder).
+    //
+    // lgp/agentic-chat: e2e row GREEN (D3 passes), chat row GREEN (D4 passes),
+    //   but "agentic-chat" has a CATALOG_TO_D5_KEY mapping so ceiling=5.
+    //   No D5 PB rows → D5 status=null → achieved=4 < ceiling=5 → REGRESSION.
+    //
+    // lgp/no-d5-feature: e2e row GREEN (D3 passes), chat row GREEN (D4 passes),
+    //   "no-d5-feature" has NO CATALOG_TO_D5_KEY mapping → ceiling=4.
+    //   achieved=4 === ceiling=4 → NOT a regression.
+    const regressFeatures = [
+      { id: "agentic-chat", name: "Agentic Chat", category: "chat-ui" },
+      { id: "no-d5-feature", name: "No D5 Feature", category: "platform" },
+    ];
+    const regressCells: CatalogCell[] = [
+      {
+        id: "lgp/agentic-chat",
+        integration: "lgp",
+        integration_name: "LangGraph Python",
+        feature: "agentic-chat",
+        feature_name: "Agentic Chat",
+        status: "wired",
+        max_depth: 3,
+        category: "chat-ui",
+        category_name: "Chat & UI",
+      },
+      {
+        id: "lgp/no-d5-feature",
+        integration: "lgp",
+        integration_name: "LangGraph Python",
+        feature: "no-d5-feature",
+        feature_name: "No D5 Feature",
+        status: "wired",
+        max_depth: 0,
+        category: "platform",
+        category_name: "Platform",
+      },
+    ];
+    const live = mapOf([
+      row("e2e:lgp/agentic-chat", "e2e", "green"),
+      row("e2e:lgp/no-d5-feature", "e2e", "green"),
+      row("chat:lgp", "chat", "green"),
+    ]);
+    const oneIntegration = [
+      { slug: "lgp", name: "LangGraph Python", tier: "reference" as const },
+    ];
+    const { queryByText } = render(
       <CellMatrix
-        cells={cells}
+        cells={regressCells}
         categories={categories}
-        features={features}
-        integrations={integrations}
-        liveStatus={new Map()}
+        features={regressFeatures}
+        integrations={oneIntegration}
+        liveStatus={live}
         defaultOpenCategories={new Set(["chat-ui", "platform"])}
         filter="regressions"
         referenceSlug="lgp"
       />,
     );
-    const root = getByTestId("cell-matrix");
-    expect(root.getAttribute("data-empty-reason")).toBe(
-      "regressions-not-implemented",
-    );
-    expect(
-      getByText(/Regression detection not yet implemented/i),
-    ).toBeDefined();
-  });
-
-  it("skips starter cells (feature===null) without orphaning the cell index", () => {
-    // A starter cell has `feature: null`. It should be safely ignored by the
-    // matrix (no row to render) and must not pollute the cell-index with
-    // "<slug>/null" keys.
-    const starterCell: CatalogCell = {
-      id: "lgp/__starter",
-      integration: "lgp",
-      integration_name: "LangGraph Python",
-      feature: null,
-      feature_name: null,
-      status: "wired",
-      category: null,
-      category_name: null,
-    };
-    const { getAllByTestId, queryByText } = render(
-      <CellMatrix
-        cells={[...cells, starterCell]}
-        categories={categories}
-        features={features}
-        integrations={integrations}
-        liveStatus={new Map()}
-        defaultOpenCategories={new Set(["chat-ui", "platform"])}
-        filter="all"
-        referenceSlug="lgp"
-      />,
-    );
-    // Only the 4 (feature × integration) chips render — the starter cell
-    // does not produce an additional chip and does not collide with any
-    // existing key.
-    const depthChips = getAllByTestId("depth-chip");
-    expect(depthChips.length).toBe(4);
-    // No spurious "null" leak in the rendered output
-    expect(queryByText(/\bnull\b/)).toBeNull();
+    // agentic-chat: achieved=4 < ceiling=5 → regression → visible
+    expect(queryByText("Agentic Chat")).not.toBeNull();
+    // no-d5-feature: achieved=4 === ceiling=4 → at ceiling → hidden
+    expect(queryByText("No D5 Feature")).toBeNull();
   });
 
   it("filters to show only reference integration when filter=reference", () => {
@@ -355,5 +368,225 @@ describe("CellMatrix", () => {
     expect(headers[0].getAttribute("data-testid")).toBe(
       "integration-header-lgp",
     );
+  });
+
+  it("gaps filter includes rows where a cell has red probes (functional gap)", () => {
+    // lgp/agentic-chat is wired with health=red → functional gap
+    // lgp/auth is wired with health=green → not a gap
+    const gapCells: CatalogCell[] = [
+      {
+        id: "lgp/agentic-chat",
+        integration: "lgp",
+        integration_name: "LangGraph Python",
+        feature: "agentic-chat",
+        feature_name: "Agentic Chat",
+        status: "wired",
+        max_depth: 0,
+        category: "chat-ui",
+        category_name: "Chat & UI",
+      },
+      {
+        id: "lgp/auth",
+        integration: "lgp",
+        integration_name: "LangGraph Python",
+        feature: "auth",
+        feature_name: "Authentication",
+        status: "wired",
+        max_depth: 0,
+        category: "platform",
+        category_name: "Platform",
+      },
+    ];
+    const live = mapOf([
+      row("health:lgp", "health", "red"),
+      row("e2e:lgp/agentic-chat", "e2e", "red"),
+    ]);
+    const oneIntegration = [
+      { slug: "lgp", name: "LangGraph Python", tier: "reference" as const },
+    ];
+    const { queryByText } = render(
+      <CellMatrix
+        cells={gapCells}
+        categories={categories}
+        features={features}
+        integrations={oneIntegration}
+        liveStatus={live}
+        defaultOpenCategories={new Set(["chat-ui", "platform"])}
+        filter="gaps"
+        referenceSlug="lgp"
+      />,
+    );
+    // agentic-chat has red rollup → visible as functional gap
+    expect(queryByText("Agentic Chat")).not.toBeNull();
+    // auth also visible because health:lgp is red → rollup is red for it too
+    expect(queryByText("Authentication")).not.toBeNull();
+  });
+
+  it("clicking a cell opens the drilldown panel", () => {
+    const live = mapOf([
+      row("health:lgp", "health", "green"),
+      row("agent:lgp", "agent", "green"),
+    ]);
+    const { getByTestId, queryByTestId } = render(
+      <CellMatrix
+        cells={cells}
+        categories={categories}
+        features={features}
+        integrations={integrations}
+        liveStatus={live}
+        defaultOpenCategories={new Set(["chat-ui"])}
+        filter="all"
+        referenceSlug="lgp"
+      />,
+    );
+    // Initially no drilldown
+    expect(queryByTestId("cell-drilldown")).toBeNull();
+    // Click the lgp/agentic-chat cell button
+    fireEvent.click(getByTestId("cell-btn-lgp-agentic-chat"));
+    // Drilldown should now be visible
+    expect(queryByTestId("cell-drilldown")).not.toBeNull();
+  });
+
+  it("renders unsupported cells with a distinct chip from unshipped", () => {
+    // crewai/auth is unsupported (architectural limit), lgp/auth is wired,
+    // crewai/agentic-chat is unshipped. The unsupported chip and unshipped
+    // chip must render with different data-status attributes.
+    const mixedCells: CatalogCell[] = [
+      {
+        id: "lgp/agentic-chat",
+        integration: "lgp",
+        integration_name: "LangGraph Python",
+        feature: "agentic-chat",
+        feature_name: "Agentic Chat",
+        status: "wired",
+        max_depth: 0,
+        category: "chat-ui",
+        category_name: "Chat & UI",
+      },
+      {
+        id: "crewai/agentic-chat",
+        integration: "crewai",
+        integration_name: "CrewAI",
+        feature: "agentic-chat",
+        feature_name: "Agentic Chat",
+        status: "unshipped",
+        max_depth: 0,
+        category: "chat-ui",
+        category_name: "Chat & UI",
+      },
+      {
+        id: "lgp/auth",
+        integration: "lgp",
+        integration_name: "LangGraph Python",
+        feature: "auth",
+        feature_name: "Authentication",
+        status: "wired",
+        max_depth: 0,
+        category: "platform",
+        category_name: "Platform",
+      },
+      {
+        id: "crewai/auth",
+        integration: "crewai",
+        integration_name: "CrewAI",
+        feature: "auth",
+        feature_name: "Authentication",
+        status: "unsupported",
+        max_depth: 0,
+        category: "platform",
+        category_name: "Platform",
+      },
+    ];
+
+    const { getAllByTestId } = render(
+      <CellMatrix
+        cells={mixedCells}
+        categories={categories}
+        features={features}
+        integrations={integrations}
+        liveStatus={new Map()}
+        defaultOpenCategories={new Set(["chat-ui", "platform"])}
+        filter="all"
+        referenceSlug="lgp"
+      />,
+    );
+    const chips = getAllByTestId("depth-chip");
+    const statuses = chips.map((c) => c.getAttribute("data-status"));
+    expect(statuses).toContain("unshipped");
+    expect(statuses).toContain("unsupported");
+  });
+
+  it("gaps filter excludes rows where every cell is unsupported (architectural limit, not work)", () => {
+    // crewai/voice is unsupported (framework can't do this), lgp/voice unsupported too.
+    // Under gaps, this row must NOT show — it's not a gap because no work is expected.
+    const extendedCategories: FeatureCategory[] = [
+      { id: "chat-ui", name: "Chat & UI" },
+      { id: "platform", name: "Platform" },
+      { id: "lab", name: "Lab" },
+    ];
+    const extendedFeatures = [
+      ...features,
+      { id: "voice", name: "Voice", category: "lab" },
+    ];
+    const unsupportedCells: CatalogCell[] = [
+      ...cells,
+      {
+        id: "lgp/voice",
+        integration: "lgp",
+        integration_name: "LangGraph Python",
+        feature: "voice",
+        feature_name: "Voice",
+        status: "unsupported",
+        max_depth: 0,
+        category: "lab",
+        category_name: "Lab",
+      },
+      {
+        id: "crewai/voice",
+        integration: "crewai",
+        integration_name: "CrewAI",
+        feature: "voice",
+        feature_name: "Voice",
+        status: "unsupported",
+        max_depth: 0,
+        category: "lab",
+        category_name: "Lab",
+      },
+    ];
+
+    const { queryByText } = render(
+      <CellMatrix
+        cells={unsupportedCells}
+        categories={extendedCategories}
+        features={extendedFeatures}
+        integrations={integrations}
+        liveStatus={new Map()}
+        defaultOpenCategories={new Set(["chat-ui", "platform", "lab"])}
+        filter="gaps"
+        referenceSlug="lgp"
+      />,
+    );
+    // Voice row must NOT be visible — every cell unsupported is not a gap.
+    expect(queryByText("Voice")).toBeNull();
+  });
+
+  it("clicking the same cell again closes the drilldown", () => {
+    const { getByTestId, queryByTestId } = render(
+      <CellMatrix
+        cells={cells}
+        categories={categories}
+        features={features}
+        integrations={integrations}
+        liveStatus={new Map()}
+        defaultOpenCategories={new Set(["chat-ui"])}
+        filter="all"
+        referenceSlug="lgp"
+      />,
+    );
+    fireEvent.click(getByTestId("cell-btn-lgp-agentic-chat"));
+    expect(queryByTestId("cell-drilldown")).not.toBeNull();
+    // Click same cell again to toggle off
+    fireEvent.click(getByTestId("cell-btn-lgp-agentic-chat"));
+    expect(queryByTestId("cell-drilldown")).toBeNull();
   });
 });

@@ -115,7 +115,7 @@ export default function DemoViewerPage() {
               src={iframeSrc}
               className="h-full w-full border-0 rounded-xl"
               title={`${demo.name} demo`}
-              allow="clipboard-read; clipboard-write"
+              allow="clipboard-read; clipboard-write; microphone"
               sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
             />
           ) : (

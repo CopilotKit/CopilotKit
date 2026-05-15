@@ -1,4 +1,4 @@
-import { useCopilotKit } from "../providers/CopilotKitProvider";
+import { useCopilotKit } from "../context";
 import {
   CopilotKitCoreRuntimeConnectionStatus,
   ɵcreateThreadStore,
@@ -254,6 +254,13 @@ export function useThreads({
   // runtime recovers, and we don't re-trigger a fetch storm on transitions.
   const runtimeStatus = copilotkit.runtimeConnectionStatus;
   useEffect(() => {
+    copilotkit.registerThreadStore(agentId, store);
+    return () => {
+      copilotkit.unregisterThreadStore(agentId);
+    };
+  }, [copilotkit, agentId, store]);
+
+  useEffect(() => {
     if (!copilotkit.runtimeUrl) {
       store.setContext(null);
       return;
@@ -283,7 +290,6 @@ export function useThreads({
     headersKey,
     copilotkit.intelligence?.wsUrl,
     agentId,
-    copilotkit.headers,
     includeArchived,
     limit,
   ]);

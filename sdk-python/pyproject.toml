@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "copilotkit"
-version = "0.1.87"
+version = "0.1.88"
 description = "CopilotKit python SDK"
 authors = ["Markus Ecker <markus.ecker@gmail.com>"]
 license = "MIT"
@@ -21,20 +21,24 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
 packages = [{ include = "copilotkit" }]
 include = ["copilotkit/*.json", "copilotkit/py.typed"]
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.14"
+python = ">=3.10,<3.15"
 langgraph = { version = ">=0.3.25,<2" }
 langchain = { version = ">=0.3.0" }
-crewai = { version = ">=0.118.0", optional = true, python = ">=3.10,<3.13" }
-ag-ui-langgraph = { version = ">=0.0.29", extras = ["fastapi"] }
+crewai = { version = ">=0.118.0", optional = true, python = ">=3.10,<3.14" }
+ag-ui-langgraph = { version = ">=0.0.35", extras = ["fastapi"] }
 ag-ui-protocol = ">=0.1.15"
 fastapi = ">=0.115.0,<1.0.0"
 partialjson = "^0.0.8"
 toml = "^0.10.2"
+# Pin transitive: cp314 wheels first appear in 2.35.0; older versions
+# would force a Rust source build that fails on PyO3 0.24 (capped at 3.13).
+pydantic-core = ">=2.35.0"
 
 [tool.poetry.extras]
 crewai = ["crewai"]

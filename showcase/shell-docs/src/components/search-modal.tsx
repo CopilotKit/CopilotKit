@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import searchIndex from "@/data/search-index.json";
 import type { Registry } from "@/lib/registry";
 
+// Integrations explorer + per-integration demo pages live on the shell
+// host (showcase.copilotkit.ai), not on shell-docs. Search results that
+// surface an integration or one of its demos route there directly.
+const SHELL_HOST = process.env.NEXT_PUBLIC_SHELL_URL ?? "http://localhost:3000";
+
 interface SearchResult {
   type: "integration" | "feature" | "demo" | "page" | "reference" | "ag-ui";
   title: string;
@@ -115,7 +120,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
             type: "integration",
             title: i.name,
             subtitle: (i.description || "").slice(0, 80),
-            href: `/integrations/${i.slug}`,
+            href: `${SHELL_HOST}/integrations/${i.slug}`,
           });
         }
         for (const d of i.demos || []) {
@@ -128,7 +133,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
               type: "demo",
               title: d.name,
               subtitle: `${i.name} · ${d.description}`,
-              href: `/integrations/${i.slug}/${d.id}`,
+              href: `${SHELL_HOST}/integrations/${i.slug}/${d.id}`,
             });
           }
         }

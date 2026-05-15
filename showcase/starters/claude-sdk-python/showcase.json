@@ -1,8 +1,0 @@
-{
-  "slug": "claude-sdk-python",
-  "name": "Claude SDK Python",
-  "language": "python",
-  "agentDir": "agent",
-  "agentPort": 8123,
-  "generated": true
-}

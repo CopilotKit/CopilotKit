@@ -9,9 +9,11 @@ from enum import Enum
 #     churn = "churn"
 #     custom = "custom"
 
+
 # A single metric description in the dashboard spec, matching src/lib/types.ts
 class Metric(BaseModel):
     """A single metric in the dashboard state, should always have a unique id."""
+
     id: str
     title: str
     value: str
@@ -23,16 +25,22 @@ class Metric(BaseModel):
 ChartDataRecord = Dict[str, Union[str, float, int]]
 ChartDataMap = Dict[str, List[ChartDataRecord]]
 
+
 class Chart(BaseModel):
     """A single chart description in the dashboard spec."""
-    type: Literal["line", "bar", "pie"] = Field(description='Chart type: "line" | "bar" | "pie"')
+
+    type: Literal["line", "bar", "pie"] = Field(
+        description='Chart type: "line" | "bar" | "pie"'
+    )
     title: str
     x: Optional[str] = None
     y: Optional[str] = None
     data: List[ChartDataRecord] = Field(default_factory=list)
 
+
 class Dashboard(BaseModel):
     """A dashboard spec matching the UI shape."""
+
     title: str
     pinnedMetrics: List[Metric] = Field(default_factory=list)
     charts: List[Chart] = Field(default_factory=list)

@@ -10,6 +10,7 @@ export function ScarfPixel() {
       referrerPolicy="no-referrer-when-downgrade"
       src={`https://static.scarf.sh/a.png?x-pxid=${SCARF_PIXEL_ID}`}
       alt=""
+      aria-hidden="true"
       style={{
         position: "absolute",
         width: "1px",

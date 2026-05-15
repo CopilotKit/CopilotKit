@@ -2,9 +2,14 @@
 /**
  * Per-integration L1-L4 strip: four badges showing Up / Wired / Chats / Tools.
  * Reads integration-scoped rows from the live-status map.
+ *
+ * No longer used by Coverage tab (overlay-column-header.tsx).
+ * Still used by: feature-grid.tsx (Baseline tab legacy header),
+ * packages-section.tsx.
  */
 import { ToneChip } from "@/components/badges";
 import { keyFor, type LiveStatusMap, type BadgeTone } from "@/lib/live-status";
+import { formatTs } from "@/lib/format-ts";
 import type { Integration } from "@/lib/registry";
 
 interface LevelBadge {
@@ -23,18 +28,28 @@ function resolveBadge(
   if (!row) {
     return { name: label, tone: "gray", title: `${label}: no data yet` };
   }
-  const tone: BadgeTone =
-    row.state === "green"
-      ? "green"
-      : row.state === "red"
-        ? "red"
-        : row.state === "degraded"
-          ? "amber"
-          : "gray";
+  // Exhaustive state→tone mapping (mirrors cell-model.ts stateToTestStatus)
+  let tone: BadgeTone;
+  switch (row.state) {
+    case "green":
+      tone = "green";
+      break;
+    case "red":
+      tone = "red";
+      break;
+    case "degraded":
+      tone = "amber";
+      break;
+    default: {
+      const _exhaustive: never = row.state;
+      void _exhaustive;
+      tone = "gray";
+    }
+  }
   return {
     name: label,
     tone,
-    title: `${label}: ${row.state} since ${row.observed_at}`,
+    title: `${label}: ${row.state} since ${formatTs(row.observed_at)}`,
   };
 }
 
@@ -66,7 +81,7 @@ export function LevelStrip({
 
   return (
     <div
-      className="flex items-center gap-1"
+      className="flex items-center justify-center gap-1"
       data-testid="level-strip"
       data-slug={slug}
     >

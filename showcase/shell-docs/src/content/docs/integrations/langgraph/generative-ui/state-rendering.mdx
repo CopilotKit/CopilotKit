@@ -3,7 +3,6 @@ title: State Rendering
 icon: "lucide/Bot"
 description: Render your agent's state with custom UI components in real-time.
 ---
-
 <IframeSwitcher
   id="agent-state-example"
   exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_generative_ui?sidebar=false&chatDefaultOpen=false"
@@ -20,7 +19,6 @@ State rendering lets you build UI that reflects your agent's state in real-time.
 ## When should I use this?
 
 Use state rendering when you want to:
-
 - Show real-time progress (e.g. "Researching... 2/5 complete")
 - Display drafts that update as the agent works
 - Build dashboards that reflect agent state
@@ -49,16 +47,18 @@ Use state rendering when you want to:
         </Tab>
         <Tab value="TypeScript">
           ```typescript title="agent-js/src/agent.ts"
+          import { StateSchema } from "@langchain/langgraph";
+          import { CopilotKitStateSchema } from "@copilotkit/sdk-js/langgraph";
+          import { z } from "zod";
 
-          export const AgentStateAnnotation = Annotation.Root({
-            searches: Annotation<{ query: string; done: boolean }[]>,
-            ...CopilotKitStateAnnotation.spec,
+          export const AgentStateSchema = new StateSchema({
+            searches: z.array(z.object({ query: z.string(), done: z.boolean() })).default(() => []),
+            ...CopilotKitStateSchema.fields,
           });
-          export type AgentState = typeof AgentStateAnnotation.State;
+          export type AgentState = typeof AgentStateSchema.State;
           ```
         </Tab>
     </Tabs>
-
   </Step>
   <Step>
     ### Emit state updates from your agent
@@ -68,6 +68,7 @@ Use state rendering when you want to:
     <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
       <Tab value="Python">
         ```python title="agent.py"
+        import asyncio
         from copilotkit.langgraph import copilotkit_emit_state # [!code highlight]
         from langchain_core.runnables import RunnableConfig
 
@@ -84,7 +85,7 @@ Use state rendering when you want to:
                 search["done"] = True
                 await copilotkit_emit_state(config, state) # [!code highlight]
 
-            response = await ChatOpenAI(model="gpt-5.2").ainvoke(
+            response = await ChatOpenAI(model="gpt-5.4").ainvoke(
                 [SystemMessage(content="You are a helpful assistant."), *state["messages"]],
                 config,
             )
@@ -93,6 +94,7 @@ Use state rendering when you want to:
       </Tab>
       <Tab value="TypeScript">
         ```typescript title="agent-js/src/agent.ts"
+        import { copilotkitEmitState } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
 
         async function chat_node(state: AgentState, config: RunnableConfig) {
           state.searches = [
@@ -108,7 +110,7 @@ Use state rendering when you want to:
             await copilotkitEmitState(config, state); // [!code highlight]
           }
 
-          const response = await new ChatOpenAI({ model: "gpt-5.2" }).invoke(
+          const response = await new ChatOpenAI({ model: "gpt-5.4" }).invoke(
             [new SystemMessage("You are a helpful assistant."), ...state.messages],
             config,
           );
@@ -117,7 +119,6 @@ Use state rendering when you want to:
         ```
       </Tab>
     </Tabs>
-
   </Step>
   <Step>
     ### Render state in the UI
@@ -125,6 +126,7 @@ Use state rendering when you want to:
     Use the `useAgent` hook to access agent state anywhere in your app. You can render it in the chat, in dashboards, sidebars, or custom layouts.
 
     ```tsx title="app/page.tsx"
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 
     function YourMainContent() {
       // [!code highlight:3]
@@ -145,12 +147,10 @@ Use state rendering when you want to:
       );
     }
     ```
-
   </Step>
   <Step>
     ### Give it a try!
 
     You'll see the search items appear and update in real-time as the agent progresses through each step.
-
   </Step>
 </Steps>

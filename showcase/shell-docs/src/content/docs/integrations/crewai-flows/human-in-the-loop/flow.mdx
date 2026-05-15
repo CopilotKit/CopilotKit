@@ -177,7 +177,7 @@ of everything that has happened during a HITL interaction.
 
                 response = await copilotkit_stream(
                     completion(
-                        model="openai/gpt-5.2",
+                        model="openai/gpt-5.4",
                         messages=[system_message, *messages],
                         tools=self.state["copilotkit"]["actions"],
                         stream=True

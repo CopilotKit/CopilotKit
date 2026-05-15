@@ -4,7 +4,6 @@ icon: "lucide/BookA"
 description: Share app specific context with your agent.
 hideTOC: true
 ---
-
 One of the most common use cases for CopilotKit is to register app state and context using `useAgentContext`.
 This way, you can notify CopilotKit of what is going on in your app in real time.
 Some examples might be: the current user, the current page, etc.
@@ -12,11 +11,8 @@ Some examples might be: the current user, the current page, etc.
 This context can then be shared with your LangGraph agent.
 
 ## Implementation
-
 <Callout>
-  Check out the [Frontend Data
-  documentation](https://docs.copilotkit.ai/direct-to-llm/guides/connect-your-data/frontend)
-  to understand what this is and how to use it.
+    Check out the [Frontend Data documentation](/langgraph-python/agent-app-context) to understand what this is and how to use it.
 </Callout>
 
 <TailoredContent
@@ -36,6 +32,8 @@ This context can then be shared with your LangGraph agent.
 
                 ```tsx title="YourComponent.tsx"
                 "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
+                import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import { useState } from 'react';
 
                 export function YourComponent() {
                   // Create colleagues state with some sample data
@@ -79,15 +77,17 @@ This context can then be shared with your LangGraph agent.
                     <Tab value="TypeScript">
                         ```typescript title="agent-js/src/agent.ts"
                         // ...
+                        import { StateSchema } from "@langchain/langgraph";
+                        import { CopilotKitStateSchema } from "@copilotkit/sdk-js/langgraph";
                         // ...
 
                         // This is the state of the agent.
                         // It inherits from the CopilotKitState properties from CopilotKit.
-                        export const AgentStateAnnotation = Annotation.Root({
+                        export const AgentStateSchema = new StateSchema({
                           // ... Your defined state properties
-                          ...CopilotKitStateAnnotation.spec,
+                          ...CopilotKitStateSchema.fields,
                         });
-                        export type AgentState = typeof AgentStateAnnotation.State;
+                        export type AgentState = typeof AgentStateSchema.State;
                         ```
                     </Tab>
                 </Tabs>
@@ -124,7 +124,7 @@ This context can then be shared with your LangGraph agent.
                                 The user's colleagues are: {colleagues}"""
                             )
 
-                            response = ChatOpenAI(model="gpt-5.2").invoke(
+                            response = ChatOpenAI(model="gpt-5.4").invoke(
                                 [system_message, *state["messages"]],
                                 config
                             )
@@ -137,13 +137,15 @@ This context can then be shared with your LangGraph agent.
                     </Tab>
                     <Tab value="TypeScript">
                         ```typescript title="agent-js/src/agent.ts"
+                        import { SystemMessage } from "@langchain/core/messages";
+                        import { ChatOpenAI } from "@langchain/openai";
 
                         // add the agent state definition from the previous step
-                        export const AgentStateAnnotation = Annotation.Root({
+                        export const AgentStateSchema = new StateSchema({
                           // ... Your defined state properties
-                          ...CopilotKitStateAnnotation.spec,
+                          ...CopilotKitStateSchema.fields,
                         });
-                        export type AgentState = typeof AgentStateAnnotation.State;
+                        export type AgentState = typeof AgentStateSchema.State;
 
                         async function chat_node(state: AgentState, config: RunnableConfig) {
                           // Extract the colleagues from CopilotKit context
@@ -158,7 +160,7 @@ This context can then be shared with your LangGraph agent.
                             `,
                           });
 
-                          const response = await new ChatOpenAI({ model: "gpt-5.2" }).invoke(
+                          const response = await new ChatOpenAI({ model: "gpt-5.4" }).invoke(
                             [systemMessage, ...state.messages],
                             config
                           );
@@ -192,6 +194,8 @@ This context can then be shared with your LangGraph agent.
 
                 ```tsx title="YourComponent.tsx"
                 "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
+                import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import { useState } from 'react';
 
                 export function YourComponent() {
                   // Create colleagues state with some sample data
@@ -228,7 +232,7 @@ This context can then be shared with your LangGraph agent.
                         from copilotkit import CopilotKitMiddleware, CopilotKitState # [!code highlight]
 
                         graph = create_agent( # Works the same for "create_react_agent" or similar options
-                            model="openai:gpt-5.2",
+                            model="openai:gpt-5.4",
                             tools=[],  # Backend tools go here
                             middleware=[CopilotKitMiddleware()], # [!code highlight]
                             system_prompt="You are a helpful assistant.",
@@ -238,9 +242,11 @@ This context can then be shared with your LangGraph agent.
                     </Tab>
                     <Tab value="TypeScript">
                         ```typescript title="agent-js/src/agent.ts"
+                        import { createAgent } from "langchain";
+                        import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
 
                         export const agenticChatGraph = createAgent({ // Works the same for "create_react_agent" or similar options
-                          model: "openai:gpt-5.2",
+                          model: "openai:gpt-5.4",
                           tools: [],  // Backend tools go here
                           middleware: [copilotkitMiddleware], // [!code highlight]
                           systemPrompt: "You are a helpful assistant.",
@@ -256,5 +262,4 @@ This context can then be shared with your LangGraph agent.
             </Step>
         </Steps>
     </TailoredContentOption>
-
 </TailoredContent>

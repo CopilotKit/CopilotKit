@@ -2,9 +2,6 @@
   "title": "LangGraph",
   "root": true,
   "pages": [
-    "---Getting Started---",
-    "index",
-    "quickstart",
     "---Basics---",
     "prebuilt-components",
     "custom-look-and-feel",

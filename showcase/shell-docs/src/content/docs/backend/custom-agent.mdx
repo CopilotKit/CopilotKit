@@ -206,7 +206,7 @@ const agent = new BuiltInAgent({
 });
 ```
 
-`convertToolsToVercelAITools` converts the frontend-defined tools (from `useCopilotAction`) into AI SDK's `ToolSet` format automatically.
+`convertToolsToVercelAITools` converts the frontend-defined tools (from `useFrontendTool`) into AI SDK's `ToolSet` format automatically.
 </Tab>
 <Tab value="TanStack AI">
 ```typescript title="src/copilotkit.ts"
@@ -358,7 +358,7 @@ const agent = new BuiltInAgent({
   factory: ({ input, abortSignal }) => {
     const systemParts: string[] = ["You are a helpful assistant."];
 
-    // Add context from the frontend (useCopilotReadable)
+    // Add context from the frontend (useAgentContext)
     if (input.context?.length) {
       for (const ctx of input.context) {
         systemParts.push(`${ctx.description}:\n${ctx.value}`);

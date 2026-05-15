@@ -5,10 +5,16 @@
 //
 //   demos: Record<"<slug>::<demo-id>", {
 //     readme: string | null,
-//     files: { filename, language, content, highlighted? }[],
+//     files: { filename, language, content, highlighted?, highlightOrder? }[],
 //     backend_files: [],               // retained for shape back-compat
 //     regions: Record<name, Region>,
 //   }>
+//
+// `highlightOrder` mirrors the position of a file inside the manifest's
+// `highlight:` array (0-based). Consumers like shell-docs's <DemoSource>
+// use it to render tabs in the manifest-author's preferred order rather
+// than the bundler's alphabetical fallback. Files not flagged in
+// `highlight:` have no `highlightOrder`.
 //
 // Files are scanned from the demo folder (`src/app/demos/<routeDir>/`)
 // recursively, and any files listed in the manifest's `highlight:` field
@@ -57,7 +63,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const ROOT = path.resolve(__dirname, "..");
-const PACKAGES_DIR = path.join(ROOT, "packages");
+const PACKAGES_DIR = path.join(ROOT, "integrations");
 // demo-content is consumed by ALL shells:
 //   - shell: integration pages + demo drawer read the bundle at runtime
 //   - shell-docs: <Snippet> (docs routes) imports directly at build time
@@ -74,6 +80,12 @@ interface DemoFile {
   language: string;
   content: string;
   highlighted?: boolean;
+  /**
+   * 0-based index of the file inside the manifest's `highlight:` array.
+   * Present iff `highlighted` is true. Lets consumers render highlighted
+   * files in author-defined order without re-doing the manifest lookup.
+   */
+  highlightOrder?: number;
 }
 
 interface Region {
@@ -118,10 +130,12 @@ function detectLanguage(filename: string): string {
     ".js": "javascript",
     ".py": "python",
     ".cs": "csharp",
+    ".java": "java",
     ".css": "css",
     ".json": "json",
     ".yaml": "yaml",
     ".yml": "yaml",
+    ".xml": "xml",
     ".md": "markdown",
     ".mdx": "markdown",
   };
@@ -448,9 +462,15 @@ function main() {
         // 3. Apply highlights. All `highlight:` entries must now resolve to
         //    bundled files (the step above guarantees that for external
         //    files; for files inside the demo folder we check here).
-        const highlightSet = new Set(highlightList);
+        //    `highlightOrder` records the manifest position (0-based) so
+        //    consumers can render highlighted files in the author's order
+        //    rather than the bundler's alphabetical fallback.
+        const highlightIndex = new Map<string, number>();
+        highlightList.forEach((h, idx) => {
+          if (!highlightIndex.has(h)) highlightIndex.set(h, idx);
+        });
         const bundled = new Set(files.map((f) => f.filename));
-        for (const h of highlightSet) {
+        for (const h of highlightIndex.keys()) {
           if (!bundled.has(h)) {
             throw new Error(
               `${key}: manifest.highlight lists "${h}" but that file isn't in the bundle.`,
@@ -458,7 +478,11 @@ function main() {
           }
         }
         for (const f of files) {
-          if (highlightSet.has(f.filename)) f.highlighted = true;
+          const order = highlightIndex.get(f.filename);
+          if (order !== undefined) {
+            f.highlighted = true;
+            f.highlightOrder = order;
+          }
         }
 
         // Stable order: page.* first, then everything else alphabetical.
@@ -522,6 +546,7 @@ function main() {
       // Propagate: a broken manifest must fail the bundle, not silently skip.
       throw new Error(
         `[bundle] Failed while processing package "${pkgDir}": ${(err as Error).message}`,
+        { cause: err },
       );
     }
   }
@@ -573,7 +598,7 @@ if (process.argv.includes("--watch")) {
       }
     }, 200);
   };
-  console.log("[watch] watching packages/ for changes...\n");
+  console.log("[watch] watching integrations/ for changes...\n");
   fs.watch(PACKAGES_DIR, { recursive: true }, (_event, filename) => {
     if (!filename) return;
     // Rebundle for demo sources, agent sources, READMEs, and — critically —

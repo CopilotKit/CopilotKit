@@ -26,18 +26,21 @@ Before you begin, you'll need the following:
 ## Getting started
 
 <Steps>
-    <TailoredContent
-        className="step"
-        id="agent"
-        header={
-            <div>
-                <p className="text-xl font-semibold">Choose your starting point</p>
-                <p className="text-base">
-                    You can either start fresh with our starter template or integrate CopilotKit into your existing Microsoft Agent Framework agent.
-                </p>
-            </div>
-        }
-    >
+    <Step>
+        ### Create a free account
+
+        <SignupLink surface="docs_microsoft_agent_framework_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads, observability, and the inspector.
+    </Step>
+
+    <Step>
+        ### Choose your starting point
+
+        You can either start fresh with our starter template or integrate CopilotKit into your existing Microsoft Agent Framework agent.
+
+        <TailoredContent
+            className="step"
+            id="agent"
+        >
         <TailoredContentOption
             id="starter"
             title="Start from scratch"
@@ -46,20 +49,15 @@ Before you begin, you'll need the following:
             <Step>
                 ### Run our CLI
 
-                First, we'll use our CLI to create a new project for us.
+                ```bash
+                npx copilotkit@latest create
+                ```
 
-                <Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']} persist>
-                    <Tab value=".NET">
-                        ```bash
-                        npx copilotkit@latest create -f microsoft-agent-framework-dotnet
-                        ```
-                    </Tab>
-                    <Tab value="Python">
-                        ```bash
-                        npx copilotkit@latest create -f microsoft-agent-framework-py
-                        ```
-                    </Tab>
-                </Tabs>
+                The CLI walks you through:
+
+                - **Project name**
+                - **Enterprise Intelligence Platform** — persistent threads, observability, and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard Microsoft Agent Framework setup.
+                - **Framework** — pick **Microsoft Agent Framework (.NET)** or **Microsoft Agent Framework (Python)**.
             </Step>
             <Step>
                 ### Install dependencies
@@ -233,6 +231,7 @@ Before you begin, you'll need the following:
 
                         ```bash
                         uv init my-agent
+                        cd my-agent
                         uv add agent-framework-ag-ui python-dotenv uvicorn agent-framework-openai
                         ```
                         Create a minimal FastAPI server that exposes a Microsoft Agent Framework agent over AG-UI:
@@ -293,8 +292,7 @@ Before you begin, you'll need the following:
                         # (optional) AZURE_OPENAI_API_KEY=...
 
                         # Run the agent
-                        cd agent
-                        uv run src/byo_agent.py
+                        uv run main.py
                         ```
                     </Tab>
                 </Tabs>
@@ -367,7 +365,7 @@ Before you begin, you'll need the following:
                 via the Microsoft Agent Framework agent.
 
                 ```tsx title="app/layout.tsx"
-                import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
+                import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
                 import "@copilotkit/react-ui/v2/styles.css";
                 import './globals.css';
 
@@ -441,6 +439,7 @@ Before you begin, you'll need the following:
             </Step>
         </TailoredContentOption>
     </TailoredContent>
+    </Step>
     <Step>
         ### 🎉 Start chatting!
 
@@ -525,3 +524,4 @@ Now that you have your basic agent setup, explore these advanced features:
     icon={<WrenchIcon />}
   />
 </Cards>
+

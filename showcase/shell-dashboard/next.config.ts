@@ -3,12 +3,12 @@ import type { NextConfig } from "next";
 /**
  * Next.js config for the dashboard shell.
  *
- * The Status tab calls the showcase-ops HTTP API at the relative path
+ * The Status tab calls the showcase-harness HTTP API at the relative path
  * `/api/ops/*`. There is no /api/ops route handler in this app — the path
  * is a deterministic same-origin proxy that this rewrite forwards to the
- * real showcase-ops service. Going same-origin sidesteps two production
+ * real showcase-harness service. Going same-origin sidesteps two production
  * blockers:
- *   1. showcase-ops has no CORS allowlist for cross-origin browser calls.
+ *   1. showcase-harness has no CORS allowlist for cross-origin browser calls.
  *   2. We don't want the ops base URL inlined into the client bundle (it
  *      would also force `NEXT_PUBLIC_*` exposure semantics).
  *
@@ -22,7 +22,7 @@ const nextConfig: NextConfig = {
     if (!opsBase) {
       throw new Error(
         "OPS_BASE_URL must be set — see showcase/RAILWAY.md " +
-          "(without it, /api/ops/* requests cannot proxy to showcase-ops)",
+          "(without it, /api/ops/* requests cannot proxy to showcase-harness)",
       );
     }
     // Strip trailing slashes so we never produce `https://host//api/...`

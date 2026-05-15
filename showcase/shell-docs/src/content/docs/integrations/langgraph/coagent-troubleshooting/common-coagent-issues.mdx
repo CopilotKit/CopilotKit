@@ -266,7 +266,7 @@ persisted at the end of a node.
 
                 async def chat_node(state: AgentState, config: RunnableConfig):
                     # 1) Call the model with CopilotKit's modified config
-                    model = ChatOpenAI(model="gpt-5.2")
+                    model = ChatOpenAI(model="gpt-5.4")
                     response = await model.ainvoke(state["messages"], modifiedConfig)
 
                     # 2) Make sure to return the new messages
@@ -280,7 +280,7 @@ persisted at the end of a node.
 
                 async function chatNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
                     // 1) Call the model with CopilotKit's modified config
-                    const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.2" });
+                    const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.4" });
                     const response = await model.invoke(state.messages, modifiedConfig);
 
                     // 2) Make sure to return the new messages
@@ -309,7 +309,7 @@ persisted at the end of a node.
                     )
 
                     # 2) Call the model with CopilotKit's modified config
-                    model = ChatOpenAI(model="gpt-5.2")
+                    model = ChatOpenAI(model="gpt-5.4")
                     response = await model.ainvoke(state["messages"], modifiedConfig)
 
                     # 3) Don't return the new response to hide it from the user
@@ -326,7 +326,7 @@ persisted at the end of a node.
                     });
 
                     // 2) Call the model with CopilotKit's modified config
-                    const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.2" });
+                    const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.4" });
                     const response = await model.invoke(state.messages, modifiedConfig);
 
                     // 3) Don't return the new response to hide it from the user

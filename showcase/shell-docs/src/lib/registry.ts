@@ -35,6 +35,30 @@ export interface Integration {
   deployed: boolean;
   generative_ui?: string[];
   interaction_modalities?: string[];
+  /**
+   * Implementation pattern for `a2ui-fixed-schema`. Set only when the
+   * feature is wired in this integration. Drives `<WhenFrameworkHas>`
+   * gating in the docs.
+   *
+   * - `schema-loading`: backend loads the schema from a JSON file at
+   *   startup (e.g. `a2ui.load_schema(path)`).
+   * - `schema-inline`: schema is declared inline as a typed literal in
+   *   source (e.g. spring-ai `List.of(Map.of(...))`, .NET C# array).
+   * - `llm-driven`: backend generates the schema dynamically via a
+   *   secondary LLM call (e.g. mastra `generateA2uiTool`, strands
+   *   `generate_a2ui` tool).
+   */
+  a2ui_pattern?: "schema-loading" | "schema-inline" | "llm-driven" | null;
+  /**
+   * Implementation pattern for `gen-ui-interrupt` / `interrupt-headless`.
+   * Set only when at least one is wired.
+   *
+   * - `native`: framework has a real interrupt primitive (LangGraph
+   *   `interrupt()` + `useInterrupt`).
+   * - `promise-based`: demo uses `useFrontendTool` with a Promise-based
+   *   handler (ms-agent-python, ms-agent-dotnet).
+   */
+  interrupt_pattern?: "native" | "promise-based" | null;
   sort_order?: number;
   managed_platform?: { name: string; url: string };
   animated_preview_url?: string | null;
@@ -96,6 +120,7 @@ const DOCS_FOLDER_OVERRIDES: Record<string, string> = {
   "langgraph-typescript": "langgraph",
   "langgraph-fastapi": "langgraph",
   "google-adk": "adk",
+  "crewai-crews": "crewai-flows",
   strands: "aws-strands",
   "ms-agent-dotnet": "microsoft-agent-framework",
   "ms-agent-python": "microsoft-agent-framework",

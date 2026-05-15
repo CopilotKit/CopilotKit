@@ -1,0 +1,22 @@
+{
+  "name": "showcase-eval-webhook",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.8",
+    "@octokit/auth-app": "^7.1.4",
+    "@octokit/rest": "^21.1.1",
+    "hono": "^4.7.10"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}

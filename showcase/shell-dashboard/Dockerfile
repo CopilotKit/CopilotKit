@@ -17,7 +17,7 @@ RUN cd scripts && npm ci \
 
 # Copy source
 COPY showcase/shared/ ./shared/
-COPY showcase/packages/ ./packages/
+COPY showcase/integrations/ ./integrations/
 COPY showcase/scripts/ ./scripts/
 # probe-docs.ts checks for MDX files in shell-docs/src/content/docs/ to
 # determine docs reachability status. Only the content directory is needed.
@@ -80,7 +80,7 @@ COPY --chown=node:node --from=builder /app/shell-dashboard/.next ./.next
 COPY --chown=node:node --from=prod-deps /app/shell-dashboard/node_modules ./node_modules
 COPY --chown=node:node --from=builder /app/shell-dashboard/package.json ./
 
-# Drop root privileges — parity with showcase/ops/Dockerfile. Reduces
+# Drop root privileges — parity with showcase/harness/Dockerfile. Reduces
 # blast radius of any RCE in Next.js or a transitive dep.
 USER node
 

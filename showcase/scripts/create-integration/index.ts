@@ -1,7 +1,7 @@
 /*
  * Integration Package Generator
  *
- * Scaffolds a new integration package in showcase/packages/<slug>/
+ * Scaffolds a new integration package in showcase/integrations/<slug>/
  * with all required files, demo stubs, and deployment configs.
  *
  * Usage:
@@ -24,13 +24,14 @@ const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, "..", "..");
 // Both directories are overridable via env so tests can run the generator
 // against an isolated tmpdir — without overrides the generator's writes
-// collided with sibling suites reading the real `showcase/packages/` tree
+// collided with sibling suites reading the real `showcase/integrations/` tree
 // (ENOENT on partial state) and with concurrent `git checkout HEAD --`
 // invocations on `.github/workflows/*.yml` (`.git/index.lock` races). An
 // env var (vs a CLI flag) keeps the public flag surface unchanged and is
 // trivial for test harnesses to set via `execFileSync`'s `env` option.
 const PACKAGES_DIR =
-  process.env.CREATE_INTEGRATION_PACKAGES_DIR ?? path.join(ROOT, "packages");
+  process.env.CREATE_INTEGRATION_PACKAGES_DIR ??
+  path.join(ROOT, "integrations");
 const WORKFLOWS_DIR =
   process.env.CREATE_INTEGRATION_WORKFLOWS_DIR ??
   path.resolve(ROOT, "..", ".github", "workflows");
@@ -334,7 +335,7 @@ function generateManifest(args: CLIArgs, features: Feature[]): string {
     logo: `/logos/${args.slug}.svg`,
     description: `CopilotKit integration with ${args.name}`,
     partner_docs: null,
-    repo: `https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/${args.slug}`,
+    repo: `https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/${args.slug}`,
     copilotkit_version: "2.0.0",
     backend_url: `https://showcase-${args.slug}-production.up.railway.app`,
     deployed: false,
@@ -524,7 +525,7 @@ function generateDemoPage(
   // the "hooks available" comment block as an author-facing reference.
   // Normalize the agent prop to the backend's underscore-id convention.
   // The feature registry keys the demo tree with hyphens, but real
-  // deployed packages (e.g. showcase/packages/langgraph-fastapi/src/app/
+  // deployed packages (e.g. showcase/integrations/langgraph-fastapi/src/app/
   // demos/agentic-chat/page.tsx) register their backend agent under
   // `agent="agentic_chat"`. Emitting the raw featureId here produces a
   // generated page that 404s against every deployed backend; normalize
@@ -1782,7 +1783,7 @@ See the LangGraph Python reference implementation for patterns.
     );
   }
 
-  console.log(`\nPackage created at: showcase/packages/${args.slug}/`);
+  console.log(`\nPackage created at: showcase/integrations/${args.slug}/`);
 
   // Auto-migrate agent code from examples/integrations/ if available
   console.log("\n--- Migrating agent code from examples/integrations/ ---\n");
@@ -1852,7 +1853,7 @@ See the LangGraph Python reference implementation for patterns.
       `\nWARNING: ${ids.length} demo(s) used unauthored placeholder content:`,
     );
     for (const id of ids) {
-      const demoPath = `showcase/packages/${args.slug}/src/app/demos/${id}/README.md`;
+      const demoPath = `showcase/integrations/${args.slug}/src/app/demos/${id}/README.md`;
       console.warn(`  - ${id}  (edit: ${demoPath})`);
     }
     console.warn(
@@ -1947,7 +1948,7 @@ export function updateWorkflows(args: CLIArgs) {
       const beforeFilters = deploy;
       deploy = deploy.replace(
         /(filters: \|\n(?:(\s+)\w+:\n(?:(\s+)- .+\n)+)+)/,
-        `$1$2${slugVar}:\n$3- 'showcase/packages/${slug}/**'\n`,
+        `$1$2${slugVar}:\n$3- 'showcase/integrations/${slug}/**'\n`,
       );
       if (deploy === beforeFilters) {
         throw new Error(
@@ -1992,7 +1993,7 @@ export function updateWorkflows(args: CLIArgs) {
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: showcase/packages/${slug}
+          context: showcase/integrations/${slug}
           push: true
           tags: |
             ghcr.io/copilotkit/showcase-${slug}:latest
@@ -2026,7 +2027,7 @@ export function updateWorkflows(args: CLIArgs) {
     console.log("  Updated showcase_deploy.yml");
   }
 
-  // 2. showcase_drift-detection.yml was replaced by the showcase-ops
+  // 2. showcase_drift-detection.yml was replaced by the showcase-harness
   // service's aimock_wiring / image-drift probes; no per-integration
   // workflow edit is needed anymore. The probes enumerate services from
   // Railway at runtime.

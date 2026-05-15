@@ -33,8 +33,8 @@ const SHOWCASE = {
 
 // Canonical shape: ghcr.io/copilotkit/<name>:latest where <name> is the
 // service name itself. This single pattern covers showcase-<slug>,
-// showcase-starter-<slug>, showcase-pocketbase, showcase-ops, and any
-// future showcase-* service. Enforcing identity between Railway service
+// showcase-pocketbase, showcase-harness, and any future showcase-* service.
+// Enforcing identity between Railway service
 // name and image name (modulo the ghcr.io/copilotkit/ prefix and :latest
 // tag) is the invariant — if these ever drift apart we want to know.
 //

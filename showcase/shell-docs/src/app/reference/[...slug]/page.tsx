@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
@@ -10,6 +11,7 @@ import {
   Accordions,
   Accordion,
 } from "@/components/mdx-components";
+import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
 import { SidebarNav } from "@/components/sidebar-nav";
 import {
   REFERENCE_CONTENT_DIR,
@@ -18,6 +20,23 @@ import {
 } from "@/lib/reference-items";
 import { stripLeadingImports } from "@/lib/docs-render";
 import { safeReadFileSync } from "@/lib/safe-fs";
+import { getBaseUrl } from "@/lib/sitemap-helpers";
+
+// Self-canonical for /reference/<slug>. Reference pages are not
+// per-framework, but we still emit a canonical so the production URL
+// is unambiguous and any future host aliases can't fragment indexing.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string[] }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  return {
+    alternates: {
+      canonical: `${getBaseUrl()}/reference/${slug.join("/")}`,
+    },
+  };
+}
 
 // next-mdx-remote components map
 const mdxComponents = {
@@ -27,6 +46,7 @@ const mdxComponents = {
   Card,
   Accordions,
   Accordion,
+  OpsPlatformCTA,
   // Strip unknown imports — MDX import statements become no-ops in next-mdx-remote
 };
 
@@ -74,9 +94,9 @@ export default async function ReferenceSlugPage({
     typeof data.description === "string" ? data.description : undefined;
 
   return (
-    <div className="flex min-h-[calc(100vh-53px)]">
+    <div className="flex h-full w-full">
       {/* Sidebar */}
-      <SidebarNav className="hidden lg:block w-56 shrink-0 border-r border-[var(--border)] bg-[var(--bg-surface)] overflow-y-auto sticky top-[53px] h-[calc(100vh-53px)]">
+      <SidebarNav className="hidden lg:block w-56 shrink-0 border-r border-[var(--border)] bg-[var(--bg-surface)] overflow-y-auto h-full">
         <nav className="p-4 space-y-6">
           <div>
             <Link
@@ -119,30 +139,32 @@ export default async function ReferenceSlugPage({
       </SidebarNav>
 
       {/* Main content */}
-      <article className="flex-1 min-w-0 max-w-3xl mx-auto px-6 py-10">
-        <div className="mb-8">
-          <div className="text-xs text-[var(--text-muted)] mb-2">
-            <Link
-              href="/reference"
-              className="hover:text-[var(--text-secondary)]"
-            >
-              Reference
-            </Link>
-            {" / "}
-            <span className="capitalize">{slug[0]}</span>
+      <div className="flex-1 min-w-0 overflow-y-auto">
+        <article className="max-w-3xl mx-auto px-6 py-10">
+          <div className="mb-8">
+            <div className="text-xs text-[var(--text-muted)] mb-2">
+              <Link
+                href="/reference"
+                className="hover:text-[var(--text-secondary)]"
+              >
+                Reference
+              </Link>
+              {" / "}
+              <span className="capitalize">{slug[0]}</span>
+            </div>
+            <h1 className="text-2xl font-bold text-[var(--text)]">{title}</h1>
+            {description && (
+              <p className="text-sm text-[var(--text-muted)] mt-1">
+                {description}
+              </p>
+            )}
           </div>
-          <h1 className="text-2xl font-bold text-[var(--text)]">{title}</h1>
-          {description && (
-            <p className="text-sm text-[var(--text-muted)] mt-1">
-              {description}
-            </p>
-          )}
-        </div>
 
-        <div className="reference-content prose-sm">
-          <MDXRemote source={cleanedContent} components={mdxComponents} />
-        </div>
-      </article>
+          <div className="reference-content prose-sm">
+            <MDXRemote source={cleanedContent} components={mdxComponents} />
+          </div>
+        </article>
+      </div>
     </div>
   );
 }

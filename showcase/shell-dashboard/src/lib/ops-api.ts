@@ -1,6 +1,6 @@
 /**
- * Fetch client for the showcase-ops HTTP API consumed by the dashboard
- * Status tab. Contract is shared with the showcase-ops service (parallel
+ * Fetch client for the showcase-harness HTTP API consumed by the dashboard
+ * Status tab. Contract is shared with the showcase-harness service (parallel
  * track B3) via the design spec — see Notion 34d3aa38-1852-811a-8715-...
  *
  * Endpoints:
@@ -12,7 +12,7 @@
  *   1. explicit `baseUrl` param (overrides everything; used in tests + SSR)
  *   2. `process.env.NEXT_PUBLIC_OPS_BASE_URL` — opt-in escape hatch for
  *      direct cross-origin calls; production does NOT use this because
- *      showcase-ops has no CORS allowlist. Note: Next inlines `NEXT_PUBLIC_*`
+ *      showcase-harness has no CORS allowlist. Note: Next inlines `NEXT_PUBLIC_*`
  *      into the client bundle at build time, but this module ALSO runs in
  *      SSR + tests where `process.env` is read live at call time — so
  *      `delete process.env.NEXT_PUBLIC_OPS_BASE_URL` in a test does take
@@ -28,7 +28,7 @@
  */
 
 // ─────────────────────────────────────────────────────────────────────────
-// Types — shared on-the-wire contract with showcase-ops (B3).
+// Types — shared on-the-wire contract with showcase-harness (B3).
 // ─────────────────────────────────────────────────────────────────────────
 
 export type ProbeKind =
@@ -51,10 +51,18 @@ export type ProbeKind =
 export type ServiceState = "queued" | "running" | "completed" | "failed";
 export type ProbeResult = "green" | "yellow" | "red";
 
+export interface ProbeRunServiceResult {
+  slug: string;
+  state: "completed" | "failed";
+  result?: "green" | "yellow" | "red";
+  error?: string;
+}
+
 export interface ProbeRunSummary {
   total: number;
   passed: number;
   failed: number;
+  services?: ProbeRunServiceResult[];
 }
 
 export interface ProbeLastRun {
@@ -63,7 +71,7 @@ export interface ProbeLastRun {
   durationMs: number;
   state: "completed" | "failed";
   // Nullable: a "completed" run produced by a failure path can land here
-  // without a summary (see showcase-ops CR-A1.5). Consumers MUST null-guard
+  // without a summary (see showcase-harness CR-A1.5). Consumers MUST null-guard
   // before reading summary.passed / summary.total / summary.failed.
   summary: ProbeRunSummary | null;
 }

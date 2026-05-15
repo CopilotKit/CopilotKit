@@ -4,13 +4,13 @@ description: "Manage Error Monitoring, Logging and Alerts."
 icon: "lucide/TriangleAlert"
 ---
 
-CopilotKit Premium provides production-grade error observability with the observability solution of your choice via the `onError` hook. This feature requires a `publicLicenseKey` or `publicApiKey` and provides rich, structured error events you can forward to your monitoring and analytics systems.
+CopilotKit Premium provides production-grade error observability with the observability solution of your choice via the `onError` hook on `CopilotKit`. This feature requires a `publicLicenseKey` or `publicApiKey` and provides structured error events you can forward to your monitoring and analytics systems.
 See [Observability](/premium/observability) for a complete description of all Observability features.
 
 ## Quick Setup
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 export default function App() {
   return (
@@ -19,14 +19,14 @@ export default function App() {
       publicApiKey="ck_pub_your_key" // [!code highlight] - Use publicApiKey for Copilot Cloud
       // OR
       publicLicenseKey="ck_pub_your_key" // [!code highlight] - Use publicLicenseKey for self-hosted
-      onError={(errorEvent) => {
+      onError={({ error, code, context }) => {
         // [!code highlight]
         // Send to your monitoring/analytics service
-        console.error("CopilotKit Error:", errorEvent);
+        console.error("CopilotKit Error:", { error, code, context });
         analytics.track("copilotkit_error", {
-          type: errorEvent.type,
-          source: errorEvent.context.source,
-          timestamp: errorEvent.timestamp,
+          code,
+          message: error.message,
+          context,
         });
       }} // [!code highlight]
       showDevConsole={false}
@@ -52,26 +52,43 @@ You can get either type of key from [cloud.copilotkit.ai](https://cloud.copilotk
 
 ## Error Event Structure
 
-The `onError` hook provides detailed, structured events:
+The V2 `onError` callback fires for any error surfaced by `CopilotKitCore` — including runtime `/info` failures, agent connect/run failures, tool argument parse/handler failures, transcription errors, and thread-locked conditions. Each event has the following shape:
+
+```ts
+import { CopilotKitCoreErrorCode } from "@copilotkit/core";
+
+type CopilotKitErrorEvent = {
+  error: Error;
+  code: CopilotKitCoreErrorCode;
+  context: Record<string, any>;
+};
+```
+
+- **`error`** — the underlying `Error` instance (with `message`, `stack`, etc.).
+- **`code`** — a stable string enum (`CopilotKitCoreErrorCode`) you can switch on. Values include `runtime_info_fetch_failed`, `agent_connect_failed`, `agent_run_failed`, `agent_run_failed_event`, `agent_run_error_event`, `tool_argument_parse_failed`, `tool_handler_failed`, `tool_not_found`, `agent_not_found`, `agent_thread_locked`, `transcription_failed`, `transcription_service_not_configured`, `transcription_invalid_audio`, and `subscriber_callback_failed`.
+- **`context`** — a free-form record carrying whatever extra metadata the error site provides (e.g. `agentId`, `runId`, `toolName`, request URL).
 
 ```tsx
-import { CopilotErrorEvent } from "@copilotkit/shared";
+import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKitCoreErrorCode } from "@copilotkit/core";
 
 <CopilotKit
   publicApiKey="ck_pub_your_key" // or publicLicenseKey for self-hosted
-  onError={(errorEvent: CopilotErrorEvent) => {
-    switch (errorEvent.type) {
-      case "error":
-        logToService("Critical error", errorEvent);
+  onError={({ error, code, context }) => {
+    switch (code) {
+      case CopilotKitCoreErrorCode.AGENT_RUN_FAILED:
+      case CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT:
+        logToService("Agent run failed", { error, code, context });
         break;
-      case "request":
-        logToService("Request started", errorEvent);
+      case CopilotKitCoreErrorCode.RUNTIME_INFO_FETCH_FAILED:
+        logToService("Runtime unreachable", { error, code, context });
         break;
-      case "response":
-        logToService("Response received", errorEvent);
+      case CopilotKitCoreErrorCode.TOOL_HANDLER_FAILED:
+      case CopilotKitCoreErrorCode.TOOL_ARGUMENT_PARSE_FAILED:
+        logToService("Tool error", { error, code, context });
         break;
-      case "agent_state":
-        logToService("Agent state change", errorEvent);
+      case CopilotKitCoreErrorCode.AGENT_THREAD_LOCKED:
+        // Show "Agent is busy, retry?" UI
         break;
     }
   }}
@@ -80,70 +97,25 @@ import { CopilotErrorEvent } from "@copilotkit/shared";
 </CopilotKit>;
 ```
 
-### Error Event Interface
-
-```ts
-interface CopilotErrorEvent {
-  type:
-    | "error"
-    | "request"
-    | "response"
-    | "agent_state"
-    | "action"
-    | "message"
-    | "performance";
-  timestamp: number;
-  context: {
-    source: "ui" | "runtime" | "agent";
-    request?: {
-      operation: string;
-      method?: string;
-      url?: string;
-      startTime: number;
-    };
-    response?: {
-      endTime: number;
-      latency: number;
-    };
-    agent?: {
-      name: string;
-      nodeName?: string;
-    };
-    messages?: {
-      input: any[];
-      messageCount: number;
-    };
-    technical?: {
-      environment: string;
-      stackTrace?: string;
-    };
-  };
-  error?: any; // Present for error events
-}
-```
-
 ## Common Integration Patterns
 
 ### Integration with Monitoring (e.g., Sentry)
 
 ```tsx
 import * as Sentry from "@sentry/react";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 <CopilotKit
   publicApiKey="ck_pub_your_key" // or publicLicenseKey for self-hosted
-  onError={(errorEvent) => {
-    if (errorEvent.type === "error") {
-      Sentry.captureException(errorEvent.error, {
-        tags: {
-          source: errorEvent.context.source,
-          operation: errorEvent.context.request?.operation,
-        },
-        extra: {
-          context: errorEvent.context,
-          timestamp: errorEvent.timestamp,
-        },
-      });
-    }
+  onError={({ error, code, context }) => {
+    Sentry.captureException(error, {
+      tags: {
+        copilotkit_code: code,
+      },
+      extra: {
+        context,
+      },
+    });
   }}
 >
   {/* Your app */}
@@ -153,16 +125,16 @@ import * as Sentry from "@sentry/react";
 ### Custom Analytics
 
 ```tsx
+import { CopilotKit } from "@copilotkit/react-core/v2";
+
 <CopilotKit
   publicApiKey="ck_pub_your_key" // or publicLicenseKey for self-hosted
-  onError={(errorEvent) => {
+  onError={({ error, code, context }) => {
     analytics.track("copilotkit_event", {
-      event_type: errorEvent.type,
-      source: errorEvent.context.source,
-      agent_name: errorEvent.context.agent?.name,
-      latency: errorEvent.context.response?.latency,
-      error_message: errorEvent.error?.message,
-      timestamp: errorEvent.timestamp,
+      code,
+      error_message: error.message,
+      agent_id: context.agentId,
+      run_id: context.runId,
     });
   }}
 >
@@ -170,18 +142,51 @@ import * as Sentry from "@sentry/react";
 </CopilotKit>
 ```
 
+## Server-side Observability Hooks
+
+In addition to client-side `onError`, the runtime exposes server-side hooks for LLM request/response/error logging via `CopilotObservabilityConfig` (see `packages/runtime/src/lib/observability.ts`). This is the recommended place to wire up backend observability — token counts, latency, full request/response payloads — without depending on the browser.
+
+```ts
+import { CopilotRuntime } from "@copilotkit/runtime";
+
+const runtime = new CopilotRuntime({
+  observability_c: {
+    enabled: true,
+    progressive: true, // stream tokens/updates as they arrive (vs. buffered)
+    hooks: {
+      handleRequest: (data) => {
+        // data: { threadId?, runId?, model?, messages, actions?, forwardedParameters?, timestamp, provider? }
+        logger.info("llm.request", data);
+      },
+      handleResponse: (data) => {
+        // data: { threadId, runId?, model?, output, latency, timestamp, provider?, isProgressiveChunk?, isFinalResponse? }
+        logger.info("llm.response", data);
+      },
+      handleError: (data) => {
+        // data: { threadId?, runId?, model?, error, timestamp, provider? }
+        logger.error("llm.error", data);
+      },
+    },
+  },
+});
+```
+
+The three hooks correspond to the three phases of an LLM call. Custom observability hooks require a valid CopilotKit public API key.
+
 ## Environment-Specific Setup
 
 ### Development Environment
 
 ```tsx
+import { CopilotKit } from "@copilotkit/react-core/v2";
+
 <CopilotKit
   runtimeUrl="http://localhost:3000/api/copilotkit"
   publicApiKey={process.env.NEXT_PUBLIC_COPILOTKIT_API_KEY} // For observability
   showDevConsole={true} // Visual errors for fast iteration
-  onError={(errorEvent) => {
+  onError={({ error, code, context }) => {
     // Lightweight console logging in dev
-    console.log("CopilotKit Event:", errorEvent);
+    console.log("CopilotKit Event:", { error, code, context });
   }}
 >
   {/* Your app */}
@@ -191,24 +196,23 @@ import * as Sentry from "@sentry/react";
 ### Production Environment
 
 ```tsx
+import { CopilotKit } from "@copilotkit/react-core/v2";
+
 <CopilotKit
   runtimeUrl="https://your-app.com/api/copilotkit"
   publicApiKey={process.env.NEXT_PUBLIC_COPILOTKIT_API_KEY} // [!code highlight]
   showDevConsole={false} // Hide details from end-users
-  onError={(errorEvent) => {
-    if (errorEvent.type === "error") {
-      // Critical logging
-      logger.error("CopilotKit Error", {
-        error: errorEvent.error,
-        context: errorEvent.context,
-        timestamp: errorEvent.timestamp,
-      });
+  onError={({ error, code, context }) => {
+    logger.error("CopilotKit Error", {
+      error,
+      code,
+      context,
+    });
 
-      // Forward to monitoring
-      monitoring.captureError(errorEvent.error, {
-        extra: errorEvent.context,
-      });
-    }
+    // Forward to monitoring
+    monitoring.captureError(error, {
+      extra: { code, context },
+    });
   }}
 >
   {/* Your app */}
@@ -240,7 +244,7 @@ NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY=ck_pub_your_key_here
 
 - **High-volume logging:**
   - Keep `onError` lightweight; batch or throttle before sending to external services
-  - Consider filtering events by type to reduce noise
+  - Consider filtering events by `code` to reduce noise
 
 ### Key Configuration Issues
 

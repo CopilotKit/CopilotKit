@@ -9,7 +9,6 @@ on:
         type: choice
         options:
           - monorepo
-          - cli
           - angular
       bump:
         description: "Version bump level"

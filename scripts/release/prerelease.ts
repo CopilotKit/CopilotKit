@@ -7,7 +7,7 @@
  *
  * Always publishes with the "canary" dist-tag.
  *
- * Usage: tsx scripts/release/prerelease.ts --scope <monorepo|cli|angular> [--suffix <label>] [--dry-run]
+ * Usage: tsx scripts/release/prerelease.ts --scope <monorepo|angular> [--suffix <label>] [--dry-run]
  */
 
 import { spawnSync } from "child_process";
@@ -31,7 +31,7 @@ function run(cmd: string, args: string[], opts?: { cwd?: string }) {
   return result;
 }
 
-const VALID_SCOPES = ["monorepo", "cli", "angular"];
+const VALID_SCOPES = ["monorepo", "angular"];
 
 function main() {
   const argv = process.argv.slice(2);
