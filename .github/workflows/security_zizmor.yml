@@ -55,7 +55,7 @@ jobs:
         # `min_severity: low` blocks PRs on the broadest set of findings
         # without flagging hypothetical-only `informational` notes. Drop
         # to `medium` if low-severity churn becomes a problem.
-        uses: zizmorcore/zizmor-action@b1d7e1fb5de872772f31590499237e7cce841e8e # v0.5.3
+        uses: zizmorcore/zizmor-action@b572f7b1a1c2d41efaab43d504f68d215c3cd727 # v0.5.4
         with:
           min_severity: low
           advanced_security: false
