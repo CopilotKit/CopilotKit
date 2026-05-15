@@ -12,11 +12,10 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "Etc/UTC"
-    open-pull-requests-limit: 5
+      interval: "daily"
+    open-pull-requests-limit: 10
+    cooldown:
+      default-days: 1
     commit-message:
       prefix: "chore(ci)"
       include: "scope"
@@ -24,10 +23,19 @@ updates:
       - "dependencies"
       - "github-actions"
       - "security"
-    # Group low-risk version bumps so reviewers don't drown in tiny PRs.
-    # Major bumps stay separate so they get a real review.
     groups:
-      actions-minor-and-patch:
+      minor-and-patch:
+        patterns:
+          - "*"
         update-types:
           - "minor"
           - "patch"
+      # Workaround for dependabot/dependabot-core#14202: without an explicit
+      # major group, major updates matching the minor-and-patch pattern are
+      # silently suppressed. Remove this group when #14202 is fixed to get
+      # individual (ungrouped) PRs per major bump instead.
+      major:
+        patterns:
+          - "*"
+        update-types:
+          - "major"
