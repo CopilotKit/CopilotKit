@@ -1350,6 +1350,13 @@
       "response": {
         "content": "Hi there! I'm your CopilotKit sidebar assistant. I can answer questions, share fun facts, or help you think through problems. What's on your mind?"
       }
+    },
+    {
+      "_comment": "Last-resort catch-all for neutral/default assistant demos (chat-customization-css, prebuilt-sidebar, prebuilt-popup, chat-slots, headless-simple). Matches any message not caught by a more specific fixture above, preventing aimock from proxying to real OpenAI with a fake key.",
+      "match": {},
+      "response": {
+        "content": "I'm a helpful assistant. I can help with a wide range of tasks — writing, analysis, coding, math, and more. What would you like to work on?"
+      }
     }
   ]
 }
