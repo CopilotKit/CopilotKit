@@ -8,6 +8,9 @@ on:
       - "docs/snippets/**"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: showcase-docs-sync
   cancel-in-progress: false
