@@ -52,11 +52,11 @@ jobs:
           persist-credentials: false
 
       - name: Run zizmor
-        # `min_severity: low` blocks PRs on the broadest set of findings
+        # `min-severity: low` blocks PRs on the broadest set of findings
         # without flagging hypothetical-only `informational` notes. Drop
         # to `medium` if low-severity churn becomes a problem.
         uses: zizmorcore/zizmor-action@b572f7b1a1c2d41efaab43d504f68d215c3cd727 # v0.5.4
         with:
-          min_severity: low
-          advanced_security: false
+          min-severity: low
+          advanced-security: false
           config: .github/zizmor.yml
