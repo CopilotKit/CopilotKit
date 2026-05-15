@@ -63,7 +63,7 @@ jobs:
               breakingChanges = `_Unable to determine breaking changes automatically. Please review the [full changelog](https://github.com/${repoSlug}/releases)._`;
             } else {
               for (const release of relevantReleases.slice(0, 10)) {
-                const body = release.body || '_No release notes._';
+                const body = (release.body || '_No release notes._').replace(/(?<=^|\s)@(?=[a-zA-Z0-9])(?![a-zA-Z0-9-]*\/)/gm, '');
                 releaseNotesSummary += `### ${release.tag_name}${release.name && release.name !== release.tag_name ? ' — ' + release.name : ''}\n\n`;
                 releaseNotesSummary += body.substring(0, 2000);
                 if (body.length > 2000) releaseNotesSummary += '\n\n_...truncated_';
