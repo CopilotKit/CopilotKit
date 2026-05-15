@@ -23,6 +23,9 @@ jobs:
         with:
           app-id: 1108748
           private-key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
+          permission-checks: write
+          permission-issues: write
+          permission-pull-requests: write
 
       - name: Create Check Run
         id: check-run

@@ -554,6 +554,7 @@ jobs:
         with:
           app-id: 1108748
           private-key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
+          permission-checks: write
 
       - name: Update Check Run with results
         if: needs.dispatch-gate.outputs.check_run_id != ''
