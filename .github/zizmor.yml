@@ -83,3 +83,10 @@ rules:
       # pkg-pr-new posts snapshot comments on the PR using the repo token
       # — credentials must remain persisted for the action to authenticate.
       - publish-commit.yml
+
+  # dependabot-cooldown: cooldown configured (default-days: 1) but zizmor
+  # wants longer. Migrating to Renovate — suppressing rather than tuning
+  # Dependabot config that will be removed.
+  dependabot-cooldown:
+    ignore:
+      - dependabot.yml
