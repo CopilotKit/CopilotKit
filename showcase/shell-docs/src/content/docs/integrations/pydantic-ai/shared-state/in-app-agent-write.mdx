@@ -89,6 +89,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     will update the agent state and trigger a rerender of anything that depends on the agent state.
 
     ```tsx title="ui/app/page.tsx"
+    import { useAgent } from "@copilotkit/react-core/v2";
 
     // Define the agent state type, should match the actual state of your agent
     type AgentState = {
@@ -144,6 +145,7 @@ If you want to re-run it manually, use `copilotkit.runAgent()`.
 The agent will be re-run with the latest updated state. You can also add a hint message before re-running.
 
 ```tsx title="ui/app/page.tsx"
+import { useAgent } from "@copilotkit/react-core/v2";
 
 // ...
 

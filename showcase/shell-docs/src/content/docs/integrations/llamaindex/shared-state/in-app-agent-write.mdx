@@ -88,7 +88,7 @@ You can use this when you want to provide user input or control to your agent's 
 
     ```tsx title="ui/app/page.tsx"
     "use client";
-
+    import { useAgent } from "@copilotkit/react-core/v2";
 
     // Define the agent state type, should match the actual state of your agent
     type AgentState = {
@@ -148,6 +148,7 @@ If you want to re-run it manually, use `copilotkit.runAgent()`.
 The agent will be re-run with the latest updated state. You can also add a hint message before re-running.
 
 ```tsx title="ui/app/page.tsx"
+import { useAgent } from "@copilotkit/react-core/v2";
 
 // ...
 

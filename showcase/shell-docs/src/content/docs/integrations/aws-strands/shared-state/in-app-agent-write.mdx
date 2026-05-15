@@ -83,7 +83,8 @@ You can use this when you want to provide user input or control to your agent's 
     use `agent.setState` to update the agent state.
 
     ```tsx title="ui/app/page.tsx"
-
+    import { useAgent } from "@copilotkit/react-core/v2";
+    
     // Define the agent state type to match your Strands agent
     type AgentState = {
       language: "english" | "spanish";
