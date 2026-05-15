@@ -12,6 +12,7 @@ import type { CellContext } from "@/components/feature-grid";
 import { CellStatus, DocsRow, urlsFor } from "@/components/cell-pieces";
 import { CellDrilldown } from "@/components/cell-drilldown";
 import { CommandCell } from "@/components/command-cell";
+import { LinkPreview } from "@/components/link-preview";
 import { DepthChip } from "@/components/depth-chip";
 import { deriveDepth } from "@/components/depth-utils";
 import type { CatalogCell } from "@/components/depth-utils";
@@ -39,23 +40,27 @@ function LinksLayer({ ctx }: { ctx: CellContext }) {
 
   return (
     <div className="flex items-center justify-center gap-1.5">
-      <a
-        href={links.demoUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="whitespace-nowrap text-[var(--accent)] hover:underline"
-      >
-        <span className="text-[var(--text-muted)]">Demo</span> <span>↗</span>
-      </a>
-      <a
-        href={links.codeUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="whitespace-nowrap text-[var(--accent)] hover:underline"
-      >
-        <span className="text-[var(--text-muted)]">Code</span>{" "}
-        <span>{"</>"}</span>
-      </a>
+      <LinkPreview href={links.demoUrl}>
+        <a
+          href={links.demoUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="whitespace-nowrap text-[var(--accent)] hover:underline"
+        >
+          <span className="text-[var(--text-muted)]">Demo</span> <span>↗</span>
+        </a>
+      </LinkPreview>
+      <LinkPreview href={links.codeUrl}>
+        <a
+          href={links.codeUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="whitespace-nowrap text-[var(--accent)] hover:underline"
+        >
+          <span className="text-[var(--text-muted)]">Code</span>{" "}
+          <span>{"</>"}</span>
+        </a>
+      </LinkPreview>
     </div>
   );
 }
