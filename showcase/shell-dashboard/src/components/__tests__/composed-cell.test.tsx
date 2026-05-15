@@ -37,13 +37,7 @@ vi.mock("@/components/cell-pieces", () => ({
 
 vi.mock("@/components/link-preview", () => ({
   LinkPreview: vi.fn(
-    ({
-      children,
-      href,
-    }: {
-      children: React.ReactNode;
-      href: string;
-    }) => (
+    ({ children, href }: { children: React.ReactNode; href: string }) => (
       <span data-testid="mock-link-preview" data-href={href}>
         {children}
       </span>

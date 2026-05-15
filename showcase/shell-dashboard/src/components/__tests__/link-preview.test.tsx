@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, fireEvent, act, cleanup } from "@testing-library/react";
-import { LinkPreview, HOVER_DELAY_MS, DISMISS_DELAY_MS, LOAD_TIMEOUT_MS } from "../link-preview";
+import {
+  LinkPreview,
+  HOVER_DELAY_MS,
+  DISMISS_DELAY_MS,
+  LOAD_TIMEOUT_MS,
+} from "../link-preview";
 
 function flushTimers() {
   act(() => {
@@ -170,7 +175,9 @@ describe("LinkPreview", () => {
     fireEvent.mouseEnter(getByTestId("trigger").parentElement!);
     advanceBy(HOVER_DELAY_MS);
     const portalRoot = document.getElementById("link-preview-root");
-    expect(portalRoot!.querySelector("[data-testid='link-preview-popup']")).toBeTruthy();
+    expect(
+      portalRoot!.querySelector("[data-testid='link-preview-popup']"),
+    ).toBeTruthy();
   });
 
   it("applies position-flip class when near viewport bottom", () => {
@@ -181,10 +188,20 @@ describe("LinkPreview", () => {
     );
     const wrapper = getByTestId("trigger").parentElement!;
     vi.spyOn(wrapper, "getBoundingClientRect").mockReturnValue({
-      top: 600, bottom: 620, left: 100, right: 200,
-      width: 100, height: 20, x: 100, y: 600, toJSON: () => {},
+      top: 600,
+      bottom: 620,
+      left: 100,
+      right: 200,
+      width: 100,
+      height: 20,
+      x: 100,
+      y: 600,
+      toJSON: () => {},
     });
-    Object.defineProperty(window, "innerHeight", { value: 700, writable: true });
+    Object.defineProperty(window, "innerHeight", {
+      value: 700,
+      writable: true,
+    });
     fireEvent.mouseEnter(wrapper);
     advanceBy(HOVER_DELAY_MS);
     const popup = getByTestId("link-preview-popup");
@@ -256,7 +273,9 @@ describe("LinkPreview load states", () => {
     fireEvent.mouseEnter(getByTestId("trigger").parentElement!);
     advanceBy(HOVER_DELAY_MS);
     const portalRoot = document.getElementById("link-preview-root")!;
-    expect(portalRoot.querySelector("[data-testid='link-preview-loading']")).toBeTruthy();
+    expect(
+      portalRoot.querySelector("[data-testid='link-preview-loading']"),
+    ).toBeTruthy();
   });
 
   it("shows loaded state after iframe onLoad fires", () => {
@@ -272,7 +291,9 @@ describe("LinkPreview load states", () => {
     act(() => {
       fireEvent.load(iframe);
     });
-    expect(portalRoot.querySelector("[data-testid='link-preview-loading']")).toBeNull();
+    expect(
+      portalRoot.querySelector("[data-testid='link-preview-loading']"),
+    ).toBeNull();
     expect(iframe.style.opacity).toBe("1");
   });
 
@@ -285,10 +306,16 @@ describe("LinkPreview load states", () => {
     fireEvent.mouseEnter(getByTestId("trigger").parentElement!);
     advanceBy(HOVER_DELAY_MS);
     const portalRoot = document.getElementById("link-preview-root")!;
-    expect(portalRoot.querySelector("[data-testid='link-preview-loading']")).toBeTruthy();
+    expect(
+      portalRoot.querySelector("[data-testid='link-preview-loading']"),
+    ).toBeTruthy();
     advanceBy(LOAD_TIMEOUT_MS);
-    expect(portalRoot.querySelector("[data-testid='link-preview-unavailable']")).toBeTruthy();
-    expect(portalRoot.querySelector("[data-testid='link-preview-loading']")).toBeNull();
+    expect(
+      portalRoot.querySelector("[data-testid='link-preview-unavailable']"),
+    ).toBeTruthy();
+    expect(
+      portalRoot.querySelector("[data-testid='link-preview-loading']"),
+    ).toBeNull();
     expect(portalRoot.textContent).toContain("Preview unavailable");
   });
 
@@ -308,7 +335,9 @@ describe("LinkPreview load states", () => {
     act(() => {
       fireEvent.load(iframe);
     });
-    expect(portalRoot.querySelector("[data-testid='link-preview-loading']")).toBeNull();
+    expect(
+      portalRoot.querySelector("[data-testid='link-preview-loading']"),
+    ).toBeNull();
 
     // Dismiss popup
     fireEvent.mouseLeave(wrapper);
@@ -318,7 +347,9 @@ describe("LinkPreview load states", () => {
     // Re-hover — should show loading again
     fireEvent.mouseEnter(wrapper);
     advanceBy(HOVER_DELAY_MS);
-    expect(portalRoot.querySelector("[data-testid='link-preview-loading']")).toBeTruthy();
+    expect(
+      portalRoot.querySelector("[data-testid='link-preview-loading']"),
+    ).toBeTruthy();
   });
 });
 
@@ -367,10 +398,14 @@ describe("LinkPreview singleton behavior", () => {
     fireEvent.mouseEnter(triggers[0].parentElement!);
     advanceBy(HOVER_DELAY_MS);
     const portalRoot = document.getElementById("link-preview-root")!;
-    expect(portalRoot.querySelectorAll("[data-testid='link-preview-popup']").length).toBe(1);
+    expect(
+      portalRoot.querySelectorAll("[data-testid='link-preview-popup']").length,
+    ).toBe(1);
     fireEvent.mouseEnter(triggers[1].parentElement!);
     advanceBy(HOVER_DELAY_MS);
-    expect(portalRoot.querySelectorAll("[data-testid='link-preview-popup']").length).toBe(1);
+    expect(
+      portalRoot.querySelectorAll("[data-testid='link-preview-popup']").length,
+    ).toBe(1);
     const iframe = portalRoot.querySelector("iframe");
     expect(iframe!.getAttribute("src")).toBe("https://two.com");
   });
