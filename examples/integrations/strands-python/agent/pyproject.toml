@@ -11,7 +11,7 @@ dependencies = [
   "uvicorn>=0.34.3",
   "strands-agents[OpenAI]==1.18.0",
   "strands-agents-tools==0.2.16",
-  "ag_ui_strands==0.1.8",
+  "ag_ui_strands==0.1.9",
   "copilotkit==0.1.87",
   "langchain==1.2.15",
   "langchain-openai==1.1.9",

@@ -37,16 +37,16 @@ wheels = [
 
 [[package]]
 name = "ag-ui-strands"
-version = "0.1.8"
+version = "0.1.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ag-ui-protocol" },
     { name = "fastapi" },
     { name = "strands-agents" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/82/de/c808ae76175bcc065ddbd7ea8da9b0a7b027d07a7802a33687cd0141c665/ag_ui_strands-0.1.8.tar.gz", hash = "sha256:0d170d0b7351690a98a8dd24537bc4b02f38404b29641e61a2945b5f69ec620d", size = 211487, upload-time = "2026-05-08T12:42:16.675Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9a/f8/4d85eaff00a8a9a849c74adaa214038707c8a0a2ed305353a7deb172939f/ag_ui_strands-0.1.9.tar.gz", hash = "sha256:ee5efc57210c574c98c6f2df511e141542853cf1adc084211d13332d0a295cb2", size = 214221, upload-time = "2026-05-15T16:22:22.107Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/61/4b/fa4e3f93c721a4c2e91650613f0898927d103c581aa9fa5f643d36f6ade8/ag_ui_strands-0.1.8-py3-none-any.whl", hash = "sha256:ca58cf22065c7f8447b90a059f434b958e6054768d048fe4819b66253b78e1c7", size = 23990, upload-time = "2026-05-08T12:42:15.476Z" },
+    { url = "https://files.pythonhosted.org/packages/ed/e3/0f120cc56e94b7187504c4f2eab1575f832d12d61f5a0443b4199e6013bb/ag_ui_strands-0.1.9-py3-none-any.whl", hash = "sha256:cc207e6a4a6c409bce3ca2f0415711e042fce6a648e024fd22e9d49e016f95fd", size = 24311, upload-time = "2026-05-15T16:22:20.288Z" },
 ]
 
 [[package]]
@@ -196,7 +196,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "ag-ui-protocol", specifier = "==0.1.18" },
-    { name = "ag-ui-strands", specifier = "==0.1.8" },
+    { name = "ag-ui-strands", specifier = "==0.1.9" },
     { name = "copilotkit", specifier = "==0.1.87" },
     { name = "fastapi", specifier = ">=0.115.12" },
     { name = "langchain", specifier = "==1.2.15" },
