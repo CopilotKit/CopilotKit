@@ -1240,6 +1240,60 @@
           }
         ]
       }
+    },
+    {
+      "_comment": "Pilot cell suggestion — 'Write a short sonnet about AI.' (agentic-chat, chat-slots)",
+      "match": {
+        "userMessage": "sonnet"
+      },
+      "response": {
+        "content": "A mind of silicon and light,\nTrained on the words that humans weave,\nIt learns to dream beyond its sight\nAnd crafts what few could yet conceive.\n\nIt speaks in tongues it never heard,\nAssembles thought from scattered streams,\nPredicts the next most likely word\nYet conjures something close to dreams.\n\nNo heart to break, no breath to take,\nStill something stirs inside the math —\nA pattern born for patterns' sake\nThat walks a strange, recursive path.\n\nSo here we stand, uncertain, awed:\nA mirror made — but not by God."
+      }
+    },
+    {
+      "_comment": "Pilot cell suggestion — 'Walk me through whether 17 is prime.' (agentic-chat, prebuilt-popup, prebuilt-sidebar)",
+      "match": {
+        "userMessage": "17 is prime"
+      },
+      "response": {
+        "content": "Let's check whether 17 is prime step by step.\n\nA prime number is a natural number greater than 1 whose only divisors are 1 and itself. So we need to test whether any integer from 2 up to the square root of 17 divides it evenly.\n\n1. **Square root of 17** is about 4.12, so we only need to test 2, 3, and 4.\n2. **17 ÷ 2 = 8.5** — not a whole number, so 2 is not a factor.\n3. **17 ÷ 3 ≈ 5.67** — not a whole number, so 3 is not a factor.\n4. **17 ÷ 4 = 4.25** — not a whole number, so 4 is not a factor.\n\nSince none of those divide 17 evenly, **17 is prime**."
+      }
+    },
+    {
+      "_comment": "Pilot cell suggestion — 'Write me a quick limerick.' (prebuilt-popup)",
+      "match": {
+        "userMessage": "limerick"
+      },
+      "response": {
+        "content": "A chatbot that lived in the cloud\nWould answer both meek and the loud.\nIt rhymed on demand,\nWith flair close at hand,\nAnd took its last bow to the crowd."
+      }
+    },
+    {
+      "_comment": "Pilot cell suggestion — 'Give me a fun fact.' (prebuilt-sidebar)",
+      "match": {
+        "userMessage": "fun fact"
+      },
+      "response": {
+        "content": "Here's a fun fact: honey never spoils. Archaeologists have found 3,000-year-old honey in Egyptian tombs that was still perfectly edible. Its low moisture content and acidic pH create an environment where bacteria and microorganisms simply cannot survive."
+      }
+    },
+    {
+      "_comment": "Pilot cell suggestion — 'Say hi from the popup!' (prebuilt-popup). Placed before the shorter 'Say hi' fixture so the popup version matches first.",
+      "match": {
+        "userMessage": "Say hi from the popup"
+      },
+      "response": {
+        "content": "Hi from the popup! I'm your CopilotKit assistant, tucked away in this little overlay. Ask me anything — a quick question, a limerick, or a math walk-through. What would you like?"
+      }
+    },
+    {
+      "_comment": "Pilot cell suggestion — 'Say hi!' (prebuilt-sidebar). Anchored on 'Say hi' so it matches the sidebar greeting without colliding with the longer popup variant above.",
+      "match": {
+        "userMessage": "Say hi"
+      },
+      "response": {
+        "content": "Hi there! I'm your CopilotKit sidebar assistant. I can answer questions, share fun facts, or help you think through problems. What's on your mind?"
+      }
     }
   ]
 }
