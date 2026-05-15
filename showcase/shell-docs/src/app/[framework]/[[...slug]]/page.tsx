@@ -22,12 +22,14 @@ import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import { DocsPageView } from "@/components/docs-page-view";
+import { MdxCodeBlock } from "@/components/mdx-code-block";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
 import { FrameworkOverview } from "@/components/content/landing-pages/framework-overview";
 import { frameworkOverviews } from "@/data/frameworks";
 import { docsComponents } from "@/lib/mdx-registry";
+import { rehypeCodeMeta } from "@/lib/rehype-code-meta";
 import {
   CONTENT_DIR,
   buildFrameworkOverridesNav,
@@ -444,11 +446,26 @@ async function FrameworkRootPage({ framework }: { framework: string }) {
           afterFeatures = (
             <MDXRemote
               source={raw}
-              components={docsComponents}
+              components={{
+                ...docsComponents,
+                // Mirror DocsPageView: wrap MDX-rendered <pre> blocks
+                // with figure chrome (copy button + optional file-path
+                // caption) so fenced code in after-features.mdx has the
+                // same affordances as fenced code on a regular docs
+                // page. `rehypeCodeMeta` (below) supplies the
+                // `data-title` / `data-language` data-attrs MdxCodeBlock
+                // reads.
+                pre: MdxCodeBlock,
+              }}
               options={{
                 mdxOptions: {
                   remarkPlugins: [remarkGfm],
-                  rehypePlugins: [rehypeHighlight],
+                  // `rehypeCodeMeta` runs AFTER rehype-highlight so it
+                  // sees the `language-<name>` className and the fence
+                  // metastring's `title="..."`; without it, the bare
+                  // rehype-highlight wiring leaves <pre> with no copy
+                  // button and no caption (PR #4830 parity).
+                  rehypePlugins: [rehypeHighlight, rehypeCodeMeta],
                 },
               }}
             />
