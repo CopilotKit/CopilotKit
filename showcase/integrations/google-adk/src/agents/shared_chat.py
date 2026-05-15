@@ -77,6 +77,26 @@ def stop_on_terminal_text(
     if getattr(llm_response, "partial", False):
         return None
 
+    # Under thinking mode (`include_thoughts=True`), Gemini emits a turn
+    # as TWO separate non-partial chunks:
+    #   1. text-only chunk: thought + reply text, `finish_reason=None`
+    #   2. function_call-only chunk: `finish_reason=FUNCTION_CALL`
+    # The callback fires on both. Without the finish_reason guard below,
+    # chunk 1's text-without-function-call shape causes premature
+    # termination — the function call in chunk 2 still streams but the
+    # agentic loop is already marked `end_invocation=True`, so the
+    # post-tool-result re-invocation that would chain to the next tool
+    # never happens (tool-rendering-reasoning-chain AAPL→MSFT regression).
+    # Only terminate when Gemini signals the turn is genuinely done with
+    # `finish_reason=STOP` (no further chunks coming). FUNCTION_CALL and
+    # None mean "more chunks are inbound" — defer.
+    finish_reason = getattr(llm_response, "finish_reason", None)
+    finish_reason_name = (
+        getattr(finish_reason, "name", None) if finish_reason is not None else None
+    )
+    if finish_reason_name != "STOP" and finish_reason != "STOP":
+        return None
+
     has_text = any(getattr(part, "text", None) for part in content.parts)
     has_function_call = any(
         getattr(part, "function_call", None) for part in content.parts

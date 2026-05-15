@@ -53,7 +53,7 @@ _CRITIQUE_SYSTEM = (
 def _client() -> genai.Client:
     base_url = os.environ.get("GOOGLE_GEMINI_BASE_URL")
     if base_url:
-        return genai.Client(http_options={"api_endpoint": base_url})
+        return genai.Client(http_options={"base_url": base_url})
     return genai.Client()
 
 
