@@ -40,6 +40,12 @@ rules:
       # (which is also main per the upstream filter).
       - showcase_deploy.yml
       - showcase_capture-previews.yml
+      # Dependabot auto-merge: uses pull_request_target for write token.
+      # Does NOT checkout PR code. Actor-gated to dependabot[bot].
+      - dependabot-auto-merge.yml
+      # Dependabot major analysis: uses pull_request_target for PR comments.
+      # Does NOT checkout PR code. Actor-gated to dependabot[bot].
+      - dependabot-major-analysis.yml
       # test_smoke-starter.yml: workflow_run triggered by the in-repo
       # "publish / release" workflow. Listens to release completions; no
       # fork-controlled refs reach this workflow.
