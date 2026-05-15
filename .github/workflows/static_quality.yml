@@ -35,10 +35,10 @@ jobs:
       contents: write
 
     steps:
-      # persist-credentials required: subsequent "Commit formatting fixes" step pushes auto-formatting commits via GITHUB_TOKEN
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
+          persist-credentials: false
           ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
           # Full history so we can diff HEAD against the current base branch
@@ -123,6 +123,18 @@ jobs:
             ruff format --check .
           fi
 
+      - name: Configure git for push
+        if: >-
+          env.format_fixed == 'true' &&
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local url."https://x-access-token:${TOKEN}@github.com/".insteadOf "https://github.com/"
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Commit formatting fixes
         if: >-
           env.format_fixed == 'true' &&
@@ -133,8 +145,6 @@ jobs:
             echo "No formatting changes to commit"
             exit 0
           fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git diff --name-only -z | xargs -0 git add
           git commit -m "style: auto-fix formatting"
           git push
