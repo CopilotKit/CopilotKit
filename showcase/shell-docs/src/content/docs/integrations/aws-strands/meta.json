@@ -2,6 +2,7 @@
   "title": "AWS Strands",
   "root": true,
   "pages": [
+    "index",
     "---Generative UI---",
     "...generative-ui",
     "---App Control---",

@@ -54,6 +54,18 @@ if (!process.env.NEXT_PUBLIC_SHELL_URL) {
 }
 
 const nextConfig: NextConfig = {
+  images: {
+    // Asset CDN for framework intro-page media (banner videos, architecture
+    // diagrams, supported-feature thumbnails, framework icons). Hosts every
+    // image/video referenced by `src/data/frameworks/*.ts` and any future
+    // marketing surface that pulls from the shared CDN.
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "cdn.copilotkit.ai",
+      },
+    ],
+  },
   async rewrites() {
     return {
       beforeFiles: [
@@ -75,6 +87,15 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      {
+        // Built-in agent is the default framework, so its overview page
+        // is the docs root. Avoid surfacing a redundant "Introduction"
+        // entry inside the built-in-agent sidebar by canonicalizing the
+        // bare /built-in-agent URL to the root overview.
+        source: "/built-in-agent",
+        destination: "/",
+        permanent: true,
+      },
       {
         source: "/frontend-actions",
         destination: "/frontend-tools",

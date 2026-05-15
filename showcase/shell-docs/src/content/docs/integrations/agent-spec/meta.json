@@ -2,6 +2,7 @@
   "title": "Open Agent Spec",
   "root": true,
   "pages": [
+    "index",
     "---Generative UI---",
     "...generative-ui",
     "---Agent Spec---",
