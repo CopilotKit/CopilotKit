@@ -1,0 +1,30 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "Enable app mode and add three todos about learning CopilotKit: one about reading the docs, one about building a prototype, and one about exploring agent state.",
+        "model": "gpt-4o",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "enableAppMode",
+            "arguments": "{}",
+            "id": "call_c35xh8AQaOh9TPQ2R2iQvztQ"
+          },
+          {
+            "name": "manage_todos",
+            "arguments": "{\"todos\": [{\"title\": \"Read CopilotKit documentation\", \"description\": \"Go through the official documentation to understand the basics.\", \"emoji\": \"📚\", \"status\": \"pending\"}, {\"title\": \"Build a CopilotKit prototype\", \"description\": \"Create a simple prototype using CopilotKit to test its features.\", \"emoji\": \"🛠️\", \"status\": \"pending\"}, {\"title\": \"Explore CopilotKit agent state\", \"description\": \"Investigate how agent state is managed and utilized in CopilotKit.\", \"emoji\": \"🔍\", \"status\": \"pending\"}]}",
+            "id": "call_luLxT9XGJjj6HX5tfQUzkfiA"
+          }
+        ]
+      },
+      "metadata": {
+        "systemHash": "989f650c",
+        "toolsHash": "6e36f0b6"
+      }
+    }
+  ]
+}

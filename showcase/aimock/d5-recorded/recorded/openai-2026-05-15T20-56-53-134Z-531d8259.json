@@ -1,0 +1,23 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "Enable app mode and add three todos about learning CopilotKit: one about reading the docs, one about building a prototype, and one about exploring agent state.",
+        "model": "gpt-4o",
+        "turnIndex": 1,
+        "hasToolResult": true
+      },
+      "response": {
+        "error": {
+          "message": "An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'. The following tool_call_ids did not have response messages: call_luLxT9XGJjj6HX5tfQUzkfiA",
+          "type": "invalid_request_error"
+        },
+        "status": 400
+      },
+      "metadata": {
+        "systemHash": "989f650c",
+        "toolsHash": "6e36f0b6"
+      }
+    }
+  ]
+}

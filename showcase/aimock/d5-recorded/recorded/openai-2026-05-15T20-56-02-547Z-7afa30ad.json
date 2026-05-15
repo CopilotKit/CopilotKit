@@ -1,0 +1,25 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "Using the generateSandboxedUi tool, build a modern calculator with standard buttons plus labeled metric shortcut buttons that insert their values into the display when clicked. Use sample company data.",
+        "model": "gpt-4o",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":400,\"placeholderMessages\":[\"Building calculator UI...\"],\"css\":\"body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f4f4f9; } .calculator { width: 320px; background-color: #fff; border-radius: 10px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); } .display { background-color: #222; color: #fff; font-size: 2em; padding: 20px; text-align: right; border-top-left-radius: 10px; border-top-right-radius: 10px; } .buttons { display: grid; grid-template-columns: repeat(4, 1fr); grid-gap: 1px; } .button { background-color: #e0e0e0; padding: 20px; font-size: 1.2em; text-align: center; cursor: pointer; transition: background-color 0.2s; } .button:hover { background-color: #d0d0d0; } .metric-button { background-color: #4caf50; color: #fff; }\",\"html\":\"<div class='calculator'> <div class='display' id='display'>0</div> <div class='buttons'> <div class='button' onclick='appendNumber(7)'>7</div> <div class='button' onclick='appendNumber(8)'>8</div> <div class='button' onclick='appendNumber(9)'>9</div> <div class='button' onclick='operate(\\\"/\\\")'>/</div> <div class='button' onclick='appendNumber(4)'>4</div> <div class='button' onclick='appendNumber(5)'>5</div> <div class='button' onclick='appendNumber(6)'>6</div> <div class='button' onclick='operate(\\\"*\\\")'>*</div> <div class='button' onclick='appendNumber(1)'>1</div> <div class='button' onclick='appendNumber(2)'>2</div> <div class='button' onclick='appendNumber(3)'>3</div> <div class='button' onclick='operate(\\\"-\\\")'>-</div> <div class='button' onclick='appendNumber(0)'>0</div> <div class='button' onclick='clearDisplay()'>C</div> <div class='button' onclick='calculate()'>=</div> <div class='button' onclick='operate(\\\"+\\\")'>+</div> <div class='button metric-button' onclick='insertMetric(1000)'>Revenue</div> <div class='button metric-button' onclick='insertMetric(500)'>Expenses</div> <div class='button metric-button' onclick='insertMetric(200)'>Profit</div> </div> </div>\",\"jsFunctions\":\"function appendNumber(number) { const display = document.getElementById('display'); if (display.innerText === '0') { display.innerText = number; } else { display.innerText += number; } } function operate(operator) { const display = document.getElementById('display'); display.innerText += ' ' + operator + ' '; } function clearDisplay() { document.getElementById('display').innerText = '0'; } function calculate() { const display = document.getElementById('display'); try { display.innerText = eval(display.innerText); } catch { display.innerText = 'Error'; } } function insertMetric(value) { const display = document.getElementById('display'); if (display.innerText === '0') { display.innerText = value; } else { display.innerText += value; } }\",\"jsExpressions\":[]}",
+            "id": "call_u2aFJvWZUKzzlvqfnDeWhMyC"
+          }
+        ]
+      },
+      "metadata": {
+        "systemHash": "989f650c",
+        "toolsHash": "6e36f0b6"
+      }
+    }
+  ]
+}
