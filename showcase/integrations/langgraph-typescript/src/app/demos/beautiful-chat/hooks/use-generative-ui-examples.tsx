@@ -20,7 +20,7 @@ import { MeetingTimePicker } from "../components/generative-ui/meeting-time-pick
 import { ToolReasoning } from "../components/tool-rendering";
 
 export const useGenerativeUIExamples = () => {
-  const { theme, setTheme } = useTheme();
+  const { setTheme } = useTheme();
 
   // Human-in-the-Loop (frontend tool requiring user decision)
   useHumanInTheLoop({
@@ -68,16 +68,13 @@ export const useGenerativeUIExamples = () => {
   });
 
   // Frontend Tools (direct frontend state manipulation)
-  useFrontendTool(
-    {
-      name: "toggleTheme",
-      description: "Frontend tool for toggling the theme of the app.",
-      parameters: z.object({}),
-      handler: async () => {
-        const isDark = document.documentElement.classList.contains("dark");
-        setTheme(isDark ? "light" : "dark");
-      },
+  useFrontendTool({
+    name: "toggleTheme",
+    description: "Frontend tool for toggling the theme of the app.",
+    parameters: z.object({}),
+    handler: async () => {
+      const isDark = document.documentElement.classList.contains("dark");
+      setTheme(isDark ? "light" : "dark");
     },
-    [theme, setTheme],
-  );
+  });
 };
