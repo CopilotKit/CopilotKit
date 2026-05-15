@@ -15,6 +15,7 @@ See ``src/agents/hitl_in_chat_agent.py`` for the related ``book_call`` pattern
 used by the HITL-in-chat demos in this package.
 """
 
+# @region[backend-interrupt-tool]
 from __future__ import annotations
 
 from textwrap import dedent
@@ -49,6 +50,7 @@ agent = Agent(
     system_prompt=SYSTEM_PROMPT,
 )
 # @endregion[backend-tool-call]
+# @endregion[backend-interrupt-tool]
 
 
 __all__ = ["agent"]

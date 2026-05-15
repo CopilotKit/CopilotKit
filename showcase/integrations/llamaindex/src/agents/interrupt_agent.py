@@ -18,6 +18,7 @@ See ``src/agents/hitl_in_chat_agent.py`` for the related ``book_call`` pattern
 used by the HITL-in-chat demos in this package.
 """
 
+# @region[backend-interrupt-tool]
 from __future__ import annotations
 
 import os
@@ -87,3 +88,4 @@ interrupt_router = get_ag_ui_workflow_router(
     workflow_factory=_workflow_factory,
 )
 # @endregion[backend-tool-call]
+# @endregion[backend-interrupt-tool]

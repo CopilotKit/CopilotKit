@@ -14,6 +14,7 @@
 // and returns a plain-text result string. Visually and semantically this
 // is indistinguishable from the interrupt-based flow.
 
+// @region[frontend-useinterrupt-render]
 import React, { useMemo, useRef, useState } from "react";
 import { CopilotKit } from "@copilotkit/react-core";
 import {
@@ -151,6 +152,7 @@ function Chat() {
     },
   });
   // @endregion[frontend-promise-handler]
+  // @endregion[frontend-useinterrupt-render]
 
   return (
     <CopilotChat agentId="gen-ui-interrupt" className="h-full rounded-2xl" />

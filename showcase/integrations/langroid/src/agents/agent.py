@@ -716,6 +716,7 @@ class GenerateHaikuTool(ToolMessage):
         return "Haiku generated!"
 
 
+# @region[backend-interrupt-tool]
 # @region[backend-tool-call]
 # `schedule_meeting` is declared here as a `ToolMessage` subclass so Langroid's
 # LLM knows the tool's schema, but it executes client-side: the AG-UI adapter
@@ -741,6 +742,7 @@ class ScheduleMeetingTool(ToolMessage):
 
 
 # @endregion[backend-tool-call]
+# @endregion[backend-interrupt-tool]
 
 
 class SearchFlightsTool(ToolMessage):

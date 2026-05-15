@@ -18,6 +18,7 @@
 // docs render the right teaching code, mirroring the
 // claude-sdk-python `interrupt_agent.py` reference.
 
+// @region[backend-interrupt-tool]
 // @region[backend-tool-call]
 // The backend instructs the model to call the frontend-defined
 // `schedule_meeting` tool. The tool itself is registered on the
@@ -43,5 +44,6 @@ always send a brief final assistant message summarizing what happened
 so the message persists.
 `.trim();
 // @endregion[backend-tool-call]
+// @endregion[backend-interrupt-tool]
 
 export { SYSTEM_PROMPT };
