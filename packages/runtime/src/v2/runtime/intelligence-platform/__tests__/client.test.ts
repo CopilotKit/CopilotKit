@@ -611,9 +611,7 @@ describe("CopilotKitIntelligence", () => {
     };
 
     it("uses PUT (idempotent) and URL-encodes the clientEventId in the path", async () => {
-      fetchMock.mockReturnValue(
-        jsonResponse({ id: "42", duplicate: false }),
-      );
+      fetchMock.mockReturnValue(jsonResponse({ id: "42", duplicate: false }));
 
       const result = await client.recordUserAction(validParams);
 
@@ -626,9 +624,7 @@ describe("CopilotKitIntelligence", () => {
     });
 
     it("sends clientEventId in the body for the connector's URL/body parity check", async () => {
-      fetchMock.mockReturnValue(
-        jsonResponse({ id: "1", duplicate: false }),
-      );
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
 
       await client.recordUserAction(validParams);
 
@@ -638,9 +634,7 @@ describe("CopilotKitIntelligence", () => {
     });
 
     it("forwards all action fields verbatim", async () => {
-      fetchMock.mockReturnValue(
-        jsonResponse({ id: "1", duplicate: false }),
-      );
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
 
       await client.recordUserAction(validParams);
 
@@ -657,9 +651,7 @@ describe("CopilotKitIntelligence", () => {
     });
 
     it("sends Authorization Bearer with the configured apiKey", async () => {
-      fetchMock.mockReturnValue(
-        jsonResponse({ id: "1", duplicate: false }),
-      );
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
 
       await client.recordUserAction(validParams);
 
@@ -669,9 +661,7 @@ describe("CopilotKitIntelligence", () => {
     });
 
     it("encodes special characters in clientEventId path segments", async () => {
-      fetchMock.mockReturnValue(
-        jsonResponse({ id: "1", duplicate: false }),
-      );
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
 
       await client.recordUserAction({
         ...validParams,
@@ -687,17 +677,17 @@ describe("CopilotKitIntelligence", () => {
     it("throws PlatformRequestError on non-2xx with the platform's status", async () => {
       fetchMock.mockReturnValue(jsonResponse({ error: "bad" }, 400));
 
-      await expect(client.recordUserAction(validParams)).rejects.toMatchObject(
-        { status: 400 },
-      );
+      await expect(client.recordUserAction(validParams)).rejects.toMatchObject({
+        status: 400,
+      });
     });
 
     it("throws PlatformRequestError 502 when the platform returns an empty body", async () => {
       fetchMock.mockReturnValue(emptyResponse(200));
 
-      await expect(client.recordUserAction(validParams)).rejects.toMatchObject(
-        { status: 502 },
-      );
+      await expect(client.recordUserAction(validParams)).rejects.toMatchObject({
+        status: 502,
+      });
     });
 
     it("throws PlatformRequestError 502 when the platform returns JSON null", async () => {
@@ -715,9 +705,9 @@ describe("CopilotKitIntelligence", () => {
         } as Response),
       );
 
-      await expect(client.recordUserAction(validParams)).rejects.toMatchObject(
-        { status: 502 },
-      );
+      await expect(client.recordUserAction(validParams)).rejects.toMatchObject({
+        status: 502,
+      });
     });
   });
 });

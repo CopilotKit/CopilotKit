@@ -14,9 +14,8 @@ vi.mock("../../providers", () => ({
 
 let uuidCounter = 0;
 vi.mock("@copilotkit/shared", async () => {
-  const actual = await vi.importActual<Record<string, unknown>>(
-    "@copilotkit/shared",
-  );
+  const actual =
+    await vi.importActual<Record<string, unknown>>("@copilotkit/shared");
   return {
     ...actual,
     randomUUID: vi.fn(() => `uuid-${++uuidCounter}`),

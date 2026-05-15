@@ -12,9 +12,8 @@ vi.mock("../../context", () => ({
 // distinct values per call, so override the mock locally with a counter.
 let uuidCounter = 0;
 vi.mock("@copilotkit/shared", async () => {
-  const actual = await vi.importActual<Record<string, unknown>>(
-    "@copilotkit/shared",
-  );
+  const actual =
+    await vi.importActual<Record<string, unknown>>("@copilotkit/shared");
   return {
     ...actual,
     randomUUID: vi.fn(() => `uuid-${++uuidCounter}`),
@@ -54,7 +53,10 @@ const mockFetch = (
 };
 
 const installCopilotKit = (
-  overrides: { runtimeUrl?: string | null; headers?: Record<string, string> } = {},
+  overrides: {
+    runtimeUrl?: string | null;
+    headers?: Record<string, string>;
+  } = {},
 ) => {
   mockUseCopilotKit.mockReturnValue({
     copilotkit: {
@@ -141,7 +143,9 @@ describe("useRecordUserAction", () => {
     await result.current({ threadId: "t", title: "x" });
 
     expect(calls).toHaveLength(2);
-    expect(calls[0]!.body!.clientEventId).not.toBe(calls[1]!.body!.clientEventId);
+    expect(calls[0]!.body!.clientEventId).not.toBe(
+      calls[1]!.body!.clientEventId,
+    );
   });
 
   it("includes the customer headers from copilotkit.headers", async () => {
@@ -167,34 +171,34 @@ describe("useRecordUserAction", () => {
     globalThis.fetch = fetch;
 
     const { result } = renderHook(() => useRecordUserAction());
-    await expect(
-      result.current({ threadId: "t", title: "x" }),
-    ).rejects.toThrow(/runtimeUrl is not configured/);
+    await expect(result.current({ threadId: "t", title: "x" })).rejects.toThrow(
+      /runtimeUrl is not configured/,
+    );
   });
 
   it("propagates fetch rejections (network error) to the caller", async () => {
     installCopilotKit();
-    globalThis.fetch = vi.fn().mockRejectedValue(
-      new TypeError("network request failed"),
-    ) as unknown as typeof globalThis.fetch;
+    globalThis.fetch = vi
+      .fn()
+      .mockRejectedValue(
+        new TypeError("network request failed"),
+      ) as unknown as typeof globalThis.fetch;
 
     const { result } = renderHook(() => useRecordUserAction());
-    await expect(
-      result.current({ threadId: "t", title: "x" }),
-    ).rejects.toThrow(/network request failed/);
+    await expect(result.current({ threadId: "t", title: "x" })).rejects.toThrow(
+      /network request failed/,
+    );
   });
 
   it("throws with the platform status when the request fails", async () => {
     installCopilotKit();
-    const { fetch } = mockFetch([
-      { status: 400, body: { error: "bad" } },
-    ]);
+    const { fetch } = mockFetch([{ status: 400, body: { error: "bad" } }]);
     globalThis.fetch = fetch;
 
     const { result } = renderHook(() => useRecordUserAction());
-    await expect(
-      result.current({ threadId: "t", title: "x" }),
-    ).rejects.toThrow(/400/);
+    await expect(result.current({ threadId: "t", title: "x" })).rejects.toThrow(
+      /400/,
+    );
   });
 
   it("omits optional fields from the request body when absent", async () => {
