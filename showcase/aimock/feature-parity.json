@@ -820,14 +820,18 @@
       }
     },
     {
+      "_comment": "hitl-in-chat — Schedule 1:1 with Alice pill, 2nd turn (book_call tool result returned). Keyed on userMessage + toolCallId + hasToolResult so it wins ahead of the bare 'alice' / 'Alice' substring fixtures further below in this file, regardless of prior pill state in the thread.",
       "match": {
-        "toolCallId": "call_hitl_book_1on1_alice_001"
+        "userMessage": "Schedule a 1:1 with Alice next week to review Q2 goals.",
+        "toolCallId": "call_hitl_book_1on1_alice_001",
+        "hasToolResult": true
       },
       "response": {
         "content": "Booked the 1:1 with Alice for the time you selected — calendar invite is on its way."
       }
     },
     {
+      "_comment": "hitl-in-chat — Schedule 1:1 with Alice pill, 1st turn (emit book_call). Exact pill substring + toolName + hasToolResult: false ensures this fires ONLY for the intended pill, not for arbitrary messages containing 'alice'.",
       "match": {
         "userMessage": "Schedule a 1:1 with Alice next week to review Q2 goals.",
         "toolName": "book_call",
@@ -844,6 +848,7 @@
       }
     },
     {
+      "_comment": "Generic 'alice' / 'Alice' greeting fixture for the showcase-assistant 'Hi I'm Alice' flow. The Schedule-1:1 pill is fully matched above (with stable toolCallId + hasToolResult gating) so it doesn't fall through here.",
       "match": {
         "userMessage": "alice"
       },

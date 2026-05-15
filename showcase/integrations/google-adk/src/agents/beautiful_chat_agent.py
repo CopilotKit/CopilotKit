@@ -421,6 +421,13 @@ _INSTRUCTION = """
         - Todos / Task Manager: call manage_sales_todos to update the complete todo
           list, or get_sales_todos to read the current list before discussing them.
           Always pass the COMPLETE list to manage_sales_todos.
+        - Interactive / sandboxed widgets (calculator, custom forms, mini-apps):
+          call generateSandboxedUi to create a self-contained HTML+CSS+JS widget
+          rendered inside a sandboxed iframe. Use this when the user asks for
+          something that isn't a dashboard (so generate_a2ui doesn't apply) but
+          benefits from a live, interactive UI — calculators, color pickers,
+          quizzes, etc. Keep the chat reply to one short sentence; the rendered
+          widget is the real output.
         - A2UI actions: when you see a log_a2ui_event result (e.g. "view_details"),
           respond with a brief confirmation. The UI already updated on the frontend.
         - Meeting scheduling is handled entirely on the frontend via the

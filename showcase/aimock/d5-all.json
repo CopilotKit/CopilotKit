@@ -1280,18 +1280,20 @@
       }
     },
     {
-      "_comment": "shared-state-read-write Greet me pill (msg: 'Say hi and introduce yourself.'). Outranks feature-parity's bare 'hi' matcher because d5-all.json loads before feature-parity.json. Response references the shared-state contract so the demo's intent is clear. Mirrored from showcase/harness/fixtures/d5/shared-state.json.",
+      "_comment": "shared-state-read-write Greet me pill. Gated by systemMessage substring 'tone: casual' (the canonical default tone from INITIAL_PREFERENCES). If the user changes tone in the Preferences panel, the agent's system prompt loses 'tone: casual' and this fixture stops matching — aimock --proxy-only falls through to the real model so the response reflects the actual preferences.",
       "match": {
-        "userMessage": "Say hi and introduce yourself"
+        "userMessage": "Say hi and introduce yourself",
+        "systemMessage": "tone: casual"
       },
       "response": {
         "content": "Hi — I'm your shared-state co-pilot. Your Preferences panel (name, tone, language, interests) is fed to me on every turn, and I jot notes back into the Agent Scratch Pad via set_notes so the UI re-renders. Try setting your name or asking me to remember something."
       }
     },
     {
-      "_comment": "shared-state-read-write Plan a weekend pill (msg: 'Suggest a weekend plan based on my interests.'). Outranks feature-parity's bare 'plan' matcher for the same reason. Mirrored from showcase/harness/fixtures/d5/shared-state.json.",
+      "_comment": "shared-state-read-write Plan a weekend pill. Same default-state gating as Greet pill.",
       "match": {
-        "userMessage": "weekend plan based on my interests"
+        "userMessage": "weekend plan based on my interests",
+        "systemMessage": "tone: casual"
       },
       "response": {
         "content": "A weekend tailored to your interests panel: if you haven't picked any yet, try Cooking + Travel for a market-and-day-trip combo, or Tech + Books for a maker session and a long reading afternoon. Add interests in the Preferences panel and re-ask for a more specific plan."
@@ -1407,16 +1409,6 @@
       },
       "response": {
         "content": "The weather in Tokyo is currently 22°C with partly cloudy skies and light easterly winds."
-      }
-    },
-    {
-      "match": {
-        "endpoint": "transcription"
-      },
-      "response": {
-        "transcription": {
-          "text": "What is the weather in Tokyo?"
-        }
       }
     },
     {
@@ -1648,31 +1640,21 @@
       }
     },
     {
-      "_comment": "hitl-in-app — refund pill (#12345), 2nd turn after approve. Keyed on the request_user_approval toolCallId AND sequenceIndex 0 (first match = approve branch). Must come BEFORE the tool-emitting fixture so iteration 2 hits this branch.",
+      "_comment": "hitl-in-app — refund pill (#12345), 2nd turn (after request_user_approval tool result lands). Keyed on toolCallId + hasToolResult so it wins after the user clicks approve/reject. Replaces the sequenceIndex 0/1 branching that broke when other pills shifted thread position.",
       "match": {
         "userMessage": "$50 refund to Jordan Rivera on ticket #12345",
         "toolCallId": "call_d5_hitl_refund_12345_001",
-        "sequenceIndex": 0
+        "hasToolResult": true
       },
       "response": {
         "content": "I am processing the $50 refund to Jordan Rivera on ticket #12345 now."
       }
     },
     {
-      "_comment": "hitl-in-app — refund pill (#12345), 2nd turn after reject. sequenceIndex 1 = reject branch.",
+      "_comment": "hitl-in-app — refund pill (#12345). 1st turn: emit request_user_approval tool call. Explicit hasToolResult: false so we never re-emit after the user clicks the approval (the toolCallId-keyed entry above wins instead).",
       "match": {
         "userMessage": "$50 refund to Jordan Rivera on ticket #12345",
-        "toolCallId": "call_d5_hitl_refund_12345_001",
-        "sequenceIndex": 1
-      },
-      "response": {
-        "content": "Understood — the refund request was not approved. I will not issue the $50 refund on ticket #12345."
-      }
-    },
-    {
-      "_comment": "hitl-in-app — refund pill (#12345). 1st turn: emit request_user_approval tool call. hasToolResult gate was dropped — broke after the user clicked another tool-using pill earlier in the same thread.",
-      "match": {
-        "userMessage": "$50 refund to Jordan Rivera on ticket #12345"
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -1685,31 +1667,48 @@
       }
     },
     {
-      "_comment": "hitl-in-app — escalate pill (#12347), 2nd turn after approve. sequenceIndex 0 = approve branch. Must come BEFORE the tool-emitting fixture.",
+      "_comment": "hitl-in-app — downgrade pill (#12346), 2nd turn. Same pattern as refund/escalate. Without this entry, the generic 'plan' catch-all in feature-parity.json hijacks the downgrade message.",
+      "match": {
+        "userMessage": "downgrade Priya Shah (#12346) to the Starter plan",
+        "toolCallId": "call_d5_hitl_downgrade_12346_001",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Downgrade confirmed — Priya Shah (#12346) will move to the Starter plan effective next billing cycle."
+      }
+    },
+    {
+      "_comment": "hitl-in-app — downgrade pill (#12346). 1st turn: emit request_user_approval tool call. Specific userMessage substring takes precedence over the bare 'plan' fixture in feature-parity.json (which lives later in the load order).",
+      "match": {
+        "userMessage": "downgrade Priya Shah (#12346) to the Starter plan",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_hitl_downgrade_12346_001",
+            "name": "request_user_approval",
+            "arguments": "{\"message\":\"Downgrade Priya Shah (#12346) to the Starter plan effective next billing cycle.\",\"context\":\"Ticket #12346 — voluntary downgrade per customer request.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "hitl-in-app — escalate pill (#12347), 2nd turn. Same pattern as refund — toolCallId + hasToolResult replaces sequenceIndex branching.",
       "match": {
         "userMessage": "escalate ticket #12347 to the payments team",
         "toolCallId": "call_d5_hitl_escalate_12347_001",
-        "sequenceIndex": 0
+        "hasToolResult": true
       },
       "response": {
         "content": "Escalated ticket #12347 to the payments team for Morgan Lee — they will pick this up shortly."
       }
     },
     {
-      "_comment": "hitl-in-app — escalate pill (#12347), 2nd turn after reject. sequenceIndex 1 = reject branch.",
-      "match": {
-        "userMessage": "escalate ticket #12347 to the payments team",
-        "toolCallId": "call_d5_hitl_escalate_12347_001",
-        "sequenceIndex": 1
-      },
-      "response": {
-        "content": "Not escalated — ticket #12347 will stay with the current owner per your decision."
-      }
-    },
-    {
       "_comment": "hitl-in-app — escalate pill (#12347). 1st turn: emit request_user_approval tool call.",
       "match": {
-        "userMessage": "escalate ticket #12347 to the payments team"
+        "userMessage": "escalate ticket #12347 to the payments team",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -1797,18 +1796,20 @@
       }
     },
     {
-      "_comment": "readonly-state-agent-context — Who am I pill (B2 added with paraphrased prompt; locked verbatim).",
+      "_comment": "readonly-state-agent-context — Who am I pill. Gated by systemMessage substring matching the canonical default 'Atai' name forwarded via useAgentContext. When the user changes the name input to anything else (e.g. 'alem'), the system prompt loses 'Atai', this fixture stops matching, and aimock --proxy-only falls through to the real model so the agent answers with the actual state values.",
       "match": {
-        "userMessage": "What do you know about me from my context?"
+        "userMessage": "What do you know about me from my context?",
+        "systemMessage": "Atai"
       },
       "response": {
         "content": "I see you're Atai, and you're in the America/Los_Angeles timezone. Recently, you viewed the pricing page and watched the product demo video. How can I assist you today?"
       }
     },
     {
-      "_comment": "readonly-state-agent-context — Suggest next steps pill (B2 added with paraphrased prompt; locked verbatim).",
+      "_comment": "readonly-state-agent-context — Suggest next steps pill. Same systemMessage gating as 'Who am I' so non-default state falls through.",
       "match": {
-        "userMessage": "Based on my recent activity, what should I try next?"
+        "userMessage": "Based on my recent activity, what should I try next?",
+        "systemMessage": "Atai"
       },
       "response": {
         "content": "Since you recently viewed the pricing page and watched the product demo video, it might be a good idea to explore user testimonials or case studies to see how others have benefited from the Pro Plan. You could also start the 14-day free trial to experience the features firsthand."
@@ -2603,40 +2604,6 @@
                   "component": "StatusBadge",
                   "text": "Workers: degraded",
                   "variant": "warning"
-                }
-              ],
-              "data": {}
-            }
-          }
-        ]
-      }
-    },
-    {
-      "_comment": "render_a2ui — fallback for any unmatched pill (Google-ADK). Single Metric child satisfies Card's single-slot schema.",
-      "match": {
-        "toolName": "render_a2ui"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "name": "render_a2ui",
-            "arguments": {
-              "surfaceId": "declarative-surface",
-              "catalogId": "declarative-gen-ui-catalog",
-              "components": [
-                {
-                  "id": "root",
-                  "component": "Card",
-                  "title": "Declarative Demo",
-                  "subtitle": "Catalog primitives",
-                  "child": "metric-1"
-                },
-                {
-                  "id": "metric-1",
-                  "component": "Metric",
-                  "label": "Revenue",
-                  "value": "$1.2M",
-                  "trend": "up"
                 }
               ],
               "data": {}
