@@ -5,6 +5,9 @@ on:
     types: [closed]
     branches: [main]
 
+permissions:
+  contents: read
+
 concurrency:
   group: publish-release
   cancel-in-progress: false

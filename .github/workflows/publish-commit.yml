@@ -7,6 +7,9 @@ on:
     paths:
       - "packages/**"
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.repository }}-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
