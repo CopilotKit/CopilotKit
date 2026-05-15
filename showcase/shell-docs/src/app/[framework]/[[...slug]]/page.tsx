@@ -423,7 +423,9 @@ async function FrameworkRootPage({ framework }: { framework: string }) {
   // raw slug. `mergeFrameworkNav` uses this purely as the section
   // header text inserted into the sidebar.
   const integrationName =
-    integration?.name ?? frameworkOverviews[framework]?.frameworkName ?? framework;
+    integration?.name ??
+    frameworkOverviews[framework]?.frameworkName ??
+    framework;
   const navTree = mergeFrameworkNav(rootNav, overrideNav, integrationName);
 
   // Tier 1: data-driven FrameworkOverview.

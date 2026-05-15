@@ -2,24 +2,27 @@
 import type { FrameworkOverviewData } from "./types";
 
 const data: FrameworkOverviewData = {
-  "slug": "a2a",
-  "frameworkName": "A2A",
-  "iconKey": "a2a",
-  "header": "Bring your A2A agents to your users",
-  "subheader": "Give your A2A agents real user-interactivity using CopilotKit and AG-UI. Build rich, interactive, agent-powered applications.",
-  "guideLink": "/a2a/quickstart",
-  "initCommand": "git clone https://github.com/copilotkit-ai/with-a2a-a2ui.git",
-  "featuresLink": "https://feature-viewer.copilotkit.ai/a2a/feature/a2ui",
-  "supportedFeatures": [
+  slug: "a2a",
+  frameworkName: "A2A",
+  iconKey: "a2a",
+  header: "Bring your A2A agents to your users",
+  subheader:
+    "Give your A2A agents real user-interactivity using CopilotKit and AG-UI. Build rich, interactive, agent-powered applications.",
+  guideLink: "/a2a/quickstart",
+  initCommand: "git clone https://github.com/copilotkit-ai/with-a2a-a2ui.git",
+  featuresLink: "https://feature-viewer.copilotkit.ai/a2a/feature/a2ui",
+  supportedFeatures: [
     {
-      "title": "Declarative UI (A2UI)",
-      "description": "Render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. Bridges the gap between AI agents and user interfaces.",
-      "documentationLink": "/a2a/generative-ui",
-      "demoLink": "https://feature-viewer.copilotkit.ai/a2a/feature/a2ui"
-    }
+      title: "Declarative UI (A2UI)",
+      description:
+        "Render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. Bridges the gap between AI agents and user interfaces.",
+      documentationLink: "/a2a/generative-ui",
+      demoLink: "https://feature-viewer.copilotkit.ai/a2a/feature/a2ui",
+    },
   ],
-  "architectureImage": "https://cdn.copilotkit.ai/docs/copilotkit/images/generic-agui-architecture.png",
-  "liveDemos": []
+  architectureImage:
+    "https://cdn.copilotkit.ai/docs/copilotkit/images/generic-agui-architecture.png",
+  liveDemos: [],
 };
 
 export default data;

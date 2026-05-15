@@ -106,8 +106,7 @@ export function FrameworkOverview({
   // rewrite *away from* so that variant users land on their own variant's
   // sub-pages.
   const fromSlug = rawGuideLink.split("/")[1] ?? "";
-  const link = (href: string) =>
-    rewriteHref(href, fromSlug, currentFramework);
+  const link = (href: string) => rewriteHref(href, fromSlug, currentFramework);
 
   const guideLink = link(rawGuideLink);
   const featuresLink = link(rawFeaturesLink);
@@ -164,9 +163,7 @@ export function FrameworkOverview({
             <div className="w-px h-10 sm:h-12 bg-border dark:bg-primary flex-shrink-0" />
             <div className="flex items-center gap-2 sm:gap-4">
               <div className="flex items-center justify-center text-primary">
-                {IconComponent ? (
-                  <IconComponent className="h-14 w-14" />
-                ) : null}
+                {IconComponent ? <IconComponent className="h-14 w-14" /> : null}
               </div>
               <span className="text-2xl sm:text-3xl font-bold text-foreground whitespace-nowrap">
                 {frameworkName}
@@ -369,8 +366,8 @@ export function FrameworkOverview({
                 Live demo
               </h2>
               <p className="text-base sm:text-lg text-muted-foreground max-w-3xl mx-auto mb-6 sm:mb-8">
-                Explore different types of agent-powered applications built
-                with CopilotKit and {frameworkName}.
+                Explore different types of agent-powered applications built with
+                CopilotKit and {frameworkName}.
               </p>
 
               {/* Demo Toggle Buttons */}
