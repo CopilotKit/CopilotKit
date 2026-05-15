@@ -11,10 +11,7 @@
  */
 
 import { spawnSync } from "child_process";
-import {
-  getCurrentVersion,
-  getPackagesForScope,
-} from "./lib/versions.js";
+import { getCurrentVersion, getPackagesForScope } from "./lib/versions.js";
 import { ROOT, loadConfig, type ReleaseScope } from "./lib/config.js";
 
 function run(cmd: string, args: string[], opts?: { cwd?: string }) {
