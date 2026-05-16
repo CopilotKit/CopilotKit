@@ -1,28 +1,58 @@
 /**
- * Tool Rendering agent — TypeScript port of tool_rendering_agent.py.
+ * Tool Rendering agent -- TypeScript port of tool_rendering_agent.py.
  *
  * Backs the tool-rendering demos:
  *   - tool-rendering-default-catchall  (no frontend renderers)
  *   - tool-rendering-custom-catchall   (wildcard renderer on frontend)
  *   - tool-rendering                   (per-tool + catch-all on frontend)
  *
- * All cells share this backend — they differ only in how the frontend
+ * All cells share this backend -- they differ only in how the frontend
  * renders the same tool calls.
  */
 
 // @region[weather-tool-backend]
 import { z } from "zod";
+import { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
-import { createReactAgent } from "@langchain/langgraph/prebuilt";
+import { ToolNode } from "@langchain/langgraph/prebuilt";
+import { AIMessage, SystemMessage } from "@langchain/core/messages";
+import {
+  Annotation,
+  MemorySaver,
+  START,
+  StateGraph,
+} from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+import {
+  convertActionsToDynamicStructuredTools,
+  CopilotKitStateAnnotation,
+} from "@copilotkit/sdk-js/langgraph";
+
+// ---------------------------------------------------------------------------
+// 1. Agent state -- extends CopilotKit state annotation
+// ---------------------------------------------------------------------------
+
+const AgentStateAnnotation = Annotation.Root({
+  ...CopilotKitStateAnnotation.spec,
+});
+
+export type AgentState = typeof AgentStateAnnotation.State;
+
+// ---------------------------------------------------------------------------
+// 2. System prompt -- matches LGP exactly
+// ---------------------------------------------------------------------------
 
 const SYSTEM_PROMPT =
-  "You are a helpful travel & lifestyle concierge. You have mock tools " +
-  "for weather, flights, stock prices, or d20 rolls when the user asks; " +
+  "You are a travel & lifestyle concierge. Use the mock tools for " +
+  "weather, flights, stock prices, or d20 rolls when the user asks; " +
   "otherwise reply in plain text. For flights, default origin to 'SFO' " +
   "if the user only names a destination. Call multiple tools in one " +
   "turn if asked. After tools return, summarize in one short sentence. " +
   "Never fabricate data a tool could provide.";
+
+// ---------------------------------------------------------------------------
+// 3. Tools -- aligned with LGP tool definitions
+// ---------------------------------------------------------------------------
 
 const getWeather = tool(
   async ({ location }) => ({
@@ -34,9 +64,7 @@ const getWeather = tool(
   }),
   {
     name: "get_weather",
-    description:
-      "Get the current weather for a given location. Useful on its own for " +
-      "weather questions, and a great companion to `search_flights`.",
+    description: "Get the current weather for a given location.",
     schema: z.object({
       location: z.string().describe("City name"),
     }),
@@ -75,8 +103,7 @@ const searchFlights = tool(
   {
     name: "search_flights",
     description:
-      "Search mock flights from an origin airport to a destination " +
-      "airport. Pairs naturally with `get_weather` on the destination.",
+      "Search mock flights from an origin airport to a destination airport.",
     schema: z.object({
       origin: z.string().describe("Origin airport code"),
       destination: z.string().describe("Destination airport code"),
@@ -85,24 +112,46 @@ const searchFlights = tool(
 );
 
 const getStockPrice = tool(
-  async ({ ticker }) => {
+  async ({ ticker, price_usd, change_pct }) => {
     const randInt = (lo: number, hi: number) =>
       Math.floor(Math.random() * (hi - lo + 1)) + lo;
     const sign = Math.random() < 0.5 ? -1 : 1;
     return {
       ticker: ticker.toUpperCase(),
       price_usd:
-        Math.round((100 + randInt(0, 400) + randInt(0, 99) / 100) * 100) / 100,
-      change_pct: Math.round(sign * (randInt(0, 300) / 100) * 100) / 100,
+        price_usd != null
+          ? Math.round(price_usd * 100) / 100
+          : Math.round((100 + randInt(0, 400) + randInt(0, 99) / 100) * 100) /
+            100,
+      change_pct:
+        change_pct != null
+          ? Math.round(change_pct * 100) / 100
+          : Math.round(sign * (randInt(0, 300) / 100) * 100) / 100,
     };
   },
   {
     name: "get_stock_price",
     description:
-      "Get a mock current price for a stock ticker. Consider pulling a " +
-      "related ticker for comparison.",
+      "Get a mock current price for a stock ticker.\n\n" +
+      "The optional `price_usd` and `change_pct` arguments let the LLM (or " +
+      "aimock fixture) script a deterministic ticker quote for testing -- " +
+      "when supplied, the tool echoes them back verbatim. When omitted (or " +
+      "null), the tool returns mock random values. Mirrors the " +
+      "deterministic-`value` pattern on `roll_d20`.",
     schema: z.object({
       ticker: z.string().describe("Stock ticker symbol"),
+      price_usd: z
+        .number()
+        .optional()
+        .describe(
+          "Deterministic price override for testing (echoed back verbatim)",
+        ),
+      change_pct: z
+        .number()
+        .optional()
+        .describe(
+          "Deterministic change-pct override for testing (echoed back verbatim)",
+        ),
     }),
   },
 );
@@ -130,10 +179,63 @@ const rollD20 = tool(
   },
 );
 
-const model = new ChatOpenAI({ model: "gpt-4o-mini" });
+const tools = [getWeather, searchFlights, getStockPrice, rollD20];
 
-export const graph = createReactAgent({
-  llm: model,
-  tools: [getWeather, searchFlights, getStockPrice, rollD20],
-  prompt: SYSTEM_PROMPT,
+// ---------------------------------------------------------------------------
+// 4. Chat node -- binds backend + frontend tools, invokes the model
+// ---------------------------------------------------------------------------
+
+async function chatNode(state: AgentState, config: RunnableConfig) {
+  const model = new ChatOpenAI({ model: "gpt-5.4" });
+
+  const modelWithTools = model.bindTools!([
+    ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),
+    ...tools,
+  ]);
+
+  const systemMessage = new SystemMessage({ content: SYSTEM_PROMPT });
+
+  const response = await modelWithTools.invoke(
+    [systemMessage, ...state.messages],
+    config,
+  );
+
+  return { messages: response };
+}
+
+// ---------------------------------------------------------------------------
+// 5. Routing -- send tool calls to tool_node unless they're CopilotKit
+//    frontend actions.
+// ---------------------------------------------------------------------------
+
+function shouldContinue({ messages, copilotkit }: AgentState) {
+  const lastMessage = messages[messages.length - 1] as AIMessage;
+
+  if (lastMessage.tool_calls?.length) {
+    const actions = copilotkit?.actions;
+    const toolCallName = lastMessage.tool_calls![0].name;
+
+    if (!actions || actions.every((action) => action.name !== toolCallName)) {
+      return "tool_node";
+    }
+  }
+
+  return "__end__";
+}
+
+// ---------------------------------------------------------------------------
+// 6. Compile the graph
+// ---------------------------------------------------------------------------
+
+const workflow = new StateGraph(AgentStateAnnotation)
+  .addNode("chat_node", chatNode)
+  .addNode("tool_node", new ToolNode(tools))
+  .addEdge(START, "chat_node")
+  .addEdge("tool_node", "chat_node")
+  .addConditionalEdges("chat_node", shouldContinue as any);
+
+const memory = new MemorySaver();
+
+export const graph = workflow.compile({
+  checkpointer: memory,
 });
