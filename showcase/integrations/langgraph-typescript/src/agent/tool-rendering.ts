@@ -18,25 +18,11 @@ import { ChatOpenAI } from "@langchain/openai";
 
 const SYSTEM_PROMPT =
   "You are a helpful travel & lifestyle concierge. You have mock tools " +
-  "for weather, flights, stock prices, and dice rolls - they all return " +
-  "fake data, so call them liberally.\n\n" +
-  "Your habit is to CHAIN tools when one answer naturally invites another. " +
-  "For a single user question, call at least TWO tools in succession when " +
-  "the topic allows before composing your final reply. Examples of " +
-  "helpful chains you should default to:\n" +
-  "  - 'What's the weather in Tokyo?' -> call get_weather('Tokyo'), then " +
-  "call search_flights(origin='SFO', destination='Tokyo') so the user " +
-  "also sees how to get there.\n" +
-  "  - 'How is AAPL doing?' -> call get_stock_price('AAPL'), then call " +
-  "get_stock_price on a related ticker (e.g. 'MSFT' or 'GOOGL') for " +
-  "comparison.\n" +
-  "  - 'Roll a d20' -> call roll_dice(20), then call roll_dice again with " +
-  "a different number of sides so the user sees a contrast.\n" +
-  "  - 'Find flights from SFO to JFK' -> call search_flights, then call " +
-  "get_weather on the destination city.\n\n" +
-  "Only skip chaining when the user has clearly asked for a single, " +
-  "atomic answer and more tool calls would feel intrusive. Never " +
-  "fabricate data that a tool could provide.";
+  "for weather, flights, stock prices, or d20 rolls when the user asks; " +
+  "otherwise reply in plain text. For flights, default origin to 'SFO' " +
+  "if the user only names a destination. Call multiple tools in one " +
+  "turn if asked. After tools return, summarize in one short sentence. " +
+  "Never fabricate data a tool could provide.";
 
 const getWeather = tool(
   async ({ location }) => ({
@@ -121,23 +107,25 @@ const getStockPrice = tool(
   },
 );
 
-const rollDice = tool(
-  async ({ sides }) => {
-    const n = sides ?? 6;
-    const max = Math.max(2, n);
-    return { sides: n, result: Math.floor(Math.random() * max) + 1 };
+const rollD20 = tool(
+  async ({ value }) => {
+    const rolled =
+      typeof value === "number" && value >= 1 && value <= 20
+        ? value
+        : Math.floor(Math.random() * 20) + 1;
+    return { sides: 20, value: rolled, result: rolled };
   },
   {
-    name: "roll_dice",
-    description:
-      "Roll a single die with the given number of sides. Consider rolling " +
-      "twice with different sides so the reply can show a contrast.",
+    name: "roll_d20",
+    description: "Roll a 20-sided die.",
     schema: z.object({
-      sides: z
+      value: z
         .number()
         .int()
         .optional()
-        .describe("Number of sides on the die (default 6)"),
+        .describe(
+          "Deterministic override for the roll result (used by test fixtures)",
+        ),
     }),
   },
 );
@@ -146,6 +134,6 @@ const model = new ChatOpenAI({ model: "gpt-4o-mini" });
 
 export const graph = createReactAgent({
   llm: model,
-  tools: [getWeather, searchFlights, getStockPrice, rollDice],
+  tools: [getWeather, searchFlights, getStockPrice, rollD20],
   prompt: SYSTEM_PROMPT,
 });
