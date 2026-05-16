@@ -11,6 +11,7 @@
     "agent_config_agent": "./agent-config.ts:graph",
     "agentic-chat-reasoning": "./reasoning-agent.ts:graph",
     "reasoning-default-render": "./reasoning-agent.ts:graph",
+    "tool_rendering": "./tool-rendering.ts:graph",
     "tool-rendering-default-catchall": "./tool-rendering.ts:graph",
     "tool-rendering-custom-catchall": "./tool-rendering.ts:graph",
     "tool-rendering-reasoning-chain": "./tool-rendering-reasoning-chain.ts:graph",

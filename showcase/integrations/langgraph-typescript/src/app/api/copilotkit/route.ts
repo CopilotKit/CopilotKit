@@ -28,7 +28,6 @@ function createAgent(graphId: string = "starterAgent") {
 const starterAgentNames = [
   "agentic_chat",
   "human_in_the_loop",
-  "tool-rendering",
   "gen-ui-tool-based",
   "shared-state-read",
   "shared-state-write",
@@ -74,6 +73,7 @@ const demoAgents: Record<string, string> = {
   "agentic-chat-reasoning": "agentic-chat-reasoning",
   "reasoning-default-render": "reasoning-default-render",
   // Tool rendering variants — each has its own graph in langgraph.json.
+  "tool-rendering": "tool_rendering",
   "tool-rendering-default-catchall": "tool-rendering-default-catchall",
   "tool-rendering-custom-catchall": "tool-rendering-custom-catchall",
   "tool-rendering-reasoning-chain": "tool-rendering-reasoning-chain",
