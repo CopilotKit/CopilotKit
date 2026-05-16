@@ -1,10 +1,12 @@
 /**
- * LangGraph TypeScript agent backing the Readonly State (Agent Context) demo.
+ * LangGraph TypeScript agent backing the Shared State (Agent Read-Only) demo.
  *
- * Demonstrates the `useAgentContext` hook: the frontend provides READ-ONLY
- * context *to* the agent. This is the reverse direction of writable shared
- * state — the UI cannot be edited by the agent, but the agent reads this
- * context on every turn via CopilotKit's state forwarding.
+ * Demonstrates the `useAgentContext` hook from @copilotkit/react-core/v2:
+ * the frontend provides READ-ONLY context *to* the agent. This is the
+ * reverse direction of writable-shared-state — the UI cannot be edited by
+ * the agent, but the agent reads this context on every turn via
+ * CopilotKit's state forwarding, which routes the context entries into the
+ * model's message history.
  *
  * No custom state, no tools: this is the minimal shape of the
  * useAgentContext pattern. The agent just reads whatever context the
@@ -15,10 +17,7 @@ import { RunnableConfig } from "@langchain/core/runnables";
 import { SystemMessage } from "@langchain/core/messages";
 import { MemorySaver, START, StateGraph } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
-import {
-  convertActionsToDynamicStructuredTools,
-  CopilotKitStateAnnotation,
-} from "@copilotkit/sdk-js/langgraph";
+import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 
 const AgentStateAnnotation = CopilotKitStateAnnotation;
 export type AgentState = typeof AgentStateAnnotation.State;
@@ -32,11 +31,7 @@ const SYSTEM_PROMPT =
   "recent activity when it helps you answer. Keep responses short.";
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
-  const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o-mini" });
-
-  const modelWithTools = model.bindTools!([
-    ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),
-  ]);
+  const model = new ChatOpenAI({ model: "gpt-5.4" });
 
   // Inject read-only context from useAgentContext into the system message,
   // replicating what CopilotKitMiddleware does on the Python side.
@@ -56,7 +51,7 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
     ? `${SYSTEM_PROMPT}\n\n${contextText}`
     : SYSTEM_PROMPT;
 
-  const response = await modelWithTools.invoke(
+  const response = await model.invoke(
     [new SystemMessage({ content: systemContent }), ...state.messages],
     config,
   );
