@@ -33,26 +33,32 @@ const SYSTEM_PROMPT =
 async function chatNode(state: AgentState, config: RunnableConfig) {
   const model = new ChatOpenAI({ model: "gpt-5.4" });
 
-  // Inject read-only context from useAgentContext into the system message,
-  // replicating what CopilotKitMiddleware does on the Python side.
-  const contextEntries = (state.copilotkit?.context ?? []) as Array<
-    Record<string, unknown>
-  >;
-  const contextText = contextEntries
-    .map((entry) =>
-      entry && typeof entry === "object" && typeof entry.value === "string"
-        ? (entry.value as string)
-        : "",
-    )
-    .filter(Boolean)
-    .join("\n\n");
+  // Inject read-only context from useAgentContext / useCopilotReadable.
+  // Mirrors the `createAppContextBeforeAgent` logic in CopilotKitMiddleware:
+  // context may be a string or an object — stringify it and prepend as a
+  // system message right after the main system prompt.
+  const appContext = state.copilotkit?.context;
+  const isEmptyContext =
+    !appContext ||
+    (typeof appContext === "string" && appContext.trim() === "") ||
+    (typeof appContext === "object" && Object.keys(appContext).length === 0);
 
-  const systemContent = contextText
-    ? `${SYSTEM_PROMPT}\n\n${contextText}`
-    : SYSTEM_PROMPT;
+  const systemMessages: SystemMessage[] = [
+    new SystemMessage({ content: SYSTEM_PROMPT }),
+  ];
+
+  if (!isEmptyContext) {
+    const contextContent =
+      typeof appContext === "string"
+        ? appContext
+        : JSON.stringify(appContext, null, 2);
+    systemMessages.push(
+      new SystemMessage({ content: `App Context:\n${contextContent}` }),
+    );
+  }
 
   const response = await model.invoke(
-    [new SystemMessage({ content: systemContent }), ...state.messages],
+    [...systemMessages, ...state.messages],
     config,
   );
 
