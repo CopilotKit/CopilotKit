@@ -30,10 +30,8 @@ const starterAgentNames = [
   "human_in_the_loop",
   "tool-rendering",
   "gen-ui-tool-based",
-  "gen-ui-agent",
   "shared-state-read",
   "shared-state-write",
-  "shared-state-streaming",
   // Chat-UI demos — all reuse the default starterAgent.
   "prebuilt-sidebar",
   "prebuilt-popup",
@@ -69,7 +67,9 @@ const demoAgents: Record<string, string> = {
   "hitl-in-chat": "hitl_in_chat",
   "readonly-state-agent-context": "readonly_state_agent_context",
   "shared-state-read-write": "shared_state_read_write",
+  "shared-state-streaming": "shared_state_streaming",
   subagents: "subagents",
+  "gen-ui-agent": "gen_ui_agent",
   // Reasoning demos — use dedicated reasoning agent graph.
   "agentic-chat-reasoning": "agentic-chat-reasoning",
   "reasoning-default-render": "reasoning-default-render",

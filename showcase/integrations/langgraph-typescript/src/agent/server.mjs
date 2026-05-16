@@ -69,7 +69,9 @@ const graphSpec = {
   open_gen_ui: "./open-gen-ui.ts:graph",
   open_gen_ui_advanced: "./open-gen-ui-advanced.ts:graph",
   shared_state_read_write: "./shared-state-read-write.ts:graph",
+  shared_state_streaming: "./shared-state-streaming.ts:graph",
   subagents: "./subagents.ts:graph",
+  gen_ui_agent: "./gen-ui-agent.ts:graph",
 };
 
 // Pre-warm schema cache before we accept traffic. This is what the official
