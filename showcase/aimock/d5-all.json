@@ -320,9 +320,7 @@
             "name": "search_flights",
             "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\"}"
           }
-        ],
-        "reasoning": "The user wants flights from SFO to JFK. I'll call search_flights with those airports to look up options.",
-        "content": "Searching for flights from SFO to JFK."
+        ]
       }
     },
     {
