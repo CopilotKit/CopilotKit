@@ -1352,6 +1352,24 @@
       }
     },
     {
+      "_comment": "readonly-state-agent-context — 'Who am I?' pill. Non-gated fallback: the agent injects context into the system message, but aimock only needs to match on the user message. The response references generic context values so it works regardless of what the frontend sends.",
+      "match": {
+        "userMessage": "What do you know about me from my context"
+      },
+      "response": {
+        "content": "Based on your context I can see your name, timezone, and recent activity. I'll keep responses calibrated to your preferences — just ask about anything you'd like help with."
+      }
+    },
+    {
+      "_comment": "readonly-state-agent-context — 'Suggest next steps' pill. Non-gated fallback matching the pill's exact message text.",
+      "match": {
+        "userMessage": "Based on my recent activity, what should I try next"
+      },
+      "response": {
+        "content": "Based on your recent activity, I'd suggest exploring features you haven't tried yet — check out the documentation for advanced use-cases, or dive into a hands-on tutorial to deepen your understanding."
+      }
+    },
+    {
       "_comment": "Last-resort catch-all for neutral/default assistant demos (chat-customization-css, prebuilt-sidebar, prebuilt-popup, chat-slots, headless-simple). Matches any message not caught by a more specific fixture above, preventing aimock from proxying to real OpenAI with a fake key.",
       "match": {},
       "response": {

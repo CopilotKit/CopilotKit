@@ -38,8 +38,26 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
     ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),
   ]);
 
+  // Inject read-only context from useAgentContext into the system message,
+  // replicating what CopilotKitMiddleware does on the Python side.
+  const contextEntries = (state.copilotkit?.context ?? []) as Array<
+    Record<string, unknown>
+  >;
+  const contextText = contextEntries
+    .map((entry) =>
+      entry && typeof entry === "object" && typeof entry.value === "string"
+        ? (entry.value as string)
+        : "",
+    )
+    .filter(Boolean)
+    .join("\n\n");
+
+  const systemContent = contextText
+    ? `${SYSTEM_PROMPT}\n\n${contextText}`
+    : SYSTEM_PROMPT;
+
   const response = await modelWithTools.invoke(
-    [new SystemMessage({ content: SYSTEM_PROMPT }), ...state.messages],
+    [new SystemMessage({ content: systemContent }), ...state.messages],
     config,
   );
 
