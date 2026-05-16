@@ -19,12 +19,16 @@ interface DataTableProps<T> {
   columns: Column<T>[];
   data: T[];
   keyExtractor: (row: T) => string;
+  onRowClick?: (row: T) => void;
+  selectedRowKey?: string;
 }
 
 export function DataTable<T>({
   columns,
   data,
   keyExtractor,
+  onRowClick,
+  selectedRowKey,
 }: DataTableProps<T>) {
   return (
     <Table>
@@ -42,7 +46,14 @@ export function DataTable<T>({
       </TableHeader>
       <TableBody>
         {data.map((row) => (
-          <TableRow key={keyExtractor(row)}>
+          <TableRow 
+            key={keyExtractor(row)} 
+            onClick={() => onRowClick?.(row)}
+            className={onRowClick ? "cursor-pointer hover:bg-muted/50 data-[state=selected]:bg-muted" : ""}
+            data-state={selectedRowKey === keyExtractor(row) ? "selected" : undefined}
+            data-element-id={keyExtractor(row)}
+            data-element-number={(row as any).number || (row as any).sku}
+          >
             {columns.map((col, i) => (
               <TableCell
                 key={i}

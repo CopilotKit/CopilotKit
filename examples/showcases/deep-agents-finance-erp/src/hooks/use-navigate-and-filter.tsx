@@ -62,10 +62,10 @@ function Navigator({
 }
 
 export function useNavigateAndFilter() {
-  useRenderTool(
-    {
+  useRenderTool({
+
       name: "navigate_and_filter",
-      render: ({ args, status, result }) => (
+      render: ({ args , status, result  }: any) => (
         <Navigator
           page={args?.page ?? ""}
           filter={args?.filter}
@@ -73,7 +73,5 @@ export function useNavigateAndFilter() {
           result={result}
         />
       ),
-    },
-    [],
-  );
+    } as any, []);
 }

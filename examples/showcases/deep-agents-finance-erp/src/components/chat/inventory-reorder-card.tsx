@@ -97,8 +97,8 @@ export function InventoryReorderCard(props: Props) {
             </tr>
           </thead>
           <tbody>
-            {items.map((item) => (
-              <tr key={item.sku} className="border-b border-border/30">
+            {items.map((item, i) => (
+              <tr key={`${item.sku}-${i}`} className="border-b border-border/30">
                 <td className="px-3 py-2 font-mono text-muted-foreground">
                   {item.sku}
                 </td>

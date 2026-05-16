@@ -49,6 +49,127 @@ def render_chat_visual(
         return f"Cash position card rendered. Net: ${netPosition or 0:,.0f}"
     return f"Chart '{title}' rendered."
 
+@tool
+def render_what_if_slider(metric: str, currentValue: float, minVal: float, maxVal: float, step: float, label: str) -> str:
+    """Render an interactive slider in the chat to perform 'what-if' budget analysis.
+    
+    Args:
+        metric: The underlying metric name being simulated (e.g. 'marketing_budget').
+        currentValue: The current numeric value.
+        minVal: Minimum slider value.
+        maxVal: Maximum slider value.
+        step: Step size for the slider.
+        label: A user-friendly label for the slider (e.g. 'Adjust Marketing Budget').
+    """
+    return f"Interactive slider '{label}' rendered for {metric}."
+
+@tool
+def highlight_ui_element(elementId: str, elementType: str) -> str:
+    """Highlight a specific UI element in the application (like an invoice row or dashboard widget).
+    
+    Args:
+        elementId: The ID of the element to highlight (e.g. 'INV-2026-003').
+        elementType: The type of element ('invoice', 'widget', etc.).
+    """
+    return f"Highlighted {elementType} {elementId} in the UI."
+
+
+# ---------------------------------------------------------------------------
+# Anomaly detection card
+# ---------------------------------------------------------------------------
+
+@tool
+def render_anomaly_card(anomalies: list) -> str:
+    """Render anomaly detection cards in the chat showing unusual spending patterns.
+
+    Args:
+        anomalies: Array of anomaly objects. Each has:
+            - category (str): Expense category name (e.g. 'Marketing').
+            - currentAmount (float): Current period spend.
+            - averageAmount (float): 6-month moving average.
+            - deviationPct (float): Percentage above average.
+            - severity (str): 'warning' (>50% above avg) or 'critical' (>100% above avg).
+            - description (str): Brief explanation of the anomaly.
+            - trend (list): Last 6 months of data. Each has month (str) and value (float).
+    """
+    count = len(anomalies)
+    critical = sum(1 for a in anomalies if a.get("severity") == "critical")
+    return f"Rendered {count} anomaly card(s) ({critical} critical)."
+
+
+# ---------------------------------------------------------------------------
+# Comparison table
+# ---------------------------------------------------------------------------
+
+@tool
+def render_comparison(title: str, labelA: str, labelB: str, data: list) -> str:
+    """Render an interactive comparison table in the chat for side-by-side period or category analysis.
+
+    Args:
+        title: Title of the comparison (e.g. 'Q3 2025 vs Q4 2025').
+        labelA: Label for the first period/category.
+        labelB: Label for the second period/category.
+        data: Array of metric comparisons. Each has:
+            - metric (str): Metric name (e.g. 'Revenue', 'Expenses').
+            - periodA (float): Value for period A.
+            - periodB (float): Value for period B.
+    """
+    return f"Comparison table '{title}' rendered with {len(data)} metrics."
+
+
+# ---------------------------------------------------------------------------
+# Risk scorecard
+# ---------------------------------------------------------------------------
+
+@tool
+def render_risk_scorecard(overallScore: int, summary: str, dimensions: list) -> str:
+    """Render a financial health risk scorecard in the chat with circular score rings.
+
+    Args:
+        overallScore: Overall health score 0-100.
+        summary: Brief summary of overall financial health.
+        dimensions: Array of risk dimensions. Each has:
+            - name (str): Dimension name (e.g. 'Cash Runway', 'AR Health').
+            - score (int): Score 0-100.
+            - status (str): 'healthy' (75+), 'warning' (50-74), or 'critical' (<50).
+            - detail (str): Explanation of the score.
+            - suggestion (str): Actionable recommendation.
+    """
+    return f"Risk scorecard rendered. Overall health: {overallScore}/100."
+
+
+# ---------------------------------------------------------------------------
+# Invoice creation form
+# ---------------------------------------------------------------------------
+
+@tool
+def render_invoice_form(client: Optional[str] = None, items: Optional[list] = None) -> str:
+    """Render an interactive invoice creation form in the chat.
+
+    Args:
+        client: Optional pre-filled client name.
+        items: Optional pre-filled line items. Each has:
+            - description (str): Line item description.
+            - quantity (int): Quantity.
+            - unitPrice (float): Price per unit.
+    """
+    return f"Invoice form rendered{' for ' + client if client else ''}."
+
+
+# ---------------------------------------------------------------------------
+# Budget planning wizard
+# ---------------------------------------------------------------------------
+
+@tool
+def render_budget_wizard(quarter: str, year: int) -> str:
+    """Render a multi-step budget planning wizard in the chat.
+
+    Args:
+        quarter: Quarter to plan (e.g. 'Q2').
+        year: Fiscal year (e.g. 2026).
+    """
+    return f"Budget wizard rendered for {quarter} {year}."
+
 
 # ---------------------------------------------------------------------------
 # 2. navigate_and_filter — SPA navigation
@@ -210,6 +331,13 @@ def load_dashboard(name: str) -> str:
 # the frontend for rendering via useFrontendTool.
 ui_tools = [
     render_chat_visual,
+    render_what_if_slider,
+    highlight_ui_element,
+    render_anomaly_card,
+    render_comparison,
+    render_risk_scorecard,
+    render_invoice_form,
+    render_budget_wizard,
     navigate_and_filter,
     update_dashboard,
     manage_dashboard,

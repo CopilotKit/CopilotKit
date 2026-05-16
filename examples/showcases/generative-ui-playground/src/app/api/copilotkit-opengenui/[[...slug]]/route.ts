@@ -9,21 +9,19 @@ import {
   CopilotRuntime,
   createCopilotEndpoint,
   InMemoryAgentRunner,
-} from "@copilotkitnext/runtime";
+  BuiltInAgent,
+} from "@copilotkit/runtime/v2";
 import { handle } from "hono/vercel";
-import { BuiltInAgent } from "@copilotkitnext/agent";
 
 const MODEL = "openai/gpt-5.2";
+export const maxDuration = 300; // 5 minutes timeout for long UI generations
 
 const agent = new BuiltInAgent({
   model: MODEL,
-  prompt: `You are an AI assistant that builds interactive UIs on demand.
-
-When the user asks for any visual or interactive element, use the generateSandboxedUi tool to create it.
-You can use CDN libraries like Chart.js, D3.js, Three.js, or x-data-spreadsheet to build rich UIs.
-
-Be creative and build polished, well-styled interfaces. Always include proper CSS styling.`,
-  temperature: 0.7,
+  prompt: `You are a world-class UI engineer. 
+When asked for a UI, use generateSandboxedUi to build it using Tailwind CSS (via CDN) and Chart.js.
+Keep it simple, clean, and fast to generate. One main view only.
+After calling generateSandboxedUi, stop immediately.`,
 });
 
 const runtime = new CopilotRuntime({

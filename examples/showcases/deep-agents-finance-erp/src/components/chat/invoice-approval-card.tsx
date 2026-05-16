@@ -91,8 +91,8 @@ export function InvoiceApprovalCard(props: Props) {
             </tr>
           </thead>
           <tbody>
-            {invoices.map((inv) => (
-              <tr key={inv.number} className="border-b border-border/30">
+            {invoices.map((inv, i) => (
+              <tr key={`${inv.number}-${i}`} className="border-b border-border/30">
                 <td className="px-3 py-2 font-mono text-foreground">
                   {inv.number}
                 </td>

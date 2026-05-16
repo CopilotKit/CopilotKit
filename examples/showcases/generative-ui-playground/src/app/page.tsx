@@ -25,14 +25,10 @@ import "@copilotkit/react-core/v2/styles.css";
 function PageContent({
   activeAgent,
   setActiveAgent,
-  pendingMessage,
-  clearPendingMessage,
   onPillClick,
 }: {
   activeAgent: "default" | "a2ui" | "opengenui";
   setActiveAgent: (agent: "default" | "a2ui" | "opengenui") => void;
-  pendingMessage: string | null;
-  clearPendingMessage: () => void;
   onPillClick: (
     prompt: string,
     targetMode: "default" | "a2ui" | "opengenui",
@@ -40,18 +36,8 @@ function PageContent({
 }) {
   const { sendMessage } = useSendMessage();
 
-  // Process pending message after provider remount
-  useEffect(() => {
-    if (pendingMessage) {
-      // Delay ensures CopilotKit context (useAgent, useCopilotKit) is fully initialized
-      // after provider remount. 100ms is sufficient for React to complete hydration.
-      const timer = setTimeout(() => {
-        sendMessage(pendingMessage);
-        clearPendingMessage();
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [pendingMessage, sendMessage, clearPendingMessage]);
+  // Processing pending messages is no longer needed with the Unified Provider
+  // as the context is preserved across tab switches.
 
   return (
     <>
@@ -274,61 +260,30 @@ export default function Home() {
   const [activeAgent, setActiveAgent] = useState<
     "default" | "a2ui" | "opengenui"
   >("default");
-  // Pending message for cross-mode pill clicks (sent after provider remount)
-  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+
+  // Load state from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("activeAgent");
+    if (saved && (saved === "default" || saved === "a2ui" || saved === "opengenui")) {
+      setActiveAgent(saved as any);
+    }
+  }, []);
+
+  // Save state to localStorage whenever it changes
+  useEffect(() => {
+    console.log("Agent switched to:", activeAgent);
+    localStorage.setItem("activeAgent", activeAgent);
+  }, [activeAgent]);
+
   // Responsive layout: sidebar on desktop, popup on mobile
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
-  // Handler for protocol card pill clicks - triggers mode switch if needed
-  const handlePillClick = (
-    prompt: string,
-    targetMode: "default" | "a2ui" | "opengenui",
-  ) => {
-    setPendingMessage(prompt);
-    if (targetMode !== activeAgent) {
-      setActiveAgent(targetMode);
-    }
-  };
+  const clearPendingMessage = () => {};
 
-  const clearPendingMessage = () => setPendingMessage(null);
-
-  // A2UI mode: uses separate component with A2UI-specific configuration
-  // (different API endpoint, A2UI renderer, etc.)
-  if (activeAgent === "a2ui") {
-    return (
-      <A2UIPage>
-        <PageContent
-          activeAgent={activeAgent}
-          setActiveAgent={setActiveAgent}
-          pendingMessage={pendingMessage}
-          clearPendingMessage={clearPendingMessage}
-          onPillClick={handlePillClick}
-        />
-      </A2UIPage>
-    );
-  }
-
-  // Open Generative UI mode: uses BuiltInAgent with OpenGenerativeUIMiddleware
-  if (activeAgent === "opengenui") {
-    return (
-      <OpenGenUIPage>
-        <PageContent
-          activeAgent={activeAgent}
-          setActiveAgent={setActiveAgent}
-          pendingMessage={pendingMessage}
-          clearPendingMessage={clearPendingMessage}
-          onPillClick={handlePillClick}
-        />
-      </OpenGenUIPage>
-    );
-  }
-
-  // Default mode: Static GenUI + MCP Apps (no A2UI renderer needed)
-  // Key forces complete remount when switching to avoid stale state issues
   return (
     <CopilotKitProvider
-      key="default-provider"
       runtimeUrl="/api/copilotkit"
+      agent={activeAgent}
       showDevConsole={false}
     >
       <CopilotContextProvider>
@@ -338,16 +293,21 @@ export default function Home() {
             <PageContent
               activeAgent={activeAgent}
               setActiveAgent={setActiveAgent}
-              pendingMessage={pendingMessage}
-              clearPendingMessage={clearPendingMessage}
-              onPillClick={handlePillClick}
+              onPillClick={(prompt, targetMode) => {
+                if (targetMode !== activeAgent) {
+                  setActiveAgent(targetMode);
+                }
+                // Small delay to ensure agent switch
+                setTimeout(() => sendMessage(prompt), 50);
+              }}
             />
             <CopilotSidebar
               defaultOpen={true}
               labels={{
-                modalHeaderTitle: "Static + MCP Apps",
-                chatInputPlaceholder:
-                  "Ask about weather, stocks, or try the interactive apps!",
+                modalHeaderTitle: activeAgent === "opengenui" ? "Open Generative UI" : "Static + MCP Apps",
+                chatInputPlaceholder: activeAgent === "opengenui" 
+                  ? "Ask me to build any UI — charts, apps, dashboards, and more!"
+                  : "Ask about weather, stocks, or try the interactive apps!",
               }}
             />
           </>
@@ -357,16 +317,21 @@ export default function Home() {
             <PageContent
               activeAgent={activeAgent}
               setActiveAgent={setActiveAgent}
-              pendingMessage={pendingMessage}
-              clearPendingMessage={clearPendingMessage}
-              onPillClick={handlePillClick}
+              onPillClick={(prompt, targetMode) => {
+                if (targetMode !== activeAgent) {
+                  setActiveAgent(targetMode);
+                }
+                // Small delay to ensure agent switch
+                setTimeout(() => sendMessage(prompt), 50);
+              }}
             />
             <CopilotPopup
               defaultOpen={false}
               labels={{
-                modalHeaderTitle: "Static + MCP Apps",
-                chatInputPlaceholder:
-                  "Ask about weather, stocks, or try the interactive apps!",
+                modalHeaderTitle: activeAgent === "opengenui" ? "Open Generative UI" : "Static + MCP Apps",
+                chatInputPlaceholder: activeAgent === "opengenui" 
+                  ? "Ask me to build any UI — charts, apps, dashboards, and more!"
+                  : "Ask about weather, stocks, or try the interactive apps!",
               }}
             />
           </>

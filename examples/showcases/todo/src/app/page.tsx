@@ -32,9 +32,7 @@ export default function Home() {
        **/}
 
       <CopilotKit
-        publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY}
-        // Alternatively, you can use runtimeUrl to host your own CopilotKit Runtime
-        // runtimeUrl="/api/copilotkit"
+        runtimeUrl="/api/copilotkit"
       >
         <TodoList />
 
@@ -46,8 +44,10 @@ export default function Home() {
 
         <CopilotPopup
           instructions={
-            "Help the user manage a todo list. If the user provides a high level goal, " +
-            "break it down into a few specific tasks and add them to the list"
+            "You are a helpful assistant that manages a todo list. " +
+            "ALWAYS use the 'updateTodoList' action to add or modify items. " +
+            "If the user asks to add something, do it immediately. " +
+            "If they give a high-level goal, break it down and call 'updateTodoList' with the steps."
           }
           defaultOpen={true}
           labels={{

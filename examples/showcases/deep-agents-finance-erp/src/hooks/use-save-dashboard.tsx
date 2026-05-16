@@ -83,23 +83,19 @@ function LoadHandler({
 }
 
 export function useSaveDashboard() {
-  useRenderTool(
-    {
+  useRenderTool({
+
       name: "save_dashboard",
-      render: ({ args, status, result }) => (
+      render: ({ args , status, result  }: any) => (
         <SaveHandler name={args?.name ?? ""} status={status} result={result} />
       ),
-    },
-    [],
-  );
+    } as any, []);
 
-  useRenderTool(
-    {
+  useRenderTool({
+
       name: "load_dashboard",
-      render: ({ args, status, result }) => (
+      render: ({ args , status, result  }: any) => (
         <LoadHandler name={args?.name ?? ""} status={status} result={result} />
       ),
-    },
-    [],
-  );
+    } as any, []);
 }
