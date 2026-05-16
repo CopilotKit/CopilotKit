@@ -43,6 +43,9 @@
     "tailwind-merge": "^2.5.5",
     "zod": "^3.24.0"
   },
+  "overrides": {
+    "@ag-ui/langgraph": "0.0.32"
+  },
   "devDependencies": {
     "@playwright/test": "^1.50.0",
     "@tailwindcss/postcss": "^4.0.0",
