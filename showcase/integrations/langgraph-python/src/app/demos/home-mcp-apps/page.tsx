@@ -13,9 +13,26 @@
  * Iframe target for the "MCP Apps" chip on the homepage dojo.
  */
 
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import {
+  CopilotKit,
+  CopilotChat,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 
 import "../_experimental-theme/theme.css";
+
+function Chat() {
+  useConfigureSuggestions({
+    suggestions: [
+      { title: "Sketch the AG-UI flow", message: "Open Excalidraw and sketch the AG-UI protocol flow (Agent → AG-UI → UI)." },
+      { title: "Quarterly summary spreadsheet", message: "Open a spreadsheet and lay out Q1–Q4 totals across three regions." },
+      { title: "Draw a system diagram", message: "Open Excalidraw and draw a three-box system diagram." },
+    ],
+    available: "always",
+  });
+
+  return <CopilotChat agentId="mcp-apps" className="h-full" />;
+}
 
 export default function HomeMcpAppsDemo() {
   return (
@@ -25,7 +42,7 @@ export default function HomeMcpAppsDemo() {
       enableInspector={false}
     >
       <div className="hd-exp-scope h-screen w-screen overflow-hidden">
-        <CopilotChat agentId="mcp-apps" className="h-full" />
+        <Chat />
       </div>
     </CopilotKit>
   );

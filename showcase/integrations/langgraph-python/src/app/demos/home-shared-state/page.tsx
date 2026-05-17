@@ -20,6 +20,7 @@ import {
   CopilotChat,
   useAgent,
   UseAgentUpdate,
+  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 
 import "../_experimental-theme/theme.css";
@@ -53,6 +54,15 @@ function DemoContent() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useConfigureSuggestions({
+    suggestions: [
+      { title: "Set tone to professional", message: "Change my tone preference to professional." },
+      { title: "Remember a note", message: "Remember that I prefer code examples over prose." },
+      { title: "Switch language", message: "Switch my preferred language to Spanish." },
+    ],
+    available: "always",
+  });
 
   return (
     <div

@@ -14,10 +14,27 @@
  * Iframe target for the "Declarative Gen UI" chip on the homepage dojo.
  */
 
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import {
+  CopilotKit,
+  CopilotChat,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 
 import { myCatalog } from "../declarative-gen-ui/a2ui/catalog";
 import "../_experimental-theme/theme.css";
+
+function Chat() {
+  useConfigureSuggestions({
+    suggestions: [
+      { title: "Lost-baggage tracker", message: "Surface a lost-baggage tracker for bag #4421 last seen at ATL." },
+      { title: "Settings card", message: "Design a settings card with notifications + theme toggles." },
+      { title: "Onboarding checklist", message: "Compose an onboarding checklist with three steps." },
+    ],
+    available: "always",
+  });
+
+  return <CopilotChat agentId="declarative-gen-ui" className="h-full" />;
+}
 
 export default function HomeDeclarativeGenUiDemo() {
   return (
@@ -28,7 +45,7 @@ export default function HomeDeclarativeGenUiDemo() {
       enableInspector={false}
     >
       <div className="hd-exp-scope h-screen w-screen overflow-hidden">
-        <CopilotChat agentId="declarative-gen-ui" className="h-full" />
+        <Chat />
       </div>
     </CopilotKit>
   );
