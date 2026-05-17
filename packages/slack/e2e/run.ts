@@ -336,7 +336,13 @@ async function main() {
   mkdirSync(runDir, { recursive: true });
 
   const results: CaseResult[] = [];
-  for (const spec of CASES) {
+  // Optional substring filter on case name — convenient when iterating
+  // on a single case (e.g. `CASE_FILTER='G1 ' pnpm e2e`).
+  const filter = process.env["CASE_FILTER"];
+  const selected = filter
+    ? CASES.filter((c) => c.name.includes(filter))
+    : CASES;
+  for (const spec of selected) {
     process.stdout.write(`\n──── ${spec.name} ────\n`);
     try {
       const r = await runCase(spec);

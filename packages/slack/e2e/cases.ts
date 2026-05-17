@@ -443,4 +443,123 @@ export const CASES: E2ECase[] = [
     // The harness edits the just-sent message and verifies bot does not produce a second reply.
     expectations: { minLength: 2 },
   },
+
+  // ── G. A2UI surface rendering ─────────────────────────────────────
+  //
+  // Requires AGENT_URL pointed at the `a2ui_fixed` graph
+  // (e.g. `http://localhost:8200/a2ui-fixed` via serve_agui.py) and the
+  // bridge running with `renderActivityMessages: [flightActivityRenderer]`
+  // (see `packages/slack/app/index.ts`). When the bridge is configured
+  // for a chat-only backend (default beautiful_chat at `/`), this case
+  // is a no-op — the agent just emits a text reply, never an
+  // activity message, and `perReplyChecks` finds no blocks.
+  {
+    name: "G1 — A2UI flight surface renders as Block Kit",
+    prompt:
+      "<@U0B45V75NNR> show me a flight from SFO to JFK on United for $289",
+    sampleIntervalMs: 700,
+    maxWaitMs: 30_000,
+    expectations: {
+      perReplyChecks: (_replies, raw) => {
+        const failures: string[] = [];
+
+        // Look across ALL replies in the thread — the bot produces one
+        // post per surface plus a separate text reply, and either
+        // ordering is acceptable.
+        const allBlocks = raw.flatMap(
+          (m) =>
+            (m["blocks"] as Array<Record<string, any>> | undefined) ?? [],
+        );
+        if (allBlocks.length === 0) {
+          failures.push(
+            "expected at least one Block Kit reply (no `blocks` field on any reply)",
+          );
+          return failures;
+        }
+
+        // Header block from the flight schema's `Title` ("Flight Details").
+        const header = allBlocks.find(
+          (b) =>
+            b["type"] === "header" &&
+            String((b["text"] as { text?: string } | undefined)?.text ?? "")
+              .toLowerCase()
+              .includes("flight"),
+        );
+        if (!header)
+          failures.push(
+            "expected a header block whose text mentions 'flight' (Title component)",
+          );
+
+        // SFO airport code (from data-model binding /origin).
+        const sfo = allBlocks.find(
+          (b) =>
+            b["type"] === "section" &&
+            String(
+              (b["text"] as { text?: string } | undefined)?.text ?? "",
+            ).includes("SFO"),
+        );
+        if (!sfo) failures.push("expected a section block containing 'SFO'");
+
+        // JFK airport code (binding /destination).
+        const jfk = allBlocks.find(
+          (b) =>
+            b["type"] === "section" &&
+            String(
+              (b["text"] as { text?: string } | undefined)?.text ?? "",
+            ).includes("JFK"),
+        );
+        if (!jfk) failures.push("expected a section block containing 'JFK'");
+
+        // AirlineBadge — context block with airline name.
+        const airline = allBlocks.find(
+          (b) =>
+            b["type"] === "context" &&
+            JSON.stringify(b["elements"]).toLowerCase().includes("united"),
+        );
+        if (!airline)
+          failures.push(
+            "expected a context block (AirlineBadge) mentioning 'United'",
+          );
+
+        // PriceTag — section with the price.
+        const price = allBlocks.find(
+          (b) =>
+            b["type"] === "section" &&
+            String(
+              (b["text"] as { text?: string } | undefined)?.text ?? "",
+            ).includes("$289"),
+        );
+        if (!price)
+          failures.push("expected a section block containing '$289'");
+
+        // Book-flight button — actions block with a button that has an
+        // encoded `value` (set by `dispatch.encodeAction(action)` in the
+        // Button renderer).
+        const actions = allBlocks.find((b) => b["type"] === "actions");
+        const button = (
+          (actions?.["elements"] as Array<Record<string, any>> | undefined) ??
+          []
+        ).find(
+          (e) =>
+            e["type"] === "button" &&
+            String(
+              (e["text"] as { text?: string } | undefined)?.text ?? "",
+            )
+              .toLowerCase()
+              .includes("book"),
+        );
+        if (!button)
+          failures.push(
+            "expected an actions block with a button labeled like 'Book' (Button + child Text)",
+          );
+        else if (!button["value"]) {
+          failures.push(
+            "Book-flight button missing `value` — `dispatch.encodeAction` didn't fire",
+          );
+        }
+
+        return failures;
+      },
+    },
+  },
 ];
