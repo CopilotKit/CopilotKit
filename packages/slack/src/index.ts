@@ -23,7 +23,11 @@ export type {
   AgentToolDescriptor,
   SlackContextEntry,
 } from "./frontend-tools.js";
-export { toAgentToolDescriptors, parseToolArgs } from "./frontend-tools.js";
+export {
+  toAgentToolDescriptors,
+  parseToolArgs,
+  stringifyHandlerResult,
+} from "./frontend-tools.js";
 
 export { lookupSlackUserTool, defaultSlackTools } from "./built-in-tools.js";
 

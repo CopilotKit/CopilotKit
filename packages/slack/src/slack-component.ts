@@ -55,7 +55,7 @@ export function defineSlackComponent<Schema extends z.ZodType>(
 
 /**
  * Adapt a `SlackComponent` to a `FrontendTool` the turn-runner can
- * register. The tool's `execute` renders the blocks and posts a Slack
+ * register. The tool's `handler` renders the blocks and posts a Slack
  * message; the agent receives an ack JSON it can quote / react to.
  */
 export function componentToFrontendTool<Schema extends z.ZodType>(
@@ -65,7 +65,7 @@ export function componentToFrontendTool<Schema extends z.ZodType>(
     name: c.name,
     description: c.description,
     parameters: c.props,
-    async execute(props, ctx) {
+    async handler(props, ctx) {
       const blocks = c.render(props);
       const text = resolveFallbackText(c, props);
       return postBlocks(ctx, blocks, text, c.name);

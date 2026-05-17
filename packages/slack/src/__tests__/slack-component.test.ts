@@ -69,7 +69,7 @@ describe("componentToFrontendTool", () => {
     });
     const t = componentToFrontendTool(c);
     const { ctx, postFn } = makeCtx();
-    const result = JSON.parse(await t.execute({ title: "Hello" }, ctx));
+    const result = JSON.parse(((await t.handler({ title: "Hello" }, ctx)) as string) as string);
     expect(result.ok).toBe(true);
     expect(result.rendered).toBe("card");
     expect(result.messageTs).toBe("1700000000.000100");
@@ -95,7 +95,7 @@ describe("componentToFrontendTool", () => {
       },
     });
     const { ctx, postFn } = makeCtx();
-    await componentToFrontendTool(c).execute({ name: "Atai" }, ctx);
+    await componentToFrontendTool(c).handler({ name: "Atai" }, ctx);
     expect(postFn.mock.calls[0]?.[0]?.text).toBe("Card for Atai");
   });
 
@@ -107,7 +107,7 @@ describe("componentToFrontendTool", () => {
       render: () => [{ type: "divider" }],
     });
     const { ctx, postFn } = makeCtx();
-    await componentToFrontendTool(c).execute({}, ctx);
+    await componentToFrontendTool(c).handler({}, ctx);
     expect(postFn.mock.calls[0]?.[0]?.text).toBe("Sensible default fallback");
   });
 
@@ -131,7 +131,7 @@ describe("componentToFrontendTool", () => {
       conversationKey: "C1::100.0",
     } satisfies FrontendToolContext;
     const result = JSON.parse(
-      await componentToFrontendTool(c).execute({}, ctx),
+      (await componentToFrontendTool(c).handler({}, ctx)) as string,
     );
     expect(result.ok).toBe(false);
     expect(result.error).toContain("rate_limited");

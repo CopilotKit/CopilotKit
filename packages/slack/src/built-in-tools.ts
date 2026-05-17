@@ -121,7 +121,7 @@ export const lookupSlackUserTool: FrontendTool<typeof lookupSchema> = {
     "in your reply to ping them. If `found` is false, write the plain " +
     "name instead.",
   parameters: lookupSchema,
-  async execute({ query }, ctx) {
+  async handler({ query }, ctx) {
     let entries: DirectoryEntry[];
     try {
       entries = await loadDirectory(ctx);

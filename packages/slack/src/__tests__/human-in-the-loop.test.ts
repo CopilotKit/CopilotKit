@@ -163,7 +163,7 @@ describe("hitlToFrontendTool — full lifecycle", () => {
     const registry = new HumanInTheLoopRegistry();
     const tool = hitlToFrontendTool(confirmHitl, registry);
     const { ctx, postFn, updateFn } = makeCtx();
-    const execPromise = tool.execute({ question: "Proceed?" }, ctx);
+    const execPromise = tool.handler({ question: "Proceed?" }, ctx);
 
     await new Promise((r) => setTimeout(r, 0));
     expect(postFn).toHaveBeenCalledTimes(1);
@@ -178,7 +178,7 @@ describe("hitlToFrontendTool — full lifecycle", () => {
     const yesId = buttons[0]!.action_id;
     expect(registry.handleAction(yesId)).toBe(true);
 
-    const r = JSON.parse(await execPromise);
+    const r = JSON.parse((await execPromise) as string);
     expect(r.ok).toBe(true);
     expect(r.result).toEqual({ kind: "resolved", value: { confirmed: true } });
     // Resolved render produces a new section block, applied via chat.update.
@@ -195,7 +195,7 @@ describe("hitlToFrontendTool — full lifecycle", () => {
     const fetchMock = vi.fn(async () => new Response("ok"));
     (globalThis as { fetch: typeof fetch }).fetch =
       fetchMock as unknown as typeof fetch;
-    const execPromise = tool.execute({ question: "Proceed?" }, ctx);
+    const execPromise = tool.handler({ question: "Proceed?" }, ctx);
     await new Promise((r) => setTimeout(r, 0));
     const allActions = Array.from(
       (
@@ -219,7 +219,7 @@ describe("hitlToFrontendTool — full lifecycle", () => {
     const registry = new HumanInTheLoopRegistry();
     const tool = hitlToFrontendTool(confirmHitl, registry);
     const { ctx, deleteFn } = makeCtx();
-    const execPromise = tool.execute({ question: "X?" }, ctx);
+    const execPromise = tool.handler({ question: "X?" }, ctx);
     await new Promise((r) => setTimeout(r, 0));
     // Cancel via a non-action path — the renderer returns "delete".
     registry.cancelConversation(ctx.conversationKey);
@@ -244,7 +244,7 @@ describe("hitlToFrontendTool — full lifecycle", () => {
       botUserId: "BOT01",
       conversationKey: "C1::100.0",
     } satisfies FrontendToolContext;
-    const r = JSON.parse(await tool.execute({ question: "X" }, ctx));
+    const r = JSON.parse(((await tool.handler({ question: "X" }, ctx)) as string) as string);
     expect(r.ok).toBe(false);
     expect(r.error).toContain("rate_limited");
   });

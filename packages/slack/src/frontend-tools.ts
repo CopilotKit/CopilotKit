@@ -1,32 +1,61 @@
 import type { WebClient } from "@slack/web-api";
 import type { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import type { FrontendTool as CoreFrontendTool } from "@copilotkit/core";
 
 /**
- * What a Slack "frontend tool" looks like — the same concept AG-UI uses
- * for web frontends, except the actor here is the Slack bridge: a tool
- * the agent can call to read from / act on Slack itself (look up a user,
- * react with an emoji, post a Block Kit surface, etc.).
+ * A Slack frontend tool — the same `FrontendTool<T>` shape used by
+ * `@copilotkit/core` and `@copilotkit/react/v2`, plus a Slack-flavoured
+ * handler context that exposes the bot's `WebClient`, the active
+ * `channel`/`threadTs`, and the bot's user id.
  *
- * Tools declare their args as a Zod schema. The SDK:
- *   - converts it to JSON Schema for `runAgent({tools})` so the LLM sees
- *     a structured signature,
- *   - parses the raw tool-call args through the schema at call time so
- *     `execute` receives correctly-typed values (or a validation error
- *     bubbles back to the agent as the tool result).
+ * Concretely:
+ *
+ *   - `name`, `description?`, `parameters?`, `followUp?`, `agentId?`,
+ *     `available?` flow through from `@copilotkit/core`.
+ *   - `handler(args, ctx)` is the Slack-flavoured override: `ctx`
+ *     extends the canonical `FrontendToolHandlerContext` with the
+ *     extras a Slack tool needs to read from / act on Slack itself
+ *     (look up a user, post a Block Kit surface, react to a message,
+ *     etc.).
+ *
+ * `Schema` here is a Zod schema (which already implements
+ * `StandardSchemaV1`, the type core declares for `parameters`), so
+ * authors write tools the way they always have — but consumers of
+ * the slack package can also accept any `CoreFrontendTool<T>` without
+ * a shape mismatch (modulo the ctx widening; bridge-supplied tools
+ * see the full slack ctx).
  */
-export interface FrontendTool<Schema extends z.ZodType = z.ZodType> {
-  name: string;
-  description: string;
+export type FrontendTool<Schema extends z.ZodType = z.ZodType> = Omit<
+  CoreFrontendTool<z.infer<Schema>>,
+  "handler" | "parameters"
+> & {
   parameters: Schema;
-  execute(args: z.infer<Schema>, ctx: FrontendToolContext): Promise<string>;
-}
+  /**
+   * Tool implementation. Returns anything — the bridge stringifies
+   * non-string returns via `JSON.stringify` for the tool-result
+   * message it sends back to the agent. Returning a string makes the
+   * raw text the tool result (skip stringification).
+   */
+  handler(
+    args: z.infer<Schema>,
+    ctx: FrontendToolContext,
+  ): Promise<unknown> | unknown;
+};
 
 /**
- * Per-call context handed to a tool's `execute`. Currently this is the
- * Slack client plus the reply target (so a tool can post a status, react
- * to a message, etc. if it wants to). More fields will land here as more
- * tools need them.
+ * Per-call context handed to a tool's `handler`. Slack-flavoured —
+ * `client`, `channel`, `threadTs`, `botUserId`, `conversationKey` are
+ * the fields a Slack tool actually needs (read from / act on Slack).
+ *
+ * Intentionally NOT `extends FrontendToolHandlerContext` from
+ * `@copilotkit/core` — core's ctx assumes per-call `toolCall` and
+ * `agent` are reachable, but the Slack bridge doesn't always have
+ * a usable `toolCall` shape at hand (it operates on AG-UI events
+ * directly, not core's wrapped ToolCall objects). The shape parity
+ * lives at the `FrontendTool` level: a Slack tool IS a core
+ * `FrontendTool<T>` with `parameters` set + a Slack-flavoured
+ * `handler` ctx.
  */
 export interface FrontendToolContext {
   client: WebClient;
@@ -35,11 +64,13 @@ export interface FrontendToolContext {
   botUserId: string;
   /**
    * Stable key identifying the conversation this turn belongs to —
-   * `${channelId}::${scope}` where scope is the thread ts or `DM_SCOPE`.
-   * Used by human-in-the-loop tools to register pending waits that the
-   * bridge can cancel on interrupt.
+   * `${channelId}::${scope}` where scope is the thread ts or
+   * `DM_SCOPE`. Used by human-in-the-loop tools to register pending
+   * waits that the bridge can cancel on interrupt.
    */
   conversationKey: string;
+  /** Cooperative cancel signal — aborted when the bridge cancels the turn. */
+  signal?: AbortSignal;
 }
 
 /** AG-UI's `Tool` shape — what we hand off via `runAgent({tools})`. */
@@ -50,16 +81,13 @@ export interface AgentToolDescriptor {
 }
 
 /**
- * AG-UI context entry — `{description, value}` pairs that travel in the
- * AG-UI input alongside `tools` and get surfaced to the LLM as system /
- * developer-level guidance. This is how user-land tells the agent
- * "things to know about the Slack environment you're running in":
- * how mentions work, what frontend tools exist, mrkdwn vs markdown
- * formatting, etc.
+ * AG-UI context entry — `{description, value}` pairs that travel in
+ * the AG-UI input alongside `tools` and get surfaced to the LLM as
+ * system / developer-level guidance.
  *
- * Mirrors the React `useAgentContext` / `useCopilotReadable` mechanism
- * — same plumbing on the AG-UI side, just sourced from a Slack app's
- * config instead of a React component tree.
+ * Mirrors the React `useAgentContext` / `useCopilotReadable`
+ * mechanism — same plumbing on the AG-UI side, just sourced from a
+ * Slack app's config instead of a React component tree.
  */
 export interface SlackContextEntry {
   description: string;
@@ -68,7 +96,8 @@ export interface SlackContextEntry {
 
 /**
  * Convert the catalog into the AG-UI tool-descriptor shape the agent
- * sees. Zod schemas become JSON Schema; everything else passes through.
+ * sees. Zod schemas become JSON Schema; everything else passes
+ * through.
  */
 export function toAgentToolDescriptors(
   tools: ReadonlyArray<FrontendTool>,
@@ -83,7 +112,7 @@ export function toAgentToolDescriptors(
     }) as Record<string, unknown>;
     return {
       name: t.name,
-      description: t.description,
+      description: t.description ?? "",
       parameters: jsonSchema,
     };
   });
@@ -107,4 +136,20 @@ export function parseToolArgs<Schema extends z.ZodType>(
       .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
       .join("; "),
   };
+}
+
+/**
+ * Normalize a `handler` return value into the string the AG-UI
+ * tool-result message expects. Strings pass through; everything else
+ * gets JSON-stringified. `undefined` becomes `""` so the agent sees
+ * a deterministic empty result.
+ */
+export function stringifyHandlerResult(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
 }

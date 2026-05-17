@@ -8,6 +8,7 @@ import {
 import type { SlackConversationStore } from "./conversation-store.js";
 import {
   parseToolArgs,
+  stringifyHandlerResult,
   toAgentToolDescriptors,
   type FrontendTool,
   type FrontendToolContext,
@@ -757,7 +758,8 @@ async function runWithToolLoop(args: {
         });
       } else {
         try {
-          result = await tool.execute(parsed.value, toolCtx);
+          const raw = await tool.handler(parsed.value, toolCtx);
+          result = stringifyHandlerResult(raw);
         } catch (err) {
           result = JSON.stringify({ error: (err as Error).message });
         }

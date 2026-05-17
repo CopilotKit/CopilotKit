@@ -78,7 +78,7 @@ describe("lookup_slack_user", () => {
   it("resolves by exact handle and returns a <@USERID> mention string", async () => {
     const { ctx } = makeCtx();
     const r = JSON.parse(
-      await lookupSlackUserTool.execute({ query: "atai" }, ctx),
+      (await lookupSlackUserTool.handler({ query: "atai" }, ctx)) as string,
     );
     expect(r.found).toBe(true);
     expect(r.userId).toBe("U001");
@@ -88,7 +88,7 @@ describe("lookup_slack_user", () => {
   it("resolves by display name", async () => {
     const { ctx } = makeCtx();
     const r = JSON.parse(
-      await lookupSlackUserTool.execute({ query: "Sarah" }, ctx),
+      (await lookupSlackUserTool.handler({ query: "Sarah" }, ctx)) as string,
     );
     expect(r.userId).toBe("U002");
   });
@@ -96,7 +96,7 @@ describe("lookup_slack_user", () => {
   it("resolves by first name", async () => {
     const { ctx } = makeCtx();
     const r = JSON.parse(
-      await lookupSlackUserTool.execute({ query: "Atai" }, ctx),
+      (await lookupSlackUserTool.handler({ query: "Atai" }, ctx)) as string,
     );
     expect(r.userId).toBe("U001");
   });
@@ -104,7 +104,7 @@ describe("lookup_slack_user", () => {
   it("resolves by email", async () => {
     const { ctx } = makeCtx();
     const r = JSON.parse(
-      await lookupSlackUserTool.execute({ query: "sarah@copilotkit.ai" }, ctx),
+      (await lookupSlackUserTool.handler({ query: "sarah@copilotkit.ai" }, ctx)) as string,
     );
     expect(r.userId).toBe("U002");
   });
@@ -112,7 +112,7 @@ describe("lookup_slack_user", () => {
   it("returns found:false for unknown query — gracefully, not an error", async () => {
     const { ctx } = makeCtx();
     const r = JSON.parse(
-      await lookupSlackUserTool.execute({ query: "Nobody von Nope" }, ctx),
+      (await lookupSlackUserTool.handler({ query: "Nobody von Nope" }, ctx)) as string,
     );
     expect(r.found).toBe(false);
   });
@@ -120,19 +120,19 @@ describe("lookup_slack_user", () => {
   it("excludes bots and deleted users", async () => {
     const { ctx } = makeCtx();
     const a = JSON.parse(
-      await lookupSlackUserTool.execute({ query: "ag-ui-bot" }, ctx),
+      (await lookupSlackUserTool.handler({ query: "ag-ui-bot" }, ctx)) as string,
     );
     expect(a.found).toBe(false);
     const b = JSON.parse(
-      await lookupSlackUserTool.execute({ query: "departed" }, ctx),
+      (await lookupSlackUserTool.handler({ query: "departed" }, ctx)) as string,
     );
     expect(b.found).toBe(false);
   });
 
   it("caches the directory across calls (only one users.list per TTL)", async () => {
     const { ctx, listFn } = makeCtx();
-    await lookupSlackUserTool.execute({ query: "atai" }, ctx);
-    await lookupSlackUserTool.execute({ query: "sarah" }, ctx);
+    (await lookupSlackUserTool.handler({ query: "atai" }, ctx)) as string;
+    (await lookupSlackUserTool.handler({ query: "sarah" }, ctx)) as string;
     expect(listFn).toHaveBeenCalledTimes(1);
   });
 
@@ -150,7 +150,7 @@ describe("lookup_slack_user", () => {
       conversationKey: "C1::100.0",
     } satisfies FrontendToolContext;
     const r = JSON.parse(
-      await lookupSlackUserTool.execute({ query: "atai" }, ctx),
+      (await lookupSlackUserTool.handler({ query: "atai" }, ctx)) as string,
     );
     expect(r.found).toBe(false);
     expect(r.reason).toContain("rate limited");

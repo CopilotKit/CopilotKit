@@ -15,7 +15,7 @@ describe("toAgentToolDescriptors", () => {
         message: z.string().describe("the message to echo"),
         upper: z.boolean().optional(),
       }),
-      execute: async ({ message }) => message,
+      handler: async ({ message }) => message,
     };
     const [descriptor] = toAgentToolDescriptors([tool]);
     expect(descriptor?.name).toBe("echo");
@@ -37,7 +37,7 @@ describe("toAgentToolDescriptors", () => {
       name: "ship",
       description: "ship to address",
       parameters: z.object({ from: Address, to: Address }),
-      execute: async () => "",
+      handler: async () => "",
     };
     const [descriptor] = toAgentToolDescriptors([tool]);
     const json = JSON.stringify(descriptor?.parameters);

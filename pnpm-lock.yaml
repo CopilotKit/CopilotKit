@@ -2950,6 +2950,9 @@ importers:
       '@ag-ui/core':
         specifier: 0.0.53
         version: 0.0.53
+      '@copilotkit/core':
+        specifier: workspace:*
+        version: link:../core
       '@copilotkit/runtime':
         specifier: workspace:*
         version: link:../runtime

@@ -39,7 +39,7 @@ export const helloWorldTool: FrontendTool<typeof helloSchema> = {
     "that includes the resolved Slack channel name (proof that the tool " +
     "used its Slack ctx).",
   parameters: helloSchema,
-  async execute({ recipient }, ctx) {
+  async handler({ recipient }, ctx) {
     let channelName: string | undefined;
     try {
       const r = (await ctx.client.conversations.info({

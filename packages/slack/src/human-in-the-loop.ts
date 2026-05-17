@@ -419,7 +419,7 @@ export function hitlToFrontendTool<PropsSchema extends z.ZodType>(
     name: h.name,
     description: h.description,
     parameters: h.props,
-    async execute(props, ctx) {
+    async handler(props, ctx) {
       const text = h.fallbackText ? h.fallbackText(props) : h.description;
 
       // ── Initial render ────────────────────────────────────────────

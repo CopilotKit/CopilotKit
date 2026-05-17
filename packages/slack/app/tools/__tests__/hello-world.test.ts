@@ -27,7 +27,7 @@ describe("hello_world example tool", () => {
   it("greets the recipient and includes the resolved channel name", async () => {
     const { ctx, infoFn } = makeCtx({ ok: true, channel: { name: "general" } });
     const r = JSON.parse(
-      await helloWorldTool.execute({ recipient: "Atai" }, ctx),
+      (await helloWorldTool.handler({ recipient: "Atai" }, ctx)) as string,
     );
     expect(r.ok).toBe(true);
     expect(r.message).toBe("Hello, Atai! Greeting from #general.");
@@ -43,7 +43,7 @@ describe("hello_world example tool", () => {
   it("falls back gracefully when conversations.info returns no name", async () => {
     const { ctx } = makeCtx({ ok: true, channel: {} });
     const r = JSON.parse(
-      await helloWorldTool.execute({ recipient: "Atai" }, ctx),
+      (await helloWorldTool.handler({ recipient: "Atai" }, ctx)) as string,
     );
     expect(r.message).toBe("Hello, Atai!");
     expect(r.ctx.channelName).toBeUndefined();
@@ -63,7 +63,7 @@ describe("hello_world example tool", () => {
       conversationKey: "C1::100.0",
     } satisfies FrontendToolContext;
     const r = JSON.parse(
-      await helloWorldTool.execute({ recipient: "Atai" }, ctx),
+      (await helloWorldTool.handler({ recipient: "Atai" }, ctx)) as string,
     );
     expect(r.ok).toBe(true);
     expect(r.message).toBe("Hello, Atai!");
