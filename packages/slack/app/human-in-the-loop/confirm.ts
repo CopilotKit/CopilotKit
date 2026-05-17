@@ -67,9 +67,7 @@ export const confirmHitl = defineHumanInTheLoop({
       // structured form result, not a sentence.
       const v = state.value as { confirmed: boolean };
       const answerLabel = v.confirmed ? "Yes" : "No";
-      const answerIcon = v.confirmed
-        ? ":white_check_mark:"
-        : ":no_entry_sign:";
+      const answerIcon = v.confirmed ? ":white_check_mark:" : ":no_entry_sign:";
       return [
         {
           type: "section",
