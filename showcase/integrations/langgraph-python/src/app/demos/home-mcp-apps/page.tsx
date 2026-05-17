@@ -19,7 +19,7 @@ import "../_experimental-theme/theme.css";
 
 export default function HomeMcpAppsDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit-mcp-apps" agent="mcp-apps">
+    <CopilotKit runtimeUrl="/api/copilotkit-mcp-apps" agent="mcp-apps" enableInspector={false}>
       <div className="hd-exp-scope h-screen w-screen overflow-hidden">
         <CopilotChat agentId="mcp-apps" className="h-full" />
       </div>

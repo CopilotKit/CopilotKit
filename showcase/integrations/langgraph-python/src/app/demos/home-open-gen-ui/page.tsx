@@ -19,7 +19,7 @@ import "../_experimental-theme/theme.css";
 
 export default function HomeOpenGenUiDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit-ogui" agent="open-gen-ui">
+    <CopilotKit runtimeUrl="/api/copilotkit-ogui" agent="open-gen-ui" enableInspector={false}>
       <div className="hd-exp-scope h-screen w-screen overflow-hidden">
         <CopilotChat agentId="open-gen-ui" className="h-full" />
       </div>

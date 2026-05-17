@@ -25,6 +25,7 @@ export default function HomeDeclarativeGenUiDemo() {
       runtimeUrl="/api/copilotkit-declarative-gen-ui"
       agent="declarative-gen-ui"
       a2ui={{ catalog: myCatalog }}
+      enableInspector={false}
     >
       <div className="hd-exp-scope h-screen w-screen overflow-hidden">
         <CopilotChat agentId="declarative-gen-ui" className="h-full" />

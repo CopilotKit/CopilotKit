@@ -220,7 +220,11 @@ function PrefRow({ label, value }: { label: string; value: string }) {
 
 export default function HomeSharedStateDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="shared-state-read-write">
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      agent="shared-state-read-write"
+      enableInspector={false}
+    >
       <div
         className="hd-exp-scope"
         style={{ height: "100vh", width: "100vw", overflow: "hidden" }}
