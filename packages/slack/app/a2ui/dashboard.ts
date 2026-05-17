@@ -156,118 +156,120 @@ function stripMrkdwn(s: string): string {
   return s.replace(/\*([^*]+)\*/g, "$1").replace(/_([^_]+)_/g, "$1");
 }
 
-export const dashboardRenderers: CatalogRenderers<
-  typeof dashboardDefinitions
-> = {
-  Title: ({ props }) => [
-    {
-      type: "header",
-      text: { type: "plain_text", text: String(props.text), emoji: true },
+export const dashboardRenderers: CatalogRenderers<typeof dashboardDefinitions> =
+  {
+    Title: ({ props }) => [
+      {
+        type: "header",
+        text: { type: "plain_text", text: String(props.text), emoji: true },
+      },
+    ],
+
+    Text: ({ props }) => [
+      { type: "section", text: { type: "mrkdwn", text: String(props.text) } },
+    ],
+
+    Row: ({ props, children }) =>
+      flattenChildren(
+        props.children,
+        children as (id: string, basePath?: string) => unknown[],
+      ) as any,
+
+    Column: ({ props, children }) =>
+      flattenChildren(
+        props.children,
+        children as (id: string, basePath?: string) => unknown[],
+      ) as any,
+
+    DashboardCard: ({ props, children }) => {
+      const header = [
+        `*${String(props.title)}*`,
+        props.subtitle ? `_${String(props.subtitle)}_` : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+      return [
+        { type: "section", text: { type: "mrkdwn", text: header } },
+        ...(props.child ? children(props.child) : []),
+        { type: "divider" },
+      ];
     },
-  ],
 
-  Text: ({ props }) => [
-    { type: "section", text: { type: "mrkdwn", text: String(props.text) } },
-  ],
-
-  Row: ({ props, children }) =>
-    flattenChildren(
-      props.children,
-      children as (id: string, basePath?: string) => unknown[],
-    ) as any,
-
-  Column: ({ props, children }) =>
-    flattenChildren(
-      props.children,
-      children as (id: string, basePath?: string) => unknown[],
-    ) as any,
-
-  DashboardCard: ({ props, children }) => {
-    const header = [
-      `*${String(props.title)}*`,
-      props.subtitle ? `_${String(props.subtitle)}_` : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
-    return [
-      { type: "section", text: { type: "mrkdwn", text: header } },
-      ...(props.child ? children(props.child) : []),
-      { type: "divider" },
-    ];
-  },
-
-  Metric: ({ props }) => {
-    const trend =
-      props.trend && props.trendValue
-        ? ` ${trendArrow[props.trend] ?? ""} ${String(props.trendValue)}`
-        : "";
-    return [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*${String(props.label)}*: ${String(props.value)}${trend}`,
+    Metric: ({ props }) => {
+      const trend =
+        props.trend && props.trendValue
+          ? ` ${trendArrow[props.trend] ?? ""} ${String(props.trendValue)}`
+          : "";
+      return [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `*${String(props.label)}*: ${String(props.value)}${trend}`,
+          },
         },
-      },
-    ];
-  },
+      ];
+    },
 
-  Badge: ({ props }) => {
-    const emoji = variantEmoji[props.variant ?? "neutral"] ?? "";
-    return [
-      {
-        type: "context",
-        elements: [
-          { type: "mrkdwn", text: `${emoji} ${String(props.text)}`.trim() },
-        ],
-      },
-    ];
-  },
+    Badge: ({ props }) => {
+      const emoji = variantEmoji[props.variant ?? "neutral"] ?? "";
+      return [
+        {
+          type: "context",
+          elements: [
+            { type: "mrkdwn", text: `${emoji} ${String(props.text)}`.trim() },
+          ],
+        },
+      ];
+    },
 
-  DataTable: ({ props }) => {
-    const cols = (props.columns ?? []) as Array<{ key: string; label: string }>;
-    const rows = (props.rows ?? []) as Array<Record<string, unknown>>;
-    if (cols.length === 0 || rows.length === 0) return [];
-    const widths = cols.map((c) =>
-      Math.max(
-        c.label.length,
-        ...rows.map((r) => String(r[c.key] ?? "").length),
-      ),
-    );
-    const fmt = (vals: string[]) =>
-      vals.map((v, i) => v.padEnd(widths[i]!)).join("  ");
-    const header = fmt(cols.map((c) => c.label));
-    const sep = widths.map((w) => "─".repeat(w)).join("  ");
-    const body = rows.map((r) =>
-      fmt(cols.map((c) => String(r[c.key] ?? ""))),
-    );
-    const text = "```\n" + [header, sep, ...body].join("\n") + "\n```";
-    return [{ type: "section", text: { type: "mrkdwn", text } }];
-  },
+    DataTable: ({ props }) => {
+      const cols = (props.columns ?? []) as Array<{
+        key: string;
+        label: string;
+      }>;
+      const rows = (props.rows ?? []) as Array<Record<string, unknown>>;
+      if (cols.length === 0 || rows.length === 0) return [];
+      const widths = cols.map((c) =>
+        Math.max(
+          c.label.length,
+          ...rows.map((r) => String(r[c.key] ?? "").length),
+        ),
+      );
+      const fmt = (vals: string[]) =>
+        vals.map((v, i) => v.padEnd(widths[i]!)).join("  ");
+      const header = fmt(cols.map((c) => c.label));
+      const sep = widths.map((w) => "─".repeat(w)).join("  ");
+      const body = rows.map((r) =>
+        fmt(cols.map((c) => String(r[c.key] ?? ""))),
+      );
+      const text = "```\n" + [header, sep, ...body].join("\n") + "\n```";
+      return [{ type: "section", text: { type: "mrkdwn", text } }];
+    },
 
-  Button: ({ props, children, dispatch }) => {
-    let label = "Submit";
-    if (props.child) {
-      const childBlocks = children(props.child);
-      const firstSection = childBlocks.find(
-        (b) => b.type === "section" && (b as any).text?.type === "mrkdwn",
-      ) as { text: { text: string } } | undefined;
-      if (firstSection) label = stripMrkdwn(firstSection.text.text);
-    }
-    const elements: any[] = [
-      {
-        type: "button",
-        text: { type: "plain_text", text: label, emoji: true },
-        action_id: "a2ui:button",
-        ...(props.action && dispatch
-          ? { value: dispatch.encodeAction(props.action) }
-          : {}),
-        ...(props.variant === "primary" ? { style: "primary" as const } : {}),
-      },
-    ];
-    return [{ type: "actions", elements }];
-  },
-};
+    Button: ({ props, children, dispatch }) => {
+      let label = "Submit";
+      if (props.child) {
+        const childBlocks = children(props.child);
+        const firstSection = childBlocks.find(
+          (b) => b.type === "section" && (b as any).text?.type === "mrkdwn",
+        ) as { text: { text: string } } | undefined;
+        if (firstSection) label = stripMrkdwn(firstSection.text.text);
+      }
+      const elements: any[] = [
+        {
+          type: "button",
+          text: { type: "plain_text", text: label, emoji: true },
+          action_id: "a2ui:button",
+          ...(props.action && dispatch
+            ? { value: dispatch.encodeAction(props.action) }
+            : {}),
+          ...(props.variant === "primary" ? { style: "primary" as const } : {}),
+        },
+      ];
+      return [{ type: "actions", elements }];
+    },
+  };
 
 export const dashboardCatalog = createCatalog(
   dashboardDefinitions,
