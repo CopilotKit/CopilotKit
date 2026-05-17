@@ -5,7 +5,6 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     clearMocks: true,
-    setupFiles: ["./vitest.setup.ts"],
     reporters: [["default", { summary: false }]],
     silent: true,
   },
