@@ -24,6 +24,7 @@ AI agent framework with three layers: **Frontend** (React/Angular/Vanilla) → *
 - **Simplicity** — prefer the simplest correct solution. For non-trivial changes, consider if there's a cleaner approach before committing.
 - **Worktrees** — always work in a git worktree for isolation. See [Git & PRs](.claude/docs/git.md) for the full workflow.
 - **Commit as you go** — every meaningful unit of work gets its own commit, pushed immediately. Don't let untracked files accumulate across a session. Tests belong in the commit that introduces the code being tested. Full rules in [Git & PRs](.claude/docs/git.md#commit-early-and-often-in-logical-chunks).
+- **Draft PR up front** — the moment a new branch has one commit, push it and open a **draft PR**. Don't wait until "ready" — unmerged-and-unpushed work is invisible. Flip the PR from draft to ready (`gh pr ready <pr#>`) only when the developer says so. See [Git & PRs](.claude/docs/git.md#open-a-draft-pr-up-front).
 
 ## Private Agent Instructions
 

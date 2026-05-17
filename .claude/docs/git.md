@@ -7,8 +7,34 @@ Always use a git worktree for non-trivial work. This keeps the main working tree
 1. **Start a worktree** at the beginning of a task. This creates a new branch and a separate working directory.
 2. **Do all work** inside the worktree — commits, builds, tests.
 3. **Push the worktree branch** to the remote with `-u` to set up tracking.
-4. **Create a PR** targeting `main` using `gh pr create --base main`.
+4. **Open a draft PR immediately** — see "Open a Draft PR Up Front" below.
 5. **Clean up** the worktree after the PR is merged.
+
+## Open a Draft PR Up Front
+
+The moment a new branch has at least one commit, open a **draft PR** against `main`. Don't wait until the work is "ready." Reasons:
+
+- The work becomes visible to teammates the second it exists. Unmerged-and-unpushed branches are invisible work.
+- Reviewers can leave comments early; CI starts running; conflicts surface fast.
+- A draft PR is the cheapest possible coordination signal — no commitment, no review burden, just "this exists."
+
+**The flow:**
+
+1. After the first meaningful commit on a branch:
+   ```bash
+   git push -u origin <branch-name>
+   gh pr create --base main --draft \
+     --title "<short title>" \
+     --body "<short summary of what's being built + current status>"
+   ```
+2. Keep committing + pushing as you go. The PR auto-updates.
+3. When the work is ready for review, **flip the PR from draft to ready**:
+   ```bash
+   gh pr ready <pr-number>
+   ```
+   This is the explicit "please review" signal. Until you flip it, the PR is in-progress.
+
+The rule: **PR exists before work continues. Ready-flag flips only when the developer says so.**
 
 ## Commit Early and Often, in Logical Chunks
 
