@@ -139,13 +139,21 @@ export function createSlackBridge(config: SlackBridgeConfig): SlackBridge {
       // loop guard (skip our own messages) is in place from the first event.
       let botUserId: string | undefined;
       try {
-        const auth = await app.client.auth.test({ token: config.slackBotToken });
+        const auth = await app.client.auth.test({
+          token: config.slackBotToken,
+        });
         botUserId = auth.user_id as string | undefined;
         console.log("[slack-bridge] bot user id:", botUserId);
       } catch (err) {
-        console.warn("[slack-bridge] auth.test failed; loop guard weaker:", err);
+        console.warn(
+          "[slack-bridge] auth.test failed; loop guard weaker:",
+          err,
+        );
       }
-      if (!botUserId) throw new Error("[slack-bridge] auth.test did not return a bot user id");
+      if (!botUserId)
+        throw new Error(
+          "[slack-bridge] auth.test did not return a bot user id",
+        );
 
       const componentTools = (config.components ?? []).map((c) =>
         componentToFrontendTool(c),
@@ -159,7 +167,10 @@ export function createSlackBridge(config: SlackBridgeConfig): SlackBridge {
         ...hitlTools,
         ...(config.tools ?? []),
       ];
-      const store = new SlackConversationStore({ client: app.client, botUserId });
+      const store = new SlackConversationStore({
+        client: app.client,
+        botUserId,
+      });
       const runTurn = createTurnRunner({
         store,
         makeAgent,
@@ -181,7 +192,11 @@ export function createSlackBridge(config: SlackBridgeConfig): SlackBridge {
         const b = body as {
           actions?: Array<{ action_id?: string; value?: string }>;
           response_url?: string;
-          container?: { message_ts?: string; channel_id?: string; thread_ts?: string };
+          container?: {
+            message_ts?: string;
+            channel_id?: string;
+            thread_ts?: string;
+          };
           channel?: { id?: string };
           message?: { ts?: string; thread_ts?: string };
           trigger_id?: string;
@@ -210,7 +225,11 @@ export function createSlackBridge(config: SlackBridgeConfig): SlackBridge {
               );
             }
           }
-          const handled = hitlRegistry.handleAction(a.action_id, click, decoded);
+          const handled = hitlRegistry.handleAction(
+            a.action_id,
+            click,
+            decoded,
+          );
           if (handled) continue;
           // Stale click: no in-process pending wait (most often: bridge
           // restarted between picker-post and click). If we decoded a
@@ -229,7 +248,10 @@ export function createSlackBridge(config: SlackBridgeConfig): SlackBridge {
             conversation,
             replyTarget,
             resumeValue: decoded,
-            click: { responseUrl: click.responseUrl, messageTs: click.messageTs },
+            click: {
+              responseUrl: click.responseUrl,
+              messageTs: click.messageTs,
+            },
             interruptHandlers: config.interruptHandlers ?? [],
             humanInTheLoopComponents: config.humanInTheLoopComponents ?? [],
             hitlRegistry,

@@ -46,7 +46,10 @@ async function waitForVisibleEnabledButton(
   while (Date.now() - start < timeoutMs) {
     const found = await page.evaluate((lab) => {
       const btn = Array.from(document.querySelectorAll("button")).find(
-        (b) => b.textContent?.trim() === lab && !b.disabled && (b as HTMLElement).offsetParent !== null,
+        (b) =>
+          b.textContent?.trim() === lab &&
+          !b.disabled &&
+          (b as HTMLElement).offsetParent !== null,
       );
       return !!btn;
     }, label);
@@ -91,15 +94,21 @@ async function main() {
   } catch {
     // Already saved? Pull the current editor contents and compare.
     const currentVal = await page.evaluate(() => {
-      const cm = (document.querySelector(".CodeMirror") as unknown as {
-        CodeMirror?: { getValue(): string };
-      })?.CodeMirror;
+      const cm = (
+        document.querySelector(".CodeMirror") as unknown as {
+          CodeMirror?: { getValue(): string };
+        }
+      )?.CodeMirror;
       return cm?.getValue() ?? "";
     });
     if (currentVal.includes('"user"') && currentVal.includes('"chat:write"')) {
-      console.log("[grab-token] manifest already has user scope, no save needed");
+      console.log(
+        "[grab-token] manifest already has user scope, no save needed",
+      );
     } else {
-      throw new Error("Save Changes button did not enable and current manifest doesn't have user scope");
+      throw new Error(
+        "Save Changes button did not enable and current manifest doesn't have user scope",
+      );
     }
   }
 
@@ -138,10 +147,9 @@ async function main() {
 
   // ── 3. Reinstall (will OAuth-approve the new user scope) ──────────
   console.log("[grab-token] → install page");
-  await page.goto(
-    `https://api.slack.com/apps/${APP_ID}/install-on-team`,
-    { waitUntil: "networkidle" },
-  );
+  await page.goto(`https://api.slack.com/apps/${APP_ID}/install-on-team`, {
+    waitUntil: "networkidle",
+  });
   await page.waitForTimeout(2000);
 
   const installLink = await page.evaluate(() => {
@@ -181,7 +189,10 @@ async function main() {
     await page.waitForLoadState("networkidle", { timeout: 15000 });
     await page.waitForTimeout(2000);
   } catch (err) {
-    console.log("[grab-token] no Allow button (maybe already approved?):", (err as Error).message);
+    console.log(
+      "[grab-token] no Allow button (maybe already approved?):",
+      (err as Error).message,
+    );
   }
 
   // ── 5. Read both tokens from OAuth & Permissions ──────────────────
@@ -192,7 +203,9 @@ async function main() {
   await page.waitForTimeout(2500);
 
   const tokens = await page.evaluate(() => {
-    const fields = Array.from(document.querySelectorAll("input[readonly]")) as HTMLInputElement[];
+    const fields = Array.from(
+      document.querySelectorAll("input[readonly]"),
+    ) as HTMLInputElement[];
     const found: { kind: string; value: string }[] = [];
     for (const f of fields) {
       const v = f.value ?? "";
@@ -201,7 +214,10 @@ async function main() {
     }
     return found;
   });
-  console.log("[grab-token] found tokens:", tokens.map((t) => t.kind));
+  console.log(
+    "[grab-token] found tokens:",
+    tokens.map((t) => t.kind),
+  );
 
   const bot = tokens.find((t) => t.kind === "bot")?.value;
   const user = tokens.find((t) => t.kind === "user")?.value;

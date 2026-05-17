@@ -9,18 +9,18 @@
     "url": "https://github.com/CopilotKit/CopilotKit.git",
     "directory": "packages/slack"
   },
+  "files": [
+    "dist"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     }
   },
-  "files": [
-    "dist"
-  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx watch app/index.ts",
@@ -44,8 +44,8 @@
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:*",
     "@types/node": "^22.10.0",
-    "playwright": "^1.49.0",
     "dotenv": "^16.4.5",
+    "playwright": "^1.49.0",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
     "vitest": "^4.1.3"

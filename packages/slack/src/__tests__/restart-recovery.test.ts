@@ -28,14 +28,28 @@ describe("injectResumeValues", () => {
       {
         type: "actions",
         elements: [
-          { type: "button", text: { type: "plain_text", text: "A" }, action_id: "aid-1" },
-          { type: "button", text: { type: "plain_text", text: "B" }, action_id: "aid-2" },
-          { type: "button", text: { type: "plain_text", text: "?" }, action_id: "unbound" },
+          {
+            type: "button",
+            text: { type: "plain_text", text: "A" },
+            action_id: "aid-1",
+          },
+          {
+            type: "button",
+            text: { type: "plain_text", text: "B" },
+            action_id: "aid-2",
+          },
+          {
+            type: "button",
+            text: { type: "plain_text", text: "?" },
+            action_id: "unbound",
+          },
         ],
       },
     ];
     const out = injectResumeValues(blocks, actionMap);
-    const els = (out[0] as unknown as { elements: Array<Record<string, unknown>> }).elements;
+    const els = (
+      out[0] as unknown as { elements: Array<Record<string, unknown>> }
+    ).elements;
     expect(els[0]?.value).toBe('{"chosen":"A"}');
     expect(els[1]?.value).toBe('{"chosen":"B"}');
     // Unbound button (action_id not in map) keeps its original shape.
@@ -63,7 +77,9 @@ describe("injectResumeValues", () => {
     // The select-element shape isn't mutated (no top-level "value" forced
     // on it; the per-option `value` stays user-controlled).
     expect((out[0] as { elements: unknown[] }).elements[0]).toEqual(
-      blocks[0] && "elements" in blocks[0] ? blocks[0].elements?.[0] : undefined,
+      blocks[0] && "elements" in blocks[0]
+        ? blocks[0].elements?.[0]
+        : undefined,
     );
   });
 
@@ -95,7 +111,11 @@ describe("injectResumeValues", () => {
           {
             type: "actions",
             elements: [
-              { type: "button", text: { type: "plain_text", text: "A" }, action_id: "aid-big" },
+              {
+                type: "button",
+                text: { type: "plain_text", text: "A" },
+                action_id: "aid-big",
+              },
             ],
           },
         ],
@@ -156,9 +176,7 @@ describe("recoverInterruptFromStaleClick", () => {
     render(state) {
       if (state.status === "pending") return [{ type: "divider" }];
       if (state.status === "resolved") {
-        const v = state.value as
-          | { chosen_label: string }
-          | { cancelled: true };
+        const v = state.value as { chosen_label: string } | { cancelled: true };
         if ("cancelled" in v) return "delete";
         return [
           {
@@ -199,7 +217,17 @@ describe("recoverInterruptFromStaleClick", () => {
       conversations: { replies },
     };
     const hitlRegistry = new HumanInTheLoopRegistry();
-    return { runAgent, makeAgent, postMessage, update, deleteFn, replies, fetchMock, client, hitlRegistry };
+    return {
+      runAgent,
+      makeAgent,
+      postMessage,
+      update,
+      deleteFn,
+      replies,
+      fetchMock,
+      client,
+      hitlRegistry,
+    };
   }
 
   const baseArgs = {
@@ -224,7 +252,9 @@ describe("recoverInterruptFromStaleClick", () => {
     expect(s.runAgent).toHaveBeenCalledTimes(1);
     const arg = (s.runAgent.mock.calls[0] as unknown as [unknown])[0];
     expect(arg).toEqual({
-      forwardedProps: { command: { resume: { chosen_label: "Tomorrow 2:00 PM" } } },
+      forwardedProps: {
+        command: { resume: { chosen_label: "Tomorrow 2:00 PM" } },
+      },
     });
   });
 
@@ -253,11 +283,16 @@ describe("recoverInterruptFromStaleClick", () => {
       botUserId: "BOT01",
     });
     expect(s.fetchMock).toHaveBeenCalled();
-    const fetchCall = s.fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const fetchCall = s.fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
     expect(fetchCall[0]).toBe("https://hooks.slack.com/x");
     const body = JSON.parse(fetchCall[1].body as string);
     expect(body.replace_original).toBe(true);
-    expect(body.blocks[0].text.text).toContain("Booked *Tomorrow 2:00 PM* for *Q2 1:1*");
+    expect(body.blocks[0].text.text).toContain(
+      "Booked *Tomorrow 2:00 PM* for *Q2 1:1*",
+    );
     // Resume still fires after the resolved render.
     expect(s.runAgent).toHaveBeenCalledTimes(1);
   });
@@ -335,7 +370,9 @@ describe("recoverInterruptFromStaleClick", () => {
       botUserId: "BOT01",
     });
     expect(postMessage).toHaveBeenCalled();
-    const postCall = postMessage.mock.calls[0] as unknown as [{ text?: string }];
+    const postCall = postMessage.mock.calls[0] as unknown as [
+      { text?: string },
+    ];
     expect(postCall[0].text).toContain("graph blew up");
   });
 });

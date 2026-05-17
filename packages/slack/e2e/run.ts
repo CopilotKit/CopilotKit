@@ -79,7 +79,9 @@ function runExpectations(
     errors.push(`${tag}text has unbalanced brackets`);
   }
   if (exp.minLength && (finalText?.length ?? 0) < exp.minLength) {
-    errors.push(`${tag}too short (${finalText?.length ?? 0} < ${exp.minLength})`);
+    errors.push(
+      `${tag}too short (${finalText?.length ?? 0} < ${exp.minLength})`,
+    );
   }
 }
 
@@ -109,8 +111,10 @@ async function runCase(spec: E2ECase): Promise<CaseResult> {
   let interruptTimer: NodeJS.Timeout | undefined;
   if (spec.interrupt && parentTs) {
     interruptTimer = setTimeout(() => {
-      postAsUser(TEST_CHANNEL, spec.interrupt!.prompt, { threadTs: parentTs }).catch(
-        (e: Error) => errors.push(`interrupt send failed: ${e.message}`),
+      postAsUser(TEST_CHANNEL, spec.interrupt!.prompt, {
+        threadTs: parentTs,
+      }).catch((e: Error) =>
+        errors.push(`interrupt send failed: ${e.message}`),
       );
     }, spec.interrupt.afterMs);
   }
@@ -155,7 +159,9 @@ async function runCase(spec: E2ECase): Promise<CaseResult> {
   // assertions live under `spec.interrupt.firstExpectations`.
   if (!spec.interrupt) runExpectations(exp, finalText, errors);
   // Cross-stream assertion: every sample with text must be balanced.
-  const unbalancedSamples = samples.filter((s) => s.len > 0 && !s.balanced).length;
+  const unbalancedSamples = samples.filter(
+    (s) => s.len > 0 && !s.balanced,
+  ).length;
   if (exp.balancedBrackets && unbalancedSamples > 0) {
     errors.push(`${unbalancedSamples} mid-stream samples were not balanced`);
   }
@@ -182,7 +188,10 @@ async function runCase(spec: E2ECase): Promise<CaseResult> {
       const all = await threadReplies(TEST_CHANNEL, parentTs);
       const botRaw = all.filter((m) => m.user === BOT_USER_ID);
       const botMsgs = botRaw.map((m) => m.text ?? "");
-      for (const e of exp.perReplyChecks(botMsgs, botRaw as unknown as Array<Record<string, unknown>>))
+      for (const e of exp.perReplyChecks(
+        botMsgs,
+        botRaw as unknown as Array<Record<string, unknown>>,
+      ))
         errors.push(e);
     } catch (err) {
       errors.push(`perReplyChecks fetch failed: ${(err as Error).message}`);
@@ -204,20 +213,39 @@ async function runCase(spec: E2ECase): Promise<CaseResult> {
     // those out and use first vs last as "the interrupted reply" and
     // "the new reply".
     const isStatus = (t: string) =>
-      t.startsWith(":warning:") || t.startsWith(":wrench:") || t.startsWith(":white_check_mark:");
+      t.startsWith(":warning:") ||
+      t.startsWith(":wrench:") ||
+      t.startsWith(":white_check_mark:");
     const meaningful = botReplies.filter((m) => !isStatus(m.text ?? ""));
     const firstReply = meaningful[0]?.text;
     const secondReply = meaningful[meaningful.length - 1]?.text;
     const sameMessage = meaningful.length === 1;
     if (!firstReply) iErrors.push("no first bot reply found");
-    if (sameMessage) iErrors.push("only one meaningful bot reply — interrupt didn't produce a new turn");
+    if (sameMessage)
+      iErrors.push(
+        "only one meaningful bot reply — interrupt didn't produce a new turn",
+      );
     if (spec.interrupt.firstExpectations) {
-      runExpectations(spec.interrupt.firstExpectations, firstReply, iErrors, "first");
+      runExpectations(
+        spec.interrupt.firstExpectations,
+        firstReply,
+        iErrors,
+        "first",
+      );
     }
     if (spec.interrupt.expectations) {
-      runExpectations(spec.interrupt.expectations, secondReply, iErrors, "second");
+      runExpectations(
+        spec.interrupt.expectations,
+        secondReply,
+        iErrors,
+        "second",
+      );
     }
-    interruptResult = { firstReplyText: firstReply, secondReplyText: secondReply, errors: iErrors };
+    interruptResult = {
+      firstReplyText: firstReply,
+      secondReplyText: secondReply,
+      errors: iErrors,
+    };
     errors.push(...iErrors);
   }
 
@@ -231,8 +259,10 @@ async function runCase(spec: E2ECase): Promise<CaseResult> {
     // watch specifically for a NEW one.
     const existing = await threadReplies(TEST_CHANNEL, parentTs);
     const seenCount = existing.filter((m) => m.user === BOT_USER_ID).length;
-    await postAsUser(TEST_CHANNEL, spec.followUp.prompt, { threadTs: parentTs }).catch(
-      (e: Error) => followErrors.push(`followUp send failed: ${e.message}`),
+    await postAsUser(TEST_CHANNEL, spec.followUp.prompt, {
+      threadTs: parentTs,
+    }).catch((e: Error) =>
+      followErrors.push(`followUp send failed: ${e.message}`),
     );
     const f = await watchForNextReply({
       channel: TEST_CHANNEL,
@@ -269,7 +299,8 @@ async function runCase(spec: E2ECase): Promise<CaseResult> {
       errors: followErrors,
       durationMs: Date.now() - f0,
       finalText: followText,
-      unbalancedSamples: followSamples.filter((s) => s.len > 0 && !s.balanced).length,
+      unbalancedSamples: followSamples.filter((s) => s.len > 0 && !s.balanced)
+        .length,
       samples: followSamples,
     };
   }
@@ -277,7 +308,10 @@ async function runCase(spec: E2ECase): Promise<CaseResult> {
   return {
     name: spec.name,
     prompt: spec.prompt,
-    status: errors.length === 0 && (followUpResult?.status ?? "pass") === "pass" ? "pass" : "fail",
+    status:
+      errors.length === 0 && (followUpResult?.status ?? "pass") === "pass"
+        ? "pass"
+        : "fail",
     errors,
     durationMs: Date.now() - t0,
     finalText,
@@ -316,13 +350,15 @@ async function main() {
         console.log(
           `    ↳ followUp ${fflag} ${r.followUp.durationMs}ms  len=${r.followUp.finalText?.length ?? 0}  samples=${r.followUp.samples.length}  unbalanced=${r.followUp.unbalancedSamples}`,
         );
-        if (r.followUp.errors.length) console.log("      " + r.followUp.errors.join("\n      "));
+        if (r.followUp.errors.length)
+          console.log("      " + r.followUp.errors.join("\n      "));
       }
       if (r.interrupt) {
         console.log(
           `    ↳ interrupt  first_len=${r.interrupt.firstReplyText?.length ?? 0}  second_len=${r.interrupt.secondReplyText?.length ?? 0}`,
         );
-        if (r.interrupt.errors.length) console.log("      " + r.interrupt.errors.join("\n      "));
+        if (r.interrupt.errors.length)
+          console.log("      " + r.interrupt.errors.join("\n      "));
       }
       results.push(r);
     } catch (err) {
@@ -345,7 +381,9 @@ async function main() {
     JSON.stringify({ ranAt: stamp, botUserId: BOT_USER_ID, results }, null, 2),
   );
   const pass = results.filter((r) => r.status === "pass").length;
-  console.log(`\n${pass}/${results.length} cases passed. Report: ${runDir}/report.json`);
+  console.log(
+    `\n${pass}/${results.length} cases passed. Report: ${runDir}/report.json`,
+  );
   process.exit(pass === results.length ? 0 : 1);
 }
 

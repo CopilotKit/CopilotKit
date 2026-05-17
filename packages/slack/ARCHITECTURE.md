@@ -144,6 +144,7 @@ src/
 ## Layer responsibilities
 
 ### `bridge.ts`
+
 Builds a Bolt `App`, resolves the bot user id, instantiates the
 `SlackConversationStore`, builds the unified tools array (components +
 HITL adapters + app tools), wires `app.action(/.*/, …)` to the
@@ -151,12 +152,14 @@ HITL adapters + app tools), wires `app.action(/.*/, …)` to the
 `start()` / `stop()`. That's it.
 
 ### `slack-listener.ts`
+
 Translation layer between Slack's event model and the bridge's domain.
 Filters subtypes, bot echoes, untracked threads, mention duplicates.
 Emits a normalised `IncomingTurn { conversation, replyTarget, userText }`
 to `onTurn`.
 
 ### `turn-runner.ts`
+
 One-turn orchestration. Per-conversation in-flight map enables the
 interrupt-on-new-message flow: a new turn aborts the prior `runAgent`,
 appends `_(interrupted)_` to whatever the previous reply had streamed
@@ -174,6 +177,7 @@ The main loop:
 4. When neither category fires, the turn is done.
 
 ### `conversation-store.ts`
+
 Slack is the durable store. `getOrCreate` calls
 `conversations.replies` / `conversations.history`, translates the
 result into AG-UI messages, folds consecutive bot replies into one
@@ -183,6 +187,7 @@ from user text. `has(key)` consults Slack on demand, with an
 in-process participation cache so subsequent thread replies are O(1).
 
 ### `event-renderer.ts`
+
 Translates AG-UI events into Slack streaming, plus a few side channels:
 
 - **Text streaming**: lazy stream creation (no placeholder until the
@@ -201,26 +206,30 @@ Translates AG-UI events into Slack streaming, plus a few side channels:
   adapter.
 
 ### `chunked-message-stream.ts`
+
 Wraps N `MessageStream`s. Soft limit ~3500 chars; freezes a boundary at
 the last newline/space; if the boundary would split a fenced block, the
-boundary moves *before* the opener so the block lands whole in the next
+boundary moves _before_ the opener so the block lands whole in the next
 message. Per-chunk transform =
 `autoCloseOpenMarkdown` + `markdownToMrkdwn` so the in-flight Slack
 message always renders as valid mrkdwn.
 
 ### `message-stream.ts`
+
 Per-Slack-message promise queue + 800ms throttle. Prevents the
 "ALPHA → AL" race (two `chat.update`s in flight) by construction.
 `finish()` cancels the throttle, enqueues a final flush, awaits the
 queue.
 
 ### `markdown-to-mrkdwn.ts` / `auto-close-streaming.ts`
+
 Pure functions. The former translates GFM markdown to Slack mrkdwn,
 column-aligning tables in a fence. The latter closes dangling
-`` ``` `` / `` ` `` / `**` / `__` / `*` / `_` / `~~` mid-stream so the
+` ``` ` / `` ` `` / `**` / `__` / `*` / `_` / `~~` mid-stream so the
 in-flight buffer is renderable; idempotent when the real close shows up.
 
 ### `frontend-tools.ts`
+
 - `FrontendTool<Schema extends ZodType>`: name + description + Zod
   `parameters` + `execute(args, ctx)`. The schema is converted to JSON
   Schema (`zod-to-json-schema`, `$refStrategy: "none"`) before being
@@ -230,12 +239,14 @@ in-flight buffer is renderable; idempotent when the real close shows up.
   validation failures return a clean JSON error to the agent.
 
 ### `slack-component.ts`
+
 `defineSlackComponent({name, description, props, fallbackText?, render})`.
 `render(props) → KnownBlock[]`. Compiles to a `FrontendTool` whose
 `execute` calls `chat.postMessage({blocks})`. Render-only — no
 interaction.
 
 ### `human-in-the-loop.ts`
+
 `defineHumanInTheLoop({name, description, props, fallbackText?, render,
 timeoutMs?})`. The `render(state, api)` function is invoked twice (or
 more): once with `status: "pending"` (returns the picker blocks),
@@ -248,10 +259,12 @@ mints the `action_id`, stores `(action_id → value)`, and resolves the
 wait with that value on click.
 
 `HumanInTheLoopRegistry`: process-local. `Map<action_id, PendingWait>`
-+ secondary index by `conversationKey` so interrupt-on-new-message can
-cancel everything tied to the aborted run.
+
+- secondary index by `conversationKey` so interrupt-on-new-message can
+  cancel everything tied to the aborted run.
 
 ### `interrupt.ts`
+
 `defineInterruptHandler({eventName?, name, description, payload,
 fallbackText?, render})`. The Slack equivalent of React's
 `useInterrupt`. Same `render(state, api)` lifecycle as
@@ -287,7 +300,7 @@ forwarding `tools` and `context` from `runAgent({tools, context})`
 into the agent's tool list / system message — no changes to the
 showcase Python code.
 
-## What's intentionally *not* abstracted
+## What's intentionally _not_ abstracted
 
 - No generic "Sink" between AG-UI events and the renderer. Slack is
   the only renderer; abstraction would just be ceremony.
@@ -298,17 +311,17 @@ showcase Python code.
 
 ## Failure model
 
-| Failure | Behaviour |
-|---|---|
-| Single `chat.update` fails | logged, swallowed; next append retries with latest buffer |
-| Agent run throws (network, etc.) | caught in `turn-runner`, `:warning:` posted unless intentionally aborted |
-| Agent emits `RUN_ERROR` | `:warning:` posted via renderer (skipped on intentional abort) |
-| `on_interrupt` arrives but no handler registered | warning logged, graph stays paused |
-| `on_interrupt` payload fails Zod validation | warning logged, graph stays paused |
-| New user turn during a HITL/interrupt wait | wait resolves with `{kind:"cancelled"}`; previous run's partial reply gets `_(interrupted)_` suffix |
-| Slack disconnect (Socket Mode) | Bolt auto-reconnects |
-| Process restart | next turn rebuilds context from Slack history; in-flight HITL/interrupt waits are lost (registry is in-memory) |
-| Slack 429 / 5xx | swallowed today; future: respect `Retry-After` |
+| Failure                                          | Behaviour                                                                                                      |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| Single `chat.update` fails                       | logged, swallowed; next append retries with latest buffer                                                      |
+| Agent run throws (network, etc.)                 | caught in `turn-runner`, `:warning:` posted unless intentionally aborted                                       |
+| Agent emits `RUN_ERROR`                          | `:warning:` posted via renderer (skipped on intentional abort)                                                 |
+| `on_interrupt` arrives but no handler registered | warning logged, graph stays paused                                                                             |
+| `on_interrupt` payload fails Zod validation      | warning logged, graph stays paused                                                                             |
+| New user turn during a HITL/interrupt wait       | wait resolves with `{kind:"cancelled"}`; previous run's partial reply gets `_(interrupted)_` suffix            |
+| Slack disconnect (Socket Mode)                   | Bolt auto-reconnects                                                                                           |
+| Process restart                                  | next turn rebuilds context from Slack history; in-flight HITL/interrupt waits are lost (registry is in-memory) |
+| Slack 429 / 5xx                                  | swallowed today; future: respect `Retry-After`                                                                 |
 
 ## Test surface
 

@@ -11,7 +11,9 @@ describe("markdownToMrkdwn", () => {
   });
 
   it("*italic* → _italic_", () => {
-    expect(markdownToMrkdwn("here is *emphasised* text")).toBe("here is _emphasised_ text");
+    expect(markdownToMrkdwn("here is *emphasised* text")).toBe(
+      "here is _emphasised_ text",
+    );
   });
 
   it("~~strike~~ → ~strike~", () => {
@@ -24,7 +26,9 @@ describe("markdownToMrkdwn", () => {
   });
 
   it("[text](url) → <url|text>", () => {
-    expect(markdownToMrkdwn("see [docs](https://x.com/d)")).toBe("see <https://x.com/d|docs>");
+    expect(markdownToMrkdwn("see [docs](https://x.com/d)")).toBe(
+      "see <https://x.com/d|docs>",
+    );
   });
 
   it("bullet markers (- * +) → •", () => {
@@ -44,7 +48,9 @@ describe("markdownToMrkdwn", () => {
   });
 
   it("does NOT touch contents of inline backticks", () => {
-    expect(markdownToMrkdwn("use `**stars**` here")).toBe("use `**stars**` here");
+    expect(markdownToMrkdwn("use `**stars**` here")).toBe(
+      "use `**stars**` here",
+    );
   });
 
   it("wraps GFM tables in a code fence so they render in monospace", () => {
@@ -91,7 +97,9 @@ describe("markdownToMrkdwn", () => {
   });
 
   it("is a no-op for plain text", () => {
-    expect(markdownToMrkdwn("just plain words 123")).toBe("just plain words 123");
+    expect(markdownToMrkdwn("just plain words 123")).toBe(
+      "just plain words 123",
+    );
   });
 
   it("is a no-op for the empty string", () => {

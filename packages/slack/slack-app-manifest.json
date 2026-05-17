@@ -25,9 +25,7 @@
   },
   "oauth_config": {
     "scopes": {
-      "user": [
-        "chat:write"
-      ],
+      "user": ["chat:write"],
       "bot": [
         "app_mentions:read",
         "channels:history",

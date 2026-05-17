@@ -15,25 +15,25 @@ oauth_config:
   scopes:
     bot:
       # --- Read what the user said ---
-      - app_mentions:read       # see @mentions of the bot
-      - channels:history        # read messages in public channels bot is in
-      - groups:history          # read messages in private channels bot is in
-      - im:history              # read DMs
-      - mpim:history            # read group DMs
-      - channels:read           # list/lookup public channels (names, members)
-      - groups:read             # list/lookup private channels
-      - im:read                 # list DMs
-      - mpim:read               # list group DMs
-      - users:read              # resolve user IDs to names for context
-      - team:read               # workspace info
+      - app_mentions:read # see @mentions of the bot
+      - channels:history # read messages in public channels bot is in
+      - groups:history # read messages in private channels bot is in
+      - im:history # read DMs
+      - mpim:history # read group DMs
+      - channels:read # list/lookup public channels (names, members)
+      - groups:read # list/lookup private channels
+      - im:read # list DMs
+      - mpim:read # list group DMs
+      - users:read # resolve user IDs to names for context
+      - team:read # workspace info
       # --- Write replies and generative UI ---
-      - chat:write              # post and edit messages in channels bot is in
-      - chat:write.public       # post in channels bot isn't a member of
-      - chat:write.customize    # per-message username/icon (handy for branding)
-      - im:write                # open DMs
-      - mpim:write              # open group DMs
+      - chat:write # post and edit messages in channels bot is in
+      - chat:write.public # post in channels bot isn't a member of
+      - chat:write.customize # per-message username/icon (handy for branding)
+      - im:write # open DMs
+      - mpim:write # open group DMs
       - reactions:read
-      - reactions:write         # 👀 / ✅ reactions as "thinking" / "done" affordance
+      - reactions:write # 👀 / ✅ reactions as "thinking" / "done" affordance
       # --- Files (for future image/file passing) ---
       - files:read
       - files:write
@@ -47,7 +47,7 @@ settings:
   event_subscriptions:
     bot_events:
       - app_mention
-      - message.im              # DMs to the bot (for later, when we add DM flow)
+      - message.im # DMs to the bot (for later, when we add DM flow)
       - assistant_thread_started # for the AI Assistant UI surface (future)
   interactivity:
     is_enabled: true

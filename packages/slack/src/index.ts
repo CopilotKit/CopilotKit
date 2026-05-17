@@ -4,11 +4,7 @@ export type { SlackBridge, SlackBridgeConfig } from "./bridge.js";
 export { SlackConversationStore } from "./conversation-store.js";
 export type { AgentSession } from "./conversation-store.js";
 
-export type {
-  ConversationKey,
-  IncomingTurn,
-  ReplyTarget,
-} from "./types.js";
+export type { ConversationKey, IncomingTurn, ReplyTarget } from "./types.js";
 export { DM_SCOPE } from "./types.js";
 
 export { MessageStream } from "./message-stream.js";
@@ -29,10 +25,7 @@ export type {
 } from "./frontend-tools.js";
 export { toAgentToolDescriptors, parseToolArgs } from "./frontend-tools.js";
 
-export {
-  lookupSlackUserTool,
-  defaultSlackTools,
-} from "./built-in-tools.js";
+export { lookupSlackUserTool, defaultSlackTools } from "./built-in-tools.js";
 
 export {
   slackTaggingContext,
@@ -61,10 +54,7 @@ export {
   HumanInTheLoopRegistry,
 } from "./human-in-the-loop.js";
 
-export type {
-  InterruptHandler,
-  CapturedInterrupt,
-} from "./interrupt.js";
+export type { InterruptHandler, CapturedInterrupt } from "./interrupt.js";
 export {
   defineInterruptHandler,
   DEFAULT_INTERRUPT_EVENT_NAME,

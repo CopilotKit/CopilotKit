@@ -33,7 +33,8 @@ async function slack(
     body: form.toString(),
   });
   const json = (await res.json()) as Record<string, unknown> & { ok: boolean };
-  if (!json.ok) throw new Error(`slack ${method} failed: ${JSON.stringify(json)}`);
+  if (!json.ok)
+    throw new Error(`slack ${method} failed: ${JSON.stringify(json)}`);
   return json;
 }
 
@@ -98,7 +99,10 @@ export async function watchForReply(args: {
     text: string | undefined;
     message: SlackMessage | undefined;
   }) => Promise<void> | void;
-}): Promise<{ finalText: string | undefined; finalMessage: SlackMessage | undefined }> {
+}): Promise<{
+  finalText: string | undefined;
+  finalMessage: SlackMessage | undefined;
+}> {
   const start = Date.now();
   let lastMessage: SlackMessage | undefined;
   let stableSamples = 0;
@@ -108,7 +112,11 @@ export async function watchForReply(args: {
     // The first bot reply in the thread.
     lastMessage = replies.find((m) => m.user === BOT_USER_ID);
     const text = lastMessage?.text;
-    await args.onSample({ elapsedMs: Date.now() - start, text, message: lastMessage });
+    await args.onSample({
+      elapsedMs: Date.now() - start,
+      text,
+      message: lastMessage,
+    });
     const len = text?.length ?? 0;
     if (len === lastLen && len > 0) {
       stableSamples++;
@@ -139,7 +147,10 @@ export async function watchForNextReply(args: {
     text: string | undefined;
     message: SlackMessage | undefined;
   }) => Promise<void> | void;
-}): Promise<{ finalText: string | undefined; finalMessage: SlackMessage | undefined }> {
+}): Promise<{
+  finalText: string | undefined;
+  finalMessage: SlackMessage | undefined;
+}> {
   const start = Date.now();
   let target: SlackMessage | undefined;
   let stable = 0;
@@ -149,7 +160,11 @@ export async function watchForNextReply(args: {
     const bot = replies.filter((m) => m.user === BOT_USER_ID);
     target = bot.length > args.seenCount ? bot[bot.length - 1] : undefined;
     const text = target?.text;
-    await args.onSample({ elapsedMs: Date.now() - start, text, message: target });
+    await args.onSample({
+      elapsedMs: Date.now() - start,
+      text,
+      message: target,
+    });
     const len = text?.length ?? 0;
     if (target && len === lastLen && len > 0) {
       stable++;
@@ -177,7 +192,10 @@ export async function watchForChannelReply(args: {
     text: string | undefined;
     message: SlackMessage | undefined;
   }) => Promise<void> | void;
-}): Promise<{ finalText: string | undefined; finalMessage: SlackMessage | undefined }> {
+}): Promise<{
+  finalText: string | undefined;
+  finalMessage: SlackMessage | undefined;
+}> {
   const start = Date.now();
   let lastMessage: SlackMessage | undefined;
   let stable = 0;
@@ -188,7 +206,11 @@ export async function watchForChannelReply(args: {
       (m) => m.user === BOT_USER_ID && Number(m.ts) > Number(args.sinceTs),
     );
     const text = lastMessage?.text;
-    await args.onSample({ elapsedMs: Date.now() - start, text, message: lastMessage });
+    await args.onSample({
+      elapsedMs: Date.now() - start,
+      text,
+      message: lastMessage,
+    });
     const len = text?.length ?? 0;
     if (len === lastLen && len > 0) {
       stable++;

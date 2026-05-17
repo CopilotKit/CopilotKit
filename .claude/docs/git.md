@@ -41,6 +41,7 @@ The rule: **PR exists before work continues. Ready-flag flips only when the deve
 **Commit your work as you go, not in one big dump at the end.** Each commit is a logical, self-contained unit. This rule is non-negotiable — letting a worktree accumulate hundreds of untracked files is how work gets lost and PRs become impossible to review.
 
 **Rules:**
+
 - Commit after each meaningful unit of work — a self-contained feature, a refactor, a bugfix, a docs sweep. Roughly one commit per logical idea.
 - Tests for the code introduced in a commit belong in **that same commit**, not a separate one.
 - Group related changes — if you rename a symbol, update its callers in the same commit.
@@ -48,6 +49,7 @@ The rule: **PR exists before work continues. Ready-flag flips only when the deve
 - Push after every commit. Unpushed commits are invisible to collaborators and at risk of being lost.
 
 **Commit message style:**
+
 - Plain English. No conventional-commit prefixes (`feat:`, `fix:`, `chore:`) unless the repo already uses them.
 - Lead with what changed and why. Skip mechanical descriptions.
 - Good: `add bridge restart recovery via Slack message metadata`

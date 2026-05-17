@@ -119,12 +119,20 @@ describe("componentToFrontendTool", () => {
       render: () => [{ type: "divider" }],
     });
     const ctx = {
-      client: { chat: { postMessage: vi.fn(async () => { throw new Error("rate_limited"); }) } } as never,
+      client: {
+        chat: {
+          postMessage: vi.fn(async () => {
+            throw new Error("rate_limited");
+          }),
+        },
+      } as never,
       channel: "C1",
       botUserId: "BOT01",
-    conversationKey: "C1::100.0",
+      conversationKey: "C1::100.0",
     } satisfies FrontendToolContext;
-    const result = JSON.parse(await componentToFrontendTool(c).execute({}, ctx));
+    const result = JSON.parse(
+      await componentToFrontendTool(c).execute({}, ctx),
+    );
     expect(result.ok).toBe(false);
     expect(result.error).toContain("rate_limited");
   });

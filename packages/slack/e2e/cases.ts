@@ -79,7 +79,10 @@ export interface E2ECase {
      * `raw` is the full Slack message objects (with `blocks`, `ts`, etc.)
      * for cases that need to inspect Block Kit structure.
      */
-    perReplyChecks?: (replies: string[], raw: Array<Record<string, any>>) => string[];
+    perReplyChecks?: (
+      replies: string[],
+      raw: Array<Record<string, any>>,
+    ) => string[];
   };
 }
 
@@ -102,7 +105,11 @@ export const CASES: E2ECase[] = [
   {
     name: "B2 — single-token response (was the ECHO/AL bug)",
     prompt: "<@U0B45V75NNR> reply with exactly the word ECHO and nothing else",
-    expectations: { finalContains: ["ECHO"], finalNotContains: ["…"], minLength: 4 },
+    expectations: {
+      finalContains: ["ECHO"],
+      finalNotContains: ["…"],
+      minLength: 4,
+    },
   },
   {
     name: "B6 — long response, multi-paragraph",
@@ -183,9 +190,13 @@ export const CASES: E2ECase[] = [
       perReplyChecks: (replies) => {
         const errs: string[] = [];
         // Among all messages, exactly one should contain ```python (the block).
-        const withPython = replies.filter((r) => r.includes("```python")).length;
+        const withPython = replies.filter((r) =>
+          r.includes("```python"),
+        ).length;
         if (withPython !== 1) {
-          errs.push(`expected exactly 1 message containing \`\`\`python; got ${withPython}`);
+          errs.push(
+            `expected exactly 1 message containing \`\`\`python; got ${withPython}`,
+          );
         }
         // No message should END inside an open fence (autoCloseOpenMarkdown should
         // close it, OR the boundary should have moved before the fence opener).
@@ -218,7 +229,8 @@ export const CASES: E2ECase[] = [
     prompt: "<@U0B45V75NNR> say the single word ALPHA",
     expectations: { finalContains: ["ALPHA"] },
     followUp: {
-      prompt: "now say the single word BRAVO. no @mention; just reply in this thread.",
+      prompt:
+        "now say the single word BRAVO. no @mention; just reply in this thread.",
       expectations: { finalContains: ["BRAVO"] },
     },
   },
@@ -254,9 +266,9 @@ export const CASES: E2ECase[] = [
   {
     name: "E-tag-1 — agent uses lookup_slack_user to tag Atai in its reply",
     prompt:
-      "<@U0B45V75NNR> call the lookup_slack_user tool with query \"atai\" to get my " +
+      '<@U0B45V75NNR> call the lookup_slack_user tool with query "atai" to get my ' +
       "real Slack user ID, then reply with a friendly greeting that uses the returned " +
-      "`mention` string verbatim to tag me. Don't just write \"Atai\" as text.",
+      '`mention` string verbatim to tag me. Don\'t just write "Atai" as text.',
     sampleIntervalMs: 700,
     maxWaitMs: 30_000,
     expectations: {
@@ -283,7 +295,7 @@ export const CASES: E2ECase[] = [
     name: "E-component-1 — agent renders a Slack component as a Block Kit card",
     prompt:
       "<@U0B45V75NNR> use the greeting_card component to render a fancy greeting " +
-      "for Atai with the message \"welcome to the showcase!\" and the :wave: emoji.",
+      'for Atai with the message "welcome to the showcase!" and the :wave: emoji.',
     sampleIntervalMs: 700,
     maxWaitMs: 30_000,
     expectations: {
@@ -309,16 +321,15 @@ export const CASES: E2ECase[] = [
     // JSON-encoded resume payload in its `value` field. That's what
     // Slack stores, and what the bridge would decode on a "stale click"
     // after a restart — proves the structural recovery story.
-    prompt: "<@U0B45V75NNR> please book a 1:1 with Alice next week to review Q2 goals.",
+    prompt:
+      "<@U0B45V75NNR> please book a 1:1 with Alice next week to review Q2 goals.",
     sampleIntervalMs: 700,
     maxWaitMs: 15_000,
     expectations: {
       perReplyChecks: (replies, raw) => {
         const errs: string[] = [];
         const pickerMsg = raw.find((m) =>
-          (m.blocks ?? []).some(
-            (b: { type?: string }) => b.type === "header",
-          ),
+          (m.blocks ?? []).some((b: { type?: string }) => b.type === "header"),
         );
         if (!pickerMsg) {
           errs.push("never posted a picker message");
@@ -346,7 +357,10 @@ export const CASES: E2ECase[] = [
             // The picker buttons bind either {chosen_time, chosen_label}
             // or {cancelled: true}. Both shapes verify the round-trip.
             const ok =
-              (text && typeof text === "object" && "chosen_time" in text && "chosen_label" in text) ||
+              (text &&
+                typeof text === "object" &&
+                "chosen_time" in text &&
+                "chosen_label" in text) ||
               (text && typeof text === "object" && "cancelled" in text);
             if (!ok) {
               errs.push(
@@ -382,7 +396,9 @@ export const CASES: E2ECase[] = [
         const joined = replies.join("\n");
         // The HITL fallback for our confirm component is "Confirm: <question>".
         if (!joined.toLowerCase().includes("confirm:")) {
-          errs.push("no bot reply contained the HITL fallback 'Confirm:' prefix");
+          errs.push(
+            "no bot reply contained the HITL fallback 'Confirm:' prefix",
+          );
         }
         return errs;
       },
@@ -406,7 +422,12 @@ export const CASES: E2ECase[] = [
       // context entries actually being delivered.
       perReplyChecks: (replies) => {
         const joined = replies.join("\n");
-        const witnesses = ["<@USERID>", "lookup_slack_user", "<@U05PN5700P9>", "@-mention"];
+        const witnesses = [
+          "<@USERID>",
+          "lookup_slack_user",
+          "<@U05PN5700P9>",
+          "@-mention",
+        ];
         if (witnesses.some((w) => joined.includes(w))) return [];
         return [
           `final reply quoted no context phrase from ${JSON.stringify(witnesses)}`,

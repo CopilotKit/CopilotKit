@@ -72,7 +72,10 @@ export function markdownToMrkdwn(input: string): string {
   // ── 3. Restore sentinels and code regions. ──
   body = body.replace(new RegExp(BOLD_OPEN, "g"), "*");
   body = body.replace(new RegExp(BOLD_CLOSE, "g"), "*");
-  body = body.replace(/CODE(\d+)/g, (_m, idx) => codeRegions[Number(idx)] ?? "");
+  body = body.replace(
+    /CODE(\d+)/g,
+    (_m, idx) => codeRegions[Number(idx)] ?? "",
+  );
 
   return body;
 }

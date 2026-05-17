@@ -20,7 +20,10 @@ export const confirmHitl = defineHumanInTheLoop({
     "any time you would otherwise need to guess intent on a " +
     "potentially irreversible action.",
   props: z.object({
-    question: z.string().min(1).describe("The yes/no question to show the user."),
+    question: z
+      .string()
+      .min(1)
+      .describe("The yes/no question to show the user."),
   }),
   fallbackText({ question }) {
     return `Confirm: ${question}`;
@@ -28,7 +31,10 @@ export const confirmHitl = defineHumanInTheLoop({
   render(state, api) {
     if (state.status === "pending") {
       return [
-        { type: "section", text: { type: "mrkdwn", text: state.props.question } },
+        {
+          type: "section",
+          text: { type: "mrkdwn", text: state.props.question },
+        },
         {
           type: "actions",
           elements: [
@@ -50,7 +56,9 @@ export const confirmHitl = defineHumanInTheLoop({
     }
     if (state.status === "resolved") {
       const v = state.value as { confirmed: boolean };
-      const verb = v.confirmed ? ":white_check_mark: Confirmed" : ":x: Declined";
+      const verb = v.confirmed
+        ? ":white_check_mark: Confirmed"
+        : ":x: Declined";
       return [
         {
           type: "section",

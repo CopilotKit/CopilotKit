@@ -53,7 +53,10 @@ const members = [
   },
 ];
 
-function makeCtx(): { ctx: FrontendToolContext; listFn: ReturnType<typeof vi.fn> } {
+function makeCtx(): {
+  ctx: FrontendToolContext;
+  listFn: ReturnType<typeof vi.fn>;
+} {
   const listFn = vi.fn(async () => ({
     ok: true,
     members,
@@ -74,7 +77,9 @@ describe("lookup_slack_user", () => {
 
   it("resolves by exact handle and returns a <@USERID> mention string", async () => {
     const { ctx } = makeCtx();
-    const r = JSON.parse(await lookupSlackUserTool.execute({ query: "atai" }, ctx));
+    const r = JSON.parse(
+      await lookupSlackUserTool.execute({ query: "atai" }, ctx),
+    );
     expect(r.found).toBe(true);
     expect(r.userId).toBe("U001");
     expect(r.mention).toBe("<@U001>");
@@ -82,13 +87,17 @@ describe("lookup_slack_user", () => {
 
   it("resolves by display name", async () => {
     const { ctx } = makeCtx();
-    const r = JSON.parse(await lookupSlackUserTool.execute({ query: "Sarah" }, ctx));
+    const r = JSON.parse(
+      await lookupSlackUserTool.execute({ query: "Sarah" }, ctx),
+    );
     expect(r.userId).toBe("U002");
   });
 
   it("resolves by first name", async () => {
     const { ctx } = makeCtx();
-    const r = JSON.parse(await lookupSlackUserTool.execute({ query: "Atai" }, ctx));
+    const r = JSON.parse(
+      await lookupSlackUserTool.execute({ query: "Atai" }, ctx),
+    );
     expect(r.userId).toBe("U001");
   });
 
@@ -110,9 +119,13 @@ describe("lookup_slack_user", () => {
 
   it("excludes bots and deleted users", async () => {
     const { ctx } = makeCtx();
-    const a = JSON.parse(await lookupSlackUserTool.execute({ query: "ag-ui-bot" }, ctx));
+    const a = JSON.parse(
+      await lookupSlackUserTool.execute({ query: "ag-ui-bot" }, ctx),
+    );
     expect(a.found).toBe(false);
-    const b = JSON.parse(await lookupSlackUserTool.execute({ query: "departed" }, ctx));
+    const b = JSON.parse(
+      await lookupSlackUserTool.execute({ query: "departed" }, ctx),
+    );
     expect(b.found).toBe(false);
   });
 
@@ -126,13 +139,19 @@ describe("lookup_slack_user", () => {
   it("returns found:false (with reason) if users.list throws", async () => {
     const ctx = {
       client: {
-        users: { list: vi.fn(async () => { throw new Error("rate limited"); }) },
+        users: {
+          list: vi.fn(async () => {
+            throw new Error("rate limited");
+          }),
+        },
       } as never,
       channel: "C1",
       botUserId: "BOT01",
-    conversationKey: "C1::100.0",
+      conversationKey: "C1::100.0",
     } satisfies FrontendToolContext;
-    const r = JSON.parse(await lookupSlackUserTool.execute({ query: "atai" }, ctx));
+    const r = JSON.parse(
+      await lookupSlackUserTool.execute({ query: "atai" }, ctx),
+    );
     expect(r.found).toBe(false);
     expect(r.reason).toContain("rate limited");
   });

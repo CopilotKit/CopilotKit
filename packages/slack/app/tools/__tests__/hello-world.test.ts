@@ -26,7 +26,9 @@ function makeCtx(channelInfo: { ok: boolean; channel?: { name?: string } }): {
 describe("hello_world example tool", () => {
   it("greets the recipient and includes the resolved channel name", async () => {
     const { ctx, infoFn } = makeCtx({ ok: true, channel: { name: "general" } });
-    const r = JSON.parse(await helloWorldTool.execute({ recipient: "Atai" }, ctx));
+    const r = JSON.parse(
+      await helloWorldTool.execute({ recipient: "Atai" }, ctx),
+    );
     expect(r.ok).toBe(true);
     expect(r.message).toBe("Hello, Atai! Greeting from #general.");
     expect(r.ctx).toEqual({
@@ -40,7 +42,9 @@ describe("hello_world example tool", () => {
 
   it("falls back gracefully when conversations.info returns no name", async () => {
     const { ctx } = makeCtx({ ok: true, channel: {} });
-    const r = JSON.parse(await helloWorldTool.execute({ recipient: "Atai" }, ctx));
+    const r = JSON.parse(
+      await helloWorldTool.execute({ recipient: "Atai" }, ctx),
+    );
     expect(r.message).toBe("Hello, Atai!");
     expect(r.ctx.channelName).toBeUndefined();
   });
@@ -48,13 +52,19 @@ describe("hello_world example tool", () => {
   it("falls back gracefully when conversations.info throws (missing scope, DM, etc.)", async () => {
     const ctx = {
       client: {
-        conversations: { info: vi.fn(async () => { throw new Error("missing_scope"); }) },
+        conversations: {
+          info: vi.fn(async () => {
+            throw new Error("missing_scope");
+          }),
+        },
       } as never,
       channel: "D1",
       botUserId: "BOT01",
-    conversationKey: "C1::100.0",
+      conversationKey: "C1::100.0",
     } satisfies FrontendToolContext;
-    const r = JSON.parse(await helloWorldTool.execute({ recipient: "Atai" }, ctx));
+    const r = JSON.parse(
+      await helloWorldTool.execute({ recipient: "Atai" }, ctx),
+    );
     expect(r.ok).toBe(true);
     expect(r.message).toBe("Hello, Atai!");
     expect(r.slackLookupError).toContain("missing_scope");

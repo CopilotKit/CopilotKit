@@ -33,7 +33,10 @@ describe("MessageStream", () => {
     // calls weren't serialised. With the queue, finish() must observe the
     // final buffer regardless of in-flight state.
     const slack = makeFakeSlack(50);
-    const stream = new MessageStream({ update: slack.update, minIntervalMs: 0 });
+    const stream = new MessageStream({
+      update: slack.update,
+      minIntervalMs: 0,
+    });
 
     stream.append("A");
     stream.append("AL");
@@ -58,7 +61,10 @@ describe("MessageStream", () => {
     const sampler = setInterval(() => {
       if (slack.inFlight > maxInFlight) maxInFlight = slack.inFlight;
     }, 1);
-    const stream = new MessageStream({ update: slack.update, minIntervalMs: 0 });
+    const stream = new MessageStream({
+      update: slack.update,
+      minIntervalMs: 0,
+    });
     for (let i = 1; i <= 20; i++) {
       stream.append("x".repeat(i));
       await new Promise((r) => setTimeout(r, 2));
@@ -70,7 +76,10 @@ describe("MessageStream", () => {
 
   it("throttles flushes to roughly minIntervalMs between completions", async () => {
     const slack = makeFakeSlack(0);
-    const stream = new MessageStream({ update: slack.update, minIntervalMs: 50 });
+    const stream = new MessageStream({
+      update: slack.update,
+      minIntervalMs: 50,
+    });
     const start = Date.now();
     for (let i = 0; i < 10; i++) {
       stream.append(`buf${i}`);
@@ -89,7 +98,10 @@ describe("MessageStream", () => {
 
   it("collapses duplicate appends into zero updates", async () => {
     const slack = makeFakeSlack(0);
-    const stream = new MessageStream({ update: slack.update, minIntervalMs: 0 });
+    const stream = new MessageStream({
+      update: slack.update,
+      minIntervalMs: 0,
+    });
     stream.append("hello");
     stream.append("hello");
     stream.append("hello");
@@ -101,7 +113,10 @@ describe("MessageStream", () => {
 
   it("is a no-op when finish() is called before any append", async () => {
     const slack = makeFakeSlack(0);
-    const stream = new MessageStream({ update: slack.update, minIntervalMs: 0 });
+    const stream = new MessageStream({
+      update: slack.update,
+      minIntervalMs: 0,
+    });
     await stream.finish();
     expect(slack.calls).toHaveLength(0);
   });

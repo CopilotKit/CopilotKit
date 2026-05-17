@@ -35,7 +35,10 @@ const confirmHitl = defineHumanInTheLoop({
   render(state, api) {
     if (state.status === "pending") {
       return [
-        { type: "section", text: { type: "mrkdwn", text: state.props.question } },
+        {
+          type: "section",
+          text: { type: "mrkdwn", text: state.props.question },
+        },
         {
           type: "actions",
           elements: [
@@ -105,7 +108,10 @@ describe("HumanInTheLoopRegistry", () => {
       conversationKey: "k",
       actionMap: new Map<string, unknown>([[id, { ok: true }]]),
     });
-    r.handleAction(id, { responseUrl: "https://hooks.slack.com/x", messageTs: "1.0" });
+    r.handleAction(id, {
+      responseUrl: "https://hooks.slack.com/x",
+      messageTs: "1.0",
+    });
     const { result, click } = await promise;
     expect(result.kind).toBe("resolved");
     expect(click?.responseUrl).toBe("https://hooks.slack.com/x");
@@ -162,7 +168,10 @@ describe("hitlToFrontendTool — full lifecycle", () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(postFn).toHaveBeenCalledTimes(1);
     const arg = postFn.mock.calls[0]?.[0];
-    const buttons = (arg.blocks[1].elements ?? []) as Array<{ action_id: string; text: { text: string } }>;
+    const buttons = (arg.blocks[1].elements ?? []) as Array<{
+      action_id: string;
+      text: { text: string };
+    }>;
     expect(buttons.map((b) => b.text.text)).toEqual(["Yes", "No"]);
 
     // Click "Yes". No response_url provided → falls back to chat.update.
@@ -189,7 +198,9 @@ describe("hitlToFrontendTool — full lifecycle", () => {
     const execPromise = tool.execute({ question: "Proceed?" }, ctx);
     await new Promise((r) => setTimeout(r, 0));
     const allActions = Array.from(
-      (registry as unknown as { waitByAction: Map<string, unknown> }).waitByAction.keys(),
+      (
+        registry as unknown as { waitByAction: Map<string, unknown> }
+      ).waitByAction.keys(),
     );
     const yesId = allActions[0]!;
     registry.handleAction(yesId, { responseUrl: "https://hooks.slack.com/x" });
@@ -204,7 +215,7 @@ describe("hitlToFrontendTool — full lifecycle", () => {
     expect(updateFn).not.toHaveBeenCalled();
   });
 
-  it("returns \"delete\" → posts delete_original via response_url (fallback: chat.delete)", async () => {
+  it('returns "delete" → posts delete_original via response_url (fallback: chat.delete)', async () => {
     const registry = new HumanInTheLoopRegistry();
     const tool = hitlToFrontendTool(confirmHitl, registry);
     const { ctx, deleteFn } = makeCtx();
@@ -222,7 +233,13 @@ describe("hitlToFrontendTool — full lifecycle", () => {
     const registry = new HumanInTheLoopRegistry();
     const tool = hitlToFrontendTool(confirmHitl, registry);
     const ctx = {
-      client: { chat: { postMessage: vi.fn(async () => { throw new Error("rate_limited"); }) } } as never,
+      client: {
+        chat: {
+          postMessage: vi.fn(async () => {
+            throw new Error("rate_limited");
+          }),
+        },
+      } as never,
       channel: "C1",
       botUserId: "BOT01",
       conversationKey: "C1::100.0",

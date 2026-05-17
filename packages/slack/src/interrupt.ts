@@ -1,8 +1,5 @@
 import type { z } from "zod";
-import type {
-  HitlRenderApi,
-  HitlRenderResult,
-} from "./human-in-the-loop.js";
+import type { HitlRenderApi, HitlRenderResult } from "./human-in-the-loop.js";
 
 /**
  * Interrupt handler — the Slack-side equivalent of React's `useInterrupt`.
@@ -26,9 +23,7 @@ import type {
  * `api.respond(value)`) is `unknown` on the type side; narrow inside
  * the resolved render based on the call-site shape.
  */
-export interface InterruptHandler<
-  PayloadSchema extends z.ZodType = z.ZodType,
-> {
+export interface InterruptHandler<PayloadSchema extends z.ZodType = z.ZodType> {
   /**
    * AG-UI custom event name to match. LangGraph + ag_ui_langgraph emits
    * `on_interrupt` by default, which is also our default here.

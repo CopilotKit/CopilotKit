@@ -49,11 +49,7 @@ import { appContext } from "../app/context/app-context.js";
 import { appHitl } from "../app/human-in-the-loop/index.js";
 import { appInterruptHandlers } from "../app/interrupts/index.js";
 import { appTools } from "../app/tools/index.js";
-import {
-  postAsUser,
-  threadReplies,
-  BOT_USER_ID,
-} from "./slack-api.js";
+import { postAsUser, threadReplies, BOT_USER_ID } from "./slack-api.js";
 
 const TEST_CHANNEL = process.env.E2E_CHANNEL ?? "C0B49MEJ1HQ"; // #ag-ui-bot-test
 
@@ -96,12 +92,34 @@ async function waitForPicker(
     const picker = r.find((m) => {
       const md = (m as { metadata?: { event_type?: string } }).metadata;
       return m.user === BOT_USER_ID && md?.event_type === expectedEventType;
-    }) as { ts?: string; blocks?: Array<Record<string, unknown>>; metadata?: { event_type?: string; event_payload?: Record<string, unknown> } } | undefined;
+    }) as
+      | {
+          ts?: string;
+          blocks?: Array<Record<string, unknown>>;
+          metadata?: {
+            event_type?: string;
+            event_payload?: Record<string, unknown>;
+          };
+        }
+      | undefined;
     if (!picker) continue;
-    const buttons: Array<{ action_id: string; value: string; text: string }> = [];
+    const buttons: Array<{ action_id: string; value: string; text: string }> =
+      [];
     for (const b of picker.blocks ?? []) {
-      if (b.type === "actions" && Array.isArray((b as { elements?: unknown[] }).elements)) {
-        for (const el of (b as { elements: Array<{ type?: string; action_id?: string; value?: string; text?: { text?: string } }> }).elements) {
+      if (
+        b.type === "actions" &&
+        Array.isArray((b as { elements?: unknown[] }).elements)
+      ) {
+        for (const el of (
+          b as {
+            elements: Array<{
+              type?: string;
+              action_id?: string;
+              value?: string;
+              text?: { text?: string };
+            }>;
+          }
+        ).elements) {
           if (el.type === "button" && el.action_id && el.value) {
             buttons.push({
               action_id: el.action_id,
@@ -121,7 +139,12 @@ async function waitForPicker(
   throw new Error(`never saw picker with event_type=${expectedEventType}`);
 }
 
-async function waitForAgentReply(parentTs: string, sinceCount: number, regex: RegExp, timeoutMs = 30_000): Promise<string> {
+async function waitForAgentReply(
+  parentTs: string,
+  sinceCount: number,
+  regex: RegExp,
+  timeoutMs = 30_000,
+): Promise<string> {
   const t0 = Date.now();
   while (Date.now() - t0 < timeoutMs) {
     await wait(1500);
@@ -140,11 +163,23 @@ interface BlockActionsBody {
   user: { id: string; username: string; name: string; team_id: string };
   api_app_id: string;
   token: string;
-  container: { type: "message"; message_ts: string; channel_id: string; thread_ts?: string };
+  container: {
+    type: "message";
+    message_ts: string;
+    channel_id: string;
+    thread_ts?: string;
+  };
   trigger_id: string;
   team: { id: string; domain: string };
   channel: { id: string; name: string };
-  message: { ts: string; type: "message"; user: string; text: string; blocks: unknown[]; thread_ts?: string };
+  message: {
+    ts: string;
+    type: "message";
+    user: string;
+    text: string;
+    blocks: unknown[];
+    thread_ts?: string;
+  };
   state: { values: Record<string, unknown> };
   response_url: string;
   actions: Array<{
@@ -166,7 +201,12 @@ function synthesiseBlockActions(args: {
 }): BlockActionsBody {
   return {
     type: "block_actions",
-    user: { id: "U05PN5700P9", username: "atai", name: "atai", team_id: "T05QFA4BW9X" },
+    user: {
+      id: "U05PN5700P9",
+      username: "atai",
+      name: "atai",
+      team_id: "T05QFA4BW9X",
+    },
     api_app_id: "A0B49763Y66",
     token: "synthetic-token",
     container: {
@@ -201,7 +241,10 @@ function synthesiseBlockActions(args: {
   };
 }
 
-async function injectClick(bridge: SlackBridge, ev: BlockActionsBody): Promise<void> {
+async function injectClick(
+  bridge: SlackBridge,
+  ev: BlockActionsBody,
+): Promise<void> {
   let acked = false;
   const fakeEvent: ReceiverEvent = {
     body: ev,
@@ -245,19 +288,28 @@ async function runScenario(args: {
   console.log(`[${args.label}] posted prompt, parent ts:`, parentTs);
 
   const picker = await waitForPicker(parentTs, args.pickerEventType);
-  console.log(`[${args.label}] picker landed at ts=%s with %d buttons`, picker.ts, picker.buttons.length);
+  console.log(
+    `[${args.label}] picker landed at ts=%s with %d buttons`,
+    picker.ts,
+    picker.buttons.length,
+  );
 
   // Verify metadata.
   const evType = picker.metadata.event_type;
   if (evType !== args.pickerEventType) {
-    throw new Error(`picker has event_type=${evType}, expected ${args.pickerEventType}`);
+    throw new Error(
+      `picker has event_type=${evType}, expected ${args.pickerEventType}`,
+    );
   }
   const ep = picker.metadata.event_payload as { handler?: string } | undefined;
   if (!ep?.handler) throw new Error("picker metadata missing handler");
   console.log(`[${args.label}] ✓ picker metadata: handler=%s`, ep.handler);
 
   for (const btn of picker.buttons) JSON.parse(btn.value); // throws if malformed
-  console.log(`[${args.label}] ✓ all %d buttons carry JSON-encoded values`, picker.buttons.length);
+  console.log(
+    `[${args.label}] ✓ all %d buttons carry JSON-encoded values`,
+    picker.buttons.length,
+  );
 
   const existing = await threadReplies(TEST_CHANNEL, parentTs);
   const seenCount = existing.filter((m) => m.user === BOT_USER_ID).length;
@@ -265,7 +317,9 @@ async function runScenario(args: {
   console.log(`[${args.label}] stopping bridge instance #1…`);
   await b1.stop();
 
-  console.log(`[${args.label}] starting bridge instance #2 (fresh in-memory registry)…`);
+  console.log(
+    `[${args.label}] starting bridge instance #2 (fresh in-memory registry)…`,
+  );
   const b2 = makeBridge();
   await b2.start();
 
@@ -290,14 +344,21 @@ async function runScenario(args: {
     console.log(`[${args.label}] ✓ synthetic block_actions processed`);
 
     if (args.replyRegex) {
-      const reply = await waitForAgentReply(parentTs, seenCount, args.replyRegex, 30_000);
+      const reply = await waitForAgentReply(
+        parentTs,
+        seenCount,
+        args.replyRegex,
+        30_000,
+      );
       console.log(`[${args.label}] ✓ agent reply landed: %s`, reply);
     } else {
       // HITL: no agent reply on this turn — the LangGraph thread is
       // already finished; the resolved-render replacement IS the
       // visible outcome. Wait briefly to give chat.update time to land.
       await wait(2000);
-      console.log(`[${args.label}] ✓ (no agent reply expected — HITL graph is already RUN_FINISHED)`);
+      console.log(
+        `[${args.label}] ✓ (no agent reply expected — HITL graph is already RUN_FINISHED)`,
+      );
     }
 
     // Verify picker replaced in-place.
@@ -305,17 +366,20 @@ async function runScenario(args: {
     const replacedPicker = after.find((m) => m.ts === picker.ts) as
       | { blocks?: Array<Record<string, unknown>> }
       | undefined;
-    if (!replacedPicker) throw new Error("original picker message vanished entirely");
+    if (!replacedPicker)
+      throw new Error("original picker message vanished entirely");
     const stillHasButtons = (replacedPicker.blocks ?? []).some(
       (b) =>
         b.type === "actions" &&
         Array.isArray((b as { elements?: unknown[] }).elements) &&
-        ((b as { elements: unknown[] }).elements as Array<{ type?: string }>).some(
-          (e) => e.type === "button",
-        ),
+        (
+          (b as { elements: unknown[] }).elements as Array<{ type?: string }>
+        ).some((e) => e.type === "button"),
     );
     if (stillHasButtons) {
-      throw new Error("picker still has buttons — resolved render didn't replace");
+      throw new Error(
+        "picker still has buttons — resolved render didn't replace",
+      );
     }
     const sectionText = (
       (replacedPicker.blocks ?? []).find((b) => b.type === "section") as

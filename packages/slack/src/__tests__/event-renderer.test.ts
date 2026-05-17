@@ -6,21 +6,30 @@ import { createSlackEventRenderer } from "../event-renderer.js";
  * Records every chat.postMessage / chat.update call in order.
  */
 function makeFakeClient() {
-  const posts: { channel: string; thread_ts?: string; text: string; ts: string }[] = [];
+  const posts: {
+    channel: string;
+    thread_ts?: string;
+    text: string;
+    ts: string;
+  }[] = [];
   const updates: { channel: string; ts: string; text: string }[] = [];
   let postedTsCounter = 0;
   const client = {
     chat: {
-      postMessage: vi.fn(async (args: { channel: string; thread_ts?: string; text: string }) => {
-        postedTsCounter++;
-        const ts = `${postedTsCounter}.000`;
-        posts.push({ ...args, ts });
-        return { ok: true, ts };
-      }),
-      update: vi.fn(async (args: { channel: string; ts: string; text: string }) => {
-        updates.push(args);
-        return { ok: true };
-      }),
+      postMessage: vi.fn(
+        async (args: { channel: string; thread_ts?: string; text: string }) => {
+          postedTsCounter++;
+          const ts = `${postedTsCounter}.000`;
+          posts.push({ ...args, ts });
+          return { ok: true, ts };
+        },
+      ),
+      update: vi.fn(
+        async (args: { channel: string; ts: string; text: string }) => {
+          updates.push(args);
+          return { ok: true };
+        },
+      ),
     },
   };
   return { client, posts, updates };
@@ -41,7 +50,9 @@ describe("createSlackEventRenderer", () => {
     });
     const id = "msg-1";
 
-    await sub.onTextMessageStartEvent!({ event: { messageId: id, role: "assistant" } } as never);
+    await sub.onTextMessageStartEvent!({
+      event: { messageId: id, role: "assistant" },
+    } as never);
     // Note: textMessageBuffer here is "buffer before delta", as AG-UI does
     sub.onTextMessageContentEvent!({
       event: { messageId: id, delta: "E" },
@@ -67,7 +78,9 @@ describe("createSlackEventRenderer", () => {
       client: fake.client as never,
       target: { channel: "D1" },
     });
-    await dm.onTextMessageStartEvent!({ event: { messageId: "m1", role: "assistant" } } as never);
+    await dm.onTextMessageStartEvent!({
+      event: { messageId: "m1", role: "assistant" },
+    } as never);
     // No content yet → no Slack post (per the D20 fix).
     expect(fake.posts).toHaveLength(0);
     // First content event triggers the placeholder.
@@ -82,12 +95,16 @@ describe("createSlackEventRenderer", () => {
       client: fake.client as never,
       target: { channel: "C1", threadTs: "100.0" },
     });
-    await thread.onTextMessageStartEvent!({ event: { messageId: "m2", role: "assistant" } } as never);
+    await thread.onTextMessageStartEvent!({
+      event: { messageId: "m2", role: "assistant" },
+    } as never);
     thread.onTextMessageContentEvent!({
       event: { messageId: "m2", delta: "hi" },
       textMessageBuffer: "",
     } as never);
-    await thread.onTextMessageEndEvent!({ event: { messageId: "m2" } } as never);
+    await thread.onTextMessageEndEvent!({
+      event: { messageId: "m2" },
+    } as never);
     expect(fake.posts[1]?.thread_ts).toBe("100.0");
   });
 
@@ -97,7 +114,9 @@ describe("createSlackEventRenderer", () => {
       client: fake.client as never,
       target: { channel: "C1", threadTs: "100.0" },
     });
-    await sub.onTextMessageStartEvent!({ event: { messageId: "m1", role: "assistant" } } as never);
+    await sub.onTextMessageStartEvent!({
+      event: { messageId: "m1", role: "assistant" },
+    } as never);
     await sub.onTextMessageEndEvent!({ event: { messageId: "m1" } } as never);
     expect(fake.posts).toHaveLength(0);
     expect(fake.updates).toHaveLength(0);
@@ -182,9 +201,14 @@ describe("createSlackEventRenderer", () => {
       client: fake.client as never,
       target: { channel: "C1", threadTs: "100.0" },
     });
-    await sub.onTextMessageStartEvent!({ event: { messageId: "m1", role: "assistant" } } as never);
+    await sub.onTextMessageStartEvent!({
+      event: { messageId: "m1", role: "assistant" },
+    } as never);
     sub.onTextMessageContentEvent!({
-      event: { messageId: "m1", delta: "**hi** [docs](https://x.com)\n- a\n- b" },
+      event: {
+        messageId: "m1",
+        delta: "**hi** [docs](https://x.com)\n- a\n- b",
+      },
       textMessageBuffer: "",
     } as never);
     await sub.onTextMessageEndEvent!({ event: { messageId: "m1" } } as never);
@@ -260,7 +284,9 @@ describe("createSlackEventRenderer", () => {
     } as never);
     await markInterrupted();
     // Now AG-UI fires the late RUN_ERROR.
-    await subscriber.onRunErrorEvent!({ event: { message: "aborted" } } as never);
+    await subscriber.onRunErrorEvent!({
+      event: { message: "aborted" },
+    } as never);
     // No `:warning:` should have been posted.
     const warnings = fake.posts.filter((p) => p.text.includes(":warning:"));
     expect(warnings).toHaveLength(0);
@@ -295,8 +321,12 @@ describe("createSlackEventRenderer", () => {
       client: fake.client as never,
       target: { channel: "C1", threadTs: "100.0" },
     });
-    await sub.onTextMessageStartEvent!({ event: { messageId: "a", role: "assistant" } } as never);
-    await sub.onTextMessageStartEvent!({ event: { messageId: "b", role: "assistant" } } as never);
+    await sub.onTextMessageStartEvent!({
+      event: { messageId: "a", role: "assistant" },
+    } as never);
+    await sub.onTextMessageStartEvent!({
+      event: { messageId: "b", role: "assistant" },
+    } as never);
     sub.onTextMessageContentEvent!({
       event: { messageId: "a", delta: "AAA" },
       textMessageBuffer: "",
@@ -309,8 +339,12 @@ describe("createSlackEventRenderer", () => {
     await sub.onTextMessageEndEvent!({ event: { messageId: "b" } } as never);
 
     // First posted message ended with "AAA"; second with "BBB".
-    const lastUpdateForFirstTs = [...fake.updates].reverse().find((u) => u.ts === "1.000");
-    const lastUpdateForSecondTs = [...fake.updates].reverse().find((u) => u.ts === "2.000");
+    const lastUpdateForFirstTs = [...fake.updates]
+      .reverse()
+      .find((u) => u.ts === "1.000");
+    const lastUpdateForSecondTs = [...fake.updates]
+      .reverse()
+      .find((u) => u.ts === "2.000");
     expect(lastUpdateForFirstTs?.text).toBe("AAA");
     expect(lastUpdateForSecondTs?.text).toBe("BBB");
   });

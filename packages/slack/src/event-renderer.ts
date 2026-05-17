@@ -102,7 +102,8 @@ export function createSlackEventRenderer(args: {
   const toolStatusAllowed = (toolCallName: string): boolean => {
     if (frontendToolNames.has(toolCallName)) return false;
     if (showToolStatus === true) return true;
-    if (Array.isArray(showToolStatus)) return showToolStatus.includes(toolCallName);
+    if (Array.isArray(showToolStatus))
+      return showToolStatus.includes(toolCallName);
     return false;
   };
 
@@ -139,7 +140,9 @@ export function createSlackEventRenderer(args: {
    */
   let pendingInterrupt: CapturedInterrupt | undefined;
 
-  const ensureStream = (messageId: string): ChunkedMessageStream | undefined => {
+  const ensureStream = (
+    messageId: string,
+  ): ChunkedMessageStream | undefined => {
     if (finalised.has(messageId)) return undefined;
     let s = streams.get(messageId);
     if (!s) {
@@ -216,7 +219,9 @@ export function createSlackEventRenderer(args: {
       // them after the run finishes. We keep a single entry per
       // toolCallId, overwriting `toolCallArgs` as more args stream in.
       if (!frontendToolNames.has(toolCallName)) return;
-      const existing = capturedToolCalls.find((c) => c.toolCallId === event.toolCallId);
+      const existing = capturedToolCalls.find(
+        (c) => c.toolCallId === event.toolCallId,
+      );
       const args = (partialToolCallArgs ?? {}) as Record<string, unknown>;
       if (existing) {
         existing.toolCallArgs = args;
@@ -235,9 +240,14 @@ export function createSlackEventRenderer(args: {
       // args (a tool with no `args` events will not have been recorded
       // by `onToolCallArgsEvent`).
       if (frontendToolNames.has(toolCallName)) {
-        const existing = capturedToolCalls.find((c) => c.toolCallId === event.toolCallId);
+        const existing = capturedToolCalls.find(
+          (c) => c.toolCallId === event.toolCallId,
+        );
         if (existing) {
-          existing.toolCallArgs = (toolCallArgs ?? {}) as Record<string, unknown>;
+          existing.toolCallArgs = (toolCallArgs ?? {}) as Record<
+            string,
+            unknown
+          >;
         } else {
           capturedToolCalls.push({
             toolCallId: event.toolCallId,

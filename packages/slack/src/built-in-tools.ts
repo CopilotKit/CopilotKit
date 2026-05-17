@@ -59,7 +59,9 @@ function toEntry(m: SlackMember): DirectoryEntry | undefined {
   return { id: m.id, handle, realName, displayName, email, aliases };
 }
 
-async function loadDirectory(ctx: FrontendToolContext): Promise<DirectoryEntry[]> {
+async function loadDirectory(
+  ctx: FrontendToolContext,
+): Promise<DirectoryEntry[]> {
   const now = Date.now();
   if (cached && now - cached.at < CACHE_TTL_MS) return cached.entries;
   const entries: DirectoryEntry[] = [];
@@ -93,7 +95,9 @@ function matchEntry(
   if (exact) return exact;
   const byEmail = entries.find((e) => normalise(e.email) === q);
   if (byEmail) return byEmail;
-  const startsWith = entries.find((e) => e.aliases.some((a) => a.startsWith(q)));
+  const startsWith = entries.find((e) =>
+    e.aliases.some((a) => a.startsWith(q)),
+  );
   if (startsWith) return startsWith;
   return entries.find((e) => e.aliases.some((a) => a.includes(q)));
 }

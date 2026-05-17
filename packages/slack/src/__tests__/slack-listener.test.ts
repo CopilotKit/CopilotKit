@@ -6,8 +6,14 @@ import { DM_SCOPE } from "../types.js";
 
 const BOT_USER_ID = "UBOT0001";
 
-type EventHandler = (args: { event: Record<string, unknown>; client: object }) => unknown;
-type MessageHandler = (args: { message: Record<string, unknown>; client: object }) => unknown;
+type EventHandler = (args: {
+  event: Record<string, unknown>;
+  client: object;
+}) => unknown;
+type MessageHandler = (args: {
+  message: Record<string, unknown>;
+  client: object;
+}) => unknown;
 type CommandHandler = (args: {
   command: Record<string, unknown>;
   ack: () => Promise<void>;
@@ -35,7 +41,8 @@ function makeFakeApp() {
     client,
     fireMention: (event: Record<string, unknown>) =>
       mention?.({ event, client }),
-    fireMessage: (m: Record<string, unknown>) => message?.({ message: m, client }),
+    fireMessage: (m: Record<string, unknown>) =>
+      message?.({ message: m, client }),
     fireCommand: (cmd: Record<string, unknown>) =>
       command?.({ command: cmd, ack: async () => {}, client }),
   };
@@ -47,7 +54,9 @@ function makeFakeApp() {
  * turn-runner's concern. The test controls which conversation keys are
  * "owned".
  */
-function fakeStore(owned: Array<{ channelId: string; scope: string }> = []): SlackConversationStore {
+function fakeStore(
+  owned: Array<{ channelId: string; scope: string }> = [],
+): SlackConversationStore {
   const ownedKeys = new Set(owned.map((o) => `${o.channelId}::${o.scope}`));
   return {
     has: vi.fn(async (k) => ownedKeys.has(`${k.channelId}::${k.scope}`)),
@@ -56,9 +65,14 @@ function fakeStore(owned: Array<{ channelId: string; scope: string }> = []): Sla
   } as unknown as SlackConversationStore;
 }
 
-function setup(opts?: { ownedThreads?: Array<{ channelId: string; threadTs: string }> }) {
+function setup(opts?: {
+  ownedThreads?: Array<{ channelId: string; threadTs: string }>;
+}) {
   const store = fakeStore(
-    (opts?.ownedThreads ?? []).map((t) => ({ channelId: t.channelId, scope: t.threadTs })),
+    (opts?.ownedThreads ?? []).map((t) => ({
+      channelId: t.channelId,
+      scope: t.threadTs,
+    })),
   );
   const turns: IncomingTurn[] = [];
   const onTurn = vi.fn(async (turn: IncomingTurn) => {
@@ -95,7 +109,10 @@ describe("slack-listener", () => {
       thread_ts: "100.0",
       text: `<@${BOT_USER_ID}> follow-up`,
     });
-    expect(f.turns[0]!.replyTarget).toEqual({ channel: "C1", threadTs: "100.0" });
+    expect(f.turns[0]!.replyTarget).toEqual({
+      channel: "C1",
+      threadTs: "100.0",
+    });
   });
 
   it("ignores @mentions with no real text", async () => {
@@ -235,7 +252,9 @@ describe("slack-listener", () => {
     ];
     for (const subtype of subtypes) {
       it(`ignores subtype=${subtype}`, async () => {
-        const f = setup({ ownedThreads: [{ channelId: "C1", threadTs: "100.0" }] });
+        const f = setup({
+          ownedThreads: [{ channelId: "C1", threadTs: "100.0" }],
+        });
         await f.fireMessage({
           type: "message",
           subtype,
@@ -301,7 +320,9 @@ describe("slack-listener", () => {
     });
     expect(f.turns[0]!.conversation.scope).toBe("100.0");
     expect(f.turns[1]!.conversation.scope).toBe("200.0");
-    expect(f.turns[0]!.conversation.scope).not.toBe(f.turns[1]!.conversation.scope);
+    expect(f.turns[0]!.conversation.scope).not.toBe(
+      f.turns[1]!.conversation.scope,
+    );
   });
 
   it("same thread_ts in different channels = different conversations (and not owned)", async () => {

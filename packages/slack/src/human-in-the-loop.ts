@@ -28,9 +28,7 @@ import type { FrontendTool, FrontendToolContext } from "./frontend-tools.js";
  *
  * Contrast with `defineSlackComponent` (render-only, no interactivity).
  */
-export interface HumanInTheLoop<
-  PropsSchema extends z.ZodType = z.ZodType,
-> {
+export interface HumanInTheLoop<PropsSchema extends z.ZodType = z.ZodType> {
   /** Unique tool-name the agent sees. */
   name: string;
   /** What the LLM reads when deciding to pick this component. */
@@ -210,8 +208,8 @@ export class HumanInTheLoopRegistry {
       decodedClickValue !== undefined
         ? decodedClickValue
         : wait.actionMap.has(actionId)
-        ? wait.actionMap.get(actionId)
-        : undefined;
+          ? wait.actionMap.get(actionId)
+          : undefined;
     wait.resolve({ kind: "resolved", value }, click);
     return true;
   }
@@ -260,20 +258,21 @@ export function injectResumeValues(
   blocks: KnownBlock[],
   actionMap: ReadonlyMap<string, unknown>,
 ): KnownBlock[] {
-  return blocks.map((b) =>
-    visitBlock(b as Block, (el) => {
-      const aid = (el as { action_id?: string }).action_id;
-      if (!aid) return el;
-      if (!actionMap.has(aid)) return el;
-      if ((el as { type?: string }).type !== "button") return el;
-      const encoded = JSON.stringify(actionMap.get(aid) ?? null);
-      if (encoded.length > 2000) {
-        throw new Error(
-          `[hitl] resume value for action_id=${aid} encodes to ${encoded.length} chars; Slack's button.value cap is 2000. Carry the heavy data server-side and pass a key here.`,
-        );
-      }
-      return { ...el, value: encoded };
-    }) as KnownBlock,
+  return blocks.map(
+    (b) =>
+      visitBlock(b as Block, (el) => {
+        const aid = (el as { action_id?: string }).action_id;
+        if (!aid) return el;
+        if (!actionMap.has(aid)) return el;
+        if ((el as { type?: string }).type !== "button") return el;
+        const encoded = JSON.stringify(actionMap.get(aid) ?? null);
+        if (encoded.length > 2000) {
+          throw new Error(
+            `[hitl] resume value for action_id=${aid} encodes to ${encoded.length} chars; Slack's button.value cap is 2000. Carry the heavy data server-side and pass a key here.`,
+          );
+        }
+        return { ...el, value: encoded };
+      }) as KnownBlock,
   );
 }
 
@@ -288,7 +287,10 @@ type Block = KnownBlock & {
  * / "element" container shapes that Block Kit uses. Returns a new block
  * with the visited children replaced.
  */
-function visitBlock(block: Block, visit: (el: Record<string, unknown>) => Record<string, unknown>): Block {
+function visitBlock(
+  block: Block,
+  visit: (el: Record<string, unknown>) => Record<string, unknown>,
+): Block {
   const next: Block = { ...block };
   if (Array.isArray(block.elements)) {
     next.elements = block.elements.map((el) => visit(el));
@@ -322,7 +324,8 @@ export async function applyRenderResult(args: {
   metadata?: { event_type: string; event_payload: Record<string, unknown> };
 }): Promise<{ messageTs?: string; deleted: boolean }> {
   const { result, text, ctx, click, existingMessageTs, metadata } = args;
-  if (result === "noop") return { messageTs: existingMessageTs, deleted: false };
+  if (result === "noop")
+    return { messageTs: existingMessageTs, deleted: false };
   if (result === "delete") {
     if (click?.responseUrl) {
       await postToResponseUrl(click.responseUrl, { delete_original: true });
@@ -441,7 +444,10 @@ export function hitlToFrontendTool<PropsSchema extends z.ZodType>(
       }
       // Bake the resume values into the buttons themselves so a bridge
       // restart between picker-post and click can still recover.
-      const encodedPending = injectResumeValues(pendingResult, pendingActionMap);
+      const encodedPending = injectResumeValues(
+        pendingResult,
+        pendingActionMap,
+      );
       let messageTs: string | undefined;
       try {
         const r = await applyRenderResult({

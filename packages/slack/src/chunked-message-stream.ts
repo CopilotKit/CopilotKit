@@ -1,5 +1,8 @@
 import { MessageStream } from "./message-stream.js";
-import { detectOpenContext, renderContextOpener } from "./auto-close-streaming.js";
+import {
+  detectOpenContext,
+  renderContextOpener,
+} from "./auto-close-streaming.js";
 
 /**
  * Position (0-based) of the unpaired opening ``` in `buffer.slice(0, end)`,
@@ -76,13 +79,17 @@ export class ChunkedMessageStream {
     this.buffer = fullText;
     this.refreezeBoundaries();
     // Make sure we have one Slack message per chunk, then dispatch.
-    this.setupPromise = this.setupPromise.then(() => this.ensureStreamsAndDispatch());
+    this.setupPromise = this.setupPromise.then(() =>
+      this.ensureStreamsAndDispatch(),
+    );
   }
 
   async finish(): Promise<void> {
     this.finished = true;
     // Drain any pending setup, then a final dispatch, then finish each stream.
-    this.setupPromise = this.setupPromise.then(() => this.ensureStreamsAndDispatch());
+    this.setupPromise = this.setupPromise.then(() =>
+      this.ensureStreamsAndDispatch(),
+    );
     await this.setupPromise;
     for (const s of this.streams) await s.finish();
   }
@@ -159,7 +166,8 @@ export class ChunkedMessageStream {
     // (autoCloseOpenMarkdown), which runs per chunk.
     for (let i = 0; i < chunkCount; i++) {
       const start = i === 0 ? 0 : this.boundaries[i - 1]!;
-      const end = i < this.boundaries.length ? this.boundaries[i]! : this.buffer.length;
+      const end =
+        i < this.boundaries.length ? this.boundaries[i]! : this.buffer.length;
       let slice = this.buffer.slice(start, end);
       if (i > 0) {
         const ctx = detectOpenContext(this.buffer.slice(0, start));

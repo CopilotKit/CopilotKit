@@ -23,7 +23,10 @@ describe("toAgentToolDescriptors", () => {
     const params = descriptor?.parameters as Record<string, unknown>;
     expect(params?.type).toBe("object");
     // Zod descriptions flow through to JSON Schema descriptions.
-    const props = params?.properties as Record<string, { description?: string }>;
+    const props = params?.properties as Record<
+      string,
+      { description?: string }
+    >;
     expect(props.message?.description).toBe("the message to echo");
     expect(params?.required).toEqual(["message"]);
   });

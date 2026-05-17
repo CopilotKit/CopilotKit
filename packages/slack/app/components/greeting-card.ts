@@ -47,24 +47,27 @@ export const greetingCardComponent = defineSlackComponent({
   },
   render({ recipient, message, emoji }) {
     return [
-    {
-      type: "header",
-      text: { type: "plain_text", text: `Hello ${recipient}!`, emoji: true },
-    },
-    {
-      type: "section",
-      text: { type: "mrkdwn", text: emoji ? `${emoji}  ${message}` : message },
-    },
-    { type: "divider" },
-    {
-      type: "context",
-      elements: [
-        {
+      {
+        type: "header",
+        text: { type: "plain_text", text: `Hello ${recipient}!`, emoji: true },
+      },
+      {
+        type: "section",
+        text: {
           type: "mrkdwn",
-          text: "Posted via the example `greeting_card` component.",
+          text: emoji ? `${emoji}  ${message}` : message,
         },
-      ],
-    },
-  ];
+      },
+      { type: "divider" },
+      {
+        type: "context",
+        elements: [
+          {
+            type: "mrkdwn",
+            text: "Posted via the example `greeting_card` component.",
+          },
+        ],
+      },
+    ];
   },
 });

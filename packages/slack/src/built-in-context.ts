@@ -25,7 +25,7 @@ export const slackTaggingContext: SlackContextEntry = {
     "  3. If the tool returns `found: false`, write the person's",
     "     plain name without an @ — never invent a `<@USERID>`.",
     "",
-    "Plain text like \"Atai\" or \"@atai\" does NOT ping anyone — it",
+    'Plain text like "Atai" or "@atai" does NOT ping anyone — it',
     "just renders as text. Skipping the tool when a tag was asked",
     "for is a failure of the task.",
   ].join("\n"),

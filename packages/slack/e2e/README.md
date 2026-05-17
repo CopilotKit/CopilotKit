@@ -1,13 +1,13 @@
 # `e2e/` — live end-to-end test harness
 
 True end-to-end coverage for the Slack bridge: send real user messages
-in a real Slack workspace, sample the bot's reply *while it's streaming*,
+in a real Slack workspace, sample the bot's reply _while it's streaming_,
 take screenshots in the middle of long streams, and verify what landed.
 
 > **Why this exists.** Unit tests (under `src/__tests__/`) lock in the
 > internal contracts of each module — they don't catch issues that only
 > surface end-to-end: an open code fence leaking through the rest of the
-> Slack message during streaming, a mrkdwn translation that *looks* right
+> Slack message during streaming, a mrkdwn translation that _looks_ right
 > in tests but renders weird in Slack's actual client, a Block Kit limit
 > we forgot about, a Bolt event that doesn't fire under some setting.
 >
@@ -71,7 +71,7 @@ For each case the harness:
 
 ## Adding cases
 
-Edit `cases.ts`. The bar is low — anything you'd want to *see* working in
+Edit `cases.ts`. The bar is low — anything you'd want to _see_ working in
 Slack belongs in the catalog. Don't be afraid of duplication with
 unit tests; the unit test proves the code is internally correct, the E2E
 proves Slack actually renders it that way.
@@ -81,5 +81,5 @@ proves Slack actually renders it that way.
 - Sending the user message still relies on UI automation (no user
   token), so a one-time signin in the persistent profile is required.
 - A future enhancement: a long-lived user OAuth token would let us skip
-  the browser entirely for the *send* step (screenshots still need the
+  the browser entirely for the _send_ step (screenshots still need the
   browser, but sampling already uses pure API).

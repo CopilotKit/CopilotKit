@@ -8,7 +8,9 @@ describe("autoCloseOpenMarkdown", () => {
   });
 
   it("returns plain text unchanged", () => {
-    expect(autoCloseOpenMarkdown("just plain text 123")).toBe("just plain text 123");
+    expect(autoCloseOpenMarkdown("just plain text 123")).toBe(
+      "just plain text 123",
+    );
   });
 
   it("does not modify already-balanced markdown", () => {
@@ -114,7 +116,15 @@ describe("autoCloseOpenMarkdown", () => {
   // ── Stream-evolution: simulate consecutive deltas; the agent's eventual
   // close should NOT cause double-closes in the produced text. ──
   it("stream-evolution: agent eventually closes; auto-close adds nothing at that point", () => {
-    const states = ["**h", "**he", "**hel", "**hell", "**hello", "**hello*", "**hello**"];
+    const states = [
+      "**h",
+      "**he",
+      "**hel",
+      "**hell",
+      "**hello",
+      "**hello*",
+      "**hello**",
+    ];
     const out = states.map(autoCloseOpenMarkdown);
     // Intermediate states are closed
     expect(out[0]).toBe("**h**");
@@ -154,8 +164,7 @@ describe("autoCloseOpenMarkdown", () => {
 
   // ── Sanity: long input ─────────────────────────────────────────
   it("handles a long buffer with mixed structures", () => {
-    const lots =
-      "**Bold opener** and `code` and *italic* and `unclosed inline";
+    const lots = "**Bold opener** and `code` and *italic* and `unclosed inline";
     const out = autoCloseOpenMarkdown(lots);
     expect(out).toBe(
       "**Bold opener** and `code` and *italic* and `unclosed inline`",

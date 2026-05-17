@@ -107,20 +107,27 @@ export function createTurnRunner(config: TurnRunnerConfig) {
   // Closure-scoped map — one bridge process owns one runTurn closure.
   const inFlight = new Map<string, InFlightEntry>();
   const tools = config.tools ?? [];
-  const toolRegistry = new Map<string, FrontendTool>(tools.map((t) => [t.name, t]));
+  const toolRegistry = new Map<string, FrontendTool>(
+    tools.map((t) => [t.name, t]),
+  );
   const frontendToolNames = new Set(toolRegistry.keys());
   const toolDescriptors = toAgentToolDescriptors(tools);
-  const contextEntries: SlackContextEntry[] = (config.context ?? []).map((c) => ({
-    description: c.description,
-    value: c.value,
-  }));
+  const contextEntries: SlackContextEntry[] = (config.context ?? []).map(
+    (c) => ({
+      description: c.description,
+      value: c.value,
+    }),
+  );
   const maxIters = config.maxToolIterations ?? DEFAULT_MAX_TOOL_ITERATIONS;
   const interruptHandlers = config.interruptHandlers ?? [];
   const interruptEventNames = new Set<string>(
     interruptHandlers.map((h) => h.eventName ?? "on_interrupt"),
   );
 
-  return async function runTurn(turn: IncomingTurn, client: WebClient): Promise<void> {
+  return async function runTurn(
+    turn: IncomingTurn,
+    client: WebClient,
+  ): Promise<void> {
     const key = keyOf(turn.conversation);
 
     // ── Interrupt any in-flight run for this conversation ────────────
@@ -347,7 +354,10 @@ async function renderResolvedFromMetadata(args: {
   } as never)) as {
     messages?: Array<{
       ts?: string;
-      metadata?: { event_type?: string; event_payload?: Record<string, unknown> };
+      metadata?: {
+        event_type?: string;
+        event_payload?: Record<string, unknown>;
+      };
     }>;
   };
   const picker = r.messages?.[0];
@@ -368,32 +378,54 @@ async function renderResolvedFromMetadata(args: {
     if (!handlerName) return;
     const handler = args.interruptHandlers.find((h) => h.name === handlerName);
     if (!handler) return;
-    const parsed = handler.payload.safeParse((meta as { payload?: unknown }).payload);
+    const parsed = handler.payload.safeParse(
+      (meta as { payload?: unknown }).payload,
+    );
     if (!parsed.success) return;
     try {
       resolvedRender = handler.render(
-        { status: "resolved", payload: parsed.data, value: args.resumeValue } as never,
+        {
+          status: "resolved",
+          payload: parsed.data,
+          value: args.resumeValue,
+        } as never,
         sharedApi,
       );
     } catch (err) {
-      console.error("[turn-runner] interrupt handler.render(resolved) threw:", err);
+      console.error(
+        "[turn-runner] interrupt handler.render(resolved) threw:",
+        err,
+      );
       return;
     }
-    text = handler.fallbackText ? handler.fallbackText(parsed.data) : handler.description;
+    text = handler.fallbackText
+      ? handler.fallbackText(parsed.data)
+      : handler.description;
   } else if (evType === HITL_PICKER_EVENT_TYPE) {
     const handlerName = (meta as { handler?: string }).handler;
     if (!handlerName) return;
-    const component = args.humanInTheLoopComponents.find((c) => c.name === handlerName);
+    const component = args.humanInTheLoopComponents.find(
+      (c) => c.name === handlerName,
+    );
     if (!component) return;
-    const parsedProps = component.props.safeParse((meta as { props?: unknown }).props);
+    const parsedProps = component.props.safeParse(
+      (meta as { props?: unknown }).props,
+    );
     if (!parsedProps.success) return;
     try {
       resolvedRender = component.render(
-        { status: "resolved", props: parsedProps.data, value: args.resumeValue } as never,
+        {
+          status: "resolved",
+          props: parsedProps.data,
+          value: args.resumeValue,
+        } as never,
         sharedApi,
       );
     } catch (err) {
-      console.error("[turn-runner] HITL component.render(resolved) threw:", err);
+      console.error(
+        "[turn-runner] HITL component.render(resolved) threw:",
+        err,
+      );
       return;
     }
     text = component.fallbackText
@@ -484,9 +516,7 @@ async function runWithToolLoop(args: {
    * `useHeadlessInterrupt` contract (the backend ignores it; the React
    * frontend uses it as a snapshot for debugging).
    */
-  let resumeCommand:
-    | { resume: unknown; interruptEvent: unknown }
-    | undefined;
+  let resumeCommand: { resume: unknown; interruptEvent: unknown } | undefined;
 
   for (let i = 0; i < maxIters; i++) {
     if (resumeCommand) {
@@ -557,7 +587,10 @@ async function runWithToolLoop(args: {
       // Inject resume values into the buttons so a bridge restart between
       // picker-post and click can still recover via the bridge's
       // recoverInterruptFromStaleClick path.
-      const encodedPending = injectResumeValues(pendingResult, pendingActionMap);
+      const encodedPending = injectResumeValues(
+        pendingResult,
+        pendingActionMap,
+      );
       let messageTs: string | undefined;
       try {
         const r = await applyRenderResult({
@@ -618,7 +651,10 @@ async function runWithToolLoop(args: {
           existingMessageTs: messageTs,
         });
       } catch (err) {
-        console.error("[turn-runner] applying interrupt resolved render failed:", err);
+        console.error(
+          "[turn-runner] applying interrupt resolved render failed:",
+          err,
+        );
       }
 
       if (result.kind !== "resolved") return; // cancelled or timed out
@@ -632,7 +668,9 @@ async function runWithToolLoop(args: {
     // ── 2. Frontend-tool calls? execute and push results ─────────────
     const calls = renderer
       .getCapturedToolCalls()
-      .filter((c) => tools.has(c.toolCallName) && !executedIds.has(c.toolCallId));
+      .filter(
+        (c) => tools.has(c.toolCallName) && !executedIds.has(c.toolCallId),
+      );
     if (calls.length === 0) return;
 
     // Make sure the agent's message history contains the assistant message
@@ -645,7 +683,9 @@ async function runWithToolLoop(args: {
       const parsed = parseToolArgs(tool.parameters, call.toolCallArgs);
       let result: string;
       if (!parsed.ok) {
-        result = JSON.stringify({ error: `invalid arguments: ${parsed.error}` });
+        result = JSON.stringify({
+          error: `invalid arguments: ${parsed.error}`,
+        });
       } else {
         try {
           result = await tool.execute(parsed.value, toolCtx);
@@ -682,9 +722,9 @@ function ensureAssistantToolCallMessage(
     Array.isArray((last as { toolCalls?: unknown[] }).toolCalls);
 
   if (lastIsAssistantWithCalls) {
-    const existing = ((last as { toolCalls?: Array<{ id?: string }> }).toolCalls ?? []).map(
-      (tc) => tc.id ?? "",
-    );
+    const existing = (
+      (last as { toolCalls?: Array<{ id?: string }> }).toolCalls ?? []
+    ).map((tc) => tc.id ?? "");
     const allPresent = calls.every((c) => existing.includes(c.toolCallId));
     if (allPresent) return;
   }
@@ -704,7 +744,11 @@ function ensureAssistantToolCallMessage(
   } as never);
 }
 
-function pushToolResult(agent: HttpAgent, toolCallId: string, content: string): void {
+function pushToolResult(
+  agent: HttpAgent,
+  toolCallId: string,
+  content: string,
+): void {
   agent.messages.push({
     id: newId(),
     role: "tool",

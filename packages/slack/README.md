@@ -48,9 +48,9 @@ Three pieces: the **Slack app** (you create it once), the **agent**
 
 - <https://api.slack.com/apps?new_app=1> → **From a manifest** →
   paste `slack-app-manifest.yaml`.
-- *OAuth & Permissions* → **Install to Workspace** → copy the `xoxb-`
+- _OAuth & Permissions_ → **Install to Workspace** → copy the `xoxb-`
   bot token.
-- *Basic Information → App-Level Tokens* → generate one with
+- _Basic Information → App-Level Tokens_ → generate one with
   `connections:write` → copy the `xapp-` app token.
 
 ### 2. Agent
@@ -126,7 +126,12 @@ const flightCard = defineSlackComponent({
   description: "Render a flight option as a card",
   props: z.object({ airline: z.string(), price: z.string() }),
   render({ airline, price }) {
-    return [{ type: "section", text: { type: "mrkdwn", text: `*${airline}* ${price}` } }];
+    return [
+      {
+        type: "section",
+        text: { type: "mrkdwn", text: `*${airline}* ${price}` },
+      },
+    ];
   },
 });
 ```
@@ -164,14 +169,24 @@ const confirmHitl = defineHumanInTheLoop({
 const pickerInterrupt = defineInterruptHandler({
   name: "schedule_meeting_picker",
   description: "Render a time-slot picker for the schedule_meeting interrupt",
-  payload: z.object({ topic: z.string(), slots: z.array(z.object({ label: z.string(), iso: z.string() })) }),
+  payload: z.object({
+    topic: z.string(),
+    slots: z.array(z.object({ label: z.string(), iso: z.string() })),
+  }),
   render(state, api) {
     if (state.status === "pending") {
       return state.payload.slots.map((s) => ({
-        type: "actions", elements: [{ type: "button",
-          text: { type: "plain_text", text: s.label },
-          action_id: api.respond({ chosen_time: s.iso, chosen_label: s.label }),
-        }],
+        type: "actions",
+        elements: [
+          {
+            type: "button",
+            text: { type: "plain_text", text: s.label },
+            action_id: api.respond({
+              chosen_time: s.iso,
+              chosen_label: s.label,
+            }),
+          },
+        ],
       }));
     }
     // …resolved / cancelled / timeout
@@ -193,8 +208,8 @@ createSlackBridge({
   agentUrl: process.env.AGENT_URL!,
   slackBotToken: process.env.SLACK_BOT_TOKEN!,
   slackAppToken: process.env.SLACK_APP_TOKEN!,
-  tools: [...defaultSlackTools, searchTool],          // includes lookup_slack_user
-  context: [...defaultSlackContext, ...appContext],   // tagging/mrkdwn/thread guidance
+  tools: [...defaultSlackTools, searchTool], // includes lookup_slack_user
+  context: [...defaultSlackContext, ...appContext], // tagging/mrkdwn/thread guidance
   components: [flightCard],
   humanInTheLoopComponents: [confirmHitl],
   interruptHandlers: [pickerInterrupt],

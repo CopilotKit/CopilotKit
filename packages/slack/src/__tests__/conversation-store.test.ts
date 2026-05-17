@@ -20,10 +20,12 @@ function makeFakeClient(opts: {
 }) {
   const client = {
     conversations: {
-      replies: vi.fn(async (_args: { channel: string; ts: string; limit?: number }) => {
-        if (opts.throwOnReplies) throw new Error("api down");
-        return { ok: true, messages: opts.replies ?? [] };
-      }),
+      replies: vi.fn(
+        async (_args: { channel: string; ts: string; limit?: number }) => {
+          if (opts.throwOnReplies) throw new Error("api down");
+          return { ok: true, messages: opts.replies ?? [] };
+        },
+      ),
       history: vi.fn(async (_args: { channel: string; limit?: number }) => ({
         ok: true,
         messages: opts.history ?? [],
@@ -47,7 +49,10 @@ function makeAgent() {
 describe("SlackConversationStore", () => {
   it("derives a stable threadId from (channelId, scope)", async () => {
     const client = makeFakeClient({ replies: [] });
-    const store = new SlackConversationStore({ client: client as never, botUserId: BOT });
+    const store = new SlackConversationStore({
+      client: client as never,
+      botUserId: BOT,
+    });
     const s1 = await store.getOrCreate(
       { channelId: "C1", scope: "100.0" },
       { channel: "C1", threadTs: "100.0" },
@@ -71,13 +76,20 @@ describe("SlackConversationStore", () => {
         { ts: "101.0", user: ATAI, text: "follow-up" },
       ],
     });
-    const store = new SlackConversationStore({ client: client as never, botUserId: BOT });
+    const store = new SlackConversationStore({
+      client: client as never,
+      botUserId: BOT,
+    });
     const s = await store.getOrCreate(
       { channelId: "C1", scope: "100.0" },
       { channel: "C1", threadTs: "100.0" },
       () => makeAgent() as never,
     );
-    const msgs = (s.agent as unknown as { messages: Array<{ role: string; content: string }> }).messages;
+    const msgs = (
+      s.agent as unknown as {
+        messages: Array<{ role: string; content: string }>;
+      }
+    ).messages;
     expect(msgs.map((m) => ({ r: m.role, c: m.content }))).toEqual([
       { r: "user", c: "hello" }, // bot mention stripped
       { r: "assistant", c: "Hi back!" },
@@ -94,13 +106,20 @@ describe("SlackConversationStore", () => {
         { ts: "100.7", user: BOT, text: "Third and final chunk." },
       ],
     });
-    const store = new SlackConversationStore({ client: client as never, botUserId: BOT });
+    const store = new SlackConversationStore({
+      client: client as never,
+      botUserId: BOT,
+    });
     const s = await store.getOrCreate(
       { channelId: "C1", scope: "100.0" },
       { channel: "C1", threadTs: "100.0" },
       () => makeAgent() as never,
     );
-    const msgs = (s.agent as unknown as { messages: Array<{ role: string; content: string }> }).messages;
+    const msgs = (
+      s.agent as unknown as {
+        messages: Array<{ role: string; content: string }>;
+      }
+    ).messages;
     expect(msgs).toHaveLength(2);
     expect(msgs[1]!.role).toBe("assistant");
     expect(msgs[1]!.content).toContain("First chunk");
@@ -118,13 +137,20 @@ describe("SlackConversationStore", () => {
         { ts: "100.8", user: BOT, text: "Here are the results." },
       ],
     });
-    const store = new SlackConversationStore({ client: client as never, botUserId: BOT });
+    const store = new SlackConversationStore({
+      client: client as never,
+      botUserId: BOT,
+    });
     const s = await store.getOrCreate(
       { channelId: "C1", scope: "100.0" },
       { channel: "C1", threadTs: "100.0" },
       () => makeAgent() as never,
     );
-    const msgs = (s.agent as unknown as { messages: Array<{ role: string; content: string }> }).messages;
+    const msgs = (
+      s.agent as unknown as {
+        messages: Array<{ role: string; content: string }>;
+      }
+    ).messages;
     expect(msgs).toHaveLength(2);
     expect(msgs[1]!.content).toBe("Here are the results.");
   });
@@ -137,13 +163,20 @@ describe("SlackConversationStore", () => {
         { ts: "100.2", subtype: "message_changed", user: ATAI, text: "edited" },
       ],
     });
-    const store = new SlackConversationStore({ client: client as never, botUserId: BOT });
+    const store = new SlackConversationStore({
+      client: client as never,
+      botUserId: BOT,
+    });
     const s = await store.getOrCreate(
       { channelId: "C1", scope: "100.0" },
       { channel: "C1", threadTs: "100.0" },
       () => makeAgent() as never,
     );
-    const msgs = (s.agent as unknown as { messages: Array<{ role: string; content: string }> }).messages;
+    const msgs = (
+      s.agent as unknown as {
+        messages: Array<{ role: string; content: string }>;
+      }
+    ).messages;
     expect(msgs).toHaveLength(1);
   });
 
@@ -156,13 +189,20 @@ describe("SlackConversationStore", () => {
         { ts: "50.0", user: ATAI, text: "first" },
       ],
     });
-    const store = new SlackConversationStore({ client: client as never, botUserId: BOT });
+    const store = new SlackConversationStore({
+      client: client as never,
+      botUserId: BOT,
+    });
     const s = await store.getOrCreate(
       { channelId: "D1", scope: DM_SCOPE },
       { channel: "D1" },
       () => makeAgent() as never,
     );
-    const msgs = (s.agent as unknown as { messages: Array<{ role: string; content: string }> }).messages;
+    const msgs = (
+      s.agent as unknown as {
+        messages: Array<{ role: string; content: string }>;
+      }
+    ).messages;
     expect(msgs.map((m) => m.content)).toEqual(["first", "second", "third"]);
   });
 
@@ -173,25 +213,37 @@ describe("SlackConversationStore", () => {
         { ts: "100.5", user: BOT, text: "Hello!" },
       ],
     });
-    const store = new SlackConversationStore({ client: client as never, botUserId: BOT });
+    const store = new SlackConversationStore({
+      client: client as never,
+      botUserId: BOT,
+    });
     // Fresh store, no in-process cache — must hit Slack to discover ownership.
     expect(await store.has({ channelId: "C1", scope: "100.0" })).toBe(true);
     // Second call should be cached (no extra Slack call).
     expect(await store.has({ channelId: "C1", scope: "100.0" })).toBe(true);
-    expect((client.conversations.replies as ReturnType<typeof vi.fn>).mock.calls.length).toBe(1);
+    expect(
+      (client.conversations.replies as ReturnType<typeof vi.fn>).mock.calls
+        .length,
+    ).toBe(1);
   });
 
   it("has() returns false for threads we've never replied in", async () => {
     const client = makeFakeClient({
       replies: [{ ts: "100.0", user: ATAI, text: "hey everyone" }],
     });
-    const store = new SlackConversationStore({ client: client as never, botUserId: BOT });
+    const store = new SlackConversationStore({
+      client: client as never,
+      botUserId: BOT,
+    });
     expect(await store.has({ channelId: "C1", scope: "100.0" })).toBe(false);
   });
 
   it("has() returns false gracefully when Slack API fails", async () => {
     const client = makeFakeClient({ throwOnReplies: true });
-    const store = new SlackConversationStore({ client: client as never, botUserId: BOT });
+    const store = new SlackConversationStore({
+      client: client as never,
+      botUserId: BOT,
+    });
     expect(await store.has({ channelId: "C1", scope: "100.0" })).toBe(false);
   });
 
@@ -201,7 +253,10 @@ describe("SlackConversationStore", () => {
     const client = makeFakeClient({
       replies: [{ ts: "100.0", user: ATAI, text: "<@" + BOT + "> hi" }],
     });
-    const store = new SlackConversationStore({ client: client as never, botUserId: BOT });
+    const store = new SlackConversationStore({
+      client: client as never,
+      botUserId: BOT,
+    });
     await store.getOrCreate(
       { channelId: "C1", scope: "100.0" },
       { channel: "C1", threadTs: "100.0" },
@@ -214,7 +269,12 @@ describe("SlackConversationStore", () => {
 
   it("save() is a no-op (Slack is the source of truth)", () => {
     const client = makeFakeClient({ replies: [] });
-    const store = new SlackConversationStore({ client: client as never, botUserId: BOT });
-    expect(() => store.save({ channelId: "C1", scope: "100.0" }, {} as never)).not.toThrow();
+    const store = new SlackConversationStore({
+      client: client as never,
+      botUserId: BOT,
+    });
+    expect(() =>
+      store.save({ channelId: "C1", scope: "100.0" }, {} as never),
+    ).not.toThrow();
   });
 });

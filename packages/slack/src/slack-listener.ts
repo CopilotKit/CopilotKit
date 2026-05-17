@@ -112,7 +112,13 @@ export function attachSlackListener(config: ListenerConfig): void {
     // Only continue threads we already own. `has` consults Slack itself,
     // so a restarted bridge naturally recognises threads it replied to
     // before the restart.
-    if (!(await store.has({ channelId: message.channel, scope: message.thread_ts }))) return;
+    if (
+      !(await store.has({
+        channelId: message.channel,
+        scope: message.thread_ts,
+      }))
+    )
+      return;
 
     await onTurn(
       {

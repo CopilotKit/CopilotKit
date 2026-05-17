@@ -5,21 +5,30 @@ import type { HttpAgent } from "@ag-ui/client";
 import { DM_SCOPE, type IncomingTurn } from "../types.js";
 
 function makeFakeClient() {
-  const posts: { channel: string; thread_ts?: string; text: string; ts: string }[] = [];
+  const posts: {
+    channel: string;
+    thread_ts?: string;
+    text: string;
+    ts: string;
+  }[] = [];
   const updates: { channel: string; ts: string; text: string }[] = [];
   let counter = 0;
   const client = {
     chat: {
-      postMessage: vi.fn(async (args: { channel: string; thread_ts?: string; text: string }) => {
-        counter++;
-        const ts = `${counter}.0`;
-        posts.push({ ...args, ts });
-        return { ok: true, ts };
-      }),
-      update: vi.fn(async (args: { channel: string; ts: string; text: string }) => {
-        updates.push(args);
-        return { ok: true };
-      }),
+      postMessage: vi.fn(
+        async (args: { channel: string; thread_ts?: string; text: string }) => {
+          counter++;
+          const ts = `${counter}.0`;
+          posts.push({ ...args, ts });
+          return { ok: true, ts };
+        },
+      ),
+      update: vi.fn(
+        async (args: { channel: string; ts: string; text: string }) => {
+          updates.push(args);
+          return { ok: true };
+        },
+      ),
     },
   };
   return { client, posts, updates };
@@ -185,9 +194,21 @@ describe("turn-runner", () => {
     });
     const fake = makeFakeClient();
     const turns: IncomingTurn[] = [
-      { conversation: { channelId: "C1", scope: "100.0" }, replyTarget: { channel: "C1", threadTs: "100.0" }, userText: "a" },
-      { conversation: { channelId: "C2", scope: "100.0" }, replyTarget: { channel: "C2", threadTs: "100.0" }, userText: "b" },
-      { conversation: { channelId: "D1", scope: DM_SCOPE }, replyTarget: { channel: "D1" }, userText: "c" },
+      {
+        conversation: { channelId: "C1", scope: "100.0" },
+        replyTarget: { channel: "C1", threadTs: "100.0" },
+        userText: "a",
+      },
+      {
+        conversation: { channelId: "C2", scope: "100.0" },
+        replyTarget: { channel: "C2", threadTs: "100.0" },
+        userText: "b",
+      },
+      {
+        conversation: { channelId: "D1", scope: DM_SCOPE },
+        replyTarget: { channel: "D1" },
+        userText: "c",
+      },
     ];
     for (const t of turns) await runTurn(t, fake.client as never);
     expect(new Set(seenThreadIds).size).toBe(3);
