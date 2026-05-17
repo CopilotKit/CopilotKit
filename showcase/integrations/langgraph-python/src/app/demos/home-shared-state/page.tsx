@@ -25,11 +25,11 @@ import {
 import "../_experimental-theme/theme.css";
 
 type RWState = {
-  preferences: { tone: string; language: string; interests?: string[] };
-  notes: string[];
+  preferences?: { tone?: string; language?: string; interests?: string[] };
+  notes?: string[];
 };
 
-const INITIAL: RWState = {
+const INITIAL: Required<RWState> = {
   preferences: { tone: "casual", language: "English", interests: [] },
   notes: [],
 };
@@ -40,10 +40,17 @@ function DemoContent() {
     updates: [UseAgentUpdate.OnStateChanged],
   });
 
-  const state = (agent.state as RWState | undefined) ?? INITIAL;
+  // Defensive read — agent.state may be undefined or partial on first
+  // turn before our seed-effect runs.
+  const raw = (agent.state as RWState | undefined) ?? {};
+  const preferences = raw.preferences ?? INITIAL.preferences;
+  const notes = raw.notes ?? INITIAL.notes;
+  const state = { preferences, notes };
 
   useEffect(() => {
-    if (!agent.state) agent.setState(INITIAL);
+    if (!agent.state || !(agent.state as RWState).preferences) {
+      agent.setState(INITIAL);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -136,8 +143,8 @@ function DemoContent() {
               read by agent
             </span>
           </div>
-          <PrefRow label="Tone" value={state.preferences.tone} />
-          <PrefRow label="Language" value={state.preferences.language} />
+          <PrefRow label="Tone" value={state.preferences.tone ?? ""} />
+          <PrefRow label="Language" value={state.preferences.language ?? ""} />
           {state.notes.length > 0 ? (
             <div style={{ marginTop: 10 }}>
               <span className="hd-exp-eyebrow">Notes</span>
