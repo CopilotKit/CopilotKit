@@ -1099,8 +1099,7 @@
     {
       "match": {
         "userMessage": "Please book an intro call with the sales team to discuss pricing.",
-        "toolName": "book_call",
-        "hasToolResult": false
+        "toolName": "book_call"
       },
       "response": {
         "toolCalls": [
@@ -1113,22 +1112,20 @@
       }
     },
     {
-      "_comment": "hitl-in-chat — Schedule 1:1 with Alice pill, 2nd turn (book_call tool result returned). Keyed on userMessage + toolCallId + hasToolResult so it wins ahead of the bare 'alice' / 'Alice' substring fixtures further below in this file, regardless of prior pill state in the thread.",
+      "_comment": "hitl-in-chat — Schedule 1:1 with Alice pill, 2nd turn (book_call tool result returned). Keyed on userMessage + toolCallId so it wins ahead of the bare 'alice' / 'Alice' substring fixtures further below in this file, regardless of prior pill state in the thread.",
       "match": {
         "userMessage": "Schedule a 1:1 with Alice next week to review Q2 goals.",
-        "toolCallId": "call_hitl_book_1on1_alice_001",
-        "hasToolResult": true
+        "toolCallId": "call_hitl_book_1on1_alice_001"
       },
       "response": {
         "content": "Booked the 1:1 with Alice for the time you selected — calendar invite is on its way."
       }
     },
     {
-      "_comment": "hitl-in-chat — Schedule 1:1 with Alice pill, 1st turn (emit book_call). Exact pill substring + toolName + hasToolResult: false ensures this fires ONLY for the intended pill, not for arbitrary messages containing 'alice'.",
+      "_comment": "hitl-in-chat — Schedule 1:1 with Alice pill, 1st turn (emit book_call). Exact pill substring + toolName ensures this fires ONLY for the intended pill, not for arbitrary messages containing 'alice'.",
       "match": {
         "userMessage": "Schedule a 1:1 with Alice next week to review Q2 goals.",
-        "toolName": "book_call",
-        "hasToolResult": false
+        "toolName": "book_call"
       },
       "response": {
         "toolCalls": [

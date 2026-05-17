@@ -59,7 +59,7 @@ test.describe("Agent Config Object", () => {
 
   test("properties object propagates to runtime requests", async ({ page }) => {
     const requestBodies: string[] = [];
-    await page.route("**/api/copilotkit-agent-config/**", async (route) => {
+    await page.route("**/api/copilotkit-agent-config**", async (route) => {
       const req = route.request();
       if (req.method() === "POST") {
         const body = req.postData() ?? "";
@@ -99,7 +99,7 @@ test.describe("Agent Config Object", () => {
     page,
   }) => {
     const requestBodies: string[] = [];
-    await page.route("**/api/copilotkit-agent-config/**", async (route) => {
+    await page.route("**/api/copilotkit-agent-config**", async (route) => {
       const req = route.request();
       if (req.method() === "POST") {
         requestBodies.push(req.postData() ?? "");
