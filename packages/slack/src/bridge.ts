@@ -18,6 +18,7 @@ import {
   type HumanInTheLoop,
 } from "./human-in-the-loop.js";
 import type { InterruptHandler } from "./interrupt.js";
+import type { Catalog } from "./a2ui/index.js";
 
 export interface SlackBridgeConfig {
   /** AG-UI agent HTTP endpoint (any AG-UI server: CopilotKit Runtime, LangGraph, custom). */
@@ -91,6 +92,23 @@ export interface SlackBridgeConfig {
    * "we're working on it" affordance.
    */
   showToolStatus?: boolean | ReadonlyArray<string>;
+  /**
+   * A2UI catalog — agent-rendered UI surfaces. The agent emits
+   * `a2ui_operations` (create_surface / update_components /
+   * update_data_model / delete_surface) and the bridge looks up the
+   * matching catalog by `catalogId`, resolves data-model path
+   * bindings, and posts the resulting Block Kit blocks via
+   * `chat.postMessage` (or updates an existing surface message via
+   * `chat.update`).
+   *
+   * The Slack-side equivalent of the React renderer's
+   * `<CopilotKit a2ui={{ catalog }}>`. Mirrors the current web API:
+   * one catalog per bridge. (Multi-catalog support is tracked
+   * upstream — when web grows it, Slack will follow.)
+   */
+  a2ui?: {
+    catalog: Catalog;
+  };
 }
 
 export interface SlackBridge {

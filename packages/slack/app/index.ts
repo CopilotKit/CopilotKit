@@ -19,6 +19,7 @@ import { appContext } from "./context/app-context.js";
 import { appComponents } from "./components/index.js";
 import { appHitl } from "./human-in-the-loop/index.js";
 import { appInterruptHandlers } from "./interrupts/index.js";
+import { dashboardCatalog } from "./a2ui/index.js";
 
 const required = (name: string): string => {
   const v = process.env[name];
@@ -57,6 +58,11 @@ async function main() {
     // call, the bridge dispatches to a matching handler to render a
     // Block Kit picker; clicks resume the graph via forwardedProps.command.
     interruptHandlers: appInterruptHandlers,
+    // A2UI catalog — agent-rendered UI surfaces. The Slack equivalent of
+    // React's `<CopilotKit a2ui={{ catalog }}>`. Component definitions
+    // (in `a2ui/definitions.ts`) are platform-agnostic and can be
+    // shared with a sibling web app; only the renderers differ.
+    a2ui: { catalog: dashboardCatalog },
   });
 
   await bridge.start();

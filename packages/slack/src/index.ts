@@ -59,3 +59,20 @@ export {
   defineInterruptHandler,
   DEFAULT_INTERRUPT_EVENT_NAME,
 } from "./interrupt.js";
+
+// A2UI — agent-rendered UI via the A2UI protocol. Definitions are
+// platform-agnostic; the renderers in a Slack catalog return Block Kit
+// blocks instead of React nodes.
+export type {
+  Catalog,
+  CatalogComponentDefinition,
+  CatalogDefinitions,
+  CatalogRenderers,
+  ComponentRenderer,
+  RendererProps,
+  PropsOf,
+  ActionPayload,
+  EncodedAction,
+  CreateCatalogOptions,
+} from "./a2ui/index.js";
+export { createCatalog } from "./a2ui/index.js";
