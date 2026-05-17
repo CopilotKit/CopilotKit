@@ -322,6 +322,11 @@ export function createSlackEventRenderer(args: {
 
     // ── 4. Activity messages (A2UI surfaces + any custom activity type) ─
     async onActivitySnapshotEvent({ event }) {
+      console.log(
+        "[slack-renderer] onActivitySnapshotEvent activityType=%s id=%s",
+        event.activityType,
+        event.messageId,
+      );
       if (aborted) return;
       if (activityRenderers.length === 0) return;
       const renderer = selectActivityRenderer(

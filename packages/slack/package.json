@@ -35,6 +35,7 @@
     "@ag-ui/a2ui-middleware": "0.0.5",
     "@ag-ui/client": "0.0.53",
     "@ag-ui/core": "0.0.53",
+    "@copilotkit/runtime": "workspace:*",
     "@slack/bolt": "^4.2.0",
     "@slack/types": "^2.21.1",
     "@slack/web-api": "^7.16.0",

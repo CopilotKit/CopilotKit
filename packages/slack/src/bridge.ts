@@ -1,6 +1,6 @@
 import { App, LogLevel } from "@slack/bolt";
 import { HttpAgent } from "@ag-ui/client";
-import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
+import { createHash } from "node:crypto";
 import { SlackConversationStore } from "./conversation-store.js";
 import { attachSlackListener } from "./slack-listener.js";
 import {
@@ -123,6 +123,37 @@ export interface SlackBridge {
 }
 
 /**
+ * Hash an arbitrary string into a stable UUIDv5-shaped string. Used to
+ * map bridge-internal thread keys (`slack-<channel>-<scope>`) to the
+ * UUID format LangGraph dev requires. Same input → same UUID, so the
+ * agent's per-thread state survives bridge restarts.
+ */
+function deterministicUuid(input: string): string {
+  const h = createHash("sha1")
+    .update(`copilotkitnext.slack:${input}`)
+    .digest("hex");
+  // RFC 4122 v5 layout: version 5 in the high nibble of byte 7,
+  // variant bits 10xx in the high two bits of byte 9.
+  const v = (5).toString(16);
+  const variant = ((parseInt(h.slice(16, 18), 16) & 0x3f) | 0x80)
+    .toString(16)
+    .padStart(2, "0");
+  return (
+    h.slice(0, 8) +
+    "-" +
+    h.slice(8, 12) +
+    "-" +
+    v +
+    h.slice(13, 16) +
+    "-" +
+    variant +
+    h.slice(18, 20) +
+    "-" +
+    h.slice(20, 32)
+  );
+}
+
+/**
  * Top-level factory. Wires:
  *
  *   Bolt App  →  slack-listener  →  turn-runner  →  HttpAgent
@@ -146,34 +177,24 @@ export function createSlackBridge(config: SlackBridgeConfig): SlackBridge {
     logLevel: config.logLevel ?? LogLevel.INFO,
   });
 
-  // Apply A2UI middleware on every fresh HttpAgent when the bridge has
-  // any activity renderers registered. The middleware intercepts
-  // TOOL_CALL_RESULT events whose body is the `{"a2ui_operations": [...]}`
-  // container and re-emits them as ActivitySnapshotEvent, which the
-  // event-renderer's `onActivitySnapshotEvent` hook then renders via
-  // the matching `ActivityMessageRenderer`. This is the canonical
-  // composition used by `@copilotkit/runtime` (see
-  // `packages/runtime/src/v2/runtime/handlers/shared/agent-utils.ts`).
-  const wantsA2UI = (config.renderActivityMessages?.length ?? 0) > 0;
-
+  // `AGENT_URL` is expected to point at a CopilotKit Runtime
+  // `/agent/:agentId/run` endpoint — the runtime applies the full
+  // middleware stack (A2UI, MCPApps, OpenGenerativeUI, …) server-side,
+  // so the bridge just speaks raw AG-UI and trusts the runtime to
+  // surface activity events.
   const makeAgent = (threadId: string): HttpAgent => {
     const a = new HttpAgent({
       url: config.agentUrl,
       headers: config.agentHeaders,
     });
-    a.threadId = threadId;
-    if (wantsA2UI) {
-      // Phantom-variance cast: under NodeNext module resolution the
-      // `A2UIMiddleware.run`'s `next: AbstractAgent` argument resolves
-      // via .d.mts while HttpAgent.use's `Middleware.run` resolves via
-      // .d.ts — same class at runtime, but TS sees two declarations
-      // with a private member and refuses to unify them. (Runtime
-      // uses `moduleResolution: "node"` and doesn't hit this.) The
-      // composition itself — `agent.use(new A2UIMiddleware())` — is
-      // the canonical pattern; see
-      // `packages/runtime/src/v2/runtime/handlers/shared/agent-utils.ts:62`.
-      a.use(new A2UIMiddleware() as unknown as Parameters<typeof a.use>[0]);
-    }
+    // LangGraph dev requires thread IDs to be valid UUIDs. The
+    // bridge's natural thread key (e.g. `slack-C0B49MEJ1HQ-channel`)
+    // is human-readable but not a UUID. Hash it down to a stable
+    // UUIDv5-shaped string so the same Slack conversation always maps
+    // to the same LangGraph thread (preserves agent memory across
+    // turns) without imposing a UUID-typed key on the bridge's own
+    // internal model.
+    a.threadId = deterministicUuid(threadId);
     return a;
   };
 
