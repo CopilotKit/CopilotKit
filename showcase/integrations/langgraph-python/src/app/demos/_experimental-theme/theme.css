@@ -142,21 +142,27 @@
   color: var(--xd-fg);
 }
 
-/* ─── Messages — user (filled purple) + assistant (white glass) ───── */
+/* ─── Messages — user (filled dark) + assistant (no bubble) ───────── */
+/* CopilotKit v2 puts `.copilotKitUserMessage` on the FLEX CONTAINER and
+ * the bubble itself is a direct child <div> with `cpk:bg-muted` +
+ * `cpk:rounded-[18px]`. Override the inner div, not the container. */
 .hd-exp-scope .copilotKitMessage {
   font-family: var(--xd-sans);
   font-size: 14px;
   line-height: 1.55;
   letter-spacing: -0.005em;
 }
-.hd-exp-scope .copilotKitMessage.copilotKitUserMessage {
-  background: var(--xd-fg);
-  color: #ffffff;
-  border-radius: 3px;
+.hd-exp-scope .copilotKitUserMessage > div {
+  background: var(--xd-fg) !important;
+  color: #ffffff !important;
+  border-radius: 4px !important;
+  font-family: var(--xd-sans);
   font-weight: 500;
+  padding: 10px 14px !important;
 }
 .hd-exp-scope .copilotKitAssistantMessage {
   color: var(--xd-fg);
+  font-family: var(--xd-sans);
 }
 
 /* Prose inside messages — body copy uses the same humanist sans. */
