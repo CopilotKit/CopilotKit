@@ -121,9 +121,7 @@ export const dashboardDefinitions = {
     description:
       "Bar chart, used to compare values across categories. Renders in Slack as a text summary of label:value pairs.",
     props: z.object({
-      data: z.array(
-        z.object({ label: DynString, value: z.number() }),
-      ),
+      data: z.array(z.object({ label: DynString, value: z.number() })),
       color: z.string().optional(),
     }),
   },

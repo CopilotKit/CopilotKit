@@ -207,10 +207,16 @@ export function createSlackEventRenderer(args: {
       console.log("[DBG] onToolCallStartEvent name=%s", event.toolCallName);
     },
     onToolCallResultEvent({ event }) {
-      console.log("[DBG] onToolCallResultEvent content=%s", String(event.content).slice(0, 200));
+      console.log(
+        "[DBG] onToolCallResultEvent content=%s",
+        String(event.content).slice(0, 200),
+      );
     },
     onActivityDeltaEvent({ event }) {
-      console.log("[DBG] onActivityDeltaEvent activityType=%s", event.activityType);
+      console.log(
+        "[DBG] onActivityDeltaEvent activityType=%s",
+        event.activityType,
+      );
     },
     // ── 1. Text streaming ──────────────────────────────────────────────
     onTextMessageStartEvent({ event }) {

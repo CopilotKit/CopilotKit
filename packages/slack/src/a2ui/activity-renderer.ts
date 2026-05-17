@@ -133,9 +133,9 @@ export function createA2UIActivityRenderer(
         processor.model.surfacesMap.size,
       );
       for (const surface of processor.model.surfacesMap.values()) {
-        const componentTypes = Array.from(
-          surface.componentsModel.entries,
-        ).map(([id, c]) => `${id}:${c.type}`);
+        const componentTypes = Array.from(surface.componentsModel.entries).map(
+          ([id, c]) => `${id}:${c.type}`,
+        );
         console.log(
           "[a2ui-renderer] DEBUG surface=%s catalogId=%s components=%j",
           surface.id,
