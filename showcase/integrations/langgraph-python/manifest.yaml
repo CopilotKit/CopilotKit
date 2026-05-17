@@ -65,6 +65,15 @@ features:
   - open-gen-ui-advanced
   - voice
   - agent-config
+  # Homepage-tier minimal demos — strip suggestions / layout dressing so the
+  # source is the bare minimum needed to demo each primitive. Reused as the
+  # iframe targets for the website homepage dojo.
+  - home-basic-chat
+  - home-controlled-gen-ui
+  - home-declarative-gen-ui
+  - home-shared-state
+  - home-mcp-apps
+  - home-open-gen-ui
 a2ui_pattern: schema-loading
 interrupt_pattern: native
 agent_config_pattern: shared-state
@@ -556,3 +565,81 @@ demos:
       - src/app/demos/agent-config/use-agent-config.ts
       - src/app/demos/agent-config/config-types.ts
       - src/app/api/copilotkit-agent-config/route.ts
+  # ─── Homepage-tier minimal demos ─────────────────────────────────────
+  # Each home-* demo is the *bare minimum* source for its primitive. It
+  # reuses the existing LangGraph backend graph and runtime endpoint, but
+  # strips suggestions modules, layout wrappers, and chat-slot dressing.
+  # Each new row is the iframe target for one chip in the website's
+  # homepage dojo (src/app/(default)/homepage-dojo on CopilotKit/website).
+  - id: home-basic-chat
+    name: "Homepage: Basic Chat"
+    description: The bare-minimum CopilotChat surface — reuses the agentic_chat graph; no suggestions, no theming, no layout wrapper
+    tags:
+      - chat-ui
+      - homepage
+    route: /demos/home-basic-chat
+    animated_preview_url:
+    highlight:
+      - src/agents/agentic_chat.py
+      - src/app/demos/home-basic-chat/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: home-controlled-gen-ui
+    name: "Homepage: Controlled Gen UI"
+    description: Bare-minimum useComponent registration — reuses the gen_ui_tool_based graph + the existing pie-chart renderer; no suggestions, no extra components
+    tags:
+      - generative-ui
+      - homepage
+    route: /demos/home-controlled-gen-ui
+    animated_preview_url:
+    highlight:
+      - src/agents/gen_ui_tool_based.py
+      - src/app/demos/home-controlled-gen-ui/page.tsx
+      - src/app/demos/gen-ui-tool-based/pie-chart.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: home-declarative-gen-ui
+    name: "Homepage: Declarative Gen UI"
+    description: Bare-minimum A2UI catalog wiring — reuses the a2ui_dynamic graph + the existing catalog; no suggestions, no layout
+    tags:
+      - generative-ui
+      - homepage
+    route: /demos/home-declarative-gen-ui
+    animated_preview_url:
+    highlight:
+      - src/agents/a2ui_dynamic.py
+      - src/app/demos/home-declarative-gen-ui/page.tsx
+      - src/app/demos/declarative-gen-ui/a2ui/catalog.ts
+      - src/app/api/copilotkit-declarative-gen-ui/route.ts
+  - id: home-shared-state
+    name: "Homepage: Shared State"
+    description: Bare-minimum useAgent + setState — reuses the shared_state_read_write graph; no preferences card, no layout
+    tags:
+      - agent-state
+      - homepage
+    route: /demos/home-shared-state
+    animated_preview_url:
+    highlight:
+      - src/agents/shared_state_read_write.py
+      - src/app/demos/home-shared-state/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: home-mcp-apps
+    name: "Homepage: MCP Apps"
+    description: Bare-minimum MCPApps provider wiring — reuses the mcp-apps runtime; just <CopilotChat />
+    tags:
+      - generative-ui
+      - homepage
+    route: /demos/home-mcp-apps
+    animated_preview_url:
+    highlight:
+      - src/app/demos/home-mcp-apps/page.tsx
+      - src/app/api/copilotkit-mcp-apps/route.ts
+  - id: home-open-gen-ui
+    name: "Homepage: Open Ended Gen UI"
+    description: Bare-minimum openGenerativeUI wiring — reuses the open-gen-ui runtime; no custom design skill, no extra layout
+    tags:
+      - generative-ui
+      - homepage
+    route: /demos/home-open-gen-ui
+    animated_preview_url:
+    highlight:
+      - src/app/demos/home-open-gen-ui/page.tsx
+      - src/app/api/copilotkit-ogui/route.ts

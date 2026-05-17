@@ -79,6 +79,13 @@ generative_ui:
       - declarative-json-render
       - open-gen-ui
       - open-gen-ui-advanced
+      # Homepage-tier minimal demos
+      - home-basic-chat
+      - home-controlled-gen-ui
+      - home-declarative-gen-ui
+      - home-shared-state
+      - home-mcp-apps
+      - home-open-gen-ui
 
 interaction_modalities:
   headless:
