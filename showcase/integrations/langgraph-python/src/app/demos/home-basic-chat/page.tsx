@@ -16,7 +16,11 @@ import "../_experimental-theme/theme.css";
 
 export default function HomeBasicChatDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="agentic_chat" enableInspector={false}>
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      agent="agentic_chat"
+      enableInspector={false}
+    >
       <div className="hd-exp-scope h-screen w-screen overflow-hidden">
         <CopilotChat agentId="agentic_chat" className="h-full" />
       </div>

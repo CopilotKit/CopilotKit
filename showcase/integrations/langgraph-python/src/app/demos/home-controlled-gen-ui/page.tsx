@@ -36,7 +36,11 @@ function Chat() {
 
 export default function HomeControlledGenUiDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-tool-based" enableInspector={false}>
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      agent="gen-ui-tool-based"
+      enableInspector={false}
+    >
       <div className="hd-exp-scope h-screen w-screen overflow-hidden">
         <Chat />
       </div>
