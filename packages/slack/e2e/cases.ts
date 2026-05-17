@@ -558,4 +558,70 @@ export const CASES: E2ECase[] = [
       },
     },
   },
+
+  // G2 — A2UI DYNAMIC SCHEMA: agent's secondary LLM generates the
+  // component tree on the fly from the registered catalog. Requires
+  // AGENT_URL pointed at `a2ui_dynamic` (the agent has a
+  // `generate_a2ui` tool that invokes a secondary LLM bound to the
+  // catalog schema and emits an `a2ui_operations` container).
+  //
+  // The bridge's dashboard catalog
+  // (`app/a2ui/dashboard.ts`, catalogId `declarative-gen-ui-catalog`)
+  // ships Title / Text / Row / Column / DashboardCard / Metric /
+  // Badge / DataTable / Button. The prompt steers the agent toward
+  // those primitives.
+  //
+  // Current status (2026-05-17): a2ui_dynamic graph runs and the
+  // tools node fires (visible in langgraph log) but no
+  // ActivitySnapshot reaches the bridge — under investigation.
+  // Predicate checks for the BLOCKS produced; will fail until that's
+  // resolved upstream.
+  {
+    name: "G2 — A2UI dynamic dashboard renders as Block Kit",
+    prompt:
+      "<@U0B45V75NNR> give me a Q2 project status dashboard with two " +
+      'metrics: "Migration to V2" at 78% complete (status: success), ' +
+      'and "Onboarding revamp" at 42% (status: warning).',
+    sampleIntervalMs: 1000,
+    maxWaitMs: 45_000,
+    expectations: {
+      perReplyChecks: (_replies, raw) => {
+        const failures: string[] = [];
+        const allBlocks = raw.flatMap(
+          (m) => (m["blocks"] as Array<Record<string, any>> | undefined) ?? [],
+        );
+        if (allBlocks.length === 0) {
+          failures.push(
+            "expected at least one Block Kit reply (no `blocks` field on any reply)",
+          );
+          return failures;
+        }
+        // Look for at least one Metric (section with a "*Label*: value"
+        // pattern) — the prompt asks for two but we don't pin the exact
+        // count since the LLM may consolidate or split.
+        const hasMetric = allBlocks.some(
+          (b) =>
+            b["type"] === "section" &&
+            /^\*[^*]+\*:\s/.test(
+              String((b["text"] as { text?: string } | undefined)?.text ?? ""),
+            ),
+        );
+        if (!hasMetric)
+          failures.push("expected at least one Metric-shaped section block");
+        // Look for at least one Badge (context block with colored emoji
+        // prefix). Variant set to success/warning should produce
+        // `:large_green_circle:` / `:large_yellow_circle:`.
+        const hasBadge = allBlocks.some(
+          (b) =>
+            b["type"] === "context" &&
+            JSON.stringify(b["elements"]).match(
+              /:(large_green_circle|large_yellow_circle|red_circle):/,
+            ) != null,
+        );
+        if (!hasBadge)
+          failures.push("expected at least one Badge context block");
+        return failures;
+      },
+    },
+  },
 ];

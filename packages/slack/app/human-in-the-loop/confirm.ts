@@ -4,7 +4,8 @@
  * with Yes / No buttons and **blocks waiting for the user to click**.
  * Once the click arrives, `render` is called again with the resolved
  * state and the bridge replaces the original message with a
- * confirmation (or deletes it on cancel).
+ * self-contained confirmation card (clear feedback even before the
+ * agent's natural-language follow-up lands).
  *
  * The Slack-side equivalent of React's `useHumanInTheLoop`.
  */
@@ -30,10 +31,14 @@ export const confirmHitl = defineHumanInTheLoop({
   },
   render(state, api) {
     if (state.status === "pending") {
+      // Pending: question + Yes/No on a single actions row.
       return [
         {
           type: "section",
-          text: { type: "mrkdwn", text: state.props.question },
+          text: {
+            type: "mrkdwn",
+            text: `:thinking_face:  *Confirm*\n${state.props.question}`,
+          },
         },
         {
           type: "actions",
@@ -55,18 +60,52 @@ export const confirmHitl = defineHumanInTheLoop({
       ];
     }
     if (state.status === "resolved") {
+      // The previous render put the answer in a one-liner that looked
+      // a lot like a regular bot message — easy to miss visually,
+      // especially in a busy thread. Re-render the question + a
+      // distinct "Your answer" line so the resolved state reads as a
+      // structured form result, not a sentence.
       const v = state.value as { confirmed: boolean };
-      const verb = v.confirmed
-        ? ":white_check_mark: Confirmed"
-        : ":x: Declined";
+      const answerLabel = v.confirmed ? "Yes" : "No";
+      const answerIcon = v.confirmed
+        ? ":white_check_mark:"
+        : ":no_entry_sign:";
       return [
         {
           type: "section",
-          text: { type: "mrkdwn", text: `${verb}: ${state.props.question}` },
+          text: {
+            type: "mrkdwn",
+            text: `:thinking_face:  *Confirmation*\n${state.props.question}`,
+          },
+        },
+        {
+          type: "context",
+          elements: [
+            {
+              type: "mrkdwn",
+              text: `${answerIcon}  Your answer: *${answerLabel}*`,
+            },
+          ],
         },
       ];
     }
-    if (state.status === "cancelled") return "delete";
+    if (state.status === "cancelled" || state.status === "timeout") {
+      const label =
+        state.status === "timeout"
+          ? "Confirmation timed out"
+          : "Confirmation cancelled";
+      const icon =
+        state.status === "timeout" ? ":hourglass:" : ":no_entry_sign:";
+      return [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `${icon}  *${label}*\n${state.props.question}`,
+          },
+        },
+      ];
+    }
     return "noop";
   },
   timeoutMs: 5 * 60_000,

@@ -46,10 +46,17 @@ export const greetingCardComponent = defineSlackComponent({
     return `Hello ${recipient}! ${message}`;
   },
   render({ recipient, message, emoji }) {
+    // Slack `<@USERID>` mentions only render in `mrkdwn` contexts —
+    // a `header` block uses `plain_text` and would show the raw
+    // `<@U...>` string. Put the greeting in a section/mrkdwn so the
+    // mention actually pings the recipient.
     return [
       {
-        type: "header",
-        text: { type: "plain_text", text: `Hello ${recipient}!`, emoji: true },
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `:wave:  *Hello ${recipient}!*`,
+        },
       },
       {
         type: "section",

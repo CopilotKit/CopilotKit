@@ -15,8 +15,9 @@
  *     turns that into a confirmation string the agent replies with.
  *
  * Frontend (this file) renders a Block Kit picker on pending, replaces
- * it with a "✅ Booked …" confirmation on resolved (or deletes it on
- * cancel/timeout).
+ * it with a self-sufficient confirmation card on resolved (so the
+ * user has clear feedback even before the agent's natural-language
+ * follow-up lands), or shows a cancelled card on cancel/timeout.
  */
 import { z } from "zod";
 import { defineInterruptHandler } from "../../src/index.js";
@@ -35,28 +36,32 @@ export const scheduleMeetingInterrupt = defineInterruptHandler({
   render(state, api) {
     if (state.status === "pending") {
       const { topic, attendee, slots } = state.payload;
+      const subtitle = attendee
+        ? `*${topic}* — with ${attendee}`
+        : `*${topic}*`;
+      // Group all time-slot buttons into ONE actions block so they
+      // render as a clean horizontal row in Slack (or wrap nicely on
+      // narrow widths). Cancel stays in a separate row + danger
+      // style so it's visually distinct from the time options.
       return [
-        { type: "header", text: { type: "plain_text", text: "Pick a time" } },
         {
           type: "section",
           text: {
             type: "mrkdwn",
-            text: attendee ? `*${topic}* — with ${attendee}` : `*${topic}*`,
+            text: `:calendar:  *Pick a time*\n${subtitle}`,
           },
         },
-        ...slots.map((slot) => ({
-          type: "actions" as const,
-          elements: [
-            {
-              type: "button" as const,
-              text: { type: "plain_text" as const, text: slot.label },
-              action_id: api.respond({
-                chosen_time: slot.iso,
-                chosen_label: slot.label,
-              }),
-            },
-          ],
-        })),
+        {
+          type: "actions",
+          elements: slots.map((slot) => ({
+            type: "button" as const,
+            text: { type: "plain_text" as const, text: slot.label },
+            action_id: api.respond({
+              chosen_time: slot.iso,
+              chosen_label: slot.label,
+            }),
+          })),
+        },
         {
           type: "actions",
           elements: [
@@ -74,20 +79,69 @@ export const scheduleMeetingInterrupt = defineInterruptHandler({
       const v = state.value as
         | { chosen_time: string; chosen_label: string }
         | { cancelled: true };
-      if ("cancelled" in v) return "delete";
       const { topic, attendee } = state.payload;
-      const who = attendee ? ` with ${attendee}` : "";
+      if ("cancelled" in v) {
+        // Self-contained "cancelled" card — instead of deleting the
+        // message, leave a visible breadcrumb so the conversation
+        // history is readable. Block contains enough info to read
+        // standalone (topic + who + status).
+        return [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `:no_entry_sign:  *Booking cancelled*\n*${topic}*${attendee ? ` — with ${attendee}` : ""}`,
+            },
+          },
+        ];
+      }
+      // Self-sufficient confirmation card: title, when, who, what.
+      // Reads cleanly even before the agent's natural-language reply
+      // lands.
+      const detailLines = [
+        `*When:* ${v.chosen_label}`,
+        attendee ? `*With:* ${attendee}` : null,
+        `*Topic:* ${topic}`,
+      ].filter(Boolean);
       return [
         {
           type: "section",
           text: {
             type: "mrkdwn",
-            text: `:white_check_mark: Booked *${v.chosen_label}*${who} for *${topic}*`,
+            text: `:white_check_mark:  *Meeting booked*`,
+          },
+        },
+        {
+          type: "section",
+          text: { type: "mrkdwn", text: detailLines.join("\n") },
+        },
+        {
+          type: "context",
+          elements: [
+            {
+              type: "mrkdwn",
+              text: `Calendar invite will be sent shortly.`,
+            },
+          ],
+        },
+      ];
+    }
+    if (state.status === "cancelled" || state.status === "timeout") {
+      const { topic } = state.payload;
+      const label =
+        state.status === "timeout" ? "Booking timed out" : "Booking cancelled";
+      const icon =
+        state.status === "timeout" ? ":hourglass:" : ":no_entry_sign:";
+      return [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `${icon}  *${label}*\n*${topic}*`,
           },
         },
       ];
     }
-    if (state.status === "cancelled") return "delete";
     return "noop";
   },
 });
