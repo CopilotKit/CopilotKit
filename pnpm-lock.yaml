@@ -2938,6 +2938,9 @@ importers:
 
   packages/slack:
     dependencies:
+      '@a2ui/web_core':
+        specifier: 0.9.0
+        version: 0.9.0
       '@ag-ui/a2ui-middleware':
         specifier: 0.0.5
         version: 0.0.5(@ag-ui/client@0.0.53)(rxjs@7.8.1)

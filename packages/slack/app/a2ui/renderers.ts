@@ -84,7 +84,7 @@ export const flightRenderers: CatalogRenderers<FlightDefinitions> = {
     },
   ],
 
-  Button: ({ props, children, dispatch }) => {
+  Button: ({ props, context, children, dispatch }) => {
     // Pull the label out of the child Text component. We render the
     // child to a block and extract its text, then wrap in an actions
     // block with a real Slack button (Block Kit doesn't compose
@@ -98,13 +98,20 @@ export const flightRenderers: CatalogRenderers<FlightDefinitions> = {
       if (firstSection) label = stripMrkdwn(firstSection.text.text);
     }
 
+    // `props.action` after binder resolution is `() => void`; we need
+    // the raw `{ event: { name, context } }` JSON to encode into
+    // button.value, so reach into the unresolved component model.
+    const rawAction = context.componentModel.properties["action"] as
+      | { event: { name: string; context?: Record<string, unknown> } }
+      | undefined;
+
     const elements: any[] = [
       {
         type: "button",
         text: { type: "plain_text", text: label, emoji: true },
         action_id: "a2ui:button",
-        ...(props.action && dispatch
-          ? { value: dispatch.encodeAction(props.action) }
+        ...(rawAction && dispatch
+          ? { value: dispatch.encodeAction(rawAction) }
           : {}),
         ...(props.variant === "primary" ? { style: "primary" as const } : {}),
       },

@@ -1,13 +1,17 @@
 import type { KnownBlock } from "@slack/types";
 import { z } from "zod";
-import type { ActivityMessageRenderer } from "../activity-message-renderer.js";
-import type { Catalog, EncodedAction } from "./types.js";
-import { applyA2UIOperations, type A2UIOperation } from "./surface-state.js";
 import {
-  defaultEncodeUserAction,
-  renderA2UISurface,
-  type EncodedUserAction,
-} from "./render.js";
+  ComponentContext,
+  MessageProcessor,
+  type SurfaceModel,
+} from "@a2ui/web_core/v0_9";
+import type { ActivityMessageRenderer } from "../activity-message-renderer.js";
+import type {
+  ActionPayload,
+  Catalog,
+  EncodedAction,
+  SlackComponentImplementation,
+} from "./types.js";
 
 /**
  * The canonical AG-UI activity type for A2UI surfaces (matches
@@ -17,48 +21,37 @@ export const A2UI_ACTIVITY_TYPE = "a2ui-surface";
 
 /**
  * Zod schema for the activity message content the A2UI middleware
- * emits. Mirrors the wire format:
+ * emits:
  *
- *   content: { a2ui_operations: A2UIOperation[] }
+ *   content: { a2ui_operations: A2UIMessage[] }
+ *
+ * We accept any object shape inside `a2ui_operations` and hand it
+ * straight to `@a2ui/web_core`'s `MessageProcessor`, which has its
+ * own (more precise) validation.
  */
-const a2uiOperationSchema = z
-  .object({
-    version: z.string().optional(),
-    createSurface: z
-      .object({
-        surfaceId: z.string(),
-        catalogId: z.string(),
-        theme: z.record(z.unknown()).optional(),
-        attachDataModel: z.boolean().optional(),
-      })
-      .optional(),
-    updateComponents: z
-      .object({
-        surfaceId: z.string(),
-        components: z.array(z.record(z.unknown())),
-      })
-      .optional(),
-    updateDataModel: z
-      .object({
-        surfaceId: z.string(),
-        path: z.string().optional(),
-        value: z.unknown().optional(),
-        data: z.unknown().optional(),
-      })
-      .optional(),
-    deleteSurface: z
-      .object({
-        surfaceId: z.string(),
-      })
-      .optional(),
-  })
-  .passthrough();
-
+const a2uiOperationSchema = z.record(z.unknown());
 const a2uiActivityContentSchema = z.object({
   a2ui_operations: z.array(a2uiOperationSchema),
 });
 
 export type A2UIActivityContent = z.infer<typeof a2uiActivityContentSchema>;
+
+/**
+ * Full payload encoded into a `button.value` for click round-trip.
+ * Matches `@ag-ui/a2ui-middleware`'s `A2UIUserAction` shape so the
+ * bridge can forward the decoded value as
+ * `forwardedProps.a2uiAction.userAction` without remap.
+ */
+export interface EncodedUserAction {
+  name?: string;
+  surfaceId: string;
+  sourceComponentId: string;
+  context?: Record<string, unknown>;
+}
+
+export function defaultEncodeUserAction(a: EncodedUserAction): EncodedAction {
+  return JSON.stringify(a);
+}
 
 export interface CreateA2UIActivityRendererOptions {
   /**
@@ -76,66 +69,132 @@ export interface CreateA2UIActivityRendererOptions {
    * Optional encoder for click payloads — packs an `EncodedUserAction`
    * (matches `@ag-ui/a2ui-middleware`'s `A2UIUserAction` shape) into a
    * Slack `button.value` (Slack caps it at 2000 chars). Default:
-   * `JSON.stringify`, which is fine for typical small payloads.
-   *
-   * Renderers that produce very large action contexts should pass a
-   * shorter encoding (e.g. drop the entire `context` and rebuild it
-   * agent-side from `name` + `surfaceId`, or store the heavy context
-   * in a per-surface registry and encode just a short id).
+   * `JSON.stringify`, fine for typical small payloads. Renderers
+   * producing large contexts should pass a shorter encoding.
    */
   encodeAction?: (a: EncodedUserAction) => EncodedAction;
   /**
    * If set, this renderer only fires for activity messages produced
    * by the named agent. Useful when the same bridge talks to multiple
-   * agents and you want different catalogs per agent.
+   * agents with different catalogs.
    */
   agentId?: string;
 }
 
 /**
  * Build an `ActivityMessageRenderer` for `activityType: "a2ui-surface"`
- * that drives the given `catalog`.
+ * driven by the given catalog(s).
  *
- * Each incoming activity message contains the FULL operation log for
- * the surfaces it covers (snapshot semantics). We replay the
- * operations to derive surface state, then walk each surface's
- * component tree via the catalog renderers, and concatenate the
- * resulting blocks. Multiple surfaces in one activity message
- * render as adjacent block groups.
+ * On each incoming activity message we spin up a fresh
+ * `MessageProcessor` over the catalog(s), feed it
+ * `content.a2ui_operations`, then walk every resulting surface and
+ * recurse from `id: "root"`. Each component's resolved props come
+ * from `@a2ui/web_core`'s `GenericBinder` (run inside the wrapped
+ * `SlackComponentImplementation.render`); structural children, data
+ * bindings, and action resolution are all handled by web_core.
  *
- * Click handling: when a button is clicked in Slack, its
- * `block_actions` event carries the encoded payload. The bridge
- * decodes it (same machinery as HITL pickers) and dispatches it
- * back to the agent via `forwardedProps.a2uiAction` — closing the
- * loop without any special A2UI plumbing on the bridge call path.
+ * Click handling: when the rendered Block Kit button is clicked,
+ * Slack delivers a `block_actions` event whose `value` carries the
+ * encoded `EncodedUserAction`. The bridge decodes it (same machinery
+ * as HITL pickers) and dispatches via
+ * `forwardedProps.a2uiAction.userAction`.
+ *
+ * A fresh processor per render keeps the renderer stateless — agents
+ * emit activity messages with the FULL op log for the surface(s)
+ * they cover, so re-deriving from scratch yields the same surface
+ * state as incremental application would.
  */
 export function createA2UIActivityRenderer(
   opts: CreateA2UIActivityRendererOptions,
 ): ActivityMessageRenderer<A2UIActivityContent> {
   const encode = opts.encodeAction ?? defaultEncodeUserAction;
-  // Normalize to an array up front so the render path doesn't branch.
   const catalogs: ReadonlyArray<Catalog> = Array.isArray(opts.catalog)
     ? (opts.catalog as ReadonlyArray<Catalog>)
     : [opts.catalog as Catalog];
-  const byId = new Map<string, Catalog>(catalogs.map((c) => [c.catalogId, c]));
+  const a2uiCatalogs = catalogs.map((c) => c._a2uiCatalog);
 
   return {
     activityType: A2UI_ACTIVITY_TYPE,
     agentId: opts.agentId,
     content: a2uiActivityContentSchema,
     render({ content }) {
-      const operations = content.a2ui_operations as A2UIOperation[];
-      const surfaces = applyA2UIOperations(operations);
+      const processor = new MessageProcessor<SlackComponentImplementation>(
+        a2uiCatalogs,
+      );
+      // `content.a2ui_operations` is the raw wire shape — web_core's
+      // `A2uiMessage` is a discriminated union but `processMessages`
+      // tolerates the raw object form and validates internally. Cast
+      // through unknown to bypass TS's discriminated-union narrowing.
+      processor.processMessages(content.a2ui_operations as never);
 
       const blocks: KnownBlock[] = [];
-      for (const surface of surfaces.values()) {
-        const catalog = byId.get(surface.catalogId);
-        // Surfaces whose catalogId we don't know are someone else's
-        // problem — silently skip rather than crash.
-        if (!catalog) continue;
-        blocks.push(...renderA2UISurface(surface, catalog, encode));
+      for (const surface of processor.model.surfacesMap.values()) {
+        blocks.push(...renderSurface(surface, encode));
       }
       return blocks;
     },
   };
+}
+
+/**
+ * Walk a surface's component tree starting at `id: "root"`,
+ * dispatching each node to its catalog's render function. Recursion
+ * is via `buildChild` passed into the render — matches the React
+ * adapter's `buildChild(id, basePath?)` signature so renderers
+ * authored for the React path drop in with only the return type
+ * differing.
+ */
+function renderSurface(
+  surface: SurfaceModel<SlackComponentImplementation>,
+  encode: (a: EncodedUserAction) => EncodedAction,
+): KnownBlock[] {
+  const warned = new Set<string>();
+
+  const renderOne = (id: string, basePath?: string): KnownBlock[] => {
+    const comp = surface.componentsModel.get(id);
+    if (!comp) return [];
+    const impl = surface.catalog.components.get(comp.type);
+    if (!impl) {
+      if (!warned.has(comp.type)) {
+        warned.add(comp.type);
+        console.warn(
+          "[slack-bridge/a2ui] no renderer for component %s on catalog %s — skipping",
+          comp.type,
+          surface.catalog.id,
+        );
+      }
+      return [];
+    }
+
+    const context = new ComponentContext(surface, id, basePath ?? "/");
+
+    const dispatch = {
+      encodeAction: (action: ActionPayload): EncodedAction =>
+        encode({
+          name: action.event.name,
+          surfaceId: surface.id,
+          sourceComponentId: id,
+          context: action.event.context,
+        }),
+    };
+
+    try {
+      return impl.render({
+        context,
+        buildChild: (childId, childBasePath) =>
+          renderOne(childId, childBasePath ?? basePath),
+        dispatch,
+      });
+    } catch (err) {
+      console.error(
+        "[slack-bridge/a2ui] renderer threw for component %s on surface %s:",
+        comp.type,
+        surface.id,
+        err,
+      );
+      return [];
+    }
+  };
+
+  return renderOne("root");
 }

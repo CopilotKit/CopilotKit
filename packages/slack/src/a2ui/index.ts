@@ -8,27 +8,22 @@ export type {
   PropsOf,
   ActionPayload,
   EncodedAction,
+  SlackComponentImplementation,
+  ComponentApi,
+  InferredComponentApiSchemaType,
+  ResolveA2uiProps,
 } from "./types.js";
 export { createCatalog } from "./create-catalog.js";
 export type { CreateCatalogOptions } from "./create-catalog.js";
-export type {
-  A2UIComponent,
-  A2UIOperation,
-  SurfaceState,
-} from "./surface-state.js";
-export { applyA2UIOperations } from "./surface-state.js";
-export {
-  renderA2UISurface,
-  defaultEncodeUserAction,
-  type EncodedUserAction,
-} from "./render.js";
 export {
   createA2UIActivityRenderer,
+  defaultEncodeUserAction,
   A2UI_ACTIVITY_TYPE,
 } from "./activity-renderer.js";
 export type {
   A2UIActivityContent,
   CreateA2UIActivityRendererOptions,
+  EncodedUserAction,
 } from "./activity-renderer.js";
 export {
   a2uiSchemaContext,

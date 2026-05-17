@@ -247,7 +247,7 @@ export const dashboardRenderers: CatalogRenderers<typeof dashboardDefinitions> =
       return [{ type: "section", text: { type: "mrkdwn", text } }];
     },
 
-    Button: ({ props, children, dispatch }) => {
+    Button: ({ props, context, children, dispatch }) => {
       let label = "Submit";
       if (props.child) {
         const childBlocks = children(props.child);
@@ -256,13 +256,19 @@ export const dashboardRenderers: CatalogRenderers<typeof dashboardDefinitions> =
         ) as { text: { text: string } } | undefined;
         if (firstSection) label = stripMrkdwn(firstSection.text.text);
       }
+      // `props.action` after binder resolution is `() => void`; reach
+      // into the raw component-model properties to get the encodable
+      // `{ event: { name, context } }` shape.
+      const rawAction = context.componentModel.properties["action"] as
+        | { event: { name: string; context?: Record<string, unknown> } }
+        | undefined;
       const elements: any[] = [
         {
           type: "button",
           text: { type: "plain_text", text: label, emoji: true },
           action_id: "a2ui:button",
-          ...(props.action && dispatch
-            ? { value: dispatch.encodeAction(props.action) }
+          ...(rawAction && dispatch
+            ? { value: dispatch.encodeAction(rawAction) }
             : {}),
           ...(props.variant === "primary" ? { style: "primary" as const } : {}),
         },

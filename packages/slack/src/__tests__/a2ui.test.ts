@@ -65,6 +65,10 @@ describe("createCatalog", () => {
     expect(Title).toBeDefined();
     const blocks = Title!({
       props: { text: "Hi" },
+      // ComponentContext is required by the type but unused by this
+      // particular renderer — minimal mock keeps the unit test focused
+      // on the renderer's own logic.
+      context: {} as never,
       children: () => [],
     });
 
@@ -110,6 +114,7 @@ describe("createCatalog", () => {
     expect(ClickMe).toBeDefined();
     const blocks = ClickMe!({
       props: { id: "42" },
+      context: {} as never,
       children: () => [],
       dispatch: { encodeAction },
     });

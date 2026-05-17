@@ -86,16 +86,12 @@ export type {
   EncodedAction,
   EncodedUserAction,
   CreateCatalogOptions,
-  A2UIComponent,
-  A2UIOperation,
-  SurfaceState,
   A2UIActivityContent,
   CreateA2UIActivityRendererOptions,
+  SlackComponentImplementation,
 } from "./a2ui/index.js";
 export {
   createCatalog,
-  applyA2UIOperations,
-  renderA2UISurface,
   defaultEncodeUserAction,
   createA2UIActivityRenderer,
   A2UI_ACTIVITY_TYPE,
