@@ -244,7 +244,9 @@ describe("hitlToFrontendTool — full lifecycle", () => {
       botUserId: "BOT01",
       conversationKey: "C1::100.0",
     } satisfies FrontendToolContext;
-    const r = JSON.parse(((await tool.handler({ question: "X" }, ctx)) as string) as string);
+    const r = JSON.parse(
+      (await tool.handler({ question: "X" }, ctx)) as string as string,
+    );
     expect(r.ok).toBe(false);
     expect(r.error).toContain("rate_limited");
   });

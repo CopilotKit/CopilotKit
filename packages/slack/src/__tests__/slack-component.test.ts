@@ -69,7 +69,9 @@ describe("componentToFrontendTool", () => {
     });
     const t = componentToFrontendTool(c);
     const { ctx, postFn } = makeCtx();
-    const result = JSON.parse(((await t.handler({ title: "Hello" }, ctx)) as string) as string);
+    const result = JSON.parse(
+      (await t.handler({ title: "Hello" }, ctx)) as string as string,
+    );
     expect(result.ok).toBe(true);
     expect(result.rendered).toBe("card");
     expect(result.messageTs).toBe("1700000000.000100");

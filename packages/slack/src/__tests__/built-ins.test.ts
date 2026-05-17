@@ -104,7 +104,10 @@ describe("lookup_slack_user", () => {
   it("resolves by email", async () => {
     const { ctx } = makeCtx();
     const r = JSON.parse(
-      (await lookupSlackUserTool.handler({ query: "sarah@copilotkit.ai" }, ctx)) as string,
+      (await lookupSlackUserTool.handler(
+        { query: "sarah@copilotkit.ai" },
+        ctx,
+      )) as string,
     );
     expect(r.userId).toBe("U002");
   });
@@ -112,7 +115,10 @@ describe("lookup_slack_user", () => {
   it("returns found:false for unknown query — gracefully, not an error", async () => {
     const { ctx } = makeCtx();
     const r = JSON.parse(
-      (await lookupSlackUserTool.handler({ query: "Nobody von Nope" }, ctx)) as string,
+      (await lookupSlackUserTool.handler(
+        { query: "Nobody von Nope" },
+        ctx,
+      )) as string,
     );
     expect(r.found).toBe(false);
   });
@@ -120,7 +126,10 @@ describe("lookup_slack_user", () => {
   it("excludes bots and deleted users", async () => {
     const { ctx } = makeCtx();
     const a = JSON.parse(
-      (await lookupSlackUserTool.handler({ query: "ag-ui-bot" }, ctx)) as string,
+      (await lookupSlackUserTool.handler(
+        { query: "ag-ui-bot" },
+        ctx,
+      )) as string,
     );
     expect(a.found).toBe(false);
     const b = JSON.parse(
