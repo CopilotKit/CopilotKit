@@ -16,9 +16,7 @@ import type { z } from "zod";
  * `"*"`. Within a tie, agent-scoped renderers win over unscoped ones.
  * (Same precedence as the React-side registry.)
  */
-export interface ActivityMessageRenderer<
-  TContent = Record<string, unknown>,
-> {
+export interface ActivityMessageRenderer<TContent = Record<string, unknown>> {
   /**
    * Activity type to match when rendering. Use `"*"` as a wildcard
    * (e.g. for a debug renderer that should fire on every activity

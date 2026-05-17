@@ -15,10 +15,7 @@
  * the URI stable; changing it later breaks any agent prompts that
  * embed the id literally.
  */
-import {
-  createCatalog,
-  createA2UIActivityRenderer,
-} from "../../src/index.js";
+import { createCatalog, createA2UIActivityRenderer } from "../../src/index.js";
 import { dashboardDefinitions, dashboardRenderers } from "./renderers.js";
 
 export const dashboardCatalog = createCatalog(

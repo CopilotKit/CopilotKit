@@ -107,10 +107,8 @@ describe("renderA2UISurface end-to-end", () => {
 
   it("emits no blocks when the bound array is empty", () => {
     const surfaces = applyA2UIOperations(flightOps([]));
-    const blocks = renderA2UISurface(
-      surfaces.get(SURFACE_ID)!,
-      catalog,
-      (a) => JSON.stringify(a),
+    const blocks = renderA2UISurface(surfaces.get(SURFACE_ID)!, catalog, (a) =>
+      JSON.stringify(a),
     );
     expect(blocks).toEqual([]);
   });
@@ -121,16 +119,12 @@ describe("renderA2UISurface end-to-end", () => {
       {
         updateComponents: {
           surfaceId: SURFACE_ID,
-          components: [
-            { id: "root", component: "UnknownComponent" },
-          ],
+          components: [{ id: "root", component: "UnknownComponent" }],
         },
       },
     ]);
-    const blocks = renderA2UISurface(
-      surfaces.get(SURFACE_ID)!,
-      catalog,
-      (a) => JSON.stringify(a),
+    const blocks = renderA2UISurface(surfaces.get(SURFACE_ID)!, catalog, (a) =>
+      JSON.stringify(a),
     );
     expect(blocks).toEqual([]);
   });
@@ -144,9 +138,7 @@ describe("createA2UIActivityRenderer", () => {
     // Validate content schema accepts the wire shape and the render
     // pipeline produces the expected blocks.
     const content = {
-      a2ui_operations: flightOps([
-        { airline: "American", price: "$201" },
-      ]),
+      a2ui_operations: flightOps([{ airline: "American", price: "$201" }]),
     };
     const parsed = renderer.content!.safeParse(content);
     expect(parsed.success).toBe(true);
