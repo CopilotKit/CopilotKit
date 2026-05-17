@@ -57,9 +57,18 @@ function DemoContent() {
 
   useConfigureSuggestions({
     suggestions: [
-      { title: "Set tone to professional", message: "Change my tone preference to professional." },
-      { title: "Remember a note", message: "Remember that I prefer code examples over prose." },
-      { title: "Switch language", message: "Switch my preferred language to Spanish." },
+      {
+        title: "Set tone to professional",
+        message: "Change my tone preference to professional.",
+      },
+      {
+        title: "Remember a note",
+        message: "Remember that I prefer code examples over prose.",
+      },
+      {
+        title: "Switch language",
+        message: "Switch my preferred language to Spanish.",
+      },
     ],
     available: "always",
   });

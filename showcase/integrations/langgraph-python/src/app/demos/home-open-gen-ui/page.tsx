@@ -24,9 +24,20 @@ import "../_experimental-theme/theme.css";
 function Chat() {
   useConfigureSuggestions({
     suggestions: [
-      { title: "Daily focus tracker", message: "Build a daily focus tracker for this week with bar-chart visualization." },
-      { title: "Visualize the planets", message: "Visualize the planets in our solar system with their relative sizes." },
-      { title: "Pomodoro timer", message: "Design a Pomodoro timer with start/pause controls." },
+      {
+        title: "Daily focus tracker",
+        message:
+          "Build a daily focus tracker for this week with bar-chart visualization.",
+      },
+      {
+        title: "Visualize the planets",
+        message:
+          "Visualize the planets in our solar system with their relative sizes.",
+      },
+      {
+        title: "Pomodoro timer",
+        message: "Design a Pomodoro timer with start/pause controls.",
+      },
     ],
     available: "always",
   });

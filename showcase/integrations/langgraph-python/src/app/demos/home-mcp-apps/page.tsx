@@ -24,9 +24,20 @@ import "../_experimental-theme/theme.css";
 function Chat() {
   useConfigureSuggestions({
     suggestions: [
-      { title: "Sketch the AG-UI flow", message: "Open Excalidraw and sketch the AG-UI protocol flow (Agent → AG-UI → UI)." },
-      { title: "Quarterly summary spreadsheet", message: "Open a spreadsheet and lay out Q1–Q4 totals across three regions." },
-      { title: "Draw a system diagram", message: "Open Excalidraw and draw a three-box system diagram." },
+      {
+        title: "Sketch the AG-UI flow",
+        message:
+          "Open Excalidraw and sketch the AG-UI protocol flow (Agent → AG-UI → UI).",
+      },
+      {
+        title: "Quarterly summary spreadsheet",
+        message:
+          "Open a spreadsheet and lay out Q1–Q4 totals across three regions.",
+      },
+      {
+        title: "Draw a system diagram",
+        message: "Open Excalidraw and draw a three-box system diagram.",
+      },
     ],
     available: "always",
   });

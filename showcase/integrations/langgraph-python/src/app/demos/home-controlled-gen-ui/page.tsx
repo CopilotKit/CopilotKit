@@ -34,9 +34,21 @@ function Chat() {
 
   useConfigureSuggestions({
     suggestions: [
-      { title: "Q3 revenue by region", message: "Pie chart of Q3 revenue by region — Americas 42%, EMEA 28%, APAC 22%, LATAM 8%." },
-      { title: "Traffic by source", message: "Pie chart of website traffic — Organic 48%, Paid 21%, Direct 18%, Referral 13%." },
-      { title: "Market share", message: "Pie chart of market share — Acme 38%, Initech 27%, Hooli 19%, Other 16%." },
+      {
+        title: "Q3 revenue by region",
+        message:
+          "Pie chart of Q3 revenue by region — Americas 42%, EMEA 28%, APAC 22%, LATAM 8%.",
+      },
+      {
+        title: "Traffic by source",
+        message:
+          "Pie chart of website traffic — Organic 48%, Paid 21%, Direct 18%, Referral 13%.",
+      },
+      {
+        title: "Market share",
+        message:
+          "Pie chart of market share — Acme 38%, Initech 27%, Hooli 19%, Other 16%.",
+      },
     ],
     available: "always",
   });

@@ -26,9 +26,19 @@ import "../_experimental-theme/theme.css";
 function Chat() {
   useConfigureSuggestions({
     suggestions: [
-      { title: "Lost-baggage tracker", message: "Surface a lost-baggage tracker for bag #4421 last seen at ATL." },
-      { title: "Settings card", message: "Design a settings card with notifications + theme toggles." },
-      { title: "Onboarding checklist", message: "Compose an onboarding checklist with three steps." },
+      {
+        title: "Lost-baggage tracker",
+        message:
+          "Surface a lost-baggage tracker for bag #4421 last seen at ATL.",
+      },
+      {
+        title: "Settings card",
+        message: "Design a settings card with notifications + theme toggles.",
+      },
+      {
+        title: "Onboarding checklist",
+        message: "Compose an onboarding checklist with three steps.",
+      },
     ],
     available: "always",
   });
