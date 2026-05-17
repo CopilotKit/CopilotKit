@@ -18,13 +18,10 @@
  */
 
 import React from "react";
-import {
-  CopilotKit,
-  CopilotChat,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
-import { fixedCatalog } from "./a2ui/catalog";
+import { catalog } from "./a2ui/catalog";
+import { Chat } from "./chat";
 
 export default function A2UIFixedSchemaDemo() {
   return (
@@ -32,29 +29,13 @@ export default function A2UIFixedSchemaDemo() {
     <CopilotKit
       runtimeUrl="/api/copilotkit-a2ui-fixed-schema"
       agent="a2ui-fixed-schema"
-      a2ui={{ catalog: fixedCatalog }}
+      a2ui={{ catalog: catalog }}
     >
-      <div className="flex justify-center items-center h-screen w-full">
-        <div className="h-full w-full max-w-4xl">
+      <div className="flex justify-center items-center h-screen w-full bg-neutral-50">
+        <div className="h-full w-full max-w-4xl border-x border-neutral-200 bg-white">
           <Chat />
         </div>
       </div>
     </CopilotKit>
-  );
-}
-
-function Chat() {
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Find SFO → JFK",
-        message: "Find me a flight from SFO to JFK on United for $289.",
-      },
-    ],
-    available: "always",
-  });
-
-  return (
-    <CopilotChat agentId="a2ui-fixed-schema" className="h-full rounded-2xl" />
   );
 }
