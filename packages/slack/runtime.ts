@@ -53,7 +53,18 @@ const runtime = new CopilotSseRuntime({
     beautiful_chat: makeLgAgent("beautiful_chat"),
     interrupt_agent: makeLgAgent("interrupt_agent"),
   },
-  a2ui: { injectA2UITool: false },
+  a2ui: {
+    // The showcase `a2ui_dynamic` agent exposes a custom outer tool
+    // named `generate_a2ui` (it doesn't use the canonical `render_a2ui`
+    // tool name the middleware defaults to). Pass that name explicitly
+    // so the middleware tracks the streaming args and synthesizes
+    // ACTIVITY_SNAPSHOT events from them. The middleware ALSO has a
+    // tool-result fallback that detects `{a2ui_operations: [...]}` in
+    // any tool result content, but the fast path is more reliable for
+    // the secondary-LLM-emitted designs.
+    injectA2UITool: false,
+    a2uiToolNames: ["generate_a2ui"],
+  },
 });
 
 const listener = createCopilotNodeListener({

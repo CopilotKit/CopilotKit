@@ -128,8 +128,27 @@ export function createA2UIActivityRenderer(
       processor.processMessages(content.a2ui_operations as never);
 
       const blocks: KnownBlock[] = [];
+      console.log(
+        "[a2ui-renderer] DEBUG processor surfaces=%d",
+        processor.model.surfacesMap.size,
+      );
       for (const surface of processor.model.surfacesMap.values()) {
-        blocks.push(...renderSurface(surface, encode));
+        const componentTypes = Array.from(
+          surface.componentsModel.entries,
+        ).map(([id, c]) => `${id}:${c.type}`);
+        console.log(
+          "[a2ui-renderer] DEBUG surface=%s catalogId=%s components=%j",
+          surface.id,
+          surface.catalog.id,
+          componentTypes,
+        );
+        const sblocks = renderSurface(surface, encode);
+        console.log(
+          "[a2ui-renderer] DEBUG surface=%s produced %d blocks",
+          surface.id,
+          sblocks.length,
+        );
+        blocks.push(...sblocks);
       }
       return blocks;
     },

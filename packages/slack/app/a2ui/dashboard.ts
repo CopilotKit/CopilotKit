@@ -4,14 +4,16 @@
  *
  * The dynamic agent doesn't ship a fixed component tree: a secondary
  * LLM generates one from the conversation, using whatever components
- * the catalog advertises. So the *quality* of the rendered Slack
- * surface depends entirely on (a) what components we expose here, and
- * (b) what we tell the agent about each in the schema context.
+ * the catalog advertises. The agent's system prompt hard-codes
+ * specific component names (Card / StatusBadge / Metric / InfoRow /
+ * PrimaryButton / PieChart / BarChart) — this catalog matches that
+ * exact set so the LLM doesn't generate names that fall out of
+ * sanitization (which would surface as
+ * `"LLM produced no valid root component"`).
  *
- * We deliberately skip chart components (PieChart, BarChart): Slack
- * Block Kit has no native chart primitive and approximations look
- * worse than text. The agent is steered toward Metric / Badge /
- * DataTable / DashboardCard instead.
+ * Charts (PieChart, BarChart) don't render natively in Slack; we
+ * include them as text-shaped fallbacks so the LLM has somewhere
+ * sensible to land when a chart is the obvious shape.
  *
  * `catalogId` matches `CUSTOM_CATALOG_ID` in
  * `agent/src/agents/a2ui_dynamic.py` — that's how the bridge routes
@@ -27,53 +29,37 @@ import {
 const DynString = z.union([z.string(), z.object({ path: z.string() })]);
 
 export const dashboardDefinitions = {
-  Title: {
-    description: "A heading. Use for section titles and page headers.",
-    props: z.object({
-      text: DynString,
-      level: z.enum(["h1", "h2", "h3"]).optional(),
-    }),
-  },
-
-  Text: {
-    description: "Body text.",
-    props: z.object({ text: DynString }),
-  },
-
   Row: {
-    description: "Horizontal layout container.",
+    description: "Horizontal layout container; children render in a row.",
     props: z.object({
-      children: z.union([
-        z.array(z.string()),
-        z.object({ componentId: z.string(), path: z.string() }),
-      ]),
+      children: z.array(z.string()),
       gap: z.number().optional(),
-      align: z.string().optional(),
-      justify: z.string().optional(),
     }),
   },
-
   Column: {
-    description: "Vertical layout container.",
+    description: "Vertical layout container; children stack top-to-bottom.",
     props: z.object({
-      children: z.union([
-        z.array(z.string()),
-        z.object({ componentId: z.string(), path: z.string() }),
-      ]),
+      children: z.array(z.string()),
       gap: z.number().optional(),
     }),
   },
-
-  DashboardCard: {
+  Card: {
     description:
-      "A card with a title (and optional subtitle) wrapping a single child component slot. Use to group a chart, metric, or other content under a label.",
+      "Surface-style container with an optional title and a single child slot. Use to group a metric / chart / list under a label.",
     props: z.object({
-      title: DynString,
+      title: DynString.optional(),
       subtitle: DynString.optional(),
       child: z.string().optional(),
     }),
   },
-
+  Title: {
+    description: "Section header text.",
+    props: z.object({ text: DynString }),
+  },
+  Text: {
+    description: "Body text.",
+    props: z.object({ text: DynString }),
+  },
   Metric: {
     description:
       "A key metric — label + value + optional trend (up/down/neutral) with trendValue. Use for KPIs and stats.",
@@ -84,10 +70,14 @@ export const dashboardDefinitions = {
       trendValue: DynString.optional(),
     }),
   },
-
-  Badge: {
+  InfoRow: {
     description:
-      "A small colored status pill. Use for labels, statuses, categories.",
+      "Label/value pair on a single line. Use for inline meta info like 'Owner: Atai' or 'Due: Friday'.",
+    props: z.object({ label: DynString, value: DynString }),
+  },
+  StatusBadge: {
+    description:
+      "Colored status pill. Use for project/task status: success / warning / error / info / neutral.",
     props: z.object({
       text: DynString,
       variant: z
@@ -95,22 +85,11 @@ export const dashboardDefinitions = {
         .optional(),
     }),
   },
-
-  DataTable: {
+  PrimaryButton: {
     description:
-      "Tabular data — columns array + rows array. Renders as a monospace-aligned text table in Slack (Block Kit has no native table).",
-    props: z.object({
-      columns: z.array(z.object({ key: z.string(), label: z.string() })),
-      rows: z.array(z.record(z.any())),
-    }),
-  },
-
-  Button: {
-    description:
-      "Interactive button. Renders a child component (typically a Text) as the label and fires `action.event` when clicked.",
+      "Primary action button. `child` is the id of the Text component supplying the label. `action.event.{name,context}` fires on click.",
     props: z.object({
       child: z.string().optional(),
-      variant: z.enum(["primary", "secondary", "ghost"]).optional(),
       action: z
         .object({
           event: z.object({
@@ -119,6 +98,33 @@ export const dashboardDefinitions = {
           }),
         })
         .optional(),
+    }),
+  },
+  // Charts: Slack Block Kit has no native chart primitive. We render
+  // a text summary so the LLM has something coherent to land on, but
+  // we steer the system prompt toward Metric/StatusBadge for the
+  // typical dashboard shapes.
+  PieChart: {
+    description:
+      "Pie/donut chart, used for part-of-whole breakdowns. Renders in Slack as a text summary of label:value pairs (Block Kit has no native chart primitive).",
+    props: z.object({
+      data: z.array(
+        z.object({
+          label: DynString,
+          value: z.number(),
+          color: z.string().optional(),
+        }),
+      ),
+    }),
+  },
+  BarChart: {
+    description:
+      "Bar chart, used to compare values across categories. Renders in Slack as a text summary of label:value pairs.",
+    props: z.object({
+      data: z.array(
+        z.object({ label: DynString, value: z.number() }),
+      ),
+      color: z.string().optional(),
     }),
   },
 } satisfies CatalogDefinitions;
@@ -158,43 +164,41 @@ function stripMrkdwn(s: string): string {
 
 export const dashboardRenderers: CatalogRenderers<typeof dashboardDefinitions> =
   {
+    Row: ({ props, children }) =>
+      flattenChildren(
+        props.children,
+        children as (id: string, basePath?: string) => unknown[],
+      ) as any,
+    Column: ({ props, children }) =>
+      flattenChildren(
+        props.children,
+        children as (id: string, basePath?: string) => unknown[],
+      ) as any,
+    Card: ({ props, children }) => {
+      const headerLines = [
+        props.title ? `*${String(props.title)}*` : null,
+        props.subtitle ? `_${String(props.subtitle)}_` : null,
+      ].filter(Boolean);
+      const header = headerLines.length
+        ? [
+            {
+              type: "section" as const,
+              text: { type: "mrkdwn" as const, text: headerLines.join("\n") },
+            },
+          ]
+        : [];
+      const body = props.child ? children(props.child) : [];
+      return [...header, ...body, { type: "divider" as const }];
+    },
     Title: ({ props }) => [
       {
         type: "header",
         text: { type: "plain_text", text: String(props.text), emoji: true },
       },
     ],
-
     Text: ({ props }) => [
       { type: "section", text: { type: "mrkdwn", text: String(props.text) } },
     ],
-
-    Row: ({ props, children }) =>
-      flattenChildren(
-        props.children,
-        children as (id: string, basePath?: string) => unknown[],
-      ) as any,
-
-    Column: ({ props, children }) =>
-      flattenChildren(
-        props.children,
-        children as (id: string, basePath?: string) => unknown[],
-      ) as any,
-
-    DashboardCard: ({ props, children }) => {
-      const header = [
-        `*${String(props.title)}*`,
-        props.subtitle ? `_${String(props.subtitle)}_` : "",
-      ]
-        .filter(Boolean)
-        .join("\n");
-      return [
-        { type: "section", text: { type: "mrkdwn", text: header } },
-        ...(props.child ? children(props.child) : []),
-        { type: "divider" },
-      ];
-    },
-
     Metric: ({ props }) => {
       const trend =
         props.trend && props.trendValue
@@ -210,8 +214,16 @@ export const dashboardRenderers: CatalogRenderers<typeof dashboardDefinitions> =
         },
       ];
     },
-
-    Badge: ({ props }) => {
+    InfoRow: ({ props }) => [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `*${String(props.label)}*: ${String(props.value)}`,
+        },
+      },
+    ],
+    StatusBadge: ({ props }) => {
       const emoji = variantEmoji[props.variant ?? "neutral"] ?? "";
       return [
         {
@@ -222,32 +234,7 @@ export const dashboardRenderers: CatalogRenderers<typeof dashboardDefinitions> =
         },
       ];
     },
-
-    DataTable: ({ props }) => {
-      const cols = (props.columns ?? []) as Array<{
-        key: string;
-        label: string;
-      }>;
-      const rows = (props.rows ?? []) as Array<Record<string, unknown>>;
-      if (cols.length === 0 || rows.length === 0) return [];
-      const widths = cols.map((c) =>
-        Math.max(
-          c.label.length,
-          ...rows.map((r) => String(r[c.key] ?? "").length),
-        ),
-      );
-      const fmt = (vals: string[]) =>
-        vals.map((v, i) => v.padEnd(widths[i]!)).join("  ");
-      const header = fmt(cols.map((c) => c.label));
-      const sep = widths.map((w) => "─".repeat(w)).join("  ");
-      const body = rows.map((r) =>
-        fmt(cols.map((c) => String(r[c.key] ?? ""))),
-      );
-      const text = "```\n" + [header, sep, ...body].join("\n") + "\n```";
-      return [{ type: "section", text: { type: "mrkdwn", text } }];
-    },
-
-    Button: ({ props, context, children, dispatch }) => {
+    PrimaryButton: ({ props, context, children, dispatch }) => {
       let label = "Submit";
       if (props.child) {
         const childBlocks = children(props.child);
@@ -256,9 +243,6 @@ export const dashboardRenderers: CatalogRenderers<typeof dashboardDefinitions> =
         ) as { text: { text: string } } | undefined;
         if (firstSection) label = stripMrkdwn(firstSection.text.text);
       }
-      // `props.action` after binder resolution is `() => void`; reach
-      // into the raw component-model properties to get the encodable
-      // `{ event: { name, context } }` shape.
       const rawAction = context.componentModel.properties["action"] as
         | { event: { name: string; context?: Record<string, unknown> } }
         | undefined;
@@ -267,13 +251,57 @@ export const dashboardRenderers: CatalogRenderers<typeof dashboardDefinitions> =
           type: "button",
           text: { type: "plain_text", text: label, emoji: true },
           action_id: "a2ui:button",
+          style: "primary" as const,
           ...(rawAction && dispatch
             ? { value: dispatch.encodeAction(rawAction) }
             : {}),
-          ...(props.variant === "primary" ? { style: "primary" as const } : {}),
         },
       ];
       return [{ type: "actions", elements }];
+    },
+    PieChart: ({ props }) => {
+      const data = (props.data ?? []) as Array<{
+        label: string;
+        value: number;
+      }>;
+      if (data.length === 0) return [];
+      const total = data.reduce((sum, d) => sum + d.value, 0) || 1;
+      const lines = data
+        .map((d) => {
+          const pct = ((d.value / total) * 100).toFixed(0);
+          return `• *${String(d.label)}*: ${d.value} (${pct}%)`;
+        })
+        .join("\n");
+      return [
+        {
+          type: "section",
+          text: { type: "mrkdwn", text: ":pie:  *Breakdown*\n" + lines },
+        },
+      ];
+    },
+    BarChart: ({ props }) => {
+      const data = (props.data ?? []) as Array<{
+        label: string;
+        value: number;
+      }>;
+      if (data.length === 0) return [];
+      const max = Math.max(...data.map((d) => d.value), 1);
+      // Render as ASCII bar chart in a code block — column-aligned and
+      // readable in Slack.
+      const maxLabelLen = Math.max(...data.map((d) => String(d.label).length));
+      const lines = data
+        .map((d) => {
+          const barWidth = Math.round((d.value / max) * 20);
+          const bar = "█".repeat(barWidth);
+          return `${String(d.label).padEnd(maxLabelLen)}  ${bar.padEnd(20)}  ${d.value}`;
+        })
+        .join("\n");
+      return [
+        {
+          type: "section",
+          text: { type: "mrkdwn", text: "```\n" + lines + "\n```" },
+        },
+      ];
     },
   };
 
