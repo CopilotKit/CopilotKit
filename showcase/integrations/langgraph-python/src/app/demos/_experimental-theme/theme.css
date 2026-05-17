@@ -62,16 +62,17 @@
   --xd-palette-5: #83ff6e;
 
   /* Typography */
-  --xd-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system,
+  --xd-sans:
+    "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system,
     BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --xd-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas,
-    monospace;
+  --xd-mono:
+    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
   /* Shadows */
-  --xd-shadow-card: 0 1px 2px rgba(17, 9, 30, 0.04),
-    0 8px 24px rgba(17, 9, 30, 0.06);
-  --xd-shadow-lift: 0 1px 2px rgba(17, 9, 30, 0.04),
-    0 12px 32px rgba(17, 9, 30, 0.08),
+  --xd-shadow-card:
+    0 1px 2px rgba(17, 9, 30, 0.04), 0 8px 24px rgba(17, 9, 30, 0.06);
+  --xd-shadow-lift:
+    0 1px 2px rgba(17, 9, 30, 0.04), 0 12px 32px rgba(17, 9, 30, 0.08),
     0 32px 64px rgba(110, 107, 255, 0.06);
 }
 
@@ -203,7 +204,9 @@
   font-weight: 500;
   color: var(--xd-fg);
   padding: 5px 11px;
-  transition: background 150ms ease-out, border-color 150ms ease-out;
+  transition:
+    background 150ms ease-out,
+    border-color 150ms ease-out;
 }
 .hd-exp-scope [class*="copilotKitSuggestion"] button:hover,
 .hd-exp-scope [data-slot="suggestion"] button:hover {

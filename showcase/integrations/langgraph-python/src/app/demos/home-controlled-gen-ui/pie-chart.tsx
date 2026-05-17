@@ -37,9 +37,19 @@ const PALETTE = [
 export function PieChart({ title, description, data }: PieChartProps) {
   if (!data || !Array.isArray(data) || data.length === 0) {
     return (
-      <div className="hd-exp-card" style={{ maxWidth: 480, margin: "16px auto" }}>
+      <div
+        className="hd-exp-card"
+        style={{ maxWidth: 480, margin: "16px auto" }}
+      >
         <div className="hd-exp-card-title">{title}</div>
-        <div style={{ fontFamily: "var(--xd-sans)", fontSize: 13, color: "var(--xd-fg-muted)", marginTop: -8 }}>
+        <div
+          style={{
+            fontFamily: "var(--xd-sans)",
+            fontSize: 13,
+            color: "var(--xd-fg-muted)",
+            marginTop: -8,
+          }}
+        >
           {description}
         </div>
         <p
@@ -81,7 +91,14 @@ export function PieChart({ title, description, data }: PieChartProps) {
 
   return (
     <div className="hd-exp-card" style={{ maxWidth: 520, margin: "16px auto" }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          justifyContent: "space-between",
+          marginBottom: 12,
+        }}
+      >
         <div className="hd-exp-card-title" style={{ margin: 0 }}>
           {title}
         </div>
@@ -134,7 +151,9 @@ export function PieChart({ title, description, data }: PieChartProps) {
           ))}
         </svg>
 
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+        <div
+          style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}
+        >
           {data.map((item, index) => {
             const val = Number(item.value) || 0;
             const pct = total > 0 ? ((val / total) * 100).toFixed(0) : 0;
@@ -159,7 +178,15 @@ export function PieChart({ title, description, data }: PieChartProps) {
                     flexShrink: 0,
                   }}
                 />
-                <span style={{ flex: 1, color: "var(--xd-fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span
+                  style={{
+                    flex: 1,
+                    color: "var(--xd-fg)",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
                   {item.label}
                 </span>
                 <span
