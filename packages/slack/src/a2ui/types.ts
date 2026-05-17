@@ -44,10 +44,9 @@ export type CatalogDefinitions = Record<
 >;
 
 /** Infer the props type for a specific component in a definitions record. */
-export type PropsOf<
-  D extends CatalogDefinitions,
-  K extends keyof D,
-> = z.infer<D[K]["props"]>;
+export type PropsOf<D extends CatalogDefinitions, K extends keyof D> = z.infer<
+  D[K]["props"]
+>;
 
 /**
  * Encoded action — a string ≤ 2000 chars suitable for Slack
@@ -123,9 +122,7 @@ export type ComponentRenderer<T = Record<string, unknown>> = (
  * types.
  */
 export type CatalogRenderers<D extends CatalogDefinitions> = {
-  [K in keyof D]: ComponentRenderer<
-    ResolveA2uiProps<z.infer<D[K]["props"]>>
-  >;
+  [K in keyof D]: ComponentRenderer<ResolveA2uiProps<z.infer<D[K]["props"]>>>;
 };
 
 /**
