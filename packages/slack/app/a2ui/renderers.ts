@@ -12,15 +12,11 @@
  * glance in Slack.
  */
 import type { CatalogRenderers } from "../../src/index.js";
-import {
-  flightDefinitions,
-  type FlightDefinitions,
-} from "./definitions.js";
+import { flightDefinitions, type FlightDefinitions } from "./definitions.js";
 
 export const flightRenderers: CatalogRenderers<FlightDefinitions> = {
   // Card { child } — pass-through to the single child.
-  Card: ({ props, children }) =>
-    props.child ? children(props.child) : [],
+  Card: ({ props, children }) => (props.child ? children(props.child) : []),
 
   // Column / Row { children: id[] | template } — flatten children.
   Column: ({ props, children }) => {

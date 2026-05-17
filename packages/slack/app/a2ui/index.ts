@@ -13,17 +13,12 @@
  *       renderActivityMessages: [flightActivityRenderer],
  *     });
  */
-import {
-  createCatalog,
-  createA2UIActivityRenderer,
-} from "../../src/index.js";
+import { createCatalog, createA2UIActivityRenderer } from "../../src/index.js";
 import { flightDefinitions, flightRenderers } from "./renderers.js";
 
-export const flightCatalog = createCatalog(
-  flightDefinitions,
-  flightRenderers,
-  { catalogId: "copilotkit://flight-fixed-catalog" },
-);
+export const flightCatalog = createCatalog(flightDefinitions, flightRenderers, {
+  catalogId: "copilotkit://flight-fixed-catalog",
+});
 
 export const flightActivityRenderer = createA2UIActivityRenderer({
   catalog: flightCatalog,

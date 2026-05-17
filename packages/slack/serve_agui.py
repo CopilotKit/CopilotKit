@@ -43,7 +43,10 @@ if not hasattr(interrupt_graph, "checkpointer") or interrupt_graph.checkpointer 
 # Same requirement for a2ui_fixed: the LangGraphAGUIAgent reads state via
 # `graph.aget_state(config)`, which throws "No checkpointer set" when the
 # graph was built without one.
-if not hasattr(a2ui_fixed_graph, "checkpointer") or a2ui_fixed_graph.checkpointer is None:
+if (
+    not hasattr(a2ui_fixed_graph, "checkpointer")
+    or a2ui_fixed_graph.checkpointer is None
+):
     a2ui_fixed_graph = a2ui_fixed_graph.copy()
     a2ui_fixed_graph.checkpointer = MemorySaver()
 
