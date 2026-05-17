@@ -60,8 +60,19 @@ export {
   DEFAULT_INTERRUPT_EVENT_NAME,
 } from "./interrupt.js";
 
-// A2UI — agent-rendered UI via the A2UI protocol. Definitions are
-// platform-agnostic; the renderers in a Slack catalog return Block Kit
+// Activity messages — the canonical AG-UI primitive for structured
+// non-text agent output. Apps register renderers per `activityType`
+// (with `"*"` as wildcard); A2UI is one well-known activity type that
+// ships with a built-in renderer factory.
+export type { ActivityMessageRenderer } from "./activity-message-renderer.js";
+export {
+  defineActivityMessageRenderer,
+  selectActivityRenderer,
+} from "./activity-message-renderer.js";
+
+// A2UI catalog primitives — used to build the catalog that's passed
+// to `createA2UIActivityRenderer({ catalog })`. Definitions are
+// platform-agnostic; renderers in a Slack catalog return Block Kit
 // blocks instead of React nodes.
 export type {
   Catalog,
@@ -74,5 +85,16 @@ export type {
   ActionPayload,
   EncodedAction,
   CreateCatalogOptions,
+  A2UIComponent,
+  A2UIOperation,
+  SurfaceState,
+  A2UIActivityContent,
+  CreateA2UIActivityRendererOptions,
 } from "./a2ui/index.js";
-export { createCatalog } from "./a2ui/index.js";
+export {
+  createCatalog,
+  applyA2UIOperations,
+  renderA2UISurface,
+  createA2UIActivityRenderer,
+  A2UI_ACTIVITY_TYPE,
+} from "./a2ui/index.js";

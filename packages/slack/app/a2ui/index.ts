@@ -1,11 +1,12 @@
 /**
- * The assembled A2UI catalog for this Slack app.
+ * The assembled A2UI catalog + activity-message renderer for this
+ * Slack app.
  *
  * Wire into the bridge via:
  *
  *     createSlackBridge({
  *       // ...
- *       a2ui: { catalog: dashboardCatalog },
+ *       renderActivityMessages: [dashboardActivityRenderer],
  *     });
  *
  * The `catalogId` here MUST match the `catalog_id` the agent uses in
@@ -14,7 +15,10 @@
  * the URI stable; changing it later breaks any agent prompts that
  * embed the id literally.
  */
-import { createCatalog } from "../../src/index.js";
+import {
+  createCatalog,
+  createA2UIActivityRenderer,
+} from "../../src/index.js";
 import { dashboardDefinitions, dashboardRenderers } from "./renderers.js";
 
 export const dashboardCatalog = createCatalog(
@@ -22,3 +26,7 @@ export const dashboardCatalog = createCatalog(
   dashboardRenderers,
   { catalogId: "copilotkit://app-dashboard-catalog" },
 );
+
+export const dashboardActivityRenderer = createA2UIActivityRenderer({
+  catalog: dashboardCatalog,
+});

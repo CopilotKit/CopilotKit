@@ -23,6 +23,7 @@ import {
   type HumanInTheLoopRegistry,
 } from "./human-in-the-loop.js";
 import type { InterruptHandler } from "./interrupt.js";
+import type { ActivityMessageRenderer } from "./activity-message-renderer.js";
 import type { ConversationKey, IncomingTurn, ReplyTarget } from "./types.js";
 import { DM_SCOPE } from "./types.js";
 
@@ -56,6 +57,12 @@ export interface TurnRunnerConfig {
    * Default: no status rows. See `SlackBridgeConfig.showToolStatus`.
    */
   showToolStatus?: boolean | ReadonlyArray<string>;
+  /**
+   * Renderers for AG-UI activity messages — forwarded to the event
+   * renderer for `onActivitySnapshotEvent` handling. See
+   * `SlackBridgeConfig.renderActivityMessages`.
+   */
+  renderActivityMessages?: ReadonlyArray<ActivityMessageRenderer<any>>;
 }
 
 /**
@@ -163,6 +170,7 @@ export function createTurnRunner(config: TurnRunnerConfig) {
       frontendToolNames,
       interruptEventNames,
       showToolStatus: config.showToolStatus,
+      renderActivityMessages: config.renderActivityMessages,
     });
 
     const entry: InFlightEntry = {

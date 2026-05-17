@@ -18,7 +18,7 @@ import {
   type HumanInTheLoop,
 } from "./human-in-the-loop.js";
 import type { InterruptHandler } from "./interrupt.js";
-import type { Catalog } from "./a2ui/index.js";
+import type { ActivityMessageRenderer } from "./activity-message-renderer.js";
 
 export interface SlackBridgeConfig {
   /** AG-UI agent HTTP endpoint (any AG-UI server: CopilotKit Runtime, LangGraph, custom). */
@@ -93,22 +93,25 @@ export interface SlackBridgeConfig {
    */
   showToolStatus?: boolean | ReadonlyArray<string>;
   /**
-   * A2UI catalog — agent-rendered UI surfaces. The agent emits
-   * `a2ui_operations` (create_surface / update_components /
-   * update_data_model / delete_surface) and the bridge looks up the
-   * matching catalog by `catalogId`, resolves data-model path
-   * bindings, and posts the resulting Block Kit blocks via
-   * `chat.postMessage` (or updates an existing surface message via
-   * `chat.update`).
+   * Renderers for AG-UI **activity messages** — the canonical primitive
+   * for any structured non-text agent output (A2UI surfaces, open
+   * generative UI, custom app-specific activity types, …). Each
+   * renderer is matched against incoming
+   * `ActivityMessage { role: "activity", activityType, content }` by
+   * `activityType` (with `"*"` as wildcard) and, optionally, `agentId`.
    *
-   * The Slack-side equivalent of the React renderer's
-   * `<CopilotKit a2ui={{ catalog }}>`. Mirrors the current web API:
-   * one catalog per bridge. (Multi-catalog support is tracked
-   * upstream — when web grows it, Slack will follow.)
+   * A2UI is one well-known `activityType`. Build a renderer with the
+   * `createA2UIActivityRenderer({ catalog })` helper:
+   *
+   *     renderActivityMessages: [
+   *       createA2UIActivityRenderer({ catalog: dashboardCatalog }),
+   *       // ...custom app-specific activity renderers
+   *     ]
+   *
+   * The Slack-side equivalent of React's
+   * `<CopilotKit renderActivityMessages={[...]}>`.
    */
-  a2ui?: {
-    catalog: Catalog;
-  };
+  renderActivityMessages?: ReadonlyArray<ActivityMessageRenderer<any>>;
 }
 
 export interface SlackBridge {
@@ -198,6 +201,7 @@ export function createSlackBridge(config: SlackBridgeConfig): SlackBridge {
         hitlRegistry,
         interruptHandlers: config.interruptHandlers,
         showToolStatus: config.showToolStatus,
+        renderActivityMessages: config.renderActivityMessages,
       });
       attachSlackListener({ app, store, botUserId, onTurn: runTurn });
 

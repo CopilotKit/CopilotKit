@@ -1,0 +1,122 @@
+import type { KnownBlock } from "@slack/types";
+import { z } from "zod";
+import type { ActivityMessageRenderer } from "../activity-message-renderer.js";
+import type { Catalog, ActionPayload, EncodedAction } from "./types.js";
+import { applyA2UIOperations, type A2UIOperation } from "./surface-state.js";
+import { renderA2UISurface } from "./render.js";
+
+/**
+ * The canonical AG-UI activity type for A2UI surfaces (matches
+ * `A2UIActivityType` in `@ag-ui/a2ui-middleware`).
+ */
+export const A2UI_ACTIVITY_TYPE = "a2ui-surface";
+
+/**
+ * Zod schema for the activity message content the A2UI middleware
+ * emits. Mirrors the wire format:
+ *
+ *   content: { a2ui_operations: A2UIOperation[] }
+ */
+const a2uiOperationSchema = z
+  .object({
+    version: z.string().optional(),
+    createSurface: z
+      .object({
+        surfaceId: z.string(),
+        catalogId: z.string(),
+        theme: z.record(z.unknown()).optional(),
+        attachDataModel: z.boolean().optional(),
+      })
+      .optional(),
+    updateComponents: z
+      .object({
+        surfaceId: z.string(),
+        components: z.array(z.record(z.unknown())),
+      })
+      .optional(),
+    updateDataModel: z
+      .object({
+        surfaceId: z.string(),
+        path: z.string().optional(),
+        value: z.unknown().optional(),
+        data: z.unknown().optional(),
+      })
+      .optional(),
+    deleteSurface: z
+      .object({
+        surfaceId: z.string(),
+      })
+      .optional(),
+  })
+  .passthrough();
+
+const a2uiActivityContentSchema = z.object({
+  a2ui_operations: z.array(a2uiOperationSchema),
+});
+
+export type A2UIActivityContent = z.infer<typeof a2uiActivityContentSchema>;
+
+export interface CreateA2UIActivityRendererOptions {
+  /** Catalog used to render every surface this renderer receives. */
+  catalog: Catalog;
+  /**
+   * Optional encoder for click payloads — packs an `ActionPayload`
+   * into the `button.value` (which Slack caps at 2000 chars). Default:
+   * `JSON.stringify`, which is fine for typical small payloads.
+   *
+   * Renderers that produce very large action contexts should pass a
+   * shorter encoding (e.g. drop the entire `context` and rebuild it
+   * agent-side from the `name` alone, or store the heavy context in
+   * a per-surface registry and pass a short id).
+   */
+  encodeAction?: (action: ActionPayload) => EncodedAction;
+  /**
+   * If set, this renderer only fires for activity messages produced
+   * by the named agent. Useful when the same bridge talks to multiple
+   * agents and you want different catalogs per agent.
+   */
+  agentId?: string;
+}
+
+/**
+ * Build an `ActivityMessageRenderer` for `activityType: "a2ui-surface"`
+ * that drives the given `catalog`.
+ *
+ * Each incoming activity message contains the FULL operation log for
+ * the surfaces it covers (snapshot semantics). We replay the
+ * operations to derive surface state, then walk each surface's
+ * component tree via the catalog renderers, and concatenate the
+ * resulting blocks. Multiple surfaces in one activity message
+ * render as adjacent block groups.
+ *
+ * Click handling: when a button is clicked in Slack, its
+ * `block_actions` event carries the encoded payload. The bridge
+ * decodes it (same machinery as HITL pickers) and dispatches it
+ * back to the agent via `forwardedProps.a2uiAction` — closing the
+ * loop without any special A2UI plumbing on the bridge call path.
+ */
+export function createA2UIActivityRenderer(
+  opts: CreateA2UIActivityRendererOptions,
+): ActivityMessageRenderer<A2UIActivityContent> {
+  const encode =
+    opts.encodeAction ?? ((action: ActionPayload) => JSON.stringify(action));
+
+  return {
+    activityType: A2UI_ACTIVITY_TYPE,
+    agentId: opts.agentId,
+    content: a2uiActivityContentSchema,
+    render({ content }) {
+      const operations = content.a2ui_operations as A2UIOperation[];
+      const surfaces = applyA2UIOperations(operations);
+
+      const blocks: KnownBlock[] = [];
+      for (const surface of surfaces.values()) {
+        // Only render surfaces that target THIS catalog. Mismatched
+        // catalogId surfaces are someone else's problem.
+        if (surface.catalogId !== opts.catalog.catalogId) continue;
+        blocks.push(...renderA2UISurface(surface, opts.catalog, encode));
+      }
+      return blocks;
+    },
+  };
+}

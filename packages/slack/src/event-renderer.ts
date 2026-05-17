@@ -1,10 +1,15 @@
 import type { WebClient } from "@slack/web-api";
 import type { AgentSubscriber } from "@ag-ui/client";
+import type { ActivityMessage } from "@ag-ui/core";
 import { ChunkedMessageStream } from "./chunked-message-stream.js";
 import { markdownToMrkdwn } from "./markdown-to-mrkdwn.js";
 import { autoCloseOpenMarkdown } from "./auto-close-streaming.js";
 import type { CapturedInterrupt } from "./interrupt.js";
 import type { ReplyTarget } from "./types.js";
+import {
+  selectActivityRenderer,
+  type ActivityMessageRenderer,
+} from "./activity-message-renderer.js";
 
 /**
  * The display-transform applied to every streaming chunk before it hits
@@ -93,12 +98,36 @@ export function createSlackEventRenderer(args: {
    * interrupt) can't post two rows for the same logical call.
    */
   showToolStatus?: boolean | ReadonlyArray<string>;
+  /**
+   * Renderers for AG-UI activity messages. The bridge picks one per
+   * incoming `ActivitySnapshotEvent` by `activityType` (with `"*"`
+   * wildcard) and posts the resulting Block Kit blocks. See
+   * `SlackBridgeConfig.renderActivityMessages`.
+   */
+  renderActivityMessages?: ReadonlyArray<ActivityMessageRenderer<any>>;
+  /**
+   * Optional agent identifier used for renderer matching. When a
+   * renderer specifies `agentId`, only activity messages produced
+   * by that agent fire it.
+   */
+  agentId?: string;
 }): SlackEventRendererHandle {
   const { client, target } = args;
   const frontendToolNames = args.frontendToolNames ?? new Set<string>();
   const interruptEventNames =
     args.interruptEventNames ?? new Set<string>(["on_interrupt"]);
   const showToolStatus = args.showToolStatus ?? false;
+  const activityRenderers = args.renderActivityMessages ?? [];
+  const agentId = args.agentId;
+  /**
+   * `activityMessageId → slackMessageTs` for activity messages we've
+   * posted. A subsequent snapshot for the same messageId edits the
+   * existing message instead of posting a new one — that's the
+   * standard "live surface" pattern: the agent emits one activity
+   * message per surface and re-emits snapshots as the surface state
+   * changes.
+   */
+  const activityTs = new Map<string, string>();
   const toolStatusAllowed = (toolCallName: string): boolean => {
     if (frontendToolNames.has(toolCallName)) return false;
     if (showToolStatus === true) return true;
@@ -291,7 +320,79 @@ export function createSlackEventRenderer(args: {
       pendingInterrupt = { eventName: e.name, value };
     },
 
-    // ── 4. Errors ─────────────────────────────────────────────────────
+    // ── 4. Activity messages (A2UI surfaces + any custom activity type) ─
+    async onActivitySnapshotEvent({ event }) {
+      if (aborted) return;
+      if (activityRenderers.length === 0) return;
+      const renderer = selectActivityRenderer(
+        activityRenderers,
+        event.activityType,
+        agentId,
+      );
+      if (!renderer) return;
+
+      // Validate the content payload when the renderer ships a schema.
+      // If parsing fails, log and skip — better than posting a broken
+      // surface (or worse, crashing the run).
+      let content: unknown = event.content;
+      if (renderer.content) {
+        const parsed = renderer.content.safeParse(event.content);
+        if (!parsed.success) {
+          console.warn(
+            "[slack-renderer] activity '%s' content failed schema: %s",
+            event.activityType,
+            parsed.error?.message ?? "unknown error",
+          );
+          return;
+        }
+        content = parsed.data;
+      }
+
+      const activityMessage: ActivityMessage = {
+        id: event.messageId,
+        role: "activity",
+        activityType: event.activityType,
+        content: event.content as Record<string, unknown>,
+      };
+
+      let blocks;
+      try {
+        blocks = renderer.render({
+          activityType: event.activityType,
+          content,
+          message: activityMessage,
+        });
+      } catch (err) {
+        console.error("[slack-renderer] activity render threw:", err);
+        return;
+      }
+      if (!blocks || blocks.length === 0) return;
+
+      const existingTs = activityTs.get(event.messageId);
+      const fallbackText = `[${event.activityType}]`;
+      try {
+        if (existingTs) {
+          await client.chat.update({
+            channel: target.channel,
+            ts: existingTs,
+            text: fallbackText,
+            blocks,
+          });
+        } else {
+          const posted = await client.chat.postMessage({
+            channel: target.channel,
+            thread_ts: target.threadTs,
+            text: fallbackText,
+            blocks,
+          });
+          if (posted.ts) activityTs.set(event.messageId, posted.ts);
+        }
+      } catch (err) {
+        console.error("[slack-renderer] activity post/update failed:", err);
+      }
+    },
+
+    // ── 5. Errors ─────────────────────────────────────────────────────
     async onRunErrorEvent({ event }) {
       // Don't post a warning if we're the ones aborting the run; the
       // `_(interrupted)_` marker on the partial reply is the user-visible
