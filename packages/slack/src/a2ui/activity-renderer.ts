@@ -117,9 +117,7 @@ export function createA2UIActivityRenderer(
   const catalogs: ReadonlyArray<Catalog> = Array.isArray(opts.catalog)
     ? (opts.catalog as ReadonlyArray<Catalog>)
     : [opts.catalog as Catalog];
-  const byId = new Map<string, Catalog>(
-    catalogs.map((c) => [c.catalogId, c]),
-  );
+  const byId = new Map<string, Catalog>(catalogs.map((c) => [c.catalogId, c]));
 
   return {
     activityType: A2UI_ACTIVITY_TYPE,
