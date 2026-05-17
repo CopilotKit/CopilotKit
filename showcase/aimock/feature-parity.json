@@ -394,11 +394,7 @@
     {
       "_comment": "shared-state-read-write — Greet pill. systemMessage array gate (all-present substring match) fires ONLY when every preference is at its INITIAL_PREFERENCES default. (1) 'preferences:\\n- Preferred tone: casual\\n' breaks if name is set (Name line inserts) or tone changes. (2) '- Preferred language: English\\nTailor every response' breaks if language changes or interests are added (Interests line inserts between language and Tailor). Any state change → fixture skips → aimock --provider-gemini proxies to real Gemini for a personalised reply.",
       "match": {
-        "userMessage": "Say hi and introduce yourself.",
-        "systemMessage": [
-          "preferences:\n- Preferred tone: casual\n",
-          "- Preferred language: English\nTailor every response"
-        ]
+        "userMessage": "Say hi and introduce yourself."
       },
       "response": {
         "content": "Hi — I'm your shared-state co-pilot. Your Preferences panel (name, tone, language, interests) is fed to me on every turn, and I jot notes back into the Agent Scratch Pad via set_notes so the UI re-renders. Try setting your name or asking me to remember something."
@@ -407,11 +403,7 @@
     {
       "_comment": "shared-state-read-write — Plan-a-weekend pill. Same default-state gate as the Greet pill.",
       "match": {
-        "userMessage": "Suggest a weekend plan based on my interests.",
-        "systemMessage": [
-          "preferences:\n- Preferred tone: casual\n",
-          "- Preferred language: English\nTailor every response"
-        ]
+        "userMessage": "Suggest a weekend plan based on my interests."
       },
       "response": {
         "content": "A weekend tailored to your interests panel: if you haven't picked any yet, try Cooking + Travel for a market-and-day-trip combo, or Tech + Books for a maker session and a long reading afternoon. Add interests in the Preferences panel and re-ask for a more specific plan."
