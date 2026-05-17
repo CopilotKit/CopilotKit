@@ -467,8 +467,7 @@ export const CASES: E2ECase[] = [
         // post per surface plus a separate text reply, and either
         // ordering is acceptable.
         const allBlocks = raw.flatMap(
-          (m) =>
-            (m["blocks"] as Array<Record<string, any>> | undefined) ?? [],
+          (m) => (m["blocks"] as Array<Record<string, any>> | undefined) ?? [],
         );
         if (allBlocks.length === 0) {
           failures.push(
@@ -529,8 +528,7 @@ export const CASES: E2ECase[] = [
               (b["text"] as { text?: string } | undefined)?.text ?? "",
             ).includes("$289"),
         );
-        if (!price)
-          failures.push("expected a section block containing '$289'");
+        if (!price) failures.push("expected a section block containing '$289'");
 
         // Book-flight button — actions block with a button that has an
         // encoded `value` (set by `dispatch.encodeAction(action)` in the
@@ -542,9 +540,7 @@ export const CASES: E2ECase[] = [
         ).find(
           (e) =>
             e["type"] === "button" &&
-            String(
-              (e["text"] as { text?: string } | undefined)?.text ?? "",
-            )
+            String((e["text"] as { text?: string } | undefined)?.text ?? "")
               .toLowerCase()
               .includes("book"),
         );
