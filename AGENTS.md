@@ -23,6 +23,7 @@ AI agent framework with three layers: **Frontend** (React/Angular/Vanilla) → *
 - **Flat package structure** — All packages live under `packages/` with the `@copilotkit/` scope. Some packages have `v1/` and `v2/` internal directories for backward compatibility, but they're a single published package.
 - **Simplicity** — prefer the simplest correct solution. For non-trivial changes, consider if there's a cleaner approach before committing.
 - **Worktrees** — always work in a git worktree for isolation. See [Git & PRs](.claude/docs/git.md) for the full workflow.
+- **Commit as you go** — every meaningful unit of work gets its own commit, pushed immediately. Don't let untracked files accumulate across a session. Tests belong in the commit that introduces the code being tested. Full rules in [Git & PRs](.claude/docs/git.md#commit-early-and-often-in-logical-chunks).
 
 ## Private Agent Instructions
 
