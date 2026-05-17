@@ -73,3 +73,7 @@ release-notes-notion.json
 *.lib
 *.wasm
 tasks/
+
+# Transient session artifacts
+.playwright-mcp/
+.claude/scheduled_tasks.lock
