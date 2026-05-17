@@ -1,8 +1,4 @@
-import type {
-  Catalog,
-  CatalogDefinitions,
-  CatalogRenderers,
-} from "./types.js";
+import type { Catalog, CatalogDefinitions, CatalogRenderers } from "./types.js";
 
 const DEFAULT_CATALOG_ID = "copilotkit://slack-catalog";
 
