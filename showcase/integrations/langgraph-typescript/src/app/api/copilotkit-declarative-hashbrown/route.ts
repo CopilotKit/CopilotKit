@@ -1,15 +1,12 @@
-// Dedicated runtime for the byoc-hashbrown demo (Wave 4a).
+// Dedicated runtime for the declarative-hashbrown demo.
 //
-// The demo page (`src/app/demos/byoc-hashbrown/page.tsx`) wraps CopilotChat
-// in the HashBrownDashboard provider and overrides the assistant message
-// slot with a renderer that consumes hashbrown-shaped structured output via
-// `@hashbrownai/react`'s `useUiKit` + `useJsonParser`. The agent behind this
-// endpoint (`byoc_hashbrown_agent`) has a system prompt tuned to emit that
-// shape — see `src/agents/byoc_hashbrown_agent.py`.
-//
-// Reference:
-// - src/app/api/copilotkit-a2ui-fixed-schema/route.ts (topology this mirrors)
-// - src/agents/byoc_hashbrown_agent.py (the backend graph)
+// The demo page (`src/app/demos/declarative-hashbrown/page.tsx`) wraps
+// CopilotChat in the HashBrownDashboard provider and overrides the assistant
+// message slot with a renderer that consumes hashbrown-shaped structured
+// output via `@hashbrownai/react`'s `useUiKit` + `useJsonParser`. The
+// agent behind this endpoint uses the `byoc_hashbrown` graph (the internal
+// graph ID retains the legacy name; only the user-facing slug, route, and
+// frontend folder were renamed).
 
 import { NextRequest, NextResponse } from "next/server";
 import {
@@ -30,13 +27,13 @@ const byocHashbrownAgent = new LangGraphAgent({
 
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
-  agents: { "byoc-hashbrown-demo": byocHashbrownAgent },
+  agents: { "declarative-hashbrown-demo": byocHashbrownAgent },
 });
 
 export const POST = async (req: NextRequest) => {
   try {
     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-byoc-hashbrown",
+      endpoint: "/api/copilotkit-declarative-hashbrown",
       serviceAdapter: new ExperimentalEmptyAdapter(),
       runtime,
     });

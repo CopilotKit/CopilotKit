@@ -1,16 +1,16 @@
 "use client";
 
 /**
- * BYOC json-render demo.
+ * declarative-json-render demo.
  *
  * Scenario: user asks for a sales-dashboard-style UI; the LangGraph agent
  * emits a JSON spec shaped like `{ root, elements }`, and `@json-render/react`
  * renders it against a Zod-validated catalog of three components
  * (MetricCard, BarChart, PieChart).
  *
- * Structurally mirrors Wave 4a's hashbrown demo so the two dashboard rows
- * are directly comparable — the only substantive difference is the message
- * renderer (this file swaps in `JsonRenderAssistantMessage`).
+ * Structurally mirrors the declarative-hashbrown demo so the two dashboard
+ * rows are directly comparable -- the only substantive difference is the
+ * message renderer (this file swaps in `JsonRenderAssistantMessage`).
  */
 
 import React from "react";
@@ -27,7 +27,7 @@ const AGENT_ID = "byoc_json_render";
 
 export default function ByocJsonRenderDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit-byoc-json-render" agent={AGENT_ID}>
+    <CopilotKit runtimeUrl="/api/copilotkit-declarative-json-render" agent={AGENT_ID}>
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />
@@ -48,7 +48,7 @@ function Chat() {
 
   // `messageView.assistantMessage` replaces CopilotChat's default assistant
   // bubble. The cast mirrors the pattern used in `demos/chat-slots/page.tsx`
-  // — the slot's prop shape is identical to `CopilotChatAssistantMessage`'s,
+  // -- the slot's prop shape is identical to `CopilotChatAssistantMessage`'s,
   // but TypeScript can't prove that through the WithSlots indirection.
   const messageView = {
     assistantMessage:

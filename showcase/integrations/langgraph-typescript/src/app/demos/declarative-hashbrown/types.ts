@@ -1,5 +1,5 @@
 /**
- * Local types for the byoc-hashbrown demo (Wave 4a).
+ * Local types for the declarative-hashbrown demo.
  *
  * Ported subset from showcase/starters/template/frontend/types.ts — only the
  * domain types the hashbrown renderer's DealCard needs.

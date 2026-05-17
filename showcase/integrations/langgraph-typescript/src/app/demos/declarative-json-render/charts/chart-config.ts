@@ -1,7 +1,7 @@
 /**
  * CopilotKit brand chart palette — Plus Jakarta Sans / brand color system.
  * Ported from `showcase/starters/template/frontend/components/charts/chart-config.ts`
- * to keep the byoc-json-render demo self-contained (per spec decision: each demo
+ * to keep the declarative-json-render demo self-contained (per spec decision: each demo
  * maintains its own catalog component copies).
  */
 export const CHART_COLORS = [

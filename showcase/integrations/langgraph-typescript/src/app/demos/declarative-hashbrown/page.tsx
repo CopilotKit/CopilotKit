@@ -1,13 +1,13 @@
 "use client";
 
 /**
- * byoc-hashbrown demo page (Wave 4a).
+ * declarative-hashbrown demo page.
  *
  * Dedicated single-mode demo that ports the starter's hashbrown renderer
- * onto a langgraph-python agent. Streaming structured output from the agent
- * (`byoc_hashbrown_agent`) is parsed progressively by `@hashbrownai/react`'s
- * `useJsonParser` + `useUiKit` and rendered with MetricCard + PieChart +
- * BarChart from `./charts/`.
+ * onto a langgraph-typescript agent. Streaming structured output from the
+ * agent (`byoc_hashbrown` graph) is parsed progressively by
+ * `@hashbrownai/react`'s `useJsonParser` + `useUiKit` and rendered with
+ * MetricCard + PieChart + BarChart from `./charts/`.
  *
  * Layout:
  * - Header with title + short description.
@@ -16,8 +16,8 @@
  * - Assistant messages are routed through `HashBrownAssistantMessage` via
  *   `<CopilotChat messageView={{ assistantMessage: ... }} />`.
  *
- * Runtime: dedicated endpoint `/api/copilotkit-byoc-hashbrown` with its own
- * agent — no bleed into the default runtime.
+ * Runtime: dedicated endpoint `/api/copilotkit-declarative-hashbrown` with
+ * its own agent -- no bleed into the default runtime.
  */
 
 import React from "react";
@@ -36,16 +36,16 @@ import { BYOC_HASHBROWN_SUGGESTIONS } from "./suggestions";
 export default function ByocHashbrownDemoPage() {
   return (
     <CopilotKit
-      runtimeUrl="/api/copilotkit-byoc-hashbrown"
-      agent="byoc-hashbrown-demo"
+      runtimeUrl="/api/copilotkit-declarative-hashbrown"
+      agent="declarative-hashbrown-demo"
     >
       <HashBrownDashboard>
         <div className="flex h-screen flex-col gap-3 p-6">
           <header>
-            <h1 className="text-lg font-semibold">BYOC: Hashbrown</h1>
+            <h1 className="text-lg font-semibold">Declarative UI: Hashbrown</h1>
             <p className="text-sm text-[var(--muted-foreground)]">
               Streaming structured output via <code>@hashbrownai/react</code>.
-              The agent emits a catalog- constrained UI envelope that renders
+              The agent emits a catalog-constrained UI envelope that renders
               progressively as data streams.
             </p>
           </header>
@@ -66,9 +66,9 @@ function ChatBody() {
     suggestions: BYOC_HASHBROWN_SUGGESTIONS.map((s) => ({
       title: s.label,
       message: s.prompt,
-      // E2E testid-friendly class — Playwright targets visible text, but we
+      // E2E testid-friendly class -- Playwright targets visible text, but we
       // keep a class hook in case we need finer-grained selectors later.
-      className: `byoc-hashbrown-suggestion-${s.label
+      className: `declarative-hashbrown-suggestion-${s.label
         .toLowerCase()
         .replace(/\s+/g, "-")}`,
     })),
@@ -87,7 +87,7 @@ function ChatBody() {
       messageView={{
         // `HashBrownMessage` matches the RenderMessage slot shape ({ message })
         // but the v2 assistantMessage slot expects CopilotChatAssistantMessage's
-        // wider props. The cast is intentional — the renderer reads only
+        // wider props. The cast is intentional -- the renderer reads only
         // `message`, exactly like the starter's page does with `RenderMessage`
         // on CopilotSidebar.
         assistantMessage:

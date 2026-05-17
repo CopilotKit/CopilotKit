@@ -1,5 +1,5 @@
 /**
- * json-render catalog for the byoc-json-render demo.
+ * json-render catalog for the declarative-json-render demo.
  *
  * We reuse the prebuilt React schema exposed by `@json-render/react/schema`
  * (flat element tree: `{ root, elements }`) rather than defining our own,

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * HashBrown message renderer for the byoc-hashbrown demo (Wave 4a).
+ * HashBrown message renderer for the declarative-hashbrown demo.
  *
  * Ported from showcase/starters/template/frontend/components/renderers/hashbrown/index.tsx
  * with these adjustments:
@@ -29,7 +29,7 @@
  * The `useUiKit({ examples: ... })` `<ui>` JSX is hashbrown's prompt DSL used
  * when hashbrown drives the LLM directly (e.g. `useUiChat`). Because this
  * demo drives the LLM via langgraph, the backend agent
- * (`src/agents/byoc_hashbrown_agent.py`) is responsible for emitting the JSON
+ * (`src/agent/byoc-hashbrown.ts`) is responsible for emitting the JSON
  * shape shown above.
  *
  * Consume the renderer like this in a page:

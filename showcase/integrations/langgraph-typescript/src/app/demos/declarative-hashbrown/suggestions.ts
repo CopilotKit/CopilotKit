@@ -1,5 +1,5 @@
 /**
- * Pre-seeded suggestion prompts for the byoc-hashbrown demo (Wave 4a).
+ * Pre-seeded suggestion prompts for the declarative-hashbrown demo.
  *
  * Each prompt is tuned to steer the agent toward emitting hashbrown-shaped
  * structured output that the ported renderer (MetricCard + PieChart +

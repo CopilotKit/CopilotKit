@@ -4,7 +4,7 @@
  * Custom `messageView.assistantMessage` slot that renders the agent's
  * structured-JSON output through `@json-render/react`.
  *
- * The langgraph-python `byoc_json_render_agent` emits a single JSON object
+ * The `byoc_json_render` agent emits a single JSON object
  * shaped like `@json-render/react`'s flat spec format:
  *
  * ```json

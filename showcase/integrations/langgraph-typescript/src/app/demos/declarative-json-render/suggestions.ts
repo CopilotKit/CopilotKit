@@ -1,5 +1,5 @@
 /**
- * Suggestion prompts for the byoc-json-render demo.
+ * Suggestion prompts for the declarative-json-render demo.
  *
  * These match Wave 4a's (hashbrown) prompts verbatim so the two demos
  * can be compared side-by-side in the dashboard.

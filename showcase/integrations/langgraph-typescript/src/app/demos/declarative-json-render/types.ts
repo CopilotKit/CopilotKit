@@ -1,5 +1,5 @@
 /**
- * Shared types for the byoc-json-render demo catalog.
+ * Shared types for the declarative-json-render demo catalog.
  *
  * The catalog mirrors Wave 4a's (hashbrown) dashboard shapes so the two
  * BYOC demos are directly comparable; the difference is purely in the

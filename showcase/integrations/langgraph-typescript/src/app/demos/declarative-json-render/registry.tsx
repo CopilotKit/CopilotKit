@@ -1,5 +1,5 @@
 /**
- * Bridges the byoc-json-render catalog to concrete React components.
+ * Bridges the declarative-json-render catalog to concrete React components.
  *
  * `defineRegistry` returns a `registry` object that `@json-render/react`'s
  * `<Renderer />` consumes. Each entry is a component function receiving
