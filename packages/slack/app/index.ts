@@ -19,7 +19,7 @@ import { appContext } from "./context/app-context.js";
 import { appComponents } from "./components/index.js";
 import { appHitl } from "./human-in-the-loop/index.js";
 import { appInterruptHandlers } from "./interrupts/index.js";
-import { flightActivityRenderer } from "./a2ui/index.js";
+import { a2uiActivityRenderer, a2uiSchema } from "./a2ui/index.js";
 
 const required = (name: string): string => {
   const v = process.env[name];
@@ -42,7 +42,11 @@ async function main() {
     // `defaultSlackContext` ships tagging/mrkdwn/thread-model guidance.
     // Spread both, then add anything app-specific on top.
     tools: [...defaultSlackTools, ...appTools],
-    context: [...defaultSlackContext, ...appContext],
+    // Spread `a2uiSchema` so the agent's secondary LLM (dynamic A2UI
+    // mode) sees the catalog: component names, prop schemas,
+    // descriptions. Required to drive dynamic surfaces; harmless for
+    // fixed-schema agents (they ignore it).
+    context: [...defaultSlackContext, a2uiSchema, ...appContext],
     // Agent-renderable Block Kit components (the Slack equivalent of
     // React's `useComponent`). The bridge auto-converts each to a
     // frontend tool whose `execute` posts the rendered blocks.
@@ -61,9 +65,11 @@ async function main() {
     // Activity-message renderers — agent emits AG-UI ActivityMessages
     // (e.g. `activityType: "a2ui-surface"`); the bridge looks up a
     // matching renderer and posts the resulting Block Kit blocks.
-    // A2UI is one well-known activity type; build a renderer for it
-    // with `createA2UIActivityRenderer({ catalog })` (see app/a2ui/).
-    renderActivityMessages: [flightActivityRenderer],
+    // A2UI is one well-known activity type; a single
+    // `createA2UIActivityRenderer({ catalog: [...] })` can drive
+    // multiple A2UI catalogs (fixed flight + dynamic dashboard)
+    // routed by `catalogId`. See `app/a2ui/index.ts`.
+    renderActivityMessages: [a2uiActivityRenderer],
   });
 
   await bridge.start();

@@ -30,3 +30,7 @@ export type {
   A2UIActivityContent,
   CreateA2UIActivityRendererOptions,
 } from "./activity-renderer.js";
+export {
+  a2uiSchemaContext,
+  A2UI_SCHEMA_CONTEXT_DESCRIPTION,
+} from "./schema-context.js";

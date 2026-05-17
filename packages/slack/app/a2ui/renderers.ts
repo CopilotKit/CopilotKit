@@ -11,7 +11,7 @@
  * surface ends up as ~4-5 section blocks the user can read at a
  * glance in Slack.
  */
-import type { CatalogRenderers } from "../../src/index.js";
+import { createCatalog, type CatalogRenderers } from "../../src/index.js";
 import { flightDefinitions, type FlightDefinitions } from "./definitions.js";
 
 export const flightRenderers: CatalogRenderers<FlightDefinitions> = {
@@ -120,3 +120,11 @@ function stripMrkdwn(s: string): string {
 }
 
 export { flightDefinitions };
+
+export const flightCatalog = createCatalog(
+  flightDefinitions,
+  flightRenderers,
+  // catalogId must match CATALOG_ID in
+  // `packages/slack/agent/src/agents/a2ui_fixed.py`.
+  { catalogId: "copilotkit://flight-fixed-catalog" },
+);

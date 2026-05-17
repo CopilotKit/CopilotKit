@@ -99,4 +99,6 @@ export {
   defaultEncodeUserAction,
   createA2UIActivityRenderer,
   A2UI_ACTIVITY_TYPE,
+  a2uiSchemaContext,
+  A2UI_SCHEMA_CONTEXT_DESCRIPTION,
 } from "./a2ui/index.js";
