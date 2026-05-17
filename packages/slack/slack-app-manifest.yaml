@@ -1,0 +1,56 @@
+display_information:
+  name: CopilotKit AG-UI Bot
+  description: Bridges Slack to any AG-UI agent (CopilotKit Runtime, LangGraph, etc.)
+  background_color: "#1a1a1a"
+features:
+  bot_user:
+    display_name: CopilotKit AG-UI Bot
+    always_online: true
+  slash_commands:
+    - command: /agent
+      description: Talk to the AG-UI agent from any channel
+      usage_hint: "<your message>"
+      should_escape: false
+oauth_config:
+  scopes:
+    bot:
+      # --- Read what the user said ---
+      - app_mentions:read       # see @mentions of the bot
+      - channels:history        # read messages in public channels bot is in
+      - groups:history          # read messages in private channels bot is in
+      - im:history              # read DMs
+      - mpim:history            # read group DMs
+      - channels:read           # list/lookup public channels (names, members)
+      - groups:read             # list/lookup private channels
+      - im:read                 # list DMs
+      - mpim:read               # list group DMs
+      - users:read              # resolve user IDs to names for context
+      - team:read               # workspace info
+      # --- Write replies and generative UI ---
+      - chat:write              # post and edit messages in channels bot is in
+      - chat:write.public       # post in channels bot isn't a member of
+      - chat:write.customize    # per-message username/icon (handy for branding)
+      - im:write                # open DMs
+      - mpim:write              # open group DMs
+      - reactions:read
+      - reactions:write         # 👀 / ✅ reactions as "thinking" / "done" affordance
+      # --- Files (for future image/file passing) ---
+      - files:read
+      - files:write
+      # --- Bot can join channels on its own ---
+      - channels:join
+      # --- Slash commands ---
+      - commands
+      # --- Optional: enables Slack's AI Assistant UI surface (future) ---
+      - assistant:write
+settings:
+  event_subscriptions:
+    bot_events:
+      - app_mention
+      - message.im              # DMs to the bot (for later, when we add DM flow)
+      - assistant_thread_started # for the AI Assistant UI surface (future)
+  interactivity:
+    is_enabled: true
+  socket_mode_enabled: true
+  org_deploy_enabled: false
+  token_rotation_enabled: false

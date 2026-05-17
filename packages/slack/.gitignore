@@ -1,0 +1,19 @@
+dist
+node_modules
+.env
+.env.local
+
+# E2E harness artifacts
+e2e/.chrome-profile
+e2e/results
+state.db
+state.db-shm
+state.db-wal
+
+# Agent (copied showcase) build artifacts
+agent/node_modules
+agent/.next
+agent/.venv
+agent/.turbo
+agent/__pycache__
+agent/**/__pycache__
