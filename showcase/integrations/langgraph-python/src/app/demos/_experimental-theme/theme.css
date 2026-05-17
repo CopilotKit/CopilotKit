@@ -1,0 +1,260 @@
+/* Experimental Design — "lavender glass" theme for the homepage-tier
+ * CopilotKit demos.
+ *
+ * Mirrors the experimental-design language used on the website
+ * (copilotkit-ui-theme-experimental skill + the homepage dojo at
+ * src/app/(default)/homepage-dojo on CopilotKit/website). When these
+ * showcase demos are iframe-embedded in the dojo's preview pane, the
+ * inside of the iframe matches the outside.
+ *
+ * Vocabulary:
+ *   • Plus Jakarta Sans — body + headlines
+ *   • JetBrains Mono — eyebrows, stats, monospace
+ *   • Hard 3-4px corners (never pill, except chat suggestions which are
+ *     intentionally pills)
+ *   • Lavender glass cards on a lavender-tinted lavender background
+ *   • Single accent purple (#6E6BFF) used sparingly
+ *
+ * All selectors are scoped under `.hd-exp-scope` so this stylesheet
+ * cannot leak into the rest of the showcase. Each home-* demo wraps its
+ * <CopilotChat> in <div className="hd-exp-scope">.
+ *
+ * Layered like chat-customization-css/theme.css:
+ *   1. Palette tokens on the scope
+ *   2. v2 token overrides on `.hd-exp-scope [data-copilotkit]`
+ *   3. Class-targeted rules for the editorial details
+ */
+
+/* ─── Fonts ──────────────────────────────────────────────────────── */
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+/* ─── Palette + design tokens ────────────────────────────────────── */
+.hd-exp-scope {
+  /* Backgrounds — atmospheric lavender wash */
+  --xd-bg: #f1ecff;
+  --xd-bg-soft: #ebe5fa;
+  --xd-bg-elevated: rgba(255, 255, 255, 0.62);
+  --xd-bg-card: #ffffff;
+
+  /* Foreground */
+  --xd-fg: #11091e;
+  --xd-fg-soft: #2a2240;
+  --xd-fg-muted: #5d5870;
+  --xd-fg-subtle: #8b87a1;
+
+  /* Borders */
+  --xd-border: rgba(17, 9, 30, 0.1);
+  --xd-border-soft: rgba(17, 9, 30, 0.06);
+  --xd-border-white: rgba(255, 255, 255, 0.85);
+
+  /* Accent — single brand purple, used sparingly */
+  --xd-accent: #6e6bff;
+  --xd-accent-soft: rgba(110, 107, 255, 0.1);
+  --xd-accent-softer: rgba(110, 107, 255, 0.05);
+  --xd-accent-deep: #3f3cc4;
+
+  /* Diagrammatic palette (used by themed renderers — pie slices, etc.) */
+  --xd-palette-0: #6e6bff;
+  --xd-palette-1: #a78bfa;
+  --xd-palette-2: #87ead1;
+  --xd-palette-3: #f4a3ff;
+  --xd-palette-4: #ffc785;
+  --xd-palette-5: #83ff6e;
+
+  /* Typography */
+  --xd-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --xd-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas,
+    monospace;
+
+  /* Shadows */
+  --xd-shadow-card: 0 1px 2px rgba(17, 9, 30, 0.04),
+    0 8px 24px rgba(17, 9, 30, 0.06);
+  --xd-shadow-lift: 0 1px 2px rgba(17, 9, 30, 0.04),
+    0 12px 32px rgba(17, 9, 30, 0.08),
+    0 32px 64px rgba(110, 107, 255, 0.06);
+}
+
+/* ─── v2 token overrides — automatically retint every utility class ── */
+.hd-exp-scope [data-copilotkit] {
+  --background: var(--xd-bg);
+  --foreground: var(--xd-fg);
+  --card: var(--xd-bg-card);
+  --card-foreground: var(--xd-fg);
+  --popover: var(--xd-bg-card);
+  --popover-foreground: var(--xd-fg);
+  --primary: var(--xd-accent);
+  --primary-foreground: #ffffff;
+  --secondary: var(--xd-accent-soft);
+  --secondary-foreground: var(--xd-accent-deep);
+  --muted: var(--xd-bg-soft);
+  --muted-foreground: var(--xd-fg-muted);
+  --accent: var(--xd-accent-soft);
+  --accent-foreground: var(--xd-accent-deep);
+  --destructive: #d1495b;
+  --destructive-foreground: #ffffff;
+  --border: var(--xd-border);
+  --input: var(--xd-border);
+  --ring: var(--xd-accent);
+  --radius: 3px;
+}
+
+/* ─── Outer chat shell — atmospheric lavender + soft blobs ───────── */
+.hd-exp-scope {
+  position: relative;
+  font-family: var(--xd-sans);
+  color: var(--xd-fg);
+  background: var(--xd-bg);
+  /* Soft radial blobs evoke the homepage's gradient atmosphere. */
+  background-image:
+    radial-gradient(
+      ellipse 60% 50% at 18% 12%,
+      rgba(110, 107, 255, 0.12) 0%,
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 50% 45% at 88% 22%,
+      rgba(244, 163, 255, 0.1) 0%,
+      transparent 65%
+    ),
+    radial-gradient(
+      ellipse 70% 60% at 50% 110%,
+      rgba(135, 234, 209, 0.1) 0%,
+      transparent 70%
+    );
+  overflow: hidden;
+}
+
+.hd-exp-scope .copilotKitChat {
+  font-family: var(--xd-sans);
+  color: var(--xd-fg);
+  background-color: transparent;
+}
+
+/* ─── Welcome screen / empty state ───────────────────────────────── */
+.hd-exp-scope .copilotKitChat h1,
+.hd-exp-scope .copilotKitChat h2,
+.hd-exp-scope .copilotKitChat h3 {
+  font-family: var(--xd-sans);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--xd-fg);
+}
+
+/* ─── Messages — user (filled purple) + assistant (white glass) ───── */
+.hd-exp-scope .copilotKitMessage {
+  font-family: var(--xd-sans);
+  font-size: 14px;
+  line-height: 1.55;
+  letter-spacing: -0.005em;
+}
+.hd-exp-scope .copilotKitMessage.copilotKitUserMessage {
+  background: var(--xd-fg);
+  color: #ffffff;
+  border-radius: 3px;
+  font-weight: 500;
+}
+.hd-exp-scope .copilotKitAssistantMessage {
+  color: var(--xd-fg);
+}
+
+/* Prose inside messages — body copy uses the same humanist sans. */
+.hd-exp-scope .copilotKitMessage p,
+.hd-exp-scope .copilotKitMessage li,
+.hd-exp-scope .copilotKitMessage span {
+  font-family: var(--xd-sans);
+}
+.hd-exp-scope .copilotKitMessage code,
+.hd-exp-scope .copilotKitMessage pre {
+  font-family: var(--xd-mono);
+  font-size: 12.5px;
+  background: var(--xd-bg-soft);
+  border-radius: 3px;
+}
+
+/* ─── Input bar — white-glass with hard corners ──────────────────── */
+.hd-exp-scope .copilotKitInput {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--xd-border);
+  border-radius: 4px;
+  box-shadow: var(--xd-shadow-card);
+  backdrop-filter: blur(8px);
+  font-family: var(--xd-sans);
+}
+.hd-exp-scope .copilotKitInput textarea,
+.hd-exp-scope .copilotKitInput input {
+  font-family: var(--xd-sans);
+  font-size: 14px;
+  color: var(--xd-fg);
+}
+.hd-exp-scope .copilotKitInput textarea::placeholder,
+.hd-exp-scope .copilotKitInput input::placeholder {
+  color: var(--xd-fg-subtle);
+}
+
+/* ─── Suggestion pills — intentionally rounded (pills are pills) ──── */
+.hd-exp-scope [class*="copilotKitSuggestion"] button,
+.hd-exp-scope [data-slot="suggestion"] button {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--xd-border);
+  border-radius: 999px;
+  font-family: var(--xd-sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--xd-fg);
+  padding: 5px 11px;
+  transition: background 150ms ease-out, border-color 150ms ease-out;
+}
+.hd-exp-scope [class*="copilotKitSuggestion"] button:hover,
+.hd-exp-scope [data-slot="suggestion"] button:hover {
+  background: #ffffff;
+  border-color: var(--xd-fg-subtle);
+}
+
+/* ─── Buttons (default chat buttons) — hard-corner discipline ────── */
+.hd-exp-scope .copilotKitChat button[class*="cpk:bg-primary"],
+.hd-exp-scope .copilotKitChat button[class*="cpk:rounded"] {
+  border-radius: 3px;
+}
+
+/* ─── Scrollbar ───────────────────────────────────────────────────── */
+.hd-exp-scope ::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+.hd-exp-scope ::-webkit-scrollbar-thumb {
+  background: var(--xd-border);
+  border-radius: 99px;
+}
+.hd-exp-scope ::-webkit-scrollbar-thumb:hover {
+  background: var(--xd-fg-subtle);
+}
+
+/* ─── Eyebrow / monospace label helper (used by themed renderers) ── */
+.hd-exp-eyebrow {
+  font-family: var(--xd-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--xd-fg-muted);
+}
+
+/* ─── Card helper used by themed gen-ui renderers ─────────────────── */
+.hd-exp-card {
+  background: var(--xd-bg-card);
+  border: 1px solid var(--xd-border);
+  border-radius: 4px;
+  box-shadow: var(--xd-shadow-card);
+  padding: 18px 20px;
+  font-family: var(--xd-sans);
+  color: var(--xd-fg);
+}
+.hd-exp-card-title {
+  font-family: var(--xd-sans);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--xd-fg);
+  margin: 0 0 12px;
+}

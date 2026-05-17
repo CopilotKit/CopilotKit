@@ -573,7 +573,7 @@ demos:
   # homepage dojo (src/app/(default)/homepage-dojo on CopilotKit/website).
   - id: home-basic-chat
     name: "Homepage: Basic Chat"
-    description: The bare-minimum CopilotChat surface — reuses the agentic_chat graph; no suggestions, no theming, no layout wrapper
+    description: The bare-minimum CopilotChat surface — reuses the agentic_chat graph; visually re-skinned with the experimental "lavender glass" theme
     tags:
       - chat-ui
       - homepage
@@ -582,10 +582,11 @@ demos:
     highlight:
       - src/agents/agentic_chat.py
       - src/app/demos/home-basic-chat/page.tsx
+      - src/app/demos/_experimental-theme/theme.css
       - src/app/api/copilotkit/route.ts
   - id: home-controlled-gen-ui
     name: "Homepage: Controlled Gen UI"
-    description: Bare-minimum useComponent registration — reuses the gen_ui_tool_based graph + the existing pie-chart renderer; no suggestions, no extra components
+    description: Bare-minimum useComponent registration — reuses the gen_ui_tool_based graph; ships an experimental-themed PieChart with the lavender-glass palette
     tags:
       - generative-ui
       - homepage
@@ -594,11 +595,12 @@ demos:
     highlight:
       - src/agents/gen_ui_tool_based.py
       - src/app/demos/home-controlled-gen-ui/page.tsx
-      - src/app/demos/gen-ui-tool-based/pie-chart.tsx
+      - src/app/demos/home-controlled-gen-ui/pie-chart.tsx
+      - src/app/demos/_experimental-theme/theme.css
       - src/app/api/copilotkit/route.ts
   - id: home-declarative-gen-ui
     name: "Homepage: Declarative Gen UI"
-    description: Bare-minimum A2UI catalog wiring — reuses the a2ui_dynamic graph + the existing catalog; no suggestions, no layout
+    description: Bare-minimum A2UI catalog wiring — reuses the a2ui_dynamic graph + the existing catalog; chat shell carries the experimental "lavender glass" theme
     tags:
       - generative-ui
       - homepage
@@ -608,10 +610,11 @@ demos:
       - src/agents/a2ui_dynamic.py
       - src/app/demos/home-declarative-gen-ui/page.tsx
       - src/app/demos/declarative-gen-ui/a2ui/catalog.ts
+      - src/app/demos/_experimental-theme/theme.css
       - src/app/api/copilotkit-declarative-gen-ui/route.ts
   - id: home-shared-state
     name: "Homepage: Shared State"
-    description: Bare-minimum useAgent + setState — reuses the shared_state_read_write graph; no preferences card, no layout
+    description: Bare-minimum useAgent + setState — reuses the shared_state_read_write graph; side panel + chat shell carry the experimental "lavender glass" theme
     tags:
       - agent-state
       - homepage
@@ -620,10 +623,11 @@ demos:
     highlight:
       - src/agents/shared_state_read_write.py
       - src/app/demos/home-shared-state/page.tsx
+      - src/app/demos/_experimental-theme/theme.css
       - src/app/api/copilotkit/route.ts
   - id: home-mcp-apps
     name: "Homepage: MCP Apps"
-    description: Bare-minimum MCPApps provider wiring — reuses the mcp-apps runtime; just <CopilotChat />
+    description: Bare-minimum MCPApps provider wiring — reuses the mcp-apps runtime; chat shell carries the experimental "lavender glass" theme
     tags:
       - generative-ui
       - homepage
@@ -631,10 +635,11 @@ demos:
     animated_preview_url:
     highlight:
       - src/app/demos/home-mcp-apps/page.tsx
+      - src/app/demos/_experimental-theme/theme.css
       - src/app/api/copilotkit-mcp-apps/route.ts
   - id: home-open-gen-ui
     name: "Homepage: Open Ended Gen UI"
-    description: Bare-minimum openGenerativeUI wiring — reuses the open-gen-ui runtime; no custom design skill, no extra layout
+    description: Bare-minimum openGenerativeUI wiring — reuses the open-gen-ui runtime; chat shell carries the experimental "lavender glass" theme
     tags:
       - generative-ui
       - homepage
@@ -642,4 +647,5 @@ demos:
     animated_preview_url:
     highlight:
       - src/app/demos/home-open-gen-ui/page.tsx
+      - src/app/demos/_experimental-theme/theme.css
       - src/app/api/copilotkit-ogui/route.ts

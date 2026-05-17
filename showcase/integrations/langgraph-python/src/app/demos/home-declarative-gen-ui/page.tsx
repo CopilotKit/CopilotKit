@@ -1,23 +1,23 @@
 "use client";
 
 /**
- * Homepage: Declarative Gen UI — bare-minimum A2UI catalog wiring.
+ * Homepage: Declarative Gen UI — bare-minimum A2UI catalog wiring,
+ * styled in the experimental "lavender glass" design language.
  *
  * Reuses the `declarative-gen-ui` LangGraph backend, the dedicated
- * `/api/copilotkit-declarative-gen-ui` runtime, and the canonical catalog
- * from /demos/declarative-gen-ui. Strips suggestions and layout wrapper.
+ * /api/copilotkit-declarative-gen-ui runtime, and the canonical
+ * `myCatalog` from /demos/declarative-gen-ui. The agent's UI tree
+ * still uses the catalog's primitives — but the chat shell around it
+ * carries the experimental theme so the iframe preview on the
+ * homepage dojo matches the surrounding design.
  *
- * This is the bare minimum: declare a catalog, pass it to <CopilotKit
- * a2ui={{ catalog }} />, drop in <CopilotChat />, done. The agent
- * assembles UI trees from the catalog primitives.
- *
- * Iframe target for the "Declarative Gen UI" chip on the website
- * homepage dojo.
+ * Iframe target for the "Declarative Gen UI" chip on the homepage dojo.
  */
 
 import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 
 import { myCatalog } from "../declarative-gen-ui/a2ui/catalog";
+import "../_experimental-theme/theme.css";
 
 export default function HomeDeclarativeGenUiDemo() {
   return (
@@ -26,7 +26,9 @@ export default function HomeDeclarativeGenUiDemo() {
       agent="declarative-gen-ui"
       a2ui={{ catalog: myCatalog }}
     >
-      <CopilotChat agentId="declarative-gen-ui" />
+      <div className="hd-exp-scope h-screen w-screen overflow-hidden">
+        <CopilotChat agentId="declarative-gen-ui" className="h-full" />
+      </div>
     </CopilotKit>
   );
 }

@@ -1,16 +1,17 @@
 "use client";
 
 /**
- * Homepage: Controlled Gen UI — bare-minimum useComponent registration.
+ * Homepage: Controlled Gen UI — bare-minimum useComponent registration,
+ * styled in the experimental "lavender glass" design language.
  *
- * Reuses the `gen-ui-tool-based` LangGraph backend and the canonical
- * PieChart renderer from the existing /demos/gen-ui-tool-based demo. No
- * bar-chart, no suggestions, no layout wrapper — just the minimum needed
- * to demonstrate Controlled Generative UI: register one typed component,
- * point the agent at it, let the agent decide when to render it.
+ * Reuses the `gen-ui-tool-based` LangGraph backend. The PieChart
+ * registered here is a co-located experimental-themed variant
+ * (`./pie-chart.tsx`) — purple + lavender + mint + pink palette, hard
+ * corners, Plus Jakarta Sans, mono number labels — so the chart that
+ * shows up in the agent's reply visually matches the website's homepage
+ * dojo around the iframe.
  *
- * Iframe target for the "Controlled Gen UI" chip on the website
- * homepage dojo.
+ * Iframe target for the "Controlled Gen UI" chip on the homepage dojo.
  */
 
 import {
@@ -19,7 +20,8 @@ import {
   useComponent,
 } from "@copilotkit/react-core/v2";
 
-import { PieChart, pieChartPropsSchema } from "../gen-ui-tool-based/pie-chart";
+import { PieChart, pieChartPropsSchema } from "./pie-chart";
+import "../_experimental-theme/theme.css";
 
 function Chat() {
   useComponent({
@@ -29,13 +31,15 @@ function Chat() {
     render: PieChart,
   });
 
-  return <CopilotChat agentId="gen-ui-tool-based" />;
+  return <CopilotChat agentId="gen-ui-tool-based" className="h-full" />;
 }
 
 export default function HomeControlledGenUiDemo() {
   return (
     <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-tool-based">
-      <Chat />
+      <div className="hd-exp-scope h-screen w-screen overflow-hidden">
+        <Chat />
+      </div>
     </CopilotKit>
   );
 }
