@@ -1,7 +1,30 @@
 import type { KnownBlock } from "@slack/types";
 import type { Catalog, ActionPayload, EncodedAction } from "./types.js";
-import type { A2UIComponent, SurfaceState } from "./surface-state.js";
+import type { SurfaceState } from "./surface-state.js";
 import { resolveProps } from "./binder.js";
+
+/**
+ * The full payload encoded into a Block Kit `button.value`. Matches the
+ * shape `@ag-ui/a2ui-middleware` expects on
+ * `forwardedProps.a2uiAction.userAction` — the bridge decodes this on
+ * `block_actions` and forwards it back to the agent without remap.
+ */
+export interface EncodedUserAction {
+  name?: string;
+  surfaceId: string;
+  sourceComponentId: string;
+  context?: Record<string, unknown>;
+}
+
+/**
+ * Default encoder: pack the user action as JSON. Renderers that need
+ * a smaller payload can pass a custom `encodeAction` to
+ * `createA2UIActivityRenderer` (e.g. drop the heavy context and rebuild
+ * it agent-side from the name + surfaceId).
+ */
+export function defaultEncodeUserAction(a: EncodedUserAction): EncodedAction {
+  return JSON.stringify(a);
+}
 
 /**
  * Render a resolved A2UI surface (post-operation-apply, post-data-model)
@@ -30,10 +53,9 @@ import { resolveProps } from "./binder.js";
 export function renderA2UISurface(
   state: SurfaceState,
   catalog: Catalog,
-  encodeAction: (action: ActionPayload) => EncodedAction,
+  encodeUserAction: (a: EncodedUserAction) => EncodedAction,
 ): KnownBlock[] {
   const warned = new Set<string>();
-  const dispatch = { encodeAction };
 
   const renderOne = (id: string, basePath?: string): KnownBlock[] => {
     const comp = state.components.get(id);
@@ -71,6 +93,22 @@ export function renderA2UISurface(
         : rawProps;
 
     const resolved = resolveProps(propsForBinder, state.dataModel, basePath);
+
+    // Per-component dispatch: closes over the current surfaceId and
+    // componentId so the renderer's call site doesn't need to thread
+    // them through. The encoder produces a payload matching the AG-UI
+    // `A2UIUserAction` shape so the bridge can decode-and-forward
+    // without remap.
+    const dispatch = {
+      encodeAction(action: ActionPayload): EncodedAction {
+        return encodeUserAction({
+          name: action.event.name,
+          surfaceId: state.surfaceId,
+          sourceComponentId: id,
+          context: action.event.context,
+        });
+      },
+    };
 
     return renderer({
       props: resolved as Record<string, unknown>,

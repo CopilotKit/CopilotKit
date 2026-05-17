@@ -335,6 +335,67 @@ export async function recoverFromStaleClick(args: {
 export const recoverInterruptFromStaleClick = recoverFromStaleClick;
 
 /**
+ * Dispatch an A2UI button click back to the agent.
+ *
+ * Counterpart to `recoverFromStaleClick` for the interrupt/HITL flows.
+ * The decoded `userAction` (matching `@ag-ui/a2ui-middleware`'s
+ * `A2UIUserAction` shape) gets forwarded on `forwardedProps.a2uiAction`;
+ * the A2UI middleware on the agent side picks it up via
+ * `processUserAction` and synthesizes a tool-result message that the
+ * graph sees on its next turn. The agent then responds (e.g. confirming
+ * "Booked your flight…"), which streams back into the same conversation
+ * just like any other turn.
+ *
+ * No picker-replacement step here (unlike interrupt-resume): A2UI
+ * surfaces stay live so the user can click again. Confirmation text
+ * comes via the agent's reply.
+ */
+export async function dispatchA2UIAction(args: {
+  conversation: ConversationKey;
+  replyTarget: ReplyTarget;
+  userAction: Record<string, unknown>;
+  renderActivityMessages: ReadonlyArray<
+    import("./activity-message-renderer.js").ActivityMessageRenderer<any>
+  >;
+  client: WebClient;
+  makeAgent: (threadId: string) => HttpAgent;
+}): Promise<void> {
+  const {
+    conversation,
+    replyTarget,
+    userAction,
+    renderActivityMessages,
+    client,
+    makeAgent,
+  } = args;
+
+  const threadId = `slack-${conversation.channelId}-${conversation.scope}`;
+  const agent = makeAgent(threadId);
+  const renderer = createSlackEventRenderer({
+    client,
+    target: replyTarget,
+    renderActivityMessages,
+  });
+  try {
+    await agent.runAgent(
+      { forwardedProps: { a2uiAction: { userAction } } },
+      renderer.subscriber,
+    );
+  } catch (err) {
+    console.error("[turn-runner] a2ui-action dispatch failed:", err);
+    try {
+      await client.chat.postMessage({
+        channel: replyTarget.channel,
+        thread_ts: replyTarget.threadTs,
+        text: `:warning: Failed to dispatch button click: ${(err as Error).message}`,
+      });
+    } catch {
+      // best-effort
+    }
+  }
+}
+
+/**
  * Fetch the picker, read its metadata, look up the matching handler
  * (interrupt or HITL based on `event_type`), and replace the picker
  * with the resolved render result. Returns silently if any step lacks

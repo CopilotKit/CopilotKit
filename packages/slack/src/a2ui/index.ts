@@ -17,7 +17,11 @@ export type {
   SurfaceState,
 } from "./surface-state.js";
 export { applyA2UIOperations } from "./surface-state.js";
-export { renderA2UISurface } from "./render.js";
+export {
+  renderA2UISurface,
+  defaultEncodeUserAction,
+  type EncodedUserAction,
+} from "./render.js";
 export {
   createA2UIActivityRenderer,
   A2UI_ACTIVITY_TYPE,

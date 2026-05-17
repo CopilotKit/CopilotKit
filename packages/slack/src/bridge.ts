@@ -6,6 +6,7 @@ import { attachSlackListener } from "./slack-listener.js";
 import {
   clickToConversation,
   createTurnRunner,
+  dispatchA2UIAction,
   recoverFromStaleClick,
 } from "./turn-runner.js";
 import type { FrontendTool, SlackContextEntry } from "./frontend-tools.js";
@@ -276,6 +277,39 @@ export function createSlackBridge(config: SlackBridgeConfig): SlackBridge {
             decoded,
           );
           if (handled) continue;
+
+          // A2UI button click: action_id is conventionally prefixed
+          // `a2ui:` (set by the Button renderer in app/a2ui/renderers.ts).
+          // Decoded payload matches `A2UIUserAction` because the
+          // walker's encodeAction wrapped it that way — forward as
+          // `forwardedProps.a2uiAction.userAction` and the
+          // A2UIMiddleware on the agent side synthesizes the
+          // tool-result message.
+          if (
+            a.action_id.startsWith("a2ui:") &&
+            decoded !== undefined &&
+            click.channel
+          ) {
+            const { conversation, replyTarget } = clickToConversation({
+              channelId: click.channel,
+              threadTs: b.container?.thread_ts ?? b.message?.thread_ts,
+            });
+            console.log(
+              "[slack-bridge] a2ui click %s → dispatching userAction on %s",
+              a.action_id,
+              `${conversation.channelId}::${conversation.scope}`,
+            );
+            await dispatchA2UIAction({
+              conversation,
+              replyTarget,
+              userAction: decoded as Record<string, unknown>,
+              renderActivityMessages: config.renderActivityMessages ?? [],
+              client,
+              makeAgent,
+            });
+            continue;
+          }
+
           // Stale click: no in-process pending wait (most often: bridge
           // restarted between picker-post and click). If we decoded a
           // resume value, try to resume the graph directly.

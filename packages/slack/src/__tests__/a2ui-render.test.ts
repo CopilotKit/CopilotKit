@@ -253,8 +253,16 @@ describe("createA2UIActivityRenderer", () => {
 
     const button = (blocks[0] as { elements: Array<{ value: string }> })
       .elements[0]!;
+    // Encoded payload matches the A2UIUserAction shape with surfaceId +
+    // sourceComponentId injected by the walker, so the bridge can
+    // forward it as `forwardedProps.a2uiAction.userAction` without remap.
     expect(button.value).toBe(
-      `ENC:${JSON.stringify({ event: { name: "click", context: { id: 7 } } })}`,
+      `ENC:${JSON.stringify({
+        name: "click",
+        surfaceId: "s1",
+        sourceComponentId: "root",
+        context: { id: 7 },
+      })}`,
     );
     expect(calls).toHaveLength(1);
   });

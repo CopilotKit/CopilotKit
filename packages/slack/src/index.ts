@@ -84,6 +84,7 @@ export type {
   PropsOf,
   ActionPayload,
   EncodedAction,
+  EncodedUserAction,
   CreateCatalogOptions,
   A2UIComponent,
   A2UIOperation,
@@ -95,6 +96,7 @@ export {
   createCatalog,
   applyA2UIOperations,
   renderA2UISurface,
+  defaultEncodeUserAction,
   createA2UIActivityRenderer,
   A2UI_ACTIVITY_TYPE,
 } from "./a2ui/index.js";
