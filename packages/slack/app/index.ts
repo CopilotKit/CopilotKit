@@ -19,7 +19,7 @@ import { appContext } from "./context/app-context.js";
 import { appComponents } from "./components/index.js";
 import { appHitl } from "./human-in-the-loop/index.js";
 import { appInterruptHandlers } from "./interrupts/index.js";
-import { dashboardActivityRenderer } from "./a2ui/index.js";
+import { flightActivityRenderer } from "./a2ui/index.js";
 
 const required = (name: string): string => {
   const v = process.env[name];
@@ -63,7 +63,7 @@ async function main() {
     // matching renderer and posts the resulting Block Kit blocks.
     // A2UI is one well-known activity type; build a renderer for it
     // with `createA2UIActivityRenderer({ catalog })` (see app/a2ui/).
-    renderActivityMessages: [dashboardActivityRenderer],
+    renderActivityMessages: [flightActivityRenderer],
   });
 
   await bridge.start();

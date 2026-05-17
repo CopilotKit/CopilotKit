@@ -32,6 +32,7 @@
     "e2e:restart": "tsx e2e/restart-recovery.ts"
   },
   "dependencies": {
+    "@ag-ui/a2ui-middleware": "0.0.5",
     "@ag-ui/client": "0.0.53",
     "@ag-ui/core": "0.0.53",
     "@slack/bolt": "^4.2.0",

@@ -1,10 +1,11 @@
 /**
  * A2UI catalog — *platform-agnostic* component definitions.
  *
- * Each entry pairs a Zod schema (the props the agent will fill in) with
- * a description (what the LLM sees when choosing components). NO
- * rendering details live here — both this Slack bot's renderers and a
- * sibling web app's React renderers can target the same definitions.
+ * This catalog matches the python showcase's `a2ui_fixed` agent
+ * (see `packages/slack/agent/src/agents/a2ui_schemas/flight_schema.json`).
+ * The agent loads that JSON at startup and emits surfaces tagged with
+ * `catalog_id: "copilotkit://flight-fixed-catalog"`. The bridge picks
+ * THIS catalog by matching that id (see `./index.ts`).
  *
  * To keep the agent's schema-context blob small, only define
  * components the agent should actually use. Add fields as `DynString`
@@ -17,63 +18,81 @@ import type { CatalogDefinitions } from "../../src/index.js";
 
 /**
  * A "dynamic string": the agent may pass either an inline string or a
- * data-model path binding like `{ path: "flights[*].airline" }`. The
- * bridge resolves bindings against the surface's data model before
- * the renderer runs, so renderers always see a resolved string.
+ * data-model path binding like `{ path: "/airline" }`. The bridge
+ * resolves bindings against the surface's data model before the
+ * renderer runs.
  */
 const DynString = z.union([z.string(), z.object({ path: z.string() })]);
 
-export const dashboardDefinitions = {
+export const flightDefinitions = {
+  Card: {
+    description: "Container with one child slot.",
+    props: z.object({
+      child: z.string().optional(),
+    }),
+  },
+
+  Column: {
+    description: "Vertical stack of children.",
+    props: z.object({
+      children: z.union([
+        z.array(z.string()),
+        z.object({ componentId: z.string(), path: z.string() }),
+      ]),
+      gap: z.number().optional(),
+    }),
+  },
+
+  Row: {
+    description: "Horizontal arrangement of children.",
+    props: z.object({
+      children: z.union([
+        z.array(z.string()),
+        z.object({ componentId: z.string(), path: z.string() }),
+      ]),
+      gap: z.number().optional(),
+      align: z.string().optional(),
+      justify: z.string().optional(),
+    }),
+  },
+
   Title: {
-    description: "A heading. Use for section titles and page headers.",
-    props: z.object({
-      text: DynString,
-      level: z.enum(["h1", "h2", "h3"]).optional(),
-    }),
+    description: "Section header text.",
+    props: z.object({ text: DynString }),
   },
 
-  Metric: {
-    description:
-      "A key metric — label + value + optional trend. Great for KPIs and stats.",
-    props: z.object({
-      label: z.string(),
-      value: DynString,
-      trend: z.enum(["up", "down", "neutral"]).optional(),
-      trendValue: z.string().optional(),
-    }),
+  Text: {
+    description: "Body text.",
+    props: z.object({ text: DynString }),
   },
 
-  Badge: {
-    description:
-      "A small colored status badge. Use for labels, statuses, categories.",
-    props: z.object({
-      text: DynString,
-      variant: z
-        .enum(["success", "warning", "error", "info", "neutral"])
-        .optional(),
-    }),
+  Airport: {
+    description: "Three-letter airport code, bolded.",
+    props: z.object({ code: DynString }),
   },
 
-  FlightCard: {
+  Arrow: {
+    description: "Right-pointing arrow separator.",
+    props: z.object({}),
+  },
+
+  AirlineBadge: {
+    description: "Small airline name pill.",
+    props: z.object({ name: DynString }),
+  },
+
+  PriceTag: {
+    description: "Price displayed prominently.",
+    props: z.object({ amount: DynString }),
+  },
+
+  Button: {
     description:
-      "A rich flight result card. Displays airline, flight number, route, " +
-      "times, duration, status, and price. Use one per flight option.",
+      "Action button. Renders a single child component (typically a Text) " +
+      "as the label, and fires `action.event` when clicked.",
     props: z.object({
-      id: DynString,
-      airline: DynString,
-      airlineLogo: DynString,
-      flightNumber: DynString,
-      origin: DynString,
-      destination: DynString,
-      date: DynString,
-      departureTime: DynString,
-      arrivalTime: DynString,
-      duration: DynString,
-      status: DynString,
-      price: DynString,
-      // Optional action — when present, the card renders a "Select"
-      // button that dispatches `{ event: { name, context } }` back to
-      // the agent on click.
+      child: z.string().optional(),
+      variant: z.enum(["primary", "secondary", "ghost"]).optional(),
       action: z
         .object({
           event: z.object({
@@ -86,4 +105,4 @@ export const dashboardDefinitions = {
   },
 } satisfies CatalogDefinitions;
 
-export type DashboardDefinitions = typeof dashboardDefinitions;
+export type FlightDefinitions = typeof flightDefinitions;

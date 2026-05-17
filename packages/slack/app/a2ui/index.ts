@@ -2,28 +2,29 @@
  * The assembled A2UI catalog + activity-message renderer for this
  * Slack app.
  *
+ * `catalogId` MUST match the agent's `CATALOG_ID` constant
+ * (`packages/slack/agent/src/agents/a2ui_fixed.py`) — that's how the
+ * activity renderer routes incoming a2ui-surface events to this catalog.
+ *
  * Wire into the bridge via:
  *
  *     createSlackBridge({
  *       // ...
- *       renderActivityMessages: [dashboardActivityRenderer],
+ *       renderActivityMessages: [flightActivityRenderer],
  *     });
- *
- * The `catalogId` here MUST match the `catalog_id` the agent uses in
- * its `a2ui.create_surface(..., catalog_id=...)` calls — that's how
- * the bridge routes incoming a2ui operations to this catalog. Keep
- * the URI stable; changing it later breaks any agent prompts that
- * embed the id literally.
  */
-import { createCatalog, createA2UIActivityRenderer } from "../../src/index.js";
-import { dashboardDefinitions, dashboardRenderers } from "./renderers.js";
+import {
+  createCatalog,
+  createA2UIActivityRenderer,
+} from "../../src/index.js";
+import { flightDefinitions, flightRenderers } from "./renderers.js";
 
-export const dashboardCatalog = createCatalog(
-  dashboardDefinitions,
-  dashboardRenderers,
-  { catalogId: "copilotkit://app-dashboard-catalog" },
+export const flightCatalog = createCatalog(
+  flightDefinitions,
+  flightRenderers,
+  { catalogId: "copilotkit://flight-fixed-catalog" },
 );
 
-export const dashboardActivityRenderer = createA2UIActivityRenderer({
-  catalog: dashboardCatalog,
+export const flightActivityRenderer = createA2UIActivityRenderer({
+  catalog: flightCatalog,
 });

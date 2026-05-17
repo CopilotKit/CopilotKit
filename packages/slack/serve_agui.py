@@ -20,9 +20,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # Import the unmodified showcase graphs verbatim. beautiful_chat is the
-# main demo; interrupt_agent backs the Slack `useInterrupt` flow.
+# main demo; interrupt_agent backs the Slack `useInterrupt` flow;
+# a2ui_fixed backs the flight-card surface demo.
 from src.agents.beautiful_chat import graph
 from src.agents.interrupt_agent import graph as interrupt_graph
+from src.agents.a2ui_fixed import graph as a2ui_fixed_graph
 
 from langgraph.checkpoint.memory import MemorySaver
 from copilotkit import LangGraphAGUIAgent
@@ -37,6 +39,13 @@ if not hasattr(graph, "checkpointer") or graph.checkpointer is None:
 if not hasattr(interrupt_graph, "checkpointer") or interrupt_graph.checkpointer is None:
     interrupt_graph = interrupt_graph.copy()
     interrupt_graph.checkpointer = MemorySaver()
+
+# Same requirement for a2ui_fixed: the LangGraphAGUIAgent reads state via
+# `graph.aget_state(config)`, which throws "No checkpointer set" when the
+# graph was built without one.
+if not hasattr(a2ui_fixed_graph, "checkpointer") or a2ui_fixed_graph.checkpointer is None:
+    a2ui_fixed_graph = a2ui_fixed_graph.copy()
+    a2ui_fixed_graph.checkpointer = MemorySaver()
 
 app = FastAPI()
 app.add_middleware(
@@ -73,6 +82,21 @@ add_langgraph_fastapi_endpoint(
         graph=interrupt_graph,
     ),
     path="/interrupt",
+)
+
+# Third endpoint — a2ui_fixed (flight-search surface via A2UI). The
+# graph emits a TOOL_CALL_RESULT whose content is the
+# `{"a2ui_operations": [...]}` JSON; the bridge wraps its HttpAgent
+# with `A2UIMiddleware` from `@ag-ui/a2ui-middleware`, which extracts
+# the operations and re-emits them as ActivitySnapshotEvent.
+add_langgraph_fastapi_endpoint(
+    app=app,
+    agent=LangGraphAGUIAgent(
+        name="a2ui_fixed",
+        description="A2UI fixed-schema flight surface showcase agent",
+        graph=a2ui_fixed_graph,
+    ),
+    path="/a2ui-fixed",
 )
 
 

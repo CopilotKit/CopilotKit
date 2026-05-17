@@ -1,5 +1,6 @@
 import { App, LogLevel } from "@slack/bolt";
 import { HttpAgent } from "@ag-ui/client";
+import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { SlackConversationStore } from "./conversation-store.js";
 import { attachSlackListener } from "./slack-listener.js";
 import {
@@ -144,12 +145,34 @@ export function createSlackBridge(config: SlackBridgeConfig): SlackBridge {
     logLevel: config.logLevel ?? LogLevel.INFO,
   });
 
+  // Apply A2UI middleware on every fresh HttpAgent when the bridge has
+  // any activity renderers registered. The middleware intercepts
+  // TOOL_CALL_RESULT events whose body is the `{"a2ui_operations": [...]}`
+  // container and re-emits them as ActivitySnapshotEvent, which the
+  // event-renderer's `onActivitySnapshotEvent` hook then renders via
+  // the matching `ActivityMessageRenderer`. This is the canonical
+  // composition used by `@copilotkit/runtime` (see
+  // `packages/runtime/src/v2/runtime/handlers/shared/agent-utils.ts`).
+  const wantsA2UI = (config.renderActivityMessages?.length ?? 0) > 0;
+
   const makeAgent = (threadId: string): HttpAgent => {
     const a = new HttpAgent({
       url: config.agentUrl,
       headers: config.agentHeaders,
     });
     a.threadId = threadId;
+    if (wantsA2UI) {
+      // Phantom-variance cast: under NodeNext module resolution the
+      // `A2UIMiddleware.run`'s `next: AbstractAgent` argument resolves
+      // via .d.mts while HttpAgent.use's `Middleware.run` resolves via
+      // .d.ts — same class at runtime, but TS sees two declarations
+      // with a private member and refuses to unify them. (Runtime
+      // uses `moduleResolution: "node"` and doesn't hit this.) The
+      // composition itself — `agent.use(new A2UIMiddleware())` — is
+      // the canonical pattern; see
+      // `packages/runtime/src/v2/runtime/handlers/shared/agent-utils.ts:62`.
+      a.use(new A2UIMiddleware() as unknown as Parameters<typeof a.use>[0]);
+    }
     return a;
   };
 
