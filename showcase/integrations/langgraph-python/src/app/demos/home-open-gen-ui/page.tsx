@@ -19,6 +19,7 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 
+import { EXPERIMENTAL_DESIGN_SKILL } from "./design-skill";
 import "../_experimental-theme/theme.css";
 
 function Chat() {
@@ -51,6 +52,7 @@ export default function HomeOpenGenUiDemo() {
       runtimeUrl="/api/copilotkit-ogui"
       agent="open-gen-ui"
       enableInspector={false}
+      openGenerativeUI={{ designSkill: EXPERIMENTAL_DESIGN_SKILL }}
     >
       <div className="hd-exp-scope h-screen w-screen overflow-hidden">
         <Chat />
