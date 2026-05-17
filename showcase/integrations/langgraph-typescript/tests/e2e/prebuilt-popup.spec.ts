@@ -10,9 +10,7 @@ test.describe("Pre-Built Popup", () => {
   }) => {
     // Verbatim heading from the demo source confirms the route mounted.
     await expect(
-      page.getByRole("heading", {
-        name: "Popup demo — look for the floating launcher",
-      }),
+      page.getByRole("heading", { name: "Popup demo" }),
     ).toBeVisible();
 
     // defaultOpen={true} means the popup window is open on first paint. The
@@ -73,8 +71,14 @@ test.describe("Pre-Built Popup", () => {
 
     // CopilotPopupView unmounts its content when closed (tracked by its
     // internal isRendered state), so the most reliable close signal is the
-    // popup's own testid disappearing from the DOM.
-    await page.locator('[data-testid="copilot-close-button"]').first().click();
+    // popup's own testid disappearing from the DOM. The dev-only
+    // <cpk-web-inspector> overlay (auto-enabled on localhost) intercepts
+    // Playwright's pointer-based click, so use a JS-level .click() that
+    // bypasses the overlay (same pattern as _genuine-shared.ts:clickByJs).
+    await page.evaluate(() => {
+      const btn = document.querySelector('[data-testid="copilot-close-button"]');
+      if (btn) (btn as HTMLElement).click();
+    });
     await expect(popup).toBeHidden({ timeout: 10000 });
 
     // Floating launcher remains on the page and re-mounts the popup.

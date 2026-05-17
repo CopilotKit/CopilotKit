@@ -11,7 +11,7 @@ test.describe("Pre-Built Sidebar", () => {
     // Main content heading is verbatim from the demo source and confirms the
     // route mounted the expected page.
     await expect(
-      page.getByRole("heading", { name: "Sidebar demo — click the launcher" }),
+      page.getByRole("heading", { name: "Sidebar demo" }),
     ).toBeVisible();
 
     // defaultOpen={true} means the sidebar's chat input is mounted and
@@ -74,8 +74,14 @@ test.describe("Pre-Built Sidebar", () => {
     // CopilotSidebar renders its own close button in the modal header.
     // Clicking the external toggle doesn't work while the sidebar is open
     // (it intercepts pointer events on this viewport width), so we close
-    // from within.
-    await page.locator('[data-testid="copilot-close-button"]').first().click();
+    // from within. The dev-only <cpk-web-inspector> overlay (auto-enabled
+    // on localhost) intercepts Playwright's pointer-based click, so use a
+    // JS-level .click() that bypasses the overlay (same pattern as the
+    // harness probes in _genuine-shared.ts:clickByJs).
+    await page.evaluate(() => {
+      const btn = document.querySelector('[data-testid="copilot-close-button"]');
+      if (btn) (btn as HTMLElement).click();
+    });
 
     // The sidebar slides out via CSS transform but stays mounted. The
     // authoritative open/closed signal is the aria-hidden attribute the
