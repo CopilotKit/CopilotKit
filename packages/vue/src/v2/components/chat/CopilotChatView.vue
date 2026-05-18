@@ -33,6 +33,7 @@ import type {
 // Mirrors React `CopilotChatView` `SCROLL_BUTTON_OFFSET`.
 const SCROLL_BUTTON_OFFSET = 16;
 const SCROLL_BOTTOM_THRESHOLD = 12;
+type ScrollBehavior = "auto" | "instant" | "smooth";
 
 const props = withDefaults(defineProps<CopilotChatViewProps>(), {
   messages: () => [],
@@ -91,7 +92,6 @@ defineSlots<{
   "welcome-screen"?: (props: {
     suggestions: Suggestion[];
     loadingIndexes: ReadonlyArray<number>;
-    attachments: Attachment[];
     modelValue: string;
     isRunning: boolean;
     inputMode: CopilotChatInputMode;
@@ -107,6 +107,7 @@ defineSlots<{
     onSelectSuggestion: (suggestion: Suggestion, index: number) => void;
   }) => unknown;
   "welcome-message"?: () => unknown;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: ((props: any) => unknown) | undefined;
 }>();
 
@@ -479,7 +480,6 @@ onBeforeUnmount(() => {
       name="welcome-screen"
       :suggestions="suggestions"
       :loading-indexes="suggestionLoadingIndexes"
-      :attachments="attachments ?? []"
       :model-value="resolvedInputValue"
       :is-running="isRunning"
       :input-mode="inputMode"
