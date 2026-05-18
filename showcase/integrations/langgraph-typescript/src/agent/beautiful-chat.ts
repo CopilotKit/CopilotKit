@@ -17,23 +17,27 @@
  * Data files: ./beautiful-chat-data/db.csv + schemas/flight_schema.json
  */
 
+import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
+import type { ToolRunnableConfig } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
-import { AIMessage, SystemMessage } from "@langchain/core/messages";
+import { AIMessage, SystemMessage, ToolMessage } from "@langchain/core/messages";
 import {
+  Annotation,
+  Command,
   MemorySaver,
   START,
   StateGraph,
-  Annotation,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import {
   convertActionsToDynamicStructuredTools,
+  copilotkitEmitState,
   CopilotKitStateAnnotation,
 } from "@copilotkit/sdk-js/langgraph";
 
@@ -113,12 +117,40 @@ const queryData = tool(
 );
 
 const manageTodos = tool(
-  async ({ todos }) => {
+  async ({ todos }, config: ToolRunnableConfig) => {
+    const toolCallId = config.toolCall?.id;
+    if (typeof toolCallId !== "string" || toolCallId.length === 0) {
+      throw new Error(
+        "manage_todos: missing tool_call_id — tool was invoked outside a " +
+          "ToolNode context.",
+      );
+    }
+
     const withIds = todos.map((t) => ({
       ...t,
-      id: t.id && t.id.length > 0 ? t.id : crypto.randomUUID(),
+      id: t.id && t.id.length > 0 ? t.id : randomUUID(),
     }));
-    return JSON.stringify({ status: "ok", todos: withIds });
+
+    // Emit state to the frontend immediately so the canvas updates.
+    // The Command below updates the graph's internal state, but the
+    // CopilotKit AG-UI pipeline only picks up state from explicit
+    // copilotkit_emit_state events (like Python's StateStreamingMiddleware
+    // does). Without this, useAgent().state.todos stays empty.
+    await copilotkitEmitState(config, { todos: withIds });
+
+    return new Command({
+      update: {
+        todos: withIds,
+        messages: [
+          new ToolMessage({
+            content: "Successfully updated todos",
+            name: "manage_todos",
+            id: randomUUID(),
+            tool_call_id: toolCallId,
+          }),
+        ],
+      },
+    });
   },
   {
     name: "manage_todos",
@@ -146,20 +178,20 @@ const getTodos = tool(
 const CATALOG_ID = "copilotkit://app-dashboard-catalog";
 const FLIGHT_SURFACE_ID = "flight-search-results";
 
+// All fields optional (matching Python's total=False) so the LLM/aimock
+// fixture can omit auxiliary fields without tripping zod validation.
 const FlightSchema = z.object({
-  id: z.string(),
-  airline: z.string(),
-  airlineLogo: z.string(),
-  flightNumber: z.string(),
-  origin: z.string(),
-  destination: z.string(),
-  date: z.string(),
-  departureTime: z.string(),
-  arrivalTime: z.string(),
-  duration: z.string(),
-  status: z.string(),
-  statusIcon: z.string().optional(),
-  price: z.string(),
+  airline: z.string().optional(),
+  airlineLogo: z.string().optional(),
+  flightNumber: z.string().optional(),
+  origin: z.string().optional(),
+  destination: z.string().optional(),
+  date: z.string().optional(),
+  departureTime: z.string().optional(),
+  arrivalTime: z.string().optional(),
+  duration: z.string().optional(),
+  status: z.string().optional(),
+  price: z.string().optional(),
 });
 
 const searchFlights = tool(
@@ -167,19 +199,26 @@ const searchFlights = tool(
     const schema = await loadFlightSchema();
     const ops = [
       {
-        type: "create_surface",
-        surfaceId: FLIGHT_SURFACE_ID,
-        catalogId: CATALOG_ID,
+        version: "v0.9",
+        createSurface: {
+          surfaceId: FLIGHT_SURFACE_ID,
+          catalogId: CATALOG_ID,
+        },
       },
       {
-        type: "update_components",
-        surfaceId: FLIGHT_SURFACE_ID,
-        components: schema,
+        version: "v0.9",
+        updateComponents: {
+          surfaceId: FLIGHT_SURFACE_ID,
+          components: schema,
+        },
       },
       {
-        type: "update_data_model",
-        surfaceId: FLIGHT_SURFACE_ID,
-        data: { flights },
+        version: "v0.9",
+        updateDataModel: {
+          surfaceId: FLIGHT_SURFACE_ID,
+          path: "/",
+          value: { flights },
+        },
       },
     ];
     return JSON.stringify({ a2ui_operations: ops });
@@ -231,11 +270,14 @@ const generateA2ui = tool(
     const components = (args.components as unknown[]) ?? [];
     const data = (args.data as Record<string, unknown>) ?? {};
     const ops: unknown[] = [
-      { type: "create_surface", surfaceId, catalogId },
-      { type: "update_components", surfaceId, components },
+      { version: "v0.9", createSurface: { surfaceId, catalogId } },
+      { version: "v0.9", updateComponents: { surfaceId, components } },
     ];
     if (Object.keys(data).length > 0) {
-      ops.push({ type: "update_data_model", surfaceId, data });
+      ops.push({
+        version: "v0.9",
+        updateDataModel: { surfaceId, path: "/", value: data },
+      });
     }
     return JSON.stringify({ a2ui_operations: ops });
   },
@@ -265,7 +307,11 @@ Tool guidance:
 `;
 
 async function chatNode(state: BeautifulChatState, config: RunnableConfig) {
-  const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
+  const model = new ChatOpenAI({
+    temperature: 0,
+    model: "gpt-4o",
+    modelKwargs: { parallel_tool_calls: false },
+  });
 
   const modelWithTools = model.bindTools!([
     ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),
