@@ -3055,6 +3055,7 @@
     {
       "match": {
         "userMessage": "intro call with the sales team",
+        "toolName": "book_call",
         "hasToolResult": false
       },
       "response": {
@@ -3075,6 +3076,7 @@
     {
       "match": {
         "userMessage": "1:1 with Alice",
+        "toolName": "book_call",
         "hasToolResult": false
       },
       "response": {
