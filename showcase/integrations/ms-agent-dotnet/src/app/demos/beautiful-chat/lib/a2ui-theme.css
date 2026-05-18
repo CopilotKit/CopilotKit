@@ -123,8 +123,40 @@
   --elevated-background-light: oklch(
     from var(--background-light) l c h / calc(alpha * 0.05)
   );
+  --bb-grid-size: 4px;
+  --bb-grid-size-2: calc(var(--bb-grid-size) * 2);
+  --bb-grid-size-3: calc(var(--bb-grid-size) * 3);
+  --bb-grid-size-4: calc(var(--bb-grid-size) * 4);
+  --bb-grid-size-5: calc(var(--bb-grid-size) * 5);
+  --bb-grid-size-6: calc(var(--bb-grid-size) * 6);
+  --bb-grid-size-7: calc(var(--bb-grid-size) * 7);
+  --bb-grid-size-8: calc(var(--bb-grid-size) * 8);
+  --bb-grid-size-9: calc(var(--bb-grid-size) * 9);
+  --bb-grid-size-10: calc(var(--bb-grid-size) * 10);
+  --bb-grid-size-11: calc(var(--bb-grid-size) * 11);
+  --bb-grid-size-12: calc(var(--bb-grid-size) * 12);
+  --bb-grid-size-13: calc(var(--bb-grid-size) * 13);
+  --bb-grid-size-14: calc(var(--bb-grid-size) * 14);
+  --bb-grid-size-15: calc(var(--bb-grid-size) * 15);
+  --bb-grid-size-16: calc(var(--bb-grid-size) * 16);
 }
 
 * {
   box-sizing: border-box;
+}
+
+html,
+body {
+  --font-family: "Google Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-family-flex:
+    "Google Sans Flex", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-family-mono:
+    "Google Sans Code", "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+  background: var(--background-light);
+  font-family: var(--font-family);
+  margin: 0;
+  padding: 0;
+  width: 100svw;
+  height: 100svh;
 }
