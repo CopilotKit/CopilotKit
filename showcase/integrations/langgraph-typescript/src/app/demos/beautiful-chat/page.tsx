@@ -59,7 +59,7 @@ function HomePage() {
   return (
     <ExampleLayout
       chatContent={
-        <CopilotChat input={{ disclaimer: () => null, className: "pb-6" }} />
+        <CopilotChat attachments={{ enabled: true }} input={{ disclaimer: () => null, className: "pb-6" }} />
       }
       appContent={<ExampleCanvas />}
     />

@@ -1,0 +1,25 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "model": "gpt-4.1",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"dashboard-001\",\"catalogId\":\"copilotkit://app-dashboard-catalog\"}",
+            "id": "call_Q3rTavqr4dXJ08ne9bEesL9d"
+          }
+        ]
+      },
+      "metadata": {
+        "systemHash": "28fe3ed7",
+        "toolsHash": "2cbb50da"
+      }
+    }
+  ],
+  "_warning": "Empty match criteria — this fixture will not match any request"
+}

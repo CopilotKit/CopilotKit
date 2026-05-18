@@ -52,6 +52,7 @@ const graphSpec = {
   agent_config_agent: "./agent-config.ts:graph",
   "agentic-chat-reasoning": "./reasoning-agent.ts:graph",
   "reasoning-default-render": "./reasoning-agent.ts:graph",
+  tool_rendering: "./tool-rendering.ts:graph",
   "tool-rendering-default-catchall": "./tool-rendering.ts:graph",
   "tool-rendering-custom-catchall": "./tool-rendering.ts:graph",
   "tool-rendering-reasoning-chain": "./tool-rendering-reasoning-chain.ts:graph",
@@ -69,7 +70,9 @@ const graphSpec = {
   open_gen_ui: "./open-gen-ui.ts:graph",
   open_gen_ui_advanced: "./open-gen-ui-advanced.ts:graph",
   shared_state_read_write: "./shared-state-read-write.ts:graph",
+  shared_state_streaming: "./shared-state-streaming.ts:graph",
   subagents: "./subagents.ts:graph",
+  gen_ui_agent: "./gen-ui-agent.ts:graph",
 };
 
 // Pre-warm schema cache before we accept traffic. This is what the official

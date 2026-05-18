@@ -1,5 +1,5 @@
 /**
- * LangGraph TypeScript agent backing the BYOC json-render demo.
+ * LangGraph TypeScript agent backing the declarative-json-render demo.
  *
  * Port of `langgraph-python/src/agents/byoc_json_render_agent.py`.
  *

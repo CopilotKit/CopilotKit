@@ -1,10 +1,10 @@
 /**
- * LangGraph TypeScript agent backing the byoc-hashbrown demo.
+ * LangGraph TypeScript agent backing the declarative-hashbrown demo.
  *
  * Port of `langgraph-python/src/agents/byoc_hashbrown_agent.py`.
  *
  * Emits hashbrown-shaped structured output (`<ui>...</ui>`) that the frontend
- * renderer (`src/app/demos/byoc-hashbrown/hashbrown-renderer.tsx`) parses
+ * renderer (`src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx`) parses
  * progressively via `@hashbrownai/react`.
  *
  * A minimal single-node StateGraph (no tools) — the system prompt teaches

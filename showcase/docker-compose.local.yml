@@ -46,6 +46,7 @@ services:
       - ./aimock/d5-all.json:/showcase-fixtures/d5-all.json:ro
       - ./aimock/smoke.json:/showcase-fixtures/smoke.json:ro
       - ./aimock/feature-parity.json:/showcase-fixtures/feature-parity.json:ro
+      - ./aimock/d5-recorded:/showcase-fixtures/d5-recorded:ro
     # `--proxy-only` + `--provider-openai` mirrors the Railway aimock setup:
     # matched fixtures short-circuit deterministically; unmatched requests
     # fall through to real OpenAI (using OPENAI_API_KEY from .env). Without
@@ -76,6 +77,8 @@ services:
         "/showcase-fixtures/smoke.json",
         "--fixtures",
         "/showcase-fixtures/feature-parity.json",
+        "--fixtures",
+        "/showcase-fixtures/d5-recorded",
       ]
     healthcheck:
       test:

@@ -19,6 +19,9 @@
     "typescript": "^5.6.3",
     "zod": "^3.23.8"
   },
+  "overrides": {
+    "@ag-ui/langgraph": "0.0.32"
+  },
   "devDependencies": {
     "@types/node": "^22.9.0"
   }
