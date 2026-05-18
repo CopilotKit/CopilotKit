@@ -1,11 +1,11 @@
 name: "Showcase: Docs Sync"
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "docs/content/docs/**"
-      - "docs/snippets/**"
+  # Auto-trigger disabled ahead of the shell-docs cutover (2026-05-19).
+  # Shell-docs is becoming the canonical authoring source; an upstream→shell
+  # sync would clobber edits made directly in showcase/shell-docs/. Re-enable
+  # only if the cutover is reverted and docs/content/docs/ becomes upstream
+  # again. Manual runs remain available via workflow_dispatch.
   workflow_dispatch:
 
 permissions:
