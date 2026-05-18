@@ -246,7 +246,7 @@ jobs:
 
       - name: Install uv
         if: steps.should-run.outputs.skip != 'true' && matrix.needs_python
-        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
 
       - name: Install cpk dependencies
         if: steps.should-run.outputs.skip != 'true'
