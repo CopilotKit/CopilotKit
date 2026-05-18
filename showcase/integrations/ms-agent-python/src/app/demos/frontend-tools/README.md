@@ -2,7 +2,7 @@
 
 ## What This Demo Shows
 
-Frontend tools (a.k.a. "in-app actions") let the agent call functions that live in your React app. The agent reasons about when to invoke them based on natural conversation — the handler runs entirely client-side.
+Frontend tools (a.k.a. "in-app actions") let the agent call functions that live in your React app. The agent reasons about when to invoke them based on natural conversation.
 
 ## How to Interact
 
@@ -28,4 +28,4 @@ useFrontendTool({
 });
 ```
 
-CopilotKit forwards the tool schema to the Microsoft Agent Framework agent via the AG-UI protocol. The agent decides when to call it based on the conversation, and the handler runs in the browser — no backend implementation required.
+CopilotKit automatically advertises the tool to the agent. The agent decides when to call it based on the conversation, and the handler runs client-side.

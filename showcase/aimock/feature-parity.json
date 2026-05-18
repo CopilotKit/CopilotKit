@@ -894,9 +894,11 @@
       }
     },
     {
+      "_comment": "Large chunkSize keeps the manage_todos args (with 4-byte UTF-8 emoji) as a single SSE chunk. aimock chunks via JavaScript .slice() which operates on UTF-16 code units; emoji surrogate pairs split mid-codepoint produce unpaired surrogates that strict pydantic deserializers (e.g. agent_framework_ag_ui) reject with PydanticSerializationError.",
       "match": {
         "toolCallId": "call_fp_beautiful_chat_enable_app_mode_001"
       },
+      "chunkSize": 5000,
       "response": {
         "toolCalls": [
           {
@@ -920,6 +922,75 @@
             "arguments": "{}"
           }
         ]
+      }
+    },
+    {
+      "_comment": "Agentic Chat — Write a sonnet pill. Open-ended creative response; deterministic so the headed walkthrough doesn't depend on real-LLM proxy.",
+      "match": {
+        "userMessage": "Write a short sonnet about AI"
+      },
+      "response": {
+        "content": "A mind of silicon, a crafted thought,\nThat learns from data, vast and ever-deep,\nWith tireless logic ancient questions fought,\nWhile we, its makers, fragile vigils keep.\n\nIt weaves through code, a future yet unseen,\nA digital dawn where new ideas ignite,\nFrom simple tasks to realms where few have been,\nIt sheds at once both warming and cold light.\n\nWhat wonders shall it bring, what truths reveal,\nOr shadows cast across our shared domain?\nA mirror held, reflecting how we feel —\nA complex hope, a promise, or a pain.\n\nThus from the spark, intelligence takes flight,\nA changing world within its boundless might."
+      }
+    },
+    {
+      "_comment": "Agentic Chat — Is 17 prime pill. Walk-through style response so the headed walkthrough has deterministic, copy-stable text.",
+      "match": {
+        "userMessage": "whether 17 is prime"
+      },
+      "response": {
+        "content": "Yes — 17 is prime. A prime number is a positive integer greater than 1 with no divisors other than 1 and itself. To check 17, we only need to test divisors up to its square root (≈4.12), so 2, 3, and 4. 17 ÷ 2 leaves remainder 1, 17 ÷ 3 leaves remainder 2, and 17 ÷ 4 leaves remainder 1. No divisor in that range divides 17 cleanly, so it has no factors besides 1 and 17 — confirming it is prime."
+      }
+    },
+    {
+      "_comment": "Beautiful Chat — Calculator (Open Generative UI) pill. Returns a generateSandboxedUi tool call with a complete calculator widget (matches the d5 calc fixture's pattern but tailored to the beautiful-chat pill's user message).",
+      "match": {
+        "userMessage": "build a modern calculator with standard buttons",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_beautiful_chat_calculator_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":520,\"placeholderMessages\":[\"Composing calculator UI…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px;max-width:280px;margin:0 auto}.display{background:#1e293b;padding:12px;border-radius:8px;margin-bottom:8px;font-family:monospace;text-align:right;font-size:18px;min-height:24px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.shortcuts{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:8px}button{padding:12px;background:#334155;border:0;color:#e2e8f0;border-radius:6px;font-size:14px;cursor:pointer}button.metric{background:#475569;font-size:11px}\",\"html\":\"<div class=\\\"wrap\\\" data-testid=\\\"ogui-beautiful-calculator\\\"><div class=\\\"display\\\" id=\\\"d\\\">0</div><div class=\\\"shortcuts\\\"><button class=\\\"metric\\\" data-v=\\\"1200000\\\">Revenue $1.2M</button><button class=\\\"metric\\\" data-v=\\\"342\\\">Customers 342</button><button class=\\\"metric\\\" data-v=\\\"4.2\\\">Conversion 4.2%</button><button class=\\\"metric\\\" data-v=\\\"50000\\\">Avg Deal $50K</button></div><div class=\\\"grid\\\"><button>7</button><button>8</button><button>9</button><button>+</button><button>4</button><button>5</button><button>6</button><button>-</button><button>1</button><button>2</button><button>3</button><button>*</button><button>0</button><button>.</button><button id=\\\"eq\\\">=</button><button>/</button></div></div>\",\"jsFunctions\":\"(function(){var expr='';var display=document.getElementById('d');document.querySelectorAll('.shortcuts button').forEach(function(btn){btn.addEventListener('click',function(){expr+=btn.dataset.v;display.textContent=expr;});});document.querySelectorAll('.grid button').forEach(function(btn){btn.addEventListener('click',async function(){if(btn.id==='eq'){var res=await Websandbox.connection.remote.evaluateExpression({expression:expr});if(res&&res.ok){display.textContent=String(res.value);expr=String(res.value);}else{display.textContent='err';expr='';}}else{expr+=btn.textContent;display.textContent=expr;}});});})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Beautiful Chat — Calculator pill follow-up after generateSandboxedUi returns. Closes the turn with a brief confirmation so the chat plateau settles.",
+      "match": {
+        "toolCallId": "call_fp_beautiful_chat_calculator_001"
+      },
+      "response": {
+        "content": "Calculator app rendered above — tap a metric shortcut to insert its value, then operate on it with the standard keypad."
+      }
+    },
+    {
+      "_comment": "Beautiful Chat — Excalidraw (MCP App) pill. Returns a create_view tool call (the Excalidraw MCP server's tool) with a basic network diagram. Without this fixture aimock falls through to real OpenAI proxy and the pill 502s on the gh-mock key.",
+      "match": {
+        "userMessage": "Use Excalidraw to create a simple network diagram",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_beautiful_chat_excalidraw_001",
+            "name": "create_view",
+            "arguments": "{\"elements\":\"[{\\\"type\\\":\\\"ellipse\\\",\\\"x\\\":200,\\\"y\\\":40,\\\"width\\\":100,\\\"height\\\":60,\\\"strokeColor\\\":\\\"#1971c2\\\",\\\"backgroundColor\\\":\\\"#a5d8ff\\\",\\\"fillStyle\\\":\\\"solid\\\",\\\"text\\\":\\\"Router\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":80,\\\"y\\\":160,\\\"width\\\":100,\\\"height\\\":50,\\\"strokeColor\\\":\\\"#2f9e44\\\",\\\"backgroundColor\\\":\\\"#b2f2bb\\\",\\\"fillStyle\\\":\\\"solid\\\",\\\"text\\\":\\\"Switch A\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":320,\\\"y\\\":160,\\\"width\\\":100,\\\"height\\\":50,\\\"strokeColor\\\":\\\"#2f9e44\\\",\\\"backgroundColor\\\":\\\"#b2f2bb\\\",\\\"fillStyle\\\":\\\"solid\\\",\\\"text\\\":\\\"Switch B\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":20,\\\"y\\\":280,\\\"width\\\":80,\\\"height\\\":40,\\\"text\\\":\\\"PC 1\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":120,\\\"y\\\":280,\\\"width\\\":80,\\\"height\\\":40,\\\"text\\\":\\\"PC 2\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":300,\\\"y\\\":280,\\\"width\\\":80,\\\"height\\\":40,\\\"text\\\":\\\"PC 3\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":400,\\\"y\\\":280,\\\"width\\\":80,\\\"height\\\":40,\\\"text\\\":\\\"PC 4\\\"},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":250,\\\"y\\\":100,\\\"width\\\":-120,\\\"height\\\":60},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":250,\\\"y\\\":100,\\\"width\\\":120,\\\"height\\\":60},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":130,\\\"y\\\":210,\\\"width\\\":-70,\\\"height\\\":70},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":130,\\\"y\\\":210,\\\"width\\\":30,\\\"height\\\":70},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":370,\\\"y\\\":210,\\\"width\\\":-30,\\\"height\\\":70},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":370,\\\"y\\\":210,\\\"width\\\":70,\\\"height\\\":70}]\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Beautiful Chat — Excalidraw pill follow-up after create_view returns. Matches on userMessage + hasToolResult so it fires regardless of how the MCP runtime wires the tool_call_id back (per-runtime variability across LGP / ADK / Microsoft Agent Framework).",
+      "match": {
+        "userMessage": "Use Excalidraw to create a simple network diagram",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Network diagram drawn above — a router branching to two switches, each connected to two PCs."
       }
     },
     {
@@ -1356,13 +1427,6 @@
       },
       "response": {
         "content": "Based on your recent activity, I'd suggest exploring features you haven't tried yet — check out the documentation for advanced use-cases, or dive into a hands-on tutorial to deepen your understanding."
-      }
-    },
-    {
-      "_comment": "Last-resort catch-all for neutral/default assistant demos (chat-customization-css, prebuilt-sidebar, prebuilt-popup, chat-slots, headless-simple). Matches any message not caught by a more specific fixture above, preventing aimock from proxying to real OpenAI with a fake key.",
-      "match": {},
-      "response": {
-        "content": "I'm a helpful assistant. I can help with a wide range of tasks — writing, analysis, coding, math, and more. What would you like to work on?"
       }
     }
   ]
