@@ -44,7 +44,7 @@ jobs:
       ts-changed: ${{ steps.changes.outputs.ts }}
       python-changed: ${{ steps.changes.outputs.python }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
       - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
@@ -176,7 +176,7 @@ jobs:
 
       - name: Checkout CPK
         if: steps.should-run.outputs.skip != 'true'
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           lfs: true
           path: CopilotKit
@@ -185,7 +185,7 @@ jobs:
 
       - name: Checkout AGUI
         if: steps.should-run.outputs.skip != 'true'
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: ag-ui-protocol/ag-ui
           path: ag-ui
