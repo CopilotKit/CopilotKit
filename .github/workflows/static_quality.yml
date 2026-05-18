@@ -145,7 +145,13 @@ jobs:
             echo "No formatting changes to commit"
             exit 0
           fi
-          git diff --name-only -z | xargs -0 git add
+          # Stage only the files the formatter was scoped to operate on.
+          # Piping `git diff --name-only` into `git add` is unsafe: if a
+          # tracked-but-gitignored path shows up in the diff, `git add`
+          # aborts the whole step and the auto-fix push never lands —
+          # leaving formatting violations on the PR branch and (post-
+          # merge) on main.
+          xargs -a .pr-format-files.existing.txt git add --
           git commit -m "style: auto-fix formatting"
           git push
 
