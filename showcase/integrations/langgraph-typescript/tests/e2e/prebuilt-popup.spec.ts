@@ -76,7 +76,9 @@ test.describe("Pre-Built Popup", () => {
     // Playwright's pointer-based click, so use a JS-level .click() that
     // bypasses the overlay (same pattern as _genuine-shared.ts:clickByJs).
     await page.evaluate(() => {
-      const btn = document.querySelector('[data-testid="copilot-close-button"]');
+      const btn = document.querySelector(
+        '[data-testid="copilot-close-button"]',
+      );
       if (btn) (btn as HTMLElement).click();
     });
     await expect(popup).toBeHidden({ timeout: 10000 });
