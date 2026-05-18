@@ -2604,11 +2604,7 @@
                 {
                   "id": "status-col",
                   "component": "Column",
-                  "children": [
-                    "status-api",
-                    "status-db",
-                    "status-workers"
-                  ],
+                  "children": ["status-api", "status-db", "status-workers"],
                   "gap": 8
                 },
                 {
