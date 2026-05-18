@@ -15,7 +15,11 @@ import { z } from "zod";
 import { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
-import { AIMessage, SystemMessage, ToolMessage } from "@langchain/core/messages";
+import {
+  AIMessage,
+  SystemMessage,
+  ToolMessage,
+} from "@langchain/core/messages";
 import type { ToolRunnableConfig } from "@langchain/core/tools";
 import {
   Annotation,
@@ -48,7 +52,7 @@ const AgentStateAnnotation = Annotation.Root({
   ...CopilotKitStateAnnotation.spec,
   // Last-write-wins reducer: each set_steps call replaces the full list.
   steps: Annotation<Step[]>({
-    reducer: (_prev, next) => (next != null ? next : _prev ?? []),
+    reducer: (_prev, next) => (next != null ? next : (_prev ?? [])),
     default: () => [],
   }),
 });
