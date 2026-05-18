@@ -3,6 +3,7 @@ export * from "@copilotkit/core";
 export * from "@ag-ui/client";
 
 // Local V2 vue code
+export * from "./a2ui";
 export * from "./components";
 export * from "./hooks";
 export * from "./providers";

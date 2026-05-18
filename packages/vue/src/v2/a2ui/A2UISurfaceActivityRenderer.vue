@@ -9,16 +9,16 @@ import {
   type VNode,
 } from "vue";
 import type { ActivityMessage } from "@ag-ui/core";
-import type { A2UITheme } from "../types";
-import type { A2UIOperation } from "./a2ui";
-import { getOperationSurfaceId } from "./a2ui";
+import type { A2UITheme } from "./types";
+import type { A2UIOperation } from "./operations";
+import { getOperationSurfaceId } from "./operations";
 import { useCopilotKit } from "../providers";
 import { MessageProcessor, type SurfaceModel } from "@a2ui/web_core/v0_9";
 import {
   vueBasicCatalog,
   A2uiSurface,
   type VueComponentImplementation,
-} from "./a2ui/index";
+} from "./vue-renderer";
 
 const DEFAULT_SURFACE_ID = "default";
 

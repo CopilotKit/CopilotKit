@@ -1,7 +1,7 @@
 import { computed, defineComponent, h, type PropType } from "vue";
 import { z } from "zod";
 import type { VueActivityMessageRenderer } from "../types";
-import type { A2UITheme } from "../types";
+import type { A2UITheme } from "./types";
 import A2UISurfaceActivityRenderer from "./A2UISurfaceActivityRenderer.vue";
 
 const A2UI_OPERATIONS_KEY = "a2ui_operations";

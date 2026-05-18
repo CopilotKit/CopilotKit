@@ -1,9 +1,9 @@
-import { h, watch, type VNodeChild } from "vue";
-import type { ShallowRef } from "vue";
+import { h } from "vue";
+import type { VNodeChild } from "vue";
 import { z } from "zod";
 import type { ToolCallStatus } from "@copilotkit/core";
-import type { CopilotKitCoreVue } from "../../lib/vue-core";
-import { defineToolCallRenderer } from "../../types/defineToolCallRenderer";
+import { defineToolCallRenderer } from "../types/defineToolCallRenderer";
+import type { VueToolCallRenderer } from "../types/vue-tool-call-renderer";
 
 /**
  * Tool name used by the dynamic A2UI generation secondary LLM.
@@ -12,63 +12,68 @@ import { defineToolCallRenderer } from "../../types/defineToolCallRenderer";
 export const RENDER_A2UI_TOOL_NAME = "render_a2ui";
 
 /**
- * Registers the built-in `render_a2ui` tool call renderer via the props-based
- * `setRenderToolCalls` mechanism (not `useRenderTool`).
+ * Creates the built-in `render_a2ui` tool call renderer.
  *
- * This ensures user-registered `useRenderTool({ name: "render_a2ui", ... })`
- * hooks automatically override the built-in, since the merge logic in
- * vue-core.ts gives hook-based entries priority over prop-based entries.
+ * The renderer is intended to be included in the provider's computed
+ * render-tool list (not as a side-effect mutation). This ensures:
+ * - provider prop changes cannot accidentally drop the built-in
+ * - user-provided `render_a2ui` in props suppresses the built-in
+ * - hook-based `useRenderTool({ name: "render_a2ui" })` still overrides
+ *   via vue-core's hook-over-prop merge logic
  *
- * Call from the provider's setup function and pass a cleanup callback.
+ * Returns a stable renderer object (module-level singleton).
  */
-export function registerA2UIBuiltInToolCallRenderer(
-  copilotkit: ShallowRef<CopilotKitCoreVue>,
-  enabled: () => boolean,
-): void {
-  watch(
-    [() => copilotkit.value, enabled],
-    ([core, isEnabled], _prev, onCleanup) => {
-      if (!isEnabled) return;
+export function createA2UIToolCallRenderer(): VueToolCallRenderer<unknown> {
+  return builtInRenderer;
+}
 
-      const renderer = defineToolCallRenderer({
-        name: RENDER_A2UI_TOOL_NAME,
-        args: z.any(),
-        render: ({
-          status,
-          args: parameters,
-        }: {
-          status: ToolCallStatus;
-          args: unknown;
-          [key: string]: unknown;
-        }): VNodeChild => {
-          if (status === "complete") return null;
-          const params = parameters as Record<string, unknown>;
-          // Hide skeleton once the A2UI surface has enough data to render.
-          const items = params?.items;
-          if (Array.isArray(items) && items.length > 0) return null;
-          const components = params?.components;
-          if (Array.isArray(components) && components.length > 2) return null;
-          return renderA2UIProgressIndicator(parameters);
-        },
-      });
+const builtInRenderer = defineToolCallRenderer({
+  name: RENDER_A2UI_TOOL_NAME,
+  args: z.any(),
+  render: ({
+    status,
+    args: parameters,
+    toolCallId,
+  }: {
+    status: ToolCallStatus;
+    args: unknown;
+    toolCallId?: string;
+    [key: string]: unknown;
+  }): VNodeChild => {
+    const progressKey = resolveProgressKey(
+      toolCallId,
+      parameters as Record<string, unknown> | null | undefined,
+    );
+    if (status === "complete") {
+      progressState.delete(progressKey);
+      return null;
+    }
+    const params = parameters as Record<string, unknown>;
+    const items = params?.items;
+    if (Array.isArray(items) && items.length > 0) {
+      progressState.delete(progressKey);
+      return null;
+    }
+    const components = params?.components;
+    if (Array.isArray(components) && components.length > 2) {
+      progressState.delete(progressKey);
+      return null;
+    }
+    return renderA2UIProgressIndicator(parameters, progressKey);
+  },
+});
 
-      // Register via props-based mechanism so useRenderTool hooks take priority
-      const existing = core.propRenderToolCalls;
-      core.setRenderToolCalls([
-        ...existing.filter((rc) => rc.name !== RENDER_A2UI_TOOL_NAME),
-        renderer,
-      ]);
-
-      onCleanup(() => {
-        const current = core.propRenderToolCalls;
-        core.setRenderToolCalls(
-          current.filter((rc) => rc.name !== RENDER_A2UI_TOOL_NAME),
-        );
-        progressState.clear();
-      });
-    },
-    { immediate: true },
-  );
+/**
+ * Resolves the progress-state cache key for a given tool call.
+ * Prefers toolCallId (unique per call) to avoid concurrent calls sharing state.
+ */
+function resolveProgressKey(
+  toolCallId: string | undefined,
+  params: Record<string, unknown> | null | undefined,
+): string {
+  if (toolCallId) return toolCallId;
+  if (typeof params?.name === "string") return params.name as string;
+  return "__default__";
 }
 
 /**
@@ -80,9 +85,10 @@ const progressState = new Map<
   { lastTime: number; lastTokens: number }
 >();
 
-function renderA2UIProgressIndicator(parameters: unknown): VNodeChild {
-  const params = parameters as Record<string, unknown> | null | undefined;
-  const key = typeof params?.name === "string" ? params.name : "__default__";
+function renderA2UIProgressIndicator(
+  parameters: unknown,
+  key: string,
+): VNodeChild {
   let state = progressState.get(key);
   if (!state) {
     state = { lastTime: 0, lastTokens: 0 };

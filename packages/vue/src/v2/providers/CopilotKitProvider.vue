@@ -18,9 +18,12 @@ import type {
 import { schemaToJsonSchema } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { CopilotKitCoreVue } from "../lib/vue-core";
-import { createA2UIMessageRenderer } from "../components/A2UIMessageRenderer";
-import { registerA2UIBuiltInToolCallRenderer } from "../components/a2ui/A2UIBuiltInToolCallRenderer";
-import { registerA2UICatalogContext } from "../components/a2ui/A2UICatalogContext";
+import { createA2UIMessageRenderer } from "../a2ui/A2UIMessageRenderer";
+import {
+  createA2UIToolCallRenderer,
+  RENDER_A2UI_TOOL_NAME,
+} from "../a2ui/A2UIToolCallRenderer";
+import { registerA2UICatalogContext } from "../a2ui/A2UICatalogContext";
 import {
   GenerateSandboxedUiArgsSchema,
   OpenGenerativeUIActivityRenderer,
@@ -265,10 +268,23 @@ const allTools = computed(() => {
   return tools;
 });
 
+const a2uiToolCallRenderer = createA2UIToolCallRenderer();
+
 const allRenderToolCalls = computed(() => {
   const combined: VueToolCallRenderer<unknown>[] = [
     ...(props.renderToolCalls ?? []),
   ];
+
+  // Include built-in A2UI renderer when enabled, unless user already provides one via props
+  if (runtimeA2UIEnabled.value) {
+    const userProvided = combined.some(
+      (rc) => rc.name === RENDER_A2UI_TOOL_NAME,
+    );
+    if (!userProvided) {
+      combined.push(a2uiToolCallRenderer);
+    }
+  }
+
   for (const tool of [...props.frontendTools, ...builtInFrontendTools.value]) {
     if (tool.render) {
       const args = tool.parameters ?? (tool.name === "*" ? z.any() : undefined);
@@ -547,8 +563,8 @@ const a2uiCatalog = computed(() => props.a2ui?.catalog);
 const a2uiLoadingComponent = computed(() => props.a2ui?.loadingComponent);
 const a2uiIncludeSchema = computed(() => props.a2ui?.includeSchema ?? true);
 
-// A2UI tool call renderer (progress indicator) — auto-registered when A2UI enabled
-registerA2UIBuiltInToolCallRenderer(copilotkit, () => runtimeA2UIEnabled.value);
+// A2UI tool call renderer (progress indicator) is included in allRenderToolCalls
+// when runtimeA2UIEnabled is true. No separate registration needed.
 
 // A2UI catalog context, schema, and generation/design guidelines
 registerA2UICatalogContext(copilotkit, {
