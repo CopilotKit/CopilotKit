@@ -281,9 +281,7 @@ demos:
     highlight:
       - src/agents/agent.py
       - src/app/demos/chat-slots/page.tsx
-      - src/app/demos/chat-slots/custom-welcome-screen.tsx
-      - src/app/demos/chat-slots/custom-assistant-message.tsx
-      - src/app/demos/chat-slots/custom-disclaimer.tsx
+      - src/app/demos/chat-slots/slot-wrappers.tsx
       - src/app/api/copilotkit/route.ts
   - id: headless-simple
     name: Headless Chat (Simple)
@@ -306,8 +304,11 @@ demos:
     highlight:
       - src/agents/agent.py
       - src/app/demos/headless-complete/page.tsx
-      - src/app/demos/headless-complete/message-list.tsx
-      - src/app/demos/headless-complete/use-rendered-messages.tsx
+      - src/app/demos/headless-complete/chat/chat.tsx
+      - src/app/demos/headless-complete/hooks/use-tool-renderers.tsx
+      - src/app/demos/headless-complete/hooks/use-frontend-components.ts
+      - src/app/demos/headless-complete/hooks/use-headless-suggestions.ts
+      - src/app/demos/headless-complete/attachments/use-attachments-config.ts
       - src/app/api/copilotkit/route.ts
   - id: agentic-chat-reasoning
     name: Reasoning
