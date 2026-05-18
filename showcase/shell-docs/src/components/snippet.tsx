@@ -150,7 +150,7 @@ function WarningBox({ children }: { children: React.ReactNode }) {
  * "the framework deliberately doesn't implement this feature", which is an
  * expected state, not a docs gap.
  */
-function UnsupportedBox({
+export function UnsupportedBox({
   integrationName,
   featureName,
 }: {

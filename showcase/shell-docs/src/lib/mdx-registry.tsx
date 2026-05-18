@@ -28,6 +28,7 @@ import { DocsLandingNext } from "@/components/docs-landing-next";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
 import { AgentCoreCommandTabs } from "@/components/agentcore-command-tabs";
 import { DemoSource } from "@/components/demo-source";
+import { UnsupportedBox } from "@/components/snippet";
 import { getRegistry } from "@/lib/registry";
 import { PartialLoader } from "@/lib/mdx-registry-loader";
 import { MdxFrameworkOverview } from "@/components/content/landing-pages/mdx-framework-overview";
@@ -47,6 +48,38 @@ import {
   SpringIcon,
   StrandsIcon,
 } from "@/components/icons/framework-icons";
+import catalogData from "@/data/catalog.json";
+
+// Local `(integration, demo) → catalog entry` lookup. Mirrors the lookup in
+// `<Snippet>` (snippet.tsx) so `<InlineDemo>` can short-circuit to an
+// `<UnsupportedBox>` placeholder when the catalog flags a pair as
+// `unsupported` instead of iframing a backend route that 404s. Built once
+// at module scope.
+//
+// After Tyler's docs_mode cutover, only `generated`-mode frameworks
+// (langgraph-python, langgraph-typescript, google-adk) render the
+// agnostic shell-docs pages that embed `<InlineDemo>`. Authored-mode
+// frameworks render their own ported MDX and never hit this path, so
+// this guard now narrowly covers the LGTS/ADK gaps:
+//   langgraph-typescript ✗ shared-state-streaming
+//   google-adk           ✗ gen-ui-interrupt, interrupt-headless
+interface InlineDemoCatalogCell {
+  integration: string;
+  integration_name?: string;
+  feature: string;
+  feature_name?: string;
+  status: string;
+}
+
+const inlineDemoCatalogByKey: Map<string, InlineDemoCatalogCell> = (() => {
+  const m = new Map<string, InlineDemoCatalogCell>();
+  const cells =
+    (catalogData as { cells?: InlineDemoCatalogCell[] }).cells ?? [];
+  for (const c of cells) {
+    m.set(`${c.integration}::${c.feature}`, c);
+  }
+  return m;
+})();
 
 const Callout = DocsCallout;
 
@@ -296,16 +329,31 @@ export const docsComponents = {
       );
       return null;
     }
+    // If the catalog marks this (integration × demo) pair as
+    // `unsupported`, render the same neutral placeholder <Snippet> uses
+    // instead of iframing a backend route that will 404. Only
+    // generated-mode frameworks reach this path; the affected cells are
+    // langgraph-typescript/shared-state-streaming and
+    // google-adk/{gen-ui-interrupt, interrupt-headless}.
+    const catalogEntry = inlineDemoCatalogByKey.get(`${integration}::${demo}`);
+    if (catalogEntry?.status === "unsupported") {
+      return (
+        <UnsupportedBox
+          integrationName={catalogEntry.integration_name ?? int.name}
+          featureName={catalogEntry.feature_name ?? demo}
+        />
+      );
+    }
     // Iframe the integration demo directly (its own backend host).
     //
     // Visual treatment: a fixed-height wrapper (550px) + CSS scale on the
-    // inner iframe to zoom the embedded content OUT — the iframe is sized
+    // inner iframe to zoom the embedded content OUT. The iframe is sized
     // to (100% / SCALE) (wider + taller than its visible box) and then
     // `transform: scale(SCALE)` shrinks it back down to fill the wrapper.
     // With SCALE < 1 the iframe lays out as if it had MORE viewport, so
     // more demo content fits in the same visual footprint at a smaller
-    // effective size — useful for chat surfaces where the composer +
-    // suggested-prompts + early messages should all be visible at once.
+    // effective size: useful for chat surfaces where the composer,
+    // suggested prompts, and early messages should all be visible at once.
     const demoUrl = `${int.backend_url}/demos/${demo}`;
     const SCALE = 0.7;
     const WRAPPER_HEIGHT = 550;
