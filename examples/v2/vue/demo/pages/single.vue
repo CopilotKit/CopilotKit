@@ -6,8 +6,8 @@ import {
   CopilotKitProvider,
   useConfigureSuggestions,
   useFrontendTool,
-} from "@copilotkit/vue";
-import type { ToolsMenuItem } from "@copilotkit/vue";
+} from "@copilotkit/vue/v2";
+import type { ToolsMenuItem } from "@copilotkit/vue/v2";
 
 const toolsMenu: (ToolsMenuItem | "-")[] = [
   {
