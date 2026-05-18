@@ -62,7 +62,9 @@ def generate_a2ui(
             messages = list(getattr(session, "input_messages", []) or [])
             for msg in reversed(messages):
                 if getattr(msg, "role", None) == "user":
-                    text = getattr(msg, "text", None) or str(getattr(msg, "content", "") or "")
+                    text = getattr(msg, "text", None) or str(
+                        getattr(msg, "content", "") or ""
+                    )
                     if text:
                         latest_user_message = text
                         break
