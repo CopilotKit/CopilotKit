@@ -46,7 +46,6 @@ services:
       - ./aimock/d5-all.json:/showcase-fixtures/d5-all.json:ro
       - ./aimock/smoke.json:/showcase-fixtures/smoke.json:ro
       - ./aimock/feature-parity.json:/showcase-fixtures/feature-parity.json:ro
-      - ./aimock/d5-recorded:/showcase-fixtures/d5-recorded:ro
     # `--proxy-only` + `--provider-openai` mirrors the Railway aimock setup:
     # matched fixtures short-circuit deterministically; unmatched requests
     # fall through to real OpenAI (using OPENAI_API_KEY from .env). Without
@@ -61,6 +60,10 @@ services:
         "--proxy-only",
         "--provider-openai",
         "https://api.openai.com",
+        "--provider-anthropic",
+        "https://api.anthropic.com",
+        "--provider-gemini",
+        "https://generativelanguage.googleapis.com",
         # Natural-feel streaming so demos look like a real LLM rather than
         # an instant dump. 8 chars/chunk × 60 ms = ~130 chars/sec ≈ 30-40
         # tokens/sec, the lower end of Gemini 2.5-flash's real streaming
@@ -77,8 +80,7 @@ services:
         "/showcase-fixtures/smoke.json",
         "--fixtures",
         "/showcase-fixtures/feature-parity.json",
-        "--fixtures",
-        "/showcase-fixtures/d5-recorded",
+        "--validate-on-load",
       ]
     healthcheck:
       test:
