@@ -45,7 +45,7 @@ describe("useComponent", () => {
     );
   });
 
-  it("appends custom description and forwards parameters, agentId, and deps", () => {
+  it("appends custom description and forwards parameters, agentId, deps, and followUp", () => {
     const weatherSchema = z.object({
       city: z.string(),
       unit: z.enum(["c", "f"]),
@@ -65,6 +65,7 @@ describe("useComponent", () => {
           parameters: weatherSchema,
           render: DemoComponent,
           agentId: "weather-agent",
+          followUp: false,
         },
         deps,
       );
@@ -79,6 +80,7 @@ describe("useComponent", () => {
         description: string;
         parameters: typeof weatherSchema;
         agentId?: string;
+        followUp?: boolean;
       },
       ReadonlyArray<unknown>,
     ];
@@ -91,6 +93,7 @@ describe("useComponent", () => {
     );
     expect(toolConfig.parameters).toBe(weatherSchema);
     expect(toolConfig.agentId).toBe("weather-agent");
+    expect(toolConfig.followUp).toBe(false);
     expect(forwardedDeps).toBe(deps);
   });
 
