@@ -476,7 +476,7 @@ jobs:
 
       - name: Notify Slack (failure)
         if: failure() && github.event_name == 'push' && env.SLACK_WEBHOOK != ''
-        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
+        uses: slackapi/slack-github-action@45a88b9581bfab2566dc881e2cd66d334e621e2c # v3.0.3
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
