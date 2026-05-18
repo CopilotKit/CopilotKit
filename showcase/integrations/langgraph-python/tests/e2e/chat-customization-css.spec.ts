@@ -81,10 +81,7 @@ test.describe("Chat Customization (CSS)", () => {
     // `background: transparent` and styles the inner bg-muted child with
     // `var(--halcyon-paper-elevated)` (#fbf8f2) plus a 2px ember left border.
     // Assert the outer wrapper is transparent.
-    await expect(userMsg).toHaveCSS(
-      "background-color",
-      "rgba(0, 0, 0, 0)",
-    );
+    await expect(userMsg).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   });
 
   test("assistant bubble uses transparent background after round-trip", async ({
@@ -102,9 +99,6 @@ test.describe("Chat Customization (CSS)", () => {
     // `background: transparent` — editorial serif text with no bubble, just
     // an ember left-rule via ::before. The default CopilotKit assistant has
     // a visible background, so transparent proves the theme won the cascade.
-    await expect(assistant).toHaveCSS(
-      "background-color",
-      "rgba(0, 0, 0, 0)",
-    );
+    await expect(assistant).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   });
 });

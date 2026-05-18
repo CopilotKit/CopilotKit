@@ -27,7 +27,10 @@ const AGENT_ID = "byoc_json_render";
 
 export default function ByocJsonRenderDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit-declarative-json-render" agent={AGENT_ID}>
+    <CopilotKit
+      runtimeUrl="/api/copilotkit-declarative-json-render"
+      agent={AGENT_ID}
+    >
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />

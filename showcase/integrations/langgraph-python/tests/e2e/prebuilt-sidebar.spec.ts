@@ -79,7 +79,9 @@ test.describe("Pre-Built Sidebar", () => {
     // JS-level .click() that bypasses the overlay (same pattern as the
     // harness probes in _genuine-shared.ts:clickByJs).
     await page.evaluate(() => {
-      const btn = document.querySelector('[data-testid="copilot-close-button"]');
+      const btn = document.querySelector(
+        '[data-testid="copilot-close-button"]',
+      );
       if (btn) (btn as HTMLElement).click();
     });
 
