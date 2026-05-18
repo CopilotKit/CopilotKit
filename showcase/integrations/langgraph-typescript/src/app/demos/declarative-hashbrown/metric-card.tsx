@@ -1,13 +1,5 @@
 "use client";
 
-/**
- * MetricCard for the declarative-hashbrown demo.
- *
- * Extracted from showcase/starters/template/frontend/components/renderers/hashbrown/index.tsx
- * so the hashbrown-renderer can import it as its own module.
- */
-import React from "react";
-
 interface MetricCardProps {
   label: string;
   value: string;
