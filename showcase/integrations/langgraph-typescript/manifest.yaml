@@ -235,7 +235,7 @@ demos:
     highlight:
       - src/agent/graph.ts
       - src/app/demos/chat-slots/page.tsx
-      - src/app/demos/chat-slots/custom-welcome-screen.tsx
+      - src/app/demos/chat-slots/slot-wrappers.tsx
       - src/app/api/copilotkit/route.ts
   - id: chat-customization-css
     name: Chat Customization (CSS)
