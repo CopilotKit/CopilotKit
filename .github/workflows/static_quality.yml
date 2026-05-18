@@ -110,7 +110,15 @@ jobs:
             if [ -n "$py_files" ]; then
               echo "$py_files" | xargs ruff format || echo "::warning::ruff format exited with error"
             fi
-            if [ -n "$(git diff --name-only)" ]; then
+            # Restrict the auto-commit to files we deliberately fed to oxfmt.
+            # `git diff` alone can also list tracked-but-gitignored paths oxfmt
+            # incidentally rewrote (e.g. fixtures under a `recorded/` ignore
+            # rule); `git add` refuses ignored paths, and that exit-1 propagates
+            # through xargs as 123 and kills the commit step.
+            git diff --name-only \
+              | grep -Fxf .pr-format-files.existing.txt \
+              > .pr-format-files.modified.txt || true
+            if [ -s .pr-format-files.modified.txt ]; then
               echo "format_fixed=true" >> $GITHUB_ENV
             fi
             # Check mode: verify everything is formatted
@@ -141,11 +149,11 @@ jobs:
           github.event_name == 'pull_request' &&
           github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name
         run: |
-          if [ -z "$(git diff --name-only)" ]; then
+          if [ ! -s .pr-format-files.modified.txt ]; then
             echo "No formatting changes to commit"
             exit 0
           fi
-          git diff --name-only -z | xargs -0 git add
+          xargs -a .pr-format-files.modified.txt git add
           git commit -m "style: auto-fix formatting"
           git push
 
