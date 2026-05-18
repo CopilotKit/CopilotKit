@@ -2604,11 +2604,7 @@
                 {
                   "id": "status-col",
                   "component": "Column",
-                  "children": [
-                    "status-api",
-                    "status-db",
-                    "status-workers"
-                  ],
+                  "children": ["status-api", "status-db", "status-workers"],
                   "gap": 8
                 },
                 {
@@ -2824,6 +2820,277 @@
       "response": {
         "content": "Based on your context I can see your name and recent activity. I'll keep responses calibrated to your timezone."
       }
+    },
+    {
+      "match": {
+        "userMessage": "First use the query_data tool to fetch the financial sales data, then using A2UI, show me a sales dashboard with total revenue, new customers, and conversion rate metrics. Include a pie chart of revenue by category and a bar chart of monthly sales.",
+        "model": "gpt-4o",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "query_data",
+            "arguments": "{\"query\":\"financial sales data including total revenue, new customers, conversion rate, revenue by category, and monthly sales\"}",
+            "id": "call_jWKVlcdnnYiV6MT3wzNZphnF"
+          }
+        ]
+      },
+      "metadata": {
+        "systemHash": "989f650c",
+        "toolsHash": "6e36f0b6"
+      },
+      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-54-59-257Z-b614f3f8.json"
+    },
+    {
+      "match": {
+        "userMessage": "First use the query_data tool to fetch the financial sales data, then using A2UI, show me a sales dashboard with total revenue, new customers, and conversion rate metrics. Include a pie chart of revenue by category and a bar chart of monthly sales.",
+        "model": "gpt-4o",
+        "turnIndex": 1,
+        "hasToolResult": true
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "generate_a2ui",
+            "arguments": "{}",
+            "id": "call_K6au6wp1CjG4OuiGzhL1yCXL"
+          }
+        ]
+      },
+      "metadata": {
+        "systemHash": "989f650c",
+        "toolsHash": "6e36f0b6"
+      },
+      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-55-00-312Z-814153b0.json"
+    },
+    {
+      "match": {
+        "model": "gpt-4.1",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"dashboard-001\",\"catalogId\":\"copilotkit://app-dashboard-catalog\"}",
+            "id": "call_Q3rTavqr4dXJ08ne9bEesL9d"
+          }
+        ]
+      },
+      "metadata": {
+        "systemHash": "28fe3ed7",
+        "toolsHash": "2cbb50da"
+      },
+      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-55-02-522Z-e88af85f.json"
+    },
+    {
+      "match": {
+        "userMessage": "First use the query_data tool to fetch the financial sales data, then using A2UI, show me a sales dashboard with total revenue, new customers, and conversion rate metrics. Include a pie chart of revenue by category and a bar chart of monthly sales.",
+        "model": "gpt-4o",
+        "turnIndex": 2,
+        "hasToolResult": true
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "pieChart",
+            "arguments": "{\"title\": \"Revenue by Category\", \"description\": \"Distribution of revenue across different categories\", \"data\": [{\"label\": \"Enterprise Subscriptions\", \"value\": 94000}, {\"label\": \"Pro Tier Upgrades\", \"value\": 66500}, {\"label\": \"API Usage Overages\", \"value\": 34500}, {\"label\": \"Consulting Services\", \"value\": 54000}, {\"label\": \"Marketplace Sales\", \"value\": 42800}, {\"label\": \"Partnership Revenue\", \"value\": 25700}, {\"label\": \"Training & Workshops\", \"value\": 10200}]}",
+            "id": "call_OJDsrTtDcWoV0PObgKtU9fXv"
+          },
+          {
+            "name": "barChart",
+            "arguments": "{\"title\": \"Monthly Sales\", \"description\": \"Sales performance over the months\", \"data\": [{\"label\": \"January\", \"value\": 82800}, {\"label\": \"February\", \"value\": 119000}, {\"label\": \"March\", \"value\": 135700}]}",
+            "id": "call_o9RdNrZTq8qV0Majn12OTZcu"
+          }
+        ]
+      },
+      "metadata": {
+        "systemHash": "989f650c",
+        "toolsHash": "6e36f0b6"
+      },
+      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-55-05-134Z-890eead9.json"
+    },
+    {
+      "match": {
+        "userMessage": "First use the query_data tool to fetch the financial sales data, then using A2UI, show me a sales dashboard with total revenue, new customers, and conversion rate metrics. Include a pie chart of revenue by category and a bar chart of monthly sales.",
+        "model": "gpt-4o",
+        "turnIndex": 3,
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "The sales dashboard is now available, featuring metrics for total revenue, new customers, and conversion rate. Additionally, you can view a pie chart of revenue by category and a bar chart of monthly sales."
+      },
+      "metadata": {
+        "systemHash": "989f650c",
+        "toolsHash": "6e36f0b6"
+      },
+      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-55-07-715Z-9531bf64.json"
+    },
+    {
+      "match": {
+        "userMessage": "Using the generateSandboxedUi tool, build a modern calculator with standard buttons plus labeled metric shortcut buttons that insert their values into the display when clicked. Use sample company data.",
+        "model": "gpt-4o",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":400,\"placeholderMessages\":[\"Building calculator UI...\"],\"css\":\"body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f4f4f9; } .calculator { width: 320px; background-color: #fff; border-radius: 10px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); } .display { background-color: #222; color: #fff; font-size: 2em; padding: 20px; text-align: right; border-top-left-radius: 10px; border-top-right-radius: 10px; } .buttons { display: grid; grid-template-columns: repeat(4, 1fr); grid-gap: 1px; } .button { background-color: #e0e0e0; padding: 20px; font-size: 1.2em; text-align: center; cursor: pointer; transition: background-color 0.2s; } .button:hover { background-color: #d0d0d0; } .metric-button { background-color: #4caf50; color: #fff; }\",\"html\":\"<div class='calculator'> <div class='display' id='display'>0</div> <div class='buttons'> <div class='button' onclick='appendNumber(7)'>7</div> <div class='button' onclick='appendNumber(8)'>8</div> <div class='button' onclick='appendNumber(9)'>9</div> <div class='button' onclick='operate(\\\"/\\\")'>/</div> <div class='button' onclick='appendNumber(4)'>4</div> <div class='button' onclick='appendNumber(5)'>5</div> <div class='button' onclick='appendNumber(6)'>6</div> <div class='button' onclick='operate(\\\"*\\\")'>*</div> <div class='button' onclick='appendNumber(1)'>1</div> <div class='button' onclick='appendNumber(2)'>2</div> <div class='button' onclick='appendNumber(3)'>3</div> <div class='button' onclick='operate(\\\"-\\\")'>-</div> <div class='button' onclick='appendNumber(0)'>0</div> <div class='button' onclick='clearDisplay()'>C</div> <div class='button' onclick='calculate()'>=</div> <div class='button' onclick='operate(\\\"+\\\")'>+</div> <div class='button metric-button' onclick='insertMetric(1000)'>Revenue</div> <div class='button metric-button' onclick='insertMetric(500)'>Expenses</div> <div class='button metric-button' onclick='insertMetric(200)'>Profit</div> </div> </div>\",\"jsFunctions\":\"function appendNumber(number) { const display = document.getElementById('display'); if (display.innerText === '0') { display.innerText = number; } else { display.innerText += number; } } function operate(operator) { const display = document.getElementById('display'); display.innerText += ' ' + operator + ' '; } function clearDisplay() { document.getElementById('display').innerText = '0'; } function calculate() { const display = document.getElementById('display'); try { display.innerText = eval(display.innerText); } catch { display.innerText = 'Error'; } } function insertMetric(value) { const display = document.getElementById('display'); if (display.innerText === '0') { display.innerText = value; } else { display.innerText += value; } }\",\"jsExpressions\":[]}",
+            "id": "call_u2aFJvWZUKzzlvqfnDeWhMyC"
+          }
+        ]
+      },
+      "metadata": {
+        "systemHash": "989f650c",
+        "toolsHash": "6e36f0b6"
+      },
+      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-56-02-547Z-7afa30ad.json"
+    },
+    {
+      "match": {
+        "userMessage": "Using the generateSandboxedUi tool, build a modern calculator with standard buttons plus labeled metric shortcut buttons that insert their values into the display when clicked. Use sample company data.",
+        "model": "gpt-4o",
+        "turnIndex": 1,
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "The modern calculator with standard buttons and labeled metric shortcut buttons is ready for use. You can perform calculations and insert sample company data values like Revenue, Expenses, and Profit directly into the display."
+      },
+      "metadata": {
+        "systemHash": "989f650c",
+        "toolsHash": "6e36f0b6"
+      },
+      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-56-04-559Z-1bafed55.json"
+    },
+    {
+      "match": {
+        "userMessage": "Enable app mode and add three todos about learning CopilotKit: one about reading the docs, one about building a prototype, and one about exploring agent state.",
+        "model": "gpt-4o",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "enableAppMode",
+            "arguments": "{}",
+            "id": "call_c35xh8AQaOh9TPQ2R2iQvztQ"
+          },
+          {
+            "name": "manage_todos",
+            "arguments": "{\"todos\": [{\"title\": \"Read CopilotKit documentation\", \"description\": \"Go through the official documentation to understand the basics.\", \"emoji\": \"📚\", \"status\": \"pending\"}, {\"title\": \"Build a CopilotKit prototype\", \"description\": \"Create a simple prototype using CopilotKit to test its features.\", \"emoji\": \"🛠️\", \"status\": \"pending\"}, {\"title\": \"Explore CopilotKit agent state\", \"description\": \"Investigate how agent state is managed and utilized in CopilotKit.\", \"emoji\": \"🔍\", \"status\": \"pending\"}]}",
+            "id": "call_luLxT9XGJjj6HX5tfQUzkfiA"
+          }
+        ]
+      },
+      "metadata": {
+        "systemHash": "989f650c",
+        "toolsHash": "6e36f0b6"
+      },
+      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-56-51-948Z-f0ba1066.json"
+    },
+    {
+      "match": {
+        "userMessage": "Enable app mode and add three todos about learning CopilotKit: one about reading the docs, one about building a prototype, and one about exploring agent state.",
+        "model": "gpt-4o",
+        "turnIndex": 1,
+        "hasToolResult": true
+      },
+      "response": {
+        "error": {
+          "message": "An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'. The following tool_call_ids did not have response messages: call_luLxT9XGJjj6HX5tfQUzkfiA",
+          "type": "invalid_request_error"
+        },
+        "status": 400
+      },
+      "metadata": {
+        "systemHash": "989f650c",
+        "toolsHash": "6e36f0b6"
+      },
+      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-56-53-134Z-531d8259.json"
+    },
+    {
+      "match": {
+        "userMessage": "What is the weather in Tokyo?",
+        "model": "gpt-4o-mini",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}",
+            "id": "call_0uXBAr4ySTrLQGQgszQYFtEJ"
+          }
+        ]
+      },
+      "metadata": {
+        "systemHash": "26c3eb38",
+        "toolsHash": "686e39e9"
+      },
+      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T22-01-34-384Z-edf48666.json"
+    },
+    {
+      "match": {
+        "userMessage": "What is the weather in Tokyo?",
+        "model": "gpt-4o-mini",
+        "turnIndex": 1,
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "The weather in Tokyo is currently 68°F, with 55% humidity, a wind speed of 10 mph, and sunny conditions."
+      },
+      "metadata": {
+        "systemHash": "26c3eb38",
+        "toolsHash": "686e39e9"
+      },
+      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T22-01-35-344Z-6ea6b18a.json"
+    },
+    {
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "book_call",
+            "arguments": "{\"topic\":\"Intro with sales\",\"attendee\":\"User\"}",
+            "id": "call_jisCjcR5jdyQQ0JHJXhjqUlm"
+          }
+        ]
+      },
+      "metadata": {
+        "systemHash": "72621894",
+        "toolsHash": "7c3b6590"
+      },
+      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T22-01-44-366Z-ec8eaa56.json"
+    },
+    {
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "book_call",
+            "arguments": "{\"topic\":\"Review Q2 goals\",\"attendee\":\"Alice\"}",
+            "id": "call_xwbY36SO2wpay1F9cHCUuQGx"
+          }
+        ]
+      },
+      "metadata": {
+        "systemHash": "72621894",
+        "toolsHash": "7c3b6590"
+      },
+      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T22-02-33-401Z-bb9eb9db.json"
     }
   ]
 }
