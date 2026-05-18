@@ -65,6 +65,7 @@ export function useComponent<
     parameters?: TSchema;
     render: ComponentType<NoInfer<InferRenderProps<TSchema>>>;
     agentId?: string;
+    followUp?: boolean;
   },
   deps?: ReadonlyArray<unknown>,
 ): void {
@@ -83,6 +84,7 @@ export function useComponent<
         return <Component {...(args as InferRenderProps<TSchema>)} />;
       },
       agentId: config.agentId,
+      followUp: config.followUp,
     },
     deps,
   );

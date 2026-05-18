@@ -30,6 +30,7 @@ function useComponent<
     // When omitted, render accepts any props.
     render: ComponentType<InferRenderProps<TSchema>>;
     agentId?: string;
+    followUp?: boolean;
   },
   deps?: ReadonlyArray<unknown>,
 ): void;
@@ -42,6 +43,7 @@ function useComponent<
 - `config.parameters`: optional Zod schema for typed/validated parameters. When provided, `render` props are inferred from the schema.
 - `config.render`: React component rendered with parsed tool parameters. Accepts any props when `parameters` is omitted.
 - `config.agentId`: optional agent scope for the registration.
+- `config.followUp`: optional, defaults to `true`. Set `false` to suppress the agent's follow-up message after rendering.
 - `deps`: optional dependency array for refreshing registration.
 
 ## Behavior
