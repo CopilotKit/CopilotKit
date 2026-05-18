@@ -270,8 +270,15 @@ demos:
     highlight:
       - src/agent/headless-complete.ts
       - src/app/demos/headless-complete/page.tsx
-      - src/app/demos/headless-complete/message-list.tsx
-      - src/app/demos/headless-complete/use-rendered-messages.tsx
+      - src/app/demos/headless-complete/chat/chat.tsx
+      - src/app/demos/headless-complete/chat/message-list.tsx
+      - src/app/demos/headless-complete/hooks/use-tool-renderers.tsx
+      - src/app/demos/headless-complete/hooks/use-frontend-components.ts
+      - src/app/demos/headless-complete/hooks/use-headless-suggestions.ts
+      - src/app/demos/headless-complete/attachments/use-attachments-config.ts
+      - src/app/demos/headless-complete/tools/weather-card.tsx
+      - src/app/demos/headless-complete/tools/stock-card.tsx
+      - src/app/demos/headless-complete/tools/chart-card.tsx
       - src/app/api/copilotkit-mcp-apps/route.ts
   - id: auth
     name: Authentication
@@ -357,7 +364,7 @@ demos:
     highlight:
       - src/agent/interrupt-agent.ts
       - src/app/demos/gen-ui-interrupt/page.tsx
-      - src/app/demos/gen-ui-interrupt/time-picker-card.tsx
+      - src/app/demos/gen-ui-interrupt/_components/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: interrupt-headless
     name: Headless Interrupt (testing)
