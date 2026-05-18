@@ -5,6 +5,7 @@
  * v2 composable (useFrontendTool, useHumanInTheLoop, or useRenderTool).
  */
 import type { WatchSource } from "vue";
+import { z } from "zod";
 import type { Parameter, MappedParameterTypes } from "@copilotkit/shared";
 import { getZodParameters, parseJson } from "@copilotkit/shared";
 import { useFrontendTool as useFrontendToolV2 } from "../v2/hooks/use-frontend-tool";
@@ -83,22 +84,14 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
       typedAction.renderAndWaitForResponse ??
       typedAction.renderAndWait;
 
-    if (!render) {
-      console.warn(
-        `[CopilotKit] useCopilotAction: HITL action '${typedAction.name}' ` +
-          `has no render function. Skipping.`,
-      );
-      return;
-    }
-
     useHumanInTheLoopV2<MappedParameterTypes<T>>(
       {
         name: typedAction.name,
         description: typedAction.description,
         parameters: zodParameters,
-        render: wrapRenderWithJsonResult(render) as VueHumanInTheLoop<
-          MappedParameterTypes<T>
-        >["render"],
+        render: (render
+          ? wrapRenderWithJsonResult(render)
+          : () => null) as VueHumanInTheLoop<MappedParameterTypes<T>>["render"],
         agentId: typedAction.agentId,
       },
       deps,
@@ -111,44 +104,38 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
     typedAction.available === "frontend" ||
     typedAction.available === "disabled"
   ) {
-    if (typedAction.render && zodParameters) {
-      useRenderToolV2(
-        {
-          name: typedAction.name,
-          parameters: zodParameters,
-          render: wrapRenderWithJsonResult(
-            typedAction.render as (props: unknown) => unknown,
-          ),
-          agentId: typedAction.agentId,
-        },
-        deps,
-      );
-    } else {
-      console.warn(
-        `[CopilotKit] useCopilotAction: action '${typedAction.name}' ` +
-          `with available="${typedAction.available}" requires both ` +
-          `'render' and 'parameters'. Skipping registration.`,
-      );
-    }
+    useRenderToolV2(
+      {
+        name: typedAction.name,
+        parameters: zodParameters ?? z.object({}),
+        render: typedAction.render
+          ? wrapRenderWithJsonResult(
+              typedAction.render as (props: unknown) => unknown,
+            )
+          : () => null,
+        agentId: typedAction.agentId,
+      },
+      deps,
+    );
     return;
   }
 
+  if (!("handler" in typedAction)) {
+    throw new Error("Invalid action configuration");
+  }
+
   // Default: frontend tool with handler
-  // Wrap the v1 handler (single-arg) to match v2's (args, context) => Promise<unknown> signature
   const normalizedHandler = typedAction.handler
     ? (args: MappedParameterTypes<T>) =>
         Promise.resolve(typedAction.handler!(args))
     : undefined;
 
-  // Convert v1 available (string enum) to v2 available (boolean)
-  // At this point, "frontend" and "disabled" have been handled above,
-  // so remaining values are "enabled", "remote", or undefined.
-  // "remote" means server-only: register the tool but mark it as not
-  // available on the frontend (matches React's ActionInputAvailability.Remote).
+  // Convert v1 available (string enum) to v2 available (boolean).
+  // "frontend" and "disabled" are handled above as render-only.
+  // Remaining values match React's v1 wrapper: "enabled" and "remote" both
+  // route through useFrontendTool, which converts non-disabled availability to true.
   let normalizedAvailable: boolean | undefined;
-  if (typedAction.available === "remote") {
-    normalizedAvailable = false;
-  } else if (typedAction.available !== undefined) {
+  if (typedAction.available !== undefined) {
     normalizedAvailable = true;
   }
 
