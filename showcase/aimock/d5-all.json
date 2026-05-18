@@ -1792,20 +1792,18 @@
       }
     },
     {
-      "_comment": "readonly-state-agent-context — Who am I pill. Gated by systemMessage substring matching the canonical default 'Atai' name forwarded via useAgentContext. When the user changes the name input to anything else (e.g. 'alem'), the system prompt loses 'Atai', this fixture stops matching, and aimock --proxy-only falls through to the real model so the agent answers with the actual state values.",
+      "_comment": "readonly-state-agent-context — Who am I pill. Matches the verbatim pill prompt. systemMessage gating on 'Atai' was removed because @langchain/openai >=1.4 sends SystemMessage as role:'developer' for gpt-5 models, and aimock's getSystemText only checks role:'system'. The userMessage alone is deterministic from the pill.",
       "match": {
-        "userMessage": "What do you know about me from my context?",
-        "systemMessage": "Atai"
+        "userMessage": "What do you know about me from my context?"
       },
       "response": {
         "content": "I see you're Atai, and you're in the America/Los_Angeles timezone. Recently, you viewed the pricing page and watched the product demo video. How can I assist you today?"
       }
     },
     {
-      "_comment": "readonly-state-agent-context — Suggest next steps pill. Same systemMessage gating as 'Who am I' so non-default state falls through.",
+      "_comment": "readonly-state-agent-context — Suggest next steps pill. Matches the verbatim pill prompt. systemMessage gating removed (see Who am I comment above).",
       "match": {
-        "userMessage": "Based on my recent activity, what should I try next?",
-        "systemMessage": "Atai"
+        "userMessage": "Based on my recent activity, what should I try next?"
       },
       "response": {
         "content": "Since you recently viewed the pricing page and watched the product demo video, it might be a good idea to explore user testimonials or case studies to see how others have benefited from the Pro Plan. You could also start the 14-day free trial to experience the features firsthand."
@@ -2604,7 +2602,11 @@
                 {
                   "id": "status-col",
                   "component": "Column",
-                  "children": ["status-api", "status-db", "status-workers"],
+                  "children": [
+                    "status-api",
+                    "status-db",
+                    "status-workers"
+                  ],
                   "gap": 8
                 },
                 {
@@ -2966,53 +2968,6 @@
         "toolsHash": "6e36f0b6"
       },
       "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-56-04-559Z-1bafed55.json"
-    },
-    {
-      "match": {
-        "userMessage": "Enable app mode and add three todos about learning CopilotKit: one about reading the docs, one about building a prototype, and one about exploring agent state.",
-        "model": "gpt-4o",
-        "turnIndex": 0,
-        "hasToolResult": false
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "name": "enableAppMode",
-            "arguments": "{}",
-            "id": "call_c35xh8AQaOh9TPQ2R2iQvztQ"
-          },
-          {
-            "name": "manage_todos",
-            "arguments": "{\"todos\": [{\"title\": \"Read CopilotKit documentation\", \"description\": \"Go through the official documentation to understand the basics.\", \"emoji\": \"📚\", \"status\": \"pending\"}, {\"title\": \"Build a CopilotKit prototype\", \"description\": \"Create a simple prototype using CopilotKit to test its features.\", \"emoji\": \"🛠️\", \"status\": \"pending\"}, {\"title\": \"Explore CopilotKit agent state\", \"description\": \"Investigate how agent state is managed and utilized in CopilotKit.\", \"emoji\": \"🔍\", \"status\": \"pending\"}]}",
-            "id": "call_luLxT9XGJjj6HX5tfQUzkfiA"
-          }
-        ]
-      },
-      "metadata": {
-        "systemHash": "989f650c",
-        "toolsHash": "6e36f0b6"
-      },
-      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-56-51-948Z-f0ba1066.json"
-    },
-    {
-      "match": {
-        "userMessage": "Enable app mode and add three todos about learning CopilotKit: one about reading the docs, one about building a prototype, and one about exploring agent state.",
-        "model": "gpt-4o",
-        "turnIndex": 1,
-        "hasToolResult": true
-      },
-      "response": {
-        "error": {
-          "message": "An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'. The following tool_call_ids did not have response messages: call_luLxT9XGJjj6HX5tfQUzkfiA",
-          "type": "invalid_request_error"
-        },
-        "status": 400
-      },
-      "metadata": {
-        "systemHash": "989f650c",
-        "toolsHash": "6e36f0b6"
-      },
-      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-56-53-134Z-531d8259.json"
     },
     {
       "match": {
