@@ -38,6 +38,9 @@ const agentNames = [
   "headless-complete",
   "frontend-tools",
   "frontend-tools-async",
+  // Aliases for ADK/LGP-style underscore names (frontend pages use these).
+  "frontend_tools",
+  "frontend_tools_async",
   "readonly-state-agent-context",
 ];
 
