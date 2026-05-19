@@ -72,6 +72,7 @@ const demoAgents: Record<string, string> = {
   // Reasoning demos — use dedicated reasoning agent graph.
   "agentic-chat-reasoning": "agentic-chat-reasoning",
   "reasoning-custom": "agentic-chat-reasoning",
+  "reasoning-default": "agentic-chat-reasoning",
   "reasoning-default-render": "reasoning-default-render",
   // Tool rendering variants — each has its own graph in langgraph.json.
   "tool-rendering": "tool_rendering",
