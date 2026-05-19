@@ -416,9 +416,7 @@ async def copilotkit_emit_tool_call(
         )
 
     if args is None or not isinstance(args, dict):
-        raise ValueError(
-            "Tool arguments must be a dict for copilotkit_emit_tool_call"
-        )
+        raise ValueError("Tool arguments must be a dict for copilotkit_emit_tool_call")
 
     if tool_call_id is not None:
         if not isinstance(tool_call_id, str) or not tool_call_id.strip():

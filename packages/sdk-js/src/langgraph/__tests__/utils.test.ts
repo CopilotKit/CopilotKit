@@ -318,7 +318,12 @@ describe("copilotkitEmitToolCall", () => {
 
   it("throws on whitespace-only toolCallId", async () => {
     await expect(
-      copilotkitEmitToolCall(mockConfig, "SearchTool", {}, { toolCallId: "   " }),
+      copilotkitEmitToolCall(
+        mockConfig,
+        "SearchTool",
+        {},
+        { toolCallId: "   " },
+      ),
     ).rejects.toThrow("non-empty string");
   });
 
@@ -326,6 +331,8 @@ describe("copilotkitEmitToolCall", () => {
     mockedDispatch.mockRejectedValueOnce(new Error("transport closed"));
     await expect(
       copilotkitEmitToolCall(mockConfig, "SearchTool", {}),
-    ).rejects.toThrow(/Failed to emit tool call 'SearchTool': transport closed/);
+    ).rejects.toThrow(
+      /Failed to emit tool call 'SearchTool': transport closed/,
+    );
   });
 });

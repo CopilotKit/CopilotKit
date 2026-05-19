@@ -353,7 +353,8 @@ export async function copilotkitEmitToolCall(
 
   if (
     options?.toolCallId !== undefined &&
-    (typeof options.toolCallId !== "string" || options.toolCallId.trim().length === 0)
+    (typeof options.toolCallId !== "string" ||
+      options.toolCallId.trim().length === 0)
   ) {
     throw new CopilotKitMisuseError({
       message:
