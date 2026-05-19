@@ -3,6 +3,9 @@ title: Interrupts
 icon: "lucide/CirclePause"
 description: Learn how to implement Human-in-the-Loop (HITL) using Mastra's native tool suspension.
 ---
+
+import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx"
+
 ## What is this?
 
 Mastra's [tool suspension](https://mastra.ai/docs/agents/agent-approval) provides a native way to implement Human-in-the-Loop workflows.
@@ -26,7 +29,7 @@ Interrupt-based HITL is ideal when a tool needs to pause its own execution to co
 <Steps>
 <Step>
   ### Run and connect your agent
-  <RunAndConnect />
+  <RunAndConnect components={props.components} />
 </Step>
 
 <Step>
