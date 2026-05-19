@@ -91,11 +91,21 @@ jobs:
       - name: Build packages
         run: pnpm run build
 
+      # Exclude node_modules and build caches from the artifact. Including
+      # them produces ~6.4M files for this monorepo, which OOMs
+      # upload-artifact's Node process at its 4GB heap limit during
+      # enumeration. The publish job runs `pnpm install` after download to
+      # restore node_modules from pnpm-lock.yaml.
       - name: Upload workspace
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: workspace
-          path: .
+          path: |
+            .
+            !**/node_modules/**
+            !**/.next/**
+            !**/.turbo/**
+            !**/.nx/**
           include-hidden-files: true
           retention-days: 1
 
@@ -131,6 +141,13 @@ jobs:
           registry-url: https://registry.npmjs.org
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Restore node_modules — the build job excludes them from the
+      # uploaded workspace artifact (see "Upload workspace" above). Uses
+      # pnpm-lock.yaml from the artifact, so this is a deterministic
+      # restore of exactly what the build job ran with.
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Configure npm auth
         run: |
