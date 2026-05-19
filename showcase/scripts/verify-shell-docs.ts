@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { glob } from "glob";
+import { checkEssentialContent, type PageInput } from "./lib/essential-content.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // showcase/scripts/ → showcase/ → repo root. Different from
@@ -53,11 +54,6 @@ interface RegistryIntegrationLite {
 }
 interface RegistryLite {
   integrations: RegistryIntegrationLite[];
-}
-
-interface PageInput {
-  path: string;
-  body: string;
 }
 
 const INLINE_DEMO_RE = /<InlineDemo\s+[^>]*demo=["']([^"']+)["']/g;
@@ -194,6 +190,19 @@ export function checkImportPaths(input: {
   };
 }
 
+export function runEssentialContentCheck(pages: PageInput[]): CheckResult {
+  const messages: string[] = [];
+  for (const page of pages) {
+    const r = checkEssentialContent(page);
+    if (r.status === "fail") messages.push(...r.messages);
+  }
+  return {
+    name: "essential-content",
+    status: messages.length === 0 ? "pass" : "fail",
+    messages,
+  };
+}
+
 function loadPages(): PageInput[] {
   const docsRoot = path.join(
     REPO_ROOT,
@@ -285,6 +294,7 @@ async function main() {
     checkSnippetRegions({ pages, demoContent }),
     checkInternalLinks({ pages, knownRoutes }),
     checkImportPaths({ pages, existsOnDisk: aliasExists }),
+    runEssentialContentCheck(pages),
   ];
 
   let failed = false;
