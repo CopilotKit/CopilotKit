@@ -333,9 +333,9 @@ describe("copilotkitEmitToolCall", () => {
   });
 
   it("throws on whitespace-only name", async () => {
-    await expect(
-      copilotkitEmitToolCall(mockConfig, "   ", {}),
-    ).rejects.toThrow("non-empty string");
+    await expect(copilotkitEmitToolCall(mockConfig, "   ", {})).rejects.toThrow(
+      "non-empty string",
+    );
   });
 
   it("throws on non-object args", async () => {
