@@ -250,7 +250,14 @@ function loadKnownRoutes(): Set<string> {
     const noIndex = noExt.endsWith("/index")
       ? noExt.slice(0, -"/index".length)
       : noExt;
-    routes.add("/" + noIndex);
+    // Strip route-group segments like (other), (foo) — they are removed
+    // from the URL by Fumadocs/Next.js. Mirrors normalizeSlugForUrl in
+    // showcase/shell-docs/src/lib/sitemap-helpers.ts.
+    const normalized = noIndex
+      .split("/")
+      .filter((seg) => !/^\(.+\)$/.test(seg))
+      .join("/");
+    routes.add(normalized === "" ? "/" : "/" + normalized);
   }
   routes.add("/"); // root
   return routes;
