@@ -5,7 +5,7 @@ import fs from "fs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 
-const READY_SLUGS = new Set([
+export const READY_SLUGS = new Set([
   "langgraph-python",
   "langgraph-typescript",
   "google-adk",
