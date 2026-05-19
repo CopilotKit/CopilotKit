@@ -2,14 +2,28 @@
   "title": "Agno",
   "root": true,
   "pages": [
+    "---Getting Started---",
     "index",
+    "quickstart",
+    "coding-agents",
+    "---Basics---",
+    "prebuilt-components",
+    "custom-look-and-feel",
+    "programmatic-control",
+    "inspector",
     "---Generative UI---",
     "...generative-ui",
     "---App Control---",
     "frontend-tools",
-    "---Threads---",
     "threads",
+    "---Backend---",
+    "copilot-runtime",
+    "ag-ui",
     "---Premium Features---",
-    "...premium"
+    "...premium",
+    "---Troubleshooting---",
+    "...troubleshooting",
+    "---Other---",
+    "...(other)"
   ]
 }
