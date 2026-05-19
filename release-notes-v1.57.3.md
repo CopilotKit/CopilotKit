@@ -1,6 +1,6 @@
 # CopilotKit v1.57.3
 
-A patch release on the `1.57` line. Publishes `@copilotkit/vue` to npm for the first time — the package landed during the `1.57.2` cycle but was pinned at `1.57.1` in its own `package.json`, so the previous monorepo release built and tagged it without actually publishing the bump. `1.57.3` corrects the version pin and ships the Vue 3 bindings (providers, composables, full chat component suite, A2UI Vue-native renderer, V1 wrapper) alongside a release-tooling fix that unblocked the pre-commit hook.
+A patch release on the `1.57` line. Re-publishes the monorepo after `1.57.2` shipped corrupted — most notably, `@copilotkit/vue` was on disk but pinned at `1.57.1` in its own `package.json`, so the previous release built and tagged it without actually publishing the bump. `1.57.3` corrects the pins and ships the Vue 3 bindings (providers, composables, full chat component suite, A2UI Vue-native renderer, V1 wrapper) for the first time.
 
 ## Install
 
@@ -40,7 +40,7 @@ npm install @copilotkit/react-core@1.57.3 @copilotkit/react-ui@1.57.3 @copilotki
 
 ## Fixes
 
-- **Release tooling: swallow `@tanstack/virtual-core` rAF teardown error in the CopilotChat perf test** — `@tanstack/virtual-core` `3.13.18`'s `scrollToIndex` schedules a nested `requestAnimationFrame` that calls `this.targetWindow.requestAnimationFrame(verify)` with no null-check. The virtualizer's cleanup nulls `targetWindow` on React unmount, so the queued rAF fires post-unmount and throws `Cannot read properties of null (reading 'requestAnimationFrame')`. All 1170 tests in `CopilotChat perf — re-render regression` passed, but `vitest` reported the unhandled error and exited non-zero, which broke the release-PR workflow's pre-commit hook and blocked the `1.57.3` PR from going green. The test now wraps rAF on both `globalThis` and `window` (separate bindings in `vitest`+`jsdom`; tanstack uses `targetWindow.rAF` which resolves to `window.rAF`) so callbacks hitting this specific error are swallowed while other errors still propagate. Also fixes the lefthook lint-fix command — `[ -n "{staged_files}" ]` broke on multi-file expansion (`"[: <path>: unexpected operator"`) because lefthook interpolates files as space-separated words, not a quoted string; the hook now uses `set --` to put them in positional args. Test-infrastructure only — no runtime/consumer change. ([#4921](https://github.com/CopilotKit/CopilotKit/pull/4921))
+- **Re-publishes packages skipped by the corrupted `1.57.2` release** — `@copilotkit/vue` was the most visible casualty (it stayed at `1.57.1` on npm even though the monorepo tagged `1.57.2`), and `1.57.3` brings every package in the monorepo scope back onto a single matching version so installs and peer-dep resolution work consistently across the `1.57` line. ([#4910](https://github.com/CopilotKit/CopilotKit/pull/4910))
 
 ## Packages republished at `1.57.3`
 
