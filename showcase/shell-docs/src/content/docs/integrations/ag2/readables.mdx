@@ -5,6 +5,12 @@ description: Share app specific context with your agent.
 hideTOC: true
 ---
 
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+import {
+    TailoredContent,
+    TailoredContentOption,
+} from "@/components/react/tailored-content.tsx";
+
 One of the most common use cases for CopilotKit is to register app state and context using `useAgentContext`.
 This way, you can notify CopilotKit of what is going in your app in real time.
 Some examples might be: the current user, the current page, etc.
@@ -12,20 +18,12 @@ Some examples might be: the current user, the current page, etc.
 This context can then be shared with your AG2 backend.
 
 ## Implementation
-
 <Callout>
-  Check out the [Frontend Data
-  documentation](/integrations/langgraph/agent-app-context)
-  to understand what this is and how to use it.
+    Check out the [Frontend Data documentation](/integrations/langgraph/agent-app-context) to understand what this is and how to use it.
 </Callout>
 
 <Callout type="info">
-  CopilotKit consumes AG-UI protocol events streamed by AG2 over{" "}
-  <code>/chat</code>. See the{" "}
-  <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">
-    AG2 AG-UI integration docs
-  </a>
-  .
+  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
 </Callout>
 
 <TailoredContent
@@ -45,6 +43,8 @@ This context can then be shared with your AG2 backend.
 
                 ```tsx title="YourComponent.tsx" showLineNumbers {1, 7-10}
                 "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
+                import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import { useState } from 'react';
 
                 export function YourComponent() {
                   // Create colleagues state with some sample data
@@ -99,7 +99,8 @@ This context can then be shared with your AG2 backend.
                         ```python title="agent.py"
                         from fastapi import FastAPI, Header
                         from fastapi.responses import StreamingResponse
-                        from autogen import ContextVariables, ConversableAgent, LLMConfig
+                        from autogen import ConversableAgent, LLMConfig
+                        from autogen.agentchat import ContextVariables
                         from autogen.ag_ui import AGUIStream, RunAgentInput
 
                         def get_readable(context: ContextVariables, description: str):
@@ -117,6 +118,7 @@ This context can then be shared with your AG2 backend.
                                 "Call `get_colleagues` before suggesting recipients."
                             ),
                             llm_config=LLMConfig({"model": "gpt-5.4-mini"}),
+                            human_input_mode="NEVER",
                         )
 
                         @agent.register_for_llm(description="Return the current user's colleagues from CopilotKit readables.")
@@ -161,6 +163,8 @@ This context can then be shared with your AG2 backend.
 
                 ```tsx title="YourComponent.tsx" showLineNumbers {1, 7-10}
                 "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
+                import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import { useState } from 'react';
 
                 export function YourComponent() {
                   // Create colleagues state with some sample data
@@ -193,13 +197,15 @@ This context can then be shared with your AG2 backend.
                         ```python title="agent.py"
                         from fastapi import FastAPI, Header
                         from fastapi.responses import StreamingResponse
-                        from autogen import ContextVariables, ConversableAgent, LLMConfig
+                        from autogen import ConversableAgent, LLMConfig
+                        from autogen.agentchat import ContextVariables
                         from autogen.ag_ui import AGUIStream, RunAgentInput
 
                         agent = ConversableAgent(
                             name="assistant",
                             system_message="You are a helpful assistant.",
                             llm_config=LLMConfig({"model": "gpt-5.4-mini"}),
+                            human_input_mode="NEVER",
                         )
 
                         @agent.register_for_llm(description="Read colleagues from CopilotKit readable context.")
@@ -237,5 +243,4 @@ This context can then be shared with your AG2 backend.
             </Step>
         </Steps>
     </TailoredContentOption>
-
 </TailoredContent>
