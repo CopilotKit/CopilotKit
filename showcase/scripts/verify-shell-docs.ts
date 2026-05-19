@@ -1,6 +1,8 @@
 import { spawnSync } from "child_process";
+import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { glob } from "glob";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // showcase/scripts/ → showcase/ → repo root. Different from
@@ -190,4 +192,110 @@ export function checkImportPaths(input: {
     status: failures.length === 0 ? "pass" : "fail",
     messages: failures,
   };
+}
+
+function loadPages(): PageInput[] {
+  const docsRoot = path.join(
+    REPO_ROOT,
+    "showcase",
+    "shell-docs",
+    "src",
+    "content",
+    "docs",
+  );
+  const files = glob.sync("**/*.mdx", { cwd: docsRoot });
+  return files.map((rel) => ({
+    path: rel,
+    body: fs.readFileSync(path.join(docsRoot, rel), "utf-8"),
+  }));
+}
+
+function loadRegistry(): RegistryLite {
+  const p = path.join(
+    REPO_ROOT,
+    "showcase",
+    "shell-docs",
+    "src",
+    "data",
+    "registry.json",
+  );
+  return JSON.parse(fs.readFileSync(p, "utf-8")) as RegistryLite;
+}
+
+function loadDemoContent(): DemoContent {
+  const p = path.join(
+    REPO_ROOT,
+    "showcase",
+    "shell-docs",
+    "src",
+    "data",
+    "demo-content.json",
+  );
+  return JSON.parse(fs.readFileSync(p, "utf-8")) as DemoContent;
+}
+
+function loadKnownRoutes(): Set<string> {
+  const docsRoot = path.join(
+    REPO_ROOT,
+    "showcase",
+    "shell-docs",
+    "src",
+    "content",
+    "docs",
+  );
+  const files = glob.sync("**/*.mdx", { cwd: docsRoot });
+  const routes = new Set<string>();
+  for (const rel of files) {
+    const noExt = rel.replace(/\.mdx$/, "");
+    const noIndex = noExt.endsWith("/index")
+      ? noExt.slice(0, -"/index".length)
+      : noExt;
+    routes.add("/" + noIndex);
+  }
+  routes.add("/"); // root
+  return routes;
+}
+
+function aliasExists(importPath: string): boolean {
+  const stripped = importPath.replace(/^@\//, "");
+  const root = path.join(REPO_ROOT, "showcase", "shell-docs", "src");
+  return (
+    fs.existsSync(path.join(root, stripped)) ||
+    fs.existsSync(path.join(root, "content", stripped))
+  );
+}
+
+async function main() {
+  const skipBuild = process.argv.includes("--skip-build");
+  const pages = loadPages();
+  const registry = loadRegistry();
+  const demoContent = loadDemoContent();
+  const knownRoutes = loadKnownRoutes();
+
+  const results: CheckResult[] = [
+    runBuildCheck({ skipExecution: skipBuild }),
+    checkInlineDemoRefs({ pages, registry }),
+    checkSnippetRegions({ pages, demoContent }),
+    checkInternalLinks({ pages, knownRoutes }),
+    checkImportPaths({ pages, existsOnDisk: aliasExists }),
+  ];
+
+  let failed = false;
+  for (const r of results) {
+    const tag = r.status === "pass" ? "PASS" : r.status === "fail" ? "FAIL" : "SKIP";
+    console.log(`[${tag}] ${r.name}`);
+    for (const msg of r.messages) {
+      console.log(`  ${msg}`);
+    }
+    if (r.status === "fail") failed = true;
+  }
+
+  process.exit(failed ? 1 : 0);
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
 }
