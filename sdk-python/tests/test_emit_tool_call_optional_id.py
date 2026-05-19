@@ -9,6 +9,7 @@ Covers:
 """
 
 import json
+import logging
 import uuid
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
@@ -546,3 +547,94 @@ class TestAGUIDispatchValidation:
             CopilotKitMisuseError, match="must be a dict or pre-serialized"
         ):
             agent._dispatch_event(event)
+
+
+# ---- AG-UI dispatch: compensating TOOL_CALL_END on mid-stream failure ----
+
+
+class TestAGUICompensatingEnd:
+    """Tests for the compensating TOOL_CALL_END when dispatch fails mid-stream."""
+
+    def _make_event(self, tool_call_id="comp-test-id"):
+        return CustomEvent(
+            type=EventType.CUSTOM,
+            name=CustomEventNames.ManuallyEmitToolCall.value,
+            value={
+                "id": tool_call_id,
+                "name": "FailTool",
+                "args": {"x": 1},
+            },
+        )
+
+    def test_failure_after_start_emits_compensating_end(self, agent):
+        """If TOOL_CALL_ARGS fails after START was sent, a compensating END is dispatched."""
+        call_count = 0
+        original = AGUIBase._dispatch_event
+
+        def _fail_on_args(self_inner, evt):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 2:
+                raise RuntimeError("args dispatch failed")
+            return original(self_inner, evt)
+
+        with patch.object(AGUIBase, "_dispatch_event", new=_fail_on_args):
+            with pytest.raises(RuntimeError, match="args dispatch failed"):
+                agent._dispatch_event(self._make_event())
+
+        assert call_count == 3
+
+    def test_failure_on_start_does_not_emit_compensating_end(self, agent):
+        """If TOOL_CALL_START itself fails, no compensating END is dispatched."""
+        call_count = 0
+        original = AGUIBase._dispatch_event
+
+        def _fail_on_start(self_inner, evt):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise RuntimeError("start dispatch failed")
+            return original(self_inner, evt)
+
+        with patch.object(AGUIBase, "_dispatch_event", new=_fail_on_start):
+            with pytest.raises(RuntimeError, match="start dispatch failed"):
+                agent._dispatch_event(self._make_event())
+
+        assert call_count == 1
+
+    def test_compensating_end_failure_reraises_original(self, agent):
+        """If the compensating END also fails, the original error propagates."""
+        call_count = 0
+        original = AGUIBase._dispatch_event
+
+        def _fail_on_args_and_end(self_inner, evt):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return original(self_inner, evt)
+            raise RuntimeError(f"dispatch failure #{call_count}")
+
+        with patch.object(AGUIBase, "_dispatch_event", new=_fail_on_args_and_end):
+            with pytest.raises(RuntimeError, match="dispatch failure #2"):
+                agent._dispatch_event(self._make_event())
+
+        assert call_count == 3
+
+    def test_compensating_end_failure_emits_log(self, agent, caplog):
+        """The logger.error call includes the tool_call_id when compensating END fails."""
+        call_count = 0
+        original = AGUIBase._dispatch_event
+
+        def _fail_on_args_and_end(self_inner, evt):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return original(self_inner, evt)
+            raise RuntimeError(f"dispatch failure #{call_count}")
+
+        with caplog.at_level(logging.ERROR, logger="copilotkit.langgraph_agui_agent"):
+            with patch.object(AGUIBase, "_dispatch_event", new=_fail_on_args_and_end):
+                with pytest.raises(RuntimeError):
+                    agent._dispatch_event(self._make_event("log-test-id"))
+
+        assert any("log-test-id" in record.message for record in caplog.records)

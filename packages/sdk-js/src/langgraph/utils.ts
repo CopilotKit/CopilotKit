@@ -306,6 +306,9 @@ export async function copilotkitEmitMessage(
  * // With a custom ID for correlation/idempotency:
  * const customId = await copilotkitEmitToolCall(config, "SearchTool", { steps: 10 }, { toolCallId: "my-custom-id" });
  * ```
+ *
+ * @returns The tool call ID used for the emitted call — equals `options.toolCallId`
+ *          when provided, otherwise a randomly generated ID.
  */
 export async function copilotkitEmitToolCall(
   /**
