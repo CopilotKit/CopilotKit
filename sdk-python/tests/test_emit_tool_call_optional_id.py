@@ -108,9 +108,7 @@ class TestLangGraphEmitToolCallOptionalId:
 
             config = {"metadata": {}}
 
-            result_auto = await copilotkit_emit_tool_call(
-                config, name="Tool", args={}
-            )
+            result_auto = await copilotkit_emit_tool_call(config, name="Tool", args={})
             assert isinstance(result_auto, str)
             assert len(result_auto) > 0
 
@@ -141,6 +139,7 @@ class TestLangGraphEmitToolCallOptionalId:
 
 try:
     import crewai  # noqa: F401
+
     _has_crewai = True
 except ImportError:
     _has_crewai = False
@@ -158,9 +157,7 @@ class TestCrewAIEmitToolCallOptionalId:
         ) as mock_queue:
             from copilotkit.crewai.crewai_sdk import copilotkit_emit_tool_call
 
-            result = await copilotkit_emit_tool_call(
-                name="MyTool", args={"key": "val"}
-            )
+            result = await copilotkit_emit_tool_call(name="MyTool", args={"key": "val"})
 
             assert isinstance(result, str)
             uuid.UUID(result)
@@ -171,9 +168,7 @@ class TestCrewAIEmitToolCallOptionalId:
     @pytest.mark.asyncio
     async def test_custom_id_passthrough(self):
         """When a custom id is provided, it should be used as the message_id."""
-        with patch(
-            "copilotkit.crewai.crewai_sdk.queue_put", new_callable=AsyncMock
-        ):
+        with patch("copilotkit.crewai.crewai_sdk.queue_put", new_callable=AsyncMock):
             from copilotkit.crewai.crewai_sdk import copilotkit_emit_tool_call
 
             result = await copilotkit_emit_tool_call(
@@ -185,9 +180,7 @@ class TestCrewAIEmitToolCallOptionalId:
     @pytest.mark.asyncio
     async def test_returns_id(self):
         """Should return the tool call ID regardless of whether it was auto or custom."""
-        with patch(
-            "copilotkit.crewai.crewai_sdk.queue_put", new_callable=AsyncMock
-        ):
+        with patch("copilotkit.crewai.crewai_sdk.queue_put", new_callable=AsyncMock):
             from copilotkit.crewai.crewai_sdk import copilotkit_emit_tool_call
 
             result_auto = await copilotkit_emit_tool_call(name="T", args={})
@@ -239,9 +232,7 @@ class TestCustomIdPropagatesThroughAGUI:
             )
             agent._dispatch_event(event)
 
-        start_events = [
-            e for e in dispatched if e.type == EventType.TOOL_CALL_START
-        ]
+        start_events = [e for e in dispatched if e.type == EventType.TOOL_CALL_START]
         assert len(start_events) == 1
         assert start_events[0].parent_message_id == "parent-test-id"
 
