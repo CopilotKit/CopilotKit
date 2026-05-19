@@ -69,8 +69,8 @@ export function diffFramework(opts: DiffOptions): FrameworkDiff {
       missing.push(rel);
       continue;
     }
-    const v1Content = fs.readFileSync(v1Path, "utf-8");
-    const shellContent = fs.readFileSync(shellPath, "utf-8");
+    const v1Content = fs.readFileSync(v1Path, "utf-8").replace(/\r\n/g, "\n");
+    const shellContent = fs.readFileSync(shellPath, "utf-8").replace(/\r\n/g, "\n");
     if (v1Content !== shellContent) {
       divergent.push(rel);
     }

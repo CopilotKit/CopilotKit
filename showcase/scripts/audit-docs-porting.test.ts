@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { listUnreadyFrameworks } from "./audit-docs-porting.js";
 import { diffFramework } from "./audit-docs-porting.js";
 import path from "path";
@@ -18,8 +18,13 @@ describe("listUnreadyFrameworks", () => {
 });
 
 describe("diffFramework", () => {
+  let tmp = "";
+  afterEach(() => {
+    if (tmp) fs.rmSync(tmp, { recursive: true, force: true });
+  });
+
   it("reports v1 pages missing from shell-docs as missing", () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "docs-port-"));
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), "docs-port-"));
     const v1 = path.join(tmp, "v1");
     const shell = path.join(tmp, "shell");
     fs.mkdirSync(path.join(v1, "framework"), { recursive: true });
@@ -38,7 +43,7 @@ describe("diffFramework", () => {
   });
 
   it("reports pages with different content as divergent", () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "docs-port-"));
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), "docs-port-"));
     const v1 = path.join(tmp, "v1");
     const shell = path.join(tmp, "shell");
     fs.mkdirSync(path.join(v1, "framework"), { recursive: true });
@@ -53,5 +58,22 @@ describe("diffFramework", () => {
     });
     expect(result.missing).toEqual([]);
     expect(result.divergent).toEqual(["quickstart.mdx"]);
+  });
+
+  it("treats files differing only in line endings as identical", () => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), "docs-port-"));
+    const v1 = path.join(tmp, "v1");
+    const shell = path.join(tmp, "shell");
+    fs.mkdirSync(path.join(v1, "framework"), { recursive: true });
+    fs.mkdirSync(path.join(shell, "framework"), { recursive: true });
+    fs.writeFileSync(path.join(v1, "framework", "quickstart.mdx"), "# qs\r\nbody\r\n");
+    fs.writeFileSync(path.join(shell, "framework", "quickstart.mdx"), "# qs\nbody\n");
+
+    const result = diffFramework({
+      slug: "framework",
+      v1Root: v1,
+      shellDocsRoot: shell,
+    });
+    expect(result.divergent).toEqual([]);
   });
 });
