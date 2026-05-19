@@ -190,13 +190,20 @@ class TestCrewAIEmitToolCallOptionalId:
             assert isinstance(result, str)
             uuid.UUID(result)
 
-            first_call_arg = mock_queue.call_args[0][0]
-            assert result in str(first_call_arg)
+            start_ev, args_ev, end_ev = mock_queue.call_args[0]
+            assert start_ev["actionExecutionId"] == result
+            assert start_ev["parentMessageId"] == result
+            assert start_ev["actionName"] == "MyTool"
+            assert args_ev["actionExecutionId"] == result
+            assert json.loads(args_ev["args"]) == {"key": "val"}
+            assert end_ev["actionExecutionId"] == result
 
     @pytest.mark.asyncio
     async def test_custom_id_passthrough(self):
         """When a custom id is provided, it should be used as the message_id."""
-        with patch("copilotkit.crewai.crewai_sdk.queue_put", new_callable=AsyncMock):
+        with patch(
+            "copilotkit.crewai.crewai_sdk.queue_put", new_callable=AsyncMock
+        ) as mock_queue:
             from copilotkit.crewai.crewai_sdk import copilotkit_emit_tool_call
 
             result = await copilotkit_emit_tool_call(
@@ -204,6 +211,12 @@ class TestCrewAIEmitToolCallOptionalId:
             )
 
             assert result == "crew-custom-id"
+
+            start_ev, args_ev, end_ev = mock_queue.call_args[0]
+            assert start_ev["actionExecutionId"] == "crew-custom-id"
+            assert start_ev["parentMessageId"] == "crew-custom-id"
+            assert args_ev["actionExecutionId"] == "crew-custom-id"
+            assert end_ev["actionExecutionId"] == "crew-custom-id"
 
     @pytest.mark.asyncio
     async def test_returns_id(self):

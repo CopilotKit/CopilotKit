@@ -301,10 +301,10 @@ export async function copilotkitEmitMessage(
  * ```typescript
  * import { copilotkitEmitToolCall } from "@copilotkit/sdk-js";
  *
- * await copilotkitEmitToolCall(config, "SearchTool", { steps: 10 });
+ * const id = await copilotkitEmitToolCall(config, "SearchTool", { steps: 10 });
  *
  * // With a custom ID for correlation/idempotency:
- * await copilotkitEmitToolCall(config, "SearchTool", { steps: 10 }, { id: "my-custom-id" });
+ * const customId = await copilotkitEmitToolCall(config, "SearchTool", { steps: 10 }, { id: "my-custom-id" });
  * ```
  */
 export async function copilotkitEmitToolCall(
@@ -353,7 +353,7 @@ export async function copilotkitEmitToolCall(
 
   if (
     options?.id !== undefined &&
-    (typeof options.id !== "string" || options.id.length === 0)
+    (typeof options.id !== "string" || options.id.trim().length === 0)
   ) {
     throw new CopilotKitMisuseError({
       message:
@@ -370,9 +370,13 @@ export async function copilotkitEmitToolCall(
       config,
     );
   } catch (error) {
-    throw new CopilotKitMisuseError({
-      message: `Failed to emit tool call '${name}': ${error instanceof Error ? error.message : String(error)}`,
-    });
+    const wrapped = new Error(
+      `Failed to emit tool call '${name}': ${error instanceof Error ? error.message : String(error)}`,
+    );
+    if (error instanceof Error) {
+      wrapped.stack = error.stack;
+    }
+    throw wrapped;
   }
 
   return toolCallId;

@@ -235,10 +235,10 @@ async def copilotkit_emit_tool_call(
     ```python
     from copilotkit.crewai import copilotkit_emit_tool_call
 
-    await copilotkit_emit_tool_call(name="SearchTool", args={"steps": 10})
+    tool_call_id = await copilotkit_emit_tool_call(name="SearchTool", args={"steps": 10})
 
     # With a custom ID for correlation/idempotency:
-    await copilotkit_emit_tool_call(name="SearchTool", args={"steps": 10}, tool_call_id="my-custom-id")
+    tool_call_id = await copilotkit_emit_tool_call(name="SearchTool", args={"steps": 10}, tool_call_id="my-custom-id")
     ```
 
     Parameters

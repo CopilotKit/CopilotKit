@@ -315,4 +315,10 @@ describe("copilotkitEmitToolCall", () => {
       copilotkitEmitToolCall(mockConfig, "SearchTool", {}, { id: "" }),
     ).rejects.toThrow("non-empty string");
   });
+
+  it("throws on whitespace-only id", async () => {
+    await expect(
+      copilotkitEmitToolCall(mockConfig, "SearchTool", {}, { id: "   " }),
+    ).rejects.toThrow("non-empty string");
+  });
 });
