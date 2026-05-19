@@ -3,7 +3,6 @@ title: Human-in-the-Loop
 icon: "lucide/User"
 description: Create frontend tools and use them within your LlamaIndex agent for human-in-the-loop interactions.
 ---
-
 <IframeSwitcher
   id="frontend-tools-based-hitl-example"
   exampleUrl="https://feature-viewer.copilotkit.ai/llama-index/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
@@ -25,7 +24,6 @@ In this guide, we cover the use of frontend tools for Human-in-the-loop.
 ## When should I use this?
 
 Use frontend tools when you need your agent to interact with client-side primitives such as:
-
 - Reading or modifying React component state
 - Accessing browser APIs like localStorage, sessionStorage, or cookies
 - Triggering UI updates or animations
@@ -37,7 +35,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
 <Steps>
     <Step>
       ### Run and connect your agent
-      <RunAndConnect />
+      <RunAndConnect components={props.components} />
     </Step>
 
     <Step>
@@ -80,6 +78,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
             return {"status": "healthy", "agent": "llamaindex"}
 
         if __name__ == "__main__":
+            import uvicorn
             uvicorn.run(app, host="localhost", port=8000)
         ```
     </Step>
@@ -94,6 +93,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
         prompts the user for approval.
 
         ```tsx title="page.tsx"
+        import { useHumanInTheLoop } from "@copilotkit/react-core/v2" // [!code highlight]
 
         export function Page() {
           // ...
@@ -146,5 +146,4 @@ Use frontend tools when you need your agent to interact with client-side primiti
         Can you show me two good options for a restaurant name?
         ```
     </Step>
-
 </Steps>
