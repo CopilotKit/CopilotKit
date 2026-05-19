@@ -37,11 +37,18 @@ pre-commit:
       # the commit.
       exclude:
         - "docs/**"
+      # Use `set --` so the staged files become positional args; this is the
+      # only shell-portable way to test "are there any" without breaking on
+      # multi-file expansion. The old `[ -n "{staged_files}" ]` form failed
+      # with `sh: 1: [: <path>: unexpected operator` because lefthook
+      # interpolates the file list as space-separated words, not a single
+      # quoted string, so [ saw 3+ args and tried to parse a binary op.
       run: |
-        if [ -n "{staged_files}" ]; then
-          pnpm exec oxlint --fix {staged_files} &&
-          pnpm exec oxfmt --write {staged_files} ;
-          ruff format {staged_files} 2>/dev/null || true
+        set -- {staged_files}
+        if [ "$#" -gt 0 ]; then
+          pnpm exec oxlint --fix "$@" &&
+          pnpm exec oxfmt --write "$@" ;
+          ruff format "$@" 2>/dev/null || true
         fi
       stage_fixed: true
     test-and-check-packages:
