@@ -41,3 +41,50 @@ export function runBuildCheck(opts: BuildCheckOptions = {}): CheckResult {
     messages: [out.stdout || "", out.stderr || ""].filter(Boolean),
   };
 }
+
+interface RegistryDemo {
+  id: string;
+}
+interface RegistryIntegrationLite {
+  slug: string;
+  demos: RegistryDemo[];
+}
+interface RegistryLite {
+  integrations: RegistryIntegrationLite[];
+}
+
+interface PageInput {
+  path: string;
+  body: string;
+}
+
+const INLINE_DEMO_RE = /<InlineDemo\s+[^>]*demo=["']([^"']+)["']/g;
+
+export function checkInlineDemoRefs(input: {
+  pages: PageInput[];
+  registry: RegistryLite;
+}): CheckResult {
+  const known = new Set<string>();
+  for (const i of input.registry.integrations) {
+    for (const d of i.demos) {
+      known.add(d.id);
+    }
+  }
+
+  const failures: string[] = [];
+  for (const page of input.pages) {
+    INLINE_DEMO_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = INLINE_DEMO_RE.exec(page.body)) !== null) {
+      if (!known.has(m[1])) {
+        failures.push(`${page.path}: unknown demo id "${m[1]}"`);
+      }
+    }
+  }
+
+  return {
+    name: "inline-demo-refs",
+    status: failures.length === 0 ? "pass" : "fail",
+    messages: failures,
+  };
+}
