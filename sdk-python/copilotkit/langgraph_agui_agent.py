@@ -104,30 +104,47 @@ class LangGraphAGUIAgent(LangGraphAgent):
                 return super()._dispatch_event(event)
 
             if custom_event.name == CustomEventNames.ManuallyEmitToolCall.value:
-                # Emit the tool call events
+                value = custom_event.value
+                tool_call_id = value.get("id")
+                tool_call_name = value.get("name")
+                tool_call_args = value.get("args")
+
+                if not tool_call_id or not isinstance(tool_call_id, str):
+                    raise ValueError(
+                        f"ManuallyEmitToolCall event missing valid 'id': {value!r}"
+                    )
+                if not tool_call_name or not isinstance(tool_call_name, str):
+                    raise ValueError(
+                        f"ManuallyEmitToolCall event missing valid 'name': {value!r}"
+                    )
+                if tool_call_args is None:
+                    raise ValueError(
+                        f"ManuallyEmitToolCall event missing 'args': {value!r}"
+                    )
+
                 super()._dispatch_event(
                     ToolCallStartEvent(
                         type=EventType.TOOL_CALL_START,
-                        tool_call_id=custom_event.value["id"],
-                        tool_call_name=custom_event.value["name"],
-                        parent_message_id=custom_event.value["id"],
+                        tool_call_id=tool_call_id,
+                        tool_call_name=tool_call_name,
+                        parent_message_id=tool_call_id,
                         raw_event=event,
                     )
                 )
                 super()._dispatch_event(
                     ToolCallArgsEvent(
                         type=EventType.TOOL_CALL_ARGS,
-                        tool_call_id=custom_event.value["id"],
-                        delta=custom_event.value["args"]
-                        if isinstance(custom_event.value["args"], str)
-                        else json.dumps(custom_event.value["args"]),
+                        tool_call_id=tool_call_id,
+                        delta=tool_call_args
+                        if isinstance(tool_call_args, str)
+                        else json.dumps(tool_call_args),
                         raw_event=event,
                     )
                 )
                 super()._dispatch_event(
                     ToolCallEndEvent(
                         type=EventType.TOOL_CALL_END,
-                        tool_call_id=custom_event.value["id"],
+                        tool_call_id=tool_call_id,
                         raw_event=event,
                     )
                 )

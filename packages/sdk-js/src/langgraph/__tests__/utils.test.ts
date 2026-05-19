@@ -282,12 +282,12 @@ describe("copilotkitEmitToolCall", () => {
     );
   });
 
-  it("uses caller-provided id verbatim", async () => {
+  it("uses caller-provided toolCallId verbatim", async () => {
     const result = await copilotkitEmitToolCall(
       mockConfig,
       "SearchTool",
       { steps: 10 },
-      { id: "custom-abc" },
+      { toolCallId: "custom-abc" },
     );
 
     expect(result).toBe("custom-abc");
@@ -310,15 +310,22 @@ describe("copilotkitEmitToolCall", () => {
     expect(result.length).toBeGreaterThan(0);
   });
 
-  it("throws on empty string id", async () => {
+  it("throws on empty string toolCallId", async () => {
     await expect(
-      copilotkitEmitToolCall(mockConfig, "SearchTool", {}, { id: "" }),
+      copilotkitEmitToolCall(mockConfig, "SearchTool", {}, { toolCallId: "" }),
     ).rejects.toThrow("non-empty string");
   });
 
-  it("throws on whitespace-only id", async () => {
+  it("throws on whitespace-only toolCallId", async () => {
     await expect(
-      copilotkitEmitToolCall(mockConfig, "SearchTool", {}, { id: "   " }),
+      copilotkitEmitToolCall(mockConfig, "SearchTool", {}, { toolCallId: "   " }),
     ).rejects.toThrow("non-empty string");
+  });
+
+  it("wraps dispatch failure as CopilotKitMisuseError", async () => {
+    mockedDispatch.mockRejectedValueOnce(new Error("transport closed"));
+    await expect(
+      copilotkitEmitToolCall(mockConfig, "SearchTool", {}),
+    ).rejects.toThrow(/Failed to emit tool call 'SearchTool': transport closed/);
   });
 });

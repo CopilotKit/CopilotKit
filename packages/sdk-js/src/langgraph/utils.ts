@@ -301,10 +301,10 @@ export async function copilotkitEmitMessage(
  * ```typescript
  * import { copilotkitEmitToolCall } from "@copilotkit/sdk-js";
  *
- * const id = await copilotkitEmitToolCall(config, "SearchTool", { steps: 10 });
+ * const toolCallId = await copilotkitEmitToolCall(config, "SearchTool", { steps: 10 });
  *
  * // With a custom ID for correlation/idempotency:
- * const customId = await copilotkitEmitToolCall(config, "SearchTool", { steps: 10 }, { id: "my-custom-id" });
+ * const toolCallId = await copilotkitEmitToolCall(config, "SearchTool", { steps: 10 }, { toolCallId: "my-custom-id" });
  * ```
  */
 export async function copilotkitEmitToolCall(
@@ -329,7 +329,7 @@ export async function copilotkitEmitToolCall(
      * When provided, this ID is used as the toolCallId and parentMessageId
      * in AG-UI protocol events. The caller is responsible for ensuring uniqueness.
      */
-    id?: string;
+    toolCallId?: string;
   },
 ): Promise<string> {
   if (!config) {
@@ -352,8 +352,8 @@ export async function copilotkitEmitToolCall(
   }
 
   if (
-    options?.id !== undefined &&
-    (typeof options.id !== "string" || options.id.trim().length === 0)
+    options?.toolCallId !== undefined &&
+    (typeof options.toolCallId !== "string" || options.toolCallId.trim().length === 0)
   ) {
     throw new CopilotKitMisuseError({
       message:
@@ -361,7 +361,7 @@ export async function copilotkitEmitToolCall(
     });
   }
 
-  const toolCallId = options?.id ?? randomId();
+  const toolCallId = options?.toolCallId ?? randomId();
 
   try {
     await dispatchCustomEvent(
@@ -370,13 +370,9 @@ export async function copilotkitEmitToolCall(
       config,
     );
   } catch (error) {
-    const wrapped = new Error(
-      `Failed to emit tool call '${name}': ${error instanceof Error ? error.message : String(error)}`,
-    );
-    if (error instanceof Error) {
-      wrapped.stack = error.stack;
-    }
-    throw wrapped;
+    throw new CopilotKitMisuseError({
+      message: `Failed to emit tool call '${name}': ${error instanceof Error ? error.message : String(error)}`,
+    });
   }
 
   return toolCallId;

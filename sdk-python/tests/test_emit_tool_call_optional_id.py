@@ -242,6 +242,15 @@ class TestCrewAIEmitToolCallOptionalId:
             with pytest.raises(ValueError, match="non-empty string"):
                 await copilotkit_emit_tool_call(name="Tool", args={}, tool_call_id="")
 
+    @pytest.mark.asyncio
+    async def test_whitespace_only_id_raises(self):
+        """Passing a whitespace-only string should raise ValueError."""
+        with patch("copilotkit.crewai.crewai_sdk.queue_put", new_callable=AsyncMock):
+            from copilotkit.crewai.crewai_sdk import copilotkit_emit_tool_call
+
+            with pytest.raises(ValueError, match="non-empty string"):
+                await copilotkit_emit_tool_call(name="Tool", args={}, tool_call_id="   ")
+
 
 # ---- AG-UI dispatch: custom ID propagates through all events ----
 
