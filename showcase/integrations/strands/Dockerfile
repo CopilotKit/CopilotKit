@@ -1,7 +1,7 @@
 # Stage 1: Build Next.js frontend
 FROM node:22-slim AS frontend
 WORKDIR /app
-COPY package.json package-lock.json ./
+COPY package*.json ./
 RUN npm ci --legacy-peer-deps
 COPY src/ ./src/
 COPY public/ ./public/
