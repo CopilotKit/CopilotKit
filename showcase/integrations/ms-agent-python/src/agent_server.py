@@ -150,9 +150,7 @@ add_agent_framework_fastapi_endpoint(
 add_agent_framework_fastapi_endpoint(
     app=app, agent=agent_config_agent, path="/agent-config"
 )
-add_agent_framework_fastapi_endpoint(
-    app=app, agent=reasoning_agent, path="/reasoning"
-)
+add_agent_framework_fastapi_endpoint(app=app, agent=reasoning_agent, path="/reasoning")
 add_agent_framework_fastapi_endpoint(
     app=app, agent=tool_rendering_agent, path="/tool-rendering"
 )
@@ -186,9 +184,7 @@ add_agent_framework_fastapi_endpoint(
 add_agent_framework_fastapi_endpoint(
     app=app, agent=hitl_in_chat_agent, path="/hitl-in-chat"
 )
-add_agent_framework_fastapi_endpoint(
-    app=app, agent=gen_ui_agent, path="/gen-ui-agent"
-)
+add_agent_framework_fastapi_endpoint(app=app, agent=gen_ui_agent, path="/gen-ui-agent")
 add_agent_framework_fastapi_endpoint(
     app=app, agent=gen_ui_tool_based_agent, path="/gen-ui-tool-based"
 )

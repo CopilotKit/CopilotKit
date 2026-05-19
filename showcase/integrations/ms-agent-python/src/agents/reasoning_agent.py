@@ -45,7 +45,9 @@ def _build_reasoning_chat_client() -> BaseChatClient:
     )
 
 
-def create_reasoning_agent(_chat_client_ignored: BaseChatClient | None = None) -> AgentFrameworkAgent:
+def create_reasoning_agent(
+    _chat_client_ignored: BaseChatClient | None = None,
+) -> AgentFrameworkAgent:
     """Instantiate the reasoning agent.
 
     The shared `chat_client` from `agent_server.py` is intentionally
