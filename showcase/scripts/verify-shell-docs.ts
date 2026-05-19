@@ -88,3 +88,57 @@ export function checkInlineDemoRefs(input: {
     messages: failures,
   };
 }
+
+interface DemoRegion {
+  file: string;
+  startLine: number;
+  endLine: number;
+  code: string;
+  language: string;
+}
+
+interface DemoFile {
+  filename: string;
+  language: string;
+  content: string;
+}
+
+interface DemoRecord {
+  regions?: Record<string, DemoRegion>;
+  files?: DemoFile[];
+}
+
+interface DemoContent {
+  demos: Record<string, DemoRecord>;
+}
+
+const SNIPPET_RE = /<Snippet\s+[^>]*region=["']([^"']+)["']/g;
+
+export function checkSnippetRegions(input: {
+  pages: PageInput[];
+  demoContent: DemoContent;
+}): CheckResult {
+  const allRegions = new Set<string>();
+  for (const record of Object.values(input.demoContent.demos)) {
+    for (const regionName of Object.keys(record.regions ?? {})) {
+      allRegions.add(regionName);
+    }
+  }
+
+  const failures: string[] = [];
+  for (const page of input.pages) {
+    SNIPPET_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = SNIPPET_RE.exec(page.body)) !== null) {
+      if (!allRegions.has(m[1])) {
+        failures.push(`${page.path}: unknown snippet region "${m[1]}"`);
+      }
+    }
+  }
+
+  return {
+    name: "snippet-regions",
+    status: failures.length === 0 ? "pass" : "fail",
+    messages: failures,
+  };
+}
