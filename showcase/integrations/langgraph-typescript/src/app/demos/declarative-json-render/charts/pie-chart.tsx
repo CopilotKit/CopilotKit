@@ -9,12 +9,10 @@ export interface PieChartDatum {
 
 export interface PieChartComponentProps {
   title: string;
-  /** Optional subtitle — json-render catalog emits a nullable string. */
   description?: string | null;
   data: PieChartDatum[];
 }
 
-/** Custom SVG donut chart built with <circle> + stroke-dasharray. */
 function DonutChart({
   data,
   size = 240,
@@ -27,22 +25,19 @@ function DonutChart({
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const center = size / 2;
-
   const total = data.reduce((sum, d) => sum + (Number(d.value) || 0), 0);
 
   let accumulated = 0;
-  const slices = data.map((item, index) => {
-    const val = Number(item.value) || 0;
-    const ratio = total > 0 ? val / total : 0;
-    const arc = ratio * circumference;
-    const startAt = accumulated;
+  const slices = data.map((item, i) => {
+    const arc =
+      (total > 0 ? (Number(item.value) || 0) / total : 0) * circumference;
+    const dashoffset = -accumulated;
     accumulated += arc;
     return {
-      ...item,
       arc,
       gap: circumference - arc,
-      dashoffset: -startAt,
-      color: CHART_COLORS[index % CHART_COLORS.length],
+      dashoffset,
+      color: CHART_COLORS[i % CHART_COLORS.length],
     };
   });
 
@@ -61,17 +56,17 @@ function DonutChart({
         stroke="var(--secondary)"
         strokeWidth={strokeWidth}
       />
-      {slices.map((slice, i) => (
+      {slices.map((s, i) => (
         <circle
           key={i}
           cx={center}
           cy={center}
           r={radius}
           fill="none"
-          stroke={slice.color}
+          stroke={s.color}
           strokeWidth={strokeWidth}
-          strokeDasharray={`${slice.arc} ${slice.gap}`}
-          strokeDashoffset={slice.dashoffset}
+          strokeDasharray={`${s.arc} ${s.gap}`}
+          strokeDashoffset={s.dashoffset}
           strokeLinecap="butt"
           transform={`rotate(-90 ${center} ${center})`}
         />
@@ -81,32 +76,10 @@ function DonutChart({
 }
 
 export function PieChart({ title, description, data }: PieChartComponentProps) {
-  if (!data || !Array.isArray(data) || data.length === 0) {
-    return (
-      <div
-        data-testid="pie-chart"
-        className="max-w-lg mx-auto my-4 rounded-lg border border-[var(--border)] bg-[var(--card)]"
-      >
-        <div className="p-6 pb-0">
-          <h3 className="text-lg font-semibold leading-none tracking-tight text-[var(--foreground)]">
-            {title}
-          </h3>
-          {description ? (
-            <p className="text-sm text-[var(--muted-foreground)]">
-              {description}
-            </p>
-          ) : null}
-        </div>
-        <div className="p-6">
-          <p className="text-[var(--muted-foreground)] text-center py-8 text-sm">
-            No data available
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const total = data.reduce((sum, d) => sum + (Number(d.value) || 0), 0);
+  const hasData = Array.isArray(data) && data.length > 0;
+  const total = hasData
+    ? data.reduce((sum, d) => sum + (Number(d.value) || 0), 0)
+    : 0;
 
   return (
     <div
@@ -124,36 +97,40 @@ export function PieChart({ title, description, data }: PieChartComponentProps) {
         ) : null}
       </div>
       <div className="p-6 pt-4">
-        <DonutChart data={data} />
-        <div className="space-y-2 pt-4">
-          {data.map((item, index) => {
-            const val = Number(item.value) || 0;
-            const pct = total > 0 ? ((val / total) * 100).toFixed(0) : 0;
-            return (
-              <div
-                key={index}
-                className="flex items-center gap-3 text-sm transition-opacity duration-300 ease-out"
-                style={{ opacity: 1 }}
-              >
-                <span
-                  className="inline-block h-3 w-3 rounded-full shrink-0"
-                  style={{
-                    backgroundColor: CHART_COLORS[index % CHART_COLORS.length],
-                  }}
-                />
-                <span className="flex-1 text-[var(--foreground)] truncate">
-                  {item.label}
-                </span>
-                <span className="text-[var(--muted-foreground)] tabular-nums">
-                  {val.toLocaleString()}
-                </span>
-                <span className="text-[var(--muted-foreground)] text-sm w-10 text-right tabular-nums">
-                  {pct}%
-                </span>
-              </div>
-            );
-          })}
-        </div>
+        {hasData ? (
+          <>
+            <DonutChart data={data} />
+            <div className="space-y-2 pt-4">
+              {data.map((item, i) => {
+                const val = Number(item.value) || 0;
+                const pct = total > 0 ? ((val / total) * 100).toFixed(0) : 0;
+                return (
+                  <div key={i} className="flex items-center gap-3 text-sm">
+                    <span
+                      className="inline-block h-3 w-3 rounded-full shrink-0"
+                      style={{
+                        backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
+                      }}
+                    />
+                    <span className="flex-1 text-[var(--foreground)] truncate">
+                      {item.label}
+                    </span>
+                    <span className="text-[var(--muted-foreground)] tabular-nums">
+                      {val.toLocaleString()}
+                    </span>
+                    <span className="text-[var(--muted-foreground)] text-sm w-10 text-right tabular-nums">
+                      {pct}%
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <p className="text-[var(--muted-foreground)] text-center py-8 text-sm">
+            No data available
+          </p>
+        )}
       </div>
     </div>
   );

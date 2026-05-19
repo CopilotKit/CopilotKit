@@ -66,10 +66,12 @@ test.describe("Chat Customization (CSS)", () => {
   test("user bubble uses transparent background with ember left-border after sending a message", async ({
     page,
   }) => {
-    // "hello" matches an existing aimock fixture (content response), so this
-    // exercises a full round-trip through the themed chat and lets us assert
-    // on the rendered user bubble's computed styles.
-    await page.getByPlaceholder("Type a message").fill("hello");
+    // Use a message that matches an aimock fixture to get a deterministic
+    // response. Lowercase "hello" doesn't reliably match — "Say hello in
+    // one short sentence" is an exact d5-all.json fixture entry.
+    await page
+      .getByPlaceholder("Type a message")
+      .fill("Say hello in one short sentence");
     await page.locator('[data-testid="copilot-send-button"]').first().click();
 
     const userMsg = page
@@ -87,7 +89,9 @@ test.describe("Chat Customization (CSS)", () => {
   test("assistant bubble uses transparent background after round-trip", async ({
     page,
   }) => {
-    await page.getByPlaceholder("Type a message").fill("hello");
+    await page
+      .getByPlaceholder("Type a message")
+      .fill("Tell me a one-line joke");
     await page.locator('[data-testid="copilot-send-button"]').first().click();
 
     const assistant = page

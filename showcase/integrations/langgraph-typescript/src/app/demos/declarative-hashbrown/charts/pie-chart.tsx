@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * PieChart ported from showcase/starters/template/frontend/components/charts/pie-chart.tsx
+ * PieChart ported from showcase/shared/starter-template/components/charts/pie-chart.tsx
  * for the declarative-hashbrown demo.
  *
  * Adds data-testid="pie-chart" on the top-level container for E2E coverage.

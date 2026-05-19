@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * BarChart ported from showcase/starters/template/frontend/components/charts/bar-chart.tsx
+ * BarChart ported from showcase/shared/starter-template/components/charts/bar-chart.tsx
  * for the declarative-hashbrown demo.
  *
  * Adds data-testid="bar-chart" on the top-level container for E2E coverage.

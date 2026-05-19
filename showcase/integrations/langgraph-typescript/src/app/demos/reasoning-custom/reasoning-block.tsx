@@ -5,7 +5,7 @@
 // Receives the `ReasoningMessage` plus (optionally) the full message list and
 // the running state from the slot system. Renders the content inline with a
 // visibly tagged amber banner so the user can always see the agent's thinking
-// chain — this is the focal UI of the demo.
+// chain -- this is the focal UI of the demo.
 
 import React from "react";
 import type { ReasoningMessage, Message } from "@ag-ui/core";
@@ -33,7 +33,7 @@ export function ReasoningBlock({
           Reasoning
         </span>
         <span className="text-[#57575B]">
-          {isStreaming ? "Thinking…" : hasContent ? "Agent reasoning" : "…"}
+          {isStreaming ? "Thinking..." : hasContent ? "Agent reasoning" : "..."}
         </span>
       </div>
       {hasContent && (

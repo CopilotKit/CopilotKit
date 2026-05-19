@@ -410,6 +410,15 @@
       }
     },
     {
+      "_comment": "shared-state-read — e2e test sends 'What recipe am I making?' via the sidebar. The agent reads the shared recipe state (title, ingredients, instructions) and responds with a summary.",
+      "match": {
+        "userMessage": "What recipe am I making"
+      },
+      "response": {
+        "content": "Based on your current recipe state, you're making **Make Your Recipe** — a dish featuring carrots (3 large, grated) and all-purpose flour (2 cups). The first instruction is to preheat the oven to 350°F (175°C). It looks like a carrot-based bake, perhaps a carrot cake or savory carrot bread. Would you like me to suggest more ingredients or steps?"
+      }
+    },
+    {
       "_comment": "Subagents pill 1 — 'Write a blog post' / cold exposure training. Drives supervisor → research_agent → writing_agent → critique_agent → final reply, plus three nested sub-agent turns. Mirrors d5-all.json content so production aimock (which loads feature-parity.json + d5-all.json) serves the same chain regardless of which file wins first-match.",
       "match": {
         "userMessage": "Produce a short blog post about the benefits of cold exposure training",
@@ -1358,6 +1367,33 @@
       }
     },
     {
+      "_comment": "agentic-chat e2e: typed-message test sends 'Say hello in one word.'",
+      "match": {
+        "userMessage": "Say hello in one word"
+      },
+      "response": {
+        "content": "Hello!"
+      }
+    },
+    {
+      "_comment": "agentic-chat e2e: multi-turn test turn 1 — 'My name is Alice.'",
+      "match": {
+        "userMessage": "My name is Alice"
+      },
+      "response": {
+        "content": "Nice to meet you, Alice! How can I help you today?"
+      }
+    },
+    {
+      "_comment": "agentic-chat e2e: multi-turn test turn 2 — 'What name did I just give you?' Response must contain 'Alice'.",
+      "match": {
+        "userMessage": "What name did I just give you"
+      },
+      "response": {
+        "content": "You told me your name is Alice."
+      }
+    },
+    {
       "_comment": "Pilot cell suggestion — 'Write a short sonnet about AI.' (agentic-chat, chat-slots)",
       "match": {
         "userMessage": "sonnet"
@@ -1427,6 +1463,33 @@
       },
       "response": {
         "content": "Based on your recent activity, I'd suggest exploring features you haven't tried yet — check out the documentation for advanced use-cases, or dive into a hands-on tutorial to deepen your understanding."
+      }
+    },
+    {
+      "_comment": "agent-config e2e: 'send produces an assistant response' test sends 'Hello'.",
+      "match": {
+        "userMessage": "Hello"
+      },
+      "response": {
+        "content": "Hello! How can I assist you today?"
+      }
+    },
+    {
+      "_comment": "agent-config e2e: 'changing config between sends' test — first send with default config.",
+      "match": {
+        "userMessage": "First"
+      },
+      "response": {
+        "content": "Understood. What would you like to discuss first?"
+      }
+    },
+    {
+      "_comment": "agent-config e2e: 'changing config between sends' test — second send after config change.",
+      "match": {
+        "userMessage": "Second"
+      },
+      "response": {
+        "content": "Got it! Moving on to your second topic."
       }
     }
   ]

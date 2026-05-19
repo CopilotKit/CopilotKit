@@ -41,6 +41,7 @@
     "recharts": "^2.15.0",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^2.5.5",
+    "yaml": "^2.8.4",
     "zod": "^3.24.0"
   },
   "devDependencies": {

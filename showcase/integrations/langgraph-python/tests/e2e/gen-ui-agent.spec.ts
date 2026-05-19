@@ -22,9 +22,16 @@ test.describe("Agentic Generative UI", () => {
   });
 
   test("message list container exists", async ({ page }) => {
+    // CopilotChat v2 renders a welcome screen when there are no messages,
+    // so the messageView.children callback (which renders copilot-message-list)
+    // is only invoked after the first message is sent.
+    const input = page.getByPlaceholder("Type a message");
+    await input.fill("Hello");
+    await input.press("Enter");
+
     await expect(
       page.locator('[data-testid="copilot-message-list"]'),
-    ).toBeVisible({ timeout: 10000 });
+    ).toBeVisible({ timeout: 30000 });
   });
 
   // Regression: every set_steps tool call used to push a brand-new card into
