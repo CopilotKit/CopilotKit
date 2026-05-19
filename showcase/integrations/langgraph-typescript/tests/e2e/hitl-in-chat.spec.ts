@@ -131,14 +131,10 @@ test.describe("HITL in chat — booking flow", () => {
     ).toBeVisible({ timeout: 30000 });
 
     // Let the runtime fully settle after the HITL resolution before
-    // starting a second flow. The LangGraph TypeScript server takes
-    // slightly longer to finalize thread state after the interrupt →
-    // resume → confirmation cycle; sending a new message before the
-    // prior run's SSE stream is fully closed triggers a RUN_ERROR
-    // race ("Cannot send event type … The run has already errored").
-    // `networkidle` waits for all in-flight fetch/XHR to complete,
-    // which is the precise condition we need.
-    await page.waitForLoadState("networkidle");
+    // starting a second flow.  A short timed wait is more reliable
+    // than networkidle (which can resolve before LangGraph finalises
+    // thread state) and avoids a stale-state race on the next run.
+    await page.waitForTimeout(1000);
 
     // Flow 2: sales — same page, no refresh.
     await input.fill(
