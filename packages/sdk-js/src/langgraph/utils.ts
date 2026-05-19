@@ -322,7 +322,7 @@ export async function copilotkitEmitToolCall(
   /**
    * The arguments to emit.
    */
-  args: Record<string, unknown>,
+  args: any,
   /**
    * Options for the tool call emission.
    */
@@ -348,15 +348,9 @@ export async function copilotkitEmitToolCall(
     });
   }
 
-  if (
-    args === null ||
-    args === undefined ||
-    typeof args !== "object" ||
-    Array.isArray(args)
-  ) {
+  if (args === undefined) {
     throw new CopilotKitMisuseError({
-      message:
-        "Tool arguments must be a plain object for copilotkitEmitToolCall",
+      message: "Tool arguments are required for copilotkitEmitToolCall",
     });
   }
 

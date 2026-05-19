@@ -264,26 +264,48 @@ async def copilotkit_emit_tool_call(
             "Tool name must be a non-empty string for copilotkit_emit_tool_call"
         )
 
-    if not isinstance(args, dict):
-        raise CopilotKitMisuseError(
-            "Tool arguments must be a dict for copilotkit_emit_tool_call"
-        )
-
     if tool_call_id is not None:
         if not isinstance(tool_call_id, str) or not tool_call_id.strip():
             raise CopilotKitMisuseError(
                 "Tool call id must be a non-empty string when provided for copilotkit_emit_tool_call"
             )
+    try:
+        args_json = json.dumps(args)
+    except (TypeError, ValueError) as e:
+        raise CopilotKitMisuseError(
+            f"Tool arguments for '{name}' are not JSON-serializable: {e}"
+        ) from e
+
     message_id = tool_call_id if tool_call_id is not None else str(uuid.uuid4())
-    await queue_put(
-        action_execution_start(
-            action_execution_id=message_id,
-            action_name=name,
-            parent_message_id=message_id,
-        ),
-        action_execution_args(action_execution_id=message_id, args=json.dumps(args)),
-        action_execution_end(action_execution_id=message_id),
-    )
+    dispatched_start = False
+    try:
+        await queue_put(
+            action_execution_start(
+                action_execution_id=message_id,
+                action_name=name,
+                parent_message_id=message_id,
+            ),
+        )
+        dispatched_start = True
+        await queue_put(
+            action_execution_args(action_execution_id=message_id, args=args_json),
+        )
+        await queue_put(
+            action_execution_end(action_execution_id=message_id),
+        )
+    except Exception:
+        if dispatched_start:
+            try:
+                await queue_put(
+                    action_execution_end(action_execution_id=message_id),
+                )
+            except Exception:
+                logger.error(
+                    "Failed to emit compensating action_execution_end for %s",
+                    message_id,
+                    exc_info=True,
+                )
+        raise
 
     return message_id
 

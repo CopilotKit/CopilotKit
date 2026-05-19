@@ -144,6 +144,7 @@ class LangGraphAGUIAgent(LangGraphAgent):
                     ) from e
 
                 dispatched_start = False
+                dispatched_end = False
                 try:
                     super()._dispatch_event(
                         ToolCallStartEvent(
@@ -163,6 +164,7 @@ class LangGraphAGUIAgent(LangGraphAgent):
                             raw_event=event,
                         )
                     )
+                    dispatched_end = True
                     super()._dispatch_event(
                         ToolCallEndEvent(
                             type=EventType.TOOL_CALL_END,
@@ -171,7 +173,7 @@ class LangGraphAGUIAgent(LangGraphAgent):
                         )
                     )
                 except Exception:
-                    if dispatched_start:
+                    if dispatched_start and not dispatched_end:
                         try:
                             super()._dispatch_event(
                                 ToolCallEndEvent(
@@ -180,11 +182,11 @@ class LangGraphAGUIAgent(LangGraphAgent):
                                     raw_event=event,
                                 )
                             )
-                        except Exception as close_err:
+                        except Exception:
                             logger.error(
-                                "Failed to emit compensating TOOL_CALL_END for %s: %s",
+                                "Failed to emit compensating TOOL_CALL_END for %s",
                                 tool_call_id,
-                                close_err,
+                                exc_info=True,
                             )
                     raise
                 return super()._dispatch_event(event)

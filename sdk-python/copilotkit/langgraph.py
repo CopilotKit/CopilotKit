@@ -416,10 +416,12 @@ async def copilotkit_emit_tool_call(
             "Tool name must be a non-empty string for copilotkit_emit_tool_call"
         )
 
-    if not isinstance(args, dict):
+    try:
+        json.dumps(args)
+    except (TypeError, ValueError) as e:
         raise CopilotKitMisuseError(
-            "Tool arguments must be a dict for copilotkit_emit_tool_call"
-        )
+            f"Tool arguments for '{name}' are not JSON-serializable: {e}"
+        ) from e
 
     if tool_call_id is not None:
         if not isinstance(tool_call_id, str) or not tool_call_id.strip():
@@ -437,7 +439,15 @@ async def copilotkit_emit_tool_call(
     # LangGraph's adispatch_custom_event is async but does not guarantee the event
     # has been flushed to the SSE stream before it returns. Without this sleep,
     # a subsequent emit can interleave and corrupt event ordering on the client.
-    await asyncio.sleep(0.02)
+    # Shielded so that task cancellation doesn't prevent us from returning the ID.
+    try:
+        await asyncio.shield(asyncio.sleep(0.02))
+    except asyncio.CancelledError:
+        logger.warning(
+            "copilotkit_emit_tool_call cancelled during post-dispatch flush for "
+            "tool_call_id=%s; event was already dispatched",
+            tool_call_id,
+        )
 
     return tool_call_id
 

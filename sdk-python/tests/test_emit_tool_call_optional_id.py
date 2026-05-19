@@ -191,17 +191,18 @@ class TestLangGraphEmitToolCallOptionalId:
                 await copilotkit_emit_tool_call(config, name="", args={})
 
     @pytest.mark.asyncio
-    async def test_non_dict_args_raises(self):
-        """Passing non-dict args should raise CopilotKitMisuseError."""
+    async def test_non_serializable_args_raises(self):
+        """Passing non-JSON-serializable args should raise CopilotKitMisuseError."""
         with patch(
             "copilotkit.langgraph.adispatch_custom_event", new_callable=AsyncMock
         ):
             from copilotkit.langgraph import copilotkit_emit_tool_call
 
             config = {"metadata": {}}
-            for bad_args in [None, [1, 2], "raw", 42]:
-                with pytest.raises(CopilotKitMisuseError, match="must be a dict"):
-                    await copilotkit_emit_tool_call(config, name="Tool", args=bad_args)
+            with pytest.raises(CopilotKitMisuseError, match="not JSON-serializable"):
+                await copilotkit_emit_tool_call(
+                    config, name="Tool", args={"bad": {1, 2, 3}}
+                )
 
 
 # ---- CrewAI variant tests ----
@@ -316,14 +317,13 @@ class TestCrewAIEmitToolCallOptionalId:
                 await copilotkit_emit_tool_call(name="   ", args={})
 
     @pytest.mark.asyncio
-    async def test_non_dict_args_raises(self):
-        """Passing non-dict args should raise CopilotKitMisuseError."""
+    async def test_non_serializable_args_raises(self):
+        """Passing non-JSON-serializable args should raise CopilotKitMisuseError."""
         with patch("copilotkit.crewai.crewai_sdk.queue_put", new_callable=AsyncMock):
             from copilotkit.crewai.crewai_sdk import copilotkit_emit_tool_call
 
-            for bad_args in [None, [1, 2], "raw", 42]:
-                with pytest.raises(CopilotKitMisuseError, match="must be a dict"):
-                    await copilotkit_emit_tool_call(name="Tool", args=bad_args)
+            with pytest.raises(CopilotKitMisuseError, match="not JSON-serializable"):
+                await copilotkit_emit_tool_call(name="Tool", args={"bad": {1, 2, 3}})
 
 
 # ---- AG-UI dispatch: custom ID propagates through all events ----

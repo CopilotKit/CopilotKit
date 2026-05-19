@@ -338,18 +338,10 @@ describe("copilotkitEmitToolCall", () => {
     );
   });
 
-  it("throws on non-object args", async () => {
+  it("throws on undefined args", async () => {
     await expect(
-      copilotkitEmitToolCall(mockConfig, "SearchTool", 42 as any),
-    ).rejects.toThrow("plain object");
-
-    await expect(
-      copilotkitEmitToolCall(mockConfig, "SearchTool", null as any),
-    ).rejects.toThrow("plain object");
-
-    await expect(
-      copilotkitEmitToolCall(mockConfig, "SearchTool", [1, 2] as any),
-    ).rejects.toThrow("plain object");
+      copilotkitEmitToolCall(mockConfig, "SearchTool", undefined),
+    ).rejects.toThrow("required");
   });
 
   it("propagates dispatch errors without wrapping", async () => {

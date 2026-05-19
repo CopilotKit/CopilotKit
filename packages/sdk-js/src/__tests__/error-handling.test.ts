@@ -229,12 +229,12 @@ describe("SDK-JS Error Handling", () => {
 
     it("should throw CopilotKitMisuseError when args is undefined for copilotkitEmitToolCall", async () => {
       await expect(
-        copilotkitEmitToolCall(mockConfig, "testTool", undefined as any),
+        copilotkitEmitToolCall(mockConfig, "testTool", undefined),
       ).rejects.toThrow(CopilotKitMisuseError);
       await expect(
-        copilotkitEmitToolCall(mockConfig, "testTool", undefined as any),
+        copilotkitEmitToolCall(mockConfig, "testTool", undefined),
       ).rejects.toThrow(
-        "Tool arguments must be a plain object for copilotkitEmitToolCall",
+        "Tool arguments are required for copilotkitEmitToolCall",
       );
     });
   });
