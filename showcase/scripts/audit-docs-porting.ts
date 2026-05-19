@@ -112,3 +112,69 @@ export function extractMdxReferences(mdx: string): MdxReferences {
     snippetImports: [...snippetImports],
   };
 }
+
+async function main() {
+  const v1Root = path.resolve(ROOT, "..", "docs", "content", "docs", "integrations");
+  const shellDocsRoot = path.resolve(
+    ROOT,
+    "shell-docs",
+    "src",
+    "content",
+    "docs",
+    "integrations",
+  );
+  const outDir = path.join(__dirname, "audit-output");
+  fs.mkdirSync(outDir, { recursive: true });
+
+  const unready = listUnreadyFrameworks();
+  const allComponents = new Set<string>();
+  const allSnippetImports = new Set<string>();
+  const summary: FrameworkDiff[] = [];
+
+  for (const slug of unready) {
+    const diff = diffFramework({ slug, v1Root, shellDocsRoot });
+    summary.push(diff);
+
+    const v1Dir = path.join(v1Root, slug);
+    if (fs.existsSync(v1Dir)) {
+      const v1Pages = glob.sync("**/*.mdx", { cwd: v1Dir });
+      for (const rel of v1Pages) {
+        const content = fs.readFileSync(path.join(v1Dir, rel), "utf-8");
+        const refs = extractMdxReferences(content);
+        refs.components.forEach((c) => allComponents.add(c));
+        refs.snippetImports.forEach((s) => allSnippetImports.add(s));
+      }
+    }
+
+    fs.writeFileSync(
+      path.join(outDir, `${slug}.json`),
+      JSON.stringify(diff, null, 2),
+    );
+  }
+
+  fs.writeFileSync(
+    path.join(outDir, "_summary.json"),
+    JSON.stringify(
+      {
+        unready,
+        totals: {
+          missing: summary.reduce((n, d) => n + d.missing.length, 0),
+          divergent: summary.reduce((n, d) => n + d.divergent.length, 0),
+        },
+        components: [...allComponents].sort(),
+        snippetImports: [...allSnippetImports].sort(),
+      },
+      null,
+      2,
+    ),
+  );
+
+  console.log(`Audit written to ${outDir}`);
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
+}
