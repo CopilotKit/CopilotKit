@@ -3,10 +3,17 @@
  *
  * Each renderer maps a component name from definitions.ts to a React
  * implementation. Props are type-checked against the Zod schemas.
+ *
+ * To add a component: define its schema in definitions.ts, then add a
+ * renderer here. See README.md "Adding a custom component" for details.
+ *
+ * The assembled catalog is registered in layout.tsx via
+ * <CopilotKit a2ui={{ catalog: demonstrationCatalog }}>.
  */
 "use client";
 
-import React, { useState, type JSX } from "react";
+import React, { useState } from "react";
+import type { JSX } from "react";
 import {
   PieChart as RechartsPie,
   Pie,
@@ -19,14 +26,10 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
-import {
-  createCatalog,
-  type CatalogRenderers,
-} from "@copilotkit/a2ui-renderer";
-import {
-  demonstrationCatalogDefinitions,
-  type DemonstrationCatalogDefinitions,
-} from "./definitions";
+import { createCatalog } from "@copilotkit/a2ui-renderer";
+import type { CatalogRenderers } from "@copilotkit/a2ui-renderer";
+import { demonstrationCatalogDefinitions } from "./definitions";
+import type { DemonstrationCatalogDefinitions } from "./definitions";
 
 // ─── Theme-aware colors ─────────────────────────────────────────────
 
@@ -49,7 +52,6 @@ function ActionButton({
 }: {
   label: string;
   doneLabel: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   action: any;
   children?: React.ReactNode;
 }) {
@@ -148,7 +150,7 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
             width: "100%",
           }}
         >
-          {items.map((item: unknown, i: number) => {
+          {items.map((item: any, i: number) => {
             if (typeof item === "string")
               return (
                 <div
@@ -161,17 +163,10 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
             if (item && typeof item === "object" && "id" in item)
               return (
                 <div
-                  key={`${(item as { id: string }).id}-${i}`}
+                  key={`${item.id}-${i}`}
                   style={{ flex: "1 1 0", minWidth: 0 }}
                 >
-                  {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    (children as any)(
-                      (item as { id: string }).id,
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      (item as any).basePath,
-                    )
-                  }
+                  {(children as any)(item.id, item.basePath)}
                 </div>
               );
             return null;
@@ -191,7 +186,7 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
             width: "100%",
           }}
         >
-          {items.map((item: unknown, i: number) => {
+          {items.map((item: any, i: number) => {
             if (typeof item === "string")
               return (
                 <React.Fragment key={`${item}-${i}`}>
@@ -200,15 +195,8 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
               );
             if (item && typeof item === "object" && "id" in item)
               return (
-                <React.Fragment key={`${(item as { id: string }).id}-${i}`}>
-                  {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    (children as any)(
-                      (item as { id: string }).id,
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      (item as any).basePath,
-                    )
-                  }
+                <React.Fragment key={`${item.id}-${i}`}>
+                  {(children as any)(item.id, item.basePath)}
                 </React.Fragment>
               );
             return null;
@@ -325,7 +313,7 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
                 outerRadius={80}
                 paddingAngle={2}
               >
-                {data.map((entry: { color?: string }, i: number) => (
+                {data.map((entry: any, i: number) => (
                   <Cell
                     key={i}
                     fill={entry.color ?? COLORS[i % COLORS.length]}
@@ -400,7 +388,7 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
           >
             <thead>
               <tr>
-                {cols.map((col: { key: string; label: string }) => (
+                {cols.map((col: any) => (
                   <th
                     key={col.key}
                     style={{
@@ -420,9 +408,9 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
               </tr>
             </thead>
             <tbody>
-              {rows.map((row: Record<string, unknown>, i: number) => (
+              {rows.map((row: any, i: number) => (
                 <tr key={i} style={{ borderBottom: `1px solid ${c.divider}` }}>
-                  {cols.map((col: { key: string; label: string }) => (
+                  {cols.map((col: any) => (
                     <td
                       key={col.key}
                       style={{ padding: "8px 12px", color: c.cardFg }}
@@ -448,17 +436,14 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
 
     FlightCard: ({ props: rawProps }) => {
       // The binder resolves path bindings to strings at runtime.
-      const props = rawProps as Record<string, string | undefined> & {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        action?: any;
-      };
+      const props = rawProps as Record<string, any>;
       const statusColors: Record<string, string> = {
         "On Time": "#22c55e",
         Delayed: "#eab308",
         Cancelled: "#ef4444",
       };
       const dotColor =
-        props.statusColor ?? statusColors[props.status ?? ""] ?? "#22c55e";
+        props.statusColor ?? statusColors[props.status] ?? "#22c55e";
 
       return (
         <div
@@ -610,5 +595,12 @@ export const demonstrationCatalog = createCatalog(
   demonstrationCatalogRenderers,
   {
     catalogId: "copilotkit://app-dashboard-catalog",
+    // Required: merges the basic A2UI primitives (Row, Column, Text, Card,
+    // Button, …) into this catalog so structural-children expansion works
+    // for templates like flight_schema.json's
+    // `Row { children: { componentId: "flight-card", path: "/flights" } }`.
+    // Both sibling working demos (a2ui-fixed-schema, declarative-gen-ui)
+    // already set this — beautiful-chat was the outlier.
+    includeBasicCatalog: true,
   },
 );

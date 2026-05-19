@@ -91,6 +91,19 @@ export function Banners() {
     };
   }, []);
 
+  // Reflect the banner's visible height into `--fd-banner-height` so
+  // Fumadocs's fixed-positioned sidebar shifts down when the banner is
+  // showing and snaps flush under BrandNav when it's dismissed. ~54px
+  // is the rendered banner height across breakpoints; we set the
+  // variable on <html> so all of Fumadocs's `top:` math picks it up.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.documentElement.style.setProperty(
+      "--fd-banner-height",
+      !hydrated || dismissed ? "0px" : "54px",
+    );
+  }, [hydrated, dismissed]);
+
   const handleDismiss = useCallback(() => {
     localStorage.setItem(BANNER_DISMISSED_KEY, "true");
     localStorage.setItem(BANNER_DISMISSED_TIME_KEY, Date.now().toString());

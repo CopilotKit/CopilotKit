@@ -89,6 +89,15 @@ jobs:
           while IFS= read -r f; do
             [ -n "$f" ] && [ -f "$f" ] && printf '%s\n' "$f" >> .pr-format-files.existing.txt
           done < .pr-format-files.txt
+          # Drop tracked-but-gitignored paths (e.g. fixtures under a
+          # `recorded/` rule). Without this, oxfmt would rewrite them and
+          # the auto-commit step's `git add` would refuse the ignored
+          # path, killing the whole step and leaving the PR unfixed.
+          if [ -s .pr-format-files.existing.txt ]; then
+            git ls-files -i -c --exclude-standard > .pr-format-files.ignored.txt
+            grep -vxFf .pr-format-files.ignored.txt .pr-format-files.existing.txt > .pr-format-files.scoped.txt || true
+            mv .pr-format-files.scoped.txt .pr-format-files.existing.txt
+          fi
           count=$(wc -l < .pr-format-files.existing.txt | tr -d ' ')
           echo "count=$count" >> "$GITHUB_OUTPUT"
           echo "PR-changed format candidates: $count"
@@ -145,7 +154,13 @@ jobs:
             echo "No formatting changes to commit"
             exit 0
           fi
-          git diff --name-only -z | xargs -0 git add
+          # Stage only the files the formatter was scoped to operate on.
+          # Piping `git diff --name-only` into `git add` is unsafe: if a
+          # tracked-but-gitignored path shows up in the diff, `git add`
+          # aborts the whole step and the auto-fix push never lands —
+          # leaving formatting violations on the PR branch and (post-
+          # merge) on main.
+          xargs -a .pr-format-files.existing.txt git add --
           git commit -m "style: auto-fix formatting"
           git push
 

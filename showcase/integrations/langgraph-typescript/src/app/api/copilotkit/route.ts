@@ -28,12 +28,9 @@ function createAgent(graphId: string = "starterAgent") {
 const starterAgentNames = [
   "agentic_chat",
   "human_in_the_loop",
-  "tool-rendering",
   "gen-ui-tool-based",
-  "gen-ui-agent",
   "shared-state-read",
   "shared-state-write",
-  "shared-state-streaming",
   // Chat-UI demos — all reuse the default starterAgent.
   "prebuilt-sidebar",
   "prebuilt-popup",
@@ -69,11 +66,16 @@ const demoAgents: Record<string, string> = {
   "hitl-in-chat": "hitl_in_chat",
   "readonly-state-agent-context": "readonly_state_agent_context",
   "shared-state-read-write": "shared_state_read_write",
+  "shared-state-streaming": "shared_state_streaming",
   subagents: "subagents",
+  "gen-ui-agent": "gen_ui_agent",
   // Reasoning demos — use dedicated reasoning agent graph.
   "agentic-chat-reasoning": "agentic-chat-reasoning",
+  "reasoning-custom": "agentic-chat-reasoning",
+  "reasoning-default": "agentic-chat-reasoning",
   "reasoning-default-render": "reasoning-default-render",
   // Tool rendering variants — each has its own graph in langgraph.json.
+  "tool-rendering": "tool_rendering",
   "tool-rendering-default-catchall": "tool-rendering-default-catchall",
   "tool-rendering-custom-catchall": "tool-rendering-custom-catchall",
   "tool-rendering-reasoning-chain": "tool-rendering-reasoning-chain",

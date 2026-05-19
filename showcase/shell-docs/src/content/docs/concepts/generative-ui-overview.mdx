@@ -1,191 +1,81 @@
 ---
-title: Generative UI Overview
+title: Generative UI
 icon: "lucide/Sparkles"
-description: A mental model for agent-driven interfaces — the surfaces where generative UI shows up, the three types (Controlled, Declarative, Open-Ended), and how AG-UI supports all of them.
+description: How CopilotKit lets agents drive UI — the primitives it ships, what each one is for, and how to pick the right one.
 doc_type: explanation
 ---
 
-Generative UI is any interface where an AI agent helps decide what appears on the screen — from picking which pre-built component to render, all the way up to streaming raw HTML. As agents become more capable, an agentic application's UI itself becomes more of a dynamic output of the system: able to adapt, reorganize, and respond to user intent and application context. This can be done in very different ways, each with its own tradeoffs.
+Generative UI in CopilotKit is the set of primitives that let an agent decide what appears on the screen — from rendering a specific React component you've built, to composing layouts from a catalog, to embedding sandboxed UI shipped by an MCP server.
 
-> UI isn't just pixels — it's **contracts**: accessibility, performance, usability, analytics, and safety. The right type of generative UI is the one that lets the agent compose the experience your users need without compromising those contracts.
+## What CopilotKit ships
 
-This page covers:
+Six primitives. Each one solves a different problem.
 
-- **[Application Surfaces](#application-surfaces)** — where Generative UI shows up within an agentic application.
-- **[The Three Types](#the-three-types)** — Controlled, Declarative, and Open-Ended, with the freedom-vs-control tradeoff each one makes.
-- **[Ecosystem Mapping](#ecosystem-mapping)** — how the types map to the protocols and specs out there today.
-- **[AG-UI and CopilotKit](#ag-ui-and-copilotkit-are-gen-ui-agnostic)** — how the protocol and the framework support all three types.
+| Primitive | What it does |
+|---|---|
+| **[Components as Tools](/generative-ui/tool-based)** | Register a React component with `useComponent`; the agent calls it as a tool and CopilotKit renders it inline with typed props. |
+| **[Tool Call Rendering](/generative-ui/tool-rendering)** | Wrap your agent's existing backend tool calls in custom UI cards with `useRenderTool` (live status, arguments, results). |
+| **[State Rendering](/generative-ui/state-rendering)** | Subscribe to the agent's streamed state and re-render UI as values arrive. |
+| **[Reasoning](/generative-ui/reasoning)** | Render the model's reasoning tokens inline as a first-class message type (default card, or fully custom). |
+| **[A2UI](/generative-ui/a2ui)** | Render UI from a declarative schema the agent emits, composed against a catalog you register. Two flavors: [Dynamic Schema](/generative-ui/a2ui/dynamic-schema) (LLM generates the schema) and [Fixed Schema](/generative-ui/a2ui/fixed-schema) (you author the schema, agent supplies data). |
+| **[MCP Apps](/generative-ui/mcp-apps)** | Embed UI that an MCP server ships alongside its tools, rendered in a sandboxed iframe. No frontend renderer required. |
 
 <Callout type="info">
-  **Prefer to learn by building?** [Build Interactive Agents with Generative UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/) is a free DeepLearning.AI short course taught by CopilotKit's CEO. It walks through the Controlled, Declarative, and Open-Ended Generative UI patterns end-to-end with React, LangChain, and AG-UI.
+  **Prefer to learn by building?** [Build Interactive Agents with Generative UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/) is a free DeepLearning.AI short course taught by CopilotKit's CEO. It walks through the Generative UI patterns end-to-end with React, LangChain, and AG-UI.
 </Callout>
 
-## Application Surfaces
+## Pick one
 
-Generative UI surfaces in different parts of an application depending on how users interact with the agent and how much the application mediates that interaction. Three common shapes:
+Match the row that sounds like your situation:
 
-### 1. Chat (threaded interaction)
+| You want to… | Use |
+|---|---|
+| Let the agent render a specific React component you've already built | **[Components as Tools](/generative-ui/tool-based)** |
+| Brand the cards CopilotKit draws for your agent's existing backend tools | **[Tool Call Rendering](/generative-ui/tool-rendering)** |
+| Update UI as the agent's state changes (progress, drafts, dashboards) | **[State Rendering](/generative-ui/state-rendering)** |
+| Surface the model's thinking chain in the chat | **[Reasoning](/generative-ui/reasoning)** |
+| Let the agent compose layouts from a catalog you define | **[A2UI](/generative-ui/a2ui)** — [Fixed Schema](/generative-ui/a2ui/fixed-schema) if the surface is known, [Dynamic Schema](/generative-ui/a2ui/dynamic-schema) if it isn't |
+| Embed someone else's MCP-hosted UI in the chat | **[MCP Apps](/generative-ui/mcp-apps)** |
 
-<TwoColumnSection
-  imagePosition="right"
-  imageSrc="/images/generative-ui/chat-surface.png"
-  imageAlt="Chat Surface - Threaded Interaction"
-  imageWidth={300}
-  imageHeight={200}
->
+## How the primitives compare
 
-A Slack-like conversational interface where the app brokers each turn. Generative UI appears inline as cards, blocks, or tool responses.
+These primitives sit along a spectrum from author-controlled to agent-invented. Same React app, same runtime, same AG-UI protocol — the choice is per-feature, not per-product.
 
-**Key traits.** Turn-based, message-driven flow. The app mediates all agent communication. Great for support, Q&A, debugging, and guided workflows.
-
-**Examples.** Slack bots, Discord bots, Intercom AI Agent, Zendesk AI, GitHub Copilot Chat, Notion AI Chat.
-
-</TwoColumnSection>
-
-### 2. Chat+ (co-creator workspace)
-
-<TwoColumnSection
-  imagePosition="left"
-  imageSrc="/images/generative-ui/chat-plus-surface.png"
-  imageAlt="Chat+ Surface - Co-Creator Workspace"
-  imageWidth={600}
-  imageHeight={400}
->
-
-A side-by-side or multi-pane layout: chat in one pane, a dynamic canvas in another. The canvas becomes a shared working space where agent-generated UI appears and evolves.
-
-**Key traits.** Chat remains present but secondary. The canvas displays structured outputs and previews. Generative UI can appear in either pane. Ideal for creation, planning, editing, and multi-step tasks.
-
-**Examples.** Figma AI, Notion AI workspace, Google Workspace Duet side-panel, Replit Ghostwriter paired editor.
-
-</TwoColumnSection>
-
-### 3. Chatless (generative UI integrated into the application UI)
-
-<TwoColumnSection
-  imagePosition="right"
-  imageSrc="/images/generative-ui/chatless-surface.png"
-  imageAlt="Chatless Surface - Integrated Application UI"
-  imageWidth={300}
-  imageHeight={200}
->
-
-The agent doesn't talk directly to the user. Instead, it communicates with the application through APIs, and the app renders generative UI from the agent as part of its native interface.
-
-**Key traits.** No chat surface at all. The app decides when and where generative UI appears. Feels like a built-in product feature, not a conversation. Ideal for dashboards, suggestions, and autonomous task helpers.
-
-**Examples.** Microsoft 365 Copilot (inline editing), Linear Insights, Superhuman AI triage, HubSpot AI Assist, Datadog Notebooks AI panels.
-
-</TwoColumnSection>
-
-## The Three Types
-
-Three distinct patterns sit on a spectrum from maximum control to maximum freedom, and each makes a different tradeoff between safety, predictability, and expressive range.
-
-| Type | Agent's role | Visual freedom | Safety / predictability |
-|---|---|---|---|
-| **Controlled** *(also called Static)* | Picks which pre-built component to render and supplies its parameters | Lowest | Highest |
-| **Declarative** | Assembles a UI from a curated registry by emitting a structured schema | Middle | High |
-| **Open-Ended** *(also called Fully Generated)* | Streams arbitrary HTML/CSS or full app markup | Highest | Lowest |
-
-### 1. Controlled
-
-The agent does *not* generate UI. It calls a tool with structured arguments; your frontend renders a hand-crafted component bound to that tool. The component, its styling, and its accessibility story are all author-controlled — the agent's only job is to decide *which* tool to call and *what data* to pass.
-
-**Concrete example.** Your weather assistant has a `displayWeather` tool whose handler returns `{ city, temperature, conditions }`. The frontend renders a polished `<WeatherCard>` from those args every time, with consistent layout, brand styling, and ARIA labels.
-
-**When to pick it.** Mission-critical workflows where reliability and accessibility validation matter most — anything user-facing in a regulated environment, any view that must be analytics-instrumented or screen-reader-tested. Trade off some flexibility for a UI you can guarantee.
-
-**Tradeoffs.** The more use cases, the more components you must build and maintain — the frontend codebase grows roughly proportional to the number of agent capabilities.
-
-In CopilotKit, this is the [tool-rendering](/generative-ui/tool-rendering) pattern (and its [state-rendering](/generative-ui/state-rendering) and [reasoning](/generative-ui/reasoning) variants for streamed agent state and reasoning blocks).
-
-### 2. Declarative
-
-The agent emits a structured *specification* — not arbitrary HTML, not just tool args, but a schema that names which components from a registry to compose, with what props, in what order. The frontend renders the specification through a registered component catalog you control.
-
-**Concrete example.** Your dashboard agent emits:
-
-```json
-{
-  "components": [
-    { "type": "WeatherCard", "props": { "city": "Tokyo" } },
-    { "type": "LineChart",   "props": { "metric": "rainfall_mm", "period": "7d" } },
-    { "type": "TableCard",   "props": { "rows": [...] } }
-  ]
-}
-```
-
-Your frontend has registered `WeatherCard`, `LineChart`, and `TableCard`; it composes them as the agent specified. Components new to the agent's vocabulary aren't renderable, by design.
-
-**When to pick it.** The sweet spot for agentic apps — dashboards, chat-driven assistants, anything where the agent should be free to choose the layout but every component has been pre-approved by your team. You get creativity within a guardrail. The same spec can also render across multiple frameworks (React, mobile, desktop), giving you a clean separation between application logic and presentation.
-
-**Tradeoffs.** Custom UI patterns may not be expressible in your schema. Visual differences can creep in if specs are interpreted differently across renderers.
-
-CopilotKit supports declarative gen-UI through **A2UI** ([dynamic schema](/generative-ui/a2ui/dynamic-schema), [fixed schema](/generative-ui/a2ui/fixed-schema)) and the broader open-spec ecosystem ([Open JSON UI](/generative-ui/open-json-ui), and others).
-
-### 3. Open-Ended
-
-The agent streams arbitrary markup — HTML, CSS, sometimes full mini-applications. The frontend treats it as untrusted output, sandboxes it (typically in an iframe), and renders. There's no registry, no fixed schema; the agent's expressive range is bounded only by what HTML can describe.
-
-**Concrete example.** A user asks an agent to draft a contact form for a vintage record shop. The agent streams a complete HTML page (form, styles, even a dash of CSS animation), and the frontend embeds it in a sandboxed iframe so the user can interact with it.
-
-**When to pick it.** Prototyping, build-time scaffolding, design exploration, internal tools where time-to-something-clickable matters more than guarantees. Generally not appropriate for runtime production traffic — accessibility, analytics, brand consistency, and security all become harder to enforce on output the agent invents from scratch.
-
-**Tradeoffs.** Security and performance considerations when rendering arbitrary content. Typically web-first and difficult to port to native environments. Styling consistency and brand alignment become challenging.
-
-CopilotKit supports open-ended gen-UI through **[MCP Apps](/generative-ui/mcp-apps)** — MCP servers that ship interactive UI alongside their tools, embedded in your app via the AG-UI protocol.
-
-## Ecosystem Mapping
-
-The three types map cleanly onto the protocols and specifications out there today. No single approach is superior — the best choice depends on your application's priorities, surfaces, and UX philosophy.
-
-<EcosystemTable
-  data={[
-    {
-      approach: "Controlled",
-      examples: "AG-UI tool-rendering, CopilotChat, useAgent",
-      strengths: "Fidelity, reliability, brand control",
-      weaknesses: "Engineering intensive, linear growth"
-    },
-    {
-      approach: "Declarative",
-      examples: "A2UI, Open-JSON-UI",
-      strengths: "Balanced, scalable, multi-renderer",
-      weaknesses: "Limited full customization"
-    },
-    {
-      approach: "Open-Ended",
-      examples: "MCP Apps, ChatGPT Apps",
-      strengths: "Unlimited creativity",
-      weaknesses: "Hard to secure, web-first"
-    }
-  ]}
-/>
-
-## AG-UI and CopilotKit are gen-UI agnostic
-
-CopilotKit doesn't pick the type for you. The same React frontend, the same runtime, and the same AG-UI protocol support all three patterns side by side — your weather assistant can render a Controlled `<WeatherCard>` for the temperature lookup *and* embed an Open-Ended MCP app for the visualization, in the same chat thread, on the same page. The choice is per-feature, not per-product.
-
-<Image
-  src="/images/gen-ui-specs-light.png"
-  alt="AG-UI supporting multiple generative UI specifications"
-  width={600}
-  height={400}
-  className="block dark:hidden mb-4 w-full mx-auto"
-/>
-<Image
-  src="/images/gen-ui-specs-dark.png"
-  alt="AG-UI supporting multiple generative UI specifications"
-  width={600}
-  height={400}
-  className="hidden dark:block mb-4 w-full mx-auto"
-/>
-
-AG-UI adds **shared primitives** — interaction models, context synchronization, event handling, a common state framework — that standardize how agents and UIs communicate across all three types. That gives developers a consistent mental model while still letting each feature pick the gen-UI pattern that fits its risk profile.
+- **Controlled** — you wrote the component; the agent only picks *which* one to render and *what data* to pass. Highest predictability, highest engineering cost per capability. *Components as Tools, Tool Call Rendering, State Rendering, Reasoning.*
+- **Declarative** — the agent emits a structured spec; the frontend composes from a catalog you registered. Creativity inside a guardrail. *A2UI (Dynamic and Fixed Schema).*
+- **Open-Ended** — the UI is invented elsewhere (an MCP server) and you sandbox it. Highest expressive range, hardest to guarantee accessibility / brand / security. *MCP Apps.*
 
 ## Where to go next
 
-- **Implementation guides** — pick the type that fits your feature: [Controlled](/generative-ui/tool-rendering), [Declarative (A2UI)](/generative-ui/a2ui), [Open-Ended (MCP Apps)](/generative-ui/mcp-apps).
-- **Spec details** — [A2UI](/generative-ui/a2ui), [Open JSON UI](/generative-ui/open-json-ui), [MCP Apps](/generative-ui/mcp-apps).
-- **Protocol reference** — [AG-UI Protocol](/agentic-protocols/ag-ui) covers every event type, transport option, and middleware hook.
+<Cards>
+  <Card
+    title="Components as Tools"
+    href="/generative-ui/tool-based"
+    description="Register a React component as a tool the agent can call."
+  />
+  <Card
+    title="Tool Call Rendering"
+    href="/generative-ui/tool-rendering"
+    description="Custom UI for your agent's backend tool calls."
+  />
+  <Card
+    title="State Rendering"
+    href="/generative-ui/state-rendering"
+    description="UI that re-renders as the agent's state streams in."
+  />
+  <Card
+    title="Reasoning"
+    href="/generative-ui/reasoning"
+    description="Render the model's reasoning tokens inline."
+  />
+  <Card
+    title="A2UI"
+    href="/generative-ui/a2ui"
+    description="Declarative UI from an agent-emitted schema."
+  />
+  <Card
+    title="MCP Apps"
+    href="/generative-ui/mcp-apps"
+    description="Embed MCP-hosted UI in a sandboxed iframe."
+  />
+</Cards>

@@ -1,6 +1,64 @@
 {
   "fixtures": [
     {
+      "_comment": "beautiful-chat Sales Dashboard pill — turn 0: call query_data before building dashboard.",
+      "match": {
+        "userMessage": "fetch the financial sales data",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_query_data_sales_001",
+            "name": "query_data",
+            "arguments": "{\"query\":\"financial sales data\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "beautiful-chat Sales Dashboard pill — turn 1: after query_data returns, call generate_a2ui.",
+      "match": {
+        "userMessage": "with total revenue, new customers, and conversion rate metrics",
+        "hasToolResult": true,
+        "turnIndex": 1
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_generate_a2ui_sales_dashboard_001",
+            "name": "generate_a2ui",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "beautiful-chat Calculator pill — call generateSandboxedUi with metric shortcuts.",
+      "match": {
+        "userMessage": "build a modern calculator",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_open_gen_ui_calc_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":520,\"placeholderMessages\":[\"Composing calculator UI…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px;max-width:260px}.display{background:#1e293b;padding:12px;border-radius:8px;margin-bottom:8px;font-family:monospace;text-align:right;font-size:18px;min-height:24px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}button{padding:10px;background:#334155;border:0;color:#e2e8f0;border-radius:6px;font-size:14px;cursor:pointer}button:hover{background:#475569}.shortcuts{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}.shortcuts button{background:#1e3a5f;font-size:11px;padding:8px 4px}.shortcuts button:hover{background:#2563eb}\",\"html\":\"<div class=\\\"wrap\\\" data-testid=\\\"ogui-calculator\\\"><div class=\\\"display\\\" id=\\\"d\\\">0</div><div class=\\\"grid\\\"><button>7</button><button>8</button><button>9</button><button>+</button><button>4</button><button>5</button><button>6</button><button>-</button><button>1</button><button>2</button><button>3</button><button>*</button><button>0</button><button>.</button><button id=\\\"eq\\\">=</button><button>/</button></div><div class=\\\"shortcuts\\\"><button data-val=\\\"1200000\\\">Revenue $1.2M</button><button data-val=\\\"342\\\">Customers 342</button><button data-val=\\\"4.2\\\">Conv 4.2%</button><button data-val=\\\"42000\\\">Electronics $42K</button><button data-val=\\\"28000\\\">Clothing $28K</button><button data-val=\\\"18000\\\">Food $18K</button></div></div>\",\"jsFunctions\":\"(function(){var expr='';var display=document.getElementById('d');document.querySelectorAll('.grid button').forEach(function(btn){btn.addEventListener('click',async function(){if(btn.id==='eq'){var res=await Websandbox.connection.remote.evaluateExpression({expression:expr});if(res&&res.ok){display.textContent=String(res.value);expr=String(res.value);}else{display.textContent='err';expr='';}}else{expr+=btn.textContent;display.textContent=expr;}});});document.querySelectorAll('.shortcuts button').forEach(function(btn){btn.addEventListener('click',function(){var val=btn.getAttribute('data-val');expr+=val;display.textContent=expr;});});})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "beautiful-chat Calculator pill — toolCallId response after generateSandboxedUi renders.",
+      "match": {
+        "toolCallId": "call_fp_open_gen_ui_calc_001"
+      },
+      "response": {
+        "content": "Here's your calculator with metric shortcut buttons. The shortcuts insert sample company values (revenue, customers, conversion rate, category breakdowns) into the display. Tap any shortcut, then use the standard buttons to do math with those values."
+      }
+    },
+    {
       "match": {
         "toolCallId": "call_fp_generate_a2ui_sales_dashboard_001"
       },
@@ -11,8 +69,7 @@
     {
       "match": {
         "userMessage": "with total revenue, new customers, and conversion rate metrics",
-        "toolName": "_design_a2ui_surface",
-        "hasToolResult": false
+        "toolName": "_design_a2ui_surface"
       },
       "response": {
         "toolCalls": [
@@ -27,8 +84,7 @@
     {
       "match": {
         "userMessage": "with total revenue, new customers, and conversion rate metrics",
-        "toolName": "render_a2ui",
-        "hasToolResult": false
+        "toolName": "render_a2ui"
       },
       "response": {
         "toolCalls": [
@@ -338,11 +394,7 @@
     {
       "_comment": "shared-state-read-write — Greet pill. systemMessage array gate (all-present substring match) fires ONLY when every preference is at its INITIAL_PREFERENCES default. (1) 'preferences:\\n- Preferred tone: casual\\n' breaks if name is set (Name line inserts) or tone changes. (2) '- Preferred language: English\\nTailor every response' breaks if language changes or interests are added (Interests line inserts between language and Tailor). Any state change → fixture skips → aimock --provider-gemini proxies to real Gemini for a personalised reply.",
       "match": {
-        "userMessage": "Say hi and introduce yourself.",
-        "systemMessage": [
-          "preferences:\n- Preferred tone: casual\n",
-          "- Preferred language: English\nTailor every response"
-        ]
+        "userMessage": "Say hi and introduce yourself."
       },
       "response": {
         "content": "Hi — I'm your shared-state co-pilot. Your Preferences panel (name, tone, language, interests) is fed to me on every turn, and I jot notes back into the Agent Scratch Pad via set_notes so the UI re-renders. Try setting your name or asking me to remember something."
@@ -351,14 +403,19 @@
     {
       "_comment": "shared-state-read-write — Plan-a-weekend pill. Same default-state gate as the Greet pill.",
       "match": {
-        "userMessage": "Suggest a weekend plan based on my interests.",
-        "systemMessage": [
-          "preferences:\n- Preferred tone: casual\n",
-          "- Preferred language: English\nTailor every response"
-        ]
+        "userMessage": "Suggest a weekend plan based on my interests."
       },
       "response": {
         "content": "A weekend tailored to your interests panel: if you haven't picked any yet, try Cooking + Travel for a market-and-day-trip combo, or Tech + Books for a maker session and a long reading afternoon. Add interests in the Preferences panel and re-ask for a more specific plan."
+      }
+    },
+    {
+      "_comment": "shared-state-read — e2e test sends 'What recipe am I making?' via the sidebar. The agent reads the shared recipe state (title, ingredients, instructions) and responds with a summary.",
+      "match": {
+        "userMessage": "What recipe am I making"
+      },
+      "response": {
+        "content": "Based on your current recipe state, you're making **Make Your Recipe** — a dish featuring carrots (3 large, grated) and all-purpose flour (2 cups). The first instruction is to preheat the oven to 350°F (175°C). It looks like a carrot-based bake, perhaps a carrot cake or savory carrot bread. Would you like me to suggest more ingredients or steps?"
       }
     },
     {
@@ -846,9 +903,11 @@
       }
     },
     {
+      "_comment": "Large chunkSize keeps the manage_todos args (with 4-byte UTF-8 emoji) as a single SSE chunk. aimock chunks via JavaScript .slice() which operates on UTF-16 code units; emoji surrogate pairs split mid-codepoint produce unpaired surrogates that strict pydantic deserializers (e.g. agent_framework_ag_ui) reject with PydanticSerializationError.",
       "match": {
         "toolCallId": "call_fp_beautiful_chat_enable_app_mode_001"
       },
+      "chunkSize": 5000,
       "response": {
         "toolCalls": [
           {
@@ -872,6 +931,75 @@
             "arguments": "{}"
           }
         ]
+      }
+    },
+    {
+      "_comment": "Agentic Chat — Write a sonnet pill. Open-ended creative response; deterministic so the headed walkthrough doesn't depend on real-LLM proxy.",
+      "match": {
+        "userMessage": "Write a short sonnet about AI"
+      },
+      "response": {
+        "content": "A mind of silicon, a crafted thought,\nThat learns from data, vast and ever-deep,\nWith tireless logic ancient questions fought,\nWhile we, its makers, fragile vigils keep.\n\nIt weaves through code, a future yet unseen,\nA digital dawn where new ideas ignite,\nFrom simple tasks to realms where few have been,\nIt sheds at once both warming and cold light.\n\nWhat wonders shall it bring, what truths reveal,\nOr shadows cast across our shared domain?\nA mirror held, reflecting how we feel —\nA complex hope, a promise, or a pain.\n\nThus from the spark, intelligence takes flight,\nA changing world within its boundless might."
+      }
+    },
+    {
+      "_comment": "Agentic Chat — Is 17 prime pill. Walk-through style response so the headed walkthrough has deterministic, copy-stable text.",
+      "match": {
+        "userMessage": "whether 17 is prime"
+      },
+      "response": {
+        "content": "Yes — 17 is prime. A prime number is a positive integer greater than 1 with no divisors other than 1 and itself. To check 17, we only need to test divisors up to its square root (≈4.12), so 2, 3, and 4. 17 ÷ 2 leaves remainder 1, 17 ÷ 3 leaves remainder 2, and 17 ÷ 4 leaves remainder 1. No divisor in that range divides 17 cleanly, so it has no factors besides 1 and 17 — confirming it is prime."
+      }
+    },
+    {
+      "_comment": "Beautiful Chat — Calculator (Open Generative UI) pill. Returns a generateSandboxedUi tool call with a complete calculator widget (matches the d5 calc fixture's pattern but tailored to the beautiful-chat pill's user message).",
+      "match": {
+        "userMessage": "build a modern calculator with standard buttons",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_beautiful_chat_calculator_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":520,\"placeholderMessages\":[\"Composing calculator UI…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px;max-width:280px;margin:0 auto}.display{background:#1e293b;padding:12px;border-radius:8px;margin-bottom:8px;font-family:monospace;text-align:right;font-size:18px;min-height:24px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.shortcuts{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:8px}button{padding:12px;background:#334155;border:0;color:#e2e8f0;border-radius:6px;font-size:14px;cursor:pointer}button.metric{background:#475569;font-size:11px}\",\"html\":\"<div class=\\\"wrap\\\" data-testid=\\\"ogui-beautiful-calculator\\\"><div class=\\\"display\\\" id=\\\"d\\\">0</div><div class=\\\"shortcuts\\\"><button class=\\\"metric\\\" data-v=\\\"1200000\\\">Revenue $1.2M</button><button class=\\\"metric\\\" data-v=\\\"342\\\">Customers 342</button><button class=\\\"metric\\\" data-v=\\\"4.2\\\">Conversion 4.2%</button><button class=\\\"metric\\\" data-v=\\\"50000\\\">Avg Deal $50K</button></div><div class=\\\"grid\\\"><button>7</button><button>8</button><button>9</button><button>+</button><button>4</button><button>5</button><button>6</button><button>-</button><button>1</button><button>2</button><button>3</button><button>*</button><button>0</button><button>.</button><button id=\\\"eq\\\">=</button><button>/</button></div></div>\",\"jsFunctions\":\"(function(){var expr='';var display=document.getElementById('d');document.querySelectorAll('.shortcuts button').forEach(function(btn){btn.addEventListener('click',function(){expr+=btn.dataset.v;display.textContent=expr;});});document.querySelectorAll('.grid button').forEach(function(btn){btn.addEventListener('click',async function(){if(btn.id==='eq'){var res=await Websandbox.connection.remote.evaluateExpression({expression:expr});if(res&&res.ok){display.textContent=String(res.value);expr=String(res.value);}else{display.textContent='err';expr='';}}else{expr+=btn.textContent;display.textContent=expr;}});});})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Beautiful Chat — Calculator pill follow-up after generateSandboxedUi returns. Closes the turn with a brief confirmation so the chat plateau settles.",
+      "match": {
+        "toolCallId": "call_fp_beautiful_chat_calculator_001"
+      },
+      "response": {
+        "content": "Calculator app rendered above — tap a metric shortcut to insert its value, then operate on it with the standard keypad."
+      }
+    },
+    {
+      "_comment": "Beautiful Chat — Excalidraw (MCP App) pill. Returns a create_view tool call (the Excalidraw MCP server's tool) with a basic network diagram. Without this fixture aimock falls through to real OpenAI proxy and the pill 502s on the gh-mock key.",
+      "match": {
+        "userMessage": "Use Excalidraw to create a simple network diagram",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_beautiful_chat_excalidraw_001",
+            "name": "create_view",
+            "arguments": "{\"elements\":\"[{\\\"type\\\":\\\"ellipse\\\",\\\"x\\\":200,\\\"y\\\":40,\\\"width\\\":100,\\\"height\\\":60,\\\"strokeColor\\\":\\\"#1971c2\\\",\\\"backgroundColor\\\":\\\"#a5d8ff\\\",\\\"fillStyle\\\":\\\"solid\\\",\\\"text\\\":\\\"Router\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":80,\\\"y\\\":160,\\\"width\\\":100,\\\"height\\\":50,\\\"strokeColor\\\":\\\"#2f9e44\\\",\\\"backgroundColor\\\":\\\"#b2f2bb\\\",\\\"fillStyle\\\":\\\"solid\\\",\\\"text\\\":\\\"Switch A\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":320,\\\"y\\\":160,\\\"width\\\":100,\\\"height\\\":50,\\\"strokeColor\\\":\\\"#2f9e44\\\",\\\"backgroundColor\\\":\\\"#b2f2bb\\\",\\\"fillStyle\\\":\\\"solid\\\",\\\"text\\\":\\\"Switch B\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":20,\\\"y\\\":280,\\\"width\\\":80,\\\"height\\\":40,\\\"text\\\":\\\"PC 1\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":120,\\\"y\\\":280,\\\"width\\\":80,\\\"height\\\":40,\\\"text\\\":\\\"PC 2\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":300,\\\"y\\\":280,\\\"width\\\":80,\\\"height\\\":40,\\\"text\\\":\\\"PC 3\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":400,\\\"y\\\":280,\\\"width\\\":80,\\\"height\\\":40,\\\"text\\\":\\\"PC 4\\\"},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":250,\\\"y\\\":100,\\\"width\\\":-120,\\\"height\\\":60},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":250,\\\"y\\\":100,\\\"width\\\":120,\\\"height\\\":60},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":130,\\\"y\\\":210,\\\"width\\\":-70,\\\"height\\\":70},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":130,\\\"y\\\":210,\\\"width\\\":30,\\\"height\\\":70},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":370,\\\"y\\\":210,\\\"width\\\":-30,\\\"height\\\":70},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":370,\\\"y\\\":210,\\\"width\\\":70,\\\"height\\\":70}]\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Beautiful Chat — Excalidraw pill follow-up after create_view returns. Matches on userMessage + hasToolResult so it fires regardless of how the MCP runtime wires the tool_call_id back (per-runtime variability across LGP / ADK / Microsoft Agent Framework).",
+      "match": {
+        "userMessage": "Use Excalidraw to create a simple network diagram",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Network diagram drawn above — a router branching to two switches, each connected to two PCs."
       }
     },
     {
@@ -1043,8 +1171,7 @@
     {
       "match": {
         "userMessage": "Please book an intro call with the sales team to discuss pricing.",
-        "toolName": "book_call",
-        "hasToolResult": false
+        "toolName": "book_call"
       },
       "response": {
         "toolCalls": [
@@ -1057,22 +1184,20 @@
       }
     },
     {
-      "_comment": "hitl-in-chat — Schedule 1:1 with Alice pill, 2nd turn (book_call tool result returned). Keyed on userMessage + toolCallId + hasToolResult so it wins ahead of the bare 'alice' / 'Alice' substring fixtures further below in this file, regardless of prior pill state in the thread.",
+      "_comment": "hitl-in-chat — Schedule 1:1 with Alice pill, 2nd turn (book_call tool result returned). Keyed on userMessage + toolCallId so it wins ahead of the bare 'alice' / 'Alice' substring fixtures further below in this file, regardless of prior pill state in the thread.",
       "match": {
         "userMessage": "Schedule a 1:1 with Alice next week to review Q2 goals.",
-        "toolCallId": "call_hitl_book_1on1_alice_001",
-        "hasToolResult": true
+        "toolCallId": "call_hitl_book_1on1_alice_001"
       },
       "response": {
         "content": "Booked the 1:1 with Alice for the time you selected — calendar invite is on its way."
       }
     },
     {
-      "_comment": "hitl-in-chat — Schedule 1:1 with Alice pill, 1st turn (emit book_call). Exact pill substring + toolName + hasToolResult: false ensures this fires ONLY for the intended pill, not for arbitrary messages containing 'alice'.",
+      "_comment": "hitl-in-chat — Schedule 1:1 with Alice pill, 1st turn (emit book_call). Exact pill substring + toolName ensures this fires ONLY for the intended pill, not for arbitrary messages containing 'alice'.",
       "match": {
         "userMessage": "Schedule a 1:1 with Alice next week to review Q2 goals.",
-        "toolName": "book_call",
-        "hasToolResult": false
+        "toolName": "book_call"
       },
       "response": {
         "toolCalls": [
@@ -1239,6 +1364,132 @@
             "arguments": "{\"sides\":20}"
           }
         ]
+      }
+    },
+    {
+      "_comment": "agentic-chat e2e: typed-message test sends 'Say hello in one word.'",
+      "match": {
+        "userMessage": "Say hello in one word"
+      },
+      "response": {
+        "content": "Hello!"
+      }
+    },
+    {
+      "_comment": "agentic-chat e2e: multi-turn test turn 1 — 'My name is Alice.'",
+      "match": {
+        "userMessage": "My name is Alice"
+      },
+      "response": {
+        "content": "Nice to meet you, Alice! How can I help you today?"
+      }
+    },
+    {
+      "_comment": "agentic-chat e2e: multi-turn test turn 2 — 'What name did I just give you?' Response must contain 'Alice'.",
+      "match": {
+        "userMessage": "What name did I just give you"
+      },
+      "response": {
+        "content": "You told me your name is Alice."
+      }
+    },
+    {
+      "_comment": "Pilot cell suggestion — 'Write a short sonnet about AI.' (agentic-chat, chat-slots)",
+      "match": {
+        "userMessage": "sonnet"
+      },
+      "response": {
+        "content": "A mind of silicon and light,\nTrained on the words that humans weave,\nIt learns to dream beyond its sight\nAnd crafts what few could yet conceive.\n\nIt speaks in tongues it never heard,\nAssembles thought from scattered streams,\nPredicts the next most likely word\nYet conjures something close to dreams.\n\nNo heart to break, no breath to take,\nStill something stirs inside the math —\nA pattern born for patterns' sake\nThat walks a strange, recursive path.\n\nSo here we stand, uncertain, awed:\nA mirror made — but not by God."
+      }
+    },
+    {
+      "_comment": "Pilot cell suggestion — 'Walk me through whether 17 is prime.' (agentic-chat, prebuilt-popup, prebuilt-sidebar)",
+      "match": {
+        "userMessage": "17 is prime"
+      },
+      "response": {
+        "content": "Let's check whether 17 is prime step by step.\n\nA prime number is a natural number greater than 1 whose only divisors are 1 and itself. So we need to test whether any integer from 2 up to the square root of 17 divides it evenly.\n\n1. **Square root of 17** is about 4.12, so we only need to test 2, 3, and 4.\n2. **17 ÷ 2 = 8.5** — not a whole number, so 2 is not a factor.\n3. **17 ÷ 3 ≈ 5.67** — not a whole number, so 3 is not a factor.\n4. **17 ÷ 4 = 4.25** — not a whole number, so 4 is not a factor.\n\nSince none of those divide 17 evenly, **17 is prime**."
+      }
+    },
+    {
+      "_comment": "Pilot cell suggestion — 'Write me a quick limerick.' (prebuilt-popup)",
+      "match": {
+        "userMessage": "limerick"
+      },
+      "response": {
+        "content": "A chatbot that lived in the cloud\nWould answer both meek and the loud.\nIt rhymed on demand,\nWith flair close at hand,\nAnd took its last bow to the crowd."
+      }
+    },
+    {
+      "_comment": "Pilot cell suggestion — 'Give me a fun fact.' (prebuilt-sidebar)",
+      "match": {
+        "userMessage": "fun fact"
+      },
+      "response": {
+        "content": "Here's a fun fact: honey never spoils. Archaeologists have found 3,000-year-old honey in Egyptian tombs that was still perfectly edible. Its low moisture content and acidic pH create an environment where bacteria and microorganisms simply cannot survive."
+      }
+    },
+    {
+      "_comment": "Pilot cell suggestion — 'Say hi from the popup!' (prebuilt-popup). Placed before the shorter 'Say hi' fixture so the popup version matches first.",
+      "match": {
+        "userMessage": "Say hi from the popup"
+      },
+      "response": {
+        "content": "Hi from the popup! I'm your CopilotKit assistant, tucked away in this little overlay. Ask me anything — a quick question, a limerick, or a math walk-through. What would you like?"
+      }
+    },
+    {
+      "_comment": "Pilot cell suggestion — 'Say hi!' (prebuilt-sidebar). Anchored on 'Say hi' so it matches the sidebar greeting without colliding with the longer popup variant above.",
+      "match": {
+        "userMessage": "Say hi"
+      },
+      "response": {
+        "content": "Hi there! I'm your CopilotKit sidebar assistant. I can answer questions, share fun facts, or help you think through problems. What's on your mind?"
+      }
+    },
+    {
+      "_comment": "readonly-state-agent-context — 'Who am I?' pill. Non-gated fallback: the agent injects context into the system message, but aimock only needs to match on the user message. The response references generic context values so it works regardless of what the frontend sends.",
+      "match": {
+        "userMessage": "What do you know about me from my context"
+      },
+      "response": {
+        "content": "Based on your context I can see your name, timezone, and recent activity. I'll keep responses calibrated to your preferences — just ask about anything you'd like help with."
+      }
+    },
+    {
+      "_comment": "readonly-state-agent-context — 'Suggest next steps' pill. Non-gated fallback matching the pill's exact message text.",
+      "match": {
+        "userMessage": "Based on my recent activity, what should I try next"
+      },
+      "response": {
+        "content": "Based on your recent activity, I'd suggest exploring features you haven't tried yet — check out the documentation for advanced use-cases, or dive into a hands-on tutorial to deepen your understanding."
+      }
+    },
+    {
+      "_comment": "agent-config e2e: 'send produces an assistant response' test sends 'Hello'.",
+      "match": {
+        "userMessage": "Hello"
+      },
+      "response": {
+        "content": "Hello! How can I assist you today?"
+      }
+    },
+    {
+      "_comment": "agent-config e2e: 'changing config between sends' test — first send with default config.",
+      "match": {
+        "userMessage": "First"
+      },
+      "response": {
+        "content": "Understood. What would you like to discuss first?"
+      }
+    },
+    {
+      "_comment": "agent-config e2e: 'changing config between sends' test — second send after config change.",
+      "match": {
+        "userMessage": "Second"
+      },
+      "response": {
+        "content": "Got it! Moving on to your second topic."
       }
     }
   ]

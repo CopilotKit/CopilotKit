@@ -231,56 +231,52 @@ price (e.g. ""$289"").")]
         ArgumentNullException.ThrowIfNull(flights);
         _logger.LogInformation("[beautiful-chat] search_flights: {Count}", flights.Count);
 
-        // Fixed-schema flight card layout — mirrors the LangGraph reference's
-        // `flight_schema.json`. The root Row binds one child template
-        // (`flight-card`) across the `/flights` data-model path so a single
-        // schema renders any number of flights.
-        var flightSchema = new object[]
+        // Flat literal-children layout — mirrors the LangGraph reference's
+        // `_build_flight_components`. We avoid the structural-children
+        // template form (Row.children = { componentId, path }) because the
+        // GenericBinder only expands templates correctly for components
+        // whose schema declares STRUCTURAL children — sibling demos work
+        // because their schemas use literal-string-array children. Inlining
+        // the values per-flight sidesteps the template path entirely and
+        // renders identically.
+        var components = new List<object>();
+        var flightCardIds = new List<string>();
+        for (int i = 0; i < flights.Count; i++)
         {
-            new
+            var flight = flights[i];
+            var cardId = $"flight-card-{i}";
+            flightCardIds.Add(cardId);
+            components.Add(new
             {
-                id = "root",
-                component = "Row",
-                children = new { componentId = "flight-card", path = "/flights" },
-                gap = 16,
-            },
-            new
-            {
-                id = "flight-card",
+                id = cardId,
                 component = "FlightCard",
-                airline = new { path = "airline" },
-                airlineLogo = new { path = "airlineLogo" },
-                flightNumber = new { path = "flightNumber" },
-                origin = new { path = "origin" },
-                destination = new { path = "destination" },
-                date = new { path = "date" },
-                departureTime = new { path = "departureTime" },
-                arrivalTime = new { path = "arrivalTime" },
-                duration = new { path = "duration" },
-                status = new { path = "status" },
-                price = new { path = "price" },
-                action = new
-                {
-                    @event = new
-                    {
-                        name = "book_flight",
-                        context = new
-                        {
-                            flightNumber = new { path = "flightNumber" },
-                            origin = new { path = "origin" },
-                            destination = new { path = "destination" },
-                            price = new { path = "price" },
-                        },
-                    },
-                },
-            },
+                airline = flight.Airline,
+                airlineLogo = flight.AirlineLogo,
+                flightNumber = flight.FlightNumber,
+                origin = flight.Origin,
+                destination = flight.Destination,
+                date = flight.Date,
+                departureTime = flight.DepartureTime,
+                arrivalTime = flight.ArrivalTime,
+                duration = flight.Duration,
+                status = flight.Status,
+                price = flight.Price,
+            });
+        }
+        var root = new
+        {
+            id = "root",
+            component = "Row",
+            children = flightCardIds,
+            gap = 16,
         };
+        var allComponents = new List<object> { root };
+        allComponents.AddRange(components);
 
         var operations = new object[]
         {
             new { type = "create_surface", surfaceId = FlightSurfaceId, catalogId = CatalogId },
-            new { type = "update_components", surfaceId = FlightSurfaceId, components = flightSchema },
-            new { type = "update_data_model", surfaceId = FlightSurfaceId, data = new { flights } },
+            new { type = "update_components", surfaceId = FlightSurfaceId, components = allComponents },
         };
 
         return JsonSerializer.Serialize(new { a2ui_operations = operations });

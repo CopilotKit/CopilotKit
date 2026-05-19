@@ -1,4 +1,5 @@
 {
   "title": "A2UI",
-  "pages": ["dynamic-schema", "fixed-schema"]
+  "icon": "lucide/FileJson",
+  "pages": ["index", "dynamic-schema", "fixed-schema"]
 }

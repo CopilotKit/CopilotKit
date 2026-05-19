@@ -274,16 +274,8 @@ export const docsComponents = {
       );
       return null;
     }
-    // Iframe the integration demo directly (its own backend host). The
-    // demo-detail page (<integrations/.../[demo]>) is only served by the
-    // SHELL host (showcase.copilotkit.ai), so the "Open full demo" link
-    // must point at the shell host rather than an in-place relative URL —
-    // otherwise it'd 404 on docs.showcase.copilotkit.ai which has no
-    // /integrations route.
+    // Iframe the integration demo directly (its own backend host).
     const demoUrl = `${int.backend_url}/demos/${demo}`;
-    const shellHost =
-      process.env.NEXT_PUBLIC_SHELL_URL || "https://showcase.copilotkit.ai";
-    const profileUrl = `${shellHost}/integrations/${integration}?demo=${demo}`;
     const iframeStyle: React.CSSProperties = {
       width: "100%",
       height: "500px",
@@ -291,32 +283,19 @@ export const docsComponents = {
       background: "var(--bg-surface)",
     };
     return (
-      <div className="my-6 rounded-xl border border-[var(--border)] overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-2 bg-[var(--bg-elevated)] border-b border-[var(--border)]">
-          <span className="text-xs font-mono text-[var(--text-muted)]">
-            Live Demo: {int.name} — {demo}
-          </span>
-          <a
-            href={profileUrl}
-            className="text-xs text-[var(--accent)] hover:underline"
-          >
-            Open full demo →
-          </a>
-        </div>
-        <DocsTabs items={["Demo", "Code"]}>
-          <DocsTab value="Demo">
-            <iframe
-              src={demoUrl}
-              style={iframeStyle}
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-              loading="lazy"
-            />
-          </DocsTab>
-          <DocsTab value="Code">
-            <DemoSource integration={integration} demo={demo} />
-          </DocsTab>
-        </DocsTabs>
-      </div>
+      <DocsTabs items={["Demo", "Code"]}>
+        <DocsTab value="Demo">
+          <iframe
+            src={demoUrl}
+            style={iframeStyle}
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            loading="lazy"
+          />
+        </DocsTab>
+        <DocsTab value="Code">
+          <DemoSource integration={integration} demo={demo} />
+        </DocsTab>
+      </DocsTabs>
     );
   },
   Note: Callout,

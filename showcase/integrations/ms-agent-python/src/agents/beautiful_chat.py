@@ -21,8 +21,8 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Annotated, Any
 
-from agent_framework import Agent, BaseChatClient, tool
-from agent_framework_ag_ui import AgentFrameworkAgent
+from agent_framework import Agent, BaseChatClient, Content, tool
+from agent_framework_ag_ui import AgentFrameworkAgent, state_update
 from pydantic import Field
 
 # Shared tool implementations live in `showcase/shared/python/tools/`.
@@ -102,8 +102,15 @@ def manage_todos(
             )
         ),
     ],
-) -> str:
-    """Persist the provided set of todos."""
+) -> Content:
+    """Persist the provided set of todos and push them to AG-UI shared state.
+
+    Uses `state_update()` to deterministically update the frontend's
+    `state.todos` after the tool runs — this is the MS Agent Framework
+    equivalent of LangGraph's `Command(update={"todos": [...]})`. Without this,
+    the frontend's ExampleCanvas (which reads `agent.state.todos`) never sees
+    the manage_todos result and the todo column stays empty.
+    """
     normalized: list[dict[str, Any]] = []
     for todo in todos:
         normalized.append(
@@ -115,7 +122,10 @@ def manage_todos(
                 "status": todo.get("status", "pending"),
             }
         )
-    return f"Todos updated. Tracking {len(normalized)} item(s)."
+    return state_update(
+        text=f"Todos updated. Tracking {len(normalized)} item(s).",
+        state={"todos": normalized},
+    )
 
 
 @tool(
@@ -152,9 +162,61 @@ def search_flights(
         Field(description="List of flight objects to search and display."),
     ],
 ) -> str:
-    """Display search results as A2UI cards via the fixed flight schema."""
-    result = search_flights_impl(flights)
-    return json.dumps(result)
+    """Display search results as A2UI cards via the fixed flight schema.
+
+    Mirrors LangGraph reference `_build_flight_components` — flat
+    literal-children layout instead of the structural-children template form
+    (Row.children = {componentId, path}) used by `search_flights_impl`. The
+    GenericBinder only expands templates correctly for components whose schema
+    declares STRUCTURAL children; inlining the values per-flight sidesteps the
+    template path and renders reliably under aimock.
+    """
+    CATALOG_ID = "copilotkit://app-dashboard-catalog"
+    SURFACE_ID = "flight-search-results"
+
+    flight_card_ids: list[str] = []
+    components: list[dict[str, Any]] = []
+    for index, flight in enumerate(flights):
+        card_id = f"flight-card-{index}"
+        flight_card_ids.append(card_id)
+        components.append(
+            {
+                "id": card_id,
+                "component": "FlightCard",
+                "airline": flight.get("airline", ""),
+                "airlineLogo": flight.get("airlineLogo", ""),
+                "flightNumber": flight.get("flightNumber", ""),
+                "origin": flight.get("origin", ""),
+                "destination": flight.get("destination", ""),
+                "date": flight.get("date", ""),
+                "departureTime": flight.get("departureTime", ""),
+                "arrivalTime": flight.get("arrivalTime", ""),
+                "duration": flight.get("duration", ""),
+                "status": flight.get("status", ""),
+                "price": flight.get("price", ""),
+            }
+        )
+    root: dict[str, Any] = {
+        "id": "root",
+        "component": "Row",
+        "children": flight_card_ids,
+        "gap": 16,
+    }
+
+    operations = [
+        {
+            "version": "v0.9",
+            "createSurface": {"surfaceId": SURFACE_ID, "catalogId": CATALOG_ID},
+        },
+        {
+            "version": "v0.9",
+            "updateComponents": {
+                "surfaceId": SURFACE_ID,
+                "components": [root, *components],
+            },
+        },
+    ]
+    return json.dumps({"a2ui_operations": operations})
 
 
 @tool(
@@ -168,8 +230,13 @@ def search_flights(
 def generate_a2ui(
     context: Annotated[
         str,
-        Field(description="Conversation context to generate UI from."),
-    ],
+        # Default to empty so the primary LLM can call `generate_a2ui()` with
+        # no args (e.g. aimock fixture returns `arguments: "{}"`). Without a
+        # default, pydantic rejects the empty-args call with "Argument parsing
+        # failed" before the function body ever runs, and the secondary LLM
+        # path never gets to fire.
+        Field(default="", description="Conversation context to generate UI from."),
+    ] = "",
 ) -> str:
     """Generate a dynamic A2UI dashboard from conversation context."""
     from openai import OpenAI
@@ -193,14 +260,30 @@ def generate_a2ui(
         },
     }
 
+    # The secondary LLM's user message includes the caller-provided context.
+    # Without this, aimock fixtures that match on the original user query's
+    # substring (e.g. "with total revenue, new customers, and conversion rate
+    # metrics") never match and aimock falls through to real-OpenAI proxy.
+    # In LangGraph the equivalent path passes `*messages` (the full
+    # conversation) into the secondary LLM. agent_framework doesn't expose
+    # conversation history to tool functions, so we relay the caller's
+    # `context` string verbatim — the calling LLM is responsible for
+    # populating it with whatever the user asked for. Under aimock the
+    # primary fixture's `arguments="{}"` empties this; the fallback below
+    # keeps the request shape close enough to match the canonical sales
+    # dashboard fixture (`userMessage: "with total revenue, new customers,
+    # and conversion rate metrics"`) without needing a live LLM.
+    user_content = (
+        context
+        or "Show me a sales dashboard with total revenue, new customers, "
+        "and conversion rate metrics. Include a pie chart of revenue by "
+        "category and a bar chart of monthly sales."
+    )
     response = client.chat.completions.create(
         model="gpt-4.1",
         messages=[
-            {"role": "system", "content": context or "Generate a useful dashboard UI."},
-            {
-                "role": "user",
-                "content": "Generate a dynamic A2UI dashboard based on the conversation.",
-            },
+            {"role": "system", "content": "Generate a useful A2UI dashboard."},
+            {"role": "user", "content": user_content},
         ],
         tools=[tool_schema],
         tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
@@ -259,6 +342,13 @@ def create_beautiful_chat_agent(chat_client: BaseChatClient) -> AgentFrameworkAg
         tools=[manage_todos, query_data, search_flights, generate_a2ui],
     )
 
+    # predict_state_config (predictive streaming from LLM tool-call arg deltas)
+    # is intentionally omitted: the manifest declares
+    # `not_supported_features: [shared-state-streaming]` and the predictive
+    # path errors mid-stream with "An internal error has occurred while
+    # streaming events" on multi-item arrays. The deterministic state push
+    # via `state_update()` in manage_todos delivers todos after the tool runs,
+    # which matches the manifest's no-streaming contract.
     return AgentFrameworkAgent(
         agent=base_agent,
         name="CopilotKitMicrosoftAgentFrameworkBeautifulChat",
@@ -267,6 +357,5 @@ def create_beautiful_chat_agent(chat_client: BaseChatClient) -> AgentFrameworkAg
             "Open Generative UI, shared state (todos), and HITL via frontend "
             "tools to render a polished sales dashboard."
         ),
-        predict_state_config=PREDICT_STATE_CONFIG,
         require_confirmation=False,
     )

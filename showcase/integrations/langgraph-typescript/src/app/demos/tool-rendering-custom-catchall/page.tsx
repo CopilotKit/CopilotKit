@@ -13,12 +13,12 @@ import {
   CopilotKit,
   CopilotChat,
   useDefaultRenderTool,
-  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import {
   CustomCatchallRenderer,
   type CatchallToolStatus,
 } from "./custom-catchall-renderer";
+import { useSuggestions } from "./suggestions";
 
 export default function ToolRenderingCustomCatchallDemo() {
   return (
@@ -55,23 +55,7 @@ function Chat() {
   );
   // @endregion[use-default-render-tool-wildcard]
 
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Weather in SF",
-        message: "What's the weather in San Francisco?",
-      },
-      {
-        title: "Find flights",
-        message: "Find flights from SFO to JFK.",
-      },
-      {
-        title: "Roll a d20",
-        message: "Roll a 20-sided die.",
-      },
-    ],
-    available: "always",
-  });
+  useSuggestions();
 
   return (
     <CopilotChat
