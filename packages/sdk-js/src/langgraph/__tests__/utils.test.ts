@@ -1,8 +1,15 @@
+import { vi } from "vitest";
+import { dispatchCustomEvent } from "@langchain/core/callbacks/dispatch";
 import {
   copilotkitCustomizeConfig,
+  copilotkitEmitToolCall,
   convertActionsToDynamicStructuredTools,
   convertActionToDynamicStructuredTool,
 } from "../utils";
+
+vi.mock("@langchain/core/callbacks/dispatch", () => ({
+  dispatchCustomEvent: vi.fn().mockResolvedValue(undefined),
+}));
 
 describe("copilotkitCustomizeConfig", () => {
   it("returns config unchanged when no options provided", () => {
@@ -250,5 +257,64 @@ describe("convertActionsToDynamicStructuredTools", () => {
     expect(() => convertActionsToDynamicStructuredTools(actions)).toThrow(
       "index 1",
     );
+  });
+});
+
+describe("copilotkitEmitToolCall", () => {
+  const mockConfig = { metadata: {} } as any;
+  const mockedDispatch = vi.mocked(dispatchCustomEvent);
+
+  beforeEach(() => {
+    mockedDispatch.mockClear();
+  });
+
+  it("returns a generated id when no id is provided", async () => {
+    const result = await copilotkitEmitToolCall(
+      mockConfig,
+      "SearchTool",
+      { steps: 10 },
+    );
+
+    expect(typeof result).toBe("string");
+    expect(result.length).toBeGreaterThan(0);
+    expect(mockedDispatch).toHaveBeenCalledWith(
+      "copilotkit_manually_emit_tool_call",
+      { name: "SearchTool", args: { steps: 10 }, id: result },
+      mockConfig,
+    );
+  });
+
+  it("uses caller-provided id verbatim", async () => {
+    const result = await copilotkitEmitToolCall(
+      mockConfig,
+      "SearchTool",
+      { steps: 10 },
+      { id: "custom-abc" },
+    );
+
+    expect(result).toBe("custom-abc");
+    expect(mockedDispatch).toHaveBeenCalledWith(
+      "copilotkit_manually_emit_tool_call",
+      { name: "SearchTool", args: { steps: 10 }, id: "custom-abc" },
+      mockConfig,
+    );
+  });
+
+  it("treats undefined options the same as omitted", async () => {
+    const result = await copilotkitEmitToolCall(
+      mockConfig,
+      "SearchTool",
+      {},
+      undefined,
+    );
+
+    expect(typeof result).toBe("string");
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  it("throws on empty string id", async () => {
+    await expect(
+      copilotkitEmitToolCall(mockConfig, "SearchTool", {}, { id: "" }),
+    ).rejects.toThrow("non-empty string");
   });
 });

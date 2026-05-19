@@ -378,7 +378,7 @@ async def copilotkit_emit_tool_call(
     *,
     name: str,
     args: Dict[str, Any],
-    id: Optional[str] = None,
+    tool_call_id: Optional[str] = None,
 ) -> str:
     """
     Manually emits a tool call to CopilotKit.
@@ -389,7 +389,7 @@ async def copilotkit_emit_tool_call(
     await copilotkit_emit_tool_call(config, name="SearchTool", args={"steps": 10})
 
     # With a custom ID for correlation/idempotency:
-    await copilotkit_emit_tool_call(config, name="SearchTool", args={"steps": 10}, id="my-custom-id")
+    await copilotkit_emit_tool_call(config, name="SearchTool", args={"steps": 10}, tool_call_id="my-custom-id")
     ```
 
     Parameters
@@ -400,23 +400,30 @@ async def copilotkit_emit_tool_call(
         The name of the tool to emit.
     args : Dict[str, Any]
         The arguments to emit.
-    id : Optional[str]
+    tool_call_id : Optional[str]
         Optional tool call ID. If not provided, a random UUID is generated.
-        When provided, this ID is used as the toolCallId in AG-UI protocol events.
-        The caller is responsible for ensuring uniqueness.
+        When provided, this ID is used as the toolCallId and parentMessageId
+        in AG-UI protocol events. The caller is responsible for ensuring uniqueness.
 
     Returns
     -------
     str
         The tool call ID used for the emitted tool call.
     """
-    tool_call_id = id if id is not None else str(uuid.uuid4())
+    if tool_call_id is not None:
+        if not isinstance(tool_call_id, str) or not tool_call_id.strip():
+            raise ValueError(
+                "Tool call id must be a non-empty string when provided for copilotkit_emit_tool_call"
+            )
+    else:
+        tool_call_id = str(uuid.uuid4())
 
     await adispatch_custom_event(
         "copilotkit_manually_emit_tool_call",
         {"name": name, "args": args, "id": tool_call_id},
         config=config,
     )
+    # Allow the event to flush before the next event interleaves
     await asyncio.sleep(0.02)
 
     return tool_call_id

@@ -90,7 +90,7 @@ class TestLangGraphEmitToolCallOptionalId:
 
             config = {"metadata": {}}
             result = await copilotkit_emit_tool_call(
-                config, name="MyTool", args={"key": "val"}, id="custom-id-123"
+                config, name="MyTool", args={"key": "val"}, tool_call_id="custom-id-123"
             )
 
             assert result == "custom-id-123"
@@ -113,13 +113,13 @@ class TestLangGraphEmitToolCallOptionalId:
             assert len(result_auto) > 0
 
             result_custom = await copilotkit_emit_tool_call(
-                config, name="Tool", args={}, id="my-id"
+                config, name="Tool", args={}, tool_call_id="my-id"
             )
             assert result_custom == "my-id"
 
     @pytest.mark.asyncio
     async def test_none_id_generates_uuid(self):
-        """Explicitly passing id=None should behave the same as omitting it."""
+        """Explicitly passing tool_call_id=None should behave the same as omitting it."""
         with patch(
             "copilotkit.langgraph.adispatch_custom_event", new_callable=AsyncMock
         ) as mock_dispatch:
@@ -127,12 +127,40 @@ class TestLangGraphEmitToolCallOptionalId:
 
             config = {"metadata": {}}
             result = await copilotkit_emit_tool_call(
-                config, name="Tool", args={}, id=None
+                config, name="Tool", args={}, tool_call_id=None
             )
 
             assert isinstance(result, str)
             uuid.UUID(result)
             assert mock_dispatch.call_args[0][1]["id"] == result
+
+    @pytest.mark.asyncio
+    async def test_empty_string_id_raises(self):
+        """Passing an empty string should raise ValueError."""
+        with patch(
+            "copilotkit.langgraph.adispatch_custom_event", new_callable=AsyncMock
+        ):
+            from copilotkit.langgraph import copilotkit_emit_tool_call
+
+            config = {"metadata": {}}
+            with pytest.raises(ValueError, match="non-empty string"):
+                await copilotkit_emit_tool_call(
+                    config, name="Tool", args={}, tool_call_id=""
+                )
+
+    @pytest.mark.asyncio
+    async def test_whitespace_only_id_raises(self):
+        """Passing a whitespace-only string should raise ValueError."""
+        with patch(
+            "copilotkit.langgraph.adispatch_custom_event", new_callable=AsyncMock
+        ):
+            from copilotkit.langgraph import copilotkit_emit_tool_call
+
+            config = {"metadata": {}}
+            with pytest.raises(ValueError, match="non-empty string"):
+                await copilotkit_emit_tool_call(
+                    config, name="Tool", args={}, tool_call_id="   "
+                )
 
 
 # ---- CrewAI variant tests ----
@@ -172,7 +200,7 @@ class TestCrewAIEmitToolCallOptionalId:
             from copilotkit.crewai.crewai_sdk import copilotkit_emit_tool_call
 
             result = await copilotkit_emit_tool_call(
-                name="MyTool", args={"key": "val"}, id="crew-custom-id"
+                name="MyTool", args={"key": "val"}, tool_call_id="crew-custom-id"
             )
 
             assert result == "crew-custom-id"
@@ -188,9 +216,20 @@ class TestCrewAIEmitToolCallOptionalId:
             assert len(result_auto) > 0
 
             result_custom = await copilotkit_emit_tool_call(
-                name="T", args={}, id="explicit"
+                name="T", args={}, tool_call_id="explicit"
             )
             assert result_custom == "explicit"
+
+    @pytest.mark.asyncio
+    async def test_empty_string_id_raises(self):
+        """Passing an empty string should raise ValueError."""
+        with patch("copilotkit.crewai.crewai_sdk.queue_put", new_callable=AsyncMock):
+            from copilotkit.crewai.crewai_sdk import copilotkit_emit_tool_call
+
+            with pytest.raises(ValueError, match="non-empty string"):
+                await copilotkit_emit_tool_call(
+                    name="Tool", args={}, tool_call_id=""
+                )
 
 
 # ---- AG-UI dispatch: custom ID propagates through all events ----

@@ -301,7 +301,10 @@ export async function copilotkitEmitMessage(
  * ```typescript
  * import { copilotkitEmitToolCall } from "@copilotkit/sdk-js";
  *
- * await copilotkitEmitToolCall(config, name="SearchTool", args={"steps": 10})
+ * await copilotkitEmitToolCall(config, "SearchTool", { steps: 10 });
+ *
+ * // With a custom ID for correlation/idempotency:
+ * await copilotkitEmitToolCall(config, "SearchTool", { steps: 10 }, { id: "my-custom-id" });
  * ```
  */
 export async function copilotkitEmitToolCall(
@@ -318,11 +321,16 @@ export async function copilotkitEmitToolCall(
    */
   args: any,
   /**
-   * Optional tool call ID. If not provided, a random ID is generated.
-   * When provided, this ID is used as the toolCallId in AG-UI protocol events.
-   * The caller is responsible for ensuring uniqueness.
+   * Options for the tool call emission.
    */
-  id?: string,
+  options?: {
+    /**
+     * Optional tool call ID. If not provided, a random ID is generated.
+     * When provided, this ID is used as the toolCallId and parentMessageId
+     * in AG-UI protocol events. The caller is responsible for ensuring uniqueness.
+     */
+    id?: string;
+  },
 ): Promise<string> {
   if (!config) {
     throw new CopilotKitMisuseError({
@@ -343,7 +351,17 @@ export async function copilotkitEmitToolCall(
     });
   }
 
-  const toolCallId = id ?? randomId();
+  if (
+    options?.id !== undefined &&
+    (typeof options.id !== "string" || options.id.length === 0)
+  ) {
+    throw new CopilotKitMisuseError({
+      message:
+        "Tool call id must be a non-empty string when provided for copilotkitEmitToolCall",
+    });
+  }
+
+  const toolCallId = options?.id ?? randomId();
 
   try {
     await dispatchCustomEvent(
