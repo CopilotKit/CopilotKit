@@ -348,6 +348,17 @@ export async function copilotkitEmitToolCall(
     });
   }
 
+  if (
+    options?.toolCallId !== undefined &&
+    (typeof options.toolCallId !== "string" ||
+      options.toolCallId.trim().length === 0)
+  ) {
+    throw new CopilotKitMisuseError({
+      message:
+        "Tool call id must be a non-empty string when provided for copilotkitEmitToolCall",
+    });
+  }
+
   if (args === undefined) {
     throw new CopilotKitMisuseError({
       message: "Tool arguments are required for copilotkitEmitToolCall",
@@ -362,24 +373,20 @@ export async function copilotkitEmitToolCall(
     });
   }
 
-  if (
-    options?.toolCallId !== undefined &&
-    (typeof options.toolCallId !== "string" ||
-      options.toolCallId.trim().length === 0)
-  ) {
-    throw new CopilotKitMisuseError({
-      message:
-        "Tool call id must be a non-empty string when provided for copilotkitEmitToolCall",
-    });
-  }
-
   const toolCallId = options?.toolCallId ?? randomId();
 
-  await dispatchCustomEvent(
-    "copilotkit_manually_emit_tool_call",
-    { name, args, id: toolCallId },
-    config,
-  );
+  try {
+    await dispatchCustomEvent(
+      "copilotkit_manually_emit_tool_call",
+      { name, args, id: toolCallId },
+      config,
+    );
+  } catch (error) {
+    if (error instanceof Error) {
+      error.message = `copilotkitEmitToolCall dispatch failed for tool="${name}" id="${toolCallId}": ${error.message}`;
+    }
+    throw error;
+  }
 
   return toolCallId;
 }

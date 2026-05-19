@@ -352,10 +352,10 @@ describe("copilotkitEmitToolCall", () => {
     ).rejects.toThrow("not JSON-serializable");
   });
 
-  it("propagates dispatch errors without wrapping", async () => {
+  it("propagates dispatch errors with tool-call context", async () => {
     mockedDispatch.mockRejectedValueOnce(new Error("transport closed"));
     await expect(
       copilotkitEmitToolCall(mockConfig, "SearchTool", {}),
-    ).rejects.toThrow("transport closed");
+    ).rejects.toThrow(/copilotkitEmitToolCall dispatch failed.*SearchTool.*transport closed/);
   });
 });

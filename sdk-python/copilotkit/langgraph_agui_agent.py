@@ -138,7 +138,7 @@ class LangGraphAGUIAgent(LangGraphAgent):
                         if isinstance(tool_call_args, str)
                         else json.dumps(tool_call_args)
                     )
-                except Exception as e:
+                except (TypeError, ValueError) as e:
                     raise CopilotKitMisuseError(
                         f"ManuallyEmitToolCall 'args' is not JSON-serializable for tool_call_id={tool_call_id}: {e}"
                     ) from e

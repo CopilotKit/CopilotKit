@@ -8,6 +8,7 @@ Covers:
      missing/invalid id, name, args, non-serializable args, and non-dict value
 """
 
+import asyncio
 import json
 import logging
 import uuid
@@ -203,6 +204,59 @@ class TestLangGraphEmitToolCallOptionalId:
                 await copilotkit_emit_tool_call(
                     config, name="Tool", args={"bad": {1, 2, 3}}
                 )
+
+    @pytest.mark.asyncio
+    async def test_cancelled_error_propagates_from_post_dispatch_sleep(self):
+        """CancelledError during the shielded post-dispatch sleep must propagate."""
+        with patch(
+            "copilotkit.langgraph.adispatch_custom_event", new_callable=AsyncMock
+        ) as mock_dispatch:
+            from copilotkit.langgraph import copilotkit_emit_tool_call
+
+            config = {"metadata": {}}
+
+            async def _run_and_cancel():
+                task = asyncio.current_task()
+                # Schedule cancellation after dispatch completes but during sleep
+                original_sleep = asyncio.sleep
+
+                async def _cancel_during_sleep(delay):
+                    task.cancel()
+                    await original_sleep(0)
+
+                with patch("copilotkit.langgraph.asyncio.sleep", side_effect=_cancel_during_sleep):
+                    with patch("copilotkit.langgraph.asyncio.shield", side_effect=lambda coro: coro):
+                        return await copilotkit_emit_tool_call(
+                            config, name="CancelTool", args={}, tool_call_id="cancel-test-id"
+                        )
+
+            with pytest.raises(asyncio.CancelledError):
+                await _run_and_cancel()
+
+            mock_dispatch.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_cancelled_error_logs_warning(self, caplog):
+        """CancelledError during post-dispatch sleep should log with the tool_call_id."""
+        with patch(
+            "copilotkit.langgraph.adispatch_custom_event", new_callable=AsyncMock
+        ):
+            from copilotkit.langgraph import copilotkit_emit_tool_call
+
+            config = {"metadata": {}}
+
+            async def _cancel_sleep(delay):
+                raise asyncio.CancelledError()
+
+            with caplog.at_level(logging.WARNING, logger="copilotkit.langgraph"):
+                with patch("copilotkit.langgraph.asyncio.sleep", side_effect=_cancel_sleep):
+                    with patch("copilotkit.langgraph.asyncio.shield", side_effect=lambda coro: coro):
+                        with pytest.raises(asyncio.CancelledError):
+                            await copilotkit_emit_tool_call(
+                                config, name="Tool", args={}, tool_call_id="log-cancel-id"
+                            )
+
+            assert any("log-cancel-id" in record.message for record in caplog.records)
 
 
 # ---- CrewAI variant tests ----

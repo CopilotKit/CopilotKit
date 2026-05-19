@@ -369,7 +369,10 @@ async def copilotkit_emit_message(config: RunnableConfig, message: str):
         {"message": message, "message_id": str(uuid.uuid4()), "role": "assistant"},
         config=config,
     )
-    await asyncio.sleep(0.02)
+    try:
+        await asyncio.shield(asyncio.sleep(0.02))
+    except asyncio.CancelledError:
+        raise
 
     return True
 
@@ -416,13 +419,6 @@ async def copilotkit_emit_tool_call(
             "Tool name must be a non-empty string for copilotkit_emit_tool_call"
         )
 
-    try:
-        json.dumps(args)
-    except (TypeError, ValueError) as e:
-        raise CopilotKitMisuseError(
-            f"Tool arguments for '{name}' are not JSON-serializable: {e}"
-        ) from e
-
     if tool_call_id is not None:
         if not isinstance(tool_call_id, str) or not tool_call_id.strip():
             raise CopilotKitMisuseError(
@@ -430,6 +426,13 @@ async def copilotkit_emit_tool_call(
             )
     else:
         tool_call_id = str(uuid.uuid4())
+
+    try:
+        json.dumps(args)
+    except (TypeError, ValueError) as e:
+        raise CopilotKitMisuseError(
+            f"Tool arguments for '{name}' are not JSON-serializable: {e}"
+        ) from e
 
     await adispatch_custom_event(
         "copilotkit_manually_emit_tool_call",
