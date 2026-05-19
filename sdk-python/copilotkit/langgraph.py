@@ -448,6 +448,7 @@ async def copilotkit_emit_tool_call(
             "tool_call_id=%s; event was already dispatched",
             tool_call_id,
         )
+        raise
 
     return tool_call_id
 

@@ -326,6 +326,109 @@ class TestCrewAIEmitToolCallOptionalId:
                 await copilotkit_emit_tool_call(name="Tool", args={"bad": {1, 2, 3}})
 
 
+# ---- CrewAI variant: compensating action_execution_end tests ----
+
+
+@pytest.mark.skipif(not _has_crewai, reason="crewai not installed")
+class TestCrewAICompensatingEnd:
+    """Tests for the compensating action_execution_end when dispatch fails mid-stream."""
+
+    @pytest.mark.asyncio
+    async def test_failure_after_start_emits_compensating_end(self):
+        """If args queue_put fails after start was dispatched, a compensating end is emitted."""
+        call_count = 0
+        original_queue_put = None
+
+        async def _failing_queue_put(*events):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 2:
+                raise RuntimeError("queue closed")
+
+        with patch(
+            "copilotkit.crewai.crewai_sdk.queue_put", new=_failing_queue_put
+        ):
+            from copilotkit.crewai.crewai_sdk import copilotkit_emit_tool_call
+
+            with pytest.raises(RuntimeError, match="queue closed"):
+                await copilotkit_emit_tool_call(
+                    name="FailTool", args={"x": 1}, tool_call_id="comp-crew-1"
+                )
+
+        assert call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_failure_on_start_does_not_emit_compensating_end(self):
+        """If start queue_put itself fails, no compensating end is dispatched."""
+        call_count = 0
+
+        async def _failing_queue_put(*events):
+            nonlocal call_count
+            call_count += 1
+            raise RuntimeError("start failed")
+
+        with patch(
+            "copilotkit.crewai.crewai_sdk.queue_put", new=_failing_queue_put
+        ):
+            from copilotkit.crewai.crewai_sdk import copilotkit_emit_tool_call
+
+            with pytest.raises(RuntimeError, match="start failed"):
+                await copilotkit_emit_tool_call(
+                    name="FailTool", args={}, tool_call_id="comp-crew-2"
+                )
+
+        assert call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_compensating_end_failure_reraises_original(self):
+        """If the compensating end also fails, the original error still propagates."""
+        call_count = 0
+
+        async def _failing_queue_put(*events):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return
+            raise RuntimeError(f"queue failure #{call_count}")
+
+        with patch(
+            "copilotkit.crewai.crewai_sdk.queue_put", new=_failing_queue_put
+        ):
+            from copilotkit.crewai.crewai_sdk import copilotkit_emit_tool_call
+
+            with pytest.raises(RuntimeError, match="queue failure #2"):
+                await copilotkit_emit_tool_call(
+                    name="FailTool", args={}, tool_call_id="comp-crew-3"
+                )
+
+        assert call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_compensating_end_failure_emits_log(self, caplog):
+        """The logger.error call includes the message_id when compensating end fails."""
+        call_count = 0
+
+        async def _failing_queue_put(*events):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return
+            raise RuntimeError(f"queue failure #{call_count}")
+
+        with caplog.at_level(logging.ERROR, logger="copilotkit.crewai.crewai_sdk"):
+            with patch(
+                "copilotkit.crewai.crewai_sdk.queue_put", new=_failing_queue_put
+            ):
+                from copilotkit.crewai.crewai_sdk import copilotkit_emit_tool_call
+
+                with pytest.raises(RuntimeError):
+                    await copilotkit_emit_tool_call(
+                        name="FailTool", args={}, tool_call_id="log-crew-id"
+                    )
+
+        assert any("log-crew-id" in record.message for record in caplog.records)
+
+
 # ---- AG-UI dispatch: custom ID propagates through all events ----
 
 

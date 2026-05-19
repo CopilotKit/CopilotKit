@@ -1,4 +1,4 @@
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { dispatchCustomEvent } from "@langchain/core/callbacks/dispatch";
 import {
   convertJsonSchemaToZodSchema,
@@ -8,7 +8,7 @@ import {
 import { interrupt } from "@langchain/langgraph";
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { AIMessage } from "@langchain/core/messages";
-import { OptionsConfig } from "./types";
+import type { OptionsConfig } from "./types";
 
 /**
  * Customize the LangGraph configuration for use in CopilotKit.
@@ -351,6 +351,14 @@ export async function copilotkitEmitToolCall(
   if (args === undefined) {
     throw new CopilotKitMisuseError({
       message: "Tool arguments are required for copilotkitEmitToolCall",
+    });
+  }
+
+  try {
+    JSON.stringify(args);
+  } catch (error) {
+    throw new CopilotKitMisuseError({
+      message: `Tool arguments for '${name}' are not JSON-serializable: ${error instanceof Error ? error.message : String(error)}`,
     });
   }
 

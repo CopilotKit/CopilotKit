@@ -344,6 +344,14 @@ describe("copilotkitEmitToolCall", () => {
     ).rejects.toThrow("required");
   });
 
+  it("throws on non-JSON-serializable args", async () => {
+    const circular: any = {};
+    circular.self = circular;
+    await expect(
+      copilotkitEmitToolCall(mockConfig, "SearchTool", circular),
+    ).rejects.toThrow("not JSON-serializable");
+  });
+
   it("propagates dispatch errors without wrapping", async () => {
     mockedDispatch.mockRejectedValueOnce(new Error("transport closed"));
     await expect(
