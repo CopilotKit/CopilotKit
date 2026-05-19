@@ -647,7 +647,7 @@ class TestAGUIDispatchValidation:
             value={"id": "valid-id", "name": "Tool"},
         )
         with pytest.raises(
-            CopilotKitMisuseError, match="must be a dict or pre-serialized"
+            CopilotKitMisuseError, match="missing 'args'"
         ):
             agent._dispatch_event(event)
 
@@ -659,7 +659,7 @@ class TestAGUIDispatchValidation:
             value={"id": "valid-id", "name": "Tool", "args": {1, 2, 3}},
         )
         with pytest.raises(
-            CopilotKitMisuseError, match="must be a dict or pre-serialized"
+            CopilotKitMisuseError, match="not JSON-serializable"
         ):
             agent._dispatch_event(event)
 
@@ -673,29 +673,33 @@ class TestAGUIDispatchValidation:
         with pytest.raises(CopilotKitMisuseError, match="must be a dict"):
             agent._dispatch_event(event)
 
-    def test_list_args_raises(self, agent):
-        """Event with list args should raise CopilotKitMisuseError."""
-        event = CustomEvent(
-            type=EventType.CUSTOM,
-            name=CustomEventNames.ManuallyEmitToolCall.value,
-            value={"id": "valid-id", "name": "Tool", "args": [1, 2, 3]},
-        )
-        with pytest.raises(
-            CopilotKitMisuseError, match="must be a dict or pre-serialized"
-        ):
+    def test_list_args_accepted(self, agent):
+        """Event with list args should be accepted (JSON-serializable)."""
+        with _track_parent_dispatches(agent) as dispatched:
+            event = CustomEvent(
+                type=EventType.CUSTOM,
+                name=CustomEventNames.ManuallyEmitToolCall.value,
+                value={"id": "list-args-id", "name": "Tool", "args": [1, 2, 3]},
+            )
             agent._dispatch_event(event)
 
-    def test_int_args_raises(self, agent):
-        """Event with int args should raise CopilotKitMisuseError."""
-        event = CustomEvent(
-            type=EventType.CUSTOM,
-            name=CustomEventNames.ManuallyEmitToolCall.value,
-            value={"id": "valid-id", "name": "Tool", "args": 42},
-        )
-        with pytest.raises(
-            CopilotKitMisuseError, match="must be a dict or pre-serialized"
-        ):
+        args_events = [e for e in dispatched if e.type == EventType.TOOL_CALL_ARGS]
+        assert len(args_events) == 1
+        assert args_events[0].delta == "[1, 2, 3]"
+
+    def test_int_args_accepted(self, agent):
+        """Event with int args should be accepted (JSON-serializable)."""
+        with _track_parent_dispatches(agent) as dispatched:
+            event = CustomEvent(
+                type=EventType.CUSTOM,
+                name=CustomEventNames.ManuallyEmitToolCall.value,
+                value={"id": "int-args-id", "name": "Tool", "args": 42},
+            )
             agent._dispatch_event(event)
+
+        args_events = [e for e in dispatched if e.type == EventType.TOOL_CALL_ARGS]
+        assert len(args_events) == 1
+        assert args_events[0].delta == "42"
 
 
 # ---- AG-UI dispatch: compensating TOOL_CALL_END on mid-stream failure ----

@@ -126,10 +126,9 @@ class LangGraphAGUIAgent(LangGraphAgent):
                     raise CopilotKitMisuseError(
                         f"ManuallyEmitToolCall event missing valid 'name': got {type(tool_call_name).__name__}"
                     )
-                if not isinstance(tool_call_args, (dict, str)):
+                if tool_call_args is None:
                     raise CopilotKitMisuseError(
-                        f"ManuallyEmitToolCall 'args' must be a dict or pre-serialized JSON string, "
-                        f"got {type(tool_call_args).__name__} for tool_call_id={tool_call_id}"
+                        f"ManuallyEmitToolCall event missing 'args' for tool_call_id={tool_call_id}"
                     )
 
                 try:
