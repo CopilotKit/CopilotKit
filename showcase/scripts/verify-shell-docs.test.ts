@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { runBuildCheck } from "./verify-shell-docs.js";
 import { checkInlineDemoRefs } from "./verify-shell-docs.js";
 import { checkSnippetRegions } from "./verify-shell-docs.js";
+import { checkInternalLinks } from "./verify-shell-docs.js";
 
 describe("runBuildCheck", () => {
   it("returns a result with name, status, and messages", () => {
@@ -103,6 +104,36 @@ describe("checkSnippetRegions", () => {
       },
     ];
     const result = checkSnippetRegions({ pages, demoContent });
+    expect(result.status).toBe("pass");
+  });
+});
+
+describe("checkInternalLinks", () => {
+  it("fails when an internal link does not resolve to a known page", () => {
+    const pages = [
+      { path: "a.mdx", body: "[link](/does-not-exist)" },
+    ];
+    const knownRoutes = new Set(["/a", "/b"]);
+    const result = checkInternalLinks({ pages, knownRoutes });
+    expect(result.status).toBe("fail");
+    expect(result.messages.join(" ")).toContain("/does-not-exist");
+  });
+
+  it("ignores external links", () => {
+    const pages = [
+      { path: "a.mdx", body: "[link](https://example.com)" },
+    ];
+    const knownRoutes = new Set<string>();
+    const result = checkInternalLinks({ pages, knownRoutes });
+    expect(result.status).toBe("pass");
+  });
+
+  it("strips fragments and queries before resolution", () => {
+    const pages = [
+      { path: "a.mdx", body: "[link](/a#section?q=1)" },
+    ];
+    const knownRoutes = new Set(["/a"]);
+    const result = checkInternalLinks({ pages, knownRoutes });
     expect(result.status).toBe("pass");
   });
 });

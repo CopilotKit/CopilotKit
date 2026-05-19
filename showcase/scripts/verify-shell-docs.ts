@@ -142,3 +142,28 @@ export function checkSnippetRegions(input: {
     messages: failures,
   };
 }
+
+const MD_LINK_RE = /\[[^\]]*\]\((\/[^)\s]*)\)/g;
+
+export function checkInternalLinks(input: {
+  pages: PageInput[];
+  knownRoutes: Set<string>;
+}): CheckResult {
+  const failures: string[] = [];
+  for (const page of input.pages) {
+    MD_LINK_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = MD_LINK_RE.exec(page.body)) !== null) {
+      const raw = m[1];
+      const cleaned = raw.split("#")[0].split("?")[0];
+      if (!input.knownRoutes.has(cleaned)) {
+        failures.push(`${page.path}: dead link "${raw}"`);
+      }
+    }
+  }
+  return {
+    name: "internal-links",
+    status: failures.length === 0 ? "pass" : "fail",
+    messages: failures,
+  };
+}
