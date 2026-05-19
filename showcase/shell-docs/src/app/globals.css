@@ -292,15 +292,20 @@ figure.shiki > div:first-child[class*="border-b"] {
   width: 100% !important;
 }
 
+/* Top offset stacks BrandNav (68px md / 88px xl) under the banner (54px
+ * when shown, 0px when dismissed — Banners writes the variable on <html>).
+ * Without `--fd-banner-height` in the calc, the fixed sidebar pins to
+ * 76/96px while body-flow chrome (Banner + BrandNav) shifts down past it,
+ * overlapping the nav row. */
 @media (min-width: 768px) {
   .shell-docs-sidebar {
-    top: 76px !important;
+    top: calc(76px + var(--fd-banner-height, 0px)) !important;
   }
 }
 
 @media (min-width: 1280px) {
   .shell-docs-sidebar {
-    top: 96px !important;
+    top: calc(96px + var(--fd-banner-height, 0px)) !important;
   }
 }
 
