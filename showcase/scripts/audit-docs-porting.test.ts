@@ -77,3 +77,33 @@ describe("diffFramework", () => {
     expect(result.divergent).toEqual([]);
   });
 });
+
+import { extractMdxReferences } from "./audit-docs-porting.js";
+
+describe("extractMdxReferences", () => {
+  it("extracts custom JSX components from MDX", () => {
+    const mdx = `# Page
+import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx";
+
+<Steps>
+  <Step><RunAndConnect /></Step>
+  <Step><IframeSwitcher id="x" /></Step>
+</Steps>`;
+    const refs = extractMdxReferences(mdx);
+    expect(refs.components.sort()).toEqual([
+      "IframeSwitcher",
+      "RunAndConnect",
+      "Step",
+      "Steps",
+    ]);
+    expect(refs.snippetImports).toEqual([
+      "@/snippets/integrations/langgraph/run-and-connect.mdx",
+    ]);
+  });
+
+  it("ignores HTML-cased tags", () => {
+    const mdx = `<div><span>hi</span></div>`;
+    const refs = extractMdxReferences(mdx);
+    expect(refs.components).toEqual([]);
+  });
+});

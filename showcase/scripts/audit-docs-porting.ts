@@ -78,3 +78,32 @@ export function diffFramework(opts: DiffOptions): FrameworkDiff {
 
   return { slug: opts.slug, missing, divergent };
 }
+
+export interface MdxReferences {
+  components: string[];
+  snippetImports: string[];
+}
+
+const JSX_TAG_RE = /<([A-Z][A-Za-z0-9]*)\b/g;
+const IMPORT_RE =
+  /^\s*import\s+[^"';]+from\s+["']([^"']+)["']\s*;?\s*$/gm;
+
+export function extractMdxReferences(mdx: string): MdxReferences {
+  const components = new Set<string>();
+  let m: RegExpExecArray | null;
+  JSX_TAG_RE.lastIndex = 0;
+  while ((m = JSX_TAG_RE.exec(mdx)) !== null) {
+    components.add(m[1]);
+  }
+
+  const snippetImports: string[] = [];
+  IMPORT_RE.lastIndex = 0;
+  while ((m = IMPORT_RE.exec(mdx)) !== null) {
+    snippetImports.push(m[1]);
+  }
+
+  return {
+    components: [...components].sort(),
+    snippetImports,
+  };
+}
