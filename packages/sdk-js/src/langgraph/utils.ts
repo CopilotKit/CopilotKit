@@ -301,10 +301,10 @@ export async function copilotkitEmitMessage(
  * ```typescript
  * import { copilotkitEmitToolCall } from "@copilotkit/sdk-js";
  *
- * const toolCallId = await copilotkitEmitToolCall(config, "SearchTool", { steps: 10 });
+ * const autoId = await copilotkitEmitToolCall(config, "SearchTool", { steps: 10 });
  *
  * // With a custom ID for correlation/idempotency:
- * const toolCallId = await copilotkitEmitToolCall(config, "SearchTool", { steps: 10 }, { toolCallId: "my-custom-id" });
+ * const customId = await copilotkitEmitToolCall(config, "SearchTool", { steps: 10 }, { toolCallId: "my-custom-id" });
  * ```
  */
 export async function copilotkitEmitToolCall(

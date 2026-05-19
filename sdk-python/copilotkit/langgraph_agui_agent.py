@@ -1,7 +1,10 @@
 import json
+import logging
 from typing import Dict, Any, List, Optional, Union, AsyncGenerator
 from enum import Enum
 from .exc import CopilotKitMisuseError
+
+logger = logging.getLogger(__name__)
 from ag_ui_langgraph import LangGraphAgent
 from ag_ui.core import (
     EventType,
@@ -106,6 +109,11 @@ class LangGraphAGUIAgent(LangGraphAgent):
 
             if custom_event.name == CustomEventNames.ManuallyEmitToolCall.value:
                 value = custom_event.value
+                if not isinstance(value, dict):
+                    raise CopilotKitMisuseError(
+                        f"ManuallyEmitToolCall event 'value' must be a dict, got {type(value).__name__}"
+                    )
+
                 tool_call_id = value.get("id")
                 tool_call_name = value.get("name")
                 tool_call_args = value.get("args")
@@ -118,9 +126,10 @@ class LangGraphAGUIAgent(LangGraphAgent):
                     raise CopilotKitMisuseError(
                         f"ManuallyEmitToolCall event missing valid 'name': got {type(tool_call_name).__name__}"
                     )
-                if tool_call_args is None:
+                if not isinstance(tool_call_args, (dict, str)):
                     raise CopilotKitMisuseError(
-                        "ManuallyEmitToolCall event missing 'args'"
+                        f"ManuallyEmitToolCall 'args' must be a dict or pre-serialized JSON string, "
+                        f"got {type(tool_call_args).__name__} for tool_call_id={tool_call_id}"
                     )
 
                 try:
@@ -129,35 +138,54 @@ class LangGraphAGUIAgent(LangGraphAgent):
                         if isinstance(tool_call_args, str)
                         else json.dumps(tool_call_args)
                     )
-                except (TypeError, ValueError) as e:
+                except Exception as e:
                     raise CopilotKitMisuseError(
                         f"ManuallyEmitToolCall 'args' is not JSON-serializable for tool_call_id={tool_call_id}: {e}"
                     ) from e
 
-                super()._dispatch_event(
-                    ToolCallStartEvent(
-                        type=EventType.TOOL_CALL_START,
-                        tool_call_id=tool_call_id,
-                        tool_call_name=tool_call_name,
-                        parent_message_id=tool_call_id,
-                        raw_event=event,
+                dispatched_start = False
+                try:
+                    super()._dispatch_event(
+                        ToolCallStartEvent(
+                            type=EventType.TOOL_CALL_START,
+                            tool_call_id=tool_call_id,
+                            tool_call_name=tool_call_name,
+                            parent_message_id=tool_call_id,
+                            raw_event=event,
+                        )
                     )
-                )
-                super()._dispatch_event(
-                    ToolCallArgsEvent(
-                        type=EventType.TOOL_CALL_ARGS,
-                        tool_call_id=tool_call_id,
-                        delta=delta,
-                        raw_event=event,
+                    dispatched_start = True
+                    super()._dispatch_event(
+                        ToolCallArgsEvent(
+                            type=EventType.TOOL_CALL_ARGS,
+                            tool_call_id=tool_call_id,
+                            delta=delta,
+                            raw_event=event,
+                        )
                     )
-                )
-                super()._dispatch_event(
-                    ToolCallEndEvent(
-                        type=EventType.TOOL_CALL_END,
-                        tool_call_id=tool_call_id,
-                        raw_event=event,
+                    super()._dispatch_event(
+                        ToolCallEndEvent(
+                            type=EventType.TOOL_CALL_END,
+                            tool_call_id=tool_call_id,
+                            raw_event=event,
+                        )
                     )
-                )
+                except Exception:
+                    if dispatched_start:
+                        try:
+                            super()._dispatch_event(
+                                ToolCallEndEvent(
+                                    type=EventType.TOOL_CALL_END,
+                                    tool_call_id=tool_call_id,
+                                    raw_event=event,
+                                )
+                            )
+                        except Exception as close_err:
+                            logger.error(
+                                "Failed to emit compensating TOOL_CALL_END for %s: %s",
+                                tool_call_id, close_err,
+                            )
+                    raise
                 return super()._dispatch_event(event)
 
             if custom_event.name == CustomEventNames.ManuallyEmitState.value:

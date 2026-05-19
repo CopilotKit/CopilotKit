@@ -4,6 +4,8 @@ Covers:
   1. LangGraph variant: default UUID generation, custom ID passthrough, return value
   2. CrewAI variant: default UUID generation, custom ID passthrough, return value
   3. AG-UI agent dispatch: custom ID propagates to all three TOOL_CALL events
+  4. AG-UI dispatch validation: defensive CopilotKitMisuseError paths for
+     missing/invalid id, name, args, non-serializable args, and non-dict value
 """
 
 import json
@@ -163,6 +165,43 @@ class TestLangGraphEmitToolCallOptionalId:
                     config, name="Tool", args={}, tool_call_id="   "
                 )
 
+    @pytest.mark.asyncio
+    async def test_whitespace_only_name_raises(self):
+        """Passing a whitespace-only name should raise CopilotKitMisuseError."""
+        with patch(
+            "copilotkit.langgraph.adispatch_custom_event", new_callable=AsyncMock
+        ):
+            from copilotkit.langgraph import copilotkit_emit_tool_call
+
+            config = {"metadata": {}}
+            with pytest.raises(CopilotKitMisuseError, match="non-empty string"):
+                await copilotkit_emit_tool_call(config, name="   ", args={})
+
+    @pytest.mark.asyncio
+    async def test_empty_name_raises(self):
+        """Passing an empty name should raise CopilotKitMisuseError."""
+        with patch(
+            "copilotkit.langgraph.adispatch_custom_event", new_callable=AsyncMock
+        ):
+            from copilotkit.langgraph import copilotkit_emit_tool_call
+
+            config = {"metadata": {}}
+            with pytest.raises(CopilotKitMisuseError, match="non-empty string"):
+                await copilotkit_emit_tool_call(config, name="", args={})
+
+    @pytest.mark.asyncio
+    async def test_non_dict_args_raises(self):
+        """Passing non-dict args should raise CopilotKitMisuseError."""
+        with patch(
+            "copilotkit.langgraph.adispatch_custom_event", new_callable=AsyncMock
+        ):
+            from copilotkit.langgraph import copilotkit_emit_tool_call
+
+            config = {"metadata": {}}
+            for bad_args in [None, [1, 2], "raw", 42]:
+                with pytest.raises(CopilotKitMisuseError, match="must be a dict"):
+                    await copilotkit_emit_tool_call(config, name="Tool", args=bad_args)
+
 
 # ---- CrewAI variant tests ----
 
@@ -253,6 +292,39 @@ class TestCrewAIEmitToolCallOptionalId:
                 await copilotkit_emit_tool_call(
                     name="Tool", args={}, tool_call_id="   "
                 )
+
+    @pytest.mark.asyncio
+    async def test_none_id_generates_uuid(self):
+        """Explicitly passing tool_call_id=None should behave the same as omitting it."""
+        with patch(
+            "copilotkit.crewai.crewai_sdk.queue_put", new_callable=AsyncMock
+        ):
+            from copilotkit.crewai.crewai_sdk import copilotkit_emit_tool_call
+
+            result = await copilotkit_emit_tool_call(
+                name="Tool", args={}, tool_call_id=None
+            )
+            assert isinstance(result, str)
+            uuid.UUID(result)
+
+    @pytest.mark.asyncio
+    async def test_whitespace_only_name_raises(self):
+        """Passing a whitespace-only name should raise CopilotKitMisuseError."""
+        with patch("copilotkit.crewai.crewai_sdk.queue_put", new_callable=AsyncMock):
+            from copilotkit.crewai.crewai_sdk import copilotkit_emit_tool_call
+
+            with pytest.raises(CopilotKitMisuseError, match="non-empty string"):
+                await copilotkit_emit_tool_call(name="   ", args={})
+
+    @pytest.mark.asyncio
+    async def test_non_dict_args_raises(self):
+        """Passing non-dict args should raise CopilotKitMisuseError."""
+        with patch("copilotkit.crewai.crewai_sdk.queue_put", new_callable=AsyncMock):
+            from copilotkit.crewai.crewai_sdk import copilotkit_emit_tool_call
+
+            for bad_args in [None, [1, 2], "raw", 42]:
+                with pytest.raises(CopilotKitMisuseError, match="must be a dict"):
+                    await copilotkit_emit_tool_call(name="Tool", args=bad_args)
 
 
 # ---- AG-UI dispatch: custom ID propagates through all events ----
@@ -426,15 +498,45 @@ class TestAGUIDispatchValidation:
             name=CustomEventNames.ManuallyEmitToolCall.value,
             value={"id": "valid-id", "name": "Tool"},
         )
-        with pytest.raises(CopilotKitMisuseError, match="missing 'args'"):
+        with pytest.raises(CopilotKitMisuseError, match="must be a dict or pre-serialized"):
             agent._dispatch_event(event)
 
     def test_non_serializable_args_raises(self, agent):
-        """Event with non-JSON-serializable args should raise CopilotKitMisuseError."""
+        """Event with non-JSON-serializable args (set) should raise CopilotKitMisuseError."""
         event = CustomEvent(
             type=EventType.CUSTOM,
             name=CustomEventNames.ManuallyEmitToolCall.value,
             value={"id": "valid-id", "name": "Tool", "args": {1, 2, 3}},
         )
-        with pytest.raises(CopilotKitMisuseError, match="not JSON-serializable"):
+        with pytest.raises(CopilotKitMisuseError, match="must be a dict or pre-serialized"):
+            agent._dispatch_event(event)
+
+    def test_non_dict_value_raises(self, agent):
+        """Event with non-dict value should raise CopilotKitMisuseError."""
+        event = CustomEvent(
+            type=EventType.CUSTOM,
+            name=CustomEventNames.ManuallyEmitToolCall.value,
+            value=None,
+        )
+        with pytest.raises(CopilotKitMisuseError, match="must be a dict"):
+            agent._dispatch_event(event)
+
+    def test_list_args_raises(self, agent):
+        """Event with list args should raise CopilotKitMisuseError."""
+        event = CustomEvent(
+            type=EventType.CUSTOM,
+            name=CustomEventNames.ManuallyEmitToolCall.value,
+            value={"id": "valid-id", "name": "Tool", "args": [1, 2, 3]},
+        )
+        with pytest.raises(CopilotKitMisuseError, match="must be a dict or pre-serialized"):
+            agent._dispatch_event(event)
+
+    def test_int_args_raises(self, agent):
+        """Event with int args should raise CopilotKitMisuseError."""
+        event = CustomEvent(
+            type=EventType.CUSTOM,
+            name=CustomEventNames.ManuallyEmitToolCall.value,
+            value={"id": "valid-id", "name": "Tool", "args": 42},
+        )
+        with pytest.raises(CopilotKitMisuseError, match="must be a dict or pre-serialized"):
             agent._dispatch_event(event)

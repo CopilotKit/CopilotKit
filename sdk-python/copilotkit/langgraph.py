@@ -387,10 +387,10 @@ async def copilotkit_emit_tool_call(
     ```python
     from copilotkit.langgraph import copilotkit_emit_tool_call
 
-    tool_call_id = await copilotkit_emit_tool_call(config, name="SearchTool", args={"steps": 10})
+    auto_id = await copilotkit_emit_tool_call(config, name="SearchTool", args={"steps": 10})
 
     # With a custom ID for correlation/idempotency:
-    tool_call_id = await copilotkit_emit_tool_call(config, name="SearchTool", args={"steps": 10}, tool_call_id="my-custom-id")
+    custom_id = await copilotkit_emit_tool_call(config, name="SearchTool", args={"steps": 10}, tool_call_id="my-custom-id")
     ```
 
     Parameters

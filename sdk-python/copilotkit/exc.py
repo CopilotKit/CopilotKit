@@ -1,7 +1,16 @@
 """Exceptions for CopilotKit."""
 
 
-class ActionNotFoundException(Exception):
+class CopilotKitError(Exception):
+    """Base exception for all CopilotKit errors.
+
+    Catch this to handle any CopilotKit-specific exception.
+    """
+
+    pass
+
+
+class ActionNotFoundException(CopilotKitError):
     """Exception raised when an action or agent is not found."""
 
     def __init__(self, name: str):
@@ -9,7 +18,7 @@ class ActionNotFoundException(Exception):
         super().__init__(f"Action '{name}' not found.")
 
 
-class AgentNotFoundException(Exception):
+class AgentNotFoundException(CopilotKitError):
     """Exception raised when an agent is not found."""
 
     def __init__(self, name: str):
@@ -17,7 +26,7 @@ class AgentNotFoundException(Exception):
         super().__init__(f"Agent '{name}' not found.")
 
 
-class ActionExecutionException(Exception):
+class ActionExecutionException(CopilotKitError):
     """Exception raised when an action fails to execute."""
 
     def __init__(self, name: str, error: Exception):
@@ -26,7 +35,7 @@ class ActionExecutionException(Exception):
         super().__init__(f"Action '{name}' failed to execute: {error}")
 
 
-class AgentExecutionException(Exception):
+class AgentExecutionException(CopilotKitError):
     """Exception raised when an agent fails to execute."""
 
     def __init__(self, name: str, error: Exception):
@@ -35,10 +44,11 @@ class AgentExecutionException(Exception):
         super().__init__(f"Agent '{name}' failed to execute: {error}")
 
 
-class CopilotKitMisuseError(ValueError):
+class CopilotKitMisuseError(CopilotKitError, ValueError):
     """Exception raised when CopilotKit detects incorrect usage of its APIs.
 
-    Subclasses ValueError for backward compatibility with existing handlers.
+    Inherits from both CopilotKitError (for ``except CopilotKitError``) and
+    ValueError (for backward compatibility with ``except ValueError`` handlers).
     """
 
     pass
