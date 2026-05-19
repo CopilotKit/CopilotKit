@@ -144,7 +144,7 @@ class LangGraphAGUIAgent(LangGraphAgent):
                     ) from e
 
                 dispatched_start = False
-                end_attempted = False
+                end_dispatched = False
                 try:
                     super()._dispatch_event(
                         ToolCallStartEvent(
@@ -164,7 +164,6 @@ class LangGraphAGUIAgent(LangGraphAgent):
                             raw_event=event,
                         )
                     )
-                    end_attempted = True
                     super()._dispatch_event(
                         ToolCallEndEvent(
                             type=EventType.TOOL_CALL_END,
@@ -172,8 +171,9 @@ class LangGraphAGUIAgent(LangGraphAgent):
                             raw_event=event,
                         )
                     )
+                    end_dispatched = True
                 except Exception:
-                    if dispatched_start and not end_attempted:
+                    if dispatched_start and not end_dispatched:
                         try:
                             super()._dispatch_event(
                                 ToolCallEndEvent(

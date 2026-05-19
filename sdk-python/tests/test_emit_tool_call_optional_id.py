@@ -402,49 +402,34 @@ class TestCrewAIEmitToolCallOptionalId:
 
 @pytest.mark.skipif(not _has_crewai, reason="crewai not installed")
 class TestCrewAICompensatingEnd:
-    """Tests for the compensating action_execution_end when dispatch fails mid-stream."""
+    """Tests for the compensating action_execution_end when dispatch fails mid-stream.
+
+    queue_put is called once with all three events (start, args, end) in a single
+    batch for atomicity.  If the batch fails, a compensating end is always attempted
+    as a best-effort measure — an orphaned END is harmless, but an orphaned START
+    hangs the client UI.
+    """
 
     @pytest.mark.asyncio
-    async def test_failure_after_start_emits_compensating_end(self):
-        """If args queue_put fails after start was dispatched, a compensating end is emitted."""
+    async def test_batch_failure_emits_compensating_end(self):
+        """If the batched queue_put fails, a compensating end is emitted."""
         call_count = 0
-        original_queue_put = None
 
         async def _failing_queue_put(*events):
             nonlocal call_count
             call_count += 1
-            if call_count == 2:
-                raise RuntimeError("queue closed")
+            if call_count == 1:
+                raise RuntimeError("batch failed")
 
         with patch("copilotkit.crewai.crewai_sdk.queue_put", new=_failing_queue_put):
             from copilotkit.crewai.crewai_sdk import copilotkit_emit_tool_call
 
-            with pytest.raises(RuntimeError, match="queue closed"):
+            with pytest.raises(RuntimeError, match="batch failed"):
                 await copilotkit_emit_tool_call(
                     name="FailTool", args={"x": 1}, tool_call_id="comp-crew-1"
                 )
 
-        assert call_count == 3
-
-    @pytest.mark.asyncio
-    async def test_failure_on_start_does_not_emit_compensating_end(self):
-        """If start queue_put itself fails, no compensating end is dispatched."""
-        call_count = 0
-
-        async def _failing_queue_put(*events):
-            nonlocal call_count
-            call_count += 1
-            raise RuntimeError("start failed")
-
-        with patch("copilotkit.crewai.crewai_sdk.queue_put", new=_failing_queue_put):
-            from copilotkit.crewai.crewai_sdk import copilotkit_emit_tool_call
-
-            with pytest.raises(RuntimeError, match="start failed"):
-                await copilotkit_emit_tool_call(
-                    name="FailTool", args={}, tool_call_id="comp-crew-2"
-                )
-
-        assert call_count == 1
+        assert call_count == 2
 
     @pytest.mark.asyncio
     async def test_compensating_end_failure_reraises_original(self):
@@ -454,19 +439,17 @@ class TestCrewAICompensatingEnd:
         async def _failing_queue_put(*events):
             nonlocal call_count
             call_count += 1
-            if call_count == 1:
-                return
             raise RuntimeError(f"queue failure #{call_count}")
 
         with patch("copilotkit.crewai.crewai_sdk.queue_put", new=_failing_queue_put):
             from copilotkit.crewai.crewai_sdk import copilotkit_emit_tool_call
 
-            with pytest.raises(RuntimeError, match="queue failure #2"):
+            with pytest.raises(RuntimeError, match="queue failure #1"):
                 await copilotkit_emit_tool_call(
                     name="FailTool", args={}, tool_call_id="comp-crew-3"
                 )
 
-        assert call_count == 3
+        assert call_count == 2
 
     @pytest.mark.asyncio
     async def test_compensating_end_failure_emits_log(self, caplog):
@@ -476,8 +459,6 @@ class TestCrewAICompensatingEnd:
         async def _failing_queue_put(*events):
             nonlocal call_count
             call_count += 1
-            if call_count == 1:
-                return
             raise RuntimeError(f"queue failure #{call_count}")
 
         with caplog.at_level(logging.ERROR, logger="copilotkit.crewai.crewai_sdk"):
@@ -806,3 +787,21 @@ class TestAGUICompensatingEnd:
                     agent._dispatch_event(self._make_event("log-test-id"))
 
         assert any("log-test-id" in record.message for record in caplog.records)
+
+    def test_failure_on_end_emits_compensating_end(self, agent):
+        """If TOOL_CALL_END itself fails, a compensating END is still attempted."""
+        call_count = 0
+        original = AGUIBase._dispatch_event
+
+        def _fail_on_end(self_inner, evt):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 3:
+                raise RuntimeError("end dispatch failed")
+            return original(self_inner, evt)
+
+        with patch.object(AGUIBase, "_dispatch_event", new=_fail_on_end):
+            with pytest.raises(RuntimeError, match="end dispatch failed"):
+                agent._dispatch_event(self._make_event("end-fail-id"))
+
+        assert call_count == 4
