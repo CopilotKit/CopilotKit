@@ -167,3 +167,27 @@ export function checkInternalLinks(input: {
     messages: failures,
   };
 }
+
+const ALIAS_IMPORT_RE =
+  /^\s*import\s+[^"';]+from\s+["'](@\/[^"']+)["']\s*;?\s*$/gm;
+
+export function checkImportPaths(input: {
+  pages: PageInput[];
+  existsOnDisk: (importPath: string) => boolean;
+}): CheckResult {
+  const failures: string[] = [];
+  for (const page of input.pages) {
+    ALIAS_IMPORT_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = ALIAS_IMPORT_RE.exec(page.body)) !== null) {
+      if (!input.existsOnDisk(m[1])) {
+        failures.push(`${page.path}: unresolved import "${m[1]}"`);
+      }
+    }
+  }
+  return {
+    name: "import-paths",
+    status: failures.length === 0 ? "pass" : "fail",
+    messages: failures,
+  };
+}

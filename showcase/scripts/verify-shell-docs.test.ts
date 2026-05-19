@@ -3,6 +3,7 @@ import { runBuildCheck } from "./verify-shell-docs.js";
 import { checkInlineDemoRefs } from "./verify-shell-docs.js";
 import { checkSnippetRegions } from "./verify-shell-docs.js";
 import { checkInternalLinks } from "./verify-shell-docs.js";
+import { checkImportPaths } from "./verify-shell-docs.js";
 
 describe("runBuildCheck", () => {
   it("returns a result with name, status, and messages", () => {
@@ -134,6 +135,33 @@ describe("checkInternalLinks", () => {
     ];
     const knownRoutes = new Set(["/a"]);
     const result = checkInternalLinks({ pages, knownRoutes });
+    expect(result.status).toBe("pass");
+  });
+});
+
+describe("checkImportPaths", () => {
+  it("fails when an @/snippets/... path does not exist", () => {
+    const pages = [
+      {
+        path: "a.mdx",
+        body: 'import X from "@/snippets/does-not-exist.mdx";',
+      },
+    ];
+    const existsOnDisk = (_p: string) => false;
+    const result = checkImportPaths({ pages, existsOnDisk });
+    expect(result.status).toBe("fail");
+    expect(result.messages.join(" ")).toContain("@/snippets/does-not-exist.mdx");
+  });
+
+  it("passes when all paths resolve", () => {
+    const pages = [
+      {
+        path: "a.mdx",
+        body: 'import X from "@/snippets/exists.mdx";',
+      },
+    ];
+    const existsOnDisk = (_p: string) => true;
+    const result = checkImportPaths({ pages, existsOnDisk });
     expect(result.status).toBe("pass");
   });
 });
