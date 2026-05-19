@@ -19,6 +19,7 @@ from copilotkit.langgraph_agui_agent import (
     LangGraphAGUIAgent,
     CustomEventNames,
 )
+from copilotkit.exc import CopilotKitMisuseError
 
 
 # ---- Fixtures ----
@@ -315,3 +316,125 @@ class TestCustomIdPropagatesThroughAGUI:
         assert len(args_events) == 1
         assert args_events[0].tool_call_id == "combo-test"
         assert json.loads(args_events[0].delta) == {"nested": {"deep": True}}
+
+    def test_string_args_passed_through_unchanged(self, agent):
+        """When args is already a JSON string, it should be passed through without re-serializing."""
+        with _track_parent_dispatches(agent) as dispatched:
+            event = CustomEvent(
+                type=EventType.CUSTOM,
+                name=CustomEventNames.ManuallyEmitToolCall.value,
+                value={
+                    "id": "string-args-test",
+                    "name": "StringArgsTool",
+                    "args": '{"x": 1}',
+                },
+            )
+            agent._dispatch_event(event)
+
+        args_events = [e for e in dispatched if e.type == EventType.TOOL_CALL_ARGS]
+        assert len(args_events) == 1
+        assert args_events[0].delta == '{"x": 1}'
+
+    def test_empty_dict_args_does_not_raise(self, agent):
+        """An empty dict for args is valid and should not raise."""
+        with _track_parent_dispatches(agent) as dispatched:
+            event = CustomEvent(
+                type=EventType.CUSTOM,
+                name=CustomEventNames.ManuallyEmitToolCall.value,
+                value={
+                    "id": "empty-args-test",
+                    "name": "EmptyArgsTool",
+                    "args": {},
+                },
+            )
+            agent._dispatch_event(event)
+
+        tool_events = [e for e in dispatched if hasattr(e, "tool_call_id")]
+        assert len(tool_events) == 3
+
+
+# ---- AG-UI dispatch: validation negative tests ----
+
+
+class TestAGUIDispatchValidation:
+    """Negative tests for defensive validation in _dispatch_event."""
+
+    def test_missing_id_raises(self, agent):
+        """Event with no 'id' field should raise CopilotKitMisuseError."""
+        event = CustomEvent(
+            type=EventType.CUSTOM,
+            name=CustomEventNames.ManuallyEmitToolCall.value,
+            value={"name": "Tool", "args": {}},
+        )
+        with pytest.raises(CopilotKitMisuseError, match="valid 'id'"):
+            agent._dispatch_event(event)
+
+    def test_non_string_id_raises(self, agent):
+        """Event with non-string 'id' should raise CopilotKitMisuseError."""
+        event = CustomEvent(
+            type=EventType.CUSTOM,
+            name=CustomEventNames.ManuallyEmitToolCall.value,
+            value={"id": 42, "name": "Tool", "args": {}},
+        )
+        with pytest.raises(CopilotKitMisuseError, match="valid 'id'"):
+            agent._dispatch_event(event)
+
+    def test_empty_string_id_raises(self, agent):
+        """Event with empty string 'id' should raise CopilotKitMisuseError."""
+        event = CustomEvent(
+            type=EventType.CUSTOM,
+            name=CustomEventNames.ManuallyEmitToolCall.value,
+            value={"id": "", "name": "Tool", "args": {}},
+        )
+        with pytest.raises(CopilotKitMisuseError, match="valid 'id'"):
+            agent._dispatch_event(event)
+
+    def test_whitespace_only_id_raises(self, agent):
+        """Event with whitespace-only 'id' should raise CopilotKitMisuseError."""
+        event = CustomEvent(
+            type=EventType.CUSTOM,
+            name=CustomEventNames.ManuallyEmitToolCall.value,
+            value={"id": "   ", "name": "Tool", "args": {}},
+        )
+        with pytest.raises(CopilotKitMisuseError, match="valid 'id'"):
+            agent._dispatch_event(event)
+
+    def test_missing_name_raises(self, agent):
+        """Event with no 'name' field should raise CopilotKitMisuseError."""
+        event = CustomEvent(
+            type=EventType.CUSTOM,
+            name=CustomEventNames.ManuallyEmitToolCall.value,
+            value={"id": "valid-id", "args": {}},
+        )
+        with pytest.raises(CopilotKitMisuseError, match="valid 'name'"):
+            agent._dispatch_event(event)
+
+    def test_whitespace_only_name_raises(self, agent):
+        """Event with whitespace-only 'name' should raise CopilotKitMisuseError."""
+        event = CustomEvent(
+            type=EventType.CUSTOM,
+            name=CustomEventNames.ManuallyEmitToolCall.value,
+            value={"id": "valid-id", "name": "   ", "args": {}},
+        )
+        with pytest.raises(CopilotKitMisuseError, match="valid 'name'"):
+            agent._dispatch_event(event)
+
+    def test_missing_args_raises(self, agent):
+        """Event with no 'args' field should raise CopilotKitMisuseError."""
+        event = CustomEvent(
+            type=EventType.CUSTOM,
+            name=CustomEventNames.ManuallyEmitToolCall.value,
+            value={"id": "valid-id", "name": "Tool"},
+        )
+        with pytest.raises(CopilotKitMisuseError, match="missing 'args'"):
+            agent._dispatch_event(event)
+
+    def test_non_serializable_args_raises(self, agent):
+        """Event with non-JSON-serializable args should raise CopilotKitMisuseError."""
+        event = CustomEvent(
+            type=EventType.CUSTOM,
+            name=CustomEventNames.ManuallyEmitToolCall.value,
+            value={"id": "valid-id", "name": "Tool", "args": {1, 2, 3}},
+        )
+        with pytest.raises(CopilotKitMisuseError, match="not JSON-serializable"):
+            agent._dispatch_event(event)

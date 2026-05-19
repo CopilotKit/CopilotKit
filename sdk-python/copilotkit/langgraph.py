@@ -23,6 +23,7 @@ from langchain_core.callbacks.manager import adispatch_custom_event
 from langgraph.types import interrupt
 
 from .types import Message, IntermediateStateConfig
+from .exc import CopilotKitMisuseError
 from .logging import get_logger
 
 logger = get_logger(__name__)
@@ -410,17 +411,19 @@ async def copilotkit_emit_tool_call(
     str
         The tool call ID used for the emitted tool call.
     """
-    if not name or not isinstance(name, str):
-        raise ValueError(
+    if not isinstance(name, str) or not name.strip():
+        raise CopilotKitMisuseError(
             "Tool name must be a non-empty string for copilotkit_emit_tool_call"
         )
 
-    if args is None or not isinstance(args, dict):
-        raise ValueError("Tool arguments must be a dict for copilotkit_emit_tool_call")
+    if not isinstance(args, dict):
+        raise CopilotKitMisuseError(
+            "Tool arguments must be a dict for copilotkit_emit_tool_call"
+        )
 
     if tool_call_id is not None:
         if not isinstance(tool_call_id, str) or not tool_call_id.strip():
-            raise ValueError(
+            raise CopilotKitMisuseError(
                 "Tool call id must be a non-empty string when provided for copilotkit_emit_tool_call"
             )
     else:
@@ -431,7 +434,9 @@ async def copilotkit_emit_tool_call(
         {"name": name, "args": args, "id": tool_call_id},
         config=config,
     )
-    # Allow the event to flush before the next event interleaves
+    # LangGraph's adispatch_custom_event is async but does not guarantee the event
+    # has been flushed to the SSE stream before it returns. Without this sleep,
+    # a subsequent emit can interleave and corrupt event ordering on the client.
     await asyncio.sleep(0.02)
 
     return tool_call_id

@@ -308,6 +308,11 @@ describe("copilotkitEmitToolCall", () => {
 
     expect(typeof result).toBe("string");
     expect(result.length).toBeGreaterThan(0);
+    expect(mockedDispatch).toHaveBeenCalledWith(
+      "copilotkit_manually_emit_tool_call",
+      { name: "SearchTool", args: {}, id: result },
+      mockConfig,
+    );
   });
 
   it("throws on empty string toolCallId", async () => {
@@ -327,12 +332,30 @@ describe("copilotkitEmitToolCall", () => {
     ).rejects.toThrow("non-empty string");
   });
 
-  it("wraps dispatch failure as CopilotKitMisuseError", async () => {
+  it("throws on whitespace-only name", async () => {
+    await expect(
+      copilotkitEmitToolCall(mockConfig, "   ", {}),
+    ).rejects.toThrow("non-empty string");
+  });
+
+  it("throws on non-object args", async () => {
+    await expect(
+      copilotkitEmitToolCall(mockConfig, "SearchTool", 42 as any),
+    ).rejects.toThrow("plain object");
+
+    await expect(
+      copilotkitEmitToolCall(mockConfig, "SearchTool", null as any),
+    ).rejects.toThrow("plain object");
+
+    await expect(
+      copilotkitEmitToolCall(mockConfig, "SearchTool", [1, 2] as any),
+    ).rejects.toThrow("plain object");
+  });
+
+  it("propagates dispatch errors without wrapping", async () => {
     mockedDispatch.mockRejectedValueOnce(new Error("transport closed"));
     await expect(
       copilotkitEmitToolCall(mockConfig, "SearchTool", {}),
-    ).rejects.toThrow(
-      /Failed to emit tool call 'SearchTool': transport closed/,
-    );
+    ).rejects.toThrow("transport closed");
   });
 });

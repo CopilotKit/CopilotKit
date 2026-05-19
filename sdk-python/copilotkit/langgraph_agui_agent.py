@@ -1,6 +1,7 @@
 import json
 from typing import Dict, Any, List, Optional, Union, AsyncGenerator
 from enum import Enum
+from .exc import CopilotKitMisuseError
 from ag_ui_langgraph import LangGraphAgent
 from ag_ui.core import (
     EventType,
@@ -109,18 +110,25 @@ class LangGraphAGUIAgent(LangGraphAgent):
                 tool_call_name = value.get("name")
                 tool_call_args = value.get("args")
 
-                if not tool_call_id or not isinstance(tool_call_id, str):
-                    raise ValueError(
-                        f"ManuallyEmitToolCall event missing valid 'id': {value!r}"
+                if not isinstance(tool_call_id, str) or not tool_call_id.strip():
+                    raise CopilotKitMisuseError(
+                        f"ManuallyEmitToolCall event missing valid 'id': got {type(tool_call_id).__name__}"
                     )
-                if not tool_call_name or not isinstance(tool_call_name, str):
-                    raise ValueError(
-                        f"ManuallyEmitToolCall event missing valid 'name': {value!r}"
+                if not isinstance(tool_call_name, str) or not tool_call_name.strip():
+                    raise CopilotKitMisuseError(
+                        f"ManuallyEmitToolCall event missing valid 'name': got {type(tool_call_name).__name__}"
                     )
                 if tool_call_args is None:
-                    raise ValueError(
-                        f"ManuallyEmitToolCall event missing 'args': {value!r}"
+                    raise CopilotKitMisuseError(
+                        "ManuallyEmitToolCall event missing 'args'"
                     )
+
+                try:
+                    delta = tool_call_args if isinstance(tool_call_args, str) else json.dumps(tool_call_args)
+                except (TypeError, ValueError) as e:
+                    raise CopilotKitMisuseError(
+                        f"ManuallyEmitToolCall 'args' is not JSON-serializable for tool_call_id={tool_call_id}: {e}"
+                    ) from e
 
                 super()._dispatch_event(
                     ToolCallStartEvent(
@@ -135,9 +143,7 @@ class LangGraphAGUIAgent(LangGraphAgent):
                     ToolCallArgsEvent(
                         type=EventType.TOOL_CALL_ARGS,
                         tool_call_id=tool_call_id,
-                        delta=tool_call_args
-                        if isinstance(tool_call_args, str)
-                        else json.dumps(tool_call_args),
+                        delta=delta,
                         raw_event=event,
                     )
                 )

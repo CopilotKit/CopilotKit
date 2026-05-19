@@ -6,6 +6,7 @@ import uuid
 import json
 import asyncio
 from typing_extensions import Any, Dict, List, Literal, Optional
+from copilotkit.exc import CopilotKitMisuseError
 from pydantic import BaseModel, Field
 from litellm.types.utils import (
     ModelResponse,
@@ -258,17 +259,19 @@ async def copilotkit_emit_tool_call(
     str
         The tool call ID used for the emitted tool call.
     """
-    if not name or not isinstance(name, str):
-        raise ValueError(
+    if not isinstance(name, str) or not name.strip():
+        raise CopilotKitMisuseError(
             "Tool name must be a non-empty string for copilotkit_emit_tool_call"
         )
 
-    if args is None or not isinstance(args, dict):
-        raise ValueError("Tool arguments must be a dict for copilotkit_emit_tool_call")
+    if not isinstance(args, dict):
+        raise CopilotKitMisuseError(
+            "Tool arguments must be a dict for copilotkit_emit_tool_call"
+        )
 
     if tool_call_id is not None:
         if not isinstance(tool_call_id, str) or not tool_call_id.strip():
-            raise ValueError(
+            raise CopilotKitMisuseError(
                 "Tool call id must be a non-empty string when provided for copilotkit_emit_tool_call"
             )
     message_id = tool_call_id if tool_call_id is not None else str(uuid.uuid4())

@@ -33,3 +33,12 @@ class AgentExecutionException(Exception):
         self.name = name
         self.error = error
         super().__init__(f"Agent '{name}' failed to execute: {error}")
+
+
+class CopilotKitMisuseError(ValueError):
+    """Exception raised when CopilotKit detects incorrect usage of its APIs.
+
+    Subclasses ValueError for backward compatibility with existing handlers.
+    """
+
+    pass

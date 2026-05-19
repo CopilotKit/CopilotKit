@@ -319,7 +319,7 @@ export async function copilotkitEmitToolCall(
   /**
    * The arguments to emit.
    */
-  args: any,
+  args: Record<string, unknown>,
   /**
    * Options for the tool call emission.
    */
@@ -338,16 +338,22 @@ export async function copilotkitEmitToolCall(
     });
   }
 
-  if (!name || typeof name !== "string") {
+  if (typeof name !== "string" || name.trim().length === 0) {
     throw new CopilotKitMisuseError({
       message:
         "Tool name must be a non-empty string for copilotkitEmitToolCall",
     });
   }
 
-  if (args === undefined) {
+  if (
+    args === null ||
+    args === undefined ||
+    typeof args !== "object" ||
+    Array.isArray(args)
+  ) {
     throw new CopilotKitMisuseError({
-      message: "Tool arguments are required for copilotkitEmitToolCall",
+      message:
+        "Tool arguments must be a plain object for copilotkitEmitToolCall",
     });
   }
 
@@ -364,17 +370,11 @@ export async function copilotkitEmitToolCall(
 
   const toolCallId = options?.toolCallId ?? randomId();
 
-  try {
-    await dispatchCustomEvent(
-      "copilotkit_manually_emit_tool_call",
-      { name, args, id: toolCallId },
-      config,
-    );
-  } catch (error) {
-    throw new CopilotKitMisuseError({
-      message: `Failed to emit tool call '${name}': ${error instanceof Error ? error.message : String(error)}`,
-    });
-  }
+  await dispatchCustomEvent(
+    "copilotkit_manually_emit_tool_call",
+    { name, args, id: toolCallId },
+    config,
+  );
 
   return toolCallId;
 }
