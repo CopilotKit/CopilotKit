@@ -4,6 +4,8 @@ description: Turn your Pydantic AI agent into an agent-native application in 10 
 icon: "lucide/Play"
 hideTOC: true
 ---
+
+
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
   className="rounded-lg shadow-xl"
@@ -157,44 +159,6 @@ Before you begin, you'll need the following:
                 app = agent.to_ag_ui()
 
                 if __name__ == "__main__":
-                    import uvicorn
-                    uvicorn.run(app, host="localhost", port=8000)
-                ```
-
-                <Callout type="info" title="What is AG-UI?">
-                  AG-UI is an open protocol for frontend-agent communication. Pydantic AI's `.to_ag_ui()` method creates an ASGI app that CopilotKit can connect to.
-                </Callout>
-            </Step>
-            <Step>
-                ### Create your frontend
-
-                CopilotKit works with any React-based frontend. We'll use Next.js for this example.
-
-                ```bash
-                npx create-next-app@latest my-copilot-app
-                cd my-copilot-app
-                ```
-            </Step>
-            <Step>
-                ### Install CopilotKit packages
-
-                ```npm
-                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client
-                ```
-            </Step>
-            <Step>
-                ### Setup Copilot Runtime
-
-                Create an API route to connect CopilotKit to your Pydantic AI agent:
-
-                ```tsx title="app/api/copilotkit/route.ts"
-                import {
-                  CopilotRuntime,
-                  ExperimentalEmptyAdapter,
-                  copilotRuntimeNextJSAppRouterEndpoint,
-                } from "@copilotkit/runtime";
-                import { HttpAgent } from "@ag-ui/client";
-                import { NextRequest } from "next/server";
 
                 const serviceAdapter = new ExperimentalEmptyAdapter();
 
@@ -221,9 +185,7 @@ Before you begin, you'll need the following:
                 Wrap your application with the CopilotKit provider:
 
                 ```tsx title="app/layout.tsx"
-                import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
-                import "@copilotkit/react-ui/v2/styles.css";
-                import './globals.css';
+                import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
 
                 // ...
 
