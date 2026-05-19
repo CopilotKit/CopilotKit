@@ -10,7 +10,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@ag-ui/client": "^0.0.43",
+    "@ag-ui/client": "^0.0.53",
     "@copilotkit/a2ui-renderer": "next",
     "@copilotkit/react-core": "next",
     "@copilotkit/runtime": "next",
@@ -33,6 +33,7 @@
     "recharts": "^2.15.0",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^2.5.0",
+    "yaml": "^2.8.4",
     "zod": "^3.24.0"
   },
   "devDependencies": {

@@ -1,93 +1,69 @@
-"""
-MS Agent Framework — reasoning demo agent.
+"""Reasoning agent — backs `reasoning-default` and `reasoning-custom` cells.
 
-Shared by two demos:
-  - agentic-chat-reasoning      — custom rendered reasoning block
-  - reasoning-default-render    — default rendering of reasoning content
+Why this agent uses OpenAIChatClient (Responses API) instead of the
+ChatCompletions client used by the other MAF agents in this showcase:
+the OpenAI Responses API streams `response.reasoning_summary_text.delta`
+items only for native reasoning models (gpt-5, o3, o4-mini, etc.). The
+`agent_framework_openai` Responses client translates those into AG-UI
+`REASONING_MESSAGE_*` events with `role: "reasoning"`, which the frontend
+renders via the built-in `reasoningMessage` slot. Without the Responses
+API path, the reasoning slot never lights up — that's the bug the LGP
+parity port closes.
 
-Approach
---------
-The LangGraph reference agent relies on AG-UI REASONING_MESSAGE_* events, which
-CopilotKit renders natively via `CopilotChatReasoningMessage`. The MS Agent
-Framework's current AG-UI bridge does not surface reasoning tokens as
-first-class REASONING_MESSAGE events, so we fall back to the closest portable
-pattern: a `think` tool.
-
-Flow:
-  1. The agent MUST call `think(thought=...)` before producing its final
-     answer. Its `thought` field contains the step-by-step reasoning.
-  2. The frontend renders the tool call with `useRenderTool("think", ...)` as
-     a visible reasoning block (custom or default style, per demo).
-  3. The agent then produces a concise final answer as a normal assistant
-     message.
+Mirrors LangGraph's `langgraph-python/src/agents/reasoning_agent.py`,
+which configures `init_chat_model("openai:gpt-5", use_responses_api=True,
+reasoning={"effort": "medium", "summary": "detailed"})`.
 """
 
 from __future__ import annotations
 
+import os
 from textwrap import dedent
-from typing import Annotated
 
-from agent_framework import Agent, BaseChatClient, tool
+from agent_framework import Agent, BaseChatClient
+from agent_framework.openai import OpenAIChatClient
 from agent_framework_ag_ui import AgentFrameworkAgent
-from pydantic import Field
 
 
-@tool(
-    name="think",
-    description=(
-        "Record a step-by-step reasoning trace that the UI will render as a "
-        "visible thinking block. Always call this tool BEFORE answering the "
-        "user's question. Use a single call per user turn."
-    ),
-)
-def think(
-    thought: Annotated[
-        str,
-        Field(
-            description=(
-                "A concise, step-by-step reasoning chain leading toward the "
-                "final answer. Write in first person (e.g., 'First I'll..., "
-                "then I'll...'). Keep it under ~5 short steps."
-            )
-        ),
-    ],
-) -> str:
-    """Accept the reasoning; the UI displays it as a thinking block."""
-    # The tool body is intentionally trivial: the useful payload is `thought`,
-    # which the frontend receives via the tool-call args (rendered live).
-    return "Reasoning recorded."
+SYSTEM_PROMPT = dedent(
+    """
+    You are a helpful assistant. For each user question, first think
+    step-by-step about the approach, then give a concise answer.
+    """
+).strip()
 
 
-def create_reasoning_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
-    """Create the MS Agent Framework reasoning demo agent."""
+def _build_reasoning_chat_client() -> BaseChatClient:
+    """Build a Responses-API chat client for reasoning-event streaming.
+
+    The model env var defaults to `gpt-5` to match the LGP reference; the
+    deployment can override via `OPENAI_REASONING_MODEL`.
+    """
+    return OpenAIChatClient(
+        model=os.environ.get("OPENAI_REASONING_MODEL", "gpt-5.4"),
+        api_key=os.environ.get("OPENAI_API_KEY"),
+    )
+
+
+def create_reasoning_agent(_chat_client_ignored: BaseChatClient | None = None) -> AgentFrameworkAgent:
+    """Instantiate the reasoning agent.
+
+    The shared `chat_client` from `agent_server.py` is intentionally
+    ignored — this cell needs the Responses API specifically.
+    """
     base_agent = Agent(
-        client=chat_client,
+        client=_build_reasoning_chat_client(),
         name="reasoning_agent",
-        instructions=dedent(
-            """
-            You are a helpful assistant that shows its work.
-
-            Required workflow for EVERY user question:
-              1. Call the `think` tool exactly once with a concise,
-                 step-by-step reasoning chain describing how you will
-                 approach the answer.
-              2. After the tool call returns, produce a clear, concise
-                 final assistant message with the actual answer.
-
-            Rules:
-              - You MUST call `think` before your final answer. Never skip it.
-              - Keep the `thought` focused on reasoning, not the final answer.
-              - Keep the final answer short (1-3 short paragraphs).
-              - Do NOT repeat the reasoning in the final answer; just give
-                the user the conclusion.
-            """.strip()
-        ),
-        tools=[think],
+        instructions=SYSTEM_PROMPT,
+        tools=[],
     )
 
     return AgentFrameworkAgent(
         agent=base_agent,
-        name="CopilotKitMicrosoftAgentFrameworkReasoningAgent",
-        description=("Demonstrates a visible reasoning chain via the `think` tool."),
-        require_confirmation=False,
+        name="ReasoningAgent",
+        description=(
+            "Reasoning-token streaming via the OpenAI Responses API. "
+            "Drives `reasoning-default` (built-in slot) and "
+            "`reasoning-custom` (custom amber ReasoningBlock) demos."
+        ),
     )

@@ -4,10 +4,6 @@ import { useAgent } from "@copilotkit/react-core/v2";
 import { TodoList } from "./todo-list";
 
 export function ExampleCanvas() {
-  // Use the same agentId as the page's <CopilotKit agent="beautiful-chat">
-  // wrapper. useAgent(undefined) resolves to a separate "default" agent
-  // subscription whose state never receives the chat agent's STATE_SNAPSHOT,
-  // even when the route.ts aliases both keys to the same HttpAgent instance.
   const { agent } = useAgent({ agentId: "beautiful-chat" });
 
   return (
