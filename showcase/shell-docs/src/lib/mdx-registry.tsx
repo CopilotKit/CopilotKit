@@ -52,6 +52,7 @@ const STUB_PARTIAL_MAP: Record<string, string> = {
   GenerativeUISpecsOverview: "shared/generative-ui-specs-overview.mdx",
   ToolRenderer: "shared/generative-ui/tool-rendering.mdx",
   ToolRendering: "shared/generative-ui/tool-rendering.mdx",
+  A2UI: "shared/generative-ui/a2ui.mdx",
   HeadlessUI: "shared/basics/headless-ui.mdx",
   Overview: "shared/premium/overview.mdx",
   Observability: "shared/premium/observability.mdx",
@@ -62,6 +63,10 @@ const STUB_PARTIAL_MAP: Record<string, string> = {
   DebugMode: "shared/troubleshooting/debug-mode.mdx",
   MigrateTo: "shared/troubleshooting/migrate-to-v2.mdx",
   MigrateToV: "shared/troubleshooting/migrate-to-v2.mdx",
+  MigrateTo182: "shared/troubleshooting/migrate-to-1.8.2.mdx",
+  MigrateTo1100: "shared/troubleshooting/migrate-to-1.10.X.mdx",
+  MigrateToV2: "shared/troubleshooting/migrate-to-v2.mdx",
+  SelfHosting: "shared/premium/self-hosting.mdx",
   CodingAgents: "shared/coding-agents.mdx",
   CustomAgent: "shared/backend/custom-agent.mdx",
   PrebuiltComponents: "shared/basics/prebuilt-components.mdx",
@@ -426,10 +431,15 @@ export const docsComponents = {
   IframeSwitcherGroup: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
+  A2UI: stubWithPartial("A2UI"),
   RunAndConnect: stubWithPartial("RunAndConnect"),
   RunAndConnectSnippet: stubWithPartial("RunAndConnectSnippet"),
   MigrateTo: stubWithPartial("MigrateTo"),
   MigrateToV: stubWithPartial("MigrateToV"),
+  MigrateTo182: stubWithPartial("MigrateTo182"),
+  MigrateTo1100: stubWithPartial("MigrateTo1100"),
+  MigrateToV2: stubWithPartial("MigrateToV2"),
+  SelfHosting: stubWithPartial("SelfHosting"),
   HeadlessUI: stubWithPartial("HeadlessUI"),
   ImageZoom: ({ src, alt }: { src?: string; alt?: string }) => (
     // eslint-disable-next-line @next/next/no-img-element
