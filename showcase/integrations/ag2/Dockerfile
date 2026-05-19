@@ -2,7 +2,9 @@
 # Cache bust: 2026-04-07 smoke route
 FROM node:22-slim AS frontend
 WORKDIR /app
-COPY package*.json ./
+COPY package.json ./
+COPY package-lock.json ./
+RUN ls -la /app/ && echo "--lockfile head--" && head -2 /app/package-lock.json
 RUN npm ci --legacy-peer-deps
 COPY . .
 RUN npm run build

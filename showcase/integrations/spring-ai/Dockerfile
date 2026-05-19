@@ -28,7 +28,9 @@ RUN mvn package -DskipTests -B
 # Stage 2: Build Next.js frontend
 FROM node:22-slim AS frontend
 WORKDIR /app
-COPY package*.json ./
+COPY package.json ./
+COPY package-lock.json ./
+RUN ls -la /app/ && echo "--lockfile head--" && head -2 /app/package-lock.json
 RUN npm ci --legacy-peer-deps
 COPY next.config.ts tsconfig.json postcss.config.mjs ./
 COPY src/app/ src/app/
