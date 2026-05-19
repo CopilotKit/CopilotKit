@@ -190,9 +190,7 @@ function mergeFrameworkNav(
   // framework-scoped one. Drop the root-level intro and substitute the
   // framework's introNode in its place; otherwise splice the framework
   // introNode into the Get Started section as a fallback.
-  const rootHasIntro = rootNav.some(
-    (n) => n.type === "page" && n.slug === "",
-  );
+  const rootHasIntro = rootNav.some((n) => n.type === "page" && n.slug === "");
   const rootNavWithIntro = (() => {
     if (!introNode) return rootNav;
     if (rootHasIntro) {

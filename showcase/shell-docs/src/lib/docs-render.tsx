@@ -193,9 +193,7 @@ export type MetaPageEntry =
       icon?: string;
     };
 
-export function readMeta(
-  dir: string,
-): {
+export function readMeta(dir: string): {
   title?: string;
   pages?: MetaPageEntry[];
   root?: boolean;
@@ -352,7 +350,12 @@ function parseMetaPages(
       // handles the final framework-scoped rewrite separately.
       const indexSlug = prefix ? slug : "";
       const icon = fs.existsSync(mdxFile) ? readIcon(mdxFile) : null;
-      nodes.push({ type: "page", title, slug: indexSlug, icon: icon ?? undefined });
+      nodes.push({
+        type: "page",
+        title,
+        slug: indexSlug,
+        icon: icon ?? undefined,
+      });
       continue;
     }
 

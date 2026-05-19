@@ -107,7 +107,9 @@ export function SearchTrigger({
           />
         </svg>
 
-        <span className="hidden flex-1 text-left text-sm font-medium lg:block">Search...</span>
+        <span className="hidden flex-1 text-left text-sm font-medium lg:block">
+          Search...
+        </span>
 
         <span
           className="hidden xl:inline-flex items-center justify-center font-mono text-[11px] border border-[var(--border)] px-1.5 py-0.5 rounded text-[var(--text-faint)] bg-[var(--bg-surface)]"

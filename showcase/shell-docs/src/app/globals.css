@@ -60,7 +60,9 @@
  * child contains the iconLinks + theme-toggle row (children: real
  * anchors + a button), so this selector deliberately doesn't apply
  * there. */
-.shell-docs-sidebar > div:first-child > .flex:first-child:has(> a:only-child:empty) {
+.shell-docs-sidebar
+  > div:first-child
+  > .flex:first-child:has(> a:only-child:empty) {
   display: none !important;
 }
 
@@ -173,7 +175,9 @@ figure.shiki,
   box-shadow: none !important;
 }
 .dark figure.shiki,
-.dark .docs-inner-content [data-orientation="horizontal"]:has(> [role="tablist"]) {
+.dark
+  .docs-inner-content
+  [data-orientation="horizontal"]:has(> [role="tablist"]) {
   background-color: #1a1d1f !important;
 }
 /* Fumadocs's figcaption header ("page.tsx" strip) uses `border-b` which
