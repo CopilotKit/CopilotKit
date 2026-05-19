@@ -10,13 +10,13 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@copilotkit/a2ui-renderer": "1.56.5",
-    "@copilotkit/react-core": "1.56.5",
-    "@copilotkit/react-ui": "1.56.5",
-    "@copilotkit/runtime": "1.56.5",
-    "@copilotkit/sdk-js": "1.56.5",
-    "@copilotkit/shared": "1.56.5",
-    "@copilotkit/voice": "1.56.5",
+    "@copilotkit/a2ui-renderer": "1.57.2",
+    "@copilotkit/react-core": "1.57.2",
+    "@copilotkit/react-ui": "1.57.2",
+    "@copilotkit/runtime": "1.57.2",
+    "@copilotkit/sdk-js": "1.57.2",
+    "@copilotkit/shared": "1.57.2",
+    "@copilotkit/voice": "1.57.2",
     "@hashbrownai/core": "0.5.0-beta.4",
     "@hashbrownai/react": "0.5.0-beta.4",
     "@json-render/core": "0.18.0",
@@ -56,6 +56,9 @@
     "typescript": "^5.7.0"
   },
   "overrides": {
-    "@ag-ui/langgraph": "0.0.32"
+    "@ag-ui/langgraph": "0.0.32",
+    "@copilotkit/web-inspector": {
+      "@copilotkit/core": "1.57.2"
+    }
   }
 }
