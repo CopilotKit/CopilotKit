@@ -54,6 +54,13 @@ cmd_build() {
   trap restore_symlinks EXIT
   stage_shared
   $COMPOSE_CMD build "$@"
+  # Reclaim BuildKit cache layers left behind by interrupted builds. WSL2's
+  # docker_data.vhdx grows monotonically and never shrinks until `wsl
+  # --shutdown` + `Optimize-VHD`, so dangling cache from a build crashed
+  # mid-stream (e.g. by host OOM) accumulates and can balloon the VHDX into
+  # the hundreds of GB on Windows. 24h window keeps the warm cache for
+  # day-of work while reaping older orphans.
+  docker builder prune --filter "until=24h" -f >/dev/null 2>&1 || true
 }
 
 cmd_ps() {
