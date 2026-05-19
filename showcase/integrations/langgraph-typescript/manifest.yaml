@@ -40,8 +40,8 @@ features:
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
   - tool-rendering-reasoning-chain
-  - agentic-chat-reasoning
-  - reasoning-default-render
+  - reasoning-custom
+  - reasoning-default
   - gen-ui-agent
   - beautiful-chat
   - prebuilt-sidebar
@@ -340,20 +340,27 @@ demos:
       - generative-ui
     route: /demos/tool-rendering-reasoning-chain
     animated_preview_url:
-  - id: agentic-chat-reasoning
-    name: Reasoning
+  - id: reasoning-custom
+    name: "Reasoning: Custom"
     description: Visible reasoning/thinking chain alongside the final answer
     tags:
-      - generative-ui
-    route: /demos/agentic-chat-reasoning
+      - chat-ui
+    route: /demos/reasoning-custom
     animated_preview_url:
-  - id: reasoning-default-render
-    name: Reasoning (Default Render)
-    description: Built-in CopilotChatReasoningMessage renders without a custom slot
+    highlight:
+      - src/app/demos/reasoning-custom/page.tsx
+      - src/app/demos/reasoning-custom/reasoning-block.tsx
+      - src/app/demos/reasoning-custom/suggestions.ts
+  - id: reasoning-default
+    name: "Reasoning: Default"
+    description: Built-in CopilotChatReasoningMessage rendering with no slot override.
     tags:
-      - generative-ui
-    route: /demos/reasoning-default-render
+      - chat-ui
+    route: /demos/reasoning-default
     animated_preview_url:
+    highlight:
+      - src/app/demos/reasoning-default/page.tsx
+      - src/app/demos/reasoning-default/suggestions.ts
   - id: gen-ui-interrupt
     name: In-Chat HITL (useInterrupt — low-level primitive)
     description: Interactive component rendered inline in the chat via the lower-level `useInterrupt` primitive — direct control over the LangGraph interrupt lifecycle
