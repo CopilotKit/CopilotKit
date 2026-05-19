@@ -106,4 +106,18 @@ import RunAndConnect from "@/snippets/integrations/langgraph/run-and-connect.mdx
     const refs = extractMdxReferences(mdx);
     expect(refs.components).toEqual([]);
   });
+
+  it("ignores JSX inside fenced code blocks", () => {
+    const mdx = `# Page
+Here is some prose with <Real />.
+
+\`\`\`tsx
+<FakeFromCodeSample />
+\`\`\`
+
+More prose with <AnotherReal />.`;
+    const refs = extractMdxReferences(mdx);
+    expect(refs.components).toEqual(["AnotherReal", "Real"]);
+    expect(refs.components).not.toContain("FakeFromCodeSample");
+  });
 });

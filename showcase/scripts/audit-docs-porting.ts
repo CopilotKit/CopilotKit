@@ -87,23 +87,28 @@ export interface MdxReferences {
 const JSX_TAG_RE = /<([A-Z][A-Za-z0-9]*)\b/g;
 const IMPORT_RE =
   /^\s*import\s+[^"';]+from\s+["']([^"']+)["']\s*;?\s*$/gm;
+const FENCED_CODE_RE = /```[\s\S]*?```/g;
 
 export function extractMdxReferences(mdx: string): MdxReferences {
+  // Strip fenced code blocks first so JSX in code samples doesn't get
+  // counted as a real component reference.
+  const stripped = mdx.replace(FENCED_CODE_RE, "");
+
   const components = new Set<string>();
   let m: RegExpExecArray | null;
   JSX_TAG_RE.lastIndex = 0;
-  while ((m = JSX_TAG_RE.exec(mdx)) !== null) {
+  while ((m = JSX_TAG_RE.exec(stripped)) !== null) {
     components.add(m[1]);
   }
 
-  const snippetImports: string[] = [];
+  const snippetImports = new Set<string>();
   IMPORT_RE.lastIndex = 0;
-  while ((m = IMPORT_RE.exec(mdx)) !== null) {
-    snippetImports.push(m[1]);
+  while ((m = IMPORT_RE.exec(stripped)) !== null) {
+    snippetImports.add(m[1]);
   }
 
   return {
     components: [...components].sort(),
-    snippetImports,
+    snippetImports: [...snippetImports],
   };
 }
