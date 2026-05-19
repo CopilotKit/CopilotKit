@@ -1,2 +1,3 @@
 audit-output/*.json
+audit-output/*.baseline.txt
 verify-baseline.txt
