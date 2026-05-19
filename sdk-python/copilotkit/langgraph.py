@@ -369,10 +369,7 @@ async def copilotkit_emit_message(config: RunnableConfig, message: str):
         {"message": message, "message_id": str(uuid.uuid4()), "role": "assistant"},
         config=config,
     )
-    try:
-        await asyncio.shield(asyncio.sleep(0.02))
-    except asyncio.CancelledError:
-        raise
+    await asyncio.shield(asyncio.sleep(0.02))
 
     return True
 

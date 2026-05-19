@@ -10,8 +10,6 @@ from .agent import Agent, AgentDict
 from .action import Action, ActionDict, ActionResultDict
 from .types import Message, MetaEvent
 from .exc import (
-    CopilotKitError,
-    CopilotKitMisuseError,
     ActionNotFoundException,
     AgentNotFoundException,
     ActionExecutionException,
