@@ -33,10 +33,7 @@
 
 import { z } from "zod";
 import { tool } from "@langchain/core/tools";
-import {
-  AIMessage,
-  SystemMessage,
-} from "@langchain/core/messages";
+import { AIMessage, SystemMessage } from "@langchain/core/messages";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import {
   MemorySaver,
@@ -177,9 +174,8 @@ const generateA2uiTool = tool(
 
     const messages = state.messages ?? [];
     const copilotkit = state.copilotkit ?? {};
-    const contextEntries = (
-      (copilotkit as Record<string, unknown>).context ?? []
-    ) as Array<Record<string, unknown>>;
+    const contextEntries = ((copilotkit as Record<string, unknown>).context ??
+      []) as Array<Record<string, unknown>>;
 
     const contextText = contextEntries
       .map((entry) =>
@@ -247,13 +243,12 @@ const generateA2uiTool = tool(
         typeof msg._getType === "function" ? msg._getType() : msg.type;
       if (msgType === "tool") return false;
       if (msgType === "ai") {
-        const hasToolCalls =
-          (msg.tool_calls as unknown[] | undefined)?.length
-            ? (msg.tool_calls as unknown[]).length > 0
-            : false;
-        const addlToolCalls = (
-          msg.additional_kwargs?.tool_calls as unknown[] | undefined
-        );
+        const hasToolCalls = (msg.tool_calls as unknown[] | undefined)?.length
+          ? (msg.tool_calls as unknown[]).length > 0
+          : false;
+        const addlToolCalls = msg.additional_kwargs?.tool_calls as
+          | unknown[]
+          | undefined;
         const hasAddlToolCalls = addlToolCalls
           ? addlToolCalls.length > 0
           : false;
@@ -282,10 +277,7 @@ const generateA2uiTool = tool(
       });
     }
 
-    const args = (response.tool_calls[0].args ?? {}) as Record<
-      string,
-      unknown
-    >;
+    const args = (response.tool_calls[0].args ?? {}) as Record<string, unknown>;
     const surfaceId = (args.surfaceId as string) ?? "dynamic-surface";
     // Force the canonical catalog ID — the secondary LLM has been observed
     // hallucinating IDs from sibling demos when context is sparse.
@@ -297,8 +289,7 @@ const generateA2uiTool = tool(
 
     if (!hasRootComponent(components)) {
       return JSON.stringify({
-        error:
-          "LLM produced no valid root component for the A2UI surface.",
+        error: "LLM produced no valid root component for the A2UI surface.",
       });
     }
 
@@ -386,10 +377,7 @@ function shouldContinue({ messages, copilotkit }: AgentState) {
 
 const workflow = new StateGraph(AgentStateAnnotation)
   .addNode("chat_node", chatNode)
-  .addNode(
-    "tool_node",
-    stateAwareToolNode as unknown as typeof chatNode,
-  )
+  .addNode("tool_node", stateAwareToolNode as unknown as typeof chatNode)
   .addEdge(START, "chat_node")
   .addEdge("tool_node", "chat_node")
   .addConditionalEdges(

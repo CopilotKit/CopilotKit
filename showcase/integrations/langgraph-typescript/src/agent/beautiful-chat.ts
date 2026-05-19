@@ -26,7 +26,11 @@ import { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
 import type { ToolRunnableConfig } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
-import { AIMessage, SystemMessage, ToolMessage } from "@langchain/core/messages";
+import {
+  AIMessage,
+  SystemMessage,
+  ToolMessage,
+} from "@langchain/core/messages";
 import {
   Annotation,
   Command,

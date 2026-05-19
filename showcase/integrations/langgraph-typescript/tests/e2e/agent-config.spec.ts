@@ -133,9 +133,9 @@ test.describe("Agent Config Object", () => {
     // Wait for the chat to finish processing (data-copilot-running="false")
     // before attempting the second send — some backends finalize the SSE
     // stream slightly after the assistant message is rendered.
-    await expect(
-      page.locator('[data-copilot-running="false"]'),
-    ).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('[data-copilot-running="false"]')).toBeVisible({
+      timeout: 15000,
+    });
 
     const firstCount = requestBodies.length;
 
