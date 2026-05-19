@@ -1647,10 +1647,9 @@
       }
     },
     {
-      "_comment": "hitl-in-app — refund pill (#12345). 1st turn: emit request_user_approval tool call. Explicit hasToolResult: false so we never re-emit after the user clicks the approval (the toolCallId-keyed entry above wins instead).",
+      "_comment": "hitl-in-app — refund pill (#12345). 1st turn: emit request_user_approval tool call. The post-tool-result fixture above (with toolCallId + hasToolResult: true) is more specific and wins on the 2nd turn, so hasToolResult: false is NOT needed here — omitting it allows this fixture to match even in multi-pill conversations where prior tool results exist.",
       "match": {
-        "userMessage": "$50 refund to Jordan Rivera on ticket #12345",
-        "hasToolResult": false
+        "userMessage": "$50 refund to Jordan Rivera on ticket #12345"
       },
       "response": {
         "toolCalls": [
@@ -1674,10 +1673,9 @@
       }
     },
     {
-      "_comment": "hitl-in-app — downgrade pill (#12346). 1st turn: emit request_user_approval tool call. Specific userMessage substring takes precedence over the bare 'plan' fixture in feature-parity.json (which lives later in the load order).",
+      "_comment": "hitl-in-app — downgrade pill (#12346). 1st turn: emit request_user_approval tool call. Specific userMessage substring takes precedence over the bare 'plan' fixture in feature-parity.json (which lives later in the load order). hasToolResult: false omitted so multi-pill conversations still match.",
       "match": {
-        "userMessage": "downgrade Priya Shah (#12346) to the Starter plan",
-        "hasToolResult": false
+        "userMessage": "downgrade Priya Shah (#12346) to the Starter plan"
       },
       "response": {
         "toolCalls": [
@@ -1701,10 +1699,9 @@
       }
     },
     {
-      "_comment": "hitl-in-app — escalate pill (#12347). 1st turn: emit request_user_approval tool call.",
+      "_comment": "hitl-in-app — escalate pill (#12347). 1st turn: emit request_user_approval tool call. hasToolResult: false omitted so multi-pill conversations still match (the post-tool-result fixture above with toolCallId is more specific and wins on the 2nd turn).",
       "match": {
-        "userMessage": "escalate ticket #12347 to the payments team",
-        "hasToolResult": false
+        "userMessage": "escalate ticket #12347 to the payments team"
       },
       "response": {
         "toolCalls": [

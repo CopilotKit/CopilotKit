@@ -410,6 +410,15 @@
       }
     },
     {
+      "_comment": "shared-state-read — e2e test sends 'What recipe am I making?' via the sidebar. The agent reads the shared recipe state (title, ingredients, instructions) and responds with a summary.",
+      "match": {
+        "userMessage": "What recipe am I making"
+      },
+      "response": {
+        "content": "Based on your current recipe state, you're making **Make Your Recipe** — a dish featuring carrots (3 large, grated) and all-purpose flour (2 cups). The first instruction is to preheat the oven to 350°F (175°C). It looks like a carrot-based bake, perhaps a carrot cake or savory carrot bread. Would you like me to suggest more ingredients or steps?"
+      }
+    },
+    {
       "_comment": "Subagents pill 1 — 'Write a blog post' / cold exposure training. Drives supervisor → research_agent → writing_agent → critique_agent → final reply, plus three nested sub-agent turns. Mirrors d5-all.json content so production aimock (which loads feature-parity.json + d5-all.json) serves the same chain regardless of which file wins first-match.",
       "match": {
         "userMessage": "Produce a short blog post about the benefits of cold exposure training",
