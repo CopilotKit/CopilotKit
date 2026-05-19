@@ -139,10 +139,14 @@ async function main() {
     if (fs.existsSync(v1Dir)) {
       const v1Pages = glob.sync("**/*.mdx", { cwd: v1Dir });
       for (const rel of v1Pages) {
-        const content = fs.readFileSync(path.join(v1Dir, rel), "utf-8");
-        const refs = extractMdxReferences(content);
-        refs.components.forEach((c) => allComponents.add(c));
-        refs.snippetImports.forEach((s) => allSnippetImports.add(s));
+        try {
+          const content = fs.readFileSync(path.join(v1Dir, rel), "utf-8");
+          const refs = extractMdxReferences(content);
+          refs.components.forEach((c) => allComponents.add(c));
+          refs.snippetImports.forEach((s) => allSnippetImports.add(s));
+        } catch (e) {
+          console.warn(`Skipping ${slug}/${rel}: ${(e as Error).message}`);
+        }
       }
     }
 
