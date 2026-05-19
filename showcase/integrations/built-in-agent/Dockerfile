@@ -7,9 +7,7 @@
 # Stage 1: Build Next.js
 FROM node:22-slim AS builder
 WORKDIR /app
-COPY package.json ./
-COPY package-lock.json ./
-RUN ls -la /app/ && echo "--lockfile head--" && head -2 /app/package-lock.json
+COPY package.json package-lock.json ./
 RUN npm ci --legacy-peer-deps
 COPY . .
 RUN npx next build
