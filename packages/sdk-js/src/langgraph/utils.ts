@@ -317,7 +317,13 @@ export async function copilotkitEmitToolCall(
    * The arguments to emit.
    */
   args: any,
-) {
+  /**
+   * Optional tool call ID. If not provided, a random ID is generated.
+   * When provided, this ID is used as the toolCallId in AG-UI protocol events.
+   * The caller is responsible for ensuring uniqueness.
+   */
+  id?: string,
+): Promise<string> {
   if (!config) {
     throw new CopilotKitMisuseError({
       message: "LangGraph configuration is required for copilotkitEmitToolCall",
@@ -337,10 +343,12 @@ export async function copilotkitEmitToolCall(
     });
   }
 
+  const toolCallId = id ?? randomId();
+
   try {
     await dispatchCustomEvent(
       "copilotkit_manually_emit_tool_call",
-      { name, args, id: randomId() },
+      { name, args, id: toolCallId },
       config,
     );
   } catch (error) {
@@ -348,6 +356,8 @@ export async function copilotkitEmitToolCall(
       message: `Failed to emit tool call '${name}': ${error instanceof Error ? error.message : String(error)}`,
     });
   }
+
+  return toolCallId;
 }
 
 export function convertActionToDynamicStructuredTool(

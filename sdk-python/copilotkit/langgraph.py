@@ -374,8 +374,12 @@ async def copilotkit_emit_message(config: RunnableConfig, message: str):
 
 
 async def copilotkit_emit_tool_call(
-    config: RunnableConfig, *, name: str, args: Dict[str, Any]
-):
+    config: RunnableConfig,
+    *,
+    name: str,
+    args: Dict[str, Any],
+    id: Optional[str] = None,
+) -> str:
     """
     Manually emits a tool call to CopilotKit.
 
@@ -383,6 +387,9 @@ async def copilotkit_emit_tool_call(
     from copilotkit.langgraph import copilotkit_emit_tool_call
 
     await copilotkit_emit_tool_call(config, name="SearchTool", args={"steps": 10})
+
+    # With a custom ID for correlation/idempotency:
+    await copilotkit_emit_tool_call(config, name="SearchTool", args={"steps": 10}, id="my-custom-id")
     ```
 
     Parameters
@@ -393,21 +400,26 @@ async def copilotkit_emit_tool_call(
         The name of the tool to emit.
     args : Dict[str, Any]
         The arguments to emit.
+    id : Optional[str]
+        Optional tool call ID. If not provided, a random UUID is generated.
+        When provided, this ID is used as the toolCallId in AG-UI protocol events.
+        The caller is responsible for ensuring uniqueness.
 
     Returns
     -------
-    Awaitable[bool]
-        Always return True.
+    str
+        The tool call ID used for the emitted tool call.
     """
+    tool_call_id = id if id is not None else str(uuid.uuid4())
 
     await adispatch_custom_event(
         "copilotkit_manually_emit_tool_call",
-        {"name": name, "args": args, "id": str(uuid.uuid4())},
+        {"name": name, "args": args, "id": tool_call_id},
         config=config,
     )
     await asyncio.sleep(0.02)
 
-    return True
+    return tool_call_id
 
 
 def copilotkit_interrupt(
