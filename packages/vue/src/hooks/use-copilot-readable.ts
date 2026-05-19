@@ -17,6 +17,16 @@ export interface UseCopilotReadableOptions {
   available?: "enabled" | "disabled";
   /** Custom conversion function to serialize the value to a string. */
   convert?: (description: string, value: unknown) => string;
+  /**
+   * Parent context ID for hierarchical context nesting.
+   * Accepted for React v1 API parity; not currently forwarded.
+   */
+  parentId?: string;
+  /**
+   * Category tags for context filtering.
+   * Accepted for React v1 API parity; not currently forwarded.
+   */
+  categories?: string[];
 }
 
 export function useCopilotReadable(

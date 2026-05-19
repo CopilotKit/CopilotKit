@@ -34,7 +34,10 @@ export interface FrontendAction<T extends Parameter[] | [] = []> {
   parameters?: T;
   handler?: (args: MappedParameterTypes<T>) => unknown | Promise<unknown>;
   followUp?: boolean;
+  /** @deprecated Use `available` instead. */
+  disabled?: boolean;
   available?: "disabled" | "enabled" | "remote" | "frontend";
+  pairedAction?: string;
   render?: VueFrontendTool<MappedParameterTypes<T>>["render"];
   renderAndWaitForResponse?: VueFrontendTool<MappedParameterTypes<T>>["render"];
   renderAndWait?: VueFrontendTool<MappedParameterTypes<T>>["render"];
