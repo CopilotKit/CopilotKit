@@ -224,10 +224,19 @@ class TestLangGraphEmitToolCallOptionalId:
                     task.cancel()
                     await original_sleep(0)
 
-                with patch("copilotkit.langgraph.asyncio.sleep", side_effect=_cancel_during_sleep):
-                    with patch("copilotkit.langgraph.asyncio.shield", side_effect=lambda coro: coro):
+                with patch(
+                    "copilotkit.langgraph.asyncio.sleep",
+                    side_effect=_cancel_during_sleep,
+                ):
+                    with patch(
+                        "copilotkit.langgraph.asyncio.shield",
+                        side_effect=lambda coro: coro,
+                    ):
                         return await copilotkit_emit_tool_call(
-                            config, name="CancelTool", args={}, tool_call_id="cancel-test-id"
+                            config,
+                            name="CancelTool",
+                            args={},
+                            tool_call_id="cancel-test-id",
                         )
 
             with pytest.raises(asyncio.CancelledError):
@@ -249,11 +258,19 @@ class TestLangGraphEmitToolCallOptionalId:
                 raise asyncio.CancelledError()
 
             with caplog.at_level(logging.WARNING, logger="copilotkit.langgraph"):
-                with patch("copilotkit.langgraph.asyncio.sleep", side_effect=_cancel_sleep):
-                    with patch("copilotkit.langgraph.asyncio.shield", side_effect=lambda coro: coro):
+                with patch(
+                    "copilotkit.langgraph.asyncio.sleep", side_effect=_cancel_sleep
+                ):
+                    with patch(
+                        "copilotkit.langgraph.asyncio.shield",
+                        side_effect=lambda coro: coro,
+                    ):
                         with pytest.raises(asyncio.CancelledError):
                             await copilotkit_emit_tool_call(
-                                config, name="Tool", args={}, tool_call_id="log-cancel-id"
+                                config,
+                                name="Tool",
+                                args={},
+                                tool_call_id="log-cancel-id",
                             )
 
             assert any("log-cancel-id" in record.message for record in caplog.records)

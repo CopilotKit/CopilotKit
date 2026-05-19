@@ -356,6 +356,8 @@ describe("copilotkitEmitToolCall", () => {
     mockedDispatch.mockRejectedValueOnce(new Error("transport closed"));
     await expect(
       copilotkitEmitToolCall(mockConfig, "SearchTool", {}),
-    ).rejects.toThrow(/copilotkitEmitToolCall dispatch failed.*SearchTool.*transport closed/);
+    ).rejects.toThrow(
+      /copilotkitEmitToolCall dispatch failed.*SearchTool.*transport closed/,
+    );
   });
 });
