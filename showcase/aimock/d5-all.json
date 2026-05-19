@@ -2284,7 +2284,7 @@
         "toolCalls": [
           {
             "name": "generate_a2ui",
-            "arguments": {},
+            "arguments": "{\"context\":\"KPI dashboard\"}",
             "id": "call_d5_a2ui_dynamic_kpi_001"
           }
         ]
@@ -2323,7 +2323,7 @@
         "toolCalls": [
           {
             "name": "generate_a2ui",
-            "arguments": {},
+            "arguments": "{\"context\":\"pie chart of sales by region\"}",
             "id": "call_d5_a2ui_dynamic_pie_001"
           }
         ]
@@ -2362,7 +2362,7 @@
         "toolCalls": [
           {
             "name": "generate_a2ui",
-            "arguments": {},
+            "arguments": "{\"context\":\"bar chart of quarterly revenue\"}",
             "id": "call_d5_a2ui_dynamic_bar_001"
           }
         ]
@@ -2401,7 +2401,7 @@
         "toolCalls": [
           {
             "name": "generate_a2ui",
-            "arguments": {},
+            "arguments": "{\"context\":\"status report on system health\"}",
             "id": "call_d5_a2ui_dynamic_status_001"
           }
         ]

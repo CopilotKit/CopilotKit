@@ -1,10 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 // The agent backend runs as a separate process on port 8000.
 // This runtime proxies CopilotKit requests to it via AG-UI protocol.
@@ -26,10 +28,7 @@ const agentNames = [
   "agentic_chat",
   "human_in_the_loop",
   "tool-rendering",
-  "gen-ui-agent",
   "shared-state-read",
-  "shared-state-write",
-  "shared-state-streaming",
   "prebuilt-sidebar",
   "prebuilt-popup",
   "chat-slots",
@@ -41,7 +40,6 @@ const agentNames = [
   // Aliases for ADK/LGP-style underscore names (frontend pages use these).
   "frontend_tools",
   "frontend_tools_async",
-  "readonly-state-agent-context",
 ];
 
 // Agent names routed to the interrupt-adapted scheduling backend. Both
@@ -69,15 +67,29 @@ agents["hitl-in-app"] = createAgent("/hitl-in-app");
 
 // In-Chat HITL -- frontend-defined `book_call` tool rendered inline in the
 // chat via `useHumanInTheLoop`. Backend agent has tools=[] and routes to
-// /hitl-in-chat on the FastAPI backend. The booking-flow alias
-// (`hitl-in-chat-booking`) reuses the same backend.
+// /hitl-in-chat on the FastAPI backend.
 agents["hitl-in-chat"] = createAgent("/hitl-in-chat");
-agents["hitl-in-chat-booking"] = createAgent("/hitl-in-chat");
+
+// Generative UI Agent — backend with `set_steps` tool + `steps` state
+// schema mirrored from LGP's gen_ui_agent. The frontend renders a live
+// progress card subscribed to `agent.state.steps`.
+agents["gen-ui-agent"] = createAgent("/gen-ui-agent");
 
 // Tool-Based Generative UI -- frontend registers `render_bar_chart` and
 // `render_pie_chart` via `useComponent`; backend agent has tools=[] and a
 // system prompt that picks the right chart type for the user's request.
 agents["gen-ui-tool-based"] = createAgent("/gen-ui-tool-based");
+
+// Shared State (Streaming) — `write_document` tool with `predict_state_config`
+// that streams the tool's `document` arg into `state.document` per-token.
+// See `src/agents/shared_state_streaming.py`.
+agents["shared-state-streaming"] = createAgent("/shared-state-streaming");
+
+// Readonly state via `useAgentContext` — minimal agent, no tools, reads
+// frontend-provided context entries on every turn.
+agents["readonly-state-agent-context"] = createAgent(
+  "/readonly-state-agent-context",
+);
 
 // Shared State (Read + Write) — bidirectional state via state_schema +
 // state_update. Backend exposes a dedicated agent at /shared-state-read-write
@@ -96,12 +108,23 @@ agents["default"] = createAgent();
 // mounted at /tool-rendering-reasoning-chain on the Python backend. All
 // three cells call the same agent; they differ only in how the frontend
 // renders tool calls.
-agents["tool-rendering-default-catchall"] = createAgent(
-  "/tool-rendering-reasoning-chain",
-);
-agents["tool-rendering-custom-catchall"] = createAgent(
-  "/tool-rendering-reasoning-chain",
-);
+// Reasoning cells (`reasoning-default` + `reasoning-custom`) share a
+// dedicated backend mounted at `/reasoning` that uses the OpenAI Responses
+// API (gpt-5/o-series) — the only chat client that emits AG-UI
+// `REASONING_MESSAGE_*` events. See `src/agents/reasoning_agent.py`.
+agents["reasoning-default"] = createAgent("/reasoning");
+agents["reasoning-custom"] = createAgent("/reasoning");
+
+// Tool-rendering demos — the plain `tool-rendering` cell and the two
+// catchall variants share a non-reasoning backend (mounted at
+// `/tool-rendering`). The reasoning-chain cell has its own dedicated
+// backend (mounted at `/tool-rendering-reasoning-chain`) that routes
+// through OpenAI's Responses API for reasoning streaming; mixing
+// reasoning blocks into the catchall renderers breaks the
+// default-catchall cell's spec.
+agents["tool-rendering"] = createAgent("/tool-rendering");
+agents["tool-rendering-default-catchall"] = createAgent("/tool-rendering");
+agents["tool-rendering-custom-catchall"] = createAgent("/tool-rendering");
 agents["tool-rendering-reasoning-chain"] = createAgent(
   "/tool-rendering-reasoning-chain",
 );

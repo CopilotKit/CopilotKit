@@ -104,23 +104,64 @@ def search_flights(
 )
 def get_stock_price(
     ticker: Annotated[str, Field(description="Stock ticker symbol, e.g. AAPL.")],
+    price_usd: Annotated[
+        float | None,
+        Field(default=None, description="Deterministic price; None = random."),
+    ] = None,
+    change_pct: Annotated[
+        float | None,
+        Field(default=None, description="Deterministic change percent; None = random."),
+    ] = None,
 ) -> str:
-    """Return mock stock price data as JSON."""
+    """Return mock stock price data as JSON.
+
+    Mirrors the LangGraph reference's deterministic-`value` pattern: when
+    `price_usd` / `change_pct` are supplied by the aimock fixture, the
+    tool echoes them back verbatim so the e2e spec can assert on a fixed
+    quote. When omitted, the tool returns mock random values.
+    """
     return json.dumps(
         {
             "ticker": ticker.upper(),
-            "price_usd": round(100 + randint(0, 400) + randint(0, 99) / 100, 2),
-            "change_pct": round(choice([-1, 1]) * (randint(0, 300) / 100), 2),
+            "price_usd": (
+                round(float(price_usd), 2)
+                if price_usd is not None
+                else round(100 + randint(0, 400) + randint(0, 99) / 100, 2)
+            ),
+            "change_pct": (
+                round(float(change_pct), 2)
+                if change_pct is not None
+                else round(choice([-1, 1]) * (randint(0, 300) / 100), 2)
+            ),
         }
     )
 
 
 @tool(
+    name="roll_d20",
+    description=(
+        "Roll a 20-sided die. The `value` argument lets the aimock fixture "
+        "script a deterministic roll for testing — when provided in the "
+        "valid range [1, 20], it is echoed back as the result; otherwise "
+        "a random natural d20 is rolled. Mirrors the LangGraph reference."
+    ),
+)
+def roll_d20(
+    value: Annotated[
+        int,
+        Field(description="Deterministic roll value [1..20]; 0 = random."),
+    ] = 0,
+) -> str:
+    """Return a mock d20 roll as JSON, mirroring the LangGraph signature."""
+    rolled = value if isinstance(value, int) and 1 <= value <= 20 else randint(1, 20)
+    return json.dumps({"sides": 20, "value": rolled, "result": rolled})
+
+
+@tool(
     name="roll_dice",
     description=(
-        "Roll a single die with the given number of sides. Consider "
-        "rolling twice with different sides so the reply can show a "
-        "contrast."
+        "Compat alias for `roll_d20`. Some fixtures call `roll_dice` with "
+        "a `sides` arg; we route those to a d20 roll for compatibility."
     ),
 )
 def roll_dice(
@@ -167,7 +208,7 @@ def create_tool_rendering_reasoning_chain_agent(
         client=chat_client,
         name="tool_rendering_reasoning_chain_agent",
         instructions=SYSTEM_PROMPT,
-        tools=[get_weather, search_flights, get_stock_price, roll_dice],
+        tools=[get_weather, search_flights, get_stock_price, roll_d20, roll_dice],
     )
 
     return AgentFrameworkAgent(
