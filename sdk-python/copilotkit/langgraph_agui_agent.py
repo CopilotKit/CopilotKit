@@ -183,7 +183,8 @@ class LangGraphAGUIAgent(LangGraphAgent):
                         except Exception as close_err:
                             logger.error(
                                 "Failed to emit compensating TOOL_CALL_END for %s: %s",
-                                tool_call_id, close_err,
+                                tool_call_id,
+                                close_err,
                             )
                     raise
                 return super()._dispatch_event(event)

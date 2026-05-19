@@ -296,9 +296,7 @@ class TestCrewAIEmitToolCallOptionalId:
     @pytest.mark.asyncio
     async def test_none_id_generates_uuid(self):
         """Explicitly passing tool_call_id=None should behave the same as omitting it."""
-        with patch(
-            "copilotkit.crewai.crewai_sdk.queue_put", new_callable=AsyncMock
-        ):
+        with patch("copilotkit.crewai.crewai_sdk.queue_put", new_callable=AsyncMock):
             from copilotkit.crewai.crewai_sdk import copilotkit_emit_tool_call
 
             result = await copilotkit_emit_tool_call(
@@ -498,7 +496,9 @@ class TestAGUIDispatchValidation:
             name=CustomEventNames.ManuallyEmitToolCall.value,
             value={"id": "valid-id", "name": "Tool"},
         )
-        with pytest.raises(CopilotKitMisuseError, match="must be a dict or pre-serialized"):
+        with pytest.raises(
+            CopilotKitMisuseError, match="must be a dict or pre-serialized"
+        ):
             agent._dispatch_event(event)
 
     def test_non_serializable_args_raises(self, agent):
@@ -508,7 +508,9 @@ class TestAGUIDispatchValidation:
             name=CustomEventNames.ManuallyEmitToolCall.value,
             value={"id": "valid-id", "name": "Tool", "args": {1, 2, 3}},
         )
-        with pytest.raises(CopilotKitMisuseError, match="must be a dict or pre-serialized"):
+        with pytest.raises(
+            CopilotKitMisuseError, match="must be a dict or pre-serialized"
+        ):
             agent._dispatch_event(event)
 
     def test_non_dict_value_raises(self, agent):
@@ -528,7 +530,9 @@ class TestAGUIDispatchValidation:
             name=CustomEventNames.ManuallyEmitToolCall.value,
             value={"id": "valid-id", "name": "Tool", "args": [1, 2, 3]},
         )
-        with pytest.raises(CopilotKitMisuseError, match="must be a dict or pre-serialized"):
+        with pytest.raises(
+            CopilotKitMisuseError, match="must be a dict or pre-serialized"
+        ):
             agent._dispatch_event(event)
 
     def test_int_args_raises(self, agent):
@@ -538,5 +542,7 @@ class TestAGUIDispatchValidation:
             name=CustomEventNames.ManuallyEmitToolCall.value,
             value={"id": "valid-id", "name": "Tool", "args": 42},
         )
-        with pytest.raises(CopilotKitMisuseError, match="must be a dict or pre-serialized"):
+        with pytest.raises(
+            CopilotKitMisuseError, match="must be a dict or pre-serialized"
+        ):
             agent._dispatch_event(event)
