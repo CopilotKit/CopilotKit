@@ -3003,48 +3003,6 @@
         "toolsHash": "686e39e9"
       },
       "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T22-01-35-344Z-6ea6b18a.json"
-    },
-    {
-      "match": {
-        "userMessage": "intro call with the sales team",
-        "toolName": "book_call",
-        "hasToolResult": false
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "name": "book_call",
-            "arguments": "{\"topic\":\"Intro with sales\",\"attendee\":\"User\"}",
-            "id": "call_jisCjcR5jdyQQ0JHJXhjqUlm"
-          }
-        ]
-      },
-      "metadata": {
-        "systemHash": "72621894",
-        "toolsHash": "7c3b6590"
-      },
-      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T22-01-44-366Z-ec8eaa56.json"
-    },
-    {
-      "match": {
-        "userMessage": "1:1 with Alice",
-        "toolName": "book_call",
-        "hasToolResult": false
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "name": "book_call",
-            "arguments": "{\"topic\":\"Review Q2 goals\",\"attendee\":\"Alice\"}",
-            "id": "call_xwbY36SO2wpay1F9cHCUuQGx"
-          }
-        ]
-      },
-      "metadata": {
-        "systemHash": "72621894",
-        "toolsHash": "7c3b6590"
-      },
-      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T22-02-33-401Z-bb9eb9db.json"
     }
   ]
 }
