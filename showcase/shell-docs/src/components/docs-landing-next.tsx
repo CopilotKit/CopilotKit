@@ -20,7 +20,7 @@ import { useFramework } from "./framework-provider";
 import { StoredFrameworkHighlight } from "./stored-framework-highlight";
 import { FrameworkLogo } from "./icons/framework-icons";
 import { compareByDisplayOrder } from "@/lib/framework-order";
-import { getIntegration, getIntegrations } from "@/lib/registry";
+import { getDocsMode, getIntegration, getIntegrations } from "@/lib/registry";
 
 function FrameworkPicker({
   heading,
@@ -36,7 +36,11 @@ function FrameworkPicker({
   // Emerging") read as a tier list and we've dropped them in favour
   // of one flat, neutral grid.
   const integrations = getIntegrations()
-    .filter((i) => i.slug !== "built-in-agent")
+    // `docs_mode: hidden` frameworks have no docs page — surfacing them
+    // here would link straight to a 404.
+    .filter(
+      (i) => i.slug !== "built-in-agent" && getDocsMode(i.slug) !== "hidden",
+    )
     .slice()
     .sort((a, b) => compareByDisplayOrder(a.slug, b.slug));
 

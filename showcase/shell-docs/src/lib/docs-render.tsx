@@ -545,6 +545,46 @@ export function buildFrameworkOverridesNav(folder: string): NavNode[] {
 }
 
 /**
+ * Build a sidebar that contains ONLY the per-framework MDX tree
+ * (no merge with root nav, no root-equivalent filtering). Used when a
+ * framework's `docs_mode === "authored"` — the framework owns its
+ * entire IA, so the agnostic root sections (Concepts / Build Chat UIs
+ * / ...) must NOT appear, and per-framework pages with names that
+ * happen to match root pages (`quickstart`, `frontend-tools`, etc.)
+ * MUST survive (they're the authoritative version for this framework).
+ *
+ * Slugs are rewritten to drop the `integrations/<folder>/` prefix and
+ * the literal `index` → "" rewrite, so links resolve at
+ * `/<framework>/<topic>` and the framework root at `/<framework>`.
+ */
+export function buildFrameworkOnlyNav(folder: string): NavNode[] {
+  const frameworkDir = path.join(CONTENT_DIR, "integrations", folder);
+  if (!fs.existsSync(frameworkDir)) return [];
+  const nodes = buildNavTree(frameworkDir, `integrations/${folder}`);
+  const prefix = `integrations/${folder}/`;
+
+  // Recursive slug rewrite so nested groups (e.g. `human-in-the-loop/`,
+  // `premium/`) also get the prefix stripped from their children.
+  const rewrite = (node: NavNode): NavNode => {
+    if (node.type === "page") {
+      const stripped = node.slug.replace(prefix, "");
+      const slug = stripped === "index" ? "" : stripped;
+      return { ...node, slug };
+    }
+    if (node.type === "group") {
+      const stripped = node.slug.replace(prefix, "");
+      return {
+        ...node,
+        slug: stripped,
+        children: node.children.map(rewrite),
+      };
+    }
+    return node;
+  };
+  return nodes.map(rewrite);
+}
+
+/**
  * Return the list of framework slugs whose `integrations/<folder>/`
  * tree contains an MDX file for `slugPath`. Matches either
  * `<slug>.mdx` or `<slug>/index.mdx`. Used by the framework-scoped
@@ -692,6 +732,14 @@ export function stripLeadingImports(source: string): string {
   let inFence = false;
   let fenceMarker: string | null = null;
   let pastHeader = false;
+  // When an `import { ... }` is split across lines, the opening line
+  // matches the single-line drop rule but the continuation lines
+  // (`  Foo,`, `} from "...";`) do not — historically those continuation
+  // lines fell into the content branch and flipped `pastHeader = true`,
+  // which then preserved every subsequent import in the MDX body and
+  // produced runtime errors like `<p>{Tab}</p>`. Track an open import
+  // explicitly so we consume continuations through the closing `from "...";`.
+  let inMultilineImport = false;
 
   for (const line of lines) {
     // Toggle fence state. Match the opening fence's marker (``` or ~~~)
@@ -715,13 +763,28 @@ export function stripLeadingImports(source: string): string {
     }
 
     if (!inFence && !pastHeader) {
+      if (inMultilineImport) {
+        // Continuation of a multi-line import — drop until the closing
+        // `} from "...";` (or any line ending in `;`, which covers the
+        // rarer side-effect or assignment form).
+        if (/;\s*$/.test(line)) {
+          inMultilineImport = false;
+        }
+        continue;
+      }
       if (/^\s*$/.test(line)) {
         // Preserve blank lines in the header region for layout.
         out.push(line);
         continue;
       }
-      if (/^import\s+.+$/.test(line)) {
-        // Drop this top-of-file MDX import line.
+      // Single-line import: `import X from "..."` or `import "..."`.
+      if (/^import\s+.+;\s*$/.test(line)) {
+        continue;
+      }
+      // Multi-line import opener: `import {` (or any `import ...` that
+      // does NOT end in `;`).
+      if (/^import\b/.test(line)) {
+        inMultilineImport = true;
         continue;
       }
       // First real content line flips us out of "header" mode.

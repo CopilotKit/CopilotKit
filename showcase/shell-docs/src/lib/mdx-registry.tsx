@@ -30,6 +30,22 @@ import { AgentCoreCommandTabs } from "@/components/agentcore-command-tabs";
 import { DemoSource } from "@/components/demo-source";
 import { getRegistry } from "@/lib/registry";
 import { PartialLoader } from "@/lib/mdx-registry-loader";
+import { MdxFrameworkOverview } from "@/components/content/landing-pages/mdx-framework-overview";
+import {
+  AdkIcon,
+  Ag2Icon,
+  AgnoIcon,
+  AnthropicIcon,
+  CrewaiIcon,
+  DeepAgentsIcon,
+  LanggraphIcon,
+  LlamaIndexIcon,
+  MastraIcon,
+  MicrosoftIcon,
+  PydanticAiIcon,
+  SpringIcon,
+  StrandsIcon,
+} from "@/components/icons/framework-icons";
 
 const Callout = DocsCallout;
 
@@ -458,9 +474,32 @@ export const docsComponents = {
   MCPApps: stubWithPartial("MCPApps"),
   MCPSetup: stubWithPartial("MCPSetup"),
   Overview: stubWithPartial("Overview"),
-  FrameworkOverview: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  // Authored `integrations/<folder>/index.mdx` files use the flat-prop
+  // form `<FrameworkOverview frameworkName=... frameworkIcon={...} ...>`
+  // ported verbatim from v1. The MDX adapter wraps the data-driven
+  // `FrameworkOverview` so the props actually render (banner video,
+  // features grid, architecture image, live demos) instead of being
+  // dropped on the floor as a children-passthrough used to do.
+  FrameworkOverview: MdxFrameworkOverview,
+  // Per-framework icon components used inline by authored index.mdx files
+  // (e.g. `frameworkIcon={<MastraIcon className="h-12 w-12" />}`). Each
+  // resolves to the same component the data-driven path uses via
+  // `customIcons[<key>]`. New frameworks: add a matching `<XIcon>` here
+  // when porting their `index.mdx`.
+  AdkIcon,
+  Ag2Icon,
+  AgnoIcon,
+  AnthropicIcon,
+  CrewaiIcon,
+  DeepAgentsIcon,
+  LanggraphIcon,
+  LlamaIndexIcon,
+  MastraIcon,
+  MicrosoftIcon,
+  PydanticAIIcon: PydanticAiIcon,
+  PydanticAiIcon,
+  SpringIcon,
+  StrandsIcon,
   CommonIssues: stubWithPartial("CommonIssues"),
   ErrorDebugging: stubWithPartial("ErrorDebugging"),
   Observability: stubWithPartial("Observability"),
