@@ -2272,7 +2272,7 @@
         "toolCallId": "call_d5_a2ui_dynamic_kpi_001"
       },
       "response": {
-        "content": "KPI dashboard rendered."
+        "content": "Here is the KPI dashboard you requested."
       }
     },
     {
@@ -2281,7 +2281,6 @@
         "toolName": "generate_a2ui"
       },
       "response": {
-        "content": "Here is the KPI dashboard you requested.",
         "toolCalls": [
           {
             "name": "generate_a2ui",
@@ -2312,7 +2311,7 @@
         "toolCallId": "call_d5_a2ui_dynamic_pie_001"
       },
       "response": {
-        "content": "Pie chart rendered."
+        "content": "Here is the pie chart by region."
       }
     },
     {
@@ -2321,7 +2320,6 @@
         "toolName": "generate_a2ui"
       },
       "response": {
-        "content": "Here is the pie chart by region.",
         "toolCalls": [
           {
             "name": "generate_a2ui",
@@ -2352,7 +2350,7 @@
         "toolCallId": "call_d5_a2ui_dynamic_bar_001"
       },
       "response": {
-        "content": "Bar chart rendered."
+        "content": "Here is the bar chart of quarterly revenue."
       }
     },
     {
@@ -2361,7 +2359,6 @@
         "toolName": "generate_a2ui"
       },
       "response": {
-        "content": "Here is the bar chart of quarterly revenue.",
         "toolCalls": [
           {
             "name": "generate_a2ui",
@@ -2392,7 +2389,7 @@
         "toolCallId": "call_d5_a2ui_dynamic_status_001"
       },
       "response": {
-        "content": "Status report rendered."
+        "content": "Here is the system health status report."
       }
     },
     {
@@ -2401,7 +2398,6 @@
         "toolName": "generate_a2ui"
       },
       "response": {
-        "content": "Here is the system health status report.",
         "toolCalls": [
           {
             "name": "generate_a2ui",
