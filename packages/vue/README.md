@@ -1,321 +1,174 @@
 # @copilotkit/vue
 
-Vue 3 bindings for CopilotKit2: providers, composables, and chat rendering primitives for integrating AI agents into Vue applications.
+Vue 3 bindings for CopilotKit — connect your Vue app to AI agents with providers, composables, and chat UI primitives.
 
-## Documentation Location
+## Overview
 
-Vue-specific documentation does not belong in the shared `docs/` V2 reference unless the repository adds a dedicated Vue docs section there.
-
-- Keep package usage and API guidance in this README.
-- Keep parity policy, architectural translation decisions, strict test-port rules, and the living React-to-Vue matrix in [PARITY.md](https://github.com/CopilotKit/CopilotKit/blob/main/packages/vue/PARITY.md).
-- Put public-facing Vue API and component documentation in Vue Storybook under `examples/v2/vue/storybook`.
-
-## Parity Delivery Checklist
-
-The parity checklist and strict translatability rules are maintained in [PARITY.md](https://github.com/CopilotKit/CopilotKit/blob/main/packages/vue/PARITY.md). Use it as the source of truth for parity completion and for deciding when tests must mirror React literally.
-
-## Parity Workflow
-
-Follow [PARITY.md](https://github.com/CopilotKit/CopilotKit/blob/main/packages/vue/PARITY.md) for parity workflow. If a feature is not clearly near-100% translatable, discuss the API/test divergence before introducing a Vue-specific translation. Update the matrix in the same change when behavior or tests change.
+| Export | Role |
+|--------|------|
+| `CopilotKitProvider` | Connects Vue to the CopilotKit runtime |
+| `CopilotChat`, `CopilotSidebar`, `CopilotPopup` | Render chat UI |
+| `CopilotChatInput` | Standalone chat input with tools menu and voice |
+| `useFrontendTool` | Expose client-side tools to the agent |
+| `useAgentContext` | Provide app state as agent context |
+| Slots and programmatic renderers | Customize message, tool, and activity rendering |
 
 ## Installation
 
 ```bash
-pnpm add @copilotkit/vue @copilotkit/core
+pnpm add @copilotkit/vue
 ```
 
-Import package styles once in your app entry:
+Import styles once in your app entry:
 
 ```ts
 import "@copilotkit/vue/styles.css";
 ```
 
-`styles.css` is generated from `src/styles/globals.css` via Tailwind (`pnpm -C packages/vue build:css`).
-The Vue package styles are self-contained and do not require importing `@copilotkit/react/styles.css`.
+## Import Paths
 
-## Basic Usage
+| Path | Purpose |
+|------|---------|
+| `@copilotkit/vue/v2` | **Recommended.** Full v2 API with Zod/Standard Schema tool parameters. |
+| `@copilotkit/vue` | V1 compatibility wrappers. Shadows some v2 exports with adapters that accept legacy `Parameter[]` arrays. |
+
+New projects should import from `@copilotkit/vue/v2`. Use the root import only if you need backward-compatible `Parameter[]`-style tool definitions.
+
+## Quickstart
 
 ```vue
 <script setup lang="ts">
-import { CopilotKitProvider } from "@copilotkit/vue";
+import { CopilotKitProvider, CopilotChat } from "@copilotkit/vue/v2";
 </script>
 
 <template>
   <CopilotKitProvider runtime-url="/api/copilotkit">
-    <slot />
+    <CopilotChat />
   </CopilotKitProvider>
 </template>
 ```
 
-## Provider Parity: `selfManagedAgents`, `onError`, and `a2ui`
+## Build A Chat UI
 
-`CopilotKitProvider` supports React-parity provider controls for local agent registration and runtime error handling.
+Use `CopilotChat` for full control, or `CopilotSidebar`/`CopilotPopup` for pre-styled layouts.
+
+```vue
+<CopilotChat agent-id="default" thread-id="thread-1" />
+<CopilotSidebar agent-id="default" />
+<CopilotPopup agent-id="default" />
+```
+
+### Chat Input
+
+`CopilotChatInput` provides a standalone input with tools menu, voice transcription, and positioning:
+
+```vue
+<CopilotChatInput
+  v-model="input"
+  :tools-menu="[{ label: 'Insert template', action: () => {} }]"
+  @submit-message="onSubmit"
+/>
+```
+
+Key slots: `layout`, `text-area`, `send-button`, `add-menu-button`, `start-transcribe-button`, `cancel-transcribe-button`, `finish-transcribe-button`, `audio-recorder`, `disclaimer`.
+
+### Threads
+
+List and manage conversation threads with `useThreads`:
 
 ```vue
 <script setup lang="ts">
-import { CopilotKitProvider } from "@copilotkit/vue";
-import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
+import { useThreads } from "@copilotkit/vue/v2";
 
-function onProviderError(event: {
-  error: Error;
-  code: CopilotKitCoreErrorCode;
-  context: Record<string, any>;
-}) {
-  console.error(
-    "CopilotKit provider error",
-    event.code,
-    event.context,
-    event.error,
-  );
-}
+const { threads, isLoading, hasMoreThreads, fetchMoreThreads, deleteThread } =
+  useThreads({ agentId: "default", limit: 20 });
 </script>
 
 <template>
-  <CopilotKitProvider
-    runtime-url="/api/copilotkit"
-    :self-managed-agents="{}"
-    :on-error="onProviderError"
-    :a2ui="{ theme: { mode: 'light' } }"
-  >
-    <slot />
-  </CopilotKitProvider>
-</template>
-```
-
-Notes:
-
-- `selfManagedAgents` is merged with `agents__unsafe_dev_only`, with `selfManagedAgents` taking precedence for duplicate IDs.
-- `onError` receives provider-scope core errors and is independent from chat-level `CopilotChat.onError`.
-- `a2ui.theme` customizes the built-in `a2ui-surface` fallback renderer when the runtime reports `a2uiEnabled: true`.
-
-### Provider `debug` logging
-
-`CopilotKitProvider` accepts a `debug` prop that mirrors the React `debug` surface. It toggles client-side debug logging on the underlying core and is kept in sync at runtime as the prop changes.
-
-Supported values match React parity:
-
-- `true` / `false` — enables or disables event + lifecycle logging (verbose payloads stay off).
-- `{ events?: boolean; lifecycle?: boolean; verbose?: boolean }` — granular control; `verbose` opts into full event payloads.
-
-```vue
-<script setup lang="ts">
-import { CopilotKitProvider, type DebugConfig } from "@copilotkit/vue";
-
-const debug: DebugConfig = { events: true, lifecycle: true, verbose: false };
-</script>
-
-<template>
-  <CopilotKitProvider runtime-url="/api/copilotkit" :debug="debug">
-    <slot />
-  </CopilotKitProvider>
-</template>
-```
-
-Prop updates are forwarded to the stable `CopilotKitCoreVue` instance via `setDebug(...)`, so changing `debug` at runtime does not recreate the provider or the core instance.
-
-## Chat Error Parity: `CopilotChat.onError`
-
-`CopilotChat` also exposes an `onError` callback with React-parity filtering semantics.
-It only forwards errors for the resolved chat agent (or global errors without an `agentId`).
-
-```vue
-<script setup lang="ts">
-import { CopilotChat } from "@copilotkit/vue";
-
-function onChatError(event: {
-  error: Error;
-  code: string;
-  context: Record<string, any>;
-}) {
-  console.error("CopilotChat error", event.code, event.context, event.error);
-}
-</script>
-
-<template>
-  <CopilotChat agent-id="default" :on-error="onChatError" />
-</template>
-```
-
-Notes:
-
-- Provider `onError` and chat `onError` are independent subscriptions and can both fire for the same matching error.
-- Chat `onError` ignores errors scoped to other `agentId` values.
-
-## Chat Rendering (Slot-Based)
-
-`@copilotkit/vue` uses Vue named/scoped slots for message, activity, and tool rendering:
-
-- `CopilotChatMessageView`
-- `CopilotChatToolCallsView`
-- `CopilotChatInput`
-
-```vue
-<template>
-  <CopilotChatMessageView :messages="messages" :is-running="isRunning">
-    <template #message-before="{ message, runId, messageIndexInRun }">
-      <MessageMeta
-        :id="message.id"
-        :run-id="runId"
-        :index-in-run="messageIndexInRun"
-      />
-    </template>
-
-    <template #assistant-message="{ message }">
-      <AssistantBubble :content="message.content" />
-    </template>
-
-    <template #activity-mcp-apps="{ content }">
-      <MyMcpActivity :content="content" />
-    </template>
-
-    <template #tool-call-search_docs="{ args, status, result }">
-      <SearchDocsToolCall :args="args" :status="status" :result="result" />
-    </template>
-
-    <template #tool-call="{ name, args, status }">
-      <GenericToolCall :name="name" :args="args" :status="status" />
-    </template>
-  </CopilotChatMessageView>
-</template>
-```
-
-Supported message-level slots:
-
-- `message-before`
-- `assistant-message`
-- `user-message`
-- `reasoning-message`
-- `activity-<activityType>` (dynamic)
-- `activity-message` (fallback)
-- `message-after`
-- `cursor`
-
-Supported tool-level slots:
-
-- `tool-call-<toolName>` (dynamic)
-- `tool-call` (fallback)
-
-## Programmatic Custom Message Registration
-
-Slots remain the primary Vue customization path for chat/message rendering. When you need reusable shared renderers with provider-managed ordering or agent scoping, `CopilotKitProvider` also accepts `render-custom-messages` as a secondary API.
-
-```vue
-<script setup lang="ts">
-import { CopilotKitProvider, CopilotChat } from "@copilotkit/vue";
-import { defineComponent } from "vue";
-
-const AuditBadge = defineComponent({
-  props: {
-    message: { type: Object, required: true },
-    position: { type: String, required: true },
-  },
-  template: `
-    <div
-      v-if="position === 'after' && message.role === 'assistant'"
-      :data-testid="'audit-' + message.id"
-    >
-      Audited
-    </div>
-  `,
-});
-
-const renderCustomMessages = [
-  { render: AuditBadge },
-  { agentId: "sales-agent", render: AuditBadge },
-];
-</script>
-
-<template>
-  <CopilotKitProvider
-    runtime-url="/api/copilotkit"
-    :render-custom-messages="renderCustomMessages"
-  >
-    <CopilotChat agent-id="sales-agent" />
-  </CopilotKitProvider>
-</template>
-```
-
-Use:
-
-- `#message-before` / `#message-after` for local template-level customization in a specific chat or message view
-- provider `render-custom-messages` for reusable renderer registration, ordered evaluation, and agent-scoped overrides
-
-## Reasoning Messages
-
-`CopilotChatMessageView` supports reasoning messages via the `reasoning-message` slot, with a default `CopilotChatReasoningMessage` fallback.
-
-Default reasoning behavior mirrors React semantics:
-
-- Shows `Thinking…` while the reasoning message is the latest streaming message.
-- Switches to `Thought for ...` when reasoning finishes.
-- Auto-opens while streaming and auto-collapses on completion.
-- Hides the chat-level cursor when the latest message is reasoning.
-
-## Current Scope
-
-- **Providers**: `CopilotKitProvider`, `CopilotChatConfigurationProvider`
-- **Composables**: `useCopilotKit`, `useCopilotChatConfiguration`, `useAgent`, `useAgentContext`, `useFrontendTool`, `useRenderTool`, `useDefaultRenderTool`, `useComponent`, `useHumanInTheLoop`, `useSuggestions`, `useConfigureSuggestions`, `useThreads`, `useInterrupt`
-- **Components**: `CopilotChat`, `CopilotKitInspector`, `CopilotChatAssistantMessage`, `CopilotChatUserMessage`, `CopilotChatReasoningMessage`, `CopilotChatMessageView`, `CopilotChatSuggestionPill`, `CopilotChatSuggestionView`, `CopilotChatInput`, `CopilotChatToggleButton`, `CopilotModalHeader`, `CopilotChatView`, `CopilotChatToolCallsView`, `CopilotSidebarView`, `CopilotPopupView`, `CopilotSidebar`, `CopilotPopup`, `MCPAppsActivityRenderer`, `A2UISurfaceActivityRenderer`
-- **Markdown Renderer**: `CopilotChatAssistantMessage` uses `streamdown-vue` (with KaTeX support)
-- **Core**: `CopilotKitCoreVue`
-
-## Threads
-
-```vue
-<script setup lang="ts">
-import { useThreads } from "@copilotkit/vue";
-
-const {
-  threads,
-  isLoading,
-  hasMoreThreads,
-  isFetchingMoreThreads,
-  fetchMoreThreads,
-  renameThread,
-  deleteThread,
-} = useThreads({
-  agentId: "agent-1",
-  includeArchived: false,
-  limit: 20,
-});
-
-function loadMoreThreads() {
-  if (hasMoreThreads.value && !isFetchingMoreThreads.value) {
-    fetchMoreThreads();
-  }
-}
-</script>
-
-<template>
-  <div v-if="isLoading">Loading…</div>
-  <ul v-else>
+  <ul v-if="!isLoading">
     <li v-for="thread in threads" :key="thread.id">
       {{ thread.name ?? "Untitled" }}
-      <button @click="renameThread(thread.id, 'Renamed')">Rename</button>
       <button @click="deleteThread(thread.id)">Delete</button>
     </li>
   </ul>
-  <button
-    v-if="hasMoreThreads"
-    :disabled="isFetchingMoreThreads"
-    @click="loadMoreThreads"
-  >
-    {{ isFetchingMoreThreads ? "Loading..." : "Load more" }}
-  </button>
+  <button v-if="hasMoreThreads" @click="fetchMoreThreads()">Load more</button>
 </template>
 ```
 
-`useThreads` is a headless composable for Intelligence-platform thread lists scoped to the runtime-authenticated user and provided `agentId`. It supports optional `includeArchived` and `limit` inputs, subscribes to realtime metadata updates when the runtime exposes a websocket URL, and returns reactive refs for `threads`, `isLoading`, `error`, `hasMoreThreads`, and `isFetchingMoreThreads`, plus `fetchMoreThreads()`.
+## Add App Capabilities
 
-### `useInterrupt`
+### Frontend Tools
 
-`useInterrupt` handles agent `on_interrupt` events without requiring Vue users to write render functions or TSX.
-
-For in-chat usage, combine the composable with the `#interrupt` slot on `CopilotChat`:
+Register tools the agent can invoke on the client:
 
 ```vue
 <script setup lang="ts">
-import { useInterrupt } from "@copilotkit/vue";
+import { useFrontendTool } from "@copilotkit/vue/v2";
+import { z } from "zod";
+
+useFrontendTool({
+  name: "sayHello",
+  parameters: z.object({ name: z.string() }),
+  handler: async ({ name }) => `Hello ${name}!`,
+});
+</script>
+```
+
+### Agent Context
+
+Provide live app state as context the agent can read:
+
+```vue
+<script setup lang="ts">
+import { useAgentContext } from "@copilotkit/vue/v2";
+
+useAgentContext({
+  description: "The user's current page",
+  value: "Dashboard",
+});
+</script>
+```
+
+### Suggestions
+
+Configure AI-generated follow-up suggestions below the chat:
+
+```vue
+<script setup lang="ts">
+import { useConfigureSuggestions } from "@copilotkit/vue/v2";
+
+useConfigureSuggestions({
+  instructions: "Suggest follow-up tasks based on the current page",
+  available: "always",
+});
+</script>
+```
+
+### Human-in-the-Loop
+
+Register a tool that pauses execution until the user responds from a rendered component:
+
+```vue
+<script setup lang="ts">
+import { useHumanInTheLoop } from "@copilotkit/vue/v2";
+import { z } from "zod";
+import ApprovalCard from "./ApprovalCard.vue";
+
+useHumanInTheLoop({
+  name: "approveAction",
+  parameters: z.object({ reason: z.string() }),
+  render: ApprovalCard,
+});
+</script>
+```
+
+### Interrupts
+
+Handle agent `on_interrupt` events for custom approval or input flows:
+
+```vue
+<script setup lang="ts">
+import { useInterrupt, CopilotChat } from "@copilotkit/vue/v2";
 
 useInterrupt({
   handler: async ({ event }) => ({ label: String(event.value) }),
@@ -333,7 +186,7 @@ useInterrupt({
 </template>
 ```
 
-For manual placement, use `renderInChat: false` and consume the returned refs:
+For manual placement outside the chat:
 
 ```ts
 const { interrupt, result, hasInterrupt, resolveInterrupt } = useInterrupt({
@@ -341,56 +194,173 @@ const { interrupt, result, hasInterrupt, resolveInterrupt } = useInterrupt({
 });
 ```
 
-## Icon Foundation (Internal)
+## Customize Rendering
 
-- Chat/UI components should import icons from `src/components/icons/index.ts`.
-- Do not import from `lucide-vue-next` directly in Vue package components.
-- This adapter is internal and intentionally not exported from the package root.
+### Slots
 
-## Text Input
+Slots are the primary way to customize chat rendering in Vue. Use scoped slots on `CopilotChatMessageView`:
 
 ```vue
-<script setup lang="ts">
-import { ref } from "vue";
-import {
-  CopilotChatConfigurationProvider,
-  CopilotChatInput,
-} from "@copilotkit/vue";
-
-const input = ref("");
-
-function onSubmitMessage(value: string) {
-  console.log("submit:", value);
-}
-</script>
-
 <template>
-  <CopilotChatConfigurationProvider thread-id="thread-1" agent-id="default">
-    <CopilotChatInput
-      v-model="input"
-      :tools-menu="[
-        { label: 'Insert template', action: () => console.log('template') },
-      ]"
-      @submit-message="onSubmitMessage"
-      @add-file="() => {}"
-      @start-transcribe="() => {}"
-      @cancel-transcribe="() => {}"
-      @finish-transcribe="() => {}"
-    />
-  </CopilotChatConfigurationProvider>
+  <CopilotChatMessageView :messages="messages" :is-running="isRunning">
+    <template #assistant-message="{ message }">
+      <div class="bubble">{{ message.content }}</div>
+    </template>
+
+    <template #tool-call-search_docs="{ args, status, result }">
+      <SearchResult :args="args" :status="status" :result="result" />
+    </template>
+
+    <template #tool-call="{ name, args, status }">
+      <GenericToolCard :name="name" :args="args" :status="status" />
+    </template>
+
+    <template #activity-mcp-apps="{ content }">
+      <McpAppsView :content="content" />
+    </template>
+  </CopilotChatMessageView>
 </template>
 ```
 
-Key parity props:
+Available message slots: `message-before`, `assistant-message`, `user-message`, `reasoning-message`, `activity-<type>`, `activity-message`, `message-after`, `cursor`.
 
-- `mode`: `"input" | "transcribe" | "processing"`
-- `toolsMenu`: nested menu items + separators (`"-"`)
-- `positioning`: `"static" | "absolute"`
-- `keyboardHeight`: number (mobile keyboard offset)
-- `showDisclaimer`: explicit override, otherwise defaults by positioning
+Available tool slots: `tool-call-<name>`, `tool-call` (fallback).
 
-Key slots:
+### Programmatic Renderers
 
-- `text-area`, `send-button`, `add-menu-button`
-- `start-transcribe-button`, `cancel-transcribe-button`, `finish-transcribe-button`
-- `audio-recorder`, `disclaimer`, `layout`
+When slots aren't sufficient (e.g. reusable renderers with provider-managed ordering or agent scoping), use `renderToolCalls` or `renderCustomMessages` on the provider:
+
+```vue
+<script setup lang="ts">
+import { defineComponent } from "vue";
+import {
+  CopilotKitProvider,
+  CopilotChat,
+  defineToolCallRenderer,
+} from "@copilotkit/vue/v2";
+import { z } from "zod";
+
+const WeatherCard = defineComponent({
+  props: {
+    args: { type: Object, required: true },
+    status: { type: String, required: true },
+  },
+  template: `
+    <div style="padding: 12px; border-radius: 8px; background: #f0f9ff;">
+      <strong>Weather for {{ args.city }}</strong>
+      <span v-if="status === 'complete'"> — sunny!</span>
+      <span v-else> — loading…</span>
+    </div>
+  `,
+});
+
+const weatherRenderer = defineToolCallRenderer({
+  name: "get_weather",
+  args: z.object({ city: z.string() }),
+  render: WeatherCard,
+});
+</script>
+
+<template>
+  <CopilotKitProvider
+    runtime-url="/api/copilotkit"
+    :render-tool-calls="[weatherRenderer]"
+  >
+    <CopilotChat />
+  </CopilotKitProvider>
+</template>
+```
+
+Other render/component composables:
+
+| Composable | Purpose |
+|------------|---------|
+| `useRenderTool` | Register a render function for a specific tool call |
+| `useDefaultRenderTool` | Fallback renderer for any unmatched tool calls |
+| `useComponent` | Register a named component the agent can render |
+
+### Reasoning Messages
+
+The default reasoning message behavior:
+
+- Shows "Thinking…" while streaming, switches to "Thought for …" on completion.
+- Auto-opens while streaming, auto-collapses when done.
+- Hides the chat-level cursor during reasoning.
+
+Customize via the `#reasoning-message` slot on `CopilotChatMessageView`.
+
+## Configure The Provider
+
+`CopilotKitProvider` connects your app to the CopilotKit runtime and accepts configuration for agents, errors, A2UI, and debugging.
+
+### Runtime and Agents
+
+```vue
+<CopilotKitProvider
+  runtime-url="/api/copilotkit"
+  :self-managed-agents="{ default: myAgent }"
+/>
+```
+
+`selfManagedAgents` registers local `AbstractAgent` instances (keyed by agent ID); merged with `agents__unsafe_dev_only`, with `selfManagedAgents` taking precedence for duplicate IDs.
+
+### Error Handling
+
+```vue
+<CopilotKitProvider
+  runtime-url="/api/copilotkit"
+  :on-error="({ error, code, context }) => console.error(code, error)"
+/>
+```
+
+`CopilotChat` also exposes an `onError` callback that only fires for errors matching the resolved chat agent. Provider and chat error handlers are independent.
+
+### A2UI
+
+```vue
+<CopilotKitProvider
+  runtime-url="/api/copilotkit"
+  :a2ui="{ theme: { mode: 'light' } }"
+/>
+```
+
+Configures the built-in A2UI surface renderer when the runtime reports `a2uiEnabled: true`.
+
+### Debug Logging
+
+```vue
+<CopilotKitProvider
+  runtime-url="/api/copilotkit"
+  :debug="{ events: true, lifecycle: true, verbose: false }"
+/>
+```
+
+Accepts `true`/`false` or a granular config object. Updates are forwarded at runtime without recreating the provider.
+
+## V1 Compatibility
+
+The root import `@copilotkit/vue` re-exports everything from `/v2` but shadows certain composables with v1 compatibility wrappers:
+
+```vue
+<script setup lang="ts">
+// V1 style — accepts Parameter[] arrays
+import { useCopilotAction } from "@copilotkit/vue";
+
+useCopilotAction({
+  name: "greet",
+  parameters: [{ name: "user", type: "string" }],
+  handler: async ({ user }) => alert(`Hi ${user}`),
+});
+</script>
+```
+
+Do not pass Zod/Standard Schema parameters to root v1 wrappers — they expect legacy `Parameter[]` arrays and will throw. Use `@copilotkit/vue/v2` for Zod-based tool APIs.
+
+## Examples
+
+See [`examples/v2/vue/demo`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/v2/vue/demo) for a working Nuxt demo with multiple chat layouts, A2UI surfaces, frontend tools, and interrupt handling.
+
+## Contributing
+
+- [CONTRIBUTOR_GUIDE.md](./CONTRIBUTOR_GUIDE.md) — package development workflow
+- [PARITY.md](./PARITY.md) — React-to-Vue parity rules and implementation matrix

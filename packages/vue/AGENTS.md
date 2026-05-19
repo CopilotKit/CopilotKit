@@ -1,50 +1,34 @@
-# AGENTS.md - `@copilotkit/vue` workflow guide
+# AGENTS.md — `@copilotkit/vue`
 
-This file defines contributor workflow for keeping `@copilotkit/vue` aligned with upstream `@copilotkit/react`.
+Agent entrypoint for working in this package.
 
 ## Scope
 
-- Scope is limited to `packages/vue/**`.
-- Keep upstream changes outside the Vue package to a minimum until the Vue port is merged.
+- All work is in `packages/vue/**`.
+- React is the canonical behavioral reference: `packages/react-core/`, `packages/react-ui/`, `packages/react-textarea/`.
 
-## Parity source of truth
+## Required Reading
 
-- React remains the canonical behavioral reference: `packages/react-core/`, `packages/react-ui/`, and `packages/react-textarea/`.
-- Use [PARITY.md](./PARITY.md) as the canonical Vue-side parity policy, architectural translation guide, strict test-port rulebook, and living React-to-Vue implementation/test matrix.
-- Keep [README.md](./README.md) focused on user-facing package documentation.
+| Doc | When |
+|-----|------|
+| [CONTRIBUTOR_GUIDE.md](./CONTRIBUTOR_GUIDE.md) | Before starting any work — explains workflow, validation, and conventions |
+| [PARITY.md](./PARITY.md) | Before porting a feature or adding tests — contains the translation decision tree, strict test rules, and the living matrix |
+| [README.md](./README.md) | When touching public API surface — this is the user-facing doc |
 
-## Required parity workflow
+## Hard Requirements
 
-When porting a React feature:
+1. **Always run validation** after changes: `lint`, `check-types`, `test` (and `build` if touching exports).
+2. **Update PARITY.md** in the same commit when behavior or tests change.
+3. **Mirror React test naming** (`describe`/`it` text) for near-100% translatable features.
+4. **Document divergences** in PARITY.md before introducing Vue-specific API translations.
+5. **Slots are primary**; programmatic renderers (`renderCustomMessages`, `renderToolCalls`) are secondary.
+6. **Do not modify files outside `packages/vue/`** unless explicitly approved.
 
-1. Identify impacted React implementation and tests.
-2. Classify whether the feature is near-100% translatable using [PARITY.md](./PARITY.md).
-3. If it is near-100% translatable, mirror the React suite/file structure and keep matching `describe` and `it` text word-for-word for the mirrored cases.
-4. If API divergence seems necessary or likely, discuss it with the user before introducing a Vue-specific translation.
-5. Implement Vue behavior in `packages/vue/src/**`.
-6. Add or update equivalent Vue tests with parity-friendly discoverability.
-7. Update the relevant matrix rows in [PARITY.md](./PARITY.md) in the same change.
-8. Document intentional divergences in [PARITY.md](./PARITY.md).
-9. Do not add fallback or shallower test paths to force green status for near-100% parity suites; keep strict parity boundary and let failures be explicit.
-10. For strict parity/e2e suites, follow [PARITY.md](./PARITY.md) test conventions: Testing Library-first query style, no `wrapper.get(...)`-first ports, and no unnecessary `h(...)` render-function harnesses.
-11. If Vue-only coverage is needed in a strict parity file, keep all React-mirrored cases first with word-for-word naming, then place Vue-only cases in a separate trailing `describe(...)` block labeled as Vue-specific semantics.
-12. Keep slots as the primary Vue customization model. `renderCustomMessages` is the approved secondary provider-level parity surface for ordered and agent-scoped custom message registration; do not invent alternative provider-slot registration APIs.
-13. Do not port React `StrictMode` identity assertions literally into Vue by adding runtime remount caches/workarounds; validate Vue lifecycle invariants under rerender/remount instead.
+## Validation
 
-## Validation gates
-
-Run after meaningful changes:
-
-1. `pnpm nx run @copilotkit/vue:lint`
-2. `pnpm nx run @copilotkit/vue:check-types`
-3. `pnpm nx run @copilotkit/vue:test`
-
-When touching integration/build behavior:
-
-1. `pnpm nx run @copilotkit/vue:build`
-
-## Documentation placement
-
-- Parity rules, architectural translation decisions, strict translatability criteria, checklist, and mapping matrix: [PARITY.md](./PARITY.md).
-- Public package usage and API examples: [README.md](./README.md).
-- User-facing visual docs/examples: `examples/v2/vue/storybook/**`.
+```bash
+pnpm nx run @copilotkit/vue:lint
+pnpm nx run @copilotkit/vue:check-types
+pnpm nx run @copilotkit/vue:test
+pnpm nx run @copilotkit/vue:build   # when touching exports/build
+```
