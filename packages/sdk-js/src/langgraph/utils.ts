@@ -3,6 +3,7 @@ import { dispatchCustomEvent } from "@langchain/core/callbacks/dispatch";
 import {
   convertJsonSchemaToZodSchema,
   randomId,
+  randomUUID,
   CopilotKitMisuseError,
 } from "@copilotkit/shared";
 import { interrupt } from "@langchain/langgraph";
@@ -373,7 +374,7 @@ export async function copilotkitEmitToolCall(
     });
   }
 
-  const toolCallId = options?.toolCallId ?? randomId();
+  const toolCallId = options?.toolCallId ?? randomUUID();
 
   try {
     await dispatchCustomEvent(
@@ -382,10 +383,11 @@ export async function copilotkitEmitToolCall(
       config,
     );
   } catch (error) {
-    if (error instanceof Error) {
-      error.message = `copilotkitEmitToolCall dispatch failed for tool="${name}" id="${toolCallId}": ${error.message}`;
-    }
-    throw error;
+    const wrapped = new Error(
+      `copilotkitEmitToolCall dispatch failed for tool="${name}" id="${toolCallId}": ${error instanceof Error ? error.message : String(error)}`,
+    );
+    (wrapped as any).cause = error;
+    throw wrapped;
   }
 
   return toolCallId;

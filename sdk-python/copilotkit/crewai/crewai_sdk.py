@@ -278,7 +278,7 @@ async def copilotkit_emit_tool_call(
 
     message_id = tool_call_id if tool_call_id is not None else str(uuid.uuid4())
     dispatched_start = False
-    dispatched_end = False
+    end_attempted = False
     try:
         await queue_put(
             action_execution_start(
@@ -291,12 +291,12 @@ async def copilotkit_emit_tool_call(
         await queue_put(
             action_execution_args(action_execution_id=message_id, args=args_json),
         )
+        end_attempted = True
         await queue_put(
             action_execution_end(action_execution_id=message_id),
         )
-        dispatched_end = True
     except Exception:
-        if dispatched_start and not dispatched_end:
+        if dispatched_start and not end_attempted:
             try:
                 await queue_put(
                     action_execution_end(action_execution_id=message_id),
