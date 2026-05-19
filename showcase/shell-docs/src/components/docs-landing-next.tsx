@@ -19,13 +19,8 @@ import Link from "next/link";
 import { useFramework } from "./framework-provider";
 import { StoredFrameworkHighlight } from "./stored-framework-highlight";
 import { FrameworkLogo } from "./icons/framework-icons";
-import { FRAMEWORK_CATEGORY_ORDER } from "@/lib/framework-categories";
-import {
-  getCategoryLabel,
-  getIntegration,
-  getIntegrations,
-  type Integration,
-} from "@/lib/registry";
+import { compareByDisplayOrder } from "@/lib/framework-order";
+import { getIntegration, getIntegrations } from "@/lib/registry";
 
 function FrameworkPicker({
   heading,
@@ -36,19 +31,14 @@ function FrameworkPicker({
 }) {
   // Drop Built-in Agent: it's the soft-default the page is already
   // rendering as, so showing it under "Switch backend" would just be a
-  // no-op tile.
+  // no-op tile. Sort by the canonical display order — the previous
+  // category buckets ("Most Popular / Agent Frameworks / Enterprise /
+  // Emerging") read as a tier list and we've dropped them in favour
+  // of one flat, neutral grid.
   const integrations = getIntegrations()
     .filter((i) => i.slug !== "built-in-agent")
-    .sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999));
-
-  // Bucket integrations by category, honoring the canonical ordering.
-  const buckets = new Map<string, Integration[]>();
-  for (const cat of FRAMEWORK_CATEGORY_ORDER) buckets.set(cat, []);
-  buckets.set("other", []);
-  for (const i of integrations) {
-    const key = buckets.has(i.category) ? i.category : "other";
-    buckets.get(key)!.push(i);
-  }
+    .slice()
+    .sort((a, b) => compareByDisplayOrder(a.slug, b.slug));
 
   return (
     <section className="not-prose">
@@ -56,37 +46,26 @@ function FrameworkPicker({
         {heading}
       </h2>
       <p className="text-sm text-[var(--text-secondary)] mb-5">{description}</p>
-      {[...buckets.entries()].map(([catId, items]) => {
-        if (items.length === 0) return null;
-        const label = catId === "other" ? "Other" : getCategoryLabel(catId);
-        return (
-          <div key={catId} className="mb-6">
-            <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-3">
-              {label}
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {items.map((i) => (
-                <Link
-                  key={i.slug}
-                  href={`/${i.slug}`}
-                  className="group relative flex items-center gap-2 p-3 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] hover:shadow-sm transition-all"
-                >
-                  <FrameworkLogo
-                    slug={i.slug}
-                    fallbackSrc={i.logo}
-                    size={20}
-                    className="shrink-0 text-[var(--text-secondary)] group-hover:text-[var(--accent)]"
-                  />
-                  <span className="flex-1 min-w-0 truncate text-sm font-medium text-[var(--text)] group-hover:text-[var(--accent)]">
-                    {i.name}
-                  </span>
-                  <StoredFrameworkHighlight slug={i.slug} />
-                </Link>
-              ))}
-            </div>
-          </div>
-        );
-      })}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {integrations.map((i) => (
+          <Link
+            key={i.slug}
+            href={`/${i.slug}`}
+            className="group relative flex items-center gap-2 p-3 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] hover:shadow-sm transition-all"
+          >
+            <FrameworkLogo
+              slug={i.slug}
+              fallbackSrc={i.logo}
+              size={20}
+              className="shrink-0 text-[var(--text-secondary)] group-hover:text-[var(--accent)]"
+            />
+            <span className="flex-1 min-w-0 truncate text-sm font-medium text-[var(--text)] group-hover:text-[var(--accent)]">
+              {i.name}
+            </span>
+            <StoredFrameworkHighlight slug={i.slug} />
+          </Link>
+        ))}
+      </div>
     </section>
   );
 }
