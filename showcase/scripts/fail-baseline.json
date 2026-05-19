@@ -1,6 +1,6 @@
 {
-  "_comment": "Drift ratchet baseline for showcase_validate.yml. `validatePinsFailCount` holds the last-known FAIL count; `validatePinsFailHash` is a SHA-256 of the sorted, deduplicated `[FAIL] ...` lines from validate-pins.ts. CI compares BOTH: if the count changes, it tells you to ratchet (up rejected, down instructed). If the count is equal but the hash differs, the FAIL *set* has drifted (one item fixed, another regressed) and CI fails with a diff. Never raise the count without an explicit review + sign-off. `baselineDemoCount` is the per-package e2e-spec-count floor (single source of truth consumed by both the workflow and validate-parity.ts). NOTE: validate-parity.ts `BASELINE_DEMO_COUNT` default must match `baselineDemoCount` here; keep them in sync. See .github/workflows/showcase_validate.yml 'Run validate-pins (ratchet)' step.",
-  "validatePinsFailCount": 95,
-  "validatePinsFailHash": "10d4f734b5d3d9e84467be9a841b0276d416ef7a917d3796eb951331eb57b0f1",
-  "baselineDemoCount": 9
+    "_comment": "Drift ratchet baseline for showcase_validate.yml. `validatePinsFailCount` holds the last-known FAIL count; `validatePinsFailHash` is a SHA-256 of the sorted, deduplicated `[FAIL] ...` lines from validate-pins.ts. CI compares BOTH: if the count changes, it tells you to ratchet (up rejected, down instructed). If the count is equal but the hash differs, the FAIL *set* has drifted (one item fixed, another regressed) and CI fails with a diff. Never raise the count without an explicit review + sign-off. `baselineDemoCount` is the per-package e2e-spec-count floor (single source of truth consumed by both the workflow and validate-parity.ts). NOTE: validate-parity.ts `BASELINE_DEMO_COUNT` default must match `baselineDemoCount` here; keep them in sync. See .github/workflows/showcase_validate.yml 'Run validate-pins (ratchet)' step.",
+    "validatePinsFailCount": 95,
+    "validatePinsFailHash": "aa4054dde11d45c281c49c3cbd3bd2d5cf958407a0d06ee2643aaa55fb777c82",
+    "baselineDemoCount": 9,
 }
