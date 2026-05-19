@@ -3,6 +3,9 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// showcase/scripts/ → showcase/ → repo root. Different from
+// validate-parity.ts (which stops at showcase/) because `nx build shell-docs`
+// must run from the monorepo root.
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
 
 export type CheckStatus = "pass" | "fail" | "skipped";
