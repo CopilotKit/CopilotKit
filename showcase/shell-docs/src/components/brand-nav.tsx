@@ -7,6 +7,7 @@ import { SearchTrigger } from "./search-trigger";
 import { CopilotKitMark } from "./copilotkit-mark";
 import RocketIcon from "./icons/rocket";
 import ConsoleIcon from "./icons/console";
+import ExternalLinkIcon from "./icons/external-link";
 
 // LEFT cluster — Docs / Reference. Visual pattern (icon-next-to-label)
 // mirrors canonical.
