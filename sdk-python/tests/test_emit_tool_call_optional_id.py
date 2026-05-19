@@ -345,9 +345,7 @@ class TestCrewAICompensatingEnd:
             if call_count == 2:
                 raise RuntimeError("queue closed")
 
-        with patch(
-            "copilotkit.crewai.crewai_sdk.queue_put", new=_failing_queue_put
-        ):
+        with patch("copilotkit.crewai.crewai_sdk.queue_put", new=_failing_queue_put):
             from copilotkit.crewai.crewai_sdk import copilotkit_emit_tool_call
 
             with pytest.raises(RuntimeError, match="queue closed"):
@@ -367,9 +365,7 @@ class TestCrewAICompensatingEnd:
             call_count += 1
             raise RuntimeError("start failed")
 
-        with patch(
-            "copilotkit.crewai.crewai_sdk.queue_put", new=_failing_queue_put
-        ):
+        with patch("copilotkit.crewai.crewai_sdk.queue_put", new=_failing_queue_put):
             from copilotkit.crewai.crewai_sdk import copilotkit_emit_tool_call
 
             with pytest.raises(RuntimeError, match="start failed"):
@@ -391,9 +387,7 @@ class TestCrewAICompensatingEnd:
                 return
             raise RuntimeError(f"queue failure #{call_count}")
 
-        with patch(
-            "copilotkit.crewai.crewai_sdk.queue_put", new=_failing_queue_put
-        ):
+        with patch("copilotkit.crewai.crewai_sdk.queue_put", new=_failing_queue_put):
             from copilotkit.crewai.crewai_sdk import copilotkit_emit_tool_call
 
             with pytest.raises(RuntimeError, match="queue failure #2"):
