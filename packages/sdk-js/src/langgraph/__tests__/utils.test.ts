@@ -269,11 +269,9 @@ describe("copilotkitEmitToolCall", () => {
   });
 
   it("returns a generated id when no id is provided", async () => {
-    const result = await copilotkitEmitToolCall(
-      mockConfig,
-      "SearchTool",
-      { steps: 10 },
-    );
+    const result = await copilotkitEmitToolCall(mockConfig, "SearchTool", {
+      steps: 10,
+    });
 
     expect(typeof result).toBe("string");
     expect(result.length).toBeGreaterThan(0);

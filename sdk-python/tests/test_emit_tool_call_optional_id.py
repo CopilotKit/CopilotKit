@@ -227,9 +227,7 @@ class TestCrewAIEmitToolCallOptionalId:
             from copilotkit.crewai.crewai_sdk import copilotkit_emit_tool_call
 
             with pytest.raises(ValueError, match="non-empty string"):
-                await copilotkit_emit_tool_call(
-                    name="Tool", args={}, tool_call_id=""
-                )
+                await copilotkit_emit_tool_call(name="Tool", args={}, tool_call_id="")
 
 
 # ---- AG-UI dispatch: custom ID propagates through all events ----
