@@ -27,9 +27,37 @@ export {
 // ---------------------------------------------------------------------------
 
 export type NavNode =
-  | { type: "page"; title: string; slug: string }
-  | { type: "section"; title: string }
-  | { type: "group"; title: string; slug: string; children: NavNode[] };
+  | { type: "page"; title: string; slug: string; icon?: string }
+  | { type: "section"; title: string; icon?: string }
+  | {
+      type: "group";
+      title: string;
+      slug: string;
+      children: NavNode[];
+      defaultOpen?: boolean;
+      icon?: string;
+    };
+
+// Section headers (the all-caps separators) carry the only icons in
+// the sidebar — top-level visual scaffolding. Title comparison is
+// case-insensitive so meta.json edits don't need to match this map's
+// capitalization exactly. Update keys here when section names change
+// in `content/docs/meta.json`.
+const SECTION_ICONS: Record<string, string> = {
+  "get started": "lucide/Rocket",
+  concepts: "lucide/BookOpen",
+  "build chat uis": "lucide/MessageSquare",
+  "build generative ui": "lucide/Paintbrush",
+  "add agent powers": "lucide/Wand2",
+  runtime: "lucide/Cpu",
+  "observe & operate": "lucide/SearchCheck",
+  enterprise: "custom/copilotkit-kite",
+  deploy: "lucide/Cloud",
+};
+
+export function sectionIconFor(title: string): string | undefined {
+  return SECTION_ICONS[title.toLowerCase()];
+}
 
 /**
  * Extract the frontmatter block (content between leading `---` fences)
@@ -80,6 +108,13 @@ const metaCache = new Map<
   string,
   { title?: string; pages?: string[]; root?: boolean } | null
 >();
+// Tree-level cache. Even with title/meta cached, `buildNavTree` still
+// allocates ~200 NavNode objects per call and is invoked from every
+// page render (sometimes twice in the same render via DocsPageView +
+// the route's own pageTree). Keying on `${dir}|${prefix}` makes
+// repeated calls return the same array reference. Dev mode skips it
+// so meta.json edits propagate without a restart.
+const navTreeCache = new Map<string, NavNode[]>();
 
 export function readTitle(filePath: string): string | null {
   const cacheKey = path.resolve(filePath);
@@ -117,9 +152,55 @@ export function readTitle(filePath: string): string | null {
   return title;
 }
 
+// Read the `icon:` field from an MDX file's frontmatter. Mirrors
+// `readTitle` so the icon survives the same caching / extraction story
+// (frontmatter-scoped regex, dev cache bypass). Returns the raw spec
+// string (e.g. `"lucide/Paintbrush"`); the bridge resolves it to a
+// React element when building the PageTree.
+export function readIcon(filePath: string): string | null {
+  const cacheKey = `icon:${path.resolve(filePath)}`;
+  if (!isDev && titleCache.has(cacheKey)) return titleCache.get(cacheKey)!;
+  if (!fs.existsSync(filePath)) {
+    titleCache.set(cacheKey, null);
+    return null;
+  }
+  let raw: string;
+  try {
+    raw = fs.readFileSync(filePath, "utf-8");
+  } catch {
+    titleCache.set(cacheKey, null);
+    return null;
+  }
+  const fm = extractFrontmatter(raw);
+  const match = fm.match(/^icon:\s*["']?(.+?)["']?\s*$/m);
+  const icon = match ? match[1].replace(/["']$/, "") : null;
+  titleCache.set(cacheKey, icon);
+  return icon;
+}
+
+// A meta.json `pages` entry is either a string (page slug, section
+// header `---Title---`, or spread `...folder`) or an inline-folder
+// object: `{ title, pages, defaultOpen?, icon? }`. Inline folders let
+// a parent meta.json declare a folder grouping without moving the
+// underlying MDX files into a subdirectory — useful for visual
+// grouping inside a single content tier.
+export type MetaPageEntry =
+  | string
+  | {
+      title: string;
+      pages: MetaPageEntry[];
+      defaultOpen?: boolean;
+      icon?: string;
+    };
+
 export function readMeta(
   dir: string,
-): { title?: string; pages?: string[]; root?: boolean } | null {
+): {
+  title?: string;
+  pages?: MetaPageEntry[];
+  root?: boolean;
+  icon?: string;
+} | null {
   const metaPath = path.join(dir, "meta.json");
   const cacheKey = path.resolve(metaPath);
   if (!isDev && metaCache.has(cacheKey)) return metaCache.get(cacheKey)!;
@@ -144,6 +225,17 @@ export function readMeta(
 }
 
 export function buildNavTree(dir: string, prefix: string = ""): NavNode[] {
+  const cacheKey = `${path.resolve(dir)}|${prefix}`;
+  if (!isDev) {
+    const cached = navTreeCache.get(cacheKey);
+    if (cached) return cached;
+  }
+  const tree = buildNavTreeInner(dir, prefix);
+  if (!isDev) navTreeCache.set(cacheKey, tree);
+  return tree;
+}
+
+function buildNavTreeInner(dir: string, prefix: string): NavNode[] {
   const meta = readMeta(dir);
   if (!meta) return buildNavTreeFromFilesystem(dir, prefix);
 
@@ -152,12 +244,47 @@ export function buildNavTree(dir: string, prefix: string = ""): NavNode[] {
     return buildNavTreeFromFilesystem(dir, prefix);
   }
 
+  return parseMetaPages(dir, prefix, pages);
+}
+
+// Parse a meta.json `pages` array into NavNodes. Recursive: inline-folder
+// objects re-enter via the recursive call so the inner page syntax stays
+// identical to the surrounding tree.
+function parseMetaPages(
+  dir: string,
+  prefix: string,
+  pages: MetaPageEntry[],
+): NavNode[] {
   const nodes: NavNode[] = [];
 
   for (const entry of pages) {
+    // Inline-folder object: `{ title, pages, defaultOpen?, icon? }`.
+    // Lets a meta.json declare a folder grouping without moving its
+    // MDX files into a subdirectory. The inner pages re-enter this
+    // same parser (via the recursive call below) so the syntax inside
+    // an inline folder is identical to the surrounding tree.
+    if (typeof entry === "object" && entry !== null) {
+      const children = parseMetaPages(dir, prefix, entry.pages);
+      if (children.length > 0) {
+        nodes.push({
+          type: "group",
+          title: entry.title,
+          // No backing directory — slug is purely a stable key for
+          // sidebar React reconciliation. Prefix it so the React key
+          // doesn't collide with a real folder of the same name.
+          slug: `${prefix}#${entry.title}`,
+          children,
+          defaultOpen: entry.defaultOpen,
+          icon: entry.icon,
+        });
+      }
+      continue;
+    }
+
     const sectionMatch = entry.match(/^---(.+)---$/);
     if (sectionMatch) {
-      nodes.push({ type: "section", title: sectionMatch[1] });
+      const title = sectionMatch[1];
+      nodes.push({ type: "section", title, icon: sectionIconFor(title) });
       continue;
     }
 
@@ -193,6 +320,7 @@ export function buildNavTree(dir: string, prefix: string = ""): NavNode[] {
             title: isDuplicateOfSection ? "" : groupTitle,
             slug: subPrefix,
             children: subChildren,
+            icon: subMeta?.icon,
           });
         }
       }
@@ -216,14 +344,23 @@ export function buildNavTree(dir: string, prefix: string = ""): NavNode[] {
       const title = fs.existsSync(mdxFile)
         ? readTitle(mdxFile) || "Introduction"
         : "Introduction";
-      nodes.push({ type: "page", title, slug });
+      // At the docs root (no prefix), `"index"` represents the bare
+      // `/` page (the unscoped docs landing). Rewrite the slug to ""
+      // so the bridge builds `/` rather than `/index`. Inside a
+      // sub-folder, `"index"` keeps the folder-relative slug (e.g.
+      // `agentic-protocols/index`) and `buildFrameworkOverridesNav`
+      // handles the final framework-scoped rewrite separately.
+      const indexSlug = prefix ? slug : "";
+      const icon = fs.existsSync(mdxFile) ? readIcon(mdxFile) : null;
+      nodes.push({ type: "page", title, slug: indexSlug, icon: icon ?? undefined });
       continue;
     }
 
     if (fs.existsSync(mdxFile)) {
       const title =
         readTitle(mdxFile) || entry.split("/").pop()!.replace(/-/g, " ");
-      nodes.push({ type: "page", title, slug });
+      const icon = readIcon(mdxFile);
+      nodes.push({ type: "page", title, slug, icon: icon ?? undefined });
     } else if (fs.existsSync(subDir) && fs.statSync(subDir).isDirectory()) {
       const subMeta = readMeta(subDir);
       if (subMeta?.root) continue;
@@ -237,11 +374,18 @@ export function buildNavTree(dir: string, prefix: string = ""): NavNode[] {
           title: groupTitle.charAt(0).toUpperCase() + groupTitle.slice(1),
           slug: subPrefix,
           children: subChildren,
+          icon: subMeta.icon,
         });
       } else if (fs.existsSync(indexFile)) {
         const title =
           readTitle(indexFile) || subMeta?.title || entry.replace(/-/g, " ");
-        nodes.push({ type: "page", title, slug: subPrefix });
+        const icon = readIcon(indexFile);
+        nodes.push({
+          type: "page",
+          title,
+          slug: subPrefix,
+          icon: icon ?? undefined,
+        });
       } else {
         const subChildren = buildNavTreeFromFilesystem(subDir, subPrefix);
         if (subChildren.length > 0) {

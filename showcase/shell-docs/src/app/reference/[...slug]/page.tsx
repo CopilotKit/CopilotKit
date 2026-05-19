@@ -12,7 +12,14 @@ import {
   Accordion,
 } from "@/components/mdx-components";
 import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
-import { SidebarNav } from "@/components/sidebar-nav";
+import {
+  DocsPage,
+  DocsBody,
+  DocsTitle,
+  DocsDescription,
+} from "fumadocs-ui/page";
+import { ShellDocsLayout } from "@/components/shell-docs-layout";
+import type * as PageTree from "fumadocs-core/page-tree";
 import {
   REFERENCE_CONTENT_DIR,
   loadAllReferenceItems,
@@ -93,54 +100,35 @@ export default async function ReferenceSlugPage({
   const description =
     typeof data.description === "string" ? data.description : undefined;
 
-  return (
-    <div className="flex h-full w-full">
-      {/* Sidebar */}
-      <SidebarNav className="hidden lg:block w-56 shrink-0 border-r border-[var(--border)] bg-[var(--bg-surface)] overflow-y-auto h-full">
-        <nav className="p-4 space-y-6">
-          <div>
-            <Link
-              href="/reference"
-              className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
-            >
-              Reference
-            </Link>
-          </div>
-          {["Components", "Hooks"].map((cat) => (
-            <div key={cat}>
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2">
-                {cat}
-              </div>
-              <ul className="space-y-0.5">
-                {allItems
-                  .filter((i) => i.category === cat)
-                  .map((item) => {
-                    const isActive = item.slug === slugPath;
-                    return (
-                      <li key={item.slug}>
-                        <Link
-                          href={`/reference/${item.slug}`}
-                          data-active={isActive ? "true" : undefined}
-                          className={`block text-[12px] font-mono px-2 py-1 rounded transition-colors ${
-                            isActive
-                              ? "bg-[var(--accent)]/10 text-[var(--accent)] font-semibold"
-                              : "text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
-                          }`}
-                        >
-                          {item.title}
-                        </Link>
-                      </li>
-                    );
-                  })}
-              </ul>
-            </div>
-          ))}
-        </nav>
-      </SidebarNav>
+  // Build a Fumadocs PageTree from the reference items, grouped by
+  // category. Reference's IA is its own (Components / Hooks) — we don't
+  // share the docs nav tree here.
+  const pageTree: PageTree.Root = {
+    name: "Reference",
+    children: ["Components", "Hooks"].flatMap((cat) => [
+      { type: "separator" as const, name: cat },
+      ...allItems
+        .filter((i) => i.category === cat)
+        .map(
+          (item): PageTree.Item => ({
+            type: "page",
+            name: item.title,
+            url: `/reference/${item.slug}`,
+          }),
+        ),
+    ]),
+  };
 
-      {/* Main content */}
-      <div className="flex-1 min-w-0 overflow-y-auto">
-        <article className="max-w-3xl mx-auto px-6 py-10">
+  return (
+    <ShellDocsLayout tree={pageTree}>
+      <DocsPage
+        toc={[]}
+        tableOfContent={{ enabled: false }}
+        tableOfContentPopover={{ enabled: false }}
+        breadcrumb={{ enabled: false }}
+        footer={{ enabled: false }}
+      >
+        <div className="px-6 py-10 max-w-3xl mx-auto">
           <div className="mb-8">
             <div className="text-xs text-[var(--text-muted)] mb-2">
               <Link
@@ -152,19 +140,19 @@ export default async function ReferenceSlugPage({
               {" / "}
               <span className="capitalize">{slug[0]}</span>
             </div>
-            <h1 className="text-2xl font-bold text-[var(--text)]">{title}</h1>
+            <DocsTitle className="text-2xl font-bold">{title}</DocsTitle>
             {description && (
-              <p className="text-sm text-[var(--text-muted)] mt-1">
+              <DocsDescription className="text-sm mt-1">
                 {description}
-              </p>
+              </DocsDescription>
             )}
           </div>
 
-          <div className="reference-content prose-sm">
+          <DocsBody className="reference-content prose-sm">
             <MDXRemote source={cleanedContent} components={mdxComponents} />
-          </div>
-        </article>
-      </div>
-    </div>
+          </DocsBody>
+        </div>
+      </DocsPage>
+    </ShellDocsLayout>
   );
 }

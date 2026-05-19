@@ -634,13 +634,10 @@ const FOLDER_INDEX: RedirectEntry[] = [
     source: "/concepts",
     destination: "/concepts/architecture",
   },
-  {
-    id: "FI-reference",
-    // /reference is served by app/reference/[...slug] which has no index;
-    // v2 is the active reference set.
-    source: "/reference",
-    destination: "/reference/v2",
-  },
+  // FI-reference removed: /reference now has a proper index page
+  // (app/reference/page.tsx) that lists components + hooks. The legacy
+  // redirect to /reference/v2 — a path that no longer exists — left the
+  // index broken.
 ];
 
 // ---------------------------------------------------------------------------

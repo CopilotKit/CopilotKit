@@ -1,20 +1,13 @@
-/* highlight.js themes load BEFORE tailwindcss so Tailwind utility
- * layers can override specific selectors if ever needed.
- *
- * Theme switching: shell-docs's dark mode is class-driven (the navbar
- * toggle adds/removes `.dark` on <html>), but the upstream hljs dark
- * stylesheet only knows how to switch via `prefers-color-scheme`. If
- * we imported it with the media-query gate, a user on a light OS who
- * clicked the dark toggle would get the dark surface chrome (page bg,
- * code-block bg) but the LIGHT hljs token colors — black text on
- * black backgrounds.
- *
- * Fix: import the light github theme unconditionally and inline the
- * github-dark-dimmed token colors below, scoped to `.dark`. Source:
- * highlight.js/styles/github-dark-dimmed.css (kept in sync manually;
- * the upstream sheet is small enough that drift is easy to spot). */
-@import "highlight.js/styles/github.css" layer(highlightjs);
+/* Syntax highlighting comes from Fumadocs's Shiki-based `rehypeCode`
+ * (see `src/app/[framework]/[[...slug]]/page.tsx` etc.). Shiki ships
+ * inline `--shiki-light` / `--shiki-dark` CSS variables on each token
+ * span; Fumadocs's preset CSS swaps between them via the `.dark`
+ * ancestor selector, so theme switching just works. We no longer pull
+ * in `highlight.js/styles/github.css` — see git history for the prior
+ * setup. */
 @import "tailwindcss";
+@import "fumadocs-ui/css/shadcn.css";
+@import "fumadocs-ui/css/preset.css";
 
 /* Activate `dark:` Tailwind variants based on the `.dark` class on an
  * ancestor (typically <html>) instead of the default
@@ -24,20 +17,332 @@
  * docs.copilotkit.ai/app/global.css. */
 @custom-variant dark (&:is(.dark *));
 
+/* Top-of-layout chrome heights:
+ *   - Desktop (md+): BrandNav is rendered in body flow at 88px.
+ *   - Mobile (< md): BrandNav is hidden; MobileTopNav (inside
+ *     DocsLayout's nav slot, position: fixed) renders at 56px.
+ *
+ * --fd-nav-height drives:
+ *   - Fumadocs sidebar's `top:` offset
+ *   - #nd-docs-layout's pt-(--fd-nav-height) (we override on desktop —
+ *     see below — but it's load-bearing on mobile to leave space for
+ *     the fixed mobile nav).
+ *
+ * --fd-banner-height is set dynamically by Banners (54px / 0px). */
 :root {
-  /* Backgrounds — match reference (oklch(0.9038 0.0149 286.1) ≈ #e6e6ec).
-   * Shell keeps a slightly lighter cast so code blocks on white surface
-   * still read well; key is that it's the same cool-gray family. */
-  --bg: #dedee9;
+  --fd-nav-height: 56px;
+}
+@media (min-width: 768px) {
+  :root {
+    --fd-nav-height: 88px;
+  }
+}
+
+/* shell-docs sidebar overrides.
+ *
+ * Fumadocs's DocsLayout sidebar reserves a header row with the home
+ * logo + sidebar-collapse toggle. shell-docs has its own BrandNav with
+ * the same logo, and `collapsible: false` removes the toggle — but the
+ * empty home-link `<a>` still occupies space at the top of the sidebar
+ * column. Hide it so the framework selector (rendered via the `banner`
+ * slot) sits flush at the top. */
+/* Sidebar banner (holds the framework picker). Top/horizontal padding
+ * at 1rem matches the sidebar's outer 0.75rem inset visually. Bottom
+ * padding is zeroed so the gap between the picker and the first nav
+ * link in the scroll viewport is governed entirely by the viewport's
+ * top padding (also 1rem) — keeping above/below the picker symmetric. */
+.shell-docs-sidebar > div:first-child {
+  padding: 1rem 1rem 0 1rem !important;
+}
+/* Hide the empty home-link wrapper Fumadocs ships in the desktop
+ * SidebarHeader. Scoped via `:has(> a:only-child:empty)` so it ONLY
+ * matches the desktop case — the mobile SidebarHeader's first flex
+ * child contains the iconLinks + theme-toggle row (children: real
+ * anchors + a button), so this selector deliberately doesn't apply
+ * there. */
+.shell-docs-sidebar > div:first-child > .flex:first-child:has(> a:only-child:empty) {
+  display: none !important;
+}
+
+/* Tighten Fumadocs folder rendering. The default gives folders an
+ * extra row of vertical padding above their children, which reads as
+ * a hole between the folder label and the first item. */
+#nd-sidebar [data-folder] > [data-folder-trigger] {
+  padding-top: 0.375rem;
+  padding-bottom: 0.375rem;
+}
+
+/* Sidebar section headers (PageTree `separator` nodes). Fumadocs defaults
+ * to body-weight foreground text with `inline-flex`, which makes section
+ * labels (a) compete with the actual nav links underneath, and (b) flow
+ * onto the SAME row when two separators are adjacent (e.g. a folder's
+ * title + its first child separator). Push them into "shelf label"
+ * territory and force block-level layout so each one sits on its own row.
+ * The unique `--sidebar-item-offset` class fragment isolates these from
+ * any other `<p>` elements in the sidebar. */
+.shell-docs-sidebar p[class*="sidebar-item-offset"] {
+  display: flex !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  color: var(--text-secondary) !important;
+  /* Heavier `padding-top` opens a breath of space between the last
+   * item of the previous section and this header, so the section
+   * boundary reads as a real break instead of one continuous list.
+   * `padding-bottom` separates the header from its first child entry
+   * without making the header feel detached. Mirrors Mintlify's
+   * roomier section spacing. */
+  padding-top: 1.75rem !important;
+  padding-bottom: 0.625rem !important;
+  margin-top: 0.25rem !important;
+  margin-bottom: 0 !important;
+}
+/* Sidebar entry rhythm. Fumadocs ships `p-2` on every `<a>` link and
+ * `<button>` folder trigger, which packs items tightly together. Bump
+ * top/bottom padding by 2px each so each entry has a touch more
+ * breathing room without the sidebar growing taller than necessary.
+ * Targets the `ps-(--sidebar-item-offset)` class fragment shared by
+ * every sidebar item (link, folder trigger, separator); separators
+ * have their own padding overrides further down so they're unaffected. */
+.shell-docs-sidebar a[class*="sidebar-item-offset"],
+.shell-docs-sidebar button[class*="sidebar-item-offset"] {
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
+}
+
+/* Shrink sidebar icons (section markers, folder chevrons, anything
+ * Fumadocs renders inside a navigation item) from the default 16px
+ * down to 14px. Targets only nav items via the
+ * `ps-(--sidebar-item-offset)` class fragment so the framework-
+ * selector pill / dropdown logos keep their explicit sizing. */
+.shell-docs-sidebar p[class*="sidebar-item-offset"] svg,
+.shell-docs-sidebar a[class*="sidebar-item-offset"] svg,
+.shell-docs-sidebar button[class*="sidebar-item-offset"] svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Sidebar footer (`SidebarFooter` — the row with GitHub/Discord icons
+ * and the theme toggle). Fumadocs ships `border-t p-4 pt-2` but the
+ * default `border-t` color resolves to `currentColor` in Tailwind v4,
+ * which renders as text-dark against the white panel. Force the
+ * project's border token and extend the rule edge-to-edge by
+ * neutralising the horizontal padding so the line spans the full
+ * sidebar width. */
+.shell-docs-sidebar > div.flex.flex-col.border-t {
+  border-top: 1px solid var(--border) !important;
+  width: 100% !important;
+  padding: 0.5rem 1rem;
+}
+
+/* First separator at the top of the sidebar — no top padding so the
+ * "Get Started" label doesn't push down from the framework selector. */
+.shell-docs-sidebar p[class*="sidebar-item-offset"]:first-of-type {
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}
+/* Two separators stacked back-to-back (e.g. a top-level section
+ * "Build Generative UI" + sub-section "Controlled") would otherwise
+ * each get the full 1rem top padding, producing a yawning gap between
+ * them. Tighten the second one AND step its visual weight down so the
+ * pair reads as a heading + sub-heading rather than two competing
+ * top-level sections. */
+.shell-docs-sidebar
+  p[class*="sidebar-item-offset"]
+  + p[class*="sidebar-item-offset"] {
+  padding-top: 0.25rem !important;
+  margin-top: 0 !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: var(--text-muted) !important;
+  letter-spacing: 0 !important;
+}
+
+/* Fumadocs CodeBlock chrome — force a single flat white surface throughout.
+ *
+ * Out-of-the-box, Fumadocs paints the `<CodeBlock>` figure with
+ * `bg-fd-card` (and `bg-fd-secondary` when nested inside CodeBlockTabs),
+ * and the CodeBlockTabs container itself uses `bg-fd-card`. Those tints
+ * differ subtly from the page bg, giving the title strip a visibly
+ * grayer band against the rest of the page. Snap every surface to the
+ * page bg so the file caption, the code body, and the tab strip read
+ * as one clean rounded box. */
+figure.shiki,
+.docs-inner-content [data-orientation="horizontal"]:has(> [role="tablist"]) {
+  background-color: #ffffff !important;
+  box-shadow: none !important;
+}
+.dark figure.shiki,
+.dark .docs-inner-content [data-orientation="horizontal"]:has(> [role="tablist"]) {
+  background-color: #1a1d1f !important;
+}
+/* Fumadocs's figcaption header ("page.tsx" strip) uses `border-b` which
+ * inherits `currentColor` from the parent's `text-fd-muted-foreground`
+ * — that resolves to a dark gray and reads as a heavy band against the
+ * white surface. Force the project border token so the divider matches
+ * every other border on the page. */
+figure.shiki > div:first-child[class*="border-b"] {
+  border-bottom-color: var(--border) !important;
+}
+
+/* Tighten Fumadocs DocsPage spacing.
+ *
+ * On desktop (md+), shell-docs's BrandNav sits OUTSIDE DocsLayout in
+ * body flow — so `#nd-docs-layout`'s `pt-(--fd-nav-height)` would be a
+ * second 88px stacked on top of BrandNav's 88px (a doubled gap). We
+ * zero it on md+ only.
+ *
+ * On mobile (< md), BrandNav is hidden and the fixed-positioned
+ * MobileTopNav lives INSIDE DocsLayout — `pt-(--fd-nav-height)` (56px)
+ * is exactly the space the fixed nav needs.
+ *
+ * The article-level padding (LayoutBody's `md:[&_#nd-page_article]:pt-12`
+ * plus PageArticle's own `pt-8`) is unwanted on both — we always zero
+ * those at the #nd-page / article wrappers. */
+@media (min-width: 768px) {
+  #nd-docs-layout {
+    padding-top: 0 !important;
+  }
+}
+#nd-page > article,
+#nd-page {
+  padding-top: 0 !important;
+  padding-left: 0.75rem !important;
+  margin-top: 0 !important;
+}
+#nd-page > article > *:first-child {
+  margin-top: 0 !important;
+}
+
+/* When the docs layout renders without a TOC (overview routes that don't
+ * use DocsPage, or DocsPage with toc=[] / tableOfContent:disabled),
+ * the right side of the content slot becomes empty space and a
+ * 900px-capped column reads as left-anchored. Widen the inner column to
+ * fill that space so cards/text settle into a more balanced layout.
+ *
+ * Scoped to `#nd-docs-layout` (not `#nd-page`) so it also covers the
+ * Welcome route, which renders bespoke content directly inside DocsLayout
+ * without a DocsPage wrapper. */
+/* The inner content column sits inside a flex-col article whose width
+ * tracks the available viewport space (sidebar + TOC eat into the
+ * remaining room). Without `min-width: 0`, this child defaults to
+ * `min-width: auto`, which expands to fit its intrinsic min-content —
+ * a wide chat iframe or long code line then bursts past the article's
+ * rendered width and overlaps the sticky right-rail TOC. Force a zero
+ * floor AND pin width to 100% of the article so the child cannot
+ * grow content-first; oversize children (iframes, code blocks) must
+ * scroll internally to fit. */
+.docs-inner-content {
+  min-width: 0;
+  width: 100%;
+  /* Mirror the sidebar's 0.75rem left/right viewport inset so the
+   * content column has breathing room from both the floating sidebar
+   * (on the left) and the viewport edge (on the right). */
+  padding-left: 49px !important;
+  padding-right: 49px !important;
+}
+
+#nd-docs-layout:not(:has(#nd-toc)) .docs-inner-content {
+  /* Cap at 1100px but never exceed the available column width — otherwise
+   * the flex parent's `min-w-0` lets this child render at its natural
+   * 1100px on narrower viewports, pushing the docs-content-wrapper into a
+   * horizontal scroll where the whole page shifts right. */
+  max-width: min(1100px, 100%);
+}
+
+/* Sidebar — float as a card panel inset from all four viewport edges,
+ * matching the canonical "DocsLayout sidebar in a card" treatment. The
+ * fumadocs aside is `fixed; left: 0; top: var(--fd-sidebar-top);
+ * bottom: var(--fd-sidebar-margin)` by default — we override `left` and
+ * tighten top/bottom so the panel floats with even breathing room. */
+.shell-docs-sidebar {
+  /* `top` aligns the framework picker's baseline with the page
+   * breadcrumb. BrandNav is 68px tall md→xl and 88px from xl up;
+   * the +8 offset accounts for article padding (≈12px) minus our
+   * banner padding (≈4px) so the picker baseline lands on the
+   * breadcrumb's baseline. Width is left alone — Fumadocs's
+   * `*:w-(--fd-sidebar-width)` already sizes the inner content
+   * column; pinning a different width on the aside makes the
+   * banner overflow past its right edge. */
+  left: 0.75rem !important;
+  bottom: 0.75rem !important;
+  /* Tailwind's `border-[var(--border)]` arbitrary-value class loses to
+   * the bare `border` utility's `currentColor` default in v4's cascade
+   * order — leading to a near-black outline against the white panel.
+   * Force the token explicitly. */
+  border-color: var(--border) !important;
+}
+
+/* Sidebar scroll viewport — 1rem padding on all sides matches the
+ * sidebar's outer inset and produces a symmetric gap between the
+ * picker (banner bottom: 0) and the first nav link. */
+.shell-docs-sidebar [data-radix-scroll-area-viewport] {
+  padding: 1rem !important;
+}
+
+/* The sidebar banner gets `*:w-(--fd-sidebar-width)` from Fumadocs's
+ * parent aside, making it wider than the aside itself and the scroll
+ * viewport below. Force the banner to share the aside's natural width
+ * so the picker pill lines up with the nav links underneath. */
+.shell-docs-sidebar > div:first-child {
+  width: 100% !important;
+}
+
+@media (min-width: 768px) {
+  .shell-docs-sidebar {
+    top: 76px !important;
+  }
+}
+
+@media (min-width: 1280px) {
+  .shell-docs-sidebar {
+    top: 96px !important;
+  }
+}
+
+/* Bridge shell-docs's hand-rolled token names (--bg, --text, --accent, …)
+ * to the names Fumadocs's shadcn preset expects (--background, --foreground,
+ * --primary, …). Done in @theme inline so Tailwind's color utilities
+ * (`bg-fd-background`, etc.) and Fumadocs's internal components both
+ * resolve to the shell-docs palette. */
+@theme inline {
+  --color-fd-background: var(--bg);
+  --color-fd-foreground: var(--text);
+  --color-fd-card: var(--bg-surface);
+  --color-fd-card-foreground: var(--text);
+  --color-fd-popover: var(--bg-surface);
+  --color-fd-popover-foreground: var(--text);
+  --color-fd-primary: var(--accent);
+  --color-fd-primary-foreground: #ffffff;
+  --color-fd-secondary: var(--bg-elevated);
+  --color-fd-secondary-foreground: var(--text);
+  --color-fd-muted: var(--bg-elevated);
+  --color-fd-muted-foreground: var(--text-muted);
+  --color-fd-accent: var(--bg-elevated);
+  --color-fd-accent-foreground: var(--text);
+  --color-fd-border: var(--border);
+  --color-fd-ring: var(--accent);
+}
+
+:root {
+  /* Light mode is plain white throughout — sidebar, content, glass surfaces
+   * all share `#ffffff` so the eye reads a single page rather than two
+   * panels with a seam. The dark-mode block below keeps shell-docs's
+   * darker-surface palette unchanged.
+   *
+   * Exception: `--nav-surface` keeps a slight gray-purple tint so the
+   * top BrandNav's two-piece pill (and its slanted SVG separator) reads
+   * as a distinct surface against the white page bg — that's the
+   * canonical CopilotKit chrome look. */
+  --bg: #ffffff;
   --bg-surface: #ffffff;
-  --bg-elevated: #f1f1f6;
-  --bg-hover: #e5e5eb;
-  --border: #d9d9e0;
-  --border-dim: #e9e9ef;
-  --sidebar: #efeff3;
-  /* Glass-panel surface (header, sidebar) — canonical exposes this for
-   * translucent chrome that sits above --bg. Wave 3 slots 2 + 3 consume it. */
-  --glass-background: #eaeaee;
+  --bg-elevated: #f5f5f7;
+  --bg-hover: #ececf0;
+  --border: #e5e5ea;
+  --border-dim: #efeff3;
+  --sidebar: #ffffff;
+  --glass-background: #ffffff;
+  --nav-surface: #ffffff;
   --text: #010507;
   --text-secondary: #2b3238;
   --text-muted: #6a7079;
@@ -82,6 +387,7 @@
   --bg-surface: #1a1d1f;
   --bg-elevated: #1f2326;
   --bg-hover: #252a2e;
+  --nav-surface: #111618;
   --border: rgba(255, 255, 255, 0.1);
   --border-dim: rgba(255, 255, 255, 0.05);
   --sidebar: #111618;
@@ -154,23 +460,13 @@ samp {
   height: 100%;
   overflow-y: auto;
   position: relative;
-  background-color: var(--bg-surface);
-  background-image: linear-gradient(
-    90deg,
-    rgba(1, 5, 7, 0.1),
-    rgba(1, 5, 7, 0)
-  );
+  background-color: var(--bg);
   scrollbar-width: thin;
 }
 
 [data-theme="dark"] .docs-content-wrapper,
 .dark .docs-content-wrapper {
-  background-color: var(--glass-background);
-  background-image: linear-gradient(
-    90deg,
-    rgba(1, 5, 7, 0.1),
-    rgba(1, 5, 7, 0)
-  );
+  background-color: var(--bg);
 }
 
 /* Reference content (MDX) typography — calibrated against docs.copilotkit.ai.
@@ -237,7 +533,11 @@ samp {
   list-style-type: decimal;
 }
 
-.reference-content code {
+/* Inline code chips (`<code>` inside paragraphs, list items, headings).
+ * Scoped with `:not(pre code)` so the block `<code>` inside Fumadocs's
+ * CodeBlock <pre> doesn't pick up the gray chip background — that
+ * would paint the entire code body with `--bg-elevated`. */
+.reference-content :not(pre) > code {
   font-size: 0.8125rem;
   background: var(--bg-elevated);
   padding: 0.125rem 0.375rem;
@@ -253,26 +553,10 @@ samp {
   font-size: 0.875em;
 }
 
-/* Bare <pre> fallback (when an MDX page uses a triple-fence rather than
- * <Snippet>). Mirrors the chrome on <Snippet>'s figure so pages look
- * consistent whether the code is live-from-cell or inline. */
-.reference-content pre {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 0.875rem;
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  padding: 1rem;
-  overflow-x: auto;
-  margin-bottom: 1.25rem;
-  font-size: 0.8125rem;
-  line-height: 1.6;
-}
-
-.reference-content pre code {
-  background: transparent;
-  padding: 0;
-  border-radius: 0;
-}
+/* Fenced code blocks go through Fumadocs's `<CodeBlock>` + `<Pre>` chrome
+ * (see `src/components/mdx-code-block.tsx`). No `.reference-content pre`
+ * overrides — they would double-decorate the figure with a second
+ * border / padding / background. */
 
 .reference-content a {
   color: var(--accent);
@@ -293,7 +577,14 @@ samp {
 .reference-content table {
   width: 100%;
   font-size: 0.875rem;
-  border-collapse: collapse;
+  /* `separate` (with zero spacing) instead of `collapse` so the table
+   * itself can carry a border + radius and the inner cells lay
+   * horizontal row separators on top of it without doubling. */
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  overflow: hidden;
   margin-bottom: 1rem;
 }
 
@@ -302,6 +593,12 @@ samp {
   border-bottom: 1px solid var(--border);
   padding: 0.625rem 0.75rem;
   text-align: left;
+}
+
+/* Last row sits flush against the table's outer border, so a cell
+ * `border-bottom` would double up — strip it. */
+.reference-content tr:last-child td {
+  border-bottom: none;
 }
 
 .reference-content th {
@@ -398,121 +695,10 @@ samp {
   margin-top: 0;
 }
 
-/* highlight.js — class-driven dark overrides.
- *
- * The light `github.css` theme is imported unconditionally at the top of
- * this file. The block below mirrors `github-dark-dimmed.css` but scoped
- * to `.dark`, so the user's manual theme toggle (which only flips a
- * class, not the OS color-scheme) actually re-themes the syntax colors
- * inside code blocks. Without this scoping, dark-mode users saw black
- * `.hljs` text against the dark `var(--bg-surface)` we set on <pre>,
- * which is the "CSS Disruptive for Dark Mode" report on the Quickstart. */
-.dark .hljs {
-  color: #adbac7;
-  background: transparent;
-}
-.dark .hljs-doctag,
-.dark .hljs-keyword,
-.dark .hljs-meta .hljs-keyword,
-.dark .hljs-template-tag,
-.dark .hljs-template-variable,
-.dark .hljs-type,
-.dark .hljs-variable.language_ {
-  color: #f47067;
-}
-.dark .hljs-title,
-.dark .hljs-title.class_,
-.dark .hljs-title.class_.inherited__,
-.dark .hljs-title.function_ {
-  color: #dcbdfb;
-}
-.dark .hljs-attr,
-.dark .hljs-attribute,
-.dark .hljs-literal,
-.dark .hljs-meta,
-.dark .hljs-number,
-.dark .hljs-operator,
-.dark .hljs-variable,
-.dark .hljs-selector-attr,
-.dark .hljs-selector-class,
-.dark .hljs-selector-id {
-  color: #6cb6ff;
-}
-.dark .hljs-regexp,
-.dark .hljs-string,
-.dark .hljs-meta .hljs-string {
-  color: #96d0ff;
-}
-.dark .hljs-built_in,
-.dark .hljs-symbol {
-  color: #f69d50;
-}
-.dark .hljs-comment,
-.dark .hljs-code,
-.dark .hljs-formula {
-  color: #768390;
-}
-.dark .hljs-name,
-.dark .hljs-quote,
-.dark .hljs-selector-tag,
-.dark .hljs-selector-pseudo {
-  color: #8ddb8c;
-}
-.dark .hljs-subst {
-  color: #adbac7;
-}
-.dark .hljs-section {
-  color: #316dca;
-  font-weight: bold;
-}
-.dark .hljs-bullet {
-  color: #eac55f;
-}
-.dark .hljs-emphasis {
-  color: #adbac7;
-  font-style: italic;
-}
-.dark .hljs-strong {
-  color: #adbac7;
-  font-weight: bold;
-}
-.dark .hljs-addition {
-  color: #b4f1b4;
-  background-color: #1b4721;
-}
-.dark .hljs-deletion {
-  color: #ffd8d3;
-  background-color: #78191b;
-}
-
-/* Light-mode hljs: the upstream `github.css` paints `.hljs` with an opaque
- * `#fff` background that punches a white rectangle out of dark surfaces
- * AND fights the figure's `var(--bg-surface)`. Setting it to transparent
- * lets our own chrome (Snippet, DemoSource, MdxCodeBlock) own the
- * background so theme-driven surfaces actually paint through. */
-.hljs {
-  background: transparent;
-}
-
-/* <MdxCodeBlock> — the `pre` override used by triple-fenced MDX code
- * blocks. We want the figure chrome to win over the default
- * `.reference-content pre` rule (border + shadow + padding) so the
- * captioned/copy-button surface doesn't double up borders or padding. */
-.reference-content .mdx-code-block {
-  background: var(--bg-surface);
-}
-
-.reference-content .mdx-code-block .mdx-code-block__pre {
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
-  margin: 0;
-  /* `.reference-content pre` ships with its own font-size; the inline
-   * class on .mdx-code-block__pre also sets one (`text-[12.5px]`). Using
-   * `font-size: inherit` here is the wrong direction — the inline class
-   * is what should win, so we don't override font-size at all. */
-}
+/* Syntax-highlight token colors come from Shiki (Fumadocs's `rehypeCode`)
+ * as inline `--shiki-light` / `--shiki-dark` CSS vars on each token span.
+ * Fumadocs's preset CSS swaps between them based on the `.dark` ancestor.
+ * No theme overrides needed here. */
 
 /* Soften the prose link underline rule inside our code-block surfaces.
  * `.reference-content a { text-decoration: underline; color: accent }`

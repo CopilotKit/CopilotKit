@@ -80,7 +80,8 @@ export function SearchTrigger({
     <>
       <button
         onClick={() => setOpen((prev) => !prev)}
-        className="-ml-2 lg:ml-0 flex gap-2 items-center px-3 h-11 rounded-lg lg:border cursor-pointer bg-transparent lg:bg-[var(--bg-surface)]/60 border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
+        aria-label="Search"
+        className="-ml-2 lg:ml-0 lg:min-w-[260px] xl:min-w-[320px] flex gap-2 items-center px-3 h-11 rounded-lg cursor-pointer bg-transparent text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
       >
         <svg
           width="16"
@@ -106,7 +107,7 @@ export function SearchTrigger({
           />
         </svg>
 
-        <span className="hidden text-sm font-medium lg:block">Search...</span>
+        <span className="hidden flex-1 text-left text-sm font-medium lg:block">Search...</span>
 
         <span
           className="hidden xl:inline-flex items-center justify-center font-mono text-[11px] border border-[var(--border)] px-1.5 py-0.5 rounded text-[var(--text-faint)] bg-[var(--bg-surface)]"
