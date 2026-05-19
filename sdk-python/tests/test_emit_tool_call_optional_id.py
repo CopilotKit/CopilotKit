@@ -646,9 +646,7 @@ class TestAGUIDispatchValidation:
             name=CustomEventNames.ManuallyEmitToolCall.value,
             value={"id": "valid-id", "name": "Tool"},
         )
-        with pytest.raises(
-            CopilotKitMisuseError, match="missing 'args'"
-        ):
+        with pytest.raises(CopilotKitMisuseError, match="missing 'args'"):
             agent._dispatch_event(event)
 
     def test_non_serializable_args_raises(self, agent):
@@ -658,9 +656,7 @@ class TestAGUIDispatchValidation:
             name=CustomEventNames.ManuallyEmitToolCall.value,
             value={"id": "valid-id", "name": "Tool", "args": {1, 2, 3}},
         )
-        with pytest.raises(
-            CopilotKitMisuseError, match="not JSON-serializable"
-        ):
+        with pytest.raises(CopilotKitMisuseError, match="not JSON-serializable"):
             agent._dispatch_event(event)
 
     def test_non_dict_value_raises(self, agent):
