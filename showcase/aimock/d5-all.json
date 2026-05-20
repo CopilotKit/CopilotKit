@@ -2665,10 +2665,10 @@
     {
       "match": {
         "userMessage": "intro call with the sales team",
-        "toolName": "schedule_meeting"
+        "toolName": "schedule_meeting",
+        "hasToolResult": false
       },
       "response": {
-        "content": "Sure — let me check available times.",
         "toolCalls": [
           {
             "name": "schedule_meeting",
@@ -2703,10 +2703,10 @@
     {
       "match": {
         "userMessage": "1:1 with Alice",
-        "toolName": "schedule_meeting"
+        "toolName": "schedule_meeting",
+        "hasToolResult": false
       },
       "response": {
-        "content": "Got it — pulling up next-week slots.",
         "toolCalls": [
           {
             "name": "schedule_meeting",
