@@ -169,12 +169,18 @@ declare module "@copilotkit/react-core/v2" {
 
 /**
  * Walk up from `start` one level at a time, looking for the nearest directory
- * containing a `package.json`. A `package.json` whose IMMEDIATE parent is
- * `node_modules` belongs to a dependency, not the project — those are skipped
- * and the walk continues upward. Any other ancestor segment named
- * `node_modules` on the way up is left alone: a legitimate workspace package
- * that happens to live at `/repo/node_modules/.../packages/my-app` is still
- * the right answer for the CLI invoked from inside it.
+ * containing a `package.json` that does NOT belong to a dependency.
+ *
+ * A `package.json` is treated as a dependency when its immediate parent is
+ * `node_modules` (e.g. `node_modules/lodash/package.json`) OR its grandparent
+ * is `node_modules` AND its parent looks like an npm scope starting with `@`
+ * (e.g. `node_modules/@scope/pkg/package.json`). Both forms are skipped and
+ * the walk continues upward.
+ *
+ * Other paths that happen to traverse `node_modules` higher up the tree are
+ * accepted: a legitimate workspace package that happens to live at
+ * `/repo/node_modules/.../packages/my-app` is still the right answer when
+ * the CLI is invoked from inside it.
  *
  * Returns `null` if no eligible package.json is found before hitting the
  * filesystem root — typegen has no sensible place to write in that case.
@@ -183,11 +189,15 @@ export function findProjectRoot(start: string): string | null {
   let current = path.resolve(start);
   while (true) {
     if (fs.existsSync(path.join(current, "package.json"))) {
-      // Skip dependency package.jsons (those sit directly inside
-      // node_modules) but accept anything else, even paths that traverse
-      // node_modules higher up the tree.
-      const parentDirName = path.basename(path.dirname(current));
-      if (parentDirName !== "node_modules") {
+      const parentDir = path.dirname(current);
+      const parentDirName = path.basename(parentDir);
+      const grandparentDirName = path.basename(path.dirname(parentDir));
+
+      const isDirectDep = parentDirName === "node_modules";
+      const isScopedDep =
+        parentDirName.startsWith("@") && grandparentDirName === "node_modules";
+
+      if (!isDirectDep && !isScopedDep) {
         return current;
       }
     }
