@@ -1,0 +1,20 @@
+# Probe: pin-drift
+#
+# Weekly ratchet tick against `showcase/scripts/fail-baseline.json`.
+# Runs `validate-pins.ts` to collect the current `[FAIL] ...` set,
+# hashes it (sort -u | sha256), and compares count + hash against the
+# committed baseline. Emits setStatus: stable / regressed / improved /
+# no_baseline so the existing pin-drift alert template can route off
+# the same signal shape.
+#
+# Schedule: Monday 10:00 UTC — mirrors the weekly cron in
+# `.github/workflows/showcase_validate.yml`'s pin-drift ratchet so the
+# in-cluster probe tick lines up with the external CI ratchet. Single-
+# target probe (the driver internally walks every showcase package via
+# validate-pins.ts' built-in fan-out), so `target` is one synthetic
+# entry rather than a targets list.
+kind: pin_drift
+id: pin-drift-weekly
+schedule: "0 10 * * 1"
+target:
+  key: "pin_drift:overall"

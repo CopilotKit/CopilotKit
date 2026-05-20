@@ -8,45 +8,27 @@ This is a starter template for building AI agents using Google's [ADK](https://g
 - Python 3.12+
 - Google Makersuite API Key (for the ADK agent) (see https://makersuite.google.com/app/apikey)
 - Any of the following package managers:
-  - pnpm (recommended)
-  - npm
-  - yarn
-  - bun
-
-> **Note:** This repository ignores lock files (package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb) to avoid conflicts between different package managers. Each developer should generate their own lock file using their preferred package manager. After that, make sure to delete it from the .gitignore.
+  - npm (default)
+  - [pnpm](https://pnpm.io/installation)
+  - [yarn](https://classic.yarnpkg.com/lang/en/docs/install/)
+  - [bun](https://bun.sh/)
 
 ## Getting Started
 
 1. Install dependencies using your preferred package manager:
 
 ```bash
-# Using pnpm (recommended)
-pnpm install
-
-# Using npm
+# Using npm (default)
 npm install
+
+# Using pnpm
+pnpm install
 
 # Using yarn
 yarn install
 
 # Using bun
 bun install
-```
-
-2. Install Python dependencies for the ADK agent:
-
-```bash
-# Using pnpm
-pnpm install:agent
-
-# Using npm
-npm run install:agent
-
-# Using yarn
-yarn install:agent
-
-# Using bun
-bun run install:agent
 ```
 
 > **Note:** This will automatically setup a `.venv` (virtual environment) inside the `agent` directory.
@@ -57,20 +39,20 @@ bun run install:agent
 > source agent/.venv/bin/activate
 > ```
 
-3. Set up your Google API key:
+2. Set up your Google API key:
 
 ```bash
 export GOOGLE_API_KEY="your-google-api-key-here"
 ```
 
-4. Start the development server:
+3. Start the development server:
 
 ```bash
+# Using npm (default)
+npm run dev
+
 # Using pnpm
 pnpm dev
-
-# Using npm
-npm run dev
 
 # Using yarn
 yarn dev
@@ -91,7 +73,6 @@ The following scripts can also be run using your preferred package manager:
 - `dev:agent` - Starts only the ADK agent server
 - `build` - Builds the Next.js application for production
 - `start` - Starts the production server
-- `lint` - Runs ESLint for code linting
 - `install:agent` - Installs Python dependencies for the agent
 
 ## Documentation

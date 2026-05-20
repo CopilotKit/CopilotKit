@@ -1,0 +1,57 @@
+{
+  "config": {
+    "version": "1.59.1"
+  },
+  "stats": {
+    "startTime": "2026-04-21T00:00:00.000Z",
+    "duration": 2345,
+    "expected": 2,
+    "unexpected": 1,
+    "flaky": 0,
+    "skipped": 0
+  },
+  "suites": [
+    {
+      "title": "l1-3",
+      "file": "smoke/l1-3.spec.ts",
+      "specs": [
+        {
+          "title": "dashboard loads",
+          "ok": true,
+          "tests": [
+            {
+              "expectedStatus": "passed",
+              "results": [{ "status": "passed", "duration": 512, "errors": [] }]
+            }
+          ]
+        },
+        {
+          "title": "dojo exposes health banner",
+          "ok": false,
+          "tests": [
+            {
+              "expectedStatus": "passed",
+              "results": [
+                {
+                  "status": "failed",
+                  "duration": 1680,
+                  "error": {
+                    "message": "Error: expected 'healthy' but received 'degraded'",
+                    "stack": "AssertionError: expected 'healthy' but received 'degraded'\n    at smoke/l1-3.spec.ts:42:18"
+                  },
+                  "errors": [
+                    {
+                      "message": "Error: expected 'healthy' but received 'degraded'",
+                      "stack": "AssertionError: expected 'healthy' but received 'degraded'\n    at smoke/l1-3.spec.ts:42:18"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": []
+}

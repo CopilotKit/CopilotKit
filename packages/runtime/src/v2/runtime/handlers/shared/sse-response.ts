@@ -7,12 +7,15 @@ import {
   type CopilotRuntimeLogger,
 } from "../../../../lib/logger";
 import { telemetry } from "../../telemetry";
+import { DebugEventBus } from "../../core/debug-event-bus";
 
 interface CreateSseEventResponseParams {
   request: Request;
   observableFactory: () =>
     | Promise<Observable<BaseEvent>>
     | Observable<BaseEvent>;
+  debugEventBus?: DebugEventBus;
+  agentId?: string;
   debug?: ResolvedDebugConfig;
   /** Pre-created logger instance to avoid creating a new pino logger per request. */
   logger?: CopilotRuntimeLogger;
@@ -21,6 +24,8 @@ interface CreateSseEventResponseParams {
 export function createSseEventResponse({
   request,
   observableFactory,
+  debugEventBus,
+  agentId,
   debug,
   logger,
 }: CreateSseEventResponseParams): Response {
@@ -28,6 +33,8 @@ export function createSseEventResponse({
   const writer = stream.writable.getWriter();
   const encoder = new EventEncoder();
   let streamClosed = false;
+  let debugThreadId = "";
+  let debugRunId = "";
 
   const debugLogger = debug?.enabled
     ? (logger ??
@@ -74,6 +81,37 @@ export function createSseEventResponse({
 
     subscription = observable.subscribe({
       next: async (event) => {
+        // Extract threadId/runId from RUN_STARTED
+        if (event.type === "RUN_STARTED") {
+          const e = event as { threadId?: string; runId?: string };
+          debugThreadId = e.threadId ?? "";
+          debugRunId = e.runId ?? "";
+        }
+
+        // Broadcast to debug listeners BEFORE the stream-closed gate below.
+        // Intentional: debug subscribers (e.g. the VS Code Inspector panel)
+        // should still receive trailing events after the SSE client for
+        // this request closed its connection — they're independent
+        // consumers observing the underlying runtime, not the request's
+        // response stream.
+        //
+        // Wrapped in try/catch so a buggy debug subscriber can't propagate
+        // an exception into this observer — if the throw reached the
+        // `next` callback it would get routed to `error` by RxJS, closing
+        // the SSE stream for an unrelated reason. Log via `logError` and
+        // move on.
+        if (debugEventBus) {
+          try {
+            debugEventBus.broadcast(event, {
+              agentId: agentId ?? "",
+              threadId: debugThreadId,
+              runId: debugRunId,
+            });
+          } catch (broadcastError) {
+            logError(broadcastError);
+          }
+        }
+
         if (!request.signal.aborted && !streamClosed) {
           try {
             eventCount++;
@@ -91,6 +129,14 @@ export function createSseEventResponse({
             await writer.write(encoder.encode(event));
           } catch (error) {
             if (error instanceof Error && error.name === "AbortError") {
+              streamClosed = true;
+            } else {
+              // Non-abort write failures (backpressure disconnects,
+              // transform-stream exceptions, …) were previously swallowed
+              // silently — `streamClosed` stayed `false` and the next
+              // event re-attempted a broken writer. Log and mark the
+              // stream closed so we stop trying.
+              logError(error);
               streamClosed = true;
             }
           }

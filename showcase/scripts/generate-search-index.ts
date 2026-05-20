@@ -15,8 +15,18 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
+// MDX docs content now lives in shell-docs. shell-docs consumes the index
+// at build time for <SearchModal>; shell keeps a copy so its header search
+// (which links to docs routes) stays functional — destinations 301 across
+// to docs.showcase.copilotkit.ai. We SCAN from shell-docs (source of truth)
+// and WRITE to both.
+const SHELL_DOCS_DIR = path.join(ROOT, "shell-docs", "src");
 const SHELL_DIR = path.join(ROOT, "shell", "src");
-const OUTPUT_PATH = path.join(SHELL_DIR, "data", "search-index.json");
+const CONTENT_ROOT = SHELL_DOCS_DIR;
+const OUTPUT_PATHS = [
+  path.join(SHELL_DOCS_DIR, "data", "search-index.json"),
+  path.join(SHELL_DIR, "data", "search-index.json"),
+];
 
 interface SearchEntry {
   type: "page" | "reference" | "ag-ui";
@@ -180,12 +190,26 @@ function main() {
     },
   );
 
+  // Track which scan roots exist so a misconfigured checkout produces a
+  // loud empty-index rather than a tiny silent one. Missing all three
+  // means the script is running outside a prepared tree (e.g. shell-docs
+  // wasn't built into the expected layout) — fail the run so CI catches
+  // the regression instead of shipping a crippled search modal.
+  const scanDirsMissing: string[] = [];
+  const scanDirsPresent: string[] = [];
+
   // CopilotKit Reference
-  const refDir = path.join(SHELL_DIR, "content", "reference");
+  const refDir = path.join(CONTENT_ROOT, "content", "reference");
   if (fs.existsSync(refDir)) {
     const refEntries = scanMdxDir(refDir, "/reference", "reference");
     entries.push(...refEntries);
     console.log(`  Reference: ${refEntries.length} entries`);
+    scanDirsPresent.push(refDir);
+  } else {
+    console.warn(
+      `[generate-search-index] scan dir missing: ${refDir} — reference entries will be empty`,
+    );
+    scanDirsMissing.push(refDir);
   }
 
   // AG-UI docs — only index pages that are published in the AG-UI sidebar nav
@@ -237,7 +261,7 @@ function main() {
     "sdk/python/encoder/overview",
   ]);
 
-  const aguiDir = path.join(SHELL_DIR, "content", "ag-ui");
+  const aguiDir = path.join(CONTENT_ROOT, "content", "ag-ui");
   if (fs.existsSync(aguiDir)) {
     const aguiEntries = scanMdxDir(
       aguiDir,
@@ -247,20 +271,46 @@ function main() {
     );
     entries.push(...aguiEntries);
     console.log(`  AG-UI: ${aguiEntries.length} entries`);
+    scanDirsPresent.push(aguiDir);
+  } else {
+    console.warn(
+      `[generate-search-index] scan dir missing: ${aguiDir} — ag-ui entries will be empty`,
+    );
+    scanDirsMissing.push(aguiDir);
   }
 
   // CopilotKit Docs
-  const docsDir = path.join(SHELL_DIR, "content", "docs");
+  const docsDir = path.join(CONTENT_ROOT, "content", "docs");
   if (fs.existsSync(docsDir)) {
     const docsEntries = scanMdxDir(docsDir, "/docs", "page");
     entries.push(...docsEntries);
     console.log(`  Docs: ${docsEntries.length} entries`);
+    scanDirsPresent.push(docsDir);
+  } else {
+    console.warn(
+      `[generate-search-index] scan dir missing: ${docsDir} — docs entries will be empty`,
+    );
+    scanDirsMissing.push(docsDir);
   }
 
-  // Write
-  fs.mkdirSync(path.dirname(OUTPUT_PATH), { recursive: true });
-  fs.writeFileSync(OUTPUT_PATH, JSON.stringify(entries, null, 2) + "\n");
-  console.log(`\nSearch index: ${OUTPUT_PATH} (${entries.length} entries)`);
+  if (scanDirsPresent.length === 0) {
+    // Some build contexts (e.g. the `shell` Docker build) intentionally
+    // omit the shell-docs content tree — they only need the static-pages
+    // stub so the header search modal has something to render and links
+    // resolve across to docs.showcase.copilotkit.ai. Warn loudly so a
+    // misconfigured full build is still visible in logs, but don't fail.
+    console.warn(
+      `[generate-search-index] all scan directories missing — emitting static-pages stub only. Missing: ${scanDirsMissing.join(", ")}`,
+    );
+  }
+
+  // Write (dual-emit to shell-docs + shell)
+  const json = JSON.stringify(entries, null, 2) + "\n";
+  for (const outputPath of OUTPUT_PATHS) {
+    fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+    fs.writeFileSync(outputPath, json);
+    console.log(`\nSearch index: ${outputPath} (${entries.length} entries)`);
+  }
 }
 
 main();

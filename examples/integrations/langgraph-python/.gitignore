@@ -42,19 +42,12 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# lock files
-package-lock.json
-yarn.lock
-bun.lockb
 
 # LangGraph API
 .langgraph_api
 
 # Git worktrees
 .worktrees
-
-# Turbo
-.turbo
 
 # Tools
 .claude

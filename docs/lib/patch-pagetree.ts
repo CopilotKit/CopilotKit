@@ -18,6 +18,15 @@ const FOLDER_TITLE_OVERRIDES: Record<string, string> = {
 };
 
 /**
+ * Non-integration root folders that have index.mdx pages.
+ * Maps folder name (from meta.json title) to the index URL.
+ * Workaround for fumadocs v16 not resolving indexUrl for root folders.
+ */
+const ROOT_FOLDER_INDEX_URLS: Record<string, string> = {
+  Learn: "/learn",
+};
+
+/**
  * Patches the pageTree to set missing indexUrl for integration folders.
  * This fixes an issue where fumadocs v16 doesn't set indexUrl for root folders
  * even when they have index.mdx files and "root": true in meta.json.
@@ -74,7 +83,12 @@ export function patchPageTree(
         });
       }
 
-      if (integrationId) {
+      // Check non-integration root folders (e.g., Learn)
+      if (!integrationId && folderName && ROOT_FOLDER_INDEX_URLS[folderName]) {
+        patchedNode.index = {
+          url: ROOT_FOLDER_INDEX_URLS[folderName],
+        } as any;
+      } else if (integrationId) {
         const meta =
           INTEGRATION_METADATA[
             integrationId as keyof typeof INTEGRATION_METADATA

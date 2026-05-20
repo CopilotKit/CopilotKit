@@ -119,8 +119,8 @@ Use frontend tools when you need your agent to interact with client-side primiti
             import os
             from fastapi import FastAPI
             from dotenv import load_dotenv
-            from agent_framework import ChatAgent
-            from agent_framework import ChatClientProtocol
+            from agent_framework import Agent
+            from agent_framework import SupportsChatGetResponse
             from agent_framework.azure import AzureOpenAIChatClient
             from agent_framework.openai import OpenAIChatClient
             from agent_framework.ag_ui import add_agent_framework_fastapi_endpoint
@@ -128,7 +128,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
 
             load_dotenv()
 
-            def _build_chat_client() -> ChatClientProtocol:
+            def _build_chat_client() -> SupportsChatGetResponse:
                 if bool(os.getenv("AZURE_OPENAI_ENDPOINT")):
                     return AzureOpenAIChatClient(
                         credential=DefaultAzureCredential(),
@@ -137,17 +137,17 @@ Use frontend tools when you need your agent to interact with client-side primiti
                     )
                 if bool(os.getenv("OPENAI_API_KEY")):
                     return OpenAIChatClient(
-                        model_id=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-5.4-mini"),
+                        model=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-5.4-mini"),
                         api_key=os.getenv("OPENAI_API_KEY"),
                     )
                 raise RuntimeError("Set AZURE_OPENAI_* or OPENAI_API_KEY in agent/.env")
 
             chat_client = _build_chat_client()
             # Frontend tools registered with useHumanInTheLoop are automatically available
-            agent = ChatAgent(
+            agent = Agent(
                 name="sample_agent",
                 instructions="You are a helpful assistant.",
-                chat_client=chat_client,
+                client=chat_client,
             )
 
             app = FastAPI(title="AG-UI Server (Python)")

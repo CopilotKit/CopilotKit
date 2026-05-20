@@ -217,9 +217,8 @@ export function CopilotChatUserMessage({
       data-message-id={message.id}
       {...props}
     >
-      {BoundMessageRenderer}
       {mediaParts.length > 0 && (
-        <div className="cpk:flex cpk:flex-col cpk:items-end cpk:gap-2 cpk:mt-2">
+        <div className="cpk:flex cpk:flex-row cpk:flex-wrap cpk:justify-end cpk:gap-2 cpk:mb-2">
           {mediaParts.map((part, index) => (
             <CopilotChatAttachmentRenderer
               key={index}
@@ -230,6 +229,7 @@ export function CopilotChatUserMessage({
           ))}
         </div>
       )}
+      {BoundMessageRenderer}
       {BoundToolbar}
     </div>
   );

@@ -985,6 +985,44 @@ describe("CopilotChatInput", () => {
       expect((input as HTMLTextAreaElement).value).toBe("test message");
       expect(mockOnSubmitMessage).toHaveBeenCalledWith("test message");
     });
+
+    it("calls onChange with empty string after submission in controlled mode", () => {
+      const mockOnChange = vi.fn();
+      const mockOnSubmitMessage = vi.fn();
+
+      const { container } = renderWithProvider(
+        <CopilotChatInput
+          value="test message"
+          onChange={mockOnChange}
+          onSubmitMessage={mockOnSubmitMessage}
+        />,
+      );
+
+      const sendButton = getSendButton(container);
+      fireEvent.click(sendButton!);
+
+      expect(mockOnSubmitMessage).toHaveBeenCalledWith("test message");
+      expect(mockOnChange).toHaveBeenCalledWith("");
+    });
+
+    it("calls onChange with empty string after Enter submission in controlled mode", () => {
+      const mockOnChange = vi.fn();
+      const mockOnSubmitMessage = vi.fn();
+
+      renderWithProvider(
+        <CopilotChatInput
+          value="hello world"
+          onChange={mockOnChange}
+          onSubmitMessage={mockOnSubmitMessage}
+        />,
+      );
+
+      const input = screen.getByRole("textbox");
+      fireEvent.keyDown(input, { key: "Enter", shiftKey: false });
+
+      expect(mockOnSubmitMessage).toHaveBeenCalledWith("hello world");
+      expect(mockOnChange).toHaveBeenCalledWith("");
+    });
   });
 
   describe("Container dimension cache", () => {

@@ -23,7 +23,9 @@ import type {
   AfterRequestMiddleware,
 } from "./middleware";
 import { createLogger, type CopilotRuntimeLogger } from "../../../lib/logger";
+import { logRuntimeTelemetryDisclosure } from "../../../lib/telemetry-disclosure";
 import { TranscriptionService } from "../transcription-service/transcription-service";
+import { DebugEventBus } from "./debug-event-bus";
 import { AgentRunner } from "../runner/agent-runner";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
@@ -140,6 +142,7 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
 
 export interface CopilotRuntimeUser {
   id: string;
+  name: string;
 }
 
 export type IdentifyUserCallback = (
@@ -189,6 +192,7 @@ export interface CopilotRuntimeLike {
   identifyUser?: IdentifyUserCallback;
   mode: RuntimeMode;
   licenseChecker?: LicenseChecker;
+  debugEventBus?: DebugEventBus;
   debug: ResolvedDebugConfig;
   debugLogger?: CopilotRuntimeLogger;
 }
@@ -218,6 +222,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public mcpApps: CopilotRuntimeOptions["mcpApps"];
   public openGenerativeUI: CopilotRuntimeOptions["openGenerativeUI"];
   public licenseChecker?: LicenseChecker;
+  public readonly debugEventBus?: DebugEventBus;
   public debug: ResolvedDebugConfig;
   public debugLogger?: CopilotRuntimeLogger;
 
@@ -225,6 +230,8 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   abstract readonly mode: RuntimeMode;
 
   constructor(options: BaseCopilotRuntimeOptions, runner: AgentRunner) {
+    logRuntimeTelemetryDisclosure();
+
     const {
       agents,
       transcriptionService,
@@ -243,6 +250,10 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     this.mcpApps = mcpApps;
     this.openGenerativeUI = openGenerativeUI;
     this.runner = runner;
+
+    if (process.env.NODE_ENV !== "production") {
+      this.debugEventBus = new DebugEventBus();
+    }
     this.debug = resolveDebugConfig(options.debug);
     if (this.debug.enabled) {
       this.debugLogger = createLogger({
@@ -405,6 +416,10 @@ export class CopilotRuntime implements CopilotRuntimeLike {
 
   get licenseChecker() {
     return this.delegate.licenseChecker;
+  }
+
+  get debugEventBus() {
+    return this.delegate.debugEventBus;
   }
 
   get debug(): ResolvedDebugConfig {

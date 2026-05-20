@@ -9,7 +9,6 @@ on:
         type: choice
         options:
           - monorepo
-          - cli
           - angular
       suffix:
         description: "Version suffix (e.g. 'fix-user-issue'). Leave blank for timestamp."
@@ -21,31 +20,88 @@ on:
         default: false
         type: boolean
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
-
-permissions:
-  contents: read
 
 env:
   NX_VERBOSE_LOGGING: true
 
 jobs:
-  prerelease:
+  build:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
+      # No credential persistence needed: the build job only reads source.
+      # Keeping credentials out of the artifact avoids leaking tokens.
       - name: Checkout Repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: "10.13.1"
+        # Omit `version:` so pnpm/action-setup inherits from the repo's
+        # `packageManager` field in package.json (via corepack).
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 20.x
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Bump prerelease versions
+        env:
+          INPUT_SCOPE: ${{ inputs.scope }}
+          INPUT_SUFFIX: ${{ inputs.suffix }}
+        run: |
+          ARGS="--scope $INPUT_SCOPE"
+          if [ -n "$INPUT_SUFFIX" ]; then
+            ARGS="$ARGS --suffix $INPUT_SUFFIX"
+          fi
+          pnpm tsx scripts/release/bump-prerelease.ts $ARGS
+
+      - name: Build packages
+        run: pnpm run build
+
+      - name: Run tests
+        run: pnpm run test
+
+      - name: Upload workspace
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: workspace
+          path: .
+          include-hidden-files: true
+          retention-days: 1
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: npm
+    permissions:
+      contents: read
+    steps:
+      - name: Download workspace
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: workspace
+
+      - name: Setup pnpm
+        # Omit `version:` so pnpm/action-setup inherits from the repo's
+        # `packageManager` field in package.json (via corepack).
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 20.x
           registry-url: https://registry.npmjs.org
@@ -58,19 +114,19 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-
       - name: Publish prerelease
-        run: |
-          ARGS="--scope ${{ inputs.scope }}"
-          if [ -n "${{ inputs.suffix }}" ]; then
-            ARGS="$ARGS --suffix ${{ inputs.suffix }}"
-          fi
-          if [ "${{ inputs.dry_run }}" == "true" ]; then
-            ARGS="$ARGS --dry-run"
-          fi
-          pnpm tsx scripts/release/prerelease.ts $ARGS
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          INPUT_SCOPE: ${{ inputs.scope }}
+          INPUT_SUFFIX: ${{ inputs.suffix }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          ARGS="--scope $INPUT_SCOPE"
+          if [ -n "$INPUT_SUFFIX" ]; then
+            ARGS="$ARGS --suffix $INPUT_SUFFIX"
+          fi
+          if [ "$INPUT_DRY_RUN" == "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+          pnpm tsx scripts/release/prerelease.ts $ARGS

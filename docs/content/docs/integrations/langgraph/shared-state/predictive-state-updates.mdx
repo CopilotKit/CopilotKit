@@ -77,14 +77,15 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
             </Tab>
             <Tab value="TypeScript">
                 ```ts title="agent-js/src/agent.ts"
-                import { Annotation } from "@langchain/langgraph";
-                import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+                import { StateSchema } from "@langchain/langgraph";
+                import { CopilotKitStateSchema } from "@copilotkit/sdk-js/langgraph";
+                import { z } from "zod";
 
-                export const AgentStateAnnotation = Annotation.Root({
-                    observed_steps: Annotation<string[]>,  // Array of completed steps
-                    ...CopilotKitStateAnnotation.spec,
+                export const AgentStateSchema = new StateSchema({
+                    observed_steps: z.array(z.string()).default(() => []),  // Array of completed steps
+                    ...CopilotKitStateSchema.fields,
                 });
-                export type AgentState = typeof AgentStateAnnotation.State;
+                export type AgentState = typeof AgentStateSchema.State;
                 ```
             </Tab>
         </Tabs>
@@ -343,14 +344,15 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
           </Tab>
           <Tab value="TypeScript">
             ```ts title="agent-js/src/agent.ts"
-            import { Annotation } from "@langchain/langgraph";
-            import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+            import { StateSchema } from "@langchain/langgraph";
+            import { CopilotKitStateSchema } from "@copilotkit/sdk-js/langgraph";
+            import { z } from "zod";
 
-            export const AgentStateAnnotation = Annotation.Root({
-                observed_steps: Annotation<string[]>,
-                ...CopilotKitStateAnnotation.spec,
+            export const AgentStateSchema = new StateSchema({
+                observed_steps: z.array(z.string()).default(() => []),
+                ...CopilotKitStateSchema.fields,
             });
-            export type AgentState = typeof AgentStateAnnotation.State;
+            export type AgentState = typeof AgentStateSchema.State;
             ```
           </Tab>
         </Tabs>
@@ -411,7 +413,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                         stateItem({ stateKey: "observed_steps", tool: "step_progress_tool", toolArgument: "steps" })  // [!code highlight]
                     ),  // [!code highlight]
                 ],
-                stateSchema: AgentStateAnnotation,
+                stateSchema: AgentStateSchema,
                 systemPrompt: "You are a task performer. Report your steps using step_progress_tool.",
             });
             ```

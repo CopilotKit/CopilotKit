@@ -2,27 +2,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { TelemetryClient } from "../telemetry/telemetry-client";
 import scarfClient from "../telemetry/scarf-client";
 
-const { segmentTrackMock } = vi.hoisted(() => ({
-  segmentTrackMock: vi.fn(),
-}));
-
-vi.mock("@segment/analytics-node", () => ({
-  Analytics: vi.fn().mockImplementation(() => ({
-    track: segmentTrackMock,
-  })),
-}));
-
 describe("TelemetryClient", () => {
   let scarfSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     scarfSpy = vi.spyOn(scarfClient, "logEvent").mockResolvedValue(undefined);
-    segmentTrackMock.mockClear();
   });
 
   afterEach(() => {
     scarfSpy.mockRestore();
-    segmentTrackMock.mockClear();
   });
 
   it("sends event to scarf when sampled in", async () => {
@@ -41,33 +29,6 @@ describe("TelemetryClient", () => {
 
     expect(scarfSpy).toHaveBeenCalledWith({
       event: "oss.runtime.instance_created",
-    });
-  });
-
-  it("sends event with properties to segment when sampled in", async () => {
-    vi.spyOn(Math, "random").mockReturnValue(0);
-    const client = new TelemetryClient({
-      telemetryDisabled: false,
-      sampleRate: 1,
-    });
-
-    await client.capture("oss.runtime.instance_created", {
-      actionsAmount: 5,
-      endpointTypes: ["rest"],
-      endpointsAmount: 2,
-      "cloud.api_key_provided": true,
-      "cloud.public_api_key": "pk_test_123",
-    });
-
-    expect(segmentTrackMock).toHaveBeenCalledTimes(1);
-    const call = segmentTrackMock.mock.calls[0][0];
-    expect(call.event).toBe("oss.runtime.instance_created");
-    expect(call.anonymousId).toMatch(/^anon_/);
-    expect(call.properties).toMatchObject({
-      actionsAmount: 5,
-      endpointsAmount: 2,
-      "cloud.api_key_provided": true,
-      "cloud.public_api_key": "pk_test_123",
     });
   });
 
@@ -106,7 +67,6 @@ describe("TelemetryClient", () => {
     });
 
     expect(scarfSpy).not.toHaveBeenCalled();
-    expect(segmentTrackMock).not.toHaveBeenCalled();
   });
 
   it("does not send events when sampled out", async () => {
@@ -124,7 +84,6 @@ describe("TelemetryClient", () => {
     });
 
     expect(scarfSpy).not.toHaveBeenCalled();
-    expect(segmentTrackMock).not.toHaveBeenCalled();
   });
 
   it("respects sample rate boundary", async () => {
@@ -137,26 +96,6 @@ describe("TelemetryClient", () => {
     await client.capture("oss.runtime.agent_execution_stream_started", {});
 
     expect(scarfSpy).toHaveBeenCalled();
-  });
-
-  it("includes global properties in segment track call", async () => {
-    vi.spyOn(Math, "random").mockReturnValue(0);
-    const client = new TelemetryClient({
-      telemetryDisabled: false,
-      sampleRate: 1,
-    });
-
-    client.setGlobalProperties({ "copilotkit.package.name": "test-pkg" });
-
-    await client.capture("oss.runtime.instance_created", {
-      actionsAmount: 1,
-      endpointTypes: [],
-      endpointsAmount: 0,
-      "cloud.api_key_provided": false,
-    });
-
-    const call = segmentTrackMock.mock.calls[0][0];
-    expect(call.properties["copilotkit.package.name"]).toBe("test-pkg");
   });
 
   it("throws when sample rate is out of range", () => {

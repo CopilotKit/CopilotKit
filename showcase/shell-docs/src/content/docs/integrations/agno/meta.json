@@ -1,0 +1,15 @@
+{
+  "title": "Agno",
+  "root": true,
+  "pages": [
+    "index",
+    "---Generative UI---",
+    "...generative-ui",
+    "---App Control---",
+    "frontend-tools",
+    "---Threads---",
+    "threads",
+    "---Premium Features---",
+    "...premium"
+  ]
+}

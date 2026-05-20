@@ -12,18 +12,21 @@ export interface ReactToolCallRenderer<T = unknown> {
   render: React.ComponentType<
     | {
         name: string;
+        toolCallId: string;
         args: Partial<T>;
         status: ToolCallStatus.InProgress;
         result: undefined;
       }
     | {
         name: string;
+        toolCallId: string;
         args: T;
         status: ToolCallStatus.Executing;
         result: undefined;
       }
     | {
         name: string;
+        toolCallId: string;
         args: T;
         status: ToolCallStatus.Complete;
         result: string;

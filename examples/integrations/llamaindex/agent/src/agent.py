@@ -14,6 +14,7 @@ def change_theme_color(
     """Change the background color of the chat. Can be any hex color value."""
     return f"Changing background to {theme_color}"
 
+
 # This is another client-side tool that is actually called to add a proverb to the list
 # These tools just need a response string to make it look like they are executing
 async def add_proverb(
@@ -21,6 +22,7 @@ async def add_proverb(
 ) -> str:
     """Add a proverb to the list of proverbs."""
     return f"Added proverb: {proverb}"
+
 
 # This is a backend tool that executes code on the backend server
 # For now this is a dummy implementation, but it could very well call a weather API

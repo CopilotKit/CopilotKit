@@ -6,7 +6,8 @@ services:
     image: ghcr.io/copilotkit/aimock:latest
     volumes:
       - ./fixtures:/fixtures:ro
-    command: ["--fixtures", "/fixtures", "--host", "0.0.0.0"]
+    command:
+      ["--fixtures", "/fixtures", "--host", "0.0.0.0", "--validate-on-load"]
 
   app:
     build:
@@ -32,6 +33,13 @@ services:
       start_period: 60s
 
   tests:
+    # The image tag (playwright:v1.52.0-noble) pins both the browser binaries
+    # and the system libs bundled in the image. It MUST stay aligned with the
+    # @playwright/test version declared in showcase/tests/package.json — if
+    # the client drifts to a newer version whose required system libs are
+    # missing from this image, `npx playwright install chromium` will fetch
+    # the matching browser binary but cannot install system libs. Bump both
+    # together, or re-add `--with-deps` for that run.
     image: mcr.microsoft.com/playwright:v1.52.0-noble
     working_dir: /tests
     volumes:
@@ -47,7 +55,7 @@ services:
       [
         "bash",
         "-c",
-        "cd /tests && npm install --no-audit --no-fund 2>/dev/null && npx playwright install chromium --with-deps 2>/dev/null && npx playwright test starter-smoke --reporter=list",
+        "cd /tests && npm install --no-audit --no-fund 2>/dev/null && npx playwright install chromium && npx playwright test starter-smoke --reporter=list",
       ]
 
 volumes:

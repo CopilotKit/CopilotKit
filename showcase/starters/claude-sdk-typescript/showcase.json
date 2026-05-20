@@ -1,8 +1,0 @@
-{
-  "slug": "claude-sdk-typescript",
-  "name": "Claude SDK TypeScript",
-  "language": "typescript",
-  "agentDir": "agent",
-  "agentPort": 8123,
-  "generated": true
-}

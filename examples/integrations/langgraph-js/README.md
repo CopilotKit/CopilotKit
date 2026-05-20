@@ -1,91 +1,184 @@
 # CopilotKit <> LangGraph Starter
 
-This is a starter template for building AI agents using [LangGraph](https://www.langchain.com/langgraph) and [CopilotKit](https://copilotkit.ai). It provides a modern Next.js application with an integrated LangGraph agent to be built on top of.
+This is a starter template for building AI agents using [LangGraph](https://www.langchain.com/langgraph) and [CopilotKit](https://copilotkit.ai). It provides a modern Next.js application with an integrated LangGraph agent (TypeScript) to be built on top of.
 
-This project is organized as a monorepo using [Turborepo](https://turbo.build) and [pnpm workspaces](https://pnpm.io/workspaces).
-
-## Project Structure
-
-```
-.
-├── apps/
-│   ├── web/          # Next.js frontend application
-│   └── agent/        # LangGraph agent
-├── pnpm-workspace.yaml
-├── turbo.json
-└── package.json
-```
+https://github.com/user-attachments/assets/47761912-d46a-4fb3-b9bd-cb41ddd02e34
 
 ## Prerequisites
 
-- Node.js 18+
-- [pnpm](https://pnpm.io/installation) 9.15.0 or later
+- Node.js 20+
+- Any of the following package managers:
+  - npm (default)
+  - [pnpm](https://pnpm.io/installation)
+  - [yarn](https://classic.yarnpkg.com/lang/en/docs/install/)
+  - [bun](https://bun.sh/)
 - OpenAI API Key (for the LangGraph agent)
 
 ## Getting Started
 
-1. Install all dependencies (this installs everything for both apps):
+1. Install dependencies using your preferred package manager:
 
 ```bash
+# Using npm (default)
+npm install
+
+# Using pnpm
 pnpm install
+
+# Using yarn
+yarn install
+
+# Using bun
+bun install
 ```
 
-2. Set up your OpenAI API key:
+This also installs the agent dependencies via `npm install` inside `agent/`.
+
+2. Set up your environment variables:
 
 ```bash
-cd apps/agent
-echo "OPENAI_API_KEY=your-openai-api-key-here" > .env
+cp .env.example .env
 ```
 
-3. Start the development servers:
+Then edit the `.env` file and add your OpenAI API key:
 
 ```bash
+OPENAI_API_KEY=your-openai-api-key-here
+```
+
+3. Start the development server:
+
+```bash
+# Using npm (default)
+npm run dev
+
+# Using pnpm
 pnpm dev
+
+# Using yarn
+yarn dev
+
+# Using bun
+bun run dev
 ```
 
-This will start both the Next.js app (on port 3000) and the LangGraph agent (on port 8123) using Turborepo.
+This will start both the UI and agent servers concurrently.
 
 ## Available Scripts
 
-All scripts use Turborepo to run tasks across the monorepo:
+The following scripts can also be run using your preferred package manager:
 
-- `pnpm dev` - Starts both the web app and agent servers in development mode
-- `pnpm dev:studio` - Starts the web app and agent with LangGraph Studio UI
-- `pnpm build` - Builds all apps for production
-- `pnpm lint` - Runs linting across all apps
+- `dev` - Starts both UI and agent servers in development mode
+- `dev:debug` - Starts development servers with debug logging enabled
+- `dev:ui` - Starts only the Next.js UI server
+- `dev:agent` - Starts only the LangGraph agent server
+- `build` - Builds the Next.js application for production
+- `start` - Starts the production server
+- `install:agent` - Installs agent (Node) dependencies
 
-### Running Scripts for Individual Apps
+## Project Structure
 
-You can also run scripts for individual apps using pnpm's filter flag:
-
-```bash
-# Run dev for just the web app
-pnpm --filter web dev
-
-# Run dev for just the agent
-pnpm --filter agent dev
-
-# Or navigate to the app directory
-cd apps/web
-pnpm dev
+```
+├── src/                         # Next.js frontend source
+│   ├── app/
+│   │   ├── page.tsx             # Main page
+│   │   └── api/copilotkit/      # CopilotKit API route
+│   ├── components/
+│   │   ├── example-canvas/      # Todo list UI
+│   │   ├── example-layout/      # Layout: chat + canvas side-by-side
+│   │   └── generative-ui/       # Example generative UI components
+│   └── hooks/
+├── agent/                       # LangGraph TypeScript agent
+│   ├── src/
+│   │   ├── agent.ts             # Agent entry point (createAgent)
+│   │   ├── todos.ts             # Todo tools and state schema
+│   │   ├── query.ts             # Example data query tool
+│   │   ├── a2ui.ts              # A2UI operation helpers
+│   │   ├── a2ui_fixed_schema.ts # Fixed-schema A2UI tool (flights)
+│   │   └── a2ui_dynamic_schema.ts # Dynamic-schema A2UI tool
+│   └── langgraph.json
+├── scripts/                     # Agent run scripts
+│   └── run-agent.sh / .bat
+├── public/                      # Static assets
+├── next.config.ts
+├── tsconfig.json
+└── package.json
 ```
 
-## Customization
+## A2UI — Agent-to-User Interface
 
-The main UI component is in `apps/web/src/app/page.tsx`. You can:
+This starter includes [A2UI](https://a2ui.org/specification/) support, allowing the agent to generate rich, interactive UI surfaces declaratively. Instead of returning plain text, the agent sends a JSON description of the UI it wants to render, and the frontend turns it into real components.
 
-- Modify the theme colors and styling
-- Add new frontend actions
-- Utilize shared-state
-- Customize your user-interface for interacting with LangGraph
+### How it works
 
-The LangGraph agent code is in `apps/agent/src/`.
+A2UI uses three concepts:
 
-## 📚 Documentation
+1. **Catalog** — a set of component definitions (schema) paired with React renderers. Registered once in `layout.tsx` via `<CopilotKitProvider a2ui={{ catalog: demonstrationCatalog }}>`.
+2. **Surface** — a rendered UI instance. The agent creates a surface, sets its components, and binds data to it.
+3. **Operations** — the agent returns `render(operations=[...])` from a tool, which the middleware streams to the frontend.
 
-- [CopilotKit Documentation](https://docs.copilotkit.ai) - Explore CopilotKit's capabilities
+### Two patterns
+
+| Pattern            | Description                                                                   | Agent tool       | Frontend                                    |
+| ------------------ | ----------------------------------------------------------------------------- | ---------------- | ------------------------------------------- |
+| **Fixed schema**   | Pre-defined component layout. Only the data changes per invocation.           | `search_flights` | Schema in `a2ui/schemas/flight_schema.json` |
+| **Dynamic schema** | A secondary LLM generates both components and data based on the conversation. | `generate_a2ui`  | Components decided at runtime               |
+
+Both patterns use the same catalog on the frontend — the difference is where the component tree comes from.
+
+### Key files
+
+| Purpose                              | Path                                               |
+| ------------------------------------ | -------------------------------------------------- |
+| Catalog definitions (Zod schemas)    | `src/app/declarative-generative-ui/definitions.ts` |
+| Catalog renderers (React components) | `src/app/declarative-generative-ui/renderers.tsx`  |
+| Catalog registration                 | `src/app/layout.tsx`                               |
+| Fixed-schema agent tool              | `agent/src/a2ui_fixed_schema.ts`                   |
+| Dynamic-schema agent tool            | `agent/src/a2ui_dynamic_schema.ts`                 |
+| Flight schema JSON                   | `agent/src/a2ui/schemas/flight_schema.json`        |
+| Showcase config                      | `showcase.json`                                    |
+
+### Adding a custom component
+
+1. **Define** the component schema in `definitions.ts`:
+
+   ```typescript
+   MyWidget: {
+     description: "A brief description for the agent.",
+     props: z.object({ title: z.string(), value: z.number() }),
+   },
+   ```
+
+2. **Render** it in `renderers.tsx`:
+
+   ```typescript
+   MyWidget: ({ props }) => (
+     <div>{props.title}: {props.value}</div>
+   ),
+   ```
+
+   Renderers are type-checked against the definitions — TypeScript will error if props don't match.
+
+3. **Use it** from the agent. The component is automatically available to both fixed-schema templates and the dynamic-schema LLM.
+
+### Adding a new fixed-schema tool
+
+1. Create a JSON schema file in `agent/src/a2ui/schemas/` describing the component tree.
+2. Create a TypeScript tool that loads the schema with `loadSchema()` and returns `render([...])` with your data. See `a2ui_fixed_schema.ts` for the pattern.
+
+### Showcase mode
+
+`showcase.json` controls which suggestion pills are visually highlighted. Set `"showcase": "a2ui"` to highlight the A2UI demos, or `"showcase": "default"` for no highlights. This is configured automatically when scaffolding via `npx copilotkit create --framework a2ui`.
+
+### Further reading
+
+- [A2UI Specification](https://a2ui.org/specification/)
+- [CopilotKit A2UI Documentation](https://docs.copilotkit.ai)
+
+## Documentation
+
 - [LangGraph Documentation](https://langchain-ai.github.io/langgraph/) - Learn more about LangGraph and its features
-- [Next.js Documentation](https://nextjs.org/docs) - Learn about Next.js features and API
+- [CopilotKit Documentation](https://docs.copilotkit.ai) - Explore CopilotKit's capabilities
 
 ## Contributing
 
@@ -101,6 +194,14 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 If you see "I'm having trouble connecting to my tools", make sure:
 
-1. The LangGraph agent is running on port 8000
+1. The LangGraph agent is running on port 8123
 2. Your OpenAI API key is set correctly
 3. Both servers started successfully
+
+### Agent Dependencies
+
+If you encounter agent import errors:
+
+```bash
+npm run install:agent
+```

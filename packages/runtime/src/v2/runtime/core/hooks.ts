@@ -43,7 +43,11 @@ export type RouteInfo =
   | { method: "threads/subscribe" }
   | { method: "threads/update"; threadId: string }
   | { method: "threads/archive"; threadId: string }
-  | { method: "threads/messages"; threadId: string };
+  | { method: "threads/messages"; threadId: string }
+  | { method: "threads/events"; threadId: string }
+  | { method: "threads/state"; threadId: string }
+  | { method: "threads/clear" }
+  | { method: "cpk-debug-events" };
 
 /* ------------------------------------------------------------------------------------------------
  * Hook contexts

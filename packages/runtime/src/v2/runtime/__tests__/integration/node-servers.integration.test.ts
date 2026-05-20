@@ -10,6 +10,10 @@
 
 import { multiEndpointSuite } from "./suites/multi-endpoint.suite";
 import { singleEndpointSuite } from "./suites/single-endpoint.suite";
+import {
+  debugEventsSuite,
+  debugEventsProductionGuardSuite,
+} from "./suites/debug-events.suite";
 
 // Server factories
 import { createExpressMultiServer } from "./servers/express-multi";
@@ -36,4 +40,19 @@ singleEndpointSuite("Hono", createHonoSingleServer);
 singleEndpointSuite("Node", createNodeSingleServer);
 singleEndpointSuite("Fetch", (opts) =>
   Promise.resolve(createFetchDirectHandler("single-route", opts)),
+);
+
+// ─── Debug Events ───────────────────────────────────────────────────
+
+debugEventsSuite("Express", createExpressMultiServer);
+debugEventsSuite("Hono", createHonoMultiServer);
+debugEventsSuite("Node", createNodeMultiServer);
+debugEventsSuite("Fetch", (opts) =>
+  Promise.resolve(createFetchDirectHandler("multi-route", opts)),
+);
+
+debugEventsProductionGuardSuite(
+  () => createFetchDirectHandler("multi-route"),
+  "http://localhost",
+  "/api/copilotkit",
 );

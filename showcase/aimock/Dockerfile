@@ -1,10 +1,4 @@
 FROM ghcr.io/copilotkit/aimock:latest
+COPY d5-all.json /fixtures/d5-all.json
 COPY smoke.json /fixtures/smoke.json
 COPY feature-parity.json /fixtures/feature-parity.json
-CMD ["--proxy-only", \
-     "--provider-openai", "https://api.openai.com", \
-     "--provider-anthropic", "https://api.anthropic.com", \
-     "--provider-gemini", "https://generativelanguage.googleapis.com", \
-     "--fixtures", "/fixtures", \
-     "--host", "0.0.0.0", \
-     "--port", "4010"]

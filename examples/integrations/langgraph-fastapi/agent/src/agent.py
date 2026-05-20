@@ -1,95 +1,49 @@
 """
-This is the main entry point for the agent.
-It defines the workflow graph, state, tools, nodes and edges.
+Workflow graph, state, tools, nodes and edges.
+
+Mirrors the canonical langgraph-python demo so the two stay aligned. The
+FastAPI wrapper in main.py imports `graph` from here.
 """
 
-from typing import List
-
-from copilotkit import CopilotKitState
-from langchain.tools import tool
-from langchain_core.messages import SystemMessage
-from langchain_core.runnables import RunnableConfig
+from copilotkit import CopilotKitMiddleware, StateStreamingMiddleware, StateItem
+from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.graph import StateGraph
-from langgraph.prebuilt import ToolNode
-from langgraph.types import Command
-from typing_extensions import Literal
 
-from src.util import should_route_to_tool_node
+from src.a2ui_dynamic_schema import generate_a2ui
+from src.a2ui_fixed_schema import search_flights
+from src.query import query_data
+from src.todos import AgentState, todo_tools
 
+model = ChatOpenAI(model="gpt-5.4", model_kwargs={"parallel_tool_calls": False})
 
-class AgentState(CopilotKitState):
-    """
-    Here we define the state of the agent
+# FastAPI-specific: langgraph-cli dev supplies its own checkpointer in the
+# reference demo. Here we run under uvicorn + ag-ui-langgraph, so the graph
+# needs an explicit MemorySaver for state/thread persistence within a
+# process.
+agent = create_agent(
+    model=model,
+    tools=[query_data, *todo_tools, generate_a2ui, search_flights],
+    middleware=[
+        CopilotKitMiddleware(),
+        StateStreamingMiddleware(
+            StateItem(state_key="todos", tool="manage_todos", tool_argument="todos")
+        ),
+    ],
+    state_schema=AgentState,
+    checkpointer=MemorySaver(),
+    system_prompt="""
+        You are a polished, professional demo assistant. Keep responses to 1-2 sentences.
 
-    In this instance, we're inheriting from CopilotKitState, which will bring in
-    the CopilotKitState fields. We're also adding a custom field, `language`,
-    which will be used to set the language of the agent.
-    """
+        Tool guidance:
+        - Flights: call search_flights to show flight cards with a pre-built schema.
+        - Dashboards & rich UI: call generate_a2ui to create dashboard UIs with metrics,
+          charts, tables, and cards. It handles rendering automatically.
+        - Charts: call query_data first, then render with the chart component.
+        - Todos: enable app mode first, then manage todos.
+        - A2UI actions: when you see a log_a2ui_event result (e.g. "view_details"),
+          respond with a brief confirmation. The UI already updated on the frontend.
+    """,
+)
 
-    proverbs: List[str]
-    # your_custom_agent_state: str = ""
-
-
-@tool
-def get_weather(location: str):
-    """
-    Get the weather for a given location.
-    """
-    return f"The weather for {location} is 70 degrees."
-
-
-tools = [get_weather]
-
-
-async def chat_node(
-    state: AgentState, config: RunnableConfig
-) -> Command[Literal["tool_node", "__end__"]]:
-    """
-    Standard chat node based on the ReAct design pattern.
-    """
-
-    # 1. Define the model
-    model = ChatOpenAI(model="gpt-4o")
-
-    # 2. Bind the tools to the model
-    fe_tools = state.get("copilotkit", {}).get("actions", [])
-    model_with_tools = model.bind_tools(
-        [
-            *fe_tools,
-            *tools,
-        ]
-    )
-
-    # 3. Define the system message by which the chat model will be run
-    system_message = SystemMessage(
-        content=f"You are a helpful assistant. The current proverbs are {state.get('proverbs', [])}."
-    )
-
-    # 4. Run the model to generate a response
-    response = await model_with_tools.ainvoke(
-        [
-            system_message,
-            *state["messages"],
-        ],
-        config,
-    )
-
-    tool_calls = response.tool_calls
-    if tool_calls and should_route_to_tool_node(tool_calls, fe_tools):
-        return Command(goto="tool_node", update={"messages": response})
-
-    # 5. We've handled all tool calls, so we can end the graph.
-    return Command(goto="__end__", update={"messages": response})
-
-
-# Define the workflow graph
-workflow = StateGraph(AgentState)
-workflow.add_node("chat_node", chat_node)
-workflow.add_node("tool_node", ToolNode(tools=tools))
-workflow.add_edge("tool_node", "chat_node")
-workflow.set_entry_point("chat_node")
-
-checkpointer = MemorySaver()
-graph = workflow.compile(checkpointer=checkpointer)
+graph = agent

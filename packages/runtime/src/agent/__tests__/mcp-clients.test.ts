@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { BasicAgent, type MCPClientProvider } from "../index";
 import { EventType, type RunAgentInput } from "@ag-ui/client";
-import { streamText, type ToolSet } from "ai";
+import { streamText } from "ai";
 import {
   mockStreamTextResponse,
   textDelta,
@@ -26,16 +26,7 @@ vi.mock("@ai-sdk/openai", () => ({
 
 // Mock MCP imports so mcpServers code path doesn't fail when tested alongside mcpClients
 vi.mock("@ai-sdk/mcp", () => ({
-  experimental_createMCPClient: vi.fn(),
-}));
-
-// Transport mocks must return truthy objects so `if (transport)` check passes in run()
-vi.mock("@modelcontextprotocol/sdk/client/streamableHttp.js", () => ({
-  StreamableHTTPClientTransport: vi.fn(() => ({ type: "mock-http-transport" })),
-}));
-
-vi.mock("@modelcontextprotocol/sdk/client/sse.js", () => ({
-  SSEClientTransport: vi.fn(() => ({ type: "mock-sse-transport" })),
+  createMCPClient: vi.fn(),
 }));
 
 describe("mcpClients — user-managed MCP clients", () => {
@@ -120,8 +111,8 @@ describe("mcpClients — user-managed MCP clients", () => {
     });
 
     // Mock mcpServers flow: createMCPClient returns a client with tools()
-    const { experimental_createMCPClient } = await import("@ai-sdk/mcp");
-    vi.mocked(experimental_createMCPClient).mockResolvedValue({
+    const { createMCPClient } = await import("@ai-sdk/mcp");
+    vi.mocked(createMCPClient).mockResolvedValue({
       tools: vi.fn().mockResolvedValue({
         sharedTool: { description: "from server", execute: serverExecute },
       }),
@@ -241,20 +232,15 @@ describe("mcpClients — user-managed MCP clients", () => {
   });
 
   it("type compatibility: @ai-sdk/mcp MCPClient satisfies MCPClientProvider", async () => {
-    // This is a compile-time check — if MCPClientProvider's .tools() signature
-    // is incompatible with @ai-sdk/mcp's MCPClient.tools(), this file won't compile.
-    //
-    // We use a dynamic import + type assertion rather than a static import because
-    // @ai-sdk/mcp is mocked in this test file. The type check happens at compile time
-    // regardless.
+    // Compile-time check that `MCPClientProvider` is structurally compatible
+    // with `@ai-sdk/mcp`'s `MCPClient`. After the refactor `MCPClientProvider`
+    // is an alias for `Pick<MCPClient, "tools">`, so this is trivially true —
+    // but keeping the test guards against future divergence.
     type MCPClient = Awaited<
-      ReturnType<typeof import("@ai-sdk/mcp").experimental_createMCPClient>
+      ReturnType<typeof import("@ai-sdk/mcp").createMCPClient>
     >;
-
-    // If this line causes a type error, MCPClientProvider needs to be widened
     const _assignable: MCPClientProvider = {} as MCPClient;
-    void _assignable; // suppress unused warning
-
-    expect(true).toBe(true); // runtime no-op
+    void _assignable;
+    expect(true).toBe(true);
   });
 });

@@ -1,44 +1,45 @@
-# Stage 1: Build everything in monorepo
-FROM node:20-slim AS builder
+# Stage 1: Build Next.js frontend
+FROM node:22-slim AS frontend
 
 WORKDIR /app
-RUN corepack enable
 
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
-COPY apps/web/package.json ./apps/web/
-COPY apps/agent/package.json ./apps/agent/
-RUN pnpm install --no-frozen-lockfile
+COPY package.json ./
+RUN npm install --ignore-scripts
 
-COPY apps/ ./apps/
-COPY turbo.json ./
+COPY src/ ./src/
+COPY public/ ./public/
+COPY next.config.ts tsconfig.json postcss.config.mjs ./
+COPY showcase.json ./showcase.json
+
+# Docker override: use AG-UI HttpAgent instead of LangGraphAgent.
+# Next.js 16+ rejects both /api/copilotkit/route.ts AND /api/copilotkit/[[...slug]]/route.ts
+# at the same time — remove the default catch-all and drop in the HttpAgent route.
+RUN rm -f ./src/app/api/copilotkit/\[\[...slug\]\]/route.ts
+COPY docker-route-override.ts ./src/app/api/copilotkit/route.ts
+RUN npm install @ag-ui/client
 
 ENV NODE_OPTIONS="--max-old-space-size=4096"
-RUN pnpm --filter web build
+# Next.js 16+ uses Turbopack by default; use --webpack for serverExternalPackages compat
+RUN npx next build --webpack
 
-# Stage 2: Production image
-FROM node:20-slim AS runner
-
-RUN npm install -g @langchain/langgraph-cli
+# Stage 2: Production image (Node only)
+FROM node:22-slim AS runner
 
 WORKDIR /app
 
-# Next.js build artifacts
-COPY --from=builder /app/apps/web/.next ./apps/web/.next
-COPY --from=builder /app/apps/web/node_modules ./apps/web/node_modules
-COPY --from=builder /app/apps/web/package.json ./apps/web/
-COPY --from=builder /app/apps/web/public ./apps/web/public
+# Copy agent source and install its deps
+COPY agent/ ./agent/
+RUN cd agent && npm install --ignore-scripts
 
-# Agent code + dependencies
-COPY --from=builder /app/apps/agent ./apps/agent
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./
+# Copy Next.js standalone build
+COPY --from=frontend /app/.next/standalone ./
+COPY --from=frontend /app/.next/static ./.next/static
+COPY --from=frontend /app/public ./public
 
-# Copy entrypoint
 COPY entrypoint.sh ./
 RUN chmod +x entrypoint.sh
 
 EXPOSE 3000
-
 ENV NODE_ENV=production
 
 CMD ["./entrypoint.sh"]

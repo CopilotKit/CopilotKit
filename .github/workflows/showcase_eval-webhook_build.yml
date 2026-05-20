@@ -1,0 +1,37 @@
+name: "showcase / eval-webhook / build"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "showcase/eval-webhook/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Log in to GHCR
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: showcase/eval-webhook
+          push: true
+          tags: |
+            ghcr.io/copilotkit/showcase-eval-webhook:latest
+            ghcr.io/copilotkit/showcase-eval-webhook:${{ github.sha }}

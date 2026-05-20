@@ -8,7 +8,11 @@
     "test:chat": "playwright test --grep @chat",
     "test:tools": "playwright test --grep @tools",
     "test:list": "playwright test --list",
-    "test:starter": "playwright test starter-smoke"
+    "test:starter": "playwright test starter-smoke",
+    "smoke:local": "../scripts/smoke-local.sh",
+    "smoke:local:L1": "../scripts/smoke-local.sh --level=L1",
+    "smoke:local:keep": "../scripts/smoke-local.sh --keep",
+    "smoke:local:nobuild": "../scripts/smoke-local.sh --no-build"
   },
   "devDependencies": {
     "@playwright/test": "1.52.0"

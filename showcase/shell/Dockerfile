@@ -12,9 +12,10 @@ RUN cd scripts && npm install --silent && cd ../shell && npm install --silent
 
 # Copy source
 COPY showcase/shared/ ./shared/
-COPY showcase/packages/ ./packages/
+COPY showcase/integrations/ ./integrations/
 COPY showcase/scripts/ ./scripts/
 COPY showcase/shell/ ./shell/
+COPY showcase/shell-docs/src/content/ ./shell-docs/src/content/
 
 # Bake commit info into Next.js build
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
@@ -23,6 +24,7 @@ ENV NEXT_PUBLIC_BRANCH=${BRANCH}
 # Generate registry + content, then build Next.js
 RUN cd scripts && node node_modules/tsx/dist/cli.mjs generate-registry.ts \
     && node node_modules/tsx/dist/cli.mjs bundle-demo-content.ts \
+    && node node_modules/tsx/dist/cli.mjs bundle-starter-content.ts \
     && node node_modules/tsx/dist/cli.mjs generate-search-index.ts \
     && cd ../shell && npx next build
 
@@ -37,7 +39,6 @@ COPY --from=builder /app/shell/.next ./.next
 COPY --from=builder /app/shell/node_modules ./node_modules
 COPY --from=builder /app/shell/package.json ./
 COPY --from=builder /app/shell/public ./public
-COPY --from=builder /app/shell/src/content ./src/content
 
 EXPOSE 10000
 CMD ["npx", "next", "start", "-p", "10000"]

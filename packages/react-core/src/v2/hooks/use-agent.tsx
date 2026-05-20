@@ -1,11 +1,11 @@
-import { useCopilotKit } from "../providers/CopilotKitProvider";
-import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
+import { useCopilotKit } from "../context";
 import { useMemo, useEffect, useReducer, useRef } from "react";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { AbstractAgent, HttpAgent } from "@ag-ui/client";
 import {
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,
+  type SubscribeToAgentSubscriber,
 } from "@copilotkit/core";
 
 export enum UseAgentUpdate {
@@ -22,131 +22,40 @@ const ALL_UPDATES: UseAgentUpdate[] = [
 
 export interface UseAgentProps {
   agentId?: string;
-  threadId?: string;
   updates?: UseAgentUpdate[];
   /**
-   * Throttle interval (in milliseconds) for React re-renders triggered by
-   * `OnMessagesChanged` notifications. Useful to reduce re-render frequency
-   * during high-frequency message updates such as streaming.
+   * Throttle interval (in milliseconds) for re-renders triggered by
+   * `onMessagesChanged` and `onStateChanged` notifications. Useful to reduce
+   * re-render frequency during high-frequency streaming updates.
    *
-   * Uses leading+trailing: first update fires immediately, subsequent updates
-   * within the window are coalesced, and a trailing timer ensures the most
-   * recent update fires after the window expires. The trailing edge restarts
-   * the throttle window, so no two renders occur within `throttleMs` of each
-   * other. Cleanup on unmount cancels any pending trailing timer.
+   * Uses a leading+trailing pattern with a shared window — first update
+   * fires immediately, subsequent updates within the window are coalesced,
+   * and a trailing timer ensures the most recent update fires after the
+   * window expires. See `CopilotKitCore.subscribeToAgentWithOptions` in `@copilotkit/core`
+   * for details.
    *
-   * Must be a non-negative finite number. Negative or non-finite values fall
-   * back to unthrottled behavior with a `console.error`. Only affects
-   * `OnMessagesChanged` updates — `OnStateChanged` and `OnRunStatusChanged`
-   * always fire immediately. If `updates` does not include
-   * `OnMessagesChanged`, this property has no effect.
+   * Resolved as: `throttleMs ?? provider defaultThrottleMs ?? 0`.
+   * Passing `throttleMs={0}` explicitly disables throttling even when the
+   * provider specifies a non-zero `defaultThrottleMs`.
    *
-   * Default: `0` (no throttle).
+   * Run lifecycle callbacks (`onRunInitialized`, `onRunFinalized`,
+   * `onRunFailed`, `onRunErrorEvent`) always fire immediately.
+   *
+   * @default undefined
+   * When unset, inherits from the provider's `defaultThrottleMs`;
+   * if that is also unset, the effective value is `0` (no throttle).
    */
   throttleMs?: number;
 }
 
-/**
- * Clone a registry agent for per-thread isolation.
- * Copies agent configuration (transport, headers, etc.) but resets conversation
- * state (messages, threadId, state) so each thread starts fresh.
- */
-function cloneForThread(
-  source: AbstractAgent,
-  threadId: string,
-  headers: Record<string, string>,
-): AbstractAgent {
-  const clone = source.clone();
-  if (clone === source) {
-    throw new Error(
-      `useAgent: ${source.constructor.name}.clone() returned the same instance. ` +
-        `clone() must return a new, independent object.`,
-    );
-  }
-  clone.threadId = threadId;
-  clone.setMessages([]);
-  clone.setState({});
-  if (clone instanceof HttpAgent) {
-    clone.headers = { ...headers };
-  }
-  return clone;
-}
-
-/**
- * Module-level WeakMap: registryAgent → (threadId → clone).
- * Shared across all useAgent() calls so that every component using the same
- * (agentId, threadId) pair receives the same agent instance. Using WeakMap
- * ensures the clone map is garbage-collected when the registry agent is
- * replaced (e.g. after reconnect or hot-reload).
- */
-export const globalThreadCloneMap = new WeakMap<
-  AbstractAgent,
-  Map<string, AbstractAgent>
->();
-
-/**
- * Look up an existing per-thread clone without creating one.
- * Returns undefined when no clone has been created yet for this pair.
- */
-export function getThreadClone(
-  registryAgent: AbstractAgent | undefined | null,
-  threadId: string | undefined | null,
-): AbstractAgent | undefined {
-  if (!registryAgent || !threadId) return undefined;
-  return globalThreadCloneMap.get(registryAgent)?.get(threadId);
-}
-
-function getOrCreateThreadClone(
-  existing: AbstractAgent,
-  threadId: string,
-  headers: Record<string, string>,
-): AbstractAgent {
-  let byThread = globalThreadCloneMap.get(existing);
-  if (!byThread) {
-    byThread = new Map();
-    globalThreadCloneMap.set(existing, byThread);
-  }
-  const cached = byThread.get(threadId);
-  if (cached) return cached;
-
-  const clone = cloneForThread(existing, threadId, headers);
-  byThread.set(threadId, clone);
-  return clone;
-}
-
-export function useAgent({
-  agentId,
-  threadId,
-  updates,
-  throttleMs,
-}: UseAgentProps = {}) {
+export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
   agentId ??= DEFAULT_AGENT_ID;
 
   const { copilotkit } = useCopilotKit();
+  // Read the provider-level default so it appears in the effect's dep array.
+  // subscribeToAgentWithOptions reads it from the core instance, but React needs the dep
+  // to know when to re-subscribe.
   const providerThrottleMs = copilotkit.defaultThrottleMs;
-  // Fall back to the enclosing CopilotChatConfigurationProvider's threadId so
-  // that useAgent() called without explicit threadId (e.g. inside a custom
-  // message renderer) automatically uses the same per-thread clone as the
-  // CopilotChat component it lives within.
-  const chatConfig = useCopilotChatConfiguration();
-  threadId ??= chatConfig?.threadId;
-
-  const effectiveThrottleMs = useMemo(() => {
-    const resolved = throttleMs ?? providerThrottleMs ?? 0;
-    if (!Number.isFinite(resolved) || resolved < 0) {
-      // When both throttleMs and providerThrottleMs are undefined, resolved
-      // is 0 which passes validation — so one of them must be defined here.
-      const source =
-        throttleMs !== undefined
-          ? "hook-level throttleMs"
-          : "provider-level defaultThrottleMs";
-      console.error(
-        `useAgent: ${source} must be a non-negative finite number, got ${resolved}. Falling back to unthrottled.`,
-      );
-      return 0;
-    }
-    return resolved;
-  }, [throttleMs, providerThrottleMs]);
 
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
@@ -163,29 +72,11 @@ export function useAgent({
   );
 
   const agent: AbstractAgent = useMemo(() => {
-    // Use a composite key when threadId is provided so that different threads
-    // for the same agent get independent instances.
-    const cacheKey = threadId ? `${agentId}:${threadId}` : agentId;
-
     const existing = copilotkit.getAgent(agentId);
     if (existing) {
-      // Real agent found — clear any cached provisionals for this key and the
-      // bare agentId key (handles the case where a provisional was created
-      // before threadId was available, then the component re-renders with one).
-      provisionalAgentCache.current.delete(cacheKey);
+      // Real agent found — clear any cached provisional for this ID
       provisionalAgentCache.current.delete(agentId);
-
-      if (!threadId) {
-        // No threadId — return the shared registry agent (original behavior)
-        return existing;
-      }
-
-      // threadId provided — return the shared per-thread clone.
-      // The global WeakMap ensures all components using the same
-      // (registryAgent, threadId) pair receive the same instance, so state
-      // mutations (addMessage, setState) are visible everywhere. The WeakMap
-      // entry is GC-collected automatically when the registry agent is replaced.
-      return getOrCreateThreadClone(existing, threadId, copilotkit.headers);
+      return existing;
     }
 
     const isRuntimeConfigured = copilotkit.runtimeUrl !== undefined;
@@ -198,7 +89,7 @@ export function useAgent({
         status === CopilotKitCoreRuntimeConnectionStatus.Connecting)
     ) {
       // Return cached provisional if available (keeps reference stable)
-      const cached = provisionalAgentCache.current.get(cacheKey);
+      const cached = provisionalAgentCache.current.get(agentId);
       if (cached) {
         // Update headers on the cached agent in case they changed
         cached.headers = { ...copilotkit.headers };
@@ -213,10 +104,7 @@ export function useAgent({
       });
       // Apply current headers so runs/connects inherit them
       provisional.headers = { ...copilotkit.headers };
-      if (threadId) {
-        provisional.threadId = threadId;
-      }
-      provisionalAgentCache.current.set(cacheKey, provisional);
+      provisionalAgentCache.current.set(agentId, provisional);
       return provisional;
     }
 
@@ -229,10 +117,7 @@ export function useAgent({
       isRuntimeConfigured &&
       status === CopilotKitCoreRuntimeConnectionStatus.Error
     ) {
-      // Cache the provisional so that dep changes while in Error state (e.g.
-      // headers update) return the same agent reference, matching the
-      // Disconnected/Connecting path and preventing spurious re-subscriptions.
-      const cached = provisionalAgentCache.current.get(cacheKey);
+      const cached = provisionalAgentCache.current.get(agentId);
       if (cached) {
         cached.headers = { ...copilotkit.headers };
         return cached;
@@ -244,10 +129,7 @@ export function useAgent({
         runtimeMode: "pending",
       });
       provisional.headers = { ...copilotkit.headers };
-      if (threadId) {
-        provisional.threadId = threadId;
-      }
-      provisionalAgentCache.current.set(cacheKey, provisional);
+      provisionalAgentCache.current.set(agentId, provisional);
       return provisional;
     }
 
@@ -266,7 +148,6 @@ export function useAgent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     agentId,
-    threadId,
     copilotkit.agents,
     copilotkit.runtimeConnectionStatus,
     copilotkit.runtimeUrl,
@@ -277,9 +158,8 @@ export function useAgent({
   useEffect(() => {
     if (updateFlags.length === 0) return;
 
-    const handlers: Parameters<AbstractAgent["subscribe"]>[0] = {};
-    let timerId: ReturnType<typeof setTimeout> | null = null;
     let active = true;
+    const handlers: SubscribeToAgentSubscriber = {};
 
     // Microtask-batched forceUpdate: coalesces multiple synchronous
     // notifications (e.g. OnStateChanged + OnRunStatusChanged firing in the
@@ -301,45 +181,7 @@ export function useAgent({
     };
 
     if (updateFlags.includes(UseAgentUpdate.OnMessagesChanged)) {
-      const ms = effectiveThrottleMs;
-      if (ms > 0) {
-        // Throttled onMessagesChanged: leading+trailing pattern.
-        // First notification fires immediately, subsequent ones within the
-        // window are coalesced. Trailing timer fires after the window to
-        // ensure the final state is rendered.
-        let throttleActive = false;
-        // Tracks whether a notification arrived during the throttle window,
-        // so the trailing timer knows whether a re-render is needed.
-        let pending = false;
-
-        const throttledNotify = () => {
-          if (!active) return;
-          if (!throttleActive) {
-            // Leading edge — fire immediately and start the throttle window
-            throttleActive = true;
-            pending = false;
-            forceUpdate();
-            timerId = setTimeout(function trailingEdge() {
-              timerId = null;
-              if (active && pending) {
-                // Trailing edge — fire and restart the window
-                pending = false;
-                forceUpdate();
-                timerId = setTimeout(trailingEdge, ms);
-              } else {
-                // No pending notifications — end the window
-                throttleActive = false;
-              }
-            }, ms);
-          } else {
-            pending = true;
-          }
-        };
-
-        handlers.onMessagesChanged = throttledNotify;
-      } else {
-        handlers.onMessagesChanged = forceUpdate;
-      }
+      handlers.onMessagesChanged = batchedForceUpdate;
     }
 
     if (updateFlags.includes(UseAgentUpdate.OnStateChanged)) {
@@ -350,18 +192,24 @@ export function useAgent({
       handlers.onRunInitialized = batchedForceUpdate;
       handlers.onRunFinalized = batchedForceUpdate;
       handlers.onRunFailed = batchedForceUpdate;
+      // Protocol-level RUN_ERROR event (distinct from onRunFailed which
+      // handles local exceptions like network errors).
+      handlers.onRunErrorEvent = batchedForceUpdate;
     }
 
-    const subscription = agent.subscribe(handlers);
+    const subscription = copilotkit.subscribeToAgentWithOptions(
+      agent,
+      handlers,
+      {
+        throttleMs,
+      },
+    );
     return () => {
       active = false;
-      if (timerId !== null) {
-        clearTimeout(timerId);
-      }
       subscription.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent, forceUpdate, effectiveThrottleMs, updateFlags]);
+  }, [agent, forceUpdate, throttleMs, providerThrottleMs, updateFlags]);
 
   // Keep HttpAgent headers fresh without mutating inside useMemo, which is
   // unsafe in concurrent mode (React may invoke useMemo multiple times and

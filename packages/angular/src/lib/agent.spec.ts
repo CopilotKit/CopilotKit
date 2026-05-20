@@ -1,64 +1,125 @@
 import { Component, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AbstractAgent } from "@ag-ui/client";
+import {
+  AbstractAgent,
+  type AgentSubscriber,
+  type BaseEvent,
+  type Message,
+  type RunAgentInput,
+  type State,
+} from "@ag-ui/client";
+import { Observable } from "rxjs";
 import { AgentStore, injectAgentStore } from "./agent";
 import { CopilotKit } from "./copilotkit";
 import {
+  CopilotKitCore,
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,
 } from "@copilotkit/core";
 
-class MockAgent {
-  readonly id: string;
-  messages: any[] = [];
-  state: any;
-  #listeners = new Set<any>();
+/** Shape of the `core` property on the stub — derived from CopilotKitCore
+ *  via Pick so the fields stay in sync with the real class. */
+type StubCore = Pick<
+  CopilotKitCore,
+  | "runtimeUrl"
+  | "runtimeTransport"
+  | "runtimeConnectionStatus"
+  | "headers"
+  | "subscribeToAgentWithOptions"
+> & {
+  agents?: Record<string, AbstractAgent>;
+};
+
+const DUMMY_RUN_INPUT: RunAgentInput = {
+  threadId: "",
+  runId: "",
+  state: {},
+  messages: [],
+  tools: [],
+  context: [],
+  forwardedProps: {},
+};
+
+function userMsg(id: string, content: string): Message {
+  return { id, role: "user" as const, content };
+}
+
+class MockAgent extends AbstractAgent {
   unsubscribeCount = 0;
 
   constructor(id: string) {
-    this.id = id;
+    super();
+    this.agentId = id;
   }
 
-  subscribe(subscriber: any) {
-    this.#listeners.add(subscriber);
+  run(_input: RunAgentInput): Observable<BaseEvent> {
+    return new Observable();
+  }
+
+  override subscribe(subscriber: AgentSubscriber) {
+    const sub = super.subscribe(subscriber);
     return {
       unsubscribe: () => {
-        this.#listeners.delete(subscriber);
+        sub.unsubscribe();
         this.unsubscribeCount += 1;
       },
     };
   }
 
-  emitMessages(messages: any[]) {
+  emitMessages(messages: Message[]) {
     this.messages = messages;
-    for (const listener of this.#listeners) {
-      listener.onMessagesChanged?.();
+    for (const s of this.subscribers) {
+      s.onMessagesChanged?.({
+        messages: this.messages,
+        state: this.state,
+        agent: this,
+      });
     }
   }
 
-  emitState(state: any) {
+  emitState(state: State) {
     this.state = state;
-    for (const listener of this.#listeners) {
-      listener.onStateChanged?.();
+    for (const s of this.subscribers) {
+      s.onStateChanged?.({
+        messages: this.messages,
+        state: this.state,
+        agent: this,
+      });
     }
   }
 
-  emitRunInitialized(payload = {}) {
-    for (const listener of this.#listeners) {
-      listener.onRunInitialized?.(payload);
+  emitRunInitialized() {
+    for (const s of this.subscribers) {
+      s.onRunInitialized?.({
+        messages: this.messages,
+        state: this.state,
+        agent: this,
+        input: DUMMY_RUN_INPUT,
+      });
     }
   }
 
-  emitRunFinalized(payload = {}) {
-    for (const listener of this.#listeners) {
-      listener.onRunFinalized?.(payload);
+  emitRunFinalized() {
+    for (const s of this.subscribers) {
+      s.onRunFinalized?.({
+        messages: this.messages,
+        state: this.state,
+        agent: this,
+        input: DUMMY_RUN_INPUT,
+      });
     }
   }
 
-  emitRunFailed(payload = {}) {
-    for (const listener of this.#listeners) {
-      listener.onRunFailed?.(payload);
+  emitRunFailed() {
+    for (const s of this.subscribers) {
+      s.onRunFailed?.({
+        messages: this.messages,
+        state: this.state,
+        agent: this,
+        input: DUMMY_RUN_INPUT,
+        error: new Error("run failed"),
+      });
     }
   }
 }
@@ -78,11 +139,14 @@ class CopilotKitStub {
   runtimeUrl = this.#runtimeUrl.asReadonly();
   runtimeTransport = this.#runtimeTransport.asReadonly();
   headers = this.#headers.asReadonly();
-  core = {
-    runtimeUrl: undefined as string | undefined,
-    runtimeTransport: "auto" as const,
+  #coreInstance = new CopilotKitCore({});
+  core: StubCore = {
+    runtimeUrl: undefined,
+    runtimeTransport: "auto",
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Disconnected,
-    headers: {} as Record<string, string>,
+    headers: {},
+    subscribeToAgentWithOptions:
+      this.#coreInstance.subscribeToAgentWithOptions.bind(this.#coreInstance),
   };
 
   setAgents(map: Record<string, AbstractAgent>) {
@@ -125,7 +189,7 @@ describe("injectAgentStore", () => {
 
   it("creates AgentStore instances that mirror agent events", () => {
     const agent = new MockAgent("agent-1");
-    copilotKitStub.setAgents({ "agent-1": agent as unknown as AbstractAgent });
+    copilotKitStub.setAgents({ "agent-1": agent });
 
     @Component({
       standalone: true,
@@ -142,8 +206,8 @@ describe("injectAgentStore", () => {
     expect(store).toBeInstanceOf(AgentStore);
     expect(store?.agent).toBe(agent);
 
-    agent.emitMessages([{ content: "Hello" }]);
-    expect(store?.messages()).toEqual([{ content: "Hello" }]);
+    agent.emitMessages([userMsg("1", "Hello")]);
+    expect(store?.messages()).toEqual([userMsg("1", "Hello")]);
 
     agent.emitState({ loaded: true });
     expect(store?.state()).toEqual({ loaded: true });
@@ -160,8 +224,8 @@ describe("injectAgentStore", () => {
     const secondAgent = new MockAgent("agent-2");
 
     copilotKitStub.setAgents({
-      "agent-1": firstAgent as unknown as AbstractAgent,
-      "agent-2": secondAgent as unknown as AbstractAgent,
+      "agent-1": firstAgent,
+      "agent-2": secondAgent,
     });
 
     @Component({
@@ -180,8 +244,8 @@ describe("injectAgentStore", () => {
 
     fixture.componentInstance.agentId.set("agent-2");
     copilotKitStub.setAgents({
-      "agent-1": firstAgent as unknown as AbstractAgent,
-      "agent-2": secondAgent as unknown as AbstractAgent,
+      "agent-1": firstAgent,
+      "agent-2": secondAgent,
     });
     fixture.detectChanges();
 
@@ -213,11 +277,13 @@ describe("injectAgentStore", () => {
 
     const store = fixture.componentInstance.store();
     expect(store).toBeInstanceOf(AgentStore);
-    expect(store.agent).toBeInstanceOf(ProxiedCopilotRuntimeAgent);
-    expect((store.agent as ProxiedCopilotRuntimeAgent).agentId).toBe("missing");
-    expect((store.agent as ProxiedCopilotRuntimeAgent).headers).toEqual({
-      "x-test": "1",
-    });
+
+    const proxied = store.agent;
+    expect(proxied).toBeInstanceOf(ProxiedCopilotRuntimeAgent);
+    // Single narrowing after the instanceof assertion above
+    const proxiedAgent = proxied as ProxiedCopilotRuntimeAgent;
+    expect(proxiedAgent.agentId).toBe("missing");
+    expect(proxiedAgent.headers).toEqual({ "x-test": "1" });
   });
 
   it("throws when agent cannot be resolved after runtime sync", () => {

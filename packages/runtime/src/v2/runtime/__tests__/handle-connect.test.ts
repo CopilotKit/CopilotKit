@@ -228,18 +228,21 @@ describe("handleConnectAgent", () => {
         afterRequestMiddleware: undefined,
         runner,
         mode: "intelligence",
-        identifyUser: vi.fn().mockResolvedValue({ id: "user-1" }),
-        intelligence: platform,
+        identifyUser: vi
+          .fn()
+          .mockResolvedValue({ id: "user-1", name: "User One" }),
+        intelligence: {
+          ɵgetClientWsUrl: vi.fn(() => "wss://runtime.example/client"),
+          ...platform,
+        },
       } as unknown as CopilotRuntime;
     };
 
-    it("returns a live connect plan when join credentials are available", async () => {
+    it("returns runtime websocket connection credentials when available", async () => {
       const platform = {
         ɵconnectThread: vi.fn().mockResolvedValue({
-          mode: "live",
+          threadId: "thread-1",
           joinToken: "jt-connect-1",
-          joinFromEventId: "event-1",
-          events: [],
         }),
       };
       const runtime = createIntelligenceRuntime(platform);
@@ -254,24 +257,25 @@ describe("handleConnectAgent", () => {
       expect(response.headers.get("Content-Type")).toBe("application/json");
       const body = await response.json();
       expect(body).toEqual({
-        mode: "live",
+        threadId: "thread-1",
         joinToken: "jt-connect-1",
-        joinFromEventId: "event-1",
-        events: [],
+        realtime: {
+          clientUrl: "wss://runtime.example/client",
+          topic: "thread:thread-1",
+        },
       });
       expect(platform.ɵconnectThread).toHaveBeenCalledWith({
         threadId: "thread-1",
         userId: "user-1",
-        lastSeenEventId: null,
+        agentId: "my-agent",
       });
     });
 
-    it("returns a bootstrap connect plan when no socket is needed", async () => {
+    it("does not restamp historical replay plans during connect", async () => {
       const platform = {
         ɵconnectThread: vi.fn().mockResolvedValue({
-          mode: "bootstrap",
-          latestEventId: "event-2",
-          events: [{ type: "MESSAGES_SNAPSHOT", messages: [] }],
+          threadId: "thread-1",
+          joinToken: "jt-connect-1",
         }),
       };
       const runtime = createIntelligenceRuntime(platform);
@@ -285,9 +289,12 @@ describe("handleConnectAgent", () => {
       expect(response.status).toBe(200);
       const body = await response.json();
       expect(body).toEqual({
-        mode: "bootstrap",
-        latestEventId: "event-2",
-        events: [{ type: "MESSAGES_SNAPSHOT", messages: [] }],
+        threadId: "thread-1",
+        joinToken: "jt-connect-1",
+        realtime: {
+          clientUrl: "wss://runtime.example/client",
+          topic: "thread:thread-1",
+        },
       });
     });
 
@@ -310,7 +317,7 @@ describe("handleConnectAgent", () => {
       expect(platform.ɵconnectThread).toHaveBeenCalledWith({
         threadId: "thread-1",
         userId: "user-1",
-        lastSeenEventId: null,
+        agentId: "my-agent",
       });
     });
 
@@ -333,7 +340,73 @@ describe("handleConnectAgent", () => {
       expect(body.error).toBe("Connect plan not available");
     });
 
-    it("forwards lastSeenEventId to the intelligence platform", async () => {
+    it("preserves platform not found errors when connect fails with 404", async () => {
+      const platform = {
+        ɵconnectThread: vi.fn().mockRejectedValue(
+          Object.assign(new Error("Intelligence platform error 404"), {
+            status: 404,
+          }),
+        ),
+      };
+      const runtime = createIntelligenceRuntime(platform);
+
+      const response = await handleConnectAgent({
+        runtime,
+        request: createConnectRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(404);
+      const body = await response.json();
+      expect(body).toEqual({
+        error: "Connect request rejected",
+        message: "Intelligence platform error 404",
+      });
+    });
+
+    it("preserves platform validation errors when connect fails validation", async () => {
+      const platform = {
+        ɵconnectThread: vi.fn().mockRejectedValue(
+          Object.assign(new Error("Intelligence platform error 400"), {
+            status: 400,
+          }),
+        ),
+      };
+      const runtime = createIntelligenceRuntime(platform);
+
+      const response = await handleConnectAgent({
+        runtime,
+        request: createConnectRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(400);
+      const body = await response.json();
+      expect(body.error).toBe("Connect request rejected");
+    });
+
+    it("preserves platform ownership conflicts when connect fails authorization", async () => {
+      const platform = {
+        ɵconnectThread: vi.fn().mockRejectedValue(
+          Object.assign(new Error("Intelligence platform error 403"), {
+            status: 403,
+          }),
+        ),
+      };
+      const runtime = createIntelligenceRuntime(platform);
+
+      const response = await handleConnectAgent({
+        runtime,
+        request: createConnectRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(403);
+      const body = await response.json();
+      expect(body.error).toBe("Connect request rejected");
+    });
+
+    it("does not forward replay cursors to the credentials-only intelligence platform connect", async () => {
       const platform = {
         ɵconnectThread: vi.fn().mockResolvedValue(null),
       };
@@ -349,7 +422,7 @@ describe("handleConnectAgent", () => {
       expect(platform.ɵconnectThread).toHaveBeenCalledWith({
         threadId: "thread-1",
         userId: "user-1",
-        lastSeenEventId: "event-9",
+        agentId: "my-agent",
       });
     });
 
@@ -357,7 +430,9 @@ describe("handleConnectAgent", () => {
       const platform = {
         ɵconnectThread: vi.fn().mockResolvedValue(null),
       };
-      const identifyUser = vi.fn().mockResolvedValue({ id: "resolved-user" });
+      const identifyUser = vi
+        .fn()
+        .mockResolvedValue({ id: "resolved-user", name: "Resolved User" });
       const runtime = createIntelligenceRuntime(platform);
       runtime.identifyUser = identifyUser;
       const request = createConnectRequest(
@@ -377,7 +452,7 @@ describe("handleConnectAgent", () => {
       expect(platform.ɵconnectThread).toHaveBeenCalledWith({
         threadId: "thread-1",
         userId: "resolved-user",
-        lastSeenEventId: "event-9",
+        agentId: "my-agent",
       });
     });
 
@@ -386,7 +461,28 @@ describe("handleConnectAgent", () => {
         ɵconnectThread: vi.fn(),
       };
       const runtime = createIntelligenceRuntime(platform);
-      runtime.identifyUser = vi.fn().mockResolvedValue({ id: "" });
+      runtime.identifyUser = vi
+        .fn()
+        .mockResolvedValue({ id: "", name: "User" });
+
+      const response = await handleConnectAgent({
+        runtime,
+        request: createConnectRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(400);
+      expect(platform.ɵconnectThread).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 when identifyUser returns an invalid name", async () => {
+      const platform = {
+        ɵconnectThread: vi.fn(),
+      };
+      const runtime = createIntelligenceRuntime(platform);
+      runtime.identifyUser = vi
+        .fn()
+        .mockResolvedValue({ id: "user-1", name: "" });
 
       const response = await handleConnectAgent({
         runtime,
@@ -419,6 +515,70 @@ describe("handleConnectAgent", () => {
         expect(platform.ɵconnectThread).not.toHaveBeenCalled();
       } finally {
         errorSpy.mockRestore();
+      }
+    });
+  });
+
+  describe("telemetry", () => {
+    it("captures oss.runtime.copilot_request_created on every invocation", async () => {
+      const { telemetry } = await import("../telemetry");
+      const captureSpy = vi
+        .spyOn(telemetry, "capture")
+        .mockResolvedValue(undefined);
+
+      try {
+        const runtime = createMockRuntime({});
+        const request = new Request("https://example.com/agent/test/connect", {
+          method: "POST",
+        });
+        await handleConnectAgent({
+          runtime,
+          request,
+          agentId: "nonexistent-agent",
+        });
+
+        expect(captureSpy).toHaveBeenCalledWith(
+          "oss.runtime.copilot_request_created",
+          expect.objectContaining({
+            requestType: "connect",
+            "cloud.api_key_provided": false,
+          }),
+        );
+      } finally {
+        captureSpy.mockRestore();
+      }
+    });
+
+    it("includes cloud.public_api_key when x-copilotcloud-public-api-key header is set", async () => {
+      const { telemetry } = await import("../telemetry");
+      const captureSpy = vi
+        .spyOn(telemetry, "capture")
+        .mockResolvedValue(undefined);
+
+      try {
+        const runtime = createMockRuntime({});
+        const request = new Request("https://example.com/agent/test/connect", {
+          method: "POST",
+          headers: {
+            "x-copilotcloud-public-api-key": "ck_pub_connect_test",
+          },
+        });
+
+        await handleConnectAgent({
+          runtime,
+          request,
+          agentId: "nonexistent-agent",
+        });
+
+        expect(captureSpy).toHaveBeenCalledWith(
+          "oss.runtime.copilot_request_created",
+          expect.objectContaining({
+            "cloud.api_key_provided": true,
+            "cloud.public_api_key": "ck_pub_connect_test",
+          }),
+        );
+      } finally {
+        captureSpy.mockRestore();
       }
     });
   });

@@ -10,16 +10,11 @@ node_modules
 !.yarn/releases
 !.yarn/versions
 
-.next
-.turbo
-
-ext-apps
-
 # testing
 /coverage
 
 # next.js
-/.next/
+.next/
 /out/
 
 # production
@@ -45,10 +40,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# lock files
-package-lock.json
-yarn.lock
-bun.lockb
+
+ext-apps
 
 # LangGraph API
 .langgraph_api

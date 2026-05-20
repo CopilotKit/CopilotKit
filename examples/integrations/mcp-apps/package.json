@@ -1,18 +1,32 @@
 {
   "name": "mcp-apps-starter",
+  "version": "0.1.0",
   "private": true,
-  "workspaces": [
-    "apps/*"
-  ],
   "scripts": {
-    "dev": "turbo run dev",
-    "build": "turbo run build",
-    "lint": "turbo run lint",
-    "clean": "rm -rf node_modules pnpm-lock.yaml apps/*/node_modules apps/*/pnpm-lock.yaml",
-    "fresh": "pnpm clean && pnpm i"
+    "dev": "concurrently \"npm run dev:ui\" \"npm run dev:mcp\" --names ui,mcp --prefix-colors blue,green --kill-others",
+    "dev:ui": "next dev --turbopack",
+    "dev:mcp": "./scripts/run-mcp-server.sh || scripts\\run-mcp-server.bat",
+    "build": "next build",
+    "start": "next start",
+    "install:mcp": "cd threejs-server && npm install",
+    "postinstall": "npm run install:mcp"
+  },
+  "dependencies": {
+    "@ag-ui/mcp-apps-middleware": "^0.0.3",
+    "@copilotkit/react-core": "1.52.1",
+    "@copilotkit/react-ui": "1.52.1",
+    "@copilotkit/runtime": "1.52.1",
+    "next": "16.1.1",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
   },
   "devDependencies": {
-    "turbo": "^2.3.3"
-  },
-  "packageManager": "pnpm@10.13.1"
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "concurrently": "^9.1.2",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
 }

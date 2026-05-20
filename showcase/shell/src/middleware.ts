@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { seoRedirects } from "@/lib/seo-redirects";
+import registry from "@/data/registry.json";
 
 // ---------------------------------------------------------------------------
 // Build lookup structures at module load (once per cold start)
@@ -37,16 +38,17 @@ for (const entry of seoRedirects) {
 // PostHog tracking via fetch (Edge Runtime compatible — no posthog-node SDK)
 // ---------------------------------------------------------------------------
 
-const POSTHOG_HOST = "https://eu.i.posthog.com";
+const POSTHOG_HOST =
+  process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://eu.i.posthog.com";
 
 let posthogKeyWarned = false;
 
 function trackRedirect(id: string, fromPath: string, toPath: string): void {
-  const apiKey = process.env.POSTHOG_PROJECT_KEY;
+  const apiKey = process.env.POSTHOG_KEY;
   if (!apiKey) {
     if (!posthogKeyWarned) {
       console.warn(
-        "[middleware] POSTHOG_PROJECT_KEY is not set — redirect tracking disabled",
+        "[middleware] POSTHOG_KEY is not set — redirect tracking disabled",
       );
       posthogKeyWarned = true;
     }
@@ -76,8 +78,36 @@ function trackRedirect(id: string, fromPath: string, toPath: string): void {
 // Middleware
 // ---------------------------------------------------------------------------
 
+// Framework slugs owned by the new `/<framework>/<...slug>` catch-all
+// route. Any path whose first segment matches one of these is a
+// first-class framework-scoped docs URL — the SEO-redirect table must
+// NOT hijack it even when the legacy framework keys (`mastra`,
+// `agno`, `llamaindex`, `pydantic-ai`, `ag2`) overlap with registry
+// slugs. Concretely: `/mastra/agentic-chat-ui` is the new docs URL,
+// not a legacy SEO path.
+const REGISTRY_FRAMEWORK_SLUGS: Set<string> = new Set(
+  (registry as { integrations?: { slug: string }[] }).integrations?.map(
+    (i) => i.slug,
+  ) ?? [],
+);
+
+function pathIsFrameworkScoped(pathname: string): boolean {
+  const first = pathname.split("/").filter(Boolean)[0];
+  return Boolean(first) && REGISTRY_FRAMEWORK_SLUGS.has(first);
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Short-circuit: paths owned by the framework-scoped docs route
+  // should never be touched by the SEO-redirect table. This prevents
+  // legacy redirects (e.g. `/mastra/agentic-chat-ui` →
+  // `/docs/integrations/mastra/prebuilt-components`) from fighting the
+  // new catch-all, which wants `/mastra/agentic-chat-ui` to render the
+  // Mastra-scoped Agentic Chat UI docs in place.
+  if (pathIsFrameworkScoped(pathname)) {
+    return NextResponse.next();
+  }
 
   // 1. Exact match (O(1) Map lookup)
   const exact = exactMap.get(pathname);

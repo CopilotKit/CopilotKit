@@ -1,0 +1,69 @@
+---
+title: OSS vs Enterprise
+description: What ships in CopilotKit's open-source core versus what's part of the Enterprise (Enterprise Intelligence Platform) layer — Threads, Persistence, Observability, Self-Hosting.
+icon: "lucide/Cloud"
+doc_type: explanation
+---
+
+CopilotKit ships in two layers: an **open-source frontend stack** (npm packages, no external service required) and an **Enterprise Intelligence Platform** that adds durable conversations, realtime sync, observability, and an admin console. Enterprise extends OSS — same SDK, same runtime — so the boundary is about *which capabilities you unlock*, not which code you write.
+
+## The 30-second version
+
+- **OSS is enough for** building a working agentic React app with hooks, prebuilt chat, frontend tools, gen-UI, and any AG-UI integration. Apache 2.0, runs anywhere.
+- **Enterprise adds** durable threads, persistence across reloads and devices, realtime WebSocket sync, observability connectors, and a hosted admin console.
+- **Enterprise runs two ways** — fully hosted as [Copilot Cloud](https://cloud.copilotkit.ai), or self-hosted via the `copilot-intelligence` Helm chart on your own Kubernetes.
+- **Your app code doesn't change** between OSS-only, Cloud, and Self-Hosted. The boundary is a runtime config switch.
+
+| | OSS only | Needs Enterprise |
+|---|---|---|
+| Agent chat, frontend tools, agent state, gen-UI | Yes | |
+| Any AG-UI integration (LangGraph, Mastra, Built-in, custom) | Yes | |
+| Conversation history that survives reloads / devices | | Yes |
+| `useThreads` + realtime sync across tabs / devices | | Yes |
+| Hosted inspector, admin console, multi-tenancy | | Yes |
+| Enterprise observability connectors | | Yes |
+
+## What's in the open-source core
+
+Everything you need to build a working agentic React app, with no external service from CopilotKit:
+
+- **Frontend SDK** — `@copilotkit/react-core`, exporting both hooks (`useAgent`, `useFrontendTool`, `useAgentContext`, `useThreads`, etc.) and prebuilt components (`CopilotChat`, `CopilotSidebar`, `CopilotPopup`).
+- **Runtime** — `@copilotkit/runtime`, the request handler that mounts in your application server. Framework-agnostic core plus thin adapters for Express, Hono, Bun, Deno, Cloudflare Workers.
+- **AG-UI protocol** — open standard for agent ↔ frontend communication. 16 standardized event types, transport-agnostic.
+- **Built-in Agent** — `BuiltInAgent` runs an in-process agent loop (OpenAI / Anthropic / Google / any AI-SDK model) without requiring an external framework.
+- **Integrations** — first-party adapters for LangGraph (Python / TypeScript / FastAPI), Mastra, CrewAI, Pydantic AI, Microsoft Agent Framework, AWS Strands, Google ADK, and others.
+- **Generative UI primitives** — tool rendering, state rendering, headless hooks, Slots-based theming.
+
+Apache 2.0 licensed. Run it on any host, in any cloud, with any LLM provider.
+
+## What's in Enterprise (Enterprise Intelligence Platform)
+
+A separate **backend service** that sits beside your runtime and unlocks the capabilities that need durable, multi-tenant infrastructure to be honest about:
+
+- **Threads & Persistence** — durable, resumable conversations that survive page reloads, span devices, and sync in realtime via WebSocket. Backed by Postgres + Redis with single-writer locks on active runs.
+- **Observability** — structured logging, traces of every AG-UI event, agent run metrics, and connectors for Datadog / OpenTelemetry / your existing observability stack.
+- **Inspector & Admin Console** — a hosted web UI for browsing thread history, inspecting agent traces, rotating API keys, and managing projects and organizations.
+- **Multi-tenancy** — three-level isolation (organizations, projects, users) so a single deployment can host production and staging side by side without one reading the other's data.
+
+### Hosted vs Self-Hosted
+
+Same Enterprise Intelligence Platform — you pick where it runs:
+
+- **[Copilot Cloud](https://cloud.copilotkit.ai)** is the hosted service. Sign up, get an API key, point your runtime at it. Pick this when you want zero ops on the platform side.
+- **Self-Hosted** installs the `copilot-intelligence` Helm chart into your own Kubernetes cluster. Pick this for data residency, on-prem requirements, or compliance control. You operate the workload (Postgres, Redis, ingress, OIDC, secret rotation); the chart and the same Enterprise image power the install.
+
+Application code doesn't change between Cloud and Self-Hosted — same SDK, same runtime, same hooks. Just a different `INTELLIGENCE_URL` environment variable.
+
+## Where the boundary lives
+
+The OSS runtime knows how to talk to the Enterprise Intelligence Platform but doesn't require it.
+
+If your app keeps state in your own backend (Postgres, your own auth) and you're fine reconstructing thread context from your own store, OSS may be enough. The moment you want CopilotKit to *be* the conversation persistence layer — across users, devices, and sessions — Enterprise is the right answer.
+
+## Where to go next
+
+- **Open-source quickstart** — [Quickstart](/quickstart) gets a working agentic app running in ~10 minutes against the Built-in Agent. No platform credentials needed.
+- **Enterprise overview** — [Premium Overview](/premium/overview) lists every Enterprise capability and the per-feature setup.
+- **Hosted setup** — [Copilot Cloud](https://cloud.copilotkit.ai) for the hosted Enterprise Intelligence Platform.
+- **Self-hosted deployment** — [Self-Hosting Intelligence](/premium/self-hosting) for the Helm-chart install on your own Kubernetes cluster.
+- **Architecture deep-dive** — [Enterprise Intelligence Platform internals](/premium/intelligence-platform) covers the control-plane / data-plane split, the three workloads, and the operational model.

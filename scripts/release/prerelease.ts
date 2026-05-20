@@ -1,22 +1,17 @@
 /**
- * Publish a prerelease (no git commits, no PRs).
+ * Publish a prerelease to npm (publish-only, no build/test/bump).
  *
- * Takes the current version for the given scope and appends a canary suffix.
- * If --suffix is provided (e.g. "fix-user-issue"), the version becomes
- * 1.55.2-canary.fix-user-issue. Otherwise it uses a unix timestamp.
+ * Version bumping is handled by bump-prerelease.ts in the secrets-free CI
+ * build job. Build and test also run there. This script receives pre-built,
+ * correctly-versioned artifacts and only performs the npm publish step.
  *
  * Always publishes with the "canary" dist-tag.
  *
- * Usage: tsx scripts/release/prerelease.ts --scope <monorepo|cli|angular> [--suffix <label>] [--dry-run]
+ * Usage: tsx scripts/release/prerelease.ts --scope <monorepo|angular> [--dry-run]
  */
 
 import { spawnSync } from "child_process";
-import {
-  getCurrentVersion,
-  computePrereleaseVersion,
-  bumpPackages,
-  getPackagesForScope,
-} from "./lib/versions.js";
+import { getCurrentVersion, getPackagesForScope } from "./lib/versions.js";
 import { ROOT, loadConfig, type ReleaseScope } from "./lib/config.js";
 
 function run(cmd: string, args: string[], opts?: { cwd?: string }) {
@@ -31,13 +26,11 @@ function run(cmd: string, args: string[], opts?: { cwd?: string }) {
   return result;
 }
 
-const VALID_SCOPES = ["monorepo", "cli", "angular"];
+const VALID_SCOPES = ["monorepo", "angular"];
 
 function main() {
   const argv = process.argv.slice(2);
   const dryRun = argv.includes("--dry-run");
-  const suffixIdx = argv.indexOf("--suffix");
-  const suffix = suffixIdx !== -1 ? argv[suffixIdx + 1] : undefined;
   const scopeIdx = argv.indexOf("--scope");
   const scope = (
     scopeIdx !== -1 ? argv[scopeIdx + 1] : null
@@ -52,35 +45,35 @@ function main() {
 
   const config = loadConfig();
   const distTag = config.prereleaseTag;
-  const currentVersion = getCurrentVersion(scope);
-  const prereleaseVersion = computePrereleaseVersion(currentVersion, suffix);
+
+  // Read the version from package.json — already bumped by bump-prerelease.ts
+  // in the CI build job.
+  const packages = getPackagesForScope(scope);
+  const publishVersion = packages[0]?.pkg.version ?? getCurrentVersion(scope);
   console.log(`Scope: ${scope}`);
-  console.log(`Current version: ${currentVersion}`);
-  console.log(`Prerelease version: ${prereleaseVersion}`);
+  console.log(`Publishing version: ${publishVersion}`);
   console.log(`Dist tag: ${distTag}`);
 
   if (dryRun) {
-    console.log("\n[DRY RUN] Would bump these packages:");
-    for (const p of getPackagesForScope(scope)) {
-      console.log(`  ${p.name}: ${p.pkg.version} -> ${prereleaseVersion}`);
+    console.log("\n[DRY RUN] Would publish these packages:");
+    for (const p of packages) {
+      console.log(`  ${p.name}@${p.pkg.version}`);
     }
     console.log("\n[DRY RUN] Exiting.");
     return;
   }
 
-  // Bump versions in working directory (no commit)
-  const updated = bumpPackages(scope, prereleaseVersion);
-  console.log(`\nBumped ${updated.length} packages to ${prereleaseVersion}`);
-
-  // Build all packages
-  console.log("\nBuilding packages...");
-  run("pnpm", ["run", "build"]);
+  // NOTE: Version bumping is handled by bump-prerelease.ts in the CI build
+  // job (no secrets). Build and test also run there.
+  // The publish job receives pre-built artifacts via download-artifact.
+  // We intentionally do NOT rebuild/retest here to keep NPM_TOKEN out
+  // of the build process tree.
 
   // Publish each package
   console.log("\nPublishing packages...");
-  for (const p of getPackagesForScope(scope)) {
+  for (const p of packages) {
     console.log(
-      `  Publishing ${p.name}@${prereleaseVersion} with tag ${distTag}...`,
+      `  Publishing ${p.name}@${p.pkg.version} with tag ${distTag}...`,
     );
     run(
       "pnpm",
@@ -89,7 +82,7 @@ function main() {
     );
   }
 
-  console.log(`\nPrerelease published: ${prereleaseVersion} (tag: ${distTag})`);
+  console.log(`\nPrerelease published: ${publishVersion} (tag: ${distTag})`);
 }
 
 main();

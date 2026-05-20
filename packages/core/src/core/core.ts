@@ -1,5 +1,7 @@
-import { AbstractAgent, Context, State } from "@ag-ui/client";
-import {
+import type { AbstractAgent, Context, State } from "@ag-ui/client";
+import type { AgentSubscriber } from "@ag-ui/client";
+import { Throttler } from "@tanstack/pacer";
+import type {
   FrontendTool,
   SuggestionsConfig,
   Suggestion,
@@ -12,19 +14,26 @@ import {
   DevtoolsListener,
   type ThreadCloneResolver,
 } from "./devtools-listener";
-import { AgentRegistry, CopilotKitCoreAddAgentParams } from "./agent-registry";
+import type {
+  CopilotKitCoreAddAgentParams,
+  CopilotKitCoreRegisterProxiedAgentParams,
+  CopilotKitCoreRegisterProxiedAgentResult,
+} from "./agent-registry";
+import { AgentRegistry } from "./agent-registry";
 import { ContextStore } from "./context-store";
 import { SuggestionEngine } from "./suggestion-engine";
-import {
-  RunHandler,
+import type {
   CopilotKitCoreRunAgentParams,
   CopilotKitCoreConnectAgentParams,
   CopilotKitCoreGetToolParams,
   CopilotKitCoreRunToolParams,
   CopilotKitCoreRunToolResult,
 } from "./run-handler";
-import { DebugConfig } from "@copilotkit/shared";
+import { RunHandler } from "./run-handler";
+import type { DebugConfig } from "@copilotkit/shared";
 import { StateManager } from "./state-manager";
+import { ThreadStoreRegistry } from "./thread-store-registry";
+import type { ɵThreadStore } from "../threads";
 
 /** Configuration options for `CopilotKitCore`. */
 export interface CopilotKitCoreConfig {
@@ -55,7 +64,11 @@ export interface CopilotKitCoreConfig {
   showDevConsole?: boolean;
 }
 
-export type { CopilotKitCoreAddAgentParams };
+export type {
+  CopilotKitCoreAddAgentParams,
+  CopilotKitCoreRegisterProxiedAgentParams,
+  CopilotKitCoreRegisterProxiedAgentResult,
+};
 export type {
   CopilotKitCoreRunAgentParams,
   CopilotKitCoreConnectAgentParams,
@@ -106,6 +119,7 @@ export enum CopilotKitCoreErrorCode {
   TRANSCRIPTION_RATE_LIMITED = "transcription_rate_limited",
   TRANSCRIPTION_AUTH_FAILED = "transcription_auth_failed",
   TRANSCRIPTION_NETWORK_ERROR = "transcription_network_error",
+  SUBSCRIBER_CALLBACK_FAILED = "subscriber_callback_failed",
 }
 
 export interface CopilotKitCoreSubscriber {
@@ -167,20 +181,107 @@ export interface CopilotKitCoreSubscriber {
     code: CopilotKitCoreErrorCode;
     context: Record<string, any>;
   }) => void | Promise<void>;
-  /**
-   * Fired when an agent run or connect begins. The `agent` may be a per-thread
-   * clone that is not present in `core.agents`. Subscribers (e.g. the inspector)
-   * can use this to subscribe to the clone's AG-UI events.
-   */
-  onAgentRunStarted?: (event: {
+  onThreadStoreRegistered?: (event: {
     copilotkit: CopilotKitCore;
-    agent: AbstractAgent;
+    agentId: string;
+    store: ɵThreadStore;
+  }) => void | Promise<void>;
+  /**
+   * Fired when a thread store is removed from the registry, either by an
+   * explicit `unregister()` call or by a `register()` call that replaces an
+   * existing store for the same `agentId`.
+   *
+   * The previous store is delivered via `prevStore` so subscribers can tear
+   * down state that depends on the concrete instance (e.g. cancel an active
+   * subscription) without consulting the registry. By the time async
+   * subscribers resume after an `await`, a replacement `register()` may have
+   * already installed the new store under the same key, so calling
+   * `registry.get(agentId)` inside this callback is unsafe and may return
+   * the new store instead of the unregistered one.
+   */
+  onThreadStoreUnregistered?: (event: {
+    copilotkit: CopilotKitCore;
+    agentId: string;
+    prevStore: ɵThreadStore;
   }) => void | Promise<void>;
 }
 
-// Subscription object returned by subscribe()
+// Subscription object returned by subscribe() and subscribeToAgentWithOptions()
 export interface CopilotKitCoreSubscription {
   unsubscribe: () => void;
+}
+
+/**
+ * The callback keys accepted by {@link CopilotKitCore.subscribeToAgentWithOptions}.
+ * This tuple is the single source of truth — both the
+ * `SubscribeToAgentSubscriber` type and the runtime `ALLOWED_KEYS` set
+ * are derived from it, so they cannot desynchronise.
+ */
+const SUBSCRIBE_TO_AGENT_KEYS = [
+  "onMessagesChanged",
+  "onStateChanged",
+  "onRunInitialized",
+  "onRunFinalized",
+  "onRunFailed",
+  "onRunErrorEvent",
+] as const satisfies readonly (keyof AgentSubscriber)[];
+
+/**
+ * Runtime allowlist derived from {@link SUBSCRIBE_TO_AGENT_KEYS}. Hoisted
+ * to module scope so the Set is allocated once, not per-subscription.
+ */
+const ALLOWED_KEYS: ReadonlySet<(typeof SUBSCRIBE_TO_AGENT_KEYS)[number]> =
+  new Set(SUBSCRIBE_TO_AGENT_KEYS);
+
+/**
+ * The subset of `AgentSubscriber` callbacks accepted by
+ * {@link CopilotKitCore.subscribeToAgentWithOptions}. Only the callbacks
+ * listed in {@link SUBSCRIBE_TO_AGENT_KEYS} are supported:
+ * `onMessagesChanged`, `onStateChanged`, and the four run lifecycle
+ * callbacks (`onRunInitialized`, `onRunFinalized`, `onRunFailed`,
+ * `onRunErrorEvent`).
+ *
+ * Two categories of `AgentSubscriber` members are excluded:
+ *
+ * - **AG-UI event handlers** (`onEvent`, `onToolCallStartEvent`, etc.)
+ *   return `AgentStateMutation` with `stopPropagation` — semantics that
+ *   the throttle and error-protection wrappers cannot safely mediate.
+ *
+ * - **Per-item notification callbacks** (`onNewMessage`, `onNewToolCall`)
+ *   return `void` and have no mutation concerns, but are excluded to keep
+ *   the surface area minimal — `onMessagesChanged` already covers the
+ *   same data at a coarser granularity, and throttling per-item callbacks
+ *   would have different semantic expectations.
+ *
+ * `onRunErrorEvent` is technically an AG-UI event handler (its return type
+ * includes `stopPropagation`), but it is included here because all
+ * framework consumers need it to reset `isRunning` on protocol-level
+ * `RUN_ERROR` events — distinct from `onRunFailed` which handles local
+ * exceptions like network errors. In practice, consumers return `void`
+ * from this callback, so the `stopPropagation` semantics are unused.
+ *
+ * Note: the included lifecycle callbacks return
+ * `Omit<AgentStateMutation, "stopPropagation">` (or full
+ * `AgentStateMutation` in the case of `onRunErrorEvent`). On the error
+ * path, `safeCall` discards those return values (see its inline
+ * documentation).
+ *
+ * Use `agent.subscribe()` directly when event mutation or per-item
+ * notification semantics are needed.
+ */
+export type SubscribeToAgentSubscriber = Pick<
+  AgentSubscriber,
+  (typeof SUBSCRIBE_TO_AGENT_KEYS)[number]
+>;
+
+/** Options for {@link CopilotKitCore.subscribeToAgentWithOptions}. */
+export interface SubscribeToAgentOptions {
+  /**
+   * Throttle interval (ms) for `onMessagesChanged` / `onStateChanged`.
+   * Non-negative finite number; `0` explicitly disables throttling.
+   * Falls back to `defaultThrottleMs` when `undefined`.
+   */
+  throttleMs?: number;
 }
 
 export enum CopilotKitCoreRuntimeConnectionStatus {
@@ -229,13 +330,6 @@ export interface CopilotKitCoreFriendsAccess {
    * See CopilotKitCore.waitForPendingFrameworkUpdates for details.
    */
   waitForPendingFrameworkUpdates(): Promise<void>;
-
-  /**
-   * Subscribe the state manager to an agent (including per-thread clones).
-   * Called by RunHandler before executing an agent so that events from
-   * clones are tracked in stateByRun/messageToRun.
-   */
-  subscribeAgentToStateManager(agent: AbstractAgent): void;
 }
 
 export class CopilotKitCore {
@@ -254,6 +348,14 @@ export class CopilotKitCore {
   private runHandler: RunHandler;
   private stateManager: StateManager;
   private devtoolsListener: DevtoolsListener;
+  private threadStoreRegistry: ThreadStoreRegistry;
+  /**
+   * Tracks the agent IDs from the most recent `onAgentsChanged` notification.
+   * Used to gate thread-store auto-unregister so the FIRST empty-agents
+   * notification (before published agents are merged in) does not rip out a
+   * store that was registered prior to that initial notification.
+   */
+  private previousAgentIds: Set<string> = new Set();
 
   constructor({
     runtimeUrl,
@@ -281,6 +383,7 @@ export class CopilotKitCore {
     this.devtoolsListener = new DevtoolsListener({
       getAgents: () => this.agents,
     });
+    this.threadStoreRegistry = new ThreadStoreRegistry(this);
 
     // Initialize each subsystem
     this.agentRegistry.initialize(agents__unsafe_dev_only);
@@ -301,6 +404,15 @@ export class CopilotKitCore {
     this.agentRegistry.setRuntimeTransport(runtimeTransport);
     this.agentRegistry.setRuntimeUrl(runtimeUrl);
 
+    // Seed the previous-agents snapshot from the constructor-supplied agents.
+    // `agentRegistry.initialize` does not emit `onAgentsChanged`, so the
+    // subscriber below would otherwise see its first non-empty notification
+    // as an "addition" relative to an empty baseline — and a later removal
+    // of those same agents would NOT trigger the auto-unregister branch
+    // because the guard would think the agentId was never previously
+    // present. Seeding the set here keeps the guard honest.
+    this.previousAgentIds = new Set(Object.keys(agents__unsafe_dev_only));
+
     // Subscribe to agent changes to track state for new agents
     this.subscribe({
       onAgentsChanged: ({ agents }) => {
@@ -309,6 +421,57 @@ export class CopilotKitCore {
             this.stateManager.subscribeToAgent(agent);
           }
         });
+
+        // Unregister thread stores for agents that have been removed.
+        //
+        // Critically, only unregister an agentId that was present in the
+        // PREVIOUS agents snapshot AND is missing from the new one. Without
+        // the "previously had" guard, the FIRST `onAgentsChanged({ agents: {} })`
+        // delivered to a freshly-published core would tear out a thread store
+        // that a consumer (e.g. useThreads) just registered — `core.agents`
+        // is asynchronously populated and the empty-map notification fires
+        // before the published agents are merged in.
+        const currentAgentIds = new Set(Object.keys(agents));
+        // Each iteration is wrapped so a throw on one id does not stall
+        // cleanup for the rest of the set. Both registries' unregister
+        // paths are idempotent, so re-attempts on the next
+        // onAgentsChanged are safe.
+        for (const agentId of Object.keys(this.threadStoreRegistry.getAll())) {
+          if (
+            this.previousAgentIds.has(agentId) &&
+            !currentAgentIds.has(agentId)
+          ) {
+            try {
+              this.threadStoreRegistry.unregister(agentId);
+            } catch (err) {
+              console.error(
+                `CopilotKitCore.onAgentsChanged: threadStoreRegistry.unregister failed for "${agentId}":`,
+                err,
+              );
+            }
+          }
+        }
+
+        // Symmetric cleanup for state-manager subscriptions: any agentId
+        // that disappeared from the registry (e.g. via `unregister()` from
+        // a registerProxiedAgent caller) should release its StateManager
+        // subscription. Without this, the subscription leaks — events from
+        // a still-running observable on the removed agent would continue
+        // to populate stateByRun/messageToRun for the dead id.
+        for (const agentId of this.previousAgentIds) {
+          if (!currentAgentIds.has(agentId)) {
+            try {
+              this.stateManager.unsubscribeFromAgent(agentId);
+            } catch (err) {
+              console.error(
+                `CopilotKitCore.onAgentsChanged: stateManager.unsubscribeFromAgent failed for "${agentId}":`,
+                err,
+              );
+            }
+          }
+        }
+
+        this.previousAgentIds = currentAgentIds;
       },
     });
   }
@@ -368,6 +531,25 @@ export class CopilotKitCore {
   }
 
   /**
+   * Log a message to the console and emit an error to subscribers.
+   * Catches failures from `emitError` itself to prevent unhandled rejections.
+   */
+  private logAndEmitError(
+    message: string,
+    params: {
+      error: Error;
+      code: CopilotKitCoreErrorCode;
+      context?: Record<string, any>;
+    },
+    logLevel: "error" | "warn" = "error",
+  ): void {
+    console[logLevel](message, params.error);
+    this.emitError(params).catch((emitErr: unknown) => {
+      console.error(message + " — emitError itself failed:", emitErr);
+    });
+  }
+
+  /**
    * Snapshot accessors
    */
   get context(): Readonly<Record<string, Context>> {
@@ -415,18 +597,34 @@ export class CopilotKitCore {
   }
 
   /**
-   * Default throttle interval (ms) applied by framework hooks (e.g.
-   * `useAgent()`) when the hook/component does not specify an explicit
-   * `throttleMs`. An explicit `0` passed as `throttleMs` to `useAgent()`
-   * or `<CopilotChat>` overrides this default and disables throttling.
+   * Default throttle interval (ms) used by `subscribeToAgentWithOptions()`
+   * when the caller does not specify an explicit `throttleMs`.
+   * `undefined` means no default is configured; `0` means no throttling.
    */
   get defaultThrottleMs(): number | undefined {
     return this._defaultThrottleMs;
   }
 
+  /**
+   * Set the default throttle interval (ms) for `subscribeToAgentWithOptions()`.
+   *
+   * Accepts a non-negative finite number or `undefined` (to clear the
+   * default). Invalid values (NaN, Infinity, negative) are logged as
+   * errors and ignored — the previous valid value is preserved.
+   */
   setDefaultThrottleMs(value: number | undefined): void {
     if (value !== undefined && (!Number.isFinite(value) || value < 0)) {
-      this._defaultThrottleMs = undefined;
+      this.logAndEmitError(
+        `CopilotKitCore.setDefaultThrottleMs: value must be a non-negative finite number or undefined, ` +
+          `got ${value}. Keeping current value (${this._defaultThrottleMs}).`,
+        {
+          error: new Error(
+            `setDefaultThrottleMs: invalid value (${value}), keeping current value (${this._defaultThrottleMs})`,
+          ),
+          code: CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED,
+          context: { value, currentValue: this._defaultThrottleMs },
+        },
+      );
       return;
     }
     this._defaultThrottleMs = value;
@@ -466,6 +664,10 @@ export class CopilotKitCore {
 
   get licenseStatus(): RuntimeLicenseStatus | undefined {
     return this.agentRegistry.licenseStatus;
+  }
+
+  get telemetryDisabled(): boolean {
+    return this.agentRegistry.telemetryDisabled;
   }
 
   /**
@@ -520,6 +722,31 @@ export class CopilotKitCore {
     this.agentRegistry.removeAgent__unsafe_dev_only(id);
   }
 
+  /**
+   * Register a proxied agent against an existing runtime agent. The proxy is
+   * exposed under `agentId` (local registry id) and routes outbound runtime
+   * requests to `runtimeAgentId`. Throws if `agentId` is already taken.
+   *
+   * Returns the minted proxy and an `unregister` handle for cleanup.
+   *
+   * Use this to mount multiple frontend agents against a single runtime
+   * agent (e.g. one per chat window) without implicit per-thread cloning.
+   *
+   * @example
+   * const { agent, unregister } = copilotkit.registerProxiedAgent({
+   *   agentId: "chat-1",
+   *   runtimeAgentId: "default",
+   * });
+   * // ... <CopilotChat agentId="chat-1" />
+   * // on cleanup:
+   * unregister();
+   */
+  registerProxiedAgent(
+    params: CopilotKitCoreRegisterProxiedAgentParams,
+  ): CopilotKitCoreRegisterProxiedAgentResult {
+    return this.agentRegistry.registerProxiedAgent(params);
+  }
+
   getAgent(id: string): AbstractAgent | undefined {
     return this.agentRegistry.getAgent(id);
   }
@@ -533,6 +760,25 @@ export class CopilotKitCore {
 
   removeContext(id: string): void {
     this.contextStore.removeContext(id);
+  }
+
+  /**
+   * Thread store registry (delegated to ThreadStoreRegistry)
+   */
+  registerThreadStore(agentId: string, store: ɵThreadStore): void {
+    this.threadStoreRegistry.register(agentId, store);
+  }
+
+  unregisterThreadStore(agentId: string): void {
+    this.threadStoreRegistry.unregister(agentId);
+  }
+
+  getThreadStore(agentId: string): ɵThreadStore | undefined {
+    return this.threadStoreRegistry.get(agentId);
+  }
+
+  getThreadStores(): Readonly<Record<string, ɵThreadStore>> {
+    return this.threadStoreRegistry.getAll();
   }
 
   /**
@@ -594,6 +840,211 @@ export class CopilotKitCore {
   }
 
   /**
+   * Subscribe to an agent's notification and lifecycle events with
+   * optional configuration (e.g. throttling).
+   *
+   * Wraps every callback with error protection (`safeCall`) and applies
+   * the options before delegating to `agent.subscribe()`.
+   *
+   * See {@link SubscribeToAgentSubscriber} for the accepted callback subset
+   * and the rationale for excluding AG-UI event handlers.
+   */
+  subscribeToAgentWithOptions(
+    agent: AbstractAgent,
+    subscriber: SubscribeToAgentSubscriber,
+    options?: SubscribeToAgentOptions,
+  ): CopilotKitCoreSubscription {
+    const resolved = options?.throttleMs ?? this._defaultThrottleMs ?? 0;
+
+    let effectiveMs = 0;
+    if (!Number.isFinite(resolved) || resolved < 0) {
+      const source =
+        options?.throttleMs !== undefined ? "throttleMs" : "defaultThrottleMs";
+      this.logAndEmitError(
+        `CopilotKitCore.subscribeToAgentWithOptions: ${source} must be a non-negative finite number, ` +
+          `got ${resolved}. Falling back to unthrottled.`,
+        {
+          error: new Error(
+            `subscribeToAgentWithOptions: invalid ${source} (${resolved}), falling back to unthrottled`,
+          ),
+          code: CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED,
+          context: { agentId: agent.agentId, source, value: resolved },
+        },
+      );
+    } else {
+      effectiveMs = resolved;
+    }
+
+    const agentLabel = agent.agentId || "(unknown agent)";
+
+    // Wraps a callback so that synchronous throws and async rejections are
+    // caught, logged, and emitted — preventing one failing callback from
+    // corrupting the agent's notification loop.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const safeCall = <F extends (...args: any[]) => any>(
+      label: string,
+      fn: F,
+      ...args: Parameters<F>
+    ): any => {
+      const reportError = (err: unknown, verb: string) => {
+        this.logAndEmitError(
+          `CopilotKitCore.subscribeToAgentWithOptions[${agentLabel}]: ${label} callback ${verb}:`,
+          {
+            error: err instanceof Error ? err : new Error(String(err)),
+            code: CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED,
+            context: { agentId: agent.agentId, callback: label },
+          },
+        );
+      };
+      try {
+        const result = fn(...args);
+        if (result instanceof Promise) {
+          return result.catch((err: unknown) => {
+            reportError(err, "rejected");
+          });
+        }
+        return result;
+      } catch (err) {
+        reportError(err, "threw");
+      }
+    };
+
+    const guardAll = (
+      sub: SubscribeToAgentSubscriber,
+    ): SubscribeToAgentSubscriber => {
+      const guarded: SubscribeToAgentSubscriber = {};
+      if (sub.onMessagesChanged) {
+        const fn = sub.onMessagesChanged;
+        guarded.onMessagesChanged = (params) =>
+          safeCall("onMessagesChanged", fn, params);
+      }
+      if (sub.onStateChanged) {
+        const fn = sub.onStateChanged;
+        guarded.onStateChanged = (params) =>
+          safeCall("onStateChanged", fn, params);
+      }
+      if (sub.onRunInitialized) {
+        const fn = sub.onRunInitialized;
+        guarded.onRunInitialized = (params) =>
+          safeCall("onRunInitialized", fn, params);
+      }
+      if (sub.onRunFinalized) {
+        const fn = sub.onRunFinalized;
+        guarded.onRunFinalized = (params) =>
+          safeCall("onRunFinalized", fn, params);
+      }
+      if (sub.onRunFailed) {
+        const fn = sub.onRunFailed;
+        guarded.onRunFailed = (params) => safeCall("onRunFailed", fn, params);
+      }
+      if (sub.onRunErrorEvent) {
+        const fn = sub.onRunErrorEvent;
+        guarded.onRunErrorEvent = (params) =>
+          safeCall("onRunErrorEvent", fn, params);
+      }
+      return guarded;
+    };
+
+    // Warn about unsupported keys so JS / `as any` consumers get diagnostics.
+    for (const key of Object.keys(subscriber)) {
+      if (
+        typeof (subscriber as Record<string, unknown>)[key] === "function" &&
+        !(ALLOWED_KEYS as ReadonlySet<string>).has(key)
+      ) {
+        const message =
+          `CopilotKitCore.subscribeToAgentWithOptions[${agentLabel}]: callback "${key}" is not supported ` +
+          `and was dropped. Supported callbacks: ${Array.from(ALLOWED_KEYS).join(", ")}. ` +
+          `Use agent.subscribe() directly for event handlers and per-item notifications.`;
+        this.logAndEmitError(
+          message,
+          {
+            error: new Error(message),
+            code: CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED,
+            context: { agentId: agent.agentId, droppedCallback: key },
+          },
+          "warn",
+        );
+      }
+    }
+
+    // No throttle — guard callbacks and subscribe directly.
+    if (effectiveMs <= 0) {
+      const subscription = agent.subscribe(guardAll(subscriber));
+      return { unsubscribe: () => subscription.unsubscribe() };
+    }
+
+    // Throttled path: lifecycle callbacks fire immediately; onMessagesChanged
+    // and onStateChanged share a single Throttler that flushes the latest
+    // params for both channels.
+    let active = true;
+    let latestMessagesParams:
+      | Parameters<
+          NonNullable<SubscribeToAgentSubscriber["onMessagesChanged"]>
+        >[0]
+      | null = null;
+    let latestStateParams:
+      | Parameters<NonNullable<SubscribeToAgentSubscriber["onStateChanged"]>>[0]
+      | null = null;
+
+    const flushPending = () => {
+      if (active && subscriber.onMessagesChanged && latestMessagesParams) {
+        const params = latestMessagesParams;
+        latestMessagesParams = null;
+        safeCall("onMessagesChanged", subscriber.onMessagesChanged, params);
+      }
+      if (active && subscriber.onStateChanged && latestStateParams) {
+        const params = latestStateParams;
+        latestStateParams = null;
+        safeCall("onStateChanged", subscriber.onStateChanged, params);
+      }
+    };
+
+    const throttler = new Throttler(flushPending, {
+      wait: effectiveMs,
+      leading: true,
+      trailing: true,
+    });
+
+    // Lifecycle callbacks are guarded but never throttled.
+    const lifecycleOnly: SubscribeToAgentSubscriber = {};
+    if (subscriber.onRunInitialized)
+      lifecycleOnly.onRunInitialized = subscriber.onRunInitialized;
+    if (subscriber.onRunFinalized)
+      lifecycleOnly.onRunFinalized = subscriber.onRunFinalized;
+    if (subscriber.onRunFailed)
+      lifecycleOnly.onRunFailed = subscriber.onRunFailed;
+    if (subscriber.onRunErrorEvent)
+      lifecycleOnly.onRunErrorEvent = subscriber.onRunErrorEvent;
+
+    const wrappedSubscriber: SubscribeToAgentSubscriber =
+      guardAll(lifecycleOnly);
+
+    if (subscriber.onMessagesChanged) {
+      wrappedSubscriber.onMessagesChanged = (params) => {
+        latestMessagesParams = params;
+        throttler.maybeExecute();
+      };
+    }
+
+    if (subscriber.onStateChanged) {
+      wrappedSubscriber.onStateChanged = (params) => {
+        latestStateParams = params;
+        throttler.maybeExecute();
+      };
+    }
+
+    const subscription = agent.subscribe(wrappedSubscriber);
+
+    return {
+      unsubscribe: () => {
+        active = false;
+        throttler.cancel();
+        subscription.unsubscribe();
+      },
+    };
+  }
+
+  /**
    * Agent connectivity (delegated to RunHandler)
    */
   async connectAgent(
@@ -645,12 +1096,6 @@ export class CopilotKitCore {
 
   getRunIdsForThread(agentId: string, threadId: string): string[] {
     return this.stateManager.getRunIdsForThread(agentId, threadId);
-  }
-
-  subscribeAgentToStateManager(agent: AbstractAgent): void {
-    // isClone: true — use composite agentId:threadId key, keeping the clone's
-    // subscription independent of the registry agent's bare-agentId subscription.
-    this.stateManager.subscribeToAgent(agent, { isClone: true });
   }
 
   /**

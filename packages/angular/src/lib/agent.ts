@@ -11,9 +11,15 @@ import type { AbstractAgent } from "@ag-ui/client";
 import type { Message } from "@ag-ui/client";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import {
+  CopilotKitCore,
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,
 } from "@copilotkit/core";
+
+/** Function signature for subscribing to an agent — derived from
+ *  CopilotKitCore so the types stay in sync automatically. Injected
+ *  by the factory so that AgentStore stays decoupled from the concrete class. */
+type SubscribeToAgentFn = CopilotKitCore["subscribeToAgentWithOptions"];
 
 export class AgentStore {
   readonly #subscription?: {
@@ -28,10 +34,14 @@ export class AgentStore {
   readonly messages = this.#messages.asReadonly();
   readonly state = this.#state.asReadonly();
 
-  constructor(abstractAgent: AbstractAgent, destroyRef: DestroyRef) {
+  constructor(
+    abstractAgent: AbstractAgent,
+    destroyRef: DestroyRef,
+    subscribeToAgent: SubscribeToAgentFn,
+  ) {
     this.agent = abstractAgent;
 
-    this.#subscription = abstractAgent.subscribe({
+    this.#subscription = subscribeToAgent(abstractAgent, {
       onMessagesChanged: () => {
         this.#messages.set(abstractAgent.messages);
       },
@@ -75,6 +85,10 @@ export class CopilotkitAgentFactory {
     destroyRef: DestroyRef,
   ): Signal<AgentStore> {
     let lastAgentStore: AgentStore | undefined;
+    const subscribeToAgent: SubscribeToAgentFn =
+      this.#copilotkit.core.subscribeToAgentWithOptions.bind(
+        this.#copilotkit.core,
+      );
 
     return computed(() => {
       this.#copilotkit.agents();
@@ -99,7 +113,9 @@ export class CopilotkitAgentFactory {
           (runtimeConnectionStatus ===
             CopilotKitCoreRuntimeConnectionStatus.Disconnected ||
             runtimeConnectionStatus ===
-              CopilotKitCoreRuntimeConnectionStatus.Connecting)
+              CopilotKitCoreRuntimeConnectionStatus.Connecting ||
+            runtimeConnectionStatus ===
+              CopilotKitCoreRuntimeConnectionStatus.Error)
         ) {
           const provisional = new ProxiedCopilotRuntimeAgent({
             runtimeUrl,
@@ -109,7 +125,11 @@ export class CopilotkitAgentFactory {
           // Apply current headers so runs/connects inherit them
 
           (provisional as any).headers = { ...headers };
-          lastAgentStore = new AgentStore(provisional, destroyRef);
+          lastAgentStore = new AgentStore(
+            provisional,
+            destroyRef,
+            subscribeToAgent,
+          );
           return lastAgentStore;
         }
 
@@ -126,7 +146,11 @@ export class CopilotkitAgentFactory {
         );
       }
 
-      lastAgentStore = new AgentStore(abstractAgent, destroyRef);
+      lastAgentStore = new AgentStore(
+        abstractAgent,
+        destroyRef,
+        subscribeToAgent,
+      );
       return lastAgentStore;
     });
   }

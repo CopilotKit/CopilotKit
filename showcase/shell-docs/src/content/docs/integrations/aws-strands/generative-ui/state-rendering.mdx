@@ -1,0 +1,208 @@
+---
+title: State Rendering
+icon: "lucide/Bot"
+description: Render the state of your agent with custom UI components.
+---
+<IframeSwitcher
+  id="agent-state-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/aws-strands/feature/agentic_generative_ui?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/aws-strands/feature/agentic_generative_ui?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+## What is this?
+
+AWS Strands agents maintain state as they process tasks. CopilotKit allows you to render this state in your application with custom UI components, which we call **Agentic Generative UI**.
+
+## When should I use this?
+
+Rendering the state of your agent in the UI is useful when you want to provide the user with feedback about the overall state of a session. A great example of this
+is a situation where a user and an agent are working together to solve a problem. The agent can store a draft in its state which is then rendered in the UI.
+
+## Implementation
+
+<Steps>
+  <Step>
+    ### Run and connect your agent
+    <RunAndConnect />
+  </Step>
+  <Step>
+    ### Setup your AWS Strands agent with state
+
+    Configure your Strands agent to maintain state. Here's an example that tracks searches:
+
+    ```python title="agent/main.py"
+    import os
+    import json
+    from ag_ui_strands import StrandsAgent, StrandsAgentConfig, ToolBehavior, create_strands_app
+    from strands import Agent, tool
+    from strands.models.openai import OpenAIModel
+
+    # Create tool that updates state
+    @tool
+    def add_search(query: str):
+        """Add a search to the agent's list of searches.
+
+        Args:
+            query: The search query to add
+
+        Returns:
+            Success status and query
+        """
+        return json.dumps({"success": True, "query": query})
+
+    # Extract state from tool arguments
+    async def searches_state_from_args(context):
+        try:
+            tool_input = context.tool_input
+            if isinstance(tool_input, str):
+                tool_input = json.loads(tool_input)
+            query = tool_input.get("query", "")
+            return {"searches": [{"query": query, "done": True}]}
+        except Exception:
+            return None
+
+    config = StrandsAgentConfig(
+        tool_behaviors={
+            "add_search": ToolBehavior(
+                state_from_args=searches_state_from_args,
+            ),
+        },
+    )
+
+    model = OpenAIModel(
+        client_args={"api_key": os.getenv("OPENAI_API_KEY", "")},
+        model_id="gpt-4o",
+    )
+
+    strands_agent = Agent(
+        model=model,
+        system_prompt="You are a helpful assistant for storing searches. Use the add_search tool to add searches.",
+        tools=[add_search],
+    )
+
+    agui_agent = StrandsAgent(
+        agent=strands_agent,
+        name="strands_agent",
+        description="A helpful assistant for storing searches",
+        config=config,
+    )
+
+    app = create_strands_app(agui_agent)
+    ```
+
+  </Step>
+  <Step>
+    ### Render state of the agent in the chat
+
+    Now we can utilize `useAgent` with a `render` function to render the state of our agent **in the chat**.
+
+    ```tsx title="app/page.tsx"
+    // ...
+    import { useAgent } from "@copilotkit/react-core/v2";
+    // ...
+
+    // Define the state of the agent, should match the state schema of your Strands Agent.
+    type AgentState = {
+      searches: {
+        query: string;
+        done: boolean;
+      }[];
+    };
+
+    function YourMainContent() {
+      // ...
+
+      // [!code highlight:13]
+      // styles omitted for brevity
+      useAgent({
+        agentId: "strands_agent",
+        render: ({ state }) => (
+          <div>
+            {state.searches?.map((search, index) => (
+              <div key={index}>
+                {search.done ? "✅" : "❌"} {search.query}{search.done ? "" : "..."}
+              </div>
+            ))}
+          </div>
+        ),
+      });
+
+      // ...
+
+      return <div>...</div>;
+    }
+    ```
+
+    <Callout type="warn" title="Important">
+      The `name` parameter must exactly match the agent name you defined in your Strands configuration (e.g., `searchAgent` from above).
+    </Callout>
+
+  </Step>
+  <Step>
+    ### Render state outside of the chat
+
+    You can also render the state of your agent **outside of the chat**. This is useful when you want to render the state of your agent anywhere
+    other than the chat.
+
+    ```tsx title="app/page.tsx"
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+    // ...
+
+    // Define the state of the agent, should match the state schema of your Strands Agent.
+    type AgentState = {
+      searches: {
+        query: string;
+        done: boolean;
+      }[];
+    };
+
+    function YourMainContent() {
+      // ...
+
+      // [!code highlight:3]
+      const { agent } = useAgent({
+        agentId: "strands_agent",
+      })
+
+      // ...
+
+      return (
+        <div>
+          {/* ... */}
+          <div className="flex flex-col gap-2 mt-4">
+            {/* [!code highlight:5] */}
+            {agent.state?.searches?.map((search, index) => (
+              <div key={index} className="flex flex-row">
+                {search.done ? "✅" : "❌"} {search.query}
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+    ```
+
+    <Callout type="warn" title="Important">
+      The `name` parameter must exactly match the agent name you defined in your Strands configuration (e.g., `searchAgent` from above).
+    </Callout>
+
+  </Step>
+  <Step>
+    ### Give it a try!
+
+    You've now created a component that will render the agent's state in the chat.
+
+    <video
+      src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/agentic-generative-ui.mp4"
+      className="rounded-lg shadow-xl"
+      loop
+      playsInline
+      controls
+      autoPlay
+      muted
+    />
+  </Step>
+</Steps>

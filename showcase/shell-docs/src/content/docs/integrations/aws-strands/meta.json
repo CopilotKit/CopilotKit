@@ -1,0 +1,16 @@
+{
+  "title": "AWS Strands",
+  "root": true,
+  "pages": [
+    "index",
+    "---Generative UI---",
+    "...generative-ui",
+    "---App Control---",
+    "frontend-tools",
+    "shared-state",
+    "---Threads---",
+    "threads",
+    "---Premium Features---",
+    "...premium"
+  ]
+}

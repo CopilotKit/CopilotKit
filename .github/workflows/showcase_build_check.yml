@@ -1,0 +1,246 @@
+name: "Showcase: Build Check (PR)"
+
+# Pre-merge Docker build check. Runs the same Depot Docker builds as the
+# post-merge showcase_build.yml pipeline but with push: false, so
+# Dockerfile-specific failures (missing deps that exist in the monorepo
+# but not in the isolated Docker context) are caught before merge.
+
+on:
+  pull_request:
+    paths:
+      - "showcase/**"
+
+concurrency:
+  group: showcase-build-check-${{ github.head_ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.build-matrix.outputs.matrix }}
+      has_changes: ${{ steps.build-matrix.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Detect changed paths
+        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+        id: filter
+        with:
+          filters: |
+            shell:
+              - 'showcase/shell/**'
+              - 'showcase/shared/**'
+              - 'showcase/scripts/**'
+              - 'showcase/integrations/*/manifest.yaml'
+            langgraph_python:
+              - 'showcase/integrations/langgraph-python/**'
+            mastra:
+              - 'showcase/integrations/mastra/**'
+            crewai_crews:
+              - 'showcase/integrations/crewai-crews/**'
+            pydantic_ai:
+              - 'showcase/integrations/pydantic-ai/**'
+            google_adk:
+              - 'showcase/integrations/google-adk/**'
+            ag2:
+              - 'showcase/integrations/ag2/**'
+            agno:
+              - 'showcase/integrations/agno/**'
+            llamaindex:
+              - 'showcase/integrations/llamaindex/**'
+            langgraph_fastapi:
+              - 'showcase/integrations/langgraph-fastapi/**'
+            langgraph_typescript:
+              - 'showcase/integrations/langgraph-typescript/**'
+            langroid:
+              - 'showcase/integrations/langroid/**'
+            spring_ai:
+              - 'showcase/integrations/spring-ai/**'
+            strands:
+              - 'showcase/integrations/strands/**'
+            ms_agent_python:
+              - 'showcase/integrations/ms-agent-python/**'
+            claude_sdk_typescript:
+              - 'showcase/integrations/claude-sdk-typescript/**'
+            ms_agent_dotnet:
+              - 'showcase/integrations/ms-agent-dotnet/**'
+            claude_sdk_python:
+              - 'showcase/integrations/claude-sdk-python/**'
+            built_in_agent:
+              - 'showcase/integrations/built-in-agent/**'
+            shell_dojo:
+              - 'showcase/shell-dojo/**'
+              - 'showcase/shared/**'
+              - 'showcase/scripts/**'
+              - 'showcase/integrations/*/manifest.yaml'
+            shell_dashboard:
+              - 'showcase/shell-dashboard/**'
+              - 'showcase/shared/**'
+              - 'showcase/scripts/**'
+              - 'showcase/integrations/*/manifest.yaml'
+            shell_docs:
+              - 'showcase/shell-docs/**'
+              - 'showcase/shared/**'
+              - 'showcase/scripts/**'
+              - 'showcase/integrations/*/manifest.yaml'
+            showcase_harness:
+              - 'showcase/harness/**'
+              - 'showcase/shared/**'
+              - 'showcase/scripts/**'
+              - 'showcase/integrations/*/manifest.yaml'
+            showcase_aimock:
+              - 'showcase/aimock/**'
+
+      - name: Build service matrix
+        id: build-matrix
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_HEAD_REF: ${{ github.head_ref }}
+          FILTER_CHANGES: ${{ steps.filter.outputs.changes }}
+        run: |
+          # Mirror of the ALL_SERVICES definition from showcase_build.yml.
+          # Keep in sync — the matrix here must match the production build
+          # workflow so that every service buildable post-merge is also
+          # checked pre-merge.
+          #
+          # Fields carried over: dispatch_name, filter_key, context, image,
+          # timeout, lfs, build_args_*, dockerfile.
+          # Fields omitted (not needed for build-only): railway_id, health_path.
+          ALL_SERVICES='[
+            {"dispatch_name":"shell","filter_key":"shell","context":".","image":"showcase-shell","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell/Dockerfile"},
+            {"dispatch_name":"langgraph-python","filter_key":"langgraph_python","context":"showcase/integrations/langgraph-python","image":"showcase-langgraph-python","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"mastra","filter_key":"mastra","context":"showcase/integrations/mastra","image":"showcase-mastra","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"crewai-crews","filter_key":"crewai_crews","context":"showcase/integrations/crewai-crews","image":"showcase-crewai-crews","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"pydantic-ai","filter_key":"pydantic_ai","context":"showcase/integrations/pydantic-ai","image":"showcase-pydantic-ai","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"google-adk","filter_key":"google_adk","context":"showcase/integrations/google-adk","image":"showcase-google-adk","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"ag2","filter_key":"ag2","context":"showcase/integrations/ag2","image":"showcase-ag2","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"agno","filter_key":"agno","context":"showcase/integrations/agno","image":"showcase-agno","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"llamaindex","filter_key":"llamaindex","context":"showcase/integrations/llamaindex","image":"showcase-llamaindex","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"langgraph-fastapi","filter_key":"langgraph_fastapi","context":"showcase/integrations/langgraph-fastapi","image":"showcase-langgraph-fastapi","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"langgraph-typescript","filter_key":"langgraph_typescript","context":"showcase/integrations/langgraph-typescript","image":"showcase-langgraph-typescript","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"langroid","filter_key":"langroid","context":"showcase/integrations/langroid","image":"showcase-langroid","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"spring-ai","filter_key":"spring_ai","context":"showcase/integrations/spring-ai","image":"showcase-spring-ai","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"strands","filter_key":"strands","context":"showcase/integrations/strands","image":"showcase-strands","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"ms-agent-python","filter_key":"ms_agent_python","context":"showcase/integrations/ms-agent-python","image":"showcase-ms-agent-python","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"claude-sdk-typescript","filter_key":"claude_sdk_typescript","context":"showcase/integrations/claude-sdk-typescript","image":"showcase-claude-sdk-typescript","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"ms-agent-dotnet","filter_key":"ms_agent_dotnet","context":"showcase/integrations/ms-agent-dotnet","image":"showcase-ms-agent-dotnet","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"claude-sdk-python","filter_key":"claude_sdk_python","context":"showcase/integrations/claude-sdk-python","image":"showcase-claude-sdk-python","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"built-in-agent","filter_key":"built_in_agent","context":"showcase/integrations/built-in-agent","image":"showcase-built-in-agent","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"shell-dojo","filter_key":"shell_dojo","context":".","image":"showcase-shell-dojo","timeout":10,"lfs":false,"build_args":"","dockerfile":"showcase/shell-dojo/Dockerfile"},
+            {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","build_args_pb_url":"https://showcase-pocketbase-production.up.railway.app","build_args_shell_url":"https://showcase.copilotkit.ai","build_args_ops_url":"https://showcase-harness-production.up.railway.app","dockerfile":"showcase/shell-dashboard/Dockerfile"},
+            {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-docs/Dockerfile"},
+            {"dispatch_name":"showcase-harness","filter_key":"showcase_harness","context":".","image":"showcase-harness","timeout":20,"lfs":false,"build_args":"","dockerfile":"showcase/harness/Dockerfile"},
+            {"dispatch_name":"showcase-aimock","filter_key":"showcase_aimock","context":"showcase/aimock","image":"showcase-aimock","timeout":5,"lfs":false,"build_args":"","dockerfile":"showcase/aimock/Dockerfile"}
+          ]'
+
+          # Substitute trusted PR head sha/ref into JSON placeholders.
+          # Routed through env: above to satisfy zizmor template-injection check.
+          # Note: PR_HEAD_REF is attacker-controllable (fork branch name) but is only
+          # consumed as a Docker build-arg label inside the isolated build context.
+          ALL_SERVICES="${ALL_SERVICES//__GH_SHA__/$PR_HEAD_SHA}"
+          ALL_SERVICES="${ALL_SERVICES//__GH_REF_NAME__/$PR_HEAD_REF}"
+
+          CHANGES="${FILTER_CHANGES:-[]}"
+
+          # PR event only — filter to changed services
+          MATRIX=$(echo "$ALL_SERVICES" | jq -c --argjson changes "$CHANGES" '
+            [.[] | (.filter_key as $fk | select(
+              ($changes | index($fk) != null)
+            ))]
+          ')
+
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+          if [ "$MATRIX" = "[]" ]; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+  build-check:
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: depot-ubuntu-24.04-4
+    timeout-minutes: ${{ fromJSON(matrix.service.timeout) }}
+    permissions:
+      id-token: write
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.detect-changes.outputs.matrix) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          lfs: ${{ matrix.service.lfs }}
+          persist-credentials: false
+
+      - name: Setup Depot
+        uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
+
+      - name: Prepare build args
+        id: build-args
+        run: |
+          ARGS=""
+          if [ -n "${{ matrix.service.build_args_sha }}" ]; then
+            ARGS="COMMIT_SHA=${{ matrix.service.build_args_sha }}"
+            ARGS="${ARGS}"$'\n'"BRANCH=${{ matrix.service.build_args_branch }}"
+          fi
+          if [ -n "${{ matrix.service.build_args_pb_url }}" ]; then
+            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_POCKETBASE_URL=${{ matrix.service.build_args_pb_url }}"
+          fi
+          if [ -n "${{ matrix.service.build_args_shell_url }}" ]; then
+            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_SHELL_URL=${{ matrix.service.build_args_shell_url }}"
+          fi
+          if [ -n "${{ matrix.service.build_args_ops_url }}" ]; then
+            ARGS="${ARGS:+${ARGS}$'\n'}OPS_BASE_URL=${{ matrix.service.build_args_ops_url }}"
+          fi
+          # Use delimiter to safely pass multiline value
+          echo "args<<BUILDARGS_EOF" >> $GITHUB_OUTPUT
+          echo "$ARGS" >> $GITHUB_OUTPUT
+          echo "BUILDARGS_EOF" >> $GITHUB_OUTPUT
+
+      - name: Copy shared modules into build context
+        run: |
+          set -euo pipefail
+          CONTEXT="${{ matrix.service.context }}"
+          if [ -d "showcase/shared/python" ] && [ -d "$CONTEXT" ]; then
+            rm -rf "$CONTEXT/shared_python"
+            cp -r showcase/shared/python "$CONTEXT/shared_python"
+          fi
+          if [ -d "showcase/shared/typescript/tools" ] && [ -d "$CONTEXT" ]; then
+            rm -rf "$CONTEXT/shared_typescript"
+            mkdir -p "$CONTEXT/shared_typescript"
+            cp -r showcase/shared/typescript/tools "$CONTEXT/shared_typescript/tools"
+          fi
+
+          for link_name in tools shared-tools; do
+            link_path="$CONTEXT/$link_name"
+            if [ -L "$link_path" ]; then
+              target="$(readlink -f "$link_path")"
+              if [ -d "$target" ]; then
+                rm "$link_path"
+                cp -r "$target" "$link_path"
+              fi
+            fi
+          done
+
+      - name: Build Docker image (no push)
+        uses: depot/build-push-action@5f3b3c2e5a00f0093de47f657aeaefcedff27d18 # v1
+        with:
+          project: m2kw2wmmcp
+          context: ${{ matrix.service.context }}
+          file: ${{ matrix.service.dockerfile != '' && matrix.service.dockerfile || format('{0}/Dockerfile', matrix.service.context) }}
+          platforms: linux/amd64
+          push: false
+          build-args: ${{ steps.build-args.outputs.args }}

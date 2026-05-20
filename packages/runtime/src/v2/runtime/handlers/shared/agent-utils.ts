@@ -1,11 +1,9 @@
-import {
-  AbstractAgent,
-  RunAgentInput,
-  RunAgentInputSchema,
-} from "@ag-ui/client";
+import type { AbstractAgent, RunAgentInput } from "@ag-ui/client";
+import { RunAgentInputSchema } from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
-import { CopilotRuntimeLike, resolveAgents } from "../../core/runtime";
+import type { CopilotRuntimeLike } from "../../core/runtime";
+import { resolveAgents } from "../../core/runtime";
 import { OpenGenerativeUIMiddleware } from "../../open-generative-ui-middleware";
 import { extractForwardableHeaders } from "../header-utils";
 import { logger } from "@copilotkit/shared";

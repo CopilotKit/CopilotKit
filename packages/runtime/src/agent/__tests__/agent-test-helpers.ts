@@ -5,7 +5,8 @@
  * BuiltInAgent-specific factories, mock stream builders, and assertion helpers.
  */
 
-import { EventType, type BaseEvent, type RunAgentInput } from "@ag-ui/client";
+import { EventType } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import type { Observable } from "rxjs";
 import { BuiltInAgent } from "../index";
 import type { AgentFactoryContext, BuiltInAgentFactoryConfig } from "../index";
@@ -83,6 +84,35 @@ export function tanstackToolCallArgs(toolCallId: string, delta: string) {
 /** TanStack tool call end chunk */
 export function tanstackToolCallEnd(toolCallId: string) {
   return { type: "TOOL_CALL_END", toolCallId } as const;
+}
+
+/** TanStack tool-call result chunk. `content` is what the tool's `execute()` returned. */
+export function tanstackToolCallResult(toolCallId: string, content: unknown) {
+  return { type: "TOOL_CALL_RESULT", toolCallId, content } as const;
+}
+
+/** TanStack reasoning lifecycle chunk builders */
+export function tanstackReasoningStart(messageId: string) {
+  return { type: "REASONING_START", messageId } as const;
+}
+export function tanstackReasoningMessageStart(messageId: string) {
+  return {
+    type: "REASONING_MESSAGE_START",
+    messageId,
+    role: "reasoning",
+  } as const;
+}
+export function tanstackReasoningMessageContent(
+  messageId: string,
+  delta: string,
+) {
+  return { type: "REASONING_MESSAGE_CONTENT", messageId, delta } as const;
+}
+export function tanstackReasoningMessageEnd(messageId: string) {
+  return { type: "REASONING_MESSAGE_END", messageId } as const;
+}
+export function tanstackReasoningEnd(messageId: string) {
+  return { type: "REASONING_END", messageId } as const;
 }
 
 // ---------------------------------------------------------------------------

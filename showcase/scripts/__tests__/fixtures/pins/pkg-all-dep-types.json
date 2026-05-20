@@ -1,0 +1,15 @@
+{
+  "name": "sample",
+  "version": "0.0.1",
+  "dependencies": {
+    "next": "15.0.0",
+    "@copilotkit/react-core": "1.10.0"
+  },
+  "devDependencies": {
+    "@langchain/langgraph": "0.2.14",
+    "typescript": "5.0.0"
+  },
+  "peerDependencies": {
+    "@ag-ui/core": "0.0.9"
+  }
+}

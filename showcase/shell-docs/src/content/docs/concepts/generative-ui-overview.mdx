@@ -1,0 +1,81 @@
+---
+title: Generative UI
+icon: "lucide/Sparkles"
+description: How CopilotKit lets agents drive UI — the primitives it ships, what each one is for, and how to pick the right one.
+doc_type: explanation
+---
+
+Generative UI in CopilotKit is the set of primitives that let an agent decide what appears on the screen — from rendering a specific React component you've built, to composing layouts from a catalog, to embedding sandboxed UI shipped by an MCP server.
+
+## What CopilotKit ships
+
+Six primitives. Each one solves a different problem.
+
+| Primitive | What it does |
+|---|---|
+| **[Components as Tools](/generative-ui/tool-based)** | Register a React component with `useComponent`; the agent calls it as a tool and CopilotKit renders it inline with typed props. |
+| **[Tool Call Rendering](/generative-ui/tool-rendering)** | Wrap your agent's existing backend tool calls in custom UI cards with `useRenderTool` (live status, arguments, results). |
+| **[State Rendering](/generative-ui/state-rendering)** | Subscribe to the agent's streamed state and re-render UI as values arrive. |
+| **[Reasoning](/generative-ui/reasoning)** | Render the model's reasoning tokens inline as a first-class message type (default card, or fully custom). |
+| **[A2UI](/generative-ui/a2ui)** | Render UI from a declarative schema the agent emits, composed against a catalog you register. Two flavors: [Dynamic Schema](/generative-ui/a2ui/dynamic-schema) (LLM generates the schema) and [Fixed Schema](/generative-ui/a2ui/fixed-schema) (you author the schema, agent supplies data). |
+| **[MCP Apps](/generative-ui/mcp-apps)** | Embed UI that an MCP server ships alongside its tools, rendered in a sandboxed iframe. No frontend renderer required. |
+
+<Callout type="info">
+  **Prefer to learn by building?** [Build Interactive Agents with Generative UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/) is a free DeepLearning.AI short course taught by CopilotKit's CEO. It walks through the Generative UI patterns end-to-end with React, LangChain, and AG-UI.
+</Callout>
+
+## Pick one
+
+Match the row that sounds like your situation:
+
+| You want to… | Use |
+|---|---|
+| Let the agent render a specific React component you've already built | **[Components as Tools](/generative-ui/tool-based)** |
+| Brand the cards CopilotKit draws for your agent's existing backend tools | **[Tool Call Rendering](/generative-ui/tool-rendering)** |
+| Update UI as the agent's state changes (progress, drafts, dashboards) | **[State Rendering](/generative-ui/state-rendering)** |
+| Surface the model's thinking chain in the chat | **[Reasoning](/generative-ui/reasoning)** |
+| Let the agent compose layouts from a catalog you define | **[A2UI](/generative-ui/a2ui)** — [Fixed Schema](/generative-ui/a2ui/fixed-schema) if the surface is known, [Dynamic Schema](/generative-ui/a2ui/dynamic-schema) if it isn't |
+| Embed someone else's MCP-hosted UI in the chat | **[MCP Apps](/generative-ui/mcp-apps)** |
+
+## How the primitives compare
+
+These primitives sit along a spectrum from author-controlled to agent-invented. Same React app, same runtime, same AG-UI protocol — the choice is per-feature, not per-product.
+
+- **Controlled** — you wrote the component; the agent only picks *which* one to render and *what data* to pass. Highest predictability, highest engineering cost per capability. *Components as Tools, Tool Call Rendering, State Rendering, Reasoning.*
+- **Declarative** — the agent emits a structured spec; the frontend composes from a catalog you registered. Creativity inside a guardrail. *A2UI (Dynamic and Fixed Schema).*
+- **Open-Ended** — the UI is invented elsewhere (an MCP server) and you sandbox it. Highest expressive range, hardest to guarantee accessibility / brand / security. *MCP Apps.*
+
+## Where to go next
+
+<Cards>
+  <Card
+    title="Components as Tools"
+    href="/generative-ui/tool-based"
+    description="Register a React component as a tool the agent can call."
+  />
+  <Card
+    title="Tool Call Rendering"
+    href="/generative-ui/tool-rendering"
+    description="Custom UI for your agent's backend tool calls."
+  />
+  <Card
+    title="State Rendering"
+    href="/generative-ui/state-rendering"
+    description="UI that re-renders as the agent's state streams in."
+  />
+  <Card
+    title="Reasoning"
+    href="/generative-ui/reasoning"
+    description="Render the model's reasoning tokens inline."
+  />
+  <Card
+    title="A2UI"
+    href="/generative-ui/a2ui"
+    description="Declarative UI from an agent-emitted schema."
+  />
+  <Card
+    title="MCP Apps"
+    href="/generative-ui/mcp-apps"
+    description="Embed MCP-hosted UI in a sandboxed iframe."
+  />
+</Cards>

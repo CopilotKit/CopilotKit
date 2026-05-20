@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import os
 from langchain_google_genai import ChatGoogleGenerativeAI
 from prompts import system_prompt, system_prompt_3, system_prompt_4
+
 load_dotenv()
 from typing import Dict, List, Any
 from langchain_core.runnables import RunnableConfig
@@ -15,6 +16,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from copilotkit.langgraph import copilotkit_emit_state
 import uuid
 import asyncio
+
 
 # Define the agent's runtime state schema for CopilotKit/LangGraph
 class AgentState(CopilotKitState):
@@ -43,9 +45,9 @@ async def chat_node(state: AgentState, config: RunnableConfig):
             google_api_key=os.getenv("GOOGLE_API_KEY"),
         )
         messages = [*state["messages"]]
-        messages[-1].content = (
-            "The posts had been generated successfully. Just generate a summary of the posts."
-        )
+        messages[
+            -1
+        ].content = "The posts had been generated successfully. Just generate a summary of the posts."
         resp = await client.ainvoke(
             [*state["messages"]],
             config,
@@ -62,7 +64,9 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     if config is None:
         config = RunnableConfig(recursion_limit=25)
     else:
-        config = copilotkit_customize_config(config, emit_messages=True, emit_tool_calls=True)
+        config = copilotkit_customize_config(
+            config, emit_messages=True, emit_tool_calls=True
+        )
     # 4. Generating the response using the model. This returns the response along with the web search queries.
     response = await model.aio.models.generate_content(
         model="gemini-2.5-pro",
@@ -70,11 +74,7 @@ async def chat_node(state: AgentState, config: RunnableConfig):
             types.Content(role="user", parts=[types.Part(text=system_prompt)]),
             types.Content(
                 role="model",
-                parts=[
-                    types.Part(
-                        text= system_prompt_4
-                    )
-                ],
+                parts=[types.Part(text=system_prompt_4)],
             ),
             types.Content(
                 role="user", parts=[types.Part(text=state["messages"][-1].content)]
@@ -86,11 +86,17 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     state["tool_logs"][-1]["status"] = "completed"
     await copilotkit_emit_state(config, state)
     state["response"] = response.text
-    
+
     # 6. Orchestrating the web search queries and updating the tool logs
-    grounding = getattr(response.candidates[0], "grounding_metadata", None) if response.candidates else None
-    search_queries = getattr(grounding, "web_search_queries", None) if grounding else None
-    for query in (search_queries or []):
+    grounding = (
+        getattr(response.candidates[0], "grounding_metadata", None)
+        if response.candidates
+        else None
+    )
+    search_queries = (
+        getattr(grounding, "web_search_queries", None) if grounding else None
+    )
+    for query in search_queries or []:
         state["tool_logs"].append(
             {
                 "id": str(uuid.uuid4()),
@@ -108,7 +114,7 @@ async def chat_node(state: AgentState, config: RunnableConfig):
 async def fe_actions_node(state: AgentState, config: RunnableConfig):
     if len(state["messages"]) >= 2 and state["messages"][-2].type == "tool":
         return Command(goto="end_node", update=state)
-        
+
     state["tool_logs"].append(
         {
             "id": str(uuid.uuid4()),

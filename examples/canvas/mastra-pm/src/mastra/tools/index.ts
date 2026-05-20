@@ -20,7 +20,7 @@ export const weatherTool = createTool({
     temperature: z.number(),
     conditions: z.string(),
   }),
-  execute: async ({ context: { location } }) => {
+  execute: async ({ location }) => {
     console.log("Using tool to fetch weather information for", location);
     return await getWeatherInfo(location);
   },

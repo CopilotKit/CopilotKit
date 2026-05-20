@@ -1,0 +1,66 @@
+@import "tailwindcss";
+@import "@copilotkit/react-core/v2/styles.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --copilot-kit-background-color: #fafaf9;
+  --copilot-kit-primary-color: #6366f1;
+  --copilot-kit-response-button-background-color: #f5f5f3;
+  --copilot-kit-response-button-color: #1a1a18;
+
+  --background: #fafaf9;
+  --foreground: #1a1a18;
+  --card: #ffffff;
+  --card-foreground: #1a1a18;
+  --primary: #1a1a18;
+  --primary-foreground: #ffffff;
+  --secondary: #ededf5;
+  --secondary-foreground: #1a1a18;
+  --muted: #ededf5;
+  --muted-foreground: #57575b;
+  --accent: #eee6fe;
+  --accent-foreground: #1a1a18;
+  --destructive: #fa5f67;
+  --destructive-foreground: #ffffff;
+  --border: #dbdbe5;
+  --input: #dbdbe5;
+  --ring: #bec2ff;
+  --radius: 0.75rem;
+}
+
+:root.dark,
+.dark {
+  --background: #0a0a0a;
+  --foreground: #fafafa;
+  --card: #191a1e;
+  --card-foreground: #fafafa;
+  --primary: #fafafa;
+  --primary-foreground: #1a1a18;
+  --secondary: #242529;
+  --secondary-foreground: #fafafa;
+  --muted: #242529;
+  --muted-foreground: #adadb2;
+  --accent: #303136;
+  --accent-foreground: #fafafa;
+  --destructive: #fa5f67;
+  --destructive-foreground: #ffffff;
+  --border: #303136;
+  --input: #303136;
+  --ring: #bec2ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--background);
+  color: var(--foreground);
+}

@@ -35,7 +35,6 @@ describe("CopilotKitIntelligence", () => {
       apiUrl: "https://api.example.com",
       wsUrl: "wss://ws.example.com/socket",
       apiKey: "test-key",
-      organizationId: "org-1",
     });
   });
 
@@ -44,7 +43,6 @@ describe("CopilotKitIntelligence", () => {
       apiUrl: "https://api.example.com/",
       wsUrl: "wss://ws.example.com/socket",
       apiKey: "k",
-      organizationId: "org-1",
     });
     fetchMock.mockReturnValue(jsonResponse({ threads: [], joinCode: "" }));
     await c.listThreads({ userId: "u", agentId: "a" });
@@ -58,7 +56,6 @@ describe("CopilotKitIntelligence", () => {
       apiUrl: "https://api.example.com",
       wsUrl: "wss://ws.example.com",
       apiKey: "k",
-      organizationId: "org-1",
     });
 
     expect(c.ɵgetRunnerWsUrl()).toBe("wss://ws.example.com/runner");
@@ -71,7 +68,6 @@ describe("CopilotKitIntelligence", () => {
     const headers = fetchMock.mock.calls[0][1].headers;
     expect(headers.Authorization).toBe("Bearer test-key");
     expect(headers["Content-Type"]).toBe("application/json");
-    expect(headers["X-Organization-Id"]).toBe("org-1");
   });
 
   it("throws on non-ok response", async () => {
@@ -175,7 +171,6 @@ describe("CopilotKitIntelligence", () => {
         apiUrl: "https://api.example.com",
         wsUrl: "wss://ws.example.com/socket",
         apiKey: "test-key",
-        organizationId: "org-1",
         onThreadUpdated,
       });
       const thread = { id: "t-1", name: "Renamed" };
@@ -225,7 +220,6 @@ describe("CopilotKitIntelligence", () => {
         apiUrl: "https://api.example.com",
         wsUrl: "wss://ws.example.com/socket",
         apiKey: "test-key",
-        organizationId: "org-1",
         onThreadCreated,
       });
       const thread = { id: "t-1", name: null };
@@ -312,7 +306,6 @@ describe("CopilotKitIntelligence", () => {
         apiUrl: "https://api.example.com",
         wsUrl: "wss://ws.example.com/socket",
         apiKey: "test-key",
-        organizationId: "org-1",
         onThreadUpdated,
       });
       const thread = { id: "t-1", name: "Archived", archived: true };
@@ -353,7 +346,6 @@ describe("CopilotKitIntelligence", () => {
         apiUrl: "https://api.example.com",
         wsUrl: "wss://ws.example.com/socket",
         apiKey: "test-key",
-        organizationId: "org-1",
         onThreadDeleted,
       });
       fetchMock.mockReturnValue(jsonResponse(undefined));
@@ -376,7 +368,6 @@ describe("CopilotKitIntelligence", () => {
         apiUrl: "https://api.example.com",
         wsUrl: "wss://ws.example.com/socket",
         apiKey: "test-key",
-        organizationId: "org-1",
         onThreadDeleted: () => {
           throw new Error("callback exploded");
         },
@@ -394,24 +385,34 @@ describe("CopilotKitIntelligence", () => {
   });
 
   describe("acquireThreadLock", () => {
-    it("sends POST to lock endpoint and returns thread connection credentials", async () => {
+    it("sends POST to lock endpoint and returns canonical run credentials", async () => {
       fetchMock.mockReturnValue(
-        jsonResponse({ joinToken: "jt-lock", joinCode: "jc-lock" }),
+        jsonResponse({
+          threadId: "t-1",
+          runId: "r-1",
+          joinToken: "jt-lock",
+        }),
       );
 
       const result = await client.ɵacquireThreadLock({
         threadId: "t-1",
         runId: "r-1",
         userId: "user-1",
+        agentId: "agent-1",
       });
 
-      expect(result).toEqual({ joinToken: "jt-lock", joinCode: "jc-lock" });
+      expect(result).toEqual({
+        threadId: "t-1",
+        runId: "r-1",
+        joinToken: "jt-lock",
+      });
       const [url, opts] = fetchMock.mock.calls[0];
       expect(url).toBe("https://api.example.com/api/threads/t-1/lock");
       expect(opts.method).toBe("POST");
       expect(JSON.parse(opts.body)).toEqual({
         runId: "r-1",
         userId: "user-1",
+        agentId: "agent-1",
       });
     });
 
@@ -422,8 +423,23 @@ describe("CopilotKitIntelligence", () => {
           threadId: "t-1",
           runId: "r-1",
           userId: "user-1",
+          agentId: "agent-1",
         }),
       ).rejects.toThrow(/409/);
+    });
+
+    it("sends compare-delete cleanup to the lock endpoint", async () => {
+      fetchMock.mockReturnValue(emptyResponse());
+
+      await client.ɵcleanupThreadLock({
+        threadId: "t-1",
+        runId: "r-1",
+      });
+
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/threads/t-1/lock");
+      expect(opts.method).toBe("DELETE");
+      expect(JSON.parse(opts.body)).toEqual({ runId: "r-1" });
     });
   });
 
@@ -503,7 +519,6 @@ describe("CopilotKitIntelligence", () => {
         apiUrl: "https://api.example.com",
         wsUrl: "wss://ws.example.com/socket",
         apiKey: "test-key",
-        organizationId: "org-1",
         onThreadUpdated: configCb,
       });
       client.onThreadUpdated(runtimeCb);
@@ -554,7 +569,7 @@ describe("CopilotKitIntelligence", () => {
       const result = await client.ɵconnectThread({
         threadId: "t-1",
         userId: "user-1",
-        lastSeenEventId: "event-1",
+        agentId: "agent-1",
       });
 
       expect(result).toBeNull();
@@ -563,40 +578,21 @@ describe("CopilotKitIntelligence", () => {
       expect(opts.method).toBe("POST");
       expect(JSON.parse(opts.body)).toEqual({
         userId: "user-1",
-        lastSeenEventId: "event-1",
+        agentId: "agent-1",
       });
     });
 
-    it("returns a bootstrap connect plan", async () => {
+    it("returns credentials-only connect response", async () => {
       const payload = {
-        mode: "bootstrap",
-        latestEventId: "event-2",
-        events: [{ type: "MESSAGES_SNAPSHOT", messages: [] }],
+        threadId: "t-1",
+        joinToken: "jt-connect",
       };
       fetchMock.mockReturnValue(jsonResponse(payload));
 
       const result = await client.ɵconnectThread({
         threadId: "t-1",
         userId: "user-1",
-        lastSeenEventId: "event-1",
-      });
-
-      expect(result).toEqual(payload);
-    });
-
-    it("returns a live connect plan", async () => {
-      const payload = {
-        mode: "live",
-        joinToken: "jt-live",
-        joinFromEventId: "event-2",
-        events: [],
-      };
-      fetchMock.mockReturnValue(jsonResponse(payload));
-
-      const result = await client.ɵconnectThread({
-        threadId: "t-1",
-        userId: "user-1",
-        lastSeenEventId: "event-2",
+        agentId: "agent-1",
       });
 
       expect(result).toEqual(payload);

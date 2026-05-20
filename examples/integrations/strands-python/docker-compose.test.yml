@@ -1,9 +1,13 @@
+# Docker Compose stack for e2e smoke testing with aimock.
+# Mirrors the user experience: Next.js frontend + ag_ui_strands (uvicorn) agent + aimock as LLM.
+# Usage: docker compose -f docker-compose.test.yml up -d
 services:
   aimock:
     image: ghcr.io/copilotkit/aimock:latest
     volumes:
       - ./fixtures:/fixtures:ro
-    command: ["--fixtures", "/fixtures", "--host", "0.0.0.0"]
+    command:
+      ["--fixtures", "/fixtures", "--host", "0.0.0.0", "--validate-on-load"]
 
   agent:
     build:
@@ -21,7 +25,7 @@ services:
           "CMD",
           "python",
           "-c",
-          "import socket; socket.create_connection(('localhost', 8000), 2)",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')",
         ]
       interval: 5s
       timeout: 5s
@@ -57,7 +61,7 @@ services:
       - ../../../showcase/tests:/tests
       - test-results:/tests/test-results
     environment:
-      - STARTER=${STARTER:-strands-python}
+      - STARTER=${STARTER:-langgraph-python}
       - STARTER_URL=http://app:3000
     depends_on:
       app:
@@ -66,7 +70,7 @@ services:
       [
         "bash",
         "-c",
-        "cd /tests && npm install --no-audit --no-fund 2>/dev/null && npx playwright install chromium --with-deps 2>/dev/null && npx playwright test starter-smoke --reporter=list",
+        "cd /tests && npm install --no-audit --no-fund 2>/dev/null && npx playwright install chromium && npx playwright test starter-smoke --reporter=list",
       ]
 
 volumes:

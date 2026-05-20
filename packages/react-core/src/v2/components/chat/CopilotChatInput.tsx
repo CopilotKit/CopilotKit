@@ -87,6 +87,19 @@ type CopilotChatInputRestProps = {
   containerRef?: React.Ref<HTMLDivElement>;
   /** Whether to show the disclaimer. Default: true for absolute positioning, false for static */
   showDisclaimer?: boolean;
+  /**
+   * Set to `true` when the input sits at the bottom of its container as a
+   * flex-last-child (visible position is driven by layout, not CSS
+   * positioning). Triggers reservation of bottom space for the fixed
+   * CopilotKit license banner via the
+   * `--copilotkit-license-banner-offset` CSS var so the two don't overlap.
+   *
+   * Not needed when `positioning === "absolute"`; that mode already pins the
+   * input to the bottom and picks up the same reservation automatically.
+   * Leave unset (default `false`) for inputs rendered mid-layout such as the
+   * welcome screen, where the banner offset would push the input off-center.
+   */
+  bottomAnchored?: boolean;
 } & Omit<React.HTMLAttributes<HTMLDivElement>, "onChange">;
 
 type CopilotChatInputBaseProps = WithSlots<
@@ -130,6 +143,7 @@ export function CopilotChatInput({
   keyboardHeight = 0,
   containerRef,
   showDisclaimer,
+  bottomAnchored = false,
   textArea,
   sendButton,
   startTranscribeButton,
@@ -384,6 +398,12 @@ export function CopilotChatInput({
   );
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // Skip key handling during IME composition (e.g. CJK input).
+    // The compositionend event will fire separately when composition ends.
+    if (e.nativeEvent.isComposing || e.keyCode === 229) {
+      return;
+    }
+
     if (commandQuery !== null && mode === "input") {
       if (e.key === "ArrowDown") {
         if (filteredCommands.length > 0) {
@@ -455,10 +475,12 @@ export function CopilotChatInput({
 
     onSubmitMessage(trimmed);
 
+    // Always clear the input after sending, including controlled mode.
+    // In controlled mode, onChange("") notifies the parent to reset its state.
     if (!isControlled) {
       setInternalValue("");
-      onChange?.("");
     }
+    onChange?.("");
 
     if (inputRef.current) {
       inputRef.current.focus();
@@ -470,6 +492,12 @@ export function CopilotChatInput({
     value: resolvedValue,
     onChange: handleChange,
     onKeyDown: handleKeyDown,
+    onCompositionStart: () => {
+      isComposingRef.current = true;
+    },
+    onCompositionEnd: () => {
+      isComposingRef.current = false;
+    },
     autoFocus: autoFocus,
     className: twMerge(
       "cpk:w-full cpk:py-3",
@@ -612,9 +640,14 @@ export function CopilotChatInput({
     }
   };
 
+  // Track whether an IME composition is active so we can avoid
+  // resetting textarea.value during measurement (which would break
+  // the composition session).
+  const isComposingRef = useRef(false);
+
   const ensureMeasurements = useCallback(() => {
     const textarea = inputRef.current;
-    if (!textarea) {
+    if (!textarea || isComposingRef.current) {
       return;
     }
 
@@ -1078,6 +1111,14 @@ export function CopilotChatInput({
         transform:
           keyboardHeight > 0 ? `translateY(-${keyboardHeight}px)` : undefined,
         transition: "transform 0.2s ease-out",
+        // Reserve room when the fixed license banner is visible so it doesn't
+        // overlap the input. Applied only for bottom-anchored inputs (either
+        // `positioning === "absolute"`, or an explicitly-flagged flex-last-child
+        // input in run state). The welcome-screen input sits mid-layout and
+        // must stay still when the banner is present.
+        ...(positioning === "absolute" || bottomAnchored
+          ? { paddingBottom: "var(--copilotkit-license-banner-offset, 0px)" }
+          : {}),
       }}
       {...props}
     >

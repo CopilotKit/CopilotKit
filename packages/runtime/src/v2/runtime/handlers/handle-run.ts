@@ -35,6 +35,10 @@ export async function handleRunAgent({
       return agent;
     }
 
+    // Ensure the clone carries the registry key so InMemoryAgentRunner can
+    // tag historic runs with the correct agentId for filtering.
+    agent.agentId = agentId;
+
     configureAgentForRequest({ runtime, request, agentId, agent });
 
     if (
@@ -77,6 +81,7 @@ export async function handleRunAgent({
       request,
       agent,
       input,
+      agentId,
       debug: runtime.debug,
       logger: runtime.debugLogger,
     });

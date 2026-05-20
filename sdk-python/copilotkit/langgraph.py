@@ -6,7 +6,7 @@ import uuid
 import json
 import warnings
 import asyncio
-from typing import List, Optional, Any, Union, Dict, Callable, cast
+from typing import List, Optional, Any, Union, Dict
 from typing_extensions import TypedDict
 from langgraph.graph import MessagesState
 
@@ -16,7 +16,7 @@ from langchain_core.messages import (
     SystemMessage,
     BaseMessage,
     AIMessage,
-    ToolMessage
+    ToolMessage,
 )
 from langchain_core.runnables import RunnableConfig
 from langchain_core.callbacks.manager import adispatch_custom_event
@@ -27,13 +27,17 @@ from .logging import get_logger
 
 logger = get_logger(__name__)
 
+
 class CopilotContextItem(TypedDict):
     """Copilot context item"""
+
     description: str
     value: Any
 
+
 class CopilotKitProperties(TypedDict):
     """CopilotKit state"""
+
     actions: List[Any]
     context: List[CopilotContextItem]
 
@@ -41,90 +45,14 @@ class CopilotKitProperties(TypedDict):
     intercepted_tool_calls: Any
     original_ai_message_id: Any
 
+
 class CopilotKitState(MessagesState):
     """CopilotKit state"""
+
     copilotkit: CopilotKitProperties
 
 
-def copilotkit_messages_to_langchain(
-        use_function_call: bool = False
-    ) -> Callable[[List[Message]], List[BaseMessage]]:
-    """
-    Convert CopilotKit messages to LangChain messages
-    """
-    def _copilotkit_messages_to_langchain(messages: List[Message]) -> List[BaseMessage]:
-        result = []
-        processed_action_executions = set()
-        for message in cast(Any, messages):
-            if message["type"] == "TextMessage":
-                if message["role"] == "user":
-                    result.append(HumanMessage(content=message["content"], id=message["id"]))
-                elif message["role"] == "system":
-                    result.append(SystemMessage(content=message["content"], id=message["id"]))
-                elif message["role"] == "assistant":
-                    result.append(AIMessage(content=message["content"], id=message["id"]))
-            elif message["type"] == "ActionExecutionMessage":
-                if use_function_call:
-                    result.append(AIMessage(
-                        id=message["id"],
-                        content="",
-                        additional_kwargs={
-                            'function_call':{
-                                'name': message["name"],
-                                'arguments': json.dumps(message["arguments"]),
-                            }
-                        } 
-                    ))
-                else:
-                    # convert multiple tool calls to a single message
-                    message_id = message.get("parentMessageId")
-                    if message_id is None:
-                        message_id = message["id"]
-
-                    if message_id in processed_action_executions:
-                        continue
-
-                    processed_action_executions.add(message_id)
-
-                    all_tool_calls = []
-
-                    # Find all tool calls for this message (only ActionExecutionMessage type)
-                    for msg in messages:
-                        if msg.get("type") != "ActionExecutionMessage":
-                            continue
-                        if msg.get("parentMessageId", None) == message_id or msg["id"] == message_id:
-                            all_tool_calls.append(msg)
-
-                    tool_calls = [{
-                        "name": t["name"],
-                        "args": t["arguments"],
-                        "id": t["id"],
-                    } for t in all_tool_calls]
-
-                    result.append(
-                        AIMessage(
-                            id=message_id,
-                            content="",
-                            tool_calls=tool_calls
-                        )
-                    )
-
-            elif message["type"] == "ResultMessage":
-                result.append(ToolMessage(
-                    id=message["id"],
-                    content=message["result"],
-                    name=message["actionName"],
-                    tool_call_id=message["actionExecutionId"]
-                ))
-
-        return result
-
-    return _copilotkit_messages_to_langchain
-
-
-def langchain_messages_to_copilotkit(
-        messages: List[BaseMessage]
-    ) -> List[Message]:
+def langchain_messages_to_copilotkit(messages: List[BaseMessage]) -> List[Message]:
     """
     Convert LangChain messages to CopilotKit messages
     """
@@ -161,50 +89,64 @@ def langchain_messages_to_copilotkit(
                 content = content.get("text", "")
 
         if isinstance(message, HumanMessage):
-            result.append({
-                "role": "user",
-                "content": content,
-                "id": message.id,
-            })
-        elif isinstance(message, SystemMessage):
-            result.append({
-                "role": "system",
-                "content": content,
-                "id": message.id,
-            })
-        elif isinstance(message, AIMessage):
-            if content:
-                result.append({
-                    "role": "assistant",
+            result.append(
+                {
+                    "role": "user",
                     "content": content,
                     "id": message.id,
-                })
+                }
+            )
+        elif isinstance(message, SystemMessage):
+            result.append(
+                {
+                    "role": "system",
+                    "content": content,
+                    "id": message.id,
+                }
+            )
+        elif isinstance(message, AIMessage):
+            # Always emit the assistant message, even with empty content.
+            # Tool call entries reference it via parentMessageId; omitting it
+            # orphans tool calls and breaks frontend thread reconstruction.
+            result.append(
+                {
+                    "role": "assistant",
+                    "content": content if content is not None else "",
+                    "id": message.id,
+                }
+            )
             if message.tool_calls:
                 for tool_call in message.tool_calls:
-                    result.append({
-                        "id": tool_call["id"],
-                        "name": tool_call["name"],
-                        "arguments": tool_call["args"],
-                        "parentMessageId": message.id,
-                    })
+                    result.append(
+                        {
+                            "id": tool_call["id"],
+                            "name": tool_call["name"],
+                            "arguments": tool_call["args"],
+                            "parentMessageId": message.id,
+                        }
+                    )
         elif isinstance(message, ToolMessage):
-            result.append({
-                "actionExecutionId": message.tool_call_id,
-                "actionName": tool_call_names.get(message.tool_call_id, message.name or ""),
-                "result": content,
-                "id": message.id,
-            })
+            result.append(
+                {
+                    "actionExecutionId": message.tool_call_id,
+                    "actionName": tool_call_names.get(
+                        message.tool_call_id, message.name or ""
+                    ),
+                    "result": content,
+                    "id": message.id,
+                }
+            )
 
     # Create a dictionary to map message ids to their corresponding messages
-    results_dict = {msg["actionExecutionId"]: msg for msg in result if "actionExecutionId" in msg}
-
+    results_dict = {
+        msg["actionExecutionId"]: msg for msg in result if "actionExecutionId" in msg
+    }
 
     # since we are splitting multiple tool calls into multiple messages,
     # we need to reorder the corresponding result messages to be after the tool call
     reordered_result = []
 
     for msg in result:
-
         # add all messages that are not tool call results
         if not "actionExecutionId" in msg:
             reordered_result.append(msg)
@@ -220,14 +162,15 @@ def langchain_messages_to_copilotkit(
 
     return reordered_result
 
+
 def copilotkit_customize_config(
-        base_config: Optional[RunnableConfig] = None,
-        *,
-        emit_messages: Optional[bool] = None,
-        emit_tool_calls: Optional[Union[bool, str, List[str]]] = None,
-        emit_intermediate_state: Optional[List[IntermediateStateConfig]] = None,
-        emit_all: Optional[bool] = None, # deprecated
-    ) -> RunnableConfig:
+    base_config: Optional[RunnableConfig] = None,
+    *,
+    emit_messages: Optional[bool] = None,
+    emit_tool_calls: Optional[Union[bool, str, List[str]]] = None,
+    emit_intermediate_state: Optional[List[IntermediateStateConfig]] = None,
+    emit_all: Optional[bool] = None,  # deprecated
+) -> RunnableConfig:
     """
     Customize the LangGraph configuration for use in CopilotKit.
 
@@ -240,7 +183,7 @@ def copilotkit_customize_config(
     ### Examples
 
     Disable emitting messages and tool calls:
-    
+
     ```python
     from copilotkit.langgraph import copilotkit_customize_config
 
@@ -293,7 +236,7 @@ def copilotkit_customize_config(
             "The `emit_all` parameter is deprecated and will be removed in a future version. "
             "CopilotKit will now emit all messages and tool calls by default.",
             DeprecationWarning,
-            stacklevel=2
+            stacklevel=2,
         )
     metadata = base_config.get("metadata", {}) if base_config else {}
 
@@ -311,10 +254,7 @@ def copilotkit_customize_config(
 
     base_config = base_config or {}
 
-    return {
-        **base_config,
-        "metadata": metadata
-    }
+    return {**base_config, "metadata": metadata}
 
 
 async def copilotkit_exit(config: RunnableConfig):
@@ -353,6 +293,7 @@ async def copilotkit_exit(config: RunnableConfig):
 
     return True
 
+
 async def copilotkit_emit_state(config: RunnableConfig, state: Any):
     """
     Emits intermediate state to CopilotKit. Useful if you have a longer running node and you want to
@@ -390,6 +331,7 @@ async def copilotkit_emit_state(config: RunnableConfig, state: Any):
 
     return True
 
+
 async def copilotkit_emit_message(config: RunnableConfig, message: str):
     """
     Manually emits a message to CopilotKit. Useful in longer running nodes to update the user.
@@ -423,11 +365,7 @@ async def copilotkit_emit_message(config: RunnableConfig, message: str):
     """
     await adispatch_custom_event(
         "copilotkit_manually_emit_message",
-        {
-            "message": message,
-            "message_id": str(uuid.uuid4()),
-            "role": "assistant"
-        },
+        {"message": message, "message_id": str(uuid.uuid4()), "role": "assistant"},
         config=config,
     )
     await asyncio.sleep(0.02)
@@ -435,7 +373,9 @@ async def copilotkit_emit_message(config: RunnableConfig, message: str):
     return True
 
 
-async def copilotkit_emit_tool_call(config: RunnableConfig, *, name: str, args: Dict[str, Any]):
+async def copilotkit_emit_tool_call(
+    config: RunnableConfig, *, name: str, args: Dict[str, Any]
+):
     """
     Manually emits a tool call to CopilotKit.
 
@@ -462,24 +402,23 @@ async def copilotkit_emit_tool_call(config: RunnableConfig, *, name: str, args: 
 
     await adispatch_custom_event(
         "copilotkit_manually_emit_tool_call",
-        {
-            "name": name,
-            "args": args,
-            "id": str(uuid.uuid4())
-        },
+        {"name": name, "args": args, "id": str(uuid.uuid4())},
         config=config,
     )
     await asyncio.sleep(0.02)
 
     return True
 
+
 def copilotkit_interrupt(
-        message: Optional[str] = None,
-        action: Optional[str] = None,
-        args: Optional[Dict[str, Any]] = None
+    message: Optional[str] = None,
+    action: Optional[str] = None,
+    args: Optional[Dict[str, Any]] = None,
 ):
     if message is None and action is None:
-        raise ValueError('Either message or action (and optional arguments) must be provided')
+        raise ValueError(
+            "Either message or action (and optional arguments) must be provided"
+        )
 
     interrupt_message = None
     interrupt_values = None
@@ -491,22 +430,23 @@ def copilotkit_interrupt(
     else:
         tool_id = str(uuid.uuid4())
         interrupt_message = AIMessage(
-                content="",
-                tool_calls=[{
-                    "id": tool_id,
-                    "name": action,
-                    "args": args or {}
-                }]
-            )
-        interrupt_values = {
-            "action": action,
-            "args": args or {}
-        }
+            content="", tool_calls=[{"id": tool_id, "name": action, "args": args or {}}]
+        )
+        interrupt_values = {"action": action, "args": args or {}}
 
-    response = interrupt({
-        "__copilotkit_interrupt_value__": interrupt_values,
-        "__copilotkit_messages__": [interrupt_message]
-    })
-    answer = response[-1].content
+    response = interrupt(
+        {
+            "__copilotkit_interrupt_value__": interrupt_values,
+            "__copilotkit_messages__": [interrupt_message],
+        }
+    )
+    if isinstance(response, str):
+        answer = response
+    elif isinstance(response, dict):
+        answer = json.dumps(response)
+    elif isinstance(response, list):
+        answer = response[-1].content
+    else:
+        answer = str(response)
 
     return answer, response

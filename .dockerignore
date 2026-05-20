@@ -7,11 +7,15 @@ assets
 Dockerfile
 **/.venv
 **/.env
+**/.env.local
+**/.env.*.local
 **/.vscode
 infra
 docs
 **/.turbo
 **/.husky
+**/.next
+**/coverage
 **/dist
 **/build
 **/__pycache__
@@ -20,3 +24,4 @@ docs
 **/.DS_Store
 **/node_modules
 **/.langgraph_api
+**/*.log

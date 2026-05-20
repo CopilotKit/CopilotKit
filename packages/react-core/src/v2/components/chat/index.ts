@@ -86,3 +86,5 @@ export type {
   AttachmentsConfig,
   AttachmentModality,
 } from "@copilotkit/shared";
+
+export type { AutoScrollMode } from "./normalize-auto-scroll";

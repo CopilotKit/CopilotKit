@@ -169,6 +169,46 @@ describe("convertJsonSchemaToZodSchema", () => {
     expect(statusSchema._def.values).toEqual(["todo", "done"]);
   });
 
+  it("should handle null-union type ['string', 'null'] as nullable", () => {
+    const jsonSchema = {
+      type: "object",
+      properties: {
+        nickname: {
+          type: ["string", "null"],
+          description: "Optional nickname",
+        },
+      },
+      required: ["nickname"],
+    };
+
+    const result = convertJsonSchemaToZodSchema(jsonSchema, true);
+    const shape = (result as z.ZodObject<any>).shape;
+
+    // The nickname field should accept both string and null
+    expect(shape.nickname.safeParse("hello").success).toBe(true);
+    expect(shape.nickname.safeParse(null).success).toBe(true);
+    expect(shape.nickname.safeParse(42).success).toBe(false);
+  });
+
+  it("should handle null-union type ['number', 'null'] as nullable number", () => {
+    const jsonSchema = {
+      type: "object",
+      properties: {
+        score: {
+          type: ["number", "null"],
+        },
+      },
+      required: ["score"],
+    };
+
+    const result = convertJsonSchemaToZodSchema(jsonSchema, true);
+    const shape = (result as z.ZodObject<any>).shape;
+
+    expect(shape.score.safeParse(42).success).toBe(true);
+    expect(shape.score.safeParse(null).success).toBe(true);
+    expect(shape.score.safeParse("hello").success).toBe(false);
+  });
+
   it("should handle edge case where JSON schema has no required properties", () => {
     const jsonSchema = {
       type: "object",
@@ -635,6 +675,103 @@ describe("jsonSchemaToActionParameters", () => {
     expect(() => jsonSchemaToActionParameters(jsonSchema)).toThrow(
       "Nested arrays are not supported",
     );
+  });
+
+  it("should handle null-union type ['string', 'null'] as optional string", () => {
+    const jsonSchema = {
+      type: "object",
+      properties: {
+        nickname: {
+          type: ["string", "null"],
+          description: "Optional nickname",
+        },
+      },
+      required: ["nickname"],
+    };
+
+    const result = jsonSchemaToActionParameters(jsonSchema as any);
+    expect(result).toEqual([
+      {
+        name: "nickname",
+        type: "string",
+        description: "Optional nickname",
+        required: false,
+      },
+    ]);
+  });
+
+  it("should handle null-union type ['object', 'null'] preserving properties", () => {
+    const jsonSchema = {
+      type: "object",
+      properties: {
+        metadata: {
+          type: ["object", "null"],
+          description: "Optional metadata",
+          properties: {
+            key: { type: "string" },
+          },
+          required: ["key"],
+        },
+      },
+      required: ["metadata"],
+    };
+
+    const result = jsonSchemaToActionParameters(jsonSchema as any);
+    expect(result).toEqual([
+      {
+        name: "metadata",
+        type: "object",
+        description: "Optional metadata",
+        required: false,
+        attributes: [{ name: "key", type: "string", description: undefined }],
+      },
+    ]);
+  });
+
+  it("should handle null-union type when field is already optional", () => {
+    const jsonSchema = {
+      type: "object",
+      properties: {
+        nickname: {
+          type: ["string", "null"],
+          description: "Optional nickname",
+        },
+      },
+      // nickname is NOT in required
+    };
+
+    const result = jsonSchemaToActionParameters(jsonSchema as any);
+    expect(result).toEqual([
+      {
+        name: "nickname",
+        type: "string",
+        description: "Optional nickname",
+        required: false,
+      },
+    ]);
+  });
+
+  it("should handle type array with only 'null' by falling back to string", () => {
+    const jsonSchema = {
+      type: "object",
+      properties: {
+        weird: {
+          type: ["null"],
+          description: "Null-only type",
+        },
+      },
+      required: ["weird"],
+    };
+
+    const result = jsonSchemaToActionParameters(jsonSchema as any);
+    expect(result).toEqual([
+      {
+        name: "weird",
+        type: "string",
+        description: "Null-only type",
+        required: false,
+      },
+    ]);
   });
 
   it("should ensure round-trip conversion works", () => {

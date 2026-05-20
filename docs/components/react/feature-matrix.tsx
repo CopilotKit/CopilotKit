@@ -15,6 +15,7 @@ type Feature = {
 const frameworks: Framework[] = [
   { name: "Built-in", slug: "built-in-agent" },
   { name: "LangChain", slug: "langgraph" },
+  { name: "Deep Agents", slug: "deepagents" },
   { name: "ADK", slug: "adk" },
   { name: "Microsoft", slug: "microsoft-agent-framework" },
   { name: "AWS Strands", slug: "aws-strands" },
@@ -41,6 +42,18 @@ const features: Feature[] = [
 
 const matrix: Record<string, Record<string, boolean>> = {
   langgraph: {
+    sharedState: true,
+    feTools: true,
+    readables: true,
+    toolRendering: true,
+    stateStreaming: true,
+    genUI: true,
+    interrupts: true,
+    agentAppContext: true,
+    mcpApps: true,
+    a2ui: true,
+  },
+  deepagents: {
     sharedState: true,
     feTools: true,
     readables: true,

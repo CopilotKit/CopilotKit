@@ -3,14 +3,21 @@ services:
     image: ghcr.io/copilotkit/aimock:latest
     volumes:
       - ./fixtures:/fixtures:ro
-    command: ["--fixtures", "/fixtures", "--host", "0.0.0.0"]
+    command:
+      ["--fixtures", "/fixtures", "--host", "0.0.0.0", "--validate-on-load"]
 
   agent:
     build:
       context: ./agent
       dockerfile: ../docker/Dockerfile.agent
     environment:
-      - GOOGLE_API_KEY=test-key-for-aimock
+      # google-genai SDK does not honor a custom endpoint the way the
+      # OpenAI / Anthropic clients do, so aimock can't intercept calls
+      # from the adk agent — the SDK hits generativelanguage.googleapis.com
+      # directly. Pass a real key via CI secret (see .github/workflows/
+      # test_smoke-starter.yml). Fall back to the placeholder for local
+      # dev runs where the local harness may provide its own stub.
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-test-key-for-aimock}
       - GOOGLE_GENAI_USE_VERTEXAI=false
     depends_on:
       aimock:
@@ -66,7 +73,7 @@ services:
       [
         "bash",
         "-c",
-        "cd /tests && npm install --no-audit --no-fund 2>/dev/null && npx playwright install chromium --with-deps 2>/dev/null && npx playwright test starter-smoke --reporter=list",
+        "cd /tests && npm install --no-audit --no-fund 2>/dev/null && npx playwright install chromium && npx playwright test starter-smoke --reporter=list",
       ]
 
 volumes:

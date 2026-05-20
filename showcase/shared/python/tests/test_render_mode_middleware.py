@@ -7,22 +7,20 @@ import sys
 import os
 
 # Ensure the shared python package is importable.
-sys.path.insert(
-    0, os.path.join(os.path.dirname(__file__), "..")
-)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from middleware.render_mode import (
     get_render_mode,
     get_output_schema,
     apply_render_mode_prompt,
     JSONL_RENDER_INSTRUCTION,
-    OPEN_GENUI_INSTRUCTION,
 )
 
 
 # ---------------------------------------------------------------------------
 # get_render_mode
 # ---------------------------------------------------------------------------
+
 
 class TestGetRenderMode:
     def test_default_when_empty(self):
@@ -50,10 +48,6 @@ class TestGetRenderMode:
         ctx = [{"description": "render_mode", "value": "json-render"}]
         assert get_render_mode(ctx) == "json-render"
 
-    def test_open_genui(self):
-        ctx = [{"description": "render_mode", "value": "open-genui"}]
-        assert get_render_mode(ctx) == "open-genui"
-
     def test_missing_value_defaults(self):
         """Entry exists but value key is absent -> 'tool-based'."""
         ctx = [{"description": "render_mode"}]
@@ -75,10 +69,10 @@ class TestGetRenderMode:
         """render_mode is sandwiched between other entries."""
         ctx = [
             {"description": "theme", "value": "dark"},
-            {"description": "render_mode", "value": "open-genui"},
+            {"description": "render_mode", "value": "json-render"},
             {"description": "feature_flags", "value": "beta"},
         ]
-        assert get_render_mode(ctx) == "open-genui"
+        assert get_render_mode(ctx) == "json-render"
 
     def test_invalid_render_mode_value_passes_through(self):
         """An unrecognized render_mode value is returned as-is.
@@ -117,6 +111,7 @@ class TestGetRenderMode:
 # ---------------------------------------------------------------------------
 # get_output_schema
 # ---------------------------------------------------------------------------
+
 
 class TestGetOutputSchema:
     def test_none_when_empty(self):
@@ -206,6 +201,7 @@ class TestGetOutputSchema:
 # apply_render_mode_prompt
 # ---------------------------------------------------------------------------
 
+
 class TestApplyRenderModePrompt:
     BASE = "You are a helpful agent."
 
@@ -223,13 +219,6 @@ class TestApplyRenderModePrompt:
         assert JSONL_RENDER_INSTRUCTION in result
         assert "```spec" in result
         assert "JSONL" in result
-
-    def test_open_genui_appends_html_instruction(self):
-        result = apply_render_mode_prompt(self.BASE, "open-genui")
-        assert result.startswith(self.BASE)
-        assert OPEN_GENUI_INSTRUCTION in result
-        assert "```html" in result
-        assert "HTML" in result
 
     def test_unknown_mode_unchanged(self):
         result = apply_render_mode_prompt(self.BASE, "future-mode")
@@ -250,18 +239,6 @@ class TestApplyRenderModePrompt:
         result = apply_render_mode_prompt(self.BASE, "json-render")
         assert '"path"' in result or "path" in result
 
-    def test_open_genui_contains_html_structure_requirements(self):
-        """Open GenUI instruction requires full HTML document structure."""
-        result = apply_render_mode_prompt(self.BASE, "open-genui")
-        assert "<html>" in result
-        assert "<style>" in result
-        assert "<script>" in result
-
-    def test_open_genui_requires_responsive_ui(self):
-        """Open GenUI instruction mentions responsive requirement."""
-        result = apply_render_mode_prompt(self.BASE, "open-genui")
-        assert "responsive" in result
-
     def test_hashbrown_unchanged(self):
         """HashBrown mode does not modify the prompt (structured output is via response_format)."""
         result = apply_render_mode_prompt(self.BASE, "hashbrown")
@@ -274,15 +251,10 @@ class TestApplyRenderModePrompt:
 
     def test_prompt_injection_content_preserved(self):
         """Base prompt with special characters is preserved verbatim."""
-        tricky_base = 'You are an agent. Do NOT output ```json blocks.'
+        tricky_base = "You are an agent. Do NOT output ```json blocks."
         result = apply_render_mode_prompt(tricky_base, "json-render")
         assert result.startswith(tricky_base)
         assert JSONL_RENDER_INSTRUCTION in result
-
-    def test_open_genui_instruction_is_exact_constant(self):
-        """The appended instruction is exactly the OPEN_GENUI_INSTRUCTION constant."""
-        result = apply_render_mode_prompt(self.BASE, "open-genui")
-        assert result == self.BASE + OPEN_GENUI_INSTRUCTION
 
     def test_json_render_instruction_is_exact_constant(self):
         """The appended instruction is exactly the JSONL_RENDER_INSTRUCTION constant."""
@@ -298,6 +270,7 @@ class TestApplyRenderModePrompt:
 # ---------------------------------------------------------------------------
 # HashBrown mode with missing output_schema (should not crash)
 # ---------------------------------------------------------------------------
+
 
 class TestHashBrownMissingSchema:
     def test_no_output_schema_entry_returns_none(self):

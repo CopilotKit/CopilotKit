@@ -1,0 +1,106 @@
+name: "Security: Fork PR Alert"
+
+on:
+  pull_request:
+    types: [opened, synchronize, closed, reopened]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  fork-pr-monitor:
+    if: github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for suspicious patterns
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const alerts = [];
+
+            // 1. Check for [skip ci] in commit messages from fork PRs
+            if (context.payload.action === 'opened' || context.payload.action === 'synchronize') {
+              const commits = await github.rest.pulls.listCommits({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                per_page: 100
+              });
+
+              const skipCiCommits = commits.data.filter(c =>
+                /\[skip ci\]|\[ci skip\]|\[no ci\]/i.test(c.commit.message)
+              );
+
+              if (skipCiCommits.length > 0) {
+                alerts.push(`⚠️ **[skip ci] detected in fork PR** — ${skipCiCommits.length} commit(s) contain CI skip directives. Commits: ${skipCiCommits.map(c => c.sha.substring(0, 7)).join(', ')}`);
+              }
+            }
+
+            // 2. Check for force-push that reduces changed files to 0 (evidence cleanup)
+            if (context.payload.action === 'synchronize') {
+              const prDetails = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number
+              });
+
+              if (prDetails.data.changed_files === 0) {
+                alerts.push(`🚨 **Zero-file fork PR after force-push** — PR was force-pushed to show 0 changed files. This matches the TanStack attack cleanup pattern.`);
+              }
+            }
+
+            // 3. Check for rapid open-then-close (PR used only to trigger CI)
+            if (context.payload.action === 'closed' && !pr.merged) {
+              const created = new Date(pr.created_at);
+              const closed = new Date(pr.closed_at);
+              const minutesOpen = (closed - created) / (1000 * 60);
+
+              if (minutesOpen < 30) {
+                alerts.push(`🚨 **Fork PR closed rapidly** — opened and closed within ${Math.round(minutesOpen)} minutes without merging. May indicate a CI-trigger-only attack.`);
+              }
+            }
+
+            // 4. Check for large bundled files (>5000 lines) added by the PR
+            if (context.payload.action === 'opened' || context.payload.action === 'synchronize') {
+              const files = await github.rest.pulls.listFiles({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                per_page: 100
+              });
+
+              const largeNewFiles = files.data.filter(f =>
+                f.status === 'added' && f.additions > 5000
+              );
+
+              if (largeNewFiles.length > 0) {
+                alerts.push(`⚠️ **Large files added by fork PR** — ${largeNewFiles.map(f => '`' + f.filename + '` (' + f.additions + ' lines)').join(', ')}. Bundled payloads are a common supply-chain attack vector.`);
+              }
+            }
+
+            // Report alerts
+            if (alerts.length > 0) {
+              const body = [
+                '## 🔒 Supply Chain Security Alert',
+                '',
+                'This fork PR triggered the following security alerts:',
+                '',
+                alerts.join('\n\n'),
+                '',
+                '---',
+                '_Automated by supply-chain security monitor. See [TanStack incident](https://socket.dev/blog/tanstack-npm-packages-compromised-mini-shai-hulud-supply-chain-attack) for context._'
+              ].join('\n');
+
+              // Post as PR comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body: body
+              });
+
+              // Also set the action as failed annotation
+              core.warning(alerts.join(' | '));
+            }

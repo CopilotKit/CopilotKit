@@ -1,0 +1,121 @@
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+import {
+  CopilotRuntime,
+  ExperimentalEmptyAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
+
+// The agent backend runs as a separate process on port 8000.
+// agent_server.py mounts ONE ADKAgent middleware per demo at /<agent_name>;
+// this runtime maps each agent name to its dedicated backend path.
+const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
+
+// Each agent NAME corresponds to a path mounted by the Python backend
+// (see src/agents/registry.py AGENT_REGISTRY). Names with dashes preserved
+// for backwards-compat with already-shipped demos (gen-ui-agent etc.).
+const agentNames = [
+  // existing demos
+  "agentic_chat",
+  "tool-rendering",
+  "gen-ui-tool-based",
+  "gen-ui-agent",
+  "shared-state-read",
+  "shared-state-read-write",
+  "shared-state-streaming",
+  "subagents",
+  // frontend-only demos (share simple chat agent on the backend)
+  "frontend_tools",
+  "frontend-tools-async",
+  "prebuilt-sidebar",
+  "prebuilt-popup",
+  "chat-slots",
+  "chat-customization-css",
+  "headless-simple",
+  "headless_complete",
+  "voice",
+  // reasoning
+  "reasoning-custom",
+  "reasoning-default",
+  // tool-rendering variants
+  "tool-rendering-default-catchall",
+  "tool-rendering-custom-catchall",
+  "tool-rendering-reasoning-chain",
+  // hitl variants
+  "hitl-in-chat",
+  "hitl-in-app",
+  // multimodal & state-context
+  "multimodal",
+  "readonly-state-agent-context",
+  "agent_config",
+  // a2ui
+  "declarative_gen_ui",
+  "a2ui_fixed_schema",
+  // byoc / declarative
+  "declarative-hashbrown",
+  "byoc_json_render",
+  // open gen ui
+  "open_gen_ui",
+  "open_gen_ui_advanced",
+  // beautiful chat
+  "beautiful_chat",
+  // auth
+  "auth",
+  // mcp apps (also wired via separate runtime route copilotkit-mcp-apps)
+  "mcp-apps",
+];
+
+const agents: Record<string, AbstractAgent> = {};
+for (const name of agentNames) {
+  agents[name] = new HttpAgent({ url: `${AGENT_URL}/${name}` });
+}
+
+const runtime = new CopilotRuntime({
+  // @ts-expect-error -- Published CopilotRuntime agents type wraps Record in
+  // MaybePromise<NonEmptyRecord<...>> which rejects plain Records;
+  // fixed in source, pending release.
+  agents,
+});
+
+const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+  endpoint: "/api/copilotkit",
+  serviceAdapter: new ExperimentalEmptyAdapter(),
+  runtime,
+});
+
+export const POST = async (req: NextRequest) => {
+  try {
+    return await handleRequest(req);
+  } catch (error: unknown) {
+    console.error("[copilotkit]", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
+  }
+};
+
+export const GET = async () => {
+  let agentStatus = "unknown";
+  try {
+    const res = await fetch(`${AGENT_URL}/health`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    agentStatus = res.ok ? "reachable" : `error (${res.status})`;
+  } catch (e: unknown) {
+    agentStatus = `unreachable (${(e as Error).message})`;
+  }
+
+  return NextResponse.json({
+    status: "ok",
+    agent_url: AGENT_URL,
+    agent_status: agentStatus,
+    agent_count: Object.keys(agents).length,
+    env: {
+      GOOGLE_API_KEY: process.env.GOOGLE_API_KEY ? "set" : "NOT SET",
+      NODE_ENV: process.env.NODE_ENV,
+    },
+  });
+};

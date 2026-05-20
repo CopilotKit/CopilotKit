@@ -1,0 +1,130 @@
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+import {
+  CopilotRuntime,
+  ExperimentalEmptyAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
+
+// The agent backend runs as a separate process on port 8000.
+// This runtime proxies CopilotKit requests to it via AG-UI protocol.
+const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
+
+console.log("[copilotkit/route] Initializing CopilotKit runtime");
+console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
+
+function createAgent(subpath: string = "") {
+  return new HttpAgent({ url: `${AGENT_URL}${subpath}/run` });
+}
+
+// Shared-router agents — every id here resolves to the same backend + same
+// tool set. Per-demo behavior is driven by the frontend (tools, suggestions,
+// render slots).
+const sharedAgentNames = [
+  "agentic_chat",
+  "tool-rendering",
+  "tool-rendering-default-catchall",
+  "tool-rendering-custom-catchall",
+  "gen-ui-agent",
+  "shared-state-read",
+  "shared-state-write",
+  "shared-state-streaming",
+  "frontend_tools",
+  "frontend_tools_async",
+  "prebuilt_sidebar",
+  "prebuilt_popup",
+  "chat_slots",
+  "chat_customization_css",
+  "headless_simple",
+  "headless_complete",
+  "readonly_state_agent_context",
+  "human_in_the_loop",
+];
+
+// Specialized routers live at dedicated subpaths on the agent_server so the
+// distinct system prompt / tool set / model can surface through this same
+// runtime. Each subpath matches the `include_router(..., prefix=)` in
+// src/agent_server.py.
+const specializedAgents: Record<string, string> = {
+  "agentic-chat-reasoning": "/reasoning",
+  "reasoning-default-render": "/reasoning",
+  "tool-rendering-reasoning-chain": "/tool-rendering-reasoning-chain",
+  "shared-state-read-write": "/shared-state-read-write",
+  "gen-ui-tool-based": "/gen-ui-tool-based",
+  "beautiful-chat": "/beautiful-chat",
+  hitl_in_app: "/hitl-in-app",
+  subagents: "/subagents",
+  // Interrupt-adapted scheduling demos — both gen-ui-interrupt and
+  // interrupt-headless share the same backend agent; only the frontend
+  // UX differs (inline picker in chat vs. external popup).
+  "gen-ui-interrupt": "/interrupt",
+  "interrupt-headless": "/interrupt",
+};
+
+const agents: Record<string, AbstractAgent> = {};
+for (const name of sharedAgentNames) {
+  agents[name] = createAgent();
+}
+for (const [name, subpath] of Object.entries(specializedAgents)) {
+  agents[name] = createAgent(subpath);
+}
+agents["default"] = createAgent();
+
+console.log(
+  `[copilotkit/route] Registered ${Object.keys(agents).length} agent names: ${Object.keys(agents).join(", ")}`,
+);
+
+export const POST = async (req: NextRequest) => {
+  const url = req.url;
+  const contentType = req.headers.get("content-type");
+  console.log(`[copilotkit/route] POST ${url} (content-type: ${contentType})`);
+
+  try {
+    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+      endpoint: "/api/copilotkit",
+      serviceAdapter: new ExperimentalEmptyAdapter(),
+      runtime: new CopilotRuntime({
+        // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
+        agents,
+      }),
+    });
+
+    const response = await handleRequest(req);
+    console.log(`[copilotkit/route] Response status: ${response.status}`);
+    return response;
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error(`[copilotkit/route] ERROR: ${err.message}`);
+    console.error(`[copilotkit/route] Stack: ${err.stack}`);
+    return NextResponse.json(
+      { error: err.message, stack: err.stack },
+      { status: 500 },
+    );
+  }
+};
+
+export const GET = async () => {
+  console.log("[copilotkit/route] GET /api/copilotkit (health probe)");
+
+  let agentStatus = "unknown";
+  try {
+    const res = await fetch(`${AGENT_URL}/health`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    agentStatus = res.ok ? "reachable" : `error (${res.status})`;
+  } catch (e: unknown) {
+    agentStatus = `unreachable (${(e as Error).message})`;
+  }
+
+  return NextResponse.json({
+    status: "ok",
+    agent_url: AGENT_URL,
+    agent_status: agentStatus,
+    env: {
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY ? "set" : "NOT SET",
+      NODE_ENV: process.env.NODE_ENV,
+    },
+  });
+};

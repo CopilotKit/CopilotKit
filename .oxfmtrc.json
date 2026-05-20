@@ -4,6 +4,7 @@
   "ignorePatterns": [
     "docs/**",
     "showcase/shell/src/content/**",
+    "showcase/shell-docs/src/content/**",
     "packages/runtime/src/lib/runtime/mcp-tools-utils.ts",
     ".github/actions/changesets-action/src/run.ts",
     "examples/v1/_legacy/copilot-anthropic-pinecone/src/app/api/copilotkit/route.ts",

@@ -1,0 +1,28 @@
+{
+  "name": "langgraph-typescript-agent",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "npx @langchain/langgraph-cli@1.2.1 dev --port 8123 --no-browser",
+    "start": "node --import tsx liveness.mjs"
+  },
+  "dependencies": {
+    "@copilotkit/sdk-js": "1.56.5",
+    "@langchain/core": "1.1.44",
+    "@langchain/langgraph": "1.3.0",
+    "@langchain/langgraph-api": "1.1.17",
+    "@langchain/langgraph-checkpoint": "1.0.0",
+    "@langchain/langgraph-sdk": "1.6.5",
+    "@langchain/openai": "1.4.4",
+    "langchain": "1.3.4",
+    "tsx": "^4.19.3",
+    "typescript": "^5.6.3",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0"
+  },
+  "overrides": {
+    "@ag-ui/langgraph": "0.0.32"
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "title": "Overview",
+  "pages": [
+    "---Get Started---",
+    "index",
+    "quickstart",
+    "coding-agents",
+    "---Concepts---",
+    "...concepts",
+    "...agentic-protocols",
+    "---Build Chat UIs---",
+    "prebuilt-components",
+    "custom-look-and-feel",
+    "multimodal-attachments",
+    "voice",
+    "generative-ui/reasoning",
+    "---Build Generative UI---",
+    "...generative-ui",
+    "---Add Agent Powers---",
+    "frontend-tools",
+    "shared-state",
+    "human-in-the-loop",
+    "multi-agent/subagents",
+    "agent-config",
+    "programmatic-control",
+    "---Runtime---",
+    "...backend",
+    "runtime-server-adapter",
+    "auth",
+    "---Observe & Operate---",
+    "inspector",
+    "vs-code-extension",
+    "---Enterprise---",
+    "premium/intelligence-platform",
+    "premium/threads-explained",
+    "premium/observability",
+    "premium/self-hosting",
+    "threads",
+    "---Deploy---",
+    "...deploy",
+    "---Other---",
+    "...(other)",
+    {
+      "title": "Troubleshooting",
+      "pages": [
+        "troubleshooting/common-issues",
+        "troubleshooting/error-debugging",
+        "troubleshooting/debug-mode",
+        "troubleshooting/event-inspector",
+        "troubleshooting/hook-explorer",
+        "troubleshooting/observability-connectors"
+      ]
+    },
+    {
+      "title": "What's New",
+      "pages": [
+        "whats-new/mcp-apps-support",
+        "whats-new/langgraph-deep-agents",
+        "whats-new/a2ui-launch",
+        "whats-new/v1-50",
+        "whats-new/generative-ui-spec-support",
+        "whats-new/a2a-mcp-handshake"
+      ]
+    },
+    {
+      "title": "Migrate",
+      "pages": ["migrate/v2", "migrate/1.8.2"]
+    }
+  ]
+}

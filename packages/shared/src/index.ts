@@ -60,3 +60,5 @@ export {
   A2UI_DEFAULT_GENERATION_GUIDELINES,
   A2UI_DEFAULT_DESIGN_GUIDELINES,
 } from "./a2ui-prompts";
+
+export type { DebugEventEnvelope } from "./debug-event-envelope";

@@ -1,0 +1,94 @@
+/* Scoped theme for the chat-customization-css demo.
+ * All selectors are prefixed with `.chat-css-demo-scope` so they do not
+ * leak out and affect the rest of the showcase app.
+ */
+
+/* @region[css-variables] */
+/* CopilotKit CSS variable overrides (accent colors, etc.) */
+.chat-css-demo-scope {
+  --copilot-kit-primary-color: #ff006e;
+  --copilot-kit-contrast-color: #ffffff;
+  --copilot-kit-background-color: #fff8f0;
+  --copilot-kit-input-background-color: #fef3c7;
+  --copilot-kit-secondary-color: #fde047;
+  --copilot-kit-secondary-contrast-color: #2c1810;
+  --copilot-kit-separator-color: #ff006e;
+  --copilot-kit-muted-color: #c2185b;
+}
+/* @endregion[css-variables] */
+
+.chat-css-demo-scope .copilotKitMessages {
+  font-family: "Georgia", "Cambria", "Times New Roman", serif;
+  background-color: #fff8f0;
+  color: #2c1810;
+  padding: 1.5rem 0;
+}
+
+.chat-css-demo-scope .copilotKitMessage.copilotKitUserMessage {
+  background: linear-gradient(135deg, #ff006e 0%, #c2185b 100%);
+  color: #ffffff;
+  font-family: "Georgia", "Cambria", "Times New Roman", serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  padding: 14px 20px;
+  border-radius: 22px 22px 4px 22px;
+  box-shadow: 0 6px 16px rgba(255, 0, 110, 0.35);
+  border: 2px solid #ff6fa5;
+  letter-spacing: 0.01em;
+}
+
+.chat-css-demo-scope .copilotKitMessage.copilotKitAssistantMessage {
+  background: #fde047;
+  color: #1e1b4b;
+  font-family:
+    "JetBrains Mono", "Fira Code", "SF Mono", Menlo, Consolas, monospace;
+  font-size: 1rem;
+  padding: 16px 20px;
+  border-radius: 4px 22px 22px 22px;
+  border: 2px solid #1e1b4b;
+  box-shadow: 4px 4px 0 #1e1b4b;
+  max-width: 80%;
+  margin-right: auto;
+  margin-bottom: 1rem;
+}
+
+.chat-css-demo-scope
+  .copilotKitMessage.copilotKitAssistantMessage
+  .copilotKitMarkdown,
+.chat-css-demo-scope
+  .copilotKitMessage.copilotKitAssistantMessage
+  .copilotKitMarkdown
+  p,
+.chat-css-demo-scope .copilotKitMessage.copilotKitAssistantMessage p {
+  color: #1e1b4b;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.chat-css-demo-scope .copilotKitInput {
+  font-family: "Georgia", "Cambria", "Times New Roman", serif;
+  background-color: #fef3c7;
+  border: 3px dashed #ff006e;
+  border-radius: 18px;
+  padding: 16px 18px;
+  min-height: 80px;
+}
+
+.chat-css-demo-scope .copilotKitInput > textarea {
+  font-family: "Georgia", "Cambria", "Times New Roman", serif;
+  font-size: 1.1rem;
+  color: #2c1810;
+}
+
+.chat-css-demo-scope .copilotKitInput > textarea::placeholder {
+  color: #c2185b;
+  font-style: italic;
+}
+
+.chat-css-demo-scope .copilotKitInputContainer {
+  background: #fff8f0;
+}
+
+.chat-css-demo-scope .copilotKitChat {
+  background-color: #fff8f0;
+}

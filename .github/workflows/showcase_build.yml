@@ -1,0 +1,489 @@
+name: "Showcase: Build & Push"
+
+# Decoupled from the old "Build & Deploy" workflow. This workflow builds
+# Docker images, pushes them to GHCR, and triggers Railway to redeploy.
+# The separate "Showcase: Verify Deploy" workflow (showcase_deploy.yml)
+# handles health verification.
+#
+# Critical design property: NO concurrency group with cancel-in-progress.
+# Every push to main runs to completion so that rapid-fire PR merges never
+# cancel in-flight builds. This was the #1 operational pain point with the
+# old combined workflow.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "showcase/**"
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Service to build"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - all
+          - shell
+          - langgraph-python
+          - mastra
+          - crewai-crews
+          - pydantic-ai
+          - google-adk
+          - ag2
+          - agno
+          - llamaindex
+          - langgraph-fastapi
+          - langgraph-typescript
+          - langroid
+          - spring-ai
+          - strands
+          - ms-agent-python
+          - claude-sdk-typescript
+          - ms-agent-dotnet
+          - claude-sdk-python
+          - built-in-agent
+          - shell-dojo
+          - shell-dashboard
+          - shell-docs
+          - showcase-harness
+          - showcase-aimock
+
+# No top-level concurrency group. Every build run completes. This is the
+# whole point of the decoupling: rapid pushes to main no longer cancel
+# in-flight builds.
+
+env:
+  RAILWAY_ENV_ID: "b14919f4-6417-429f-848d-c6ae2201e04f"
+
+permissions:
+  contents: read
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.build-matrix.outputs.matrix }}
+      has_changes: ${{ steps.build-matrix.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Detect changed paths
+        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+        id: filter
+        with:
+          # All filter values use list form for consistency. `shell`
+          # genuinely needs multiple paths; the others could collapse to
+          # single-line strings, but mixing styles (list vs. string)
+          # in the same filters block is easy to misread during review.
+          filters: |
+            shell:
+              - 'showcase/shell/**'
+              - 'showcase/shared/**'
+              - 'showcase/scripts/**'
+              - 'showcase/integrations/*/manifest.yaml'
+            langgraph_python:
+              - 'showcase/integrations/langgraph-python/**'
+            mastra:
+              - 'showcase/integrations/mastra/**'
+            crewai_crews:
+              - 'showcase/integrations/crewai-crews/**'
+            pydantic_ai:
+              - 'showcase/integrations/pydantic-ai/**'
+            google_adk:
+              - 'showcase/integrations/google-adk/**'
+            ag2:
+              - 'showcase/integrations/ag2/**'
+            agno:
+              - 'showcase/integrations/agno/**'
+            llamaindex:
+              - 'showcase/integrations/llamaindex/**'
+            langgraph_fastapi:
+              - 'showcase/integrations/langgraph-fastapi/**'
+            langgraph_typescript:
+              - 'showcase/integrations/langgraph-typescript/**'
+            langroid:
+              - 'showcase/integrations/langroid/**'
+            spring_ai:
+              - 'showcase/integrations/spring-ai/**'
+            strands:
+              - 'showcase/integrations/strands/**'
+            ms_agent_python:
+              - 'showcase/integrations/ms-agent-python/**'
+            claude_sdk_typescript:
+              - 'showcase/integrations/claude-sdk-typescript/**'
+            ms_agent_dotnet:
+              - 'showcase/integrations/ms-agent-dotnet/**'
+            claude_sdk_python:
+              - 'showcase/integrations/claude-sdk-python/**'
+            built_in_agent:
+              - 'showcase/integrations/built-in-agent/**'
+            shell_dojo:
+              - 'showcase/shell-dojo/**'
+              - 'showcase/shared/**'
+              - 'showcase/scripts/**'
+              - 'showcase/integrations/*/manifest.yaml'
+            shell_dashboard:
+              - 'showcase/shell-dashboard/**'
+              - 'showcase/shared/**'
+              - 'showcase/scripts/**'
+              - 'showcase/integrations/*/manifest.yaml'
+            shell_docs:
+              - 'showcase/shell-docs/**'
+              - 'showcase/shared/**'
+              - 'showcase/scripts/**'
+              - 'showcase/integrations/*/manifest.yaml'
+            showcase_harness:
+              - 'showcase/harness/**'
+              - 'showcase/shared/**'
+              - 'showcase/scripts/**'
+              - 'showcase/integrations/*/manifest.yaml'
+            showcase_aimock:
+              - 'showcase/aimock/**'
+
+      - name: Build service matrix
+        id: build-matrix
+        env:
+          DISPATCH_SERVICE: ${{ github.event.inputs.service }}
+          GITHUB_SHA_ENV: ${{ github.sha }}
+          GITHUB_REF_NAME_ENV: ${{ github.ref_name }}
+          FILTER_CHANGES: ${{ steps.filter.outputs.changes }}
+        run: |
+          # Full service config as JSON
+          # Fields: dispatch_name, filter_key, context, image, railway_id, timeout, lfs, build_args, build_args_sha, build_args_branch, dockerfile, health_path
+          # health_path: explicit endpoint the verify step probes. Required
+          # for every service — no fallback. An unscoped fallback could mask
+          # a broken endpoint when an unrelated catch-all/CDN/actuator happens
+          # to 200 at the other path. Misconfigured paths are a config bug to
+          # fix in the matrix, not runtime behavior to hide.
+          ALL_SERVICES='[
+            {"dispatch_name":"shell","filter_key":"shell","context":".","image":"showcase-shell","railway_id":"40eea0da-6071-4ea8-bdb9-39afb19225ec","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell/Dockerfile","health_path":"/"},
+            {"dispatch_name":"langgraph-python","filter_key":"langgraph_python","context":"showcase/integrations/langgraph-python","image":"showcase-langgraph-python","railway_id":"90d03214-4569-41b0-b4c1-6438a8a7b203","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"mastra","filter_key":"mastra","context":"showcase/integrations/mastra","image":"showcase-mastra","railway_id":"d7979eb7-2405-4aab-ad21-438f4a1b08af","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"crewai-crews","filter_key":"crewai_crews","context":"showcase/integrations/crewai-crews","image":"showcase-crewai-crews","railway_id":"0e9c284d-8d87-4fcf-9f82-6b704d7e4bd4","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"pydantic-ai","filter_key":"pydantic_ai","context":"showcase/integrations/pydantic-ai","image":"showcase-pydantic-ai","railway_id":"0a106173-2282-4887-a994-0ca276a99d69","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"google-adk","filter_key":"google_adk","context":"showcase/integrations/google-adk","image":"showcase-google-adk","railway_id":"87f60507-5a3d-4b8a-9e23-2b1de85d939c","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"ag2","filter_key":"ag2","context":"showcase/integrations/ag2","image":"showcase-ag2","railway_id":"4a37481b-f264-4eb7-a9cd-0a9ebb9ac05c","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"agno","filter_key":"agno","context":"showcase/integrations/agno","image":"showcase-agno","railway_id":"32cab80b-e329-45bd-9c73-c4e1ddc94305","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"llamaindex","filter_key":"llamaindex","context":"showcase/integrations/llamaindex","image":"showcase-llamaindex","railway_id":"285386e8-492d-4cb8-b632-0a7d4607378f","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"langgraph-fastapi","filter_key":"langgraph_fastapi","context":"showcase/integrations/langgraph-fastapi","image":"showcase-langgraph-fastapi","railway_id":"06cccb5c-59f4-46b5-8adc-7113e77011a4","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"langgraph-typescript","filter_key":"langgraph_typescript","context":"showcase/integrations/langgraph-typescript","image":"showcase-langgraph-typescript","railway_id":"66246d3b-a18e-46f0-be51-5f3ff7a36e5a","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"langroid","filter_key":"langroid","context":"showcase/integrations/langroid","image":"showcase-langroid","railway_id":"6dd9cb0a-66cc-46f1-972e-7cd74756157d","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"spring-ai","filter_key":"spring_ai","context":"showcase/integrations/spring-ai","image":"showcase-spring-ai","railway_id":"eed5d041-91be-4282-b414-beea00843401","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"strands","filter_key":"strands","context":"showcase/integrations/strands","image":"showcase-strands","railway_id":"92e1cfad-ad53-403f-ab2b-5ab380832232","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"ms-agent-python","filter_key":"ms_agent_python","context":"showcase/integrations/ms-agent-python","image":"showcase-ms-agent-python","railway_id":"655db75a-af8d-427d-a4f9-441570ae5003","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"claude-sdk-typescript","filter_key":"claude_sdk_typescript","context":"showcase/integrations/claude-sdk-typescript","image":"showcase-claude-sdk-typescript","railway_id":"18a98727-5700-44aa-b497-b60795dbbd6a","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"ms-agent-dotnet","filter_key":"ms_agent_dotnet","context":"showcase/integrations/ms-agent-dotnet","image":"showcase-ms-agent-dotnet","railway_id":"beeb2dd6-87a4-4599-aa07-0578f7bd6519","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"claude-sdk-python","filter_key":"claude_sdk_python","context":"showcase/integrations/claude-sdk-python","image":"showcase-claude-sdk-python","railway_id":"b122ab65-9854-4cb2-a68e-b50ff13f7481","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"built-in-agent","filter_key":"built_in_agent","context":"showcase/integrations/built-in-agent","image":"showcase-built-in-agent","railway_id":"f4f8371a-bc46-45b2-b6d4-9c9af608bdbf","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"shell-dojo","filter_key":"shell_dojo","context":".","image":"showcase-shell-dojo","railway_id":"7ad1ece7-2228-49cd-8a78-bddf30322907","timeout":10,"lfs":false,"build_args":"","dockerfile":"showcase/shell-dojo/Dockerfile","health_path":"/"},
+            {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","railway_id":"4d5dfd74-be61-40b2-8564-b53b7dd4c15b","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","build_args_pb_url":"https://showcase-pocketbase-production.up.railway.app","build_args_shell_url":"https://showcase.copilotkit.ai","build_args_ops_url":"https://showcase-harness-production.up.railway.app","dockerfile":"showcase/shell-dashboard/Dockerfile","health_path":"/"},
+            {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","railway_id":"7badfb8d-4228-414c-9145-b4026803714f","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","build_args_analytics":"yes","dockerfile":"showcase/shell-docs/Dockerfile","health_path":"/"},
+            {"dispatch_name":"showcase-harness","filter_key":"showcase_harness","context":".","image":"showcase-harness","railway_id":"3a14bfed-0537-4d71-897b-7c593dca161d","timeout":20,"lfs":false,"build_args":"","dockerfile":"showcase/harness/Dockerfile","health_path":"/health"},
+            {"dispatch_name":"showcase-aimock","filter_key":"showcase_aimock","context":"showcase/aimock","image":"showcase-aimock","railway_id":"0fa0435d-8a66-46f0-84fd-e4250b580013","timeout":5,"lfs":false,"build_args":"","dockerfile":"showcase/aimock/Dockerfile","health_path":"/health"}
+          ]'
+
+          # Substitute trusted git context (sha, ref_name) into JSON placeholders.
+          # Routed through env: above to satisfy zizmor template-injection check.
+          ALL_SERVICES="${ALL_SERVICES//__GH_SHA__/$GITHUB_SHA_ENV}"
+          ALL_SERVICES="${ALL_SERVICES//__GH_REF_NAME__/$GITHUB_REF_NAME_ENV}"
+
+          DISPATCH="$DISPATCH_SERVICE"
+          CHANGES="${FILTER_CHANGES:-[]}"
+
+          # Filter services based on three dispatch modes:
+          #   dispatch == "all": manual "deploy all" — include every service unconditionally.
+          #     This re-pulls :latest for every matrix slot (~38 services); intentional for
+          #     drift-rebuild runs and full-fleet restarts. Do NOT try to short-circuit
+          #     unchanged services here — operators invoke "all" precisely when they want
+          #     the fleet re-deployed regardless of git state (cache poisoning, base-image CVE).
+          #     (paths-filter is unreliable on workflow_dispatch because there is no 'before' SHA,
+          #      so we must NOT consult $changes here — doing so silently produces an empty matrix).
+          #   dispatch == <specific service>: narrow to that service only (skips paths-filter so
+          #     drift-rebuild and manual single-service dispatches work regardless of $changes).
+          #   dispatch == "": push event — include services whose filter_key appears in paths-filter CHANGES.
+          MATRIX=$(echo "$ALL_SERVICES" | jq -c --arg dispatch "$DISPATCH" --argjson changes "$CHANGES" '
+            [.[] | (.filter_key as $fk | select(
+              $dispatch == "all" or
+              ($dispatch != "" and $dispatch != "all" and $dispatch == .dispatch_name) or
+              ($dispatch == "" and ($changes | index($fk) != null))
+            ))]
+          ')
+
+          # Fail loudly on typo'd workflow_dispatch inputs. If a user types a
+          # service name that doesn't exist in ALL_SERVICES, the jq filter
+          # silently produces [] and the run shows green with zero work
+          # done — a common "did my dispatch deploy?" footgun. The `all` and
+          # empty (push-event) modes legitimately produce [] when there are
+          # no changes and must still succeed.
+          if [ "$MATRIX" = "[]" ] && [ -n "$DISPATCH" ] && [ "$DISPATCH" != "all" ]; then
+            echo "::error::workflow_dispatch service='$DISPATCH' did not match any entry in ALL_SERVICES — check the dispatch_name spelling"
+            exit 1
+          fi
+
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+          if [ "$MATRIX" = "[]" ]; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+  check-lockfile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      # Omit `version:` so pnpm/action-setup inherits from the repo's
+      # `packageManager` field in package.json (enforced via corepack).
+      # Earlier revisions hard-pinned `version: 10.13.1` which silently
+      # drifted from package.json whenever the repo bumped pnpm —
+      # resulting in lockfile-vs-engine mismatches that only surfaced on
+      # the slow `--frozen-lockfile` path.
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22.x
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+
+  verify-image-refs:
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22.x
+      - name: Verify Railway image refs
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: npx tsx showcase/scripts/verify-railway-image-refs.ts
+
+  build:
+    needs: [detect-changes, check-lockfile, verify-image-refs]
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: depot-ubuntu-24.04-4
+    timeout-minutes: ${{ fromJSON(matrix.service.timeout) }}
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.detect-changes.outputs.matrix) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          lfs: ${{ matrix.service.lfs }}
+          persist-credentials: false
+
+      - name: Setup Depot
+        uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
+
+      - name: Login to GHCR
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare build args
+        id: build-args
+        run: |
+          ARGS=""
+          if [ -n "${{ matrix.service.build_args_sha }}" ]; then
+            ARGS="COMMIT_SHA=${{ matrix.service.build_args_sha }}"
+            ARGS="${ARGS}"$'\n'"BRANCH=${{ matrix.service.build_args_branch }}"
+          fi
+          if [ -n "${{ matrix.service.build_args_pb_url }}" ]; then
+            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_POCKETBASE_URL=${{ matrix.service.build_args_pb_url }}"
+          fi
+          if [ -n "${{ matrix.service.build_args_shell_url }}" ]; then
+            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_SHELL_URL=${{ matrix.service.build_args_shell_url }}"
+          fi
+          if [ -n "${{ matrix.service.build_args_ops_url }}" ]; then
+            # OPS_BASE_URL is required at build time by shell-dashboard's
+            # next.config.ts rewrites() — without it `next build` aborts.
+            ARGS="${ARGS:+${ARGS}$'\n'}OPS_BASE_URL=${{ matrix.service.build_args_ops_url }}"
+          fi
+          if [ "${{ matrix.service.build_args_analytics }}" = "yes" ]; then
+            # Client-side analytics keys for the shell-docs bundle.
+            # NEXT_PUBLIC_* values must reach `next build` so they get
+            # inlined into client JS chunks. Sourced from repo secrets;
+            # Railway runtime env doesn't reach this build step.
+            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_POSTHOG_KEY=${{ secrets.POSTHOG_PROJECT_KEY }}"
+            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_REB2B_KEY=${{ secrets.REB2B_KEY }}"
+            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_SCARF_PIXEL_ID=${{ secrets.SCARF_PIXEL_ID }}"
+            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_REO_KEY=${{ secrets.REO_PROJECT_KEY }}"
+            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_GOOGLE_ANALYTICS_TRACKING_ID=${{ secrets.GOOGLE_ANALYTICS_TRACKING_ID }}"
+          fi
+          # Use delimiter to safely pass multiline value
+          echo "args<<BUILDARGS_EOF" >> $GITHUB_OUTPUT
+          echo "$ARGS" >> $GITHUB_OUTPUT
+          echo "BUILDARGS_EOF" >> $GITHUB_OUTPUT
+
+      - name: Copy shared modules into build context
+        run: |
+          set -euo pipefail
+          CONTEXT="${{ matrix.service.context }}"
+          # Idempotent copy: if a stale `shared_python`/`shared_typescript`
+          # already exists (previous failed run on the same runner, or a
+          # checkout artifact), remove it first. `cp -r src dst` into an
+          # existing directory nests source-inside-destination, which
+          # would silently produce a broken build context.
+          if [ -d "showcase/shared/python" ] && [ -d "$CONTEXT" ]; then
+            rm -rf "$CONTEXT/shared_python"
+            cp -r showcase/shared/python "$CONTEXT/shared_python"
+          fi
+          if [ -d "showcase/shared/typescript/tools" ] && [ -d "$CONTEXT" ]; then
+            rm -rf "$CONTEXT/shared_typescript"
+            mkdir -p "$CONTEXT/shared_typescript"
+            cp -r showcase/shared/typescript/tools "$CONTEXT/shared_typescript/tools"
+          fi
+
+          # Dereference tools/ and shared-tools/ symlinks for Docker
+          # context. Integration directories use symlinks pointing to
+          # ../../shared/python/tools etc. Docker cannot follow symlinks
+          # outside the build context, so we replace each symlink with a
+          # real copy of its target.
+          for link_name in tools shared-tools; do
+            link_path="$CONTEXT/$link_name"
+            if [ -L "$link_path" ]; then
+              target="$(readlink -f "$link_path")"
+              if [ -d "$target" ]; then
+                rm "$link_path"
+                cp -r "$target" "$link_path"
+              fi
+            fi
+          done
+
+      - name: Build and push
+        uses: depot/build-push-action@5f3b3c2e5a00f0093de47f657aeaefcedff27d18 # v1
+        with:
+          project: m2kw2wmmcp
+          context: ${{ matrix.service.context }}
+          file: ${{ matrix.service.dockerfile != '' && matrix.service.dockerfile || format('{0}/Dockerfile', matrix.service.context) }}
+          # Pin amd64: Railway and GHCR serve x86 hosts. An arm64-only
+          # image crashes on pull with "does not have a linux/amd64
+          # variant available".
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/copilotkit/${{ matrix.service.image }}:latest
+            ghcr.io/copilotkit/${{ matrix.service.image }}:${{ github.sha }}
+          build-args: ${{ steps.build-args.outputs.args }}
+
+      - name: Trigger Railway redeploy
+        if: matrix.service.railway_id != ''
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          SERVICE_ID: ${{ matrix.service.railway_id }}
+          ENV_ID: ${{ env.RAILWAY_ENV_ID }}
+        run: |
+          # Trigger Railway to pull the freshly-pushed :latest image.
+          # Not all services have environmentPatchCommit auto-update
+          # configured, so an explicit redeploy is the reliable path.
+          RESULT=$(curl -s --retry 2 --retry-all-errors --retry-delay 1 \
+            --fail-with-body \
+            -X POST "https://backboard.railway.com/graphql/v2" \
+            -H "Authorization: Bearer $RAILWAY_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\":\"mutation { serviceInstanceRedeploy(serviceId: \\\"$SERVICE_ID\\\", environmentId: \\\"$ENV_ID\\\") }\"}")
+          ERRORS=$(echo "$RESULT" | jq -r '.errors[]?.message // empty')
+          if [ -n "$ERRORS" ]; then
+            echo "::error::Railway redeploy failed for ${{ matrix.service.dispatch_name }}: $ERRORS"
+            exit 1
+          fi
+          OK=$(echo "$RESULT" | jq -r '.data.serviceInstanceRedeploy // false')
+          if [ "$OK" != "true" ]; then
+            echo "::error::Railway redeploy did not confirm success for ${{ matrix.service.dispatch_name }}: $RESULT"
+            exit 1
+          fi
+          echo "Railway redeploy triggered for ${{ matrix.service.dispatch_name }}"
+
+  notify:
+    name: Notify on failure
+    needs: [build]
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+    timeout-minutes: 5
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+    steps:
+      - name: Slack alert
+        if: env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ${{ toJSON(format(':x: *Showcase Build Failed*\nCommit: `{0}` by {1}\n<https://github.com/{2}/actions/runs/{3}|View run>', github.sha, github.actor, github.repository, github.run_id)) }} }
+
+      - name: Comment on PR
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+            });
+            const merged = prs.find(pr => pr.merged_at);
+            if (!merged) {
+              console.log('No merged PR found for this commit — skipping comment');
+              return;
+            }
+            const marker = '<!-- showcase-build-failure -->';
+            const body = [
+              marker,
+              `### :x: Showcase Build Failed`,
+              ``,
+              `The Docker build triggered by this PR's merge failed.`,
+              ``,
+              `**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              `**Commit:** \`${context.sha.slice(0, 8)}\``,
+              ``,
+              `@${merged.user?.login ?? 'unknown'} — please check the build logs and fix the issue.`,
+            ].join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: merged.number,
+            });
+            const existing = comments.find(c => c.body?.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: merged.number,
+                body,
+              });
+            }

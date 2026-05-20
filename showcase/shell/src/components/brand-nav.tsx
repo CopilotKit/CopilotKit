@@ -141,7 +141,16 @@ function activeBrandFromPath(pathname: string): Brand {
     : "copilotkit";
 }
 
-export function BrandNav() {
+export interface BrandNavProps {
+  // Note: the framework selector previously lived in the top bar. It's
+  // now rendered at the top of the docs sidebar instead — mirroring the
+  // docs.copilotkit.ai reference. Props preserved for API compatibility
+  // with the current call site but intentionally unused here.
+  frameworkOptions?: unknown;
+  frameworkCategoryOrder?: unknown;
+}
+
+export function BrandNav(_props: BrandNavProps = {}) {
   const pathname = usePathname();
   const active = activeBrandFromPath(pathname);
   const links = active === "copilotkit" ? COPILOTKIT_LINKS : AG_UI_LINKS;

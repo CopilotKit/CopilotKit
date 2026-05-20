@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "app/og/**": {
+      "maxDuration": 60
+    }
+  }
+}

@@ -10,7 +10,6 @@ from .render_mode import (
     apply_render_mode_prompt,
     apply_render_mode,
     JSONL_RENDER_INSTRUCTION,
-    OPEN_GENUI_INSTRUCTION,
 )
 
 __all__ = [
@@ -19,5 +18,4 @@ __all__ = [
     "apply_render_mode_prompt",
     "apply_render_mode",
     "JSONL_RENDER_INSTRUCTION",
-    "OPEN_GENUI_INSTRUCTION",
 ]

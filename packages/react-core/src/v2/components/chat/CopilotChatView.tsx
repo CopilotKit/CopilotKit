@@ -6,17 +6,19 @@ import React, {
   useLayoutEffect,
 } from "react";
 import { ScrollElementContext } from "./scroll-element-context";
-import { WithSlots, SlotValue, renderSlot } from "../../lib/slots";
+import type { WithSlots, SlotValue } from "../../lib/slots";
+import { renderSlot } from "../../lib/slots";
 import CopilotChatMessageView from "./CopilotChatMessageView";
-import CopilotChatInput, {
+import type {
   CopilotChatInputProps,
   CopilotChatInputMode,
 } from "./CopilotChatInput";
+import CopilotChatInput from "./CopilotChatInput";
 import CopilotChatSuggestionView, {
   CopilotChatSuggestionViewProps,
 } from "./CopilotChatSuggestionView";
-import { Suggestion } from "@copilotkit/core";
-import { Message } from "@ag-ui/core";
+import type { Suggestion } from "@copilotkit/core";
+import type { Message } from "@ag-ui/core";
 import type { Attachment } from "@copilotkit/shared";
 import { CopilotChatAttachmentQueue } from "./CopilotChatAttachmentQueue";
 import { twMerge } from "tailwind-merge";
@@ -33,9 +35,12 @@ import {
   CopilotChatDefaultLabels,
 } from "../../providers/CopilotChatConfigurationProvider";
 import { useKeyboardHeight } from "../../hooks/use-keyboard-height";
+import { normalizeAutoScroll } from "./normalize-auto-scroll";
+import type { AutoScrollMode } from "./normalize-auto-scroll";
+import { usePinToSend } from "../../hooks/use-pin-to-send";
 
-// Height of the feather gradient overlay (h-24 = 6rem = 96px)
-const FEATHER_HEIGHT = 96;
+// Vertical gap between the scroll-to-bottom button and the input container.
+const SCROLL_BUTTON_OFFSET = 16;
 
 // Forward declaration for WelcomeScreen component type
 export type WelcomeScreenProps = WithSlots<
@@ -57,7 +62,7 @@ export type CopilotChatViewProps = WithSlots<
   },
   {
     messages?: Message[];
-    autoScroll?: boolean;
+    autoScroll?: AutoScrollMode | boolean;
     isRunning?: boolean;
     suggestions?: Suggestion[];
     suggestionLoadingIndexes?: ReadonlyArray<number>;
@@ -81,6 +86,21 @@ export type CopilotChatViewProps = WithSlots<
     onDragOver?: (e: React.DragEvent) => void;
     onDragLeave?: (e: React.DragEvent) => void;
     onDrop?: (e: React.DragEvent) => void;
+    /**
+     * When `true`, suppresses the welcome screen while a thread's initial
+     * connect is in flight. Prevents the "How can I help you today?" flash
+     * that would otherwise appear between mounting an empty agent instance
+     * and the bootstrap messages arriving from /connect.
+     */
+    isConnecting?: boolean;
+    /**
+     * When `true`, the caller has explicitly picked a thread (via `threadId`
+     * prop or `CopilotChatConfigurationProvider`). Suppresses the welcome
+     * screen unconditionally — a caller-managed thread targets a specific
+     * conversation and should render its messages (or an empty panel during
+     * connect) rather than a generic "start a new chat" greeting.
+     */
+    hasExplicitThreadId?: boolean;
     /**
      * @deprecated Use the `input` slot's `disclaimer` prop instead:
      * ```tsx
@@ -139,13 +159,25 @@ export function CopilotChatView({
   onDragOver,
   onDragLeave,
   onDrop,
+  isConnecting = false,
+  hasExplicitThreadId = false,
   // Deprecated — forwarded to input slot
   disclaimer,
   children,
   className,
   ...props
 }: CopilotChatViewProps) {
-  const inputContainerRef = useRef<HTMLDivElement>(null);
+  // Element-as-state via callback ref. The overlay wrapper only renders on the
+  // chat-view branch (the welcome-screen branch omits it), so a plain
+  // useRef + `[]` useEffect would observe `null` on mount whenever the chat
+  // starts on the welcome screen and never re-attach after the user sends
+  // their first message — leaving inputContainerHeight at 0 and the scroll
+  // content's reserved bottom padding at 32px instead of ~input height. The
+  // result is the last messages scrolling underneath the absolute-positioned
+  // input pill. Subscribing to element state lets the observer attach (and
+  // detach) reactively as the overlay mounts/unmounts.
+  const [inputContainerEl, setInputContainerEl] =
+    useState<HTMLDivElement | null>(null);
   const [inputContainerHeight, setInputContainerHeight] = useState(0);
   const [isResizing, setIsResizing] = useState(false);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -156,8 +188,14 @@ export function CopilotChatView({
 
   // Track input container height changes
   useEffect(() => {
-    const element = inputContainerRef.current;
-    if (!element) return;
+    const element = inputContainerEl;
+    if (!element) {
+      // Reset measured height so the scroll content's paddingBottom doesn't
+      // hold a stale value if the overlay unmounts (e.g. messages cleared
+      // and the welcome screen returns).
+      setInputContainerHeight(0);
+      return;
+    }
 
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
@@ -196,7 +234,7 @@ export function CopilotChatView({
         clearTimeout(resizeTimeoutRef.current);
       }
     };
-  }, []);
+  }, [inputContainerEl]);
 
   const BoundMessageView = renderSlot(messageView, CopilotChatMessageView, {
     messages,
@@ -217,12 +255,24 @@ export function CopilotChatView({
     onAddFile,
     positioning: "static",
     keyboardHeight: isKeyboardOpen ? keyboardHeight : 0,
-    containerRef: inputContainerRef,
     showDisclaimer: true,
+    // The parent overlay wrapper handles absolute bottom-0 positioning.
+    // `bottomAnchored` still triggers the license-banner offset padding
+    // inside CopilotChatInput. The welcome-screen input (below) intentionally
+    // omits this flag.
+    bottomAnchored: true,
     ...(disclaimer !== undefined ? { disclaimer } : {}),
   } as CopilotChatInputProps);
 
-  const hasSuggestions = Array.isArray(suggestions) && suggestions.length > 0;
+  // Hide suggestions while a thread is connecting or a run is in flight.
+  // Otherwise, mid-replay (bootstrap stream from /connect) or mid-run, the
+  // suggestions would render against a still-assembling message tree and
+  // visibly jump as each final text chunk reflows the layout.
+  const hasSuggestions =
+    !isConnecting &&
+    !isRunning &&
+    Array.isArray(suggestions) &&
+    suggestions.length > 0;
   const BoundSuggestionView = hasSuggestions
     ? renderSlot(suggestionView, CopilotChatSuggestionView, {
         suggestions,
@@ -238,8 +288,9 @@ export function CopilotChatView({
     isResizing,
     children: (
       <div
+        data-testid="copilot-scroll-content"
         style={{
-          paddingBottom: `${hasSuggestions ? 4 : 32}px`,
+          paddingBottom: `${inputContainerHeight + (hasSuggestions ? 4 : 32)}px`,
         }}
       >
         <div className="cpk:max-w-3xl cpk:mx-auto">
@@ -258,7 +309,13 @@ export function CopilotChatView({
   const isEmpty = messages.length === 0;
   // Type assertion needed because TypeScript doesn't fully propagate `| boolean` through WithSlots
   const welcomeScreenDisabled = (welcomeScreen as unknown) === false;
-  const shouldShowWelcomeScreen = isEmpty && !welcomeScreenDisabled;
+  // Suppress the welcome screen (1) while the initial connect is in flight
+  // and (2) whenever the caller has picked a specific thread. The caller-
+  // managed case targets a conversation directly, so the generic welcome
+  // greeting is never the right thing to show — even for a thread that
+  // happens to have no messages yet.
+  const shouldShowWelcomeScreen =
+    isEmpty && !welcomeScreenDisabled && !isConnecting && !hasExplicitThreadId;
 
   if (shouldShowWelcomeScreen) {
     // Create a separate input for welcome screen with static positioning and disclaimer visible
@@ -356,17 +413,22 @@ export function CopilotChatView({
       {dragOver && <DropOverlay />}
       {BoundScrollView}
 
-      <div className="cpk:max-w-3xl cpk:mx-auto cpk:w-full">
+      <div
+        ref={setInputContainerEl}
+        data-testid="copilot-input-overlay"
+        className="cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-0 cpk:z-20 cpk:pointer-events-none"
+      >
         {attachments && attachments.length > 0 && (
-          <CopilotChatAttachmentQueue
-            attachments={attachments}
-            onRemoveAttachment={(id) => onRemoveAttachment?.(id)}
-            className="cpk:px-4"
-          />
+          <div className="cpk:max-w-3xl cpk:mx-auto cpk:w-full cpk:pointer-events-auto">
+            <CopilotChatAttachmentQueue
+              attachments={attachments}
+              onRemoveAttachment={(id) => onRemoveAttachment?.(id)}
+              className="cpk:px-4"
+            />
+          </div>
         )}
+        {BoundInput}
       </div>
-
-      {BoundInput}
     </div>
   );
 }
@@ -417,7 +479,6 @@ export namespace CopilotChatView {
             </div>
           </StickToBottom.Content>
 
-          {/* Feather gradient overlay */}
           {BoundFeather}
 
           {/* Scroll to bottom button - hidden during resize */}
@@ -425,7 +486,7 @@ export namespace CopilotChatView {
             <div
               className="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30 cpk:pointer-events-none"
               style={{
-                bottom: `${inputContainerHeight + FEATHER_HEIGHT + 16}px`,
+                bottom: `${inputContainerHeight + SCROLL_BUTTON_OFFSET}px`,
               }}
             >
               {renderSlot(
@@ -442,9 +503,105 @@ export namespace CopilotChatView {
     );
   };
 
+  // Internal component for pin-to-send scroll behavior — not exported on CopilotChatView.
+  const PinToSendScrollContainer: React.FC<
+    React.HTMLAttributes<HTMLDivElement> & {
+      scrollRef: React.MutableRefObject<HTMLElement | null>;
+      contentRef: React.MutableRefObject<HTMLElement | null>;
+      scrollToBottom: () => void;
+      scrollToBottomButton?: SlotValue<
+        React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>>
+      >;
+      feather?: SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>>;
+      inputContainerHeight: number;
+      isResizing: boolean;
+      nonAutoScrollEl: HTMLElement | null;
+      nonAutoScrollRefCallback: (el: HTMLElement | null) => void;
+      showScrollButton: boolean;
+    }
+  > = ({
+    children,
+    scrollRef,
+    contentRef,
+    scrollToBottom,
+    scrollToBottomButton,
+    feather,
+    inputContainerHeight,
+    isResizing,
+    nonAutoScrollEl,
+    nonAutoScrollRefCallback,
+    showScrollButton,
+    className,
+    ...props
+  }) => {
+    const spacerRef = useRef<HTMLDivElement>(null);
+
+    usePinToSend({
+      scrollRef,
+      contentRef,
+      spacerRef,
+      topOffset: 16,
+    });
+
+    // The feather and scroll-to-bottom button live OUTSIDE the scroll
+    // container. `position: absolute` children of an `overflow: auto` element
+    // are positioned relative to the scroll *content*, which means they
+    // scroll away with it. Placing them as siblings of the scroll container
+    // (inside a `relative` wrapper) keeps them pinned to the viewport bottom.
+    const BoundFeather = renderSlot(feather, CopilotChatView.Feather, {});
+
+    return (
+      <ScrollElementContext.Provider value={nonAutoScrollEl}>
+        <div
+          className={cn(
+            "cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0 cpk:relative",
+            className,
+          )}
+        >
+          <div
+            ref={nonAutoScrollRefCallback}
+            className="cpk:flex-1 cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden"
+            {...props}
+          >
+            <div
+              ref={contentRef}
+              className="cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6"
+            >
+              {children}
+            </div>
+            <div
+              ref={spacerRef}
+              data-pin-to-send-spacer
+              aria-hidden="true"
+              style={{ height: 0, flex: "0 0 auto" }}
+            />
+          </div>
+          {BoundFeather}
+          {/* Scroll to bottom button */}
+          {showScrollButton && !isResizing && (
+            <div
+              className="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30 cpk:pointer-events-none"
+              style={{
+                bottom: `${inputContainerHeight + SCROLL_BUTTON_OFFSET}px`,
+              }}
+            >
+              {renderSlot(
+                scrollToBottomButton,
+                CopilotChatView.ScrollToBottomButton,
+                {
+                  onClick: () => scrollToBottom(),
+                },
+              )}
+            </div>
+          )}
+        </div>
+      </ScrollElementContext.Provider>
+    );
+  };
+
   export const ScrollView: React.FC<
     React.HTMLAttributes<HTMLDivElement> & {
-      autoScroll?: boolean;
+      autoScroll?: AutoScrollMode | boolean;
       scrollToBottomButton?: SlotValue<
         React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>>
       >;
@@ -454,7 +611,7 @@ export namespace CopilotChatView {
     }
   > = ({
     children,
-    autoScroll = true,
+    autoScroll = "pin-to-bottom",
     scrollToBottomButton,
     feather,
     inputContainerHeight = 0,
@@ -462,8 +619,18 @@ export namespace CopilotChatView {
     className,
     ...props
   }) => {
+    const mode = normalizeAutoScroll(autoScroll);
     const [hasMounted, setHasMounted] = useState(false);
-    const { scrollRef, contentRef, scrollToBottom } = useStickToBottom();
+    // Plain refs for the "none" and "pin-to-send" paths. Do NOT use
+    // useStickToBottom() here — its internal effects would attach scroll-following
+    // behavior to these refs and fight pin-to-send. The "pin-to-bottom" path
+    // gets its refs via <StickToBottom> below, scoped to that branch only.
+    const scrollRef = useRef<HTMLElement | null>(null);
+    const contentRef = useRef<HTMLElement | null>(null);
+    const scrollToBottom = useCallback(() => {
+      const el = scrollRef.current;
+      if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    }, []);
     const [showScrollButton, setShowScrollButton] = useState(false);
     // Tracks the scroll container element for the non-autoScroll path so the
     // context value is reactive (element state, not a ref).
@@ -478,7 +645,7 @@ export namespace CopilotChatView {
         scrollRef.current = el;
         setNonAutoScrollEl(el);
       },
-      // scrollRef is a stable object from useStickToBottom; safe to omit.
+      // scrollRef is a stable ref object; safe to omit.
       // eslint-disable-next-line react-hooks/exhaustive-deps
       [],
     );
@@ -489,7 +656,7 @@ export namespace CopilotChatView {
 
     // Monitor scroll position for non-autoscroll mode
     useEffect(() => {
-      if (autoScroll) return; // Skip for autoscroll mode
+      if (mode === "pin-to-bottom") return; // Skip for autoscroll mode
 
       const scrollElement = scrollRef.current;
       if (!scrollElement) return;
@@ -514,7 +681,7 @@ export namespace CopilotChatView {
         scrollElement.removeEventListener("scroll", checkScroll);
         resizeObserver.disconnect();
       };
-    }, [scrollRef, autoScroll]);
+    }, [scrollRef, mode]);
 
     if (!hasMounted) {
       return (
@@ -526,8 +693,7 @@ export namespace CopilotChatView {
       );
     }
 
-    // When autoScroll is false, we don't use StickToBottom
-    if (!autoScroll) {
+    if (mode === "none") {
       const BoundFeather = renderSlot(feather, CopilotChatView.Feather, {});
 
       return (
@@ -549,7 +715,6 @@ export namespace CopilotChatView {
               {children}
             </div>
 
-            {/* Feather gradient overlay */}
             {BoundFeather}
 
             {/* Scroll to bottom button for manual mode */}
@@ -557,7 +722,7 @@ export namespace CopilotChatView {
               <div
                 className="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30 cpk:pointer-events-none"
                 style={{
-                  bottom: `${inputContainerHeight + FEATHER_HEIGHT + 16}px`,
+                  bottom: `${inputContainerHeight + SCROLL_BUTTON_OFFSET}px`,
                 }}
               >
                 {renderSlot(
@@ -574,6 +739,28 @@ export namespace CopilotChatView {
       );
     }
 
+    if (mode === "pin-to-send") {
+      return (
+        <PinToSendScrollContainer
+          scrollRef={scrollRef}
+          contentRef={contentRef}
+          scrollToBottom={scrollToBottom}
+          scrollToBottomButton={scrollToBottomButton}
+          feather={feather}
+          inputContainerHeight={inputContainerHeight}
+          isResizing={isResizing}
+          nonAutoScrollEl={nonAutoScrollEl}
+          nonAutoScrollRefCallback={nonAutoScrollRefCallback}
+          showScrollButton={showScrollButton}
+          className={className}
+          {...props}
+        >
+          {children}
+        </PinToSendScrollContainer>
+      );
+    }
+
+    // mode === "pin-to-bottom" (default)
     return (
       <StickToBottom
         className={cn(
@@ -617,22 +804,14 @@ export namespace CopilotChatView {
     </Button>
   );
 
+  // Default renders an empty div — no visual, but the element is still in the
+  // tree so a slot override of the form `scrollView={{ feather: "my-class" }}`
+  // can apply classes (and any consumer with a full component override gets
+  // the className/style forwarding they expect).
   export const Feather: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
     className,
-    style,
     ...props
-  }) => (
-    <div
-      className={cn(
-        "cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-4 cpk:h-24 cpk:pointer-events-none cpk:z-10 cpk:bg-gradient-to-t",
-        "cpk:from-white cpk:via-white cpk:to-transparent",
-        "cpk:dark:from-[rgb(33,33,33)] cpk:dark:via-[rgb(33,33,33)]",
-        className,
-      )}
-      style={style}
-      {...props}
-    />
-  );
+  }) => <div className={className} {...props} />;
 
   export const WelcomeMessage: React.FC<
     React.HTMLAttributes<HTMLDivElement>

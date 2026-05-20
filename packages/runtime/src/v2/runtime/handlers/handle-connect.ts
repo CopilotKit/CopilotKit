@@ -43,14 +43,15 @@ export async function handleConnectAgent({
       return handleIntelligenceConnect({
         runtime,
         request,
+        agentId,
         threadId: connectRequest.input.threadId,
-        lastSeenEventId: connectRequest.lastSeenEventId,
       });
     }
 
     return handleSseConnect({
       runtime,
       request,
+      agentId,
       threadId: connectRequest.input.threadId,
     });
   } catch (error) {

@@ -513,6 +513,112 @@ describe("CopilotChatConfigurationProvider", () => {
     });
   });
 
+  /**
+   * Regression coverage for the welcome-screen / /connect 404 bug
+   * (fix/welcome-not-showing-at-all). `hasExplicitThreadId` distinguishes a
+   * caller-chosen thread from a UUID auto-minted inside the provider chain —
+   * consumers that only make sense against a real backend thread (/connect,
+   * switch-flash suppression) must gate on this signal, not on !!threadId.
+   */
+  describe("hasExplicitThreadId", () => {
+    function ExplicitProbe({ id = "probe" }: { id?: string } = {}) {
+      const config = useCopilotChatConfiguration();
+      return (
+        <div data-testid={`${id}-explicit`}>
+          {String(config?.hasExplicitThreadId)}
+        </div>
+      );
+    }
+
+    it("infers true when threadId prop is supplied and hasExplicitThreadId is omitted", () => {
+      render(
+        <CopilotChatConfigurationProvider threadId="customer-thread">
+          <ExplicitProbe />
+        </CopilotChatConfigurationProvider>,
+      );
+
+      expect(screen.getByTestId("probe-explicit").textContent).toBe("true");
+    });
+
+    it("infers false when no threadId prop is supplied and hasExplicitThreadId is omitted", () => {
+      render(
+        <CopilotChatConfigurationProvider>
+          <ExplicitProbe />
+        </CopilotChatConfigurationProvider>,
+      );
+
+      expect(screen.getByTestId("probe-explicit").textContent).toBe("false");
+    });
+
+    it("respects hasExplicitThreadId={false} even when a threadId prop is present (v1 bridge case)", () => {
+      // The v1 <CopilotKit> wrapper always pipes a UUID through as `threadId`
+      // (from ThreadsProvider). Without this override the provider would
+      // mis-infer the UUID as explicit, causing /connect to 404 and the
+      // welcome screen to stay hidden for fresh empty chats.
+      render(
+        <CopilotChatConfigurationProvider
+          threadId="auto-minted-uuid"
+          hasExplicitThreadId={false}
+        >
+          <ExplicitProbe />
+        </CopilotChatConfigurationProvider>,
+      );
+
+      expect(screen.getByTestId("probe-explicit").textContent).toBe("false");
+    });
+
+    it("parent=true overrides child's hasExplicitThreadId={false} via OR inheritance", () => {
+      // resolvedHasExplicitThreadId = ownHasExplicit || parentHasExplicit.
+      // Once an ancestor has marked the thread as caller-chosen, descendants
+      // cannot mask that — pinning the contract so "try to hide explicitness
+      // from a child" doesn't silently work.
+      render(
+        <CopilotChatConfigurationProvider threadId="real-thread">
+          <CopilotChatConfigurationProvider
+            threadId="other-uuid"
+            hasExplicitThreadId={false}
+          >
+            <ExplicitProbe />
+          </CopilotChatConfigurationProvider>
+        </CopilotChatConfigurationProvider>,
+      );
+
+      expect(screen.getByTestId("probe-explicit").textContent).toBe("true");
+    });
+
+    it("propagates through a three-level chain where the middle provider is bare", () => {
+      // Matches the real stack: outer layout provider (no threadId) →
+      // CopilotChat's own provider (no threadId) → inner feature provider
+      // (explicit threadId). Explicitness must cross the empty middle.
+      render(
+        <CopilotChatConfigurationProvider>
+          <CopilotChatConfigurationProvider>
+            <CopilotChatConfigurationProvider threadId="deeply-picked-thread">
+              <ExplicitProbe />
+            </CopilotChatConfigurationProvider>
+          </CopilotChatConfigurationProvider>
+        </CopilotChatConfigurationProvider>,
+      );
+
+      expect(screen.getByTestId("probe-explicit").textContent).toBe("true");
+    });
+
+    it("non-explicit parent does not taint an explicit child", () => {
+      render(
+        <CopilotChatConfigurationProvider
+          threadId="auto-uuid"
+          hasExplicitThreadId={false}
+        >
+          <CopilotChatConfigurationProvider threadId="user-picked">
+            <ExplicitProbe />
+          </CopilotChatConfigurationProvider>
+        </CopilotChatConfigurationProvider>,
+      );
+
+      expect(screen.getByTestId("probe-explicit").textContent).toBe("true");
+    });
+  });
+
   describe("Nested providers", () => {
     it("should handle multiple nested providers correctly", () => {
       render(

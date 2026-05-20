@@ -1,0 +1,11 @@
+id: unknown-signal-filter-key
+name: "bad filter key"
+owner: "@oss"
+signal:
+  dimension: smoke
+  filter:
+    nonsense: "x"
+triggers:
+  - green_to_red
+template:
+  text: "x"

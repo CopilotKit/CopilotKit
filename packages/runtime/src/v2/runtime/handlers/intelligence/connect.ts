@@ -1,20 +1,33 @@
 import { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
-import { isPlatformNotFoundError } from "../shared/intelligence-utils";
+import { getPlatformErrorStatus } from "../shared/intelligence-utils";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 import { isHandlerResponse } from "../shared/json-response";
+
+/**
+ * Builds browser-facing realtime connection metadata owned by the runtime.
+ */
+function buildRealtimeConnectionInfo(params: {
+  clientUrl: string;
+  threadId: string;
+}): { clientUrl: string; topic: string } {
+  return {
+    clientUrl: params.clientUrl,
+    topic: `thread:${params.threadId}`,
+  };
+}
 
 interface HandleIntelligenceConnectParams {
   runtime: CopilotIntelligenceRuntimeLike;
   request: Request;
+  agentId: string;
   threadId: string;
-  lastSeenEventId: string | null;
 }
 
 export async function handleIntelligenceConnect({
   runtime,
   request,
+  agentId,
   threadId,
-  lastSeenEventId,
 }: HandleIntelligenceConnectParams): Promise<Response> {
   if (!runtime.intelligence) {
     return Response.json(
@@ -35,7 +48,7 @@ export async function handleIntelligenceConnect({
     const result = await runtime.intelligence.ɵconnectThread({
       threadId,
       userId: user.id,
-      lastSeenEventId,
+      agentId,
     });
 
     if (result === null) {
@@ -44,14 +57,38 @@ export async function handleIntelligenceConnect({
       });
     }
 
-    return Response.json(result, {
-      headers: { "Cache-Control": "no-cache", Connection: "keep-alive" },
-    });
+    return Response.json(
+      {
+        threadId: result.threadId,
+        joinToken: result.joinToken,
+        realtime: buildRealtimeConnectionInfo({
+          clientUrl: runtime.intelligence.ɵgetClientWsUrl(),
+          threadId: result.threadId,
+        }),
+      },
+      {
+        headers: { "Cache-Control": "no-cache", Connection: "keep-alive" },
+      },
+    );
   } catch (error) {
-    if (isPlatformNotFoundError(error)) {
-      return new Response(null, {
-        status: 204,
-      });
+    const status = getPlatformErrorStatus(error);
+    if (
+      status === 400 ||
+      status === 401 ||
+      status === 403 ||
+      status === 404 ||
+      status === 409
+    ) {
+      return Response.json(
+        {
+          error: "Connect request rejected",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Intelligence platform rejected the connect request",
+        },
+        { status },
+      );
     }
 
     console.error("Connect plan not available:", error);

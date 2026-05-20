@@ -1,0 +1,22 @@
+{
+  "domElements": [
+    { "tag": "div", "classes": ["copilot-chat"], "testId": "chat-root" },
+    { "tag": "button", "classes": ["send-btn"], "testId": "send" },
+    { "tag": "ul", "classes": ["message-list"] },
+    { "tag": "li", "classes": ["message", "user"] },
+    { "tag": "li", "classes": ["message", "assistant"] }
+  ],
+  "toolCalls": ["search", "summarize", "render"],
+  "streamProfile": {
+    "ttft_ms": 200,
+    "p50_chunk_ms": 50,
+    "total_chunks": 42
+  },
+  "contractShape": {
+    "messages": "array",
+    "messages[0].role": "string",
+    "messages[0].content": "string",
+    "session.id": "string",
+    "session.startedAt": "number"
+  }
+}

@@ -1,0 +1,10 @@
+id: extends-chain
+name: "bad extends"
+owner: "@oss"
+extends: some-other-rule
+signal:
+  dimension: smoke
+triggers:
+  - green_to_red
+template:
+  text: "x"

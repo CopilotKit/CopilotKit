@@ -1,7 +1,27 @@
 import { PlatformRequestError } from "../../intelligence-platform/client";
 
+/**
+ * Returns the HTTP status carried by platform request errors.
+ */
+export function getPlatformErrorStatus(error: unknown): number | undefined {
+  if (error instanceof PlatformRequestError) {
+    return error.status;
+  }
+
+  if (
+    error !== null &&
+    typeof error === "object" &&
+    "status" in error &&
+    typeof error.status === "number"
+  ) {
+    return error.status;
+  }
+
+  return undefined;
+}
+
 export function isPlatformNotFoundError(error: unknown): boolean {
-  return error instanceof PlatformRequestError && error.status === 404;
+  return getPlatformErrorStatus(error) === 404;
 }
 
 const MAX_ID_LENGTH = 128;

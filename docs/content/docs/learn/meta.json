@@ -2,6 +2,7 @@
   "title": "Learn",
   "root": true,
   "pages": [
+    "index",
     "---What's New---",
     "...whats-new",
     "---Agentic Protocols---",
@@ -13,7 +14,10 @@
     "...generative-ui",
     "---Architecture---",
     "architecture",
+    "threads",
+    "intelligence-platform",
     "---Tutorials---",
+    "...tutorials",
     "[Tutorial: AI Todo App](../direct-to-llm/tutorials/ai-todo-app/overview)",
     "[Tutorial: AI Travel App](../langgraph/tutorials/ai-travel-app)",
     "[Video: Research Canvas](../langgraph/videos/research-canvas)",

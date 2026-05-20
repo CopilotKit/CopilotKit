@@ -1,0 +1,16 @@
+data: {"type":"RUN_STARTED","threadId":"t-1","runId":"r-1"}
+
+data: {"type":"TEXT_MESSAGE_CHUNK","role":"assistant","messageId":"m-1","delta":"Let me check the weather."}
+
+data: {"type":"TOOL_CALL_START","parentMessageId":"m-1","toolCallId":"tc-1","toolCallName":"get_weather"}
+
+data: {"type":"TOOL_CALL_ARGS","toolCallId":"tc-1","delta":"{\"city\":\"San Francisco\"}"}
+
+data: {"type":"TOOL_CALL_END","toolCallId":"tc-1"}
+
+data: {"type":"TOOL_CALL_RESULT","role":"tool","toolCallId":"tc-1","content":"{\"temp\":62}"}
+
+data: {"type":"TEXT_MESSAGE_CHUNK","role":"assistant","messageId":"m-2","delta":"It's 62 degrees."}
+
+data: {"type":"RUN_FINISHED","threadId":"t-1","runId":"r-1"}
+

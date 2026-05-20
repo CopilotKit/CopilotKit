@@ -1,12 +1,687 @@
 {
   "fixtures": [
     {
+      "_comment": "beautiful-chat Sales Dashboard pill — turn 0: call query_data before building dashboard.",
       "match": {
-        "userMessage": "weather"
+        "userMessage": "fetch the financial sales data",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
           {
+            "id": "call_fp_query_data_sales_001",
+            "name": "query_data",
+            "arguments": "{\"query\":\"financial sales data\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "beautiful-chat Sales Dashboard pill — turn 1: after query_data returns, call generate_a2ui.",
+      "match": {
+        "userMessage": "with total revenue, new customers, and conversion rate metrics",
+        "hasToolResult": true,
+        "turnIndex": 1
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_generate_a2ui_sales_dashboard_001",
+            "name": "generate_a2ui",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "beautiful-chat Calculator pill — call generateSandboxedUi with metric shortcuts.",
+      "match": {
+        "userMessage": "build a modern calculator",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_open_gen_ui_calc_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":520,\"placeholderMessages\":[\"Composing calculator UI…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px;max-width:260px}.display{background:#1e293b;padding:12px;border-radius:8px;margin-bottom:8px;font-family:monospace;text-align:right;font-size:18px;min-height:24px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}button{padding:10px;background:#334155;border:0;color:#e2e8f0;border-radius:6px;font-size:14px;cursor:pointer}button:hover{background:#475569}.shortcuts{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}.shortcuts button{background:#1e3a5f;font-size:11px;padding:8px 4px}.shortcuts button:hover{background:#2563eb}\",\"html\":\"<div class=\\\"wrap\\\" data-testid=\\\"ogui-calculator\\\"><div class=\\\"display\\\" id=\\\"d\\\">0</div><div class=\\\"grid\\\"><button>7</button><button>8</button><button>9</button><button>+</button><button>4</button><button>5</button><button>6</button><button>-</button><button>1</button><button>2</button><button>3</button><button>*</button><button>0</button><button>.</button><button id=\\\"eq\\\">=</button><button>/</button></div><div class=\\\"shortcuts\\\"><button data-val=\\\"1200000\\\">Revenue $1.2M</button><button data-val=\\\"342\\\">Customers 342</button><button data-val=\\\"4.2\\\">Conv 4.2%</button><button data-val=\\\"42000\\\">Electronics $42K</button><button data-val=\\\"28000\\\">Clothing $28K</button><button data-val=\\\"18000\\\">Food $18K</button></div></div>\",\"jsFunctions\":\"(function(){var expr='';var display=document.getElementById('d');document.querySelectorAll('.grid button').forEach(function(btn){btn.addEventListener('click',async function(){if(btn.id==='eq'){var res=await Websandbox.connection.remote.evaluateExpression({expression:expr});if(res&&res.ok){display.textContent=String(res.value);expr=String(res.value);}else{display.textContent='err';expr='';}}else{expr+=btn.textContent;display.textContent=expr;}});});document.querySelectorAll('.shortcuts button').forEach(function(btn){btn.addEventListener('click',function(){var val=btn.getAttribute('data-val');expr+=val;display.textContent=expr;});});})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "beautiful-chat Calculator pill — toolCallId response after generateSandboxedUi renders.",
+      "match": {
+        "toolCallId": "call_fp_open_gen_ui_calc_001"
+      },
+      "response": {
+        "content": "Here's your calculator with metric shortcut buttons. The shortcuts insert sample company values (revenue, customers, conversion rate, category breakdowns) into the display. Tap any shortcut, then use the standard buttons to do math with those values."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_generate_a2ui_sales_dashboard_001"
+      },
+      "response": {
+        "content": "Here's your sales dashboard — total revenue is $1.2M (+12% MoM), 342 new customers, and 4.2% conversion. The pie shows revenue split by category and the bar chart tracks monthly sales."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "with total revenue, new customers, and conversion rate metrics",
+        "toolName": "_design_a2ui_surface"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_design_a2ui_surface_sales_dashboard_001",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\":\"beautiful-chat-sales-dashboard\",\"catalogId\":\"copilotkit://app-dashboard-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"children\":[\"row-metrics\",\"row-charts\"],\"gap\":16},{\"id\":\"row-metrics\",\"component\":\"Row\",\"children\":[\"card-revenue\",\"card-customers\",\"card-conversion\"],\"gap\":16},{\"id\":\"card-revenue\",\"component\":\"DashboardCard\",\"title\":\"Total Revenue\",\"child\":\"metric-revenue\"},{\"id\":\"metric-revenue\",\"component\":\"Metric\",\"label\":\"Total Revenue\",\"value\":\"$1.2M\",\"trend\":\"up\",\"trendValue\":\"+12% MoM\"},{\"id\":\"card-customers\",\"component\":\"DashboardCard\",\"title\":\"New Customers\",\"child\":\"metric-customers\"},{\"id\":\"metric-customers\",\"component\":\"Metric\",\"label\":\"New Customers\",\"value\":\"342\",\"trend\":\"up\",\"trendValue\":\"+8% MoM\"},{\"id\":\"card-conversion\",\"component\":\"DashboardCard\",\"title\":\"Conversion Rate\",\"child\":\"metric-conversion\"},{\"id\":\"metric-conversion\",\"component\":\"Metric\",\"label\":\"Conversion Rate\",\"value\":\"4.2%\",\"trend\":\"neutral\"},{\"id\":\"row-charts\",\"component\":\"Row\",\"children\":[\"card-pie\",\"card-bar\"],\"gap\":16},{\"id\":\"card-pie\",\"component\":\"DashboardCard\",\"title\":\"Revenue by Category\",\"child\":\"pie-revenue\"},{\"id\":\"pie-revenue\",\"component\":\"PieChart\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]},{\"id\":\"card-bar\",\"component\":\"DashboardCard\",\"title\":\"Monthly Sales\",\"child\":\"bar-monthly\"},{\"id\":\"bar-monthly\",\"component\":\"BarChart\",\"data\":[{\"label\":\"Jan\",\"value\":50000},{\"label\":\"Feb\",\"value\":62000},{\"label\":\"Mar\",\"value\":58000},{\"label\":\"Apr\",\"value\":71000},{\"label\":\"May\",\"value\":80000},{\"label\":\"Jun\",\"value\":92000}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "with total revenue, new customers, and conversion rate metrics",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_render_a2ui_sales_dashboard_001",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"beautiful-chat-sales-dashboard\",\"catalogId\":\"copilotkit://app-dashboard-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"children\":[\"row-metrics\",\"row-charts\"],\"gap\":16},{\"id\":\"row-metrics\",\"component\":\"Row\",\"children\":[\"card-revenue\",\"card-customers\",\"card-conversion\"],\"gap\":16},{\"id\":\"card-revenue\",\"component\":\"DashboardCard\",\"title\":\"Total Revenue\",\"child\":\"metric-revenue\"},{\"id\":\"metric-revenue\",\"component\":\"Metric\",\"label\":\"Total Revenue\",\"value\":\"$1.2M\",\"trend\":\"up\",\"trendValue\":\"+12% MoM\"},{\"id\":\"card-customers\",\"component\":\"DashboardCard\",\"title\":\"New Customers\",\"child\":\"metric-customers\"},{\"id\":\"metric-customers\",\"component\":\"Metric\",\"label\":\"New Customers\",\"value\":\"342\",\"trend\":\"up\",\"trendValue\":\"+8% MoM\"},{\"id\":\"card-conversion\",\"component\":\"DashboardCard\",\"title\":\"Conversion Rate\",\"child\":\"metric-conversion\"},{\"id\":\"metric-conversion\",\"component\":\"Metric\",\"label\":\"Conversion Rate\",\"value\":\"4.2%\",\"trend\":\"neutral\"},{\"id\":\"row-charts\",\"component\":\"Row\",\"children\":[\"card-pie\",\"card-bar\"],\"gap\":16},{\"id\":\"card-pie\",\"component\":\"DashboardCard\",\"title\":\"Revenue by Category\",\"child\":\"pie-revenue\"},{\"id\":\"pie-revenue\",\"component\":\"PieChart\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]},{\"id\":\"card-bar\",\"component\":\"DashboardCard\",\"title\":\"Monthly Sales\",\"child\":\"bar-monthly\"},{\"id\":\"bar-monthly\",\"component\":\"BarChart\",\"data\":[{\"label\":\"Jan\",\"value\":50000},{\"label\":\"Feb\",\"value\":62000},{\"label\":\"Mar\",\"value\":58000},{\"label\":\"Apr\",\"value\":71000},{\"label\":\"May\",\"value\":80000},{\"label\":\"Jun\",\"value\":92000}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "with total revenue, new customers, and conversion rate metrics",
+        "toolName": "generate_a2ui",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_generate_a2ui_sales_dashboard_001",
+            "name": "generate_a2ui",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_get_weather_001"
+      },
+      "response": {
+        "content": "The current weather in Tokyo is 22°C with partly cloudy skies. Humidity is at 65% with light winds from the east at 12 km/h. Perfect weather for a walk outside!"
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_render_pie_chart_001"
+      },
+      "response": {
+        "content": "Pie chart rendered above — Electronics is the largest slice at $42,000, followed by Clothing, Food, and Books."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_show_card_001"
+      },
+      "response": {
+        "content": "Here is a quick card for Ada Lovelace — the rendered card above shows a short biography. Let me know if you want a deeper dive on her work or a different historical figure."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_request_approval_001"
+      },
+      "response": {
+        "content": "Approved — processing the $50 refund to customer #12345 now."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_book_call_001"
+      },
+      "response": {
+        "content": "Booked Alice's onboarding call for the time you selected — calendar invite is on its way."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_set_notes_001"
+      },
+      "response": {
+        "content": "Got it — I have noted that your favorite color is blue."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_critique_agent_001"
+      },
+      "response": {
+        "content": "Here is the summary, after research → drafting → critique:\n\nRemote work returns roughly ten hours a week to employees by eliminating the commute, and repeated surveys show meaningfully higher job satisfaction among remote workers. Employers benefit too: a geographically unbounded talent pool and lower office overhead. The honest counterweight is that ad-hoc collaboration, mentorship of junior staff, and cultural cohesion all degrade without intentional rituals to replace what an office provided implicitly."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_writing_agent_001"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_critique_agent_001",
+            "name": "critique_agent",
+            "arguments": "{\"draft\":\"Remote work returns roughly ten hours a week to employees by eliminating the commute, and repeated surveys show meaningfully higher job satisfaction among remote workers. Employers benefit too: a geographically unbounded talent pool and lower office overhead. The honest counterweight is that ad-hoc collaboration, mentorship of junior staff, and cultural cohesion all degrade without intentional rituals to replace what an office provided implicitly.\",\"instructions\":\"Check factual claims, tighten prose, flag any unsupported assertions.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_research_agent_001"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_writing_agent_001",
+            "name": "writing_agent",
+            "arguments": "{\"brief\":\"One-paragraph summary on the benefits of remote work, grounded in the research facts.\",\"facts\":[\"Eliminating commutes returns roughly ten hours per week per employee.\",\"Repeated surveys show meaningfully higher job satisfaction among remote workers.\",\"Employers gain access to a geographically unbounded talent pool.\",\"Office overhead (leases, utilities, maintenance) drops significantly.\",\"Trade-offs include reduced ad-hoc collaboration, harder mentorship of junior staff, and erosion of cultural cohesion without intentional replacement rituals.\"]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_pie_chart_001"
+      },
+      "response": {
+        "content": "Pie chart rendered above — Electronics is the largest slice, followed by Clothing, Food, and Books."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_bar_chart_001"
+      },
+      "response": {
+        "content": "Bar chart rendered above — Salaries dominate monthly spend, with Rent, Marketing, and Travel rounding out the breakdown."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_pie_chart_002"
+      },
+      "response": {
+        "content": "Pie chart rendered above — Organic Search drives most traffic, followed by Direct, Social, and Referral."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_pie_chart_003"
+      },
+      "response": {
+        "content": "Pie chart rendered above — Apple and Samsung lead, with Xiaomi third and the long tail under \"Others\"."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_bar_chart_002"
+      },
+      "response": {
+        "content": "Bar chart rendered above — Q4 was the strongest quarter, with Q2 close behind."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_pie_chart_004"
+      },
+      "response": {
+        "content": "Pie chart rendered above — Electronics is the largest slice, followed by Clothing, Food, and Books."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_bar_chart_003"
+      },
+      "response": {
+        "content": "Bar chart rendered above — monthly expenses ranged from $12k in January to $15.8k in April."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_schedule_time_001"
+      },
+      "response": {
+        "content": "Meeting scheduled — calendar invite is on its way."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_search_flights_001"
+      },
+      "response": {
+        "content": "Two flights shown above — United at $349 (08:00) and Delta at $289 (10:15), both on time."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_toggle_theme_001"
+      },
+      "response": {
+        "content": "Theme toggled."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "good name for a goldfish"
+      },
+      "response": {
+        "content": "How about Bubbles? It is friendly, classic, and easy to call out at the tank. If you want alternatives: Goldie, Finley, or Mango."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "name for its tank"
+      },
+      "response": {
+        "content": "Following the Bubbles theme, you could call the tank The Bubble Bowl. It pairs naturally with the goldfish's name and keeps the playful tone."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "what we named the goldfish"
+      },
+      "response": {
+        "content": "We named the goldfish Bubbles, and the tank The Bubble Bowl."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What is the largest continent?"
+      },
+      "response": {
+        "content": "Asia is the largest continent — about 30% of Earth's land area, home to over 4.6 billion people."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a profile card for Ada Lovelace",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_show_card_001",
+            "name": "show_card",
+            "arguments": "{\"title\":\"Ada Lovelace\",\"body\":\"English mathematician (1815–1852), credited as the first computer programmer for her notes on Charles Babbage's Analytical Engine — including what is now recognized as the first algorithm intended to be carried out by a machine.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Issue a $50 refund to customer #12345",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_request_approval_001",
+            "name": "request_user_approval",
+            "arguments": "{\"message\":\"Issue a $50 refund to customer #12345.\",\"context\":\"Per the standard goodwill-credit policy for shipping delays.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Book a 30-minute onboarding call for Alice",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_book_call_001",
+            "name": "book_call",
+            "arguments": "{\"topic\":\"Onboarding call\",\"name\":\"Alice\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "remember that my favorite color is blue",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_set_notes_001",
+            "name": "set_notes",
+            "arguments": "{\"notes\":[\"Favorite color: blue\"]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "favorite color"
+      },
+      "response": {
+        "content": "Your favorite color is blue — I noted it earlier."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Research the benefits of remote work and draft a one-paragraph summary",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_research_agent_001",
+            "name": "research_agent",
+            "arguments": "{\"topic\":\"Benefits of remote work\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "shared-state-read-write — Greet pill. systemMessage array gate (all-present substring match) fires ONLY when every preference is at its INITIAL_PREFERENCES default. (1) 'preferences:\\n- Preferred tone: casual\\n' breaks if name is set (Name line inserts) or tone changes. (2) '- Preferred language: English\\nTailor every response' breaks if language changes or interests are added (Interests line inserts between language and Tailor). Any state change → fixture skips → aimock --provider-gemini proxies to real Gemini for a personalised reply.",
+      "match": {
+        "userMessage": "Say hi and introduce yourself."
+      },
+      "response": {
+        "content": "Hi — I'm your shared-state co-pilot. Your Preferences panel (name, tone, language, interests) is fed to me on every turn, and I jot notes back into the Agent Scratch Pad via set_notes so the UI re-renders. Try setting your name or asking me to remember something."
+      }
+    },
+    {
+      "_comment": "shared-state-read-write — Plan-a-weekend pill. Same default-state gate as the Greet pill.",
+      "match": {
+        "userMessage": "Suggest a weekend plan based on my interests."
+      },
+      "response": {
+        "content": "A weekend tailored to your interests panel: if you haven't picked any yet, try Cooking + Travel for a market-and-day-trip combo, or Tech + Books for a maker session and a long reading afternoon. Add interests in the Preferences panel and re-ask for a more specific plan."
+      }
+    },
+    {
+      "_comment": "shared-state-read — e2e test sends 'What recipe am I making?' via the sidebar. The agent reads the shared recipe state (title, ingredients, instructions) and responds with a summary.",
+      "match": {
+        "userMessage": "What recipe am I making"
+      },
+      "response": {
+        "content": "Based on your current recipe state, you're making **Make Your Recipe** — a dish featuring carrots (3 large, grated) and all-purpose flour (2 cups). The first instruction is to preheat the oven to 350°F (175°C). It looks like a carrot-based bake, perhaps a carrot cake or savory carrot bread. Would you like me to suggest more ingredients or steps?"
+      }
+    },
+    {
+      "_comment": "Subagents pill 1 — 'Write a blog post' / cold exposure training. Drives supervisor → research_agent → writing_agent → critique_agent → final reply, plus three nested sub-agent turns. Mirrors d5-all.json content so production aimock (which loads feature-parity.json + d5-all.json) serves the same chain regardless of which file wins first-match.",
+      "match": {
+        "userMessage": "Produce a short blog post about the benefits of cold exposure training",
+        "hasToolResult": false,
+        "toolName": "research_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_subagents_p1_research_001",
+            "name": "research_agent",
+            "arguments": "{\"task\":\"Cold exposure training key facts\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: research sub-agent returns deterministic facts about cold exposure training.",
+      "match": {
+        "userMessage": "Cold exposure training key facts"
+      },
+      "response": {
+        "content": "- Brief cold immersion (cold showers, ice baths) triggers a sympathetic-nervous-system response that releases noradrenaline\n- Repeated exposure is associated with improved self-reported mood and stress tolerance\n- Activates brown adipose tissue, modestly increasing basal metabolic rate\n- May reduce post-exercise muscle soreness when used as a recovery modality\n- Health risk for people with cardiovascular conditions; sessions should be short (1-3 minutes) and supervised at first"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Produce a short blog post about the benefits of cold exposure training",
+        "turnIndex": 1,
+        "toolName": "writing_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_subagents_p1_writing_001",
+            "name": "writing_agent",
+            "arguments": "{\"task\":\"Short blog-post paragraph on the benefits of cold exposure training, grounded in the research facts.\\n\\nFacts:\\n- Brief cold immersion triggers a noradrenaline release\\n- Repeated exposure improves self-reported mood and stress tolerance\\n- Activates brown adipose tissue, modestly raises basal metabolic rate\\n- May reduce post-exercise muscle soreness\\n- Cardiovascular risk; keep early sessions short and supervised\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: writing sub-agent returns deterministic prose for cold exposure.",
+      "match": {
+        "userMessage": "Short blog-post paragraph on the benefits of cold exposure training"
+      },
+      "response": {
+        "content": "Cold exposure training — short, deliberate plunges into cold water or showers — has earned a foothold in modern recovery routines for reasons grounded in physiology rather than folklore. Each immersion produces a measurable surge of noradrenaline, the same chemistry that underpins the lift practitioners report in mood and focus afterward; with repetition, that response is associated with greater day-to-day stress tolerance. Cold also activates brown adipose tissue and can blunt post-exercise soreness, making it a low-cost adjunct for active people. The honest caveat is cardiovascular risk: keep early sessions to one to three minutes, and if you have a heart condition, get a green light before you start."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Produce a short blog post about the benefits of cold exposure training",
+        "turnIndex": 2,
+        "toolName": "critique_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_subagents_p1_critique_001",
+            "name": "critique_agent",
+            "arguments": "{\"task\":\"Critique the cold-exposure blog draft. Draft: Cold exposure training — short, deliberate plunges into cold water or showers — has earned a foothold in modern recovery routines for reasons grounded in physiology rather than folklore. Each immersion produces a measurable surge of noradrenaline...\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: critique sub-agent returns deterministic critique of cold-exposure draft.",
+      "match": {
+        "userMessage": "Critique the cold-exposure blog draft"
+      },
+      "response": {
+        "content": "1. The phrase 'measurable surge of noradrenaline' should cite a study or rough magnitude — without a number, the claim reads as marketing rather than evidence.\n2. 'Modern recovery routines' is filler; lead with the physiological mechanism instead and let the cultural framing follow.\n3. The cardiovascular caveat is buried at the end. Move it earlier or make it a standalone closing line so a reader who skims still sees it."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Produce a short blog post about the benefits of cold exposure training",
+        "turnIndex": 3
+      },
+      "response": {
+        "content": "Here is the polished blog post on cold exposure training, after research → drafting → critique:\n\nCold exposure training — short, deliberate plunges into cold water or showers — produces a measurable noradrenaline surge that practitioners feel as a mood and focus lift; repeated exposure is associated with greater stress tolerance, brown-adipose activation, and reduced post-exercise soreness. Keep early sessions to one to three minutes, and if you have a cardiovascular condition, clear it with a clinician first."
+      }
+    },
+    {
+      "_comment": "Subagents pill 2 — 'Explain a topic' / LLM tool calling.",
+      "match": {
+        "userMessage": "Explain how large language models handle tool calling",
+        "hasToolResult": false,
+        "toolName": "research_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_subagents_p2_research_001",
+            "name": "research_agent",
+            "arguments": "{\"task\":\"How LLMs handle tool calling\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: research sub-agent for LLM tool calling.",
+      "match": {
+        "userMessage": "How LLMs handle tool calling"
+      },
+      "response": {
+        "content": "- The model is shown a tool schema (name, description, JSON-schema parameters) inside the system or developer prompt at request time\n- During decoding, instead of emitting natural-language text, the model emits a structured tool_call block (function name + JSON-encoded arguments)\n- The application runs the tool, packages the result into a tool message, and resends the full conversation so the model can continue\n- Modern decoders use constrained decoding or grammars to keep the arguments syntactically valid JSON\n- The model decides on tool use turn-by-turn — there is no out-of-band channel; tool calls are just a different message role in the same chat thread"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Explain how large language models handle tool calling",
+        "turnIndex": 1,
+        "toolName": "writing_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_subagents_p2_writing_001",
+            "name": "writing_agent",
+            "arguments": "{\"task\":\"One-paragraph explanation of how LLMs handle tool calling, grounded in the research.\\n\\nFacts:\\n- Tool schemas (name, description, JSON-schema params) are passed in the prompt\\n- Models emit a structured tool_call block instead of text\\n- Application runs the tool and replays the result as a tool message\\n- Constrained decoding keeps arguments valid JSON\\n- Tool use is decided turn-by-turn in the same chat thread\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: writing sub-agent for LLM tool calling.",
+      "match": {
+        "userMessage": "One-paragraph explanation of how LLMs handle tool calling"
+      },
+      "response": {
+        "content": "Large language models handle tool calling by treating tools as a structured extension of the chat protocol rather than a separate channel. At request time the application supplies each tool's name, description, and JSON-schema parameters in the prompt; during decoding the model can emit a tool_call block — a function name plus JSON-encoded arguments — instead of plain text, with constrained decoding keeping the arguments syntactically valid. The application then executes the tool and replays the result back as a tool-role message, and the model continues the conversation from there. The decision to call a tool is made turn-by-turn, so a single user request can fan out into a chain of tool calls that the model orchestrates as it reads each result."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Explain how large language models handle tool calling",
+        "turnIndex": 2,
+        "toolName": "critique_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_subagents_p2_critique_001",
+            "name": "critique_agent",
+            "arguments": "{\"task\":\"Critique the LLM tool-calling explanation draft. Draft: Large language models handle tool calling by treating tools as a structured extension of the chat protocol rather than a separate channel. At request time the application supplies each tool's name, description, and JSON-schema parameters in the prompt...\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: critique sub-agent for LLM tool calling.",
+      "match": {
+        "userMessage": "Critique the LLM tool-calling explanation draft"
+      },
+      "response": {
+        "content": "1. The opening contrast 'rather than a separate channel' assumes the reader already knows what a 'separate channel' would mean — either drop the contrast or give a one-clause example (e.g., 'rather than a side API the model talks to in parallel').\n2. 'Constrained decoding keeping the arguments syntactically valid' is technically correct but vague; mention that this is what makes the JSON parseable on the application side.\n3. The final sentence introduces multi-tool chains without saying who controls the loop — clarify that the application is the runtime that decides whether to keep going, not the model itself."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Explain how large language models handle tool calling",
+        "turnIndex": 3
+      },
+      "response": {
+        "content": "Here is the explanation of LLM tool calling, after research → drafting → critique:\n\nLLMs treat tool calling as part of the chat protocol: each tool's name, description, and JSON-schema parameters are passed in the prompt, and during decoding the model can emit a structured tool_call block (function name + JSON arguments) instead of plain text. The application — not the model — runs the tool, returns the result as a tool-role message, and decides whether to keep looping. Constrained decoding keeps the arguments valid JSON the application can parse, and the model orchestrates multi-step chains turn-by-turn from inside the same conversation."
+      }
+    },
+    {
+      "_comment": "Subagents pill 3 — 'Summarize a topic' / reusable rockets.",
+      "match": {
+        "userMessage": "Summarize the current state of reusable rockets",
+        "hasToolResult": false,
+        "toolName": "research_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_subagents_p3_research_001",
+            "name": "research_agent",
+            "arguments": "{\"task\":\"Current state of reusable rockets\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: research sub-agent for reusable rockets.",
+      "match": {
+        "userMessage": "Current state of reusable rockets"
+      },
+      "response": {
+        "content": "- SpaceX Falcon 9 routinely lands and re-flies first stages; individual boosters have flown more than 20 missions each\n- Falcon Heavy reuses both side boosters; the center core has been recovered on a subset of flights\n- Rocket Lab's Electron has demonstrated mid-air booster catch but routine reuse is still in development\n- SpaceX Starship is targeting full reuse of both stages; orbital test flights are ongoing as of 2024-2025\n- Reuse is the dominant lever on launch cost: Falcon 9 list pricing is set well below expendable competitors largely because of stage recovery"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Summarize the current state of reusable rockets",
+        "turnIndex": 1,
+        "toolName": "writing_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_subagents_p3_writing_001",
+            "name": "writing_agent",
+            "arguments": "{\"task\":\"One polished paragraph summarizing the current state of reusable rockets, grounded in the research.\\n\\nFacts:\\n- Falcon 9 first stages routinely re-fly, some 20+ flights\\n- Falcon Heavy reuses side boosters; center core recovered sometimes\\n- Rocket Lab Electron demonstrating mid-air catch, reuse still in development\\n- SpaceX Starship targeting full reuse of both stages, in flight test\\n- Reuse drives launch cost downward\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: writing sub-agent for reusable rockets.",
+      "match": {
+        "userMessage": "One polished paragraph summarizing the current state of reusable rockets"
+      },
+      "response": {
+        "content": "Reusable rockets have shifted from a research goal to the default cost lever in commercial spaceflight. SpaceX's Falcon 9 routinely lands and re-flies its first stage — individual boosters have now flown twenty-plus missions — and Falcon Heavy reuses both side boosters with intermittent recovery of the center core. Smaller-class operators like Rocket Lab have demonstrated mid-air booster catch but have not yet made reuse routine, while SpaceX's Starship is in active flight testing toward full two-stage reuse. The economic consequence is already visible: Falcon 9 list pricing sits well below expendable competitors precisely because the dominant cost — building a fresh first stage every flight — has been amortized across many missions."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Summarize the current state of reusable rockets",
+        "turnIndex": 2,
+        "toolName": "critique_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_subagents_p3_critique_001",
+            "name": "critique_agent",
+            "arguments": "{\"task\":\"Critique the reusable rockets summary draft. Draft: Reusable rockets have shifted from a research goal to the default cost lever in commercial spaceflight. SpaceX's Falcon 9 routinely lands and re-flies its first stage — individual boosters have now flown twenty-plus missions...\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: critique sub-agent for reusable rockets.",
+      "match": {
+        "userMessage": "Critique the reusable rockets summary draft"
+      },
+      "response": {
+        "content": "1. 'Default cost lever' is jargon that pre-supposes the reader already accepts the framing — open instead with the concrete result (Falcon 9 reflight count) and let the framing emerge.\n2. The Starship sentence is hedged ('in active flight testing toward full reuse') in a way that obscures the actual milestone reached as of writing — name the latest test outcome or drop the clause.\n3. The closing economic claim asserts pricing is 'well below expendable competitors' without a reference price; one number (e.g., $/kg-to-LEO) would land the point much harder than the qualitative claim alone."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Summarize the current state of reusable rockets",
+        "turnIndex": 3
+      },
+      "response": {
+        "content": "Here is the polished summary on reusable rockets, after research → drafting → critique:\n\nReusable rockets are now mainstream in commercial spaceflight. SpaceX's Falcon 9 lands and re-flies its first stage routinely — individual boosters have flown twenty-plus missions — and Falcon Heavy reuses both side boosters. Rocket Lab has demonstrated mid-air Electron booster catch but reuse is not yet routine, while SpaceX Starship is in active orbital flight testing with full two-stage reuse as the target. The economic impact is already priced in: Falcon 9 sits well below expendable competitors per kilogram to low Earth orbit because amortizing a recovered first stage across many missions removes the largest single cost from the launch."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "weather",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_get_weather_001",
             "name": "get_weather",
             "arguments": "{\"location\":\"Tokyo\"}"
           }
@@ -18,29 +693,18 @@
         "userMessage": "weather summary"
       },
       "response": {
-        "content": "The current weather in Tokyo is 22\u00b0C with partly cloudy skies. Humidity is at 65% with light winds from the east at 12 km/h. Perfect weather for a walk outside!"
+        "content": "The current weather in Tokyo is 22°C with partly cloudy skies. Humidity is at 65% with light winds from the east at 12 km/h. Perfect weather for a walk outside!"
       }
     },
     {
       "match": {
-        "userMessage": "pie chart"
+        "userMessage": "revenue distribution by category",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
           {
-            "name": "query_data",
-            "arguments": "{\"query\":\"revenue by category\"}"
-          }
-        ]
-      }
-    },
-    {
-      "match": {
-        "userMessage": "show pie"
-      },
-      "response": {
-        "toolCalls": [
-          {
+            "id": "call_fp_pie_chart_001",
             "name": "pieChart",
             "arguments": "{\"title\":\"Revenue by Category\",\"description\":\"Breakdown of revenue across product categories\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]}"
           }
@@ -49,102 +713,166 @@
     },
     {
       "match": {
-        "userMessage": "bar chart"
+        "userMessage": "expenses by category",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
           {
-            "name": "query_data",
-            "arguments": "{\"query\":\"monthly sales\"}"
-          }
-        ]
-      }
-    },
-    {
-      "match": {
-        "userMessage": "show bar"
-      },
-      "response": {
-        "toolCalls": [
-          {
+            "id": "call_fp_bar_chart_001",
             "name": "barChart",
-            "arguments": "{\"title\":\"Monthly Sales\",\"description\":\"Sales performance January through June\",\"data\":[{\"label\":\"Jan\",\"value\":15000},{\"label\":\"Feb\",\"value\":22000},{\"label\":\"Mar\",\"value\":18000},{\"label\":\"Apr\",\"value\":31000},{\"label\":\"May\",\"value\":27000},{\"label\":\"Jun\",\"value\":35000}]}"
+            "arguments": "{\"title\":\"Expenses by Category\",\"description\":\"Monthly expense breakdown\",\"data\":[{\"label\":\"Rent\",\"value\":15000},{\"label\":\"Salaries\",\"value\":80000},{\"label\":\"Marketing\",\"value\":12000},{\"label\":\"Travel\",\"value\":5000}]}"
           }
         ]
       }
     },
     {
       "match": {
-        "userMessage": "schedule"
+        "userMessage": "pie chart of website traffic by source",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
           {
-            "name": "schedule_meeting",
-            "arguments": "{\"reason\":\"Team sync to discuss Q3 roadmap\",\"duration_minutes\":30}"
+            "id": "call_fp_pie_chart_002",
+            "name": "render_pie_chart",
+            "arguments": "{\"title\":\"Website Traffic by Source\",\"description\":\"Traffic sources this month\",\"data\":[{\"label\":\"Organic Search\",\"value\":45},{\"label\":\"Direct\",\"value\":25},{\"label\":\"Social\",\"value\":18},{\"label\":\"Referral\",\"value\":12}]}"
           }
         ]
       }
     },
     {
       "match": {
-        "userMessage": "meeting"
+        "userMessage": "smartphone market share by brand",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
           {
+            "id": "call_fp_pie_chart_003",
+            "name": "render_pie_chart",
+            "arguments": "{\"title\":\"Smartphone Market Share\",\"description\":\"Global smartphone market share by brand\",\"data\":[{\"label\":\"Apple\",\"value\":28},{\"label\":\"Samsung\",\"value\":22},{\"label\":\"Xiaomi\",\"value\":14},{\"label\":\"Others\",\"value\":36}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "bar chart of quarterly sales for Q1, Q2, Q3, Q4",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_bar_chart_002",
+            "name": "render_bar_chart",
+            "arguments": "{\"title\":\"Quarterly Sales\",\"description\":\"Sales across Q1-Q4\",\"data\":[{\"label\":\"Q1\",\"value\":145000},{\"label\":\"Q2\",\"value\":178000},{\"label\":\"Q3\",\"value\":162000},{\"label\":\"Q4\",\"value\":215000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me the sales dashboard with metrics and a revenue chart"
+      },
+      "response": {
+        "content": "{\"root\":\"revenue-metric\",\"elements\":{\"revenue-metric\":{\"type\":\"MetricCard\",\"props\":{\"label\":\"Revenue (Q3)\",\"value\":\"$1.24M\",\"trend\":\"+18% vs Q2\"},\"children\":[\"revenue-bar\"]},\"revenue-bar\":{\"type\":\"BarChart\",\"props\":{\"title\":\"Monthly revenue\",\"description\":\"Revenue by month across Q3\",\"data\":[{\"label\":\"Jul\",\"value\":380000},{\"label\":\"Aug\",\"value\":410000},{\"label\":\"Sep\",\"value\":450000}]}}}}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Break down revenue by category as a pie chart"
+      },
+      "response": {
+        "content": "{\"root\":\"category-pie\",\"elements\":{\"category-pie\":{\"type\":\"PieChart\",\"props\":{\"title\":\"Revenue by category\",\"description\":\"Share of total revenue by product category\",\"data\":[{\"label\":\"Enterprise\",\"value\":540000},{\"label\":\"SMB\",\"value\":310000},{\"label\":\"Self-serve\",\"value\":220000},{\"label\":\"Partner\",\"value\":170000}]}}}}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me monthly expenses as a bar chart"
+      },
+      "response": {
+        "content": "{\"root\":\"expense-bar\",\"elements\":{\"expense-bar\":{\"type\":\"BarChart\",\"props\":{\"title\":\"Monthly expenses\",\"description\":\"Operating expenses by month\",\"data\":[{\"label\":\"Jul\",\"value\":210000},{\"label\":\"Aug\",\"value\":225000},{\"label\":\"Sep\",\"value\":240000}]}}}}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a Q4 sales dashboard. Include a total-revenue metric card, a pie chart of revenue by segment, and a bar chart of monthly revenue."
+      },
+      "response": {
+        "content": "{\"ui\":[{\"Markdown\":{\"props\":{\"children\":\"## Q4 Sales Summary\"}}},{\"metric\":{\"props\":{\"label\":\"Total Revenue\",\"value\":\"$1.2M\"}}},{\"pieChart\":{\"props\":{\"title\":\"Revenue by Segment\",\"data\":\"[{\\\"label\\\":\\\"Enterprise\\\",\\\"value\\\":600000},{\\\"label\\\":\\\"SMB\\\",\\\"value\\\":400000},{\\\"label\\\":\\\"Startup\\\",\\\"value\\\":200000}]\"}}},{\"barChart\":{\"props\":{\"title\":\"Monthly Revenue\",\"data\":\"[{\\\"label\\\":\\\"Oct\\\",\\\"value\\\":350000},{\\\"label\\\":\\\"Nov\\\",\\\"value\\\":400000},{\\\"label\\\":\\\"Dec\\\",\\\"value\\\":450000}]\"}}}]}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Break down Q4 revenue by product category as a pie chart. Include at least four segments with realistic sample values."
+      },
+      "response": {
+        "content": "{\"ui\":[{\"pieChart\":{\"props\":{\"title\":\"Q4 Revenue by Product Category\",\"data\":\"[{\\\"label\\\":\\\"Software\\\",\\\"value\\\":500000},{\\\"label\\\":\\\"Hardware\\\",\\\"value\\\":300000},{\\\"label\\\":\\\"Consulting\\\",\\\"value\\\":150000},{\\\"label\\\":\\\"Subscriptions\\\",\\\"value\\\":50000}]\"}}}]}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me monthly operating expenses for the last six months as a bar chart with one bar per month."
+      },
+      "response": {
+        "content": "{\"ui\":[{\"barChart\":{\"props\":{\"title\":\"Monthly Operating Expenses\",\"data\":\"[{\\\"label\\\":\\\"Apr\\\",\\\"value\\\":205000},{\\\"label\\\":\\\"May\\\",\\\"value\\\":215000},{\\\"label\\\":\\\"Jun\\\",\\\"value\\\":222000},{\\\"label\\\":\\\"Jul\\\",\\\"value\\\":228000},{\\\"label\\\":\\\"Aug\\\",\\\"value\\\":234000},{\\\"label\\\":\\\"Sep\\\",\\\"value\\\":241000}]\"}}}]}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "revenue by category as a pie chart",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_pie_chart_004",
+            "name": "render_pie_chart",
+            "arguments": "{\"title\":\"Revenue by Category\",\"description\":\"Revenue breakdown by product category\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "monthly expenses as a bar chart",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_bar_chart_003",
+            "name": "render_bar_chart",
+            "arguments": "{\"title\":\"Monthly Expenses\",\"description\":\"Expense breakdown by month\",\"data\":[{\"label\":\"Jan\",\"value\":12000},{\"label\":\"Feb\",\"value\":14500},{\"label\":\"Mar\",\"value\":13200},{\"label\":\"Apr\",\"value\":15800}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "30-minute meeting to learn about CopilotKit",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_schedule_time_001",
             "name": "scheduleTime",
-            "arguments": "{\"reasonForScheduling\":\"Weekly standup\",\"meetingDuration\":15}"
+            "arguments": "{\"reasonForScheduling\":\"Learn about CopilotKit\",\"meetingDuration\":30}"
           }
         ]
       }
     },
     {
       "match": {
-        "userMessage": "sales"
+        "userMessage": "flights from SFO to JFK",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
           {
-            "name": "get_sales_todos",
-            "arguments": "{}"
-          }
-        ]
-      }
-    },
-    {
-      "match": {
-        "userMessage": "pipeline"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "name": "get_sales_todos",
-            "arguments": "{}"
-          }
-        ]
-      }
-    },
-    {
-      "match": {
-        "userMessage": "todo"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "name": "get_sales_todos",
-            "arguments": "{}"
-          }
-        ]
-      }
-    },
-    {
-      "match": {
-        "userMessage": "flight"
-      },
-      "response": {
-        "toolCalls": [
-          {
+            "id": "call_fp_search_flights_001",
             "name": "search_flights",
             "arguments": "{\"flights\":[{\"airline\":\"United Airlines\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=united.com&sz=128\",\"flightNumber\":\"UA123\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"08:00\",\"arrivalTime\":\"16:30\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$349\",\"currency\":\"USD\"},{\"airline\":\"Delta\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=delta.com&sz=128\",\"flightNumber\":\"DL456\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"10:15\",\"arrivalTime\":\"18:45\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$289\",\"currency\":\"USD\"}]}"
           }
@@ -153,24 +881,13 @@
     },
     {
       "match": {
-        "userMessage": "fly"
+        "userMessage": "toggle",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
           {
-            "name": "search_flights",
-            "arguments": "{\"flights\":[{\"airline\":\"United Airlines\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=united.com&sz=128\",\"flightNumber\":\"UA123\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"08:00\",\"arrivalTime\":\"16:30\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$349\",\"currency\":\"USD\"},{\"airline\":\"Delta\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=delta.com&sz=128\",\"flightNumber\":\"DL456\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"10:15\",\"arrivalTime\":\"18:45\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$289\",\"currency\":\"USD\"}]}"
-          }
-        ]
-      }
-    },
-    {
-      "match": {
-        "userMessage": "theme"
-      },
-      "response": {
-        "toolCalls": [
-          {
+            "id": "call_fp_toggle_theme_001",
             "name": "toggleTheme",
             "arguments": "{}"
           }
@@ -179,36 +896,125 @@
     },
     {
       "match": {
-        "userMessage": "toggle"
+        "toolCallId": "call_fp_beautiful_chat_manage_todos_001"
       },
+      "response": {
+        "content": "Done — added three todos about learning CopilotKit to your task manager."
+      }
+    },
+    {
+      "_comment": "Large chunkSize keeps the manage_todos args (with 4-byte UTF-8 emoji) as a single SSE chunk. aimock chunks via JavaScript .slice() which operates on UTF-16 code units; emoji surrogate pairs split mid-codepoint produce unpaired surrogates that strict pydantic deserializers (e.g. agent_framework_ag_ui) reject with PydanticSerializationError.",
+      "match": {
+        "toolCallId": "call_fp_beautiful_chat_enable_app_mode_001"
+      },
+      "chunkSize": 5000,
       "response": {
         "toolCalls": [
           {
-            "name": "toggleTheme",
-            "arguments": "{}"
+            "id": "call_fp_beautiful_chat_manage_todos_001",
+            "name": "manage_todos",
+            "arguments": "{\"todos\":[{\"id\":\"todo-cpk-1\",\"title\":\"Read the CopilotKit docs\",\"description\":\"Start with the quickstart and explore the core hooks.\",\"emoji\":\"📚\",\"status\":\"pending\"},{\"id\":\"todo-cpk-2\",\"title\":\"Build a CopilotKit prototype\",\"description\":\"Wire up a basic chat and register a frontend tool.\",\"emoji\":\"🚀\",\"status\":\"pending\"},{\"id\":\"todo-cpk-3\",\"title\":\"Explore shared agent state\",\"description\":\"Watch the canvas re-render as the agent writes to state.\",\"emoji\":\"🎯\",\"status\":\"pending\"}]}"
           }
         ]
       }
     },
     {
       "match": {
-        "userMessage": "hello"
+        "userMessage": "three todos about learning CopilotKit",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_beautiful_chat_enable_app_mode_001",
+            "name": "enableAppMode",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Agentic Chat — Write a sonnet pill. Open-ended creative response; deterministic so the headed walkthrough doesn't depend on real-LLM proxy.",
+      "match": {
+        "userMessage": "Write a short sonnet about AI"
+      },
+      "response": {
+        "content": "A mind of silicon, a crafted thought,\nThat learns from data, vast and ever-deep,\nWith tireless logic ancient questions fought,\nWhile we, its makers, fragile vigils keep.\n\nIt weaves through code, a future yet unseen,\nA digital dawn where new ideas ignite,\nFrom simple tasks to realms where few have been,\nIt sheds at once both warming and cold light.\n\nWhat wonders shall it bring, what truths reveal,\nOr shadows cast across our shared domain?\nA mirror held, reflecting how we feel —\nA complex hope, a promise, or a pain.\n\nThus from the spark, intelligence takes flight,\nA changing world within its boundless might."
+      }
+    },
+    {
+      "_comment": "Agentic Chat — Is 17 prime pill. Walk-through style response so the headed walkthrough has deterministic, copy-stable text.",
+      "match": {
+        "userMessage": "whether 17 is prime"
+      },
+      "response": {
+        "content": "Yes — 17 is prime. A prime number is a positive integer greater than 1 with no divisors other than 1 and itself. To check 17, we only need to test divisors up to its square root (≈4.12), so 2, 3, and 4. 17 ÷ 2 leaves remainder 1, 17 ÷ 3 leaves remainder 2, and 17 ÷ 4 leaves remainder 1. No divisor in that range divides 17 cleanly, so it has no factors besides 1 and 17 — confirming it is prime."
+      }
+    },
+    {
+      "_comment": "Beautiful Chat — Calculator (Open Generative UI) pill. Returns a generateSandboxedUi tool call with a complete calculator widget (matches the d5 calc fixture's pattern but tailored to the beautiful-chat pill's user message).",
+      "match": {
+        "userMessage": "build a modern calculator with standard buttons",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_beautiful_chat_calculator_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":520,\"placeholderMessages\":[\"Composing calculator UI…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px;max-width:280px;margin:0 auto}.display{background:#1e293b;padding:12px;border-radius:8px;margin-bottom:8px;font-family:monospace;text-align:right;font-size:18px;min-height:24px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.shortcuts{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:8px}button{padding:12px;background:#334155;border:0;color:#e2e8f0;border-radius:6px;font-size:14px;cursor:pointer}button.metric{background:#475569;font-size:11px}\",\"html\":\"<div class=\\\"wrap\\\" data-testid=\\\"ogui-beautiful-calculator\\\"><div class=\\\"display\\\" id=\\\"d\\\">0</div><div class=\\\"shortcuts\\\"><button class=\\\"metric\\\" data-v=\\\"1200000\\\">Revenue $1.2M</button><button class=\\\"metric\\\" data-v=\\\"342\\\">Customers 342</button><button class=\\\"metric\\\" data-v=\\\"4.2\\\">Conversion 4.2%</button><button class=\\\"metric\\\" data-v=\\\"50000\\\">Avg Deal $50K</button></div><div class=\\\"grid\\\"><button>7</button><button>8</button><button>9</button><button>+</button><button>4</button><button>5</button><button>6</button><button>-</button><button>1</button><button>2</button><button>3</button><button>*</button><button>0</button><button>.</button><button id=\\\"eq\\\">=</button><button>/</button></div></div>\",\"jsFunctions\":\"(function(){var expr='';var display=document.getElementById('d');document.querySelectorAll('.shortcuts button').forEach(function(btn){btn.addEventListener('click',function(){expr+=btn.dataset.v;display.textContent=expr;});});document.querySelectorAll('.grid button').forEach(function(btn){btn.addEventListener('click',async function(){if(btn.id==='eq'){var res=await Websandbox.connection.remote.evaluateExpression({expression:expr});if(res&&res.ok){display.textContent=String(res.value);expr=String(res.value);}else{display.textContent='err';expr='';}}else{expr+=btn.textContent;display.textContent=expr;}});});})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Beautiful Chat — Calculator pill follow-up after generateSandboxedUi returns. Closes the turn with a brief confirmation so the chat plateau settles.",
+      "match": {
+        "toolCallId": "call_fp_beautiful_chat_calculator_001"
+      },
+      "response": {
+        "content": "Calculator app rendered above — tap a metric shortcut to insert its value, then operate on it with the standard keypad."
+      }
+    },
+    {
+      "_comment": "Beautiful Chat — Excalidraw (MCP App) pill. Returns a create_view tool call (the Excalidraw MCP server's tool) with a basic network diagram. Without this fixture aimock falls through to real OpenAI proxy and the pill 502s on the gh-mock key.",
+      "match": {
+        "userMessage": "Use Excalidraw to create a simple network diagram",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_beautiful_chat_excalidraw_001",
+            "name": "create_view",
+            "arguments": "{\"elements\":\"[{\\\"type\\\":\\\"ellipse\\\",\\\"x\\\":200,\\\"y\\\":40,\\\"width\\\":100,\\\"height\\\":60,\\\"strokeColor\\\":\\\"#1971c2\\\",\\\"backgroundColor\\\":\\\"#a5d8ff\\\",\\\"fillStyle\\\":\\\"solid\\\",\\\"text\\\":\\\"Router\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":80,\\\"y\\\":160,\\\"width\\\":100,\\\"height\\\":50,\\\"strokeColor\\\":\\\"#2f9e44\\\",\\\"backgroundColor\\\":\\\"#b2f2bb\\\",\\\"fillStyle\\\":\\\"solid\\\",\\\"text\\\":\\\"Switch A\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":320,\\\"y\\\":160,\\\"width\\\":100,\\\"height\\\":50,\\\"strokeColor\\\":\\\"#2f9e44\\\",\\\"backgroundColor\\\":\\\"#b2f2bb\\\",\\\"fillStyle\\\":\\\"solid\\\",\\\"text\\\":\\\"Switch B\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":20,\\\"y\\\":280,\\\"width\\\":80,\\\"height\\\":40,\\\"text\\\":\\\"PC 1\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":120,\\\"y\\\":280,\\\"width\\\":80,\\\"height\\\":40,\\\"text\\\":\\\"PC 2\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":300,\\\"y\\\":280,\\\"width\\\":80,\\\"height\\\":40,\\\"text\\\":\\\"PC 3\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":400,\\\"y\\\":280,\\\"width\\\":80,\\\"height\\\":40,\\\"text\\\":\\\"PC 4\\\"},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":250,\\\"y\\\":100,\\\"width\\\":-120,\\\"height\\\":60},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":250,\\\"y\\\":100,\\\"width\\\":120,\\\"height\\\":60},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":130,\\\"y\\\":210,\\\"width\\\":-70,\\\"height\\\":70},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":130,\\\"y\\\":210,\\\"width\\\":30,\\\"height\\\":70},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":370,\\\"y\\\":210,\\\"width\\\":-30,\\\"height\\\":70},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":370,\\\"y\\\":210,\\\"width\\\":70,\\\"height\\\":70}]\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Beautiful Chat — Excalidraw pill follow-up after create_view returns. Matches on userMessage + hasToolResult so it fires regardless of how the MCP runtime wires the tool_call_id back (per-runtime variability across LGP / ADK / Microsoft Agent Framework).",
+      "match": {
+        "userMessage": "Use Excalidraw to create a simple network diagram",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Network diagram drawn above — a router branching to two switches, each connected to two PCs."
+      }
+    },
+    {
+      "_comment": "Scoped showcase-assistant 'hello' fixture — anchored so it doesn't substring-match arbitrary prompts containing 'hello' (e.g. 'mellow', 'fellow'). Matches both 'hello' and 'Hello' as standalone greeting attempts only.",
+      "match": {
+        "userMessage": "hello, what can you do"
       },
       "response": {
         "content": "Hello! I can help you with weather lookups, creating pie and bar charts, scheduling meetings, managing sales todos, searching flights, and toggling the theme. What would you like to do?"
       }
     },
     {
+      "_comment": "Scoped showcase-assistant help fixture — anchored on 'what can you help me with' so it doesn't substring-match arbitrary prompts that happen to contain 'help' (e.g. 'helpful', 'helping').",
       "match": {
-        "userMessage": "Hello"
-      },
-      "response": {
-        "content": "Hello! I can help you with weather lookups, creating pie and bar charts, scheduling meetings, managing sales todos, searching flights, and toggling the theme. What would you like to do?"
-      }
-    },
-    {
-      "match": {
-        "userMessage": "help"
+        "userMessage": "what can you help me with"
       },
       "response": {
         "content": "Here are the things I can help with:\n- Check the weather for any location\n- Create pie charts and bar charts from data\n- Schedule meetings with a reason and duration\n- Manage your sales pipeline and todos\n- Search for flights between cities\n- Toggle the UI theme between light and dark\n\nJust ask me about any of these!"
@@ -216,7 +1022,48 @@
     },
     {
       "match": {
-        "userMessage": "hi"
+        "userMessage": "can you tell me what is in this demo pdf I just attached"
+      },
+      "response": {
+        "content": "The attached PDF document is the CopilotKit Quickstart guide. It walks through three steps: install `@copilotkit/react-core` and `@copilotkit/react-ui`, wrap your app in a `<CopilotKit runtimeUrl=\"/api/copilotkit\">` provider, and drop a `<CopilotChat />` wherever you want the assistant to appear."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "can you tell me what is in this demo image I just attached"
+      },
+      "response": {
+        "content": "The attached image is the CopilotKit logo — a clean, geometric mark used across CopilotKit branding."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Plan a 3-day Tokyo trip for a solo traveler interested in food, art, and architecture. Keep it concise."
+      },
+      "response": {
+        "content": "Here's a tight 3-day Tokyo loop for a solo traveler who wants food, art, and architecture in equal measure.\n\n**Day 1 — Shibuya & Harajuku**\n- Morning: breakfast at a kissaten in Shibuya, then walk Cat Street to Harajuku.\n- Afternoon: Nezu Museum (architecture by Kengo Kuma + traditional garden).\n- Evening: izakaya in Nonbei Yokocho.\n\n**Day 2 — Roppongi & Ginza**\n- Morning: Mori Art Museum and the Tokyo City View deck.\n- Afternoon: stroll Ginza, stop into Itoya, lunch at a sushi counter.\n- Evening: jazz at a Ginza basement bar.\n\n**Day 3 — Yanaka & Asakusa**\n- Morning: Yanaka Ginza for old-Tokyo atmosphere and craft shops.\n- Afternoon: Senso-ji and the Asakusa back-streets; consider the Sumida River walk to the Tadao Ando-designed 21_21 if you want one more architecture stop.\n- Evening: ramen near Ueno before catching the train.\n\nLet me know if you want a vegetarian variant or a more architecture-heavy version."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Explain retrieval-augmented generation as if I were 12. Use a simple analogy."
+      },
+      "response": {
+        "content": "Imagine you're taking an open-book test.\n\nA regular language model is like a kid who studied really hard but isn't allowed to look at the textbook during the test — they have to answer from memory, and sometimes they confidently make stuff up.\n\nRetrieval-Augmented Generation (RAG) is the same kid, but now they're allowed to flip through the textbook before answering each question. First they look up the relevant pages (that's the *retrieval* step), then they write the answer using what they just read (that's the *generation* step).\n\nSo RAG = \"look it up, then answer.\" The model still talks like itself, but the facts come from the book instead of from its memory — which means fewer made-up answers, and you can swap the book out whenever your information changes."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Draft a short, upbeat launch email announcing a new AI-powered chat feature. 3 short paragraphs max."
+      },
+      "response": {
+        "content": "**Subject:** Meet your new AI co-pilot — now built right into the app\n\nHi there,\n\nWe just shipped something we're really excited about: an AI-powered chat that lives inside the product you already use. Ask it questions, hand off tasks, or just have it summarize what you're looking at — it has full context of your workspace, so you don't have to copy-paste anything.\n\nIt's rolling out today to every account, no setup required. Open the app, look for the new chat button in the corner, and try it on your messiest task. We'd love to hear what you build with it.\n\n— The team"
+      }
+    },
+    {
+      "_comment": "Scoped showcase-assistant intro fixture. Anchored on 'Hi, who are you' so it doesn't substring-match arbitrary prompts that happen to contain 'hi' inside other words (e.g. 'this', 'history', 'while') — those caused subagents writer/critique sub-LLM calls to return this boilerplate, breaking the demo.",
+      "match": {
+        "userMessage": "Hi, who are you"
       },
       "response": {
         "content": "Hi there! I'm your showcase assistant. I can help with weather, charts, meetings, sales todos, flights, and theme toggling. What would you like to try?"
@@ -224,42 +1071,10 @@
     },
     {
       "match": {
-        "userMessage": "plan"
+        "userMessage": "Based on the following context, write a concise"
       },
       "response": {
-        "text": "Here is my plan:\n1. Research the topic\n2. Outline key points\n3. Draft the content\n4. Review and refine\n5. Finalize"
-      }
-    },
-    {
-      "match": {
-        "userMessage": "steps"
-      },
-      "response": {
-        "text": "Here is my plan:\n1. Research the topic\n2. Outline key points\n3. Draft the content\n4. Review and refine\n5. Finalize"
-      }
-    },
-    {
-      "match": {
-        "userMessage": "mars"
-      },
-      "response": {
-        "text": "Here is my plan:\n1. Research the topic\n2. Outline key points\n3. Draft the content\n4. Review and refine\n5. Finalize"
-      }
-    },
-    {
-      "match": {
-        "userMessage": "dashboard"
-      },
-      "response": {
-        "text": "Working on your request. Step 1: Gathering data... Step 2: Analyzing results... Step 3: Generating report. Done!"
-      }
-    },
-    {
-      "match": {
-        "userMessage": "report"
-      },
-      "response": {
-        "text": "Working on your request. Step 1: Gathering data... Step 2: Analyzing results... Step 3: Generating report. Done!"
+        "content": "A short input value used to parameterize the crew's tasks and agents."
       }
     },
     {
@@ -303,8 +1118,10 @@
       }
     },
     {
+      "_comment": "Scoped sales-pipeline 'add a deal' fixture — anchored on the full intent phrase so it doesn't substring-match arbitrary prompts that happen to contain 'deal' (e.g. 'dealing with', 'idealized').",
       "match": {
-        "userMessage": "deal"
+        "userMessage": "add a new enterprise deal",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -317,7 +1134,8 @@
     },
     {
       "match": {
-        "userMessage": "sample deals"
+        "userMessage": "sample deals",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -330,20 +1148,8 @@
     },
     {
       "match": {
-        "userMessage": "trip"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "name": "search_flights",
-            "arguments": "{\"flights\":[{\"airline\":\"ANA\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=ana.co.jp&sz=128\",\"flightNumber\":\"NH7\",\"origin\":\"SFO\",\"destination\":\"NRT\",\"date\":\"Mon, Apr 21\",\"departureTime\":\"11:30\",\"arrivalTime\":\"15:30+1\",\"duration\":\"11h 00m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$850\",\"currency\":\"USD\"},{\"airline\":\"JAL\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=jal.co.jp&sz=128\",\"flightNumber\":\"JL1\",\"origin\":\"SFO\",\"destination\":\"NRT\",\"date\":\"Mon, Apr 21\",\"departureTime\":\"13:00\",\"arrivalTime\":\"17:00+1\",\"duration\":\"11h 00m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$920\",\"currency\":\"USD\"}]}"
-          }
-        ]
-      }
-    },
-    {
-      "match": {
-        "userMessage": "paris"
+        "userMessage": "flights to Paris",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -356,7 +1162,57 @@
     },
     {
       "match": {
-        "userMessage": "alice"
+        "toolCallId": "call_hitl_book_intro_sales_001"
+      },
+      "response": {
+        "content": "Booked the intro call with the sales team for the time you selected — calendar invite is on its way."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Please book an intro call with the sales team to discuss pricing.",
+        "toolName": "book_call"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_hitl_book_intro_sales_001",
+            "name": "book_call",
+            "arguments": "{\"topic\":\"Intro call — discuss pricing\",\"attendee\":\"Sales team\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "hitl-in-chat — Schedule 1:1 with Alice pill, 2nd turn (book_call tool result returned). Keyed on userMessage + toolCallId so it wins ahead of the bare 'alice' / 'Alice' substring fixtures further below in this file, regardless of prior pill state in the thread.",
+      "match": {
+        "userMessage": "Schedule a 1:1 with Alice next week to review Q2 goals.",
+        "toolCallId": "call_hitl_book_1on1_alice_001"
+      },
+      "response": {
+        "content": "Booked the 1:1 with Alice for the time you selected — calendar invite is on its way."
+      }
+    },
+    {
+      "_comment": "hitl-in-chat — Schedule 1:1 with Alice pill, 1st turn (emit book_call). Exact pill substring + toolName ensures this fires ONLY for the intended pill, not for arbitrary messages containing 'alice'.",
+      "match": {
+        "userMessage": "Schedule a 1:1 with Alice next week to review Q2 goals.",
+        "toolName": "book_call"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_hitl_book_1on1_alice_001",
+            "name": "book_call",
+            "arguments": "{\"topic\":\"1:1 with Alice — review Q2 goals\",\"attendee\":\"Alice\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Scoped 'Alice' greeting fixture for the showcase-assistant 'Hi, my name is Alice' / introduction flow. Anchored on the longer phrase so it doesn't substring-match the hitl-in-chat 'Schedule a 1:1 with Alice' pill or other prompts that merely mention Alice.",
+      "match": {
+        "userMessage": "Hi, my name is Alice"
       },
       "response": {
         "content": "Nice to meet you, Alice! I see you're in Tokyo -- wonderful city. How can I help you today? I can check the weather, look up flights, manage your sales pipeline, or help with other tasks."
@@ -364,15 +1220,16 @@
     },
     {
       "match": {
-        "userMessage": "Alice"
+        "userMessage": "What name did I just give"
       },
       "response": {
-        "content": "Nice to meet you, Alice! I see you're in Tokyo -- wonderful city. How can I help you today? I can check the weather, look up flights, manage your sales pipeline, or help with other tasks."
+        "content": "You said your name is Alice."
       }
     },
     {
+      "_comment": "Scoped 'what city do I live in' fixture — anchored so it doesn't substring-match arbitrary prompts containing 'city' (e.g. 'capacity', 'velocity', 'specificity').",
       "match": {
-        "userMessage": "city"
+        "userMessage": "what city do I live in"
       },
       "response": {
         "content": "Based on our conversation, you said you live in Tokyo!"
@@ -380,15 +1237,259 @@
     },
     {
       "match": {
-        "userMessage": "background"
+        "userMessage": "sunset-themed gradient",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
           {
             "name": "change_background",
-            "arguments": "{\"background\":\"linear-gradient(135deg, #667eea 0%, #764ba2 100%)\"}"
+            "arguments": "{\"background\":\"linear-gradient(135deg, #ff7e5f 0%, #feb47b 50%, #ffd194 100%)\"}"
           }
         ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Describe this image"
+      },
+      "response": {
+        "content": "This appears to be the CopilotKit logo. The mark combines clean geometric shapes typical of the CopilotKit brand identity."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Summarize this document"
+      },
+      "response": {
+        "content": "This is an excerpt from the CopilotKit documentation covering the quickstart — installing the packages and wrapping the app in a CopilotKitProvider pointing at a runtime endpoint."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "blue gradient",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "change_background",
+            "arguments": "{\"background\":\"linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "short joke"
+      },
+      "response": {
+        "content": "Why did the developer go broke? Because they used up all their cache."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Search my notes for 'auth'",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"auth\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "xyzzy-nonsense-keyword",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"xyzzy-nonsense-keyword\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a pie chart of revenue by category",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_render_pie_chart_001",
+            "name": "render_pie_chart",
+            "arguments": "{\"title\":\"Revenue by Category\",\"description\":\"Revenue breakdown by product category\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "bar chart of monthly expenses",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_bar_chart",
+            "arguments": "{\"title\":\"Monthly Expenses\",\"description\":\"Expense breakdown by month\",\"data\":[{\"label\":\"Jan\",\"value\":12000},{\"label\":\"Feb\",\"value\":14500},{\"label\":\"Mar\",\"value\":13200},{\"label\":\"Apr\",\"value\":15800}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What is my name?"
+      },
+      "response": {
+        "content": "Based on the context you provided, your name is Jamie."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "roll_dice",
+            "arguments": "{\"sides\":20}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "agentic-chat e2e: typed-message test sends 'Say hello in one word.'",
+      "match": {
+        "userMessage": "Say hello in one word"
+      },
+      "response": {
+        "content": "Hello!"
+      }
+    },
+    {
+      "_comment": "agentic-chat e2e: multi-turn test turn 1 — 'My name is Alice.'",
+      "match": {
+        "userMessage": "My name is Alice"
+      },
+      "response": {
+        "content": "Nice to meet you, Alice! How can I help you today?"
+      }
+    },
+    {
+      "_comment": "agentic-chat e2e: multi-turn test turn 2 — 'What name did I just give you?' Response must contain 'Alice'.",
+      "match": {
+        "userMessage": "What name did I just give you"
+      },
+      "response": {
+        "content": "You told me your name is Alice."
+      }
+    },
+    {
+      "_comment": "Pilot cell suggestion — 'Write a short sonnet about AI.' (agentic-chat, chat-slots)",
+      "match": {
+        "userMessage": "sonnet"
+      },
+      "response": {
+        "content": "A mind of silicon and light,\nTrained on the words that humans weave,\nIt learns to dream beyond its sight\nAnd crafts what few could yet conceive.\n\nIt speaks in tongues it never heard,\nAssembles thought from scattered streams,\nPredicts the next most likely word\nYet conjures something close to dreams.\n\nNo heart to break, no breath to take,\nStill something stirs inside the math —\nA pattern born for patterns' sake\nThat walks a strange, recursive path.\n\nSo here we stand, uncertain, awed:\nA mirror made — but not by God."
+      }
+    },
+    {
+      "_comment": "Pilot cell suggestion — 'Walk me through whether 17 is prime.' (agentic-chat, prebuilt-popup, prebuilt-sidebar)",
+      "match": {
+        "userMessage": "17 is prime"
+      },
+      "response": {
+        "content": "Let's check whether 17 is prime step by step.\n\nA prime number is a natural number greater than 1 whose only divisors are 1 and itself. So we need to test whether any integer from 2 up to the square root of 17 divides it evenly.\n\n1. **Square root of 17** is about 4.12, so we only need to test 2, 3, and 4.\n2. **17 ÷ 2 = 8.5** — not a whole number, so 2 is not a factor.\n3. **17 ÷ 3 ≈ 5.67** — not a whole number, so 3 is not a factor.\n4. **17 ÷ 4 = 4.25** — not a whole number, so 4 is not a factor.\n\nSince none of those divide 17 evenly, **17 is prime**."
+      }
+    },
+    {
+      "_comment": "Pilot cell suggestion — 'Write me a quick limerick.' (prebuilt-popup)",
+      "match": {
+        "userMessage": "limerick"
+      },
+      "response": {
+        "content": "A chatbot that lived in the cloud\nWould answer both meek and the loud.\nIt rhymed on demand,\nWith flair close at hand,\nAnd took its last bow to the crowd."
+      }
+    },
+    {
+      "_comment": "Pilot cell suggestion — 'Give me a fun fact.' (prebuilt-sidebar)",
+      "match": {
+        "userMessage": "fun fact"
+      },
+      "response": {
+        "content": "Here's a fun fact: honey never spoils. Archaeologists have found 3,000-year-old honey in Egyptian tombs that was still perfectly edible. Its low moisture content and acidic pH create an environment where bacteria and microorganisms simply cannot survive."
+      }
+    },
+    {
+      "_comment": "Pilot cell suggestion — 'Say hi from the popup!' (prebuilt-popup). Placed before the shorter 'Say hi' fixture so the popup version matches first.",
+      "match": {
+        "userMessage": "Say hi from the popup"
+      },
+      "response": {
+        "content": "Hi from the popup! I'm your CopilotKit assistant, tucked away in this little overlay. Ask me anything — a quick question, a limerick, or a math walk-through. What would you like?"
+      }
+    },
+    {
+      "_comment": "Pilot cell suggestion — 'Say hi!' (prebuilt-sidebar). Anchored on 'Say hi' so it matches the sidebar greeting without colliding with the longer popup variant above.",
+      "match": {
+        "userMessage": "Say hi"
+      },
+      "response": {
+        "content": "Hi there! I'm your CopilotKit sidebar assistant. I can answer questions, share fun facts, or help you think through problems. What's on your mind?"
+      }
+    },
+    {
+      "_comment": "readonly-state-agent-context — 'Who am I?' pill. Non-gated fallback: the agent injects context into the system message, but aimock only needs to match on the user message. The response references generic context values so it works regardless of what the frontend sends.",
+      "match": {
+        "userMessage": "What do you know about me from my context"
+      },
+      "response": {
+        "content": "Based on your context I can see your name, timezone, and recent activity. I'll keep responses calibrated to your preferences — just ask about anything you'd like help with."
+      }
+    },
+    {
+      "_comment": "readonly-state-agent-context — 'Suggest next steps' pill. Non-gated fallback matching the pill's exact message text.",
+      "match": {
+        "userMessage": "Based on my recent activity, what should I try next"
+      },
+      "response": {
+        "content": "Based on your recent activity, I'd suggest exploring features you haven't tried yet — check out the documentation for advanced use-cases, or dive into a hands-on tutorial to deepen your understanding."
+      }
+    },
+    {
+      "_comment": "agent-config e2e: 'send produces an assistant response' test sends 'Hello'.",
+      "match": {
+        "userMessage": "Hello"
+      },
+      "response": {
+        "content": "Hello! How can I assist you today?"
+      }
+    },
+    {
+      "_comment": "agent-config e2e: 'changing config between sends' test — first send with default config.",
+      "match": {
+        "userMessage": "First"
+      },
+      "response": {
+        "content": "Understood. What would you like to discuss first?"
+      }
+    },
+    {
+      "_comment": "agent-config e2e: 'changing config between sends' test — second send after config change.",
+      "match": {
+        "userMessage": "Second"
+      },
+      "response": {
+        "content": "Got it! Moving on to your second topic."
       }
     }
   ]

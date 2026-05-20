@@ -1,0 +1,48 @@
+---
+title: State Rendering
+icon: "lucide/Bot"
+description: Render your agent's state with custom UI components in real-time.
+hideTOC: true
+snippet_cell: shared-state-streaming
+---
+
+## What is this?
+
+State rendering lets you build UI that reflects your agent's state in real-time. As your agent progresses through nodes and emits state updates, your frontend renders those changes, showing progress, drafts, or intermediate results.
+
+<Callout type="info">
+  **Free course:** See this pattern built end-to-end in [Build Interactive Agents with Generative UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/) — a free DeepLearning.AI short course taught by CopilotKit's CEO covering the full Generative UI spectrum (Controlled, Declarative, and Open-Ended).
+</Callout>
+
+<InlineDemo demo="shared-state-streaming" />
+
+## When should I use this?
+
+Use state rendering when you want to:
+
+- Show real-time progress (e.g. "Researching... 2/5 complete")
+- Display drafts that update as the agent works
+- Build dashboards that reflect agent state
+- Render structured output outside of the chat
+
+## How it works in code
+
+On the frontend, subscribe to the agent's state. Each time the backend
+forwards a fresh value, your component re-renders with the latest partial
+output.
+
+<Snippet region="frontend-use-coagent-state" title="frontend/src/app/page.tsx — agent state subscription" />
+
+On the backend, a state-streaming middleware forwards a specific tool
+argument straight into a state key *as it's being generated*, so the UI can
+watch the answer assemble token-by-token rather than appearing in one burst
+between node transitions.
+
+<Snippet region="state-streaming-middleware" title="backend — StateStreamingMiddleware" />
+
+<FeatureIntegrations feature="shared-state-streaming" />
+
+<IntegrationGrid
+  path="generative-ui/state-rendering"
+  exclude={["agno", "agent-spec"]}
+/>

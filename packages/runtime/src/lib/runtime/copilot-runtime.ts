@@ -45,6 +45,7 @@ import {
 export type { AgentsConfig, AgentsFactory, AgentFactoryContext };
 import { TelemetryAgentRunner } from "./telemetry-agent-runner";
 import telemetry from "../telemetry-client";
+import { logRuntimeTelemetryDisclosure } from "../telemetry-disclosure";
 
 import type { MessageInput } from "../../graphql/inputs/message.input";
 import type { Message } from "../../graphql/types/converted";
@@ -356,6 +357,8 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     params?: CopilotRuntimeConstructorParams<T> &
       PartialBy<CopilotRuntimeOptions, "agents">,
   ) {
+    logRuntimeTelemetryDisclosure();
+
     const agents = params?.agents ?? {};
     const endpointAgents = this.assignEndpointsToAgents(
       params?.remoteEndpoints ?? [],
@@ -463,10 +466,26 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       }
 
       if (isAgentsListEmpty) {
-        const model =
-          serviceAdapter.getLanguageModel?.() ??
-          `${serviceAdapter.provider}/${serviceAdapter.model}`;
-        agentsList.default = new BuiltInAgent({ model });
+        const languageModel = serviceAdapter.getLanguageModel?.();
+        if (languageModel) {
+          // Adapter exposes a pre-configured LanguageModel (e.g. OpenAI/Anthropic adapters)
+          agentsList.default = new BuiltInAgent({ model: languageModel });
+        } else if (serviceAdapter.provider && serviceAdapter.model) {
+          // Adapter exposes provider/model strings
+          agentsList.default = new BuiltInAgent({
+            model: `${serviceAdapter.provider}/${serviceAdapter.model}`,
+          });
+        } else {
+          throw new CopilotKitMisuseError({
+            message:
+              `Service adapter "${serviceAdapter.name ?? "unknown"}" does not provide model information. ` +
+              `When using adapters like LangChainAdapter without an explicit agents list, ` +
+              `please provide a default agent in the runtime config. Example:\n` +
+              `  new CopilotRuntime({\n` +
+              `    agents: { default: new BuiltInAgent({ model: "openai/gpt-4o" }) }\n` +
+              `  })`,
+          });
+        }
       }
 
       const actions = this.params?.actions;
@@ -626,9 +645,22 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       params?.afterRequestMiddleware?.(hookParams);
 
       if (params?.middleware?.onAfterRequest) {
-        // TODO: provide old expected params here when available
-        // @ts-expect-error -- missing arguments.
-        params.middleware.onAfterRequest({});
+        const messages = hookParams.messages ?? [];
+        params.middleware.onAfterRequest({
+          threadId: hookParams.threadId ?? "",
+          runId: hookParams.runId,
+          inputMessages: messages.filter(
+            (m): m is typeof m & { role: string } =>
+              "role" in m && m.role === "user",
+          ) as unknown as Message[],
+          outputMessages: messages.filter(
+            (m): m is typeof m & { role: string } =>
+              "role" in m && m.role !== "user",
+          ) as unknown as Message[],
+          // TODO: forward actual properties once the after-request hook has access to the request body
+          properties: {},
+          url: hookParams.path,
+        } satisfies OnAfterRequestOptions);
       }
     };
   }

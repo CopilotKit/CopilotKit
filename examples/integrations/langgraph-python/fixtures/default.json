@@ -57,7 +57,7 @@
     {
       "match": {},
       "response": {
-        "content": "You're currently running against aimock (a mock LLM server). This response is a catch-all for requests that don't match any test fixture. To use a real LLM: (1) Add your OPENAI_API_KEY to .env, (2) Remove or unset OPENAI_BASE_URL from your environment so requests go to OpenAI instead of aimock, (3) Restart with `pnpm dev`."
+        "content": "You're currently running against aimock (a mock LLM server). This response is a catch-all for requests that don't match any test fixture. To use a real LLM: (1) Add your OPENAI_API_KEY to .env, (2) Remove or unset OPENAI_BASE_URL from your environment so requests go to OpenAI instead of aimock, (3) Restart with `npm run dev`."
       }
     }
   ]

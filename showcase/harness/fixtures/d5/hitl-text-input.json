@@ -1,0 +1,29 @@
+{
+  "_comment": "D5 fixture for /demos/hitl-in-chat against LangGraph Python (LGP). Text-input HITL via the frontend-defined `book_call` tool. Uses hasToolResult matching: aimock checks for role:tool messages in the request to disambiguate multi-turn fixtures sharing the same userMessage. Fixtures ordered by hasToolResult false→true for readability.",
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "Book a 30-minute onboarding call for Alice",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_book_call_001",
+            "name": "book_call",
+            "arguments": "{\"topic\":\"Onboarding call\",\"attendee\":\"Alice\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Book a 30-minute onboarding call for Alice",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Booked Alice's onboarding call for the time you selected — calendar invite is on its way."
+      }
+    }
+  ]
+}

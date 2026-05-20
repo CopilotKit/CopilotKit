@@ -1,0 +1,366 @@
+# Run the Railway-equivalent Docker image for every showcase package locally.
+# Ports come from shared/local-ports.json; internal port is always 10000 (Railway convention).
+
+x-integration-defaults: &integration-defaults
+  env_file: .env
+  environment:
+    - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-mock}
+    - OPENAI_BASE_URL=http://aimock:4010/v1
+    - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-sk-mock-anthropic}
+    - ANTHROPIC_BASE_URL=http://aimock:4010
+    - GOOGLE_API_KEY=${GOOGLE_API_KEY:-fake-gemini-key}
+    - GOOGLE_GEMINI_BASE_URL=${GOOGLE_GEMINI_BASE_URL-http://aimock:4010}
+    - SPRING_AI_OPENAI_BASE_URL=http://aimock:4010
+    - AIMOCK_URL=http://aimock:4010
+    - GitHubToken=${GitHubToken:-gh-mock-local-dev}
+  depends_on:
+    aimock:
+      condition: service_healthy
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost:10000/api/health"]
+    interval: 5s
+    timeout: 3s
+    retries: 5
+    start_period: 15s
+
+services:
+  aimock:
+    # Local aimock so the 17 integration containers can hit a stable LLM mock
+    # on the compose network at http://aimock:4010 instead of the prod Railway
+    # aimock (which can OOM) or direct-to-OpenAI (which costs).
+    #
+    # Local vs. production parity: local uses volume mounts (below) so fixture
+    # edits take effect on container restart without rebuilding. Production
+    # bakes fixtures into the image via showcase/aimock/Dockerfile. When adding
+    # a new fixture file, add it to BOTH the volumes list here AND the COPY
+    # lines in showcase/aimock/Dockerfile.
+    image: ghcr.io/copilotkit/aimock:latest
+    container_name: showcase-aimock
+    env_file: .env
+    ports:
+      - "4010:4010"
+    profiles: ["infra", "all"]
+    restart: unless-stopped
+    volumes:
+      - ./aimock/d5-all.json:/showcase-fixtures/d5-all.json:ro
+      - ./aimock/smoke.json:/showcase-fixtures/smoke.json:ro
+      - ./aimock/feature-parity.json:/showcase-fixtures/feature-parity.json:ro
+    # `--proxy-only` + `--provider-openai` mirrors the Railway aimock setup:
+    # matched fixtures short-circuit deterministically; unmatched requests
+    # fall through to real OpenAI (using OPENAI_API_KEY from .env). Without
+    # these flags aimock returns 404 on no-match, the LangGraph SDK
+    # interprets that as `NotFoundError`, and the demo crashes with
+    # "Failed to fetch" instead of seeing a real model response.
+    command: [
+        "--port",
+        "4010",
+        "--host",
+        "0.0.0.0",
+        "--proxy-only",
+        "--provider-openai",
+        "https://api.openai.com",
+        "--provider-anthropic",
+        "https://api.anthropic.com",
+        "--provider-gemini",
+        "https://generativelanguage.googleapis.com",
+        # Natural-feel streaming so demos look like a real LLM rather than
+        # an instant dump. 8 chars/chunk × 60 ms = ~130 chars/sec ≈ 30-40
+        # tokens/sec, the lower end of Gemini 2.5-flash's real streaming
+        # rate. Total wall-clock for a 500-char response is ~4s, well
+        # inside the 30s default test timeout. Tune here if specific
+        # demos feel sluggish; CI doc-tests intentionally don't slow.
+        "--chunk-size",
+        "8",
+        "--latency",
+        "60",
+        "--fixtures",
+        "/showcase-fixtures/d5-all.json",
+        "--fixtures",
+        "/showcase-fixtures/smoke.json",
+        "--fixtures",
+        "/showcase-fixtures/feature-parity.json",
+        "--validate-on-load",
+      ]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:4010/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  pocketbase:
+    build: ./pocketbase
+    image: showcase-pocketbase:local
+    container_name: showcase-pocketbase
+    environment:
+      - POCKETBASE_SUPERUSER_EMAIL=admin@localhost
+      - POCKETBASE_SUPERUSER_PASSWORD=showcase-local-dev
+    ports:
+      - "8090:8090"
+    volumes:
+      - showcase-pb-data:/pb_data
+    profiles: ["infra", "all"]
+    restart: unless-stopped
+    healthcheck:
+      test:
+        ["CMD", "wget", "-q", "--spider", "http://localhost:8090/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  dashboard:
+    build:
+      context: ../
+      dockerfile: showcase/shell-dashboard/Dockerfile
+      args:
+        # PocketBase URL the browser hits at runtime — pinned to the host
+        # binding so the user's browser (not the container) can resolve it.
+        NEXT_PUBLIC_POCKETBASE_URL: http://localhost:8090
+        # Showcase shell URL the dashboard links to for Demo / Code /
+        # docs-shell jumps. Points at the langgraph-python integration's
+        # host port for now (no shared "shell" service in the local stack).
+        NEXT_PUBLIC_SHELL_URL: http://localhost:3100
+        # /api/ops/* rewrites here. There's no harness HTTP server in the
+        # local stack, so this points back at the dashboard itself; the
+        # rewrites will 404 but the matrix view reads from PocketBase
+        # directly and doesn't depend on /api/ops.
+        OPS_BASE_URL: http://localhost:3200
+    image: showcase-dashboard:local
+    container_name: showcase-dashboard
+    environment:
+      - POCKETBASE_URL=http://pocketbase:8090
+      - SHOWCASE_LOCAL=1
+    ports:
+      - "3200:10000"
+    depends_on:
+      pocketbase:
+        condition: service_healthy
+    profiles: ["infra", "all"]
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:10000/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  langgraph-python:
+    <<: *integration-defaults
+    build: ./integrations/langgraph-python
+    image: showcase-langgraph-python:local
+    container_name: showcase-langgraph-python
+    ports:
+      - "3100:10000"
+    profiles: ["langgraph-python", "all"]
+    volumes:
+      - ./integrations/langgraph-python/src:/app/src
+
+  langgraph-typescript:
+    <<: *integration-defaults
+    build: ./integrations/langgraph-typescript
+    image: showcase-langgraph-typescript:local
+    container_name: showcase-langgraph-typescript
+    ports:
+      - "3101:10000"
+    profiles: ["langgraph-typescript", "all"]
+    volumes:
+      - ./integrations/langgraph-typescript/src:/app/src
+      # Preserve the agent's node_modules from the Docker image.  The bind
+      # mount above overlays the host's src/ (no node_modules) on top of the
+      # container's /app/src, which clobbers src/agent/node_modules installed
+      # during the build.  This anonymous volume pins the image's copy so
+      # `node --import tsx` can resolve tsx at runtime.
+      - /app/src/agent/node_modules
+
+  langgraph-fastapi:
+    <<: *integration-defaults
+    build: ./integrations/langgraph-fastapi
+    image: showcase-langgraph-fastapi:local
+    container_name: showcase-langgraph-fastapi
+    ports:
+      - "3102:10000"
+    profiles: ["langgraph-fastapi", "all"]
+    volumes:
+      - ./integrations/langgraph-fastapi/src:/app/src
+
+  google-adk:
+    <<: *integration-defaults
+    build: ./integrations/google-adk
+    image: showcase-google-adk:local
+    container_name: showcase-google-adk
+    ports:
+      - "3103:10000"
+    profiles: ["google-adk", "all"]
+    volumes:
+      - ./integrations/google-adk/src:/app/src
+
+  mastra:
+    <<: *integration-defaults
+    build: ./integrations/mastra
+    image: showcase-mastra:local
+    container_name: showcase-mastra
+    ports:
+      - "3104:10000"
+    profiles: ["mastra", "all"]
+    volumes:
+      - ./integrations/mastra/src:/app/src
+
+  crewai-crews:
+    <<: *integration-defaults
+    build: ./integrations/crewai-crews
+    image: showcase-crewai-crews:local
+    container_name: showcase-crewai-crews
+    ports:
+      - "3105:10000"
+    profiles: ["crewai-crews", "all"]
+    volumes:
+      - ./integrations/crewai-crews/src:/app/src
+
+  pydantic-ai:
+    <<: *integration-defaults
+    build: ./integrations/pydantic-ai
+    image: showcase-pydantic-ai:local
+    container_name: showcase-pydantic-ai
+    ports:
+      - "3106:10000"
+    profiles: ["pydantic-ai", "all"]
+    volumes:
+      - ./integrations/pydantic-ai/src:/app/src
+
+  claude-sdk-python:
+    <<: *integration-defaults
+    build: ./integrations/claude-sdk-python
+    image: showcase-claude-sdk-python:local
+    container_name: showcase-claude-sdk-python
+    ports:
+      - "3107:10000"
+    profiles: ["claude-sdk-python", "all"]
+    volumes:
+      - ./integrations/claude-sdk-python/src:/app/src
+
+  claude-sdk-typescript:
+    <<: *integration-defaults
+    build: ./integrations/claude-sdk-typescript
+    image: showcase-claude-sdk-typescript:local
+    container_name: showcase-claude-sdk-typescript
+    ports:
+      - "3108:10000"
+    profiles: ["claude-sdk-typescript", "all"]
+    volumes:
+      - ./integrations/claude-sdk-typescript/src:/app/src
+
+  agno:
+    <<: *integration-defaults
+    build: ./integrations/agno
+    image: showcase-agno:local
+    container_name: showcase-agno
+    ports:
+      - "3109:10000"
+    profiles: ["agno", "all"]
+    volumes:
+      - ./integrations/agno/src:/app/src
+
+  ag2:
+    <<: *integration-defaults
+    build: ./integrations/ag2
+    image: showcase-ag2:local
+    container_name: showcase-ag2
+    ports:
+      - "3110:10000"
+    profiles: ["ag2", "all"]
+    volumes:
+      - ./integrations/ag2/src:/app/src
+
+  llamaindex:
+    <<: *integration-defaults
+    build: ./integrations/llamaindex
+    image: showcase-llamaindex:local
+    container_name: showcase-llamaindex
+    ports:
+      - "3111:10000"
+    profiles: ["llamaindex", "all"]
+    volumes:
+      - ./integrations/llamaindex/src:/app/src
+
+  strands:
+    <<: *integration-defaults
+    build: ./integrations/strands
+    image: showcase-strands:local
+    container_name: showcase-strands
+    ports:
+      - "3112:10000"
+    profiles: ["strands", "all"]
+    volumes:
+      - ./integrations/strands/src:/app/src
+
+  langroid:
+    <<: *integration-defaults
+    build: ./integrations/langroid
+    image: showcase-langroid:local
+    container_name: showcase-langroid
+    ports:
+      - "3113:10000"
+    profiles: ["langroid", "all"]
+    volumes:
+      - ./integrations/langroid/src:/app/src
+
+  ms-agent-python:
+    <<: *integration-defaults
+    build: ./integrations/ms-agent-python
+    image: showcase-ms-agent-python:local
+    container_name: showcase-ms-agent-python
+    ports:
+      - "3114:10000"
+    profiles: ["ms-agent-python", "all"]
+    volumes:
+      - ./integrations/ms-agent-python/src:/app/src
+
+  ms-agent-dotnet:
+    <<: *integration-defaults
+    build: ./integrations/ms-agent-dotnet
+    image: showcase-ms-agent-dotnet:local
+    container_name: showcase-ms-agent-dotnet
+    ports:
+      - "3115:10000"
+    profiles: ["ms-agent-dotnet", "all"]
+    volumes:
+      - ./integrations/ms-agent-dotnet/src:/app/src
+
+  spring-ai:
+    <<: *integration-defaults
+    build: ./integrations/spring-ai
+    image: showcase-spring-ai:local
+    container_name: showcase-spring-ai
+    ports:
+      - "3116:10000"
+    profiles: ["spring-ai", "all"]
+    volumes:
+      - ./integrations/spring-ai/src:/app/src
+
+  built-in-agent:
+    <<: *integration-defaults
+    build: ./integrations/built-in-agent
+    image: showcase-built-in-agent:local
+    container_name: showcase-built-in-agent
+    ports:
+      - "3117:10000"
+    profiles: ["built-in-agent", "all"]
+    volumes:
+      - ./integrations/built-in-agent/src:/app/src
+
+volumes:
+  showcase-pb-data:

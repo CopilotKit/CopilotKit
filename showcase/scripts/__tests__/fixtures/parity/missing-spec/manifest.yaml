@@ -1,0 +1,4 @@
+slug: missing-spec
+demos:
+  - id: chat
+    name: Chat

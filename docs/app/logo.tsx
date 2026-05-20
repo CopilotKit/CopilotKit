@@ -38,14 +38,14 @@ export function Logo({
         src="/images/logo-light.svg"
         width={width}
         height={height}
-        alt="Logo"
+        alt="CopilotKit"
         className={cn("block dark:hidden", COMMON_CLASSNAMES)}
       />
       <Image
         src="/images/logo-dark.svg"
         width={width}
         height={height}
-        alt="Logo"
+        alt="CopilotKit"
         className={cn("hidden dark:block", COMMON_CLASSNAMES)}
       />
     </Link>

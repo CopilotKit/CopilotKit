@@ -1,0 +1,17 @@
+{
+  "title": "Pydantic AI",
+  "root": true,
+  "pages": [
+    "index",
+    "---Generative UI---",
+    "...generative-ui",
+    "---App Control---",
+    "shared-state",
+    "---Pydantic AI---",
+    "multi-agent-flows",
+    "---Threads---",
+    "threads",
+    "---Premium Features---",
+    "...premium"
+  ]
+}
