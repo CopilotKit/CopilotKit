@@ -9,7 +9,7 @@
     {
       "name": "copilotkit",
       "description": "CopilotKit v2 skills (runtime, react-core, a2ui-renderer + 6 lifecycle journeys)",
-      "version": "1.56.2",
+      "version": "1.57.3",
       "source": "./",
       "author": {
         "name": "CopilotKit",
