@@ -142,8 +142,7 @@ export function bumpPackages(
       ] as const) {
         if (!pkg[depField]) continue;
         for (const depName of Object.keys(pkg[depField])) {
-          const depValue = pkg[depField][depName];
-          if (scopeNames.has(depName) && !depValue.startsWith("workspace:")) {
+          if (scopeNames.has(depName)) {
             pkg[depField][depName] = newVersion;
           }
         }
