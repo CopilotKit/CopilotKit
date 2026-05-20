@@ -764,10 +764,14 @@ export function stripLeadingImports(source: string): string {
 
     if (!inFence && !pastHeader) {
       if (inMultilineImport) {
-        // Continuation of a multi-line import — drop until the closing
-        // `} from "...";` (or any line ending in `;`, which covers the
-        // rarer side-effect or assignment form).
-        if (/;\s*$/.test(line)) {
+        // Continuation of a multi-line import block. Terminate when we
+        // see the closing `from "..."` clause (with OR without the
+        // trailing semicolon — modern style routinely omits the `;`).
+        // Don't terminate purely on `;` — a bare `;` rarely appears
+        // mid-import, and JSX expressions on subsequent body lines
+        // (`<Foo prop={a ? b : c};`) could false-match and leave us
+        // stuck consuming forever.
+        if (/\bfrom\s+["'][^"']+["']\s*;?\s*$/.test(line)) {
           inMultilineImport = false;
         }
         continue;
@@ -777,13 +781,22 @@ export function stripLeadingImports(source: string): string {
         out.push(line);
         continue;
       }
-      // Single-line import: `import X from "..."` or `import "..."`.
-      if (/^import\s+.+;\s*$/.test(line)) {
-        continue;
-      }
-      // Multi-line import opener: `import {` (or any `import ...` that
-      // does NOT end in `;`).
       if (/^import\b/.test(line)) {
+        // Single-line import has both `import` AND its `from "..."`
+        // (or side-effect form `import "..."`) on the same line. The
+        // optional trailing `;` is irrelevant — modern MDX docs often
+        // drop it, which was the bug behind the prior fix's regression
+        // (the prior version required `;` and so misclassified bare
+        // imports as multi-line, then silently consumed the JSX body
+        // looking for a non-existent `;` terminator).
+        const isSingleLine =
+          /\bfrom\s+["'][^"']+["']\s*;?\s*$/.test(line) ||
+          /^import\s+["'][^"']+["']\s*;?\s*$/.test(line);
+        if (isSingleLine) {
+          continue;
+        }
+        // Multi-line opener: `import {` with the `from "..."` clause
+        // on a subsequent line.
         inMultilineImport = true;
         continue;
       }
