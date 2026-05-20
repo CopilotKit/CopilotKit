@@ -11,6 +11,7 @@ import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
 import { resolveWithinDir } from "./safe-fs";
+import { getDocsMode } from "./registry";
 
 export const CONTENT_DIR = path.join(process.cwd(), "src/content/docs");
 export const SNIPPETS_DIR = path.join(CONTENT_DIR, "..", "snippets");
@@ -565,10 +566,22 @@ export function buildFrameworkOnlyNav(folder: string): NavNode[] {
 
   // Recursive slug rewrite so nested groups (e.g. `human-in-the-loop/`,
   // `premium/`) also get the prefix stripped from their children.
+  //
+  // Two `index` cases need rewriting:
+  //   1. Top-level `index` → "" so the framework-root entry resolves to
+  //      `/<framework>` (not `/<framework>/index`).
+  //   2. Nested `<group>/index` → `<group>` so a folder's own root page
+  //      (e.g. `human-in-the-loop/index.mdx`) resolves to
+  //      `/<framework>/human-in-the-loop` (the folder URL), not
+  //      `/<framework>/human-in-the-loop/index` which 404s. Without
+  //      this rewrite the sidebar links into folder-root pages dead-end.
   const rewrite = (node: NavNode): NavNode => {
     if (node.type === "page") {
       const stripped = node.slug.replace(prefix, "");
-      const slug = stripped === "index" ? "" : stripped;
+      let slug = stripped;
+      if (stripped === "index") slug = "";
+      else if (stripped.endsWith("/index"))
+        slug = stripped.slice(0, -"/index".length);
       return { ...node, slug };
     }
     if (node.type === "group") {
@@ -597,7 +610,12 @@ export function buildFrameworkOnlyNav(folder: string): NavNode[] {
  * ms-agent-dotnet/python → `microsoft-agent-framework/`) and two
  * legacy slugs were renamed after the folder existed (google-adk →
  * `adk/`, strands → `aws-strands/`). The caller supplies the
- * slug→folder resolver so this module stays registry-free.
+ * slug→folder resolver so this helper stays decoupled from the registry's
+ * docs-folder mapping.
+ *
+ * `docs_mode: hidden` frameworks are filtered out — the "Try X, Y, Z"
+ * suggestion surfaces would otherwise dead-end on a 404 (those frameworks
+ * have no `/<slug>` route by design).
  */
 export function findFrameworksWithPage(
   slugPath: string,
@@ -606,6 +624,7 @@ export function findFrameworksWithPage(
 ): string[] {
   const matches: string[] = [];
   for (const slug of integrationSlugs) {
+    if (getDocsMode(slug) === "hidden") continue;
     const folder = slugToFolder(slug);
     const mdx = path.join(
       CONTENT_DIR,
@@ -1053,9 +1072,11 @@ export function convertTablesInJSX(content: string): string {
 
 /**
  * Return the slugs of integrations that have a demo region tagged for
- * the given feature cell. Pure helper — the caller supplies the list of
- * candidate integration slugs and the demo-content map so this file
- * stays framework-agnostic and free of registry imports.
+ * the given feature cell. The caller supplies the list of candidate
+ * integration slugs and the demo-content map; this helper consults
+ * `getDocsMode` to filter `docs_mode: hidden` frameworks out of the
+ * result so cross-framework suggestions ("Try X, Y, Z") never point at
+ * a 404 page.
  *
  * Shape of `demos`: keys are `"<integrationSlug>::<cell>"`; values are
  * opaque demo records (we only check key presence here).
@@ -1067,6 +1088,7 @@ export function findFrameworksWithCell(
 ): string[] {
   const matches: string[] = [];
   for (const slug of integrationSlugs) {
+    if (getDocsMode(slug) === "hidden") continue;
     if (demos[`${slug}::${cell}`]) matches.push(slug);
   }
   return matches;
