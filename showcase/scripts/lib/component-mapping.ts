@@ -20,7 +20,7 @@ export const COMPONENT_MAPPING: ComponentMapping[] = [
     v1Name: "A2UI",
     kind: "shim",
     notes:
-      "MDX snippet passthrough (imports @/snippets/shared/generative-ui/a2ui.mdx). Not yet in mdx-registry; needs shim stub.",
+      "MDX snippet passthrough (imports @/snippets/shared/generative-ui/a2ui.mdx). Registered in mdx-registry.tsx as stubWithPartial; STUB_PARTIAL_MAP routes it to shared/generative-ui/a2ui.mdx.",
   },
   {
     v1Name: "AGUI",
@@ -309,19 +309,19 @@ export const COMPONENT_MAPPING: ComponentMapping[] = [
     v1Name: "MigrateTo1100",
     kind: "shim",
     notes:
-      "v1-only migration guide snippet (imports @/snippets/shared/troubleshooting/migrate-to-1.10.X.mdx). Not in mdx-registry; needs shim stub.",
+      "v1-only migration guide snippet. Registered in mdx-registry.tsx via STUB_PARTIAL_MAP → shared/troubleshooting/migrate-to-1.10.X.mdx.",
   },
   {
     v1Name: "MigrateTo182",
     kind: "shim",
     notes:
-      "v1-only migration guide snippet (imports @/snippets/shared/troubleshooting/migrate-to-1.8.2.mdx). Not in mdx-registry; needs shim stub.",
+      "v1-only migration guide snippet. Registered in mdx-registry.tsx via STUB_PARTIAL_MAP → shared/troubleshooting/migrate-to-1.8.2.mdx.",
   },
   {
     v1Name: "MigrateToV2",
     kind: "shim",
     notes:
-      "v1-only migration guide snippet (imports @/snippets/shared/troubleshooting/migrate-to-v2.mdx). Not in mdx-registry; needs shim stub. Note: mdx-registry has MigrateToV and MigrateTo but not the full MigrateToV2 name.",
+      "v1-only migration guide snippet. Registered in mdx-registry.tsx via STUB_PARTIAL_MAP → shared/troubleshooting/migrate-to-v2.mdx.",
   },
   {
     v1Name: "MonitorIcon",
@@ -391,7 +391,7 @@ export const COMPONENT_MAPPING: ComponentMapping[] = [
     kind: "use-existing",
     target: "PydanticAIIcon",
     notes:
-      "Registered in mdx-registry.tsx as emoji shim (🐍). Imported from @/lib/icons/custom-icons in v1 docs.",
+      "Registered in mdx-registry.tsx as the real PydanticAiIcon SVG component (not an emoji shim). Imported from @/lib/icons/custom-icons in v1 docs.",
   },
   {
     v1Name: "RepeatIcon",
@@ -418,7 +418,7 @@ export const COMPONENT_MAPPING: ComponentMapping[] = [
     v1Name: "SelfHosting",
     kind: "shim",
     notes:
-      "v1 snippet passthrough (imports @/snippets/shared/premium/self-hosting.mdx). Not in mdx-registry; needs shim stub.",
+      "v1 snippet passthrough. Registered in mdx-registry.tsx via STUB_PARTIAL_MAP → shared/premium/self-hosting.mdx.",
   },
   {
     v1Name: "SelfHostingCopilotRuntimeConfigureCopilotKitProvider",
