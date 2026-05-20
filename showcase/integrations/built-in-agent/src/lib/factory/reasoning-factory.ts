@@ -6,14 +6,27 @@ import { baseServerTools } from "./server-tools";
 /**
  * Reasoning model used by all three reasoning demos.
  *
- * GPT-5.2 is a reasoning-capable variant; OpenAI's chat completions API
- * accepts the `reasoning_effort` parameter for it. If GPT-5.2 isn't
- * accessible in your environment swap to another reasoning-capable model
- * such as `o3` or `gpt-5-thinking`. The runtime's tanstack converter
- * already translates upstream REASONING_START / REASONING_MESSAGE_CONTENT
- * / REASONING_END events into AG-UI reasoning events, so once the model
- * emits reasoning the chain surfaces on the frontend with no extra
- * plumbing.
+ * gpt-5.2 streams `response.reasoning_summary_text.delta` events from
+ * OpenAI's Responses API only at `effort: "xhigh"`. Direct probing on
+ * 2026-05-20 against `effort: low / medium / high` (with summary auto
+ * and detailed, with and without `include: ["reasoning.encrypted_content"]`,
+ * with and without `store: true`, on both a simple math prompt and a
+ * Bayes-theorem prompt that genuinely requires reasoning) produced
+ * `reasoning_tokens: 0` in every case. Bumping to `effort: "xhigh"`
+ * produced 79 summary deltas and 57 reasoning tokens for the same
+ * prompt, so the chain renders.
+ *
+ * For comparison, o4-mini at `effort: "medium"` produces a richer chain
+ * (166 deltas, 320 tokens) on the same prompt; gpt-5-pro at
+ * `effort: "high"` produces 167 deltas / 384 tokens but at substantially
+ * higher cost. Staying on gpt-5.2 keeps the showcase on a current-gen
+ * model at acceptable cost; the trade-off is a slightly shorter visible
+ * "Thinking..." card.
+ *
+ * The parameter-shape change (flat `reasoning_effort` to nested
+ * `reasoning: { effort, summary }`) is independently required by the
+ * Responses API; pre-fix every reasoning demo errored 400 on every
+ * prompt.
  */
 const REASONING_MODEL = process.env.REASONING_MODEL ?? "gpt-5.2";
 
@@ -33,7 +46,7 @@ export function createAgenticChatReasoningAgent() {
         systemPrompts,
         tools: [...baseServerTools],
         modelOptions: {
-          reasoning_effort: "low",
+          reasoning: { effort: "xhigh", summary: "auto" },
         },
         abortController,
       });

@@ -5,7 +5,7 @@
 // The built-in tanstack/openai factory normally uses a non-reasoning
 // model (gpt-4o) so REASONING_* events never flow. This demo points at
 // a dedicated route (`/api/copilotkit-reasoning`) whose factory uses a
-// reasoning-capable model (`gpt-5.2`) with `reasoning_effort: "low"`.
+// reasoning-capable model (`gpt-5.2`) with `reasoning.effort: "xhigh"`.
 // The runtime's tanstack converter translates the upstream reasoning
 // events into AG-UI REASONING_START / REASONING_MESSAGE_CONTENT /
 // REASONING_END, and CopilotKit renders them via the

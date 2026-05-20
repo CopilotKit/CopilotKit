@@ -3,7 +3,7 @@
 // Reasoning (Default Render) — built-in-agent variant.
 //
 // Same backend (`/api/copilotkit-reasoning`, agent
-// `reasoning-default-render`, gpt-5.2 with reasoning_effort=low) as the
+// `reasoning-default-render`, gpt-5.2 with reasoning.effort=xhigh) as the
 // agentic-chat-reasoning demo, but this page passes NO custom
 // `reasoningMessage` slot. CopilotKit's built-in
 // `CopilotChatReasoningMessage` renders the chain as a collapsible card

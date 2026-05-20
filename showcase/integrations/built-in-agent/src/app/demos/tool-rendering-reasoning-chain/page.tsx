@@ -12,7 +12,7 @@
 //
 // Backed by the shared reasoning runtime
 // (`/api/copilotkit-reasoning`, agent `tool-rendering-reasoning-chain`)
-// using gpt-5.2 with `reasoning_effort: "low"`.
+// using gpt-5.2 with `reasoning.effort: "xhigh"`.
 
 import React from "react";
 import {
