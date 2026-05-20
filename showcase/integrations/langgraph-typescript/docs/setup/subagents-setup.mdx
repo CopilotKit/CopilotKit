@@ -1,0 +1,18 @@
+<Steps>
+  <Step>
+    ### Install the LangGraph TypeScript SDK
+
+    ```bash
+    npm install @copilotkit/sdk-js
+    ```
+  </Step>
+  <Step>
+    ### Wire CopilotKit state + tools into your graph
+
+    Sub-agents are tools on a supervisor agent. The supervisor's graph state
+    extends `CopilotKitStateAnnotation` so delegations stream back to the UI
+    through shared state in real time.
+
+    <DemoCode file="src/agent/frontend-tools.ts" region="setup" />
+  </Step>
+</Steps>

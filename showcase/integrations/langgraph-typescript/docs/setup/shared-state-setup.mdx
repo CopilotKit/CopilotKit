@@ -1,0 +1,23 @@
+<Steps>
+  <Step>
+    ### Install the LangGraph TypeScript SDK
+
+    ```bash
+    npm install @copilotkit/sdk-js
+    ```
+  </Step>
+  <Step>
+    ### Wire CopilotKit state into your graph
+
+    Shared state requires that your graph's state annotation extends
+    `CopilotKitStateAnnotation`'s `spec`. That's what gives the runtime a
+    place to forward state updates from `agent.setState(...)`.
+
+    <DemoCode file="src/agent/frontend-tools.ts" region="setup" />
+
+    See `src/agent/shared-state-read-write.ts` for the bidirectional
+    pattern: a `set_notes` tool emits a `Command({ update: ... })` to
+    push agent-authored state, and a preferences-injecting chat node
+    reads UI-authored state every turn.
+  </Step>
+</Steps>

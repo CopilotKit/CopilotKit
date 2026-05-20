@@ -1,0 +1,19 @@
+<Steps>
+  <Step>
+    ### Install the LangGraph TypeScript SDK
+
+    ```bash
+    npm install @copilotkit/sdk-js
+    ```
+  </Step>
+  <Step>
+    ### Wire CopilotKit state + tools into your graph
+
+    Programmatic control (`copilotkit.runAgent`, `agent.subscribe`,
+    `agent.addMessage`) drives runs through the same agent your chat UI
+    uses, so the backend wiring is the same `CopilotKitStateAnnotation`
+    setup.
+
+    <DemoCode file="src/agent/frontend-tools.ts" region="setup" />
+  </Step>
+</Steps>

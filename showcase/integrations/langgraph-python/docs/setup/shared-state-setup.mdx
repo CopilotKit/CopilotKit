@@ -1,0 +1,17 @@
+<Steps>
+  <Step>
+    ### Install the LangGraph Python SDK
+
+    <InstallPythonSDK />
+  </Step>
+  <Step>
+    ### Wire CopilotKit middleware into your graph
+
+    Shared state flows between your UI and your agent through `agent.setState`
+    on the frontend and `state.get(...)` in your graph nodes. Attach
+    `CopilotKitMiddleware` to your `create_agent` call so CopilotKit-specific
+    state is picked up alongside your own.
+
+    <DemoCode file="src/agents/frontend_tools.py" region="middleware" />
+  </Step>
+</Steps>

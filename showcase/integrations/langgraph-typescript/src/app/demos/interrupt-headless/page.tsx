@@ -18,10 +18,8 @@ import {
   useConfigureSuggestions,
   useCopilotKit,
 } from "@copilotkit/react-core/v2";
-import {
-  generateFallbackSlots,
-  type TimeSlot,
-} from "../_shared/interrupt-fallback-slots";
+import { generateFallbackSlots } from "../_shared/interrupt-fallback-slots";
+import type { TimeSlot } from "../_shared/interrupt-fallback-slots";
 
 const INTERRUPT_EVENT_NAME = "on_interrupt";
 

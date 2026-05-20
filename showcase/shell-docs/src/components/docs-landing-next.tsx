@@ -20,7 +20,7 @@ import { useFramework } from "./framework-provider";
 import { StoredFrameworkHighlight } from "./stored-framework-highlight";
 import { FrameworkLogo } from "./icons/framework-icons";
 import { compareByDisplayOrder } from "@/lib/framework-order";
-import { getIntegration, getIntegrations } from "@/lib/registry";
+import { getDocsMode, getIntegration, getIntegrations } from "@/lib/registry";
 
 function FrameworkPicker({
   heading,
@@ -36,7 +36,11 @@ function FrameworkPicker({
   // Emerging") read as a tier list and we've dropped them in favour
   // of one flat, neutral grid.
   const integrations = getIntegrations()
-    .filter((i) => i.slug !== "built-in-agent")
+    // `docs_mode: hidden` frameworks have no docs page — surfacing them
+    // here would link straight to a 404.
+    .filter(
+      (i) => i.slug !== "built-in-agent" && getDocsMode(i.slug) !== "hidden",
+    )
     .slice()
     .sort((a, b) => compareByDisplayOrder(a.slug, b.slug));
 
@@ -74,10 +78,18 @@ export function DocsLandingNext() {
   const { effectiveFramework } = useFramework();
 
   const integration = getIntegration(effectiveFramework);
-  if (!integration) {
-    // Defensive: the registry has dropped the default framework. Should
-    // not happen — DEFAULT_FRAMEWORK is a known slug — but rendering
-    // the picker as a last resort beats throwing.
+  // `docs_mode: hidden` frameworks have no `/<slug>` page or `/<slug>/quickstart`
+  // — surfacing "Continue with X" CTAs that link there would dead-end on a 404.
+  // Fall through to the picker (which already filters hidden frameworks) so
+  // visitors who somehow landed on a hidden default still get a working entry
+  // point into the docs.
+  const isHidden = integration
+    ? getDocsMode(integration.slug) === "hidden"
+    : false;
+  if (!integration || isHidden) {
+    // Defensive: the registry has dropped the default framework, or the
+    // user's effective framework resolves to a hidden one. Rendering
+    // the picker as a last resort beats linking to a 404.
     return (
       <FrameworkPicker
         heading="Pick your agent framework"

@@ -1,0 +1,23 @@
+<Steps>
+  <Step>
+    ### Install the ADK + AG-UI bridge
+
+    ```bash
+    pip install ag-ui-adk
+    ```
+  </Step>
+  <Step>
+    ### Add `AGUIToolset()` to your supervisor agent
+
+    Sub-agents are tools on a supervisor `LlmAgent`. The showcase uses
+    `google.genai.Client.models.generate_content` for each sub-agent call —
+    much lighter than spawning a separate `LlmAgent` + `Runner` per
+    delegation. Delegation events are written to `tool_context.state` and
+    flow back to the UI through CopilotKit's shared-state channel.
+
+    <DemoCode file="src/agents/hitl_in_chat_agent.py" region="setup" />
+
+    See `src/agents/subagents_agent.py` for the supervisor + three
+    sub-agents pattern with a live delegation log.
+  </Step>
+</Steps>

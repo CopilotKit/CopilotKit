@@ -33,6 +33,8 @@ Use shared state when you want to facilitate collaboration between your agent an
 
 ## Reading agent state
 
+<FrameworkSetup concept="agent-setup" />
+
 Subscribe a component to the agent's state with `useAgent`. Any time the agent
 mutates its state — for example via a tool call — the hook fires and your UI
 re-renders with the new values.

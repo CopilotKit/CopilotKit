@@ -12,6 +12,7 @@ repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/s
 copilotkit_version: 2.0.0
 backend_url: https://showcase-strands-production.up.railway.app
 deployed: true
+docs_mode: authored
 sort_order: 130
 generative_ui:
   - constrained-explicit

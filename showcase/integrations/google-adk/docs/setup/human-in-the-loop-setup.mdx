@@ -1,0 +1,20 @@
+<Steps>
+  <Step>
+    ### Install the ADK + AG-UI bridge
+
+    ```bash
+    pip install ag-ui-adk
+    ```
+  </Step>
+  <Step>
+    ### Add `AGUIToolset()` to your agent
+
+    Tool-based HITL (`useHumanInTheLoop`) registers the picker UI on the
+    frontend; CopilotKit forwards the tool definition to your model through
+    `AGUIToolset()`. ADK doesn't have a native `interrupt(...)` primitive
+    like LangGraph — for graph-paused pauses, use the frontend
+    Promise-based `useFrontendTool` pattern instead.
+
+    <DemoCode file="src/agents/hitl_in_chat_agent.py" region="setup" />
+  </Step>
+</Steps>

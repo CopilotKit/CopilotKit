@@ -6,7 +6,8 @@ import {
   CopilotChat,
   useInterrupt,
 } from "@copilotkit/react-core/v2";
-import { TimePickerCard, TimeSlot } from "./_components/time-picker-card";
+import type { TimeSlot } from "./_components/time-picker-card";
+import { TimePickerCard } from "./_components/time-picker-card";
 import { generateFallbackSlots } from "../_shared/interrupt-fallback-slots";
 import { useGenUiInterruptSuggestions } from "./suggestions";
 

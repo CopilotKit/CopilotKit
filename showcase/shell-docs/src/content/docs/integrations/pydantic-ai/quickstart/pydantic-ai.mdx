@@ -4,6 +4,7 @@ description: Turn your Pydantic AI Agents into an agent-native application in 10
 icon: "lucide/Play"
 ---
 
+
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
   className="rounded-lg shadow-xl"
@@ -107,43 +108,6 @@ Before you begin, you'll need the following:
 
                 # If you want the server to run on invocation, you can do the following:
                 if __name__ == "__main__":
-                    uvicorn.run(app, host="localhost", port=8000)
-
-                ```
-            </Step>
-            <Step>
-                ### Create your frontend
-                CopilotKit runs anywhere that React runs. As such, you can such Next.js,
-                Vite, or any other React environment.
-
-                For this example, we'll create a new Next.js app.
-
-                ```bash
-                npx create-next-app@latest
-                ```
-            </Step>
-            <Step>
-                ### Install CopilotKit
-                First, install the latest packages for CopilotKit into your frontend.
-                ```package-install
-                npm install @copilotkit/react-core @copilotkit/runtime
-                ```
-            </Step>
-            <Step>
-                ### Setup the Copilot Runtime
-                CopilotKit's runtime is responsible secure communication between your agent and your frontend. As you progress
-                with your applicaiton, this will be where you'll do things like setup threads or authentication.
-
-                For now, let's start with a minimal setup.
-
-                ```tsx title="app/api/copilotkit/route.ts"
-                import {
-                  CopilotRuntime,
-                  ExperimentalEmptyAdapter,
-                  copilotRuntimeNextJSAppRouterEndpoint,
-                } from "@copilotkit/runtime";
-                import { HttpAgent } from "@ag-ui/client";
-                import { NextRequest } from "next/server";
 
                 // 1. You can use any service adapter here for multi-agent support. We use
                 //    the empty adapter since we're only using one agent.

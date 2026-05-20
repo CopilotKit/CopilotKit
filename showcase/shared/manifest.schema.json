@@ -75,6 +75,12 @@
       "default": false,
       "description": "Whether the backend is deployed and live. Stack nav and demo links only activate when true."
     },
+    "docs_mode": {
+      "type": "string",
+      "enum": ["generated", "authored", "hidden"],
+      "default": "generated",
+      "description": "How shell-docs serves this framework's docs pages: 'generated' = data-driven FrameworkOverview + agnostic root MDX (current behavior, kept for langgraph-* and google-adk). 'authored' = render the per-framework MDX tree under content/docs/integrations/<docsFolder>/ with its own sidebar. 'hidden' = exclude from the docs site (no framework page, no switcher entry). Defaults to 'generated' when omitted."
+    },
     "sort_order": {
       "type": "integer",
       "minimum": 0,

@@ -1,0 +1,16 @@
+<Steps>
+  <Step>
+    ### Install the LangGraph Python SDK
+
+    <InstallPythonSDK />
+  </Step>
+  <Step>
+    ### Wire it into your graph
+
+    Import `CopilotKitMiddleware` and pass it to `create_agent`. This is the
+    single line of CopilotKit-specific setup; everything else is standard
+    LangGraph.
+
+    <DemoCode file="src/agents/frontend_tools.py" region="middleware" />
+  </Step>
+</Steps>

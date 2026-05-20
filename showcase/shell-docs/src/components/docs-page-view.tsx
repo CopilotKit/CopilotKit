@@ -24,10 +24,14 @@ import {
 } from "fumadocs-ui/page";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
+import { PageActions } from "@/components/page-actions";
 import { Snippet } from "@/components/snippet";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
 import { Tabs as DocsTabs } from "@/components/docs-tabs";
 import { MdxCodeBlock } from "@/components/mdx-code-block";
+import { MdxFrameworkOverview } from "@/components/content/landing-pages/mdx-framework-overview";
+import type { MdxFrameworkOverviewProps } from "@/components/content/landing-pages/mdx-framework-overview";
+import { FrameworkSetup } from "@/lib/setup-concept";
 import { docsComponents } from "@/lib/mdx-registry";
 import { transformerMeta } from "@/lib/rehype-code-meta";
 import { getIntegration, getTabDefault } from "@/lib/registry";
@@ -81,6 +85,25 @@ export interface DocsPageViewProps {
    * (or suppress them) based on its own state.
    */
   ContentWrapper?: React.ComponentType<{ children: React.ReactNode }>;
+}
+
+/**
+ * Compute the public GitHub URL for an MDX source file from its absolute
+ * filesystem path. `loadDoc()` returns an absolute path
+ * (`/Users/.../showcase/shell-docs/src/content/docs/...mdx`); the path
+ * GitHub serves is repo-relative starting from the first `showcase/`
+ * segment. Falls back to `null` (no link rendered upstream is not yet
+ * wired but caller passes string; treat as best-effort).
+ */
+function buildGitHubUrl(absFilePath: string): string {
+  const marker = "/showcase/";
+  const idx = absFilePath.indexOf(marker);
+  // If we can't find the marker, fall back to the repo root so the
+  // GitHub link is still well-formed even if it 404s — better than an
+  // anchor pointing to an absolute fs path.
+  const repoRelative =
+    idx >= 0 ? absFilePath.slice(idx + 1) : "showcase/shell-docs";
+  return `https://github.com/CopilotKit/CopilotKit/blob/main/${repoRelative}`;
 }
 
 export async function DocsPageView({
@@ -189,10 +212,21 @@ export async function DocsPageView({
             {doc.fm.title}
           </DocsTitle>
           {doc.fm.description && (
-            <DocsDescription className="text-lg text-[var(--text-muted)] mt-5 mb-8 leading-relaxed">
+            <DocsDescription className="text-lg text-[var(--text-muted)] mt-5 leading-relaxed">
               {doc.fm.description}
             </DocsDescription>
           )}
+
+          {/* Page actions (Copy Markdown / Open in <LLM>) — fills the
+              space between description and first body section. The
+              GitHub URL is computed from `doc.filePath`: it's an
+              absolute fs path, so we slice from the `/showcase/`
+              segment to get a repo-relative path that GitHub will
+              serve at `/blob/main/<path>`. */}
+          <PageActions
+            source={doc.source}
+            githubUrl={buildGitHubUrl(doc.filePath)}
+          />
 
           {bannerSlot}
 
@@ -277,6 +311,38 @@ export async function DocsPageView({
                           />
                         );
                       },
+                      // Bind the URL framework slug into MdxFrameworkOverview
+                      // so its link rewriter has a target to rewrite TO. The
+                      // shared `integrations/<folder>/index.mdx` files
+                      // (langgraph/, microsoft-agent-framework/, crewai-flows/)
+                      // serve multiple URL variants — without this override the
+                      // adapter's empty-slug fallback would strip the embedded
+                      // framework prefix entirely (e.g. `/langgraph/quickstart`
+                      // → `/quickstart`).
+                      FrameworkOverview: (props: MdxFrameworkOverviewProps) => (
+                        <MdxFrameworkOverview
+                          {...props}
+                          currentFramework={
+                            frameworkOverride ?? props.currentFramework
+                          }
+                        />
+                      ),
+                      // Same closure pattern: thread the URL framework
+                      // slug into <FrameworkSetup concept="..." /> so it
+                      // can resolve the per-framework concept file.
+                      FrameworkSetup: (props: {
+                        concept: string;
+                        heading?: string | null;
+                        headingId?: string;
+                        currentFramework?: string;
+                      }) => (
+                        <FrameworkSetup
+                          {...props}
+                          currentFramework={
+                            frameworkOverride ?? props.currentFramework
+                          }
+                        />
+                      ),
                       // Inject stable IDs on H2/H3 so the right-rail TOC's
                       // #anchor links resolve. Slugify the child text with the
                       // same algorithm used by extractHeadings() so IDs line up
@@ -290,10 +356,16 @@ export async function DocsPageView({
                         ...rest
                       }: React.HTMLAttributes<HTMLHeadingElement>) => {
                         const id = slugify(childrenToText(children));
+                        // Spread rest BEFORE id/className so the computed
+                        // slug-id always wins over any MDX-supplied id.
+                        // Otherwise an authored `<h2 id="custom">` would
+                        // override the slugified id, breaking the TOC's
+                        // `href="#${id}"` and any inbound deep-links that
+                        // already rely on the slug.
                         return (
                           <h2
-                            id={id}
                             {...rest}
+                            id={id}
                             className={`docs-heading group ${rest.className ?? ""}`}
                           >
                             {children}
@@ -312,10 +384,12 @@ export async function DocsPageView({
                         ...rest
                       }: React.HTMLAttributes<HTMLHeadingElement>) => {
                         const id = slugify(childrenToText(children));
+                        // Spread rest BEFORE id/className — see h2 above for
+                        // rationale.
                         return (
                           <h3
-                            id={id}
                             {...rest}
+                            id={id}
                             className={`docs-heading group ${rest.className ?? ""}`}
                           >
                             {children}
@@ -339,9 +413,25 @@ export async function DocsPageView({
                           children,
                           ...rest
                         }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
+                          // Rewrite root-relative MDX links into the
+                          // framework scope EXCEPT when the link already
+                          // points at the framework root or its subtree.
+                          // Without the bare-root check, `[…](/built-in-agent)`
+                          // (no trailing slash) would rewrite to
+                          // `/built-in-agent/built-in-agent` and dead-end.
+                          // Also guard protocol-relative URLs (`//host/…`):
+                          // they pass startsWith("/") but must not be
+                          // treated as in-app paths.
+                          const isProtocolRelative =
+                            !!href && href.startsWith("//");
+                          const alreadyScoped =
+                            !!href &&
+                            (href === `/${frameworkOverride}` ||
+                              href.startsWith(`/${frameworkOverride}/`));
                           const resolved =
                             href?.startsWith("/") &&
-                            !href.startsWith(`/${frameworkOverride}/`)
+                            !isProtocolRelative &&
+                            !alreadyScoped
                               ? `/${frameworkOverride}${href}`
                               : href;
                           return (

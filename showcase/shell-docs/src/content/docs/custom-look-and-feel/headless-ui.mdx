@@ -6,6 +6,8 @@ hideTOC: true
 snippet_cell: headless-complete
 ---
 
+<InlineDemo demo="headless-complete" />
+
 ## What is this?
 
 A headless UI gives you **full control** over the chat experience. You bring your own components, layout, and styling while CopilotKit handles agent communication, message management, tool-call rendering, and streaming. No `<CopilotChat>`, no slot overrides, just your components composed on top of the low-level hooks.
@@ -18,8 +20,6 @@ Use headless UI when:
 - You're embedding chat into an existing UI with its own patterns.
 - You're building a **non-chat surface** that still talks to an agent (a dashboard, a canvas, an inspector) and want `useRenderToolCall` / `useRenderActivityMessage` on their own.
 - You want to render generative UI primitives outside of a chat entirely.
-
-<InlineDemo demo="headless-complete" />
 
 ## The core hooks
 

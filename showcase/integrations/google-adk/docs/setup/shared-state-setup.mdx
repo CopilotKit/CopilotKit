@@ -1,0 +1,22 @@
+<Steps>
+  <Step>
+    ### Install the ADK + AG-UI bridge
+
+    ```bash
+    pip install ag-ui-adk
+    ```
+  </Step>
+  <Step>
+    ### Add `AGUIToolset()` to your agent
+
+    Shared state in ADK lives in `tool_context.state` — your tools write to
+    it directly and the runtime forwards updates to the UI. Wire your
+    `LlmAgent` with `AGUIToolset()` and CopilotKit takes care of the rest.
+
+    <DemoCode file="src/agents/hitl_in_chat_agent.py" region="setup" />
+
+    See `src/agents/shared_state_read_write_agent.py` for the bidirectional
+    pattern: a before-model callback reads UI-authored preferences out of
+    session state, and a `set_notes` tool writes agent-authored notes back.
+  </Step>
+</Steps>

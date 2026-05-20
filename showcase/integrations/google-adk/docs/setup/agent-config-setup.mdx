@@ -1,0 +1,19 @@
+<Steps>
+  <Step>
+    ### Install the ADK + AG-UI bridge
+
+    ```bash
+    pip install ag-ui-adk
+    ```
+  </Step>
+  <Step>
+    ### Add `AGUIToolset()` to your agent
+
+    Agent config flows from the UI through `useAgentContext`. With
+    `AGUIToolset()` wired into your `LlmAgent`, the context entry is
+    available in session state on every turn — read it inside a
+    `before_model_callback` to inject preferences into the system prompt.
+
+    <DemoCode file="src/agents/hitl_in_chat_agent.py" region="setup" />
+  </Step>
+</Steps>

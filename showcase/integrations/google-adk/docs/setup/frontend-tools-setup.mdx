@@ -1,0 +1,20 @@
+<Steps>
+  <Step>
+    ### Install the ADK + AG-UI bridge
+
+    ```bash
+    pip install ag-ui-adk
+    ```
+  </Step>
+  <Step>
+    ### Add `AGUIToolset()` to your agent
+
+    `AGUIToolset()` is the tool that exposes CopilotKit's frontend-tool
+    channel to the model — drop it into your `LlmAgent`'s `tools=` list and
+    frontend tools become available on every turn. Pair it with
+    `stop_on_terminal_text` as the `after_model_callback` so CopilotKit's UI
+    knows when the agent has finished its turn.
+
+    <DemoCode file="src/agents/hitl_in_chat_agent.py" region="setup" />
+  </Step>
+</Steps>
