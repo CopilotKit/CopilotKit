@@ -78,10 +78,18 @@ export function DocsLandingNext() {
   const { effectiveFramework } = useFramework();
 
   const integration = getIntegration(effectiveFramework);
-  if (!integration) {
-    // Defensive: the registry has dropped the default framework. Should
-    // not happen — DEFAULT_FRAMEWORK is a known slug — but rendering
-    // the picker as a last resort beats throwing.
+  // `docs_mode: hidden` frameworks have no `/<slug>` page or `/<slug>/quickstart`
+  // — surfacing "Continue with X" CTAs that link there would dead-end on a 404.
+  // Fall through to the picker (which already filters hidden frameworks) so
+  // visitors who somehow landed on a hidden default still get a working entry
+  // point into the docs.
+  const isHidden = integration
+    ? getDocsMode(integration.slug) === "hidden"
+    : false;
+  if (!integration || isHidden) {
+    // Defensive: the registry has dropped the default framework, or the
+    // user's effective framework resolves to a hidden one. Rendering
+    // the picker as a last resort beats linking to a 404.
     return (
       <FrameworkPicker
         heading="Pick your agent framework"
