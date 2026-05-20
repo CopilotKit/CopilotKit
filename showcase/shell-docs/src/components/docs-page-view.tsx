@@ -24,6 +24,7 @@ import {
 } from "fumadocs-ui/page";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
+import { PageActions } from "@/components/page-actions";
 import { Snippet } from "@/components/snippet";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
 import { Tabs as DocsTabs } from "@/components/docs-tabs";
@@ -84,6 +85,25 @@ export interface DocsPageViewProps {
    * (or suppress them) based on its own state.
    */
   ContentWrapper?: React.ComponentType<{ children: React.ReactNode }>;
+}
+
+/**
+ * Compute the public GitHub URL for an MDX source file from its absolute
+ * filesystem path. `loadDoc()` returns an absolute path
+ * (`/Users/.../showcase/shell-docs/src/content/docs/...mdx`); the path
+ * GitHub serves is repo-relative starting from the first `showcase/`
+ * segment. Falls back to `null` (no link rendered upstream is not yet
+ * wired but caller passes string; treat as best-effort).
+ */
+function buildGitHubUrl(absFilePath: string): string {
+  const marker = "/showcase/";
+  const idx = absFilePath.indexOf(marker);
+  // If we can't find the marker, fall back to the repo root so the
+  // GitHub link is still well-formed even if it 404s — better than an
+  // anchor pointing to an absolute fs path.
+  const repoRelative =
+    idx >= 0 ? absFilePath.slice(idx + 1) : "showcase/shell-docs";
+  return `https://github.com/CopilotKit/CopilotKit/blob/main/${repoRelative}`;
 }
 
 export async function DocsPageView({
@@ -192,10 +212,21 @@ export async function DocsPageView({
             {doc.fm.title}
           </DocsTitle>
           {doc.fm.description && (
-            <DocsDescription className="text-lg text-[var(--text-muted)] mt-5 mb-8 leading-relaxed">
+            <DocsDescription className="text-lg text-[var(--text-muted)] mt-5 leading-relaxed">
               {doc.fm.description}
             </DocsDescription>
           )}
+
+          {/* Page actions (Copy Markdown / Open in <LLM>) — fills the
+              space between description and first body section. The
+              GitHub URL is computed from `doc.filePath`: it's an
+              absolute fs path, so we slice from the `/showcase/`
+              segment to get a repo-relative path that GitHub will
+              serve at `/blob/main/<path>`. */}
+          <PageActions
+            source={doc.source}
+            githubUrl={buildGitHubUrl(doc.filePath)}
+          />
 
           {bannerSlot}
 
