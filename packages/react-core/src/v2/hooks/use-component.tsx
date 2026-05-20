@@ -1,6 +1,7 @@
 import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
 import type { ComponentType } from "react";
 import { useFrontendTool } from "./use-frontend-tool";
+import type { AgentId } from "../types/copilotkit-types";
 
 type InferRenderProps<T> = T extends StandardSchemaV1
   ? InferSchemaOutput<T>
@@ -64,7 +65,7 @@ export function useComponent<
     description?: string;
     parameters?: TSchema;
     render: ComponentType<NoInfer<InferRenderProps<TSchema>>>;
-    agentId?: string;
+    agentId?: AgentId;
     followUp?: boolean;
   },
   deps?: ReadonlyArray<unknown>,

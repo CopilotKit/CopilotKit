@@ -6,3 +6,5 @@ export * from "./human-in-the-loop";
 export * from "./defineToolCallRenderer";
 export * from "./interrupt";
 export * from "./sandbox-function";
+export * from "./copilotkit-types";
+export type { Register } from "../register";

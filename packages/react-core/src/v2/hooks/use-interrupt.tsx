@@ -12,6 +12,7 @@ import type {
   InterruptRenderProps,
   InterruptHandlerProps,
 } from "../types/interrupt";
+import type { AgentId } from "../types/copilotkit-types";
 
 export type { InterruptEvent, InterruptRenderProps, InterruptHandlerProps };
 
@@ -78,7 +79,7 @@ interface UseInterruptConfigBase<TValue = unknown, TResult = never> {
    */
   enabled?: (event: InterruptEvent<TValue>) => boolean;
   /** Optional agent id. Defaults to the current configured chat agent. */
-  agentId?: string;
+  agentId?: AgentId;
 }
 
 export interface UseInterruptInChatConfig<

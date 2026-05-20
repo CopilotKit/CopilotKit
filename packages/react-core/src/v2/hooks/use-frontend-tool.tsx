@@ -1,12 +1,14 @@
 import { useEffect } from "react";
 import { useCopilotKit } from "../context";
 import type { ReactFrontendTool } from "../types/frontend-tool";
+import type { AgentId } from "../types/copilotkit-types";
 
 const EMPTY_DEPS: ReadonlyArray<unknown> = [];
 
 export function useFrontendTool<
   T extends Record<string, unknown> = Record<string, unknown>,
->(tool: ReactFrontendTool<T>, deps?: ReadonlyArray<unknown>) {
+  A extends AgentId | undefined = AgentId | undefined,
+>(tool: ReactFrontendTool<T, A>, deps?: ReadonlyArray<unknown>) {
   const { copilotkit } = useCopilotKit();
   const extraDeps = deps ?? EMPTY_DEPS;
 

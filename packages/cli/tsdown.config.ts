@@ -1,0 +1,18 @@
+import { defineConfig } from "tsdown";
+
+export default defineConfig([
+  {
+    entry: ["src/index.ts"],
+    format: ["esm", "cjs"],
+    dts: true,
+    sourcemap: true,
+    target: "es2022",
+    outDir: "dist",
+    unbundle: true,
+    banner: {
+      js: "#!/usr/bin/env node",
+    },
+    checks: { pluginTimings: false },
+    exports: true,
+  },
+]);
