@@ -6,6 +6,8 @@ hideTOC: true
 snippet_cell: readonly-state-agent-context
 ---
 
+<InlineDemo demo="readonly-state-agent-context" />
+
 ## What is this?
 
 Sometimes you want the agent to *know* something about the current UI, like the logged-in user, the current page, or a recent activity log, but you don't want the agent to be able to modify it. That's what
@@ -16,10 +18,6 @@ Unlike full shared state (where the agent can call tools that mutate
 the state back to the UI), `useAgentContext` values are pure inputs.
 The agent sees them on every turn via the runtime's context injection,
 but it has no setter and no tool to write them back.
-
-<InlineDemo demo="readonly-state-agent-context" />
-
-<FrameworkSetup concept="agent-setup" />
 
 ## When should I use this?
 
@@ -35,6 +33,8 @@ Reach for `useAgentContext` instead of full shared state when:
 Think of it as "props for the agent".
 
 ## How it works in code
+
+<FrameworkSetup concept="agent-setup" />
 
 Call `useAgentContext({ description, value })` once per value you want
 to publish. Each call registers a dynamic context entry with the

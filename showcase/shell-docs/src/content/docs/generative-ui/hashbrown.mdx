@@ -5,6 +5,8 @@ icon: "lucide/Component"
 snippet_cell: byoc-hashbrown
 ---
 
+<InlineDemo demo="byoc-hashbrown" />
+
 You have a chat surface and you want the agent to draw a dashboard, not just describe one in prose. By the end of this guide, the agent will stream a structured output object, [`@hashbrownai/react`](https://www.npmjs.com/package/@hashbrownai/react)'s progressive JSON parser will hand each finished slice to your renderer as it arrives, and the user sees the dashboard fill in live.
 
 ## When to use this
@@ -14,8 +16,6 @@ You have a chat surface and you want the agent to draw a dashboard, not just des
 - **Cases where you already use Hashbrown** for UI generation elsewhere in your stack.
 
 If you'd rather work with an explicit catalog of registered components rather than streaming a JSON tree, see the sibling page [BYOC — JSON Render](/generative-ui/json-render) for the same scenario implemented with `@json-render/react`.
-
-<InlineDemo demo="byoc-hashbrown" />
 
 ## Frontend
 

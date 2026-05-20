@@ -1,13 +1,13 @@
 "use client";
 
 import {
-  ExternalLink,
   ArrowRight,
   Copy,
   Check,
   PlayIcon,
   BookOpen,
   LayoutIcon,
+  ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -19,12 +19,6 @@ import type {
   FrameworkOverviewData,
   OpsPlatformCTAData,
 } from "@/data/frameworks/types";
-
-// Inline button styling — avoids dragging shadcn/CVA/clsx into shell-docs
-// just for a marketing surface. Matches the plain-`<button>` + inlined-
-// Tailwind pattern used by `src/components/copy-button.tsx`.
-const BUTTON_BASE =
-  "inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 export interface FrameworkOverviewProps {
   data: FrameworkOverviewData;
@@ -60,12 +54,10 @@ export interface FrameworkOverviewProps {
  */
 function rewriteHref(href: string, fromSlug: string, toSlug: string): string {
   if (!fromSlug || fromSlug === toSlug) return href;
-  // Internal paths: `/<fromSlug>` or `/<fromSlug>/...`
   if (href === `/${fromSlug}`) return `/${toSlug}`;
   if (href.startsWith(`/${fromSlug}/`)) {
     return `/${toSlug}${href.slice(fromSlug.length + 1)}`;
   }
-  // feature-viewer.copilotkit.ai/<fromSlug>/...
   const featureViewerNeedle = `feature-viewer.copilotkit.ai/${fromSlug}/`;
   if (href.includes(featureViewerNeedle)) {
     return href.replace(
@@ -86,6 +78,23 @@ function ctaVariantFor(data: OpsPlatformCTAData): "card" | "inline" {
   return data.variant === "banner" ? "inline" : "card";
 }
 
+/**
+ * Section eyebrow label + a hairline rule that fills the remaining width.
+ * Mirrors the "section title with extending line" pattern from the
+ * CopilotKit UI theme reference — calm editorial structure that gives
+ * the page a clear chapter rhythm without competing with the headlines.
+ */
+function SectionEyebrow({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-3 mb-6">
+      <span className="text-[11px] font-mono uppercase tracking-[0.18em] text-[var(--text-muted)] whitespace-nowrap">
+        {label}
+      </span>
+      <div className="flex-1 h-px bg-[var(--border)]" />
+    </div>
+  );
+}
+
 export function FrameworkOverview({
   data,
   currentFramework,
@@ -104,7 +113,7 @@ export function FrameworkOverview({
     supportedFeatures = [],
     architectureImage,
     architectureVideo,
-    liveDemos,
+    liveDemos = [],
     tutorialLink: rawTutorialLink,
     cta,
   } = data;
@@ -130,6 +139,7 @@ export function FrameworkOverview({
   // string IconKey from Track A), fall back to rendering nothing rather than
   // crashing — the framework name still appears next to it.
   const IconComponent = customIcons[iconKey as IconKey];
+  const hasIcon = Boolean(iconOverride || IconComponent);
 
   const handleCopyCommand = () => {
     navigator.clipboard.writeText(initCommand);
@@ -151,382 +161,478 @@ export function FrameworkOverview({
       />
     ) : null);
 
+  const activeDemoData = liveDemos.find((demo) => demo.type === activeDemo);
+
   return (
-    <div className="min-h-screen">
-      <div className="mx-auto max-w-5xl px-4 sm:px-6">
-        {/* Header with Fixed Buttons */}
-        <header className="text-center mb-12 sm:mb-20">
-          <div className="hidden items-center justify-center gap-4 sm:gap-8 mb-8 sm:mb-12 flex-wrap px-4 lg:flex">
-            <div className="flex items-center gap-2 sm:gap-4">
-              <Image
-                src="https://cdn.copilotkit.ai/docs/copilotkit/icons/copilotkit-color.svg"
-                alt="CopilotKit"
-                height={40}
-                width={40}
-                className="w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0"
-              />
-              <span className="text-2xl sm:text-3xl font-bold whitespace-nowrap">
-                CopilotKit
-              </span>
-            </div>
-            <div className="w-px h-10 sm:h-12 bg-border dark:bg-primary flex-shrink-0" />
-            <div className="flex items-center gap-2 sm:gap-4">
-              <div className="flex items-center justify-center text-primary">
+    <div className="relative pb-24">
+      {/* Hero atmosphere — single restrained accent glow behind the
+          framework name + headline. Sits at zIndex 0 so all hero text
+          renders cleanly on top. Subtle in light mode, more present in
+          dark mode (where the page bg gives the accent room to breathe). */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 -z-0 h-[480px] overflow-hidden"
+      >
+        <div
+          className="absolute left-1/2 -translate-x-1/2 -top-40 h-[520px] w-[820px] rounded-full opacity-60 dark:opacity-50"
+          style={{
+            background:
+              "radial-gradient(closest-side, var(--accent-light), transparent 70%)",
+            filter: "blur(48px)",
+          }}
+        />
+        <div
+          className="absolute left-[8%] top-24 h-[260px] w-[260px] rounded-full opacity-40 dark:opacity-30"
+          style={{
+            background:
+              "radial-gradient(closest-side, rgba(190, 194, 255, 0.45), transparent 70%)",
+            filter: "blur(60px)",
+          }}
+        />
+        <div
+          className="absolute right-[6%] top-44 h-[220px] w-[220px] rounded-full opacity-35 dark:opacity-25"
+          style={{
+            background:
+              "radial-gradient(closest-side, rgba(133, 236, 206, 0.4), transparent 70%)",
+            filter: "blur(60px)",
+          }}
+        />
+      </div>
+
+      <div className="relative z-10">
+        {/* =========================================================
+             HERO
+             ========================================================= */}
+        <header className="pt-10 sm:pt-16 pb-12 sm:pb-20">
+          {/* Eyebrow: "CopilotKit / Integrations / {framework}" */}
+          <div className="mb-8 flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.18em] text-[var(--text-muted)]">
+            <Image
+              src="https://cdn.copilotkit.ai/docs/copilotkit/icons/copilotkit-color.svg"
+              alt=""
+              height={16}
+              width={16}
+              className="h-4 w-4 opacity-90"
+            />
+            <span>CopilotKit</span>
+            <span className="text-[var(--text-faint)]">/</span>
+            <span>Integrations</span>
+            <span className="text-[var(--text-faint)]">/</span>
+            <span className="text-[var(--text)]">{frameworkName}</span>
+          </div>
+
+          {/* Framework identity: icon + name in a horizontal lockup. Big
+              enough to anchor the page, restrained enough not to compete
+              with the headline below. */}
+          <div className="flex items-center gap-4 mb-7">
+            {hasIcon && (
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text)] shadow-sm">
                 {iconOverride ??
-                  (IconComponent ? <IconComponent className="h-14 w-14" /> : null)}
+                  (IconComponent ? (
+                    <IconComponent className="h-7 w-7" />
+                  ) : null)}
               </div>
-              <span className="text-2xl sm:text-3xl font-bold text-foreground whitespace-nowrap">
+            )}
+            <div className="flex flex-col">
+              <span className="text-[11px] font-mono uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                Framework integration
+              </span>
+              <span className="text-2xl font-semibold tracking-tight text-[var(--text)] leading-tight">
                 {frameworkName}
               </span>
             </div>
           </div>
 
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 sm:mb-6 text-foreground tracking-wider leading-tight text-balance px-4">
+          {/* Headline + supporting copy — left-aligned, generous size and
+              leading, balanced wrap. The tracking is tight (-0.02em) which
+              gives display text its premium feel. */}
+          <h1 className="text-[2.75rem] sm:text-[3.25rem] md:text-[3.75rem] font-semibold leading-[1.02] tracking-[-0.025em] text-[var(--text)] text-balance max-w-[18ch]">
             {header}
           </h1>
-          <p className="text-base sm:text-lg md:text-xl text-muted-foreground mb-8 sm:mb-12 max-w-3xl mx-auto leading-relaxed text-pretty px-4">
+          <p className="mt-6 max-w-[58ch] text-lg sm:text-xl text-[var(--text-muted)] leading-[1.55] text-pretty">
             {subheader}
           </p>
 
-          <div className="flex flex-wrap lg:flex-nowrap justify-center gap-3 sm:gap-4 px-4">
-            {/* Quickstart and View Features stay together on small screens */}
-            <div className="flex gap-3 sm:gap-4 w-full lg:w-auto lg:contents">
-              <Link
-                href={guideLink}
-                className="flex-1 lg:flex-none lg:w-auto lg:order-1"
+          {/* Action cluster: accent CTA, copy-command chip, secondary
+              link. The init command sits on the same row as the buttons —
+              one of the page's signature affordances ("copy and go"). */}
+          <div className="mt-10 flex flex-col sm:flex-row sm:items-center gap-3">
+            <Link href={guideLink} className="no-underline group">
+              <button
+                type="button"
+                className="inline-flex w-full sm:w-auto items-center justify-center gap-2 h-11 px-5 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent)] hover:brightness-110 text-white font-medium text-[15px] transition-all shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:shadow-[0_8px_24px_-8px_var(--accent)]"
               >
-                <button
-                  type="button"
-                  className={`${BUTTON_BASE} w-full border border-input bg-background hover:bg-accent hover:text-accent-foreground px-6 sm:px-8 py-3 text-sm sm:text-base cursor-pointer`}
-                >
-                  Quickstart
-                </button>
-              </Link>
-              <Link
-                href={featuresLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 lg:flex-none lg:w-auto lg:order-3"
-              >
-                <button
-                  type="button"
-                  className={`${BUTTON_BASE} w-full border border-input bg-background hover:bg-accent hover:text-accent-foreground px-6 sm:px-8 py-3 text-sm sm:text-base cursor-pointer`}
-                >
-                  View Features
-                </button>
-              </Link>
-            </div>
+                Start the quickstart
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </button>
+            </Link>
+
             <button
               type="button"
               onClick={handleCopyCommand}
-              className={`${BUTTON_BASE} w-full lg:w-auto bg-primary/10 dark:bg-primary/20 text-primary hover:bg-primary/20 dark:hover:bg-primary/40 shadow-lg px-6 sm:px-8 py-3 text-sm sm:text-base font-mono cursor-pointer border border-primary lg:order-2`}
+              className="inline-flex w-full sm:w-auto items-center justify-between sm:justify-start gap-3 h-11 px-4 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] hover:bg-[var(--bg-elevated)] text-[var(--text)] transition-colors group"
+              aria-label="Copy install command"
             >
-              <span className="truncate">npx copilotkit create</span>
-              {copied ? (
-                <Check className="ml-2 h-4 w-4 flex-shrink-0" />
-              ) : (
-                <Copy className="ml-2 h-4 w-4 flex-shrink-0" />
-              )}
+              <span className="flex items-center gap-2 text-[13.5px]">
+                <span className="text-[var(--accent)] opacity-70 font-mono">
+                  $
+                </span>
+                <span className="font-mono text-[13px] text-[var(--text-secondary)] group-hover:text-[var(--text)]">
+                  {initCommand}
+                </span>
+              </span>
+              <span className="text-[var(--text-muted)] group-hover:text-[var(--text)]">
+                {copied ? (
+                  <Check className="h-4 w-4 text-[var(--accent)]" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </span>
             </button>
+
+            <Link
+              href={featuresLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-1 h-11 text-[14px] text-[var(--text-secondary)] hover:text-[var(--text)] font-medium no-underline transition-colors"
+            >
+              Live feature viewer
+              <ExternalLink className="h-3.5 w-3.5 opacity-70" />
+            </Link>
           </div>
         </header>
 
-        {/* Overview Video */}
+        {/* =========================================================
+             BANNER VIDEO
+             ========================================================= */}
         {bannerVideo && (
-          <section className="mb-12 sm:mb-24">
-            <div>
+          <section className="mb-20 sm:mb-28">
+            <div className="relative rounded-2xl overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[0_24px_60px_-30px_rgba(0,0,0,0.4)]">
               <video
                 src={bannerVideo}
-                className="w-full rounded-lg sm:rounded-xl border shadow-lg"
-                controls
+                className="w-full block"
                 autoPlay
                 muted
                 loop
                 playsInline
               />
+              {/* Subtle inner glow at top to anchor the video to the
+                  surface — gives the embed depth without a chunky border. */}
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/5 rounded-2xl"
+              />
             </div>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-4 text-center px-4">
-              Starter app from running{" "}
-              <span className="font-mono bg-primary/10 text-primary px-2 py-1 rounded-md text-xs sm:text-sm">
+            <p className="mt-4 text-[13px] text-[var(--text-muted)] text-center">
+              Starter app generated by{" "}
+              <code className="font-mono text-[12.5px] px-1.5 py-0.5 rounded bg-[var(--bg-elevated)] text-[var(--text)] border border-[var(--border-dim)]">
                 {initCommand}
-              </span>
-              , demonstrating key features of CopilotKit with {frameworkName}.
+              </code>
             </p>
           </section>
         )}
 
-        {/* Features - Only show if features are provided */}
+        {/* =========================================================
+             SUPPORTED FEATURES — numbered milestone list
+             ========================================================= */}
         {supportedFeatures.length > 0 && (
-          <section className="mb-12 sm:mb-24">
-            <div className="mb-8 sm:mb-16 text-center px-4">
-              <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-foreground">
-                Key Features
+          <section className="mb-20 sm:mb-28">
+            <SectionEyebrow label="What you can build" />
+            <div className="mb-12 max-w-[58ch]">
+              <h2 className="text-[2rem] sm:text-[2.5rem] font-semibold tracking-[-0.02em] leading-[1.1] text-[var(--text)]">
+                Capabilities that ship with {frameworkName}
               </h2>
-              <p className="text-base sm:text-lg text-muted-foreground max-w-3xl mx-auto">
-                Everything you need to build interactive, agent-powered
-                applications
+              <p className="mt-3 text-[15px] sm:text-base text-[var(--text-muted)] leading-relaxed">
+                Every {frameworkName} integration unlocks the same set of
+                user-facing primitives. Pick the one that maps to your product
+                and drop the code in.
               </p>
-              <div className="w-16 sm:w-24 h-1 bg-gradient-to-r from-primary to-primary mx-auto mt-4 sm:mt-6 rounded-full"></div>
             </div>
 
-            <div className="space-y-12 sm:space-y-24">
-              {supportedFeatures.map((feature, index) => (
-                <div
-                  key={feature.title}
-                  className={`border-b border-border pb-12 sm:pb-24 ${index === supportedFeatures.length - 1 ? "last:border-b-0 last:pb-0" : ""}`}
-                >
-                  <div className="grid lg:grid-cols-5 gap-6 sm:gap-12 items-start">
-                    <div className="lg:col-span-2">
-                      <div className="mb-4">
-                        <h3 className="text-xl sm:text-2xl font-bold mb-2 text-foreground">
-                          {feature.title}
-                        </h3>
-                        <div className="w-10 sm:w-12 h-0.5 bg-gradient-to-r from-primary to-primary rounded-full"></div>
+            <div className="flex flex-col gap-16 sm:gap-24">
+              {supportedFeatures.map((feature, index) => {
+                const indexStr = String(index + 1).padStart(2, "0");
+                const hasMedia = Boolean(feature.videoUrl);
+                return (
+                  <article
+                    key={feature.title}
+                    className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-start"
+                  >
+                    {/* Left column: index + title + description + links */}
+                    <div className="lg:col-span-5">
+                      <div className="flex items-baseline gap-3 mb-4">
+                        <span className="font-mono text-[12px] text-[var(--accent)] tracking-wider">
+                          {indexStr}
+                        </span>
+                        <span className="h-px flex-1 bg-[var(--border)] mt-2 max-w-[80px]" />
                       </div>
-                      <p className="text-sm sm:text-base text-muted-foreground leading-relaxed mb-6">
+                      <h3 className="text-[1.5rem] sm:text-[1.75rem] font-semibold tracking-[-0.015em] leading-[1.15] text-[var(--text)]">
+                        {feature.title}
+                      </h3>
+                      <p className="mt-3 text-[15px] text-[var(--text-muted)] leading-[1.6]">
                         {feature.description}
                       </p>
-                      <div className="space-y-3">
+
+                      <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2">
                         <Link
                           href={link(feature.documentationLink)}
-                          className="block text-primary hover:text-primary font-medium no-underline text-sm sm:text-base"
+                          className="inline-flex items-center gap-1.5 text-[14px] font-medium text-[var(--accent)] hover:text-[var(--accent)] hover:brightness-110 no-underline group"
                         >
-                          Learn more →
+                          Read the docs
+                          <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                         </Link>
                         {feature.demoLink && (
                           <Link
                             href={link(feature.demoLink)}
-                            className="block text-muted-foreground hover:text-foreground text-xs sm:text-sm flex items-center gap-2 no-underline"
+                            className="inline-flex items-center gap-1.5 text-[14px] text-[var(--text-muted)] hover:text-[var(--text)] no-underline transition-colors"
                           >
-                            <ExternalLink className="h-4 w-4" />
+                            <ExternalLink className="h-3.5 w-3.5" />
                             Live demo
                           </Link>
                         )}
                       </div>
                     </div>
 
-                    <div className="lg:col-span-3">
-                      {feature.videoUrl && (
-                        <video
-                          src={feature.videoUrl}
-                          className="w-full rounded-lg border shadow-lg"
-                          controls
-                          autoPlay
-                          muted
-                          loop
-                          playsInline
-                        />
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
+                    {/* Right column: video. If no media, the left column
+                        spans wider and we leave the right empty (graceful
+                        fallback for sparse data records). */}
+                    {hasMedia && (
+                      <div className="lg:col-span-7">
+                        <div className="relative rounded-xl overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[0_18px_44px_-22px_rgba(0,0,0,0.4)]">
+                          <video
+                            src={feature.videoUrl}
+                            className="w-full block"
+                            autoPlay
+                            muted
+                            loop
+                            playsInline
+                          />
+                          <div
+                            aria-hidden
+                            className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/5 rounded-xl"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
             </div>
           </section>
         )}
 
+        {/* =========================================================
+             AFTER FEATURES (CTA or MDX escape hatch)
+             ========================================================= */}
         {resolvedAfterFeatures && (
-          <section className="mb-12 sm:mb-24 px-4">
-            {resolvedAfterFeatures}
-          </section>
+          <section className="mb-20 sm:mb-28">{resolvedAfterFeatures}</section>
         )}
 
-        {/* Architecture */}
+        {/* =========================================================
+             ARCHITECTURE
+             ========================================================= */}
         {(architectureImage || architectureVideo) && (
-          <section className="mb-12 sm:mb-24">
-            <div className="mb-8 sm:mb-12 text-center px-4">
-              <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-foreground">
+          <section className="mb-20 sm:mb-28">
+            <SectionEyebrow label="How it fits together" />
+            <div className="mb-10 max-w-[58ch]">
+              <h2 className="text-[2rem] sm:text-[2.5rem] font-semibold tracking-[-0.02em] leading-[1.1] text-[var(--text)]">
                 Architecture
               </h2>
-              <p className="text-base sm:text-lg text-muted-foreground max-w-3xl mx-auto">
-                Understanding how CopilotKit and {frameworkName} work together
+              <p className="mt-3 text-[15px] sm:text-base text-[var(--text-muted)] leading-relaxed">
+                The shape of a CopilotKit + {frameworkName} application — from
+                your UI down to the agent runtime.
               </p>
-              <div className="w-16 sm:w-24 h-1 bg-gradient-to-r from-primary to-primary mx-auto mt-4 sm:mt-6 rounded-full"></div>
             </div>
-            {architectureImage && (
-              <Image
-                src={architectureImage}
-                alt={`CopilotKit ${frameworkName} Infrastructure Diagram`}
-                height={800}
-                width={1200}
-                className="w-full h-auto rounded-lg sm:rounded-xl shadow-lg border"
-              />
-            )}
-            {architectureVideo && (
-              <div className="relative">
+            <div className="rounded-2xl overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[0_18px_44px_-22px_rgba(0,0,0,0.4)]">
+              {architectureImage && (
+                <Image
+                  src={architectureImage}
+                  alt={`CopilotKit ${frameworkName} architecture diagram`}
+                  height={800}
+                  width={1600}
+                  className="w-full h-auto block"
+                />
+              )}
+              {architectureVideo && (
                 <video
                   src={architectureVideo}
-                  className="w-full rounded-lg sm:rounded-xl border shadow-lg"
-                  controls
+                  className="w-full block"
                   autoPlay
                   muted
                   loop
                   playsInline
                 />
-              </div>
-            )}
+              )}
+            </div>
           </section>
         )}
 
-        {/* Live demo - Only show if demos are provided */}
+        {/* =========================================================
+             LIVE DEMOS
+             ========================================================= */}
         {liveDemos.length > 0 && (
-          <section className="mb-12 sm:mb-24">
-            <div className="mb-8 sm:mb-12 text-center px-4">
-              <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-foreground">
-                Live demo
+          <section className="mb-20 sm:mb-28">
+            <SectionEyebrow label="Try it live" />
+            <div className="mb-8 max-w-[58ch]">
+              <h2 className="text-[2rem] sm:text-[2.5rem] font-semibold tracking-[-0.02em] leading-[1.1] text-[var(--text)]">
+                Real {frameworkName} apps, running in your browser
               </h2>
-              <p className="text-base sm:text-lg text-muted-foreground max-w-3xl mx-auto mb-6 sm:mb-8">
-                Explore different types of agent-powered applications built with
-                CopilotKit and {frameworkName}.
+              <p className="mt-3 text-[15px] sm:text-base text-[var(--text-muted)] leading-relaxed">
+                Two patterns we see most often — drive a SaaS workflow, or
+                collaborate on a canvas with your agent.
               </p>
+            </div>
 
-              {/* Demo Toggle Buttons */}
-              {liveDemos.length > 1 && (
-                <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 mb-6 sm:mb-8">
-                  {liveDemos.map((demo) => (
+            {/* Segmented control — flat, single-row, with a moving accent
+                underline. Mirrors the dojo's "view toggle" treatment but
+                in a flatter style that suits a landing page. */}
+            {liveDemos.length > 1 && (
+              <div className="mb-6 inline-flex items-center gap-1 p-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)]">
+                {liveDemos.map((demo) => {
+                  const active = activeDemo === demo.type;
+                  return (
                     <button
                       key={demo.type}
                       type="button"
                       onClick={() => setActiveDemo(demo.type)}
-                      className={`${BUTTON_BASE} px-4 sm:px-6 py-2 cursor-pointer text-sm sm:text-base ${
-                        activeDemo === demo.type
-                          ? "bg-primary/10 text-primary hover:bg-primary/20 shadow border border-primary"
-                          : "bg-secondary text-secondary-foreground hover:bg-secondary"
+                      className={`h-8 px-4 rounded-md text-[13px] font-medium transition-all ${
+                        active
+                          ? "bg-[var(--bg-elevated)] text-[var(--text)] shadow-sm"
+                          : "bg-transparent text-[var(--text-muted)] hover:text-[var(--text)]"
                       }`}
                     >
                       {demo.title}
                     </button>
-                  ))}
-                </div>
-              )}
+                  );
+                })}
+              </div>
+            )}
 
-              <div className="w-16 sm:w-24 h-1 bg-gradient-to-r from-primary to-primary mx-auto mt-4 sm:mt-6 rounded-full"></div>
-            </div>
+            {activeDemoData && (
+              <p className="mb-5 text-[14.5px] text-[var(--text-muted)] leading-[1.6] max-w-[68ch]">
+                {activeDemoData.description}
+              </p>
+            )}
 
-            <div className="max-w-4xl mx-auto mt-6 sm:mt-8 mb-8 sm:mb-16 px-4">
-              {liveDemos.find((demo) => demo.type === activeDemo) && (
-                <div className="text-center">
-                  <h3 className="text-base sm:text-lg font-semibold text-foreground mb-2">
-                    {liveDemos.find((demo) => demo.type === activeDemo)?.title}
-                  </h3>
-                  <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
-                    {
-                      liveDemos.find((demo) => demo.type === activeDemo)
-                        ?.description
-                    }
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="relative">
-              {liveDemos.find((demo) => demo.type === activeDemo) && (
+            <div className="relative rounded-2xl overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[0_24px_60px_-30px_rgba(0,0,0,0.4)]">
+              {activeDemoData && (
                 <iframe
-                  src={
-                    liveDemos.find((demo) => demo.type === activeDemo)
-                      ?.iframeUrl
-                  }
-                  className="w-full h-[400px] sm:h-[600px] rounded-lg sm:rounded-xl border shadow-lg"
-                  title={`${liveDemos.find((demo) => demo.type === activeDemo)?.title} Demo`}
+                  src={activeDemoData.iframeUrl}
+                  className="w-full h-[480px] sm:h-[600px] block"
+                  title={`${activeDemoData.title} Demo`}
                 />
               )}
-              <div className="absolute inset-0 rounded-lg sm:rounded-xl ring-1 ring-inset ring-secondary pointer-events-none"></div>
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/5 rounded-2xl"
+              />
             </div>
           </section>
         )}
 
-        {/* Standardized Next Steps */}
+        {/* =========================================================
+             NEXT STEPS — slim numbered list, not chunky cards
+             ========================================================= */}
         <section>
-          <div className="mb-8 sm:mb-12 text-center px-4">
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-foreground">
-              Next Steps
+          <SectionEyebrow label="Where to next" />
+          <div className="mb-8 max-w-[58ch]">
+            <h2 className="text-[2rem] sm:text-[2.5rem] font-semibold tracking-[-0.02em] leading-[1.1] text-[var(--text)]">
+              Pick a path
             </h2>
-            <p className="text-base sm:text-lg text-muted-foreground max-w-3xl mx-auto">
-              Ready to build your own agent-powered application?
-            </p>
-            <div className="w-16 sm:w-24 h-1 bg-gradient-to-r from-primary to-primary mx-auto mt-4 sm:mt-6 rounded-full"></div>
           </div>
-          <div
-            className={`grid gap-6 sm:gap-8 ${tutorialLink ? "grid-cols-1 xl:grid-cols-3" : "grid-cols-1 xl:grid-cols-2"}`}
-          >
-            <div className="border border-border rounded-lg p-6 sm:p-8 shadow bg-card flex flex-col justify-between">
-              <div className="flex flex-col">
-                <div className="flex items-center gap-2">
-                  <PlayIcon className="text-primary w-5 h-5" />
-                  <h3 className="text-lg sm:text-xl font-semibold !m-0 text-foreground">
-                    Quickstart
-                  </h3>
-                </div>
-                <p className="text-sm sm:text-base text-muted-foreground mb-6 sm:mb-8 leading-relaxed">
-                  Build your first agentic app with {frameworkName} in minutes.
-                </p>
-              </div>
-              <Link href={guideLink} className="no-underline">
-                <button
-                  type="button"
-                  className={`${BUTTON_BASE} w-full h-10 sm:h-11 text-sm sm:text-base bg-primary/10 text-primary hover:bg-primary/20 shadow border border-primary cursor-pointer`}
-                >
-                  Quickstart
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </button>
-              </Link>
-            </div>
 
-            <div className="border border-border rounded-lg p-6 sm:p-8 shadow bg-card flex flex-col justify-between">
-              <div className="flex flex-col">
-                <div className="flex items-center gap-2">
-                  <LayoutIcon className="text-primary w-5 h-5" />
-                  <h3 className="text-lg sm:text-xl font-semibold !m-0 text-foreground">
-                    Feature Overview
-                  </h3>
-                </div>
-                <p className="text-sm sm:text-base text-muted-foreground mb-6 sm:mb-8 leading-relaxed">
-                  Try the key features provided to your agent by CopilotKit.
-                </p>
-              </div>
-              <Link
-                href={featuresLink}
-                rel="noopener noreferrer"
-                target="_blank"
-                className="no-underline"
-              >
-                <button
-                  type="button"
-                  className={`${BUTTON_BASE} w-full h-10 sm:h-11 text-sm sm:text-base bg-primary/10 text-primary hover:bg-primary/20 shadow border border-primary cursor-pointer`}
-                >
-                  Visit feature viewer
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </button>
-              </Link>
-            </div>
-
+          <div className="grid sm:grid-cols-2 gap-px bg-[var(--border)] rounded-xl overflow-hidden border border-[var(--border)]">
+            <NextStepCell
+              href={guideLink}
+              icon={<PlayIcon className="h-4 w-4" />}
+              label="Quickstart"
+              title="Ship in 5 minutes"
+              description={`Wire up CopilotKit + ${frameworkName} from scratch and run your first agentic app.`}
+              index="01"
+            />
+            <NextStepCell
+              href={featuresLink}
+              target="_blank"
+              icon={<LayoutIcon className="h-4 w-4" />}
+              label="Feature viewer"
+              title="See every primitive"
+              description="Interactive gallery of every feature with side-by-side code and live UI."
+              index="02"
+              external
+            />
             {tutorialLink && (
-              <div className="border border-border rounded-lg p-6 sm:p-8 shadow bg-card flex flex-col justify-between">
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="text-primary w-5 h-5" />
-                    <h3 className="text-lg sm:text-xl font-semibold !m-0 text-foreground">
-                      Tutorial
-                    </h3>
-                  </div>
-                  <p className="text-sm sm:text-base text-muted-foreground mb-6 sm:mb-8 leading-relaxed">
-                    Step-by-step guide to building an agent-native application.
-                  </p>
-                </div>
-                <Link href={tutorialLink} className="no-underline">
-                  <button
-                    type="button"
-                    className={`${BUTTON_BASE} w-full h-10 sm:h-11 text-sm sm:text-base bg-primary/10 text-primary hover:bg-primary/20 shadow border border-primary cursor-pointer`}
-                  >
-                    Start Tutorial
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </button>
-                </Link>
-              </div>
+              <NextStepCell
+                href={tutorialLink}
+                icon={<BookOpen className="h-4 w-4" />}
+                label="Tutorial"
+                title="Build an app, end to end"
+                description={`Step-by-step walkthrough of a production-grade ${frameworkName} app.`}
+                index="03"
+                className="sm:col-span-2"
+              />
             )}
           </div>
         </section>
       </div>
     </div>
+  );
+}
+
+/**
+ * One row in the "Next steps" grid. Numbered, hover-elevating, with a
+ * trailing arrow that nudges on hover. Background is the surface color
+ * over a 1px border-color "rule" via the parent's `gap-px` pattern, so
+ * the cells share clean hairlines on the inside without doubling.
+ */
+function NextStepCell({
+  href,
+  icon,
+  label,
+  title,
+  description,
+  index,
+  external,
+  target,
+  className = "",
+}: {
+  href: string;
+  icon: ReactNode;
+  label: string;
+  title: string;
+  description: string;
+  index: string;
+  external?: boolean;
+  target?: string;
+  className?: string;
+}) {
+  return (
+    <Link
+      href={href}
+      target={target}
+      rel={external ? "noopener noreferrer" : undefined}
+      className={`group relative flex flex-col bg-[var(--bg-surface)] hover:bg-[var(--bg-elevated)] p-7 sm:p-8 transition-colors no-underline ${className}`}
+    >
+      <div className="flex items-center justify-between mb-5">
+        <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--text-muted)] flex items-center gap-2">
+          <span className="text-[var(--accent)]">{index}</span>
+          <span>{label}</span>
+        </span>
+        <span className="text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors">
+          {external ? (
+            <ExternalLink className="h-4 w-4" />
+          ) : (
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          )}
+        </span>
+      </div>
+      <div className="flex items-center gap-2.5 mb-2 text-[var(--text)]">
+        <span className="opacity-60">{icon}</span>
+        <h3 className="text-[1.125rem] font-semibold tracking-[-0.01em] !m-0 leading-tight">
+          {title}
+        </h3>
+      </div>
+      <p className="text-[14px] text-[var(--text-muted)] leading-[1.6]">
+        {description}
+      </p>
+    </Link>
   );
 }

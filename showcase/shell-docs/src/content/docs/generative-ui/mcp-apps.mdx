@@ -5,6 +5,8 @@ description: "Render interactive UI components from MCP servers directly in your
 snippet_cell: mcp-apps
 ---
 
+<InlineDemo demo="mcp-apps" />
+
 ## What is this?
 
 MCP Apps are MCP servers that expose tools with associated UI resources. When
@@ -27,11 +29,9 @@ Key benefits:
   **Free course:** See this pattern built end-to-end in [Build Interactive Agents with Generative UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/) — a free DeepLearning.AI short course taught by CopilotKit's CEO covering the full Generative UI spectrum (Controlled, Declarative, and Open-Ended).
 </Callout>
 
-<InlineDemo demo="mcp-apps" />
+## Wire the runtime to your MCP server(s)
 
 <FrameworkSetup concept="agent-setup" />
-
-## Wire the runtime to your MCP server(s)
 
 A single `mcpApps.servers` entry on the runtime is all it takes. The runtime
 auto-applies the MCP Apps middleware to every registered agent: each time an

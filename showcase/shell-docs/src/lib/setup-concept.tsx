@@ -149,58 +149,20 @@ export const INTEGRATIONS_ROOT = path.resolve(
 export interface FrameworkSetupProps {
   concept: string;
   /**
-   * Heading text for the section. Defaults to `"Setup"`. The component
-   * renders the heading ONLY when it actually resolves a concept file —
-   * frameworks without a concept file get `null` for the whole slot
-   * (including the heading), so the docs page reads exactly as if the
-   * slot weren't there.
-   *
-   * Set to `null` to omit the heading entirely — useful when the slot
-   * is being dropped INSIDE another section's body and shouldn't
-   * introduce a new heading level.
+   * @deprecated Earlier designs wrapped the body in a disclosure / heading.
+   * The current design renders concept MDX inline — concept authors own
+   * their own structure (paragraphs, `<Accordions>`, code blocks). Kept in
+   * the prop signature for back-compat with any inline overrides; ignored.
    */
   heading?: string | null;
-  /**
-   * Anchor `id` for the heading. Defaults to `"setup"`. Only used when
-   * `heading` is non-null.
-   */
+  /** @deprecated Same as `heading` — ignored. */
   headingId?: string;
   /** Injected by the page render site via the components-map override. */
   currentFramework?: string;
 }
 
-/**
- * Heading rendered by `<FrameworkSetup>` when it has content. Mirrors
- * `DocsPageView`'s inline `h2` override (id + `docs-heading group`
- * className + hover-only `#` anchor) so the heading looks identical to
- * every other `## Heading` on the page — the only difference is that
- * it's emitted by the orchestrator rather than by the page author.
- */
-function SetupHeading({
-  text,
-  id,
-}: {
-  text: string;
-  id: string;
-}): React.ReactElement {
-  return (
-    <h2 id={id} className="docs-heading group">
-      {text}
-      <a
-        href={`#${id}`}
-        aria-label="Link to this section"
-        className="docs-heading-anchor"
-      >
-        #
-      </a>
-    </h2>
-  );
-}
-
 export async function FrameworkSetup({
   concept,
-  heading = "Setup",
-  headingId = "setup",
   currentFramework,
 }: FrameworkSetupProps): Promise<React.ReactElement | null> {
   if (!currentFramework) return null;
@@ -257,13 +219,14 @@ export async function FrameworkSetup({
         }}
       />
     );
-    if (heading === null) return body;
-    return (
-      <>
-        <SetupHeading text={heading} id={headingId} />
-        {body}
-      </>
-    );
+    // Render the concept MDX inline. The concept file owns its own
+    // structure — typically a short integrated narrative paragraph + a
+    // `<DemoCode>` excerpt for the middleware wiring + an
+    // `<Accordions><Accordion title="Install the SDK">…</Accordion></Accordions>`
+    // block for the optional install step. This keeps the prose part
+    // integrated with the surrounding page narrative and tucks the
+    // boilerplate install command behind a disclosure.
+    return body;
   } catch (err) {
     console.error(
       `[framework-setup] failed to compile concept "${concept}" for ${currentFramework}`,

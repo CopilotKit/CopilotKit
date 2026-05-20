@@ -6,6 +6,8 @@ hideTOC: true
 snippet_cell: shared-state-streaming
 ---
 
+<InlineDemo demo="shared-state-streaming" />
+
 ## What is this?
 
 By default, agent state only updates *between* LangGraph node
@@ -17,10 +19,6 @@ materialise.
 **State streaming** forwards the value of a specific tool argument
 straight into an agent state key *as the argument is being generated*.
 The UI, subscribed via `useAgent`, re-renders every token.
-
-<InlineDemo demo="shared-state-streaming" />
-
-<FrameworkSetup concept="agent-setup" />
 
 ## When should I use this?
 
@@ -36,6 +34,8 @@ Without streaming, the user stares at a spinner. With streaming, they
 see the answer grow token-by-token.
 
 ## The backend: one middleware, one StateItem
+
+<FrameworkSetup concept="agent-setup" />
 
 The canonical pattern for prebuilt agents is `StateStreamingMiddleware`.
 It takes one or more `StateItem(...)` entries, each mapping a tool

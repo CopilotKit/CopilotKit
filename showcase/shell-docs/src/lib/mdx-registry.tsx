@@ -297,22 +297,43 @@ export const docsComponents = {
       return null;
     }
     // Iframe the integration demo directly (its own backend host).
+    //
+    // Visual treatment: a fixed-height wrapper (550px) + CSS scale on the
+    // inner iframe to zoom the embedded content OUT — the iframe is sized
+    // to (100% / SCALE) (wider + taller than its visible box) and then
+    // `transform: scale(SCALE)` shrinks it back down to fill the wrapper.
+    // With SCALE < 1 the iframe lays out as if it had MORE viewport, so
+    // more demo content fits in the same visual footprint at a smaller
+    // effective size — useful for chat surfaces where the composer +
+    // suggested-prompts + early messages should all be visible at once.
     const demoUrl = `${int.backend_url}/demos/${demo}`;
-    const iframeStyle: React.CSSProperties = {
+    const SCALE = 0.7;
+    const WRAPPER_HEIGHT = 550;
+    const wrapperStyle: React.CSSProperties = {
       width: "100%",
-      height: "500px",
+      height: `${WRAPPER_HEIGHT}px`,
+      overflow: "hidden",
+      background: "var(--bg-surface)",
+    };
+    const iframeStyle: React.CSSProperties = {
+      width: `calc(100% / ${SCALE})`,
+      height: `${WRAPPER_HEIGHT / SCALE}px`,
       border: "none",
       background: "var(--bg-surface)",
+      transform: `scale(${SCALE})`,
+      transformOrigin: "top left",
     };
     return (
       <DocsTabs items={["Demo", "Code"]}>
         <DocsTab value="Demo">
-          <iframe
-            src={demoUrl}
-            style={iframeStyle}
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-            loading="lazy"
-          />
+          <div style={wrapperStyle}>
+            <iframe
+              src={demoUrl}
+              style={iframeStyle}
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+              loading="lazy"
+            />
+          </div>
         </DocsTab>
         <DocsTab value="Code">
           <DemoSource integration={integration} demo={demo} />

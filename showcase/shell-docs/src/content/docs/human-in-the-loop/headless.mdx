@@ -6,6 +6,8 @@ hideTOC: true
 snippet_cell: interrupt-headless
 ---
 
+<InlineDemo demo="interrupt-headless" />
+
 ## What is this?
 
 `useInterrupt`'s `render` callback is the 80% path: it keeps the UI
@@ -51,10 +53,6 @@ mechanism.
 
 </WhenFrameworkHas>
 
-<InlineDemo demo="interrupt-headless" />
-
-<FrameworkSetup concept="agent-setup" />
-
 ## When should I use this?
 
 - **Testing / Playwright fixtures** — a deterministic, chat-less button
@@ -74,6 +72,8 @@ If you just want "a picker in chat", just use
 <WhenFrameworkHas flag="interrupt_pattern" equals="native">
 
 ## The primitives
+
+<FrameworkSetup concept="agent-setup" />
 
 Under the hood, `useInterrupt` composes two public APIs:
 

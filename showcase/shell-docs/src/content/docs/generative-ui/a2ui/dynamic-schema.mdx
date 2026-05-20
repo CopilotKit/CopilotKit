@@ -6,16 +6,16 @@ hideTOC: true
 snippet_cell: declarative-gen-ui
 ---
 
+<InlineDemo demo="declarative-gen-ui" />
+
 In the dynamic-schema approach, a secondary LLM generates the entire
 UI (schema, data, and layout) based on the conversation context.
 It's the most flexible A2UI flavor; the agent can render any UI for
 any request without pre-defined schemas.
 
-<InlineDemo demo="declarative-gen-ui" />
+## How it works
 
 <FrameworkSetup concept="agent-setup" />
-
-## How it works
 
 1. The primary LLM decides to call `render_a2ui` (the tool the runtime
    auto-injects when `injectA2UITool: true`).

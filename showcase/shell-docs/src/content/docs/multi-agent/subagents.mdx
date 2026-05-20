@@ -6,6 +6,8 @@ hideTOC: true
 snippet_cell: subagents
 ---
 
+<InlineDemo demo="subagents" />
+
 ## What is this?
 
 Sub-agents are the canonical multi-agent pattern: a top-level
@@ -17,10 +19,6 @@ back up to the supervisor's next step.
 This is fundamentally the same shape as tool-calling, but each "tool"
 is itself a full-blown agent with its own system prompt and (often) its
 own tools, memory, and model.
-
-<InlineDemo demo="subagents" />
-
-<FrameworkSetup concept="subagents-setup" />
 
 ## When should I use this?
 
@@ -38,6 +36,8 @@ The example below uses the Research → Write → Critique shape as the
 canonical example.
 
 ## Setting up sub-agents
+
+<FrameworkSetup concept="agent-setup" />
 
 Each sub-agent is a full `create_agent(...)` call with its own model,
 its own system prompt, and (optionally) its own tools. They don't share

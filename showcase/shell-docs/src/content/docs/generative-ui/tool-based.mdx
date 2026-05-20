@@ -6,6 +6,8 @@ hideTOC: true
 snippet_cell: gen-ui-tool-based
 ---
 
+<InlineDemo demo="gen-ui-tool-based" />
+
 ## What is this?
 
 Tool-based Generative UI is the simplest form of Generative UI: you register
@@ -18,10 +20,6 @@ Unlike [tool rendering](/generative-ui/tool-rendering), which wraps a
 real backend tool in a custom UI, tool-based GenUI is the component. There
 is no handler, no user interaction, no server-side execution. The agent
 decides when to show it, populates the data, and CopilotKit paints it.
-
-<InlineDemo demo="gen-ui-tool-based" />
-
-<FrameworkSetup concept="agent-setup" />
 
 ## When should I use this?
 
@@ -37,6 +35,8 @@ For components that need user interaction, see
 around a real backend tool, see [Tool rendering](/generative-ui/tool-rendering).
 
 ## How it works in code
+
+<FrameworkSetup concept="agent-setup" />
 
 `useComponent` takes a name, a Zod schema for its props, and the component
 to render. The runtime registers it as a frontend tool so the agent can

@@ -5,6 +5,8 @@ icon: "lucide/Component"
 snippet_cell: byoc-json-render
 ---
 
+<InlineDemo demo="byoc-json-render" />
+
 You have a chat surface and you want the agent to draw a dashboard from a typed JSON spec. By the end of this guide, the agent will emit a `{ root, elements }` object, [`@json-render/react`](https://www.npmjs.com/package/@json-render/react) will validate it against a Zod-described catalog, and the user sees the dashboard render as a single React tree.
 
 ## When to use this
@@ -14,8 +16,6 @@ You have a chat surface and you want the agent to draw a dashboard from a typed 
 - **Cases where you already use json-render** elsewhere or prefer Zod-validated catalogs.
 
 If you'd rather have a streaming progressive render rather than a one-shot validated render, see the sibling page [BYOC — Hashbrown](/generative-ui/hashbrown) for the same scenario with `@hashbrownai/react`.
-
-<InlineDemo demo="byoc-json-render" />
 
 ## Frontend
 

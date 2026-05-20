@@ -6,6 +6,8 @@ hideTOC: true
 snippet_cell: hitl-in-chat
 ---
 
+<InlineDemo demo="hitl-in-chat" />
+
 ## What is this?
 
 Human-in-the-loop (HITL) lets an agent pause mid-run to collect input,
@@ -24,8 +26,6 @@ the steering wheel.
   muted
 />
 
-<FrameworkSetup concept="human-in-the-loop-setup" />
-
 ## When should I use this?
 
 Use HITL when you need:
@@ -36,6 +36,8 @@ Use HITL when you need:
 - **Reliability** — a more robust loop for real-world, production traffic
 
 ## Two patterns for HITL in CopilotKit
+
+<FrameworkSetup concept="agent-setup" />
 
 CopilotKit ships two complementary ways to pause an agent turn and ask
 the human something. They look similar from the outside (the chat
@@ -70,8 +72,6 @@ data the demo page owns, so you can swap in real availability, a
 calendar API, or anything else:
 
 <Snippet region="time-slots" title="frontend/src/app/page.tsx — candidate slots" />
-
-<InlineDemo demo="hitl-in-chat" />
 
 ## Pattern 2 — `useInterrupt` (graph-paused)
 

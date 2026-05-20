@@ -5,6 +5,8 @@ icon: "lucide/Shield"
 snippet_cell: auth
 ---
 
+<InlineDemo demo="auth" />
+
 You have a chat surface or a hook driving an agent and you want every agent run to know *who* the request came from. By the end of this guide, your frontend will forward a token, the runtime will pass it through, and your agent code will read the resulting user info on every turn.
 
 ## When to use this
@@ -15,8 +17,6 @@ You have a chat surface or a hook driving an agent and you want every agent run 
 - **Session-aware UX** where the agent's behaviour depends on the user's role or permissions.
 
 If you don't need any of those, skip auth entirely. The agent runs anonymously and the frontend never has to care about tokens.
-
-<InlineDemo demo="auth" />
 
 <WhenFrameworkHas flag="auth_pattern" equals="runtime-onrequest">
 

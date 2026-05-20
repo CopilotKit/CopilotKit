@@ -5,6 +5,8 @@ description: Render your agent's tool calls with custom UI components.
 snippet_cell: tool-rendering
 ---
 
+<InlineDemo demo="tool-rendering" />
+
 ## What is this?
 
 Tools are how an LLM invokes predefined, typically-deterministic functions.
@@ -18,10 +20,6 @@ rendering**.
   **Free course:** See this pattern built end-to-end in [Build Interactive Agents with Generative UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/) — a free DeepLearning.AI short course taught by CopilotKit's CEO covering the full Generative UI spectrum (Controlled, Declarative, and Open-Ended).
 </Callout>
 
-<InlineDemo demo="tool-rendering" />
-
-<FrameworkSetup concept="agent-setup" />
-
 ## When should I use this?
 
 Render tool calls when you want to:
@@ -32,6 +30,8 @@ Render tool calls when you want to:
 - Give tool-heavy agents a transparent, on-brand chat experience
 
 ## Default tool rendering (zero-config)
+
+<FrameworkSetup concept="agent-setup" />
 
 The simplest entry point: call `useDefaultRenderTool()` with no arguments.
 CopilotKit registers its built-in `DefaultToolCallRenderer` as the `*`

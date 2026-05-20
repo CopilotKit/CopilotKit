@@ -6,6 +6,8 @@ hideTOC: true
 snippet_cell: a2ui-fixed-schema
 ---
 
+<InlineDemo demo="a2ui-fixed-schema" />
+
 In the fixed-schema approach, you design the UI schema once (by hand,
 or using the [A2UI Composer](https://a2ui-composer.ag-ui.com/)) and
 keep it on the agent side. The agent tool only provides the *data*;
@@ -29,11 +31,9 @@ varies between integrations:
 
 Ask about a flight and the agent renders a fully structured card from a pre-defined schema:
 
-<InlineDemo demo="a2ui-fixed-schema" />
+## How it works
 
 <FrameworkSetup concept="agent-setup" />
-
-## How it works
 
 1. The schema is made available to the agent — either loaded from a
    JSON file at startup, declared inline, or generated per-request,

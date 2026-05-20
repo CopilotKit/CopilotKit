@@ -6,6 +6,8 @@ hideTOC: true
 snippet_cell: gen-ui-interrupt
 ---
 
+<InlineDemo demo="gen-ui-interrupt" />
+
 ## What is this?
 
 `useInterrupt` lets your agent pause mid-run, hand control to the user
@@ -52,10 +54,6 @@ user answers, agent resumes — different mechanism underneath.
 
 </WhenFrameworkHas>
 
-<InlineDemo demo="gen-ui-interrupt" />
-
-<FrameworkSetup concept="agent-setup" />
-
 ## When should I use this?
 
 Reach for `useInterrupt` when the pause is a **graph-enforced
@@ -73,6 +71,8 @@ the user, prefer [`useHumanInTheLoop`](../human-in-the-loop).
 <WhenFrameworkHas flag="interrupt_pattern" equals="native">
 
 ## The backend: `interrupt()` inside a tool
+
+<FrameworkSetup concept="agent-setup" />
 
 The example agent exposes a `schedule_meeting` tool. When the model
 calls it, the tool issues a `langgraph.interrupt(...)`
