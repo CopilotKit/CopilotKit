@@ -171,12 +171,32 @@ declare module "@copilotkit/react-core/v2" {
  * Walk up from `start` looking for the nearest directory containing
  * `package.json`. That directory is treated as the project root.
  *
- * Returns `null` if no package.json is found before hitting the filesystem
- * root — typegen has no sensible place to write in that case.
+ * Directories named `node_modules` are skipped — a `package.json` inside a
+ * dependency is never the project root. The walk continues from the parent
+ * of any `node_modules` segment in the path until either a non-dependency
+ * `package.json` is found or the filesystem root is reached.
+ *
+ * Returns `null` if no project package.json is found — typegen has no
+ * sensible place to write in that case.
  */
 export function findProjectRoot(start: string): string | null {
   let current = path.resolve(start);
   while (true) {
+    // Skip past any node_modules segments: a package.json directly inside
+    // one belongs to a dependency, not the project. Jump to the parent of
+    // the nearest node_modules and resume the walk there.
+    const segments = current.split(path.sep);
+    const nmIndex = segments.lastIndexOf("node_modules");
+    if (nmIndex >= 0) {
+      const truncated = segments.slice(0, nmIndex).join(path.sep);
+      // On POSIX, slicing off "/usr/local/node_modules" leaves "/usr/local".
+      // On Windows, slicing off "C:\proj\node_modules" leaves "C:\proj".
+      // If the result is empty (e.g. node_modules was the root segment),
+      // bail out — no sensible project root above.
+      if (!truncated) return null;
+      current = truncated;
+      continue;
+    }
     if (fs.existsSync(path.join(current, "package.json"))) {
       return current;
     }
@@ -246,11 +266,16 @@ export function ensureTsconfigInclude(
     allowTrailingComma: true,
     disallowComments: false,
   });
-  if (parsed === undefined) {
+  // parseJsonc is best-effort: on syntax errors it returns a partial value
+  // AND populates the errors array. Modifying a partially-parsed tsconfig
+  // could produce malformed output, so refuse to touch the file if there's
+  // any parse error — the user is told to fix it (or add the include line
+  // manually).
+  if (parsed === undefined || errors.length > 0) {
     return {
       kind: "unparseable",
       reason: errors.length
-        ? `jsonc-parser reported ${errors.length} error(s)`
+        ? `jsonc-parser reported ${errors.length} error(s) — refusing to modify`
         : "could not parse tsconfig.json",
     };
   }
@@ -258,22 +283,33 @@ export function ensureTsconfigInclude(
   const tsconfig = parsed as Record<string, unknown>;
   const pattern = ".copilotkit/register.d.ts";
 
-  const existingInclude = Array.isArray(tsconfig.include)
-    ? (tsconfig.include as unknown[])
-    : null;
+  const ownIncludeRaw = tsconfig.include;
+  const hasOwnIncludeKey = Object.prototype.hasOwnProperty.call(
+    tsconfig,
+    "include",
+  );
+  const existingInclude = Array.isArray(ownIncludeRaw) ? ownIncludeRaw : null;
 
   if (existingInclude?.includes(pattern)) {
     return { kind: "already-present" };
   }
 
-  // If the tsconfig extends a base config and has no own `include`, adding
-  // an `include` here would override the base's `include` entirely — almost
-  // certainly breaking the project's type resolution. Skip with a clear
-  // message instead of silently corrupting the build.
-  if (existingInclude === null && typeof tsconfig.extends === "string") {
+  // Adding our pattern to an empty-or-missing `include` when the tsconfig
+  // extends a base is dangerous: an explicit `include: []` is the canonical
+  // way to clear the base's include, and a missing `include` lets the base
+  // contribute its own. In both cases, writing `[".copilotkit/register.d.ts"]`
+  // here narrows the project's compilation scope to just our register file,
+  // silently breaking the user's build. Refuse to modify and surface guidance.
+  const hasExtends = typeof tsconfig.extends === "string";
+  const includeIsAbsentOrEmpty =
+    !hasOwnIncludeKey || (existingInclude?.length ?? 0) === 0;
+  if (hasExtends && includeIsAbsentOrEmpty) {
+    const includeDescription = !hasOwnIncludeKey
+      ? "no own `include`"
+      : "an explicit empty `include: []`";
     return {
       kind: "extends-without-include",
-      reason: `tsconfig.json extends "${tsconfig.extends}" and has no own \`include\` — adding one here would override the base's include array`,
+      reason: `tsconfig.json extends "${tsconfig.extends}" and has ${includeDescription} — adding one here would override the base's include array`,
     };
   }
 
