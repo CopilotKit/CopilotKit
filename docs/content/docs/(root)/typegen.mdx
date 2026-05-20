@@ -73,10 +73,21 @@ declare module "@copilotkit/react-core/v2" {
 }
 ```
 
-The CLI also automatically:
+The CLI also tries to update two project files for you:
 
-- Adds `.copilotkit/` to your `.gitignore` (generated files should not be committed)
-- Adds `.copilotkit/register.d.ts` to your `tsconfig.json` `include` array
+- **`.gitignore`** — `.copilotkit/` is appended (generated files should not be committed).
+- **`tsconfig.json`** — `.copilotkit/register.d.ts` is added to the `include` array, with comments and trailing commas preserved via [`jsonc-parser`](https://www.npmjs.com/package/jsonc-parser).
+
+<Callout type="warn" title="When the CLI does NOT touch your tsconfig">
+  The tsconfig update is skipped (and a message is printed) when the CLI can't be confident it would leave a working build behind:
+
+  - **`tsconfig.json` is missing.** Add `"include": [".copilotkit/register.d.ts"]` manually.
+  - **Parse errors.** `jsonc-parser` reported one or more errors. The CLI refuses to modify a config with syntax errors — fix the file first, then re-run.
+  - **`extends` + no own `include`.** Adding an `include` here would override the base config's include entirely (this also covers explicit `include: []`, the canonical "clear the base" pattern). Add `.copilotkit/register.d.ts` to the `include` of the tsconfig that extends your base, or to the base itself.
+  - **`include` is not an array.** If your config has e.g. `"include": "src/**/*"` (a bare string), the CLI refuses to overwrite it. Fix `include` to be an array of strings, then re-run.
+
+  When you see one of these messages, the generated `.copilotkit/types.ts` and `.copilotkit/register.d.ts` are still written — only the tsconfig wiring is skipped. Type-safe agent IDs become active as soon as TypeScript picks up `register.d.ts` via the `include` (or any equivalent mechanism your project uses).
+</Callout>
 
 ### Step 3 — Hooks pick up the augmentation
 
