@@ -8400,12 +8400,15 @@ ${prettyEvent}</pre
       return;
     }
 
+    const existing = this.emitterSnippets.find(
+      (s) => s.id === this.emitterEditingSnippetId,
+    );
     const updated: DevtoolsSnippet = {
       id: this.emitterEditingSnippetId,
       name,
       eventType: this.emitterEventType,
       payload,
-      createdAt: Date.now(),
+      createdAt: existing?.createdAt ?? Date.now(),
     };
 
     if (updateSnippet(updated)) {
