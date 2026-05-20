@@ -20,9 +20,6 @@ function loadDemoIndex(): Map<string, string> {
   for (const demo of manifest.demos ?? []) {
     if (demo.route) {
       const slug = demo.route.replace(/^\/demos\//, "");
-      // Last writer wins; manifest has duplicate routes (e.g., hitl-in-chat
-      // shared by hitl-in-chat and hitl-in-chat-booking). Prefer the first
-      // entry to keep titles stable.
       if (!map.has(slug)) map.set(slug, demo.name);
     }
   }
