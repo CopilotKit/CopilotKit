@@ -44,6 +44,7 @@ import {
 } from "fumadocs-core/mdx-plugins";
 import { docsComponents } from "@/lib/mdx-registry";
 import { transformerMeta } from "@/lib/rehype-code-meta";
+import { MdxCodeBlock } from "@/components/mdx-code-block";
 import { resolveSetupConcept } from "@/lib/docs-render";
 import { extractRegion, inferLanguage } from "@/lib/demo-code";
 import { rewriteDemoCode } from "@/lib/rewrite-demo-code";
@@ -147,12 +148,59 @@ export const INTEGRATIONS_ROOT = path.resolve(
 
 export interface FrameworkSetupProps {
   concept: string;
+  /**
+   * Heading text for the section. Defaults to `"Setup"`. The component
+   * renders the heading ONLY when it actually resolves a concept file —
+   * frameworks without a concept file get `null` for the whole slot
+   * (including the heading), so the docs page reads exactly as if the
+   * slot weren't there.
+   *
+   * Set to `null` to omit the heading entirely — useful when the slot
+   * is being dropped INSIDE another section's body and shouldn't
+   * introduce a new heading level.
+   */
+  heading?: string | null;
+  /**
+   * Anchor `id` for the heading. Defaults to `"setup"`. Only used when
+   * `heading` is non-null.
+   */
+  headingId?: string;
   /** Injected by the page render site via the components-map override. */
   currentFramework?: string;
 }
 
+/**
+ * Heading rendered by `<FrameworkSetup>` when it has content. Mirrors
+ * `DocsPageView`'s inline `h2` override (id + `docs-heading group`
+ * className + hover-only `#` anchor) so the heading looks identical to
+ * every other `## Heading` on the page — the only difference is that
+ * it's emitted by the orchestrator rather than by the page author.
+ */
+function SetupHeading({
+  text,
+  id,
+}: {
+  text: string;
+  id: string;
+}): React.ReactElement {
+  return (
+    <h2 id={id} className="docs-heading group">
+      {text}
+      <a
+        href={`#${id}`}
+        aria-label="Link to this section"
+        className="docs-heading-anchor"
+      >
+        #
+      </a>
+    </h2>
+  );
+}
+
 export async function FrameworkSetup({
   concept,
+  heading = "Setup",
+  headingId = "setup",
   currentFramework,
 }: FrameworkSetupProps): Promise<React.ReactElement | null> {
   if (!currentFramework) return null;
@@ -164,6 +212,9 @@ export async function FrameworkSetup({
     currentFramework,
     concept,
   );
+  // Missing-file orphan suppression: when there's no concept file for
+  // this framework, return null for the entire slot — heading included.
+  // The docs page reads as if the slot weren't there.
   if (source === null) return null;
 
   const packageRoot = path.join(INTEGRATIONS_ROOT, currentFramework);
@@ -174,11 +225,17 @@ export async function FrameworkSetup({
   const DemoCodeShim = createDemoCodeComponent(packageRoot);
 
   try {
-    return (
+    const body = (
       <MDXRemote
         source={rewritten}
         components={{
           ...docsComponents,
+          // Wrap MDX-rendered <pre> blocks with the same Fumadocs
+          // CodeBlock chrome the outer page uses — without this, fenced
+          // code inside the concept file falls back to a raw <pre> and
+          // Shiki's per-line `<span class="line">` lays out as inline
+          // elements (the "boxed-per-line" visual bug).
+          pre: MdxCodeBlock,
           DemoCode: DemoCodeShim,
         }}
         options={{
@@ -199,6 +256,13 @@ export async function FrameworkSetup({
           },
         }}
       />
+    );
+    if (heading === null) return body;
+    return (
+      <>
+        <SetupHeading text={heading} id={headingId} />
+        {body}
+      </>
     );
   } catch (err) {
     console.error(

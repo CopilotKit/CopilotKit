@@ -579,6 +579,8 @@ async function FrameworkRootPage({ framework }: { framework: string }) {
                 // gets the URL framework slug threaded in.
                 FrameworkSetup: (props: {
                   concept: string;
+                  heading?: string | null;
+                  headingId?: string;
                   currentFramework?: string;
                 }) => (
                   <FrameworkSetup

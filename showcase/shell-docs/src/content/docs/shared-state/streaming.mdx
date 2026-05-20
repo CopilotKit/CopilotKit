@@ -20,6 +20,8 @@ The UI, subscribed via `useAgent`, re-renders every token.
 
 <InlineDemo demo="shared-state-streaming" />
 
+<FrameworkSetup concept="agent-setup" />
+
 ## When should I use this?
 
 Use state streaming whenever a tool's output is long-form text or a
@@ -32,8 +34,6 @@ real time. Common shapes:
 
 Without streaming, the user stares at a spinner. With streaming, they
 see the answer grow token-by-token.
-
-<FrameworkSetup concept="agent-setup" />
 
 ## The backend: one middleware, one StateItem
 

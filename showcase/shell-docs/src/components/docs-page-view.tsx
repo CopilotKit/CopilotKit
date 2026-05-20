@@ -301,6 +301,8 @@ export async function DocsPageView({
                       // can resolve the per-framework concept file.
                       FrameworkSetup: (props: {
                         concept: string;
+                        heading?: string | null;
+                        headingId?: string;
                         currentFramework?: string;
                       }) => (
                         <FrameworkSetup

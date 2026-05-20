@@ -54,6 +54,8 @@ user answers, agent resumes — different mechanism underneath.
 
 <InlineDemo demo="gen-ui-interrupt" />
 
+<FrameworkSetup concept="agent-setup" />
+
 ## When should I use this?
 
 Reach for `useInterrupt` when the pause is a **graph-enforced
@@ -67,8 +69,6 @@ not an LLM-initiated tool call. Typical cases:
 
 For LLM-initiated pauses where the model decides on the fly to ask
 the user, prefer [`useHumanInTheLoop`](../human-in-the-loop).
-
-<FrameworkSetup concept="agent-setup" />
 
 <WhenFrameworkHas flag="interrupt_pattern" equals="native">
 

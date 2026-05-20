@@ -19,6 +19,8 @@ but it has no setter and no tool to write them back.
 
 <InlineDemo demo="readonly-state-agent-context" />
 
+<FrameworkSetup concept="agent-setup" />
+
 ## When should I use this?
 
 Reach for `useAgentContext` instead of full shared state when:
@@ -42,8 +44,6 @@ runtime that is:
 - Automatically removed when the component unmounts.
 - Surfaced to the agent via the backend's `CopilotKitMiddleware`, which
   threads the entries into the model's message history on every turn.
-
-<FrameworkSetup concept="agent-setup" />
 
 <Snippet region="use-agent-context-call" title="frontend/src/app/page.tsx — useAgentContext" />
 

@@ -14,6 +14,8 @@ This page covers the "agent drives the UI" shape of frontend tools. The same pri
 
 <InlineDemo demo="frontend-tools" />
 
+<FrameworkSetup concept="frontend-tools-setup" />
+
 ## When should I use this?
 
 Use frontend tools when your agent needs to:
@@ -28,8 +30,6 @@ Use frontend tools when your agent needs to:
 ## How it works in code
 
 Register a frontend tool with `useFrontendTool`. Give it a name, a Zod schema for parameters, and a handler. The agent can then call it like any other tool and your frontend runs it in the browser.
-
-<FrameworkSetup concept="frontend-tools-setup" />
 
 <Snippet region="frontend-tool-registration" title="frontend/src/app/page.tsx — useFrontendTool" />
 

@@ -24,6 +24,8 @@ the steering wheel.
   muted
 />
 
+<FrameworkSetup concept="human-in-the-loop-setup" />
+
 ## When should I use this?
 
 Use HITL when you need:
@@ -52,8 +54,6 @@ inlined into the normal tool-call flow.
 **Pick `useInterrupt`** when the pause is a _graph-enforced_ checkpoint —
 the code path deterministically requires a human answer — and you want
 `langgraph.interrupt()` as the server-side contract.
-
-<FrameworkSetup concept="human-in-the-loop-setup" />
 
 ## Pattern 1 — `useHumanInTheLoop` (tool-based)
 

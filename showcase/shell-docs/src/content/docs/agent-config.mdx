@@ -20,9 +20,9 @@ If the values are a *channel* the user occasionally tunes (a settings panel, a t
 
 <InlineDemo demo="agent-config" />
 
-How agent config flows from the UI into the agent's reasoning loop depends on your runtime architecture. Agents living behind a runtime read it from agent state on every run, while in-process agents receive the same object as forwarded properties on the provider — same UX, slightly different wiring on each side.
-
 <FrameworkSetup concept="agent-config-setup" />
+
+How agent config flows from the UI into the agent's reasoning loop depends on your runtime architecture. Agents living behind a runtime read it from agent state on every run, while in-process agents receive the same object as forwarded properties on the provider — same UX, slightly different wiring on each side.
 
 <WhenFrameworkHas flag="agent_config_pattern" equals="shared-state">
 
