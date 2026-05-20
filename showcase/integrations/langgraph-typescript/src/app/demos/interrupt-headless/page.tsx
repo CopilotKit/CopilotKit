@@ -84,9 +84,14 @@ function useHeadlessInterrupt(agentId: string): {
     const sub = agent.subscribe({
       onCustomEvent: ({ event }) => {
         if (event.name === INTERRUPT_EVENT_NAME) {
+          // The AG-UI adapter JSON-stringifies interrupt values, so
+          // parse when the value arrives as a string.
+          const raw = event.value ?? {};
           local = {
             name: event.name,
-            value: (event.value ?? {}) as InterruptPayload,
+            value: (typeof raw === "string"
+              ? JSON.parse(raw)
+              : raw) as InterruptPayload,
           };
         }
       },

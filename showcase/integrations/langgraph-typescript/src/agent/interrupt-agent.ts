@@ -29,6 +29,45 @@ import {
   CopilotKitStateAnnotation,
 } from "@copilotkit/sdk-js/langgraph";
 
+// Demo-only fixed timezone offset (Pacific = UTC-7 in PDT, UTC-8 in PST).
+// A real app would use the user's calendar + locale; we hardcode Pacific so
+// screenshots are stable. Mirrors interrupt_agent.py.
+const DEMO_TZ_OFFSET_HOURS = -7; // PDT
+
+interface TimeSlot {
+  label: string;
+  iso: string;
+}
+
+function candidateSlots(): TimeSlot[] {
+  const now = new Date();
+  // "Tomorrow"
+  const tomorrow = new Date(now);
+  tomorrow.setDate(now.getDate() + 1);
+
+  // "Monday" — at least 2 days away to avoid collisions with "Tomorrow"
+  const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  let daysToMonday = (1 - dayOfWeek + 7) % 7;
+  if (daysToMonday <= 1) daysToMonday += 7;
+  const nextMonday = new Date(now);
+  nextMonday.setDate(now.getDate() + daysToMonday);
+
+  const fmt = (d: Date, hour: number, minute = 0): string => {
+    // Build an ISO-like string with the demo timezone offset
+    const sign = DEMO_TZ_OFFSET_HOURS >= 0 ? "+" : "-";
+    const absOffset = Math.abs(DEMO_TZ_OFFSET_HOURS);
+    const hh = String(absOffset).padStart(2, "0");
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00${sign}${hh}:00`;
+  };
+
+  return [
+    { label: "Tomorrow 10:00 AM", iso: fmt(tomorrow, 10) },
+    { label: "Tomorrow 2:00 PM", iso: fmt(tomorrow, 14) },
+    { label: "Monday 9:00 AM", iso: fmt(nextMonday, 9) },
+    { label: "Monday 3:30 PM", iso: fmt(nextMonday, 15, 30) },
+  ];
+}
+
 const SYSTEM_PROMPT =
   "You are a scheduling assistant. Whenever the user asks you to book a " +
   "call / schedule a meeting, you MUST call the `schedule_meeting` tool. " +
@@ -48,7 +87,11 @@ const scheduleMeeting = tool(
     // langgraph's `interrupt()` pauses execution and forwards the payload to
     // the client. The frontend v2 `useInterrupt` hook renders the picker and
     // calls `resolve(...)` with the user's selection, which comes back here.
-    const response: unknown = interrupt({ topic, attendee: attendee ?? null });
+    const response: unknown = interrupt({
+      topic,
+      attendee: attendee ?? null,
+      slots: candidateSlots(),
+    });
 
     if (response && typeof response === "object") {
       const resp = response as Record<string, unknown>;
