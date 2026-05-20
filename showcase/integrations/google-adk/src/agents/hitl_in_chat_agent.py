@@ -13,12 +13,16 @@ the model can invoke it.
 
 from __future__ import annotations
 
+# region: setup
 from google.adk.agents import LlmAgent
 from ag_ui_adk import AGUIToolset
 
 from agents.shared_chat import get_model, stop_on_terminal_text
 
-
+# CopilotKit wires into ADK via the `AGUIToolset()` tool: pass it in the
+# `tools=` list of your `LlmAgent` to expose CopilotKit's frontend-tool
+# channel to the model. `stop_on_terminal_text` is a small ADK callback
+# that lets CopilotKit's UI know when the agent has finished its turn.
 _INSTRUCTION = (
     "You are a planning assistant. When the user asks you to plan something, "
     "always call generate_task_steps with the proposed list of steps (each "
@@ -35,3 +39,4 @@ hitl_in_chat_agent = LlmAgent(
     tools=[AGUIToolset()],
     after_model_callback=stop_on_terminal_text,
 )
+# endregion

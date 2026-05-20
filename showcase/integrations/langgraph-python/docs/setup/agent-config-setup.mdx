@@ -1,0 +1,21 @@
+<Steps>
+  <Step>
+    ### Install the LangGraph Python SDK
+
+    <InstallPythonSDK />
+  </Step>
+  <Step>
+    ### Wire CopilotKit middleware into your graph
+
+    Agent config flows from the UI into the agent via `useAgentContext` — the
+    frontend publishes a typed object and `CopilotKitMiddleware` injects it
+    into the model's prompt on every turn. Make sure the middleware is in
+    your `create_agent` call.
+
+    <DemoCode file="src/agents/frontend_tools.py" region="middleware" />
+
+    Read the resulting config inside your system prompt or a custom
+    middleware — see `src/agents/agent_config_agent.py` for the full
+    rulebook-driven shape used in the showcase.
+  </Step>
+</Steps>

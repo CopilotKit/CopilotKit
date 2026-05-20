@@ -1,0 +1,20 @@
+<Steps>
+  <Step>
+    ### Install the LangGraph TypeScript SDK
+
+    ```bash
+    npm install @copilotkit/sdk-js
+    ```
+  </Step>
+  <Step>
+    ### Wire CopilotKit state + tools into your graph
+
+    Frontend tools registered with `useFrontendTool` arrive on the agent's
+    state at `state.copilotkit.actions`. Use `CopilotKitStateAnnotation` to
+    expose that channel on your graph, then call
+    `convertActionsToDynamicStructuredTools(...)` inside your chat node to
+    bind the LLM to those actions.
+
+    <DemoCode file="src/agent/frontend-tools.ts" region="setup" />
+  </Step>
+</Steps>

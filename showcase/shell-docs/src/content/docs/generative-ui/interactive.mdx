@@ -27,6 +27,8 @@ On the frontend, register an interrupt renderer with `useInterrupt`. When the
 agent pauses, your component mounts inline in the chat, captures the user's
 choice, and resumes the run with that input.
 
+<FrameworkSetup concept="agent-setup" />
+
 <Snippet region="frontend-useinterrupt-render" title="frontend/src/app/page.tsx — useInterrupt" />
 
 On the backend, the agent calls into the interrupt primitive and waits for

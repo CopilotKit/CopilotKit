@@ -1,0 +1,23 @@
+<Steps>
+  <Step>
+    ### Install the ADK + AG-UI bridge
+
+    ```bash
+    pip install ag-ui-adk
+    ```
+  </Step>
+  <Step>
+    ### Add `AGUIToolset()` to your agent
+
+    Programmatic control (`copilotkit.runAgent`, `agent.subscribe`,
+    `agent.addMessage`) drives runs through the same agent your chat UI
+    uses, so the backend wiring is the same — wire `AGUIToolset()` once and
+    every entry point sees the same forwarded tools and state.
+
+    <DemoCode file="src/agents/hitl_in_chat_agent.py" region="setup" />
+
+    ADK doesn't ship a native `interrupt(...)` primitive — for the headless
+    interrupt-resolver pattern, use the frontend `useFrontendTool`
+    Promise-based handler instead.
+  </Step>
+</Steps>

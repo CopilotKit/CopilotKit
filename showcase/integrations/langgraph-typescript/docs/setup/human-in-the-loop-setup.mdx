@@ -1,0 +1,19 @@
+<Steps>
+  <Step>
+    ### Install the LangGraph TypeScript SDK
+
+    ```bash
+    npm install @copilotkit/sdk-js
+    ```
+  </Step>
+  <Step>
+    ### Wire CopilotKit state + tools into your graph
+
+    Tool-based HITL (`useHumanInTheLoop`) registers the tool on the frontend
+    and forwards it via `state.copilotkit.actions` — the same wiring as
+    frontend tools. The graph-paused pattern (`useInterrupt`) uses
+    LangGraph's native `interrupt(...)` primitive inside a node.
+
+    <DemoCode file="src/agent/frontend-tools.ts" region="setup" />
+  </Step>
+</Steps>

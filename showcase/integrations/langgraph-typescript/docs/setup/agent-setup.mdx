@@ -1,0 +1,19 @@
+<Steps>
+  <Step>
+    ### Install the LangGraph TypeScript SDK
+
+    ```bash
+    npm install @copilotkit/sdk-js
+    ```
+  </Step>
+  <Step>
+    ### Wire CopilotKit state + tools into your graph
+
+    `CopilotKitStateAnnotation` adds the `state.copilotkit` channel where
+    the runtime forwards frontend tools, shared state, and agent context
+    every turn. `convertActionsToDynamicStructuredTools` turns those
+    forwarded actions into LangChain tools you can bind to the model.
+
+    <DemoCode file="src/agent/frontend-tools.ts" region="setup" />
+  </Step>
+</Steps>

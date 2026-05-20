@@ -1,0 +1,17 @@
+<Steps>
+  <Step>
+    ### Install the LangGraph Python SDK
+
+    <InstallPythonSDK />
+  </Step>
+  <Step>
+    ### Wire CopilotKit middleware into your graph
+
+    Drop `CopilotKitMiddleware()` into your `create_agent` call. This single
+    line is what makes every CopilotKit feature on the frontend — frontend
+    tools, shared state, agent context, generative UI components — visible
+    to your LangGraph agent.
+
+    <DemoCode file="src/agents/frontend_tools.py" region="middleware" />
+  </Step>
+</Steps>
