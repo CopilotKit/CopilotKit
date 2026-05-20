@@ -31,6 +31,7 @@ import { DemoSource } from "@/components/demo-source";
 import { getRegistry } from "@/lib/registry";
 import { PartialLoader } from "@/lib/mdx-registry-loader";
 import { MdxFrameworkOverview } from "@/components/content/landing-pages/mdx-framework-overview";
+import { FrameworkSetup } from "@/lib/setup-concept";
 import {
   AdkIcon,
   Ag2Icon,
@@ -481,6 +482,12 @@ export const docsComponents = {
   // features grid, architecture image, live demos) instead of being
   // dropped on the floor as a children-passthrough used to do.
   FrameworkOverview: MdxFrameworkOverview,
+  // Per-render override in DocsPageView binds `currentFramework` from
+  // the URL — same closure pattern as MdxFrameworkOverview. The base
+  // registration renders null when invoked without a framework slug
+  // (e.g. an unscoped /docs/<slug> route where the concept of
+  // "framework-specific setup" doesn't apply).
+  FrameworkSetup,
   // Per-framework icon components used inline by authored index.mdx files
   // (e.g. `frameworkIcon={<MastraIcon className="h-12 w-12" />}`). Each
   // resolves to the same component the data-driven path uses via

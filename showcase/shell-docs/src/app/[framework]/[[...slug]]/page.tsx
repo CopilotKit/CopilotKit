@@ -35,6 +35,7 @@ import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
 import { FrameworkOverview } from "@/components/content/landing-pages/framework-overview";
 import { MdxFrameworkOverview } from "@/components/content/landing-pages/mdx-framework-overview";
 import type { MdxFrameworkOverviewProps } from "@/components/content/landing-pages/mdx-framework-overview";
+import { FrameworkSetup } from "@/lib/setup-concept";
 import { frameworkOverviews } from "@/data/frameworks";
 import { docsComponents } from "@/lib/mdx-registry";
 import { transformerMeta } from "@/lib/rehype-code-meta";
@@ -569,6 +570,18 @@ async function FrameworkRootPage({ framework }: { framework: string }) {
                 // as DocsPageView's components-map override.
                 FrameworkOverview: (props: MdxFrameworkOverviewProps) => (
                   <MdxFrameworkOverview
+                    {...props}
+                    currentFramework={framework ?? props.currentFramework}
+                  />
+                ),
+                // Mirror the binding in DocsPageView so any
+                // <FrameworkSetup> embedded in after-features.mdx also
+                // gets the URL framework slug threaded in.
+                FrameworkSetup: (props: {
+                  concept: string;
+                  currentFramework?: string;
+                }) => (
+                  <FrameworkSetup
                     {...props}
                     currentFramework={framework ?? props.currentFramework}
                   />

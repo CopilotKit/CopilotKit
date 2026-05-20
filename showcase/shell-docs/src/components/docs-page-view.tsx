@@ -30,6 +30,7 @@ import { Tabs as DocsTabs } from "@/components/docs-tabs";
 import { MdxCodeBlock } from "@/components/mdx-code-block";
 import { MdxFrameworkOverview } from "@/components/content/landing-pages/mdx-framework-overview";
 import type { MdxFrameworkOverviewProps } from "@/components/content/landing-pages/mdx-framework-overview";
+import { FrameworkSetup } from "@/lib/setup-concept";
 import { docsComponents } from "@/lib/mdx-registry";
 import { transformerMeta } from "@/lib/rehype-code-meta";
 import { getIntegration, getTabDefault } from "@/lib/registry";
@@ -289,6 +290,20 @@ export async function DocsPageView({
                       // → `/quickstart`).
                       FrameworkOverview: (props: MdxFrameworkOverviewProps) => (
                         <MdxFrameworkOverview
+                          {...props}
+                          currentFramework={
+                            frameworkOverride ?? props.currentFramework
+                          }
+                        />
+                      ),
+                      // Same closure pattern: thread the URL framework
+                      // slug into <FrameworkSetup concept="..." /> so it
+                      // can resolve the per-framework concept file.
+                      FrameworkSetup: (props: {
+                        concept: string;
+                        currentFramework?: string;
+                      }) => (
+                        <FrameworkSetup
                           {...props}
                           currentFramework={
                             frameworkOverride ?? props.currentFramework

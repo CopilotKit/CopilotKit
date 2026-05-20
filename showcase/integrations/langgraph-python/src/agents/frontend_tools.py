@@ -5,6 +5,7 @@ CopilotKitMiddleware is attached so CopilotKit-specific context is
 picked up if the frontend ever registers suggestions/components.
 """
 
+# region: middleware
 from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 from copilotkit import CopilotKitMiddleware
@@ -15,3 +16,4 @@ graph = create_agent(
     middleware=[CopilotKitMiddleware()],
     system_prompt="You are a helpful, concise assistant.",
 )
+# endregion

@@ -53,6 +53,8 @@ inlined into the normal tool-call flow.
 the code path deterministically requires a human answer — and you want
 `langgraph.interrupt()` as the server-side contract.
 
+<FrameworkSetup concept="human-in-the-loop-setup" />
+
 ## Pattern 1 — `useHumanInTheLoop` (tool-based)
 
 The agent registers a HITL tool on the client with `useHumanInTheLoop`.

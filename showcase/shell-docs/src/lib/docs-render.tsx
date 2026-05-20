@@ -117,6 +117,82 @@ const metaCache = new Map<
 // so meta.json edits propagate without a restart.
 const navTreeCache = new Map<string, NavNode[]>();
 
+// Resolved-source strings for `<FrameworkSetup>` concept files. Same
+// dev/prod policy as the title/meta caches: dev re-reads on every
+// request so authoring edits show up immediately; prod caches for
+// the process lifetime since content is frozen at deploy time.
+//
+// The cache stores raw source strings — compilation happens on every
+// render so the `components` map binding (which closes over the URL
+// framework slug) stays correct.
+const setupConceptCache = new Map<string, string | null>();
+
+// Only exposed for tests. The compiled bundle ignores this export.
+export function __resetSetupConceptCacheForTest(): void {
+  setupConceptCache.clear();
+}
+
+/**
+ * Resolve `<integrationsRoot>/<docsFolder>/docs/setup/<concept>.mdx`
+ * for the given integration package root. Returns the file's source
+ * string when present, or null for missing / empty / unreadable /
+ * path-traversal attempts.
+ *
+ * `integrationsRoot` is the absolute path to `showcase/integrations/`
+ * in production; tests inject a tmpdir so they're decoupled from the
+ * on-disk shape of the real repo.
+ *
+ * Both the docsFolder + concept legs are routed through `resolveWithinDir`
+ * for defense-in-depth — integration owners author both, but a typo or
+ * a malicious slug should never escape the integrations root.
+ */
+export function resolveSetupConcept(
+  integrationsRoot: string,
+  docsFolder: string,
+  concept: string,
+): string | null {
+  const folderResolved = resolveWithinDir(integrationsRoot, docsFolder);
+  if (!folderResolved) return null;
+  const conceptResolved = resolveWithinDir(
+    folderResolved,
+    path.join("docs", "setup", `${concept}.mdx`),
+  );
+  if (!conceptResolved) return null;
+
+  const cacheKey = conceptResolved;
+  if (!isDev && setupConceptCache.has(cacheKey)) {
+    return setupConceptCache.get(cacheKey)!;
+  }
+
+  if (!fs.existsSync(conceptResolved)) {
+    setupConceptCache.set(cacheKey, null);
+    return null;
+  }
+
+  let raw: string;
+  try {
+    raw = fs.readFileSync(conceptResolved, "utf-8");
+  } catch (err) {
+    console.error(
+      "[docs-render] failed to read setup concept",
+      conceptResolved,
+      err,
+    );
+    setupConceptCache.set(cacheKey, null);
+    return null;
+  }
+
+  // Whitespace-only files render nothing — treated as a deliberate
+  // placeholder, not an authoring error.
+  if (raw.trim().length === 0) {
+    setupConceptCache.set(cacheKey, null);
+    return null;
+  }
+
+  setupConceptCache.set(cacheKey, raw);
+  return raw;
+}
+
 export function readTitle(filePath: string): string | null {
   const cacheKey = path.resolve(filePath);
   if (!isDev && titleCache.has(cacheKey)) return titleCache.get(cacheKey)!;

@@ -29,6 +29,8 @@ Use frontend tools when your agent needs to:
 
 Register a frontend tool with `useFrontendTool`. Give it a name, a Zod schema for parameters, and a handler. The agent can then call it like any other tool and your frontend runs it in the browser.
 
+<FrameworkSetup concept="frontend-tools-setup" />
+
 <Snippet region="frontend-tool-registration" title="frontend/src/app/page.tsx — useFrontendTool" />
 
 The handler receives the parsed, type-safe parameters and can do anything
