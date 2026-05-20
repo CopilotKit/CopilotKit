@@ -2,6 +2,21 @@
   "name": "@copilotkit/cli",
   "version": "1.57.3",
   "description": "CLI tools for CopilotKit — typegen and more",
+  "keywords": [
+    "ai",
+    "assistant",
+    "cli",
+    "copilot",
+    "copilotkit",
+    "typegen",
+    "typescript"
+  ],
+  "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git"
+  },
   "bin": {
     "copilotkit": "./dist/index.mjs"
   },

@@ -168,37 +168,28 @@ declare module "@copilotkit/react-core/v2" {
 // ── Project-root detection ───────────────────────────────────────────
 
 /**
- * Walk up from `start` looking for the nearest directory containing
- * `package.json`. That directory is treated as the project root.
+ * Walk up from `start` one level at a time, looking for the nearest directory
+ * containing a `package.json`. A `package.json` whose IMMEDIATE parent is
+ * `node_modules` belongs to a dependency, not the project — those are skipped
+ * and the walk continues upward. Any other ancestor segment named
+ * `node_modules` on the way up is left alone: a legitimate workspace package
+ * that happens to live at `/repo/node_modules/.../packages/my-app` is still
+ * the right answer for the CLI invoked from inside it.
  *
- * Directories named `node_modules` are skipped — a `package.json` inside a
- * dependency is never the project root. The walk continues from the parent
- * of any `node_modules` segment in the path until either a non-dependency
- * `package.json` is found or the filesystem root is reached.
- *
- * Returns `null` if no project package.json is found — typegen has no
- * sensible place to write in that case.
+ * Returns `null` if no eligible package.json is found before hitting the
+ * filesystem root — typegen has no sensible place to write in that case.
  */
 export function findProjectRoot(start: string): string | null {
   let current = path.resolve(start);
   while (true) {
-    // Skip past any node_modules segments: a package.json directly inside
-    // one belongs to a dependency, not the project. Jump to the parent of
-    // the nearest node_modules and resume the walk there.
-    const segments = current.split(path.sep);
-    const nmIndex = segments.lastIndexOf("node_modules");
-    if (nmIndex >= 0) {
-      const truncated = segments.slice(0, nmIndex).join(path.sep);
-      // On POSIX, slicing off "/usr/local/node_modules" leaves "/usr/local".
-      // On Windows, slicing off "C:\proj\node_modules" leaves "C:\proj".
-      // If the result is empty (e.g. node_modules was the root segment),
-      // bail out — no sensible project root above.
-      if (!truncated) return null;
-      current = truncated;
-      continue;
-    }
     if (fs.existsSync(path.join(current, "package.json"))) {
-      return current;
+      // Skip dependency package.jsons (those sit directly inside
+      // node_modules) but accept anything else, even paths that traverse
+      // node_modules higher up the tree.
+      const parentDirName = path.basename(path.dirname(current));
+      if (parentDirName !== "node_modules") {
+        return current;
+      }
     }
     const parent = path.dirname(current);
     if (parent === current) return null; // filesystem root
