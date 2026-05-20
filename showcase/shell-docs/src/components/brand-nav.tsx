@@ -106,15 +106,12 @@ export function BrandNav(_props: BrandNavProps = {}) {
                 const hideIconAtNarrow =
                   link.label === "Docs" || link.label === "Reference";
                 const isActive = activeRoute === link.href;
-                const isFreeDevAccess =
-                  link.label === "Free Developer Access";
+                const isFreeDevAccess = link.label === "Free Developer Access";
                 return (
                   <li
                     key={link.href}
                     className={`relative h-full group ${
-                      link.hideAtNarrow
-                        ? "[@media(width<1100px)]:hidden"
-                        : ""
+                      link.hideAtNarrow ? "[@media(width<1100px)]:hidden" : ""
                     }`}
                   >
                     <Link
