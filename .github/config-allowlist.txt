@@ -74,6 +74,7 @@ examples/v2/react-router/vite.config.ts
 examples/v2/react/demo/next.config.ts
 packages/a2ui-renderer/tsdown.config.ts
 packages/agentcore-runner/tsdown.config.ts
+packages/cli/tsdown.config.ts
 packages/core/tsdown.config.ts
 packages/demo-agents/tsdown.config.ts
 packages/react-core/tsdown.config.ts
