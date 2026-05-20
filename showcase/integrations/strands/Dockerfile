@@ -1,4 +1,6 @@
 # Stage 1: Build Next.js frontend
+# (Lockfile regenerated 2026-05-20 via npm install --package-lock-only after
+# the May-19 main-branch sync produced invalid JSON; see commit 65a26ebc7.)
 FROM node:22-slim AS frontend
 WORKDIR /app
 COPY package.json package-lock.json ./
