@@ -12,7 +12,14 @@ WORKDIR /app
 COPY package*.json ./
 RUN set -eux; \
     ls -la /app; \
-    test -s /app/package-lock.json || { echo "package-lock.json missing or empty in build context" >&2; exit 1; }; \
+    pwd; \
+    node --version; \
+    npm --version; \
+    test -s /app/package-lock.json || { echo "[probe] package-lock.json missing or empty in build context" >&2; exit 1; }; \
+    head -c 200 /app/package-lock.json; \
+    echo; \
+    echo "[probe] file content head printed OK"; \
+    node -e "const f=require('fs'); const d=JSON.parse(f.readFileSync('/app/package-lock.json','utf-8')); console.log('[probe] lockfileVersion =', d.lockfileVersion);"; \
     npm ci --legacy-peer-deps
 COPY src/ ./src/
 COPY public/ ./public/
