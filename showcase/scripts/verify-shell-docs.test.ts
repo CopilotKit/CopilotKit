@@ -53,6 +53,29 @@ describe("checkInlineDemoRefs", () => {
     const result = checkInlineDemoRefs({ pages, registry: fakeRegistry });
     expect(result.status).toBe("pass");
   });
+
+  it("ignores InlineDemo refs inside fenced code blocks", () => {
+    // A docs page that *shows* `<InlineDemo demo="some-example" />` in a
+    // code sample (for users to copy) must not register that as a real
+    // demo reference — otherwise the validator false-positives on every
+    // tutorial that documents how to use InlineDemo.
+    const fakeRegistry = {
+      integrations: [
+        { slug: "langgraph-python", demos: [{ id: "agentic-chat" }] },
+      ],
+    };
+    const pages = [
+      {
+        path: "tutorial.mdx",
+        body:
+          "Here is how to embed a demo:\n\n```mdx\n" +
+          '<InlineDemo demo="not-a-real-demo" />\n' +
+          "```\n",
+      },
+    ];
+    const result = checkInlineDemoRefs({ pages, registry: fakeRegistry });
+    expect(result.status).toBe("pass");
+  });
 });
 
 describe("checkSnippetRegions", () => {

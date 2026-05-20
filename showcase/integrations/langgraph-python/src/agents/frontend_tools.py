@@ -1,8 +1,14 @@
-"""LangGraph agent backing the Chat Customization (CSS) demo.
+"""LangGraph agent backing the Frontend Tools demo.
 
-The demo is about CSS — the agent has no custom tools or behavior.
-CopilotKitMiddleware is attached so CopilotKit-specific context is
-picked up if the frontend ever registers suggestions/components.
+This cell demonstrates `useFrontendTool` with a synchronous handler.
+The backend graph registers no tools of its own — CopilotKit forwards
+the frontend tool schema(s) to the agent at runtime, and the handler
+executes in the browser. CopilotKitMiddleware is attached so frontend
+tools, shared state, and agent context flow into every turn.
+
+Like the sibling `frontend_tools_async` cell, the agent has no custom
+behavior beyond a permissive system prompt — the demo's value is in
+showing the wiring contract, not the agent logic.
 """
 
 # region: middleware

@@ -325,10 +325,16 @@ export async function DocsPageView({
                         ...rest
                       }: React.HTMLAttributes<HTMLHeadingElement>) => {
                         const id = slugify(childrenToText(children));
+                        // Spread rest BEFORE id/className so the computed
+                        // slug-id always wins over any MDX-supplied id.
+                        // Otherwise an authored `<h2 id="custom">` would
+                        // override the slugified id, breaking the TOC's
+                        // `href="#${id}"` and any inbound deep-links that
+                        // already rely on the slug.
                         return (
                           <h2
-                            id={id}
                             {...rest}
+                            id={id}
                             className={`docs-heading group ${rest.className ?? ""}`}
                           >
                             {children}
@@ -347,10 +353,12 @@ export async function DocsPageView({
                         ...rest
                       }: React.HTMLAttributes<HTMLHeadingElement>) => {
                         const id = slugify(childrenToText(children));
+                        // Spread rest BEFORE id/className — see h2 above for
+                        // rationale.
                         return (
                           <h3
-                            id={id}
                             {...rest}
+                            id={id}
                             className={`docs-heading group ${rest.className ?? ""}`}
                           >
                             {children}
@@ -374,9 +382,25 @@ export async function DocsPageView({
                           children,
                           ...rest
                         }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
+                          // Rewrite root-relative MDX links into the
+                          // framework scope EXCEPT when the link already
+                          // points at the framework root or its subtree.
+                          // Without the bare-root check, `[…](/built-in-agent)`
+                          // (no trailing slash) would rewrite to
+                          // `/built-in-agent/built-in-agent` and dead-end.
+                          // Also guard protocol-relative URLs (`//host/…`):
+                          // they pass startsWith("/") but must not be
+                          // treated as in-app paths.
+                          const isProtocolRelative =
+                            !!href && href.startsWith("//");
+                          const alreadyScoped =
+                            !!href &&
+                            (href === `/${frameworkOverride}` ||
+                              href.startsWith(`/${frameworkOverride}/`));
                           const resolved =
                             href?.startsWith("/") &&
-                            !href.startsWith(`/${frameworkOverride}/`)
+                            !isProtocolRelative &&
+                            !alreadyScoped
                               ? `/${frameworkOverride}${href}`
                               : href;
                           return (

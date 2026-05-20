@@ -251,4 +251,7 @@ async function main() {
   if (failures.length) process.exit(1);
 }
 
-main();
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

@@ -219,17 +219,30 @@ function mergeFrameworkNav(
   if (insertAt === -1) {
     return [...rootNavWithIntro, sectionHeader, ...remainingOverrideNav];
   }
-  // `insertAt` was computed against the original rootNav. The replace
-  // path (rootHasIntro) preserves array length; only the splice path
-  // shifts indices at/after Get Started by +1.
+  // `insertAt` was computed against the original rootNav, so it must be
+  // adjusted whenever `rootNavWithIntro` shifted any positions. There are
+  // three branches:
+  //
+  //   1. `rootHasIntro` -> replace path. The map() preserves length so
+  //      no shift; insertAt stays as-is.
+  //   2. Splice into Get Started (`getStartedIdx !== -1`). introNode is
+  //      inserted at index `getStartedIdx + 1`, so every node from that
+  //      position onward shifts +1. insertAt > getStartedIdx -> +1.
+  //   3. Prepend (`getStartedIdx === -1`). introNode is unshift()ed in
+  //      front, so EVERY index shifts +1 unconditionally.
+  //
+  // The previous version only handled (1) and (2); the prepend branch
+  // (3) was silently miscomputed by 1 slot, splicing the framework
+  // section one position too early in the prepended array.
   const getStartedIdx = rootNav.findIndex((n) => isSection(n, "get started"));
-  const adjustedInsertAt =
-    introNode &&
+  const prepended = !!introNode && !rootHasIntro && getStartedIdx === -1;
+  const splicedAfterAnchor =
+    !!introNode &&
     !rootHasIntro &&
     getStartedIdx !== -1 &&
-    insertAt > getStartedIdx
-      ? insertAt + 1
-      : insertAt;
+    insertAt > getStartedIdx;
+  const adjustedInsertAt =
+    prepended || splicedAfterAnchor ? insertAt + 1 : insertAt;
   return [
     ...rootNavWithIntro.slice(0, adjustedInsertAt),
     sectionHeader,

@@ -72,8 +72,8 @@ frontend renders every new entry live.
 
 On the frontend, the delegation log is just a reactive render of the
 `delegations` slot. Subscribe with `useAgent({ updates:
-[OnStateChanged, OnRunStatusChanged] })`, read `agent.state.delegations`,
-and render one card per entry.
+[UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged] })`,
+read `agent.state.delegations`, and render one card per entry.
 
 <Snippet region="delegation-log-frontend" title="frontend/src/app/delegation-log.tsx — live log component" />
 

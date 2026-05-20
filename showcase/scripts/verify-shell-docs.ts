@@ -3,10 +3,8 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { glob } from "glob";
-import {
-  checkEssentialContent,
-  type PageInput,
-} from "./lib/essential-content.js";
+import { checkEssentialContent } from "./lib/essential-content.js";
+import type { PageInput } from "./lib/essential-content.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // showcase/scripts/ → showcase/ → repo root. Different from
@@ -59,6 +57,18 @@ interface RegistryLite {
   integrations: RegistryIntegrationLite[];
 }
 
+// Strip fenced code blocks (``` ... ```) before scanning for component
+// references / links / imports. Without this, every regex below false-
+// positives on example code inside tutorial pages — e.g. a docs page
+// that shows `<InlineDemo demo="some-example" />` in a fenced code
+// sample would report "unknown demo id" even though it's literal
+// documentation, not a live component reference. Mirrors the same
+// approach in audit-docs-porting.ts.
+const FENCED_CODE_RE = /```[\s\S]*?```/g;
+function strip(body: string): string {
+  return body.replace(FENCED_CODE_RE, "");
+}
+
 const INLINE_DEMO_RE = /<InlineDemo\s+[^>]*demo=["']([^"']+)["']/g;
 
 export function checkInlineDemoRefs(input: {
@@ -74,9 +84,10 @@ export function checkInlineDemoRefs(input: {
 
   const failures: string[] = [];
   for (const page of input.pages) {
+    const body = strip(page.body);
     INLINE_DEMO_RE.lastIndex = 0;
     let m: RegExpExecArray | null;
-    while ((m = INLINE_DEMO_RE.exec(page.body)) !== null) {
+    while ((m = INLINE_DEMO_RE.exec(body)) !== null) {
       if (!known.has(m[1])) {
         failures.push(`${page.path}: unknown demo id "${m[1]}"`);
       }
@@ -128,9 +139,10 @@ export function checkSnippetRegions(input: {
 
   const failures: string[] = [];
   for (const page of input.pages) {
+    const body = strip(page.body);
     SNIPPET_RE.lastIndex = 0;
     let m: RegExpExecArray | null;
-    while ((m = SNIPPET_RE.exec(page.body)) !== null) {
+    while ((m = SNIPPET_RE.exec(body)) !== null) {
       if (!allRegions.has(m[1])) {
         failures.push(`${page.path}: unknown snippet region "${m[1]}"`);
       }
@@ -152,9 +164,10 @@ export function checkInternalLinks(input: {
 }): CheckResult {
   const failures: string[] = [];
   for (const page of input.pages) {
+    const body = strip(page.body);
     MD_LINK_RE.lastIndex = 0;
     let m: RegExpExecArray | null;
-    while ((m = MD_LINK_RE.exec(page.body)) !== null) {
+    while ((m = MD_LINK_RE.exec(body)) !== null) {
       const raw = m[1];
       const cleaned = raw.split("#")[0].split("?")[0];
       if (!input.knownRoutes.has(cleaned)) {
@@ -178,9 +191,10 @@ export function checkImportPaths(input: {
 }): CheckResult {
   const failures: string[] = [];
   for (const page of input.pages) {
+    const body = strip(page.body);
     ALIAS_IMPORT_RE.lastIndex = 0;
     let m: RegExpExecArray | null;
-    while ((m = ALIAS_IMPORT_RE.exec(page.body)) !== null) {
+    while ((m = ALIAS_IMPORT_RE.exec(body)) !== null) {
       if (!input.existsOnDisk(m[1])) {
         failures.push(`${page.path}: unresolved import "${m[1]}"`);
       }
