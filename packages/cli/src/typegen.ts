@@ -233,7 +233,8 @@ type TsconfigUpdateResult =
   | { kind: "already-present" }
   | { kind: "not-found" }
   | { kind: "unparseable"; reason: string }
-  | { kind: "extends-without-include"; reason: string };
+  | { kind: "extends-without-include"; reason: string }
+  | { kind: "invalid-include-type"; reason: string };
 
 /**
  * Add `.copilotkit/register.d.ts` to the project's tsconfig.json `include`
@@ -288,6 +289,18 @@ export function ensureTsconfigInclude(
     tsconfig,
     "include",
   );
+
+  // `include` must be either absent or an array of strings. If a user has
+  // anything else here (a bare string, an object, null), refuse to touch
+  // the file — silently overwriting their value with our pattern would
+  // destroy whatever they meant. TypeScript itself rejects non-arrays in
+  // `include`, so this catches typos rather than legitimate config shapes.
+  if (hasOwnIncludeKey && !Array.isArray(ownIncludeRaw)) {
+    return {
+      kind: "invalid-include-type",
+      reason: `tsconfig.json has \`include\` set to ${describeIncludeValue(ownIncludeRaw)} — expected an array; refusing to modify`,
+    };
+  }
   const existingInclude = Array.isArray(ownIncludeRaw) ? ownIncludeRaw : null;
 
   if (existingInclude?.includes(pattern)) {
@@ -300,16 +313,25 @@ export function ensureTsconfigInclude(
   // contribute its own. In both cases, writing `[".copilotkit/register.d.ts"]`
   // here narrows the project's compilation scope to just our register file,
   // silently breaking the user's build. Refuse to modify and surface guidance.
-  const hasExtends = typeof tsconfig.extends === "string";
+  //
+  // TS 5.0+ also supports `extends` as an array of base configs — treat both
+  // forms equivalently.
+  const extendsValue = tsconfig.extends;
+  const hasExtends =
+    typeof extendsValue === "string" ||
+    (Array.isArray(extendsValue) && extendsValue.length > 0);
   const includeIsAbsentOrEmpty =
     !hasOwnIncludeKey || (existingInclude?.length ?? 0) === 0;
   if (hasExtends && includeIsAbsentOrEmpty) {
+    const extendsDescription = Array.isArray(extendsValue)
+      ? `extends [${extendsValue.map((v) => JSON.stringify(v)).join(", ")}]`
+      : `extends ${JSON.stringify(extendsValue)}`;
     const includeDescription = !hasOwnIncludeKey
       ? "no own `include`"
       : "an explicit empty `include: []`";
     return {
       kind: "extends-without-include",
-      reason: `tsconfig.json extends "${tsconfig.extends}" and has ${includeDescription} — adding one here would override the base's include array`,
+      reason: `tsconfig.json ${extendsDescription} and has ${includeDescription} — adding one here would override the base's include array`,
     };
   }
 
@@ -361,6 +383,13 @@ function detectIndent(
 
 function detectEol(raw: string): "\n" | "\r\n" {
   return raw.includes("\r\n") ? "\r\n" : "\n";
+}
+
+function describeIncludeValue(value: unknown): string {
+  if (value === null) return "null";
+  if (typeof value === "string") return `a string (${JSON.stringify(value)})`;
+  if (typeof value === "object") return "an object";
+  return `a ${typeof value}`;
 }
 
 // ── Main ─────────────────────────────────────────────────────────────
@@ -511,6 +540,14 @@ export async function typegen(urls: string[]): Promise<void> {
         );
         console.log(
           `    ${chalk.dim("Add ")}${chalk.cyan('".copilotkit/register.d.ts"')}${chalk.dim(" to the ")}${chalk.cyan('"include"')}${chalk.dim(" array of the tsconfig that extends your base config.")}`,
+        );
+        break;
+      case "invalid-include-type":
+        console.log(
+          `  ${icons.err} ${chalk.red("tsconfig.json")} ${chalk.dim(`— ${tsconfigResult.reason}, skipped`)}`,
+        );
+        console.log(
+          `    ${chalk.dim("Fix your ")}${chalk.cyan('"include"')}${chalk.dim(" to be an array of strings, then re-run.")}`,
         );
         break;
       case "already-present":
