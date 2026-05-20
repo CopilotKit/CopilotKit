@@ -2858,27 +2858,6 @@
     },
     {
       "match": {
-        "model": "gpt-4.1",
-        "turnIndex": 0,
-        "hasToolResult": false
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "name": "render_a2ui",
-            "arguments": "{\"surfaceId\":\"dashboard-001\",\"catalogId\":\"copilotkit://app-dashboard-catalog\"}",
-            "id": "call_Q3rTavqr4dXJ08ne9bEesL9d"
-          }
-        ]
-      },
-      "metadata": {
-        "systemHash": "28fe3ed7",
-        "toolsHash": "2cbb50da"
-      },
-      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-55-02-522Z-e88af85f.json"
-    },
-    {
-      "match": {
         "userMessage": "First use the query_data tool to fetch the financial sales data, then using A2UI, show me a sales dashboard with total revenue, new customers, and conversion rate metrics. Include a pie chart of revenue by category and a bar chart of monthly sales.",
         "model": "gpt-4o",
         "turnIndex": 2,
