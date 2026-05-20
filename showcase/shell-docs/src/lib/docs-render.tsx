@@ -11,6 +11,7 @@ import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
 import { resolveWithinDir } from "./safe-fs";
+import { getDocsMode } from "./registry";
 
 export const CONTENT_DIR = path.join(process.cwd(), "src/content/docs");
 export const SNIPPETS_DIR = path.join(CONTENT_DIR, "..", "snippets");
@@ -545,6 +546,58 @@ export function buildFrameworkOverridesNav(folder: string): NavNode[] {
 }
 
 /**
+ * Build a sidebar that contains ONLY the per-framework MDX tree
+ * (no merge with root nav, no root-equivalent filtering). Used when a
+ * framework's `docs_mode === "authored"` — the framework owns its
+ * entire IA, so the agnostic root sections (Concepts / Build Chat UIs
+ * / ...) must NOT appear, and per-framework pages with names that
+ * happen to match root pages (`quickstart`, `frontend-tools`, etc.)
+ * MUST survive (they're the authoritative version for this framework).
+ *
+ * Slugs are rewritten to drop the `integrations/<folder>/` prefix and
+ * the literal `index` → "" rewrite, so links resolve at
+ * `/<framework>/<topic>` and the framework root at `/<framework>`.
+ */
+export function buildFrameworkOnlyNav(folder: string): NavNode[] {
+  const frameworkDir = path.join(CONTENT_DIR, "integrations", folder);
+  if (!fs.existsSync(frameworkDir)) return [];
+  const nodes = buildNavTree(frameworkDir, `integrations/${folder}`);
+  const prefix = `integrations/${folder}/`;
+
+  // Recursive slug rewrite so nested groups (e.g. `human-in-the-loop/`,
+  // `premium/`) also get the prefix stripped from their children.
+  //
+  // Two `index` cases need rewriting:
+  //   1. Top-level `index` → "" so the framework-root entry resolves to
+  //      `/<framework>` (not `/<framework>/index`).
+  //   2. Nested `<group>/index` → `<group>` so a folder's own root page
+  //      (e.g. `human-in-the-loop/index.mdx`) resolves to
+  //      `/<framework>/human-in-the-loop` (the folder URL), not
+  //      `/<framework>/human-in-the-loop/index` which 404s. Without
+  //      this rewrite the sidebar links into folder-root pages dead-end.
+  const rewrite = (node: NavNode): NavNode => {
+    if (node.type === "page") {
+      const stripped = node.slug.replace(prefix, "");
+      let slug = stripped;
+      if (stripped === "index") slug = "";
+      else if (stripped.endsWith("/index"))
+        slug = stripped.slice(0, -"/index".length);
+      return { ...node, slug };
+    }
+    if (node.type === "group") {
+      const stripped = node.slug.replace(prefix, "");
+      return {
+        ...node,
+        slug: stripped,
+        children: node.children.map(rewrite),
+      };
+    }
+    return node;
+  };
+  return nodes.map(rewrite);
+}
+
+/**
  * Return the list of framework slugs whose `integrations/<folder>/`
  * tree contains an MDX file for `slugPath`. Matches either
  * `<slug>.mdx` or `<slug>/index.mdx`. Used by the framework-scoped
@@ -557,7 +610,12 @@ export function buildFrameworkOverridesNav(folder: string): NavNode[] {
  * ms-agent-dotnet/python → `microsoft-agent-framework/`) and two
  * legacy slugs were renamed after the folder existed (google-adk →
  * `adk/`, strands → `aws-strands/`). The caller supplies the
- * slug→folder resolver so this module stays registry-free.
+ * slug→folder resolver so this helper stays decoupled from the registry's
+ * docs-folder mapping.
+ *
+ * `docs_mode: hidden` frameworks are filtered out — the "Try X, Y, Z"
+ * suggestion surfaces would otherwise dead-end on a 404 (those frameworks
+ * have no `/<slug>` route by design).
  */
 export function findFrameworksWithPage(
   slugPath: string,
@@ -566,6 +624,7 @@ export function findFrameworksWithPage(
 ): string[] {
   const matches: string[] = [];
   for (const slug of integrationSlugs) {
+    if (getDocsMode(slug) === "hidden") continue;
     const folder = slugToFolder(slug);
     const mdx = path.join(
       CONTENT_DIR,
@@ -692,6 +751,14 @@ export function stripLeadingImports(source: string): string {
   let inFence = false;
   let fenceMarker: string | null = null;
   let pastHeader = false;
+  // When an `import { ... }` is split across lines, the opening line
+  // matches the single-line drop rule but the continuation lines
+  // (`  Foo,`, `} from "...";`) do not — historically those continuation
+  // lines fell into the content branch and flipped `pastHeader = true`,
+  // which then preserved every subsequent import in the MDX body and
+  // produced runtime errors like `<p>{Tab}</p>`. Track an open import
+  // explicitly so we consume continuations through the closing `from "...";`.
+  let inMultilineImport = false;
 
   for (const line of lines) {
     // Toggle fence state. Match the opening fence's marker (``` or ~~~)
@@ -715,13 +782,41 @@ export function stripLeadingImports(source: string): string {
     }
 
     if (!inFence && !pastHeader) {
+      if (inMultilineImport) {
+        // Continuation of a multi-line import block. Terminate when we
+        // see the closing `from "..."` clause (with OR without the
+        // trailing semicolon — modern style routinely omits the `;`).
+        // Don't terminate purely on `;` — a bare `;` rarely appears
+        // mid-import, and JSX expressions on subsequent body lines
+        // (`<Foo prop={a ? b : c};`) could false-match and leave us
+        // stuck consuming forever.
+        if (/\bfrom\s+["'][^"']+["']\s*;?\s*$/.test(line)) {
+          inMultilineImport = false;
+        }
+        continue;
+      }
       if (/^\s*$/.test(line)) {
         // Preserve blank lines in the header region for layout.
         out.push(line);
         continue;
       }
-      if (/^import\s+.+$/.test(line)) {
-        // Drop this top-of-file MDX import line.
+      if (/^import\b/.test(line)) {
+        // Single-line import has both `import` AND its `from "..."`
+        // (or side-effect form `import "..."`) on the same line. The
+        // optional trailing `;` is irrelevant — modern MDX docs often
+        // drop it, which was the bug behind the prior fix's regression
+        // (the prior version required `;` and so misclassified bare
+        // imports as multi-line, then silently consumed the JSX body
+        // looking for a non-existent `;` terminator).
+        const isSingleLine =
+          /\bfrom\s+["'][^"']+["']\s*;?\s*$/.test(line) ||
+          /^import\s+["'][^"']+["']\s*;?\s*$/.test(line);
+        if (isSingleLine) {
+          continue;
+        }
+        // Multi-line opener: `import {` with the `from "..."` clause
+        // on a subsequent line.
+        inMultilineImport = true;
         continue;
       }
       // First real content line flips us out of "header" mode.
@@ -977,9 +1072,11 @@ export function convertTablesInJSX(content: string): string {
 
 /**
  * Return the slugs of integrations that have a demo region tagged for
- * the given feature cell. Pure helper — the caller supplies the list of
- * candidate integration slugs and the demo-content map so this file
- * stays framework-agnostic and free of registry imports.
+ * the given feature cell. The caller supplies the list of candidate
+ * integration slugs and the demo-content map; this helper consults
+ * `getDocsMode` to filter `docs_mode: hidden` frameworks out of the
+ * result so cross-framework suggestions ("Try X, Y, Z") never point at
+ * a 404 page.
  *
  * Shape of `demos`: keys are `"<integrationSlug>::<cell>"`; values are
  * opaque demo records (we only check key presence here).
@@ -991,6 +1088,7 @@ export function findFrameworksWithCell(
 ): string[] {
   const matches: string[] = [];
   for (const slug of integrationSlugs) {
+    if (getDocsMode(slug) === "hidden") continue;
     if (demos[`${slug}::${cell}`]) matches.push(slug);
   }
   return matches;

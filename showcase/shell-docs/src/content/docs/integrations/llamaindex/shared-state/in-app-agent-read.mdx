@@ -3,7 +3,6 @@ title: Reading agent state
 icon: "lucide/ArrowLeft"
 description: Read the realtime agent state in your native application.
 ---
-
 <IframeSwitcher
   id="shared-state-read-example"
   exampleUrl="https://feature-viewer.copilotkit.ai/llama-index/feature/shared_state?sidebar=false&chatDefaultOpen=false"
@@ -14,8 +13,7 @@ description: Read the realtime agent state in your native application.
 />
 
 <Callout type="info">
-  This example demonstrates reading from shared state in the [CopilotKit Feature
-  Viewer](https://feature-viewer.copilotkit.ai/llama-index/feature/shared_state).
+  This example demonstrates reading from shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/llama-index/feature/shared_state).
 </Callout>
 
 ## What is this?
@@ -32,7 +30,7 @@ state updates, you can reflect these updates natively in your application.
 <Steps>
   <Step>
     ### Run and connect your agent
-    <RunAndConnect />
+    <RunAndConnect components={props.components} />
   </Step>
   <Step>
     ### Define the Agent State
@@ -78,6 +76,7 @@ state updates, you can reflect these updates natively in your application.
         return {"status": "healthy", "agent": "llamaindex"}
 
     if __name__ == "__main__":
+        import uvicorn
         uvicorn.run(app, host="localhost", port=8000)
     ```
 
@@ -90,6 +89,7 @@ state updates, you can reflect these updates natively in your application.
     ```tsx title="ui/app/page.tsx"
     "use client";
 
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 
     // Define the agent state type, should match the actual state of your agent
     type AgentState = {
@@ -138,6 +138,8 @@ You can also render the agent's state in the chat UI. This is useful for informi
 more in-context way. To do this, you can use the `useAgent` hook with a `render` function.
 
 ```tsx title="ui/app/page.tsx"
+import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+
 // Define the agent state type, should match the actual state of your agent
 type AgentState = {
   language: "english" | "spanish";
@@ -158,11 +160,10 @@ function YourMainContent() {
 ```
 
 <Callout type="warn" title="Important">
-  The `name` parameter must exactly match the agent name you defined in your
-  CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+  The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
 </Callout>
 
 <Callout type="info">
-  The `agent.state` in `useAgent` is reactive and will automatically update when
-  the agent's state changes.
+  The `agent.state` in `useAgent` is reactive and will automatically
+  update when the agent's state changes.
 </Callout>

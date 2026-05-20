@@ -14,8 +14,7 @@ description: Create frontend actions and use them within your agent.
   muted
 />
 <Callout>
-  This video shows the result of `npx copilotkit@latest init` with the
-  [implementation](#implementation) section applied to it.
+  This video shows the result of `npx copilotkit@latest init` with the [implementation](#implementation) section applied to it.
 </Callout>
 
 ## What is this?
@@ -23,12 +22,7 @@ description: Create frontend actions and use them within your agent.
 Frontend actions are powerful tools that allow your AI agents to directly interact with and update your application's user interface. Think of them as bridges that connect your agent's decision-making capabilities with your frontend's interactive elements.
 
 <Callout type="info">
-  CopilotKit consumes AG-UI protocol events streamed by AG2 over{" "}
-  <code>/chat</code>. See the{" "}
-  <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">
-    AG2 AG-UI integration docs
-  </a>
-  .
+  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
 </Callout>
 
 ## When should I use this?
@@ -61,6 +55,8 @@ Without frontend actions, agents are limited to just processing and returning da
         that says hello to the user.
 
         ```tsx title="page.tsx"
+        import { z } from "zod";
+        import { useFrontendTool } from "@copilotkit/react-core/v2" // [!code highlight]
 
         export function Page() {
           // ...
@@ -104,6 +100,7 @@ Without frontend actions, agents are limited to just processing and returning da
                     name="assistant",
                     system_message="You are a helpful assistant.",
                     llm_config=LLMConfig({"model": "gpt-5.4-mini"}),
+                    human_input_mode="NEVER",
                 )
 
                 stream = AGUIStream(agent)

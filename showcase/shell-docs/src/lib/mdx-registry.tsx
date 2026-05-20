@@ -30,6 +30,22 @@ import { AgentCoreCommandTabs } from "@/components/agentcore-command-tabs";
 import { DemoSource } from "@/components/demo-source";
 import { getRegistry } from "@/lib/registry";
 import { PartialLoader } from "@/lib/mdx-registry-loader";
+import { MdxFrameworkOverview } from "@/components/content/landing-pages/mdx-framework-overview";
+import {
+  AdkIcon,
+  Ag2Icon,
+  AgnoIcon,
+  AnthropicIcon,
+  CrewaiIcon,
+  DeepAgentsIcon,
+  LanggraphIcon,
+  LlamaIndexIcon,
+  MastraIcon,
+  MicrosoftIcon,
+  PydanticAiIcon,
+  SpringIcon,
+  StrandsIcon,
+} from "@/components/icons/framework-icons";
 
 const Callout = DocsCallout;
 
@@ -458,9 +474,32 @@ export const docsComponents = {
   MCPApps: stubWithPartial("MCPApps"),
   MCPSetup: stubWithPartial("MCPSetup"),
   Overview: stubWithPartial("Overview"),
-  FrameworkOverview: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  // Authored `integrations/<folder>/index.mdx` files use the flat-prop
+  // form `<FrameworkOverview frameworkName=... frameworkIcon={...} ...>`
+  // ported verbatim from v1. The MDX adapter wraps the data-driven
+  // `FrameworkOverview` so the props actually render (banner video,
+  // features grid, architecture image, live demos) instead of being
+  // dropped on the floor as a children-passthrough used to do.
+  FrameworkOverview: MdxFrameworkOverview,
+  // Per-framework icon components used inline by authored index.mdx files
+  // (e.g. `frameworkIcon={<MastraIcon className="h-12 w-12" />}`). Each
+  // resolves to the same component the data-driven path uses via
+  // `customIcons[<key>]`. New frameworks: add a matching `<XIcon>` here
+  // when porting their `index.mdx`.
+  AdkIcon,
+  Ag2Icon,
+  AgnoIcon,
+  AnthropicIcon,
+  CrewaiIcon,
+  DeepAgentsIcon,
+  LanggraphIcon,
+  LlamaIndexIcon,
+  MastraIcon,
+  MicrosoftIcon,
+  PydanticAIIcon: PydanticAiIcon,
+  PydanticAiIcon,
+  SpringIcon,
+  StrandsIcon,
   CommonIssues: stubWithPartial("CommonIssues"),
   ErrorDebugging: stubWithPartial("ErrorDebugging"),
   Observability: stubWithPartial("Observability"),
@@ -939,9 +978,14 @@ export const docsComponents = {
   Banknote: () => <span>💰</span>,
   AlertCircle: () => <span>⚠️</span>,
   PiMonitor: () => <span>🖥️</span>,
-  AwsStrandsIcon: () => <span>☁️</span>,
-  MicrosoftIcon: () => <span>Ⓜ️</span>,
-  PydanticAIIcon: () => <span>🐍</span>,
+  // `MicrosoftIcon` and `PydanticAIIcon` were once emoji stubs here.
+  // Both are now registered to their real SVG icon components in the
+  // FrameworkOverview block above (around line 489), so the stubs would
+  // be duplicate keys (TS1117) — removed. `AwsStrandsIcon` remains a
+  // stub because the framework-icons export is named `StrandsIcon`
+  // (the `customIcons.awsStrands` key keeps the legacy v1 alias), and
+  // some ported MDX uses the AwsStrandsIcon name verbatim.
+  AwsStrandsIcon: StrandsIcon,
   SiLangchain: () => <span>🔗</span>,
   FaArrowUp: () => <span>↑</span>,
   FaCloud: () => <span>☁️</span>,

@@ -13,6 +13,7 @@ repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/g
 copilotkit_version: 2.0.0
 backend_url: https://showcase-google-adk-production.up.railway.app
 deployed: true
+docs_mode: generated
 sort_order: 15
 generative_ui:
   - constrained-explicit

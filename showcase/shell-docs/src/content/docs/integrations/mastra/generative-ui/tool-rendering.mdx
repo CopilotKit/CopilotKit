@@ -4,6 +4,10 @@ icon: "lucide/Server"
 description: Render your agent's tool calls with custom UI components.
 ---
 
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx"
+
 <IframeSwitcher
   id="tool-based-generative-ui-example"
   exampleUrl="https://feature-viewer.copilotkit.ai/mastra/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false"
@@ -28,7 +32,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 <Steps>
 <Step>
 ### Run and connect your agent
-<RunAndConnect />
+<RunAndConnect components={props.components} />
 </Step>
 <Step>
 ### Give your agent a tool to call
@@ -36,6 +40,9 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 Add a new tool definition:
 
 ```ts title="src/mastra/tools/weatherInfo.ts"
+import { createTool } from "@mastra/core/tools";
+import { z } from "zod";
+
 export const weatherInfo = createTool({
   id: "weatherInfo",
   inputSchema: z.object({
@@ -53,6 +60,10 @@ export const weatherInfo = createTool({
 Then, pass the tool to the agent:
 
 ```ts title="src/mastra/agents/weatherAgent.ts"
+import { Agent } from "@mastra/core/agent";
+import { openai } from "@ai-sdk/openai";
+import { weatherInfo } from "../tools/weatherInfo";
+
 export const weatherAgent = new Agent({
   name: "Weather Agent",
   instructions:
@@ -77,6 +88,7 @@ the UI.
 </Callout>
 
 ```tsx title="app/page.tsx"
+import { useRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
 // ...
 
 const YourMainContent = () => {

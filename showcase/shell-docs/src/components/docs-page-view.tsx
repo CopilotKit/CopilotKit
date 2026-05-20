@@ -28,6 +28,8 @@ import { Snippet } from "@/components/snippet";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
 import { Tabs as DocsTabs } from "@/components/docs-tabs";
 import { MdxCodeBlock } from "@/components/mdx-code-block";
+import { MdxFrameworkOverview } from "@/components/content/landing-pages/mdx-framework-overview";
+import type { MdxFrameworkOverviewProps } from "@/components/content/landing-pages/mdx-framework-overview";
 import { docsComponents } from "@/lib/mdx-registry";
 import { transformerMeta } from "@/lib/rehype-code-meta";
 import { getIntegration, getTabDefault } from "@/lib/registry";
@@ -277,6 +279,22 @@ export async function DocsPageView({
                           />
                         );
                       },
+                      // Bind the URL framework slug into MdxFrameworkOverview
+                      // so its link rewriter has a target to rewrite TO. The
+                      // shared `integrations/<folder>/index.mdx` files
+                      // (langgraph/, microsoft-agent-framework/, crewai-flows/)
+                      // serve multiple URL variants — without this override the
+                      // adapter's empty-slug fallback would strip the embedded
+                      // framework prefix entirely (e.g. `/langgraph/quickstart`
+                      // → `/quickstart`).
+                      FrameworkOverview: (props: MdxFrameworkOverviewProps) => (
+                        <MdxFrameworkOverview
+                          {...props}
+                          currentFramework={
+                            frameworkOverride ?? props.currentFramework
+                          }
+                        />
+                      ),
                       // Inject stable IDs on H2/H3 so the right-rail TOC's
                       // #anchor links resolve. Slugify the child text with the
                       // same algorithm used by extractHeadings() so IDs line up
