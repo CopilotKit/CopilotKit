@@ -62,8 +62,7 @@ interface RegistryLite {
 // positives on example code inside tutorial pages — e.g. a docs page
 // that shows `<InlineDemo demo="some-example" />` in a fenced code
 // sample would report "unknown demo id" even though it's literal
-// documentation, not a live component reference. Mirrors the same
-// approach in audit-docs-porting.ts.
+// documentation, not a live component reference.
 const FENCED_CODE_RE = /```[\s\S]*?```/g;
 function strip(body: string): string {
   return body.replace(FENCED_CODE_RE, "");
