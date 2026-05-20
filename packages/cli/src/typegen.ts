@@ -253,6 +253,8 @@ type TsconfigUpdateResult =
  *     Adding our own `include` would override the base config's include and
  *     break the project's type resolution; file untouched and surfaced to
  *     the user with guidance to add the include to the extending config.
+ *   - "invalid-include-type": `include` is present but not an array of
+ *     strings. Refuses to overwrite the user's value with our pattern.
  */
 export function ensureTsconfigInclude(
   projectDir: string,
@@ -501,8 +503,38 @@ export async function typegen(urls: string[]): Promise<void> {
     `  ${icons.file} ${chalk.green(path.relative(projectRoot, registerPath))}`,
   );
 
-  const gitignoreUpdated = ensureGitignore(projectRoot, ".copilotkit/");
-  const tsconfigResult = ensureTsconfigInclude(projectRoot);
+  // The generated artifact files already wrote successfully above. If the
+  // project-config touch-ups fail (read-only .gitignore, EBUSY on tsconfig,
+  // jsonc-parser internal throw on a pathological input), treat that as a
+  // non-fatal warning — surfacing a "Fatal error" here would mislead the
+  // user into thinking the type files didn't land. The exit code stays
+  // driven by `failureCount` (URL fetch failures).
+  let gitignoreUpdated = false;
+  try {
+    gitignoreUpdated = ensureGitignore(projectRoot, ".copilotkit/");
+  } catch (error) {
+    console.error(
+      `  ${icons.warn} ${chalk.yellow(`.gitignore update skipped — ${error instanceof Error ? error.message : String(error)}`)}`,
+    );
+    console.error(
+      `    ${chalk.dim("Add ")}${chalk.cyan(".copilotkit/")}${chalk.dim(" manually to your .gitignore.")}`,
+    );
+  }
+
+  let tsconfigResult: TsconfigUpdateResult;
+  try {
+    tsconfigResult = ensureTsconfigInclude(projectRoot);
+  } catch (error) {
+    console.error(
+      `  ${icons.warn} ${chalk.yellow(`tsconfig.json update skipped — ${error instanceof Error ? error.message : String(error)}`)}`,
+    );
+    console.error(
+      `    ${chalk.dim("Add ")}${chalk.cyan('".copilotkit/register.d.ts"')}${chalk.dim(" to the ")}${chalk.cyan('"include"')}${chalk.dim(" array of your tsconfig.json manually.")}`,
+    );
+    // Sentinel — the subsequent switch prints nothing for "already-present".
+    // We've already surfaced the IO error above; no further output needed.
+    tsconfigResult = { kind: "already-present" };
+  }
 
   const hasConfigOutput =
     gitignoreUpdated || tsconfigResult.kind !== "already-present";
