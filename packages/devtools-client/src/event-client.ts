@@ -59,11 +59,12 @@ class CopilotKitEventClient {
   /**
    * Emit with a runtime-determined event type. Useful when the event key is
    * chosen dynamically (e.g. from a UI dropdown) and TypeScript cannot
-   * correlate the key–payload pair at compile time.
+   * correlate the key–payload pair at compile time. Callers must validate the
+   * payload shape against `event` at runtime before calling.
    */
   emitDynamic(
     event: keyof CopilotKitEventSuffixes & string,
-    payload: CopilotKitEventSuffixes[keyof CopilotKitEventSuffixes & string],
+    payload: Record<string, unknown>,
   ): void {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     this.client.emit(event, payload as any);
