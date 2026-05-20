@@ -17,11 +17,11 @@
       }
     },
     {
-      "_comment": "beautiful-chat Sales Dashboard pill — turn 1: after query_data returns, call generate_a2ui.",
+      "_comment": "beautiful-chat Sales Dashboard pill — turn 1: after query_data returns, call generate_a2ui. NB: `turnIndex` is intentionally absent — turnIndex counts assistant messages globally in the thread, so when this pill fires AFTER another pill (e.g. Toggle Theme), the turnIndex is already past 1 and a `turnIndex: 1` matcher silently misses → no generate_a2ui call → the dashboard surface never renders. The `userMessage` substring + `hasToolResult: true` + `toolName: query_data` triple is already unique to this pill's leg-2 request and disambiguates from leg-1 (no tool result yet) and from later legs (toolName moves past query_data).",
       "match": {
         "userMessage": "with total revenue, new customers, and conversion rate metrics",
         "hasToolResult": true,
-        "turnIndex": 1
+        "toolName": "query_data"
       },
       "response": {
         "toolCalls": [
