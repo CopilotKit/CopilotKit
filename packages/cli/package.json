@@ -26,7 +26,8 @@
   },
   "dependencies": {
     "@copilotkit/shared": "workspace:*",
-    "chalk": "^5.4.1"
+    "chalk": "^5.4.1",
+    "jsonc-parser": "^3.3.1"
   },
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:*",
@@ -35,6 +36,6 @@
     "typescript": "5.9.2"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   }
 }

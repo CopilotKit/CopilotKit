@@ -107,4 +107,20 @@ If the same agent ID is exposed by multiple runtimes, the last one wins (with a 
 
 ## When to re-run
 
-Re-run `copilotkit typegen` whenever you add, remove, or rename an agent on the server. The generated `register.d.ts` is small and deterministic — drop it in CI if you want to enforce that everyone's local types match the deployed runtime.
+Re-run `copilotkit typegen` whenever you add, remove, or rename an agent on the server.
+
+## CI enforcement
+
+The generated `.copilotkit/` directory is auto-added to `.gitignore`, so the generated files don't ship in source control. To verify in CI that your frontend stays in sync with the deployed runtime, run the CLI against the deployed URL and gate on its exit code:
+
+```bash
+npx copilotkit typegen https://your-runtime.example.com/api/copilotkit
+```
+
+The CLI exits non-zero when:
+
+- No agents are discovered at all.
+- Any of the supplied runtime URLs fail to respond (even if other URLs succeeded — partial sync would silently drop agents from the failing runtime).
+- The project root cannot be located, or generated files cannot be written.
+
+Wire that exit code into your CI job to block deploys whose runtime exposes agents the frontend was never typed against.
