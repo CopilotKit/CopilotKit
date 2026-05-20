@@ -11,7 +11,10 @@ import {
   getZodParameters,
   parseJson,
 } from "@copilotkit/shared";
-import { useHumanInTheLoop as useHumanInTheLoopVNext } from "../v2";
+import {
+  useHumanInTheLoop as useHumanInTheLoopVNext,
+  type RespondOptions,
+} from "../v2";
 import { ToolCallStatus } from "@copilotkit/core";
 import React, {
   ComponentType,
@@ -49,7 +52,7 @@ type HitlRendererArgs =
       args: Record<string, unknown>;
       status: ToolCallStatus.Executing;
       result: undefined;
-      respond: (result: unknown) => Promise<void>;
+      respond: (result: unknown, options?: RespondOptions) => Promise<void>;
     }
   | {
       name: string;
