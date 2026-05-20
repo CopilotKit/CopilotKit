@@ -17,11 +17,11 @@
       }
     },
     {
-      "_comment": "beautiful-chat Sales Dashboard pill — turn 1: after query_data returns, call generate_a2ui.",
+      "_comment": "beautiful-chat Sales Dashboard pill — turn 1: after query_data returns, call generate_a2ui. NB: `turnIndex` is intentionally absent — counts assistant messages thread-globally and silently misses when this pill fires after another pill. Anchored on the leg-1 query_data toolCallId so the matcher cleanly fires exactly once: on leg-3 the last tool result is from generate_a2ui (different call_id) so this fixture doesn't re-match and create a generate_a2ui loop. NB: aimock's `toolName` matcher only checks that the named tool is REGISTERED in `effective.tools`, not that the last tool result was from it — so `toolName` alone cannot disambiguate leg-2 from leg-3 here.",
       "match": {
         "userMessage": "with total revenue, new customers, and conversion rate metrics",
         "hasToolResult": true,
-        "turnIndex": 1
+        "toolCallId": "call_fp_query_data_sales_001"
       },
       "response": {
         "toolCalls": [

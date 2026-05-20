@@ -25,8 +25,11 @@ export default defineConfig({
         reuseExistingServer: true,
         env: {
           ...process.env,
-          OPENAI_BASE_URL: process.env.OPENAI_BASE_URL || "",
-          OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
+          // Default to local aimock (Docker-exposed) when not set.
+          // In CI the env is inherited from docker-compose (http://aimock:4010/v1).
+          OPENAI_BASE_URL:
+            process.env.OPENAI_BASE_URL || "http://localhost:4010/v1",
+          OPENAI_API_KEY: process.env.OPENAI_API_KEY || "sk-mock-local-dev",
         },
       },
 });

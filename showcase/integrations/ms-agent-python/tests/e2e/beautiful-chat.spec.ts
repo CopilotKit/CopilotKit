@@ -227,7 +227,6 @@ test.describe("Beautiful Chat", () => {
     page,
   }) => {
     test.setTimeout(120_000);
-    await page.waitForLoadState("networkidle");
 
     await page
       .getByRole("button", { name: "Task Manager (Shared State)" })
@@ -243,6 +242,53 @@ test.describe("Beautiful Chat", () => {
       timeout: 5_000,
     });
     await expect(page.getByText("Explore shared agent state")).toBeVisible({
+      timeout: 5_000,
+    });
+  });
+
+  test("Sales Dashboard pill after another pill — A2UI surface still mounts (turnIndex regression)", async ({
+    page,
+  }) => {
+    // Regression guard: the Sales Dashboard fixture chain used to gate the
+    // leg-2 `generate_a2ui` call on `turnIndex: 1`. That fixture matcher
+    // counts assistant messages in the WHOLE thread, so clicking ANY pill
+    // before Sales Dashboard pushed the count past 1 → the matcher silently
+    // missed → `generate_a2ui` never fired → no A2UI surface rendered (only
+    // the toolCallId-keyed final-narration fixture's text appeared). Replaced
+    // with a `userMessage` + `hasToolResult: true` + `toolName: query_data`
+    // triple in feature-parity.json so the matcher is order-independent.
+    // See showcase/RUNBOOK.md "Do not use `turnIndex` in new fixtures."
+    test.setTimeout(180_000);
+
+    // Click a cheap first pill to advance turnIndex past 1.
+    await page
+      .getByRole("button", { name: "Toggle Theme (Frontend Tools)" })
+      .click();
+    await expect(
+      page.locator('[data-testid="copilot-assistant-message"]').first(),
+    ).toBeVisible({ timeout: 30_000 });
+
+    // Now click Sales Dashboard. With the turnIndex fix in place, the A2UI
+    // surface must still mount. Without the fix, only the final narration
+    // text appears and no surface element is in the DOM.
+    await page
+      .getByRole("button", { name: "Sales Dashboard (A2UI Dynamic)" })
+      .click();
+
+    // Surface mount signal: A2UI activity renderer drops a
+    // `[data-surface-id]` (or sibling) attribute somewhere in the DOM tree
+    // for any rendered surface.
+    const surface = page
+      .locator(
+        '[data-surface-id], [data-a2ui-surface], [data-testid*="surface"]',
+      )
+      .first();
+    await expect(surface).toBeVisible({ timeout: 120_000 });
+
+    // Narration text should also appear (this used to pass on its own and
+    // mask the broken surface — keep it asserted alongside the surface
+    // check so the test catches both modes).
+    await expect(page.getByText(/Total Revenue/i).first()).toBeVisible({
       timeout: 5_000,
     });
   });

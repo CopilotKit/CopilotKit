@@ -70,7 +70,7 @@ export function middleware(request: NextRequest) {
     // Old root page names → new names
     "/agentic-chat-ui": "/prebuilt-components",
     "/headless": "/custom-look-and-feel/headless-ui",
-    "/coding-agent-setup": "/coding-agents",
+    "/coding-agent-setup": "/build-with-agents",
     "/copilot-suggestions": "/prebuilt-components",
     "/direct-to-llm": "/built-in-agent",
     "/builtin-agent": "/built-in-agent",
@@ -102,7 +102,7 @@ export function middleware(request: NextRequest) {
       "agentic-chat-ui": "prebuilt-components",
       "use-agent-hook": "programmatic-control",
       "frontend-actions": "frontend-tools",
-      "vibe-coding-mcp": "coding-agents",
+      "vibe-coding-mcp": "build-with-agents",
       // Old generative-ui pages → new locations
       "generative-ui/agentic": "generative-ui/your-components/display-only",
       "generative-ui/backend-tools": "generative-ui/tool-rendering",

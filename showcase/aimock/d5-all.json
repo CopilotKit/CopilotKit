@@ -1864,11 +1864,11 @@
       }
     },
     {
+      "_comment": "frontend-tools 'Sunset' pill — 1st leg: emit change_background tool call only. NB: do NOT include `content` here. agent_framework_openai's ChatCompletions client splits an assistant message that carries BOTH `content` and `tool_calls` into two separate history entries (one with content, one with tool_calls), so on the follow-up leg aimock sees the standalone content message and re-matches THIS fixture by `userMessage` substring → another change_background tool call → infinite loop. The toolCallId-keyed follow-up fixture immediately above provides the post-tool narration text.",
       "match": {
         "userMessage": "Make the background a sunset gradient"
       },
       "response": {
-        "content": "Sunset gradient applied — warm orange-to-rose blend.",
         "toolCalls": [
           {
             "id": "call_d5_change_background_sunset",
@@ -1890,11 +1890,11 @@
       }
     },
     {
+      "_comment": "frontend-tools 'Forest' pill — 1st leg: emit change_background tool call only. See the Sunset fixture above for why we drop `content`.",
       "match": {
         "userMessage": "deep green forest gradient"
       },
       "response": {
-        "content": "Forest gradient applied — deep green hues.",
         "toolCalls": [
           {
             "id": "call_d5_change_background_forest",
@@ -1916,11 +1916,11 @@
       }
     },
     {
+      "_comment": "frontend-tools 'Cosmic' pill — 1st leg: emit change_background tool call only. See the Sunset fixture above for why we drop `content`.",
       "match": {
         "userMessage": "navy → magenta cosmic gradient"
       },
       "response": {
-        "content": "Cosmic gradient applied — navy fading to magenta.",
         "toolCalls": [
           {
             "id": "call_d5_change_background_cosmic",
@@ -2665,10 +2665,10 @@
     {
       "match": {
         "userMessage": "intro call with the sales team",
-        "toolName": "schedule_meeting"
+        "toolName": "schedule_meeting",
+        "hasToolResult": false
       },
       "response": {
-        "content": "Sure — let me check available times.",
         "toolCalls": [
           {
             "name": "schedule_meeting",
@@ -2703,10 +2703,10 @@
     {
       "match": {
         "userMessage": "1:1 with Alice",
-        "toolName": "schedule_meeting"
+        "toolName": "schedule_meeting",
+        "hasToolResult": false
       },
       "response": {
-        "content": "Got it — pulling up next-week slots.",
         "toolCalls": [
           {
             "name": "schedule_meeting",
@@ -2855,27 +2855,6 @@
         "toolsHash": "6e36f0b6"
       },
       "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-55-00-312Z-814153b0.json"
-    },
-    {
-      "match": {
-        "model": "gpt-4.1",
-        "turnIndex": 0,
-        "hasToolResult": false
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "name": "render_a2ui",
-            "arguments": "{\"surfaceId\":\"dashboard-001\",\"catalogId\":\"copilotkit://app-dashboard-catalog\"}",
-            "id": "call_Q3rTavqr4dXJ08ne9bEesL9d"
-          }
-        ]
-      },
-      "metadata": {
-        "systemHash": "28fe3ed7",
-        "toolsHash": "2cbb50da"
-      },
-      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-55-02-522Z-e88af85f.json"
     },
     {
       "match": {

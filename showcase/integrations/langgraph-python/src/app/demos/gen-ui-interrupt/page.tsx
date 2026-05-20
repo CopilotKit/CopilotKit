@@ -6,7 +6,8 @@ import {
   CopilotChat,
   useInterrupt,
 } from "@copilotkit/react-core/v2";
-import { TimePickerCard, TimeSlot } from "./_components/time-picker-card";
+import type { TimeSlot } from "./_components/time-picker-card";
+import { TimePickerCard } from "./_components/time-picker-card";
 import { generateFallbackSlots } from "../_shared/interrupt-fallback-slots";
 import { useGenUiInterruptSuggestions } from "./suggestions";
 
@@ -34,7 +35,10 @@ function Chat() {
     agentId: "gen-ui-interrupt",
     renderInChat: true,
     render: ({ event, resolve }) => {
-      const payload = (event.value ?? {}) as {
+      // The AG-UI adapter JSON-stringifies interrupt values, so parse
+      // when needed to extract the structured payload.
+      const raw = event.value ?? {};
+      const payload = (typeof raw === "string" ? JSON.parse(raw) : raw) as {
         topic?: string;
         attendee?: string;
         slots?: TimeSlot[];
@@ -48,7 +52,15 @@ function Chat() {
           topic={payload.topic ?? "a call"}
           attendee={payload.attendee}
           slots={slots}
-          onSubmit={(result) => resolve(result)}
+          onSubmit={(result) => {
+            // Defer resolve so React commits the picked/cancelled state
+            // before useInterrupt clears the interrupt element. A single
+            // requestAnimationFrame is not reliable — rAF fires before
+            // React's commit in some scheduling scenarios. Using a short
+            // setTimeout ensures the commit lands first and the user sees
+            // the "Booked"/"Cancelled" badge before the card unmounts.
+            setTimeout(() => resolve(result), 500);
+          }}
         />
       );
     },
