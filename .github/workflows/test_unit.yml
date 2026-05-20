@@ -66,18 +66,23 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           # Do NOT use cache: "pnpm" here — its key omits the Node.js version,
-          # so an ABI-137 better-sqlite3 binary cached from a Node 24 job would
-          # be served to Node 20/22 jobs, causing "Module did not self-register".
-          # We handle pnpm caching manually below with the node-version in the key.
+          # so a better-sqlite3 binary compiled for one Node ABI (e.g. ABI 137
+          # from Node 24) would be served to a job running a different ABI
+          # (Node 20 = ABI 115, Node 22 = ABI 127), causing "Module did not
+          # self-register". We handle pnpm caching manually below with the
+          # node-version in the key.
+          # Fork-safety note: actions/cache is equally fork-safe — GitHub
+          # enforces read-only cache access for fork PRs at the platform level.
 
       - name: Get pnpm store directory
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+        id: pnpm-cache
+        run: echo "store-path=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
 
       - name: Cache pnpm store (scoped to Node.js version)
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ matrix.node-version }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          path: ${{ steps.pnpm-cache.outputs.store-path }}
+          key: ${{ runner.os }}-pnpm-store-${{ matrix.node-version }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-${{ matrix.node-version }}-
 
