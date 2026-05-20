@@ -11,9 +11,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
+import type { ReactNode } from "react";
 
-import { customIcons, type IconKey } from "@/components/icons";
+import { customIcons } from "@/components/icons";
+import type { IconKey } from "@/components/icons";
 import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
 import type {
   FrameworkOverviewData,
@@ -141,10 +143,21 @@ export function FrameworkOverview({
   const IconComponent = customIcons[iconKey as IconKey];
   const hasIcon = Boolean(iconOverride || IconComponent);
 
-  const handleCopyCommand = () => {
-    navigator.clipboard.writeText(initCommand);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopyCommand = async () => {
+    try {
+      await navigator.clipboard.writeText(initCommand);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      // clipboard.writeText rejects in non-secure contexts (http://),
+      // when the document isn't focused, or when the user has denied
+      // permission. Don't flip the "copied" indicator on failure — the
+      // user would see a checkmark and paste an empty/stale buffer.
+      console.error(
+        "[framework-overview] clipboard write failed; copy button no-op",
+        err,
+      );
+    }
   };
 
   // If no explicit afterFeatures slot is supplied, render the structured cta

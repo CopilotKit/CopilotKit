@@ -45,8 +45,22 @@ describe("resolveSetupConcept", () => {
   });
 
   it("returns null on path-traversal attempts via the concept arg", () => {
-    fs.writeFileSync(path.join(tmp, "secrets.mdx"), "should never read");
-    expect(resolveSetupConcept(tmp, "langgraph", "../../secrets")).toBeNull();
+    // Place a decoy *outside* `integrationsRoot` so a successful escape would
+    // resolve to a file that actually exists — otherwise the test would pass
+    // for the wrong reason (file not found rather than path-traversal block).
+    // The concept arg gets joined with "docs/setup/" before resolution; for the
+    // composed path to escape `<integrationsRoot>/<docsFolder>/`, we need to
+    // walk up far enough that `path.join` cannot normalize all `..` segments
+    // away — three levels reach the parent of integrationsRoot.
+    const parentDir = path.dirname(tmp);
+    fs.writeFileSync(path.join(parentDir, "secrets.mdx"), "should never read");
+    try {
+      expect(
+        resolveSetupConcept(tmp, "langgraph", "../../../../secrets"),
+      ).toBeNull();
+    } finally {
+      fs.rmSync(path.join(parentDir, "secrets.mdx"), { force: true });
+    }
   });
 
   it("returns null on path-traversal attempts via the docsFolder arg", () => {
