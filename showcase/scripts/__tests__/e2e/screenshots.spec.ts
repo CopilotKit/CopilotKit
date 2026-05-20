@@ -1,3 +1,4 @@
+// NEVER trust DOM measurements alone — always visually inspect screenshots.
 /**
  * Screenshot verification tests for visual layout validation.
  *
@@ -5,7 +6,14 @@
  * for both the starter homepage and self-contained demo pages.
  *
  * Screenshots are saved to test-results/screenshots/ for manual inspection.
- * NEVER trust DOM measurements alone -- always visually inspect screenshots.
+ *
+ * Note on DEMOS below: the manifest id (e.g. `hitl-in-chat`) and the route
+ * the demo is served from (e.g. `/demos/hitl`) intentionally differ in some
+ * cases — the id is the canonical feature identifier shared across all 17
+ * packages, while the route is the per-package URL path and is allowed to
+ * use the shorter legacy slug. Both values are kept here so the screenshot
+ * filenames reflect the canonical id while the navigation targets the real
+ * route.
  *
  * To run:
  *   cd showcase/scripts
@@ -34,44 +42,44 @@ const DEMOS = [
     waitFor: '[data-testid="background-container"]',
   },
   {
-    slug: "hitl",
+    slug: "hitl-in-chat",
     path: "/demos/hitl",
-    waitFor: 'text="Type a message"',
+    waitFor: 'textarea[placeholder^="Type a message"]',
   },
   {
     slug: "tool-rendering",
     path: "/demos/tool-rendering",
-    waitFor: 'text="Type a message"',
+    waitFor: 'textarea[placeholder^="Type a message"]',
   },
   {
     slug: "gen-ui-agent",
     path: "/demos/gen-ui-agent",
-    waitFor: 'text="Type a message"',
+    waitFor: 'textarea[placeholder^="Type a message"]',
   },
   {
     slug: "gen-ui-tool-based",
     path: "/demos/gen-ui-tool-based",
-    waitFor: 'text="Type a message"',
+    waitFor: 'textarea[placeholder^="Type a message"]',
   },
   {
     slug: "shared-state-read",
     path: "/demos/shared-state-read",
-    waitFor: 'text="Type a message"',
+    waitFor: 'textarea[placeholder^="Type a message"]',
   },
   {
     slug: "shared-state-write",
     path: "/demos/shared-state-write",
-    waitFor: 'text="Type a message"',
+    waitFor: 'textarea[placeholder^="Type a message"]',
   },
   {
     slug: "shared-state-streaming",
     path: "/demos/shared-state-streaming",
-    waitFor: 'text="Type a message"',
+    waitFor: 'textarea[placeholder^="Type a message"]',
   },
   {
     slug: "subagents",
     path: "/demos/subagents",
-    waitFor: 'text="Type a message"',
+    waitFor: 'textarea[placeholder^="Type a message"]',
   },
 ] as const;
 
@@ -108,7 +116,13 @@ for (const viewport of VIEWPORTS) {
         await pill.click();
         await expect(pill).toHaveAttribute("aria-checked", "true");
 
-        // Allow renderer to mount
+        // Allow renderer to mount. The radio's aria-checked flip happens
+        // synchronously on click, but the actual renderer swap is async
+        // (dynamic import + mount of the selected UI tree). No single
+        // stable data-testid spans all four renderer modes today, so we
+        // fall back to a short sleep here. If a common renderer-root
+        // data-testid is introduced, replace this with an explicit
+        // `expect(...).toBeVisible()` on that selector.
         await page.waitForTimeout(1000);
 
         await page.screenshot({

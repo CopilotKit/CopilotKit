@@ -41,7 +41,7 @@ def get_image_path(image_url: str) -> Path:
     # Handle absolute URLs from agent
     agent_url = get_agent_url()
     if base_url.startswith(agent_url):
-        base_url = base_url[len(agent_url):]
+        base_url = base_url[len(agent_url) :]
 
     # Handle relative /generated/ URLs
     if base_url.startswith("/generated/"):
@@ -54,8 +54,10 @@ def get_image_path(image_url: str) -> Path:
 
 # === State definition ===
 
+
 class AgentState(MessagesState):
     """Agent state with scene generation artifacts."""
+
     characters: List[dict] = []
     backgrounds: List[dict] = []
     scenes: List[dict] = []
@@ -74,7 +76,9 @@ def get_model(api_key: str = None):
     return ChatGoogleGenerativeAI(**kwargs)
 
 
-async def generate_image(prompt: str, input_images: List[str] = None, api_key: str = None) -> str:
+async def generate_image(
+    prompt: str, input_images: List[str] = None, api_key: str = None
+) -> str:
     """Generate an image using Nano Banana (gemini-2.5-flash-image) via HTTP.
 
     Args:
@@ -109,29 +113,19 @@ async def generate_image(prompt: str, input_images: List[str] = None, api_key: s
                 image_bytes = await asyncio.to_thread(read_image, file_path)
                 image_base64 = base64.b64encode(image_bytes).decode("utf-8")
 
-                parts.append({
-                    "inline_data": {
-                        "mime_type": "image/png",
-                        "data": image_base64
-                    }
-                })
+                parts.append(
+                    {"inline_data": {"mime_type": "image/png", "data": image_base64}}
+                )
 
     # Add text prompt
     parts.append({"text": prompt})
 
     payload = {
-        "contents": [{
-            "parts": parts
-        }],
-        "generationConfig": {
-            "responseModalities": ["TEXT", "IMAGE"]
-        }
+        "contents": [{"parts": parts}],
+        "generationConfig": {"responseModalities": ["TEXT", "IMAGE"]},
     }
 
-    headers = {
-        "Content-Type": "application/json",
-        "x-goog-api-key": api_key
-    }
+    headers = {"Content-Type": "application/json", "x-goog-api-key": api_key}
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.post(url, json=payload, headers=headers)
@@ -199,26 +193,18 @@ async def edit_image(image_url: str, edit_prompt: str, api_key: str = None) -> s
 
     # Build request with image and edit prompt
     payload = {
-        "contents": [{
-            "parts": [
-                {
-                    "inline_data": {
-                        "mime_type": "image/png",
-                        "data": image_base64
-                    }
-                },
-                {"text": edit_prompt}
-            ]
-        }],
-        "generationConfig": {
-            "responseModalities": ["TEXT", "IMAGE"]
-        }
+        "contents": [
+            {
+                "parts": [
+                    {"inline_data": {"mime_type": "image/png", "data": image_base64}},
+                    {"text": edit_prompt},
+                ]
+            }
+        ],
+        "generationConfig": {"responseModalities": ["TEXT", "IMAGE"]},
     }
 
-    headers = {
-        "Content-Type": "application/json",
-        "x-goog-api-key": api_key
-    }
+    headers = {"Content-Type": "application/json", "x-goog-api-key": api_key}
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.post(url, json=payload, headers=headers)
@@ -247,12 +233,10 @@ async def edit_image(image_url: str, edit_prompt: str, api_key: str = None) -> s
 
 # === Backend tools for the main agent ===
 
+
 @tool
 async def create_character(
-    name: str,
-    description: str,
-    prompt: str,
-    state: Annotated[dict, InjectedState]
+    name: str, description: str, prompt: str, state: Annotated[dict, InjectedState]
 ) -> dict:
     """Create a new character with an AI-generated image.
 
@@ -277,16 +261,13 @@ async def create_character(
         "name": name,
         "description": description,
         "prompt": prompt,
-        "imageUrl": image_url
+        "imageUrl": image_url,
     }
 
 
 @tool
 async def create_background(
-    name: str,
-    description: str,
-    prompt: str,
-    state: Annotated[dict, InjectedState]
+    name: str, description: str, prompt: str, state: Annotated[dict, InjectedState]
 ) -> dict:
     """Create a new background/environment with an AI-generated image.
 
@@ -311,7 +292,7 @@ async def create_background(
         "name": name,
         "description": description,
         "prompt": prompt,
-        "imageUrl": image_url
+        "imageUrl": image_url,
     }
 
 
@@ -322,7 +303,7 @@ async def create_scene(
     prompt: str,
     character_ids: List[str],
     background_id: str,
-    state: Annotated[dict, InjectedState]
+    state: Annotated[dict, InjectedState],
 ) -> dict:
     """Create a scene by composing characters with a background.
 
@@ -375,15 +356,13 @@ async def create_scene(
         "characterIds": character_ids,
         "backgroundId": background_id,
         "prompt": prompt,
-        "imageUrl": image_url
+        "imageUrl": image_url,
     }
 
 
 @tool
 async def edit_character(
-    character_id: str,
-    edit_description: str,
-    state: Annotated[dict, InjectedState]
+    character_id: str, edit_description: str, state: Annotated[dict, InjectedState]
 ) -> dict:
     """Edit an existing character's image based on user description.
 
@@ -410,7 +389,7 @@ async def edit_character(
     edited_url = await edit_image(
         char["imageUrl"],
         f"Edit this character image: {edit_description}. Keep the same character but apply the requested changes.",
-        api_key=api_key
+        api_key=api_key,
     )
 
     if not edited_url:
@@ -422,15 +401,13 @@ async def edit_character(
         "description": char["description"],
         "prompt": char.get("prompt", ""),
         "imageUrl": edited_url,
-        "edited": True
+        "edited": True,
     }
 
 
 @tool
 async def edit_background(
-    background_id: str,
-    edit_description: str,
-    state: Annotated[dict, InjectedState]
+    background_id: str, edit_description: str, state: Annotated[dict, InjectedState]
 ) -> dict:
     """Edit an existing background's image based on user description.
 
@@ -457,7 +434,7 @@ async def edit_background(
     edited_url = await edit_image(
         bg["imageUrl"],
         f"Edit this background image: {edit_description}. Keep the same environment but apply the requested changes.",
-        api_key=api_key
+        api_key=api_key,
     )
 
     if not edited_url:
@@ -469,7 +446,7 @@ async def edit_background(
         "description": bg["description"],
         "prompt": bg.get("prompt", ""),
         "imageUrl": edited_url,
-        "edited": True
+        "edited": True,
     }
 
 
@@ -480,7 +457,7 @@ async def edit_scene(
     regenerate_from_sources: bool,
     state: Annotated[dict, InjectedState],
     new_character_ids: List[str] = None,
-    new_background_id: str = None
+    new_background_id: str = None,
 ) -> dict:
     """Edit an existing scene's image.
 
@@ -506,8 +483,16 @@ async def edit_scene(
         backgrounds = state.get("backgrounds", [])
 
         # Use new IDs if provided, otherwise use existing
-        char_ids = new_character_ids if new_character_ids is not None else scene.get("characterIds", [])
-        bg_id = new_background_id if new_background_id is not None else scene.get("backgroundId", "")
+        char_ids = (
+            new_character_ids
+            if new_character_ids is not None
+            else scene.get("characterIds", [])
+        )
+        bg_id = (
+            new_background_id
+            if new_background_id is not None
+            else scene.get("backgroundId", "")
+        )
 
         input_images = []
 
@@ -542,7 +527,7 @@ async def edit_scene(
             "backgroundId": bg_id,
             "prompt": edit_description,
             "imageUrl": new_url,
-            "edited": True
+            "edited": True,
         }
     else:
         # Edit the existing scene image directly (for composition changes)
@@ -555,7 +540,7 @@ async def edit_scene(
         edited_url = await edit_image(
             scene["imageUrl"],
             f"Edit this scene image: {edit_description}. Keep the same composition but apply the requested changes.",
-            api_key=api_key
+            api_key=api_key,
         )
 
         if not edited_url:
@@ -569,18 +554,28 @@ async def edit_scene(
             "backgroundId": scene.get("backgroundId", ""),
             "prompt": scene.get("prompt", ""),
             "imageUrl": edited_url,
-            "edited": True
+            "edited": True,
         }
 
 
 # Backend tools list
-backend_tools = [create_character, create_background, create_scene, edit_character, edit_background, edit_scene]
+backend_tools = [
+    create_character,
+    create_background,
+    create_scene,
+    edit_character,
+    edit_background,
+    edit_scene,
+]
 backend_tool_names = [tool.name for tool in backend_tools]
 
 
 # === Main agent nodes ===
 
-async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Literal["tool_node", "__end__"]]:
+
+async def chat_node(
+    state: AgentState, config: RunnableConfig
+) -> Command[Literal["tool_node", "__end__"]]:
     """Main agent that handles user requests and writes prompts directly."""
 
     # Extract API key from shared state (passed from frontend via setState)
@@ -598,11 +593,25 @@ async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Litera
     bgs = state.get("backgrounds", [])
     scenes = state.get("scenes", [])
 
-    char_list = "\n".join([f"  - {c['name']} (id: {c['id']}): {c['description']}" for c in chars]) or "  None yet"
-    bg_list = "\n".join([f"  - {b['name']} (id: {b['id']}): {b['description']}" for b in bgs]) or "  None yet"
-    scene_list = "\n".join([f"  - {s['name']} (id: {s['id']}): {s['description']}" for s in scenes]) or "  None yet"
+    char_list = (
+        "\n".join(
+            [f"  - {c['name']} (id: {c['id']}): {c['description']}" for c in chars]
+        )
+        or "  None yet"
+    )
+    bg_list = (
+        "\n".join([f"  - {b['name']} (id: {b['id']}): {b['description']}" for b in bgs])
+        or "  None yet"
+    )
+    scene_list = (
+        "\n".join(
+            [f"  - {s['name']} (id: {s['id']}): {s['description']}" for s in scenes]
+        )
+        or "  None yet"
+    )
 
-    system_message = SystemMessage(content=f"""You are a creative assistant helping users create scenes with AI-generated characters and backgrounds.
+    system_message = SystemMessage(
+        content=f"""You are a creative assistant helping users create scenes with AI-generated characters and backgrounds.
 
 ## Your Capabilities
 You have tools to create and edit characters, backgrounds, and scenes. When calling these tools, YOU write the image generation prompts directly.
@@ -691,12 +700,16 @@ Keep prompts SIMPLE and SHORT. Nano Banana works better with minimal constraints
 - Be friendly and encouraging
 - Describe what you're creating before calling tools
 - After creation, summarize what was made
-- Suggest next steps""")
+- Suggest next steps"""
+    )
 
-    response = await model_with_tools.ainvoke([
-        system_message,
-        *state["messages"],
-    ], config)
+    response = await model_with_tools.ainvoke(
+        [
+            system_message,
+            *state["messages"],
+        ],
+        config,
+    )
 
     # Check if we need to route to tool node
     tool_calls = getattr(response, "tool_calls", None)
@@ -705,18 +718,16 @@ Keep prompts SIMPLE and SHORT. Nano Banana works better with minimal constraints
         for tool_call in tool_calls:
             if tool_call.get("name") in backend_tool_names:
                 return Command(
-                    goto="tool_node",
-                    update={"messages": [response], "apiKey": api_key}
+                    goto="tool_node", update={"messages": [response], "apiKey": api_key}
                 )
 
     # No backend tool calls, end the conversation turn
-    return Command(
-        goto=END,
-        update={"messages": [response]}
-    )
+    return Command(goto=END, update={"messages": [response]})
 
 
-async def process_tool_results(state: AgentState, config: RunnableConfig) -> Command[Literal["chat_node"]]:
+async def process_tool_results(
+    state: AgentState, config: RunnableConfig
+) -> Command[Literal["chat_node"]]:
     """Process tool results and update state with new artifacts."""
     import json
 
@@ -738,27 +749,54 @@ async def process_tool_results(state: AgentState, config: RunnableConfig) -> Com
                     result = msg.content
 
                 # Update appropriate collection
-                if tool_name == "create_character" and isinstance(result, dict) and "id" in result:
+                if (
+                    tool_name == "create_character"
+                    and isinstance(result, dict)
+                    and "id" in result
+                ):
                     if not any(c["id"] == result["id"] for c in new_characters):
                         new_characters.append(result)
-                elif tool_name == "create_background" and isinstance(result, dict) and "id" in result:
+                elif (
+                    tool_name == "create_background"
+                    and isinstance(result, dict)
+                    and "id" in result
+                ):
                     if not any(b["id"] == result["id"] for b in new_backgrounds):
                         new_backgrounds.append(result)
-                elif tool_name == "create_scene" and isinstance(result, dict) and "id" in result:
+                elif (
+                    tool_name == "create_scene"
+                    and isinstance(result, dict)
+                    and "id" in result
+                ):
                     if not any(s["id"] == result["id"] for s in new_scenes):
                         new_scenes.append(result)
                 # Handle edit tools - update existing items
-                elif tool_name == "edit_character" and isinstance(result, dict) and "id" in result and not result.get("error"):
+                elif (
+                    tool_name == "edit_character"
+                    and isinstance(result, dict)
+                    and "id" in result
+                    and not result.get("error")
+                ):
                     for i, c in enumerate(new_characters):
                         if c["id"] == result["id"]:
                             new_characters[i] = result
                             break
-                elif tool_name == "edit_background" and isinstance(result, dict) and "id" in result and not result.get("error"):
+                elif (
+                    tool_name == "edit_background"
+                    and isinstance(result, dict)
+                    and "id" in result
+                    and not result.get("error")
+                ):
                     for i, b in enumerate(new_backgrounds):
                         if b["id"] == result["id"]:
                             new_backgrounds[i] = result
                             break
-                elif tool_name == "edit_scene" and isinstance(result, dict) and "id" in result and not result.get("error"):
+                elif (
+                    tool_name == "edit_scene"
+                    and isinstance(result, dict)
+                    and "id" in result
+                    and not result.get("error")
+                ):
                     for i, s in enumerate(new_scenes):
                         if s["id"] == result["id"]:
                             new_scenes[i] = result
@@ -773,7 +811,7 @@ async def process_tool_results(state: AgentState, config: RunnableConfig) -> Com
             "characters": new_characters,
             "backgrounds": new_backgrounds,
             "scenes": new_scenes,
-        }
+        },
     )
 
 

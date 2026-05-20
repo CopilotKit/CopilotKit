@@ -37,7 +37,6 @@ bun install
 2. Set up your OpenAI API key:
 
 ```bash
-cd agent
 echo "OPENAI_API_KEY=your-openai-api-key-here" > .env
 ```
 

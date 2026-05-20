@@ -57,7 +57,7 @@ def getWeather(location: str) -> str:
     return f"The weather in {location} is sunny and 70 degrees."
 
 # Initialize the LLM
-llm = OpenAI(model="gpt-5.2")
+llm = OpenAI(model="gpt-5.4")
 
 # Create the AG-UI workflow router
 agentic_chat_router = get_ag_ui_workflow_router(

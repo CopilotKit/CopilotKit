@@ -1,0 +1,20 @@
+{
+  "title": "Built-in Agent",
+  "root": true,
+  "pages": [
+    "---Getting Started---",
+    "quickstart",
+    "---Basics---",
+    "model-selection",
+    "advanced-configuration",
+    "---App Control---",
+    "server-tools",
+    "shared-state",
+    "---MCP---",
+    "mcp-servers",
+    "---Generative UI---",
+    "...generative-ui",
+    "---Premium Features---",
+    "...premium"
+  ]
+}

@@ -7,319 +7,110 @@
 // the user chooses one — code without a backend context is incomplete.
 
 import React from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
+import { DocsLandingNext } from "@/components/docs-landing-next";
+import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
-import { SidebarLink } from "@/components/sidebar-link";
-import { SidebarNav } from "@/components/sidebar-nav";
-import { StoredFrameworkHighlight } from "@/components/stored-framework-highlight";
 import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
-import {
-  CONTENT_DIR,
-  FRAMEWORK_CATEGORY_ORDER,
-  buildNavTree,
-  type NavNode,
-} from "@/lib/docs-render";
-import {
-  getIntegrations,
-  getCategoryLabel,
-  type Integration,
-} from "@/lib/registry";
+import { CONTENT_DIR, buildNavTree } from "@/lib/docs-render";
+import { navTreeToPageTree } from "@/lib/page-tree-bridge";
+import { getBaseUrl } from "@/lib/sitemap-helpers";
 
-// Category ordering for the framework picker grid is imported from
-// @/lib/docs-render so the landing grid, sidebar dropdown, and this
-// overview share a single source of truth.
-
-// Docs-section cards shown beneath the framework picker. Each href
-// targets the framework-agnostic root route — when the user already
-// has a framework stored, `<RouterPivot>` on the destination page
-// redirects them into the scoped view.
-const DOCS_SECTIONS: {
-  href: string;
-  title: string;
-  description: string;
-  category: string;
-}[] = [
-  {
-    href: "/quickstart",
-    title: "Quickstart",
-    description: "Five-minute setup for a working copilot",
-    category: "Getting Started",
-  },
-  {
-    href: "/coding-agents",
-    title: "Coding Agents",
-    description: "Bootstrap with Claude Code, Cursor, Windsurf, and friends",
-    category: "Getting Started",
-  },
-  {
-    href: "/agentic-chat-ui",
-    title: "Chat Components",
-    description: "Drop-in CopilotChat & CopilotSidebar for agentic chat",
-    category: "Basics",
-  },
-  {
-    href: "/custom-look-and-feel",
-    title: "Custom Look & Feel",
-    description: "Theme, slot, and fully-headless chat UI",
-    category: "Basics",
-  },
-  {
-    href: "/generative-ui",
-    title: "Generative UI",
-    description: "Render live React components from the agent's stream",
-    category: "Generative UI",
-  },
-  {
-    href: "/frontend-tools",
-    title: "Frontend Tools",
-    description: "Expose client-side actions to the agent",
-    category: "App Control",
-  },
-  {
-    href: "/shared-state",
-    title: "Shared State",
-    description: "Two-way state binding between the UI and the agent",
-    category: "App Control",
-  },
-  {
-    href: "/human-in-the-loop",
-    title: "Human-in-the-Loop",
-    description: "Intercept tool calls for explicit user approval",
-    category: "App Control",
-  },
-];
+// Per-framework self-canonical: each variant of a doc page declares
+// itself canonical so search engines index every framework's quickstart
+// (etc.) at its own URL rather than collapsing them all onto the bare
+// /quickstart. Done at the page level so the metadata depends on params.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug?: string[] }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const slugPath = slug && slug.length > 0 ? `/${slug.join("/")}` : "";
+  return {
+    alternates: {
+      canonical: `${getBaseUrl()}${slugPath}`,
+    },
+  };
+}
 
 function DocsOverview() {
-  const integrations = getIntegrations()
-    .slice()
-    .sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999));
-
-  // Bucket integrations by category, honoring the canonical ordering.
-  const buckets = new Map<string, Integration[]>();
-  for (const cat of FRAMEWORK_CATEGORY_ORDER) buckets.set(cat, []);
-  buckets.set("other", []);
-  for (const i of integrations) {
-    const key = buckets.has(i.category) ? i.category : "other";
-    buckets.get(key)!.push(i);
-  }
-
   const navTree = buildNavTree(CONTENT_DIR);
-
-  // Preserve insertion order while grouping section cards by category.
-  const sectionsByCategory = new Map<string, typeof DOCS_SECTIONS>();
-  for (const s of DOCS_SECTIONS) {
-    if (!sectionsByCategory.has(s.category))
-      sectionsByCategory.set(s.category, []);
-    sectionsByCategory.get(s.category)!.push(s);
-  }
+  const pageTree = navTreeToPageTree(navTree, "");
 
   return (
-    <div className="flex" style={{ height: "calc(100vh - 52px)" }}>
-      <SidebarNav className="w-[240px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
-        <SidebarFrameworkSelector />
-        <Link
-          href="/"
-          className="block text-xs font-mono uppercase tracking-widest text-[var(--accent)] mb-4"
-        >
-          CopilotKit Docs
-        </Link>
-        {navTree.map((node) => (
-          <OverviewNavItem key={nodeKey(node)} node={node} />
-        ))}
-      </SidebarNav>
-
-      <main className="flex-1 max-w-4xl px-8 py-10 overflow-y-auto">
+    <ShellDocsLayout tree={pageTree} banner={<SidebarFrameworkSelector />}>
+      <div className="docs-inner-content max-w-[900px] mx-auto px-4 md:px-6 pt-2 pb-6 md:pt-3 xl:pt-4">
         <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
           Documentation
         </div>
         <h1 className="text-[2.25rem] font-bold text-[var(--text)] tracking-tight mb-3 leading-tight">
-          Build AI-powered apps with CopilotKit
+          Welcome to CopilotKit
         </h1>
-        <p className="text-base text-[var(--text-secondary)] leading-relaxed mb-10 max-w-2xl">
-          CopilotKit ships deep integrations across every major agent framework
-          and SDK. Pick your <em>agentic backend</em> below — the rest of the
-          docs adapt every snippet and code sample to that framework.
+        <p className="text-base text-[var(--text-secondary)] leading-relaxed mb-8 max-w-2xl">
+          CopilotKit is the <strong>frontend stack for agents</strong> and{" "}
+          <strong>generative UI</strong>. Connect any agent framework or model
+          to your React app for chat, generative UI, canvas apps, and
+          human-in-the-loop workflows.
         </p>
 
-        {/* Framework picker — big grid of all integrations, grouped by category */}
-        <section className="mb-12">
-          <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
-            Step 1
-          </div>
-          <h2 className="text-xl font-semibold text-[var(--text)] mb-1">
-            Pick an agentic backend
-          </h2>
-          <p className="text-sm text-[var(--text-secondary)] mb-5">
-            We store your choice locally so every page renders the right code.
+        {/* CLI command — universal entry point for fresh projects. */}
+        <div className="mb-10 max-w-2xl">
+          <p className="text-sm text-[var(--text-secondary)] mb-3">
+            Starting from scratch? Bootstrap a full-stack agent in one command:
           </p>
+          <pre className="rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-4 py-3 text-sm font-mono overflow-x-auto">
+            <code>npx copilotkit@latest create</code>
+          </pre>
+        </div>
 
-          {[...buckets.entries()].map(([catId, items]) => {
-            if (items.length === 0) return null;
-            const label = catId === "other" ? "Other" : getCategoryLabel(catId);
-            return (
-              <div key={catId} className="mb-6">
-                <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-3">
-                  {label}
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {items.map((i) => {
-                    // Undeployed integrations render as non-interactive
-                    // cards. The framework catch-all route would happily
-                    // serve a landing page for any registry entry, but
-                    // that page has no live demos wired up — clicking an
-                    // undeployed card would drop the user on a dead end.
-                    // The "soon" pill + dimmed styling already signal
-                    // not-ready; stripping the <Link> makes the
-                    // affordance match the signal.
-                    const cardContent = (
-                      <>
-                        {i.logo ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={i.logo}
-                            alt=""
-                            className="w-5 h-5 shrink-0"
-                          />
-                        ) : (
-                          <span className="w-5 h-5 shrink-0" />
-                        )}
-                        <span
-                          className={`flex-1 min-w-0 truncate text-sm font-medium text-[var(--text)] ${
-                            i.deployed ? "group-hover:text-[var(--accent)]" : ""
-                          }`}
-                        >
-                          {i.name}
-                        </span>
-                        {!i.deployed && (
-                          <span className="text-[9px] font-mono uppercase tracking-widest text-[var(--text-faint)]">
-                            soon
-                          </span>
-                        )}
-                        {/* Marks the framework currently stored in
-                            localStorage so repeat visitors can spot "their"
-                            choice at a glance without an auto-redirect. */}
-                        <StoredFrameworkHighlight slug={i.slug} />
-                      </>
-                    );
-                    if (i.deployed) {
-                      return (
-                        <Link
-                          key={i.slug}
-                          href={`/${i.slug}`}
-                          className="group relative flex items-center gap-2 p-3 rounded-lg border transition-all border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] hover:shadow-sm"
-                        >
-                          {cardContent}
-                        </Link>
-                      );
-                    }
-                    return (
-                      <div
-                        key={i.slug}
-                        aria-disabled="true"
-                        className="group relative flex items-center gap-2 p-3 rounded-lg border border-[var(--border-dim)] bg-[var(--bg-elevated)] opacity-70 cursor-not-allowed"
-                      >
-                        {cardContent}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </section>
-
-        {/* Section cards — grouped by broad topic. Clicking any of
-            these before picking a framework lands on the per-feature
-            pivot; once a framework is stored the destination's
-            <RouterPivot /> redirects into the scoped view. */}
-        <section>
-          <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
-            Step 2
-          </div>
-          <h2 className="text-xl font-semibold text-[var(--text)] mb-5">
-            Or jump into a topic
-          </h2>
-
-          {[...sectionsByCategory.entries()].map(([catLabel, sections]) => (
-            <div key={catLabel} className="mb-6">
-              <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-3">
-                {catLabel}
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {sections.map((s) => (
-                  <SidebarLink
-                    key={s.href}
-                    slug={s.href.slice(1)}
-                    className="group p-4 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] transition-all"
-                  >
-                    <div className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
-                      {s.title}
-                    </div>
-                    <div className="text-xs text-[var(--text-muted)] leading-relaxed">
-                      {s.description}
-                    </div>
-                  </SidebarLink>
-                ))}
-              </div>
+        {/* Utility cards: orientation + reference + gen-UI. The
+            framework-aware Quickstart entry lives in <DocsLandingNext />
+            below, where it can branch on storedFramework. */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-10">
+          <Link
+            href="/concepts/architecture"
+            className="group flex flex-col gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 no-underline hover:border-[var(--accent)] hover:shadow-sm transition"
+          >
+            <div className="font-semibold text-[var(--text)] group-hover:text-[var(--accent)]">
+              Concepts
             </div>
-          ))}
-        </section>
-      </main>
-    </div>
-  );
-}
+            <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
+              Architecture, gen UI types, OSS vs Enterprise.
+            </div>
+          </Link>
+          <Link
+            href="/reference"
+            className="group flex flex-col gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 no-underline hover:border-[var(--accent)] hover:shadow-sm transition"
+          >
+            <div className="font-semibold text-[var(--text)] group-hover:text-[var(--accent)]">
+              API Reference
+            </div>
+            <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
+              Hooks, components, and config.
+            </div>
+          </Link>
+          <Link
+            href="/generative-ui/your-components/display-only"
+            className="group flex flex-col gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 no-underline hover:border-[var(--accent)] hover:shadow-sm transition"
+          >
+            <div className="font-semibold text-[var(--text)] group-hover:text-[var(--accent)]">
+              Generative UI
+            </div>
+            <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
+              Render tools as React components.
+            </div>
+          </Link>
+        </div>
 
-// Render a single nav node for the overview sidebar. Unlike
-// `<DocsPageView>`, there is no active slug here — this is the docs
-// root — so every page link is rendered in its idle state.
-function nodeKey(node: NavNode): string {
-  if (node.type === "section") return `section-${node.title}`;
-  if (node.type === "page") return `page-${node.slug}`;
-  return `group-${node.slug}`;
-}
-
-function OverviewNavItem({
-  node,
-  depth = 0,
-}: {
-  node: NavNode;
-  depth?: number;
-}) {
-  const indent = depth * 16;
-  if (node.type === "section") {
-    return (
-      <div
-        className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mt-4 mb-2"
-        style={{ paddingLeft: `${indent}px` }}
-      >
-        {node.title}
+        {/* Conditional next-step block: framework picker if no
+              storedFramework, "what's next" pointers into that
+              framework's docs if there is one. Replaces the former
+              two-step "Pick a backend / Or jump into a topic" panels. */}
+        <DocsLandingNext />
       </div>
-    );
-  }
-  if (node.type === "page") {
-    return (
-      <div style={{ paddingLeft: `${indent}px` }}>
-        <SidebarLink
-          slug={node.slug}
-          className="block py-[5px] text-[13px] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
-        >
-          {node.title}
-        </SidebarLink>
-      </div>
-    );
-  }
-  return (
-    <div className="mt-1">
-      <div
-        className="py-[5px] text-[13px] font-medium text-[var(--text-secondary)]"
-        style={{ paddingLeft: `${indent}px` }}
-      >
-        {node.title}
-      </div>
-      {node.children.map((child) => (
-        <OverviewNavItem key={nodeKey(child)} node={child} depth={depth + 1} />
-      ))}
-    </div>
+    </ShellDocsLayout>
   );
 }
 

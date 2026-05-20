@@ -7,7 +7,7 @@ https://github.com/user-attachments/assets/47761912-d46a-4fb3-b9bd-cb41ddd02e34
 ## Prerequisites
 
 - Node.js 18+
-- Python 3.8+
+- Python 3.12+
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
 - Any of the following package managers:
   - npm (default)

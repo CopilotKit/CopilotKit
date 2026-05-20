@@ -22,7 +22,7 @@
       return (
         <div>
           {/* [!code highlight:4] */}
-          <p>Agent ID: {agent.id}</p>
+          <p>Agent ID: {agent.agentId}</p>
           <p>Thread ID: {agent.threadId}</p>
           <p>Status: {agent.isRunning ? "Running" : "Idle"}</p>
           <p>Messages: {agent.messages.length}</p>
@@ -30,6 +30,13 @@
       );
     }
     ```
+
+    <Callout type="info">
+      If you are not using CopilotKit Cloud's public access/license key, pass your agentId to the `useAgent()` hook:
+      ```ts
+      const { agent } = useAgent({ agentId: "myAgent" });
+      ```
+    </Callout>
 
     The hook will throw an error if no agent is configured, so you can safely use `agent` without null checks.
 
@@ -216,7 +223,7 @@ export function EventLogger() {
     // [!code highlight:2]
     const { unsubscribe } = agent.subscribe(subscriber);
     return () => unsubscribe();
-  }, []);
+  }, [agent]);
 
   return null;
 }
@@ -269,7 +276,7 @@ function WeatherCard({
 Register your tool renderers with CopilotKit:
 
 ```tsx title="layout.tsx"
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 import { weatherToolRender } from "./components/weather-tool";
 
 export default function RootLayout({ children }) {

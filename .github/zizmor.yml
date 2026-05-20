@@ -1,0 +1,92 @@
+# zizmor configuration — static analysis for GitHub Actions workflows.
+#
+# Docs: https://docs.zizmor.sh/configuration/
+#
+# This file lives at `.github/zizmor.yml` because zizmor auto-discovers
+# it there. The companion workflow at `.github/workflows/security_zizmor.yml`
+# runs zizmor in CI and fails the build on findings at the configured level.
+#
+# When a finding genuinely cannot be remediated (e.g. the action behavior
+# is correct but tripped a check), add it under `rules:` with a clear
+# justification comment — never blanket-suppress.
+
+rules:
+  # `template-injection` flags ${{ }} expansions that put untrusted input
+  # (issue titles, PR titles, branch names, comment bodies) directly into
+  # `run:` scripts. The fix is always to route through `env:` and reference
+  # the env var inside the shell. We treat any new occurrence as a blocker.
+  template-injection:
+    ignore: []
+
+  # `dangerous-triggers` flags `pull_request_target` and similar triggers
+  # that run with secrets against fork-controlled refs. Anything new must
+  # be reviewed by a maintainer.
+  #
+  # Suppressions below were each reviewed by a maintainer; new additions
+  # must come with a comment explaining why the workflow is safe.
+  dangerous-triggers:
+    ignore:
+      # update-branch.yml: pull_request_target gated on `types: [labeled]`
+      # with a maintainer-applied "update-branch" label. The workflow uses
+      # the base-repo checkout (not the PR head), so no fork-controlled
+      # code runs with the elevated token. This is the documented safe
+      # pattern for label-gated automation.
+      - update-branch.yml
+      # showcase_deploy.yml / showcase_capture-previews.yml: workflow_run
+      # triggered by the in-repo "Showcase: Build & Push" workflow. Only
+      # main-branch builds fire workflow_run, and the downstream workflows
+      # never check out PR-head code — they checkout the same trusted
+      # main-branch ref or use the head_branch of the triggering run
+      # (which is also main per the upstream filter).
+      - showcase_deploy.yml
+      - showcase_capture-previews.yml
+      # Dependabot auto-merge: uses pull_request_target for write token.
+      # Does NOT checkout PR code. Actor-gated to dependabot[bot].
+      - dependabot-auto-merge.yml
+      # Dependabot major analysis: uses pull_request_target for PR comments.
+      # Does NOT checkout PR code. Actor-gated to dependabot[bot].
+      - dependabot-major-analysis.yml
+      # test_smoke-starter.yml: workflow_run triggered by the in-repo
+      # "publish / release" workflow. Listens to release completions; no
+      # fork-controlled refs reach this workflow.
+      - test_smoke-starter.yml
+
+  # `unpinned-uses` is satisfied because every `uses:` is SHA-pinned and
+  # Dependabot keeps them current (see .github/dependabot.yml).
+
+  # `excessive-permissions` flags jobs that grant token scopes they don't
+  # need. We surface but don't auto-suppress — fixing requires per-job
+  # `permissions:` blocks that match the actual API calls in the job.
+  excessive-permissions:
+    ignore: []
+
+  # `artipacked` flags `actions/checkout` calls that leave the default
+  # GITHUB_TOKEN persisted in the local git config. Every other checkout
+  # in the repo sets `persist-credentials: false`. The suppressions below
+  # are the workflows that legitimately need the persisted token to push
+  # back to the repo (release tagging, docs sync, PR comment from
+  # pkg-pr-new). Each call site carries a `persist-credentials required:`
+  # comment immediately above it.
+  #
+  # static_quality.yml was removed: its format job now uses
+  # persist-credentials: false and injects credentials via insteadOf
+  # only before the push step.
+  artipacked:
+    ignore:
+      # Release workflows that push tags / branches via GITHUB_TOKEN.
+      # publish-release.yml is intentionally NOT suppressed: its build job
+      # now uses persist-credentials: false (the artifact it uploads would
+      # otherwise leak a workflow-scoped token through .git/config) and the
+      # publish job downloads the artifact and sets up its own git auth via
+      # `git config insteadOf`.
+      - prerelease.yml
+      # pkg-pr-new posts snapshot comments on the PR using the repo token
+      # — credentials must remain persisted for the action to authenticate.
+      - publish-commit.yml
+
+  # dependabot-cooldown: cooldown configured (default-days: 1) but zizmor
+  # wants longer. Migrating to Renovate — suppressing rather than tuning
+  # Dependabot config that will be removed.
+  dependabot-cooldown:
+    ignore:
+      - dependabot.yml

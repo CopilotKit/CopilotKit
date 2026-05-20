@@ -1,0 +1,7 @@
+[SKIP] ag2: born-in-showcase (no Dojo example)
+[SKIP] claude-sdk-python: born-in-showcase (no Dojo example)
+[SKIP] claude-sdk-typescript: born-in-showcase (no Dojo example)
+[SKIP] langroid: born-in-showcase (no Dojo example)
+[SKIP] spring-ai: born-in-showcase (no Dojo example)
+
+Summary: OK=0 SKIP=5 WARN=16 FAIL=110

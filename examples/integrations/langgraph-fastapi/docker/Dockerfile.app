@@ -1,4 +1,4 @@
-# Dockerfile for Next.js frontend (flat structure — not a monorepo).
+# Dockerfile for Next.js App
 FROM node:22-alpine AS base
 
 # Install dependencies only when needed
@@ -7,25 +7,24 @@ RUN apk add --no-cache libc6-compat
 
 WORKDIR /app
 
-# Copy package manifest and install
+# Copy package files
 COPY package.json ./
+
+# Install dependencies
 RUN npm install --ignore-scripts
 
 # Build the application
 FROM base AS builder
 WORKDIR /app
 
+# Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
+
+# Copy source code
 COPY . .
 
-# Docker override: use AG-UI HttpAgent instead of LangGraphHttpAgent
-COPY docker-route-override.ts ./src/app/api/copilotkit/route.ts
-RUN npm install @ag-ui/client
-
-# Enable standalone output + skip TS errors from override
-RUN sed -i 's/const nextConfig: NextConfig = {/const nextConfig: NextConfig = {\n  output: "standalone",\n  typescript: { ignoreBuildErrors: true },/' next.config.ts
-
-RUN npm run build
+# Build the Next.js app
+RUN npx next build
 
 # Production image
 FROM base AS runner
@@ -36,6 +35,7 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
+# Copy built application
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static

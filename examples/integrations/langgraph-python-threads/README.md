@@ -14,20 +14,20 @@ This project is a monorepo with three services:
 
 When threads are enabled, additional infrastructure runs via Docker Compose:
 
-| Service              | Port | Description                              |
-| -------------------- | ---- | ---------------------------------------- |
-| **PostgreSQL**       | 5432 | Thread and event storage                 |
-| **Redis**            | 6379 | Session/cache                            |
-| **App API**          | 4201 | Intelligence REST API                    |
-| **Realtime Gateway** | 4401 | WebSocket gateway for live thread events |
+| Service          | Port       | Description                                                                                                                                       |
+| ---------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **PostgreSQL**   | 5432       | Thread and event storage                                                                                                                          |
+| **Redis**        | 6379       | Session/cache                                                                                                                                     |
+| **Intelligence** | 4201, 4401 | All-in-one CopilotKit Intelligence container (app-api on 4201, realtime-gateway on 4401, plus thread-culler and db-migrations, under s6-overlay). |
 
 ## Prerequisites
 
 - Node.js 18+
-- Python 3.8+
+- Python 3.12+
 - npm 10+
 - OpenAI API Key
-- Docker (for threads/intelligence support)
+- [`uv`](https://docs.astral.sh/uv/getting-started/installation/) — required to install the Python agent's dependencies
+- [Docker](https://docs.docker.com/get-started/get-docker/) — required for the threads/intelligence services (must be running)
 
 ## Getting Started
 
@@ -53,29 +53,26 @@ copilotkit license -n my-project
 
 This authenticates you and issues a `COPILOTKIT_LICENSE_TOKEN`. Add it to your `.env`.
 
-4. **Start intelligence infrastructure** (for threads):
-
-```bash
-docker compose up -d --wait
-```
-
-This pulls the GHCR images pinned to `0.1.0-rc.7`.
-
-5. Start all services:
+4. Start all services:
 
 ```bash
 npm run dev
 ```
 
-This starts the frontend, BFF, and agent concurrently.
+This starts Docker Compose infrastructure first, then starts the frontend, BFF, and agent concurrently.
+
+The infrastructure step pulls `ghcr.io/copilotkit/intelligence/composite` — a single container that runs app-api, realtime-gateway, thread-culler, and the db-migrations oneshot together under s6-overlay supervision. The per-service images remain available at `ghcr.io/copilotkit/intelligence/{app-api,realtime-gateway,thread-culler,db-migrations}` if you'd rather run them separately.
 
 You can also run each piece directly:
 
 ```bash
+npm run dev:infra
 npm run dev:app
 npm run dev:bff
 npm run dev:agent
 ```
+
+After infrastructure is already running, use the app, BFF, and agent commands directly when you only need to restart one service.
 
 ## Removing Threads
 

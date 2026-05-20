@@ -1,0 +1,8 @@
+id: empty-triggers
+name: "empty triggers"
+owner: "@oss"
+signal:
+  dimension: smoke
+triggers: []
+template:
+  text: "x"

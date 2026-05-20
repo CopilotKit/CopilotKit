@@ -74,9 +74,8 @@ const Sidebar = ({
         {headerSlot && <div className="pr-2">{headerSlot}</div>}
 
         <ul
-          className={`flex overflow-y-auto flex-col pr-1 max-h-full custom-scrollbar ${!showIntegrationSelector && !headerSlot ? "pt-6" : ""}`}
+          className={`flex overflow-y-auto flex-col pr-1 max-h-full custom-scrollbar`}
         >
-          <li className="w-full h-6" />
           {pages.map((page, index) => {
             const nodeType = isIntegrationFolder(page as Node)
               ? "integrationLink"

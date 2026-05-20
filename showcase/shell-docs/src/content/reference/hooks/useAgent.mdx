@@ -12,6 +12,8 @@ description: "React hook for accessing AG-UI agent instances"
 ## Signature
 
 ```tsx
+import { useAgent } from "@copilotkit/react-core/v2";
+
 function useAgent(options?: UseAgentProps): { agent: AbstractAgent };
 ```
 
@@ -22,7 +24,7 @@ function useAgent(options?: UseAgentProps): { agent: AbstractAgent };
 
 <PropertyReference name="agentId" type="string" default='"default"'>
   ID of the agent to retrieve. Must match an agent configured in
-  `CopilotKitProvider`.
+  `CopilotKit`.
 </PropertyReference>
 
   <PropertyReference name="updates" type="UseAgentUpdate[]" default="[OnMessagesChanged, OnStateChanged, OnRunStatusChanged]">

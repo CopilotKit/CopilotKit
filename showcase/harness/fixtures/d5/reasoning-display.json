@@ -1,0 +1,19 @@
+{
+  "_comment": "D5 fixture for /demos/reasoning-custom AND /demos/reasoning-default. Two sibling matchers: (1) the D5 reasoning-display probe sends 'show your reasoning step by step' verbatim; (2) the reasoning-default e2e test sends the 'sky appears blue' suggestion-pill prompt. Both responses include a `reasoning` field so aimock emits REASONING_MESSAGE_* events (role='reasoning'); without it the v2 `<ReasoningBlock>` (rendered behind `[data-testid=\"reasoning-block\"]`) never mounts and the built-in CopilotChatReasoningMessage 'Thinking…/Thought for…' header label never lands. Mirrored verbatim into showcase/aimock/d5-all.json so the Docker-baked aimock has matches.",
+  "fixtures": [
+    {
+      "match": { "userMessage": "show your reasoning step by step" },
+      "response": {
+        "reasoning": "First, I identified that the question requires step-by-step reasoning. Then I broke it into sub-steps and worked through each one. Finally, I aggregated the partial answers into a single response.",
+        "content": "Reasoning: first, I identified the question requires step-by-step thinking. Then, I broke it into sub-steps and worked through each one. Finally, I aggregated the partial answers into a single response. The reasoning block above the answer demonstrates intermediate-thought rendering."
+      }
+    },
+    {
+      "match": { "userMessage": "sky appears blue" },
+      "response": {
+        "reasoning": "First, I considered that visible sunlight contains all wavelengths. Then I noted that air molecules scatter shorter wavelengths (blue) more efficiently than longer ones (Rayleigh scattering). At sunset the path through the atmosphere is much longer, so even more blue is scattered out and the remaining direct light skews red.",
+        "content": "Daytime sky looks blue because air molecules scatter short-wavelength light more strongly than long-wavelength light (Rayleigh scattering). At sunset the sun's light traverses far more atmosphere, scattering out most of the blue and leaving the remaining direct light dominated by red and orange wavelengths."
+      }
+    }
+  ]
+}

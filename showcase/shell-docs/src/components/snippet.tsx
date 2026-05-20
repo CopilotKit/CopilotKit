@@ -36,9 +36,9 @@
 // than throwing — docs pages should degrade gracefully while authors iterate.
 
 import React from "react";
-import hljs from "highlight.js";
 import demoContent from "../data/demo-content.json";
-import { CopyButton } from "./copy-button";
+import catalogData from "../data/catalog.json";
+import { DynamicCodeBlock } from "fumadocs-ui/components/dynamic-codeblock";
 
 interface Region {
   file: string;
@@ -70,6 +70,28 @@ const demos: Record<string, DemoRecord> = (
   demoContent as { demos: Record<string, DemoRecord> }
 ).demos;
 
+// Build a `(framework, cell) → catalog entry` lookup at module scope so we
+// can detect when a (framework × cell) pair is explicitly flagged
+// `unsupported` and render a friendlier placeholder instead of the yellow
+// "Missing snippet" warning that fires for genuine docs gaps.
+interface CatalogCell {
+  id: string;
+  integration: string;
+  integration_name?: string;
+  feature: string;
+  feature_name?: string;
+  status: string;
+}
+
+const catalogByKey: Map<string, CatalogCell> = (() => {
+  const m = new Map<string, CatalogCell>();
+  const cells = (catalogData as { cells?: CatalogCell[] }).cells ?? [];
+  for (const c of cells) {
+    m.set(`${c.integration}::${c.feature}`, c);
+  }
+  return m;
+})();
+
 interface SnippetProps {
   /** Region name declared via `@region[<name>]` in the cell's source. */
   region?: string;
@@ -79,10 +101,8 @@ interface SnippetProps {
    */
   file?: string;
   /**
-   * Line range within the file — e.g. `"10-20"`, a single line `"5"`, or a
-   * comma-separated list of ranges `"1-5,10-15"` (concatenated with a
-   * `// ...` separator between discontinuous sections). Applied only when
-   * `file` is set. Omit to render the full file.
+   * Line range within the file — e.g. `"10-20"`, or a single line `"5"`.
+   * Applied only when `file` is set. Omit to render the full file.
    */
   lines?: string;
   /**
@@ -122,21 +142,48 @@ function WarningBox({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Track languages we've already warned about so each unknown language name
-// only produces one console message per process, regardless of how many
-// <Snippet>s reference it.
-const warnedUnknownLanguages = new Set<string>();
+/**
+ * `UnsupportedBox` — neutral, intentional-looking placeholder used when the
+ * dashboard catalog flags a (framework × cell) pair as `unsupported`.
+ *
+ * Distinct from `WarningBox` (yellow / "something is broken") — this signals
+ * "the framework deliberately doesn't implement this feature", which is an
+ * expected state, not a docs gap.
+ */
+function UnsupportedBox({
+  integrationName,
+  featureName,
+}: {
+  integrationName: string;
+  featureName: string;
+}) {
+  return (
+    <div
+      className="my-4 rounded-md border-l-4 border-blue-500/40 bg-blue-500/5 p-4 text-sm text-[var(--text-secondary)]"
+      role="note"
+    >
+      <div className="font-semibold mb-1 text-[var(--text)]">
+        Not supported on {integrationName}
+      </div>
+      <div>
+        {integrationName} doesn't support {featureName}. See{" "}
+        <a
+          href="/"
+          className="underline decoration-[var(--border)] underline-offset-2 hover:decoration-[var(--text-secondary)]"
+        >
+          the framework grid
+        </a>{" "}
+        for which integrations support this feature.
+      </div>
+    </div>
+  );
+}
 
-/** Map the bundler's coarse language hint to an hljs language name. */
-function resolveHljsLanguage(lang: string): string | null {
+/** Map the bundler's coarse language hint to a Shiki language name. */
+function resolveShikiLanguage(lang: string): string {
   const map: Record<string, string> = {
     typescript: "typescript",
-    // JSX/TSX are highlighted by hljs's javascript/typescript grammars
-    // respectively — explicit entries here avoid the highlightAuto
-    // fallback + the one-shot "unknown language" warning below.
-    tsx: "typescript",
     javascript: "javascript",
-    jsx: "javascript",
     python: "python",
     csharp: "csharp",
     css: "css",
@@ -144,38 +191,26 @@ function resolveHljsLanguage(lang: string): string | null {
     yaml: "yaml",
     markdown: "markdown",
     text: "plaintext",
-    // Shell-family hints all resolve to hljs's "bash" grammar. sh/shell
-    // are the common bundler hints; bash is a no-op passthrough so future
-    // additions don't regress.
-    sh: "bash",
-    bash: "bash",
-    shell: "bash",
   };
-  const mapped = map[lang];
-  if (mapped) return mapped;
-  if (lang && !warnedUnknownLanguages.has(lang)) {
-    warnedUnknownLanguages.add(lang);
-    console.warn(
-      `[snippet] unknown language "${lang}" — falling back to hljs.highlightAuto. ` +
-        `Add it to resolveHljsLanguage() for deterministic highlighting.`,
-    );
-  }
-  return null;
+  return map[lang] ?? lang;
 }
 
 /**
- * Parse a single segment of a `lines` prop — one of `"10-20"`, `"5"`, or
- * `"A-"` — into `[start, end]` (1-indexed, inclusive on both ends). Returns
- * null on invalid input.
+ * Parse a `lines` prop like `"10-20"` or `"5"` into `[start, end]` (1-indexed,
+ * inclusive on both ends). Returns null on invalid input.
  *
  * Special forms:
  *   - `"A-"` (trailing dash, no end) — treated as "start to end-of-file"; we
  *     return `[start, Number.POSITIVE_INFINITY]` and the caller clamps to the
  *     actual file length.
+ *   - empty string / whitespace — treated as "no range" (equivalent to absent
+ *     `lines`), returning null so the caller renders the full file.
  */
-function parseSingleRange(segment: string): [number, number] | null {
-  const trimmed = segment.trim();
+function parseLineRange(input: string | undefined): [number, number] | null {
+  if (!input) return null;
+  const trimmed = input.trim();
   if (trimmed === "") return null;
+  // `A-` → start through end-of-file (caller clamps).
   const openEnded = trimmed.match(/^(\d+)\s*[-\u2013]\s*$/);
   if (openEnded) {
     const start = parseInt(openEnded[1], 10);
@@ -195,33 +230,6 @@ function parseSingleRange(segment: string): [number, number] | null {
     if (n > 0) return [n, n];
   }
   return null;
-}
-
-/**
- * Parse a `lines` prop into an ordered list of `[start, end]` tuples.
- * Accepts a comma-separated list of segments — e.g. `"1-5,10-15"` yields
- * `[[1,5],[10,15]]`. Segments may be single lines, closed ranges, or an
- * open-ended range (`"A-"`); see `parseSingleRange` for the grammar.
- *
- * Returns null when:
- *   - input is absent / whitespace (caller treats as "no range")
- *   - any segment is malformed (the whole prop is rejected so authors get
- *     a single clear error instead of partial rendering)
- */
-function parseLineRange(
-  input: string | undefined,
-): Array<[number, number]> | null {
-  if (!input) return null;
-  const trimmed = input.trim();
-  if (trimmed === "") return null;
-  const segments = trimmed.split(",");
-  const ranges: Array<[number, number]> = [];
-  for (const seg of segments) {
-    const r = parseSingleRange(seg);
-    if (!r) return null;
-    ranges.push(r);
-  }
-  return ranges.length > 0 ? ranges : null;
 }
 
 /**
@@ -245,53 +253,32 @@ function regionFromFile(
       language: file.language,
     };
   }
-  const ranges = parseLineRange(lines);
-  if (!ranges) {
+  const range = parseLineRange(lines);
+  if (!range) {
     return {
-      warning: `Invalid lines="${lines}" — expected "A-B", "A-" (start to end), a single line "A", or a comma-separated list like "1-5,10-15".`,
+      warning: `Invalid lines="${lines}" — expected "A-B", "A-" (start to end), or single line "A".`,
     };
   }
-  // Validate every range is in bounds before slicing so authors get a
-  // single clear error rather than partial output.
-  for (const [start] of ranges) {
-    if (start > allLines.length) {
-      return {
-        warning: `lines="${lines}" is out of range (file has ${allLines.length} lines).`,
-      };
-    }
+  const [start, end] = range;
+  if (start > allLines.length) {
+    return {
+      warning: `lines="${lines}" is out of range (file has ${allLines.length} lines).`,
+    };
   }
-  // Slice each range, clamp ends, and stitch with a visual separator line
-  // between discontinuous sections. `startLine`/`endLine` in the caption
-  // span the full range (first start → last clamped end) so readers see
-  // where the snippet pulls from even when it's non-contiguous.
-  const pieces: string[] = [];
-  let firstStart = ranges[0][0];
-  let lastEnd = ranges[0][0];
-  ranges.forEach(([start, end], idx) => {
-    const effectiveEnd = Math.min(end, allLines.length);
-    if (Number.isFinite(end) && end > allLines.length) {
-      console.warn(
-        `[snippet] lines="${lines}" segment end (${end}) exceeds file length (${allLines.length}) for ${file.filename} — clamping.`,
-      );
-    }
-    if (idx === 0) firstStart = start;
-    lastEnd = effectiveEnd;
-    const slice = allLines.slice(start - 1, effectiveEnd).join("\n");
-    if (idx > 0) {
-      // Use a comment-style ellipsis that survives any highlighter as a
-      // visible gap marker. Language-specific comment syntax varies, so
-      // `// ...` is a reasonable default for the JS/TS/shell bulk; pure
-      // "..." renders fine across all grammars even when it isn't
-      // technically a comment.
-      pieces.push("// ...");
-    }
-    pieces.push(slice);
-  });
+  // Clamp `end` once up front; also warn when the author's explicit range
+  // drifted past the file so they notice the source changed under them.
+  const effectiveEnd = Math.min(end, allLines.length);
+  if (Number.isFinite(end) && end > allLines.length) {
+    console.warn(
+      `[snippet] lines="${lines}" end (${end}) exceeds file length (${allLines.length}) for ${file.filename} — clamping.`,
+    );
+  }
+  const slice = allLines.slice(start - 1, effectiveEnd).join("\n");
   return {
     file: file.filename,
-    startLine: firstStart,
-    endLine: lastEnd,
-    code: pieces.join("\n"),
+    startLine: start,
+    endLine: effectiveEnd,
+    code: slice,
     language: file.language,
   };
 }
@@ -308,7 +295,11 @@ export function Snippet({
   cell,
   defaultFramework,
   defaultCell,
-  title,
+  // `title` is accepted for source compat but deliberately ignored —
+  // the figcaption now always renders the bare filename. Most MDX
+  // call sites pass "<path> — <description>" which doubled up on the
+  // path that's already implied by surrounding doc context.
+  title: _title,
   noCaption,
 }: SnippetProps) {
   const resolvedFramework = framework ?? defaultFramework;
@@ -325,19 +316,43 @@ export function Snippet({
     );
   }
 
-  if (!resolvedFramework || !resolvedCell) {
+  if (!resolvedFramework) {
+    return (
+      <div className="my-4 rounded-md border border-[var(--border)] px-4 py-3 text-sm text-[var(--text-muted)] bg-[var(--bg-elevated)]">
+        Select an AI backend above to see this code example.
+      </div>
+    );
+  }
+
+  if (!resolvedCell) {
     return (
       <WarningBox>
         <code>{`<Snippet ${region ? `region="${region}"` : `file="${file}"`} />`}</code>{" "}
-        was rendered without a framework + cell (resolved framework:{" "}
-        <code>{resolvedFramework ?? "—"}</code>, cell:{" "}
-        <code>{resolvedCell ?? "—"}</code>). Pass them explicitly or configure a
-        page default.
+        was rendered without a cell (resolved framework:{" "}
+        <code>{resolvedFramework}</code>, cell: <code>—</code>). Pass{" "}
+        <code>cell="..."</code> explicitly or set <code>snippet_cell</code> in
+        the page frontmatter.
       </WarningBox>
     );
   }
 
   const key = `${resolvedFramework}::${resolvedCell}`;
+
+  // If the catalog explicitly marks this (framework × cell) pair as
+  // `unsupported`, render a neutral "not supported" placeholder instead of
+  // falling through to the yellow "Missing snippet" warning. The latter
+  // implies a docs gap that needs filling; the former is an intentional
+  // statement that the framework doesn't implement this feature.
+  const catalogEntry = catalogByKey.get(key);
+  if (catalogEntry?.status === "unsupported") {
+    return (
+      <UnsupportedBox
+        integrationName={catalogEntry.integration_name ?? resolvedFramework}
+        featureName={catalogEntry.feature_name ?? resolvedCell}
+      />
+    );
+  }
+
   const demo = demos[key];
   if (!demo) {
     return (
@@ -407,72 +422,21 @@ export function Snippet({
     );
   }
 
-  const hljsLang = resolveHljsLanguage(reg.language);
-  let html: string;
-  let highlightFailed = false;
-  try {
-    html = hljsLang
-      ? hljs.highlight(reg.code, { language: hljsLang, ignoreIllegals: true })
-          .value
-      : hljs.highlightAuto(reg.code).value;
-  } catch (err) {
-    // highlight.js should never throw with ignoreIllegals, but defensively
-    // fall back to unhighlighted text rather than crashing the render. Log
-    // enough context that authors can find the offending snippet.
-    console.warn(
-      `[snippet] highlight failed for ${key} ${reg.file} (language=${reg.language})`,
-      err,
-    );
-    html = escapeHtml(reg.code);
-    highlightFailed = true;
-  }
-  // Defense-in-depth: if hljs ever returns a non-string (unknown edge case),
-  // fall back to escaped plain text so `dangerouslySetInnerHTML` can't
-  // receive garbage.
-  if (typeof html !== "string") {
-    html = escapeHtml(reg.code);
-    highlightFailed = true;
-  }
-
-  const caption = title ?? reg.file;
-  // When highlighting failed we render escaped plain text; drop the `hljs`
-  // class so the output doesn't get styled as though it were highlighted.
-  const codeClassName = highlightFailed
-    ? undefined
-    : hljsLang
-      ? `hljs language-${hljsLang}`
-      : "hljs";
+  // Caption is always the bare filename \u2014 no path, no line range, and
+  // we deliberately ignore the `title` prop. Most authors pass titles
+  // like "frontend/src/app/page.tsx \u2014 chat surface" which duplicates
+  // the path + adds a description; the path is implied by surrounding
+  // doc context and the description doesn't earn its real estate next
+  // to working code. When `noCaption` is set the title is dropped
+  // entirely so the figure's floating copy button sits alone.
+  const basename = reg.file.split("/").pop() ?? reg.file;
+  const caption = noCaption ? undefined : basename;
 
   return (
-    <figure className="my-5 rounded-lg border border-[var(--border)] overflow-hidden bg-[var(--bg-surface)]">
-      {!noCaption && (
-        <figcaption className="flex items-center justify-between px-3 py-2 border-b border-[var(--border)] bg-[var(--bg-elevated)] text-[11px] font-mono text-[var(--text-muted)]">
-          <span className="truncate">{caption}</span>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[var(--text-faint)]">
-              {reg.startLine === reg.endLine
-                ? `L${reg.startLine}`
-                : `L${reg.startLine}\u2013${reg.endLine}`}
-            </span>
-            <CopyButton text={reg.code} />
-          </div>
-        </figcaption>
-      )}
-      <pre className="text-[12.5px] leading-[1.55] overflow-x-auto p-4 m-0">
-        <code
-          className={codeClassName}
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
-      </pre>
-    </figure>
+    <DynamicCodeBlock
+      lang={resolveShikiLanguage(reg.language)}
+      code={reg.code}
+      codeblock={caption ? { title: caption } : undefined}
+    />
   );
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }

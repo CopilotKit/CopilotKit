@@ -3,9 +3,7 @@ title: Shared State
 description: Create a two-way connection between your UI and agent state.
 icon: "lucide/Repeat"
 hideTOC: true
-snippet_cell: shared-state-read-write
 ---
-
 ## What is shared state?
 
 Agentic Copilots maintain a shared state that seamlessly connects your UI with the agent's execution. This shared state system allows you to:
@@ -22,72 +20,72 @@ Agentic Copilots maintain a shared state that seamlessly connects your UI with t
   className="rounded-lg shadow-lg border mt-0"
 />
 
-<InlineDemo demo="shared-state-read-write" />
-
 ## When should I use this?
 
 Use shared state when you want to facilitate collaboration between your agent and the user. Updates flow both ways — the agent's outputs are automatically reflected in the UI, and any inputs the user updates in the UI are automatically reflected in the agent's execution.
 
-## The two directions
-
-Shared state is a single object that both the UI and the agent can read
-and write. In practice, most apps split it into at least two conceptual
-slices:
-
-- A **UI-written** slice (e.g. user profile, form inputs) that the agent
-  reads on every turn and uses to tailor its behaviour.
-- An **agent-written** slice (e.g. notes, a document, a plan) that the
-  UI renders in real time as the agent produces it.
-
-The `shared-state-read-write` showcase cell wires both sides against a
-single `AgentState` schema with `preferences` (UI-written) and `notes`
-(agent-written).
+<OpsPlatformCTA
+  variant="inline"
+  title="Building stateful agents?"
+  body="Persistent threads ship with the Enterprise Intelligence Platform on the free Developer tier."
+  surface="docs_shared_state"
+/>
 
 ## Reading agent state
 
-The `useAgent` hook subscribes your component to state changes. Pass
-`UseAgentUpdate.OnStateChanged` and every mutation the agent makes to
-its state triggers a re-render — your UI is a reactive window into the
-agent's world.
+Subscribe a component to the agent's state with `useAgent`. Any time the agent
+mutates its state — for example via a tool call — the hook fires and your UI
+re-renders with the new values.
 
-<Snippet region="use-agent-read" title="frontend/src/app/page.tsx — useAgent subscription" />
+<Snippet region="use-agent-read" cell="shared-state-read-write" title="frontend/src/app/page.tsx — useAgent subscription" />
 
-Once subscribed, the agent-authored slice of state is just data you
-render. The `NotesCard` below is a plain presentational component — it
-doesn't know about CopilotKit at all; it just receives `notes` as a
-prop from the parent page.
+The returned `agent.state` is just a plain object. Read it like any other
+piece of React state and render the parts you care about — agent-written
+notes, structured outputs, progress indicators, anything the agent has put
+there.
 
-<Snippet region="notes-card-render" title="frontend/src/app/notes-card.tsx — render agent-authored notes" />
+## Writing agent state
 
-## Writing to agent state
+The same `agent` object exposes a `setState` setter. Calling it from a UI
+event handler pushes the new value into shared state, and the agent reads it
+back on its next turn — so the UI's writes visibly steer the model.
 
-Writes flow the other direction via `agent.setState`. Every call
-replaces the named fields; on the agent's next turn, the new values are
-visible to the backend (via middleware, prompt injection, or direct
-reads from `state`) and influence the reply.
+<Snippet region="use-agent-write" cell="shared-state-read-write" title="frontend/src/app/page.tsx — agent.setState" />
 
-<Snippet region="use-agent-write" title="frontend/src/app/page.tsx — write to agent state" />
+This is what makes the channel two-way: the UI doesn't just observe the
+agent, it can hand the agent fresh inputs (preferences, selections, partial
+work) without going through the chat thread.
 
-The form that generates those writes is, again, a plain controlled
-component. Every onChange bubbles up to the parent, which calls
-`agent.setState` — keeping the UI and the agent in lockstep.
+## Rendering shared state in the UI
 
-<Snippet region="preferences-card-render" title="frontend/src/app/preferences-card.tsx — preferences form" />
+Because `agent.state` is plain React data, the UI layer is whatever you'd
+normally build. The demo on this page wires the agent's outputs into a
+small card component and feeds user edits back through `setState`.
 
-## Going further
+<Snippet region="notes-card-render" cell="shared-state-read-write" title="frontend/src/app/page.tsx — NotesCard" />
 
-Two common extensions of the basic pattern:
+## Streaming partial state updates
 
-- **[State streaming](/shared-state/streaming)** — stream partial
-  state updates to the UI *while* a tool call is still running, so
-  long-running outputs (documents, plans) appear token-by-token.
-- **[Agent read-only context](/shared-state/agent-readonly)** —
-  when you only need a one-way UI → agent channel, `useAgentContext`
-  publishes read-only values to the agent without opening up write
-  access.
+By default, agent state only updates *between* node transitions, so a
+long-running tool call appears as one big burst at the end. State streaming
+forwards a specific tool argument straight into a state key *as it's being
+generated*, so the UI can watch the answer assemble token-by-token.
+
+<Snippet region="state-streaming-middleware" cell="shared-state-streaming" title="backend — StateStreamingMiddleware" />
+
+See **[State streaming](/shared-state/streaming)** for the full walkthrough,
+including the corresponding `useAgent` subscription on the frontend.
+
+## Read-only context
+
+When the value is **UI-owned** and the agent should read it but never write
+it back — current user, selected record, scroll position — reach for
+`useAgentContext` instead of full shared state. It publishes values as a
+one-way UI → agent channel that auto-unregisters on unmount.
+
+See **[Agent read-only context](/shared-state/agent-readonly)** for the
+full pattern.
 
 <FeatureIntegrations feature="shared-state-read-write" />
 
-## Get started by choosing your AI backend
-
-<IntegrationGrid path="shared-state" exclude={["agno", "agent-spec"]} />
+<IntegrationGrid path="shared-state" exclude={["agno", "agent-spec", "spring-ai", "langroid"]} />

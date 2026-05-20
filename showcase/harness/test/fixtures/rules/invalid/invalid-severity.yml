@@ -1,0 +1,10 @@
+id: invalid-severity
+name: "bad severity"
+owner: "@oss"
+severity: urgent
+signal:
+  dimension: smoke
+triggers:
+  - green_to_red
+template:
+  text: "x"

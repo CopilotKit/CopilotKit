@@ -8,13 +8,13 @@ snippet_cell: chat-slots
 
 ## What is this?
 
-Every CopilotKit chat component is built from composable **slots** — named sub-components that you can override individually. The slot system gives you three levels of customization without needing to rebuild the entire UI:
+Every CopilotKit chat component is built from composable **slots**, named sub-components you can override individually. The slot system gives you three levels of customization without needing to rebuild the entire UI:
 
 1. **Tailwind classes** — pass a string to add/override CSS classes
 2. **Props override** — pass an object to override specific props on the default component
 3. **Custom component** — pass your own React component to fully replace a slot
 
-Slots are recursive — you can drill into nested sub-components at any depth.
+Slots are recursive: you can drill into nested sub-components at any depth.
 
 <InlineDemo demo="chat-slots" />
 
@@ -142,7 +142,7 @@ Override a specific button inside the assistant message toolbar:
 
 ## Labels
 
-Customize any text string in the UI via the `labels` prop. This does not use the slot system — it's a separate convenience prop on `CopilotChat`, `CopilotSidebar`, and `CopilotPopup`.
+Customize any text string in the UI via the `labels` prop. This is a separate convenience prop on `CopilotChat`, `CopilotSidebar`, and `CopilotPopup`, not part of the slot system.
 
 ```tsx title="page.tsx"
 <CopilotChat

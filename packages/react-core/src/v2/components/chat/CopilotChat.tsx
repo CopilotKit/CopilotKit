@@ -101,14 +101,23 @@ export function CopilotChat({
   // Apply priority: props > existing config > defaults
   const resolvedAgentId =
     agentId ?? existingConfig?.agentId ?? DEFAULT_AGENT_ID;
+  const providedThreadId = threadId ?? existingConfig?.threadId;
   const resolvedThreadId = useMemo(
-    () => threadId ?? existingConfig?.threadId ?? randomUUID(),
-    [threadId, existingConfig?.threadId],
+    () => providedThreadId ?? randomUUID(),
+    [providedThreadId],
   );
+  // "Explicit" means a caller actually picked this thread — via the
+  // `threadId` prop on CopilotChat or a wrapping provider that marked its
+  // threadId as caller-chosen. An auto-minted UUID leaking down through a
+  // CopilotChatConfigurationProvider (e.g. from the v1 CopilotKit →
+  // ThreadsProvider chain) does NOT count; treating it as explicit is
+  // what made /connect fire against 404s and the welcome screen stay
+  // hidden for fresh empty chats.
+  const hasExplicitThreadId =
+    !!threadId || !!existingConfig?.hasExplicitThreadId;
 
   const { agent } = useAgent({
     agentId: resolvedAgentId,
-    threadId: resolvedThreadId,
     throttleMs,
   });
   const { copilotkit } = useCopilotKit();
@@ -195,7 +204,25 @@ export function CopilotChat({
     ...restProps
   } = props;
 
+  // Tracks the last threadId for which connectAgent has completed (success or
+  // failure). When the user supplies a threadId, we're in "resume existing
+  // thread" mode — the welcome screen should be suppressed until the connect
+  // resolves, otherwise switching threads flashes the welcome screen while the
+  // new thread's messages are still en route.
+  const [lastConnectedThreadId, setLastConnectedThreadId] = useState<
+    string | null
+  >(null);
+  const isConnecting =
+    hasExplicitThreadId && lastConnectedThreadId !== resolvedThreadId;
+
   useEffect(() => {
+    // When the caller hasn't picked a specific thread, resolvedThreadId is a
+    // UUID minted locally (either in this CopilotChat or in a wrapping
+    // ThreadsProvider). The backend has never seen it, so /connect would
+    // always 404 — skip the call. A real thread is only created once the
+    // user runs the agent for the first time.
+    if (!hasExplicitThreadId) return;
+
     let detached = false;
 
     // Create a fresh AbortController so we can cancel the HTTP request on cleanup.
@@ -207,6 +234,8 @@ export function CopilotChat({
       agent.abortController = connectAbortController;
     }
 
+    agent.threadId = resolvedThreadId;
+
     const connect = async (agent: AbstractAgent) => {
       try {
         await copilotkit.connectAgent({ agent });
@@ -216,6 +245,25 @@ export function CopilotChat({
         // connectAgent already emits via the subscriber system, but catch
         // here to prevent unhandled rejections from unexpected errors.
         console.error("CopilotChat: connectAgent failed", error);
+      } finally {
+        // Whether the connect succeeded or failed, we're no longer in the
+        // transitional "connecting" state for this thread — unblock the
+        // welcome-screen-suppression so the view can settle.
+        //
+        // Defer one animation frame so any trailing React commits from the
+        // bootstrap replay (final assistant message content) paint before
+        // isConnecting flips off. Without this, suggestions + copy button
+        // can briefly appear against an incompletely-laid-out message tree
+        // and visibly snap once the last text chunk lands.
+        if (!detached) {
+          const raf =
+            typeof requestAnimationFrame === "function"
+              ? requestAnimationFrame
+              : (cb: () => void) => setTimeout(cb, 16);
+          raf(() => {
+            if (!detached) setLastConnectedThreadId(resolvedThreadId);
+          });
+        }
       }
     };
     connect(agent);
@@ -233,7 +281,7 @@ export function CopilotChat({
     };
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolvedThreadId, agent, resolvedAgentId]);
+  }, [resolvedThreadId, agent, resolvedAgentId, hasExplicitThreadId]);
 
   const onSubmitInput = useCallback(
     async (value: string) => {
@@ -556,6 +604,8 @@ export function CopilotChat({
     onDragOver: handleDragOver,
     onDragLeave: handleDragLeave,
     onDrop: handleDrop,
+    isConnecting,
+    hasExplicitThreadId,
   };
 
   // Always create a provider with merged values
@@ -566,6 +616,7 @@ export function CopilotChat({
     <CopilotChatConfigurationProvider
       agentId={resolvedAgentId}
       threadId={resolvedThreadId}
+      hasExplicitThreadId={hasExplicitThreadId}
       labels={labels}
       isModalDefaultOpen={isModalDefaultOpen}
     >

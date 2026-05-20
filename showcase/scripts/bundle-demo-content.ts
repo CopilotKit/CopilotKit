@@ -5,10 +5,16 @@
 //
 //   demos: Record<"<slug>::<demo-id>", {
 //     readme: string | null,
-//     files: { filename, language, content, highlighted? }[],
+//     files: { filename, language, content, highlighted?, highlightOrder? }[],
 //     backend_files: [],               // retained for shape back-compat
 //     regions: Record<name, Region>,
 //   }>
+//
+// `highlightOrder` mirrors the position of a file inside the manifest's
+// `highlight:` array (0-based). Consumers like shell-docs's <DemoSource>
+// use it to render tabs in the manifest-author's preferred order rather
+// than the bundler's alphabetical fallback. Files not flagged in
+// `highlight:` have no `highlightOrder`.
 //
 // Files are scanned from the demo folder (`src/app/demos/<routeDir>/`)
 // recursively, and any files listed in the manifest's `highlight:` field
@@ -57,7 +63,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const ROOT = path.resolve(__dirname, "..");
-const PACKAGES_DIR = path.join(ROOT, "packages");
+const PACKAGES_DIR = path.join(ROOT, "integrations");
 // demo-content is consumed by ALL shells:
 //   - shell: integration pages + demo drawer read the bundle at runtime
 //   - shell-docs: <Snippet> (docs routes) imports directly at build time
@@ -74,6 +80,12 @@ interface DemoFile {
   language: string;
   content: string;
   highlighted?: boolean;
+  /**
+   * 0-based index of the file inside the manifest's `highlight:` array.
+   * Present iff `highlighted` is true. Lets consumers render highlighted
+   * files in author-defined order without re-doing the manifest lookup.
+   */
+  highlightOrder?: number;
 }
 
 interface Region {
@@ -106,7 +118,6 @@ interface DemoContent {
 }
 
 interface BundledContent {
-  generated_at: string;
   demos: Record<string, DemoContent>; // key: "integration-slug::demo-id"
 }
 
@@ -119,10 +130,12 @@ function detectLanguage(filename: string): string {
     ".js": "javascript",
     ".py": "python",
     ".cs": "csharp",
+    ".java": "java",
     ".css": "css",
     ".json": "json",
     ".yaml": "yaml",
     ".yml": "yaml",
+    ".xml": "xml",
     ".md": "markdown",
     ".mdx": "markdown",
   };
@@ -353,7 +366,6 @@ function main() {
   console.log("Bundling demo content...\n");
 
   const bundle: BundledContent = {
-    generated_at: new Date().toISOString(),
     demos: {},
   };
 
@@ -421,19 +433,7 @@ function main() {
         const demoPathSet = new Set(files.map((f) => f.filename));
         for (const hlPath of highlightList) {
           if (demoPathSet.has(hlPath)) continue;
-          const absExternal = path.resolve(pkgRoot, hlPath);
-          // Guard against highlight entries that escape the package root
-          // (e.g. `../../other-pkg/secret.txt` or absolute paths). The
-          // bundle output is committed to the repo and consumed by both
-          // shells at build time, so a malicious manifest could otherwise
-          // smuggle arbitrary filesystem contents into the bundled JSON.
-          // Block anything that resolves outside pkgRoot up front.
-          const rel = path.relative(pkgRoot, absExternal);
-          if (rel.startsWith("..") || path.isAbsolute(rel)) {
-            throw new Error(
-              `${key}: highlight path "${hlPath}" resolves outside the package root (${absExternal}). Highlight paths must be package-relative.`,
-            );
-          }
+          const absExternal = path.join(pkgRoot, hlPath);
           if (!fs.existsSync(absExternal)) {
             throw new Error(
               `${key}: highlight path "${hlPath}" not found in demo folder nor at ${absExternal}.`,
@@ -462,9 +462,15 @@ function main() {
         // 3. Apply highlights. All `highlight:` entries must now resolve to
         //    bundled files (the step above guarantees that for external
         //    files; for files inside the demo folder we check here).
-        const highlightSet = new Set(highlightList);
+        //    `highlightOrder` records the manifest position (0-based) so
+        //    consumers can render highlighted files in the author's order
+        //    rather than the bundler's alphabetical fallback.
+        const highlightIndex = new Map<string, number>();
+        highlightList.forEach((h, idx) => {
+          if (!highlightIndex.has(h)) highlightIndex.set(h, idx);
+        });
         const bundled = new Set(files.map((f) => f.filename));
-        for (const h of highlightSet) {
+        for (const h of highlightIndex.keys()) {
           if (!bundled.has(h)) {
             throw new Error(
               `${key}: manifest.highlight lists "${h}" but that file isn't in the bundle.`,
@@ -472,7 +478,11 @@ function main() {
           }
         }
         for (const f of files) {
-          if (highlightSet.has(f.filename)) f.highlighted = true;
+          const order = highlightIndex.get(f.filename);
+          if (order !== undefined) {
+            f.highlighted = true;
+            f.highlightOrder = order;
+          }
         }
 
         // Stable order: page.* first, then everything else alphabetical.
@@ -484,19 +494,9 @@ function main() {
         });
 
         // Collapse per-file regions into the public map in file-order. For
-        // multi-file regions we concatenate bodies with a blank separator.
-        //
-        // Caption accuracy: when the SAME region name appears in multiple
-        // files we previously kept the first file's `file`/`startLine`/
-        // `endLine` while appending code from subsequent files — the rendered
-        // `<Snippet>` caption then read like a single-file slice but showed
-        // concatenated content. Instead we track contributor filenames and,
-        // when >1, rewrite `file` to `(multiple: a, b)` so the caption
-        // visibly signals the concatenation. `startLine`/`endLine` are
-        // preserved (Snippet's caption always renders a line range and
-        // rewriting those to null would break the renderer) — they remain
-        // the FIRST contributor's span as a best-effort pointer, with the
-        // `(multiple: ...)` prefix preventing the caption from misleading.
+        // multi-file regions we concatenate bodies with a blank separator and
+        // use the FIRST file's line span (there's no single coherent range
+        // across files — this is a best-effort pointer for tooling).
         //
         // `perFileRegions` can carry entries whose filename is NOT in
         // `files` — specifically the demo-root README (README.md / README.mdx),
@@ -508,7 +508,6 @@ function main() {
         // over the README's — README regions either fill in untouched names
         // or get concatenated at the tail like any other contributor.
         const regions: Record<string, Region> = {};
-        const regionContributors: Record<string, string[]> = {};
         const fileOrder = files.map((f) => f.filename);
         const knownInFiles = new Set(fileOrder);
         const leftoverKeys = Object.keys(perFileRegions)
@@ -523,18 +522,6 @@ function main() {
               if (regions[name]) {
                 regions[name].code =
                   regions[name].code + "\n\n" + slice.lines.join("\n");
-                // Same-file multi-slice: extend endLine so the caption's
-                // span at least reaches the last contributor in the
-                // original file. Cross-file concatenation keeps the first
-                // contributor's span untouched (file gets rewritten to
-                // `(multiple: …)` below, which signals the caption can't
-                // be a single contiguous range).
-                if (regions[name].file === filename) {
-                  regions[name].endLine = slice.endLine;
-                }
-                if (!regionContributors[name].includes(filename)) {
-                  regionContributors[name].push(filename);
-                }
               } else {
                 regions[name] = {
                   file: filename,
@@ -543,17 +530,8 @@ function main() {
                   code: slice.lines.join("\n"),
                   language: detectLanguage(filename),
                 };
-                regionContributors[name] = [filename];
               }
             }
-          }
-        }
-        // Rewrite `file` for regions with >1 contributor so the snippet
-        // caption visibly signals concatenation instead of lying about
-        // origin. Keep the first contributor's line span untouched.
-        for (const [name, contributors] of Object.entries(regionContributors)) {
-          if (contributors.length > 1) {
-            regions[name].file = `(multiple: ${contributors.join(", ")})`;
           }
         }
 
@@ -568,6 +546,7 @@ function main() {
       // Propagate: a broken manifest must fail the bundle, not silently skip.
       throw new Error(
         `[bundle] Failed while processing package "${pkgDir}": ${(err as Error).message}`,
+        { cause: err },
       );
     }
   }
@@ -619,40 +598,14 @@ if (process.argv.includes("--watch")) {
       }
     }, 200);
   };
-  console.log("[watch] watching packages/ for changes...\n");
-  // `fs.watch({ recursive: true })` only honours `recursive` on macOS and
-  // Windows. On Linux (most CI + many dev boxes) the option is silently
-  // ignored: only the top-level directory is watched, so edits to
-  // `packages/<x>/src/...` never trigger a rebundle — and the "watching..."
-  // log above misleads the operator into thinking they're covered. We
-  // can't transparently fix this without adding a dependency (chokidar is
-  // not in package.json), so at minimum emit a loud warning at startup so
-  // the limitation isn't silent.
-  if (process.platform === "linux") {
-    console.warn(
-      "[watch] WARNING: fs.watch recursive is not supported on Linux — " +
-        "watch mode will only detect changes at the top level of " +
-        `${PACKAGES_DIR} and will MISS nested edits under ` +
-        "packages/<x>/src/...  Run the bundler manually (e.g. " +
-        "`tsx ../scripts/bundle-demo-content.ts`) after editing demo " +
-        "sources, or add chokidar to scripts/package.json for proper " +
-        "recursive watching.",
-    );
-  }
+  console.log("[watch] watching integrations/ for changes...\n");
   fs.watch(PACKAGES_DIR, { recursive: true }, (_event, filename) => {
     if (!filename) return;
-    // Normalize separators before matching: `fs.watch` reports paths with
-    // the host OS separator, so on Windows the filename is emitted with
-    // backslashes (`packages\foo\src\app\demos\...`). The directory
-    // patterns below are hardcoded forward-slash, so without this
-    // normalization every event on Windows would silently fail to match
-    // and the watcher would drop ALL changes.
-    const normalized = filename.replace(/\\/g, "/");
     // Rebundle for demo sources, agent sources, READMEs, and — critically —
     // manifest.yaml edits.
     if (
       /(\/demos\/|\/agents\/|\/agent\/|\/mastra\/|README\.md$|manifest\.yaml$)/.test(
-        normalized,
+        filename,
       )
     ) {
       rebundle();

@@ -38,7 +38,7 @@ def update_components(
         "updateComponents": {
             "surfaceId": surface_id,
             "components": components,
-        }
+        },
     }
 
 
@@ -54,7 +54,7 @@ def update_data_model(
             "surfaceId": surface_id,
             "path": path,
             "value": data,
-        }
+        },
     }
 
 
@@ -72,7 +72,7 @@ def create_surface(
         "createSurface": {
             "surfaceId": surface_id,
             "catalogId": catalog_id,
-        }
+        },
     }
 
 
@@ -80,9 +80,7 @@ A2UI_OPERATIONS_KEY = "a2ui_operations"
 """The container key used to wrap A2UI operations for explicit detection."""
 
 
-def render(
-    operations: list[dict[str, Any]]
-) -> str:
+def render(operations: list[dict[str, Any]]) -> str:
     """Wrap operations in the a2ui_operations container and serialize to JSON.
 
     Args:
@@ -117,6 +115,11 @@ CRITICAL: You MUST call the render_a2ui tool with ALL of these arguments:
 - every component must have the "component" field specifying the component type (e.g. "Text", "Image", "Row", "Column", "List", "Button", etc.)
 
 COMPONENT ID RULES:
+- Exactly one component MUST have id="root". This is the surface's entry
+  point — the renderer begins at "root" and walks the child/children tree
+  from there. Every other component must be reachable from "root". If no
+  component has id="root", the surface renders an empty loading placeholder
+  and none of your components will be shown.
 - Every component ID must be unique within the surface.
 - A component MUST NOT reference itself as child/children. This causes a
   circular dependency error. For example, if a component has id="avatar",

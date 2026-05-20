@@ -1,5 +1,6 @@
 from langchain_openai import ChatOpenAI
 
+
 # Description: Configuration file
 class Config:
     def __init__(self):

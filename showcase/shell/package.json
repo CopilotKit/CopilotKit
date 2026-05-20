@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "npx -y concurrently -k -n bundle,next \"tsx ../scripts/bundle-demo-content.ts --watch\" \"next dev\"",
+    "dev": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts && tsx ../scripts/bundle-starter-content.ts && tsx ../scripts/generate-search-index.ts && npx -y concurrently -k -n bundle,next \"tsx ../scripts/bundle-demo-content.ts --watch\" \"next dev\"",
     "build": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts && tsx ../scripts/bundle-starter-content.ts && tsx ../scripts/generate-search-index.ts && next build",
     "start": "next start",
     "lint": "next lint"
@@ -15,8 +15,8 @@
     "@copilotkitnext/runtime": "next",
     "gray-matter": "^4.0.3",
     "highlight.js": "^11.11.1",
-    "hono": "^4.0.0",
-    "next": "^15.0.0",
+    "hono": "^4.6.0",
+    "next": "^15.5.15",
     "next-mdx-remote": "^5.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

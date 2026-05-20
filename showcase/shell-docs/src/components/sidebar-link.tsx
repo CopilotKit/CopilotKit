@@ -1,13 +1,10 @@
 "use client";
 
-// SidebarLink — framework-aware client-side anchor used for every
-// entry in the docs sidebar. Resolves its final href based on the
-// active FrameworkContext: when a framework is selected, the href is
-// `/<framework>/<slug>`; otherwise it falls through to `/<slug>`.
-//
-// `framework` is URL-derived (see framework-provider) so the resolved
-// href is identical during SSR and post-hydration — no transient
-// fallback path needed.
+// SidebarLink — framework-aware client-side anchor used for every entry
+// in the docs sidebar. Resolves its final href against
+// `effectiveFramework`, which falls through URL → stored → default
+// (Built-in Agent), so every sidebar click lands on a real
+// `/<framework>/<slug>` URL.
 
 import React from "react";
 import Link from "next/link";
@@ -21,6 +18,19 @@ export interface SidebarLinkProps {
   className?: string;
   /** Active-state data attribute. */
   active?: boolean;
+  /**
+   * The render context. `"docs"` = we're on `/docs/*`; `"framework"`
+   * = we're on `/<framework>/*`. Currently unused by the resolver (see
+   * note below) — kept optional on the interface for call-site clarity.
+   */
+  scope?: "docs" | "framework";
+  /**
+   * Deprecated. Previously held a server-rendered best-guess href used
+   * before hydration; the component now resolves the href identically
+   * during SSR and on the client, so this value is ignored. Kept on the
+   * interface for call-site compatibility.
+   */
+  fallbackHref?: string;
 }
 
 export function SidebarLink({
@@ -28,16 +38,18 @@ export function SidebarLink({
   children,
   className,
   active,
+  scope: _scope,
+  fallbackHref: _fallbackHref,
 }: SidebarLinkProps) {
-  const { framework, storedFramework } = useFramework();
-
-  // Prefer URL-active framework, then stored preference, then bare slug.
-  // Using storedFramework here means sidebar links on unscoped pages (like
-  // the root overview) navigate directly to the framework-scoped URL —
-  // avoiding the visible RouterPivot redirect that would otherwise flicker
-  // in the URL bar.
-  const activeFramework = framework ?? storedFramework;
-  const href = activeFramework ? `/${activeFramework}/${slug}` : `/${slug}`;
+  const { effectiveFramework } = useFramework();
+  // Empty slug = framework-root page (the `"index"` meta.json entry,
+  // rewritten by `buildFrameworkOverridesNav` in lib/docs-render.tsx).
+  // The bare `/<framework>` URL renders the data-driven
+  // `FrameworkOverview` (or, for built-in-agent/deepagents, the
+  // framework's MDX index.mdx).
+  const href = slug
+    ? `/${effectiveFramework}/${slug}`
+    : `/${effectiveFramework}`;
 
   return (
     <Link

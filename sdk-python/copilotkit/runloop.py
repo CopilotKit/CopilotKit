@@ -20,8 +20,9 @@ from .protocol import (
     agent_state_message,
     AgentStateMessage,
     PredictStateConfig,
-    RuntimeProtocolEvent
+    RuntimeProtocolEvent,
 )
+
 
 async def yield_control():
     """
@@ -37,6 +38,7 @@ class CopilotKitRunExecution(TypedDict):
     """
     CopilotKit Run Execution
     """
+
     thread_id: str
     agent_name: str
     run_id: str
@@ -49,8 +51,10 @@ class CopilotKitRunExecution(TypedDict):
     current_tool_call: Optional[str]
     state: Dict[str, Any]
 
-_CONTEXT_QUEUE = contextvars.ContextVar('queue', default=None)
-_CONTEXT_EXECUTION = contextvars.ContextVar('execution', default=None)
+
+_CONTEXT_QUEUE = contextvars.ContextVar("queue", default=None)
+_CONTEXT_EXECUTION = contextvars.ContextVar("execution", default=None)
+
 
 def get_context_queue() -> asyncio.Queue:
     """
@@ -61,6 +65,7 @@ def get_context_queue() -> asyncio.Queue:
         raise RuntimeError("No context queue is set!")
     return q
 
+
 def set_context_queue(q: asyncio.Queue) -> contextvars.Token:
     """
     Set the queue in this task's context.
@@ -68,11 +73,13 @@ def set_context_queue(q: asyncio.Queue) -> contextvars.Token:
     token = _CONTEXT_QUEUE.set(cast(Any, q))
     return token
 
+
 def reset_context_queue(token: contextvars.Token):
     """
     Reset the queue in this task's context.
     """
     _CONTEXT_QUEUE.reset(token)
+
 
 def get_context_execution() -> CopilotKitRunExecution:
     """
@@ -80,12 +87,14 @@ def get_context_execution() -> CopilotKitRunExecution:
     """
     return cast(CopilotKitRunExecution, _CONTEXT_EXECUTION.get())
 
+
 def set_context_execution(execution: CopilotKitRunExecution) -> contextvars.Token:
     """
     Set the execution in this task's context.
     """
     token = _CONTEXT_EXECUTION.set(cast(Any, execution))
     return token
+
 
 def reset_context_execution(token: contextvars.Token):
     """
@@ -115,22 +124,17 @@ def _to_dict_if_pydantic(obj):
         return obj.model_dump()
     return obj
 
+
 def _filter_state(
-        *,
-        state: Dict[str, Any],
-        exclude_keys: Optional[List[str]] = None
-    ) -> Dict[str, Any]:
+    *, state: Dict[str, Any], exclude_keys: Optional[List[str]] = None
+) -> Dict[str, Any]:
     """Filter out messages and id from the state"""
     state = _to_dict_if_pydantic(state)
     exclude_keys = exclude_keys or ["messages", "id"]
     return {k: v for k, v in state.items() if k not in exclude_keys}
 
 
-async def copilotkit_run(
-        fn: Callable,
-        *,
-        execution: CopilotKitRunExecution
-):
+async def copilotkit_run(fn: Callable, *, execution: CopilotKitRunExecution):
     """
     Run a task with a local queue.
     """
@@ -138,18 +142,13 @@ async def copilotkit_run(
     token_queue = set_context_queue(local_queue)
     token_execution = set_context_execution(execution)
 
-    task = asyncio.create_task(
-        fn()
-    )
+    task = asyncio.create_task(fn())
     try:
         while True:
             event = await local_queue.get()
             local_queue.task_done()
 
-            json_lines = handle_runtime_event(
-                event=event,
-                execution=execution
-            )
+            json_lines = handle_runtime_event(event=event, execution=execution)
 
             if json_lines is not None:
                 yield json_lines
@@ -166,10 +165,9 @@ async def copilotkit_run(
         reset_context_queue(token_queue)
         reset_context_execution(token_execution)
 
+
 def handle_runtime_event(
-        *,
-        event: RuntimeEvent,
-        execution: CopilotKitRunExecution
+    *, event: RuntimeEvent, execution: CopilotKitRunExecution
 ) -> Optional[str]:
     """
     Handle a runtime event.
@@ -183,12 +181,12 @@ def handle_runtime_event(
         RuntimeEventTypes.ACTION_EXECUTION_ARGS,
         RuntimeEventTypes.ACTION_EXECUTION_END,
         RuntimeEventTypes.ACTION_EXECUTION_RESULT,
-        RuntimeEventTypes.AGENT_STATE_MESSAGE
+        RuntimeEventTypes.AGENT_STATE_MESSAGE,
     ]:
         events: List[RuntimeProtocolEvent] = [cast(RuntimeProtocolEvent, event)]
         if event["type"] in [
             RuntimeEventTypes.ACTION_EXECUTION_START,
-            RuntimeEventTypes.ACTION_EXECUTION_ARGS
+            RuntimeEventTypes.ACTION_EXECUTION_ARGS,
         ]:
             message = predict_state(
                 thread_id=execution["thread_id"],
@@ -227,12 +225,11 @@ def handle_runtime_event(
                 active=True,
                 role="assistant",
                 state=json.dumps(_filter_state(state=execution["state"])),
-                running=True
+                running=True,
             )
         )
 
     if event["type"] == RuntimeEventTypes.NODE_FINISHED:
-
         # reset the predict state configuration at the end of the method execution
         execution["predict_state_configuration"] = {}
         execution["current_tool_call"] = None
@@ -249,7 +246,7 @@ def handle_runtime_event(
                 active=False,
                 role="assistant",
                 state=json.dumps(_filter_state(state=execution["state"])),
-                running=True
+                running=True,
             )
         )
 
@@ -265,14 +262,12 @@ def handle_runtime_event(
             # If it's an exception, print the traceback
             print("Exception occurred:", flush=True)
             print(
-                ''.join(
+                "".join(
                     traceback.format_exception(
-                        None,
-                        error_info,
-                        error_info.__traceback__
+                        None, error_info, error_info.__traceback__
                     )
                 ),
-                flush=True
+                flush=True,
             )
         else:
             # Otherwise, assume it's a string and print it
@@ -281,16 +276,17 @@ def handle_runtime_event(
         execution["is_finished"] = True
         return None
 
+
 def predict_state(
-        *,
-        thread_id: str,
-        agent_name: str,
-        run_id: str,
-        event: Any,
-        execution: CopilotKitRunExecution,
+    *,
+    thread_id: str,
+    agent_name: str,
+    run_id: str,
+    event: Any,
+    execution: CopilotKitRunExecution,
 ) -> Optional[AgentStateMessage]:
     """Predict the state"""
-    
+
     if event["type"] == RuntimeEventTypes.ACTION_EXECUTION_START:
         execution["current_tool_call"] = event["actionName"]
         execution["argument_buffer"] = ""
@@ -340,11 +336,11 @@ def predict_state(
                                 if isinstance(execution["state"], BaseModel)
                                 else execution["state"]
                             ),
-                            **execution["predicted_state"]
+                            **execution["predicted_state"],
                         }
                     )
                 ),
-                running=True
+                running=True,
             )
 
         return None

@@ -4,28 +4,19 @@
 // numbered via a small circle on the left and a thin vertical line
 // connects consecutive steps. We approximate that here in pure CSS —
 // no client-side JS needed, so this works inside RSC-rendered MDX.
+//
+// Numbering is CSS counter-driven (see `.docs-steps` / `.docs-step__badge`
+// in `globals.css`) rather than React-injected indices. That way a
+// `<Step>` hidden by a gate like `<WhenFrameworkHas>` doesn't advance
+// the counter — visible steps stay 1, 2, 3, … in the reader's view
+// regardless of which gates pass.
 
 import React from "react";
 
 export function Steps({ children }: { children: React.ReactNode }) {
-  // Walk children and wrap each Step with its auto-assigned number.
-  // Filter to <Step> elements specifically so nested non-Step valid
-  // elements (e.g. stray <div> spacers from MDX authors) don't receive
-  // bogus `__index`/`__total` props which React would pass straight
-  // through to the DOM and warn about.
-  const items = React.Children.toArray(children).filter(
-    (c): c is React.ReactElement<StepProps> =>
-      React.isValidElement(c) && c.type === Step,
-  );
-  const numbered = items.map((child, idx) =>
-    React.cloneElement(child, {
-      __index: idx + 1,
-      __total: items.length,
-    }),
-  );
   return (
     <div
-      role="list"
+      className="docs-steps"
       style={{
         position: "relative",
         paddingLeft: "2rem",
@@ -34,7 +25,7 @@ export function Steps({ children }: { children: React.ReactNode }) {
         margin: "1.5rem 0 1.5rem 0.75rem",
       }}
     >
-      {numbered}
+      {children}
     </div>
   );
 }
@@ -42,45 +33,41 @@ export function Steps({ children }: { children: React.ReactNode }) {
 interface StepProps {
   title?: string;
   children?: React.ReactNode;
-  __index?: number;
-  __total?: number;
 }
 
-export function Step({ title, children, __index, __total }: StepProps) {
-  const isLast =
-    __index !== undefined && __total !== undefined && __index === __total;
+export function Step({ title, children }: StepProps) {
   return (
     <div
-      role="listitem"
       style={{
         position: "relative",
-        paddingBottom: isLast ? "0" : "1.5rem",
-        marginBottom: isLast ? "0" : "0",
+        paddingBottom: "1.5rem",
       }}
     >
-      {/* numbered badge */}
+      {/* numbered badge — number rendered via CSS counter (globals.css).
+       * Appearance (background/border/color) lives in globals.css so
+       * `.docs-steps > div:first-child .docs-step__badge` can override
+       * it for Step 1 without fighting inline-style specificity. */}
       <div
         aria-hidden
+        className="docs-step__badge"
         style={{
           position: "absolute",
           left: "-2.75rem",
-          top: "-0.125rem",
+          // Badge center sits ~midway up the first heading line:
+          // h3 is 1.125rem with line-height 1.65 ≈ 29.7px → text center at
+          // ~14.85px from the Step's top. Badge is 1.5rem (24px) so its
+          // half-height is 12px; top = 14.85 − 12 ≈ 0.1875rem.
+          top: "0.1875rem",
           width: "1.5rem",
           height: "1.5rem",
           borderRadius: "999px",
-          background: "var(--bg-surface)",
-          border: "1px solid var(--border)",
-          color: "var(--text)",
           fontSize: "0.75rem",
-          fontWeight: 600,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           lineHeight: 1,
         }}
-      >
-        {__index ?? ""}
-      </div>
+      />
       {title && (
         <h4
           style={{

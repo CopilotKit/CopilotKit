@@ -1,0 +1,12 @@
+{
+  "_fixture": {
+    "description": "Canonical healthy /smoke response. A 200 with a minimal JSON body is the contract every showcase starter is expected to implement. The driver's green-path verifies the body parses as JSON — an HTML-404 served from a misrouted edge would fail the parse check and surface as red."
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "status": "ok"
+  }
+}

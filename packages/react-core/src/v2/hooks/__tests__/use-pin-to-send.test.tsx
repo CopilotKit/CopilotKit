@@ -30,27 +30,12 @@ function setHeight(el: HTMLElement, height: number) {
 }
 
 // Inner component so the hook is mounted inside the Provider and can read context.
-function HarnessInner({
-  topOffset,
-  inputContainerHeight,
-  featherHeight,
-}: {
-  topOffset: number;
-  inputContainerHeight: number;
-  featherHeight: number;
-}) {
+function HarnessInner({ topOffset }: { topOffset: number }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const spacerRef = useRef<HTMLDivElement>(null);
 
-  usePinToSend({
-    scrollRef,
-    contentRef,
-    spacerRef,
-    topOffset,
-    inputContainerHeight,
-    featherHeight,
-  });
+  usePinToSend({ scrollRef, contentRef, spacerRef, topOffset });
 
   return (
     <div ref={scrollRef} data-testid="scroll">
@@ -73,21 +58,13 @@ function HarnessInner({
 function Harness({
   lastUserMessage,
   topOffset = 16,
-  inputContainerHeight = 80,
-  featherHeight = 96,
 }: {
   lastUserMessage: { id: string | null; sendNonce: number };
   topOffset?: number;
-  inputContainerHeight?: number;
-  featherHeight?: number;
 }) {
   return (
     <LastUserMessageContext.Provider value={lastUserMessage}>
-      <HarnessInner
-        topOffset={topOffset}
-        inputContainerHeight={inputContainerHeight}
-        featherHeight={featherHeight}
-      />
+      <HarnessInner topOffset={topOffset} />
     </LastUserMessageContext.Provider>
   );
 }
@@ -103,7 +80,7 @@ beforeEach(() => {
 });
 
 describe("usePinToSend", () => {
-  it("sets spacer height to viewportHeight - userMessageHeight - topOffset - bottomChrome on new send", async () => {
+  it("sets spacer height to viewportHeight - userMessageHeight - topOffset on new send", async () => {
     const { rerender, getByTestId } = render(
       <Harness lastUserMessage={{ id: null, sendNonce: 0 }} />,
     );
@@ -121,9 +98,9 @@ describe("usePinToSend", () => {
       rerender(<Harness lastUserMessage={{ id: "m3", sendNonce: 1 }} />);
     });
 
-    // viewport=800, userMsg=40, topOffset=16, inputContainer=80, feather=96
-    // spacer = max(0, 800 - 40 - 16 - 80 - 96) = 568
-    expect(spacer.style.height).toBe("568px");
+    // viewport=800, userMsg=40, topOffset=16
+    // spacer = max(0, 800 - 40 - 16) = 744
+    expect(spacer.style.height).toBe("744px");
   });
 
   it("calls scrollTo with targetEl.offsetTop - topOffset on new send", async () => {
@@ -197,13 +174,13 @@ describe("usePinToSend", () => {
         rerender(<Harness lastUserMessage={{ id: "m3", sendNonce: 1 }} />);
       });
 
-      // Initial: 800 - 40 - 16 - 80 - 96 = 568
-      expect(spacer.style.height).toBe("568px");
+      // Initial: 800 - 40 - 16 = 744
+      expect(spacer.style.height).toBe("744px");
 
       // Simulate content growing — spacer should shrink
       setHeight(content, 600);
       act(() => observed?.());
-      expect(parseInt(spacer.style.height, 10)).toBeLessThan(568);
+      expect(parseInt(spacer.style.height, 10)).toBeLessThan(744);
 
       // Simulate content shrinking — spacer should NOT grow back
       setHeight(content, 100);

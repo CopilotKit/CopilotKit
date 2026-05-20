@@ -1,10 +1,18 @@
 // <Callout> — reference-parity callout boxes.
 //
-// Matches the fumadocs "Callout" component visually: left-border tint,
-// muted bg, type icon, semibold title row, and relaxed prose below.
-// Supported types: info, tip, warn, warning, danger, error, note.
+// Visual language matches docs.copilotkit.ai: white card on a 1px border
+// with shadow-md, a thin colored left-strip (separate inner element, not
+// a border), and an SVG icon next to the bold title row.
 
 import React from "react";
+import {
+  Info,
+  Lightbulb,
+  AlertTriangle,
+  AlertCircle,
+  Pencil,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 type CalloutType =
   | "info"
@@ -21,125 +29,77 @@ interface CalloutProps {
   children: React.ReactNode;
 }
 
-const ICON: Record<string, string> = {
-  info: "i",
-  tip: "\u2728",
-  warn: "!",
-  warning: "!",
-  error: "\u2715",
-  danger: "\u2715",
-  note: "\u270E",
+const ICON_COMP: Record<CalloutType, LucideIcon> = {
+  info: Info,
+  tip: Lightbulb,
+  warn: AlertTriangle,
+  warning: AlertTriangle,
+  error: AlertCircle,
+  danger: AlertCircle,
+  note: Pencil,
 };
 
-const PALETTE: Record<
-  string,
-  { border: string; bg: string; icon: string; title: string }
-> = {
-  info: {
-    border: "#5a3cd1",
-    bg: "rgba(90, 60, 209, 0.06)",
-    icon: "#5a3cd1",
-    title: "Info",
-  },
-  tip: {
-    border: "#16a34a",
-    bg: "rgba(22, 163, 74, 0.06)",
-    icon: "#16a34a",
-    title: "Tip",
-  },
-  warn: {
-    border: "#d97706",
-    bg: "rgba(217, 119, 6, 0.06)",
-    icon: "#d97706",
-    title: "Warning",
-  },
-  warning: {
-    border: "#d97706",
-    bg: "rgba(217, 119, 6, 0.06)",
-    icon: "#d97706",
-    title: "Warning",
-  },
-  error: {
-    border: "#dc2626",
-    bg: "rgba(220, 38, 38, 0.06)",
-    icon: "#dc2626",
-    title: "Error",
-  },
-  danger: {
-    border: "#dc2626",
-    bg: "rgba(220, 38, 38, 0.06)",
-    icon: "#dc2626",
-    title: "Danger",
-  },
-  note: {
-    border: "#6b7280",
-    bg: "rgba(107, 114, 128, 0.06)",
-    icon: "#6b7280",
-    title: "Note",
-  },
+const PALETTE: Record<CalloutType, { color: string; title: string }> = {
+  info: { color: "#6d45f9", title: "Info" },
+  tip: { color: "#16a34a", title: "Tip" },
+  warn: { color: "#d97706", title: "Warning" },
+  warning: { color: "#d97706", title: "Warning" },
+  error: { color: "#dc2626", title: "Error" },
+  danger: { color: "#dc2626", title: "Danger" },
+  note: { color: "#6b7280", title: "Note" },
 };
 
 export function Callout({ type = "info", title, children }: CalloutProps) {
-  // Warn (dev only) when an unknown type slips past TS — e.g. from MDX
-  // authors passing a raw string. Silent fallback to `info` masks typos.
-  if (
-    process.env.NODE_ENV !== "production" &&
-    !Object.prototype.hasOwnProperty.call(PALETTE, type)
-  ) {
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[docs-callout] unknown type "${type}" — falling back to "info". Known types: ${Object.keys(PALETTE).join(", ")}`,
-    );
-  }
   const palette = PALETTE[type] ?? PALETTE.info;
-  const icon = ICON[type] ?? ICON.info;
+  const Icon = ICON_COMP[type] ?? ICON_COMP.info;
   const heading = title ?? palette.title;
 
   return (
     <div
       role="note"
       style={{
-        borderLeft: `3px solid ${palette.border}`,
-        background: palette.bg,
-        padding: "0.875rem 1rem",
-        borderRadius: "0.375rem",
-        margin: "1.25rem 0",
-        fontSize: "0.9375rem",
+        display: "flex",
+        gap: "0.5rem",
+        margin: "1rem 0",
+        borderRadius: "0.875rem",
+        border: "1px solid var(--border)",
+        background: "var(--bg-surface)",
+        padding: "0.75rem",
+        paddingLeft: "0.25rem",
+        fontSize: "0.875rem",
         color: "var(--text-secondary)",
-        lineHeight: 1.6,
+        boxShadow:
+          "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)",
       }}
     >
       <div
+        aria-hidden
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "0.5rem",
-          marginBottom: "0.375rem",
-          fontWeight: 600,
-          color: "var(--text)",
+          flexShrink: 0,
+          width: "3px",
+          alignSelf: "stretch",
+          background: palette.color,
+          opacity: 0.5,
+          borderRadius: "2px",
+          marginRight: "0.5rem",
         }}
-      >
-        <span
-          aria-hidden
+      />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
           style={{
-            display: "inline-flex",
+            display: "flex",
             alignItems: "center",
-            justifyContent: "center",
-            width: "1.125rem",
-            height: "1.125rem",
-            borderRadius: "999px",
-            background: palette.icon,
-            color: "#fff",
-            fontSize: "0.6875rem",
-            fontWeight: 700,
-            lineHeight: 1,
+            gap: "0.5rem",
+            marginBottom: "0.25rem",
+            fontWeight: 600,
+            color: "var(--text)",
           }}
         >
-          {icon}
-        </span>
-        {heading}
+          <Icon size={16} style={{ color: palette.color, flexShrink: 0 }} />
+          <span>{heading}</span>
+        </div>
+        <div className="docs-callout-body">{children}</div>
       </div>
-      <div className="docs-callout-body">{children}</div>
     </div>
   );
 }

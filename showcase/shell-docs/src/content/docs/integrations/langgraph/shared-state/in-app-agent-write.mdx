@@ -3,7 +3,6 @@ title: Writing agent state
 icon: "lucide/ArrowRight"
 description: Write to agent's state from your application.
 ---
-
 <IframeSwitcher
   id="shared-state-example"
   exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state?sidebar=false&chatDefaultOpen=false"
@@ -14,8 +13,7 @@ description: Write to agent's state from your application.
 />
 
 <Callout type="info">
-  This example demonstrates writing to shared state in the [CopilotKit Feature
-  Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state).
+  This example demonstrates writing to shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state).
 </Callout>
 
 ## What is this?
@@ -51,22 +49,25 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
       </Tab>
       <Tab value="TypeScript">
         ```ts title="agent-js/src/agent.ts"
+        import { StateSchema } from "@langchain/langgraph";
+        import { CopilotKitStateSchema } from "@copilotkit/sdk-js/langgraph";
+        import { z } from "zod";
 
-        export const AgentStateAnnotation = Annotation.Root({
-            language: Annotation<"english" | "spanish">,
-            ...CopilotKitStateAnnotation.spec,
+        export const AgentStateSchema = new StateSchema({
+            language: z.enum(["english", "spanish"]).default("english"),
+            ...CopilotKitStateSchema.fields,
         });
-        export type AgentState = typeof AgentStateAnnotation.State;
+        export type AgentState = typeof AgentStateSchema.State;
         ```
       </Tab>
     </Tabs>
-
   </Step>
   <Step>
     ### Use the `useAgent` hook to read and write state
     `useAgent` gives you access to the agent, including its state. You can update state by calling `agent.setState`.
 
     ```tsx title="ui/app/page.tsx"
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 
     // Example usage in a pseudo React component
     function YourMainContent() {
@@ -96,7 +97,6 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
       );
     }
     ```
-
   </Step>
   <Step>
     ### Give it a try!
@@ -107,7 +107,6 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     <Callout>
       This video shows the result of `npx copilotkit@latest init` with the [implementation](#implementation) section applied to it!
     </Callout>
-
   </Step>
 </Steps>
 
@@ -119,6 +118,7 @@ The new agent state will be used next time the agent runs.
 If you want to re-run it manually, use `agent.runAgent` after updating state.
 
 ```tsx title="ui/app/page.tsx"
+import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 
 // ...
 
@@ -146,8 +146,7 @@ function YourMainContent() {
 ```
 
 ### Intermediately Stream and Render Agent State
-
-By default, the LangGraph agent state will only update _between_ LangGraph node transitions --
+By default, the LangGraph agent state will only update *between* LangGraph node transitions --
 which means state updates will be discontinuous and delayed.
 
 You likely want to render the agent state as it updates **continuously.**

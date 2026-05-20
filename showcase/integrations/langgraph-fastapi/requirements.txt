@@ -1,0 +1,13 @@
+copilotkit==0.1.87
+langchain==1.2.15
+langchain-openai==1.1.9
+langchain-anthropic==1.4.1
+langgraph==1.1.6
+langgraph-cli[inmem]==0.4.21
+langgraph-api==0.7.101
+langsmith==0.7.33
+openai==1.109.1
+ag-ui-langgraph==0.0.34
+ag-ui-protocol==0.1.18
+pypdf>=4.0.0
+deepagents>=0.5.3,<0.6.0

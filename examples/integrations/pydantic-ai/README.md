@@ -40,15 +40,15 @@ bun install
 > npm run install:agent
 > ```
 
-3. Set up your OpenAI API key:
+2. Set up your OpenAI API key:
 
-Create a `.env` file inside the `agent` folder with the following content:
+Create a `.env` file in the project root with the following content:
 
 ```
 OPENAI_API_KEY=sk-...your-openai-key-here...
 ```
 
-4. Start the development server:
+3. Start the development server:
 
 ```bash
 # Using npm (default)

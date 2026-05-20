@@ -127,7 +127,7 @@ export function ExamplesCarousel({
                       <img
                         src={example.media.src}
                         className="w-full h-auto"
-                        alt=""
+                        alt={example.title}
                       />
                     </Frame>
                   )}

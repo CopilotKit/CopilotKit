@@ -25,7 +25,7 @@ describe("R29-2 C1: infra error mid-loop does not orphan the report", () => {
     fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
       recursive: true,
     });
-    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+    fs.mkdirSync(path.join(repoRoot, "showcase", "integrations"), {
       recursive: true,
     });
   });
@@ -44,7 +44,7 @@ describe("R29-2 C1: infra error mid-loop does not orphan the report", () => {
   // creating `apps/agent` as a FILE (not a directory), so that
   // `apps/agent/package.json` stats with ENOTDIR → infra=true.
   function wireInfraOnAgnoPlusDriftOnMastra() {
-    const agnoPkg = path.join(repoRoot, "showcase", "packages", "agno");
+    const agnoPkg = path.join(repoRoot, "showcase", "integrations", "agno");
     const agnoEx = path.join(repoRoot, "examples", "integrations", "agno");
     // Create `apps/agent` as a file so `apps/agent/package.json` stat
     // fails with ENOTDIR — portable across platforms, no chmod needed.
@@ -52,7 +52,7 @@ describe("R29-2 C1: infra error mid-loop does not orphan the report", () => {
     fs.writeFileSync(path.join(agnoPkg, "apps", "agent"), "not-a-dir", "utf-8");
     fs.mkdirSync(agnoEx, { recursive: true });
 
-    const mastraPkg = path.join(repoRoot, "showcase", "packages", "mastra");
+    const mastraPkg = path.join(repoRoot, "showcase", "integrations", "mastra");
     const mastraEx = path.join(repoRoot, "examples", "integrations", "mastra");
     write(
       path.join(mastraPkg, "package.json"),
@@ -157,7 +157,7 @@ describe("R29-2 H7: canonicalizeDepMap surfaces conflicting duplicates as WARN",
     fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
       recursive: true,
     });
-    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+    fs.mkdirSync(path.join(repoRoot, "showcase", "integrations"), {
       recursive: true,
     });
   });
@@ -173,7 +173,7 @@ describe("R29-2 H7: canonicalizeDepMap surfaces conflicting duplicates as WARN",
 
   it("emits a WARN when two entries canonicalize to the same key with different specs", () => {
     const slug = "langgraph-python";
-    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
     const exDir = path.join(repoRoot, "examples", "integrations", slug);
     // Both lines canonicalize to `langgraph-checkpoint` under PEP 503,
     // but their version specs differ — a real-world smoke signal.
@@ -210,7 +210,7 @@ describe("R33-2 C1/H1: resolveExampleDirDetailed mid-loop throw preserves partia
     fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
       recursive: true,
     });
-    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+    fs.mkdirSync(path.join(repoRoot, "showcase", "integrations"), {
       recursive: true,
     });
   });
@@ -232,7 +232,7 @@ describe("R33-2 C1/H1: resolveExampleDirDetailed mid-loop throw preserves partia
   // routes through `existsAsDir` in resolveExampleDirDetailed and
   // (before the fix) aborts the slug loop before mastra is processed.
   function wireResolveInfraOnAgnoPlusDriftOnMastra() {
-    const agnoPkg = path.join(repoRoot, "showcase", "packages", "agno");
+    const agnoPkg = path.join(repoRoot, "showcase", "integrations", "agno");
     const agnoEx = path.join(repoRoot, "examples", "integrations", "agno");
     fs.mkdirSync(agnoPkg, { recursive: true });
     // Realistic agno manifest so, if the loop WERE to reach content
@@ -248,7 +248,7 @@ describe("R33-2 C1/H1: resolveExampleDirDetailed mid-loop throw preserves partia
       JSON.stringify({ name: "agno", dependencies: { agno: "0.1.0" } }),
     );
 
-    const mastraPkg = path.join(repoRoot, "showcase", "packages", "mastra");
+    const mastraPkg = path.join(repoRoot, "showcase", "integrations", "mastra");
     const mastraEx = path.join(repoRoot, "examples", "integrations", "mastra");
     write(
       path.join(mastraPkg, "package.json"),

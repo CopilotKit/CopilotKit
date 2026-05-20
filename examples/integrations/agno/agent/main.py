@@ -2,12 +2,15 @@
 Example for serving you Agno agent as an AG-UI server
 """
 
+from pathlib import Path
+
 import dotenv
 from agno.os import AgentOS
 from agno.os.interfaces.agui import AGUI
 
 from src.agent import agent
 
+dotenv.load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 dotenv.load_dotenv()
 
 # Build AgentOS and extract the app for serving

@@ -1,0 +1,16 @@
+{
+  "domElements": [
+    { "tag": "div", "classes": ["copilot-chat"], "testId": "chat-root" },
+    { "tag": "ul", "classes": ["message-list"] }
+  ],
+  "toolCalls": ["search", "render", "summarize"],
+  "streamProfile": {
+    "ttft_ms": 1500,
+    "p50_chunk_ms": 400,
+    "total_chunks": 12
+  },
+  "contractShape": {
+    "messages": "array",
+    "messages[0].role": "string"
+  }
+}

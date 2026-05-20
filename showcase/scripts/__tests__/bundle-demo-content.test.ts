@@ -2,12 +2,8 @@ import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
 import fs from "fs";
 import path from "path";
 import { execFileSync } from "child_process";
-import {
-  FileSnapshotRestorer,
-  execOptsFor,
-  restoreFromGitHead,
-} from "./test-cleanup";
-import { SCRIPTS_DIR, REPO_ROOT, SHELL_DATA_DIR } from "./paths";
+import { FileSnapshotRestorer, execOptsFor } from "./test-cleanup";
+import { SCRIPTS_DIR, SHELL_DATA_DIR } from "./paths";
 
 // `bundle-demo-content.ts` rewrites showcase/shell/src/data/demo-content.json
 // on every run, leaking changes into the working tree. Snapshot in beforeAll
@@ -27,20 +23,16 @@ function runBundler(): string {
 }
 
 beforeAll(() => {
-  restoreFromGitHead(REPO_ROOT, DATA_FILES);
+  // Generate the data file (it's gitignored, so it may not exist).
+  runBundler();
   dataRestorer.snapshot();
   if (dataRestorer.snapshotMap.size === 0) {
     throw new Error(
-      `bundle-demo-content.test.ts: data snapshot is empty. Expected to find` +
-        ` tracked files at:\n` +
+      `bundle-demo-content.test.ts: data snapshot is empty. Expected generated` +
+        ` files at:\n` +
         DATA_FILES.map((p) => `  ${p}`).join("\n"),
     );
   }
-  // NOTE: we intentionally do NOT pre-run the bundler here. Test 1 below
-  // exercises the bundler AND asserts on stdout, so a pre-run in beforeAll
-  // was redundant. Tests 2-5 call `runBundlerAndRead()` which
-  // runs the bundler themselves — afterEach restores to HEAD between tests
-  // so they must re-invoke rather than read stale committed content.
 });
 afterEach(() => dataRestorer.restore());
 afterAll(() => dataRestorer.restore());
@@ -63,7 +55,6 @@ describe("Content Bundler", () => {
     expect(fs.existsSync(CONTENT_PATH)).toBe(true);
 
     const content = JSON.parse(fs.readFileSync(CONTENT_PATH, "utf-8"));
-    expect(content.generated_at).toBeDefined();
     expect(Object.keys(content.demos).length).toBeGreaterThan(0);
   });
 
@@ -133,7 +124,6 @@ describe("Content Bundler", () => {
       "tool-rendering",
       "gen-ui-tool-based",
       "gen-ui-agent",
-      "shared-state-read-write",
       "shared-state-streaming",
       "subagents",
     ];

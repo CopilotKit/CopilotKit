@@ -51,12 +51,7 @@ const TOOL_CONFIG: Record<
       const q = (args.query as string) || "...";
       return `Researching: ${q.slice(0, 60)}${q.length > 60 ? "..." : ""}`;
     },
-    getResultSummary: (result) => {
-      if (typeof result === "string" && result.length > 0) {
-        return result.slice(0, 100) + (result.length > 100 ? "..." : "");
-      }
-      return "Research complete";
-    },
+    getResultSummary: () => "Completed data gathering",
   },
   do_projections: {
     icon: TrendingUp,
@@ -64,12 +59,7 @@ const TOOL_CONFIG: Record<
       const q = (args.query as string) || "...";
       return `Projecting: ${q.slice(0, 60)}${q.length > 60 ? "..." : ""}`;
     },
-    getResultSummary: (result) => {
-      if (typeof result === "string" && result.length > 0) {
-        return result.slice(0, 100) + (result.length > 100 ? "..." : "");
-      }
-      return "Projections complete";
-    },
+    getResultSummary: () => "Completed projections",
   },
   navigate_and_filter: {
     icon: ArrowRight,
@@ -185,7 +175,7 @@ function SpecializedToolCard({
 
   return (
     <div
-      className={`rounded-lg border border-border bg-card p-3 my-2 transition-all duration-200 ${
+      className={`animate-in fade-in slide-in-from-bottom-2 rounded-lg border border-border bg-card p-3 my-2 transition-all duration-300 ease-out ${
         isComplete ? "opacity-80" : ""
       } ${hasExpandableContent ? "cursor-pointer" : ""}`}
       onClick={hasExpandableContent ? () => setExpanded(!expanded) : undefined}
@@ -296,7 +286,7 @@ function DefaultToolCard({ name, status, args, result }: ToolCardProps) {
   const isComplete = status === "complete";
 
   return (
-    <div className="my-2 rounded-lg border border-border bg-card p-3">
+    <div className="my-2 animate-in fade-in slide-in-from-bottom-2 rounded-lg border border-border bg-card p-3 duration-300 ease-out">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div

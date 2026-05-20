@@ -4,10 +4,6 @@ icon: "lucide/Podcast"
 description: Stream in-progress agent state updates to the frontend.
 ---
 
-TailoredContent,
-TailoredContentOption,
-} from "@/components/react/tailored-content.tsx";
-
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/intermediate-state-render.mp4"
   className="rounded-lg shadow-xl"
@@ -167,7 +163,7 @@ included in the function's final returned state. Otherwise, they will be overwri
                                 # Provide the tool to the LLM and call the model
                                 response = await copilotkit_stream(
                                     completion(
-                                        model="openai/gpt-5.2",
+                                        model="openai/gpt-5.4",
                                         messages=[
                                             {
                                                 "role": "system",

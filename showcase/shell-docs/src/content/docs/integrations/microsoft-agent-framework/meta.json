@@ -2,9 +2,7 @@
   "title": "Microsoft Agent Framework",
   "root": true,
   "pages": [
-    "---Getting Started---",
     "index",
-    "quickstart",
     "---Basics---",
     "custom-look-and-feel",
     "---Generative UI---",
@@ -15,7 +13,9 @@
     "agent-app-context",
     "---Microsoft Agent Framework---",
     "auth",
-    "---Other---",
-    "...(other)"
+    "---Threads---",
+    "threads",
+    "---Premium Features---",
+    "...premium"
   ]
 }

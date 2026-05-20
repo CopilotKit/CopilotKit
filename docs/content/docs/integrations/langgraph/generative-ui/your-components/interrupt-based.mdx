@@ -73,17 +73,18 @@ We're going to have the agent ask us to name it, so we'll need a state property 
     <Tab value="TypeScript">
         ```typescript title="agent-js/src/agent.ts"
         // ...
-        import { Annotation } from "@langchain/langgraph";
-        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+        import { StateSchema } from "@langchain/langgraph";
+        import { CopilotKitStateSchema } from "@copilotkit/sdk-js/langgraph";
+        import { z } from "zod";
         // ...
 
         // This is the state of the agent.
         // It inherits from the CopilotKitState properties from CopilotKit.
-        export const AgentStateAnnotation = Annotation.Root({
-          agentName: Annotation<string>,
-          ...CopilotKitStateAnnotation.spec,
+        export const AgentStateSchema = new StateSchema({
+          agentName: z.string(),
+          ...CopilotKitStateSchema.fields,
         });
-        export type AgentState = typeof AgentStateAnnotation.State;
+        export type AgentState = typeof AgentStateSchema.State;
         ```
     </Tab>
 </Tabs>
@@ -139,11 +140,11 @@ We're going to have the agent ask us to name it, so we'll need a state property 
             import { ChatOpenAI } from "@langchain/openai";
 
             // add the agent state definition from the previous step
-            export const AgentStateAnnotation = Annotation.Root({
-                agentName: Annotation<string>,
-                ...CopilotKitStateAnnotation.spec,
+            export const AgentStateSchema = new StateSchema({
+                agentName: z.string(),
+                ...CopilotKitStateSchema.fields,
             });
-            export type AgentState = typeof AgentStateAnnotation.State;
+            export type AgentState = typeof AgentStateSchema.State;
 
             async function chat_node(state: AgentState, config: RunnableConfig) {
                 const agentName = state.agentName

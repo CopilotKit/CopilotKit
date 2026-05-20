@@ -1,8 +1,0 @@
-{
-  "slug": "spring-ai",
-  "name": "Spring AI",
-  "language": "java",
-  "agentDir": "agent",
-  "agentPort": 8123,
-  "generated": true
-}

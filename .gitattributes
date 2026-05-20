@@ -5,29 +5,9 @@
 *.pdf filter=lfs diff=lfs merge=lfs -text
 *.mp4 filter=lfs diff=lfs merge=lfs -text
 *.webm filter=lfs diff=lfs merge=lfs -text
+*.wav filter=lfs diff=lfs merge=lfs -text
 
-# Shell scripts must retain LF line endings. Windows contributors regenerating
-# showcase starters on a Windows checkout (or with autocrlf=true) would
-# otherwise silently ship CRLF ``entrypoint.sh`` files that bash in the
-# Docker runtime rejects (``bad interpreter: No such file or directory``).
+# Shell scripts must retain LF line endings. Windows contributors with
+# autocrlf=true would otherwise silently ship CRLF entrypoint.sh files
+# that bash in the Docker runtime rejects.
 *.sh text eol=lf
-
-# Generated showcase starters — do not edit manually
-# Regenerate with: cd showcase/scripts && npx tsx generate-starters.ts
-showcase/starters/ag2/** linguist-generated=true
-showcase/starters/agno/** linguist-generated=true
-showcase/starters/claude-sdk-python/** linguist-generated=true
-showcase/starters/claude-sdk-typescript/** linguist-generated=true
-showcase/starters/crewai-crews/** linguist-generated=true
-showcase/starters/google-adk/** linguist-generated=true
-showcase/starters/langgraph-fastapi/** linguist-generated=true
-showcase/starters/langgraph-python/** linguist-generated=true
-showcase/starters/langgraph-typescript/** linguist-generated=true
-showcase/starters/langroid/** linguist-generated=true
-showcase/starters/llamaindex/** linguist-generated=true
-showcase/starters/mastra/** linguist-generated=true
-showcase/starters/ms-agent-dotnet/** linguist-generated=true
-showcase/starters/ms-agent-python/** linguist-generated=true
-showcase/starters/pydantic-ai/** linguist-generated=true
-showcase/starters/spring-ai/** linguist-generated=true
-showcase/starters/strands/** linguist-generated=true

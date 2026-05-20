@@ -1,5 +1,7 @@
 import { EventType } from "@ag-ui/client";
 import { LangGraphAgent } from "../agent";
+import { CustomEventNames } from "../consts";
+import { vi } from "vitest";
 
 function createAgent() {
   const agent = new LangGraphAgent({
@@ -31,6 +33,25 @@ function makeTextEvent(
     ...(type === EventType.TEXT_MESSAGE_START ? { role: "assistant" } : {}),
     rawEvent: { metadata },
   };
+}
+
+function makeCustomEvent(name: string, value: any) {
+  return {
+    type: EventType.CUSTOM,
+    name,
+    value,
+  } as any;
+}
+
+/**
+ * Mock the parent class's langGraphDefaultMergeState for a single test,
+ * using vi.spyOn for automatic cleanup.
+ */
+function withMockedParentMerge(agent: LangGraphAgent, returnValue: any) {
+  const parentProto = Object.getPrototypeOf(Object.getPrototypeOf(agent));
+  return vi
+    .spyOn(parentProto, "langGraphDefaultMergeState")
+    .mockReturnValue(returnValue);
 }
 
 describe("dispatchEvent emit-messages filtering", () => {
@@ -151,5 +172,174 @@ describe("dispatchEvent emit-tool-calls filtering", () => {
 
     expect(result).toBe(true);
     expect(events).toHaveLength(1);
+  });
+});
+
+// ---------- CopilotKit custom event dispatch ----------
+
+describe("dispatchEvent custom CopilotKit events", () => {
+  it("manually_emit_message produces TextMessage event sequence", () => {
+    const { agent, events } = createAgent();
+
+    const result = agent.dispatchEvent(
+      makeCustomEvent(CustomEventNames.CopilotKitManuallyEmitMessage, {
+        message_id: "msg-manual-1",
+        message: "Hello from agent",
+        role: "assistant",
+      }),
+    );
+
+    expect(result).toBe(true);
+    expect(events).toHaveLength(3);
+    expect(events[0].type).toBe(EventType.TEXT_MESSAGE_START);
+    expect(events[0].messageId).toBe("msg-manual-1");
+    expect(events[0].role).toBe("assistant");
+    expect(events[1].type).toBe(EventType.TEXT_MESSAGE_CONTENT);
+    expect(events[1].delta).toBe("Hello from agent");
+    expect(events[2].type).toBe(EventType.TEXT_MESSAGE_END);
+    expect(events[2].messageId).toBe("msg-manual-1");
+  });
+
+  it("manually_emit_tool_call produces ToolCall event sequence", () => {
+    const { agent, events } = createAgent();
+
+    const result = agent.dispatchEvent(
+      makeCustomEvent(CustomEventNames.CopilotKitManuallyEmitToolCall, {
+        id: "tc-manual-1",
+        name: "SearchTool",
+        args: { query: "test" },
+      }),
+    );
+
+    expect(result).toBe(true);
+    expect(events).toHaveLength(3);
+    expect(events[0].type).toBe(EventType.TOOL_CALL_START);
+    expect(events[0].toolCallId).toBe("tc-manual-1");
+    expect(events[0].toolCallName).toBe("SearchTool");
+    expect(events[1].type).toBe(EventType.TOOL_CALL_ARGS);
+    expect(events[1].toolCallId).toBe("tc-manual-1");
+    expect(events[1].delta).toEqual({ query: "test" });
+    expect(events[2].type).toBe(EventType.TOOL_CALL_END);
+    expect(events[2].toolCallId).toBe("tc-manual-1");
+  });
+
+  it("manually_emit_state produces StateSnapshot event", () => {
+    const { agent, events } = createAgent();
+
+    // Mock getStateSnapshot since it depends on thread state
+    (agent as any).getStateSnapshot = (state: any) => ({
+      values: state.values,
+    });
+
+    const result = agent.dispatchEvent(
+      makeCustomEvent(
+        CustomEventNames.CopilotKitManuallyEmitIntermediateState,
+        {
+          progress: 75,
+        },
+      ),
+    );
+
+    expect(result).toBe(true);
+    expect((agent as any).activeRun.manuallyEmittedState).toEqual({
+      progress: 75,
+    });
+    const snapshotEvents = events.filter(
+      (e) => e.type === EventType.STATE_SNAPSHOT,
+    );
+    expect(snapshotEvents.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("copilotkit_exit produces Exit custom event", () => {
+    const { agent, events } = createAgent();
+
+    const result = agent.dispatchEvent(
+      makeCustomEvent(CustomEventNames.CopilotKitExit, {}),
+    );
+
+    expect(result).toBe(true);
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe(EventType.CUSTOM);
+    // "Exit" is the hardcoded downstream name in agent.ts — not a constant,
+    // because it's the value the frontend listens for, not an internal enum.
+    expect(events[0].name).toBe("Exit");
+    expect(events[0].value).toBe(true);
+  });
+
+  it("events without rawEvent pass through to subscriber", () => {
+    const { agent, events } = createAgent();
+
+    const result = agent.dispatchEvent({
+      type: EventType.TEXT_MESSAGE_START,
+      messageId: "msg-no-raw",
+      role: "assistant",
+    } as any);
+
+    expect(result).toBe(true);
+    expect(events).toHaveLength(1);
+    expect(events[0].messageId).toBe("msg-no-raw");
+  });
+});
+
+// ---------- langGraphDefaultMergeState ----------
+
+describe("langGraphDefaultMergeState", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("merges copilotkit actions from ag-ui tools", () => {
+    const { agent } = createAgent();
+    const tools = [{ name: "tool1" }, { name: "tool2" }];
+
+    withMockedParentMerge(agent, {
+      "ag-ui": { tools, context: [] },
+      tools: [],
+      messages: [],
+    });
+
+    const result = agent.langGraphDefaultMergeState({} as any, [], {} as any);
+    expect(result.copilotkit).toBeDefined();
+    expect(result.copilotkit.actions).toEqual(expect.arrayContaining(tools));
+  });
+
+  it("merges copilotkit context from ag-ui", () => {
+    const { agent } = createAgent();
+    const context = [{ description: "user info", value: "test" }];
+
+    withMockedParentMerge(agent, {
+      "ag-ui": { tools: [], context },
+      tools: [],
+      messages: [],
+    });
+
+    const result = agent.langGraphDefaultMergeState({} as any, [], {} as any);
+    expect(result.copilotkit.context).toEqual(context);
+  });
+
+  it("handles missing ag-ui key without crashing", () => {
+    const { agent } = createAgent();
+
+    withMockedParentMerge(agent, { messages: [] });
+
+    const result = agent.langGraphDefaultMergeState({} as any, [], {} as any);
+    expect(result.copilotkit).toBeDefined();
+    expect(result.copilotkit.actions).toEqual([]);
+    expect(result.copilotkit.context).toEqual([]);
+  });
+
+  it("deduplicates tools from returnedTools and ag-ui tools", () => {
+    const { agent } = createAgent();
+    const tool = { name: "SharedTool", id: "shared-1" };
+
+    withMockedParentMerge(agent, {
+      "ag-ui": { tools: [tool], context: [] },
+      tools: [tool],
+      messages: [],
+    });
+
+    const result = agent.langGraphDefaultMergeState({} as any, [], {} as any);
+    expect(result.copilotkit.actions).toHaveLength(1);
+    expect(result.copilotkit.actions[0].name).toBe("SharedTool");
   });
 });

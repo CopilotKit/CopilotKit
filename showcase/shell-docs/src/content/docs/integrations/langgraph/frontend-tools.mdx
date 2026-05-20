@@ -4,7 +4,6 @@ icon: "lucide/Wrench"
 description: Create frontend tools and use them within your LangGraph agent.
 hideTOC: true
 ---
-
 <IframeSwitcher
   id="frontend-actions-example"
   exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
@@ -15,7 +14,6 @@ hideTOC: true
 />
 
 ## What is this?
-
 Frontend tools enable you to define client-side functions that your LangGraph agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
 the logic runs on the client side, giving you direct access to the frontend environment.
 
@@ -24,9 +22,7 @@ This can be utilized to let your agent control the UI, for generative UI, or for
 In this guide, we cover the use of frontend tools driving and interacting with the UI.
 
 ## When should I use this?
-
 Use frontend tools when you need your agent to interact with client-side primitives such as:
-
 - Reading or modifying React component state
 - Accessing browser APIs like localStorage, sessionStorage, or cookies
 - Triggering UI updates or animations
@@ -48,6 +44,8 @@ Use frontend tools when you need your agent to interact with client-side primiti
         that says hello to the user.
 
         ```tsx title="page.tsx"
+        import { z } from "zod";
+        import { useFrontendTool } from "@copilotkit/react-core/v2" // [!code highlight]
 
         export function Page() {
           // ...
@@ -92,12 +90,15 @@ Use frontend tools when you need your agent to interact with client-side primiti
             </Tab>
             <Tab value="TypeScript">
                 ```typescript title="agent-js/src/agent.ts"
+                import { StateSchema } from "@langchain/langgraph";
+                import { CopilotKitStateSchema } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+                import { z } from "zod";
 
-                export const YourAgentStateAnnotation = Annotation.Root({
-                    yourAdditionalProperty: Annotation<string>,
-                    ...CopilotKitStateAnnotation.spec, // [!code highlight]
+                export const YourAgentStateSchema = new StateSchema({
+                    yourAdditionalProperty: z.string(),
+                    ...CopilotKitStateSchema.fields, // [!code highlight]
                 });
-                export type YourAgentState = typeof YourAgentStateAnnotation.State;
+                export type YourAgentState = typeof YourAgentStateSchema.State;
                 ```
             </Tab>
         </Tabs>
@@ -121,7 +122,4 @@ Use frontend tools when you need your agent to interact with client-side primiti
 
         <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
     </Step>
-
 </Steps>
-
-<InlineDemo integration="langgraph-python" demo="tool-rendering" />

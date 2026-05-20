@@ -130,6 +130,7 @@ const config = {
       'crewai-flows',
       'built-in-agent',
       'langgraph',
+      'deepagents',
       'llamaindex',
       'mastra',
       'pydantic-ai',
@@ -139,6 +140,15 @@ const config = {
 
     return {
       beforeFiles: [
+        // PostHog reverse proxy — routes analytics through our domain to bypass ad blockers
+        {
+          source: '/ingest/static/:path*',
+          destination: 'https://eu-assets.i.posthog.com/static/:path*',
+        },
+        {
+          source: '/ingest/:path*',
+          destination: 'https://eu.i.posthog.com/:path*',
+        },
         // Map /guides/* to /built-in-agent/guides/* (legacy path)
         {
           source: '/guides/:path*',
@@ -149,6 +159,11 @@ const config = {
           source: `/${integration}/:path*`,
           destination: `/integrations/${integration}/:path*`,
         })),
+        // Map deploy section URLs
+        {
+          source: '/agentcore/:path*',
+          destination: '/deploy/agentcore/:path*',
+        },
       ],
     };
   },
@@ -159,6 +174,17 @@ const config = {
 
     // Manual redirects for specific cases
     const manualRedirects = [
+      // llms.txt files are served from mcp.copilotkit.ai
+      {
+        source: '/llms.txt',
+        destination: 'https://mcp.copilotkit.ai/llms.txt',
+        permanent: true,
+      },
+      {
+        source: '/llms-full.txt',
+        destination: 'https://mcp.copilotkit.ai/llms-full.txt',
+        permanent: true,
+      },
       // Redirect /whats-new/v1-50 to /learn/whats-new/v1-50
       {
         source: '/whats-new/v1-50',
@@ -471,6 +497,11 @@ const config = {
         permanent: true,
       },
       {
+        source: '/ag-ui',
+        destination: 'https://docs.ag-ui.com/',
+        permanent: false,
+      },
+      {
         source: '/connect-mcp-servers',
         destination: '/learn/connect-mcp-servers',
         permanent: true,
@@ -524,6 +555,253 @@ const config = {
       {
         source: '/langgraph/human-in-the-loop/prebuilt-agents',
         destination: '/langgraph/prebuilt-components',
+        permanent: true,
+      },
+
+      // === 404 cleanup (2026-05) — see PostHog broken_link_accessed events ===
+
+      // Generative UI specs moved under /learn/
+      {
+        source: '/generative-ui/specs',
+        destination: '/learn/generative-ui/specs',
+        permanent: true,
+      },
+      {
+        source: '/generative-ui/specs/:path*',
+        destination: '/learn/generative-ui/specs/:path*',
+        permanent: true,
+      },
+
+      // /premium/threads and /premium/inspector are top-level pages, not under /premium
+      {
+        source: '/premium/threads',
+        destination: '/threads',
+        permanent: true,
+      },
+      {
+        source: '/premium/inspector',
+        destination: '/inspector',
+        permanent: true,
+      },
+      {
+        source: '/premium/premium/overview',
+        destination: '/premium/overview',
+        permanent: true,
+      },
+
+      // /built-in-agent/guides/* — guides/ prefix dropped in restructure
+      {
+        source: '/built-in-agent/guides/quickstart',
+        destination: '/built-in-agent/quickstart',
+        permanent: true,
+      },
+      {
+        source: '/built-in-agent/guides/use-agent-hook',
+        destination: '/built-in-agent/programmatic-control',
+        permanent: true,
+      },
+      {
+        source: '/built-in-agent/guides/self-hosting',
+        destination: '/built-in-agent/premium/self-hosting',
+        permanent: true,
+      },
+      {
+        source: '/built-in-agent/guides/:path*',
+        destination: '/built-in-agent',
+        permanent: true,
+      },
+
+      // /built-in-agent/* pages with no built-in-agent equivalent → root or closest concept
+      {
+        source: '/built-in-agent/human-in-the-loop',
+        destination: '/human-in-the-loop',
+        permanent: true,
+      },
+      {
+        source: '/built-in-agent/generative-ui/state-rendering',
+        destination: '/built-in-agent/generative-ui',
+        permanent: true,
+      },
+      {
+        source: '/built-in-agent/cookbook/state-machine',
+        destination: '/built-in-agent/programmatic-control',
+        permanent: true,
+      },
+
+      // /learn/direct-to-llm/* — direct-to-llm namespace removed in 2026-02 restructure
+      {
+        source: '/learn/direct-to-llm/tutorials/ai-todo-app/overview',
+        destination: '/built-in-agent/quickstart',
+        permanent: true,
+      },
+      {
+        source: '/learn/generative-ui/direct-to-llm/tutorials/ai-todo-app/overview',
+        destination: '/built-in-agent/quickstart',
+        permanent: true,
+      },
+      {
+        source: '/learn/direct-to-llm/cookbook/state-machine',
+        destination: '/built-in-agent',
+        permanent: true,
+      },
+      {
+        source: '/learn/direct-to-llm/:path*',
+        destination: '/built-in-agent',
+        permanent: true,
+      },
+
+      // /learn/langgraph/* — langgraph was never under /learn
+      {
+        source: '/learn/langgraph/:path*',
+        destination: '/langgraph/:path*',
+        permanent: true,
+      },
+
+      // Deepagents integration is missing pages other integrations have → root equivalents
+      {
+        source: '/deepagents/prebuilt-components',
+        destination: '/prebuilt-components',
+        permanent: true,
+      },
+      {
+        source: '/deepagents/custom-look-and-feel/headless-ui',
+        destination: '/custom-look-and-feel/headless-ui',
+        permanent: true,
+      },
+      {
+        source: '/deepagents/custom-look-and-feel/slots',
+        destination: '/custom-look-and-feel/slots',
+        permanent: true,
+      },
+
+      // /guides/* paths with no /built-in-agent/guides equivalent
+      {
+        source: '/guides/backend-actions/remote-backend-endpoint',
+        destination: '/built-in-agent/copilot-runtime',
+        permanent: true,
+      },
+      {
+        source: '/guides/model-context-protocol',
+        destination: '/built-in-agent/mcp-servers',
+        permanent: true,
+      },
+
+      // Reference v1 → v2 for hooks that only exist in v2
+      {
+        source: '/reference/v1/hooks/useRenderTool',
+        destination: '/reference/v2/hooks/useRenderTool',
+        permanent: true,
+      },
+      {
+        source: '/reference/v1/hooks/useComponent',
+        destination: '/reference/v2/hooks/useComponent',
+        permanent: true,
+      },
+      {
+        source: '/reference/v1/hooks/useThreads',
+        destination: '/reference/v2/hooks/useThreads',
+        permanent: true,
+      },
+      {
+        source: '/reference/v1/hooks/useInterrupt',
+        destination: '/reference/v2/hooks/useInterrupt',
+        permanent: true,
+      },
+      {
+        source: '/reference/v1/hooks/useCapabilities',
+        destination: '/reference/v2/hooks/useCapabilities',
+        permanent: true,
+      },
+      // useCopilotAction renamed to useFrontendTool in v2
+      {
+        source: '/reference/v2/hooks/useCopilotAction',
+        destination: '/reference/v2/hooks/useFrontendTool',
+        permanent: true,
+      },
+
+      // /whats-new/* moved under /learn/
+      {
+        source: '/whats-new',
+        destination: '/learn/whats-new',
+        permanent: true,
+      },
+      {
+        source: '/whats-new/a2ui-launch',
+        destination: '/learn/whats-new/a2ui-launch',
+        permanent: true,
+      },
+
+      // Doubled-prefix paths (broken outbound link generation)
+      {
+        source: '/agent-spec/agent-spec/wayflow',
+        destination: '/agent-spec/wayflow',
+        permanent: true,
+      },
+      {
+        source: '/langgraph/langgraph/overview',
+        destination: '/langgraph',
+        permanent: true,
+      },
+
+      // Old low-level threads/persistence docs were removed in favor of the
+      // useThreads-based /langgraph/threads and /crewai-flows/threads pages.
+      {
+        source: '/langgraph/persistence/message-persistence',
+        destination: '/langgraph/threads',
+        permanent: true,
+      },
+      {
+        source: '/langgraph/persistence/loading-message-history',
+        destination: '/langgraph/threads',
+        permanent: true,
+      },
+      {
+        source: '/langgraph/persistence/loading-agent-state',
+        destination: '/langgraph/threads',
+        permanent: true,
+      },
+      {
+        source: '/langgraph/advanced/persistence/message-persistence',
+        destination: '/langgraph/threads',
+        permanent: true,
+      },
+      {
+        source: '/langgraph/advanced/persistence/loading-message-history',
+        destination: '/langgraph/threads',
+        permanent: true,
+      },
+      {
+        source: '/langgraph/advanced/persistence/loading-agent-state',
+        destination: '/langgraph/threads',
+        permanent: true,
+      },
+      {
+        source: '/crewai-flows/persistence/message-persistence',
+        destination: '/crewai-flows/threads',
+        permanent: true,
+      },
+      {
+        source: '/crewai-flows/persistence/loading-message-history',
+        destination: '/crewai-flows/threads',
+        permanent: true,
+      },
+      {
+        source: '/crewai-flows/persistence/loading-agent-state',
+        destination: '/crewai-flows/threads',
+        permanent: true,
+      },
+
+      // Locale prefix not supported on this site
+      {
+        source: '/zh/langgraph/deep-agents',
+        destination: '/deepagents',
+        permanent: true,
+      },
+
+      // Old /langgraph/shared-guides/* paths
+      {
+        source: '/langgraph/shared-guides/langgraph-platform-authentication',
+        destination: '/langgraph',
         permanent: true,
       },
     ];

@@ -1,0 +1,53 @@
+// Dedicated runtime for the A2UI — Fixed Schema cell. Splitting into its own
+// endpoint (mirroring beautiful-chat) lets us set
+// `a2ui.injectA2UITool: false` — the backend agent owns the `display_flight`
+// tool which emits its own `a2ui_operations` container via `a2ui.render(...)`.
+//
+// Reference:
+// - src/app/api/copilotkit/route.ts (LF main runtime)
+// - src/agents/src/a2ui_fixed.py (the backend graph)
+
+import { NextRequest, NextResponse } from "next/server";
+import {
+  CopilotRuntime,
+  ExperimentalEmptyAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+
+const AGENT_URL = process.env.AGENT_URL || "http://localhost:8123";
+
+const a2uiFixedSchemaAgent = new LangGraphAgent({
+  deploymentUrl: `${AGENT_URL}/`,
+  graphId: "a2ui_fixed",
+});
+
+const runtime = new CopilotRuntime({
+  // @ts-ignore -- see main route.ts
+  agents: { "a2ui-fixed-schema": a2uiFixedSchemaAgent },
+  a2ui: {
+    // The backend emits its own `a2ui_operations` container via
+    // `a2ui.render(...)` inside `display_flight` (see src/agents/src/a2ui_fixed.py).
+    // We still run the A2UI middleware so it detects the container in tool
+    // results and forwards surfaces to the frontend — but we do NOT inject a
+    // runtime `render_a2ui` tool on top of the agent's existing tools.
+    injectA2UITool: false,
+  },
+});
+
+export const POST = async (req: NextRequest) => {
+  try {
+    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+      endpoint: "/api/copilotkit-a2ui-fixed-schema",
+      serviceAdapter: new ExperimentalEmptyAdapter(),
+      runtime,
+    });
+    return await handleRequest(req);
+  } catch (error: unknown) {
+    const e = error as { message?: string; stack?: string };
+    return NextResponse.json(
+      { error: e.message, stack: e.stack },
+      { status: 500 },
+    );
+  }
+};

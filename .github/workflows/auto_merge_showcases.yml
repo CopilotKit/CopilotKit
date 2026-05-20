@@ -16,25 +16,31 @@ jobs:
     steps:
       - name: Check author is on Demo team
         id: check-team
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
+          # Authorize on the PR AUTHOR (immutable for the lifetime of the PR),
+          # never `context.actor` — `actor` is whoever triggered the most
+          # recent event, so a team member synchronizing or reopening an
+          # outsider's PR would otherwise green-light auto-merge of code
+          # they didn't author.
           script: |
+            const prAuthor = context.payload.pull_request.user.login;
             try {
               await github.rest.teams.getMembershipForUserInOrg({
                 org: 'CopilotKit',
                 team_slug: 'demo',
-                username: context.actor,
+                username: prAuthor,
               });
               core.setOutput('is_demo', 'true');
             } catch {
-              core.info(`${context.actor} is not a member of CopilotKit/demo`);
+              core.info(`${prAuthor} is not a member of CopilotKit/demo`);
               core.setOutput('is_demo', 'false');
             }
 
       - name: Check PR only touches showcases
         if: steps.check-team.outputs.is_demo == 'true'
         id: check-files
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             const { data: files } = await github.rest.pulls.listFiles({
@@ -59,7 +65,7 @@ jobs:
 
       - name: Approve PR
         if: steps.check-team.outputs.is_demo == 'true' && steps.check-files.outputs.only_showcases == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             await github.rest.pulls.createReview({
@@ -72,7 +78,7 @@ jobs:
 
       - name: Enable auto-merge
         if: steps.check-team.outputs.is_demo == 'true' && steps.check-files.outputs.only_showcases == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             await github.graphql(`

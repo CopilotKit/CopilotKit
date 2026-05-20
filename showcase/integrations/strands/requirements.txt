@@ -1,0 +1,11 @@
+ag-ui-protocol==0.1.18
+ag_ui_strands==0.1.8
+strands-agents[OpenAI]==1.18.0
+strands-agents-tools==0.2.16
+copilotkit==0.1.87
+langchain==1.2.15
+langchain-openai==1.1.9
+openai==1.109.1
+fastapi>=0.115.0
+uvicorn>=0.34.0
+python-dotenv>=1.0.1

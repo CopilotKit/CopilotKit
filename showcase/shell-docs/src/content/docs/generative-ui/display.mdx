@@ -3,11 +3,14 @@ title: Display components
 icon: "lucide/Eye"
 description: Register React components that your agent can render in the chat.
 hideTOC: true
+snippet_cell: gen-ui-tool-based
 ---
 
 ## What is this?
 
-Render-only generative UI lets you register React components as tools your agent can invoke. When the agent calls the tool, CopilotKit renders your component directly in the chat with the tool's arguments as props — no handler logic or user interaction required.
+Render-only generative UI lets you register React components as tools your agent can invoke. When the agent calls the tool, CopilotKit renders your component directly in the chat with the tool's arguments as props; no handler logic or user interaction required.
+
+<InlineDemo demo="gen-ui-tool-based" />
 
 <Tabs items={['page.tsx', 'chart.tsx']}>
   <Tab value="page.tsx">
@@ -57,6 +60,14 @@ Use render-only generative UI when you want to:
 - Render previews, status indicators, or visual feedback
 - Let the agent present information beyond plain text
 
-## Choose your Integration
+## How it works in code
+
+The renderer component receives the tool's arguments as typed props and
+mounts inline in the chat. Below is the chart renderer wired up in the
+canonical demo — the agent emits the data, the component draws it.
+
+<Snippet region="bar-chart-renderer" title="frontend/src/app/page.tsx — bar chart renderer" />
+
+<FeatureIntegrations feature="gen-ui-tool-based" />
 
 <IntegrationGrid path="render-only" />

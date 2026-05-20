@@ -99,6 +99,19 @@ function convertJsonSchemaToParameter(
     baseParameter.required = false;
   }
 
+  // Handle null-union types like ["string", "null"] by picking the non-null type
+  if (Array.isArray(schema.type)) {
+    const types = schema.type as string[];
+    const hasNull = types.includes("null");
+    const nonNullTypes = types.filter((t: string) => t !== "null");
+    const resolvedType = nonNullTypes.length > 0 ? nonNullTypes[0] : "string";
+    return convertJsonSchemaToParameter(
+      name,
+      { ...schema, type: resolvedType } as JSONSchema,
+      hasNull ? false : isRequired,
+    );
+  }
+
   switch (schema.type) {
     case "string":
       return {
@@ -280,6 +293,25 @@ export function convertJsonSchemaToZodSchema(
 
   // Collect top-level definitions for $ref resolution
   const defs = definitions ?? jsonSchema.$defs ?? jsonSchema.definitions;
+
+  // Handle null-union types like ["string", "null"]
+  if (Array.isArray(jsonSchema.type)) {
+    const types = jsonSchema.type as string[];
+    const hasNull = types.includes("null");
+    const nonNullTypes = types.filter((t: string) => t !== "null");
+    const resolvedType = nonNullTypes.length > 0 ? nonNullTypes[0] : "string";
+    const innerSchema = convertJsonSchemaToZodSchema(
+      { ...jsonSchema, type: resolvedType },
+      true,
+      defs,
+      visitedRefs,
+    );
+    let schema = hasNull ? z.union([innerSchema, z.null()]) : innerSchema;
+    if (jsonSchema.description) {
+      schema = schema.describe(jsonSchema.description);
+    }
+    return required ? schema : schema.optional();
+  }
 
   // Handle anyOf / oneOf as z.union
   const unionVariants = jsonSchema.anyOf ?? jsonSchema.oneOf;

@@ -1,0 +1,11 @@
+{
+  "info": {
+    "name": "fastapi",
+    "version": "0.115.0",
+    "summary": "FastAPI framework, high performance, easy to learn, fast to code, ready for production"
+  },
+  "releases": {
+    "0.115.0": []
+  },
+  "urls": []
+}

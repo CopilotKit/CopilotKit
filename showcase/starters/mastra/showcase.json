@@ -1,8 +1,0 @@
-{
-  "slug": "mastra",
-  "name": "Mastra",
-  "language": "typescript",
-  "agentDir": "src/mastra",
-  "agentPort": 8123,
-  "generated": true
-}

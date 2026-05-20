@@ -370,3 +370,71 @@ describe("fetch-handler validation — multi-route edge cases", () => {
     expect(body.message).toBeUndefined();
   });
 });
+
+/* ------------------------------------------------------------------------------------------------
+ * Multi-route: HTTP method enforcement on per-thread GET endpoints
+ *
+ * /threads/:threadId/events and /threads/:threadId/state are read-only and
+ * must reject anything other than GET with 405 + Allow: GET. These tests
+ * pin that contract so a future refactor cannot quietly downgrade it.
+ * --------------------------------------------------------------------------------------------- */
+
+describe("fetch-handler validation — GET-only enforcement on threads read endpoints", () => {
+  const runtime = createRuntime();
+  const handler = createCopilotRuntimeHandler({
+    runtime,
+    basePath: "/api",
+  });
+
+  const expectMethodNotAllowed = async (
+    response: Response,
+    expectedAllow: string,
+  ) => {
+    expect(response.status).toBe(405);
+    expect(response.headers.get("Allow")).toBe(expectedAllow);
+  };
+
+  for (const method of ["POST", "PATCH", "DELETE"]) {
+    it(`returns 405 with Allow: GET for ${method} /threads/:id/events`, async () => {
+      const response = await handler(
+        new Request("http://localhost/api/threads/thread-1/events", {
+          method,
+          // PATCH/POST without a body or content-type would otherwise hit
+          // a different validation branch; this exercises pure method check.
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+      await expectMethodNotAllowed(response, "GET");
+    });
+
+    it(`returns 405 with Allow: GET for ${method} /threads/:id/state`, async () => {
+      const response = await handler(
+        new Request("http://localhost/api/threads/thread-1/state", {
+          method,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+      await expectMethodNotAllowed(response, "GET");
+    });
+  }
+
+  it("accepts GET on /threads/:id/events", async () => {
+    const response = await handler(
+      new Request("http://localhost/api/threads/thread-1/events", {
+        method: "GET",
+      }),
+    );
+    // The route may 422 (no Intelligence configured) or 200 — either way it
+    // is NOT a 405, which is the contract we are pinning here.
+    expect(response.status).not.toBe(405);
+  });
+
+  it("accepts GET on /threads/:id/state", async () => {
+    const response = await handler(
+      new Request("http://localhost/api/threads/thread-1/state", {
+        method: "GET",
+      }),
+    );
+    expect(response.status).not.toBe(405);
+  });
+});

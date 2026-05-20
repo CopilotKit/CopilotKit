@@ -1,5 +1,5 @@
-import { IframeSwitcher } from "@/components/content";
-import DefaultToolRendering from "@/snippets/shared/guides/default-tool-rendering.mdx";
+import { IframeSwitcher } from "@/components/content"
+import DefaultToolRendering from "@/snippets/shared/guides/default-tool-rendering.mdx"
 
 <IframeSwitcher
   id="backend-tools-example"
@@ -11,14 +11,7 @@ import DefaultToolRendering from "@/snippets/shared/guides/default-tool-renderin
 />
 
 <Callout>
-  This example demonstrates the implementation section applied in the{" "}
-  <a
-    href={`https://feature-viewer.copilotkit.ai/${props.framework || "langgraph"}/feature/agentic_chat`}
-    target="_blank"
-  >
-    CopilotKit feature viewer
-  </a>
-  .
+  This example demonstrates the implementation section applied in the <a href={`https://feature-viewer.copilotkit.ai/${props.framework || "langgraph"}/feature/agentic_chat`} target="_blank">CopilotKit feature viewer</a>.
 </Callout>
 
 ## What is this?
@@ -34,7 +27,7 @@ Rendering tools in the UI is useful when you want to provide the user with feedb
 Use the `useRenderTool` hook to render tool calls in the UI. The name must match the name of the tool defined in your agent.
 
 <Callout type="info" title="Important">
-In order to render a tool call in the UI, the name must match the name of the tool. [Learn more](/unselected/server-tools).
+In order to render a tool call in the UI, the name must match the name of the tool. [Learn more](/built-in-agent/server-tools).
 </Callout>
 
 ```tsx title="app/page.tsx"
@@ -56,16 +49,15 @@ const YourMainContent = () => {
       return (
         <p className="text-gray-500 mt-2">
           {status !== "complete" && "Calling weather API..."}
-          {status === "complete" &&
-            `Called the weather API for ${parameters.location}.`}
+          {status === "complete" && `Called the weather API for ${parameters.location}.`}
         </p>
       );
     },
   });
   // ...
-};
+}
 ```
 
 ## Default Tool Rendering
 
-<DefaultToolRendering components={props.components} />
+<DefaultToolRendering />

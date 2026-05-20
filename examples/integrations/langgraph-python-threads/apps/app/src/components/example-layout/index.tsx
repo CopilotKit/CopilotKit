@@ -37,8 +37,8 @@ export function ExampleLayout({ chatContent, appContent }: ExampleLayoutProps) {
       <div
         className={`max-h-full flex flex-col ${
           mode === "app"
-            ? "w-1/3 px-6 max-lg:hidden" // Hide on mobile in app mode
-            : "flex-1 max-lg:px-4"
+            ? "w-1/3 max-lg:hidden" // Hide on mobile in app mode
+            : "flex-1"
         }`}
       >
         <div className="shrink-0 pt-6 pl-6 pb-2 max-lg:pl-4 max-lg:pt-4">
@@ -48,7 +48,13 @@ export function ExampleLayout({ chatContent, appContent }: ExampleLayoutProps) {
             className="h-7 dark:invert"
           />
         </div>
-        <div className="flex-1 min-h-0 overflow-y-auto">{chatContent}</div>
+        <div
+          className={`flex-1 min-h-0 overflow-y-auto ${
+            mode === "app" ? "px-6" : "max-lg:px-4"
+          }`}
+        >
+          {chatContent}
+        </div>
       </div>
 
       {/* State Panel */}

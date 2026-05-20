@@ -1,0 +1,29 @@
+{
+  "_comment": "D5 fixture for /demos/beautiful-chat — Pie Chart pill. Direct pieChart toolCall (skipping query_data — payload supplies inline data so the chart renders without a query_data round-trip, matching feature-parity's 'revenue distribution by category' pattern). Tool payload mirrors the canonical 4-slice fixture so visual fingerprints match across runners.",
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: pie chart of revenue distribution by category",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_bc_pie_chart_001",
+            "name": "pieChart",
+            "arguments": "{\"title\":\"Revenue by Category\",\"description\":\"Breakdown of revenue across product categories\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: pie chart of revenue distribution by category",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Pie chart rendered above — Electronics leads at $42k, followed by Clothing, Food, and Books."
+      }
+    }
+  ]
+}

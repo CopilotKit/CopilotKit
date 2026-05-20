@@ -1,0 +1,20 @@
+# Probe: redirect-decommission
+#
+# Monthly SEO redirect-decommission audit: queries PostHog for seo_redirect
+# hit counts over the last 30 days, cross-references against the full
+# redirect catalogue (showcase/shell/src/lib/seo-redirects.ts) and reports
+# zero-hit decommission candidates. Schedule mirrors the existing alert
+# rule (`config/alerts/redirect-decommission-monthly.yml`) so the probe
+# tick and the rule trigger land on the same minute.
+#
+# Single-target probe — the driver itself handles the PostHog fetch and
+# fans out internally across the 300+ redirect IDs, so `target` is a
+# single synthetic entry rather than `targets: [...]`. The accompanying
+# rule suppresses on `hasCandidates != true && probeErrored != true`, so a
+# clean month emits no Slack post and a failed audit fires the dedicated
+# "audit failed" branch instead of being silently swallowed.
+kind: redirect_decommission
+id: redirect-decommission-monthly
+schedule: "0 9 1 * *"
+target:
+  key: "redirect_decommission:overall"

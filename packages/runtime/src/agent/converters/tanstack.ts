@@ -8,6 +8,13 @@ import {
   ToolCallEndEvent,
   ToolCallStartEvent,
   ToolCallResultEvent,
+  StateSnapshotEvent,
+  StateDeltaEvent,
+  ReasoningStartEvent,
+  ReasoningMessageStartEvent,
+  ReasoningMessageContentEvent,
+  ReasoningMessageEndEvent,
+  ReasoningEndEvent,
 } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
 
@@ -229,6 +236,44 @@ export async function* convertTanStackStream(
   abortSignal: AbortSignal,
 ): AsyncGenerator<BaseEvent> {
   const messageId = randomUUID();
+  const toolNamesById = new Map<string, string>();
+  // Track the reasoning lifecycle at two granularities so closeReasoningIfOpen
+  // emits exactly the events still owed. A single boolean conflates the run
+  // (REASONING_START → REASONING_END) with the message
+  // (REASONING_MESSAGE_START → REASONING_MESSAGE_END) and produces a duplicate
+  // REASONING_MESSAGE_END when upstream emits MSG_END but not END before
+  // text/tools resume.
+  let reasoningRunOpen = false;
+  let reasoningMessageOpen = false;
+  let reasoningMessageId = randomUUID();
+
+  function* closeReasoningIfOpen(): Generator<BaseEvent> {
+    if (reasoningMessageOpen) {
+      reasoningMessageOpen = false;
+      const msgEnd: ReasoningMessageEndEvent = {
+        type: EventType.REASONING_MESSAGE_END,
+        messageId: reasoningMessageId,
+      };
+      yield msgEnd;
+    }
+    if (reasoningRunOpen) {
+      reasoningRunOpen = false;
+      const end: ReasoningEndEvent = {
+        type: EventType.REASONING_END,
+        messageId: reasoningMessageId,
+      };
+      yield end;
+    }
+  }
+
+  // TanStack's chat() engine runs a multi-turn agent loop: after the model
+  // returns tool calls, the engine tries to execute them and re-prompt. This
+  // produces a second round of TOOL_CALL_START / TOOL_CALL_END events that
+  // duplicate the ones from the first streaming pass. The CopilotKit runtime
+  // handles tool execution externally (via the frontend SDK), so we must stop
+  // converting events once the TanStack adapter signals the first turn is
+  // complete with RUN_FINISHED.
+  let runFinished = false;
 
   for await (const chunk of stream) {
     if (abortSignal.aborted) break;
@@ -236,7 +281,17 @@ export async function* convertTanStackStream(
     const raw = chunk as Record<string, unknown>;
     const type = raw.type as string;
 
-    if (type === "TEXT_MESSAGE_CONTENT" && raw.delta) {
+    // Stop converting after the first RUN_FINISHED — any subsequent events
+    // come from TanStack's internal tool-execution loop and would produce
+    // duplicate TOOL_CALL_END events that violate the ag-ui verify middleware.
+    if (type === "RUN_FINISHED") {
+      runFinished = true;
+      continue;
+    }
+    if (runFinished) continue;
+
+    if (type === "TEXT_MESSAGE_CONTENT" && raw.delta != null) {
+      yield* closeReasoningIfOpen();
       const textEvent: TextMessageChunkEvent = {
         type: EventType.TEXT_MESSAGE_CHUNK,
         role: "assistant",
@@ -245,6 +300,8 @@ export async function* convertTanStackStream(
       };
       yield textEvent;
     } else if (type === "TOOL_CALL_START") {
+      yield* closeReasoningIfOpen();
+      toolNamesById.set(raw.toolCallId as string, raw.toolCallName as string);
       const startEvent: ToolCallStartEvent = {
         type: EventType.TOOL_CALL_START,
         parentMessageId: messageId,
@@ -253,6 +310,7 @@ export async function* convertTanStackStream(
       };
       yield startEvent;
     } else if (type === "TOOL_CALL_ARGS") {
+      yield* closeReasoningIfOpen();
       const argsEvent: ToolCallArgsEvent = {
         type: EventType.TOOL_CALL_ARGS,
         toolCallId: raw.toolCallId as string,
@@ -260,35 +318,134 @@ export async function* convertTanStackStream(
       };
       yield argsEvent;
     } else if (type === "TOOL_CALL_END") {
+      yield* closeReasoningIfOpen();
       const endEvent: ToolCallEndEvent = {
         type: EventType.TOOL_CALL_END,
         toolCallId: raw.toolCallId as string,
       };
       yield endEvent;
     } else if (type === "TOOL_CALL_RESULT") {
+      yield* closeReasoningIfOpen();
+      const toolCallId = raw.toolCallId as string;
+      const toolName = toolNamesById.get(toolCallId);
+      // Accept the payload from either `content` (canonical TanStack shape)
+      // or `result` (alternate shape used by some adapters / tests). Both
+      // state-tool detection and the final TOOL_CALL_RESULT serialization
+      // must read the same field, otherwise STATE_SNAPSHOT/STATE_DELTA can
+      // be silently dropped when upstream uses `result`.
+      const rawPayload = raw.content ?? raw.result;
+
+      const parsedContent =
+        typeof rawPayload === "string" ? safeParse(rawPayload) : rawPayload;
+
+      if (
+        toolName === "AGUISendStateSnapshot" &&
+        parsedContent &&
+        typeof parsedContent === "object" &&
+        "snapshot" in parsedContent
+      ) {
+        const stateSnapshotEvent: StateSnapshotEvent = {
+          type: EventType.STATE_SNAPSHOT,
+          snapshot: (parsedContent as Record<string, unknown>).snapshot,
+        };
+        yield stateSnapshotEvent;
+      }
+
+      if (
+        toolName === "AGUISendStateDelta" &&
+        parsedContent &&
+        typeof parsedContent === "object" &&
+        "delta" in parsedContent
+      ) {
+        const stateDeltaEvent: StateDeltaEvent = {
+          type: EventType.STATE_DELTA,
+          delta: (parsedContent as Record<string, unknown>).delta as never,
+        };
+        yield stateDeltaEvent;
+      }
+
       let serializedContent: string;
-      if (typeof raw.content === "string") {
-        serializedContent = raw.content;
+      if (typeof rawPayload === "string") {
+        serializedContent = rawPayload;
       } else {
         try {
-          serializedContent = JSON.stringify(raw.content ?? raw.result ?? null);
+          serializedContent = JSON.stringify(rawPayload ?? null);
         } catch {
           serializedContent = "[Unserializable tool result]";
         }
       }
+
       const resultEvent: ToolCallResultEvent = {
         type: EventType.TOOL_CALL_RESULT,
         role: "tool",
         messageId: randomUUID(),
-        toolCallId: raw.toolCallId as string,
+        toolCallId,
         content: serializedContent,
       };
       yield resultEvent;
+      toolNamesById.delete(toolCallId);
+    } else if (type === "REASONING_START") {
+      // If a prior reasoning run is still open (no REASONING_END before this
+      // new START), close it cleanly first so MSG_END / END pair correctly.
+      yield* closeReasoningIfOpen();
+      reasoningRunOpen = true;
+      reasoningMessageId = (raw.messageId as string) ?? randomUUID();
+      const startEvt: ReasoningStartEvent = {
+        type: EventType.REASONING_START,
+        messageId: reasoningMessageId,
+      };
+      yield startEvt;
+    } else if (type === "REASONING_MESSAGE_START") {
+      reasoningMessageOpen = true;
+      const evt: ReasoningMessageStartEvent = {
+        type: EventType.REASONING_MESSAGE_START,
+        messageId: reasoningMessageId,
+        role: "reasoning",
+      };
+      yield evt;
+    } else if (type === "REASONING_MESSAGE_CONTENT") {
+      const evt: ReasoningMessageContentEvent = {
+        type: EventType.REASONING_MESSAGE_CONTENT,
+        messageId: reasoningMessageId,
+        delta: raw.delta as string,
+      };
+      yield evt;
+    } else if (type === "REASONING_MESSAGE_END") {
+      reasoningMessageOpen = false;
+      const evt: ReasoningMessageEndEvent = {
+        type: EventType.REASONING_MESSAGE_END,
+        messageId: reasoningMessageId,
+      };
+      yield evt;
+    } else if (type === "REASONING_END") {
+      // If upstream sends REASONING_END while a message is still open, emit
+      // the missing REASONING_MESSAGE_END FIRST so the closing pair stays in
+      // order (MSG_END before END). Otherwise the next non-reasoning chunk
+      // would trigger closeReasoningIfOpen and emit MSG_END after END.
+      if (reasoningMessageOpen) {
+        reasoningMessageOpen = false;
+        const msgEnd: ReasoningMessageEndEvent = {
+          type: EventType.REASONING_MESSAGE_END,
+          messageId: reasoningMessageId,
+        };
+        yield msgEnd;
+      }
+      reasoningRunOpen = false;
+      const evt: ReasoningEndEvent = {
+        type: EventType.REASONING_END,
+        messageId: reasoningMessageId,
+      };
+      yield evt;
     }
-    // Unhandled chunk types are silently ignored.
-    // Known gaps: STATE_SNAPSHOT, STATE_DELTA, and REASONING events are not
-    // converted from TanStack streams. Shared state and reasoning will not
-    // surface when using the TanStack backend. Use the AI SDK backend if these
-    // features are required.
+  }
+
+  yield* closeReasoningIfOpen();
+}
+
+function safeParse(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
   }
 }

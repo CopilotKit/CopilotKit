@@ -17,12 +17,19 @@ from unittest.mock import MagicMock
 # We load crewai_sdk.py directly to bypass copilotkit/crewai/__init__.py
 # which pulls in crewai_agent.py and its heavy transitive dependencies.
 _STUBS = [
-    "litellm", "litellm.types", "litellm.types.utils",
-    "litellm.litellm_core_utils", "litellm.litellm_core_utils.streaming_handler",
-    "crewai", "crewai.flow", "crewai.flow.flow",
-    "crewai.utilities", "crewai.utilities.events",
+    "litellm",
+    "litellm.types",
+    "litellm.types.utils",
+    "litellm.litellm_core_utils",
+    "litellm.litellm_core_utils.streaming_handler",
+    "crewai",
+    "crewai.flow",
+    "crewai.flow.flow",
+    "crewai.utilities",
+    "crewai.utilities.events",
     "crewai.utilities.events.flow_events",
-    "copilotkit.runloop", "copilotkit.protocol",
+    "copilotkit.runloop",
+    "copilotkit.protocol",
 ]
 _originals = {}
 for _name in _STUBS:
@@ -69,7 +76,13 @@ class TestCrewAIAssistantMessageAlwaysEmitted:
                 "role": "assistant",
                 "content": "Let me help.",
                 "tool_calls": [
-                    {"id": "tc-1", "function": {"name": "get_help", "arguments": json.dumps({"topic": "billing"})}},
+                    {
+                        "id": "tc-1",
+                        "function": {
+                            "name": "get_help",
+                            "arguments": json.dumps({"topic": "billing"}),
+                        },
+                    },
                 ],
             },
         ]
@@ -90,13 +103,21 @@ class TestCrewAIAssistantMessageAlwaysEmitted:
                 "role": "assistant",
                 "content": "",
                 "tool_calls": [
-                    {"id": "tc-1", "function": {"name": "get_help", "arguments": json.dumps({"topic": "billing"})}},
+                    {
+                        "id": "tc-1",
+                        "function": {
+                            "name": "get_help",
+                            "arguments": json.dumps({"topic": "billing"}),
+                        },
+                    },
                 ],
             },
         ]
         _, assistant_msgs, tool_call_msgs = _convert_and_split(messages)
 
-        assert len(assistant_msgs) == 1, "Assistant message must be emitted even with empty content"
+        assert len(assistant_msgs) == 1, (
+            "Assistant message must be emitted even with empty content"
+        )
         assert assistant_msgs[0]["id"] == "ai-1"
         assert assistant_msgs[0]["content"] == ""
 
@@ -110,13 +131,18 @@ class TestCrewAIAssistantMessageAlwaysEmitted:
                 "id": "ai-1",
                 "role": "assistant",
                 "tool_calls": [
-                    {"id": "tc-1", "function": {"name": "get_help", "arguments": json.dumps({})}},
+                    {
+                        "id": "tc-1",
+                        "function": {"name": "get_help", "arguments": json.dumps({})},
+                    },
                 ],
             },
         ]
         _, assistant_msgs, tool_call_msgs = _convert_and_split(messages)
 
-        assert len(assistant_msgs) == 1, "Assistant message must be emitted even without content key"
+        assert len(assistant_msgs) == 1, (
+            "Assistant message must be emitted even without content key"
+        )
         assert assistant_msgs[0]["content"] == ""
 
         assert len(tool_call_msgs) == 1
@@ -130,13 +156,19 @@ class TestCrewAIAssistantMessageAlwaysEmitted:
                 "role": "assistant",
                 "content": "",
                 "tool_calls": [
-                    {"id": "tc-1", "name": "get_help", "arguments": {"topic": "billing"}},
+                    {
+                        "id": "tc-1",
+                        "name": "get_help",
+                        "arguments": {"topic": "billing"},
+                    },
                 ],
             },
         ]
         _, assistant_msgs, tool_call_msgs = _convert_and_split(messages)
 
-        assert len(assistant_msgs) == 1, "Assistant message must be emitted for direct-style tool calls"
+        assert len(assistant_msgs) == 1, (
+            "Assistant message must be emitted for direct-style tool calls"
+        )
         assert assistant_msgs[0]["content"] == ""
 
         assert len(tool_call_msgs) == 1
@@ -151,7 +183,13 @@ class TestCrewAIAssistantMessageAlwaysEmitted:
                 "content": "",
                 "tool_calls": [
                     {"function": {"name": "no_id_tool", "arguments": json.dumps({})}},
-                    {"id": "tc-1", "function": {"name": "search", "arguments": json.dumps({"q": "x"})}},
+                    {
+                        "id": "tc-1",
+                        "function": {
+                            "name": "search",
+                            "arguments": json.dumps({"q": "x"}),
+                        },
+                    },
                 ],
             },
         ]
@@ -170,8 +208,20 @@ class TestCrewAIAssistantMessageAlwaysEmitted:
                 "role": "assistant",
                 "content": "",
                 "tool_calls": [
-                    {"id": "tc-1", "function": {"name": "get_help", "arguments": json.dumps({"topic": "billing"})}},
-                    {"id": "tc-2", "function": {"name": "search", "arguments": json.dumps({"query": "docs"})}},
+                    {
+                        "id": "tc-1",
+                        "function": {
+                            "name": "get_help",
+                            "arguments": json.dumps({"topic": "billing"}),
+                        },
+                    },
+                    {
+                        "id": "tc-2",
+                        "function": {
+                            "name": "search",
+                            "arguments": json.dumps({"query": "docs"}),
+                        },
+                    },
                 ],
             },
             {"id": "tm-1", "role": "tool", "tool_call_id": "tc-1", "content": "done"},

@@ -1,0 +1,55 @@
+{
+  "_comment": "D5 multi-turn fixture for /demos/shared-state-read-write. Uses hasToolResult matching: aimock checks for role:tool messages in the request to disambiguate multi-turn fixtures sharing the same userMessage. The 'favorite color' fixture has a unique userMessage and needs no hasToolResult. Fixtures ordered by hasToolResult false→true for readability. The 'Say hi and introduce yourself' and 'Suggest a weekend plan' fixtures exist to outrun the bare 'hi' and 'plan' substring matchers in feature-parity.json — without them, the Greet me and Plan a weekend pills mismatch generic catch-alls. Mirrored verbatim into showcase/aimock/d5-all.json so re-bundling stays consistent.",
+  "fixtures": [
+    {
+      "_comment": "Greet me pill (msg: 'Say hi and introduce yourself.'). Substring is unique enough to win over feature-parity's bare 'hi' matcher because d5-all.json loads before feature-parity.json. Response references the shared-state contract to demonstrate what the demo is about.",
+      "match": {
+        "userMessage": "Say hi and introduce yourself"
+      },
+      "response": {
+        "content": "Hi — I'm your shared-state co-pilot. Your Preferences panel (name, tone, language, interests) is fed to me on every turn, and I jot notes back into the Agent Scratch Pad via set_notes so the UI re-renders. Try setting your name or asking me to remember something."
+      }
+    },
+    {
+      "_comment": "Plan a weekend pill (msg: 'Suggest a weekend plan based on my interests.'). Outranks feature-parity's bare 'plan' matcher for the same reason. Response references the interests panel so the demo's intent is clear even when interests is empty.",
+      "match": {
+        "userMessage": "weekend plan based on my interests"
+      },
+      "response": {
+        "content": "A weekend tailored to your interests panel: if you haven't picked any yet, try Cooking + Travel for a market-and-day-trip combo, or Tech + Books for a maker session and a long reading afternoon. Add interests in the Preferences panel and re-ask for a more specific plan."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "remember that my favorite color is blue",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_notes_001",
+            "name": "set_notes",
+            "arguments": "{\"notes\":[\"Favorite color: blue\"]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "remember that my favorite color is blue",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Got it — I have noted that your favorite color is blue."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "favorite color"
+      },
+      "response": {
+        "content": "Your favorite color is blue — I noted it earlier."
+      }
+    }
+  ]
+}

@@ -2,9 +2,7 @@
   "title": "AG2",
   "root": true,
   "pages": [
-    "---Getting Started---",
     "index",
-    "quickstart",
     "---Generative UI---",
     "...generative-ui",
     "---App Control---",
@@ -13,7 +11,9 @@
     "readables",
     "---AG2---",
     "auth",
-    "---Other---",
-    "...(other)"
+    "---Threads---",
+    "threads",
+    "---Premium Features---",
+    "...premium"
   ]
 }

@@ -1,0 +1,155 @@
+---
+title: Reading agent state
+icon: "lucide/ArrowLeft"
+description: Read the realtime agent state in your native application.
+---
+import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
+import RunAndConnect from "@/snippets/integrations/deepagents/run-and-connect.mdx"
+import { IframeSwitcher } from "@/components/content"
+
+{/* TODO: swap feature-viewer URLs back to /deepagents/ once the dojo supports that route */}
+<IframeSwitcher
+  id="shared-state-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+<Callout type="info">
+  This example demonstrates reading from shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state).
+</Callout>
+
+## What is this?
+
+You can easily use the realtime agent state not only in the chat UI, but also in the native application UX.
+
+## When should I use this?
+
+You can use this when you want to provide the user with feedback about your agent's state. As your agent's
+state updates, you can reflect these updates natively in your application.
+
+## Implementation
+
+<Steps>
+  <Step>
+    ### Run and connect your agent
+    <RunAndConnect components={props.components} />
+  </Step>
+  <Step>
+    ### Define the Agent State
+    LangGraph is stateful. As you transition between nodes, that state is updated and passed to the next node. For this example,
+    let's assume that our agent state looks something like this.
+
+    <Tabs groupId="agent_language" items={["Python", "TypeScript"]} persist>
+      <Tab value="Python">
+        ```python title="agent.py"
+        from copilotkit import CopilotKitState
+        from typing import Literal
+
+        class AgentState(CopilotKitState):
+            language: Literal["english", "spanish"] = "english"
+
+        # The agent reads `state["language"]` from tools or middleware hooks
+        # as it runs — no custom node required.
+        ```
+      </Tab>
+      <Tab value="TypeScript">
+        ```ts title="agent.ts"
+        import { createMiddleware } from "langchain";
+        import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+        import { z } from "zod";
+
+        // Define the state as a middleware. The default flows through automatically.
+        export const languageStateMiddleware = createMiddleware({
+            name: "AgentState",
+            stateSchema: z.object({
+                language: z.enum(["english", "spanish"]).default("english"),
+            }),
+        });
+
+        // Compose with copilotkitMiddleware when constructing the agent:
+        // createDeepAgent({ middleware: [languageStateMiddleware, copilotkitMiddleware], ... })
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step>
+    ### Use the `useAgent` Hook
+    With your agent connected and running all that is left is to call the `useAgent` hook, pass the agent's ID, and
+    read the state.
+
+    ```tsx title="ui/app/page.tsx"
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+
+    function YourMainContent() {
+      // [!code highlight:3]
+      const { agent } = useAgent({
+        agentId: "sample_agent",
+      });
+
+      const language = (agent.state.language as string) ?? "english";
+
+      // ...
+
+      return (
+        // style excluded for brevity
+        <div>
+          <h1>Your main content</h1>
+          {/* [!code highlight:1] */}
+          <p>Language: {language}</p>
+        </div>
+      );
+    }
+    ```
+    <Callout type="info">
+      The `agent.state` is reactive and will automatically update when the agent's state changes.
+    </Callout>
+  </Step>
+  <Step>
+    ### Give it a try!
+    As the agent state updates, your `state` variable will automatically update with it! In this case, you'll see the
+    language set to "english" as that's the initial state we set.
+
+    <Frame>
+      <ImageZoom src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/read-agent-state.png" alt="read agent state" width={1000} height={1000} className="my-0"/>
+    </Frame>
+
+    <Callout type="info">
+      Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter) with
+      the [implementation](#implementation) section applied!
+    </Callout>
+  </Step>
+</Steps>
+
+## Rendering agent state in the chat
+
+You can also render the agent's state in the chat UI using `useRenderTool` or by accessing `agent.state` from `useAgent`. The state is reactive and updates automatically.
+
+```tsx title="ui/app/page.tsx"
+import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+
+function YourMainContent() {
+  // [!code highlight:3]
+  const { agent } = useAgent({
+    agentId: "sample_agent",
+  });
+
+  const language = (agent.state.language as string) ?? "english";
+
+  return (
+    <div>
+      <p>Language: {language}</p>
+    </div>
+  );
+}
+```
+
+## Intermediately Stream and Render Agent State
+By default, the Deep Agents agent state will only update *between* LangGraph node transitions --
+which means state updates will be discontinuous and delayed.
+
+You likely want to render the agent state as it updates **continuously.**
+
+See **[emit intermediate state](/deepagents/shared-state/predictive-state-updates).**

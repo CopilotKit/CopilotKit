@@ -27,11 +27,11 @@ describe("Unpinned spec rejection in validateAll", () => {
     repoRoot = tmpdir();
     process.env.VALIDATE_PINS_REPO_ROOT = repoRoot;
 
-    // Build minimal examples/integrations + showcase/packages pair.
+    // Build minimal examples/integrations + showcase/integrations pair.
     fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
       recursive: true,
     });
-    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+    fs.mkdirSync(path.join(repoRoot, "showcase", "integrations"), {
       recursive: true,
     });
   });
@@ -47,7 +47,7 @@ describe("Unpinned spec rejection in validateAll", () => {
 
   it("FAILs when both sides have same non-exact spec (e.g. 'next')", () => {
     const slug = "mastra";
-    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
     const exDir = path.join(repoRoot, "examples", "integrations", slug);
 
     write(
@@ -78,7 +78,7 @@ describe("Unpinned spec rejection in validateAll", () => {
 
   it("FAILs when both sides have '^1.0.0'", () => {
     const slug = "mastra";
-    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
     const exDir = path.join(repoRoot, "examples", "integrations", slug);
 
     write(
@@ -209,7 +209,7 @@ describe("validateAll cross-drift detection", () => {
     fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
       recursive: true,
     });
-    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+    fs.mkdirSync(path.join(repoRoot, "showcase", "integrations"), {
       recursive: true,
     });
   });
@@ -225,7 +225,7 @@ describe("validateAll cross-drift detection", () => {
 
   it("FAILs when a framework dep is pinned in Dojo but absent in showcase", () => {
     const slug = "mastra";
-    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
     const exDir = path.join(repoRoot, "examples", "integrations", slug);
 
     // Showcase: missing @mastra/core entirely.
@@ -255,7 +255,7 @@ describe("validateAll cross-drift detection", () => {
 
   it("uses PEP 503 canonicalization across hyphens/underscores", () => {
     const slug = "langgraph-python";
-    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
     const exDir = path.join(repoRoot, "examples", "integrations", slug);
 
     // Showcase uses underscores, Dojo uses hyphens. Versions differ — must FAIL.
@@ -282,7 +282,7 @@ describe("validateAll cross-drift detection", () => {
   // exact-pin match both sides → OK, no FAIL.
   it("emits [OK] when exact pins match both sides", () => {
     const slug = "mastra";
-    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
     const exDir = path.join(repoRoot, "examples", "integrations", slug);
     write(
       path.join(pkgDir, "package.json"),
@@ -311,7 +311,7 @@ describe("validateAll cross-drift detection", () => {
   // CI catches the omission.
   it("FAILs (not WARNs) when showcase package has zero dep files", () => {
     const slug = "mastra";
-    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
     const exDir = path.join(repoRoot, "examples", "integrations", slug);
     // Showcase package exists as a directory but has NO dep files.
     fs.mkdirSync(pkgDir, { recursive: true });
@@ -338,7 +338,7 @@ describe("validateAll cross-drift detection", () => {
   // intra-monorepo showcase packages emit spurious pin-drift FAILs.
   it("workspace:* spec emits [SKIP], not [FAIL]", () => {
     const slug = "mastra";
-    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
     const exDir = path.join(repoRoot, "examples", "integrations", slug);
 
     // Showcase pins a workspace ref, Dojo pins an exact version. This
@@ -374,7 +374,7 @@ describe("validateAll cross-drift detection", () => {
 
   it("workspace:^ spec emits [SKIP] when both sides use workspace refs", () => {
     const slug = "mastra";
-    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
     const exDir = path.join(repoRoot, "examples", "integrations", slug);
     write(
       path.join(pkgDir, "package.json"),
@@ -410,7 +410,7 @@ describe("validateAll cross-drift detection", () => {
   it("emits [SKIP] for born-in-showcase slugs", () => {
     // ag2 is in BORN_IN_SHOWCASE.
     const slug = "ag2";
-    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
     fs.mkdirSync(pkgDir, { recursive: true });
     const report = validateAll();
     expect(
@@ -490,7 +490,7 @@ describe("FALLBACK_MAP fallthrough when target missing", () => {
     fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
       recursive: true,
     });
-    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+    fs.mkdirSync(path.join(repoRoot, "showcase", "integrations"), {
       recursive: true,
     });
   });
@@ -506,7 +506,7 @@ describe("FALLBACK_MAP fallthrough when target missing", () => {
 
   it("emits WARN instead of silently dropping when FALLBACK target missing", () => {
     const slug = "strands"; // FALLBACK_MAP points to strands-python
-    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
     // Deliberately DO NOT create strands-python under examples/integrations
     // Showcase has a package.json so it's not an empty package.
     write(
@@ -528,7 +528,7 @@ describe("FALLBACK_MAP fallthrough when target missing", () => {
   // `integrations/<name>` that hides the `examples/` prefix.
   it("missingFallbackTarget path renders relative to REPO_ROOT", () => {
     const slug = "strands"; // FALLBACK_MAP points to strands-python
-    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
     write(
       path.join(pkgDir, "package.json"),
       JSON.stringify({ name: slug, dependencies: {} }),
@@ -557,7 +557,7 @@ describe("FAIL/WARN go to stderr", () => {
     fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
       recursive: true,
     });
-    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+    fs.mkdirSync(path.join(repoRoot, "showcase", "integrations"), {
       recursive: true,
     });
     stderrSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -577,7 +577,7 @@ describe("FAIL/WARN go to stderr", () => {
 
   it("routes [FAIL] lines through console.error", async () => {
     const slug = "mastra";
-    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
     const exDir = path.join(repoRoot, "examples", "integrations", slug);
 
     write(
@@ -607,7 +607,7 @@ describe("FAIL/WARN go to stderr", () => {
   // that was double-logging).
   it("emits a single [FAIL] per parse error (no double-log)", async () => {
     const slug = "mastra";
-    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
     const exDir = path.join(repoRoot, "examples", "integrations", slug);
     write(path.join(pkgDir, "package.json"), "{ not valid json");
     write(
@@ -658,7 +658,7 @@ describe("validateAll exit-code integration", () => {
   // (→ EXIT_DRIFT, 1). This keeps the two exit-code buckets clean
   // for CI triage.
   it("missing packages dir throws UnreadableInputError (exit 3, not drift)", () => {
-    // Do NOT create showcase/packages.
+    // Do NOT create showcase/integrations.
     expect(() => validateAll()).toThrow(/Packages dir not found/);
   });
 
@@ -666,7 +666,7 @@ describe("validateAll exit-code integration", () => {
   // a config / checkout problem, not drift. Route through
   // UnreadableInputError for EXIT_UNREADABLE (3).
   it("empty packages dir throws UnreadableInputError (exit 3, not drift)", () => {
-    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+    fs.mkdirSync(path.join(repoRoot, "showcase", "integrations"), {
       recursive: true,
     });
     fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
@@ -679,14 +679,14 @@ describe("validateAll exit-code integration", () => {
 
   // parse errors must produce a FAIL (force non-zero exit).
   it("parse errors produce a FAIL (not just a WARN)", () => {
-    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+    fs.mkdirSync(path.join(repoRoot, "showcase", "integrations"), {
       recursive: true,
     });
     fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
       recursive: true,
     });
     const slug = "mastra";
-    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
     const exDir = path.join(repoRoot, "examples", "integrations", slug);
     // Deliberately broken JSON.
     write(path.join(pkgDir, "package.json"), "{ not valid json");
@@ -708,14 +708,14 @@ describe("validateAll exit-code integration", () => {
   // The "no dep files" line is a FAIL rather than a WARN,
   // so we assert on .fail here too.
   it("all-files-parse-error must not produce a 'no dep files' message", () => {
-    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+    fs.mkdirSync(path.join(repoRoot, "showcase", "integrations"), {
       recursive: true,
     });
     fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
       recursive: true,
     });
     const slug = "mastra";
-    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
     const exDir = path.join(repoRoot, "examples", "integrations", slug);
     // Showcase: ONLY file is broken JSON.
     write(path.join(pkgDir, "package.json"), "{ not valid json");
@@ -740,14 +740,14 @@ describe("validateAll exit-code integration", () => {
 
   // apps/web/package.json in showcase should be scanned.
   it("apps/web/package.json in a showcase package is scanned", () => {
-    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+    fs.mkdirSync(path.join(repoRoot, "showcase", "integrations"), {
       recursive: true,
     });
     fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
       recursive: true,
     });
     const slug = "mastra";
-    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
     const exDir = path.join(repoRoot, "examples", "integrations", slug);
 
     // Showcase package has only apps/web/package.json (no root, no agent).
@@ -780,14 +780,14 @@ describe("validateAll exit-code integration", () => {
   // in npm names like `@mastra/foo.bar` vs `@mastra/foo-bar` are DIFFERENT
   // packages and must not be collapsed.
   it("JS package.json deps are compared without Python canonicalization", () => {
-    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+    fs.mkdirSync(path.join(repoRoot, "showcase", "integrations"), {
       recursive: true,
     });
     fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
       recursive: true,
     });
     const slug = "mastra";
-    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
     const exDir = path.join(repoRoot, "examples", "integrations", slug);
 
     // With isPython=true hardcoded for JS deps, these names would collapse
@@ -823,14 +823,14 @@ describe("validateAll exit-code integration", () => {
   // framework detection must canonicalize the name before the pattern
   // check so PEP 503 variants (mixed case) are still recognized.
   it("framework detection recognizes mixed-case Python framework names", () => {
-    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+    fs.mkdirSync(path.join(repoRoot, "showcase", "integrations"), {
       recursive: true,
     });
     fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
       recursive: true,
     });
     const slug = "langgraph-python";
-    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
     const exDir = path.join(repoRoot, "examples", "integrations", slug);
 
     // Showcase uses mixed-case `LangGraph` (valid Python distribution name
@@ -884,7 +884,7 @@ describe("Dojo workspace ref absent in showcase -> WARN", () => {
     fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
       recursive: true,
     });
-    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+    fs.mkdirSync(path.join(repoRoot, "showcase", "integrations"), {
       recursive: true,
     });
   });
@@ -899,7 +899,7 @@ describe("Dojo workspace ref absent in showcase -> WARN", () => {
 
   it("emits WARN (not SKIP) when Dojo uses workspace:* and showcase has no entry", () => {
     const slug = "mastra";
-    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
     const exDir = path.join(repoRoot, "examples", "integrations", slug);
     // Showcase has NO @copilotkit/react-core at all.
     write(
@@ -946,7 +946,7 @@ describe("workspace ref on showcase echoes Dojo pin in SKIP", () => {
     fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
       recursive: true,
     });
-    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+    fs.mkdirSync(path.join(repoRoot, "showcase", "integrations"), {
       recursive: true,
     });
   });
@@ -961,7 +961,7 @@ describe("workspace ref on showcase echoes Dojo pin in SKIP", () => {
 
   it("SKIP message includes the Dojo pin when showcase is workspace ref", () => {
     const slug = "mastra";
-    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
     const exDir = path.join(repoRoot, "examples", "integrations", slug);
     write(
       path.join(pkgDir, "package.json"),
@@ -998,7 +998,7 @@ describe("JS deps with framework-matching names are NOT PEP 503 canonicalized", 
     fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
       recursive: true,
     });
-    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+    fs.mkdirSync(path.join(repoRoot, "showcase", "integrations"), {
       recursive: true,
     });
   });
@@ -1013,7 +1013,7 @@ describe("JS deps with framework-matching names are NOT PEP 503 canonicalized", 
 
   it("distinct JS packages `@copilotkit/react-core.ext` vs `@copilotkit/react-core-ext` do NOT collide", () => {
     const slug = "mastra";
-    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
     const exDir = path.join(repoRoot, "examples", "integrations", slug);
     write(
       path.join(pkgDir, "package.json"),
@@ -1054,7 +1054,7 @@ describe("no [parse-error] in pre-report stderr (extended with printReport)", ()
     fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
       recursive: true,
     });
-    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+    fs.mkdirSync(path.join(repoRoot, "showcase", "integrations"), {
       recursive: true,
     });
     stderrSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -1073,7 +1073,7 @@ describe("no [parse-error] in pre-report stderr (extended with printReport)", ()
 
   it("never emits [parse-error] on stderr across collect + printReport", async () => {
     const slug = "mastra";
-    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
     const exDir = path.join(repoRoot, "examples", "integrations", slug);
     write(path.join(pkgDir, "package.json"), "{ not valid json");
     write(
@@ -1102,7 +1102,7 @@ describe("parseErrors suppress the OK line for a slug", () => {
     fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
       recursive: true,
     });
-    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+    fs.mkdirSync(path.join(repoRoot, "showcase", "integrations"), {
       recursive: true,
     });
   });
@@ -1117,7 +1117,7 @@ describe("parseErrors suppress the OK line for a slug", () => {
 
   it("does not emit [OK] for a slug with a mix of valid + parse-errored showcase files", () => {
     const slug = "mastra";
-    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
     const exDir = path.join(repoRoot, "examples", "integrations", slug);
     // Valid root package.json — so `showcase.files.length > 0` and we
     // do NOT hit the `files.length === 0` early-continue path. The
@@ -1153,7 +1153,7 @@ describe("parseErrors suppress the OK line for a slug", () => {
 
   it("does not emit [OK] for a slug with a mix of valid + parse-errored Dojo files", () => {
     const slug = "mastra";
-    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
     const exDir = path.join(repoRoot, "examples", "integrations", slug);
     write(
       path.join(pkgDir, "package.json"),
@@ -1217,12 +1217,12 @@ describe("JS vs Python dep name collisions are kept separate", () => {
     process.env.VALIDATE_PINS_REPO_ROOT = repoRoot;
     try {
       const slug = "mastra";
-      const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+      const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
       const exDir = path.join(repoRoot, "examples", "integrations", slug);
       fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
         recursive: true,
       });
-      fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+      fs.mkdirSync(path.join(repoRoot, "showcase", "integrations"), {
         recursive: true,
       });
       // Showcase: JS openai=4.0.0, Python openai==1.2.3
@@ -1334,7 +1334,7 @@ describe("collectShowcaseDeps: falsy throw from fs.statSync", () => {
       // be stat'd then parsed. We force fs.statSync to throw `null` for
       // exactly this path to simulate a misbehaving fs layer (primitive
       // throw, no error metadata at all).
-      const pkgDir = path.join(tmp, "showcase", "packages", "mastra");
+      const pkgDir = path.join(tmp, "showcase", "integrations", "mastra");
       fs.mkdirSync(pkgDir, { recursive: true });
       const pkgJsonPath = path.join(pkgDir, "package.json");
       write(pkgJsonPath, JSON.stringify({ name: "mastra", dependencies: {} }));

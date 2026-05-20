@@ -1,6 +1,6 @@
 // Registry Generator
 //
-// Scans showcase/packages/*/manifest.yaml, validates each against the
+// Scans showcase/integrations/*/manifest.yaml, validates each against the
 // manifest JSON schema, and produces showcase/shell/src/data/registry.json.
 //
 // Usage: npx tsx showcase/scripts/generate-registry.ts
@@ -17,7 +17,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const ROOT = path.resolve(__dirname, "..");
-const PACKAGES_DIR = path.join(ROOT, "packages");
+const PACKAGES_DIR = path.join(ROOT, "integrations");
 const SCHEMA_PATH = path.join(ROOT, "shared", "manifest.schema.json");
 const FEATURE_REGISTRY_PATH = path.join(
   ROOT,
@@ -32,11 +32,19 @@ const FEATURE_REGISTRY_PATH = path.join(
 const SHELL_OUTPUT_DIR = path.join(ROOT, "shell", "src", "data");
 const SHELL_DOCS_OUTPUT_DIR = path.join(ROOT, "shell-docs", "src", "data");
 const SHELL_DOJO_OUTPUT_DIR = path.join(ROOT, "shell-dojo", "src", "data");
+const SHELL_DASHBOARD_OUTPUT_DIR = path.join(
+  ROOT,
+  "shell-dashboard",
+  "src",
+  "data",
+);
 const OUTPUT_DIRS = [
   SHELL_OUTPUT_DIR,
   SHELL_DOCS_OUTPUT_DIR,
   SHELL_DOJO_OUTPUT_DIR,
+  SHELL_DASHBOARD_OUTPUT_DIR,
 ];
+const PACKAGES_JSON_PATH = path.join(ROOT, "shared", "packages.json");
 const CONSTRAINTS_PATH = path.join(ROOT, "shared", "constraints.yaml");
 const CONSTRAINTS_OUTPUT_PATH = path.join(SHELL_OUTPUT_DIR, "constraints.json");
 
@@ -169,7 +177,317 @@ function validateManifest(
     }
   }
 
+  // Validate not_supported_features doesn't overlap with features
+  const notSupported = (manifest.not_supported_features as string[]) || [];
+  for (const featureId of notSupported) {
+    if (!featureIds.has(featureId)) {
+      errors.push(
+        `${filePath}: Unknown feature ID "${featureId}" in not_supported_features`,
+      );
+    }
+    if (features.includes(featureId)) {
+      errors.push(
+        `${filePath}: Feature "${featureId}" appears in both features and not_supported_features — only one is allowed`,
+      );
+    }
+  }
+
   return errors;
+}
+
+// --- Catalog types ---
+
+interface CatalogCell {
+  id: string;
+  manifestation: "integrated" | "starter";
+  integration: string;
+  integration_name: string;
+  feature: string | null;
+  feature_name: string | null;
+  category: string | null;
+  category_name: string | null;
+  status: "wired" | "stub" | "unshipped" | "unsupported";
+  parity_tier: "reference" | "at_parity" | "partial" | "minimal" | "not_wired";
+  max_depth: number;
+}
+
+interface CatalogMetadata {
+  reference: string;
+  total_cells: number;
+  wired: number;
+  stub: number;
+  unshipped: number;
+  unsupported: number;
+  /** Cells for docs-only features — excluded from wired/stub/unshipped/unsupported. */
+  docs_only: number;
+  generated_at: string;
+}
+
+interface Catalog {
+  metadata: CatalogMetadata;
+  cells: CatalogCell[];
+}
+
+/**
+ * Determine cell status for a (feature, integration) pair.
+ *
+ * - unsupported: feature is in manifest.not_supported_features (framework
+ *   architecturally cannot support this feature). Checked first so this
+ *   takes precedence over the wired/stub/unshipped fallthrough.
+ * - wired: manifest declares the feature AND has a demo with a route for it
+ * - stub: manifest declares the feature AND has a demo, but no route
+ * - unshipped: feature is not in the manifest at all
+ */
+function determineCellStatus(
+  featureId: string,
+  manifest: Record<string, unknown>,
+): "wired" | "stub" | "unshipped" | "unsupported" {
+  const notSupported =
+    (manifest.not_supported_features as string[] | undefined) || [];
+  if (notSupported.includes(featureId)) {
+    return "unsupported";
+  }
+
+  const features = (manifest.features as string[]) || [];
+  if (!features.includes(featureId)) {
+    return "unshipped";
+  }
+
+  const demos = (manifest.demos as Array<{ id: string; route?: string }>) || [];
+  const demo = demos.find((d) => d.id === featureId);
+  if (!demo) {
+    // Feature declared but no demo entry at all
+    return "unshipped";
+  }
+
+  if (demo.route) {
+    return "wired";
+  }
+
+  // Demo exists but no route (e.g. cli-start with command: only)
+  return "stub";
+}
+
+/**
+ * Generate the full 663-cell catalog by cross-joining features x integrations,
+ * plus 17 starter cells. Parity tiers are auto-derived from manifest data.
+ */
+function generateCatalog(
+  featureRegistry: {
+    features: Array<{
+      id: string;
+      name: string;
+      category: string;
+      kind?: string;
+      deprecated?: boolean;
+    }>;
+    categories: Array<{ id: string; name: string }>;
+  },
+  integrations: Record<string, unknown>[],
+): Catalog {
+  // Build feature -> category lookup
+  const featureCategoryMap = new Map<string, string>();
+  for (const feature of featureRegistry.features) {
+    featureCategoryMap.set(feature.id, feature.category);
+  }
+
+  // Build feature -> display name lookup
+  const featureNameMap = new Map<string, string>();
+  for (const feature of featureRegistry.features) {
+    featureNameMap.set(feature.id, feature.name);
+  }
+
+  // Build category -> display name lookup
+  const categoryNameMap = new Map<string, string>();
+  for (const category of featureRegistry.categories) {
+    categoryNameMap.set(category.id, category.name);
+  }
+
+  const allFeatureIds = featureRegistry.features.map((f) => f.id);
+
+  // docs-only features (e.g. cli-start) exist for documentation coverage
+  // tracking only — they have no route, no depth probes, and no health
+  // signals. Exclude them from the wired/stub/unshipped/unsupported metadata
+  // so the stats bar reflects only meaningful matrix cells.
+  const docsOnlyFeatureIds = new Set(
+    featureRegistry.features
+      .filter((f) => f.kind === "docs-only")
+      .map((f) => f.id),
+  );
+
+  // Deprecated features — consolidated/replaced patterns that LGP (the
+  // gold-standard reference integration) intentionally does NOT implement,
+  // but legacy integrations still serve. The catalog emits cells for all
+  // (integration × feature) pairs uniformly; visibility is controlled at
+  // the dashboard layer via a "Show deprecated" toggle that filters whole
+  // FEATURE ROWS based on `feature.deprecated`. That way toggle-on
+  // surfaces both the audit trail (integrations that declare these
+  // legacy patterns) and the empty cells (LGP shows N/A for them) in one
+  // pass without missing-data artifacts.
+
+  // Step 1: Cross-join to produce integrated cells and collect wired features
+  // and unsupported features per integration.
+  const wiredFeaturesPerIntegration = new Map<string, Set<string>>();
+  const unsupportedFeaturesPerIntegration = new Map<string, Set<string>>();
+  const cells: CatalogCell[] = [];
+
+  for (const integration of integrations) {
+    const slug = integration.slug as string;
+    const integrationName = integration.name as string;
+    const wiredFeatures = new Set<string>();
+    const unsupportedFeatures = new Set<string>();
+
+    for (const featureId of allFeatureIds) {
+      const status = determineCellStatus(featureId, integration);
+
+      if (status === "wired") {
+        wiredFeatures.add(featureId);
+      }
+      if (status === "unsupported") {
+        unsupportedFeatures.add(featureId);
+      }
+
+      const categoryId = featureCategoryMap.get(featureId) || null;
+
+      // Unsupported and unshipped cells share max_depth=0 — neither has any
+      // probes to regress against. They differ only in *intent*: unsupported
+      // is a hard architectural floor, unshipped is just unbuilt.
+      const maxDepth =
+        status === "unshipped" || status === "unsupported" ? 0 : 4;
+
+      cells.push({
+        id: `${slug}/${featureId}`,
+        manifestation: "integrated",
+        integration: slug,
+        integration_name: integrationName,
+        feature: featureId,
+        feature_name: featureNameMap.get(featureId) || null,
+        category: categoryId,
+        category_name: categoryId
+          ? categoryNameMap.get(categoryId) || null
+          : null,
+        status,
+        parity_tier: "not_wired", // placeholder, computed below
+        max_depth: maxDepth,
+      });
+    }
+
+    wiredFeaturesPerIntegration.set(slug, wiredFeatures);
+    unsupportedFeaturesPerIntegration.set(slug, unsupportedFeatures);
+  }
+
+  // Step 2: Reference integration — always langgraph-python.
+  const referenceSlug = "langgraph-python";
+
+  const referenceWiredFeatures =
+    wiredFeaturesPerIntegration.get(referenceSlug)!;
+  console.log(
+    `\nCatalog: reference integration = ${referenceSlug} (${referenceWiredFeatures.size} wired features)`,
+  );
+
+  // Step 3: Compute parity tiers for each integration
+  const integrationTiers = new Map<
+    string,
+    "reference" | "at_parity" | "partial" | "minimal" | "not_wired"
+  >();
+
+  for (const [slug, wiredSet] of wiredFeaturesPerIntegration) {
+    if (slug === referenceSlug) {
+      integrationTiers.set(slug, "reference");
+      continue;
+    }
+
+    // Parity is computed against the *expected* feature set for this
+    // integration: reference features minus features this integration's
+    // framework architecturally cannot support. A framework that legitimately
+    // can't support a feature should not be penalised for the gap.
+    const unsupportedSet =
+      unsupportedFeaturesPerIntegration.get(slug) ?? new Set<string>();
+    const expectedFromReference = [...referenceWiredFeatures].filter(
+      (f) => !unsupportedSet.has(f),
+    );
+
+    // Check if this integration's wired features cover everything in
+    // expectedFromReference (i.e., it has parity over the supportable subset).
+    const isSuperset = expectedFromReference.every((f) => wiredSet.has(f));
+    if (isSuperset) {
+      integrationTiers.set(slug, "at_parity");
+      continue;
+    }
+
+    // Count intersection with the expected (supportable) reference features.
+    const intersectionSize = expectedFromReference.filter((f) =>
+      wiredSet.has(f),
+    ).length;
+    if (intersectionSize >= 3) {
+      integrationTiers.set(slug, "partial");
+    } else if (intersectionSize >= 1) {
+      integrationTiers.set(slug, "minimal");
+    } else {
+      integrationTiers.set(slug, "not_wired");
+    }
+  }
+
+  // Step 4: Apply parity tiers to all integrated cells
+  for (const cell of cells) {
+    if (cell.manifestation === "integrated") {
+      cell.parity_tier = integrationTiers.get(cell.integration)!;
+    }
+  }
+
+  // Step 5: Add 17 starter cells
+  for (const integration of integrations) {
+    const slug = integration.slug as string;
+    const integrationName = integration.name as string;
+    const starter = integration.starter as Record<string, unknown> | undefined;
+    if (starter) {
+      cells.push({
+        id: `starter/${slug}`,
+        manifestation: "starter",
+        integration: slug,
+        integration_name: integrationName,
+        feature: null,
+        feature_name: null,
+        category: null,
+        category_name: null,
+        status: "wired",
+        parity_tier: integrationTiers.get(slug) || "not_wired",
+        max_depth: 4,
+      });
+    }
+  }
+
+  // Step 6: Compute metadata
+  // Exclude docs-only cells from the headline counts — they are purely
+  // informational and don't participate in depth, health, or coverage.
+  const countableCells = cells.filter(
+    (c) => c.feature === null || !docsOnlyFeatureIds.has(c.feature),
+  );
+  const docsOnlyCount = cells.length - countableCells.length;
+  const wiredCount = countableCells.filter((c) => c.status === "wired").length;
+  const stubCount = countableCells.filter((c) => c.status === "stub").length;
+  const unshippedCount = countableCells.filter(
+    (c) => c.status === "unshipped",
+  ).length;
+  const unsupportedCount = countableCells.filter(
+    (c) => c.status === "unsupported",
+  ).length;
+
+  const metadata: CatalogMetadata = {
+    reference: referenceSlug,
+    total_cells: countableCells.length,
+    wired: wiredCount,
+    stub: stubCount,
+    unshipped: unshippedCount,
+    unsupported: unsupportedCount,
+    docs_only: docsOnlyCount,
+    generated_at: new Date().toISOString(),
+  };
+
+  return {
+    metadata,
+    cells,
+  };
 }
 
 function main() {
@@ -224,17 +542,7 @@ function main() {
   // schema validation, since `docs_links` isn't part of the manifest schema.
   // Best-effort: missing file or stale shapes are tolerated and don't error.
   for (const manifest of integrations) {
-    // Runtime guard: schema validation above already enforces `slug`, but
-    // do not trust that guarantee here — a silently-undefined slug fed
-    // to path.join yields "<packages-dir>/undefined" and would produce
-    // an empty docs_links without any error. Fail loudly instead.
-    if (typeof manifest.slug !== "string" || manifest.slug.length === 0) {
-      allErrors.push(
-        `manifest is missing a valid string "slug" field (got ${typeof manifest.slug}). Cannot load docs-links.`,
-      );
-      continue;
-    }
-    const pkgDir = path.join(PACKAGES_DIR, manifest.slug);
+    const pkgDir = path.join(PACKAGES_DIR, manifest.slug as string);
     manifest.docs_links = loadDocsLinks(pkgDir, allErrors);
   }
 
@@ -273,10 +581,18 @@ function main() {
     return String(a.name).localeCompare(String(b.name));
   });
 
+  // Load packages list from shared/packages.json
+  let packages: Array<{ slug: string; name: string }> = [];
+  if (fs.existsSync(PACKAGES_JSON_PATH)) {
+    const packagesRaw = fs.readFileSync(PACKAGES_JSON_PATH, "utf-8");
+    packages = JSON.parse(packagesRaw);
+    console.log(`\nLoaded ${packages.length} packages from packages.json`);
+  }
+
   const registry = {
-    generated_at: new Date().toISOString(),
     feature_registry: featureRegistry,
     integrations,
+    packages,
   };
 
   const registryJson = JSON.stringify(registry, null, 2) + "\n";
@@ -295,6 +611,17 @@ function main() {
     JSON.stringify(constraints, null, 2) + "\n",
   );
   console.log(`Constraints written: ${CONSTRAINTS_OUTPUT_PATH}`);
+
+  // --- Catalog generation (D0-D4 dashboard matrix) ---
+  const catalog = generateCatalog(featureRegistry, integrations);
+  const catalogJson = JSON.stringify(catalog, null, 2) + "\n";
+  for (const dir of OUTPUT_DIRS) {
+    const catalogPath = path.join(dir, "catalog.json");
+    fs.writeFileSync(catalogPath, catalogJson);
+    console.log(
+      `Catalog generated: ${catalogPath} (${catalog.metadata.total_cells} cells)`,
+    );
+  }
 }
 
 main();

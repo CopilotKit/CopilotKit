@@ -17,6 +17,7 @@ This hook only handles rendering. It does not register a frontend handler.
 ### Wildcard overload
 
 ```tsx
+import { useRenderTool } from "@copilotkit/react-core/v2";
 
 useRenderTool(
   {
@@ -31,6 +32,8 @@ useRenderTool(
 ### Named overload
 
 ```tsx
+import { z } from "zod";
+import { useRenderTool } from "@copilotkit/react-core/v2";
 
 useRenderTool(
   {

@@ -49,6 +49,11 @@ class MockMCPProxyAgent extends AbstractAgent {
     this.runAgentResponses.set(method, response);
   }
 
+  addMessage(msg: Parameters<AbstractAgent["addMessage"]>[0]) {
+    this.addMessageCalls.push(msg as any);
+    return super.addMessage(msg);
+  }
+
   emit(event: BaseEvent) {
     if (event.type === EventType.RUN_STARTED) {
       this.isRunning = true;
@@ -68,66 +73,6 @@ class MockMCPProxyAgent extends AbstractAgent {
     act(() => {
       this.subject.complete();
     });
-  }
-
-  clone(): MockMCPProxyAgent {
-    const cloned = new MockMCPProxyAgent();
-    cloned.agentId = this.agentId;
-    type Internal = {
-      subject: Subject<BaseEvent>;
-      runAgentCalls: Array<{ input: Partial<RunAgentInput> }>;
-      addMessageCalls: Array<{ id: string; role: string; content: string }>;
-      runAgentResponses: Map<string, unknown>;
-    };
-    (cloned as unknown as Internal).subject = (
-      this as unknown as Internal
-    ).subject;
-    (cloned as unknown as Internal).runAgentCalls = (
-      this as unknown as Internal
-    ).runAgentCalls;
-    (cloned as unknown as Internal).addMessageCalls = (
-      this as unknown as Internal
-    ).addMessageCalls;
-    (cloned as unknown as Internal).runAgentResponses = (
-      this as unknown as Internal
-    ).runAgentResponses;
-
-    const registry = this;
-    Object.defineProperty(cloned, "isRunning", {
-      get() {
-        return registry.isRunning;
-      },
-      set(v: boolean) {
-        registry.isRunning = v;
-      },
-      configurable: true,
-      enumerable: true,
-    });
-
-    const proto = MockMCPProxyAgent.prototype;
-    cloned.runAgent = async function (
-      input?: Partial<RunAgentInput>,
-    ): Promise<RunAgentResult> {
-      const proxiedRequest = input?.forwardedProps?.__proxiedMCPRequest;
-      if (proxiedRequest) {
-        return registry.runAgent(input);
-      }
-      return proto.runAgent.call(cloned, input);
-    };
-
-    // Track addMessage calls on the clone (the component uses the clone)
-    const origAddMessage = cloned.addMessage.bind(cloned);
-    cloned.addMessage = function (msg: Parameters<typeof origAddMessage>[0]) {
-      registry.addMessageCalls.push(msg as any);
-      return origAddMessage(msg);
-    };
-
-    // Proxy run() calls so spies on the registry's run() see clone invocations
-    cloned.run = function (input: RunAgentInput): Observable<BaseEvent> {
-      return registry.run(input);
-    };
-
-    return cloned;
   }
 
   async detachActiveRun(): Promise<void> {}

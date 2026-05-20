@@ -1,0 +1,53 @@
+{
+  "_comment": "D5 fixture for /demos/tool-rendering against LangGraph Python (LGP). Uses hasToolResult matching: aimock checks for role:tool messages in the request to disambiguate multi-turn fixtures sharing the same userMessage. Fixtures ordered by hasToolResult false→true for readability. The d5-tool-rendering-custom-catchall probe sends BOTH `weather in Tokyo` and `What's the current price of AAPL?` — both pairs (call + narration) are present here so the per-tool renderer mounts a WeatherCard on turn 1 and a StockCard on turn 2.",
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "current price of AAPL",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_stock_price_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "current price of AAPL",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "AAPL is trading at $189.42, up 1.27% on the day."
+      }
+    }
+  ]
+}

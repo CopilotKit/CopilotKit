@@ -39,7 +39,6 @@ export interface Integration {
 }
 
 export interface Registry {
-  generated_at: string;
   feature_registry: {
     version: string;
     categories: FeatureCategory[];
@@ -50,16 +49,29 @@ export interface Registry {
 
 const registry = registryData as Registry;
 
+// Hide registry entries with no dojo route. Kept in the registry so
+// harness/parity/dashboard still see them.
+const HIDDEN_DOJO_FEATURE_IDS = new Set<string>(["cli-start"]);
+
+function withVisibleDemos(integration: Integration): Integration {
+  const visible = integration.demos.filter(
+    (d) => !HIDDEN_DOJO_FEATURE_IDS.has(d.id),
+  );
+  if (visible.length === integration.demos.length) return integration;
+  return { ...integration, demos: visible };
+}
+
 export function getRegistry(): Registry {
   return registry;
 }
 
 export function getIntegrations(): Integration[] {
-  return registry.integrations;
+  return registry.integrations.map(withVisibleDemos);
 }
 
 export function getIntegration(slug: string): Integration | undefined {
-  return registry.integrations.find((i) => i.slug === slug);
+  const found = registry.integrations.find((i) => i.slug === slug);
+  return found ? withVisibleDemos(found) : undefined;
 }
 
 export function getFeatures(): Feature[] {

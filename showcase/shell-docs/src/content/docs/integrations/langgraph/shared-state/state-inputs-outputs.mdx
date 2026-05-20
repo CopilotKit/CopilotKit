@@ -3,7 +3,6 @@ title: Input/Output Schemas
 icon: "lucide/Play"
 description: Decide which state properties are received and returned to the frontend
 ---
-
 ## What is this?
 
 Not all state properties are relevant for frontend-backend sharing.
@@ -37,17 +36,19 @@ In addition, some state properties contain a lot of information. Syncing them ba
         </Tab>
         <Tab value="TypeScript">
         ```typescript title="agent-js/sample_agent/agent.ts"
+        import { StateSchema } from "@langchain/langgraph";
+        import { CopilotKitStateSchema } from "@copilotkit/sdk-js/langgraph";
+        import { z } from "zod";
 
-        const AgentState = Annotation.Root({
-          ...CopilotKitStateAnnotation.spec,
-          question: Annotation<string>,
-          answer: Annotation<string>,
-          resources: Annotation<string[]>,
+        const AgentState = new StateSchema({
+          ...CopilotKitStateSchema.fields,
+          question: z.string(),
+          answer: z.string(),
+          resources: z.array(z.string()).default(() => []),
         })
         ```
         </Tab>
     </Tabs>
-
   </Step>
   <Step>
     ### Divide state to Input and Output
@@ -116,37 +117,35 @@ In addition, some state properties contain a lot of information. Syncing them ba
           ```
           </Tab>
           <Tab value="TypeScript">
-            <Callout type="warn">
-              While we work on adding Zod schema support for LangGraph TypeScript, a workaround is required to ignore a typescript error when defining "full state".
-
-              You can see this at the very end of the TypeScript implementation snippet.
-            </Callout>
             ```typescript title="agent-js/sample_agent/agent.ts"
+              import { StateSchema } from "@langchain/langgraph";
+              import { CopilotKitStateSchema } from "@copilotkit/sdk-js/langgraph";
+              import { z } from "zod";
 
               // Divide the state to 3 parts
 
               // An input schema for inputs you are willing to accept from the frontend
-              const InputAnnotation = Annotation.Root({
-                ...CopilotKitStateAnnotation.spec,
-                question: Annotation<string>,
+              const InputSchema = new StateSchema({
+                ...CopilotKitStateSchema.fields,
+                question: z.string(),
               });
 
               // Output schema for output you are willing to pass to the frontend
-              const OutputAnnotation = Annotation.Root({
-                ...CopilotKitStateAnnotation.spec,
-                answer: Annotation<string>,
+              const OutputSchema = new StateSchema({
+                ...CopilotKitStateSchema.fields,
+                answer: z.string(),
               });
 
               // The full schema, including the inputs, outputs and internal state ("resources" in our case)
-              export const AgentStateAnnotation = Annotation.Root({
-                ...CopilotKitStateAnnotation.spec,
-                ...OutputAnnotation.spec,
-                ...InputAnnotation.spec,
-                resources: Annotation<string[]>,
+              export const AgentStateSchema = new StateSchema({
+                ...CopilotKitStateSchema.fields,
+                ...OutputSchema.fields,
+                ...InputSchema.fields,
+                resources: z.array(z.string()).default(() => []),
               });
 
               // Define a typed state that supports the entire
-              export type AgentState = typeof AgentStateAnnotation.State;
+              export type AgentState = typeof AgentStateSchema.State;
 
               async function answerNode(state: AgentState, config: RunnableConfig) {
                 const model = new ChatOpenAI()
@@ -173,10 +172,9 @@ In addition, some state properties contain a lot of information. Syncing them ba
 
               // finally, before compiling the graph, we define the 3 state components
               const workflow = new StateGraph({
-                input: InputAnnotation,
-                output: OutputAnnotation,
-                // @ts-expect-error -- LangGraph does not expect a "full schema with internal properties".
-                stateSchema: AgentStateAnnotation,
+                input: InputSchema,
+                output: OutputSchema,
+                stateSchema: AgentStateSchema,
               })
                 .addNode("answer_node", answerNode) // add all the different nodes and edges and compile the graph
                 .addEdge(START, "answer_node")
@@ -185,7 +183,6 @@ In addition, some state properties contain a lot of information. Syncing them ba
             ```
           </Tab>
       </Tabs>
-
   </Step>
   <Step>
     ### Give it a try!
@@ -195,6 +192,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
     - The UI has no access to resources.
 
     ```tsx
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 
     const { agent } = useAgent({
       agentId: "sample_agent",
@@ -204,6 +202,5 @@ In addition, some state properties contain a lot of information. Syncing them ba
 
     console.log(answer) // You can expect seeing "answer" change, while the others are not returned from the agent
     ```
-
   </Step>
 </Steps>

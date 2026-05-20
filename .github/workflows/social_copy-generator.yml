@@ -14,8 +14,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
-  issues: write
 
 jobs:
   post-comment:
@@ -23,9 +21,13 @@ jobs:
       (github.event_name == 'workflow_dispatch') ||
       (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
     steps:
       - name: Post initial comment
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         env:
           PR_NUMBER: ${{ github.event.inputs.pr_number || github.event.pull_request.number }}
         with:
@@ -79,13 +81,17 @@ jobs:
       contains(github.event.comment.body, '<!-- social-copy-generator -->') &&
       contains(github.event.comment.body, '- [x]')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
     concurrency:
       group: social-copy-${{ github.event.issue.number }}
       cancel-in-progress: true
     steps:
       - name: Verify checkbox transition and permissions
         id: verify
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             // Check that the sender has write access (not an external collaborator or random user)
@@ -125,7 +131,7 @@ jobs:
 
       - name: Update comment to generating state
         if: steps.verify.outputs.should_run == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         env:
           COMMENT_ID: ${{ steps.verify.outputs.comment_id }}
         with:
@@ -147,7 +153,7 @@ jobs:
       - name: Get PR details
         if: steps.verify.outputs.should_run == 'true'
         id: pr
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             const pr = await github.rest.pulls.get({
@@ -164,10 +170,11 @@ jobs:
 
       - name: Checkout repo
         if: steps.verify.outputs.should_run == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: ${{ steps.pr.outputs.head_sha }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Get PR diff
         if: steps.verify.outputs.should_run == 'true'
@@ -307,7 +314,7 @@ jobs:
       - name: Upload social copy artifact
         if: steps.verify.outputs.should_run == 'true' && always() && steps.extract.outcome == 'success'
         id: artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: social-copy-pr${{ github.event.issue.number }}
           path: .claude-tmp/pr-social-copy.md
@@ -315,7 +322,7 @@ jobs:
 
       - name: Update comment with results
         if: steps.verify.outputs.should_run == 'true' && always() && steps.extract.outcome == 'success'
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         env:
           HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
           COMMENT_ID: ${{ steps.verify.outputs.comment_id }}
@@ -347,7 +354,7 @@ jobs:
 
       - name: Update comment on failure
         if: steps.verify.outputs.should_run == 'true' && always() && steps.extract.outcome != 'success'
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         env:
           COMMENT_ID: ${{ steps.verify.outputs.comment_id }}
         with:

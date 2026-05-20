@@ -610,4 +610,79 @@ describe("thread store", () => {
       archived: true,
     });
   });
+
+  it("sorts by lastRunAt when present, falling back to updatedAt", async () => {
+    // thread-newest-run: oldest updatedAt, but most recent lastRunAt → should sort first
+    // thread-recent-meta: newer updatedAt, no lastRunAt → second (by updatedAt)
+    // thread-stale: oldest updatedAt, no lastRunAt → last
+    // This simulates the "archive bumps updatedAt" scenario: lastRunAt reflects
+    // actual agent activity, so ordering stays stable across metadata-only edits.
+    const mixedThreads: ThreadRecord[] = [
+      {
+        id: "thread-stale",
+        organizationId: "org-1",
+        agentId: "agent-1",
+        createdById: "user-1",
+        name: "Stale",
+        archived: false,
+        createdAt: "2026-01-01T00:00:00Z",
+        updatedAt: "2026-01-01T00:00:00Z",
+      },
+      {
+        id: "thread-recent-meta",
+        organizationId: "org-1",
+        agentId: "agent-1",
+        createdById: "user-1",
+        name: "Recent metadata edit",
+        archived: true,
+        createdAt: "2026-01-02T00:00:00Z",
+        updatedAt: "2026-04-20T10:00:00Z",
+      },
+      {
+        id: "thread-newest-run",
+        organizationId: "org-1",
+        agentId: "agent-1",
+        createdById: "user-1",
+        name: "Newest run",
+        archived: false,
+        createdAt: "2026-01-03T00:00:00Z",
+        updatedAt: "2026-01-05T00:00:00Z",
+        lastRunAt: "2026-04-21T12:00:00Z",
+      },
+    ];
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: mixedThreads, joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(
+      createEnvironment(fetchMock as typeof fetch),
+    );
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+      includeArchived: true,
+    });
+
+    await flushEffects();
+
+    const ids = ɵselectThreads(store.getState()).map((thread) => thread.id);
+    expect(ids).toEqual([
+      "thread-newest-run", // lastRunAt 2026-04-21
+      "thread-recent-meta", // no lastRunAt, updatedAt 2026-04-20
+      "thread-stale", // no lastRunAt, updatedAt 2026-01-01
+    ]);
+  });
 });

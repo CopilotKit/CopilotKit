@@ -9,16 +9,32 @@
 
 import React from "react";
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
-import rehypeHighlight from "rehype-highlight";
-import { SidebarNav } from "@/components/sidebar-nav";
-import { SidebarLink } from "@/components/sidebar-link";
+import {
+  rehypeCode,
+  rehypeCodeDefaultOptions,
+} from "fumadocs-core/mdx-plugins";
+import {
+  DocsPage,
+  DocsBody,
+  DocsTitle,
+  DocsDescription,
+} from "fumadocs-ui/page";
+import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { Snippet } from "@/components/snippet";
+import { WhenFrameworkHas } from "@/components/when-framework-has";
+import { Tabs as DocsTabs } from "@/components/docs-tabs";
+import { MdxCodeBlock } from "@/components/mdx-code-block";
 import { docsComponents } from "@/lib/mdx-registry";
+import { transformerMeta } from "@/lib/rehype-code-meta";
+import { getIntegration, getTabDefault } from "@/lib/registry";
+import type { NavNode } from "@/lib/docs-render";
+import { navTreeToPageTree } from "@/lib/page-tree-bridge";
+import { tocHeadingsToFumadocs } from "@/lib/toc-bridge";
 import {
-  NavNode,
   buildBreadcrumbs,
   buildNavTree,
   convertTablesInJSX,
@@ -26,10 +42,24 @@ import {
   loadDoc,
   CONTENT_DIR,
 } from "@/lib/docs-render";
+import {
+  childrenToText,
+  extractHeadings,
+  filterFrameworkScopedBlocks,
+  slugify,
+} from "@/lib/toc";
 
 export interface DocsPageViewProps {
   /** Slug path relative to `CONTENT_DIR` (no leading slash). */
   slugPath: string;
+  /**
+   * Optional content path to load the MDX from, when it differs from
+   * `slugPath`. Used by the framework-scoped router when falling back
+   * from a missing root page to a per-framework override (e.g. BIA
+   * serves `integrations/built-in-agent/server-tools.mdx` at the URL
+   * `/built-in-agent/server-tools`). Defaults to `slugPath`.
+   */
+  contentSlugPath?: string;
   /**
    * Prefix used to build sidebar + breadcrumb hrefs.
    * - `/docs` for the classic docs route
@@ -38,10 +68,6 @@ export interface DocsPageViewProps {
   slugHrefPrefix: string;
   /** Optional framework slug to thread into <Snippet> as a default. */
   frameworkOverride?: string | null;
-  /** Label for the sidebar's root link. */
-  sidebarTitle?: string;
-  /** Optional "back" link shown above the sidebar title. */
-  backLink?: { label: string; href: string } | null;
   /** Pre-built nav tree. When omitted, defaults to the full docs tree. */
   navTree?: NavNode[];
   /** Banner slot rendered above the main content column. */
@@ -59,16 +85,15 @@ export interface DocsPageViewProps {
 
 export async function DocsPageView({
   slugPath,
+  contentSlugPath,
   slugHrefPrefix,
   frameworkOverride,
-  sidebarTitle = "CopilotKit Docs",
-  backLink = null,
   navTree,
   bannerSlot,
   hideBody = false,
   ContentWrapper,
 }: DocsPageViewProps) {
-  const doc = loadDoc(slugPath);
+  const doc = loadDoc(contentSlugPath ?? slugPath);
   if (!doc) {
     return (
       <div className="mx-auto max-w-3xl px-6 py-16 text-center">
@@ -82,204 +107,286 @@ export async function DocsPageView({
     );
   }
 
-  // Strip the YAML frontmatter block. `\r?\n?` at the tail handles both
-  // LF- and CRLF-authored MDX; otherwise Windows line endings leave the
-  // trailing `\r\n` after the closing `---` in the rendered body.
-  let rawContent = doc.source.replace(/^---[\s\S]*?---\r?\n?/, "");
-
-  // The page wrapper below renders `doc.fm.title` inside its own <h1>. If the
-  // MDX body also leads with a `# Title` heading MDXRemote renders a second
-  // h1 and the page shows two stacked titles. Strip the leading body H1 ONLY
-  // when it matches the FM title after whitespace normalization — otherwise
-  // a distinct body heading would be silently dropped. Mirrors the ag-ui
-  // route's behavior (see app/ag-ui/[[...slug]]/page.tsx). CRLF-safe: the
-  // regex uses `\r?\n` so Windows-authored MDX is handled.
-  const bodyH1Match = rawContent.match(/^(\s*\r?\n)*#\s+(.+?)\s*\r?\n/);
-  const bodyH1 = bodyH1Match ? bodyH1Match[2].trim() : null;
-  if (bodyH1) {
-    const normalizedFm = doc.fm.title.replace(/\s+/g, " ").trim();
-    const normalizedBody = bodyH1.replace(/\s+/g, " ").trim();
-    if (normalizedFm === normalizedBody) {
-      rawContent = rawContent.replace(/^(\s*\r?\n)*#\s+.+\r?\n?/, "");
-    }
-  }
-
+  const rawContent = doc.source.replace(/^---[\s\S]*?---\n?/, "");
   const inlined = inlineSnippets(rawContent, slugPath);
   const content = convertTablesInJSX(inlined);
 
   const defaultFramework = frameworkOverride ?? doc.fm.defaultFramework;
   const defaultCell = doc.fm.defaultCell;
 
+  // Extract H2/H3 headings for the right-rail TOC. Run on the final
+  // content (post-snippet-inlining) so a page like threads.mdx whose
+  // body comes from a shared snippet still surfaces its sections.
+  //
+  // Filter `<WhenFrameworkHas>` branches against the active framework
+  // first so the TOC only lists the headings that actually render in
+  // the body. Without this, framework-gated pages like `/auth` surface
+  // every per-framework variant's headings simultaneously even though
+  // only one variant's body renders.
+  const tocSource = filterFrameworkScopedBlocks(content, defaultFramework);
+  const tocHeadings =
+    hideBody || doc.fm.hideTOC ? [] : extractHeadings(tocSource);
+
   const tree = navTree ?? buildNavTree(CONTENT_DIR);
+  // Breadcrumb root label tracks the framework whose content is being
+  // rendered. On framework-scoped pages this reads "LangGraph (Python)";
+  // on unscoped pages it falls back to "Docs". The sidebar no longer
+  // surfaces this label as a separate link — the selector pill at the
+  // top of the sidebar already names the framework.
+  const rootLabel =
+    (frameworkOverride && getIntegration(frameworkOverride)?.name) || "Docs";
   const breadcrumbs = buildBreadcrumbs(slugPath, {
-    rootLabel: sidebarTitle,
+    rootLabel,
     rootHref: slugHrefPrefix || "/",
     slugHrefPrefix,
   });
 
-  function renderNavItem(node: NavNode, depth: number = 0): React.ReactNode {
-    const indent = depth * 16;
-    if (node.type === "section") {
-      return (
-        <div
-          key={`section-${node.title}`}
-          className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mt-4 mb-2"
-          style={{ paddingLeft: `${indent}px` }}
-        >
-          {node.title}
-        </div>
-      );
-    }
-    if (node.type === "page") {
-      const isActive = node.slug === slugPath;
-      return (
-        <div style={{ paddingLeft: `${indent}px` }} key={node.slug}>
-          <SidebarLink
-            slug={node.slug}
-            active={isActive}
-            className={`block py-[5px] text-[13px] transition-colors ${
-              isActive
-                ? "text-[var(--accent)] font-medium"
-                : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-            }`}
-          >
-            {node.title}
-          </SidebarLink>
-        </div>
-      );
-    }
-    return (
-      <div key={`group-${node.slug}`} className="mt-1">
-        <div
-          className="py-[5px] text-[13px] font-medium text-[var(--text-secondary)]"
-          style={{ paddingLeft: `${indent}px` }}
-        >
-          {node.title}
-        </div>
-        {node.children.map((child) => renderNavItem(child, depth + 1))}
-      </div>
-    );
-  }
+  // Bridge shell-docs's NavNode tree + headings into Fumadocs's shapes
+  // so DocsLayout (sidebar) and DocsPage (right-rail TOC) can render them.
+  const pageTree = navTreeToPageTree(tree, slugHrefPrefix);
+  const fumadocsToc = tocHeadingsToFumadocs(tocHeadings);
 
   return (
-    <div className="flex" style={{ height: "calc(100vh - 52px)" }}>
-      <SidebarNav className="w-[240px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
-        <SidebarFrameworkSelector />
-        {backLink && (
-          <Link
-            href={backLink.href}
-            className="block text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] mb-3 transition-colors"
-          >
-            {backLink.label}
-          </Link>
-        )}
-        <Link
-          href={slugHrefPrefix || "/"}
-          className="block text-xs font-mono uppercase tracking-widest text-[var(--accent)] mb-4"
-        >
-          {sidebarTitle}
-        </Link>
-        {tree.map((node) => renderNavItem(node))}
-      </SidebarNav>
+    <ShellDocsLayout tree={pageTree} banner={<SidebarFrameworkSelector />}>
+      <DocsPage
+        toc={fumadocsToc}
+        breadcrumb={{ enabled: false }}
+        footer={{ enabled: false }}
+        tableOfContentPopover={{ enabled: false }}
+      >
+        <div className="docs-inner-content max-w-[900px] mx-auto px-4 md:px-6 pt-2 pb-6 md:pt-3 xl:pt-4">
+          {/* Breadcrumb styling tracks canonical fumadocs PageBreadcrumb:
+           * text-sm with a ChevronRight separator, intermediate links
+           * muted, last segment in primary text + medium weight. */}
+          <nav className="flex items-center gap-1.5 text-sm text-[var(--text-muted)] mb-4 flex-wrap">
+            {breadcrumbs.map((crumb, i) => {
+              const isLast = i === breadcrumbs.length - 1;
+              const labelClass = `truncate ${isLast ? "text-[var(--text)] font-medium" : ""}`;
+              return (
+                <React.Fragment key={i}>
+                  {i > 0 && (
+                    <ChevronRight
+                      className="size-3.5 shrink-0"
+                      aria-hidden="true"
+                    />
+                  )}
+                  {crumb.href ? (
+                    <Link
+                      href={crumb.href}
+                      className={`${labelClass} transition-opacity hover:opacity-80`}
+                    >
+                      {crumb.label}
+                    </Link>
+                  ) : (
+                    <span className={labelClass}>{crumb.label}</span>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </nav>
 
-      <main className="flex-1 max-w-3xl px-8 py-8 overflow-y-auto">
-        <nav className="flex items-center gap-1 text-xs text-[var(--text-muted)] mb-4 flex-wrap">
-          {breadcrumbs.map((crumb, i) => (
-            <React.Fragment key={i}>
-              {i > 0 && <span className="text-[var(--text-faint)]">&gt;</span>}
-              {crumb.href ? (
-                <Link
-                  href={crumb.href}
-                  className="hover:text-[var(--text-secondary)] transition-colors"
-                >
-                  {crumb.label}
-                </Link>
-              ) : (
-                <span className="text-[var(--text)]">{crumb.label}</span>
-              )}
-            </React.Fragment>
-          ))}
-        </nav>
+          <DocsTitle className="text-[32px] md:text-[40px] font-medium leading-[1.2]">
+            {doc.fm.title}
+          </DocsTitle>
+          {doc.fm.description && (
+            <DocsDescription className="text-lg text-[var(--text-muted)] mt-5 mb-8 leading-relaxed">
+              {doc.fm.description}
+            </DocsDescription>
+          )}
 
-        <h1 className="text-[2rem] font-bold text-[var(--text)] tracking-tight mb-2 leading-tight">
-          {doc.fm.title}
-        </h1>
-        {doc.fm.description && (
-          <p className="text-base text-[var(--text-muted)] mb-6 leading-relaxed">
-            {doc.fm.description}
-          </p>
-        )}
+          {bannerSlot}
 
-        {bannerSlot}
-
-        {!hideBody &&
-          (() => {
-            const body = (
-              <div className="reference-content">
-                <MDXRemote
-                  source={content}
-                  components={{
-                    ...docsComponents,
-                    Snippet: (props: Record<string, unknown>) => (
-                      <Snippet
-                        {...(props as Record<string, string | undefined>)}
-                        defaultFramework={defaultFramework}
-                        defaultCell={defaultCell}
-                      />
-                    ),
-                    InlineDemo: (props: Record<string, unknown>) => {
-                      const InlineDemoComp = docsComponents.InlineDemo;
-                      return (
-                        <InlineDemoComp
-                          {...(props as {
-                            integration?: string;
-                            demo?: string;
-                          })}
-                          integration={
-                            defaultFramework ??
-                            (props.integration as string | undefined)
-                          }
+          {!hideBody &&
+            (() => {
+              const body = (
+                <DocsBody className="reference-content">
+                  <MDXRemote
+                    source={content}
+                    components={{
+                      ...docsComponents,
+                      // Wrap MDX-rendered <pre> blocks (triple-fenced code)
+                      // with the same figure chrome <Snippet> uses — copy
+                      // button always visible, file-path caption when the
+                      // fence carries `title="..."`. The `transformerMeta`
+                      // Shiki transformer (wired in `options.mdxOptions.rehypePlugins`
+                      // below) is what puts `data-title` / `data-language`
+                      // on the <pre> for this component to read.
+                      pre: MdxCodeBlock,
+                      Snippet: (props: Record<string, unknown>) => (
+                        <Snippet
+                          {...(props as Record<string, string | undefined>)}
+                          defaultFramework={defaultFramework}
+                          defaultCell={defaultCell}
                         />
-                      );
-                    },
-                    // When rendering under a framework-scoped route, rewrite
-                    // root-relative MDX links (/quickstart, /shared-state, …)
-                    // to the framework-scoped equivalent so clicks never land
-                    // on the unscoped page and trigger a RouterPivot redirect.
-                    ...(frameworkOverride && {
-                      a: ({
-                        href,
-                        children,
-                        ...rest
-                      }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
-                        const resolved =
-                          href?.startsWith("/") &&
-                          !href.startsWith(`/${frameworkOverride}/`)
-                            ? `/${frameworkOverride}${href}`
-                            : href;
+                      ),
+                      WhenFrameworkHas: (props: Record<string, unknown>) => (
+                        <WhenFrameworkHas
+                          {...(props as {
+                            flag: "a2ui_pattern" | "interrupt_pattern";
+                            equals?: string;
+                            absent?: boolean;
+                            framework?: string;
+                            children?: React.ReactNode;
+                          })}
+                          defaultFramework={defaultFramework}
+                        />
+                      ),
+                      // MDX pages author in-page variant selectors as
+                      // `<Tabs groupId="language_langgraph_agent" default="Python">`.
+                      // When the URL scope is a specific variant (e.g.
+                      // `/langgraph-typescript/*`), pre-select the
+                      // matching tab instead of the author's hardcoded
+                      // default so the code visible on arrival matches
+                      // the URL the user followed. Slugs without a
+                      // mapping (or tabs whose groupId isn't listed in
+                      // TAB_DEFAULTS_BY_SLUG) fall through to the MDX
+                      // `default` and the component's first-label
+                      // fallback unchanged.
+                      Tabs: (props: {
+                        groupId?: string;
+                        default?: string;
+                        items?: string[];
+                        children?: React.ReactNode;
+                        persist?: boolean;
+                      }) => {
+                        const urlDefault = getTabDefault(
+                          frameworkOverride ?? null,
+                          props.groupId,
+                        );
                         return (
-                          <Link href={resolved ?? "#"} {...rest}>
-                            {children}
-                          </Link>
+                          <DocsTabs
+                            {...props}
+                            default={urlDefault ?? props.default}
+                          >
+                            {props.children}
+                          </DocsTabs>
                         );
                       },
-                    }),
-                  }}
-                  options={{
-                    mdxOptions: {
-                      remarkPlugins: [remarkGfm],
-                      rehypePlugins: [rehypeHighlight],
-                    },
-                  }}
-                />
-              </div>
-            );
-            if (ContentWrapper) {
-              return <ContentWrapper>{body}</ContentWrapper>;
-            }
-            return body;
-          })()}
-      </main>
-    </div>
+                      InlineDemo: (props: Record<string, unknown>) => {
+                        const InlineDemoComp = docsComponents.InlineDemo;
+                        return (
+                          <InlineDemoComp
+                            {...(props as {
+                              integration?: string;
+                              demo?: string;
+                            })}
+                            integration={
+                              defaultFramework ??
+                              (props.integration as string | undefined)
+                            }
+                          />
+                        );
+                      },
+                      // Inject stable IDs on H2/H3 so the right-rail TOC's
+                      // #anchor links resolve. Slugify the child text with the
+                      // same algorithm used by extractHeadings() so IDs line up
+                      // with the TOC entries.
+                      // H2/H3 carry stable slug IDs (already used by the
+                      // right-rail TOC) and now also surface a hover-only
+                      // `#` anchor link for deep-linking, mirroring the
+                      // canonical fumadocs prose chrome.
+                      h2: ({
+                        children,
+                        ...rest
+                      }: React.HTMLAttributes<HTMLHeadingElement>) => {
+                        const id = slugify(childrenToText(children));
+                        return (
+                          <h2
+                            id={id}
+                            {...rest}
+                            className={`docs-heading group ${rest.className ?? ""}`}
+                          >
+                            {children}
+                            <a
+                              href={`#${id}`}
+                              aria-label="Link to this section"
+                              className="docs-heading-anchor"
+                            >
+                              #
+                            </a>
+                          </h2>
+                        );
+                      },
+                      h3: ({
+                        children,
+                        ...rest
+                      }: React.HTMLAttributes<HTMLHeadingElement>) => {
+                        const id = slugify(childrenToText(children));
+                        return (
+                          <h3
+                            id={id}
+                            {...rest}
+                            className={`docs-heading group ${rest.className ?? ""}`}
+                          >
+                            {children}
+                            <a
+                              href={`#${id}`}
+                              aria-label="Link to this section"
+                              className="docs-heading-anchor"
+                            >
+                              #
+                            </a>
+                          </h3>
+                        );
+                      },
+                      // When rendering under a framework-scoped route, rewrite
+                      // root-relative MDX links (/quickstart, /shared-state, …)
+                      // to the framework-scoped equivalent so clicks never land
+                      // on the unscoped page and trigger a RouterPivot redirect.
+                      ...(frameworkOverride && {
+                        a: ({
+                          href,
+                          children,
+                          ...rest
+                        }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
+                          const resolved =
+                            href?.startsWith("/") &&
+                            !href.startsWith(`/${frameworkOverride}/`)
+                              ? `/${frameworkOverride}${href}`
+                              : href;
+                          return (
+                            <Link href={resolved ?? "#"} {...rest}>
+                              {children}
+                            </Link>
+                          );
+                        },
+                      }),
+                    }}
+                    options={{
+                      mdxOptions: {
+                        remarkPlugins: [remarkGfm],
+                        // Use Fumadocs's Shiki-based `rehypeCode` for
+                        // syntax highlighting. Our custom `transformerMeta`
+                        // surfaces the parsed fence `title="..."` and
+                        // resolved language as data-attrs on the <pre>
+                        // so MdxCodeBlock can render Fumadocs's CodeBlock
+                        // chrome with the file-path figcaption + copy
+                        // button.
+                        rehypePlugins: [
+                          [
+                            rehypeCode,
+                            {
+                              fallbackLanguage: "plaintext",
+                              transformers: [
+                                ...(rehypeCodeDefaultOptions.transformers ??
+                                  []),
+                                transformerMeta(),
+                              ],
+                            },
+                          ],
+                        ],
+                      },
+                    }}
+                  />
+                </DocsBody>
+              );
+              if (ContentWrapper) {
+                return <ContentWrapper>{body}</ContentWrapper>;
+              }
+              return body;
+            })()}
+        </div>
+      </DocsPage>
+    </ShellDocsLayout>
   );
 }

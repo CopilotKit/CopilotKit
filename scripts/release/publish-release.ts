@@ -3,16 +3,18 @@
  *
  * 1. Reads the scope and current version from package.json (already bumped by the release PR)
  * 2. Optionally reads the Notion draft for the final release notes
- * 3. Builds all packages
- * 4. Publishes to npm with "latest" tag
- * 5. Outputs the version for downstream steps (git tag, GitHub Release)
+ * 3. Publishes pre-built packages to npm with "latest" tag
+ * 4. Outputs the version for downstream steps (git tag, GitHub Release)
+ *
+ * NOTE: Build is handled by the separate CI build job (no publish secrets).
+ * This script receives pre-built artifacts and only performs the publish step.
  *
  * Env vars:
  *   NPM_TOKEN        — npm auth token
  *   NOTION_API_KEY    — for reading edited release notes from Notion (optional)
  *   GITHUB_OUTPUT     — CI output file
  *
- * Usage: tsx scripts/release/publish-release.ts --scope <monorepo|cli|angular>
+ * Usage: tsx scripts/release/publish-release.ts --scope <monorepo|angular>
  */
 
 import fs from "fs";
@@ -67,7 +69,7 @@ function isGreaterVersion(next: string, current: string): boolean {
   return a.patch > b.patch;
 }
 
-const VALID_SCOPES = ["monorepo", "cli", "angular"];
+const VALID_SCOPES = ["monorepo", "angular"];
 
 async function main() {
   const argv = process.argv.slice(2);
@@ -140,9 +142,10 @@ async function main() {
     }
   }
 
-  // Build all packages
-  console.log("\nBuilding packages...");
-  run("pnpm", ["run", "build"]);
+  // NOTE: Build is handled by the CI build job (no secrets).
+  // The publish job receives pre-built artifacts via download-artifact.
+  // We intentionally do NOT rebuild here to keep NPM_TOKEN out of the
+  // build process tree.
 
   // Publish each package in scope
   console.log("\nPublishing packages...");

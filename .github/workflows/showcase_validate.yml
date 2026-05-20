@@ -9,11 +9,7 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - ".github/workflows/showcase_validate.yml"
-      # Also re-run when starter/workflow files change — the
-      # validate-workflow-starters step below verifies parity between
-      # showcase/starters/* and the SERVICES/options lists in these files.
       - ".github/workflows/showcase_deploy.yml"
-      - ".github/workflows/showcase_smoke-monitor.yml"
   push:
     branches: [main]
     paths:
@@ -27,10 +23,8 @@ on:
       - ".github/workflows/showcase_smoke-monitor.yml"
 
 # Least-privilege by default. Individual jobs/steps can widen when needed.
-# id-token: write is required for Depot OIDC auth (runs-on: depot-ubuntu-*).
 permissions:
   contents: read
-  id-token: write
 
 # Split concurrency per event so main-branch push runs are never canceled
 # mid-execution (we need Slack failure alerts to fire reliably). PR runs
@@ -53,6 +47,10 @@ jobs:
     # typically reduces to ~5-8m. 25m timeout retained as headroom.
     runs-on: depot-ubuntu-24.04-4
     timeout-minutes: 25
+    permissions:
+      contents: read
+      # id-token: write is required for Depot OIDC auth (runs-on: depot-ubuntu-*).
+      id-token: write
     defaults:
       run:
         # Pin shell so `set -euo pipefail` + `mapfile` behave the same
@@ -62,10 +60,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 22
           # Cache npm for the showcase/shell `npm ci` step below (shell is
@@ -77,7 +77,7 @@ jobs:
         # Pinned to a specific minor rather than floating @v4 so that a
         # silent upstream major/minor change can't alter install semantics
         # on a random CI run. Bump deliberately when refreshing the toolchain.
-        uses: pnpm/action-setup@v4.4.0
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
 
       - name: Verify lockfile is up to date
         run: pnpm install --frozen-lockfile --ignore-scripts
@@ -117,10 +117,17 @@ jobs:
           fi
           failed=0
           found=0
-          for pkg_dir in showcase/packages/*/; do
+          for pkg_dir in showcase/integrations/*/; do
             [ -d "$pkg_dir" ] || continue
-            found=$((found + 1))
             pkg=$(basename "$pkg_dir")
+            # Skip manifest-only packages (no src/ directory) — these are
+            # virtual/meta integrations (e.g. built-in-agent) that carry no
+            # source code or demos and therefore have no e2e specs to enforce.
+            if [ ! -d "${pkg_dir}src" ]; then
+              echo "skip: $pkg (manifest-only, no src/)"
+              continue
+            fi
+            found=$((found + 1))
             e2e_dir="${pkg_dir}tests/e2e/"
             if [ ! -d "$e2e_dir" ]; then
               echo "::error file=$pkg_dir::Package '$pkg' is missing tests/e2e/ directory (required for baseline e2e coverage)"
@@ -166,7 +173,7 @@ jobs:
             fi
           done
           if [ "$found" -eq 0 ]; then
-            echo "::error::No showcase/packages/*/ directories found — baseline check cannot run"
+            echo "::error::No showcase/integrations/*/ directories found — baseline check cannot run"
             exit 1
           fi
           exit "$failed"
@@ -182,16 +189,17 @@ jobs:
         # cache miss.
         run: pnpm exec tsx validate-parity.ts
 
-      - name: Run validate-workflow-starters (parity with workflows)
+      - name: Run validate-fixture-tool-surface (aimock drift)
         working-directory: showcase/scripts
-        # Gate: for every directory under showcase/starters/ (excluding
-        # template/), verify `starter-<slug>` is registered in
-        # showcase_deploy.yml (workflow_dispatch options AND the
-        # ALL_SERVICES matrix) and in showcase_smoke-monitor.yml's
-        # SERVICES array. Catches the silent-drift failure mode where a
-        # new starter ships on disk but is invisible to deploy dispatch
-        # or drift detection.
-        run: pnpm exec tsx validate-workflow-starters.ts
+        # Cross-references every aimock fixture's returned tool-call names
+        # against the tool surface of each demo whose suggestion prompt
+        # contains the fixture's match substring. Catches the class of
+        # drift that caused the 2026-04-22 regression where generic
+        # substring matches (e.g. "pie chart") cross-fired across demos
+        # with different tool surfaces, leaving the UI blank in prod.
+        # See showcase/scripts/validate-fixture-tool-surface.ts and the
+        # postmortem linked from there.
+        run: pnpm exec tsx validate-fixture-tool-surface.ts
 
       - name: Run validate-pins (ratchet)
         working-directory: showcase/scripts
@@ -468,7 +476,7 @@ jobs:
 
       - name: Notify Slack (failure)
         if: failure() && github.event_name == 'push' && env.SLACK_WEBHOOK != ''
-        uses: slackapi/slack-github-action@v2.1.0
+        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
@@ -496,6 +504,8 @@ jobs:
     # Python unit-test regressions. pytest runs independently of JS/TS checks.
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
     strategy:
       # Fail-fast disabled so a 3.10-only regression (e.g. typing_extensions
       # fallback path breaking) doesn't cancel the 3.12 run and leave us
@@ -509,15 +519,17 @@ jobs:
         python-version: ["3.10", "3.12"]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
           cache-dependency-path: |
-            showcase/packages/*/requirements.txt
+            showcase/integrations/*/requirements.txt
 
       - name: Install minimal test deps
         # Always need pytest + typing_extensions. pytest-asyncio is required
@@ -534,7 +546,7 @@ jobs:
         run: python -m pip install --quiet pytest pytest-asyncio pytest-mock typing_extensions
 
       - name: Run showcase package Python unit tests
-        # Keep scope narrow: only showcase/packages/*/tests/python/ directories
+        # Keep scope narrow: only showcase/integrations/*/tests/python/ directories
         # (not e2e, not langgraph which has its own runtime). Each package has
         # its own conftest.py that wires up import paths; we cd into the pkg
         # dir so those apply.
@@ -551,7 +563,7 @@ jobs:
           # below to skip packages whose runtime deps are incompatible
           # with the matrix Python on this job.
           py_mm=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
-          for pkg_dir in showcase/packages/*/; do
+          for pkg_dir in showcase/integrations/*/; do
             tests_dir="${pkg_dir}tests/python"
             [ -d "$tests_dir" ] || continue
             found=$((found + 1))
@@ -581,9 +593,14 @@ jobs:
                 continue
               }
             fi
-            (cd "$pkg_dir" && python -m pytest tests/python/ -v) || failed=1
+            # Export PYTHONPATH so `from tools import ...` in agent modules
+            # resolves via the `tools` symlink at the integration root.
+            # Also include src/ so `from agents.X import ...` works even if
+            # a conftest.py omits the sys.path setup. Mirrors the local dev
+            # convention (`PYTHONPATH=. python ...` in package.json scripts).
+            (cd "$pkg_dir" && PYTHONPATH=".:src:${PYTHONPATH:-}" python -m pytest tests/python/ -v) || failed=1
           done
           if [ "$found" -eq 0 ]; then
-            echo "::warning::No showcase/packages/*/tests/python/ directories found"
+            echo "::warning::No showcase/integrations/*/tests/python/ directories found"
           fi
           exit "$failed"

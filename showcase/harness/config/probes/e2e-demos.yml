@@ -1,0 +1,148 @@
+# Probe: e2e-demos
+#
+# Per-demo structural E2E coverage across every showcase service on
+# Railway. Where `e2e-smoke` does two deep L3/L4 chat round-trips per
+# service (expensive, targeted), `e2e-demos` does a cheap goto + chat-
+# input-ready selector check against EVERY `/demos/<featureId>` route
+# declared in the service's registry entry. One chromium per tick fans
+# out serially across all demos of all in-scope services.
+#
+# Rows emitted per driver invocation (see e2e-demos.ts):
+#   - Primary `e2e-demos:<slug>`           ProbeResult carrying the
+#                                          aggregate { total, passed,
+#                                          failed[], shape, backendUrl }
+#                                          signal. Green iff every demo
+#                                          reached the ready selector;
+#                                          red if ANY demo flipped red.
+#   - Side    `e2e:<slug>/<featureId>`     One per demo. green ⇔ goto +
+#                                          one of the structural ready
+#                                          selectors resolved within the
+#                                          driver's per-page timeout
+#                                          (30s); red with `errorClass`
+#                                          ∈ { goto-error, selector-error,
+#                                          abort, driver-error } and a
+#                                          Slack-safe `errorDesc`.
+#
+# The shell-dashboard's per-cell E2E badge lookup
+# (`shell-dashboard/src/lib/live-status.ts#resolveCell`) reads each side
+# row via `keyFor("e2e", slug, featureId)` which formats as
+# `e2e:<slug>/<featureId>` — the driver's side-emit keys match.
+#
+# ── Cadence: hourly ────────────────────────────────────────────────────
+#
+# All showcase integrations are aimock-backed — zero LLM cost per tick.
+# The driver's goto + selector check takes 2-3 min typical wall-clock
+# (worst case 19 min for the largest 38-demo service, bounded by the
+# 20-min outer cap below). Hourly gives continuous structural coverage.
+#
+# Cron string: `10 * * * *` (hourly at :10, offset from D5's :05/:20
+# cadence to avoid Chromium contention).
+#
+# ── timeout_ms: 1_200_000 (20 min) ─────────────────────────────────────
+#
+# Outer driver-invocation cap. The driver subdivides internally with a
+# 30s per-page timeout (DEFAULT_PAGE_TIMEOUT_MS in e2e-demos.ts) — the
+# largest 38-demo service could exceed 15 min on cold starts, so the
+# outer cap is set to 20 min. The driver's internal hard-cap is
+# threaded from this YAML value at orchestrator boot (see
+# orchestrator.ts: `process.env.E2E_DEMOS_TIMEOUT_MS = cfg.timeout_ms`,
+# read per-`run()` by drivers/e2e-readiness.ts), so the driver's own timer
+# fires at exactly the same wall-clock as the invoker's outer race —
+# no premature internal-cap edge that would short-circuit the YAML's
+# documented behaviour at the driver's pre-threading default of 5 min.
+# When the cap fires inside the driver, the driver itself iterates the
+# remaining demos and side-emits `errorClass: "abort"` /
+# `errorDesc: "timeout after 1200000ms"` rows for each — the per-demo
+# fan-out loop in `e2e-demos.ts` checks `abort.signal.aborted` at the
+# top of every iteration and writes a red side-row before continuing
+# to the next demo. The dashboard keeps rendering red dots rather
+# than going gray, which is the right signal for operator triage
+# ("this whole service is wedged"). Note: this behaviour is the
+# driver's, not the invoker's — the invoker only emits one AGGREGATE
+# synthetic-error ProbeResult on its own outer timeout race, not
+# per-demo side rows.
+#
+# ── max_concurrency: 6 ────────────────────────────────────────────────
+#
+# 6 concurrent chromium instances = ~1.8GB RAM + 6 vCPU, well within
+# the 24GB/24vCPU Railway allocation. Discovered services are sorted
+# ascending by demo count BEFORE entering the bounded worker pool, so
+# small services clear first and free slots for the larger ones. The
+# demo count comes from `registry.json`, joined onto each Railway
+# service record by slug at discovery-enumerate time
+# (`railway-services` source reads the registry once per tick and
+# attaches `demos: string[]` to every emitted record). The sort is
+# stable, tie-broken by service key, and fully deterministic across
+# ticks. The 20-min outer `timeout_ms` above still caps any single
+# service regardless of dispatch position. This ordering only applies
+# to `kind: e2e_demos` — sibling probes (smoke, e2e-smoke, qa) are
+# unaffected. The driver itself is serial across demos within a
+# single invocation (fresh context per demo, awaited sequentially).
+# The concurrency knob here governs how many discovered SERVICES run
+# in parallel.
+#
+# ── Scope: all showcase packages ───────────────────────────────────────
+#
+# Discovery matches all `showcase-*` Railway services via `namePrefix`.
+# All 17 framework packages now have demo routes wired with the
+# `[data-testid="copilot-chat-input"]` structural marker after the
+# omnibus parity merge.
+#
+# ── nameExcludes ──────────────────────────────────────────────────────
+#
+# The infra exclude list drops non-demo services (aimock mock-LLM,
+# the orchestrator itself, PocketBase state store, and shell routing
+# services). Kept in sync with `smoke.yml` / `e2e-smoke.yml` so a
+# new infra service added there lands here too during review.
+kind: e2e_demos
+id: e2e-demos
+schedule: "10 * * * *"
+timeout_ms: 1200000
+max_concurrency: 6
+discovery:
+  source: railway-services
+  filter:
+    # Matches all `showcase-*` Railway services. The infra excludes
+    # below drop non-demo services. The driver strips the `showcase-`
+    # prefix internally to derive the slug used in side-emit keys
+    # (`e2e:<slug>/<featureId>`).
+    namePrefix: "showcase-"
+    # Infra exclude list — drops non-demo services from the fan-out.
+    # Kept in sync with `smoke.yml` / `e2e-smoke.yml` so a new infra
+    # service added there lands here too during review.
+    nameExcludes:
+      - showcase-aimock
+      - showcase-harness
+      - showcase-pocketbase
+      - showcase-shell
+      - showcase-shell-dashboard
+      - showcase-shell-docs
+      - showcase-shell-dojo
+      # Decommissioned starters — Railway services stopped (PR #4390)
+      - showcase-starter-ag2
+      - showcase-starter-agno
+      - showcase-starter-claude-sdk-python
+      - showcase-starter-claude-sdk-typescript
+      - showcase-starter-crewai-crews
+      - showcase-starter-google-adk
+      - showcase-starter-langgraph-fastapi
+      - showcase-starter-langgraph-python
+      - showcase-starter-langgraph-typescript
+      - showcase-starter-langroid
+      - showcase-starter-llamaindex
+      - showcase-starter-mastra
+      - showcase-starter-ms-agent-dotnet
+      - showcase-starter-ms-agent-python
+      - showcase-starter-pydantic-ai
+      - showcase-starter-spring-ai
+      - showcase-starter-strands
+  #
+  # `key_template` lives at the `discovery:` level (sibling of `source`
+  # / `filter`), per `loader/schema.ts:DiscoveryBlockSchema`. The
+  # 2-space indent below matches that. Primary row key uses the Railway
+  # service name (not the stripped slug) to stay consistent with
+  # sibling `smoke:showcase-*` / `e2e-smoke:showcase-*` /
+  # `qa:showcase-*` keys. Alert rules that dedupe on `e2e-demos:*` or
+  # pattern-match `e2e-demos:showcase-*` work identically across driver
+  # families.
+  key_template: "e2e-demos:${name}"

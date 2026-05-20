@@ -25,9 +25,7 @@ import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 
 function TaskBoard() {
   // [!code highlight:3]
-  const { agent } = useAgent({
-    agentId: "default",
-  });
+  const { agent } = useAgent();
 
   // Read state set by the agent // [!code highlight]
   const tasks = (agent.state.tasks as any[]) ?? [];
@@ -59,9 +57,7 @@ You can also push state from the frontend to the agent:
 import { useAgent } from "@copilotkit/react-core/v2";
 
 function SettingsPanel() {
-  const { agent } = useAgent({
-    agentId: "default",
-  });
+  const { agent } = useAgent();
 
   const handleThemeChange = (theme: string) => {
     agent.setState({ // [!code highlight]
@@ -98,9 +94,7 @@ import { CopilotChat } from "@copilotkit/react-core/v2";
 import { useAgent } from "@copilotkit/react-core/v2";
 
 function TodoApp() {
-  const { agent } = useAgent({
-    agentId: "default",
-  });
+  const { agent } = useAgent();
 
   const todos = (agent.state.todos as any[]) ?? [];
 

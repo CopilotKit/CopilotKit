@@ -12,7 +12,8 @@ description: "High-level chat component that connects an agent to a chat view"
 ## Import
 
 ```tsx
-
+import { CopilotChat } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
 ```
 
 ## Props
@@ -21,7 +22,7 @@ description: "High-level chat component that connects an agent to a chat view"
 
 <PropertyReference name="agentId" type="string">
   ID of the agent to use. Must match an agent configured in
-  `CopilotKitProvider`. Defaults to the provider-level default agent when
+  `CopilotKit`. Defaults to the provider-level default agent when
   omitted.
 </PropertyReference>
 

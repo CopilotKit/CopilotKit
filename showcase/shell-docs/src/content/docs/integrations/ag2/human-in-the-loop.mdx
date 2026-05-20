@@ -122,7 +122,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
                 "When you need the user to choose, call the frontend tool `offerOptions`. "
                 "After it returns, call `store_user_choice` with the selected value."
             ),
-            llm_config=LLMConfig({"model": "gpt-5.2-mini"}),
+            llm_config=LLMConfig({"model": "gpt-5.4-mini"}),
         )
 
         @agent.register_for_llm(description="Store the latest user choice in shared state.")

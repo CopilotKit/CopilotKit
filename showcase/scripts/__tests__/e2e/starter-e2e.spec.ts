@@ -1,5 +1,5 @@
 /**
- * E2E tests for the generated Sales Dashboard starter.
+ * E2E tests for the Sales Dashboard starter.
  *
  * These tests verify that the starter's main page loads correctly,
  * the renderer selector works, and each renderer strategy shows
@@ -10,21 +10,15 @@
  *
  * To run with aimock (deterministic LLM responses for agent-dependent tests):
  *   npx aimock --fixtures showcase/aimock --port 4010 --validate-on-load &
- *   cd showcase/starters/langgraph-python
+ *   cd showcase/integrations/langgraph-python
  *   OPENAI_BASE_URL=http://localhost:4010/v1 OPENAI_API_KEY=test-key npm run dev &
  *   cd ../../scripts
  *   BASE_URL=http://localhost:3000 npx playwright test __tests__/e2e/starter-e2e.spec.ts
  *
- * To run against a starter (requires npm install + dev server):
- *   cd showcase/starters/langgraph-python
- *   npm install && npm run build && npm start &
- *   cd ../../scripts
- *   BASE_URL=http://localhost:3000 npx playwright test __tests__/e2e/starter-e2e.spec.ts
- *
- * Or against a package:
- *   cd showcase/packages/langgraph-python
- *   pnpm dev &
- *   cd ../../scripts
+ * Or against an extracted starter:
+ *   npx tsx showcase/scripts/extract-starter.ts langgraph-python /tmp/starter
+ *   cd /tmp/starter && npm install && npm run dev &
+ *   cd showcase/scripts
  *   BASE_URL=http://localhost:3000 npx playwright test __tests__/e2e/starter-e2e.spec.ts
  */
 

@@ -2,9 +2,7 @@
   "title": "CrewAI Flows",
   "root": true,
   "pages": [
-    "---Getting Started---",
     "index",
-    "quickstart",
     "---Generative UI---",
     "...generative-ui",
     "---App Control---",
@@ -13,7 +11,9 @@
     "persistence",
     "advanced",
     "multi-agent-flows",
-    "---Other---",
-    "...(other)"
+    "---Threads---",
+    "threads",
+    "---Premium Features---",
+    "...premium"
   ]
 }

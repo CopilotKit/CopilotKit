@@ -12,7 +12,7 @@ RUN cd scripts && npm install --silent && cd ../shell-dojo && npm install --sile
 
 # Copy source
 COPY showcase/shared/ ./shared/
-COPY showcase/packages/ ./packages/
+COPY showcase/integrations/ ./integrations/
 COPY showcase/scripts/ ./scripts/
 COPY showcase/shell-dojo/ ./shell-dojo/
 

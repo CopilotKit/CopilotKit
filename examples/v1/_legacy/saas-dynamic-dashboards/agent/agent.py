@@ -1,10 +1,11 @@
 """
 A LangGraph implementation for the testing agent.
 """
+
 from fastapi import FastAPI
 import uvicorn
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
-from copilotkit import CopilotKitSDK, LangGraphAgent
+from copilotkit import CopilotKitSDK, LangGraphAGUIAgent
 import os
 import uuid
 import json
@@ -21,12 +22,16 @@ from langgraph.checkpoint.memory import MemorySaver
 
 # CopilotKit imports
 from copilotkit import CopilotKitState
-from copilotkit.langgraph import copilotkit_customize_config, copilotkit_emit_state, copilotkit_interrupt
+from copilotkit.langgraph import (
+    copilotkit_customize_config,
+    copilotkit_emit_state,
+    copilotkit_interrupt,
+)
 
 # LLM imports
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage
-from copilotkit.langgraph import (copilotkit_exit)
+from copilotkit.langgraph import copilotkit_exit
 
 DEFINE_TEST_SCRIPT_TOOL = {
     "type": "function",
@@ -41,30 +46,47 @@ DEFINE_TEST_SCRIPT_TOOL = {
                     "items": {
                         "type": "object",
                         "properties": {
-                            "testId": { "type": "string" },
-                            "prId": { "type": "string" },
-                            "title": { "type": "string" },
-                            "status": { "type": "string", "enum": ["passed", "failed", "idle"] },
-                            "shortDescription": { "type": "string" },
+                            "testId": {"type": "string"},
+                            "prId": {"type": "string"},
+                            "title": {"type": "string"},
+                            "status": {
+                                "type": "string",
+                                "enum": ["passed", "failed", "idle"],
+                            },
+                            "shortDescription": {"type": "string"},
                             "testCases": {
                                 "type": "array",
                                 "items": {
                                     "type": "object",
                                     "properties": {
-                                        "id": { "type": "string" },
-                                        "name": { "type": "string" },
-                                        "status": { "type": "string", "enum": ["passed", "failed", "idle", "pending"] },
-                                        "executionTime": { "type": "string" },
-                                        "createdAt": { "type": "string", "format": "date-time" },
-                                        "updatedAt": { "type": "string", "format": "date-time" },
-                                        "environment": { "type": "string" },
-                                        "browser": { "type": "string" },
-                                        "device": { "type": "string" },
+                                        "id": {"type": "string"},
+                                        "name": {"type": "string"},
+                                        "status": {
+                                            "type": "string",
+                                            "enum": [
+                                                "passed",
+                                                "failed",
+                                                "idle",
+                                                "pending",
+                                            ],
+                                        },
+                                        "executionTime": {"type": "string"},
+                                        "createdAt": {
+                                            "type": "string",
+                                            "format": "date-time",
+                                        },
+                                        "updatedAt": {
+                                            "type": "string",
+                                            "format": "date-time",
+                                        },
+                                        "environment": {"type": "string"},
+                                        "browser": {"type": "string"},
+                                        "device": {"type": "string"},
                                         "testSteps": {
                                             "type": "array",
-                                            "items": { "type": "string" }
+                                            "items": {"type": "string"},
                                         },
-                                        "failureReason": { "type": "string" }
+                                        "failureReason": {"type": "string"},
                                     },
                                     "required": [
                                         "id",
@@ -75,17 +97,17 @@ DEFINE_TEST_SCRIPT_TOOL = {
                                         "updatedAt",
                                         "environment",
                                         "testSteps",
-                                    ]
-                                }
+                                    ],
+                                },
                             },
-                            "totalTestCases": { "type": "number" },
-                            "passedTestCases": { "type": "number" },
-                            "failedTestCases": { "type": "number" },
-                            "skippedTestCases": { "type": "number" },
-                            "coverage": { "type": "number" },
-                            "createdAt": { "type": "string", "format": "date-time" },
-                            "updatedAt": { "type": "string", "format": "date-time" },
-                            "executedBy": { "type": "string" }
+                            "totalTestCases": {"type": "number"},
+                            "passedTestCases": {"type": "number"},
+                            "failedTestCases": {"type": "number"},
+                            "skippedTestCases": {"type": "number"},
+                            "coverage": {"type": "number"},
+                            "createdAt": {"type": "string", "format": "date-time"},
+                            "updatedAt": {"type": "string", "format": "date-time"},
+                            "executedBy": {"type": "string"},
                         },
                         "required": [
                             "testId",
@@ -101,22 +123,25 @@ DEFINE_TEST_SCRIPT_TOOL = {
                             "coverage",
                             "createdAt",
                             "updatedAt",
-                            "executedBy"
-                        ]
-                    }
+                            "executedBy",
+                        ],
+                    },
                 }
             },
-            "required": ["testSuites"]
-        }
-    }
+            "required": ["testSuites"],
+        },
+    },
 }
+
 
 class AgentState(CopilotKitState):
     """
     The state of the agent.
     It inherits from CopilotKitState which provides the basic fields needed by CopilotKit.
     """
+
     testScripts: List[Dict[str, str]] = []
+
 
 async def start_flow(state: Dict[str, Any], config: RunnableConfig):
     """
@@ -127,13 +152,12 @@ async def start_flow(state: Dict[str, Any], config: RunnableConfig):
     if "testScripts" not in state:
         state["testScripts"] = []
 
-    
     return Command(
         goto="chat_node",
         update={
             "messages": state["messages"],
             "testScripts": state["testScripts"],
-        }
+        },
     )
 
 
@@ -180,55 +204,61 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
     """
 
     # Define the model
-    
+
     try:
         model = ChatOpenAI(model="gpt-4o-mini")
     except Exception as e:
         print(e)
         model = ChatOpenAI(model="gpt-4o")
-    
+
     # Define config for the model
     if config is None:
         config = RunnableConfig(recursion_limit=25)
-    
+
     # Use CopilotKit's custom config functions to properly set up streaming for the steps state
     config = copilotkit_customize_config(
         config,
-        emit_intermediate_state=[{
-            "state_key": "testScripts",
-            "tool": "generate_test_scripts"
-        }],
+        emit_intermediate_state=[
+            {"state_key": "testScripts", "tool": "generate_test_scripts"}
+        ],
     )
 
     # Bind the tools to the model
     model_with_tools = model.bind_tools(
-        [
-            *state["copilotkit"]["actions"],
-            DEFINE_TEST_SCRIPT_TOOL
-        ],
+        [*state["copilotkit"]["actions"], DEFINE_TEST_SCRIPT_TOOL],
         # Disable parallel tool calls to avoid race conditions
         parallel_tool_calls=False,
     )
 
     # Run the model and generate a response
-    response = await model_with_tools.ainvoke([
-        SystemMessage(content=system_prompt),
-        *state["messages"],
-    ], config)
+    response = await model_with_tools.ainvoke(
+        [
+            SystemMessage(content=system_prompt),
+            *state["messages"],
+        ],
+        config,
+    )
 
-    
     # Update messages with the response
     messages = state["messages"] + [response]
-    
+
     # Handle tool calls
-    if hasattr(response, "tool_calls") and response.tool_calls and len(response.tool_calls) > 0:
+    if (
+        hasattr(response, "tool_calls")
+        and response.tool_calls
+        and len(response.tool_calls) > 0
+    ):
         tool_call = response.tool_calls[0]
         # Extract tool call information
         tool_call_id = ""
         if hasattr(tool_call, "id"):
             tool_call_id = tool_call.id
             tool_call_name = tool_call.name
-            tool_call_args = tool_call.args if not isinstance(tool_call.args, str) else json.loads(tool_call.args)
+            tool_call_args = (
+                tool_call.args
+                if not isinstance(tool_call.args, str)
+                else json.loads(tool_call.args)
+            )
         else:
             tool_call_id = tool_call.get("id", "")
             tool_call_name = tool_call.get("name", "")
@@ -242,7 +272,7 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
             tool_response = {
                 "role": "tool",
                 "content": "Test scripts generated. Allow user to select the test suites they want to run.",
-                "tool_call_id": tool_call_id
+                "tool_call_id": tool_call_id,
             }
             # render_grid_tool_call = {
             #     "role": "assistant",
@@ -263,39 +293,36 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
                 update={
                     "messages": messages,
                     "testScripts": state["testScripts"],
-                }
+                },
             )
             testScripts_raw = tool_call_args.get("testSuites", [])
             print(testScripts_raw)
             # Set initial status to "enabled" for all steps
             testScripts_data = []
-            
+
             # Handle different potential formats of steps data
             if isinstance(testScripts_raw, list):
                 for testScript in testScripts_raw:
                     if isinstance(testScript, dict) and "testId" in testScript:
-                        testScripts_data.append({
-                            "testId": testScript["testId"],
-                            "status": "enabled"
-                        })
+                        testScripts_data.append(
+                            {"testId": testScript["testId"], "status": "enabled"}
+                        )
                     elif isinstance(testScript, str):
-                        testScripts_data.append({
-                            "testId": testScript,
-                            "status": "enabled"
-                        })
+                        testScripts_data.append(
+                            {"testId": testScript, "status": "enabled"}
+                        )
             state["testScripts"] = tool_call_args
-            
+
             # Generate a UUID for the tool call
             tool_call_uuid = str(uuid.uuid4())
 
             # Insert the assistant message with the tool call
-            
 
             # Now insert the tool response referencing the same tool_call_id
             tool_response = {
                 "role": "tool",
                 "content": "Task steps generated.",
-                "tool_call_id": tool_call_uuid
+                "tool_call_id": tool_call_uuid,
             }
             messages = messages + [tool_response]
 
@@ -305,9 +332,9 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
                 update={
                     "messages": messages,
                     "testScripts": state["testScripts"],
-                }
+                },
             )
-    
+
     # If no tool calls or not generate_task_steps, return to END with the updated messages
     await copilotkit_exit(config)
     return Command(
@@ -315,7 +342,7 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
         update={
             "messages": messages,
             "testScripts": state["testScripts"],
-        }
+        },
     )
 
 
@@ -334,7 +361,7 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
 #         user_response = interrupt({"steps": state["steps"]})
 #         # Store the user response in state for when the node restarts
 #         state["user_response"] = user_response
-    
+
 #     # Generate the creative completion response
 #     final_prompt = """
 #     Provide a textual description of how you are performing the task.
@@ -343,7 +370,7 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
 #     some humor in the description of how you are performing the task.
 #     Don't just repeat a list of steps, come up with a creative but short description (3 sentences max) of how you are performing the task.
 #     """
-    
+
 #     final_response = await ChatOpenAI(model="gpt-4o").ainvoke([
 #         SystemMessage(content=final_prompt),
 #         {"role": "user", "content": user_response}
@@ -351,11 +378,11 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
 
 #     # Add the final response to messages
 #     messages = state["messages"] + [final_response]
-    
+
 #     # Clear the user_response from state to prepare for future interactions
 #     if "user_response" in state:
 #         state.pop("user_response")
-    
+
 #     # Return to END with the updated messages
 #     await copilotkit_exit(config)
 #     return Command(
@@ -381,7 +408,7 @@ workflow.add_edge(START, "start_flow")
 workflow.add_edge("start_flow", "chat_node")
 # workflow.add_edge("chat_node", "process_steps_node") # Removed unconditional edge
 # workflow.add_edge("process_steps_node", END)
-workflow.add_edge("chat_node", END)                 # Removed unconditional edge
+workflow.add_edge("chat_node", END)  # Removed unconditional edge
 
 # Add conditional edges from chat_node
 # def should_continue(command: Command):
@@ -406,7 +433,7 @@ app = FastAPI()
 
 sdk = CopilotKitSDK(
     agents=[
-        LangGraphAgent(
+        LangGraphAGUIAgent(
             name="testing_agent",
             description="An example for a testing agent.",
             graph=testing_graph,
@@ -415,6 +442,7 @@ sdk = CopilotKitSDK(
 )
 
 add_fastapi_endpoint(app, sdk, "/copilotkit")
+
 
 def main():
     """Run the uvicorn server."""
@@ -425,6 +453,7 @@ def main():
         port=port,
         reload=True,
     )
+
 
 if __name__ == "__main__":
     main()

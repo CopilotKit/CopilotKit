@@ -1,0 +1,3000 @@
+{
+  "_comment": "Bundled D5 (e2e-deep) fixtures. Source files: showcase/harness/fixtures/d5/*.json (auto-merged). Uses hasToolResult matching for multi-turn disambiguation. Loaded by aimock before feature-parity.json for match precedence. Ordering convention: high-priority verbatim-prompt fixtures appear first so they win first-match-wins ordering against the showcase-assistant 'hi' catch-all in feature-parity.json (and against any later, broader substring matchers in this file). The exact set of high-priority entries shifts as features land — do not rely on a specific position for any group; rely on the per-fixture _comment headers and the source-of-truth note on each per-feature file under showcase/harness/fixtures/d5/.",
+  "fixtures": [
+    {
+      "_comment": "Voice probe fast-path: exact-match content-only response.",
+      "match": {
+        "userMessage": "What is the weather in Tokyo?"
+      },
+      "response": {
+        "content": "The weather in Tokyo is currently 22°C with partly cloudy skies and light easterly winds."
+      }
+    },
+    {
+      "_comment": "tool-rendering-reasoning-chain pill 1 (stocks) — final narration after the MSFT tool result lands. Specific toolCallId so this matches BEFORE the first-leg fixture below despite the same userMessage substring. Source: showcase/harness/fixtures/d5/tool-rendering-reasoning-chain.json.",
+      "match": {
+        "userMessage": "Compare AAPL and MSFT stocks",
+        "toolCallId": "call_rc_stock_msft_001"
+      },
+      "response": {
+        "content": "AAPL is at $338.37 (-2.96% on the day) while MSFT is at $412.18 (+1.08%). MSFT is outpacing AAPL by roughly 4 points today — strong day for MSFT, rough one for AAPL."
+      }
+    },
+    {
+      "_comment": "tool-rendering-reasoning-chain pill 1 (stocks) — second leg: after get_stock_price(AAPL) returns, chain to MSFT for the comparison.",
+      "match": {
+        "userMessage": "Compare AAPL and MSFT stocks",
+        "toolCallId": "call_rc_stock_aapl_001"
+      },
+      "response": {
+        "reasoning": "AAPL quote is in hand. The user explicitly asked to compare AAPL with MSFT, so I'll fetch MSFT next and then summarize the side-by-side.",
+        "content": "Now pulling MSFT to complete the comparison.",
+        "toolCalls": [
+          {
+            "id": "call_rc_stock_msft_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"MSFT\",\"price_usd\":412.18,\"change_pct\":1.08}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-reasoning-chain pill 1 (stocks) — first leg: emit get_stock_price(AAPL). The `Compare AAPL and MSFT stocks` substring is unique to this demo's pill prompt — other integrations' reasoning-chain demos still send the older `How is AAPL doing?` prompt — so we don't need a tool-name gate and the fixture stays scoped to langgraph-python without affecting fleet-wide aimock traffic. MUST appear before the bare 'AAPL' fixtures later in this file.",
+      "match": {
+        "userMessage": "Compare AAPL and MSFT stocks"
+      },
+      "response": {
+        "reasoning": "The user asked to compare AAPL and MSFT. I'll fetch AAPL first, then MSFT, then summarize the deltas in a single sentence so the comparison is the punchline.",
+        "content": "Pulling the AAPL quote first.",
+        "toolCalls": [
+          {
+            "id": "call_rc_stock_aapl_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-reasoning-chain pill 2 (dice) — final narration after the d6 contrast roll lands. userMessage is the LANGGRAPH-PYTHON-UNIQUE tail of the pill prompt ('compare it to a smaller one'); other integrations' reasoning-chain demos still send the older 'Roll a 20-sided die for me.' (no period-after-die substring match against 'Roll a 20-sided die.') which lacks this suffix — so this fixture stays scoped to this demo and does NOT hijack the older 5x roll_d20 fixtures further down in this file.",
+      "match": {
+        "userMessage": "compare it to a smaller one",
+        "toolCallId": "call_rc_dice_d6_001"
+      },
+      "response": {
+        "content": "The d20 came up 14, and a d6 for contrast landed on 4 — the d20's range is much wider, which is the whole point of the comparison."
+      }
+    },
+    {
+      "_comment": "tool-rendering-reasoning-chain pill 2 (dice) — second leg: after roll_dice(sides=20) returns, chain a smaller die for contrast.",
+      "match": {
+        "userMessage": "compare it to a smaller one",
+        "toolCallId": "call_rc_dice_d20_001"
+      },
+      "response": {
+        "reasoning": "Got the d20 result. The user explicitly asked to compare it to a smaller die — a d6 is a natural choice because its 1-6 range is what most people picture when they think 'die'. Rolling that next.",
+        "content": "Now rolling a d6 for contrast.",
+        "toolCalls": [
+          {
+            "id": "call_rc_dice_d6_001",
+            "name": "roll_dice",
+            "arguments": "{\"sides\":6}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-reasoning-chain pill 2 (dice) — first leg: emit roll_dice(sides=20). Unique substring 'compare it to a smaller one' keeps us scoped to this demo (other integrations' dice pills still send 'Roll a 20-sided die for me.' and fall through to the older 5x roll_d20 fixtures further down). NB: aimock's `toolName` gate is a tool-LIST gate, not a tool-CALL gate; we don't use it here because the reasoning-chain agents across the fleet all register `roll_dice`, so a `toolName: roll_dice` claim would NOT have distinguished this demo from the others.",
+      "match": {
+        "userMessage": "compare it to a smaller one"
+      },
+      "response": {
+        "reasoning": "The user asked for a d20 roll and wants to compare it against a smaller die. I'll roll the d20 first, then chain a smaller die so the contrast in possible-value ranges is concrete and observable.",
+        "content": "Rolling the d20 now.",
+        "toolCalls": [
+          {
+            "id": "call_rc_dice_d20_001",
+            "name": "roll_dice",
+            "arguments": "{\"sides\":20}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-reasoning-chain pill 3 (flights + destination weather) — final narration after get_weather(JFK) lands. userMessage is the LANGGRAPH-PYTHON-UNIQUE tail 'show me the weather there'; the basic tool-rendering demos AND every other integration's reasoning-chain demo still send 'Find flights from SFO to JFK.' (no destination-weather request) which lacks this substring, so this fixture stays scoped to this demo without affecting fleet-wide aimock traffic.",
+      "match": {
+        "userMessage": "show me the weather there",
+        "toolCallId": "call_rc_weather_jfk_001"
+      },
+      "response": {
+        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289). JFK is currently 68°F and sunny — easy travel weather on the receiving end."
+      }
+    },
+    {
+      "_comment": "tool-rendering-reasoning-chain pill 3 (flights + destination weather) — second leg: after search_flights(SFO,JFK) returns, chain to destination weather.",
+      "match": {
+        "userMessage": "show me the weather there",
+        "toolCallId": "call_rc_flights_jfk_001"
+      },
+      "response": {
+        "reasoning": "Flights are in hand. The user explicitly asked for the destination weather as part of the request, so pulling JFK weather next to round out the trip plan.",
+        "content": "Pulling JFK weather to round out the trip plan.",
+        "toolCalls": [
+          {
+            "id": "call_rc_weather_jfk_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"JFK\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-reasoning-chain pill 3 (flights + destination weather) — first leg: emit search_flights(SFO,JFK). The 'show me the weather there' substring is unique to this demo's pill, so the basic tool-rendering demo's bare 'Find flights from SFO to JFK.' prompt (and the equivalent prompts in other integrations' reasoning-chain demos that have not yet been ported to the chained phrasing) flow through to the basic single-tool flights fixture later in the file.",
+      "match": {
+        "userMessage": "show me the weather there"
+      },
+      "response": {
+        "reasoning": "The user wants flights from SFO to JFK AND the destination weather. I'll call search_flights first, then chain get_weather on JFK so they have flight options and arrival conditions in one reply.",
+        "content": "Searching SFO→JFK flights.",
+        "toolCalls": [
+          {
+            "id": "call_rc_flights_jfk_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "headless-simple pill 1: locks the deterministic greeting leading phrase. The reply is intentionally NON-boilerplate (i.e. NOT the showcase-assistant catch-all 'I can help you with weather lookups...') so the headless-simple spec's HELLO_LEADING assertion fails when fixture priority misroutes this prompt to the catch-all.",
+      "match": {
+        "userMessage": "Say hello in one short sentence"
+      },
+      "response": {
+        "content": "Hi! In one short sentence: I'm a CopilotKit demo agent here to help you try features."
+      }
+    },
+    {
+      "_comment": "headless-simple pill 2: locks the deterministic joke.",
+      "match": {
+        "userMessage": "Tell me a one-line joke"
+      },
+      "response": {
+        "content": "Why did the scarecrow win an award? Because he was outstanding in his field!"
+      }
+    },
+    {
+      "_comment": "headless-simple pill 3: locks the deterministic fun fact.",
+      "match": {
+        "userMessage": "Give me a fun fact"
+      },
+      "response": {
+        "content": "A fun fact: Honey never spoils! Archaeologists have found pots of honey in ancient Egyptian tombs that are over 3,000 years old and still perfectly edible."
+      }
+    },
+    {
+      "_comment": "headless-complete highlight pill: high-priority verbatim match. Without this, the showcase-assistant catch-all in feature-parity.json wins. Two-turn fixture: turn 1 emits the highlight_note tool call so the headless useComponent registration paints a Highlight card; turn 2 (after the tool result) emits the deterministic narration.",
+      "match": {
+        "userMessage": "Highlight: ship the demo on Friday",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_headless_highlight_001",
+            "name": "highlight_note",
+            "arguments": "{\"text\":\"ship the demo on Friday\",\"color\":\"yellow\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Highlight: ship the demo on Friday",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Highlighted 'ship the demo on Friday' for you above."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "chart of revenue over the last six months",
+        "toolCallId": "call_d5_headless_revenue_chart_001"
+      },
+      "response": {
+        "content": "Here is the chart of revenue over the last six months — quarterly revenue grew steadily, peaking in June."
+      }
+    },
+    {
+      "_comment": "headless-complete revenue chart pill: locks the deterministic chart leading phrase. Two-turn fixture: turn 1 emits the get_revenue_chart tool call (no parameters per the python tool); turn 2 emits the narration that the headless message-assistant bubble renders alongside the ChartCard.",
+      "match": {
+        "userMessage": "chart of revenue over the last six months"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_headless_revenue_chart_001",
+            "name": "get_revenue_chart",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering pill: Chain tools — follow-up after all 3 tools ran. Matches whichever of the 3 chain-tools tool_call_ids appears last in the request (LangGraph's ToolNode preserves tool_calls order, so roll_d20 is typically last; we register all 3 for safety). MUST come before the toolCalls-emitting fixture below so iteration 2 of the chain-tools loop hits this branch instead of re-emitting.",
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "toolCallId": "call_tr_chain_roll_001"
+      },
+      "response": {
+        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "toolCallId": "call_tr_chain_flights_001"
+      },
+      "response": {
+        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "toolCallId": "call_tr_chain_weather_001"
+      },
+      "response": {
+        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "_comment": "tool-rendering pill: Chain tools — emit 3 tool calls in one assistant turn (get_weather Tokyo + search_flights SFO->Tokyo + roll_d20=11). MUST appear before the bare 'weather in Tokyo' fixture below; substring match would otherwise leak into this prompt. No hasToolResult gate: in multi-pill demo sessions prior clicks leave tool results in the thread, which previously caused this fixture to be skipped in favour of the follow-up content fixture and the pill rendered no cards.",
+      "match": {
+        "userMessage": "Chain a few tools in this single turn"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_chain_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          },
+          {
+            "id": "call_tr_chain_flights_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"Tokyo\"}"
+          },
+          {
+            "id": "call_tr_chain_roll_001",
+            "name": "roll_d20",
+            "arguments": "{\"value\":11}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering pill: Weather in SF — follow-up content after get_weather tool ran. MUST come before the tool-emitting fixture below (first-match-wins) so iteration 2 of the loop hits this branch instead of re-emitting. toolCallId chain keeps the fixture stateless across multi-pill thread history (hasToolResult breaks when a prior pill left tool results in the thread).",
+      "match": {
+        "userMessage": "What's the weather in San Francisco?",
+        "toolCallId": "call_tr_weather_sf_001"
+      },
+      "response": {
+        "content": "San Francisco is currently 68°F and sunny with light winds."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What's the weather in San Francisco?"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_weather_sf_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"San Francisco\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering pill: Find flights — second leg (after search_flights tool result). MUST come BEFORE the first-leg fixture below — the matcher is first-match-wins, and the second leg is uniquely identified by `toolCallId` (last message is a tool with this id), so it cannot accidentally swallow the first-leg request (whose last message is the user prompt). Must also take precedence over the a2ui beautiful-chat fixture below (which uses the same tool name with non-flight-list args shape).",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK.",
+        "toolCallId": "call_tr_flights_sfo_jfk_001"
+      },
+      "response": {
+        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289)."
+      }
+    },
+    {
+      "_comment": "tool-rendering pill: Find flights — first leg (verbatim pill prompt, dedicated search_flights fixture). MUST take precedence over the a2ui beautiful-chat fixture below (which uses the same tool name with non-flight-list args shape). Intentionally omits `hasToolResult` so this fixture also matches when SFO/JFK is the SECOND turn of a multi-turn flow (e.g. tool-rendering-reasoning-chain probe sends weather→flights). With `hasToolResult: false`, Turn 1's tool result would prevent this fixture from matching Turn 2's first leg, and the matcher would fall through to the second-leg fixture above (which now requires a matching `toolCallId` so it cannot swallow this request).",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK."
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_flights_sfo_jfk_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering pill: Stock price — follow-up content after get_stock_price tool ran. MUST come before the tool-emitting fixture below (first-match-wins) so iteration 2 of the loop hits this branch instead of re-emitting an infinite loop of tool calls.",
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
+        "toolCallId": "call_tr_stock_aapl_001"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% on the day."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What's the current price of AAPL?"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_stock_aapl_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering pill: Roll a d20 — exactly 5 sequential roll_d20 calls returning [7, 14, 3, 19, 20]. Chained by toolCallId so the sequence is stateless across thread history (turnIndex/hasToolResult break in multi-pill demo sessions where prior clicks leave assistant/tool messages in the thread). Specific-toolCallId fixtures MUST come before the userMessage-only fixture below; first-match-wins.",
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_tr_d20_seq_001"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_seq_002",
+            "name": "roll_d20",
+            "arguments": "{\"value\":14}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_tr_d20_seq_002"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_seq_003",
+            "name": "roll_d20",
+            "arguments": "{\"value\":3}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_tr_d20_seq_003"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_seq_004",
+            "name": "roll_d20",
+            "arguments": "{\"value\":19}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_tr_d20_seq_004"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_seq_005",
+            "name": "roll_d20",
+            "arguments": "{\"value\":20}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_tr_d20_seq_005"
+      },
+      "response": {
+        "content": "Rolled the d20 five times — landed on 20 on the final roll."
+      }
+    },
+    {
+      "_comment": "First roll. Matches the initial user prompt (no prior d20 tool result in this chain yet). Comes after the toolCallId-chained fixtures above so iterations 2-6 of the loop hit those first.",
+      "match": {
+        "userMessage": "Roll a 20-sided die."
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_seq_001",
+            "name": "roll_d20",
+            "arguments": "{\"value\":7}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "3D axis visualization (model airplane)",
+        "toolCallId": "call_d5_open_gen_ui_3d_axis_001"
+      },
+      "response": {
+        "content": "Generated. The sandboxed UI is rendered above."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "3D axis visualization (model airplane)"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_open_gen_ui_3d_axis_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing 3D axis scene…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}\",\"html\":\"<div class=\\\"wrap\\\"><h1>3D axis visualization (pitch / yaw / roll)</h1><svg width=\\\"320\\\" height=\\\"260\\\" viewBox=\\\"-80 -80 160 160\\\" data-testid=\\\"ogui-3d-axis\\\"><line x1=\\\"-60\\\" y1=\\\"0\\\" x2=\\\"60\\\" y2=\\\"0\\\" stroke=\\\"#f59e0b\\\"/><line x1=\\\"0\\\" y1=\\\"-60\\\" x2=\\\"0\\\" y2=\\\"60\\\" stroke=\\\"#6366f1\\\"/><line x1=\\\"-40\\\" y1=\\\"40\\\" x2=\\\"40\\\" y2=\\\"-40\\\" stroke=\\\"#10b981\\\"/><text x=\\\"62\\\" y=\\\"4\\\" font-size=\\\"8\\\" fill=\\\"#f59e0b\\\">X pitch</text><text x=\\\"4\\\" y=\\\"-62\\\" font-size=\\\"8\\\" fill=\\\"#6366f1\\\">Y yaw</text><text x=\\\"42\\\" y=\\\"-42\\\" font-size=\\\"8\\\" fill=\\\"#10b981\\\">Z roll</text></svg></div>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "How a neural network works",
+        "toolCallId": "call_d5_open_gen_ui_neural_001"
+      },
+      "response": {
+        "content": "Generated. The sandboxed UI is rendered above."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "How a neural network works"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_open_gen_ui_neural_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing neural network forward pass…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}circle{fill:#6366f1}\",\"html\":\"<div class=\\\"wrap\\\"><h1>Forward pass: input → hidden → output</h1><svg width=\\\"320\\\" height=\\\"220\\\" data-testid=\\\"ogui-neural-net\\\"><g><circle cx=\\\"40\\\" cy=\\\"40\\\" r=\\\"8\\\"/><circle cx=\\\"40\\\" cy=\\\"90\\\" r=\\\"8\\\"/><circle cx=\\\"40\\\" cy=\\\"140\\\" r=\\\"8\\\"/><circle cx=\\\"40\\\" cy=\\\"190\\\" r=\\\"8\\\"/></g><g fill=\\\"#a78bfa\\\"><circle cx=\\\"160\\\" cy=\\\"30\\\" r=\\\"8\\\"/><circle cx=\\\"160\\\" cy=\\\"75\\\" r=\\\"8\\\"/><circle cx=\\\"160\\\" cy=\\\"115\\\" r=\\\"8\\\"/><circle cx=\\\"160\\\" cy=\\\"155\\\" r=\\\"8\\\"/><circle cx=\\\"160\\\" cy=\\\"195\\\" r=\\\"8\\\"/></g><g fill=\\\"#10b981\\\"><circle cx=\\\"280\\\" cy=\\\"80\\\" r=\\\"8\\\"/><circle cx=\\\"280\\\" cy=\\\"140\\\" r=\\\"8\\\"/></g></svg></div>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Quicksort visualization",
+        "toolCallId": "call_d5_open_gen_ui_quicksort_001"
+      },
+      "response": {
+        "content": "Generated. The sandboxed UI is rendered above."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Quicksort visualization"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_open_gen_ui_quicksort_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing quicksort animation…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}rect{fill:#64748b}\",\"html\":\"<div class=\\\"wrap\\\"><h1>Quicksort: partition around pivot</h1><svg width=\\\"320\\\" height=\\\"220\\\" data-testid=\\\"ogui-quicksort\\\"><rect x=\\\"10\\\"  y=\\\"170\\\" width=\\\"24\\\" height=\\\"40\\\"/><rect x=\\\"40\\\"  y=\\\"130\\\" width=\\\"24\\\" height=\\\"80\\\"/><rect x=\\\"70\\\"  y=\\\"100\\\" width=\\\"24\\\" height=\\\"110\\\"/><rect x=\\\"100\\\" y=\\\"60\\\"  width=\\\"24\\\" height=\\\"150\\\" fill=\\\"#f59e0b\\\"/><rect x=\\\"130\\\" y=\\\"80\\\"  width=\\\"24\\\" height=\\\"130\\\" fill=\\\"#6366f1\\\"/><rect x=\\\"160\\\" y=\\\"110\\\" width=\\\"24\\\" height=\\\"100\\\"/><rect x=\\\"190\\\" y=\\\"50\\\"  width=\\\"24\\\" height=\\\"160\\\"/><rect x=\\\"220\\\" y=\\\"90\\\"  width=\\\"24\\\" height=\\\"120\\\"/><rect x=\\\"250\\\" y=\\\"140\\\" width=\\\"24\\\" height=\\\"70\\\"/><rect x=\\\"280\\\" y=\\\"160\\\" width=\\\"24\\\" height=\\\"50\\\"/></svg></div>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Fourier: square wave from sines",
+        "toolCallId": "call_d5_open_gen_ui_fourier_001"
+      },
+      "response": {
+        "content": "Generated. The sandboxed UI is rendered above."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Fourier: square wave from sines"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_open_gen_ui_fourier_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing Fourier series animation…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}\",\"html\":\"<div class=\\\"wrap\\\"><h1>Fourier series: square wave</h1><svg width=\\\"320\\\" height=\\\"220\\\" viewBox=\\\"0 -60 320 120\\\" data-testid=\\\"ogui-fourier\\\"><circle cx=\\\"60\\\" cy=\\\"0\\\" r=\\\"40\\\" stroke=\\\"#6366f1\\\" fill=\\\"none\\\"/><circle cx=\\\"60\\\" cy=\\\"0\\\" r=\\\"13\\\" stroke=\\\"#a78bfa\\\" fill=\\\"none\\\"/><circle cx=\\\"60\\\" cy=\\\"0\\\" r=\\\"8\\\"  stroke=\\\"#c4b5fd\\\" fill=\\\"none\\\"/><path d=\\\"M120 0 L300 0\\\" stroke=\\\"#10b981\\\" fill=\\\"none\\\"/></svg></div>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Calculator (calls evaluateExpression)",
+        "toolCallId": "call_d5_open_gen_ui_calc_001"
+      },
+      "response": {
+        "content": "Generated. The sandboxed UI is rendered above."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Calculator (calls evaluateExpression)"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_open_gen_ui_calc_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing calculator UI…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px;max-width:240px}.display{background:#1e293b;padding:8px;border-radius:8px;margin-bottom:8px;font-family:monospace;text-align:right}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}button{padding:10px;background:#334155;border:0;color:#e2e8f0;border-radius:6px;font-size:14px}\",\"html\":\"<div class=\\\"wrap\\\" data-testid=\\\"ogui-calculator\\\"><div class=\\\"display\\\" id=\\\"d\\\">0</div><div class=\\\"grid\\\"><button>7</button><button>8</button><button>9</button><button>+</button><button>4</button><button>5</button><button>6</button><button>-</button><button>1</button><button>2</button><button>3</button><button>*</button><button>0</button><button>.</button><button id=\\\"eq\\\">=</button><button>/</button></div></div>\",\"jsFunctions\":\"(function(){var expr='';var display=document.getElementById('d');document.querySelectorAll('.grid button').forEach(function(btn){btn.addEventListener('click',async function(){if(btn.id==='eq'){var res=await Websandbox.connection.remote.evaluateExpression({expression:expr});if(res&&res.ok){display.textContent=String(res.value);expr=String(res.value);}else{display.textContent='err';expr='';}}else{expr+=btn.textContent;display.textContent=expr;}});});})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Ping the host (calls notifyHost)",
+        "toolCallId": "call_d5_open_gen_ui_ping_001"
+      },
+      "response": {
+        "content": "Generated. The sandboxed UI is rendered above."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Ping the host (calls notifyHost)"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_open_gen_ui_ping_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":320,\"placeholderMessages\":[\"Composing host-ping card…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.card{padding:24px;background:#1e293b;border-radius:12px;margin:16px;text-align:center}button{padding:10px 20px;background:#6366f1;border:0;color:#fff;border-radius:8px;font-size:14px;cursor:pointer}.out{margin-top:12px;font-size:12px;color:#94a3b8}\",\"html\":\"<div class=\\\"card\\\" data-testid=\\\"ogui-ping\\\"><h2>Notify the host</h2><button id=\\\"hi\\\">Say hi to the host</button><div class=\\\"out\\\" id=\\\"out\\\">awaiting click…</div></div>\",\"jsFunctions\":\"document.getElementById('hi').addEventListener('click',async function(){var out=document.getElementById('out');out.textContent='sending…';var res=await Websandbox.connection.remote.notifyHost({message:'Hello from sandbox'});out.textContent=res&&res.ok?'host replied at '+res.receivedAt:'failed';});\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "toolCallId": "call_d5_open_gen_ui_inline_001"
+      },
+      "response": {
+        "content": "Generated. The sandboxed UI is rendered above."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Inline expression evaluator"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_open_gen_ui_inline_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":320,\"placeholderMessages\":[\"Composing expression evaluator…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.card{padding:16px;background:#1e293b;border-radius:12px;margin:16px}input{width:100%;padding:8px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;border-radius:6px;box-sizing:border-box}button{margin-top:8px;padding:8px 16px;background:#6366f1;border:0;color:#fff;border-radius:6px;cursor:pointer}.out{margin-top:8px;font-size:12px;color:#94a3b8}\",\"html\":\"<div class=\\\"card\\\" data-testid=\\\"ogui-inline-eval\\\"><h2>Inline expression evaluator</h2><input id=\\\"in\\\" placeholder=\\\"e.g. 2 + 2\\\"/><button id=\\\"go\\\">Evaluate</button><div class=\\\"out\\\" id=\\\"out\\\">awaiting input…</div></div>\",\"jsFunctions\":\"(function(){var input=document.getElementById('in');var out=document.getElementById('out');var go=document.getElementById('go');async function run(){var expr=input.value;out.textContent='evaluating…';var res=await Websandbox.connection.remote.evaluateExpression({expression:expr});out.textContent=res&&res.ok?'= '+res.value:'error: '+res.error;}go.addEventListener('click',run);input.addEventListener('keydown',function(e){if(e.key==='Enter')run();});})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "good name for a goldfish"
+      },
+      "response": {
+        "content": "How about Bubbles? It is friendly, classic, and easy to call out at the tank. If you want alternatives: Goldie, Finley, or Mango."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "name for its tank"
+      },
+      "response": {
+        "content": "Following the Bubbles theme, you could call the tank The Bubble Bowl. It pairs naturally with the goldfish's name and keeps the playful tone."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "what we named the goldfish"
+      },
+      "response": {
+        "content": "We named the goldfish Bubbles, and the tank The Bubble Bowl."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "auth check turn 1"
+      },
+      "response": {
+        "content": "Authenticated session is active. The runtime accepted your request because the Authorization header carried the demo bearer token."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "verify the css theme rendering"
+      },
+      "response": {
+        "content": "The chat is themed with hot pink user bubbles and amber assistant bubbles. CSS variables are scoped to .chat-css-demo-scope so the theme does not leak."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "verify chat slots are wired"
+      },
+      "response": {
+        "content": "Confirmed — the chat-slots demo is rendering through the custom slot wrappers. The CustomAssistantMessage component should be visible as a tinted card with a 'slot' badge in the corner."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "fetch the async metric"
+      },
+      "response": {
+        "content": "The async tool resolved with the requested metric. The frontend handler awaited completion before forwarding the result back to the agent — async-streaming behavior confirmed."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "switch theme to dark mode"
+      },
+      "response": {
+        "content": "Done — the change_theme tool was invoked and the page is now in dark mode. Frontend tools were registered via useCopilotAction and the agent dispatched the call client-side."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "render the a2ui schema"
+      },
+      "response": {
+        "content": "The A2UI fixed-schema component was rendered. The schema-driven UI received the agent's payload and produced the corresponding UI element from the locked schema definition."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "have the agent emit a ui"
+      },
+      "response": {
+        "content": "The agent emitted a UI block as part of its turn. The agent acts as the UI generator: its response payload describes the component and the renderer materialized it inline with the assistant message."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a pie chart of revenue by category",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_render_pie_chart_001",
+            "name": "render_pie_chart",
+            "arguments": "{\"title\":\"Revenue by Category\",\"description\":\"Revenue breakdown by product category (Q4)\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a pie chart of revenue by category",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Pie chart rendered above — Electronics is the largest slice, followed by Clothing, Food, and Books."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Write me a haiku about nature",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_generate_haiku_001",
+            "name": "generate_haiku",
+            "arguments": "{\"japanese\":[\"古池や\",\"蛙飛び込む\",\"水の音\"],\"english\":[\"An old silent pond\",\"A frog jumps into the pond\",\"Splash! Silence again.\"],\"image_name\":\"Mount_Fuji_Lake_Reflection_Cherry_Blossoms_Sakura_Spring.jpg\",\"gradient\":\"linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Write me a haiku about nature",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Haiku generated above — a beautiful verse about nature with an accompanying image."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "render the declarative card"
+      },
+      "response": {
+        "content": "The declarative gen-UI specification has been resolved into a rendered card. The component descriptor was forwarded to the frontend renderer which materialized the card declaratively from the schema."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a profile card for Ada Lovelace",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_show_card_001",
+            "name": "show_card",
+            "arguments": "{\"title\":\"Ada Lovelace\",\"body\":\"English mathematician (1815\\u20131852), credited as the first computer programmer for her notes on Charles Babbage's Analytical Engine \\u2014 including what is now recognized as the first algorithm intended to be carried out by a machine.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a profile card for Ada Lovelace",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Here is a quick card for Ada Lovelace — the rendered card above shows a short biography. Let me know if you want a deeper dive on her work or a different historical figure."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "request the gen-ui interrupt"
+      },
+      "response": {
+        "content": "The agent paused at a gen-UI interrupt and rendered a choice component for the user. Choose to continue."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "confirm the gen-ui choice"
+      },
+      "response": {
+        "content": "Gen-UI interrupt resolved. The agent received the user's choice and resumed, completing the workflow."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "render an open gen-ui element"
+      },
+      "response": {
+        "content": "The open gen-UI element was rendered. The LLM produced an arbitrary-shape JSON payload and the renderer materialized it as a UI block."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "continue the advanced gen-ui flow"
+      },
+      "response": {
+        "content": "The advanced gen-UI flow continued with the second-step component. The chained payloads from turns 1 and 2 form the complete advanced gen-UI sequence."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Issue a $50 refund to customer #12345",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_request_approval_001",
+            "name": "request_user_approval",
+            "arguments": "{\"message\":\"Issue a $50 refund to customer #12345.\",\"context\":\"Per the standard goodwill-credit policy for shipping delays.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Issue a $50 refund to customer #12345",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Approved — processing the $50 refund to customer #12345 now."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "trip to mars",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_generate_steps_001",
+            "name": "generate_task_steps",
+            "arguments": "{\"steps\":[{\"description\":\"Research Mars mission requirements and timeline\",\"status\":\"enabled\"},{\"description\":\"Design spacecraft and life support systems\",\"status\":\"enabled\"},{\"description\":\"Recruit and train the crew\",\"status\":\"enabled\"},{\"description\":\"Launch and navigate to Mars\",\"status\":\"enabled\"},{\"description\":\"Land and establish base camp\",\"status\":\"enabled\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "trip to mars",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Great choices! I will proceed with executing the selected steps for your trip to Mars. Let me work through each one."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Book a 30-minute onboarding call for Alice",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_book_call_001",
+            "name": "book_call",
+            "arguments": "{\"topic\":\"Onboarding call\",\"attendee\":\"Alice\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Book a 30-minute onboarding call for Alice",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Booked Alice's onboarding call for the time you selected — calendar invite is on its way."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "trigger the headless interrupt"
+      },
+      "response": {
+        "content": "Interrupt raised. The agent has paused at a graph-level interrupt and is waiting for user input. Reply with 'yes' or 'no' to resume."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "resolve the interrupt with yes"
+      },
+      "response": {
+        "content": "Interrupt resolved with 'yes'. The agent resumed execution from the suspended node and produced its final answer."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Research the benefits of remote work and draft a one-paragraph summary",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_research_agent_001",
+            "name": "research_agent",
+            "arguments": "{\"task\":\"Benefits of remote work\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: research sub-agent single-turn LLM call",
+      "match": {
+        "userMessage": "Benefits of remote work"
+      },
+      "response": {
+        "content": "- Eliminates commute, returning ~10 hours/week to employees\n- Surveys consistently show higher job satisfaction among remote workers\n- Employers gain access to a geographically unbounded talent pool\n- Reduced office overhead (rent, utilities, maintenance)\n- Trade-offs: ad-hoc collaboration, mentorship of junior staff, and cultural cohesion degrade without intentional replacement rituals"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Research the benefits of remote work and draft a one-paragraph summary",
+        "turnIndex": 1
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_writing_agent_001",
+            "name": "writing_agent",
+            "arguments": "{\"task\":\"One-paragraph summary on the benefits of remote work, grounded in the research facts.\\n\\nFacts:\\n- Eliminates commute, returning ~10 hours per week\\n- Higher reported job satisfaction in repeated surveys\\n- Wider talent pool for employers, no geographic limit\\n- Reduced office overhead\\n- Trade-offs: collaboration, mentorship, cultural cohesion\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: writing sub-agent single-turn LLM call",
+      "match": {
+        "userMessage": "One-paragraph summary on the benefits of remote work"
+      },
+      "response": {
+        "content": "Remote work returns roughly ten hours a week to employees by eliminating the commute, and repeated surveys show meaningfully higher job satisfaction among remote workers. Employers benefit too: a geographically unbounded talent pool and lower office overhead. The honest counterweight is that ad-hoc collaboration, mentorship of junior staff, and cultural cohesion all degrade without intentional rituals to replace what an office provided implicitly."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Research the benefits of remote work and draft a one-paragraph summary",
+        "turnIndex": 2
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_critique_agent_001",
+            "name": "critique_agent",
+            "arguments": "{\"task\":\"Remote work returns roughly ten hours a week to employees by eliminating the commute, and repeated surveys show meaningfully higher job satisfaction among remote workers. Employers benefit too: a geographically unbounded talent pool and lower office overhead. The honest counterweight is that ad-hoc collaboration, mentorship of junior staff, and cultural cohesion all degrade without intentional rituals to replace what an office provided implicitly.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: critique sub-agent single-turn LLM call",
+      "match": {
+        "userMessage": "Remote work returns roughly ten hours"
+      },
+      "response": {
+        "content": "1. Add a specific citation or date range for the surveys mentioned — 'repeated surveys' is vague and weakens the empirical claim.\n2. The ten-hours figure needs sourcing; without it the opening reads as an unsupported assertion rather than a research finding.\n3. The final sentence about 'intentional rituals' is abstract — one concrete example (e.g., scheduled pair-programming sessions, virtual coffee chats) would make the counterweight more actionable."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Research the benefits of remote work and draft a one-paragraph summary",
+        "turnIndex": 3
+      },
+      "response": {
+        "content": "Here is the summary, after research → drafting → critique:\n\nRemote work returns roughly ten hours a week to employees by eliminating the commute, and repeated surveys show meaningfully higher job satisfaction among remote workers. Employers benefit too: a geographically unbounded talent pool and lower office overhead. The honest counterweight is that ad-hoc collaboration, mentorship of junior staff, and cultural cohesion all degrade without intentional rituals to replace what an office provided implicitly."
+      }
+    },
+    {
+      "_comment": "Subagents pill 1 — 'Write a blog post' / cold exposure training. Drives supervisor → research_agent → writing_agent → critique_agent → final reply, plus three nested sub-agent turns.",
+      "match": {
+        "userMessage": "Produce a short blog post about the benefits of cold exposure training",
+        "hasToolResult": false,
+        "toolName": "research_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_subagents_p1_research_001",
+            "name": "research_agent",
+            "arguments": "{\"task\":\"Cold exposure training key facts\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: research sub-agent returns deterministic facts about cold exposure training.",
+      "match": {
+        "userMessage": "Cold exposure training key facts"
+      },
+      "response": {
+        "content": "- Brief cold immersion (cold showers, ice baths) triggers a sympathetic-nervous-system response that releases noradrenaline\n- Repeated exposure is associated with improved self-reported mood and stress tolerance\n- Activates brown adipose tissue, modestly increasing basal metabolic rate\n- May reduce post-exercise muscle soreness when used as a recovery modality\n- Health risk for people with cardiovascular conditions; sessions should be short (1-3 minutes) and supervised at first"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Produce a short blog post about the benefits of cold exposure training",
+        "turnIndex": 1,
+        "toolName": "writing_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_subagents_p1_writing_001",
+            "name": "writing_agent",
+            "arguments": "{\"task\":\"Short blog-post paragraph on the benefits of cold exposure training, grounded in the research facts.\\n\\nFacts:\\n- Brief cold immersion triggers a noradrenaline release\\n- Repeated exposure improves self-reported mood and stress tolerance\\n- Activates brown adipose tissue, modestly raises basal metabolic rate\\n- May reduce post-exercise muscle soreness\\n- Cardiovascular risk; keep early sessions short and supervised\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: writing sub-agent returns deterministic prose for cold exposure.",
+      "match": {
+        "userMessage": "Short blog-post paragraph on the benefits of cold exposure training"
+      },
+      "response": {
+        "content": "Cold exposure training — short, deliberate plunges into cold water or showers — has earned a foothold in modern recovery routines for reasons grounded in physiology rather than folklore. Each immersion produces a measurable surge of noradrenaline, the same chemistry that underpins the lift practitioners report in mood and focus afterward; with repetition, that response is associated with greater day-to-day stress tolerance. Cold also activates brown adipose tissue and can blunt post-exercise soreness, making it a low-cost adjunct for active people. The honest caveat is cardiovascular risk: keep early sessions to one to three minutes, and if you have a heart condition, get a green light before you start."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Produce a short blog post about the benefits of cold exposure training",
+        "turnIndex": 2,
+        "toolName": "critique_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_subagents_p1_critique_001",
+            "name": "critique_agent",
+            "arguments": "{\"task\":\"Critique the cold-exposure blog draft. Draft: Cold exposure training — short, deliberate plunges into cold water or showers — has earned a foothold in modern recovery routines for reasons grounded in physiology rather than folklore. Each immersion produces a measurable surge of noradrenaline...\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: critique sub-agent returns deterministic critique of cold-exposure draft.",
+      "match": {
+        "userMessage": "Critique the cold-exposure blog draft"
+      },
+      "response": {
+        "content": "1. The phrase 'measurable surge of noradrenaline' should cite a study or rough magnitude — without a number, the claim reads as marketing rather than evidence.\n2. 'Modern recovery routines' is filler; lead with the physiological mechanism instead and let the cultural framing follow.\n3. The cardiovascular caveat is buried at the end. Move it earlier or make it a standalone closing line so a reader who skims still sees it."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Produce a short blog post about the benefits of cold exposure training",
+        "turnIndex": 3
+      },
+      "response": {
+        "content": "Here is the polished blog post on cold exposure training, after research → drafting → critique:\n\nCold exposure training — short, deliberate plunges into cold water or showers — produces a measurable noradrenaline surge that practitioners feel as a mood and focus lift; repeated exposure is associated with greater stress tolerance, brown-adipose activation, and reduced post-exercise soreness. Keep early sessions to one to three minutes, and if you have a cardiovascular condition, clear it with a clinician first."
+      }
+    },
+    {
+      "_comment": "Subagents pill 2 — 'Explain a topic' / LLM tool calling.",
+      "match": {
+        "userMessage": "Explain how large language models handle tool calling",
+        "hasToolResult": false,
+        "toolName": "research_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_subagents_p2_research_001",
+            "name": "research_agent",
+            "arguments": "{\"task\":\"How LLMs handle tool calling\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: research sub-agent for LLM tool calling.",
+      "match": {
+        "userMessage": "How LLMs handle tool calling"
+      },
+      "response": {
+        "content": "- The model is shown a tool schema (name, description, JSON-schema parameters) inside the system or developer prompt at request time\n- During decoding, instead of emitting natural-language text, the model emits a structured tool_call block (function name + JSON-encoded arguments)\n- The application runs the tool, packages the result into a tool message, and resends the full conversation so the model can continue\n- Modern decoders use constrained decoding or grammars to keep the arguments syntactically valid JSON\n- The model decides on tool use turn-by-turn — there is no out-of-band channel; tool calls are just a different message role in the same chat thread"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Explain how large language models handle tool calling",
+        "turnIndex": 1,
+        "toolName": "writing_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_subagents_p2_writing_001",
+            "name": "writing_agent",
+            "arguments": "{\"task\":\"One-paragraph explanation of how LLMs handle tool calling, grounded in the research.\\n\\nFacts:\\n- Tool schemas (name, description, JSON-schema params) are passed in the prompt\\n- Models emit a structured tool_call block instead of text\\n- Application runs the tool and replays the result as a tool message\\n- Constrained decoding keeps arguments valid JSON\\n- Tool use is decided turn-by-turn in the same chat thread\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: writing sub-agent for LLM tool calling.",
+      "match": {
+        "userMessage": "One-paragraph explanation of how LLMs handle tool calling"
+      },
+      "response": {
+        "content": "Large language models handle tool calling by treating tools as a structured extension of the chat protocol rather than a separate channel. At request time the application supplies each tool's name, description, and JSON-schema parameters in the prompt; during decoding the model can emit a tool_call block — a function name plus JSON-encoded arguments — instead of plain text, with constrained decoding keeping the arguments syntactically valid. The application then executes the tool and replays the result back as a tool-role message, and the model continues the conversation from there. The decision to call a tool is made turn-by-turn, so a single user request can fan out into a chain of tool calls that the model orchestrates as it reads each result."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Explain how large language models handle tool calling",
+        "turnIndex": 2,
+        "toolName": "critique_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_subagents_p2_critique_001",
+            "name": "critique_agent",
+            "arguments": "{\"task\":\"Critique the LLM tool-calling explanation draft. Draft: Large language models handle tool calling by treating tools as a structured extension of the chat protocol rather than a separate channel. At request time the application supplies each tool's name, description, and JSON-schema parameters in the prompt...\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: critique sub-agent for LLM tool calling.",
+      "match": {
+        "userMessage": "Critique the LLM tool-calling explanation draft"
+      },
+      "response": {
+        "content": "1. The opening contrast 'rather than a separate channel' assumes the reader already knows what a 'separate channel' would mean — either drop the contrast or give a one-clause example (e.g., 'rather than a side API the model talks to in parallel').\n2. 'Constrained decoding keeping the arguments syntactically valid' is technically correct but vague; mention that this is what makes the JSON parseable on the application side.\n3. The final sentence introduces multi-tool chains without saying who controls the loop — clarify that the application is the runtime that decides whether to keep going, not the model itself."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Explain how large language models handle tool calling",
+        "turnIndex": 3
+      },
+      "response": {
+        "content": "Here is the explanation of LLM tool calling, after research → drafting → critique:\n\nLLMs treat tool calling as part of the chat protocol: each tool's name, description, and JSON-schema parameters are passed in the prompt, and during decoding the model can emit a structured tool_call block (function name + JSON arguments) instead of plain text. The application — not the model — runs the tool, returns the result as a tool-role message, and decides whether to keep looping. Constrained decoding keeps the arguments valid JSON the application can parse, and the model orchestrates multi-step chains turn-by-turn from inside the same conversation."
+      }
+    },
+    {
+      "_comment": "Subagents pill 3 — 'Summarize a topic' / reusable rockets. Note: the original Railway-side bug for this pill was the concurrent-update on `delegations`; the agent state reducer fix unblocks this fixture chain.",
+      "match": {
+        "userMessage": "Summarize the current state of reusable rockets",
+        "hasToolResult": false,
+        "toolName": "research_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_subagents_p3_research_001",
+            "name": "research_agent",
+            "arguments": "{\"task\":\"Current state of reusable rockets\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: research sub-agent for reusable rockets.",
+      "match": {
+        "userMessage": "Current state of reusable rockets"
+      },
+      "response": {
+        "content": "- SpaceX Falcon 9 routinely lands and re-flies first stages; individual boosters have flown more than 20 missions each\n- Falcon Heavy reuses both side boosters; the center core has been recovered on a subset of flights\n- Rocket Lab's Electron has demonstrated mid-air booster catch but routine reuse is still in development\n- SpaceX Starship is targeting full reuse of both stages; orbital test flights are ongoing as of 2024-2025\n- Reuse is the dominant lever on launch cost: Falcon 9 list pricing is set well below expendable competitors largely because of stage recovery"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Summarize the current state of reusable rockets",
+        "turnIndex": 1,
+        "toolName": "writing_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_subagents_p3_writing_001",
+            "name": "writing_agent",
+            "arguments": "{\"task\":\"One polished paragraph summarizing the current state of reusable rockets, grounded in the research.\\n\\nFacts:\\n- Falcon 9 first stages routinely re-fly, some 20+ flights\\n- Falcon Heavy reuses side boosters; center core recovered sometimes\\n- Rocket Lab Electron demonstrating mid-air catch, reuse still in development\\n- SpaceX Starship targeting full reuse of both stages, in flight test\\n- Reuse drives launch cost downward\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: writing sub-agent for reusable rockets.",
+      "match": {
+        "userMessage": "One polished paragraph summarizing the current state of reusable rockets"
+      },
+      "response": {
+        "content": "Reusable rockets have shifted from a research goal to the default cost lever in commercial spaceflight. SpaceX's Falcon 9 routinely lands and re-flies its first stage — individual boosters have now flown twenty-plus missions — and Falcon Heavy reuses both side boosters with intermittent recovery of the center core. Smaller-class operators like Rocket Lab have demonstrated mid-air booster catch but have not yet made reuse routine, while SpaceX's Starship is in active flight testing toward full two-stage reuse. The economic consequence is already visible: Falcon 9 list pricing sits well below expendable competitors precisely because the dominant cost — building a fresh first stage every flight — has been amortized across many missions."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Summarize the current state of reusable rockets",
+        "turnIndex": 2,
+        "toolName": "critique_agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_subagents_p3_critique_001",
+            "name": "critique_agent",
+            "arguments": "{\"task\":\"Critique the reusable rockets summary draft. Draft: Reusable rockets have shifted from a research goal to the default cost lever in commercial spaceflight. SpaceX's Falcon 9 routinely lands and re-flies its first stage — individual boosters have now flown twenty-plus missions...\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Nested: critique sub-agent for reusable rockets.",
+      "match": {
+        "userMessage": "Critique the reusable rockets summary draft"
+      },
+      "response": {
+        "content": "1. 'Default cost lever' is jargon that pre-supposes the reader already accepts the framing — open instead with the concrete result (Falcon 9 reflight count) and let the framing emerge.\n2. The Starship sentence is hedged ('in active flight testing toward full reuse') in a way that obscures the actual milestone reached as of writing — name the latest test outcome or drop the clause.\n3. The closing economic claim asserts pricing is 'well below expendable competitors' without a reference price; one number (e.g., $/kg-to-LEO) would land the point much harder than the qualitative claim alone."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Summarize the current state of reusable rockets",
+        "turnIndex": 3
+      },
+      "response": {
+        "content": "Here is the polished summary on reusable rockets, after research → drafting → critique:\n\nReusable rockets are now mainstream in commercial spaceflight. SpaceX's Falcon 9 lands and re-flies its first stage routinely — individual boosters have flown twenty-plus missions — and Falcon Heavy reuses both side boosters. Rocket Lab has demonstrated mid-air Electron booster catch but reuse is not yet routine, while SpaceX Starship is in active orbital flight testing with full two-stage reuse as the target. The economic impact is already priced in: Falcon 9 sits well below expendable competitors per kilogram to low Earth orbit because amortizing a recovered first stage across many missions removes the largest single cost from the launch."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "describe the sample image"
+      },
+      "response": {
+        "content": "The image attachment shows a small abstract test pattern used by the multimodal demo to validate the image-upload pipeline. Successful render of this response confirms the binary attachment round-tripped through the runtime."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "summarize the sample document"
+      },
+      "response": {
+        "content": "The PDF document contains a single test page used by the multimodal demo. Its text was flattened by pypdf on the Python side and forwarded as text content to the model. Receiving this response confirms the document upload path works."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "hi from the popup test"
+      },
+      "response": {
+        "content": "Hello from the popup — the CopilotPopup prebuilt component is wired up and reachable. The launcher floats in the corner and the chat sits in an overlay panel."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "hi from the sidebar test"
+      },
+      "response": {
+        "content": "Hello from the sidebar — the CopilotSidebar prebuilt component is wired up and reachable. Anything else you would like me to confirm from inside the sidebar?"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "recall the user preference"
+      },
+      "response": {
+        "content": "Per the read-only context the user prefers concise responses. The agent received this preference via the shared-state context and is honoring it without writing back to state."
+      }
+    },
+    {
+      "_comment": "reasoning-default e2e test pill prompt. Substring 'sky appears blue' matches 'Explain step by step why the sky appears blue during the day but red at sunset.' Includes a `reasoning` field so aimock emits REASONING_MESSAGE_* events; without it the built-in CopilotChatReasoningMessage 'Thinking…/Thought for…' label never lands.",
+      "match": {
+        "userMessage": "sky appears blue"
+      },
+      "response": {
+        "reasoning": "First, I considered that visible sunlight contains all wavelengths. Then I noted that air molecules scatter shorter wavelengths (blue) more efficiently than longer ones (Rayleigh scattering). At sunset the path through the atmosphere is much longer, so even more blue is scattered out and the remaining direct light skews red.",
+        "content": "Daytime sky looks blue because air molecules scatter short-wavelength light more strongly than long-wavelength light (Rayleigh scattering). At sunset the sun's light traverses far more atmosphere, scattering out most of the blue and leaving the remaining direct light dominated by red and orange wavelengths."
+      }
+    },
+    {
+      "_comment": "D5 reasoning-display probe (harness/src/probes/scripts/d5-reasoning-display.ts) sends 'show your reasoning step by step' verbatim. Mirrored from showcase/harness/fixtures/d5/reasoning-display.json so the bundled aimock has a match (the harness fixture file isn't loaded by the Docker-baked aimock).",
+      "match": {
+        "userMessage": "show your reasoning step by step"
+      },
+      "response": {
+        "reasoning": "First, I identified that the question requires step-by-step reasoning. Then I broke it into sub-steps and worked through each one. Finally, I aggregated the partial answers into a single response.",
+        "content": "Reasoning: first, I identified the question requires step-by-step thinking. Then, I broke it into sub-steps and worked through each one. Finally, I aggregated the partial answers into a single response. The reasoning block above the answer demonstrates intermediate-thought rendering."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "stream the counter to 5"
+      },
+      "response": {
+        "content": "Streaming state updates: counter advanced from 0 through 1, 2, 3, 4 to 5. Each intermediate value was reflected in the shared state and visible to the UI mid-stream."
+      }
+    },
+    {
+      "_comment": "shared-state-read-write — Greet pill. Matches on userMessage only; the systemMessage gate was too fragile (the middleware's output format varies by CopilotKit runtime version and system prompt ordering).",
+      "match": {
+        "userMessage": "Say hi and introduce yourself"
+      },
+      "response": {
+        "content": "Hi — I'm your shared-state co-pilot. Your Preferences panel (name, tone, language, interests) is fed to me on every turn, and I jot notes back into the Agent Scratch Pad via set_notes so the UI re-renders. Try setting your name or asking me to remember something."
+      }
+    },
+    {
+      "_comment": "shared-state-read-write — Plan-a-weekend pill. Same no-systemMessage gate as the Greet pill.",
+      "match": {
+        "userMessage": "weekend plan based on my interests"
+      },
+      "response": {
+        "content": "A weekend tailored to your interests panel: if you haven't picked any yet, try Cooking + Travel for a market-and-day-trip combo, or Tech + Books for a maker session and a long reading afternoon. Add interests in the Preferences panel and re-ask for a more specific plan."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "remember that my favorite color is blue",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_notes_001",
+            "name": "set_notes",
+            "arguments": "{\"notes\":[\"Favorite color: blue\"]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "remember that my favorite color is blue",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Got it — I have noted that your favorite color is blue."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "favorite color"
+      },
+      "response": {
+        "content": "Your favorite color is blue — I noted it earlier."
+      }
+    },
+    {
+      "_comment": "D5 fixture for /demos/shared-state-read (recipe-editor) turn 1. Substring 'Italian pasta recipe' is unique. Text-only — agent has no tools.",
+      "match": {
+        "userMessage": "Italian pasta recipe"
+      },
+      "response": {
+        "content": "Great choice — looking at your current recipe state, I'd build an Italian pasta around the existing ingredients: a quick spaghetti aglio e olio, finishing with parmesan and a squeeze of lemon. Want me to suggest substitutions or adjust the cooking time?"
+      }
+    },
+    {
+      "_comment": "D5 fixture for /demos/shared-state-read (recipe-editor) turn 2. Reply mentions recipe-context tokens so the probe's soft assertion lands.",
+      "match": {
+        "userMessage": "healthier with more vegetables"
+      },
+      "response": {
+        "content": "Here are a few healthier ingredient additions for the recipe: roasted bell peppers, baby spinach folded in at the end, and cherry tomatoes for brightness. The Italian flavor profile holds up well, and the vegetable swap keeps the dish lighter without losing the comfort of pasta."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "analyze data and call the tool"
+      },
+      "response": {
+        "content": "Reasoning step 1: I considered the query. Reasoning step 2: I decided to invoke the analysis tool. The tool returned its structured payload, and the reasoning chain wraps the rendered tool card. Both the reasoning block and the tool card should be visible in the transcript."
+      }
+    },
+    {
+      "_comment": "Follow-up content after get_weather (or get-weather Mastra alias) ran for Tokyo. Keyed on the prior tool's id so it fires after iteration 1 regardless of thread history. Must come BEFORE the tool-emitting fixtures so iteration 2 hits this branch instead of re-emitting get_weather.",
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "toolCallId": "call_d5_get_weather_001"
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "toolName": "get_weather"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ],
+        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions.",
+        "content": "Looking up the weather in Tokyo for you."
+      }
+    },
+    {
+      "_comment": "Mastra registers the weather tool as get-weather (hyphen); duplicate for compat",
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "toolName": "get-weather"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_weather_001",
+            "name": "get-weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ],
+        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions.",
+        "content": "Looking up the weather in Tokyo for you."
+      }
+    },
+    {
+      "_comment": "Final fallback when the agent has neither get_weather nor get-weather registered — return narrated content with no tool call. Comes last so the tool-emitting fixtures above win when the tool IS available.",
+      "match": {
+        "userMessage": "weather in Tokyo"
+      },
+      "response": {
+        "content": "The weather in Tokyo is currently 22°C with partly cloudy skies and light easterly winds."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "AAPL",
+        "toolCallId": "call_d5_get_stock_price_001"
+      },
+      "response": {
+        "content": "AAPL is trading at $189.42, up 1.27% on the day. The card above shows the live ticker and the percentage change."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "AAPL"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_stock_price_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "ship the demo on Friday",
+        "toolCallId": "call_d5_highlight_note_001"
+      },
+      "response": {
+        "content": "Highlighted 'ship the demo on Friday' in yellow above. Let me know if you want a different color or a longer note."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "ship the demo on Friday"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_highlight_note_001",
+            "name": "highlight_note",
+            "arguments": "{\"text\":\"ship the demo on Friday\",\"color\":\"yellow\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "D5 mcp-apps probe — verbatim probe prompt drives a real `create_view` MCP tool call so the runtime's MCP Apps middleware fetches the UI resource and mounts the iframe. Mirrored in showcase/harness/fixtures/d5/mcp-apps.json. Non-empty `content` is load-bearing (see tool-rendering-reasoning-chain.json header).",
+      "match": {
+        "userMessage": "Open Excalidraw and sketch a system diagram",
+        "toolName": "create_view"
+      },
+      "response": {
+        "reasoning": "The user wants a sketch of a client/server/database architecture. I'll call create_view once with three labelled rectangles connected by arrows and a title, framed by a cameraUpdate.",
+        "content": "Sketching a client → server → database diagram in Excalidraw.",
+        "toolCalls": [
+          {
+            "id": "call_d5_mcp_apps_create_view_001",
+            "name": "create_view",
+            "arguments": "{\"elements\":[{\"id\":\"title\",\"type\":\"text\",\"x\":260,\"y\":40,\"text\":\"System Diagram\",\"fontSize\":24},{\"id\":\"client\",\"type\":\"rectangle\",\"x\":80,\"y\":160,\"width\":160,\"height\":70,\"label\":{\"text\":\"Client\",\"fontSize\":18}},{\"id\":\"server\",\"type\":\"rectangle\",\"x\":320,\"y\":160,\"width\":160,\"height\":70,\"label\":{\"text\":\"Server\",\"fontSize\":18}},{\"id\":\"database\",\"type\":\"rectangle\",\"x\":560,\"y\":160,\"width\":160,\"height\":70,\"label\":{\"text\":\"Database\",\"fontSize\":18}},{\"id\":\"a1\",\"type\":\"arrow\",\"x\":240,\"y\":195,\"endX\":320,\"endY\":195},{\"id\":\"a2\",\"type\":\"arrow\",\"x\":480,\"y\":195,\"endX\":560,\"endY\":195},{\"id\":\"camera\",\"type\":\"cameraUpdate\",\"x\":40,\"y\":0,\"width\":800,\"height\":600}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Open Excalidraw and sketch a system diagram",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Sketched a three-box system diagram (Client → Server → Database). Tap the iframe to open it in Excalidraw."
+      }
+    },
+    {
+      "_comment": "D5 mcp-apps suggestion pill #1 (\"Draw a flowchart\"). Sends the verbatim suggestion message \"Use Excalidraw to draw a simple flowchart with three steps.\" The distinctive substring \"draw a simple flowchart\" prevents collision with feature-parity.json's generic `{userMessage: \"steps\"}` fixture, which would otherwise absorb the prompt and return a tool-call-free planning blurb (breaking the iframe). Turn 1 emits `create_view` with three-step flowchart elements so the MCP middleware fetches the Excalidraw UI resource and mounts the iframe; turn 2 (after the tool result) emits the deterministic narration.",
+      "match": {
+        "userMessage": "draw a simple flowchart",
+        "toolName": "create_view"
+      },
+      "response": {
+        "reasoning": "The user wants a simple three-step flowchart. I'll call create_view once with three labelled rectangles connected by arrows and a title, framed by a cameraUpdate.",
+        "content": "Drawing a simple three-step flowchart in Excalidraw.",
+        "toolCalls": [
+          {
+            "id": "call_d5_mcp_apps_create_view_flowchart_001",
+            "name": "create_view",
+            "arguments": "{\"elements\":[{\"id\":\"title\",\"type\":\"text\",\"x\":300,\"y\":40,\"text\":\"Flowchart\",\"fontSize\":24},{\"id\":\"step1\",\"type\":\"rectangle\",\"x\":80,\"y\":160,\"width\":160,\"height\":70,\"label\":{\"text\":\"Start\",\"fontSize\":18}},{\"id\":\"step2\",\"type\":\"rectangle\",\"x\":320,\"y\":160,\"width\":160,\"height\":70,\"label\":{\"text\":\"Process\",\"fontSize\":18}},{\"id\":\"step3\",\"type\":\"rectangle\",\"x\":560,\"y\":160,\"width\":160,\"height\":70,\"label\":{\"text\":\"End\",\"fontSize\":18}},{\"id\":\"a1\",\"type\":\"arrow\",\"x\":240,\"y\":195,\"endX\":320,\"endY\":195},{\"id\":\"a2\",\"type\":\"arrow\",\"x\":480,\"y\":195,\"endX\":560,\"endY\":195},{\"id\":\"camera\",\"type\":\"cameraUpdate\",\"x\":40,\"y\":0,\"width\":800,\"height\":600}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "draw a simple flowchart",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Drew a three-step flowchart (Start → Process → End). Tap the iframe to open it in Excalidraw."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Use Excalidraw to sketch"
+      },
+      "response": {
+        "content": "Sketched a simple system diagram for you above — three boxes (frontend, runtime, agent) connected by arrows showing the request flow. Ask if you'd like a different shape or more detail."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: bar chart of expenses by category",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_bc_bar_chart_001",
+            "name": "barChart",
+            "arguments": "{\"title\":\"Expenses by Category\",\"description\":\"Monthly expense breakdown\",\"data\":[{\"label\":\"Rent\",\"value\":15000},{\"label\":\"Salaries\",\"value\":80000},{\"label\":\"Marketing\",\"value\":12000},{\"label\":\"Travel\",\"value\":5000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: bar chart of expenses by category",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Bar chart rendered above — Salaries dominate at $80k, with Rent at $15k as the next-largest category."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: pie chart of revenue distribution by category",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_bc_pie_chart_001",
+            "name": "pieChart",
+            "arguments": "{\"title\":\"Revenue by Category\",\"description\":\"Breakdown of revenue across product categories\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: pie chart of revenue distribution by category",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Pie chart rendered above — Electronics leads at $42k, followed by Clothing, Food, and Books."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: schedule a 30-minute meeting to learn about CopilotKit",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_bc_schedule_time_001",
+            "name": "scheduleTime",
+            "arguments": "{\"reasonForScheduling\":\"Learn about CopilotKit\",\"meetingDuration\":30}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: schedule a 30-minute meeting to learn about CopilotKit",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Meeting scheduled — calendar invite is on its way."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: search flights from SFO to JFK",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_bc_search_flights_001",
+            "name": "search_flights",
+            "arguments": "{\"flights\":[{\"airline\":\"United Airlines\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=united.com&sz=128\",\"flightNumber\":\"UA123\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"08:00\",\"arrivalTime\":\"16:30\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"price\":\"$349\"},{\"airline\":\"Delta\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=delta.com&sz=128\",\"flightNumber\":\"DL456\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"10:15\",\"arrivalTime\":\"18:45\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"price\":\"$289\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: search flights from SFO to JFK",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Two flights shown above — United at $349 (08:00) and Delta at $289 (10:15), both on time."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: toggle the theme",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_bc_toggle_theme_001",
+            "name": "toggleTheme",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: toggle the theme",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Theme toggled."
+      }
+    },
+    {
+      "_comment": "hitl-in-app — refund pill (#12345), post-tool-result response. Content includes BOTH approve and reject key phrases so both test assertions can match (the test checks for a substring, not the full string). This avoids sequenceIndex which is fragile across aimock restarts.",
+      "match": {
+        "userMessage": "$50 refund to Jordan Rivera on ticket #12345",
+        "toolCallId": "call_d5_hitl_refund_12345_001",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "I am processing the $50 refund to Jordan Rivera on ticket #12345 now. The refund request was not approved by default — your explicit approval or rejection determines the outcome."
+      }
+    },
+    {
+      "_comment": "hitl-in-app — refund pill (#12345). 1st turn: emit request_user_approval tool call. The post-tool-result fixture above (with toolCallId + hasToolResult: true) is more specific and wins on the 2nd turn, so hasToolResult: false is NOT needed here — omitting it allows this fixture to match even in multi-pill conversations where prior tool results exist.",
+      "match": {
+        "userMessage": "$50 refund to Jordan Rivera on ticket #12345"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_hitl_refund_12345_001",
+            "name": "request_user_approval",
+            "arguments": "{\"message\":\"Issue a $50 refund to Jordan Rivera on ticket #12345 for the duplicate charge.\",\"context\":\"Ticket #12345 — duplicate-charge goodwill credit.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "hitl-in-app — downgrade pill (#12346), 2nd turn. Same pattern as refund/escalate. Without this entry, the generic 'plan' catch-all in feature-parity.json hijacks the downgrade message.",
+      "match": {
+        "userMessage": "downgrade Priya Shah (#12346) to the Starter plan",
+        "toolCallId": "call_d5_hitl_downgrade_12346_001",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Downgrade confirmed — Priya Shah (#12346) will move to the Starter plan effective next billing cycle."
+      }
+    },
+    {
+      "_comment": "hitl-in-app — downgrade pill (#12346). 1st turn: emit request_user_approval tool call. Specific userMessage substring takes precedence over the bare 'plan' fixture in feature-parity.json (which lives later in the load order). hasToolResult: false omitted so multi-pill conversations still match.",
+      "match": {
+        "userMessage": "downgrade Priya Shah (#12346) to the Starter plan"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_hitl_downgrade_12346_001",
+            "name": "request_user_approval",
+            "arguments": "{\"message\":\"Downgrade Priya Shah (#12346) to the Starter plan effective next billing cycle.\",\"context\":\"Ticket #12346 — voluntary downgrade per customer request.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "hitl-in-app — escalate pill (#12347), post-tool-result response. Content includes both approve and reject key phrases.",
+      "match": {
+        "userMessage": "escalate ticket #12347 to the payments team",
+        "toolCallId": "call_d5_hitl_escalate_12347_001",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Escalated ticket #12347 to the payments team for Morgan Lee. Not escalated by default — your explicit approval determines the outcome."
+      }
+    },
+    {
+      "_comment": "hitl-in-app — escalate pill (#12347). 1st turn: emit request_user_approval tool call. hasToolResult: false omitted so multi-pill conversations still match (the post-tool-result fixture above with toolCallId is more specific and wins on the 2nd turn).",
+      "match": {
+        "userMessage": "escalate ticket #12347 to the payments team"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_hitl_escalate_12347_001",
+            "name": "request_user_approval",
+            "arguments": "{\"message\":\"Escalate ticket #12347 to the payments team for Morgan Lee's stuck payment.\",\"context\":\"Ticket #12347 — payment stuck, needs payments-team triage.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — project-planning pill, follow-up content keyed on the prior tool's id. Comes BEFORE the tool-emitting fixture so iteration 2 (after the async handler returns) hits this branch instead of re-emitting query_notes. hasToolResult gates were dropped because they broke after the user clicked another tool-using pill earlier in the same thread.",
+      "match": {
+        "userMessage": "Find my notes about project planning",
+        "toolCallId": "call_d5_query_notes_project_planning_001"
+      },
+      "response": {
+        "content": "You have notes on project planning: \"Q2 project planning kickoff\" and \"Project planning retrospective notes\". Let me know if you want a summary of either."
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — project-planning pill. 1st turn: query_notes tool call. Specific match wins over the broad 'plan' fixture in feature-parity.json (d5-all.json loads first).",
+      "match": {
+        "userMessage": "Find my notes about project planning"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_query_notes_project_planning_001",
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"project planning\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — auth pill, follow-up content keyed on the prior tool's id. Must come BEFORE the tool-emitting fixture.",
+      "match": {
+        "userMessage": "Search my notes for anything related to auth",
+        "toolCallId": "call_d5_query_notes_auth_001"
+      },
+      "response": {
+        "content": "You have one note related to auth: \"Planning: migrate auth to passkeys\" — it covers WebAuthn library options and a fallback for unsupported browsers."
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — auth pill. 1st turn: query_notes tool call. Beats the showcase-assistant catch-all in feature-parity.json by virtue of d5-all.json's load order and a longer specific substring match.",
+      "match": {
+        "userMessage": "Search my notes for anything related to auth"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_query_notes_auth_001",
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"auth\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — reading pill, follow-up content keyed on the prior tool's id. Must come BEFORE the tool-emitting fixture. Locked narration leading phrase per spec test #4 assertion.",
+      "match": {
+        "userMessage": "Do I have any notes tagged reading",
+        "toolCallId": "call_d5_query_notes_reading_001"
+      },
+      "response": {
+        "content": "You have a note titled \"Book recommendations\" that is tagged with \"reading.\" It includes the following books: Thinking Fast and Slow by Daniel Kahneman, The Design of Everyday Things by Don Norman."
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — reading pill. 1st turn: query_notes tool call.",
+      "match": {
+        "userMessage": "Do I have any notes tagged reading"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_query_notes_reading_001",
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"reading\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "readonly-state-agent-context — Who am I pill. Matches the verbatim pill prompt. systemMessage gating on 'Atai' was removed because @langchain/openai >=1.4 sends SystemMessage as role:'developer' for gpt-5 models, and aimock's getSystemText only checks role:'system'. The userMessage alone is deterministic from the pill.",
+      "match": {
+        "userMessage": "What do you know about me from my context?"
+      },
+      "response": {
+        "content": "I see you're Atai, and you're in the America/Los_Angeles timezone. Recently, you viewed the pricing page and watched the product demo video. How can I assist you today?"
+      }
+    },
+    {
+      "_comment": "readonly-state-agent-context — Suggest next steps pill. Matches the verbatim pill prompt. systemMessage gating removed (see Who am I comment above).",
+      "match": {
+        "userMessage": "Based on my recent activity, what should I try next?"
+      },
+      "response": {
+        "content": "Since you recently viewed the pricing page and watched the product demo video, it might be a good idea to explore user testimonials or case studies to see how others have benefited from the Pro Plan. You could also start the 14-day free trial to experience the features firsthand."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "tone:professional"
+      },
+      "response": {
+        "content": "Greetings. I am operating in professional tone. I will provide measured, formal responses calibrated to your stated preferences and refrain from colloquialisms in my replies."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "tone:casual"
+      },
+      "response": {
+        "content": "Hey! Casual mode here — I'll keep things friendly and easygoing. Just shoot me whatever you want to know and I'll riff on it without sounding like a press release."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "expertise:beginner"
+      },
+      "response": {
+        "content": "Sure! Think of CopilotKit as a friendly toolkit. It helps you add an AI helper to your app. The helper can answer questions, run small tasks, and show buttons or charts when needed."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "expertise:expert"
+      },
+      "response": {
+        "content": "CopilotKit composes a runtime adapter (Express/Hono) over the AG-UI SSE protocol; the React client wires hooks (useFrontendTool, useAgentContext) into a typed agent runner. The architecture front-runs round-trip latency by streaming TEXT_MESSAGE_CHUNK and TOOL_CALL events on the same channel."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "responseLength:concise"
+      },
+      "response": {
+        "content": "Agent context is a typed payload sent each turn."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "responseLength:detailed"
+      },
+      "response": {
+        "content": "Agent context is a typed payload published from the frontend on every turn through the useAgentContext hook. The payload is forwarded into the agent's runtime context (LangGraph 0.6 introduced the `context` channel as the supported relay for per-run frontend-supplied data; legacy `properties` flowed via `forwardedProps` and did not land in `RunnableConfig`). On the Python side, CopilotKitMiddleware reads the value off the runtime context, then routes it into the system-prompt builder so the model sees the user's tone, expertise, and length preferences before each call. The result is per-turn behavior change without a model swap."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Make the background a sunset gradient",
+        "toolCallId": "call_d5_change_background_sunset"
+      },
+      "response": {
+        "content": "Done — sunset gradient is live."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Make the background a sunset gradient"
+      },
+      "response": {
+        "content": "Sunset gradient applied — warm orange-to-rose blend.",
+        "toolCalls": [
+          {
+            "id": "call_d5_change_background_sunset",
+            "name": "change_background",
+            "arguments": {
+              "background": "linear-gradient(135deg, #ff7e5f 0%, #feb47b 50%, #ff6b6b 100%)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "deep green forest gradient",
+        "toolCallId": "call_d5_change_background_forest"
+      },
+      "response": {
+        "content": "Done — forest gradient is live."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "deep green forest gradient"
+      },
+      "response": {
+        "content": "Forest gradient applied — deep green hues.",
+        "toolCalls": [
+          {
+            "id": "call_d5_change_background_forest",
+            "name": "change_background",
+            "arguments": {
+              "background": "linear-gradient(135deg, #0a3d2e 0%, #166534 50%, #059669 100%)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "navy → magenta cosmic gradient",
+        "toolCallId": "call_d5_change_background_cosmic"
+      },
+      "response": {
+        "content": "Done — cosmic gradient is live."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "navy → magenta cosmic gradient"
+      },
+      "response": {
+        "content": "Cosmic gradient applied — navy fading to magenta.",
+        "toolCalls": [
+          {
+            "id": "call_d5_change_background_cosmic",
+            "name": "change_background",
+            "arguments": {
+              "background": "linear-gradient(135deg, #1e3a8a 0%, #6b21a8 50%, #9333ea 100%)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "project planning"
+      },
+      "response": {
+        "content": "I searched your notes and found a few results.",
+        "toolCalls": [
+          {
+            "name": "query_notes",
+            "arguments": {
+              "keyword": "project planning"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_launch_007"
+      },
+      "response": {
+        "content": "All three launch steps complete. Goals defined, marketing aligned, post-launch metrics tracked — ready to ship."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_launch_006"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_launch_007",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"launch-1\",\"title\":\"Define launch goals and audience\",\"status\":\"completed\"},{\"id\":\"launch-2\",\"title\":\"Coordinate marketing and PR rollout\",\"status\":\"completed\"},{\"id\":\"launch-3\",\"title\":\"Track post-launch metrics for week 1\",\"status\":\"completed\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_launch_005"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_launch_006",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"launch-1\",\"title\":\"Define launch goals and audience\",\"status\":\"completed\"},{\"id\":\"launch-2\",\"title\":\"Coordinate marketing and PR rollout\",\"status\":\"completed\"},{\"id\":\"launch-3\",\"title\":\"Track post-launch metrics for week 1\",\"status\":\"in_progress\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_launch_004"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_launch_005",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"launch-1\",\"title\":\"Define launch goals and audience\",\"status\":\"completed\"},{\"id\":\"launch-2\",\"title\":\"Coordinate marketing and PR rollout\",\"status\":\"completed\"},{\"id\":\"launch-3\",\"title\":\"Track post-launch metrics for week 1\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_launch_003"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_launch_004",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"launch-1\",\"title\":\"Define launch goals and audience\",\"status\":\"completed\"},{\"id\":\"launch-2\",\"title\":\"Coordinate marketing and PR rollout\",\"status\":\"in_progress\"},{\"id\":\"launch-3\",\"title\":\"Track post-launch metrics for week 1\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_launch_002"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_launch_003",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"launch-1\",\"title\":\"Define launch goals and audience\",\"status\":\"completed\"},{\"id\":\"launch-2\",\"title\":\"Coordinate marketing and PR rollout\",\"status\":\"pending\"},{\"id\":\"launch-3\",\"title\":\"Track post-launch metrics for week 1\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_launch_001"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_launch_002",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"launch-1\",\"title\":\"Define launch goals and audience\",\"status\":\"in_progress\"},{\"id\":\"launch-2\",\"title\":\"Coordinate marketing and PR rollout\",\"status\":\"pending\"},{\"id\":\"launch-3\",\"title\":\"Track post-launch metrics for week 1\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Plan a product launch"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_launch_001",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"launch-1\",\"title\":\"Define launch goals and audience\",\"status\":\"pending\"},{\"id\":\"launch-2\",\"title\":\"Coordinate marketing and PR rollout\",\"status\":\"pending\"},{\"id\":\"launch-3\",\"title\":\"Track post-launch metrics for week 1\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_offsite_007"
+      },
+      "response": {
+        "content": "Offsite locked in. Venue booked, agenda set, travel and meals arranged."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_offsite_006"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_offsite_007",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"offsite-1\",\"title\":\"Reserve venue near downtown for 30 engineers\",\"status\":\"completed\"},{\"id\":\"offsite-2\",\"title\":\"Build day-by-day agenda with workshop slots\",\"status\":\"completed\"},{\"id\":\"offsite-3\",\"title\":\"Arrange travel, lodging and group meals\",\"status\":\"completed\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_offsite_005"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_offsite_006",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"offsite-1\",\"title\":\"Reserve venue near downtown for 30 engineers\",\"status\":\"completed\"},{\"id\":\"offsite-2\",\"title\":\"Build day-by-day agenda with workshop slots\",\"status\":\"completed\"},{\"id\":\"offsite-3\",\"title\":\"Arrange travel, lodging and group meals\",\"status\":\"in_progress\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_offsite_004"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_offsite_005",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"offsite-1\",\"title\":\"Reserve venue near downtown for 30 engineers\",\"status\":\"completed\"},{\"id\":\"offsite-2\",\"title\":\"Build day-by-day agenda with workshop slots\",\"status\":\"completed\"},{\"id\":\"offsite-3\",\"title\":\"Arrange travel, lodging and group meals\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_offsite_003"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_offsite_004",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"offsite-1\",\"title\":\"Reserve venue near downtown for 30 engineers\",\"status\":\"completed\"},{\"id\":\"offsite-2\",\"title\":\"Build day-by-day agenda with workshop slots\",\"status\":\"in_progress\"},{\"id\":\"offsite-3\",\"title\":\"Arrange travel, lodging and group meals\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_offsite_002"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_offsite_003",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"offsite-1\",\"title\":\"Reserve venue near downtown for 30 engineers\",\"status\":\"completed\"},{\"id\":\"offsite-2\",\"title\":\"Build day-by-day agenda with workshop slots\",\"status\":\"pending\"},{\"id\":\"offsite-3\",\"title\":\"Arrange travel, lodging and group meals\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_offsite_001"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_offsite_002",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"offsite-1\",\"title\":\"Reserve venue near downtown for 30 engineers\",\"status\":\"in_progress\"},{\"id\":\"offsite-2\",\"title\":\"Build day-by-day agenda with workshop slots\",\"status\":\"pending\"},{\"id\":\"offsite-3\",\"title\":\"Arrange travel, lodging and group meals\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "team offsite"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_offsite_001",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"offsite-1\",\"title\":\"Reserve venue near downtown for 30 engineers\",\"status\":\"pending\"},{\"id\":\"offsite-2\",\"title\":\"Build day-by-day agenda with workshop slots\",\"status\":\"pending\"},{\"id\":\"offsite-3\",\"title\":\"Arrange travel, lodging and group meals\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_competitor_007"
+      },
+      "response": {
+        "content": "Competitor brief assembled. Surface mapped, themes summarized, exploitable weaknesses identified."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_competitor_006"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_competitor_007",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"comp-1\",\"title\":\"Map competitor product surface and pricing tiers\",\"status\":\"completed\"},{\"id\":\"comp-2\",\"title\":\"Summarize their public differentiation themes\",\"status\":\"completed\"},{\"id\":\"comp-3\",\"title\":\"Identify weaknesses our positioning can exploit\",\"status\":\"completed\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_competitor_005"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_competitor_006",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"comp-1\",\"title\":\"Map competitor product surface and pricing tiers\",\"status\":\"completed\"},{\"id\":\"comp-2\",\"title\":\"Summarize their public differentiation themes\",\"status\":\"completed\"},{\"id\":\"comp-3\",\"title\":\"Identify weaknesses our positioning can exploit\",\"status\":\"in_progress\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_competitor_004"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_competitor_005",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"comp-1\",\"title\":\"Map competitor product surface and pricing tiers\",\"status\":\"completed\"},{\"id\":\"comp-2\",\"title\":\"Summarize their public differentiation themes\",\"status\":\"completed\"},{\"id\":\"comp-3\",\"title\":\"Identify weaknesses our positioning can exploit\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_competitor_003"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_competitor_004",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"comp-1\",\"title\":\"Map competitor product surface and pricing tiers\",\"status\":\"completed\"},{\"id\":\"comp-2\",\"title\":\"Summarize their public differentiation themes\",\"status\":\"in_progress\"},{\"id\":\"comp-3\",\"title\":\"Identify weaknesses our positioning can exploit\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_competitor_002"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_competitor_003",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"comp-1\",\"title\":\"Map competitor product surface and pricing tiers\",\"status\":\"completed\"},{\"id\":\"comp-2\",\"title\":\"Summarize their public differentiation themes\",\"status\":\"pending\"},{\"id\":\"comp-3\",\"title\":\"Identify weaknesses our positioning can exploit\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_competitor_001"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_competitor_002",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"comp-1\",\"title\":\"Map competitor product surface and pricing tiers\",\"status\":\"in_progress\"},{\"id\":\"comp-2\",\"title\":\"Summarize their public differentiation themes\",\"status\":\"pending\"},{\"id\":\"comp-3\",\"title\":\"Identify weaknesses our positioning can exploit\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Research our top competitor"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_competitor_001",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"comp-1\",\"title\":\"Map competitor product surface and pricing tiers\",\"status\":\"pending\"},{\"id\":\"comp-2\",\"title\":\"Summarize their public differentiation themes\",\"status\":\"pending\"},{\"id\":\"comp-3\",\"title\":\"Identify weaknesses our positioning can exploit\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "KPI dashboard",
+        "toolCallId": "call_d5_a2ui_dynamic_kpi_001"
+      },
+      "response": {
+        "content": "Here is the KPI dashboard you requested."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "KPI dashboard",
+        "toolName": "generate_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "generate_a2ui",
+            "arguments": "{\"context\":\"KPI dashboard\"}",
+            "id": "call_d5_a2ui_dynamic_kpi_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "KPI dashboard",
+        "toolName": "_design_a2ui_surface"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_design_a2ui_kpi_001",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\": \"kpi-dashboard\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"Card\", \"title\": \"Quarterly KPIs\", \"subtitle\": \"Revenue, signups, and churn\", \"child\": \"metrics-row\"}, {\"id\": \"metrics-row\", \"component\": \"Row\", \"children\": [\"m-rev\", \"m-sign\", \"m-churn\"], \"gap\": 16}, {\"id\": \"m-rev\", \"component\": \"Metric\", \"label\": \"Revenue\", \"value\": \"$1.24M\", \"trend\": \"up\"}, {\"id\": \"m-sign\", \"component\": \"Metric\", \"label\": \"Signups\", \"value\": \"8,420\", \"trend\": \"up\"}, {\"id\": \"m-churn\", \"component\": \"Metric\", \"label\": \"Churn\", \"value\": \"2.3%\", \"trend\": \"down\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "toolCallId": "call_d5_a2ui_dynamic_pie_001"
+      },
+      "response": {
+        "content": "Here is the pie chart by region."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "toolName": "generate_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "generate_a2ui",
+            "arguments": "{\"context\":\"pie chart of sales by region\"}",
+            "id": "call_d5_a2ui_dynamic_pie_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "toolName": "_design_a2ui_surface"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_design_a2ui_pie_001",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\": \"pie-sales\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"PieChart\", \"title\": \"Sales by region\", \"description\": \"Q4 revenue split\", \"data\": [{\"label\": \"NA\", \"value\": 540}, {\"label\": \"EMEA\", \"value\": 320}, {\"label\": \"APAC\", \"value\": 210}, {\"label\": \"LATAM\", \"value\": 90}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "toolCallId": "call_d5_a2ui_dynamic_bar_001"
+      },
+      "response": {
+        "content": "Here is the bar chart of quarterly revenue."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "toolName": "generate_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "generate_a2ui",
+            "arguments": "{\"context\":\"bar chart of quarterly revenue\"}",
+            "id": "call_d5_a2ui_dynamic_bar_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "toolName": "_design_a2ui_surface"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_design_a2ui_bar_001",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\": \"bar-quarterly\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"BarChart\", \"title\": \"Quarterly revenue\", \"description\": \"FY 2025 per quarter\", \"data\": [{\"label\": \"Q1\", \"value\": 820}, {\"label\": \"Q2\", \"value\": 950}, {\"label\": \"Q3\", \"value\": 1100}, {\"label\": \"Q4\", \"value\": 1240}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "status report on system health",
+        "toolCallId": "call_d5_a2ui_dynamic_status_001"
+      },
+      "response": {
+        "content": "Here is the system health status report."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "status report on system health",
+        "toolName": "generate_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "generate_a2ui",
+            "arguments": "{\"context\":\"status report on system health\"}",
+            "id": "call_d5_a2ui_dynamic_status_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "status report on system health",
+        "toolName": "_design_a2ui_surface"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_design_a2ui_status_001",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\": \"status-report\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"Card\", \"title\": \"System health\", \"subtitle\": \"Live status\", \"child\": \"rows\"}, {\"id\": \"rows\", \"component\": \"Column\", \"children\": [\"r-api\", \"r-db\", \"r-bg\"], \"gap\": 8}, {\"id\": \"r-api\", \"component\": \"Row\", \"children\": [\"l-api\", \"b-api\"], \"gap\": 8}, {\"id\": \"l-api\", \"component\": \"InfoRow\", \"label\": \"API\", \"value\": \"p99 142ms\"}, {\"id\": \"b-api\", \"component\": \"StatusBadge\", \"text\": \"Healthy\", \"variant\": \"success\"}, {\"id\": \"r-db\", \"component\": \"Row\", \"children\": [\"l-db\", \"b-db\"], \"gap\": 8}, {\"id\": \"l-db\", \"component\": \"InfoRow\", \"label\": \"Database\", \"value\": \"Replication lag 220ms\"}, {\"id\": \"b-db\", \"component\": \"StatusBadge\", \"text\": \"Degraded\", \"variant\": \"warning\"}, {\"id\": \"r-bg\", \"component\": \"Row\", \"children\": [\"l-bg\", \"b-bg\"], \"gap\": 8}, {\"id\": \"l-bg\", \"component\": \"InfoRow\", \"label\": \"Background workers\", \"value\": \"Queue depth 12\"}, {\"id\": \"b-bg\", \"component\": \"StatusBadge\", \"text\": \"Healthy\", \"variant\": \"success\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "render_a2ui — KPI dashboard pill (Google-ADK secondary tool name). Card has a single `child` slot (per myDefinitions.Card.props.child: string), so we wrap the three Metrics in a basic-catalog Column to satisfy the multi-child layout.",
+      "match": {
+        "userMessage": "KPI dashboard",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "Card",
+                  "title": "KPI dashboard",
+                  "subtitle": "Last 30 days",
+                  "child": "metrics-col"
+                },
+                {
+                  "id": "metrics-col",
+                  "component": "Column",
+                  "children": [
+                    "metric-revenue",
+                    "metric-signups",
+                    "metric-churn"
+                  ],
+                  "gap": 12
+                },
+                {
+                  "id": "metric-revenue",
+                  "component": "Metric",
+                  "label": "Revenue",
+                  "value": "$1.2M",
+                  "trend": "up"
+                },
+                {
+                  "id": "metric-signups",
+                  "component": "Metric",
+                  "label": "Signups",
+                  "value": "4,820",
+                  "trend": "up"
+                },
+                {
+                  "id": "metric-churn",
+                  "component": "Metric",
+                  "label": "Churn",
+                  "value": "2.1%",
+                  "trend": "down"
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "render_a2ui — pie-chart pill (Google-ADK). Flat {id, component, ...props} shape.",
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "PieChart",
+                  "title": "Sales by region",
+                  "description": "Q4 — share of total revenue",
+                  "data": [
+                    {
+                      "label": "North America",
+                      "value": 540
+                    },
+                    {
+                      "label": "EMEA",
+                      "value": 320
+                    },
+                    {
+                      "label": "APAC",
+                      "value": 210
+                    },
+                    {
+                      "label": "LATAM",
+                      "value": 90
+                    }
+                  ]
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "render_a2ui — bar-chart pill (Google-ADK). Flat {id, component, ...props} shape.",
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "BarChart",
+                  "title": "Quarterly revenue",
+                  "description": "FY24 — USD thousands",
+                  "data": [
+                    {
+                      "label": "Q1",
+                      "value": 820
+                    },
+                    {
+                      "label": "Q2",
+                      "value": 940
+                    },
+                    {
+                      "label": "Q3",
+                      "value": 1080
+                    },
+                    {
+                      "label": "Q4",
+                      "value": 1240
+                    }
+                  ]
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "render_a2ui — status-report pill (Google-ADK). Card has single `child` slot, so wrap the three StatusBadges in a basic-catalog Column.",
+      "match": {
+        "userMessage": "status report on system health",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "Card",
+                  "title": "System health",
+                  "subtitle": "All services",
+                  "child": "status-col"
+                },
+                {
+                  "id": "status-col",
+                  "component": "Column",
+                  "children": ["status-api", "status-db", "status-workers"],
+                  "gap": 8
+                },
+                {
+                  "id": "status-api",
+                  "component": "StatusBadge",
+                  "text": "API: healthy",
+                  "variant": "success"
+                },
+                {
+                  "id": "status-db",
+                  "component": "StatusBadge",
+                  "text": "Database: healthy",
+                  "variant": "success"
+                },
+                {
+                  "id": "status-workers",
+                  "component": "StatusBadge",
+                  "text": "Workers: degraded",
+                  "variant": "warning"
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "SFO to JFK",
+        "toolCallId": "call_d5_display_flight_001"
+      },
+      "response": {
+        "content": "Flight rendered. Tap 'Book flight' to confirm."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "SFO to JFK",
+        "toolName": "display_flight"
+      },
+      "response": {
+        "content": "Here is the SFO to JFK flight on United.",
+        "toolCalls": [
+          {
+            "name": "display_flight",
+            "arguments": {
+              "origin": "SFO",
+              "destination": "JFK",
+              "airline": "United",
+              "price": "$289"
+            },
+            "id": "call_d5_display_flight_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "toolCallId": "call_d5_schedule_sales_001"
+      },
+      "response": {
+        "content": "Booked: Sales intro call confirmed for the slot you picked."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "toolName": "schedule_meeting"
+      },
+      "response": {
+        "content": "Sure — let me check available times.",
+        "toolCalls": [
+          {
+            "name": "schedule_meeting",
+            "arguments": {
+              "topic": "Sales intro call",
+              "attendee": "Sales team",
+              "slots": [
+                {
+                  "label": "Mon 10:00 AM",
+                  "iso": "2026-05-11T10:00:00Z"
+                },
+                {
+                  "label": "Tue 2:00 PM",
+                  "iso": "2026-05-12T14:00:00Z"
+                }
+              ]
+            },
+            "id": "call_d5_schedule_sales_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolCallId": "call_d5_schedule_alice_001"
+      },
+      "response": {
+        "content": "Scheduled: 1:1 with Alice locked in for the slot you picked."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolName": "schedule_meeting"
+      },
+      "response": {
+        "content": "Got it — pulling up next-week slots.",
+        "toolCalls": [
+          {
+            "name": "schedule_meeting",
+            "arguments": {
+              "topic": "1:1 with Alice — Q2 goals",
+              "attendee": "Alice",
+              "slots": [
+                {
+                  "label": "Wed 11:00 AM",
+                  "iso": "2026-05-13T11:00:00Z"
+                },
+                {
+                  "label": "Thu 3:30 PM",
+                  "iso": "2026-05-14T15:30:00Z"
+                }
+              ]
+            },
+            "id": "call_d5_schedule_alice_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "poem about autumn leaves",
+        "toolCallId": "call_d5_write_document_poem_001"
+      },
+      "response": {
+        "content": "Done — the poem has been written into the shared document state."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "poem about autumn leaves",
+        "toolName": "write_document"
+      },
+      "response": {
+        "content": "Streaming the poem now.",
+        "toolCalls": [
+          {
+            "id": "call_d5_write_document_poem_001",
+            "name": "write_document",
+            "arguments": "{\"document\":\"Crimson and amber in slow descent, / each leaf a quiet ledger of summer spent. / The wind, a courier with nothing to say, / files them gently into the morning's gray. / Somewhere a kettle hums, and afternoons grow brief — / autumn keeps its books in vermilion and gold leaf.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "polite email declining",
+        "toolCallId": "call_d5_write_document_email_001"
+      },
+      "response": {
+        "content": "Done — the decline-email draft has been written into the shared document state."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "polite email declining",
+        "toolName": "write_document"
+      },
+      "response": {
+        "content": "Drafting the email now.",
+        "toolCalls": [
+          {
+            "id": "call_d5_write_document_email_001",
+            "name": "write_document",
+            "arguments": "{\"document\":\"Hi — thanks for sending the invite for Tuesday afternoon. Unfortunately I won't be able to make it this week. I'd love to find time later in the month if your schedule allows. In the meantime, feel free to send any pre-reads my way and I'll review them async so we don't lose momentum. Best, [name]\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "quantum computing for a curious teenager",
+        "toolCallId": "call_d5_write_document_quantum_001"
+      },
+      "response": {
+        "content": "Done — the quantum-computing explainer has been written into the shared document state."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "quantum computing for a curious teenager",
+        "toolName": "write_document"
+      },
+      "response": {
+        "content": "Streaming the explainer now.",
+        "toolCalls": [
+          {
+            "id": "call_d5_write_document_quantum_001",
+            "name": "write_document",
+            "arguments": "{\"document\":\"A regular computer stores information in bits — tiny switches that are either on (1) or off (0). A quantum computer uses qubits, which can sit in a fuzzy superposition of both states at once until you check them. Stack many qubits together and they can explore lots of possibilities in parallel, which is why people are excited.\\n\\nThis doesn't make quantum computers faster at everything. They're great at problems with hidden structure — like factoring big numbers, simulating molecules, or searching certain databases — but useless for, say, opening Excel. Today's machines are noisy and small, so we mostly use them to test ideas rather than replace your laptop.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What do you know about me from my context"
+      },
+      "response": {
+        "content": "Based on your context I can see your name and recent activity. I'll keep responses calibrated to your timezone."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "First use the query_data tool to fetch the financial sales data, then using A2UI, show me a sales dashboard with total revenue, new customers, and conversion rate metrics. Include a pie chart of revenue by category and a bar chart of monthly sales.",
+        "model": "gpt-4o",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "query_data",
+            "arguments": "{\"query\":\"financial sales data including total revenue, new customers, conversion rate, revenue by category, and monthly sales\"}",
+            "id": "call_jWKVlcdnnYiV6MT3wzNZphnF"
+          }
+        ]
+      },
+      "metadata": {
+        "systemHash": "989f650c",
+        "toolsHash": "6e36f0b6"
+      },
+      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-54-59-257Z-b614f3f8.json"
+    },
+    {
+      "match": {
+        "userMessage": "First use the query_data tool to fetch the financial sales data, then using A2UI, show me a sales dashboard with total revenue, new customers, and conversion rate metrics. Include a pie chart of revenue by category and a bar chart of monthly sales.",
+        "model": "gpt-4o",
+        "turnIndex": 1,
+        "hasToolResult": true
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "generate_a2ui",
+            "arguments": "{}",
+            "id": "call_K6au6wp1CjG4OuiGzhL1yCXL"
+          }
+        ]
+      },
+      "metadata": {
+        "systemHash": "989f650c",
+        "toolsHash": "6e36f0b6"
+      },
+      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-55-00-312Z-814153b0.json"
+    },
+    {
+      "match": {
+        "model": "gpt-4.1",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"dashboard-001\",\"catalogId\":\"copilotkit://app-dashboard-catalog\"}",
+            "id": "call_Q3rTavqr4dXJ08ne9bEesL9d"
+          }
+        ]
+      },
+      "metadata": {
+        "systemHash": "28fe3ed7",
+        "toolsHash": "2cbb50da"
+      },
+      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-55-02-522Z-e88af85f.json"
+    },
+    {
+      "match": {
+        "userMessage": "First use the query_data tool to fetch the financial sales data, then using A2UI, show me a sales dashboard with total revenue, new customers, and conversion rate metrics. Include a pie chart of revenue by category and a bar chart of monthly sales.",
+        "model": "gpt-4o",
+        "turnIndex": 2,
+        "hasToolResult": true
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "pieChart",
+            "arguments": "{\"title\": \"Revenue by Category\", \"description\": \"Distribution of revenue across different categories\", \"data\": [{\"label\": \"Enterprise Subscriptions\", \"value\": 94000}, {\"label\": \"Pro Tier Upgrades\", \"value\": 66500}, {\"label\": \"API Usage Overages\", \"value\": 34500}, {\"label\": \"Consulting Services\", \"value\": 54000}, {\"label\": \"Marketplace Sales\", \"value\": 42800}, {\"label\": \"Partnership Revenue\", \"value\": 25700}, {\"label\": \"Training & Workshops\", \"value\": 10200}]}",
+            "id": "call_OJDsrTtDcWoV0PObgKtU9fXv"
+          },
+          {
+            "name": "barChart",
+            "arguments": "{\"title\": \"Monthly Sales\", \"description\": \"Sales performance over the months\", \"data\": [{\"label\": \"January\", \"value\": 82800}, {\"label\": \"February\", \"value\": 119000}, {\"label\": \"March\", \"value\": 135700}]}",
+            "id": "call_o9RdNrZTq8qV0Majn12OTZcu"
+          }
+        ]
+      },
+      "metadata": {
+        "systemHash": "989f650c",
+        "toolsHash": "6e36f0b6"
+      },
+      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-55-05-134Z-890eead9.json"
+    },
+    {
+      "match": {
+        "userMessage": "First use the query_data tool to fetch the financial sales data, then using A2UI, show me a sales dashboard with total revenue, new customers, and conversion rate metrics. Include a pie chart of revenue by category and a bar chart of monthly sales.",
+        "model": "gpt-4o",
+        "turnIndex": 3,
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "The sales dashboard is now available, featuring metrics for total revenue, new customers, and conversion rate. Additionally, you can view a pie chart of revenue by category and a bar chart of monthly sales."
+      },
+      "metadata": {
+        "systemHash": "989f650c",
+        "toolsHash": "6e36f0b6"
+      },
+      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-55-07-715Z-9531bf64.json"
+    },
+    {
+      "match": {
+        "userMessage": "Using the generateSandboxedUi tool, build a modern calculator with standard buttons plus labeled metric shortcut buttons that insert their values into the display when clicked. Use sample company data.",
+        "model": "gpt-4o",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":400,\"placeholderMessages\":[\"Building calculator UI...\"],\"css\":\"body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f4f4f9; } .calculator { width: 320px; background-color: #fff; border-radius: 10px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); } .display { background-color: #222; color: #fff; font-size: 2em; padding: 20px; text-align: right; border-top-left-radius: 10px; border-top-right-radius: 10px; } .buttons { display: grid; grid-template-columns: repeat(4, 1fr); grid-gap: 1px; } .button { background-color: #e0e0e0; padding: 20px; font-size: 1.2em; text-align: center; cursor: pointer; transition: background-color 0.2s; } .button:hover { background-color: #d0d0d0; } .metric-button { background-color: #4caf50; color: #fff; }\",\"html\":\"<div class='calculator'> <div class='display' id='display'>0</div> <div class='buttons'> <div class='button' onclick='appendNumber(7)'>7</div> <div class='button' onclick='appendNumber(8)'>8</div> <div class='button' onclick='appendNumber(9)'>9</div> <div class='button' onclick='operate(\\\"/\\\")'>/</div> <div class='button' onclick='appendNumber(4)'>4</div> <div class='button' onclick='appendNumber(5)'>5</div> <div class='button' onclick='appendNumber(6)'>6</div> <div class='button' onclick='operate(\\\"*\\\")'>*</div> <div class='button' onclick='appendNumber(1)'>1</div> <div class='button' onclick='appendNumber(2)'>2</div> <div class='button' onclick='appendNumber(3)'>3</div> <div class='button' onclick='operate(\\\"-\\\")'>-</div> <div class='button' onclick='appendNumber(0)'>0</div> <div class='button' onclick='clearDisplay()'>C</div> <div class='button' onclick='calculate()'>=</div> <div class='button' onclick='operate(\\\"+\\\")'>+</div> <div class='button metric-button' onclick='insertMetric(1000)'>Revenue</div> <div class='button metric-button' onclick='insertMetric(500)'>Expenses</div> <div class='button metric-button' onclick='insertMetric(200)'>Profit</div> </div> </div>\",\"jsFunctions\":\"function appendNumber(number) { const display = document.getElementById('display'); if (display.innerText === '0') { display.innerText = number; } else { display.innerText += number; } } function operate(operator) { const display = document.getElementById('display'); display.innerText += ' ' + operator + ' '; } function clearDisplay() { document.getElementById('display').innerText = '0'; } function calculate() { const display = document.getElementById('display'); try { display.innerText = eval(display.innerText); } catch { display.innerText = 'Error'; } } function insertMetric(value) { const display = document.getElementById('display'); if (display.innerText === '0') { display.innerText = value; } else { display.innerText += value; } }\",\"jsExpressions\":[]}",
+            "id": "call_u2aFJvWZUKzzlvqfnDeWhMyC"
+          }
+        ]
+      },
+      "metadata": {
+        "systemHash": "989f650c",
+        "toolsHash": "6e36f0b6"
+      },
+      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-56-02-547Z-7afa30ad.json"
+    },
+    {
+      "match": {
+        "userMessage": "Using the generateSandboxedUi tool, build a modern calculator with standard buttons plus labeled metric shortcut buttons that insert their values into the display when clicked. Use sample company data.",
+        "model": "gpt-4o",
+        "turnIndex": 1,
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "The modern calculator with standard buttons and labeled metric shortcut buttons is ready for use. You can perform calculations and insert sample company data values like Revenue, Expenses, and Profit directly into the display."
+      },
+      "metadata": {
+        "systemHash": "989f650c",
+        "toolsHash": "6e36f0b6"
+      },
+      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-56-04-559Z-1bafed55.json"
+    },
+    {
+      "match": {
+        "userMessage": "What is the weather in Tokyo?",
+        "model": "gpt-4o-mini",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}",
+            "id": "call_0uXBAr4ySTrLQGQgszQYFtEJ"
+          }
+        ]
+      },
+      "metadata": {
+        "systemHash": "26c3eb38",
+        "toolsHash": "686e39e9"
+      },
+      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T22-01-34-384Z-edf48666.json"
+    },
+    {
+      "match": {
+        "userMessage": "What is the weather in Tokyo?",
+        "model": "gpt-4o-mini",
+        "turnIndex": 1,
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "The weather in Tokyo is currently 68°F, with 55% humidity, a wind speed of 10 mph, and sunny conditions."
+      },
+      "metadata": {
+        "systemHash": "26c3eb38",
+        "toolsHash": "686e39e9"
+      },
+      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T22-01-35-344Z-6ea6b18a.json"
+    }
+  ]
+}

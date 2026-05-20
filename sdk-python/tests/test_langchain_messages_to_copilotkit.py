@@ -31,7 +31,9 @@ class TestAssistantMessageAlwaysEmitted:
             AIMessage(
                 id="ai-1",
                 content="Let me help with that.",
-                tool_calls=[{"id": "tc-1", "name": "get_help", "args": {"topic": "billing"}}],
+                tool_calls=[
+                    {"id": "tc-1", "name": "get_help", "args": {"topic": "billing"}}
+                ],
             ),
         ]
         _, assistant_msgs, tool_call_msgs = _convert_and_split(messages)
@@ -49,12 +51,16 @@ class TestAssistantMessageAlwaysEmitted:
             AIMessage(
                 id="ai-1",
                 content="",
-                tool_calls=[{"id": "tc-1", "name": "get_help", "args": {"topic": "billing"}}],
+                tool_calls=[
+                    {"id": "tc-1", "name": "get_help", "args": {"topic": "billing"}}
+                ],
             ),
         ]
         _, assistant_msgs, tool_call_msgs = _convert_and_split(messages)
 
-        assert len(assistant_msgs) == 1, "Assistant message must be emitted even with empty content"
+        assert len(assistant_msgs) == 1, (
+            "Assistant message must be emitted even with empty content"
+        )
         assert assistant_msgs[0]["id"] == "ai-1"
         assert assistant_msgs[0]["content"] == ""
 
@@ -73,7 +79,9 @@ class TestAssistantMessageAlwaysEmitted:
 
         _, assistant_msgs, _ = _convert_and_split([msg])
 
-        assert len(assistant_msgs) == 1, "Assistant message must be emitted even with None content"
+        assert len(assistant_msgs) == 1, (
+            "Assistant message must be emitted even with None content"
+        )
         assert assistant_msgs[0]["content"] == ""
 
     def test_no_orphaned_parent_message_ids(self):
@@ -112,7 +120,9 @@ class TestAssistantMessageAlwaysEmitted:
 
         _, assistant_msgs, tool_call_msgs = _convert_and_split([msg])
 
-        assert len(assistant_msgs) == 1, "Assistant message must be emitted even with empty list content"
+        assert len(assistant_msgs) == 1, (
+            "Assistant message must be emitted even with empty list content"
+        )
         assert assistant_msgs[0]["content"] == ""
 
         assert len(tool_call_msgs) == 1

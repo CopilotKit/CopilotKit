@@ -4,13 +4,14 @@
   "private": true,
   "scripts": {
     "generate": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts",
+    "predev": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts",
     "dev": "next dev --turbopack --port 3001",
-    "build": "next build",
+    "build": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts && next build",
     "start": "next start"
   },
   "dependencies": {
     "highlight.js": "^11.11.1",
-    "next": "^15.0.0",
+    "next": "^15.5.15",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-syntax-highlighter": "^15.6.0",
