@@ -13,6 +13,7 @@ import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 let mockRuntimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus =
   CopilotKitCoreRuntimeConnectionStatus.Disconnected;
 const mockConnectAgent = vi.fn().mockResolvedValue(undefined);
+const mockRunAgent = vi.fn().mockResolvedValue(undefined);
 
 const mockAgent: Record<string, unknown> = {
   messages: [],
@@ -40,7 +41,7 @@ vi.mock("../../v2", () => ({
       connectAgent: mockConnectAgent,
       runtimeConnectionStatus: mockRuntimeConnectionStatus,
       getRunIdForMessage: vi.fn(),
-      runAgent: vi.fn(),
+      runAgent: mockRunAgent,
       clearSuggestions: vi.fn(),
       addSuggestionsConfig: vi.fn(),
       reloadSuggestions: vi.fn(),
@@ -90,7 +91,7 @@ function applyMocks() {
       connectAgent: mockConnectAgent,
       runtimeConnectionStatus: mockRuntimeConnectionStatus,
       getRunIdForMessage: vi.fn(),
-      runAgent: vi.fn(),
+      runAgent: mockRunAgent,
       clearSuggestions: vi.fn(),
       addSuggestionsConfig: vi.fn(),
       reloadSuggestions: vi.fn(),
@@ -127,6 +128,7 @@ describe("useCopilotChatInternal – connectAgent guard", () => {
     mockRuntimeConnectionStatus =
       CopilotKitCoreRuntimeConnectionStatus.Disconnected;
     mockConnectAgent.mockResolvedValue(undefined);
+    mockRunAgent.mockResolvedValue(undefined);
     mockAgent.threadId = undefined;
     mockAgent.messages = [];
     mockAgent.state = {};
@@ -227,6 +229,46 @@ describe("useCopilotChatInternal – connectAgent guard", () => {
       expect(mockConnectAgent).toHaveBeenCalledTimes(1);
       expect(mockConnectAgent).toHaveBeenCalledWith({ agent: mockAgent });
     });
+  });
+
+  it("assigns the resolved threadId to the agent before connect", async () => {
+    mockRuntimeConnectionStatus =
+      CopilotKitCoreRuntimeConnectionStatus.Connected;
+    mockConfigThreadId = "persisted-thread-id";
+    applyMocks();
+
+    renderHook(() => useCopilotChatInternal(), { wrapper: createWrapper() });
+
+    await vi.waitFor(() => {
+      expect(mockAgent.threadId).toBe("persisted-thread-id");
+      expect(mockConnectAgent).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("assigns the resolved threadId before follow-up runAgent", async () => {
+    mockRuntimeConnectionStatus =
+      CopilotKitCoreRuntimeConnectionStatus.Connected;
+    mockConfigThreadId = "persisted-thread-id";
+    applyMocks();
+
+    const { result } = renderHook(() => useCopilotChatInternal(), {
+      wrapper: createWrapper(),
+    });
+
+    await vi.waitFor(() => {
+      expect(mockConnectAgent).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      await result.current.sendMessage({
+        id: "user-1",
+        role: "user",
+        content: "Hello",
+      } as any);
+    });
+
+    expect(mockAgent.threadId).toBe("persisted-thread-id");
+    expect(mockRunAgent).toHaveBeenCalledWith({ agent: mockAgent });
   });
 
   it("passes resolved agentId to useAgent", () => {

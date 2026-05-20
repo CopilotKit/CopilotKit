@@ -130,6 +130,22 @@ describe("ProxiedCopilotRuntimeAgent transport integration", () => {
         expect(headers.get("accept")).toBe("text/event-stream");
       });
 
+      it("hydrates replay streams that include a prior run error", async () => {
+        const agentId = "connect-agent";
+        const agent = new ProxiedCopilotRuntimeAgent({
+          runtimeUrl,
+          agentId,
+          headers: { Authorization: "Bearer test-token" },
+          transport,
+        });
+
+        fetchMock.mockResolvedValueOnce(createReplaySseResponse());
+
+        await expect(agent.connectAgent({})).resolves.toMatchObject({
+          newMessages: expect.any(Array),
+        });
+      });
+
       it("sends stop requests with the expected payload", () => {
         const agentId = "stop-agent";
         const threadId = "thread-123";
@@ -348,6 +364,42 @@ function createSseResponse(): Response {
           type: "RUN_FINISHED",
           threadId: "test-thread",
           runId: "test-run",
+          result: { newMessages: [] },
+        },
+      ];
+      const payload = events
+        .map((event) => `data: ${JSON.stringify(event)}\n\n`)
+        .join("");
+      controller.enqueue(encoder.encode(payload));
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    status: 200,
+    headers: { "content-type": "text/event-stream" },
+  });
+}
+
+function createReplaySseResponse(): Response {
+  const stream = new ReadableStream({
+    start(controller) {
+      const events = [
+        {
+          type: "RUN_ERROR",
+          threadId: "test-thread",
+          runId: "failed-run",
+          message: "previous run failed",
+        },
+        {
+          type: "RUN_STARTED",
+          threadId: "test-thread",
+          runId: "next-run",
+        },
+        {
+          type: "RUN_FINISHED",
+          threadId: "test-thread",
+          runId: "next-run",
           result: { newMessages: [] },
         },
       ];

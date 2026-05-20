@@ -9,13 +9,16 @@ import type {
 } from "@ag-ui/client";
 import {
   HttpAgent,
+  randomUUID,
   runHttpRequest,
+  structuredClone_,
+  transformChunks,
   transformHttpEventStream,
 } from "@ag-ui/client";
 import type { AgentCapabilities } from "@ag-ui/core";
 import type { Observable } from "rxjs";
-import { EMPTY, defer, from } from "rxjs";
-import { catchError, switchMap } from "rxjs/operators";
+import { EMPTY, Subject, defer, from, lastValueFrom } from "rxjs";
+import { catchError, finalize, switchMap, takeUntil } from "rxjs/operators";
 import {
   RUNTIME_MODE_SSE,
   RUNTIME_MODE_INTELLIGENCE,
@@ -260,7 +263,75 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     subscriber?: AgentSubscriber,
   ): Promise<RunAgentResult> {
     if (this.runtimeMode !== RUNTIME_MODE_INTELLIGENCE) {
-      return super.connectAgent(parameters, subscriber);
+      // HTTP /connect can replay historical events for an existing thread.
+      // Those replays may span multiple past runs or include an old RUN_ERROR,
+      // which does not satisfy AG-UI's single-run verifyEvents lifecycle.
+      // Mirror the replay-safe IntelligenceAgent connectAgent path here.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const self = this as any;
+
+      try {
+        this.isRunning = true;
+        this.agentId = this.agentId ?? randomUUID();
+
+        const input = this.prepareRunAgentInput(parameters);
+        let result: RunAgentResult["result"];
+        const previousMessageIds = new Set(this.messages.map((m) => m.id));
+        const subscribers: AgentSubscriber[] = [
+          {
+            onRunFinishedEvent: (event) => {
+              result = event.result;
+            },
+          },
+          ...this.subscribers,
+          subscriber ?? {},
+        ];
+
+        await this.onInitialize(input, subscribers);
+
+        self.activeRunDetach$ = new Subject<void>();
+        let resolveCompletion: (() => void) | undefined;
+        self.activeRunCompletionPromise = new Promise<void>((resolve) => {
+          resolveCompletion = resolve;
+        });
+
+        const source$ = defer(() => this.connect(input)).pipe(
+          transformChunks(this.debug),
+          takeUntil(self.activeRunDetach$),
+        );
+
+        const applied$ = this.apply(input, source$, subscribers);
+        const processed$ = this.processApplyEvents(
+          input,
+          applied$,
+          subscribers,
+        );
+
+        await lastValueFrom(
+          processed$.pipe(
+            catchError((error) => {
+              this.isRunning = false;
+              return this.onError(input, error, subscribers);
+            }),
+            finalize(() => {
+              this.isRunning = false;
+              this.onFinalize(input, subscribers);
+              resolveCompletion?.();
+              resolveCompletion = undefined;
+              self.activeRunCompletionPromise = undefined;
+              self.activeRunDetach$ = undefined;
+            }),
+          ),
+          { defaultValue: undefined },
+        );
+
+        const newMessages = structuredClone_(this.messages).filter(
+          (m) => !previousMessageIds.has(m.id),
+        );
+        return { result, newMessages };
+      } finally {
+        this.isRunning = false;
+      }
     }
 
     // If the delegate already has an active run (e.g. from a previous
