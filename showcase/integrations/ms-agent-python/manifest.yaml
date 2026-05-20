@@ -305,7 +305,7 @@ demos:
     highlight:
       - src/agents/interrupt_agent.py
       - src/app/demos/gen-ui-interrupt/page.tsx
-      - src/app/demos/gen-ui-interrupt/time-picker-card.tsx
+      - src/app/demos/gen-ui-interrupt/_components/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: declarative-gen-ui
     name: Declarative Generative UI (A2UI)

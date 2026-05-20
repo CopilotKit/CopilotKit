@@ -89,6 +89,14 @@ def build_a2ui_operations_from_tool_call(args: dict[str, Any]) -> dict[str, Any]
     """Build a2ui_operations dict from the secondary LLM's tool call args.
 
     Call this after the framework wrapper extracts the tool call arguments.
+
+    The returned operations use the A2UI v0.9 NESTED shape (mirroring
+    `copilotkit.a2ui.create_surface` / `update_components` / `update_data_model`
+    from langgraph-python). The `@ag-ui/a2ui-middleware` extracts the
+    surfaceId via `op.createSurface?.surfaceId ?? op.updateComponents?.surfaceId
+    ?? ...` — a flat `{"type": "create_surface", "surfaceId": ...}` shape leaves
+    every op under a "default" surface and the renderer never binds to the
+    registered catalog.
     """
     surface_id = args.get("surfaceId", "dynamic-surface")
     catalog_id = args.get("catalogId", CUSTOM_CATALOG_ID)
@@ -99,15 +107,32 @@ def build_a2ui_operations_from_tool_call(args: dict[str, Any]) -> dict[str, Any]
         )
     data = args.get("data")
 
-    ops = [
-        {"type": "create_surface", "surfaceId": surface_id, "catalogId": catalog_id},
+    ops: list[dict[str, Any]] = [
         {
-            "type": "update_components",
-            "surfaceId": surface_id,
-            "components": components,
+            "version": "v0.9",
+            "createSurface": {
+                "surfaceId": surface_id,
+                "catalogId": catalog_id,
+            },
+        },
+        {
+            "version": "v0.9",
+            "updateComponents": {
+                "surfaceId": surface_id,
+                "components": components,
+            },
         },
     ]
     if data:
-        ops.append({"type": "update_data_model", "surfaceId": surface_id, "data": data})
+        ops.append(
+            {
+                "version": "v0.9",
+                "updateDataModel": {
+                    "surfaceId": surface_id,
+                    "path": "/",
+                    "value": data,
+                },
+            }
+        )
 
     return {"a2ui_operations": ops}

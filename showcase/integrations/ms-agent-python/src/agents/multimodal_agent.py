@@ -33,9 +33,15 @@ Reference:
 import base64
 import io
 from textwrap import dedent
-from typing import Any, Optional, Tuple
+from typing import Any
 
-from agent_framework import Agent, BaseChatClient
+from agent_framework import (
+    Agent,
+    BaseChatClient,
+    ChatContext,
+    ChatMiddleware,
+    Content,
+)
 from agent_framework_ag_ui import AgentFrameworkAgent
 
 
@@ -47,22 +53,6 @@ SYSTEM_PROMPT = dedent(
     normally. Keep responses concise (1-3 sentences) unless asked to go deep.
     """
 ).strip()
-
-
-def _extract_data_url_parts(url: str) -> tuple[str, str]:
-    """Split a ``data:<mime>;base64,<payload>`` URL into (mime, base64-payload).
-
-    Returns ("", url) if the input is not a data URL -- callers can fall
-    back to treating the url as a fetchable reference.
-    """
-    if not url.startswith("data:"):
-        return "", url
-    header, _, payload = url.partition(",")
-    if ":" not in header:
-        return "", payload
-    meta = header.split(":", 1)[1]
-    mime = meta.split(";", 1)[0] if ";" in meta else meta
-    return mime, payload
 
 
 def _extract_pdf_text(b64: str) -> str:
@@ -99,128 +89,81 @@ def _extract_pdf_text(b64: str) -> str:
         return ""
 
 
-def _classify_attachment_part(part: Any) -> Optional[Tuple[str, str, str]]:
-    """Inspect a content part and return (kind, mime, base64_payload).
+def _content_pdf_payload(content: Content) -> tuple[str, str] | None:
+    """If a Content holds an inline PDF, return ``(base64_payload, mime_type)``.
 
-    ``kind`` is one of ``"image"``, ``"pdf"``, ``"other"``. Returns ``None``
-    if the part is not an attachment we recognize.
-
-    Handles the shapes the MS-AF AG-UI adapter may surface:
-
-    - ``{"type": "image_url", "image_url": {"url": "data:..."}}``
-      (post-adapter, from the legacy-binary rewrite on the page).
-    - ``{"type": "image_url", "image_url": "data:..."}`` (older shape).
-    - ``{"type": "binary", "mimeType": "...", "data": "<base64>"}``
-      (direct legacy binary).
-    - ``{"type": "document", "source": {"type": "data",
-      "value": "<base64>", "mimeType": "application/pdf"}}`` (modern AG-UI).
-    - ``{"type": "image", "source": {...}}`` (modern AG-UI, for completeness).
+    Returns ``None`` for any other content type, including PDFs delivered via
+    ``ag-ui://binary/<id>`` or external HTTPS URLs — those cannot be inlined
+    without a separate fetch and are left for the chat client to handle.
     """
-    if not isinstance(part, dict):
+    media_type = (content.media_type or "").lower()
+    if "pdf" not in media_type:
         return None
-    part_type = part.get("type")
-
-    if part_type == "image_url":
-        image_url = part.get("image_url")
-        url: Optional[str] = None
-        if isinstance(image_url, str):
-            url = image_url
-        elif isinstance(image_url, dict):
-            raw_url = image_url.get("url")
-            if isinstance(raw_url, str):
-                url = raw_url
-        if not url:
-            return None
-        mime, payload = _extract_data_url_parts(url)
-        if not payload or not mime:
-            return None
-        if mime.startswith("image/"):
-            return ("image", mime, payload)
-        if "pdf" in mime.lower():
-            return ("pdf", mime, payload)
-        return ("other", mime, payload)
-
-    if part_type == "binary":
-        mime = part.get("mimeType", "")
-        data = part.get("data")
-        if not isinstance(mime, str) or not isinstance(data, str):
-            return None
-        if mime.startswith("image/"):
-            return ("image", mime, data)
-        if "pdf" in mime.lower():
-            return ("pdf", mime, data)
-        return ("other", mime, data)
-
-    if part_type in ("document", "image"):
-        source = part.get("source")
-        if not isinstance(source, dict) or source.get("type") != "data":
-            return None
-        value = source.get("value")
-        mime = source.get("mimeType", "")
-        if not isinstance(value, str) or not isinstance(mime, str):
-            return None
-        if mime.startswith("image/"):
-            return ("image", mime, value)
-        if "pdf" in mime.lower():
-            return ("pdf", mime, value)
-        return ("other", mime, value)
-
-    return None
+    uri = content.uri or ""
+    if not uri.startswith("data:"):
+        return None
+    _, _, payload = uri.partition(",")
+    if not payload:
+        return None
+    return payload, media_type or "application/pdf"
 
 
-def _preprocess_part(part: Any) -> Any:
-    """Flatten PDF attachments to text; pass everything else through.
+class _PdfFlattenChatMiddleware(ChatMiddleware):
+    """Flatten inline PDF content parts to text for the model call only.
 
-    Images stay as-is so gpt-4o consumes them natively. PDFs become a text
-    part prefixed with ``[Attached document]``. If extraction fails we emit
-    a structured placeholder so the model can tell the user the document
-    was unreadable rather than pretending no attachment was sent.
-    """
-    classified = _classify_attachment_part(part)
-    if classified is None:
-        return part
-    kind, _mime, payload = classified
-    if kind != "pdf":
-        return part
-    text = _extract_pdf_text(payload)
-    if not text:
-        return {
-            "type": "text",
-            "text": "[Attached document: PDF could not be read.]",
-        }
-    return {"type": "text", "text": f"[Attached document]\n{text}"}
+    Scoping the rewrite to ``ChatMiddleware.process`` (LGP's equivalent of
+    ``wrap_model_call``) is what keeps the flattened ``[Attached document]\\n``
+    dump from leaking back into the AG-UI ``MESSAGES_SNAPSHOT``: the agent's
+    canonical message state stays intact, the chat client sees the text-only
+    version, and the user's chat bubble keeps showing the original PDF chip
+    instead of the raw PDF body.
 
-
-class _MultimodalAgent(AgentFrameworkAgent):
-    """Thin wrapper that pre-processes inbound messages before each run.
-
-    We flatten `document` (PDF) content parts to text so the model can reason
-    about them even when the underlying chat client does not accept the
-    `document` content-part shape. Images are untouched.
+    Originally the multimodal agent mutated ``input_data["messages"]`` inside
+    an ``AgentFrameworkAgent.run`` override, but that mutation flows into the
+    outbound snapshot serializer (``agent_framework_ag_ui._message_adapters
+    ._normalize_snapshot_content``) which then bleeds the flattened text into
+    every subsequent chat-bubble render. Restoring the original ``contents``
+    after ``call_next`` is the discipline that prevents that bleed.
     """
 
-    def _flatten_messages(self, messages: Any) -> Any:
-        if not isinstance(messages, list):
-            return messages
-        rewritten: list[Any] = []
+    async def process(
+        self,
+        context: ChatContext,
+        call_next: Any,
+    ) -> None:
+        messages = context.messages or []
+        snapshots: list[tuple[Any, list[Content] | None]] = []
         for message in messages:
-            if not isinstance(message, dict):
-                rewritten.append(message)
+            contents = getattr(message, "contents", None)
+            if not contents:
                 continue
-            content = message.get("content")
-            if not isinstance(content, list):
-                rewritten.append(message)
-                continue
-            new_parts = [_preprocess_part(part) for part in content]
-            rewritten.append({**message, "content": new_parts})
-        return rewritten
+            rewritten: list[Content] = []
+            mutated = False
+            for content in contents:
+                pdf = _content_pdf_payload(content)
+                if pdf is None:
+                    rewritten.append(content)
+                    continue
+                payload, _ = pdf
+                text = _extract_pdf_text(payload)
+                replacement = Content.from_text(
+                    text=(
+                        f"[Attached document]\n{text}"
+                        if text
+                        else "[Attached document]\n(unable to extract text)"
+                    )
+                )
+                rewritten.append(replacement)
+                mutated = True
+            if mutated:
+                snapshots.append((message, list(contents)))
+                message.contents = rewritten  # type: ignore[attr-defined]
 
-    async def run(self, input_data: dict[str, Any]):  # type: ignore[override]
-        messages = input_data.get("messages")
-        if isinstance(messages, list):
-            input_data = {**input_data, "messages": self._flatten_messages(messages)}
-        async for event in super().run(input_data):
-            yield event
+        try:
+            await call_next()
+        finally:
+            for message, original in snapshots:
+                message.contents = original  # type: ignore[attr-defined]
 
 
 def create_multimodal_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
@@ -230,9 +173,10 @@ def create_multimodal_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
         name="multimodal_agent",
         instructions=SYSTEM_PROMPT,
         tools=[],
+        middleware=[_PdfFlattenChatMiddleware()],
     )
 
-    return _MultimodalAgent(
+    return AgentFrameworkAgent(
         agent=base_agent,
         name="CopilotKitMicrosoftAgentFrameworkMultimodalAgent",
         description=(
