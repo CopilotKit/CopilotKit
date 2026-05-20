@@ -7,16 +7,27 @@ import { SearchTrigger } from "./search-trigger";
 import { CopilotKitMark } from "./copilotkit-mark";
 import RocketIcon from "./icons/rocket";
 import ConsoleIcon from "./icons/console";
+import CloudIcon from "./icons/cloud";
 import ExternalLinkIcon from "./icons/external-link";
 
-// LEFT cluster — Docs / Reference. Visual pattern (icon-next-to-label)
-// mirrors canonical.
+// Cloud sign-up CTA destination. UTM params let marketing attribute
+// navbar-driven sign-ups distinctly from in-content SignupLink clicks.
+const CLOUD_CTA_HREF =
+  "https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=navbar";
+
+// LEFT cluster — Docs / Reference / Free Developer Access. Visual pattern
+// (icon-next-to-label) mirrors canonical.
 type LeftLink = {
   href: string;
   label: string;
   icon: React.ReactNode;
   target?: "_blank" | "_self";
   showExternalLinkIcon?: boolean;
+  // Free Developer Access only renders at ≥1100px (same breakpoint as the
+  // Talk-to-Engineer pill). Below that, the navbar is too crowded; the
+  // in-content `<SignupLink>` components on quickstart and feature pages
+  // carry the conversion path.
+  hideAtNarrow?: boolean;
 };
 
 const LEFT_LINKS: LeftLink[] = [
@@ -29,6 +40,14 @@ const LEFT_LINKS: LeftLink[] = [
     icon: <ConsoleIcon className="text-[var(--text-secondary)]" />,
     label: "Reference",
     href: "/reference",
+  },
+  {
+    icon: <CloudIcon className="text-[var(--text-secondary)]" />,
+    label: "Free Developer Access",
+    href: CLOUD_CTA_HREF,
+    target: "_blank",
+    showExternalLinkIcon: true,
+    hideAtNarrow: true,
   },
 ];
 
@@ -51,6 +70,10 @@ export function BrandNav(_props: BrandNavProps = {}) {
   const handleTalkToEngineersClick = () => {
     posthog?.capture("talk_to_us_clicked", { location: "docs_nav" });
     window.location.href = "https://copilotkit.ai/talk-to-an-engineer";
+  };
+
+  const handleFreeDeveloperAccessClick = () => {
+    posthog?.capture("try_for_free_clicked", { location: "docs_navbar_left" });
   };
 
   return (
@@ -83,11 +106,25 @@ export function BrandNav(_props: BrandNavProps = {}) {
                 const hideIconAtNarrow =
                   link.label === "Docs" || link.label === "Reference";
                 const isActive = activeRoute === link.href;
+                const isFreeDevAccess =
+                  link.label === "Free Developer Access";
                 return (
-                  <li key={link.href} className="relative h-full group">
+                  <li
+                    key={link.href}
+                    className={`relative h-full group ${
+                      link.hideAtNarrow
+                        ? "[@media(width<1100px)]:hidden"
+                        : ""
+                    }`}
+                  >
                     <Link
                       href={link.href}
                       target={link.target}
+                      onClick={
+                        isFreeDevAccess
+                          ? handleFreeDeveloperAccessClick
+                          : undefined
+                      }
                       className={`h-full ${
                         isActive ? "opacity-100" : "opacity-50"
                       } hover:opacity-100 transition-opacity duration-300`}
