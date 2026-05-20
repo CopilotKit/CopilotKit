@@ -1,26 +1,8 @@
 # Stage 1: Build Next.js frontend
 FROM node:22-slim AS frontend
 WORKDIR /app
-# Copy package.json + lockfile and run npm ci in a SINGLE RUN layer to
-# work around a poisoned Depot remote BuildKit cache entry on this
-# branch — the prior single- and two-line COPY-then-RUN forms both
-# surfaced a CACHED layer containing only `package.json`, and the
-# subsequent `npm ci` failed with "command can only install with an
-# existing package-lock.json". Fusing the COPY and RUN into a heredoc
-# changes the instruction shape (RUN vs COPY) and forces BuildKit to
-# compute a new layer against the actual build context.
-COPY package*.json ./
-RUN set -eux; \
-    ls -la /app; \
-    pwd; \
-    node --version; \
-    npm --version; \
-    test -s /app/package-lock.json || { echo "[probe] package-lock.json missing or empty in build context" >&2; exit 1; }; \
-    head -c 200 /app/package-lock.json; \
-    echo; \
-    echo "[probe] file content head printed OK"; \
-    node -e "const f=require('fs'); const d=JSON.parse(f.readFileSync('/app/package-lock.json','utf-8')); console.log('[probe] lockfileVersion =', d.lockfileVersion);"; \
-    npm ci --legacy-peer-deps
+COPY package.json package-lock.json ./
+RUN npm ci --legacy-peer-deps
 COPY src/ ./src/
 COPY public/ ./public/
 COPY next.config.ts tsconfig.json postcss.config.mjs ./

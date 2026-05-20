@@ -7,15 +7,26 @@ import {
   __resetSetupConceptCacheForTest,
 } from "../docs-render";
 
+// `scratch` is the test's own dedicated parent dir; `tmp` is the
+// `integrationsRoot` we hand to `resolveSetupConcept`. Nesting `tmp`
+// inside `scratch` means the path-traversal test can plant a decoy
+// in `scratch` (i.e. *outside* `tmp` but *inside* our isolated
+// scratch tree) without racing against any other process writing
+// directly to `/tmp`. If we instead placed the decoy at
+// `path.dirname(tmp)` (the system tmp root), two concurrent runs of
+// this test would race on the same shared path.
+let scratch = "";
 let tmp = "";
 
 beforeEach(() => {
-  tmp = fs.mkdtempSync(path.join(os.tmpdir(), "setup-concept-"));
+  scratch = fs.mkdtempSync(path.join(os.tmpdir(), "setup-concept-"));
+  tmp = fs.mkdtempSync(path.join(scratch, "root-"));
   __resetSetupConceptCacheForTest();
 });
 
 afterEach(() => {
-  if (tmp) fs.rmSync(tmp, { recursive: true, force: true });
+  if (scratch) fs.rmSync(scratch, { recursive: true, force: true });
+  scratch = "";
   tmp = "";
 });
 
@@ -45,22 +56,25 @@ describe("resolveSetupConcept", () => {
   });
 
   it("returns null on path-traversal attempts via the concept arg", () => {
-    // Place a decoy *outside* `integrationsRoot` so a successful escape would
-    // resolve to a file that actually exists — otherwise the test would pass
-    // for the wrong reason (file not found rather than path-traversal block).
-    // The concept arg gets joined with "docs/setup/" before resolution; for the
-    // composed path to escape `<integrationsRoot>/<docsFolder>/`, we need to
-    // walk up far enough that `path.join` cannot normalize all `..` segments
-    // away — three levels reach the parent of integrationsRoot.
-    const parentDir = path.dirname(tmp);
-    fs.writeFileSync(path.join(parentDir, "secrets.mdx"), "should never read");
-    try {
-      expect(
-        resolveSetupConcept(tmp, "langgraph", "../../../../secrets"),
-      ).toBeNull();
-    } finally {
-      fs.rmSync(path.join(parentDir, "secrets.mdx"), { force: true });
-    }
+    // Plant a decoy *outside* `integrationsRoot` (which is `tmp`) but
+    // *inside* the per-test scratch directory. A successful escape from
+    // `<tmp>/<docsFolder>/docs/setup/` must land on a path that actually
+    // exists — otherwise the test would pass for the wrong reason
+    // (file-not-found at the resolved location rather than the
+    // path-traversal defense kicking in).
+    //
+    // `concept` is joined with "docs/setup/" before resolution, so to
+    // reach the decoy at `<scratch>/secrets.mdx` from
+    // `<tmp>/<docsFolder>/docs/setup/`, the normalized form needs to
+    // walk up four levels: `docs` + `setup` + `<docsFolder>` + `tmp`
+    // ⇒ `scratch`. Four `..` segments suffice; the concrete count is
+    // implementation-defined, so the test asserts the *outcome* (null)
+    // rather than the path math.
+    fs.writeFileSync(path.join(scratch, "secrets.mdx"), "should never read");
+    expect(
+      resolveSetupConcept(tmp, "langgraph", "../../../../secrets"),
+    ).toBeNull();
+    // No manual cleanup needed — afterEach rmSyncs the entire `scratch`.
   });
 
   it("returns null on path-traversal attempts via the docsFolder arg", () => {
