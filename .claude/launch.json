@@ -1,0 +1,70 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "showcase",
+      "runtimeExecutable": "showcase/bin/showcase",
+      "runtimeArgs": ["up"]
+    },
+    {
+      "name": "shell",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "showcase/shell", "run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "shell (with local demos)",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "SHOWCASE_LOCAL=1 npm --prefix showcase/shell run dev"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "shell-dojo",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "showcase/shell-dojo", "run", "dev"],
+      "port": 3001
+    },
+    {
+      "name": "shell-dojo (with local demos)",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "SHOWCASE_LOCAL=1 npm --prefix showcase/shell-dojo run dev"
+      ],
+      "port": 3001
+    },
+    {
+      "name": "shell-dashboard",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "showcase/shell-dashboard", "run", "dev"],
+      "port": 3002
+    },
+    {
+      "name": "shell-dashboard (with local demos)",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "SHOWCASE_LOCAL=1 npm --prefix showcase/shell-dashboard run dev"
+      ],
+      "port": 3002
+    },
+    {
+      "name": "shell-docs",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "showcase/shell-docs", "run", "dev"],
+      "port": 3003
+    },
+    {
+      "name": "shell-docs (with local demos)",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "SHOWCASE_LOCAL=1 npm --prefix showcase/shell-docs run dev"
+      ],
+      "port": 3003
+    }
+  ]
+}
