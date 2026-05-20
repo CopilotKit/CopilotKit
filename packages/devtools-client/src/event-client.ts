@@ -35,8 +35,10 @@ class CopilotKitEventClient {
     }
     if (!this._client) {
       try {
-        // Note: listenToSelf defaults to true in @tanstack/devtools-event-client,
-        // which is required for the devtools panel to receive its own emitted events.
+        // Self-receipt is wired by passing `withEventTarget: true` on each
+        // `on()` call (see `on` below); the EventClient routes self-emits
+        // through its internal EventTarget so registered listeners receive
+        // events emitted by the same client instance.
         this._client = new EventClient<CopilotKitEventSuffixes>({
           pluginId: "copilotkit",
           debug: false,
