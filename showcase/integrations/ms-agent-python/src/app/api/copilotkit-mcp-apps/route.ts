@@ -12,7 +12,8 @@
 // Reference:
 // https://docs.copilotkit.ai/integrations/microsoft-agent-framework/generative-ui/mcp-apps
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
@@ -27,6 +28,14 @@ console.log(`[copilotkit-mcp-apps/route] AGENT_URL: ${AGENT_URL}`);
 
 const mcpAppsAgent = new HttpAgent({ url: `${AGENT_URL}/mcp-apps/` });
 
+// headless-complete shares this runtime because its cell also exercises
+// MCP Apps activity rendering (the "Sketch a diagram" pill exercises the
+// Excalidraw MCP server via the same middleware). The catch-all `/` agent
+// on the Python backend backs it — no dedicated headless endpoint.
+const headlessCompleteAgent = new HttpAgent({
+  url: `${AGENT_URL}/headless-complete`,
+});
+
 // @region[runtime-mcpapps-config]
 // The `mcpApps.servers` config is all you need server-side. The runtime
 // auto-applies the MCP Apps middleware to every registered agent: on each
@@ -37,6 +46,7 @@ const runtime = new CopilotRuntime({
   // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
   agents: {
     "mcp-apps": mcpAppsAgent,
+    "headless-complete": headlessCompleteAgent,
   },
   mcpApps: {
     servers: [

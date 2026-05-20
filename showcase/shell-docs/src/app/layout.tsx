@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import Script from "next/script";
 import { Suspense } from "react";
+import { RootProvider } from "fumadocs-ui/provider/next";
 import { AnalyticsClient } from "@/components/analytics-client";
 import { Banners } from "@/components/banners";
 import { BrandNav } from "@/components/brand-nav";
@@ -150,19 +151,25 @@ export default function RootLayout({
         <Suspense fallback={null}>
           <PostHogProvider>
             <FrameworkProvider knownFrameworks={knownFrameworks}>
-              {/* Body is a fixed-height (100vh) flex column with hidden
-               * overflow (see globals.css). Banner + nav sit naturally
-               * at the top; <main> takes the remaining height and is
-               * the horizontal flex row that hosts sidebar + the
-               * scrolling `.docs-content-wrapper`. No sticky positioning
-               * is needed — chrome stays put because it's outside the
-               * scroll container. Mirrors canonical `#nd-home-layout`
-               * (margin: 0 4px; xl: 0 8px 8px 8px). */}
-              <Banners />
-              <BrandNav />
-              <main className="flex flex-1 min-h-0 overflow-hidden mx-1 xl:mx-2 xl:mb-2">
-                {children}
-              </main>
+              {/* RootProvider supplies Fumadocs's theme provider (next-themes)
+               * and the search-dialog context, which DocsLayout and other
+               * fumadocs-ui components read from. We keep BrandNav + Banners
+               * outside DocsLayout so chrome remains shell-docs's own. */}
+              <RootProvider theme={{ enabled: true, defaultTheme: "system" }}>
+                {/* Body is a fixed-height (100vh) flex column with hidden
+                 * overflow (see globals.css). Banner + nav sit naturally
+                 * at the top; <main> takes the remaining height and is
+                 * the horizontal flex row that hosts sidebar + the
+                 * scrolling `.docs-content-wrapper`. No sticky positioning
+                 * is needed — chrome stays put because it's outside the
+                 * scroll container. Mirrors canonical `#nd-home-layout`
+                 * (margin: 0 4px; xl: 0 8px 8px 8px). */}
+                <Banners />
+                <BrandNav />
+                <main className="flex flex-1 min-h-0 overflow-hidden mx-1 xl:mx-2 xl:mb-2">
+                  {children}
+                </main>
+              </RootProvider>
             </FrameworkProvider>
           </PostHogProvider>
         </Suspense>

@@ -535,6 +535,21 @@ const LEGACY_CHAINS_EXACT: RedirectEntry[] = [
     source: "/coagents/videos",
     destination: "/langgraph-python/videos",
   },
+  // Deep Agents was promoted from a langgraph subpath to its own
+  // top-level integration. Catch the legacy (langgraph) and the
+  // post-slug-rename (langgraph-python) variants both, pointing them at
+  // the canonical /deepagents placeholder. When the showcase
+  // integration ships, these targets continue to resolve unchanged.
+  {
+    id: "L12",
+    source: "/langgraph/deep-agents",
+    destination: "/deepagents",
+  },
+  {
+    id: "L13",
+    source: "/langgraph-python/deep-agents",
+    destination: "/deepagents",
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -634,13 +649,10 @@ const FOLDER_INDEX: RedirectEntry[] = [
     source: "/concepts",
     destination: "/concepts/architecture",
   },
-  {
-    id: "FI-reference",
-    // /reference is served by app/reference/[...slug] which has no index;
-    // v2 is the active reference set.
-    source: "/reference",
-    destination: "/reference/v2",
-  },
+  // FI-reference removed: /reference now has a proper index page
+  // (app/reference/page.tsx) that lists components + hooks. The legacy
+  // redirect to /reference/v2 — a path that no longer exists — left the
+  // index broken.
 ];
 
 // ---------------------------------------------------------------------------

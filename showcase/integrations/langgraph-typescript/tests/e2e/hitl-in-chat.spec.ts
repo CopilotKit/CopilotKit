@@ -130,6 +130,12 @@ test.describe("HITL in chat — booking flow", () => {
         .first(),
     ).toBeVisible({ timeout: 30000 });
 
+    // Let the runtime fully settle after the HITL resolution before
+    // starting a second flow.  A short timed wait is more reliable
+    // than networkidle (which can resolve before LangGraph finalises
+    // thread state) and avoids a stale-state race on the next run.
+    await page.waitForTimeout(1000);
+
     // Flow 2: sales — same page, no refresh.
     await input.fill(
       "Please book an intro call with the sales team to discuss pricing.",

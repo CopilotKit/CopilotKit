@@ -227,7 +227,6 @@ test.describe("Beautiful Chat", () => {
     page,
   }) => {
     test.setTimeout(120_000);
-    await page.waitForLoadState("networkidle");
 
     await page
       .getByRole("button", { name: "Task Manager (Shared State)" })

@@ -1647,10 +1647,9 @@
       }
     },
     {
-      "_comment": "hitl-in-app — refund pill (#12345). 1st turn: emit request_user_approval tool call. Explicit hasToolResult: false so we never re-emit after the user clicks the approval (the toolCallId-keyed entry above wins instead).",
+      "_comment": "hitl-in-app — refund pill (#12345). 1st turn: emit request_user_approval tool call. The post-tool-result fixture above (with toolCallId + hasToolResult: true) is more specific and wins on the 2nd turn, so hasToolResult: false is NOT needed here — omitting it allows this fixture to match even in multi-pill conversations where prior tool results exist.",
       "match": {
-        "userMessage": "$50 refund to Jordan Rivera on ticket #12345",
-        "hasToolResult": false
+        "userMessage": "$50 refund to Jordan Rivera on ticket #12345"
       },
       "response": {
         "toolCalls": [
@@ -1674,10 +1673,9 @@
       }
     },
     {
-      "_comment": "hitl-in-app — downgrade pill (#12346). 1st turn: emit request_user_approval tool call. Specific userMessage substring takes precedence over the bare 'plan' fixture in feature-parity.json (which lives later in the load order).",
+      "_comment": "hitl-in-app — downgrade pill (#12346). 1st turn: emit request_user_approval tool call. Specific userMessage substring takes precedence over the bare 'plan' fixture in feature-parity.json (which lives later in the load order). hasToolResult: false omitted so multi-pill conversations still match.",
       "match": {
-        "userMessage": "downgrade Priya Shah (#12346) to the Starter plan",
-        "hasToolResult": false
+        "userMessage": "downgrade Priya Shah (#12346) to the Starter plan"
       },
       "response": {
         "toolCalls": [
@@ -1701,10 +1699,9 @@
       }
     },
     {
-      "_comment": "hitl-in-app — escalate pill (#12347). 1st turn: emit request_user_approval tool call.",
+      "_comment": "hitl-in-app — escalate pill (#12347). 1st turn: emit request_user_approval tool call. hasToolResult: false omitted so multi-pill conversations still match (the post-tool-result fixture above with toolCallId is more specific and wins on the 2nd turn).",
       "match": {
-        "userMessage": "escalate ticket #12347 to the payments team",
-        "hasToolResult": false
+        "userMessage": "escalate ticket #12347 to the payments team"
       },
       "response": {
         "toolCalls": [
@@ -1792,20 +1789,18 @@
       }
     },
     {
-      "_comment": "readonly-state-agent-context — Who am I pill. Gated by systemMessage substring matching the canonical default 'Atai' name forwarded via useAgentContext. When the user changes the name input to anything else (e.g. 'alem'), the system prompt loses 'Atai', this fixture stops matching, and aimock --proxy-only falls through to the real model so the agent answers with the actual state values.",
+      "_comment": "readonly-state-agent-context — Who am I pill. Matches the verbatim pill prompt. systemMessage gating on 'Atai' was removed because @langchain/openai >=1.4 sends SystemMessage as role:'developer' for gpt-5 models, and aimock's getSystemText only checks role:'system'. The userMessage alone is deterministic from the pill.",
       "match": {
-        "userMessage": "What do you know about me from my context?",
-        "systemMessage": "Atai"
+        "userMessage": "What do you know about me from my context?"
       },
       "response": {
         "content": "I see you're Atai, and you're in the America/Los_Angeles timezone. Recently, you viewed the pricing page and watched the product demo video. How can I assist you today?"
       }
     },
     {
-      "_comment": "readonly-state-agent-context — Suggest next steps pill. Same systemMessage gating as 'Who am I' so non-default state falls through.",
+      "_comment": "readonly-state-agent-context — Suggest next steps pill. Matches the verbatim pill prompt. systemMessage gating removed (see Who am I comment above).",
       "match": {
-        "userMessage": "Based on my recent activity, what should I try next?",
-        "systemMessage": "Atai"
+        "userMessage": "Based on my recent activity, what should I try next?"
       },
       "response": {
         "content": "Since you recently viewed the pricing page and watched the product demo video, it might be a good idea to explore user testimonials or case studies to see how others have benefited from the Pro Plan. You could also start the 14-day free trial to experience the features firsthand."
@@ -1869,11 +1864,11 @@
       }
     },
     {
+      "_comment": "frontend-tools 'Sunset' pill — 1st leg: emit change_background tool call only. NB: do NOT include `content` here. agent_framework_openai's ChatCompletions client splits an assistant message that carries BOTH `content` and `tool_calls` into two separate history entries (one with content, one with tool_calls), so on the follow-up leg aimock sees the standalone content message and re-matches THIS fixture by `userMessage` substring → another change_background tool call → infinite loop. The toolCallId-keyed follow-up fixture immediately above provides the post-tool narration text.",
       "match": {
         "userMessage": "Make the background a sunset gradient"
       },
       "response": {
-        "content": "Sunset gradient applied — warm orange-to-rose blend.",
         "toolCalls": [
           {
             "id": "call_d5_change_background_sunset",
@@ -1895,11 +1890,11 @@
       }
     },
     {
+      "_comment": "frontend-tools 'Forest' pill — 1st leg: emit change_background tool call only. See the Sunset fixture above for why we drop `content`.",
       "match": {
         "userMessage": "deep green forest gradient"
       },
       "response": {
-        "content": "Forest gradient applied — deep green hues.",
         "toolCalls": [
           {
             "id": "call_d5_change_background_forest",
@@ -1921,11 +1916,11 @@
       }
     },
     {
+      "_comment": "frontend-tools 'Cosmic' pill — 1st leg: emit change_background tool call only. See the Sunset fixture above for why we drop `content`.",
       "match": {
         "userMessage": "navy → magenta cosmic gradient"
       },
       "response": {
-        "content": "Cosmic gradient applied — navy fading to magenta.",
         "toolCalls": [
           {
             "id": "call_d5_change_background_cosmic",
@@ -2277,7 +2272,7 @@
         "toolCallId": "call_d5_a2ui_dynamic_kpi_001"
       },
       "response": {
-        "content": "KPI dashboard rendered."
+        "content": "Here is the KPI dashboard you requested."
       }
     },
     {
@@ -2286,11 +2281,10 @@
         "toolName": "generate_a2ui"
       },
       "response": {
-        "content": "Here is the KPI dashboard you requested.",
         "toolCalls": [
           {
             "name": "generate_a2ui",
-            "arguments": {},
+            "arguments": "{\"context\":\"KPI dashboard\"}",
             "id": "call_d5_a2ui_dynamic_kpi_001"
           }
         ]
@@ -2317,7 +2311,7 @@
         "toolCallId": "call_d5_a2ui_dynamic_pie_001"
       },
       "response": {
-        "content": "Pie chart rendered."
+        "content": "Here is the pie chart by region."
       }
     },
     {
@@ -2326,11 +2320,10 @@
         "toolName": "generate_a2ui"
       },
       "response": {
-        "content": "Here is the pie chart by region.",
         "toolCalls": [
           {
             "name": "generate_a2ui",
-            "arguments": {},
+            "arguments": "{\"context\":\"pie chart of sales by region\"}",
             "id": "call_d5_a2ui_dynamic_pie_001"
           }
         ]
@@ -2357,7 +2350,7 @@
         "toolCallId": "call_d5_a2ui_dynamic_bar_001"
       },
       "response": {
-        "content": "Bar chart rendered."
+        "content": "Here is the bar chart of quarterly revenue."
       }
     },
     {
@@ -2366,11 +2359,10 @@
         "toolName": "generate_a2ui"
       },
       "response": {
-        "content": "Here is the bar chart of quarterly revenue.",
         "toolCalls": [
           {
             "name": "generate_a2ui",
-            "arguments": {},
+            "arguments": "{\"context\":\"bar chart of quarterly revenue\"}",
             "id": "call_d5_a2ui_dynamic_bar_001"
           }
         ]
@@ -2397,7 +2389,7 @@
         "toolCallId": "call_d5_a2ui_dynamic_status_001"
       },
       "response": {
-        "content": "Status report rendered."
+        "content": "Here is the system health status report."
       }
     },
     {
@@ -2406,11 +2398,10 @@
         "toolName": "generate_a2ui"
       },
       "response": {
-        "content": "Here is the system health status report.",
         "toolCalls": [
           {
             "name": "generate_a2ui",
-            "arguments": {},
+            "arguments": "{\"context\":\"status report on system health\"}",
             "id": "call_d5_a2ui_dynamic_status_001"
           }
         ]
@@ -2674,10 +2665,10 @@
     {
       "match": {
         "userMessage": "intro call with the sales team",
-        "toolName": "schedule_meeting"
+        "toolName": "schedule_meeting",
+        "hasToolResult": false
       },
       "response": {
-        "content": "Sure — let me check available times.",
         "toolCalls": [
           {
             "name": "schedule_meeting",
@@ -2712,10 +2703,10 @@
     {
       "match": {
         "userMessage": "1:1 with Alice",
-        "toolName": "schedule_meeting"
+        "toolName": "schedule_meeting",
+        "hasToolResult": false
       },
       "response": {
-        "content": "Got it — pulling up next-week slots.",
         "toolCalls": [
           {
             "name": "schedule_meeting",
@@ -2867,27 +2858,6 @@
     },
     {
       "match": {
-        "model": "gpt-4.1",
-        "turnIndex": 0,
-        "hasToolResult": false
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "name": "render_a2ui",
-            "arguments": "{\"surfaceId\":\"dashboard-001\",\"catalogId\":\"copilotkit://app-dashboard-catalog\"}",
-            "id": "call_Q3rTavqr4dXJ08ne9bEesL9d"
-          }
-        ]
-      },
-      "metadata": {
-        "systemHash": "28fe3ed7",
-        "toolsHash": "2cbb50da"
-      },
-      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-55-02-522Z-e88af85f.json"
-    },
-    {
-      "match": {
         "userMessage": "First use the query_data tool to fetch the financial sales data, then using A2UI, show me a sales dashboard with total revenue, new customers, and conversion rate metrics. Include a pie chart of revenue by category and a bar chart of monthly sales.",
         "model": "gpt-4o",
         "turnIndex": 2,
@@ -2969,53 +2939,6 @@
     },
     {
       "match": {
-        "userMessage": "Enable app mode and add three todos about learning CopilotKit: one about reading the docs, one about building a prototype, and one about exploring agent state.",
-        "model": "gpt-4o",
-        "turnIndex": 0,
-        "hasToolResult": false
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "name": "enableAppMode",
-            "arguments": "{}",
-            "id": "call_c35xh8AQaOh9TPQ2R2iQvztQ"
-          },
-          {
-            "name": "manage_todos",
-            "arguments": "{\"todos\": [{\"title\": \"Read CopilotKit documentation\", \"description\": \"Go through the official documentation to understand the basics.\", \"emoji\": \"📚\", \"status\": \"pending\"}, {\"title\": \"Build a CopilotKit prototype\", \"description\": \"Create a simple prototype using CopilotKit to test its features.\", \"emoji\": \"🛠️\", \"status\": \"pending\"}, {\"title\": \"Explore CopilotKit agent state\", \"description\": \"Investigate how agent state is managed and utilized in CopilotKit.\", \"emoji\": \"🔍\", \"status\": \"pending\"}]}",
-            "id": "call_luLxT9XGJjj6HX5tfQUzkfiA"
-          }
-        ]
-      },
-      "metadata": {
-        "systemHash": "989f650c",
-        "toolsHash": "6e36f0b6"
-      },
-      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-56-51-948Z-f0ba1066.json"
-    },
-    {
-      "match": {
-        "userMessage": "Enable app mode and add three todos about learning CopilotKit: one about reading the docs, one about building a prototype, and one about exploring agent state.",
-        "model": "gpt-4o",
-        "turnIndex": 1,
-        "hasToolResult": true
-      },
-      "response": {
-        "error": {
-          "message": "An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'. The following tool_call_ids did not have response messages: call_luLxT9XGJjj6HX5tfQUzkfiA",
-          "type": "invalid_request_error"
-        },
-        "status": 400
-      },
-      "metadata": {
-        "systemHash": "989f650c",
-        "toolsHash": "6e36f0b6"
-      },
-      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-56-53-134Z-531d8259.json"
-    },
-    {
-      "match": {
         "userMessage": "What is the weather in Tokyo?",
         "model": "gpt-4o-mini",
         "turnIndex": 0,
@@ -3051,46 +2974,6 @@
         "toolsHash": "686e39e9"
       },
       "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T22-01-35-344Z-6ea6b18a.json"
-    },
-    {
-      "match": {
-        "userMessage": "intro call with the sales team",
-        "hasToolResult": false
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "name": "book_call",
-            "arguments": "{\"topic\":\"Intro with sales\",\"attendee\":\"User\"}",
-            "id": "call_jisCjcR5jdyQQ0JHJXhjqUlm"
-          }
-        ]
-      },
-      "metadata": {
-        "systemHash": "72621894",
-        "toolsHash": "7c3b6590"
-      },
-      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T22-01-44-366Z-ec8eaa56.json"
-    },
-    {
-      "match": {
-        "userMessage": "1:1 with Alice",
-        "hasToolResult": false
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "name": "book_call",
-            "arguments": "{\"topic\":\"Review Q2 goals\",\"attendee\":\"Alice\"}",
-            "id": "call_xwbY36SO2wpay1F9cHCUuQGx"
-          }
-        ]
-      },
-      "metadata": {
-        "systemHash": "72621894",
-        "toolsHash": "7c3b6590"
-      },
-      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T22-02-33-401Z-bb9eb9db.json"
     }
   ]
 }

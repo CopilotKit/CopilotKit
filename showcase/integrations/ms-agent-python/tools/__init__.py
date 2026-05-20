@@ -15,7 +15,7 @@ from .sales_todos import (
 )
 from .search_flights import search_flights_impl
 from .generate_a2ui import (
-    RENDER_A2UI_TOOL_SCHEMA,
+    DESIGN_A2UI_SURFACE_TOOL_SCHEMA,
     generate_a2ui_impl,
     build_a2ui_operations_from_tool_call,
 )
@@ -38,7 +38,7 @@ __all__ = [
     # Flight search (fixed-schema A2UI)
     "search_flights_impl",
     # Dynamic A2UI
-    "RENDER_A2UI_TOOL_SCHEMA",
+    "DESIGN_A2UI_SURFACE_TOOL_SCHEMA",
     "generate_a2ui_impl",
     "build_a2ui_operations_from_tool_call",
     # Schedule meeting (HITL)

@@ -41,9 +41,9 @@ export function SidebarFrameworkSelector() {
 
   return (
     // Sticky so the selector stays visible as the user scrolls long
-    // sidebars. The background + padding matches the sidebar surface so
-    // content scrolling behind it doesn't bleed through.
-    <div className="sticky top-0 z-10 -mx-3 px-3 pt-4 pb-2 bg-[var(--glass-background)] backdrop-blur-lg mb-1">
+    // sidebars. The wrapper bg matches the sidebar surface so the area
+    // surrounding the pill reads as one continuous panel.
+    <div className="sticky top-0 z-10 bg-[var(--bg-surface)] backdrop-blur-lg">
       <FrameworkSelector
         options={options}
         categoryOrder={categoryOrder}

@@ -121,9 +121,16 @@ const nextConfig: NextConfig = {
         destination: "/concepts/oss-vs-enterprise",
         permanent: true,
       },
+      // Quickstart needs a real backing page when hit without a stored
+      // framework. `SidebarLink` rewrites `/quickstart` → `/<framework>/quickstart`
+      // when a framework is selected; users who land here cold (or who
+      // explicitly picked the bare CopilotKit / Built-in Agent view)
+      // get the Built-in Agent quickstart by default. 308 keeps the
+      // sidebar's `/quickstart` href intact while always sending the
+      // user to a real guide.
       {
         source: "/quickstart",
-        destination: "/",
+        destination: "/built-in-agent/quickstart",
         permanent: true,
       },
 
@@ -506,6 +513,31 @@ const nextConfig: NextConfig = {
       {
         source: "/ag-ui-middleware",
         destination: "/agentic-protocols/ag-ui-middleware",
+        permanent: false,
+      },
+
+      // `/generative-ui/your-components/*` retired. The display-only
+      // page was a duplicate of `/generative-ui/tool-based` (same hook,
+      // same demo, same body); the interactive page duplicated the
+      // Human-in-the-Loop section. 302 while the new IA settles.
+      {
+        source: "/generative-ui/your-components/display-only",
+        destination: "/generative-ui/tool-based",
+        permanent: false,
+      },
+      {
+        source: "/:framework/generative-ui/your-components/display-only",
+        destination: "/:framework/generative-ui/tool-based",
+        permanent: false,
+      },
+      {
+        source: "/generative-ui/your-components/interactive",
+        destination: "/human-in-the-loop",
+        permanent: false,
+      },
+      {
+        source: "/:framework/generative-ui/your-components/interactive",
+        destination: "/:framework/human-in-the-loop",
         permanent: false,
       },
     ];

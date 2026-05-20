@@ -6,8 +6,9 @@
  * <CopilotChatAssistantMessage />). To exercise those surfaces we give
  * this agent:
  *
- *   - two mock backend tools (get_weather, get_stock_price) — render via
- *     app-registered `useRenderTool` renderers on the frontend,
+ *   - three mock backend tools (get_weather, get_stock_price,
+ *     get_revenue_chart) — render via app-registered `useRenderTool`
+ *     renderers on the frontend,
  *   - access to a frontend-registered `useComponent` tool
  *     (`highlight_note`) — the agent "calls" it and the UI flows through
  *     the same `useRenderToolCall` path,
@@ -20,7 +21,7 @@
  */
 
 import { z } from "zod";
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { AIMessage, SystemMessage } from "@langchain/core/messages";
@@ -41,6 +42,7 @@ const SYSTEM_PROMPT = `You are a helpful, concise assistant wired into a headles
 Routing rules:
   - If the user asks about weather for a place, call \`get_weather\` with the location.
   - If the user asks about a stock or ticker (AAPL, TSLA, MSFT, ...), call \`get_stock_price\` with the ticker.
+  - If the user asks for a chart, graph, or visualization of revenue, sales, or other metrics over time, call \`get_revenue_chart\`.
   - If the user asks you to highlight, flag, or mark a short note or phrase, call the frontend \`highlight_note\` tool with the text and a color (yellow, pink, green, or blue). Do NOT ask the user for the color — pick a sensible one if they didn't say.
   - If the user asks to draw, sketch, or diagram something, use the Excalidraw MCP tools that are available to you.
   - Otherwise, reply in plain text.
@@ -89,7 +91,63 @@ const getStockPrice = tool(
   },
 );
 
-const tools = [getWeather, getStockPrice];
+const getRevenueChart = tool(
+  async () =>
+    JSON.stringify({
+      title: "Quarterly revenue",
+      subtitle: "Last six months · USD thousands",
+      data: [
+        { label: "Jan", value: 38 },
+        { label: "Feb", value: 47 },
+        { label: "Mar", value: 52 },
+        { label: "Apr", value: 49 },
+        { label: "May", value: 63 },
+        { label: "Jun", value: 71 },
+      ],
+    }),
+  {
+    name: "get_revenue_chart",
+    description:
+      "Get a mock six-month revenue series for a chart visualization. Returns a title, subtitle, and an array of {label, value} points. Use this whenever the user asks for a chart, graph, or visualization of revenue, sales, or other quarterly/monthly metrics.",
+    schema: z.object({}),
+  },
+);
+
+const tools = [getWeather, getStockPrice, getRevenueChart];
+
+/**
+ * Normalize an AIMessage so that tool_calls in additional_kwargs are promoted
+ * to the top-level tool_calls array.  @langchain/openai streaming sometimes
+ * places tool_calls only in additional_kwargs when the response also carries
+ * content text, which causes shouldContinue to miss them.
+ */
+function normalizeResponse(msg: AIMessage): AIMessage {
+  if (msg.tool_calls?.length) return msg;
+
+  const kw = msg.additional_kwargs as {
+    tool_calls?: Array<{
+      id?: string;
+      type?: string;
+      function?: { name: string; arguments: string };
+    }>;
+  };
+  if (!kw?.tool_calls?.length) return msg;
+
+  const toolCalls = kw.tool_calls.map((tc) => ({
+    name: tc.function?.name ?? "",
+    args: tc.function?.arguments ? JSON.parse(tc.function.arguments) : {},
+    id: tc.id,
+    type: "tool_call" as const,
+  }));
+
+  return new AIMessage({
+    content: msg.content,
+    additional_kwargs: msg.additional_kwargs,
+    tool_calls: toolCalls,
+    response_metadata: msg.response_metadata,
+    id: msg.id,
+  });
+}
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
   const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o-mini" });
@@ -104,7 +162,7 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
     config,
   );
 
-  return { messages: response };
+  return { messages: normalizeResponse(response as AIMessage) };
 }
 
 function shouldContinue({ messages, copilotkit }: AgentState) {

@@ -1,5 +1,5 @@
 {
   "title": "Agentic Protocols",
   "icon": "lucide/Zap",
-  "pages": ["index", "ag-ui", "ag-ui-middleware", "mcp", "a2a"]
+  "pages": ["index", "ag-ui", "mcp", "a2a"]
 }

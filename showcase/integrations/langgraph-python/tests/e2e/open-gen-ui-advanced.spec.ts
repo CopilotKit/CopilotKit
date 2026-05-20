@@ -184,7 +184,13 @@ test.describe("Open Generative UI (advanced)", () => {
     await sendPromptAndAwaitIframe(page, PROMPTS.inlineEval);
 
     const frame = page.frameLocator('iframe[sandbox*="allow-scripts"]').first();
-    await frame.locator("#in").fill("2 + 2");
+    // `fill()` silently no-ops inside sandbox="allow-scripts" iframes on
+    // some Playwright/Chromium combos (null origin blocks the set-value
+    // protocol message). `pressSequentially` sends individual key events
+    // that always reach the input regardless of sandbox restrictions.
+    const input = frame.locator("#in");
+    await input.click();
+    await input.pressSequentially("2+2");
     await frame.locator("#go").click();
 
     await expect

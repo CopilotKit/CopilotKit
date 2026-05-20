@@ -177,6 +177,10 @@ demos:
     animated_preview_url:
     highlight:
       - src/agents/tools/custom_tool.py
+      - tools/get_weather.py
+      - tools/query_data.py
+      - tools/schedule_meeting.py
+      - tools/search_flights.py
       - src/app/demos/tool-rendering/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering-default-catchall

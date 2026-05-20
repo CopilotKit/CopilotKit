@@ -20,7 +20,13 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
-import rehypeHighlight from "rehype-highlight";
+import {
+  rehypeCode,
+  rehypeCodeDefaultOptions,
+} from "fumadocs-core/mdx-plugins";
+import { ShellDocsLayout } from "@/components/shell-docs-layout";
+import { DocsPage } from "fumadocs-ui/page";
+import { navTreeToPageTree } from "@/lib/page-tree-bridge";
 import { DocsPageView } from "@/components/docs-page-view";
 import { MdxCodeBlock } from "@/components/mdx-code-block";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
@@ -29,7 +35,7 @@ import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
 import { FrameworkOverview } from "@/components/content/landing-pages/framework-overview";
 import { frameworkOverviews } from "@/data/frameworks";
 import { docsComponents } from "@/lib/mdx-registry";
-import { rehypeCodeMeta } from "@/lib/rehype-code-meta";
+import { transformerMeta } from "@/lib/rehype-code-meta";
 import {
   CONTENT_DIR,
   buildFrameworkOverridesNav,
@@ -108,19 +114,28 @@ function frameworkHasCellFor(framework: string, cell: string): boolean {
  *
  * Final fallback: append at the end of the nav.
  */
+// Map a framework slug to the section-header icon spec used by the
+// sidebar bridge. LangGraph variants (-python, -typescript, -fastapi)
+// share the LangGraph mark; other integrations have no custom mark
+// yet and fall back to no icon. Extend as we ship more.
+function frameworkSectionIcon(framework: string): string | undefined {
+  if (/^langgraph/.test(framework)) return "custom/langgraph";
+  return undefined;
+}
+
 function mergeFrameworkNav(
   rootNav: NavNode[],
   overrideNav: NavNode[],
   frameworkName: string,
+  frameworkIcon?: string,
 ): NavNode[] {
   if (overrideNav.length === 0) return rootNav;
 
-  // Hoist the framework-root page (the "Introduction" entry from
-  // integrations/<folder>/meta.json's literal "index" slot — buildFrameworkOverridesNav
-  // rewrites its slug to "") to position 0 of the overall sidebar, above the
-  // global root nav. Without this, Introduction would be buried inside the
-  // per-framework section, even though it's the entry point for the
-  // framework's docs surface.
+  // Pull the framework-root page (the "Introduction" entry from
+  // integrations/<folder>/meta.json's literal "index" slot —
+  // buildFrameworkOverridesNav rewrites its slug to "") out of the override
+  // nav so we can place it inside the global "Get Started" section instead
+  // of stranding it above all section headers as a top-level prefix.
   const introIdx = overrideNav.findIndex(
     (n) => n.type === "page" && n.slug === "",
   );
@@ -133,18 +148,26 @@ function mergeFrameworkNav(
   const sectionHeader: NavNode = {
     type: "section",
     title: frameworkName,
+    icon: frameworkIcon,
   };
   const isSection = (n: NavNode, title: string) =>
     n.type === "section" && n.title.toLowerCase() === title.toLowerCase();
   // Section names tried in priority order. The first match wins; the
   // override block is inserted right before the *next* section header
   // after the matched anchor. Update this list when the JTBD section
-  // names change in content/docs/meta.json.
+  // names change in content/docs/meta.json. Anchor on "add agent
+  // powers" so the framework block lands JUST ABOVE "Runtime" —
+  // framework-specific guides sit alongside the agent-powers section
+  // they extend, but stay below the foundational Build / Add sections.
   const ANCHOR_CANDIDATES = [
+    "add agent powers",
+    // Older section names kept as fallbacks so the merge still works
+    // if content/docs/meta.json is rolled back mid-refactor.
     "give your app agent powers",
     "app control",
     "agents & backends",
     "backend",
+    "runtime",
   ];
   let insertAt = -1;
   for (const anchor of ANCHOR_CANDIDATES) {
@@ -159,17 +182,50 @@ function mergeFrameworkNav(
     if (insertAt !== -1) break;
   }
 
-  const prefix: NavNode[] = introNode ? [introNode] : [];
+  // Reconcile the rootNav's existing root-level introduction (the
+  // `"index"` entry in content/docs/meta.json, which produces a
+  // page-with-slug-"" pointing at `/`) with the framework's own
+  // introNode (slug "" pointing at `/<framework>`). At a framework
+  // view we want exactly ONE Introduction entry, and it should be the
+  // framework-scoped one. Drop the root-level intro and substitute the
+  // framework's introNode in its place; otherwise splice the framework
+  // introNode into the Get Started section as a fallback.
+  const rootHasIntro = rootNav.some((n) => n.type === "page" && n.slug === "");
+  const rootNavWithIntro = (() => {
+    if (!introNode) return rootNav;
+    if (rootHasIntro) {
+      return rootNav.map((n) =>
+        n.type === "page" && n.slug === "" ? introNode : n,
+      );
+    }
+    const getStartedIdx = rootNav.findIndex((n) => isSection(n, "get started"));
+    if (getStartedIdx === -1) return [introNode, ...rootNav];
+    return [
+      ...rootNav.slice(0, getStartedIdx + 1),
+      introNode,
+      ...rootNav.slice(getStartedIdx + 1),
+    ];
+  })();
 
   if (insertAt === -1) {
-    return [...prefix, ...rootNav, sectionHeader, ...remainingOverrideNav];
+    return [...rootNavWithIntro, sectionHeader, ...remainingOverrideNav];
   }
+  // `insertAt` was computed against the original rootNav. The replace
+  // path (rootHasIntro) preserves array length; only the splice path
+  // shifts indices at/after Get Started by +1.
+  const getStartedIdx = rootNav.findIndex((n) => isSection(n, "get started"));
+  const adjustedInsertAt =
+    introNode &&
+    !rootHasIntro &&
+    getStartedIdx !== -1 &&
+    insertAt > getStartedIdx
+      ? insertAt + 1
+      : insertAt;
   return [
-    ...prefix,
-    ...rootNav.slice(0, insertAt),
+    ...rootNavWithIntro.slice(0, adjustedInsertAt),
     sectionHeader,
     ...remainingOverrideNav,
-    ...rootNav.slice(insertAt),
+    ...rootNavWithIntro.slice(adjustedInsertAt),
   ];
 }
 
@@ -292,6 +348,7 @@ export default async function FrameworkScopedDocsPage({
     rootNav,
     overrideNav,
     integration.name,
+    frameworkSectionIcon(framework),
   );
 
   if (!doc) {
@@ -428,7 +485,12 @@ async function FrameworkRootPage({ framework }: { framework: string }) {
     integration?.name ??
     frameworkOverviews[framework]?.frameworkName ??
     framework;
-  const navTree = mergeFrameworkNav(rootNav, overrideNav, integrationName);
+  const navTree = mergeFrameworkNav(
+    rootNav,
+    overrideNav,
+    integrationName,
+    frameworkSectionIcon(framework),
+  );
 
   // Tier 1: data-driven FrameworkOverview.
   const overview = frameworkOverviews[framework];
@@ -460,12 +522,23 @@ async function FrameworkRootPage({ framework }: { framework: string }) {
               options={{
                 mdxOptions: {
                   remarkPlugins: [remarkGfm],
-                  // `rehypeCodeMeta` runs AFTER rehype-highlight so it
-                  // sees the `language-<name>` className and the fence
-                  // metastring's `title="..."`; without it, the bare
-                  // rehype-highlight wiring leaves <pre> with no copy
-                  // button and no caption (PR #4830 parity).
-                  rehypePlugins: [rehypeHighlight, rehypeCodeMeta],
+                  // Fumadocs's Shiki-based `rehypeCode`; our
+                  // `transformerMeta` Shiki transformer surfaces fence
+                  // `title="..."` and the resolved language as data-attrs
+                  // on the <pre> so MdxCodeBlock can render Fumadocs's
+                  // CodeBlock figcaption + copy button.
+                  rehypePlugins: [
+                    [
+                      rehypeCode,
+                      {
+                        fallbackLanguage: "plaintext",
+                        transformers: [
+                          ...(rehypeCodeDefaultOptions.transformers ?? []),
+                          transformerMeta(),
+                        ],
+                      },
+                    ],
+                  ],
                 },
               }}
             />
@@ -533,24 +606,23 @@ function FrameworkRootShell({
   navTree: NavNode[];
   children: React.ReactNode;
 }) {
+  // slugHrefPrefix is `/<framework>` so every sidebar link resolves
+  // inside the framework scope.
+  const pageTree = navTreeToPageTree(navTree, `/${framework}`);
   return (
-    <>
-      <SidebarNav className="hidden md:flex flex-col w-[260px] shrink-0 rounded-l-2xl backdrop-blur-lg border border-r-0 border-[var(--border)] bg-[var(--glass-background)] overflow-hidden px-3">
-        <SidebarFrameworkSelector />
-        <div className="mb-4" />
-        <div className="flex-1 min-h-0 overflow-y-auto pr-1">
-          {navTree.map((node, i) => (
-            <RenderNav key={i} node={node} framework={framework} slugPath="" />
-          ))}
+    <ShellDocsLayout tree={pageTree} banner={<SidebarFrameworkSelector />}>
+      <DocsPage
+        toc={[]}
+        tableOfContent={{ enabled: false }}
+        tableOfContentPopover={{ enabled: false }}
+        breadcrumb={{ enabled: false }}
+        footer={{ enabled: false }}
+      >
+        <div className="docs-inner-content max-w-[900px] mx-auto px-4 md:px-6 pt-2 pb-6 md:pt-3 xl:pt-4">
+          {children}
         </div>
-      </SidebarNav>
-
-      <div className="docs-content-wrapper flex">
-        <div className="flex-1 min-w-0 px-4 py-6 md:px-6 md:pt-8 xl:px-8 xl:pt-14">
-          <div className="max-w-[900px] mx-auto">{children}</div>
-        </div>
-      </div>
-    </>
+      </DocsPage>
+    </ShellDocsLayout>
   );
 }
 
