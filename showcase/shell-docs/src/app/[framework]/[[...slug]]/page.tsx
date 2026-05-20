@@ -33,6 +33,8 @@ import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selecto
 import { SidebarNav } from "@/components/sidebar-nav";
 import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
 import { FrameworkOverview } from "@/components/content/landing-pages/framework-overview";
+import { MdxFrameworkOverview } from "@/components/content/landing-pages/mdx-framework-overview";
+import type { MdxFrameworkOverviewProps } from "@/components/content/landing-pages/mdx-framework-overview";
 import { frameworkOverviews } from "@/data/frameworks";
 import { docsComponents } from "@/lib/mdx-registry";
 import { transformerMeta } from "@/lib/rehype-code-meta";
@@ -125,7 +127,7 @@ function frameworkHasCellFor(framework: string, cell: string): boolean {
 // share the LangGraph mark; other integrations have no custom mark
 // yet and fall back to no icon. Extend as we ship more.
 function frameworkSectionIcon(framework: string): string | undefined {
-  if (/^langgraph/.test(framework)) return "custom/langgraph";
+  if (framework.startsWith("langgraph")) return "custom/langgraph";
   return undefined;
 }
 
@@ -561,6 +563,16 @@ async function FrameworkRootPage({ framework }: { framework: string }) {
                 // `data-title` / `data-language` data-attrs MdxCodeBlock
                 // reads.
                 pre: MdxCodeBlock,
+                // Bind the URL framework slug so any MdxFrameworkOverview
+                // usage inside after-features.mdx routes through the
+                // rewriter with the URL-active variant — same rationale
+                // as DocsPageView's components-map override.
+                FrameworkOverview: (props: MdxFrameworkOverviewProps) => (
+                  <MdxFrameworkOverview
+                    {...props}
+                    currentFramework={framework ?? props.currentFramework}
+                  />
+                ),
               }}
               options={{
                 mdxOptions: {
