@@ -978,9 +978,14 @@ export const docsComponents = {
   Banknote: () => <span>💰</span>,
   AlertCircle: () => <span>⚠️</span>,
   PiMonitor: () => <span>🖥️</span>,
-  AwsStrandsIcon: () => <span>☁️</span>,
-  MicrosoftIcon: () => <span>Ⓜ️</span>,
-  PydanticAIIcon: () => <span>🐍</span>,
+  // `MicrosoftIcon` and `PydanticAIIcon` were once emoji stubs here.
+  // Both are now registered to their real SVG icon components in the
+  // FrameworkOverview block above (around line 489), so the stubs would
+  // be duplicate keys (TS1117) — removed. `AwsStrandsIcon` remains a
+  // stub because the framework-icons export is named `StrandsIcon`
+  // (the `customIcons.awsStrands` key keeps the legacy v1 alias), and
+  // some ported MDX uses the AwsStrandsIcon name verbatim.
+  AwsStrandsIcon: StrandsIcon,
   SiLangchain: () => <span>🔗</span>,
   FaArrowUp: () => <span>↑</span>,
   FaCloud: () => <span>☁️</span>,
