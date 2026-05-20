@@ -18,13 +18,12 @@ export default defineConfig([
     sourcemap: true,
     target: "es2018",
     outDir: "dist",
-    external: ["@tanstack/devtools-event-client"],
+    // @tanstack/devtools-event-client has no UMD distribution, so we force it
+    // into the bundle for CDN consumers (unpkg/jsdelivr).
+    noExternal: ["@tanstack/devtools-event-client"],
     codeSplitting: false,
     outputOptions(options) {
       options.entryFileNames = "[name].umd.js";
-      options.globals = {
-        "@tanstack/devtools-event-client": "TanStackDevtoolsEventClient",
-      };
       return options;
     },
   },

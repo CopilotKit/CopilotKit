@@ -523,6 +523,19 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // Updates are applied via setter effects below rather than recreating the instance.
   const copilotkitRef = useRef<CopilotKitCoreReact | null>(null);
   if (copilotkitRef.current === null) {
+    // Resolve "auto" synchronously so the core's DevtoolsListener is wired up
+    // on first construction. The effect at [showDevConsole] still drives the
+    // inspector render flag reactively for any later host changes.
+    const resolvedShowDevConsole =
+      typeof window === "undefined"
+        ? false
+        : showDevConsole === true
+          ? true
+          : showDevConsole === "auto"
+            ? window.location.hostname === "localhost" ||
+              window.location.hostname === "127.0.0.1"
+            : false;
+
     copilotkitRef.current = new CopilotKitCoreReact({
       runtimeUrl: chatApiEndpoint,
       runtimeTransport:
@@ -540,6 +553,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       renderActivityMessages: allActivityRenderers,
       renderCustomMessages: renderCustomMessagesList,
       debug,
+      showDevConsole: resolvedShowDevConsole,
     });
 
     // Register thread clone resolver so devtools events reach thread-scoped agents
