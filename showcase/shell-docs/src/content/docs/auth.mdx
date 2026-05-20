@@ -144,11 +144,11 @@ For full handler details, see the [LangGraph Platform Authentication documentati
 When you self-host the agent, there's no managed auth handler to plug into. Instead, you forward the raw token onto every run by configuring the agent dynamically — the request's `properties.authorization` becomes part of `langgraph_config["configurable"]`, where every node can read it back later.
 
 ```python title="backend/demo.py"
-from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
+from copilotkit import CopilotKitRemoteEndpoint, LangGraphAGUIAgent
 
 sdk = CopilotKitRemoteEndpoint(
     agents=lambda context: [
-        LangGraphAgent(
+        LangGraphAGUIAgent(
             name="sample_agent",
             description="Agent with authentication support",
             graph=graph,
