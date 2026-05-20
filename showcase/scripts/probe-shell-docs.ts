@@ -163,9 +163,7 @@ async function main() {
   const registry = JSON.parse(
     fs.readFileSync(REGISTRY_PATH, "utf-8"),
   ) as Registry;
-  const visible = registry.integrations.filter(
-    (i) => i.docs_mode !== "hidden",
-  );
+  const visible = registry.integrations.filter((i) => i.docs_mode !== "hidden");
 
   // Build URL set. Use a Set keyed by URL string so shared-folder
   // frameworks (langgraph variants share `langgraph/`, ms-agent dotnet
@@ -195,10 +193,7 @@ async function main() {
     urlsByFw.set(slug, rootOnly);
     total += rootOnly.length;
   }
-  const slugsToProbe = [
-    ...visible.map((i) => i.slug),
-    ...DOCS_ONLY_FRAMEWORKS,
-  ];
+  const slugsToProbe = [...visible.map((i) => i.slug), ...DOCS_ONLY_FRAMEWORKS];
   // Also probe the unscoped docs root and a few canonical landings.
   const baseUrls = ["/", "/quickstart", "/concepts/architecture"];
   total += baseUrls.length;
@@ -238,15 +233,21 @@ async function main() {
     }
     console.log("=== Failures by framework ===");
     for (const [fw, items] of [...byFw.entries()].sort()) {
-      console.log(`\n${fw}  (${items.length} failure${items.length === 1 ? "" : "s"})`);
+      console.log(
+        `\n${fw}  (${items.length} failure${items.length === 1 ? "" : "s"})`,
+      );
       for (const it of items) {
-        const tail = it.snippet ? ` — “${it.snippet.replace(/\s+/g, " ").trim()}”` : "";
+        const tail = it.snippet
+          ? ` — “${it.snippet.replace(/\s+/g, " ").trim()}”`
+          : "";
         console.log(`  ${it.reason.padEnd(14)}  ${it.url}${tail}`);
       }
     }
     console.log();
   }
-  console.log(`Result: ${okCount}/${results.length} OK, ${failures.length} failed`);
+  console.log(
+    `Result: ${okCount}/${results.length} OK, ${failures.length} failed`,
+  );
   if (failures.length) process.exit(1);
 }
 

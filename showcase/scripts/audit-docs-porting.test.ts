@@ -66,8 +66,14 @@ describe("diffFramework", () => {
     const shell = path.join(tmp, "shell");
     fs.mkdirSync(path.join(v1, "framework"), { recursive: true });
     fs.mkdirSync(path.join(shell, "framework"), { recursive: true });
-    fs.writeFileSync(path.join(v1, "framework", "quickstart.mdx"), "# qs\r\nbody\r\n");
-    fs.writeFileSync(path.join(shell, "framework", "quickstart.mdx"), "# qs\nbody\n");
+    fs.writeFileSync(
+      path.join(v1, "framework", "quickstart.mdx"),
+      "# qs\r\nbody\r\n",
+    );
+    fs.writeFileSync(
+      path.join(shell, "framework", "quickstart.mdx"),
+      "# qs\nbody\n",
+    );
 
     const result = diffFramework({
       slug: "framework",

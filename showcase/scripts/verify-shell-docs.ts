@@ -3,7 +3,10 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { glob } from "glob";
-import { checkEssentialContent, type PageInput } from "./lib/essential-content.js";
+import {
+  checkEssentialContent,
+  type PageInput,
+} from "./lib/essential-content.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // showcase/scripts/ → showcase/ → repo root. Different from
@@ -299,7 +302,8 @@ async function main() {
 
   let failed = false;
   for (const r of results) {
-    const tag = r.status === "pass" ? "PASS" : r.status === "fail" ? "FAIL" : "SKIP";
+    const tag =
+      r.status === "pass" ? "PASS" : r.status === "fail" ? "FAIL" : "SKIP";
     console.log(`[${tag}] ${r.name}`);
     for (const msg of r.messages) {
       console.log(`  ${msg}`);

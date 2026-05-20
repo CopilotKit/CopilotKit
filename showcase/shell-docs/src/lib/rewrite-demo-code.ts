@@ -38,10 +38,7 @@ function matchAttr(attrs: string, name: string): string | undefined {
  * silently surface a broken `<DemoCode>` JSX tag — that would crash
  * the MDX compile.
  */
-export function rewriteDemoCode(
-  source: string,
-  packageRoot: string,
-): string {
+export function rewriteDemoCode(source: string, packageRoot: string): string {
   // Match `<DemoCode ... />` with any attribute body. The lazy `[^>]*?`
   // gobble stops at the closing `/>`, which is right — we never want
   // to span past the end of the tag — but it MUST NOT exclude `/` or
@@ -95,12 +92,6 @@ export function rewriteDemoCode(
     const fenceTitle = title ?? path.basename(file);
     // 4-tilde fence so the embedded body can safely contain triple
     // backticks without prematurely closing the fence.
-    return [
-      "",
-      `~~~${lang} title="${fenceTitle}"`,
-      body,
-      "~~~",
-      "",
-    ].join("\n");
+    return ["", `~~~${lang} title="${fenceTitle}"`, body, "~~~", ""].join("\n");
   });
 }

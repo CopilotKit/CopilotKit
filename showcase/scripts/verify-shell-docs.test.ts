@@ -45,7 +45,10 @@ describe("checkInlineDemoRefs", () => {
       ],
     };
     const pages = [
-      { path: "frontend-tools.mdx", body: '<InlineDemo demo="frontend-tools" />' },
+      {
+        path: "frontend-tools.mdx",
+        body: '<InlineDemo demo="frontend-tools" />',
+      },
     ];
     const result = checkInlineDemoRefs({ pages, registry: fakeRegistry });
     expect(result.status).toBe("pass");
@@ -111,9 +114,7 @@ describe("checkSnippetRegions", () => {
 
 describe("checkInternalLinks", () => {
   it("fails when an internal link does not resolve to a known page", () => {
-    const pages = [
-      { path: "a.mdx", body: "[link](/does-not-exist)" },
-    ];
+    const pages = [{ path: "a.mdx", body: "[link](/does-not-exist)" }];
     const knownRoutes = new Set(["/a", "/b"]);
     const result = checkInternalLinks({ pages, knownRoutes });
     expect(result.status).toBe("fail");
@@ -121,18 +122,14 @@ describe("checkInternalLinks", () => {
   });
 
   it("ignores external links", () => {
-    const pages = [
-      { path: "a.mdx", body: "[link](https://example.com)" },
-    ];
+    const pages = [{ path: "a.mdx", body: "[link](https://example.com)" }];
     const knownRoutes = new Set<string>();
     const result = checkInternalLinks({ pages, knownRoutes });
     expect(result.status).toBe("pass");
   });
 
   it("strips fragments and queries before resolution", () => {
-    const pages = [
-      { path: "a.mdx", body: "[link](/a#section?q=1)" },
-    ];
+    const pages = [{ path: "a.mdx", body: "[link](/a#section?q=1)" }];
     const knownRoutes = new Set(["/a"]);
     const result = checkInternalLinks({ pages, knownRoutes });
     expect(result.status).toBe("pass");
@@ -150,7 +147,9 @@ describe("checkImportPaths", () => {
     const existsOnDisk = (_p: string) => false;
     const result = checkImportPaths({ pages, existsOnDisk });
     expect(result.status).toBe("fail");
-    expect(result.messages.join(" ")).toContain("@/snippets/does-not-exist.mdx");
+    expect(result.messages.join(" ")).toContain(
+      "@/snippets/does-not-exist.mdx",
+    );
   });
 
   it("passes when all paths resolve", () => {

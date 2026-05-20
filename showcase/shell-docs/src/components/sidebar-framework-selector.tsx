@@ -9,11 +9,7 @@
 
 import React from "react";
 import { FrameworkSelector } from "./framework-selector";
-import {
-  getCategoryLabel,
-  getDocsMode,
-  getIntegrations,
-} from "@/lib/registry";
+import { getCategoryLabel, getDocsMode, getIntegrations } from "@/lib/registry";
 import { FRAMEWORK_CATEGORY_ORDER } from "@/lib/docs-render";
 
 export function SidebarFrameworkSelector() {

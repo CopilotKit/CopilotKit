@@ -473,25 +473,29 @@ export const COMPONENT_MAPPING: ComponentMapping[] = [
     v1Name: "Step",
     kind: "use-existing",
     target: "Step",
-    notes: "Shell-docs Step component from docs-steps.tsx, registered in mdx-registry.tsx.",
+    notes:
+      "Shell-docs Step component from docs-steps.tsx, registered in mdx-registry.tsx.",
   },
   {
     v1Name: "Steps",
     kind: "use-existing",
     target: "Steps",
-    notes: "Shell-docs Steps component from docs-steps.tsx, registered in mdx-registry.tsx.",
+    notes:
+      "Shell-docs Steps component from docs-steps.tsx, registered in mdx-registry.tsx.",
   },
   {
     v1Name: "Tab",
     kind: "use-existing",
     target: "Tab",
-    notes: "Shell-docs Tab component from docs-tabs.tsx, registered in mdx-registry.tsx.",
+    notes:
+      "Shell-docs Tab component from docs-tabs.tsx, registered in mdx-registry.tsx.",
   },
   {
     v1Name: "Tabs",
     kind: "use-existing",
     target: "Tabs",
-    notes: "Shell-docs Tabs component from docs-tabs.tsx, registered in mdx-registry.tsx.",
+    notes:
+      "Shell-docs Tabs component from docs-tabs.tsx, registered in mdx-registry.tsx.",
   },
   {
     v1Name: "TailoredContent",

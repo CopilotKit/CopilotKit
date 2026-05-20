@@ -70,7 +70,9 @@ export function diffFramework(opts: DiffOptions): FrameworkDiff {
       continue;
     }
     const v1Content = fs.readFileSync(v1Path, "utf-8").replace(/\r\n/g, "\n");
-    const shellContent = fs.readFileSync(shellPath, "utf-8").replace(/\r\n/g, "\n");
+    const shellContent = fs
+      .readFileSync(shellPath, "utf-8")
+      .replace(/\r\n/g, "\n");
     if (v1Content !== shellContent) {
       divergent.push(rel);
     }
@@ -85,8 +87,7 @@ export interface MdxReferences {
 }
 
 const JSX_TAG_RE = /<([A-Z][A-Za-z0-9]*)\b/g;
-const IMPORT_RE =
-  /^\s*import\s+[^"';]+from\s+["']([^"']+)["']\s*;?\s*$/gm;
+const IMPORT_RE = /^\s*import\s+[^"';]+from\s+["']([^"']+)["']\s*;?\s*$/gm;
 const FENCED_CODE_RE = /```[\s\S]*?```/g;
 
 export function extractMdxReferences(mdx: string): MdxReferences {
@@ -114,7 +115,14 @@ export function extractMdxReferences(mdx: string): MdxReferences {
 }
 
 async function main() {
-  const v1Root = path.resolve(ROOT, "..", "docs", "content", "docs", "integrations");
+  const v1Root = path.resolve(
+    ROOT,
+    "..",
+    "docs",
+    "content",
+    "docs",
+    "integrations",
+  );
   const shellDocsRoot = path.resolve(
     ROOT,
     "shell-docs",

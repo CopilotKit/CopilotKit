@@ -44,7 +44,9 @@ describe("extractRegion (py comment syntax)", () => {
     const origEnv = procEnv.NODE_ENV;
     procEnv.NODE_ENV = "development";
     try {
-      expect(() => extractRegion(src, "dup", "py")).toThrow(/duplicate region/i);
+      expect(() => extractRegion(src, "dup", "py")).toThrow(
+        /duplicate region/i,
+      );
     } finally {
       procEnv.NODE_ENV = origEnv;
     }

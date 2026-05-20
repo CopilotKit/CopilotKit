@@ -28,15 +28,13 @@ function writeConcept(slug: string, concept: string, body: string): void {
 describe("resolveSetupConcept", () => {
   it("returns the file contents when the concept exists", () => {
     writeConcept("langgraph", "copilot-middleware", "# hello world\n");
-    expect(
-      resolveSetupConcept(tmp, "langgraph", "copilot-middleware"),
-    ).toBe("# hello world\n");
+    expect(resolveSetupConcept(tmp, "langgraph", "copilot-middleware")).toBe(
+      "# hello world\n",
+    );
   });
 
   it("returns null when the concept file is missing", () => {
-    expect(
-      resolveSetupConcept(tmp, "langgraph", "absent-concept"),
-    ).toBeNull();
+    expect(resolveSetupConcept(tmp, "langgraph", "absent-concept")).toBeNull();
   });
 
   it("returns null when the concept file is empty or whitespace-only", () => {
@@ -48,9 +46,7 @@ describe("resolveSetupConcept", () => {
 
   it("returns null on path-traversal attempts via the concept arg", () => {
     fs.writeFileSync(path.join(tmp, "secrets.mdx"), "should never read");
-    expect(
-      resolveSetupConcept(tmp, "langgraph", "../../secrets"),
-    ).toBeNull();
+    expect(resolveSetupConcept(tmp, "langgraph", "../../secrets")).toBeNull();
   });
 
   it("returns null on path-traversal attempts via the docsFolder arg", () => {

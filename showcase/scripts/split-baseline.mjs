@@ -10,7 +10,9 @@ const outDir = "audit-output";
 
 for (const slug of summary.unready) {
   const matching = baseline.filter(
-    (line) => line.includes(`integrations/${slug}/`) || line.includes(`integrations\\${slug}\\`),
+    (line) =>
+      line.includes(`integrations/${slug}/`) ||
+      line.includes(`integrations\\${slug}\\`),
   );
   fs.writeFileSync(
     path.join(outDir, `${slug}.baseline.txt`),
