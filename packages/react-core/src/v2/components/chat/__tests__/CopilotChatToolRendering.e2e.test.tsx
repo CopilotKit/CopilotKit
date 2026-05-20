@@ -6,21 +6,14 @@ import {
   useCopilotKit,
 } from "../../../providers/CopilotKitProvider";
 import { CopilotChat } from "../CopilotChat";
-import {
-  AbstractAgent,
-  EventType,
-  type BaseEvent,
-  type RunAgentInput,
-} from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { Observable, Subject } from "rxjs";
-import {
-  defineToolCallRenderer,
-  ReactToolCallRenderer,
-  ReactFrontendTool,
-} from "../../../types";
+import type { ReactToolCallRenderer, ReactFrontendTool } from "../../../types";
+import { defineToolCallRenderer } from "../../../types";
 import CopilotChatToolCallsView from "../CopilotChatToolCallsView";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
-import { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
+import type { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useFrontendTool } from "../../../hooks/use-frontend-tool";
 
@@ -371,6 +364,107 @@ describe("Streaming in-progress without timers", () => {
       expect(el.textContent).toContain("21");
     });
 
+    agent.emit({ type: EventType.RUN_FINISHED } as BaseEvent);
+    agent.complete();
+  });
+
+  it("renders updated args from AG-UI tool call args events", async () => {
+    const agent = new MockStepwiseAgent();
+
+    const renderToolCalls = [
+      defineToolCallRenderer({
+        name: "selectAddress",
+        args: z.object({
+          postcode: z.string().optional(),
+          addresses: z
+            .array(
+              z.object({
+                id: z.string(),
+                line1: z.string(),
+              }),
+            )
+            .optional(),
+        }),
+        render: ({ args }) => {
+          const firstAddress = args.addresses?.[0];
+
+          return (
+            <div data-testid="address-tool">
+              {args.postcode} {firstAddress?.id ?? "missing"}{" "}
+              {firstAddress?.line1 ?? ""}
+            </div>
+          );
+        },
+      }),
+    ] as unknown as ReactToolCallRenderer<unknown>[];
+
+    render(
+      <CopilotKitProvider
+        agents__unsafe_dev_only={{ default: agent }}
+        renderToolCalls={renderToolCalls}
+      >
+        <div style={{ height: 400 }}>
+          <CopilotChat />
+        </div>
+      </CopilotKitProvider>,
+    );
+
+    const input = await screen.findByRole("textbox");
+    fireEvent.change(input, { target: { value: "Select an address" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.getByText("Select an address")).toBeDefined();
+    });
+
+    const messageId = "m_address";
+    const toolCallId = "tc_address";
+
+    agent.emit({ type: EventType.RUN_STARTED } as BaseEvent);
+    agent.emit({
+      type: EventType.TEXT_MESSAGE_CHUNK,
+      messageId,
+      delta: "Selecting address",
+    } as BaseEvent);
+    agent.emit({
+      type: EventType.TOOL_CALL_START,
+      toolCallId,
+      toolCallName: "selectAddress",
+      parentMessageId: messageId,
+    } as BaseEvent);
+    agent.emit({
+      type: EventType.TOOL_CALL_ARGS,
+      toolCallId,
+      delta: JSON.stringify({
+        postcode: "M1 1AA",
+        addresses: [{ id: "fake", line1: "Hallucinated Street" }],
+      }),
+    } as BaseEvent);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("address-tool").textContent).toContain("fake");
+    });
+
+    agent.emit({
+      type: EventType.TOOL_CALL_ARGS,
+      toolCallId,
+      delta: JSON.stringify({
+        postcode: "M1 1AA",
+        addresses: [{ id: "real", line1: "1 Piccadilly" }],
+      }),
+    } as BaseEvent);
+
+    await waitFor(() => {
+      const renderedTool = screen.getByTestId("address-tool");
+      expect(renderedTool.textContent).toContain("real");
+      expect(renderedTool.textContent).toContain("1 Piccadilly");
+      expect(renderedTool.textContent).not.toContain("fake");
+    });
+
+    agent.emit({
+      type: EventType.TOOL_CALL_END,
+      toolCallId,
+    } as BaseEvent);
     agent.emit({ type: EventType.RUN_FINISHED } as BaseEvent);
     agent.complete();
   });

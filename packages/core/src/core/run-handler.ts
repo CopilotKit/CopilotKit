@@ -1,12 +1,12 @@
-import {
+import type {
   AbstractAgent,
   AgentSubscriber,
-  HttpAgent,
   Message,
   RunAgentResult,
   Tool,
   ToolCall,
 } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 import { randomUUID, logger, schemaToJsonSchema } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
@@ -67,6 +67,74 @@ interface ExecuteToolHandlerResult {
   error?: string;
   isArgumentError: boolean;
 }
+
+const serializeToolCallArguments = (args: unknown): string | undefined => {
+  if (typeof args === "string") return args;
+  if (args === undefined) return undefined;
+
+  try {
+    return JSON.stringify(args);
+  } catch {
+    return undefined;
+  }
+};
+
+const looksLikeJsonValue = (value: string) => {
+  const trimmed = value.trim();
+  return trimmed.startsWith("{") || trimmed.startsWith("[");
+};
+
+const isCompleteJson = (value: string) => {
+  try {
+    JSON.parse(value);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const updateToolCallArguments = (
+  messages: ReadonlyArray<Readonly<Message>>,
+  toolCallId: string,
+  getArgs: (currentArgs: string) => unknown,
+): Message[] | undefined => {
+  let changed = false;
+  const nextMessages = messages.map((message): Message => {
+    if (message.role !== "assistant" || !Array.isArray(message.toolCalls)) {
+      return message as Message;
+    }
+
+    let messageChanged = false;
+    const toolCalls = message.toolCalls.map((toolCall) => {
+      if (toolCall.id !== toolCallId) return toolCall;
+
+      const serializedArgs = serializeToolCallArguments(
+        getArgs(toolCall.function.arguments),
+      );
+      if (serializedArgs === undefined) return toolCall;
+      if (toolCall.function.arguments === serializedArgs) return toolCall;
+
+      messageChanged = true;
+      return {
+        ...toolCall,
+        function: {
+          ...toolCall.function,
+          arguments: serializedArgs,
+        },
+      };
+    });
+
+    if (!messageChanged) return message;
+
+    changed = true;
+    return {
+      ...message,
+      toolCalls,
+    };
+  });
+
+  return changed ? nextMessages : undefined;
+};
 
 /**
  * Handles agent execution, tool calling, and agent connectivity for CopilotKitCore.
@@ -920,6 +988,37 @@ export class RunHandler {
     };
 
     return {
+      onToolCallArgsEvent: ({ event, messages }) => {
+        const updatedMessages = updateToolCallArguments(
+          messages,
+          event.toolCallId,
+          (currentArgs) => {
+            if (
+              isCompleteJson(currentArgs) &&
+              looksLikeJsonValue(event.delta)
+            ) {
+              return event.delta;
+            }
+
+            return `${currentArgs}${event.delta}`;
+          },
+        );
+
+        if (updatedMessages) {
+          return { messages: updatedMessages, stopPropagation: true };
+        }
+      },
+      onToolCallEndEvent: ({ event, messages, toolCallArgs }) => {
+        const updatedMessages = updateToolCallArguments(
+          messages,
+          event.toolCallId,
+          () => toolCallArgs,
+        );
+
+        if (updatedMessages) {
+          return { messages: updatedMessages };
+        }
+      },
       onRunFailed: async ({ error }: { error: Error }) => {
         const code =
           error instanceof AgentThreadLockedError
