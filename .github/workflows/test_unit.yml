@@ -72,6 +72,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Rebuild native modules for current Node.js ABI
+        # The pnpm store cache key does not include the Node.js version, so a
+        # cached store from a Node 24 run contains an ABI-137 better-sqlite3
+        # binary that fails to load on Node 20 (ABI 115) or Node 22 (ABI 127).
+        # Re-running prebuild-install here downloads the correct prebuilt binary
+        # for the active Node version, overwriting whatever the cache restored.
+        run: pnpm rebuild better-sqlite3
+
       - name: Configure Nx Cloud environment
         run: |
           echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-unit-v1-${{ matrix.node-version }}" >> $GITHUB_ENV
