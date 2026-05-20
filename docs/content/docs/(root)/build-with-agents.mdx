@@ -7,63 +7,30 @@ description: "Give your AI coding agent up-to-date knowledge of CopilotKit's API
 import { Callout } from "fumadocs-ui/components/callout";
 import MCPSetup from "@/snippets/shared/guides/mcp-server-setup.mdx";
 
-AI coding agents work from training data — which may be stale or incomplete for CopilotKit's v2 APIs. The resources below give your agent authoritative, current knowledge so it can generate accurate CopilotKit code without guessing.
+AI coding agents may not have up-to-date knowledge about CopilotKit's APIs, patterns, and best practices. The resources below help them generate accurate code.
 
 ## CopilotKit Skills
 
-Skills are folders of instructions, code patterns, and references that your coding agent discovers and uses automatically. Installing CopilotKit skills means your agent knows the v2 API surface, common gotchas, and production best practices before you write a single line.
+Skills give your agent authoritative, current knowledge about CopilotKit directly in its context.
 
 ```bash
 npx skills add CopilotKit/CopilotKit
 ```
 
-This pulls the latest skills directly from the CopilotKit monorepo and installs them into your agent's skills directory. To update, run the same command again — it always fetches the latest.
-
 <Callout type="info">
-  Works with Claude Code, Cursor, Codex, Gemini CLI, and any tool that supports the [agentskills.io](https://agentskills.io) standard.
-</Callout>
-
-### What gets installed
-
-| Skill | What it covers |
-|---|---|
-| `0-to-working-chat` | Scaffold, mount the runtime and provider, render chat, add your first tool |
-| `spa-without-runtime` | Pure-client SPA wiring via CopilotKit Cloud — no server runtime required |
-| `go-to-production` | Pre-deploy checklist: persistent threads, CORS, secrets, public API key |
-| `scale-to-multi-agent` | Per-panel agents, agent-scoped tools, thread-switcher UIs |
-| `v1-to-v2-migration` | Breaking changes, renamed hooks, migration path from v1 |
-| `debug-and-troubleshoot` | Error code catalog, AG-UI SSE tracing, inspector setup |
-| `runtime` | `@copilotkit/runtime` package patterns and configuration |
-| `react-core` | `@copilotkit/react-core` hooks and providers |
-| `a2ui-renderer` | A2UI renderer patterns and component wiring |
-
-### Claude Code plugin marketplace
-
-If you prefer Claude Code's plugin system:
-
-```bash
-claude plugin marketplace add https://github.com/CopilotKit/CopilotKit
-claude plugin install copilotkit
-```
-
-<Callout type="info">
-  The `npx skills add` approach is more reliable for updates — the Claude Code marketplace has known issues with third-party plugin refresh.
+  We recommend using Skills if you want your agent to have access to CopilotKit's documentation.
 </Callout>
 
 ### Starter prompt
 
-Once skills are installed, paste this into your agent to kick off a CopilotKit project:
-
 ```
-I want to build a CopilotKit v2 app. Use the copilotkit skills to guide me — start with
-the 0-to-working-chat skill to scaffold the runtime, provider, and a first chat interface.
-Tell me which framework branches apply and what I need to install.
+Help me build a CopilotKit app using the copilotkit skills.
 ```
 
 ---
 
 ## MCP Docs Server
 
-The CopilotKit MCP server gives your agent live access to the full CopilotKit documentation — APIs, patterns, and examples — directly in its context window. Use it alongside skills, or on its own when connecting tools that don't support the agentskills standard.
+The CopilotKit MCP server provides your agent with access to CopilotKit's full documentation.
 
 <MCPSetup components={props.components} />
