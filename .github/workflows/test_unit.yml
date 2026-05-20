@@ -72,7 +72,7 @@ jobs:
           # self-register". We handle pnpm caching manually below with the
           # node-version in the key.
           # Fork-safety note: actions/cache is equally fork-safe — GitHub
-          # enforces read-only cache access for fork PRs at the platform level.
+          # prevents fork PRs from writing to the base repo's cache at the platform level.
 
       - name: Get pnpm store directory
         id: pnpm-cache
