@@ -1,8 +1,10 @@
 import { Analytics } from "@segment/analytics-node";
-import { AnalyticsEvents } from "./events";
+import type { AnalyticsEvents } from "./events";
 import { flattenObject } from "./utils";
 import { v4 as uuidv4 } from "uuid";
-import lambdaClient, { parseTelemetryIdFromLicense } from "./lambda-client";
+import lambdaClient, {
+  warnIfLicenseTokenLacksTelemetryId,
+} from "./lambda-client";
 
 /**
  * Checks if telemetry is disabled via environment variables.
@@ -29,7 +31,7 @@ export class TelemetryClient {
   // EIP / Intelligence license token (Ed25519-signed JWT). The lambda
   // client decodes its payload to extract telemetry_id. Customer API
   // keys are NOT used here — they flow only into Segment.
-  licenseToken: string | null = null;
+  private licenseToken: string | null = null;
   packageName: string;
   packageVersion: string;
   private telemetryDisabled: boolean = false;
@@ -152,14 +154,7 @@ export class TelemetryClient {
   // travels, in the X-CopilotKit-Telemetry-Id header set by lambda-client.
   setLicenseToken(licenseToken: string) {
     this.licenseToken = licenseToken;
-    if (!parseTelemetryIdFromLicense(licenseToken)) {
-      // Smoke signal during the issuer rollout: a token was provided
-      // but no telemetry_id came back. Surface it once at configuration
-      // time rather than silently degrading to anonymous on every send.
-      console.warn(
-        "[CopilotKit] License token did not yield a telemetry_id; telemetry events will be sent anonymously.",
-      );
-    }
+    warnIfLicenseTokenLacksTelemetryId(licenseToken);
   }
 
   private setSampleRate(sampleRate: number | undefined) {

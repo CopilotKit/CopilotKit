@@ -94,6 +94,19 @@ export function parseTelemetryIdFromLicense(token?: string): string | null {
   }
 }
 
+// Smoke signal during the issuer rollout: a token was provided but no
+// telemetry_id came back. Surface it once at configuration time rather
+// than silently degrading to anonymous on every send. Shared so both
+// v1 (shared) and v2 (runtime) TelemetryClient.setLicenseToken stay in
+// lockstep on the warning message.
+export function warnIfLicenseTokenLacksTelemetryId(licenseToken: string): void {
+  if (!parseTelemetryIdFromLicense(licenseToken)) {
+    console.warn(
+      "[CopilotKit] License token did not yield a telemetry_id; telemetry events will be sent anonymously.",
+    );
+  }
+}
+
 export async function send(opts: LambdaSendOptions): Promise<void> {
   try {
     const body = JSON.stringify({

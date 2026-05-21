@@ -1,0 +1,182 @@
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import type { MockInstance } from "vitest";
+import lambdaClient from "./lambda-client";
+import { TelemetryClient, isTelemetryDisabled } from "./telemetry-client";
+
+// Module mock so constructing TelemetryClient doesn't spin up segment's
+// internal flush queue. Class-based (not vi.fn) so `vi.restoreAllMocks()`
+// between tests doesn't wipe the `track` binding on subsequent `new
+// Analytics(...)` calls.
+const { segmentTrackMock } = vi.hoisted(() => ({
+  segmentTrackMock: vi.fn(),
+}));
+vi.mock("@segment/analytics-node", () => ({
+  Analytics: class {
+    track = segmentTrackMock;
+  },
+}));
+
+describe("v1 TelemetryClient", () => {
+  let lambdaSpy: MockInstance<typeof lambdaClient.send>;
+
+  beforeEach(() => {
+    lambdaSpy = vi.spyOn(lambdaClient, "send").mockResolvedValue(undefined);
+    segmentTrackMock.mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function makeClient(
+    overrides: Partial<ConstructorParameters<typeof TelemetryClient>[0]> = {},
+  ): TelemetryClient {
+    return new TelemetryClient({
+      packageName: "@copilotkit/shared",
+      packageVersion: "1.0.0",
+      sampleRate: 1,
+      ...overrides,
+    });
+  }
+
+  function jwtWith(payload: Record<string, unknown>): string {
+    const b64 = Buffer.from(JSON.stringify(payload)).toString("base64url");
+    return `header.${b64}.sig`;
+  }
+
+  const baseInstanceEvent = {
+    actionsAmount: 0,
+    endpointsAmount: 0,
+    endpointTypes: [],
+    "cloud.api_key_provided": false,
+  } as const;
+
+  test("capture always sends to the lambda sink, regardless of segment sample rate", async () => {
+    // Math.random=0.99 would sample out segment's 5% gate — lambda must still fire.
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const client = makeClient({ sampleRate: 0.05 });
+
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    expect(lambdaSpy).toHaveBeenCalledTimes(1);
+    expect(segmentTrackMock).not.toHaveBeenCalled();
+  });
+
+  test("capture sends to segment when sampled in", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const client = makeClient({ sampleRate: 0.05 });
+
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    expect(segmentTrackMock).toHaveBeenCalledTimes(1);
+    expect(segmentTrackMock.mock.calls[0][0]).toMatchObject({
+      event: "oss.runtime.instance_created",
+    });
+  });
+
+  test("capture short-circuits both sinks when telemetryDisabled is true", async () => {
+    const client = makeClient({ telemetryDisabled: true });
+
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    expect(lambdaSpy).not.toHaveBeenCalled();
+    expect(segmentTrackMock).not.toHaveBeenCalled();
+  });
+
+  test("setLicenseToken forwards the token in subsequent capture", async () => {
+    const token = jwtWith({ telemetry_id: "abc-123" });
+    const client = makeClient();
+    client.setLicenseToken(token);
+
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    expect(lambdaSpy).toHaveBeenCalledTimes(1);
+    expect(lambdaSpy.mock.calls[0][0].licenseToken).toBe(token);
+  });
+
+  test("capture sends licenseToken=undefined when setLicenseToken was never called", async () => {
+    const client = makeClient();
+
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    expect(lambdaSpy.mock.calls[0][0].licenseToken).toBeUndefined();
+  });
+
+  test("setLicenseToken warns once when the token has no telemetry_id", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const client = makeClient();
+
+    client.setLicenseToken(jwtWith({ license_id: "x" }));
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toMatch(/telemetry_id/);
+  });
+
+  test("setLicenseToken does not warn when the token carries telemetry_id", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const client = makeClient();
+
+    client.setLicenseToken(jwtWith({ telemetry_id: "abc-123" }));
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  test("setCloudConfiguration writes cloud keys into globalProperties for both sinks", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const client = makeClient({ sampleRate: 1 });
+    client.setCloudConfiguration({
+      publicApiKey: "ck_live_test.secret",
+      baseUrl: "https://api.cloud.copilotkit.ai",
+    });
+
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    // v1 still ships cloud.publicApiKey through globalProperties — the
+    // lambda-client.send sanitization strips it at the wire (covered in
+    // lambda-client.test.ts), and Segment retains it intentionally for
+    // existing CopilotCloud user analytics.
+    expect(lambdaSpy.mock.calls[0][0].globalProperties).toMatchObject({
+      "cloud.publicApiKey": "ck_live_test.secret",
+      "cloud.baseUrl": "https://api.cloud.copilotkit.ai",
+    });
+    expect(segmentTrackMock.mock.calls[0][0]).toMatchObject({
+      properties: expect.objectContaining({
+        "cloud.publicApiKey": "ck_live_test.secret",
+        "cloud.baseUrl": "https://api.cloud.copilotkit.ai",
+      }),
+    });
+  });
+
+  test("constructor rejects sampleRate outside [0, 1]", () => {
+    expect(() => makeClient({ sampleRate: 1.5 })).toThrow(
+      "Sample rate must be between 0 and 1",
+    );
+    expect(() => makeClient({ sampleRate: -0.1 })).toThrow(
+      "Sample rate must be between 0 and 1",
+    );
+  });
+});
+
+describe("isTelemetryDisabled", () => {
+  const originalEnv = { ...process.env };
+
+  afterEach(() => {
+    process.env = { ...originalEnv };
+  });
+
+  test.each([
+    ["COPILOTKIT_TELEMETRY_DISABLED", "true"],
+    ["COPILOTKIT_TELEMETRY_DISABLED", "1"],
+    ["DO_NOT_TRACK", "true"],
+    ["DO_NOT_TRACK", "1"],
+  ])("returns true when %s=%s", (key, val) => {
+    process.env[key] = val;
+    expect(isTelemetryDisabled()).toBe(true);
+  });
+
+  test("returns false when no opt-out env var is set", () => {
+    delete process.env.COPILOTKIT_TELEMETRY_DISABLED;
+    delete process.env.DO_NOT_TRACK;
+    expect(isTelemetryDisabled()).toBe(false);
+  });
+});

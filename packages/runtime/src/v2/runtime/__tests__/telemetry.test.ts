@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { TelemetryClient } from "../telemetry/telemetry-client";
-import scarfClient from "../telemetry/scarf-client";
 import { lambdaClient } from "@copilotkit/shared";
 
 describe("TelemetryClient", () => {
@@ -174,63 +173,5 @@ describe("TelemetryClient", () => {
     expect(() => new TelemetryClient({ sampleRate: -0.1 })).toThrow(
       "Sample rate must be between 0 and 1",
     );
-  });
-});
-
-describe("ScarfClient", () => {
-  let originalFetch: typeof fetch;
-  let fetchMock: ReturnType<typeof vi.fn>;
-
-  beforeEach(() => {
-    originalFetch = global.fetch;
-    fetchMock = vi.fn().mockResolvedValue(new Response("", { status: 200 }));
-    global.fetch = fetchMock as unknown as typeof fetch;
-  });
-
-  afterEach(() => {
-    global.fetch = originalFetch;
-  });
-
-  it("sends GET request to scarf gateway with event as query param", async () => {
-    await scarfClient.logEvent({ event: "oss.runtime.instance_created" });
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, options] = fetchMock.mock.calls[0];
-    expect(url).toContain("https://copilotkit.gateway.scarf.sh/");
-    expect(url).toContain("event=oss.runtime.instance_created");
-    expect(options.method).toBe("GET");
-  });
-
-  it("silently fails on network error", async () => {
-    fetchMock.mockRejectedValue(new Error("Network error"));
-
-    // Should not throw
-    await expect(
-      scarfClient.logEvent({ event: "oss.runtime.instance_created" }),
-    ).resolves.toBeUndefined();
-  });
-
-  it("silently fails on non-ok response", async () => {
-    fetchMock.mockResolvedValue(new Response("", { status: 500 }));
-
-    // Should not throw
-    await expect(
-      scarfClient.logEvent({ event: "oss.runtime.instance_created" }),
-    ).resolves.toBeUndefined();
-  });
-
-  it("skips null and undefined values in query params", async () => {
-    await scarfClient.logEvent({
-      event: "oss.runtime.instance_created",
-      nullVal: null,
-      undefinedVal: undefined,
-      validVal: "test",
-    });
-
-    const url = fetchMock.mock.calls[0][0] as string;
-    expect(url).toContain("event=oss.runtime.instance_created");
-    expect(url).toContain("validVal=test");
-    expect(url).not.toContain("nullVal");
-    expect(url).not.toContain("undefinedVal");
   });
 });
