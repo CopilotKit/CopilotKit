@@ -62,8 +62,8 @@ import {
   parseMethodCall,
   createJsonRequest,
   expectString,
-  type MethodCall,
 } from "../endpoints/single-route-helpers";
+import type { MethodCall } from "../endpoints/single-route-helpers";
 import { logger } from "@copilotkit/shared";
 import { fireInstanceCreatedTelemetry } from "../telemetry/instance-created";
 
@@ -185,7 +185,9 @@ export function createCopilotRuntimeHandler(
         ) {
           request = createJsonRequest(request, methodCall.body);
         }
-        response = await dispatchRoute(runtime, request, route);
+        response = await dispatchRoute(runtime, request, route, {
+          threadEndpointsEnabled: false,
+        });
       } else {
         // Multi-route: match URL pattern
         const matched = matchRoute(path, basePath);
@@ -211,7 +213,9 @@ export function createCopilotRuntimeHandler(
         });
 
         // 6. Handler dispatch
-        response = await dispatchRoute(runtime, request, route);
+        response = await dispatchRoute(runtime, request, route, {
+          threadEndpointsEnabled: true,
+        });
       }
 
       // 7. onResponse hook
@@ -296,6 +300,7 @@ function dispatchRoute(
   runtime: CopilotRuntimeLike,
   request: Request,
   route: RouteInfo,
+  options: { threadEndpointsEnabled: boolean },
 ): Promise<Response> {
   switch (route.method) {
     case "agent/run":
@@ -318,7 +323,11 @@ function dispatchRoute(
         threadId: route.threadId,
       });
     case "info":
-      return handleGetRuntimeInfo({ runtime, request });
+      return handleGetRuntimeInfo({
+        runtime,
+        request,
+        threadEndpointsEnabled: options.threadEndpointsEnabled,
+      });
     case "transcribe":
       return handleTranscribe({ runtime, request });
     case "threads/clear":

@@ -36,6 +36,15 @@ CopilotKit threads enable persistent, resumable multi-turn conversations. The `u
 - An OpenAI API key
 - For the manual path: an existing CopilotKit project on `@copilotkit/react-core` v1.56+
 
+## Persistence paths
+
+There are two thread persistence paths:
+
+- **Managed Intelligence threads** — Copilot Cloud or self-hosted Enterprise Intelligence stores thread metadata, messages, events, and state. This is the path used by `useThreads`, the Inspector threads tab, realtime thread metadata, thread retention policies, rename, archive, and delete.
+- **Self-managed runner persistence** — an `AgentRunner`, `SqliteAgentRunner`, or custom runner can persist and replay conversation data for your runtime. This can power resumable chat, but it does not automatically provide the managed `useThreads` thread list, metadata mutations, realtime thread management, or Inspector thread browsing unless your runtime also exposes compatible REST thread endpoints.
+
+For local development, the default `InMemoryAgentRunner` exposes temporary REST thread endpoints so the Inspector can show thread history during the current process. Those threads are not durable across restarts.
+
 ## Implementation
 
 <Steps>
@@ -270,4 +279,3 @@ CopilotKit threads enable persistent, resumable multi-turn conversations. The `u
 - **Understand how it works:** [How Threads & Persistence Work](/learn/threads) — architecture, event replay model, and WebSocket sync
 - **API reference:** [useThreads](/reference/v2/hooks/useThreads) — parameters, return values, types
 - **Tutorial:** [Build a Multi-Conversation Chat App](/learn/tutorials/multi-conversation-chat) — end-to-end walkthrough building a chat app with thread history
-

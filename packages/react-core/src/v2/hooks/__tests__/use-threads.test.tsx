@@ -190,12 +190,20 @@ function getMockSockets(): MockSocketLike[] {
   return phoenix.sockets;
 }
 
+const supportedThreadEndpoints = {
+  list: true,
+  inspect: true,
+  mutations: true,
+  realtimeMetadata: true,
+};
+
 function setupCopilotKit(runtimeUrl = "http://localhost:4000") {
   mockUseCopilotKit.mockReturnValue({
     copilotkit: {
       runtimeUrl,
       runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
       headers: { Authorization: "Bearer test-token" },
+      threadEndpoints: supportedThreadEndpoints,
       intelligence: {
         wsUrl: "ws://localhost:4000/client",
       },
@@ -315,6 +323,38 @@ describe("useThreads", () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result.current.error?.message).toBe("Runtime URL is not configured");
+  });
+
+  it("does not fetch when the runtime does not advertise thread endpoints", async () => {
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runtimeUrl: "http://localhost:4000",
+        runtimeConnectionStatus:
+          CopilotKitCoreRuntimeConnectionStatus.Connected,
+        headers: { Authorization: "Bearer test-token" },
+        threadEndpoints: {
+          list: false,
+          inspect: false,
+          mutations: false,
+          realtimeMetadata: false,
+        },
+        intelligence: undefined,
+        registerThreadStore: vi.fn(),
+        unregisterThreadStore: vi.fn(),
+      },
+    });
+
+    const { result } = renderHook(() => useThreads(defaultInput));
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.current.threads).toEqual([]);
+    expect(result.current.error?.message).toBe(
+      "Thread endpoints are not available on this CopilotKit runtime",
+    );
   });
 
   it("updates local state directly from realtime metadata events", async () => {
@@ -652,6 +692,7 @@ describe("useThreads", () => {
         runtimeConnectionStatus:
           CopilotKitCoreRuntimeConnectionStatus.Connected,
         headers: { Authorization: "Bearer test-token" },
+        threadEndpoints: supportedThreadEndpoints,
         intelligence: { wsUrl: "ws://localhost:4000/client" },
         registerThreadStore,
         unregisterThreadStore,
@@ -688,6 +729,7 @@ describe("useThreads", () => {
         runtimeConnectionStatus:
           CopilotKitCoreRuntimeConnectionStatus.Connecting,
         headers: { Authorization: "Bearer test-token" },
+        threadEndpoints: supportedThreadEndpoints,
         intelligence: undefined,
         registerThreadStore: vi.fn(),
         unregisterThreadStore: vi.fn(),
@@ -728,6 +770,7 @@ describe("useThreads", () => {
         runtimeConnectionStatus:
           CopilotKitCoreRuntimeConnectionStatus.Connected,
         headers: { Authorization: "Bearer test-token" },
+        threadEndpoints: supportedThreadEndpoints,
         intelligence: { wsUrl: "ws://localhost:4000/client" },
         registerThreadStore: vi.fn(),
         unregisterThreadStore: vi.fn(),
