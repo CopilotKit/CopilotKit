@@ -1,12 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { CopilotKitCore } from "../core";
-import {
-  AbstractAgent,
-  Message,
-  State,
-  RunAgentInput,
-  EventType,
-} from "@ag-ui/client";
+import type { Message, State, RunAgentInput } from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
 
 /**
@@ -23,7 +18,7 @@ class EventEmittingMockAgent extends AbstractAgent {
     });
   }
 
-  protected run(input: RunAgentInput): any {
+  protected run(_input: RunAgentInput): any {
     // Not used in these tests
     throw new Error("run() should not be called in these tests");
   }
@@ -175,6 +170,56 @@ class EventEmittingMockAgent extends AbstractAgent {
     }
   }
 
+  // Helper to emit tool call args event
+  public async emitToolCallArgs(
+    runId: string,
+    toolCallId: string,
+    delta: string,
+  ) {
+    const toolCall = this.findToolCall(toolCallId);
+    for (const sub of this.subscribers) {
+      if (sub.onToolCallArgsEvent) {
+        const mutation = await sub.onToolCallArgsEvent({
+          event: {
+            type: EventType.TOOL_CALL_ARGS,
+            toolCallId,
+            delta,
+          },
+          toolCallBuffer: toolCall?.function.arguments ?? "",
+          toolCallName: toolCall?.function.name ?? "",
+          partialToolCallArgs: {},
+          messages: this.messages,
+          state: this.state,
+          agent: this,
+          input: this.createRunInput(runId),
+        });
+        this.applyMutation(mutation);
+      }
+    }
+  }
+
+  // Helper to emit tool call end event
+  public async emitToolCallEnd(runId: string, toolCallId: string) {
+    const toolCall = this.findToolCall(toolCallId);
+    for (const sub of this.subscribers) {
+      if (sub.onToolCallEndEvent) {
+        const mutation = await sub.onToolCallEndEvent({
+          event: {
+            type: EventType.TOOL_CALL_END,
+            toolCallId,
+          },
+          toolCallName: toolCall?.function.name ?? "",
+          toolCallArgs: this.parseToolCallArgs(toolCall?.function.arguments),
+          messages: this.messages,
+          state: this.state,
+          agent: this,
+          input: this.createRunInput(runId),
+        });
+        this.applyMutation(mutation);
+      }
+    }
+  }
+
   // Override subscribe to track subscribers
   public override subscribe(subscriber: any) {
     this.subscribers.push(subscriber);
@@ -195,6 +240,38 @@ class EventEmittingMockAgent extends AbstractAgent {
       state: this.state,
       messages: this.messages,
     };
+  }
+
+  private findToolCall(toolCallId: string) {
+    for (const message of this.messages) {
+      if (message.role !== "assistant") continue;
+      const toolCall = message.toolCalls?.find((candidateToolCall) => {
+        return candidateToolCall.id === toolCallId;
+      });
+      if (toolCall) return toolCall;
+    }
+  }
+
+  public getToolCallArguments(toolCallId: string) {
+    return this.findToolCall(toolCallId)?.function.arguments;
+  }
+
+  private parseToolCallArgs(args?: string) {
+    if (!args) return {};
+    try {
+      return JSON.parse(args);
+    } catch {
+      return {};
+    }
+  }
+
+  private applyMutation(mutation: any) {
+    if (mutation?.messages) {
+      this.messages = mutation.messages;
+    }
+    if (mutation?.state) {
+      this.state = mutation.state;
+    }
   }
 }
 
@@ -521,6 +598,66 @@ describe("StateManager - Message Tracking", () => {
       "msg1",
     );
     expect(associatedRunId).toBe(runId);
+  });
+
+  it("should replace snapshot tool call args with streamed args", async () => {
+    const runId = "run1";
+    const message: Message = {
+      id: "msg1",
+      role: "assistant",
+      content: "",
+      toolCalls: [
+        {
+          id: "tool1",
+          type: "function",
+          function: {
+            name: "searchWeb",
+            arguments: JSON.stringify({ query: "hallucinated" }),
+          },
+        },
+      ],
+    };
+
+    await agent.emitRunStarted(runId, {});
+    await agent.emitNewMessage(runId, message);
+    await agent.emitToolCallArgs(
+      runId,
+      "tool1",
+      JSON.stringify({ query: "server enriched", limit: 3 }),
+    );
+
+    expect(agent.getToolCallArguments("tool1")).toBe(
+      JSON.stringify({ query: "server enriched", limit: 3 }),
+    );
+  });
+
+  it("should accumulate streamed args independently of existing message args", async () => {
+    const runId = "run1";
+    const message: Message = {
+      id: "msg1",
+      role: "assistant",
+      content: "",
+      toolCalls: [
+        {
+          id: "tool1",
+          type: "function",
+          function: {
+            name: "searchWeb",
+            arguments: JSON.stringify({ query: "hallucinated" }),
+          },
+        },
+      ],
+    };
+
+    await agent.emitRunStarted(runId, {});
+    await agent.emitNewMessage(runId, message);
+    await agent.emitToolCallArgs(runId, "tool1", '{"query":');
+    await agent.emitToolCallArgs(runId, "tool1", '"server enriched"}');
+    await agent.emitToolCallEnd(runId, "tool1");
+
+    expect(agent.getToolCallArguments("tool1")).toBe(
+      '{"query":"server enriched"}',
+    );
   });
 });
 
