@@ -79,7 +79,16 @@ function main() {
     const tarball = `${p.name.replace("@", "").replace("/", "-")}-${p.pkg.version}.tgz`;
     run(
       "npx",
-      ["--yes", "npm@11.15.0", "publish", tarball, "--tag", distTag, "--access", "public"],
+      [
+        "--yes",
+        "npm@11.15.0",
+        "publish",
+        tarball,
+        "--tag",
+        distTag,
+        "--access",
+        "public",
+      ],
       { cwd: p.dir },
     );
   }

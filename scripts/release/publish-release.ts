@@ -160,7 +160,16 @@ async function main() {
     const tarball = `${p.name.replace("@", "").replace("/", "-")}-${version}.tgz`;
     run(
       "npx",
-      ["--yes", "npm@11.15.0", "publish", tarball, "--tag", "latest", "--access", "public"],
+      [
+        "--yes",
+        "npm@11.15.0",
+        "publish",
+        tarball,
+        "--tag",
+        "latest",
+        "--access",
+        "public",
+      ],
       { cwd: p.dir },
     );
   }
