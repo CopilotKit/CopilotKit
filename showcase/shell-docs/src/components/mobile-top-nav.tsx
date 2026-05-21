@@ -1,7 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { SidebarTrigger } from "fumadocs-ui/components/layout/sidebar";
+// Fumadocs v16 moved `SidebarTrigger` from `components/layout/sidebar`
+// to `components/sidebar/base` — keep the v16 path here while pulling
+// in `main`'s expanded icon set (Calendar / Lightbulb) and PostHog hook
+// for the Talk-to-Engineer + Get-Intelligence-free mobile CTAs.
+import { SidebarTrigger } from "fumadocs-ui/components/sidebar/base";
 import { Calendar, Lightbulb, Menu } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
 import { SearchTrigger } from "./search-trigger";

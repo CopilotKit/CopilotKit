@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  ArrowRight,
-  Copy,
-  Check,
-  PlayIcon,
-  BookOpen,
-  LayoutIcon,
-  ExternalLink,
-} from "lucide-react";
+import { ArrowRight, Copy, Check, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
@@ -81,15 +73,14 @@ function ctaVariantFor(data: OpsPlatformCTAData): "card" | "inline" {
 }
 
 /**
- * Section eyebrow label + a hairline rule that fills the remaining width.
- * Mirrors the "section title with extending line" pattern from the
- * CopilotKit UI theme reference — calm editorial structure that gives
- * the page a clear chapter rhythm without competing with the headlines.
+ * Section eyebrow — small sans-serif label with a hairline rule. Dropped
+ * the prior monospace + wide-tracking treatment because it read as
+ * editorial pastiche on a developer-docs surface.
  */
 function SectionEyebrow({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-3 mb-6">
-      <span className="text-[11px] font-mono uppercase tracking-[0.18em] text-[var(--text-muted)] whitespace-nowrap">
+      <span className="text-sm font-medium text-[var(--text-secondary)] whitespace-nowrap">
         {label}
       </span>
       <div className="flex-1 h-px bg-[var(--border)]" />
@@ -108,15 +99,12 @@ export function FrameworkOverview({
     iconKey,
     header,
     subheader,
-    bannerVideo,
     guideLink: rawGuideLink,
     initCommand,
-    featuresLink: rawFeaturesLink,
     supportedFeatures = [],
     architectureImage,
     architectureVideo,
     liveDemos = [],
-    tutorialLink: rawTutorialLink,
     cta,
   } = data;
 
@@ -129,8 +117,6 @@ export function FrameworkOverview({
   const link = (href: string) => rewriteHref(href, fromSlug, currentFramework);
 
   const guideLink = link(rawGuideLink);
-  const featuresLink = link(rawFeaturesLink);
-  const tutorialLink = rawTutorialLink ? link(rawTutorialLink) : undefined;
 
   const [activeDemo, setActiveDemo] = useState<string>(
     liveDemos[0]?.type || "saas",
@@ -216,66 +202,42 @@ export function FrameworkOverview({
         {/* =========================================================
              HERO
              ========================================================= */}
-        <header className="pt-10 sm:pt-16 pb-12 sm:pb-20">
-          {/* Eyebrow: "CopilotKit / Integrations / {framework}" */}
-          <div className="mb-8 flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.18em] text-[var(--text-muted)]">
-            <Image
-              src="https://cdn.copilotkit.ai/docs/copilotkit/icons/copilotkit-color.svg"
-              alt=""
-              height={16}
-              width={16}
-              className="h-4 w-4 opacity-90"
-            />
-            <span>CopilotKit</span>
-            <span className="text-[var(--text-faint)]">/</span>
-            <span>Integrations</span>
-            <span className="text-[var(--text-faint)]">/</span>
-            <span className="text-[var(--text)]">{frameworkName}</span>
-          </div>
-
-          {/* Framework identity: icon + name in a horizontal lockup. Big
-              enough to anchor the page, restrained enough not to compete
-              with the headline below. */}
-          <div className="flex items-center gap-4 mb-7">
+        <header className="pt-2 sm:pt-4 pb-8 sm:pb-12">
+          {/* Framework identity: icon + name in a horizontal lockup. */}
+          <div className="flex items-center gap-3 mb-5">
             {hasIcon && (
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text)] shadow-sm">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text)]">
                 {iconOverride ??
                   (IconComponent ? (
-                    <IconComponent className="h-7 w-7" />
+                    <IconComponent className="h-6 w-6" />
                   ) : null)}
               </div>
             )}
-            <div className="flex flex-col">
-              <span className="text-[11px] font-mono uppercase tracking-[0.16em] text-[var(--text-muted)]">
-                Framework integration
-              </span>
-              <span className="text-2xl font-semibold tracking-tight text-[var(--text)] leading-tight">
-                {frameworkName}
-              </span>
-            </div>
+            <span className="text-base font-semibold tracking-tight text-[var(--text)]">
+              {frameworkName}
+            </span>
           </div>
 
-          {/* Headline + supporting copy — left-aligned, generous size and
-              leading, balanced wrap. The tracking is tight (-0.02em) which
-              gives display text its premium feel. */}
-          <h1 className="text-[2.75rem] sm:text-[3.25rem] md:text-[3.75rem] font-semibold leading-[1.02] tracking-[-0.025em] text-[var(--text)] text-balance max-w-[18ch]">
+          {/* Headline + supporting copy — tightened from the prior
+              display-scale type. Still left-aligned with balanced wrap. */}
+          <h1 className="text-[1.75rem] sm:text-[2.25rem] md:text-[2.5rem] font-semibold leading-[1.1] tracking-[-0.02em] text-[var(--text)] text-balance max-w-[24ch]">
             {header}
           </h1>
-          <p className="mt-6 max-w-[58ch] text-lg sm:text-xl text-[var(--text-muted)] leading-[1.55] text-pretty">
+          <p className="mt-4 max-w-[58ch] text-base sm:text-lg text-[var(--text-muted)] leading-[1.55] text-pretty">
             {subheader}
           </p>
 
-          {/* Action cluster: accent CTA, copy-command chip, secondary
-              link. The init command sits on the same row as the buttons —
-              one of the page's signature affordances ("copy and go"). */}
-          <div className="mt-10 flex flex-col sm:flex-row sm:items-center gap-3">
+          {/* Action cluster: accent CTA + copy-command chip. The Live
+              feature viewer link was dropped — the demo iframe below
+              already covers "see it running" intent. */}
+          <div className="mt-7 flex flex-col sm:flex-row sm:items-center gap-3">
             <Link href={guideLink} className="no-underline group">
               <button
                 type="button"
-                className="inline-flex w-full sm:w-auto items-center justify-center gap-2 h-11 px-5 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent)] hover:brightness-110 text-white font-medium text-[15px] transition-all shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:shadow-[0_8px_24px_-8px_var(--accent)]"
+                className="inline-flex w-full sm:w-auto items-center justify-center gap-2 h-11 px-4 rounded-lg bg-[var(--accent)] hover:brightness-110 text-white font-medium text-[13.5px] transition-[filter] duration-200"
               >
                 Start the quickstart
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
               </button>
             </Link>
 
@@ -301,48 +263,8 @@ export function FrameworkOverview({
                 )}
               </span>
             </button>
-
-            <Link
-              href={featuresLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-1 h-11 text-[14px] text-[var(--text-secondary)] hover:text-[var(--text)] font-medium no-underline transition-colors"
-            >
-              Live feature viewer
-              <ExternalLink className="h-3.5 w-3.5 opacity-70" />
-            </Link>
           </div>
         </header>
-
-        {/* =========================================================
-             BANNER VIDEO
-             ========================================================= */}
-        {bannerVideo && (
-          <section className="mb-20 sm:mb-28">
-            <div className="relative rounded-2xl overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[0_24px_60px_-30px_rgba(0,0,0,0.4)]">
-              <video
-                src={bannerVideo}
-                className="w-full block"
-                autoPlay
-                muted
-                loop
-                playsInline
-              />
-              {/* Subtle inner glow at top to anchor the video to the
-                  surface — gives the embed depth without a chunky border. */}
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/5 rounded-2xl"
-              />
-            </div>
-            <p className="mt-4 text-[13px] text-[var(--text-muted)] text-center">
-              Starter app generated by{" "}
-              <code className="font-mono text-[12.5px] px-1.5 py-0.5 rounded bg-[var(--bg-elevated)] text-[var(--text)] border border-[var(--border-dim)]">
-                {initCommand}
-              </code>
-            </p>
-          </section>
-        )}
 
         {/* =========================================================
              SUPPORTED FEATURES — numbered milestone list
@@ -352,32 +274,25 @@ export function FrameworkOverview({
             <SectionEyebrow label="What you can build" />
             <div className="mb-12 max-w-[58ch]">
               <h2 className="text-[2rem] sm:text-[2.5rem] font-semibold tracking-[-0.02em] leading-[1.1] text-[var(--text)]">
-                Capabilities that ship with {frameworkName}
+                Build with {frameworkName}
               </h2>
               <p className="mt-3 text-[15px] sm:text-base text-[var(--text-muted)] leading-relaxed">
-                Every {frameworkName} integration unlocks the same set of
-                user-facing primitives. Pick the one that maps to your product
-                and drop the code in.
+                The user-facing primitives every {frameworkName} integration
+                ships with — pick the one that fits your product and drop the
+                code in.
               </p>
             </div>
 
             <div className="flex flex-col gap-16 sm:gap-24">
-              {supportedFeatures.map((feature, index) => {
-                const indexStr = String(index + 1).padStart(2, "0");
+              {supportedFeatures.map((feature) => {
                 const hasMedia = Boolean(feature.videoUrl);
                 return (
                   <article
                     key={feature.title}
                     className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-start"
                   >
-                    {/* Left column: index + title + description + links */}
+                    {/* Left column: title + description + links */}
                     <div className="lg:col-span-5">
-                      <div className="flex items-baseline gap-3 mb-4">
-                        <span className="font-mono text-[12px] text-[var(--accent)] tracking-wider">
-                          {indexStr}
-                        </span>
-                        <span className="h-px flex-1 bg-[var(--border)] mt-2 max-w-[80px]" />
-                      </div>
                       <h3 className="text-[1.5rem] sm:text-[1.75rem] font-semibold tracking-[-0.015em] leading-[1.15] text-[var(--text)]">
                         {feature.title}
                       </h3>
@@ -484,10 +399,10 @@ export function FrameworkOverview({
              ========================================================= */}
         {liveDemos.length > 0 && (
           <section className="mb-20 sm:mb-28">
-            <SectionEyebrow label="Try it live" />
+            <SectionEyebrow label="Live example" />
             <div className="mb-8 max-w-[58ch]">
               <h2 className="text-[2rem] sm:text-[2.5rem] font-semibold tracking-[-0.02em] leading-[1.1] text-[var(--text)]">
-                Real {frameworkName} apps, running in your browser
+                Run {frameworkName} in your browser
               </h2>
               <p className="mt-3 text-[15px] sm:text-base text-[var(--text-muted)] leading-relaxed">
                 Two patterns we see most often — drive a SaaS workflow, or
@@ -541,111 +456,7 @@ export function FrameworkOverview({
             </div>
           </section>
         )}
-
-        {/* =========================================================
-             NEXT STEPS — slim numbered list, not chunky cards
-             ========================================================= */}
-        <section>
-          <SectionEyebrow label="Where to next" />
-          <div className="mb-8 max-w-[58ch]">
-            <h2 className="text-[2rem] sm:text-[2.5rem] font-semibold tracking-[-0.02em] leading-[1.1] text-[var(--text)]">
-              Pick a path
-            </h2>
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-px bg-[var(--border)] rounded-xl overflow-hidden border border-[var(--border)]">
-            <NextStepCell
-              href={guideLink}
-              icon={<PlayIcon className="h-4 w-4" />}
-              label="Quickstart"
-              title="Ship in 5 minutes"
-              description={`Wire up CopilotKit + ${frameworkName} from scratch and run your first agentic app.`}
-              index="01"
-            />
-            <NextStepCell
-              href={featuresLink}
-              target="_blank"
-              icon={<LayoutIcon className="h-4 w-4" />}
-              label="Feature viewer"
-              title="See every primitive"
-              description="Interactive gallery of every feature with side-by-side code and live UI."
-              index="02"
-              external
-            />
-            {tutorialLink && (
-              <NextStepCell
-                href={tutorialLink}
-                icon={<BookOpen className="h-4 w-4" />}
-                label="Tutorial"
-                title="Build an app, end to end"
-                description={`Step-by-step walkthrough of a production-grade ${frameworkName} app.`}
-                index="03"
-                className="sm:col-span-2"
-              />
-            )}
-          </div>
-        </section>
       </div>
     </div>
-  );
-}
-
-/**
- * One row in the "Next steps" grid. Numbered, hover-elevating, with a
- * trailing arrow that nudges on hover. Background is the surface color
- * over a 1px border-color "rule" via the parent's `gap-px` pattern, so
- * the cells share clean hairlines on the inside without doubling.
- */
-function NextStepCell({
-  href,
-  icon,
-  label,
-  title,
-  description,
-  index,
-  external,
-  target,
-  className = "",
-}: {
-  href: string;
-  icon: ReactNode;
-  label: string;
-  title: string;
-  description: string;
-  index: string;
-  external?: boolean;
-  target?: string;
-  className?: string;
-}) {
-  return (
-    <Link
-      href={href}
-      target={target}
-      rel={external ? "noopener noreferrer" : undefined}
-      className={`group relative flex flex-col bg-[var(--bg-surface)] hover:bg-[var(--bg-elevated)] p-7 sm:p-8 transition-colors no-underline ${className}`}
-    >
-      <div className="flex items-center justify-between mb-5">
-        <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--text-muted)] flex items-center gap-2">
-          <span className="text-[var(--accent)]">{index}</span>
-          <span>{label}</span>
-        </span>
-        <span className="text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors">
-          {external ? (
-            <ExternalLink className="h-4 w-4" />
-          ) : (
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-          )}
-        </span>
-      </div>
-      <div className="flex items-center gap-2.5 mb-2 text-[var(--text)]">
-        <span className="opacity-60">{icon}</span>
-        <h3 className="text-[1.125rem] font-semibold tracking-[-0.01em] !m-0 leading-tight">
-          {title}
-        </h3>
-      </div>
-      <p className="text-[14px] text-[var(--text-muted)] leading-[1.6]">
-        {description}
-      </p>
-    </Link>
   );
 }

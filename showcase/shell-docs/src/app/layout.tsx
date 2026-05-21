@@ -96,15 +96,18 @@ export default function RootLayout({
     >
       <head>
         {/* Apply the persisted theme before first paint to avoid a
-         * light-flash on dark-preferring loads. Mirrors canonical: read
-         * `localStorage.theme`, fall back to `prefers-color-scheme`, set
-         * `documentElement.classList`. The navbar toggle handler keeps
-         * `localStorage.theme` in sync on click. */}
+         * light-flash on dark-preferring loads. Reads `localStorage.theme`
+         * and falls back to `prefers-color-scheme` when the persisted
+         * value is missing OR explicitly `"system"` (next-themes persists
+         * the literal string `"system"` when the user picks that mode via
+         * its API — without the `=== "system"` check here, a system-
+         * preferring user who explicitly chose system mode would get the
+         * very light-flash this script exists to prevent). */}
         <Script
           id="theme-init"
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.theme;if(!t){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}if(t==='dark'){document.documentElement.classList.add('dark');}}catch(e){}})();`,
+            __html: `(function(){try{var t=localStorage.theme;if(!t||t==='system'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}if(t==='dark'){document.documentElement.classList.add('dark');}}catch(e){}})();`,
           }}
         />
         {REO_KEY ? (
@@ -166,7 +169,7 @@ export default function RootLayout({
                  * (margin: 0 4px; xl: 0 8px 8px 8px). */}
                 <Banners />
                 <BrandNav />
-                <main className="flex flex-1 min-h-0 overflow-hidden mx-1 xl:mx-2 xl:mb-2">
+                <main className="flex flex-1 min-h-0 overflow-hidden mx-1 md:mx-[22px] mt-2 md:mt-6 mb-2 md:mb-3">
                   {children}
                 </main>
               </RootProvider>

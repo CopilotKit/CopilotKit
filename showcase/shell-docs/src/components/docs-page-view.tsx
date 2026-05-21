@@ -24,7 +24,10 @@ import {
 } from "fumadocs-ui/page";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
-import { PageActions } from "@/components/page-actions";
+import {
+  MarkdownCopyButton,
+  ViewOptionsPopover,
+} from "@/components/ai/page-actions";
 import { Snippet } from "@/components/snippet";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
 import { Tabs as DocsTabs } from "@/components/docs-tabs";
@@ -217,16 +220,42 @@ export async function DocsPageView({
             </DocsDescription>
           )}
 
-          {/* Page actions (Copy Markdown / Open in <LLM>) — fills the
-              space between description and first body section. The
-              GitHub URL is computed from `doc.filePath`: it's an
-              absolute fs path, so we slice from the `/showcase/`
-              segment to get a repo-relative path that GitHub will
-              serve at `/blob/main/<path>`. */}
-          <PageActions
-            source={doc.source}
-            githubUrl={buildGitHubUrl(doc.filePath)}
-          />
+          {/* Page actions (Copy Markdown / Open in <LLM>) — fumadocs's
+              upstream LLM page-actions feature. `markdownUrl` resolves
+              through the `/:path*.mdx` rewrite to the route handler at
+              `app/llms-mdx/[[...slug]]/route.ts`, which serves the raw
+              MDX via the same `loadDoc()` the page uses. The GitHub URL
+              is computed from `doc.filePath` (absolute fs path) by
+              slicing from the `/showcase/` segment. */}
+          {(() => {
+            // Markdown URL = the canonical page URL with `.mdx` appended.
+            // The Next.js rewrite in `next.config.ts` routes this to
+            // `/llms-mdx/[[...slug]]`, which re-runs the same framework-
+            // aware content resolution the page uses. Using the page URL
+            // (rather than `contentSlugPath`) keeps the "View as Markdown"
+            // link the user opens in a new tab visually aligned with the
+            // page they're reading.
+            const base = `${slugHrefPrefix || ""}/${slugPath}`
+              .replace(/\/+/g, "/")
+              .replace(/^\/+/, "/");
+            const markdownUrl = `${base.replace(/\/$/, "")}.mdx`;
+            return (
+              <div className="flex flex-row gap-2 items-center my-6">
+                <MarkdownCopyButton markdownUrl={markdownUrl} />
+                <ViewOptionsPopover
+                  markdownUrl={markdownUrl}
+                  githubUrl={buildGitHubUrl(doc.filePath)}
+                />
+              </div>
+            );
+          })()}
+
+          {/* Thin divider between the page-actions row and the page body
+              (banner / content). Visually separates the page metadata
+              chrome (title + page actions) from the page content
+              underneath. Uses the project's `--border` token so it tracks
+              the rest of the page chrome in light and dark modes. */}
+          <hr className="border-t border-[var(--border)] mt-2 mb-6" />
 
           {bannerSlot}
 

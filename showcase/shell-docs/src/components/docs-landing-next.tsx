@@ -50,19 +50,24 @@ function FrameworkPicker({
         {heading}
       </h2>
       <p className="text-sm text-[var(--text-secondary)] mb-5">{description}</p>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
         {integrations.map((i) => (
           <Link
             key={i.slug}
             href={`/${i.slug}`}
-            className="group relative flex items-center gap-2 p-3 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] hover:shadow-sm transition-all"
+            className="group relative flex items-center gap-2.5 p-3 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] transition-colors"
           >
-            <FrameworkLogo
-              slug={i.slug}
-              fallbackSrc={i.logo}
-              size={20}
-              className="shrink-0 text-[var(--text-secondary)] group-hover:text-[var(--accent)]"
-            />
+            <span
+              aria-hidden="true"
+              className="flex items-center justify-center w-7 h-7 rounded-md bg-[var(--bg-elevated)] group-hover:bg-[var(--bg-surface)] transition-colors shrink-0"
+            >
+              <FrameworkLogo
+                slug={i.slug}
+                fallbackSrc={i.logo}
+                size={16}
+                className="text-[var(--text-secondary)] group-hover:text-[var(--accent)]"
+              />
+            </span>
             <span className="flex-1 min-w-0 truncate text-sm font-medium text-[var(--text)] group-hover:text-[var(--accent)]">
               {i.name}
             </span>
@@ -100,37 +105,71 @@ export function DocsLandingNext() {
 
   return (
     <div className="not-prose">
-      <h2 className="text-xl font-semibold text-[var(--text)] mb-2">
-        Continue with {integration.name}
-      </h2>
-      <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-5">
-        We&apos;ll render every code snippet using {integration.name}. Pick up
-        where you left off — or switch backends below or from the sidebar.
-      </p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-10">
-        <Link
-          href={`/${integration.slug}/quickstart`}
-          className="group flex flex-col gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 no-underline hover:border-[var(--accent)] hover:shadow-sm transition"
-        >
-          <div className="font-semibold text-[var(--text)] group-hover:text-[var(--accent)]">
-            Quickstart
-          </div>
-          <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
-            The {integration.name} quickstart guide.
-          </div>
-        </Link>
-        <Link
-          href={`/${integration.slug}`}
-          className="group flex flex-col gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 no-underline hover:border-[var(--accent)] hover:shadow-sm transition"
-        >
-          <div className="font-semibold text-[var(--text)] group-hover:text-[var(--accent)]">
-            Browse {integration.name} docs
-          </div>
-          <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
-            Every topic rendered with {integration.name} snippets.
-          </div>
-        </Link>
-      </div>
+      <section className="mb-10">
+        <h2 className="text-xl sm:text-2xl font-semibold text-[var(--text)] mb-2 tracking-tight">
+          Continue with {integration.name}
+        </h2>
+        <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-5 max-w-2xl">
+          We&apos;ll render every code snippet using {integration.name}. Pick up
+          where you left off — or switch backends below or from the sidebar.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Link
+            href={`/${integration.slug}/quickstart`}
+            className="group flex flex-col gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-5 no-underline hover:border-[var(--accent)] transition-colors"
+          >
+            <div className="flex items-center justify-between">
+              <div className="font-semibold text-[var(--text)]">Quickstart</div>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                className="text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors"
+              >
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
+              </svg>
+            </div>
+            <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
+              The {integration.name} quickstart guide.
+            </div>
+          </Link>
+          <Link
+            href={`/${integration.slug}`}
+            className="group flex flex-col gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-5 no-underline hover:border-[var(--accent)] transition-colors"
+          >
+            <div className="flex items-center justify-between">
+              <div className="font-semibold text-[var(--text)]">
+                Browse {integration.name} docs
+              </div>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                className="text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors"
+              >
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
+              </svg>
+            </div>
+            <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
+              Every topic rendered with {integration.name} snippets.
+            </div>
+          </Link>
+        </div>
+      </section>
 
       <FrameworkPicker
         heading="Switch backend"
