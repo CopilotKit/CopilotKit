@@ -471,6 +471,7 @@ export namespace CopilotChatView {
       <ScrollElementContext.Provider value={scrollEl}>
         <>
           <StickToBottom.Content
+            data-copilotkit-scroll-container
             className="cpk:overflow-y-auto cpk:overflow-x-hidden"
             style={{ flex: "1 1 0%", minHeight: 0 }}
           >
@@ -560,6 +561,7 @@ export namespace CopilotChatView {
         >
           <div
             ref={nonAutoScrollRefCallback}
+            data-copilotkit-scroll-container
             className="cpk:flex-1 cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden"
             {...props}
           >
@@ -685,7 +687,10 @@ export namespace CopilotChatView {
 
     if (!hasMounted) {
       return (
-        <div className="cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden">
+        <div
+          data-copilotkit-scroll-container
+          className="cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden"
+        >
           <div className="cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6">
             {children}
           </div>
@@ -702,6 +707,7 @@ export namespace CopilotChatView {
         <ScrollElementContext.Provider value={nonAutoScrollEl}>
           <div
             ref={nonAutoScrollRefCallback}
+            data-copilotkit-scroll-container
             className={cn(
               "cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden cpk:relative",
               className,

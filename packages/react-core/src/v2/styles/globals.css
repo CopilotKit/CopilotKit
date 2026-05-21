@@ -201,6 +201,14 @@
   scrollbar-color: oklch(0.5 0 0) transparent;
 }
 
+/* Reserve scrollbar gutter on chat scroll containers so the always-visible
+ * scrollbar can't cut through the absolutely-positioned input pill in narrow
+ * layouts. `stable` keeps the gutter reserved whether or not the scrollbar is
+ * currently visible, so content doesn't reflow when overflow toggles. */
+[data-copilotkit] [data-copilotkit-scroll-container] {
+  scrollbar-gutter: stable;
+}
+
 [data-copilotkit] .prose input[type="checkbox"] {
   appearance: none;
   background-color: #fff;
