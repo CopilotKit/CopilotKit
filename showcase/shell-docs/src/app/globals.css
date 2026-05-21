@@ -247,6 +247,20 @@ figure.shiki > div:first-child[class*="border-b"] {
 @media (min-width: 768px) {
   #nd-docs-layout {
     padding-top: 0 !important;
+    /* Override fumadocs's `--fd-docs-row-1: var(--fd-banner-height, 0px)`.
+     * Fumadocs assumes the banner is sticky/fixed at the top of the
+     * viewport, so it uses banner-height as the sidebar wrapper's
+     * sticky-top offset (and as the offset of row 1 inside the docs
+     * grid). For shell-docs the banner is in NORMAL BODY FLOW above
+     * BrandNav — so it already pushes the entire `<main>` (and the
+     * docs grid inside it) down by `--fd-banner-height` via flow.
+     * Using `--fd-banner-height` AGAIN as the in-grid offset
+     * double-counts: when the banner appears the sidebar visually
+     * drops by another 54px below BrandNav, creating a gaping hole
+     * between BrandNav's bottom edge and the sidebar's framework
+     * picker. Pin row-1 to 0 so the sidebar sits directly under
+     * BrandNav regardless of banner presence. */
+    --fd-docs-row-1: 0px !important;
     /* Override fumadocs's default `--fd-docs-height: 100dvh`. That
      * assumes the docs grid spans the whole viewport, but shell-docs
      * has BrandNav (68px md→xl, 88px xl+) + mt-6 (24px) + mb-3
