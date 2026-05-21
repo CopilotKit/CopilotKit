@@ -38,7 +38,11 @@ jobs:
       - name: Publish remaining packages
         env:
           NODE_AUTH_TOKEN: ""
+          NPM_CONFIG_USERCONFIG: /home/runner/work/_temp/.npmrc
         run: |
+          echo "npm version: $(npx --yes npm@11.15.0 --version)"
+          echo "registry: $(npx --yes npm@11.15.0 config get registry)"
+          echo "ACTIONS_ID_TOKEN_REQUEST_URL: ${ACTIONS_ID_TOKEN_REQUEST_URL:+SET}"
           PACKAGES=(
             agentcore-runner
             core
@@ -64,7 +68,7 @@ jobs:
             pnpm pack
             TARBALL="${NAME//@/}"
             TARBALL="${TARBALL////-}-${VERSION}.tgz"
-            npx --yes npm@11.15.0 publish "$TARBALL" --tag latest --access public
+            npx --yes npm@11.15.0 publish "$TARBALL" --tag latest --access public --registry https://registry.npmjs.org
             cd /home/runner/work/CopilotKit/CopilotKit
             echo "Done: $NAME@$VERSION"
             echo ""
