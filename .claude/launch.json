@@ -16,8 +16,16 @@
     {
       "name": "shell",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "showcase/shell", "run", "dev"],
-      "port": 3000
+      "runtimeArgs": [
+        "--prefix",
+        "showcase/shell",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "3004"
+      ],
+      "port": 3004
     },
     {
       "name": "shell-dojo",

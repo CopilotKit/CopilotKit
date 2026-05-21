@@ -40,13 +40,21 @@ echo "==> Shell URL:   $NEXT_PUBLIC_SHELL_URL"
 
 # 1) showcase/scripts (pnpm workspace) — needed for the predev generators.
 #    Only install if its node_modules is missing. The root prepare/lefthook
-#    postinstall hook can fail on worktrees due to core.hooksPath; we don't
-#    care, deps still land. Suppress non-fatal hook failures.
+#    postinstall hook can fail on worktrees due to core.hooksPath. We
+#    tolerate the prepare-step failure (deps already landed), but verify
+#    `$SCRIPTS_DIR/node_modules` exists before continuing so a real install
+#    failure (network down, lockfile drift, dependency conflict) doesn't
+#    get silently absorbed and then explode much later at the `npx tsx`
+#    generator step with a confusing "Cannot find module" error.
 if [[ ! -d "$SCRIPTS_DIR/node_modules" ]]; then
   echo "==> Installing showcase/scripts workspace deps via pnpm…"
   ( cd "$REPO_ROOT" && pnpm install --filter @copilotkit/showcase-scripts ) || {
-    echo "   (root prepare hook may have failed — that's expected on worktrees; deps installed regardless)"
+    echo "   (root prepare hook may have failed — that's expected on worktrees; verifying deps below)"
   }
+  if [[ ! -d "$SCRIPTS_DIR/node_modules" ]]; then
+    echo "error: pnpm install did not produce $SCRIPTS_DIR/node_modules — install failed for a non-hook reason. Re-run \`pnpm install --filter @copilotkit/showcase-scripts\` from $REPO_ROOT to see the underlying error." >&2
+    exit 1
+  fi
 else
   echo "==> showcase/scripts deps already present, skipping install."
 fi
