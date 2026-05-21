@@ -83,7 +83,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: 20.x
+          node-version: 22.x
 
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
@@ -119,6 +119,7 @@ jobs:
     environment: npm
     permissions:
       contents: write
+      id-token: write
     steps:
       - name: Download workspace
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -137,10 +138,8 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: 20.x
+          node-version: 22.x
           registry-url: https://registry.npmjs.org
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       # Restore node_modules — the build job excludes them from the
       # uploaded workspace artifact (see "Upload workspace" above). Uses
@@ -149,17 +148,10 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Configure npm auth
-        run: |
-          npm config set "//registry.npmjs.org/:_authToken" "${NPM_TOKEN}"
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-
       - name: Publish to npm
         id: publish
         run: pnpm tsx scripts/release/publish-release.ts --scope ${{ needs.build.outputs.scope }}
         env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
 
