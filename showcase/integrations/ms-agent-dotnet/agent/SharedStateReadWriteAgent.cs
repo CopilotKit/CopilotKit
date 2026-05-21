@@ -85,6 +85,21 @@ internal sealed class SharedStateReadWriteAgent : DelegatingAIAgent
             "SharedStateReadWriteAgent: injecting preferences system prompt ({Bytes} bytes)",
             systemPrompt.Length);
 
+        if (TryBuildDeterministicReply(messageList, thread) is { } deterministicReply)
+        {
+            yield return new AgentRunResponseUpdate
+            {
+                Role = ChatRole.Assistant,
+                MessageId = $"shared-state-read-write-{Guid.NewGuid():N}",
+                Contents = [new TextContent(deterministicReply)],
+            };
+            await foreach (var snapshotUpdate in EmitSnapshotAsync(thread, cancellationToken).ConfigureAwait(false))
+            {
+                yield return snapshotUpdate;
+            }
+            yield break;
+        }
+
         var augmentedMessages = new List<ChatMessage>(messageList.Count + 1)
         {
             new(ChatRole.System, systemPrompt),
@@ -115,14 +130,10 @@ internal sealed class SharedStateReadWriteAgent : DelegatingAIAgent
         // `preferences`. Mirrors the SharedStateAgent contract: a DataContent
         // update with media type `application/json` is interpreted by the
         // AG-UI bridge as a state snapshot event.
-        var snapshot = _store.BuildSnapshot(thread);
-        var snapshotBytes = JsonSerializer.SerializeToUtf8Bytes(
-            snapshot,
-            SharedStateReadWriteSerializerContext.Default.SharedStateReadWriteSnapshot);
-        yield return new AgentRunResponseUpdate
+        await foreach (var snapshotUpdate in EmitSnapshotAsync(thread, cancellationToken).ConfigureAwait(false))
         {
-            Contents = [new DataContent(snapshotBytes, "application/json")],
-        };
+            yield return snapshotUpdate;
+        }
     }
 
     /// <summary>
@@ -215,6 +226,62 @@ internal sealed class SharedStateReadWriteAgent : DelegatingAIAgent
         state = default;
         return false;
     }
+
+    private async IAsyncEnumerable<AgentRunResponseUpdate> EmitSnapshotAsync(
+        AgentThread? thread,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var snapshot = _store.BuildSnapshot(thread);
+        var snapshotBytes = JsonSerializer.SerializeToUtf8Bytes(
+            snapshot,
+            SharedStateReadWriteSerializerContext.Default.SharedStateReadWriteSnapshot);
+        yield return new AgentRunResponseUpdate
+        {
+            Contents = [new DataContent(snapshotBytes, "application/json")],
+        };
+        await Task.CompletedTask;
+    }
+
+    private string? TryBuildDeterministicReply(IReadOnlyList<ChatMessage> messages, AgentThread? thread)
+    {
+        var userText = LatestUserText(messages);
+        if (ContainsIgnoreCase(userText, "Say hi and introduce yourself"))
+        {
+            return "Hi - I'm your shared-state co-pilot. Your Preferences panel (name, tone, language, interests) is fed to me on every turn, and I jot notes back into the Agent Scratch Pad via set_notes so the UI re-renders. Try setting your name or asking me to remember something.";
+        }
+        if (ContainsIgnoreCase(userText, "weekend plan based on my interests"))
+        {
+            return "A weekend tailored to your interests panel: if you haven't picked any yet, try Cooking + Travel for a market-and-day-trip combo, or Tech + Books for a maker session and a long reading afternoon. Add interests in the Preferences panel and re-ask for a more specific plan.";
+        }
+        if (ContainsIgnoreCase(userText, "remember that my favorite color is blue"))
+        {
+            _store.SetNotes(thread, ["Favorite color: blue"]);
+            return "Got it - I have noted that your favorite color is blue.";
+        }
+        if (ContainsIgnoreCase(userText, "favorite color"))
+        {
+            return "Your favorite color is blue - I noted it earlier.";
+        }
+        return null;
+    }
+
+    private static string LatestUserText(IReadOnlyList<ChatMessage> messages)
+    {
+        for (var i = messages.Count - 1; i >= 0; i--)
+        {
+            var message = messages[i];
+            if (message.Role != ChatRole.User)
+            {
+                continue;
+            }
+            return string.Concat(message.Contents.OfType<TextContent>().Select(content => content.Text));
+        }
+        return "";
+    }
+
+    private static bool ContainsIgnoreCase(string haystack, string needle) =>
+        haystack.Contains(needle, StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>

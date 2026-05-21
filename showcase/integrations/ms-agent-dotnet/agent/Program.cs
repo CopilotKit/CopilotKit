@@ -36,6 +36,16 @@ var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
 var agentFactory = new SalesAgentFactory(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
 app.MapAGUI("/", agentFactory.CreateSalesAgent());
 
+var d5ParityFactory = new D5ParityAgentFactory(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
+app.MapAGUI("/headless-complete", d5ParityFactory.CreateHeadlessCompleteAgent());
+app.MapAGUI("/voice", d5ParityFactory.CreateVoiceAgent());
+app.MapAGUI("/gen-ui-agent", d5ParityFactory.CreateGenUiAgent());
+app.MapAGUI("/gen-ui-tool-based", d5ParityFactory.CreateGenUiToolBasedAgent());
+app.MapAGUI("/shared-state-streaming", d5ParityFactory.CreateSharedStateStreamingAgent());
+app.MapAGUI("/readonly-state-agent-context", d5ParityFactory.CreateReadonlyStateAgentContext());
+app.MapAGUI("/tool-rendering", d5ParityFactory.CreateToolRenderingAgent(reasoning: false));
+app.MapAGUI("/tool-rendering-reasoning-chain", d5ParityFactory.CreateToolRenderingAgent(reasoning: true));
+
 // Interrupt-adapted agent: mounted on its own path so the Next.js runtime
 // can proxy the `gen-ui-interrupt` and `interrupt-headless` demo names to
 // it. The two demos share this single backend — the differentiation happens
@@ -434,6 +444,7 @@ public class SalesAgentFactory
     public AIAgent CreateBeautifulChatAgent()
     {
         var factory = new BeautifulChatAgentFactory(
+            _configuration,
             _openAiClient,
             _jsonSerializerOptions,
             _loggerFactory.CreateLogger<BeautifulChatAgentFactory>());
@@ -514,7 +525,7 @@ public class SalesAgentFactory
     // @endregion[weather-tool-backend]
 
     [Description("Search for available flights between two cities. Returns flight data with A2UI rendering.")]
-    private string SearchFlights(
+    private object SearchFlights(
         [Description("Origin airport code or city")] string origin,
         [Description("Destination airport code or city")] string destination)
     {
@@ -555,23 +566,23 @@ public class SalesAgentFactory
 
         var operations = new object[]
         {
-            new { type = "create_surface", surfaceId = "flight-search-results",
-                  catalogId = "copilotkit://app-dashboard-catalog" },
-            new { type = "update_components", surfaceId = "flight-search-results",
-                  components = flightSchema },
-            new { type = "update_data_model", surfaceId = "flight-search-results",
-                  data = new { flights } }
+            new { version = "v0.9", createSurface = new { surfaceId = "flight-search-results",
+                  catalogId = "copilotkit://app-dashboard-catalog" } },
+            new { version = "v0.9", updateComponents = new { surfaceId = "flight-search-results",
+                  components = flightSchema } },
+            new { version = "v0.9", updateDataModel = new { surfaceId = "flight-search-results",
+                  path = "/", value = new { flights } } }
         };
 
-        return JsonSerializer.Serialize(new { a2ui_operations = operations });
+        return new { a2ui_operations = operations };
     }
 
     [Description("Generate dynamic A2UI components using a secondary LLM call")]
-    private async Task<string> GenerateA2ui(
-        [Description("The user's request describing what UI to generate")] string userRequest,
+    private async Task<object> GenerateA2ui(
+        [Description("Conversation context to generate UI from.")] string context = "",
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(userRequest);
+        context ??= "";
 
         // Correlation id so server logs can be tied to the structured error
         // we return to the caller / LLM. Callers can quote this in bug
@@ -582,26 +593,10 @@ public class SalesAgentFactory
         // errorIds to uniquely correlate log lines even across busy
         // deployments.
         var errorId = Guid.NewGuid().ToString("n")[..16];
-        _logger.LogInformation("Generating A2UI (errorId={ErrorId}) for: {Request}", errorId, userRequest);
-
-        var secondaryChatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
-
-        var systemPrompt = @"You are a UI generator. Given a user request, generate A2UI v0.9 components.
-You MUST respond with ONLY a JSON object (no markdown, no explanation) with this exact structure:
-{
-  ""surfaceId"": ""dynamic-surface"",
-  ""catalogId"": ""copilotkit://app-dashboard-catalog"",
-  ""components"": [<A2UI v0.9 component array>],
-  ""data"": {<optional initial data>}
-}
-The root component must have id ""root"".
-Available components: Row, Column, Text, Card, Button, Badge, Table, Chart.";
-
-        var messages = new List<ChatMessage>
-        {
-            new(ChatRole.System, systemPrompt),
-            new(ChatRole.User, userRequest),
-        };
+        var userContent = string.IsNullOrWhiteSpace(context)
+            ? "Show me a sales dashboard with total revenue, new customers, and conversion rate metrics. Include a pie chart of revenue by category and a bar chart of monthly sales."
+            : context;
+        _logger.LogInformation("Generating A2UI (errorId={ErrorId}) for: {Request}", errorId, userContent);
 
         // The outbound LLM call is awaited directly rather than blocked via
         // .GetAwaiter().GetResult(), which would tie up a thread-pool thread
@@ -620,8 +615,11 @@ Available components: Row, Column, Text, Card, Button, Badge, Table, Chart.";
         string? content;
         try
         {
-            var result = await secondaryChatClient.GetResponseAsync(messages, cancellationToken: cancellationToken).ConfigureAwait(false);
-            content = result.Text;
+            content = await A2uiSecondaryToolCaller.GetDesignToolArgumentsAsync(
+                _configuration,
+                "Generate a useful A2UI dashboard.",
+                userContent,
+                cancellationToken).ConfigureAwait(false);
         }
         catch (HttpRequestException ex)
         {
@@ -675,7 +673,7 @@ Available components: Row, Column, Text, Card, Button, Badge, Table, Chart.";
     /// and ensures the helper itself is robust to defensive / test callers
     /// that pass through whatever the upstream produced.
     /// </remarks>
-    internal static string BuildA2uiResponseFromContent(string? content, string errorId, ILogger logger)
+    internal static object BuildA2uiResponseFromContent(string? content, string errorId, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(errorId);
         ArgumentNullException.ThrowIfNull(logger);
@@ -723,12 +721,15 @@ Available components: Row, Column, Text, Card, Button, Badge, Table, Chart.";
 
                 var ops = new List<object>
                 {
-                    new { type = "create_surface", surfaceId, catalogId },
+                    new { version = "v0.9", createSurface = new { surfaceId, catalogId } },
                     new
                     {
-                        type = "update_components",
-                        surfaceId,
-                        components = JsonSerializer.Deserialize<object[]>(componentsElement.GetRawText()),
+                        version = "v0.9",
+                        updateComponents = new
+                        {
+                            surfaceId,
+                            components = JsonSerializer.Deserialize<object[]>(componentsElement.GetRawText()),
+                        },
                     },
                 };
 
@@ -736,13 +737,17 @@ Available components: Row, Column, Text, Card, Button, Badge, Table, Chart.";
                 {
                     ops.Add(new
                     {
-                        type = "update_data_model",
-                        surfaceId,
-                        data = JsonSerializer.Deserialize<object>(dataElement.GetRawText()),
+                        version = "v0.9",
+                        updateDataModel = new
+                        {
+                            surfaceId,
+                            path = "/",
+                            value = JsonSerializer.Deserialize<object>(dataElement.GetRawText()),
+                        },
                     });
                 }
 
-                return JsonSerializer.Serialize(new { a2ui_operations = ops });
+                return new { a2ui_operations = ops };
             }
             catch (JsonException ex)
             {
@@ -760,14 +765,14 @@ Available components: Row, Column, Text, Card, Button, Badge, Table, Chart.";
     // Structured error payload returned to the LLM/caller. We deliberately
     // keep this short and categorical — no raw exception messages, no paths,
     // no internal identifiers beyond the correlation id.
-    internal static string StructuredError(string category, string message, string remediation, string errorId) =>
-        JsonSerializer.Serialize(new
+    internal static object StructuredError(string category, string message, string remediation, string errorId) =>
+        new
         {
             error = category,
             message,
             remediation,
             errorId,
-        });
+        };
 }
 
 // =================

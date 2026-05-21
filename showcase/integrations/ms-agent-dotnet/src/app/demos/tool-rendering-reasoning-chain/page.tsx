@@ -1,13 +1,11 @@
 "use client";
 
-// Tool Rendering — REASONING CHAIN variant (.NET / Microsoft Agent Framework).
+// Tool Rendering — REASONING CHAIN variant.
 //
 // A single cell that composes two previously-separate patterns:
 //
 //   1. Reasoning tokens rendered via a custom `reasoningMessage` slot —
-//      the same approach used by the `agentic-chat-reasoning` cell. When
-//      the backend emits reasoning content, the custom block is shown;
-//      otherwise this degrades gracefully and only tool cards appear.
+//      the same approach used by the `reasoning-custom` cell.
 //   2. Sequential tool calls rendered with:
 //        get_weather     → <WeatherCard />
 //        search_flights  → <FlightListCard />
@@ -15,10 +13,10 @@
 //      mirroring the `tool-rendering` (primary) cell.
 
 import React from "react";
+import type { CopilotChatReasoningMessage } from "@copilotkit/react-core/v2";
 import {
   CopilotKit,
   CopilotChat,
-  CopilotChatReasoningMessage,
   useRenderTool,
   useDefaultRenderTool,
   useConfigureSuggestions,
@@ -26,11 +24,11 @@ import {
 import { z } from "zod";
 import { ReasoningBlock } from "./reasoning-block";
 import { WeatherCard } from "./weather-card";
-import { FlightListCard, type Flight } from "./flight-list-card";
-import {
-  CustomCatchallRenderer,
-  type CatchallToolStatus,
-} from "./custom-catchall-renderer";
+import { FlightListCard } from "./flight-list-card";
+import type { Flight } from "./flight-list-card";
+import { CustomCatchallRenderer } from "./custom-catchall-renderer";
+import type { CatchallToolStatus } from "./custom-catchall-renderer";
+import { parseJsonResult } from "../_shared/parse-json-result";
 
 interface WeatherResult {
   city?: string;
@@ -40,35 +38,10 @@ interface WeatherResult {
   conditions?: string;
 }
 
-// The .NET SearchFlights tool emits an A2UI operations payload, whose
-// `update_data_model` operation carries the flight list. We defensively
-// reach into the payload to pull out a flat flight array for the simple
-// FlightListCard UI — if the shape doesn't match we fall back to an
-// empty list and the card just shows "no flights returned".
 interface FlightSearchResult {
-  a2ui_operations?: Array<{
-    type?: string;
-    data?: { flights?: Flight[] };
-  }>;
-}
-
-function parseJsonResult<T>(result: unknown): T {
-  if (!result) return {} as T;
-  try {
-    return (typeof result === "string" ? JSON.parse(result) : result) as T;
-  } catch {
-    return {} as T;
-  }
-}
-
-function extractFlights(parsed: FlightSearchResult): Flight[] {
-  if (!parsed?.a2ui_operations) return [];
-  for (const op of parsed.a2ui_operations) {
-    if (op?.type === "update_data_model" && op.data?.flights) {
-      return op.data.flights;
-    }
-  }
-  return [];
+  origin?: string;
+  destination?: string;
+  flights?: Flight[];
 }
 
 export default function ToolRenderingReasoningChainDemo() {
@@ -119,13 +92,12 @@ function Chat() {
       render: ({ parameters, result, status }) => {
         const loading = status !== "complete";
         const parsed = parseJsonResult<FlightSearchResult>(result);
-        const flights = extractFlights(parsed);
         return (
           <FlightListCard
             loading={loading}
-            origin={parameters?.origin ?? ""}
-            destination={parameters?.destination ?? ""}
-            flights={flights}
+            origin={parameters?.origin ?? parsed.origin ?? ""}
+            destination={parameters?.destination ?? parsed.destination ?? ""}
+            flights={parsed.flights ?? []}
           />
         );
       },
@@ -150,21 +122,16 @@ function Chat() {
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Weather + flights to Tokyo",
-        message: "What's the weather in Tokyo? Then find flights from SFO.",
+        title: "Compare two stocks",
+        message: "Compare AAPL and MSFT stocks for me.",
+      },
+      {
+        title: "Chain of dice rolls",
+        message: "Roll a 20-sided die for me and compare it to a smaller one.",
       },
       {
         title: "Flights + destination weather",
-        message:
-          "Find flights from SFO to JFK, then tell me the weather in New York.",
-      },
-      {
-        title: "Weather in SF",
-        message: "What's the weather in San Francisco?",
-      },
-      {
-        title: "Sales pipeline",
-        message: "Show me the current sales pipeline.",
+        message: "Find flights from SFO to JFK and show me the weather there.",
       },
     ],
     available: "always",

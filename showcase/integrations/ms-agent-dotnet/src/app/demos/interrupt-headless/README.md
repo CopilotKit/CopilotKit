@@ -1,26 +1,33 @@
-# interrupt-headless (Microsoft Agent Framework, .NET — adapted)
+# Interrupt Headless (MS Agent Framework adaptation)
 
-Headless Interrupt demo, adapted for the .NET showcase.
+## What this demo shows
 
-## Adaptation
+A scheduling interaction driven from a button grid **outside the chat** (a
+popup in the app surface). The chat triggers the agent; when the agent needs
+the user to pick a time, the popup appears in the app surface, not in the
+chat. Picking a slot resolves the pending tool call and the agent replies.
 
-The LangGraph reference subscribes to the agent's custom-event stream via
-`useCopilotKit` + `agent.subscribe(...)` to observe LangGraph `interrupt()`
-events and render a picker in an external "app surface" pane. The Microsoft
-Agent Framework (.NET) has no `interrupt()` primitive, so we simulate the
-behavior with the same **approval-mode shim** used by `gen-ui-interrupt`.
+## Adaptation note
 
-Key difference from the in-chat variant:
+The LangGraph version of this demo uses a custom `useHeadlessInterrupt` hook
+that listens for LangGraph's native `interrupt()` event on the AG-UI stream
+and resumes via `copilotkit.runAgent({ forwardedProps: { command: { resume } } })`.
+Microsoft Agent Framework has no interrupt primitive, so this port is
+**adapted**:
 
-- The `useFrontendTool` render callback returns `null` (nothing is
-  rendered inside the chat transcript).
-- The picker is rendered in the left-pane `AppSurface`, reading `pending`
-  state that the async handler sets when it's invoked and clears when it
-  resolves.
+- The backend agent (`src/agents/interrupt_agent.py`) is prompted to call
+  `schedule_meeting` by name.
+- The frontend registers `schedule_meeting` via `useFrontendTool`. The async
+  handler sets the `pending` payload (making the popup render in the left
+  pane) and then returns a Promise that only resolves once the user clicks a
+  slot or cancels in the popup. `render` returns `null` so nothing appears
+  inside the chat itself.
 
-## Backend
+The user-visible UX is equivalent to the LangGraph version. The underlying
+mechanism differs.
 
-Shares `/interrupt-adapted` on the .NET agent process with
-`gen-ui-interrupt`. See `agent/InterruptAgent.cs` and `agent/Program.cs`.
-The Next.js runtime route maps the `interrupt-headless` agent name to that
-path.
+## Related
+
+- Backend agent: `src/agents/interrupt_agent.py` (shared with `gen-ui-interrupt`)
+- HTTP mount: `/interrupt-adapted` in `src/agent_server.py`
+- Sibling demo: `src/app/demos/gen-ui-interrupt` (inline-in-chat picker)
