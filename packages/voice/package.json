@@ -2,6 +2,10 @@
   "name": "@copilotkit/voice",
   "version": "1.57.4",
   "description": "Voice services for CopilotKit (transcription, text-to-speech, etc.)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
@@ -42,9 +46,5 @@
   },
   "engines": {
     "node": ">=18"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/CopilotKit/CopilotKit.git"
   }
 }
