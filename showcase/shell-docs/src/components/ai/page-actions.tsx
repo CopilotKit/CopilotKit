@@ -22,11 +22,6 @@ import ClaudeCodeIcon from "@/components/icons/claude-code";
 import CodexIcon from "@/components/icons/codex";
 import WindsurfIcon from "@/components/icons/windsurf";
 
-// Module-scoped cache of resolved markdown bodies. Survives navigations
-// so repeated clicks on the same page don't re-fetch. Stored as the
-// awaited STRING (not a Promise) to avoid the failed-fetch poisoning
-// pattern where a rejected promise gets cached and replayed on every
-// subsequent click — see `fetchMarkdown` below.
 /**
  * Resolve the canonical base URL on the client. Inlined here (instead of
  * imported from `@/lib/sitemap-helpers`) because that module also pulls
@@ -42,6 +37,11 @@ function getClientBaseUrl(): string {
   return raw.replace(/\/+$/, "");
 }
 
+// Module-scoped cache of resolved markdown bodies. Survives navigations
+// so repeated clicks on the same page don't re-fetch. Stored as the
+// awaited STRING (not a Promise) to avoid the failed-fetch poisoning
+// pattern where a rejected promise gets cached and replayed on every
+// subsequent click — see `fetchMarkdown` below.
 const cache = new Map<string, string>();
 
 /** Fetch the markdown body for a docs URL, caching successful responses

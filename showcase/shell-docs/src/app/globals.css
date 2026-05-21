@@ -124,18 +124,6 @@
   width: 14px;
   height: 14px;
 }
-/* Section-header icons (the lucide marks next to "Get Started",
- * "Concepts", etc.) — render small and in the brand accent so they
- * read as a supporting brand glyph next to the all-caps section label.
- * Folder-trigger / chevron SVGs on <a>/<button> nav items above stay
- * larger and muted; only the <p> section-header icons get the accent
- * tint here. */
-.shell-docs-sidebar p[class*="sidebar-item-offset"] svg {
-  width: 4px !important;
-  height: 4px !important;
-  color: var(--accent) !important;
-}
-
 /* Sidebar footer (`SidebarFooter` — the row with GitHub/Discord icons
  * and the custom `<ThemeSwitch>`). Fumadocs wraps our custom `footer`
  * ReactNode in `<div class="flex flex-col border-t p-4 pt-2 empty:hidden">`,

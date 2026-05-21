@@ -4,8 +4,11 @@
 //
 // Pairs with `reasoning-default` so users can compare default vs custom
 // reasoning rendering side by side. Both demos share the same backend
-// (`reasoning_agent` graph) and runtime URL (/api/copilotkit). This cell
-// overrides the `reasoningMessage` slot on the `messageView` slot with
+// (the `_thinking_chat` ADK agent built via `build_thinking_chat_agent`
+// — see `src/agents/registry.py:144-145` where both `reasoning-default`
+// and `reasoning-custom` resolve to `AgentSpec(_thinking_chat)`) and
+// the same runtime URL (/api/copilotkit). This cell overrides the
+// `reasoningMessage` slot on the `messageView` slot with
 // `ReasoningBlock` — a tagged amber banner that emphasizes the agent's
 // thinking chain.
 //

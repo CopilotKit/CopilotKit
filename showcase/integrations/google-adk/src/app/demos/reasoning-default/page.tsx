@@ -8,9 +8,12 @@
 // rendered by the built-in `CopilotChatReasoningMessage` component
 // (Thinking… / Thought for X header with an expandable content region).
 //
-// Both demos share the same backend (`reasoning_agent` graph) and the
-// same runtime URL (/api/copilotkit). The only difference is whether the
-// `messageView.reasoningMessage` slot is overridden.
+// Both demos share the same backend (the `_thinking_chat` ADK agent
+// built via `build_thinking_chat_agent` — see
+// `src/agents/registry.py:144-145` where both `reasoning-default` and
+// `reasoning-custom` resolve to `AgentSpec(_thinking_chat)`) and the
+// same runtime URL (/api/copilotkit). The only difference is whether
+// the `messageView.reasoningMessage` slot is overridden.
 
 import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 import { useReasoningDefaultSuggestions } from "./suggestions";

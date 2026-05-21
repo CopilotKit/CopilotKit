@@ -46,7 +46,7 @@ export function Chat() {
       // Silently swallowing errors here would model broken practice;
       // log so a network failure / runtime error / transport disconnect
       // surfaces in the console for the developer.
-      console.error("[headless-simple] runAgent failed", err);
+      console.error("[langgraph-python:headless-simple] runAgent failed", err);
     });
   };
   // @endregion[use-agent-simple]
