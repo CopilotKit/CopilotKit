@@ -204,6 +204,10 @@ jobs:
         if: steps.verify.outputs.should_run == 'true'
         run: npm install -g @anthropic-ai/claude-code
 
+      - name: Remove untrusted Claude settings
+        if: steps.verify.outputs.should_run == 'true'
+        run: rm -f .claude/settings.json
+
       - name: Write prompt file
         if: steps.verify.outputs.should_run == 'true'
         env:
