@@ -159,7 +159,10 @@ describe("v1 TelemetryClient", () => {
       sampleWeight: 20,
     });
     expect(segmentTrackMock.mock.calls[0][0]).toMatchObject({
-      properties: expect.objectContaining({ sampleRate: 0.05, sampleWeight: 20 }),
+      properties: expect.objectContaining({
+        sampleRate: 0.05,
+        sampleWeight: 20,
+      }),
     });
 
     lambdaSpy.mockClear();
