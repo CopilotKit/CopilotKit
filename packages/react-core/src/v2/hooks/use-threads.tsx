@@ -213,11 +213,14 @@ export function useThreads({
     );
   }, [copilotkit.headers]);
   const runtimeStatus = copilotkit.runtimeConnectionStatus;
-  const threadEndpointsSupported = copilotkit.threadEndpoints?.list === true;
+  const threadListEndpointSupported =
+    copilotkit.threadEndpoints?.list !== false;
+  const threadMutationsSupported =
+    copilotkit.threadEndpoints?.mutations !== false;
   const threadEndpointsUnavailable =
     !!copilotkit.runtimeUrl &&
     runtimeStatus === CopilotKitCoreRuntimeConnectionStatus.Connected &&
-    !threadEndpointsSupported;
+    !threadListEndpointSupported;
   const runtimeError = useMemo(() => {
     if (copilotkit.runtimeUrl) {
       return null;
@@ -234,6 +237,15 @@ export function useThreads({
       "Thread endpoints are not available on this CopilotKit runtime",
     );
   }, [threadEndpointsUnavailable]);
+  const threadMutationsError = useMemo(() => {
+    if (threadMutationsSupported) {
+      return null;
+    }
+
+    return new Error(
+      "Thread mutations are not available on this CopilotKit runtime",
+    );
+  }, [threadMutationsSupported]);
 
   // Tracks whether we've dispatched the first real context to the store.
   // The store itself starts with `isLoading: false`, so before we dispatch
@@ -292,7 +304,7 @@ export function useThreads({
       return;
     }
 
-    if (!threadEndpointsSupported) {
+    if (!threadListEndpointSupported) {
       store.setContext(null);
       setHasDispatchedContext(false);
       return;
@@ -315,25 +327,40 @@ export function useThreads({
     runtimeStatus,
     headersKey,
     copilotkit.intelligence?.wsUrl,
-    threadEndpointsSupported,
+    threadListEndpointSupported,
     agentId,
     includeArchived,
     limit,
   ]);
 
   const renameThread = useCallback(
-    (threadId: string, name: string) => store.renameThread(threadId, name),
-    [store],
+    (threadId: string, name: string) => {
+      if (threadMutationsError) {
+        return Promise.reject(threadMutationsError);
+      }
+      return store.renameThread(threadId, name);
+    },
+    [store, threadMutationsError],
   );
 
   const archiveThread = useCallback(
-    (threadId: string) => store.archiveThread(threadId),
-    [store],
+    (threadId: string) => {
+      if (threadMutationsError) {
+        return Promise.reject(threadMutationsError);
+      }
+      return store.archiveThread(threadId);
+    },
+    [store, threadMutationsError],
   );
 
   const deleteThread = useCallback(
-    (threadId: string) => store.deleteThread(threadId),
-    [store],
+    (threadId: string) => {
+      if (threadMutationsError) {
+        return Promise.reject(threadMutationsError);
+      }
+      return store.deleteThread(threadId);
+    },
+    [store, threadMutationsError],
   );
 
   const fetchMoreThreads = useCallback(() => store.fetchNextPage(), [store]);

@@ -1,20 +1,19 @@
-import {
-  AgentRunner,
+import type {
   AgentRunnerConnectRequest,
   AgentRunnerIsRunningRequest,
   AgentRunnerRunRequest,
-  type AgentRunnerStopRequest,
 } from "./agent-runner";
-import { Observable, ReplaySubject } from "rxjs";
-import {
+import { AgentRunner, type AgentRunnerStopRequest } from "./agent-runner";
+import type { Observable } from "rxjs";
+import { ReplaySubject } from "rxjs";
+import type {
   AbstractAgent,
   BaseEvent,
-  EventType,
   Message,
   RunStartedEvent,
   StateSnapshotEvent,
-  compactEvents,
 } from "@ag-ui/client";
+import { EventType, compactEvents } from "@ag-ui/client";
 import { finalizeRunEvents } from "@copilotkit/shared";
 
 interface HistoricRun {
@@ -79,6 +78,8 @@ class InMemoryEventStore {
 const GLOBAL_STORE = new Map<string, InMemoryEventStore>();
 
 export class InMemoryAgentRunner extends AgentRunner {
+  readonly ɵsupportsLocalThreadEndpoints = true;
+
   run(request: AgentRunnerRunRequest): Observable<BaseEvent> {
     let existingStore = GLOBAL_STORE.get(request.threadId);
     if (!existingStore) {
