@@ -87,15 +87,19 @@ export function MarkdownCopyButton({
       const body = await fetchMarkdown(markdownUrl);
       await navigator.clipboard.writeText(body);
     } catch (err) {
-      // Log for support / on-page diagnostics. Do NOT re-throw: Fumadocs's
-      // `useCopyButton` does not attach a `.catch()` to its internal
-      // promise, so a throw here becomes an unhandled rejection (browser
-      // console noise + Sentry spam) without any user-visible feedback
-      // — the button stays in its idle state either way. Swallowing
-      // here keeps the failure mode loud-but-bounded; a follow-up PR
-      // can introduce an explicit error UI state if we want the user
-      // to see "Copy failed".
+      // Log AND re-throw. The throw is load-bearing: Fumadocs's
+      // `useCopyButton` runs `Promise.resolve(callback()).then(setChecked(true))`
+      // with NO `.catch()`. If we swallow here (return normally), the
+      // outer `.then()` still fires and the button flips to its
+      // checkmark state — the user sees a "copied!" indicator on a
+      // failed copy and may paste stale or wrong content into the LLM
+      // they're prompting. Re-throwing causes a single unhandled
+      // promise rejection (browser console noise / Sentry entry) but
+      // critically keeps the button in its idle state, which is the
+      // correct visual feedback. A follow-up PR can introduce an
+      // explicit error UI state to surface "Copy failed" to the user.
       console.error("[page-actions] Copy Markdown failed", markdownUrl, err);
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -103,11 +107,13 @@ export function MarkdownCopyButton({
 
   return (
     <button
-      // Spread caller props FIRST so the component-owned `disabled`,
-      // `onClick`, and `className` below take precedence over anything
-      // the caller passes. Without this order, a caller could override
-      // the loading guard or the copy handler and silently break the
-      // component's core behavior.
+      // Spread caller props FIRST so the component-owned `disabled` and
+      // `onClick` below take precedence over anything the caller passes
+      // — those are load-bearing for the component's core behavior, and
+      // a caller overriding them could silently break the loading guard
+      // or the copy handler. `className` is MERGED (not overridden):
+      // caller-supplied tokens are passed through `cn(..., props.className)`
+      // so authors can add layout/styling tweaks alongside the variant.
       {...props}
       disabled={isLoading}
       onClick={onClick}
