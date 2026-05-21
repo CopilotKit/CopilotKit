@@ -9,7 +9,7 @@ import type { AgentDescription, RuntimeInfo } from "@copilotkit/shared";
 import type { RuntimeLicenseStatus } from "@copilotkit/shared";
 import { VERSION } from "../core/runtime";
 import { isTelemetryDisabled } from "../telemetry/telemetry-client";
-import { InMemoryAgentRunner } from "../runner/in-memory";
+import { supportsLocalThreadEndpoints } from "../runner/agent-runner";
 
 function resolveLicenseStatus(
   runtime: CopilotRuntimeLike,
@@ -130,7 +130,7 @@ function resolveThreadEndpointInfo(
 ): RuntimeInfo["threadEndpoints"] {
   const hasRestThreadBackend =
     isIntelligenceRuntime(runtime) ||
-    runtime.runner instanceof InMemoryAgentRunner;
+    supportsLocalThreadEndpoints(runtime.runner);
   const restEndpointsAvailable = threadEndpointsEnabled && hasRestThreadBackend;
   const managedThreadMetadata =
     threadEndpointsEnabled && isIntelligenceRuntime(runtime);

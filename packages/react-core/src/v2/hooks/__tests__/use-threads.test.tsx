@@ -357,6 +357,74 @@ describe("useThreads", () => {
     );
   });
 
+  it("treats missing thread endpoint info as legacy-compatible and fetches", async () => {
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runtimeUrl: "http://localhost:4000",
+        runtimeConnectionStatus:
+          CopilotKitCoreRuntimeConnectionStatus.Connected,
+        headers: { Authorization: "Bearer test-token" },
+        threadEndpoints: undefined,
+        intelligence: undefined,
+        registerThreadStore: vi.fn(),
+        unregisterThreadStore: vi.fn(),
+      },
+    });
+    fetchMock.mockReturnValueOnce(jsonResponse({ threads: sampleThreads }));
+
+    const { result } = renderHook(() => useThreads(defaultInput));
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.error).toBeNull();
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/threads?agentId=agent-1"),
+      expect.objectContaining({ method: "GET" }),
+    );
+  });
+
+  it("rejects mutations locally when the runtime reports mutations are unsupported", async () => {
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runtimeUrl: "http://localhost:4000",
+        runtimeConnectionStatus:
+          CopilotKitCoreRuntimeConnectionStatus.Connected,
+        headers: { Authorization: "Bearer test-token" },
+        threadEndpoints: {
+          list: true,
+          inspect: true,
+          mutations: false,
+          realtimeMetadata: false,
+        },
+        intelligence: undefined,
+        registerThreadStore: vi.fn(),
+        unregisterThreadStore: vi.fn(),
+      },
+    });
+    fetchMock.mockReturnValueOnce(jsonResponse({ threads: sampleThreads }));
+
+    const { result } = renderHook(() => useThreads(defaultInput));
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    fetchMock.mockClear();
+
+    await expect(result.current.renameThread("t-1", "Renamed")).rejects.toThrow(
+      "Thread mutations are not available on this CopilotKit runtime",
+    );
+    await expect(result.current.archiveThread("t-1")).rejects.toThrow(
+      "Thread mutations are not available on this CopilotKit runtime",
+    );
+    await expect(result.current.deleteThread("t-1")).rejects.toThrow(
+      "Thread mutations are not available on this CopilotKit runtime",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("updates local state directly from realtime metadata events", async () => {
     fetchMock
       .mockReturnValueOnce(

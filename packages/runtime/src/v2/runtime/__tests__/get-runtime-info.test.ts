@@ -1,5 +1,7 @@
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { CopilotRuntime } from "../core/runtime";
+import type { CopilotRuntimeLike } from "../core/runtime";
+import type { AgentRunner } from "../runner/agent-runner";
 import { TranscriptionService } from "../transcription-service/transcription-service";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
@@ -19,6 +21,32 @@ describe("handleGetRuntimeInfo", () => {
     mutations: false,
     realtimeMetadata: false,
   };
+  const createRunner = (supportsLocalThreadEndpoints = false) =>
+    ({
+      ...(supportsLocalThreadEndpoints
+        ? { ɵsupportsLocalThreadEndpoints: true }
+        : {}),
+      run: vi.fn(),
+      connect: vi.fn(),
+      isRunning: vi.fn(),
+      stop: vi.fn(),
+    }) as unknown as AgentRunner;
+  const createRuntimeLike = (
+    overrides: Partial<CopilotRuntimeLike>,
+  ): CopilotRuntimeLike =>
+    ({
+      agents: {},
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      runner: createRunner(),
+      a2ui: undefined,
+      mcpApps: undefined,
+      openGenerativeUI: undefined,
+      mode: "sse",
+      debug: { enabled: false },
+      ...overrides,
+    }) as unknown as CopilotRuntimeLike;
 
   it("should return runtime info with audioFileTranscriptionEnabled=false when no transcription service", async () => {
     const runtime = new CopilotRuntime({
@@ -109,6 +137,58 @@ describe("handleGetRuntimeInfo", () => {
       a2uiEnabled: false,
       openGenerativeUIEnabled: false,
       telemetryDisabled: false,
+    });
+  });
+
+  it("detects local thread endpoints from the runner capability flag", async () => {
+    const runtime = createRuntimeLike({
+      runner: createRunner(true),
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+      threadEndpointsEnabled: true,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.threadEndpoints).toEqual(inMemoryThreadEndpoints);
+  });
+
+  it("reports all Intelligence thread endpoints when multi-route REST endpoints are enabled", async () => {
+    const runtime = createRuntimeLike({
+      mode: "intelligence",
+      runner: createRunner(),
+      intelligence: {
+        ɵgetClientWsUrl: vi.fn(() => "wss://runtime.example/client"),
+      },
+      identifyUser: vi
+        .fn()
+        .mockResolvedValue({ id: "user-1", name: "User One" }),
+      generateThreadNames: true,
+      lockTtlSeconds: 20,
+      lockHeartbeatIntervalSeconds: 15,
+    } as Partial<CopilotRuntimeLike>);
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+      threadEndpointsEnabled: true,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.threadEndpoints).toEqual({
+      list: true,
+      inspect: true,
+      mutations: true,
+      realtimeMetadata: true,
+    });
+    expect(data.intelligence).toEqual({
+      wsUrl: "wss://runtime.example/client",
     });
   });
 
