@@ -1,0 +1,41 @@
+name: test / oidc-publish-dry-run
+
+on:
+  push:
+    branches:
+      - fix/oidc-trusted-publishers
+
+permissions:
+  contents: read
+
+jobs:
+  test-oidc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node 22
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22.x
+          registry-url: https://registry.npmjs.org
+
+      - name: Verify environment
+        run: |
+          echo "Node: $(node --version)"
+          echo "npm (system): $(npm --version)"
+          echo "ACTIONS_ID_TOKEN_REQUEST_URL is ${ACTIONS_ID_TOKEN_REQUEST_URL:+SET}"
+
+      - name: Dry-run publish with npx npm@11
+        working-directory: packages/shared
+        run: npx --yes npm@11.15.0 publish --dry-run --access public 2>&1
+        env:
+          NODE_AUTH_TOKEN: ''
