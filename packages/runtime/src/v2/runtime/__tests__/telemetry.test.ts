@@ -174,4 +174,58 @@ describe("TelemetryClient", () => {
       "Sample rate must be between 0 and 1",
     );
   });
+
+  it("identified callers bypass the sample gate", async () => {
+    // Math.random would land above the gate for anonymous callers, but
+    // a parsed telemetry_id makes the caller identified — the gate is
+    // skipped and the event still rides to the lambda.
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const payload = Buffer.from('{"telemetry_id":"abc-123"}').toString(
+      "base64url",
+    );
+    const token = `header.${payload}.sig`;
+
+    const client = new TelemetryClient({
+      telemetryDisabled: false,
+      sampleRate: 0.05,
+    });
+    client.setLicenseToken(token);
+
+    await client.capture("oss.runtime.instance_created", {
+      actionsAmount: 0,
+      endpointTypes: [],
+      endpointsAmount: 0,
+      "cloud.api_key_provided": false,
+    });
+
+    expect(lambdaSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("identified callers send on every capture", async () => {
+    // Default sampleRate is 0.05, but identified callers (telemetry_id
+    // present) bypass the gate entirely. Two captures, two sends — no
+    // Math.random mock needed.
+    const payload = Buffer.from('{"telemetry_id":"abc-123"}').toString(
+      "base64url",
+    );
+    const token = `header.${payload}.sig`;
+
+    const client = new TelemetryClient({ telemetryDisabled: false });
+    client.setLicenseToken(token);
+
+    await client.capture("oss.runtime.instance_created", {
+      actionsAmount: 0,
+      endpointTypes: [],
+      endpointsAmount: 0,
+      "cloud.api_key_provided": false,
+    });
+    await client.capture("oss.runtime.instance_created", {
+      actionsAmount: 0,
+      endpointTypes: [],
+      endpointsAmount: 0,
+      "cloud.api_key_provided": false,
+    });
+
+    expect(lambdaSpy).toHaveBeenCalledTimes(2);
+  });
 });
