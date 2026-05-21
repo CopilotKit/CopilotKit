@@ -153,8 +153,16 @@ async function main() {
   // Uses pnpm pack (workspace-aware) + npx npm@11 publish (OIDC-aware).
   // npm 11 uses GitHub Actions OIDC tokens for auth when id-token: write
   // is granted, eliminating the need for long-lived NPM_TOKEN secrets.
+  // Skips packages already published at this version (idempotent retries).
   console.log("\nPublishing packages...");
+  let skipped = 0;
   for (const p of getPackagesForScope(scope)) {
+    const pubVersion = getPublishedVersion(p.name);
+    if (pubVersion === version) {
+      console.log(`  Skipping ${p.name}@${version} (already published)`);
+      skipped++;
+      continue;
+    }
     console.log(`  Publishing ${p.name}@${version}...`);
     run("pnpm", ["pack"], { cwd: p.dir });
     const tarball = `${p.name.replace("@", "").replace("/", "-")}-${version}.tgz`;
@@ -172,6 +180,9 @@ async function main() {
       ],
       { cwd: p.dir },
     );
+  }
+  if (skipped > 0) {
+    console.log(`\n${skipped} package(s) skipped (already at ${version}).`);
   }
 
   // Output version for downstream steps
