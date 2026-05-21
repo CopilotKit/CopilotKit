@@ -4,7 +4,6 @@ import type { AbstractAgent } from "@ag-ui/client";
 import type { FrontendTool } from "@copilotkit/core";
 import type React from "react";
 import {
-  type ReactNode,
   useMemo,
   useEffect,
   useLayoutEffect,
@@ -12,23 +11,18 @@ import {
   useRef,
   useState,
 } from "react";
+import type { ReactNode } from "react";
 // Context extracted to ../context.ts for cross-platform reuse (React Native)
-import {
-  CopilotKitContext,
-  type CopilotKitContextValue,
-  LicenseContext,
-} from "../context";
+import { CopilotKitContext, LicenseContext } from "../context";
+import type { CopilotKitContextValue } from "../context";
 export type { CopilotKitContextValue } from "../context";
 export { CopilotKitContext, useLicenseContext } from "../context";
 import { z } from "zod";
 import { CopilotKitInspector } from "../components/CopilotKitInspector";
 import type { Anchor } from "@copilotkit/web-inspector";
 import { LicenseWarningBanner } from "../components/license-warning-banner";
-import {
-  createLicenseContextValue,
-  type LicenseContextValue,
-  type DebugConfig,
-} from "@copilotkit/shared";
+import { createLicenseContextValue } from "@copilotkit/shared";
+import type { DebugConfig } from "@copilotkit/shared";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import {
   MCPAppsActivityContentSchema,
@@ -237,7 +231,7 @@ function useStableArrayProp<T>(
     ) {
       console.error(warningMessage);
     }
-  }, [value, warningMessage]);
+  }, [value, warningMessage, isMeaningfulChange]);
 
   return value;
 }
@@ -250,7 +244,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   credentials,
   publicApiKey,
   publicLicenseKey,
-  licenseToken,
+  licenseToken: _licenseToken,
   properties = {},
   agents__unsafe_dev_only: agents = {},
   selfManagedAgents = {},
@@ -413,6 +407,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     openGenerativeUI?.sandboxFunctions,
     "openGenerativeUI.sandboxFunctions must be a stable array.",
   );
+  const humanInTheLoopResolversRef = useRef<
+    Map<string, (result: unknown) => void>
+  >(new Map());
 
   // Note: warnings for array identity changes are handled by useStableArrayProp
 
@@ -429,16 +426,32 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
         parameters: tool.parameters,
         followUp: tool.followUp,
         ...(tool.agentId && { agentId: tool.agentId }),
-        handler: async () => {
-          // This handler will be replaced by the hook when it runs
-          // For provider-level tools, we create a basic handler that waits for user interaction
+        handler: async (_args, context) => {
           return new Promise((resolve) => {
-            // The actual implementation will be handled by the render component
-            // This is a placeholder that the hook will override
-            console.warn(
-              `Human-in-the-loop tool '${tool.name}' called but no interactive handler is set up.`,
-            );
-            resolve(undefined);
+            const toolCallId = context?.toolCall?.id;
+            if (!toolCallId) {
+              console.warn(
+                `Human-in-the-loop tool '${tool.name}' called without a tool call id.`,
+              );
+              resolve(undefined);
+              return;
+            }
+
+            const finish = (result: unknown) => {
+              humanInTheLoopResolversRef.current.delete(toolCallId);
+              resolve(result);
+            };
+
+            humanInTheLoopResolversRef.current.set(toolCallId, finish);
+
+            if (context.signal?.aborted) {
+              finish(undefined);
+              return;
+            }
+
+            context.signal?.addEventListener("abort", () => finish(undefined), {
+              once: true,
+            });
           });
         },
       };
@@ -446,10 +459,33 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 
       // Add the render component to renderToolCalls
       if (tool.render) {
+        const RenderComponent: ReactToolCallRenderer<unknown>["render"] = (
+          props,
+        ) => {
+          const ToolComponent = tool.render;
+          const respond =
+            props.status === "executing"
+              ? async (result: unknown) => {
+                  humanInTheLoopResolversRef.current.get(props.toolCallId)?.(
+                    result,
+                  );
+                }
+              : undefined;
+
+          const enhancedProps = {
+            ...props,
+            name: tool.name,
+            description: tool.description || "",
+            respond,
+          } as React.ComponentProps<typeof ToolComponent>;
+
+          return <ToolComponent {...enhancedProps} />;
+        };
+
         processedRenderToolCalls.push({
           name: tool.name,
           args: tool.parameters!,
-          render: tool.render,
+          render: RenderComponent,
           ...(tool.agentId && { agentId: tool.agentId }),
         } as ReactToolCallRenderer<unknown>);
       }
