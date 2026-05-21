@@ -86,12 +86,10 @@ export function configureAgentForRequest(params: {
     }
   }
 
-  if (agent.headers) {
-    agent.headers = {
-      ...agent.headers,
-      ...extractForwardableHeaders(request),
-    };
-  }
+  agent.headers = {
+    ...agent.headers,
+    ...extractForwardableHeaders(request),
+  };
 }
 
 export async function parseRunRequest(
