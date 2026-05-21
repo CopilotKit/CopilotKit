@@ -12,11 +12,14 @@
 // pages + reference + ag-ui — so the index stays in sync with the
 // actual route table.
 //
-// Re-render cadence: file-based content is read on every request in dev
-// (so authoring edits show up immediately). In production, page lookups
-// hit the module-level caches in `docs-render`, so a single request only
-// re-walks the filesystem on cache misses. No explicit `revalidate`
-// directive — Next defaults to dynamic for route handlers.
+// Re-render cadence: this handler walks the filesystem (`getAllLlmPages`)
+// every time it runs, which is expensive on the full docs tree. We set
+// `revalidate = false` so the Next.js route-handler cache holds the
+// response indefinitely on the server side — the only reason to redo
+// the walk is a redeploy. The `Cache-Control` header below is the
+// SEPARATE per-response CDN/browser hint (short max-age so external
+// caches refresh quickly when we ship a doc change); the two cache
+// layers are independent.
 
 import { NextResponse } from "next/server";
 import { getAllLlmPages, renderLlmsIndex } from "@/lib/llm-text";

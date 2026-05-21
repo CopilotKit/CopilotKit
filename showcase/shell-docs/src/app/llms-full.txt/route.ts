@@ -8,9 +8,15 @@
 // file back into per-page chunks; this matches the convention used by
 // Fumadocs's reference site and `llmstxt.org` examples.
 //
-// This endpoint is intentionally slow (renders every MDX page on each
-// request). The dev server is fine; in production behind a CDN the
-// `Cache-Control` header below lets the response sit on the edge.
+// This endpoint is intentionally slow (renders every MDX page through
+// `renderPageToLlmText` on each cold request). `revalidate = false`
+// caches the rendered response on the Next.js server side until the
+// next deploy — without that the dev server would be fine but every
+// origin hit in production (health check, monitoring probe, cold CDN
+// miss) would re-walk the entire docs tree. The `Cache-Control` header
+// below is the SEPARATE per-response CDN/browser hint with a shorter
+// max-age so external caches refresh more frequently than server-cached
+// responses.
 
 import { NextResponse } from "next/server";
 import { getAllLlmPages, renderPageToLlmText } from "@/lib/llm-text";

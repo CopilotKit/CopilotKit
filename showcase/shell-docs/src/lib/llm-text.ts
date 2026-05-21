@@ -147,7 +147,15 @@ export function getAllLlmPages(): LlmPage[] {
 
   // 2. Per-framework override pages — files under
   //    `content/docs/integrations/<folder>/` that don't have a
-  //    root-level equivalent. We emit them at `/<framework>/<topic>`.
+  //    root-level equivalent. We emit them at `/<framework>/<topic>`,
+  //    or at `/<framework>` for the folder's `index.mdx`.
+  //
+  //    Note: `walkMdx` strips trailing `/index` from yielded slugs, so
+  //    a folder's `index.mdx` arrives here as `slug === ""`. The previous
+  //    `if (!slug) continue` guard silently skipped framework root URLs
+  //    from `/llms.txt`, leaving LLM crawlers unable to find e.g.
+  //    `/langgraph-python`. Treat empty slug as the framework root and
+  //    emit it as the bare integration URL.
   const integrations = getIntegrations();
   for (const integration of integrations) {
     if (integration.docs_mode === "hidden") continue;
@@ -155,17 +163,15 @@ export function getAllLlmPages(): LlmPage[] {
     const integrationDir = path.join(CONTENT_DIR, "integrations", folder);
     if (!fs.existsSync(integrationDir)) continue;
     for (const { slug, filePath } of walkMdx(integrationDir)) {
-      if (!slug) continue;
-      // Drop `index` so the framework root resolves to `/<framework>`.
-      const topic = slug === "index" ? "" : slug;
-      const url = topic ? `${integration.slug}/${topic}` : integration.slug;
+      const isRoot = !slug;
+      const url = isRoot ? integration.slug : `${integration.slug}/${slug}`;
       const meta = readMetaFromFile(filePath);
       push({
         url,
-        title: meta.title ?? topic ?? integration.name,
+        title: meta.title ?? (isRoot ? integration.name : slug),
         description: meta.description,
         filePath,
-        loadSlug: `integrations/${folder}/${slug}`,
+        loadSlug: `integrations/${folder}/${slug || "index"}`,
         framework: integration.slug,
       });
     }
@@ -212,7 +218,12 @@ function readMetaFromFile(absPath: string): {
       description:
         typeof data.description === "string" ? data.description : undefined,
     };
-  } catch {
+  } catch (err) {
+    // Log so an author whose page has malformed YAML / unreadable file
+    // can correlate "my page appears bare in /llms.txt" with the
+    // underlying cause. Empty meta is still returned so the rest of the
+    // index render keeps going.
+    console.error("[llm-text] failed to read meta", absPath, err);
     return {};
   }
 }
@@ -499,7 +510,12 @@ function readSource(page: LlmPage): string | null {
   ) {
     try {
       return fs.readFileSync(page.filePath, "utf-8");
-    } catch {
+    } catch (err) {
+      // Same rationale as `readMetaFromFile` — log so a missing body in
+      // `/llms-full.txt` can be traced back to the actual filesystem
+      // error rather than silently dropped via the `if (!body) continue`
+      // guard in the route handler.
+      console.error("[llm-text] failed to read source", page.filePath, err);
       return null;
     }
   }

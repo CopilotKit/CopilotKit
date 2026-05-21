@@ -4,7 +4,7 @@ import {
   AG_UI_CONTENT_DIR,
   REFERENCE_CONTENT_DIR,
 } from "@/lib/sitemap-helpers";
-import { CONTENT_DIR, loadDoc } from "@/lib/docs-render";
+import { loadDoc } from "@/lib/docs-render";
 import { getDocsFolder, getDocsMode, getIntegrations } from "@/lib/registry";
 import type { LlmPage } from "@/lib/llm-text";
 import { renderPageToLlmText } from "@/lib/llm-text";
@@ -168,11 +168,16 @@ function findExistingMdx(root: string, slug: string): string | null {
   const resolvedRoot = path.resolve(root);
   for (const cand of candidates) {
     const resolved = path.resolve(cand);
-    if (!resolved.startsWith(resolvedRoot + path.sep)) continue;
+    if (!resolved.startsWith(resolvedRoot + path.sep)) {
+      console.warn(
+        "[llms-mdx] rejecting candidate outside content root",
+        cand,
+        "root:",
+        root,
+      );
+      continue;
+    }
     if (fs.existsSync(resolved)) return resolved;
   }
-  // Also fall back to CONTENT_DIR scope so we don't accidentally serve
-  // outside it from a typo'd slug.
-  void CONTENT_DIR;
   return null;
 }
