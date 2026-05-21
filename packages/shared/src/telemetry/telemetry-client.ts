@@ -2,9 +2,7 @@ import { Analytics } from "@segment/analytics-node";
 import type { AnalyticsEvents } from "./events";
 import { flattenObject } from "./utils";
 import { v4 as uuidv4 } from "uuid";
-import lambdaClient, {
-  warnIfLicenseTokenLacksTelemetryId,
-} from "./lambda-client";
+import lambdaClient, { parseTelemetryIdFromLicense } from "./lambda-client";
 
 /**
  * Checks if telemetry is disabled via environment variables.
@@ -32,12 +30,18 @@ export class TelemetryClient {
   // client decodes its payload to extract telemetry_id. Customer API
   // keys are NOT used here — they flow only into Segment.
   private licenseToken: string | null = null;
+  // Parsed telemetry_id from the license-token JWT payload. Cached at
+  // setLicenseToken time so `capture()` can branch on identified vs
+  // anonymous without re-parsing per event. Null when the token is
+  // absent or yielded no telemetry_id.
+  private telemetryId: string | null = null;
   packageName: string;
   packageVersion: string;
   private telemetryDisabled: boolean = false;
-  // Sample rate gates the Segment path only. The telemetry-sink Lambda
-  // handles sampling for the Scarf / Reo / future-vendor fan-out
-  // server-side, so the Lambda call always fires (subject to telemetryDisabled).
+  // Client-side sampling rate for anonymous events. Identified events
+  // (those whose license token yielded a telemetry_id) bypass the gate
+  // entirely. Applied uniformly to both the lambda sink and Segment —
+  // one dice roll per capture, both sinks see the same decision.
   private sampleRate: number = 0.05;
   private anonymousId = `anon_${uuidv4()}`;
 
@@ -92,6 +96,14 @@ export class TelemetryClient {
       return;
     }
 
+    // Anonymous callers (no telemetry_id) are gated by sampleRate.
+    // Identified callers (license token with telemetry_id) always send —
+    // the volume is bounded by paying-customer count and full fidelity
+    // per identified customer is worth the marginal cost.
+    if (!this.telemetryId && !this.shouldSendEvent()) {
+      return;
+    }
+
     const flattenedProperties = flattenObject(properties);
     const propertiesWithGlobal = {
       ...this.globalProperties,
@@ -107,9 +119,6 @@ export class TelemetryClient {
         {} as Record<string, any>,
       );
 
-    // Always send to the telemetry-sink Lambda — sampling happens
-    // server-side. The Lambda fans out to Scarf, Reo, and any future
-    // vendor sinks.
     await lambdaClient.send({
       event,
       properties: flattenedProperties,
@@ -119,9 +128,7 @@ export class TelemetryClient {
       licenseToken: this.licenseToken ?? undefined,
     });
 
-    // Segment path retained for CopilotCloud-specific user analytics that
-    // pre-date the Lambda. Keeps its existing 5% client-side sampling.
-    if (this.shouldSendEvent() && this.segment) {
+    if (this.segment) {
       this.segment.track({
         anonymousId: this.anonymousId,
         event,
@@ -154,7 +161,15 @@ export class TelemetryClient {
   // travels, in the X-CopilotKit-Telemetry-Id header set by lambda-client.
   setLicenseToken(licenseToken: string) {
     this.licenseToken = licenseToken;
-    warnIfLicenseTokenLacksTelemetryId(licenseToken);
+    this.telemetryId = parseTelemetryIdFromLicense(licenseToken);
+    if (!this.telemetryId) {
+      // Smoke signal during the issuer rollout: a token was provided
+      // but no telemetry_id came back. Surface it once at configuration
+      // time rather than silently degrading to anonymous on every send.
+      console.warn(
+        "[CopilotKit] License token did not yield a telemetry_id; telemetry events will be sent anonymously.",
+      );
+    }
   }
 
   private setSampleRate(sampleRate: number | undefined) {

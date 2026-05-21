@@ -51,27 +51,51 @@ describe("v1 TelemetryClient", () => {
     "cloud.api_key_provided": false,
   } as const;
 
-  test("capture always sends to the lambda sink, regardless of segment sample rate", async () => {
-    // Math.random=0.99 would sample out segment's 5% gate — lambda must still fire.
-    vi.spyOn(Math, "random").mockReturnValue(0.99);
-    const client = makeClient({ sampleRate: 0.05 });
-
-    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
-
-    expect(lambdaSpy).toHaveBeenCalledTimes(1);
-    expect(segmentTrackMock).not.toHaveBeenCalled();
-  });
-
-  test("capture sends to segment when sampled in", async () => {
+  test("capture sends to both sinks when sampled in (anonymous, one decision gates both)", async () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const client = makeClient({ sampleRate: 0.05 });
 
     await client.capture("oss.runtime.instance_created", baseInstanceEvent);
 
+    expect(lambdaSpy).toHaveBeenCalledTimes(1);
     expect(segmentTrackMock).toHaveBeenCalledTimes(1);
     expect(segmentTrackMock.mock.calls[0][0]).toMatchObject({
       event: "oss.runtime.instance_created",
     });
+  });
+
+  test("capture skips both sinks when anonymous and sampled out", async () => {
+    // Math.random=0.99 vs sampleRate=0.05 — anonymous caller is gated out;
+    // neither sink should fire under the new one-decision-both-sinks model.
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const client = makeClient({ sampleRate: 0.05 });
+
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    expect(lambdaSpy).not.toHaveBeenCalled();
+    expect(segmentTrackMock).not.toHaveBeenCalled();
+  });
+
+  test("identified callers bypass the sample gate (lambda + segment fire even when Math.random would fail)", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const client = makeClient({ sampleRate: 0.05 });
+    client.setLicenseToken(jwtWith({ telemetry_id: "abc-123" }));
+
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    expect(lambdaSpy).toHaveBeenCalledTimes(1);
+    expect(segmentTrackMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("identified callers send to both sinks on every capture", async () => {
+    const client = makeClient({ sampleRate: 0.05 });
+    client.setLicenseToken(jwtWith({ telemetry_id: "abc-123" }));
+
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    expect(lambdaSpy).toHaveBeenCalledTimes(2);
+    expect(segmentTrackMock).toHaveBeenCalledTimes(2);
   });
 
   test("capture short-circuits both sinks when telemetryDisabled is true", async () => {
@@ -95,6 +119,7 @@ describe("v1 TelemetryClient", () => {
   });
 
   test("capture sends licenseToken=undefined when setLicenseToken was never called", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
     const client = makeClient();
 
     await client.capture("oss.runtime.instance_created", baseInstanceEvent);
