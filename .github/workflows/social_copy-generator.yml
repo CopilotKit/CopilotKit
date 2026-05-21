@@ -176,6 +176,10 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Remove repository Claude settings
+        if: steps.verify.outputs.should_run == 'true'
+        run: rm -f .claude/settings.json .claude/settings.local.json
+
       - name: Get PR diff
         if: steps.verify.outputs.should_run == 'true'
         id: diff
@@ -203,10 +207,6 @@ jobs:
       - name: Install Claude Code
         if: steps.verify.outputs.should_run == 'true'
         run: npm install -g @anthropic-ai/claude-code
-
-      - name: Remove untrusted Claude settings
-        if: steps.verify.outputs.should_run == 'true'
-        run: rm -f .claude/settings.json
 
       - name: Write prompt file
         if: steps.verify.outputs.should_run == 'true'
