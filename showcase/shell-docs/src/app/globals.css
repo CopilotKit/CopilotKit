@@ -34,12 +34,7 @@
 }
 @media (min-width: 768px) {
   :root {
-    --fd-nav-height: 80px;
-  }
-}
-@media (min-width: 1280px) {
-  :root {
-    --fd-nav-height: 104px;
+    --fd-nav-height: 88px;
   }
 }
 
@@ -264,16 +259,16 @@ figure.shiki > div:first-child[class*="border-b"] {
      * full content height (3000px+) rather than the visible column.
      * Use a viewport-bound calc that subtracts the chrome instead. */
     --fd-docs-height: calc(
-      100dvh - var(--fd-banner-height, 0px) - 80px - 2.25rem
+      100dvh - var(--fd-banner-height, 0px) - 68px - 2.25rem
     ) !important;
   }
 }
 
-/* At xl+, BrandNav switches from h-[80px] to h-[104px]. */
+/* At xl+, BrandNav switches from h-[68px] to h-[88px]. */
 @media (min-width: 1280px) {
   #nd-docs-layout {
     --fd-docs-height: calc(
-      100dvh - var(--fd-banner-height, 0px) - 104px - 2.25rem
+      100dvh - var(--fd-banner-height, 0px) - 88px - 2.25rem
     ) !important;
   }
 }

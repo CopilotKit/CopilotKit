@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/popover";
 import { buttonVariants } from "@/components/ui/button";
 import { usePathname } from "fumadocs-core/framework";
-import { usePostHog } from "posthog-js/react";
 import ClaudeIcon from "@/components/icons/claude";
 import ClaudeCodeIcon from "@/components/icons/claude-code";
 import CodexIcon from "@/components/icons/codex";
@@ -76,8 +75,6 @@ export function MarkdownCopyButton({
   markdownUrl: string;
 }) {
   const [isLoading, setLoading] = useState(false);
-  const pathname = usePathname();
-  const posthog = usePostHog();
   const [checked, onClick] = useCopyButton(async () => {
     // Single code path for both cache-hit and cache-miss so the loader
     // state, error handling, and clipboard API stay consistent. The
@@ -89,17 +86,6 @@ export function MarkdownCopyButton({
     try {
       const body = await fetchMarkdown(markdownUrl);
       await navigator.clipboard.writeText(body);
-      // Fire a dedicated event for the "Copy Markdown" affordance so
-      // analytics can distinguish page-content copies from the global
-      // CLI-command tracker (`cli_command_copied` in
-      // `lib/track-command-copy.ts`), which intercepts every clipboard
-      // write at the navigator level and classifies anything that
-      // doesn't match an install command as `code` — not meaningful
-      // for the new docs-as-context surface.
-      posthog?.capture("markdown_copied", {
-        path: pathname,
-        markdown_url: markdownUrl,
-      });
     } catch (err) {
       // Log AND re-throw. The throw is load-bearing: Fumadocs's
       // `useCopyButton` runs `Promise.resolve(callback()).then(setChecked(true))`
@@ -165,7 +151,6 @@ export function ViewOptionsPopover({
   githubUrl?: string;
 }) {
   const pathname = usePathname();
-  const posthog = usePostHog();
   const items = useMemo(() => {
     // Build the absolute URL deterministically from `getClientBaseUrl()`
     // so SSR and the first client render agree. The previous
@@ -181,7 +166,6 @@ export function ViewOptionsPopover({
     return [
       githubUrl && {
         title: "Open in GitHub",
-        target: "github",
         href: githubUrl,
         icon: (
           <svg fill="currentColor" role="img" viewBox="0 0 24 24">
@@ -192,13 +176,11 @@ export function ViewOptionsPopover({
       },
       markdownUrl && {
         title: "View as Markdown",
-        target: "view-as-markdown",
         href: markdownUrl,
         icon: <TextIcon />,
       },
       {
         title: "Open in Windsurf",
-        target: "windsurf",
         href: `windsurf://cascade/newChat?${new URLSearchParams({
           prompt: q,
         })}`,
@@ -206,7 +188,6 @@ export function ViewOptionsPopover({
       },
       {
         title: "Open in Claude Code",
-        target: "claude-code",
         href: `claude-cli://open?${new URLSearchParams({
           q,
         })}`,
@@ -214,7 +195,6 @@ export function ViewOptionsPopover({
       },
       {
         title: "Open in Codex",
-        target: "codex",
         href: `https://chatgpt.com/codex?${new URLSearchParams({
           prompt: q,
         })}`,
@@ -222,7 +202,6 @@ export function ViewOptionsPopover({
       },
       {
         title: "Open in ChatGPT",
-        target: "chatgpt",
         href: `https://chatgpt.com/?${new URLSearchParams({
           hints: "search",
           q,
@@ -241,7 +220,6 @@ export function ViewOptionsPopover({
       },
       {
         title: "Open in Claude",
-        target: "claude",
         href: `https://claude.ai/new?${new URLSearchParams({
           q,
         })}`,
@@ -249,7 +227,6 @@ export function ViewOptionsPopover({
       },
       {
         title: "Open in Cursor",
-        target: "cursor",
         icon: (
           <svg
             fill="currentColor"
@@ -291,18 +268,6 @@ export function ViewOptionsPopover({
             href={item.href}
             rel="noreferrer noopener"
             target="_blank"
-            // Fire a PostHog event keyed by `target` (windsurf, claude,
-            // chatgpt, codex, etc.) so the analytics dashboard can
-            // attribute LLM-routing intent to specific docs pages. The
-            // capture runs synchronously before navigation; PostHog
-            // buffers locally and flushes async, so the new tab opens
-            // without waiting on the network.
-            onClick={() =>
-              posthog?.capture("open_in_llm_clicked", {
-                target: item.target,
-                path: pathname,
-              })
-            }
             className="text-sm p-2 rounded-lg inline-flex items-center gap-2 hover:text-fd-accent-foreground hover:bg-fd-accent [&_svg]:size-4"
           >
             {item.icon}
