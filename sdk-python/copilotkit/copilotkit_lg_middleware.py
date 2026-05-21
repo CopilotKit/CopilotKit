@@ -27,7 +27,27 @@ from langchain.agents.middleware import (
 )
 from langgraph.runtime import Runtime
 
+from .header_propagation import install_httpx_hook
 from .langgraph import CopilotKitProperties
+
+# Track which httpx clients already have the header-propagation hook installed
+# (by object id) so we never double-install on repeated model calls.
+_hooked_clients: set[int] = set()
+
+
+def _ensure_httpx_hook(model: Any) -> None:
+    """Install the header-propagation httpx hook on a LangChain chat model's
+    underlying HTTP client(s), if present.  No-op for models that don't expose
+    an httpx transport (e.g. non-OpenAI/Anthropic providers).
+    """
+    for attr in ("client", "async_client"):
+        client = getattr(model, attr, None)
+        if client is None:
+            continue
+        cid = id(client)
+        if cid not in _hooked_clients:
+            install_httpx_hook(client)
+            _hooked_clients.add(cid)
 
 
 class StateSchema(AgentState):
@@ -152,6 +172,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         request: ModelRequest,
         handler: Callable[[ModelRequest], ModelResponse],
     ) -> ModelResponse:
+        _ensure_httpx_hook(request.model)
         request = self._apply_state_note(request)
         frontend_tools = request.state.get("copilotkit", {}).get("actions", [])
 
@@ -340,6 +361,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         request: ModelRequest,
         handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
     ) -> ModelResponse:
+        _ensure_httpx_hook(request.model)
         self._fix_messages_for_bedrock(request.messages)
         request = self._apply_state_note(request)
 
