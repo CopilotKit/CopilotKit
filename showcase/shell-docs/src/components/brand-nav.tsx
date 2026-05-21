@@ -3,31 +3,32 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
+import { Lightbulb } from "lucide-react";
 import { SearchTrigger } from "./search-trigger";
 import { CopilotKitMark } from "./copilotkit-mark";
 import RocketIcon from "./icons/rocket";
 import ConsoleIcon from "./icons/console";
-import CloudIcon from "./icons/cloud";
 import ExternalLinkIcon from "./icons/external-link";
 
-// Cloud sign-up CTA destination. UTM params let marketing attribute
-// navbar-driven sign-ups distinctly from in-content SignupLink clicks.
-const CLOUD_CTA_HREF =
+// Enterprise Intelligence Platform sign-up CTA. UTM params let marketing
+// attribute navbar-driven sign-ups distinctly from in-content SignupLink
+// and OpsPlatformCTA clicks. Exported so MobileTopNav reuses the same URL.
+export const INTELLIGENCE_CTA_HREF =
   "https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=navbar";
 
-// LEFT cluster — Docs / Reference / Free Developer Access. Visual pattern
-// (icon-next-to-label) mirrors canonical.
+export const TALK_TO_ENGINEER_HREF =
+  "https://copilotkit.ai/talk-to-an-engineer";
+
+// LEFT cluster — Docs / Reference / Intelligence sign-up. Visual pattern
+// (icon-next-to-label) mirrors canonical. The third slot label matches the
+// in-content OpsPlatformCTA default ("Get Intelligence free") so the
+// conversion path reads consistently from navbar to body to footer.
 type LeftLink = {
   href: string;
   label: string;
   icon: React.ReactNode;
   target?: "_blank" | "_self";
   showExternalLinkIcon?: boolean;
-  // Free Developer Access only renders at ≥1100px (same breakpoint as the
-  // Talk-to-Engineer pill). Below that, the navbar is too crowded; the
-  // in-content `<SignupLink>` components on quickstart and feature pages
-  // carry the conversion path.
-  hideAtNarrow?: boolean;
 };
 
 const LEFT_LINKS: LeftLink[] = [
@@ -42,12 +43,11 @@ const LEFT_LINKS: LeftLink[] = [
     href: "/reference",
   },
   {
-    icon: <CloudIcon className="text-[var(--text-secondary)]" />,
-    label: "Free Developer Access",
-    href: CLOUD_CTA_HREF,
+    icon: <Lightbulb className="w-5 h-5 text-[var(--text-secondary)]" />,
+    label: "Get Intelligence free",
+    href: INTELLIGENCE_CTA_HREF,
     target: "_blank",
     showExternalLinkIcon: true,
-    hideAtNarrow: true,
   },
 ];
 
@@ -69,7 +69,7 @@ export function BrandNav(_props: BrandNavProps = {}) {
 
   const handleTalkToEngineersClick = () => {
     posthog?.capture("talk_to_us_clicked", { location: "docs_nav" });
-    window.location.href = "https://copilotkit.ai/talk-to-an-engineer";
+    window.location.href = TALK_TO_ENGINEER_HREF;
   };
 
   const handleFreeDeveloperAccessClick = () => {
@@ -103,17 +103,10 @@ export function BrandNav(_props: BrandNavProps = {}) {
             </Link>
             <ul className="hidden gap-6 items-center h-full md:flex me-auto">
               {LEFT_LINKS.map((link) => {
-                const hideIconAtNarrow =
-                  link.label === "Docs" || link.label === "Reference";
                 const isActive = activeRoute === link.href;
-                const isFreeDevAccess = link.label === "Free Developer Access";
+                const isFreeDevAccess = link.label === "Get Intelligence free";
                 return (
-                  <li
-                    key={link.href}
-                    className={`relative h-full group ${
-                      link.hideAtNarrow ? "[@media(width<1100px)]:hidden" : ""
-                    }`}
-                  >
+                  <li key={link.href} className="relative h-full group">
                     <Link
                       href={link.href}
                       target={link.target}
@@ -127,13 +120,7 @@ export function BrandNav(_props: BrandNavProps = {}) {
                       } hover:opacity-100 transition-opacity duration-300`}
                     >
                       <span className="flex gap-2 items-center h-full text-[var(--text-secondary)]">
-                        <span
-                          className={
-                            hideIconAtNarrow
-                              ? "[@media(width<808px)]:hidden"
-                              : ""
-                          }
-                        >
+                        <span className="[@media(width<808px)]:hidden">
                           {link.icon}
                         </span>
                         <span className="text-sm font-medium whitespace-nowrap">
