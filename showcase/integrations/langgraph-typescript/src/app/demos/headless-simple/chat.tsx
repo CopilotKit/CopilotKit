@@ -40,7 +40,14 @@ export function Chat() {
       content: trimmed,
     });
     setInput("");
-    void copilotkit.runAgent({ agent }).catch(() => {});
+    void copilotkit.runAgent({ agent }).catch((err) => {
+      // The Headless Simple demo is the canonical "two hooks, your
+      // design system" example users copy-paste as a starting point.
+      // Silently swallowing errors here would model broken practice;
+      // log so a network failure / runtime error / transport disconnect
+      // surfaces in the console for the developer.
+      console.error("[headless-simple] runAgent failed", err);
+    });
   };
   // @endregion[use-agent-simple]
 

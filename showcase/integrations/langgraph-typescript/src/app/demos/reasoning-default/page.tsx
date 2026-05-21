@@ -8,7 +8,9 @@
 // rendered by the built-in `CopilotChatReasoningMessage` component
 // (Thinking… / Thought for X header with an expandable content region).
 //
-// Both demos share the same backend (`reasoning_agent` graph) and the
+// Both demos share the same backend (`agentic-chat-reasoning` graph —
+// the route map in src/app/api/copilotkit/route.ts points both
+// "reasoning-default" and "reasoning-custom" at this graph) and the
 // same runtime URL (/api/copilotkit). The only difference is whether the
 // `messageView.reasoningMessage` slot is overridden.
 
