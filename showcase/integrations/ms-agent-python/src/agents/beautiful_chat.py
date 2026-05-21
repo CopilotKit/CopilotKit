@@ -382,7 +382,9 @@ class BeautifulChatFrameworkAgent(AgentFrameworkAgent):
             yield event
 
 
-def create_beautiful_chat_agent(chat_client: BaseChatClient) -> BeautifulChatFrameworkAgent:
+def create_beautiful_chat_agent(
+    chat_client: BaseChatClient,
+) -> BeautifulChatFrameworkAgent:
     """Instantiate the flagship Beautiful Chat demo agent."""
     base_agent = Agent(
         client=chat_client,
