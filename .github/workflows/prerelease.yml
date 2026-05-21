@@ -109,7 +109,7 @@ jobs:
 
       - name: Publish prerelease
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ''
           INPUT_SCOPE: ${{ inputs.scope }}
           INPUT_SUFFIX: ${{ inputs.suffix }}
           INPUT_DRY_RUN: ${{ inputs.dry_run }}

@@ -10,9 +10,11 @@
  * This script receives pre-built artifacts and only performs the publish step.
  *
  * Env vars:
- *   NPM_TOKEN        — npm auth token
  *   NOTION_API_KEY    — for reading edited release notes from Notion (optional)
  *   GITHUB_OUTPUT     — CI output file
+ *
+ * Auth: Uses npm OIDC trusted publishers (id-token: write) via npx npm@11.
+ * No NPM_TOKEN needed — NODE_AUTH_TOKEN must be empty to avoid blocking OIDC.
  *
  * Usage: tsx scripts/release/publish-release.ts --scope <monorepo|angular>
  */
@@ -147,13 +149,18 @@ async function main() {
   // We intentionally do NOT rebuild here to keep NPM_TOKEN out of the
   // build process tree.
 
-  // Publish each package in scope
+  // Publish each package in scope.
+  // Uses pnpm pack (workspace-aware) + npx npm@11 publish (OIDC-aware).
+  // npm 11 uses GitHub Actions OIDC tokens for auth when id-token: write
+  // is granted, eliminating the need for long-lived NPM_TOKEN secrets.
   console.log("\nPublishing packages...");
   for (const p of getPackagesForScope(scope)) {
     console.log(`  Publishing ${p.name}@${version}...`);
+    run("pnpm", ["pack"], { cwd: p.dir });
+    const tarball = `${p.name.replace("@", "").replace("/", "-")}-${version}.tgz`;
     run(
-      "pnpm",
-      ["publish", "--no-git-checks", "--tag", "latest", "--access", "public"],
+      "npx",
+      ["--yes", "npm@11.15.0", "publish", tarball, "--tag", "latest", "--access", "public"],
       { cwd: p.dir },
     );
   }
