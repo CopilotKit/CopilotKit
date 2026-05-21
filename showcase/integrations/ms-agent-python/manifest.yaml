@@ -31,6 +31,8 @@ features:
   - chat-customization-css
   - headless-simple
   - headless-complete
+  - reasoning-custom
+  - reasoning-default
   - frontend-tools
   - frontend-tools-async
   - hitl
@@ -295,6 +297,28 @@ demos:
       - src/app/demos/headless-complete/hooks/use-frontend-components.ts
       - src/app/demos/headless-complete/hooks/use-headless-suggestions.ts
       - src/app/demos/headless-complete/attachments/use-attachments-config.ts
+      - src/app/api/copilotkit/route.ts
+  - id: reasoning-default
+    name: "Reasoning: Default"
+    description: Built-in CopilotChatReasoningMessage rendering with no slot override.
+    tags:
+      - chat-ui
+    route: /demos/reasoning-default
+    highlight:
+      - src/app/demos/reasoning-default/page.tsx
+      - src/app/demos/reasoning-default/suggestions.ts
+      - src/agents/reasoning_agent.py
+  - id: reasoning-custom
+    name: "Reasoning: Custom"
+    description: Visible reasoning/thinking chain alongside the final answer
+    tags:
+      - chat-ui
+    route: /demos/reasoning-custom
+    animated_preview_url:
+    highlight:
+      - src/app/demos/reasoning-custom/page.tsx
+      - src/app/demos/reasoning-custom/reasoning-block.tsx
+      - src/agents/reasoning_agent.py
       - src/app/api/copilotkit/route.ts
   - id: gen-ui-interrupt
     name: In-Chat HITL (useInterrupt — low-level primitive)
