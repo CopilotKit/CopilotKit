@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
+import { Lightbulb } from "lucide-react";
 import { SearchTrigger } from "./search-trigger";
 import { CopilotKitMark } from "./copilotkit-mark";
 import RocketIcon from "./icons/rocket";
 import ConsoleIcon from "./icons/console";
-import LightbulbIcon from "./icons/lightbulb";
 import ExternalLinkIcon from "./icons/external-link";
 
 // Enterprise Intelligence Platform sign-up CTA. UTM params let marketing
@@ -43,7 +43,7 @@ const LEFT_LINKS: LeftLink[] = [
     href: "/reference",
   },
   {
-    icon: <LightbulbIcon className="text-[var(--text-secondary)]" />,
+    icon: <Lightbulb className="w-5 h-5 text-[var(--text-secondary)]" />,
     label: "Get Intelligence free",
     href: INTELLIGENCE_CTA_HREF,
     target: "_blank",
