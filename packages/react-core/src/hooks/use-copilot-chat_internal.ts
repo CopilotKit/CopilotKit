@@ -612,7 +612,7 @@ export function useCopilotChatInternal({
     copilotkit,
     agent,
     agentId: resolvedAgentId,
-    threadId: existingConfig?.threadId ?? threadId,
+    threadId: resolvedThreadId,
   });
   const allMessages = agent?.messages ?? [];
   const resolvedMessages = useMemo(() => {
