@@ -14,6 +14,7 @@ entirely by the frontend.
 Mirrors the ms-agent-python ``interrupt_agent.py`` reference (Strategy B).
 """
 
+# @region[backend-interrupt-tool]
 from __future__ import annotations
 
 import json
@@ -57,6 +58,7 @@ SYSTEM_PROMPT = dedent("""
     the message persists.
 """).strip()
 # @endregion[backend-tool-call]
+# @endregion[backend-interrupt-tool]
 
 
 async def run_interrupt_agent(input_data: RunAgentInput) -> AsyncIterator[str]:

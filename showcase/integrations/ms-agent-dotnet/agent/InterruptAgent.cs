@@ -1,3 +1,4 @@
+// @region[backend-interrupt-tool]
 using System.ComponentModel;
 using System.Text.Json;
 using Microsoft.Agents.AI;
@@ -124,3 +125,4 @@ user cancelled.",
         });
     }
 }
+// @endregion[backend-interrupt-tool]

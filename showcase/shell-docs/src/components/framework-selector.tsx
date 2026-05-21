@@ -12,6 +12,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import { useFramework } from "./framework-provider";
 import { FrameworkLogo } from "./icons/framework-icons";
+import { compareByDisplayOrder } from "@/lib/framework-order";
 
 export interface FrameworkOption {
   slug: string;
@@ -175,22 +176,17 @@ export function FrameworkSelector({
     setOpen(false);
   }
 
-  // Group options by category while preserving the category order declared
-  // in the registry.
-  const grouped = new Map<string, FrameworkOption[]>();
-  for (const cat of categoryOrder) grouped.set(cat.id, []);
-  grouped.set("other", []);
-  for (const opt of options) {
-    // Sidebar variant lifts BIA out of its category bucket and renders
-    // it at the top of the dropdown — see render path below. Skip it
-    // here so it doesn't also appear under Popular.
-    if (isSidebar && opt.slug === "built-in-agent") continue;
-    const bucket = grouped.has(opt.category) ? opt.category : "other";
-    grouped.get(bucket)!.push(opt);
-  }
+  // Single flat list, ordered by the canonical display order. The
+  // category buckets ("Most Popular / Agent Frameworks / Enterprise /
+  // Emerging") used to live here but partners read them as a tier
+  // list — we now show every backend in one neutral list.
+  const flatOptions = options
+    .filter((opt) => !(isSidebar && opt.slug === "built-in-agent"))
+    .slice()
+    .sort((a, b) => compareByDisplayOrder(a.slug, b.slug));
 
   // BIA pinned at the top of the sidebar dropdown — only the sidebar
-  // variant (the topbar selector keeps the standard category layout).
+  // variant (the topbar selector renders the flat list inline).
   const pinnedBIA = isSidebar
     ? (options.find((o) => o.slug === "built-in-agent") ?? null)
     : null;
@@ -200,9 +196,9 @@ export function FrameworkSelector({
   // docs.copilotkit.ai reference: h-14 pill, lavender bg + accent border
   // when a framework is active, soft surface bg when nothing is picked.
   const sidebarBtnClasses = [
-    "w-full flex items-center gap-2 p-2 rounded-lg border h-14",
+    "w-full flex items-center gap-2 p-1.5 rounded-xl border h-12",
     "transition-colors cursor-pointer",
-    "text-sm font-medium text-[var(--text)]",
+    "text-[13px] font-medium text-[var(--text)]",
     current
       ? "bg-[var(--accent-light)] border-[var(--accent)] hover:border-[var(--accent)]"
       : "bg-[var(--bg-surface)]/60 border-[var(--border)] hover:border-[var(--accent)]",
@@ -224,7 +220,7 @@ export function FrameworkSelector({
         {isSidebar ? (
           <>
             <span
-              className={`flex justify-center items-center w-10 h-10 shrink-0 rounded-md ${
+              className={`flex justify-center items-center w-8 h-8 shrink-0 rounded-md ${
                 current
                   ? "bg-[var(--accent)]/25 dark:bg-white/10"
                   : "bg-[var(--bg-elevated)]"
@@ -235,27 +231,27 @@ export function FrameworkSelector({
                 <FrameworkLogo
                   slug={current.slug}
                   fallbackSrc={current.logo}
-                  size={20}
+                  size={16}
                   className="text-[var(--text)]"
                 />
               ) : (
-                <span className="w-3 h-3 rounded-full bg-[var(--accent)] opacity-70" />
+                <span className="w-2.5 h-2.5 rounded-full bg-[var(--accent)] opacity-70" />
               )}
             </span>
             <span className="flex-1 min-w-0 text-left">
               {current ? (
-                <span className="block truncate">{label}</span>
+                <span className="block truncate leading-tight">{label}</span>
               ) : (
-                <span className="block truncate text-[var(--text-muted)]">
+                <span className="block truncate leading-tight text-[var(--text-muted)]">
                   Pick a backend
                 </span>
               )}
-              <span className="block text-[10px] uppercase tracking-wider text-[var(--text-faint)]">
+              <span className="block text-[9px] uppercase tracking-wider text-[var(--text-faint)] leading-tight mt-0.5">
                 Agentic backend
               </span>
             </span>
             <svg
-              className="w-4 h-4 mr-1 shrink-0 text-[var(--text-muted)]"
+              className="w-3.5 h-3.5 mr-0.5 shrink-0 text-[var(--text-muted)]"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -311,68 +307,55 @@ export function FrameworkSelector({
           }
         >
           {pinnedBIA && (
-            <div className="mb-2">
-              <button
-                key={pinnedBIA.slug}
-                type="button"
-                onClick={() => selectFramework(pinnedBIA.slug)}
-                className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-colors cursor-pointer ${
-                  pinnedBIA.slug === effectiveFramework
-                    ? "bg-[var(--accent-light)] text-[var(--accent)]"
-                    : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
-                }`}
-              >
-                <FrameworkLogo
-                  slug={pinnedBIA.slug}
-                  fallbackSrc={pinnedBIA.logo}
-                  size={16}
-                  className="shrink-0"
-                />
-                <span className="flex-1 text-left truncate">
-                  {displayNameFor(pinnedBIA)}
-                </span>
-              </button>
-            </div>
+            <button
+              key={pinnedBIA.slug}
+              type="button"
+              onClick={() => selectFramework(pinnedBIA.slug)}
+              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-colors cursor-pointer ${
+                pinnedBIA.slug === effectiveFramework
+                  ? "bg-[var(--accent-light)] text-[var(--accent)]"
+                  : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
+              }`}
+            >
+              <FrameworkLogo
+                slug={pinnedBIA.slug}
+                fallbackSrc={pinnedBIA.logo}
+                size={16}
+                className="shrink-0"
+              />
+              <span className="flex-1 text-left truncate">
+                {displayNameFor(pinnedBIA)}
+              </span>
+            </button>
           )}
 
-          {[...grouped.entries()].map(([catId, opts]) => {
-            if (opts.length === 0) return null;
-            const catLabel =
-              categoryOrder.find((c) => c.id === catId)?.name ??
-              (catId === "other" ? "Other" : catId);
-            return (
-              <div key={catId} className="mb-2">
-                <div className="px-2 pt-2 pb-1 text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)]">
-                  {catLabel}
-                </div>
-                {opts.map((opt) => {
-                  const isActive = opt.slug === effectiveFramework;
-                  return (
-                    <button
-                      key={opt.slug}
-                      type="button"
-                      onClick={() => selectFramework(opt.slug)}
-                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-colors cursor-pointer ${
-                        isActive
-                          ? "bg-[var(--accent-light)] text-[var(--accent)]"
-                          : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
-                      }`}
-                    >
-                      <FrameworkLogo
-                        slug={opt.slug}
-                        fallbackSrc={opt.logo}
-                        size={16}
-                        className="shrink-0"
-                      />
-                      <span className="flex-1 text-left truncate">
-                        {displayNameFor(opt)}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            );
-          })}
+          <div>
+            {flatOptions.map((opt) => {
+              const isActive = opt.slug === effectiveFramework;
+              return (
+                <button
+                  key={opt.slug}
+                  type="button"
+                  onClick={() => selectFramework(opt.slug)}
+                  className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-colors cursor-pointer ${
+                    isActive
+                      ? "bg-[var(--accent-light)] text-[var(--accent)]"
+                      : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
+                  }`}
+                >
+                  <FrameworkLogo
+                    slug={opt.slug}
+                    fallbackSrc={opt.logo}
+                    size={16}
+                    className="shrink-0"
+                  />
+                  <span className="flex-1 text-left truncate">
+                    {displayNameFor(opt)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

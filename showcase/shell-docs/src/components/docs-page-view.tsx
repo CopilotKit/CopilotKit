@@ -12,19 +12,35 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
-import rehypeHighlight from "rehype-highlight";
-import { SidebarNav } from "@/components/sidebar-nav";
-import { SidebarLink } from "@/components/sidebar-link";
+import {
+  rehypeCode,
+  rehypeCodeDefaultOptions,
+} from "fumadocs-core/mdx-plugins";
+import {
+  DocsPage,
+  DocsBody,
+  DocsTitle,
+  DocsDescription,
+} from "fumadocs-ui/page";
+import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
+import {
+  MarkdownCopyButton,
+  ViewOptionsPopover,
+} from "@/components/ai/page-actions";
 import { Snippet } from "@/components/snippet";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
-import { DocsToc } from "@/components/docs-toc";
 import { Tabs as DocsTabs } from "@/components/docs-tabs";
 import { MdxCodeBlock } from "@/components/mdx-code-block";
+import { MdxFrameworkOverview } from "@/components/content/landing-pages/mdx-framework-overview";
+import type { MdxFrameworkOverviewProps } from "@/components/content/landing-pages/mdx-framework-overview";
+import { FrameworkSetup } from "@/lib/setup-concept";
 import { docsComponents } from "@/lib/mdx-registry";
-import { rehypeCodeMeta } from "@/lib/rehype-code-meta";
+import { transformerMeta } from "@/lib/rehype-code-meta";
 import { getIntegration, getTabDefault } from "@/lib/registry";
 import type { NavNode } from "@/lib/docs-render";
+import { navTreeToPageTree } from "@/lib/page-tree-bridge";
+import { tocHeadingsToFumadocs } from "@/lib/toc-bridge";
 import {
   buildBreadcrumbs,
   buildNavTree,
@@ -72,6 +88,25 @@ export interface DocsPageViewProps {
    * (or suppress them) based on its own state.
    */
   ContentWrapper?: React.ComponentType<{ children: React.ReactNode }>;
+}
+
+/**
+ * Compute the public GitHub URL for an MDX source file from its absolute
+ * filesystem path. `loadDoc()` returns an absolute path
+ * (`/Users/.../showcase/shell-docs/src/content/docs/...mdx`); the path
+ * GitHub serves is repo-relative starting from the first `showcase/`
+ * segment. Falls back to `null` (no link rendered upstream is not yet
+ * wired but caller passes string; treat as best-effort).
+ */
+function buildGitHubUrl(absFilePath: string): string {
+  const marker = "/showcase/";
+  const idx = absFilePath.indexOf(marker);
+  // If we can't find the marker, fall back to the repo root so the
+  // GitHub link is still well-formed even if it 404s — better than an
+  // anchor pointing to an absolute fs path.
+  const repoRelative =
+    idx >= 0 ? absFilePath.slice(idx + 1) : "showcase/shell-docs";
+  return `https://github.com/CopilotKit/CopilotKit/blob/main/${repoRelative}`;
 }
 
 export async function DocsPageView({
@@ -132,343 +167,345 @@ export async function DocsPageView({
     slugHrefPrefix,
   });
 
-  function renderNavItem(node: NavNode, depth: number = 0): React.ReactNode {
-    if (node.type === "section") {
-      // Nested sections (depth > 0) are inline subsection labels inside
-      // a parent group — small, no divider rule, no shouty banner. The
-      // top-level section banner already names the parent area, so a
-      // second full-size banner one level in reads as redundant.
-      if (depth > 0) {
-        return (
-          <div
-            key={`section-${node.title}`}
-            className="px-3 mt-4 mb-1 text-[11px] uppercase tracking-wide text-[var(--text-faint)]"
-          >
-            {node.title}
-          </div>
-        );
-      }
-      return (
-        <div
-          key={`section-${node.title}`}
-          className="flex items-center gap-2 mt-6 mb-3"
-        >
-          <span className="text-[15px] uppercase tracking-wide shrink-0 text-[var(--text-secondary)]">
-            {node.title}
-          </span>
-          <div className="flex-1 h-px bg-[var(--border)]" />
-        </div>
-      );
-    }
-    if (node.type === "page") {
-      const isActive = node.slug === slugPath;
-      const scope: "docs" | "framework" = slugHrefPrefix.startsWith("/docs")
-        ? "docs"
-        : "framework";
-      return (
-        <SidebarLink
-          key={node.slug}
-          slug={node.slug}
-          scope={scope}
-          fallbackHref={`${slugHrefPrefix}/${node.slug}`}
-          active={isActive}
-          className={`flex items-center h-10 px-3 text-sm rounded-lg shrink-0 transition-all duration-200 ${
-            isActive
-              ? "bg-[var(--bg-surface)] text-[var(--text)] shadow-sm dark:bg-[var(--bg-hover)] dark:shadow-none dark:ring-1 dark:ring-white/10"
-              : "text-[var(--text-muted)] hover:bg-[var(--bg-surface)]/60 hover:text-[var(--text)] dark:hover:bg-white/5"
-          }`}
-        >
-          {node.title}
-        </SidebarLink>
-      );
-    }
-    // Group: a labeled folder with nested children. When the group has
-    // a visible title, render its children with an indent + vertical
-    // guide line (border-l) — the tree-connector look from the
-    // canonical docs sidebar. Title-less wrapper groups (used to flatten
-    // a section's content) skip the indent.
-    const hasTitle = !!node.title;
-    return (
-      <div key={`group-${node.slug}`} className="mt-1">
-        {hasTitle && (
-          <div className="flex items-center h-10 px-3 text-sm font-medium text-[var(--text)] shrink-0">
-            {node.title}
-          </div>
-        )}
-        <div
-          className={
-            hasTitle
-              ? "ml-3 pl-3 border-l border-[var(--border-dim)] flex flex-col"
-              : "flex flex-col"
-          }
-        >
-          {node.children.map((child) => renderNavItem(child, depth + 1))}
-        </div>
-      </div>
-    );
-  }
+  // Bridge shell-docs's NavNode tree + headings into Fumadocs's shapes
+  // so DocsLayout (sidebar) and DocsPage (right-rail TOC) can render them.
+  const pageTree = navTreeToPageTree(tree, slugHrefPrefix);
+  const fumadocsToc = tocHeadingsToFumadocs(tocHeadings);
 
   return (
-    <>
-      {/* Canonical layout: sidebar is a flex sibling of the scrolling
-       * content wrapper. The parent <main> in app/layout.tsx supplies
-       * the horizontal flex row (and the page-bg margin around it),
-       * so we only own column geometry here. Inner nav scrolls when
-       * the tree exceeds available height; the framework selector
-       * stays pinned at the top of the column via its own sticky. */}
-      <SidebarNav className="hidden md:flex flex-col w-[260px] shrink-0 rounded-l-2xl backdrop-blur-lg border border-r-0 border-[var(--border)] bg-[var(--glass-background)] overflow-hidden px-3">
-        <SidebarFrameworkSelector />
-        <div className="mb-4" />
-        <div className="flex-1 min-h-0 overflow-y-auto pr-1">
-          {tree.map((node) => renderNavItem(node))}
-        </div>
-      </SidebarNav>
-
-      {/* The ONLY scroll container in the docs view (see globals.css
-       * `.docs-content-wrapper`). The right-rail TOC lives inside this
-       * wrapper so it sees the same near-white surface, sticks within
-       * this scroll context, and doesn't bleed onto the page-bg gray. */}
-      <div className="docs-content-wrapper flex">
-        {/* Padding + cap mirror canonical docs.copilotkit.ai's article
-         * column: `px-4 py-6 md:px-6 md:pt-8 xl:px-8 xl:pt-14` outside,
-         * `max-w-[900px] mx-auto` inside. mx-auto centers the column when
-         * the available area exceeds 900px so content sits between sidebar
-         * and TOC the same way it does on the canonical site, instead of
-         * left-anchored with a wide right gap. */}
-        <div className="flex-1 min-w-0 px-4 py-6 md:px-6 md:pt-8 xl:px-8 xl:pt-14">
-          <div className="max-w-[900px] mx-auto">
-            {/* Breadcrumb styling tracks canonical fumadocs PageBreadcrumb:
-             * text-sm with a ChevronRight separator, intermediate links
-             * muted, last segment in primary text + medium weight. */}
-            <nav className="flex items-center gap-1.5 text-sm text-[var(--text-muted)] mb-4 flex-wrap">
-              {breadcrumbs.map((crumb, i) => {
-                const isLast = i === breadcrumbs.length - 1;
-                const labelClass = `truncate ${isLast ? "text-[var(--text)] font-medium" : ""}`;
-                return (
-                  <React.Fragment key={i}>
-                    {i > 0 && (
-                      <ChevronRight
-                        className="size-3.5 shrink-0"
-                        aria-hidden="true"
-                      />
-                    )}
-                    {crumb.href ? (
-                      <Link
-                        href={crumb.href}
-                        className={`${labelClass} transition-opacity hover:opacity-80`}
-                      >
-                        {crumb.label}
-                      </Link>
-                    ) : (
-                      <span className={labelClass}>{crumb.label}</span>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </nav>
-
-            {/* Title + description spacing mirrors canonical: gap-5
-             * between the H1 and the description, then `mb-8` (32px)
-             * before the body. Canonical's first prose paragraph also
-             * uses mb-8 — anything bigger reads as a hole between the
-             * header block and the article. Title sizes scale from
-             * 32px to 40px at md+ to match docs.copilotkit.ai. */}
-            <div className="flex flex-col gap-5">
-              <h1 className="text-[32px] md:text-[40px] font-medium text-[var(--text)] leading-[1.2]">
-                {doc.fm.title}
-              </h1>
-              {doc.fm.description && (
-                <p className="text-lg text-[var(--text-muted)] mb-8 leading-relaxed">
-                  {doc.fm.description}
-                </p>
-              )}
-            </div>
-
-            {bannerSlot}
-
-            {!hideBody &&
-              (() => {
-                const body = (
-                  <div className="reference-content">
-                    <MDXRemote
-                      source={content}
-                      components={{
-                        ...docsComponents,
-                        // Wrap MDX-rendered <pre> blocks (triple-fenced code)
-                        // with the same figure chrome <Snippet> uses — copy
-                        // button always visible, file-path caption when the
-                        // fence carries `title="..."`. The rehypeCodeMeta
-                        // plugin (wired in `options.mdxOptions.rehypePlugins`
-                        // below) is what puts `data-title` / `data-language`
-                        // on the <pre> for this component to read.
-                        pre: MdxCodeBlock,
-                        Snippet: (props: Record<string, unknown>) => (
-                          <Snippet
-                            {...(props as Record<string, string | undefined>)}
-                            defaultFramework={defaultFramework}
-                            defaultCell={defaultCell}
-                          />
-                        ),
-                        WhenFrameworkHas: (props: Record<string, unknown>) => (
-                          <WhenFrameworkHas
-                            {...(props as {
-                              flag: "a2ui_pattern" | "interrupt_pattern";
-                              equals?: string;
-                              absent?: boolean;
-                              framework?: string;
-                              children?: React.ReactNode;
-                            })}
-                            defaultFramework={defaultFramework}
-                          />
-                        ),
-                        // MDX pages author in-page variant selectors as
-                        // `<Tabs groupId="language_langgraph_agent" default="Python">`.
-                        // When the URL scope is a specific variant (e.g.
-                        // `/langgraph-typescript/*`), pre-select the
-                        // matching tab instead of the author's hardcoded
-                        // default so the code visible on arrival matches
-                        // the URL the user followed. Slugs without a
-                        // mapping (or tabs whose groupId isn't listed in
-                        // TAB_DEFAULTS_BY_SLUG) fall through to the MDX
-                        // `default` and the component's first-label
-                        // fallback unchanged.
-                        Tabs: (props: {
-                          groupId?: string;
-                          default?: string;
-                          items?: string[];
-                          children?: React.ReactNode;
-                          persist?: boolean;
-                        }) => {
-                          const urlDefault = getTabDefault(
-                            frameworkOverride ?? null,
-                            props.groupId,
-                          );
-                          return (
-                            <DocsTabs
-                              {...props}
-                              default={urlDefault ?? props.default}
-                            >
-                              {props.children}
-                            </DocsTabs>
-                          );
-                        },
-                        InlineDemo: (props: Record<string, unknown>) => {
-                          const InlineDemoComp = docsComponents.InlineDemo;
-                          return (
-                            <InlineDemoComp
-                              {...(props as {
-                                integration?: string;
-                                demo?: string;
-                              })}
-                              integration={
-                                defaultFramework ??
-                                (props.integration as string | undefined)
-                              }
-                            />
-                          );
-                        },
-                        // Inject stable IDs on H2/H3 so the right-rail TOC's
-                        // #anchor links resolve. Slugify the child text with the
-                        // same algorithm used by extractHeadings() so IDs line up
-                        // with the TOC entries.
-                        // H2/H3 carry stable slug IDs (already used by the
-                        // right-rail TOC) and now also surface a hover-only
-                        // `#` anchor link for deep-linking, mirroring the
-                        // canonical fumadocs prose chrome.
-                        h2: ({
-                          children,
-                          ...rest
-                        }: React.HTMLAttributes<HTMLHeadingElement>) => {
-                          const id = slugify(childrenToText(children));
-                          return (
-                            <h2
-                              id={id}
-                              {...rest}
-                              className={`docs-heading group ${rest.className ?? ""}`}
-                            >
-                              {children}
-                              <a
-                                href={`#${id}`}
-                                aria-label="Link to this section"
-                                className="docs-heading-anchor"
-                              >
-                                #
-                              </a>
-                            </h2>
-                          );
-                        },
-                        h3: ({
-                          children,
-                          ...rest
-                        }: React.HTMLAttributes<HTMLHeadingElement>) => {
-                          const id = slugify(childrenToText(children));
-                          return (
-                            <h3
-                              id={id}
-                              {...rest}
-                              className={`docs-heading group ${rest.className ?? ""}`}
-                            >
-                              {children}
-                              <a
-                                href={`#${id}`}
-                                aria-label="Link to this section"
-                                className="docs-heading-anchor"
-                              >
-                                #
-                              </a>
-                            </h3>
-                          );
-                        },
-                        // When rendering under a framework-scoped route, rewrite
-                        // root-relative MDX links (/quickstart, /shared-state, …)
-                        // to the framework-scoped equivalent so clicks never land
-                        // on the unscoped page and trigger a RouterPivot redirect.
-                        ...(frameworkOverride && {
-                          a: ({
-                            href,
-                            children,
-                            ...rest
-                          }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
-                            const resolved =
-                              href?.startsWith("/") &&
-                              !href.startsWith(`/${frameworkOverride}/`)
-                                ? `/${frameworkOverride}${href}`
-                                : href;
-                            return (
-                              <Link href={resolved ?? "#"} {...rest}>
-                                {children}
-                              </Link>
-                            );
-                          },
-                        }),
-                      }}
-                      options={{
-                        mdxOptions: {
-                          remarkPlugins: [remarkGfm],
-                          // `rehypeCodeMeta` runs AFTER rehype-highlight so
-                          // it sees the `language-<name>` className the
-                          // highlighter pushes onto the <code> element, and
-                          // can surface both that and the original fence
-                          // metastring (`title="..."`) as data-attrs on the
-                          // <pre>. The MdxCodeBlock `pre` override below
-                          // reads those data-attrs to render a copy button
-                          // + file-path caption.
-                          rehypePlugins: [rehypeHighlight, rehypeCodeMeta],
-                        },
-                      }}
+    <ShellDocsLayout tree={pageTree} banner={<SidebarFrameworkSelector />}>
+      <DocsPage
+        toc={fumadocsToc}
+        breadcrumb={{ enabled: false }}
+        footer={{ enabled: false }}
+        tableOfContentPopover={{ enabled: false }}
+      >
+        <div className="docs-inner-content max-w-[900px] mx-auto px-4 md:px-6 pt-2 pb-6 md:pt-3 xl:pt-4">
+          {/* Breadcrumb styling tracks canonical fumadocs PageBreadcrumb:
+           * text-sm with a ChevronRight separator, intermediate links
+           * muted, last segment in primary text + medium weight. */}
+          <nav className="flex items-center gap-1.5 text-sm text-[var(--text-muted)] mb-4 flex-wrap">
+            {breadcrumbs.map((crumb, i) => {
+              const isLast = i === breadcrumbs.length - 1;
+              const labelClass = `truncate ${isLast ? "text-[var(--text)] font-medium" : ""}`;
+              return (
+                <React.Fragment key={i}>
+                  {i > 0 && (
+                    <ChevronRight
+                      className="size-3.5 shrink-0"
+                      aria-hidden="true"
                     />
-                  </div>
-                );
-                if (ContentWrapper) {
-                  return <ContentWrapper>{body}</ContentWrapper>;
-                }
-                return body;
-              })()}
-          </div>
-        </div>
+                  )}
+                  {crumb.href ? (
+                    <Link
+                      href={crumb.href}
+                      className={`${labelClass} transition-opacity hover:opacity-80`}
+                    >
+                      {crumb.label}
+                    </Link>
+                  ) : (
+                    <span className={labelClass}>{crumb.label}</span>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </nav>
 
-        <DocsToc headings={tocHeadings} />
-      </div>
-    </>
+          <DocsTitle className="text-[32px] md:text-[40px] font-medium leading-[1.2]">
+            {doc.fm.title}
+          </DocsTitle>
+          {doc.fm.description && (
+            <DocsDescription className="text-lg text-[var(--text-muted)] mt-5 leading-relaxed">
+              {doc.fm.description}
+            </DocsDescription>
+          )}
+
+          {/* Page actions (Copy Markdown / Open in <LLM>) — fumadocs's
+              upstream LLM page-actions feature. `markdownUrl` resolves
+              through the `/:path*.mdx` rewrite to the route handler at
+              `app/llms-mdx/[[...slug]]/route.ts`, which serves the raw
+              MDX via the same `loadDoc()` the page uses. The GitHub URL
+              is computed from `doc.filePath` (absolute fs path) by
+              slicing from the `/showcase/` segment. */}
+          {(() => {
+            // Markdown URL = the canonical page URL with `.mdx` appended.
+            // The Next.js rewrite in `next.config.ts` routes this to
+            // `/llms-mdx/[[...slug]]`, which re-runs the same framework-
+            // aware content resolution the page uses. Using the page URL
+            // (rather than `contentSlugPath`) keeps the "View as Markdown"
+            // link the user opens in a new tab visually aligned with the
+            // page they're reading.
+            const base = `${slugHrefPrefix || ""}/${slugPath}`
+              .replace(/\/+/g, "/")
+              .replace(/^\/+/, "/");
+            const markdownUrl = `${base.replace(/\/$/, "")}.mdx`;
+            return (
+              <div className="flex flex-row gap-2 items-center my-6">
+                <MarkdownCopyButton markdownUrl={markdownUrl} />
+                <ViewOptionsPopover
+                  markdownUrl={markdownUrl}
+                  githubUrl={buildGitHubUrl(doc.filePath)}
+                />
+              </div>
+            );
+          })()}
+
+          {/* Thin divider between the page-actions row and the page body
+              (banner / content). Visually separates the page metadata
+              chrome (title + page actions) from the page content
+              underneath. Uses the project's `--border` token so it tracks
+              the rest of the page chrome in light and dark modes. */}
+          <hr className="border-t border-[var(--border)] mt-2 mb-6" />
+
+          {bannerSlot}
+
+          {!hideBody &&
+            (() => {
+              const body = (
+                <DocsBody className="reference-content">
+                  <MDXRemote
+                    source={content}
+                    components={{
+                      ...docsComponents,
+                      // Wrap MDX-rendered <pre> blocks (triple-fenced code)
+                      // with the same figure chrome <Snippet> uses — copy
+                      // button always visible, file-path caption when the
+                      // fence carries `title="..."`. The `transformerMeta`
+                      // Shiki transformer (wired in `options.mdxOptions.rehypePlugins`
+                      // below) is what puts `data-title` / `data-language`
+                      // on the <pre> for this component to read.
+                      pre: MdxCodeBlock,
+                      Snippet: (props: Record<string, unknown>) => (
+                        <Snippet
+                          {...(props as Record<string, string | undefined>)}
+                          defaultFramework={defaultFramework}
+                          defaultCell={defaultCell}
+                        />
+                      ),
+                      WhenFrameworkHas: (props: Record<string, unknown>) => (
+                        <WhenFrameworkHas
+                          {...(props as {
+                            flag: "a2ui_pattern" | "interrupt_pattern";
+                            equals?: string;
+                            absent?: boolean;
+                            framework?: string;
+                            children?: React.ReactNode;
+                          })}
+                          defaultFramework={defaultFramework}
+                        />
+                      ),
+                      // MDX pages author in-page variant selectors as
+                      // `<Tabs groupId="language_langgraph_agent" default="Python">`.
+                      // When the URL scope is a specific variant (e.g.
+                      // `/langgraph-typescript/*`), pre-select the
+                      // matching tab instead of the author's hardcoded
+                      // default so the code visible on arrival matches
+                      // the URL the user followed. Slugs without a
+                      // mapping (or tabs whose groupId isn't listed in
+                      // TAB_DEFAULTS_BY_SLUG) fall through to the MDX
+                      // `default` and the component's first-label
+                      // fallback unchanged.
+                      Tabs: (props: {
+                        groupId?: string;
+                        default?: string;
+                        items?: string[];
+                        children?: React.ReactNode;
+                        persist?: boolean;
+                      }) => {
+                        const urlDefault = getTabDefault(
+                          frameworkOverride ?? null,
+                          props.groupId,
+                        );
+                        return (
+                          <DocsTabs
+                            {...props}
+                            default={urlDefault ?? props.default}
+                          >
+                            {props.children}
+                          </DocsTabs>
+                        );
+                      },
+                      InlineDemo: (props: Record<string, unknown>) => {
+                        const InlineDemoComp = docsComponents.InlineDemo;
+                        return (
+                          <InlineDemoComp
+                            {...(props as {
+                              integration?: string;
+                              demo?: string;
+                            })}
+                            integration={
+                              defaultFramework ??
+                              (props.integration as string | undefined)
+                            }
+                          />
+                        );
+                      },
+                      // Bind the URL framework slug into MdxFrameworkOverview
+                      // so its link rewriter has a target to rewrite TO. The
+                      // shared `integrations/<folder>/index.mdx` files
+                      // (langgraph/, microsoft-agent-framework/, crewai-flows/)
+                      // serve multiple URL variants — without this override the
+                      // adapter's empty-slug fallback would strip the embedded
+                      // framework prefix entirely (e.g. `/langgraph/quickstart`
+                      // → `/quickstart`).
+                      FrameworkOverview: (props: MdxFrameworkOverviewProps) => (
+                        <MdxFrameworkOverview
+                          {...props}
+                          currentFramework={
+                            frameworkOverride ?? props.currentFramework
+                          }
+                        />
+                      ),
+                      // Same closure pattern: thread the URL framework
+                      // slug into <FrameworkSetup concept="..." /> so it
+                      // can resolve the per-framework concept file.
+                      FrameworkSetup: (props: {
+                        concept: string;
+                        heading?: string | null;
+                        headingId?: string;
+                        currentFramework?: string;
+                      }) => (
+                        <FrameworkSetup
+                          {...props}
+                          currentFramework={
+                            frameworkOverride ?? props.currentFramework
+                          }
+                        />
+                      ),
+                      // Inject stable IDs on H2/H3 so the right-rail TOC's
+                      // #anchor links resolve. Slugify the child text with the
+                      // same algorithm used by extractHeadings() so IDs line up
+                      // with the TOC entries.
+                      // H2/H3 carry stable slug IDs (already used by the
+                      // right-rail TOC) and now also surface a hover-only
+                      // `#` anchor link for deep-linking, mirroring the
+                      // canonical fumadocs prose chrome.
+                      h2: ({
+                        children,
+                        ...rest
+                      }: React.HTMLAttributes<HTMLHeadingElement>) => {
+                        const id = slugify(childrenToText(children));
+                        // Spread rest BEFORE id/className so the computed
+                        // slug-id always wins over any MDX-supplied id.
+                        // Otherwise an authored `<h2 id="custom">` would
+                        // override the slugified id, breaking the TOC's
+                        // `href="#${id}"` and any inbound deep-links that
+                        // already rely on the slug.
+                        return (
+                          <h2
+                            {...rest}
+                            id={id}
+                            className={`docs-heading group ${rest.className ?? ""}`}
+                          >
+                            {children}
+                            <a
+                              href={`#${id}`}
+                              aria-label="Link to this section"
+                              className="docs-heading-anchor"
+                            >
+                              #
+                            </a>
+                          </h2>
+                        );
+                      },
+                      h3: ({
+                        children,
+                        ...rest
+                      }: React.HTMLAttributes<HTMLHeadingElement>) => {
+                        const id = slugify(childrenToText(children));
+                        // Spread rest BEFORE id/className — see h2 above for
+                        // rationale.
+                        return (
+                          <h3
+                            {...rest}
+                            id={id}
+                            className={`docs-heading group ${rest.className ?? ""}`}
+                          >
+                            {children}
+                            <a
+                              href={`#${id}`}
+                              aria-label="Link to this section"
+                              className="docs-heading-anchor"
+                            >
+                              #
+                            </a>
+                          </h3>
+                        );
+                      },
+                      // When rendering under a framework-scoped route, rewrite
+                      // root-relative MDX links (/quickstart, /shared-state, …)
+                      // to the framework-scoped equivalent so clicks never land
+                      // on the unscoped page and trigger a RouterPivot redirect.
+                      ...(frameworkOverride && {
+                        a: ({
+                          href,
+                          children,
+                          ...rest
+                        }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
+                          // Rewrite root-relative MDX links into the
+                          // framework scope EXCEPT when the link already
+                          // points at the framework root or its subtree.
+                          // Without the bare-root check, `[…](/built-in-agent)`
+                          // (no trailing slash) would rewrite to
+                          // `/built-in-agent/built-in-agent` and dead-end.
+                          // Also guard protocol-relative URLs (`//host/…`):
+                          // they pass startsWith("/") but must not be
+                          // treated as in-app paths.
+                          const isProtocolRelative =
+                            !!href && href.startsWith("//");
+                          const alreadyScoped =
+                            !!href &&
+                            (href === `/${frameworkOverride}` ||
+                              href.startsWith(`/${frameworkOverride}/`));
+                          const resolved =
+                            href?.startsWith("/") &&
+                            !isProtocolRelative &&
+                            !alreadyScoped
+                              ? `/${frameworkOverride}${href}`
+                              : href;
+                          return (
+                            <Link href={resolved ?? "#"} {...rest}>
+                              {children}
+                            </Link>
+                          );
+                        },
+                      }),
+                    }}
+                    options={{
+                      mdxOptions: {
+                        remarkPlugins: [remarkGfm],
+                        // Use Fumadocs's Shiki-based `rehypeCode` for
+                        // syntax highlighting. Our custom `transformerMeta`
+                        // surfaces the parsed fence `title="..."` and
+                        // resolved language as data-attrs on the <pre>
+                        // so MdxCodeBlock can render Fumadocs's CodeBlock
+                        // chrome with the file-path figcaption + copy
+                        // button.
+                        rehypePlugins: [
+                          [
+                            rehypeCode,
+                            {
+                              fallbackLanguage: "plaintext",
+                              transformers: [
+                                ...(rehypeCodeDefaultOptions.transformers ??
+                                  []),
+                                transformerMeta(),
+                              ],
+                            },
+                          ],
+                        ],
+                      },
+                    }}
+                  />
+                </DocsBody>
+              );
+              if (ContentWrapper) {
+                return <ContentWrapper>{body}</ContentWrapper>;
+              }
+              return body;
+            })()}
+        </div>
+      </DocsPage>
+    </ShellDocsLayout>
   );
 }

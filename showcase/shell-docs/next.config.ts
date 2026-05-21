@@ -54,6 +54,18 @@ if (!process.env.NEXT_PUBLIC_SHELL_URL) {
 }
 
 const nextConfig: NextConfig = {
+  images: {
+    // Asset CDN for framework intro-page media (banner videos, architecture
+    // diagrams, supported-feature thumbnails, framework icons). Hosts every
+    // image/video referenced by `src/data/frameworks/*.ts` and any future
+    // marketing surface that pulls from the shared CDN.
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "cdn.copilotkit.ai",
+      },
+    ],
+  },
   async rewrites() {
     return {
       beforeFiles: [
@@ -68,6 +80,19 @@ const nextConfig: NextConfig = {
           source: "/ingest/:path*",
           destination: "https://eu.i.posthog.com/:path*",
         },
+        // Fumadocs LLM page-actions feature: every docs page is also
+        // reachable as `<path>.mdx` so LLMCopyButton/ViewOptionsPopover
+        // (and external crawlers) can fetch the raw MDX source. The
+        // route handler at `app/llms-mdx/[[...slug]]/route.ts` reuses
+        // `loadDoc()` to resolve the same content tree the page uses.
+        {
+          source: "/:path*.mdx",
+          destination: "/llms-mdx/:path*",
+        },
+        {
+          source: "/:path*.md",
+          destination: "/llms-mdx/:path*",
+        },
       ],
       afterFiles: [],
       fallback: [],
@@ -75,6 +100,15 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      {
+        // Built-in agent is the default framework, so its overview page
+        // is the docs root. Avoid surfacing a redundant "Introduction"
+        // entry inside the built-in-agent sidebar by canonicalizing the
+        // bare /built-in-agent URL to the root overview.
+        source: "/built-in-agent",
+        destination: "/",
+        permanent: true,
+      },
       {
         source: "/frontend-actions",
         destination: "/frontend-tools",
@@ -100,9 +134,16 @@ const nextConfig: NextConfig = {
         destination: "/concepts/oss-vs-enterprise",
         permanent: true,
       },
+      // Quickstart needs a real backing page when hit without a stored
+      // framework. `SidebarLink` rewrites `/quickstart` → `/<framework>/quickstart`
+      // when a framework is selected; users who land here cold (or who
+      // explicitly picked the bare CopilotKit / Built-in Agent view)
+      // get the Built-in Agent quickstart by default. 308 keeps the
+      // sidebar's `/quickstart` href intact while always sending the
+      // user to a real guide.
       {
         source: "/quickstart",
-        destination: "/",
+        destination: "/built-in-agent/quickstart",
         permanent: true,
       },
 
@@ -485,6 +526,31 @@ const nextConfig: NextConfig = {
       {
         source: "/ag-ui-middleware",
         destination: "/agentic-protocols/ag-ui-middleware",
+        permanent: false,
+      },
+
+      // `/generative-ui/your-components/*` retired. The display-only
+      // page was a duplicate of `/generative-ui/tool-based` (same hook,
+      // same demo, same body); the interactive page duplicated the
+      // Human-in-the-Loop section. 302 while the new IA settles.
+      {
+        source: "/generative-ui/your-components/display-only",
+        destination: "/generative-ui/tool-based",
+        permanent: false,
+      },
+      {
+        source: "/:framework/generative-ui/your-components/display-only",
+        destination: "/:framework/generative-ui/tool-based",
+        permanent: false,
+      },
+      {
+        source: "/generative-ui/your-components/interactive",
+        destination: "/human-in-the-loop",
+        permanent: false,
+      },
+      {
+        source: "/:framework/generative-ui/your-components/interactive",
+        destination: "/:framework/human-in-the-loop",
         permanent: false,
       },
     ];

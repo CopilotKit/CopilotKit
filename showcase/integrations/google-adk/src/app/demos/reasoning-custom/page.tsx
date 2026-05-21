@@ -4,8 +4,11 @@
 //
 // Pairs with `reasoning-default` so users can compare default vs custom
 // reasoning rendering side by side. Both demos share the same backend
-// (`reasoning_agent` graph) and runtime URL (/api/copilotkit). This cell
-// overrides the `reasoningMessage` slot on the `messageView` slot with
+// (the `_thinking_chat` ADK agent built via `build_thinking_chat_agent`
+// — see `src/agents/registry.py:144-145` where both `reasoning-default`
+// and `reasoning-custom` resolve to `AgentSpec(_thinking_chat)`) and
+// the same runtime URL (/api/copilotkit). This cell overrides the
+// `reasoningMessage` slot on the `messageView` slot with
 // `ReasoningBlock` — a tagged amber banner that emphasizes the agent's
 // thinking chain.
 //
@@ -16,14 +19,12 @@
 // `CopilotChatReasoningMessage`). The slot override below is the public,
 // stable way to customize that output.
 
-import {
-  CopilotKit,
-  CopilotChat,
-  CopilotChatReasoningMessage,
-} from "@copilotkit/react-core/v2";
+import type { CopilotChatReasoningMessage } from "@copilotkit/react-core/v2";
+import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 import { ReasoningBlock } from "./reasoning-block";
 import { useReasoningCustomSuggestions } from "./suggestions";
 
+// @region[reasoning-block-render]
 const AGENT_ID = "reasoning-custom";
 
 export default function ReasoningCustomDemo() {
@@ -39,9 +40,6 @@ export default function ReasoningCustomDemo() {
 }
 
 function Chat() {
-  // Hooks that consume CopilotKit context (suggestions, agent, etc.) must
-  // run INSIDE the <CopilotKit> provider — otherwise the context is null
-  // and `.subscribe(...)` blows up at mount.
   useReasoningCustomSuggestions();
   return (
     <CopilotChat
@@ -54,3 +52,4 @@ function Chat() {
     />
   );
 }
+// @endregion[reasoning-block-render]

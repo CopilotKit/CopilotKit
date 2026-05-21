@@ -37,6 +37,7 @@ function DonutChart({
 
   const total = data.reduce((sum, d) => sum + (Number(d.value) || 0), 0);
 
+  // Calculate each slice's arc length and starting position
   let accumulated = 0;
   const slices = data.map((item, index) => {
     const val = Number(item.value) || 0;
@@ -48,6 +49,7 @@ function DonutChart({
       ...item,
       arc,
       gap: circumference - arc,
+      // Negative dashoffset shifts the dash forward (clockwise) to the correct position
       dashoffset: -startAt,
       color: CHART_COLORS[index % CHART_COLORS.length],
     };
@@ -60,6 +62,7 @@ function DonutChart({
       className="block mx-auto"
       style={{ maxWidth: size, transform: "scaleX(-1)" }}
     >
+      {/* Background ring */}
       <circle
         cx={center}
         cy={center}
@@ -68,6 +71,7 @@ function DonutChart({
         stroke="var(--secondary)"
         strokeWidth={strokeWidth}
       />
+      {/* Data slices */}
       {slices.map((slice, i) => (
         <circle
           key={i}

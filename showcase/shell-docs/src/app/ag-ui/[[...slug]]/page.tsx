@@ -6,13 +6,18 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
-import rehypeHighlight from "rehype-highlight";
+import {
+  rehypeCode,
+  rehypeCodeDefaultOptions,
+} from "fumadocs-core/mdx-plugins";
 import Link from "next/link";
-import { SidebarNav } from "@/components/sidebar-nav";
+import { ShellDocsLayout } from "@/components/shell-docs-layout";
+import { DocsPage, DocsBody, DocsTitle } from "fumadocs-ui/page";
+import type * as PageTree from "fumadocs-core/page-tree";
 import { MdxCodeBlock } from "@/components/mdx-code-block";
 import { docsComponents } from "@/lib/mdx-registry";
 import { stripLeadingImports } from "@/lib/docs-render";
-import { rehypeCodeMeta } from "@/lib/rehype-code-meta";
+import { transformerMeta } from "@/lib/rehype-code-meta";
 import { resolveWithinDir, safeReadFileSync } from "@/lib/safe-fs";
 import { getBaseUrl } from "@/lib/sitemap-helpers";
 
@@ -444,59 +449,87 @@ export default async function AgUiDocPage({
     notFound();
   }
 
+  // Convert AG-UI's tab > section > item structure into a Fumadocs
+  // PageTree. Tabs become top-level separators; sections become folders;
+  // items map to pages (recursively when they're groups).
+  function itemToNode(item: ResolvedNavItem): PageTree.Node {
+    if (item.kind === "page") {
+      return {
+        type: "page",
+        name: item.title,
+        url: `/ag-ui/${item.slug}`,
+      };
+    }
+    return {
+      type: "folder",
+      name: item.name,
+      defaultOpen: true,
+      children: item.children.map(itemToNode),
+    };
+  }
+  const pageTree: PageTree.Root = {
+    name: "AG-UI",
+    children: navTabs.flatMap((tab) => [
+      { type: "separator" as const, name: tab.tab },
+      ...tab.sections.flatMap((s) => [
+        {
+          type: "folder" as const,
+          name: s.section,
+          defaultOpen: true,
+          children: s.items.map(itemToNode),
+        },
+      ]),
+    ]),
+  };
+
   return (
-    <div className="flex h-full w-full">
-      {/* Sidebar */}
-      <SidebarNav className="w-[220px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
+    <ShellDocsLayout
+      tree={pageTree}
+      banner={
         <Link
           href="/ag-ui"
-          className="block text-xs font-mono uppercase tracking-widest text-[var(--violet)] mb-4"
+          className="block text-xs font-mono uppercase tracking-widest text-[var(--violet)]"
         >
           AG-UI Protocol
         </Link>
-        {navTabs.map((tab, i) => (
-          <div
-            key={tab.tab}
-            className={i > 0 ? "mt-6 pt-5 border-t border-[var(--border)]" : ""}
-          >
-            {tab.sections.map(({ section, items }) => (
-              <div key={section} className="mb-5">
-                <div className="text-[13px] font-semibold text-[var(--text)] mb-2">
-                  {section}
-                </div>
-                {items.map((item) => renderNavItem(item))}
-              </div>
-            ))}
-          </div>
-        ))}
-      </SidebarNav>
-
-      {/* Content — <main> is the full-width scroll container so the
-       * scrollbar lands at the viewport edge; content width is capped
-       * by the inner wrapper. */}
-      <main className="flex-1 overflow-y-auto">
+      }
+    >
+      <DocsPage
+        toc={[]}
+        tableOfContent={{ enabled: false }}
+        tableOfContentPopover={{ enabled: false }}
+        breadcrumb={{ enabled: false }}
+        footer={{ enabled: false }}
+      >
         <div className="max-w-3xl px-8 py-8">
-          <h1 className="text-2xl font-semibold text-[var(--text)] tracking-tight mb-6">
+          <DocsTitle className="text-2xl font-semibold tracking-tight mb-6">
             {title}
-          </h1>
-          <div className="reference-content">
+          </DocsTitle>
+          <DocsBody className="reference-content">
             <MDXRemote
               source={content}
               components={components}
               options={{
                 mdxOptions: {
                   remarkPlugins: [remarkGfm],
-                  // Order matters: rehypeCodeMeta runs after rehype-highlight
-                  // so it can read the `language-<name>` className the
-                  // highlighter pushed onto the `<code>` element and copy
-                  // the fence's `title="..."` meta onto the parent `<pre>`.
-                  rehypePlugins: [rehypeHighlight, rehypeCodeMeta],
+                  rehypePlugins: [
+                    [
+                      rehypeCode,
+                      {
+                        fallbackLanguage: "plaintext",
+                        transformers: [
+                          ...(rehypeCodeDefaultOptions.transformers ?? []),
+                          transformerMeta(),
+                        ],
+                      },
+                    ],
+                  ],
                 },
               }}
             />
-          </div>
+          </DocsBody>
         </div>
-      </main>
-    </div>
+      </DocsPage>
+    </ShellDocsLayout>
   );
 }

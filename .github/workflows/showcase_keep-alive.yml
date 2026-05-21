@@ -15,8 +15,13 @@ on:
     - cron: "*/5 * * * *"
   workflow_dispatch: {}
 
+permissions:
+  contents: read
+
 jobs:
   ping:
+    permissions:
+      contents: read
     name: Ping ${{ matrix.slug }}
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest

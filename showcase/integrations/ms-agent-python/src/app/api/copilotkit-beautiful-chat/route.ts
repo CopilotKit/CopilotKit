@@ -19,18 +19,24 @@ import { AbstractAgent, HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-function createBeautifulChatAgent() {
-  return new HttpAgent({ url: `${AGENT_URL}/beautiful-chat` });
-}
+// Single shared agent instance. Earlier this file created two independent
+// HttpAgent objects (one for "beautiful-chat", one for "default"); the chat
+// drove the "beautiful-chat" instance, the canvas read `useAgent()` which
+// resolved to "default", and the STATE_SNAPSHOT delivered by the chat run
+// never reached the canvas's agent.state. Sharing one instance fixes the
+// Task Manager pill — the canvas's `agent.state.todos` updates as soon as
+// the chat agent receives a STATE_SNAPSHOT from `manage_todos`.
+const beautifulChatAgent: AbstractAgent = new HttpAgent({
+  url: `${AGENT_URL}/beautiful-chat`,
+});
 
 const agents: Record<string, AbstractAgent> = {
   // The page's <CopilotKit agent="beautiful-chat"> resolves here.
-  "beautiful-chat": createBeautifulChatAgent(),
-  // Internal components (example-canvas, headless-chat) call `useAgent()`
-  // with no args, which defaults to agentId "default". Alias to the same
-  // agent so those component hooks resolve instead of throwing
-  // "Agent 'default' not found".
-  default: createBeautifulChatAgent(),
+  "beautiful-chat": beautifulChatAgent,
+  // Internal components (example-canvas) call `useAgent()` with no args,
+  // which defaults to agentId "default". Alias to the SAME instance so
+  // state pushed via the chat reaches the canvas.
+  default: beautifulChatAgent,
 };
 
 const runtime = new CopilotRuntime({

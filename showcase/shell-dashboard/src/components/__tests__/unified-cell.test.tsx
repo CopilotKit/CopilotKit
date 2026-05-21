@@ -10,6 +10,7 @@
  *   5. Hides badges when health overlay is not active
  *   6. Hides depth chip when depth overlay is not active
  */
+import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render } from "@testing-library/react";
 import { UnifiedCell } from "../unified-cell";
@@ -72,6 +73,16 @@ vi.mock("@/components/command-cell", () => ({
   CommandCell: vi.fn(({ ctx }: { ctx: CellContext }) => (
     <div data-testid="mock-command-cell">{ctx.demo.command}</div>
   )),
+}));
+
+vi.mock("@/components/link-preview", () => ({
+  LinkPreview: vi.fn(
+    ({ children, href }: { children: React.ReactNode; href: string }) => (
+      <span data-testid="mock-link-preview" data-href={href}>
+        {children}
+      </span>
+    ),
+  ),
 }));
 
 vi.mock("@/components/cell-pieces", () => ({

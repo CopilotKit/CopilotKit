@@ -25,7 +25,11 @@ import path from "path";
 import React from "react";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
-import rehypeHighlight from "rehype-highlight";
+import {
+  rehypeCode,
+  rehypeCodeDefaultOptions,
+} from "fumadocs-core/mdx-plugins";
+import { transformerMeta } from "./rehype-code-meta";
 import { inlineSnippets, convertTablesInJSX } from "./docs-render";
 import { resolveWithinDir } from "./safe-fs";
 
@@ -122,7 +126,18 @@ export async function PartialLoader({
       options={{
         mdxOptions: {
           remarkPlugins: [remarkGfm],
-          rehypePlugins: [rehypeHighlight],
+          rehypePlugins: [
+            [
+              rehypeCode,
+              {
+                fallbackLanguage: "plaintext",
+                transformers: [
+                  ...(rehypeCodeDefaultOptions.transformers ?? []),
+                  transformerMeta(),
+                ],
+              },
+            ],
+          ],
         },
       }}
     />

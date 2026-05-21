@@ -3,7 +3,7 @@
   "root": true,
   "pages": [
     "---Getting Started---",
-    "index", "quickstart", "coding-agents",
+    "index", "quickstart", "build-with-agents",
     "---Basics---",
     "prebuilt-components", "custom-look-and-feel", "programmatic-control",
     "---Generative UI---",

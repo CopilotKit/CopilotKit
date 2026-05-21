@@ -1,14 +1,12 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import {
   getIntegrations,
   getFeatureCategories,
   getFeature,
-  type Integration,
-  type Demo,
-  type FeatureCategory,
 } from "@/lib/registry";
+import type { Integration, Demo, FeatureCategory } from "@/lib/registry";
 import { CodeBlock } from "@/components/code-block";
 import demoContentData from "@/data/demo-content.json";
 
@@ -18,16 +16,45 @@ interface DemoContentFile {
   filename: string;
   language: string;
   content: string;
+  highlighted?: boolean;
+}
+
+interface DemoRegion {
+  file: string;
+  startLine: number;
+  endLine: number;
 }
 
 interface DemoContent {
   readme: string | null;
   files: DemoContentFile[];
   backend_files: DemoContentFile[];
+  regions?: Record<string, DemoRegion>;
 }
 
 const demoContent = demoContentData as {
   demos: Record<string, DemoContent>;
+};
+
+// Hand-curated "look at these first" entry-point demos. Lives in the shell on
+// purpose (the user wants the dojo's editorial pick to evolve independently
+// of the underlying feature-registry, and these demos still show up in their
+// real category groups below). Order here is the display order.
+const FEATURED_DEMO_IDS: readonly string[] = [
+  "beautiful-chat",
+  "agentic-chat",
+  "chat-customization-css",
+  "headless-simple",
+  "gen-ui-tool-based",
+  "declarative-gen-ui",
+  "mcp-apps",
+  "open-gen-ui",
+  "frontend-tools",
+];
+
+const FEATURED_CATEGORY: FeatureCategory = {
+  id: "__featured__",
+  name: "Featured",
 };
 
 function groupDemosByCategory(
@@ -44,6 +71,16 @@ function groupDemosByCategory(
       demoByCategoryId.set(catId, []);
     }
     demoByCategoryId.get(catId)!.push(demo);
+  }
+
+  // Featured comes first. Pull each ID from the current integration's demos,
+  // preserving the curated order, and silently skip any the integration hasn't
+  // implemented. The same demos still appear in their real category below.
+  const featured = FEATURED_DEMO_IDS.map((id) =>
+    integration.demos.find((d) => d.id === id),
+  ).filter((d): d is Demo => !!d);
+  if (featured.length > 0) {
+    groups.push({ category: FEATURED_CATEGORY, demos: featured });
   }
 
   for (const cat of categories) {
@@ -89,7 +126,8 @@ export default function DojoPage() {
     integrations[0]?.demos[0]?.id || "",
   );
   const [viewMode, setViewMode] = useState<ViewMode>("preview");
-  const [selectedFileIndex, setSelectedFileIndex] = useState(0);
+  const [selectedFilename, setSelectedFilename] = useState<string | null>(null);
+  const [codeViewMode, setCodeViewMode] = useState<"core" | "all">("core");
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const integration = useMemo(
@@ -117,10 +155,54 @@ export default function DojoPage() {
     return [...content.files, ...content.backend_files];
   }, [content]);
 
+  const hasHighlights = useMemo(
+    () => allFiles.some((f) => f.highlighted),
+    [allFiles],
+  );
+
+  const visibleFiles = useMemo(
+    () =>
+      codeViewMode === "core" && hasHighlights
+        ? allFiles.filter((f) => f.highlighted)
+        : allFiles,
+    [allFiles, codeViewMode, hasHighlights],
+  );
+
+  // Reset code-view mode + selected file when the demo changes. Default mode
+  // is "core" if any file is highlighted, else "all" (would be empty otherwise).
+  useEffect(() => {
+    setCodeViewMode(hasHighlights ? "core" : "all");
+    const firstHighlighted = allFiles.find((f) => f.highlighted);
+    setSelectedFilename(
+      firstHighlighted?.filename ?? allFiles[0]?.filename ?? null,
+    );
+  }, [contentKey, hasHighlights, allFiles]);
+
+  const activeFile = useMemo(
+    () => allFiles.find((f) => f.filename === selectedFilename) ?? allFiles[0],
+    [allFiles, selectedFilename],
+  );
+
+  // Region markers (`// @region[name] … // @endregion[name]` in the demo
+  // source) get bundled as { file, startLine, endLine } pairs in
+  // demo-content.json. Surface them as a yellow per-line background so the
+  // author-marked "this is the interesting bit" sections jump out without
+  // any data-format change.
+  const highlightedLines = useMemo(() => {
+    const set = new Set<number>();
+    if (!content?.regions || !activeFile) return set;
+    for (const region of Object.values(content.regions)) {
+      if (region.file !== activeFile.filename) continue;
+      for (let line = region.startLine; line <= region.endLine; line++) {
+        set.add(line);
+      }
+    }
+    return set;
+  }, [content, activeFile]);
+
   const handleIntegrationChange = useCallback(
     (slug: string) => {
       setSelectedSlug(slug);
-      setSelectedFileIndex(0);
       setDropdownOpen(false);
       const newIntegration = integrations.find((i) => i.slug === slug);
       if (newIntegration) {
@@ -137,8 +219,40 @@ export default function DojoPage() {
 
   const handleDemoSelect = useCallback((demoId: string) => {
     setSelectedDemoId(demoId);
-    setSelectedFileIndex(0);
   }, []);
+
+  // URL ↔ selection sync. On mount we hydrate from ?integration=&demo=; after
+  // mount, every selection change is written back via history.replaceState so
+  // refreshing the page lands on the same integration + demo.
+  const urlHydratedRef = useRef(false);
+
+  useEffect(() => {
+    if (!urlHydratedRef.current) {
+      const params = new URLSearchParams(window.location.search);
+      const urlSlug = params.get("integration");
+      const urlDemo = params.get("demo");
+      if (urlSlug) {
+        const found = integrations.find((i) => i.slug === urlSlug);
+        if (found) {
+          setSelectedSlug(urlSlug);
+          if (urlDemo && found.demos.some((d) => d.id === urlDemo)) {
+            setSelectedDemoId(urlDemo);
+          } else if (found.demos.length > 0) {
+            setSelectedDemoId(found.demos[0].id);
+          }
+        }
+      }
+      urlHydratedRef.current = true;
+      return;
+    }
+    if (!selectedSlug) return;
+    const params = new URLSearchParams();
+    params.set("integration", selectedSlug);
+    if (selectedDemoId) params.set("demo", selectedDemoId);
+    const next = `?${params.toString()}`;
+    if (window.location.search === next) return;
+    window.history.replaceState(null, "", `${window.location.pathname}${next}`);
+  }, [integrations, selectedSlug, selectedDemoId]);
 
   const previewUrl =
     integration && selectedDemo
@@ -447,31 +561,25 @@ export default function DojoPage() {
 
         {/* Demo list — dojo: flex-1 overflow-auto */}
         <div className="sidebar-scroll" style={{ flex: 1, overflow: "auto" }}>
-          {/* dojo: px-4 pt-3 pb-2 */}
-          <div style={{ padding: "12px 16px 8px" }}>
-            <span
-              style={{
-                fontSize: 10,
-                fontWeight: 400,
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                color: "var(--text-secondary)",
-              }}
-            >
-              Demos
-            </span>
-          </div>
           {/* dojo: px-2 space-y-1 */}
           <div
             style={{
-              padding: "0 8px",
+              padding: "12px 8px 0",
               display: "flex",
               flexDirection: "column",
-              gap: 4,
+              gap: 12,
             }}
           >
             {groupedDemos.map(({ category, demos }) => (
-              <div key={category.id}>
+              <div
+                key={category.id}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 4,
+                }}
+              >
+                <SectionTitle title={category.name} />
                 {demos.map((demo) => {
                   const isSelected = demo.id === selectedDemoId;
                   return (
@@ -609,7 +717,7 @@ export default function DojoPage() {
           <div
             style={{
               display: "flex",
-              flexDirection: "column",
+              flexDirection: "row",
               height: "100%",
               borderRadius: 8,
               overflow: "hidden",
@@ -617,52 +725,44 @@ export default function DojoPage() {
               border: "2px solid var(--border-default)",
             }}
           >
-            {/* File tabs */}
             <div
               style={{
+                flex: 1,
+                minWidth: 0,
                 display: "flex",
-                gap: 0,
-                borderBottom: "1px solid var(--border-container)",
-                background: "#f8f8fb",
-                overflowX: "auto",
-                flexShrink: 0,
+                flexDirection: "column",
+                overflow: "hidden",
               }}
             >
-              {allFiles.map((file, idx) => (
-                <button
-                  key={file.filename}
-                  onClick={() => setSelectedFileIndex(idx)}
-                  style={{
-                    padding: "10px 18px",
-                    fontSize: 13,
-                    border: "none",
-                    borderBottom:
-                      idx === selectedFileIndex
-                        ? "2px solid var(--text-primary)"
-                        : "2px solid transparent",
-                    cursor: "pointer",
-                    background:
-                      idx === selectedFileIndex ? "#ffffff" : "transparent",
-                    color:
-                      idx === selectedFileIndex
-                        ? "var(--text-primary)"
-                        : "var(--text-disabled)",
-                    fontWeight: idx === selectedFileIndex ? 500 : 400,
-                    whiteSpace: "nowrap",
-                    fontFamily:
-                      "'Spline Sans Mono', ui-monospace, SFMono-Regular, monospace",
-                  }}
-                >
-                  {file.filename}
-                </button>
-              ))}
+              {activeFile && (
+                <CodeBlock
+                  code={activeFile.content}
+                  language={activeFile.language}
+                  highlightedLines={highlightedLines}
+                />
+              )}
             </div>
-            {allFiles[selectedFileIndex] && (
-              <CodeBlock
-                code={allFiles[selectedFileIndex].content}
-                language={allFiles[selectedFileIndex].language}
+            <aside
+              style={{
+                width: 248,
+                flexShrink: 0,
+                borderLeft: "1px solid var(--border-container)",
+                background: "#fafbfd",
+                overflow: "auto",
+                padding: "12px 8px",
+              }}
+            >
+              <FileTree
+                files={visibleFiles}
+                activeFilename={activeFile?.filename}
+                onSelect={setSelectedFilename}
+                hasHighlights={hasHighlights}
+                showAll={codeViewMode === "all"}
+                onToggleShowAll={() =>
+                  setCodeViewMode(codeViewMode === "all" ? "core" : "all")
+                }
               />
-            )}
+            </aside>
           </div>
         ) : (
           <div
@@ -685,6 +785,271 @@ export default function DojoPage() {
   );
 }
 
+type FileLeaf = { filename: string; highlighted?: boolean };
+
+type FileTreeNode = {
+  name: string;
+  file: FileLeaf | null;
+  children: Map<string, FileTreeNode>;
+};
+
+function buildFileTree(files: FileLeaf[]): FileTreeNode {
+  const root: FileTreeNode = {
+    name: "",
+    file: null,
+    children: new Map(),
+  };
+  for (const file of files) {
+    const parts = file.filename.split("/").filter(Boolean);
+    let current = root;
+    parts.forEach((part, i) => {
+      const isFile = i === parts.length - 1;
+      const existing = current.children.get(part);
+      if (existing) {
+        if (isFile) existing.file = file;
+        current = existing;
+      } else {
+        const node: FileTreeNode = {
+          name: part,
+          file: isFile ? file : null,
+          children: new Map(),
+        };
+        current.children.set(part, node);
+        current = node;
+      }
+    });
+  }
+  return root;
+}
+
+// Folders before files; within each group, highlighted files float to the top,
+// then alphabetical. Matches the standalone shell's code-view ordering.
+function sortedChildren(node: FileTreeNode): FileTreeNode[] {
+  return Array.from(node.children.values()).sort((a, b) => {
+    const aIsFolder = a.file === null;
+    const bIsFolder = b.file === null;
+    if (aIsFolder !== bIsFolder) return aIsFolder ? -1 : 1;
+    if (a.file && b.file) {
+      if (!!a.file.highlighted !== !!b.file.highlighted) {
+        return a.file.highlighted ? -1 : 1;
+      }
+    }
+    return a.name.localeCompare(b.name);
+  });
+}
+
+function FileTree({
+  files,
+  activeFilename,
+  onSelect,
+  hasHighlights,
+  showAll,
+  onToggleShowAll,
+}: {
+  files: FileLeaf[];
+  activeFilename: string | undefined;
+  onSelect: (filename: string) => void;
+  hasHighlights: boolean;
+  showAll: boolean;
+  onToggleShowAll: () => void;
+}) {
+  const root = useMemo(() => buildFileTree(files), [files]);
+  return (
+    <div style={{ fontSize: 13 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          padding: "0 6px 8px",
+        }}
+      >
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            color: "var(--text-primary)",
+          }}
+        >
+          Files
+        </span>
+        {hasHighlights && (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={showAll}
+            onClick={onToggleShowAll}
+            title="Include scaffolding (configs, lockfiles, etc.)"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              padding: 0,
+              color: "var(--text-secondary)",
+              fontSize: 10,
+              fontWeight: 500,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+            }}
+          >
+            <span>show all</span>
+            <span
+              style={{
+                position: "relative",
+                display: "inline-block",
+                width: 22,
+                height: 12,
+                borderRadius: 999,
+                background: showAll
+                  ? "var(--text-primary)"
+                  : "rgba(0,0,0,0.15)",
+                transition: "background 0.15s",
+              }}
+            >
+              <span
+                style={{
+                  position: "absolute",
+                  top: 1,
+                  left: 1,
+                  width: 10,
+                  height: 10,
+                  borderRadius: "50%",
+                  background: "#ffffff",
+                  transform: showAll ? "translateX(10px)" : "translateX(0)",
+                  transition: "transform 0.15s",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
+                }}
+              />
+            </span>
+          </button>
+        )}
+      </div>
+      {sortedChildren(root).map((node) => (
+        <FileTreeRow
+          key={node.name}
+          node={node}
+          depth={0}
+          activeFilename={activeFilename}
+          onSelect={onSelect}
+        />
+      ))}
+    </div>
+  );
+}
+
+function FileTreeRow({
+  node,
+  depth,
+  activeFilename,
+  onSelect,
+}: {
+  node: FileTreeNode;
+  depth: number;
+  activeFilename: string | undefined;
+  onSelect: (filename: string) => void;
+}) {
+  const padLeft = 8 + depth * 12;
+  if (!node.file) {
+    return (
+      <div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            padding: `2px 6px 2px ${padLeft}px`,
+            color: "var(--text-secondary)",
+            fontFamily:
+              "'Spline Sans Mono', ui-monospace, SFMono-Regular, monospace",
+            fontSize: 12.5,
+            lineHeight: 1.6,
+            userSelect: "none",
+          }}
+        >
+          <span style={{ opacity: 0.6, fontSize: 11 }}>▾</span>
+          <span>{node.name}</span>
+        </div>
+        {sortedChildren(node).map((child) => (
+          <FileTreeRow
+            key={child.name}
+            node={child}
+            depth={depth + 1}
+            activeFilename={activeFilename}
+            onSelect={onSelect}
+          />
+        ))}
+      </div>
+    );
+  }
+  const file = node.file;
+  const isSelected = file.filename === activeFilename;
+  const isHighlighted = !!file.highlighted;
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(file.filename)}
+      title={isHighlighted ? "Core file" : undefined}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 4,
+        width: "100%",
+        padding: `2px 6px 2px ${padLeft + 14}px`,
+        border: "none",
+        background: isSelected ? "rgba(0, 0, 0, 0.05)" : "transparent",
+        color:
+          isSelected || isHighlighted
+            ? "var(--text-primary)"
+            : "var(--text-disabled)",
+        fontWeight: isHighlighted ? 600 : isSelected ? 500 : 400,
+        textAlign: "left",
+        cursor: "pointer",
+        borderRadius: 4,
+        fontFamily:
+          "'Spline Sans Mono', ui-monospace, SFMono-Regular, monospace",
+        fontSize: 12.5,
+        lineHeight: 1.6,
+      }}
+      onMouseEnter={(e) => {
+        if (!isSelected)
+          e.currentTarget.style.background = "rgba(0, 0, 0, 0.03)";
+      }}
+      onMouseLeave={(e) => {
+        if (!isSelected) e.currentTarget.style.background = "transparent";
+      }}
+    >
+      {isHighlighted && (
+        <span
+          aria-hidden="true"
+          style={{
+            color: "#f59e0b",
+            fontSize: 11,
+            lineHeight: 1,
+            flexShrink: 0,
+          }}
+        >
+          ★
+        </span>
+      )}
+      <span
+        style={{
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}
+      >
+        {node.name}
+      </span>
+    </button>
+  );
+}
+
 function SectionTitle({ title }: { title: string }) {
   return (
     <div
@@ -698,11 +1063,11 @@ function SectionTitle({ title }: { title: string }) {
     >
       <span
         style={{
-          fontSize: 10,
-          fontWeight: 400,
+          fontSize: 11,
+          fontWeight: 600,
           textTransform: "uppercase",
-          letterSpacing: "0.05em",
-          color: "var(--text-secondary)",
+          letterSpacing: "0.06em",
+          color: "var(--text-primary)",
           whiteSpace: "nowrap",
         }}
       >

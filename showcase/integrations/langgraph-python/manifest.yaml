@@ -13,6 +13,7 @@ repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/l
 copilotkit_version: 2.0.0
 backend_url: https://showcase-langgraph-python-production.up.railway.app
 deployed: true
+docs_mode: generated
 sort_order: 10
 generative_ui:
   - constrained-explicit

@@ -22,6 +22,7 @@ import type { Overlay } from "@/lib/overlay-types";
 import { CellDrilldown } from "@/components/cell-drilldown";
 import { CommandCell } from "@/components/command-cell";
 import { DocsRow, urlsFor } from "@/components/cell-pieces";
+import { LinkPreview } from "@/components/link-preview";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -82,24 +83,28 @@ function LinksLayer({ ctx }: { ctx: CellContext }) {
 
   return (
     <div className="flex items-center justify-center gap-1.5">
-      <a
-        href={links.demoUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="whitespace-nowrap text-[var(--accent)] hover:underline"
-      >
-        <span className="text-[var(--text-muted)]">Demo</span>{" "}
-        <span>&#8599;</span>
-      </a>
-      <a
-        href={links.codeUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="whitespace-nowrap text-[var(--accent)] hover:underline"
-      >
-        <span className="text-[var(--text-muted)]">Code</span>{" "}
-        <span>{"</>"}</span>
-      </a>
+      <LinkPreview href={links.demoUrl}>
+        <a
+          href={links.demoUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="whitespace-nowrap text-[var(--accent)] hover:underline"
+        >
+          <span className="text-[var(--text-muted)]">Demo</span>{" "}
+          <span>&#8599;</span>
+        </a>
+      </LinkPreview>
+      <LinkPreview href={links.codeUrl}>
+        <a
+          href={links.codeUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="whitespace-nowrap text-[var(--accent)] hover:underline"
+        >
+          <span className="text-[var(--text-muted)]">Code</span>{" "}
+          <span>{"</>"}</span>
+        </a>
+      </LinkPreview>
     </div>
   );
 }

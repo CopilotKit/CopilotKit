@@ -42,7 +42,7 @@ const LANGGRAPH_URL =
 
 const voiceDemoAgent = new LangGraphAgent({
   deploymentUrl: `${LANGGRAPH_URL}/`,
-  graphId: "sample_agent",
+  graphId: "starterAgent",
 });
 
 /**

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Rocket, X } from "lucide-react";
+import { GraduationCap, X } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 
 // Time in milliseconds before a dismissed banner reappears
@@ -19,11 +19,12 @@ type BannerEntry = {
 
 const bannerContent: BannerEntry[] = [
   {
-    icon: <Rocket className="w-5 h-5 hidden md:block flex-shrink-0" />,
-    mobileText: "CopilotKit fully supports MCP Apps!",
-    desktopText: "Bring MCP Apps interaction to your users with CopilotKit!",
-    buttonText: "See What's New",
-    href: "/generative-ui/mcp-apps",
+    icon: <GraduationCap className="w-5 h-5 hidden md:block flex-shrink-0" />,
+    mobileText: "Free Generative UI course on DeepLearning.AI",
+    desktopText:
+      "Build Interactive Agents with Generative UI: our new free DeepLearning.AI course",
+    buttonText: "Start the course",
+    href: "https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/",
   },
 ];
 
@@ -91,6 +92,19 @@ export function Banners() {
     };
   }, []);
 
+  // Reflect the banner's visible height into `--fd-banner-height` so
+  // Fumadocs's fixed-positioned sidebar shifts down when the banner is
+  // showing and snaps flush under BrandNav when it's dismissed. ~54px
+  // is the rendered banner height across breakpoints; we set the
+  // variable on <html> so all of Fumadocs's `top:` math picks it up.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.documentElement.style.setProperty(
+      "--fd-banner-height",
+      !hydrated || dismissed ? "0px" : "54px",
+    );
+  }, [hydrated, dismissed]);
+
   const handleDismiss = useCallback(() => {
     localStorage.setItem(BANNER_DISMISSED_KEY, "true");
     localStorage.setItem(BANNER_DISMISSED_TIME_KEY, Date.now().toString());
@@ -133,6 +147,12 @@ export function Banners() {
           </div>
           <Link
             href={content.href}
+            target={content.href.startsWith("http") ? "_blank" : undefined}
+            rel={
+              content.href.startsWith("http")
+                ? "noopener noreferrer"
+                : undefined
+            }
             className="text-xs md:text-sm items-center flex px-2 py-0.5 md:px-4 md:py-1 no-underline whitespace-nowrap rounded-lg flex-shrink-0 transition-all duration-100"
             style={{
               background: "var(--accent-light, rgba(109, 69, 249, 0.12))",

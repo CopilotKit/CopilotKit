@@ -378,6 +378,7 @@ def get_sales_todos():
     return "Check the sales pipeline provided in the context."
 
 
+# @region[backend-interrupt-tool]
 # @region[backend-tool-call]
 # Strands has no native interrupt primitive, so the gen-ui-interrupt and
 # interrupt-headless demos register `schedule_meeting` as a frontend tool
@@ -407,6 +408,7 @@ def schedule_meeting(reason: str):
 
 
 # @endregion[backend-tool-call]
+# @endregion[backend-interrupt-tool]
 
 
 @tool

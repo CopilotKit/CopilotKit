@@ -42,7 +42,14 @@ export function SidebarLink({
   fallbackHref: _fallbackHref,
 }: SidebarLinkProps) {
   const { effectiveFramework } = useFramework();
-  const href = `/${effectiveFramework}/${slug}`;
+  // Empty slug = framework-root page (the `"index"` meta.json entry,
+  // rewritten by `buildFrameworkOverridesNav` in lib/docs-render.tsx).
+  // The bare `/<framework>` URL renders the data-driven
+  // `FrameworkOverview` (or, for built-in-agent/deepagents, the
+  // framework's MDX index.mdx).
+  const href = slug
+    ? `/${effectiveFramework}/${slug}`
+    : `/${effectiveFramework}`;
 
   return (
     <Link

@@ -12,6 +12,7 @@
 // picker appears inline in the chat and the agent's tool call blocks until
 // the user decides.
 
+// @region[frontend-useinterrupt-render]
 import React, { useRef } from "react";
 import { CopilotKit } from "@copilotkit/react-core";
 import {
@@ -115,6 +116,7 @@ function Chat() {
     },
   });
   // @endregion[frontend-promise-handler]
+  // @endregion[frontend-useinterrupt-render]
 
   return (
     <CopilotChat agentId="gen-ui-interrupt" className="h-full rounded-2xl" />

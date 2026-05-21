@@ -3,9 +3,11 @@
  *
  * 1. Reads the scope and current version from package.json (already bumped by the release PR)
  * 2. Optionally reads the Notion draft for the final release notes
- * 3. Builds all packages
- * 4. Publishes to npm with "latest" tag
- * 5. Outputs the version for downstream steps (git tag, GitHub Release)
+ * 3. Publishes pre-built packages to npm with "latest" tag
+ * 4. Outputs the version for downstream steps (git tag, GitHub Release)
+ *
+ * NOTE: Build is handled by the separate CI build job (no publish secrets).
+ * This script receives pre-built artifacts and only performs the publish step.
  *
  * Env vars:
  *   NPM_TOKEN        — npm auth token
@@ -140,9 +142,10 @@ async function main() {
     }
   }
 
-  // Build all packages
-  console.log("\nBuilding packages...");
-  run("pnpm", ["run", "build"]);
+  // NOTE: Build is handled by the CI build job (no secrets).
+  // The publish job receives pre-built artifacts via download-artifact.
+  // We intentionally do NOT rebuild here to keep NPM_TOKEN out of the
+  // build process tree.
 
   // Publish each package in scope
   console.log("\nPublishing packages...");

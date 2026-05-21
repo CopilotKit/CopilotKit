@@ -1,6 +1,8 @@
 ---
 name: git-hooks
 description: CopilotKit pre-commit hook reference. Load automatically when the user mentions git hooks failing, pre-commit errors, lefthook issues, commit blocked, or "hooks don't work", or when user wants to commit/push anything Contains the full hook topology so debugging skips discovery and goes straight to diagnosis.
+metadata:
+  internal: true
 ---
 
 # CopilotKit Git Hooks Reference

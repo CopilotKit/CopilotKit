@@ -53,6 +53,7 @@ export function MeetingTimePicker({
     );
   };
 
+  // Confirmed state
   if (selectedSlot) {
     return (
       <Card className="max-w-md w-full mx-auto mb-4 overflow-hidden">
@@ -81,6 +82,7 @@ export function MeetingTimePicker({
     );
   }
 
+  // Declined state
   if (declined) {
     return (
       <Card className="max-w-md w-full mx-auto mb-4 overflow-hidden">
@@ -103,6 +105,7 @@ export function MeetingTimePicker({
     );
   }
 
+  // Selection state
   return (
     <Card className="max-w-md w-full mx-auto mb-4 overflow-hidden">
       <CardContent className="p-6">

@@ -11,6 +11,7 @@ repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/a
 copilotkit_version: 2.0.0
 backend_url: https://showcase-agno-production.up.railway.app
 deployed: true
+docs_mode: authored
 sort_order: 90
 generative_ui:
   - constrained-explicit
@@ -93,6 +94,10 @@ demos:
     animated_preview_url:
     highlight:
       - src/agents/main.py
+      - tools/get_weather.py
+      - tools/query_data.py
+      - tools/schedule_meeting.py
+      - tools/search_flights.py
       - src/app/demos/tool-rendering/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: gen-ui-agent

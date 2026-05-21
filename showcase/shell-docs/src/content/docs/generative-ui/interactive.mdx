@@ -3,7 +3,10 @@ title: Interactive components
 icon: "lucide/CirclePause"
 description: Create approval flows where the agent pauses and waits for human input.
 hideTOC: true
+snippet_cell: gen-ui-interrupt
 ---
+
+<InlineDemo demo="gen-ui-interrupt" />
 
 ## What is this?
 
@@ -17,5 +20,20 @@ Use interactive generative UI when you need:
 - User decisions that the agent should know about
 - Confirmation dialogs with structured responses
 - Any flow where the agent pauses for human judgment
+
+## How it works in code
+
+<FrameworkSetup concept="agent-setup" />
+
+On the frontend, register an interrupt renderer with `useInterrupt`. When the
+agent pauses, your component mounts inline in the chat, captures the user's
+choice, and resumes the run with that input.
+
+<Snippet region="frontend-useinterrupt-render" title="frontend/src/app/page.tsx — useInterrupt" />
+
+On the backend, the agent calls into the interrupt primitive and waits for
+the resumed response before continuing the graph.
+
+<Snippet region="backend-interrupt-tool" title="backend — interrupt tool" />
 
 <IntegrationGrid path="human-in-the-loop" />

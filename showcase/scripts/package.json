@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "generate-registry": "tsx generate-registry.ts",
+    "verify-shell-docs": "tsx verify-shell-docs.ts",
+    "verify-shell-docs:fast": "tsx verify-shell-docs.ts --skip-build",
     "probe-docs": "tsx probe-docs.ts",
     "validate-manifests": "tsx generate-registry.ts --validate-only",
     "showcase:audit": "tsx audit.ts",

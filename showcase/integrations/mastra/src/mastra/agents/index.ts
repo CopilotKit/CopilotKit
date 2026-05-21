@@ -404,6 +404,7 @@ Example response (sales dashboard):
  * route) so the vision-tier cost is scoped to exactly the cell that
  * exercises it.
  */
+// @region[backend-interrupt-tool]
 // @region[interrupt-agent]
 /**
  * Scheduling agent for the interrupt-adapted demos (gen-ui-interrupt,
@@ -444,6 +445,7 @@ Keep responses short and friendly. After you finish executing tools, always send
   }),
 });
 // @endregion[interrupt-agent]
+// @endregion[backend-interrupt-tool]
 
 export const multimodalAgent = new Agent({
   id: "multimodal-demo",

@@ -402,52 +402,52 @@ const config = {
       },
       {
         source: '/mcp',
-        destination: '/coding-agents',
+        destination: '/build-with-agents',
         permanent: true,
       },
       {
         source: '/vibe-coding-mcp',
-        destination: '/coding-agents',
+        destination: '/build-with-agents',
         permanent: true,
       },
       {
         source: '/ag2/mcp',
-        destination: '/ag2/coding-agents',
+        destination: '/ag2/build-with-agents',
         permanent: true,
       },
       {
         source: '/agno/mcp',
-        destination: '/agno/coding-agents',
+        destination: '/agno/build-with-agents',
         permanent: true,
       },
       {
         source: '/crewai-flows/mcp',
-        destination: '/crewai-flows/coding-agents',
+        destination: '/crewai-flows/build-with-agents',
         permanent: true,
       },
       {
         source: '/direct-to-llm/guides/mcp',
-        destination: '/built-in-agent/coding-agents',
+        destination: '/built-in-agent/build-with-agents',
         permanent: true,
       },
       {
         source: '/langgraph/mcp',
-        destination: '/langgraph/coding-agents',
+        destination: '/langgraph/build-with-agents',
         permanent: true,
       },
       {
         source: '/llamaindex/mcp',
-        destination: '/llamaindex/coding-agents',
+        destination: '/llamaindex/build-with-agents',
         permanent: true,
       },
       {
         source: '/mastra/mcp',
-        destination: '/mastra/coding-agents',
+        destination: '/mastra/build-with-agents',
         permanent: true,
       },
       {
         source: '/pydantic-ai/mcp',
-        destination: '/pydantic-ai/coding-agents',
+        destination: '/pydantic-ai/build-with-agents',
         permanent: true,
       },
       {
@@ -462,7 +462,78 @@ const config = {
       },
       {
         source: '/adk/mcp',
-        destination: '/adk/coding-agents',
+        destination: '/adk/build-with-agents',
+        permanent: true,
+      },
+      // OSS-133: /coding-agents renamed to /build-with-agents (root + 13 integrations)
+      {
+        source: '/coding-agents',
+        destination: '/build-with-agents',
+        permanent: true,
+      },
+      {
+        source: '/a2a/coding-agents',
+        destination: '/a2a/build-with-agents',
+        permanent: true,
+      },
+      {
+        source: '/adk/coding-agents',
+        destination: '/adk/build-with-agents',
+        permanent: true,
+      },
+      {
+        source: '/ag2/coding-agents',
+        destination: '/ag2/build-with-agents',
+        permanent: true,
+      },
+      {
+        source: '/agent-spec/coding-agents',
+        destination: '/agent-spec/build-with-agents',
+        permanent: true,
+      },
+      {
+        source: '/agno/coding-agents',
+        destination: '/agno/build-with-agents',
+        permanent: true,
+      },
+      {
+        source: '/aws-strands/coding-agents',
+        destination: '/aws-strands/build-with-agents',
+        permanent: true,
+      },
+      {
+        source: '/built-in-agent/coding-agents',
+        destination: '/built-in-agent/build-with-agents',
+        permanent: true,
+      },
+      {
+        source: '/crewai-flows/coding-agents',
+        destination: '/crewai-flows/build-with-agents',
+        permanent: true,
+      },
+      {
+        source: '/langgraph/coding-agents',
+        destination: '/langgraph/build-with-agents',
+        permanent: true,
+      },
+      {
+        source: '/llamaindex/coding-agents',
+        destination: '/llamaindex/build-with-agents',
+        permanent: true,
+      },
+      {
+        source: '/mastra/coding-agents',
+        destination: '/mastra/build-with-agents',
+        permanent: true,
+      },
+      {
+        source: '/microsoft-agent-framework/coding-agents',
+        destination: '/microsoft-agent-framework/build-with-agents',
+        permanent: true,
+      },
+      {
+        source: '/pydantic-ai/coding-agents',
+        destination: '/pydantic-ai/build-with-agents',
         permanent: true,
       },
       {
