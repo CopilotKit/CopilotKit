@@ -33,10 +33,11 @@ import json
 import logging
 import threading
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from textwrap import dedent
 from typing import Annotated, Any
 
+from ag_ui.core import BaseEvent
 from agent_framework import (
     Agent,
     AgentContext,
@@ -377,9 +378,12 @@ SUPERVISOR_PROMPT = dedent(
       - writing_agent:  turns facts + a brief into a polished draft.
       - critique_agent: reviews a draft and suggests improvements.
 
-    For most non-trivial user requests, delegate in sequence:
-    research -> write -> critique. Pass the relevant facts/draft
-    through the `task` argument of each tool.
+    For every non-trivial user request, delegate in sequence:
+    research_agent -> writing_agent -> critique_agent.
+    IMPORTANT: call EACH sub-agent EXACTLY ONCE per user request.
+    After critique_agent returns, do NOT call any sub-agent again -- return
+    a concise final answer to the user that incorporates the critique.
+    Pass the relevant facts/draft through the `task` argument of each tool.
 
     Keep your own messages short — explain the plan once, delegate,
     then return a concise summary once done. The UI shows the user a
@@ -388,7 +392,71 @@ SUPERVISOR_PROMPT = dedent(
 ).strip()
 
 
-def create_subagents_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
+def _tool_call_ids(message: dict[str, Any]) -> set[str]:
+    tool_calls = message.get("tool_calls") or message.get("toolCalls") or []
+    if not isinstance(tool_calls, list):
+        return set()
+
+    ids: set[str] = set()
+    for call in tool_calls:
+        if isinstance(call, dict) and isinstance(call.get("id"), str):
+            ids.add(call["id"])
+    return ids
+
+
+def _tool_result_ids(messages: list[dict[str, Any]], start_index: int) -> set[str]:
+    ids: set[str] = set()
+    for message in messages[start_index + 1 :]:
+        if message.get("role") == "user":
+            break
+        if message.get("role") != "tool":
+            continue
+        call_id = message.get("tool_call_id") or message.get("toolCallId")
+        if isinstance(call_id, str):
+            ids.add(call_id)
+    return ids
+
+
+def _drop_orphan_assistant_tool_calls(messages: Any) -> list[dict[str, Any]]:
+    """Remove historical assistant tool calls that lack tool result messages.
+
+    The MS Agent Framework AG-UI bridge can preserve the assistant tool-call
+    snapshot while omitting the corresponding tool-role results. OpenAI rejects
+    that history on the next turn, so keep the final assistant text/state but
+    omit malformed historical tool-call entries before the supervisor runs.
+    """
+    if not isinstance(messages, list):
+        return []
+
+    clean: list[dict[str, Any]] = []
+    for index, message in enumerate(messages):
+        if not isinstance(message, dict):
+            continue
+        if message.get("role") == "assistant":
+            call_ids = _tool_call_ids(message)
+            if call_ids and not call_ids.issubset(_tool_result_ids(messages, index)):
+                continue
+        clean.append(message)
+    return clean
+
+
+class SubagentsFrameworkAgent(AgentFrameworkAgent):
+    """AgentFrameworkAgent that removes invalid historical tool-call snapshots."""
+
+    async def run(  # type: ignore[override]
+        self,
+        input_data: dict[str, Any],
+    ) -> AsyncGenerator[BaseEvent, None]:
+        patched_input = dict(input_data)
+        patched_input["messages"] = _drop_orphan_assistant_tool_calls(
+            input_data.get("messages")
+        )
+
+        async for event in super().run(patched_input):
+            yield event
+
+
+def create_subagents_agent(chat_client: BaseChatClient) -> SubagentsFrameworkAgent:
     """Instantiate the Sub-Agents demo supervisor."""
     # Build (and cache) the three sub-agents so the @tool entry points
     # can find them via the module-level registry.
@@ -407,10 +475,11 @@ def create_subagents_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
         name="subagents_supervisor",
         instructions=SUPERVISOR_PROMPT,
         tools=[research_agent, writing_agent, critique_agent],
+        default_options={"allow_multiple_tool_calls": False},
         middleware=[capture_current_state],
     )
 
-    return AgentFrameworkAgent(
+    return SubagentsFrameworkAgent(
         agent=base_agent,
         name="CopilotKitMSAgentSubagentsSupervisor",
         description=(

@@ -26,6 +26,7 @@ showcase/bin/showcase test <slug> --d5 --verbose --cycle --isolate
 
 - Keep showcase demo code on CopilotKit v2 APIs.
 - Treat `showcase/integrations/langgraph-python` as the gold standard for D5 behavior. Every other showcase demo must be a 1:1 match to `langgraph-python` for the same demo behavior, prompts, pills, tool flow, UI assertions, and D5 coverage unless the user explicitly approves a documented divergence.
+- For new or migrated demos, compare dependency versions against `showcase/integrations/langgraph-python` before implementation and keep the same versions or newer unless the user explicitly approves a documented divergence.
 - Use Google ADK as extra context only when it is relevant.
 - For any D5 cell or migration, make every pill work against a real agent first, then implement fixtures, then run the local D5 validation until green.
 - E2E tests for migrated demos should match the `langgraph-python` behavior and assertions unless the user explicitly approves a divergence.
@@ -41,12 +42,13 @@ Use this workflow when creating a new showcase item, adding a new demo cell, add
 
 1. Read the current showcase guides listed above.
 2. Find the matching `langgraph-python` demo or define the new `langgraph-python` behavior first.
-3. Implement the demo behavior with CopilotKit v2 APIs and make every suggestion pill work against a real agent.
-4. If any local step talks to a real LLM, run it through aimock record mode so fixtures are captured.
-5. Convert recordings into deterministic source D5 fixtures.
-6. Verify every pill once, repeated, and interleaved under aimock replay.
-7. Add or update D5 E2E coverage for every pill.
-8. Run local validation before marking the new showcase item complete.
+3. Compare dependencies with `showcase/integrations/langgraph-python`; use the same versions or newer for shared demo/runtime/test dependencies unless a documented incompatibility requires otherwise.
+4. Implement the demo behavior with CopilotKit v2 APIs and make every suggestion pill work against a real agent.
+5. If any local step talks to a real LLM, run it through aimock record mode so fixtures are captured.
+6. Convert recordings into deterministic source D5 fixtures.
+7. Verify every pill once, repeated, and interleaved under aimock replay.
+8. Add or update D5 E2E coverage for every pill.
+9. Run local validation before marking the new showcase item complete.
 
 Do not treat new showcase work as done after the UI appears to work once. New demos need the same fixture consistency, replay stability, and regression coverage as bug fixes.
 
@@ -138,8 +140,9 @@ Fixtures must be consistent and replayable. Do not rely on `turnIndex` or conver
 
 - Source fixtures live under `showcase/harness/fixtures/d5/*.json`.
 - Bundled runtime fixtures live in `showcase/aimock/d5-all.json`.
-- Use `hasToolResult` for multi-turn disambiguation; do not introduce `turnIndex` except for documented cases such as multi-step `mcp-subagents`.
-- Prefer stable, specific `userMessage`, `toolCallId`, and tool-surface matching. Avoid broad catch-alls that can steal another pill's fixture.
+- Use `toolCallId` for multi-turn disambiguation when a stable tool id exists; use `hasToolResult` only when the exact tool id is unavailable or intentionally runtime-variable.
+- Do not introduce `turnIndex` in new fixtures unless no stable request property can distinguish the turn and the divergence is documented.
+- Prefer stable, specific `userMessage`, `systemMessage`, `toolCallId`, and tool-surface matching. Avoid broad catch-alls that can steal another pill's fixture.
 - After fixture edits, validate and recreate aimock:
   ```sh
   showcase/bin/showcase fixtures validate
@@ -178,6 +181,7 @@ If aimock lacks a feature needed to accurately replay the LLM provider response:
 Before final status:
 
 - The root cause is stated concretely.
+- The affected local showcase demos are running and their local URLs are provided in the overview so the user can manually test the fixed flows.
 - The user has confirmed the fixed UI flow when manual verification was requested.
 - Fixtures are deterministic and validated.
 - Any real-LLM local run was routed through aimock record mode and produced replayable fixtures.
