@@ -2,6 +2,10 @@
   "name": "@copilotkit/web-inspector",
   "version": "1.57.4",
   "description": "Lit-based web component for the CopilotKit web inspector",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
@@ -47,9 +51,5 @@
   },
   "engines": {
     "node": ">=18"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/CopilotKit/CopilotKit.git"
   }
 }
