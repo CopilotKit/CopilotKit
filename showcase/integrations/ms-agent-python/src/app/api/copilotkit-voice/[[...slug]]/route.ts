@@ -29,7 +29,13 @@ const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 // Point at the tool-free /voice endpoint so aimock returns a direct text
 // response instead of a tool call that the agent can't summarize.
-const voiceDemoAgent = new HttpAgent({ url: `${AGENT_URL}/voice/` });
+//
+// No trailing slash on the URL. FastAPI mounts this agent at `/voice`
+// exactly (via `add_agent_framework_fastapi_endpoint(path="/voice")` in
+// agent_server.py); posting to `/voice/` triggers FastAPI's
+// redirect-to-canonical 307, which kills the streaming SSE response and
+// surfaces as `fetch failed` / `INCOMPLETE_STREAM` in the runtime.
+const voiceDemoAgent = new HttpAgent({ url: `${AGENT_URL}/voice` });
 
 /**
  * Transcription service wrapper that reports a clean, typed auth error when

@@ -25,7 +25,12 @@ import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-const mcpAppsAgent = new HttpAgent({ url: `${AGENT_URL}/mcp-apps/` });
+// No trailing slash on the URL. FastAPI mounts this agent at `/mcp-apps`
+// exactly (via `add_agent_framework_fastapi_endpoint(path="/mcp-apps")` in
+// agent_server.py); posting to `/mcp-apps/` triggers FastAPI's
+// redirect-to-canonical 307, which kills the streaming SSE response and
+// surfaces as `fetch failed` / `INCOMPLETE_STREAM` in the runtime.
+const mcpAppsAgent = new HttpAgent({ url: `${AGENT_URL}/mcp-apps` });
 
 // headless-complete shares this runtime because its cell also exercises
 // MCP Apps activity rendering (the "Sketch a diagram" pill exercises the
