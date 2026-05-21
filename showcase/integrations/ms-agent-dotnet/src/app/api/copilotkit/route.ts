@@ -37,7 +37,9 @@ function createReasoningAgent(path = "/reasoning") {
     new FunctionMiddleware((input, next) => {
       const sanitizedInput = {
         ...input,
-        messages: input.messages?.filter((message) => message.role !== "reasoning"),
+        messages: input.messages?.filter(
+          (message) => message.role !== "reasoning",
+        ),
       };
       const reasoningMessageId = `${input.runId ?? crypto.randomUUID()}-reasoning`;
       const reasoningDelta =
