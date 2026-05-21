@@ -7,9 +7,8 @@ import {
   ɵselectThreadsIsLoading,
   ɵselectHasNextPage,
   ɵselectIsFetchingNextPage,
-  type ɵThreadRuntimeContext,
-  type ɵThreadStore,
 } from "@copilotkit/core";
+import type { ɵThreadRuntimeContext, ɵThreadStore } from "@copilotkit/core";
 import {
   useCallback,
   useEffect,
@@ -213,6 +212,12 @@ export function useThreads({
       ),
     );
   }, [copilotkit.headers]);
+  const runtimeStatus = copilotkit.runtimeConnectionStatus;
+  const threadEndpointsSupported = copilotkit.threadEndpoints?.list === true;
+  const threadEndpointsUnavailable =
+    !!copilotkit.runtimeUrl &&
+    runtimeStatus === CopilotKitCoreRuntimeConnectionStatus.Connected &&
+    !threadEndpointsSupported;
   const runtimeError = useMemo(() => {
     if (copilotkit.runtimeUrl) {
       return null;
@@ -220,6 +225,15 @@ export function useThreads({
 
     return new Error("Runtime URL is not configured");
   }, [copilotkit.runtimeUrl]);
+  const threadEndpointsError = useMemo(() => {
+    if (!threadEndpointsUnavailable) {
+      return null;
+    }
+
+    return new Error(
+      "Thread endpoints are not available on this CopilotKit runtime",
+    );
+  }, [threadEndpointsUnavailable]);
 
   // Tracks whether we've dispatched the first real context to the store.
   // The store itself starts with `isLoading: false`, so before we dispatch
@@ -229,10 +243,16 @@ export function useThreads({
   // the first fetch is in flight (at which point the store's own
   // isLoading takes over).
   const [hasDispatchedContext, setHasDispatchedContext] = useState(false);
-  const preConnectLoading = !!copilotkit.runtimeUrl && !hasDispatchedContext;
+  const preConnectLoading =
+    !!copilotkit.runtimeUrl &&
+    !threadEndpointsUnavailable &&
+    !hasDispatchedContext;
 
-  const isLoading = runtimeError ? false : preConnectLoading || storeIsLoading;
-  const error = runtimeError ?? storeError;
+  const isLoading =
+    runtimeError || threadEndpointsError
+      ? false
+      : preConnectLoading || storeIsLoading;
+  const error = runtimeError ?? threadEndpointsError ?? storeError;
 
   useEffect(() => {
     store.start();
@@ -252,7 +272,6 @@ export function useThreads({
   // leave the previously-dispatched context in place — any in-flight
   // realtime subscription or cached thread list stays usable while the
   // runtime recovers, and we don't re-trigger a fetch storm on transitions.
-  const runtimeStatus = copilotkit.runtimeConnectionStatus;
   useEffect(() => {
     copilotkit.registerThreadStore(agentId, store);
     return () => {
@@ -263,12 +282,19 @@ export function useThreads({
   useEffect(() => {
     if (!copilotkit.runtimeUrl) {
       store.setContext(null);
+      setHasDispatchedContext(false);
       return;
     }
 
     // Wait for /info to land so we can include `wsUrl` in the initial
     // context and avoid a redundant second list fetch.
     if (runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected) {
+      return;
+    }
+
+    if (!threadEndpointsSupported) {
+      store.setContext(null);
+      setHasDispatchedContext(false);
       return;
     }
 
@@ -289,6 +315,7 @@ export function useThreads({
     runtimeStatus,
     headersKey,
     copilotkit.intelligence?.wsUrl,
+    threadEndpointsSupported,
     agentId,
     includeArchived,
     limit,

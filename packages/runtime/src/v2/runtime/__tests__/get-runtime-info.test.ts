@@ -13,6 +13,12 @@ class MockTranscriptionService extends TranscriptionService {
 
 describe("handleGetRuntimeInfo", () => {
   const mockRequest = new Request("https://example.com/info");
+  const inMemoryThreadEndpoints = {
+    list: true,
+    inspect: true,
+    mutations: false,
+    realtimeMetadata: false,
+  };
 
   it("should return runtime info with audioFileTranscriptionEnabled=false when no transcription service", async () => {
     const runtime = new CopilotRuntime({
@@ -33,6 +39,7 @@ describe("handleGetRuntimeInfo", () => {
       agents: {},
       audioFileTranscriptionEnabled: false,
       mode: "sse",
+      threadEndpoints: inMemoryThreadEndpoints,
       a2uiEnabled: false,
       openGenerativeUIEnabled: false,
       telemetryDisabled: false,
@@ -59,6 +66,7 @@ describe("handleGetRuntimeInfo", () => {
       agents: {},
       audioFileTranscriptionEnabled: true,
       mode: "sse",
+      threadEndpoints: inMemoryThreadEndpoints,
       a2uiEnabled: false,
       openGenerativeUIEnabled: false,
       telemetryDisabled: false,
@@ -97,6 +105,7 @@ describe("handleGetRuntimeInfo", () => {
       },
       audioFileTranscriptionEnabled: true,
       mode: "sse",
+      threadEndpoints: inMemoryThreadEndpoints,
       a2uiEnabled: false,
       openGenerativeUIEnabled: false,
       telemetryDisabled: false,

@@ -46,6 +46,12 @@ describe("createCopilotRuntimeHandler — multi-route with basePath", () => {
     const body = await response.json();
     expect(body).toHaveProperty("version");
     expect(body).toHaveProperty("agents");
+    expect(body.threadEndpoints).toMatchObject({
+      list: true,
+      inspect: true,
+      mutations: false,
+      realtimeMetadata: false,
+    });
   });
 
   it("returns 404 for paths not starting with basePath", async () => {
@@ -320,6 +326,12 @@ describe("createCopilotRuntimeHandler — single-route mode", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body).toHaveProperty("version");
+    expect(body.threadEndpoints).toMatchObject({
+      list: false,
+      inspect: false,
+      mutations: false,
+      realtimeMetadata: false,
+    });
   });
 });
 
