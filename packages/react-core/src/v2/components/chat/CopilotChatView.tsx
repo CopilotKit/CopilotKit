@@ -366,6 +366,7 @@ export function CopilotChatView({
     return (
       <div
         data-copilotkit
+        data-copilotkit-root
         data-testid="copilot-chat"
         data-copilot-running={isRunning ? "true" : "false"}
         onDragOver={onDragOver}
@@ -399,6 +400,7 @@ export function CopilotChatView({
   return (
     <div
       data-copilotkit
+      data-copilotkit-root
       data-testid="copilot-chat"
       data-copilot-running={isRunning ? "true" : "false"}
       onDragOver={onDragOver}
