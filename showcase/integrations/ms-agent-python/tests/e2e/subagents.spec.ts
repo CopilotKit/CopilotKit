@@ -63,6 +63,34 @@ async function waitForAllCardsDone(page: Page): Promise<void> {
   }
 }
 
+async function waitForNewCardsDone(
+  page: Page,
+  startIndex: number,
+): Promise<void> {
+  await expect(page.locator('[data-testid^="subagent-card-"]')).toHaveCount(
+    startIndex + ROLES.length,
+    { timeout: 90_000 },
+  );
+
+  for (let offset = 0; offset < ROLES.length; offset++) {
+    const card = page
+      .locator('[data-testid^="subagent-card-"]')
+      .nth(startIndex + offset);
+    await expect(card).toHaveAttribute("data-status", "complete", {
+      timeout: 90_000,
+    });
+    const result = card.locator('[data-testid="subagent-result"]').first();
+    await expect(result).toBeVisible({ timeout: 30_000 });
+    const text = (await result.textContent())?.trim() ?? "";
+    expect(text.length).toBeGreaterThan(0);
+    expect(text).not.toBe("(empty)");
+  }
+
+  await expect(page.locator('[data-testid="supervisor-running"]')).toBeHidden({
+    timeout: 90_000,
+  });
+}
+
 async function assertCardResultGenuine(page: Page, role: Role): Promise<void> {
   const card = page.locator(`[data-testid="subagent-card-${role}"]`).first();
   const result = card.locator('[data-testid="subagent-result"]').first();
@@ -173,5 +201,20 @@ test.describe("Sub-Agents", () => {
     await page.waitForTimeout(5_000);
     await expect(criticCards).toHaveCount(1);
     await expect(critic).toHaveAttribute("data-status", "complete");
+  });
+
+  test("suggestion pills can be clicked repeatedly and interleaved without losing subagent cards", async ({
+    page,
+  }) => {
+    const sequence = [PILLS.explain, PILLS.blog, PILLS.explain];
+
+    for (const title of sequence) {
+      const startIndex = await page
+        .locator('[data-testid^="subagent-card-"]')
+        .count();
+
+      await clickPill(page, title);
+      await waitForNewCardsDone(page, startIndex);
+    }
   });
 });

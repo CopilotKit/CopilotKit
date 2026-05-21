@@ -6,8 +6,10 @@
 // built-in `MCPAppsActivityRenderer` (registered by CopilotKit internally)
 // renders in the chat as a sandboxed iframe.
 //
-// The dedicated MCP Apps agent is served by the FastAPI backend at
-// `${AGENT_URL}/mcp-apps` (see src/agent_server.py).
+// The optional catch-all route mirrors the langgraph-python north star. MCP
+// Apps resource proxy requests are addressed below `/api/copilotkit-mcp-apps`,
+// so a plain `route.ts` at the parent segment handles the chat POST but misses
+// those subpath requests.
 //
 // Reference:
 // https://docs.copilotkit.ai/integrations/microsoft-agent-framework/generative-ui/mcp-apps
@@ -23,15 +25,12 @@ import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-console.log("[copilotkit-mcp-apps/route] Initializing CopilotKit runtime");
-console.log(`[copilotkit-mcp-apps/route] AGENT_URL: ${AGENT_URL}`);
-
 const mcpAppsAgent = new HttpAgent({ url: `${AGENT_URL}/mcp-apps/` });
 
 // headless-complete shares this runtime because its cell also exercises
 // MCP Apps activity rendering (the "Sketch a diagram" pill exercises the
 // Excalidraw MCP server via the same middleware). The catch-all `/` agent
-// on the Python backend backs it — no dedicated headless endpoint.
+// on the Python backend backs it -- no dedicated headless endpoint.
 const headlessCompleteAgent = new HttpAgent({
   url: `${AGENT_URL}/headless-complete`,
 });
@@ -53,10 +52,9 @@ const runtime = new CopilotRuntime({
       {
         type: "http",
         url: process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com",
-        // Always pin a stable `serverId`. Without it CopilotKit hashes the
-        // URL, and a URL change silently breaks restoration of persisted
-        // MCP Apps in prior conversation threads.
-        serverId: "mcp_apps_server",
+        // Keep the server id 1:1 with langgraph-python so persisted MCP Apps
+        // and fixture-backed resource calls use the same identity.
+        serverId: "excalidraw",
       },
     ],
   },

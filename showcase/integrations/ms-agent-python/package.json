@@ -32,12 +32,12 @@
     "react-markdown": "^10.1.0",
     "recharts": "^2.15.0",
     "remark-gfm": "^4.0.1",
-    "tailwind-merge": "^2.5.0",
+    "tailwind-merge": "^3.6.0",
     "yaml": "^2.8.4",
     "zod": "^3.24.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.50.0",
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",

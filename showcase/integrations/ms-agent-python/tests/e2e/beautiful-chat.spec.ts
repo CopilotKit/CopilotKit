@@ -201,7 +201,12 @@ test.describe("Beautiful Chat", () => {
     // only the text narration renders — so we don't hard-fail on missing
     // charts. The recharts check still catches regressions when the A2UI
     // pipeline IS active.
+    await expect(page.getByText("$1.2M").first()).toBeVisible({
+      timeout: 15_000,
+    });
+
     const chartRoot = page.locator(".recharts-responsive-container").first();
+    await expect(chartRoot).toBeVisible({ timeout: 15_000 });
     const chartsRendered = await chartRoot
       .isVisible({ timeout: 15_000 })
       .catch(() => false);
@@ -291,5 +296,80 @@ test.describe("Beautiful Chat", () => {
     await expect(page.getByText(/Total Revenue/i).first()).toBeVisible({
       timeout: 5_000,
     });
+  });
+
+  test("Pie Chart then Search Flights keeps the A2UI FlightCard surface working", async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+
+    await page
+      .getByRole("button", { name: "Pie Chart (Controlled Generative UI)" })
+      .click();
+
+    await expect(
+      page.getByText(/Pie chart rendered above/i).first(),
+    ).toBeVisible({ timeout: 60_000 });
+
+    await page
+      .getByRole("button", { name: "Search Flights (A2UI Fixed Schema)" })
+      .click();
+
+    await expect(page.getByText("United Airlines").first()).toBeVisible({
+      timeout: 60_000,
+    });
+    await expect(page.getByText("Delta").first()).toBeVisible({
+      timeout: 5_000,
+    });
+    await expect(page.getByText("$349").first()).toBeVisible({
+      timeout: 5_000,
+    });
+    await expect(
+      page.getByText(/Two flights shown above/i).first(),
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("Search Flights then Sales Dashboard renders the dashboard UI, not text only", async ({
+    page,
+  }) => {
+    test.setTimeout(240_000);
+
+    await page
+      .getByRole("button", { name: "Search Flights (A2UI Fixed Schema)" })
+      .click();
+
+    await expect(page.getByText("United Airlines").first()).toBeVisible({
+      timeout: 60_000,
+    });
+    await expect(
+      page.getByText(/Two flights shown above/i).first(),
+    ).toBeVisible({ timeout: 15_000 });
+
+    await page
+      .getByRole("button", { name: "Sales Dashboard (A2UI Dynamic)" })
+      .click();
+
+    await expect(page.getByText(/Total Revenue/i).first()).toBeVisible({
+      timeout: 120_000,
+    });
+    await expect(page.getByText("$1.2M").first()).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByText(/New Customers/i).first()).toBeVisible({
+      timeout: 5_000,
+    });
+
+    await expect(page.getByText(/Catalog not found/i)).toHaveCount(0);
+    await expect(
+      page.getByText(/Cannot create component .* without a type/i),
+    ).toHaveCount(0);
+
+    await expect
+      .poll(
+        async () =>
+          await page.locator(".recharts-responsive-container").count(),
+        { timeout: 15_000 },
+      )
+      .toBeGreaterThanOrEqual(2);
   });
 });

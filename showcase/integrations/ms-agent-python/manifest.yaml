@@ -348,7 +348,7 @@ demos:
     highlight:
       - src/agents/mcp_apps_agent.py
       - src/app/demos/mcp-apps/page.tsx
-      - src/app/api/copilotkit-mcp-apps/route.ts
+      - src/app/api/copilotkit-mcp-apps/[[...slug]]/route.ts
   - id: interrupt-headless
     name: Headless Interrupt (testing)
     description: Resolve interrupts from a plain button grid — no chat, no useInterrupt render prop
