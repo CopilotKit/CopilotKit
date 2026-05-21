@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/popover";
 import { buttonVariants } from "@/components/ui/button";
 import { usePathname } from "fumadocs-core/framework";
-import { getBaseUrl } from "@/lib/sitemap-helpers";
 import ClaudeIcon from "@/components/icons/claude";
 import ClaudeCodeIcon from "@/components/icons/claude-code";
 import CodexIcon from "@/components/icons/codex";
@@ -28,6 +27,21 @@ import WindsurfIcon from "@/components/icons/windsurf";
 // awaited STRING (not a Promise) to avoid the failed-fetch poisoning
 // pattern where a rejected promise gets cached and replayed on every
 // subsequent click — see `fetchMarkdown` below.
+/**
+ * Resolve the canonical base URL on the client. Inlined here (instead of
+ * imported from `@/lib/sitemap-helpers`) because that module also pulls
+ * in `fs` / `path` / `gray-matter` for sitemap generation — Node-only
+ * deps that fail the Next.js client bundle when this `"use client"`
+ * component reaches for them. The env var contract is identical:
+ * `NEXT_PUBLIC_BASE_URL` (set in production), prod fallback otherwise,
+ * with trailing slash stripped so callers can concatenate
+ * `${BASE}${path}` safely.
+ */
+function getClientBaseUrl(): string {
+  const raw = process.env.NEXT_PUBLIC_BASE_URL || "https://docs.copilotkit.ai";
+  return raw.replace(/\/+$/, "");
+}
+
 const cache = new Map<string, string>();
 
 /** Fetch the markdown body for a docs URL, caching successful responses
@@ -73,11 +87,15 @@ export function MarkdownCopyButton({
       const body = await fetchMarkdown(markdownUrl);
       await navigator.clipboard.writeText(body);
     } catch (err) {
-      // Surface for support / on-page diagnostics, but don't flip the
-      // copied indicator (useCopyButton respects throws by not setting
-      // `checked`, so the button visually fails-shut).
+      // Log for support / on-page diagnostics. Do NOT re-throw: Fumadocs's
+      // `useCopyButton` does not attach a `.catch()` to its internal
+      // promise, so a throw here becomes an unhandled rejection (browser
+      // console noise + Sentry spam) without any user-visible feedback
+      // — the button stays in its idle state either way. Swallowing
+      // here keeps the failure mode loud-but-bounded; a follow-up PR
+      // can introduce an explicit error UI state if we want the user
+      // to see "Copy failed".
       console.error("[page-actions] Copy Markdown failed", markdownUrl, err);
-      throw err;
     } finally {
       setLoading(false);
     }
@@ -128,15 +146,15 @@ export function ViewOptionsPopover({
 }) {
   const pathname = usePathname();
   const items = useMemo(() => {
-    // Build the absolute URL deterministically from `getBaseUrl()` so
-    // SSR and the first client render agree. The previous
+    // Build the absolute URL deterministically from `getClientBaseUrl()`
+    // so SSR and the first client render agree. The previous
     // `typeof window === "undefined" ? pathname : new URL(pathname, ...)`
     // branch produced a relative path on the server and an absolute URL
     // on the client, causing a React hydration mismatch on every
     // popover anchor AND embedding a path-only URL ("Read /quickstart,
     // I want to ask...") into the LLM-app deep-link prompt — which the
     // target LLM can't resolve.
-    const pageUrl = `${getBaseUrl()}${pathname}`;
+    const pageUrl = `${getClientBaseUrl()}${pathname}`;
     const q = `Read ${pageUrl}, I want to ask questions about it.`;
 
     return [

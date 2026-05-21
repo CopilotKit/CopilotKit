@@ -15,16 +15,8 @@
     },
     {
       "name": "shell",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": [
-        "--prefix",
-        "showcase/shell",
-        "run",
-        "dev",
-        "--",
-        "--port",
-        "3004"
-      ],
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "PORT=3004 npm --prefix showcase/shell run dev"],
       "port": 3004
     },
     {
