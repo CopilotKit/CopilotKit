@@ -146,6 +146,68 @@ describe("v1 TelemetryClient", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
+  test("identified events carry sampleWeight=1 (anonymous events carry 1/sampleRate)", async () => {
+    // Anonymous: sampleWeight should be 1 / sampleRate so downstream
+    // weight-based extrapolation reconstructs true volume.
+    // Identified: bypassing the gate means each event represents itself,
+    // so sampleWeight must be 1 — not the population's 1/sampleRate.
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const anonClient = makeClient({ sampleRate: 0.05 });
+    await anonClient.capture("oss.runtime.instance_created", baseInstanceEvent);
+    expect(lambdaSpy.mock.calls[0][0].globalProperties).toMatchObject({
+      sampleRate: 0.05,
+      sampleWeight: 20,
+    });
+    expect(segmentTrackMock.mock.calls[0][0]).toMatchObject({
+      properties: expect.objectContaining({ sampleRate: 0.05, sampleWeight: 20 }),
+    });
+
+    lambdaSpy.mockClear();
+    segmentTrackMock.mockReset();
+
+    const idClient = makeClient({ sampleRate: 0.05 });
+    idClient.setLicenseToken(jwtWith({ telemetry_id: "abc-123" }));
+    await idClient.capture("oss.runtime.instance_created", baseInstanceEvent);
+    expect(lambdaSpy.mock.calls[0][0].globalProperties).toMatchObject({
+      sampleRate: 1,
+      sampleWeight: 1,
+    });
+    expect(segmentTrackMock.mock.calls[0][0]).toMatchObject({
+      properties: expect.objectContaining({ sampleRate: 1, sampleWeight: 1 }),
+    });
+  });
+
+  test("malformed license token stays anonymous and remains sample-gated", async () => {
+    // parseTelemetryIdFromLicense returns null for any of: empty token,
+    // wrong-shape (not three dot-separated segments), base64/JSON parse
+    // failure. A misconfigured customer must not flip to identified-bypass.
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const client = makeClient({ sampleRate: 0.05 });
+
+    client.setLicenseToken("not-a-jwt");
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    expect(lambdaSpy).not.toHaveBeenCalled();
+    expect(segmentTrackMock).not.toHaveBeenCalled();
+  });
+
+  test("setLicenseToken cache is overwritable (good token replaced by bad → back to anonymous gate)", async () => {
+    // Pins the cache as last-write-wins so a refactor to first-write-wins
+    // (e.g. `this.telemetryId ??= parseAndWarnTelemetryId(...)`) doesn't
+    // leak identified-bypass status across license replacements.
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const client = makeClient({ sampleRate: 0.05 });
+
+    client.setLicenseToken(jwtWith({ telemetry_id: "abc-123" }));
+    client.setLicenseToken(jwtWith({ license_id: "no-telemetry-id" }));
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    expect(lambdaSpy).not.toHaveBeenCalled();
+    expect(segmentTrackMock).not.toHaveBeenCalled();
+  });
+
   test("setCloudConfiguration writes cloud keys into globalProperties for both sinks", async () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const client = makeClient({ sampleRate: 1 });
@@ -179,6 +241,23 @@ describe("v1 TelemetryClient", () => {
     expect(() => makeClient({ sampleRate: -0.1 })).toThrow(
       "Sample rate must be between 0 and 1",
     );
+  });
+
+  test("constructor rejects NaN sampleRate from a malformed env override", () => {
+    // parseFloat('nonsense') = NaN; without the explicit guard, NaN slips
+    // past the range check (all NaN comparisons are false) and produces a
+    // silent always-drop. Guard the validator with Number.isNaN.
+    const original = process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
+    process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE = "not-a-number";
+    try {
+      expect(() => makeClient()).toThrow("Sample rate must be between 0 and 1");
+    } finally {
+      if (original === undefined) {
+        delete process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
+      } else {
+        process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE = original;
+      }
+    }
   });
 });
 

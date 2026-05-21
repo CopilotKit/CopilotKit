@@ -175,6 +175,88 @@ describe("TelemetryClient", () => {
     );
   });
 
+  it("throws on NaN sampleRate from a malformed env override", () => {
+    // parseFloat('nonsense') = NaN. Without Number.isNaN in the validator,
+    // NaN slips past the range check and produces a silent always-drop.
+    const original = process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
+    process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE = "not-a-number";
+    try {
+      expect(() => new TelemetryClient({ telemetryDisabled: false })).toThrow(
+        "Sample rate must be between 0 and 1",
+      );
+    } finally {
+      if (original === undefined) {
+        delete process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
+      } else {
+        process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE = original;
+      }
+    }
+  });
+
+  it("default sampleRate=0.05 gates anonymous callers when no rate is configured", async () => {
+    // Pins the 0.05 default so a future refactor reverting to 1.0 fails
+    // loudly instead of silently restoring the OSS-runtime firehose this
+    // PR is designed to cap.
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const client = new TelemetryClient({ telemetryDisabled: false });
+
+    await client.capture("oss.runtime.instance_created", {
+      actionsAmount: 0,
+      endpointTypes: [],
+      endpointsAmount: 0,
+      "cloud.api_key_provided": false,
+    });
+
+    expect(lambdaSpy).not.toHaveBeenCalled();
+  });
+
+  it("malformed license token stays anonymous and remains sample-gated", async () => {
+    // parseTelemetryIdFromLicense returns null for empty/wrong-shape/parse
+    // failure. A misconfigured customer must not flip to identified-bypass.
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const client = new TelemetryClient({
+      telemetryDisabled: false,
+      sampleRate: 0.05,
+    });
+
+    client.setLicenseToken("not-a-jwt");
+    await client.capture("oss.runtime.instance_created", {
+      actionsAmount: 0,
+      endpointTypes: [],
+      endpointsAmount: 0,
+      "cloud.api_key_provided": false,
+    });
+
+    expect(lambdaSpy).not.toHaveBeenCalled();
+  });
+
+  it("setLicenseToken cache is overwritable (good token replaced by bad → back to anonymous gate)", async () => {
+    // Pins last-write-wins so a refactor to first-write-wins
+    // (`this.telemetryId ??= parseAndWarnTelemetryId(...)`) doesn't leak
+    // identified-bypass status across license replacements.
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const client = new TelemetryClient({
+      telemetryDisabled: false,
+      sampleRate: 0.05,
+    });
+
+    const good = `header.${Buffer.from('{"telemetry_id":"abc-123"}').toString("base64url")}.sig`;
+    const bad = `header.${Buffer.from('{"license_id":"no-tid"}').toString("base64url")}.sig`;
+    client.setLicenseToken(good);
+    client.setLicenseToken(bad);
+
+    await client.capture("oss.runtime.instance_created", {
+      actionsAmount: 0,
+      endpointTypes: [],
+      endpointsAmount: 0,
+      "cloud.api_key_provided": false,
+    });
+
+    expect(lambdaSpy).not.toHaveBeenCalled();
+  });
+
   it("identified callers bypass the sample gate", async () => {
     // Math.random would land above the gate for anonymous callers, but
     // a parsed telemetry_id makes the caller identified — the gate is

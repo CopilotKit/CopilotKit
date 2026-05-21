@@ -2,7 +2,7 @@ import { Analytics } from "@segment/analytics-node";
 import type { AnalyticsEvents } from "./events";
 import { flattenObject } from "./utils";
 import { v4 as uuidv4 } from "uuid";
-import lambdaClient, { parseTelemetryIdFromLicense } from "./lambda-client";
+import lambdaClient, { parseAndWarnTelemetryId } from "./lambda-client";
 
 /**
  * Checks if telemetry is disabled via environment variables.
@@ -104,9 +104,22 @@ export class TelemetryClient {
       return;
     }
 
+    // Identified events ship at 100% effective rate, anonymous events at
+    // sampleRate. Compute per-event so downstream weight-based extrapolation
+    // (sampleWeight = 1 / effectiveRate) is correct for both populations;
+    // a single global sampleWeight would overweight identified-customer
+    // counts by 1/sampleRate.
+    const effectiveSampleRate = this.telemetryId ? 1 : this.sampleRate;
+    const samplingMeta = {
+      sampleRate: effectiveSampleRate,
+      sampleRateAdjustmentFactor: 1 - effectiveSampleRate,
+      sampleWeight: 1 / effectiveSampleRate,
+    };
+
     const flattenedProperties = flattenObject(properties);
     const propertiesWithGlobal = {
       ...this.globalProperties,
+      ...samplingMeta,
       ...flattenedProperties,
     };
     const orderedPropertiesWithGlobal = Object.keys(propertiesWithGlobal)
@@ -122,7 +135,7 @@ export class TelemetryClient {
     await lambdaClient.send({
       event,
       properties: flattenedProperties,
-      globalProperties: this.globalProperties,
+      globalProperties: { ...this.globalProperties, ...samplingMeta },
       packageName: this.packageName,
       packageVersion: this.packageVersion,
       licenseToken: this.licenseToken ?? undefined,
@@ -161,15 +174,7 @@ export class TelemetryClient {
   // travels, in the X-CopilotKit-Telemetry-Id header set by lambda-client.
   setLicenseToken(licenseToken: string) {
     this.licenseToken = licenseToken;
-    this.telemetryId = parseTelemetryIdFromLicense(licenseToken);
-    if (!this.telemetryId) {
-      // Smoke signal during the issuer rollout: a token was provided
-      // but no telemetry_id came back. Surface it once at configuration
-      // time rather than silently degrading to anonymous on every send.
-      console.warn(
-        "[CopilotKit] License token did not yield a telemetry_id; telemetry events will be sent anonymously.",
-      );
-    }
+    this.telemetryId = parseAndWarnTelemetryId(licenseToken);
   }
 
   private setSampleRate(sampleRate: number | undefined) {
@@ -183,15 +188,18 @@ export class TelemetryClient {
       _sampleRate = parseFloat(process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE);
     }
 
-    if (_sampleRate < 0 || _sampleRate > 1) {
+    // Number.isNaN guards against parseFloat("nonsense") slipping past the
+    // range check (all NaN comparisons are false), which would silently
+    // drop every anonymous event with no signal — especially important
+    // since the default is now 0.05, making env-var overrides more common.
+    if (Number.isNaN(_sampleRate) || _sampleRate < 0 || _sampleRate > 1) {
       throw new Error("Sample rate must be between 0 and 1");
     }
 
     this.sampleRate = _sampleRate;
-    this.setGlobalProperties({
-      sampleRate: this.sampleRate,
-      sampleRateAdjustmentFactor: 1 - this.sampleRate,
-      sampleWeight: 1 / this.sampleRate,
-    });
+    // Per-event sampling metadata (sampleRate/sampleRateAdjustmentFactor/
+    // sampleWeight) is computed in capture() so identified events get
+    // their own effectiveSampleRate=1 weight instead of the anonymous
+    // population's 1/sampleRate.
   }
 }

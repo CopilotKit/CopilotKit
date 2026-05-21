@@ -1,8 +1,5 @@
 import type { AnalyticsEvents } from "./events";
-import {
-  lambdaClient,
-  parseTelemetryIdFromLicense,
-} from "@copilotkit/shared";
+import { lambdaClient, parseAndWarnTelemetryId } from "@copilotkit/shared";
 import * as packageJson from "../../../../package.json";
 
 export function isTelemetryDisabled(): boolean {
@@ -53,15 +50,7 @@ export class TelemetryClient {
 
   setLicenseToken(licenseToken: string) {
     this.licenseToken = licenseToken;
-    this.telemetryId = parseTelemetryIdFromLicense(licenseToken);
-    if (!this.telemetryId) {
-      // Smoke signal during the issuer rollout: a token was provided
-      // but no telemetry_id came back. Surface it once at configuration
-      // time rather than silently degrading to anonymous on every send.
-      console.warn(
-        "[CopilotKit] License token did not yield a telemetry_id; telemetry events will be sent anonymously.",
-      );
-    }
+    this.telemetryId = parseAndWarnTelemetryId(licenseToken);
   }
 
   async capture<K extends keyof AnalyticsEvents>(
@@ -91,7 +80,10 @@ export class TelemetryClient {
       _sampleRate = parseFloat(process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE);
     }
 
-    if (_sampleRate < 0 || _sampleRate > 1) {
+    // Number.isNaN guards against parseFloat("nonsense") slipping past the
+    // range check (all NaN comparisons are false), which would silently
+    // drop every anonymous event with no signal.
+    if (Number.isNaN(_sampleRate) || _sampleRate < 0 || _sampleRate > 1) {
       throw new Error("Sample rate must be between 0 and 1");
     }
 
