@@ -328,6 +328,63 @@ function fenceFor(language: string, code: string): string {
 }
 
 /**
+ * Render a `// path/to/file` style filename header that matches the
+ * comment syntax of the snippet's language. Hardcoding `//` (as the
+ * earlier version did) produces syntactically broken code in the fenced
+ * block for Python (`//` is integer division), YAML / Bash / TOML
+ * (where `#` is the comment marker), or anything else not in the
+ * C family — an LLM ingesting `/llms-full.txt` would see what looks
+ * like real code from the file but with an invalid first line. JSON
+ * has no native comment form, so we drop the header entirely there
+ * rather than ship invalid JSON in the fence.
+ */
+function fileHeaderComment(language: string, text: string): string {
+  const lang = (language || "").toLowerCase();
+  if (
+    lang === "python" ||
+    lang === "py" ||
+    lang === "bash" ||
+    lang === "sh" ||
+    lang === "shell" ||
+    lang === "yaml" ||
+    lang === "yml" ||
+    lang === "toml" ||
+    lang === "ruby" ||
+    lang === "rb" ||
+    lang === "r" ||
+    lang === "dockerfile" ||
+    lang === "makefile" ||
+    lang === "ini" ||
+    lang === "conf"
+  ) {
+    return `# ${text}`;
+  }
+  if (lang === "css" || lang === "scss" || lang === "less") {
+    return `/* ${text} */`;
+  }
+  if (
+    lang === "html" ||
+    lang === "xml" ||
+    lang === "svg" ||
+    lang === "md" ||
+    lang === "markdown" ||
+    lang === "mdx"
+  ) {
+    return `<!-- ${text} -->`;
+  }
+  if (lang === "sql") {
+    return `-- ${text}`;
+  }
+  // JSON / JSONC has no portable comment form. Skip the header rather
+  // than emit invalid JSON.
+  if (lang === "json" || lang === "jsonc") {
+    return "";
+  }
+  // Default to C-style `//` for TS/JS/Java/C/C++/C#/Go/Rust/Swift/Kotlin/Scala/etc.
+  return `// ${text}`;
+}
+
+/**
  * Resolve one `<Snippet />` tag to a fenced markdown code block. Returns
  * a short HTML comment when the snippet can't be resolved (so the
  * surrounding prose still reads cleanly).
@@ -358,8 +415,8 @@ function resolveSnippet(
     if (!reg) {
       return `<!-- snippet skipped: region '${attrs.region}' missing in ${framework}::${cell} -->`;
     }
-    const fileComment = `// ${reg.file}`;
-    return fenceFor(reg.language, `${fileComment}\n${reg.code}`);
+    const header = fileHeaderComment(reg.language, reg.file);
+    return fenceFor(reg.language, header ? `${header}\n${reg.code}` : reg.code);
   }
 
   // file + lines mode.
@@ -370,7 +427,11 @@ function resolveSnippet(
     }
     const content = demoFile.content.replace(/\n$/, "");
     if (!attrs.lines) {
-      return fenceFor(demoFile.language, `// ${demoFile.filename}\n${content}`);
+      const header = fileHeaderComment(demoFile.language, demoFile.filename);
+      return fenceFor(
+        demoFile.language,
+        header ? `${header}\n${content}` : content,
+      );
     }
     const range = parseLineRange(attrs.lines);
     if (!range) {
@@ -384,10 +445,11 @@ function resolveSnippet(
     const slice = lines
       .slice(start - 1, Math.min(end, lines.length))
       .join("\n");
-    return fenceFor(
+    const header = fileHeaderComment(
       demoFile.language,
-      `// ${demoFile.filename} (lines ${start}-${Math.min(end, lines.length)})\n${slice}`,
+      `${demoFile.filename} (lines ${start}-${Math.min(end, lines.length)})`,
     );
+    return fenceFor(demoFile.language, header ? `${header}\n${slice}` : slice);
   }
 
   return "<!-- snippet skipped: needs region or file -->";
