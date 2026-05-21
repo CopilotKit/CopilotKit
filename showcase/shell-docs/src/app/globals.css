@@ -52,17 +52,12 @@
  * column. Hide it so the framework selector (rendered via the `banner`
  * slot) sits flush at the top. */
 /* Sidebar banner (holds the framework picker). Top/horizontal padding
- * at 1.5rem (top) / 1rem (sides) matches the sidebar's outer 0.75rem
- * inset visually while giving the framework picker enough breathing
- * room from the rounded top edge of the sidebar card. The previous
- * 1rem top padding read as visually scrunched against the card edge
- * (the picker pill itself has rounded corners and a border, so the
- * gap to the card edge needs to be larger than the gap to the first
- * nav link below). Bottom padding stays zeroed — the gap to the
- * first nav link is governed by the scroll viewport's own top
- * padding (also 1rem). */
+ * at 1rem matches the sidebar's outer 0.75rem inset visually. Bottom
+ * padding is zeroed so the gap between the picker and the first nav
+ * link in the scroll viewport is governed entirely by the viewport's
+ * top padding (also 1rem) — keeping above/below the picker symmetric. */
 .shell-docs-sidebar > div:first-child {
-  padding: 1.5rem 1rem 0 1rem !important;
+  padding: 1rem 1rem 0 1rem !important;
 }
 /* Hide the empty home-link wrapper Fumadocs ships in the desktop
  * SidebarHeader. Scoped via `:has(> a:only-child:empty)` so it ONLY
