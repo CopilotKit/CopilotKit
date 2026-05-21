@@ -29,4 +29,11 @@ export function PopoverContent({
   );
 }
 
-export const PopoverClose = PopoverPrimitive.PopoverClose;
+// Radix UI exports the close primitive as `Close`, NOT `PopoverClose`.
+// The previous `PopoverPrimitive.PopoverClose` resolved to `undefined`
+// at runtime, so any caller importing + rendering `<PopoverClose />`
+// would have thrown a React "Element type is invalid" error. We don't
+// have any callers today (this is a fresh shadcn scaffold from the
+// fumadocs CLI), but ship the correct re-export so future callers
+// don't trip the same wire.
+export const PopoverClose = PopoverPrimitive.Close;

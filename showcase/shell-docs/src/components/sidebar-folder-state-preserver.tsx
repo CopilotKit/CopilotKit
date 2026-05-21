@@ -48,8 +48,11 @@ function readStateMap(): FolderStateMap {
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
       return parsed as FolderStateMap;
     }
-  } catch {
-    // Corrupted JSON or storage access blocked — start fresh.
+  } catch (err) {
+    // Corrupted JSON, SecurityError (third-party iframe / privacy
+    // mode), or quota — log so a user reporting "my folders keep
+    // resetting" can diagnose, then start fresh below.
+    console.warn("[sidebar-folder-state-preserver] failed to read state", err);
   }
   return {};
 }
@@ -57,8 +60,10 @@ function readStateMap(): FolderStateMap {
 function writeStateMap(map: FolderStateMap) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
-  } catch {
-    // Quota or access errors — silently drop; folder state is non-critical.
+  } catch (err) {
+    // Same rationale as the read side — non-critical state, but log so
+    // a quota / access error doesn't silently swallow the failure.
+    console.warn("[sidebar-folder-state-preserver] failed to write state", err);
   }
 }
 
@@ -79,6 +84,14 @@ function folderKey(trigger: HTMLButtonElement): string {
   return (trigger.innerText || trigger.textContent || "").trim();
 }
 
+// Triggers we just synthetically clicked during a restore pass. The
+// delegated click handler skips these so a restore-driven click doesn't
+// get recorded back into localStorage — without this guard a Radix
+// state mismatch (transient animation, mount race) could overwrite the
+// user's saved preference with the live value the restore just tried
+// to flip. WeakSet so removed triggers GC cleanly across navigations.
+const syntheticClicks = new WeakSet<HTMLButtonElement>();
+
 export function SidebarFolderStatePreserver() {
   const pathname = usePathname();
 
@@ -96,7 +109,13 @@ export function SidebarFolderStatePreserver() {
       if (desired === undefined) continue;
       const current = trigger.getAttribute("data-state");
       if (current !== desired) {
+        // Mark BEFORE dispatching so the delegated click handler that
+        // fires synchronously on `.click()` sees the marker and skips
+        // recording. Cleared on the next rAF — by then any genuine
+        // user-initiated click will have a fresh, unmarked event.
+        syntheticClicks.add(trigger);
         trigger.click();
+        requestAnimationFrame(() => syntheticClicks.delete(trigger));
       }
     }
   }, [pathname]);
@@ -115,6 +134,8 @@ export function SidebarFolderStatePreserver() {
         "button[aria-controls^='radix-'][data-state]",
       );
       if (!trigger || !sidebar.contains(trigger)) return;
+      // Skip synthetic restore clicks — only record real user clicks.
+      if (syntheticClicks.has(trigger)) return;
 
       const key = folderKey(trigger);
       if (!key) return;
