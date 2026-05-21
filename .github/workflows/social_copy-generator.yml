@@ -178,7 +178,7 @@ jobs:
 
       - name: Remove repository Claude settings
         if: steps.verify.outputs.should_run == 'true'
-        run: rm -f .claude/settings.json .claude/settings.local.json
+        run: rm -f .claude/settings.json .claude/settings.local.json .mcp.json
 
       - name: Get PR diff
         if: steps.verify.outputs.should_run == 'true'
