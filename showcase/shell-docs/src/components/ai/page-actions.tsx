@@ -17,12 +17,36 @@ import {
 } from "@/components/ui/popover";
 import { buttonVariants } from "@/components/ui/button";
 import { usePathname } from "fumadocs-core/framework";
+import { getBaseUrl } from "@/lib/sitemap-helpers";
 import ClaudeIcon from "@/components/icons/claude";
 import ClaudeCodeIcon from "@/components/icons/claude-code";
 import CodexIcon from "@/components/icons/codex";
 import WindsurfIcon from "@/components/icons/windsurf";
 
-const cache = new Map<string, Promise<string>>();
+// Module-scoped cache of resolved markdown bodies. Survives navigations
+// so repeated clicks on the same page don't re-fetch. Stored as the
+// awaited STRING (not a Promise) to avoid the failed-fetch poisoning
+// pattern where a rejected promise gets cached and replayed on every
+// subsequent click — see `fetchMarkdown` below.
+const cache = new Map<string, string>();
+
+/** Fetch the markdown body for a docs URL, caching successful responses
+ * only. Throws on network failure or non-2xx response so the click
+ * handler can surface the error instead of silently copying a 404 page
+ * body or replaying a permanently-broken cache entry. */
+async function fetchMarkdown(url: string): Promise<string> {
+  const cached = cache.get(url);
+  if (cached !== undefined) return cached;
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(
+      `fetchMarkdown: ${url} responded ${res.status} ${res.statusText}`,
+    );
+  }
+  const body = await res.text();
+  cache.set(url, body);
+  return body;
+}
 
 /**
  * see https://fumadocs.dev/docs/integrations/llms#page-actions to customize.
@@ -38,19 +62,22 @@ export function MarkdownCopyButton({
 }) {
   const [isLoading, setLoading] = useState(false);
   const [checked, onClick] = useCopyButton(async () => {
-    const cached = cache.get(markdownUrl);
-    if (cached) return navigator.clipboard.writeText(await cached);
-
+    // Single code path for both cache-hit and cache-miss so the loader
+    // state, error handling, and clipboard API stay consistent. The
+    // upstream Fumadocs example uses two branches (writeText for hits,
+    // ClipboardItem(promise) for misses), but the ClipboardItem promise
+    // flow has spotty browser support (Safari, non-secure contexts) and
+    // diverges from the simpler hit path for no benefit.
     setLoading(true);
-
     try {
-      const promise = fetch(markdownUrl).then((res) => res.text());
-      cache.set(markdownUrl, promise);
-      await navigator.clipboard.write([
-        new ClipboardItem({
-          "text/plain": promise,
-        }),
-      ]);
+      const body = await fetchMarkdown(markdownUrl);
+      await navigator.clipboard.writeText(body);
+    } catch (err) {
+      // Surface for support / on-page diagnostics, but don't flip the
+      // copied indicator (useCopyButton respects throws by not setting
+      // `checked`, so the button visually fails-shut).
+      console.error("[page-actions] Copy Markdown failed", markdownUrl, err);
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -58,9 +85,14 @@ export function MarkdownCopyButton({
 
   return (
     <button
+      // Spread caller props FIRST so the component-owned `disabled`,
+      // `onClick`, and `className` below take precedence over anything
+      // the caller passes. Without this order, a caller could override
+      // the loading guard or the copy handler and silently break the
+      // component's core behavior.
+      {...props}
       disabled={isLoading}
       onClick={onClick}
-      {...props}
       className={cn(
         buttonVariants({
           color: "secondary",
@@ -96,10 +128,15 @@ export function ViewOptionsPopover({
 }) {
   const pathname = usePathname();
   const items = useMemo(() => {
-    const pageUrl =
-      typeof window === "undefined"
-        ? pathname
-        : new URL(pathname, window.location.origin);
+    // Build the absolute URL deterministically from `getBaseUrl()` so
+    // SSR and the first client render agree. The previous
+    // `typeof window === "undefined" ? pathname : new URL(pathname, ...)`
+    // branch produced a relative path on the server and an absolute URL
+    // on the client, causing a React hydration mismatch on every
+    // popover anchor AND embedding a path-only URL ("Read /quickstart,
+    // I want to ask...") into the LLM-app deep-link prompt — which the
+    // target LLM can't resolve.
+    const pageUrl = `${getBaseUrl()}${pathname}`;
     const q = `Read ${pageUrl}, I want to ask questions about it.`;
 
     return [
