@@ -80,6 +80,19 @@ const nextConfig: NextConfig = {
           source: "/ingest/:path*",
           destination: "https://eu.i.posthog.com/:path*",
         },
+        // Fumadocs LLM page-actions feature: every docs page is also
+        // reachable as `<path>.mdx` so LLMCopyButton/ViewOptionsPopover
+        // (and external crawlers) can fetch the raw MDX source. The
+        // route handler at `app/llms-mdx/[[...slug]]/route.ts` reuses
+        // `loadDoc()` to resolve the same content tree the page uses.
+        {
+          source: "/:path*.mdx",
+          destination: "/llms-mdx/:path*",
+        },
+        {
+          source: "/:path*.md",
+          destination: "/llms-mdx/:path*",
+        },
       ],
       afterFiles: [],
       fallback: [],

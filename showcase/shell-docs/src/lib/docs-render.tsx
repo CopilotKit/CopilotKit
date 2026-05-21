@@ -44,7 +44,17 @@ export type NavNode =
 // case-insensitive so meta.json edits don't need to match this map's
 // capitalization exactly. Update keys here when section names change
 // in `content/docs/meta.json`.
+//
+// Includes both the agnostic root sections AND per-framework
+// `docs_mode: "authored"` sections (e.g. Built-in Agent's own IA,
+// whose meta.json lives at
+// `content/docs/integrations/built-in-agent/meta.json`). Authored
+// frameworks don't merge into the root tree, so they need their own
+// section names registered here to receive icons — otherwise the
+// section header renders without a glyph and looks visually distinct
+// from the generated-mode sidebars.
 const SECTION_ICONS: Record<string, string> = {
+  // Agnostic root sections (`content/docs/meta.json`).
   "get started": "lucide/Rocket",
   concepts: "lucide/BookOpen",
   "build chat uis": "lucide/MessageSquare",
@@ -54,6 +64,19 @@ const SECTION_ICONS: Record<string, string> = {
   "observe & operate": "lucide/SearchCheck",
   enterprise: "custom/copilotkit-kite",
   deploy: "lucide/Cloud",
+  other: "lucide/MoreHorizontal",
+  // Built-in Agent (authored) sections — match the section names in
+  // `content/docs/integrations/built-in-agent/meta.json`. Adjust here
+  // when those section labels change in that meta.json.
+  "getting started": "lucide/Rocket",
+  basics: "lucide/BookOpen",
+  "generative ui": "lucide/Paintbrush",
+  "app control": "lucide/WandSparkles",
+  "built-in agent": "lucide/Bot",
+  backend: "lucide/Server",
+  "premium features": "custom/copilotkit-kite",
+  tutorials: "lucide/ListChecks",
+  troubleshooting: "lucide/LifeBuoy",
 };
 
 export function sectionIconFor(title: string): string | undefined {

@@ -6,7 +6,7 @@
 // heading renders with (the same `slugify()` is used at heading-render
 // time inside DocsPageView). So `url: "#" + slug` is a stable anchor.
 
-import type { TableOfContents } from "fumadocs-core/server";
+import type { TableOfContents } from "fumadocs-core/toc";
 import type { TocHeading } from "@/lib/toc";
 
 export function tocHeadingsToFumadocs(headings: TocHeading[]): TableOfContents {

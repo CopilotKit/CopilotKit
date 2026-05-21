@@ -112,36 +112,78 @@
   padding-bottom: 0.625rem;
 }
 
-/* Shrink sidebar icons (section markers, folder chevrons, anything
- * Fumadocs renders inside a navigation item) from the default 16px
- * down to 14px. Targets only nav items via the
- * `ps-(--sidebar-item-offset)` class fragment so the framework-
- * selector pill / dropdown logos keep their explicit sizing. */
-.shell-docs-sidebar p[class*="sidebar-item-offset"] svg,
+/* Shrink sidebar icons (folder chevrons, anything Fumadocs renders
+ * inside a navigation item) from the default 16px down to 14px.
+ * Targets only nav items via the `ps-(--sidebar-item-offset)` class
+ * fragment so the framework-selector pill / dropdown logos keep their
+ * explicit sizing. Section-header `<p>` icons are styled separately
+ * below (smaller + muted) so they read as visual scaffolding rather
+ * than competing with the all-caps section label. */
 .shell-docs-sidebar a[class*="sidebar-item-offset"] svg,
 .shell-docs-sidebar button[class*="sidebar-item-offset"] svg {
   width: 14px;
   height: 14px;
 }
-
-/* Sidebar footer (`SidebarFooter` — the row with GitHub/Discord icons
- * and the theme toggle). Fumadocs ships `border-t p-4 pt-2` but the
- * default `border-t` color resolves to `currentColor` in Tailwind v4,
- * which renders as text-dark against the white panel. Force the
- * project's border token and extend the rule edge-to-edge by
- * neutralising the horizontal padding so the line spans the full
- * sidebar width. */
-.shell-docs-sidebar > div.flex.flex-col.border-t {
-  border-top: 1px solid var(--border) !important;
-  width: 100% !important;
-  padding: 0.5rem 1rem;
+/* Section-header icons (the lucide marks next to "Get Started",
+ * "Concepts", etc.) — render small and in the brand accent so they
+ * read as a supporting brand glyph next to the all-caps section label.
+ * Folder-trigger / chevron SVGs on <a>/<button> nav items above stay
+ * larger and muted; only the <p> section-header icons get the accent
+ * tint here. */
+.shell-docs-sidebar p[class*="sidebar-item-offset"] svg {
+  width: 4px !important;
+  height: 4px !important;
+  color: var(--accent) !important;
 }
 
-/* First separator at the top of the sidebar — no top padding so the
- * "Get Started" label doesn't push down from the framework selector. */
-.shell-docs-sidebar p[class*="sidebar-item-offset"]:first-of-type {
-  padding-top: 0 !important;
-  margin-top: 0 !important;
+/* Sidebar footer (`SidebarFooter` — the row with GitHub/Discord icons
+ * and the custom `<ThemeSwitch>`). Fumadocs wraps our custom `footer`
+ * ReactNode in `<div class="flex flex-col border-t p-4 pt-2 empty:hidden">`,
+ * which already gives us a top divider. We override the divider color so
+ * it picks up the project's `--border` token (default `border-t` resolves
+ * to `currentColor` in Tailwind v4) and tighten the vertical padding so
+ * the row feels like a contained section under the nav rather than a
+ * floating chrome block. */
+.shell-docs-sidebar > div.flex.flex-col.p-4.pt-2:last-child {
+  padding: 0.75rem 1rem 0.875rem 1rem !important;
+  border-top: 1px solid var(--border) !important;
+}
+
+/* Footer icon-link hover — pick up the accent on hover. Targets the
+ * GitHub / Discord anchors inside our custom footer row (marked with
+ * the `.sidebar-footer-row` class on the wrapper) so the icons feel
+ * branded even without a container pill. */
+.shell-docs-sidebar .sidebar-footer-row > a {
+  transition:
+    color 150ms ease-out,
+    background-color 150ms ease-out;
+}
+.shell-docs-sidebar .sidebar-footer-row > a:hover {
+  background-color: color-mix(
+    in srgb,
+    var(--accent) 10%,
+    transparent
+  ) !important;
+  color: var(--accent) !important;
+}
+
+/* First separator at the top of the sidebar — Fumadocs v16 emits the
+ * separator `<p>` with `first:mt-0`, which zeroes the top margin only
+ * on the first one. Restore the standard `mt-6` (1.5rem) so the gap
+ * between the framework picker and "Getting Started" matches the gap
+ * between every other section header. Selector matches the section-
+ * header `<p>` shape (`inline-flex items-center gap-2 ...`) since v16
+ * dropped the older `sidebar-item-offset` class fragment. */
+.shell-docs-sidebar p.inline-flex.gap-2:first-of-type {
+  margin-top: 1.5rem !important;
+}
+
+/* Section-header icons — accent purple. The lucide icons use
+ * `stroke="currentColor"` so setting `color` recolors the stroke. */
+.shell-docs-sidebar p.inline-flex.gap-2 svg {
+  color: var(--accent) !important;
+  width: 16px !important;
+  height: 16px !important;
 }
 /* Two separators stacked back-to-back (e.g. a top-level section
  * "Build Generative UI" + sub-section "Controlled") would otherwise
@@ -203,9 +245,43 @@ figure.shiki > div:first-child[class*="border-b"] {
  * The article-level padding (LayoutBody's `md:[&_#nd-page_article]:pt-12`
  * plus PageArticle's own `pt-8`) is unwanted on both — we always zero
  * those at the #nd-page / article wrappers. */
+/* Mobile (< md): MobileTopNav is `position: fixed` at top:0 of the
+ * viewport (56px tall, see --fd-nav-height). Push the docs grid down
+ * by that amount so the page title isn't clipped behind it. Fumadocs
+ * v16 no longer ships this `pt-(--fd-nav-height)` default on the
+ * grid root the way v15 did. */
+@media (max-width: 767px) {
+  #nd-docs-layout {
+    padding-top: var(--fd-nav-height) !important;
+  }
+}
+
 @media (min-width: 768px) {
   #nd-docs-layout {
     padding-top: 0 !important;
+    /* Override fumadocs's default `--fd-docs-height: 100dvh`. That
+     * assumes the docs grid spans the whole viewport, but shell-docs
+     * has BrandNav (68px md→xl, 88px xl+) + mt-6 (24px) + mb-3
+     * (12px) above/below `main` in body flow (body itself is
+     * `overflow: hidden`, fixed 100dvh). We can't use `100%` here:
+     * the docs grid uses `min-h-(--fd-docs-height)`, so when the
+     * docs content is long it grows past main, and `100%` resolves
+     * against the GROWN height — making the sticky sidebar wrapper
+     * (sized as `calc(--fd-docs-height - --fd-docs-row-1)`) the
+     * full content height (3000px+) rather than the visible column.
+     * Use a viewport-bound calc that subtracts the chrome instead. */
+    --fd-docs-height: calc(
+      100dvh - var(--fd-banner-height, 0px) - 68px - 2.25rem
+    ) !important;
+  }
+}
+
+/* At xl+, BrandNav switches from h-[68px] to h-[88px]. */
+@media (min-width: 1280px) {
+  #nd-docs-layout {
+    --fd-docs-height: calc(
+      100dvh - var(--fd-banner-height, 0px) - 88px - 2.25rem
+    ) !important;
   }
 }
 #nd-page > article,
@@ -239,19 +315,49 @@ figure.shiki > div:first-child[class*="border-b"] {
 .docs-inner-content {
   min-width: 0;
   width: 100%;
-  /* Mirror the sidebar's 0.75rem left/right viewport inset so the
-   * content column has breathing room from both the floating sidebar
-   * (on the left) and the viewport edge (on the right). */
-  padding-left: 49px !important;
-  padding-right: 49px !important;
+  /* Mobile default: keep the content close to the viewport edges so
+   * a 375px screen isn't eating 98px of side padding. */
+  padding-left: 16px !important;
+  padding-right: 16px !important;
 }
 
+/* Desktop (md+): mirror the sidebar's 0.75rem left/right viewport
+ * inset so the content column has breathing room from both the
+ * floating sidebar (on the left) and the viewport edge (on the
+ * right). */
+@media (min-width: 768px) {
+  .docs-inner-content {
+    padding-left: 49px !important;
+    padding-right: 49px !important;
+  }
+}
+
+/* TOC-less pages (frontmatter `hideTOC: true`, or any page where fumadocs
+ * doesn't render `#nd-toc`). The grid still allocates the full article
+ * column (TOC width collapses to 0), but the article element itself has
+ * a Tailwind `max-w-[900px]` cap baked in by fumadocs's default styles —
+ * which leaves a yawning empty band on wide viewports. Lift the cap on
+ * BOTH the article AND its inner content wrapper so the content stretches
+ * into the space the TOC would otherwise occupy. Still pin to `100%` so
+ * narrow viewports don't horizontal-scroll. */
+#nd-docs-layout:not(:has(#nd-toc)) article#nd-page {
+  max-width: 100% !important;
+}
 #nd-docs-layout:not(:has(#nd-toc)) .docs-inner-content {
-  /* Cap at 1100px but never exceed the available column width — otherwise
-   * the flex parent's `min-w-0` lets this child render at its natural
-   * 1100px on narrower viewports, pushing the docs-content-wrapper into a
-   * horizontal scroll where the whole page shifts right. */
   max-width: min(1100px, 100%);
+}
+
+/* Mobile: the docs grid keeps 5 columns (sidebar / sidebar / main /
+ * toc / toc) even when the sidebar is `display: none` because it's
+ * the named grid template fumadocs ships. With `grid-area: auto`,
+ * the content lands in column 1 (a `1fr` outer-left column), so a
+ * narrow main column (col 3, no real content placed there) wastes
+ * the rest of the viewport on the right. Forcing the content to
+ * span the full grid lets it use the whole row. */
+@media (max-width: 767px) {
+  .docs-inner-content {
+    grid-column: 1 / -1;
+  }
 }
 
 /* Sidebar — float as a card panel inset from all four viewport edges,
@@ -260,16 +366,13 @@ figure.shiki > div:first-child[class*="border-b"] {
  * bottom: var(--fd-sidebar-margin)` by default — we override `left` and
  * tighten top/bottom so the panel floats with even breathing room. */
 .shell-docs-sidebar {
-  /* `top` aligns the framework picker's baseline with the page
-   * breadcrumb. BrandNav is 68px tall md→xl and 88px from xl up;
-   * the +8 offset accounts for article padding (≈12px) minus our
-   * banner padding (≈4px) so the picker baseline lands on the
-   * breadcrumb's baseline. Width is left alone — Fumadocs's
-   * `*:w-(--fd-sidebar-width)` already sizes the inner content
-   * column; pinning a different width on the aside makes the
-   * banner overflow past its right edge. */
-  left: 0.75rem !important;
-  bottom: 0.75rem !important;
+  /* In v16 the aside sits inside a sticky grid-area wrapper whose
+   * horizontal position is already driven by `<main className="mx-3">`
+   * — matching BrandNav's `px-3` (12px) so the sidebar pill's left
+   * edge lines up with BrandNav's left card. The previous
+   * `left: 0.75rem !important` was a v15-era leftover that added an
+   * extra 12px inset on top of main's margin, breaking that column
+   * alignment. */
   /* Tailwind's `border-[var(--border)]` arbitrary-value class loses to
    * the bare `border` utility's `currentColor` default in v4's cascade
    * order — leading to a near-black outline against the white panel.
@@ -284,28 +387,33 @@ figure.shiki > div:first-child[class*="border-b"] {
   padding: 1rem !important;
 }
 
-/* The sidebar banner gets `*:w-(--fd-sidebar-width)` from Fumadocs's
- * parent aside, making it wider than the aside itself and the scroll
- * viewport below. Force the banner to share the aside's natural width
- * so the picker pill lines up with the nav links underneath. */
-.shell-docs-sidebar > div:first-child {
-  width: 100% !important;
-}
-
-/* Top offset stacks BrandNav (68px md / 88px xl) under the banner (54px
- * when shown, 0px when dismissed — Banners writes the variable on <html>).
- * Without `--fd-banner-height` in the calc, the fixed sidebar pins to
- * 76/96px while body-flow chrome (Banner + BrandNav) shifts down past it,
- * overlapping the nav row. */
-@media (min-width: 768px) {
+/* Banner width: in fumadocs v16 the aside applies
+ * `*:w-(--fd-sidebar-width)` to every direct child, so the banner
+ * already matches the nav links underneath (268px). The previous
+ * `width: 100%` override forced it to fill the aside, which at wide
+ * viewports made the framework-picker stretch beyond the rest of the
+ * sidebar. Removing that override is intentional.
+ *
+ * Pill chrome (the rounded card around the sidebar):
+ *   • Below 2xl (≤1535px): keep the rounded card. Fumadocs's aside
+ *     fills the sticky grid-area wrapper (`inset-y-0`) which is
+ *     `100dvh - --fd-docs-row-1` tall. We leave this alone so the
+ *     internal scroll viewport stays bounded and the footer
+ *     (GitHub + Discord + theme toggle) pins to the bottom of the
+ *     visible pill instead of being pushed below the viewport.
+ *   • 2xl+ (≥1536px): drop the rounded/border/bg/shadow. At this
+ *     point the sidebar grid-area widens past `--fd-sidebar-width`
+ *     because the grid's outer 1fr columns gain horizontal space, so
+ *     the pill would frame empty whitespace. The nav items
+ *     (right-aligned via `items-end`) read better unframed. The
+ *     `2xl` Tailwind breakpoint (1536px) lines up with fumadocs's
+ *     `--fd-layout-width: 97rem` (1552px). */
+@media (min-width: 1536px) {
   .shell-docs-sidebar {
-    top: calc(76px + var(--fd-banner-height, 0px)) !important;
-  }
-}
-
-@media (min-width: 1280px) {
-  .shell-docs-sidebar {
-    top: calc(96px + var(--fd-banner-height, 0px)) !important;
+    background-color: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
   }
 }
 
@@ -672,23 +780,31 @@ samp {
   content: counter(docs-step);
 }
 
-/* Brand-tint the first Step's heading. Indigo→purple gradient text
- * matches the CopilotKit accent (OpsPlatformCTA, nav). Subtle cue
- * that Step 1 is the entry point — the badge itself stays in its
- * default styling so the contrast comes from the heading, not chrome.
- * The :is() drops the anchor-link `#` (which uses .docs-heading-anchor). */
-.docs-steps > div:first-child h3,
-.docs-steps > div:first-child h3 > :is(:not(.docs-heading-anchor)) {
-  background-image: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
+/* Step heading colors. Previously Step 1's heading carried an
+ * indigo→purple gradient text fill as a "this is the entry point"
+ * cue, but it competed visually with surrounding chrome and read as
+ * branding noise rather than guidance. Force every Step's H3 to the
+ * standard prose text color so the numbered badge supplies the only
+ * visual cue for step ordering. The `:is(:not(.docs-heading-anchor))`
+ * leaves the anchor `#` link alone so it keeps its faint hover styling.
+ *
+ * `-webkit-text-fill-color` must be reset explicitly — any prior
+ * gradient rule that set it to `transparent` would otherwise still
+ * override our `color` declaration on WebKit browsers. */
+.docs-steps h3,
+.docs-steps h3 > :is(:not(.docs-heading-anchor)) {
+  background-image: none !important;
+  color: var(--text) !important;
+  -webkit-text-fill-color: var(--text) !important;
+}
+.docs-steps h3 a:not(.docs-heading-anchor) {
+  color: var(--text) !important;
+  -webkit-text-fill-color: var(--text) !important;
 }
 
-/* Mute the SignupLink color in Step 1 so it doesn't clash with the
- * gradient heading above it. The link stays underlined for affordance,
- * inherits hover (opacity: 0.8) from .reference-content a. */
+/* Mute the SignupLink color in Step 1 so it tracks the body prose. The
+ * link stays underlined for affordance, inherits hover (opacity: 0.8)
+ * from .reference-content a. */
 .docs-steps > div:first-child a[data-cta-surface] {
   color: var(--text);
 }

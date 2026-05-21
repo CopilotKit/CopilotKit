@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { SidebarTrigger } from "fumadocs-ui/components/layout/sidebar";
+import { SidebarTrigger } from "fumadocs-ui/components/sidebar/base";
 import { Menu } from "lucide-react";
 import { SearchTrigger } from "./search-trigger";
 import { CopilotKitMark } from "./copilotkit-mark";

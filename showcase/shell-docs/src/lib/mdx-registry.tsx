@@ -11,7 +11,7 @@ import {
   Accordions,
   Accordion,
 } from "@/components/mdx-components";
-import { Callout as DocsCallout } from "@/components/docs-callout";
+import { Callout as DocsCallout } from "fumadocs-ui/components/callout";
 import { Steps as DocsSteps, Step as DocsStep } from "@/components/docs-steps";
 import { Tabs as DocsTabs, Tab as DocsTab } from "@/components/docs-tabs";
 import {

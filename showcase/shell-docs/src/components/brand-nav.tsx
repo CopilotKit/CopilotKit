@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import { SearchTrigger } from "./search-trigger";
 import { CopilotKitMark } from "./copilotkit-mark";
-import RocketIcon from "./icons/rocket";
+import BookIcon from "./icons/book";
 import ConsoleIcon from "./icons/console";
 import CloudIcon from "./icons/cloud";
 import ExternalLinkIcon from "./icons/external-link";
@@ -32,7 +32,7 @@ type LeftLink = {
 
 const LEFT_LINKS: LeftLink[] = [
   {
-    icon: <RocketIcon className="text-[var(--text-secondary)]" />,
+    icon: <BookIcon className="text-[var(--text-secondary)]" />,
     label: "Docs",
     href: "/",
   },
@@ -77,8 +77,14 @@ export function BrandNav(_props: BrandNavProps = {}) {
   };
 
   return (
-    <nav className="relative h-[68px] xl:h-[88px] px-3 py-1 xl:py-2 bg-[var(--bg)] hidden md:block">
-      <div className="flex justify-between items-center w-full h-full">
+    <nav className="relative h-[68px] xl:h-[88px] px-[22px] py-1 xl:py-2 bg-[var(--bg)] hidden md:block">
+      {/* Cap the BrandNav's visible chrome at the same `--fd-layout-width`
+       * (97rem) that the fumadocs docs grid uses, and center it. At
+       * wide viewports this keeps the BrandNav's left/right edges
+       * aligned with the sidebar pill on the left and the docs content
+       * column on the right; at narrower viewports it's a no-op
+       * because the inner width never reaches the cap. */}
+      <div className="flex justify-between items-center w-full h-full max-w-[97rem] mx-auto">
         {/* Left half (logo + nav links) */}
         <div className="flex w-full h-full">
           <div
@@ -163,24 +169,24 @@ export function BrandNav(_props: BrandNavProps = {}) {
               })}
             </ul>
 
-            {/* Talk to an Engineer — pushed to the right edge of the
+            {/* Talk to an engineer — pushed to the right edge of the
              * left wing (the `me-auto` on the nav links above shoves
              * everything else to where this button lives). Pill at
              * ≥1100px, compact calendar icon at md-to-1099px. */}
             <button
               type="button"
               onClick={handleTalkToEngineersClick}
-              className="hidden [@media(width>=1100px)]:flex items-center h-9 px-4 mr-4 text-sm font-medium rounded-full bg-gradient-to-r from-indigo-500/90 to-purple-500/90 text-white shadow-sm hover:from-indigo-500 hover:to-purple-500 hover:shadow-md transition-all duration-200 cursor-pointer whitespace-nowrap relative overflow-hidden after:content-[''] after:absolute after:inset-0 after:bg-gradient-to-r after:from-transparent after:via-white/30 after:to-transparent after:-translate-x-full hover:after:translate-x-[100%] after:transition-transform after:duration-700 after:pointer-events-none"
+              className="hidden [@media(width>=1100px)]:flex items-center h-9 px-4 mr-4 text-sm font-medium rounded-full bg-gradient-to-br from-[#8b5cf6] to-[var(--accent)] text-white shadow-sm hover:brightness-110 transition-[filter] duration-200 cursor-pointer whitespace-nowrap relative overflow-hidden after:content-[''] after:absolute after:inset-0 after:bg-gradient-to-r after:from-transparent after:via-white/30 after:to-transparent after:-translate-x-full hover:after:translate-x-[100%] after:transition-transform after:duration-700 after:pointer-events-none"
               aria-label="Talk to an engineer"
             >
-              Talk to an Engineer
+              Talk to an engineer
             </button>
             <button
               type="button"
               onClick={handleTalkToEngineersClick}
-              className="hidden md:flex [@media(width>=1100px)]:hidden justify-center items-center w-9 h-9 mr-4 rounded-full bg-gradient-to-r from-indigo-500/90 to-purple-500/90 text-white shadow-sm hover:from-indigo-500 hover:to-purple-500 hover:shadow-md transition-all duration-200 cursor-pointer relative overflow-hidden after:content-[''] after:absolute after:inset-0 after:bg-gradient-to-r after:from-transparent after:via-white/30 after:to-transparent after:-translate-x-full hover:after:translate-x-[100%] after:transition-transform after:duration-700 after:pointer-events-none"
+              className="hidden md:flex [@media(width>=1100px)]:hidden justify-center items-center w-9 h-9 mr-4 rounded-full bg-gradient-to-br from-[#8b5cf6] to-[var(--accent)] text-white shadow-sm hover:brightness-110 transition-[filter] duration-200 cursor-pointer relative overflow-hidden after:content-[''] after:absolute after:inset-0 after:bg-gradient-to-r after:from-transparent after:via-white/30 after:to-transparent after:-translate-x-full hover:after:translate-x-[100%] after:transition-transform after:duration-700 after:pointer-events-none"
               aria-label="Talk to an engineer"
-              title="Talk to an Engineer"
+              title="Talk to an engineer"
             >
               <svg
                 width="18"
@@ -220,8 +226,12 @@ export function BrandNav(_props: BrandNavProps = {}) {
           />
         </div>
 
-        {/* Right half (utilities + search + mobile burger) */}
-        <div className="flex items-center w-max h-full shrink-0 -ml-[7px]">
+        {/* Right half (utilities + search + mobile burger).
+         * `ml-2` (was `-ml-[7px]`) introduces a small breathing gap
+         * between the left card's trailing slanted wing and the right
+         * half's leading slanted wing, so the two wings read as a
+         * deliberate seam rather than touching/overlapping. */}
+        <div className="flex items-center w-max h-full shrink-0 ml-2">
           <img
             src="/images/navbar/slanted-start-border-dark.svg"
             alt=""
@@ -252,7 +262,7 @@ export function BrandNav(_props: BrandNavProps = {}) {
               inner?.click();
             }}
           >
-            {/* Right wing is just the search now — Talk to an Engineer
+            {/* Right wing is just the search now — Talk to an engineer
              * moved to the right edge of the left wing, and GitHub /
              * Discord / theme toggle live at the bottom of the docs
              * sidebar (see SidebarFooter). */}
