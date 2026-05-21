@@ -152,7 +152,7 @@ jobs:
         id: publish
         run: pnpm tsx scripts/release/publish-release.ts --scope ${{ needs.build.outputs.scope }}
         env:
-          NODE_AUTH_TOKEN: ''
+          NODE_AUTH_TOKEN: ""
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
 
       - name: Configure git user
