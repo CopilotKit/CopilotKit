@@ -63,6 +63,29 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
 const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
 
+function toolRegistryKey(tool: Pick<FrontendTool, "agentId" | "name">) {
+  return `${tool.agentId ?? ""}:${tool.name}`;
+}
+
+function mergeProviderToolsWithDynamicTools(
+  providerTools: FrontendTool[],
+  currentTools: Readonly<FrontendTool[]>,
+  previousProviderTools: Readonly<FrontendTool[]>,
+): FrontendTool[] {
+  const previousProviderToolsSet = new Set(previousProviderTools);
+  const dynamicTools = currentTools.filter(
+    (tool) => !previousProviderToolsSet.has(tool),
+  );
+  const dynamicToolKeys = new Set(dynamicTools.map(toolRegistryKey));
+
+  return [
+    ...providerTools.filter(
+      (tool) => !dynamicToolKeys.has(toolRegistryKey(tool)),
+    ),
+    ...dynamicTools,
+  ];
+}
+
 const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follow these design principles inspired by shadcn/ui:
 
 - Use a minimal, flat aesthetic. Avoid drop shadows and gradients — rely on subtle borders (1px solid, light gray like #e5e7eb) to define surfaces.
@@ -534,7 +557,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       credentials,
       properties,
       agents__unsafe_dev_only: mergedAgents,
-      tools: allTools,
+      tools: [...allTools],
       renderToolCalls: allRenderToolCalls,
       renderActivityMessages: allActivityRenderers,
       renderCustomMessages: renderCustomMessagesList,
@@ -552,6 +575,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   useEffect(() => {
     // Check current value immediately (may already be set before subscription)
     setRuntimeA2UIEnabled(copilotkit.a2uiEnabled);
+    setRuntimeOpenGenUIEnabled(copilotkit.openGenerativeUIEnabled);
     const subscription = copilotkit.subscribe({
       onRuntimeConnectionStatusChanged: () => {
         setRuntimeA2UIEnabled(copilotkit.a2uiEnabled);
@@ -672,10 +696,17 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // BEFORE parent effects (React fires effects bottom-up). If the parent
   // setter effects ran on mount, they would overwrite the children's tools.
   const didMountRef = useRef(false);
+  const providerToolsRef = useRef<FrontendTool[]>([...allTools]);
 
   useEffect(() => {
     if (!didMountRef.current) return;
-    copilotkit.setTools(allTools);
+    const mergedTools = mergeProviderToolsWithDynamicTools(
+      allTools,
+      copilotkit.tools,
+      providerToolsRef.current,
+    );
+    providerToolsRef.current = [...allTools];
+    copilotkit.setTools(mergedTools);
   }, [copilotkit, allTools]);
 
   useEffect(() => {
