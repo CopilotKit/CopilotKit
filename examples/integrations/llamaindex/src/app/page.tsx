@@ -3,7 +3,11 @@
 import { useState } from "react";
 import { WeatherCard } from "@/components/WeatherCard";
 
-import { useAgent, useFrontendTool, CopilotSidebar } from "@copilotkit/react-core/v2";
+import {
+  useAgent,
+  useFrontendTool,
+  CopilotSidebar,
+} from "@copilotkit/react-core/v2";
 
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");

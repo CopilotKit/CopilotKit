@@ -80,7 +80,11 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
   const { agent } = useAgent({
     agentId: "my_agent",
   });
-  const state = (agent.state ?? { proverbs: ["CopilotKit may be new, but its the best thing since sliced bread."] }) as AgentState;
+  const state = (agent.state ?? {
+    proverbs: [
+      "CopilotKit may be new, but its the best thing since sliced bread.",
+    ],
+  }) as AgentState;
   const setState = (newState: AgentState) => agent.setState(newState);
 
   //🪁 Generative UI: https://docs.copilotkit.ai/adk/generative-ui
@@ -88,7 +92,12 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
     {
       name: "get_weather",
       render: ({ parameters, result }) => {
-        return <WeatherCard location={(parameters as any)?.location} themeColor={themeColor} />;
+        return (
+          <WeatherCard
+            location={(parameters as any)?.location}
+            themeColor={themeColor}
+          />
+        );
       },
     },
     [themeColor],

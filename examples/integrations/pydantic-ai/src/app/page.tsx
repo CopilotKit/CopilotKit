@@ -10,7 +10,10 @@ import {
   useHumanInTheLoop,
   useRenderToolCall,
 } from "@copilotkit/react-core/v2";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-core/v2";
+import {
+  CopilotKitCSSProperties,
+  CopilotSidebar,
+} from "@copilotkit/react-core/v2";
 import { useState } from "react";
 
 export default function CopilotKitPage() {

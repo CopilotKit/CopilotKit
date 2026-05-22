@@ -4,7 +4,12 @@ import { ProverbsCard } from "@/components/proverbs";
 import { WeatherCard } from "@/components/weather";
 import { MoonCard } from "@/components/moon";
 import { AgentState } from "@/lib/types";
-import { useAgent, useFrontendTool, useHumanInTheLoop, CopilotSidebar } from "@copilotkit/react-core/v2";
+import {
+  useAgent,
+  useFrontendTool,
+  useHumanInTheLoop,
+  CopilotSidebar,
+} from "@copilotkit/react-core/v2";
 import { useState } from "react";
 
 export default function CopilotKitPage() {
