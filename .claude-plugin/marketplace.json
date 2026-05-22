@@ -13,7 +13,7 @@
       "name": "copilotkit",
       "source": "./",
       "description": "AI agent skills for CopilotKit — setup, develop, integrate, debug, upgrade, and contribute to CopilotKit projects",
-      "version": "1.57.3",
+      "version": "1.57.4",
       "author": {
         "name": "CopilotKit",
         "url": "https://copilotkit.ai"
