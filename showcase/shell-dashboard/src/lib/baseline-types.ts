@@ -269,6 +269,7 @@ export const BASELINE_PARTNERS: readonly { name: string; slug: string }[] = [
   { name: "Google ADK", slug: "google-adk" },
   { name: "MS Agent Framework (Python)", slug: "ms-agent-python" },
   { name: "MS Agent Framework (.NET)", slug: "ms-agent-dotnet" },
+  { name: "MS Agent Harness (.NET)", slug: "ms-agent-harness-dotnet" },
   { name: "Strands", slug: "strands" },
   { name: "Mastra", slug: "mastra" },
   { name: "CrewAI", slug: "crewai-crews" },

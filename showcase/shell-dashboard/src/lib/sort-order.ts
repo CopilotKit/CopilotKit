@@ -14,6 +14,7 @@ export const sortOrder: Record<string, number> = {
   "maf-python": 5,
   "ms-agent-dotnet": 6,
   "maf-dotnet": 6,
+  "ms-agent-harness-dotnet": 6.5,
   strands: 7,
   mastra: 8,
   "crewai-crews": 9,

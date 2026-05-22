@@ -102,6 +102,7 @@ showcase/integrations/langroid/next.config.ts
 showcase/integrations/llamaindex/next.config.ts
 showcase/integrations/mastra/next.config.ts
 showcase/integrations/ms-agent-dotnet/next.config.ts
+showcase/integrations/ms-agent-harness-dotnet/next.config.ts
 showcase/integrations/ms-agent-python/next.config.ts
 showcase/integrations/pydantic-ai/next.config.ts
 showcase/integrations/spring-ai/next.config.ts
