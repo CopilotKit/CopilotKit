@@ -21,46 +21,13 @@ import { AbstractAgent, HttpAgent, type RunAgentInput } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-function textFromContent(content: unknown): string {
-  if (typeof content === "string") return content;
-  if (!Array.isArray(content)) return "";
-  return content
-    .filter(
-      (part): part is { type: "text"; text: string } =>
-        !!part &&
-        typeof part === "object" &&
-        (part as { type?: unknown }).type === "text" &&
-        typeof (part as { text?: unknown }).text === "string",
-    )
-    .map((part) => part.text)
-    .join("");
-}
-
-function flattenMessagesForDotnet(input: RunAgentInput): RunAgentInput {
-  return {
-    ...input,
-    messages: input.messages.map((message) => {
-      if (!Array.isArray(message.content)) return message;
-      return {
-        ...message,
-        content: textFromContent(message.content),
-      };
-    }),
-  };
-}
-
 class DotnetMultimodalHttpAgent extends HttpAgent {
   run(input: RunAgentInput): ReturnType<HttpAgent["run"]> {
-    return super.run(flattenMessagesForDotnet(input));
+    return super.run(input);
   }
 
   protected requestInit(input: RunAgentInput): RequestInit {
-    // The current Microsoft.Agents.AI AG-UI ASP.NET adapter deserializes
-    // message.content as a string and rejects AG-UI multimodal content arrays
-    // before the agent can run. Keep the browser-side messages multimodal for
-    // rendering, but send the text prompt through the .NET boundary.
-    const flattened = flattenMessagesForDotnet(input);
-    return super.requestInit(flattened);
+    return super.requestInit(input);
   }
 }
 

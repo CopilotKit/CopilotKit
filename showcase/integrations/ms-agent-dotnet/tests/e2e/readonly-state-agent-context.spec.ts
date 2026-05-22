@@ -46,6 +46,20 @@ test.describe("Readonly Agent Context (useAgentContext)", () => {
     await expect(json).toContainText('"timezone": "Asia/Tokyo"');
   });
 
+  test("edited name is forwarded into the model-visible context", async ({
+    page,
+  }) => {
+    await page.getByTestId("ctx-name").fill("CTX-PROBE-7g3kqz");
+    await page.getByRole("button", { name: "Who am I?" }).click();
+
+    await expect(
+      page
+        .locator('[data-testid="copilot-assistant-message"]')
+        .filter({ hasText: "CTX-PROBE-7g3kqz" })
+        .first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
+
   test('"Who am I?" pill — assistant acknowledges identity + identity card matches defaults', async ({
     page,
   }) => {

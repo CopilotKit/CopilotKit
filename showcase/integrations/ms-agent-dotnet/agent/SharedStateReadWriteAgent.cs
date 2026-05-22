@@ -76,7 +76,7 @@ internal sealed class SharedStateReadWriteAgent : DelegatingAIAgent
         // them with the per-thread store so the `set_notes` tool sees an
         // up-to-date snapshot. Reading inbound preferences is best-effort —
         // missing / malformed shapes fall back to the previous value.
-        var inboundPreferences = TryReadPreferences(options);
+        var inboundPreferences = TryReadPreferences(options) ?? TryReadPreferences(messageList);
         var inboundNotes = TryReadNotes(options);
         _store.MergeFromInbound(thread, inboundPreferences, inboundNotes);
 
@@ -85,26 +85,16 @@ internal sealed class SharedStateReadWriteAgent : DelegatingAIAgent
             "SharedStateReadWriteAgent: injecting preferences system prompt ({Bytes} bytes)",
             systemPrompt.Length);
 
-        if (TryBuildDeterministicReply(messageList, thread) is { } deterministicReply)
-        {
-            yield return new AgentRunResponseUpdate
+        var augmentedMessages = HasPreferencesSystemPrompt(messageList)
+            ? new List<ChatMessage>(messageList)
+            : new List<ChatMessage>(messageList.Count + 1)
             {
-                Role = ChatRole.Assistant,
-                MessageId = $"shared-state-read-write-{Guid.NewGuid():N}",
-                Contents = [new TextContent(deterministicReply)],
+                new(ChatRole.System, systemPrompt),
             };
-            await foreach (var snapshotUpdate in EmitSnapshotAsync(thread, cancellationToken).ConfigureAwait(false))
-            {
-                yield return snapshotUpdate;
-            }
-            yield break;
-        }
-
-        var augmentedMessages = new List<ChatMessage>(messageList.Count + 1)
+        if (!HasPreferencesSystemPrompt(messageList))
         {
-            new(ChatRole.System, systemPrompt),
-        };
-        augmentedMessages.AddRange(messageList);
+            augmentedMessages.AddRange(messageList);
+        }
 
         // Bind the `set_notes` tool's write target to the current thread.
         // The tool closure doesn't receive an AgentThread argument, so it
@@ -142,12 +132,21 @@ internal sealed class SharedStateReadWriteAgent : DelegatingAIAgent
     /// </summary>
     internal static string BuildPreferencesSystemPrompt(SharedStatePreferences? prefs)
     {
-        if (prefs is null || prefs.IsEmpty)
-        {
-            return SystemPromptBase;
-        }
+        prefs ??= SharedStatePreferences.Empty;
 
-        var lines = new List<string> { SystemPromptBase, "", "[shared-state-read-write] preferences:" };
+        var lines = new List<string>
+        {
+            SystemPromptBase,
+            "",
+            "[shared-state-read-write] preferences:",
+            "{",
+            $"  \"name\": {JsonSerializer.Serialize(prefs.Name)},",
+            $"  \"tone\": {JsonSerializer.Serialize(prefs.Tone)},",
+            $"  \"language\": {JsonSerializer.Serialize(prefs.Language)},",
+            $"  \"interests\": {JsonSerializer.Serialize(prefs.Interests)}",
+            "}",
+        };
+
         if (!string.IsNullOrWhiteSpace(prefs.Name))
         {
             lines.Add($"- Name: {prefs.Name}");
@@ -175,6 +174,59 @@ internal sealed class SharedStateReadWriteAgent : DelegatingAIAgent
         "remember something, or you observe something worth surfacing in the " +
         "UI's notes panel, call `set_notes` with the FULL updated list of " +
         "short notes (existing notes + new). Keep each note short.";
+
+    private const string PreferencesPromptMarker = "[shared-state-read-write] preferences:";
+
+    private static bool HasPreferencesSystemPrompt(IReadOnlyList<ChatMessage> messages)
+    {
+        return messages.Any(message =>
+            message.Role == ChatRole.System &&
+            MessageText(message).Contains(PreferencesPromptMarker, StringComparison.Ordinal));
+    }
+
+    private static SharedStatePreferences? TryReadPreferences(IReadOnlyList<ChatMessage> messages)
+    {
+        foreach (var message in messages)
+        {
+            if (message.Role != ChatRole.System)
+            {
+                continue;
+            }
+
+            var text = MessageText(message);
+            if (!text.Contains(PreferencesPromptMarker, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var jsonStart = text.IndexOf('{', StringComparison.Ordinal);
+            var jsonEnd = text.LastIndexOf('}');
+            if (jsonStart < 0 || jsonEnd <= jsonStart)
+            {
+                continue;
+            }
+
+            try
+            {
+                using var document = JsonDocument.Parse(text[jsonStart..(jsonEnd + 1)]);
+                if (document.RootElement.ValueKind == JsonValueKind.Object)
+                {
+                    return SharedStatePreferences.FromJson(document.RootElement);
+                }
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    private static string MessageText(ChatMessage message)
+    {
+        return string.Concat(message.Contents.OfType<TextContent>().Select(content => content.Text));
+    }
 
     private static SharedStatePreferences? TryReadPreferences(AgentRunOptions? options)
     {

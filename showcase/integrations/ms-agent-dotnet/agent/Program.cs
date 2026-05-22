@@ -54,7 +54,14 @@ var interruptAgentFactory = new InterruptAgentFactory(builder.Configuration, log
 app.MapAGUI("/interrupt-adapted", interruptAgentFactory.CreateInterruptAgent());
 
 // Multimodal demo agent (vision-capable gpt-4o-mini, no tools).
-app.MapAGUI("/multimodal", agentFactory.CreateMultimodalAgent());
+// The Microsoft AG-UI ASP.NET adapter currently rejects AG-UI content arrays
+// before the agent can see image/document parts, so this one endpoint parses
+// the request body directly and emits the small AG-UI SSE event subset the
+// chat UI needs for text streaming.
+app.MapPost("/multimodal", (HttpContext context) => MultimodalEndpoint.HandleAsync(
+    context,
+    agentFactory.CreateMultimodalChatClient(),
+    loggerFactory.CreateLogger("MultimodalEndpoint")));
 
 // Beautiful Chat flagship demo.
 app.MapAGUI("/beautiful-chat", agentFactory.CreateBeautifulChatAgent());
@@ -437,6 +444,9 @@ public class SalesAgentFactory
     // the shared OpenAIClient so we don't re-resolve credentials for each
     // mount. No tools — the chat model consumes attachments natively.
     public AIAgent CreateMultimodalAgent() => MultimodalAgentFactory.Create(_openAiClient);
+
+    public IChatClient CreateMultimodalChatClient() =>
+        _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
 
     // Factory method for the Beautiful Chat flagship demo. Holds its own
     // per-factory tool surface + in-memory todo store so it doesn't

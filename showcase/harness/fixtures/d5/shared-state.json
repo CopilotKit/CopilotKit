@@ -18,6 +18,19 @@
       }
     },
     {
+      "_comment": "Edited-name probe. The harness sets name=D5-PREF-PROBE before clicking Greet me; matching this proves changed preferences reached the model-visible system prompt instead of serving the default fixture.",
+      "match": {
+        "userMessage": "Say hi and introduce yourself",
+        "systemMessage": [
+          "preferences",
+          "\"name\": \"D5-PREF-PROBE\""
+        ]
+      },
+      "response": {
+        "content": "Hi D5-PREF-PROBE - I can see your edited shared-state preferences in the current turn."
+      }
+    },
+    {
       "_comment": "Plan a weekend pill (msg: 'Suggest a weekend plan based on my interests.'). Same default-state system prompt gate as the Greet pill.",
       "match": {
         "userMessage": "weekend plan based on my interests",

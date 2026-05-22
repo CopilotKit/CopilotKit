@@ -435,17 +435,6 @@ internal sealed class ReadonlyContextAgent : DelegatingAIAgent
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var materialized = messages as IReadOnlyList<ChatMessage> ?? messages.ToList();
-        if (TryBuildDeterministicReply(materialized, options) is { } deterministicReply)
-        {
-            yield return new AgentRunResponseUpdate
-            {
-                Role = ChatRole.Assistant,
-                MessageId = $"readonly-context-{Guid.NewGuid():N}",
-                Contents = [new TextContent(deterministicReply)],
-            };
-            yield break;
-        }
-
         var augmented = TryBuildContextMessage(options) is { } contextMessage
             ? new[] { contextMessage }.Concat(materialized)
             : materialized;

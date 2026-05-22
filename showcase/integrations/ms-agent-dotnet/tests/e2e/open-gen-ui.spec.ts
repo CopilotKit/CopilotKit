@@ -94,6 +94,30 @@ test.describe("Open Generative UI (minimal)", () => {
     await assertPillRendersIframe(page, "Fourier: square wave from sines");
   });
 
+  test("Fourier pill can be clicked twice in one thread", async ({ page }) => {
+    const suggestion = page
+      .locator('[data-testid="copilot-suggestion"]', {
+        hasText: "Fourier: square wave from sines",
+      })
+      .first();
+    const iframes = page.locator('iframe[sandbox*="allow-scripts"]');
+
+    await expect(suggestion).toBeVisible({ timeout: 15_000 });
+    await suggestion.click();
+    await expect
+      .poll(async () => await iframes.count(), { timeout: 60_000 })
+      .toBeGreaterThanOrEqual(1);
+
+    await suggestion.click();
+    await expect
+      .poll(async () => await iframes.count(), { timeout: 60_000 })
+      .toBeGreaterThanOrEqual(2);
+
+    await expect(
+      page.getByText(/invalid after a single JSON value/i),
+    ).toHaveCount(0);
+  });
+
   test("3D axis pill renders a sandboxed iframe with non-empty source", async ({
     page,
   }) => {

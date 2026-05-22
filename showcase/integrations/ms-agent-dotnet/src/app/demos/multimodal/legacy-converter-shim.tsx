@@ -351,8 +351,8 @@ export function LegacyConverterShim() {
       }: {
         messages: ReadonlyArray<Readonly<AgentMessage>>;
       }) => {
-        // The dedicated Next route flattens content arrays at the HTTP proxy
-        // boundary. Keep local state modern so CopilotChat can render chips.
+        // The dedicated .NET endpoint parses modern AG-UI content arrays
+        // directly. Keep local state modern so CopilotChat can render chips.
         return;
       },
       // After every messages snapshot from the server, strip duplicate

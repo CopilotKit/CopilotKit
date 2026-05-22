@@ -827,6 +827,24 @@
     {
       "match": {
         "userMessage": "trip to mars",
+        "toolCallId": "call_d5_generate_steps_001__approved"
+      },
+      "response": {
+        "content": "Great choices! I will proceed with executing the selected steps for your trip to Mars. Let me work through each one."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "trip to mars",
+        "toolCallId": "call_d5_generate_steps_001__rejected"
+      },
+      "response": {
+        "content": "No problem — I will not execute the Mars trip plan."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "trip to mars",
         "hasToolResult": true
       },
       "response": {
@@ -1290,6 +1308,19 @@
       }
     },
     {
+      "_comment": "shared-state-read-write edited-name probe. The harness sets name=D5-PREF-PROBE before clicking Greet me; matching this proves changed preferences reached the model-visible system prompt instead of serving the default fixture.",
+      "match": {
+        "userMessage": "Say hi and introduce yourself",
+        "systemMessage": [
+          "preferences",
+          "\"name\": \"D5-PREF-PROBE\""
+        ]
+      },
+      "response": {
+        "content": "Hi D5-PREF-PROBE - I can see your edited shared-state preferences in the current turn."
+      }
+    },
+    {
       "_comment": "shared-state-read-write — Plan-a-weekend pill. Same no-systemMessage gate as the Greet pill.",
       "match": {
         "userMessage": "weekend plan based on my interests",
@@ -1646,6 +1677,26 @@
       }
     },
     {
+      "_comment": "hitl-in-app — refund pill (#12345), approved branch. The .NET runtime suffixes the request_user_approval tool result id from the actual frontend result so approve/reject matching is deterministic without sequenceIndex.",
+      "match": {
+        "userMessage": "$50 refund to Jordan Rivera on ticket #12345",
+        "toolCallId": "call_d5_hitl_refund_12345_001__approved"
+      },
+      "response": {
+        "content": "I am processing the $50 refund to Jordan Rivera on ticket #12345 now."
+      }
+    },
+    {
+      "_comment": "hitl-in-app — refund pill (#12345), rejected branch.",
+      "match": {
+        "userMessage": "$50 refund to Jordan Rivera on ticket #12345",
+        "toolCallId": "call_d5_hitl_refund_12345_001__rejected"
+      },
+      "response": {
+        "content": "The refund request was not approved. I will not issue the $50 refund to Jordan Rivera on ticket #12345."
+      }
+    },
+    {
       "_comment": "hitl-in-app — refund pill (#12345), post-tool-result response. Content includes BOTH approve and reject key phrases so both test assertions can match (the test checks for a substring, not the full string). This avoids sequenceIndex which is fragile across aimock restarts.",
       "match": {
         "userMessage": "$50 refund to Jordan Rivera on ticket #12345",
@@ -1672,6 +1723,26 @@
       }
     },
     {
+      "_comment": "hitl-in-app — downgrade pill (#12346), approved branch.",
+      "match": {
+        "userMessage": "downgrade Priya Shah (#12346) to the Starter plan",
+        "toolCallId": "call_d5_hitl_downgrade_12346_001__approved"
+      },
+      "response": {
+        "content": "Downgrade confirmed — Priya Shah (#12346) will move to the Starter plan effective next billing cycle."
+      }
+    },
+    {
+      "_comment": "hitl-in-app — downgrade pill (#12346), rejected branch.",
+      "match": {
+        "userMessage": "downgrade Priya Shah (#12346) to the Starter plan",
+        "toolCallId": "call_d5_hitl_downgrade_12346_001__rejected"
+      },
+      "response": {
+        "content": "The downgrade request was not approved. Priya Shah (#12346) will remain on the current plan."
+      }
+    },
+    {
       "_comment": "hitl-in-app — downgrade pill (#12346), 2nd turn. Same pattern as refund/escalate. Without this entry, the generic 'plan' catch-all in feature-parity.json hijacks the downgrade message. Content includes approve and reject key phrases because aimock cannot inspect the frontend tool result payload.",
       "match": {
         "userMessage": "downgrade Priya Shah (#12346) to the Starter plan",
@@ -1695,6 +1766,26 @@
             "arguments": "{\"message\":\"Downgrade Priya Shah (#12346) to the Starter plan effective next billing cycle.\",\"context\":\"Ticket #12346 — voluntary downgrade per customer request.\"}"
           }
         ]
+      }
+    },
+    {
+      "_comment": "hitl-in-app — escalate pill (#12347), approved branch.",
+      "match": {
+        "userMessage": "escalate ticket #12347 to the payments team",
+        "toolCallId": "call_d5_hitl_escalate_12347_001__approved"
+      },
+      "response": {
+        "content": "Escalated ticket #12347 to the payments team for Morgan Lee."
+      }
+    },
+    {
+      "_comment": "hitl-in-app — escalate pill (#12347), rejected branch.",
+      "match": {
+        "userMessage": "escalate ticket #12347 to the payments team",
+        "toolCallId": "call_d5_hitl_escalate_12347_001__rejected"
+      },
+      "response": {
+        "content": "Not escalated — ticket #12347 will stay in the current queue."
       }
     },
     {

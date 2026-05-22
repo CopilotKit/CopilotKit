@@ -57,6 +57,25 @@ test.describe("Shared State (Read + Write)", () => {
     );
   });
 
+  test("edited preferences change the fixture match instead of serving the default greeting", async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+
+    await page.getByPlaceholder("e.g. Atai").fill("D5-PREF-PROBE");
+    await page.getByRole("button", { name: /^Greet me$/i }).click();
+
+    const assistantMessage = page
+      .locator('[data-testid="copilot-assistant-message"]')
+      .last();
+    await expect(assistantMessage).toContainText("D5-PREF-PROBE", {
+      timeout: 60_000,
+    });
+    await expect(assistantMessage).not.toContainText(
+      /Preferences panel.*fed to me on every turn/i,
+    );
+  });
+
   test("Plan a weekend pill returns an interests-aware plan, not the generic content-marketing plan", async ({
     page,
   }) => {

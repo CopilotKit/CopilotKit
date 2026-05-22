@@ -222,10 +222,8 @@ export function SampleAttachmentButtons({
           spec.mimeType === "application/pdf" ? "document" : "image";
 
         // Build a multimodal user message as content parts: prompt text +
-        // the attachment. The `LegacyConverterShim` in page.tsx will
-        // rewrite the modern `image|document` part to the legacy `binary`
-        // shape the @ag-ui/langgraph converter understands before the
-        // request leaves the runtime.
+        // the attachment. The dedicated .NET endpoint consumes this modern
+        // AG-UI `image|document` shape directly.
         targetAgent.addMessage({
           id: generateMessageId(),
           role: "user",

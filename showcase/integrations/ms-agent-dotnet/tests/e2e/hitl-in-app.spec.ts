@@ -10,22 +10,12 @@ import { test, expect } from "@playwright/test";
 // OUTSIDE the chat transcript. Approve / Reject click resolves the tool
 // promise with `{ approved, reason? }` and hands it back to the agent.
 //
-// Genuine assertion strategy: the deterministic aimock fixtures emit two
-// branched continuations per pill (sequenceIndex 0 = approve, 1 = reject).
-// Since the JSON fixture matcher cannot inspect tool message content, we
-// rely on test ordering (serial mode) so test #1 of the pair claims
-// sequenceIndex 0 (approve response) and test #2 claims sequenceIndex 1
-// (reject response). If the framework wired approve/reject into the same
-// payload, both branches would still receive the same fixture's response
-// — but the assertion text differs, so at least one of the two tests
-// would fail. That asymmetry is what makes the assertion genuine.
+// Genuine assertion strategy: the .NET runtime suffixes frontend tool result
+// IDs with the actual `{ approved: true | false }` decision before sending the
+// continuation to aimock. The fixtures branch on that suffixed toolCallId, so
+// approve/reject order no longer depends on process-global sequence counters.
 
 test.describe("HITL In-App (approval dialog portaled to <body>)", () => {
-  // Serial mode is load-bearing: aimock's `sequenceIndex` matcher counts
-  // matches across the whole process, so the approve test (sequenceIndex 0)
-  // MUST run before the reject test (sequenceIndex 1) for each pill pair.
-  test.describe.configure({ mode: "serial" });
-
   test.setTimeout(120_000);
 
   test.beforeEach(async ({ page }) => {
@@ -119,6 +109,34 @@ test.describe("HITL In-App (approval dialog portaled to <body>)", () => {
     ).toBeVisible({ timeout: 60_000 });
   });
 
+  test("reject refund then click the same pill again opens a fresh approval dialog", async ({
+    page,
+  }) => {
+    const refundPill = page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Approve refund for #12345" });
+
+    await refundPill.first().click();
+    await expect(
+      page.locator('body > [data-testid="approval-dialog-overlay"]'),
+    ).toBeVisible({ timeout: 60_000 });
+    await page.getByTestId("approval-dialog-reject").click();
+
+    await expect(
+      page
+        .locator('[data-testid="copilot-assistant-message"]')
+        .filter({ hasText: "refund request was not approved" })
+        .first(),
+    ).toBeVisible({ timeout: 60_000 });
+
+    await refundPill.first().click();
+    const secondDialog = page.locator(
+      'body > [data-testid="approval-dialog-overlay"]',
+    );
+    await expect(secondDialog).toBeVisible({ timeout: 60_000 });
+    await expect(secondDialog.getByText(/#12345/).first()).toBeVisible();
+  });
+
   test("escalate #12347 → approve → assistant confirms escalation", async ({
     page,
   }) => {
@@ -177,12 +195,54 @@ test.describe("HITL In-App (approval dialog portaled to <body>)", () => {
     ).toBeVisible({ timeout: 60_000 });
   });
 
-  // TODO: re-enable when downgrade flow is fixed (broken upstream as of 2026-05-07)
-  test("downgrade #12346 → approve/reject flow", async () => {
-    // Intentionally skipped per spec: the downgrade pill exposes a
-    // separate upstream bug (ticket-12346 surface) that is out of scope
-    // for the genuine-pass rewrite. Re-enable when the upstream demo
-    // reliably emits request_user_approval for the downgrade prompt.
+  test("downgrade #12346 -> approve, then repeat -> reject uses separate branches", async ({
+    page,
+  }) => {
+    test.setTimeout(240_000);
+
+    const downgradePill = page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Downgrade plan for #12346" });
+
+    await downgradePill.first().click();
+
+    const firstDialog = page.locator(
+      'body > [data-testid="approval-dialog-overlay"]',
+    );
+    await expect(firstDialog).toBeVisible({ timeout: 60_000 });
+    await expect(firstDialog.getByText(/#12346/).first()).toBeVisible();
+
+    await page.getByTestId("approval-dialog-approve").click();
+    await expect(
+      page.locator('[data-testid="approval-dialog-overlay"]'),
+    ).toHaveCount(0, { timeout: 5_000 });
+
+    await expect(
+      page
+        .locator('[data-testid="copilot-assistant-message"]')
+        .filter({ hasText: "Downgrade confirmed" })
+        .first(),
+    ).toBeVisible({ timeout: 60_000 });
+
+    await downgradePill.first().click();
+
+    const secondDialog = page.locator(
+      'body > [data-testid="approval-dialog-overlay"]',
+    );
+    await expect(secondDialog).toBeVisible({ timeout: 60_000 });
+    await expect(secondDialog.getByText(/#12346/).first()).toBeVisible();
+
+    await page.getByTestId("approval-dialog-reject").click();
+    await expect(
+      page.locator('[data-testid="approval-dialog-overlay"]'),
+    ).toHaveCount(0, { timeout: 5_000 });
+
+    await expect(
+      page
+        .locator('[data-testid="copilot-assistant-message"]')
+        .filter({ hasText: "downgrade request was not approved" })
+        .first(),
+    ).toBeVisible({ timeout: 60_000 });
   });
 
   // Regression for the aimock multi-pill bug:

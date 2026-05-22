@@ -36,11 +36,11 @@ export async function generateMetadata(): Promise<Metadata> {
   const pathname = h.get("x-pathname") ?? "";
   const match = pathname.match(/^\/demos\/([^/]+)/);
   const slug = match?.[1];
-  if (!slug) return { title: "MS Agent Framework - Python" };
+  if (!slug) return { title: "MS Agent Framework - .NET" };
 
   const index = loadDemoIndex();
   const demoName = index.get(slug) ?? titleCase(slug);
-  return { title: `MS Agent Framework - Python - ${demoName}` };
+  return { title: `MS Agent Framework - .NET - ${demoName}` };
 }
 
 export default function DemosLayout({

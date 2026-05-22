@@ -18,31 +18,6 @@
       }
     },
     {
-      "_comment": "beautiful-chat Calculator pill — call generateSandboxedUi with metric shortcuts.",
-      "match": {
-        "userMessage": "build a modern calculator",
-        "hasToolResult": false
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_fp_open_gen_ui_calc_001",
-            "name": "generateSandboxedUi",
-            "arguments": "{\"initialHeight\":520,\"placeholderMessages\":[\"Composing calculator UI…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px;max-width:260px}.display{background:#1e293b;padding:12px;border-radius:8px;margin-bottom:8px;font-family:monospace;text-align:right;font-size:18px;min-height:24px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}button{padding:10px;background:#334155;border:0;color:#e2e8f0;border-radius:6px;font-size:14px;cursor:pointer}button:hover{background:#475569}.shortcuts{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}.shortcuts button{background:#1e3a5f;font-size:11px;padding:8px 4px}.shortcuts button:hover{background:#2563eb}\",\"html\":\"<div class=\\\"wrap\\\" data-testid=\\\"ogui-calculator\\\"><div class=\\\"display\\\" id=\\\"d\\\">0</div><div class=\\\"grid\\\"><button>7</button><button>8</button><button>9</button><button>+</button><button>4</button><button>5</button><button>6</button><button>-</button><button>1</button><button>2</button><button>3</button><button>*</button><button>0</button><button>.</button><button id=\\\"eq\\\">=</button><button>/</button></div><div class=\\\"shortcuts\\\"><button data-val=\\\"1200000\\\">Revenue $1.2M</button><button data-val=\\\"342\\\">Customers 342</button><button data-val=\\\"4.2\\\">Conv 4.2%</button><button data-val=\\\"42000\\\">Electronics $42K</button><button data-val=\\\"28000\\\">Clothing $28K</button><button data-val=\\\"18000\\\">Food $18K</button></div></div>\",\"jsFunctions\":\"(function(){var expr='';var display=document.getElementById('d');document.querySelectorAll('.grid button').forEach(function(btn){btn.addEventListener('click',async function(){if(btn.id==='eq'){var res=await Websandbox.connection.remote.evaluateExpression({expression:expr});if(res&&res.ok){display.textContent=String(res.value);expr=String(res.value);}else{display.textContent='err';expr='';}}else{expr+=btn.textContent;display.textContent=expr;}});});document.querySelectorAll('.shortcuts button').forEach(function(btn){btn.addEventListener('click',function(){var val=btn.getAttribute('data-val');expr+=val;display.textContent=expr;});});})();\"}"
-          }
-        ]
-      }
-    },
-    {
-      "_comment": "beautiful-chat Calculator pill — toolCallId response after generateSandboxedUi renders.",
-      "match": {
-        "toolCallId": "call_fp_open_gen_ui_calc_001"
-      },
-      "response": {
-        "content": "Here's your calculator with metric shortcut buttons. The shortcuts insert sample company values (revenue, customers, conversion rate, category breakdowns) into the display. Tap any shortcut, then use the standard buttons to do math with those values."
-      }
-    },
-    {
       "match": {
         "toolCallId": "call_fp_generate_a2ui_sales_dashboard_001"
       },
@@ -708,8 +683,7 @@
     },
     {
       "match": {
-        "userMessage": "revenue distribution by category",
-        "hasToolResult": false
+        "userMessage": "revenue distribution by category"
       },
       "response": {
         "toolCalls": [
@@ -723,8 +697,7 @@
     },
     {
       "match": {
-        "userMessage": "expenses by category",
-        "hasToolResult": false
+        "userMessage": "expenses by category"
       },
       "response": {
         "toolCalls": [
@@ -861,8 +834,7 @@
     },
     {
       "match": {
-        "userMessage": "30-minute meeting to learn about CopilotKit",
-        "hasToolResult": false
+        "userMessage": "30-minute meeting to learn about CopilotKit"
       },
       "response": {
         "toolCalls": [
@@ -890,8 +862,7 @@
     },
     {
       "match": {
-        "userMessage": "toggle",
-        "hasToolResult": false
+        "userMessage": "toggle"
       },
       "response": {
         "toolCalls": [
@@ -929,8 +900,7 @@
     },
     {
       "match": {
-        "userMessage": "three todos about learning CopilotKit",
-        "hasToolResult": false
+        "userMessage": "three todos about learning CopilotKit"
       },
       "response": {
         "toolCalls": [
@@ -961,10 +931,18 @@
       }
     },
     {
+      "_comment": "Beautiful Chat — Calculator pill follow-up after generateSandboxedUi returns. Kept before the first-leg userMessage fixture so follow-up turns are not stolen by the same prompt substring.",
+      "match": {
+        "toolCallId": "call_fp_beautiful_chat_calculator_001"
+      },
+      "response": {
+        "content": "Calculator app rendered above — tap a metric shortcut to insert its value, then operate on it with the standard keypad."
+      }
+    },
+    {
       "_comment": "Beautiful Chat — Calculator (Open Generative UI) pill. Returns a generateSandboxedUi tool call with a complete calculator widget (matches the d5 calc fixture's pattern but tailored to the beautiful-chat pill's user message).",
       "match": {
-        "userMessage": "build a modern calculator with standard buttons",
-        "hasToolResult": false
+        "userMessage": "build a modern calculator with standard buttons"
       },
       "response": {
         "toolCalls": [
@@ -977,19 +955,9 @@
       }
     },
     {
-      "_comment": "Beautiful Chat — Calculator pill follow-up after generateSandboxedUi returns. Closes the turn with a brief confirmation so the chat plateau settles.",
-      "match": {
-        "toolCallId": "call_fp_beautiful_chat_calculator_001"
-      },
-      "response": {
-        "content": "Calculator app rendered above — tap a metric shortcut to insert its value, then operate on it with the standard keypad."
-      }
-    },
-    {
       "_comment": "Beautiful Chat — Excalidraw (MCP App) pill. Returns a create_view tool call (the Excalidraw MCP server's tool) with a basic network diagram. Without this fixture aimock falls through to real OpenAI proxy and the pill 502s on the gh-mock key.",
       "match": {
-        "userMessage": "Use Excalidraw to create a simple network diagram",
-        "hasToolResult": false
+        "userMessage": "Use Excalidraw to create a simple network diagram"
       },
       "response": {
         "toolCalls": [

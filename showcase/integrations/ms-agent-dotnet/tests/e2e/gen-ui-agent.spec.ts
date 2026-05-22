@@ -57,6 +57,7 @@ test.describe("Agentic Generative UI", () => {
       page.locator('[data-testid="agent-step"]').first(),
     ).toBeVisible({ timeout: 60000 });
     await expect(card).toHaveCount(1);
+    await expect(page.getByText("set_steps")).toHaveCount(0);
 
     // Wait until the agent finishes the run, then re-assert single card.
     // `agent.isRunning` flips to false → the card's spinner becomes a check.
