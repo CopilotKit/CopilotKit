@@ -50,6 +50,9 @@ const FEATURED_DEMO_IDS: readonly string[] = [
   "mcp-apps",
   "open-gen-ui",
   "frontend-tools",
+  "hitl-in-chat",
+  "hitl-in-app",
+  "gen-ui-interrupt",
 ];
 
 const FEATURED_CATEGORY: FeatureCategory = {
