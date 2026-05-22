@@ -812,9 +812,7 @@ export const SNIPPET_MAP: Record<string, string> = {
 //
 // If a real snippet ever needs one of these names, register it in
 // SNIPPET_MAP above; the lookup short-circuits before this check.
-const KNOWN_REACT_COMPONENTS_IN_CODE_FENCES = new Set<string>([
-  "CopilotChat",
-]);
+const KNOWN_REACT_COMPONENTS_IN_CODE_FENCES = new Set<string>(["CopilotChat"]);
 
 export const SUBPATH_TO_COMPONENT: Record<string, string> = {
   "ag-ui": "AGUI",
