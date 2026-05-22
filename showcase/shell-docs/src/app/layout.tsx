@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import Script from "next/script";
-import { Suspense } from "react";
 import { RootProvider } from "fumadocs-ui/provider/next";
 import { AnalyticsClient } from "@/components/analytics-client";
 import { Banners } from "@/components/banners";
@@ -151,31 +150,39 @@ export default function RootLayout({
       </head>
       <body>
         <AnalyticsClient />
-        <Suspense fallback={null}>
-          <PostHogProvider>
-            <FrameworkProvider knownFrameworks={knownFrameworks}>
-              {/* RootProvider supplies Fumadocs's theme provider (next-themes)
-               * and the search-dialog context, which DocsLayout and other
-               * fumadocs-ui components read from. We keep BrandNav + Banners
-               * outside DocsLayout so chrome remains shell-docs's own. */}
-              <RootProvider theme={{ enabled: true, defaultTheme: "system" }}>
-                {/* Body is a fixed-height (100vh) flex column with hidden
-                 * overflow (see globals.css). Banner + nav sit naturally
-                 * at the top; <main> takes the remaining height and is
-                 * the horizontal flex row that hosts sidebar + the
-                 * scrolling `.docs-content-wrapper`. No sticky positioning
-                 * is needed — chrome stays put because it's outside the
-                 * scroll container. Mirrors canonical `#nd-home-layout`
-                 * (margin: 0 4px; xl: 0 8px 8px 8px). */}
-                <Banners />
-                <BrandNav />
-                <main className="flex flex-1 min-h-0 overflow-hidden mx-1 md:mx-[22px] mt-2 md:mt-6 mb-2 md:mb-3">
-                  {children}
-                </main>
-              </RootProvider>
-            </FrameworkProvider>
-          </PostHogProvider>
-        </Suspense>
+        {/* No <Suspense> wrapper around the page tree. Previously this
+         * was wrapped in a Suspense with a null fallback, which caused
+         * Next.js to start streaming the response BEFORE the page
+         * component called `notFound()`. Once bytes are in the wire,
+         * Next can't change the response status, so every unknown URL
+         * returned HTTP 200 + the not-found UI (a soft-404 that demoted
+         * the entire site in search rankings). The PostHogProvider and
+         * FrameworkProvider are client components and don't suspend
+         * during server render, so removing the boundary is safe.
+         */}
+        <PostHogProvider>
+          <FrameworkProvider knownFrameworks={knownFrameworks}>
+            {/* RootProvider supplies Fumadocs's theme provider (next-themes)
+             * and the search-dialog context, which DocsLayout and other
+             * fumadocs-ui components read from. We keep BrandNav + Banners
+             * outside DocsLayout so chrome remains shell-docs's own. */}
+            <RootProvider theme={{ enabled: true, defaultTheme: "system" }}>
+              {/* Body is a fixed-height (100vh) flex column with hidden
+               * overflow (see globals.css). Banner + nav sit naturally
+               * at the top; <main> takes the remaining height and is
+               * the horizontal flex row that hosts sidebar + the
+               * scrolling `.docs-content-wrapper`. No sticky positioning
+               * is needed — chrome stays put because it's outside the
+               * scroll container. Mirrors canonical `#nd-home-layout`
+               * (margin: 0 4px; xl: 0 8px 8px 8px). */}
+              <Banners />
+              <BrandNav />
+              <main className="flex flex-1 min-h-0 overflow-hidden mx-1 md:mx-[22px] mt-2 md:mt-6 mb-2 md:mb-3">
+                {children}
+              </main>
+            </RootProvider>
+          </FrameworkProvider>
+        </PostHogProvider>
         <div
           aria-hidden="true"
           style={{

@@ -13,10 +13,18 @@ import { DocsLandingNext } from "@/components/docs-landing-next";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
-import { buildFrameworkOnlyNav } from "@/lib/docs-render";
+import { buildFrameworkOnlyNav, loadDoc } from "@/lib/docs-render";
 import { navTreeToPageTree } from "@/lib/page-tree-bridge";
 import { getDocsFolder } from "@/lib/registry";
-import { getBaseUrl } from "@/lib/sitemap-helpers";
+import { buildDocMetadata } from "@/lib/seo-metadata";
+
+// Force dynamic rendering so unknown slugs reliably return HTTP 404
+// from `notFound()` instead of being cached as a 200 with the not-found
+// UI baked in (the search-engine-killing soft-404). The bare home page
+// and known unscoped docs are still cheap to render — they're
+// filesystem reads of MDX content — and Railway / upstream CDN caches
+// successful responses at the edge anyway.
+export const dynamic = "force-dynamic";
 
 // Soft-default framework rendered on the bare `/` URL. BIA is the
 // "Built-in Agent" path and uses `docs_mode: authored`, so its sidebar
@@ -31,18 +39,35 @@ const HOME_DEFAULT_FRAMEWORK = "built-in-agent";
 // itself canonical so search engines index every framework's quickstart
 // (etc.) at its own URL rather than collapsing them all onto the bare
 // /quickstart. Done at the page level so the metadata depends on params.
+//
+// For the bare home page we hand-wire title/description so visitors and
+// social platforms see CopilotKit's positioning rather than the page's
+// own first MDX line.
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug?: string[] }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const slugPath = slug && slug.length > 0 ? `/${slug.join("/")}` : "";
-  return {
-    alternates: {
-      canonical: `${getBaseUrl()}${slugPath}`,
-    },
-  };
+  const slugPath = slug?.join("/") ?? "";
+  const canonicalPath = slugPath ? `/${slugPath}` : "/";
+  // Home page: brand-level title + tagline. Other unscoped slugs (e.g.
+  // /quickstart, /concepts/architecture) read frontmatter via loadDoc.
+  if (!slugPath) {
+    return buildDocMetadata({
+      title: "CopilotKit: the frontend stack for agents",
+      description:
+        "Connect any agent framework or model to your React app for chat, generative UI, canvas, and human-in-the-loop workflows.",
+      canonicalPath: "/",
+    });
+  }
+  const doc = loadDoc(slugPath);
+  return buildDocMetadata({
+    title: doc?.fm.title ?? slugPath,
+    description: doc?.fm.description,
+    canonicalPath,
+    ogPath: `/og${canonicalPath}/og.png`,
+  });
 }
 
 function DocsOverview() {

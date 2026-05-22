@@ -763,7 +763,11 @@ const WILDCARD_REDIRECTS: RedirectEntry[] = [
   },
   { id: "T1-unscoped-root", source: "/tutorials", destination: "/" },
   // Category 1: Pattern rules (bulk coverage)
-  { id: "P10", source: "/reference/v1/:path*", destination: "/reference/v2" },
+  {
+    id: "P10",
+    source: "/reference/v1/:path*",
+    destination: "/reference/v2/:path*",
+  },
   {
     id: "P11",
     source: "/guides/:path*",
