@@ -1,0 +1,61 @@
+{
+  "name": "@copilotkit/studio",
+  "version": "0.0.0",
+  "private": true,
+  "description": "CopilotKit Studio — local-only web app for inspecting and iterating on frontend tool components",
+  "bin": {
+    "cpk-studio": "./dist/bin/studio.js"
+  },
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "type": "module",
+  "scripts": {
+    "build": "pnpm run build:spa && pnpm run build:launcher",
+    "build:spa": "vite build",
+    "build:launcher": "tsc -p tsconfig.launcher.json",
+    "dev": "tsx watch bin/studio.ts",
+    "dev:spa": "vite",
+    "start": "tsx bin/studio.ts",
+    "lint": "oxlint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "check-types": "tsc --noEmit -p tsconfig.json",
+    "test": "echo \"M0 has no tests yet — added in later milestones\""
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@copilotkit/typescript-config": "workspace:*",
+    "@types/node": "^22.15.3",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@types/ws": "^8.5.13",
+    "@vitejs/plugin-react": "^5.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "5.8.2",
+    "vite": "^7.1.4"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "nx": {
+    "targets": {
+      "build": {
+        "cache": true,
+        "outputs": [
+          "{projectRoot}/dist/**"
+        ]
+      },
+      "lint": {
+        "cache": true
+      },
+      "typecheck": {
+        "cache": true
+      }
+    }
+  }
+}
