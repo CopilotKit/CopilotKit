@@ -1,0 +1,10 @@
+exceptions:
+  - rule: missing-persist-credentials
+    file: publish-commit.yml
+    reason: "pkg-pr-new requires the repo token to post snapshot comments on PRs"
+  - rule: ai-config-injection
+    file: showcase_build_check.yml
+    reason: "No AI tools run in this workflow — Docker builds only"
+  - rule: workflow-dispatch-injection
+    file: stable-release.yml
+    reason: "inputs.scope/bump in peter-evans/create-pull-request with: block (branch, title, body) are action parameters passed via API, not shell-executed"

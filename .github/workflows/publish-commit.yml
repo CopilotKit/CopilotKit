@@ -30,9 +30,10 @@ jobs:
       pull-requests: write
 
     steps:
-      # persist-credentials required: pkg-pr-new uses repo token to post snapshot comments on the PR
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: true
 
       - name: Install pnpm
         uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
