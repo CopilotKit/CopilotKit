@@ -89,6 +89,17 @@ const DOCKED_LEFT_WIDTH = 500; // Sensible width for left dock with collapsed si
 const MAX_AGENT_EVENTS = 200;
 const MAX_TOTAL_EVENTS = 500;
 
+// --- M6 popup -> studio handoff (web-inspector v1 plan, §7.4 + Q-IMPL-1) ---
+// Default port the `npx @copilotkit/studio` launcher binds (see plan §8).
+// Change here if the launcher's default ever moves.
+const STUDIO_DEFAULT_PORT = 4123;
+// One-line command surfaced by the "Copy command" affordance. Kept in lockstep
+// with the package name decided in Q-PKG-1 (web-inspector-v1.md §12).
+const STUDIO_NPX_COMMAND = "npx @copilotkit/studio";
+// How long the inline "Copied!" confirmation stays visible after a successful
+// clipboard write. Matches the short-lived feedback used elsewhere in the popup.
+const STUDIO_COPY_FEEDBACK_MS = 1500;
+
 type InspectorAgentEventType =
   | "RUN_STARTED"
   | "RUN_FINISHED"
@@ -4188,6 +4199,12 @@ ${argsString}</pre
       clearTimeout(this.transitionTimeoutId);
       this.transitionTimeoutId = null;
     }
+    // M6: clear pending studio "Copied!" auto-reset timer to avoid
+    // requestUpdate() after teardown.
+    if (this.studioCopyResetTimer !== null) {
+      clearTimeout(this.studioCopyResetTimer);
+      this.studioCopyResetTimer = null;
+    }
     this.removeDockStyles(true); // Clean up any docking styles, skip transition
     this.detachFromCore();
   }
@@ -5562,6 +5579,13 @@ ${argsString}</pre
   private expandedContextItems: Set<string> = new Set();
   private copiedContextItems: Set<string> = new Set();
 
+  // --- M6 popup -> studio handoff state ---
+  // Drives the inline "Copied!" confirmation on the toolbar's copy-command
+  // icon button. Reset by a single setTimeout (`_studioCopyResetTimer`) so the
+  // confirmation auto-clears after STUDIO_COPY_FEEDBACK_MS.
+  private studioCopyConfirmed = false;
+  private studioCopyResetTimer: ReturnType<typeof setTimeout> | null = null;
+
   private renderCoreWarningBanner() {
     if (this._core) {
       return nothing;
@@ -6613,12 +6637,173 @@ ${prettyEvent}</pre
     return html`
       <div class="flex h-full flex-col overflow-hidden">
         <div class="overflow-auto p-4">
+          ${this._renderOpenStudioToolbar()}
           <div class="space-y-3">
             ${filteredTools.map((tool) => this.renderToolCard(tool))}
           </div>
         </div>
       </div>
     `;
+  }
+
+  // --- M6 popup -> studio handoff (web-inspector v1 plan, §7.4 + Q-IMPL-1) ---
+  //
+  // Toolbar surfaced at the top of the Frontend Tools tab. Two affordances:
+  //   1. "Open in Web Inspector" — opens the studio launcher in a new tab,
+  //      deep-linking to the current `{runtime, agent, thread}` context. If
+  //      the launcher isn't running, the browser falls through to its
+  //      connection-refused page (Q-IMPL-1 resolution: we do not probe).
+  //   2. "Copy command" — drops `npx @copilotkit/studio` into the clipboard so
+  //      the user can paste it into a terminal to start the launcher.
+  //
+  // Per-tool variant is rendered by `_renderOpenStudioToolButton()` and lives
+  // inside `renderToolCard()`, so each tool has its own scoped "Open in studio"
+  // shortcut that also passes the `tool=<name>` query param.
+  private _renderOpenStudioToolbar() {
+    const copied = this.studioCopyConfirmed;
+    return html`
+      <div
+        class="mb-3 flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2"
+      >
+        <div class="min-w-0 flex-1">
+          <div class="text-xs font-semibold text-slate-700">
+            CopilotKit Studio
+          </div>
+          <div class="mt-0.5 text-[11px] text-slate-500">
+            Iterate on these tools in a standalone sandbox.
+          </div>
+        </div>
+        <div class="flex shrink-0 items-center gap-1.5">
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400"
+            title="Open in Web Inspector"
+            aria-label="Open in Web Inspector"
+            @click=${() => this._handleOpenStudioClick()}
+          >
+            ${this.renderIcon("ExternalLink")}
+            <span>Open in Web Inspector</span>
+          </button>
+          <button
+            type="button"
+            class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400"
+            title=${
+              copied ? "Copied!" : `Copy "${STUDIO_NPX_COMMAND}" to clipboard`
+            }
+            aria-label=${
+              copied
+                ? "Studio command copied"
+                : `Copy ${STUDIO_NPX_COMMAND} command`
+            }
+            @click=${() => this._handleCopyStudioCommand()}
+          >
+            ${copied ? this.renderIcon("Check") : this.renderIcon("Copy")}
+          </button>
+          ${
+            copied
+              ? html`
+                  <span
+                    class="text-[11px] font-medium text-emerald-700"
+                    role="status"
+                    aria-live="polite"
+                    >Copied!</span
+                  >
+                `
+              : nothing
+          }
+        </div>
+      </div>
+    `;
+  }
+
+  // Per-card "Open in studio" button. Hands the specific tool name through as
+  // the `tool=` query param on the deep-link URL so the studio can pre-select
+  // it on load.
+  private _renderOpenStudioToolButton(tool: InspectorToolDefinition) {
+    return html`
+      <button
+        type="button"
+        class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400"
+        title="Open this tool in CopilotKit Studio"
+        aria-label="Open ${tool.name} in CopilotKit Studio"
+        @click=${(event: Event) => {
+          // The wrapping button toggles tool expansion — stop propagation so
+          // the studio link doesn't also expand/collapse the card.
+          event.stopPropagation();
+          this._handleOpenStudioClick(tool);
+        }}
+      >
+        ${this.renderIcon("ExternalLink")}
+        <span>Open</span>
+      </button>
+    `;
+  }
+
+  // Build the deep-link URL per plan §7.4 and open it in a new tab. All four
+  // query params are optional; only emit the ones we actually have. `tool`
+  // is optional and used for the per-card variant.
+  private _handleOpenStudioClick(tool?: InspectorToolDefinition) {
+    const url = this._buildStudioDeepLink(tool);
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  // Exposed as a separate method to keep the URL construction trivially
+  // testable / inspectable without poking at the DOM.
+  private _buildStudioDeepLink(tool?: InspectorToolDefinition): string {
+    const base = `http://localhost:${STUDIO_DEFAULT_PORT}/`;
+    const params = new URLSearchParams();
+    const runtimeUrl = this._core?.runtimeUrl ?? "";
+    if (runtimeUrl) {
+      params.set("runtime", runtimeUrl);
+    }
+    // The popup uses `selectedContext` for the current-agent filter. When the
+    // user is in "all-agents" we fall back to the tool's own agent (if we have
+    // one) so a per-card click still scopes to a specific agent in studio.
+    const agentId =
+      this.selectedContext !== "all-agents"
+        ? this.selectedContext
+        : (tool?.agentId ?? "");
+    if (agentId) {
+      params.set("agent", agentId);
+    }
+    if (this.selectedThreadId) {
+      params.set("thread", this.selectedThreadId);
+    }
+    if (tool?.name) {
+      params.set("tool", tool.name);
+    }
+    const query = params.toString();
+    return query.length > 0 ? `${base}?${query}` : base;
+  }
+
+  // Copy `npx @copilotkit/studio` to the clipboard and flash an inline
+  // "Copied!" confirmation. `navigator.clipboard` requires a secure context
+  // (the popup runs inside the user's app, which is virtually always HTTPS or
+  // localhost in dev) and a user gesture, both of which this satisfies.
+  private async _handleCopyStudioCommand() {
+    try {
+      await navigator.clipboard.writeText(STUDIO_NPX_COMMAND);
+    } catch (err) {
+      // Clipboard write failures (lack of permission, insecure context, etc.)
+      // are non-fatal — the user can still read the command from the tooltip
+      // and type it themselves. Log to console for diagnosability.
+      // eslint-disable-next-line no-console
+      console.warn(
+        "[cpk-web-inspector] Failed to copy studio command to clipboard:",
+        err,
+      );
+      return;
+    }
+    this.studioCopyConfirmed = true;
+    if (this.studioCopyResetTimer != null) {
+      clearTimeout(this.studioCopyResetTimer);
+    }
+    this.studioCopyResetTimer = setTimeout(() => {
+      this.studioCopyConfirmed = false;
+      this.studioCopyResetTimer = null;
+      this.requestUpdate();
+    }, STUDIO_COPY_FEEDBACK_MS);
+    this.requestUpdate();
   }
 
   private extractToolsFromAgents(): InspectorToolDefinition[] {
@@ -6879,6 +7064,12 @@ ${prettyEvent}</pre
                         </div>
                       `
                 }
+                <!-- M6: scoped "Open in CopilotKit Studio" affordance -->
+                <div
+                  class="mt-3 flex items-center justify-end border-t border-gray-200 pt-3"
+                >
+                  ${this._renderOpenStudioToolButton(tool)}
+                </div>
               </div>
             `
             : nothing
