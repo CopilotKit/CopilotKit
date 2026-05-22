@@ -108,6 +108,9 @@ export function OpsPlatformCTA({
             href={href}
             target="_blank"
             rel="noreferrer"
+            // HubSpot's analytics tag rewrites the outbound href client-side;
+            // see suppressHydrationWarning note on the card variant below.
+            suppressHydrationWarning
             // Inline color wins over .reference-content .not-prose a { color: inherit }
             // in globals.css (which would otherwise drag this to the prose text color).
             style={{ color: "var(--accent)" }}
@@ -136,6 +139,8 @@ export function OpsPlatformCTA({
         href={href}
         target="_blank"
         rel="noreferrer"
+        // See suppressHydrationWarning note on the card variant below.
+        suppressHydrationWarning
         data-cta-surface={surface}
         data-cta-variant={variant}
         style={{ textDecoration: "none", color: "var(--text)" }}
@@ -183,6 +188,8 @@ export function OpsPlatformCTA({
         href={href}
         target="_blank"
         rel="noreferrer"
+        // See suppressHydrationWarning note on the card variant below.
+        suppressHydrationWarning
         data-cta-surface={surface}
         data-cta-variant={variant}
         // Inline textDecoration wins over .reference-content a { text-decoration: underline }
@@ -232,6 +239,11 @@ export function OpsPlatformCTA({
       href={href}
       target="_blank"
       rel="noreferrer"
+      // HubSpot's analytics tag rewrites the outbound href client-side to
+      // append `__hstc` / `__hssc` / `__hsfp` cross-domain tracking params,
+      // which trips React's hydration diff. Same fix lives on the nav-bar
+      // Intelligence CTA (mobile-top-nav.tsx + brand-nav.tsx).
+      suppressHydrationWarning
       data-cta-surface={surface}
       data-cta-variant={variant}
       style={{ textDecoration: "none", color: "var(--text)" }}
