@@ -1,9 +1,7 @@
 import { WebInspectorElement, ɵCpkThreadDetails } from "../index";
-import {
-  CopilotKitCore,
-  CopilotKitCoreRuntimeConnectionStatus,
-  type CopilotKitCoreSubscriber,
-} from "@copilotkit/core";
+import type { CopilotKitCore } from "@copilotkit/core";
+import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+import type { CopilotKitCoreSubscriber } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
@@ -16,6 +14,19 @@ type InspectorInternals = {
   agentMessages: Map<string, Array<{ contentText?: string }>>;
   agentStates: Map<string, unknown>;
   cachedTools: Array<{ name: string }>;
+};
+
+// M6 popup -> studio handoff: surface the private builder + state slots so
+// the URL contract can be pinned without driving the whole DOM. The shape
+// here mirrors the runtime fields used by `_buildStudioDeepLink` and the
+// "Copied!" auto-reset feedback on `_handleCopyStudioCommand`.
+type StudioHandoffInternals = {
+  selectedContext: string;
+  selectedThreadId: string | null;
+  studioCopyConfirmed: boolean;
+  studioCopyResetTimer: ReturnType<typeof setTimeout> | null;
+  _buildStudioDeepLink: (tool?: { agentId: string; name: string }) => string;
+  _handleCopyStudioCommand: () => Promise<void>;
 };
 
 type InspectorContextInternals = {
@@ -259,6 +270,89 @@ describe("WebInspectorElement", () => {
 
     contextInternals.persistState();
     expect(localStorage.getItem("cpk:inspector:state")).toBeTruthy();
+  });
+
+  // M6 popup -> studio handoff: deep-link URL contract (plan §7.4).
+  // Pins the exact param set we ship to studio so a downstream regression
+  // (drop a param, change encoding, forget to omit when empty) surfaces here
+  // instead of in the launcher's URL parser.
+  describe("studio handoff deep-link", () => {
+    function withCoreFields(
+      coreApi: ReturnType<typeof createMockCore>,
+      fields: { runtimeUrl?: string },
+    ): WebInspectorElement {
+      // Patch the mock with whatever extra fields _buildStudioDeepLink reads
+      // off `core`. The cast is consistent with the rest of this test file —
+      // MockCore intentionally implements only the shape exercised here.
+      Object.assign(coreApi.core, fields);
+      return createInspectorWithCore(coreApi.core);
+    }
+    function getHandoff(
+      inspector: WebInspectorElement,
+    ): StudioHandoffInternals {
+      return inspector as unknown as StudioHandoffInternals;
+    }
+
+    it("emits only the params it actually has (no runtime / no agent / no thread)", () => {
+      const coreApi = createMockCore();
+      const inspector = withCoreFields(coreApi, {});
+      const url = getHandoff(inspector)._buildStudioDeepLink();
+      expect(url).toBe("http://localhost:4123/");
+    });
+
+    it("encodes runtime URL and forwards selected agent + thread", () => {
+      const coreApi = createMockCore();
+      const inspector = withCoreFields(coreApi, {
+        runtimeUrl: "http://localhost:3000",
+      });
+      const handoff = getHandoff(inspector);
+      handoff.selectedContext = "writer";
+      handoff.selectedThreadId = "t_abc";
+
+      const url = handoff._buildStudioDeepLink();
+      const parsed = new URL(url);
+      expect(parsed.host).toBe("localhost:4123");
+      expect(parsed.searchParams.get("runtime")).toBe("http://localhost:3000");
+      expect(parsed.searchParams.get("agent")).toBe("writer");
+      expect(parsed.searchParams.get("thread")).toBe("t_abc");
+      expect(parsed.searchParams.get("tool")).toBeNull();
+    });
+
+    it("includes tool=<name> when a tool is supplied and falls back to tool.agentId in all-agents mode", () => {
+      const coreApi = createMockCore();
+      const inspector = withCoreFields(coreApi, {
+        runtimeUrl: "http://localhost:3000",
+      });
+      // selectedContext defaults to "all-agents" — the per-tool deep link
+      // should still scope to the tool's owning agent.
+      const url = getHandoff(inspector)._buildStudioDeepLink({
+        agentId: "writer",
+        name: "render_stock_chart",
+      });
+      const parsed = new URL(url);
+      expect(parsed.searchParams.get("agent")).toBe("writer");
+      expect(parsed.searchParams.get("tool")).toBe("render_stock_chart");
+    });
+
+    it("writes the npx command to the clipboard and flips the 'Copied!' flag", async () => {
+      vi.useFakeTimers();
+      const coreApi = createMockCore();
+      const inspector = createInspectorWithCore(coreApi.core);
+      const handoff = getHandoff(inspector);
+
+      expect(handoff.studioCopyConfirmed).toBe(false);
+      await handoff._handleCopyStudioCommand();
+      expect(mockClipboard.writeText).toHaveBeenCalledWith(
+        "npx @copilotkit/studio",
+      );
+      expect(handoff.studioCopyConfirmed).toBe(true);
+
+      // The auto-reset timer should clear the flag after STUDIO_COPY_FEEDBACK_MS.
+      // We bumped well past it to make the test resilient to a future tweak.
+      vi.advanceTimersByTime(5000);
+      expect(handoff.studioCopyConfirmed).toBe(false);
+      vi.useRealTimers();
+    });
   });
 
   it("syncs agent state on direct setState (onStateChanged without pipeline events)", async () => {
