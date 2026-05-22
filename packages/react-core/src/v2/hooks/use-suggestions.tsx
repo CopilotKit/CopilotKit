@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Suggestion } from "@copilotkit/core";
+import type { Suggestion } from "@copilotkit/core";
 import { useCopilotKit } from "../context";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
+import type { AgentId } from "../types/copilotkit-types";
 
 export interface UseSuggestionsOptions {
-  agentId?: string;
+  agentId?: AgentId;
 }
 
 export interface UseSuggestionsResult {

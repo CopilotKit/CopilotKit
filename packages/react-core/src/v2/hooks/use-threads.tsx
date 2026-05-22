@@ -7,9 +7,8 @@ import {
   ɵselectThreadsIsLoading,
   ɵselectHasNextPage,
   ɵselectIsFetchingNextPage,
-  type ɵThreadRuntimeContext,
-  type ɵThreadStore,
 } from "@copilotkit/core";
+import type { ɵThreadRuntimeContext, ɵThreadStore } from "@copilotkit/core";
 import {
   useCallback,
   useEffect,
@@ -17,6 +16,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import type { AgentId } from "../types/copilotkit-types";
 
 /**
  * A conversation thread managed by the Intelligence platform.
@@ -48,7 +48,7 @@ export interface Thread {
  */
 export interface UseThreadsInput {
   /** The ID of the agent whose threads to list and manage. */
-  agentId: string;
+  agentId: AgentId;
   /** When `true`, archived threads are included in the list. Defaults to `false`. */
   includeArchived?: boolean;
   /** Maximum number of threads to fetch per page. When set, enables cursor-based pagination. */

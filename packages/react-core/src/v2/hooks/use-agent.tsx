@@ -1,12 +1,14 @@
 import { useCopilotKit } from "../context";
 import { useMemo, useEffect, useReducer, useRef } from "react";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 import {
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,
-  type SubscribeToAgentSubscriber,
 } from "@copilotkit/core";
+import type { SubscribeToAgentSubscriber } from "@copilotkit/core";
+import type { AgentId } from "../types/copilotkit-types";
 
 export enum UseAgentUpdate {
   OnMessagesChanged = "OnMessagesChanged",
@@ -21,7 +23,7 @@ const ALL_UPDATES: UseAgentUpdate[] = [
 ];
 
 export interface UseAgentProps {
-  agentId?: string;
+  agentId?: AgentId;
   updates?: UseAgentUpdate[];
   /**
    * Throttle interval (in milliseconds) for re-renders triggered by

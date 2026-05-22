@@ -1,5 +1,6 @@
 import type { AgentCapabilities } from "@ag-ui/core";
 import { useAgent } from "./use-agent";
+import type { AgentId } from "../types/copilotkit-types";
 
 /**
  * Returns the capabilities declared by the given agent (or the default agent).
@@ -13,7 +14,7 @@ import { useAgent } from "./use-agent";
  *          declare capabilities.
  */
 export function useCapabilities(
-  agentId?: string,
+  agentId?: AgentId,
 ): AgentCapabilities | undefined {
   const { agent } = useAgent({ agentId });
 

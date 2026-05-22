@@ -1,14 +1,18 @@
 import type { StandardSchemaV1 } from "@copilotkit/shared";
-import { ToolCallStatus } from "@copilotkit/core";
+import type { ToolCallStatus } from "@copilotkit/core";
+import type { AgentId } from "./copilotkit-types";
 
-export interface ReactToolCallRenderer<T = unknown> {
+export interface ReactToolCallRenderer<
+  T = unknown,
+  A extends AgentId | undefined = AgentId | undefined,
+> {
   name: string;
   args: StandardSchemaV1<any, T>;
   /**
    * Optional agent ID to constrain this tool renderer to a specific agent.
    * If specified, this renderer will only be used for the specified agent.
    */
-  agentId?: string;
+  agentId?: A;
   render: React.ComponentType<
     | {
         name: string;
