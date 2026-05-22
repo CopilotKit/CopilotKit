@@ -86,7 +86,9 @@ test.describe("HITL in chat — booking flow", () => {
       '[data-testid="copilot-assistant-message"]',
     );
     await expect(
-      assistantMessages.filter({ hasText: /Denied.*Alice|not booked/i }).first(),
+      assistantMessages
+        .filter({ hasText: /Denied.*Alice|not booked/i })
+        .first(),
     ).toBeVisible({ timeout: 30000 });
     await expect(
       assistantMessages.filter({ hasText: /Booked.*Alice/i }),

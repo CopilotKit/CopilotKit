@@ -9,7 +9,9 @@ test.describe("Interrupt Headless", () => {
     page,
   }) => {
     const input = page.getByPlaceholder("Type a message");
-    await input.fill("Book an intro call with the sales team to discuss pricing.");
+    await input.fill(
+      "Book an intro call with the sales team to discuss pricing.",
+    );
     await input.press("Enter");
 
     const popup = page.locator('[data-testid="interrupt-headless-popup"]');

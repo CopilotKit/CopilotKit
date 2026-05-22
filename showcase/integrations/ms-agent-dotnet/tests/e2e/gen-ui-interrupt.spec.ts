@@ -123,7 +123,9 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
       '[data-testid="copilot-assistant-message"]',
     );
     await expect(
-      assistantMessages.filter({ hasText: /Denied.*Alice|not scheduled/i }).first(),
+      assistantMessages
+        .filter({ hasText: /Denied.*Alice|not scheduled/i })
+        .first(),
     ).toBeVisible({
       timeout: 45_000,
     });
