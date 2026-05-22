@@ -4,7 +4,6 @@ import type { AbstractAgent } from "@ag-ui/client";
 import type { FrontendTool } from "@copilotkit/core";
 import type React from "react";
 import {
-  type ReactNode,
   useMemo,
   useEffect,
   useLayoutEffect,
@@ -12,23 +11,19 @@ import {
   useRef,
   useState,
 } from "react";
+import type { ReactNode } from "react";
 // Context extracted to ../context.ts for cross-platform reuse (React Native)
-import {
-  CopilotKitContext,
-  type CopilotKitContextValue,
-  LicenseContext,
-} from "../context";
+import { CopilotKitContext, LicenseContext } from "../context";
+import type { CopilotKitContextValue } from "../context";
 export type { CopilotKitContextValue } from "../context";
 export { CopilotKitContext, useLicenseContext } from "../context";
 import { z } from "zod";
 import { CopilotKitInspector } from "../components/CopilotKitInspector";
+import { InspectorSandboxHost } from "../components/InspectorSandboxHost";
 import type { Anchor } from "@copilotkit/web-inspector";
 import { LicenseWarningBanner } from "../components/license-warning-banner";
-import {
-  createLicenseContextValue,
-  type LicenseContextValue,
-  type DebugConfig,
-} from "@copilotkit/shared";
+import { createLicenseContextValue } from "@copilotkit/shared";
+import type { LicenseContextValue, DebugConfig } from "@copilotkit/shared";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import {
   MCPAppsActivityContentSchema,
@@ -62,6 +57,15 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 
 const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
 const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
+
+/**
+ * Dev-only flag for the studio sandbox host. Bundlers replace
+ * `process.env.NODE_ENV` at build time, so this folds to `false` in
+ * production and the InspectorSandboxHost import becomes dead code that the
+ * tree-shaker drops from the bundle. See:
+ * .chalk/plans/web-inspector-v1.md §6.5 (Dev-only guard).
+ */
+const SANDBOX_HOST_ENABLED = process.env.NODE_ENV !== "production";
 
 const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follow these design principles inspired by shadcn/ui:
 
@@ -770,7 +774,19 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
               includeSchema={a2ui?.includeSchema}
             />
           )}
-          {children}
+          {/*
+           * Studio sandbox host — when `?__cpk_sandbox=<tool>` is present in
+           * the URL, this short-circuits `children` and renders only the
+           * named tool's `render(args)` instead. In normal use it's a pure
+           * passthrough. Dev-only: the constant folds to `false` in
+           * production and the import tree-shakes away.
+           * Spec: .chalk/plans/web-inspector-v1.md §6.5
+           */}
+          {SANDBOX_HOST_ENABLED ? (
+            <InspectorSandboxHost>{children}</InspectorSandboxHost>
+          ) : (
+            children
+          )}
           {shouldRenderInspector ? (
             <CopilotKitInspector
               core={copilotkit}
