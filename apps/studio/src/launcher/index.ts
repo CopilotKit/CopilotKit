@@ -7,6 +7,13 @@ import type { LauncherEvent, ToolDescriptor } from "../shared/types.js";
 
 import type { FileWatcherHandle } from "./file-watcher.js";
 import { startFileWatcher } from "./file-watcher.js";
+import {
+  candidateComponentPaths,
+  deleteFixturePreset,
+  loadFixtureFile,
+  loadFixturesForComponent,
+  saveFixturePreset,
+} from "./fixture-loader.js";
 import { createHttpServer } from "./http-server.js";
 import { scanContent, scanWorkspace } from "./scanner.js";
 import { startWsServer } from "./ws-server.js";
@@ -69,7 +76,10 @@ const toolKey = (t: ToolDescriptor): string =>
 function descriptorHash(t: ToolDescriptor): string {
   // We serialize the fields that matter for downstream consumers. `loc` is
   // included because the SPA shows line numbers; if only the line changes
-  // we still want to surface the move.
+  // we still want to surface the move. `fixturePath` is included so a
+  // newly-created sibling fixture file surfaces as a modified descriptor.
+  // `fixtures` is hashed by JSON because the object is small and the order
+  // is preserved by the loader.
   const serialized = JSON.stringify({
     name: t.name,
     hook: t.hook,
@@ -78,6 +88,8 @@ function descriptorHash(t: ToolDescriptor): string {
     enclosingComponent: t.enclosingComponent,
     loc: t.loc,
     filePath: t.filePath,
+    fixturePath: t.fixturePath,
+    fixtures: t.fixtures,
   });
   return createHash("sha1").update(serialized).digest("hex");
 }
@@ -115,6 +127,29 @@ export async function startLauncher(
     devPlaceholderHtml: buildDevPlaceholderHtml(port),
   });
 
+  /**
+   * Forward-declared command handlers — defined after the scan path is set
+   * up, but referenced from the WS server's onCommand callback. Held in a
+   * single mutable ref so the linter doesn't flag the placeholders as
+   * "doesn't capture any variables from parent scope". Until the handlers
+   * resolve to their real implementations, command-loss is safe (the WS
+   * upgrade can't fire until `httpServer.listen()` resolves below, and the
+   * handlers are assigned before that point).
+   */
+  const commandHandlers: {
+    onScanRefresh: () => void;
+    onFixtureSave: (
+      toolName: string,
+      presetName: string,
+      args: unknown,
+    ) => void;
+    onFixtureDelete: (toolName: string, presetName: string) => void;
+  } = {
+    onScanRefresh: () => {},
+    onFixtureSave: () => {},
+    onFixtureDelete: () => {},
+  };
+
   const ws = startWsServer({
     httpServer,
     onConnect: (send) => {
@@ -124,10 +159,17 @@ export async function startLauncher(
       if (snapshotEvent) send(snapshotEvent);
     },
     onCommand: (command) => {
-      // Forced rescan is the only M1-relevant command; fixture save/delete
-      // belong to M2.
+      // M1: scan.refresh. M2: fixture.save / fixture.delete.
       if (command.type === "scan.refresh") {
-        void rescanWorkspaceAndBroadcast();
+        commandHandlers.onScanRefresh();
+      } else if (command.type === "fixture.save") {
+        commandHandlers.onFixtureSave(
+          command.toolName,
+          command.presetName,
+          command.args,
+        );
+      } else if (command.type === "fixture.delete") {
+        commandHandlers.onFixtureDelete(command.toolName, command.presetName);
       }
     },
   });
@@ -143,11 +185,71 @@ export async function startLauncher(
   console.info(`[studio] Listening on http://localhost:${port}`);
   console.info(`[studio] Scanning ${rootDir} ...`);
 
+  /**
+   * Inverse index from a fixture file path → set of tool keys whose
+   * descriptor was populated from that fixture. Lets the fixture-file
+   * watcher map a single `change` event back to the affected tools in O(1).
+   *
+   * Populated alongside the main `tools` map any time we set a descriptor's
+   * `fixturePath`; cleared on descriptor removal.
+   */
+  const fixtureToTools = new Map<string, Set<string>>(); // fixturePath -> set<toolKey>
+
+  /**
+   * Mutate `tool.fixtures` + `tool.fixturePath` from the sibling fixture
+   * file (if any). Best-effort: returns the same descriptor on success or
+   * on a recoverable failure with `tool.fixtures` left as `null` / `{}`.
+   * Parse errors surface via the returned `error` field so the caller can
+   * emit a `scan.error` event.
+   */
+  const applyFixturesToTool = async (
+    tool: ToolDescriptor,
+  ): Promise<{ tool: ToolDescriptor; error?: string }> => {
+    const result = await loadFixturesForComponent(tool.filePath);
+    const next: ToolDescriptor = {
+      ...tool,
+      fixturePath: result.fixturePath,
+      fixtures: result.fixtures,
+    };
+    return result.error ? { tool: next, error: result.error } : { tool: next };
+  };
+
+  const indexFixtureForTool = (tool: ToolDescriptor): void => {
+    if (!tool.fixturePath) return;
+    const key = toolKey(tool);
+    let set = fixtureToTools.get(tool.fixturePath);
+    if (!set) {
+      set = new Set();
+      fixtureToTools.set(tool.fixturePath, set);
+    }
+    set.add(key);
+  };
+
+  const unindexFixtureForTool = (tool: ToolDescriptor): void => {
+    if (!tool.fixturePath) return;
+    const key = toolKey(tool);
+    const set = fixtureToTools.get(tool.fixturePath);
+    if (!set) return;
+    set.delete(key);
+    if (set.size === 0) fixtureToTools.delete(tool.fixturePath);
+  };
+
   const initialScan = await scanWorkspace(rootDir);
+  // Populate fixtures for every freshly-discovered tool before we register
+  // it. This means the first `registry.snapshot` carries fixture data,
+  // saving the SPA a round-trip on connect.
   for (const tool of initialScan.tools) {
-    tools.set(toolKey(tool), tool);
-    appendToByFile(byFile, tool);
-    hashes.set(toolKey(tool), descriptorHash(tool));
+    const { tool: enriched, error } = await applyFixturesToTool(tool);
+    tools.set(toolKey(enriched), enriched);
+    appendToByFile(byFile, enriched);
+    indexFixtureForTool(enriched);
+    hashes.set(toolKey(enriched), descriptorHash(enriched));
+    if (error) {
+      initialScan.errors.push({
+        filePath: enriched.fixturePath ?? enriched.filePath,
+        message: error,
+      });
+    }
   }
 
   workspaceReadyEvent = {
@@ -234,17 +336,36 @@ export async function startLauncher(
       }
 
       const nextKeys = new Set<string>();
-      for (const desc of nextDescriptors) {
+      for (const rawDesc of nextDescriptors) {
+        // Re-attach sibling fixture data — the scanner returns descriptors
+        // with `fixtures: null, fixturePath: null` so the fixture-loader has
+        // to run during every rescan. The cost is one `existsSync` + at
+        // most one small file read per tool, which is well below the 300 ms
+        // debounce budget.
+        const { tool: desc, error: fixtureError } =
+          await applyFixturesToTool(rawDesc);
+        if (fixtureError) {
+          ws.broadcast({
+            type: "scan.error",
+            filePath: desc.fixturePath ?? desc.filePath,
+            message: fixtureError,
+            at: new Date().toISOString(),
+          });
+        }
         const key = toolKey(desc);
         nextKeys.add(key);
         const hash = descriptorHash(desc);
         if (!tools.has(key)) {
           tools.set(key, desc);
           hashes.set(key, hash);
+          indexFixtureForTool(desc);
           added.push(desc);
         } else if (hashes.get(key) !== hash) {
+          const prev = tools.get(key)!;
+          unindexFixtureForTool(prev);
           tools.set(key, desc);
           hashes.set(key, hash);
+          indexFixtureForTool(desc);
           modified.push(desc);
         }
         // else: descriptor unchanged — no need to broadcast.
@@ -255,6 +376,7 @@ export async function startLauncher(
         if (!nextKeys.has(previousKey)) {
           const prev = tools.get(previousKey);
           if (prev) {
+            unindexFixtureForTool(prev);
             tools.delete(previousKey);
             hashes.delete(previousKey);
             removed.push(prev.name);
@@ -298,17 +420,27 @@ export async function startLauncher(
   /**
    * Full-workspace rescan triggered by the `scan.refresh` command. Replaces
    * the live registry wholesale and broadcasts a fresh snapshot. M1 keeps
-   * this path simple; per-file rescans handle the live-edit case.
+   * this path simple; per-file rescans handle the live-edit case. M2
+   * enriches each descriptor with sibling fixture data before publishing.
    */
   const rescanWorkspaceAndBroadcast = async (): Promise<void> => {
     const scan = await scanWorkspace(rootDir);
     tools.clear();
     byFile.clear();
     hashes.clear();
+    fixtureToTools.clear();
     for (const tool of scan.tools) {
-      tools.set(toolKey(tool), tool);
-      appendToByFile(byFile, tool);
-      hashes.set(toolKey(tool), descriptorHash(tool));
+      const { tool: enriched, error } = await applyFixturesToTool(tool);
+      tools.set(toolKey(enriched), enriched);
+      appendToByFile(byFile, enriched);
+      indexFixtureForTool(enriched);
+      hashes.set(toolKey(enriched), descriptorHash(enriched));
+      if (error) {
+        scan.errors.push({
+          filePath: enriched.fixturePath ?? enriched.filePath,
+          message: error,
+        });
+      }
     }
     snapshotEvent = {
       type: "registry.snapshot",
@@ -329,12 +461,224 @@ export async function startLauncher(
     );
   };
 
+  /**
+   * Handle a fixture-file change event from the watcher.
+   *
+   * For each changed fixture file:
+   *   1. Reload the fixture (best-effort; parse errors surface as
+   *      `scan.error`).
+   *   2. Find the descriptors that point at this fixture via the inverse
+   *      `fixtureToTools` index. For *new* fixture files (just added next
+   *      to an existing component), the index has no entry yet — we
+   *      fall back to `candidateComponentPaths` to find the owning
+   *      source file and look it up via `byFile`.
+   *   3. Update each affected descriptor in-place (fixture data + hash);
+   *      emit a single dedicated `fixture.changed` event listing the tool
+   *      names that picked up the change.
+   *
+   * We do not emit a `registry.delta` for fixture-only updates — the SPA
+   * can react to `fixture.changed` and update its local descriptor cache
+   * directly. Late-joining clients still get the fresh fixture data via
+   * the next `registry.snapshot` (we refresh that here too).
+   */
+  const onFixtureFilesChanged = async (
+    changedFixtureFiles: string[],
+  ): Promise<void> => {
+    for (const fixturePath of changedFixtureFiles) {
+      // Step 1: re-read the fixture from disk.
+      const result = await loadFixtureFile(fixturePath);
+      if (result.error) {
+        ws.broadcast({
+          type: "scan.error",
+          filePath: fixturePath,
+          message: result.error,
+          at: new Date().toISOString(),
+        });
+      }
+
+      // Step 2: find affected descriptors. The inverse index is the fast
+      // path; for fixtures that didn't exist on disk during the last
+      // applyFixturesToTool() call, we walk back from the fixture path to
+      // its sibling component files.
+      const affectedKeys = new Set<string>(
+        fixtureToTools.get(fixturePath) ?? [],
+      );
+      if (affectedKeys.size === 0) {
+        // Fixture is new (or its sibling source file was rescanned without
+        // the loader finding it). Look up by candidate component paths.
+        for (const candidate of candidateComponentPaths(fixturePath)) {
+          const keys = byFile.get(candidate);
+          if (!keys) continue;
+          for (const key of keys) affectedKeys.add(key);
+        }
+      }
+
+      // Step 3: rewrite descriptors in place.
+      const affectedToolNames: string[] = [];
+      const modifiedDescriptors: ToolDescriptor[] = [];
+      for (const key of affectedKeys) {
+        const prev = tools.get(key);
+        if (!prev) continue;
+        unindexFixtureForTool(prev);
+        const next: ToolDescriptor = {
+          ...prev,
+          fixturePath: result.fixtures ? fixturePath : null,
+          fixtures: result.fixtures ?? null,
+        };
+        tools.set(key, next);
+        indexFixtureForTool(next);
+        const newHash = descriptorHash(next);
+        if (hashes.get(key) !== newHash) {
+          hashes.set(key, newHash);
+          modifiedDescriptors.push(next);
+        }
+        if (!affectedToolNames.includes(next.name)) {
+          affectedToolNames.push(next.name);
+        }
+      }
+
+      // Always emit fixture.changed when the file actually parsed — the
+      // SPA wants to know about new presets even if no tool descriptor
+      // was changed yet (the fixture might be ahead of a not-yet-saved
+      // component file). Skip when the parse failed AND nothing was
+      // populated — scan.error has already covered that.
+      if (result.fixtures !== null || affectedToolNames.length > 0) {
+        const fixtureChanged: Extract<
+          LauncherEvent,
+          { type: "fixture.changed" }
+        > = {
+          type: "fixture.changed",
+          filePath: fixturePath,
+          tools: affectedToolNames,
+          fixtures: result.fixtures ?? {},
+          at: new Date().toISOString(),
+        };
+        ws.broadcast(fixtureChanged);
+      }
+
+      // Refresh the cached snapshot so future connectors see post-change
+      // state. We only refresh when descriptors actually moved — otherwise
+      // the snapshot is byte-for-byte identical.
+      if (modifiedDescriptors.length > 0) {
+        snapshotEvent = {
+          type: "registry.snapshot",
+          tools: [...tools.values()],
+          scannedAt: new Date().toISOString(),
+        };
+        console.info(
+          `[studio] Fixture changed: ${fixturePath} ` +
+            `(updated ${modifiedDescriptors.length} tool${modifiedDescriptors.length === 1 ? "" : "s"}).`,
+        );
+      } else {
+        console.info(
+          `[studio] Fixture changed: ${fixturePath} (no tools yet).`,
+        );
+      }
+    }
+  };
+
+  /**
+   * Handle a `fixture.save` WS command from the SPA. Persists the preset to
+   * the sibling `.fixture.json` file and re-emits a `fixture.changed` event
+   * so other connected clients reflect the change immediately. The watcher
+   * will also fire its own event when chokidar notices the write — the
+   * resulting double-broadcast is intentional: it makes the round-trip
+   * obvious in the SPA's network panel and the second event is idempotent.
+   */
+  const handleFixtureSave = async (
+    toolName: string,
+    presetName: string,
+    args: unknown,
+  ): Promise<void> => {
+    // Find the tool. There may be more than one (same name across files);
+    // we save to the first match — the SPA addresses tools by name + line in
+    // future milestones; v1's fixture.save uses name only per §7.2.
+    let target: ToolDescriptor | null = null;
+    for (const tool of tools.values()) {
+      if (tool.name === toolName) {
+        target = tool;
+        break;
+      }
+    }
+    if (!target) {
+      ws.broadcast({
+        type: "scan.error",
+        filePath: "(fixture.save)",
+        message: `Unknown tool: ${toolName}`,
+        at: new Date().toISOString(),
+      });
+      return;
+    }
+
+    try {
+      const written = await saveFixturePreset({
+        componentPath: target.filePath,
+        presetName,
+        presetArgs: args,
+      });
+      // Apply the change in-memory immediately so we don't rely on the
+      // watcher round-trip for correctness.
+      await onFixtureFilesChanged([written.fixturePath]);
+    } catch (err) {
+      ws.broadcast({
+        type: "scan.error",
+        filePath: target.filePath,
+        message: `fixture.save failed: ${(err as Error).message}`,
+        at: new Date().toISOString(),
+      });
+    }
+  };
+
+  const handleFixtureDelete = async (
+    toolName: string,
+    presetName: string,
+  ): Promise<void> => {
+    let target: ToolDescriptor | null = null;
+    for (const tool of tools.values()) {
+      if (tool.name === toolName) {
+        target = tool;
+        break;
+      }
+    }
+    if (!target) return;
+    try {
+      const result = await deleteFixturePreset({
+        componentPath: target.filePath,
+        presetName,
+      });
+      if (result) {
+        await onFixtureFilesChanged([result.fixturePath]);
+      }
+    } catch (err) {
+      ws.broadcast({
+        type: "scan.error",
+        filePath: target.filePath,
+        message: `fixture.delete failed: ${(err as Error).message}`,
+        at: new Date().toISOString(),
+      });
+    }
+  };
+
+  // Wire the forward-declared handlers to their real implementations.
+  commandHandlers.onScanRefresh = () => {
+    void rescanWorkspaceAndBroadcast();
+  };
+  commandHandlers.onFixtureSave = (toolName, presetName, args) => {
+    void handleFixtureSave(toolName, presetName, args);
+  };
+  commandHandlers.onFixtureDelete = (toolName, presetName) => {
+    void handleFixtureDelete(toolName, presetName);
+  };
+
   let watcher: FileWatcherHandle | null = null;
   if (!options.disableWatcher) {
     watcher = startFileWatcher({
       rootDir,
       onChanged: (changedFiles) => {
         void rescanFiles(changedFiles);
+      },
+      onFixtureChanged: (changedFixtureFiles) => {
+        void onFixtureFilesChanged(changedFixtureFiles);
       },
     });
     console.info(`[studio] Watching ${rootDir} for changes.`);

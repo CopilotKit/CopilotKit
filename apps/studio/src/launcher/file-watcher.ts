@@ -42,8 +42,18 @@ const SKIP_DIRS_PATTERNS: ReadonlyArray<RegExp> = [
 export type FileWatcherOptions = {
   /** Project root to watch. Must be absolute. */
   rootDir: string;
-  /** Called when the debounced batch of changes lands. */
+  /** Called when the debounced batch of source changes lands. */
   onChanged: (changedFiles: string[]) => void;
+  /**
+   * Called when the debounced batch of fixture-file changes lands (M2+).
+   *
+   * Fixture batches are kept separate from source batches because the
+   * launcher's rescan path for sources is expensive (per-file AST walk) while
+   * the fixture path is a cheap JSON/AST read. Splitting also lets the
+   * launcher emit a dedicated `fixture.changed` WS event rather than
+   * conflating fixture updates with a `registry.delta`.
+   */
+  onFixtureChanged?: (changedFixtureFiles: string[]) => void;
   /** Override the debounce window (ms). Defaults to 300. */
   debounceMs?: number;
 };
@@ -54,15 +64,38 @@ export type FileWatcherHandle = {
 };
 
 /**
- * Start watching `rootDir` for `.ts` / `.tsx` changes. Returns a handle the
- * launcher can use to tear the watcher down on shutdown.
+ * Returns true when `filePath` is a fixture sibling (`*.fixture.{json,ts,tsx}`).
+ * Sources and fixtures share the watcher but are routed to different
+ * callbacks; fixtures get a dedicated debounce slot and a dedicated
+ * launcher event.
+ */
+function isFixturePath(filePath: string): boolean {
+  return (
+    filePath.endsWith(".fixture.json") ||
+    filePath.endsWith(".fixture.ts") ||
+    filePath.endsWith(".fixture.tsx")
+  );
+}
+
+function isSourcePath(filePath: string): boolean {
+  // .fixture.ts / .fixture.tsx end in `.ts` / `.tsx` too — route fixtures
+  // first to avoid double-firing.
+  if (isFixturePath(filePath)) return false;
+  return filePath.endsWith(".ts") || filePath.endsWith(".tsx");
+}
+
+/**
+ * Start watching `rootDir` for source (.ts/.tsx) and fixture
+ * (.fixture.{json,ts,tsx}) changes. Returns a handle the launcher can use
+ * to tear the watcher down on shutdown.
  *
- * The callback receives a deduped array of absolute file paths that changed
- * within the debounce window — additions, modifications, and deletions all
- * land in the same callback. Deletions are not distinguished from edits
- * here; the scanner re-reads each file and adjusts the registry accordingly
- * (a missing file produces zero descriptors, which the diff logic reads as
- * removals).
+ * Source changes go to `onChanged`; fixture changes go to `onFixtureChanged`
+ * (when provided). Each callback receives a deduped array of absolute file
+ * paths that changed within the debounce window — additions, modifications,
+ * and deletions all land in the same callback. Deletions are not
+ * distinguished from edits; the launcher re-reads each file and adjusts the
+ * registry accordingly (a missing file produces zero descriptors / no
+ * fixtures, which the diff logic reads as removals).
  */
 export function startFileWatcher(
   options: FileWatcherOptions,
@@ -78,8 +111,10 @@ export function startFileWatcher(
       if (!stats) return false; // unknown — let chokidar decide
       if (stats.isDirectory()) return false;
       if (!stats.isFile()) return true;
-      if (!filePath.endsWith(".ts") && !filePath.endsWith(".tsx")) return true;
-      return false;
+      // Accept source .ts/.tsx and fixture .fixture.{json,ts,tsx}.
+      if (isFixturePath(filePath)) return false;
+      if (filePath.endsWith(".ts") || filePath.endsWith(".tsx")) return false;
+      return true;
     },
     ignoreInitial: true, // don't fire `add` for every existing file on boot
     persistent: true,
@@ -93,21 +128,40 @@ export function startFileWatcher(
     },
   });
 
-  let pending: Set<string> = new Set();
-  let timer: NodeJS.Timeout | null = null;
+  let pendingSources: Set<string> = new Set();
+  let pendingFixtures: Set<string> = new Set();
+  let sourceTimer: NodeJS.Timeout | null = null;
+  let fixtureTimer: NodeJS.Timeout | null = null;
   let closed = false;
+
+  const flushSources = () => {
+    sourceTimer = null;
+    const batch = [...pendingSources];
+    pendingSources = new Set();
+    if (batch.length > 0) options.onChanged(batch);
+  };
+
+  const flushFixtures = () => {
+    fixtureTimer = null;
+    const batch = [...pendingFixtures];
+    pendingFixtures = new Set();
+    if (batch.length > 0 && options.onFixtureChanged) {
+      options.onFixtureChanged(batch);
+    }
+  };
 
   const schedule = (filePath: string) => {
     if (closed) return;
-    if (!filePath.endsWith(".ts") && !filePath.endsWith(".tsx")) return;
-    pending.add(filePath);
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => {
-      timer = null;
-      const batch = [...pending];
-      pending = new Set();
-      if (batch.length > 0) options.onChanged(batch);
-    }, debounceMs);
+    if (isFixturePath(filePath)) {
+      pendingFixtures.add(filePath);
+      if (fixtureTimer) clearTimeout(fixtureTimer);
+      fixtureTimer = setTimeout(flushFixtures, debounceMs);
+      return;
+    }
+    if (!isSourcePath(filePath)) return;
+    pendingSources.add(filePath);
+    if (sourceTimer) clearTimeout(sourceTimer);
+    sourceTimer = setTimeout(flushSources, debounceMs);
   };
 
   watcher.on("add", schedule);
@@ -117,9 +171,13 @@ export function startFileWatcher(
   return {
     close: async () => {
       closed = true;
-      if (timer) {
-        clearTimeout(timer);
-        timer = null;
+      if (sourceTimer) {
+        clearTimeout(sourceTimer);
+        sourceTimer = null;
+      }
+      if (fixtureTimer) {
+        clearTimeout(fixtureTimer);
+        fixtureTimer = null;
       }
       await watcher.close();
     },
