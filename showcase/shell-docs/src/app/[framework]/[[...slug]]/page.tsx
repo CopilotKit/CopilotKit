@@ -104,9 +104,7 @@ export async function generateMetadata({
     // tagline, falling back to the framework's index.mdx if present.
     const integration = getIntegration(framework);
     const overview = frameworkOverviews[framework];
-    const indexDoc = loadDoc(
-      `integrations/${getDocsFolder(framework)}/index`,
-    );
+    const indexDoc = loadDoc(`integrations/${getDocsFolder(framework)}/index`);
     title =
       indexDoc?.fm.title ??
       overview?.frameworkName ??
