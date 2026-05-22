@@ -1,0 +1,35 @@
+{
+  "default": {
+    "fullName": "Ada Lovelace",
+    "email": "ada@example.com",
+    "description": "Brief description of the incident.",
+    "date": "2026-05-22",
+    "impactLevel": "medium",
+    "incidentType": "phishing",
+    "incidentLevel": "medium",
+    "incidentDescription": "A targeted phishing email was sent to several employees of the engineering team. The message impersonated the IT helpdesk and asked recipients to log into a fake portal to renew their VPN credentials. Two employees reported the message before any credentials were submitted; the link domain has been blocked at the firewall.",
+    "suggestedActions": "- Rotate VPN credentials for the affected team\n- Add the impersonating domain to the email gateway block list\n- Send a phishing-awareness reminder to all employees\n- Open a follow-up ticket with the security awareness training vendor"
+  },
+  "ddos-critical": {
+    "fullName": "Grace Hopper",
+    "email": "grace@example.com",
+    "description": "Sustained DDoS against the public API.",
+    "date": "2026-05-22",
+    "impactLevel": "high",
+    "incidentType": "ddos",
+    "incidentLevel": "critical",
+    "incidentDescription": "Beginning at 03:14 UTC, the public REST API began receiving sustained traffic exceeding 12x normal peak. Layer-7 requests were focused on the `/v1/search` endpoint with high cardinality payloads. WAF rules were applied at 03:22 UTC; traffic returned to baseline by 04:05 UTC. Two customer reports of 5xx errors during the window.",
+    "suggestedActions": "- Confirm WAF rules are committed and reviewed by team lead\n- Reach out to the two affected customers with a status note\n- Schedule a post-mortem within 48 hours\n- Investigate whether to enable cache headers on `/v1/search`"
+  },
+  "data-breach-low": {
+    "fullName": "Linus Torvalds",
+    "email": "linus@example.com",
+    "description": "Single document inadvertently shared externally.",
+    "date": "2026-05-21",
+    "impactLevel": "low",
+    "incidentType": "data_breach",
+    "incidentLevel": "low",
+    "incidentDescription": "An internal Google Doc was set to `anyone-with-the-link can view` for approximately 90 minutes before being corrected by the document owner. The document contained an internal roadmap with no customer or financial data. Access logs were reviewed; no external views were recorded.",
+    "suggestedActions": "- Run a sharing-audit script across the team drive\n- Remind document owners about default sharing settings\n- File a low-severity ticket and close after the audit is complete"
+  }
+}

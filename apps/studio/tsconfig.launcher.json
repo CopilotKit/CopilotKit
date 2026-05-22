@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist",
+    "rootDir": ".",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "declaration": false,
+    "sourceMap": true,
+    "lib": ["ES2022"],
+    "types": ["node"]
+  },
+  "include": ["bin/**/*", "src/launcher/**/*", "src/shared/**/*"],
+  "exclude": ["node_modules", "dist", "src/spa/**/*"]
+}
