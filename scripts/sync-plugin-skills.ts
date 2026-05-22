@@ -13,6 +13,15 @@ export const RESERVED_LIFECYCLE_SLUGS: ReadonlySet<string> = new Set([
   "scale-to-multi-agent",
   "v1-to-v2-migration",
   "debug-and-troubleshoot",
+  // Standalone skills — not generated from packages/*/skills, exempt from orphan detection
+  "copilotkit-setup",
+  "copilotkit-develop",
+  "copilotkit-agui",
+  "copilotkit-integrations",
+  "copilotkit-debug",
+  "copilotkit-upgrade",
+  "copilotkit-contribute",
+  "copilotkit-self-update",
 ]);
 
 // Version sync — plugin version tracks this package's version.
