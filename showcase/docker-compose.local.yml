@@ -343,6 +343,17 @@ services:
     volumes:
       - ./integrations/ms-agent-dotnet/src:/app/src
 
+  ms-agent-harness-dotnet:
+    <<: *integration-defaults
+    build: ./integrations/ms-agent-harness-dotnet
+    image: showcase-ms-agent-harness-dotnet:local
+    container_name: showcase-ms-agent-harness-dotnet
+    ports:
+      - "3118:10000"
+    profiles: ["ms-agent-harness-dotnet", "all"]
+    volumes:
+      - ./integrations/ms-agent-harness-dotnet/src:/app/src
+
   spring-ai:
     <<: *integration-defaults
     build: ./integrations/spring-ai
