@@ -1,0 +1,43 @@
+{
+  "name": "@copilotkit/devtools-client",
+  "version": "1.57.3",
+  "description": "TanStack DevTools EventClient for emitting AG-UI events",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
+  "unpkg": "./dist/index.umd.js",
+  "jsdelivr": "./dist/index.umd.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest run",
+    "check-types": "tsc --noEmit",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16"
+  },
+  "dependencies": {
+    "@tanstack/devtools-event-client": "^0.4.3"
+  },
+  "devDependencies": {
+    "@copilotkit/typescript-config": "workspace:*",
+    "jsdom": "^29.0.2",
+    "tsdown": "^0.20.3",
+    "typescript": "5.8.2",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

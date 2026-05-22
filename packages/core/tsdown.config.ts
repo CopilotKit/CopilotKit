@@ -21,6 +21,7 @@ export default defineConfig([
     outDir: "dist",
     external: [
       "@copilotkit/shared",
+      "@copilotkit/devtools-client",
       "@ag-ui/client",
       "@ag-ui/core",
       "rxjs",
@@ -32,6 +33,7 @@ export default defineConfig([
       options.entryFileNames = "[name].umd.js";
       options.globals = {
         "@copilotkit/shared": "CopilotKitShared",
+        "@copilotkit/devtools-client": "CopilotKitDevtoolsClient",
         "@ag-ui/client": "AgUIClient",
         "@ag-ui/core": "AgUICore",
         rxjs: "rxjs",

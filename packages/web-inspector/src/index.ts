@@ -46,6 +46,15 @@ import {
   isValidSize,
   isValidDockMode,
 } from "./lib/persistence";
+import {
+  devtoolsClient,
+  loadSnippets,
+  saveSnippet,
+  updateSnippet,
+  deleteSnippet,
+  type DevtoolsSnippet,
+  type DevtoolsEventType,
+} from "@copilotkit/devtools-client";
 import type { PersistedState } from "./lib/persistence";
 import {
   TELEMETRY_DOCS_URL,
@@ -66,6 +75,7 @@ type MenuKey =
   | "agents"
   | "frontend-tools"
   | "agent-context"
+  | "event-emitter"
   | "threads"
   | "settings";
 
@@ -2490,6 +2500,24 @@ export class WebInspectorElement extends LitElement {
   private resizeInitialSize: { width: number; height: number } | null = null;
   private isResizing = false;
 
+  // Event emitter state
+  private emitterEventType: DevtoolsEventType = "tool-call";
+  private emitterAgentId = "";
+  private emitterToolName = "";
+  private emitterArgs = "{}";
+  private emitterResult = "";
+  private emitterContent = "";
+  private emitterStateJson = "{}";
+  private emitterCustomName = "";
+  private emitterCustomValue = "{}";
+  private emitterSnippets: DevtoolsSnippet[] = [];
+  private emitterJsonError: string | null = null;
+  private emitterStatusMessage: string | null = null;
+  private emitterStatusTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private emitterShowSnippetInput = false;
+  private emitterSnippetName = "";
+  private emitterEditingSnippetId: string | null = null;
+
   private readonly customTabIcons: Record<string, string> = {
     threads: `<svg class="h-3.5 w-3.5" width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9.04167 15C8.29167 15 7.65972 14.7431 7.14583 14.2292C6.63194 13.7153 6.375 13.0972 6.375 12.375C6.375 11.3194 6.80208 10.3646 7.65625 9.51042C8.51042 8.65625 9.57639 8.125 10.8542 7.91667C10.8125 7.41667 10.6875 7.03819 10.4792 6.78125C10.2708 6.52431 9.98611 6.39583 9.625 6.39583C9.20833 6.39583 8.75694 6.56944 8.27083 6.91667C7.78472 7.26389 7.20833 7.83333 6.54167 8.625C5.45833 9.91667 4.66319 10.7569 4.15625 11.1458C3.64931 11.5347 3.10417 11.7292 2.52083 11.7292C1.8125 11.7292 1.21528 11.4653 0.729167 10.9375C0.243056 10.4097 0 9.77083 0 9.02083C0 8.27083 0.163194 7.50347 0.489583 6.71875C0.815972 5.93403 1.36806 4.99306 2.14583 3.89583C2.40972 3.53472 2.60417 3.22917 2.72917 2.97917C2.85417 2.72917 2.91667 2.52778 2.91667 2.375C2.91667 2.27778 2.89931 2.20486 2.86458 2.15625C2.82986 2.10764 2.77778 2.08333 2.70833 2.08333C2.56944 2.08333 2.39583 2.17014 2.1875 2.34375C1.97917 2.51736 1.73611 2.78472 1.45833 3.14583L0 1.66667C0.444444 1.125 0.895833 0.711806 1.35417 0.427083C1.8125 0.142361 2.26389 0 2.70833 0C3.34722 0 3.88889 0.222222 4.33333 0.666667C4.77778 1.11111 5 1.66667 5 2.33333C5 2.73611 4.89583 3.18056 4.6875 3.66667C4.47917 4.15278 4.13194 4.73611 3.64583 5.41667C3.11806 6.16667 2.72569 6.82639 2.46875 7.39583C2.21181 7.96528 2.08333 8.46528 2.08333 8.89583C2.08333 9.13194 2.12153 9.31597 2.19792 9.44792C2.27431 9.57986 2.38194 9.64583 2.52083 9.64583C2.65972 9.64583 2.78125 9.60764 2.88542 9.53125C2.98958 9.45486 3.18056 9.27083 3.45833 8.97917C3.63889 8.78472 3.85417 8.54514 4.10417 8.26042C4.35417 7.97569 4.65972 7.625 5.02083 7.20833C5.89583 6.16667 6.6875 5.42361 7.39583 4.97917C8.10417 4.53472 8.84722 4.3125 9.625 4.3125C10.5556 4.3125 11.3194 4.625 11.9167 5.25C12.5139 5.875 12.8542 6.72917 12.9375 7.8125H15V9.89583H12.9375C12.8264 11.4514 12.4201 12.691 11.7188 13.6146C11.0174 14.5382 10.125 15 9.04167 15ZM9.08333 12.9167C9.52778 12.9167 9.90278 12.6632 10.2083 12.1562C10.5139 11.6493 10.7222 10.9444 10.8333 10.0417C10.1944 10.1944 9.63889 10.4965 9.16667 10.9479C8.69444 11.3993 8.45833 11.8472 8.45833 12.2917C8.45833 12.4861 8.51389 12.6389 8.625 12.75C8.73611 12.8611 8.88889 12.9167 9.08333 12.9167Z" fill="currentColor"/></svg>`,
   };
@@ -2521,6 +2549,11 @@ export class WebInspectorElement extends LitElement {
         key: "threads",
         label: "Threads",
         icon: "MessageSquare" as LucideIconName,
+      },
+      {
+        key: "event-emitter",
+        label: "Event Emitter",
+        icon: "Play" as LucideIconName,
       },
     ];
   }
@@ -4155,6 +4188,7 @@ ${argsString}</pre
       // Load state early (before first render) so menu selection is correct
       this.hydrateStateFromStorageEarly();
       this.tryAutoAttachCore();
+      this.emitterSnippets = loadSnippets();
       this.ensureAnnouncementLoading();
     }
   }
@@ -4187,6 +4221,10 @@ ${argsString}</pre
     if (this.transitionTimeoutId !== null) {
       clearTimeout(this.transitionTimeoutId);
       this.transitionTimeoutId = null;
+    }
+    if (this.emitterStatusTimeoutId !== null) {
+      clearTimeout(this.emitterStatusTimeoutId);
+      this.emitterStatusTimeoutId = null;
     }
     this.removeDockStyles(true); // Clean up any docking styles, skip transition
     this.detachFromCore();
@@ -5654,6 +5692,10 @@ ${argsString}</pre
 
     if (this.selectedMenu === "agent-context") {
       return this.renderContextView();
+    }
+
+    if (this.selectedMenu === "event-emitter") {
+      return this.renderEventEmitter();
     }
 
     if (this.selectedMenu === "threads") {
@@ -7696,6 +7738,709 @@ ${prettyEvent}</pre
 
     this.persistAnnouncementTimestamp(this.announcementTimestamp);
     this.requestUpdate();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Event Emitter
+  // ---------------------------------------------------------------------------
+
+  private renderEventEmitter() {
+    const agents = this._core?.agents ?? {};
+    const agentIds = Object.keys(agents);
+
+    return html`
+      <div class="flex h-full flex-col gap-4 overflow-y-auto p-4">
+        <div
+          class="flex items-center gap-2 text-sm font-semibold text-gray-900"
+        >
+          ${this.renderIcon("Play")} Event Emitter
+        </div>
+
+        <!-- Agent & Event Type selectors -->
+        <div
+          class="flex flex-col gap-3 rounded-md border border-gray-200 bg-gray-50 p-3"
+        >
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-medium text-gray-600">Agent</label>
+            <select
+              class="rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 focus:border-gray-400 focus:outline-none"
+              .value=${this.emitterAgentId}
+              @change=${(e: Event) => {
+                this.emitterAgentId = (e.target as HTMLSelectElement).value;
+                this.requestUpdate();
+              }}
+            >
+              <option value="">-- select agent --</option>
+              ${agentIds.map(
+                (id) =>
+                  html`<option
+                    value=${id}
+                    ?selected=${this.emitterAgentId === id}
+                  >
+                    ${id}
+                  </option>`,
+              )}
+            </select>
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-medium text-gray-600">Event Type</label>
+            <select
+              class="rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 focus:border-gray-400 focus:outline-none"
+              .value=${this.emitterEventType}
+              @change=${(e: Event) => {
+                this.emitterEventType = (e.target as HTMLSelectElement)
+                  .value as DevtoolsEventType;
+                this.revalidateEmitterJson();
+                this.requestUpdate();
+              }}
+            >
+              <option
+                value="tool-call"
+                ?selected=${this.emitterEventType === "tool-call"}
+              >
+                Tool Call
+              </option>
+              <option
+                value="text-message"
+                ?selected=${this.emitterEventType === "text-message"}
+              >
+                Text Message
+              </option>
+              <option
+                value="reasoning"
+                ?selected=${this.emitterEventType === "reasoning"}
+              >
+                Reasoning
+              </option>
+              <option
+                value="state-snapshot"
+                ?selected=${this.emitterEventType === "state-snapshot"}
+              >
+                State Snapshot
+              </option>
+              <option
+                value="custom-event"
+                ?selected=${this.emitterEventType === "custom-event"}
+              >
+                Custom Event
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Dynamic form -->
+        ${this.renderEmitterForm()}
+
+        <!-- JSON error -->
+        ${
+          this.emitterJsonError
+            ? html`<div
+              class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
+            >
+              ${this.emitterJsonError}
+            </div>`
+            : nothing
+        }
+
+        <!-- Status message -->
+        ${
+          this.emitterStatusMessage
+            ? html`<div
+              class="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-700"
+            >
+              ${this.emitterStatusMessage}
+            </div>`
+            : nothing
+        }
+
+        <!-- Snippet name input -->
+        ${
+          this.emitterShowSnippetInput
+            ? html`
+              <div class="flex gap-2 items-center">
+                <input
+                  type="text"
+                  placeholder="Snippet name"
+                  class="flex-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 focus:border-gray-400 focus:outline-none"
+                  .value=${this.emitterSnippetName}
+                  @input=${(e: Event) => {
+                    this.emitterSnippetName = (
+                      e.target as HTMLInputElement
+                    ).value;
+                    this.requestUpdate();
+                  }}
+                  @keydown=${(e: KeyboardEvent) => {
+                    if (e.key === "Enter") this.handleSaveSnippet();
+                    if (e.key === "Escape") this.handleCancelSnippetInput();
+                  }}
+                />
+                <button
+                  class="rounded-md bg-gray-900 px-3 py-2 text-xs font-medium text-white transition hover:bg-gray-800"
+                  ?disabled=${!this.emitterSnippetName.trim()}
+                  @click=${() => this.handleSaveSnippet()}
+                >
+                  Save
+                </button>
+                <button
+                  class="rounded-md border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+                  @click=${() => this.handleCancelSnippetInput()}
+                >
+                  Cancel
+                </button>
+              </div>
+            `
+            : nothing
+        }
+
+        <!-- Action buttons -->
+        ${
+          this.emitterEditingSnippetId
+            ? html`
+              <div class="flex gap-2 items-center">
+                <input
+                  type="text"
+                  placeholder="Snippet name"
+                  class="flex-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 focus:border-gray-400 focus:outline-none"
+                  .value=${this.emitterSnippetName}
+                  @input=${(e: Event) => {
+                    this.emitterSnippetName = (
+                      e.target as HTMLInputElement
+                    ).value;
+                    this.requestUpdate();
+                  }}
+                  @keydown=${(e: KeyboardEvent) => {
+                    if (e.key === "Enter") this.handleUpdateSnippet();
+                    if (e.key === "Escape") this.handleCancelEditSnippet();
+                  }}
+                />
+                <button
+                  class="rounded-md bg-blue-600 px-4 py-2 text-xs font-medium text-white transition hover:bg-blue-700"
+                  ?disabled=${
+                    !this.isEmitterFormValid() ||
+                    !this.emitterSnippetName.trim()
+                  }
+                  @click=${() => this.handleUpdateSnippet()}
+                >
+                  Update Snippet
+                </button>
+                <button
+                  class="rounded-md border border-gray-200 px-4 py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+                  @click=${() => this.handleCancelEditSnippet()}
+                >
+                  Cancel
+                </button>
+              </div>
+            `
+            : html`
+              <div class="flex gap-2">
+                <button
+                  class="rounded-md bg-gray-900 px-4 py-2 text-xs font-medium text-white transition hover:bg-gray-800"
+                  ?disabled=${!this.isEmitterFormValid()}
+                  @click=${() => this.handleEmit()}
+                >
+                  Emit Event
+                </button>
+                <button
+                  class="rounded-md border border-gray-200 px-4 py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+                  ?disabled=${!this.isEmitterFormValid()}
+                  @click=${() => this.handleSaveSnippet()}
+                >
+                  Save as Snippet
+                </button>
+              </div>
+            `
+        }
+
+        <!-- Saved snippets -->
+        ${
+          this.emitterSnippets.length > 0
+            ? html`
+              <div class="flex flex-col gap-2">
+                <div class="text-xs font-medium text-gray-600">
+                  Saved Snippets
+                </div>
+                ${this.emitterSnippets.map(
+                  (snippet) => html`
+                    <div
+                      class="flex items-center justify-between rounded-md border ${this.emitterEditingSnippetId === snippet.id ? "border-blue-300 bg-blue-50" : "border-gray-200 bg-white"} px-3 py-2"
+                    >
+                      <div class="flex flex-col gap-0.5">
+                        <span class="text-xs font-medium text-gray-900"
+                          >${snippet.name}</span
+                        >
+                        <span class="text-xs text-gray-500"
+                          >${snippet.eventType}</span
+                        >
+                      </div>
+                      <div class="flex gap-1">
+                        <button
+                          class="rounded-md border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+                          @click=${() => this.handleReplaySnippet(snippet)}
+                        >
+                          Replay
+                        </button>
+                        <button
+                          class="rounded-md border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+                          @click=${() => this.handleEditSnippet(snippet)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          class="rounded-md border border-red-200 px-3 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50"
+                          @click=${() => this.handleDeleteSnippet(snippet.id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  `,
+                )}
+              </div>
+            `
+            : nothing
+        }
+      </div>
+    `;
+  }
+
+  private renderEmitterForm() {
+    switch (this.emitterEventType) {
+      case "tool-call":
+        return html`
+          <div
+            class="flex flex-col gap-3 rounded-md border border-gray-200 bg-gray-50 p-3"
+          >
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-medium text-gray-600">Tool Name</label>
+              <input
+                type="text"
+                class="rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 focus:border-gray-400 focus:outline-none"
+                .value=${this.emitterToolName}
+                @input=${(e: Event) => {
+                  this.emitterToolName = (e.target as HTMLInputElement).value;
+                  this.requestUpdate();
+                }}
+              />
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-medium text-gray-600"
+                >Arguments (JSON)</label
+              >
+              <textarea
+                class="min-h-[80px] rounded-md border border-gray-200 bg-white px-3 py-2 font-mono text-xs text-gray-900 focus:border-gray-400 focus:outline-none"
+                .value=${this.emitterArgs}
+                @input=${(e: Event) => {
+                  this.emitterArgs = (e.target as HTMLTextAreaElement).value;
+                  this.validateJson(this.emitterArgs);
+                  this.requestUpdate();
+                }}
+              ></textarea>
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-medium text-gray-600">Result</label>
+              <textarea
+                class="min-h-[80px] rounded-md border border-gray-200 bg-white px-3 py-2 font-mono text-xs text-gray-900 focus:border-gray-400 focus:outline-none"
+                .value=${this.emitterResult}
+                @input=${(e: Event) => {
+                  this.emitterResult = (e.target as HTMLTextAreaElement).value;
+                  this.requestUpdate();
+                }}
+              ></textarea>
+            </div>
+          </div>
+        `;
+      case "text-message":
+        return html`
+          <div
+            class="flex flex-col gap-3 rounded-md border border-gray-200 bg-gray-50 p-3"
+          >
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-medium text-gray-600">Content</label>
+              <textarea
+                class="min-h-[80px] rounded-md border border-gray-200 bg-white px-3 py-2 font-mono text-xs text-gray-900 focus:border-gray-400 focus:outline-none"
+                .value=${this.emitterContent}
+                @input=${(e: Event) => {
+                  this.emitterContent = (e.target as HTMLTextAreaElement).value;
+                  this.requestUpdate();
+                }}
+              ></textarea>
+            </div>
+          </div>
+        `;
+      case "reasoning":
+        return html`
+          <div
+            class="flex flex-col gap-3 rounded-md border border-gray-200 bg-gray-50 p-3"
+          >
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-medium text-gray-600">Content</label>
+              <textarea
+                class="min-h-[80px] rounded-md border border-gray-200 bg-white px-3 py-2 font-mono text-xs text-gray-900 focus:border-gray-400 focus:outline-none"
+                .value=${this.emitterContent}
+                @input=${(e: Event) => {
+                  this.emitterContent = (e.target as HTMLTextAreaElement).value;
+                  this.requestUpdate();
+                }}
+              ></textarea>
+            </div>
+          </div>
+        `;
+      case "state-snapshot":
+        return html`
+          <div
+            class="flex flex-col gap-3 rounded-md border border-gray-200 bg-gray-50 p-3"
+          >
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-medium text-gray-600"
+                >State (JSON)</label
+              >
+              <textarea
+                class="min-h-[80px] rounded-md border border-gray-200 bg-white px-3 py-2 font-mono text-xs text-gray-900 focus:border-gray-400 focus:outline-none"
+                .value=${this.emitterStateJson}
+                @input=${(e: Event) => {
+                  this.emitterStateJson = (
+                    e.target as HTMLTextAreaElement
+                  ).value;
+                  this.validateJson(this.emitterStateJson);
+                  this.requestUpdate();
+                }}
+              ></textarea>
+            </div>
+          </div>
+        `;
+      case "custom-event":
+        return html`
+          <div
+            class="flex flex-col gap-3 rounded-md border border-gray-200 bg-gray-50 p-3"
+          >
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-medium text-gray-600"
+                >Event Name</label
+              >
+              <input
+                type="text"
+                class="rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 focus:border-gray-400 focus:outline-none"
+                .value=${this.emitterCustomName}
+                @input=${(e: Event) => {
+                  this.emitterCustomName = (e.target as HTMLInputElement).value;
+                  this.requestUpdate();
+                }}
+              />
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-medium text-gray-600"
+                >Value (JSON)</label
+              >
+              <textarea
+                class="min-h-[80px] rounded-md border border-gray-200 bg-white px-3 py-2 font-mono text-xs text-gray-900 focus:border-gray-400 focus:outline-none"
+                .value=${this.emitterCustomValue}
+                @input=${(e: Event) => {
+                  this.emitterCustomValue = (
+                    e.target as HTMLTextAreaElement
+                  ).value;
+                  this.validateJson(this.emitterCustomValue);
+                  this.requestUpdate();
+                }}
+              ></textarea>
+            </div>
+          </div>
+        `;
+      default:
+        return nothing;
+    }
+  }
+
+  private validateJson(value: string): void {
+    try {
+      JSON.parse(value);
+      this.emitterJsonError = null;
+    } catch (err) {
+      this.emitterJsonError = `Invalid JSON: ${(err as Error).message}`;
+    }
+  }
+
+  private revalidateEmitterJson(): void {
+    switch (this.emitterEventType) {
+      case "tool-call":
+        this.validateJson(this.emitterArgs);
+        break;
+      case "state-snapshot":
+        this.validateJson(this.emitterStateJson);
+        break;
+      case "custom-event":
+        this.validateJson(this.emitterCustomValue);
+        break;
+      default:
+        this.emitterJsonError = null;
+    }
+  }
+
+  private isEmitterFormValid(): boolean {
+    if (!this.emitterAgentId) return false;
+    if (this.emitterJsonError) return false;
+
+    switch (this.emitterEventType) {
+      case "tool-call":
+        return this.emitterToolName.trim() !== "";
+      case "text-message":
+      case "reasoning":
+        return this.emitterContent.trim() !== "";
+      case "state-snapshot":
+        return this.emitterStateJson.trim() !== "";
+      case "custom-event":
+        return this.emitterCustomName.trim() !== "";
+      default:
+        return false;
+    }
+  }
+
+  private getEmitterPayload(): Record<string, unknown> | null {
+    try {
+      switch (this.emitterEventType) {
+        case "tool-call":
+          return {
+            toolName: this.emitterToolName,
+            args: JSON.parse(this.emitterArgs),
+            result: this.emitterResult,
+          };
+        case "text-message":
+        case "reasoning":
+          return { content: this.emitterContent };
+        case "state-snapshot":
+          return { state: JSON.parse(this.emitterStateJson) };
+        case "custom-event":
+          return {
+            name: this.emitterCustomName,
+            value: JSON.parse(this.emitterCustomValue),
+          };
+        default:
+          return {};
+      }
+    } catch (err) {
+      this.emitterJsonError = `Invalid JSON: ${(err as Error).message}`;
+      this.requestUpdate();
+      return null;
+    }
+  }
+
+  private showStatus(message: string): void {
+    if (this.emitterStatusTimeoutId !== null)
+      clearTimeout(this.emitterStatusTimeoutId);
+    this.emitterStatusMessage = message;
+    this.requestUpdate();
+    this.emitterStatusTimeoutId = setTimeout(() => {
+      this.emitterStatusTimeoutId = null;
+      this.emitterStatusMessage = null;
+      this.requestUpdate();
+    }, 2000);
+  }
+
+  private clearActionError(): void {
+    this.emitterJsonError = null;
+  }
+
+  private handleEmit(): void {
+    this.clearActionError();
+    if (!this.isEmitterFormValid()) return;
+
+    const payload = this.getEmitterPayload();
+    if (!payload) return;
+
+    const fullPayload = { agentId: this.emitterAgentId, ...payload };
+
+    try {
+      devtoolsClient.emitDynamic(this.emitterEventType, fullPayload);
+      this.showStatus("Event emitted.");
+    } catch (err) {
+      this.emitterJsonError = `Emit failed: ${(err as Error).message}`;
+      this.requestUpdate();
+    }
+  }
+
+  private handleSaveSnippet(): void {
+    this.clearActionError();
+    if (!this.isEmitterFormValid()) return;
+
+    if (!this.emitterShowSnippetInput) {
+      this.emitterShowSnippetInput = true;
+      this.emitterSnippetName = "";
+      this.requestUpdate();
+      return;
+    }
+
+    const name = this.emitterSnippetName.trim();
+    if (!name) return;
+
+    const payload = this.getEmitterPayload();
+    if (!payload) return;
+
+    const snippet: DevtoolsSnippet = {
+      id: `snippet-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name,
+      eventType: this.emitterEventType,
+      payload,
+      createdAt: Date.now(),
+    };
+
+    if (saveSnippet(snippet)) {
+      this.emitterSnippets = loadSnippets();
+      this.emitterShowSnippetInput = false;
+      this.emitterSnippetName = "";
+      this.showStatus("Snippet saved.");
+    } else {
+      this.emitterJsonError = "Failed to save snippet to localStorage.";
+      this.requestUpdate();
+    }
+  }
+
+  private handleCancelSnippetInput(): void {
+    this.emitterShowSnippetInput = false;
+    this.emitterSnippetName = "";
+    this.requestUpdate();
+  }
+
+  private validateSnippetPayload(snippet: DevtoolsSnippet): string | null {
+    const p = snippet.payload as Record<string, any>;
+    switch (snippet.eventType) {
+      case "tool-call":
+        if (!p.toolName || typeof p.toolName !== "string" || !p.toolName.trim())
+          return "Snippet is missing a valid toolName.";
+        if (p.args != null && typeof p.args !== "object")
+          return "Snippet has invalid args (expected object).";
+        break;
+      case "text-message":
+      case "reasoning":
+        if (!p.content || typeof p.content !== "string" || !p.content.trim())
+          return "Snippet is missing content.";
+        break;
+      case "state-snapshot":
+        if (!p.state || typeof p.state !== "object")
+          return "Snippet is missing a valid state object.";
+        break;
+      case "custom-event":
+        if (!p.name || typeof p.name !== "string" || !p.name.trim())
+          return "Snippet is missing a valid event name.";
+        break;
+    }
+    return null;
+  }
+
+  private handleReplaySnippet(snippet: DevtoolsSnippet): void {
+    this.clearActionError();
+    if (!this.emitterAgentId) {
+      this.emitterJsonError = "Select an agent before replaying a snippet.";
+      this.requestUpdate();
+      return;
+    }
+
+    const validationError = this.validateSnippetPayload(snippet);
+    if (validationError) {
+      this.emitterJsonError = validationError;
+      this.requestUpdate();
+      return;
+    }
+
+    const fullPayload = { agentId: this.emitterAgentId, ...snippet.payload };
+    try {
+      devtoolsClient.emitDynamic(snippet.eventType, fullPayload);
+      this.showStatus("Snippet replayed.");
+    } catch (err) {
+      this.emitterJsonError = `Replay failed: ${(err as Error).message}`;
+      this.requestUpdate();
+    }
+  }
+
+  private handleEditSnippet(snippet: DevtoolsSnippet): void {
+    this.clearActionError();
+    this.emitterEditingSnippetId = snippet.id;
+    this.emitterEventType = snippet.eventType;
+    this.emitterSnippetName = snippet.name;
+
+    // Load the payload into the form fields
+    const p = snippet.payload as Record<string, any>;
+    try {
+      switch (snippet.eventType) {
+        case "tool-call":
+          this.emitterToolName = p.toolName ?? "";
+          this.emitterArgs = JSON.stringify(p.args ?? {}, null, 2);
+          this.emitterResult = p.result ?? "";
+          break;
+        case "text-message":
+        case "reasoning":
+          this.emitterContent = p.content ?? "";
+          break;
+        case "state-snapshot":
+          this.emitterStateJson = JSON.stringify(p.state ?? {}, null, 2);
+          break;
+        case "custom-event":
+          this.emitterCustomName = p.name ?? "";
+          this.emitterCustomValue = JSON.stringify(p.value ?? {}, null, 2);
+          break;
+      }
+    } catch (err) {
+      this.emitterJsonError = `Failed to load snippet: ${(err as Error).message}`;
+    }
+    this.revalidateEmitterJson();
+    this.requestUpdate();
+  }
+
+  private handleUpdateSnippet(): void {
+    this.clearActionError();
+    if (!this.emitterEditingSnippetId) return;
+    if (!this.isEmitterFormValid()) return;
+
+    const payload = this.getEmitterPayload();
+    if (!payload) return;
+
+    const name = this.emitterSnippetName.trim();
+    if (!name) {
+      this.emitterJsonError = "Snippet name cannot be empty.";
+      this.requestUpdate();
+      return;
+    }
+
+    const existing = this.emitterSnippets.find(
+      (s) => s.id === this.emitterEditingSnippetId,
+    );
+    const updated: DevtoolsSnippet = {
+      id: this.emitterEditingSnippetId,
+      name,
+      eventType: this.emitterEventType,
+      payload,
+      createdAt: existing?.createdAt ?? Date.now(),
+    };
+
+    if (updateSnippet(updated)) {
+      this.emitterSnippets = loadSnippets();
+      this.emitterEditingSnippetId = null;
+      this.emitterSnippetName = "";
+      this.showStatus("Snippet updated.");
+    } else {
+      this.emitterJsonError = "Failed to update snippet.";
+      this.requestUpdate();
+    }
+  }
+
+  private handleCancelEditSnippet(): void {
+    this.emitterEditingSnippetId = null;
+    this.emitterSnippetName = "";
+    this.requestUpdate();
+  }
+
+  private handleDeleteSnippet(id: string): void {
+    this.clearActionError();
+    if (this.emitterEditingSnippetId === id) {
+      this.emitterEditingSnippetId = null;
+      this.emitterSnippetName = "";
+    }
+    if (deleteSnippet(id)) {
+      this.emitterSnippets = loadSnippets();
+      this.showStatus("Snippet deleted.");
+    } else {
+      this.emitterJsonError = "Failed to delete snippet from localStorage.";
+      this.requestUpdate();
+    }
   }
 }
 

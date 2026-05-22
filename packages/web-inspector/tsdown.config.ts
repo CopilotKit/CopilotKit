@@ -22,7 +22,7 @@ export default defineConfig([
     sourcemap: true,
     target: "es2018",
     outDir: "dist",
-    external: ["lit", "lit/decorators.js"],
+    external: ["lit", "lit/decorators.js", "@copilotkit/devtools-client"],
     loader: {
       ".css": "text",
       ".svg": "dataurl",
@@ -38,6 +38,7 @@ export default defineConfig([
         marked: "marked",
         lucide: "lucide",
         "@copilotkit/core": "CopilotKitCore",
+        "@copilotkit/devtools-client": "CopilotKitDevtoolsClient",
       };
       return options;
     },

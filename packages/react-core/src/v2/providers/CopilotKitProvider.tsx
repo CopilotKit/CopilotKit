@@ -59,6 +59,7 @@ import type { SandboxFunction } from "../types/sandbox-function";
 import { SandboxFunctionsContext } from "./SandboxFunctionsContext";
 import { schemaToJsonSchema } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import { globalThreadCloneMap } from "../hooks/use-agent";
 
 const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
 const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
@@ -522,6 +523,19 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // Updates are applied via setter effects below rather than recreating the instance.
   const copilotkitRef = useRef<CopilotKitCoreReact | null>(null);
   if (copilotkitRef.current === null) {
+    // Resolve "auto" synchronously so the core's DevtoolsListener is wired up
+    // on first construction. The effect at [showDevConsole] still drives the
+    // inspector render flag reactively for any later host changes.
+    const resolvedShowDevConsole =
+      typeof window === "undefined"
+        ? false
+        : showDevConsole === true
+          ? true
+          : showDevConsole === "auto"
+            ? window.location.hostname === "localhost" ||
+              window.location.hostname === "127.0.0.1"
+            : false;
+
     copilotkitRef.current = new CopilotKitCoreReact({
       runtimeUrl: chatApiEndpoint,
       runtimeTransport:
@@ -539,6 +553,13 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       renderActivityMessages: allActivityRenderers,
       renderCustomMessages: renderCustomMessagesList,
       debug,
+      showDevConsole: resolvedShowDevConsole,
+    });
+
+    // Register thread clone resolver so devtools events reach thread-scoped agents
+    copilotkitRef.current.setThreadCloneResolver((registryAgent) => {
+      const byThread = globalThreadCloneMap.get(registryAgent);
+      return byThread ? Array.from(byThread.values()) : [];
     });
     // Set initial defaultThrottleMs synchronously so child hooks see the
     // correct value on their first render (before useEffect fires).
@@ -547,6 +568,14 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
   }
   const copilotkit = copilotkitRef.current;
+
+  // Clean up the core instance (DevtoolsListener subscriptions, etc.) on unmount.
+  useEffect(() => {
+    const instance = copilotkitRef.current;
+    return () => {
+      instance?.destroy();
+    };
+  }, []);
 
   // Sync runtime feature flags from the core once runtime info is fetched
   useEffect(() => {

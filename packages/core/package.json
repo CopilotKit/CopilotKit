@@ -34,6 +34,7 @@
   },
   "dependencies": {
     "@ag-ui/client": "0.0.53",
+    "@copilotkit/devtools-client": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@tanstack/pacer": "^0.20.1",
     "phoenix": "^1.8.4",

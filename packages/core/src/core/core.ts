@@ -10,6 +10,10 @@ import type {
   RuntimeLicenseStatus,
   IntelligenceRuntimeInfo,
 } from "../types";
+import {
+  DevtoolsListener,
+  type ThreadCloneResolver,
+} from "./devtools-listener";
 import type {
   CopilotKitCoreAddAgentParams,
   CopilotKitCoreRegisterProxiedAgentParams,
@@ -51,6 +55,13 @@ export interface CopilotKitCoreConfig {
   suggestionsConfig?: SuggestionsConfig[];
   /** Enable debug logging for the client-side event pipeline. */
   debug?: DebugConfig;
+  /**
+   * Whether to initialize the DevtoolsListener that bridges devtools events
+   * to AG-UI subscribers. When `false` (or omitted), the listener is not
+   * started. Pass `true` to opt in — typically wired to `showDevConsole`
+   * from the React layer.
+   */
+  showDevConsole?: boolean;
 }
 
 export type {
@@ -336,6 +347,7 @@ export class CopilotKitCore {
   private suggestionEngine: SuggestionEngine;
   private runHandler: RunHandler;
   private stateManager: StateManager;
+  private devtoolsListener: DevtoolsListener;
   private threadStoreRegistry: ThreadStoreRegistry;
   /**
    * Tracks the agent IDs from the most recent `onAgentsChanged` notification.
@@ -355,6 +367,7 @@ export class CopilotKitCore {
     tools = [],
     suggestionsConfig = [],
     debug,
+    showDevConsole = false,
   }: CopilotKitCoreConfig) {
     this._headers = headers;
     this._credentials = credentials;
@@ -367,6 +380,9 @@ export class CopilotKitCore {
     this.suggestionEngine = new SuggestionEngine(this);
     this.runHandler = new RunHandler(this);
     this.stateManager = new StateManager(this);
+    this.devtoolsListener = new DevtoolsListener({
+      getAgents: () => this.agents,
+    });
     this.threadStoreRegistry = new ThreadStoreRegistry(this);
 
     // Initialize each subsystem
@@ -374,6 +390,16 @@ export class CopilotKitCore {
     this.runHandler.initialize(tools);
     this.suggestionEngine.initialize(suggestionsConfig);
     this.stateManager.initialize();
+    if (showDevConsole) {
+      try {
+        this.devtoolsListener.initialize();
+      } catch (err) {
+        console.warn(
+          "[CopilotKit] DevtoolsListener failed to initialize — devtools will be unavailable:",
+          err,
+        );
+      }
+    }
 
     this.agentRegistry.setRuntimeTransport(runtimeTransport);
     this.agentRegistry.setRuntimeUrl(runtimeUrl);
@@ -448,6 +474,18 @@ export class CopilotKitCore {
         this.previousAgentIds = currentAgentIds;
       },
     });
+  }
+
+  destroy(): void {
+    this.devtoolsListener.destroy();
+  }
+
+  /**
+   * Register a resolver that returns per-thread clones for a given registry agent.
+   * Called by the React layer so devtools events reach thread-scoped agents.
+   */
+  setThreadCloneResolver(resolver: ThreadCloneResolver): void {
+    this.devtoolsListener.setThreadCloneResolver(resolver);
   }
 
   /**

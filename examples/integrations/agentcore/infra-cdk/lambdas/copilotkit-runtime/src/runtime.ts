@@ -19,21 +19,38 @@ function requireEnv(name: string): string {
 }
 
 export function buildAgents(): Record<string, HttpAgent> {
-  const agentUrl = requireEnv("AGENTCORE_AG_UI_URL");
-  const agentName = process.env.COPILOTKIT_AGENT_NAME ?? "default";
+  const agents: Record<string, HttpAgent> = {};
+
+  const agentUrls = {
+    "langgraph-single-agent": process.env.LANGGRAPH_AGENTCORE_AG_UI_URL,
+    "strands-single-agent": process.env.STRANDS_AGENTCORE_AG_UI_URL,
+  };
+
   const mcpServerUrl =
     process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com";
 
-  const agent = new HttpAgent({ url: agentUrl, headers: {} });
-  agent.use(
-    new MCPAppsMiddleware({
-      mcpServers: [
-        { type: "http", url: mcpServerUrl, serverId: "example_mcp_app" },
-      ],
-    }),
-  );
+  for (const [name, url] of Object.entries(agentUrls)) {
+    if (url) {
+      const agent = new HttpAgent({ url, headers: {} });
+      agent.use(
+        new MCPAppsMiddleware({
+          mcpServers: [
+            { type: "http", url: mcpServerUrl, serverId: "example_mcp_app" },
+          ],
+        }),
+      );
+      agents[name] = agent;
+    }
+  }
 
-  return { [agentName]: agent };
+  if (Object.keys(agents).length === 0) {
+    agents.default = new HttpAgent({
+      url: requireEnv("AGENTCORE_AG_UI_URL"),
+      headers: {},
+    });
+  }
+
+  return agents;
 }
 
 /**
