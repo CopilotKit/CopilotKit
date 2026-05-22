@@ -1,25 +1,13 @@
-/**
- * CopilotKit API Route with A2A Middleware
- *
- * This connects the frontend to multiple agents using two protocols:
- * - AG-UI Protocol: Frontend ↔ Orchestrator (via CopilotKit)
- * - A2A Protocol: Orchestrator ↔ Specialized Agents (Research, Analysis)
- *
- * The A2A middleware injects send_message_to_a2a_agent tool into the orchestrator,
- * enabling seamless agent-to-agent communication without the orchestrator needing
- * to understand A2A Protocol directly.
- */
-
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotEndpoint,
+  InMemoryAgentRunner,
+} from "@copilotkit/runtime/v2";
 import { HttpAgent } from "@ag-ui/client";
 import { A2AMiddlewareAgent } from "@ag-ui/a2a-middleware";
-import { NextRequest } from "next/server";
+import { handle } from "hono/vercel";
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   const researchAgentUrl =
     process.env.RESEARCH_AGENT_URL || "http://localhost:9001";
   const analysisAgentUrl =
@@ -27,13 +15,10 @@ export async function POST(request: NextRequest) {
   const orchestratorUrl =
     process.env.ORCHESTRATOR_URL || "http://localhost:9000";
 
-  // Connect to orchestrator via AG-UI Protocol
   const orchestrationAgent = new HttpAgent({
     url: orchestratorUrl,
   });
 
-  // A2A Middleware: Wraps orchestrator and injects send_message_to_a2a_agent tool
-  // This allows orchestrator to communicate with A2A agents transparently
   const a2aMiddlewareAgent = new A2AMiddlewareAgent({
     description:
       "Research assistant with 2 specialized agents: Research (LangGraph) and Analysis (ADK)",
@@ -68,18 +53,29 @@ export async function POST(request: NextRequest) {
     `,
   });
 
-  // CopilotKit runtime connects frontend to agent system
   const runtime = new CopilotRuntime({
     agents: {
-      a2a_chat: a2aMiddlewareAgent, // Must match agent prop in <CopilotKit agent="a2a_chat">
+      a2a_chat: a2aMiddlewareAgent,
     },
+    runner: new InMemoryAgentRunner(),
   });
 
-  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+  const app = createCopilotEndpoint({
     runtime,
-    serviceAdapter: new ExperimentalEmptyAdapter(),
-    endpoint: "/api/copilotkit",
+    basePath: "/api/copilotkit",
   });
 
-  return handleRequest(request);
+  return handle(app)(request);
+}
+
+export async function GET(request: Request) {
+  const runtime = new CopilotRuntime({
+    agents: {},
+    runner: new InMemoryAgentRunner(),
+  });
+  const app = createCopilotEndpoint({
+    runtime,
+    basePath: "/api/copilotkit",
+  });
+  return handle(app)(request);
 }
