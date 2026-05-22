@@ -167,3 +167,129 @@ export type LauncherCommand =
     }
   | { type: "scan.refresh" }
   | { type: "open-in-editor"; filePath: string; line: number };
+
+// ---------------------------------------------------------------------------
+// §7.3 SSE events consumed from the user's CopilotKit runtime.
+//
+// Transport: Server-Sent Events at `GET <runtimeUrl>/cpk-debug-events`.
+// Producer: the user's CopilotKit runtime (Hono / Express). NOT the studio
+// launcher. The runtime endpoint already exists today and is consumed by the
+// VS Code extension's `debug-stream.ts`; we mirror its envelope shape here so
+// the browser port stays drop-in compatible.
+//
+// **No new server-side surface.** v1 only reads the channel; it never POSTs
+// or otherwise mutates anything on the runtime. CORS: assume the runtime
+// sends `Access-Control-Allow-Origin: *` in dev. If it doesn't, the SSE
+// client surfaces a connection error and the timeline drawer degrades to its
+// "no runtime" empty state.
+//
+// **Additive in M5** — these types are new in M5 (Agent D). The pre-existing
+// `LauncherEvent` / `LauncherCommand` / `ToolDescriptor` surfaces above are
+// untouched.
+// ---------------------------------------------------------------------------
+
+/**
+ * The raw envelope every event arrives in over the SSE channel. Mirrors the
+ * shape the VS Code extension consumes (see
+ * `.chalk/references/vscode-extension/src/extension/inspector-types.ts`).
+ * Studio's M5 timeline derives `TimelineEvent` from this; later milestones
+ * can read `envelope.event` directly to access the AG-UI passthrough.
+ */
+export type DebugEventEnvelope = {
+  /** Epoch milliseconds when the runtime emitted the event. */
+  timestamp: number;
+  /** The agent that produced the event (e.g. `"default"`). */
+  agentId: string;
+  /** The thread the event was scoped to. */
+  threadId: string;
+  /** The run within the thread. */
+  runId: string;
+  /** The actual event body; `type` discriminates the variants below. */
+  event: SseEvent;
+};
+
+/**
+ * Discriminated event payload inside a `DebugEventEnvelope`. Spec sketch:
+ * .chalk/plans/web-inspector-v1.md §7.3.
+ *
+ * Studio reads the variants listed here; everything else falls into the
+ * AG-UI passthrough tail (the last member of the union) so future milestones
+ * can broaden the consumer without churning existing members.
+ *
+ * - `frontend_tool.invoked` — feeds the timeline.
+ * - `frontend_tool.result`  — closes out a timeline entry with result/error.
+ * - `agent.thread.changed`  — surfaces the active thread in the header.
+ *
+ * `at` is an ISO-8601 timestamp on each variant; envelopes also carry a
+ * `timestamp` (epoch ms) for legacy consumers.
+ */
+export type SseEvent =
+  | {
+      type: "frontend_tool.invoked";
+      name: string;
+      args: unknown;
+      agent?: string;
+      thread?: string;
+      at?: string;
+      /** Optional id the runtime mints so result events can join back. */
+      invocationId?: string;
+    }
+  | {
+      type: "frontend_tool.result";
+      name: string;
+      result?: unknown;
+      error?: string;
+      agent?: string;
+      thread?: string;
+      at?: string;
+      invocationId?: string;
+    }
+  | {
+      type: "agent.thread.changed";
+      agent: string;
+      thread: string;
+      at?: string;
+    }
+  | {
+      // AG-UI passthrough — any event we don't model explicitly. Keeps the
+      // envelope total / exhaustive without forcing schema lock-step with
+      // the runtime.
+      type: string;
+      [key: string]: unknown;
+    };
+
+/** Lifecycle state of the SSE connection to the user's runtime. */
+export type SseConnectionStatus =
+  | "disconnected"
+  | "connecting"
+  | "connected"
+  | "error";
+
+/**
+ * The studio-internal projection of a `frontend_tool.invoked` (optionally
+ * joined with its `frontend_tool.result`). The timeline drawer renders one
+ * row per `TimelineEvent`. The M7 integration layer (App.tsx) is responsible
+ * for collapsing `invoked` + `result` pairs into a single entry; M5's
+ * `sse-client.ts` surfaces raw envelopes and lets the consumer decide.
+ *
+ * `id` is stable across the entry's lifetime so React keying works through
+ * the invoked → result state transition.
+ */
+export type TimelineEvent = {
+  /** Stable, monotonically-unique id (e.g. `${runId}:${invocationId|seq}`). */
+  id: string;
+  /** ISO-8601 string — display-ready time. */
+  at: string;
+  /** Tool name from `frontend_tool.invoked`. */
+  tool: string;
+  /** The args the agent passed. `unknown` because the runtime is the truth. */
+  args: unknown;
+  agent: string;
+  thread: string;
+  /** `pending` until the matching `frontend_tool.result` arrives. */
+  status: "pending" | "ok" | "error";
+  /** Populated when `status === "ok"`. */
+  result?: unknown;
+  /** Populated when `status === "error"`. */
+  error?: string;
+};
