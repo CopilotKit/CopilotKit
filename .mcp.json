@@ -1,5 +1,10 @@
 {
   "mcpServers": {
+    "nx-mcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["nx", "mcp"]
+    },
     "copilotkit-docs": {
       "type": "http",
       "url": "https://mcp.copilotkit.ai/mcp"
