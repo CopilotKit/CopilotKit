@@ -876,8 +876,7 @@
     },
     {
       "match": {
-        "userMessage": "flights from SFO to JFK",
-        "hasToolResult": false
+        "userMessage": "flights from SFO to JFK"
       },
       "response": {
         "toolCalls": [
