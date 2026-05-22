@@ -4,19 +4,24 @@ import { resolve } from "node:path";
 import { platform } from "node:process";
 
 import { startLauncher } from "../src/launcher/index.js";
+import {
+  ProjectRootNotFoundError,
+  findProjectRoot,
+} from "../src/launcher/project-root.js";
 
 /**
  * CopilotKit Studio CLI entry — `npx @copilotkit/studio` (alias `cpk-studio`).
  *
- * M0 surface: `--root <path>` and `--port <number>`. M1+ will add
- * `--runtime`, `--no-open`, and project-root walk-up. Keep this thin — the
- * orchestration logic lives in `src/launcher/index.ts`.
+ * M1 surface: `--root <path>` (optional now — walks up from cwd when
+ * omitted), `--port <number>`, `--no-open`. M2+ will add `--runtime`,
+ * fixture flags, and the rest.
  */
 
 const DEFAULT_PORT = 4123;
 
 type CliArgs = {
-  root: string;
+  /** Explicit `--root` value, or `null` if it should be auto-detected. */
+  root: string | null;
   port: number;
   open: boolean;
 };
@@ -24,14 +29,18 @@ type CliArgs = {
 function parseArgs(argv: readonly string[]): CliArgs {
   // Skip `node` + script path.
   const args = argv.slice(2);
-  let root: string | undefined;
+  let root: string | null = null;
   let port: number | undefined;
   let open = true;
 
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === "--root") {
-      root = args[++i];
+      const value = args[++i];
+      if (value === undefined) {
+        throw new Error("--root expected a path argument.");
+      }
+      root = value;
     } else if (a === "--port") {
       const value = Number(args[++i]);
       if (!Number.isFinite(value) || value <= 0 || value > 65535) {
@@ -48,12 +57,8 @@ function parseArgs(argv: readonly string[]): CliArgs {
     }
   }
 
-  if (!root) {
-    throw new Error("Missing required argument: --root <path>");
-  }
-
   return {
-    root: resolve(root),
+    root: root ? resolve(root) : null,
     port: port ?? DEFAULT_PORT,
     open,
   };
@@ -61,16 +66,19 @@ function parseArgs(argv: readonly string[]): CliArgs {
 
 function printUsage(): void {
   const lines = [
-    "Usage: cpk-studio --root <path> [--port <number>] [--no-open]",
+    "Usage: cpk-studio [--root <path>] [--port <number>] [--no-open]",
     "",
     "Options:",
-    "  --root <path>     Project to scan for useCopilotAction call sites (required in M0).",
+    "  --root <path>     Project to scan. When omitted, walks up from cwd",
+    "                    looking for the nearest package.json that depends",
+    "                    on @copilotkit/*.",
     "  --port <number>   TCP port for the launcher (default: 4123).",
     "  --no-open         Don't auto-open the browser.",
     "  -h, --help        Show this message.",
     "",
-    "M0 surface only — schema extraction, file watching, sandbox iframe,",
-    "and SSE timeline land in M1-M6. See .chalk/plans/web-inspector-v1.md.",
+    "M1 surface — AST-based scanner + file watcher. Sandbox iframe,",
+    "fixture loading, arg form, and SSE timeline land in M2-M6.",
+    "See .chalk/plans/web-inspector-v1.md.",
   ];
   console.info(lines.join("\n"));
 }
@@ -100,8 +108,25 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  let rootDir: string;
+  if (cli.root) {
+    rootDir = cli.root;
+  } else {
+    try {
+      const detected = await findProjectRoot(process.cwd());
+      rootDir = detected.rootDir;
+      console.info(`[studio] Detected project root: ${rootDir}`);
+    } catch (err) {
+      if (err instanceof ProjectRootNotFoundError) {
+        console.error(`[studio] ${err.message}`);
+        process.exit(1);
+      }
+      throw err;
+    }
+  }
+
   const handle = await startLauncher({
-    rootDir: cli.root,
+    rootDir,
     port: cli.port,
   });
 

@@ -24,6 +24,8 @@
     "test": "echo \"M0 has no tests yet — added in later milestones\""
   },
   "dependencies": {
+    "chokidar": "^4.0.3",
+    "oxc-parser": "^0.72.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "ws": "^8.18.0"

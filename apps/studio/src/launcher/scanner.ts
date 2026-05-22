@@ -1,35 +1,49 @@
 import { promises as fs } from "node:fs";
 import { join, resolve } from "node:path";
 
+import { parseSync } from "oxc-parser";
+
 import type { HookName, ToolDescriptor } from "../shared/types.js";
 
+import { buildLineOffsets, offsetToLineColumn } from "./ast-utils.js";
+import {
+  HOOK_IMPORT_SOURCES,
+  HOOK_REGISTRY,
+  getHookDef,
+  isCopilotKitHook,
+} from "./hook-registry.js";
+import { buildEnclosingComponentLookup } from "./map-hooks-to-components.js";
+import {
+  extractDescription,
+  extractName,
+  extractParameters,
+} from "./schema-extraction.js";
+
 /**
- * M0 scanner — naive walk + string prefilter + regex match.
+ * M1 scanner.
  *
- * This is the **simplest correct version** of the scanner. It walks the
- * project tree, picks `*.ts` / `*.tsx` files that import from
- * `@copilotkit/react-core`, and extracts every `useCopilotAction(` call
- * site by regex.
+ * Replaces M0's regex-based extraction with a real AST walk using
+ * `oxc-parser`. The shape is a straight port of
+ * .chalk/references/vscode-extension/src/extension/hooks/hook-scanner.ts:
+ *   1. Cheap string prefilter (skip files without a `@copilotkit/` import).
+ *   2. Parse with oxc.
+ *   3. Walk the `ImportDeclaration` nodes to build a `localName → canonical`
+ *      map (handles `import { useCopilotAction as ax } from ...`).
+ *   4. Walk all `CallExpression` nodes; for any matching the local→canonical
+ *      map, extract name/description/parameters/loc/enclosingComponent.
  *
- * Real AST parsing with `oxc-parser` (and schema extraction) is the job of
- * M1; see .chalk/plans/web-inspector-v1.md §9 M1 and
- * .chalk/plans/web-inspector-execution.md Agent A/B/etc. Do not extend this
- * file with schema extraction — replace it wholesale when porting
- * vscode-extension/src/extension/hooks/hook-scanner.ts.
+ * Schema extraction lives in `./schema-extraction.ts` so the AST walk here
+ * stays focused on the call-site shape.
  *
- * Limits the scanner intentionally has in M0:
- *   - Only matches the literal hook name `useCopilotAction` (the only one
- *     in heavy use today). M1 will add the rest of {@link HookName}.
- *   - `name` is extracted from the first string-literal argument-bag key
- *     `name: "..."` on the same or following few lines. Anything dynamic
- *     becomes `"<unknown>"`.
- *   - `parameters` is always `[]`.
- *   - `enclosingComponent` is always `null`.
- *   - `fixtures` / `fixturePath` are always `null`.
- *   - `loc` only fills `line`; the other three fields are placeholders.
+ * **Failure mode**: parse errors collapse to `{ tools: [], parseError:
+ * "..." }`. The launcher emits `scan.error` events for these so the SPA can
+ * surface a non-fatal banner.
  */
 
-/** Directories the scanner refuses to descend into. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AstNode = any;
+
+/** Directories the scanner refuses to descend into during full-workspace walks. */
 const SKIP_DIRS = new Set<string>([
   "node_modules",
   ".git",
@@ -48,129 +62,134 @@ const SKIP_DIRS = new Set<string>([
 
 const SOURCE_EXTENSIONS = [".ts", ".tsx"] as const;
 
-/** Cheap prefilter — files without this import marker are skipped. */
-const COPILOTKIT_IMPORT_MARKER = "@copilotkit/react-core";
-
-/** Hooks we look for in M0. M1 will broaden this. */
-const HOOK_PATTERNS: ReadonlyArray<{ hook: HookName; regex: RegExp }> = [
-  { hook: "useCopilotAction", regex: /\buseCopilotAction\s*\(/g },
-];
+/** Cached prefilter substrings — bundled here so we only compute the array once. */
+const PREFILTER_STRINGS: ReadonlyArray<string> = [...HOOK_IMPORT_SOURCES];
 
 /**
- * Extracts the first `name: "..."` string-literal value within a small
- * window after the hook call. Returns `<unknown>` if the name can't be
- * resolved statically — that's a known M0 limitation, replaced by AST-based
- * extraction in M1.
+ * AST node types that never contain nested hook call-sites. Short-circuits
+ * the visitor to avoid recursing into identifier names, literal values, etc.
+ *
+ * Direct port of the LEAF_TYPES set in
+ * .chalk/references/vscode-extension/src/extension/hooks/hook-scanner.ts.
  */
-function extractToolName(content: string, hookCallIndex: number): string {
-  // Look at the next ~1500 chars after the hook call — plenty of headroom
-  // for prop-bag style and short multi-line objects without scanning the
-  // entire rest of the file.
-  const window = content.slice(hookCallIndex, hookCallIndex + 1500);
-  const match = window.match(/\bname\s*:\s*["'`]([^"'`]+)["'`]/);
-  return match?.[1] ?? "<unknown>";
-}
+const LEAF_TYPES = new Set([
+  "Identifier",
+  "Literal",
+  "StringLiteral",
+  "NumericLiteral",
+  "BooleanLiteral",
+  "NullLiteral",
+  "RegExpLiteral",
+  "BigIntLiteral",
+  "TemplateElement",
+  "ThisExpression",
+  "Super",
+  "Import",
+  "PrivateIdentifier",
+]);
 
-function lineNumberAt(content: string, index: number): number {
-  // 1-indexed line number — matches editor convention and oxc-parser output.
-  let line = 1;
-  for (let i = 0; i < index && i < content.length; i++) {
-    if (content[i] === "\n") line++;
-  }
-  return line;
-}
+export type ScanResult = {
+  tools: ToolDescriptor[];
+  /** Set when the parser failed; the launcher uses this to emit `scan.error`. */
+  parseError?: string;
+};
 
-/** Recursively walk a directory, yielding absolute paths to source files. */
-async function* walkSourceFiles(rootDir: string): AsyncGenerator<string> {
-  const stack: string[] = [rootDir];
+/**
+ * Parse a single file's contents and return every hook call site as a
+ * `ToolDescriptor`. Never throws — parse errors become `parseError` on the
+ * result; other unexpected errors collapse to an empty result.
+ */
+export function scanContent(filePath: string, content: string): ScanResult {
+  if (!hasCopilotKitPrefix(content)) return { tools: [] };
 
-  while (stack.length > 0) {
-    const dir = stack.pop()!;
-    let entries;
-    try {
-      entries = await fs.readdir(dir, { withFileTypes: true });
-    } catch {
-      // Permission errors, broken symlinks, etc. — silently skip.
-      continue;
+  const lang = filePath.endsWith(".tsx") ? "tsx" : "ts";
+  let program: AstNode;
+  try {
+    const res = parseSync(filePath, content, {
+      lang,
+      sourceType: "module",
+    });
+    if (res.errors && res.errors.length > 0) {
+      // Multiple errors can land here; we surface the first message and
+      // the line/column for diagnostics. The user will see this in the
+      // launcher's `scan.error` banner.
+      const first = res.errors[0]!;
+      const message =
+        typeof first.message === "string"
+          ? first.message
+          : "Parse error (no message)";
+      return {
+        tools: [],
+        parseError: message,
+      };
     }
+    program = res.program as AstNode;
+  } catch (err) {
+    return {
+      tools: [],
+      parseError: (err as Error).message ?? "Parse failed",
+    };
+  }
 
-    for (const entry of entries) {
-      if (
-        entry.name.startsWith(".") &&
-        entry.name !== "." &&
-        entry.name !== ".."
-      ) {
-        // Skip dotfiles/dotdirs except explicit allowlist (none in M0).
-        continue;
-      }
-      const fullPath = join(dir, entry.name);
+  const localToCanonical = collectLocalToCanonical(program);
+  if (localToCanonical.size === 0) return { tools: [] };
 
-      if (entry.isDirectory()) {
-        if (SKIP_DIRS.has(entry.name)) continue;
-        stack.push(fullPath);
-      } else if (entry.isFile()) {
-        if (SOURCE_EXTENSIONS.some((ext) => entry.name.endsWith(ext))) {
-          yield fullPath;
+  const lineOffsets = buildLineOffsets(content);
+  const enclosingLookup = buildEnclosingComponentLookup(program);
+  const tools: ToolDescriptor[] = [];
+
+  const seen = new WeakSet<object>();
+  const visit = (node: AstNode): void => {
+    if (!node || typeof node !== "object") return;
+    if (seen.has(node)) return;
+    seen.add(node);
+    if (LEAF_TYPES.has(node.type)) return;
+
+    if (node.type === "CallExpression" && node.callee?.type === "Identifier") {
+      const canonical = localToCanonical.get(node.callee.name);
+      if (canonical) {
+        const def = getHookDef(canonical);
+        if (def) {
+          const descriptor = buildToolDescriptor(
+            filePath,
+            node,
+            canonical,
+            lineOffsets,
+            enclosingLookup,
+          );
+          if (descriptor) tools.push(descriptor);
         }
       }
     }
-  }
-}
 
-/**
- * Pull every recognized hook call out of a single file's contents. Returns
- * an empty array when the file doesn't import from `@copilotkit/react-core`
- * (the cheap prefilter — same pattern as
- * vscode-extension/src/extension/hooks/hook-scanner.ts).
- */
-export function scanContent(
-  filePath: string,
-  content: string,
-): ToolDescriptor[] {
-  if (!content.includes(COPILOTKIT_IMPORT_MARKER)) return [];
-
-  const descriptors: ToolDescriptor[] = [];
-
-  for (const { hook, regex } of HOOK_PATTERNS) {
-    // Reset regex state — pattern is module-level so it carries lastIndex
-    // across invocations otherwise.
-    regex.lastIndex = 0;
-    let match: RegExpExecArray | null;
-    while ((match = regex.exec(content)) !== null) {
-      const name = extractToolName(content, match.index);
-      const line = lineNumberAt(content, match.index);
-
-      descriptors.push({
-        name,
-        hook,
-        filePath,
-        loc: {
-          line,
-          column: 0,
-          endLine: line,
-          endColumn: 0,
-        },
-        enclosingComponent: null,
-        parameters: [],
-        fixtures: null,
-        fixturePath: null,
-      });
+    for (const key of Object.keys(node)) {
+      if (key === "loc" || key === "range" || key === "parent") continue;
+      const child = (node as Record<string, unknown>)[key];
+      if (Array.isArray(child)) {
+        for (const c of child) visit(c);
+      } else if (child && typeof child === "object" && "type" in child) {
+        visit(child);
+      }
     }
-  }
-
-  return descriptors;
+  };
+  visit(program);
+  return { tools };
 }
 
 /**
- * Scan a project root, returning every detected tool plus the count of
- * files inspected (after the prefilter).
+ * Scan a whole project root for hook call sites. Returns the full
+ * `ToolDescriptor[]` plus the number of files inspected (after the
+ * prefilter) and any per-file parse errors so the launcher can surface
+ * them.
  */
 export async function scanWorkspace(rootDir: string): Promise<{
   tools: ToolDescriptor[];
   scannedFiles: number;
+  errors: Array<{ filePath: string; message: string }>;
 }> {
   const absoluteRoot = resolve(rootDir);
   const tools: ToolDescriptor[] = [];
+  const errors: Array<{ filePath: string; message: string }> = [];
   let scannedFiles = 0;
 
   for await (const filePath of walkSourceFiles(absoluteRoot)) {
@@ -181,9 +200,126 @@ export async function scanWorkspace(rootDir: string): Promise<{
       continue;
     }
     scannedFiles++;
-    const found = scanContent(filePath, content);
-    if (found.length > 0) tools.push(...found);
+    const result = scanContent(filePath, content);
+    if (result.parseError) {
+      errors.push({ filePath, message: result.parseError });
+      continue;
+    }
+    if (result.tools.length > 0) tools.push(...result.tools);
   }
 
-  return { tools, scannedFiles };
+  return { tools, scannedFiles, errors };
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function hasCopilotKitPrefix(content: string): boolean {
+  return PREFILTER_STRINGS.some((p) => content.includes(p));
+}
+
+/**
+ * Build a map from the local identifier in *this* file → the canonical hook
+ * name in `HOOK_REGISTRY`. Lets users alias imports (`import {
+ * useCopilotAction as ax }`) and still get detected.
+ *
+ * Only imports from the registered import sources count. Other
+ * `useCopilotAction`-shaped imports from third-party packages are ignored.
+ */
+function collectLocalToCanonical(program: AstNode): Map<string, HookName> {
+  const localToCanonical = new Map<string, HookName>();
+
+  for (const node of program.body ?? []) {
+    if (node.type !== "ImportDeclaration") continue;
+    const src = typeof node.source?.value === "string" ? node.source.value : "";
+    if (!HOOK_IMPORT_SOURCES.has(src)) continue;
+
+    for (const spec of node.specifiers ?? []) {
+      if (spec.type !== "ImportSpecifier") continue;
+      const imported =
+        spec.imported?.type === "Identifier"
+          ? (spec.imported.name as string)
+          : null;
+      const local =
+        spec.local?.name === undefined ? imported : (spec.local.name as string);
+      if (imported && local && isCopilotKitHook(imported)) {
+        localToCanonical.set(local, imported as HookName);
+      }
+    }
+  }
+
+  // Belt-and-suspenders: if `HOOK_REGISTRY` ever gains a new entry without
+  // an importSource the map will be empty here, which fails closed — better
+  // than spuriously matching arbitrary functions.
+  if (localToCanonical.size === 0 && HOOK_REGISTRY.length === 0) {
+    // dev-time invariant
+    return new Map();
+  }
+  return localToCanonical;
+}
+
+function buildToolDescriptor(
+  filePath: string,
+  callNode: AstNode,
+  canonical: HookName,
+  lineOffsets: number[],
+  enclosingLookup: (offset: number) => string | null,
+): ToolDescriptor | null {
+  const firstArg = callNode.arguments?.[0];
+  const name = extractName(firstArg) ?? "<unknown>";
+  const description = extractDescription(firstArg);
+  const parameters = extractParameters(firstArg);
+
+  const start = offsetToLineColumn(callNode.start ?? 0, lineOffsets);
+  const end = offsetToLineColumn(callNode.end ?? 0, lineOffsets);
+  const enclosing = enclosingLookup(callNode.start ?? 0);
+
+  return {
+    name,
+    hook: canonical,
+    filePath,
+    loc: {
+      line: start.line,
+      column: start.column,
+      endLine: end.line,
+      endColumn: end.column,
+    },
+    enclosingComponent: enclosing,
+    ...(description ? { description } : {}),
+    parameters,
+    fixtures: null,
+    fixturePath: null,
+  };
+}
+
+async function* walkSourceFiles(rootDir: string): AsyncGenerator<string> {
+  const stack: string[] = [rootDir];
+  while (stack.length > 0) {
+    const dir = stack.pop()!;
+    let entries;
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (
+        entry.name.startsWith(".") &&
+        entry.name !== "." &&
+        entry.name !== ".."
+      ) {
+        continue;
+      }
+      const fullPath = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (SKIP_DIRS.has(entry.name)) continue;
+        stack.push(fullPath);
+      } else if (entry.isFile()) {
+        if (SOURCE_EXTENSIONS.some((ext) => entry.name.endsWith(ext))) {
+          yield fullPath;
+        }
+      }
+    }
+  }
 }
