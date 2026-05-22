@@ -41,12 +41,12 @@ Base class for all AG-UI agents. Manages conversation state, message history, ev
 
 ```typescript
 interface AgentConfig {
-  agentId?: string;         // Unique agent identifier
-  description?: string;     // Human-readable description
-  threadId?: string;        // Conversation thread ID (auto-generated if omitted)
-  initialMessages?: Message[];  // Starting message history
-  initialState?: State;     // Starting state object
-  debug?: boolean;          // Enable debug logging
+  agentId?: string; // Unique agent identifier
+  description?: string; // Human-readable description
+  threadId?: string; // Conversation thread ID (auto-generated if omitted)
+  initialMessages?: Message[]; // Starting message history
+  initialState?: State; // Starting state object
+  debug?: boolean; // Enable debug logging
 }
 
 const agent = new MyAgent({
@@ -60,16 +60,16 @@ const agent = new MyAgent({
 
 ### Properties
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `agentId` | `string?` | Agent identifier |
-| `description` | `string` | Human-readable description |
-| `threadId` | `string` | Conversation thread ID |
-| `messages` | `Message[]` | Current message history |
-| `state` | `State` | Current agent state |
-| `debug` | `boolean` | Debug logging enabled |
-| `isRunning` | `boolean` | Whether a run is currently active |
-| `subscribers` | `AgentSubscriber[]` | Registered event subscribers |
+| Property      | Type                | Description                       |
+| ------------- | ------------------- | --------------------------------- |
+| `agentId`     | `string?`           | Agent identifier                  |
+| `description` | `string`            | Human-readable description        |
+| `threadId`    | `string`            | Conversation thread ID            |
+| `messages`    | `Message[]`         | Current message history           |
+| `state`       | `State`             | Current agent state               |
+| `debug`       | `boolean`           | Debug logging enabled             |
+| `isRunning`   | `boolean`           | Whether a run is currently active |
+| `subscribers` | `AgentSubscriber[]` | Registered event subscribers      |
 
 ### Abstract Method: `run()`
 
@@ -92,8 +92,8 @@ interface RunAgentParameters {
 }
 
 interface RunAgentResult {
-  result: any;              // From RUN_FINISHED.result
-  newMessages: Message[];   // Messages added during this run
+  result: any; // From RUN_FINISHED.result
+  newMessages: Message[]; // Messages added during this run
 }
 
 const { result, newMessages } = await agent.runAgent({
@@ -105,6 +105,7 @@ const { result, newMessages } = await agent.runAgent({
 ```
 
 The pipeline internally:
+
 1. Prepares `RunAgentInput` from current state + parameters
 2. Calls `run(input)` to get the event Observable
 3. Passes through middleware chain
@@ -197,8 +198,8 @@ Concrete agent that connects to a remote HTTP endpoint. Extends `AbstractAgent`.
 
 ```typescript
 interface HttpAgentConfig extends AgentConfig {
-  url: string;                        // Agent endpoint URL
-  headers?: Record<string, string>;   // Custom HTTP headers
+  url: string; // Agent endpoint URL
+  headers?: Record<string, string>; // Custom HTTP headers
 }
 
 const agent = new HttpAgent({
@@ -220,11 +221,11 @@ const agent = new HttpAgent({
 
 ### Properties
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `url` | `string` | Agent endpoint URL |
-| `headers` | `Record<string, string>` | Custom request headers |
-| `abortController` | `AbortController` | Controls request cancellation |
+| Property          | Type                     | Description                   |
+| ----------------- | ------------------------ | ----------------------------- |
+| `url`             | `string`                 | Agent endpoint URL            |
+| `headers`         | `Record<string, string>` | Custom request headers        |
+| `abortController` | `AbortController`        | Controls request cancellation |
 
 ### `requestInit(input)`
 
@@ -263,16 +264,19 @@ Interface for receiving typed event callbacks during agent runs. All callbacks a
 ```typescript
 interface AgentSubscriber {
   // Before events start flowing
-  onRunInitialized?(params: AgentSubscriberParams):
-    MaybePromise<Omit<AgentStateMutation, "stopPropagation"> | void>;
+  onRunInitialized?(
+    params: AgentSubscriberParams,
+  ): MaybePromise<Omit<AgentStateMutation, "stopPropagation"> | void>;
 
   // On unrecoverable error
-  onRunFailed?(params: { error: Error } & AgentSubscriberParams):
-    MaybePromise<Omit<AgentStateMutation, "stopPropagation"> | void>;
+  onRunFailed?(
+    params: { error: Error } & AgentSubscriberParams,
+  ): MaybePromise<Omit<AgentStateMutation, "stopPropagation"> | void>;
 
   // After run completes (success or failure)
-  onRunFinalized?(params: AgentSubscriberParams):
-    MaybePromise<Omit<AgentStateMutation, "stopPropagation"> | void>;
+  onRunFinalized?(
+    params: AgentSubscriberParams,
+  ): MaybePromise<Omit<AgentStateMutation, "stopPropagation"> | void>;
 }
 ```
 
@@ -362,9 +366,9 @@ Subscriber callbacks can return mutations to modify agent state:
 
 ```typescript
 interface AgentStateMutation {
-  messages?: Message[];       // Replace messages
-  state?: State;              // Replace state
-  stopPropagation?: boolean;  // Stop processing this event
+  messages?: Message[]; // Replace messages
+  state?: State; // Replace state
+  stopPropagation?: boolean; // Stop processing this event
 }
 ```
 
@@ -381,19 +385,28 @@ Middleware intercepts the `run()` call, enabling event transformation, filtering
 ```typescript
 abstract class Middleware {
   // Override this to intercept runs
-  abstract run(input: RunAgentInput, next: AbstractAgent): Observable<BaseEvent>;
+  abstract run(
+    input: RunAgentInput,
+    next: AbstractAgent,
+  ): Observable<BaseEvent>;
 
   // Helper: runs next agent with chunk transformation
-  protected runNext(input: RunAgentInput, next: AbstractAgent): Observable<BaseEvent>;
+  protected runNext(
+    input: RunAgentInput,
+    next: AbstractAgent,
+  ): Observable<BaseEvent>;
 
   // Helper: runs next agent and tracks state after each event
-  protected runNextWithState(input: RunAgentInput, next: AbstractAgent): Observable<EventWithState>;
+  protected runNextWithState(
+    input: RunAgentInput,
+    next: AbstractAgent,
+  ): Observable<EventWithState>;
 }
 
 interface EventWithState {
   event: BaseEvent;
-  messages: Message[];  // State AFTER event applied
-  state: any;           // State AFTER event applied
+  messages: Message[]; // State AFTER event applied
+  state: any; // State AFTER event applied
 }
 ```
 
@@ -404,7 +417,10 @@ Use a plain function instead of a class:
 ```typescript
 agent.use((input: RunAgentInput, next: AbstractAgent) => {
   // Modify input
-  const modifiedInput = { ...input, forwardedProps: { ...input.forwardedProps, custom: true } };
+  const modifiedInput = {
+    ...input,
+    forwardedProps: { ...input.forwardedProps, custom: true },
+  };
   // Pass to next agent/middleware
   return next.run(modifiedInput);
 });
@@ -473,24 +489,24 @@ function defaultApplyEvents(
 
 ### What It Does Per Event Type
 
-| Event | Action |
-|-------|--------|
-| `TEXT_MESSAGE_START` | Creates new message in messages array |
-| `TEXT_MESSAGE_CONTENT` | Appends delta to message content |
-| `TEXT_MESSAGE_END` | Fires `onNewMessage` subscriber |
-| `TOOL_CALL_START` | Creates assistant message with toolCalls array (or adds to existing if parentMessageId matches) |
-| `TOOL_CALL_ARGS` | Appends delta to tool call's `function.arguments` |
-| `TOOL_CALL_END` | Fires `onNewToolCall` subscriber |
-| `TOOL_CALL_RESULT` | Adds tool message to messages |
-| `STATE_SNAPSHOT` | Replaces entire state |
-| `STATE_DELTA` | Applies JSON Patch operations to state |
-| `MESSAGES_SNAPSHOT` | Edit-based merge preserving activity messages |
-| `ACTIVITY_SNAPSHOT` | Creates or replaces activity message |
-| `ACTIVITY_DELTA` | Applies JSON Patch to activity content |
-| `RUN_STARTED` | Adds input.messages if present (new messages only) |
-| `REASONING_MESSAGE_START` | Creates reasoning message |
-| `REASONING_MESSAGE_CONTENT` | Appends delta to reasoning message |
-| `REASONING_ENCRYPTED_VALUE` | Sets encryptedValue on target message or tool call |
+| Event                       | Action                                                                                          |
+| --------------------------- | ----------------------------------------------------------------------------------------------- |
+| `TEXT_MESSAGE_START`        | Creates new message in messages array                                                           |
+| `TEXT_MESSAGE_CONTENT`      | Appends delta to message content                                                                |
+| `TEXT_MESSAGE_END`          | Fires `onNewMessage` subscriber                                                                 |
+| `TOOL_CALL_START`           | Creates assistant message with toolCalls array (or adds to existing if parentMessageId matches) |
+| `TOOL_CALL_ARGS`            | Appends delta to tool call's `function.arguments`                                               |
+| `TOOL_CALL_END`             | Fires `onNewToolCall` subscriber                                                                |
+| `TOOL_CALL_RESULT`          | Adds tool message to messages                                                                   |
+| `STATE_SNAPSHOT`            | Replaces entire state                                                                           |
+| `STATE_DELTA`               | Applies JSON Patch operations to state                                                          |
+| `MESSAGES_SNAPSHOT`         | Edit-based merge preserving activity messages                                                   |
+| `ACTIVITY_SNAPSHOT`         | Creates or replaces activity message                                                            |
+| `ACTIVITY_DELTA`            | Applies JSON Patch to activity content                                                          |
+| `RUN_STARTED`               | Adds input.messages if present (new messages only)                                              |
+| `REASONING_MESSAGE_START`   | Creates reasoning message                                                                       |
+| `REASONING_MESSAGE_CONTENT` | Appends delta to reasoning message                                                              |
+| `REASONING_ENCRYPTED_VALUE` | Sets encryptedValue on target message or tool call                                              |
 
 ---
 
@@ -507,8 +523,16 @@ import { BaseEvent, EventType } from "@ag-ui/core";
 // From scratch
 const events$ = new Observable<BaseEvent>((observer) => {
   observer.next({ type: EventType.RUN_STARTED, threadId: "t1", runId: "r1" });
-  observer.next({ type: EventType.TEXT_MESSAGE_START, messageId: "m1", role: "assistant" });
-  observer.next({ type: EventType.TEXT_MESSAGE_CONTENT, messageId: "m1", delta: "Hello" });
+  observer.next({
+    type: EventType.TEXT_MESSAGE_START,
+    messageId: "m1",
+    role: "assistant",
+  });
+  observer.next({
+    type: EventType.TEXT_MESSAGE_CONTENT,
+    messageId: "m1",
+    delta: "Hello",
+  });
   observer.next({ type: EventType.TEXT_MESSAGE_END, messageId: "m1" });
   observer.next({ type: EventType.RUN_FINISHED, threadId: "t1", runId: "r1" });
   observer.complete();
@@ -521,7 +545,11 @@ const events$ = new Observable<BaseEvent>((observer) => {
 const events$ = new Observable<BaseEvent>((observer) => {
   (async () => {
     try {
-      observer.next({ type: EventType.RUN_STARTED, threadId: "t1", runId: "r1" });
+      observer.next({
+        type: EventType.RUN_STARTED,
+        threadId: "t1",
+        runId: "r1",
+      });
 
       for await (const chunk of llmStream) {
         observer.next({
@@ -531,7 +559,11 @@ const events$ = new Observable<BaseEvent>((observer) => {
         });
       }
 
-      observer.next({ type: EventType.RUN_FINISHED, threadId: "t1", runId: "r1" });
+      observer.next({
+        type: EventType.RUN_FINISHED,
+        threadId: "t1",
+        runId: "r1",
+      });
       observer.complete();
     } catch (error) {
       observer.next({

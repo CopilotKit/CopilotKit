@@ -175,11 +175,13 @@ import { MockAgent, MockAgentOptions } from "../test-utils";
 
 const agent = new MockAgent({
   messages: [],
-  newMessages: [/* messages returned by runAgent */],
+  newMessages: [
+    /* messages returned by runAgent */
+  ],
   agentId: "test-agent",
   threadId: "test-thread",
   state: { key: "value" },
-  runAgentDelay: 100,    // ms delay before runAgent resolves
+  runAgentDelay: 100, // ms delay before runAgent resolves
   error: new Error("boom"), // make runAgent reject
 });
 ```

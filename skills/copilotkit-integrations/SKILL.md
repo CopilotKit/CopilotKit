@@ -24,23 +24,23 @@ CopilotKit connects to external agent frameworks through the **AG-UI (Agent-UI) 
 
 ## Supported Integrations
 
-| Framework | Language | AG-UI Client (route.ts) | AG-UI Server Adapter | Agent Port |
-|-----------|----------|------------------------|---------------------|------------|
-| LangGraph (Python, self-hosted) | Python | `LangGraphHttpAgent` from `@copilotkit/runtime/langgraph` | `ag-ui-langgraph` (`add_langgraph_fastapi_endpoint`) | 8123 |
-| LangGraph (Python, LangGraph Platform) | Python | `LangGraphAgent` from `@copilotkit/runtime/langgraph` | LangGraph Platform (managed) | varies |
-| LangGraph (JS) | TypeScript | `LangGraphAgent` from `@copilotkit/runtime/langgraph` | Built into `@copilotkit/sdk-js/langgraph` | 8123 |
-| CrewAI Flows | Python | `HttpAgent` from `@ag-ui/client` | `ag-ui-crewai` (`add_crewai_flow_fastapi_endpoint`) | 8000 |
-| CrewAI Crews | Python | `CrewAIAgent` from `@ag-ui/crewai` | `ag-ui-crewai` (`add_crewai_crew_fastapi_endpoint`) | 8000 |
-| PydanticAI | Python | `HttpAgent` from `@ag-ui/client` | `pydantic-ai-slim[ag-ui]` (`agent.to_ag_ui()`) | 8000 |
-| Mastra | TypeScript | `MastraAgent` from `@ag-ui/mastra` | Built into `@ag-ui/mastra` | Next.js dev server |
-| Google ADK | Python | `HttpAgent` from `@ag-ui/client` | `ag-ui-adk` (`add_adk_fastapi_endpoint`) | 8000 |
-| LlamaIndex | Python | `LlamaIndexAgent` from `@ag-ui/llamaindex` | `llama-index-protocols-ag-ui` (`get_ag_ui_workflow_router`) | 9000 |
-| Agno | Python | `HttpAgent` from `@ag-ui/client` | `agno` (built-in `AgentOS` with `AGUI` interface) | 8000 |
-| Strands | Python | `HttpAgent` from `@ag-ui/client` | `ag_ui_strands` (`create_strands_app`) | 8000 |
-| Microsoft Agent Framework (Python) | Python | `HttpAgent` from `@ag-ui/client` | `agent-framework-ag-ui` (`add_agent_framework_fastapi_endpoint`) | 8000 |
-| Microsoft Agent Framework (.NET) | C# | `HttpAgent` from `@ag-ui/client` | `Microsoft.Agents.AI.Hosting.AGUI.AspNetCore` (`MapAGUI`) | 8000 |
-| A2A Middleware | Python + TS | `A2AMiddlewareAgent` from `@ag-ui/a2a-middleware` | Per-agent (mixed frameworks) | 9000-9002 |
-| MCP Apps | TypeScript | `BuiltInAgent` with `MCPAppsMiddleware` | N/A (middleware on BuiltInAgent) | 3108 |
+| Framework                              | Language    | AG-UI Client (route.ts)                                   | AG-UI Server Adapter                                             | Agent Port         |
+| -------------------------------------- | ----------- | --------------------------------------------------------- | ---------------------------------------------------------------- | ------------------ |
+| LangGraph (Python, self-hosted)        | Python      | `LangGraphHttpAgent` from `@copilotkit/runtime/langgraph` | `ag-ui-langgraph` (`add_langgraph_fastapi_endpoint`)             | 8123               |
+| LangGraph (Python, LangGraph Platform) | Python      | `LangGraphAgent` from `@copilotkit/runtime/langgraph`     | LangGraph Platform (managed)                                     | varies             |
+| LangGraph (JS)                         | TypeScript  | `LangGraphAgent` from `@copilotkit/runtime/langgraph`     | Built into `@copilotkit/sdk-js/langgraph`                        | 8123               |
+| CrewAI Flows                           | Python      | `HttpAgent` from `@ag-ui/client`                          | `ag-ui-crewai` (`add_crewai_flow_fastapi_endpoint`)              | 8000               |
+| CrewAI Crews                           | Python      | `CrewAIAgent` from `@ag-ui/crewai`                        | `ag-ui-crewai` (`add_crewai_crew_fastapi_endpoint`)              | 8000               |
+| PydanticAI                             | Python      | `HttpAgent` from `@ag-ui/client`                          | `pydantic-ai-slim[ag-ui]` (`agent.to_ag_ui()`)                   | 8000               |
+| Mastra                                 | TypeScript  | `MastraAgent` from `@ag-ui/mastra`                        | Built into `@ag-ui/mastra`                                       | Next.js dev server |
+| Google ADK                             | Python      | `HttpAgent` from `@ag-ui/client`                          | `ag-ui-adk` (`add_adk_fastapi_endpoint`)                         | 8000               |
+| LlamaIndex                             | Python      | `LlamaIndexAgent` from `@ag-ui/llamaindex`                | `llama-index-protocols-ag-ui` (`get_ag_ui_workflow_router`)      | 9000               |
+| Agno                                   | Python      | `HttpAgent` from `@ag-ui/client`                          | `agno` (built-in `AgentOS` with `AGUI` interface)                | 8000               |
+| Strands                                | Python      | `HttpAgent` from `@ag-ui/client`                          | `ag_ui_strands` (`create_strands_app`)                           | 8000               |
+| Microsoft Agent Framework (Python)     | Python      | `HttpAgent` from `@ag-ui/client`                          | `agent-framework-ag-ui` (`add_agent_framework_fastapi_endpoint`) | 8000               |
+| Microsoft Agent Framework (.NET)       | C#          | `HttpAgent` from `@ag-ui/client`                          | `Microsoft.Agents.AI.Hosting.AGUI.AspNetCore` (`MapAGUI`)        | 8000               |
+| A2A Middleware                         | Python + TS | `A2AMiddlewareAgent` from `@ag-ui/a2a-middleware`         | Per-agent (mixed frameworks)                                     | 9000-9002          |
+| MCP Apps                               | TypeScript  | `BuiltInAgent` with `MCPAppsMiddleware`                   | N/A (middleware on BuiltInAgent)                                 | 3108               |
 
 ## Decision Tree
 
@@ -142,24 +142,30 @@ useFrontendTool({
 ### Generative UI (useRenderToolCall)
 
 ```tsx
-useRenderToolCall({
-  name: "get_weather",
-  description: "Get weather for a location.",
-  parameters: [{ name: "location", type: "string", required: true }],
-  render: ({ args }) => <WeatherCard location={args.location} />,
-}, []);
+useRenderToolCall(
+  {
+    name: "get_weather",
+    description: "Get weather for a location.",
+    parameters: [{ name: "location", type: "string", required: true }],
+    render: ({ args }) => <WeatherCard location={args.location} />,
+  },
+  [],
+);
 ```
 
 ### Human in the Loop (useHumanInTheLoop)
 
 ```tsx
-useHumanInTheLoop({
-  name: "go_to_moon",
-  description: "Go to the moon on request.",
-  render: ({ respond, status }) => (
-    <MoonCard status={status} respond={respond} />
-  ),
-}, []);
+useHumanInTheLoop(
+  {
+    name: "go_to_moon",
+    description: "Go to the moon on request.",
+    render: ({ respond, status }) => (
+      <MoonCard status={status} respond={respond} />
+    ),
+  },
+  [],
+);
 ```
 
 ## Agent-Side State Management
@@ -169,10 +175,12 @@ On the agent side, shared state is managed differently per framework, but the pr
 ## Key Packages
 
 Frontend (all integrations):
+
 - `@copilotkit/react` -- hooks (`useAgent`, `useFrontendTool`, `useRenderToolCall`, `useHumanInTheLoop`) and UI components (`CopilotSidebar`, `CopilotPopup`)
 - `@copilotkit/runtime` -- server runtime (`CopilotRuntime`, `ExperimentalEmptyAdapter`)
 
 AG-UI client classes (choose one per integration):
+
 - `@copilotkit/runtime/langgraph` -- `LangGraphAgent`, `LangGraphHttpAgent`
 - `@ag-ui/client` -- `HttpAgent` (generic, works with any AG-UI server)
 - `@ag-ui/crewai` -- `CrewAIAgent`

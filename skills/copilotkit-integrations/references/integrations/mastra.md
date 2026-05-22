@@ -58,6 +58,7 @@ export const weatherAgent = new Agent({
 ```
 
 Key patterns:
+
 - Shared state is defined as a Zod schema and passed to Mastra's `Memory` via `workingMemory.schema`
 - Tools are created with Mastra's `createTool()` helper
 - The agent uses `@ai-sdk/openai` for the model provider

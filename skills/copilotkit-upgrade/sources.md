@@ -4,6 +4,7 @@ Files and directories read from CopilotKit/CopilotKit to generate this skill's r
 Generated: 2026-03-28
 
 ## v1-to-v2-migration.md
+
 - packages/v1/react-core/src/index.ts (v1 hook exports: useCopilotAction, useCopilotReadable, useCoAgent, useLangGraphInterrupt, useCopilotChat, useCopilotChatSuggestions, useCopilotAdditionalInstructions, useMakeCopilotDocumentReadable, CopilotKit provider)
 - packages/v1/react-ui/src/index.ts (v1 component exports: CopilotChat, CopilotPopup, CopilotSidebar)
 - packages/v1/react-textarea/src/index.ts (CopilotTextarea export, confirmed removed in v2)
@@ -15,6 +16,7 @@ Generated: 2026-03-28
 - packages/v2/core/src/ (CopilotKitCore, AG-UI event types, AbstractAgent interface)
 
 ## breaking-changes.md
+
 - packages/v1/react-core/src/ (v1 provider props: CopilotKitProps, parameter descriptor format, FrontendAction type, ActionRenderProps)
 - packages/v1/runtime/src/ (v1 service adapters, CopilotRuntime constructor with actions/remoteEndpoints, framework integration functions)
 - packages/v1/shared/src/ (v1 Parameter type definition)
@@ -24,6 +26,7 @@ Generated: 2026-03-28
 - packages/v2/agent/src/ (BuiltInAgent replacing all service adapters)
 
 ## deprecation-map.md
+
 - packages/v1/react-core/src/index.ts (all v1 hook and component exports)
 - packages/v1/react-ui/src/index.ts (all v1 UI component exports)
 - packages/v1/react-textarea/src/index.ts (CopilotTextarea export)

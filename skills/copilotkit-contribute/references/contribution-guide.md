@@ -46,11 +46,11 @@ The build step is necessary because packages depend on each other. Nx handles th
 
 Use a group prefix with the issue number:
 
-| Type | Pattern | Example |
-|---|---|---|
-| Feature | `feat/<ISSUE>-<name>` | `feat/1234-add-voice-hook` |
-| Bug fix | `fix/<ISSUE>-<name>` | `fix/5678-runtime-cors` |
-| Documentation | `docs/<ISSUE>-<name>` | `docs/9012-api-reference` |
+| Type          | Pattern               | Example                    |
+| ------------- | --------------------- | -------------------------- |
+| Feature       | `feat/<ISSUE>-<name>` | `feat/1234-add-voice-hook` |
+| Bug fix       | `fix/<ISSUE>-<name>`  | `fix/5678-runtime-cors`    |
+| Documentation | `docs/<ISSUE>-<name>` | `docs/9012-api-reference`  |
 
 ```bash
 git checkout -b feat/1234-my-feature
@@ -86,16 +86,16 @@ CopilotKit enforces [conventional commits](https://www.conventionalcommits.org/)
 
 ### Types
 
-| Type | Description |
-|---|---|
-| `feat` | A new feature |
-| `fix` | A bug fix |
-| `docs` | Documentation changes |
-| `style` | Formatting, whitespace (no code logic change) |
+| Type       | Description                                             |
+| ---------- | ------------------------------------------------------- |
+| `feat`     | A new feature                                           |
+| `fix`      | A bug fix                                               |
+| `docs`     | Documentation changes                                   |
+| `style`    | Formatting, whitespace (no code logic change)           |
 | `refactor` | Code change that neither fixes a bug nor adds a feature |
-| `perf` | Performance improvement |
-| `test` | Adding or fixing tests |
-| `chore` | Build process, tooling, dependencies |
+| `perf`     | Performance improvement                                 |
+| `test`     | Adding or fixing tests                                  |
+| `chore`    | Build process, tooling, dependencies                    |
 
 ### Scope
 

@@ -55,8 +55,12 @@ createCopilotEndpoint({
 ```
 
 And on the client:
+
 ```tsx
-<CopilotKitProvider runtimeUrl="https://your-api.com/api/copilotkit" credentials="include" />
+<CopilotKitProvider
+  runtimeUrl="https://your-api.com/api/copilotkit"
+  credentials="include"
+/>
 ```
 
 ---
@@ -103,18 +107,18 @@ Look at the SSE events in the response:
 
 For `BuiltInAgent`, verify the environment variable:
 
-| Provider | Environment Variable |
-|----------|---------------------|
-| OpenAI | `OPENAI_API_KEY` |
-| Anthropic | `ANTHROPIC_API_KEY` |
-| Google | `GOOGLE_API_KEY` |
-| Vertex | Application Default Credentials |
+| Provider  | Environment Variable            |
+| --------- | ------------------------------- |
+| OpenAI    | `OPENAI_API_KEY`                |
+| Anthropic | `ANTHROPIC_API_KEY`             |
+| Google    | `GOOGLE_API_KEY`                |
+| Vertex    | Application Default Credentials |
 
 ### Step 5: Check the agent's model string
 
 ```ts
 new BuiltInAgent({
-  model: "openai/gpt-4o",  // Must be "provider/model-name"
+  model: "openai/gpt-4o", // Must be "provider/model-name"
 });
 ```
 
@@ -123,6 +127,7 @@ Invalid model strings throw `Error: Invalid model string "..."` or `Error: Unkno
 ### Step 6: Check server-side logs
 
 The SSE response handler logs errors with full stack traces:
+
 ```
 Error running agent: <error>
 Error stack: <stack trace>
@@ -146,6 +151,7 @@ The agent starts responding but the stream cuts off, duplicates events, or corru
 ### Step 2: Check for event ordering issues
 
 Events must follow a logical sequence:
+
 - `TextMessageStart` before `TextMessageChunk` before `TextMessageEnd`
 - `ToolCallStart` before `ToolCallArgs` before `ToolCallEnd`
 - `RunStarted` at the beginning, `RunFinished` at the end
@@ -155,26 +161,29 @@ If events are out of order, the issue is in the agent's Observable implementatio
 ### Step 3: Check for duplicate events
 
 If the same message appears multiple times:
+
 - **Message ID collision** -> Check issue #3410 (OpenAI-compatible providers reusing IDs)
 - **Agent re-running** -> The `runId` changed mid-conversation. Check for HITL issues (issue #3456).
 
 ### Step 4: Check for message corruption
 
 If message content is garbled or mixed:
+
 - **Model-specific issue** -> DeepSeek and some models produce malformed streaming chunks (issue #3351)
 - **Encoding issue** -> Verify the SSE response has `Content-Type: text/event-stream` and is UTF-8
 
 ### Step 5: Check hosting platform limits
 
-| Platform | Default SSE Timeout | Notes |
-|----------|-------------------|-------|
+| Platform            | Default SSE Timeout    | Notes                                 |
+| ------------------- | ---------------------- | ------------------------------------- |
 | Vercel (Serverless) | 30s (Hobby), 60s (Pro) | Use Edge Runtime or Intelligence mode |
-| Vercel (Edge) | 30s | Better but still limited |
-| Railway | 5 min | Usually sufficient |
-| Render | 5 min | Usually sufficient |
-| Self-hosted | No limit | Depends on reverse proxy config |
+| Vercel (Edge)       | 30s                    | Better but still limited              |
+| Railway             | 5 min                  | Usually sufficient                    |
+| Render              | 5 min                  | Usually sufficient                    |
+| Self-hosted         | No limit               | Depends on reverse proxy config       |
 
 For long agent runs, consider:
+
 - Intelligence mode (persisted threads, WebSocket updates)
 - Increasing the platform timeout if possible
 - Breaking the agent work into smaller runs
@@ -188,18 +197,22 @@ A frontend tool registered with `useFrontendTool` is not being called or not ret
 ### Step 1: Verify tool registration
 
 Check that the tool is registered before the agent runs:
+
 ```tsx
 useFrontendTool({
-  name: "get_weather",           // Must match exactly what the agent calls
+  name: "get_weather", // Must match exactly what the agent calls
   description: "Get weather",
   parameters: z.object({ city: z.string() }),
-  execute: async ({ city }) => { /* ... */ },
+  execute: async ({ city }) => {
+    /* ... */
+  },
 });
 ```
 
 ### Step 2: Check the SSE stream for tool events
 
 Look for `ToolCallStartEvent` in the SSE stream:
+
 - **Not present** -> The agent decided not to call the tool. Check the tool description.
 - **Present but no `ToolCallResultEvent`** -> The frontend did not respond. Check:
   - Is the component with `useFrontendTool` mounted?
@@ -209,6 +222,7 @@ Look for `ToolCallStartEvent` in the SSE stream:
 ### Step 3: Check tool argument parsing
 
 If `tool_argument_parse_failed` error appears:
+
 - The LLM generated arguments that do not match the Zod/JSON schema
 - Check `ToolCallArgsEvent` for the raw arguments
 - Consider relaxing the schema or improving parameter descriptions
@@ -216,6 +230,7 @@ If `tool_argument_parse_failed` error appears:
 ### Step 4: Check HITL tool flow
 
 For `renderAndWaitForResponse` tools:
+
 - The tool renders UI and waits for user input
 - If the tool does not execute after user confirmation, check issue #3442
 - The `runId` may change after HITL resolve (issue #3456)
@@ -230,8 +245,10 @@ Voice input fails or produces errors.
 
 ```ts
 const runtime = new CopilotRuntime({
-  agents: { /* ... */ },
-  transcriptionService: myTranscriptionService,  // Must be provided
+  agents: {
+    /* ... */
+  },
+  transcriptionService: myTranscriptionService, // Must be provided
 });
 ```
 

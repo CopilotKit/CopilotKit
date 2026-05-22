@@ -27,18 +27,18 @@ const runtime = new CopilotRuntime({
 
 **Constructor options (`CopilotRuntimeOptions`):**
 
-| Option | Type | Description |
-|---|---|---|
-| `agents` | `Record<string, AbstractAgent>` | Map of named agents. Must have at least one entry. |
-| `runner` | `AgentRunner` | Agent execution strategy. Defaults to `InMemoryAgentRunner`. |
-| `intelligence` | `CopilotKitIntelligence` | Enables Intelligence mode with durable threads. |
-| `identifyUser` | `(request: Request) => CopilotRuntimeUser` | Required with Intelligence mode. Resolves authenticated user. |
-| `generateThreadNames` | `boolean` | Auto-generate thread names (Intelligence mode only, default: `true`). |
-| `transcriptionService` | `TranscriptionService` | Optional audio transcription (e.g., `TranscriptionServiceOpenAI`). |
-| `beforeRequestMiddleware` | `BeforeRequestMiddleware` | Callback or webhook URL invoked before each request. |
-| `afterRequestMiddleware` | `AfterRequestMiddleware` | Callback or webhook URL invoked after each request. |
-| `a2ui` | `{ agents?: string[] } & A2UIMiddlewareConfig` | Auto-apply A2UI (Agent-to-UI) middleware to agents. |
-| `mcpApps` | `{ servers: McpAppsServerConfig[] }` | Auto-apply MCP Apps middleware with MCP server configs. |
+| Option                    | Type                                           | Description                                                           |
+| ------------------------- | ---------------------------------------------- | --------------------------------------------------------------------- |
+| `agents`                  | `Record<string, AbstractAgent>`                | Map of named agents. Must have at least one entry.                    |
+| `runner`                  | `AgentRunner`                                  | Agent execution strategy. Defaults to `InMemoryAgentRunner`.          |
+| `intelligence`            | `CopilotKitIntelligence`                       | Enables Intelligence mode with durable threads.                       |
+| `identifyUser`            | `(request: Request) => CopilotRuntimeUser`     | Required with Intelligence mode. Resolves authenticated user.         |
+| `generateThreadNames`     | `boolean`                                      | Auto-generate thread names (Intelligence mode only, default: `true`). |
+| `transcriptionService`    | `TranscriptionService`                         | Optional audio transcription (e.g., `TranscriptionServiceOpenAI`).    |
+| `beforeRequestMiddleware` | `BeforeRequestMiddleware`                      | Callback or webhook URL invoked before each request.                  |
+| `afterRequestMiddleware`  | `AfterRequestMiddleware`                       | Callback or webhook URL invoked after each request.                   |
+| `a2ui`                    | `{ agents?: string[] } & A2UIMiddlewareConfig` | Auto-apply A2UI (Agent-to-UI) middleware to agents.                   |
+| `mcpApps`                 | `{ servers: McpAppsServerConfig[] }`           | Auto-apply MCP Apps middleware with MCP server configs.               |
 
 ### Agents
 
@@ -49,11 +49,12 @@ import { BuiltInAgent, defineTool } from "@copilotkit/agent";
 import { z } from "zod";
 
 const agent = new BuiltInAgent({
-  model: "openai/gpt-4o",         // "provider/model" string or LanguageModel instance
-  prompt: "You are helpful.",       // System prompt
-  temperature: 0.7,                // Sampling temperature
-  maxSteps: 5,                     // Max tool-calling iterations (default: 1)
-  tools: [                         // Server-side tools
+  model: "openai/gpt-4o", // "provider/model" string or LanguageModel instance
+  prompt: "You are helpful.", // System prompt
+  temperature: 0.7, // Sampling temperature
+  maxSteps: 5, // Max tool-calling iterations (default: 1)
+  tools: [
+    // Server-side tools
     defineTool({
       name: "getWeather",
       description: "Get current weather for a city",
@@ -72,21 +73,21 @@ const agent = new BuiltInAgent({
 
 **BuiltInAgent configuration:**
 
-| Option | Type | Description |
-|---|---|---|
-| `model` | `string \| LanguageModel` | Model identifier (e.g., `"openai/gpt-4o"`) or AI SDK LanguageModel |
-| `apiKey` | `string` | Provider API key (falls back to env vars) |
-| `prompt` | `string` | System prompt |
-| `temperature` | `number` | Sampling temperature |
-| `maxSteps` | `number` | Max tool-calling iterations (default: 1) |
-| `maxOutputTokens` | `number` | Max tokens to generate |
-| `toolChoice` | `ToolChoice` | How tools are selected (`"auto"`, `"required"`, `"none"`, or specific) |
-| `tools` | `ToolDefinition[]` | Server-side tools available to the agent |
-| `mcpServers` | `MCPClientConfig[]` | MCP server connections for dynamic tool discovery |
-| `providerOptions` | `Record<string, any>` | Provider-specific options (e.g., `{ openai: { reasoningEffort: "high" } }`) |
-| `overridableProperties` | `OverridableProperty[]` | Properties the frontend can override via forwarded props |
-| `forwardSystemMessages` | `boolean` | Forward system-role messages from input (default: `false`) |
-| `forwardDeveloperMessages` | `boolean` | Forward developer-role messages as system messages (default: `false`) |
+| Option                     | Type                      | Description                                                                 |
+| -------------------------- | ------------------------- | --------------------------------------------------------------------------- |
+| `model`                    | `string \| LanguageModel` | Model identifier (e.g., `"openai/gpt-4o"`) or AI SDK LanguageModel          |
+| `apiKey`                   | `string`                  | Provider API key (falls back to env vars)                                   |
+| `prompt`                   | `string`                  | System prompt                                                               |
+| `temperature`              | `number`                  | Sampling temperature                                                        |
+| `maxSteps`                 | `number`                  | Max tool-calling iterations (default: 1)                                    |
+| `maxOutputTokens`          | `number`                  | Max tokens to generate                                                      |
+| `toolChoice`               | `ToolChoice`              | How tools are selected (`"auto"`, `"required"`, `"none"`, or specific)      |
+| `tools`                    | `ToolDefinition[]`        | Server-side tools available to the agent                                    |
+| `mcpServers`               | `MCPClientConfig[]`       | MCP server connections for dynamic tool discovery                           |
+| `providerOptions`          | `Record<string, any>`     | Provider-specific options (e.g., `{ openai: { reasoningEffort: "high" } }`) |
+| `overridableProperties`    | `OverridableProperty[]`   | Properties the frontend can override via forwarded props                    |
+| `forwardSystemMessages`    | `boolean`                 | Forward system-role messages from input (default: `false`)                  |
+| `forwardDeveloperMessages` | `boolean`                 | Forward developer-role messages as system messages (default: `false`)       |
 
 ### AgentRunner
 
@@ -114,34 +115,37 @@ Endpoint factories create HTTP handlers that expose the runtime's functionality.
 
 Each operation gets its own HTTP path under the base path:
 
-| Method | Path | Handler |
-|---|---|---|
-| POST | `/agent/:agentId/run` | Start an agent run |
-| POST | `/agent/:agentId/connect` | Connect to an existing thread |
-| POST | `/agent/:agentId/stop/:threadId` | Stop a running agent |
-| GET | `/info` | Runtime info (version, available agents) |
-| POST | `/transcribe` | Audio transcription |
-| GET | `/threads` | List threads (Intelligence mode) |
-| POST | `/threads/subscribe` | Subscribe to thread updates |
-| PATCH | `/threads/:threadId` | Update thread metadata |
-| POST | `/threads/:threadId/archive` | Archive a thread |
-| DELETE | `/threads/:threadId` | Delete a thread |
+| Method | Path                             | Handler                                  |
+| ------ | -------------------------------- | ---------------------------------------- |
+| POST   | `/agent/:agentId/run`            | Start an agent run                       |
+| POST   | `/agent/:agentId/connect`        | Connect to an existing thread            |
+| POST   | `/agent/:agentId/stop/:threadId` | Stop a running agent                     |
+| GET    | `/info`                          | Runtime info (version, available agents) |
+| POST   | `/transcribe`                    | Audio transcription                      |
+| GET    | `/threads`                       | List threads (Intelligence mode)         |
+| POST   | `/threads/subscribe`             | Subscribe to thread updates              |
+| PATCH  | `/threads/:threadId`             | Update thread metadata                   |
+| POST   | `/threads/:threadId/archive`     | Archive a thread                         |
+| DELETE | `/threads/:threadId`             | Delete a thread                          |
 
 **Hono (`createCopilotEndpoint`):**
+
 ```typescript
 import { CopilotRuntime, createCopilotEndpoint } from "@copilotkit/runtime";
 
 const app = createCopilotEndpoint({
   runtime,
   basePath: "/api/copilotkit",
-  cors: {                           // optional CORS config
-    origin: "https://myapp.com",    // string, string[], or function
-    credentials: true,              // enable for HTTP-only cookies
+  cors: {
+    // optional CORS config
+    origin: "https://myapp.com", // string, string[], or function
+    credentials: true, // enable for HTTP-only cookies
   },
 });
 ```
 
 **Express (`createCopilotEndpointExpress`):**
+
 ```typescript
 import { createCopilotEndpointExpress } from "@copilotkit/runtime/express";
 
@@ -157,8 +161,12 @@ app.use(router);
 All operations go through a single POST endpoint. The operation is identified by a `method` field in the JSON body. This is simpler to deploy (one route, no catch-all needed).
 
 **Hono (`createCopilotEndpointSingleRoute`):**
+
 ```typescript
-import { CopilotRuntime, createCopilotEndpointSingleRoute } from "@copilotkit/runtime";
+import {
+  CopilotRuntime,
+  createCopilotEndpointSingleRoute,
+} from "@copilotkit/runtime";
 
 const app = createCopilotEndpointSingleRoute({
   runtime,
@@ -167,25 +175,26 @@ const app = createCopilotEndpointSingleRoute({
 ```
 
 **Express (`createCopilotEndpointSingleRouteExpress`):**
+
 ```typescript
 import { createCopilotEndpointSingleRouteExpress } from "@copilotkit/runtime/express";
 
 const router = createCopilotEndpointSingleRouteExpress({
   runtime,
-  basePath: "/",  // relative to where it's mounted
+  basePath: "/", // relative to where it's mounted
 });
 app.use("/api/copilotkit", router);
 ```
 
 ### When to Use Which
 
-| Scenario | Recommended |
-|---|---|
-| Next.js App Router | Multi-route Hono (`createCopilotEndpoint`) via `[[...slug]]` catch-all |
-| Next.js App Router (no catch-all desired) | Single-route Hono (`createCopilotEndpointSingleRoute`) |
-| Standalone Express server | Single-route Express (`createCopilotEndpointSingleRouteExpress`) |
-| Standalone Hono/Node server | Multi-route Hono (`createCopilotEndpoint`) |
-| Need thread management (Intelligence mode) | Multi-route only (thread endpoints not available in single-route) |
+| Scenario                                   | Recommended                                                            |
+| ------------------------------------------ | ---------------------------------------------------------------------- |
+| Next.js App Router                         | Multi-route Hono (`createCopilotEndpoint`) via `[[...slug]]` catch-all |
+| Next.js App Router (no catch-all desired)  | Single-route Hono (`createCopilotEndpointSingleRoute`)                 |
+| Standalone Express server                  | Single-route Express (`createCopilotEndpointSingleRouteExpress`)       |
+| Standalone Hono/Node server                | Multi-route Hono (`createCopilotEndpoint`)                             |
+| Need thread management (Intelligence mode) | Multi-route only (thread endpoints not available in single-route)      |
 
 ## Middleware
 
@@ -202,7 +211,7 @@ const runtime = new CopilotRuntime({
         status: 401,
       });
     }
-    return request;  // or return void to pass through unchanged
+    return request; // or return void to pass through unchanged
   },
   afterRequestMiddleware: async ({ response, path, messages, threadId }) => {
     // Log, audit, etc. Non-blocking (errors are caught and logged).
@@ -218,6 +227,7 @@ const runtime = new CopilotRuntime({
 All endpoint factories enable CORS by default with `origin: "*"`. For production with credentials (cookies), configure explicit origins:
 
 **Hono endpoints:**
+
 ```typescript
 createCopilotEndpoint({
   runtime,
@@ -232,6 +242,7 @@ createCopilotEndpoint({
 **Express endpoints:** CORS is handled internally via the `cors` middleware with permissive defaults. Customize by wrapping the router or adding your own CORS middleware upstream.
 
 **Frontend side:** Set `credentials: "include"` on `CopilotKitProvider` to send cookies:
+
 ```tsx
 <CopilotKitProvider runtimeUrl="/api/copilotkit" credentials="include">
 ```

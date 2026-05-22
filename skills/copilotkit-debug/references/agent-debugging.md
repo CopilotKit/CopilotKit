@@ -2,12 +2,12 @@
 
 ## Agent Types in CopilotKit v2
 
-| Agent Type | Package | Description |
-|------------|---------|-------------|
-| `BuiltInAgent` | `@copilotkit/agent` | Uses Vercel AI SDK `streamText` with configurable model providers |
-| `LangGraphAgent` | `@ag-ui/langgraph` | Wraps a LangGraph deployment (Python or JS) |
-| `A2AAgent` | Varies | Agent-to-Agent protocol agent |
-| Custom `AbstractAgent` | `@ag-ui/client` | Any class extending `AbstractAgent` with a `run()` returning `Observable<BaseEvent>` |
+| Agent Type             | Package             | Description                                                                          |
+| ---------------------- | ------------------- | ------------------------------------------------------------------------------------ |
+| `BuiltInAgent`         | `@copilotkit/agent` | Uses Vercel AI SDK `streamText` with configurable model providers                    |
+| `LangGraphAgent`       | `@ag-ui/langgraph`  | Wraps a LangGraph deployment (Python or JS)                                          |
+| `A2AAgent`             | Varies              | Agent-to-Agent protocol agent                                                        |
+| Custom `AbstractAgent` | `@ag-ui/client`     | Any class extending `AbstractAgent` with a `run()` returning `Observable<BaseEvent>` |
 
 ## Agent Discovery Issues
 
@@ -18,22 +18,27 @@
 **Diagnostic steps**:
 
 1. Hit the `/info` endpoint to see registered agents:
+
    ```bash
    curl http://localhost:3001/api/copilotkit/info | jq .agents
    ```
 
 2. Compare the agent names in the response with the `agentId` prop:
+
    ```tsx
-   <CopilotChat agentId="myAgent" />
+   <CopilotChat agentId="myAgent" />;
    // or
    const { run } = useAgent({ name: "myAgent" });
    ```
 
 3. Check the runtime agent map -- keys must match exactly (case-sensitive):
+
    ```ts
    new CopilotRuntime({
      agents: {
-       myAgent: new BuiltInAgent({ /* ... */ }),  // Key "myAgent" is the agent ID
+       myAgent: new BuiltInAgent({
+         /* ... */
+       }), // Key "myAgent" is the agent ID
      },
    });
    ```
@@ -89,6 +94,7 @@ RunFinishedEvent
 ```
 
 Or for fatal errors:
+
 ```
 RunStartedEvent
   -> RunErrorEvent (message: "...")      // Fatal
@@ -201,12 +207,14 @@ The tool's `execute` function threw an exception.
 `BuiltInAgent` uses `resolveModel()` to convert string identifiers to Vercel AI SDK `LanguageModel` instances.
 
 Supported formats:
+
 - `"openai/gpt-5"`, `"openai/gpt-4o"`, `"openai/o3-mini"`
 - `"anthropic/claude-sonnet-4.5"`, `"anthropic/claude-opus-4"`
 - `"google/gemini-2.5-pro"`, `"google/gemini-2.5-flash"`
 - `"vertex/gemini-2.5-pro"` (uses Google Vertex AI)
 
 Common errors:
+
 - `Invalid model string "..."` -- Missing provider prefix or model name
 - `Unknown provider "..." in "..."` -- Unsupported provider (only openai, anthropic, google, vertex)
 - Missing API key -- `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GOOGLE_API_KEY` not set in environment
@@ -220,12 +228,17 @@ new BuiltInAgent({
   model: "openai/gpt-4o",
   mcpClients: [
     { type: "http", url: "http://localhost:8080" },
-    { type: "sse", url: "http://localhost:8081/sse", headers: { "Authorization": "Bearer ..." } },
+    {
+      type: "sse",
+      url: "http://localhost:8081/sse",
+      headers: { Authorization: "Bearer ..." },
+    },
   ],
 });
 ```
 
 MCP debugging:
+
 - `type: "http"` uses `StreamableHTTPClientTransport`
 - `type: "sse"` uses `SSEClientTransport`
 - If the MCP server is unreachable, the agent may fail silently or throw during tool discovery
@@ -259,6 +272,7 @@ Intelligence mode uses WebSocket for real-time events:
 - Client WebSocket: `{wsUrl}/client` -- used by the frontend for real-time thread updates
 
 If WebSocket connections fail:
+
 1. Check that the `wsUrl` is correct (should start with `wss://`)
 2. Verify the API key and tenant ID
 3. Check for WebSocket-blocking proxies or firewalls
@@ -274,11 +288,12 @@ The CopilotKit Web Inspector (`@copilotkit/web-inspector`) provides real-time vi
 - Tool call lifecycle
 
 Enable it during development:
+
 ```tsx
 import { CopilotKitWebInspector } from "@copilotkit/web-inspector";
 
 <CopilotKitProvider runtimeUrl="/api/copilotkit">
   <CopilotKitWebInspector />
   <YourApp />
-</CopilotKitProvider>
+</CopilotKitProvider>;
 ```

@@ -33,17 +33,17 @@ CopilotKit uses [lefthook](https://github.com/evilmartians/lefthook) to run pre-
 
 ### Pre-commit (parallel)
 
-| Hook | What it does |
-|---|---|
-| `check-binaries` | Rejects binary files, build artifacts, dSYM dirs, and files >1MB |
-| `sync-lockfile` | Runs `pnpm i --lockfile-only` when package.json changes, auto-stages |
-| `lint-fix` | Runs `pnpm run lint --fix && pnpm run format`, auto-stages fixes |
-| `test-and-check-packages` | Runs `pnpm run test && pnpm run check:packages` |
+| Hook                      | What it does                                                         |
+| ------------------------- | -------------------------------------------------------------------- |
+| `check-binaries`          | Rejects binary files, build artifacts, dSYM dirs, and files >1MB     |
+| `sync-lockfile`           | Runs `pnpm i --lockfile-only` when package.json changes, auto-stages |
+| `lint-fix`                | Runs `pnpm run lint --fix && pnpm run format`, auto-stages fixes     |
+| `test-and-check-packages` | Runs `pnpm run test && pnpm run check:packages`                      |
 
 ### Commit-msg
 
-| Hook | What it does |
-|---|---|
+| Hook         | What it does                                                |
+| ------------ | ----------------------------------------------------------- |
 | `commitlint` | Validates commit message against conventional commit format |
 
 If hooks fail, fix the issue and try again. Do not use `--no-verify` to bypass hooks.

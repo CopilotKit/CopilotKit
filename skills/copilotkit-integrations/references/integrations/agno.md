@@ -48,6 +48,7 @@ agent = Agent(
 ```
 
 Key patterns:
+
 - Agno has built-in tool collections like `YFinanceTools()` for financial data
 - Frontend and backend tools are mixed in the same `tools` list -- the distinction is handled by the AG-UI adapter
 
@@ -70,6 +71,7 @@ if __name__ == "__main__":
 ```
 
 Key patterns:
+
 - `AgentOS` is Agno's application container -- it manages agents and interfaces
 - `AGUI(agent=agent)` registers the AG-UI interface for the agent
 - `agent_os.get_app()` returns a FastAPI/ASGI app

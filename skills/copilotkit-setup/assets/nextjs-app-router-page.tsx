@@ -14,7 +14,9 @@ import { CopilotKitProvider, CopilotChat } from "@copilotkit/react";
 export default function Home() {
   return (
     <CopilotKitProvider runtimeUrl="/api/copilotkit" showDevConsole="auto">
-      <div style={{ height: "100vh", margin: 0, padding: 0, overflow: "hidden" }}>
+      <div
+        style={{ height: "100vh", margin: 0, padding: 0, overflow: "hidden" }}
+      >
         <CopilotChat />
       </div>
     </CopilotKitProvider>

@@ -37,19 +37,19 @@ Scan the codebase for all v1 imports and API usage:
 
 Key hooks and components to find and replace:
 
-| v1 API | v2 Replacement |
-|--------|---------------|
-| `useCopilotAction` | `useFrontendTool` |
-| `useCopilotReadable` | `useAgentContext` |
-| `useCopilotChat` | `useAgent` + `useSuggestions` |
-| `useCoAgent` | `useAgent` |
-| `useCoAgentStateRender` | `useRenderToolCall` / `useRenderActivityMessage` |
-| `useLangGraphInterrupt` | `useInterrupt` |
-| `useCopilotChatSuggestions` | `useConfigureSuggestions` + `useSuggestions` |
-| `useCopilotAdditionalInstructions` | `useAgentContext` |
-| `useMakeCopilotDocumentReadable` | `useAgentContext` |
-| `CopilotKit` (provider) | `CopilotKitProvider` |
-| `CopilotTextarea` | Removed -- use standard textarea + `useFrontendTool` |
+| v1 API                             | v2 Replacement                                       |
+| ---------------------------------- | ---------------------------------------------------- |
+| `useCopilotAction`                 | `useFrontendTool`                                    |
+| `useCopilotReadable`               | `useAgentContext`                                    |
+| `useCopilotChat`                   | `useAgent` + `useSuggestions`                        |
+| `useCoAgent`                       | `useAgent`                                           |
+| `useCoAgentStateRender`            | `useRenderToolCall` / `useRenderActivityMessage`     |
+| `useLangGraphInterrupt`            | `useInterrupt`                                       |
+| `useCopilotChatSuggestions`        | `useConfigureSuggestions` + `useSuggestions`         |
+| `useCopilotAdditionalInstructions` | `useAgentContext`                                    |
+| `useMakeCopilotDocumentReadable`   | `useAgentContext`                                    |
+| `CopilotKit` (provider)            | `CopilotKitProvider`                                 |
+| `CopilotTextarea`                  | Removed -- use standard textarea + `useFrontendTool` |
 
 ### 3. Map to v2 Equivalents
 
@@ -74,6 +74,7 @@ The `@copilotkit/*` package names stay the same. Update to the latest v2 version
 The v1 `CopilotRuntime` accepted service adapters (OpenAI, Anthropic, LangChain, etc.) and endpoint definitions. The v2 `CopilotRuntime` accepts AG-UI `AbstractAgent` instances directly.
 
 **v1 pattern** (service adapter + endpoints):
+
 ```ts
 import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
 const runtime = new CopilotRuntime({ actions: [...] });
@@ -81,6 +82,7 @@ const runtime = new CopilotRuntime({ actions: [...] });
 ```
 
 **v2 pattern** (agents + Hono endpoint):
+
 ```ts
 import { CopilotRuntime, createCopilotEndpoint } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/agent";
@@ -93,19 +95,19 @@ const app = createCopilotEndpoint({ runtime, basePath: "/api/copilotkit" });
 ### 6. Update Provider
 
 **v1:**
+
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core";
-<CopilotKit runtimeUrl="/api/copilotkit">
-  {children}
-</CopilotKit>
+<CopilotKit runtimeUrl="/api/copilotkit">{children}</CopilotKit>;
 ```
 
 **v2:**
+
 ```tsx
 import { CopilotKitProvider } from "@copilotkit/react";
 <CopilotKitProvider runtimeUrl="/api/copilotkit">
   {children}
-</CopilotKitProvider>
+</CopilotKitProvider>;
 ```
 
 ### 7. Verify
@@ -117,18 +119,18 @@ import { CopilotKitProvider } from "@copilotkit/react";
 
 ## Quick Reference
 
-| Concept | v1 | v2 |
-|---------|----|----|
-| Package scope | `@copilotkit/*` | `@copilotkit/*` (same scope, updated APIs) |
-| Protocol | GraphQL | AG-UI (SSE) |
-| Provider component | `CopilotKit` | `CopilotKitProvider` |
-| Define frontend tool | `useCopilotAction` | `useFrontendTool` |
-| Share app state | `useCopilotReadable` | `useAgentContext` |
-| Agent interaction | `useCoAgent` | `useAgent` |
-| Handle interrupts | `useLangGraphInterrupt` | `useInterrupt` |
-| Render tool calls | `useCopilotAction({ render })` | `useRenderToolCall` |
-| Chat suggestions | `useCopilotChatSuggestions` | `useConfigureSuggestions` |
-| Runtime class | `CopilotRuntime` (adapters) | `CopilotRuntime` (agents) |
-| Endpoint setup | `copilotKitEndpoint()` | `createCopilotEndpoint()` |
-| Agent definition | `LangGraphAgent` endpoint | `AbstractAgent` / `BuiltInAgent` |
-| Chat components | `CopilotChat`, `CopilotPopup`, `CopilotSidebar` | `CopilotChat`, `CopilotPopup`, `CopilotSidebar` (from `@copilotkit/react`) |
+| Concept              | v1                                              | v2                                                                         |
+| -------------------- | ----------------------------------------------- | -------------------------------------------------------------------------- |
+| Package scope        | `@copilotkit/*`                                 | `@copilotkit/*` (same scope, updated APIs)                                 |
+| Protocol             | GraphQL                                         | AG-UI (SSE)                                                                |
+| Provider component   | `CopilotKit`                                    | `CopilotKitProvider`                                                       |
+| Define frontend tool | `useCopilotAction`                              | `useFrontendTool`                                                          |
+| Share app state      | `useCopilotReadable`                            | `useAgentContext`                                                          |
+| Agent interaction    | `useCoAgent`                                    | `useAgent`                                                                 |
+| Handle interrupts    | `useLangGraphInterrupt`                         | `useInterrupt`                                                             |
+| Render tool calls    | `useCopilotAction({ render })`                  | `useRenderToolCall`                                                        |
+| Chat suggestions     | `useCopilotChatSuggestions`                     | `useConfigureSuggestions`                                                  |
+| Runtime class        | `CopilotRuntime` (adapters)                     | `CopilotRuntime` (agents)                                                  |
+| Endpoint setup       | `copilotKitEndpoint()`                          | `createCopilotEndpoint()`                                                  |
+| Agent definition     | `LangGraphAgent` endpoint                       | `AbstractAgent` / `BuiltInAgent`                                           |
+| Chat components      | `CopilotChat`, `CopilotPopup`, `CopilotSidebar` | `CopilotChat`, `CopilotPopup`, `CopilotSidebar` (from `@copilotkit/react`) |

@@ -114,6 +114,7 @@ add_adk_fastapi_endpoint(app, adk_proverbs_agent, path="/")
 ```
 
 Key patterns:
+
 - State lives in `ToolContext.state` / `CallbackContext.state` (dict-based)
 - Use `before_agent_callback` to initialize state
 - Use `before_model_callback` to inject current state into the system prompt

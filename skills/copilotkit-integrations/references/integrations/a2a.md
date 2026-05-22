@@ -39,9 +39,12 @@ import { A2AMiddlewareAgent } from "@ag-ui/a2a-middleware";
 import { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest) {
-  const researchAgentUrl = process.env.RESEARCH_AGENT_URL || "http://localhost:9001";
-  const analysisAgentUrl = process.env.ANALYSIS_AGENT_URL || "http://localhost:9002";
-  const orchestratorUrl = process.env.ORCHESTRATOR_URL || "http://localhost:9000";
+  const researchAgentUrl =
+    process.env.RESEARCH_AGENT_URL || "http://localhost:9001";
+  const analysisAgentUrl =
+    process.env.ANALYSIS_AGENT_URL || "http://localhost:9002";
+  const orchestratorUrl =
+    process.env.ORCHESTRATOR_URL || "http://localhost:9000";
 
   // Connect to orchestrator via AG-UI Protocol
   const orchestrationAgent = new HttpAgent({ url: orchestratorUrl });
@@ -79,6 +82,7 @@ export async function POST(request: NextRequest) {
 ```
 
 Key patterns:
+
 - `A2AMiddlewareAgent` from `@ag-ui/a2a-middleware` wraps the orchestrator
 - `agentUrls` lists all A2A-compatible agent endpoints
 - `orchestrationAgent` is the main agent that receives requests from the UI
@@ -161,6 +165,7 @@ const runtime = new CopilotRuntime({
 ```
 
 Key patterns:
+
 - Uses `BuiltInAgent` from `@copilotkit/runtime/v2` (not an external agent)
 - `MCPAppsMiddleware` adds MCP server tools to the agent
 - Multiple MCP servers can be added in the `mcpServers` array

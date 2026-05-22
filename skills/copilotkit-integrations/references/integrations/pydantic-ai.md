@@ -85,6 +85,7 @@ def get_weather(_: RunContext[StateDeps[ProverbsState]], location: str) -> str:
 ```
 
 Key patterns:
+
 - Use `StateDeps[YourStateModel]` as the `deps_type` to enable AG-UI shared state
 - State-reading tools access `ctx.deps.state` directly
 - State-modifying tools return `StateSnapshotEvent` with the updated state -- this triggers a state sync to the frontend

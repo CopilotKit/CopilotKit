@@ -9,6 +9,7 @@ version: 1.0.0
 ## When to Use
 
 Invoke this skill when:
+
 - The CopilotKit runtime is unreachable or returning errors
 - Agents fail to connect, respond, or stream events
 - Frontend tools are not executing or returning results
@@ -101,19 +102,20 @@ search-code("CopilotRuntime error handling")
 ```
 
 The official troubleshooting docs are at:
+
 - `https://docs.copilotkit.ai/troubleshooting/common-issues`
 - `https://docs.copilotkit.ai/coagents/troubleshooting/common-issues`
 
 ## Key File Locations in the CopilotKit Codebase
 
-| Component | Path |
-|-----------|------|
-| V1 Error classes & codes | `packages/v1/shared/src/utils/errors.ts` |
-| V2 Core error codes | `packages/v2/core/src/core/core.ts` (`CopilotKitCoreErrorCode` enum) |
-| V2 Transcription errors | `packages/v2/shared/src/transcription-errors.ts` |
-| Runtime SSE response | `packages/v2/runtime/src/handlers/shared/sse-response.ts` |
-| Runtime info endpoint | `packages/v2/runtime/src/handlers/get-runtime-info.ts` |
-| Runtime CORS config | `packages/v2/runtime/src/endpoints/hono.ts` |
-| Intelligence platform client | `packages/v2/runtime/src/intelligence-platform/client.ts` |
-| Agent package (BuiltInAgent) | `packages/v2/agent/src/index.ts` |
-| Web Inspector | `packages/v2/web-inspector/src/index.ts` |
+| Component                    | Path                                                                 |
+| ---------------------------- | -------------------------------------------------------------------- |
+| V1 Error classes & codes     | `packages/v1/shared/src/utils/errors.ts`                             |
+| V2 Core error codes          | `packages/v2/core/src/core/core.ts` (`CopilotKitCoreErrorCode` enum) |
+| V2 Transcription errors      | `packages/v2/shared/src/transcription-errors.ts`                     |
+| Runtime SSE response         | `packages/v2/runtime/src/handlers/shared/sse-response.ts`            |
+| Runtime info endpoint        | `packages/v2/runtime/src/handlers/get-runtime-info.ts`               |
+| Runtime CORS config          | `packages/v2/runtime/src/endpoints/hono.ts`                          |
+| Intelligence platform client | `packages/v2/runtime/src/intelligence-platform/client.ts`            |
+| Agent package (BuiltInAgent) | `packages/v2/agent/src/index.ts`                                     |
+| Web Inspector                | `packages/v2/web-inspector/src/index.ts`                             |

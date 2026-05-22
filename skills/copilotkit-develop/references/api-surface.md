@@ -92,13 +92,20 @@ While the runtime is connecting, returns a provisional `ProxiedCopilotRuntimeAge
 ### useInterrupt
 
 ```ts
-function useInterrupt<TResult = never, TRenderInChat extends boolean | undefined = undefined>(
+function useInterrupt<
+  TResult = never,
+  TRenderInChat extends boolean | undefined = undefined,
+>(
   config: UseInterruptConfig<any, TResult, TRenderInChat>,
 ): React.ReactElement | null | void;
 
 interface UseInterruptConfig<TValue, TResult, TRenderInChat> {
-  render: (props: InterruptRenderProps<TValue, TResult | null>) => React.ReactElement;
-  handler?: (props: InterruptHandlerProps<TValue>) => TResult | PromiseLike<TResult>;
+  render: (
+    props: InterruptRenderProps<TValue, TResult | null>,
+  ) => React.ReactElement;
+  handler?: (
+    props: InterruptHandlerProps<TValue>,
+  ) => TResult | PromiseLike<TResult>;
   enabled?: (event: InterruptEvent<TValue>) => boolean;
   agentId?: string;
   renderInChat?: TRenderInChat; // default: true
@@ -135,7 +142,11 @@ Registers a tool that pauses agent execution until the user responds. The `rende
 type ReactHumanInTheLoop<T> = Omit<FrontendTool<T>, "handler"> & {
   render: React.ComponentType<
     | { status: "inProgress"; args: Partial<T>; respond: undefined }
-    | { status: "executing"; args: T; respond: (result: unknown) => Promise<void> }
+    | {
+        status: "executing";
+        args: T;
+        respond: (result: unknown) => Promise<void>;
+      }
     | { status: "complete"; args: T; result: string; respond: undefined }
   >;
 };
@@ -168,9 +179,24 @@ function useRenderTool(
 ): void;
 
 type RenderToolProps<S> =
-  | { name: string; parameters: Partial<InferSchemaOutput<S>>; status: "inProgress"; result: undefined }
-  | { name: string; parameters: InferSchemaOutput<S>; status: "executing"; result: undefined }
-  | { name: string; parameters: InferSchemaOutput<S>; status: "complete"; result: string };
+  | {
+      name: string;
+      parameters: Partial<InferSchemaOutput<S>>;
+      status: "inProgress";
+      result: undefined;
+    }
+  | {
+      name: string;
+      parameters: InferSchemaOutput<S>;
+      status: "executing";
+      result: undefined;
+    }
+  | {
+      name: string;
+      parameters: InferSchemaOutput<S>;
+      status: "complete";
+      result: string;
+    };
 ```
 
 Registers a visual renderer for tool calls in the chat. Renderers are deduplicated by `agentId:name`. The renderer is intentionally NOT removed on unmount so historical tool calls can still render.
@@ -225,6 +251,7 @@ function useConfigureSuggestions(
 Registers a suggestion configuration. Two modes:
 
 **Dynamic** (LLM-generated):
+
 ```ts
 {
   instructions: "Suggest follow-up questions about the data",
@@ -237,6 +264,7 @@ Registers a suggestion configuration. Two modes:
 ```
 
 **Static**:
+
 ```ts
 {
   suggestions: [{ title: "...", message: "..." }],
@@ -295,7 +323,9 @@ Returns a function that resolves the correct renderer for a tool call. Priority:
 
 ```ts
 function useRenderActivityMessage(): {
-  renderActivityMessage: (message: ActivityMessage) => React.ReactElement | null;
+  renderActivityMessage: (
+    message: ActivityMessage,
+  ) => React.ReactElement | null;
   findRenderer: (activityType: string) => ReactActivityMessageRenderer | null;
 };
 ```
@@ -436,7 +466,12 @@ interface ReactToolCallRenderer<T> {
   args: StandardSchemaV1<any, T>;
   agentId?: string;
   render: React.ComponentType<
-    | { name: string; args: Partial<T>; status: "inProgress"; result: undefined }
+    | {
+        name: string;
+        args: Partial<T>;
+        status: "inProgress";
+        result: undefined;
+      }
     | { name: string; args: T; status: "executing"; result: undefined }
     | { name: string; args: T; status: "complete"; result: string }
   >;
@@ -451,7 +486,7 @@ See `useHumanInTheLoop` above.
 
 ```ts
 interface ReactActivityMessageRenderer<TActivityContent> {
-  activityType: string;    // or "*" for wildcard
+  activityType: string; // or "*" for wildcard
   agentId?: string;
   content: StandardSchemaV1<any, TActivityContent>;
   render: React.ComponentType<{

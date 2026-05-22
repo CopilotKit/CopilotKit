@@ -4,24 +4,26 @@
 
 CopilotKit v2 runtime (`@copilotkit/runtime`) runs as a Hono HTTP server. It exposes these endpoints under the configured `basePath`:
 
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/info` | GET | Runtime discovery -- returns version, agent list, capabilities |
-| `/agent/:agentId/run` | POST | Start an agent run, returns SSE event stream |
-| `/agent/:agentId/connect` | POST | Connect to an existing agent run (Intelligence mode) |
-| `/agent/:agentId/stop` | POST | Stop a running agent |
-| `/transcribe` | POST | Audio transcription |
-| `/threads` | GET/POST/PATCH/DELETE | Thread management (Intelligence mode only) |
+| Endpoint                  | Method                | Purpose                                                        |
+| ------------------------- | --------------------- | -------------------------------------------------------------- |
+| `/info`                   | GET                   | Runtime discovery -- returns version, agent list, capabilities |
+| `/agent/:agentId/run`     | POST                  | Start an agent run, returns SSE event stream                   |
+| `/agent/:agentId/connect` | POST                  | Connect to an existing agent run (Intelligence mode)           |
+| `/agent/:agentId/stop`    | POST                  | Stop a running agent                                           |
+| `/transcribe`             | POST                  | Audio transcription                                            |
+| `/threads`                | GET/POST/PATCH/DELETE | Thread management (Intelligence mode only)                     |
 
 ## Runtime Modes
 
 ### SSE Mode (`"sse"`)
+
 - Default mode. Agent runs are ephemeral.
 - Each `/agent/:id/run` request creates a new run and streams AG-UI events as SSE.
 - Uses `InMemoryAgentRunner` by default.
 - No thread persistence -- state lives only for the duration of the SSE connection.
 
 ### Intelligence Mode (`"intelligence"`)
+
 - Requires `CopilotKitIntelligence` configuration with `apiUrl`, `wsUrl`, `apiKey`, `tenantId`.
 - Agent runs are durable -- threads are persisted on the Intelligence platform.
 - Uses `IntelligenceAgentRunner` which coordinates via WebSocket.
@@ -33,12 +35,15 @@ CopilotKit v2 runtime (`@copilotkit/runtime`) runs as a Hono HTTP server. It exp
 ### "Runtime not found" / 404 Errors
 
 1. **Verify the runtime is running**: Hit the `/info` endpoint directly:
+
    ```bash
    curl http://localhost:3001/api/copilotkit/info
    ```
+
    Expected response: JSON with `version`, `agents`, `mode` fields.
 
 2. **Check basePath alignment**: The `basePath` in `createCopilotEndpoint()` must match the `runtimeUrl` in `CopilotKitProvider`:
+
    ```ts
    // Server
    createCopilotEndpoint({ runtime, basePath: "/api/copilotkit" });
@@ -74,6 +79,7 @@ CopilotKit v2 runtime (`@copilotkit/runtime`) runs as a Hono HTTP server. It exp
 ### Default CORS Behavior
 
 When no `cors` option is provided to `createCopilotEndpoint`, the runtime defaults to:
+
 - `origin: "*"` (all origins allowed)
 - `credentials: false`
 - All standard HTTP methods allowed
@@ -88,13 +94,14 @@ createCopilotEndpoint({
   runtime,
   basePath: "/api/copilotkit",
   cors: {
-    origin: "https://myapp.com",  // Must be explicit, not "*"
+    origin: "https://myapp.com", // Must be explicit, not "*"
     credentials: true,
   },
 });
 ```
 
 On the client side, enable credentials:
+
 ```tsx
 <CopilotKitProvider
   runtimeUrl="https://api.myapp.com/api/copilotkit"
@@ -104,12 +111,12 @@ On the client side, enable credentials:
 
 ### Common CORS Errors
 
-| Browser Error | Cause | Fix |
-|---------------|-------|-----|
-| "No 'Access-Control-Allow-Origin' header" | Runtime not sending CORS headers | Verify `createCopilotEndpoint` is handling the request (not a 404 from another handler) |
-| "Credential is not supported if origin is '*'" | `credentials: true` with wildcard origin | Set an explicit `origin` in the CORS config |
-| "Method PUT is not allowed" | Preflight failure | Ensure the runtime's CORS allows the method (default config allows all) |
-| CORS error only in production | Different origins in dev vs prod | Update the `origin` config for the production domain |
+| Browser Error                                   | Cause                                    | Fix                                                                                     |
+| ----------------------------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------- |
+| "No 'Access-Control-Allow-Origin' header"       | Runtime not sending CORS headers         | Verify `createCopilotEndpoint` is handling the request (not a 404 from another handler) |
+| "Credential is not supported if origin is '\*'" | `credentials: true` with wildcard origin | Set an explicit `origin` in the CORS config                                             |
+| "Method PUT is not allowed"                     | Preflight failure                        | Ensure the runtime's CORS allows the method (default config allows all)                 |
+| CORS error only in production                   | Different origins in dev vs prod         | Update the `origin` config for the production domain                                    |
 
 ### Diagnosing CORS Issues
 
@@ -123,6 +130,7 @@ On the client side, enable credentials:
 ### How SSE Works in CopilotKit
 
 The `/agent/:agentId/run` endpoint returns an SSE response:
+
 - Content-Type: `text/event-stream`
 - Cache-Control: `no-cache`
 - Connection: `keep-alive`
@@ -153,6 +161,7 @@ Events are encoded using `@ag-ui/encoder` (the `EventEncoder` class). Each event
 2. Find the POST request to `/agent/:id/run`
 3. Click the "EventStream" tab (Chrome) or check the Response tab for raw SSE data
 4. Each event should be formatted as:
+
    ```
    data: {"type":"RunStarted","runId":"..."}
 
@@ -160,6 +169,7 @@ Events are encoded using `@ag-ui/encoder` (the `EventEncoder` class). Each event
 
    data: {"type":"TextMessageChunk","delta":"Hello"}
    ```
+
 5. If events stop flowing, the issue is server-side (agent stalled or errored)
 
 ## Runtime Info Endpoint Debugging
@@ -185,6 +195,7 @@ The `/info` endpoint is the first request the client makes. If it fails, no agen
 ```
 
 For Intelligence mode, the response also includes:
+
 ```json
 {
   "intelligence": {
@@ -216,7 +227,9 @@ Headers are sent with every request to the runtime, including `/info`, `/agent/:
 
 ```ts
 const runtime = new CopilotRuntime({
-  agents: { /* ... */ },
+  agents: {
+    /* ... */
+  },
   beforeRequestMiddleware: async ({ request }) => {
     const auth = request.headers.get("Authorization");
     // Validate auth, modify request, or throw to reject

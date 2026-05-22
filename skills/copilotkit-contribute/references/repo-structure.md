@@ -27,37 +27,37 @@ Frontend (React/Angular/Vanilla)  ->  Runtime (Express/Hono server)  ->  Agent (
 
 ## V2 Packages (`packages/v2/`)
 
-| Directory | Package Name | Description |
-|---|---|---|
-| `shared` | `@copilotkit/shared` | Common utilities, types, and constants used across all other packages |
-| `core` | `@copilotkit/core` | The `CopilotKitCore` orchestrator — manages agent registry, tool registry, context store, and event subscriptions. All framework packages wrap this. |
-| `react` | `@copilotkit/react` | React hooks (`useAgent`, `useFrontendTool`, `useAgentContext`, etc.) and `CopilotKitProvider`. Thin wrappers that register/unregister with Core. |
-| `angular` | `@copilotkit/angular` | Angular DI tokens, services, and signal-based state. Same concepts as React using Angular patterns. |
-| `runtime` | `@copilotkit/runtime` | Server-side `CopilotRuntime` class. Receives HTTP requests, delegates to agents. Provides Express and Hono adapters. Contains `AgentRunner` abstraction. |
-| `agent` | `@copilotkit/agent` | `BuiltInAgent` — a default agent implementation powered by the Vercel AI SDK. Used when developers don't bring their own agent framework. |
-| `voice` | `@copilotkit/voice` | Voice input and transcription support. |
-| `web-inspector` | `@copilotkit/web-inspector` | Debug console (Lit web component) for inspecting agent communication in development. |
-| `sqlite-runner` | `@copilotkit/sqlite-runner` | `AgentRunner` implementation that persists thread state to SQLite instead of memory. |
-| `demo-agents` | `@copilotkit/demo-agents` | Demo agent implementations for examples and testing. |
-| `eslint-config` | `@copilotkit/eslint-config` | Shared ESLint configuration for v2 packages. |
-| `typescript-config` | `@copilotkit/typescript-config` | Shared TypeScript configuration for v2 packages. |
+| Directory           | Package Name                    | Description                                                                                                                                              |
+| ------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shared`            | `@copilotkit/shared`            | Common utilities, types, and constants used across all other packages                                                                                    |
+| `core`              | `@copilotkit/core`              | The `CopilotKitCore` orchestrator — manages agent registry, tool registry, context store, and event subscriptions. All framework packages wrap this.     |
+| `react`             | `@copilotkit/react`             | React hooks (`useAgent`, `useFrontendTool`, `useAgentContext`, etc.) and `CopilotKitProvider`. Thin wrappers that register/unregister with Core.         |
+| `angular`           | `@copilotkit/angular`           | Angular DI tokens, services, and signal-based state. Same concepts as React using Angular patterns.                                                      |
+| `runtime`           | `@copilotkit/runtime`           | Server-side `CopilotRuntime` class. Receives HTTP requests, delegates to agents. Provides Express and Hono adapters. Contains `AgentRunner` abstraction. |
+| `agent`             | `@copilotkit/agent`             | `BuiltInAgent` — a default agent implementation powered by the Vercel AI SDK. Used when developers don't bring their own agent framework.                |
+| `voice`             | `@copilotkit/voice`             | Voice input and transcription support.                                                                                                                   |
+| `web-inspector`     | `@copilotkit/web-inspector`     | Debug console (Lit web component) for inspecting agent communication in development.                                                                     |
+| `sqlite-runner`     | `@copilotkit/sqlite-runner`     | `AgentRunner` implementation that persists thread state to SQLite instead of memory.                                                                     |
+| `demo-agents`       | `@copilotkit/demo-agents`       | Demo agent implementations for examples and testing.                                                                                                     |
+| `eslint-config`     | `@copilotkit/eslint-config`     | Shared ESLint configuration for v2 packages.                                                                                                             |
+| `typescript-config` | `@copilotkit/typescript-config` | Shared TypeScript configuration for v2 packages.                                                                                                         |
 
 ## V1 Packages (`packages/v1/`)
 
-| Directory | Package Name | Description |
-|---|---|---|
-| `react-core` | `@copilotkit/react-core` | Public `<CopilotKit>` provider and hooks. Internally delegates to V2 core. |
-| `react-ui` | `@copilotkit/react-ui` | Chat UI components — `CopilotChat`, `CopilotPopup`, `CopilotSidebar`, `CopilotPanel`. |
-| `react-textarea` | `@copilotkit/react-textarea` | `CopilotTextarea` component for AI-assisted text editing. |
-| `shared` | `@copilotkit/shared` | Shared types and telemetry utilities. |
-| `runtime` | `@copilotkit/runtime` | Server-side runtime with GraphQL server and LLM adapters. |
-| `runtime-client-gql` | `@copilotkit/runtime-client-gql` | urql-based GraphQL client for frontend-to-runtime communication. |
-| `sdk-js` | `@copilotkit/sdk-js` | Helpers for LangGraph/LangChain agent integration. |
-| `a2ui-renderer` | `@copilotkit/a2ui-renderer` | AG-UI renderer for V1 compatibility. |
-| `cli` | `copilotkit` | CopilotKit CLI tool. |
-| `eslint-config-custom` | `eslint-config-custom` | Shared ESLint config for v1 packages. |
-| `tailwind-config` | `tailwind-config` | Shared Tailwind CSS configuration. |
-| `tsconfig` | `tsconfig` | Shared TypeScript configuration for v1 packages. |
+| Directory              | Package Name                     | Description                                                                           |
+| ---------------------- | -------------------------------- | ------------------------------------------------------------------------------------- |
+| `react-core`           | `@copilotkit/react-core`         | Public `<CopilotKit>` provider and hooks. Internally delegates to V2 core.            |
+| `react-ui`             | `@copilotkit/react-ui`           | Chat UI components — `CopilotChat`, `CopilotPopup`, `CopilotSidebar`, `CopilotPanel`. |
+| `react-textarea`       | `@copilotkit/react-textarea`     | `CopilotTextarea` component for AI-assisted text editing.                             |
+| `shared`               | `@copilotkit/shared`             | Shared types and telemetry utilities.                                                 |
+| `runtime`              | `@copilotkit/runtime`            | Server-side runtime with GraphQL server and LLM adapters.                             |
+| `runtime-client-gql`   | `@copilotkit/runtime-client-gql` | urql-based GraphQL client for frontend-to-runtime communication.                      |
+| `sdk-js`               | `@copilotkit/sdk-js`             | Helpers for LangGraph/LangChain agent integration.                                    |
+| `a2ui-renderer`        | `@copilotkit/a2ui-renderer`      | AG-UI renderer for V1 compatibility.                                                  |
+| `cli`                  | `copilotkit`                     | CopilotKit CLI tool.                                                                  |
+| `eslint-config-custom` | `eslint-config-custom`           | Shared ESLint config for v1 packages.                                                 |
+| `tailwind-config`      | `tailwind-config`                | Shared Tailwind CSS configuration.                                                    |
+| `tsconfig`             | `tsconfig`                       | Shared TypeScript configuration for v1 packages.                                      |
 
 ## Examples (`examples/`)
 

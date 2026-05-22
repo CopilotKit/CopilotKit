@@ -40,22 +40,22 @@ This plugin includes an MCP server (`copilotkit-docs`) that provides `search-doc
 
 ## Quick Reference
 
-| Task | Command |
-|---|---|
-| Install dependencies | `pnpm install` |
-| Build all packages | `pnpm build` |
-| Dev mode (all) | `pnpm dev` |
-| Dev mode (v2 only) | `pnpm dev:next` |
-| Run all tests | `pnpm run test` |
-| Run v2 tests only | `pnpm test:next` |
+| Task                     | Command                        |
+| ------------------------ | ------------------------------ |
+| Install dependencies     | `pnpm install`                 |
+| Build all packages       | `pnpm build`                   |
+| Dev mode (all)           | `pnpm dev`                     |
+| Dev mode (v2 only)       | `pnpm dev:next`                |
+| Run all tests            | `pnpm run test`                |
+| Run v2 tests only        | `pnpm test:next`               |
 | Run single package tests | `nx run @copilotkit/core:test` |
-| Test with coverage | `pnpm run test:coverage` |
-| Lint | `pnpm run lint` |
-| Format | `pnpm run format` |
-| Check formatting | `pnpm run check-prettier` |
-| Type check | `pnpm run check-types` |
-| Package quality checks | `pnpm run check:packages` |
-| Dependency graph | `pnpm run graph` |
+| Test with coverage       | `pnpm run test:coverage`       |
+| Lint                     | `pnpm run lint`                |
+| Format                   | `pnpm run format`              |
+| Check formatting         | `pnpm run check-prettier`      |
+| Type check               | `pnpm run check-types`         |
+| Package quality checks   | `pnpm run check:packages`      |
+| Dependency graph         | `pnpm run graph`               |
 
 ## Key Architecture Points
 

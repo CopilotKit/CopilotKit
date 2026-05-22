@@ -33,12 +33,12 @@ Before generating any code, detect the project's framework by checking files in 
 
 **Quick summary:**
 
-| Signal File | Framework |
-|---|---|
-| `next.config.{js,ts,mjs}` + `app/` directory | Next.js App Router |
-| `next.config.{js,ts,mjs}` + `pages/` directory | Next.js Pages Router |
-| `angular.json` | Angular |
-| `vite.config.{js,ts}` + React deps in package.json | Vite + React |
+| Signal File                                        | Framework            |
+| -------------------------------------------------- | -------------------- |
+| `next.config.{js,ts,mjs}` + `app/` directory       | Next.js App Router   |
+| `next.config.{js,ts,mjs}` + `pages/` directory     | Next.js Pages Router |
+| `angular.json`                                     | Angular              |
+| `vite.config.{js,ts}` + React deps in package.json | Vite + React         |
 
 ## Setup Workflow
 
@@ -47,11 +47,13 @@ Before generating any code, detect the project's framework by checking files in 
 All packages use the `@copilotkit` namespace.
 
 **Frontend (React) packages:**
+
 ```bash
 npm install @copilotkit/react @copilotkit/core
 ```
 
 **Runtime packages (backend):**
+
 ```bash
 npm install @copilotkit/runtime @copilotkit/agent
 ```
@@ -59,6 +61,7 @@ npm install @copilotkit/runtime @copilotkit/agent
 If the runtime runs in the same Next.js app as the frontend, install all four packages together.
 
 For standalone Express backends, also install Express adapter dependencies:
+
 ```bash
 npm install express cors
 npm install -D @types/express @types/cors
@@ -108,6 +111,7 @@ export const POST = handle(app);
 ```
 
 This requires `hono` as a dependency:
+
 ```bash
 npm install hono
 ```
@@ -180,7 +184,9 @@ app.use(
 
 const port = Number(process.env.PORT ?? 4000);
 app.listen(port, () => {
-  console.log(`CopilotKit runtime listening at http://localhost:${port}/api/copilotkit`);
+  console.log(
+    `CopilotKit runtime listening at http://localhost:${port}/api/copilotkit`,
+  );
 });
 ```
 
@@ -208,6 +214,7 @@ serve({ fetch: app.fetch, port: 8787 });
 ```
 
 Requires `@hono/node-server`:
+
 ```bash
 npm install hono @hono/node-server
 ```
@@ -217,6 +224,7 @@ npm install hono @hono/node-server
 Wrap your application with `CopilotKitProvider` from `@copilotkit/react`.
 
 **Important:** Import the stylesheet in your root layout:
+
 ```typescript
 import "@copilotkit/react/styles.css";
 ```
@@ -258,29 +266,30 @@ Set `useSingleEndpoint` when the backend uses single-route endpoints (`createCop
 
 #### CopilotKitProvider key props
 
-| Prop | Type | Description |
-|---|---|---|
-| `runtimeUrl` | `string` | URL of the CopilotKit runtime endpoint |
-| `useSingleEndpoint` | `boolean` | Set to `true` when using single-route endpoints |
-| `headers` | `Record<string, string>` | Custom headers sent with every request |
-| `credentials` | `RequestCredentials` | Fetch credentials mode (e.g., `"include"` for cookies) |
-| `publicApiKey` | `string` | Copilot Cloud public API key (if using hosted runtime) |
-| `showDevConsole` | `boolean \| "auto"` | Show the dev inspector (`"auto"` = development only) |
-| `renderToolCalls` | `ReactToolCallRenderer[]` | Custom renderers for tool call UI |
-| `frontendTools` | `ReactFrontendTool[]` | Frontend-defined tools (declarative alternative to `useFrontendTool`) |
-| `onError` | `(event) => void` | Global error handler |
+| Prop                | Type                      | Description                                                           |
+| ------------------- | ------------------------- | --------------------------------------------------------------------- |
+| `runtimeUrl`        | `string`                  | URL of the CopilotKit runtime endpoint                                |
+| `useSingleEndpoint` | `boolean`                 | Set to `true` when using single-route endpoints                       |
+| `headers`           | `Record<string, string>`  | Custom headers sent with every request                                |
+| `credentials`       | `RequestCredentials`      | Fetch credentials mode (e.g., `"include"` for cookies)                |
+| `publicApiKey`      | `string`                  | Copilot Cloud public API key (if using hosted runtime)                |
+| `showDevConsole`    | `boolean \| "auto"`       | Show the dev inspector (`"auto"` = development only)                  |
+| `renderToolCalls`   | `ReactToolCallRenderer[]` | Custom renderers for tool call UI                                     |
+| `frontendTools`     | `ReactFrontendTool[]`     | Frontend-defined tools (declarative alternative to `useFrontendTool`) |
+| `onError`           | `(event) => void`         | Global error handler                                                  |
 
 ### Step 4: Add a chat UI component
 
 CopilotKit provides three pre-built chat layouts:
 
-| Component | Usage |
-|---|---|
-| `CopilotChat` | Inline chat, fills its container |
-| `CopilotSidebar` | Collapsible sidebar panel |
-| `CopilotPopup` | Floating popup widget |
+| Component        | Usage                            |
+| ---------------- | -------------------------------- |
+| `CopilotChat`    | Inline chat, fills its container |
+| `CopilotSidebar` | Collapsible sidebar panel        |
+| `CopilotPopup`   | Floating popup widget            |
 
 Example with sidebar:
+
 ```tsx
 <CopilotKitProvider runtimeUrl="/api/copilotkit" showDevConsole="auto">
   <YourApp />
@@ -304,6 +313,7 @@ OPENAI_API_KEY=sk-...
 ```
 
 The `BuiltInAgent` automatically resolves API keys from environment variables based on the model prefix:
+
 - `openai/*` models read `OPENAI_API_KEY`
 - `anthropic/*` models read `ANTHROPIC_API_KEY`
 - `google/*` models read `GOOGLE_API_KEY`
@@ -350,36 +360,36 @@ See `references/telemetry-setup.md` for full details on what the license key ena
 
 ### Package map
 
-| Package | Purpose |
-|---|---|
-| `@copilotkit/react` | React components, hooks, provider |
-| `@copilotkit/core` | Core types, agent abstraction, state management |
+| Package               | Purpose                                                |
+| --------------------- | ------------------------------------------------------ |
+| `@copilotkit/react`   | React components, hooks, provider                      |
+| `@copilotkit/core`    | Core types, agent abstraction, state management        |
 | `@copilotkit/runtime` | Server-side runtime, endpoint factories, agent runners |
-| `@copilotkit/agent` | `BuiltInAgent`, `defineTool`, model resolution |
-| `@copilotkit/shared` | Shared utilities, logger, types |
+| `@copilotkit/agent`   | `BuiltInAgent`, `defineTool`, model resolution         |
+| `@copilotkit/shared`  | Shared utilities, logger, types                        |
 
 ### Endpoint factory functions
 
-| Function | Import | Protocol | Framework |
-|---|---|---|---|
-| `createCopilotEndpoint` | `@copilotkit/runtime` | Multi-route (Hono) | Next.js App Router, Hono standalone |
-| `createCopilotEndpointSingleRoute` | `@copilotkit/runtime` | Single-route (Hono) | Next.js App Router |
-| `createCopilotEndpointExpress` | `@copilotkit/runtime/express` | Multi-route (Express) | Express standalone |
-| `createCopilotEndpointSingleRouteExpress` | `@copilotkit/runtime/express` | Single-route (Express) | Express standalone |
+| Function                                  | Import                        | Protocol               | Framework                           |
+| ----------------------------------------- | ----------------------------- | ---------------------- | ----------------------------------- |
+| `createCopilotEndpoint`                   | `@copilotkit/runtime`         | Multi-route (Hono)     | Next.js App Router, Hono standalone |
+| `createCopilotEndpointSingleRoute`        | `@copilotkit/runtime`         | Single-route (Hono)    | Next.js App Router                  |
+| `createCopilotEndpointExpress`            | `@copilotkit/runtime/express` | Multi-route (Express)  | Express standalone                  |
+| `createCopilotEndpointSingleRouteExpress` | `@copilotkit/runtime/express` | Single-route (Express) | Express standalone                  |
 
 ### Runtime classes
 
-| Class | Use case |
-|---|---|
-| `CopilotRuntime` | Compatibility shim; auto-selects SSE or Intelligence mode |
-| `CopilotSseRuntime` | Explicit SSE mode (default, in-memory threads) |
-| `CopilotIntelligenceRuntime` | Intelligence mode (durable threads, realtime events) |
+| Class                        | Use case                                                  |
+| ---------------------------- | --------------------------------------------------------- |
+| `CopilotRuntime`             | Compatibility shim; auto-selects SSE or Intelligence mode |
+| `CopilotSseRuntime`          | Explicit SSE mode (default, in-memory threads)            |
+| `CopilotIntelligenceRuntime` | Intelligence mode (durable threads, realtime events)      |
 
 ### Agent runners
 
-| Runner | Description |
-|---|---|
-| `InMemoryAgentRunner` | Default. Stores thread state in process memory. Suitable for development and single-instance deployments. |
+| Runner                    | Description                                                                                                       |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `InMemoryAgentRunner`     | Default. Stores thread state in process memory. Suitable for development and single-instance deployments.         |
 | `IntelligenceAgentRunner` | Used automatically with `CopilotIntelligenceRuntime`. Connects to CopilotKit Intelligence Platform via WebSocket. |
 
 ### Supported models (BuiltInAgent)

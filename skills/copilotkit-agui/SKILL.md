@@ -30,15 +30,15 @@ AG-UI (Agent-User Interaction) is CopilotKit's open event-based protocol for age
 
 ### Event Families
 
-| Family | Events | Purpose |
-|--------|--------|---------|
-| Lifecycle | `RUN_STARTED`, `RUN_FINISHED`, `RUN_ERROR`, `STEP_STARTED`, `STEP_FINISHED` | Run boundaries and progress |
-| Text | `TEXT_MESSAGE_START`, `TEXT_MESSAGE_CONTENT`, `TEXT_MESSAGE_END` | Streaming text messages |
-| Tool Calls | `TOOL_CALL_START`, `TOOL_CALL_ARGS`, `TOOL_CALL_END`, `TOOL_CALL_RESULT` | Agent tool invocations |
-| State | `STATE_SNAPSHOT`, `STATE_DELTA`, `MESSAGES_SNAPSHOT` | State synchronization |
-| Reasoning | `REASONING_START`, `REASONING_MESSAGE_START/CONTENT/END`, `REASONING_END`, `REASONING_ENCRYPTED_VALUE` | Chain-of-thought visibility |
-| Activity | `ACTIVITY_SNAPSHOT`, `ACTIVITY_DELTA` | Structured progress updates |
-| Custom | `RAW`, `CUSTOM` | Extension points |
+| Family     | Events                                                                                                 | Purpose                     |
+| ---------- | ------------------------------------------------------------------------------------------------------ | --------------------------- |
+| Lifecycle  | `RUN_STARTED`, `RUN_FINISHED`, `RUN_ERROR`, `STEP_STARTED`, `STEP_FINISHED`                            | Run boundaries and progress |
+| Text       | `TEXT_MESSAGE_START`, `TEXT_MESSAGE_CONTENT`, `TEXT_MESSAGE_END`                                       | Streaming text messages     |
+| Tool Calls | `TOOL_CALL_START`, `TOOL_CALL_ARGS`, `TOOL_CALL_END`, `TOOL_CALL_RESULT`                               | Agent tool invocations      |
+| State      | `STATE_SNAPSHOT`, `STATE_DELTA`, `MESSAGES_SNAPSHOT`                                                   | State synchronization       |
+| Reasoning  | `REASONING_START`, `REASONING_MESSAGE_START/CONTENT/END`, `REASONING_END`, `REASONING_ENCRYPTED_VALUE` | Chain-of-thought visibility |
+| Activity   | `ACTIVITY_SNAPSHOT`, `ACTIVITY_DELTA`                                                                  | Structured progress updates |
+| Custom     | `RAW`, `CUSTOM`                                                                                        | Extension points            |
 
 ### Convenience Chunk Events
 
@@ -58,11 +58,11 @@ data: {"type":"RUN_FINISHED","threadId":"t1","runId":"r1"}\n\n
 
 ### Packages
 
-| Package | npm | Purpose |
-|---------|-----|---------|
-| `@ag-ui/core` | Events, types, schemas | Protocol definition |
-| `@ag-ui/client` | AbstractAgent, HttpAgent, middleware, event application | Client SDK |
-| `@ag-ui/encoder` | EventEncoder (SSE + protobuf) | Server-side encoding |
+| Package          | npm                                                     | Purpose              |
+| ---------------- | ------------------------------------------------------- | -------------------- |
+| `@ag-ui/core`    | Events, types, schemas                                  | Protocol definition  |
+| `@ag-ui/client`  | AbstractAgent, HttpAgent, middleware, event application | Client SDK           |
+| `@ag-ui/encoder` | EventEncoder (SSE + protobuf)                           | Server-side encoding |
 
 ## Workflow: Building an AG-UI Backend
 

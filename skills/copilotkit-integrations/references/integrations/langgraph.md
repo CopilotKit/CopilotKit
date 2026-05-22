@@ -153,7 +153,8 @@ This is the `langgraph-python` example pattern. Uses `LangGraphAgent` which conn
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 
 const defaultAgent = new LangGraphAgent({
-  deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
+  deploymentUrl:
+    process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
   graphId: "sample_agent",
   langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
 });
@@ -225,7 +226,8 @@ async function chat_node(state: AgentState, config) {
     content: `You are a helpful assistant. The current proverbs are ${JSON.stringify(state.proverbs)}.`,
   });
   const response = await modelWithTools.invoke(
-    [systemMessage, ...state.messages], config,
+    [systemMessage, ...state.messages],
+    config,
   );
   return { messages: response };
 }
@@ -253,6 +255,7 @@ export const graph = workflow.compile({ checkpointer: new MemorySaver() });
 ```
 
 Key JS-specific patterns:
+
 - Use `CopilotKitStateAnnotation` from `@copilotkit/sdk-js/langgraph` to include CopilotKit state
 - Use `convertActionsToDynamicStructuredTools()` to convert frontend actions to LangChain tools
 - Check `copilotkit.actions` to determine whether a tool call should route to `tool_node` (backend) or `__end__` (frontend)

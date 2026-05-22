@@ -97,6 +97,7 @@ def create_agent(chat_client: ChatClientProtocol) -> AgentFrameworkAgent:
 ```
 
 Key patterns:
+
 - `@ai_function` decorator defines tools with `name`, `description`, and optional `approval_mode`
 - `approval_mode="always_require"` enables human-in-the-loop approval
 - `STATE_SCHEMA` defines the AG-UI shared state structure
@@ -136,12 +137,14 @@ chat_client = AzureOpenAIChatClient(
 ### Environment
 
 OpenAI:
+
 ```
 OPENAI_API_KEY=sk-...
 OPENAI_CHAT_MODEL_ID=gpt-4o-mini
 ```
 
 Azure OpenAI:
+
 ```
 AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
 AZURE_OPENAI_CHAT_DEPLOYMENT_NAME=gpt-4o-mini
@@ -200,6 +203,7 @@ public class ProverbsAgentFactory
 ```
 
 Key .NET patterns:
+
 - `builder.Services.AddAGUI()` registers AG-UI services
 - `app.MapAGUI("/", agent)` maps the AG-UI endpoint
 - `SharedStateAgent` wraps `ChatClientAgent` for state management

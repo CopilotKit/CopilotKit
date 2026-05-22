@@ -5,11 +5,13 @@
 ### Consolidated React packages
 
 v1 split React functionality across three packages:
+
 - `@copilotkit/react-core` -- provider, hooks, types
 - `@copilotkit/react-ui` -- chat components (CopilotChat, CopilotPopup, CopilotSidebar)
 - `@copilotkit/react-textarea` -- CopilotTextarea component
 
 v2 consolidates everything into a single package:
+
 - `@copilotkit/react` -- provider, hooks, types, chat components, AG-UI re-exports
 
 ### New package scope
@@ -18,11 +20,11 @@ The v2 API is exposed through the same `@copilotkit/*` packages. No package name
 
 ### Removed packages
 
-| Package | Status |
-|---------|--------|
-| `@copilotkit/react-textarea` | Removed. No v2 equivalent. |
+| Package                          | Status                                                             |
+| -------------------------------- | ------------------------------------------------------------------ |
+| `@copilotkit/react-textarea`     | Removed. No v2 equivalent.                                         |
 | `@copilotkit/runtime-client-gql` | Replaced by `@ag-ui/client` (re-exported from `@copilotkit/react`) |
-| `@copilotkit/sdk-js` | Replaced by `@copilotkit/agent` |
+| `@copilotkit/sdk-js`             | Replaced by `@copilotkit/agent`                                    |
 
 ---
 
@@ -31,6 +33,7 @@ The v2 API is exposed through the same `@copilotkit/*` packages. No package name
 The most fundamental breaking change is the protocol layer. v1 used a GraphQL-based protocol (`@copilotkit/runtime-client-gql`). v2 uses the AG-UI protocol (`@ag-ui/client` / `@ag-ui/core`), which is SSE-based.
 
 **Impact:**
+
 - All GraphQL message types (`TextMessage`, `ActionExecutionMessage`, `ResultMessage`, etc.) are replaced by AG-UI event types (`TextMessageChunkEvent`, `ToolCallStartEvent`, `ToolCallArgsEvent`, `ToolCallEndEvent`, `ToolCallResultEvent`, etc.)
 - The `MessageRole` enum is replaced by AG-UI message roles
 - Custom GraphQL queries/mutations against the runtime are no longer possible
@@ -46,20 +49,20 @@ The most fundamental breaking change is the protocol layer. v1 used a GraphQL-ba
 
 ### Props changes
 
-| v1 Prop | v2 Status | Notes |
-|---------|----------|-------|
-| `runtimeUrl` | Kept | Same behavior |
-| `headers` | Kept | Same behavior |
-| `publicApiKey` | Kept | Same behavior (also `publicLicenseKey` alias) |
-| `properties` | Kept | Same behavior |
-| `agents` | Removed | Use `selfManagedAgents` or `agents__unsafe_dev_only` |
-| `guardrails_c` | Removed | -- |
-| `children` | Kept | Same behavior |
-| -- | Added: `credentials` | `RequestCredentials` for fetch (e.g., `"include"` for cookies) |
-| -- | Added: `selfManagedAgents` | `Record<string, AbstractAgent>` for client-side agents |
-| -- | Added: `renderToolCalls` | `ReactToolCallRenderer[]` for provider-level tool renderers |
-| -- | Added: `renderActivityMessages` | `ReactActivityMessageRenderer[]` for activity renderers |
-| -- | Added: `useSingleEndpoint` | Boolean to use single-route endpoint mode |
+| v1 Prop        | v2 Status                       | Notes                                                          |
+| -------------- | ------------------------------- | -------------------------------------------------------------- |
+| `runtimeUrl`   | Kept                            | Same behavior                                                  |
+| `headers`      | Kept                            | Same behavior                                                  |
+| `publicApiKey` | Kept                            | Same behavior (also `publicLicenseKey` alias)                  |
+| `properties`   | Kept                            | Same behavior                                                  |
+| `agents`       | Removed                         | Use `selfManagedAgents` or `agents__unsafe_dev_only`           |
+| `guardrails_c` | Removed                         | --                                                             |
+| `children`     | Kept                            | Same behavior                                                  |
+| --             | Added: `credentials`            | `RequestCredentials` for fetch (e.g., `"include"` for cookies) |
+| --             | Added: `selfManagedAgents`      | `Record<string, AbstractAgent>` for client-side agents         |
+| --             | Added: `renderToolCalls`        | `ReactToolCallRenderer[]` for provider-level tool renderers    |
+| --             | Added: `renderActivityMessages` | `ReactActivityMessageRenderer[]` for activity renderers        |
+| --             | Added: `useSingleEndpoint`      | Boolean to use single-route endpoint mode                      |
 
 ### Context hook rename
 
@@ -78,13 +81,13 @@ The most fundamental breaking change is the protocol layer. v1 used a GraphQL-ba
 parameters: [
   { name: "city", type: "string", description: "City name", required: true },
   { name: "units", type: "string", enum: ["celsius", "fahrenheit"] },
-]
+];
 
 // v2 parameters (Zod)
 parameters: z.object({
   city: z.string().describe("City name"),
   units: z.enum(["celsius", "fahrenheit"]).optional(),
-})
+});
 ```
 
 **Handler signature change:**
@@ -108,12 +111,13 @@ handler: async (args) => { ... }  // args is typed from the Zod schema
 ```
 
 **Availability change:**
+
 ```ts
 // v1
-disabled: true  // or available: "disabled"
+disabled: true; // or available: "disabled"
 
 // v2
-available: "disabled" | "enabled"
+available: "disabled" | "enabled";
 ```
 
 ### useCopilotReadable -> useAgentContext
@@ -126,7 +130,10 @@ const parentId = useCopilotReadable({ description: "Parent", value: "..." });
 useCopilotReadable({ description: "Child", value: "...", parentId });
 
 // v2 (flat)
-useAgentContext({ description: "Parent - Child context", value: { parent: "...", child: "..." } });
+useAgentContext({
+  description: "Parent - Child context",
+  value: { parent: "...", child: "..." },
+});
 ```
 
 ### useCoAgent -> useAgent
@@ -135,10 +142,12 @@ useAgentContext({ description: "Parent - Child context", value: { parent: "...",
 
 ```ts
 // v1 returns
-{ name, nodeName, state, setState, running, start, stop, run }
+{
+  (name, nodeName, state, setState, running, start, stop, run);
+}
 
 // v2 returns
-AbstractAgent  // AG-UI agent instance with run(), stop(), etc.
+AbstractAgent; // AG-UI agent instance with run(), stop(), etc.
 ```
 
 - `name` -> `agentId` (in props)
@@ -186,18 +195,18 @@ Use `useAgentContext` to pass document content. The `DocumentPointer` type and c
 
 All service adapters are removed from the runtime:
 
-| Removed Adapter | v2 Alternative |
-|----------------|---------------|
-| `OpenAIAdapter` | Use `BuiltInAgent({ model: "openai:gpt-4o" })` |
-| `AnthropicAdapter` | Use `BuiltInAgent({ model: "anthropic:claude-sonnet-4-20250514" })` |
-| `GoogleGenerativeAIAdapter` | Use `BuiltInAgent({ model: "google:gemini-pro" })` |
-| `LangChainAdapter` | Use a custom `AbstractAgent` implementation |
-| `GroqAdapter` | Use `BuiltInAgent` with Groq-compatible model string |
-| `UnifyAdapter` | Use a custom `AbstractAgent` implementation |
-| `OpenAIAssistantAdapter` | Use a custom `AbstractAgent` implementation |
-| `BedrockAdapter` | Use `BuiltInAgent({ model: "vertex:..." })` or custom agent |
-| `OllamaAdapter` | Use a custom `AbstractAgent` implementation |
-| `EmptyAdapter` | Not needed |
+| Removed Adapter             | v2 Alternative                                                      |
+| --------------------------- | ------------------------------------------------------------------- |
+| `OpenAIAdapter`             | Use `BuiltInAgent({ model: "openai:gpt-4o" })`                      |
+| `AnthropicAdapter`          | Use `BuiltInAgent({ model: "anthropic:claude-sonnet-4-20250514" })` |
+| `GoogleGenerativeAIAdapter` | Use `BuiltInAgent({ model: "google:gemini-pro" })`                  |
+| `LangChainAdapter`          | Use a custom `AbstractAgent` implementation                         |
+| `GroqAdapter`               | Use `BuiltInAgent` with Groq-compatible model string                |
+| `UnifyAdapter`              | Use a custom `AbstractAgent` implementation                         |
+| `OpenAIAssistantAdapter`    | Use a custom `AbstractAgent` implementation                         |
+| `BedrockAdapter`            | Use `BuiltInAgent({ model: "vertex:..." })` or custom agent         |
+| `OllamaAdapter`             | Use a custom `AbstractAgent` implementation                         |
+| `EmptyAdapter`              | Not needed                                                          |
 
 ### Runtime constructor changes
 
@@ -230,13 +239,13 @@ new CopilotRuntime({
 
 v1 had built-in integrations for Next.js (App Router, Pages Router), Express, NestJS, and Node HTTP. v2 uses Hono as the standard HTTP layer:
 
-| v1 Integration | v2 Replacement |
-|---------------|---------------|
-| `copilotRuntimeNextJSAppRouterEndpoint` | `createCopilotEndpoint` (Hono, works with Next.js) |
-| `copilotRuntimeNextJSPagesRouterEndpoint` | `createCopilotEndpoint` (Hono) |
-| `CopilotRuntimeNodeExpressEndpoint` | `createCopilotEndpointExpress` |
-| `CopilotRuntimeNestEndpoint` | Use Hono adapter or Express endpoint |
-| `CopilotRuntimeNodeHttpEndpoint` | Use Hono or Express endpoint |
+| v1 Integration                            | v2 Replacement                                     |
+| ----------------------------------------- | -------------------------------------------------- |
+| `copilotRuntimeNextJSAppRouterEndpoint`   | `createCopilotEndpoint` (Hono, works with Next.js) |
+| `copilotRuntimeNextJSPagesRouterEndpoint` | `createCopilotEndpoint` (Hono)                     |
+| `CopilotRuntimeNodeExpressEndpoint`       | `createCopilotEndpointExpress`                     |
+| `CopilotRuntimeNestEndpoint`              | Use Hono adapter or Express endpoint               |
+| `CopilotRuntimeNodeHttpEndpoint`          | Use Hono or Express endpoint                       |
 
 ### Endpoint configuration
 
@@ -278,7 +287,7 @@ new CopilotRuntime({
       type: "langgraph",
     },
   ],
-})
+});
 
 // v2 (direct agent instance)
 import { LangGraphAgent } from "@ag-ui/langgraph";
@@ -290,7 +299,7 @@ new CopilotRuntime({
       graphId: "my-graph",
     }),
   },
-})
+});
 ```
 
 ---
@@ -304,11 +313,19 @@ v1 used a custom `Parameter` type for defining tool parameters:
 ```ts
 type Parameter = {
   name: string;
-  type: "string" | "number" | "boolean" | "object" | "string[]" | "number[]" | "boolean[]" | "object[]";
+  type:
+    | "string"
+    | "number"
+    | "boolean"
+    | "object"
+    | "string[]"
+    | "number[]"
+    | "boolean[]"
+    | "object[]";
   description?: string;
   required?: boolean;
   enum?: string[];
-  attributes?: Parameter[];  // for object types
+  attributes?: Parameter[]; // for object types
 };
 ```
 
@@ -318,12 +335,12 @@ v2 uses Zod schemas (`z.object(...)`) or Standard Schema V1 (`StandardSchemaV1`)
 
 v1 GraphQL types from `@copilotkit/runtime-client-gql` are replaced by AG-UI types:
 
-| v1 Type | v2 Type |
-|---------|---------|
-| `TextMessage` | `Message` with text content |
-| `ActionExecutionMessage` | `ToolCall` |
-| `ResultMessage` | `ToolMessage` |
-| `MessageRole` | AG-UI role types |
+| v1 Type                  | v2 Type                     |
+| ------------------------ | --------------------------- |
+| `TextMessage`            | `Message` with text content |
+| `ActionExecutionMessage` | `ToolCall`                  |
+| `ResultMessage`          | `ToolMessage`               |
+| `MessageRole`            | AG-UI role types            |
 
 ### Event types
 

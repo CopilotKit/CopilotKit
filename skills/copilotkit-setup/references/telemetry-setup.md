@@ -36,10 +36,7 @@ If the browser does not open automatically, the CLI prints a URL you can copy-pa
 Pass the key directly as a prop:
 
 ```tsx
-<CopilotKitProvider
-  runtimeUrl="/api/copilotkit"
-  licenseKey="ck_abc123..."
->
+<CopilotKitProvider runtimeUrl="/api/copilotkit" licenseKey="ck_abc123...">
   {children}
 </CopilotKitProvider>
 ```
@@ -51,11 +48,13 @@ This is the simplest approach for quick prototyping but exposes the key in sourc
 Add the key to your environment file:
 
 **Next.js** (`.env.local`):
+
 ```
 NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY=ck_abc123...
 ```
 
 **Vite** (`.env`):
+
 ```
 VITE_COPILOTKIT_LICENSE_KEY=ck_abc123...
 ```

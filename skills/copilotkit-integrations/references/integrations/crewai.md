@@ -100,6 +100,7 @@ class SampleAgentFlow(Flow[AgentState]):
 ```
 
 Key patterns:
+
 - Extend `CopilotKitState` from `ag_ui_crewai.sdk` for shared state
 - Use `copilotkit_stream()` to wrap `litellm.completion()` for AG-UI streaming
 - Frontend actions come from `self.state.copilotkit.actions` -- bind them alongside backend tools

@@ -7,8 +7,8 @@
 ```tsx
 interface CopilotChatProps {
   // Agent configuration
-  agentId?: string;              // Agent to connect to. Default: "default"
-  threadId?: string;             // Thread ID. Auto-generated UUID if omitted.
+  agentId?: string; // Agent to connect to. Default: "default"
+  threadId?: string; // Thread ID. Auto-generated UUID if omitted.
 
   // Labels and text customization
   labels?: Partial<CopilotChatLabels>;
@@ -30,6 +30,7 @@ interface CopilotChatProps {
 ## CopilotChatView Props (Layout Slots)
 
 `CopilotChatView` uses a slot-based architecture. Each slot can be:
+
 - Omitted (uses the default component)
 - A props object (merges with the default component)
 - A custom React component (replaces the default)
@@ -49,7 +50,7 @@ interface CopilotChatViewProps {
   messages?: Message[];
   isRunning?: boolean;
   suggestions?: Suggestion[];
-  autoScroll?: boolean;          // Default: true
+  autoScroll?: boolean; // Default: true
 
   // Input behavior (usually provided by CopilotChat)
   onSubmitMessage?: (value: string) => void;
@@ -91,7 +92,8 @@ const CopilotChatDefaultLabels = {
   assistantMessageToolbarRegenerateLabel: "Regenerate",
   userMessageToolbarCopyMessageLabel: "Copy",
   userMessageToolbarEditMessageLabel: "Edit",
-  chatDisclaimerText: "AI can make mistakes. Please verify important information.",
+  chatDisclaimerText:
+    "AI can make mistakes. Please verify important information.",
   chatToggleOpenLabel: "Open chat",
   chatToggleCloseLabel: "Close chat",
   modalHeaderTitle: "CopilotKit Chat",
@@ -116,12 +118,12 @@ Example:
 
 ```tsx
 interface CopilotPopupProps extends CopilotChatProps {
-  header?: SlotValue;              // Custom header component
-  toggleButton?: SlotValue;        // Custom toggle button
-  defaultOpen?: boolean;           // Start open? Default: true
-  width?: number | string;         // Popup width
-  height?: number | string;        // Popup height
-  clickOutsideToClose?: boolean;   // Close on outside click
+  header?: SlotValue; // Custom header component
+  toggleButton?: SlotValue; // Custom toggle button
+  defaultOpen?: boolean; // Start open? Default: true
+  width?: number | string; // Popup width
+  height?: number | string; // Popup height
+  clickOutsideToClose?: boolean; // Close on outside click
 }
 ```
 
@@ -129,10 +131,10 @@ interface CopilotPopupProps extends CopilotChatProps {
 
 ```tsx
 interface CopilotSidebarProps extends CopilotChatProps {
-  header?: SlotValue;              // Custom header component
-  toggleButton?: SlotValue;        // Custom toggle button
-  defaultOpen?: boolean;           // Start open? Default: true
-  width?: number | string;         // Sidebar width
+  header?: SlotValue; // Custom header component
+  toggleButton?: SlotValue; // Custom toggle button
+  defaultOpen?: boolean; // Start open? Default: true
+  width?: number | string; // Sidebar width
 }
 ```
 

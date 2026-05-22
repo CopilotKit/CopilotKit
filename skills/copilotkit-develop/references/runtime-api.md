@@ -70,7 +70,7 @@ interface BaseCopilotRuntimeOptions {
 
   // Auto-apply A2UI middleware to agents
   a2ui?: {
-    agents?: string[];  // Limit to specific agents; omit for all
+    agents?: string[]; // Limit to specific agents; omit for all
     // ... A2UIMiddlewareConfig from @ag-ui/a2ui-middleware
   };
 
@@ -85,7 +85,7 @@ interface BaseCopilotRuntimeOptions {
 
 ```ts
 type McpAppsServerConfig = MCPClientConfig & {
-  agentId?: string;  // Bind to specific agent; omit for all agents
+  agentId?: string; // Bind to specific agent; omit for all agents
 };
 ```
 
@@ -132,18 +132,18 @@ Returns an Express `Router` with all CopilotKit routes mounted under `basePath`.
 
 Both endpoint factories create these routes under `basePath`:
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/info` | Runtime info: available agents, mode, capabilities |
-| `POST` | `/agent/:agentId/run` | Run an agent (SSE stream response) |
-| `POST` | `/agent/:agentId/connect` | Connect to an agent (initial handshake for existing threads) |
-| `POST` | `/agent/:agentId/stop/:threadId` | Stop a running agent |
-| `POST` | `/transcribe` | Transcribe audio file |
-| `GET` | `/threads` | List threads (Intelligence mode) |
-| `POST` | `/threads/subscribe` | Subscribe to thread updates (Intelligence mode) |
-| `PATCH` | `/threads/:threadId` | Update thread metadata |
-| `POST` | `/threads/:threadId/archive` | Archive a thread |
-| `DELETE` | `/threads/:threadId` | Permanently delete a thread |
+| Method   | Path                             | Description                                                  |
+| -------- | -------------------------------- | ------------------------------------------------------------ |
+| `GET`    | `/info`                          | Runtime info: available agents, mode, capabilities           |
+| `POST`   | `/agent/:agentId/run`            | Run an agent (SSE stream response)                           |
+| `POST`   | `/agent/:agentId/connect`        | Connect to an agent (initial handshake for existing threads) |
+| `POST`   | `/agent/:agentId/stop/:threadId` | Stop a running agent                                         |
+| `POST`   | `/transcribe`                    | Transcribe audio file                                        |
+| `GET`    | `/threads`                       | List threads (Intelligence mode)                             |
+| `POST`   | `/threads/subscribe`             | Subscribe to thread updates (Intelligence mode)              |
+| `PATCH`  | `/threads/:threadId`             | Update thread metadata                                       |
+| `POST`   | `/threads/:threadId/archive`     | Archive a thread                                             |
+| `DELETE` | `/threads/:threadId`             | Permanently delete a thread                                  |
 
 ---
 
@@ -172,9 +172,9 @@ type AfterRequestMiddleware = (params: {
   runtime: CopilotRuntimeLike;
   response: Response;
   path: string;
-  messages?: Message[];    // Reconstructed from SSE stream
-  threadId?: string;       // From RUN_STARTED event
-  runId?: string;          // From RUN_STARTED event
+  messages?: Message[]; // Reconstructed from SSE stream
+  threadId?: string; // From RUN_STARTED event
+  runId?: string; // From RUN_STARTED event
 }) => MaybePromise<void>;
 ```
 
@@ -188,7 +188,9 @@ const runtime = new CopilotRuntime({
     // Optionally return a modified Request
   },
   afterRequestMiddleware: async ({ response, path, threadId, messages }) => {
-    console.log(`Response from ${path}, thread: ${threadId}, ${messages?.length} messages`);
+    console.log(
+      `Response from ${path}, thread: ${threadId}, ${messages?.length} messages`,
+    );
   },
 });
 ```
@@ -221,12 +223,24 @@ type IdentifyUserCallback = (request: Request) => MaybePromise<{ id: string }>;
 ### Thread Management Types
 
 ```ts
-interface CreateThreadRequest { /* platform-specific */ }
-interface ThreadSummary { /* id, name, timestamps */ }
-interface ListThreadsResponse { /* thread list */ }
-interface UpdateThreadRequest { /* name updates */ }
-interface SubscribeToThreadsRequest { /* WebSocket subscription params */ }
-interface SubscribeToThreadsResponse { /* realtime thread updates */ }
+interface CreateThreadRequest {
+  /* platform-specific */
+}
+interface ThreadSummary {
+  /* id, name, timestamps */
+}
+interface ListThreadsResponse {
+  /* thread list */
+}
+interface UpdateThreadRequest {
+  /* name updates */
+}
+interface SubscribeToThreadsRequest {
+  /* WebSocket subscription params */
+}
+interface SubscribeToThreadsResponse {
+  /* realtime thread updates */
+}
 ```
 
 ---
@@ -276,8 +290,8 @@ createCopilotEndpoint({
   runtime,
   basePath: "/api/copilotkit",
   cors: {
-    origin: "https://myapp.com",  // or array, or function
-    credentials: true,            // for HTTP-only cookies
+    origin: "https://myapp.com", // or array, or function
+    credentials: true, // for HTTP-only cookies
   },
 });
 ```

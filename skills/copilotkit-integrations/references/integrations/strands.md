@@ -116,6 +116,7 @@ app = create_strands_app(agui_agent, os.getenv("AGENT_PATH", "/"))
 ```
 
 Key patterns:
+
 - `StrandsAgentConfig` controls AG-UI behavior:
   - `state_context_builder` -- function that injects state into the prompt
   - `tool_behaviors` -- per-tool configuration for state extraction and message handling

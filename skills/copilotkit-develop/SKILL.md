@@ -33,7 +33,9 @@ import { LangGraphAgent } from "@ag-ui/langgraph";
 
 const runtime = new CopilotRuntime({
   agents: {
-    myAgent: new LangGraphAgent({ /* ... */ }),
+    myAgent: new LangGraphAgent({
+      /* ... */
+    }),
   },
 });
 
@@ -126,57 +128,60 @@ Show custom UI when tools execute:
 import { useRenderTool } from "@copilotkit/react";
 import { z } from "zod";
 
-useRenderTool({
-  name: "searchDocs",
-  parameters: z.object({ query: z.string() }),
-  render: ({ status, parameters, result }) => {
-    if (status === "executing") return <Spinner>Searching {parameters.query}...</Spinner>;
-    if (status === "complete") return <Results data={result} />;
-    return <div>Preparing...</div>;
+useRenderTool(
+  {
+    name: "searchDocs",
+    parameters: z.object({ query: z.string() }),
+    render: ({ status, parameters, result }) => {
+      if (status === "executing")
+        return <Spinner>Searching {parameters.query}...</Spinner>;
+      if (status === "complete") return <Results data={result} />;
+      return <div>Preparing...</div>;
+    },
   },
-}, []);
+  [],
+);
 ```
 
 ## Quick Reference: Hooks
 
-| Hook | Purpose |
-|------|---------|
-| `useFrontendTool` | Register a tool the agent can call in the browser |
-| `useComponent` | Register a React component as a chat-rendered tool (convenience wrapper around `useFrontendTool`) |
-| `useAgentContext` | Share JSON-serializable application state with the agent |
-| `useAgent` | Get the `AbstractAgent` instance for an agent ID; subscribe to message/state/run-status changes |
-| `useInterrupt` | Handle `on_interrupt` events from agents with render + optional handler/filter |
-| `useHumanInTheLoop` | Register a tool that pauses execution until the user responds via a rendered UI |
-| `useRenderTool` | Register a renderer for tool calls (by name or wildcard `"*"`) |
-| `useDefaultRenderTool` | Register a wildcard `"*"` renderer using the built-in expandable card UI |
-| `useRenderToolCall` | Internal hook returning a function to resolve the correct renderer for a given tool call |
-| `useRenderActivityMessage` | Internal hook for rendering activity messages by type |
-| `useRenderCustomMessages` | Internal hook for rendering custom message decorators |
-| `useSuggestions` | Read the current suggestion list and control reload/clear |
-| `useConfigureSuggestions` | Register static or dynamic (LLM-generated) suggestion configs |
-| `useThreads` | List, rename, archive, and delete Intelligence platform threads |
+| Hook                       | Purpose                                                                                           |
+| -------------------------- | ------------------------------------------------------------------------------------------------- |
+| `useFrontendTool`          | Register a tool the agent can call in the browser                                                 |
+| `useComponent`             | Register a React component as a chat-rendered tool (convenience wrapper around `useFrontendTool`) |
+| `useAgentContext`          | Share JSON-serializable application state with the agent                                          |
+| `useAgent`                 | Get the `AbstractAgent` instance for an agent ID; subscribe to message/state/run-status changes   |
+| `useInterrupt`             | Handle `on_interrupt` events from agents with render + optional handler/filter                    |
+| `useHumanInTheLoop`        | Register a tool that pauses execution until the user responds via a rendered UI                   |
+| `useRenderTool`            | Register a renderer for tool calls (by name or wildcard `"*"`)                                    |
+| `useDefaultRenderTool`     | Register a wildcard `"*"` renderer using the built-in expandable card UI                          |
+| `useRenderToolCall`        | Internal hook returning a function to resolve the correct renderer for a given tool call          |
+| `useRenderActivityMessage` | Internal hook for rendering activity messages by type                                             |
+| `useRenderCustomMessages`  | Internal hook for rendering custom message decorators                                             |
+| `useSuggestions`           | Read the current suggestion list and control reload/clear                                         |
+| `useConfigureSuggestions`  | Register static or dynamic (LLM-generated) suggestion configs                                     |
+| `useThreads`               | List, rename, archive, and delete Intelligence platform threads                                   |
 
 ## Quick Reference: Components
 
-| Component | Purpose |
-|-----------|---------|
-| `CopilotKitProvider` | Root provider -- configures runtime URL, headers, agents, error handler |
-| `CopilotChat` | Full chat interface connected to an agent (inline layout) |
-| `CopilotPopup` | Chat in a floating popup with toggle button |
-| `CopilotSidebar` | Chat in a collapsible sidebar with toggle button |
-| `CopilotChatView` | Headless chat view with slots for message view, input, scroll, suggestions |
-| `CopilotChatInput` | Chat input textarea with send/stop/transcribe controls |
-| `CopilotChatMessageView` | Renders the message list |
-| `CopilotChatSuggestionView` | Renders suggestion pills |
+| Component                   | Purpose                                                                    |
+| --------------------------- | -------------------------------------------------------------------------- |
+| `CopilotKitProvider`        | Root provider -- configures runtime URL, headers, agents, error handler    |
+| `CopilotChat`               | Full chat interface connected to an agent (inline layout)                  |
+| `CopilotPopup`              | Chat in a floating popup with toggle button                                |
+| `CopilotSidebar`            | Chat in a collapsible sidebar with toggle button                           |
+| `CopilotChatView`           | Headless chat view with slots for message view, input, scroll, suggestions |
+| `CopilotChatInput`          | Chat input textarea with send/stop/transcribe controls                     |
+| `CopilotChatMessageView`    | Renders the message list                                                   |
+| `CopilotChatSuggestionView` | Renders suggestion pills                                                   |
 
 ## Quick Reference: Runtime
 
-| Export | Purpose |
-|--------|---------|
-| `CopilotRuntime` | Auto-detecting runtime (delegates to SSE or Intelligence) |
-| `CopilotSseRuntime` | Explicit SSE-mode runtime |
-| `CopilotIntelligenceRuntime` | Intelligence-mode runtime with durable threads |
-| `createCopilotEndpoint` | Create a Hono app with all CopilotKit routes |
-| `createCopilotEndpointExpress` | Create an Express router with all CopilotKit routes |
-| `CopilotKitIntelligence` | Intelligence platform client configuration |
-
+| Export                         | Purpose                                                   |
+| ------------------------------ | --------------------------------------------------------- |
+| `CopilotRuntime`               | Auto-detecting runtime (delegates to SSE or Intelligence) |
+| `CopilotSseRuntime`            | Explicit SSE-mode runtime                                 |
+| `CopilotIntelligenceRuntime`   | Intelligence-mode runtime with durable threads            |
+| `createCopilotEndpoint`        | Create a Hono app with all CopilotKit routes              |
+| `createCopilotEndpointExpress` | Create an Express router with all CopilotKit routes       |
+| `CopilotKitIntelligence`       | Intelligence platform client configuration                |

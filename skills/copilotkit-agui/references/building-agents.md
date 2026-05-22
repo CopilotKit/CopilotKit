@@ -178,7 +178,7 @@ emit({
   type: EventType.TOOL_CALL_START,
   toolCallId: "tc-1",
   toolCallName: "getUserLocation",
-  parentMessageId: messageId,  // Optional: link to parent message
+  parentMessageId: messageId, // Optional: link to parent message
 });
 
 emit({
@@ -249,7 +249,11 @@ emit({
   activityType: "SEARCH",
   patch: [
     { op: "replace", path: "/status", value: "complete" },
-    { op: "add", path: "/results/-", value: { title: "Getting Started", url: "..." } },
+    {
+      op: "add",
+      path: "/results/-",
+      value: { title: "Getting Started", url: "..." },
+    },
   ],
 });
 ```
@@ -304,7 +308,11 @@ app.post("/agent", async (req, res) => {
   if (isToolResult) {
     // Continue after tool execution
     const msgId = `msg-${Date.now()}`;
-    emit({ type: EventType.TEXT_MESSAGE_START, messageId: msgId, role: "assistant" });
+    emit({
+      type: EventType.TEXT_MESSAGE_START,
+      messageId: msgId,
+      role: "assistant",
+    });
     emit({
       type: EventType.TEXT_MESSAGE_CONTENT,
       messageId: msgId,
@@ -336,15 +344,24 @@ app.post("/agent", async (req, res) => {
     } else {
       // Simple echo response
       const msgId = `msg-${Date.now()}`;
-      emit({ type: EventType.TEXT_MESSAGE_START, messageId: msgId, role: "assistant" });
+      emit({
+        type: EventType.TEXT_MESSAGE_START,
+        messageId: msgId,
+        role: "assistant",
+      });
 
       const content = userMessage?.content || "No message received";
-      const text = typeof content === "string" ? content : "[multimodal content]";
+      const text =
+        typeof content === "string" ? content : "[multimodal content]";
       const response = `You said: "${text}"`;
 
       // Stream character by character for demonstration
       for (const char of response) {
-        emit({ type: EventType.TEXT_MESSAGE_CONTENT, messageId: msgId, delta: char });
+        emit({
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: msgId,
+          delta: char,
+        });
       }
 
       emit({ type: EventType.TEXT_MESSAGE_END, messageId: msgId });
@@ -372,9 +389,7 @@ import { HttpAgent } from "@ag-ui/client";
 const agent = new HttpAgent({
   url: "http://localhost:3001/agent",
   headers: { Authorization: "Bearer token" },
-  initialMessages: [
-    { id: "1", role: "user", content: "Hello!" },
-  ],
+  initialMessages: [{ id: "1", role: "user", content: "Hello!" }],
 });
 
 // Run the agent

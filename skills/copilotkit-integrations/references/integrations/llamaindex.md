@@ -64,6 +64,7 @@ agentic_chat_router = get_ag_ui_workflow_router(
 ```
 
 Key patterns:
+
 - `get_ag_ui_workflow_router()` creates a complete FastAPI router with AG-UI support
 - Tools are split into `frontend_tools` (executed client-side, agent sees the return string as a placeholder) and `backend_tools` (executed server-side)
 - `initial_state` sets the starting shared state
