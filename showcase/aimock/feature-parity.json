@@ -1139,6 +1139,14 @@
     },
     {
       "match": {
+        "toolCallId": "call_hitl_book_intro_sales_001__cancelled"
+      },
+      "response": {
+        "content": "Denied — the intro call with the sales team was not booked because no time slot was selected."
+      }
+    },
+    {
+      "match": {
         "toolCallId": "call_hitl_book_intro_sales_001"
       },
       "response": {
@@ -1158,6 +1166,16 @@
             "arguments": "{\"topic\":\"Intro call — discuss pricing\",\"attendee\":\"Sales team\"}"
           }
         ]
+      }
+    },
+    {
+      "_comment": "hitl-in-chat — Schedule 1:1 with Alice pill, 2nd turn (book_call tool result returned). Keyed on userMessage + toolCallId so it wins ahead of the bare 'alice' / 'Alice' substring fixtures further below in this file, regardless of prior pill state in the thread.",
+      "match": {
+        "userMessage": "Schedule a 1:1 with Alice next week to review Q2 goals.",
+        "toolCallId": "call_hitl_book_1on1_alice_001__cancelled"
+      },
+      "response": {
+        "content": "Denied — the 1:1 with Alice was not booked because no time slot was selected."
       }
     },
     {

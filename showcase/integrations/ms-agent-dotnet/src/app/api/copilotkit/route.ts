@@ -137,9 +137,11 @@ function buildSharedStateReadWriteSystemMessage(state: unknown): string {
   ].join("\n");
 }
 
+type ToolResultDecision = "approved" | "rejected" | "cancelled";
+
 function toolDecisionFromContent(
   content: unknown,
-): "approved" | "rejected" | undefined {
+): ToolResultDecision | undefined {
   const text = textFromMessageContent(content);
   if (!text) return undefined;
 
@@ -151,20 +153,31 @@ function toolDecisionFromContent(
     if (parsed?.approved === false || parsed?.accepted === false) {
       return "rejected";
     }
+    if (parsed?.cancelled === true || parsed?.canceled === true) {
+      return "cancelled";
+    }
   } catch {
-    return undefined;
+    const normalized = text.toLowerCase();
+    if (
+      (normalized.includes("cancelled") || normalized.includes("canceled")) &&
+      (normalized.includes("not scheduled") ||
+        normalized.includes("not booked") ||
+        normalized.includes("no time"))
+    ) {
+      return "cancelled";
+    }
   }
 
   return undefined;
 }
 
-function makeDecisionToolCallId(id: string, decision: "approved" | "rejected") {
+function makeDecisionToolCallId(id: string, decision: ToolResultDecision) {
   return `${id}__${decision}`;
 }
 
 function applyToolResultDecisionSuffix(
   message: unknown,
-  decisionsByToolCallId: Map<string, "approved" | "rejected">,
+  decisionsByToolCallId: Map<string, ToolResultDecision>,
 ): unknown {
   if (!message || typeof message !== "object") return message;
 
@@ -263,7 +276,7 @@ function dropStaleToolInteractionsBeforeLatestUser(messages: unknown[]) {
 
 function prepareReplaySafeMessages(messages: unknown[] = []) {
   const stripped = messages.map(stripReplaySafeToolCallIdsFromMessage);
-  const decisionsByToolCallId = new Map<string, "approved" | "rejected">();
+  const decisionsByToolCallId = new Map<string, ToolResultDecision>();
 
   for (const message of stripped) {
     if (!message || typeof message !== "object") continue;

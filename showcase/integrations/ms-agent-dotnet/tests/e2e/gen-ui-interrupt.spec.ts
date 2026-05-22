@@ -119,10 +119,16 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
     await expect(cancelled).toBeVisible({ timeout: 10_000 });
     await expect(cancelled).toContainText("Cancelled");
 
+    const assistantMessages = page.locator(
+      '[data-testid="copilot-assistant-message"]',
+    );
     await expect(
-      page.locator('[data-testid="copilot-assistant-message"]').first(),
+      assistantMessages.filter({ hasText: /Denied.*Alice|not scheduled/i }).first(),
     ).toBeVisible({
       timeout: 45_000,
     });
+    await expect(
+      assistantMessages.filter({ hasText: /Scheduled: 1:1 with Alice/i }),
+    ).toHaveCount(0);
   });
 });
