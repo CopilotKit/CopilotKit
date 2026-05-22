@@ -38,7 +38,11 @@ from langchain_core.messages import (
 )
 from langchain.agents.middleware import ModelRequest
 
-from copilotkit.copilotkit_lg_middleware import CopilotKitMiddleware
+from copilotkit.copilotkit_lg_middleware import (
+    CopilotKitMiddleware,
+    _extract_forwarded_headers_from_config,
+)
+from copilotkit.header_propagation import get_forwarded_headers, set_forwarded_headers
 
 
 # ---------------------------------------------------------------------------
@@ -560,3 +564,369 @@ def test_bedrock_fix_repairs_string_args_to_dicts():
 
     repaired = next(m for m in messages if isinstance(m, AIMessage))
     assert repaired.tool_calls[0]["args"] == {"q": "hello"}
+
+
+# ---------------------------------------------------------------------------
+# _extract_forwarded_headers_from_config — raw x-* header extraction
+# ---------------------------------------------------------------------------
+
+
+class TestExtractForwardedHeadersFromConfig:
+    """Verify that raw x-* keys on config["configurable"] and config["context"]
+    are extracted and pushed into the header-propagation ContextVar."""
+
+    def _patch_get_config(self, monkeypatch, config: dict):
+        """Patch langgraph.config.get_config to return *config*."""
+        monkeypatch.setattr(
+            "copilotkit.copilotkit_lg_middleware.get_config",
+            lambda: config,
+            raising=False,
+        )
+        # Also patch at the import site inside the function's local scope:
+        # _extract_forwarded_headers_from_config does a local import, so we
+        # need to patch the module it imports from.
+        import langgraph.config as _lg_config
+
+        monkeypatch.setattr(_lg_config, "get_config", lambda: config)
+
+    def setup_method(self):
+        """Reset forwarded headers before each test."""
+        set_forwarded_headers({})
+
+    def test_raw_x_header_on_configurable_is_extracted(self, monkeypatch):
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "configurable": {
+                    "thread_id": "t-1",
+                    "x-aimock-context": "showcase/d5",
+                },
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert headers["x-aimock-context"] == "showcase/d5"
+
+    def test_raw_x_header_on_context_is_extracted(self, monkeypatch):
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "context": {
+                    "x-aimock-strict": "true",
+                },
+                "configurable": {},
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert headers["x-aimock-strict"] == "true"
+
+    def test_non_x_keys_on_configurable_are_not_extracted(self, monkeypatch):
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "configurable": {
+                    "thread_id": "t-1",
+                    "user_id": "u-42",
+                    "checkpoint_ns": "",
+                    "x-aimock-context": "test",
+                },
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert "thread_id" not in headers
+        assert "user_id" not in headers
+        assert "checkpoint_ns" not in headers
+        assert headers == {"x-aimock-context": "test"}
+
+    def test_wrapper_dict_still_works(self, monkeypatch):
+        """Backward compat: the copilotkit_forwarded_headers wrapper dict
+        is still the preferred source."""
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "configurable": {
+                    "copilotkit_forwarded_headers": {
+                        "x-aimock-strict": "true",
+                        "x-custom-trace": "abc",
+                    },
+                },
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert headers["x-aimock-strict"] == "true"
+        assert headers["x-custom-trace"] == "abc"
+
+    def test_wrapper_dict_takes_precedence_over_raw_key(self, monkeypatch):
+        """When both the wrapper dict and a raw key provide the same header,
+        the wrapper-dict value wins."""
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "configurable": {
+                    "copilotkit_forwarded_headers": {
+                        "x-aimock-context": "from-wrapper",
+                    },
+                    "x-aimock-context": "from-raw",
+                },
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert headers["x-aimock-context"] == "from-wrapper"
+
+    def test_wrapper_dict_keys_lowercased_at_insertion(self, monkeypatch):
+        """Wrapper-dict keys must be lowercased at insertion so that
+        documented context > configurable precedence holds regardless of
+        the casing the agent author used."""
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "context": {
+                    "copilotkit_forwarded_headers": {
+                        "X-Trace": "from-context",
+                    },
+                },
+                "configurable": {
+                    "copilotkit_forwarded_headers": {
+                        "x-trace": "from-configurable",
+                    },
+                },
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        # Context wins via first-write-wins (both lowercase to "x-trace").
+        assert headers["x-trace"] == "from-context"
+        # Only the lowercased key exists — no mixed-case duplicate.
+        assert "X-Trace" not in headers
+
+    def test_multiple_raw_x_headers_extracted(self, monkeypatch):
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "configurable": {
+                    "x-aimock-context": "showcase/d5",
+                    "x-aimock-strict": "true",
+                    "x-request-id": "req-123",
+                    "thread_id": "t-1",
+                },
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert headers == {
+            "x-aimock-context": "showcase/d5",
+            "x-aimock-strict": "true",
+            "x-request-id": "req-123",
+        }
+
+    def test_no_headers_when_config_has_no_x_keys(self, monkeypatch):
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "configurable": {
+                    "thread_id": "t-1",
+                    "user_id": "u-42",
+                },
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert headers == {}
+
+    def test_runtime_error_clears_contextvar(self):
+        """When get_config() raises RuntimeError (not inside a runnable),
+        the function clears the ContextVar so stale headers from a prior
+        request do not leak through."""
+        set_forwarded_headers({"x-stale": "leftover"})
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert headers == {}
+
+    def test_non_string_values_are_skipped(self, monkeypatch):
+        """Only string values are extracted; lists/dicts/ints are ignored."""
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "configurable": {
+                    "x-valid": "yes",
+                    "x-list-value": ["a", "b"],
+                    "x-int-value": 42,
+                    "x-dict-value": {"nested": True},
+                },
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert headers == {"x-valid": "yes"}
+
+    def test_contextvar_cleared_when_no_headers(self, monkeypatch):
+        """When the current call has no x-* headers, the ContextVar must be
+        reset to an empty dict so stale headers from a previous call in the
+        same async context do not leak through."""
+        # Pre-populate the ContextVar with stale headers.
+        set_forwarded_headers({"x-stale": "leftover"})
+        assert get_forwarded_headers() == {"x-stale": "leftover"}
+
+        # Config has no x-* keys at all.
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "configurable": {
+                    "thread_id": "t-1",
+                },
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert headers == {}
+
+    def test_exception_safety_unexpected_config_shape(self, monkeypatch):
+        """If the config has an unexpected shape that raises during
+        extraction, the function must not propagate the exception — header
+        forwarding is best-effort and must never block the LLM call.
+        Additionally, stale headers from a prior request must be cleared."""
+
+        class _ExplodingDict:
+            """A dict-like that raises on .get() to simulate unexpected shapes."""
+
+            def get(self, key, default=None):
+                raise TypeError(f"boom on {key}")
+
+        import langgraph.config as _lg_config
+
+        monkeypatch.setattr(_lg_config, "get_config", lambda: _ExplodingDict())
+
+        # Pre-populate stale headers.
+        set_forwarded_headers({"x-stale": "leftover"})
+
+        # Must not raise.
+        _extract_forwarded_headers_from_config()
+
+        # The ContextVar must be cleared so stale headers don't leak.
+        headers = get_forwarded_headers()
+        assert headers == {}
+
+    def test_context_wins_over_configurable_in_wrapper_dict(self, monkeypatch):
+        """When both config["context"] and config["configurable"] have
+        copilotkit_forwarded_headers with the same key, the context value
+        wins (LangGraph >=0.6.0 introduced context as the newer preferred
+        mechanism)."""
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "context": {
+                    "copilotkit_forwarded_headers": {
+                        "x-aimock-context": "from-context",
+                    },
+                },
+                "configurable": {
+                    "copilotkit_forwarded_headers": {
+                        "x-aimock-context": "from-configurable",
+                    },
+                },
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert headers["x-aimock-context"] == "from-context"
+
+    # -- F1: Integration test — wrap_model_call invokes header extraction ------
+
+    def test_wrap_model_call_invokes_header_extraction(self, monkeypatch):
+        """Removing the _extract_forwarded_headers_from_config() call from
+        wrap_model_call would cause this test to fail, proving the call site
+        is exercised end-to-end."""
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "configurable": {"x-aimock-context": "via-wrap-model-call"},
+            },
+        )
+
+        captured_headers: dict[str, str] = {}
+
+        def handler(request):
+            captured_headers.update(get_forwarded_headers())
+            return "model-response"
+
+        middleware = CopilotKitMiddleware()
+        request = _make_request(state={"messages": []})
+        middleware.wrap_model_call(request, handler)
+
+        assert captured_headers.get("x-aimock-context") == "via-wrap-model-call"
+
+    # -- F2: Integration test — awrap_model_call (async) invokes extraction ----
+
+    def test_awrap_model_call_invokes_header_extraction(self, monkeypatch):
+        """Same as the sync test above but exercising the async code path."""
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "configurable": {"x-aimock-context": "via-awrap-model-call"},
+            },
+        )
+
+        captured_headers: dict[str, str] = {}
+
+        async def handler(request):
+            captured_headers.update(get_forwarded_headers())
+            return "model-response"
+
+        middleware = CopilotKitMiddleware()
+        request = _make_request(state={"messages": []})
+        asyncio.run(middleware.awrap_model_call(request, handler))
+
+        assert captured_headers.get("x-aimock-context") == "via-awrap-model-call"
+
+    # -- F3: Wrapper dict on config["context"] only (LangGraph >=0.6.0) --------
+
+    def test_wrapper_dict_on_context_only(self, monkeypatch):
+        """The copilotkit_forwarded_headers wrapper dict on config['context']
+        (not configurable) must also be extracted — this is the LangGraph
+        >=0.6.0 path."""
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "context": {
+                    "copilotkit_forwarded_headers": {"x-aimock-strict": "true"},
+                },
+                "configurable": {},
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert headers.get("x-aimock-strict") == "true"
+
+    # -- F6: None values for context / configurable (the `or {}` fallback) -----
+
+    def test_none_context_falls_back_to_configurable(self, monkeypatch):
+        """config['context'] = None must not crash; headers from configurable
+        should still be extracted via the `or {}` fallback."""
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "context": None,
+                "configurable": {"x-aimock-context": "via-raw"},
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert headers.get("x-aimock-context") == "via-raw"
+
+    def test_none_configurable_falls_back_to_context(self, monkeypatch):
+        """config['configurable'] = None must not crash; headers from context
+        should still be extracted via the `or {}` fallback."""
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "context": {"x-aimock-context": "via-context"},
+                "configurable": None,
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert headers.get("x-aimock-context") == "via-context"
