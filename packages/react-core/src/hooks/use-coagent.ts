@@ -89,9 +89,9 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Message } from "@copilotkit/shared";
+import type { Message } from "@copilotkit/shared";
 import { useAgent, useCopilotKit } from "../v2";
-import { type AgentSubscriber } from "@ag-ui/client";
+import type { AgentSubscriber } from "@ag-ui/client";
 import { useAgentNodeName } from "./use-agent-nodename";
 
 interface UseCoagentOptionsBase {
@@ -202,7 +202,7 @@ export type HintFunction = (params: HintFunctionParams) => Message | undefined;
  * This hook is used to integrate an agent into your application. With its use, you can
  * render and update the state of the agent, allowing for a dynamic and interactive experience.
  * We call these shared state experiences "agentic copilots". To get started using agentic copilots, which
- * we refer to as CoAgents, checkout the documentation at https://docs.copilotkit.ai/coagents/quickstart/langgraph.
+ * we refer to as CoAgents, checkout the documentation at https://docs.copilotkit.ai/langgraph-python/quickstart.
  */
 export function useCoAgent<T = any>(
   options: UseCoagentOptions<T>,
