@@ -19,6 +19,15 @@ export default defineConfig({
     outDir: resolve(__dirname, "dist/spa"),
     emptyOutDir: true,
     sourcemap: true,
+    rollupOptions: {
+      // Multi-page build — `index.html` is the main app, `timeline-demo.html`
+      // is the M5 demo harness. Engineers run `vite preview` (or `vite dev`)
+      // and visit `/timeline-demo.html` to eyeball the drawer in isolation.
+      input: {
+        index: resolve(__dirname, "src/spa/index.html"),
+        timelineDemo: resolve(__dirname, "src/spa/timeline-demo.html"),
+      },
+    },
   },
   server: {
     port: 4124,
