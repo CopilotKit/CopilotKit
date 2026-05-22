@@ -124,6 +124,13 @@ export function BrandNav(_props: BrandNavProps = {}) {
                       className={`h-full ${
                         isActive ? "opacity-100" : "opacity-50"
                       } hover:opacity-100 transition-opacity duration-300`}
+                      // HubSpot's analytics tag rewrites the
+                      // dashboard.operations.copilotkit.ai href client-side to
+                      // attach `__hstc` / `__hssc` / `__hsfp` cross-domain
+                      // tracking params, which trips React's hydration diff.
+                      // Suppress only on the Intelligence link so genuine
+                      // mismatches on other nav items still surface.
+                      suppressHydrationWarning={isFreeDevAccess}
                     >
                       <span className="flex gap-2 items-center h-full text-[var(--text-secondary)]">
                         <span className="[@media(width<808px)]:hidden">
