@@ -58,7 +58,6 @@ const EXTRA_FEATURED_BY_INTEGRATION: Readonly<
   Record<string, readonly string[]>
 > = {
   "langgraph-python": ["hitl-in-chat", "hitl-in-app", "gen-ui-interrupt"],
-  "langgraph-typescript": ["hitl-in-chat", "hitl-in-app", "gen-ui-interrupt"],
   "langgraph-fastapi": ["hitl-in-chat", "hitl-in-app", "gen-ui-interrupt"],
   "google-adk": ["hitl-in-chat", "hitl-in-app", "gen-ui-interrupt"],
 };
