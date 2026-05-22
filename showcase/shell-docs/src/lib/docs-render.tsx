@@ -800,7 +800,21 @@ export const SNIPPET_MAP: Record<string, string> = {
   Threads: "shared/threads/threads.mdx",
   ToolRendering: "shared/generative-ui/tool-rendering.mdx",
   DefaultToolRendering: "shared/guides/default-tool-rendering.mdx",
+  UseAgentSnippet: "use-agent.mdx",
 };
+
+// JSX components that legitimately appear as `<Component />` inside MDX
+// code fences (rendered example code) but are NOT snippet imports. The
+// `inlineSnippets()` regex isn't code-fence-aware, so without this set
+// these false positives spam the dev console and look like missing
+// snippet errors. CopilotChat is the runtime React component used in
+// example snippets across slots.mdx, threads.mdx, use-agent.mdx, etc.
+//
+// If a real snippet ever needs one of these names, register it in
+// SNIPPET_MAP above; the lookup short-circuits before this check.
+const KNOWN_REACT_COMPONENTS_IN_CODE_FENCES = new Set<string>([
+  "CopilotChat",
+]);
 
 export const SUBPATH_TO_COMPONENT: Record<string, string> = {
   "ag-ui": "AGUI",
@@ -967,6 +981,12 @@ export function inlineSnippets(
       }
 
       if (!snippetRel) {
+        // Suppress noise for runtime React components that appear inside
+        // example code fences (the regex isn't fence-aware — see comment
+        // above KNOWN_REACT_COMPONENTS_IN_CODE_FENCES).
+        if (KNOWN_REACT_COMPONENTS_IN_CODE_FENCES.has(componentName)) {
+          return match;
+        }
         // Log so docs authors see a clean signal when a <Component />
         // reference can't be mapped to a snippet file (previously the
         // component just silently rendered nothing).
