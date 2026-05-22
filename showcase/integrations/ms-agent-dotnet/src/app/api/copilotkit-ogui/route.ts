@@ -4,7 +4,12 @@ import {
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent, type BaseEvent, type RunAgentInput } from "@ag-ui/client";
+import {
+  AbstractAgent,
+  HttpAgent,
+  type BaseEvent,
+  type RunAgentInput,
+} from "@ag-ui/client";
 import { map, type Observable } from "rxjs";
 
 // Dedicated runtime for the Open Generative UI demos, mirroring the
@@ -104,7 +109,9 @@ class OpenGenUiHttpAgent extends HttpAgent {
   }
 }
 
-const openGenUiAgent = new OpenGenUiHttpAgent({ url: `${AGENT_URL}/open-gen-ui` });
+const openGenUiAgent = new OpenGenUiHttpAgent({
+  url: `${AGENT_URL}/open-gen-ui`,
+});
 const openGenUiAdvancedAgent = new OpenGenUiHttpAgent({
   url: `${AGENT_URL}/open-gen-ui-advanced`,
 });

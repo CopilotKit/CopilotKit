@@ -25,8 +25,8 @@ test.describe("HITL step review", () => {
     await expect(page.getByText("Great choices!")).toHaveCount(0);
 
     await page.getByRole("button", { name: "Simple plan" }).click();
-    await expect(
-      page.getByRole("button", { name: "Confirm (5)" }),
-    ).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole("button", { name: "Confirm (5)" })).toBeVisible(
+      { timeout: 60_000 },
+    );
   });
 });

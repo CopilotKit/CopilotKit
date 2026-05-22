@@ -118,7 +118,9 @@ function buildSharedStateReadWriteSystemMessage(state: unknown): string {
   const language =
     typeof prefs.language === "string" ? prefs.language : "English";
   const interests = Array.isArray(prefs.interests)
-    ? prefs.interests.filter((interest): interest is string => typeof interest === "string")
+    ? prefs.interests.filter(
+        (interest): interest is string => typeof interest === "string",
+      )
     : [];
 
   return [
@@ -135,7 +137,9 @@ function buildSharedStateReadWriteSystemMessage(state: unknown): string {
   ].join("\n");
 }
 
-function toolDecisionFromContent(content: unknown): "approved" | "rejected" | undefined {
+function toolDecisionFromContent(
+  content: unknown,
+): "approved" | "rejected" | undefined {
   const text = textFromMessageContent(content);
   if (!text) return undefined;
 
@@ -618,9 +622,7 @@ agents["hitl-in-app"] = createReplaySafeAgent("/hitl-in-app", [
 // In-Chat HITL -- frontend-defined `book_call` tool rendered inline in the
 // chat via `useHumanInTheLoop`. Backend agent has tools=[] and routes to
 // /hitl-in-chat on the FastAPI backend.
-agents["hitl-in-chat"] = createReplaySafeAgent("/hitl-in-chat", [
-  "book_call",
-]);
+agents["hitl-in-chat"] = createReplaySafeAgent("/hitl-in-chat", ["book_call"]);
 
 // Generative UI Agent — backend with `set_steps` tool + `steps` state
 // schema mirrored from LGP's gen_ui_agent. The frontend renders a live
