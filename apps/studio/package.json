@@ -12,9 +12,10 @@
   ],
   "type": "module",
   "scripts": {
-    "build": "pnpm run build:spa && pnpm run build:launcher",
+    "build": "pnpm run build:spa && pnpm run build:launcher && pnpm run build:bin-chmod",
     "build:spa": "vite build",
     "build:launcher": "tsc -p tsconfig.launcher.json",
+    "build:bin-chmod": "chmod +x ./dist/bin/studio.js",
     "dev": "tsx watch bin/studio.ts",
     "dev:spa": "vite",
     "start": "tsx bin/studio.ts",

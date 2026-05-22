@@ -62,8 +62,8 @@ import {
   parseMethodCall,
   createJsonRequest,
   expectString,
-  type MethodCall,
 } from "../endpoints/single-route-helpers";
+import type { MethodCall } from "../endpoints/single-route-helpers";
 import { logger } from "@copilotkit/shared";
 import { fireInstanceCreatedTelemetry } from "../telemetry/instance-created";
 
@@ -439,10 +439,18 @@ function validateHttpMethod(
     case "threads/messages":
     case "threads/events":
     case "threads/state":
-    case "cpk-debug-events":
       if (method === "GET") return null;
       return jsonResponse({ error: "Method not allowed" }, 405, {
         Allow: "GET",
+      });
+
+    // `cpk-debug-events` is consumed cross-origin by the CopilotKit Studio SPA,
+    // so we let the handler itself answer OPTIONS preflight requests with the
+    // appropriate CORS headers — see `handleDebugEvents`.
+    case "cpk-debug-events":
+      if (method === "GET" || method === "OPTIONS") return null;
+      return jsonResponse({ error: "Method not allowed" }, 405, {
+        Allow: "GET, OPTIONS",
       });
 
     case "threads/update":
