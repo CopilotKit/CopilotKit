@@ -3,6 +3,7 @@ import { defineConfig } from "tsdown";
 export default defineConfig({
   entry: [
     "src/index.ts",
+    "src/components/index.ts",
     "src/polyfills.ts",
     "src/polyfills/streams.ts",
     "src/polyfills/encoding.ts",
@@ -22,5 +23,13 @@ export default defineConfig({
     "@copilotkit/react-core",
     "@copilotkit/core",
     "@copilotkit/shared",
+    "@ag-ui/client",
+    "@gorhom/bottom-sheet",
+    "react-native-streamdown",
+    "react-native-gesture-handler",
+    "react-native-reanimated",
+    "react-native-enriched-markdown",
+    "react-native-worklets",
+    "remend",
   ],
 });
