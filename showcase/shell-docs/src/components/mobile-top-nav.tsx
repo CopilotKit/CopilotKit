@@ -67,7 +67,15 @@ export function MobileTopNav() {
         </span>
       </Link>
       {/* Get Intelligence free — muted icon, matches the desktop
-       * BrandNav treatment for the same CTA. */}
+       * BrandNav treatment for the same CTA.
+       *
+       * `suppressHydrationWarning` is required because HubSpot's analytics
+       * tag (`js-na2.hs-analytics.net`) rewrites the `href` client-side to
+       * append `__hstc` / `__hssc` / `__hsfp` cross-domain tracking params.
+       * Server-rendered HTML has the bare URL, post-hydration DOM has the
+       * rewritten URL; suppress lets React skip the diff on this one anchor
+       * without masking real mismatches elsewhere. Desktop variant in
+       * `brand-nav.tsx` takes the same fix for the same reason. */}
       <Link
         href={INTELLIGENCE_CTA_HREF}
         target="_blank"
@@ -76,6 +84,7 @@ export function MobileTopNav() {
         aria-label="Get Intelligence free"
         title="Get Intelligence free"
         className="flex items-center justify-center w-10 h-10 rounded-md text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-elevated)]"
+        suppressHydrationWarning
       >
         <Lightbulb className="w-5 h-5" />
       </Link>

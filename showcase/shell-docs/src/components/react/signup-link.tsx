@@ -38,6 +38,11 @@ export function SignupLink({ surface, children }: SignupLinkProps) {
       target="_blank"
       rel="noreferrer"
       onClick={handleClick}
+      // HubSpot's analytics tag rewrites the dashboard.operations.copilotkit.ai
+      // outbound href client-side to attach `__hstc` / `__hssc` / `__hsfp`
+      // cross-domain tracking params, which trips React's hydration diff.
+      // Same fix on the nav-bar Intelligence CTA + OpsPlatformCTA variants.
+      suppressHydrationWarning
       data-cta-surface={surface}
     >
       {children}
