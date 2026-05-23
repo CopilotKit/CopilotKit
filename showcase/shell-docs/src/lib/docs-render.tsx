@@ -806,6 +806,7 @@ export const SNIPPET_MAP: Record<string, string> = {
   MigrateTo: "shared/troubleshooting/migrate-to-v2.mdx",
   MigrateToV: "shared/troubleshooting/migrate-to-v2.mdx",
   CopilotUI: "copilot-ui.mdx",
+  ComponentExamples: "component-examples.mdx",
   LandingCodeShowcase: "landing-code-showcase.mdx",
   UseAgentSnippet: "use-agent.mdx",
   InstallSDKSnippet: "install-sdk.mdx",
@@ -1097,6 +1098,17 @@ export function inlineSnippets(
         // than warn (matches the same shape as the fence-aware short
         // circuit above for `<CopilotChat />` in prose backticks).
         if (componentName.endsWith("Icon")) {
+          return match;
+        }
+        // Icon-library components also hit the inliner as bare JSX
+        // references (no explicit import — the registry provides them
+        // via docsComponents at render time). Lucide square-prefixed
+        // icons (SquareTerminal, SquareChartGantt, etc.), react-icons
+        // fa/si/pi prefixes, and similar PascalCase + icon-library
+        // shapes don't match the trailing-Icon filter above. Skip
+        // them by name shape so the inliner doesn't log a warning for
+        // every icon usage.
+        if (/^(Fa|Si|Pi|Square)[A-Z]/.test(componentName)) {
           return match;
         }
         // Skip components the MDX explicitly imports. They're real React
