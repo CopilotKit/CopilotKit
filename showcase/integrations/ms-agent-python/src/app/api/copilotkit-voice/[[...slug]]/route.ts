@@ -29,16 +29,46 @@ const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 // Point at the tool-free /voice endpoint so aimock returns a direct text
 // response instead of a tool call that the agent can't summarize.
-const voiceDemoAgent = new HttpAgent({ url: `${AGENT_URL}/voice/` });
+//
+// No trailing slash on the URL. FastAPI mounts this agent at `/voice`
+// exactly (via `add_agent_framework_fastapi_endpoint(path="/voice")` in
+// agent_server.py); posting to `/voice/` triggers FastAPI's
+// redirect-to-canonical 307, which kills the streaming SSE response and
+// surfaces as `fetch failed` / `INCOMPLETE_STREAM` in the runtime.
+const voiceDemoAgent = new HttpAgent({ url: `${AGENT_URL}/voice` });
 
+/**
+ * Transcription service wrapper that reports a clean, typed auth error when
+ * OPENAI_API_KEY is not configured. When the key is present we delegate to
+ * the real OpenAI-backed service; any upstream Whisper error keeps its
+ * natural categorization.
+ *
+ * Note: We pin `baseURL` to real OpenAI (or `OPENAI_TRANSCRIPTION_BASE_URL`
+ * when explicitly set) instead of falling through to `OPENAI_BASE_URL`. In
+ * local docker / Railway preview environments `OPENAI_BASE_URL` points at
+ * aimock so LLM completions stay deterministic, but aimock has a catchall
+ * `endpoint: "transcription"` fixture that would otherwise intercept every
+ * real mic recording and return the canned "What is the weather in Tokyo?"
+ * phrase regardless of what the user actually said — and on production
+ * aimock's transcription proxy returns a 502 "Invalid file format" before
+ * any phrase reaches the user. The sample-audio button is the deterministic
+ * affordance (synchronous text injection); the mic is the only path that
+ * should exercise real Whisper.
+ *
+ * Mirrors langgraph-python's voice route exactly.
+ */
 class GuardedOpenAITranscriptionService extends TranscriptionService {
   private delegate: TranscriptionServiceOpenAI | null;
 
   constructor() {
     super();
     const apiKey = process.env.OPENAI_API_KEY;
+    const baseURL =
+      process.env.OPENAI_TRANSCRIPTION_BASE_URL ?? "https://api.openai.com/v1";
     this.delegate = apiKey
-      ? new TranscriptionServiceOpenAI({ openai: new OpenAI({ apiKey }) })
+      ? new TranscriptionServiceOpenAI({
+          openai: new OpenAI({ apiKey, baseURL }),
+        })
       : null;
   }
 

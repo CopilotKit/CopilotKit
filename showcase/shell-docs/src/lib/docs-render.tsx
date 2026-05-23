@@ -11,6 +11,7 @@ import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
 import { resolveWithinDir } from "./safe-fs";
+import { getDocsMode } from "./registry";
 
 export const CONTENT_DIR = path.join(process.cwd(), "src/content/docs");
 export const SNIPPETS_DIR = path.join(CONTENT_DIR, "..", "snippets");
@@ -43,7 +44,17 @@ export type NavNode =
 // case-insensitive so meta.json edits don't need to match this map's
 // capitalization exactly. Update keys here when section names change
 // in `content/docs/meta.json`.
+//
+// Includes both the agnostic root sections AND per-framework
+// `docs_mode: "authored"` sections (e.g. Built-in Agent's own IA,
+// whose meta.json lives at
+// `content/docs/integrations/built-in-agent/meta.json`). Authored
+// frameworks don't merge into the root tree, so they need their own
+// section names registered here to receive icons — otherwise the
+// section header renders without a glyph and looks visually distinct
+// from the generated-mode sidebars.
 const SECTION_ICONS: Record<string, string> = {
+  // Agnostic root sections (`content/docs/meta.json`).
   "get started": "lucide/Rocket",
   concepts: "lucide/BookOpen",
   "build chat uis": "lucide/MessageSquare",
@@ -53,6 +64,19 @@ const SECTION_ICONS: Record<string, string> = {
   "observe & operate": "lucide/SearchCheck",
   enterprise: "custom/copilotkit-kite",
   deploy: "lucide/Cloud",
+  other: "lucide/MoreHorizontal",
+  // Built-in Agent (authored) sections — match the section names in
+  // `content/docs/integrations/built-in-agent/meta.json`. Adjust here
+  // when those section labels change in that meta.json.
+  "getting started": "lucide/Rocket",
+  basics: "lucide/BookOpen",
+  "generative ui": "lucide/Paintbrush",
+  "app control": "lucide/WandSparkles",
+  "built-in agent": "lucide/Bot",
+  backend: "lucide/Server",
+  "premium features": "custom/copilotkit-kite",
+  tutorials: "lucide/ListChecks",
+  troubleshooting: "lucide/LifeBuoy",
 };
 
 export function sectionIconFor(title: string): string | undefined {
@@ -115,6 +139,82 @@ const metaCache = new Map<
 // repeated calls return the same array reference. Dev mode skips it
 // so meta.json edits propagate without a restart.
 const navTreeCache = new Map<string, NavNode[]>();
+
+// Resolved-source strings for `<FrameworkSetup>` concept files. Same
+// dev/prod policy as the title/meta caches: dev re-reads on every
+// request so authoring edits show up immediately; prod caches for
+// the process lifetime since content is frozen at deploy time.
+//
+// The cache stores raw source strings — compilation happens on every
+// render so the `components` map binding (which closes over the URL
+// framework slug) stays correct.
+const setupConceptCache = new Map<string, string | null>();
+
+// Only exposed for tests. The compiled bundle ignores this export.
+export function __resetSetupConceptCacheForTest(): void {
+  setupConceptCache.clear();
+}
+
+/**
+ * Resolve `<integrationsRoot>/<docsFolder>/docs/setup/<concept>.mdx`
+ * for the given integration package root. Returns the file's source
+ * string when present, or null for missing / empty / unreadable /
+ * path-traversal attempts.
+ *
+ * `integrationsRoot` is the absolute path to `showcase/integrations/`
+ * in production; tests inject a tmpdir so they're decoupled from the
+ * on-disk shape of the real repo.
+ *
+ * Both the docsFolder + concept legs are routed through `resolveWithinDir`
+ * for defense-in-depth — integration owners author both, but a typo or
+ * a malicious slug should never escape the integrations root.
+ */
+export function resolveSetupConcept(
+  integrationsRoot: string,
+  docsFolder: string,
+  concept: string,
+): string | null {
+  const folderResolved = resolveWithinDir(integrationsRoot, docsFolder);
+  if (!folderResolved) return null;
+  const conceptResolved = resolveWithinDir(
+    folderResolved,
+    path.join("docs", "setup", `${concept}.mdx`),
+  );
+  if (!conceptResolved) return null;
+
+  const cacheKey = conceptResolved;
+  if (!isDev && setupConceptCache.has(cacheKey)) {
+    return setupConceptCache.get(cacheKey)!;
+  }
+
+  if (!fs.existsSync(conceptResolved)) {
+    setupConceptCache.set(cacheKey, null);
+    return null;
+  }
+
+  let raw: string;
+  try {
+    raw = fs.readFileSync(conceptResolved, "utf-8");
+  } catch (err) {
+    console.error(
+      "[docs-render] failed to read setup concept",
+      conceptResolved,
+      err,
+    );
+    setupConceptCache.set(cacheKey, null);
+    return null;
+  }
+
+  // Whitespace-only files render nothing — treated as a deliberate
+  // placeholder, not an authoring error.
+  if (raw.trim().length === 0) {
+    setupConceptCache.set(cacheKey, null);
+    return null;
+  }
+
+  setupConceptCache.set(cacheKey, raw);
+  return raw;
+}
 
 export function readTitle(filePath: string): string | null {
   const cacheKey = path.resolve(filePath);
@@ -545,6 +645,58 @@ export function buildFrameworkOverridesNav(folder: string): NavNode[] {
 }
 
 /**
+ * Build a sidebar that contains ONLY the per-framework MDX tree
+ * (no merge with root nav, no root-equivalent filtering). Used when a
+ * framework's `docs_mode === "authored"` — the framework owns its
+ * entire IA, so the agnostic root sections (Concepts / Build Chat UIs
+ * / ...) must NOT appear, and per-framework pages with names that
+ * happen to match root pages (`quickstart`, `frontend-tools`, etc.)
+ * MUST survive (they're the authoritative version for this framework).
+ *
+ * Slugs are rewritten to drop the `integrations/<folder>/` prefix and
+ * the literal `index` → "" rewrite, so links resolve at
+ * `/<framework>/<topic>` and the framework root at `/<framework>`.
+ */
+export function buildFrameworkOnlyNav(folder: string): NavNode[] {
+  const frameworkDir = path.join(CONTENT_DIR, "integrations", folder);
+  if (!fs.existsSync(frameworkDir)) return [];
+  const nodes = buildNavTree(frameworkDir, `integrations/${folder}`);
+  const prefix = `integrations/${folder}/`;
+
+  // Recursive slug rewrite so nested groups (e.g. `human-in-the-loop/`,
+  // `premium/`) also get the prefix stripped from their children.
+  //
+  // Two `index` cases need rewriting:
+  //   1. Top-level `index` → "" so the framework-root entry resolves to
+  //      `/<framework>` (not `/<framework>/index`).
+  //   2. Nested `<group>/index` → `<group>` so a folder's own root page
+  //      (e.g. `human-in-the-loop/index.mdx`) resolves to
+  //      `/<framework>/human-in-the-loop` (the folder URL), not
+  //      `/<framework>/human-in-the-loop/index` which 404s. Without
+  //      this rewrite the sidebar links into folder-root pages dead-end.
+  const rewrite = (node: NavNode): NavNode => {
+    if (node.type === "page") {
+      const stripped = node.slug.replace(prefix, "");
+      let slug = stripped;
+      if (stripped === "index") slug = "";
+      else if (stripped.endsWith("/index"))
+        slug = stripped.slice(0, -"/index".length);
+      return { ...node, slug };
+    }
+    if (node.type === "group") {
+      const stripped = node.slug.replace(prefix, "");
+      return {
+        ...node,
+        slug: stripped,
+        children: node.children.map(rewrite),
+      };
+    }
+    return node;
+  };
+  return nodes.map(rewrite);
+}
+
+/**
  * Return the list of framework slugs whose `integrations/<folder>/`
  * tree contains an MDX file for `slugPath`. Matches either
  * `<slug>.mdx` or `<slug>/index.mdx`. Used by the framework-scoped
@@ -557,7 +709,12 @@ export function buildFrameworkOverridesNav(folder: string): NavNode[] {
  * ms-agent-dotnet/python → `microsoft-agent-framework/`) and two
  * legacy slugs were renamed after the folder existed (google-adk →
  * `adk/`, strands → `aws-strands/`). The caller supplies the
- * slug→folder resolver so this module stays registry-free.
+ * slug→folder resolver so this helper stays decoupled from the registry's
+ * docs-folder mapping.
+ *
+ * `docs_mode: hidden` frameworks are filtered out — the "Try X, Y, Z"
+ * suggestion surfaces would otherwise dead-end on a 404 (those frameworks
+ * have no `/<slug>` route by design).
  */
 export function findFrameworksWithPage(
   slugPath: string,
@@ -566,6 +723,7 @@ export function findFrameworksWithPage(
 ): string[] {
   const matches: string[] = [];
   for (const slug of integrationSlugs) {
+    if (getDocsMode(slug) === "hidden") continue;
     const folder = slugToFolder(slug);
     const mdx = path.join(
       CONTENT_DIR,
@@ -640,8 +798,31 @@ export const SNIPPET_MAP: Record<string, string> = {
   SelfHosting: "shared/premium/self-hosting.mdx",
   Slots: "shared/basics/slots.mdx",
   Threads: "shared/threads/threads.mdx",
+  ToolRenderer: "shared/generative-ui/tool-rendering.mdx", // alias of ToolRendering
   ToolRendering: "shared/generative-ui/tool-rendering.mdx",
   DefaultToolRendering: "shared/guides/default-tool-rendering.mdx",
+  // Versionless aliases retained for backward compat with older MDX that
+  // emits `<MigrateTo />` / `<MigrateToV />`; both resolve to v2.
+  MigrateTo: "shared/troubleshooting/migrate-to-v2.mdx",
+  MigrateToV: "shared/troubleshooting/migrate-to-v2.mdx",
+  CopilotUI: "copilot-ui.mdx",
+  LandingCodeShowcase: "landing-code-showcase.mdx",
+  UseAgentSnippet: "use-agent.mdx",
+  InstallSDKSnippet: "install-sdk.mdx",
+  InstallPythonSDK: "install-python-sdk.mdx",
+  RunAndConnect: "coagents/run-and-connect-agent.mdx",
+  RunAndConnectSnippet: "coagents/run-and-connect-agent.mdx", // alias of RunAndConnect
+  CopilotCloudConfigureCopilotKitProvider:
+    "copilot-cloud-configure-copilotkit-provider.mdx",
+  // Historical spelling (no `Provider` suffix) still appears in tutorials.
+  CopilotCloudConfigureCopilotKit:
+    "copilot-cloud-configure-copilotkit-provider.mdx",
+  SelfHostingCopilotRuntimeCreateEndpoint:
+    "self-hosting-copilot-runtime-create-endpoint.mdx",
+  SelfHostingCopilotRuntimeConfigureCopilotKitProvider:
+    "self-hosting-copilot-runtime-configure-copilotkit-provider.mdx",
+  SelfHostingCopilotRuntimeConfigureCopilotKit:
+    "self-hosting-copilot-runtime-configure-copilotkit-provider.mdx",
 };
 
 export const SUBPATH_TO_COMPONENT: Record<string, string> = {
@@ -692,6 +873,14 @@ export function stripLeadingImports(source: string): string {
   let inFence = false;
   let fenceMarker: string | null = null;
   let pastHeader = false;
+  // When an `import { ... }` is split across lines, the opening line
+  // matches the single-line drop rule but the continuation lines
+  // (`  Foo,`, `} from "...";`) do not — historically those continuation
+  // lines fell into the content branch and flipped `pastHeader = true`,
+  // which then preserved every subsequent import in the MDX body and
+  // produced runtime errors like `<p>{Tab}</p>`. Track an open import
+  // explicitly so we consume continuations through the closing `from "...";`.
+  let inMultilineImport = false;
 
   for (const line of lines) {
     // Toggle fence state. Match the opening fence's marker (``` or ~~~)
@@ -715,13 +904,41 @@ export function stripLeadingImports(source: string): string {
     }
 
     if (!inFence && !pastHeader) {
+      if (inMultilineImport) {
+        // Continuation of a multi-line import block. Terminate when we
+        // see the closing `from "..."` clause (with OR without the
+        // trailing semicolon — modern style routinely omits the `;`).
+        // Don't terminate purely on `;` — a bare `;` rarely appears
+        // mid-import, and JSX expressions on subsequent body lines
+        // (`<Foo prop={a ? b : c};`) could false-match and leave us
+        // stuck consuming forever.
+        if (/\bfrom\s+["'][^"']+["']\s*;?\s*$/.test(line)) {
+          inMultilineImport = false;
+        }
+        continue;
+      }
       if (/^\s*$/.test(line)) {
         // Preserve blank lines in the header region for layout.
         out.push(line);
         continue;
       }
-      if (/^import\s+.+$/.test(line)) {
-        // Drop this top-of-file MDX import line.
+      if (/^import\b/.test(line)) {
+        // Single-line import has both `import` AND its `from "..."`
+        // (or side-effect form `import "..."`) on the same line. The
+        // optional trailing `;` is irrelevant — modern MDX docs often
+        // drop it, which was the bug behind the prior fix's regression
+        // (the prior version required `;` and so misclassified bare
+        // imports as multi-line, then silently consumed the JSX body
+        // looking for a non-existent `;` terminator).
+        const isSingleLine =
+          /\bfrom\s+["'][^"']+["']\s*;?\s*$/.test(line) ||
+          /^import\s+["'][^"']+["']\s*;?\s*$/.test(line);
+        if (isSingleLine) {
+          continue;
+        }
+        // Multi-line opener: `import {` with the `from "..."` clause
+        // on a subsequent line.
+        inMultilineImport = true;
         continue;
       }
       // First real content line flips us out of "header" mode.
@@ -734,6 +951,68 @@ export function stripLeadingImports(source: string): string {
   return out.join("\n");
 }
 
+/**
+ * Returns true if `offset` falls inside a Markdown fenced code block
+ * (```...``` or ~~~...~~~) or an inline code span (`...`) within
+ * `content`. Best-effort: scans from the start of `content` and tracks
+ * fence state line by line. Markdown requires fence markers at the start
+ * of a line (optionally preceded by up to three spaces), so we anchor on
+ * that. Used by `inlineSnippets()` to skip JSX-looking matches that
+ * appear inside example code (e.g. `<CopilotChat />` shown as runtime
+ * usage in slots.mdx) rather than as snippet imports.
+ */
+function isInsideCodeFence(content: string, offset: number): boolean {
+  // Split the text up to the match into completed lines + a possibly
+  // partial trailing line. We treat all completed lines as candidate
+  // fence boundaries and the trailing partial line as the context for
+  // inline-code (single-backtick) detection.
+  const lines = content.slice(0, offset).split("\n");
+  const completed = lines.slice(0, -1);
+  const currentLine = lines[lines.length - 1] ?? "";
+
+  // Fenced blocks: walk completed lines and toggle on matching
+  // opener/closer. CommonMark allows up to 3 leading spaces; MDX in
+  // shell-docs is more permissive — fences inside `<Step>` and other
+  // JSX containers are routinely indented 8+ spaces. Match any
+  // leading whitespace so those fences aren't missed.
+  let inFence = false;
+  let openerChar: string | null = null;
+  for (const line of completed) {
+    const fenceMatch = line.match(/^\s*(`{3,}|~{3,})/);
+    if (!fenceMatch) continue;
+    const marker = fenceMatch[1];
+    if (!inFence) {
+      inFence = true;
+      openerChar = marker[0];
+    } else if (marker[0] === openerChar) {
+      inFence = false;
+      openerChar = null;
+    }
+  }
+  if (inFence) return true;
+
+  // Inline code: count single-backtick toggles on the partial current
+  // line. A single backtick opens an inline span that closes on the
+  // next single backtick. Runs of 2+ backticks are rare in prose
+  // (literal-backtick spans) and intentionally ignored so the common
+  // `<Component />` case is caught reliably.
+  let inlineToggles = 0;
+  let i = 0;
+  while (i < currentLine.length) {
+    if (currentLine[i] !== "`") {
+      i++;
+      continue;
+    }
+    let run = 0;
+    while (i + run < currentLine.length && currentLine[i + run] === "`") {
+      run++;
+    }
+    if (run === 1) inlineToggles++;
+    i += run;
+  }
+  return inlineToggles % 2 === 1;
+}
+
 export function inlineSnippets(
   content: string,
   slugPath: string = "",
@@ -743,7 +1022,16 @@ export function inlineSnippets(
 
   result = result.replace(
     /<([A-Z]\w*)\s*(?:components=\{[^}]*\}\s*)?\/>/g,
-    (match, componentName) => {
+    (match, componentName, offset: number, source: string) => {
+      // Skip JSX-looking strings inside code fences / inline code: those
+      // are rendered example code, not snippet imports. Suppresses the
+      // bulk of `[docs-render] snippet missing` warnings that surfaced
+      // post-cutover (e.g. <CopilotChat />, <YourApp />, <WeatherCard />
+      // shown as usage examples inside ```tsx ... ``` blocks).
+      if (isInsideCodeFence(source, offset)) {
+        return match;
+      }
+
       let snippetRel = SNIPPET_MAP[componentName];
 
       if (!snippetRel && componentName === "SharedContent" && slugPath) {
@@ -773,9 +1061,20 @@ export function inlineSnippets(
       }
 
       if (!snippetRel) {
+        // Components ending in `Icon` are conventionally lucide-react
+        // icons. shell-docs's MDX renders them via the `docsComponents`
+        // global registry in mdx-registry.tsx, so they're real runtime
+        // React components — not snippet imports. Skip silently rather
+        // than warn (matches the same shape as the fence-aware short
+        // circuit above for `<CopilotChat />` in prose backticks).
+        if (componentName.endsWith("Icon")) {
+          return match;
+        }
         // Log so docs authors see a clean signal when a <Component />
         // reference can't be mapped to a snippet file (previously the
-        // component just silently rendered nothing).
+        // component just silently rendered nothing). Matches inside code
+        // fences are short-circuited above so this warning only fires on
+        // genuine prose-level references.
         console.warn(
           "[docs-render] snippet missing for component",
           componentName,
@@ -977,9 +1276,11 @@ export function convertTablesInJSX(content: string): string {
 
 /**
  * Return the slugs of integrations that have a demo region tagged for
- * the given feature cell. Pure helper — the caller supplies the list of
- * candidate integration slugs and the demo-content map so this file
- * stays framework-agnostic and free of registry imports.
+ * the given feature cell. The caller supplies the list of candidate
+ * integration slugs and the demo-content map; this helper consults
+ * `getDocsMode` to filter `docs_mode: hidden` frameworks out of the
+ * result so cross-framework suggestions ("Try X, Y, Z") never point at
+ * a 404 page.
  *
  * Shape of `demos`: keys are `"<integrationSlug>::<cell>"`; values are
  * opaque demo records (we only check key presence here).
@@ -991,6 +1292,7 @@ export function findFrameworksWithCell(
 ): string[] {
   const matches: string[] = [];
   for (const slug of integrationSlugs) {
+    if (getDocsMode(slug) === "hidden") continue;
     if (demos[`${slug}::${cell}`]) matches.push(slug);
   }
   return matches;

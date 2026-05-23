@@ -11,14 +11,6 @@ import { BarChart, barChartPropsSchema } from "./bar-chart";
 import { PieChart, pieChartPropsSchema } from "./pie-chart";
 import { useSuggestions } from "./suggestions";
 
-export default function ControlledGenUiDemo() {
-  return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-tool-based">
-      <Chat />
-    </CopilotKit>
-  );
-}
-
 function Chat() {
   useComponent({
     name: "render_bar_chart",
@@ -48,5 +40,13 @@ function Chat() {
         />
       </div>
     </div>
+  );
+}
+
+export default function ControlledGenUiDemo() {
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-tool-based">
+      <Chat />
+    </CopilotKit>
   );
 }

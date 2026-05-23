@@ -17,10 +17,12 @@ from __future__ import annotations
 import csv
 import json
 import uuid
+from collections.abc import AsyncGenerator
 from pathlib import Path
 from textwrap import dedent
 from typing import Annotated, Any
 
+from ag_ui.core import BaseEvent
 from agent_framework import Agent, BaseChatClient, Content, tool
 from agent_framework_ag_ui import AgentFrameworkAgent, state_update
 from pydantic import Field
@@ -245,7 +247,7 @@ def generate_a2ui(
     tool_schema = {
         "type": "function",
         "function": {
-            "name": "render_a2ui",
+            "name": "_design_a2ui_surface",
             "description": "Render a dynamic A2UI v0.9 surface.",
             "parameters": {
                 "type": "object",
@@ -286,11 +288,11 @@ def generate_a2ui(
             {"role": "user", "content": user_content},
         ],
         tools=[tool_schema],
-        tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+        tool_choice={"type": "function", "function": {"name": "_design_a2ui_surface"}},
     )
 
     if not response.choices[0].message.tool_calls:
-        return json.dumps({"error": "LLM did not call render_a2ui"})
+        return json.dumps({"error": "LLM did not call _design_a2ui_surface"})
 
     tool_call = response.choices[0].message.tool_calls[0]
     args = json.loads(tool_call.function.arguments)
@@ -333,13 +335,63 @@ SYSTEM_PROMPT = dedent(
 ).strip()
 
 
-def create_beautiful_chat_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
+def _has_tool_calls(message: dict[str, Any]) -> bool:
+    tool_calls = message.get("tool_calls") or message.get("toolCalls") or []
+    return isinstance(tool_calls, list) and len(tool_calls) > 0
+
+
+def _last_user_message_index(messages: list[dict[str, Any]]) -> int:
+    for index in range(len(messages) - 1, -1, -1):
+        if messages[index].get("role") == "user":
+            return index
+    return -1
+
+
+def _drop_historical_tool_messages(messages: Any) -> list[dict[str, Any]]:
+    """Remove completed tool-call history before the current Beautiful Chat turn."""
+    if not isinstance(messages, list):
+        return []
+
+    typed_messages = [message for message in messages if isinstance(message, dict)]
+    last_user_index = _last_user_message_index(typed_messages)
+
+    clean: list[dict[str, Any]] = []
+    for index, message in enumerate(typed_messages):
+        if index < last_user_index:
+            if message.get("role") == "tool":
+                continue
+            if message.get("role") == "assistant" and _has_tool_calls(message):
+                continue
+        clean.append(message)
+    return clean
+
+
+class BeautifulChatFrameworkAgent(AgentFrameworkAgent):
+    """AgentFrameworkAgent that scopes tool-result history to the active turn."""
+
+    async def run(  # type: ignore[override]
+        self,
+        input_data: dict[str, Any],
+    ) -> AsyncGenerator[BaseEvent, None]:
+        patched_input = dict(input_data)
+        patched_input["messages"] = _drop_historical_tool_messages(
+            input_data.get("messages")
+        )
+
+        async for event in super().run(patched_input):
+            yield event
+
+
+def create_beautiful_chat_agent(
+    chat_client: BaseChatClient,
+) -> BeautifulChatFrameworkAgent:
     """Instantiate the flagship Beautiful Chat demo agent."""
     base_agent = Agent(
         client=chat_client,
         name="beautiful_chat_agent",
         instructions=SYSTEM_PROMPT,
         tools=[manage_todos, query_data, search_flights, generate_a2ui],
+        default_options={"allow_multiple_tool_calls": False},
     )
 
     # predict_state_config (predictive streaming from LLM tool-call arg deltas)
@@ -349,7 +401,7 @@ def create_beautiful_chat_agent(chat_client: BaseChatClient) -> AgentFrameworkAg
     # streaming events" on multi-item arrays. The deterministic state push
     # via `state_update()` in manage_todos delivers todos after the tool runs,
     # which matches the manifest's no-streaming contract.
-    return AgentFrameworkAgent(
+    return BeautifulChatFrameworkAgent(
         agent=base_agent,
         name="CopilotKitMicrosoftAgentFrameworkBeautifulChat",
         description=(

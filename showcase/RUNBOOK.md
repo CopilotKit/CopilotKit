@@ -28,7 +28,9 @@ D5 fixtures use `hasToolResult` (not `turnIndex`) for multi-turn disambiguation.
 
 `turnIndex` counts assistant messages, which varies across frameworks. **Do not use `turnIndex` in new fixtures.**
 
-**Exception:** `mcp-subagents` supervisor chain uses `turnIndex` 1-3 for steps beyond the first, because `hasToolResult` alone cannot disambiguate 4+ sequential calls.
+The `mcp-subagents` supervisor chain should also avoid `turnIndex`; chain each
+follow-up on the prior tool call's `toolCallId` so repeated and interleaved pill
+clicks replay the same way.
 
 ### Fixture locations
 

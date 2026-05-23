@@ -5,7 +5,7 @@ Pattern (ported from the LangGraph reference
 `showcase/integrations/langgraph-python/src/agents/a2ui_dynamic.py`):
 
 - The agent binds an explicit `generate_a2ui` tool. When called, it invokes a
-  secondary LLM bound to `render_a2ui` (tool_choice forced) and returns the
+  secondary LLM bound to `_design_a2ui_surface` (tool_choice forced) and returns the
   resulting `a2ui_operations` container.
 - The runtime (see `src/app/api/copilotkit-declarative-gen-ui/route.ts`) uses
   `injectA2UITool: false` because the tool binding is owned by the agent here
@@ -75,7 +75,7 @@ def generate_a2ui(
     tool_schema = {
         "type": "function",
         "function": {
-            "name": "render_a2ui",
+            "name": "_design_a2ui_surface",
             "description": "Render a dynamic A2UI v0.9 surface.",
             "parameters": {
                 "type": "object",
@@ -115,11 +115,11 @@ def generate_a2ui(
             {"role": "user", "content": user_content},
         ],
         tools=[tool_schema],
-        tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+        tool_choice={"type": "function", "function": {"name": "_design_a2ui_surface"}},
     )
 
     if not response.choices[0].message.tool_calls:
-        return json.dumps({"error": "LLM did not call render_a2ui"})
+        return json.dumps({"error": "LLM did not call _design_a2ui_surface"})
 
     tool_call = response.choices[0].message.tool_calls[0]
     args = json.loads(tool_call.function.arguments)

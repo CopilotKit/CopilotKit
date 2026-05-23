@@ -27,22 +27,45 @@ import {
 } from "@/lib/reference-items";
 import { stripLeadingImports } from "@/lib/docs-render";
 import { safeReadFileSync } from "@/lib/safe-fs";
-import { getBaseUrl } from "@/lib/sitemap-helpers";
+import { buildDocMetadata } from "@/lib/seo-metadata";
 
 // Self-canonical for /reference/<slug>. Reference pages are not
 // per-framework, but we still emit a canonical so the production URL
 // is unambiguous and any future host aliases can't fragment indexing.
+// Title/description come from the page's MDX frontmatter so each API
+// reference page emits its own social card and SEO description rather
+// than inheriting the layout's generic site-wide values.
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug: string[] }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  return {
-    alternates: {
-      canonical: `${getBaseUrl()}/reference/${slug.join("/")}`,
-    },
-  };
+  const slugPath = slug.join("/");
+  const canonicalPath = `/reference/${slugPath}`;
+  // Read the reference MDX directly to extract frontmatter. Reuse
+  // safeReadFileSync so a crafted slug can't escape REFERENCE_CONTENT_DIR.
+  const raw = safeReadFileSync(REFERENCE_CONTENT_DIR, `${slugPath}.mdx`);
+  let title: string | undefined;
+  let description: string | undefined;
+  if (raw !== null) {
+    try {
+      const { data } = matter(raw);
+      if (typeof data.title === "string" && data.title.length > 0) {
+        title = data.title;
+      }
+      if (typeof data.description === "string" && data.description.length > 0) {
+        description = data.description;
+      }
+    } catch {
+      // Malformed frontmatter — fall back to slug-derived title.
+    }
+  }
+  return buildDocMetadata({
+    title: title ?? slug[slug.length - 1],
+    description,
+    canonicalPath,
+  });
 }
 
 // next-mdx-remote components map

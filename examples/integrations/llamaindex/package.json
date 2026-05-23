@@ -16,8 +16,9 @@
   "dependencies": {
     "@ag-ui/llamaindex": "0.1.5",
     "@copilotkit/react-core": "1.55.2",
-    "@copilotkit/react-ui": "1.55.2",
     "@copilotkit/runtime": "1.55.2",
+    "@hono/node-server": "^1",
+    "hono": "^4",
     "next": "16.0.8",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",

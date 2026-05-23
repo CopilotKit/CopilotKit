@@ -3,14 +3,26 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
+import { Lightbulb } from "lucide-react";
 import { SearchTrigger } from "./search-trigger";
 import { CopilotKitMark } from "./copilotkit-mark";
-import RocketIcon from "./icons/rocket";
+import BookIcon from "./icons/book";
 import ConsoleIcon from "./icons/console";
 import ExternalLinkIcon from "./icons/external-link";
 
-// LEFT cluster — Docs / Reference. Visual pattern (icon-next-to-label)
-// mirrors canonical.
+// Enterprise Intelligence Platform sign-up CTA. UTM params let marketing
+// attribute navbar-driven sign-ups distinctly from in-content SignupLink
+// and OpsPlatformCTA clicks. Exported so MobileTopNav reuses the same URL.
+export const INTELLIGENCE_CTA_HREF =
+  "https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=navbar";
+
+export const TALK_TO_ENGINEER_HREF =
+  "https://copilotkit.ai/talk-to-an-engineer";
+
+// LEFT cluster — Docs / Reference / Intelligence sign-up. Visual pattern
+// (icon-next-to-label) mirrors canonical. The third slot label matches the
+// in-content OpsPlatformCTA default ("Get Intelligence free") so the
+// conversion path reads consistently from navbar to body to footer.
 type LeftLink = {
   href: string;
   label: string;
@@ -21,7 +33,7 @@ type LeftLink = {
 
 const LEFT_LINKS: LeftLink[] = [
   {
-    icon: <RocketIcon className="text-[var(--text-secondary)]" />,
+    icon: <BookIcon className="text-[var(--text-secondary)]" />,
     label: "Docs",
     href: "/",
   },
@@ -29,6 +41,13 @@ const LEFT_LINKS: LeftLink[] = [
     icon: <ConsoleIcon className="text-[var(--text-secondary)]" />,
     label: "Reference",
     href: "/reference",
+  },
+  {
+    icon: <Lightbulb className="w-5 h-5 text-[var(--text-secondary)]" />,
+    label: "Get Intelligence free",
+    href: INTELLIGENCE_CTA_HREF,
+    target: "_blank",
+    showExternalLinkIcon: true,
   },
 ];
 
@@ -50,12 +69,22 @@ export function BrandNav(_props: BrandNavProps = {}) {
 
   const handleTalkToEngineersClick = () => {
     posthog?.capture("talk_to_us_clicked", { location: "docs_nav" });
-    window.location.href = "https://copilotkit.ai/talk-to-an-engineer";
+    window.location.href = TALK_TO_ENGINEER_HREF;
+  };
+
+  const handleFreeDeveloperAccessClick = () => {
+    posthog?.capture("try_for_free_clicked", { location: "docs_navbar_left" });
   };
 
   return (
-    <nav className="relative h-[68px] xl:h-[88px] px-3 py-1 xl:py-2 bg-[var(--bg)] hidden md:block">
-      <div className="flex justify-between items-center w-full h-full">
+    <nav className="relative h-[68px] xl:h-[88px] px-[22px] py-1 xl:py-2 bg-[var(--bg)] hidden md:block">
+      {/* Cap the BrandNav's visible chrome at the same `--fd-layout-width`
+       * (97rem) that the fumadocs docs grid uses, and center it. At
+       * wide viewports this keeps the BrandNav's left/right edges
+       * aligned with the sidebar pill on the left and the docs content
+       * column on the right; at narrower viewports it's a no-op
+       * because the inner width never reaches the cap. */}
+      <div className="flex justify-between items-center w-full h-full max-w-[97rem] mx-auto">
         {/* Left half (logo + nav links) */}
         <div className="flex w-full h-full">
           <div
@@ -80,26 +109,31 @@ export function BrandNav(_props: BrandNavProps = {}) {
             </Link>
             <ul className="hidden gap-6 items-center h-full md:flex me-auto">
               {LEFT_LINKS.map((link) => {
-                const hideIconAtNarrow =
-                  link.label === "Docs" || link.label === "Reference";
                 const isActive = activeRoute === link.href;
+                const isFreeDevAccess = link.label === "Get Intelligence free";
                 return (
                   <li key={link.href} className="relative h-full group">
                     <Link
                       href={link.href}
                       target={link.target}
+                      onClick={
+                        isFreeDevAccess
+                          ? handleFreeDeveloperAccessClick
+                          : undefined
+                      }
                       className={`h-full ${
                         isActive ? "opacity-100" : "opacity-50"
                       } hover:opacity-100 transition-opacity duration-300`}
+                      // HubSpot's analytics tag rewrites the
+                      // dashboard.operations.copilotkit.ai href client-side to
+                      // attach `__hstc` / `__hssc` / `__hsfp` cross-domain
+                      // tracking params, which trips React's hydration diff.
+                      // Suppress only on the Intelligence link so genuine
+                      // mismatches on other nav items still surface.
+                      suppressHydrationWarning={isFreeDevAccess}
                     >
                       <span className="flex gap-2 items-center h-full text-[var(--text-secondary)]">
-                        <span
-                          className={
-                            hideIconAtNarrow
-                              ? "[@media(width<808px)]:hidden"
-                              : ""
-                          }
-                        >
+                        <span className="[@media(width<808px)]:hidden">
                           {link.icon}
                         </span>
                         <span className="text-sm font-medium whitespace-nowrap">
@@ -129,24 +163,24 @@ export function BrandNav(_props: BrandNavProps = {}) {
               })}
             </ul>
 
-            {/* Talk to an Engineer — pushed to the right edge of the
+            {/* Talk to an engineer — pushed to the right edge of the
              * left wing (the `me-auto` on the nav links above shoves
              * everything else to where this button lives). Pill at
              * ≥1100px, compact calendar icon at md-to-1099px. */}
             <button
               type="button"
               onClick={handleTalkToEngineersClick}
-              className="hidden [@media(width>=1100px)]:flex items-center h-9 px-4 mr-4 text-sm font-medium rounded-full bg-gradient-to-r from-indigo-500/90 to-purple-500/90 text-white shadow-sm hover:from-indigo-500 hover:to-purple-500 hover:shadow-md transition-all duration-200 cursor-pointer whitespace-nowrap relative overflow-hidden after:content-[''] after:absolute after:inset-0 after:bg-gradient-to-r after:from-transparent after:via-white/30 after:to-transparent after:-translate-x-full hover:after:translate-x-[100%] after:transition-transform after:duration-700 after:pointer-events-none"
+              className="hidden [@media(width>=1100px)]:flex items-center h-9 px-4 mr-4 text-sm font-medium rounded-full bg-gradient-to-br from-[#8b5cf6] to-[var(--accent)] text-white shadow-sm hover:brightness-110 transition-[filter] duration-200 cursor-pointer whitespace-nowrap relative overflow-hidden after:content-[''] after:absolute after:inset-0 after:bg-gradient-to-r after:from-transparent after:via-white/30 after:to-transparent after:-translate-x-full hover:after:translate-x-[100%] after:transition-transform after:duration-700 after:pointer-events-none"
               aria-label="Talk to an engineer"
             >
-              Talk to an Engineer
+              Talk to an engineer
             </button>
             <button
               type="button"
               onClick={handleTalkToEngineersClick}
-              className="hidden md:flex [@media(width>=1100px)]:hidden justify-center items-center w-9 h-9 mr-4 rounded-full bg-gradient-to-r from-indigo-500/90 to-purple-500/90 text-white shadow-sm hover:from-indigo-500 hover:to-purple-500 hover:shadow-md transition-all duration-200 cursor-pointer relative overflow-hidden after:content-[''] after:absolute after:inset-0 after:bg-gradient-to-r after:from-transparent after:via-white/30 after:to-transparent after:-translate-x-full hover:after:translate-x-[100%] after:transition-transform after:duration-700 after:pointer-events-none"
+              className="hidden md:flex [@media(width>=1100px)]:hidden justify-center items-center w-9 h-9 mr-4 rounded-full bg-gradient-to-br from-[#8b5cf6] to-[var(--accent)] text-white shadow-sm hover:brightness-110 transition-[filter] duration-200 cursor-pointer relative overflow-hidden after:content-[''] after:absolute after:inset-0 after:bg-gradient-to-r after:from-transparent after:via-white/30 after:to-transparent after:-translate-x-full hover:after:translate-x-[100%] after:transition-transform after:duration-700 after:pointer-events-none"
               aria-label="Talk to an engineer"
-              title="Talk to an Engineer"
+              title="Talk to an engineer"
             >
               <svg
                 width="18"
@@ -186,8 +220,12 @@ export function BrandNav(_props: BrandNavProps = {}) {
           />
         </div>
 
-        {/* Right half (utilities + search + mobile burger) */}
-        <div className="flex items-center w-max h-full shrink-0 -ml-[7px]">
+        {/* Right half (utilities + search + mobile burger).
+         * `ml-2` (was `-ml-[7px]`) introduces a small breathing gap
+         * between the left card's trailing slanted wing and the right
+         * half's leading slanted wing, so the two wings read as a
+         * deliberate seam rather than touching/overlapping. */}
+        <div className="flex items-center w-max h-full shrink-0 ml-2">
           <img
             src="/images/navbar/slanted-start-border-dark.svg"
             alt=""
@@ -218,7 +256,7 @@ export function BrandNav(_props: BrandNavProps = {}) {
               inner?.click();
             }}
           >
-            {/* Right wing is just the search now — Talk to an Engineer
+            {/* Right wing is just the search now — Talk to an engineer
              * moved to the right edge of the left wing, and GitHub /
              * Discord / theme toggle live at the bottom of the docs
              * sidebar (see SidebarFooter). */}

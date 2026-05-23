@@ -15,8 +15,9 @@
   "dependencies": {
     "@ag-ui/client": "0.0.52",
     "@copilotkit/react-core": "1.56.4",
-    "@copilotkit/react-ui": "1.56.4",
     "@copilotkit/runtime": "1.56.4",
+    "@hono/node-server": "^1",
+    "hono": "^4",
     "next": "16.1.1",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",

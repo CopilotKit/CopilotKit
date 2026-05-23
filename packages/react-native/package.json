@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/react-native",
-  "version": "1.57.2",
+  "version": "1.57.4",
   "private": false,
   "keywords": [
     "ai",
@@ -54,6 +54,10 @@
       "import": "./dist/polyfills/location.mjs",
       "require": "./dist/polyfills/location.cjs"
     },
+    "./components": {
+      "import": "./dist/components/index.mjs",
+      "require": "./dist/components/index.cjs"
+    },
     "./package.json": "./package.json"
   },
   "publishConfig": {
@@ -88,17 +92,33 @@
     "vitest": "^3.2.4"
   },
   "peerDependencies": {
+    "@gorhom/bottom-sheet": "^5.0.0",
     "expo-document-picker": ">=12.0.0",
     "expo-file-system": ">=17.0.0",
     "react": "^18 || ^19",
     "react-native": ">=0.70",
+    "react-native-gesture-handler": ">=2.0.0",
+    "react-native-reanimated": ">=3.0.0",
+    "react-native-streamdown": ">=0.1.0",
     "zod": ">=3.0.0"
   },
   "peerDependenciesMeta": {
+    "@gorhom/bottom-sheet": {
+      "optional": true
+    },
     "expo-document-picker": {
       "optional": true
     },
     "expo-file-system": {
+      "optional": true
+    },
+    "react-native-gesture-handler": {
+      "optional": true
+    },
+    "react-native-reanimated": {
+      "optional": true
+    },
+    "react-native-streamdown": {
       "optional": true
     },
     "zod": {
