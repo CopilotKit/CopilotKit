@@ -56,7 +56,7 @@ import {
   getIntegrations,
 } from "@/lib/registry";
 import type { Integration } from "@/lib/registry";
-import { getBaseUrl } from "@/lib/sitemap-helpers";
+import { buildDocMetadata } from "@/lib/seo-metadata";
 import { RESERVED_ROUTE_SLUGS } from "@/app/layout";
 import demoContent from "@/data/demo-content.json";
 import fs from "fs";
@@ -69,6 +69,11 @@ import path from "path";
 // UnscopedDocsPage but the canonical still points at the same URL —
 // the page's identity is defined by its URL, not the resolution
 // strategy used to render it.
+//
+// Title and description come from the resolved MDX frontmatter (with
+// the same per-framework override resolution the page render uses) so
+// every variant emits its own social card and SEO description rather
+// than inheriting the layout's generic site-wide values.
 export async function generateMetadata({
   params,
 }: {
@@ -76,11 +81,47 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { framework, slug } = await params;
   const slugTail = slug && slug.length > 0 ? `/${slug.join("/")}` : "";
-  return {
-    alternates: {
-      canonical: `${getBaseUrl()}/${framework}${slugTail}`,
-    },
-  };
+  const canonicalPath = `/${framework}${slugTail}`;
+  // Try to read frontmatter for the resolved page. Mirror the page's
+  // own content-resolution order (authored vs generated, per-framework
+  // override vs root) cheaply: best-effort only; if nothing resolves,
+  // the helper falls back to the framework slug as a humanised title.
+  let title: string | undefined;
+  let description: string | undefined;
+  const slugPath = slug?.join("/") ?? "";
+  if (slugPath) {
+    const docsFolder = getDocsFolder(framework);
+    const frameworkScopedDoc = loadDoc(
+      `integrations/${docsFolder}/${slugPath}`,
+    );
+    const doc = frameworkScopedDoc ?? loadDoc(slugPath);
+    if (doc) {
+      title = doc.fm.title;
+      description = doc.fm.description;
+    }
+  } else {
+    // Framework root — prefer the integration record's display name and
+    // tagline, falling back to the framework's index.mdx if present.
+    const integration = getIntegration(framework);
+    const overview = frameworkOverviews[framework];
+    const indexDoc = loadDoc(`integrations/${getDocsFolder(framework)}/index`);
+    title =
+      indexDoc?.fm.title ??
+      overview?.frameworkName ??
+      integration?.name ??
+      framework;
+    description = indexDoc?.fm.description ?? overview?.subheader;
+  }
+  // Per-page OG route lives at /og/<slug>/og.png — see
+  // src/app/og/[...slug]/route.tsx. Each framework variant gets its own
+  // image because the slug is framework-scoped.
+  const ogPath = `/og${canonicalPath}/og.png`;
+  return buildDocMetadata({
+    title: title ?? framework,
+    description,
+    canonicalPath,
+    ogPath,
+  });
 }
 
 export async function generateStaticParams() {
@@ -89,6 +130,15 @@ export async function generateStaticParams() {
   // × ~60 doc pages, all cheap to render on demand.
   return [];
 }
+
+// Force dynamic rendering so paths NOT in generateStaticParams are
+// rendered fresh on each request. Without this, Next.js was caching
+// the rendered "404 page body" with a 200 status and `s-maxage=1y`
+// (a soft-404 that demotes the whole site in search rankings). With
+// `force-dynamic`, the runtime notFound() call sets the response
+// status to 404 every time. The data fetches here are filesystem
+// reads of MDX, so per-request rendering is cheap.
+export const dynamic = "force-dynamic";
 
 interface DemoRecord {
   regions?: Record<string, unknown>;

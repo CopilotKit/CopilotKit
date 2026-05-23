@@ -798,8 +798,31 @@ export const SNIPPET_MAP: Record<string, string> = {
   SelfHosting: "shared/premium/self-hosting.mdx",
   Slots: "shared/basics/slots.mdx",
   Threads: "shared/threads/threads.mdx",
+  ToolRenderer: "shared/generative-ui/tool-rendering.mdx", // alias of ToolRendering
   ToolRendering: "shared/generative-ui/tool-rendering.mdx",
   DefaultToolRendering: "shared/guides/default-tool-rendering.mdx",
+  // Versionless aliases retained for backward compat with older MDX that
+  // emits `<MigrateTo />` / `<MigrateToV />`; both resolve to v2.
+  MigrateTo: "shared/troubleshooting/migrate-to-v2.mdx",
+  MigrateToV: "shared/troubleshooting/migrate-to-v2.mdx",
+  CopilotUI: "copilot-ui.mdx",
+  LandingCodeShowcase: "landing-code-showcase.mdx",
+  UseAgentSnippet: "use-agent.mdx",
+  InstallSDKSnippet: "install-sdk.mdx",
+  InstallPythonSDK: "install-python-sdk.mdx",
+  RunAndConnect: "coagents/run-and-connect-agent.mdx",
+  RunAndConnectSnippet: "coagents/run-and-connect-agent.mdx", // alias of RunAndConnect
+  CopilotCloudConfigureCopilotKitProvider:
+    "copilot-cloud-configure-copilotkit-provider.mdx",
+  // Historical spelling (no `Provider` suffix) still appears in tutorials.
+  CopilotCloudConfigureCopilotKit:
+    "copilot-cloud-configure-copilotkit-provider.mdx",
+  SelfHostingCopilotRuntimeCreateEndpoint:
+    "self-hosting-copilot-runtime-create-endpoint.mdx",
+  SelfHostingCopilotRuntimeConfigureCopilotKitProvider:
+    "self-hosting-copilot-runtime-configure-copilotkit-provider.mdx",
+  SelfHostingCopilotRuntimeConfigureCopilotKit:
+    "self-hosting-copilot-runtime-configure-copilotkit-provider.mdx",
 };
 
 export const SUBPATH_TO_COMPONENT: Record<string, string> = {
@@ -928,6 +951,68 @@ export function stripLeadingImports(source: string): string {
   return out.join("\n");
 }
 
+/**
+ * Returns true if `offset` falls inside a Markdown fenced code block
+ * (```...``` or ~~~...~~~) or an inline code span (`...`) within
+ * `content`. Best-effort: scans from the start of `content` and tracks
+ * fence state line by line. Markdown requires fence markers at the start
+ * of a line (optionally preceded by up to three spaces), so we anchor on
+ * that. Used by `inlineSnippets()` to skip JSX-looking matches that
+ * appear inside example code (e.g. `<CopilotChat />` shown as runtime
+ * usage in slots.mdx) rather than as snippet imports.
+ */
+function isInsideCodeFence(content: string, offset: number): boolean {
+  // Split the text up to the match into completed lines + a possibly
+  // partial trailing line. We treat all completed lines as candidate
+  // fence boundaries and the trailing partial line as the context for
+  // inline-code (single-backtick) detection.
+  const lines = content.slice(0, offset).split("\n");
+  const completed = lines.slice(0, -1);
+  const currentLine = lines[lines.length - 1] ?? "";
+
+  // Fenced blocks: walk completed lines and toggle on matching
+  // opener/closer. CommonMark allows up to 3 leading spaces; MDX in
+  // shell-docs is more permissive — fences inside `<Step>` and other
+  // JSX containers are routinely indented 8+ spaces. Match any
+  // leading whitespace so those fences aren't missed.
+  let inFence = false;
+  let openerChar: string | null = null;
+  for (const line of completed) {
+    const fenceMatch = line.match(/^\s*(`{3,}|~{3,})/);
+    if (!fenceMatch) continue;
+    const marker = fenceMatch[1];
+    if (!inFence) {
+      inFence = true;
+      openerChar = marker[0];
+    } else if (marker[0] === openerChar) {
+      inFence = false;
+      openerChar = null;
+    }
+  }
+  if (inFence) return true;
+
+  // Inline code: count single-backtick toggles on the partial current
+  // line. A single backtick opens an inline span that closes on the
+  // next single backtick. Runs of 2+ backticks are rare in prose
+  // (literal-backtick spans) and intentionally ignored so the common
+  // `<Component />` case is caught reliably.
+  let inlineToggles = 0;
+  let i = 0;
+  while (i < currentLine.length) {
+    if (currentLine[i] !== "`") {
+      i++;
+      continue;
+    }
+    let run = 0;
+    while (i + run < currentLine.length && currentLine[i + run] === "`") {
+      run++;
+    }
+    if (run === 1) inlineToggles++;
+    i += run;
+  }
+  return inlineToggles % 2 === 1;
+}
+
 export function inlineSnippets(
   content: string,
   slugPath: string = "",
@@ -937,7 +1022,16 @@ export function inlineSnippets(
 
   result = result.replace(
     /<([A-Z]\w*)\s*(?:components=\{[^}]*\}\s*)?\/>/g,
-    (match, componentName) => {
+    (match, componentName, offset: number, source: string) => {
+      // Skip JSX-looking strings inside code fences / inline code: those
+      // are rendered example code, not snippet imports. Suppresses the
+      // bulk of `[docs-render] snippet missing` warnings that surfaced
+      // post-cutover (e.g. <CopilotChat />, <YourApp />, <WeatherCard />
+      // shown as usage examples inside ```tsx ... ``` blocks).
+      if (isInsideCodeFence(source, offset)) {
+        return match;
+      }
+
       let snippetRel = SNIPPET_MAP[componentName];
 
       if (!snippetRel && componentName === "SharedContent" && slugPath) {
@@ -967,9 +1061,20 @@ export function inlineSnippets(
       }
 
       if (!snippetRel) {
+        // Components ending in `Icon` are conventionally lucide-react
+        // icons. shell-docs's MDX renders them via the `docsComponents`
+        // global registry in mdx-registry.tsx, so they're real runtime
+        // React components — not snippet imports. Skip silently rather
+        // than warn (matches the same shape as the fence-aware short
+        // circuit above for `<CopilotChat />` in prose backticks).
+        if (componentName.endsWith("Icon")) {
+          return match;
+        }
         // Log so docs authors see a clean signal when a <Component />
         // reference can't be mapped to a snippet file (previously the
-        // component just silently rendered nothing).
+        // component just silently rendered nothing). Matches inside code
+        // fences are short-circuited above so this warning only fires on
+        // genuine prose-level references.
         console.warn(
           "[docs-render] snippet missing for component",
           componentName,

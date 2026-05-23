@@ -1,49 +1,49 @@
 "use client";
 
-// Headless Interrupt demo, adapted for the Microsoft Agent Framework (.NET)
-// showcase.
+// Headless Interrupt demo (MS Agent Framework port).
 //
-// Adaptation note — the LangGraph reference uses `useCopilotKit` +
-// `agent.subscribe(...)` to observe LangGraph `interrupt()` custom events
-// and render the picker in an "app surface" pane outside the chat. .NET's
-// ChatClientAgent has no interrupt() primitive, so this demo uses the same
-// approval-mode shim as `gen-ui-interrupt`: a frontend-tool async handler
-// stands in for the backend pause. The tool's render callback intentionally
-// returns nothing for chat — the picker is rendered separately in the
-// left-pane app surface based on React state that the handler toggles.
+// Layout: chat on the right, empty app surface on the left. The user triggers
+// the agent from a chat suggestion. When the agent calls `schedule_meeting`,
+// we render a time-picker popup IN THE APP SURFACE (left pane) — outside of
+// the chat. Picking a slot resolves the tool call, the popup vanishes, and
+// the agent confirms back in chat.
 //
-// Layout: chat on the right, app surface on the left. When the agent calls
-// `schedule_meeting`, the handler exposes the pending request via state, the
-// app surface renders the picker, the user picks, the handler resolves and
-// the agent confirms back in chat. Mechanism differs from LangGraph's
-// custom-event approach but the user experience matches.
+// Adaptation: the LangGraph version uses a custom `useHeadlessInterrupt` hook
+// built on top of `useAgent` + `useCopilotKit` that reads LangGraph's native
+// `interrupt()` event from the AG-UI stream and resumes via
+// `copilotkit.runAgent({ forwardedProps: { command: { resume, ... } } })`.
+// Microsoft Agent Framework has no interrupt primitive, so we instead
+// register `schedule_meeting` as a frontend tool and gate the UI on
+// whether the tool is currently awaiting a user decision. The async handler
+// returns a Promise that only resolves when the user interacts with the
+// external popup — equivalent UX, different mechanism.
 
-import React, { useMemo, useRef, useState } from "react";
-import { CopilotKit } from "@copilotkit/react-core";
+import React, { useRef, useState } from "react";
 import {
+  CopilotKit,
   CopilotChat,
   useConfigureSuggestions,
   useFrontendTool,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 
-type TimeSlot = { label: string; iso: string };
-
-const DEFAULT_SLOTS: TimeSlot[] = [
-  { label: "Tomorrow 10:00 AM", iso: "2026-04-25T10:00:00-07:00" },
-  { label: "Tomorrow 2:00 PM", iso: "2026-04-25T14:00:00-07:00" },
-  { label: "Monday 9:00 AM", iso: "2026-04-27T09:00:00-07:00" },
-  { label: "Monday 3:30 PM", iso: "2026-04-27T15:30:00-07:00" },
-];
-
 type InterruptPayload = {
   topic?: string;
   attendee?: string;
 };
 
-type MeetingDecision =
+type TimeSlot = { label: string; iso: string };
+
+type PickerResult =
   | { chosen_time: string; chosen_label: string }
   | { cancelled: true };
+
+const DEFAULT_SLOTS: TimeSlot[] = [
+  { label: "Tomorrow 10:00 AM", iso: "2026-04-25T10:00:00-07:00" },
+  { label: "Tomorrow 2:00 PM", iso: "2026-04-25T14:00:00-07:00" },
+  { label: "Monday 9:00 AM", iso: "2026-04-28T09:00:00-07:00" },
+  { label: "Monday 3:30 PM", iso: "2026-04-28T15:30:00-07:00" },
+];
 
 export default function InterruptHeadlessDemo() {
   return (
@@ -55,36 +55,10 @@ export default function InterruptHeadlessDemo() {
 
 function Layout() {
   const [pending, setPending] = useState<InterruptPayload | null>(null);
-
-  // Each handler invocation registers a resolver here keyed by an
-  // auto-incrementing id. The picker UI (rendered in the app surface)
-  // looks up the current resolver and calls it with the user's decision.
-  // Using a ref rather than state for the resolver map avoids re-rendering
-  // the entire tree every time a new tool call arrives.
-  const resolverRef = useRef<Map<number, (d: MeetingDecision) => void>>(
-    new Map(),
-  );
-  const activeIdRef = useRef<number | null>(null);
-  const callIdRef = useRef(0);
-
-  const nextCallId = useMemo(
-    () => () => {
-      callIdRef.current += 1;
-      return callIdRef.current;
-    },
-    [],
-  );
-
-  const resolveActive = (decision: MeetingDecision) => {
-    const id = activeIdRef.current;
-    if (id === null) return;
-    const resolver = resolverRef.current.get(id);
-    if (!resolver) return;
-    resolverRef.current.delete(id);
-    activeIdRef.current = null;
-    setPending(null);
-    resolver(decision);
-  };
+  // Resolver for the currently-awaiting `schedule_meeting` tool call. Set by
+  // the async frontend-tool handler below, called when the user picks a slot
+  // or cancels from the external popup.
+  const resolverRef = useRef<((result: PickerResult) => void) | null>(null);
 
   useConfigureSuggestions({
     suggestions: [
@@ -104,53 +78,56 @@ function Layout() {
   useFrontendTool({
     name: "schedule_meeting",
     description:
-      "Ask the user to pick a time slot for a call via an in-app picker. " +
-      "The picker is rendered in a separate app surface, NOT inside chat.",
+      "Ask the user to pick a time slot for a meeting via a picker popup " +
+      "that appears outside the chat. Blocks until the user chooses a " +
+      "slot or cancels.",
     parameters: z.object({
       topic: z
         .string()
-        .describe("Short human-readable description of the call's purpose."),
+        .describe("Short human-readable description of the meeting."),
       attendee: z
         .string()
         .optional()
-        .describe("Who the call is with (optional)."),
+        .describe("Who the meeting is with (optional)."),
     }),
+    // Async handler: sets the pending payload so the popup renders, then
+    // returns a Promise that only resolves once the user interacts with the
+    // popup. This is the MS Agent shim for the LangGraph headless interrupt
+    // `resume` flow.
     handler: async ({
       topic,
       attendee,
     }: {
       topic: string;
       attendee?: string;
-    }) => {
-      const id = nextCallId();
-      activeIdRef.current = id;
+    }): Promise<string> => {
       setPending({ topic, attendee });
-
-      const decision = await new Promise<MeetingDecision>((resolve) => {
-        resolverRef.current.set(id, resolve);
+      const result = await new Promise<PickerResult>((resolve) => {
+        resolverRef.current = resolve;
       });
-
-      if ("cancelled" in decision) {
-        return `User cancelled. Meeting NOT scheduled: ${topic}`;
+      setPending(null);
+      if ("cancelled" in result && result.cancelled) {
+        return "User cancelled. Meeting NOT scheduled.";
       }
-      return `Meeting scheduled for ${decision.chosen_label}: ${topic}${attendee ? ` with ${attendee}` : ""}`;
+      if ("chosen_label" in result) {
+        return `Meeting scheduled for ${result.chosen_label}.`;
+      }
+      return "User did not pick a time. Meeting NOT scheduled.";
     },
-    // Render NOTHING in the chat transcript — this is the headless
-    // variant. The picker UI is rendered below by `AppSurface`, which
-    // reads the `pending` state set inside the handler.
+    // Render nothing inside the chat — the UI lives in the app surface.
     render: () => null,
   });
   // @endregion[headless-promise-primitives]
 
+  const resolve = (result: PickerResult) => {
+    const fn = resolverRef.current;
+    resolverRef.current = null;
+    fn?.(result);
+  };
+
   return (
     <div className="grid h-screen grid-cols-[1fr_420px] bg-[#FAFAFC]">
-      <AppSurface
-        pending={pending}
-        onPick={(slot) =>
-          resolveActive({ chosen_time: slot.iso, chosen_label: slot.label })
-        }
-        onCancel={() => resolveActive({ cancelled: true })}
-      />
+      <AppSurface pending={pending} resolve={resolve} />
       <div className="border-l border-[#DBDBE5] bg-white">
         <CopilotChat agentId="interrupt-headless" className="h-full" />
       </div>
@@ -160,11 +137,10 @@ function Layout() {
 
 type AppSurfaceProps = {
   pending: InterruptPayload | null;
-  onPick: (slot: TimeSlot) => void;
-  onCancel: () => void;
+  resolve: (result: PickerResult) => void;
 };
 
-function AppSurface({ pending, onPick, onCancel }: AppSurfaceProps) {
+function AppSurface({ pending, resolve }: AppSurfaceProps) {
   return (
     <div
       data-testid="interrupt-headless-app-surface"
@@ -172,7 +148,7 @@ function AppSurface({ pending, onPick, onCancel }: AppSurfaceProps) {
     >
       <header className="border-b border-[#DBDBE5] bg-white px-8 py-5">
         <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-[#57575B]">
-          Headless interrupt (.NET adapted)
+          Headless interrupt
         </div>
         <h1 className="text-xl font-semibold text-[#010507]">Scheduling</h1>
       </header>
@@ -181,8 +157,10 @@ function AppSurface({ pending, onPick, onCancel }: AppSurfaceProps) {
         {pending ? (
           <TimeSlotPopup
             payload={pending}
-            onPick={onPick}
-            onCancel={onCancel}
+            onPick={(slot) =>
+              resolve({ chosen_time: slot.iso, chosen_label: slot.label })
+            }
+            onCancel={() => resolve({ cancelled: true })}
           />
         ) : (
           <EmptyState />

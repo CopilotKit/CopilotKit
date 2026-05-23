@@ -210,6 +210,22 @@ vi.mock("@copilotkit/react-core/v2/context", () => {
   };
 });
 
+// Mock @gorhom/bottom-sheet to prevent its CommonJS require("react-native")
+// from bypassing the vite alias and loading the Flow-syntax react-native.
+vi.mock("@gorhom/bottom-sheet", () => {
+  const React = require("react");
+  return {
+    __esModule: true,
+    default: React.forwardRef((props: any, ref: any) =>
+      React.createElement("mock-bottom-sheet", { ref }, props.children),
+    ),
+    BottomSheetBackdrop: () => null,
+    BottomSheetFlatList: "FlatList",
+    BottomSheetView: (props: any) =>
+      React.createElement("div", null, props.children),
+  };
+});
+
 vi.mock("@copilotkit/shared", () => ({
   createLicenseContextValue: () => ({
     status: null,

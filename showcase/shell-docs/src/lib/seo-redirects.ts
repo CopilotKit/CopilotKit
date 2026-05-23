@@ -68,6 +68,36 @@ function canonicalSlug(legacy: string): string {
   return SLUG_RENAMES[legacy] ?? legacy;
 }
 
+/**
+ * Canonical (post-cutover) framework slugs served by shell-docs. Used for
+ * wildcard rules that match the current URL surface rather than legacy
+ * upstream slugs. Keep in sync with the registry; covers generated,
+ * authored, and hidden buckets.
+ */
+const CANONICAL_FRAMEWORKS = [
+  "built-in-agent",
+  "langgraph-python",
+  "langgraph-typescript",
+  "langgraph-fastapi",
+  "google-adk",
+  "a2a",
+  "agent-spec",
+  "deepagents",
+  "mastra",
+  "crewai-crews",
+  "pydantic-ai",
+  "agno",
+  "ag2",
+  "llamaindex",
+  "strands",
+  "ms-agent-python",
+  "ms-agent-dotnet",
+  "claude-sdk-python",
+  "claude-sdk-typescript",
+  "langroid",
+  "spring-ai",
+] as const;
+
 /** Per-framework subpath renames (Category 5 in spec). Applied to ALL 13 frameworks. */
 const SUBPATH_RENAMES: { specId: string; from: string; to: string }[] = [
   { specId: "S1", from: "agentic-chat-ui", to: "prebuilt-components" },
@@ -717,8 +747,27 @@ const WILDCARD_REDIRECTS: RedirectEntry[] = [
     source: "/generative-ui-specs/:path*",
     destination: "/generative-ui/specs/:path*",
   },
+  // Tutorials deprecation: section retired post-cutover. Framework-scoped
+  // tutorial URLs redirect to that framework's quickstart; unscoped variants
+  // redirect to the docs root. Must precede the per-framework P1×/P2×
+  // catch-alls below.
+  ...CANONICAL_FRAMEWORKS.map((fw) => ({
+    id: `T1×${fw}`,
+    source: `/${fw}/tutorials/:path*`,
+    destination: `/${fw}/quickstart`,
+  })),
+  {
+    id: "T1-unscoped-wild",
+    source: "/tutorials/:path*",
+    destination: "/",
+  },
+  { id: "T1-unscoped-root", source: "/tutorials", destination: "/" },
   // Category 1: Pattern rules (bulk coverage)
-  { id: "P10", source: "/reference/v1/:path*", destination: "/reference/v2" },
+  {
+    id: "P10",
+    source: "/reference/v1/:path*",
+    destination: "/reference/v2/:path*",
+  },
   {
     id: "P11",
     source: "/guides/:path*",

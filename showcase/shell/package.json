@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@copilotkit/react-core": "next",
+    "@copilotkit/react-core": "latest",
     "@copilotkitnext/agent": "next",
     "@copilotkitnext/react": "next",
     "@copilotkitnext/runtime": "next",

@@ -55,10 +55,20 @@ if (!process.env.NEXT_PUBLIC_SHELL_URL) {
 
 const nextConfig: NextConfig = {
   images: {
+    // Bypass the Next.js image optimizer (`/_next/image`). The optimizer
+    // requires `sharp` at runtime, which is missing from the Railway image
+    // and breaks all `<Image>` rendering site-wide. Our CDN
+    // (`cdn.copilotkit.ai`, CloudFront/S3) ignores `?fm=webp` and serves
+    // PNG regardless, so the optimizer added no format-conversion value
+    // for CDN-hosted images. With `unoptimized`, `<Image>` renders as a
+    // plain `<img>` pointing at the source URL — visually identical for
+    // users, no sharp dependency required.
+    unoptimized: true,
     // Asset CDN for framework intro-page media (banner videos, architecture
     // diagrams, supported-feature thumbnails, framework icons). Hosts every
     // image/video referenced by `src/data/frameworks/*.ts` and any future
-    // marketing surface that pulls from the shared CDN.
+    // marketing surface that pulls from the shared CDN. Kept here for
+    // documentation and to remain valid if the optimizer is re-enabled.
     remotePatterns: [
       {
         protocol: "https",

@@ -28,4 +28,4 @@ useFrontendTool({
 });
 ```
 
-CopilotKit advertises the tool to the agent over the AG-UI protocol. The agent decides when to call it based on the conversation, and the handler runs client-side — no backend changes needed.
+CopilotKit automatically advertises the tool to the agent. The agent decides when to call it based on the conversation, and the handler runs client-side.

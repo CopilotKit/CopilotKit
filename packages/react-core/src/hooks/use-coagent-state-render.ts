@@ -44,7 +44,7 @@
 import { useRef, useContext, useEffect } from "react";
 import { CopilotContext } from "../context/copilot-context";
 import { randomId, CopilotKitAgentDiscoveryError } from "@copilotkit/shared";
-import { CoAgentStateRender } from "../types/coagent-action";
+import type { CoAgentStateRender } from "../types/coagent-action";
 import { useToast } from "../components/toast/toast-provider";
 import { useCoAgentStateRenders } from "../context/coagent-state-renders-context";
 
@@ -53,7 +53,7 @@ import { useCoAgentStateRenders } from "../context/coagent-state-renders-context
  * useful for showing intermediate state or progress during Agentic Copilot operations.
  * To get started using rendering intermediate state through this hook, checkout the documentation.
  *
- * https://docs.copilotkit.ai/coagents/shared-state/predictive-state-updates
+ * https://docs.copilotkit.ai/langgraph-python/shared-state/predictive-state-updates
  */
 
 // We implement useCoAgentStateRender dependency handling so that
