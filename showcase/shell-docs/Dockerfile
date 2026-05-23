@@ -60,6 +60,14 @@ ENV NODE_ENV=production
 ENV PORT=10000
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
 ENV NEXT_PUBLIC_BRANCH=${BRANCH}
+# Server Action encryption key MUST be readable at runtime too: Next.js
+# encrypts action references at build time but decrypts incoming Server
+# Action requests at runtime, using the same key. Declared here so the
+# runtime stage has the variable in its environment; Railway injects the
+# actual value from the service's env-var configuration at container
+# start. The value MUST match the one passed to `next build` in the
+# builder stage above, or in-flight clients break across the boundary.
+ENV NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=""
 
 COPY --from=builder /app/shell-docs/.next ./.next
 COPY --from=builder /app/shell-docs/node_modules ./node_modules
