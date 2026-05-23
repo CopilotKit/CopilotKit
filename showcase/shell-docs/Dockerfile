@@ -20,6 +20,15 @@ ARG NEXT_PUBLIC_REO_KEY
 ENV NEXT_PUBLIC_REO_KEY=${NEXT_PUBLIC_REO_KEY}
 ARG NEXT_PUBLIC_GOOGLE_ANALYTICS_TRACKING_ID
 ENV NEXT_PUBLIC_GOOGLE_ANALYTICS_TRACKING_ID=${NEXT_PUBLIC_GOOGLE_ANALYTICS_TRACKING_ID}
+# Server Action ID encryption key. Next.js 16.x re-hashes Server Action
+# IDs aggressively across builds; without a stable key every Railway
+# redeploy invalidates in-flight clients' action IDs, producing
+# "Failed to find Server Action 'x'" and "router state header could not
+# be parsed" errors at the deploy boundary. Sourced from a repo secret
+# via the GHA workflow (`showcase_build.yml` Prepare build args step).
+# See https://nextjs.org/docs/app/api-reference/file-conventions/page#encrypted-server-action-references
+ARG NEXT_SERVER_ACTIONS_ENCRYPTION_KEY
+ENV NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=${NEXT_SERVER_ACTIONS_ENCRYPTION_KEY}
 WORKDIR /app
 
 # Copy only what shell-docs + scripts need
