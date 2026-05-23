@@ -1013,11 +1013,40 @@ function isInsideCodeFence(content: string, offset: number): boolean {
   return inlineToggles % 2 === 1;
 }
 
+/**
+ * Names that look like JSX components (PascalCase) imported into the MDX
+ * via `import { ... }` or `import Foo` from any path. Used by the
+ * inliner to distinguish real React components (resolved at render time
+ * via the docsComponents registry) from snippet references that should
+ * map to entries in SNIPPET_MAP. Without this, every imported component
+ * usage logs a false-positive "snippet missing" warning because
+ * stripLeadingImports() removes the import lines before the regex scan.
+ */
+function gatherImportedComponentNames(source: string): Set<string> {
+  const names = new Set<string>();
+  const importRegex =
+    /^import\s+(?:type\s+)?(?:\{([^}]+)\}|(\w+))\s+from\s+["'][^"']+["']\s*;?\s*$/gm;
+  let m: RegExpExecArray | null;
+  while ((m = importRegex.exec(source)) !== null) {
+    if (m[1]) {
+      for (const part of m[1].split(",")) {
+        const renamed = part.trim().split(/\s+as\s+/);
+        const name = renamed[renamed.length - 1].trim();
+        if (/^[A-Z]\w*$/.test(name)) names.add(name);
+      }
+    } else if (m[2] && /^[A-Z]\w*$/.test(m[2])) {
+      names.add(m[2]);
+    }
+  }
+  return names;
+}
+
 export function inlineSnippets(
   content: string,
   slugPath: string = "",
   seen: Set<string> = new Set(),
 ): string {
+  const importedComponentNames = gatherImportedComponentNames(content);
   let result = stripLeadingImports(content);
 
   result = result.replace(
@@ -1068,6 +1097,15 @@ export function inlineSnippets(
         // than warn (matches the same shape as the fence-aware short
         // circuit above for `<CopilotChat />` in prose backticks).
         if (componentName.endsWith("Icon")) {
+          return match;
+        }
+        // Skip components the MDX explicitly imports. They're real React
+        // components rendered through the docsComponents registry at
+        // request time, not snippet references. stripLeadingImports()
+        // above removes the import line; gatherImportedComponentNames()
+        // preserved the set so the inliner can tell these apart from
+        // genuine missing-snippet cases.
+        if (importedComponentNames.has(componentName)) {
           return match;
         }
         // Log so docs authors see a clean signal when a <Component />
