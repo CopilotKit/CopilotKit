@@ -22,6 +22,7 @@ from ag_ui.core import (
     StateSnapshotEvent,
 )
 from ag_ui_langgraph import LangGraphAgent as AGUIBase
+from copilotkit import CopilotKitRemoteEndpoint
 from copilotkit.langgraph_agui_agent import (
     LangGraphAGUIAgent,
     CustomEventNames,
@@ -70,6 +71,39 @@ def track_parent_dispatches(agent):
 
     with patch.object(AGUIBase, "_dispatch_event", new=_tracking):
         yield dispatched
+
+
+def test_dict_repr_does_not_require_base_dict_repr():
+    """LangGraphAGUIAgent should expose metadata for sdk.info()."""
+    mock_graph = MagicMock()
+    agent = LangGraphAGUIAgent(name="demo", graph=mock_graph, description="demo")
+
+    assert agent.dict_repr() == {
+        "name": "demo",
+        "description": "demo",
+        "type": "langgraph_agui",
+    }
+
+
+def test_sdk_info_includes_langgraph_agui_agent_metadata():
+    """sdk.info() should not fail when a LangGraphAGUIAgent is registered."""
+    mock_graph = MagicMock()
+    sdk = CopilotKitRemoteEndpoint(
+        agents=[
+            LangGraphAGUIAgent(name="demo", graph=mock_graph, description="demo"),
+        ],
+        actions=[],
+    )
+
+    info = sdk.info(context={"properties": {}, "frontend_url": None, "headers": {}})
+
+    assert info["agents"] == [
+        {
+            "name": "demo",
+            "description": "demo",
+            "type": "langgraph_agui",
+        }
+    ]
 
 
 # ---------- Custom event: ManuallyEmitMessage ----------
