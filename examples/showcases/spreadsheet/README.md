@@ -53,6 +53,14 @@ Ask it to build a budget spreadsheet.
 
 3. Search for `updateSpreadsheet`, `appendToSpreadsheet`, and `createSpreadsheet` to see application interaction hooks made available to agents.
 
+4. Search for `runPricingWorkbook` and `/api/workpaper-pricing` to see a backend formula-readback pattern using `@bilig/workpaper`. The agent sends pricing inputs to a server route, Bilig edits workbook input cells, recalculates dependent formulas, returns computed values, exports a JSON snapshot, and includes a `verified` flag so the agent can cite concrete formula proof instead of trusting stale spreadsheet UI state.
+
+Example prompt:
+
+```text
+Run the pricing workbook with 80 units, a unit price of 1500, and a discount rate of 0.2. Show the verified net revenue.
+```
+
 ## 📚 Learn More
 
 To learn more about CopilotKit, take a look at the following resources:
