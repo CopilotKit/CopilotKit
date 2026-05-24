@@ -32,8 +32,18 @@ type WorkPaperPricingProof = {
     discountAmount: string;
     netRevenue: string;
   };
+  restoredReadback: {
+    grossRevenue: string;
+    discountAmount: string;
+    netRevenue: string;
+  };
   expectedNetRevenue: number;
   persistedDocumentBytes: number;
+  checks: {
+    expectedFormulaValue: boolean;
+    exportedSnapshot: boolean;
+    restartReadbackMatches: boolean;
+  };
   verified: boolean;
 };
 
@@ -235,6 +245,12 @@ const Main = () => {
             <dd>{workpaperPricingProof.readback.netRevenue}</dd>
             <dt>Verified</dt>
             <dd>{workpaperPricingProof.verified ? "true" : "false"}</dd>
+            <dt>Restart</dt>
+            <dd>
+              {workpaperPricingProof.checks.restartReadbackMatches
+                ? "matched"
+                : "mismatch"}
+            </dd>
           </dl>
         </aside>
       )}

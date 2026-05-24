@@ -53,7 +53,7 @@ Ask it to build a budget spreadsheet.
 
 3. Search for `updateSpreadsheet`, `appendToSpreadsheet`, and `createSpreadsheet` to see application interaction hooks made available to agents.
 
-4. Search for `runPricingWorkbook` and `/api/workpaper-pricing` to see a backend formula-readback pattern using `@bilig/workpaper`. The agent sends pricing inputs to a server route, Bilig edits workbook input cells, recalculates dependent formulas, returns computed values, exports a JSON snapshot, and includes a `verified` flag so the agent can cite concrete formula proof instead of trusting stale spreadsheet UI state.
+4. Search for `runPricingWorkbook` and `/api/workpaper-pricing` to see a backend formula-readback pattern using `@bilig/workpaper`. The agent sends pricing inputs to a server route, Bilig edits workbook input cells, recalculates dependent formulas, returns computed values, exports a JSON snapshot, restores it, and includes a `verified` flag so the agent can cite concrete formula proof instead of trusting stale spreadsheet UI state.
 
 Example prompt:
 
