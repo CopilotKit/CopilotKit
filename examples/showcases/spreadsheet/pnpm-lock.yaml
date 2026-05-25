@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@bilig/workpaper':
-        specifier: ^0.90.0
-        version: 0.90.0
+        specifier: ^0.90.8
+        version: 0.90.8
       '@copilotkit/react-core':
         specifier: ^1.8.12-next.3
         version: 1.8.12-next.3(@types/react@18.3.21)(graphql@16.11.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -158,33 +158,33 @@ packages:
     resolution: {integrity: sha512-+EzkxvLNfiUeKMgy/3luqfsCWFRXLb7U6wNQTk60tovuckwB15B191tJWvpp4HjiQWdJkCxO3Wbvc6jlk3Xb2Q==}
     engines: {node: '>=6.9.0'}
 
-  '@bilig/core@0.90.0':
-    resolution: {integrity: sha512-zikpfPdKfPh8Pmv2fs2em8EY+/l1YralhSFMAB2P43wsooxTSNQDs/XZ9cBmqm3+RJ6tpD7bZusRH3wOwKUAIQ==}
+  '@bilig/core@0.90.8':
+    resolution: {integrity: sha512-2WHJOHDYZ1vJgyqj5GoVR9Vx24EPZbwMjUZRjQqMgciOj+40dya28ZZqg4DijMtqqx5oFQ9Y4RxIMxFVNZXWpw==}
     engines: {node: '>=22.0.0'}
 
-  '@bilig/formula@0.90.0':
-    resolution: {integrity: sha512-5sqzXN9uST6Gr7OguSBMvzLacysOrXKrHHxT+heO0qEJrrhreOkldBWgcAylgMbjm9fVBvgTQIL0IBWTZl2kXg==}
+  '@bilig/formula@0.90.8':
+    resolution: {integrity: sha512-yvD6UI5C8RNAM7JyHwh1IFCyW1pP0CNqKxUKs1h2zxMGKtnC0pSMDbk3IEWDLOgEWFUSDd8sbuH6TcG6UE/SXQ==}
     engines: {node: '>=22.0.0'}
 
-  '@bilig/headless@0.90.0':
-    resolution: {integrity: sha512-bdEy6LNZQQuO2rGy/PhW9YfA7apocnkO0JZNB0p5SfAUVDZiC19xXOqYiNAA7qT3m+KrfskRrimAUQB0wkJzcA==}
+  '@bilig/headless@0.90.8':
+    resolution: {integrity: sha512-rhdKaGxKIstBKQH/FCwtgctSTdBdM0Jh7Ixhb4KQh1KKn1b9GclupOOm/sgA6XA0V+WLFTgsxhEDYcAUTEptSQ==}
     engines: {node: '>=22.0.0'}
     hasBin: true
 
-  '@bilig/protocol@0.90.0':
-    resolution: {integrity: sha512-YT+DydT5i6eVb/Gd3e28ym0gE118GEMDMoZklR58Pkgrt5P+2ayLJ7f8PtO3EoWVD3RWCW63WVBCFEoHODXhsg==}
+  '@bilig/protocol@0.90.8':
+    resolution: {integrity: sha512-R2YSamlH8L0rptRYr2YOiKQCe5I5Sq5g4RLYiFY89R5yVimtCCvWIIzwCHHsZEl4eEbap8jCHFkeVnaMl2cwNQ==}
     engines: {node: '>=22.0.0'}
 
-  '@bilig/wasm-kernel@0.90.0':
-    resolution: {integrity: sha512-fLD7d75QbmhYYqzBlp9SjBtlDdO9qQdBRPUMPv0gWEUpeZ1BhMrQTgBpWGm8cWhumPu2WgvWx25j2TXTLMqBRg==}
+  '@bilig/wasm-kernel@0.90.8':
+    resolution: {integrity: sha512-mN7C2HuEJ6fNWNr38W1Es+Ws9o3Ux8PAMizspBQGbBrG9x3iKe5sBTCElG7TAPczNQGR1Y5vRSzZSsk95S3FdA==}
     engines: {node: '>=22.0.0'}
 
-  '@bilig/workbook@0.90.0':
-    resolution: {integrity: sha512-X6vVs6Ou5n3H0diEgeoON0T53Jt+dXDEUFteUyv4sJn1t4qfOOS/QxSAOir9M//aWD0QZ7KeW9rFbP3QkgLHcQ==}
+  '@bilig/workbook@0.90.8':
+    resolution: {integrity: sha512-5JtmRU0tuaS7f9lCD6OvC1WXlgmX9bxWdd6LlIOzUwxFG0YT5Q9JrsMMdF4il6RUifhapxkiwzDxl0fZ/1KVHw==}
     engines: {node: '>=22.0.0'}
 
-  '@bilig/workpaper@0.90.0':
-    resolution: {integrity: sha512-lrEs/JW/VXfRBZecVAl8O91fG+OPCQFfiVwG9OZmybxo37hMBOfjjfmeJbPHv5LmF8c/dQLGUMQ1g+Sn3G9qmA==}
+  '@bilig/workpaper@0.90.8':
+    resolution: {integrity: sha512-RksIJ5R6ir/bgNSTMrEMZT+pFvnUfpR/0dFBpM2zzM++FhYVGl8hzP3gZETa0lSpe87RyAYOAD2FZ/KuzVLwMg==}
     engines: {node: '>=22.0.0'}
     hasBin: true
 
@@ -1821,8 +1821,8 @@ packages:
   bignumber.js@9.3.0:
     resolution: {integrity: sha512-EM7aMFTXbptt/wZdMlBv2t8IViwQL+h6SLHosp8Yf0dqJMTnY6iL32opnAB6kAdL0SZPuvcAzFr31o0c/R3/RA==}
 
-  bilig-workpaper@0.90.0:
-    resolution: {integrity: sha512-EjYHEXkISZctdcssRdrhp5DNSrb8uZEyUSGAcTgQAgrikf1Sknb4s6xWu2o8Ych3oEXDX1K9FF40CEHQKe5tdg==}
+  bilig-workpaper@0.90.8:
+    resolution: {integrity: sha512-8Bv6v8o5FCM34rxS3fcdYO8WBTqz0RtFmzSyQfludGX1h7WMzFG/fdsmaImVc0uvaaD4rJGNO0LJZ4rQ3L7kkw==}
     engines: {node: '>=22.0.0'}
     hasBin: true
 
@@ -4259,42 +4259,42 @@ snapshots:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.27.1
 
-  '@bilig/core@0.90.0':
+  '@bilig/core@0.90.8':
     dependencies:
-      '@bilig/formula': 0.90.0
-      '@bilig/protocol': 0.90.0
-      '@bilig/wasm-kernel': 0.90.0
-      '@bilig/workbook': 0.90.0
+      '@bilig/formula': 0.90.8
+      '@bilig/protocol': 0.90.8
+      '@bilig/wasm-kernel': 0.90.8
+      '@bilig/workbook': 0.90.8
       effect: 3.21.0
 
-  '@bilig/formula@0.90.0':
+  '@bilig/formula@0.90.8':
     dependencies:
-      '@bilig/protocol': 0.90.0
+      '@bilig/protocol': 0.90.8
 
-  '@bilig/headless@0.90.0':
+  '@bilig/headless@0.90.8':
     dependencies:
-      '@bilig/core': 0.90.0
-      '@bilig/formula': 0.90.0
-      '@bilig/protocol': 0.90.0
+      '@bilig/core': 0.90.8
+      '@bilig/formula': 0.90.8
+      '@bilig/protocol': 0.90.8
       fast-xml-parser: 5.7.3
       fflate: 0.3.11
       fflate-stream: fflate@0.8.3
       xlsx: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
       xlsx-js-style: 1.2.0
 
-  '@bilig/protocol@0.90.0': {}
+  '@bilig/protocol@0.90.8': {}
 
-  '@bilig/wasm-kernel@0.90.0': {}
+  '@bilig/wasm-kernel@0.90.8': {}
 
-  '@bilig/workbook@0.90.0':
+  '@bilig/workbook@0.90.8':
     dependencies:
-      '@bilig/formula': 0.90.0
-      '@bilig/protocol': 0.90.0
+      '@bilig/formula': 0.90.8
+      '@bilig/protocol': 0.90.8
 
-  '@bilig/workpaper@0.90.0':
+  '@bilig/workpaper@0.90.8':
     dependencies:
-      '@bilig/headless': 0.90.0
-      bilig-workpaper: 0.90.0
+      '@bilig/headless': 0.90.8
+      bilig-workpaper: 0.90.8
 
   '@browserbasehq/sdk@2.5.0':
     dependencies:
@@ -5951,9 +5951,9 @@ snapshots:
 
   bignumber.js@9.3.0: {}
 
-  bilig-workpaper@0.90.0:
+  bilig-workpaper@0.90.8:
     dependencies:
-      '@bilig/headless': 0.90.0
+      '@bilig/headless': 0.90.8
 
   binary-extensions@2.3.0: {}
 
