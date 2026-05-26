@@ -6,7 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <NoWarn>$(NoWarn);MAAI001</NoWarn>
-    <UserSecretsId>sales-agent-12345678-1234-1234-1234-123456789abc</UserSecretsId>
+    <UserSecretsId>beautiful-chat-harness-dotnet-e968873d-45cf-41e2-9d74-3fa127b7630b</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,9 +18,6 @@
     <Compile Include="ApiKeyResolver.cs" />
     <Compile Include="AimockHeaderMiddleware.cs" />
     <Compile Include="AimockHeaderPolicy.cs" />
-    <Content Remove="tests/**/*" />
-    <None Remove="tests/**/*" />
-    <EmbeddedResource Remove="tests/**/*" />
   </ItemGroup>
 
   <ItemGroup>
@@ -28,10 +25,6 @@
     <PackageReference Include="Microsoft.Agents.AI.Hosting.AGUI.AspNetCore" Version="1.6.1-preview.260514.1" />
     <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.5.1" />
     <PackageReference Include="OpenAI" Version="2.10.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <InternalsVisibleTo Include="SharedStateAgent.Tests" />
   </ItemGroup>
 
 </Project>

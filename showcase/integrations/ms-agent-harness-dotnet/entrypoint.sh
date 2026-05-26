@@ -21,7 +21,7 @@ fi
 # distinguishable from Next.js in the Railway log stream.
 # `awk ... fflush()` line-flushes each prefixed line to the container log.
 echo "[entrypoint] Starting .NET agent on port 8000..."
-dotnet /agent/ProverbsAgent.dll --urls "http://0.0.0.0:8000" &> >(awk '{print "[agent] " $0; fflush()}') &
+dotnet /agent/BeautifulChatAgent.dll --urls "http://0.0.0.0:8000" &> >(awk '{print "[agent] " $0; fflush()}') &
 AGENT_PID=$!
 sleep 3
 if kill -0 $AGENT_PID 2>/dev/null; then

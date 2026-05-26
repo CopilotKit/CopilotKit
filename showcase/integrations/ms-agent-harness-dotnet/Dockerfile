@@ -10,9 +10,7 @@ RUN npm run build
 FROM mcr.microsoft.com/dotnet/sdk:9.0.312 AS agent-build
 WORKDIR /agent
 COPY agent/ ./
-# Explicit project path: the tests/ subdirectory contains a separate test csproj
-# that must not be picked up by the default glob when publishing the web agent.
-RUN dotnet publish ProverbsAgent.csproj -c Release -o /agent/publish
+RUN dotnet publish BeautifulChatAgent.csproj -c Release -o /agent/publish
 
 # Stage 3: Production image — aspnet runtime + Node.js (no SDK, no build tools)
 FROM mcr.microsoft.com/dotnet/aspnet:9.0.14 AS runner
