@@ -23,6 +23,6 @@
     "@types/node": "^22.9.0"
   },
   "overrides": {
-    "@ag-ui/langgraph": "0.0.32"
+    "@ag-ui/langgraph": "0.0.33"
   }
 }
