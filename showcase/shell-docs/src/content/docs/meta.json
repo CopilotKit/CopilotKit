@@ -4,7 +4,7 @@
     "---Get Started---",
     "index",
     "quickstart",
-    "coding-agents",
+    "build-with-agents",
     "---Concepts---",
     "...concepts",
     "...agentic-protocols",
@@ -38,6 +38,8 @@
     "threads",
     "---Deploy---",
     "...deploy",
+    "---Platforms---",
+    "react-native",
     "---Other---",
     "...(other)",
     {

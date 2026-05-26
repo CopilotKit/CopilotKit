@@ -73,7 +73,7 @@ const SUBPATH_RENAMES: { specId: string; from: string; to: string }[] = [
   { specId: "S1", from: "agentic-chat-ui", to: "prebuilt-components" },
   { specId: "S2", from: "use-agent-hook", to: "programmatic-control" },
   { specId: "S3", from: "frontend-actions", to: "frontend-tools" },
-  { specId: "S4", from: "vibe-coding-mcp", to: "coding-agents" },
+  { specId: "S4", from: "vibe-coding-mcp", to: "build-with-agents" },
   {
     specId: "S5",
     from: "generative-ui/agentic",
@@ -111,7 +111,8 @@ const SUBPATH_RENAMES: { specId: string; from: string; to: string }[] = [
     to: "custom-look-and-feel/slots",
   },
   { specId: "S14", from: "guide", to: "guides" },
-  { specId: "S15", from: "mcp", to: "coding-agents" },
+  { specId: "S15", from: "mcp", to: "build-with-agents" },
+  { specId: "S16", from: "coding-agents", to: "build-with-agents" },
 ];
 
 // S13 (concepts/:path* -> framework root) handled separately since it's a wildcard-to-single-page
@@ -147,6 +148,25 @@ function generateFrameworkRenames(): RedirectEntry[] {
   }
   return entries;
 }
+
+// ---------------------------------------------------------------------------
+// OSS-133: /coding-agents renamed to /build-with-agents
+// Covers the root page + all canonical framework prefixes.
+// Legacy framework slugs are already covered by S16 in SUBPATH_RENAMES above.
+// ---------------------------------------------------------------------------
+
+const CODING_AGENTS_RENAMES: RedirectEntry[] = [
+  {
+    id: "CA-root",
+    source: "/coding-agents",
+    destination: "/build-with-agents",
+  },
+  ...CANONICAL_FRAMEWORKS.map((fw) => ({
+    id: `CA×${fw}`,
+    source: `/${fw}/coding-agents`,
+    destination: `/${fw}/build-with-agents`,
+  })),
+];
 
 // ---------------------------------------------------------------------------
 // Category 3: Deep Coagents Redirects (specific paths)
@@ -366,7 +386,7 @@ const SPECIFIC_FRAMEWORK: RedirectEntry[] = [
   {
     id: "F20",
     source: "/direct-to-llm/guides/mcp",
-    destination: "/built-in-agent/coding-agents",
+    destination: "/built-in-agent/build-with-agents",
   },
 ];
 
@@ -413,7 +433,7 @@ const ROOT_RENAMES: RedirectEntry[] = [
   {
     id: "R12",
     source: "/coding-agent-setup",
-    destination: "/coding-agents",
+    destination: "/build-with-agents",
   },
   {
     id: "R13",
@@ -427,8 +447,8 @@ const ROOT_RENAMES: RedirectEntry[] = [
     source: "/integrations/built-in-agent",
     destination: "/built-in-agent",
   },
-  { id: "R18", source: "/mcp", destination: "/coding-agents" },
-  { id: "R19", source: "/vibe-coding-mcp", destination: "/coding-agents" },
+  { id: "R18", source: "/mcp", destination: "/build-with-agents" },
+  { id: "R19", source: "/vibe-coding-mcp", destination: "/build-with-agents" },
   {
     id: "R21",
     source: "/ag-ui-protocol",
@@ -752,6 +772,7 @@ export const seoRedirects: RedirectEntry[] = [
   // 1. Most-specific exact paths first
   ...DEEP_COAGENTS,
   ...SPECIFIC_FRAMEWORK,
+  ...CODING_AGENTS_RENAMES,
   ...ROOT_RENAMES,
   ...LEGACY_CHAINS_EXACT,
   ...DOCS_INTEGRATIONS_INDEX.filter((e) => !e.source.includes(":path*")),
