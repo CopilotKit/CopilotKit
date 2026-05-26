@@ -44,14 +44,17 @@ public class AimockHeaderMiddleware
             g => g.First().Key,
             g => g.First().Value.ToString(),
             StringComparer.OrdinalIgnoreCase);
+        // Do NOT reset AimockHeaderContext after _next returns. ASP.NET Core hands control
+        // back to this middleware once the endpoint handler completes, but for streaming
+        // endpoints (AG-UI uses IAsyncEnumerable/SSE) the response delegate continues
+        // writing to the response body — and may invoke downstream OpenAI calls — AFTER
+        // _next returns. Clearing the AsyncLocal here would cause AimockHeaderPolicy to
+        // silently drop aimock headers on those streaming-tail calls.
+        //
+        // AsyncLocal<T> is scoped to the current execution context (per-request), so the
+        // value does not leak across concurrent ASP.NET requests; the finally-clear was
+        // unnecessary and actively harmful.
         AimockHeaderContext.Set(headers);
-        try
-        {
-            await _next(context);
-        }
-        finally
-        {
-            AimockHeaderContext.Set(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
-        }
+        await _next(context);
     }
 }
