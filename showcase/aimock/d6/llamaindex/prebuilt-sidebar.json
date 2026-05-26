@@ -1,0 +1,20 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for llamaindex / prebuilt-sidebar",
+    "sourceScript": "d5-prebuilt-sidebar.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "prebuilt-sidebar turn — simple response proving the CopilotSidebar component renders and messages round-trip inside the sidebar pane. Already present in agentic-chat.json but duplicated here for the dedicated fixture file match.",
+      "match": {
+        "userMessage": "hi from the sidebar test",
+        "turnIndex": 0,
+        "context": "llamaindex"
+      },
+      "response": {
+        "content": "Hello from the sidebar — the CopilotSidebar prebuilt component is wired up and reachable. Anything else you would like me to confirm from inside the sidebar?"
+      }
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for mastra / gen-ui-open-advanced (open-gen-ui-advanced demo). The advanced demo embeds an iframe-rendered sandbox; the probe sends the 'Inline expression evaluator' pill and asserts iframe presence.",
+    "sourceFile": "harness/src/probes/scripts/d5-gen-ui-open-advanced.ts",
+    "copiedFrom": "gen-ui-open.json",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "open-gen-ui-advanced — Inline expression evaluator pill. Same generateSandboxedUi tool call as gen-ui-open; the advanced demo renders it in an iframe sandbox.",
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "hasToolResult": false,
+        "context": "mastra"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_mastra_ogui_adv_inline_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":320,\"placeholderMessages\":[\"Composing expression evaluator…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.card{padding:16px;background:#1e293b;border-radius:12px;margin:16px}input{width:100%;padding:8px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;border-radius:6px;box-sizing:border-box}button{margin-top:8px;padding:8px 16px;background:#6366f1;border:0;color:#fff;border-radius:6px;cursor:pointer}.out{margin-top:8px;font-size:12px;color:#94a3b8}\",\"html\":\"<div class=\\\"card\\\" data-testid=\\\"ogui-inline-eval\\\"><h2>Inline expression evaluator</h2><input id=\\\"in\\\" placeholder=\\\"e.g. 2 + 2\\\"/><button id=\\\"go\\\">Evaluate</button><div class=\\\"out\\\" id=\\\"out\\\">awaiting input…</div></div>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Narration fallback for generic advanced gen-ui probe.",
+      "match": {
+        "userMessage": "continue the advanced gen-ui flow",
+        "context": "mastra"
+      },
+      "response": {
+        "content": "The advanced gen-UI flow continued with the second-step component. The chained payloads from turns 1 and 2 form the complete advanced gen-UI sequence."
+      }
+    }
+  ]
+}

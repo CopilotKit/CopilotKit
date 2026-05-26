@@ -1,0 +1,76 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for ag2 / agent-config",
+    "sourceFile": "d5-agent-config.ts",
+    "owner": "d6-blitz-2026-05-26",
+    "notes": "Authored to match D5 script + ag2 adapter request shape. 6 fixtures (3 knob pairs). Value-A and value-B responses must differ per knob; responseLength:detailed must exceed concise by >= 80 chars."
+  },
+  "fixtures": [
+    {
+      "_comment": "tone:professional — value-A. Formal register.",
+      "match": {
+        "userMessage": "tone:professional — introduce yourself per your config",
+        "turnIndex": 0,
+        "context": "ag2"
+      },
+      "response": {
+        "content": "Good afternoon. I am your CopilotKit assistant, configured to operate in a professional capacity. My responses are calibrated for clarity, precision, and workplace-appropriate tone. I am prepared to assist with any task you require — please proceed with your inquiry."
+      }
+    },
+    {
+      "_comment": "tone:casual — value-B. Informal register; must differ from value-A.",
+      "match": {
+        "userMessage": "tone:casual — introduce yourself per your config",
+        "turnIndex": 0,
+        "context": "ag2"
+      },
+      "response": {
+        "content": "Hey! I'm your CopilotKit buddy, set to chill mode. Think of me as the friend who actually likes answering questions. What's up?"
+      }
+    },
+    {
+      "_comment": "expertise:beginner — value-A. Simple explanations.",
+      "match": {
+        "userMessage": "expertise:beginner — explain how copilotkit works per your config",
+        "turnIndex": 0,
+        "context": "ag2"
+      },
+      "response": {
+        "content": "CopilotKit is like adding a smart helper to your app. You drop a chat box into your website, and behind the scenes it talks to an AI agent that can read your app's data and take actions for the user. Think of it as a bridge between your frontend and an AI brain."
+      }
+    },
+    {
+      "_comment": "expertise:expert — value-B. Technical depth; must differ from value-A.",
+      "match": {
+        "userMessage": "expertise:expert — explain how copilotkit works per your config",
+        "turnIndex": 0,
+        "context": "ag2"
+      },
+      "response": {
+        "content": "CopilotKit exposes a React provider (<CopilotKit>) that opens an SSE channel to a CopilotRuntime instance. The runtime proxies requests to your agent backend (LangGraph, CrewAI, or a custom AG-UI endpoint). Frontend tools registered via useCopilotAction are injected into the agent's tool list at runtime, enabling bidirectional tool calling — the agent can invoke frontend-side functions that mutate React state, while the frontend can forward user context and readable state via useCopilotReadable. The protocol layer is AG-UI: typed SSE events with lifecycle semantics (RunStarted, ActionExecutionStart, TextMessageContent, etc.)."
+      }
+    },
+    {
+      "_comment": "responseLength:concise — value-A. Short answer.",
+      "match": {
+        "userMessage": "responseLength:concise — describe agent context per your config",
+        "turnIndex": 0,
+        "context": "ag2"
+      },
+      "response": {
+        "content": "Agent context lets you pass frontend state to your agent so it can tailor responses to what the user sees."
+      }
+    },
+    {
+      "_comment": "responseLength:detailed — value-B. Must exceed concise by >= 80 chars (RESPONSE_LENGTH_DELTA_MIN).",
+      "match": {
+        "userMessage": "responseLength:detailed — describe agent context per your config",
+        "turnIndex": 0,
+        "context": "ag2"
+      },
+      "response": {
+        "content": "Agent context is the mechanism CopilotKit uses to share frontend application state with your backend agent on every turn. When you call useAgentContext() in your React component, you can set key-value pairs — such as tone, expertise level, response length preferences, or any domain-specific metadata — that travel alongside the user's message to the agent. The agent's system prompt builder reads these values and adjusts its behavior accordingly. For example, setting tone to 'professional' might instruct the agent to avoid slang and use formal sentence structures, while setting expertise to 'expert' would tell it to skip introductory explanations and use domain terminology freely. This context is per-turn, meaning you can change it between messages without restarting the conversation."
+      }
+    }
+  ]
+}

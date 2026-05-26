@@ -1,0 +1,21 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for ag2 / prebuilt-popup",
+    "sourceFile": "d5-prebuilt-popup.ts",
+    "owner": "d6-blitz-2026-05-26",
+    "notes": "Authored to match D5 script + ag2 adapter request shape. Single turn; assertion checks .copilotKitPopup root visible + assistant message lands inside the popup tree."
+  },
+  "fixtures": [
+    {
+      "_comment": "prebuilt-popup single turn. The probe sends 'hi from the popup test' and asserts the response lands inside .copilotKitPopup. Response content just needs to arrive — DOM scoping is the real assertion.",
+      "match": {
+        "userMessage": "hi from the popup test",
+        "turnIndex": 0,
+        "context": "ag2"
+      },
+      "response": {
+        "content": "Hello from the popup — the CopilotPopup prebuilt component is wired up and reachable. The launcher floats in the corner and the chat sits in an overlay panel."
+      }
+    }
+  ]
+}

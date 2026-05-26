@@ -1,0 +1,69 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langgraph-python / agent-config",
+    "sourceFile": "d5-agent-config.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "agent-config tone:professional — value-A for the tone knob pair. Must differ from the tone:casual fixture below.",
+      "match": {
+        "userMessage": "tone:professional — introduce yourself per your config",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "Good day. I am your CopilotKit assistant, configured to operate in a professional capacity. I am prepared to assist you with any questions or tasks you may have. How may I be of service today?"
+      }
+    },
+    {
+      "_comment": "agent-config tone:casual — value-B for the tone knob pair. Must differ from the tone:professional fixture above.",
+      "match": {
+        "userMessage": "tone:casual — introduce yourself per your config",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "Hey there! I'm your CopilotKit buddy. I keep things chill and easy-going. What's up — need a hand with anything?"
+      }
+    },
+    {
+      "_comment": "agent-config expertise:beginner — value-A for the expertise knob pair.",
+      "match": {
+        "userMessage": "expertise:beginner — explain how copilotkit works per your config",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "CopilotKit is like a smart helper you can add to your website or app. Think of it as a friendly assistant that lives inside your project and can answer questions, fill out forms, and do tasks for you automatically."
+      }
+    },
+    {
+      "_comment": "agent-config expertise:expert — value-B for the expertise knob pair. Must differ from the beginner fixture above.",
+      "match": {
+        "userMessage": "expertise:expert — explain how copilotkit works per your config",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "CopilotKit is an open-source AI agent framework with three layers: a React frontend SDK providing hooks (useCopilotChat, useCopilotAction), a runtime middleware (Express/Hono) that manages the AG-UI SSE stream, and agent adapters for LangGraph, CrewAI, and custom backends. The runtime proxies tool calls between the frontend and the agent, handling streaming, state synchronization, and human-in-the-loop interrupts transparently."
+      }
+    },
+    {
+      "_comment": "agent-config responseLength:concise — value-A for the response-length knob pair. Must be at least 80 chars shorter than the detailed fixture below.",
+      "match": {
+        "userMessage": "responseLength:concise — describe agent context per your config",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "Agent context is a per-turn data bag passed from the frontend to the agent via useAgentContext."
+      }
+    },
+    {
+      "_comment": "agent-config responseLength:detailed — value-B for the response-length knob pair. Must exceed the concise fixture by >= 80 chars.",
+      "match": {
+        "userMessage": "responseLength:detailed — describe agent context per your config",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "Agent context is a per-turn data bag passed from the frontend to the agent via the useAgentContext hook. On the React side, you call useAgentContext({ tone, expertise, responseLength }) and CopilotKit serialises those values into the runtime request. The runtime injects them into the agent's system prompt builder, so each turn's LLM call reflects the latest frontend state. This enables real-time personalisation: switching a dropdown from 'professional' to 'casual' immediately changes how the agent responds, without restarting the conversation or reconfiguring the backend. The pattern extends to any key-value pair your app needs — feature flags, user roles, locale, or custom metadata."
+      }
+    }
+  ]
+}
