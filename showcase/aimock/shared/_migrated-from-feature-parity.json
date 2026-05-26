@@ -1,0 +1,150 @@
+{
+  "_meta": {
+    "description": "feature-parity.json fixtures that were added or modified on main (hasToolResult removal, calculator reorg, HITL cancelled branches). TODO: merge these into per-integration d6/<slug>/_from-feature-parity.json files where the branch already has context-scoped versions.",
+    "source": "origin/main:showcase/aimock/feature-parity.json",
+    "migrated": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "revenue distribution by category"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_pie_chart_001",
+            "name": "pieChart",
+            "arguments": "{\"title\":\"Revenue by Category\",\"description\":\"Breakdown of revenue across product categories\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "expenses by category"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_bar_chart_001",
+            "name": "barChart",
+            "arguments": "{\"title\":\"Expenses by Category\",\"description\":\"Monthly expense breakdown\",\"data\":[{\"label\":\"Rent\",\"value\":15000},{\"label\":\"Salaries\",\"value\":80000},{\"label\":\"Marketing\",\"value\":12000},{\"label\":\"Travel\",\"value\":5000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "30-minute meeting to learn about CopilotKit"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_schedule_time_001",
+            "name": "scheduleTime",
+            "arguments": "{\"reasonForScheduling\":\"Learn about CopilotKit\",\"meetingDuration\":30}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "flights from SFO to JFK"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_search_flights_001",
+            "name": "search_flights",
+            "arguments": "{\"flights\":[{\"airline\":\"United Airlines\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=united.com&sz=128\",\"flightNumber\":\"UA123\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"08:00\",\"arrivalTime\":\"16:30\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$349\",\"currency\":\"USD\"},{\"airline\":\"Delta\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=delta.com&sz=128\",\"flightNumber\":\"DL456\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"10:15\",\"arrivalTime\":\"18:45\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$289\",\"currency\":\"USD\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "toggle"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_toggle_theme_001",
+            "name": "toggleTheme",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "three todos about learning CopilotKit"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_beautiful_chat_enable_app_mode_001",
+            "name": "enableAppMode",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Beautiful Chat \u2014 Calculator pill follow-up after generateSandboxedUi returns. Kept before the first-leg userMessage fixture so follow-up turns are not stolen by the same prompt substring.",
+      "match": {
+        "toolCallId": "call_fp_beautiful_chat_calculator_001"
+      },
+      "response": {
+        "content": "Calculator app rendered above \u2014 tap a metric shortcut to insert its value, then operate on it with the standard keypad."
+      }
+    },
+    {
+      "_comment": "Beautiful Chat \u2014 Calculator (Open Generative UI) pill. Returns a generateSandboxedUi tool call with a complete calculator widget (matches the d5 calc fixture's pattern but tailored to the beautiful-chat pill's user message).",
+      "match": {
+        "userMessage": "build a modern calculator with standard buttons"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_beautiful_chat_calculator_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":520,\"placeholderMessages\":[\"Composing calculator UI\u2026\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px;max-width:280px;margin:0 auto}.display{background:#1e293b;padding:12px;border-radius:8px;margin-bottom:8px;font-family:monospace;text-align:right;font-size:18px;min-height:24px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.shortcuts{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:8px}button{padding:12px;background:#334155;border:0;color:#e2e8f0;border-radius:6px;font-size:14px;cursor:pointer}button.metric{background:#475569;font-size:11px}\",\"html\":\"<div class=\\\"wrap\\\" data-testid=\\\"ogui-beautiful-calculator\\\"><div class=\\\"display\\\" id=\\\"d\\\">0</div><div class=\\\"shortcuts\\\"><button class=\\\"metric\\\" data-v=\\\"1200000\\\">Revenue $1.2M</button><button class=\\\"metric\\\" data-v=\\\"342\\\">Customers 342</button><button class=\\\"metric\\\" data-v=\\\"4.2\\\">Conversion 4.2%</button><button class=\\\"metric\\\" data-v=\\\"50000\\\">Avg Deal $50K</button></div><div class=\\\"grid\\\"><button>7</button><button>8</button><button>9</button><button>+</button><button>4</button><button>5</button><button>6</button><button>-</button><button>1</button><button>2</button><button>3</button><button>*</button><button>0</button><button>.</button><button id=\\\"eq\\\">=</button><button>/</button></div></div>\",\"jsFunctions\":\"(function(){var expr='';var display=document.getElementById('d');document.querySelectorAll('.shortcuts button').forEach(function(btn){btn.addEventListener('click',function(){expr+=btn.dataset.v;display.textContent=expr;});});document.querySelectorAll('.grid button').forEach(function(btn){btn.addEventListener('click',async function(){if(btn.id==='eq'){var res=await Websandbox.connection.remote.evaluateExpression({expression:expr});if(res&&res.ok){display.textContent=String(res.value);expr=String(res.value);}else{display.textContent='err';expr='';}}else{expr+=btn.textContent;display.textContent=expr;}});});})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Beautiful Chat \u2014 Excalidraw (MCP App) pill. Returns a create_view tool call (the Excalidraw MCP server's tool) with a basic network diagram. Without this fixture aimock falls through to real OpenAI proxy and the pill 502s on the gh-mock key.",
+      "match": {
+        "userMessage": "Use Excalidraw to create a simple network diagram"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_beautiful_chat_excalidraw_001",
+            "name": "create_view",
+            "arguments": "{\"elements\":\"[{\\\"type\\\":\\\"ellipse\\\",\\\"x\\\":200,\\\"y\\\":40,\\\"width\\\":100,\\\"height\\\":60,\\\"strokeColor\\\":\\\"#1971c2\\\",\\\"backgroundColor\\\":\\\"#a5d8ff\\\",\\\"fillStyle\\\":\\\"solid\\\",\\\"text\\\":\\\"Router\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":80,\\\"y\\\":160,\\\"width\\\":100,\\\"height\\\":50,\\\"strokeColor\\\":\\\"#2f9e44\\\",\\\"backgroundColor\\\":\\\"#b2f2bb\\\",\\\"fillStyle\\\":\\\"solid\\\",\\\"text\\\":\\\"Switch A\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":320,\\\"y\\\":160,\\\"width\\\":100,\\\"height\\\":50,\\\"strokeColor\\\":\\\"#2f9e44\\\",\\\"backgroundColor\\\":\\\"#b2f2bb\\\",\\\"fillStyle\\\":\\\"solid\\\",\\\"text\\\":\\\"Switch B\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":20,\\\"y\\\":280,\\\"width\\\":80,\\\"height\\\":40,\\\"text\\\":\\\"PC 1\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":120,\\\"y\\\":280,\\\"width\\\":80,\\\"height\\\":40,\\\"text\\\":\\\"PC 2\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":300,\\\"y\\\":280,\\\"width\\\":80,\\\"height\\\":40,\\\"text\\\":\\\"PC 3\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":400,\\\"y\\\":280,\\\"width\\\":80,\\\"height\\\":40,\\\"text\\\":\\\"PC 4\\\"},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":250,\\\"y\\\":100,\\\"width\\\":-120,\\\"height\\\":60},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":250,\\\"y\\\":100,\\\"width\\\":120,\\\"height\\\":60},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":130,\\\"y\\\":210,\\\"width\\\":-70,\\\"height\\\":70},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":130,\\\"y\\\":210,\\\"width\\\":30,\\\"height\\\":70},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":370,\\\"y\\\":210,\\\"width\\\":-30,\\\"height\\\":70},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":370,\\\"y\\\":210,\\\"width\\\":70,\\\"height\\\":70}]\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_hitl_book_intro_sales_001__cancelled"
+      },
+      "response": {
+        "content": "Denied \u2014 the intro call with the sales team was not booked because no time slot was selected."
+      }
+    },
+    {
+      "_comment": "hitl-in-chat \u2014 Schedule 1:1 with Alice pill, 2nd turn (book_call tool result returned). Keyed on userMessage + toolCallId so it wins ahead of the bare 'alice' / 'Alice' substring fixtures further below in this file, regardless of prior pill state in the thread.",
+      "match": {
+        "userMessage": "Schedule a 1:1 with Alice next week to review Q2 goals.",
+        "toolCallId": "call_hitl_book_1on1_alice_001__cancelled"
+      },
+      "response": {
+        "content": "Denied \u2014 the 1:1 with Alice was not booked because no time slot was selected."
+      }
+    }
+  ]
+}

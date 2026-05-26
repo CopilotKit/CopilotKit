@@ -1,0 +1,127 @@
+{
+  "_meta": {
+    "description": "HITL approved/rejected/cancelled + shared-state-read-write fixtures migrated from d5-all.json (main additions from PR #4973 et al). These are D5-level fixtures without context scoping. TODO: distribute into per-integration d6/<slug>/ files with appropriate match.context keys.",
+    "source": "origin/main:showcase/aimock/d5-all.json",
+    "migrated": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "trip to mars",
+        "toolCallId": "call_d5_generate_steps_001__approved"
+      },
+      "response": {
+        "content": "Great choices! I will proceed with executing the selected steps for your trip to Mars. Let me work through each one."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "trip to mars",
+        "toolCallId": "call_d5_generate_steps_001__rejected"
+      },
+      "response": {
+        "content": "No problem \u2014 I will not execute the Mars trip plan."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Book a 30-minute onboarding call for Alice",
+        "toolCallId": "call_d5_book_call_001__cancelled"
+      },
+      "response": {
+        "content": "Denied \u2014 Alice's onboarding call was not booked because no time slot was selected."
+      }
+    },
+    {
+      "_comment": "shared-state-read-write edited-name probe. The harness sets name=D5-PREF-PROBE before clicking Greet me; matching this proves changed preferences reached the model-visible system prompt instead of serving the default fixture.",
+      "match": {
+        "userMessage": "Say hi and introduce yourself",
+        "systemMessage": [
+          "preferences",
+          "\"name\": \"D5-PREF-PROBE\""
+        ]
+      },
+      "response": {
+        "content": "Hi D5-PREF-PROBE - I can see your edited shared-state preferences in the current turn."
+      }
+    },
+    {
+      "_comment": "hitl-in-app \u2014 refund pill (#12345), approved branch. The .NET runtime suffixes the request_user_approval tool result id from the actual frontend result so approve/reject matching is deterministic without sequenceIndex.",
+      "match": {
+        "userMessage": "$50 refund to Jordan Rivera on ticket #12345",
+        "toolCallId": "call_d5_hitl_refund_12345_001__approved"
+      },
+      "response": {
+        "content": "I am processing the $50 refund to Jordan Rivera on ticket #12345 now."
+      }
+    },
+    {
+      "_comment": "hitl-in-app \u2014 refund pill (#12345), rejected branch.",
+      "match": {
+        "userMessage": "$50 refund to Jordan Rivera on ticket #12345",
+        "toolCallId": "call_d5_hitl_refund_12345_001__rejected"
+      },
+      "response": {
+        "content": "The refund request was not approved. I will not issue the $50 refund to Jordan Rivera on ticket #12345."
+      }
+    },
+    {
+      "_comment": "hitl-in-app \u2014 downgrade pill (#12346), approved branch.",
+      "match": {
+        "userMessage": "downgrade Priya Shah (#12346) to the Starter plan",
+        "toolCallId": "call_d5_hitl_downgrade_12346_001__approved"
+      },
+      "response": {
+        "content": "Downgrade confirmed \u2014 Priya Shah (#12346) will move to the Starter plan effective next billing cycle."
+      }
+    },
+    {
+      "_comment": "hitl-in-app \u2014 downgrade pill (#12346), rejected branch.",
+      "match": {
+        "userMessage": "downgrade Priya Shah (#12346) to the Starter plan",
+        "toolCallId": "call_d5_hitl_downgrade_12346_001__rejected"
+      },
+      "response": {
+        "content": "The downgrade request was not approved. Priya Shah (#12346) will remain on the current plan."
+      }
+    },
+    {
+      "_comment": "hitl-in-app \u2014 escalate pill (#12347), approved branch.",
+      "match": {
+        "userMessage": "escalate ticket #12347 to the payments team",
+        "toolCallId": "call_d5_hitl_escalate_12347_001__approved"
+      },
+      "response": {
+        "content": "Escalated ticket #12347 to the payments team for Morgan Lee."
+      }
+    },
+    {
+      "_comment": "hitl-in-app \u2014 escalate pill (#12347), rejected branch.",
+      "match": {
+        "userMessage": "escalate ticket #12347 to the payments team",
+        "toolCallId": "call_d5_hitl_escalate_12347_001__rejected"
+      },
+      "response": {
+        "content": "Not escalated \u2014 ticket #12347 will stay in the current queue."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "toolCallId": "call_d5_schedule_sales_001__cancelled"
+      },
+      "response": {
+        "content": "Denied \u2014 the sales intro call was not booked because no time slot was selected."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolCallId": "call_d5_schedule_alice_001__cancelled"
+      },
+      "response": {
+        "content": "Denied \u2014 the 1:1 with Alice was not scheduled because no time slot was selected."
+      }
+    }
+  ]
+}

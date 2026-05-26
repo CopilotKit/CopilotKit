@@ -1,0 +1,13 @@
+{
+  "_meta": {
+    "description": "Depth-agnostic common fixtures. No context field -- matches any integration.",
+    "created": "2026-05-20"
+  },
+  "fixtures": [
+    {
+      "_comment": "Generic greeting — shared across all integrations",
+      "match": { "userMessage": "hello" },
+      "response": { "content": "Hello! How can I help you today?" }
+    }
+  ]
+}
