@@ -1,0 +1,65 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for pydantic-ai / tool-rendering-custom-catchall",
+    "sourceFile": "harness/src/probes/scripts/d5-tool-rendering-custom-catchall.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "tool-rendering-custom-catchall — weather in Tokyo follow-up after get_weather ran. Keyed on toolCallId so it fires after iteration 1. Must come BEFORE the tool-emitting fixture.",
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "toolCallId": "call_d5_get_weather_001",
+        "context": "pydantic-ai"
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy."
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall — weather in Tokyo first leg: emit get_weather tool call. Driven by the probe's first prompt.",
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "hasToolResult": false,
+        "context": "pydantic-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall — AAPL stock price follow-up after get_stock_price ran. Keyed on toolCallId.",
+      "match": {
+        "userMessage": "current price of AAPL",
+        "toolCallId": "call_d5_get_stock_price_001",
+        "context": "pydantic-ai"
+      },
+      "response": {
+        "content": "AAPL is trading at $189.42, up 1.27% on the day."
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall — AAPL stock price first leg: emit get_stock_price tool call. Driven by the probe's second prompt.",
+      "match": {
+        "userMessage": "current price of AAPL",
+        "hasToolResult": false,
+        "context": "pydantic-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_stock_price_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\"}"
+          }
+        ]
+      }
+    }
+  ]
+}
