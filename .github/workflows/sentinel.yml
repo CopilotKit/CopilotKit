@@ -13,7 +13,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - uses: jpr5/sentinel@2972cd7183264739e615939cba51988885920c36 # v1.3.3
+      - uses: jpr5/sentinel@3001b71ad3fc6998649be5a18e39585479a3ef5b # v1.3.4
         with:
           severity: high
           fail-on-findings: true
