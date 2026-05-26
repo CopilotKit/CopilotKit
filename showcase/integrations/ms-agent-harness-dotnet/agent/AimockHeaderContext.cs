@@ -10,11 +10,14 @@ public static class AimockHeaderContext
 
     public static void Set(Dictionary<string, string> headers)
     {
+        // Canonical strategy: preserve the original header casing captured upstream by
+        // AimockHeaderMiddleware, but compare keys case-insensitively throughout.
+        // AimockHeaderPolicy relies on case-insensitive TryGetValue to add-if-absent.
         var filtered = headers
             .Where(h => h.Key.StartsWith("x-", StringComparison.OrdinalIgnoreCase))
-            .ToDictionary(h => h.Key.ToLowerInvariant(), h => h.Value);
+            .ToDictionary(h => h.Key, h => h.Value, StringComparer.OrdinalIgnoreCase);
         _headers.Value = filtered;
     }
 
-    public static Dictionary<string, string> Get() => _headers.Value ?? new();
+    public static Dictionary<string, string> Get() => _headers.Value ?? new(StringComparer.OrdinalIgnoreCase);
 }
