@@ -1,0 +1,38 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for ag2 / byoc (bring-your-own-component)",
+    "sourceFile": "d5-byoc.ts",
+    "owner": "d6-blitz-2026-05-26",
+    "notes": "Authored to match D5 script + ag2 adapter request shape. The probe sends the hashbrown pill prompt and asserts metric-card + chart testids render. The response must be a JSON-shaped payload the demo's custom renderer can parse."
+  },
+  "fixtures": [
+    {
+      "_comment": "byoc hashbrown pill — Sales dashboard. The demo's custom renderer parses structured JSON from the assistant response to materialize metric cards and charts. The response must contain data the renderer recognizes.",
+      "match": {
+        "userMessage": "Show me a Q4 sales dashboard",
+        "hasToolResult": false,
+        "context": "ag2"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_byoc_render_001",
+            "name": "render_dashboard",
+            "arguments": "{\"metrics\":[{\"label\":\"Total Revenue\",\"value\":\"$2.4M\",\"change\":\"+12%\"},{\"label\":\"New Customers\",\"value\":\"1,847\",\"change\":\"+8%\"},{\"label\":\"Conversion Rate\",\"value\":\"3.2%\",\"change\":\"+0.4%\"}],\"charts\":[{\"type\":\"bar\",\"title\":\"Monthly Revenue\",\"data\":[{\"month\":\"Oct\",\"value\":780000},{\"month\":\"Nov\",\"value\":820000},{\"month\":\"Dec\",\"value\":800000}]},{\"type\":\"pie\",\"title\":\"Revenue by Segment\",\"data\":[{\"label\":\"Enterprise\",\"value\":1200000},{\"label\":\"Mid-Market\",\"value\":720000},{\"label\":\"SMB\",\"value\":480000}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "byoc hashbrown pill — follow-up after render_dashboard tool result.",
+      "match": {
+        "userMessage": "Show me a Q4 sales dashboard",
+        "hasToolResult": true,
+        "context": "ag2"
+      },
+      "response": {
+        "content": "Dashboard rendered above — Q4 total revenue hit $2.4M with a 12% increase. The bar chart shows monthly revenue and the pie chart breaks down revenue by segment."
+      }
+    }
+  ]
+}
