@@ -24,11 +24,12 @@ internal static class ApiKeyResolver
     {
         ArgumentNullException.ThrowIfNull(configuration);
 
-        var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY")
-            ?? configuration["OPENAI_API_KEY"]
-            ?? configuration["GitHubToken"];
+        var apiKey = FirstNonBlank(
+            Environment.GetEnvironmentVariable("OPENAI_API_KEY"),
+            configuration["OPENAI_API_KEY"],
+            configuration["GitHubToken"]);
 
-        if (!string.IsNullOrWhiteSpace(apiKey))
+        if (apiKey is not null)
         {
             return apiKey;
         }
@@ -56,9 +57,28 @@ internal static class ApiKeyResolver
     {
         ArgumentNullException.ThrowIfNull(configuration);
 
-        return Environment.GetEnvironmentVariable("OPENAI_BASE_URL")
-            ?? configuration["OPENAI_BASE_URL"]
-            ?? DefaultOpenAiEndpoint;
+        return FirstNonBlank(
+            Environment.GetEnvironmentVariable("OPENAI_BASE_URL"),
+            configuration["OPENAI_BASE_URL"]) ?? DefaultOpenAiEndpoint;
+    }
+
+    /// <summary>
+    /// Returns the first candidate that is neither null nor whitespace-only.
+    /// Used in place of the <c>??</c> operator when cascading through env var
+    /// → configuration sources, since <c>??</c> only short-circuits on null
+    /// and would otherwise let an empty-string env var mask a configured
+    /// fallback.
+    /// </summary>
+    private static string? FirstNonBlank(params string?[] candidates)
+    {
+        foreach (var candidate in candidates)
+        {
+            if (!string.IsNullOrWhiteSpace(candidate))
+            {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     private static bool IsMockEndpoint(string endpoint)
