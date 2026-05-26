@@ -84,6 +84,7 @@ export function CopilotChat({
   } = props;
 
   useEffect(() => {
+    const abortController = new AbortController();
     const connect = async (agent: AbstractAgent) => {
       try {
         await copilotkit.connectAgent({ agent });
@@ -97,7 +98,9 @@ export function CopilotChat({
     };
     agent.threadId = resolvedThreadId;
     connect(agent);
-    return () => {};
+    return () => {
+      abortController.abort();
+    };
   }, [resolvedThreadId, agent, copilotkit, resolvedAgentId]);
 
   const onSubmitInput = useCallback(

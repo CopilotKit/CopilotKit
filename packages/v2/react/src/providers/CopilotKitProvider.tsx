@@ -104,11 +104,22 @@ function useStableArrayProp<T>(
   return value;
 }
 
+function useStableObject<T extends Record<string, unknown>>(obj: T): T {
+  const ref = useRef(obj);
+  if (
+    Object.keys(obj).length !== Object.keys(ref.current).length ||
+    Object.keys(obj).some((k) => obj[k] !== ref.current[k])
+  ) {
+    ref.current = obj;
+  }
+  return ref.current;
+}
+
 // Provider component
 export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   children,
   runtimeUrl,
-  headers = {},
+  headers: rawHeaders = {},
   credentials,
   publicApiKey,
   publicLicenseKey,
@@ -123,6 +134,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   showDevConsole = false,
   useSingleEndpoint = false,
 }) => {
+  const headers = useStableObject(rawHeaders);
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
 
   useEffect(() => {

@@ -21,7 +21,7 @@ import {
   useRenderCustomMessages,
   useSuggestions,
 } from "@copilotkitnext/react";
-import { Suggestion } from "@copilotkitnext/core";
+import { Suggestion, CopilotKitCoreRuntimeConnectionStatus } from "@copilotkitnext/core";
 import { useLazyToolRenderer } from "./use-lazy-tool-renderer";
 import { AbstractAgent, AGUIConnectNotImplementedError } from "@ag-ui/client";
 import {
@@ -333,11 +333,17 @@ export function useCopilotChatInternal({
   const { agent } = useAgent({ agentId: resolvedAgentId });
 
   useEffect(() => {
+    const abortController = new AbortController();
     const connect = async (agent: AbstractAgent) => {
+      if (copilotkit.runtimeConnectionStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected) {
+        return;
+      }
       setAgentAvailable(false);
       try {
         await copilotkit.connectAgent({ agent });
-        setAgentAvailable(true);
+        if (!abortController.signal.aborted) {
+          setAgentAvailable(true);
+        }
       } catch (error) {
         if (error instanceof AGUIConnectNotImplementedError) {
           // connect not implemented, ignore
@@ -355,7 +361,9 @@ export function useCopilotChatInternal({
       agent.threadId = existingConfig.threadId;
       connect(agent);
     }
-    return () => {};
+    return () => {
+      abortController.abort();
+    };
   }, [existingConfig?.threadId, agent, copilotkit, resolvedAgentId]);
 
   useEffect(() => {
