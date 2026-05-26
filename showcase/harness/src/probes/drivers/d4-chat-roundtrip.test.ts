@@ -8,7 +8,7 @@ import {
   type E2eSmokeLevelSignal,
   type E2eSmokePackageSignal,
   type E2eSmokeSignal,
-} from "./e2e-chat-tools.js";
+} from "./d4-chat-roundtrip.js";
 import { logger } from "../../logger.js";
 import type { ProbeContext, ProbeResult } from "../../types/index.js";
 

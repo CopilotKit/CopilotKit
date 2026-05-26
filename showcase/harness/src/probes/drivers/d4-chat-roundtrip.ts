@@ -154,7 +154,9 @@ export interface E2eBrowserContext {
 }
 
 export interface E2eBrowser {
-  newContext(): Promise<E2eBrowserContext>;
+  newContext(ctxOpts?: {
+    extraHTTPHeaders?: Record<string, string>;
+  }): Promise<E2eBrowserContext>;
   close(): Promise<void>;
 }
 
@@ -237,9 +239,14 @@ const defaultLauncher: E2eBrowserLauncher = async (): Promise<E2eBrowser> => {
   // Adapt the concrete Playwright API surface onto our minimal interface
   // so tests can swap in fakes without importing playwright's types.
   return {
-    async newContext(): Promise<E2eBrowserContext> {
+    async newContext(ctxOpts?: {
+      extraHTTPHeaders?: Record<string, string>;
+    }): Promise<E2eBrowserContext> {
       const ctx = await browser.newContext({
-        extraHTTPHeaders: { "X-AIMock-Strict": "true" },
+        extraHTTPHeaders: {
+          "X-AIMock-Strict": "true",
+          ...ctxOpts?.extraHTTPHeaders,
+        },
       });
       return {
         async newPage(): Promise<E2ePage> {
@@ -267,9 +274,14 @@ export function createPooledE2eSmokeLauncher(
   return async (): Promise<E2eBrowser> => {
     const browser = await pool.acquire();
     return {
-      async newContext(): Promise<E2eBrowserContext> {
+      async newContext(ctxOpts?: {
+        extraHTTPHeaders?: Record<string, string>;
+      }): Promise<E2eBrowserContext> {
         const ctx = await browser.newContext({
-          extraHTTPHeaders: { "X-AIMock-Strict": "true" },
+          extraHTTPHeaders: {
+            "X-AIMock-Strict": "true",
+            ...ctxOpts?.extraHTTPHeaders,
+          },
         });
         return {
           async newPage(): Promise<E2ePage> {
@@ -662,7 +674,12 @@ async function runLevel(opts: {
   let context: E2eBrowserContext | undefined;
   let page: E2ePage | undefined;
   try {
-    context = await browser.newContext();
+    context = await browser.newContext({
+      extraHTTPHeaders: {
+        "X-AIMock-Context": slug,
+        "X-Test-Id": `d4-${slug}`,
+      },
+    });
     page = await context.newPage();
     const url = `${backendUrl}${demoPath}`;
     await page.goto(url, { waitUntil: "networkidle", timeout: pageTimeoutMs });

@@ -24,7 +24,7 @@ const program = new Command();
 
 program
   .name("showcase")
-  .description("Local showcase depth-level (smoke/D4/D5) test infrastructure")
+  .description("Local showcase depth-level (smoke/D4/D5/D6) test infrastructure")
   .version("0.1.0");
 
 // ── up ──────────────────────────────────────────────────────────────────
@@ -50,13 +50,15 @@ program
   .command("test <target>")
   .description("Run probe tests (target: <slug>, <slug>:<demo>, or all)")
   .addOption(
-    new Option("--level <level>", "probe depth (smoke|d4|d5|all)").choices([
+    new Option("--level <level>", "probe depth (smoke|d4|d5|d6|all)").choices([
       "smoke",
       "d4",
       "d5",
+      "d6",
       "all",
     ]),
   )
+  .option("--d6", "shorthand for --level d6")
   .option("--d5", "shorthand for --level d5")
   .option("--d4", "shorthand for --level d4")
   .option("--smoke", "shorthand for --level smoke")
@@ -77,6 +79,7 @@ program
       target: string,
       opts: {
         level?: string;
+        d6?: boolean;
         d5?: boolean;
         d4?: boolean;
         smoke?: boolean;
@@ -90,9 +93,13 @@ program
     ) => {
       const config = loadConfig();
 
-      const shorthands = [opts.smoke, opts.d4, opts.d5].filter(Boolean);
+      const shorthands = [opts.smoke, opts.d4, opts.d5, opts.d6].filter(
+        Boolean,
+      );
       if (shorthands.length > 1) {
-        console.error("Error: specify at most one of --smoke, --d4, --d5");
+        console.error(
+          "Error: specify at most one of --smoke, --d4, --d5, --d6",
+        );
         process.exit(1);
       }
 
@@ -102,10 +109,12 @@ program
           ? "d4"
           : opts.d5
             ? "d5"
-            : null;
+            : opts.d6
+              ? "d6"
+              : null;
       if (shorthand && opts.level) {
         console.error(
-          "Error: --level and shorthand flags (--smoke, --d4, --d5) are mutually exclusive",
+          "Error: --level and shorthand flags (--smoke, --d4, --d5, --d6) are mutually exclusive",
         );
         process.exit(1);
       }

@@ -12,7 +12,7 @@ import {
   type E2eDeepBrowserContext,
   type E2eDeepFeatureSignal,
   type E2eDeepPage,
-} from "./e2e-deep.js";
+} from "./d5-single-pill.js";
 import {
   __clearD5RegistryForTesting,
   registerD5Script,
