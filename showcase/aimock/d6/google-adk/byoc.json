@@ -1,0 +1,31 @@
+{
+    "_meta": {
+        "description": "D6 fixtures for google-adk / byoc (declarative-hashbrown + declarative-json-render)",
+        "sourceFile": "d5-byoc.ts pill prompts",
+        "created": "2026-05-22"
+    },
+    "fixtures": [
+        {
+            "_comment": "byoc-hashbrown pill — Sales dashboard. The agent emits a JSON-structured response the demo's custom BYOC renderer materialises as metric cards + charts. Substring 'Q4 sales dashboard' is unique to the hashbrown pill.",
+            "match": {
+                "userMessage": "Q4 sales dashboard",
+                "hasToolResult": false,
+                "context": "google-adk"
+            },
+            "response": {
+                "content": "{\"metrics\":[{\"label\":\"Total Revenue\",\"value\":\"$1.2M\",\"change\":\"+12%\"},{\"label\":\"New Customers\",\"value\":\"342\",\"change\":\"+8%\"},{\"label\":\"Conversion Rate\",\"value\":\"4.2%\",\"change\":\"+0.5%\"}],\"charts\":[{\"type\":\"pie\",\"title\":\"Revenue by Segment\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000}]},{\"type\":\"bar\",\"title\":\"Monthly Revenue\",\"data\":[{\"label\":\"Oct\",\"value\":380000},{\"label\":\"Nov\",\"value\":410000},{\"label\":\"Dec\",\"value\":450000}]}]}"
+            }
+        },
+        {
+            "_comment": "byoc-json-render pill — Sales dashboard with metrics and chart. Substring 'sales dashboard with metrics' is unique to the json-render pill.",
+            "match": {
+                "userMessage": "sales dashboard with metrics",
+                "hasToolResult": false,
+                "context": "google-adk"
+            },
+            "response": {
+                "content": "{\"metrics\":[{\"label\":\"Total Revenue\",\"value\":\"$1.2M\",\"change\":\"+12%\"},{\"label\":\"Active Users\",\"value\":\"8,420\",\"change\":\"+15%\"}],\"charts\":[{\"type\":\"bar\",\"title\":\"Revenue Trend\",\"data\":[{\"label\":\"Q1\",\"value\":820},{\"label\":\"Q2\",\"value\":940},{\"label\":\"Q3\",\"value\":1080},{\"label\":\"Q4\",\"value\":1240}]}]}"
+            }
+        }
+    ]
+}
