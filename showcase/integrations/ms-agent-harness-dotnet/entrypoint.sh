@@ -13,8 +13,8 @@ echo "[entrypoint] PORT=${PORT:-not set}"
 echo "[entrypoint] NODE_ENV=${NODE_ENV:-not set}"
 echo "========================================="
 
-if [ -z "$AZURE_OPENAI_API_KEY" ] && [ -z "$OPENAI_API_KEY" ]; then
-  echo "[entrypoint] WARNING: Neither AZURE_OPENAI_API_KEY nor OPENAI_API_KEY is set! Agent will fail."
+if [ -z "$OPENAI_API_KEY" ] && [ -z "$GitHubToken" ]; then
+  echo "[entrypoint] WARNING: Neither OPENAI_API_KEY nor GitHubToken is set! Agent will fall back to the mock key 'sk-mock-local' and live OpenAI calls will fail."
 fi
 
 # Start .NET agent backend on :8000 with log prefixing so its output is
@@ -23,11 +23,28 @@ fi
 echo "[entrypoint] Starting .NET agent on port 8000..."
 dotnet /agent/BeautifulChatAgent.dll --urls "http://0.0.0.0:8000" &> >(awk '{print "[agent] " $0; fflush()}') &
 AGENT_PID=$!
-sleep 3
-if kill -0 $AGENT_PID 2>/dev/null; then
-  echo "[entrypoint] Agent started (PID: $AGENT_PID)"
-else
-  echo "[entrypoint] ERROR: Agent failed to start — exiting"
+
+# Wait for Kestrel to actually be listening on :8000 before declaring success.
+# A bare `kill -0 $AGENT_PID` only proves the process exists, not that the
+# HTTP listener is bound — Next.js would then proxy to a dead backend for
+# ~90s until the watchdog killed the container.
+echo "[entrypoint] Waiting for agent /health to respond on :8000..."
+AGENT_READY=0
+for i in $(seq 1 30); do
+  if curl -fsS --max-time 2 -o /dev/null http://127.0.0.1:8000/health 2>/dev/null; then
+    AGENT_READY=1
+    echo "[entrypoint] Agent ready after ${i}s (PID: $AGENT_PID)"
+    break
+  fi
+  if ! kill -0 $AGENT_PID 2>/dev/null; then
+    echo "[entrypoint] ERROR: Agent process died during startup — exiting"
+    exit 1
+  fi
+  sleep 1
+done
+if [ "$AGENT_READY" -ne 1 ]; then
+  echo "[entrypoint] ERROR: Agent did not become healthy within 30s — exiting"
+  kill -9 $AGENT_PID 2>/dev/null || true
   exit 1
 fi
 
@@ -52,6 +69,10 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
   FAILS=0
   while sleep 30; do
     if ! kill -0 $AGENT_PID 2>/dev/null; then
+      break
+    fi
+    if ! kill -0 $NEXTJS_PID 2>/dev/null; then
+      echo "[watchdog] Next.js process died — exiting watchdog so container can restart"
       break
     fi
     if curl -fsS --max-time 5 http://127.0.0.1:8000/health > /dev/null 2>&1; then
