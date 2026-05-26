@@ -269,7 +269,7 @@ function arePropsEqual(
     keyFor("e2e", slug, featureId),
     keyFor("smoke", slug),
     keyFor("d5", slug, featureId),
-    keyFor("d6", slug, featureId),
+    keyFor("d6", slug),
   ];
   for (const k of directKeys) {
     if (prev.ctx.liveStatus.get(k) !== next.ctx.liveStatus.get(k)) return false;
