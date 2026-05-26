@@ -94,17 +94,27 @@ internal static class ApiKeyResolver
         // as attack surface: an attacker-registered domain like
         // "aimock.attacker.example.com" would otherwise be classified as a
         // mock endpoint. Only exact, well-known mock hosts and loopback
-        // addresses (including IPv6 ::1) are accepted.
+        // addresses are accepted.
+        //
+        // Loopback detection delegates to <see cref="Uri.IsLoopback"/> because
+        // Uri.Host's formatting is not stable across loopback variants:
+        // <c>new Uri("http://[::1]:8000/").Host</c> returns <c>"[::1]"</c>
+        // (with brackets), so a naive <c>host == "::1"</c> check silently
+        // fails. <c>Uri.IsLoopback</c> covers <c>localhost</c>, the entire
+        // <c>127.0.0.0/8</c> range, <c>::1</c> in any bracketed form, and
+        // IPv4-mapped IPv6 loopback (<c>::ffff:127.0.0.1</c>).
         if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var uri))
         {
             return false;
         }
 
+        if (uri.IsLoopback)
+        {
+            return true;
+        }
+
         var host = uri.Host;
-        return host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
-            || host == "127.0.0.1"
-            || host == "0.0.0.0"
-            || host == "::1"     // IPv6 loopback — Uri.Host strips the brackets
-            || host.Equals("aimock", StringComparison.OrdinalIgnoreCase);
+        return host == "0.0.0.0"   // unspecified address; OS-dependent, kept for back-compat
+            || host.Equals("aimock", StringComparison.OrdinalIgnoreCase);  // Docker-compose service name
     }
 }
