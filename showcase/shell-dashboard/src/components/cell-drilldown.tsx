@@ -3,7 +3,7 @@
  * CellDrilldown — popover panel showing per-badge dimension detail for a
  * single (integration, feature) cell.
  *
- * Renders all badge dimensions (d2/API, d5/CV, e2e/RT, health, smoke) with
+ * Renders all badge dimensions (d6/Parity, d2/API, d5/CV, e2e/RT, health, smoke) with
  * tone, label, and — for red/amber badges — failure metadata presented as
  * readable key-value pairs with the full signal collapsible for debugging.
  */
@@ -33,6 +33,7 @@ const DIMENSIONS: Array<{
   key: keyof Omit<CellState, "rollup">;
   label: string;
 }> = [
+  { key: "d6", label: "Parity (Reference)" },
   { key: "d5", label: "CV (Conversation)" },
   { key: "e2e", label: "RT (Round Trip)" },
   { key: "d2", label: "API (Agent)" },
