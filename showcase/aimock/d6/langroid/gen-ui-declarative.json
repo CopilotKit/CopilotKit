@@ -1,0 +1,121 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langroid / gen-ui-declarative",
+    "sourceScript": "d5-gen-ui-declarative.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "kpi-dashboard pill — emits render_a2ui tool call with Card + Metric components. hasToolResult:false prevents re-match on second leg.",
+      "match": {
+        "userMessage": "KPI dashboard with 3-4 metrics",
+        "hasToolResult": false,
+        "context": "langroid"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_kpi_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"Card\",\"props\":{\"title\":\"KPI Dashboard\"}},{\"type\":\"Metric\",\"props\":{\"label\":\"Revenue\",\"value\":\"$2.4M\",\"change\":\"+15%\"}},{\"type\":\"Metric\",\"props\":{\"label\":\"Signups\",\"value\":\"12,400\",\"change\":\"+8%\"}},{\"type\":\"Metric\",\"props\":{\"label\":\"Churn\",\"value\":\"2.1%\",\"change\":\"-0.3%\"}}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "kpi-dashboard pill — follow-up narration after tool result.",
+      "match": {
+        "userMessage": "KPI dashboard with 3-4 metrics",
+        "hasToolResult": true,
+        "context": "langroid"
+      },
+      "response": {
+        "content": "KPI dashboard rendered above with revenue, signups, and churn metrics."
+      }
+    },
+    {
+      "_comment": "pie-chart pill — emits render_a2ui with PieChart component.",
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "hasToolResult": false,
+        "context": "langroid"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_pie_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"PieChart\",\"props\":{\"title\":\"Sales by Region\",\"data\":[{\"label\":\"North America\",\"value\":45},{\"label\":\"Europe\",\"value\":30},{\"label\":\"Asia-Pacific\",\"value\":20},{\"label\":\"Other\",\"value\":5}]}}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "pie-chart pill — follow-up narration.",
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "hasToolResult": true,
+        "context": "langroid"
+      },
+      "response": {
+        "content": "Pie chart rendered above — North America leads at 45%, followed by Europe at 30%."
+      }
+    },
+    {
+      "_comment": "bar-chart pill — emits render_a2ui with BarChart component.",
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "hasToolResult": false,
+        "context": "langroid"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_bar_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"BarChart\",\"props\":{\"title\":\"Quarterly Revenue\",\"data\":[{\"label\":\"Q1\",\"value\":580000},{\"label\":\"Q2\",\"value\":620000},{\"label\":\"Q3\",\"value\":710000},{\"label\":\"Q4\",\"value\":850000}]}}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "bar-chart pill — follow-up narration.",
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "hasToolResult": true,
+        "context": "langroid"
+      },
+      "response": {
+        "content": "Bar chart rendered above showing quarterly revenue growth from Q1 through Q4."
+      }
+    },
+    {
+      "_comment": "status-report pill — emits render_a2ui with StatusBadge components. The distinguishing testid is declarative-status-badge.",
+      "match": {
+        "userMessage": "status report on system health",
+        "hasToolResult": false,
+        "context": "langroid"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_status_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"StatusBadge\",\"props\":{\"label\":\"API\",\"status\":\"healthy\"}},{\"type\":\"StatusBadge\",\"props\":{\"label\":\"Database\",\"status\":\"healthy\"}},{\"type\":\"StatusBadge\",\"props\":{\"label\":\"Background Workers\",\"status\":\"degraded\"}}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "status-report pill — follow-up narration.",
+      "match": {
+        "userMessage": "status report on system health",
+        "hasToolResult": true,
+        "context": "langroid"
+      },
+      "response": {
+        "content": "System health report rendered. API and Database are healthy; Background Workers are in a degraded state."
+      }
+    }
+  ]
+}
