@@ -5,24 +5,23 @@ using Microsoft.Extensions.Configuration;
 
 internal static class A2uiSecondaryToolCaller
 {
-    private const string DefaultOpenAiEndpoint = "https://models.inference.ai.azure.com";
     private const string DesignToolName = "_design_a2ui_surface";
+    private const int MaxBodyLogLength = 1024;
 
     internal static async Task<string?> GetDesignToolArgumentsAsync(
         IConfiguration configuration,
         string systemPrompt,
         string userContent,
+        ILogger logger,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(systemPrompt);
         ArgumentNullException.ThrowIfNull(userContent);
+        ArgumentNullException.ThrowIfNull(logger);
 
-        var endpoint = (Environment.GetEnvironmentVariable("OPENAI_BASE_URL") ?? DefaultOpenAiEndpoint).TrimEnd('/');
-        var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY")
-            ?? configuration["OPENAI_API_KEY"]
-            ?? configuration["GitHubToken"]
-            ?? "sk-mock-local";
+        var endpoint = ApiKeyResolver.ResolveEndpoint(configuration).TrimEnd('/');
+        var apiKey = ApiKeyResolver.ResolveApiKey(configuration, logger);
 
         using var httpClient = new HttpClient
         {
@@ -82,35 +81,63 @@ internal static class A2uiSecondaryToolCaller
 
         using var response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var truncated = body.Length > MaxBodyLogLength
+                ? body[..MaxBodyLogLength] + "...[truncated]"
+                : body;
+            logger.LogWarning(
+                "[a2ui-secondary] upstream returned non-success status {Status}: {Body}",
+                (int)response.StatusCode,
+                truncated);
+            response.EnsureSuccessStatusCode();
+        }
 
         using var document = JsonDocument.Parse(body);
         if (!document.RootElement.TryGetProperty("choices", out var choices) ||
             choices.ValueKind != JsonValueKind.Array ||
             choices.GetArrayLength() == 0)
         {
+            logger.LogWarning("[a2ui-secondary] response missing or empty 'choices' array");
             return null;
         }
 
-        var message = choices[0].GetProperty("message");
+        if (!choices[0].TryGetProperty("message", out var message))
+        {
+            logger.LogWarning("[a2ui-secondary] choices[0] missing 'message' field");
+            return null;
+        }
+
         if (!message.TryGetProperty("tool_calls", out var toolCalls) ||
             toolCalls.ValueKind != JsonValueKind.Array ||
             toolCalls.GetArrayLength() == 0)
         {
+            logger.LogWarning("[a2ui-secondary] message missing or empty 'tool_calls' array");
             return null;
         }
 
-        var function = toolCalls[0].GetProperty("function");
+        if (!toolCalls[0].TryGetProperty("function", out var function))
+        {
+            logger.LogWarning("[a2ui-secondary] tool_calls[0] missing 'function' field");
+            return null;
+        }
+
         var toolName = function.TryGetProperty("name", out var nameElement)
             ? nameElement.GetString()
             : null;
         if (!string.Equals(toolName, DesignToolName, StringComparison.Ordinal))
         {
+            logger.LogWarning(
+                "[a2ui-secondary] unexpected tool name (expected {Expected}, got {Actual})",
+                DesignToolName,
+                toolName ?? "<null>");
             return null;
         }
 
         if (!function.TryGetProperty("arguments", out var argumentsElement))
         {
+            logger.LogWarning("[a2ui-secondary] function missing 'arguments' field");
             return null;
         }
 

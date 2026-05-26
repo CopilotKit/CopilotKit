@@ -15,6 +15,7 @@
     <Compile Include="BeautifulChatA2uiHelpers.cs" />
     <Compile Include="A2uiSecondaryToolCaller.cs" />
     <Compile Include="AimockHeaderContext.cs" />
+    <Compile Include="ApiKeyResolver.cs" />
     <Compile Include="AimockHeaderMiddleware.cs" />
     <Compile Include="AimockHeaderPolicy.cs" />
     <Content Remove="tests/**/*" />

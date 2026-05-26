@@ -5,8 +5,6 @@ using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.Options;
 using OpenAI;
 
-const string DefaultOpenAiEndpoint = "https://models.inference.ai.azure.com";
-
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.ConfigureHttpJsonOptions(options =>
@@ -40,7 +38,7 @@ await app.RunAsync();
 static OpenAIClient CreateOpenAiClient(IConfiguration configuration, ILogger logger)
 {
     var endpointEnv = Environment.GetEnvironmentVariable("OPENAI_BASE_URL");
-    var endpoint = endpointEnv ?? DefaultOpenAiEndpoint;
+    var endpoint = endpointEnv ?? ApiKeyResolver.DefaultOpenAiEndpoint;
     if (string.IsNullOrEmpty(endpointEnv))
     {
         logger.LogInformation("OPENAI_BASE_URL not set; using default OpenAI endpoint: {Endpoint}", endpoint);
@@ -50,10 +48,7 @@ static OpenAIClient CreateOpenAiClient(IConfiguration configuration, ILogger log
         logger.LogInformation("Using OpenAI endpoint from OPENAI_BASE_URL: {Endpoint}", endpoint);
     }
 
-    var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY")
-        ?? configuration["OPENAI_API_KEY"]
-        ?? configuration["GitHubToken"]
-        ?? "sk-mock-local";
+    var apiKey = ApiKeyResolver.ResolveApiKey(configuration, logger);
 
     return new OpenAIClient(
         new ApiKeyCredential(apiKey),

@@ -346,6 +346,7 @@ price (e.g. ""$289"").")]
                 _configuration,
                 "Generate a useful A2UI dashboard.",
                 userContent,
+                _logger,
                 cancellationToken).ConfigureAwait(false);
         }
         catch (HttpRequestException ex)
