@@ -44,26 +44,28 @@ export function useAgent({ agentId, updates }: UseAgentProps = {}) {
     const isRuntimeConfigured = copilotkit.runtimeUrl !== undefined;
     const status = copilotkit.runtimeConnectionStatus;
 
-    // While runtime is not yet synced, return a provisional runtime agent
-    if (
-      isRuntimeConfigured &&
-      (status === CopilotKitCoreRuntimeConnectionStatus.Disconnected ||
-        status === CopilotKitCoreRuntimeConnectionStatus.Connecting)
-    ) {
-      const provisional = new ProxiedCopilotRuntimeAgent({
-        runtimeUrl: copilotkit.runtimeUrl,
-        agentId,
-        transport: copilotkit.runtimeTransport,
-      });
-      // Apply current headers so runs/connects inherit them
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (provisional as any).headers = { ...copilotkit.headers };
-      return provisional;
+    // While runtime is not yet synced or in error state, return a provisional runtime agent
+    if (isRuntimeConfigured) {
+      if (
+        status === CopilotKitCoreRuntimeConnectionStatus.Disconnected ||
+        status === CopilotKitCoreRuntimeConnectionStatus.Connecting ||
+        status === CopilotKitCoreRuntimeConnectionStatus.Error
+      ) {
+        const provisional = new ProxiedCopilotRuntimeAgent({
+          runtimeUrl: copilotkit.runtimeUrl,
+          agentId,
+          transport: copilotkit.runtimeTransport,
+        });
+        // Apply current headers so runs/connects inherit them
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (provisional as any).headers = { ...copilotkit.headers };
+        return provisional;
+      }
     }
 
     // If no runtime is configured (dev/local), return a no-op agent to satisfy the
     // non-undefined contract without forcing network behavior.
-    // After runtime has synced (Connected or Error) or no runtime configured and the agent doesn't exist, throw a descriptive error
+    // After runtime has synced (Connected) or no runtime configured and the agent doesn't exist, throw a descriptive error
     const knownAgents = Object.keys(copilotkit.agents ?? {});
     const runtimePart = isRuntimeConfigured
       ? `runtimeUrl=${copilotkit.runtimeUrl}`
