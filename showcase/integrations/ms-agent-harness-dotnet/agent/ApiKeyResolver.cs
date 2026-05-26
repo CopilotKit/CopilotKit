@@ -63,15 +63,23 @@ internal static class ApiKeyResolver
 
     private static bool IsMockEndpoint(string endpoint)
     {
-        if (string.IsNullOrWhiteSpace(endpoint))
+        // Parse and inspect ONLY the host component. Substring matching against
+        // the full URL is exploitable: an attacker-controlled endpoint like
+        // https://attacker.example.com/aimock-decoy or
+        // https://api.openai.com/?env=localhost would otherwise be classified
+        // as a mock and bypass the fail-fast guard, silently returning the
+        // mock key.
+        if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var uri))
         {
             return false;
         }
 
-        // Match the well-known dev hosts: aimock (any port/path) and localhost/127.0.0.1.
-        return endpoint.Contains("aimock", StringComparison.OrdinalIgnoreCase)
-            || endpoint.Contains("localhost", StringComparison.OrdinalIgnoreCase)
-            || endpoint.Contains("127.0.0.1", StringComparison.Ordinal)
-            || endpoint.Contains("0.0.0.0", StringComparison.Ordinal);
+        var host = uri.Host;
+        return host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+            || host == "127.0.0.1"
+            || host == "0.0.0.0"
+            || host.Equals("aimock", StringComparison.OrdinalIgnoreCase)
+            || host.StartsWith("aimock.", StringComparison.OrdinalIgnoreCase)
+            || host.EndsWith(".aimock", StringComparison.OrdinalIgnoreCase);
     }
 }
