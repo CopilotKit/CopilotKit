@@ -1,0 +1,65 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for built-in-agent / tool-rendering-custom-catchall",
+    "sourceFile": "d5-tool-rendering-custom-catchall.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "tool-rendering-custom-catchall — first prompt 'weather in Tokyo'. Emits get_weather tool call. The custom wildcard renderer fires for any tool the user doesn't explicitly handle. hasToolResult:false on the tool-emitting fixtures.",
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_cc_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall — follow-up after get_weather tool result.",
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "hasToolResult": true,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy — the custom wildcard renderer should show the tool card above."
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall — second prompt 'What's the current price of AAPL?'. Emits get_stock_price tool call to exercise a DIFFERENT tool through the same wildcard renderer.",
+      "match": {
+        "userMessage": "current price of AAPL",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_cc_stock_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":189.42,\"change_pct\":1.27}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall — follow-up after get_stock_price tool result.",
+      "match": {
+        "userMessage": "current price of AAPL",
+        "hasToolResult": true,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "AAPL is trading at $189.42, up 1.27% — rendered through the custom wildcard catchall renderer."
+      }
+    }
+  ]
+}
