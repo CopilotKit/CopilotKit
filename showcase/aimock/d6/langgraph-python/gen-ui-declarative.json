@@ -1,0 +1,121 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langgraph-python / gen-ui-declarative",
+    "sourceFile": "d5-gen-ui-declarative.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-declarative pill 1: KPI dashboard — render_a2ui emitting Card + Metric catalog components. The demo's declarative renderer materialises [data-testid='declarative-card'] and [data-testid='declarative-metric'].",
+      "match": {
+        "userMessage": "Show me a quick KPI dashboard with 3-4 metrics (revenue, signups, churn).",
+        "hasToolResult": false,
+        "context": "langgraph-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_declarative_kpi_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"Card\",\"title\":\"KPI Dashboard\",\"children\":[{\"type\":\"Metric\",\"label\":\"Revenue\",\"value\":\"$1.2M\",\"change\":\"+15%\"},{\"type\":\"Metric\",\"label\":\"Signups\",\"value\":\"8,420\",\"change\":\"+22%\"},{\"type\":\"Metric\",\"label\":\"Churn\",\"value\":\"2.1%\",\"change\":\"-0.3%\"},{\"type\":\"Metric\",\"label\":\"MRR\",\"value\":\"$98K\",\"change\":\"+11%\"}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative pill 1 follow-up after render_a2ui returns.",
+      "match": {
+        "userMessage": "Show me a quick KPI dashboard with 3-4 metrics (revenue, signups, churn).",
+        "toolCallId": "call_d6_declarative_kpi_001",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "KPI dashboard rendered with four metrics — revenue, signups, churn, and MRR."
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative pill 2: Pie chart — render_a2ui emitting PieChart. Materialises [data-testid='declarative-pie-chart'].",
+      "match": {
+        "userMessage": "Show a pie chart of sales by region.",
+        "hasToolResult": false,
+        "context": "langgraph-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_declarative_pie_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"PieChart\",\"title\":\"Sales by Region\",\"data\":[{\"label\":\"North America\",\"value\":45},{\"label\":\"Europe\",\"value\":28},{\"label\":\"Asia-Pacific\",\"value\":18},{\"label\":\"Other\",\"value\":9}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative pill 2 follow-up.",
+      "match": {
+        "userMessage": "Show a pie chart of sales by region.",
+        "toolCallId": "call_d6_declarative_pie_001",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "Pie chart rendered — North America leads at 45%, followed by Europe at 28%."
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative pill 3: Bar chart — render_a2ui emitting BarChart. Materialises [data-testid='declarative-bar-chart'].",
+      "match": {
+        "userMessage": "Render a bar chart of quarterly revenue.",
+        "hasToolResult": false,
+        "context": "langgraph-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_declarative_bar_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"BarChart\",\"title\":\"Quarterly Revenue\",\"data\":[{\"label\":\"Q1\",\"value\":280000},{\"label\":\"Q2\",\"value\":310000},{\"label\":\"Q3\",\"value\":295000},{\"label\":\"Q4\",\"value\":340000}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative pill 3 follow-up.",
+      "match": {
+        "userMessage": "Render a bar chart of quarterly revenue.",
+        "toolCallId": "call_d6_declarative_bar_001",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "Bar chart rendered — Q4 revenue peaked at $340K."
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative pill 4: Status report — render_a2ui emitting StatusBadge. Materialises [data-testid='declarative-status-badge']. This is the distinguishing testid that proves the status-report pill rendered its own catalog component (not leftover from earlier pills).",
+      "match": {
+        "userMessage": "Give me a status report on system health — API, database, and background workers.",
+        "hasToolResult": false,
+        "context": "langgraph-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_declarative_status_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"StatusBadge\",\"label\":\"API\",\"status\":\"healthy\",\"detail\":\"p99 latency 42ms\"},{\"type\":\"StatusBadge\",\"label\":\"Database\",\"status\":\"healthy\",\"detail\":\"replication lag 0.2s\"},{\"type\":\"StatusBadge\",\"label\":\"Background Workers\",\"status\":\"degraded\",\"detail\":\"queue depth 1,247 — draining slowly\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative pill 4 follow-up.",
+      "match": {
+        "userMessage": "Give me a status report on system health — API, database, and background workers.",
+        "toolCallId": "call_d6_declarative_status_001",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "Status report rendered — API and Database are healthy, Background Workers are degraded with elevated queue depth."
+      }
+    }
+  ]
+}
