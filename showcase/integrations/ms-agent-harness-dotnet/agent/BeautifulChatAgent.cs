@@ -210,16 +210,34 @@ Tool guidance:
     {
         ArgumentNullException.ThrowIfNull(todos);
 
+        // Allowed Status values — mirror the field-level comment on BeautifulChatTodo.Status.
+        // LLM-supplied values are coerced to "pending" with a warning when out of range,
+        // keeping behaviour conservative without surfacing tool errors to the model.
+        static bool IsValidStatus(string s) => s == "pending" || s == "completed";
+
         lock (_todosLock)
         {
             _todos.Clear();
             foreach (var todo in todos)
             {
-                if (string.IsNullOrEmpty(todo.Id))
+                // Defensive copy on write — mirror GetTodosSnapshot so callers
+                // can't mutate our backing list by holding the input reference.
+                var status = todo.Status;
+                if (!IsValidStatus(status))
                 {
-                    todo.Id = Guid.NewGuid().ToString();
+                    _logger.LogWarning("[beautiful-chat] manage_todos: coercing invalid status '{Status}' to 'pending' (todo id={Id})", status, todo.Id);
+                    status = "pending";
                 }
-                _todos.Add(todo);
+
+                var copy = new BeautifulChatTodo
+                {
+                    Id = string.IsNullOrEmpty(todo.Id) ? Guid.NewGuid().ToString() : todo.Id,
+                    Title = todo.Title,
+                    Description = todo.Description,
+                    Emoji = todo.Emoji,
+                    Status = status,
+                };
+                _todos.Add(copy);
             }
         }
 
@@ -342,7 +360,13 @@ price (e.g. ""$289"").")]
         }
         catch (OperationCanceledException)
         {
+            _logger.LogInformation("[beautiful-chat] generate_a2ui (errorId={ErrorId}) cancelled", errorId);
             throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[beautiful-chat] generate_a2ui (errorId={ErrorId}): unexpected failure", errorId);
+            return BeautifulChatA2ui.StructuredError("unexpected_error", "An unexpected error occurred while generating the UI.", "Try rephrasing the request or retrying later.", errorId);
         }
 
         if (string.IsNullOrEmpty(content))
@@ -405,13 +429,21 @@ internal sealed class BeautifulChatStateSnapshotAgent : DelegatingAIAgent
         _logger = logger;
     }
 
-    protected override Task<AgentResponse> RunCoreAsync(
+    protected override async Task<AgentResponse> RunCoreAsync(
         IEnumerable<ChatMessage> messages,
         AgentSession? session = null,
         AgentRunOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        return InnerAgent.RunAsync(messages, session, options, cancellationToken);
+        var response = await InnerAgent.RunAsync(messages, session, options, cancellationToken).ConfigureAwait(false);
+
+        var snapshot = new Dictionary<string, object?> { ["todos"] = _factory.GetTodosSnapshot() };
+        var snapshotBytes = JsonSerializer.SerializeToUtf8Bytes(snapshot, _jsonSerializerOptions);
+        _logger.LogDebug("[beautiful-chat] emitting todos state snapshot ({Bytes} bytes)", snapshotBytes.Length);
+
+        var snapshotMessage = new ChatMessage(ChatRole.Assistant, [new DataContent(snapshotBytes, "application/json")]);
+        response.Messages.Add(snapshotMessage);
+        return response;
     }
 
     protected override async IAsyncEnumerable<AgentResponseUpdate> RunCoreStreamingAsync(
