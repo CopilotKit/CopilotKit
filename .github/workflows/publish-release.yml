@@ -63,12 +63,12 @@ jobs:
           echo "scope=$SCOPE" >> $GITHUB_OUTPUT
           echo "Detected scope: $SCOPE"
 
-      # No token/credential persistence: the publish job sets up its own
-      # `git config insteadOf` with secrets.GITHUB_TOKEN before pushing tags,
-      # so this checkout doesn't need write access. Critically, the
-      # subsequent `Upload workspace` step packs the entire checkout
-      # (including .git/config) into an artifact — persisting credentials
-      # here would leak a workflow-scoped token to anyone with actions:read.
+      # No token/credential persistence: the publish job uses per-step
+      # GIT_CONFIG_* env vars (scoped to the tag-push step only) instead of
+      # persisting credentials in .git/config. Critically, the subsequent
+      # `Upload workspace` step packs the entire checkout (including
+      # .git/config) into an artifact — persisting credentials here would
+      # leak a workflow-scoped token to anyone with actions:read.
       - name: Checkout Repo
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -126,10 +126,6 @@ jobs:
         with:
           name: workspace
 
-      - name: Configure git credentials
-        run: |
-          git config --local url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
-
       - name: Setup pnpm
         # Omit `version:` so pnpm/action-setup inherits from the repo's
         # `packageManager` field in package.json (via corepack).
@@ -175,6 +171,11 @@ jobs:
           fi
 
       - name: Create and push git tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GIT_CONFIG_COUNT: "1"
+          GIT_CONFIG_KEY_0: "url.https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/.insteadOf"
+          GIT_CONFIG_VALUE_0: "https://github.com/"
         run: |
           SCOPE="${{ needs.build.outputs.scope }}"
           VERSION="${{ steps.publish.outputs.version }}"

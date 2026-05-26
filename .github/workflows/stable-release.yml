@@ -85,11 +85,15 @@ jobs:
 
       - name: Prepare release
         id: prepare
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          BUMP: ${{ inputs.bump }}
+          SCOPE: ${{ inputs.scope }}
         run: |
-          if [ "${{ inputs.dry_run }}" == "true" ]; then
-            pnpm tsx scripts/release/prepare-release.ts --bump ${{ inputs.bump }} --scope ${{ inputs.scope }} --dry-run
+          if [ "$DRY_RUN" == "true" ]; then
+            pnpm tsx scripts/release/prepare-release.ts --bump "$BUMP" --scope "$SCOPE" --dry-run
           else
-            pnpm tsx scripts/release/prepare-release.ts --bump ${{ inputs.bump }} --scope ${{ inputs.scope }}
+            pnpm tsx scripts/release/prepare-release.ts --bump "$BUMP" --scope "$SCOPE"
           fi
 
       - name: Generate AI release notes
