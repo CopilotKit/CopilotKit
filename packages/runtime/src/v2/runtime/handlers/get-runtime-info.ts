@@ -1,7 +1,11 @@
 import type { AgentCapabilities } from "@ag-ui/core";
 import type { CopilotRuntimeLike } from "../core/runtime";
 import { isIntelligenceRuntime, resolveAgents } from "../core/runtime";
-import type { AgentDescription, RuntimeInfo } from "@copilotkit/shared";
+import type {
+  AgentDescription,
+  RuntimeInfo,
+  ThreadEndpointRuntimeInfo,
+} from "@copilotkit/shared";
 import type { RuntimeLicenseStatus } from "@copilotkit/shared";
 import { VERSION } from "../core/runtime";
 import { isTelemetryDisabled } from "../telemetry/telemetry-client";
@@ -110,7 +114,7 @@ export async function handleGetRuntimeInfo({
 function resolveThreadEndpointInfo(
   runtime: CopilotRuntimeLike,
   threadEndpointsEnabled: boolean,
-): RuntimeInfo["threadEndpoints"] {
+): ThreadEndpointRuntimeInfo {
   const hasRestThreadBackend =
     isIntelligenceRuntime(runtime) ||
     supportsLocalThreadEndpoints(runtime.runner);
