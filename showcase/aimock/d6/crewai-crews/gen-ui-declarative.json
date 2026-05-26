@@ -1,0 +1,418 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for crewai-crews / gen-ui-declarative (A2UI dynamic schema)",
+    "sourceFile": "harness/fixtures/d5/gen-ui-declarative.json",
+    "copiedFrom": "langgraph-python",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "KPI dashboard pill — primary agent response triggers generate_a2ui tool call.",
+      "match": {
+        "userMessage": "KPI dashboard",
+        "hasToolResult": false,
+        "context": "crewai-crews"
+      },
+      "response": {
+        "content": "Here is the KPI dashboard you requested.",
+        "toolCalls": [
+          {
+            "id": "call_d6_gen_a2ui_kpi_001",
+            "name": "generate_a2ui",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "KPI dashboard pill — secondary tool (_design_a2ui_surface) renders the component tree.",
+      "match": {
+        "userMessage": "KPI dashboard",
+        "toolName": "_design_a2ui_surface",
+        "context": "crewai-crews"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "_design_a2ui_surface",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "Card",
+                  "title": "KPI dashboard",
+                  "subtitle": "Last 30 days",
+                  "child": "metrics-col"
+                },
+                {
+                  "id": "metrics-col",
+                  "component": "Column",
+                  "children": ["metric-revenue", "metric-signups", "metric-churn"],
+                  "gap": 12
+                },
+                {
+                  "id": "metric-revenue",
+                  "component": "Metric",
+                  "label": "Revenue",
+                  "value": "$1.2M",
+                  "trend": "up"
+                },
+                {
+                  "id": "metric-signups",
+                  "component": "Metric",
+                  "label": "Signups",
+                  "value": "4,820",
+                  "trend": "up"
+                },
+                {
+                  "id": "metric-churn",
+                  "component": "Metric",
+                  "label": "Churn",
+                  "value": "2.1%",
+                  "trend": "down"
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "KPI dashboard pill — render_a2ui variant (Google-ADK secondary tool name).",
+      "match": {
+        "userMessage": "KPI dashboard",
+        "toolName": "render_a2ui",
+        "context": "crewai-crews"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "Card",
+                  "title": "KPI dashboard",
+                  "subtitle": "Last 30 days",
+                  "child": "metrics-col"
+                },
+                {
+                  "id": "metrics-col",
+                  "component": "Column",
+                  "children": ["metric-revenue", "metric-signups", "metric-churn"],
+                  "gap": 12
+                },
+                {
+                  "id": "metric-revenue",
+                  "component": "Metric",
+                  "label": "Revenue",
+                  "value": "$1.2M",
+                  "trend": "up"
+                },
+                {
+                  "id": "metric-signups",
+                  "component": "Metric",
+                  "label": "Signups",
+                  "value": "4,820",
+                  "trend": "up"
+                },
+                {
+                  "id": "metric-churn",
+                  "component": "Metric",
+                  "label": "Churn",
+                  "value": "2.1%",
+                  "trend": "down"
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Pie chart pill — primary agent response.",
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "hasToolResult": false,
+        "context": "crewai-crews"
+      },
+      "response": {
+        "content": "Here is the pie chart by region.",
+        "toolCalls": [
+          {
+            "id": "call_d6_gen_a2ui_pie_001",
+            "name": "generate_a2ui",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "toolName": "_design_a2ui_surface",
+        "context": "crewai-crews"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "_design_a2ui_surface",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "PieChart",
+                  "title": "Sales by region",
+                  "description": "Q4 — share of total revenue",
+                  "data": [
+                    { "label": "North America", "value": 540 },
+                    { "label": "EMEA", "value": 320 },
+                    { "label": "APAC", "value": 210 },
+                    { "label": "LATAM", "value": 90 }
+                  ]
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "toolName": "render_a2ui",
+        "context": "crewai-crews"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "PieChart",
+                  "title": "Sales by region",
+                  "description": "Q4 — share of total revenue",
+                  "data": [
+                    { "label": "North America", "value": 540 },
+                    { "label": "EMEA", "value": 320 },
+                    { "label": "APAC", "value": 210 },
+                    { "label": "LATAM", "value": 90 }
+                  ]
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Bar chart pill — primary agent response.",
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "hasToolResult": false,
+        "context": "crewai-crews"
+      },
+      "response": {
+        "content": "Here is the bar chart of quarterly revenue.",
+        "toolCalls": [
+          {
+            "id": "call_d6_gen_a2ui_bar_001",
+            "name": "generate_a2ui",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "toolName": "_design_a2ui_surface",
+        "context": "crewai-crews"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "_design_a2ui_surface",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "BarChart",
+                  "title": "Quarterly revenue",
+                  "description": "FY24 — USD thousands",
+                  "data": [
+                    { "label": "Q1", "value": 820 },
+                    { "label": "Q2", "value": 940 },
+                    { "label": "Q3", "value": 1080 },
+                    { "label": "Q4", "value": 1240 }
+                  ]
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "toolName": "render_a2ui",
+        "context": "crewai-crews"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "BarChart",
+                  "title": "Quarterly revenue",
+                  "description": "FY24 — USD thousands",
+                  "data": [
+                    { "label": "Q1", "value": 820 },
+                    { "label": "Q2", "value": 940 },
+                    { "label": "Q3", "value": 1080 },
+                    { "label": "Q4", "value": 1240 }
+                  ]
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Status report pill — primary agent response.",
+      "match": {
+        "userMessage": "status report on system health",
+        "hasToolResult": false,
+        "context": "crewai-crews"
+      },
+      "response": {
+        "content": "Here is the system health status report.",
+        "toolCalls": [
+          {
+            "id": "call_d6_gen_a2ui_status_001",
+            "name": "generate_a2ui",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "status report on system health",
+        "toolName": "_design_a2ui_surface",
+        "context": "crewai-crews"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "_design_a2ui_surface",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "Card",
+                  "title": "System health",
+                  "subtitle": "All services",
+                  "children": ["status-api", "status-db", "status-workers"]
+                },
+                {
+                  "id": "status-api",
+                  "component": "StatusBadge",
+                  "text": "API: healthy",
+                  "variant": "success"
+                },
+                {
+                  "id": "status-db",
+                  "component": "StatusBadge",
+                  "text": "Database: healthy",
+                  "variant": "success"
+                },
+                {
+                  "id": "status-workers",
+                  "component": "StatusBadge",
+                  "text": "Workers: degraded",
+                  "variant": "warning"
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "status report on system health",
+        "toolName": "render_a2ui",
+        "context": "crewai-crews"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "Card",
+                  "title": "System health",
+                  "subtitle": "All services",
+                  "children": ["status-api", "status-db", "status-workers"]
+                },
+                {
+                  "id": "status-api",
+                  "component": "StatusBadge",
+                  "text": "API: healthy",
+                  "variant": "success"
+                },
+                {
+                  "id": "status-db",
+                  "component": "StatusBadge",
+                  "text": "Database: healthy",
+                  "variant": "success"
+                },
+                {
+                  "id": "status-workers",
+                  "component": "StatusBadge",
+                  "text": "Workers: degraded",
+                  "variant": "warning"
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

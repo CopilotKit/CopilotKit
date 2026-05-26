@@ -1,0 +1,99 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for claude-sdk-typescript / tool-rendering-custom-catchall",
+    "sourceFile": "d5-tool-rendering-custom-catchall.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "tool-rendering-custom-catchall pill 1: weather in Tokyo \u2014 follow-up after get_weather tool result. Must come before the tool-emitting fixture.",
+      "match": {
+        "userMessage": "check Tokyo weather forecast",
+        "toolCallId": "call_d6_cc_get_weather_001",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "Tokyo is 22 degrees C and partly cloudy. The custom wildcard renderer should display a card for the get_weather tool call."
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall pill 1: weather in Tokyo \u2014 first leg: emit get_weather tool call. The custom catchall renderer fires for this tool since no per-tool renderer is registered.",
+      "match": {
+        "userMessage": "check Tokyo weather forecast",
+        "toolName": "get_weather",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_cc_get_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall pill 1 fallback: weather in Tokyo without toolName gate.",
+      "match": {
+        "userMessage": "check Tokyo weather forecast",
+        "turnIndex": 0,
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_cc_get_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall pill 2: AAPL stock price \u2014 follow-up after get_stock_price tool result. Must come before the tool-emitting fixture.",
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
+        "toolCallId": "call_d6_cc_get_stock_price_001",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% on the day. The custom wildcard renderer should display a card for the get_stock_price tool call."
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall pill 2: AAPL stock price \u2014 first leg: emit get_stock_price tool call.",
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
+        "toolName": "get_stock_price",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_cc_get_stock_price_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall pill 2 fallback: AAPL without toolName gate.",
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
+        "turnIndex": 0,
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_cc_get_stock_price_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    }
+  ]
+}

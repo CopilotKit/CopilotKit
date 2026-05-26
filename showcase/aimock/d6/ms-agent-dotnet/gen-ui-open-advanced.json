@@ -1,0 +1,36 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for ms-agent-dotnet / gen-ui-open-advanced (redirects to gen-ui-open.json)",
+    "note": "The gen-ui-open-advanced fixtures live in gen-ui-open.json alongside the basic fixtures, matching the fixtureFile registration in d5-gen-ui-open-advanced.ts. This file exists only for explicit per-feature lookup; the actual fixtures are in gen-ui-open.json.",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-open-advanced pill — Inline expression evaluator. Duplicated from gen-ui-open.json for direct feature-file lookup. The advanced demo renders the payload in a sandboxed iframe with allow-scripts.",
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "hasToolResult": false,
+        "context": "ms-agent-dotnet"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_open_genui_adv_eval_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"html\":\"<div style='padding:16px;font-family:monospace;background:#1e293b;color:#e2e8f0;min-height:120px'><h4 style='margin:0 0 8px;color:#38bdf8'>Expression Evaluator</h4><input id='expr' type='text' placeholder='e.g. 2+2' style='width:90%;padding:8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:4px;font-family:monospace'/><div id='result' style='margin-top:8px;padding:8px;background:#0f172a;border-radius:4px;min-height:20px'></div></div>\",\"css\":\"body{margin:0}\",\"jsFunctions\":\"(function(){var input=document.getElementById('expr');var result=document.getElementById('result');input.addEventListener('keydown',function(e){if(e.key==='Enter'){try{result.textContent='= '+eval(input.value)}catch(err){result.textContent='Error: '+err.message}}});})()\",\"initialHeight\":200}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "toolCallId": "call_d6_open_genui_adv_eval_001",
+        "context": "ms-agent-dotnet"
+      },
+      "response": {
+        "content": "Expression evaluator rendered in a sandboxed iframe — type a math expression and press Enter to evaluate."
+      }
+    }
+  ]
+}
