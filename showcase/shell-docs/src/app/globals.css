@@ -631,6 +631,16 @@ samp {
   margin-bottom: 1rem;
 }
 
+/* prose-no-margin (used by fumadocs Callout and Table) lives in @layer utilities,
+ * which always loses to unlayered styles like .reference-content p above.
+ * Mirror its intent here at (0,2,1) specificity so the layered utility wins. */
+.reference-content .prose-no-margin > :first-child {
+  margin-top: 0;
+}
+.reference-content .prose-no-margin > :last-child {
+  margin-bottom: 0;
+}
+
 .reference-content ul,
 .reference-content ol {
   font-size: 0.9375rem;
