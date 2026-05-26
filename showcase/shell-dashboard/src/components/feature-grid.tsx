@@ -128,9 +128,12 @@ export function computeColumnTallyDetail(
     // Gray → skip (no data / unsupported / unwired)
     if (model.chipColor === "gray") continue;
 
-    // Derive dimension from model: D4/D5 failures are "health" (live
-    // round-trip/conversation checks); D3 failures are "e2e" (page-load).
+    // Derive dimension from model: D4/D5/D6 failures are "health" (live
+    // round-trip/conversation/parity checks); D3 failures are "e2e" (page-load).
     const dimension: TallyItem["dimension"] =
+      (model.d6?.exists &&
+        model.d6.status !== null &&
+        model.d6.status !== "green") ||
       (model.d5?.exists &&
         model.d5.status !== null &&
         model.d5.status !== "green") ||

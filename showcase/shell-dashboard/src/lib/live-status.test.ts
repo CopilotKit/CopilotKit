@@ -44,10 +44,19 @@ describe("keyFor", () => {
     );
     expect(keyFor("e2e", "agno", "agentic-chat")).toBe("e2e:agno/agentic-chat");
   });
-  it("d5 / d6 dimensions follow the same per-feature key shape", () => {
-    // Drivers `e2e-deep` (B2) and `e2e-parity` (B13) emit side rows under
-    // exactly these keys — the dashboard MUST match the producer shape.
+  it("d5 uses per-feature key shape", () => {
+    // Driver `e2e-deep` emits per-feature rows under these keys —
+    // the dashboard MUST match the producer shape.
     expect(keyFor("d5", "agno", "agentic-chat")).toBe("d5:agno/agentic-chat");
+  });
+  it("d6 uses integration-scoped key (no featureId)", () => {
+    // Driver `e2e-full` emits one row per integration (`d6:<slug>`),
+    // not per cell — the dashboard looks up d6 without featureId.
+    expect(keyFor("d6", "agno")).toBe("d6:agno");
+  });
+  it("d6 keyFor still supports featureId for generic helper coverage", () => {
+    // keyFor is a generic helper — it CAN produce per-feature d6 keys,
+    // but production D6 lookups use integration-scoped keys only.
     expect(keyFor("d6", "agno", "tool-rendering")).toBe(
       "d6:agno/tool-rendering",
     );
@@ -306,9 +315,11 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
   });
 
   it("resolves d5 / d6 per-feature rows when present", () => {
+    // D5 uses per-feature keys (d5:<slug>/<featureId>),
+    // D6 uses integration-scoped aggregate keys (d6:<slug>).
     const live = mapOf([
       row("d5:agno/agentic-chat", "d5", "green"),
-      row("d6:agno/agentic-chat", "d6", "red"),
+      row("d6:agno", "d6", "red"),
     ]);
     const c = resolveCell(live, "agno", "agentic-chat");
     expect(c.d5.tone).toBe("green");
@@ -316,7 +327,7 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     expect(c.d5.row?.key).toBe("d5:agno/agentic-chat");
     expect(c.d6.tone).toBe("red");
     expect(c.d6.label).toBe("✗");
-    expect(c.d6.row?.key).toBe("d6:agno/agentic-chat");
+    expect(c.d6.row?.key).toBe("d6:agno");
   });
 
   it("falls through to gray '?' when d5 / d6 rows are absent", () => {
@@ -338,10 +349,11 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     // Note: with LS1 in force, health-only does NOT roll up to green
     // (e2e is also required); rollup is "gray" and the red d5/d6 rows
     // must not promote it to red.
+    // D6 uses integration-scoped aggregate keys (d6:<slug>), not per-feature.
     const live = mapOf([
       row("health:agno", "health", "green"),
       row("d5:agno/ac", "d5", "red"),
-      row("d6:agno/ac", "d6", "red"),
+      row("d6:agno", "d6", "red"),
     ]);
     const c = resolveCell(live, "agno", "ac");
     expect(c.rollup).toBe("gray");
