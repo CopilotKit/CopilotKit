@@ -70,7 +70,7 @@ jobs:
       # (including .git/config) into an artifact — persisting credentials
       # here would leak a workflow-scoped token to anyone with actions:read.
       - name: Checkout Repo
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -189,7 +189,7 @@ jobs:
         id: tag
 
       - name: Create GitHub Release
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           RELEASE_TAG: ${{ steps.tag.outputs.tag }}
           RELEASE_SCOPE: ${{ needs.build.outputs.scope }}
