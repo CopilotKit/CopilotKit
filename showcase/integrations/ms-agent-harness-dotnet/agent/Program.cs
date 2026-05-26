@@ -37,15 +37,28 @@ await app.RunAsync();
 
 static OpenAIClient CreateOpenAiClient(IConfiguration configuration, ILogger logger)
 {
+    // Use the shared resolver so the primary OpenAI client and the secondary
+    // tool-calling HTTP client (A2uiSecondaryToolCaller) agree on which
+    // upstream endpoint to hit. Previously this method only consulted the
+    // OPENAI_BASE_URL env var, while ApiKeyResolver.ResolveEndpoint also
+    // checks configuration[OPENAI_BASE_URL] (appsettings.json / user-secrets)
+    // — that divergence let the primary client silently fall back to the
+    // public Azure endpoint while the secondary client used aimock.
+    var endpoint = ApiKeyResolver.ResolveEndpoint(configuration);
     var endpointEnv = Environment.GetEnvironmentVariable("OPENAI_BASE_URL");
-    var endpoint = endpointEnv ?? ApiKeyResolver.DefaultOpenAiEndpoint;
-    if (string.IsNullOrEmpty(endpointEnv))
+    var endpointConfig = configuration["OPENAI_BASE_URL"];
+
+    if (!string.IsNullOrEmpty(endpointEnv))
     {
-        logger.LogInformation("OPENAI_BASE_URL not set; using default OpenAI endpoint: {Endpoint}", endpoint);
+        logger.LogInformation("Using OpenAI endpoint from OPENAI_BASE_URL env: {Endpoint}", endpoint);
+    }
+    else if (!string.IsNullOrEmpty(endpointConfig))
+    {
+        logger.LogInformation("Using OpenAI endpoint from configuration OPENAI_BASE_URL: {Endpoint}", endpoint);
     }
     else
     {
-        logger.LogInformation("Using OpenAI endpoint from OPENAI_BASE_URL: {Endpoint}", endpoint);
+        logger.LogInformation("OPENAI_BASE_URL not set; using default OpenAI endpoint: {Endpoint}", endpoint);
     }
 
     var apiKey = ApiKeyResolver.ResolveApiKey(configuration, logger);
