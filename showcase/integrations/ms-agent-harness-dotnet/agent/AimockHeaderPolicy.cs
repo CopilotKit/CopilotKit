@@ -12,14 +12,22 @@ public class AimockHeaderPolicy : PipelinePolicy
     public override void Process(PipelineMessage message, IReadOnlyList<PipelinePolicy> pipeline, int currentIndex)
     {
         foreach (var header in AimockHeaderContext.Get())
-            message.Request.Headers.Set(header.Key, header.Value);
+        {
+            // Add-if-absent: preserve correlation IDs and any headers set by prior policies/SDK.
+            if (!message.Request.Headers.TryGetValue(header.Key, out _))
+                message.Request.Headers.Set(header.Key, header.Value);
+        }
         ProcessNext(message, pipeline, currentIndex);
     }
 
     public override async ValueTask ProcessAsync(PipelineMessage message, IReadOnlyList<PipelinePolicy> pipeline, int currentIndex)
     {
         foreach (var header in AimockHeaderContext.Get())
-            message.Request.Headers.Set(header.Key, header.Value);
+        {
+            // Add-if-absent: preserve correlation IDs and any headers set by prior policies/SDK.
+            if (!message.Request.Headers.TryGetValue(header.Key, out _))
+                message.Request.Headers.Set(header.Key, header.Value);
+        }
         await ProcessNextAsync(message, pipeline, currentIndex);
     }
 
