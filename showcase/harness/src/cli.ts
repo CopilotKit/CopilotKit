@@ -24,7 +24,9 @@ const program = new Command();
 
 program
   .name("showcase")
-  .description("Local showcase depth-level (smoke/D4/D5/D6) test infrastructure")
+  .description(
+    "Local showcase depth-level (smoke/D4/D5/D6) test infrastructure",
+  )
   .version("0.1.0");
 
 // ── up ──────────────────────────────────────────────────────────────────

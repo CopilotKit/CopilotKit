@@ -15,7 +15,9 @@
 import type { D5FeatureType } from "./d5-registry.js";
 
 /** Maps D5FeatureType literal to the representative fixture filename in d6/<slug>/. */
-export const D5_REPRESENTATIVES: Readonly<Partial<Record<D5FeatureType, string>>> = {
+export const D5_REPRESENTATIVES: Readonly<
+  Partial<Record<D5FeatureType, string>>
+> = {
   "agent-config": "agent-config.json",
   "agentic-chat": "agentic-chat.json",
   auth: "auth.json",
@@ -31,16 +33,16 @@ export const D5_REPRESENTATIVES: Readonly<Partial<Record<D5FeatureType, string>>
   "frontend-tools-async": "frontend-tools-async.json",
   "gen-ui-a2ui-fixed": "render-a2ui.json",
   "gen-ui-agent": "gen-ui-agent.json",
-  "gen-ui-custom": "render-a2ui.json",          // pie chart fixtures shared with render-a2ui
+  "gen-ui-custom": "render-a2ui.json", // pie chart fixtures shared with render-a2ui
   "gen-ui-declarative": "gen-ui-tool-based.json",
   "gen-ui-headless-complete": "headless-complete.json",
-  "gen-ui-interrupt": "hitl-in-chat.json",     // schedule_meeting fixtures shared with hitl
+  "gen-ui-interrupt": "hitl-in-chat.json", // schedule_meeting fixtures shared with hitl
   "gen-ui-open": "gen-ui-custom.json",
   "gen-ui-open-advanced": "gen-ui-custom.json",
   "headless-simple": "headless-simple.json",
   "hitl-approve-deny": "hitl-approve-deny.json",
   "hitl-text-input": "hitl-in-chat.json",
-  "interrupt-headless": "hitl-in-chat.json",       // schedule_meeting fixtures shared with hitl
+  "interrupt-headless": "hitl-in-chat.json", // schedule_meeting fixtures shared with hitl
   "mcp-apps": "mcp-apps.json",
   multimodal: "agentic-chat.json",
   "prebuilt-popup": "agentic-chat.json",
@@ -62,6 +64,8 @@ export const D5_REPRESENTATIVES: Readonly<Partial<Record<D5FeatureType, string>>
  * Look up the representative fixture filename for a feature type.
  * Returns undefined if the feature type has no configured representative.
  */
-export function getD5Representative(featureType: D5FeatureType): string | undefined {
+export function getD5Representative(
+  featureType: D5FeatureType,
+): string | undefined {
   return D5_REPRESENTATIVES[featureType];
 }

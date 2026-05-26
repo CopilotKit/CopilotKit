@@ -1149,10 +1149,7 @@ async function runFeature(opts: {
         url,
       });
     } catch {
-      logger.debug(
-        "probe.e2e-full.runFeature.hydration-timeout",
-        { url },
-      );
+      logger.debug("probe.e2e-full.runFeature.hydration-timeout", { url });
     }
     logger.info("probe.e2e-full.runFeature.hydration-timing", {
       slug: buildCtx.integrationSlug,

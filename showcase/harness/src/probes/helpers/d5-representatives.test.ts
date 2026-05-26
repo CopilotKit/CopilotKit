@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { D5_REPRESENTATIVES, getD5Representative } from "./d5-representatives.js";
 import {
-  D5_REGISTRY,
-  __clearD5RegistryForTesting,
-} from "./d5-registry.js";
+  D5_REPRESENTATIVES,
+  getD5Representative,
+} from "./d5-representatives.js";
+import { D5_REGISTRY, __clearD5RegistryForTesting } from "./d5-registry.js";
 import type { D5FeatureType } from "./d5-registry.js";
 import { glob } from "glob";
 import path from "node:path";
@@ -14,7 +14,9 @@ describe("D5_REPRESENTATIVES", () => {
     expect(D5_REPRESENTATIVES["hitl-text-input"]).toBe("hitl-in-chat.json");
     expect(D5_REPRESENTATIVES["tool-rendering"]).toBe("tool-rendering.json");
     expect(D5_REPRESENTATIVES["gen-ui-agent"]).toBe("gen-ui-agent.json");
-    expect(D5_REPRESENTATIVES["shared-state-read"]).toBe("shared-state-read.json");
+    expect(D5_REPRESENTATIVES["shared-state-read"]).toBe(
+      "shared-state-read.json",
+    );
     expect(D5_REPRESENTATIVES["subagents"]).toBe("subagents.json");
   });
 
