@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"next dev --turbopack\" \"dotnet run --project agent --urls http://localhost:8000\"",
+    "dev": "concurrently -k --success first \"next dev --turbopack\" \"dotnet run --project agent --urls http://localhost:8000\"",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -49,11 +49,6 @@
   "overrides": {
     "@copilotkit/web-inspector": {
       "@copilotkit/core": "1.57.2"
-    }
-  },
-  "pnpm": {
-    "overrides": {
-      "@copilotkit/web-inspector>@copilotkit/core": "1.57.2"
     }
   }
 }
