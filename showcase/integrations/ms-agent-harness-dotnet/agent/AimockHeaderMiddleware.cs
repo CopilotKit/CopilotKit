@@ -12,9 +12,15 @@ public class AimockHeaderMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
+        // Use case-insensitive comparer because ASP.NET's IHeaderDictionary is itself
+        // case-insensitive, but iterating its underlying store can in rare cases yield
+        // case-variant duplicates (e.g., a misbehaving proxy injecting both `X-Foo`
+        // and `x-foo`). With the default ordinal comparer, ToDictionary would throw
+        // ArgumentException on duplicate keys and fail the request.
         var headers = context.Request.Headers
             .Where(h => h.Key.StartsWith("x-", StringComparison.OrdinalIgnoreCase))
-            .ToDictionary(h => h.Key, h => h.Value.ToString());
+            .GroupBy(h => h.Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.First().Key, g => g.First().Value.ToString(), StringComparer.OrdinalIgnoreCase);
         AimockHeaderContext.Set(headers);
         try
         {
@@ -22,7 +28,7 @@ public class AimockHeaderMiddleware
         }
         finally
         {
-            AimockHeaderContext.Set(new Dictionary<string, string>());
+            AimockHeaderContext.Set(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
         }
     }
 }
