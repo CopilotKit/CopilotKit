@@ -68,6 +68,10 @@ ENV NODE_ENV=production
 # qa probe: repo-root override so the walk-up from dist/probes/drivers/
 # (3 levels to /app) matches the showcase/integrations/ layout copied above.
 ENV QA_REPO_ROOT=/app
+# pin-drift probe: same walk-up issue — the compiled driver lives at
+# dist/probes/drivers/pin-drift.js, five `..` segments overshoot /app
+# and land at /. Override so the driver finds showcase/scripts/fail-baseline.json.
+ENV PIN_DRIFT_REPO_ROOT=/app
 # Playwright cache lives outside /home/node so `chown` below doesn't
 # have to recurse over the ~300MB chromium tree on every build. Setting
 # PLAYWRIGHT_BROWSERS_PATH at this stage pins the install target; the
@@ -97,6 +101,10 @@ RUN node ./node_modules/playwright/cli.js install --with-deps chromium \
 # keep the image lean until another probe config actually needs those trees.
 COPY --from=build /repo/pnpm-workspace.yaml ./pnpm-workspace.yaml
 COPY --from=build /repo/packages ./packages
+# pin-drift probe: the driver reads showcase/scripts/fail-baseline.json as
+# the ratchet baseline. Only the JSON file is needed — the full scripts/
+# tree stays out of the runtime image.
+COPY --from=build /repo/showcase/scripts/fail-baseline.json ./showcase/scripts/fail-baseline.json
 # qa probe: the driver reads showcase/integrations/<slug>/manifest.yaml to
 # check QA file coverage. Copy only the manifests (not full source) to
 # keep the runtime image lean. The qa/ subdirectories are also needed
