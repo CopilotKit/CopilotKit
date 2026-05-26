@@ -443,7 +443,14 @@ internal sealed class BeautifulChatStateSnapshotAgent : DelegatingAIAgent
         _logger.LogDebug("[beautiful-chat] emitting todos state snapshot ({Bytes} bytes)", snapshotBytes.Length);
 
         var snapshotMessage = new ChatMessage(ChatRole.Assistant, [new DataContent(snapshotBytes, "application/json")]);
-        response.Messages.Add(snapshotMessage);
+
+        // Defensive: replace Messages with a fresh mutable List rather than
+        // mutating the existing collection in place. Inner-agent implementations
+        // are free to return an immutable IReadOnlyList wrapper from
+        // AgentResponse.Messages, in which case Add throws NotSupportedException.
+        // Using the public setter sidesteps that risk while preserving all
+        // other response metadata (AgentId, ResponseId, Usage, RawRepresentation, ...).
+        response.Messages = new List<ChatMessage>(response.Messages) { snapshotMessage };
         return response;
     }
 
@@ -453,17 +460,40 @@ internal sealed class BeautifulChatStateSnapshotAgent : DelegatingAIAgent
         AgentRunOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        await foreach (var update in InnerAgent.RunStreamingAsync(messages, session, options, cancellationToken).ConfigureAwait(false))
+        // Defensive: only emit the trailing snapshot if the inner stream
+        // completed normally. If the inner enumerator throws (or is cancelled)
+        // the todos state may be partial and emitting a snapshot would leave
+        // the frontend with stale/inconsistent state. We track completion with
+        // a bool flag so the trailing snapshot yield can live outside the
+        // try/finally — C# permits `yield` inside `try { } finally { }` but
+        // not inside `try { } catch { }`, so a flag is the cleanest pattern
+        // for "do X after the loop only if it finished without throwing."
+        bool streamCompletedNormally = false;
+        try
         {
-            yield return update;
+            await foreach (var update in InnerAgent.RunStreamingAsync(messages, session, options, cancellationToken).ConfigureAwait(false))
+            {
+                yield return update;
+            }
+            streamCompletedNormally = true;
+        }
+        finally
+        {
+            if (!streamCompletedNormally)
+            {
+                _logger.LogWarning("[beautiful-chat] inner stream did not complete; skipping todos snapshot (state may be stale on frontend)");
+            }
         }
 
-        var snapshot = new Dictionary<string, object?> { ["todos"] = _factory.GetTodosSnapshot() };
-        var snapshotBytes = JsonSerializer.SerializeToUtf8Bytes(snapshot, _jsonSerializerOptions);
-        _logger.LogDebug("[beautiful-chat] emitting todos state snapshot ({Bytes} bytes)", snapshotBytes.Length);
-        yield return new AgentResponseUpdate
+        if (streamCompletedNormally)
         {
-            Contents = [new DataContent(snapshotBytes, "application/json")],
-        };
+            var snapshot = new Dictionary<string, object?> { ["todos"] = _factory.GetTodosSnapshot() };
+            var snapshotBytes = JsonSerializer.SerializeToUtf8Bytes(snapshot, _jsonSerializerOptions);
+            _logger.LogDebug("[beautiful-chat] emitting todos state snapshot ({Bytes} bytes)", snapshotBytes.Length);
+            yield return new AgentResponseUpdate
+            {
+                Contents = [new DataContent(snapshotBytes, "application/json")],
+            };
+        }
     }
 }
