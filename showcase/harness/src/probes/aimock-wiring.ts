@@ -60,6 +60,7 @@ const EXCLUDE_SERVICES: ReadonlySet<string> = new Set([
   "showcase-shell-dojo",
   "showcase-pocketbase",
   "showcase-harness",
+  "showcase-ms-agent-harness-dotnet",
   "showcase-starter-ag2",
   "showcase-starter-agno",
   "showcase-starter-claude-sdk-python",
