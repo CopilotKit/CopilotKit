@@ -20,6 +20,13 @@ export interface DepthDistribution {
   d0: number;
 }
 
+/** D6 (parity-vs-reference) rollup counts. */
+export interface D6Stats {
+  green: number;
+  gray: number;
+  red: number;
+}
+
 export interface AdaptiveStatsBarProps {
   overlays: Set<Overlay>;
   catalog: CatalogData;
@@ -31,6 +38,8 @@ export interface AdaptiveStatsBarProps {
   docsStats?: { ok: number; missing: number; notFound: number; error: number };
   /** Depth distribution across wired cells (computed externally) */
   depthDistribution?: DepthDistribution;
+  /** D6 parity-vs-reference counts (computed externally) */
+  d6Stats?: D6Stats;
 }
 
 /* ------------------------------------------------------------------ */
@@ -243,6 +252,37 @@ function ParitySection({ stats }: { stats: Record<ParityTier, number> }) {
   );
 }
 
+function D6Section({ stats }: { stats: D6Stats }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="flex items-center gap-1">
+        <Dot color="var(--ok)" />
+        <MiniStat
+          value={stats.green}
+          label="green"
+          colorClass="text-[var(--ok)]"
+        />
+      </span>
+      <span className="flex items-center gap-1">
+        <Dot color="var(--text-muted)" />
+        <MiniStat
+          value={stats.gray}
+          label="gray"
+          colorClass="text-[var(--text-muted)]"
+        />
+      </span>
+      <span className="flex items-center gap-1">
+        <Dot color="var(--danger)" />
+        <MiniStat
+          value={stats.red}
+          label="red"
+          colorClass="text-[var(--danger)]"
+        />
+      </span>
+    </div>
+  );
+}
+
 function DocsSection({
   stats,
 }: {
@@ -281,6 +321,7 @@ export function AdaptiveStatsBar({
   parityStats,
   docsStats,
   depthDistribution,
+  d6Stats,
 }: AdaptiveStatsBarProps) {
   const sections: React.ReactNode[] = [];
 
@@ -309,6 +350,10 @@ export function AdaptiveStatsBar({
 
   if (overlays.has("docs") && docsStats) {
     sections.push(<DocsSection key="docs" stats={docsStats} />);
+  }
+
+  if (overlays.has("d6") && d6Stats) {
+    sections.push(<D6Section key="d6" stats={d6Stats} />);
   }
 
   return (
