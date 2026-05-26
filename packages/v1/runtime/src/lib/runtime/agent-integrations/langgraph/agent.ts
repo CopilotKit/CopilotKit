@@ -209,9 +209,11 @@ export class LangGraphAgent extends AGUILangGraphAgent {
       ).values(),
     );
 
+    const existingCopilotkit = (aguiMergedState as any).copilotkit ?? {};
     return {
       ...aguiMergedState,
       copilotkit: {
+        ...existingCopilotkit,
         actions: combinedTools,
         context: agui?.context ?? [],
       },
