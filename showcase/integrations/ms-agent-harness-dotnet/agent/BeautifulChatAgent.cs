@@ -364,11 +364,20 @@ price (e.g. ""$289"").")]
             _logger.LogInformation("[beautiful-chat] generate_a2ui (errorId={ErrorId}) cancelled", errorId);
             throw;
         }
-        catch (Exception ex)
+        catch (JsonException ex)
         {
-            _logger.LogError(ex, "[beautiful-chat] generate_a2ui (errorId={ErrorId}): unexpected failure", errorId);
-            return BeautifulChatA2ui.StructuredError("unexpected_error", "An unexpected error occurred while generating the UI.", "Try rephrasing the request or retrying later.", errorId);
+            _logger.LogError(ex, "[beautiful-chat] generate_a2ui (errorId={ErrorId}): upstream returned malformed JSON", errorId);
+            return BeautifulChatA2ui.StructuredError("upstream_malformed", "The AI service returned an invalid response.", "Try rephrasing the request or retrying.", errorId);
         }
+        catch (KeyNotFoundException ex)
+        {
+            _logger.LogError(ex, "[beautiful-chat] generate_a2ui (errorId={ErrorId}): upstream JSON missing required field", errorId);
+            return BeautifulChatA2ui.StructuredError("upstream_malformed", "The AI service returned an unexpected response shape.", "Try rephrasing the request or retrying.", errorId);
+        }
+        // Deliberately no catch (Exception ex) here: configuration errors like
+        // ApiKeyResolver's InvalidOperationException must propagate so a
+        // misconfigured deployment fails fast at the operator layer instead of
+        // surfacing a generic "unexpected_error" to end users.
 
         if (string.IsNullOrEmpty(content))
         {
