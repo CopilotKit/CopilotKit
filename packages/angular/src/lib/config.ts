@@ -6,6 +6,10 @@ import {
   HumanInTheLoopConfig,
   RenderToolCallConfig,
 } from "./tools";
+import type {
+  ActivityMessageRendererConfig,
+  CustomMessageRendererConfig,
+} from "./render-messages";
 
 export interface CopilotKitConfig {
   runtimeUrl?: string;
@@ -18,6 +22,8 @@ export interface CopilotKitConfig {
   renderToolCalls?: RenderToolCallConfig[];
   frontendTools?: FrontendToolConfig[];
   humanInTheLoop?: HumanInTheLoopConfig[];
+  renderActivityMessages?: ActivityMessageRendererConfig[];
+  renderCustomMessages?: CustomMessageRendererConfig[];
 }
 
 const COPILOT_CLOUD_PUBLIC_API_KEY_HEADER = "X-CopilotCloud-Public-Api-Key";
