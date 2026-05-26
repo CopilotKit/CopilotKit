@@ -7,12 +7,15 @@ import { dirname, join, relative } from "node:path";
 const toPosix = (p: string) => p.split("\\").join("/");
 
 export const RESERVED_LIFECYCLE_SLUGS: ReadonlySet<string> = new Set([
-  "0-to-working-chat",
-  "spa-without-runtime",
-  "go-to-production",
-  "scale-to-multi-agent",
-  "v1-to-v2-migration",
-  "debug-and-troubleshoot",
+  // Standalone skills — not generated from packages/*/skills, exempt from orphan detection
+  "copilotkit-setup",
+  "copilotkit-develop",
+  "copilotkit-agui",
+  "copilotkit-integrations",
+  "copilotkit-debug",
+  "copilotkit-upgrade",
+  "copilotkit-contribute",
+  "copilotkit-self-update",
 ]);
 
 // Version sync — plugin version tracks this package's version.
