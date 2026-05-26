@@ -11,7 +11,9 @@ export function ExampleCanvas() {
       <div className="max-w-4xl mx-auto px-8 py-10 h-full">
         <TodoList
           todos={agent.state?.todos || []}
-          onUpdate={(updatedTodos) => agent.setState({ ...(agent.state ?? {}), todos: updatedTodos })}
+          onUpdate={(updatedTodos) =>
+            agent.setState({ ...(agent.state ?? {}), todos: updatedTodos })
+          }
           isAgentRunning={agent.isRunning}
         />
       </div>
