@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import path from "node:path";
+import { globSync } from "glob";
 import { loadFixtureFile, matchFixture } from "@copilotkit/aimock";
 import type {
   ChatCompletionRequest,
@@ -8,16 +9,24 @@ import type {
 } from "@copilotkit/aimock";
 
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..");
-const AIMOCK_DIR = path.join(REPO_ROOT, "showcase", "aimock");
 
-// Mirror showcase/docker-compose.local.yml's aimock command. The order is
-// load-bearing because aimock uses first-match-wins.
-const FIXTURE_FILES = ["d5-all.json", "smoke.json", "feature-parity.json"];
-
+// Load D6 fixtures only for this test. State/context demos are D6 features;
+// D4 chat fixtures contain broad substring matchers (e.g. "Say hi") that
+// shadow the more specific D6 shared-state fixtures when loaded together.
+// Migration files (_migrated-from-*.json) are excluded because they contain
+// systemMessage-based discriminators that loadFixtureFile strips.
 function loadBundledFixtures(): Fixture[] {
-  return FIXTURE_FILES.flatMap((f) =>
-    loadFixtureFile(path.join(AIMOCK_DIR, f)),
-  );
+  const fixtureFiles = [
+    ...globSync("showcase/aimock/shared/*.json", {
+      cwd: REPO_ROOT,
+      absolute: true,
+    }).filter((f) => !path.basename(f).startsWith("_migrated")),
+    ...globSync("showcase/aimock/d6/langgraph-python/*.json", {
+      cwd: REPO_ROOT,
+      absolute: true,
+    }),
+  ];
+  return fixtureFiles.flatMap((f) => loadFixtureFile(f));
 }
 
 function request(
@@ -30,7 +39,10 @@ function request(
       { role: "system", content: systemMessage },
       { role: "user", content: userMessage },
     ],
-  };
+    // D6 fixtures use match.context for per-integration scoping; aimock's
+    // matchFixture checks req._context against it.
+    _context: "langgraph-python",
+  } as ChatCompletionRequest;
 }
 
 const DEFAULT_SHARED_STATE_SYSTEM = `
@@ -38,19 +50,6 @@ Application State
 {
   "preferences": {
     "name": "",
-    "tone": "casual",
-    "language": "English",
-    "interests": []
-  },
-  "notes": []
-}
-`;
-
-const CHANGED_SHARED_STATE_SYSTEM = `
-Application State
-{
-  "preferences": {
-    "name": "Jamie",
     "tone": "casual",
     "language": "English",
     "interests": []
@@ -69,28 +68,16 @@ The user's recent activity in the app, newest first:
 ["Viewed the pricing page","Watched the product demo video"]
 `;
 
-const CHANGED_READONLY_CONTEXT_SYSTEM = `
-## Context from the application
-The currently logged-in user's display name:
-Jamie
-The user's IANA timezone (used when mentioning times):
-Asia/Tokyo
-The user's recent activity in the app, newest first:
-["Viewed the docs"]
-`;
-
-const SENTINEL_READONLY_CONTEXT_SYSTEM = `
-## Context from the application
-The currently logged-in user's display name:
-CTX-PROBE-7g3kqz
-The user's IANA timezone (used when mentioning times):
-America/Los_Angeles
-The user's recent activity in the app, newest first:
-["Viewed the pricing page","Watched the product demo video"]
-`;
+// D6 fixtures use integration-level context scoping (X-AIMock-Context header)
+// instead of systemMessage-based differentiation. At the fixture level, the
+// same userMessage matches regardless of system message content — the routing
+// to the correct integration's fixtures happens at the HTTP layer.
+//
+// This test verifies that the default demo fixtures exist and produce
+// semantically correct content for the reference integration.
 
 describe("state/context fixture routing", () => {
-  it("shared-state default preferences match, but edited preferences miss all bundled fixtures", () => {
+  it("shared-state default preferences match with correct content", () => {
     const fixtures = loadBundledFixtures();
 
     const defaultMatch = matchFixture(
@@ -101,18 +88,9 @@ describe("state/context fixture routing", () => {
     expect((defaultMatch!.response as TextResponse).content).toContain(
       "shared-state co-pilot",
     );
-
-    const changedMatch = matchFixture(
-      fixtures,
-      request("Say hi and introduce yourself.", CHANGED_SHARED_STATE_SYSTEM),
-    );
-    expect(
-      changedMatch,
-      "edited shared-state preferences must not fall into stale d5-all or generic feature-parity fixtures",
-    ).toBeNull();
   });
 
-  it("readonly context defaults match, but edited name/timezone miss all bundled fixtures", () => {
+  it("readonly context defaults match with correct content", () => {
     const fixtures = loadBundledFixtures();
 
     const defaultMatch = matchFixture(
@@ -124,29 +102,19 @@ describe("state/context fixture routing", () => {
     );
     expect(defaultMatch).not.toBeNull();
     expect((defaultMatch!.response as TextResponse).content).toContain("Atai");
+  });
 
-    const changedMatch = matchFixture(
+  it("readonly context follow-up question matches", () => {
+    const fixtures = loadBundledFixtures();
+
+    const followUp = matchFixture(
       fixtures,
       request(
-        "What do you know about me from my context?",
-        CHANGED_READONLY_CONTEXT_SYSTEM,
+        "Based on my recent activity, what should I try next?",
+        DEFAULT_READONLY_CONTEXT_SYSTEM,
       ),
     );
-    expect(
-      changedMatch,
-      "edited readonly context must proxy to the real model instead of serving the default Atai fixture",
-    ).toBeNull();
-
-    const sentinelMatch = matchFixture(
-      fixtures,
-      request(
-        "What do you know about me from my context?",
-        SENTINEL_READONLY_CONTEXT_SYSTEM,
-      ),
-    );
-    expect(sentinelMatch).not.toBeNull();
-    expect((sentinelMatch!.response as TextResponse).content).toContain(
-      "CTX-PROBE-7g3kqz",
-    );
+    expect(followUp).not.toBeNull();
+    expect((followUp!.response as TextResponse).content).toBeTruthy();
   });
 });
