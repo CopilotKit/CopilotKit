@@ -373,7 +373,11 @@ price (e.g. ""$289"").")]
         if (string.IsNullOrEmpty(content))
         {
             _logger.LogError("[beautiful-chat] generate_a2ui (errorId={ErrorId}): empty response", errorId);
-            return new { error = "empty_llm_output", errorId };
+            return BeautifulChatA2ui.StructuredError(
+                "empty_llm_output",
+                "The AI service returned an empty response.",
+                "Try rephrasing the request or retrying.",
+                errorId);
         }
 
         // Reuse the SalesAgentFactory's A2UI response builder so the JSON
@@ -450,7 +454,11 @@ internal sealed class BeautifulChatStateSnapshotAgent : DelegatingAIAgent
         // AgentResponse.Messages, in which case Add throws NotSupportedException.
         // Using the public setter sidesteps that risk while preserving all
         // other response metadata (AgentId, ResponseId, Usage, RawRepresentation, ...).
-        response.Messages = new List<ChatMessage>(response.Messages) { snapshotMessage };
+        // Also guard against a null Messages collection (an inner agent that
+        // returned no messages) — `new List<ChatMessage>(null)` would throw
+        // ArgumentNullException, masking the real upstream behaviour.
+        var existingMessages = response.Messages ?? (IList<ChatMessage>)Array.Empty<ChatMessage>();
+        response.Messages = new List<ChatMessage>(existingMessages) { snapshotMessage };
         return response;
     }
 
