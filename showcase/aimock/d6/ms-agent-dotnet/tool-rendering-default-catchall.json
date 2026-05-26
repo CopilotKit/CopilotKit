@@ -1,0 +1,68 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for ms-agent-dotnet / tool-rendering-default-catchall",
+    "sourceFile": "d5-tool-rendering-default-catchall.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "tool-rendering-default-catchall — weather in Tokyo via get_weather. The built-in default catchall renderer fires and renders [data-testid='copilot-tool-render'][data-tool-name='get_weather'] with a status pill. Follow-up content keyed on toolCallId.",
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "toolCallId": "call_d6_dc_weather_001",
+        "context": "ms-agent-dotnet"
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "toolName": "get_weather",
+        "context": "ms-agent-dotnet"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_dc_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ],
+        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions.",
+        "content": "Looking up the weather in Tokyo for you."
+      }
+    },
+    {
+      "_comment": "Mastra registers the weather tool as get-weather (hyphen); duplicate for compat",
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "toolName": "get-weather",
+        "context": "ms-agent-dotnet"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_dc_weather_001",
+            "name": "get-weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ],
+        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions.",
+        "content": "Looking up the weather in Tokyo for you."
+      }
+    },
+    {
+      "_comment": "Final fallback when the agent has neither get_weather nor get-weather registered",
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "turnIndex": 0,
+        "context": "ms-agent-dotnet"
+      },
+      "response": {
+        "content": "The weather in Tokyo is currently 22°C with partly cloudy skies and light easterly winds."
+      }
+    }
+  ]
+}
