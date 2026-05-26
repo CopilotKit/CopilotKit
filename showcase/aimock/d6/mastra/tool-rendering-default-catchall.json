@@ -34,23 +34,6 @@
       }
     },
     {
-      "_comment": "default-catchall — weather in Tokyo, Mastra hyphenated tool ID variant.",
-      "match": {
-        "userMessage": "weather in Tokyo",
-        "toolName": "get-weather",
-        "context": "mastra"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d6_mastra_dc_weather_001",
-            "name": "get-weather",
-            "arguments": "{\"location\":\"Tokyo\"}"
-          }
-        ]
-      }
-    },
-    {
       "_comment": "default-catchall — weather in Tokyo, fallback content when no toolName gate matches.",
       "match": {
         "userMessage": "weather in Tokyo",

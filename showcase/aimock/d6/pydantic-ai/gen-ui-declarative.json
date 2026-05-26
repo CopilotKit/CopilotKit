@@ -8,6 +8,7 @@
     {
       "match": {
         "userMessage": "KPI dashboard",
+        "hasToolResult": false,
         "context": "pydantic-ai"
       },
       "response": {
@@ -18,6 +19,7 @@
     {
       "match": {
         "userMessage": "pie chart of sales by region",
+        "hasToolResult": false,
         "context": "pydantic-ai"
       },
       "response": {
@@ -28,6 +30,7 @@
     {
       "match": {
         "userMessage": "bar chart of quarterly revenue",
+        "hasToolResult": false,
         "context": "pydantic-ai"
       },
       "response": {
@@ -38,6 +41,7 @@
     {
       "match": {
         "userMessage": "status report on system health",
+        "hasToolResult": false,
         "context": "pydantic-ai"
       },
       "response": {

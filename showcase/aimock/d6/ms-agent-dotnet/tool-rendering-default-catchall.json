@@ -35,25 +35,6 @@
       }
     },
     {
-      "_comment": "Mastra registers the weather tool as get-weather (hyphen); duplicate for compat",
-      "match": {
-        "userMessage": "weather in Tokyo",
-        "toolName": "get-weather",
-        "context": "ms-agent-dotnet"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d6_dc_weather_001",
-            "name": "get-weather",
-            "arguments": "{\"location\":\"Tokyo\"}"
-          }
-        ],
-        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions.",
-        "content": "Looking up the weather in Tokyo for you."
-      }
-    },
-    {
       "_comment": "Final fallback when the agent has neither get_weather nor get-weather registered",
       "match": {
         "userMessage": "weather in Tokyo",

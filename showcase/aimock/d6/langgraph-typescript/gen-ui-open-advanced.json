@@ -9,6 +9,7 @@
       "_comment": "gen-ui-open-advanced: Calculator pill — generateSandboxedUi with jsFunctions wiring for evaluateExpression host callback.",
       "match": {
         "userMessage": "Calculator (calls evaluateExpression)",
+        "hasToolResult": false,
         "context": "langgraph-typescript"
       },
       "response": {
@@ -25,6 +26,7 @@
       "_comment": "gen-ui-open-advanced: Ping the host pill — generateSandboxedUi with notifyHost callback.",
       "match": {
         "userMessage": "Ping the host (calls notifyHost)",
+        "hasToolResult": false,
         "context": "langgraph-typescript"
       },
       "response": {
@@ -41,6 +43,7 @@
       "_comment": "gen-ui-open-advanced: Inline expression evaluator pill.",
       "match": {
         "userMessage": "Inline expression evaluator",
+        "hasToolResult": false,
         "context": "langgraph-typescript"
       },
       "response": {

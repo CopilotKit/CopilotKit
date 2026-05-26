@@ -9,6 +9,7 @@
       "_comment": "KPI dashboard pill — primary generate_a2ui tool call.",
       "match": {
         "userMessage": "KPI dashboard",
+        "hasToolResult": false,
         "context": "ms-agent-python"
       },
       "response": {
@@ -138,6 +139,7 @@
       "_comment": "Pie chart pill — primary generate_a2ui tool call.",
       "match": {
         "userMessage": "pie chart of sales by region",
+        "hasToolResult": false,
         "context": "ms-agent-python"
       },
       "response": {
@@ -221,6 +223,7 @@
       "_comment": "Bar chart pill — primary generate_a2ui tool call.",
       "match": {
         "userMessage": "bar chart of quarterly revenue",
+        "hasToolResult": false,
         "context": "ms-agent-python"
       },
       "response": {
@@ -304,6 +307,7 @@
       "_comment": "Status report pill — primary generate_a2ui tool call.",
       "match": {
         "userMessage": "status report on system health",
+        "hasToolResult": false,
         "context": "ms-agent-python"
       },
       "response": {
