@@ -7,8 +7,13 @@
 public class AimockHeaderMiddleware
 {
     private readonly RequestDelegate _next;
+    private readonly ILogger<AimockHeaderMiddleware> _logger;
 
-    public AimockHeaderMiddleware(RequestDelegate next) => _next = next;
+    public AimockHeaderMiddleware(RequestDelegate next, ILogger<AimockHeaderMiddleware> logger)
+    {
+        _next = next;
+        _logger = logger;
+    }
 
     public async Task InvokeAsync(HttpContext context)
     {
@@ -17,10 +22,28 @@ public class AimockHeaderMiddleware
         // case-variant duplicates (e.g., a misbehaving proxy injecting both `X-Foo`
         // and `x-foo`). With the default ordinal comparer, ToDictionary would throw
         // ArgumentException on duplicate keys and fail the request.
-        var headers = context.Request.Headers
+        //
+        // When such a collision occurs, we keep the first value because HTTP has no
+        // canonical merge rule for case-variant headers across distinct keys (joining
+        // with comma would only be defined if the keys were ASCII-equal). We log a
+        // warning so operators can see that an upstream proxy is misbehaving and that
+        // downstream consumers may be observing only one of several values.
+        var groupedHeaders = context.Request.Headers
             .Where(h => h.Key.StartsWith("x-", StringComparison.OrdinalIgnoreCase))
             .GroupBy(h => h.Key, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.First().Key, g => g.First().Value.ToString(), StringComparer.OrdinalIgnoreCase);
+            .ToList();
+
+        foreach (var group in groupedHeaders.Where(g => g.Count() > 1))
+        {
+            _logger.LogWarning(
+                "[aimock-header-middleware] header '{Key}' arrived with {Count} case-variant entries; keeping the first ('{Kept}'), dropping {DroppedCount} others",
+                group.Key, group.Count(), group.First().Value.ToString(), group.Count() - 1);
+        }
+
+        var headers = groupedHeaders.ToDictionary(
+            g => g.First().Key,
+            g => g.First().Value.ToString(),
+            StringComparer.OrdinalIgnoreCase);
         AimockHeaderContext.Set(headers);
         try
         {
