@@ -213,10 +213,9 @@ export function useThreads({
     );
   }, [copilotkit.headers]);
   const runtimeStatus = copilotkit.runtimeConnectionStatus;
-  const threadListEndpointSupported =
-    copilotkit.threadEndpoints?.list !== false;
+  const threadListEndpointSupported = copilotkit.threadEndpoints?.list === true;
   const threadMutationsSupported =
-    copilotkit.threadEndpoints?.mutations !== false;
+    copilotkit.threadEndpoints?.mutations === true;
   const threadEndpointsUnavailable =
     !!copilotkit.runtimeUrl &&
     runtimeStatus === CopilotKitCoreRuntimeConnectionStatus.Connected &&
@@ -333,34 +332,36 @@ export function useThreads({
     limit,
   ]);
 
-  const renameThread = useCallback(
-    (threadId: string, name: string) => {
-      if (threadMutationsError) {
-        return Promise.reject(threadMutationsError);
-      }
-      return store.renameThread(threadId, name);
+  const guardMutation = useCallback(
+    <TArgs extends unknown[]>(
+      mutation: (...args: TArgs) => Promise<void>,
+    ): ((...args: TArgs) => Promise<void>) => {
+      return (...args: TArgs) => {
+        if (threadMutationsError) {
+          return Promise.reject(threadMutationsError);
+        }
+        return mutation(...args);
+      };
     },
-    [store, threadMutationsError],
+    [threadMutationsError],
   );
 
-  const archiveThread = useCallback(
-    (threadId: string) => {
-      if (threadMutationsError) {
-        return Promise.reject(threadMutationsError);
-      }
-      return store.archiveThread(threadId);
-    },
-    [store, threadMutationsError],
+  const renameThread = useMemo(
+    () =>
+      guardMutation((threadId: string, name: string) =>
+        store.renameThread(threadId, name),
+      ),
+    [store, guardMutation],
   );
 
-  const deleteThread = useCallback(
-    (threadId: string) => {
-      if (threadMutationsError) {
-        return Promise.reject(threadMutationsError);
-      }
-      return store.deleteThread(threadId);
-    },
-    [store, threadMutationsError],
+  const archiveThread = useMemo(
+    () => guardMutation((threadId: string) => store.archiveThread(threadId)),
+    [store, guardMutation],
+  );
+
+  const deleteThread = useMemo(
+    () => guardMutation((threadId: string) => store.deleteThread(threadId)),
+    [store, guardMutation],
   );
 
   const fetchMoreThreads = useCallback(() => store.fetchNextPage(), [store]);
