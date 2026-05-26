@@ -18,6 +18,13 @@ _INSTRUCTION = (
     "`render_pie_chart` with a concise title, short description, and a "
     "`data` array of `{label, value}` items. Pick bar for comparisons over "
     "a small set of categories; pick pie for composition / share-of-whole.\n\n"
+    "If the user names a chart subject but does NOT supply concrete numbers "
+    "(e.g. \"show me a pie chart of website traffic by source\"), do NOT "
+    "ask them for data. Invent plausible illustrative sample values "
+    "yourself, call the appropriate `render_*` tool immediately, and "
+    "briefly note in the follow-up that the values are illustrative "
+    "samples. Always render the chart on the first turn -- never reply "
+    "with a clarifying question asking for the data.\n\n"
     "Keep chat responses brief -- let the chart do the talking."
 )
 
