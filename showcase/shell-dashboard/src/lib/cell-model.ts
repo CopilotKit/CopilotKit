@@ -28,8 +28,9 @@ export interface CellModel {
   d3: TestLevel | null;
   d4: TestLevel | null;
   d5: TestLevel | null;
-  achievedDepth: 0 | 3 | 4 | 5;
-  ceilingDepth: 0 | 3 | 4 | 5;
+  d6: TestLevel | null;
+  achievedDepth: 0 | 3 | 4 | 5 | 6;
+  ceilingDepth: 0 | 3 | 4 | 5 | 6;
   chipColor: ChipColor;
   isRegression: boolean;
 }
@@ -162,6 +163,25 @@ function resolveD3(
   };
 }
 
+/**
+ * Resolve the D6 (parity-vs-reference) test level for `slug`.
+ *
+ * D6 is an aggregate integration-level signal (`d6:<slug>`), NOT per-cell.
+ * The e2e-full driver emits a single row per integration that covers
+ * the entire parity comparison against the reference implementation.
+ */
+function resolveD6(live: LiveStatusMap, slug: string): TestLevel {
+  const row = live.get(keyFor("d6", slug)) ?? null;
+  if (!row) {
+    return { exists: false, status: null, row: null };
+  }
+  return {
+    exists: true,
+    status: stateToTestStatus(row.state),
+    row,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -173,6 +193,7 @@ const UNSUPPORTED: CellModel = {
   d3: null,
   d4: null,
   d5: null,
+  d6: null,
   achievedDepth: 0,
   ceilingDepth: 0,
   chipColor: "gray",
@@ -204,6 +225,7 @@ export function buildCellModel(
       d3: NOT_WIRED_LEVEL,
       d4: NOT_WIRED_LEVEL,
       d5: NOT_WIRED_LEVEL,
+      d6: NOT_WIRED_LEVEL,
       achievedDepth: 0,
       ceilingDepth: 0,
       chipColor: "gray",
@@ -215,46 +237,55 @@ export function buildCellModel(
   const d3 = resolveD3(live, slug, featureId);
   const d4 = resolveD4(live, slug);
   const d5 = resolveD5(live, slug, featureId);
+  const d6 = resolveD6(live, slug);
 
   // ceilingDepth: highest CONTIGUOUS depth where a test EXISTS.
-  // D4 only counts if D3 exists; D5 only counts if D4 counts.
-  let ceilingDepth: 0 | 3 | 4 | 5 = 0;
+  // D4 only counts if D3 exists; D5 only counts if D4 counts; D6 only
+  // counts if D5 counts.
+  let ceilingDepth: 0 | 3 | 4 | 5 | 6 = 0;
   if (d3.exists) {
     ceilingDepth = 3;
     if (d4.exists) {
       ceilingDepth = 4;
-      if (d5.exists) ceilingDepth = 5;
+      if (d5.exists) {
+        ceilingDepth = 5;
+        if (d6.exists) ceilingDepth = 6;
+      }
     }
   }
 
   // achievedDepth: highest CONTIGUOUS passing depth.
-  // D3 must pass before D4 counts, D4 must pass before D5 counts.
-  let achievedDepth: 0 | 3 | 4 | 5 = 0;
+  // D3 must pass before D4 counts, D4 before D5, D5 before D6.
+  let achievedDepth: 0 | 3 | 4 | 5 | 6 = 0;
   if (d3.status === "green") {
     achievedDepth = 3;
     if (d4.status === "green") {
       achievedDepth = 4;
       if (d5.status === "green") {
         achievedDepth = 5;
+        if (d6.status === "green") {
+          achievedDepth = 6;
+        }
       }
     }
   }
 
-  // chipColor derivation:
-  //   gray   → no tests exist at all (ceilingDepth === 0)
-  //   red    → tests exist but none pass (achievedDepth === 0, ceiling > 0)
-  //   green  → achieved === ceiling (all passing)
-  //   amber  → ceiling - achieved <= 1 (close gap)
-  //   red    → ceiling - achieved > 1 (wide gap)
+  // chipColor derivation — D6-ceiling algorithm:
+  // NOTE: D1/D2 (liveness) failure causes D3 (e2e-demos) to also fail,
+  // so checking d3.status implicitly covers the D1/D2 gate.
+  const d1d4GateFails =
+    (d3.exists && d3.status !== "green") ||
+    (d4.exists && d4.status !== "green");
+
   let chipColor: ChipColor;
-  if (ceilingDepth === 0) {
-    chipColor = "gray";
-  } else if (achievedDepth === 0) {
+  if (d1d4GateFails) {
     chipColor = "red";
-  } else if (achievedDepth >= ceilingDepth) {
+  } else if (d6.status === "green") {
     chipColor = "green";
-  } else if (ceilingDepth - achievedDepth <= 1) {
+  } else if (d5.status === "green") {
     chipColor = "amber";
+  } else if (!d5.exists && !d6.exists) {
+    chipColor = "gray";
   } else {
     chipColor = "red";
   }
@@ -264,6 +295,7 @@ export function buildCellModel(
     d3,
     d4,
     d5,
+    d6,
     achievedDepth,
     ceilingDepth,
     chipColor,
