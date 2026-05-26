@@ -44,21 +44,22 @@ services:
     profiles: ["infra", "all"]
     restart: unless-stopped
     volumes:
-      - ./aimock/d5-all.json:/showcase-fixtures/d5-all.json:ro
-      - ./aimock/smoke.json:/showcase-fixtures/smoke.json:ro
-      - ./aimock/feature-parity.json:/showcase-fixtures/feature-parity.json:ro
-    # `--proxy-only` + `--provider-openai` mirrors the Railway aimock setup:
-    # matched fixtures short-circuit deterministically; unmatched requests
-    # fall through to real OpenAI (using OPENAI_API_KEY from .env). Without
-    # these flags aimock returns 404 on no-match, the LangGraph SDK
-    # interprets that as `NotFoundError`, and the demo crashes with
-    # "Failed to fetch" instead of seeing a real model response.
+      # Directory mounts — each depth/shared dir is mounted wholesale so new
+      # fixture files are picked up without editing this file.
+      - ./aimock/shared:/showcase-fixtures/shared:ro
+      - ./aimock/d4:/showcase-fixtures/d4:ro
+      - ./aimock/d6:/showcase-fixtures/d6:ro
+    # In test mode aimock must NOT proxy to real providers — unmatched
+    # requests should fail so fixture gaps are caught immediately instead
+    # of silently falling through to real OpenAI/Anthropic/Gemini.
+    # Provider URLs are still declared so aimock knows which provider a
+    # request targets, but without --proxy-only no traffic leaves the
+    # container.
     command: [
         "--port",
         "4010",
         "--host",
         "0.0.0.0",
-        "--proxy-only",
         "--provider-openai",
         "https://api.openai.com",
         "--provider-anthropic",
@@ -75,12 +76,13 @@ services:
         "8",
         "--latency",
         "60",
+        # Directory-based fixture loading (one --fixtures per directory)
         "--fixtures",
-        "/showcase-fixtures/d5-all.json",
+        "/showcase-fixtures/shared",
         "--fixtures",
-        "/showcase-fixtures/smoke.json",
+        "/showcase-fixtures/d4",
         "--fixtures",
-        "/showcase-fixtures/feature-parity.json",
+        "/showcase-fixtures/d6",
         "--validate-on-load",
       ]
     healthcheck:
