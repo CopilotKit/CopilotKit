@@ -150,7 +150,7 @@ function generateFrameworkRenames(): RedirectEntry[] {
 }
 
 // ---------------------------------------------------------------------------
-// OSS-133: /coding-agents renamed to /build-with-agents
+// /coding-agents renamed to /build-with-agents
 // Covers the root page + all canonical framework slugs (exact 301s).
 // S16 in SUBPATH_RENAMES handles the legacy-slug surface; these entries
 // handle the canonical-slug surface (e.g. /langgraph-python/coding-agents).
