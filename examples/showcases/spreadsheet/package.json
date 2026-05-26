@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@bilig/workpaper": "^0.90.8",
+    "@bilig/workpaper": "^0.107.8",
     "@copilotkit/react-core": "^1.8.12-next.3",
     "@copilotkit/react-textarea": "^1.8.12-next.3",
     "@copilotkit/react-ui": "^1.8.12-next.3",
