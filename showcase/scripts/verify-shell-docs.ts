@@ -297,6 +297,70 @@ function aliasExists(importPath: string): boolean {
   );
 }
 
+export function loadSnippetComponentNames(): Set<string> {
+  const docsRenderPath = path.join(
+    REPO_ROOT,
+    "showcase/shell-docs/src/lib/docs-render.tsx",
+  );
+  const src = fs.readFileSync(docsRenderPath, "utf-8");
+  const mapMatch = src.match(/export const SNIPPET_MAP[^{]*\{([^}]+)\}/s);
+  if (!mapMatch)
+    throw new Error("Could not find SNIPPET_MAP in docs-render.tsx");
+  const keys = [...mapMatch[1].matchAll(/^\s*(\w+)\s*:/gm)].map((m) => m[1]);
+  return new Set(keys);
+}
+
+const SNIPPET_WITH_PROPS_RE = /<([A-Z]\w*)\s+[^>]*(?:>|\/>)/g;
+
+// Matches the same shape that inlineSnippets() in docs-render.tsx resolves at
+// render time. Per-match check (not per-name) so a page with both <Foo /> and
+// <Foo framework="x" /> correctly flags only the latter.
+const INLINE_HANDLED_RE = /^<[A-Z]\w*\s*(?:components=\{[^}]*\}\s*)?\/>/;
+
+const MDX_IMPORT_NAME_RE = /^\s*import\s+(\w+)\s+from\s+["']@\/snippets\//gm;
+
+export function checkComponentImports({
+  pages,
+}: {
+  pages: PageInput[];
+}): CheckResult {
+  const snippetComponents = loadSnippetComponentNames();
+  const failures: string[] = [];
+  for (const page of pages) {
+    const body = strip(page.body);
+
+    const imported = new Set<string>();
+    MDX_IMPORT_NAME_RE.lastIndex = 0;
+    let im: RegExpExecArray | null;
+    while ((im = MDX_IMPORT_NAME_RE.exec(page.body)) !== null) {
+      imported.add(im[1]);
+    }
+
+    SNIPPET_WITH_PROPS_RE.lastIndex = 0;
+    const flagged = new Set<string>();
+    let m: RegExpExecArray | null;
+    while ((m = SNIPPET_WITH_PROPS_RE.exec(body)) !== null) {
+      const name = m[1];
+      if (
+        snippetComponents.has(name) &&
+        !imported.has(name) &&
+        !INLINE_HANDLED_RE.test(m[0]) &&
+        !flagged.has(name)
+      ) {
+        flagged.add(name);
+        failures.push(
+          `${page.path}: <${name}> used with props but missing snippet import`,
+        );
+      }
+    }
+  }
+  return {
+    name: "component-imports",
+    status: failures.length === 0 ? "pass" : "fail",
+    messages: failures,
+  };
+}
+
 async function main() {
   const skipBuild = process.argv.includes("--skip-build");
   const pages = loadPages();
@@ -310,6 +374,7 @@ async function main() {
     checkSnippetRegions({ pages, demoContent }),
     checkInternalLinks({ pages, knownRoutes }),
     checkImportPaths({ pages, existsOnDisk: aliasExists }),
+    checkComponentImports({ pages }),
     runEssentialContentCheck(pages),
   ];
 
