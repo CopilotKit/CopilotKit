@@ -151,19 +151,10 @@ function generateFrameworkRenames(): RedirectEntry[] {
 
 // ---------------------------------------------------------------------------
 // OSS-133: /coding-agents renamed to /build-with-agents
-// Covers the root page + canonical framework slugs that differ from their
-// legacy slug (e.g. /langgraph-python/coding-agents → /langgraph-python/build-with-agents).
-// Unchanged-slug frameworks (agno, ag2, etc.) are already covered by S16 in
-// SUBPATH_RENAMES above — including them here would create duplicate sources.
+// Covers the root page + all canonical framework slugs (exact 301s).
+// S16 in SUBPATH_RENAMES handles the legacy-slug surface; these entries
+// handle the canonical-slug surface (e.g. /langgraph-python/coding-agents).
 // ---------------------------------------------------------------------------
-
-// Only frameworks whose canonical slug differs from the legacy slug need a
-// CODING_AGENTS_RENAMES entry; unchanged-slug frameworks are covered by S16.
-const CANONICAL_FRAMEWORKS = [
-  ...new Set(
-    FRAMEWORKS.filter((fw) => canonicalSlug(fw) !== fw).map(canonicalSlug),
-  ),
-];
 
 const CODING_AGENTS_RENAMES: RedirectEntry[] = [
   {
@@ -171,7 +162,7 @@ const CODING_AGENTS_RENAMES: RedirectEntry[] = [
     source: "/coding-agents",
     destination: "/build-with-agents",
   },
-  ...CANONICAL_FRAMEWORKS.map((fw) => ({
+  ...[...new Set(FRAMEWORKS.map(canonicalSlug))].map((fw) => ({
     id: `CA×${fw}`,
     source: `/${fw}/coding-agents`,
     destination: `/${fw}/build-with-agents`,
