@@ -20,6 +20,15 @@ ARG NEXT_PUBLIC_REO_KEY
 ENV NEXT_PUBLIC_REO_KEY=${NEXT_PUBLIC_REO_KEY}
 ARG NEXT_PUBLIC_GOOGLE_ANALYTICS_TRACKING_ID
 ENV NEXT_PUBLIC_GOOGLE_ANALYTICS_TRACKING_ID=${NEXT_PUBLIC_GOOGLE_ANALYTICS_TRACKING_ID}
+# Server Action ID encryption key. Next.js 16.x re-hashes Server Action
+# IDs aggressively across builds; without a stable key every Railway
+# redeploy invalidates in-flight clients' action IDs, producing
+# "Failed to find Server Action 'x'" and "router state header could not
+# be parsed" errors at the deploy boundary. Sourced from a repo secret
+# via the GHA workflow (`showcase_build.yml` Prepare build args step).
+# See https://nextjs.org/docs/app/api-reference/file-conventions/page#encrypted-server-action-references
+ARG NEXT_SERVER_ACTIONS_ENCRYPTION_KEY
+ENV NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=${NEXT_SERVER_ACTIONS_ENCRYPTION_KEY}
 WORKDIR /app
 
 # Copy only what shell-docs + scripts need
@@ -51,6 +60,14 @@ ENV NODE_ENV=production
 ENV PORT=10000
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
 ENV NEXT_PUBLIC_BRANCH=${BRANCH}
+# Server Action encryption key MUST be readable at runtime too: Next.js
+# encrypts action references at build time but decrypts incoming Server
+# Action requests at runtime, using the same key. Declared here so the
+# runtime stage has the variable in its environment; Railway injects the
+# actual value from the service's env-var configuration at container
+# start. The value MUST match the one passed to `next build` in the
+# builder stage above, or in-flight clients break across the boundary.
+ENV NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=""
 
 COPY --from=builder /app/shell-docs/.next ./.next
 COPY --from=builder /app/shell-docs/node_modules ./node_modules
