@@ -297,6 +297,101 @@ function aliasExists(importPath: string): boolean {
   );
 }
 
+const SNIPPET_COMPONENTS = new Set([
+  "A2UI",
+  "AgUI",
+  "AGUI",
+  "CodingAgents",
+  "CommonIssues",
+  "CopilotRuntime",
+  "CustomAgent",
+  "DebugMode",
+  "DisplayOnly",
+  "ErrorDebugging",
+  "FrontendTools",
+  "FrontEndToolsImpl",
+  "GenerativeUISpecsOverview",
+  "HeadlessUI",
+  "Inspector",
+  "Interactive",
+  "MCPApps",
+  "MCPSetup",
+  "MigrateTo",
+  "MigrateTo1100",
+  "MigrateTo182",
+  "MigrateToV",
+  "MigrateToV2",
+  "Observability",
+  "ObservabilityConnectors",
+  "Overview",
+  "PrebuiltComponents",
+  "ProgrammaticControl",
+  "ReasoningMessages",
+  "SelfHosting",
+  "Slots",
+  "Threads",
+  "ToolRenderer",
+  "ToolRendering",
+  "DefaultToolRendering",
+]);
+
+// Matches the same shape that inlineSnippets() in docs-render.tsx can
+// resolve at render time: <Component /> or <Component components={...} />.
+// Any snippet component usage that doesn't match this pattern AND lacks
+// an explicit import will silently render nothing.
+const INLINE_SNIPPETS_RE = /<([A-Z]\w*)\s*(?:components=\{[^}]*\}\s*)?\/>/g;
+
+// Catches snippet component usages with extra props (e.g. framework="...")
+// that the inlineSnippets regex can't handle.
+const SNIPPET_WITH_PROPS_RE = /<([A-Z]\w*)\s+[^>]*(?:>|\/>)/g;
+
+const MDX_IMPORT_NAME_RE = /^\s*import\s+(\w+)\s+from\s+["']@\/snippets\//gm;
+
+export function checkComponentImports(pages: PageInput[]): CheckResult {
+  const failures: string[] = [];
+  for (const page of pages) {
+    const body = strip(page.body);
+
+    const imported = new Set<string>();
+    MDX_IMPORT_NAME_RE.lastIndex = 0;
+    let im: RegExpExecArray | null;
+    while ((im = MDX_IMPORT_NAME_RE.exec(page.body)) !== null) {
+      imported.add(im[1]);
+    }
+
+    // Collect component usages that inlineSnippets() would handle
+    const handledByInline = new Set<string>();
+    INLINE_SNIPPETS_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = INLINE_SNIPPETS_RE.exec(body)) !== null) {
+      handledByInline.add(m[1]);
+    }
+
+    // Find snippet components used with extra props
+    SNIPPET_WITH_PROPS_RE.lastIndex = 0;
+    const flagged = new Set<string>();
+    while ((m = SNIPPET_WITH_PROPS_RE.exec(body)) !== null) {
+      const name = m[1];
+      if (
+        SNIPPET_COMPONENTS.has(name) &&
+        !imported.has(name) &&
+        !handledByInline.has(name) &&
+        !flagged.has(name)
+      ) {
+        flagged.add(name);
+        failures.push(
+          `${page.path}: <${name}> used with props but missing snippet import`,
+        );
+      }
+    }
+  }
+  return {
+    name: "component-imports",
+    status: failures.length === 0 ? "pass" : "fail",
+    messages: failures,
+  };
+}
+
 async function main() {
   const skipBuild = process.argv.includes("--skip-build");
   const pages = loadPages();
@@ -310,6 +405,7 @@ async function main() {
     checkSnippetRegions({ pages, demoContent }),
     checkInternalLinks({ pages, knownRoutes }),
     checkImportPaths({ pages, existsOnDisk: aliasExists }),
+    checkComponentImports(pages),
     runEssentialContentCheck(pages),
   ];
 
