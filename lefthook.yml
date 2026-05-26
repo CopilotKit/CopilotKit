@@ -55,8 +55,6 @@ pre-commit:
       tags: test-packages
       env:
         NX_TUI: "false"
-        # @copilotkit/core:build bundles many deps inline and needs > 4 GB heap.
-        NODE_OPTIONS: "--max-old-space-size=8192"
       run: pnpm run test && pnpm run check:packages
 
     check-plugin-skills:
