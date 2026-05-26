@@ -28,7 +28,7 @@ internal static class ApiKeyResolver
             ?? configuration["OPENAI_API_KEY"]
             ?? configuration["GitHubToken"];
 
-        if (!string.IsNullOrEmpty(apiKey))
+        if (!string.IsNullOrWhiteSpace(apiKey))
         {
             return apiKey;
         }
@@ -69,6 +69,12 @@ internal static class ApiKeyResolver
         // https://api.openai.com/?env=localhost would otherwise be classified
         // as a mock and bypass the fail-fast guard, silently returning the
         // mock key.
+        //
+        // Subdomain matching (e.g. host.StartsWith("aimock.")) is also rejected
+        // as attack surface: an attacker-registered domain like
+        // "aimock.attacker.example.com" would otherwise be classified as a
+        // mock endpoint. Only exact, well-known mock hosts and loopback
+        // addresses (including IPv6 [::1]) are accepted.
         if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var uri))
         {
             return false;
@@ -78,8 +84,7 @@ internal static class ApiKeyResolver
         return host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
             || host == "127.0.0.1"
             || host == "0.0.0.0"
-            || host.Equals("aimock", StringComparison.OrdinalIgnoreCase)
-            || host.StartsWith("aimock.", StringComparison.OrdinalIgnoreCase)
-            || host.EndsWith(".aimock", StringComparison.OrdinalIgnoreCase);
+            || host == "[::1]"   // IPv6 loopback in Uri.Host form
+            || host.Equals("aimock", StringComparison.OrdinalIgnoreCase);
     }
 }
