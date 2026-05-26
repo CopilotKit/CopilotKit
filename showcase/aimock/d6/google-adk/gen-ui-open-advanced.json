@@ -1,0 +1,37 @@
+{
+    "_meta": {
+        "description": "D6 fixtures for google-adk / gen-ui-open-advanced (open-gen-ui-advanced demo)",
+        "sourceFile": "d5-gen-ui-open-advanced.ts",
+        "created": "2026-05-22"
+    },
+    "fixtures": [
+        {
+            "_comment": "gen-ui-open-advanced — first pill: 3D axis visualization. The advanced demo renders inside a sandboxed iframe with allow-scripts. Reuses the same generateSandboxedUi payload as gen-ui-open but with a distinct call ID.",
+            "match": {
+                "userMessage": "3D axis visualization (model airplane)",
+                "hasToolResult": false,
+                "context": "google-adk"
+            },
+            "response": {
+                "toolCalls": [
+                    {
+                        "id": "call_d6_open_gen_ui_adv_3d_001",
+                        "name": "generateSandboxedUi",
+                        "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing 3D axis scene…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}\",\"html\":\"<div class=\\\"wrap\\\"><h1>3D axis visualization (pitch / yaw / roll)</h1><svg width=\\\"320\\\" height=\\\"260\\\" viewBox=\\\"-80 -80 160 160\\\" data-testid=\\\"ogui-3d-axis\\\"><line x1=\\\"-60\\\" y1=\\\"0\\\" x2=\\\"60\\\" y2=\\\"0\\\" stroke=\\\"#f59e0b\\\"/><line x1=\\\"0\\\" y1=\\\"-60\\\" x2=\\\"0\\\" y2=\\\"60\\\" stroke=\\\"#6366f1\\\"/><line x1=\\\"-40\\\" y1=\\\"40\\\" x2=\\\"40\\\" y2=\\\"-40\\\" stroke=\\\"#10b981\\\"/><text x=\\\"62\\\" y=\\\"4\\\" font-size=\\\"8\\\" fill=\\\"#f59e0b\\\">X pitch</text><text x=\\\"4\\\" y=\\\"-62\\\" font-size=\\\"8\\\" fill=\\\"#6366f1\\\">Y yaw</text><text x=\\\"42\\\" y=\\\"-42\\\" font-size=\\\"8\\\" fill=\\\"#10b981\\\">Z roll</text></svg></div>\"}"
+                    }
+                ]
+            }
+        },
+        {
+            "_comment": "gen-ui-open-advanced — 3D axis follow-up after tool result.",
+            "match": {
+                "userMessage": "3D axis visualization (model airplane)",
+                "hasToolResult": true,
+                "context": "google-adk"
+            },
+            "response": {
+                "content": "Here's the 3D axis visualization rendered in the advanced sandboxed iframe — pitch, yaw, and roll axes are displayed."
+            }
+        }
+    ]
+}

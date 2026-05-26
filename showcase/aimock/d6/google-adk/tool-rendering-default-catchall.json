@@ -1,0 +1,37 @@
+{
+    "_meta": {
+        "description": "D6 fixtures for google-adk / tool-rendering-default-catchall",
+        "sourceFile": "d5-tool-rendering-default-catchall.ts",
+        "created": "2026-05-22"
+    },
+    "fixtures": [
+        {
+            "_comment": "tool-rendering-default-catchall — weather prompt, follow-up after get_weather tool result. The D5 probe asserts [data-testid='copilot-tool-render'] with data-tool-name='get_weather' and a status pill. MUST come before the tool-emitting fixture (first-match-wins).",
+            "match": {
+                "userMessage": "weather in Tokyo",
+                "toolCallId": "call_d6_dc_weather_tokyo_001",
+                "context": "google-adk"
+            },
+            "response": {
+                "content": "Tokyo is currently 72°F and partly cloudy with light winds from the east."
+            }
+        },
+        {
+            "_comment": "tool-rendering-default-catchall — weather prompt, first leg: emit get_weather tool call. hasToolResult:false per D6 convention.",
+            "match": {
+                "userMessage": "weather in Tokyo",
+                "hasToolResult": false,
+                "context": "google-adk"
+            },
+            "response": {
+                "toolCalls": [
+                    {
+                        "id": "call_d6_dc_weather_tokyo_001",
+                        "name": "get_weather",
+                        "arguments": "{\"location\":\"Tokyo\"}"
+                    }
+                ]
+            }
+        }
+    ]
+}
