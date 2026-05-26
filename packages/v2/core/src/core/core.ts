@@ -189,6 +189,9 @@ export interface CopilotKitCoreFriendsAccess {
     clearSuggestions(agentId: string): void;
     reloadSuggestions(agentId: string): void;
   };
+
+  // Optional hook for framework scheduler yield before follow-up runs
+  waitForPendingFrameworkUpdates?: () => Promise<void>;
 }
 
 export class CopilotKitCore {
@@ -511,6 +514,7 @@ export class CopilotKitCore {
 
   stopAgent(params: CopilotKitCoreStopAgentParams): void {
     params.agent.abortRun();
+    this.runHandler.abortCurrentRun();
   }
 
   async runAgent(

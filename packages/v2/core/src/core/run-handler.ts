@@ -26,6 +26,8 @@ export interface CopilotKitCoreGetToolParams {
   agentId?: string;
 }
 
+const MAX_RUN_DEPTH = 20;
+
 /**
  * Handles agent execution, tool calling, and agent connectivity for CopilotKitCore.
  * Manages the complete lifecycle of agent runs including tool execution and follow-ups.
@@ -33,8 +35,18 @@ export interface CopilotKitCoreGetToolParams {
 export class RunHandler {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _tools: FrontendTool<any>[] = [];
+  private _runAbortController: AbortController | null = null;
+  private _runDepth = 0;
 
   constructor(private core: CopilotKitCore) {}
+
+  /**
+   * Abort the current run if one is in progress.
+   */
+  abortCurrentRun(): void {
+    this._runAbortController?.abort();
+    this._runAbortController = null;
+  }
 
   /**
    * Get all tools as a readonly array
@@ -120,6 +132,7 @@ export class RunHandler {
   async connectAgent({
     agent,
   }: CopilotKitCoreConnectAgentParams): Promise<RunAgentResult> {
+    this._runDepth = 0;
     try {
       // Detach any active run before connecting to avoid previous runs interfering
       await agent.detachActiveRun();
@@ -165,6 +178,19 @@ export class RunHandler {
     agent,
     forwardedProps,
   }: CopilotKitCoreRunAgentParams): Promise<RunAgentResult> {
+    this._runDepth++;
+
+    if (this._runDepth > MAX_RUN_DEPTH) {
+      this._runDepth = 0;
+      throw new Error(
+        `Run depth exceeded maximum of ${MAX_RUN_DEPTH}. Possible infinite loop detected.`,
+      );
+    }
+
+    // Abort previous run if still running
+    this._runAbortController?.abort();
+    this._runAbortController = new AbortController();
+
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
     if (agent.agentId) {
       void (
@@ -194,6 +220,7 @@ export class RunHandler {
       );
       return this.processAgentResult({ runAgentResult, agent });
     } catch (error) {
+      this._runDepth = 0;
       const runError =
         error instanceof Error ? error : new Error(String(error));
       const context: Record<string, any> = {};
@@ -273,9 +300,17 @@ export class RunHandler {
     }
 
     if (needsFollowUp) {
+      if (this._runAbortController?.signal.aborted) {
+        this._runDepth = 0;
+        return runAgentResult;
+      }
+      await (
+        this.core as unknown as CopilotKitCoreFriendsAccess
+      ).waitForPendingFrameworkUpdates?.();
       return await this.runAgent({ agent });
     }
 
+    this._runDepth = 0;
     void (
       this.core as unknown as CopilotKitCoreFriendsAccess
     ).suggestionEngine.reloadSuggestions(agentId);

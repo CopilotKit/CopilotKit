@@ -83,6 +83,12 @@ export class CopilotKitCoreReact extends CopilotKitCore {
     }, "Subscriber onInterruptElementChanged error:");
   }
 
+  // Yield to the React scheduler before follow-up runs so that setState
+  // calls from tool handlers have flushed before the next run reads context.
+  waitForPendingFrameworkUpdates = async (): Promise<void> => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  };
+
   // Override to accept React-specific subscriber type
   subscribe(
     subscriber: CopilotKitCoreReactSubscriber,
