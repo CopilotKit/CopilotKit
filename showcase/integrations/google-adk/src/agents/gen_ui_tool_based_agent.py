@@ -19,7 +19,7 @@ _INSTRUCTION = (
     "`data` array of `{label, value}` items. Pick bar for comparisons over "
     "a small set of categories; pick pie for composition / share-of-whole.\n\n"
     "If the user names a chart subject but does NOT supply concrete numbers "
-    "(e.g. \"show me a pie chart of website traffic by source\"), do NOT "
+    '(e.g. "show me a pie chart of website traffic by source"), do NOT '
     "ask them for data. Invent plausible illustrative sample values "
     "yourself, call the appropriate `render_*` tool immediately, and "
     "briefly note in the follow-up that the values are illustrative "
