@@ -177,7 +177,7 @@ export const MCPAppsActivityContentSchema = z.object({
   resourceUri: z.string(),
   serverHash: z.string(),
   serverId: z.string().optional(),
-  toolInput: z.record(z.unknown()).optional(),
+  toolInput: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type MCPAppsActivityContent = z.infer<
