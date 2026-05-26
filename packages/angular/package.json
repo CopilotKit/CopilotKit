@@ -37,6 +37,7 @@
     "@ag-ui/core": "0.0.53",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/shared": "workspace:*",
+    "@copilotkit/web-inspector": "workspace:*",
     "clsx": "^2.1.1",
     "highlight.js": "^11.11.1",
     "katex": "^0.16.22",

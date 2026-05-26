@@ -9,6 +9,7 @@ export * from "./lib/scroll-position";
 export * from "./lib/resize-observer";
 export * from "./lib/utils";
 export * from "./lib/agent-context";
+export * from "./lib/web-inspector";
 
 export * from "./lib/slots";
 
