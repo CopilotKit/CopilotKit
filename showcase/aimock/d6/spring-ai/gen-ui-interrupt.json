@@ -1,0 +1,94 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for spring-ai / gen-ui-interrupt",
+    "sourceScript": "d5-gen-ui-interrupt.ts",
+    "copiedFrom": "langgraph-python",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-interrupt sales-call pill \u2014 first leg: schedule_meeting tool call triggers interrupt(...). hasToolResult:false implicit via toolName gate.",
+      "match": {
+        "userMessage": "introductory sales team call",
+        "toolName": "schedule_meeting",
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "Sure \u2014 let me check available times.",
+        "toolCalls": [
+          {
+            "id": "call_d5_schedule_sales_001",
+            "name": "schedule_meeting",
+            "arguments": {
+              "topic": "Sales intro call",
+              "attendee": "Sales team",
+              "slots": [
+                {
+                  "label": "Mon 10:00 AM",
+                  "iso": "2026-05-11T10:00:00Z"
+                },
+                {
+                  "label": "Tue 2:00 PM",
+                  "iso": "2026-05-12T14:00:00Z"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-interrupt sales-call pill \u2014 second leg: confirmation after user picks a slot and resolve fires.",
+      "match": {
+        "userMessage": "introductory sales team call",
+        "toolCallId": "call_d5_schedule_sales_001",
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "Booked: Sales intro call confirmed for the slot you picked."
+      }
+    },
+    {
+      "_comment": "gen-ui-interrupt alice-1on1 pill \u2014 first leg: schedule_meeting tool call.",
+      "match": {
+        "userMessage": "one-on-one with Alice",
+        "toolName": "schedule_meeting",
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "Got it \u2014 pulling up next-week slots.",
+        "toolCalls": [
+          {
+            "id": "call_d5_schedule_alice_001",
+            "name": "schedule_meeting",
+            "arguments": {
+              "topic": "1:1 with Alice \u2014 Q2 goals",
+              "attendee": "Alice",
+              "slots": [
+                {
+                  "label": "Wed 11:00 AM",
+                  "iso": "2026-05-13T11:00:00Z"
+                },
+                {
+                  "label": "Thu 3:30 PM",
+                  "iso": "2026-05-14T15:30:00Z"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-interrupt alice-1on1 pill \u2014 second leg: confirmation after user picks a slot.",
+      "match": {
+        "userMessage": "one-on-one with Alice",
+        "toolCallId": "call_d5_schedule_alice_001",
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "Scheduled: 1:1 with Alice locked in for the slot you picked."
+      }
+    }
+  ]
+}

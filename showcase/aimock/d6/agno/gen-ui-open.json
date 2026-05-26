@@ -1,0 +1,63 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for agno / gen-ui-open (basic + advanced)",
+    "sourceFile": "d5-gen-ui-open.ts, d5-gen-ui-open-advanced.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-open basic pill — '3D axis visualization (model airplane)'. The probe asserts iframe[srcdoc] mounts with ≥100 chars. The response must include an srcdoc-shaped HTML payload that the demo can render inside an iframe.",
+      "match": {
+        "userMessage": "3D axis visualization",
+        "hasToolResult": false,
+        "context": "agno"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_agno_gen_ui_open_3d_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"html\":\"<!DOCTYPE html><html><head><style>body{margin:0;display:flex;justify-content:center;align-items:center;height:100vh;background:#1a1a2e;font-family:monospace}canvas{border:1px solid #333}</style></head><body><canvas id='c' width='400' height='400'></canvas><script>const c=document.getElementById('c'),x=c.getContext('2d');x.translate(200,200);x.strokeStyle='#e94560';x.beginPath();x.moveTo(0,0);x.lineTo(150,0);x.stroke();x.strokeStyle='#0f3460';x.beginPath();x.moveTo(0,0);x.lineTo(0,-150);x.stroke();x.strokeStyle='#16213e';x.beginPath();x.moveTo(0,0);x.lineTo(-80,80);x.stroke();x.fillStyle='#eee';x.font='14px monospace';x.fillText('X',155,5);x.fillText('Y',5,-155);x.fillText('Z',-90,90)</script></body></html>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "3D axis visualization",
+        "hasToolResult": true,
+        "context": "agno"
+      },
+      "response": {
+        "content": "3D axis visualization rendered above in the sandboxed iframe — the X, Y, and Z axes are drawn on a dark canvas."
+      }
+    },
+    {
+      "_comment": "gen-ui-open-advanced pill — 'Inline expression evaluator'. The probe asserts an iframe with sandbox='allow-scripts' mounts. Uses generateSandboxedUi tool call.",
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "hasToolResult": false,
+        "context": "agno"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_agno_gen_ui_open_adv_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"html\":\"<!DOCTYPE html><html><head><style>body{margin:20px;font-family:monospace;background:#111;color:#0f0}input{width:100%;padding:8px;font-size:16px;background:#222;color:#0f0;border:1px solid #333}#result{margin-top:12px;padding:8px;background:#1a1a1a;border:1px solid #333;min-height:24px}</style></head><body><h3>Expression Evaluator</h3><input id='expr' placeholder='Type a JS expression...' oninput='try{document.getElementById(\\\"result\\\").textContent=eval(this.value)}catch(e){document.getElementById(\\\"result\\\").textContent=e.message}'><div id='result'></div></body></html>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "hasToolResult": true,
+        "context": "agno"
+      },
+      "response": {
+        "content": "Expression evaluator rendered above — type any JavaScript expression in the input field to see its result."
+      }
+    }
+  ]
+}

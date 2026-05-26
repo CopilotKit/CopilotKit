@@ -1,0 +1,32 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for ag2 / multimodal",
+    "sourceFile": "d5-multimodal.ts",
+    "owner": "d6-blitz-2026-05-26",
+    "notes": "Authored to match D5 script + ag2 adapter request shape. Two turns: image sample button (auto-sent) and PDF sample button (auto-sent). The D5 probe uses skipSend:true — the sample buttons auto-send via agent.addMessage. Assertion checks transcript for 'image' / 'document' keywords."
+  },
+  "fixtures": [
+    {
+      "_comment": "multimodal image turn — the sample-image button auto-sends 'describe the sample image'. Response must contain the keyword 'image' for the buildModalityAssertion to pass.",
+      "match": {
+        "userMessage": "describe the sample image",
+        "turnIndex": 0,
+        "context": "ag2"
+      },
+      "response": {
+        "content": "The image attachment shows a small abstract test pattern used by the multimodal demo to validate the image-upload pipeline. Successful render of this response confirms the binary attachment round-tripped through the runtime."
+      }
+    },
+    {
+      "_comment": "multimodal PDF turn — the sample-pdf button auto-sends 'summarize the sample document'. Response must contain the keyword 'document' for the buildModalityAssertion to pass.",
+      "match": {
+        "userMessage": "summarize the sample document",
+        "turnIndex": 0,
+        "context": "ag2"
+      },
+      "response": {
+        "content": "The PDF document contains a single test page used by the multimodal demo. Its text was flattened by pypdf on the Python side and forwarded as text content to the model. Receiving this response confirms the document upload path works."
+      }
+    }
+  ]
+}
