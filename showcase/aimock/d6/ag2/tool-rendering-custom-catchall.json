@@ -1,0 +1,66 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for ag2 / tool-rendering-custom-catchall",
+    "sourceFile": "d5-tool-rendering-custom-catchall.ts",
+    "owner": "d6-blitz-2026-05-26",
+    "notes": "Authored to match D5 script + ag2 adapter request shape. Two prompts driving two different tools (get_weather, get_stock_price). The custom wildcard renderer fires for both. Cross-tool assertion: same testid (custom-wildcard-card) renders with distinct data-tool-name values."
+  },
+  "fixtures": [
+    {
+      "_comment": "custom-catchall: weather in Tokyo — follow-up after get_weather tool result. Must come before the tool-emitting fixture (first-match-wins).",
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "toolCallId": "call_d5_cc_weather_001",
+        "context": "ag2"
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy — the custom wildcard renderer displayed the weather card."
+      }
+    },
+    {
+      "_comment": "custom-catchall: weather in Tokyo — emit get_weather tool call. The custom wildcard renderer (custom-wildcard-card testid) fires for this tool.",
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "turnIndex": 0,
+        "context": "ag2"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_cc_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "custom-catchall: AAPL stock price — follow-up after get_stock_price tool result. Must come before the tool-emitting fixture.",
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
+        "toolCallId": "call_d5_cc_stock_001",
+        "context": "ag2"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37 — the custom wildcard renderer displayed the stock card."
+      }
+    },
+    {
+      "_comment": "custom-catchall: AAPL stock price — emit get_stock_price tool call. The custom wildcard renderer (custom-wildcard-card testid) fires for this tool too, proving the wildcard catches all.",
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
+        "turnIndex": 0,
+        "context": "ag2"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_cc_stock_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    }
+  ]
+}
