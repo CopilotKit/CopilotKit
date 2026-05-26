@@ -4,7 +4,7 @@ import yaml from "js-yaml";
 import type { LocalConfig } from "./config.js";
 import { getPackageUrl } from "./config.js";
 
-export type TestLevel = "smoke" | "d4" | "d5" | "all";
+export type TestLevel = "smoke" | "d4" | "d5" | "d6" | "all";
 
 export interface TestTarget {
   slug: string;
@@ -71,6 +71,19 @@ export interface ChatToolsInput {
  * that the driver maps to D5 feature types via `demosToFeatureTypes()`).
  */
 export interface DeepInput {
+  key: string;
+  backendUrl: string;
+  name: string;
+  demos: string[];
+  shape: "package";
+}
+
+/**
+ * e2e-full (D6) driver input — mirrors the `inputSchema` in
+ * `src/probes/drivers/e2e-full.ts`. Same shape as D5 (uses `demos`
+ * field) and runs ALL features (no sampling).
+ */
+export interface FullInput {
   key: string;
   backendUrl: string;
   name: string;
@@ -275,7 +288,44 @@ export function buildDeepInputs(
       }
 
       return {
-        key: `e2e-deep:${slug}`,
+        key: `d5-single-pill-e2e:${slug}`,
+        backendUrl: getPackageUrl(slug, config),
+        name: manifest.name,
+        demos: features,
+        shape: "package" as const,
+      };
+    })
+    .filter((input) => input.demos.length > 0);
+}
+
+/**
+ * Build e2e-full (D6) driver inputs. Same as D5 but uses the `d6:` key
+ * prefix and passes ALL features (no representative filter). When
+ * `target.demo` is set, filters features to just that demo ID.
+ */
+export function buildFullInputs(
+  target: TestTarget,
+  config: LocalConfig,
+): FullInput[] {
+  const slugs = [target.slug];
+
+  return slugs
+    .map((slug) => {
+      const manifest = loadManifest(slug, config);
+      let features = manifest.features ?? [];
+
+      if (target.demo) {
+        features = features.filter((f) => f === target.demo);
+        if (features.length === 0) {
+          const available = (manifest.features ?? []).join(", ");
+          throw new Error(
+            `Feature "${target.demo}" not found in ${slug}. Available: ${available}`,
+          );
+        }
+      }
+
+      return {
+        key: `d6:${slug}`,
         backendUrl: getPackageUrl(slug, config),
         name: manifest.name,
         demos: features,

@@ -120,6 +120,18 @@ What we learned from getting all 18 integrations to D5 green. Many of these are 
 
 ---
 
+## Fixture Authoring Gotchas
+
+**`context` field is required for D4/D6 fixtures.** Context routing (aimock `--context-field`) uses `match.context` to isolate fixtures per integration. Omitting `context` means the fixture matches globally -- every integration hits it, and the first match wins regardless of which integration made the request. Always set `match.context` for any fixture loaded through per-integration routing.
+
+**`match.context` must equal the integration slug.** The slug is the directory name under `showcase/integrations/` (e.g., `langgraph-python`, `mastra`, `spring-ai`). A mismatch between the context value and the slug silently drops the fixture from that integration's match pool -- aimock falls through to the next fixture or returns an unmatched response.
+
+**Never combine `content` and `toolCalls` in a single fixture.** A fixture must return either text (`content`) or tool calls (`toolCalls`), not both. Combining them produces undefined behavior: some providers stream the text, others stream the tool call, and the order is non-deterministic. Split into two fixtures with `sequenceIndex` if you need text followed by a tool call (or vice versa).
+
+**`hasToolResult: false` breaks multi-pill flows.** When a fixture returns `toolCalls` with `hasToolResult: false`, aimock treats the conversation as complete after the tool call -- it will not match a follow-up turn where the client sends back the tool result. In multi-pill flows (D6), the agent cycles through multiple tool calls and text responses. Use `hasToolResult: true` (or omit it, since `true` is the default) so aimock expects the client to send tool results and continues matching subsequent turns.
+
+---
+
 ## What Was "Green" But Still Wrong
 
 1. **18 copies of identical frontend code** — every fix was a blitz. One missed integration = one regression.

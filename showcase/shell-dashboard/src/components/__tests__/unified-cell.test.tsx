@@ -165,6 +165,7 @@ function makeModel(overrides?: Partial<CellModel>): CellModel {
     d3: makeLevel(true, "green"),
     d4: makeLevel(true, "green"),
     d5: makeLevel(true, "green"),
+    d6: makeLevel(false),
     achievedDepth: 5,
     ceilingDepth: 5,
     chipColor: "green",
