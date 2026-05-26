@@ -828,7 +828,7 @@ export const SNIPPET_MAP: Record<string, string> = {
 
 export const SUBPATH_TO_COMPONENT: Record<string, string> = {
   "ag-ui": "AGUI",
-  "coding-agents": "CodingAgents",
+  "build-with-agents": "CodingAgents",
   "copilot-runtime": "CopilotRuntime",
   "custom-look-and-feel/headless-ui": "HeadlessUI",
   "custom-look-and-feel/slots": "Slots",
