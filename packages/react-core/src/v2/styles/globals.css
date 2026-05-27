@@ -269,15 +269,25 @@
   opacity: 0;
   transform: translateY(2px);
   animation: cpk-intelligence-pill-fade-in 280ms ease-out forwards;
+  /* The background/shadow shift toward the subdued finished state eases
+     in; opacity is owned by the animation swap below. */
+  transition:
+    background 360ms ease-out,
+    box-shadow 360ms ease-out;
 }
 
-.cpk-intelligence-pill--fading {
-  /* Switching the `animation` property cancels the in-flight fade-in
-     and replaces the held final-value (opacity:1 from `forwards`) with
-     this fade-out keyframe set. Plain `opacity: 0` declarations would
-     otherwise lose to the animation's held value. */
-  animation: cpk-intelligence-pill-fade-out 480ms ease-out forwards;
-  pointer-events: none;
+.cpk-intelligence-pill--finished {
+  /* Persistent resting state — the pill stays mounted once work
+     completes, settling into a less-prominent look rather than fading
+     out. Switching the `animation` property cancels the in-flight
+     fade-in and replaces its held final value (opacity:1 from
+     `forwards`) with the settle keyframe; a plain `opacity` declaration
+     would otherwise lose to the animation's held value. */
+  animation: cpk-intelligence-pill-settle 360ms ease-out forwards;
+  background: rgb(238 230 254 / 0.35);
+  box-shadow:
+    0 1px 2px rgb(94 100 173 / 0.05),
+    inset 0 1px 0 rgb(255 255 255 / 0.5);
 }
 
 .cpk-intelligence-pill__icon {
@@ -331,14 +341,12 @@
   }
 }
 
-@keyframes cpk-intelligence-pill-fade-out {
+@keyframes cpk-intelligence-pill-settle {
   from {
     opacity: 1;
-    transform: translateY(0);
   }
   to {
-    opacity: 0;
-    transform: translateY(-2px);
+    opacity: 0.72;
   }
 }
 

@@ -21,6 +21,13 @@ import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 import { useCopilotKit } from "../../../providers/CopilotKitProvider";
 import { useAgent } from "../../../hooks/use-agent";
+import type { SlotValue } from "../../../lib/slots";
+import type {
+  IntelligenceIndicatorView,
+  IntelligenceIndicatorViewProps,
+} from "../IntelligenceIndicatorView";
+
+type IndicatorSlot = SlotValue<typeof IntelligenceIndicatorView>;
 
 /**
  * Mock agent with accurate per-run `isRunning` lifecycle. The shared
@@ -63,6 +70,17 @@ const expectNoPillOn = (messageId: string): void => {
 
 const expectNoPillAnywhere = (): void => {
   expect(screen.queryAllByTestId(PILL_TESTID_RE).length).toBe(0);
+};
+
+const expectPillStatus = (
+  messageId: string,
+  status: "in-progress" | "finished",
+): void => {
+  expect(
+    screen
+      .getByTestId(`cpk-intelligence-pill-${messageId}`)
+      .getAttribute("data-status"),
+  ).toBe(status);
 };
 
 const emitAssistantMessageWithToolCalls = (
@@ -151,13 +169,14 @@ const RunAgentHarness: React.FC<{ withIntelligence: boolean }> = ({
 
 interface RenderOptions {
   withIntelligence?: boolean;
+  intelligenceIndicator?: IndicatorSlot;
 }
 
 const renderForIndicator = (
   agent: MockStepwiseAgent,
   options: RenderOptions = {},
 ): void => {
-  const { withIntelligence = true } = options;
+  const { withIntelligence = true, intelligenceIndicator } = options;
 
   // No `renderCustomMessages` prop is passed — the indicator
   // auto-mounts when intelligence is configured.
@@ -166,7 +185,10 @@ const renderForIndicator = (
       <CopilotChatConfigurationProvider agentId="default" threadId="t">
         <RunAgentHarness withIntelligence={withIntelligence} />
         <div style={{ height: 400 }}>
-          <CopilotChat welcomeScreen={false} />
+          <CopilotChat
+            welcomeScreen={false}
+            intelligenceIndicator={intelligenceIndicator}
+          />
         </div>
       </CopilotChatConfigurationProvider>
     </CopilotKitProvider>,
@@ -179,8 +201,34 @@ const triggerRun = async (agent: MockStepwiseAgent): Promise<void> => {
   await waitFor(() => expect(agent.isRunning).toBe(true));
 };
 
-/** Phase machine fades over up to ~1780 ms (500 + 800 + 480). */
-const FADE_OUT_TIMEOUT_MS = 2500;
+/** Start a run that emits one assistant message with a single matching tool call. */
+const startMatchingRun = async (
+  agent: MockStepwiseAgent,
+  messageId: string,
+  toolCallId = "tc1",
+): Promise<void> => {
+  await triggerRun(agent);
+  startRun(agent);
+  emitAssistantMessageWithToolCalls(agent, messageId, [
+    { id: toolCallId, arg: "{}" },
+  ]);
+};
+
+/** A full-component slot override that surfaces the state it receives. */
+const CustomIndicator = ({
+  status,
+  label,
+}: IntelligenceIndicatorViewProps): React.ReactElement => (
+  <div data-testid="custom-indicator" data-custom-status={status}>
+    {label}
+  </div>
+);
+
+const expectCustomStatus = (status: "in-progress" | "finished"): void => {
+  expect(
+    screen.getByTestId("custom-indicator").getAttribute("data-custom-status"),
+  ).toBe(status);
+};
 
 describe('IntelligenceIndicator — "Using CopilotKit Intelligence" (auto-mounted)', () => {
   const activeAgents: IsRunningAccurateMockAgent[] = [];
@@ -239,11 +287,10 @@ describe('IntelligenceIndicator — "Using CopilotKit Intelligence" (auto-mounte
       { id: "tc_b1", arg: '{"cmd":"echo b1"}' },
     ]);
     await waitFor(() => expectPillOn("m_b1"));
-    // m_a1's pill may briefly remain in fade-out; lock the post-debounce
-    // state.
-    await waitFor(() => expectNoPillOn("m_a1"), {
-      timeout: FADE_OUT_TIMEOUT_MS,
-    });
+    // m_b1 supersedes m_a1 as the latest matching-assistant slot, so
+    // m_a1's pill is gated out — even though it had settled into its
+    // persistent finished state.
+    await waitFor(() => expectNoPillOn("m_a1"));
     expectPillCount(1);
 
     // ─── m_b2 streams in — pill moves to m_b2, m_b1 loses pill ────────
@@ -256,11 +303,12 @@ describe('IntelligenceIndicator — "Using CopilotKit Intelligence" (auto-mounte
     expectNoPillOn("m_a1");
     expectPillCount(1);
 
-    // ─── Run B finishes — pill fades, eventually no pill anywhere ─────
+    // ─── Run B finishes — the pill persists on m_b2 in its finished
+    //      resting state rather than unmounting ─────────────────────────
     agent.emit(runFinishedEvent());
-    await waitFor(() => expectNoPillAnywhere(), {
-      timeout: FADE_OUT_TIMEOUT_MS,
-    });
+    await waitFor(() => expectPillStatus("m_b2", "finished"));
+    expectPillOn("m_b2");
+    expectPillCount(1);
   });
 
   // ─── Per-condition focused tests ────────────────────────────────────
@@ -291,7 +339,7 @@ describe('IntelligenceIndicator — "Using CopilotKit Intelligence" (auto-mounte
     expectPillCount(1);
   });
 
-  it("condition (in-flight): pill clears after the run finishes", async () => {
+  it("condition (in-flight): pill settles into a persistent finished state after the run finishes", async () => {
     const agent = makeAgent();
     renderForIndicator(agent);
     await screen.findByTestId("trigger-run");
@@ -301,12 +349,12 @@ describe('IntelligenceIndicator — "Using CopilotKit Intelligence" (auto-mounte
     emitAssistantMessageWithToolCalls(agent, "m_only", [
       { id: "tc", arg: "{}" },
     ]);
-    await waitFor(() => expectPillOn("m_only"));
+    await waitFor(() => expectPillStatus("m_only", "in-progress"));
 
     agent.emit(runFinishedEvent());
-    await waitFor(() => expectNoPillOn("m_only"), {
-      timeout: FADE_OUT_TIMEOUT_MS,
-    });
+    await waitFor(() => expectPillStatus("m_only", "finished"));
+    expectPillOn("m_only");
+    expectPillCount(1);
   });
 
   it("condition (latest-run): never renders on a stale run after a newer run starts", async () => {
@@ -458,11 +506,12 @@ describe('IntelligenceIndicator — "Using CopilotKit Intelligence" (auto-mounte
     expectPillCount(1);
   });
 
-  it("real-followup exit: prose assistant message after the tool flow clears the pill", async () => {
+  it("real-followup exit: prose assistant message after the tool flow settles the pill into finished", async () => {
     // After the tool result the agent emits a final prose message —
-    // that's a "real follow-up" and should immediately exit the
-    // spinner (without waiting on isRunning), advancing to check
-    // → fading → hidden.
+    // that's a "real follow-up" and should immediately exit the spinner
+    // (without waiting on isRunning), settling into the finished state.
+    // The prose message is not a matching-assistant message, so m_tool
+    // remains the latest matching slot and keeps the persistent pill.
     const agent = makeAgent();
     renderForIndicator(agent);
     await screen.findByTestId("trigger-run");
@@ -472,13 +521,55 @@ describe('IntelligenceIndicator — "Using CopilotKit Intelligence" (auto-mounte
     emitAssistantMessageWithToolCalls(agent, "m_tool", [
       { id: "tc_only", arg: '{"cmd":"ls"}' },
     ]);
-    await waitFor(() => expectPillOn("m_tool"));
+    await waitFor(() => expectPillStatus("m_tool", "in-progress"));
 
     emitToolResult(agent, "tc_only", "tr_only");
     emitAssistantProse(agent, "m_prose", "All done.");
 
-    await waitFor(() => expectNoPillAnywhere(), {
-      timeout: FADE_OUT_TIMEOUT_MS,
+    await waitFor(() => expectPillStatus("m_tool", "finished"));
+    expectPillCount(1);
+  });
+
+  // ─── Slot customization (the three SlotValue tiers) ──────────────────
+
+  it("slot override (component): a custom face receives status and persists when finished", async () => {
+    const agent = makeAgent();
+    renderForIndicator(agent, { intelligenceIndicator: CustomIndicator });
+    await screen.findByTestId("trigger-run");
+
+    await startMatchingRun(agent, "m1");
+    await waitFor(() => expectCustomStatus("in-progress"));
+
+    agent.emit(runFinishedEvent());
+    await waitFor(() => expectCustomStatus("finished"));
+    // The default pill is replaced entirely by the custom face.
+    expectPillCount(0);
+  });
+
+  it("slot override (string): a className is merged onto the default pill", async () => {
+    const agent = makeAgent();
+    renderForIndicator(agent, { intelligenceIndicator: "my-custom-pill" });
+    await screen.findByTestId("trigger-run");
+
+    await startMatchingRun(agent, "m1");
+    await waitFor(() => expectPillOn("m1"));
+    expect(screen.getByTestId("cpk-intelligence-pill-m1").className).toContain(
+      "my-custom-pill",
+    );
+  });
+
+  it("slot override (props): a props object overrides the label", async () => {
+    const agent = makeAgent();
+    renderForIndicator(agent, {
+      intelligenceIndicator: { label: "Recalling memory" },
     });
+    await screen.findByTestId("trigger-run");
+
+    await startMatchingRun(agent, "m1");
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("cpk-intelligence-pill-m1").textContent,
+      ).toContain("Recalling memory"),
+    );
   });
 });

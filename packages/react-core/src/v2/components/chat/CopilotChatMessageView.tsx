@@ -26,6 +26,7 @@ import { useRenderActivityMessage, useRenderCustomMessages } from "../../hooks";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 import { IntelligenceIndicator } from "../intelligence-indicator";
+import type { IntelligenceIndicatorView } from "../intelligence-indicator";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 
 /**
@@ -353,6 +354,7 @@ export type CopilotChatMessageViewProps = Omit<
       userMessage: typeof CopilotChatUserMessage;
       reasoningMessage: typeof CopilotChatReasoningMessage;
       cursor: typeof CopilotChatMessageView.Cursor;
+      intelligenceIndicator: typeof IntelligenceIndicatorView;
     },
     {
       isRunning?: boolean;
@@ -380,6 +382,7 @@ export function CopilotChatMessageView({
   userMessage,
   reasoningMessage,
   cursor,
+  intelligenceIndicator,
   isRunning = false,
   children,
   className,
@@ -619,6 +622,7 @@ export function CopilotChatMessageView({
           key={`${message.id}-intelligence`}
           message={message}
           agentId={config?.agentId ?? DEFAULT_AGENT_ID}
+          intelligenceIndicator={intelligenceIndicator}
         />,
       );
     }

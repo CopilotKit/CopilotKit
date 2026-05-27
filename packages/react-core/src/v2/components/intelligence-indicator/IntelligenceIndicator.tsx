@@ -3,6 +3,9 @@ import type { Message } from "@ag-ui/core";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 import { useAgent, UseAgentUpdate } from "../../hooks/use-agent";
+import { renderSlot } from "../../lib/slots";
+import type { SlotValue } from "../../lib/slots";
+import { IntelligenceIndicatorView } from "./IntelligenceIndicatorView";
 
 /**
  * Grace window before showing the spinner. A matching tool call must
@@ -14,15 +17,6 @@ import { useAgent, UseAgentUpdate } from "../../hooks/use-agent";
  * easily because the tool actually has to execute.
  */
 const PENDING_THRESHOLD_MS = 100;
-
-/** Hold the checkmark briefly before fading out. */
-const CHECK_HOLD_MS = 800;
-
-/**
- * Duration of the fade-out animation. Must match
- * `cpk-intelligence-pill-fade-out` keyframes in `v2/styles/globals.css`.
- */
-const FADE_OUT_ANIMATION_MS = 480;
 
 /**
  * Tool-name regex patterns that trigger the indicator. Matches any tool
@@ -37,7 +31,13 @@ const DEFAULT_TOOL_PATTERNS: readonly RegExp[] = [
   /copilotkit_knowledge_base_shell/,
 ];
 
-type Phase = "idle" | "spinner" | "check" | "fading" | "hidden";
+/**
+ * Phase machine. Unlike the previous fade-out-and-unmount lifecycle, the
+ * pill now persists once it reaches `finished` — it never returns to
+ * `idle` and never unmounts on its own. Supersession by a newer matching
+ * message is handled by the latest-matching gate, not by this machine.
+ */
+type Phase = "idle" | "spinner" | "finished";
 
 export interface IntelligenceIndicatorProps {
   /** The message this indicator is attached to. */
@@ -53,6 +53,13 @@ export interface IntelligenceIndicatorProps {
    * CopilotKit Intelligence".
    */
   label?: string;
+  /**
+   * Slot override for the presentational face. A className string, a
+   * props object, or a full replacement component — see
+   * {@link IntelligenceIndicatorView}. Forwarded from the
+   * `intelligenceIndicator` slot on `CopilotChat`.
+   */
+  intelligenceIndicator?: SlotValue<typeof IntelligenceIndicatorView>;
 }
 
 const isMatchingToolCallName = (name: unknown): boolean =>
@@ -78,11 +85,12 @@ const isToolCallLikeMessage = (m: Message): boolean => {
 };
 
 /**
- * The "Using CopilotKit Intelligence" pill. Auto-mounted by
- * `CopilotChatMessageView` for every message slot when
- * `copilotkit.intelligence` is configured — callers do not register
- * this themselves. Self-gates so only the canonical message renders a
- * pill.
+ * The "Using CopilotKit Intelligence" indicator brain. Auto-mounted by
+ * `CopilotChatMessageView` for every assistant message slot when
+ * `copilotkit.intelligence` is configured — callers do not register this
+ * themselves. It owns all orchestration (run subscription, gating, and
+ * the phase machine) and renders its swappable face via the
+ * `intelligenceIndicator` slot.
  *
  * Render gates (all must hold):
  *   1. `copilotkit.intelligence !== undefined`
@@ -92,8 +100,7 @@ const isToolCallLikeMessage = (m: Message): boolean => {
  *      `agent.messages` — tool-result messages and prose-only assistant
  *      messages don't invalidate the slot, so the pill stays
  *      continuously through a multi-step tool chain.
- *   4. The phase machine is past `idle` (the pending-grace timer fired)
- *      and not yet `hidden`.
+ *   4. The phase machine is past `idle` (the pending-grace timer fired).
  *
  * Phase machine (per-instance, all timers local):
  *   - Starts in `idle` — nothing rendered.
@@ -101,16 +108,13 @@ const isToolCallLikeMessage = (m: Message): boolean => {
  *     (no `tool`-role result with a matching `toolCallId`) for
  *     {@link PENDING_THRESHOLD_MS}. Replay flashes (tool call + result
  *     in the same tick) never cross this threshold.
- *   - `spinner → check` as soon as EITHER `agent.isRunning` flips
+ *   - `spinner → finished` as soon as EITHER `agent.isRunning` flips
  *     false OR a non-tool-call-like message appears later in
  *     `agent.messages` (i.e. the agent has produced a "real"
  *     follow-up — prose answer or a new user turn).
- *   - `check → fading` after {@link CHECK_HOLD_MS}.
- *   - `fading → hidden` after {@link FADE_OUT_ANIMATION_MS}.
- *
- * Once `hidden`, the phase is sticky — a finished pill never re-spawns
- * on the same message. New runs mount fresh indicator instances on
- * their own assistant messages.
+ *   - `finished` is terminal: the pill settles into its persistent
+ *     resting state and stays mounted. It is removed only when a newer
+ *     matching-assistant message supersedes it via gate 3.
  *
  * The "exactly one pill at a time" guarantee is structural: only one
  * message satisfies the latest-matching-assistant gate at any moment.
@@ -118,7 +122,12 @@ const isToolCallLikeMessage = (m: Message): boolean => {
 export function IntelligenceIndicator(
   props: IntelligenceIndicatorProps,
 ): React.ReactElement | null {
-  const { message, agentId, label = "Using CopilotKit Intelligence" } = props;
+  const {
+    message,
+    agentId,
+    label = "Using CopilotKit Intelligence",
+    intelligenceIndicator,
+  } = props;
 
   const { copilotkit } = useCopilotKit();
   const config = useCopilotChatConfiguration();
@@ -178,37 +187,23 @@ export function IntelligenceIndicator(
     return () => clearTimeout(t);
   }, [phase, hasPending]);
 
-  // spinner → check: agent stopped running OR a real follow-up
+  // spinner → finished: agent stopped running OR a real follow-up
   // message arrived. Both are independent signals; whichever fires
-  // first wins.
+  // first wins. `finished` is terminal — no further transitions.
   useEffect(() => {
     if (phase !== "spinner") return undefined;
     if (!agent.isRunning || sawRealFollowup) {
-      setPhase("check");
+      setPhase("finished");
     }
     return undefined;
   }, [phase, agent.isRunning, sawRealFollowup]);
-
-  // check → fading after the hold.
-  useEffect(() => {
-    if (phase !== "check") return undefined;
-    const t = setTimeout(() => setPhase("fading"), CHECK_HOLD_MS);
-    return () => clearTimeout(t);
-  }, [phase]);
-
-  // fading → hidden after the fade animation.
-  useEffect(() => {
-    if (phase !== "fading") return undefined;
-    const t = setTimeout(() => setPhase("hidden"), FADE_OUT_ANIMATION_MS);
-    return () => clearTimeout(t);
-  }, [phase]);
 
   // ─── Render gates ────────────────────────────────────────────────────
   // Hooks above MUST run unconditionally; bail with `null` only after.
 
   if (copilotkit.intelligence === undefined) return null;
   if (!config) return null;
-  if (phase === "idle" || phase === "hidden") return null;
+  if (phase === "idle") return null;
 
   if (message.role !== "assistant") return null;
   // Defensive: a malformed `toolCalls` (non-array, missing nested
@@ -235,55 +230,13 @@ export function IntelligenceIndicator(
   }
   if (latestMatchingAssistantId !== message.id) return null;
 
-  // ─── Visual ──────────────────────────────────────────────────────────
+  // ─── Render the (swappable) face ──────────────────────────────────────
 
-  const showSpinner = phase === "spinner";
-  const isFading = phase === "fading";
+  const status = phase === "finished" ? "finished" : "in-progress";
 
-  return (
-    <span
-      className={
-        "cpk-intelligence-pill" +
-        (isFading ? " cpk-intelligence-pill--fading" : "")
-      }
-      role="status"
-      aria-live="polite"
-      aria-hidden={isFading || undefined}
-      data-testid={`cpk-intelligence-pill-${message.id}`}
-      title={label}
-    >
-      <svg
-        className="cpk-intelligence-pill__icon"
-        viewBox="0 0 24 24"
-        width="14"
-        height="14"
-        aria-hidden="true"
-      >
-        <circle
-          cx="12"
-          cy="12"
-          r="9"
-          fill="none"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          className={
-            "cpk-intelligence-pill__ring" +
-            (showSpinner ? "" : " cpk-intelligence-pill__ring--done")
-          }
-        />
-        <path
-          d="M8 12.5l3 3 5-6"
-          fill="none"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={
-            "cpk-intelligence-pill__check" +
-            (showSpinner ? "" : " cpk-intelligence-pill__check--shown")
-          }
-        />
-      </svg>
-      <span>{label}</span>
-    </span>
-  );
+  return renderSlot(intelligenceIndicator, IntelligenceIndicatorView, {
+    message,
+    status,
+    label,
+  });
 }
