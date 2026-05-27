@@ -2,29 +2,38 @@ import React from "react";
 import { render, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
-import { useCopilotKit } from "../../context";
-import { useAgent } from "../use-agent";
-import { CopilotChatConfigurationProvider } from "../../providers/CopilotChatConfigurationProvider";
+import { useCopilotKit } from "../v2/context";
+import { useAgent } from "../v2/hooks/use-agent";
+import { CopilotChatConfigurationProvider } from "../v2/providers/CopilotChatConfigurationProvider";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 
-vi.mock("../../context", () => ({
+vi.mock("../v2/context", () => ({
   useCopilotKit: vi.fn(),
 }));
 
 const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
 
 /**
- * Regression coverage for issue #5041 (and the same root cause behind #4739):
- * <CopilotKit threadId={x}> flows into CopilotChatConfigurationProvider, but
- * the underlying ProxiedCopilotRuntimeAgent was never having `agent.threadId`
- * set from that value. The AbstractAgent constructor auto-mints a UUID, so
- * outbound /agent/run, /agent/connect, /agent/stop requests carried a UUID
- * that diverged from what app code read via useThreads/useCopilotChatConfig.
+ * Contract-level regression coverage for the threadId-propagation invariant.
  *
- * The fix wires useAgent to sync `agent.threadId` from the chat configuration
- * when `hasExplicitThreadId` is true. This file pins that behavior so the
- * propagation can't silently regress again (as it did when per-thread cloning
- * was removed in May 2026).
+ * Lives at the package root (src/__tests__) rather than next to any one
+ * implementation site on purpose: the previous regression (issue #5041, root
+ * cause shared with #4739) slipped through because the original coverage
+ * (use-agent-thread-isolation.test.tsx, 333 lines) lived next to the
+ * per-thread-cloning feature and was deleted alongside it in May 2026 when
+ * cloning was reverted. The threadId-propagation invariant survived the
+ * feature change but its tests didn't.
+ *
+ * The invariant under test: a caller-supplied threadId (via <CopilotKit>,
+ * <ThreadsProvider>, or <CopilotChatConfigurationProvider>) MUST end up on
+ * the underlying agent's `threadId` field, because ProxiedCopilotRuntimeAgent
+ * uses that field to address /agent/run, /agent/connect, /agent/stop. Without
+ * it the agent ships its own auto-minted UUID and the backend sees a different
+ * thread than the app code reads via useThreads/useCopilotChatConfiguration.
+ *
+ * This file should outlive any specific implementation strategy (cloning,
+ * effect-based sync, prop drilling, context bridge). If you change the
+ * mechanism, keep this contract.
  */
 describe("useAgent → agent.threadId sync from chat configuration", () => {
   let mockCopilotkit: {
