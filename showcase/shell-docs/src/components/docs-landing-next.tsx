@@ -16,6 +16,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { ArrowRight, BookOpen, Compass } from "lucide-react";
 import { useFramework } from "./framework-provider";
 import { StoredFrameworkHighlight } from "./stored-framework-highlight";
 import { FrameworkLogo } from "./icons/framework-icons";
@@ -45,17 +46,21 @@ function FrameworkPicker({
     .sort((a, b) => compareByDisplayOrder(a.slug, b.slug));
 
   return (
-    <section className="not-prose">
-      <h2 className="text-xl font-semibold text-[var(--text)] mb-1">
-        {heading}
-      </h2>
-      <p className="text-sm text-[var(--text-secondary)] mb-5">{description}</p>
+    <section className="not-prose rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] p-5 sm:p-6">
+      <div className="mb-5 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-[var(--text)]">
+            {heading}
+          </h2>
+          <p className="text-sm text-[var(--text-secondary)]">{description}</p>
+        </div>
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
         {integrations.map((i) => (
           <Link
             key={i.slug}
             href={`/${i.slug}`}
-            className="group relative flex items-center gap-2.5 p-3 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] transition-colors"
+            className="group relative flex items-center gap-2.5 p-3 rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)]/45 hover:border-[var(--accent)] hover:bg-[var(--bg-surface)] transition-colors"
           >
             <span
               aria-hidden="true"
@@ -105,64 +110,53 @@ export function DocsLandingNext() {
 
   return (
     <div className="not-prose">
-      <section className="mb-10">
-        <h2 className="text-xl sm:text-2xl font-semibold text-[var(--text)] mb-2 tracking-tight">
-          Continue with {integration.name}
-        </h2>
-        <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-5 max-w-2xl">
-          We&apos;ll render every code snippet using {integration.name}. Pick up
-          where you left off — or switch backends below or from the sidebar.
-        </p>
+      <section className="mb-6 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] p-5 sm:p-6">
+        <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-xl sm:text-2xl font-semibold text-[var(--text)] tracking-tight">
+              Continue with {integration.name}
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)] leading-relaxed">
+              Code examples and generated snippets are scoped to{" "}
+              {integration.name}. Switch the backend whenever you want a
+              different stack.
+            </p>
+          </div>
+          <span className="inline-flex w-fit items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1.5 text-[11px] font-medium text-[var(--text-muted)]">
+            <FrameworkLogo
+              slug={integration.slug}
+              fallbackSrc={integration.logo}
+              size={14}
+              className="text-[var(--accent)]"
+            />
+            Active backend
+          </span>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Link
             href={`/${integration.slug}/quickstart`}
-            className="group flex flex-col gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-5 no-underline hover:border-[var(--accent)] transition-colors"
+            className="group flex flex-col gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)]/45 p-5 no-underline hover:border-[var(--accent)] hover:bg-[var(--bg-surface)] transition-colors"
           >
             <div className="flex items-center justify-between">
-              <div className="font-semibold text-[var(--text)]">Quickstart</div>
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-                className="text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors"
-              >
-                <line x1="5" y1="12" x2="19" y2="12" />
-                <polyline points="12 5 19 12 12 19" />
-              </svg>
+              <BookOpen className="h-4 w-4 text-[var(--accent)]" />
+              <ArrowRight className="h-4 w-4 text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors" />
             </div>
+            <div className="font-semibold text-[var(--text)]">Quickstart</div>
             <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
-              The {integration.name} quickstart guide.
+              Wire CopilotKit to {integration.name} and render your first agent
+              UI.
             </div>
           </Link>
           <Link
             href={`/${integration.slug}`}
-            className="group flex flex-col gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-5 no-underline hover:border-[var(--accent)] transition-colors"
+            className="group flex flex-col gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)]/45 p-5 no-underline hover:border-[var(--accent)] hover:bg-[var(--bg-surface)] transition-colors"
           >
             <div className="flex items-center justify-between">
-              <div className="font-semibold text-[var(--text)]">
-                Browse {integration.name} docs
-              </div>
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-                className="text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors"
-              >
-                <line x1="5" y1="12" x2="19" y2="12" />
-                <polyline points="12 5 19 12 12 19" />
-              </svg>
+              <Compass className="h-4 w-4 text-[var(--accent)]" />
+              <ArrowRight className="h-4 w-4 text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors" />
+            </div>
+            <div className="font-semibold text-[var(--text)]">
+              Browse {integration.name} docs
             </div>
             <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
               Every topic rendered with {integration.name} snippets.
