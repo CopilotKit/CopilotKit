@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import {
   CopilotChat,
   CopilotChatConfigurationProvider,
@@ -10,10 +10,10 @@ import {
 import { z } from "zod";
 
 const AGENT_ID = "threadid-frontend-tool-roundtrip";
+const FIXED_THREAD_ID = "ent-658-explicit-thread";
 
 function ThreadIdRoundTripChat() {
   const [explicitThreadId, setExplicitThreadId] = useState(false);
-  const fixedThreadId = useMemo(() => "ent-658-explicit-thread", []);
 
   return (
     <div className="flex h-full flex-col bg-slate-950 text-white">
@@ -46,7 +46,7 @@ function ThreadIdRoundTripChat() {
           key={explicitThreadId ? "explicit-thread" : "generated-thread"}
           agentId={AGENT_ID}
           {...(explicitThreadId
-            ? { threadId: fixedThreadId, hasExplicitThreadId: true }
+            ? { threadId: FIXED_THREAD_ID, hasExplicitThreadId: true }
             : {})}
         >
           <FrontendToolRegistration />

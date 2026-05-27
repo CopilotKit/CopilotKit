@@ -2,11 +2,18 @@ import React from "react";
 import { describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { EMPTY, Observable } from "rxjs";
-import { EventType } from "@ag-ui/client";
+import { z } from "zod";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
-import { MockStepwiseAgent } from "../../../__tests__/utils/test-helpers";
+import {
+  MockStepwiseAgent,
+  runFinishedEvent,
+  runStartedEvent,
+  textChunkEvent,
+  toolCallChunkEvent,
+} from "../../../__tests__/utils/test-helpers";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
+import { useFrontendTool } from "../../../hooks/use-frontend-tool";
 import { CopilotChat } from "../CopilotChat";
 import type { ReactFrontendTool } from "../../../types";
 
@@ -49,6 +56,7 @@ describe("CopilotChat avoids /connect for locally-generated threadIds (ENT-314)"
 
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(connectSpy).toHaveBeenCalled();
+    expect(connectSpy.mock.calls[0][0].threadId).toBe("user-thread-abc");
   });
 
   it("calls connect() when a threadId is supplied via configuration provider", async () => {
@@ -64,6 +72,7 @@ describe("CopilotChat avoids /connect for locally-generated threadIds (ENT-314)"
 
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(connectSpy).toHaveBeenCalled();
+    expect(connectSpy.mock.calls[0][0].threadId).toBe("config-thread-xyz");
   });
 
   it("uses the SDK-generated threadId for frontend tool follow-up runs", async () => {
@@ -76,38 +85,38 @@ describe("CopilotChat avoids /connect for locally-generated threadIds (ENT-314)"
 
         return new Observable<BaseEvent>((subscriber) => {
           queueMicrotask(() => {
-            subscriber.next({ type: EventType.RUN_STARTED } as BaseEvent);
+            subscriber.next(runStartedEvent());
             if (runNumber === 1) {
-              subscriber.next({
-                type: EventType.TEXT_MESSAGE_CHUNK,
-                messageId: "assistant-tool",
-                delta: "Calling frontend tool.",
-              } as BaseEvent);
-              subscriber.next({
-                type: EventType.TOOL_CALL_CHUNK,
-                toolCallId: "tc-sdk-generated-thread",
-                toolCallName: "testFrontendToolCalling",
-                parentMessageId: "assistant-tool",
-                delta: '{"label":"X"}',
-              } as BaseEvent);
+              subscriber.next(
+                textChunkEvent("assistant-tool", "Calling frontend tool."),
+              );
+              subscriber.next(
+                toolCallChunkEvent({
+                  parentMessageId: "assistant-tool",
+                  delta: '{"label":"X"}',
+                  toolCallId: "tc-sdk-generated-thread",
+                  toolCallName: "testFrontendToolCalling",
+                }),
+              );
             } else {
-              subscriber.next({
-                type: EventType.TEXT_MESSAGE_CHUNK,
-                messageId: "assistant-final",
-                delta: "Frontend tool finished for X.",
-              } as BaseEvent);
+              subscriber.next(
+                textChunkEvent(
+                  "assistant-final",
+                  "Frontend tool finished for X.",
+                ),
+              );
             }
-            subscriber.next({ type: EventType.RUN_FINISHED } as BaseEvent);
+            subscriber.next(runFinishedEvent());
             subscriber.complete();
           });
         });
       }
     }
 
-    const agent = new FrontendToolRoundTripAgent();
-    const frontendTools: ReactFrontendTool[] = [
-      {
+    function FrontendToolRegistration() {
+      const frontendTool: ReactFrontendTool<{ label: string }> = {
         name: "testFrontendToolCalling",
+        parameters: z.object({ label: z.string() }),
         followUp: true,
         handler: async ({ label }) => `handled ${String(label)}`,
         render: ({ args, result }) => (
@@ -115,18 +124,20 @@ describe("CopilotChat avoids /connect for locally-generated threadIds (ENT-314)"
             {String(args.label)}:{String(result ?? "pending")}
           </div>
         ),
-      },
-    ];
+      };
+      useFrontendTool(frontendTool);
+      return null;
+    }
+
+    const agent = new FrontendToolRoundTripAgent();
 
     render(
-      <CopilotKitProvider
-        agents__unsafe_dev_only={{ default: agent }}
-        frontendTools={frontendTools}
-      >
+      <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
         <CopilotChatConfigurationProvider
           threadId="sdk-generated-thread"
           hasExplicitThreadId={false}
         >
+          <FrontendToolRegistration />
           <CopilotChat welcomeScreen={false} />
         </CopilotChatConfigurationProvider>
       </CopilotKitProvider>,
@@ -156,9 +167,11 @@ describe("CopilotChat avoids /connect for locally-generated threadIds (ENT-314)"
         }),
       ]),
     );
-    expect(
-      screen.getByTestId("copilot-tool-render").getAttribute("data-result"),
-    ).toBe("handled X");
+    await waitFor(() => {
+      expect(screen.getByTestId("frontend-tool-card").textContent).toBe(
+        "X:handled X",
+      );
+    });
     expect(
       agent.messages.some(
         (message) =>

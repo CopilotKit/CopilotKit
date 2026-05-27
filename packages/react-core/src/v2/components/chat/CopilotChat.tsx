@@ -218,9 +218,7 @@ export function CopilotChat({
 
   useEffect(() => {
     agent.threadId = resolvedThreadId;
-  }, [agent, resolvedThreadId]);
 
-  useEffect(() => {
     // When the caller hasn't picked a specific thread, resolvedThreadId is a
     // UUID minted locally (either in this CopilotChat or in a wrapping
     // ThreadsProvider). The backend has never seen it, so /connect would
@@ -239,9 +237,9 @@ export function CopilotChat({
       agent.abortController = connectAbortController;
     }
 
-    const connect = async (agent: AbstractAgent) => {
+    const connect = async (agentToConnect: AbstractAgent) => {
       try {
-        await copilotkit.connectAgent({ agent });
+        await copilotkit.connectAgent({ agent: agentToConnect });
       } catch (error) {
         // Ignore errors from aborted connections (e.g., React StrictMode cleanup)
         if (detached) return;
