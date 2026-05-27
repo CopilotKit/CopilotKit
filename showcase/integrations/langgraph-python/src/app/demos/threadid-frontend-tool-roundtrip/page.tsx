@@ -10,7 +10,7 @@ import {
 import { z } from "zod";
 
 const AGENT_ID = "threadid-frontend-tool-roundtrip";
-const FIXED_THREAD_ID = "ent-658-explicit-thread";
+const FIXED_THREAD_ID = "a9e7e9c4-6c72-4b8a-9d74-c5c0e05f6580";
 
 function ThreadIdRoundTripChat() {
   const [explicitThreadId, setExplicitThreadId] = useState(false);
