@@ -7,6 +7,14 @@ from .sdk import (
     CopilotKitSDKContext,
 )
 from .action import Action
+from .exc import (
+    CopilotKitError,
+    CopilotKitMisuseError,
+    ActionNotFoundException,
+    AgentNotFoundException,
+    ActionExecutionException,
+    AgentExecutionException,
+)
 from .langgraph import CopilotKitState
 from .parameter import Parameter
 from .agent import Agent
@@ -32,6 +40,12 @@ __all__ = [
     "Agent",
     "CopilotKitContext",
     "CopilotKitSDKContext",
+    "CopilotKitError",
+    "CopilotKitMisuseError",
+    "ActionNotFoundException",
+    "AgentNotFoundException",
+    "ActionExecutionException",
+    "AgentExecutionException",
     "CrewAIAgent",  # pyright: ignore[reportUnsupportedDunderAll] pylint: disable=undefined-all-variable
     "LangGraphAGUIAgent",
     "CopilotKitMiddleware",
