@@ -1,5 +1,10 @@
 import { useRenderToolCall } from "../../hooks";
-import type { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
+import type {
+  AssistantMessage,
+  Message,
+  ToolCall,
+  ToolMessage,
+} from "@ag-ui/core";
 import React from "react";
 
 export type CopilotChatToolCallsViewProps = {
@@ -19,7 +24,7 @@ export function CopilotChatToolCallsView({
 
   return (
     <>
-      {message.toolCalls.map((toolCall) => {
+      {deduplicateToolCalls(message.toolCalls).map((toolCall) => {
         const toolMessage = messages.find(
           (m) => m.role === "tool" && m.toolCallId === toolCall.id,
         ) as ToolMessage | undefined;
@@ -38,3 +43,13 @@ export function CopilotChatToolCallsView({
 }
 
 export default CopilotChatToolCallsView;
+
+function deduplicateToolCalls(toolCalls: ToolCall[]): ToolCall[] {
+  const uniqueToolCalls = new Map<string, ToolCall>();
+
+  for (const toolCall of toolCalls) {
+    uniqueToolCalls.set(toolCall.id, toolCall);
+  }
+
+  return [...uniqueToolCalls.values()];
+}

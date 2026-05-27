@@ -1,28 +1,19 @@
 import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { z } from "zod";
-import {
-  CopilotKitProvider,
-  useCopilotKit,
-} from "../../../providers/CopilotKitProvider";
+import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChat } from "../CopilotChat";
-import {
-  AbstractAgent,
-  EventType,
-  type BaseEvent,
-  type RunAgentInput,
-} from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { Observable, Subject } from "rxjs";
-import {
-  defineToolCallRenderer,
-  ReactToolCallRenderer,
-  ReactFrontendTool,
-} from "../../../types";
-import CopilotChatToolCallsView from "../CopilotChatToolCallsView";
+import type { ReactToolCallRenderer, ReactFrontendTool } from "../../../types";
+import { defineToolCallRenderer } from "../../../types";
+import { CopilotChatToolCallsView } from "../CopilotChatToolCallsView";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
-import { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
+import type { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useFrontendTool } from "../../../hooks/use-frontend-tool";
+import { vi } from "vitest";
 
 // A minimal mock agent that streams a tool call and a result
 class MockStreamingAgent extends AbstractAgent {
@@ -133,13 +124,7 @@ describe("CopilotChat tool rendering with mock agent", () => {
 });
 
 describe("Tool render status narrowing", () => {
-  function renderStatusWithProvider({
-    isRunning,
-    withResult,
-  }: {
-    isRunning: boolean;
-    withResult: boolean;
-  }) {
+  function renderStatusWithProvider({ withResult }: { withResult: boolean }) {
     const renderToolCalls = [
       defineToolCallRenderer({
         name: "getWeather",
@@ -206,14 +191,14 @@ describe("Tool render status narrowing", () => {
   }
 
   it("renders InProgress when running and no result", async () => {
-    renderStatusWithProvider({ isRunning: true, withResult: false });
+    renderStatusWithProvider({ withResult: false });
     const el = await screen.findByTestId("status");
     expect(el.textContent).toMatch(/INPROGRESS/);
     expect(el.textContent).toMatch(/Berlin/);
   });
 
   it("renders Complete with result when tool message exists", async () => {
-    renderStatusWithProvider({ isRunning: false, withResult: true });
+    renderStatusWithProvider({ withResult: true });
     const el = await screen.findByTestId("status");
     expect(el.textContent).toMatch(/COMPLETE/);
     expect(el.textContent).toMatch(/Berlin/);
@@ -221,10 +206,54 @@ describe("Tool render status narrowing", () => {
   });
 
   it("renders InProgress when not running and no tool result", async () => {
-    renderStatusWithProvider({ isRunning: false, withResult: false });
+    renderStatusWithProvider({ withResult: false });
     const el = await screen.findByTestId("status");
     expect(el.textContent).toMatch(/INPROGRESS/);
     expect(el.textContent).toMatch(/Berlin/);
+  });
+
+  it("renders duplicate tool call ids once", async () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const renderToolCalls = [
+      defineToolCallRenderer({
+        name: "getWeather",
+        args: z.object({ city: z.string().optional() }),
+        render: ({ args }) => (
+          <div data-testid="status">WEATHER {String(args.city ?? "")}</div>
+        ),
+      }),
+    ] as unknown as ReactToolCallRenderer<unknown>[];
+    const duplicateToolCall = {
+      id: "tc_status_1",
+      type: "function" as const,
+      function: { name: "getWeather", arguments: '{"city":"Berlin"}' },
+    };
+    const assistantMessage: AssistantMessage = {
+      id: "a1",
+      role: "assistant",
+      content: "",
+      toolCalls: [duplicateToolCall, duplicateToolCall],
+    };
+
+    render(
+      <CopilotKitProvider renderToolCalls={renderToolCalls}>
+        <CopilotChatConfigurationProvider
+          agentId="default"
+          threadId="test-thread"
+        >
+          <CopilotChatToolCallsView message={assistantMessage} messages={[]} />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    expect(await screen.findAllByTestId("status")).toHaveLength(1);
+    const duplicateKeyWarnings = consoleSpy.mock.calls.filter(
+      (call) =>
+        typeof call[0] === "string" &&
+        call[0].includes("Encountered two children with the same key"),
+    );
+    expect(duplicateKeyWarnings).toHaveLength(0);
+    consoleSpy.mockRestore();
   });
 });
 
