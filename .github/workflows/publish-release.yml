@@ -143,10 +143,14 @@ jobs:
 
   publish:
     needs: build
-    # Run when build succeeded (normal flow) OR was skipped (workflow_call: caller already
-    # built and uploaded the artifact). Default `if: success()` would skip publish whenever
-    # build is skipped, silently no-op'ing the entire workflow_call invocation.
-    if: ${{ !cancelled() && (needs.build.result == 'success' || needs.build.result == 'skipped') }}
+    # Run when build succeeded (normal flow) OR was skipped specifically because this is a
+    # workflow_call invocation (the caller already built and uploaded the artifact). The
+    # workflow_call branch is the ONE intentional skip — other skipped paths (notably a
+    # `pull_request: closed` event where the PR was closed WITHOUT merging, which makes the
+    # build job's own merged-true guard fail and skip) must NOT trigger publish. The default
+    # `if: success()` would also skip publish on legitimate workflow_call invocations, hence
+    # the explicit allowlist below.
+    if: ${{ !cancelled() && (needs.build.result == 'success' || (needs.build.result == 'skipped' && github.event_name == 'workflow_call')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: npm
@@ -230,7 +234,7 @@ jobs:
         run: pnpm tsx "scripts/release/$PUBLISH_SCRIPT" --scope "$SCOPE"
 
       - name: Verify publish step emitted version
-        if: ${{ inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
+        if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
         env:
           VERSION: ${{ steps.publish.outputs.version }}
         run: |
@@ -241,13 +245,13 @@ jobs:
           echo "VERSION=$VERSION confirmed"
 
       - name: Configure git user
-        if: ${{ inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
+        if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
 
       - name: Check for pre-existing tags
-        if: ${{ inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
+        if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
         env:
           SCOPE: ${{ steps.meta.outputs.scope }}
           VERSION: ${{ steps.publish.outputs.version }}
@@ -263,7 +267,7 @@ jobs:
           fi
 
       - name: Create and push git tag
-        if: ${{ inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
+        if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
         env:
           SCOPE: ${{ steps.meta.outputs.scope }}
           VERSION: ${{ steps.publish.outputs.version }}
@@ -279,7 +283,7 @@ jobs:
         id: tag
 
       - name: Create GitHub Release
-        if: ${{ inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
+        if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         env:
           RELEASE_TAG: ${{ steps.tag.outputs.tag }}
@@ -320,7 +324,7 @@ jobs:
             }
 
       - name: Release summary (stable)
-        if: ${{ inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
+        if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
         run: |
           {
             echo "## Release Published"
@@ -332,7 +336,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Prerelease summary
-        if: ${{ inputs.dry-run != true && steps.meta.outputs.mode == 'prerelease' }}
+        if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode == 'prerelease' }}
         run: |
           {
             echo "## Prerelease Published"
@@ -343,7 +347,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Dry-run summary
-        if: ${{ inputs.dry-run == true }}
+        if: ${{ success() && inputs.dry-run == true }}
         run: |
           {
             echo "## Dry Run Completed"
