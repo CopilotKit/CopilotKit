@@ -12,6 +12,14 @@ import { rewriteDemoCode } from "../rewrite-demo-code";
 // the test bodies legible while satisfying tsc.
 const procEnv = process.env as Record<string, string | undefined>;
 
+function restoreNodeEnv(value: string | undefined): void {
+  if (value === undefined) {
+    delete procEnv.NODE_ENV;
+    return;
+  }
+  procEnv.NODE_ENV = value;
+}
+
 describe("extractRegion (py comment syntax)", () => {
   it("returns the bounded region content with markers stripped", () => {
     const src = [
@@ -48,7 +56,7 @@ describe("extractRegion (py comment syntax)", () => {
         /duplicate region/i,
       );
     } finally {
-      procEnv.NODE_ENV = origEnv;
+      restoreNodeEnv(origEnv);
     }
   });
 
@@ -66,7 +74,7 @@ describe("extractRegion (py comment syntax)", () => {
     try {
       expect(extractRegion(src, "dup", "py")).toBe("first\nsecond");
     } finally {
-      procEnv.NODE_ENV = origEnv;
+      restoreNodeEnv(origEnv);
     }
   });
 
@@ -80,7 +88,7 @@ describe("extractRegion (py comment syntax)", () => {
           /unterminated region/i,
         );
       } finally {
-        procEnv.NODE_ENV = orig;
+        restoreNodeEnv(orig);
       }
     }
   });
@@ -93,6 +101,59 @@ describe("extractRegion (py comment syntax)", () => {
       "    # endregion",
     ].join("\n");
     expect(extractRegion(src, "inner", "py")).toBe("    x = 1");
+  });
+
+  it("also reads bundle-style @region markers", () => {
+    const src = [
+      "# @region[subagent-setup]",
+      "graph = create_agent()",
+      "# @endregion[subagent-setup]",
+    ].join("\n");
+    expect(extractRegion(src, "subagent-setup", "py")).toBe(
+      "graph = create_agent()",
+    );
+  });
+
+  it("does not close bundle-style regions on another region's end marker", () => {
+    const src = [
+      "# @region[outer]",
+      "before = True",
+      "# @region[inner]",
+      "inside = True",
+      "# @endregion[inner]",
+      "after = True",
+      "# @endregion[outer]",
+    ].join("\n");
+    expect(extractRegion(src, "outer", "py")).toBe(
+      [
+        "before = True",
+        "# @region[inner]",
+        "inside = True",
+        "# @endregion[inner]",
+        "after = True",
+      ].join("\n"),
+    );
+  });
+
+  it("does not close bundle-style regions on legacy end markers", () => {
+    const src = [
+      "# @region[outer]",
+      "before = True",
+      "# region: inner",
+      "inside = True",
+      "# endregion",
+      "after = True",
+      "# @endregion[outer]",
+    ].join("\n");
+    expect(extractRegion(src, "outer", "py")).toBe(
+      [
+        "before = True",
+        "# region: inner",
+        "inside = True",
+        "# endregion",
+        "after = True",
+      ].join("\n"),
+    );
   });
 });
 
@@ -116,6 +177,15 @@ describe("extractRegion (ts/js comment syntax)", () => {
   it("uses // for the .js dispatch", () => {
     const src = "// region: r\nconst a = 1;\n// endregion\n";
     expect(extractRegion(src, "r", "js")).toBe("const a = 1;");
+  });
+
+  it("reads bundle-style @region markers with // comments", () => {
+    const src = [
+      "// @region[setup]",
+      "const x = 1;",
+      "// @endregion[setup]",
+    ].join("\n");
+    expect(extractRegion(src, "setup", "ts")).toBe("const x = 1;");
   });
 
   it("returns null for an extension with no comment syntax registered", () => {
@@ -152,7 +222,7 @@ describe("rewriteDemoCode", () => {
       '<DemoCode file="src/agents/frontend_tools.py" region="middleware" />',
       tmp,
     );
-    expect(out).toContain("~~~python");
+    expect(out).toContain("~~~~python");
     expect(out).toContain("CopilotKitMiddleware()");
     expect(out).toContain('title="frontend_tools.py"');
   });
@@ -166,8 +236,36 @@ describe("rewriteDemoCode", () => {
       '<DemoCode file="src/util.go" region="helper" language="golang" title="helper.go" />',
       tmp,
     );
-    expect(out).toContain("~~~golang");
+    expect(out).toContain("~~~~golang");
     expect(out).toContain('title="helper.go"');
+  });
+
+  it("escapes quotes in fence titles", () => {
+    plantSource(
+      "src/quoted.ts",
+      ["// region: setup", "export const ok = true;", "// endregion"].join(
+        "\n",
+      ),
+    );
+    const out = rewriteDemoCode(
+      '<DemoCode file="src/quoted.ts" region="setup" title=\'agent "setup"\' />',
+      tmp,
+    );
+    expect(out).toContain('title="agent \\"setup\\""');
+  });
+
+  it("matches quoted attribute values that contain a greater-than sign", () => {
+    plantSource(
+      "src/compare.ts",
+      ["// region: setup", "export const max = 2;", "// endregion"].join("\n"),
+    );
+    const out = rewriteDemoCode(
+      '<DemoCode file="src/compare.ts" region="setup" title="A > B" />',
+      tmp,
+    );
+    expect(out).toContain("~~~~typescript");
+    expect(out).toContain('title="A > B"');
+    expect(out).toContain("export const max = 2;");
   });
 
   it("leaves expression-valued <DemoCode> references intact", () => {
@@ -210,7 +308,7 @@ describe("inferLanguage", () => {
     ["main.rs", "rust"],
     ["weird.zzz", "plaintext"],
     ["no-extension", "plaintext"],
-  ])("returns %s for %s", (file, lang) => {
+  ])("infers %s as %s", (file, lang) => {
     expect(inferLanguage(file)).toBe(lang);
   });
 });
