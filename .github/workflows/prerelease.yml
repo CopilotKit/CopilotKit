@@ -97,6 +97,23 @@ jobs:
 
   publish:
     needs: build
+    # Reusable-workflow permissions are CAPPED by the caller's per-job
+    # permissions (GitHub Actions semantics). The callee declares
+    # `id-token: write` and `contents: write` on its publish job, but
+    # without the caller granting those here, the callee would inherit
+    # only the workflow-level default (`contents: read`) and the npm
+    # OIDC token mint would fail silently. Grant explicitly:
+    #   - id-token: write  — REQUIRED for npm OIDC trusted publisher mint
+    #   - contents: write  — callee's stable-mode tag/release path
+    #                        (gated off in prerelease mode, but matches
+    #                        the callee's declared scope so the cap
+    #                        doesn't strip it)
+    #   - actions: read    — required by actions/download-artifact in
+    #                        the reusable workflow
+    permissions:
+      contents: write
+      id-token: write
+      actions: read
     # Delegate publish to the parametrized reusable workflow. npm's OIDC
     # trust binding uses the `job_workflow_ref` claim, which for a
     # reusable workflow resolves to the callee — so the existing trust
