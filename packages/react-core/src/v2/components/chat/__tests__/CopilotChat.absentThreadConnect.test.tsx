@@ -76,7 +76,9 @@ describe("CopilotChat avoids /connect for locally-generated threadIds (ENT-314)"
     expect(connectSpy).toHaveBeenCalled();
     expect(connectSpy.mock.calls[0][0].threadId).toBe("config-thread-xyz");
   });
+});
 
+describe("CopilotChat frontend tool round trips without explicit threadId (ENT-314)", () => {
   it("uses the SDK-generated threadId for frontend tool follow-up runs", async () => {
     class FrontendToolRoundTripAgent extends MockStepwiseAgent {
       runInputs: RunAgentInput[] = [];
@@ -182,7 +184,9 @@ describe("CopilotChat avoids /connect for locally-generated threadIds (ENT-314)"
       ),
     ).toBe(true);
   });
+});
 
+describe("CopilotChat frontend tool round trips with explicit threadId (ENT-657)", () => {
   it("keeps explicit-thread messages mounted through frontend tool follow-up runs", async () => {
     class FrontendToolRoundTripAgent extends MockStepwiseAgent {
       runInputs: RunAgentInput[] = [];
@@ -230,10 +234,10 @@ describe("CopilotChat avoids /connect for locally-generated threadIds (ENT-314)"
         name: "testFrontendToolCalling",
         parameters: z.object({ label: z.string() }),
         followUp: true,
-        handler: async ({ label }) => `handled ${String(label)}`,
+        handler: async ({ label }) => `handled ${label}`,
         render: ({ args, result }) => (
           <div data-testid="frontend-tool-card">
-            {String(args.label)}:{String(result ?? "pending")}
+            {args.label}:{result ?? "pending"}
           </div>
         ),
       };

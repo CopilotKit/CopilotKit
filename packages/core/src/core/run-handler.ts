@@ -252,7 +252,7 @@ export class RunHandler {
           tools: this.buildFrontendTools(agent.agentId),
           context: Object.values(this._internal.context),
         },
-        this.createAgentErrorSubscriber(agent),
+        this.createAgentRunSubscriber(agent),
       );
 
       return this.processAgentResult({ runAgentResult, agent });
@@ -348,7 +348,7 @@ export class RunHandler {
           tools: this.buildFrontendTools(agent.agentId),
           context: Object.values(this._internal.context),
         },
-        this.createAgentErrorSubscriber(agent),
+        this.createAgentRunSubscriber(agent),
       );
       return await this.processAgentResult({ runAgentResult, agent });
     } catch (error) {
@@ -900,9 +900,9 @@ export class RunHandler {
   }
 
   /**
-   * Create an agent error subscriber
+   * Create an agent run subscriber
    */
-  private createAgentErrorSubscriber(agent: AbstractAgent): AgentSubscriber {
+  private createAgentRunSubscriber(agent: AbstractAgent): AgentSubscriber {
     const emitAgentError = async (
       error: Error,
       code: CopilotKitCoreErrorCode,
@@ -921,18 +921,7 @@ export class RunHandler {
 
     return {
       onMessagesSnapshotEvent: ({ event, input }) => {
-        const isEmptySnapshot = event.messages.length === 0;
-        const hasToolResultInRunInput = input.messages.some(
-          (message) => message.role === "tool",
-        );
-
-        // During frontend-tool follow-ups, a transient empty snapshot can arrive
-        // before the model response. Letting it propagate collapses the chat.
-        if (
-          isEmptySnapshot &&
-          hasToolResultInRunInput &&
-          agent.messages.length > 0
-        ) {
+        if (isTransientEmptyFollowUpSnapshot(event, input, agent)) {
           return { stopPropagation: true };
         }
       },
@@ -976,6 +965,25 @@ export class RunHandler {
       },
     };
   }
+}
+
+function isTransientEmptyFollowUpSnapshot(
+  event: { messages: Message[] },
+  input: { messages: Message[] },
+  agent: Pick<AbstractAgent, "messages">,
+): boolean {
+  const isEmptySnapshot = event.messages.length === 0;
+  const hasToolResultInRunInput = input.messages.some(
+    (message) => message.role === "tool",
+  );
+
+  // The subscriber runs after CopilotKit's state-manager subscriber but before
+  // AG-UI's built-in message replacement. Empty snapshots are harmless to the
+  // state manager, and stopping propagation here prevents the built-in replace
+  // from collapsing the chat between a frontend-tool result and its follow-up.
+  return (
+    isEmptySnapshot && hasToolResultInRunInput && agent.messages.length > 0
+  );
 }
 
 /**
