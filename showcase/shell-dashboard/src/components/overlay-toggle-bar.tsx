@@ -21,6 +21,7 @@ export const ALL_OVERLAYS: readonly Overlay[] = [
   "health",
   "parity",
   "docs",
+  "d6",
 ];
 
 export const PRESETS: readonly OverlayPreset[] = [
@@ -39,6 +40,7 @@ const OVERLAY_LABELS: Record<Overlay, string> = {
   health: "Health",
   parity: "Parity",
   docs: "Docs",
+  d6: "D6",
 };
 
 export interface OverlayToggleBarProps {

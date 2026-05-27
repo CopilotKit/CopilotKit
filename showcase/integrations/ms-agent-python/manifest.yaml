@@ -9,6 +9,7 @@ repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/m
 copilotkit_version: 2.0.0
 backend_url: https://showcase-ms-agent-python-production.up.railway.app
 deployed: true
+docs_mode: authored
 sort_order: 150
 generative_ui:
   - constrained-explicit
@@ -30,6 +31,8 @@ features:
   - chat-customization-css
   - headless-simple
   - headless-complete
+  - reasoning-custom
+  - reasoning-default
   - frontend-tools
   - frontend-tools-async
   - hitl
@@ -295,6 +298,28 @@ demos:
       - src/app/demos/headless-complete/hooks/use-headless-suggestions.ts
       - src/app/demos/headless-complete/attachments/use-attachments-config.ts
       - src/app/api/copilotkit/route.ts
+  - id: reasoning-default
+    name: "Reasoning: Default"
+    description: Built-in CopilotChatReasoningMessage rendering with no slot override.
+    tags:
+      - chat-ui
+    route: /demos/reasoning-default
+    highlight:
+      - src/app/demos/reasoning-default/page.tsx
+      - src/app/demos/reasoning-default/suggestions.ts
+      - src/agents/reasoning_agent.py
+  - id: reasoning-custom
+    name: "Reasoning: Custom"
+    description: Visible reasoning/thinking chain alongside the final answer
+    tags:
+      - chat-ui
+    route: /demos/reasoning-custom
+    animated_preview_url:
+    highlight:
+      - src/app/demos/reasoning-custom/page.tsx
+      - src/app/demos/reasoning-custom/reasoning-block.tsx
+      - src/agents/reasoning_agent.py
+      - src/app/api/copilotkit/route.ts
   - id: gen-ui-interrupt
     name: In-Chat HITL (useInterrupt — low-level primitive)
     description: Interactive component rendered inline in the chat via the lower-level `useInterrupt` primitive — direct control over the interrupt lifecycle
@@ -305,7 +330,7 @@ demos:
     highlight:
       - src/agents/interrupt_agent.py
       - src/app/demos/gen-ui-interrupt/page.tsx
-      - src/app/demos/gen-ui-interrupt/time-picker-card.tsx
+      - src/app/demos/gen-ui-interrupt/_components/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: declarative-gen-ui
     name: Declarative Generative UI (A2UI)
@@ -347,7 +372,7 @@ demos:
     highlight:
       - src/agents/mcp_apps_agent.py
       - src/app/demos/mcp-apps/page.tsx
-      - src/app/api/copilotkit-mcp-apps/route.ts
+      - src/app/api/copilotkit-mcp-apps/[[...slug]]/route.ts
   - id: interrupt-headless
     name: Headless Interrupt (testing)
     description: Resolve interrupts from a plain button grid — no chat, no useInterrupt render prop

@@ -61,7 +61,7 @@ Alternatively, useCopilotChat is available for basic programmatic control, and d
 
 To learn more about premium features, read the documentation here:
 
-%chttps://docs.copilotkit.ai/premium%c`,
+%chttps://docs.copilotkit.ai/premium/overview%c`,
     ConsoleStyles.header,
     ConsoleStyles.body,
     ConsoleStyles.cta,

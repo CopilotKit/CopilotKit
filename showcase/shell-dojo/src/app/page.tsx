@@ -52,6 +52,16 @@ const FEATURED_DEMO_IDS: readonly string[] = [
   "frontend-tools",
 ];
 
+// Per-integration extras appended after the base list above.
+// Demos that the integration hasn't wired are silently skipped.
+const EXTRA_FEATURED_BY_INTEGRATION: Readonly<
+  Record<string, readonly string[]>
+> = {
+  "langgraph-python": ["hitl-in-chat", "hitl-in-app", "gen-ui-interrupt"],
+  "langgraph-fastapi": ["hitl-in-chat", "hitl-in-app", "gen-ui-interrupt"],
+  "google-adk": ["hitl-in-chat", "hitl-in-app", "gen-ui-interrupt"],
+};
+
 const FEATURED_CATEGORY: FeatureCategory = {
   id: "__featured__",
   name: "Featured",
@@ -76,9 +86,13 @@ function groupDemosByCategory(
   // Featured comes first. Pull each ID from the current integration's demos,
   // preserving the curated order, and silently skip any the integration hasn't
   // implemented. The same demos still appear in their real category below.
-  const featured = FEATURED_DEMO_IDS.map((id) =>
-    integration.demos.find((d) => d.id === id),
-  ).filter((d): d is Demo => !!d);
+  const featuredIds = [
+    ...FEATURED_DEMO_IDS,
+    ...(EXTRA_FEATURED_BY_INTEGRATION[integration.slug] ?? []),
+  ];
+  const featured = featuredIds
+    .map((id) => integration.demos.find((d) => d.id === id))
+    .filter((d): d is Demo => !!d);
   if (featured.length > 0) {
     groups.push({ category: FEATURED_CATEGORY, demos: featured });
   }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildCellModel } from "../cell-model";
-import type { CellModel, CellModelInput } from "../cell-model";
+import type { CellModelInput } from "../cell-model";
 import type { LiveStatusMap, StatusRow, State } from "../live-status";
 import { keyFor } from "../live-status";
 
@@ -68,6 +68,7 @@ describe("buildCellModel", () => {
       expect(model.d3).toBeNull();
       expect(model.d4).toBeNull();
       expect(model.d5).toBeNull();
+      expect(model.d6).toBeNull();
       expect(model.achievedDepth).toBe(0);
       expect(model.ceilingDepth).toBe(0);
       expect(model.chipColor).toBe("gray");
@@ -121,7 +122,8 @@ describe("buildCellModel", () => {
       expect(model.d3!.status).toBe("green");
       expect(model.achievedDepth).toBe(3);
       expect(model.ceilingDepth).toBe(3);
-      expect(model.chipColor).toBe("green");
+      // D6-ceiling: no D5 and no D6 exist → gray
+      expect(model.chipColor).toBe("gray");
     });
 
     it("returns achievedDepth=3 when D3 passes and D5 exists but has no data", () => {
@@ -137,14 +139,14 @@ describe("buildCellModel", () => {
       expect(model.achievedDepth).toBe(3);
       // ceilingDepth requires contiguity: D4 doesn't exist → stops at 3
       expect(model.ceilingDepth).toBe(3);
-      // achieved === ceiling → green
-      expect(model.chipColor).toBe("green");
+      // D6-ceiling: D5 exists but not green, D6 absent → red
+      expect(model.chipColor).toBe("red");
     });
   });
 
   // ── Bug 2 regression: D3+D4 pass, no D5 → green chip ───────────────
   describe("D3+D4 pass, no D5 exists (Bug 2 regression)", () => {
-    it("returns green chip when achieved === ceiling", () => {
+    it("returns gray chip when no D5/D6 exist (D6-ceiling)", () => {
       // Use a featureId that has no CATALOG_TO_D5_KEY mapping
       const live = mapOf([
         row(keyFor("e2e", "agno", "no-d5-feature"), "e2e", "green"),
@@ -158,13 +160,14 @@ describe("buildCellModel", () => {
       expect(model.d5!.exists).toBe(false);
       expect(model.achievedDepth).toBe(4);
       expect(model.ceilingDepth).toBe(4);
-      expect(model.chipColor).toBe("green");
+      // D6-ceiling: no D5 and no D6 exist → gray
+      expect(model.chipColor).toBe("gray");
     });
   });
 
   // ── D3+D4 pass, D5 exists but fails → amber chip ───────────────────
   describe("D3+D4 pass, D5 exists but fails", () => {
-    it("returns amber chip (ceiling - achieved = 1)", () => {
+    it("returns red chip (D6-ceiling: D5 red, D6 absent)", () => {
       const live = mapOf([
         row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
         row(keyFor("chat", "agno"), "chat", "green"),
@@ -177,13 +180,14 @@ describe("buildCellModel", () => {
       expect(model.d5!.status).toBe("red");
       expect(model.achievedDepth).toBe(4);
       expect(model.ceilingDepth).toBe(5);
-      expect(model.chipColor).toBe("amber");
+      // D6-ceiling: D5 not green, D6 absent → red
+      expect(model.chipColor).toBe("red");
     });
   });
 
   // ── All three pass → D5 green ───────────────────────────────────────
-  describe("all three depths pass", () => {
-    it("returns green chip at D5", () => {
+  describe("D3+D4+D5 pass, no D6", () => {
+    it("returns amber chip (D6-ceiling: D5 green but D6 absent)", () => {
       const live = mapOf([
         row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
         row(keyFor("chat", "agno"), "chat", "green"),
@@ -192,7 +196,8 @@ describe("buildCellModel", () => {
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
       expect(model.achievedDepth).toBe(5);
       expect(model.ceilingDepth).toBe(5);
-      expect(model.chipColor).toBe("green");
+      // D6-ceiling: D5 green but D6 not green → amber
+      expect(model.chipColor).toBe("amber");
     });
   });
 
@@ -301,10 +306,11 @@ describe("buildCellModel", () => {
       // D5 is red → achievedDepth stops at D4
       expect(model.achievedDepth).toBe(4);
       expect(model.ceilingDepth).toBe(5);
-      expect(model.chipColor).toBe("amber");
+      // D6-ceiling: D5 not green, D6 absent → red
+      expect(model.chipColor).toBe("red");
     });
 
-    it("returns green when all D5 sub-keys pass", () => {
+    it("returns amber when all D5 sub-keys pass but no D6", () => {
       const live = mapOf([
         row(keyFor("e2e", "agno", "beautiful-chat"), "e2e", "green"),
         row(keyFor("chat", "agno"), "chat", "green"),
@@ -325,13 +331,14 @@ describe("buildCellModel", () => {
       const model = buildCellModel(live, wiredInput("agno", "beautiful-chat"));
       expect(model.d5!.status).toBe("green");
       expect(model.achievedDepth).toBe(5);
-      expect(model.chipColor).toBe("green");
+      // D6-ceiling: D5 green but D6 absent → amber
+      expect(model.chipColor).toBe("amber");
     });
   });
 
   // ── No live data at all → D0 gray ──────────────────────────────────
   describe("no live data", () => {
-    it("returns gray chip with achievedDepth=0 and ceilingDepth=0", () => {
+    it("returns red chip when D5 exists but no data (D6-ceiling)", () => {
       const model = buildCellModel(
         mapOf([]),
         wiredInput("agno", "agentic-chat"),
@@ -344,8 +351,8 @@ describe("buildCellModel", () => {
       // ceilingDepth requires contiguity: D5 only counts if D3+D4 exist
       expect(model.ceilingDepth).toBe(0);
       expect(model.achievedDepth).toBe(0);
-      // both zero → gray (ceilingDepth === 0 → no tests exist at all)
-      expect(model.chipColor).toBe("gray");
+      // D6-ceiling: D5 exists (but not green), D6 absent → red
+      expect(model.chipColor).toBe("red");
     });
 
     it("returns ceilingDepth=0 when no tests exist at all", () => {
@@ -396,7 +403,8 @@ describe("buildCellModel", () => {
       const model = buildCellModel(live, wiredInput("agno", "no-d5-feature"));
       expect(model.ceilingDepth).toBe(3);
       expect(model.achievedDepth).toBe(3);
-      expect(model.chipColor).toBe("green");
+      // D6-ceiling: no D5 and no D6 → gray
+      expect(model.chipColor).toBe("gray");
     });
   });
 
@@ -411,8 +419,130 @@ describe("buildCellModel", () => {
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
       expect(model.achievedDepth).toBe(3);
       expect(model.ceilingDepth).toBe(5);
-      // ceiling - achieved = 2 > 1 → red
+      // D6-ceiling: D4 red → gate failure → red
       expect(model.chipColor).toBe("red");
+    });
+  });
+
+  // ── D6 ceiling model ────────────────────────────────────────────────
+  describe("D6 ceiling model", () => {
+    it("d6 field exists on the CellModel", () => {
+      const model = buildCellModel(
+        mapOf([]),
+        wiredInput("agno", "agentic-chat"),
+      );
+      expect(model).toHaveProperty("d6");
+    });
+
+    it("D6 green → chipColor green", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
+        row(keyFor("d6", "agno"), "d6", "green"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.d6!.exists).toBe(true);
+      expect(model.d6!.status).toBe("green");
+      expect(model.chipColor).toBe("green");
+    });
+
+    it("D5 green + D6 red → amber", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
+        row(keyFor("d6", "agno"), "d6", "red"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.d5!.status).toBe("green");
+      expect(model.d6!.status).toBe("red");
+      // D5 green but D6 not green → amber
+      expect(model.chipColor).toBe("amber");
+    });
+
+    it("D5 green + D6 missing → amber", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.d5!.status).toBe("green");
+      expect(model.d6!.exists).toBe(false);
+      // D5 green but D6 absent → amber
+      expect(model.chipColor).toBe("amber");
+    });
+
+    it("D1-D4 gate failure → red override", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "red"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
+        row(keyFor("d6", "agno"), "d6", "green"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.d3!.status).toBe("red");
+      expect(model.d6!.status).toBe("green");
+      // D3 red → gate failure overrides everything → red
+      expect(model.chipColor).toBe("red");
+    });
+
+    it("no D5/D6 data → gray", () => {
+      // Use a featureId with no D5 mapping, no D6 row
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "no-d5-feature"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "no-d5-feature"));
+      expect(model.d5!.exists).toBe(false);
+      expect(model.d6!.exists).toBe(false);
+      expect(model.chipColor).toBe("gray");
+    });
+
+    it("D5 fail + D6 fail → red", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "red"),
+        row(keyFor("d6", "agno"), "d6", "red"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.d5!.status).toBe("red");
+      expect(model.d6!.status).toBe("red");
+      // Neither D5 nor D6 green, both exist → red
+      expect(model.chipColor).toBe("red");
+    });
+
+    it("D6 uses aggregate key not per-cell", () => {
+      // D6 is keyed by slug only (d6:<slug>), not per-feature.
+      // Two different features on the same slug should see the same D6 row.
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("e2e", "agno", "beautiful-chat"), "e2e", "green"),
+        row(keyFor("d6", "agno"), "d6", "green"),
+      ]);
+      const modelA = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      const modelB = buildCellModel(live, wiredInput("agno", "beautiful-chat"));
+      // Both cells resolve the same D6 row
+      expect(modelA.d6!.exists).toBe(true);
+      expect(modelA.d6!.status).toBe("green");
+      expect(modelB.d6!.exists).toBe(true);
+      expect(modelB.d6!.status).toBe("green");
+      // Same underlying row object
+      expect(modelA.d6!.row).toBe(modelB.d6!.row);
+    });
+
+    it("ceilingDepth is 6 when D6 data exists", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
+        row(keyFor("d6", "agno"), "d6", "green"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.ceilingDepth).toBe(6);
+      expect(model.achievedDepth).toBe(6);
     });
   });
 

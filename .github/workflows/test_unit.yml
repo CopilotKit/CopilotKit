@@ -65,9 +65,26 @@ jobs:
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: ${{ matrix.node-version }}
-          # setup-node built-in cache is fork-safe (fork PRs can't write to base repo cache)
-          cache: "pnpm"
-          cache-dependency-path: "**/pnpm-lock.yaml"
+          # Do NOT use cache: "pnpm" here — its key omits the Node.js version,
+          # so a better-sqlite3 binary compiled for one Node ABI (e.g. ABI 137
+          # from Node 24) would be served to a job running a different ABI
+          # (Node 20 = ABI 115, Node 22 = ABI 127), causing "Module did not
+          # self-register". We handle pnpm caching manually below with the
+          # node-version in the key.
+          # Fork-safety note: actions/cache is equally fork-safe — GitHub
+          # prevents fork PRs from writing to the base repo's cache at the platform level.
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: echo "store-path=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Cache pnpm store (scoped to Node.js version)
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ${{ steps.pnpm-cache.outputs.store-path }}
+          key: ${{ runner.os }}-pnpm-store-${{ matrix.node-version }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-${{ matrix.node-version }}-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

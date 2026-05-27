@@ -75,25 +75,26 @@ describe("computeColumnTally", () => {
     { id: "f2", name: "f2", category: "c", description: "" },
   ];
 
-  it("counts by chipColor — green D3 only → green chip", () => {
+  it("counts by chipColor — green D3 only (no D5/D6) → gray chip", () => {
     const live: LiveStatusMap = new Map();
-    // f1: D3=green → achievedDepth=3, ceilingDepth=3 → chipColor=green
+    // f1: D3=green but D5/D6 absent → chipColor=gray (D6-ceiling algorithm)
     live.set("e2e:i1/f1", row("e2e:i1/f1", "e2e", "green"));
-    // f2: D3=green → achievedDepth=3, ceilingDepth=3 → chipColor=green
+    // f2: D3=green but D5/D6 absent → chipColor=gray
     live.set("e2e:i1/f2", row("e2e:i1/f2", "e2e", "green"));
     const t = computeColumnTally(integration, features, live);
-    expect(t).toEqual({ green: 2, amber: 0, red: 0, unknown: false });
+    // D6-ceiling: D3-only green with no D5/D6 → gray → not counted
+    expect(t).toEqual({ green: 0, amber: 0, red: 0, unknown: false });
   });
 
-  it("red D3 → red chip (tests exist but fail), counted as red", () => {
+  it("red D3 → red chip, green D3 without D5/D6 → gray", () => {
     const live: LiveStatusMap = new Map();
-    // f1: D3=red → achievedDepth=0, ceilingDepth=3 → chipColor=red
+    // f1: D3=red → chipColor=red (d1d4GateFails)
     live.set("e2e:i1/f1", row("e2e:i1/f1", "e2e", "red"));
-    // f2: D3=green → chipColor=green
+    // f2: D3=green but D5/D6 absent → chipColor=gray (D6-ceiling)
     live.set("e2e:i1/f2", row("e2e:i1/f2", "e2e", "green"));
     const t = computeColumnTally(integration, features, live);
-    // f1 red (tests exist but all fail), f2 green
-    expect(t).toEqual({ green: 1, amber: 0, red: 1, unknown: false });
+    // f1 red (gate fail), f2 gray (no D5/D6)
+    expect(t).toEqual({ green: 0, amber: 0, red: 1, unknown: false });
   });
 
   it("health row alone does not contribute to tally", () => {
@@ -114,8 +115,8 @@ describe("computeColumnTally", () => {
       demos: [demo("f1")],
     };
     const t = computeColumnTally(partialInt, features, live);
-    // f1: wired + D3=green → green; f2: unwired → gray (skipped)
-    expect(t).toEqual({ green: 1, amber: 0, red: 0, unknown: false });
+    // f1: wired + D3=green but no D5/D6 → gray; f2: unwired → gray
+    expect(t).toEqual({ green: 0, amber: 0, red: 0, unknown: false });
   });
 
   it("not_supported_features are gray, not counted", () => {
@@ -127,8 +128,8 @@ describe("computeColumnTally", () => {
       not_supported_features: ["f2"],
     };
     const t = computeColumnTally(unsupportedInt, features, live);
-    // f1: green; f2: unsupported → gray (skipped)
-    expect(t).toEqual({ green: 1, amber: 0, red: 0, unknown: false });
+    // f1: D3=green but no D5/D6 → gray; f2: unsupported → gray
+    expect(t).toEqual({ green: 0, amber: 0, red: 0, unknown: false });
   });
 
   it("returns unknown=true when connection is error", () => {
@@ -145,14 +146,8 @@ describe("computeColumnTally", () => {
     expect(t).toEqual({ green: 0, amber: 0, red: 0, unknown: false });
   });
 
-  it("amber chip from D3=green + D4=green + D5 missing (gap=1)", () => {
-    const live: LiveStatusMap = new Map();
-    // f1: D3=green, D4(chat)=green → achievedDepth=4
-    // D5 key mapped but no row → exists=true, status=null → ceilingDepth=5
-    // gap = 5-4 = 1 → amber
-    live.set("e2e:i1/f1", row("e2e:i1/f1", "e2e", "green"));
-    live.set("chat:i1", row("chat:i1", "chat", "green"));
-    // Use a feature ID with a D5 mapping to get ceilingDepth=5
+  it("amber chip when D5=green but D6 absent", () => {
+    // D6-ceiling algorithm: D5=green → amber (awaiting D6 confirmation)
     const mappedFeatures: Feature[] = [
       {
         id: "agentic-chat",
@@ -172,9 +167,13 @@ describe("computeColumnTally", () => {
       row("e2e:i1/agentic-chat", "e2e", "green"),
     );
     mappedLive.set("chat:i1", row("chat:i1", "chat", "green"));
+    // D5 row present and green
+    mappedLive.set(
+      "d5:i1/agentic-chat",
+      row("d5:i1/agentic-chat", "d5", "green"),
+    );
     const t = computeColumnTally(mappedInt, mappedFeatures, mappedLive);
-    // D3=green, D4=green (chat only, no tools), D5 mapped but no row →
-    // ceilingDepth=5, achievedDepth=4, gap=1 → amber
+    // D3=green, D4=green, D5=green → amber (D6 not yet green)
     expect(t).toEqual({ green: 0, amber: 1, red: 0, unknown: false });
   });
 });

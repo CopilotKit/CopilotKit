@@ -32,6 +32,8 @@
     "attw": "nx run-many -t attw --projects=packages/**",
     "check:packages": "nx run-many -t publint,attw --projects=packages/**",
     "validate:model-names": "tsx scripts/validate-doc-model-names.ts",
+    "check:plugin-skills": "tsx scripts/sync-plugin-skills.ts --check",
+    "sync:plugin-skills": "tsx scripts/sync-plugin-skills.ts",
     "parity:sync": "tsx examples/integrations/_parity/sync.ts",
     "parity:verify": "tsx examples/integrations/_parity/verify.ts",
     "parity:check": "tsx examples/integrations/_parity/verify.ts --no-color"

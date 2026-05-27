@@ -1,4 +1,4 @@
-export type Overlay = "links" | "depth" | "health" | "parity" | "docs";
+export type Overlay = "links" | "depth" | "health" | "parity" | "docs" | "d6";
 export type OverlaySet = Set<Overlay>;
 
 export const ALL_OVERLAYS: readonly Overlay[] = [
@@ -7,6 +7,7 @@ export const ALL_OVERLAYS: readonly Overlay[] = [
   "health",
   "parity",
   "docs",
+  "d6",
 ] as const;
 
 export const DEFAULT_OVERLAYS: readonly Overlay[] = [

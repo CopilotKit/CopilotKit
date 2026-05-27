@@ -1,19 +1,14 @@
 "use client";
 
 /**
- * Agent Config Object — typed config knobs (tone / expertise / responseLength)
+ * Agent Config Object - typed config knobs (tone / expertise / responseLength)
  * forwarded from the provider into the agent so its behavior changes per turn.
  *
- * Wiring: the toggles live in `useAgentConfig`. Each render the resolved
- * config is published to the agent via `useAgentContext` — the v2 idiom
- * for "frontend → agent runtime context" in LangGraph 0.6+. The Python
- * graph picks it up through `CopilotKitMiddleware`, which routes the
- * context entry into the model's prompt before each call.
- *
- * (LangGraph 0.6 deprecated `configurable` in favor of `context`; the
- * `properties` prop on `<CopilotKit>` still works for v1-style relays
- * but goes through `forwardedProps` and does not land in `RunnableConfig`
- * in @ag-ui/langgraph 0.0.31. `useAgentContext` is the supported path.)
+ * Wiring: the toggles live in `useAgentConfig`. Each render publishes the
+ * resolved config through both CopilotKit `properties` and `useAgentContext`.
+ * The Microsoft Agent Framework route reads `properties` as AG-UI
+ * `forwardedProps`; the context relay keeps the demo aligned with the
+ * LangGraph Python v2 pattern.
  */
 
 import { CopilotKit } from "@copilotkit/react-core/v2";
@@ -30,6 +25,7 @@ export default function AgentConfigDemoPage() {
     <CopilotKit
       runtimeUrl="/api/copilotkit-agent-config"
       agent="agent-config-demo"
+      properties={config}
     >
       <ConfigContextRelay config={config} />
       <DemoLayout

@@ -11,8 +11,11 @@ minimal shape of the useAgentContext pattern.
 
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
 from textwrap import dedent
+from typing import Any
 
+from ag_ui.core import BaseEvent
 from agent_framework import Agent, BaseChatClient
 from agent_framework_ag_ui import AgentFrameworkAgent
 
@@ -29,9 +32,71 @@ SYSTEM_PROMPT = dedent(
 ).strip()
 
 
+def build_context_system_message(context: Any) -> str | None:
+    """Format frontend-provided AG-UI context as a model-visible message."""
+    if not isinstance(context, list) or len(context) == 0:
+        return None
+
+    lines: list[str] = ["## Context from the application"]
+    for entry in context:
+        if not isinstance(entry, dict):
+            continue
+
+        description = entry.get("description")
+        value = entry.get("value")
+        if description is None or value is None:
+            continue
+
+        lines.append("")
+        lines.append(str(description))
+        lines.append(str(value))
+
+    if len(lines) == 1:
+        return None
+
+    return "\n".join(lines)
+
+
+class ReadonlyContextFrameworkAgent(AgentFrameworkAgent):
+    """AgentFrameworkAgent that forwards `useAgentContext` to the model.
+
+    LangGraph gets this behavior from CopilotKitMiddleware. The MS Agent
+    adapter receives the AG-UI `context` entries in `input_data`, so this
+    shim appends them to the wrapped agent's instruction string before
+    delegating to the standard Agent Framework runner.
+    """
+
+    async def run(  # type: ignore[override]
+        self,
+        input_data: dict[str, Any],
+    ) -> AsyncGenerator[BaseEvent, None]:
+        context_prompt = build_context_system_message(input_data.get("context"))
+        if not context_prompt:
+            async for event in super().run(input_data):
+                yield event
+            return
+
+        options = getattr(self.agent, "default_options", None)
+        if not isinstance(options, dict):
+            async for event in super().run(input_data):
+                yield event
+            return
+
+        previous_instructions = options.get("instructions")
+        options["instructions"] = f"{SYSTEM_PROMPT}\n\n{context_prompt}"
+        try:
+            async for event in super().run(input_data):
+                yield event
+        finally:
+            if previous_instructions is None:
+                options.pop("instructions", None)
+            else:
+                options["instructions"] = previous_instructions
+
+
 def create_readonly_state_agent_context(
     chat_client: BaseChatClient,
-) -> AgentFrameworkAgent:
+) -> ReadonlyContextFrameworkAgent:
     """Instantiate the readonly-state-agent-context MAF agent."""
     base_agent = Agent(
         client=chat_client,
@@ -40,7 +105,7 @@ def create_readonly_state_agent_context(
         tools=[],
     )
 
-    return AgentFrameworkAgent(
+    return ReadonlyContextFrameworkAgent(
         agent=base_agent,
         name="ReadOnlyStateAgentContext",
         description=(

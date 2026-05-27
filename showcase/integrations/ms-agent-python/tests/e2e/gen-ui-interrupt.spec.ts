@@ -45,13 +45,13 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
     ).toBeVisible({ timeout: 15_000 });
   });
 
-  // SKIP: `schedule_meeting` is a backend tool on the `interrupt_agent` graph
-  // that triggers a LangGraph `interrupt()`. On Railway
-  // (`showcase-langgraph-python-production.up.railway.app`) the graph does
-  // not reliably reach the interrupt within 60s of a typed prompt, so the
-  // inline `time-picker-card` never renders. See W8-6 for details. Un-skip
-  // when the interrupt-agent deployment is fixed.
-  test.skip("picking a slot transitions the card to the picked state", async ({
+  // The MS Agent Framework port renders the picker via
+  // `useHumanInTheLoop({ name: "schedule_meeting" })` because MAF has no
+  // `interrupt()` primitive — the agent emits a regular tool call instead.
+  // Skip rationale from the LGP version (Railway flakiness on the
+  // langgraph-interrupt path) does not apply here; the deterministic aimock
+  // tool-call fixture makes the picker land reliably.
+  test("picking a slot transitions the card to the picked state", async ({
     page,
   }) => {
     const input = page.getByPlaceholder("Type a message");
@@ -99,8 +99,7 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
     });
   });
 
-  // SKIP: same root cause as the picking-a-slot path — see W8-6.
-  test.skip("cancel path: None-of-these-work transitions to cancelled state", async ({
+  test("cancel path: None-of-these-work transitions to cancelled state", async ({
     page,
   }) => {
     const input = page.getByPlaceholder("Type a message");

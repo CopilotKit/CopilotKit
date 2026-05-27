@@ -201,7 +201,12 @@ test.describe("Beautiful Chat", () => {
     // only the text narration renders — so we don't hard-fail on missing
     // charts. The recharts check still catches regressions when the A2UI
     // pipeline IS active.
+    await expect(page.getByText("$1.2M").first()).toBeVisible({
+      timeout: 15_000,
+    });
+
     const chartRoot = page.locator(".recharts-responsive-container").first();
+    await expect(chartRoot).toBeVisible({ timeout: 15_000 });
     const chartsRendered = await chartRoot
       .isVisible({ timeout: 15_000 })
       .catch(() => false);
@@ -227,7 +232,6 @@ test.describe("Beautiful Chat", () => {
     page,
   }) => {
     test.setTimeout(120_000);
-    await page.waitForLoadState("networkidle");
 
     await page
       .getByRole("button", { name: "Task Manager (Shared State)" })
@@ -245,5 +249,127 @@ test.describe("Beautiful Chat", () => {
     await expect(page.getByText("Explore shared agent state")).toBeVisible({
       timeout: 5_000,
     });
+  });
+
+  test("Sales Dashboard pill after another pill — A2UI surface still mounts (turnIndex regression)", async ({
+    page,
+  }) => {
+    // Regression guard: the Sales Dashboard fixture chain used to gate the
+    // leg-2 `generate_a2ui` call on `turnIndex: 1`. That fixture matcher
+    // counts assistant messages in the WHOLE thread, so clicking ANY pill
+    // before Sales Dashboard pushed the count past 1 → the matcher silently
+    // missed → `generate_a2ui` never fired → no A2UI surface rendered (only
+    // the toolCallId-keyed final-narration fixture's text appeared). Replaced
+    // with a `userMessage` + `hasToolResult: true` + `toolName: query_data`
+    // triple in feature-parity.json so the matcher is order-independent.
+    // See showcase/RUNBOOK.md "Do not use `turnIndex` in new fixtures."
+    test.setTimeout(180_000);
+
+    // Click a cheap first pill to advance turnIndex past 1.
+    await page
+      .getByRole("button", { name: "Toggle Theme (Frontend Tools)" })
+      .click();
+    await expect(
+      page.locator('[data-testid="copilot-assistant-message"]').first(),
+    ).toBeVisible({ timeout: 30_000 });
+
+    // Now click Sales Dashboard. With the turnIndex fix in place, the A2UI
+    // surface must still mount. Without the fix, only the final narration
+    // text appears and no surface element is in the DOM.
+    await page
+      .getByRole("button", { name: "Sales Dashboard (A2UI Dynamic)" })
+      .click();
+
+    // Surface mount signal: A2UI activity renderer drops a
+    // `[data-surface-id]` (or sibling) attribute somewhere in the DOM tree
+    // for any rendered surface.
+    const surface = page
+      .locator(
+        '[data-surface-id], [data-a2ui-surface], [data-testid*="surface"]',
+      )
+      .first();
+    await expect(surface).toBeVisible({ timeout: 120_000 });
+
+    // Narration text should also appear (this used to pass on its own and
+    // mask the broken surface — keep it asserted alongside the surface
+    // check so the test catches both modes).
+    await expect(page.getByText(/Total Revenue/i).first()).toBeVisible({
+      timeout: 5_000,
+    });
+  });
+
+  test("Pie Chart then Search Flights keeps the A2UI FlightCard surface working", async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+
+    await page
+      .getByRole("button", { name: "Pie Chart (Controlled Generative UI)" })
+      .click();
+
+    await expect(
+      page.getByText(/Pie chart rendered above/i).first(),
+    ).toBeVisible({ timeout: 60_000 });
+
+    await page
+      .getByRole("button", { name: "Search Flights (A2UI Fixed Schema)" })
+      .click();
+
+    await expect(page.getByText("United Airlines").first()).toBeVisible({
+      timeout: 60_000,
+    });
+    await expect(page.getByText("Delta").first()).toBeVisible({
+      timeout: 5_000,
+    });
+    await expect(page.getByText("$349").first()).toBeVisible({
+      timeout: 5_000,
+    });
+    await expect(
+      page.getByText(/Two flights shown above/i).first(),
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("Search Flights then Sales Dashboard renders the dashboard UI, not text only", async ({
+    page,
+  }) => {
+    test.setTimeout(240_000);
+
+    await page
+      .getByRole("button", { name: "Search Flights (A2UI Fixed Schema)" })
+      .click();
+
+    await expect(page.getByText("United Airlines").first()).toBeVisible({
+      timeout: 60_000,
+    });
+    await expect(
+      page.getByText(/Two flights shown above/i).first(),
+    ).toBeVisible({ timeout: 15_000 });
+
+    await page
+      .getByRole("button", { name: "Sales Dashboard (A2UI Dynamic)" })
+      .click();
+
+    await expect(page.getByText(/Total Revenue/i).first()).toBeVisible({
+      timeout: 120_000,
+    });
+    await expect(page.getByText("$1.2M").first()).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByText(/New Customers/i).first()).toBeVisible({
+      timeout: 5_000,
+    });
+
+    await expect(page.getByText(/Catalog not found/i)).toHaveCount(0);
+    await expect(
+      page.getByText(/Cannot create component .* without a type/i),
+    ).toHaveCount(0);
+
+    await expect
+      .poll(
+        async () =>
+          await page.locator(".recharts-responsive-container").count(),
+        { timeout: 15_000 },
+      )
+      .toBeGreaterThanOrEqual(2);
   });
 });

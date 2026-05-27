@@ -69,15 +69,26 @@ function main() {
   // We intentionally do NOT rebuild/retest here to keep NPM_TOKEN out
   // of the build process tree.
 
-  // Publish each package
+  // Publish each package via pnpm pack + npx npm@11 (OIDC-aware)
   console.log("\nPublishing packages...");
   for (const p of packages) {
     console.log(
       `  Publishing ${p.name}@${p.pkg.version} with tag ${distTag}...`,
     );
+    run("pnpm", ["pack"], { cwd: p.dir });
+    const tarball = `${p.name.replace("@", "").replace("/", "-")}-${p.pkg.version}.tgz`;
     run(
-      "pnpm",
-      ["publish", "--no-git-checks", "--tag", distTag, "--access", "public"],
+      "npx",
+      [
+        "--yes",
+        "npm@11.15.0",
+        "publish",
+        tarball,
+        "--tag",
+        distTag,
+        "--access",
+        "public",
+      ],
       { cwd: p.dir },
     );
   }

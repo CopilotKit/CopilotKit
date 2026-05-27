@@ -189,6 +189,60 @@ function normalizePartType(type: string, mimeType: string | undefined): string {
   return "document";
 }
 
+/**
+ * Upgrade a legacy `{ type: "binary", mimeType, data | url }` part to the
+ * modern `{ type: "image" | "document" | ..., source: { type, value, mimeType } }`
+ * shape. Returns `null` when the part is not a legacy binary or lacks the
+ * fields needed to produce a renderable modern part.
+ *
+ * Why: `agent_framework_ag_ui._normalize_snapshot_content` rewrites every
+ * multimodal part on the outbound MESSAGES_SNAPSHOT to the legacy `binary`
+ * shape (see `_message_adapters.py::_legacy_binary_part`). The chat
+ * user-message renderer's `getMediaParts` only renders modern
+ * `image|audio|video|document` parts — `binary` parts are invisible. Without
+ * this upgrade, the very first user message loses its attachment chip the
+ * moment a second turn's snapshot replaces conversation state, which is the
+ * exact failure mode covered by the back-to-back specs.
+ */
+function modernPartFromLegacyBinary(part: unknown): unknown | null {
+  if (!part || typeof part !== "object") return null;
+  const p = part as {
+    type?: string;
+    mimeType?: string;
+    data?: string;
+    url?: string;
+    id?: string;
+  };
+  if (p.type !== "binary") return null;
+  const mimeType = p.mimeType ?? "application/octet-stream";
+  const modernType = mimeType.startsWith("image/")
+    ? "image"
+    : mimeType.startsWith("audio/")
+      ? "audio"
+      : mimeType.startsWith("video/")
+        ? "video"
+        : "document";
+  if (typeof p.data === "string" && p.data.length > 0) {
+    return {
+      type: modernType,
+      source: { type: "data", value: p.data, mimeType },
+    };
+  }
+  if (typeof p.url === "string" && p.url.length > 0) {
+    return {
+      type: modernType,
+      source: { type: "url", url: p.url, mimeType },
+    };
+  }
+  if (typeof p.id === "string" && p.id.length > 0) {
+    return {
+      type: modernType,
+      source: { type: "id", id: p.id, mimeType },
+    };
+  }
+  return null;
+}
+
 function dedupeUserMessageMedia(
   messages: ReadonlyArray<Readonly<AgentMessage>>,
 ): AgentMessage[] | null {
@@ -200,10 +254,20 @@ function dedupeUserMessageMedia(
     const seen = new Set<string>();
     const kept: unknown[] = [];
     let partMutated = false;
-    for (const part of content) {
-      if (!part || typeof part !== "object") {
-        kept.push(part);
+    for (const rawPart of content) {
+      if (!rawPart || typeof rawPart !== "object") {
+        kept.push(rawPart);
         continue;
+      }
+      // Upgrade legacy `{ type: "binary" }` parts to the modern
+      // `{ type: "image|document|..." , source: { ... } }` shape that the
+      // chat user-message renderer actually renders. We do this BEFORE the
+      // media-vs-non-media branch so an upgraded part flows through the
+      // same dedupe + type-normalize path as a natively-modern part.
+      const upgraded = modernPartFromLegacyBinary(rawPart);
+      const part = upgraded ?? rawPart;
+      if (upgraded) {
+        partMutated = true;
       }
       const p = part as {
         type?: string;

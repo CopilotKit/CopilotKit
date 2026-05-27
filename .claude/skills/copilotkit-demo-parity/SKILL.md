@@ -1,6 +1,8 @@
 ---
 name: copilotkit-demo-parity
 description: Keeps examples/integrations/* demos aligned to the north-star (langgraph-python). Use when the user says "sync demos", "sync integrations", "port to north-star", "align integration demos", "parity check", or when working inside examples/integrations/ and tracked files diverge. Drives the pnpm parity:sync / parity:verify commands and handles the manual-merge zones (agent code, api route, Dockerfile).
+metadata:
+  internal: true
 ---
 
 # CopilotKit demo parity

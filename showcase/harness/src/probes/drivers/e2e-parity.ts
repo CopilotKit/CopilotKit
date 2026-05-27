@@ -40,7 +40,7 @@ import type { ProbeDriver } from "../types.js";
 import type { ProbeContext, ProbeResult } from "../../types/index.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { defaultScriptLoader as defaultD5ScriptLoader } from "./e2e-deep.js";
+import { defaultScriptLoader as defaultD5ScriptLoader } from "./d5-single-pill.js";
 import type { Page as PlaywrightPage } from "playwright";
 import type { BrowserPool } from "../helpers/browser-pool.js";
 

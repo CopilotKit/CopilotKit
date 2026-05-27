@@ -50,6 +50,8 @@ Use frontend tools when you need your agent to interact with client-side primiti
         prompts the user for approval.
 
         ```tsx title="page.tsx"
+        import { useHumanInTheLoop } from "@copilotkit/react-core/v2" // [!code highlight]
+        import { z } from "zod"
 
         export function Page() {
           // ...
@@ -57,20 +59,10 @@ Use frontend tools when you need your agent to interact with client-side primiti
           useHumanInTheLoop({
             name: "offerOptions",
             description: "Give the user a choice between two options and have them select one.",
-            parameters: [
-              {
-                name: "option_1",
-                type: "string",
-                description: "The first option",
-                required: true,
-              },
-              {
-                name: "option_2",
-                type: "string",
-                description: "The second option",
-                required: true,
-              },
-            ],
+            parameters: z.object({
+              option_1: z.string().describe("The first option"),
+              option_2: z.string().describe("The second option"),
+            }),
             render: ({ args, respond }) => {
               if (!respond) return <></>;
               return (

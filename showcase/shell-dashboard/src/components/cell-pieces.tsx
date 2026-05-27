@@ -52,11 +52,12 @@ export function DocsRow({
   const shellPath = hasShellOverride
     ? (override?.shell_docs_path ?? undefined)
     : (feature.shell_docs_path ?? undefined);
-  // The shell-docs route handler resolves `/<framework>/<slug>` directly —
-  // the legacy `/<framework>/unselected/<slug>` shape was retired by the
-  // JTBD IA restructure (commit c11976819).
+  // Point at the canonical docs host directly. Pre-cutover this CNAME serves
+  // the Vercel docs site; post-cutover it serves shell-docs on Railway. Both
+  // resolve `/<framework>/<slug>` — `${shellUrl}` no longer serves /docs/**
+  // after PR #4702 moved redirect middleware to shell-docs (2026-05-08).
   const shellHref = shellPath
-    ? `${shellUrl}/${integration.slug}${shellPath}`
+    ? `https://docs.copilotkit.ai/${integration.slug}${shellPath}`
     : undefined;
   // CP5: distinguish the two "missing" sub-cases so the tooltip is honest.
   // The override shape (`og_docs_url: string | null`) lets us tell apart:

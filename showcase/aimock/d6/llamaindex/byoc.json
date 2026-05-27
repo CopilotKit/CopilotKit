@@ -1,0 +1,37 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for llamaindex / byoc (bring-your-own-component / declarative hashbrown)",
+    "sourceScript": "d5-byoc.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "byoc hashbrown pill — emits render_a2ui tool call with metric card + pie chart + bar chart JSON payload. The D5 assertion checks for [data-testid='metric-card'] and either [data-testid='bar-chart'] or [data-testid='pie-chart']. hasToolResult:false ensures this fires on the initial prompt, not on the tool result follow-up.",
+      "match": {
+        "userMessage": "Q4 sales dashboard",
+        "hasToolResult": false,
+        "context": "llamaindex"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_byoc_hashbrown_001",
+            "name": "render_a2ui",
+            "arguments": "{\"metrics\":[{\"label\":\"Total Revenue\",\"value\":\"$2.4M\",\"change\":\"+12%\"},{\"label\":\"New Customers\",\"value\":\"1,847\",\"change\":\"+8%\"},{\"label\":\"Conversion Rate\",\"value\":\"3.2%\",\"change\":\"+0.4%\"}],\"charts\":[{\"type\":\"pie\",\"title\":\"Revenue by Segment\",\"data\":[{\"label\":\"Enterprise\",\"value\":45},{\"label\":\"Mid-Market\",\"value\":35},{\"label\":\"SMB\",\"value\":20}]},{\"type\":\"bar\",\"title\":\"Monthly Revenue\",\"data\":[{\"label\":\"Oct\",\"value\":680000},{\"label\":\"Nov\",\"value\":720000},{\"label\":\"Dec\",\"value\":1000000}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "byoc hashbrown pill — follow-up after render_a2ui returns.",
+      "match": {
+        "userMessage": "Q4 sales dashboard",
+        "hasToolResult": true,
+        "context": "llamaindex"
+      },
+      "response": {
+        "content": "Q4 sales dashboard rendered above — total revenue hit $2.4M with strong growth across all segments."
+      }
+    }
+  ]
+}

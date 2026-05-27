@@ -284,8 +284,11 @@ public class GenerateA2uiErrorBranchTests
     private static Microsoft.Extensions.Logging.ILogger NewLogger()
         => NullLogger.Instance;
 
-    private static JsonElement ParseToElement(string json)
-        => JsonDocument.Parse(json).RootElement;
+    private static JsonElement ParseToElement(object payload)
+    {
+        var json = payload is string value ? value : JsonSerializer.Serialize(payload);
+        return JsonDocument.Parse(json).RootElement;
+    }
 
     [Fact]
     public void MalformedJson_ReturnsStructuredError_Category_MalformedLlmOutput()
@@ -349,8 +352,8 @@ public class GenerateA2uiErrorBranchTests
     public void WellFormedInput_ReturnsOperationsPayload()
     {
         // Happy path: valid shape produces the a2ui_operations envelope with
-        // create_surface, update_components, and (when data present)
-        // update_data_model.
+        // the nested A2UI v0.9 operations expected by @ag-ui/a2ui-middleware:
+        // createSurface, updateComponents, and (when data present) updateDataModel.
         var output = SalesAgentFactory.BuildA2uiResponseFromContent(
             "{\"surfaceId\":\"ds\",\"catalogId\":\"copilotkit://c\",\"components\":[{\"id\":\"root\",\"component\":\"Row\"}],\"data\":{\"k\":1}}",
             ErrorId,
@@ -360,16 +363,21 @@ public class GenerateA2uiErrorBranchTests
         var ops = doc.GetProperty("a2ui_operations");
         Assert.Equal(JsonValueKind.Array, ops.ValueKind);
         Assert.Equal(3, ops.GetArrayLength());
-        Assert.Equal("create_surface", ops[0].GetProperty("type").GetString());
-        Assert.Equal("update_components", ops[1].GetProperty("type").GetString());
-        Assert.Equal("update_data_model", ops[2].GetProperty("type").GetString());
+        Assert.Equal("v0.9", ops[0].GetProperty("version").GetString());
+        Assert.Equal("ds", ops[0].GetProperty("createSurface").GetProperty("surfaceId").GetString());
+        Assert.Equal("copilotkit://c", ops[0].GetProperty("createSurface").GetProperty("catalogId").GetString());
+        Assert.Equal("ds", ops[1].GetProperty("updateComponents").GetProperty("surfaceId").GetString());
+        Assert.Equal(JsonValueKind.Array, ops[1].GetProperty("updateComponents").GetProperty("components").ValueKind);
+        Assert.Equal("ds", ops[2].GetProperty("updateDataModel").GetProperty("surfaceId").GetString());
+        Assert.Equal("/", ops[2].GetProperty("updateDataModel").GetProperty("path").GetString());
+        Assert.Equal(1, ops[2].GetProperty("updateDataModel").GetProperty("value").GetProperty("k").GetInt32());
     }
 
     [Fact]
     public void WellFormedInput_NoData_OmitsUpdateDataModel()
     {
-        // Data is optional; when absent we emit only create_surface and
-        // update_components.
+        // Data is optional; when absent we emit only createSurface and
+        // updateComponents.
         var output = SalesAgentFactory.BuildA2uiResponseFromContent(
             "{\"components\":[{\"id\":\"root\",\"component\":\"Row\"}]}",
             ErrorId,

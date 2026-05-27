@@ -68,12 +68,42 @@ function canonicalSlug(legacy: string): string {
   return SLUG_RENAMES[legacy] ?? legacy;
 }
 
+/**
+ * Canonical (post-cutover) framework slugs served by shell-docs. Used for
+ * wildcard rules that match the current URL surface rather than legacy
+ * upstream slugs. Keep in sync with the registry; covers generated,
+ * authored, and hidden buckets.
+ */
+const CANONICAL_FRAMEWORKS = [
+  "built-in-agent",
+  "langgraph-python",
+  "langgraph-typescript",
+  "langgraph-fastapi",
+  "google-adk",
+  "a2a",
+  "agent-spec",
+  "deepagents",
+  "mastra",
+  "crewai-crews",
+  "pydantic-ai",
+  "agno",
+  "ag2",
+  "llamaindex",
+  "strands",
+  "ms-agent-python",
+  "ms-agent-dotnet",
+  "claude-sdk-python",
+  "claude-sdk-typescript",
+  "langroid",
+  "spring-ai",
+] as const;
+
 /** Per-framework subpath renames (Category 5 in spec). Applied to ALL 13 frameworks. */
 const SUBPATH_RENAMES: { specId: string; from: string; to: string }[] = [
   { specId: "S1", from: "agentic-chat-ui", to: "prebuilt-components" },
   { specId: "S2", from: "use-agent-hook", to: "programmatic-control" },
   { specId: "S3", from: "frontend-actions", to: "frontend-tools" },
-  { specId: "S4", from: "vibe-coding-mcp", to: "coding-agents" },
+  { specId: "S4", from: "vibe-coding-mcp", to: "build-with-agents" },
   {
     specId: "S5",
     from: "generative-ui/agentic",
@@ -111,7 +141,8 @@ const SUBPATH_RENAMES: { specId: string; from: string; to: string }[] = [
     to: "custom-look-and-feel/slots",
   },
   { specId: "S14", from: "guide", to: "guides" },
-  { specId: "S15", from: "mcp", to: "coding-agents" },
+  { specId: "S15", from: "mcp", to: "build-with-agents" },
+  { specId: "S16", from: "coding-agents", to: "build-with-agents" },
 ];
 
 // S13 (concepts/:path* -> framework root) handled separately since it's a wildcard-to-single-page
@@ -147,6 +178,26 @@ function generateFrameworkRenames(): RedirectEntry[] {
   }
   return entries;
 }
+
+// ---------------------------------------------------------------------------
+// /coding-agents renamed to /build-with-agents
+// Covers the root page + all canonical framework slugs (exact 301s).
+// S16 in SUBPATH_RENAMES handles the legacy-slug surface; these entries
+// handle the canonical-slug surface (e.g. /langgraph-python/coding-agents).
+// ---------------------------------------------------------------------------
+
+const CODING_AGENTS_RENAMES: RedirectEntry[] = [
+  {
+    id: "CA-root",
+    source: "/coding-agents",
+    destination: "/build-with-agents",
+  },
+  ...[...new Set(FRAMEWORKS.map(canonicalSlug))].map((fw) => ({
+    id: `CA×${fw}`,
+    source: `/${fw}/coding-agents`,
+    destination: `/${fw}/build-with-agents`,
+  })),
+];
 
 // ---------------------------------------------------------------------------
 // Category 3: Deep Coagents Redirects (specific paths)
@@ -366,7 +417,7 @@ const SPECIFIC_FRAMEWORK: RedirectEntry[] = [
   {
     id: "F20",
     source: "/direct-to-llm/guides/mcp",
-    destination: "/built-in-agent/coding-agents",
+    destination: "/built-in-agent/build-with-agents",
   },
 ];
 
@@ -413,7 +464,7 @@ const ROOT_RENAMES: RedirectEntry[] = [
   {
     id: "R12",
     source: "/coding-agent-setup",
-    destination: "/coding-agents",
+    destination: "/build-with-agents",
   },
   {
     id: "R13",
@@ -427,8 +478,8 @@ const ROOT_RENAMES: RedirectEntry[] = [
     source: "/integrations/built-in-agent",
     destination: "/built-in-agent",
   },
-  { id: "R18", source: "/mcp", destination: "/coding-agents" },
-  { id: "R19", source: "/vibe-coding-mcp", destination: "/coding-agents" },
+  { id: "R18", source: "/mcp", destination: "/build-with-agents" },
+  { id: "R19", source: "/vibe-coding-mcp", destination: "/build-with-agents" },
   {
     id: "R21",
     source: "/ag-ui-protocol",
@@ -717,8 +768,27 @@ const WILDCARD_REDIRECTS: RedirectEntry[] = [
     source: "/generative-ui-specs/:path*",
     destination: "/generative-ui/specs/:path*",
   },
+  // Tutorials deprecation: section retired post-cutover. Framework-scoped
+  // tutorial URLs redirect to that framework's quickstart; unscoped variants
+  // redirect to the docs root. Must precede the per-framework P1×/P2×
+  // catch-alls below.
+  ...CANONICAL_FRAMEWORKS.map((fw) => ({
+    id: `T1×${fw}`,
+    source: `/${fw}/tutorials/:path*`,
+    destination: `/${fw}/quickstart`,
+  })),
+  {
+    id: "T1-unscoped-wild",
+    source: "/tutorials/:path*",
+    destination: "/",
+  },
+  { id: "T1-unscoped-root", source: "/tutorials", destination: "/" },
   // Category 1: Pattern rules (bulk coverage)
-  { id: "P10", source: "/reference/v1/:path*", destination: "/reference/v2" },
+  {
+    id: "P10",
+    source: "/reference/v1/:path*",
+    destination: "/reference/v2/:path*",
+  },
   {
     id: "P11",
     source: "/guides/:path*",
@@ -752,6 +822,7 @@ export const seoRedirects: RedirectEntry[] = [
   // 1. Most-specific exact paths first
   ...DEEP_COAGENTS,
   ...SPECIFIC_FRAMEWORK,
+  ...CODING_AGENTS_RENAMES,
   ...ROOT_RENAMES,
   ...LEGACY_CHAINS_EXACT,
   ...DOCS_INTEGRATIONS_INDEX.filter((e) => !e.source.includes(":path*")),

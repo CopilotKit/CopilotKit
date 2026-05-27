@@ -33,11 +33,15 @@ import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selecto
 import { SidebarNav } from "@/components/sidebar-nav";
 import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
 import { FrameworkOverview } from "@/components/content/landing-pages/framework-overview";
+import { MdxFrameworkOverview } from "@/components/content/landing-pages/mdx-framework-overview";
+import type { MdxFrameworkOverviewProps } from "@/components/content/landing-pages/mdx-framework-overview";
+import { FrameworkSetup } from "@/lib/setup-concept";
 import { frameworkOverviews } from "@/data/frameworks";
 import { docsComponents } from "@/lib/mdx-registry";
 import { transformerMeta } from "@/lib/rehype-code-meta";
 import {
   CONTENT_DIR,
+  buildFrameworkOnlyNav,
   buildFrameworkOverridesNav,
   buildNavTree,
   findFrameworksWithCell,
@@ -45,9 +49,14 @@ import {
   loadDoc,
 } from "@/lib/docs-render";
 import type { NavNode } from "@/lib/docs-render";
-import { getDocsFolder, getIntegration, getIntegrations } from "@/lib/registry";
+import {
+  getDocsFolder,
+  getDocsMode,
+  getIntegration,
+  getIntegrations,
+} from "@/lib/registry";
 import type { Integration } from "@/lib/registry";
-import { getBaseUrl } from "@/lib/sitemap-helpers";
+import { buildDocMetadata } from "@/lib/seo-metadata";
 import { RESERVED_ROUTE_SLUGS } from "@/app/layout";
 import demoContent from "@/data/demo-content.json";
 import fs from "fs";
@@ -60,6 +69,11 @@ import path from "path";
 // UnscopedDocsPage but the canonical still points at the same URL —
 // the page's identity is defined by its URL, not the resolution
 // strategy used to render it.
+//
+// Title and description come from the resolved MDX frontmatter (with
+// the same per-framework override resolution the page render uses) so
+// every variant emits its own social card and SEO description rather
+// than inheriting the layout's generic site-wide values.
 export async function generateMetadata({
   params,
 }: {
@@ -67,11 +81,47 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { framework, slug } = await params;
   const slugTail = slug && slug.length > 0 ? `/${slug.join("/")}` : "";
-  return {
-    alternates: {
-      canonical: `${getBaseUrl()}/${framework}${slugTail}`,
-    },
-  };
+  const canonicalPath = `/${framework}${slugTail}`;
+  // Try to read frontmatter for the resolved page. Mirror the page's
+  // own content-resolution order (authored vs generated, per-framework
+  // override vs root) cheaply: best-effort only; if nothing resolves,
+  // the helper falls back to the framework slug as a humanised title.
+  let title: string | undefined;
+  let description: string | undefined;
+  const slugPath = slug?.join("/") ?? "";
+  if (slugPath) {
+    const docsFolder = getDocsFolder(framework);
+    const frameworkScopedDoc = loadDoc(
+      `integrations/${docsFolder}/${slugPath}`,
+    );
+    const doc = frameworkScopedDoc ?? loadDoc(slugPath);
+    if (doc) {
+      title = doc.fm.title;
+      description = doc.fm.description;
+    }
+  } else {
+    // Framework root — prefer the integration record's display name and
+    // tagline, falling back to the framework's index.mdx if present.
+    const integration = getIntegration(framework);
+    const overview = frameworkOverviews[framework];
+    const indexDoc = loadDoc(`integrations/${getDocsFolder(framework)}/index`);
+    title =
+      indexDoc?.fm.title ??
+      overview?.frameworkName ??
+      integration?.name ??
+      framework;
+    description = indexDoc?.fm.description ?? overview?.subheader;
+  }
+  // Per-page OG route lives at /og/<slug>/og.png — see
+  // src/app/og/[...slug]/route.tsx. Each framework variant gets its own
+  // image because the slug is framework-scoped.
+  const ogPath = `/og${canonicalPath}/og.png`;
+  return buildDocMetadata({
+    title: title ?? framework,
+    description,
+    canonicalPath,
+    ogPath,
+  });
 }
 
 export async function generateStaticParams() {
@@ -80,6 +130,15 @@ export async function generateStaticParams() {
   // × ~60 doc pages, all cheap to render on demand.
   return [];
 }
+
+// Force dynamic rendering so paths NOT in generateStaticParams are
+// rendered fresh on each request. Without this, Next.js was caching
+// the rendered "404 page body" with a 200 status and `s-maxage=1y`
+// (a soft-404 that demotes the whole site in search rankings). With
+// `force-dynamic`, the runtime notFound() call sets the response
+// status to 404 every time. The data fetches here are filesystem
+// reads of MDX, so per-request rendering is cheap.
+export const dynamic = "force-dynamic";
 
 interface DemoRecord {
   regions?: Record<string, unknown>;
@@ -119,7 +178,7 @@ function frameworkHasCellFor(framework: string, cell: string): boolean {
 // share the LangGraph mark; other integrations have no custom mark
 // yet and fall back to no icon. Extend as we ship more.
 function frameworkSectionIcon(framework: string): string | undefined {
-  if (/^langgraph/.test(framework)) return "custom/langgraph";
+  if (framework.startsWith("langgraph")) return "custom/langgraph";
   return undefined;
 }
 
@@ -210,17 +269,30 @@ function mergeFrameworkNav(
   if (insertAt === -1) {
     return [...rootNavWithIntro, sectionHeader, ...remainingOverrideNav];
   }
-  // `insertAt` was computed against the original rootNav. The replace
-  // path (rootHasIntro) preserves array length; only the splice path
-  // shifts indices at/after Get Started by +1.
+  // `insertAt` was computed against the original rootNav, so it must be
+  // adjusted whenever `rootNavWithIntro` shifted any positions. There are
+  // three branches:
+  //
+  //   1. `rootHasIntro` -> replace path. The map() preserves length so
+  //      no shift; insertAt stays as-is.
+  //   2. Splice into Get Started (`getStartedIdx !== -1`). introNode is
+  //      inserted at index `getStartedIdx + 1`, so every node from that
+  //      position onward shifts +1. insertAt > getStartedIdx -> +1.
+  //   3. Prepend (`getStartedIdx === -1`). introNode is unshift()ed in
+  //      front, so EVERY index shifts +1 unconditionally.
+  //
+  // The previous version only handled (1) and (2); the prepend branch
+  // (3) was silently miscomputed by 1 slot, splicing the framework
+  // section one position too early in the prepended array.
   const getStartedIdx = rootNav.findIndex((n) => isSection(n, "get started"));
-  const adjustedInsertAt =
-    introNode &&
+  const prepended = !!introNode && !rootHasIntro && getStartedIdx === -1;
+  const splicedAfterAnchor =
+    !!introNode &&
     !rootHasIntro &&
     getStartedIdx !== -1 &&
-    insertAt > getStartedIdx
-      ? insertAt + 1
-      : insertAt;
+    insertAt > getStartedIdx;
+  const adjustedInsertAt =
+    prepended || splicedAfterAnchor ? insertAt + 1 : insertAt;
   return [
     ...rootNavWithIntro.slice(0, adjustedInsertAt),
     sectionHeader,
@@ -265,6 +337,15 @@ export default async function FrameworkScopedDocsPage({
   if (!integration && !isDocsOnlyFramework) {
     const unscopedPath = [framework, ...(slug ?? [])].join("/");
     return <UnscopedDocsPage slugPath={unscopedPath} />;
+  }
+
+  // `docs_mode: hidden` (manifest.yaml) means the framework should not
+  // appear in shell-docs at all — no `/<slug>` page, no switcher entry.
+  // 404 is the right answer; the unscoped fallback above would still
+  // show the user the agnostic docs under their framework slug, which
+  // misleadingly implies the framework has docs.
+  if (integration && getDocsMode(framework) === "hidden") {
+    notFound();
   }
 
   const slugPath = slug?.join("/") ?? "";
@@ -317,39 +398,60 @@ export default async function FrameworkScopedDocsPage({
   // google-adk → `adk/` and strands → `aws-strands/`. Resolve the URL
   // slug to its docs folder before touching disk.
   const docsFolder = getDocsFolder(framework);
+  const docsMode = getDocsMode(framework);
 
   let contentSlugPath: string = slugPath;
   let doc: ReturnType<typeof loadDoc> = null;
 
-  // `/quickstart` at the root is a routing shim — it exists only so
-  // the sidebar's Quickstart entry has a backing page. Real quickstart
-  // content lives per-framework at `integrations/<framework>/quickstart.mdx`,
-  // so for framework-scoped URLs the override always wins over the shim.
-  if (slugPath === "quickstart") {
-    const overridePath = `integrations/${docsFolder}/${slugPath}`;
-    doc = loadDoc(overridePath);
-    if (doc) contentSlugPath = overridePath;
-  }
-
-  if (!doc) {
-    doc = loadDoc(slugPath);
+  // Content resolution order depends on docs_mode:
+  //
+  //   authored  — per-framework MDX wins for every slug. The framework
+  //               owns its IA; root shims must NOT shadow ported pages.
+  //               Only fall back to root if the framework simply has no
+  //               file for the requested slug (preserves the "shared"
+  //               fallback for slugs the framework intentionally leaves
+  //               to the agnostic page, e.g. enterprise CTAs).
+  //   generated — root MDX wins (Model 1, current behavior); the
+  //               per-framework tree is a sparse override layer.
+  if (docsMode === "authored") {
+    const frameworkPath = `integrations/${docsFolder}/${slugPath}`;
+    doc = loadDoc(frameworkPath);
+    if (doc) contentSlugPath = frameworkPath;
+    if (!doc) doc = loadDoc(slugPath);
+  } else {
+    // `/quickstart` at the root is a routing shim — it exists only so
+    // the sidebar's Quickstart entry has a backing page. Real quickstart
+    // content lives per-framework at `integrations/<framework>/quickstart.mdx`,
+    // so for framework-scoped URLs the override always wins over the shim.
+    if (slugPath === "quickstart") {
+      const overridePath = `integrations/${docsFolder}/${slugPath}`;
+      doc = loadDoc(overridePath);
+      if (doc) contentSlugPath = overridePath;
+    }
     if (!doc) {
-      const fallbackPath = `integrations/${docsFolder}/${slugPath}`;
-      doc = loadDoc(fallbackPath);
-      if (doc) contentSlugPath = fallbackPath;
+      doc = loadDoc(slugPath);
+      if (!doc) {
+        const fallbackPath = `integrations/${docsFolder}/${slugPath}`;
+        doc = loadDoc(fallbackPath);
+        if (doc) contentSlugPath = fallbackPath;
+      }
     }
   }
 
-  // Sidebar nav needs to render on both the happy path and the
-  // "not available" fallback, so build it before branching.
-  const rootNav = buildNavTree(CONTENT_DIR);
-  const overrideNav = buildFrameworkOverridesNav(docsFolder);
-  const navTree: NavNode[] = mergeFrameworkNav(
-    rootNav,
-    overrideNav,
-    integration.name,
-    frameworkSectionIcon(framework),
-  );
+  // Sidebar: `authored` mode uses ONLY the per-framework MDX tree (so
+  // the agnostic root sections "Concepts / Build Chat UIs / ..." don't
+  // appear and per-framework versions of root-named pages survive).
+  // `generated` mode keeps today's behavior: root nav merged with a
+  // root-equivalent-filtered overrides layer.
+  const navTree: NavNode[] =
+    docsMode === "authored"
+      ? buildFrameworkOnlyNav(docsFolder)
+      : mergeFrameworkNav(
+          buildNavTree(CONTENT_DIR),
+          buildFrameworkOverridesNav(docsFolder),
+          integration.name,
+          frameworkSectionIcon(framework),
+        );
 
   if (!doc) {
     // No root MDX and no override for this framework. If the topic
@@ -476,25 +578,32 @@ async function FrameworkRootPage({ framework }: { framework: string }) {
   // `getDocsFolder` already falls back to the slug itself when there's
   // no override, so it's safe for docs-only frameworks.
   const docsFolder = getDocsFolder(framework);
-  const rootNav = buildNavTree(CONTENT_DIR);
-  const overrideNav = buildFrameworkOverridesNav(docsFolder);
+  const docsMode = getDocsMode(framework);
   // Display name preference: integration record → overview data →
-  // raw slug. `mergeFrameworkNav` uses this purely as the section
-  // header text inserted into the sidebar.
+  // raw slug. Used as the sidebar section header in `generated` mode.
   const integrationName =
     integration?.name ??
     frameworkOverviews[framework]?.frameworkName ??
     framework;
-  const navTree = mergeFrameworkNav(
-    rootNav,
-    overrideNav,
-    integrationName,
-    frameworkSectionIcon(framework),
-  );
+  // Sidebar — same authored-vs-generated split as the scoped-page
+  // route. `authored` frameworks own their entire IA; `generated`
+  // frameworks merge per-framework overrides into the agnostic root.
+  const navTree: NavNode[] =
+    docsMode === "authored"
+      ? buildFrameworkOnlyNav(docsFolder)
+      : mergeFrameworkNav(
+          buildNavTree(CONTENT_DIR),
+          buildFrameworkOverridesNav(docsFolder),
+          integrationName,
+          frameworkSectionIcon(framework),
+        );
 
-  // Tier 1: data-driven FrameworkOverview.
+  // Tier 1: data-driven FrameworkOverview. ONLY for `generated` mode —
+  // `authored` frameworks skip straight to Tier 2 so their ported
+  // index.mdx (not the auto-generated catalog landing) renders at
+  // `/<framework>`.
   const overview = frameworkOverviews[framework];
-  if (overview) {
+  if (overview && docsMode === "generated") {
     let afterFeatures: React.ReactNode = undefined;
     if (overview.hasAfterFeaturesMdx) {
       const mdxPath = path.join(
@@ -518,6 +627,30 @@ async function FrameworkRootPage({ framework }: { framework: string }) {
                 // `data-title` / `data-language` data-attrs MdxCodeBlock
                 // reads.
                 pre: MdxCodeBlock,
+                // Bind the URL framework slug so any MdxFrameworkOverview
+                // usage inside after-features.mdx routes through the
+                // rewriter with the URL-active variant — same rationale
+                // as DocsPageView's components-map override.
+                FrameworkOverview: (props: MdxFrameworkOverviewProps) => (
+                  <MdxFrameworkOverview
+                    {...props}
+                    currentFramework={framework ?? props.currentFramework}
+                  />
+                ),
+                // Mirror the binding in DocsPageView so any
+                // <FrameworkSetup> embedded in after-features.mdx also
+                // gets the URL framework slug threaded in.
+                FrameworkSetup: (props: {
+                  concept: string;
+                  heading?: string | null;
+                  headingId?: string;
+                  currentFramework?: string;
+                }) => (
+                  <FrameworkSetup
+                    {...props}
+                    currentFramework={framework ?? props.currentFramework}
+                  />
+                ),
               }}
               options={{
                 mdxOptions: {

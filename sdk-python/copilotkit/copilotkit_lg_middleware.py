@@ -16,7 +16,7 @@ Example:
 
 import json
 import re
-from typing import Any, Callable, Awaitable, ClassVar, Iterable, List, Union
+from typing import Any, Callable, Awaitable, ClassVar, Iterable, Union
 
 from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
 from langchain.agents.middleware import (
@@ -27,7 +27,120 @@ from langchain.agents.middleware import (
 )
 from langgraph.runtime import Runtime
 
+from .header_propagation import install_httpx_hook, set_forwarded_headers
 from .langgraph import CopilotKitProperties
+
+# Track which httpx clients already have the header-propagation hook installed
+# (by object id) so we never double-install on repeated model calls.
+_hooked_clients: set[int] = set()
+
+
+def _extract_forwarded_headers_from_config() -> None:
+    """Extract raw ``x-*`` headers from the current LangGraph RunnableConfig and
+    push them into the header-propagation ContextVar so the httpx hook can
+    forward them on outgoing LLM requests.
+
+    When an agent runs inside **langgraph-api** with
+    ``LANGGRAPH_HTTP={"configurable_headers":{"include":["x-*"]}}``,
+    the server copies inbound HTTP ``x-*`` headers into
+    ``config["configurable"]`` as individual keys (e.g.
+    ``configurable["x-aimock-context"] = "value"``).  This function reads those
+    keys and calls :func:`set_forwarded_headers` so they propagate to the
+    underlying LLM provider SDK via the httpx event hook.
+
+    Precedence: the wrapper dict ``copilotkit_forwarded_headers`` (if present)
+    takes priority over raw ``x-*`` keys.  Raw keys are only used when the
+    wrapper dict is absent or does not contain a given header.
+
+    Safe to call outside a runnable context (e.g. in unit tests) — silently
+    returns without doing anything if ``get_config()`` raises.
+    """
+    try:
+        from langgraph.config import (
+            get_config,
+        )  # local import to avoid hard dep at module level
+
+        config = get_config()
+    except ImportError:
+        return
+    except RuntimeError:
+        # No active runnable context — clear the ContextVar so stale headers
+        # from a prior request in the same async context do not leak through.
+        set_forwarded_headers({})
+        return
+
+    try:
+        headers: dict[str, str] = {}
+
+        # Sources to scan: config["context"] (LangGraph >=0.6.0) and
+        # config["configurable"] (all versions).
+        context = config.get("context") or {}
+        configurable = config.get("configurable") or {}
+
+        # 1) Wrapper-dict path (highest priority): these are headers that
+        #    CopilotKit explicitly bundled under a known key.  Process context
+        #    first with first-write-wins so context takes precedence over
+        #    configurable (LangGraph >=0.6.0 introduced context as the newer
+        #    preferred mechanism).
+        for src in (context, configurable):
+            if not isinstance(src, dict):
+                continue
+            wrapper = src.get("copilotkit_forwarded_headers")
+            if isinstance(wrapper, dict):
+                for k, v in wrapper.items():
+                    lk = k.lower() if isinstance(k, str) else k
+                    if isinstance(k, str) and isinstance(v, str) and lk not in headers:
+                        headers[lk] = v
+
+        # 2) Raw x-* keys directly on context and configurable.  These appear
+        #    when langgraph-api's configurable_headers mechanism forwards inbound
+        #    HTTP headers as individual configurable entries.
+        for src in (context, configurable):
+            if not isinstance(src, dict):
+                continue
+            for k, v in src.items():
+                if (
+                    isinstance(k, str)
+                    and k.lower().startswith("x-")
+                    and isinstance(v, str)
+                ):
+                    # Don't overwrite wrapper-dict values (wrapper > raw).
+                    # Lowercase at insertion so precedence checks are
+                    # deterministic regardless of source casing.
+                    lk = k.lower()
+                    if lk not in headers:
+                        headers[lk] = v
+
+        # Always set the ContextVar — even with an empty dict — so stale
+        # headers from previous calls in the same async context do not leak
+        # into this one.
+        set_forwarded_headers(headers)
+    except Exception as e:
+        # Header forwarding is best-effort.  Never block the LLM call.
+        # Clear the ContextVar so stale headers from a prior request do not
+        # leak through on failure.
+        set_forwarded_headers({})
+        import logging
+
+        logging.getLogger(__name__).debug(
+            "Header forwarding extraction failed; continuing without forwarded headers: %s",
+            e,
+        )
+
+
+def _ensure_httpx_hook(model: Any) -> None:
+    """Install the header-propagation httpx hook on a LangChain chat model's
+    underlying HTTP client(s), if present.  No-op for models that don't expose
+    an httpx transport (e.g. non-OpenAI/Anthropic providers).
+    """
+    for attr in ("client", "async_client"):
+        client = getattr(model, attr, None)
+        if client is None:
+            continue
+        cid = id(client)
+        if cid not in _hooked_clients:
+            install_httpx_hook(client)
+            _hooked_clients.add(cid)
 
 
 class StateSchema(AgentState):
@@ -152,6 +265,8 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         request: ModelRequest,
         handler: Callable[[ModelRequest], ModelResponse],
     ) -> ModelResponse:
+        _extract_forwarded_headers_from_config()
+        _ensure_httpx_hook(request.model)
         request = self._apply_state_note(request)
         frontend_tools = request.state.get("copilotkit", {}).get("actions", [])
 
@@ -340,6 +455,8 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         request: ModelRequest,
         handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
     ) -> ModelResponse:
+        _extract_forwarded_headers_from_config()
+        _ensure_httpx_hook(request.model)
         self._fix_messages_for_bedrock(request.messages)
         request = self._apply_state_note(request)
 

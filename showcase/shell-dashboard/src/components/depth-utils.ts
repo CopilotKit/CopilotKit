@@ -11,16 +11,13 @@
  *   D3 = e2e:<slug>/<featureId> green (per-cell)
  *   D4 = chat:<slug> OR tools:<slug> green (integration-scoped)
  *   D5 = d5:<slug>/<d5FeatureType> green (per-cell, mapped via CATALOG_TO_D5_KEY)
- *   D6 = d6:<slug>/<featureId> green (per-cell)
+ *   D6 = d6:<slug> green (integration-scoped aggregate)
  *
  * Achieved depth = highest D where ALL lower depths are also green.
  * Short-circuits: if any level is not green, stop there.
  */
-import {
-  keyFor,
-  CATALOG_TO_D5_KEY,
-  type LiveStatusMap,
-} from "@/lib/live-status";
+import { keyFor, CATALOG_TO_D5_KEY } from "@/lib/live-status";
+import type { LiveStatusMap } from "@/lib/live-status";
 
 /** Minimal catalog cell shape consumed by depth derivation. */
 export interface CatalogCell {
@@ -93,12 +90,8 @@ function isD5Green(
  * - D0: always possible for wired/stub cells
  * - D1-D4: always possible if the cell has a feature ID
  * - D5: possible only if CATALOG_TO_D5_KEY[featureId] exists and has entries
- * - D6: a stretch goal, not a structural ceiling — D6 probes are rare and
- *   not registered per-feature, so we treat D5 as the ceiling. A cell that
- *   actually reaches D6 still renders green (depthColorClass treats
- *   `depth >= maxDepth` as at-ceiling), so capping at 5 doesn't penalize
- *   the rare D6 achievers — it just stops penalizing every D5 cell as
- *   "below ceiling" when D6 was never wired.
+ * - D6: possible when a D5 mapping exists (D6 uses an integration-scoped
+ *   aggregate key, so no additional per-feature mapping is needed)
  */
 function computeMaxPossible(cell: CatalogCell): AchievedDepth {
   // Unsupported/unshipped: max possible is 0.
@@ -118,8 +111,8 @@ function computeMaxPossible(cell: CatalogCell): AchievedDepth {
     return 4;
   }
 
-  // D5 mapping exists. D6 is a stretch goal — see fn doc above.
-  return 5;
+  // D5 mapping exists and D6 is reachable.
+  return 6;
 }
 
 /**
@@ -221,8 +214,8 @@ export function deriveDepth(
   }
   achieved = 5;
 
-  // D6: d6:<slug>/<featureId> green (per-cell)
-  if (isGreen(live, keyFor("d6", cell.integration, cell.feature))) {
+  // D6: d6:<slug> green (integration-scoped aggregate)
+  if (isGreen(live, keyFor("d6", cell.integration))) {
     achieved = 6;
   }
 

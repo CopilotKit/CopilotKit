@@ -1,0 +1,19 @@
+{
+    "_meta": {
+        "description": "D6 fixtures for google-adk / prebuilt-sidebar",
+        "sourceFile": "harness/fixtures/d5/prebuilt-sidebar.json",
+        "created": "2026-05-22"
+    },
+    "fixtures": [
+        {
+            "_comment": "prebuilt-sidebar — single turn. The D5 probe verifies (a) .copilotKitSidebar root is visible, (b) assistant response lands inside the sidebar surface.",
+            "match": {
+                "userMessage": "hi from the sidebar test",
+                "context": "google-adk"
+            },
+            "response": {
+                "content": "Hello from the sidebar — the CopilotSidebar prebuilt component is wired up and reachable. Anything else you would like me to confirm from inside the sidebar?"
+            }
+        }
+    ]
+}

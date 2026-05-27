@@ -11,7 +11,7 @@ import {
   Accordions,
   Accordion,
 } from "@/components/mdx-components";
-import { Callout as DocsCallout } from "@/components/docs-callout";
+import { Callout as DocsCallout } from "fumadocs-ui/components/callout";
 import { Steps as DocsSteps, Step as DocsStep } from "@/components/docs-steps";
 import { Tabs as DocsTabs, Tab as DocsTab } from "@/components/docs-tabs";
 import {
@@ -28,8 +28,58 @@ import { DocsLandingNext } from "@/components/docs-landing-next";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
 import { AgentCoreCommandTabs } from "@/components/agentcore-command-tabs";
 import { DemoSource } from "@/components/demo-source";
+import { UnsupportedBox } from "@/components/snippet";
 import { getRegistry } from "@/lib/registry";
 import { PartialLoader } from "@/lib/mdx-registry-loader";
+import { MdxFrameworkOverview } from "@/components/content/landing-pages/mdx-framework-overview";
+import { FrameworkSetup } from "@/lib/setup-concept";
+import {
+  AdkIcon,
+  Ag2Icon,
+  AgnoIcon,
+  AnthropicIcon,
+  CrewaiIcon,
+  DeepAgentsIcon,
+  LanggraphIcon,
+  LlamaIndexIcon,
+  MastraIcon,
+  MicrosoftIcon,
+  PydanticAiIcon,
+  SpringIcon,
+  StrandsIcon,
+} from "@/components/icons/framework-icons";
+import catalogData from "@/data/catalog.json";
+
+// Local `(integration, demo) → catalog entry` lookup. Mirrors the lookup in
+// `<Snippet>` (snippet.tsx) so `<InlineDemo>` can short-circuit to an
+// `<UnsupportedBox>` placeholder when the catalog flags a pair as
+// `unsupported` instead of iframing a backend route that 404s. Built once
+// at module scope.
+//
+// After Tyler's docs_mode cutover, only `generated`-mode frameworks
+// (langgraph-python, langgraph-typescript, google-adk) render the
+// agnostic shell-docs pages that embed `<InlineDemo>`. Authored-mode
+// frameworks render their own ported MDX and never hit this path, so
+// this guard now narrowly covers the LGTS/ADK gaps:
+//   langgraph-typescript ✗ shared-state-streaming
+//   google-adk           ✗ gen-ui-interrupt, interrupt-headless
+interface InlineDemoCatalogCell {
+  integration: string;
+  integration_name?: string;
+  feature: string;
+  feature_name?: string;
+  status: string;
+}
+
+const inlineDemoCatalogByKey: Map<string, InlineDemoCatalogCell> = (() => {
+  const m = new Map<string, InlineDemoCatalogCell>();
+  const cells =
+    (catalogData as { cells?: InlineDemoCatalogCell[] }).cells ?? [];
+  for (const c of cells) {
+    m.set(`${c.integration}::${c.feature}`, c);
+  }
+  return m;
+})();
 
 const Callout = DocsCallout;
 
@@ -52,6 +102,7 @@ const STUB_PARTIAL_MAP: Record<string, string> = {
   GenerativeUISpecsOverview: "shared/generative-ui-specs-overview.mdx",
   ToolRenderer: "shared/generative-ui/tool-rendering.mdx",
   ToolRendering: "shared/generative-ui/tool-rendering.mdx",
+  A2UI: "shared/generative-ui/a2ui.mdx",
   HeadlessUI: "shared/basics/headless-ui.mdx",
   Overview: "shared/premium/overview.mdx",
   Observability: "shared/premium/observability.mdx",
@@ -62,6 +113,10 @@ const STUB_PARTIAL_MAP: Record<string, string> = {
   DebugMode: "shared/troubleshooting/debug-mode.mdx",
   MigrateTo: "shared/troubleshooting/migrate-to-v2.mdx",
   MigrateToV: "shared/troubleshooting/migrate-to-v2.mdx",
+  MigrateTo182: "shared/troubleshooting/migrate-to-1.8.2.mdx",
+  MigrateTo1100: "shared/troubleshooting/migrate-to-1.10.X.mdx",
+  MigrateToV2: "shared/troubleshooting/migrate-to-v2.mdx",
+  SelfHosting: "shared/premium/self-hosting.mdx",
   CodingAgents: "shared/coding-agents.mdx",
   CustomAgent: "shared/backend/custom-agent.mdx",
   PrebuiltComponents: "shared/basics/prebuilt-components.mdx",
@@ -274,23 +329,59 @@ export const docsComponents = {
       );
       return null;
     }
+    // If the catalog marks this (integration × demo) pair as
+    // `unsupported`, render the same neutral placeholder <Snippet> uses
+    // instead of iframing a backend route that will 404. Only
+    // generated-mode frameworks reach this path; the affected cells are
+    // langgraph-typescript/shared-state-streaming and
+    // google-adk/{gen-ui-interrupt, interrupt-headless}.
+    const catalogEntry = inlineDemoCatalogByKey.get(`${integration}::${demo}`);
+    if (catalogEntry?.status === "unsupported") {
+      return (
+        <UnsupportedBox
+          integrationName={catalogEntry.integration_name ?? int.name}
+          featureName={catalogEntry.feature_name ?? demo}
+        />
+      );
+    }
     // Iframe the integration demo directly (its own backend host).
+    //
+    // Visual treatment: a fixed-height wrapper (550px) + CSS scale on the
+    // inner iframe to zoom the embedded content OUT. The iframe is sized
+    // to (100% / SCALE) (wider + taller than its visible box) and then
+    // `transform: scale(SCALE)` shrinks it back down to fill the wrapper.
+    // With SCALE < 1 the iframe lays out as if it had MORE viewport, so
+    // more demo content fits in the same visual footprint at a smaller
+    // effective size: useful for chat surfaces where the composer,
+    // suggested prompts, and early messages should all be visible at once.
     const demoUrl = `${int.backend_url}/demos/${demo}`;
-    const iframeStyle: React.CSSProperties = {
+    const SCALE = 0.7;
+    const WRAPPER_HEIGHT = 550;
+    const wrapperStyle: React.CSSProperties = {
       width: "100%",
-      height: "500px",
+      height: `${WRAPPER_HEIGHT}px`,
+      overflow: "hidden",
+      background: "var(--bg-surface)",
+    };
+    const iframeStyle: React.CSSProperties = {
+      width: `calc(100% / ${SCALE})`,
+      height: `${WRAPPER_HEIGHT / SCALE}px`,
       border: "none",
       background: "var(--bg-surface)",
+      transform: `scale(${SCALE})`,
+      transformOrigin: "top left",
     };
     return (
       <DocsTabs items={["Demo", "Code"]}>
         <DocsTab value="Demo">
-          <iframe
-            src={demoUrl}
-            style={iframeStyle}
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-            loading="lazy"
-          />
+          <div style={wrapperStyle}>
+            <iframe
+              src={demoUrl}
+              style={iframeStyle}
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+              loading="lazy"
+            />
+          </div>
         </DocsTab>
         <DocsTab value="Code">
           <DemoSource integration={integration} demo={demo} />
@@ -426,10 +517,15 @@ export const docsComponents = {
   IframeSwitcherGroup: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
+  A2UI: stubWithPartial("A2UI"),
   RunAndConnect: stubWithPartial("RunAndConnect"),
   RunAndConnectSnippet: stubWithPartial("RunAndConnectSnippet"),
   MigrateTo: stubWithPartial("MigrateTo"),
   MigrateToV: stubWithPartial("MigrateToV"),
+  MigrateTo182: stubWithPartial("MigrateTo182"),
+  MigrateTo1100: stubWithPartial("MigrateTo1100"),
+  MigrateToV2: stubWithPartial("MigrateToV2"),
+  SelfHosting: stubWithPartial("SelfHosting"),
   HeadlessUI: stubWithPartial("HeadlessUI"),
   ImageZoom: ({ src, alt }: { src?: string; alt?: string }) => (
     // eslint-disable-next-line @next/next/no-img-element
@@ -448,9 +544,38 @@ export const docsComponents = {
   MCPApps: stubWithPartial("MCPApps"),
   MCPSetup: stubWithPartial("MCPSetup"),
   Overview: stubWithPartial("Overview"),
-  FrameworkOverview: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  // Authored `integrations/<folder>/index.mdx` files use the flat-prop
+  // form `<FrameworkOverview frameworkName=... frameworkIcon={...} ...>`
+  // ported verbatim from v1. The MDX adapter wraps the data-driven
+  // `FrameworkOverview` so the props actually render (banner video,
+  // features grid, architecture image, live demos) instead of being
+  // dropped on the floor as a children-passthrough used to do.
+  FrameworkOverview: MdxFrameworkOverview,
+  // Per-render override in DocsPageView binds `currentFramework` from
+  // the URL — same closure pattern as MdxFrameworkOverview. The base
+  // registration renders null when invoked without a framework slug
+  // (e.g. an unscoped /docs/<slug> route where the concept of
+  // "framework-specific setup" doesn't apply).
+  FrameworkSetup,
+  // Per-framework icon components used inline by authored index.mdx files
+  // (e.g. `frameworkIcon={<MastraIcon className="h-12 w-12" />}`). Each
+  // resolves to the same component the data-driven path uses via
+  // `customIcons[<key>]`. New frameworks: add a matching `<XIcon>` here
+  // when porting their `index.mdx`.
+  AdkIcon,
+  Ag2Icon,
+  AgnoIcon,
+  AnthropicIcon,
+  CrewaiIcon,
+  DeepAgentsIcon,
+  LanggraphIcon,
+  LlamaIndexIcon,
+  MastraIcon,
+  MicrosoftIcon,
+  PydanticAIIcon: PydanticAiIcon,
+  PydanticAiIcon,
+  SpringIcon,
+  StrandsIcon,
   CommonIssues: stubWithPartial("CommonIssues"),
   ErrorDebugging: stubWithPartial("ErrorDebugging"),
   Observability: stubWithPartial("Observability"),
@@ -929,9 +1054,14 @@ export const docsComponents = {
   Banknote: () => <span>💰</span>,
   AlertCircle: () => <span>⚠️</span>,
   PiMonitor: () => <span>🖥️</span>,
-  AwsStrandsIcon: () => <span>☁️</span>,
-  MicrosoftIcon: () => <span>Ⓜ️</span>,
-  PydanticAIIcon: () => <span>🐍</span>,
+  // `MicrosoftIcon` and `PydanticAIIcon` were once emoji stubs here.
+  // Both are now registered to their real SVG icon components in the
+  // FrameworkOverview block above (around line 489), so the stubs would
+  // be duplicate keys (TS1117) — removed. `AwsStrandsIcon` remains a
+  // stub because the framework-icons export is named `StrandsIcon`
+  // (the `customIcons.awsStrands` key keeps the legacy v1 alias), and
+  // some ported MDX uses the AwsStrandsIcon name verbatim.
+  AwsStrandsIcon: StrandsIcon,
   SiLangchain: () => <span>🔗</span>,
   FaArrowUp: () => <span>↑</span>,
   FaCloud: () => <span>☁️</span>,

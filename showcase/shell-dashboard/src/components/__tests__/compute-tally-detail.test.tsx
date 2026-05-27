@@ -38,14 +38,19 @@ function makeIntegration(slug: string, demoIds: string[]): Integration {
   return {
     slug,
     name: slug,
+    category: "python",
     language: "python",
+    description: "",
+    repo: "",
     backend_url: `https://${slug}.example.com`,
-    docs_url: "",
-    source_url: "",
+    deployed: true,
+    features: demoIds,
     demos: demoIds.map((id) => ({
       id,
+      name: id,
+      description: "",
+      tags: [],
       route: `/${id}`,
-      command: "",
     })),
   } as Integration;
 }
@@ -56,7 +61,7 @@ function makeFeature(id: string, name: string): Feature {
     name,
     description: "",
     category: "core",
-    kind: "standard",
+    kind: "primary",
   } as Feature;
 }
 
@@ -85,17 +90,18 @@ describe("computeColumnTallyDetail", () => {
     });
   });
 
-  it("green D3 cells land in green bucket", () => {
+  it("green D6 cells land in green bucket", () => {
     const integration = makeIntegration("my-int", ["feat-a", "feat-b"]);
     const features = [
       makeFeature("feat-a", "Feature A"),
       makeFeature("feat-b", "Feature B"),
     ];
 
-    // Both features have green D3 → achievedDepth=3, ceilingDepth=3 → green chip
+    // Both features have green D3 + green D6 → chipColor=green (D6-ceiling)
     const liveStatus: LiveStatusMap = new Map([
       ["e2e:my-int/feat-a", makeRow("e2e:my-int/feat-a", "e2e", "green")],
       ["e2e:my-int/feat-b", makeRow("e2e:my-int/feat-b", "e2e", "green")],
+      ["d6:my-int", makeRow("d6:my-int", "d6", "green")],
     ]);
 
     const result = computeColumnTallyDetail(
@@ -114,15 +120,15 @@ describe("computeColumnTallyDetail", () => {
     expect(result.red).toEqual([]);
   });
 
-  it("red D3 cells are gray (achievedDepth=0) and excluded", () => {
+  it("red D3 → red chip, green D3 without D5/D6 → gray (excluded)", () => {
     const integration = makeIntegration("my-int", ["feat-a", "feat-b"]);
     const features = [
       makeFeature("feat-a", "Feature A"),
       makeFeature("feat-b", "Feature B"),
     ];
 
-    // feat-a: D3=red → achievedDepth=0, ceilingDepth=3 → gray (skipped)
-    // feat-b: D3=green → green chip
+    // feat-a: D3=red → chipColor=red (d1d4GateFails)
+    // feat-b: D3=green but no D5/D6 → chipColor=gray (D6-ceiling)
     const liveStatus: LiveStatusMap = new Map([
       ["e2e:my-int/feat-a", makeRow("e2e:my-int/feat-a", "e2e", "red")],
       ["e2e:my-int/feat-b", makeRow("e2e:my-int/feat-b", "e2e", "green")],
@@ -136,11 +142,11 @@ describe("computeColumnTallyDetail", () => {
     );
 
     expect(result.unknown).toBe(false);
-    expect(result.green).toEqual([
-      { label: "Feature B", dimension: "e2e", featureId: "feat-b" },
-    ]);
+    expect(result.green).toEqual([]);
     expect(result.amber).toEqual([]);
-    expect(result.red).toEqual([]);
+    expect(result.red).toEqual([
+      { label: "Feature A", dimension: "e2e", featureId: "feat-a" },
+    ]);
   });
 
   it("features without demos are gray (unwired) and excluded", () => {
@@ -151,8 +157,10 @@ describe("computeColumnTallyDetail", () => {
       makeFeature("feat-2", "Feature 2"),
     ];
 
+    // D3=green + D6=green → chipColor=green (D6-ceiling algorithm)
     const liveStatus: LiveStatusMap = new Map([
       ["e2e:partial/feat-1", makeRow("e2e:partial/feat-1", "e2e", "green")],
+      ["d6:partial", makeRow("d6:partial", "d6", "green")],
     ]);
 
     const result = computeColumnTallyDetail(
@@ -163,7 +171,7 @@ describe("computeColumnTallyDetail", () => {
     );
 
     expect(result.unknown).toBe(false);
-    // Only feat-1 appears (has a demo); feat-2 is unwired → gray → excluded
+    // feat-1: wired + D3=green + D6=green → green; feat-2: unwired → gray
     expect(result.green).toEqual([
       { label: "Feature 1", dimension: "e2e", featureId: "feat-1" },
     ]);
@@ -203,9 +211,11 @@ describe("computeColumnTallyDetail", () => {
       makeFeature("feat-b", "Feature B"),
     ];
 
+    // D3=green + D6=green → chipColor=green for supported features
     const liveStatus: LiveStatusMap = new Map([
       ["e2e:ns-int/feat-a", makeRow("e2e:ns-int/feat-a", "e2e", "green")],
       ["e2e:ns-int/feat-b", makeRow("e2e:ns-int/feat-b", "e2e", "green")],
+      ["d6:ns-int", makeRow("d6:ns-int", "d6", "green")],
     ]);
 
     const result = computeColumnTallyDetail(
@@ -216,7 +226,7 @@ describe("computeColumnTallyDetail", () => {
     );
 
     expect(result.unknown).toBe(false);
-    // feat-a: green; feat-b: unsupported → gray → excluded
+    // feat-a: D3+D6 green → green; feat-b: unsupported → gray → excluded
     expect(result.green).toEqual([
       { label: "Feature A", dimension: "e2e", featureId: "feat-a" },
     ]);

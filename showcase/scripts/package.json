@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "generate-registry": "tsx generate-registry.ts",
+    "verify-shell-docs": "tsx verify-shell-docs.ts",
+    "verify-shell-docs:fast": "tsx verify-shell-docs.ts --skip-build",
     "probe-docs": "tsx probe-docs.ts",
     "validate-manifests": "tsx generate-registry.ts --validate-only",
     "showcase:audit": "tsx audit.ts",
@@ -16,7 +18,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@copilotkit/aimock": "latest",
+    "@copilotkit/aimock": "1.26.1",
     "@playwright/test": "^1.59.1",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",

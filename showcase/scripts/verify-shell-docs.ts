@@ -1,0 +1,400 @@
+import { spawnSync } from "child_process";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import { glob } from "glob";
+import { checkEssentialContent } from "./lib/essential-content.js";
+import type { PageInput } from "./lib/essential-content.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// showcase/scripts/ → showcase/ → repo root. Different from
+// validate-parity.ts (which stops at showcase/) because `nx build shell-docs`
+// must run from the monorepo root.
+const REPO_ROOT = path.resolve(__dirname, "..", "..");
+
+export type CheckStatus = "pass" | "fail" | "skipped";
+
+export interface CheckResult {
+  name: string;
+  status: CheckStatus;
+  messages: string[];
+}
+
+export interface BuildCheckOptions {
+  skipExecution?: boolean;
+}
+
+export function runBuildCheck(opts: BuildCheckOptions = {}): CheckResult {
+  if (opts.skipExecution) {
+    return {
+      name: "nx-build-shell-docs",
+      status: "skipped",
+      messages: ["skipExecution=true; no build run"],
+    };
+  }
+  const out = spawnSync("npx", ["nx", "build", "shell-docs"], {
+    cwd: REPO_ROOT,
+    encoding: "utf-8",
+  });
+  if (out.status === 0) {
+    return { name: "nx-build-shell-docs", status: "pass", messages: [] };
+  }
+  return {
+    name: "nx-build-shell-docs",
+    status: "fail",
+    messages: [out.stdout || "", out.stderr || ""].filter(Boolean),
+  };
+}
+
+interface RegistryDemo {
+  id: string;
+}
+interface RegistryIntegrationLite {
+  slug: string;
+  demos: RegistryDemo[];
+}
+interface RegistryLite {
+  integrations: RegistryIntegrationLite[];
+}
+
+// Strip fenced code blocks (``` ... ```) before scanning for component
+// references / links / imports. Without this, every regex below false-
+// positives on example code inside tutorial pages — e.g. a docs page
+// that shows `<InlineDemo demo="some-example" />` in a fenced code
+// sample would report "unknown demo id" even though it's literal
+// documentation, not a live component reference.
+const FENCED_CODE_RE = /```[\s\S]*?```/g;
+function strip(body: string): string {
+  return body.replace(FENCED_CODE_RE, "");
+}
+
+const INLINE_DEMO_RE = /<InlineDemo\s+[^>]*demo=["']([^"']+)["']/g;
+
+export function checkInlineDemoRefs(input: {
+  pages: PageInput[];
+  registry: RegistryLite;
+}): CheckResult {
+  const known = new Set<string>();
+  for (const i of input.registry.integrations) {
+    for (const d of i.demos) {
+      known.add(d.id);
+    }
+  }
+
+  const failures: string[] = [];
+  for (const page of input.pages) {
+    const body = strip(page.body);
+    INLINE_DEMO_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = INLINE_DEMO_RE.exec(body)) !== null) {
+      if (!known.has(m[1])) {
+        failures.push(`${page.path}: unknown demo id "${m[1]}"`);
+      }
+    }
+  }
+
+  return {
+    name: "inline-demo-refs",
+    status: failures.length === 0 ? "pass" : "fail",
+    messages: failures,
+  };
+}
+
+interface DemoRegion {
+  file: string;
+  startLine: number;
+  endLine: number;
+  code: string;
+  language: string;
+}
+
+interface DemoFile {
+  filename: string;
+  language: string;
+  content: string;
+}
+
+interface DemoRecord {
+  regions?: Record<string, DemoRegion>;
+  files?: DemoFile[];
+}
+
+interface DemoContent {
+  demos: Record<string, DemoRecord>;
+}
+
+const SNIPPET_RE = /<Snippet\s+[^>]*region=["']([^"']+)["']/g;
+
+export function checkSnippetRegions(input: {
+  pages: PageInput[];
+  demoContent: DemoContent;
+}): CheckResult {
+  const allRegions = new Set<string>();
+  for (const record of Object.values(input.demoContent.demos)) {
+    for (const regionName of Object.keys(record.regions ?? {})) {
+      allRegions.add(regionName);
+    }
+  }
+
+  const failures: string[] = [];
+  for (const page of input.pages) {
+    const body = strip(page.body);
+    SNIPPET_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = SNIPPET_RE.exec(body)) !== null) {
+      if (!allRegions.has(m[1])) {
+        failures.push(`${page.path}: unknown snippet region "${m[1]}"`);
+      }
+    }
+  }
+
+  return {
+    name: "snippet-regions",
+    status: failures.length === 0 ? "pass" : "fail",
+    messages: failures,
+  };
+}
+
+const MD_LINK_RE = /\[[^\]]*\]\((\/[^)\s]*)\)/g;
+
+export function checkInternalLinks(input: {
+  pages: PageInput[];
+  knownRoutes: Set<string>;
+}): CheckResult {
+  const failures: string[] = [];
+  for (const page of input.pages) {
+    const body = strip(page.body);
+    MD_LINK_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = MD_LINK_RE.exec(body)) !== null) {
+      const raw = m[1];
+      const cleaned = raw.split("#")[0].split("?")[0];
+      if (!input.knownRoutes.has(cleaned)) {
+        failures.push(`${page.path}: dead link "${raw}"`);
+      }
+    }
+  }
+  return {
+    name: "internal-links",
+    status: failures.length === 0 ? "pass" : "fail",
+    messages: failures,
+  };
+}
+
+const ALIAS_IMPORT_RE =
+  /^\s*import\s+[^"';]+from\s+["'](@\/[^"']+)["']\s*;?\s*$/gm;
+
+export function checkImportPaths(input: {
+  pages: PageInput[];
+  existsOnDisk: (importPath: string) => boolean;
+}): CheckResult {
+  const failures: string[] = [];
+  for (const page of input.pages) {
+    const body = strip(page.body);
+    ALIAS_IMPORT_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = ALIAS_IMPORT_RE.exec(body)) !== null) {
+      if (!input.existsOnDisk(m[1])) {
+        failures.push(`${page.path}: unresolved import "${m[1]}"`);
+      }
+    }
+  }
+  return {
+    name: "import-paths",
+    status: failures.length === 0 ? "pass" : "fail",
+    messages: failures,
+  };
+}
+
+export function runEssentialContentCheck(pages: PageInput[]): CheckResult {
+  const messages: string[] = [];
+  for (const page of pages) {
+    const r = checkEssentialContent(page);
+    if (r.status === "fail") messages.push(...r.messages);
+  }
+  return {
+    name: "essential-content",
+    status: messages.length === 0 ? "pass" : "fail",
+    messages,
+  };
+}
+
+function loadPages(): PageInput[] {
+  const docsRoot = path.join(
+    REPO_ROOT,
+    "showcase",
+    "shell-docs",
+    "src",
+    "content",
+    "docs",
+  );
+  const files = glob.sync("**/*.mdx", { cwd: docsRoot });
+  return files.map((rel) => ({
+    path: rel,
+    body: fs.readFileSync(path.join(docsRoot, rel), "utf-8"),
+  }));
+}
+
+function loadRegistry(): RegistryLite {
+  const p = path.join(
+    REPO_ROOT,
+    "showcase",
+    "shell-docs",
+    "src",
+    "data",
+    "registry.json",
+  );
+  return JSON.parse(fs.readFileSync(p, "utf-8")) as RegistryLite;
+}
+
+function loadDemoContent(): DemoContent {
+  const p = path.join(
+    REPO_ROOT,
+    "showcase",
+    "shell-docs",
+    "src",
+    "data",
+    "demo-content.json",
+  );
+  return JSON.parse(fs.readFileSync(p, "utf-8")) as DemoContent;
+}
+
+function loadKnownRoutes(): Set<string> {
+  const docsRoot = path.join(
+    REPO_ROOT,
+    "showcase",
+    "shell-docs",
+    "src",
+    "content",
+    "docs",
+  );
+  const files = glob.sync("**/*.mdx", { cwd: docsRoot });
+  const routes = new Set<string>();
+  for (const rel of files) {
+    const noExt = rel.replace(/\.mdx$/, "");
+    const noIndex = noExt.endsWith("/index")
+      ? noExt.slice(0, -"/index".length)
+      : noExt;
+    // Strip route-group segments like (other), (foo) — they are removed
+    // from the URL by Fumadocs/Next.js. Mirrors normalizeSlugForUrl in
+    // showcase/shell-docs/src/lib/sitemap-helpers.ts.
+    const normalized = noIndex
+      .split("/")
+      .filter((seg) => !/^\(.+\)$/.test(seg))
+      .join("/");
+    routes.add(normalized === "" ? "/" : "/" + normalized);
+  }
+  routes.add("/"); // root
+  return routes;
+}
+
+function aliasExists(importPath: string): boolean {
+  const stripped = importPath.replace(/^@\//, "");
+  const root = path.join(REPO_ROOT, "showcase", "shell-docs", "src");
+  return (
+    fs.existsSync(path.join(root, stripped)) ||
+    fs.existsSync(path.join(root, "content", stripped))
+  );
+}
+
+export function loadSnippetComponentNames(): Set<string> {
+  const docsRenderPath = path.join(
+    REPO_ROOT,
+    "showcase/shell-docs/src/lib/docs-render.tsx",
+  );
+  const src = fs.readFileSync(docsRenderPath, "utf-8");
+  const mapMatch = src.match(/export const SNIPPET_MAP[^{]*\{([^}]+)\}/s);
+  if (!mapMatch)
+    throw new Error("Could not find SNIPPET_MAP in docs-render.tsx");
+  const keys = [...mapMatch[1].matchAll(/^\s*(\w+)\s*:/gm)].map((m) => m[1]);
+  return new Set(keys);
+}
+
+const SNIPPET_WITH_PROPS_RE = /<([A-Z]\w*)\s+[^>]*(?:>|\/>)/g;
+
+// Matches the same shape that inlineSnippets() in docs-render.tsx resolves at
+// render time. Per-match check (not per-name) so a page with both <Foo /> and
+// <Foo framework="x" /> correctly flags only the latter.
+const INLINE_HANDLED_RE = /^<[A-Z]\w*\s*(?:components=\{[^}]*\}\s*)?\/>/;
+
+const MDX_IMPORT_NAME_RE = /^\s*import\s+(\w+)\s+from\s+["']@\/snippets\//gm;
+
+export function checkComponentImports({
+  pages,
+}: {
+  pages: PageInput[];
+}): CheckResult {
+  const snippetComponents = loadSnippetComponentNames();
+  const failures: string[] = [];
+  for (const page of pages) {
+    const body = strip(page.body);
+
+    const imported = new Set<string>();
+    MDX_IMPORT_NAME_RE.lastIndex = 0;
+    let im: RegExpExecArray | null;
+    while ((im = MDX_IMPORT_NAME_RE.exec(page.body)) !== null) {
+      imported.add(im[1]);
+    }
+
+    SNIPPET_WITH_PROPS_RE.lastIndex = 0;
+    const flagged = new Set<string>();
+    let m: RegExpExecArray | null;
+    while ((m = SNIPPET_WITH_PROPS_RE.exec(body)) !== null) {
+      const name = m[1];
+      if (
+        snippetComponents.has(name) &&
+        !imported.has(name) &&
+        !INLINE_HANDLED_RE.test(m[0]) &&
+        !flagged.has(name)
+      ) {
+        flagged.add(name);
+        failures.push(
+          `${page.path}: <${name}> used with props but missing snippet import`,
+        );
+      }
+    }
+  }
+  return {
+    name: "component-imports",
+    status: failures.length === 0 ? "pass" : "fail",
+    messages: failures,
+  };
+}
+
+async function main() {
+  const skipBuild = process.argv.includes("--skip-build");
+  const pages = loadPages();
+  const registry = loadRegistry();
+  const demoContent = loadDemoContent();
+  const knownRoutes = loadKnownRoutes();
+
+  const results: CheckResult[] = [
+    runBuildCheck({ skipExecution: skipBuild }),
+    checkInlineDemoRefs({ pages, registry }),
+    checkSnippetRegions({ pages, demoContent }),
+    checkInternalLinks({ pages, knownRoutes }),
+    checkImportPaths({ pages, existsOnDisk: aliasExists }),
+    checkComponentImports({ pages }),
+    runEssentialContentCheck(pages),
+  ];
+
+  let failed = false;
+  for (const r of results) {
+    const tag =
+      r.status === "pass" ? "PASS" : r.status === "fail" ? "FAIL" : "SKIP";
+    console.log(`[${tag}] ${r.name}`);
+    for (const msg of r.messages) {
+      console.log(`  ${msg}`);
+    }
+    if (r.status === "fail") failed = true;
+  }
+
+  process.exit(failed ? 1 : 0);
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
+}

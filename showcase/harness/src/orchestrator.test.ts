@@ -1779,9 +1779,9 @@ describe("orchestrator boot serve() async bind error cleanup (R4-A.3)", () => {
  *
  * Production symptom: probe-loader emitted `probe-loader.file-failed`
  *   `no driver registered for kind 'e2e_deep'`
- *   `no driver registered for kind 'e2e_parity'`
+ *   `no driver registered for kind 'e2e_d6'`
  * on every showcase-harness boot after #4292 merged. The D5 (`e2e_deep`)
- * and D6 (`e2e_parity`) drivers shipped as exports but the
+ * and D6 (`e2e_d6`) drivers shipped as exports but the
  * orchestrator never registered them — so the probe-loader rejected
  * their YAML at boot, the drivers never ran, and no D5/D6 PB rows
  * were ever written. This test locks every required probe-kind into
@@ -1801,7 +1801,7 @@ describe("orchestrator.registerAllProbeDrivers (post-#4292 hotfix guard)", () =>
         "aimock_wiring",
         "e2e_deep",
         "e2e_demos",
-        "e2e_parity",
+        "e2e_d6",
         "e2e_smoke",
         "image_drift",
         "pin_drift",
@@ -1813,7 +1813,7 @@ describe("orchestrator.registerAllProbeDrivers (post-#4292 hotfix guard)", () =>
     );
   });
 
-  it("includes e2e_deep and e2e_parity (the #4292 regressors)", () => {
+  it("includes e2e_deep and e2e_d6 (the #4292 regressors)", () => {
     // Tighter assertion narrowed to the two kinds that triggered the
     // production probe-loader.file-failed alert. If a future refactor
     // accidentally drops just these two registrations, the broader
@@ -1823,7 +1823,7 @@ describe("orchestrator.registerAllProbeDrivers (post-#4292 hotfix guard)", () =>
     registerAllProbeDrivers(registry);
     const kinds = registry.list();
     expect(kinds).toContain("e2e_deep");
-    expect(kinds).toContain("e2e_parity");
+    expect(kinds).toContain("e2e_d6");
   });
 });
 

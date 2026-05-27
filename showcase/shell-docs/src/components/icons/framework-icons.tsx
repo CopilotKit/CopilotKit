@@ -253,6 +253,7 @@ const FRAMEWORK_ICONS: Record<string, React.ComponentType<IconProps>> = {
   "google-adk": AdkIcon,
   "ms-agent-python": MicrosoftIcon,
   "ms-agent-dotnet": MicrosoftIcon,
+  "ms-agent-harness-dotnet": MicrosoftIcon,
   "claude-sdk-python": AnthropicIcon,
   "claude-sdk-typescript": AnthropicIcon,
   "spring-ai": SpringIcon,

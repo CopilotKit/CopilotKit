@@ -1,12 +1,12 @@
 "use client";
 
 import {
-  useDefaultTool,
+  useDefaultRenderTool,
   useFrontendTool,
-  useRenderToolCall,
-} from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
-import { useState } from "react";
+  useRenderTool,
+  CopilotSidebar,
+} from "@copilotkit/react-core/v2";
+import React, { useState } from "react";
 import { DefaultToolComponent } from "@/components/default-tool-ui";
 import { WeatherCard } from "@/components/weather";
 
@@ -31,7 +31,7 @@ export default function CopilotKitPage() {
   return (
     <main
       style={
-        { "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties
+        { "--copilot-kit-primary-color": themeColor } as React.CSSProperties
       }
     >
       <CopilotSidebar
@@ -95,23 +95,16 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
   });
 
   //🪁 Generative UI: https://docs.copilotkit.ai/agno/generative-ui/backend-tools
-  useRenderToolCall(
+  useRenderTool(
     {
       name: "get_weather",
-      parameters: [
-        {
-          name: "location",
-          description: "The location to get the weather for.",
-          required: true,
-        },
-      ],
       render: (props) => <WeatherCard themeColor={themeColor} {...props} />,
     },
     [themeColor],
   );
 
   //🪁 Default Generative UI: https://docs.copilotkit.ai/agno/generative-ui/backend-tools
-  useDefaultTool(
+  useDefaultRenderTool(
     {
       render: (props) => (
         <DefaultToolComponent themeColor={themeColor} {...props} />

@@ -69,7 +69,6 @@ export {
   useConfigureSuggestions,
   useAgentContext,
   useThreads,
-  useRenderTool,
   useCapabilities,
   defineToolCallRenderer,
   CopilotChatDefaultLabels,
@@ -87,7 +86,6 @@ export {
   type InterruptRenderProps,
   type ReactFrontendTool,
   type ReactHumanInTheLoop,
-  type RenderToolProps,
   type RenderToolInProgressProps,
   type RenderToolExecutingProps,
   type RenderToolCompleteProps,
@@ -110,9 +108,18 @@ export type {
 // Re-export AG-UI types for consumer convenience (matches web SDK surface)
 export type {
   Message,
-  AssistantMessage,
+  AssistantMessage as AssistantMessageType,
   ToolCall,
   ToolMessage,
   AbstractAgent,
   AgentCapabilities,
 } from "@ag-ui/client";
+
+// Render tool hook (React Native version with render registry integration)
+export { useRenderTool } from "./hooks/useRenderTool";
+export type { UseRenderToolOptions } from "./hooks/useRenderTool";
+export {
+  RenderToolProvider,
+  useRenderToolRegistry,
+} from "./hooks/RenderToolContext";
+export type { RenderToolProps } from "./hooks/RenderToolContext";

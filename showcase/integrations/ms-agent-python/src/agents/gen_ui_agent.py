@@ -116,6 +116,21 @@ def create_gen_ui_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
         tools=[set_steps],
     )
 
+    # NB: `predict_state_config` (predictive streaming from LLM tool-call arg
+    # deltas) is intentionally omitted. `agent_framework_ag_ui._orchestration
+    # ._predictive_state.PredictiveStateHandler` emits StateDeltaEvents using
+    # JSON Patch `op: "replace"` against `/<state_key>`. When the run starts
+    # with `current_state = {}`, the very first StateDelta tries to replace
+    # `/steps` — a path that doesn't exist — and the browser-side patch
+    # application throws `OPERATION_PATH_UNRESOLVABLE: Cannot perform the
+    # operation at a path that does not exist`. The run stream completes
+    # (RUN_FINISHED arrives), but the chat UI's run-state machine stays in
+    # "streaming" forever because the patch failure short-circuits the
+    # `complete` transition. `state_update()` inside `set_steps` already
+    # emits a full `StateSnapshotEvent` after every tool call, so the
+    # progress card still updates step-by-step; we just lose the
+    # mid-stream predictive flicker (matches beautiful_chat's manage_todos
+    # workaround for the same bug).
     return AgentFrameworkAgent(
         agent=base_agent,
         name="GenUiAgent",
@@ -124,6 +139,5 @@ def create_gen_ui_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
             "completed via set_steps. Drives the `gen-ui-agent` demo's "
             "live progress card."
         ),
-        predict_state_config=PREDICT_STATE_CONFIG,
         require_confirmation=False,
     )

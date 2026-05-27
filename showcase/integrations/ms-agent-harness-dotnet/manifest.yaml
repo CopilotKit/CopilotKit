@@ -1,0 +1,43 @@
+name: MS Agent Harness (.NET)
+slug: ms-agent-harness-dotnet
+category: enterprise-platform
+language: dotnet
+logo: /logos/ms-agent-dotnet.svg
+description: >-
+  CopilotKit integration with Microsoft Agent Harness for .NET, running on top
+  of Microsoft Agent Framework and exposed through the AG-UI protocol.
+partner_docs: https://docs.copilotkit.ai/microsoft-agent-framework
+repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/ms-agent-harness-dotnet
+copilotkit_version: 2.0.0
+backend_url: https://showcase-ms-agent-harness-dotnet-production.up.railway.app
+deployed: true
+docs_mode: generated
+sort_order: 165
+generative_ui:
+  - constrained-explicit
+  - a2ui-fixed-schema
+  - a2ui-dynamic-schema
+interaction_modalities:
+  - chat
+features:
+  - beautiful-chat
+a2ui_pattern: schema-inline
+demos:
+  - id: beautiful-chat
+    name: Beautiful Chat
+    description: Canonical polished starter chat backed by Microsoft Agent Harness over Microsoft Agent Framework
+    tags:
+      - chat-ui
+    route: /demos/beautiful-chat
+    animated_preview_url:
+    highlight:
+      - agent/BeautifulChatAgent.cs
+      - agent/Program.cs
+      - src/app/demos/beautiful-chat/page.tsx
+      - src/app/demos/beautiful-chat/components/example-layout/index.tsx
+      - src/app/demos/beautiful-chat/components/example-canvas/index.tsx
+      - src/app/demos/beautiful-chat/components/generative-ui/charts/bar-chart.tsx
+      - src/app/demos/beautiful-chat/components/generative-ui/charts/pie-chart.tsx
+      - src/app/demos/beautiful-chat/hooks/use-example-suggestions.tsx
+      - src/app/demos/beautiful-chat/hooks/use-generative-ui-examples.tsx
+      - src/app/api/copilotkit-beautiful-chat/route.ts

@@ -25,6 +25,7 @@ import {
   buildSmokeInputs,
   buildChatToolsInputs,
   buildDeepInputs,
+  buildFullInputs,
 } from "./targets.js";
 
 import { up, down, rebuild, isRunning } from "./lifecycle.js";
@@ -38,9 +39,11 @@ import {
 import type { TerminalResult, PbWriteConfig } from "./results.js";
 
 import { livenessDriver } from "../probes/drivers/liveness.js";
-import { e2eChatToolsDriver } from "../probes/drivers/e2e-chat-tools.js";
-import { createE2eDeepDriver } from "../probes/drivers/e2e-deep.js";
-import type { E2eDeepBrowser } from "../probes/drivers/e2e-deep.js";
+import { e2eChatToolsDriver } from "../probes/drivers/d4-chat-roundtrip.js";
+import { createE2eDeepDriver } from "../probes/drivers/d5-single-pill.js";
+import type { E2eDeepBrowser } from "../probes/drivers/d5-single-pill.js";
+import { createE2eFullDriver } from "../probes/drivers/d6-all-pills.js";
+import type { E2eFullBrowser } from "../probes/drivers/d6-all-pills.js";
 import type { StatusWriter } from "../writers/status-writer.js";
 
 // ---------------------------------------------------------------------------
@@ -201,9 +204,9 @@ export async function run(
     env: { ...process.env, SHOWCASE_LOCAL: "1" },
     abortSignal: abortController.signal,
     // Wire the PB writer into the probe context so drivers that emit
-    // per-feature side rows (e2e-deep emits `d5:<slug>/<featureType>`)
+    // per-feature side rows (d5-single-pill-e2e emits `d5:<slug>/<featureType>`)
     // actually land in PocketBase. Without this the runner only wrote
-    // the aggregate `e2e-deep:<slug>` row and every D5 cell stayed gray
+    // the aggregate `d5-single-pill-e2e:<slug>` row and every D5 cell stayed gray
     // on the dashboard. `pbWriter` is null when --live wasn't passed,
     // matching the legacy behaviour of skipping side emission.
     ...(pbWriter !== null && { writer: pbWriter }),
@@ -228,9 +231,14 @@ export async function run(
             args: ["--no-sandbox", "--disable-dev-shm-usage"],
           });
           return {
-            async newContext() {
+            async newContext(contextOpts?: {
+              extraHTTPHeaders?: Record<string, string>;
+            }) {
               const bCtx = await browser.newContext({
-                extraHTTPHeaders: { "X-AIMock-Strict": "true" },
+                extraHTTPHeaders: {
+                  "X-AIMock-Strict": "true",
+                  ...contextOpts?.extraHTTPHeaders,
+                },
               });
               return {
                 async newPage() {
@@ -265,7 +273,14 @@ export async function run(
                       consoleLogs: consoleLogs.slice(-20),
                       requestFailures: requestFailures.slice(-10),
                     }),
-                  }) as unknown as import("../probes/drivers/e2e-deep.js").E2eDeepPage;
+                    isClosed: () => page.isClosed(),
+                    locator: (s: string) => page.locator(s),
+                    route: (
+                      u: string | RegExp,
+                      handler: Parameters<typeof page.route>[1],
+                    ) => page.route(u, handler),
+                    unroute: (u: string | RegExp) => page.unroute(u),
+                  }) as unknown as import("../probes/drivers/d5-single-pill.js").E2eDeepPage;
                 },
                 close: () => bCtx.close(),
               };
@@ -275,6 +290,76 @@ export async function run(
         },
       })
     : createE2eDeepDriver();
+
+  const fullDriver = options.headed
+    ? createE2eFullDriver({
+        launcher: async (): Promise<E2eFullBrowser> => {
+          const mod =
+            (await import("playwright")) as typeof import("playwright");
+          const browser = await mod.chromium.launch({
+            headless: false,
+            args: ["--no-sandbox", "--disable-dev-shm-usage"],
+          });
+          return {
+            async newContext(contextOpts?: {
+              extraHTTPHeaders?: Record<string, string>;
+            }) {
+              const bCtx = await browser.newContext({
+                extraHTTPHeaders: {
+                  "X-AIMock-Strict": "true",
+                  ...contextOpts?.extraHTTPHeaders,
+                },
+              });
+              return {
+                async newPage() {
+                  const page = await bCtx.newPage();
+                  const consoleLogs: string[] = [];
+                  const requestFailures: string[] = [];
+                  page.on(
+                    "console",
+                    (msg: { type(): string; text(): string }) => {
+                      const t = msg.type();
+                      if (t === "error" || t === "warning") {
+                        consoleLogs.push(`[${t}] ${msg.text().slice(0, 200)}`);
+                      }
+                    },
+                  );
+                  page.on(
+                    "requestfailed",
+                    (request: {
+                      method(): string;
+                      url(): string;
+                      failure(): { errorText: string } | null;
+                    }) => {
+                      requestFailures.push(
+                        `${request.method()} ${request.url().slice(0, 200)} => ${
+                          request.failure()?.errorText || "unknown"
+                        }`,
+                      );
+                    },
+                  );
+                  return Object.assign(page, {
+                    getDiagnostics: () => ({
+                      consoleLogs: consoleLogs.slice(-20),
+                      requestFailures: requestFailures.slice(-10),
+                    }),
+                    isClosed: () => page.isClosed(),
+                    locator: (s: string) => page.locator(s),
+                    route: (
+                      u: string | RegExp,
+                      handler: Parameters<typeof page.route>[1],
+                    ) => page.route(u, handler),
+                    unroute: (u: string | RegExp) => page.unroute(u),
+                  }) as unknown as import("../probes/drivers/d6-all-pills.js").E2eFullPage;
+                },
+                close: () => bCtx.close(),
+              };
+            },
+            close: () => browser.close(),
+          };
+        },
+      })
+    : createE2eFullDriver();
 
   // -- 7. Run probes --------------------------------------------------------
   const repeatCount = Math.max(1, options.repeat ?? 1);
@@ -304,6 +389,7 @@ export async function run(
             ctx,
             config,
             deepDriver,
+            fullDriver,
             pbWriter,
             logger,
           );
@@ -349,11 +435,11 @@ export async function run(
 // Level expansion
 // ---------------------------------------------------------------------------
 
-type DepthLevel = "smoke" | "d4" | "d5";
+type DepthLevel = "smoke" | "d4" | "d5" | "d6";
 
 /**
  * Expand a TestLevel into the ordered sequence of depth levels to run.
- * "all" runs smoke -> d4 -> d5 in sequence.
+ * "all" runs smoke -> d4 -> d5 -> d6 in sequence.
  */
 function expandLevel(level: TestLevel): DepthLevel[] {
   switch (level) {
@@ -363,8 +449,10 @@ function expandLevel(level: TestLevel): DepthLevel[] {
       return ["d4"];
     case "d5":
       return ["d5"];
+    case "d6":
+      return ["d6"];
     case "all":
-      return ["smoke", "d4", "d5"];
+      return ["smoke", "d4", "d5", "d6"];
     default:
       throw new Error(`Unknown test level: ${level}`);
   }
@@ -384,6 +472,7 @@ async function runLevel(
   ctx: ProbeContext,
   config: LocalConfig,
   deepDriver: ProbeDriver<unknown, unknown>,
+  fullDriver: ProbeDriver<unknown, unknown>,
   pbWriter: StatusWriter | null,
   logger: Logger,
 ): Promise<TerminalResult[]> {
@@ -454,7 +543,31 @@ async function runLevel(
           await bestEffortPbWrite(result, pbWriter, logger);
         } catch (err) {
           const terminal = errorToTerminal(
-            `e2e-deep:${slug}`,
+            `d5-single-pill-e2e:${slug}`,
+            err,
+            Date.now() - startedAt,
+          );
+          printResult(terminal);
+          results.push(terminal);
+        }
+      }
+      break;
+    }
+
+    case "d6": {
+      const inputs = buildFullInputs(testTarget, config);
+      for (const input of inputs) {
+        if (ctx.abortSignal?.aborted) break;
+        const startedAt = Date.now();
+        try {
+          const result = await fullDriver.run(ctx, input);
+          const terminal = probeResultToTerminal(result, startedAt);
+          printResult(terminal);
+          results.push(terminal);
+          await bestEffortPbWrite(result, pbWriter, logger);
+        } catch (err) {
+          const terminal = errorToTerminal(
+            `d6:${slug}`,
             err,
             Date.now() - startedAt,
           );

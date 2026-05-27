@@ -9,6 +9,7 @@ repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/p
 copilotkit_version: 2.0.0
 backend_url: https://showcase-pydantic-ai-production.up.railway.app
 deployed: true
+docs_mode: authored
 sort_order: 50
 generative_ui:
   - constrained-explicit

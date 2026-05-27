@@ -6,11 +6,11 @@ hideTOC: true
 snippet_cell: gen-ui-interrupt
 ---
 
+<InlineDemo demo="gen-ui-interrupt" />
+
 ## What is this?
 
 Interactive generative UI creates flows where the agent pauses execution and waits for user input before continuing. This enables approval workflows, confirmation dialogs, and any scenario where human judgment is needed mid-execution.
-
-<InlineDemo demo="gen-ui-interrupt" />
 
 ## When should I use this?
 
@@ -23,6 +23,8 @@ Use interactive generative UI when you need:
 
 ## How it works in code
 
+<FrameworkSetup concept="agent-setup" />
+
 On the frontend, register an interrupt renderer with `useInterrupt`. When the
 agent pauses, your component mounts inline in the chat, captures the user's
 choice, and resumes the run with that input.
@@ -33,7 +35,5 @@ On the backend, the agent calls into the interrupt primitive and waits for
 the resumed response before continuing the graph.
 
 <Snippet region="backend-interrupt-tool" title="backend — interrupt tool" />
-
-<FeatureIntegrations feature="gen-ui-interrupt" />
 
 <IntegrationGrid path="human-in-the-loop" />
