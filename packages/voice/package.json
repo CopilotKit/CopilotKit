@@ -34,10 +34,13 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@copilotkit/runtime": "workspace:*",
     "openai": "^5.9.0"
   },
+  "peerDependencies": {
+    "@copilotkit/runtime": "workspace:*"
+  },
   "devDependencies": {
+    "@copilotkit/runtime": "workspace:*",
     "@copilotkit/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",
     "tsdown": "^0.20.3",
