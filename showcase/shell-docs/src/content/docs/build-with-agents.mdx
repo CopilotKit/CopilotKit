@@ -1,7 +1,54 @@
 ---
 title: "Build with agents"
-icon: "lucide/Code"
-description: "Use our MCP server to connect your AI agents and backends to CopilotKit."
-hideTOC: true
+icon: "lucide/BrainCircuit"
+description: "Give your AI coding agent up-to-date knowledge of CopilotKit's APIs, patterns, and best practices."
 ---
+
+AI coding agents may not have up-to-date knowledge of CopilotKit's APIs, patterns, and best practices. The resources on this page give them accurate, current knowledge directly in their context.
+
+## CopilotKit Skills
+
+Skills are folders of instructions, references, and scripts that coding agents can discover and use to work with CopilotKit accurately. Installing them gives your agent authoritative guidance on setup, development, debugging, integration, and upgrades — without relying on potentially outdated training data.
+
+<Callout type="info">
+  Skills are the recommended way to give your agent CopilotKit knowledge. They work natively in Claude Code, Cursor, Codex, Gemini CLI, and any tool supporting the [agentskills.io](https://agentskills.io) standard.
+</Callout>
+
+<Steps>
+  <Step>
+    ### Install the skills
+
+    Run the following command to install CopilotKit skills into your agent environment:
+
+    ```bash
+    npx skills add CopilotKit/CopilotKit
+    ```
+
+    This pulls the latest skills directly from the CopilotKit repository and installs them into your tool's skills directory (e.g. `~/.claude/skills/` for Claude Code). The CopilotKit MCP server is also auto-wired so your agent has live documentation access.
+
+    **Skills installed:**
+
+    | Skill | Purpose |
+    |-------|---------|
+    | `copilotkit-setup` | Add CopilotKit to a project from scratch |
+    | `copilotkit-develop` | Build AI features using CopilotKit hooks and components |
+    | `copilotkit-integrations` | Connect LangGraph, CrewAI, Mastra, PydanticAI, and 10+ frameworks |
+    | `copilotkit-debug` | Diagnose streaming, agent, and runtime issues |
+    | `copilotkit-upgrade` | Migrate between CopilotKit versions |
+    | `copilotkit-contribute` | Contribute to the CopilotKit open-source repository |
+
+  </Step>
+  <Step>
+    ### Start building
+
+    Open a new agent session and use a starter prompt to put the skills to work:
+
+    ```
+    Help me build a CopilotKit app. Use the copilotkit-setup skill to get started.
+    ```
+
+    Your agent will discover the installed skills and use the right one for each task — setup, development, debugging, or integration.
+  </Step>
+</Steps>
+
 <MCPSetup />
