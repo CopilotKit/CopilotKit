@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { EMPTY, Observable } from "rxjs";
 import { z } from "zod";
+import { EventType } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import {
   MockStepwiseAgent,
@@ -15,6 +16,7 @@ import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 import { useFrontendTool } from "../../../hooks/use-frontend-tool";
 import { CopilotChat } from "../CopilotChat";
+import type { CopilotChatMessageViewProps } from "../CopilotChatMessageView";
 import type { ReactFrontendTool } from "../../../types";
 
 describe("CopilotChat avoids /connect for locally-generated threadIds (ENT-314)", () => {
@@ -179,5 +181,121 @@ describe("CopilotChat avoids /connect for locally-generated threadIds (ENT-314)"
           message.content === "Frontend tool finished for X.",
       ),
     ).toBe(true);
+  });
+
+  it("keeps explicit-thread messages mounted through frontend tool follow-up runs", async () => {
+    class FrontendToolRoundTripAgent extends MockStepwiseAgent {
+      runInputs: RunAgentInput[] = [];
+
+      run(input: RunAgentInput): Observable<BaseEvent> {
+        this.runInputs.push(input);
+        const runNumber = this.runInputs.length;
+
+        return new Observable<BaseEvent>((subscriber) => {
+          queueMicrotask(() => {
+            subscriber.next(runStartedEvent());
+            if (runNumber === 1) {
+              subscriber.next(
+                textChunkEvent("assistant-tool", "Calling frontend tool."),
+              );
+              subscriber.next(
+                toolCallChunkEvent({
+                  parentMessageId: "assistant-tool",
+                  delta: '{"label":"X"}',
+                  toolCallId: "tc-explicit-thread",
+                  toolCallName: "testFrontendToolCalling",
+                }),
+              );
+            } else {
+              subscriber.next({
+                type: EventType.MESSAGES_SNAPSHOT,
+                messages: [],
+              } as BaseEvent);
+              subscriber.next(
+                textChunkEvent(
+                  "assistant-final",
+                  "Frontend tool finished for X.",
+                ),
+              );
+            }
+            subscriber.next(runFinishedEvent());
+            subscriber.complete();
+          });
+        });
+      }
+    }
+
+    function FrontendToolRegistration() {
+      const frontendTool: ReactFrontendTool<{ label: string }> = {
+        name: "testFrontendToolCalling",
+        parameters: z.object({ label: z.string() }),
+        followUp: true,
+        handler: async ({ label }) => `handled ${String(label)}`,
+        render: ({ args, result }) => (
+          <div data-testid="frontend-tool-card">
+            {String(args.label)}:{String(result ?? "pending")}
+          </div>
+        ),
+      };
+      useFrontendTool(frontendTool);
+      return null;
+    }
+
+    const messageCounts: number[] = [];
+    function MessageCountProbe({ messages }: CopilotChatMessageViewProps) {
+      messageCounts.push(messages?.length ?? 0);
+      return (
+        <div data-testid="message-count">{String(messages?.length ?? 0)}</div>
+      );
+    }
+
+    const agent = new FrontendToolRoundTripAgent();
+
+    render(
+      <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+        <FrontendToolRegistration />
+        <div style={{ height: 400 }}>
+          <CopilotChat
+            welcomeScreen={false}
+            threadId="explicit-thread"
+            messageView={MessageCountProbe}
+          />
+        </div>
+      </CopilotKitProvider>,
+    );
+
+    const input = await screen.findByRole("textbox");
+    fireEvent.change(input, {
+      target: {
+        value: "invoke testFrontendToolCalling with label X",
+      },
+    });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+    await waitFor(() => {
+      expect(agent.runInputs).toHaveLength(2);
+    });
+
+    expect(agent.runInputs.map((runInput) => runInput.threadId)).toEqual([
+      "explicit-thread",
+      "explicit-thread",
+    ]);
+
+    expect(
+      agent.messages.some(
+        (message) => message.role === "tool" && message.content === "handled X",
+      ),
+    ).toBe(true);
+    expect(
+      agent.messages.some(
+        (message) =>
+          message.role === "assistant" &&
+          message.content === "Frontend tool finished for X.",
+      ),
+    ).toBe(true);
+
+    const firstNonEmptyRender = messageCounts.findIndex((count) => count > 0);
+    expect(firstNonEmptyRender).toBeGreaterThanOrEqual(0);
+    expect(messageCounts.slice(firstNonEmptyRender)).not.toContain(0);
   });
 });

@@ -1,12 +1,12 @@
-import {
+import type {
   AbstractAgent,
   AgentSubscriber,
-  HttpAgent,
   Message,
   RunAgentResult,
   Tool,
   ToolCall,
 } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 import { randomUUID, logger, schemaToJsonSchema } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
@@ -920,6 +920,22 @@ export class RunHandler {
     };
 
     return {
+      onMessagesSnapshotEvent: ({ event, input }) => {
+        const isEmptySnapshot = event.messages.length === 0;
+        const hasToolResultInRunInput = input.messages.some(
+          (message) => message.role === "tool",
+        );
+
+        // During frontend-tool follow-ups, a transient empty snapshot can arrive
+        // before the model response. Letting it propagate collapses the chat.
+        if (
+          isEmptySnapshot &&
+          hasToolResultInRunInput &&
+          agent.messages.length > 0
+        ) {
+          return { stopPropagation: true };
+        }
+      },
       onRunFailed: async ({ error }: { error: Error }) => {
         const code =
           error instanceof AgentThreadLockedError
