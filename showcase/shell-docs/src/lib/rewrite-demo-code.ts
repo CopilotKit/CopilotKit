@@ -38,36 +38,64 @@ function matchAttr(attrs: string, name: string): string | undefined {
  * silently surface a broken `<DemoCode>` JSX tag — that would crash
  * the MDX compile.
  */
-export function rewriteDemoCode(source: string, packageRoot: string): string {
-  // Match `<DemoCode ... />` with any attribute body. The lazy `[^>]*?`
-  // gobble stops at the closing `/>`, which is right — we never want
-  // to span past the end of the tag — but it MUST NOT exclude `/` or
-  // we'd fail to match attribute values like `file="src/agents/foo.py"`.
-  const RX = /<DemoCode\s+([^>]*?)\s*\/>/g;
-  return source.replace(RX, (match, attrs: string) => {
+export interface RewriteDemoCodeOptions {
+  onError?: "warn" | "throw";
+}
+
+function handleRewriteError(
+  message: string,
+  options: RewriteDemoCodeOptions,
+): string {
+  if (options.onError === "throw") {
+    throw new Error(message);
+  }
+  console.warn(message);
+  return "";
+}
+
+function formatFenceTitle(title: string): string {
+  return JSON.stringify(title);
+}
+
+const DEMO_CODE_TAG_RX = /<DemoCode\b((?:"[^"]*"|'[^']*'|[^'"<>])*)\/>/g;
+
+export function rewriteDemoCode(
+  source: string,
+  packageRoot: string,
+  options: RewriteDemoCodeOptions = {},
+): string {
+  // Match `<DemoCode ... />` with quoted attributes, including values
+  // such as `title="A > B"`, without spanning into the next JSX tag.
+  return source.replace(DEMO_CODE_TAG_RX, (match, attrs: string) => {
     const file = matchAttr(attrs, "file");
     const region = matchAttr(attrs, "region");
-    if (!file || !region) return match;
+    if (!file || !region) {
+      if (options.onError === "throw") {
+        throw new Error(
+          `[demo-code] DemoCode references must use static file and region props: ${match}`,
+        );
+      }
+      return match;
+    }
 
     const language = matchAttr(attrs, "language");
     const title = matchAttr(attrs, "title");
 
     const resolved = resolveWithinDir(packageRoot, file);
     if (!resolved || !fs.existsSync(resolved)) {
-      console.warn(
-        "[demo-code] file not found",
-        file,
-        "in package root",
-        packageRoot,
+      return handleRewriteError(
+        `[demo-code] file not found ${file} in package root ${packageRoot}`,
+        options,
       );
-      return "";
     }
     let raw: string;
     try {
       raw = fs.readFileSync(resolved, "utf-8");
     } catch (err) {
-      console.warn("[demo-code] failed to read", resolved, err);
-      return "";
+      return handleRewriteError(
+        `[demo-code] failed to read ${resolved}: ${(err as Error).message}`,
+        options,
+      );
     }
     const ext = file.includes(".")
       ? file.slice(file.lastIndexOf(".") + 1).toLowerCase()
@@ -76,22 +104,27 @@ export function rewriteDemoCode(source: string, packageRoot: string): string {
     try {
       body = extractRegion(raw, region, ext);
     } catch (err) {
-      console.warn(
-        "[demo-code] extraction failed",
-        file,
-        region,
-        (err as Error).message,
+      return handleRewriteError(
+        `[demo-code] extraction failed ${file} ${region}: ${(err as Error).message}`,
+        options,
       );
-      return "";
     }
     if (body === null) {
-      console.warn("[demo-code] region not found", region, "in", file);
-      return "";
+      return handleRewriteError(
+        `[demo-code] region not found ${region} in ${file}`,
+        options,
+      );
     }
     const lang = language ?? inferLanguage(file);
     const fenceTitle = title ?? path.basename(file);
     // 4-tilde fence so the embedded body can safely contain triple
     // backticks without prematurely closing the fence.
-    return ["", `~~~${lang} title="${fenceTitle}"`, body, "~~~", ""].join("\n");
+    return [
+      "",
+      `~~~~${lang} title=${formatFenceTitle(fenceTitle)}`,
+      body,
+      "~~~~",
+      "",
+    ].join("\n");
   });
 }

@@ -16,7 +16,6 @@ description: >-
 partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/spring-ai
 copilotkit_version: 2.0.0
-backend_url: https://showcase-spring-ai-production.up.railway.app
 deployed: true
 docs_mode: hidden
 sort_order: 170
