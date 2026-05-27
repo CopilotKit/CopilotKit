@@ -184,6 +184,23 @@ describe("useLearnFromUserActionInCurrentThread", () => {
     });
   });
 
+  it("threads learningContainer through to the underlying call", async () => {
+    installCopilotKit();
+    installChatConfig("thread-1");
+    const { calls, fetch } = mockFetch([
+      { status: 200, body: { id: "1", duplicate: false } },
+    ]);
+    globalThis.fetch = fetch;
+
+    const { result } = renderHook(() => useLearnFromUserActionInCurrentThread());
+    await result.current({
+      title: "Renamed project",
+      learningContainer: ["user", "organization"],
+    });
+
+    expect(calls[0]!.body!.learningContainer).toEqual(["user", "organization"]);
+  });
+
   it("allows omitting all optional fields", async () => {
     installCopilotKit();
     installChatConfig("thread-1");

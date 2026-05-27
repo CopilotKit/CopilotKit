@@ -1,5 +1,5 @@
 import { renderHook } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useCopilotKit } from "../../context";
 import { useLearnFromUserAction } from "../use-learn-from-user-action";
 
@@ -219,7 +219,7 @@ describe("useLearnFromUserAction", () => {
     expect(calls[0]!.body).not.toHaveProperty("occurredAt");
   });
 
-  test("forwards learningContainer (string) in the request body", async () => {
+  it("forwards learningContainer (string) in the request body", async () => {
     installCopilotKit();
     const { calls, fetch } = mockFetch([
       { status: 200, body: { id: "1", duplicate: false } },
@@ -232,7 +232,7 @@ describe("useLearnFromUserAction", () => {
     expect(calls[0]!.body!.learningContainer).toBe("user");
   });
 
-  test("forwards learningContainer (array) in the request body", async () => {
+  it("forwards learningContainer (array) in the request body", async () => {
     installCopilotKit();
     const { calls, fetch } = mockFetch([
       { status: 200, body: { id: "1", duplicate: false } },
