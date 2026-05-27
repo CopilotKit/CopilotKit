@@ -379,7 +379,7 @@ jobs:
           done
 
       - name: Build and push
-        uses: depot/build-push-action@5f3b3c2e5a00f0093de47f657aeaefcedff27d18 # v1
+        uses: depot/build-push-action@5f3b3c2e5a00f0093de47f657aeaefcedff27d18 # v1.17.0
         with:
           project: m2kw2wmmcp
           context: ${{ matrix.service.context }}
