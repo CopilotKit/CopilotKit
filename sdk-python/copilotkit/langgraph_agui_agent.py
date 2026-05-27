@@ -234,5 +234,8 @@ class LangGraphAGUIAgent(LangGraphAgent):
 
     def dict_repr(self):
         """Return dictionary representation of the agent"""
-        super_repr = super().dict_repr()
-        return {**super_repr, "type": "langgraph_agui"}
+        return {
+            "name": self.name,
+            "description": self.description or "",
+            "type": "langgraph_agui",
+        }
