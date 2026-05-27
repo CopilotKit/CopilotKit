@@ -36,9 +36,6 @@
   "dependencies": {
     "openai": "^5.9.0"
   },
-  "peerDependencies": {
-    "@copilotkit/runtime": "workspace:*"
-  },
   "devDependencies": {
     "@copilotkit/runtime": "workspace:*",
     "@copilotkit/typescript-config": "workspace:*",
@@ -46,6 +43,9 @@
     "tsdown": "^0.20.3",
     "typescript": "5.8.2",
     "vitest": "^3.0.5"
+  },
+  "peerDependencies": {
+    "@copilotkit/runtime": "workspace:*"
   },
   "engines": {
     "node": ">=18"
