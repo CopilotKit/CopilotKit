@@ -3003,13 +3003,13 @@ importers:
 
   packages/voice:
     dependencies:
-      '@copilotkit/runtime':
-        specifier: workspace:*
-        version: link:../runtime
       openai:
         specifier: ^5.9.0
         version: 5.23.2(ws@8.19.0)(zod@3.25.76)
     devDependencies:
+      '@copilotkit/runtime':
+        specifier: workspace:*
+        version: link:../runtime
       '@copilotkit/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
