@@ -47,8 +47,8 @@ export function SidebarFrameworkSelector() {
 
   return (
     // Sticky so the selector stays visible as the user scrolls long
-    // sidebars. The wrapper bg matches the sidebar surface so the area
-    // surrounding the pill reads as one continuous panel.
+    // sidebars. The wrapper bg keeps nav text from showing through the
+    // sticky header while the sidebar remains visually unframed.
     <div className="sticky top-0 z-10 bg-[var(--bg-surface)] backdrop-blur-lg">
       <FrameworkSelector
         options={options}
