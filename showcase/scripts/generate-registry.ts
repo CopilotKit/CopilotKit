@@ -24,6 +24,23 @@ const FEATURE_REGISTRY_PATH = path.join(
   "shared",
   "feature-registry.json",
 );
+
+// Backend host pattern — used to synthesize `backend_url` for any manifest
+// that omits it. `{slug}` is the only placeholder. Default reproduces the
+// Railway hostname convention every existing manifest already uses, so this
+// PR is a no-op for the current dataset (manifest value wins in dual-read).
+//
+// Future PRs will (a) drop `backend_url` from manifests so this synthesis
+// becomes the source of truth, and (b) let CI/tests point a single deployed
+// image at a different env by overriding this var.
+const DEFAULT_BACKEND_HOST_PATTERN =
+  "showcase-{slug}-production.up.railway.app";
+const BACKEND_HOST_PATTERN =
+  process.env.SHOWCASE_BACKEND_HOST_PATTERN || DEFAULT_BACKEND_HOST_PATTERN;
+
+function synthesizeBackendUrl(slug: string): string {
+  return `https://${BACKEND_HOST_PATTERN.replace("{slug}", slug)}`;
+}
 // Registry is consumed by ALL shells:
 //   - shell: home grid, integrations catalog, matrix, middleware
 //   - shell-docs: docs routes (framework lookup, MDX renderer)
@@ -544,6 +561,22 @@ function main() {
   for (const manifest of integrations) {
     const pkgDir = path.join(PACKAGES_DIR, manifest.slug as string);
     manifest.docs_links = loadDocsLinks(pkgDir, allErrors);
+  }
+
+  // Dual-read for backend_url:
+  //   manifest value (if present)  ->  synthesized from BACKEND_HOST_PATTERN
+  //
+  // For now every manifest still ships an explicit `backend_url`, so the
+  // synthesized fallback below is unreachable in production data and the
+  // emitted registry.json is byte-identical to the previous output. The
+  // synthesis path exists so PR2 can drop `backend_url` from manifests
+  // without further changes here.
+  for (const manifest of integrations) {
+    const slug = manifest.slug as string;
+    const existing = manifest.backend_url;
+    if (typeof existing !== "string" || existing.length === 0) {
+      manifest.backend_url = synthesizeBackendUrl(slug);
+    }
   }
 
   // Constraint validation
