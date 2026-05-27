@@ -20,6 +20,8 @@
     "useConfigureSuggestions",
     "---Configuration---",
     "useCopilotKit",
-    "useCopilotChatConfiguration"
+    "useCopilotChatConfiguration",
+    "---Activity Capture---",
+    "useAutoCaptureUserActions"
   ]
 }
