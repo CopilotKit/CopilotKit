@@ -45,6 +45,10 @@ import {
 import { createA2UIMessageRenderer } from "../a2ui/A2UIMessageRenderer";
 import { A2UIBuiltInToolCallRenderer } from "../a2ui/A2UIToolCallRenderer";
 import { A2UICatalogContext } from "../a2ui/A2UICatalogContext";
+import {
+  AutoCaptureMount,
+  type AutoCaptureUserActionsConfig,
+} from "../auto-capture";
 import { viewerTheme } from "@copilotkit/a2ui-renderer";
 import type { Theme as A2UITheme } from "@copilotkit/a2ui-renderer";
 import { CopilotKitCoreReact } from "../lib/react-core";
@@ -217,6 +221,14 @@ export interface CopilotKitProviderProps {
    * Enable debug logging for the client-side event pipeline.
    */
   debug?: DebugConfig;
+  /**
+   * Automatically record mutating HTTP requests (`fetch`/`XMLHttpRequest`) as
+   * user actions, without per-site instrumentation. Off unless supplied with
+   * `enabled !== false`. For "current thread" attribution prefer the
+   * `useAutoCaptureUserActions()` hook mounted inside a chat; when set here at
+   * the provider root, supply an explicit `threadId`.
+   */
+  autoCaptureUserActions?: AutoCaptureUserActionsConfig;
 }
 
 // Small helper to normalize array props to a stable reference and warn
@@ -267,6 +279,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   defaultThrottleMs,
   inspectorDefaultAnchor,
   debug,
+  autoCaptureUserActions,
 }) => {
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
   const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
@@ -770,6 +783,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
               includeSchema={a2ui?.includeSchema}
             />
           )}
+          {autoCaptureUserActions &&
+            autoCaptureUserActions.enabled !== false && (
+              <AutoCaptureMount config={autoCaptureUserActions} />
+            )}
           {children}
           {shouldRenderInspector ? (
             <CopilotKitInspector
