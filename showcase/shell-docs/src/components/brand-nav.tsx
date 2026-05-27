@@ -81,7 +81,7 @@ export function BrandNav(_props: BrandNavProps = {}) {
       {/* Cap the BrandNav's visible chrome at the same `--fd-layout-width`
        * (97rem) that the fumadocs docs grid uses, and center it. At
        * wide viewports this keeps the BrandNav's left/right edges
-       * aligned with the sidebar pill on the left and the docs content
+       * aligned with the sidebar column on the left and the docs content
        * column on the right; at narrower viewports it's a no-op
        * because the inner width never reaches the cap. */}
       <div className="flex justify-between items-center w-full h-full max-w-[97rem] mx-auto">
