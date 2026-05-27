@@ -77,7 +77,7 @@ export function BrandNav(_props: BrandNavProps = {}) {
   };
 
   return (
-    <nav className="relative h-[68px] xl:h-[88px] px-[22px] py-1 xl:py-2 bg-[var(--bg)] hidden md:block">
+    <nav className="relative h-[76px] xl:h-[96px] px-[22px] pt-3 pb-1 xl:pt-4 xl:pb-2 bg-[var(--bg)] hidden md:block">
       {/* Cap the BrandNav's visible chrome at the same `--fd-layout-width`
        * (97rem) that the fumadocs docs grid uses, and center it. At
        * wide viewports this keeps the BrandNav's left/right edges
