@@ -144,6 +144,7 @@ _INSTRUCTION = (
     "short notes."
 )
 
+# @region[shared-state-setup]
 shared_state_read_write_agent = LlmAgent(
     name="SharedStateReadWriteAgent",
     model=get_model(),
@@ -152,3 +153,4 @@ shared_state_read_write_agent = LlmAgent(
     before_model_callback=_inject_preferences,
     after_model_callback=stop_on_terminal_text,
 )
+# @endregion[shared-state-setup]

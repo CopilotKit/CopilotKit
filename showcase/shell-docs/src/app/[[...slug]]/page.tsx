@@ -13,9 +13,9 @@ import { DocsLandingNext } from "@/components/docs-landing-next";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
-import { buildFrameworkOnlyNav, loadDoc } from "@/lib/docs-render";
+import { buildFrameworkNav, loadDoc } from "@/lib/docs-render";
 import { navTreeToPageTree } from "@/lib/page-tree-bridge";
-import { getDocsFolder } from "@/lib/registry";
+import { getDocsFolder, getIntegration } from "@/lib/registry";
 import { buildDocMetadata } from "@/lib/seo-metadata";
 
 // Force dynamic rendering so unknown slugs reliably return HTTP 404
@@ -26,13 +26,9 @@ import { buildDocMetadata } from "@/lib/seo-metadata";
 // successful responses at the edge anyway.
 export const dynamic = "force-dynamic";
 
-// Soft-default framework rendered on the bare `/` URL. BIA is the
-// "Built-in Agent" path and uses `docs_mode: authored`, so its sidebar
-// is its own authored tree under `integrations/built-in-agent/`.
-// Hardcoding it here keeps the sidebar tree on `/` identical to what
-// the user sees after clicking any BIA sidebar link (e.g. /built-in-agent/quickstart),
-// instead of showing the unrelated generated all-content tree on `/`
-// and then morphing on first navigation.
+// Soft-default framework rendered on the bare `/` URL. Hardcoding BIA
+// here keeps the sidebar tree on `/` identical to what the user sees
+// after clicking any Built-in Agent sidebar link.
 const HOME_DEFAULT_FRAMEWORK = "built-in-agent";
 
 // Per-framework self-canonical: each variant of a doc page declares
@@ -71,13 +67,17 @@ export async function generateMetadata({
 }
 
 function DocsOverview() {
-  // Sidebar matches the soft-default framework (BIA, `docs_mode: authored`)
-  // so the home `/` and the post-click `/built-in-agent/...` views share
-  // an identical sidebar tree. Mirrors the `authored`-mode branch in
-  // `/<framework>/<...slug>` (page.tsx): `buildFrameworkOnlyNav(docsFolder)`
-  // for the tree, `/<framework>` for the link prefix.
+  // Sidebar matches the soft-default framework so home `/` and
+  // post-click `/built-in-agent/...` views share the same merged IA used
+  // by every framework-scoped route.
   const docsFolder = getDocsFolder(HOME_DEFAULT_FRAMEWORK);
-  const navTree = buildFrameworkOnlyNav(docsFolder);
+  const integrationName =
+    getIntegration(HOME_DEFAULT_FRAMEWORK)?.name ?? "Built-in Agent";
+  const navTree = buildFrameworkNav(
+    docsFolder,
+    integrationName,
+    HOME_DEFAULT_FRAMEWORK,
+  );
   const pageTree = navTreeToPageTree(navTree, `/${HOME_DEFAULT_FRAMEWORK}`);
 
   // Rewrite the Introduction entry's URL from `/built-in-agent` (or
