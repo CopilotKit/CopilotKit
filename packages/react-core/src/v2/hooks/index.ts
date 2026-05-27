@@ -17,17 +17,17 @@ export { useInterrupt } from "./use-interrupt";
 export type { UseInterruptConfig } from "./use-interrupt";
 export { useThreads } from "./use-threads";
 export type { Thread, UseThreadsInput, UseThreadsResult } from "./use-threads";
-export { useRecordUserAction } from "./use-record-user-action";
+export { useLearnFromUserAction } from "./use-learn-from-user-action";
 export type {
-  RecordUserActionInput,
-  RecordUserActionResult,
-  UseRecordUserActionRecorder,
-} from "./use-record-user-action";
-export { useRecordUserActionInCurrentThread } from "./use-record-user-action-in-current-thread";
+  LearnFromUserActionInput,
+  LearnFromUserActionResult,
+  UseLearnFromUserActionRecorder,
+} from "./use-learn-from-user-action";
+export { useLearnFromUserActionInCurrentThread } from "./use-learn-from-user-action-in-current-thread";
 export type {
-  RecordUserActionInCurrentThreadInput,
-  UseRecordUserActionInCurrentThreadRecorder,
-} from "./use-record-user-action-in-current-thread";
+  LearnFromUserActionInCurrentThreadInput,
+  UseLearnFromUserActionInCurrentThreadRecorder,
+} from "./use-learn-from-user-action-in-current-thread";
 export { useAttachments } from "./use-attachments";
 export type {
   UseAttachmentsProps,

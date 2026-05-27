@@ -1,7 +1,7 @@
 import { renderHook } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, test, vi } from "vitest";
 import { useCopilotKit } from "../../context";
-import { useRecordUserAction } from "../use-record-user-action";
+import { useLearnFromUserAction } from "../use-learn-from-user-action";
 
 vi.mock("../../context", () => ({
   useCopilotKit: vi.fn(),
@@ -69,7 +69,7 @@ const installCopilotKit = (
   });
 };
 
-describe("useRecordUserAction", () => {
+describe("useLearnFromUserAction", () => {
   let originalFetch: typeof globalThis.fetch;
 
   beforeEach(() => {
@@ -89,12 +89,11 @@ describe("useRecordUserAction", () => {
     ]);
     globalThis.fetch = fetch;
 
-    const { result } = renderHook(() => useRecordUserAction());
+    const { result } = renderHook(() => useLearnFromUserAction());
     const recorded = await result.current({
       threadId: "thread-1",
       title: "Renamed project",
-      previousData: { name: "Foo" },
-      newData: { name: "Bar" },
+      data: { previous: { name: "Foo" }, next: { name: "Bar" } },
     });
 
     expect(recorded).toEqual({ id: "42", duplicate: false });
@@ -106,8 +105,7 @@ describe("useRecordUserAction", () => {
     expect(calls[0]!.body).toMatchObject({
       threadId: "thread-1",
       title: "Renamed project",
-      previousData: { name: "Foo" },
-      newData: { name: "Bar" },
+      data: { previous: { name: "Foo" }, next: { name: "Bar" } },
     });
     expect(typeof calls[0]!.body!.clientEventId).toBe("string");
     expect((calls[0]!.body!.clientEventId as string).length).toBeGreaterThan(0);
@@ -120,7 +118,7 @@ describe("useRecordUserAction", () => {
     ]);
     globalThis.fetch = fetch;
 
-    const { result } = renderHook(() => useRecordUserAction());
+    const { result } = renderHook(() => useLearnFromUserAction());
     await result.current({
       threadId: "thread-1",
       title: "X",
@@ -138,7 +136,7 @@ describe("useRecordUserAction", () => {
     ]);
     globalThis.fetch = fetch;
 
-    const { result } = renderHook(() => useRecordUserAction());
+    const { result } = renderHook(() => useLearnFromUserAction());
     await result.current({ threadId: "t", title: "x" });
     await result.current({ threadId: "t", title: "x" });
 
@@ -155,7 +153,7 @@ describe("useRecordUserAction", () => {
     ]);
     globalThis.fetch = fetch;
 
-    const { result } = renderHook(() => useRecordUserAction());
+    const { result } = renderHook(() => useLearnFromUserAction());
     await result.current({ threadId: "t", title: "x" });
 
     const headers = calls[0]!.init?.headers as Record<string, string>;
@@ -170,7 +168,7 @@ describe("useRecordUserAction", () => {
     ]);
     globalThis.fetch = fetch;
 
-    const { result } = renderHook(() => useRecordUserAction());
+    const { result } = renderHook(() => useLearnFromUserAction());
     await expect(result.current({ threadId: "t", title: "x" })).rejects.toThrow(
       /runtimeUrl is not configured/,
     );
@@ -184,7 +182,7 @@ describe("useRecordUserAction", () => {
         new TypeError("network request failed"),
       ) as unknown as typeof globalThis.fetch;
 
-    const { result } = renderHook(() => useRecordUserAction());
+    const { result } = renderHook(() => useLearnFromUserAction());
     await expect(result.current({ threadId: "t", title: "x" })).rejects.toThrow(
       /network request failed/,
     );
@@ -195,7 +193,7 @@ describe("useRecordUserAction", () => {
     const { fetch } = mockFetch([{ status: 400, body: { error: "bad" } }]);
     globalThis.fetch = fetch;
 
-    const { result } = renderHook(() => useRecordUserAction());
+    const { result } = renderHook(() => useLearnFromUserAction());
     await expect(result.current({ threadId: "t", title: "x" })).rejects.toThrow(
       /400/,
     );
@@ -208,16 +206,42 @@ describe("useRecordUserAction", () => {
     ]);
     globalThis.fetch = fetch;
 
-    const { result } = renderHook(() => useRecordUserAction());
+    const { result } = renderHook(() => useLearnFromUserAction());
     await result.current({
       threadId: "t",
       title: "x",
     });
 
     expect(calls[0]!.body).not.toHaveProperty("description");
-    expect(calls[0]!.body).not.toHaveProperty("previousData");
-    expect(calls[0]!.body).not.toHaveProperty("newData");
+    expect(calls[0]!.body).not.toHaveProperty("data");
+    expect(calls[0]!.body).not.toHaveProperty("learningContainer");
     expect(calls[0]!.body).not.toHaveProperty("metadata");
     expect(calls[0]!.body).not.toHaveProperty("occurredAt");
+  });
+
+  test("forwards learningContainer (string) in the request body", async () => {
+    installCopilotKit();
+    const { calls, fetch } = mockFetch([
+      { status: 200, body: { id: "1", duplicate: false } },
+    ]);
+    globalThis.fetch = fetch;
+
+    const { result } = renderHook(() => useLearnFromUserAction());
+    await result.current({ threadId: "t1", learningContainer: "user" });
+
+    expect(calls[0]!.body!.learningContainer).toBe("user");
+  });
+
+  test("forwards learningContainer (array) in the request body", async () => {
+    installCopilotKit();
+    const { calls, fetch } = mockFetch([
+      { status: 200, body: { id: "1", duplicate: false } },
+    ]);
+    globalThis.fetch = fetch;
+
+    const { result } = renderHook(() => useLearnFromUserAction());
+    await result.current({ threadId: "t1", learningContainer: ["user", "organization"] });
+
+    expect(calls[0]!.body!.learningContainer).toEqual(["user", "organization"]);
   });
 });

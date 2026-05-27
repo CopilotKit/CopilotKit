@@ -2,7 +2,7 @@ import { renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useCopilotKit } from "../../context";
 import { useCopilotChatConfiguration } from "../../providers";
-import { useRecordUserActionInCurrentThread } from "../use-record-user-action-in-current-thread";
+import { useLearnFromUserActionInCurrentThread } from "../use-learn-from-user-action-in-current-thread";
 
 vi.mock("../../context", () => ({
   useCopilotKit: vi.fn(),
@@ -80,7 +80,7 @@ const installChatConfig = (threadId: string | null | undefined) => {
   });
 };
 
-describe("useRecordUserActionInCurrentThread", () => {
+describe("useLearnFromUserActionInCurrentThread", () => {
   let originalFetch: typeof globalThis.fetch;
 
   beforeEach(() => {
@@ -101,7 +101,7 @@ describe("useRecordUserActionInCurrentThread", () => {
     ]);
     globalThis.fetch = fetch;
 
-    const { result } = renderHook(() => useRecordUserActionInCurrentThread());
+    const { result } = renderHook(() => useLearnFromUserActionInCurrentThread());
     await result.current({ title: "Clicked rename" });
 
     expect(calls).toHaveLength(1);
@@ -127,7 +127,7 @@ describe("useRecordUserActionInCurrentThread", () => {
     ]);
     globalThis.fetch = fetch;
 
-    const { result } = renderHook(() => useRecordUserActionInCurrentThread());
+    const { result } = renderHook(() => useLearnFromUserActionInCurrentThread());
     await result.current({ title: "x" });
 
     expect(calls[0]!.body!.threadId).toBe("auto-minted-uuid");
@@ -142,7 +142,7 @@ describe("useRecordUserActionInCurrentThread", () => {
     globalThis.fetch = fetch;
 
     // Mounting the hook with no config is fine.
-    const { result } = renderHook(() => useRecordUserActionInCurrentThread());
+    const { result } = renderHook(() => useLearnFromUserActionInCurrentThread());
 
     // The call throws.
     await expect(result.current({ title: "x" })).rejects.toThrow(
@@ -153,7 +153,7 @@ describe("useRecordUserActionInCurrentThread", () => {
   it("throws on call when config.threadId is empty", async () => {
     installCopilotKit();
     installChatConfig("");
-    const { result } = renderHook(() => useRecordUserActionInCurrentThread());
+    const { result } = renderHook(() => useLearnFromUserActionInCurrentThread());
     await expect(result.current({ title: "x" })).rejects.toThrow(
       /no CopilotChatConfigurationProvider/,
     );
@@ -167,12 +167,11 @@ describe("useRecordUserActionInCurrentThread", () => {
     ]);
     globalThis.fetch = fetch;
 
-    const { result } = renderHook(() => useRecordUserActionInCurrentThread());
+    const { result } = renderHook(() => useLearnFromUserActionInCurrentThread());
     await result.current({
       title: "Renamed project",
       description: "User renamed Foo to Bar",
-      previousData: { name: "Foo" },
-      newData: { name: "Bar" },
+      data: { previous: { name: "Foo" }, next: { name: "Bar" } },
       metadata: { source: "settings-page" },
     });
 
@@ -180,8 +179,7 @@ describe("useRecordUserActionInCurrentThread", () => {
       threadId: "thread-1",
       title: "Renamed project",
       description: "User renamed Foo to Bar",
-      previousData: { name: "Foo" },
-      newData: { name: "Bar" },
+      data: { previous: { name: "Foo" }, next: { name: "Bar" } },
       metadata: { source: "settings-page" },
     });
   });
@@ -194,7 +192,7 @@ describe("useRecordUserActionInCurrentThread", () => {
     ]);
     globalThis.fetch = fetch;
 
-    const { result } = renderHook(() => useRecordUserActionInCurrentThread());
+    const { result } = renderHook(() => useLearnFromUserActionInCurrentThread());
     // No title, no description, no data — just thread context.
     await result.current({});
 

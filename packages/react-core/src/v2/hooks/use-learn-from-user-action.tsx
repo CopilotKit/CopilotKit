@@ -3,51 +3,52 @@ import { useCallback } from "react";
 import { useCopilotKit } from "../context";
 
 /**
- * Input to {@link UseRecordUserActionRecorder}, the function returned by
- * {@link useRecordUserAction}. Captures a single UI interaction that the
- * Intelligence platform's auto-curated knowledge base loop will distill
+ * Input to {@link UseLearnFromUserActionRecorder}, the function returned
+ * by {@link useLearnFromUserAction}. Captures a single UI interaction that
+ * the Intelligence platform's auto-curated knowledge base loop will distill
  * into the team's `/knowledge` notes.
  */
-export interface RecordUserActionInput {
+export interface LearnFromUserActionInput {
   /** Thread the action is associated with. May be unknown to the platform. */
   threadId: string;
   /** Short, agent-readable summary of what the user did. Optional. */
   title?: string | null;
   /** Optional longer explanation. */
   description?: string | null;
-  /** Optional JSON-serializable snapshot of state before the action. */
-  previousData?: unknown;
-  /** Optional JSON-serializable snapshot of state after the action. */
-  newData?: unknown;
+  /** Free-form, JSON-serializable snapshot describing the action. Optional. */
+  data?: unknown;
+  /**
+   * Learning container(s) this action is routed to. Accepts a single
+   * container name or an array of names. Defaults to `["organization"]`
+   * server-side when omitted. (Routing is not yet honored by the offline
+   * learner; the value is recorded for the forthcoming learner.)
+   */
+  learningContainer?: string | string[];
   /** Optional caller-defined metadata. Stored verbatim. */
   metadata?: Record<string, unknown> | null;
   /** ISO-8601 client-asserted timestamp. Defaults to server NOW() when absent. */
   occurredAt?: string;
   /**
    * Caller-supplied idempotency key. When omitted, the hook generates a
-   * fresh UUID per call so retries against the same in-flight Promise
-   * collapse to the original row at the platform. Supply your own when
-   * you want a single semantic event to remain idempotent across calls
-   * (e.g. across a React re-render or a manual retry button).
+   * fresh UUID per call so retries collapse to the original row at the
+   * platform. Supply your own to keep a single semantic event idempotent
+   * across calls (e.g. a React re-render or a manual retry button).
    */
   clientEventId?: string;
 }
 
 /** Outcome returned by the recorder function. */
-export interface RecordUserActionResult {
+export interface LearnFromUserActionResult {
   /** Platform-assigned id of the user-action row. */
   id: string;
-  /**
-   * True when the platform recognized this `clientEventId` as a retry and
-   * returned the original row id instead of inserting a new one.
-   */
+  /** True when the platform recognized this `clientEventId` as a retry. */
   duplicate: boolean;
 }
 
-/** Recorder function returned by {@link useRecordUserAction}. */
-export type UseRecordUserActionRecorder = (
-  input: RecordUserActionInput,
-) => Promise<RecordUserActionResult>;
+/** Recorder function returned by {@link useLearnFromUserAction}. */
+export type UseLearnFromUserActionRecorder = (
+  input: LearnFromUserActionInput,
+) => Promise<LearnFromUserActionResult>;
 
 /**
  * Record a user UI interaction in the Intelligence platform's user-actions
@@ -65,37 +66,35 @@ export type UseRecordUserActionRecorder = (
  * naive double-call (e.g. React 18 strict-mode double-mount, or a retry
  * after a network blip on a fresh Promise) is naturally safe. Supply your
  * own key when a single semantic event must remain idempotent across
- * multiple `recordUserAction(...)` calls.
+ * multiple `learnFromUserAction(...)` calls.
  *
  * @example
  * ```tsx
- * import { useRecordUserAction } from "@copilotkit/react-core";
+ * import { useLearnFromUserAction } from "@copilotkit/react-core";
  *
  * function SettingsPage({ threadId }) {
- *   const recordUserAction = useRecordUserAction();
+ *   const learnFromUserAction = useLearnFromUserAction();
  *
  *   const onRename = (oldName: string, newName: string) => {
- *     void recordUserAction({
+ *     void learnFromUserAction({
  *       threadId,
  *       title: "Renamed project",
- *       previousData: { name: oldName },
- *       newData: { name: newName },
+ *       data: { previous: { name: oldName }, next: { name: newName } },
+ *       learningContainer: "organization",
  *     });
  *   };
- *
- *   // ...
  * }
  * ```
  */
-export function useRecordUserAction(): UseRecordUserActionRecorder {
+export function useLearnFromUserAction(): UseLearnFromUserActionRecorder {
   const { copilotkit } = useCopilotKit();
 
   return useCallback(
-    async (input: RecordUserActionInput): Promise<RecordUserActionResult> => {
+    async (input: LearnFromUserActionInput): Promise<LearnFromUserActionResult> => {
       const runtimeUrl = copilotkit.runtimeUrl;
       if (!runtimeUrl) {
         throw new Error(
-          "useRecordUserAction: runtimeUrl is not configured. Set it on <CopilotKitProvider runtimeUrl=...>.",
+          "useLearnFromUserAction: runtimeUrl is not configured. Set it on <CopilotKitProvider runtimeUrl=...>.",
         );
       }
 
@@ -107,10 +106,10 @@ export function useRecordUserAction(): UseRecordUserActionRecorder {
         ...(input.description !== undefined
           ? { description: input.description }
           : {}),
-        ...(input.previousData !== undefined
-          ? { previousData: input.previousData }
+        ...(input.data !== undefined ? { data: input.data } : {}),
+        ...(input.learningContainer !== undefined
+          ? { learningContainer: input.learningContainer }
           : {}),
-        ...(input.newData !== undefined ? { newData: input.newData } : {}),
         ...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
         ...(input.occurredAt !== undefined
           ? { occurredAt: input.occurredAt }
@@ -129,13 +128,13 @@ export function useRecordUserAction(): UseRecordUserActionRecorder {
       if (!response.ok) {
         const text = await response.text().catch(() => "");
         throw new Error(
-          `useRecordUserAction: request failed (${response.status})${
+          `useLearnFromUserAction: request failed (${response.status})${
             text ? `: ${text}` : ""
           }`,
         );
       }
 
-      return (await response.json()) as RecordUserActionResult;
+      return (await response.json()) as LearnFromUserActionResult;
     },
     [copilotkit],
   );
