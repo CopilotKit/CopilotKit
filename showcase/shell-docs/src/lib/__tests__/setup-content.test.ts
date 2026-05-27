@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  resolveBundledSetupConcept,
-  setupContentKey,
-} from "../setup-content";
+import { resolveBundledSetupConcept, setupContentKey } from "../setup-content";
 import type { SetupContentBundle } from "../setup-content";
 
 const bundle: SetupContentBundle = {
@@ -36,9 +33,9 @@ describe("setup content bundle", () => {
   });
 
   it("returns null when the framework concept is absent", () => {
-    expect(resolveBundledSetupConcept("google-adk", "agent-setup", bundle)).toBe(
-      null,
-    );
+    expect(
+      resolveBundledSetupConcept("google-adk", "agent-setup", bundle),
+    ).toBe(null);
     expect(
       resolveBundledSetupConcept("langgraph-python", "missing", bundle),
     ).toBe(null);

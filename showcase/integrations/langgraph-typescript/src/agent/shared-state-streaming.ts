@@ -152,7 +152,9 @@ function shouldContinue({ messages, copilotkit }: AgentState) {
   if (lastMessage.tool_calls?.length) {
     const actions = copilotkit?.actions;
     const hasBackendToolCall = lastMessage.tool_calls.some((toolCall) => {
-      return !actions || actions.every((action) => action.name !== toolCall.name);
+      return (
+        !actions || actions.every((action) => action.name !== toolCall.name)
+      );
     });
 
     if (hasBackendToolCall) {
