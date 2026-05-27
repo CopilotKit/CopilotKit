@@ -222,22 +222,36 @@ jobs:
       - name: Publish to npm
         id: publish
         if: ${{ inputs.dry-run != true }}
-        run: pnpm tsx scripts/release/${{ inputs.publish-script || 'publish-release.ts' }} --scope ${{ steps.meta.outputs.scope }}
         env:
           NODE_AUTH_TOKEN: ""
           NOTION_API_KEY: ${{ steps.meta.outputs.mode == 'stable' && secrets.NOTION_API_KEY || '' }}
+          PUBLISH_SCRIPT: ${{ inputs.publish-script || 'publish-release.ts' }}
+          SCOPE: ${{ steps.meta.outputs.scope }}
+        run: pnpm tsx "scripts/release/$PUBLISH_SCRIPT" --scope "$SCOPE"
+
+      - name: Verify publish step emitted version
+        if: ${{ inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
+        env:
+          VERSION: ${{ steps.publish.outputs.version }}
+        run: |
+          if [ -z "$VERSION" ]; then
+            echo "::error::publish step did not emit 'version' output. This indicates the publish-release.ts script (or the configured publish-script input) did not write to GITHUB_OUTPUT. Tag/release creation would produce malformed artifacts; aborting."
+            exit 1
+          fi
+          echo "VERSION=$VERSION confirmed"
 
       - name: Configure git user
-        if: ${{ steps.meta.outputs.mode != 'prerelease' }}
+        if: ${{ inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
 
       - name: Check for pre-existing tags
-        if: ${{ steps.meta.outputs.mode != 'prerelease' }}
+        if: ${{ inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
+        env:
+          SCOPE: ${{ steps.meta.outputs.scope }}
+          VERSION: ${{ steps.publish.outputs.version }}
         run: |
-          SCOPE="${{ steps.meta.outputs.scope }}"
-          VERSION="${{ steps.publish.outputs.version }}"
           if [ "$SCOPE" == "monorepo" ]; then
             TAG="v${VERSION}"
           else
@@ -249,10 +263,11 @@ jobs:
           fi
 
       - name: Create and push git tag
-        if: ${{ steps.meta.outputs.mode != 'prerelease' }}
+        if: ${{ inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
+        env:
+          SCOPE: ${{ steps.meta.outputs.scope }}
+          VERSION: ${{ steps.publish.outputs.version }}
         run: |
-          SCOPE="${{ steps.meta.outputs.scope }}"
-          VERSION="${{ steps.publish.outputs.version }}"
           if [ "$SCOPE" == "monorepo" ]; then
             TAG="v${VERSION}"
           else
@@ -264,7 +279,7 @@ jobs:
         id: tag
 
       - name: Create GitHub Release
-        if: ${{ steps.meta.outputs.mode != 'prerelease' }}
+        if: ${{ inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         env:
           RELEASE_TAG: ${{ steps.tag.outputs.tag }}
@@ -304,11 +319,36 @@ jobs:
               });
             }
 
-      - name: Release summary
+      - name: Release summary (stable)
+        if: ${{ inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
         run: |
-          echo "## Release Published" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Scope:** ${{ steps.meta.outputs.scope }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Mode:** ${{ steps.meta.outputs.mode }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Version:** ${{ steps.publish.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Tag:** ${{ steps.tag.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Release Published"
+            echo ""
+            echo "**Scope:** ${{ steps.meta.outputs.scope }}"
+            echo "**Mode:** ${{ steps.meta.outputs.mode }}"
+            echo "**Version:** ${{ steps.publish.outputs.version }}"
+            echo "**Tag:** ${{ steps.tag.outputs.tag }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Prerelease summary
+        if: ${{ inputs.dry-run != true && steps.meta.outputs.mode == 'prerelease' }}
+        run: |
+          {
+            echo "## Prerelease Published"
+            echo ""
+            echo "**Scope:** ${{ steps.meta.outputs.scope }}"
+            echo "**Version:** ${{ steps.publish.outputs.version }}"
+            echo "**Tag:** (prerelease — no tag created)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dry-run summary
+        if: ${{ inputs.dry-run == true }}
+        run: |
+          {
+            echo "## Dry Run Completed"
+            echo ""
+            echo "**Scope:** ${{ steps.meta.outputs.scope }}"
+            echo "**Mode:** ${{ steps.meta.outputs.mode }}"
+            echo "- Publish step was skipped; no npm publish, no git tag, no GitHub Release."
+          } >> "$GITHUB_STEP_SUMMARY"
