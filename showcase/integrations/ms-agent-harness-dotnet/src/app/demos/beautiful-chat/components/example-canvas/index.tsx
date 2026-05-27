@@ -12,7 +12,7 @@ export function ExampleCanvas() {
         <TodoList
           todos={agent.state?.todos || []}
           onUpdate={(updatedTodos) =>
-            agent.setState({ ...(agent.state ?? {}), todos: updatedTodos })
+            agent.setState({ ...agent.state, todos: updatedTodos })
           }
           isAgentRunning={agent.isRunning}
         />

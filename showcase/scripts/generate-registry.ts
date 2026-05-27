@@ -24,6 +24,23 @@ const FEATURE_REGISTRY_PATH = path.join(
   "shared",
   "feature-registry.json",
 );
+
+// Backend host pattern — used to synthesize `backend_url` for any manifest
+// that omits it. `{slug}` is the only placeholder. Default reproduces the
+// Railway hostname convention every existing manifest already uses, so this
+// PR is a no-op for the current dataset (manifest value wins in dual-read).
+//
+// Future PRs will (a) drop `backend_url` from manifests so this synthesis
+// becomes the source of truth, and (b) let CI/tests point a single deployed
+// image at a different env by overriding this var.
+const DEFAULT_BACKEND_HOST_PATTERN =
+  "showcase-{slug}-production.up.railway.app";
+const BACKEND_HOST_PATTERN =
+  process.env.SHOWCASE_BACKEND_HOST_PATTERN || DEFAULT_BACKEND_HOST_PATTERN;
+
+function synthesizeBackendUrl(slug: string): string {
+  return `https://${BACKEND_HOST_PATTERN.replace("{slug}", slug)}`;
+}
 // Registry is consumed by ALL shells:
 //   - shell: home grid, integrations catalog, matrix, middleware
 //   - shell-docs: docs routes (framework lookup, MDX renderer)
@@ -536,6 +553,41 @@ function main() {
 
     integrations.push(manifest);
     console.log(`  OK: ${manifest.name} (${manifest.slug})`);
+  }
+
+  // Dual-read for backend_url:
+  //   manifest value (if present)  ->  synthesized from BACKEND_HOST_PATTERN
+  //
+  // Manifests no longer ship `backend_url` (PR2 stripped them all); the
+  // synthesized value below is now the source of truth. Manifest-supplied
+  // values are still honored for safety/backporting if any reappear.
+  //
+  // We rebuild each manifest object to insert `backend_url` immediately
+  // after `copilotkit_version`, preserving the historical JSON key order so
+  // the emitted registry.json stays byte-identical to the pre-PR1 output.
+  for (let i = 0; i < integrations.length; i++) {
+    const manifest = integrations[i] as Record<string, unknown>;
+    const slug = manifest.slug as string;
+    const existing = manifest.backend_url;
+    const backendUrl =
+      typeof existing === "string" && existing.length > 0
+        ? existing
+        : synthesizeBackendUrl(slug);
+
+    // Rebuild with `backend_url` slotted right after `copilotkit_version` to
+    // match the historical key order from YAML manifests.
+    const rebuilt: Record<string, unknown> = {};
+    let inserted = false;
+    for (const [key, value] of Object.entries(manifest)) {
+      if (key === "backend_url") continue;
+      rebuilt[key] = value;
+      if (key === "copilotkit_version") {
+        rebuilt.backend_url = backendUrl;
+        inserted = true;
+      }
+    }
+    if (!inserted) rebuilt.backend_url = backendUrl;
+    integrations[i] = rebuilt;
   }
 
   // Merge per-package docs-links.json overrides onto each integration *after*

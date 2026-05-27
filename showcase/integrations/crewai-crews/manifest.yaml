@@ -7,7 +7,6 @@ description: CopilotKit integration with CrewAI (Crews)
 partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/crewai-crews
 copilotkit_version: 2.0.0
-backend_url: https://showcase-crewai-crews-production.up.railway.app
 deployed: true
 docs_mode: authored
 sort_order: 40

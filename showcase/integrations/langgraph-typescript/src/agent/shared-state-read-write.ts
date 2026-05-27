@@ -21,14 +21,11 @@
  */
 
 import { z } from "zod";
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
-import {
-  AIMessage,
-  SystemMessage,
-  ToolMessage,
-} from "@langchain/core/messages";
+import type { AIMessage } from "@langchain/core/messages";
+import { SystemMessage, ToolMessage } from "@langchain/core/messages";
 import type { ToolRunnableConfig } from "@langchain/core/tools";
 import {
   Annotation,
@@ -53,6 +50,7 @@ import {
 // update, and READ by the UI via `useAgent({ updates: [OnStateChanged] })`.
 // ---------------------------------------------------------------------------
 
+// @region[shared-state-setup]
 export interface Preferences {
   name?: string;
   tone?: "formal" | "casual" | "playful";
@@ -67,6 +65,7 @@ const AgentStateAnnotation = Annotation.Root({
 });
 
 export type AgentState = typeof AgentStateAnnotation.State;
+// @endregion[shared-state-setup]
 
 // ---------------------------------------------------------------------------
 // 2. Tool — `set_notes` writes the agent-authored notes slot.
@@ -164,7 +163,11 @@ function buildPreferencesMessage(
 // @endregion[preferences-injector]
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
-  const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o-mini" });
+  const model = new ChatOpenAI({
+    temperature: 0,
+    model: "gpt-4o-mini",
+    modelKwargs: { parallel_tool_calls: false },
+  });
 
   const modelWithTools = model.bindTools!([
     ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),
@@ -196,9 +199,13 @@ function shouldContinue({ messages, copilotkit }: AgentState) {
 
   if (lastMessage.tool_calls?.length) {
     const actions = copilotkit?.actions;
-    const toolCallName = lastMessage.tool_calls![0].name;
+    const hasBackendToolCall = lastMessage.tool_calls.some((toolCall) => {
+      return (
+        !actions || actions.every((action) => action.name !== toolCall.name)
+      );
+    });
 
-    if (!actions || actions.every((action) => action.name !== toolCallName)) {
+    if (hasBackendToolCall) {
       return "tool_node";
     }
   }

@@ -13,7 +13,7 @@
  * frontend registered and answers accordingly.
  */
 
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { SystemMessage } from "@langchain/core/messages";
 import { MemorySaver, START, StateGraph } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
@@ -30,6 +30,7 @@ const SYSTEM_PROMPT =
   "respect their timezone when mentioning times, and reference " +
   "recent activity when it helps you answer. Keep responses short.";
 
+// @region[agent-context-setup]
 async function chatNode(state: AgentState, config: RunnableConfig) {
   const model = new ChatOpenAI({ model: "gpt-5.4" });
 
@@ -64,6 +65,7 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
 
   return { messages: response };
 }
+// @endregion[agent-context-setup]
 
 const workflow = new StateGraph(AgentStateAnnotation)
   .addNode("chat_node", chatNode)

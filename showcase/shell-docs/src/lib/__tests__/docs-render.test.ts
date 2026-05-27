@@ -77,4 +77,27 @@ describe("inlineSnippets", () => {
       "pdx-208-runtime",
     );
   });
+
+  it("preserves multiline runtime component imports", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const rendered = inlineSnippets(
+      [
+        "import {",
+        "  RuntimeCard,",
+        '} from "@/components/runtime-card";',
+        "",
+        "<RuntimeCard />",
+      ].join("\n"),
+      "pdx-208-runtime-multiline",
+    );
+
+    expect(rendered).toContain("<RuntimeCard />");
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      "[docs-render] snippet missing for component",
+      "RuntimeCard",
+      "from slug",
+      "pdx-208-runtime-multiline",
+    );
+  });
 });
