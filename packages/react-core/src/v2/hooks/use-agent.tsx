@@ -1,12 +1,14 @@
 import { useCopilotKit } from "../context";
 import { useMemo, useEffect, useReducer, useRef } from "react";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 import {
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,
-  type SubscribeToAgentSubscriber,
 } from "@copilotkit/core";
+import type { SubscribeToAgentSubscriber } from "@copilotkit/core";
+import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
 
 export enum UseAgentUpdate {
   OnMessagesChanged = "OnMessagesChanged",
@@ -220,6 +222,22 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent, JSON.stringify(copilotkit.headers)]);
+
+  // Propagate the caller-supplied threadId from the chat configuration onto
+  // the agent. AbstractAgent's constructor auto-mints a UUID when no threadId
+  // is passed, so without this sync the agent ships its own random UUID in
+  // /agent/run, /agent/connect, /agent/stop — diverging from the threadId the
+  // app code reads via useThreads/useCopilotChatConfiguration. Gated on
+  // hasExplicitThreadId so a ThreadsProvider-minted placeholder UUID doesn't
+  // overwrite the auto-minted agent UUID (both are random and useless to the
+  // backend; the explicit gate keeps the agent's UUID stable across renders).
+  const chatConfig = useCopilotChatConfiguration();
+  const configThreadId = chatConfig?.threadId;
+  const configHasExplicitThreadId = chatConfig?.hasExplicitThreadId;
+  useEffect(() => {
+    if (!configHasExplicitThreadId || !configThreadId) return;
+    agent.threadId = configThreadId;
+  }, [agent, configThreadId, configHasExplicitThreadId]);
 
   return {
     agent,
