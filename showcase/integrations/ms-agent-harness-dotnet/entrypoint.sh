@@ -65,14 +65,19 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
 # (~90s of unreachable agent), kill the agent process so `wait -n` returns
 # and Railway restarts the container. Generalized from
 # showcase/integrations/crewai-crews/entrypoint.sh (PRs #4114 + #4115).
+#
+# Same logic for Next.js on :$PORT/api/health (upgrades the previous
+# process-death-only check to an HTTP probe). Earned by the 05-26 outage on
+# crewai-crews: Next.js can silently hang while the process is still alive,
+# leaving the watchdog blind, the public $PORT unbound, and the edge returning
+# 502 while Railway shows the service Online. Kill $NEXTJS_PID (NOT
+# $AGENT_PID) on Next.js-side failures so the diagnostic logs name the right
+# process and so the restart is symmetric with the agent path.
 (
   FAILS=0
+  NEXTJS_FAILS=0
   while sleep 30; do
-    if ! kill -0 $AGENT_PID 2>/dev/null; then
-      break
-    fi
-    if ! kill -0 $NEXTJS_PID 2>/dev/null; then
-      echo "[watchdog] Next.js process died — exiting watchdog so container can restart"
+    if ! kill -0 $AGENT_PID 2>/dev/null || ! kill -0 $NEXTJS_PID 2>/dev/null; then
       break
     fi
     if curl -fsS --max-time 5 http://127.0.0.1:8000/health > /dev/null 2>&1; then
@@ -83,6 +88,17 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
       if [ $FAILS -ge 3 ]; then
         echo "[watchdog] Agent unresponsive for ~90s — killing PID $AGENT_PID to trigger container restart"
         kill -9 $AGENT_PID 2>/dev/null || true
+        break
+      fi
+    fi
+    if curl -fsS --max-time 5 http://127.0.0.1:${PORT:-10000}/api/health > /dev/null 2>&1; then
+      NEXTJS_FAILS=0
+    else
+      NEXTJS_FAILS=$((NEXTJS_FAILS + 1))
+      echo "[watchdog] Next.js health probe failed (count=$NEXTJS_FAILS)"
+      if [ $NEXTJS_FAILS -ge 3 ]; then
+        echo "[watchdog] Next.js unresponsive for ~90s — killing PID $NEXTJS_PID to trigger container restart"
+        kill -9 $NEXTJS_PID 2>/dev/null || true
         break
       fi
     fi
