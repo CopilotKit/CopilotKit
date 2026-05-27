@@ -541,6 +541,7 @@ export const docsComponents = {
     />
   ),
   InstallSDKSnippet: stubWithPartial("InstallSDKSnippet"),
+  BuildWithAgents: stubWithPartial("BuildWithAgents"),
   MCPApps: stubWithPartial("MCPApps"),
   MCPSetup: stubWithPartial("MCPSetup"),
   Overview: stubWithPartial("Overview"),

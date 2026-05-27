@@ -1,0 +1,85 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for ms-agent-dotnet / tool-rendering-custom-catchall",
+    "sourceFile": "d5-tool-rendering-custom-catchall.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "tool-rendering-custom-catchall turn 1 \u2014 weather in Tokyo via get_weather. The custom wildcard renderer fires for every tool and renders [data-testid='custom-wildcard-card'][data-tool-name='get_weather']. Follow-up content keyed on toolCallId.",
+      "match": {
+        "userMessage": "check Tokyo weather forecast",
+        "toolCallId": "call_d6_cc_weather_001",
+        "context": "ms-agent-dotnet"
+      },
+      "response": {
+        "content": "Tokyo is 22\u00b0C and partly cloudy."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "check Tokyo weather forecast",
+        "toolName": "get_weather",
+        "context": "ms-agent-dotnet"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_cc_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall turn 2 \u2014 AAPL stock price via get_stock_price. The custom wildcard renderer fires again, this time with [data-tool-name='get_stock_price']. The cross-tool assertion checks BOTH tool names rendered through the same custom-wildcard-card testid.",
+      "match": {
+        "userMessage": "current price of AAPL",
+        "toolCallId": "call_d6_cc_stock_001",
+        "context": "ms-agent-dotnet"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% on the day."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "current price of AAPL",
+        "toolName": "get_stock_price",
+        "context": "ms-agent-dotnet"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_cc_stock_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Fallback: weather in Tokyo without toolName gate (no get_weather registered)",
+      "match": {
+        "userMessage": "check Tokyo weather forecast",
+        "turnIndex": 0,
+        "context": "ms-agent-dotnet"
+      },
+      "response": {
+        "content": "The weather in Tokyo is currently 22\u00b0C with partly cloudy skies and light easterly winds."
+      }
+    },
+    {
+      "_comment": "Fallback: AAPL stock price without toolName gate",
+      "match": {
+        "userMessage": "current price of AAPL",
+        "turnIndex": 0,
+        "context": "ms-agent-dotnet"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% on the day."
+      }
+    }
+  ]
+}

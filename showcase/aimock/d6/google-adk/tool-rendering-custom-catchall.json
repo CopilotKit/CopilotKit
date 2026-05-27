@@ -1,0 +1,65 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for google-adk / tool-rendering-custom-catchall",
+    "sourceFile": "d5-tool-rendering-custom-catchall.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "tool-rendering-custom-catchall \u2014 weather in Tokyo pill, follow-up after get_weather tool result. MUST come before the tool-emitting fixture (first-match-wins).",
+      "match": {
+        "userMessage": "check Tokyo weather forecast",
+        "toolCallId": "call_d6_cc_weather_tokyo_001",
+        "context": "google-adk"
+      },
+      "response": {
+        "content": "Tokyo is currently 72\u00b0F and partly cloudy. The custom wildcard renderer should have caught this tool call."
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall \u2014 weather in Tokyo pill, first leg: emit get_weather tool call. hasToolResult:false per D6 convention.",
+      "match": {
+        "userMessage": "check Tokyo weather forecast",
+        "hasToolResult": false,
+        "context": "google-adk"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_cc_weather_tokyo_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall \u2014 AAPL stock pill, follow-up after get_stock_price tool result. MUST come before the tool-emitting fixture.",
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
+        "toolCallId": "call_d6_cc_stock_aapl_001",
+        "context": "google-adk"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% on the day. The custom wildcard renderer should have caught this tool call too."
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall \u2014 AAPL stock pill, first leg: emit get_stock_price tool call.",
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
+        "hasToolResult": false,
+        "context": "google-adk"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_cc_stock_aapl_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    }
+  ]
+}
