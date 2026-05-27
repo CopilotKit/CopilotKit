@@ -44,6 +44,7 @@ jobs:
           - llamaindex
           - mastra
           - ms-agent-dotnet
+          - ms-agent-harness-dotnet
           - ms-agent-python
           - pydantic-ai
           - spring-ai
