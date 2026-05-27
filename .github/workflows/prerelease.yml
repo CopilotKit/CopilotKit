@@ -74,11 +74,24 @@ jobs:
       - name: Run tests
         run: pnpm run test
 
+      # Exclude node_modules and build caches from the artifact. Including
+      # them produces ~6M files for this monorepo, which OOMs
+      # upload-artifact's Node process at its 4GB heap limit during
+      # enumeration (each pnpm symlink resolves to a separate entry, and
+      # the action holds the full manifest in memory before streaming).
+      # The publish job runs `pnpm install --frozen-lockfile` after
+      # download to restore node_modules from pnpm-lock.yaml — mirrors
+      # publish-release.yml.
       - name: Upload workspace
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: workspace
-          path: .
+          path: |
+            .
+            !**/node_modules/**
+            !**/.next/**
+            !**/.turbo/**
+            !**/.nx/**
           include-hidden-files: true
           retention-days: 1
 
@@ -106,6 +119,14 @@ jobs:
         with:
           node-version: 22.x
           registry-url: https://registry.npmjs.org
+
+      # Restore node_modules — the build job excludes them from the
+      # uploaded workspace artifact (see "Upload workspace" above). Uses
+      # pnpm-lock.yaml from the artifact, so this is a deterministic
+      # restore of exactly what the build job ran with. `pnpm tsx` in the
+      # publish step below requires tsx to be installed locally.
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Publish prerelease
         env:
