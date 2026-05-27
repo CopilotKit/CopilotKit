@@ -27,11 +27,25 @@ import localPorts from "../../shared/local-ports.json";
 // because they're not represented in local-ports.json (local dev only
 // targets the 17 integration backends).
 const USE_LOCAL_PORTS = process.env.LOCAL_PORTS === "1";
+
+// SHOWCASE_BACKEND_HOST_PATTERN lets a single deployed test image be
+// re-pointed at a different backend environment (e.g. staging) without
+// regenerating registry.json. `{slug}` is the only placeholder. If unset,
+// each integration's baked-in backend_url is used as-is (current behavior).
+// LOCAL_PORTS=1 takes precedence so docker-compose flows are unaffected.
+const HOST_PATTERN_OVERRIDE = process.env.SHOWCASE_BACKEND_HOST_PATTERN || "";
+const applyHostPattern = (slug: string, defaultUrl: string): string => {
+  if (!HOST_PATTERN_OVERRIDE) return defaultUrl;
+  return `https://${HOST_PATTERN_OVERRIDE.replace("{slug}", slug)}`;
+};
+
 const rewriteBackendUrl = (slug: string, railwayUrl: string): string => {
-  if (!USE_LOCAL_PORTS) return railwayUrl;
-  const port = (localPorts as Record<string, number>)[slug];
-  if (!port) throw new Error(`LOCAL_PORTS=1 but no port for slug '${slug}'`);
-  return `http://localhost:${port}`;
+  if (USE_LOCAL_PORTS) {
+    const port = (localPorts as Record<string, number>)[slug];
+    if (!port) throw new Error(`LOCAL_PORTS=1 but no port for slug '${slug}'`);
+    return `http://localhost:${port}`;
+  }
+  return applyHostPattern(slug, railwayUrl);
 };
 
 // ---------------------------------------------------------------------------
