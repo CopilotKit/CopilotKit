@@ -1,256 +1,256 @@
 {
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "title": "Integration Package Manifest",
-    "description": "Schema for CopilotKit Showcase integration package manifests",
-    "type": "object",
-    "required": [
-        "name",
-        "slug",
-        "category",
-        "language",
-        "description",
-        "features",
-        "demos",
-    ],
-    "properties": {
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Integration Package Manifest",
+  "description": "Schema for CopilotKit Showcase integration package manifests",
+  "type": "object",
+  "required": [
+    "name",
+    "slug",
+    "category",
+    "language",
+    "description",
+    "features",
+    "demos"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Display name (e.g. 'LangGraph (Python)')"
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$",
+      "description": "URL-safe identifier (e.g. 'langgraph-python')"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "built-in",
+        "popular",
+        "agent-framework",
+        "enterprise-platform",
+        "provider-sdk",
+        "protocol",
+        "emerging",
+        "starter"
+      ],
+      "description": "Integration category"
+    },
+    "language": {
+      "type": "string",
+      "enum": ["python", "typescript", "dotnet", "java"],
+      "description": "Primary agent backend language"
+    },
+    "logo": {
+      "type": "string",
+      "description": "Path to logo SVG relative to package root"
+    },
+    "description": {
+      "type": "string",
+      "description": "One-paragraph description of the integration"
+    },
+    "partner_docs": {
+      "type": ["string", "null"],
+      "format": "uri",
+      "description": "Link to partner's own CopilotKit documentation"
+    },
+    "repo": {
+      "type": "string",
+      "format": "uri",
+      "description": "Link to source code in the monorepo"
+    },
+    "copilotkit_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+",
+      "description": "CopilotKit SDK version this package is built against"
+    },
+    "backend_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Deprecated/optional. Synthesized at build time by generate-registry.ts from SHOWCASE_BACKEND_HOST_PATTERN + slug. Manifests should omit this field; if present, the manifest value still wins via dual-read."
+    },
+    "deployed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the backend is deployed and live. Stack nav and demo links only activate when true."
+    },
+    "docs_mode": {
+      "type": "string",
+      "enum": ["generated", "authored", "hidden"],
+      "default": "generated",
+      "description": "How shell-docs serves this framework's docs pages: 'generated' = data-driven FrameworkOverview + agnostic root MDX (current behavior, kept for langgraph-* and google-adk). 'authored' = render the per-framework MDX tree under content/docs/integrations/<docsFolder>/ with its own sidebar. 'hidden' = exclude from the docs site (no framework page, no switcher entry). Defaults to 'generated' when omitted."
+    },
+    "sort_order": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 999,
+      "description": "Sort order for display ranking (lower = higher priority)"
+    },
+    "animated_preview_url": {
+      "type": ["string", "null"],
+      "description": "Path to an animated preview (gif/video) shown on the landing page when no live mini-demo is available"
+    },
+    "features": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "List of supported feature IDs from the feature registry"
+    },
+    "not_supported_features": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "List of feature IDs that this integration's framework cannot architecturally support (e.g., framework lacks graph-interrupt API or MCP tool runtime). These are excluded from parity computation."
+    },
+    "demos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "description", "tags"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "References a feature ID from the registry"
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name for this demo"
+          },
+          "description": {
+            "type": "string",
+            "description": "One-line description of what this demo shows"
+          },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Freeform tags for search and filtering"
+          },
+          "route": {
+            "type": "string",
+            "pattern": "^/",
+            "description": "Route within the package (e.g. /demos/agentic-chat). Omit for informational demos that expose `command` instead."
+          },
+          "command": {
+            "type": "string",
+            "description": "Copy-pasteable shell command (e.g. npx degit ...). When present and `route` is omitted, the shell renders an informational cell with a copy button instead of Demo/Code links."
+          },
+          "animated_preview_url": {
+            "type": ["string", "null"],
+            "description": "URL to animated preview for this specific demo"
+          },
+          "backend_files": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "DEPRECATED. Use `highlight` to pin core files (and drive backend scoping). Will be removed."
+          },
+          "highlight": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Core files to visually highlight in /code. Paths are relative to the package root (e.g. 'src/app/demos/agentic-chat/page.tsx', 'src/agents/sample_agent.py'). Files outside the demo folder (typically backend agent files) are included in the bundle for this demo when listed here."
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "Runnable demos (subset of features with working implementations)"
+    },
+    "generative_ui": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "constrained-declarative",
+          "constrained-explicit",
+          "a2ui-fixed-schema",
+          "a2ui-dynamic-schema"
+        ]
+      },
+      "minItems": 1,
+      "description": "Generative UI patterns supported by this integration"
+    },
+    "interaction_modalities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["sidebar", "embedded", "popup", "chat", "headless"]
+      },
+      "minItems": 1,
+      "description": "UI interaction modalities supported by this integration"
+    },
+    "managed_platform": {
+      "type": "object",
+      "required": ["name", "url"],
+      "properties": {
         "name": {
-            "type": "string",
-            "description": "Display name (e.g. 'LangGraph (Python)')",
+          "type": "string",
+          "description": "Display name of the managed platform"
         },
-        "slug": {
-            "type": "string",
-            "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$",
-            "description": "URL-safe identifier (e.g. 'langgraph-python')",
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to the managed platform"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Managed platform details if this integration is hosted on a managed service"
+    },
+    "a2ui_pattern": {
+      "type": ["string", "null"],
+      "enum": ["schema-loading", "schema-inline", "llm-driven", null],
+      "description": "Implementation pattern used by this integration for `a2ui-fixed-schema`. Set only when the feature is wired. `schema-loading` = backend loads schema JSON at startup; `schema-inline` = schema is declared inline as a typed literal in source; `llm-driven` = backend generates the schema via a secondary LLM call. Consumed by docs `<WhenFrameworkHas>` to gate per-pattern prose."
+    },
+    "interrupt_pattern": {
+      "type": ["string", "null"],
+      "enum": ["native", "promise-based", null],
+      "description": "Implementation pattern used by this integration for `gen-ui-interrupt` / `interrupt-headless`. Set only when at least one is wired. `native` = framework has a real interrupt primitive (e.g. LangGraph `interrupt()` + `useInterrupt`); `promise-based` = the demo uses `useFrontendTool` with a Promise-based handler. Consumed by docs `<WhenFrameworkHas>`."
+    },
+    "agent_config_pattern": {
+      "type": ["string", "null"],
+      "enum": ["shared-state", "runtime-properties", null],
+      "description": "Implementation pattern used by this integration for the `agent-config` feature. Set only when the feature is wired. `shared-state` = UI calls `agent.setState({...})` and the agent reads typed config out of state on each turn (most external-backend frameworks); `runtime-properties` = UI passes the typed object as `<CopilotKitProvider properties={...}>` and the runtime hands it to the agent factory via `input.forwardedProps` (built-in-agent). Consumed by docs `<WhenFrameworkHas>`."
+    },
+    "auth_pattern": {
+      "type": ["string", "null"],
+      "enum": [
+        "langgraph",
+        "ag2-context-variables",
+        "microsoft-agent-framework",
+        "runtime-onrequest",
+        null
+      ],
+      "description": "Implementation pattern used by this integration for the `auth` feature. Set only when the feature is wired. `langgraph` = LangGraph Platform `@auth.authenticate` decorator OR self-hosted `langgraph_config['configurable']` (frontend uses `properties.authorization`); `ag2-context-variables` = AG2 backend reads the Authorization header on `/chat` and threads ContextVariables to tools (frontend uses `properties.authorization`); `microsoft-agent-framework` = ASP.NET Core JwtBearer or FastAPI middleware (frontend uses `headers={{Authorization}}`); `runtime-onrequest` = generic V2 runtime `onRequest` hook validates the Bearer header injected by `<CopilotKit headers={{Authorization}}>`. Consumed by docs `<WhenFrameworkHas>`."
+    },
+    "starter": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Relative path from repo root to the starter example directory"
         },
-        "category": {
-            "type": "string",
-            "enum": [
-                "built-in",
-                "popular",
-                "agent-framework",
-                "enterprise-platform",
-                "provider-sdk",
-                "protocol",
-                "emerging",
-                "starter",
-            ],
-            "description": "Integration category",
-        },
-        "language": {
-            "type": "string",
-            "enum": ["python", "typescript", "dotnet", "java"],
-            "description": "Primary agent backend language",
-        },
-        "logo": {
-            "type": "string",
-            "description": "Path to logo SVG relative to package root",
+        "name": {
+          "type": "string",
+          "description": "Display name for the starter"
         },
         "description": {
-            "type": "string",
-            "description": "One-paragraph description of the integration",
+          "type": "string",
+          "description": "One-line description of what the starter demonstrates"
         },
-        "partner_docs": {
-            "type": ["string", "null"],
-            "format": "uri",
-            "description": "Link to partner's own CopilotKit documentation",
+        "github_url": {
+          "type": "string",
+          "description": "GitHub URL to the starter directory for Clone/Fork"
         },
-        "repo": {
-            "type": "string",
-            "format": "uri",
-            "description": "Link to source code in the monorepo",
+        "demo_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL of the deployed starter app for live demo iframe"
         },
-        "copilotkit_version": {
-            "type": "string",
-            "pattern": "^\\d+\\.\\d+\\.\\d+",
-            "description": "CopilotKit SDK version this package is built against",
-        },
-        "backend_url": {
-            "type": "string",
-            "format": "uri",
-            "description": "Deprecated/optional. Synthesized at build time by generate-registry.ts from SHOWCASE_BACKEND_HOST_PATTERN + slug. Manifests should omit this field; if present, the manifest value still wins via dual-read.",
-        },
-        "deployed": {
-            "type": "boolean",
-            "default": false,
-            "description": "Whether the backend is deployed and live. Stack nav and demo links only activate when true.",
-        },
-        "docs_mode": {
-            "type": "string",
-            "enum": ["generated", "authored", "hidden"],
-            "default": "generated",
-            "description": "How shell-docs serves this framework's docs pages: 'generated' = data-driven FrameworkOverview + agnostic root MDX (current behavior, kept for langgraph-* and google-adk). 'authored' = render the per-framework MDX tree under content/docs/integrations/<docsFolder>/ with its own sidebar. 'hidden' = exclude from the docs site (no framework page, no switcher entry). Defaults to 'generated' when omitted.",
-        },
-        "sort_order": {
-            "type": "integer",
-            "minimum": 0,
-            "default": 999,
-            "description": "Sort order for display ranking (lower = higher priority)",
-        },
-        "animated_preview_url": {
-            "type": ["string", "null"],
-            "description": "Path to an animated preview (gif/video) shown on the landing page when no live mini-demo is available",
-        },
-        "features": {
-            "type": "array",
-            "items": {"type": "string"},
-            "minItems": 1,
-            "description": "List of supported feature IDs from the feature registry",
-        },
-        "not_supported_features": {
-            "type": "array",
-            "items": {"type": "string"},
-            "description": "List of feature IDs that this integration's framework cannot architecturally support (e.g., framework lacks graph-interrupt API or MCP tool runtime). These are excluded from parity computation.",
-        },
-        "demos": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "required": ["id", "name", "description", "tags"],
-                "properties": {
-                    "id": {
-                        "type": "string",
-                        "description": "References a feature ID from the registry",
-                    },
-                    "name": {
-                        "type": "string",
-                        "description": "Display name for this demo",
-                    },
-                    "description": {
-                        "type": "string",
-                        "description": "One-line description of what this demo shows",
-                    },
-                    "tags": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Freeform tags for search and filtering",
-                    },
-                    "route": {
-                        "type": "string",
-                        "pattern": "^/",
-                        "description": "Route within the package (e.g. /demos/agentic-chat). Omit for informational demos that expose `command` instead.",
-                    },
-                    "command": {
-                        "type": "string",
-                        "description": "Copy-pasteable shell command (e.g. npx degit ...). When present and `route` is omitted, the shell renders an informational cell with a copy button instead of Demo/Code links.",
-                    },
-                    "animated_preview_url": {
-                        "type": ["string", "null"],
-                        "description": "URL to animated preview for this specific demo",
-                    },
-                    "backend_files": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "DEPRECATED. Use `highlight` to pin core files (and drive backend scoping). Will be removed.",
-                    },
-                    "highlight": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Core files to visually highlight in /code. Paths are relative to the package root (e.g. 'src/app/demos/agentic-chat/page.tsx', 'src/agents/sample_agent.py'). Files outside the demo folder (typically backend agent files) are included in the bundle for this demo when listed here.",
-                    },
-                },
-                "additionalProperties": false,
-            },
-            "description": "Runnable demos (subset of features with working implementations)",
-        },
-        "generative_ui": {
-            "type": "array",
-            "items": {
-                "type": "string",
-                "enum": [
-                    "constrained-declarative",
-                    "constrained-explicit",
-                    "a2ui-fixed-schema",
-                    "a2ui-dynamic-schema",
-                ],
-            },
-            "minItems": 1,
-            "description": "Generative UI patterns supported by this integration",
-        },
-        "interaction_modalities": {
-            "type": "array",
-            "items": {
-                "type": "string",
-                "enum": ["sidebar", "embedded", "popup", "chat", "headless"],
-            },
-            "minItems": 1,
-            "description": "UI interaction modalities supported by this integration",
-        },
-        "managed_platform": {
-            "type": "object",
-            "required": ["name", "url"],
-            "properties": {
-                "name": {
-                    "type": "string",
-                    "description": "Display name of the managed platform",
-                },
-                "url": {
-                    "type": "string",
-                    "format": "uri",
-                    "description": "URL to the managed platform",
-                },
-            },
-            "additionalProperties": false,
-            "description": "Managed platform details if this integration is hosted on a managed service",
-        },
-        "a2ui_pattern": {
-            "type": ["string", "null"],
-            "enum": ["schema-loading", "schema-inline", "llm-driven", null],
-            "description": "Implementation pattern used by this integration for `a2ui-fixed-schema`. Set only when the feature is wired. `schema-loading` = backend loads schema JSON at startup; `schema-inline` = schema is declared inline as a typed literal in source; `llm-driven` = backend generates the schema via a secondary LLM call. Consumed by docs `<WhenFrameworkHas>` to gate per-pattern prose.",
-        },
-        "interrupt_pattern": {
-            "type": ["string", "null"],
-            "enum": ["native", "promise-based", null],
-            "description": "Implementation pattern used by this integration for `gen-ui-interrupt` / `interrupt-headless`. Set only when at least one is wired. `native` = framework has a real interrupt primitive (e.g. LangGraph `interrupt()` + `useInterrupt`); `promise-based` = the demo uses `useFrontendTool` with a Promise-based handler. Consumed by docs `<WhenFrameworkHas>`.",
-        },
-        "agent_config_pattern": {
-            "type": ["string", "null"],
-            "enum": ["shared-state", "runtime-properties", null],
-            "description": "Implementation pattern used by this integration for the `agent-config` feature. Set only when the feature is wired. `shared-state` = UI calls `agent.setState({...})` and the agent reads typed config out of state on each turn (most external-backend frameworks); `runtime-properties` = UI passes the typed object as `<CopilotKitProvider properties={...}>` and the runtime hands it to the agent factory via `input.forwardedProps` (built-in-agent). Consumed by docs `<WhenFrameworkHas>`.",
-        },
-        "auth_pattern": {
-            "type": ["string", "null"],
-            "enum": [
-                "langgraph",
-                "ag2-context-variables",
-                "microsoft-agent-framework",
-                "runtime-onrequest",
-                null,
-            ],
-            "description": "Implementation pattern used by this integration for the `auth` feature. Set only when the feature is wired. `langgraph` = LangGraph Platform `@auth.authenticate` decorator OR self-hosted `langgraph_config['configurable']` (frontend uses `properties.authorization`); `ag2-context-variables` = AG2 backend reads the Authorization header on `/chat` and threads ContextVariables to tools (frontend uses `properties.authorization`); `microsoft-agent-framework` = ASP.NET Core JwtBearer or FastAPI middleware (frontend uses `headers={{Authorization}}`); `runtime-onrequest` = generic V2 runtime `onRequest` hook validates the Bearer header injected by `<CopilotKit headers={{Authorization}}>`. Consumed by docs `<WhenFrameworkHas>`.",
-        },
-        "starter": {
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Relative path from repo root to the starter example directory",
-                },
-                "name": {
-                    "type": "string",
-                    "description": "Display name for the starter",
-                },
-                "description": {
-                    "type": "string",
-                    "description": "One-line description of what the starter demonstrates",
-                },
-                "github_url": {
-                    "type": "string",
-                    "description": "GitHub URL to the starter directory for Clone/Fork",
-                },
-                "demo_url": {
-                    "type": "string",
-                    "format": "uri",
-                    "description": "URL of the deployed starter app for live demo iframe",
-                },
-                "clone_command": {
-                    "type": "string",
-                    "description": "Shell command to clone the starter (e.g. npx degit ...)",
-                },
-            },
-            "required": ["path", "name"],
-            "additionalProperties": false,
-            "description": "Starter project details",
-        },
-    },
-    "additionalProperties": false,
+        "clone_command": {
+          "type": "string",
+          "description": "Shell command to clone the starter (e.g. npx degit ...)"
+        }
+      },
+      "required": ["path", "name"],
+      "additionalProperties": false,
+      "description": "Starter project details"
+    }
+  },
+  "additionalProperties": false
 }
