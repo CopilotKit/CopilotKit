@@ -183,7 +183,7 @@ export function parseArgs(): CLIArgs {
       console.error(`Error: --name must be at least 1 character.`);
       process.exit(1);
     }
-    if (!/^[A-Za-z0-9 .\-\/()[\]]+$/.test(parsed.name)) {
+    if (!/^[A-Za-z0-9 .\-/()[\]]+$/.test(parsed.name)) {
       console.error(
         `Error: Invalid --name '${parsed.name}'. Allowed characters: letters, digits, spaces, and . - / ( ) [ ]`,
       );
@@ -283,6 +283,7 @@ export function loadFeatureRegistry(): Feature[] {
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(
       `Failed to read feature registry at ${FEATURE_REGISTRY_PATH}: ${msg}`,
+      { cause: err },
     );
   }
   let parsed: unknown;
@@ -292,6 +293,7 @@ export function loadFeatureRegistry(): Feature[] {
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(
       `Feature registry at ${FEATURE_REGISTRY_PATH} is not valid JSON: ${msg}`,
+      { cause: err },
     );
   }
   if (
@@ -337,7 +339,8 @@ function generateManifest(args: CLIArgs, features: Feature[]): string {
     partner_docs: null,
     repo: `https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/${args.slug}`,
     copilotkit_version: "2.0.0",
-    backend_url: `https://showcase-${args.slug}-production.up.railway.app`,
+    // backend_url is intentionally omitted — generate-registry.ts synthesizes
+    // it at build time from `SHOWCASE_BACKEND_HOST_PATTERN` + slug.
     deployed: false,
     generative_ui: ["constrained-explicit"],
     interaction_modalities: ["chat"],

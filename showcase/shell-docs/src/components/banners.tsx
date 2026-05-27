@@ -116,10 +116,10 @@ export function Banners() {
   const content = bannerContent[currentBanner];
 
   return (
-    <div className="w-full px-1 mt-1 xl:px-2 xl:mt-2">
+    <div className="w-full px-[22px] mt-2">
       <div
         id="rotating-banner"
-        className="relative w-full rounded-2xl py-1.5 md:py-2"
+        className="relative w-full max-w-[97rem] mx-auto rounded-2xl py-1.5 md:py-2"
         style={{
           background: "var(--bg-elevated)",
           color: "var(--text-secondary)",

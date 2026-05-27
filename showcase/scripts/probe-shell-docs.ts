@@ -44,6 +44,7 @@ const DOCS_FOLDER_OVERRIDES: Record<string, string> = {
   "crewai-crews": "crewai-flows",
   strands: "aws-strands",
   "ms-agent-dotnet": "microsoft-agent-framework",
+  "ms-agent-harness-dotnet": "microsoft-agent-framework",
   "ms-agent-python": "microsoft-agent-framework",
 };
 const getDocsFolder = (slug: string) => DOCS_FOLDER_OVERRIDES[slug] ?? slug;

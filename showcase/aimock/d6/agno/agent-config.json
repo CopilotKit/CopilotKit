@@ -1,0 +1,69 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for agno / agent-config",
+    "sourceFile": "d5-agent-config.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "tone:professional — value-A prompt. The probe compares A vs B responses for inequality.",
+      "match": {
+        "userMessage": "tone:professional — introduce yourself per your config",
+        "context": "agno"
+      },
+      "response": {
+        "content": "Good day. I am your CopilotKit-powered assistant, configured with a professional tone. I provide structured, thorough responses tailored to your workspace context. How may I assist you today?"
+      }
+    },
+    {
+      "_comment": "tone:casual — value-B prompt. Must differ materially from the professional response above.",
+      "match": {
+        "userMessage": "tone:casual — introduce yourself per your config",
+        "context": "agno"
+      },
+      "response": {
+        "content": "Hey there! I'm your CopilotKit buddy, keeping things chill and casual. Ask me anything — I'm here to help out however I can!"
+      }
+    },
+    {
+      "_comment": "expertise:beginner — value-A prompt.",
+      "match": {
+        "userMessage": "expertise:beginner — explain how copilotkit works per your config",
+        "context": "agno"
+      },
+      "response": {
+        "content": "CopilotKit is like a helper you add to your app. Think of it as a smart chat box that can talk to an AI brain in the background. You drop it into your website and it handles the hard parts for you."
+      }
+    },
+    {
+      "_comment": "expertise:expert — value-B prompt. Must differ from the beginner response.",
+      "match": {
+        "userMessage": "expertise:expert — explain how copilotkit works per your config",
+        "context": "agno"
+      },
+      "response": {
+        "content": "CopilotKit exposes a React context provider that bridges AG-UI SSE event streams between the frontend and a configurable runtime layer (Express or Hono). The runtime proxies tool calls, state reads, and agent completions through a unified ProxiedAgent interface supporting LangGraph, CrewAI, and custom agent backends."
+      }
+    },
+    {
+      "_comment": "responseLength:concise — value-A prompt. Must be short (the detailed response below exceeds this by ≥80 chars).",
+      "match": {
+        "userMessage": "responseLength:concise — describe agent context per your config",
+        "context": "agno"
+      },
+      "response": {
+        "content": "Agent context is per-turn metadata the frontend passes to the agent via useAgentContext."
+      }
+    },
+    {
+      "_comment": "responseLength:detailed — value-B prompt. Must exceed the concise response by ≥80 characters.",
+      "match": {
+        "userMessage": "responseLength:detailed — describe agent context per your config",
+        "context": "agno"
+      },
+      "response": {
+        "content": "Agent context is a mechanism by which the frontend passes per-turn metadata to the agent backend via the useAgentContext hook. When the user sends a message, CopilotKit serializes the current context object (which can contain tone, expertise level, response-length preferences, and arbitrary user-defined keys) and includes it as part of the AG-UI request payload. The agent runtime receives this context and can use it to shape its system prompt, adjust tool selection, or alter response formatting. This enables dynamic, user-configurable behavior without requiring separate API endpoints for each configuration variant."
+      }
+    }
+  ]
+}

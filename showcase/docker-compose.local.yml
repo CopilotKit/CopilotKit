@@ -26,6 +26,23 @@ x-integration-defaults: &integration-defaults
     start_period: 15s
 
 services:
+  ###########################################################################
+  # WARNING: DEV ONLY — DO NOT USE FROM CI/TESTS.
+  #
+  # This aimock service is configured with `--proxy-only` (see `command:`
+  # below). In proxy-only mode, unmatched fixture requests FALL THROUGH to
+  # real OpenAI / Anthropic / Gemini using the provider API keys from .env.
+  #
+  # That behavior is intentional for INTERACTIVE local dev (so you can add
+  # new fixtures by capturing real responses), but it is DANGEROUS in any
+  # automated context: a missing fixture produces a real LLM response, and
+  # tests/CI see a green check that is actually a false positive — and bill
+  # real provider tokens at the same time.
+  #
+  # Do NOT wire this compose file into CI, e2e suites, or any non-interactive
+  # test pipeline. For deterministic test environments, run aimock without
+  # `--proxy-only` so unmatched requests fail loudly.
+  ###########################################################################
   aimock:
     # Local aimock so the 17 integration containers can hit a stable LLM mock
     # on the compose network at http://aimock:4010 instead of the prod Railway
@@ -342,6 +359,17 @@ services:
     profiles: ["ms-agent-dotnet", "all"]
     volumes:
       - ./integrations/ms-agent-dotnet/src:/app/src
+
+  ms-agent-harness-dotnet:
+    <<: *integration-defaults
+    build: ./integrations/ms-agent-harness-dotnet
+    image: showcase-ms-agent-harness-dotnet:local
+    container_name: showcase-ms-agent-harness-dotnet
+    ports:
+      - "3118:10000"
+    profiles: ["ms-agent-harness-dotnet", "all"]
+    volumes:
+      - ./integrations/ms-agent-harness-dotnet/src:/app/src
 
   spring-ai:
     <<: *integration-defaults

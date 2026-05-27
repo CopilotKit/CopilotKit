@@ -811,6 +811,7 @@ export const SNIPPET_MAP: Record<string, string> = {
   A2UI: "shared/generative-ui/a2ui.mdx",
   AgUI: "shared/backend/ag-ui.mdx",
   AGUI: "shared/backend/ag-ui.mdx", // alias of AgUI
+  BuildWithAgents: "shared/guides/build-with-agents.mdx",
   CodingAgents: "shared/coding-agents.mdx",
   CommonIssues: "shared/troubleshooting/common-issues.mdx",
   CopilotRuntime: "copilot-runtime.mdx",
@@ -870,7 +871,7 @@ export const SNIPPET_MAP: Record<string, string> = {
 
 export const SUBPATH_TO_COMPONENT: Record<string, string> = {
   "ag-ui": "AGUI",
-  "coding-agents": "CodingAgents",
+  "build-with-agents": "CodingAgents",
   "copilot-runtime": "CopilotRuntime",
   "custom-look-and-feel/headless-ui": "HeadlessUI",
   "custom-look-and-feel/slots": "Slots",

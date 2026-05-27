@@ -11,8 +11,8 @@ import DiscordIcon from "./icons/discord";
 // Shared Fumadocs `DocsLayout` chrome used by every shell-docs route.
 // All five callers (home overview, framework root, framework-scoped MDX
 // via DocsPageView, /reference, /ag-ui) pass the same nav/search/sidebar
-// config — only `tree` and `sidebar.banner` vary. Centralizing keeps the
-// sidebar surface, mobile nav slot, and container className from drifting
+// config — only `tree` and `sidebar.banner` vary. Centralizing keeps
+// sidebar behavior, mobile nav slot, and container className from drifting
 // across routes when one is tweaked.
 export function ShellDocsLayout({
   tree,
@@ -46,8 +46,7 @@ export function ShellDocsLayout({
         banner,
         // Hide Fumadocs's collapse toggle — shell-docs has its own chrome.
         collapsible: false,
-        className:
-          "rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] shadow-sm shell-docs-sidebar",
+        className: "shell-docs-sidebar",
         // Note: `key` is required here because fumadocs's Sidebar
         // passes the `footer` ReactNode into a `jsxs(children: [a, b,
         // footer])` array, and React's dev-mode warning insists every
