@@ -302,7 +302,7 @@ jobs:
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
 
       - name: Login to GHCR
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -379,7 +379,7 @@ jobs:
           done
 
       - name: Build and push
-        uses: depot/build-push-action@5f3b3c2e5a00f0093de47f657aeaefcedff27d18 # v1.17.0
+        uses: depot/build-push-action@98e78adca7817480b8185f474a400b451d74e287 # v1.18.0
         with:
           project: m2kw2wmmcp
           context: ${{ matrix.service.context }}

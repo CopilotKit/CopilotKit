@@ -23,6 +23,7 @@ from langchain_core.callbacks.manager import adispatch_custom_event
 from langgraph.types import interrupt
 
 from .types import Message, IntermediateStateConfig
+from .exc import CopilotKitMisuseError
 from .logging import get_logger
 
 logger = get_logger(__name__)
@@ -368,21 +369,28 @@ async def copilotkit_emit_message(config: RunnableConfig, message: str):
         {"message": message, "message_id": str(uuid.uuid4()), "role": "assistant"},
         config=config,
     )
-    await asyncio.sleep(0.02)
+    await asyncio.shield(asyncio.sleep(0.02))
 
     return True
 
 
 async def copilotkit_emit_tool_call(
-    config: RunnableConfig, *, name: str, args: Dict[str, Any]
-):
+    config: RunnableConfig,
+    *,
+    name: str,
+    args: Dict[str, Any],
+    tool_call_id: Optional[str] = None,
+) -> str:
     """
     Manually emits a tool call to CopilotKit.
 
     ```python
     from copilotkit.langgraph import copilotkit_emit_tool_call
 
-    await copilotkit_emit_tool_call(config, name="SearchTool", args={"steps": 10})
+    auto_id = await copilotkit_emit_tool_call(config, name="SearchTool", args={"steps": 10})
+
+    # With a custom ID for correlation/idempotency:
+    custom_id = await copilotkit_emit_tool_call(config, name="SearchTool", args={"steps": 10}, tool_call_id="my-custom-id")
     ```
 
     Parameters
@@ -393,21 +401,56 @@ async def copilotkit_emit_tool_call(
         The name of the tool to emit.
     args : Dict[str, Any]
         The arguments to emit.
+    tool_call_id : Optional[str]
+        Optional tool call ID. If not provided, a random UUID is generated.
+        When provided, this ID is used as the toolCallId and parentMessageId
+        in AG-UI protocol events. The caller is responsible for ensuring uniqueness.
 
     Returns
     -------
-    Awaitable[bool]
-        Always return True.
+    str
+        The tool call ID used for the emitted tool call.
     """
+    if not isinstance(name, str) or not name.strip():
+        raise CopilotKitMisuseError(
+            "Tool name must be a non-empty string for copilotkit_emit_tool_call"
+        )
+
+    if tool_call_id is not None:
+        if not isinstance(tool_call_id, str) or not tool_call_id.strip():
+            raise CopilotKitMisuseError(
+                "Tool call id must be a non-empty string when provided for copilotkit_emit_tool_call"
+            )
+    else:
+        tool_call_id = str(uuid.uuid4())
+
+    try:
+        json.dumps(args)
+    except (TypeError, ValueError) as e:
+        raise CopilotKitMisuseError(
+            f"Tool arguments for '{name}' are not JSON-serializable: {e}"
+        ) from e
 
     await adispatch_custom_event(
         "copilotkit_manually_emit_tool_call",
-        {"name": name, "args": args, "id": str(uuid.uuid4())},
+        {"name": name, "args": args, "id": tool_call_id},
         config=config,
     )
-    await asyncio.sleep(0.02)
+    # LangGraph's adispatch_custom_event is async but does not guarantee the event
+    # has been flushed to the SSE stream before it returns. Without this sleep,
+    # a subsequent emit can interleave and corrupt event ordering on the client.
+    # Shielded so that task cancellation doesn't prevent us from returning the ID.
+    try:
+        await asyncio.shield(asyncio.sleep(0.02))
+    except asyncio.CancelledError:
+        logger.warning(
+            "copilotkit_emit_tool_call cancelled during post-dispatch flush for "
+            "tool_call_id=%s; event was already dispatched",
+            tool_call_id,
+        )
+        raise
 
-    return True
+    return tool_call_id
 
 
 def copilotkit_interrupt(
