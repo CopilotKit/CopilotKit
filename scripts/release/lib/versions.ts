@@ -1,11 +1,7 @@
 import fs from "fs";
 import path from "path";
-import {
-  loadConfig,
-  getScopeConfig,
-  ROOT,
-  type ReleaseScope,
-} from "./config.js";
+import { loadConfig, getScopeConfig, ROOT } from "./config.js";
+import type { ReleaseScope } from "./config.js";
 
 export type BumpLevel = "patch" | "minor" | "major";
 
@@ -47,7 +43,7 @@ export function getCurrentVersion(scope: ReleaseScope): string {
 
 export function parseSemver(version: string): SemVer {
   const match = version.match(
-    /^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9.\-]+))?(?:\+(.+))?$/,
+    /^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9.-]+))?(?:\+(.+))?$/,
   );
   if (!match) {
     throw new Error(`Invalid semver: ${version}`);
@@ -132,8 +128,8 @@ export function bumpPackages(
     const oldVersion = pkg.version;
     pkg.version = newVersion;
 
-    // For shared-version scopes, update internal dependency references —
-    // but only if they use exact versions, not workspace:* protocol
+    // For shared-version scopes, published package manifests must not retain
+    // workspace protocol references that downstream consumers cannot resolve.
     if (scopeConfig.sharedVersion) {
       for (const depField of [
         "dependencies",
@@ -142,8 +138,7 @@ export function bumpPackages(
       ] as const) {
         if (!pkg[depField]) continue;
         for (const depName of Object.keys(pkg[depField])) {
-          const depValue = pkg[depField][depName];
-          if (scopeNames.has(depName) && !depValue.startsWith("workspace:")) {
+          if (scopeNames.has(depName)) {
             pkg[depField][depName] = newVersion;
           }
         }

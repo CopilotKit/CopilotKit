@@ -192,7 +192,7 @@ describe("bumpPackages", () => {
     expect(pkg.version).toBe("1.55.3");
   });
 
-  it("preserves workspace:* protocol in dependencies", () => {
+  it("replaces workspace:* protocol dependencies for publishable packages", () => {
     bumpPackages("monorepo", "1.55.3");
 
     const pkg = JSON.parse(
@@ -201,7 +201,7 @@ describe("bumpPackages", () => {
         "utf8",
       ),
     );
-    expect(pkg.dependencies["@copilotkit/shared"]).toBe("workspace:*");
+    expect(pkg.dependencies["@copilotkit/shared"]).toBe("1.55.3");
   });
 
   it("updates exact version deps (not workspace protocol)", () => {
