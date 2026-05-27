@@ -555,28 +555,47 @@ function main() {
     console.log(`  OK: ${manifest.name} (${manifest.slug})`);
   }
 
+  // Dual-read for backend_url:
+  //   manifest value (if present)  ->  synthesized from BACKEND_HOST_PATTERN
+  //
+  // Manifests no longer ship `backend_url` (PR2 stripped them all); the
+  // synthesized value below is now the source of truth. Manifest-supplied
+  // values are still honored for safety/backporting if any reappear.
+  //
+  // We rebuild each manifest object to insert `backend_url` immediately
+  // after `copilotkit_version`, preserving the historical JSON key order so
+  // the emitted registry.json stays byte-identical to the pre-PR1 output.
+  for (let i = 0; i < integrations.length; i++) {
+    const manifest = integrations[i] as Record<string, unknown>;
+    const slug = manifest.slug as string;
+    const existing = manifest.backend_url;
+    const backendUrl =
+      typeof existing === "string" && existing.length > 0
+        ? existing
+        : synthesizeBackendUrl(slug);
+
+    // Rebuild with `backend_url` slotted right after `copilotkit_version` to
+    // match the historical key order from YAML manifests.
+    const rebuilt: Record<string, unknown> = {};
+    let inserted = false;
+    for (const [key, value] of Object.entries(manifest)) {
+      if (key === "backend_url") continue;
+      rebuilt[key] = value;
+      if (key === "copilotkit_version") {
+        rebuilt.backend_url = backendUrl;
+        inserted = true;
+      }
+    }
+    if (!inserted) rebuilt.backend_url = backendUrl;
+    integrations[i] = rebuilt;
+  }
+
   // Merge per-package docs-links.json overrides onto each integration *after*
   // schema validation, since `docs_links` isn't part of the manifest schema.
   // Best-effort: missing file or stale shapes are tolerated and don't error.
   for (const manifest of integrations) {
     const pkgDir = path.join(PACKAGES_DIR, manifest.slug as string);
     manifest.docs_links = loadDocsLinks(pkgDir, allErrors);
-  }
-
-  // Dual-read for backend_url:
-  //   manifest value (if present)  ->  synthesized from BACKEND_HOST_PATTERN
-  //
-  // For now every manifest still ships an explicit `backend_url`, so the
-  // synthesized fallback below is unreachable in production data and the
-  // emitted registry.json is byte-identical to the previous output. The
-  // synthesis path exists so PR2 can drop `backend_url` from manifests
-  // without further changes here.
-  for (const manifest of integrations) {
-    const slug = manifest.slug as string;
-    const existing = manifest.backend_url;
-    if (typeof existing !== "string" || existing.length === 0) {
-      manifest.backend_url = synthesizeBackendUrl(slug);
-    }
   }
 
   // Constraint validation
