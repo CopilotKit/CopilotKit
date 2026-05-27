@@ -41,6 +41,7 @@ on:
           - ms-agent-python
           - claude-sdk-typescript
           - ms-agent-dotnet
+          - ms-agent-harness-dotnet
           - claude-sdk-python
           - built-in-agent
           - shell-dojo
@@ -110,6 +111,7 @@ jobs:
             {"dispatch_name":"ms-agent-python","railway_id":"655db75a-af8d-427d-a4f9-441570ae5003","health_path":"/api/health"},
             {"dispatch_name":"claude-sdk-typescript","railway_id":"18a98727-5700-44aa-b497-b60795dbbd6a","health_path":"/api/health"},
             {"dispatch_name":"ms-agent-dotnet","railway_id":"beeb2dd6-87a4-4599-aa07-0578f7bd6519","health_path":"/api/health"},
+            {"dispatch_name":"ms-agent-harness-dotnet","railway_id":"6343d7f9-6c3f-4c8d-9a6e-79f03d2f1e37","health_path":"/api/health"},
             {"dispatch_name":"claude-sdk-python","railway_id":"b122ab65-9854-4cb2-a68e-b50ff13f7481","health_path":"/api/health"},
             {"dispatch_name":"built-in-agent","railway_id":"f4f8371a-bc46-45b2-b6d4-9c9af608bdbf","health_path":"/api/health"},
             {"dispatch_name":"shell-dojo","railway_id":"7ad1ece7-2228-49cd-8a78-bddf30322907","health_path":"/"},

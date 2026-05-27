@@ -10,7 +10,7 @@ partner_docs: https://docs.copilotkit.ai/microsoft-agent-framework
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/ms-agent-harness-dotnet
 copilotkit_version: 2.0.0
 backend_url: https://showcase-ms-agent-harness-dotnet-production.up.railway.app
-deployed: false
+deployed: true
 docs_mode: generated
 sort_order: 165
 generative_ui:
