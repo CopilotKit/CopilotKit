@@ -90,7 +90,9 @@ export function useLearnFromUserAction(): UseLearnFromUserActionRecorder {
   const { copilotkit } = useCopilotKit();
 
   return useCallback(
-    async (input: LearnFromUserActionInput): Promise<LearnFromUserActionResult> => {
+    async (
+      input: LearnFromUserActionInput,
+    ): Promise<LearnFromUserActionResult> => {
       const runtimeUrl = copilotkit.runtimeUrl;
       if (!runtimeUrl) {
         throw new Error(

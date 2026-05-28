@@ -30,7 +30,7 @@ interface FetchCall {
 
 const mockFetch = (
   responses: Array<{ status: number; body: unknown }>,
-): { calls: FetchCall[]; fetch: typeof fetch } => {
+): { calls: FetchCall[]; fetch: typeof globalThis.fetch } => {
   const calls: FetchCall[] = [];
   let index = 0;
   const fetch = vi.fn(async (url, init) => {
@@ -240,7 +240,10 @@ describe("useLearnFromUserAction", () => {
     globalThis.fetch = fetch;
 
     const { result } = renderHook(() => useLearnFromUserAction());
-    await result.current({ threadId: "t1", learningContainer: ["user", "organization"] });
+    await result.current({
+      threadId: "t1",
+      learningContainer: ["user", "organization"],
+    });
 
     expect(calls[0]!.body!.learningContainer).toEqual(["user", "organization"]);
   });

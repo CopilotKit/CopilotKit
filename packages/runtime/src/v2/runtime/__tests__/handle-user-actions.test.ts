@@ -265,7 +265,9 @@ describe("handleRecordUserAction", () => {
       runtime,
       request: buildRequest(validBody()),
     });
-    expect(recordUserAction.mock.calls[0]![0].learningContainer).toBeUndefined();
+    expect(
+      recordUserAction.mock.calls[0]![0].learningContainer,
+    ).toBeUndefined();
   });
 
   it("returns the duplicate=true payload verbatim from the platform", async () => {

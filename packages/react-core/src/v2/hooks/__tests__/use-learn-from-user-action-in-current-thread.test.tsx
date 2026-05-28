@@ -34,7 +34,7 @@ interface FetchCall {
 
 const mockFetch = (
   responses: Array<{ status: number; body: unknown }>,
-): { calls: FetchCall[]; fetch: typeof fetch } => {
+): { calls: FetchCall[]; fetch: typeof globalThis.fetch } => {
   const calls: FetchCall[] = [];
   let index = 0;
   const fetch = vi.fn(async (url, init) => {
@@ -101,7 +101,9 @@ describe("useLearnFromUserActionInCurrentThread", () => {
     ]);
     globalThis.fetch = fetch;
 
-    const { result } = renderHook(() => useLearnFromUserActionInCurrentThread());
+    const { result } = renderHook(() =>
+      useLearnFromUserActionInCurrentThread(),
+    );
     await result.current({ title: "Clicked rename" });
 
     expect(calls).toHaveLength(1);
@@ -127,7 +129,9 @@ describe("useLearnFromUserActionInCurrentThread", () => {
     ]);
     globalThis.fetch = fetch;
 
-    const { result } = renderHook(() => useLearnFromUserActionInCurrentThread());
+    const { result } = renderHook(() =>
+      useLearnFromUserActionInCurrentThread(),
+    );
     await result.current({ title: "x" });
 
     expect(calls[0]!.body!.threadId).toBe("auto-minted-uuid");
@@ -142,7 +146,9 @@ describe("useLearnFromUserActionInCurrentThread", () => {
     globalThis.fetch = fetch;
 
     // Mounting the hook with no config is fine.
-    const { result } = renderHook(() => useLearnFromUserActionInCurrentThread());
+    const { result } = renderHook(() =>
+      useLearnFromUserActionInCurrentThread(),
+    );
 
     // The call throws.
     await expect(result.current({ title: "x" })).rejects.toThrow(
@@ -153,7 +159,9 @@ describe("useLearnFromUserActionInCurrentThread", () => {
   it("throws on call when config.threadId is empty", async () => {
     installCopilotKit();
     installChatConfig("");
-    const { result } = renderHook(() => useLearnFromUserActionInCurrentThread());
+    const { result } = renderHook(() =>
+      useLearnFromUserActionInCurrentThread(),
+    );
     await expect(result.current({ title: "x" })).rejects.toThrow(
       /no CopilotChatConfigurationProvider/,
     );
@@ -167,7 +175,9 @@ describe("useLearnFromUserActionInCurrentThread", () => {
     ]);
     globalThis.fetch = fetch;
 
-    const { result } = renderHook(() => useLearnFromUserActionInCurrentThread());
+    const { result } = renderHook(() =>
+      useLearnFromUserActionInCurrentThread(),
+    );
     await result.current({
       title: "Renamed project",
       description: "User renamed Foo to Bar",
@@ -192,7 +202,9 @@ describe("useLearnFromUserActionInCurrentThread", () => {
     ]);
     globalThis.fetch = fetch;
 
-    const { result } = renderHook(() => useLearnFromUserActionInCurrentThread());
+    const { result } = renderHook(() =>
+      useLearnFromUserActionInCurrentThread(),
+    );
     await result.current({
       title: "Renamed project",
       learningContainer: ["user", "organization"],
@@ -209,7 +221,9 @@ describe("useLearnFromUserActionInCurrentThread", () => {
     ]);
     globalThis.fetch = fetch;
 
-    const { result } = renderHook(() => useLearnFromUserActionInCurrentThread());
+    const { result } = renderHook(() =>
+      useLearnFromUserActionInCurrentThread(),
+    );
     // No title, no description, no data — just thread context.
     await result.current({});
 
