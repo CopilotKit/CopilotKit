@@ -17,8 +17,8 @@ interface RecordUserActionBody {
   threadId: string;
   title?: string | null;
   description?: string | null;
-  previousData?: unknown;
-  newData?: unknown;
+  data?: unknown;
+  learningContainer?: string | string[];
   metadata?: Record<string, unknown> | null;
   occurredAt?: string;
   clientEventId: string;
@@ -90,8 +90,8 @@ export async function handleRecordUserAction({
       threadId: parsed.threadId,
       title: parsed.title,
       description: parsed.description,
-      previousData: parsed.previousData,
-      newData: parsed.newData,
+      data: parsed.data,
+      learningContainer: parsed.learningContainer,
       metadata: parsed.metadata,
       occurredAt: parsed.occurredAt,
       clientEventId: parsed.clientEventId,
@@ -144,8 +144,12 @@ function parseRecordUserActionBody(
           : isNonEmptyString(body.description)
             ? body.description
             : undefined,
-    previousData: body.previousData,
-    newData: body.newData,
+    data: body.data,
+    learningContainer:
+      typeof body.learningContainer === "string" ||
+      Array.isArray(body.learningContainer)
+        ? (body.learningContainer as string | string[])
+        : undefined,
     metadata:
       body.metadata === undefined
         ? undefined

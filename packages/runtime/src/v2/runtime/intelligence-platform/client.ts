@@ -213,21 +213,15 @@ export interface RecordUserActionRequest {
   title?: string | null;
   /** Optional longer explanation. */
   description?: string | null;
-  /** Optional snapshot of state before the action. JSON-serializable. */
-  previousData?: unknown;
-  /** Optional snapshot of state after the action. JSON-serializable. */
-  newData?: unknown;
+  /** Free-form JSON-serializable snapshot describing the action. */
+  data?: unknown;
+  /** Learning container(s) for this action. Defaults to ["organization"] at the platform. */
+  learningContainer?: string | string[];
   /** Optional caller-defined metadata. Stored verbatim. */
   metadata?: Record<string, unknown> | null;
   /** ISO-8601 client-asserted timestamp. Defaults to server NOW() when absent. */
   occurredAt?: string;
-  /**
-   * Caller-supplied idempotency key (any RFC-compliant UUID; the
-   * frontend hook `useRecordUserAction` auto-generates one per call,
-   * so retries are safe by default). Every call hits the platform's
-   * idempotent PUT endpoint; a retry with the same id collapses to
-   * the original row.
-   */
+  /** Caller-supplied idempotency key (UUID). */
   clientEventId: string;
 }
 
