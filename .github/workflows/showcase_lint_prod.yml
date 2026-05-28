@@ -56,18 +56,40 @@ jobs:
             echo "::warning::RAILWAY_TOKEN secret not configured; skipping lint-prod."
             echo "skipped=true" >> "$GITHUB_OUTPUT"
             echo "findings=0" >> "$GITHUB_OUTPUT"
+            echo "errored=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           echo "skipped=false" >> "$GITHUB_OUTPUT"
           # Advisory mode: --exit-zero so findings don't block the PR while we soak.
           # Flip to enforcing by removing --exit-zero once findings are clean.
           # Also emit machine-readable JSON for the visibility renderer.
+          #
+          # We capture stderr + exit code so a snapshot/GraphQL error doesn't
+          # abort the workflow before we can render a "audit unavailable" block.
+          # The intent of advisory mode is "never block a PR on this check".
+          rc=0
           ruby showcase/bin/railway lint-prod --exit-zero --format json \
-            > lint-prod.json
-          # Mirror to the job log for humans.
-          ruby showcase/bin/railway lint-prod --exit-zero
-          findings=$(ruby -rjson -e 'puts JSON.parse(File.read("lint-prod.json"))["findings"]')
-          echo "findings=${findings}" >> "$GITHUB_OUTPUT"
+            > lint-prod.json 2> lint-prod.err || rc=$?
+          # Mirror to the job log for humans (best-effort; ignore errors).
+          ruby showcase/bin/railway lint-prod --exit-zero || true
+          if [ "${rc}" -ne 0 ] || [ ! -s lint-prod.json ]; then
+            echo "::warning::lint-prod failed (rc=${rc}); rendering audit-unavailable block."
+            echo "--- lint-prod stderr ---"
+            cat lint-prod.err || true
+            echo "errored=true" >> "$GITHUB_OUTPUT"
+            echo "findings=0" >> "$GITHUB_OUTPUT"
+            # Synthesize an empty payload so the renderer has something to chew on.
+            ruby -rjson -rtime -e '
+              err = File.exist?("lint-prod.err") ? File.read("lint-prod.err").strip : ""
+              puts JSON.generate({"services" => [], "findings" => 0,
+                                  "timestamp" => Time.now.utc.iso8601,
+                                  "error" => err})
+            ' > lint-prod.json
+          else
+            echo "errored=false" >> "$GITHUB_OUTPUT"
+            findings=$(ruby -rjson -e 'puts JSON.parse(File.read("lint-prod.json"))["findings"]')
+            echo "findings=${findings}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Render audit summary
         if: always() && steps.lint.outputs.skipped != 'true'
@@ -85,18 +107,18 @@ jobs:
           ts_utc = Time.parse(data["timestamp"] || Time.now.utc.iso8601)
           ts_pt = ts_utc.getlocal
           total = services.size
-          status_line =
-              if findings.zero?
-                  "All #{total} services digest-pinned."
-              else
-                  "#{findings} of #{total} service(s) not digest-pinned."
-              end
+          err = data["error"].to_s
           out = +""
           out << "## Production Digest-Pinning Audit\n\n"
-          out << "#{status_line}\n\n"
-          if findings.zero?
+          if !err.empty?
+              # Audit failed to run (e.g. snapshot/GraphQL error). Render a fallback
+              # block instead of leaving the surface blank.
+              out << "Audit could not run this round.\n\n"
+              out << "<details><summary>Error</summary>\n\n```\n#{err}\n```\n\n</details>\n\n"
+          elsif findings.zero?
               out << "All #{total} services digest-pinned.\n\n"
           else
+              out << "#{findings} of #{total} service(s) not digest-pinned.\n\n"
               out << "| Service | Source.image | Status |\n"
               out << "|---|---|---|\n"
               services.each do |s|
