@@ -18,7 +18,14 @@ interface RecordUserActionBody {
   title?: string | null;
   description?: string | null;
   data?: unknown;
-  learningContainer?: string | string[];
+  /**
+   * Forwarded verbatim to the platform; Intelligence is the single
+   * authoritative validator and rejects malformed values (non-string,
+   * non-array, empty string, empty array, array with empty elements)
+   * with 400. The runtime intentionally does not type-guard this field
+   * to avoid silently rewriting bad input into the platform default.
+   */
+  learningContainer?: unknown;
   metadata?: Record<string, unknown> | null;
   occurredAt?: string;
   clientEventId: string;
@@ -145,11 +152,7 @@ function parseRecordUserActionBody(
             ? body.description
             : undefined,
     data: body.data,
-    learningContainer:
-      typeof body.learningContainer === "string" ||
-      Array.isArray(body.learningContainer)
-        ? (body.learningContainer as string | string[])
-        : undefined,
+    learningContainer: body.learningContainer,
     metadata:
       body.metadata === undefined
         ? undefined

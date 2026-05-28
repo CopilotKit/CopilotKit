@@ -270,6 +270,23 @@ describe("handleRecordUserAction", () => {
     ).toBeUndefined();
   });
 
+  it("forwards a malformed learningContainer (non-string, non-array) verbatim so the platform's Zod boundary is the single source of validation", async () => {
+    const recordUserAction = vi
+      .fn()
+      .mockResolvedValue({ id: "1", duplicate: false });
+    const runtime = createIntelligenceRuntime({
+      intelligence: { recordUserAction },
+    });
+    await handleRecordUserAction({
+      runtime,
+      request: buildRequest({ ...validBody(), learningContainer: 123 }),
+    });
+    // The runtime no longer silently rewrites bad input to `undefined`
+    // (which would silently land the platform default). The malformed
+    // value flows through; Intelligence's Zod rejects it with 400.
+    expect(recordUserAction.mock.calls[0]![0].learningContainer).toBe(123);
+  });
+
   it("returns the duplicate=true payload verbatim from the platform", async () => {
     const recordUserAction = vi
       .fn()

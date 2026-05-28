@@ -215,8 +215,14 @@ export interface RecordUserActionRequest {
   description?: string | null;
   /** Free-form JSON-serializable snapshot describing the action. */
   data?: unknown;
-  /** Learning container(s) for this action. Defaults to ["organization"] at the platform. */
-  learningContainer?: string | string[];
+  /**
+   * Learning container(s) for this action. Forwarded verbatim to the
+   * platform, which is the single authoritative validator: well-formed
+   * input is `string | string[]` (non-empty strings, non-empty array);
+   * the platform defaults to `["organization"]` when the field is
+   * omitted entirely, and 400s on malformed values.
+   */
+  learningContainer?: unknown;
   /** Optional caller-defined metadata. Stored verbatim. */
   metadata?: Record<string, unknown> | null;
   /** ISO-8601 client-asserted timestamp. Defaults to server NOW() when absent. */
