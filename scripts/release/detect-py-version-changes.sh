@@ -30,12 +30,36 @@ echo "Local: ${NAME}==${VERSION}" >&2
 
 # Fetch published version, distinguishing 404 (new package) from other failures.
 RESP="$(mktemp)"; trap 'rm -f "$RESP"' EXIT
-CODE="$(curl -sS -o "$RESP" -w '%{http_code}' "${PYPI_BASE_URL}/pypi/${NAME}/json" 2>/dev/null || echo "000")"
+CODE="$(curl -sS --max-time 30 --retry 3 --retry-connrefused -o "$RESP" -w '%{http_code}' "${PYPI_BASE_URL}/pypi/${NAME}/json" 2>/dev/null || echo "000")"
 case "$CODE" in
   200)
-    PUBLISHED="$(python3 -c 'import sys,json; print(json.load(open(sys.argv[1]))["info"]["version"])' "$RESP")" \
-      || { echo "ERROR: bad JSON from PyPI" >&2; exit 1; }
-    echo "Published: ${NAME}==${PUBLISHED}" >&2 ;;
+    # Compute the MAX numeric-parseable version from the `releases` dict (the
+    # complete set of released versions). `info.version` is the LATEST-UPLOADED,
+    # not necessarily the highest — out-of-order patch uploads to an old line
+    # can produce info.version < max(releases). Non-numeric keys (prereleases
+    # like "0.2.0rc1", dev/post tags) are filtered out, not aborted on. If no
+    # numeric keys exist, treat as empty (same as 404 -> NEW).
+    PUBLISHED="$(python3 - "$RESP" <<'PY'
+import sys, json, re
+with open(sys.argv[1]) as f:
+    data = json.load(f)
+releases = data.get("releases") or {}
+numeric = []
+for k in releases.keys():
+    if re.fullmatch(r"\d+(\.\d+)*", k):
+        numeric.append(k)
+if not numeric:
+    print("")
+else:
+    best = max(numeric, key=lambda v: tuple(int(x) for x in v.split(".")))
+    print(best)
+PY
+)" || { echo "ERROR: bad JSON from PyPI" >&2; exit 1; }
+    if [ -z "$PUBLISHED" ]; then
+      echo "Published: ${NAME} has no numeric releases — treating as NEW" >&2
+    else
+      echo "Published: ${NAME}==${PUBLISHED}" >&2
+    fi ;;
   404)
     PUBLISHED=""; echo "Not found on PyPI — treating as NEW" >&2 ;;
   *)
@@ -46,14 +70,16 @@ if [ -z "$PUBLISHED" ]; then
   SHOULD_PUBLISH="true"
 else
   # Plain X.Y.Z numeric-tuple comparison (no third-party deps). The stable lane
-  # only ships dotted-numeric versions; refuse anything non-numeric loudly.
+  # only ships dotted-numeric LOCAL versions; refuse non-numeric LOCAL loudly.
+  # PUBLISHED is already guaranteed numeric (filtered above when computing max).
   SHOULD_PUBLISH="$(python3 - "$VERSION" "$PUBLISHED" <<'PY'
 import sys, re
-def parse(v):
+def parse_local(v):
     if not re.fullmatch(r"\d+(\.\d+)*", v):
-        sys.exit(f"non-numeric version not supported on stable lane: {v!r}")
+        sys.exit(f"non-numeric local version not supported on stable lane: {v!r}")
     return tuple(int(x) for x in v.split("."))
-local, pub = parse(sys.argv[1]), parse(sys.argv[2])
+local = parse_local(sys.argv[1])
+pub = tuple(int(x) for x in sys.argv[2].split("."))
 print("true" if local > pub else "false")
 PY
 )" || exit 1
