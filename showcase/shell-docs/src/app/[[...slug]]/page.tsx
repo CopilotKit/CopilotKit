@@ -23,9 +23,13 @@ import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
 import { FrameworkLogo } from "@/components/icons/framework-icons";
-import { buildFrameworkNav, loadDoc } from "@/lib/docs-render";
+import {
+  buildFrameworkNav,
+  buildFrameworkOnlyNav,
+  loadDoc,
+} from "@/lib/docs-render";
 import { navTreeToPageTree } from "@/lib/page-tree-bridge";
-import { getDocsFolder, getIntegration } from "@/lib/registry";
+import { getDocsFolder, getDocsMode, getIntegration } from "@/lib/registry";
 import { buildDocMetadata } from "@/lib/seo-metadata";
 
 // Force dynamic rendering so unknown slugs reliably return HTTP 404
@@ -78,16 +82,14 @@ export async function generateMetadata({
 
 function DocsOverview() {
   // Sidebar matches the soft-default framework so home `/` and
-  // post-click `/built-in-agent/...` views share the same merged IA used
-  // by every framework-scoped route.
+  // post-click `/built-in-agent/...` views share the same authored IA.
   const docsFolder = getDocsFolder(HOME_DEFAULT_FRAMEWORK);
   const integrationName =
     getIntegration(HOME_DEFAULT_FRAMEWORK)?.name ?? "Built-in Agent";
-  const navTree = buildFrameworkNav(
-    docsFolder,
-    integrationName,
-    HOME_DEFAULT_FRAMEWORK,
-  );
+  const navTree =
+    getDocsMode(HOME_DEFAULT_FRAMEWORK) === "authored"
+      ? buildFrameworkOnlyNav(docsFolder)
+      : buildFrameworkNav(docsFolder, integrationName, HOME_DEFAULT_FRAMEWORK);
   const pageTree = navTreeToPageTree(navTree, `/${HOME_DEFAULT_FRAMEWORK}`);
 
   // Rewrite the Introduction entry's URL from `/built-in-agent` (or

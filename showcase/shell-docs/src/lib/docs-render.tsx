@@ -559,10 +559,9 @@ export function buildFrameworkOverridesNav(folder: string): NavNode[] {
 
 /**
  * Build a sidebar that contains ONLY the per-framework MDX tree
- * (no merge with root nav, no root-equivalent filtering). Retained for
- * diagnostics and any callers that need to inspect a package-owned IA
- * directly; framework routes use `buildFrameworkNav` so authored and
- * generated modes share the same sidebar structure.
+ * (no merge with root nav, no root-equivalent filtering). Authored
+ * integrations use this because their `integrations/<folder>/meta.json`
+ * is the source of truth for page order and section grouping.
  *
  * Slugs are rewritten to drop the `integrations/<folder>/` prefix and
  * the literal `index` → "" rewrite, so links resolve at
@@ -721,9 +720,9 @@ export function mergeFrameworkNav(
 }
 
 /**
- * Build the framework-scoped sidebar IA used by every framework route.
- * This is intentionally independent of docs_mode: generated/authored
- * controls MDX resolution, not navigation structure.
+ * Build the framework-scoped sidebar IA used by generated framework
+ * routes. Generated docs share the root docs IA and layer sparse
+ * framework-specific overrides into that tree.
  */
 export function buildFrameworkNav(
   docsFolder: string,
