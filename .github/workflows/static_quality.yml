@@ -103,7 +103,7 @@ jobs:
           echo "PR-changed format candidates: $count"
           cat .pr-format-files.existing.txt
 
-      - name: Run formatter (check on push, fix on PR)
+      - name: Run formatter (fix on PR, fix-and-commit on push)
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             if [ "${{ steps.changed.outputs.count }}" = "0" ]; then
@@ -128,15 +128,24 @@ jobs:
               echo "$py_files" | xargs ruff format --check
             fi
           else
-            oxfmt --check .
-            ruff format --check .
+            # Push to main: write fixes in place rather than failing.
+            # If violations exist, the commit steps below push a follow-up fix
+            # commit to main automatically. This makes main self-healing for
+            # PRs that merged before the PR format job could auto-fix.
+            if ! oxfmt --write .; then
+              echo "::warning::oxfmt exited with error — auto-fix may be incomplete"
+            fi
+            ruff format . || echo "::warning::ruff format exited with error"
+            if [ -n "$(git diff --name-only)" ]; then
+              echo "format_fixed=true" >> $GITHUB_ENV
+            fi
           fi
 
       - name: Configure git for push
         if: >-
           env.format_fixed == 'true' &&
-          github.event_name == 'pull_request' &&
-          github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name
+          (github.event_name == 'push' ||
+          github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -147,20 +156,24 @@ jobs:
       - name: Commit formatting fixes
         if: >-
           env.format_fixed == 'true' &&
-          github.event_name == 'pull_request' &&
-          github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name
+          (github.event_name == 'push' ||
+          github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name)
         run: |
           if [ -z "$(git diff --name-only)" ]; then
             echo "No formatting changes to commit"
             exit 0
           fi
-          # Stage only the files the formatter was scoped to operate on.
-          # Piping `git diff --name-only` into `git add` is unsafe: if a
-          # tracked-but-gitignored path shows up in the diff, `git add`
-          # aborts the whole step and the auto-fix push never lands —
-          # leaving formatting violations on the PR branch and (post-
-          # merge) on main.
-          xargs -a .pr-format-files.existing.txt git add --
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # Stage only the files the formatter was scoped to operate on.
+            # Piping `git diff --name-only` into `git add` is unsafe: if a
+            # tracked-but-gitignored path shows up in the diff, `git add`
+            # aborts the whole step and the auto-fix push never lands —
+            # leaving formatting violations on the PR branch and (post-
+            # merge) on main.
+            xargs -a .pr-format-files.existing.txt git add --
+          else
+            git add -A
+          fi
           git commit -m "style: auto-fix formatting"
           git push
 
