@@ -6,9 +6,12 @@
 //     `value.toLowerCase().replace(/\s/, "-")` to derive radix-tabs
 //     `value` keys. Our authored MDX uses the literal label as the
 //     <Tab value="...">, e.g. `<Tab value="JavaScript">` against
-//     `<Tabs items={["JavaScript", "Python"]}>`. Without escaping the
-//     Tab's value to match, radix can't pair the trigger with the
-//     content and the tab body never renders.
+//     `<Tabs items={["JavaScript", "Python"]}>`. Fumadocs's Tab
+//     component applies this same escapeValue internally, so we pass
+//     the raw label — pre-escaping would double-escape multi-word
+//     values and break the trigger↔content match for labels like
+//     "JSON Configuration File" (two spaces → only first replaced →
+//     residual space in trigger but not in double-escaped content).
 //
 //   - We accept `groupId` / `persist` / `default` props that the legacy
 //     custom-Tabs MDX content was written against, so existing pages
@@ -25,15 +28,20 @@ import * as React from "react";
 import {
   Tabs as FumadocsTabs,
   Tab as FumadocsTab,
-  type TabsProps as FumadocsTabsProps,
-  type TabProps as FumadocsTabProps,
+} from "fumadocs-ui/components/tabs";
+import type {
+  TabsProps as FumadocsTabsProps,
+  TabProps as FumadocsTabProps,
 } from "fumadocs-ui/components/tabs";
 
 /**
  * Mirror Fumadocs's internal `escapeValue` — keep this in sync with
- * `node_modules/fumadocs-ui/dist/components/tabs.js`. Used so a Tab's
- * authored `value="JavaScript"` resolves to the same key Fumadocs
- * derives from the Tabs's `items` array.
+ * `node_modules/fumadocs-ui/dist/components/tabs.js`. Used ONLY for
+ * the `Tabs` defaultValue so the initial-selection value matches the
+ * trigger values Fumadocs generates from `items`. Do NOT apply to
+ * individual `Tab` values — Fumadocs's Tab component calls this
+ * internally; pre-escaping here would double-escape and break the
+ * trigger↔content pairing for multi-word labels.
  */
 function escapeValue(v: string): string {
   return v.toLowerCase().replace(/\s/, "-");
@@ -74,13 +82,12 @@ interface ExtendedTabProps extends FumadocsTabProps {
 }
 
 export function Tab({ value, title, ...rest }: ExtendedTabProps) {
-  // Authored MDX passes the literal label as `value`. Escape so it
-  // matches Fumadocs's derivation from `<Tabs items={[...]}>`.
+  // Pass the raw label to FumadocsTab — Fumadocs's Tab component
+  // applies escapeValue internally to match the trigger's derived key.
+  // Pre-escaping here would double-escape and corrupt multi-word labels
+  // (e.g. "JSON Configuration File" → "json-configuration file" after
+  // one pass, then "json-configuration-file" after the second pass,
+  // which no longer matches the trigger's "json-configuration file").
   const resolved = value ?? title;
-  return (
-    <FumadocsTab
-      value={resolved ? escapeValue(resolved) : undefined}
-      {...rest}
-    />
-  );
+  return <FumadocsTab value={resolved} {...rest} />;
 }
