@@ -1,6 +1,7 @@
 import { isIntelligenceRuntime } from "../core/runtime";
 import { telemetry } from "../telemetry";
 import {
+  attachIntelligenceEnterpriseLearning,
   cloneAgentForRequest,
   configureAgentForRequest,
   parseRunRequest,
@@ -39,7 +40,8 @@ export async function handleRunAgent({
     // tag historic runs with the correct agentId for filtering.
     agent.agentId = agentId;
 
-    await configureAgentForRequest({ runtime, request, agentId, agent });
+    configureAgentForRequest({ runtime, request, agentId, agent });
+    await attachIntelligenceEnterpriseLearning({ runtime, request, agent });
 
     if (
       runtime.licenseChecker &&

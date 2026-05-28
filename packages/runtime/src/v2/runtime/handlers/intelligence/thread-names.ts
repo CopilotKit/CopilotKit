@@ -108,7 +108,7 @@ async function runTitleGenerationAttempt(params: {
     return null;
   }
 
-  await configureAgentForRequest({
+  configureAgentForRequest({
     runtime,
     request,
     agentId,

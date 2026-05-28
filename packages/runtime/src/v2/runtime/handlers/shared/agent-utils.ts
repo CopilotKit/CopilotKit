@@ -49,46 +49,14 @@ export async function cloneAgentForRequest(
   return (agents[agentId] as AbstractAgent).clone() as AbstractAgent;
 }
 
-export async function configureAgentForRequest(params: {
+export function configureAgentForRequest(params: {
   runtime: CopilotRuntimeLike;
   request: Request;
   agentId: string;
   agent: AbstractAgent;
-}): Promise<void> {
+}): void {
   const { runtime, request, agentId } = params;
   const agent = params.agent as MiddlewareCapableAgent;
-
-  // When CopilotKit Intelligence is configured with
-  // `enableEnterpriseLearning: true`, attach the @ag-ui/mcp-middleware so
-  // every agent run gets the platform's MCP tools — uniformly across
-  // frameworks, not just for BuiltInAgent. The headers carry per-request
-  // auth (Bearer apiKey + user-id); the middleware is on a per-request
-  // agent clone so these are effectively per-request even though the
-  // config is "static". If user resolution fails (Response), we skip
-  // attaching — the intelligence run handler will reject the request with
-  // the same error.
-  if (
-    isIntelligenceRuntime(runtime) &&
-    runtime.intelligence?.ɵisEnterpriseLearningEnabled?.() &&
-    typeof agent.use === "function"
-  ) {
-    const userResult = await resolveIntelligenceUser({ runtime, request });
-    if (!(userResult instanceof Response)) {
-      agent.use(
-        new MCPMiddleware([
-          {
-            type: "http",
-            url: `${runtime.intelligence.ɵgetApiUrl()}/mcp`,
-            serverId: "intelligence",
-            headers: {
-              Authorization: `Bearer ${runtime.intelligence.ɵgetApiKey()}`,
-              [INTELLIGENCE_USER_ID_HEADER]: userResult.id,
-            },
-          },
-        ]),
-      );
-    }
-  }
 
   if (runtime.a2ui) {
     const { agents: targetAgents, ...a2uiOptions } = runtime.a2ui;
@@ -127,6 +95,58 @@ export async function configureAgentForRequest(params: {
       ...extractForwardableHeaders(request),
     };
   }
+}
+
+/**
+ * Attach the Intelligence platform's MCP tools to the agent run when
+ * `CopilotKitIntelligence` was constructed with
+ * `enableEnterpriseLearning: true`. Uses `@ag-ui/mcp-middleware`, so the
+ * tools are available uniformly across agent frameworks (not just
+ * `BuiltInAgent`).
+ *
+ * The middleware sits on a per-request agent clone, so the per-request
+ * auth (Bearer apiKey + resolved user-id) is baked into the transport
+ * headers at attach time. If user resolution fails, attachment is
+ * skipped silently — the intelligence run handler will reject the
+ * request with the same error.
+ *
+ * Intentionally split out from `configureAgentForRequest`: this is only
+ * relevant to actual agent runs, not auxiliary flows like thread-name
+ * generation (which has no need for MCP tools and shouldn't pay the
+ * `listTools` round-trip).
+ */
+export async function attachIntelligenceEnterpriseLearning(params: {
+  runtime: CopilotRuntimeLike;
+  request: Request;
+  agent: AbstractAgent;
+}): Promise<void> {
+  const { runtime, request } = params;
+  const agent = params.agent as MiddlewareCapableAgent;
+
+  if (
+    !isIntelligenceRuntime(runtime) ||
+    !runtime.intelligence?.ɵisEnterpriseLearningEnabled?.() ||
+    typeof agent.use !== "function"
+  ) {
+    return;
+  }
+
+  const userResult = await resolveIntelligenceUser({ runtime, request });
+  if (userResult instanceof Response) return;
+
+  agent.use(
+    new MCPMiddleware([
+      {
+        type: "http",
+        url: `${runtime.intelligence.ɵgetApiUrl()}/mcp`,
+        serverId: "intelligence",
+        headers: {
+          Authorization: `Bearer ${runtime.intelligence.ɵgetApiKey()}`,
+          [INTELLIGENCE_USER_ID_HEADER]: userResult.id,
+        },
+      },
+    ]),
+  );
 }
 
 export async function parseRunRequest(
