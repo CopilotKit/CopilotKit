@@ -37,7 +37,8 @@ import type { MdxFrameworkOverviewProps } from "@/components/content/landing-pag
 import { FrameworkSetup } from "@/lib/setup-concept";
 import { docsComponents } from "@/lib/mdx-registry";
 import { transformerMeta } from "@/lib/rehype-code-meta";
-import { getIntegration, getTabDefault } from "@/lib/registry";
+import { getIntegration, getIntegrations, getTabDefault } from "@/lib/registry";
+import { RESERVED_ROUTE_SLUGS } from "@/app/layout";
 import type { NavNode } from "@/lib/docs-render";
 import { navTreeToPageTree } from "@/lib/page-tree-bridge";
 import { tocHeadingsToFumadocs } from "@/lib/toc-bridge";
@@ -55,6 +56,31 @@ import {
   filterFrameworkScopedBlocks,
   slugify,
 } from "@/lib/toc";
+
+// First-URL-segment sets used by the framework-scoped link rewriter to
+// skip absolute MDX links that are NOT meant to be re-scoped:
+// - cross-framework slugs (registered integrations + docs-only frameworks)
+// - reserved top-level routes that don't live under any framework
+//
+// Computed at module load so the rewriter's per-link check is O(1).
+// `frameworkOverride` is still allowed to match `CROSS_FRAMEWORK_SLUGS`
+// (the link rewriter handles "same framework" via its own check), so a
+// page authored at `/built-in-agent/...` clicking `/built-in-agent/...`
+// stays correctly scoped.
+const CROSS_FRAMEWORK_SLUGS: ReadonlySet<string> = new Set<string>([
+  ...getIntegrations().map((i) => i.slug),
+  // Docs-only frameworks have no registry entry but DO own a
+  // `/<slug>/...` URL subtree. Mirror the list in
+  // app/[framework]/[[...slug]]/page.tsx so the rewriter doesn't
+  // capture inbound links into these scopes.
+  "a2a",
+  "agent-spec",
+  "deepagents",
+]);
+
+const RESERVED_ROUTE_SLUG_SET: ReadonlySet<string> = new Set<string>(
+  RESERVED_ROUTE_SLUGS as readonly string[],
+);
 
 export interface DocsPageViewProps {
   /** Slug path relative to `CONTENT_DIR` (no leading slash). */
@@ -457,10 +483,31 @@ export async function DocsPageView({
                             !!href &&
                             (href === `/${frameworkOverride}` ||
                               href.startsWith(`/${frameworkOverride}/`));
+                          // Cross-framework (`/a2a/...`,
+                          // `/langgraph-python/...`) and top-level
+                          // reserved-route (`/reference`, `/ag-ui`,
+                          // `/api`, `/docs`) links must keep their
+                          // absolute path. Without these guards, an
+                          // MDX link like `/a2a/generative-ui/...`
+                          // rendered on a BIA page becomes
+                          // `/built-in-agent/a2a/...` and 404s.
+                          const firstSegment =
+                            href?.startsWith("/") && !isProtocolRelative
+                              ? href.slice(1).split(/[/?#]/, 1)[0]
+                              : undefined;
+                          const targetsAnotherFramework =
+                            firstSegment !== undefined &&
+                            CROSS_FRAMEWORK_SLUGS.has(firstSegment) &&
+                            firstSegment !== frameworkOverride;
+                          const targetsReservedRoute =
+                            firstSegment !== undefined &&
+                            RESERVED_ROUTE_SLUG_SET.has(firstSegment);
                           const resolved =
                             href?.startsWith("/") &&
                             !isProtocolRelative &&
-                            !alreadyScoped
+                            !alreadyScoped &&
+                            !targetsAnotherFramework &&
+                            !targetsReservedRoute
                               ? `/${frameworkOverride}${href}`
                               : href;
                           return (
