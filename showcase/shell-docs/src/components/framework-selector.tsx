@@ -191,12 +191,12 @@ export function FrameworkSelector({
     ? (options.find((o) => o.slug === "built-in-agent") ?? null)
     : null;
 
-  // Sidebar variant: full-width pill with integration logo box on the
+  // Sidebar variant: full-width control with integration logo box on the
   // left, framework name center, chevron right. Mirrors the canonical
   // docs.copilotkit.ai reference: h-14 pill, lavender bg + accent border
   // when a framework is active, soft surface bg when nothing is picked.
   const sidebarBtnClasses = [
-    "w-full flex items-center gap-2 p-1.5 rounded-xl border h-12",
+    "w-full flex items-center gap-2 p-1.5 rounded-lg border h-12",
     "transition-colors cursor-pointer",
     "text-[13px] font-medium text-[var(--text)]",
     current

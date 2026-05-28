@@ -78,8 +78,9 @@ export function SearchTrigger({
     return (
       <button
         onClick={toggleShellSearch}
-        className="flex items-center justify-center w-8 h-8 rounded-md text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-colors cursor-pointer"
+        className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-muted)] shadow-[0_1px_0_rgba(1,5,7,0.03)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
         aria-label="Search"
+        title="Search"
       >
         <Search className="h-4 w-4" aria-hidden="true" />
       </button>
@@ -93,7 +94,7 @@ export function SearchTrigger({
       <button
         onClick={toggleShellSearch}
         aria-label="Search"
-        className="lg:min-w-[250px] xl:min-w-[300px] flex gap-2 items-center px-3 h-10 rounded-xl cursor-pointer border border-[var(--border)] bg-[var(--bg-elevated)]/70 text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-surface)] transition-colors shadow-[0_1px_0_rgba(1,5,7,0.03)]"
+        className="flex h-9 w-9 cursor-pointer items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] px-2.5 text-[var(--text-muted)] shadow-[0_1px_0_rgba(1,5,7,0.03)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)] lg:w-[220px] xl:w-[260px]"
       >
         <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
 

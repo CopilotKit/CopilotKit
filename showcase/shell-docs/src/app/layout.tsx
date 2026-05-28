@@ -180,7 +180,7 @@ export default function RootLayout({
                  * (margin: 0 4px; xl: 0 8px 8px 8px). */}
                 <Banners />
                 <BrandNav />
-                <main className="flex flex-1 min-h-0 overflow-hidden mx-1 md:mx-[22px] mt-2 md:mt-6 mb-2 md:mb-3">
+                <main className="flex flex-1 min-h-0 overflow-hidden mx-1 md:mx-[22px] mt-2 md:mt-[15px] mb-2 md:mb-3">
                   {children}
                 </main>
               </ShellSearchProvider>
