@@ -44,4 +44,24 @@ describe("defaultMapToAction", () => {
 
     expect(action.metadata).not.toHaveProperty("responseBody");
   });
+
+  it("falls back to the raw URL string in the title when the URL cannot be parsed", () => {
+    const action = defaultMapToAction(
+      { ...captured, url: "not://a real url" },
+      true,
+    );
+
+    // Title still produced with the raw url segment — title generation never throws.
+    expect(action.title?.startsWith("POST ")).toBe(true);
+  });
+
+  it("preserves the full url (including query string) in metadata.url", () => {
+    const action = defaultMapToAction(captured, true);
+
+    // The query string is part of the recorded url so the writer agent can
+    // see GET-style parameters that are part of the action's identity.
+    expect(action.metadata).toMatchObject({
+      url: "https://app.test/api/orders/123/refund?ref=1",
+    });
+  });
 });

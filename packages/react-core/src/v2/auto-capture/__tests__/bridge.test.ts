@@ -64,3 +64,19 @@ describe("dispatch ownership", () => {
     expect(getAutoCaptureBridge().dispatch).toBeNull();
   });
 });
+
+describe("install/uninstall idempotency", () => {
+  it("uninstall is a no-op when no consumer ever installed", () => {
+    // Should not throw, should not flip globals.
+    const before = globalThis.fetch;
+    expect(() => uninstallAutoCapturePatches()).not.toThrow();
+    expect(globalThis.fetch).toBe(before);
+  });
+
+  it("a second uninstall after the last release is harmless", () => {
+    installAutoCapturePatches();
+    uninstallAutoCapturePatches();
+    expect(() => uninstallAutoCapturePatches()).not.toThrow();
+    expect(getAutoCaptureBridge().enabled).toBe(false);
+  });
+});

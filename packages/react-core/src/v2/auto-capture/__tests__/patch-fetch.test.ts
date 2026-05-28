@@ -95,4 +95,74 @@ describe("createPatchedFetch", () => {
       requestBody: { b: 2 },
     });
   });
+
+  it("accepts a URL object as the input", async () => {
+    const { bridge, calls } = makeBridge();
+    const original = vi.fn(async () => jsonResponse({ ok: true }));
+    const patched = createPatchedFetch(original as unknown as typeof fetch, bridge);
+
+    await patched(new URL("https://app.test/api/z"), { method: "POST" });
+
+    await vi.waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]!.url).toBe("https://app.test/api/z");
+    expect(calls[0]!.method).toBe("POST");
+  });
+
+  it("captures a no-body request with requestBody=undefined", async () => {
+    const { bridge, calls } = makeBridge();
+    const original = vi.fn(async () => jsonResponse({ ok: true }));
+    const patched = createPatchedFetch(original as unknown as typeof fetch, bridge);
+
+    await patched("https://app.test/api/delete-me", { method: "DELETE" });
+
+    await vi.waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]!.requestBody).toBeUndefined();
+    expect(calls[0]!.method).toBe("DELETE");
+  });
+
+  it("decodes a FormData request body into a plain object", async () => {
+    const { bridge, calls } = makeBridge();
+    const original = vi.fn(async () => jsonResponse({ ok: true }));
+    const patched = createPatchedFetch(original as unknown as typeof fetch, bridge);
+
+    const form = new FormData();
+    form.append("title", "hello");
+    form.append("file", new Blob(["x"]), "x.txt");
+    await patched("https://app.test/api/upload", { method: "POST", body: form });
+
+    await vi.waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]!.requestBody).toEqual({ title: "hello", file: "[file]" });
+  });
+
+  it("captures both members of a pair of concurrent fetches", async () => {
+    const { bridge, calls } = makeBridge();
+    const original = vi.fn(async () => jsonResponse({ ok: true }));
+    const patched = createPatchedFetch(original as unknown as typeof fetch, bridge);
+
+    await Promise.all([
+      patched("https://app.test/api/a", { method: "POST" }),
+      patched("https://app.test/api/b", { method: "POST" }),
+    ]);
+
+    await vi.waitFor(() => expect(calls).toHaveLength(2));
+    const urls = calls.map((c) => c.url).sort();
+    expect(urls).toEqual([
+      "https://app.test/api/a",
+      "https://app.test/api/b",
+    ]);
+  });
+
+  it("captures status from a non-2xx response without throwing", async () => {
+    const { bridge, calls } = makeBridge();
+    const original = vi.fn(async () =>
+      new Response("", { status: 500, headers: { "content-type": "text/plain" } }),
+    );
+    const patched = createPatchedFetch(original as unknown as typeof fetch, bridge);
+
+    const res = await patched("https://app.test/api/x", { method: "POST" });
+    expect(res.status).toBe(500);
+
+    await vi.waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]!.status).toBe(500);
+  });
 });

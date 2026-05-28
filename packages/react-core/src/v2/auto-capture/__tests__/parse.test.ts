@@ -67,4 +67,44 @@ describe("toAbsoluteUrl", () => {
   it("leaves an absolute URL unchanged", () => {
     expect(toAbsoluteUrl("https://other.test/x")).toBe("https://other.test/x");
   });
+
+  it("leaves invalid relative inputs untouched rather than throwing", () => {
+    // jsdom resolves most strings; verify our defensive return for the
+    // pathological case where URL() does throw.
+    expect(toAbsoluteUrl("http://[bad")).toBe("http://[bad");
+  });
+});
+
+describe("parseBodyText content-type edge cases", () => {
+  it("recognizes JSON with a charset suffix", () => {
+    expect(parseBodyText('{"a":1}', "application/json; charset=utf-8")).toEqual({
+      a: 1,
+    });
+  });
+
+  it("recognizes JSON-ish vendor types via the +json suffix", () => {
+    expect(parseBodyText('{"a":1}', "application/vnd.api+json")).toEqual({
+      a: 1,
+    });
+  });
+
+  it("uses URLSearchParams semantics for form-urlencoded duplicate keys (last wins)", () => {
+    expect(
+      parseBodyText("k=1&k=2", "application/x-www-form-urlencoded"),
+    ).toEqual({ k: "2" });
+  });
+
+  it("treats whitespace-only bodies as raw text (not JSON)", () => {
+    expect(parseBodyText("   ", "text/plain")).toBe("   ");
+  });
+});
+
+describe("formDataToObject edge cases", () => {
+  it("for duplicate keys keeps the last value (browser FormData semantics)", () => {
+    const form = new FormData();
+    form.append("k", "first");
+    form.append("k", "second");
+
+    expect(formDataToObject(form)).toEqual({ k: "second" });
+  });
 });

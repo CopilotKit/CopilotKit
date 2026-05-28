@@ -111,4 +111,45 @@ describe("patchXHR", () => {
     expect(FakeXHR.prototype.open).toBe(originalOpen);
     expect(FakeXHR.prototype.send).toBe(originalSend);
   });
+
+  it("returns undefined responseBody for binary responseTypes (e.g. blob)", () => {
+    const { bridge, calls } = makeBridge();
+    patchXHR(bridge);
+
+    const xhr = new globalThis.XMLHttpRequest() as unknown as FakeXHR;
+    xhr.open("POST", "https://app.test/api/upload");
+    xhr.send("{}");
+    xhr.responseType = "blob";
+    xhr.status = 200;
+    xhr.fireLoadEnd();
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.responseBody).toBeUndefined();
+  });
+
+  it("still dispatches when status=0 (CORS / abort) — leaves the consumer to decide", () => {
+    const { bridge, calls } = makeBridge();
+    patchXHR(bridge);
+
+    const xhr = new globalThis.XMLHttpRequest() as unknown as FakeXHR;
+    xhr.open("POST", "https://app.test/api/x");
+    xhr.send("{}");
+    xhr.fireLoadEnd();
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.status).toBe(0);
+  });
+
+  it("accepts a URL object passed to open()", () => {
+    const { bridge, calls } = makeBridge();
+    patchXHR(bridge);
+
+    const xhr = new globalThis.XMLHttpRequest() as unknown as FakeXHR;
+    xhr.open("POST", new URL("https://app.test/api/url-obj") as unknown as string);
+    xhr.send("{}");
+    xhr.setResponse(200, "{}");
+    xhr.fireLoadEnd();
+
+    expect(calls[0]!.url).toBe("https://app.test/api/url-obj");
+  });
 });

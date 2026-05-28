@@ -213,4 +213,77 @@ describe("processExchange", () => {
 
     expect(() => processExchange(rawExchange(), ctx)).not.toThrow();
   });
+
+  it("never throws when transform itself throws (capture is best-effort)", () => {
+    const { ctx, records } = setup({
+      transform: () => {
+        throw new Error("transform boom");
+      },
+    });
+
+    expect(() => processExchange(rawExchange(), ctx)).not.toThrow();
+    expect(records).toHaveLength(0);
+  });
+
+  it("clears responseBody in the captured envelope when captureResponseBody is false", () => {
+    let seen: { responseBody?: unknown } = {};
+    const { ctx } = setup({
+      captureResponseBody: false,
+      transform: (req) => {
+        seen = req;
+        return { title: "x" };
+      },
+    });
+
+    processExchange(rawExchange({ responseBody: { confidential: true } }), ctx);
+
+    // The property exists on CapturedRequest but its value is undefined,
+    // so a transform reading req.responseBody will never see the real body.
+    expect(seen.responseBody).toBeUndefined();
+  });
+});
+
+describe("shouldCapture precedence and casing", () => {
+  const base = { origin: ORIGIN, runtimeUrl: RUNTIME_URL };
+
+  it("denyUrls beats allowUrls when both match the same URL", () => {
+    expect(
+      shouldCapture("POST", `${ORIGIN}/api/x`, {
+        ...base,
+        config: resolveConfig({
+          allowUrls: [/api/],
+          denyUrls: [/\/x$/],
+        }),
+      }),
+    ).toBe(false);
+  });
+
+  it("treats method case-insensitively (lowercase post still matches POST)", () => {
+    expect(
+      shouldCapture("post", `${ORIGIN}/api/x`, {
+        ...base,
+        config: resolveConfig({}),
+      }),
+    ).toBe(true);
+  });
+
+  it("matches a mixed string + RegExp allowUrls list", () => {
+    expect(
+      shouldCapture("POST", "https://api.partner.test/v1/x", {
+        ...base,
+        config: resolveConfig({
+          allowUrls: ["api.partner.test", /\/v2\//],
+        }),
+      }),
+    ).toBe(true);
+  });
+
+  it("handles a runtimeUrl with a trailing slash for self-exclusion", () => {
+    expect(
+      isUserActionsEndpoint(
+        `${ORIGIN}/api/copilotkit/user-actions`,
+        `${ORIGIN}/api/copilotkit/`,
+      ),
+    ).toBe(true);
+  });
 });

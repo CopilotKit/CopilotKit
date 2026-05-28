@@ -142,4 +142,75 @@ describe("useAutoCaptureUserActions", () => {
     // Restored after the last consumer unmounts.
     expect(globalThis.fetch).toBe(beforeMount);
   });
+
+  it("runs a developer-supplied transform end-to-end (envelope already redacted)", async () => {
+    let envelopeSeen: { requestBody?: unknown } = {};
+    const { unmount } = renderHook(() =>
+      useAutoCaptureUserActions({
+        enabled: true,
+        transform: (env) => {
+          envelopeSeen = env;
+          return { title: "custom-title", newData: { upgraded: true } };
+        },
+      }),
+    );
+
+    await globalThis.fetch(`${ORIGIN}/api/x`, {
+      method: "POST",
+      body: JSON.stringify({ password: "hunter2", k: "v" }),
+      headers: { "content-type": "application/json" },
+    });
+
+    await vi.waitFor(() => expect(recorder).toHaveBeenCalledTimes(1));
+    expect(recorder.mock.calls[0]![0]).toMatchObject({
+      title: "custom-title",
+      newData: { upgraded: true },
+      threadId: "thread-1",
+    });
+    // The envelope handed to transform was already redacted.
+    expect(envelopeSeen.requestBody).toEqual({ password: "***", k: "v" });
+
+    unmount();
+  });
+
+  it("calls a threadId-resolver function fresh per request (latest-ref semantics)", async () => {
+    let counter = 0;
+    const resolver = () => `thread-${++counter}`;
+
+    const { unmount } = renderHook(() =>
+      useAutoCaptureUserActions({ enabled: true, threadId: resolver }),
+    );
+
+    await globalThis.fetch(`${ORIGIN}/api/a`, { method: "POST", body: "{}" });
+    await globalThis.fetch(`${ORIGIN}/api/b`, { method: "POST", body: "{}" });
+
+    await vi.waitFor(() => expect(recorder).toHaveBeenCalledTimes(2));
+    expect(recorder.mock.calls[0]![0].threadId).toBe("thread-1");
+    expect(recorder.mock.calls[1]![0].threadId).toBe("thread-2");
+
+    unmount();
+  });
+
+  it("reflects a config change (denyUrls) on the very next request via the ref bridge", async () => {
+    const { rerender, unmount } = renderHook(
+      ({ deny }: { deny?: Array<string | RegExp> }) =>
+        useAutoCaptureUserActions({ enabled: true, denyUrls: deny }),
+      { initialProps: { deny: undefined } },
+    );
+
+    await globalThis.fetch(`${ORIGIN}/api/keep`, { method: "POST", body: "{}" });
+    await vi.waitFor(() => expect(recorder).toHaveBeenCalledTimes(1));
+
+    rerender({ deny: [/\/api\//] });
+
+    await globalThis.fetch(`${ORIGIN}/api/now-denied`, {
+      method: "POST",
+      body: "{}",
+    });
+    await flush();
+    // Still just the one call — the new denyUrls applied without re-patching.
+    expect(recorder).toHaveBeenCalledTimes(1);
+
+    unmount();
+  });
 });
