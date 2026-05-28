@@ -2,10 +2,13 @@ import type { AbstractAgent, RunAgentInput } from "@ag-ui/client";
 import { RunAgentInputSchema } from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
+import { MCPMiddleware } from "@ag-ui/mcp-middleware";
 import type { CopilotRuntimeLike } from "../../core/runtime";
-import { resolveAgents } from "../../core/runtime";
+import { isIntelligenceRuntime, resolveAgents } from "../../core/runtime";
 import { OpenGenerativeUIMiddleware } from "../../open-generative-ui-middleware";
+import { INTELLIGENCE_USER_ID_HEADER } from "../../intelligence-platform/client";
 import { extractForwardableHeaders } from "../header-utils";
+import { resolveIntelligenceUser } from "./resolve-intelligence-user";
 import { logger } from "@copilotkit/shared";
 
 type MiddlewareCapableAgent = AbstractAgent & {
@@ -46,14 +49,45 @@ export async function cloneAgentForRequest(
   return (agents[agentId] as AbstractAgent).clone() as AbstractAgent;
 }
 
-export function configureAgentForRequest(params: {
+export async function configureAgentForRequest(params: {
   runtime: CopilotRuntimeLike;
   request: Request;
   agentId: string;
   agent: AbstractAgent;
-}): void {
+}): Promise<void> {
   const { runtime, request, agentId } = params;
   const agent = params.agent as MiddlewareCapableAgent;
+
+  // When CopilotKit Intelligence is configured with `mcpServer: true`,
+  // attach the @ag-ui/mcp-middleware so every agent run gets the
+  // platform's MCP tools — uniformly across frameworks, not just for
+  // BuiltInAgent. The headers carry per-request auth (Bearer apiKey +
+  // user-id); the middleware is on a per-request agent clone so these
+  // are effectively per-request even though the config is "static".
+  // If user resolution fails (Response), we skip attaching — the
+  // intelligence run handler will reject the request with the same error.
+  if (
+    isIntelligenceRuntime(runtime) &&
+    runtime.intelligence?.ɵisMcpServerEnabled?.() &&
+    typeof agent.use === "function"
+  ) {
+    const userResult = await resolveIntelligenceUser({ runtime, request });
+    if (!(userResult instanceof Response)) {
+      agent.use(
+        new MCPMiddleware([
+          {
+            type: "http",
+            url: `${runtime.intelligence.ɵgetApiUrl()}/mcp`,
+            serverId: "intelligence",
+            headers: {
+              Authorization: `Bearer ${runtime.intelligence.ɵgetApiKey()}`,
+              [INTELLIGENCE_USER_ID_HEADER]: userResult.id,
+            },
+          },
+        ]),
+      );
+    }
+  }
 
   if (runtime.a2ui) {
     const { agents: targetAgents, ...a2uiOptions } = runtime.a2ui;

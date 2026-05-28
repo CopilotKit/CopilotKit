@@ -39,7 +39,7 @@ export async function handleRunAgent({
     // tag historic runs with the correct agentId for filtering.
     agent.agentId = agentId;
 
-    configureAgentForRequest({ runtime, request, agentId, agent });
+    await configureAgentForRequest({ runtime, request, agentId, agent });
 
     if (
       runtime.licenseChecker &&
