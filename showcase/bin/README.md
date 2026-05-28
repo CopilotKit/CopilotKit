@@ -35,16 +35,16 @@ need to read private packages; public packages work anonymously via the GHCR
 
 ## Subcommands
 
-| Subcommand        | Purpose                                                                                             |
-| ----------------- | --------------------------------------------------------------------------------------------------- |
-| `snapshot`        | Capture an env's services + config into a YAML snapshot.                                            |
-| `restore`         | Restore an env to a snapshot (force-redeploy each service).                                         |
-| `rollback`        | Roll a single service back one deploy (or to a specific deployment id with `--to`).                 |
-| `rollback-commit` | Restore an env to the snapshot committed at a given git SHA.                                        |
-| `promote`         | Promote staging digests to production with prechecks.                                               |
-| `pin`             | Pin a service to a specific image digest.                                                           |
-| `env-diff`        | Diff two envs; exits 1 on drift.                                                                    |
-| `resolve-digest`  | Resolve an image tag (e.g. `:latest`) to its `sha256:` digest.                                      |
+| Subcommand        | Purpose                                                                                                                                          |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `snapshot`        | Capture an env's services + config into a YAML snapshot.                                                                                         |
+| `restore`         | Restore an env to a snapshot (force-redeploy each service).                                                                                      |
+| `rollback`        | Roll a single service back one deploy (or to a specific deployment id with `--to`).                                                              |
+| `rollback-commit` | Restore an env to the snapshot committed at a given git SHA.                                                                                     |
+| `promote`         | Promote staging digests to production with prechecks.                                                                                            |
+| `pin`             | Pin a service to a specific image digest.                                                                                                        |
+| `env-diff`        | Diff two envs; exits 1 on drift.                                                                                                                 |
+| `resolve-digest`  | Resolve an image tag (e.g. `:latest`) to its `sha256:` digest.                                                                                   |
 | `lint-prod`       | CI gate (advisory): warn if any prod service is not digest-pinned. `--exit-zero` for advisory mode, `--format json` for machine-readable output. |
 
 Run any subcommand with `--help` for full flag list.
@@ -131,7 +131,9 @@ Pacific-time run timestamp with the finding count.
 
 ```json
 {
-  "services": [{"name": "...", "source": "...", "status": "pinned|mutable-tag"}],
+  "services": [
+    { "name": "...", "source": "...", "status": "pinned|mutable-tag" }
+  ],
   "findings": 3,
   "timestamp": "2026-05-27T18:00:00Z"
 }
