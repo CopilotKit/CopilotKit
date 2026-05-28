@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowRight, Bot, Check, Copy } from "lucide-react";
 
 const PROMPT = `Help me get started with CopilotKit — the frontend stack for AI agents and generative UI.
@@ -26,10 +26,19 @@ export function AgentStartPrompt() {
   const [copied, setCopied] = useState<boolean>(false);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(PROMPT);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(PROMPT);
+      setCopied(true);
+    } catch (err) {
+      console.error("Failed to copy to clipboard:", err);
+    }
   };
+
+  useEffect(() => {
+    if (!copied) return;
+    const t = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(t);
+  }, [copied]);
 
   return (
     <div className="not-prose my-6 rounded-lg border border-black/6 bg-[#FAFAFA] dark:border-white/10 dark:bg-white/5">
@@ -47,6 +56,7 @@ export function AgentStartPrompt() {
           </div>
         </div>
         <button
+          type="button"
           onClick={handleCopy}
           className="ml-4 shrink-0 rounded p-1.5 text-gray-500 transition-colors hover:bg-black/5 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-gray-200 cursor-pointer"
           aria-label="Copy prompt"
