@@ -1,0 +1,14 @@
+{
+  "title": "v1",
+  "pages": [
+    "index",
+    "---UI Components---",
+    "...components",
+    "---Hooks---",
+    "...hooks",
+    "---Classes---",
+    "...classes",
+    "---SDKs---",
+    "...sdk"
+  ]
+}
