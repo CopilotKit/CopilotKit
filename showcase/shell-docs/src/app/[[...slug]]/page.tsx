@@ -8,8 +8,8 @@
 
 import React from "react";
 import type { Metadata } from "next";
+import { AgentStartPrompt } from "@/components/agent-start-prompt";
 import { DocsLandingNext } from "@/components/docs-landing-next";
-import { HeroCommandCopy } from "@/components/hero-command-copy";
 import { HeroQuickstartDropdown } from "@/components/hero-quickstart-dropdown";
 import { LandingSampleTabs } from "@/components/landing-sample-tabs";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
@@ -43,7 +43,6 @@ export const dynamic = "force-dynamic";
 // here keeps the sidebar tree on `/` identical to what the user sees
 // after clicking any Built-in Agent sidebar link.
 const HOME_DEFAULT_FRAMEWORK = "built-in-agent";
-const CREATE_COMMAND = "npx copilotkit@latest create";
 
 // Per-framework self-canonical: each variant of a doc page declares
 // itself canonical so search engines index every framework's quickstart
@@ -168,7 +167,9 @@ function DocsOverview() {
             </div>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
               <HeroQuickstartDropdown options={quickstartOptions} />
-              <HeroCommandCopy command={CREATE_COMMAND} />
+            </div>
+            <div className="mt-4">
+              <AgentStartPrompt />
             </div>
           </div>
         </section>
