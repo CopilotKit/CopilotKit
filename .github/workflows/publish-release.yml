@@ -500,7 +500,7 @@ jobs:
   # until the Trusted Publisher record on pypi.org is updated to match.
   publish-python:
     needs: build-python
-    if: ${{ !cancelled() && needs.build-python.result == 'success' && needs.build-python.outputs.should_publish == 'true' }}
+    if: ${{ !cancelled() && needs.build-python.result == 'success' && needs.build-python.outputs.should_publish == 'true' && inputs.dry-run != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: pypi
@@ -527,13 +527,22 @@ jobs:
           path: sdk-python/dist
 
       - name: Publish to PyPI (OIDC trusted publishing)
-        run: uv publish --trusted-publishing always sdk-python/dist/*
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(sdk-python/dist/*)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::no build artifacts in sdk-python/dist — nothing to publish"
+            exit 1
+          fi
+          uv publish --trusted-publishing always "${files[@]}"
 
       - name: Verify version is live on PyPI
         env:
           NAME: ${{ needs.build-python.outputs.name }}
           VERSION: ${{ needs.build-python.outputs.version }}
         run: |
+          set -euo pipefail
           for i in $(seq 1 18); do
             if curl -fsS "https://pypi.org/pypi/${NAME}/${VERSION}/json" >/dev/null 2>&1; then
               echo "Confirmed ${NAME}==${VERSION} on PyPI"; exit 0
@@ -541,13 +550,18 @@ jobs:
             echo "Attempt ${i}: ${NAME}==${VERSION} not visible yet; retrying in 10s..."
             sleep 10
           done
-          echo "::error::${NAME}==${VERSION} did not appear on PyPI within 180s"; exit 1
+          echo "::error::${NAME}==${VERSION} did not appear on PyPI within 180s"
+          echo "Last curl response:"
+          curl -sS "https://pypi.org/pypi/${NAME}/${VERSION}/json" 2>&1 | tail -n 5 || true
+          exit 1
 
       - name: Configure git
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git config --local url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+          git config --local url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
 
       - name: Create and push git tag
         id: tag
@@ -555,6 +569,7 @@ jobs:
           PY_VERSION: ${{ needs.build-python.outputs.version }}
           PY_NAME: ${{ needs.build-python.outputs.name }}
         run: |
+          set -euo pipefail
           TAG="python-sdk/v${PY_VERSION}"
           if git rev-parse "$TAG" >/dev/null 2>&1; then
             echo "Tag $TAG already exists — skipping"
