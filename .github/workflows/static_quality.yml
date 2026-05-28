@@ -147,9 +147,10 @@ jobs:
                 echo "::warning::oxfmt exited with error — auto-fix may be incomplete"
               fi
             fi
-            push_py_files=$(git ls-files -- '*.py' ':!docs/**' ':!examples/**' 2>/dev/null || true)
-            if [ -n "$push_py_files" ]; then
-              echo "$push_py_files" | xargs ruff format || echo "::warning::ruff format exited with error"
+            # Use -z / xargs -0 to handle filenames with spaces.
+            while IFS= read -r -d '' f; do push_py_files_arr+=("$f"); done < <(git ls-files -z -- '*.py' ':!docs/**' ':!examples/**' 2>/dev/null || true)
+            if [ "${#push_py_files_arr[@]}" -gt 0 ]; then
+              printf '%s\0' "${push_py_files_arr[@]}" | xargs -0 ruff format || echo "::warning::ruff format exited with error"
             fi
             if [ -n "$(git status --porcelain)" ]; then
               echo "format_fixed=true" >> $GITHUB_ENV
@@ -191,7 +192,11 @@ jobs:
             git diff --name-only -z | xargs -0 git add --
           fi
           git commit -m "style: auto-fix formatting"
-          git pull --rebase origin main
+          # Rebase on main only for direct pushes — the PR path pushes to the
+          # PR branch which does not need rebasing before the auto-fix lands.
+          if [ "${{ github.event_name }}" = "push" ]; then
+            git pull --rebase origin main
+          fi
           git push
 
       - name: Verify push-path auto-fix is complete
@@ -210,9 +215,9 @@ jobs:
           if [ "${#verify_files[@]}" -gt 0 ]; then
             printf '%s\0' "${verify_files[@]}" | xargs -0 oxfmt --no-error-on-unmatched-pattern --check
           fi
-          verify_py=$(git ls-files -- '*.py' ':!docs/**' ':!examples/**' 2>/dev/null || true)
-          if [ -n "$verify_py" ]; then
-            echo "$verify_py" | xargs ruff format --check
+          while IFS= read -r -d '' f; do verify_py_arr+=("$f"); done < <(git ls-files -z -- '*.py' ':!docs/**' ':!examples/**' 2>/dev/null || true)
+          if [ "${#verify_py_arr[@]}" -gt 0 ]; then
+            printf '%s\0' "${verify_py_arr[@]}" | xargs -0 ruff format --check
           fi
 
   oxlint:
