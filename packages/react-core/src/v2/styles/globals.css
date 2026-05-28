@@ -230,23 +230,38 @@
   background-size: 100% 100%;
 }
 /*
- * IntelligenceIndicator pill — visual styles ported from
- * CopilotKit/Intelligence #155.
+ * IntelligenceIndicator — visual styles for the "Using CopilotKit
+ * Intelligence" indicator. Two modes coexist in the DOM:
  *
- * Violet/indigo glassmorphism — text #5B21B6, icon #7C3AED, border
- * #9599E0, gradient stop #EEE6FE, soft shadow #5E64AD.
+ *   • `.cpk-intelligence-indicator__pill`  — glassmorphism pill with
+ *     a spinning ring, shown while work is in progress.
+ *   • `.cpk-intelligence-indicator__tag`   — compact icon + text tag,
+ *     persistent in chat history once work completes.
+ *
+ * Opacity cross-fades the two modes; the tag is positioned absolutely
+ * over the pill's slot so the layout doesn't jump.
+ *
+ * Violet/indigo palette ported from CopilotKit/Intelligence #155 —
+ * text #5B21B6, icon #7C3AED, border #9599E0, gradient stop #EEE6FE,
+ * soft shadow #5E64AD.
  */
-.cpk-intelligence-pill {
-  display: inline-flex;
+.cpk-intelligence-indicator {
+  position: relative;
+  display: inline-block;
   /* Opt out of the parent flex-column's default `align-items: stretch`
      (the auto-mount lives inside `CopilotChatMessageView`'s
-     `cpk:flex cpk:flex-col` container). Without this the pill would
-     stretch to the full chat width even though `inline-flex` is
-     supposed to shrink to its content. */
+     `cpk:flex cpk:flex-col` container). Without this the indicator
+     would stretch to the full chat width. */
   align-self: flex-start;
+  margin: 0.4rem 0;
+}
+
+/* ─── In-progress pill ──────────────────────────────────────────────── */
+
+.cpk-intelligence-indicator__pill {
+  display: inline-flex;
   align-items: center;
   gap: 0.55rem;
-  margin: 0.4rem 0;
   padding: 0.4rem 0.85rem;
   border: 1px solid rgb(149 153 224 / 0.32);
   border-radius: 999px;
@@ -269,25 +284,16 @@
   opacity: 0;
   transform: translateY(2px);
   animation: cpk-intelligence-pill-fade-in 280ms ease-out forwards;
-  /* The background/shadow shift toward the subdued finished state eases
-     in; opacity is owned by the animation swap below. */
-  transition:
-    background 360ms ease-out,
-    box-shadow 360ms ease-out;
+  transition: opacity 250ms ease-out;
 }
 
-.cpk-intelligence-pill--finished {
-  /* Persistent resting state — the pill stays mounted once work
-     completes, settling into a less-prominent look rather than fading
-     out. Switching the `animation` property cancels the in-flight
-     fade-in and replaces its held final value (opacity:1 from
-     `forwards`) with the settle keyframe; a plain `opacity` declaration
-     would otherwise lose to the animation's held value. */
-  animation: cpk-intelligence-pill-settle 360ms ease-out forwards;
-  background: rgb(238 230 254 / 0.35);
-  box-shadow:
-    0 1px 2px rgb(94 100 173 / 0.05),
-    inset 0 1px 0 rgb(255 255 255 / 0.5);
+.cpk-intelligence-indicator__pill--hidden {
+  /* Cross-faded out once status flips to finished. `animation: none`
+     cancels the fade-in's held `forwards` final value so this opacity
+     declaration wins. */
+  animation: none;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .cpk-intelligence-pill__icon {
@@ -302,33 +308,46 @@
   stroke-dashoffset: 0;
   transform-origin: 12px 12px;
   animation: cpk-intelligence-pill-spin 0.9s linear infinite;
-  transition: stroke-dasharray 320ms ease-out;
 }
 
-.cpk-intelligence-pill__ring--done {
-  stroke-dasharray: 56.55 0;
-  animation: none;
-}
+/* ─── Finished tag ──────────────────────────────────────────────────── */
 
-.cpk-intelligence-pill__check {
-  stroke: currentColor;
-  stroke-dasharray: 12;
-  stroke-dashoffset: 12;
-  /* Opacity zero hides the rounded `stroke-linecap` end-cap that would
-     otherwise leak through as a stationary dot at path end (16, 9.5)
-     during spinner phase. The `dasharray + dashoffset` zeroes the
-     visible stroke length, but the cap is drawn at the dash boundary
-     regardless, so we need opacity to fully hide it. */
+.cpk-intelligence-indicator__tag {
+  position: absolute;
+  inset: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid rgb(149 153 224 / 0.25);
+  border-radius: 999px;
+  color: rgb(91 33 182 / 0.8);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  width: -moz-fit-content;
+  width: fit-content;
+  height: -moz-fit-content;
+  height: fit-content;
+  margin: auto;
   opacity: 0;
-  transition:
-    stroke-dashoffset 320ms ease-out 200ms,
-    opacity 200ms ease-out 200ms;
+  pointer-events: none;
+  transition: opacity 250ms ease-out;
 }
 
-.cpk-intelligence-pill__check--shown {
-  stroke-dashoffset: 0;
+.cpk-intelligence-indicator__tag--shown {
   opacity: 1;
+  pointer-events: auto;
 }
+
+.cpk-intelligence-tag__icon {
+  display: block;
+  flex-shrink: 0;
+  color: rgb(124 58 237 / 0.85);
+}
+
+/* ─── Keyframes ─────────────────────────────────────────────────────── */
 
 @keyframes cpk-intelligence-pill-fade-in {
   from {
@@ -338,15 +357,6 @@
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-@keyframes cpk-intelligence-pill-settle {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0.72;
   }
 }
 

@@ -10,11 +10,12 @@ import { IntelligenceIndicatorView } from "./IntelligenceIndicatorView";
 /**
  * Grace window before showing the spinner. A matching tool call must
  * remain unresolved (no `tool`-role result message in `agent.messages`)
- * for at least this long before the pill appears. This filters out
- * history-replay flashes — during `connectAgent` replay, tool calls and
- * their results arrive back-to-back in sub-millisecond bursts, so the
- * timer is cancelled before it fires. Live runs cross the threshold
- * easily because the tool actually has to execute.
+ * for at least this long before the indicator transitions out of
+ * `hidden`. This filters out history-replay flashes — during
+ * `connectAgent` replay, tool calls and their results arrive
+ * back-to-back in sub-millisecond bursts, so the timer is cancelled
+ * before it fires. Live runs cross the threshold easily because the
+ * tool actually has to execute.
  */
 const PENDING_THRESHOLD_MS = 100;
 
@@ -32,12 +33,11 @@ const DEFAULT_TOOL_PATTERNS: readonly RegExp[] = [
 ];
 
 /**
- * Phase machine. Unlike the previous fade-out-and-unmount lifecycle, the
- * pill now persists once it reaches `finished` — it never returns to
- * `idle` and never unmounts on its own. Supersession by a newer matching
- * message is handled by the latest-matching gate, not by this machine.
+ * Phase machine. Once `finished` is reached the indicator persists
+ * indefinitely; supersession across messages is handled by the
+ * structural last-in-turn gate, not by this machine.
  */
-type Phase = "idle" | "spinner" | "finished";
+type Phase = "hidden" | "spinner" | "finished";
 
 export interface IntelligenceIndicatorProps {
   /** The message this indicator is attached to. */
@@ -65,6 +65,12 @@ export interface IntelligenceIndicatorProps {
 const isMatchingToolCallName = (name: unknown): boolean =>
   typeof name === "string" && DEFAULT_TOOL_PATTERNS.some((p) => p.test(name));
 
+const messageHasMatchingToolCall = (m: Message): boolean => {
+  if (m.role !== "assistant") return false;
+  const tcs = Array.isArray(m.toolCalls) ? m.toolCalls : [];
+  return tcs.some((tc) => isMatchingToolCallName(tc?.function?.name));
+};
+
 /**
  * "Tool-call-like" messages do NOT count as a real follow-up: tool
  * result messages, assistant messages that carry tool calls, and
@@ -87,37 +93,48 @@ const isToolCallLikeMessage = (m: Message): boolean => {
 /**
  * The "Using CopilotKit Intelligence" indicator brain. Auto-mounted by
  * `CopilotChatMessageView` for every assistant message slot when
- * `copilotkit.intelligence` is configured — callers do not register this
- * themselves. It owns all orchestration (run subscription, gating, and
- * the phase machine) and renders its swappable face via the
+ * `copilotkit.intelligence` is configured — callers do not register
+ * this themselves. It owns all orchestration (run subscription, gating,
+ * and the phase machine) and renders its swappable face via the
  * `intelligenceIndicator` slot.
  *
  * Render gates (all must hold):
  *   1. `copilotkit.intelligence !== undefined`
  *   2. The message is an assistant message with at least one tool call
- *      whose name matches {@link DEFAULT_TOOL_PATTERNS}
- *   3. The message is the *latest* such matching-assistant message in
- *      `agent.messages` — tool-result messages and prose-only assistant
- *      messages don't invalidate the slot, so the pill stays
- *      continuously through a multi-step tool chain.
- *   4. The phase machine is past `idle` (the pending-grace timer fired).
+ *      whose name matches {@link DEFAULT_TOOL_PATTERNS}.
+ *   3. The message is the *last bash-using assistant message in its
+ *      turn*. A turn is bounded by user messages: walking forward from
+ *      this message, hitting another bash-using assistant before a
+ *      user message (or the end of `agent.messages`) means we are NOT
+ *      last-in-turn and must return `null`.
+ *   4. The phase machine is past `hidden`.
+ *
+ * Per-turn semantics ensure that every prior agent turn that used
+ * Intelligence keeps its own persistent indicator in chat history —
+ * they never disappear when a new turn starts, because each anchors
+ * to a different assistant message that remains last-in-turn for its
+ * respective turn.
  *
  * Phase machine (per-instance, all timers local):
- *   - Starts in `idle` — nothing rendered.
- *   - `idle → spinner` once a matching tool call has been pending
+ *   - Starts in `hidden`, unless the message mounts onto an
+ *     already-completed turn (no pending work, agent stopped or a
+ *     real follow-up already present), in which case the lazy
+ *     `useState` initializer starts directly in `finished`. This is
+ *     what avoids a "hidden flash" on history replay.
+ *   - `hidden → spinner` once a matching tool call has been pending
  *     (no `tool`-role result with a matching `toolCallId`) for
  *     {@link PENDING_THRESHOLD_MS}. Replay flashes (tool call + result
  *     in the same tick) never cross this threshold.
+ *   - `hidden → finished` if after the grace window the turn is
+ *     already complete (no pending work AND
+ *     `sawRealFollowup || !agent.isRunning`). Handles very fast tools
+ *     whose result lands within the grace window.
  *   - `spinner → finished` as soon as EITHER `agent.isRunning` flips
  *     false OR a non-tool-call-like message appears later in
- *     `agent.messages` (i.e. the agent has produced a "real"
- *     follow-up — prose answer or a new user turn).
- *   - `finished` is terminal: the pill settles into its persistent
- *     resting state and stays mounted. It is removed only when a newer
- *     matching-assistant message supersedes it via gate 3.
- *
- * The "exactly one pill at a time" guarantee is structural: only one
- * message satisfies the latest-matching-assistant gate at any moment.
+ *     `agent.messages` (i.e. the agent produced a "real" follow-up —
+ *     prose answer or a new user turn).
+ *   - `finished` is terminal: the indicator settles into its
+ *     persistent tag form and stays mounted.
  */
 export function IntelligenceIndicator(
   props: IntelligenceIndicatorProps,
@@ -175,60 +192,66 @@ export function IntelligenceIndicator(
     return false;
   }, [agent.messages, message.id]);
 
-  const [phase, setPhase] = useState<Phase>("idle");
+  // Turn-completion signal — set the moment the agent stops running or
+  // a "real" follow-up (prose / user turn) appears after this message.
+  // Independent of whether the pending tool call resolved; if the run
+  // finishes with a still-unresolved match (rare in production, common
+  // in tests), the indicator should still settle.
+  const turnComplete = sawRealFollowup || !agent.isRunning;
 
-  // idle → spinner: pending tool call hasn't been resolved within the
-  // grace window. Cleared if the result arrives first (replay) or if
-  // there's nothing to wait on.
+  // Lazy init: if this indicator mounts onto a message whose turn has
+  // already completed (e.g. history replay finished before mount),
+  // skip directly to `finished` — no `hidden` flash, no spinner blip.
+  const [phase, setPhase] = useState<Phase>(() =>
+    turnComplete ? "finished" : "hidden",
+  );
+
+  // hidden → spinner OR hidden → finished (after grace window).
   useEffect(() => {
-    if (phase !== "idle") return undefined;
-    if (!hasPending) return undefined;
-    const t = setTimeout(() => setPhase("spinner"), PENDING_THRESHOLD_MS);
+    if (phase !== "hidden") return undefined;
+    const t = setTimeout(() => {
+      if (turnComplete) {
+        setPhase("finished");
+      } else if (hasPending) {
+        setPhase("spinner");
+      }
+      // else: stay hidden — turn is still live but no pending work
+      // matched yet (e.g. waiting for the tool call chunk to land).
+    }, PENDING_THRESHOLD_MS);
     return () => clearTimeout(t);
-  }, [phase, hasPending]);
+  }, [phase, hasPending, turnComplete]);
 
-  // spinner → finished: agent stopped running OR a real follow-up
-  // message arrived. Both are independent signals; whichever fires
-  // first wins. `finished` is terminal — no further transitions.
+  // spinner → finished
   useEffect(() => {
     if (phase !== "spinner") return undefined;
-    if (!agent.isRunning || sawRealFollowup) {
+    if (turnComplete) {
       setPhase("finished");
     }
     return undefined;
-  }, [phase, agent.isRunning, sawRealFollowup]);
+  }, [phase, turnComplete]);
 
   // ─── Render gates ────────────────────────────────────────────────────
   // Hooks above MUST run unconditionally; bail with `null` only after.
 
   if (copilotkit.intelligence === undefined) return null;
   if (!config) return null;
-  if (phase === "idle") return null;
+  if (phase === "hidden") return null;
 
   if (message.role !== "assistant") return null;
-  // Defensive: a malformed `toolCalls` (non-array, missing nested
-  // `function.name`) would otherwise throw inside `.some(...)` and take
-  // down the chat tree. Treat as "no match" instead.
-  const toolCalls = Array.isArray(message.toolCalls) ? message.toolCalls : [];
-  const hasMatch = toolCalls.some((tc) =>
-    isMatchingToolCallName(tc?.function?.name),
-  );
-  if (!hasMatch) return null;
+  if (!messageHasMatchingToolCall(message)) return null;
 
-  // Walk `agent.messages` from the end and find the latest assistant
-  // message that itself has a matching tool call. If that's not us,
-  // we're not the canonical slot — return `null`.
-  let latestMatchingAssistantId: string | undefined;
-  for (let i = agent.messages.length - 1; i >= 0; i -= 1) {
+  // Per-turn last-in-turn gate. Walk forward from this message; if we
+  // hit a user message (turn boundary) before encountering another
+  // bash-using assistant message, this message is the last-in-turn
+  // and the indicator renders here. Otherwise a later assistant in
+  // the same turn owns the indicator and we return `null`.
+  const idx = agent.messages.findIndex((m) => m.id === message.id);
+  if (idx < 0) return null;
+  for (let i = idx + 1; i < agent.messages.length; i += 1) {
     const m = agent.messages[i]!;
-    if (m.role !== "assistant") continue;
-    const tcs = Array.isArray(m.toolCalls) ? m.toolCalls : [];
-    if (tcs.some((tc) => isMatchingToolCallName(tc?.function?.name))) {
-      latestMatchingAssistantId = m.id;
-      break;
-    }
+    if (m.role === "user") break;
+    if (messageHasMatchingToolCall(m)) return null;
   }
-  if (latestMatchingAssistantId !== message.id) return null;
 
   // ─── Render the (swappable) face ──────────────────────────────────────
 

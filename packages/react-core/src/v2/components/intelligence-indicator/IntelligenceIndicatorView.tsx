@@ -9,9 +9,8 @@ export interface IntelligenceIndicatorViewProps extends React.HTMLAttributes<HTM
   /** The assistant message this indicator is attached to. */
   message: Message;
   /**
-   * Whether the intelligence work is still running (`in-progress`) or has
-   * settled (`finished`). Drives the spinner→checkmark transition and the
-   * persistent subdued resting style.
+   * Whether the intelligence work is still running (`in-progress`) or
+   * has settled (`finished`). Drives the spinner ⇄ tag cross-fade.
    */
   status: IntelligenceIndicatorStatus;
   /** The visible label, e.g. "Using CopilotKit Intelligence". */
@@ -19,18 +18,26 @@ export interface IntelligenceIndicatorViewProps extends React.HTMLAttributes<HTM
 }
 
 /**
- * The presentational "Using CopilotKit Intelligence" pill — the default
- * face rendered by the {@link IntelligenceIndicator} brain and the default
- * for the `intelligenceIndicator` slot.
+ * The presentational "Using CopilotKit Intelligence" face — the default
+ * rendered by the {@link IntelligenceIndicator} brain and the default
+ * value for the `intelligenceIndicator` slot.
  *
- * It is purely visual: it renders from `status` and `label` alone and holds
- * no run state. In `in-progress` the ring spins; in `finished` the ring
- * completes, the checkmark draws in, and the pill settles into a subdued
- * resting style (it does not unmount).
+ * Two modes:
+ *  - `in-progress`: a glassmorphism pill with a spinning ring (the
+ *    same active visual users see while the intelligence tool runs).
+ *  - `finished`: a compact icon + text tag — visibly demoted so it
+ *    sits quietly in chat history per turn without competing with the
+ *    agent's answer. The tag's checkmark icon is the completion cue.
  *
- * Customize it through the `intelligenceIndicator` slot on `CopilotChat`:
- * pass a className string to restyle it, a props object to tweak it (e.g.
- * `{ label }`), or a component to replace it entirely.
+ * Both modes coexist in the DOM; status drives an opacity cross-fade
+ * so the swap reads as one smooth transition rather than two distinct
+ * mounts. The wrapper is `position: relative` and the tag is
+ * positioned absolutely over the pill's slot so the layout doesn't
+ * jump between two differently-sized elements.
+ *
+ * Customize via the `intelligenceIndicator` slot on `CopilotChat`:
+ * pass a className string to restyle the default, a props object to
+ * tweak it (e.g. `{ label }`), or a component to replace it entirely.
  */
 export function IntelligenceIndicatorView({
   message,
@@ -43,50 +50,68 @@ export function IntelligenceIndicatorView({
 
   return (
     <span
-      className={twMerge(
-        "cpk-intelligence-pill",
-        isFinished && "cpk-intelligence-pill--finished",
-        className,
-      )}
+      className={twMerge("cpk-intelligence-indicator", className)}
       role="status"
       aria-live="polite"
-      data-testid={`cpk-intelligence-pill-${message.id}`}
+      data-testid={`cpk-intelligence-indicator-${message.id}`}
       data-status={status}
       title={label}
       {...rest}
     >
-      <svg
-        className="cpk-intelligence-pill__icon"
-        viewBox="0 0 24 24"
-        width="14"
-        height="14"
-        aria-hidden="true"
+      {/* In-progress pill — full opacity while spinning, faded out
+          once status flips to finished. */}
+      <span
+        className={
+          "cpk-intelligence-indicator__pill" +
+          (isFinished ? " cpk-intelligence-indicator__pill--hidden" : "")
+        }
+        aria-hidden={isFinished || undefined}
       >
-        <circle
-          cx="12"
-          cy="12"
-          r="9"
+        <svg
+          className="cpk-intelligence-pill__icon"
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          aria-hidden="true"
+        >
+          <circle
+            cx="12"
+            cy="12"
+            r="9"
+            fill="none"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            className="cpk-intelligence-pill__ring"
+          />
+        </svg>
+        <span>{label}</span>
+      </span>
+
+      {/* Finished tag — compact icon + text, faded in once work
+          completes. The checkmark is the completion cue. */}
+      <span
+        className={
+          "cpk-intelligence-indicator__tag" +
+          (isFinished ? " cpk-intelligence-indicator__tag--shown" : "")
+        }
+        aria-hidden={!isFinished || undefined}
+      >
+        <svg
+          className="cpk-intelligence-tag__icon"
+          viewBox="0 0 24 24"
+          width="12"
+          height="12"
           fill="none"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          className={
-            "cpk-intelligence-pill__ring" +
-            (isFinished ? " cpk-intelligence-pill__ring--done" : "")
-          }
-        />
-        <path
-          d="M8 12.5l3 3 5-6"
-          fill="none"
+          stroke="currentColor"
           strokeWidth="2.5"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className={
-            "cpk-intelligence-pill__check" +
-            (isFinished ? " cpk-intelligence-pill__check--shown" : "")
-          }
-        />
-      </svg>
-      <span>{label}</span>
+          aria-hidden="true"
+        >
+          <path d="M5 12.5l4 4 10-10" />
+        </svg>
+        <span>{label}</span>
+      </span>
     </span>
   );
 }

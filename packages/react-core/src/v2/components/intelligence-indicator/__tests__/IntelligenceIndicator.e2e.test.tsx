@@ -1,6 +1,12 @@
 import React from "react";
 import { afterEach, describe, expect, it } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { EventType } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import type { Observable } from "rxjs";
@@ -52,33 +58,35 @@ class IsRunningAccurateMockAgent extends MockStepwiseAgent {
   }
 }
 
-const PILL_TESTID_RE = /^cpk-intelligence-pill-/;
+const INDICATOR_TESTID_RE = /^cpk-intelligence-indicator-/;
 
-const expectPillCount = (n: number): void => {
-  expect(screen.queryAllByTestId(PILL_TESTID_RE).length).toBe(n);
+const expectIndicatorCount = (n: number): void => {
+  expect(screen.queryAllByTestId(INDICATOR_TESTID_RE).length).toBe(n);
 };
 
-const expectPillOn = (messageId: string): void => {
+const expectIndicatorOn = (messageId: string): void => {
   expect(
-    screen.getByTestId(`cpk-intelligence-pill-${messageId}`).textContent,
+    screen.getByTestId(`cpk-intelligence-indicator-${messageId}`).textContent,
   ).toContain("Using CopilotKit Intelligence");
 };
 
-const expectNoPillOn = (messageId: string): void => {
-  expect(screen.queryByTestId(`cpk-intelligence-pill-${messageId}`)).toBeNull();
+const expectNoIndicatorOn = (messageId: string): void => {
+  expect(
+    screen.queryByTestId(`cpk-intelligence-indicator-${messageId}`),
+  ).toBeNull();
 };
 
-const expectNoPillAnywhere = (): void => {
-  expect(screen.queryAllByTestId(PILL_TESTID_RE).length).toBe(0);
+const expectNoIndicatorAnywhere = (): void => {
+  expect(screen.queryAllByTestId(INDICATOR_TESTID_RE).length).toBe(0);
 };
 
-const expectPillStatus = (
+const expectIndicatorStatus = (
   messageId: string,
   status: "in-progress" | "finished",
 ): void => {
   expect(
     screen
-      .getByTestId(`cpk-intelligence-pill-${messageId}`)
+      .getByTestId(`cpk-intelligence-indicator-${messageId}`)
       .getAttribute("data-status"),
   ).toBe(status);
 };
@@ -121,6 +129,29 @@ const emitAssistantProse = (
   agent.emit(textMessageStartEvent(messageId));
   agent.emit(textMessageContentEvent(messageId, text));
   agent.emit(textMessageEndEvent(messageId));
+};
+
+/**
+ * Add a user message to `agent.messages`. User messages are turn
+ * boundaries — the indicator's per-turn gating treats every assistant
+ * message between two user messages as part of the same turn. We push
+ * directly via `addMessages` because text-message events emitted
+ * outside an active run don't flow through the AG-UI pipeline.
+ */
+const emitUserMessage = (
+  agent: MockStepwiseAgent,
+  messageId: string,
+  text: string,
+): void => {
+  act(() => {
+    agent.addMessages([
+      {
+        id: messageId,
+        role: "user",
+        content: text,
+      },
+    ]);
+  });
 };
 
 const startRun = (agent: MockStepwiseAgent): void => {
@@ -249,71 +280,93 @@ describe('IntelligenceIndicator — "Using CopilotKit Intelligence" (auto-mounte
   });
 
   /**
-   * Walks through the canonical scenario:
-   *
-   *   RUN A
-   *     m_a1 (assistant) → toolCall bash#1, bash#2
-   *   RUN B
-   *     m_b1 (assistant) → toolCall bash
-   *     m_b2 (assistant) → toolCall bash#1, bash#2
-   *
-   * The pill must render only on the last message of the latest
-   * in-flight run — never on multiple messages, never on stale runs,
-   * never on a non-last message of the current run.
+   * Within a single turn (no user message between assistant messages),
+   * the indicator anchors to the LAST bash-using assistant message and
+   * moves as later bash-using messages arrive — there is exactly one
+   * indicator visible per turn at any time. After the turn finishes the
+   * indicator settles into its persistent finished state on the final
+   * bash-using message of that turn.
    */
-  it("renders only on the last message of the latest in-flight run", async () => {
+  it("within a single turn: anchors to the last bash-using assistant; settles to finished", async () => {
     const agent = makeAgent();
     renderForIndicator(agent);
     await screen.findByTestId("trigger-run");
 
-    expectNoPillAnywhere();
+    expectNoIndicatorAnywhere();
 
-    // ─── Run A: m_a1 with two tool calls → pill on m_a1 ───────────────
     await triggerRun(agent);
     startRun(agent);
+
     emitAssistantMessageWithToolCalls(agent, "m_a1", [
       { id: "tc_a1_1", arg: '{"cmd":"ls"}' },
       { id: "tc_a1_2", arg: '{"cmd":"pwd"}' },
     ]);
-    await waitFor(() => expectPillOn("m_a1"));
-    expectPillCount(1);
+    await waitFor(() => expectIndicatorOn("m_a1"));
+    expectIndicatorCount(1);
 
-    agent.emit(runFinishedEvent());
-
-    // ─── Run B: m_b1 (one bash) ──────────────────────────────────────
-    await triggerRun(agent);
-    startRun(agent);
-    emitAssistantMessageWithToolCalls(agent, "m_b1", [
-      { id: "tc_b1", arg: '{"cmd":"echo b1"}' },
+    // A second bash-using assistant in the same turn takes over the slot.
+    emitAssistantMessageWithToolCalls(agent, "m_a2", [
+      { id: "tc_a2", arg: '{"cmd":"echo a2"}' },
     ]);
-    await waitFor(() => expectPillOn("m_b1"));
-    // m_b1 supersedes m_a1 as the latest matching-assistant slot, so
-    // m_a1's pill is gated out — even though it had settled into its
-    // persistent finished state.
-    await waitFor(() => expectNoPillOn("m_a1"));
-    expectPillCount(1);
+    await waitFor(() => expectIndicatorOn("m_a2"));
+    await waitFor(() => expectNoIndicatorOn("m_a1"));
+    expectIndicatorCount(1);
 
-    // ─── m_b2 streams in — pill moves to m_b2, m_b1 loses pill ────────
-    emitAssistantMessageWithToolCalls(agent, "m_b2", [
-      { id: "tc_b2_1", arg: '{"cmd":"echo b2-1"}' },
-      { id: "tc_b2_2", arg: '{"cmd":"echo b2-2"}' },
-    ]);
-    await waitFor(() => expectPillOn("m_b2"));
-    expectNoPillOn("m_b1");
-    expectNoPillOn("m_a1");
-    expectPillCount(1);
-
-    // ─── Run B finishes — the pill persists on m_b2 in its finished
-    //      resting state rather than unmounting ─────────────────────────
+    // Turn finishes → indicator settles on m_a2 in finished state.
     agent.emit(runFinishedEvent());
-    await waitFor(() => expectPillStatus("m_b2", "finished"));
-    expectPillOn("m_b2");
-    expectPillCount(1);
+    await waitFor(() => expectIndicatorStatus("m_a2", "finished"));
+    expectIndicatorOn("m_a2");
+    expectIndicatorCount(1);
   });
 
-  // ─── Per-condition focused tests ────────────────────────────────────
+  /**
+   * Headline per-turn persistence test. A user message between two
+   * Intelligence-using runs marks a turn boundary. Each turn's
+   * indicator anchors on its own last bash-using assistant message, and
+   * the prior turn's indicator stays in chat history when a new turn
+   * starts — they coexist in the DOM.
+   */
+  it("per-turn persistence: indicators from past turns remain when a new turn starts", async () => {
+    const agent = makeAgent();
+    renderForIndicator(agent);
+    await screen.findByTestId("trigger-run");
 
-  it("condition (last-in-run): never renders on a non-last message of the run", async () => {
+    // ─── Turn 1 ──────────────────────────────────────────────────────
+    emitUserMessage(agent, "u1", "tell me about portland");
+    await triggerRun(agent);
+    startRun(agent);
+    emitAssistantMessageWithToolCalls(agent, "m_t1", [
+      { id: "tc_t1", arg: '{"cmd":"grep portland"}' },
+    ]);
+    await waitFor(() => expectIndicatorStatus("m_t1", "in-progress"));
+    agent.emit(runFinishedEvent());
+    await waitFor(() => expectIndicatorStatus("m_t1", "finished"));
+    expectIndicatorCount(1);
+
+    // ─── Turn 2 (user message marks the new turn) ───────────────────
+    emitUserMessage(agent, "u2", "what about seattle");
+    await triggerRun(agent);
+    startRun(agent);
+    emitAssistantMessageWithToolCalls(agent, "m_t2", [
+      { id: "tc_t2", arg: '{"cmd":"grep seattle"}' },
+    ]);
+
+    // Turn 2's indicator appears, and Turn 1's stays in the DOM.
+    await waitFor(() => expectIndicatorStatus("m_t2", "in-progress"));
+    expectIndicatorStatus("m_t1", "finished");
+    expectIndicatorCount(2);
+
+    agent.emit(runFinishedEvent());
+    await waitFor(() => expectIndicatorStatus("m_t2", "finished"));
+    expectIndicatorStatus("m_t1", "finished");
+    expectIndicatorCount(2);
+  });
+
+  /**
+   * Within a turn, an earlier bash-using assistant must NOT keep the
+   * indicator once a later bash-using assistant arrives.
+   */
+  it("condition (last-in-turn): never renders on a non-last bash-using assistant of the turn", async () => {
     const agent = makeAgent();
     renderForIndicator(agent);
     await screen.findByTestId("trigger-run");
@@ -323,23 +376,23 @@ describe('IntelligenceIndicator — "Using CopilotKit Intelligence" (auto-mounte
     emitAssistantMessageWithToolCalls(agent, "m_first", [
       { id: "tc_first", arg: "{}" },
     ]);
-    // Wait for m_first to render the pill while it is still the last
-    // message in the run. Without this gate, both messages would land
+    // Wait for m_first to render the indicator while it is still the
+    // last in the turn. Without this gate, both messages would land
     // synchronously and m_first's renderer would never have been
     // invoked while it was the last — turning a reactive assertion
     // into a first-render correctness test by accident.
-    await waitFor(() => expectPillOn("m_first"));
+    await waitFor(() => expectIndicatorOn("m_first"));
 
     emitAssistantMessageWithToolCalls(agent, "m_second", [
       { id: "tc_second", arg: "{}" },
     ]);
 
-    await waitFor(() => expectPillOn("m_second"));
-    expectNoPillOn("m_first");
-    expectPillCount(1);
+    await waitFor(() => expectIndicatorOn("m_second"));
+    expectNoIndicatorOn("m_first");
+    expectIndicatorCount(1);
   });
 
-  it("condition (in-flight): pill settles into a persistent finished state after the run finishes", async () => {
+  it("condition (in-flight): indicator settles into a persistent finished state after the run finishes", async () => {
     const agent = makeAgent();
     renderForIndicator(agent);
     await screen.findByTestId("trigger-run");
@@ -349,34 +402,12 @@ describe('IntelligenceIndicator — "Using CopilotKit Intelligence" (auto-mounte
     emitAssistantMessageWithToolCalls(agent, "m_only", [
       { id: "tc", arg: "{}" },
     ]);
-    await waitFor(() => expectPillStatus("m_only", "in-progress"));
+    await waitFor(() => expectIndicatorStatus("m_only", "in-progress"));
 
     agent.emit(runFinishedEvent());
-    await waitFor(() => expectPillStatus("m_only", "finished"));
-    expectPillOn("m_only");
-    expectPillCount(1);
-  });
-
-  it("condition (latest-run): never renders on a stale run after a newer run starts", async () => {
-    const agent = makeAgent();
-    renderForIndicator(agent);
-    await screen.findByTestId("trigger-run");
-
-    await triggerRun(agent);
-    startRun(agent);
-    emitAssistantMessageWithToolCalls(agent, "m_run1", [
-      { id: "tc_run1", arg: "{}" },
-    ]);
-    await waitFor(() => expectPillOn("m_run1"));
-    agent.emit(runFinishedEvent());
-
-    await triggerRun(agent);
-    startRun(agent);
-    emitAssistantMessageWithToolCalls(agent, "m_run2", [
-      { id: "tc_run2", arg: "{}" },
-    ]);
-    await waitFor(() => expectPillOn("m_run2"));
-    expectNoPillOn("m_run1");
+    await waitFor(() => expectIndicatorStatus("m_only", "finished"));
+    expectIndicatorOn("m_only");
+    expectIndicatorCount(1);
   });
 
   it("condition (tool-match): only renders when a configured tool name matches", async () => {
@@ -386,19 +417,19 @@ describe('IntelligenceIndicator — "Using CopilotKit Intelligence" (auto-mounte
 
     await triggerRun(agent);
     startRun(agent);
-    // First message has only a non-matching tool call; no pill.
+    // First message has only a non-matching tool call; no indicator.
     emitAssistantMessageWithToolCalls(agent, "m_no_match", [
       { id: "tc_no_match", name: "fetch", arg: "{}" },
     ]);
     await new Promise((r) => setTimeout(r, 80));
-    expectNoPillOn("m_no_match");
+    expectNoIndicatorOn("m_no_match");
 
-    // Second message has a bash call — pill should appear on it.
+    // Second message has a bash call — indicator should appear on it.
     emitAssistantMessageWithToolCalls(agent, "m_match", [
       { id: "tc_match", name: "copilotkit_knowledge_base_shell", arg: "{}" },
     ]);
-    await waitFor(() => expectPillOn("m_match"));
-    expectPillCount(1);
+    await waitFor(() => expectIndicatorOn("m_match"));
+    expectIndicatorCount(1);
   });
 
   it("condition (tool-match): renders for the namespaced mcp__ tool name", async () => {
@@ -417,8 +448,8 @@ describe('IntelligenceIndicator — "Using CopilotKit Intelligence" (auto-mounte
         arg: "{}",
       },
     ]);
-    await waitFor(() => expectPillOn("m_match"));
-    expectPillCount(1);
+    await waitFor(() => expectIndicatorOn("m_match"));
+    expectIndicatorCount(1);
   });
 
   it("intelligence gate: does not render when copilotkit.intelligence is undefined", async () => {
@@ -430,15 +461,15 @@ describe('IntelligenceIndicator — "Using CopilotKit Intelligence" (auto-mounte
     startRun(agent);
     emitAssistantMessageWithToolCalls(agent, "m1", [{ id: "tc1", arg: "{}" }]);
 
-    // Without the gate, the pill would be visible by now.
+    // Without the gate, the indicator would be visible by now.
     await new Promise((r) => setTimeout(r, 80));
-    expectNoPillAnywhere();
+    expectNoIndicatorAnywhere();
   });
 
   it("auto-registration: no renderCustomMessages prop is required", async () => {
-    // This is the explicit assertion that the indicator auto-mounts.
+    // Explicit assertion that the indicator auto-mounts.
     // `renderForIndicator` does not pass `renderCustomMessages`, yet
-    // the pill renders solely because intelligence is configured.
+    // the indicator renders solely because intelligence is configured.
     const agent = makeAgent();
     renderForIndicator(agent);
     await screen.findByTestId("trigger-run");
@@ -447,17 +478,15 @@ describe('IntelligenceIndicator — "Using CopilotKit Intelligence" (auto-mounte
     startRun(agent);
     emitAssistantMessageWithToolCalls(agent, "m1", [{ id: "tc1", arg: "{}" }]);
 
-    await waitFor(() => expectPillOn("m1"));
-    expectPillCount(1);
+    await waitFor(() => expectIndicatorOn("m1"));
+    expectIndicatorCount(1);
   });
 
-  // ─── New gate: tool-call pending past grace window ──────────────────
-
-  it("replay-flash suppression: no pill when tool result arrives within the grace window", async () => {
+  it("replay-flash suppression: no indicator when tool result arrives within the grace window", async () => {
     // Models a `connectAgent` history replay: the tool call and its
     // matching `tool`-role result arrive in the same tick, well below
-    // PENDING_THRESHOLD_MS. The pill timer should be cancelled before
-    // it fires, so nothing renders.
+    // PENDING_THRESHOLD_MS. The hidden→spinner timer should be cancelled
+    // before it fires, so nothing renders.
     const agent = makeAgent();
     renderForIndicator(agent);
     await screen.findByTestId("trigger-run");
@@ -469,15 +498,45 @@ describe('IntelligenceIndicator — "Using CopilotKit Intelligence" (auto-mounte
     ]);
     emitToolResult(agent, "tc_replay", "tr_replay");
 
-    // Wait past the grace window — pill should never appear.
+    // Wait past the grace window — the indicator should never appear
+    // while the run is still ongoing without a real follow-up.
     await new Promise((r) => setTimeout(r, 200));
-    expectNoPillAnywhere();
+    expectNoIndicatorAnywhere();
   });
 
-  it("multi-step: pill stays continuously across tool-result interleaving", async () => {
+  /**
+   * When the brain mounts onto a message whose turn is already complete
+   * (e.g. `/connect` history replay finished before the component
+   * mounted), the indicator should render directly in finished state
+   * without flashing through spinner first.
+   */
+  it("historical replay: completed turn renders directly in finished state", async () => {
+    const agent = makeAgent();
+    renderForIndicator(agent);
+    await screen.findByTestId("trigger-run");
+
+    // Emit the assistant message + tool call + tool result + a prose
+    // follow-up before any "live" tracking can attach. By the time the
+    // assertions run, `hasPending` is false and `sawRealFollowup` is
+    // true — the brain has no live work to track.
+    await triggerRun(agent);
+    startRun(agent);
+    emitAssistantMessageWithToolCalls(agent, "m_hist", [
+      { id: "tc_hist", arg: "{}" },
+    ]);
+    emitToolResult(agent, "tc_hist", "tr_hist");
+    emitAssistantProse(agent, "m_prose", "Done.");
+    agent.emit(runFinishedEvent());
+
+    // The indicator should be in finished state immediately, without
+    // ever flashing through spinner.
+    await waitFor(() => expectIndicatorStatus("m_hist", "finished"));
+    expectIndicatorCount(1);
+  });
+
+  it("multi-step: indicator stays continuously across tool-result interleaving", async () => {
     // Tool result arrives, then a second assistant message with bash.
-    // The pill must not show the completed/fade animation between
-    // calls — it stays on m_step1 until m_step2 takes over the slot.
+    // Within the same turn, the slot moves from m_step1 to m_step2.
     const agent = makeAgent();
     renderForIndicator(agent);
     await screen.findByTestId("trigger-run");
@@ -487,31 +546,31 @@ describe('IntelligenceIndicator — "Using CopilotKit Intelligence" (auto-mounte
     emitAssistantMessageWithToolCalls(agent, "m_step1", [
       { id: "tc_step1", arg: '{"cmd":"ls"}' },
     ]);
-    await waitFor(() => expectPillOn("m_step1"));
+    await waitFor(() => expectIndicatorOn("m_step1"));
 
     // Tool result lands. agent.isRunning is still true, no real
-    // follow-up yet → pill stays on m_step1 in spinner.
+    // follow-up yet → indicator stays on m_step1 in spinner.
     emitToolResult(agent, "tc_step1", "tr_step1");
     await new Promise((r) => setTimeout(r, 150));
-    expectPillOn("m_step1");
-    expectPillCount(1);
+    expectIndicatorOn("m_step1");
+    expectIndicatorCount(1);
 
     // Second assistant message with bash arrives. Slot moves; old
-    // instance returns null without a fade animation.
+    // instance stops rendering (no longer the last-in-turn).
     emitAssistantMessageWithToolCalls(agent, "m_step2", [
       { id: "tc_step2", arg: '{"cmd":"pwd"}' },
     ]);
-    await waitFor(() => expectPillOn("m_step2"));
-    expectNoPillOn("m_step1");
-    expectPillCount(1);
+    await waitFor(() => expectIndicatorOn("m_step2"));
+    expectNoIndicatorOn("m_step1");
+    expectIndicatorCount(1);
   });
 
-  it("real-followup exit: prose assistant message after the tool flow settles the pill into finished", async () => {
+  it("real-followup exit: prose assistant after the tool flow settles the indicator into finished", async () => {
     // After the tool result the agent emits a final prose message —
-    // that's a "real follow-up" and should immediately exit the spinner
-    // (without waiting on isRunning), settling into the finished state.
-    // The prose message is not a matching-assistant message, so m_tool
-    // remains the latest matching slot and keeps the persistent pill.
+    // that's a "real follow-up" and should immediately exit the
+    // spinner, settling into finished state. The prose message is not
+    // a matching-assistant message, so m_tool remains the last-in-turn
+    // and keeps the persistent indicator.
     const agent = makeAgent();
     renderForIndicator(agent);
     await screen.findByTestId("trigger-run");
@@ -521,13 +580,13 @@ describe('IntelligenceIndicator — "Using CopilotKit Intelligence" (auto-mounte
     emitAssistantMessageWithToolCalls(agent, "m_tool", [
       { id: "tc_only", arg: '{"cmd":"ls"}' },
     ]);
-    await waitFor(() => expectPillStatus("m_tool", "in-progress"));
+    await waitFor(() => expectIndicatorStatus("m_tool", "in-progress"));
 
     emitToolResult(agent, "tc_only", "tr_only");
     emitAssistantProse(agent, "m_prose", "All done.");
 
-    await waitFor(() => expectPillStatus("m_tool", "finished"));
-    expectPillCount(1);
+    await waitFor(() => expectIndicatorStatus("m_tool", "finished"));
+    expectIndicatorCount(1);
   });
 
   // ─── Slot customization (the three SlotValue tiers) ──────────────────
@@ -542,20 +601,20 @@ describe('IntelligenceIndicator — "Using CopilotKit Intelligence" (auto-mounte
 
     agent.emit(runFinishedEvent());
     await waitFor(() => expectCustomStatus("finished"));
-    // The default pill is replaced entirely by the custom face.
-    expectPillCount(0);
+    // The default indicator is replaced entirely by the custom face.
+    expectIndicatorCount(0);
   });
 
-  it("slot override (string): a className is merged onto the default pill", async () => {
+  it("slot override (string): a className is merged onto the default indicator", async () => {
     const agent = makeAgent();
-    renderForIndicator(agent, { intelligenceIndicator: "my-custom-pill" });
+    renderForIndicator(agent, { intelligenceIndicator: "my-custom-cls" });
     await screen.findByTestId("trigger-run");
 
     await startMatchingRun(agent, "m1");
-    await waitFor(() => expectPillOn("m1"));
-    expect(screen.getByTestId("cpk-intelligence-pill-m1").className).toContain(
-      "my-custom-pill",
-    );
+    await waitFor(() => expectIndicatorOn("m1"));
+    expect(
+      screen.getByTestId("cpk-intelligence-indicator-m1").className,
+    ).toContain("my-custom-cls");
   });
 
   it("slot override (props): a props object overrides the label", async () => {
@@ -568,7 +627,7 @@ describe('IntelligenceIndicator — "Using CopilotKit Intelligence" (auto-mounte
     await startMatchingRun(agent, "m1");
     await waitFor(() =>
       expect(
-        screen.getByTestId("cpk-intelligence-pill-m1").textContent,
+        screen.getByTestId("cpk-intelligence-indicator-m1").textContent,
       ).toContain("Recalling memory"),
     );
   });
