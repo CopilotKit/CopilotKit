@@ -1,0 +1,100 @@
+version: "1"
+
+defaults:
+  agent: claude
+  provider: docker
+  trials: 3
+  timeout: 300
+  threshold: 0.8
+  docker:
+    base: node:20-slim
+    setup: |
+      apt-get update && apt-get install -y git jq
+
+tasks:
+  - name: add-daytona-runcode-tool
+    instruction: |
+      This is an existing CopilotKit Built-in Agent app. Add a Daytona-backed code
+      execution tool to it:
+      - Install the Daytona SDK (@daytonaio/sdk).
+      - In the runtime route, create a Daytona client and define a server tool named
+        "runCode" with defineTool. Its parameters are a `code` string and a `language`
+        enum ("python" | "typescript" | "javascript", default "python"). Its execute
+        creates a sandbox with daytona.create({ language }), runs the code with
+        sandbox.process.codeRun(code), returns { stdout, exitCode }, and deletes the
+        sandbox in a finally block.
+      - Register the tool on the existing BuiltInAgent (tools: [runCode]) and set
+        maxSteps to at least 2.
+      Do not change the existing model or runtime/endpoint wiring.
+    workspace:
+      - src: workspace/builtin-agent-app
+        dest: /workspace
+    graders:
+      - type: deterministic
+        run: |
+          cd /workspace
+          CHECKS='[]'
+          add_check() {
+            CHECKS=$(echo "$CHECKS" | jq --arg n "$1" --argjson p "$2" --arg m "$3" '. + [{"name":$n,"passed":$p,"message":$m}]')
+          }
+          ROUTE=$(find . -path '*api/copilotkit*' -name 'route.ts' -not -path '*/node_modules/*' | head -1)
+
+          if jq -e '.dependencies["@daytonaio/sdk"]' package.json > /dev/null 2>&1; then
+            add_check "@daytonaio/sdk installed" true "Found in dependencies"
+          else
+            add_check "@daytonaio/sdk installed" false "Not in package.json dependencies"
+          fi
+          if [ -n "$ROUTE" ] && grep -q "new Daytona(" "$ROUTE"; then
+            add_check "Daytona client created" true "new Daytona() present"
+          else
+            add_check "Daytona client created" false "new Daytona() not found"
+          fi
+          if [ -n "$ROUTE" ] && grep -q "runCode" "$ROUTE" && grep -q "defineTool" "$ROUTE"; then
+            add_check "runCode tool defined" true "defineTool runCode present"
+          else
+            add_check "runCode tool defined" false "runCode/defineTool not found"
+          fi
+          if [ -n "$ROUTE" ] && grep -Eq "language" "$ROUTE" && grep -Eq "python|typescript|javascript" "$ROUTE"; then
+            add_check "language param present" true "language enum present"
+          else
+            add_check "language param present" false "language enum not found"
+          fi
+          if [ -n "$ROUTE" ] && grep -Eq "daytona\.create\(\s*\{?\s*language" "$ROUTE"; then
+            add_check "create passes language" true "daytona.create({ language }) present"
+          else
+            add_check "create passes language" false "daytona.create({ language }) not found"
+          fi
+          if [ -n "$ROUTE" ] && grep -Eq "codeRun" "$ROUTE"; then
+            add_check "codeRun used" true "sandbox.process.codeRun present"
+          else
+            add_check "codeRun used" false "codeRun not found"
+          fi
+          if [ -n "$ROUTE" ] && grep -Eq "tools:\s*\[.*runCode" "$ROUTE"; then
+            add_check "tool registered on agent" true "runCode in tools array"
+          else
+            add_check "tool registered on agent" false "runCode not registered in tools"
+          fi
+          if [ -n "$ROUTE" ] && grep -Eq "maxSteps" "$ROUTE"; then
+            add_check "maxSteps set" true "maxSteps present"
+          else
+            add_check "maxSteps set" false "maxSteps not set"
+          fi
+
+          PASSED=$(echo "$CHECKS" | jq '[.[]|select(.passed==true)]|length')
+          TOTAL=$(echo "$CHECKS" | jq 'length')
+          SCORE=$(echo "scale=2; $PASSED / $TOTAL" | bc)
+          echo "{\"score\": $SCORE, \"details\": \"$PASSED/$TOTAL checks passed\", \"checks\": $CHECKS}"
+        weight: 0.7
+      - type: llm_rubric
+        rubric: |
+          Evaluate whether a Daytona runCode tool was correctly added to the existing
+          Built-in Agent app:
+          1. Is @daytonaio/sdk a dependency and a Daytona client created from DAYTONA_API_KEY?
+          2. Is there a defineTool named "runCode" with `code` and a `language` enum
+             (python/typescript/javascript, default python)?
+          3. Does execute create a sandbox with daytona.create({ language }), call
+             sandbox.process.codeRun(code), return { stdout, exitCode }, and delete the
+             sandbox in a finally?
+          4. Is runCode registered on the existing BuiltInAgent's tools with maxSteps >= 2?
+          5. Was the existing model and endpoint wiring left unchanged?
+        weight: 0.3
