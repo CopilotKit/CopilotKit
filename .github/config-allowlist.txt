@@ -29,6 +29,7 @@ examples/integrations/ms-agent-framework-python/next.config.ts
 examples/integrations/pydantic-ai/next.config.ts
 examples/integrations/strands-python/next.config.ts
 examples/showcases/a2a-travel/next.config.ts
+examples/showcases/a2ui-pdf-analyst/next.config.ts
 examples/showcases/adk-dashboard/next.config.ts
 examples/showcases/banking/next.config.mjs
 examples/showcases/chatkit-studio/apps/playground/next.config.ts
