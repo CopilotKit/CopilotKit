@@ -1,0 +1,9 @@
+{
+  "title": "Cookbook",
+  "root": true,
+  "pages": [
+    "index",
+    "---Recipes---",
+    "daytona"
+  ]
+}
