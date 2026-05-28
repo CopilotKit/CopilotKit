@@ -132,11 +132,26 @@ jobs:
             # If violations exist, the commit steps below push a follow-up fix
             # commit to main automatically. This makes main self-healing for
             # PRs that merged before the PR format job could auto-fix.
-            if ! oxfmt --write .; then
-              echo "::warning::oxfmt exited with error — auto-fix may be incomplete"
+            # Scope to the same file types as PR mode; exclude lockfiles and
+            # the paths-ignore paths (docs/, examples/, README.md) so the
+            # auto-fix doesn't reformat tutorial code or fail on lockfiles.
+            mapfile -d '' push_files < <(git ls-files -z -- \
+              '*.js' '*.jsx' '*.ts' '*.tsx' '*.mjs' '*.cjs' \
+              '*.json' '*.jsonc' '*.json5' \
+              '*.md' \
+              '*.css' '*.yml' '*.yaml' '*.html' '*.vue' \
+              ':!docs/**' ':!examples/**' ':!README.md' \
+              ':!**/package-lock.json' ':!**/pnpm-lock.yaml' ':!**/yarn.lock')
+            if [ "${#push_files[@]}" -gt 0 ]; then
+              if ! printf '%s\0' "${push_files[@]}" | xargs -0 oxfmt --no-error-on-unmatched-pattern --write; then
+                echo "::warning::oxfmt exited with error — auto-fix may be incomplete"
+              fi
             fi
-            ruff format . || echo "::warning::ruff format exited with error"
-            if [ -n "$(git diff --name-only)" ]; then
+            push_py_files=$(git ls-files -- '*.py' ':!docs/**' ':!examples/**' 2>/dev/null || true)
+            if [ -n "$push_py_files" ]; then
+              echo "$push_py_files" | xargs ruff format || echo "::warning::ruff format exited with error"
+            fi
+            if [ -n "$(git status --porcelain)" ]; then
               echo "format_fixed=true" >> $GITHUB_ENV
             fi
           fi
@@ -172,10 +187,18 @@ jobs:
             # merge) on main.
             xargs -a .pr-format-files.existing.txt git add --
           else
-            git add -A
+            # Stage only formatter output — not untracked artifacts.
+            git diff --name-only -z | xargs -0 git add --
           fi
           git commit -m "style: auto-fix formatting"
+          git pull --rebase origin main
           git push
+
+      - name: Verify push-path auto-fix is complete
+        if: github.event_name == 'push' && env.format_fixed == 'true'
+        run: |
+          oxfmt --check .
+          ruff format --check .
 
   oxlint:
     runs-on: ubuntu-latest
