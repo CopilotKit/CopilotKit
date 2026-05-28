@@ -88,9 +88,17 @@ a2ui-pdf-analyst/
 
 ## How it works
 
+**PDF attachment** — CopilotKit's multimodal attachment support lets the user attach a PDF directly in the chat input. The frontend extracts the full text client-side via `pdfjs-dist` and inlines it into the user message under a `[Document: <filename>]` header. `multimodal_middleware.py` patches `ag-ui-langgraph` so this text block survives serialization and arrives intact at OpenAI. The agent scans every message in the conversation history for the most recent `[Document: ...]` header — attach once, ask many questions.
+
 **Fixed schema (`/fixed`)** — `agent/src/a2ui/schemas/dashboard.json` is a static A2UI component tree the agent never touches. The `render_dashboard` tool takes typed arguments (KPIs, trend, share, rows, scope chips), packages them as A2UI `update_data_model` ops, and the existing tree picks them up via `{path}` bindings. One LLM pass, one tool call, surface streams in.
 
-**Dynamic schema (`/dynamic`)** — the agent has two tools. `query_pdf` runs a sub-LLM that returns structured JSON (`shape_hint`, `title`, `summary`, `data`). `generate_a2ui` then spawns a _second_ sub-LLM bound to a no-op `render_a2ui` shim with `tool_choice` forced; its tool-call arguments become A2UI `create_surface` + `update_components` + `update_data_model` operations. The JS-side A2UI middleware detects `a2ui_operations` in the tool result and emits the snapshot events the canvas listens for. Two LLM passes per turn — the second one gets to invent the layout.
+**Dynamic schema (`/dynamic`)** — five steps per turn:
+
+1. User attaches a PDF and asks a question. Frontend inlines the PDF text into the message.
+2. Agent calls `query_pdf` → a sub-LLM reads the document and returns structured JSON: `shape_hint`, `title`, `summary`, `data`.
+3. Agent calls `generate_a2ui` (no arguments) → spawns a second sub-LLM bound to a no-op `render_a2ui` shim with `tool_choice` forced to that shim.
+4. The second LLM's tool-call arguments (surfaceId, catalogId, components, data) become A2UI `create_surface` + `update_components` + `update_data_model` operations.
+5. The JS-side A2UI middleware detects `a2ui_operations` in the tool result and emits the snapshot events the canvas listens for. Surface renders. Agent emits an empty chat message.
 
 ## Sample PDFs
 
