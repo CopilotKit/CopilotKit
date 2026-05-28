@@ -221,7 +221,13 @@ export interface RecordUserActionRequest {
   metadata?: Record<string, unknown> | null;
   /** ISO-8601 client-asserted timestamp. Defaults to server NOW() when absent. */
   occurredAt?: string;
-  /** Caller-supplied idempotency key (UUID). */
+  /**
+   * Caller-supplied idempotency key (any RFC-compliant UUID; the
+   * frontend hook `useLearnFromUserAction` auto-generates one per call,
+   * so retries are safe by default). Every call hits the platform's
+   * idempotent PUT endpoint; a retry with the same id collapses to
+   * the original row.
+   */
   clientEventId: string;
 }
 
