@@ -127,8 +127,7 @@ See the [Daytona docs](https://www.daytona.io/docs) for the full SDK.
 ## Get started with a coding agent
 
 Paste this prompt into your coding agent (Cursor, Claude Code, etc.) to add the integration to an existing
-Built-in Agent app. If your agent supports installable skills, the `copilotkit-daytona` skill packages this
-same setup (tool code, references, and an eval) as a reusable Agent Skill:
+Built-in Agent app:
 
 ```text
 In my existing CopilotKit Built-in Agent app, add a Daytona-backed code execution tool:
@@ -142,8 +141,10 @@ In my existing CopilotKit Built-in Agent app, add a Daytona-backed code executio
    - parameters: a Zod object with a `code` string field and a `language` enum
      ("python" | "typescript" | "javascript", default "python").
    - execute: create a sandbox with `daytona.create({ language })`, run the code with
-     `sandbox.process.codeRun(code)`, return `{ stdout, exitCode }`, and `sandbox.delete()` in a
-     finally block.
+     `const res = await sandbox.process.codeRun(code)` — note that `codeRun` returns an
+     `ExecuteResponse` where stdout lives on `res.result` (not `res.stdout`), so return
+     `{ stdout: res.result, exitCode: res.exitCode }`. Call `sandbox.delete()` in a finally
+     block so the sandbox is cleaned up even on error.
 4. Register the tool on my BuiltInAgent (`tools: [runCode]`) and set `maxSteps: 2` so it can call the
    tool and then respond.
 
