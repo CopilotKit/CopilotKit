@@ -35,17 +35,17 @@ need to read private packages; public packages work anonymously via the GHCR
 
 ## Subcommands
 
-| Subcommand | Purpose |
-|---|---|
-| `snapshot` | Capture an env's services + config into a YAML snapshot. |
-| `restore` | Restore an env to a snapshot (force-redeploy each service). |
-| `rollback` | Roll a single service back one deploy (or to a specific deployment id with `--to`). |
-| `rollback-commit` | Restore an env to the snapshot committed at a given git SHA. |
-| `promote` | Promote staging digests to production with prechecks. |
-| `pin` | Pin a service to a specific image digest. |
-| `env-diff` | Diff two envs; exits 1 on drift. |
-| `resolve-digest` | Resolve an image tag (e.g. `:latest`) to its `sha256:` digest. |
-| `lint-prod` | CI gate: fail if any prod service is not digest-pinned. |
+| Subcommand        | Purpose                                                                             |
+| ----------------- | ----------------------------------------------------------------------------------- |
+| `snapshot`        | Capture an env's services + config into a YAML snapshot.                            |
+| `restore`         | Restore an env to a snapshot (force-redeploy each service).                         |
+| `rollback`        | Roll a single service back one deploy (or to a specific deployment id with `--to`). |
+| `rollback-commit` | Restore an env to the snapshot committed at a given git SHA.                        |
+| `promote`         | Promote staging digests to production with prechecks.                               |
+| `pin`             | Pin a service to a specific image digest.                                           |
+| `env-diff`        | Diff two envs; exits 1 on drift.                                                    |
+| `resolve-digest`  | Resolve an image tag (e.g. `:latest`) to its `sha256:` digest.                      |
+| `lint-prod`       | CI gate: fail if any prod service is not digest-pinned.                             |
 
 Run any subcommand with `--help` for full flag list.
 
@@ -62,11 +62,11 @@ explicit acknowledgement.
 
 ## Exit codes
 
-| Code | Meaning |
-|---|---|
-| 0 | Clean / success |
-| 1 | Drift detected, findings reported, or promote refused for policy reasons |
-| 2 | Error (auth, network, GraphQL schema, refused confirmation, etc.) |
+| Code | Meaning                                                                  |
+| ---- | ------------------------------------------------------------------------ |
+| 0    | Clean / success                                                          |
+| 1    | Drift detected, findings reported, or promote refused for policy reasons |
+| 2    | Error (auth, network, GraphQL schema, refused confirmation, etc.)        |
 
 ## Worked example: promote staging → production
 
