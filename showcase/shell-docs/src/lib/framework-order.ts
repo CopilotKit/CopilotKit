@@ -19,6 +19,7 @@ export const FRAMEWORK_DISPLAY_ORDER: readonly string[] = [
   "pydantic-ai",
   "ms-agent-python",
   "ms-agent-dotnet",
+  "ms-agent-harness-dotnet",
   "langgraph-fastapi",
   "ag2",
   "agno",

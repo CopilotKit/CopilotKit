@@ -1,0 +1,37 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for ms-agent-python / gen-ui-open",
+    "sourceFile": "harness/fixtures/d5/gen-ui-open.json",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-open 3D axis pill — generateSandboxedUi tool call producing iframe srcdoc. Follow-up after tool result.",
+      "match": {
+        "userMessage": "3D axis visualization (model airplane)",
+        "toolCallId": "call_d5_open_gen_ui_3d_axis_001",
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "content": "Generated. The sandboxed UI is rendered above."
+      }
+    },
+    {
+      "_comment": "gen-ui-open 3D axis pill — first leg: generateSandboxedUi tool call.",
+      "match": {
+        "userMessage": "3D axis visualization (model airplane)",
+        "turnIndex": 0,
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_open_gen_ui_3d_axis_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing 3D axis scene…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}\",\"html\":\"<div class=\\\"wrap\\\"><h1>3D axis visualization (pitch / yaw / roll)</h1><svg width=\\\"320\\\" height=\\\"260\\\" viewBox=\\\"-80 -80 160 160\\\" data-testid=\\\"ogui-3d-axis\\\"><line x1=\\\"-60\\\" y1=\\\"0\\\" x2=\\\"60\\\" y2=\\\"0\\\" stroke=\\\"#f59e0b\\\"/><line x1=\\\"0\\\" y1=\\\"-60\\\" x2=\\\"0\\\" y2=\\\"60\\\" stroke=\\\"#6366f1\\\"/><line x1=\\\"-40\\\" y1=\\\"40\\\" x2=\\\"40\\\" y2=\\\"-40\\\" stroke=\\\"#10b981\\\"/><text x=\\\"62\\\" y=\\\"4\\\" font-size=\\\"8\\\" fill=\\\"#f59e0b\\\">X pitch</text><text x=\\\"4\\\" y=\\\"-62\\\" font-size=\\\"8\\\" fill=\\\"#6366f1\\\">Y yaw</text><text x=\\\"42\\\" y=\\\"-42\\\" font-size=\\\"8\\\" fill=\\\"#10b981\\\">Z roll</text></svg></div>\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

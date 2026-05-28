@@ -1,0 +1,38 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for ag2 / tool-rendering-default-catchall",
+    "sourceFile": "d5-tool-rendering-default-catchall.ts",
+    "owner": "d6-blitz-2026-05-26",
+    "notes": "Authored to match D5 script + ag2 adapter request shape. Single prompt 'weather in Tokyo' driving get_weather tool call. The built-in default catchall renderer (copilot-tool-render testid) fires. Assertion checks data-tool-name='get_weather' + status pill testid."
+  },
+  "fixtures": [
+    {
+      "_comment": "default-catchall: weather in Tokyo \u2014 follow-up after get_weather tool result. Must come before the tool-emitting fixture (first-match-wins).",
+      "match": {
+        "userMessage": "check Tokyo weather forecast",
+        "toolCallId": "call_d5_dc_weather_001",
+        "context": "ag2"
+      },
+      "response": {
+        "content": "Tokyo is 22\u00b0C and partly cloudy \u2014 the default catchall renderer displayed the tool card with status pill."
+      }
+    },
+    {
+      "_comment": "default-catchall: weather in Tokyo \u2014 emit get_weather tool call. The built-in default renderer (copilot-tool-render testid) fires because no per-tool renderer is registered.",
+      "match": {
+        "userMessage": "check Tokyo weather forecast",
+        "turnIndex": 0,
+        "context": "ag2"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_dc_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

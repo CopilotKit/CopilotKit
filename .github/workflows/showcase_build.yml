@@ -15,6 +15,8 @@ on:
     branches: [main]
     paths:
       - "showcase/**"
+      - ".github/workflows/showcase_build.yml"
+      - ".github/workflows/showcase_build_check.yml"
   workflow_dispatch:
     inputs:
       service:
@@ -41,6 +43,7 @@ on:
           - ms-agent-python
           - claude-sdk-typescript
           - ms-agent-dotnet
+          - ms-agent-harness-dotnet
           - claude-sdk-python
           - built-in-agent
           - shell-dojo
@@ -82,6 +85,9 @@ jobs:
           # single-line strings, but mixing styles (list vs. string)
           # in the same filters block is easy to misread during review.
           filters: |
+            workflow_config:
+              - '.github/workflows/showcase_build.yml'
+              - '.github/workflows/showcase_build_check.yml'
             shell:
               - 'showcase/shell/**'
               - 'showcase/shared/**'
@@ -119,6 +125,8 @@ jobs:
               - 'showcase/integrations/claude-sdk-typescript/**'
             ms_agent_dotnet:
               - 'showcase/integrations/ms-agent-dotnet/**'
+            ms_agent_harness_dotnet:
+              - 'showcase/integrations/ms-agent-harness-dotnet/**'
             claude_sdk_python:
               - 'showcase/integrations/claude-sdk-python/**'
             built_in_agent:
@@ -138,6 +146,9 @@ jobs:
               - 'showcase/shared/**'
               - 'showcase/scripts/**'
               - 'showcase/integrations/*/manifest.yaml'
+              - 'showcase/integrations/*/docs-links.json'
+              - 'showcase/integrations/*/docs/setup/**'
+              - 'showcase/integrations/*/src/**'
             showcase_harness:
               - 'showcase/harness/**'
               - 'showcase/shared/**'
@@ -179,19 +190,15 @@ jobs:
             {"dispatch_name":"ms-agent-python","filter_key":"ms_agent_python","context":"showcase/integrations/ms-agent-python","image":"showcase-ms-agent-python","railway_id":"655db75a-af8d-427d-a4f9-441570ae5003","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"claude-sdk-typescript","filter_key":"claude_sdk_typescript","context":"showcase/integrations/claude-sdk-typescript","image":"showcase-claude-sdk-typescript","railway_id":"18a98727-5700-44aa-b497-b60795dbbd6a","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"ms-agent-dotnet","filter_key":"ms_agent_dotnet","context":"showcase/integrations/ms-agent-dotnet","image":"showcase-ms-agent-dotnet","railway_id":"beeb2dd6-87a4-4599-aa07-0578f7bd6519","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"ms-agent-harness-dotnet","filter_key":"ms_agent_harness_dotnet","context":"showcase/integrations/ms-agent-harness-dotnet","image":"showcase-ms-agent-harness-dotnet","railway_id":"6343d7f9-6c3f-4c8d-9a6e-79f03d2f1e37","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"claude-sdk-python","filter_key":"claude_sdk_python","context":"showcase/integrations/claude-sdk-python","image":"showcase-claude-sdk-python","railway_id":"b122ab65-9854-4cb2-a68e-b50ff13f7481","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"built-in-agent","filter_key":"built_in_agent","context":"showcase/integrations/built-in-agent","image":"showcase-built-in-agent","railway_id":"f4f8371a-bc46-45b2-b6d4-9c9af608bdbf","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"shell-dojo","filter_key":"shell_dojo","context":".","image":"showcase-shell-dojo","railway_id":"7ad1ece7-2228-49cd-8a78-bddf30322907","timeout":10,"lfs":false,"build_args":"","dockerfile":"showcase/shell-dojo/Dockerfile","health_path":"/"},
             {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","railway_id":"4d5dfd74-be61-40b2-8564-b53b7dd4c15b","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","build_args_pb_url":"https://showcase-pocketbase-production.up.railway.app","build_args_shell_url":"https://showcase.copilotkit.ai","build_args_ops_url":"https://showcase-harness-production.up.railway.app","dockerfile":"showcase/shell-dashboard/Dockerfile","health_path":"/"},
-            {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","railway_id":"7badfb8d-4228-414c-9145-b4026803714f","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","build_args_analytics":"yes","dockerfile":"showcase/shell-docs/Dockerfile","health_path":"/"},
+            {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","railway_id":"7badfb8d-4228-414c-9145-b4026803714f","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","build_args_base_url":"https://docs.copilotkit.ai","build_args_shell_url":"https://showcase.copilotkit.ai","build_args_analytics":"yes","dockerfile":"showcase/shell-docs/Dockerfile","health_path":"/"},
             {"dispatch_name":"showcase-harness","filter_key":"showcase_harness","context":".","image":"showcase-harness","railway_id":"3a14bfed-0537-4d71-897b-7c593dca161d","timeout":20,"lfs":false,"build_args":"","dockerfile":"showcase/harness/Dockerfile","health_path":"/health"},
             {"dispatch_name":"showcase-aimock","filter_key":"showcase_aimock","context":"showcase/aimock","image":"showcase-aimock","railway_id":"0fa0435d-8a66-46f0-84fd-e4250b580013","timeout":5,"lfs":false,"build_args":"","dockerfile":"showcase/aimock/Dockerfile","health_path":"/health"}
           ]'
-
-          # Substitute trusted git context (sha, ref_name) into JSON placeholders.
-          # Routed through env: above to satisfy zizmor template-injection check.
-          ALL_SERVICES="${ALL_SERVICES//__GH_SHA__/$GITHUB_SHA_ENV}"
-          ALL_SERVICES="${ALL_SERVICES//__GH_REF_NAME__/$GITHUB_REF_NAME_ENV}"
 
           DISPATCH="$DISPATCH_SERVICE"
           CHANGES="${FILTER_CHANGES:-[]}"
@@ -207,11 +214,14 @@ jobs:
           #   dispatch == <specific service>: narrow to that service only (skips paths-filter so
           #     drift-rebuild and manual single-service dispatches work regardless of $changes).
           #   dispatch == "": push event — include services whose filter_key appears in paths-filter CHANGES.
-          MATRIX=$(echo "$ALL_SERVICES" | jq -c --arg dispatch "$DISPATCH" --argjson changes "$CHANGES" '
-            [.[] | (.filter_key as $fk | select(
+          MATRIX=$(echo "$ALL_SERVICES" | jq -c --arg dispatch "$DISPATCH" --argjson changes "$CHANGES" --arg sha "$GITHUB_SHA_ENV" --arg ref "$GITHUB_REF_NAME_ENV" '
+            [.[] |
+              if .build_args_sha == "__GH_SHA__" then .build_args_sha = $sha else . end |
+              if .build_args_branch == "__GH_REF_NAME__" then .build_args_branch = $ref else . end |
+              (.filter_key as $fk | select(
               $dispatch == "all" or
               ($dispatch != "" and $dispatch != "all" and $dispatch == .dispatch_name) or
-              ($dispatch == "" and ($changes | index($fk) != null))
+              ($dispatch == "" and (($changes | index("workflow_config") != null) or ($changes | index($fk) != null)))
             ))]
           ')
 
@@ -298,7 +308,7 @@ jobs:
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
 
       - name: Login to GHCR
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -306,33 +316,49 @@ jobs:
 
       - name: Prepare build args
         id: build-args
+        env:
+          BUILD_ARGS_SHA: ${{ matrix.service.build_args_sha }}
+          BUILD_ARGS_BRANCH: ${{ matrix.service.build_args_branch }}
+          BUILD_ARGS_PB_URL: ${{ matrix.service.build_args_pb_url }}
+          BUILD_ARGS_BASE_URL: ${{ matrix.service.build_args_base_url }}
+          BUILD_ARGS_SHELL_URL: ${{ matrix.service.build_args_shell_url }}
+          BUILD_ARGS_OPS_URL: ${{ matrix.service.build_args_ops_url }}
+          BUILD_ARGS_ANALYTICS: ${{ matrix.service.build_args_analytics }}
+          NEXT_PUBLIC_POSTHOG_KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
+          NEXT_PUBLIC_REB2B_KEY: ${{ secrets.REB2B_KEY }}
+          NEXT_PUBLIC_SCARF_PIXEL_ID: ${{ secrets.SCARF_PIXEL_ID }}
+          NEXT_PUBLIC_REO_KEY: ${{ secrets.REO_PROJECT_KEY }}
+          NEXT_PUBLIC_GOOGLE_ANALYTICS_TRACKING_ID: ${{ secrets.GOOGLE_ANALYTICS_TRACKING_ID }}
         run: |
           ARGS=""
-          if [ -n "${{ matrix.service.build_args_sha }}" ]; then
-            ARGS="COMMIT_SHA=${{ matrix.service.build_args_sha }}"
-            ARGS="${ARGS}"$'\n'"BRANCH=${{ matrix.service.build_args_branch }}"
+          if [ -n "$BUILD_ARGS_SHA" ]; then
+            ARGS="COMMIT_SHA=${BUILD_ARGS_SHA}"
+            ARGS="${ARGS}"$'\n'"BRANCH=${BUILD_ARGS_BRANCH}"
           fi
-          if [ -n "${{ matrix.service.build_args_pb_url }}" ]; then
-            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_POCKETBASE_URL=${{ matrix.service.build_args_pb_url }}"
+          if [ -n "$BUILD_ARGS_PB_URL" ]; then
+            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_POCKETBASE_URL=${BUILD_ARGS_PB_URL}"
           fi
-          if [ -n "${{ matrix.service.build_args_shell_url }}" ]; then
-            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_SHELL_URL=${{ matrix.service.build_args_shell_url }}"
+          if [ -n "$BUILD_ARGS_BASE_URL" ]; then
+            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_BASE_URL=${BUILD_ARGS_BASE_URL}"
           fi
-          if [ -n "${{ matrix.service.build_args_ops_url }}" ]; then
+          if [ -n "$BUILD_ARGS_SHELL_URL" ]; then
+            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_SHELL_URL=${BUILD_ARGS_SHELL_URL}"
+          fi
+          if [ -n "$BUILD_ARGS_OPS_URL" ]; then
             # OPS_BASE_URL is required at build time by shell-dashboard's
             # next.config.ts rewrites() — without it `next build` aborts.
-            ARGS="${ARGS:+${ARGS}$'\n'}OPS_BASE_URL=${{ matrix.service.build_args_ops_url }}"
+            ARGS="${ARGS:+${ARGS}$'\n'}OPS_BASE_URL=${BUILD_ARGS_OPS_URL}"
           fi
-          if [ "${{ matrix.service.build_args_analytics }}" = "yes" ]; then
+          if [ "$BUILD_ARGS_ANALYTICS" = "yes" ]; then
             # Client-side analytics keys for the shell-docs bundle.
             # NEXT_PUBLIC_* values must reach `next build` so they get
             # inlined into client JS chunks. Sourced from repo secrets;
             # Railway runtime env doesn't reach this build step.
-            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_POSTHOG_KEY=${{ secrets.POSTHOG_PROJECT_KEY }}"
-            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_REB2B_KEY=${{ secrets.REB2B_KEY }}"
-            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_SCARF_PIXEL_ID=${{ secrets.SCARF_PIXEL_ID }}"
-            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_REO_KEY=${{ secrets.REO_PROJECT_KEY }}"
-            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_GOOGLE_ANALYTICS_TRACKING_ID=${{ secrets.GOOGLE_ANALYTICS_TRACKING_ID }}"
+            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_POSTHOG_KEY=${NEXT_PUBLIC_POSTHOG_KEY}"
+            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_REB2B_KEY=${NEXT_PUBLIC_REB2B_KEY}"
+            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_SCARF_PIXEL_ID=${NEXT_PUBLIC_SCARF_PIXEL_ID}"
+            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_REO_KEY=${NEXT_PUBLIC_REO_KEY}"
+            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_GOOGLE_ANALYTICS_TRACKING_ID=${NEXT_PUBLIC_GOOGLE_ANALYTICS_TRACKING_ID}"
           fi
           # Use delimiter to safely pass multiline value
           echo "args<<BUILDARGS_EOF" >> $GITHUB_OUTPUT
@@ -375,7 +401,7 @@ jobs:
           done
 
       - name: Build and push
-        uses: depot/build-push-action@5f3b3c2e5a00f0093de47f657aeaefcedff27d18 # v1
+        uses: depot/build-push-action@98e78adca7817480b8185f474a400b451d74e287 # v1.18.0
         with:
           project: m2kw2wmmcp
           context: ${{ matrix.service.context }}

@@ -1,0 +1,66 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for ag2 / gen-ui-open + gen-ui-open-advanced",
+    "sourceFile": "d5-gen-ui-open.ts, d5-gen-ui-open-advanced.ts",
+    "owner": "d6-blitz-2026-05-26",
+    "notes": "Authored to match D5 scripts + ag2 adapter request shape. gen-ui-open asserts iframe[srcdoc] with length >= 100 chars. gen-ui-open-advanced asserts iframe with sandbox='allow-scripts'. Both share this fixture file per the D5 registry (fixtureFile: 'gen-ui-open.json')."
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-open basic pill — 3D axis visualization. The response must include generateSandboxedUi tool call or inline srcdoc content that produces an iframe[srcdoc] with >= 100 chars.",
+      "match": {
+        "userMessage": "3D axis visualization",
+        "hasToolResult": false,
+        "context": "ag2"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_gen_ui_open_3d_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"srcdoc\":\"<!DOCTYPE html><html><head><style>body{margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#1a1a2e;font-family:monospace}canvas{border:1px solid #333}</style></head><body><canvas id=c width=400 height=400></canvas><script>const c=document.getElementById('c'),x=c.getContext('2d');x.strokeStyle='#e94560';x.beginPath();x.moveTo(200,350);x.lineTo(200,50);x.stroke();x.strokeStyle='#0f3460';x.beginPath();x.moveTo(50,250);x.lineTo(350,250);x.stroke();x.strokeStyle='#16213e';x.beginPath();x.moveTo(100,350);x.lineTo(300,150);x.stroke();x.fillStyle='#fff';x.font='14px monospace';x.fillText('Y',205,60);x.fillText('X',340,265);x.fillText('Z',290,155);x.fillText('3D Axis Visualization',110,30)</script></body></html>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-open basic pill — follow-up after generateSandboxedUi result.",
+      "match": {
+        "userMessage": "3D axis visualization",
+        "hasToolResult": true,
+        "context": "ag2"
+      },
+      "response": {
+        "content": "3D axis visualization rendered above — X (blue), Y (red), and Z (gray) axes drawn on a dark canvas."
+      }
+    },
+    {
+      "_comment": "gen-ui-open-advanced pill — Inline expression evaluator. Emits generateSandboxedUi with a sandbox='allow-scripts' iframe. The D5 probe asserts the iframe mounts via [data-testid='gen-ui-open-advanced-iframe'] or iframe[sandbox*='allow-scripts'].",
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "hasToolResult": false,
+        "context": "ag2"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_gen_ui_open_adv_eval_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"srcdoc\":\"<!DOCTYPE html><html><head><style>body{margin:0;padding:20px;background:#0d1117;color:#c9d1d9;font-family:monospace}input{width:100%;padding:8px;background:#161b22;border:1px solid #30363d;color:#c9d1d9;border-radius:4px;font-size:16px}#result{margin-top:12px;padding:12px;background:#161b22;border-radius:4px;min-height:40px}h3{color:#58a6ff;margin:0 0 12px}</style></head><body><h3>Expression Evaluator</h3><input id=expr placeholder='Enter expression (e.g. 2+2)' oninput='try{document.getElementById(\\\"result\\\").textContent=\\\"= \\\"+eval(this.value)}catch(e){document.getElementById(\\\"result\\\").textContent=\\\"...\\\"}'/><div id=result>...</div></body></html>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-open-advanced pill — follow-up after generateSandboxedUi result.",
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "hasToolResult": true,
+        "context": "ag2"
+      },
+      "response": {
+        "content": "Expression evaluator rendered above — type any JavaScript expression and see the result live."
+      }
+    }
+  ]
+}

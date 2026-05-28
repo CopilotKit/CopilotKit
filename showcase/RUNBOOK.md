@@ -1,4 +1,4 @@
-# Showcase D5 (e2e-deep) Runbook
+# Showcase D5 (d6-all-pills) Runbook
 
 Operational documentation for debugging and fixing showcase D5 probe failures locally.
 Intended audience: engineers and AI agents working on showcase integrations.
@@ -93,10 +93,10 @@ The harness emits structured logs at INFO level for probe lifecycle events:
 
 - `probe.tick-start` / `probe.tick-complete` — probe run lifecycle
 - `probe.target-start` / `probe.target-complete` — per-service results
-- `probe.e2e-deep.service-start` / `probe.e2e-deep.service-complete` — D5 per-service
-- `probe.e2e-deep.feature-complete` — per-feature pass/fail with error details
+- `probe.d6-all-pills.service-start` / `probe.d6-all-pills.service-complete` — D5 per-service
+- `probe.d6-all-pills.feature-complete` — per-feature pass/fail with error details
 - `probe.run-summary` — single line with all service results
-- `probe.e2e-deep.pool-abort-release` — browser pool starvation events
+- `probe.d6-all-pills.pool-abort-release` — browser pool starvation events
 
 View with: `RAILWAY_PROJECT_ID=6f8c6bff-a80d-4f8f-b78d-50b32bcf4479 railway logs --service showcase-harness --tail 200`
 
@@ -109,7 +109,7 @@ To enable temporarily: set the env var in Railway dashboard → showcase-harness
 ### Triggering probes manually
 
 ```
-curl -sf -X POST "https://showcase-harness-production.up.railway.app/api/probes/probe:e2e-deep/trigger" \
+curl -sf -X POST "https://showcase-harness-production.up.railway.app/api/probes/probe:d6-all-pills-e2e/trigger" \
   -H "Authorization: Bearer $OPS_TRIGGER_TOKEN" \
   -H "Content-Type: application/json"
 ```

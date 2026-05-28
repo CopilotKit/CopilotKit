@@ -9,13 +9,27 @@
 import React from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import {
+  ArrowRight,
+  Blocks,
+  Bot,
+  Braces,
+  Code2,
+  MessageSquare,
+  Workflow,
+} from "lucide-react";
 import { DocsLandingNext } from "@/components/docs-landing-next";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
-import { buildFrameworkOnlyNav, loadDoc } from "@/lib/docs-render";
+import { FrameworkLogo } from "@/components/icons/framework-icons";
+import {
+  buildFrameworkNav,
+  buildFrameworkOnlyNav,
+  loadDoc,
+} from "@/lib/docs-render";
 import { navTreeToPageTree } from "@/lib/page-tree-bridge";
-import { getDocsFolder } from "@/lib/registry";
+import { getDocsFolder, getDocsMode, getIntegration } from "@/lib/registry";
 import { buildDocMetadata } from "@/lib/seo-metadata";
 
 // Force dynamic rendering so unknown slugs reliably return HTTP 404
@@ -26,13 +40,9 @@ import { buildDocMetadata } from "@/lib/seo-metadata";
 // successful responses at the edge anyway.
 export const dynamic = "force-dynamic";
 
-// Soft-default framework rendered on the bare `/` URL. BIA is the
-// "Built-in Agent" path and uses `docs_mode: authored`, so its sidebar
-// is its own authored tree under `integrations/built-in-agent/`.
-// Hardcoding it here keeps the sidebar tree on `/` identical to what
-// the user sees after clicking any BIA sidebar link (e.g. /built-in-agent/quickstart),
-// instead of showing the unrelated generated all-content tree on `/`
-// and then morphing on first navigation.
+// Soft-default framework rendered on the bare `/` URL. Hardcoding BIA
+// here keeps the sidebar tree on `/` identical to what the user sees
+// after clicking any Built-in Agent sidebar link.
 const HOME_DEFAULT_FRAMEWORK = "built-in-agent";
 
 // Per-framework self-canonical: each variant of a doc page declares
@@ -71,13 +81,15 @@ export async function generateMetadata({
 }
 
 function DocsOverview() {
-  // Sidebar matches the soft-default framework (BIA, `docs_mode: authored`)
-  // so the home `/` and the post-click `/built-in-agent/...` views share
-  // an identical sidebar tree. Mirrors the `authored`-mode branch in
-  // `/<framework>/<...slug>` (page.tsx): `buildFrameworkOnlyNav(docsFolder)`
-  // for the tree, `/<framework>` for the link prefix.
+  // Sidebar matches the soft-default framework so home `/` and
+  // post-click `/built-in-agent/...` views share the same authored IA.
   const docsFolder = getDocsFolder(HOME_DEFAULT_FRAMEWORK);
-  const navTree = buildFrameworkOnlyNav(docsFolder);
+  const integrationName =
+    getIntegration(HOME_DEFAULT_FRAMEWORK)?.name ?? "Built-in Agent";
+  const navTree =
+    getDocsMode(HOME_DEFAULT_FRAMEWORK) === "authored"
+      ? buildFrameworkOnlyNav(docsFolder)
+      : buildFrameworkNav(docsFolder, integrationName, HOME_DEFAULT_FRAMEWORK);
   const pageTree = navTreeToPageTree(navTree, `/${HOME_DEFAULT_FRAMEWORK}`);
 
   // Rewrite the Introduction entry's URL from `/built-in-agent` (or
@@ -111,85 +123,158 @@ function DocsOverview() {
     ...pageTree,
     children: rewriteUrls(pageTree.children),
   };
+  const homeIntegration = getIntegration(HOME_DEFAULT_FRAMEWORK);
+  const stackItems = [
+    {
+      label: "Frontend",
+      title: "React UX primitives",
+      detail: "Chat, generative UI, shared state, and HITL controls.",
+      icon: <MessageSquare className="h-4 w-4" />,
+    },
+    {
+      label: "Runtime",
+      title: "AG-UI transport",
+      detail: "Event streams, tools, state snapshots, and observability.",
+      icon: <Workflow className="h-4 w-4" />,
+    },
+    {
+      label: "Agent",
+      title: "Any backend",
+      detail: "LangGraph, ADK, Mastra, CrewAI, PydanticAI, and more.",
+      icon: <Bot className="h-4 w-4" />,
+    },
+  ];
+  const primaryCards = [
+    {
+      href: "/built-in-agent/quickstart",
+      title: "Start building",
+      body: "Create a working CopilotKit app with the built-in agent.",
+      icon: <Code2 className="h-4 w-4" />,
+    },
+    {
+      href: "/built-in-agent/generative-ui/tool-rendering",
+      title: "Render agent UI",
+      body: "Turn tool calls and state into first-class React components.",
+      icon: <Blocks className="h-4 w-4" />,
+    },
+    {
+      href: "/reference",
+      title: "API Reference",
+      body: "Hooks, components, runtime config, and integration APIs.",
+      icon: <Braces className="h-4 w-4" />,
+    },
+  ];
 
   return (
     <ShellDocsLayout tree={homePageTree} banner={<SidebarFrameworkSelector />}>
-      <div className="docs-inner-content max-w-[900px] mx-auto px-4 md:px-6 pt-2 pb-6 md:pt-3 xl:pt-4">
-        {/* Hero — typography-led. No eyebrow pill, no atmospheric glow.
-            Title + lede + an unframed `npm install`-style block. */}
-        <section className="pt-8 sm:pt-12 pb-8 sm:pb-10">
-          <h1 className="text-[2.25rem] sm:text-[2.75rem] font-semibold text-[var(--text)] tracking-tight mb-4 leading-[1.05]">
-            Welcome to CopilotKit
-          </h1>
-          <p className="text-base sm:text-lg text-[var(--text-secondary)] leading-relaxed mb-8 max-w-2xl">
-            CopilotKit is the <strong>frontend stack for agents</strong> and{" "}
-            <strong>generative UI</strong>. Connect any agent framework or model
-            to your React app for chat, generative UI, canvas apps, and
-            human-in-the-loop workflows.
-          </p>
-          <div className="max-w-2xl rounded-md border border-[var(--border)] bg-[var(--bg-elevated)] px-4 py-2.5">
-            <code className="font-mono text-sm text-[var(--text)] overflow-x-auto whitespace-nowrap block">
-              npx copilotkit@latest create
-            </code>
+      <div className="docs-inner-content max-w-[1040px] mx-auto px-4 md:px-6 pt-2 pb-6 md:pt-3 xl:pt-4">
+        <section className="pt-7 sm:pt-10 pb-8 sm:pb-10">
+          <div className="mb-7 flex flex-col gap-5">
+            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1.5 text-[11px] font-semibold uppercase text-[var(--text-muted)]">
+              <FrameworkLogo
+                slug={HOME_DEFAULT_FRAMEWORK}
+                fallbackSrc={homeIntegration?.logo}
+                size={14}
+                className="text-[var(--accent)]"
+              />
+              Frontend stack for agents
+            </div>
+            <div>
+              <h1 className="max-w-4xl text-[2.45rem] sm:text-[3.25rem] font-semibold text-[var(--text)] tracking-tight leading-[1.02]">
+                CopilotKit connects agent backends to real product interfaces.
+              </h1>
+              <p className="mt-5 max-w-3xl text-base sm:text-lg text-[var(--text-secondary)] leading-relaxed">
+                Build chat, generative UI, shared state, canvas apps, and
+                human-in-the-loop workflows on top of LangGraph, Google ADK,
+                Mastra, PydanticAI, CrewAI, the built-in agent, or any AG-UI
+                compatible backend.
+              </p>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Link
+                href="/built-in-agent/quickstart"
+                className="inline-flex h-10 w-fit items-center gap-2 rounded-full bg-[var(--text)] px-4 text-sm font-semibold text-[var(--bg-surface)] no-underline transition-opacity hover:opacity-90"
+              >
+                Start with the built-in agent
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <div className="flex min-w-0 items-center rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2">
+                <code className="font-mono text-sm text-[var(--text)] overflow-x-auto whitespace-nowrap">
+                  npx copilotkit@latest create
+                </code>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] p-4 sm:p-5">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+              {stackItems.map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)]/45 p-4"
+                >
+                  <div className="mb-4 flex items-center justify-between">
+                    <span className="text-[11px] font-semibold uppercase text-[var(--text-muted)]">
+                      {item.label}
+                    </span>
+                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--accent)]">
+                      {item.icon}
+                    </span>
+                  </div>
+                  <div className="text-sm font-semibold text-[var(--text)]">
+                    {item.title}
+                  </div>
+                  <p className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)]">
+                    {item.detail}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)]/45 p-3 text-[12px] text-[var(--text-muted)]">
+              {[
+                "LangGraph",
+                "Google ADK",
+                "Mastra",
+                "PydanticAI",
+                "CrewAI",
+                "AG-UI",
+              ].map((label) => (
+                <span
+                  key={label}
+                  className="rounded-full border border-[var(--border)] bg-[var(--bg-surface)] px-2.5 py-1 font-medium text-[var(--text-secondary)]"
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
           </div>
         </section>
 
-        {/* ===== PRIMARY NAV GRID ===== */}
-        {/* Three top-level docs surfaces. Minimal cards — title, body,
-            trailing arrow. Hover changes only the border + arrow color. */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-12">
-          {[
-            {
-              href: "/concepts/architecture",
-              title: "Concepts",
-              body: "Architecture, gen UI types, OSS vs Enterprise.",
-            },
-            {
-              href: "/reference",
-              title: "API Reference",
-              body: "Hooks, components, and config.",
-            },
-            {
-              href: "/generative-ui/your-components/display-only",
-              title: "Generative UI",
-              body: "Render tools as React components.",
-            },
-          ].map((card) => (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+          {primaryCards.map((card) => (
             <Link
               key={card.href}
               href={card.href}
-              className="group flex flex-col gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-5 no-underline hover:border-[var(--accent)] transition-colors"
+              className="group flex min-h-[148px] flex-col justify-between rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] p-5 no-underline hover:border-[var(--accent)] transition-colors"
             >
               <div className="flex items-center justify-between">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] text-[var(--accent)]">
+                  {card.icon}
+                </span>
+                <ArrowRight className="h-4 w-4 text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors" />
+              </div>
+              <div>
                 <div className="font-semibold text-[var(--text)]">
                   {card.title}
                 </div>
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                  className="text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors"
-                >
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                  <polyline points="12 5 19 12 12 19" />
-                </svg>
-              </div>
-              <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
-                {card.body}
+                <div className="mt-1 text-sm text-[var(--text-secondary)] leading-relaxed">
+                  {card.body}
+                </div>
               </div>
             </Link>
           ))}
         </div>
 
-        {/* Conditional next-step block: framework picker if no
-              storedFramework, "what's next" pointers into that
-              framework's docs if there is one. */}
         <DocsLandingNext />
       </div>
     </ShellDocsLayout>

@@ -5,7 +5,8 @@ CrewAI integration for CopilotKit
 import uuid
 import json
 import asyncio
-from typing_extensions import Any, Dict, List, Literal
+from typing_extensions import Any, Dict, List, Literal, Optional
+from copilotkit.exc import CopilotKitMisuseError
 from pydantic import BaseModel, Field
 from litellm.types.utils import (
     ModelResponse,
@@ -226,14 +227,19 @@ async def copilotkit_emit_message(message: str) -> str:
     return message_id
 
 
-async def copilotkit_emit_tool_call(*, name: str, args: Dict[str, Any]) -> str:
+async def copilotkit_emit_tool_call(
+    *, name: str, args: Dict[str, Any], tool_call_id: Optional[str] = None
+) -> str:
     """
     Manually emits a tool call to CopilotKit.
 
     ```python
     from copilotkit.crewai import copilotkit_emit_tool_call
 
-    await copilotkit_emit_tool_call(name="SearchTool", args={"steps": 10})
+    auto_id = await copilotkit_emit_tool_call(name="SearchTool", args={"steps": 10})
+
+    # With a custom ID for correlation/idempotency:
+    custom_id = await copilotkit_emit_tool_call(name="SearchTool", args={"steps": 10}, tool_call_id="my-custom-id")
     ```
 
     Parameters
@@ -242,22 +248,57 @@ async def copilotkit_emit_tool_call(*, name: str, args: Dict[str, Any]) -> str:
         The name of the tool to emit.
     args : Dict[str, Any]
         The arguments to emit.
+    tool_call_id : Optional[str]
+        Optional tool call ID. If not provided, a random UUID is generated.
+        When provided, this ID is used as both the toolCallId and
+        parentMessageId in AG-UI protocol events.
+        The caller is responsible for ensuring uniqueness.
 
     Returns
     -------
-    Awaitable[bool]
-        Always return True.
+    str
+        The tool call ID used for the emitted tool call.
     """
-    message_id = str(uuid.uuid4())
-    await queue_put(
-        action_execution_start(
-            action_execution_id=message_id,
-            action_name=name,
-            parent_message_id=message_id,
-        ),
-        action_execution_args(action_execution_id=message_id, args=json.dumps(args)),
-        action_execution_end(action_execution_id=message_id),
-    )
+    if not isinstance(name, str) or not name.strip():
+        raise CopilotKitMisuseError(
+            "Tool name must be a non-empty string for copilotkit_emit_tool_call"
+        )
+
+    if tool_call_id is not None:
+        if not isinstance(tool_call_id, str) or not tool_call_id.strip():
+            raise CopilotKitMisuseError(
+                "Tool call id must be a non-empty string when provided for copilotkit_emit_tool_call"
+            )
+    try:
+        args_json = json.dumps(args)
+    except (TypeError, ValueError) as e:
+        raise CopilotKitMisuseError(
+            f"Tool arguments for '{name}' are not JSON-serializable: {e}"
+        ) from e
+
+    message_id = tool_call_id if tool_call_id is not None else str(uuid.uuid4())
+    try:
+        await queue_put(
+            action_execution_start(
+                action_execution_id=message_id,
+                action_name=name,
+                parent_message_id=message_id,
+            ),
+            action_execution_args(action_execution_id=message_id, args=args_json),
+            action_execution_end(action_execution_id=message_id),
+        )
+    except Exception:
+        try:
+            await queue_put(
+                action_execution_end(action_execution_id=message_id),
+            )
+        except Exception:
+            logger.error(
+                "Failed to emit compensating action_execution_end for %s",
+                message_id,
+                exc_info=True,
+            )
+        raise
 
     return message_id
 

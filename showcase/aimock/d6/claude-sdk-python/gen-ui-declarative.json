@@ -1,0 +1,117 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for claude-sdk-python / gen-ui-declarative",
+    "sourceScript": "d5-gen-ui-declarative.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-declarative kpi-dashboard pill — emits render_a2ui with Card + Metric components. The D5 script asserts declarative-card and declarative-metric testids mount.",
+      "match": {
+        "userMessage": "KPI dashboard with 3-4 metrics",
+        "hasToolResult": false,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_kpi_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"Card\",\"props\":{\"title\":\"Q4 KPI Dashboard\"}},{\"type\":\"Metric\",\"props\":{\"label\":\"Revenue\",\"value\":\"$1.2M\",\"change\":\"+15%\"}},{\"type\":\"Metric\",\"props\":{\"label\":\"Signups\",\"value\":\"4,231\",\"change\":\"+22%\"}},{\"type\":\"Metric\",\"props\":{\"label\":\"Churn\",\"value\":\"2.1%\",\"change\":\"-0.3%\"}}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "KPI dashboard with 3-4 metrics",
+        "hasToolResult": true,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "KPI dashboard rendered with revenue, signups, and churn metrics."
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative pie-chart pill — emits render_a2ui with PieChart component. The D5 script asserts declarative-pie-chart testid mounts.",
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "hasToolResult": false,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_pie_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"PieChart\",\"props\":{\"title\":\"Sales by Region\",\"data\":[{\"label\":\"North America\",\"value\":45},{\"label\":\"Europe\",\"value\":30},{\"label\":\"Asia Pacific\",\"value\":25}]}}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "hasToolResult": true,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Pie chart rendered showing sales distribution across North America (45%), Europe (30%), and Asia Pacific (25%)."
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative bar-chart pill — emits render_a2ui with BarChart component. The D5 script asserts declarative-bar-chart testid mounts.",
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "hasToolResult": false,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_bar_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"BarChart\",\"props\":{\"title\":\"Quarterly Revenue\",\"data\":[{\"label\":\"Q1\",\"value\":280000},{\"label\":\"Q2\",\"value\":320000},{\"label\":\"Q3\",\"value\":350000},{\"label\":\"Q4\",\"value\":410000}]}}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "hasToolResult": true,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Bar chart rendered showing quarterly revenue trending upward from Q1 ($280K) to Q4 ($410K)."
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative status-report pill — emits render_a2ui with StatusBadge components. The D5 script asserts declarative-status-badge testid mounts (this is the distinguishing signal).",
+      "match": {
+        "userMessage": "status report on system health",
+        "hasToolResult": false,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_status_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"StatusBadge\",\"props\":{\"label\":\"API\",\"status\":\"healthy\",\"uptime\":\"99.97%\"}},{\"type\":\"StatusBadge\",\"props\":{\"label\":\"Database\",\"status\":\"healthy\",\"uptime\":\"99.99%\"}},{\"type\":\"StatusBadge\",\"props\":{\"label\":\"Background Workers\",\"status\":\"degraded\",\"uptime\":\"98.2%\"}}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "status report on system health",
+        "hasToolResult": true,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "System health report: API and Database are healthy (99.97% and 99.99% uptime). Background Workers are slightly degraded at 98.2% uptime."
+      }
+    }
+  ]
+}
