@@ -1,9 +1,9 @@
 import { logger } from "@copilotkit/shared";
-import {
+import type {
   CopilotIntelligenceRuntimeLike,
   CopilotRuntimeLike,
-  isIntelligenceRuntime,
 } from "../../core/runtime";
+import { isIntelligenceRuntime } from "../../core/runtime";
 import { PlatformRequestError } from "../../intelligence-platform/client";
 import { errorResponse, isHandlerResponse } from "../shared/json-response";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
@@ -55,7 +55,7 @@ function isNonEmptyString(value: unknown): value is string {
  * `POST /user-actions` handler.
  *
  * Three-tier flow:
- *   useRecordUserAction() (frontend)
+ *   useLearnFromUserAction() (frontend)
  *     → POST ${runtimeUrl}/user-actions
  *     → this handler resolves the Intel user from BFF auth
  *     → intelligence.recordUserAction(...)
