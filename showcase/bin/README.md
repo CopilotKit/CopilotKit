@@ -45,7 +45,7 @@ need to read private packages; public packages work anonymously via the GHCR
 | `pin`             | Pin a service to a specific image digest.                                           |
 | `env-diff`        | Diff two envs; exits 1 on drift.                                                    |
 | `resolve-digest`  | Resolve an image tag (e.g. `:latest`) to its `sha256:` digest.                      |
-| `lint-prod`       | CI gate: fail if any prod service is not digest-pinned.                             |
+| `lint-prod`       | CI gate (advisory): warn if any prod service is not digest-pinned. `--exit-zero` for advisory mode. |
 
 Run any subcommand with `--help` for full flag list.
 
@@ -97,8 +97,17 @@ showcase/bin/railway restore --env production --snapshot before-promote.yaml --y
 ## CI integration
 
 `.github/workflows/showcase_lint_prod.yml` runs `bin/railway lint-prod` on
-every PR that touches `showcase/**`. The job fails (exit 1) if any
-production service has drifted away from a digest pin — that's the contract.
+every PR that touches `showcase/**`.
+
+**Currently advisory** — the workflow passes `--exit-zero`, so findings print
+to the job log but do not fail the PR. This lets us soak the check against
+real production state before turning it into a hard gate. Once we've built
+confidence the findings are clean, remove `--exit-zero` from the workflow to
+flip the check to enforcing (exit 1 on drift).
+
+Long-term contract: every production service must be pinned to an immutable
+`ghcr.io/...@sha256:...` digest, and the lint job will fail any PR that
+drifts away from that.
 
 ## Tests
 

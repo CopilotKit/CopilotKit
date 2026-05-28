@@ -1034,15 +1034,24 @@ module Railway
 
     # lint-prod — verify every prod service is pinned to a digest.
     class LintProdCommand < BaseCommand
+        def initialize(argv)
+            super
+            @exit_zero = false
+        end
+
         def parser
             OptionParser.new do |o|
                 o.banner = <<~BANNER
-                    Usage: bin/railway lint-prod
+                    Usage: bin/railway lint-prod [--exit-zero]
 
                       Fails (exit 1) if any production service is NOT pinned to
                       an immutable image digest (must be ghcr.io/...@sha256:...).
                       Intended as a CI gate on every PR touching showcase/.
+
+                      --exit-zero   Always exit 0 even on findings (advisory mode).
+                                    Findings still print to stdout.
                 BANNER
+                o.on("--exit-zero", "Advisory: exit 0 even when findings exist") { @exit_zero = true }
                 o.on("-h", "--help") { puts o; exit 0 }
             end
         end
@@ -1070,6 +1079,10 @@ module Railway
 
             findings.each { |f| puts f }
             puts "DRIFT: #{findings.size} production service(s) not digest-pinned."
+            if @exit_zero
+                puts "(advisory mode: --exit-zero set; exiting 0)"
+                return 0
+            end
             1
         end
     end

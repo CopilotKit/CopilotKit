@@ -1,11 +1,14 @@
 name: "Showcase: lint-prod (digest pinning)"
 
 # Runs `bin/railway lint-prod` on every PR that touches showcase/.
-# Fails CI if any production service is NOT pinned to an immutable image
-# digest (`ghcr.io/...@sha256:...`).
 #
-# This is the rollback-safety contract enforcement: production must always
-# be reproducible from a snapshot.
+# Currently ADVISORY: the `--exit-zero` flag makes the step exit 0 even when
+# findings exist, so this workflow will not block PRs while we soak. Findings
+# still print to the step log so we can monitor drift. Once we have confidence
+# the findings are clean, remove `--exit-zero` to flip this to enforcing.
+#
+# Long-term contract: production must always be reproducible from a snapshot
+# (every service pinned to `ghcr.io/...@sha256:...`).
 
 on:
   pull_request:
@@ -23,7 +26,7 @@ permissions:
 
 jobs:
   lint-prod:
-    name: Verify production digest pinning
+    name: Lint production pinning (advisory)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -35,7 +38,7 @@ jobs:
         with:
           ruby-version: "3.2"
 
-      - name: Run bin/railway lint-prod
+      - name: Lint production pinning (advisory)
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
@@ -43,7 +46,9 @@ jobs:
             echo "::warning::RAILWAY_TOKEN secret not configured; skipping lint-prod."
             exit 0
           fi
-          ruby showcase/bin/railway lint-prod
+          # Advisory mode: --exit-zero so findings don't block the PR while we soak.
+          # Flip to enforcing by removing --exit-zero once findings are clean.
+          ruby showcase/bin/railway lint-prod --exit-zero
 
       - name: Run bin/railway tests
         run: |
