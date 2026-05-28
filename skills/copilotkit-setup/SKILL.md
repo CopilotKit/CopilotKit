@@ -156,7 +156,7 @@ Create `src/index.ts`:
 ```typescript
 import express from "express";
 import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
-import { createCopilotEndpointSingleRouteExpress } from "@copilotkit/runtime/express";
+import { createCopilotEndpointSingleRouteExpress } from "@copilotkit/runtime/v2/express";
 
 const agent = new BuiltInAgent({
   model: "openai/gpt-4o",
@@ -186,7 +186,7 @@ app.listen(port, () => {
 });
 ```
 
-For multi-route Express, use `createCopilotEndpointExpress` instead (imported from `@copilotkit/runtime/express`).
+For multi-route Express, use `createCopilotEndpointExpress` instead (imported from `@copilotkit/runtime/v2/express`).
 
 #### Standalone Hono Server (non-Vercel)
 
@@ -369,12 +369,12 @@ See `references/telemetry-setup.md` for full details on what the license key ena
 
 ### Endpoint factory functions
 
-| Function                                  | Import                        | Protocol               | Framework                           |
-| ----------------------------------------- | ----------------------------- | ---------------------- | ----------------------------------- |
-| `createCopilotEndpoint`                   | `@copilotkit/runtime/v2`      | Multi-route (Hono)     | Next.js App Router, Hono standalone |
-| `createCopilotEndpointSingleRoute`        | `@copilotkit/runtime/v2`      | Single-route (Hono)    | Next.js App Router                  |
-| `createCopilotEndpointExpress`            | `@copilotkit/runtime/express` | Multi-route (Express)  | Express standalone                  |
-| `createCopilotEndpointSingleRouteExpress` | `@copilotkit/runtime/express` | Single-route (Express) | Express standalone                  |
+| Function                                  | Import                           | Protocol               | Framework                           |
+| ----------------------------------------- | -------------------------------- | ---------------------- | ----------------------------------- |
+| `createCopilotEndpoint`                   | `@copilotkit/runtime/v2`         | Multi-route (Hono)     | Next.js App Router, Hono standalone |
+| `createCopilotEndpointSingleRoute`        | `@copilotkit/runtime/v2`         | Single-route (Hono)    | Next.js App Router                  |
+| `createCopilotEndpointExpress`            | `@copilotkit/runtime/v2/express` | Multi-route (Express)  | Express standalone                  |
+| `createCopilotEndpointSingleRouteExpress` | `@copilotkit/runtime/v2/express` | Single-route (Express) | Express standalone                  |
 
 ### Runtime classes
 
