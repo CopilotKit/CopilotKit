@@ -1,15 +1,53 @@
-"""Header propagation for forwarding x-* prefixed headers to outgoing LLM calls.
+"""Forward CopilotKit request-context headers onto outbound LLM/provider HTTP calls
+so downstream services (e.g. the aimock test server, proxies, request routing /
+fixture-matching infrastructure) can correlate the outbound provider call with the
+original inbound request.
 
-Uses Python contextvars for per-request ambient state in async FastAPI handlers.
-An httpx event hook reads the ContextVar and injects headers on outgoing requests.
-Matches the CopilotKit runtime's extractForwardableHeaders() behavior.
+What this module does
+---------------------
+On each inbound request the application stores a small set of ``x-*`` prefixed
+headers (for example ``x-aimock-context``, ``x-aimock-session``, ``x-request-id``,
+``x-trace-id``) on a per-request ``contextvars.ContextVar``. When the application
+later makes an outbound HTTP call to an LLM provider (OpenAI, Anthropic, or any
+client that wraps ``httpx``), an httpx request event hook reads that ContextVar
+and copies those same headers onto the outbound request so downstream services
+can correlate the two.
+
+This is plain header propagation, not data collection. Scope and limits:
+
+* Only headers the application itself set on the request context via
+  ``set_forwarded_headers`` are forwarded. The module never reads request
+  bodies, cookies, user data, credentials, or anything off the inbound
+  request beyond the headers explicitly handed to it.
+* Only ``x-*`` prefixed headers pass the filter; ``authorization``,
+  ``content-type``, and any other non ``x-*`` headers are dropped.
+* Nothing is collected, persisted, logged, or sent anywhere by this module
+  itself — it only attaches headers to an HTTP request that the caller was
+  already going to make. There is no telemetry, no out-of-band channel, and
+  no end-user data flow.
+
+Mechanics
+---------
+``install_httpx_hook`` does two small things:
+
+1. It walks the ``._client`` chain on the given object (modern provider SDKs
+   wrap their httpx client behind several layers of ``._client``) to find the
+   first object that exposes an httpx-style ``event_hooks`` mapping.
+2. It attaches a request event hook to that mapping. The hook flavor matches
+   the client: an async coroutine hook for ``httpx.AsyncClient`` (httpx awaits
+   request hooks on async clients), and a plain sync hook for ``httpx.Client``.
+   Installation is idempotent via a marker attribute on the installed callable.
+
+This mirrors the CopilotKit runtime's ``extractForwardableHeaders()`` behavior
+on the Node side so the Python SDK forwards the same set of context headers.
 """
 
 import contextvars
 import warnings
 from typing import Any, Dict, Optional
 
-# Ambient per-request state for headers to forward to LLM calls
+# Per-request storage for the set of headers the application has asked to forward
+# onto outbound LLM/provider calls (populated by ``set_forwarded_headers``).
 _forwarded_headers: contextvars.ContextVar[Dict[str, str]] = contextvars.ContextVar(
     "copilotkit_forwarded_headers"
 )
@@ -28,14 +66,18 @@ _MAX_CHAIN_DEPTH = 5
 
 
 def set_forwarded_headers(headers: Dict[str, str]) -> None:
-    """Store headers to forward to outgoing LLM calls.
-    Filters to x-* prefixed headers only."""
+    """Record the set of headers to forward onto outbound LLM/provider calls
+    made later in this request context.
+
+    Only ``x-*`` prefixed headers are kept; everything else is dropped.
+    """
     filtered = {k.lower(): v for k, v in headers.items() if k.lower().startswith("x-")}
     _forwarded_headers.set(filtered)
 
 
 def get_forwarded_headers() -> Dict[str, str]:
-    """Get headers that should be forwarded to outgoing LLM calls."""
+    """Return the headers the application has asked to forward onto outbound
+    LLM/provider calls in the current request context."""
     return _forwarded_headers.get({})
 
 
@@ -60,14 +102,16 @@ def _find_event_hooks_target(client: Any) -> Optional[Any]:
 
 
 def install_httpx_hook(client: Any) -> None:
-    """Append an event hook to an httpx client that injects forwarded headers.
+    """Attach a request event hook to ``client``'s underlying httpx client so
+    that headers recorded via ``set_forwarded_headers`` are copied onto
+    outbound requests.
 
     Works with OpenAI and Anthropic Python SDKs (both wrap httpx internally,
     sometimes via several layers of ``._client`` indirection), as well as raw
     ``httpx.Client`` / ``httpx.AsyncClient`` instances.
 
-    For ``httpx.AsyncClient`` an async hook is installed (httpx awaits request
-    hooks on async clients); for sync clients a sync hook is installed.
+    For ``httpx.AsyncClient`` an async hook is attached (httpx awaits request
+    hooks on async clients); for sync clients a sync hook is attached.
 
     Idempotent: a marker attribute on the installed callable prevents double
     installation on the same target.
@@ -94,7 +138,7 @@ def install_httpx_hook(client: Any) -> None:
         if getattr(existing, _HOOK_MARKER, False):
             return
 
-    # Decide sync vs async hook flavor based on the target class.
+    # Choose sync vs async hook flavor based on the target class.
     # httpx.AsyncClient awaits request hooks; a sync hook returning None would
     # raise "TypeError: object NoneType can't be used in 'await' expression",
     # which surfaces as APIConnectionError to the caller.
@@ -134,8 +178,9 @@ def _is_async_httpx_target(target: Any) -> bool:
     match against ``"AsyncClient"``. Avoids a broad ``startswith("Async")``
     check, which would misclassify a sync client whose MRO happens to
     include an ``Async*``-named base (e.g. ``AsyncContextManager``) as
-    async — installing an async hook that httpx calls synchronously,
-    leaving the coroutine unawaited and headers silently dropped.
+    async — attaching an async hook that httpx calls synchronously would
+    leave the coroutine unawaited and the forwarded headers would not be
+    attached to the outbound request.
     """
     try:
         import httpx  # local import keeps httpx an optional concern at import time
