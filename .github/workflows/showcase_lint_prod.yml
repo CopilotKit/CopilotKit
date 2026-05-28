@@ -1,0 +1,50 @@
+name: "Showcase: lint-prod (digest pinning)"
+
+# Runs `bin/railway lint-prod` on every PR that touches showcase/.
+# Fails CI if any production service is NOT pinned to an immutable image
+# digest (`ghcr.io/...@sha256:...`).
+#
+# This is the rollback-safety contract enforcement: production must always
+# be reproducible from a snapshot.
+
+on:
+  pull_request:
+    paths:
+      - "showcase/**"
+      - ".github/workflows/showcase_lint_prod.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: showcase-lint-prod-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint-prod:
+    name: Verify production digest pinning
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+
+      - name: Run bin/railway lint-prod
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::warning::RAILWAY_TOKEN secret not configured; skipping lint-prod."
+            exit 0
+          fi
+          ruby showcase/bin/railway lint-prod
+
+      - name: Run bin/railway tests
+        run: |
+          ruby showcase/bin/spec/all_tests.rb
