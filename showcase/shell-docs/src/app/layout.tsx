@@ -6,6 +6,7 @@ import { AnalyticsClient } from "@/components/analytics-client";
 import { Banners } from "@/components/banners";
 import { BrandNav } from "@/components/brand-nav";
 import { FrameworkProvider } from "@/components/framework-provider";
+import { ShellSearchProvider } from "@/components/search-trigger";
 import { PostHogProvider } from "@/lib/providers/posthog-provider";
 import { ScarfPixel } from "@/lib/providers/scarf-pixel";
 import { getIntegrations } from "@/lib/registry";
@@ -162,24 +163,27 @@ export default function RootLayout({
          */}
         <PostHogProvider>
           <FrameworkProvider knownFrameworks={knownFrameworks}>
-            {/* RootProvider supplies Fumadocs's theme provider (next-themes)
-             * and the search-dialog context, which DocsLayout and other
-             * fumadocs-ui components read from. We keep BrandNav + Banners
-             * outside DocsLayout so chrome remains shell-docs's own. */}
-            <RootProvider theme={{ enabled: true, defaultTheme: "system" }}>
-              {/* Body is a fixed-height (100vh) flex column with hidden
-               * overflow (see globals.css). Banner + nav sit naturally
-               * at the top; <main> takes the remaining height and is
-               * the horizontal flex row that hosts sidebar + the
-               * scrolling `.docs-content-wrapper`. No sticky positioning
-               * is needed — chrome stays put because it's outside the
-               * scroll container. Mirrors canonical `#nd-home-layout`
-               * (margin: 0 4px; xl: 0 8px 8px 8px). */}
-              <Banners />
-              <BrandNav />
-              <main className="flex flex-1 min-h-0 overflow-hidden mx-1 md:mx-[22px] mt-2 md:mt-6 mb-2 md:mb-3">
-                {children}
-              </main>
+            {/* RootProvider supplies Fumadocs's theme provider (next-themes).
+             * Search is handled exclusively by shell-docs's SearchTrigger. */}
+            <RootProvider
+              theme={{ enabled: true, defaultTheme: "system" }}
+              search={{ enabled: false }}
+            >
+              <ShellSearchProvider>
+                {/* Body is a fixed-height (100vh) flex column with hidden
+                 * overflow (see globals.css). Banner + nav sit naturally
+                 * at the top; <main> takes the remaining height and is
+                 * the horizontal flex row that hosts sidebar + the
+                 * scrolling `.docs-content-wrapper`. No sticky positioning
+                 * is needed — chrome stays put because it's outside the
+                 * scroll container. Mirrors canonical `#nd-home-layout`
+                 * (margin: 0 4px; xl: 0 8px 8px 8px). */}
+                <Banners />
+                <BrandNav />
+                <main className="flex flex-1 min-h-0 overflow-hidden mx-1 md:mx-[22px] mt-2 md:mt-6 mb-2 md:mb-3">
+                  {children}
+                </main>
+              </ShellSearchProvider>
             </RootProvider>
           </FrameworkProvider>
         </PostHogProvider>

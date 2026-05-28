@@ -526,6 +526,206 @@ const ROOT_RENAMES: RedirectEntry[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// BIA-default root surface — Built-in Agent is now the soft-default
+// framework, so legacy and external links of the form `/<bia-page>`
+// (without a framework prefix) should resolve to the canonical
+// `/built-in-agent/<bia-page>` rather than 404. Each entry below targets
+// a topic whose only on-disk file is under
+// `content/docs/integrations/built-in-agent/` — there is no agnostic
+// root MDX, so without these redirects the bare URL has nothing to
+// render. SidebarLink already rewrites internal sidebar clicks to the
+// framework-scoped URL, so the affected traffic is external (blog
+// posts, marketing material, old bookmarks).
+// ---------------------------------------------------------------------------
+
+const BIA_DEFAULT_ROOT_REDIRECTS: RedirectEntry[] = [
+  {
+    id: "BIA-server-tools",
+    source: "/server-tools",
+    destination: "/built-in-agent/server-tools",
+  },
+  {
+    id: "BIA-mcp-servers",
+    source: "/mcp-servers",
+    destination: "/built-in-agent/mcp-servers",
+  },
+  {
+    id: "BIA-model-selection",
+    source: "/model-selection",
+    destination: "/built-in-agent/model-selection",
+  },
+  {
+    id: "BIA-advanced-configuration",
+    source: "/advanced-configuration",
+    destination: "/built-in-agent/advanced-configuration",
+  },
+  {
+    id: "BIA-agent-app-context",
+    source: "/agent-app-context",
+    destination: "/built-in-agent/agent-app-context",
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Moved root pages — topics that used to be addressable at `/<page>` in
+// the legacy docs surface but moved into a new section under shell-docs.
+// These don't fit under "renames" (the slug stays the same) — only the
+// parent folder changed. Each maps to a real on-disk MDX file.
+// ---------------------------------------------------------------------------
+
+const MOVED_ROOT_REDIRECTS: RedirectEntry[] = [
+  // /mcp-apps lived at `/generative-ui/mcp-apps` in legacy docs; the
+  // bare `/mcp-apps` URL was used in external references (blog posts,
+  // product copy) and now 404s.
+  {
+    id: "MV-mcp-apps",
+    source: "/mcp-apps",
+    destination: "/generative-ui/mcp-apps",
+  },
+  // /copilot-runtime and /custom-agent moved under /backend/ in
+  // shell-docs. R25 already covers /runtime-server-adapter; these
+  // cover the canonical legacy paths.
+  {
+    id: "MV-copilot-runtime",
+    source: "/copilot-runtime",
+    destination: "/backend/copilot-runtime",
+  },
+  {
+    id: "MV-custom-agent",
+    source: "/custom-agent",
+    destination: "/backend/custom-agent",
+  },
+  // Deep Agents promoted from a langgraph subpath to its own
+  // integration. L12/L13 (in LEGACY_CHAINS_EXACT) cover the
+  // /langgraph/deep-agents and /langgraph-python/deep-agents variants;
+  // this catches the bare /deep-agents URL.
+  {
+    id: "MV-deep-agents",
+    source: "/deep-agents",
+    destination: "/deepagents",
+  },
+  // /multi-agent-flows is a LangGraph-only topic. The bare URL was
+  // never authored agnostically; send legacy hits to the LangGraph
+  // (Python) variant, which is the dominant traffic source.
+  {
+    id: "MV-multi-agent-flows",
+    source: "/multi-agent-flows",
+    destination: "/langgraph-python/multi-agent-flows",
+  },
+  // /generative-ui/specs/* — the "specs" subgroup was retired in
+  // favour of flat /generative-ui/<spec> pages. The /learn/ tree's
+  // legacy variant is already covered upstream; these catch the
+  // /generative-ui/specs/* surface directly.
+  {
+    id: "MV-gs-mcp-apps",
+    source: "/generative-ui/specs/mcp-apps",
+    destination: "/generative-ui/mcp-apps",
+  },
+  {
+    id: "MV-gs-a2ui",
+    source: "/generative-ui/specs/a2ui",
+    destination: "/generative-ui/a2ui",
+  },
+  {
+    id: "MV-gs-open-json-ui",
+    source: "/generative-ui/specs/open-json-ui",
+    destination: "/generative-ui/open-json-ui",
+  },
+  {
+    id: "MV-gs-root",
+    source: "/generative-ui/specs",
+    destination: "/concepts/generative-ui-overview",
+  },
+  // /custom-look-and-feel folder index — no index.mdx exists, so the
+  // bare folder URL 404s. /slots is the canonical first-page entry
+  // (matches what the sidebar opens by default).
+  {
+    id: "MV-clf-root",
+    source: "/custom-look-and-feel",
+    destination: "/custom-look-and-feel/slots",
+  },
+  // /custom-look-and-feel/customize-built-in-ui-components was a
+  // pre-cutover page that consolidated into /slots. The /unselected/
+  // variant is handled in next.config.ts; this catches the canonical
+  // (non-prefixed) legacy URL.
+  {
+    id: "MV-clf-customize",
+    source: "/custom-look-and-feel/customize-built-in-ui-components",
+    destination: "/custom-look-and-feel/slots",
+  },
+  // /what-is-copilotkit was a landing alias in legacy docs (referenced
+  // from CONTRIBUTING.md). Send to the home page.
+  {
+    id: "MV-what-is",
+    source: "/what-is-copilotkit",
+    destination: "/",
+  },
+  // /getting-started/quickstart-chatbot — legacy quickstart URL used
+  // in older marketing copy. /quickstart already redirects to the BIA
+  // quickstart (handled in next.config.ts).
+  {
+    id: "MV-gs-qs-chatbot",
+    source: "/getting-started/quickstart-chatbot",
+    destination: "/quickstart",
+  },
+  // /telemetry was a one-off legacy page. Send to the home page rather
+  // than 404 since the topic has no current canonical home.
+  {
+    id: "MV-telemetry",
+    source: "/telemetry",
+    destination: "/",
+  },
+  // /reference/hooks/useCoAgent — useCoAgent (v1) was renamed to
+  // useAgent (v2). External links still point at the old name.
+  {
+    id: "MV-ref-useCoAgent",
+    source: "/reference/hooks/useCoAgent",
+    destination: "/reference/hooks/useAgent",
+  },
+  // /migration-guides → /migrate (MG1-MG4 in MIGRATION_GUIDES cover
+  // most entries; migrate-attachments wasn't in that set).
+  {
+    id: "MV-mg-attachments",
+    source: "/migration-guides/migrate-attachments",
+    destination: "/migrate/v2",
+  },
+  // /migration/* — pre-rename of /migrate/* and /migration-guides/*.
+  // Covers the singular "migration" prefix used by a few older docs.
+  {
+    id: "MV-migration-render-message",
+    source: "/migration/render-message",
+    destination: "/migrate/v2",
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Legacy `/integrations/<fw>/*` URL surface — the upstream Fumadocs
+// site rewrote /<fw>/<path> → /integrations/<fw>/<path> internally,
+// and authored external links sometimes leaked the rewritten form. R15
+// + R17 (above) cover the built-in-agent variant; this section covers
+// the remaining frameworks. The /docs/integrations/* variants are
+// already handled by DOCS_INTEGRATIONS_RENAMES below.
+// ---------------------------------------------------------------------------
+
+const INTEGRATIONS_PREFIX_RENAMES: RedirectEntry[] = FRAMEWORKS.filter(
+  (fw) => fw !== "unselected",
+).flatMap((fw) => {
+  const fwDest = canonicalSlug(fw);
+  return [
+    {
+      id: `INT-wild×${fw}`,
+      source: `/integrations/${fw}/:path*`,
+      destination: `/${fwDest}/:path*`,
+    },
+    {
+      id: `INT-root×${fw}`,
+      source: `/integrations/${fw}`,
+      destination: `/${fwDest}`,
+    },
+  ];
+});
+
+// ---------------------------------------------------------------------------
 // Category 2: Legacy Redirect Chains (coagents -> langgraph-python, crewai-crews -> crewai-crews)
 // Specific entries BEFORE the catch-all wildcards
 // ---------------------------------------------------------------------------
@@ -824,9 +1024,12 @@ export const seoRedirects: RedirectEntry[] = [
   ...SPECIFIC_FRAMEWORK,
   ...CODING_AGENTS_RENAMES,
   ...ROOT_RENAMES,
+  ...BIA_DEFAULT_ROOT_REDIRECTS,
+  ...MOVED_ROOT_REDIRECTS,
   ...LEGACY_CHAINS_EXACT,
   ...DOCS_INTEGRATIONS_INDEX.filter((e) => !e.source.includes(":path*")),
   ...DOCS_INTEGRATIONS_RENAMES.filter((e) => !e.source.includes(":path*")),
+  ...INTEGRATIONS_PREFIX_RENAMES.filter((e) => !e.source.includes(":path*")),
   ...DOCS_PREFIX,
   ...MIGRATION_GUIDES,
   ...FOLDER_INDEX,
@@ -835,6 +1038,7 @@ export const seoRedirects: RedirectEntry[] = [
   // 3. Wildcard catch-alls last — order matters: most-specific wildcard first
   ...DOCS_INTEGRATIONS_RENAMES.filter((e) => e.source.includes(":path*")),
   ...DOCS_INTEGRATIONS_INDEX.filter((e) => e.source.includes(":path*")),
+  ...INTEGRATIONS_PREFIX_RENAMES.filter((e) => e.source.includes(":path*")),
   ...SLUG_RENAME_REDIRECTS,
   ...WILDCARD_REDIRECTS,
 ];

@@ -16,14 +16,11 @@
 import { randomUUID } from "node:crypto";
 
 import { z } from "zod";
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
-import {
-  AIMessage,
-  SystemMessage,
-  ToolMessage,
-} from "@langchain/core/messages";
+import type { AIMessage } from "@langchain/core/messages";
+import { SystemMessage, ToolMessage } from "@langchain/core/messages";
 import type { ToolRunnableConfig } from "@langchain/core/tools";
 import {
   Annotation,
@@ -152,7 +149,9 @@ function shouldContinue({ messages, copilotkit }: AgentState) {
   if (lastMessage.tool_calls?.length) {
     const actions = copilotkit?.actions;
     const hasBackendToolCall = lastMessage.tool_calls.some((toolCall) => {
-      return !actions || actions.every((action) => action.name !== toolCall.name);
+      return (
+        !actions || actions.every((action) => action.name !== toolCall.name)
+      );
     });
 
     if (hasBackendToolCall) {

@@ -1,4 +1,6 @@
 import React from "react";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 import type { NextRequest } from "next/server";
 import { notFound } from "next/navigation";
 import { ImageResponse } from "next/og";
@@ -20,9 +22,46 @@ import { getDocsFolder, getIntegration } from "@/lib/registry";
 // cold cache) put the request into the catch block, which 307-redirected
 // to a static CDN fallback that itself was broken (25 bytes). The result
 // was zero working OG images on most pages in prod. We now skip the font
-// fetch entirely and rely on Satori's built-in default sans-serif. The
-// PNG quality is unchanged for the headings and tagline; the upside is
-// every page renders successfully without depending on external network.
+// fetch entirely. Keep that reliability improvement by loading all OG
+// render assets from shell-docs/public instead of external URLs.
+
+const PUBLIC_ROOT_CANDIDATES = [
+  path.join(process.cwd(), "public"),
+  path.join(process.cwd(), "showcase/shell-docs/public"),
+];
+
+function readPublicAsset(relativePath: string): Buffer {
+  for (const publicRoot of PUBLIC_ROOT_CANDIDATES) {
+    const candidate = path.join(publicRoot, relativePath);
+    if (existsSync(candidate)) {
+      return readFileSync(candidate);
+    }
+  }
+
+  throw new Error(`Missing shell-docs public asset: ${relativePath}`);
+}
+
+function toArrayBuffer(buffer: Buffer): ArrayBuffer {
+  return buffer.buffer.slice(
+    buffer.byteOffset,
+    buffer.byteOffset + buffer.byteLength,
+  ) as ArrayBuffer;
+}
+
+function toPngDataUri(buffer: Buffer): string {
+  return `data:image/png;base64,${buffer.toString("base64")}`;
+}
+
+const interMedium = toArrayBuffer(
+  readPublicAsset("fonts/inter/Inter-Medium.ttf"),
+);
+const interBold = toArrayBuffer(readPublicAsset("fonts/inter/Inter-Bold.ttf"));
+const ogBackgroundImage = toPngDataUri(
+  readPublicAsset("images/og/opengraph-background.png"),
+);
+const copilotKitLogo = toPngDataUri(
+  readPublicAsset("images/og/copilotkit-logo.png"),
+);
 
 // In Next.js 13+ (app directory), route handlers use the following signature:
 export async function GET(
@@ -63,8 +102,7 @@ export async function GET(
         style={{
           backgroundColor: "#000000",
           background: "#FAEEDC",
-          backgroundImage:
-            "url('https://cdn.copilotkit.ai/docs/copilotkit/images/opengraph-background.png')",
+          backgroundImage: `url('${ogBackgroundImage}')`,
           backgroundSize: "cover",
           backgroundPosition: "0% 0%",
           width: "100%",
@@ -72,7 +110,7 @@ export async function GET(
           padding: "5%",
           display: "block",
           position: "relative",
-          fontFamily: "sans-serif",
+          fontFamily: "Inter",
         }}
       >
         <section style={{ display: "flex", flexDirection: "column" }}>
@@ -82,7 +120,7 @@ export async function GET(
               style={{
                 width: "14rem",
               }}
-              src="https://github-production-user-asset-6210df.s3.amazonaws.com/746397/288400836-bd5c9079-929b-4d55-bdc9-16d1c8181b71.png"
+              src={copilotKitLogo}
               alt="CopilotKit"
             />
           </div>
@@ -99,7 +137,7 @@ export async function GET(
               <p
                 style={{
                   color: "#4f46e5",
-                  fontFamily: "sans-serif",
+                  fontFamily: "Inter",
                   fontWeight: 700,
                   margin: 0,
                   fontSize: 48,
@@ -115,7 +153,7 @@ export async function GET(
                   fontSize: 34,
                   marginBottom: 12,
                   fontWeight: 500,
-                  fontFamily: "sans-serif",
+                  fontFamily: "Inter",
                 }}
               >
                 {doc.fm.description}
@@ -124,6 +162,22 @@ export async function GET(
           </section>
         </section>
       </section>,
+      {
+        fonts: [
+          {
+            name: "Inter",
+            data: interMedium,
+            weight: 500,
+            style: "normal",
+          },
+          {
+            name: "Inter",
+            data: interBold,
+            weight: 700,
+            style: "normal",
+          },
+        ],
+      },
     );
   } catch (error) {
     // Note: notFound() throws an internal Next.js redirect-like error; let
