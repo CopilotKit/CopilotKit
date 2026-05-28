@@ -197,8 +197,23 @@ jobs:
       - name: Verify push-path auto-fix is complete
         if: github.event_name == 'push' && env.format_fixed == 'true'
         run: |
-          oxfmt --check .
-          ruff format --check .
+          # Check the same scoped file set the formatter wrote to — not the
+          # whole repo. Running --check . would fail on pre-existing violations
+          # in docs/ or examples/ that the push path intentionally skips.
+          mapfile -d '' verify_files < <(git ls-files -z -- \
+            '*.js' '*.jsx' '*.ts' '*.tsx' '*.mjs' '*.cjs' \
+            '*.json' '*.jsonc' '*.json5' \
+            '*.md' \
+            '*.css' '*.yml' '*.yaml' '*.html' '*.vue' \
+            ':!docs/**' ':!examples/**' ':!README.md' \
+            ':!**/package-lock.json' ':!**/pnpm-lock.yaml' ':!**/yarn.lock')
+          if [ "${#verify_files[@]}" -gt 0 ]; then
+            printf '%s\0' "${verify_files[@]}" | xargs -0 oxfmt --no-error-on-unmatched-pattern --check
+          fi
+          verify_py=$(git ls-files -- '*.py' ':!docs/**' ':!examples/**' 2>/dev/null || true)
+          if [ -n "$verify_py" ]; then
+            echo "$verify_py" | xargs ruff format --check
+          fi
 
   oxlint:
     runs-on: ubuntu-latest
