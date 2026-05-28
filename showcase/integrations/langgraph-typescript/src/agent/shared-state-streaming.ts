@@ -3,11 +3,11 @@
  *
  * Demonstrates per-token state-delta streaming. The agent writes a long
  * `document` string into shared agent state via a `write_document` tool;
- * `StateStreamingMiddleware(StateItem(...))` tells CopilotKit to forward
- * *every token* of the tool's `document` argument directly into the
- * `document` state key as it is generated. The UI (useAgent) sees
- * `state.document` grow token-by-token, without waiting for the tool call
- * to finish.
+ * `copilotkitCustomizeConfig(..., { emitIntermediateState })` tells
+ * CopilotKit to forward every token of the tool's `document` argument
+ * directly into the `document` state key as it is generated. The UI
+ * (useAgent) sees `state.document` grow token-by-token, without waiting
+ * for the tool call to finish.
  *
  * This is the canonical per-token state-streaming pattern:
  * docs.copilotkit.ai/integrations/langgraph/shared-state/predictive-state-updates
@@ -16,14 +16,11 @@
 import { randomUUID } from "node:crypto";
 
 import { z } from "zod";
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
-import {
-  AIMessage,
-  SystemMessage,
-  ToolMessage,
-} from "@langchain/core/messages";
+import type { AIMessage } from "@langchain/core/messages";
+import { SystemMessage, ToolMessage } from "@langchain/core/messages";
 import type { ToolRunnableConfig } from "@langchain/core/tools";
 import {
   Annotation,
@@ -34,6 +31,7 @@ import {
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import {
+  copilotkitCustomizeConfig,
   convertActionsToDynamicStructuredTools,
   CopilotKitStateAnnotation,
 } from "@copilotkit/sdk-js/langgraph";
@@ -53,7 +51,6 @@ export type AgentState = typeof AgentStateAnnotation.State;
 // 2. Tool — `write_document` writes the document into shared state.
 // ---------------------------------------------------------------------------
 
-// @region[write-document-tool]
 const writeDocument = tool(
   async ({ document }, config: ToolRunnableConfig) => {
     const toolCallId = config.toolCall?.id;
@@ -93,7 +90,6 @@ const writeDocument = tool(
     }),
   },
 );
-// @endregion[write-document-tool]
 
 const tools = [writeDocument];
 
@@ -110,7 +106,10 @@ const SYSTEM_PROMPT =
   "UI renders it live as you type.";
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
-  const model = new ChatOpenAI({ model: "gpt-5.4" });
+  const model = new ChatOpenAI({
+    model: "gpt-5.4",
+    modelKwargs: { parallel_tool_calls: false },
+  });
 
   const modelWithTools = model.bindTools!([
     ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),
@@ -119,10 +118,22 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
 
   const systemMessage = new SystemMessage({ content: SYSTEM_PROMPT });
 
+  // @region[state-streaming-middleware]
+  const streamingConfig = copilotkitCustomizeConfig(config, {
+    emitIntermediateState: [
+      {
+        stateKey: "document",
+        tool: "write_document",
+        toolArgument: "document",
+      },
+    ],
+  });
+
   const response = await modelWithTools.invoke(
     [systemMessage, ...state.messages],
-    config,
+    streamingConfig,
   );
+  // @endregion[state-streaming-middleware]
 
   return { messages: response };
 }
@@ -137,9 +148,13 @@ function shouldContinue({ messages, copilotkit }: AgentState) {
 
   if (lastMessage.tool_calls?.length) {
     const actions = copilotkit?.actions;
-    const toolCallName = lastMessage.tool_calls![0].name;
+    const hasBackendToolCall = lastMessage.tool_calls.some((toolCall) => {
+      return (
+        !actions || actions.every((action) => action.name !== toolCall.name)
+      );
+    });
 
-    if (!actions || actions.every((action) => action.name !== toolCallName)) {
+    if (hasBackendToolCall) {
       return "tool_node";
     }
   }

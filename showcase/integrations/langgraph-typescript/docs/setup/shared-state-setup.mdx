@@ -1,6 +1,6 @@
 <Steps>
   <Step>
-    ### Install the LangGraph TypeScript SDK
+    ### Install the CopilotKit LangGraph SDK
 
     ```bash
     npm install @copilotkit/sdk-js
@@ -14,7 +14,7 @@
     `CopilotKitStateAnnotation`'s `spec`. That's what gives the runtime a
     place to forward state updates from `agent.setState(...)`.
 
-    <DemoCode file="src/agent/frontend-tools.ts" region="setup" />
+    <DemoCode file="src/agent/shared-state-read-write.ts" region="shared-state-setup" />
 
     See `src/agent/shared-state-read-write.ts` for the bidirectional
     pattern: a `set_notes` tool emits a `Command({ update: ... })` to

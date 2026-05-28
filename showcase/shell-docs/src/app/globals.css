@@ -362,24 +362,12 @@ figure.shiki > div:first-child[class*="border-b"] {
   }
 }
 
-/* Sidebar — float as a card panel inset from all four viewport edges,
- * matching the canonical "DocsLayout sidebar in a card" treatment. The
- * fumadocs aside is `fixed; left: 0; top: var(--fd-sidebar-top);
- * bottom: var(--fd-sidebar-margin)` by default — we override `left` and
- * tighten top/bottom so the panel floats with even breathing room. */
+/* Sidebar — keep the navigation unframed at every viewport width. */
 .shell-docs-sidebar {
-  /* In v16 the aside sits inside a sticky grid-area wrapper whose
-   * horizontal position is already driven by `<main className="mx-3">`
-   * — matching BrandNav's `px-3` (12px) so the sidebar pill's left
-   * edge lines up with BrandNav's left card. The previous
-   * `left: 0.75rem !important` was a v15-era leftover that added an
-   * extra 12px inset on top of main's margin, breaking that column
-   * alignment. */
-  /* Tailwind's `border-[var(--border)]` arbitrary-value class loses to
-   * the bare `border` utility's `currentColor` default in v4's cascade
-   * order — leading to a near-black outline against the white panel.
-   * Force the token explicitly. */
-  border-color: var(--border) !important;
+  background-color: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 
 /* Sidebar scroll viewport — 1rem padding on all sides matches the
@@ -387,36 +375,6 @@ figure.shiki > div:first-child[class*="border-b"] {
  * picker (banner bottom: 0) and the first nav link. */
 .shell-docs-sidebar [data-radix-scroll-area-viewport] {
   padding: 1rem !important;
-}
-
-/* Banner width: in fumadocs v16 the aside applies
- * `*:w-(--fd-sidebar-width)` to every direct child, so the banner
- * already matches the nav links underneath (268px). The previous
- * `width: 100%` override forced it to fill the aside, which at wide
- * viewports made the framework-picker stretch beyond the rest of the
- * sidebar. Removing that override is intentional.
- *
- * Pill chrome (the rounded card around the sidebar):
- *   • Below 2xl (≤1535px): keep the rounded card. Fumadocs's aside
- *     fills the sticky grid-area wrapper (`inset-y-0`) which is
- *     `100dvh - --fd-docs-row-1` tall. We leave this alone so the
- *     internal scroll viewport stays bounded and the footer
- *     (GitHub + Discord + theme toggle) pins to the bottom of the
- *     visible pill instead of being pushed below the viewport.
- *   • 2xl+ (≥1536px): drop the rounded/border/bg/shadow. At this
- *     point the sidebar grid-area widens past `--fd-sidebar-width`
- *     because the grid's outer 1fr columns gain horizontal space, so
- *     the pill would frame empty whitespace. The nav items
- *     (right-aligned via `items-end`) read better unframed. The
- *     `2xl` Tailwind breakpoint (1536px) lines up with fumadocs's
- *     `--fd-layout-width: 97rem` (1552px). */
-@media (min-width: 1536px) {
-  .shell-docs-sidebar {
-    background-color: transparent !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-  }
 }
 
 /* Bridge shell-docs's hand-rolled token names (--bg, --text, --accent, …)

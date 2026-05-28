@@ -1,30 +1,53 @@
+# release / publish
+#
+# Single npm OIDC entry point for both stable releases and prerelease canaries.
+# npm trusted publisher records for the 15 @copilotkit/* monorepo packages plus
+# @copilotkitnext/angular are registered against THIS workflow file. Matching
+# happens on the OIDC token's `workflow_ref` claim, which is always
+# publish-release.yml when this workflow is the entry point.
+#
+# Triggers:
+#   - pull_request: closed on a release/publish/<scope>/v<X.Y.Z> branch → stable
+#     release of <scope> at version <X.Y.Z> (the normal flow).
+#   - workflow_dispatch with mode=stable → manual retrigger of a failed stable
+#     release. Republishes from the latest commit on main. Only use this when
+#     the normal flow failed BEFORE npm publish succeeded.
+#   - workflow_dispatch with mode=prerelease → canary publish. Bumps versions
+#     in the build job to <X.Y.Z>-canary.<suffix>, publishes with --tag canary,
+#     skips tag push + GH Release + Notion notification.
 name: release / publish
 
 on:
   pull_request:
     types: [closed]
     branches: [main]
-  # Escape hatch for failed releases. Covers failures BEFORE the "Publish to
-  # npm" step succeeds (build errors, infra blips, git config bugs). Does
-  # NOT cover post-npm-publish failures: if npm publish already succeeded
-  # but a later step failed, the retry will fail at "Publish to npm" with
-  # an "already published" error, and the "Check for pre-existing tags"
-  # step will also block retries where the tag was pushed. For those cases,
-  # remediate by hand using release-notes.md from the merged release PR.
   workflow_dispatch:
     inputs:
       scope:
-        description: |
-          ⚠️ MANUAL RETRIGGER — republishes from the latest commit on main,
-          bypassing the normal release-PR flow. Only use this when the
-          normal flow failed BEFORE npm publish succeeded. If npm publish
-          already happened, finish the release by hand instead — dispatching
-          here will fail at "Publish to npm" with "already published".
+        description: "What to release"
         required: true
         type: choice
         options:
           - monorepo
           - angular
+      mode:
+        description: "Release mode: stable (full release with tag + GH Release) or prerelease (canary, no tag/release)"
+        required: false
+        default: stable
+        type: choice
+        options:
+          - stable
+          - prerelease
+      suffix:
+        description: "Canary suffix (only used when mode=prerelease). Falls back to timestamp if empty. Allowed: [a-zA-Z0-9._-]+"
+        required: false
+        type: string
+        default: ""
+      dry-run:
+        description: "Dry run (skip publish step)"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -38,9 +61,11 @@ env:
 
 jobs:
   build:
-    # Run on a merged release PR (normal flow) or a manual workflow_dispatch (escape hatch).
+    # Run on a merged release PR (normal flow) or a manual workflow_dispatch
+    # from main (escape hatch). The main-branch guard on workflow_dispatch
+    # prevents republishing from arbitrary branches.
     if: >
-      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
       (github.event.pull_request.merged == true &&
         startsWith(github.event.pull_request.head.ref, 'release/publish/'))
     runs-on: ubuntu-latest
@@ -48,20 +73,24 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Determine scope
+      - name: Determine scope and mode
         id: meta
         env:
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           INPUT_SCOPE: ${{ inputs.scope }}
+          INPUT_MODE: ${{ inputs.mode }}
         run: |
+          set -euo pipefail
           if [ -n "$INPUT_SCOPE" ]; then
             SCOPE="$INPUT_SCOPE"
           else
             # Branch format: release/publish/<scope>/v<version>
             SCOPE=$(echo "$PR_HEAD_REF" | sed 's|release/publish/\([^/]*\)/v.*|\1|')
           fi
-          echo "scope=$SCOPE" >> $GITHUB_OUTPUT
-          echo "Detected scope: $SCOPE"
+          MODE="${INPUT_MODE:-stable}"
+          echo "scope=$SCOPE" >> "$GITHUB_OUTPUT"
+          echo "mode=$MODE"   >> "$GITHUB_OUTPUT"
+          echo "Detected scope: $SCOPE, mode: $MODE"
 
       # No token/credential persistence: the publish job sets up its own
       # `git config insteadOf` with secrets.GITHUB_TOKEN before pushing tags,
@@ -88,6 +117,27 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
+      # Validate user-supplied suffix against npm-safe charset before passing
+      # to bump-prerelease.ts. Empty suffix → omit the --suffix flag entirely
+      # so the script applies its timestamp fallback (passing an empty string
+      # would produce a version like "X.Y.Z-canary." with a trailing dot).
+      - name: Bump prerelease versions
+        if: ${{ steps.meta.outputs.mode == 'prerelease' }}
+        env:
+          INPUT_SCOPE: ${{ inputs.scope }}
+          INPUT_SUFFIX: ${{ inputs.suffix }}
+        run: |
+          set -euo pipefail
+          if [ -n "$INPUT_SUFFIX" ]; then
+            if ! [[ "$INPUT_SUFFIX" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+              echo "::error::Invalid suffix '$INPUT_SUFFIX'. Allowed: [a-zA-Z0-9._-]+"
+              exit 1
+            fi
+            pnpm tsx scripts/release/bump-prerelease.ts --scope "$INPUT_SCOPE" --suffix "$INPUT_SUFFIX"
+          else
+            pnpm tsx scripts/release/bump-prerelease.ts --scope "$INPUT_SCOPE"
+          fi
+
       - name: Build packages
         run: pnpm run build
 
@@ -111,9 +161,11 @@ jobs:
 
     outputs:
       scope: ${{ steps.meta.outputs.scope }}
+      mode: ${{ steps.meta.outputs.mode }}
 
   publish:
     needs: build
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: npm
@@ -121,14 +173,39 @@ jobs:
       contents: write
       id-token: write
     steps:
+      - name: Determine scope and mode
+        id: meta
+        env:
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          INPUT_SCOPE: ${{ inputs.scope }}
+          INPUT_MODE: ${{ inputs.mode }}
+        run: |
+          set -euo pipefail
+          if [ -n "$INPUT_SCOPE" ]; then
+            SCOPE="$INPUT_SCOPE"
+          else
+            # Branch format: release/publish/<scope>/v<version>
+            SCOPE=$(echo "$PR_HEAD_REF" | sed 's|release/publish/\([^/]*\)/v.*|\1|')
+          fi
+          if [ -z "$SCOPE" ]; then
+            echo "::error::Failed to resolve scope (input=$INPUT_SCOPE, ref=$PR_HEAD_REF)"
+            exit 1
+          fi
+          MODE="${INPUT_MODE:-stable}"
+          echo "scope=$SCOPE" >> "$GITHUB_OUTPUT"
+          echo "mode=$MODE"   >> "$GITHUB_OUTPUT"
+
       - name: Download workspace
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: workspace
 
       - name: Configure git credentials
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config --local url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+          set -euo pipefail
+          git config --local url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
 
       - name: Setup pnpm
         # Omit `version:` so pnpm/action-setup inherits from the repo's
@@ -148,22 +225,52 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Dry-run notice
+        if: ${{ inputs.dry-run == true }}
+        run: |
+          echo "## Dry Run" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "DRY RUN — skipping publish step. Scope: ${{ steps.meta.outputs.scope }}, mode: ${{ steps.meta.outputs.mode }}." >> "$GITHUB_STEP_SUMMARY"
+
       - name: Publish to npm
         id: publish
-        run: pnpm tsx scripts/release/publish-release.ts --scope ${{ needs.build.outputs.scope }}
+        if: ${{ inputs.dry-run != true }}
         env:
           NODE_AUTH_TOKEN: ""
-          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_API_KEY: ${{ steps.meta.outputs.mode == 'stable' && secrets.NOTION_API_KEY || '' }}
+          PUBLISH_SCRIPT: ${{ steps.meta.outputs.mode == 'prerelease' && 'prerelease.ts' || 'publish-release.ts' }}
+          SCOPE: ${{ steps.meta.outputs.scope }}
+        run: pnpm tsx "scripts/release/$PUBLISH_SCRIPT" --scope "$SCOPE"
+
+      - name: Verify publish step emitted version
+        if: ${{ success() && inputs.dry-run != true }}
+        env:
+          MODE: ${{ steps.meta.outputs.mode }}
+          VERSION: ${{ steps.publish.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [ -z "$VERSION" ]; then
+            if [ "$MODE" = "prerelease" ]; then
+              echo "::error::prerelease.ts did not emit 'version' output to GITHUB_OUTPUT. The Prerelease summary would render a blank Version field; aborting."
+            else
+              echo "::error::publish-release.ts did not emit 'version' output to GITHUB_OUTPUT. Tag/release creation would produce malformed artifacts; aborting."
+            fi
+            exit 1
+          fi
+          echo "VERSION=$VERSION confirmed (mode=$MODE)"
 
       - name: Configure git user
+        if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
 
       - name: Check for pre-existing tags
+        if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
+        env:
+          SCOPE: ${{ steps.meta.outputs.scope }}
+          VERSION: ${{ steps.publish.outputs.version }}
         run: |
-          SCOPE="${{ needs.build.outputs.scope }}"
-          VERSION="${{ steps.publish.outputs.version }}"
           if [ "$SCOPE" == "monorepo" ]; then
             TAG="v${VERSION}"
           else
@@ -175,9 +282,11 @@ jobs:
           fi
 
       - name: Create and push git tag
+        if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
+        env:
+          SCOPE: ${{ steps.meta.outputs.scope }}
+          VERSION: ${{ steps.publish.outputs.version }}
         run: |
-          SCOPE="${{ needs.build.outputs.scope }}"
-          VERSION="${{ steps.publish.outputs.version }}"
           if [ "$SCOPE" == "monorepo" ]; then
             TAG="v${VERSION}"
           else
@@ -189,10 +298,11 @@ jobs:
         id: tag
 
       - name: Create GitHub Release
+        if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         env:
           RELEASE_TAG: ${{ steps.tag.outputs.tag }}
-          RELEASE_SCOPE: ${{ needs.build.outputs.scope }}
+          RELEASE_SCOPE: ${{ steps.meta.outputs.scope }}
           RELEASE_VERSION: ${{ steps.publish.outputs.version }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -228,10 +338,36 @@ jobs:
               });
             }
 
-      - name: Release summary
+      - name: Release summary (stable)
+        if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
         run: |
-          echo "## Release Published" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Scope:** ${{ needs.build.outputs.scope }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Version:** ${{ steps.publish.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Tag:** ${{ steps.tag.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Release Published"
+            echo ""
+            echo "**Scope:** ${{ steps.meta.outputs.scope }}"
+            echo "**Mode:** ${{ steps.meta.outputs.mode }}"
+            echo "**Version:** ${{ steps.publish.outputs.version }}"
+            echo "**Tag:** ${{ steps.tag.outputs.tag }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Prerelease summary
+        if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode == 'prerelease' }}
+        run: |
+          {
+            echo "## Prerelease Published"
+            echo ""
+            echo "**Scope:** ${{ steps.meta.outputs.scope }}"
+            echo "**Version:** ${{ steps.publish.outputs.version }}"
+            echo "**Tag:** (prerelease — no tag created)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dry-run summary
+        if: ${{ success() && inputs.dry-run == true }}
+        run: |
+          {
+            echo "## Dry Run Completed"
+            echo ""
+            echo "**Scope:** ${{ steps.meta.outputs.scope }}"
+            echo "**Mode:** ${{ steps.meta.outputs.mode }}"
+            echo "- Publish step was skipped; no npm publish, no git tag, no GitHub Release."
+          } >> "$GITHUB_STEP_SUMMARY"

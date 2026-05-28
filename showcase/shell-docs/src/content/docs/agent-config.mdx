@@ -26,30 +26,59 @@ How agent config flows from the UI into the agent's reasoning loop depends on yo
 
 ## How it works
 
-<FrameworkSetup concept="agent-setup" />
+<FrameworkSetup concept="agent-config-setup" />
 
-Agent config is a typed object the frontend owns and keeps in sync with the agent. There are two pieces: the UI side, which owns the React state and pushes every change into agent state, and the backend node, which reads those fields out of state and turns them into a system prompt.
+Agent config is a typed object the frontend owns and publishes to the agent as runtime context. There are two pieces: the UI side, which owns the React state and publishes every change with `useAgentContext`, and the backend node, which reads that context entry and turns it into a system prompt.
 
-The UI side stays simple. Hold the typed config in React state, then mirror every change into the agent through `agent.setState({...})`:
+The UI side stays simple. Hold the typed config in React state, then mirror every change into the agent through `useAgentContext`:
 
-```tsx title="frontend/src/app/page.tsx — UI owns the typed config"
-function ConfigStateSync({ config }: { config: AgentConfig }) {
-  const { agent } = useAgent({ agentId: "agent-config" });
-  useEffect(() => {
-    agent.setState({ ...config });
-  }, [agent, config]);
+```tsx title="frontend/src/app/page.tsx — UI publishes the typed config"
+function ConfigContextRelay({ config }: { config: AgentConfig }) {
+  useAgentContext({
+    description: "Agent response preferences",
+    value: {
+      tone: config.tone,
+      expertise: config.expertise,
+      responseLength: config.responseLength,
+    },
+  });
   return null;
 }
 ```
 
-The backend half is also a single node. Read the config out of `state` at the top of every run and use it to build the system prompt for that turn:
+The backend half is also a single node. Read the latest config context at the top of every run and use it to build the system prompt for that turn:
 
 ```python title="backend/agent.py — agent reads config and rebuilds the system prompt"
+import json
+
+CONFIG_KEYS = ("tone", "expertise", "responseLength")
+
+def read_config_value(entry):
+    value = entry.get("value")
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            return None
+    if not isinstance(value, dict):
+        return None
+    if any(key in value for key in CONFIG_KEYS):
+        return value
+    return None
+
 async def my_agent_node(state: AgentState, config: RunnableConfig):
-    cfg = state.get("config", {})
-    tone = cfg.get("tone", "casual")
+    context_entries = state.get("copilotkit", {}).get("context", [])
+    cfg = next(
+        (
+            value
+            for entry in reversed(context_entries)
+            if (value := read_config_value(entry)) is not None
+        ),
+        {},
+    )
+    tone = cfg.get("tone", "professional")
     expertise = cfg.get("expertise", "intermediate")
-    response_length = cfg.get("response_length", "medium")
+    response_length = cfg.get("responseLength", "concise")
     system_prompt = build_system_prompt(tone, expertise, response_length)
     # ...
 ```

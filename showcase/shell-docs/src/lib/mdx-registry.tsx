@@ -18,6 +18,7 @@ import {
   TailoredContent as RealTailoredContent,
   TailoredContentOption as RealTailoredContentOption,
 } from "@/components/react/tailored-content";
+import { NewLookAndFeelPreview } from "@/components/react/component-previews/new-look-and-feel";
 import { FrameworkTabs } from "@/components/framework-tabs";
 import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
 import { SignupLink } from "@/components/react/signup-link";
@@ -590,9 +591,7 @@ export const docsComponents = {
   CodingAgents: stubWithPartial("CodingAgents"),
   CustomAgent: stubWithPartial("CustomAgent"),
   DebugMode: stubWithPartial("DebugMode"),
-  NewLookAndFeelPreview: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  NewLookAndFeelPreview,
   Slots: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
