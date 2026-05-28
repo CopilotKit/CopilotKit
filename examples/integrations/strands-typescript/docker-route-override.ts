@@ -1,8 +1,7 @@
 /**
  * Docker-specific route override.
- * In Docker, the agent is served via AG-UI (not LangGraph Platform)
- * because langgraph-cli dev requires Docker-in-Docker.
- * The original route.ts (using HttpAgent) is preserved unchanged.
+ * Uses HttpAgent to connect to the Strands AG-UI agent served
+ * as a sibling container (see docker-compose.test.yml).
  */
 import {
   CopilotRuntime,

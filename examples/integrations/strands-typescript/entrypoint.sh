@@ -11,15 +11,14 @@ fi
 
 # Start TypeScript agent via AG-UI protocol
 echo "[entrypoint] Starting agent on port 8123..."
-cd agent && AGENT_PORT=8123 npx tsx main.ts 2>&1 &
+cd /app/agent && AGENT_PORT=8123 npx tsx main.ts 2>&1 &
 AGENT_PID=$!
-cd ..
 
 sleep 3
 
 # Start Next.js standalone
 echo "[entrypoint] Starting Next.js on port ${PORT:-3000}..."
-HOSTNAME=0.0.0.0 PORT=${PORT:-3000} node server.js 2>&1 &
+cd /app && HOSTNAME=0.0.0.0 PORT=${PORT:-3000} node server.js 2>&1 &
 NEXT_PID=$!
 
 echo "[entrypoint] Agent=$AGENT_PID Next=$NEXT_PID"

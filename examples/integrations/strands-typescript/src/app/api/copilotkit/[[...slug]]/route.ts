@@ -6,11 +6,8 @@ import {
 import { HttpAgent } from "@ag-ui/client";
 import { handle } from "hono/vercel";
 
-// Strands-specific: the agent runs under uvicorn + ag_ui_strands, which
-// speaks AG-UI directly. We talk to it via HttpAgent (not LangGraphAgent
-// or LangGraphHttpAgent — those target LangGraph-shaped endpoints).
-// Everything else — runtime config, v2 endpoint wiring, MCP apps,
-// openGenerativeUI, a2ui — mirrors the canonical demo.
+// The Strands agent speaks AG-UI directly via @ag-ui/aws-strands, so we
+// connect with HttpAgent (not LangGraphAgent which targets LangGraph endpoints).
 const defaultAgent = new HttpAgent({
   url: `${process.env.AGENT_URL || process.env.STRANDS_AGENT_URL || "http://localhost:8000"}/`,
 });

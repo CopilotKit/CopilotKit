@@ -1,12 +1,12 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json ./
-RUN npm install
+RUN npm install --ignore-scripts
 
 FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY package.json next.config.ts tsconfig.json postcss.config.mjs ./
+COPY package.json next.config.ts tsconfig.json postcss.config.mjs showcase.json ./
 COPY src/ ./src/
 COPY public/ ./public/
 RUN npm run build

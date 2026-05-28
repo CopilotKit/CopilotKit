@@ -18,15 +18,14 @@
     "dotenv": "^16.4.7",
     "express": "^5.0.0",
     "openai": "^6.0.0",
+    "tsx": "^4.20.6",
     "uuid": "^11.1.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^20.11.19",
     "@types/uuid": "^10.0.0",
-    "tsx": "^4.20.6",
     "typescript": "^5.3.3"
   }
 }

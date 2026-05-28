@@ -1,11 +1,10 @@
 /**
- * Strands AG-UI Integration Example - Proverbs Agent (TypeScript).
+ * Strands AG-UI Integration Example (TypeScript).
  *
- * This example demonstrates a Strands agent integrated with AG-UI, featuring:
- * - Shared state management between agent and UI
- * - Backend tool execution (query_data, manage_todos)
- * - Frontend tools (set_theme_color)
- * - Generative UI rendering
+ * Demonstrates a Strands agent integrated with AG-UI, featuring:
+ * - Shared state management between agent and UI (todos)
+ * - Backend tool execution (query_data, manage_todos, search_flights)
+ * - Generative UI rendering (generate_a2ui)
  */
 
 import { Agent, tool } from "@strands-agents/sdk";
@@ -169,45 +168,78 @@ const generateA2ui = tool({
   inputSchema: z.object({
     user_intent: z.string(),
   }),
-  async callback({ user_intent }) {
+  async callback({ user_intent }, context) {
     const { default: OpenAI } = await import("openai");
     const openai = new OpenAI();
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4.1",
-      messages: [{ role: "user", content: user_intent }],
-      tools: [
-        {
-          type: "function",
-          function: {
-            name: "render_a2ui",
-            description: "Render a dynamic A2UI v0.9 surface.",
-            parameters: {
-              type: "object",
-              properties: {
-                surfaceId: { type: "string" },
-                catalogId: { type: "string" },
-                components: { type: "array", items: { type: "object" } },
-                data: { type: "object" },
+    // Seed the secondary LLM with catalog/component schema context from CopilotKit
+    let contextText = "";
+    try {
+      const agent = context?.agent as any;
+      const contextEntries =
+        agent?.state?.get?.("agui_context") ?? agent?.state?.agui_context ?? [];
+      if (Array.isArray(contextEntries)) {
+        contextText = contextEntries
+          .filter((e: any) => typeof e === "object" && e !== null && e.value)
+          .map((e: any) => e.value)
+          .join("\n\n");
+      }
+    } catch {
+      // Context not available — proceed without it
+    }
+
+    const prompt = contextText
+      ? `${contextText}\n\n${user_intent}`
+      : user_intent;
+
+    let response;
+    try {
+      response = await openai.chat.completions.create({
+        model: "gpt-4.1",
+        messages: [{ role: "user", content: prompt }],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "render_a2ui",
+              description: "Render a dynamic A2UI v0.9 surface.",
+              parameters: {
+                type: "object",
+                properties: {
+                  surfaceId: { type: "string" },
+                  catalogId: { type: "string" },
+                  components: { type: "array", items: { type: "object" } },
+                  data: { type: "object" },
+                },
+                required: ["surfaceId", "catalogId", "components"],
               },
-              required: ["surfaceId", "catalogId", "components"],
             },
           },
-        },
-      ],
-      tool_choice: { type: "function", function: { name: "render_a2ui" } },
-    });
+        ],
+        tool_choice: { type: "function", function: { name: "render_a2ui" } },
+      });
+    } catch (err) {
+      return JSON.stringify({
+        error: `dynamic-a2ui LLM call failed: ${err}`,
+      });
+    }
 
     const toolCall = response.choices[0]?.message?.tool_calls?.[0];
     if (!toolCall || toolCall.type !== "function") {
       return JSON.stringify({ error: "LLM did not call render_a2ui" });
     }
 
-    const args = JSON.parse((toolCall as any).function.arguments);
-    const surfaceId = args.surfaceId || "dynamic-surface";
-    const catalogId = args.catalogId || CATALOG_ID;
-    const components = args.components || [];
-    const data = args.data || {};
+    let args: Record<string, unknown>;
+    try {
+      args = JSON.parse(toolCall.function.arguments);
+    } catch {
+      return JSON.stringify({ error: "Failed to parse render_a2ui arguments" });
+    }
+
+    const surfaceId = (args.surfaceId as string) || "dynamic-surface";
+    const catalogId = (args.catalogId as string) || CATALOG_ID;
+    const components = (args.components as object[]) || [];
+    const data = (args.data as Record<string, unknown>) || {};
 
     const ops: object[] = [
       { type: "create_surface", surfaceId, catalogId },
@@ -298,8 +330,8 @@ const aguiAgent = new StrandsAgent({
   agent: strandsAgent,
   name: "todo_demo_agent",
   description:
-    "A polished demo assistant matching the canonical langgraph-python " +
-    "todo / charts / a2ui / flights showcase, running on Strands (TypeScript).",
+    "A polished demo assistant for the todo / charts / a2ui / flights " +
+    "showcase, running on Strands (TypeScript).",
   config: sharedStateConfig,
 });
 
@@ -308,7 +340,6 @@ const agentPath = process.env.AGENT_PATH || "/";
 async function main() {
   const app = await createStrandsApp(aguiAgent, { path: agentPath });
 
-  const { default: express } = await import("express");
   app.get("/health", (_req: any, res: any) => {
     res.json({ status: "ok" });
   });
