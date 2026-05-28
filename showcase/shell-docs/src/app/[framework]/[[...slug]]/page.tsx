@@ -41,6 +41,7 @@ import { transformerMeta } from "@/lib/rehype-code-meta";
 import {
   CONTENT_DIR,
   buildFrameworkNav,
+  buildFrameworkOnlyNav,
   findFrameworksWithCell,
   findFrameworksWithPage,
   loadDoc,
@@ -270,7 +271,8 @@ export default async function FrameworkScopedDocsPage({
   // Content resolution order depends on docs_mode:
   //
   //   authored  — per-framework MDX wins for every slug. Authored pages
-  //               can replace root pages without changing sidebar IA.
+  //               can replace root pages while keeping the framework's
+  //               authored sidebar IA.
   //               Only fall back to root if the framework simply has no
   //               file for the requested slug (preserves the "shared"
   //               fallback for slugs the framework intentionally leaves
@@ -302,13 +304,13 @@ export default async function FrameworkScopedDocsPage({
     }
   }
 
-  // Sidebar IA is mode-independent: authored/generated controls which
-  // MDX file renders, not the user's navigation structure.
-  const navTree: NavNode[] = buildFrameworkNav(
-    docsFolder,
-    frameworkName,
-    framework,
-  );
+  // Authored integrations own their full docs tree and sidebar IA.
+  // Generated integrations use the root docs IA with a sparse
+  // framework-specific override section.
+  const navTree: NavNode[] =
+    docsMode === "authored"
+      ? buildFrameworkOnlyNav(docsFolder)
+      : buildFrameworkNav(docsFolder, frameworkName, framework);
 
   if (!doc) {
     // No root MDX and no override for this framework. If the topic
@@ -433,8 +435,9 @@ async function FrameworkRootPage({ framework }: { framework: string }) {
   // let the Tier 1/2/3 cascade below decide whether to render or 404.
   const integration = getIntegration(framework);
 
-  // Same nav merge as the scoped-page route. Resolve the URL slug to
-  // its docs folder — see comment in FrameworkScopedDocsPage above.
+  // Resolve the URL slug to its docs folder — see comment in
+  // FrameworkScopedDocsPage above. Authored frameworks get their own
+  // sidebar tree; generated frameworks get the merged root/override IA.
   // `getDocsFolder` already falls back to the slug itself when there's
   // no override, so it's safe for docs-only frameworks.
   const docsFolder = getDocsFolder(framework);
@@ -445,11 +448,10 @@ async function FrameworkRootPage({ framework }: { framework: string }) {
     frameworkOverviews[framework]?.frameworkName ??
     framework;
   const docsMode = getDocsMode(framework);
-  const navTree: NavNode[] = buildFrameworkNav(
-    docsFolder,
-    integrationName,
-    framework,
-  );
+  const navTree: NavNode[] =
+    docsMode === "authored"
+      ? buildFrameworkOnlyNav(docsFolder)
+      : buildFrameworkNav(docsFolder, integrationName, framework);
 
   // Tier 1: data-driven FrameworkOverview. ONLY for `generated` mode —
   // `authored` frameworks skip straight to Tier 2 so their ported

@@ -38,9 +38,10 @@ export interface Integration {
    * - `generated` (default): data-driven `FrameworkOverview` + agnostic
    *   root MDX merged with per-framework overrides. Kept for the three
    *   "ready" frameworks (langgraph-{python,typescript}, google-adk).
-   * - `authored`: render only the per-framework MDX tree under
+   * - `authored`: render the per-framework MDX tree under
    *   `content/docs/integrations/<docsFolder>/` with its own sidebar
-   *   (built from that folder's meta.json). No root-MDX fallback.
+   *   (built from that folder's meta.json). Root MDX may still be used
+   *   as a fallback for intentionally shared pages.
    * - `hidden`: exclude from the docs site entirely — no `/<slug>`
    *   route, no switcher entry. Single toggle for "framework has no
    *   v1 docs to port" (or otherwise should not appear in docs yet).

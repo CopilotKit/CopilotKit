@@ -22,6 +22,7 @@ from ag_ui.core import (
     StateSnapshotEvent,
 )
 from ag_ui_langgraph import LangGraphAgent as AGUIBase
+from copilotkit import CopilotKitRemoteEndpoint
 from copilotkit.langgraph_agui_agent import (
     LangGraphAGUIAgent,
     CustomEventNames,
@@ -625,3 +626,38 @@ class TestAGUIStyleEventIntegration:
         assert EventType.CUSTOM in types
         assert EventType.TEXT_MESSAGE_START not in types
         assert dispatched[0] is original
+
+
+class TestAgentMetadata:
+    """Regression coverage for info() serializing LangGraphAGUIAgent metadata."""
+
+    def test_dict_repr_includes_type_without_parent_support(self, agent):
+        """dict_repr should not depend on AG-UI's base class implementing dict_repr."""
+        assert agent.dict_repr() == {
+            "name": "test",
+            "description": "",
+            "type": "langgraph_agui",
+        }
+
+    def test_remote_endpoint_info_serializes_langgraph_agui_agent(self):
+        """sdk.info should include LangGraphAGUIAgent metadata without raising."""
+        mock_graph = MagicMock()
+        mock_graph.get_state = MagicMock()
+        agent = LangGraphAGUIAgent(
+            name="demo",
+            graph=mock_graph,
+            description="demo agent",
+        )
+        sdk = CopilotKitRemoteEndpoint(agents=[agent], actions=[])
+
+        info = sdk.info(
+            context={"properties": {}, "frontend_url": None, "headers": {}}
+        )
+
+        assert info["agents"] == [
+            {
+                "name": "demo",
+                "description": "demo agent",
+                "type": "langgraph_agui",
+            }
+        ]
