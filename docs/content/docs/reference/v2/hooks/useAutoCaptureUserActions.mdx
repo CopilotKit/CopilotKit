@@ -102,6 +102,23 @@ function CheckoutAssistant() {
 }
 ```
 
+### Filtering transport noise
+
+CopilotKit's own runtime issues bookkeeping POSTs that look like user-initiated
+mutations to a same-origin patch — most notably
+`/api/copilotkit/agent/<id>/connect` fires on chat mount and reconnect, so it
+matches the default scope (same-origin + mutating method) and gets captured.
+These are usually not user-meaningful events; skip them with `denyUrls`:
+
+```tsx
+useAutoCaptureUserActions({
+  denyUrls: [/\/connect$/],
+});
+```
+
+The platform's own `${runtimeUrl}/user-actions` endpoint is always excluded
+regardless of `denyUrls` (the unconditional loop guard).
+
 ### Custom mapping
 
 ```tsx
