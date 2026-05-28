@@ -18,7 +18,7 @@ import GithubIcon from "@/components/ui/icons/github";
 import DiscordIcon from "@/components/ui/icons/discord";
 import ExternalLinkIcon from "@/components/ui/icons/external-link";
 import BurgerMenuIcon from "@/components/ui/icons/burger-menu";
-import { BookOpenIcon, ChefHatIcon, ScrollTextIcon } from "lucide-react";
+import { BookOpenIcon, ScrollTextIcon } from "lucide-react";
 
 export interface NavbarLink {
   href: string;
@@ -47,11 +47,6 @@ export const LEFT_LINKS: NavbarLink[] = [
     icon: <BookOpenIcon size={16} />,
     label: "Learn",
     href: "/learn",
-  },
-  {
-    icon: <ChefHatIcon size={16} />,
-    label: "Cookbook",
-    href: "/cookbook",
   },
   {
     icon: <CloudIcon />,

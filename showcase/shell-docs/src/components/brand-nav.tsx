@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
-import { Lightbulb } from "lucide-react";
+import { ChefHat, Lightbulb } from "lucide-react";
 import { SearchTrigger } from "./search-trigger";
 import { CopilotKitMark } from "./copilotkit-mark";
 import BookIcon from "./icons/book";
@@ -43,6 +43,11 @@ const LEFT_LINKS: LeftLink[] = [
     href: "/reference",
   },
   {
+    icon: <ChefHat className="w-5 h-5 text-[var(--text-secondary)]" />,
+    label: "Cookbook",
+    href: "/cookbook",
+  },
+  {
     icon: <Lightbulb className="w-5 h-5 text-[var(--text-secondary)]" />,
     label: "Get Intelligence free",
     href: INTELLIGENCE_CTA_HREF,
@@ -63,9 +68,15 @@ export function BrandNav(_props: BrandNavProps = {}) {
   const posthog = usePostHog();
 
   // Active-route detection: anything under /reference highlights Reference,
-  // everything else (root, framework-scoped pages) highlights Docs.
+  // anything under /cookbook highlights Cookbook, everything else (root,
+  // framework-scoped pages) highlights Docs.
   const firstSegment = pathname === "/" ? "/" : `/${pathname.split("/")[1]}`;
-  const activeRoute = firstSegment === "/reference" ? "/reference" : "/";
+  const activeRoute =
+    firstSegment === "/reference"
+      ? "/reference"
+      : firstSegment === "/cookbook"
+        ? "/cookbook"
+        : "/";
 
   const handleTalkToEngineersClick = () => {
     posthog?.capture("talk_to_us_clicked", { location: "docs_nav" });
