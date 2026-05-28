@@ -117,6 +117,10 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
+      # Validate user-supplied suffix against npm-safe charset before passing
+      # to bump-prerelease.ts. Empty suffix → omit the --suffix flag entirely
+      # so the script applies its timestamp fallback (passing an empty string
+      # would produce a version like "X.Y.Z-canary." with a trailing dot).
       - name: Bump prerelease versions
         if: ${{ steps.meta.outputs.mode == 'prerelease' }}
         env:
@@ -244,6 +248,7 @@ jobs:
           MODE: ${{ steps.meta.outputs.mode }}
           VERSION: ${{ steps.publish.outputs.version }}
         run: |
+          set -euo pipefail
           if [ -z "$VERSION" ]; then
             if [ "$MODE" = "prerelease" ]; then
               echo "::error::prerelease.ts did not emit 'version' output to GITHUB_OUTPUT. The Prerelease summary would render a blank Version field; aborting."
