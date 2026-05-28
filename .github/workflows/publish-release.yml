@@ -58,7 +58,7 @@ on:
         default: false
         type: boolean
       python_publish:
-        description: "Force Python SDK publish (bypasses version-change detection)"
+        description: "Run the Python publish lane regardless of which files changed. Still no-ops if sdk-python's version already matches PyPI."
         required: false
         default: false
         type: boolean
@@ -428,7 +428,22 @@ jobs:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_HEAD_SHA: ${{ github.event.pull_request.merge_commit_sha }}
         run: |
-          if git diff --name-only "$PR_BASE_SHA" "$PR_HEAD_SHA" | grep -q '^sdk-python/pyproject.toml$'; then
+          set -euo pipefail
+          if [ -z "$PR_BASE_SHA" ]; then
+            echo "::error::PR_BASE_SHA is empty — cannot determine PR base for diff. Refusing to silently skip Python publish."
+            exit 1
+          fi
+          if [ -z "$PR_HEAD_SHA" ]; then
+            echo "::error::PR_HEAD_SHA (merge_commit_sha) is empty — GitHub may not have computed the merge commit yet. Refusing to silently skip Python publish; rerun the workflow."
+            exit 1
+          fi
+          # Capture diff FIRST so a git failure trips set -e and fails loudly,
+          # rather than producing an empty pipe that grep silently routes to
+          # "not changed" — that path masked real version bumps before.
+          CHANGED="$(git diff --name-only "$PR_BASE_SHA" "$PR_HEAD_SHA")"
+          # grep -q exits 1 on legitimate no-match; guard with `if` so set -e
+          # doesn't kill the step on that expected case.
+          if printf '%s\n' "$CHANGED" | grep -q '^sdk-python/pyproject.toml$'; then
             echo "pyproject_changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "pyproject_changed=false" >> "$GITHUB_OUTPUT"
@@ -485,7 +500,7 @@ jobs:
   # until the Trusted Publisher record on pypi.org is updated to match.
   publish-python:
     needs: build-python
-    if: needs.build-python.outputs.should_publish == 'true'
+    if: ${{ !cancelled() && needs.build-python.result == 'success' && needs.build-python.outputs.should_publish == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: pypi
@@ -498,7 +513,6 @@ jobs:
         with:
           fetch-depth: 0
           ref: main
-          token: ${{ secrets.GITHUB_TOKEN }}
           persist-credentials: false
 
       - name: Install uv
