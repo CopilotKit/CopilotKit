@@ -146,19 +146,26 @@ describe("CopilotKitProvider stability", () => {
   });
 
   describe("setter calls on prop changes", () => {
-    it("does not re-sync an empty local agent registry on unchanged rerenders", () => {
-      const setAgentsCalls: unknown[] = [];
+    it("preserves dynamically registered agents on unchanged rerenders", () => {
+      const setAgentsSpy = vi.fn();
       let spyAttached = false;
+      let registeredAgent: unknown;
+      let capturedInstance: CopilotKitCoreReact | null = null;
 
       function SpyAttacher() {
         const { copilotkit } = useCopilotKit();
+        capturedInstance = copilotkit;
         if (!spyAttached) {
           const original =
             copilotkit.setAgents__unsafe_dev_only.bind(copilotkit);
           copilotkit.setAgents__unsafe_dev_only = (agents) => {
-            setAgentsCalls.push(agents);
+            setAgentsSpy(agents);
             return original(agents);
           };
+          registeredAgent = copilotkit.registerProxiedAgent({
+            agentId: "registered-after-mount",
+            runtimeAgentId: "remote-agent",
+          }).agent;
           spyAttached = true;
         }
         return null;
@@ -170,7 +177,7 @@ describe("CopilotKitProvider stability", () => {
         </CopilotKitProvider>,
       );
 
-      setAgentsCalls.length = 0;
+      setAgentsSpy.mockClear();
 
       rerender(
         <CopilotKitProvider runtimeUrl="http://localhost:3000/api">
@@ -178,7 +185,10 @@ describe("CopilotKitProvider stability", () => {
         </CopilotKitProvider>,
       );
 
-      expect(setAgentsCalls).toHaveLength(0);
+      expect(setAgentsSpy).not.toHaveBeenCalled();
+      expect(capturedInstance?.getAgent("registered-after-mount")).toBe(
+        registeredAgent,
+      );
     });
 
     it("calls setTools when frontendTools change instead of recreating instance", () => {

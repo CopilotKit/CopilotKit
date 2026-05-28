@@ -56,9 +56,11 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 
 const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
 const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
-const EMPTY_HEADERS: Record<string, string> = {};
-const EMPTY_PROPERTIES: Record<string, unknown> = {};
-const EMPTY_AGENTS: Record<string, AbstractAgent> = {};
+// Stable frozen defaults keep provider effects from re-running just because a
+// caller omitted an object prop on a rerender.
+const EMPTY_HEADERS: Readonly<Record<string, string>> = Object.freeze({});
+const EMPTY_PROPERTIES: Readonly<Record<string, unknown>> = Object.freeze({});
+const EMPTY_AGENTS: Readonly<Record<string, AbstractAgent>> = Object.freeze({});
 
 const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follow these design principles inspired by shadcn/ui:
 

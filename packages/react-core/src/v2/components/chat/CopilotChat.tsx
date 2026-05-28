@@ -217,6 +217,8 @@ export function CopilotChat({
     hasExplicitThreadId && lastConnectedThreadId !== resolvedThreadId;
 
   useEffect(() => {
+    // Non-explicit threads skip /connect, but the first runAgent still has to
+    // ship the same SDK-generated threadId that the chat UI is rendering.
     agent.threadId = resolvedThreadId;
 
     // When the caller hasn't picked a specific thread, resolvedThreadId is a
