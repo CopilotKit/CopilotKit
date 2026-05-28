@@ -61,9 +61,11 @@ env:
 
 jobs:
   build:
-    # Run on a merged release PR (normal flow) or a manual workflow_dispatch (escape hatch).
+    # Run on a merged release PR (normal flow) or a manual workflow_dispatch
+    # from main (escape hatch). The main-branch guard on workflow_dispatch
+    # prevents republishing from arbitrary branches.
     if: >
-      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
       (github.event.pull_request.merged == true &&
         startsWith(github.event.pull_request.head.ref, 'release/publish/'))
     runs-on: ubuntu-latest
@@ -71,20 +73,24 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Determine scope
+      - name: Determine scope and mode
         id: meta
         env:
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           INPUT_SCOPE: ${{ inputs.scope }}
+          INPUT_MODE:  ${{ inputs.mode }}
         run: |
+          set -euo pipefail
           if [ -n "$INPUT_SCOPE" ]; then
             SCOPE="$INPUT_SCOPE"
           else
             # Branch format: release/publish/<scope>/v<version>
             SCOPE=$(echo "$PR_HEAD_REF" | sed 's|release/publish/\([^/]*\)/v.*|\1|')
           fi
-          echo "scope=$SCOPE" >> $GITHUB_OUTPUT
-          echo "Detected scope: $SCOPE"
+          MODE="${INPUT_MODE:-stable}"
+          echo "scope=$SCOPE" >> "$GITHUB_OUTPUT"
+          echo "mode=$MODE"   >> "$GITHUB_OUTPUT"
+          echo "Detected scope: $SCOPE, mode: $MODE"
 
       # No token/credential persistence: the publish job sets up its own
       # `git config insteadOf` with secrets.GITHUB_TOKEN before pushing tags,
@@ -112,17 +118,21 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Bump prerelease versions
-        if: ${{ inputs.mode == 'prerelease' }}
+        if: ${{ steps.meta.outputs.mode == 'prerelease' }}
         env:
           INPUT_SCOPE: ${{ inputs.scope }}
           INPUT_SUFFIX: ${{ inputs.suffix }}
         run: |
           set -euo pipefail
-          ARGS="--scope $INPUT_SCOPE"
           if [ -n "$INPUT_SUFFIX" ]; then
-            ARGS="$ARGS --suffix $INPUT_SUFFIX"
+            if ! [[ "$INPUT_SUFFIX" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+              echo "::error::Invalid suffix '$INPUT_SUFFIX'. Allowed: [a-zA-Z0-9._-]+"
+              exit 1
+            fi
+            pnpm tsx scripts/release/bump-prerelease.ts --scope "$INPUT_SCOPE" --suffix "$INPUT_SUFFIX"
+          else
+            pnpm tsx scripts/release/bump-prerelease.ts --scope "$INPUT_SCOPE"
           fi
-          pnpm tsx scripts/release/bump-prerelease.ts $ARGS
 
       - name: Build packages
         run: pnpm run build
@@ -147,6 +157,7 @@ jobs:
 
     outputs:
       scope: ${{ steps.meta.outputs.scope }}
+      mode: ${{ steps.meta.outputs.mode }}
 
   publish:
     needs: build
@@ -186,8 +197,11 @@ jobs:
           name: workspace
 
       - name: Configure git credentials
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config --local url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+          set -euo pipefail
+          git config --local url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
 
       - name: Setup pnpm
         # Omit `version:` so pnpm/action-setup inherits from the repo's
@@ -220,20 +234,25 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ""
           NOTION_API_KEY: ${{ steps.meta.outputs.mode == 'stable' && secrets.NOTION_API_KEY || '' }}
-          PUBLISH_SCRIPT: ${{ inputs.mode == 'prerelease' && 'prerelease.ts' || 'publish-release.ts' }}
+          PUBLISH_SCRIPT: ${{ steps.meta.outputs.mode == 'prerelease' && 'prerelease.ts' || 'publish-release.ts' }}
           SCOPE: ${{ steps.meta.outputs.scope }}
         run: pnpm tsx "scripts/release/$PUBLISH_SCRIPT" --scope "$SCOPE"
 
       - name: Verify publish step emitted version
-        if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
+        if: ${{ success() && inputs.dry-run != true }}
         env:
+          MODE: ${{ steps.meta.outputs.mode }}
           VERSION: ${{ steps.publish.outputs.version }}
         run: |
           if [ -z "$VERSION" ]; then
-            echo "::error::publish step did not emit 'version' output. This indicates the publish-release.ts script (or the configured publish-script input) did not write to GITHUB_OUTPUT. Tag/release creation would produce malformed artifacts; aborting."
+            if [ "$MODE" = "prerelease" ]; then
+              echo "::error::prerelease.ts did not emit 'version' output to GITHUB_OUTPUT. The Prerelease summary would render a blank Version field; aborting."
+            else
+              echo "::error::publish-release.ts did not emit 'version' output to GITHUB_OUTPUT. Tag/release creation would produce malformed artifacts; aborting."
+            fi
             exit 1
           fi
-          echo "VERSION=$VERSION confirmed"
+          echo "VERSION=$VERSION confirmed (mode=$MODE)"
 
       - name: Configure git user
         if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
