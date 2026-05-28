@@ -30,26 +30,6 @@ on:
         required: false
         default: false
         type: boolean
-  workflow_call:
-    inputs:
-      scope:
-        required: true
-        type: string
-      mode:
-        required: false
-        type: string
-        default: stable
-      dry-run:
-        required: false
-        type: boolean
-        default: false
-      publish-script:
-        required: false
-        type: string
-        default: publish-release.ts
-    secrets:
-      NOTION_API_KEY:
-        required: false
 
 permissions:
   contents: read
@@ -64,14 +44,10 @@ env:
 jobs:
   build:
     # Run on a merged release PR (normal flow) or a manual workflow_dispatch (escape hatch).
-    # Skipped on workflow_call: the caller's build job uploads the "workspace" artifact, so
-    # the callee's publish job downloads it directly without re-building.
     if: >
-      github.event_name != 'workflow_call' && (
-        github.event_name == 'workflow_dispatch' ||
-        (github.event.pull_request.merged == true &&
-          startsWith(github.event.pull_request.head.ref, 'release/publish/'))
-      )
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true &&
+        startsWith(github.event.pull_request.head.ref, 'release/publish/'))
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -143,14 +119,7 @@ jobs:
 
   publish:
     needs: build
-    # Run when build succeeded (normal flow) OR was skipped specifically because this is a
-    # workflow_call invocation (the caller already built and uploaded the artifact). The
-    # workflow_call branch is the ONE intentional skip — other skipped paths (notably a
-    # `pull_request: closed` event where the PR was closed WITHOUT merging, which makes the
-    # build job's own merged-true guard fail and skip) must NOT trigger publish. The default
-    # `if: success()` would also skip publish on legitimate workflow_call invocations, hence
-    # the explicit allowlist below.
-    if: ${{ !cancelled() && (needs.build.result == 'success' || (needs.build.result == 'skipped' && github.event_name == 'workflow_call')) }}
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: npm
