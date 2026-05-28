@@ -52,7 +52,7 @@
  * link in the scroll viewport is governed entirely by the viewport's
  * top padding (also 1rem) — keeping above/below the picker symmetric. */
 .shell-docs-sidebar > div:first-child {
-  padding: 1rem 1rem 0 1rem !important;
+  padding: 0 1rem !important;
 }
 /* Hide the empty home-link wrapper Fumadocs ships in the desktop
  * SidebarHeader. Scoped via `:has(> a:only-child:empty)` so it ONLY
