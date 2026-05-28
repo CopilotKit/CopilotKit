@@ -23,6 +23,7 @@ import { PropertyReference } from "@/components/react/property-reference";
 import { InsecurePasswordProtected } from "@/components/react/insecure-password-protected";
 import { LinkToCopilotCloud } from "@/components/react/link-to-copilot-cloud";
 import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
+import { AgentStartPrompt } from "@/components/react/agent-start-prompt";
 import { SignupLink } from "@/components/react/signup-link";
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import { NavigationLink } from "@/components/react/subdocs-menu";
@@ -43,6 +44,7 @@ const mdxComponents = {
   InsecurePasswordProtected: InsecurePasswordProtected,
   LinkToCopilotCloud: LinkToCopilotCloud,
   OpsPlatformCTA: OpsPlatformCTA,
+  AgentStartPrompt: AgentStartPrompt,
   SignupLink: SignupLink,
   Accordions: Accordions,
   Accordion: Accordion,
