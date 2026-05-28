@@ -72,6 +72,25 @@ class CLIParsingTest < Minitest::Test
         assert_equal 2, ex.status
     end
 
+    def test_lint_prod_parses_format_and_exit_zero
+        c = Railway::LintProdCommand.new(["--exit-zero", "--format", "json"])
+        c.parser.parse!(c.argv)
+        assert_equal true, c.instance_variable_get(:@exit_zero)
+        assert_equal "json", c.instance_variable_get(:@format)
+    end
+
+    def test_lint_prod_rejects_invalid_format
+        c = Railway::LintProdCommand.new(["--format", "yaml"])
+        assert_raises(OptionParser::InvalidArgument) { c.parser.parse!(c.argv) }
+    end
+
+    def test_lint_prod_defaults_format_to_text
+        c = Railway::LintProdCommand.new([])
+        c.parser.parse!(c.argv)
+        assert_equal "text", c.instance_variable_get(:@format)
+        assert_equal false, c.instance_variable_get(:@exit_zero)
+    end
+
     def test_env_id_for_resolves_aliases
         assert_equal Railway::PRODUCTION_ENV_ID, Railway.env_id_for("production")
         assert_equal Railway::PRODUCTION_ENV_ID, Railway.env_id_for("prod")

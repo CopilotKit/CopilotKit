@@ -45,7 +45,7 @@ need to read private packages; public packages work anonymously via the GHCR
 | `pin`             | Pin a service to a specific image digest.                                                           |
 | `env-diff`        | Diff two envs; exits 1 on drift.                                                                    |
 | `resolve-digest`  | Resolve an image tag (e.g. `:latest`) to its `sha256:` digest.                                      |
-| `lint-prod`       | CI gate (advisory): warn if any prod service is not digest-pinned. `--exit-zero` for advisory mode. |
+| `lint-prod`       | CI gate (advisory): warn if any prod service is not digest-pinned. `--exit-zero` for advisory mode, `--format json` for machine-readable output. |
 
 Run any subcommand with `--help` for full flag list.
 
@@ -108,6 +108,38 @@ flip the check to enforcing (exit 1 on drift).
 Long-term contract: every production service must be pinned to an immutable
 `ghcr.io/...@sha256:...` digest, and the lint job will fail any PR that
 drifts away from that.
+
+### Visibility surfaces
+
+Two human-facing surfaces render the audit result every run:
+
+1. **Workflow step summary** — the workflow writes a structured markdown
+   block to `$GITHUB_STEP_SUMMARY` so the audit shows at the top of every
+   run page (every event: `pull_request`, `push`, `workflow_dispatch`).
+2. **Sticky PR comment** — on `pull_request` events, the workflow posts (or
+   updates) a single comment per PR. The comment is keyed by the HTML marker
+   `<!-- lint-prod-sticky-comment -->` so re-runs update the same comment
+   instead of creating duplicates.
+
+Both surfaces show the same content: a one-line status, a table of the
+unpinned services (only — `pinned` services are not enumerated), and a
+Pacific-time run timestamp with the finding count.
+
+### Machine-readable output
+
+`lint-prod --format json` emits:
+
+```json
+{
+  "services": [{"name": "...", "source": "...", "status": "pinned|mutable-tag"}],
+  "findings": 3,
+  "timestamp": "2026-05-27T18:00:00Z"
+}
+```
+
+The CI workflow uses this shape to render the step summary and PR comment.
+The `findings` count is also written to `$GITHUB_OUTPUT` so downstream jobs
+(e.g. a future Slack alert step) can compare against prior runs.
 
 ## Tests
 

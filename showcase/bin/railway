@@ -34,6 +34,7 @@ require "uri"
 require "yaml"
 require "io/console"
 require "fileutils"
+require "time"
 
 module Railway
     VERSION = "0.1.0"
@@ -1037,21 +1038,29 @@ module Railway
         def initialize(argv)
             super
             @exit_zero = false
+            @format = "text"
         end
 
         def parser
             OptionParser.new do |o|
                 o.banner = <<~BANNER
-                    Usage: bin/railway lint-prod [--exit-zero]
+                    Usage: bin/railway lint-prod [--exit-zero] [--format text|json]
 
                       Fails (exit 1) if any production service is NOT pinned to
                       an immutable image digest (must be ghcr.io/...@sha256:...).
                       Intended as a CI gate on every PR touching showcase/.
 
-                      --exit-zero   Always exit 0 even on findings (advisory mode).
-                                    Findings still print to stdout.
+                      --exit-zero      Always exit 0 even on findings (advisory mode).
+                                       Findings still print to stdout.
+                      --format FORMAT  Output format: 'text' (default) or 'json'.
+                                       JSON shape:
+                                         {services:[{name,source,status}],
+                                          findings:N, timestamp:"ISO8601"}
+                                       'source' is the raw Source.image / image-ref
+                                       string. 'status' is 'pinned' or 'mutable-tag'.
                 BANNER
                 o.on("--exit-zero", "Advisory: exit 0 even when findings exist") { @exit_zero = true }
+                o.on("--format FORMAT", %w[text json], "Output format (text|json)") { |v| @format = v }
                 o.on("-h", "--help") { puts o; exit 0 }
             end
         end
@@ -1062,14 +1071,30 @@ module Railway
             prod = SnapshotCommand.new(["--env", "production", "--dry-run"])
                 .build_snapshot(PRODUCTION_ENV_ID)
 
-            findings = []
-            (prod["services"] || []).each do |svc|
+            services = (prod["services"] || []).map do |svc|
                 image = svc["image"].to_s
-                if image.empty?
-                    findings << "#{svc['name']}: no image set"
-                elsif !image.include?("@sha256:")
-                    findings << "#{svc['name']}: not digest-pinned (image=#{image})"
-                end
+                status =
+                    if image.empty?
+                        "mutable-tag"
+                    elsif !image.include?("@sha256:")
+                        "mutable-tag"
+                    else
+                        "pinned"
+                    end
+                { "name" => svc["name"], "source" => image, "status" => status }
+            end
+            findings = services.reject { |s| s["status"] == "pinned" }
+
+            if @format == "json"
+                payload = {
+                    "services" => services,
+                    "findings" => findings.size,
+                    "timestamp" => Time.now.utc.iso8601,
+                }
+                puts JSON.generate(payload)
+                return 0 if findings.empty?
+                return 0 if @exit_zero
+                return 1
             end
 
             if findings.empty?
@@ -1077,7 +1102,14 @@ module Railway
                 return 0
             end
 
-            findings.each { |f| puts f }
+            findings.each do |f|
+                src = f["source"]
+                if src.empty?
+                    puts "#{f['name']}: no image set"
+                else
+                    puts "#{f['name']}: not digest-pinned (image=#{src})"
+                end
+            end
             puts "DRIFT: #{findings.size} production service(s) not digest-pinned."
             if @exit_zero
                 puts "(advisory mode: --exit-zero set; exiting 0)"
