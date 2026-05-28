@@ -108,8 +108,14 @@ module Railway
             if File.exist?(cfg)
                 begin
                     data = JSON.parse(File.read(cfg))
-                    # Common shapes: {"user":{"token":"..."}} or {"token":"..."}
-                    candidate = data["token"] || data.dig("user", "token") ||
+                    # Railway CLI stores the bearer in `user.accessToken` (43+ chars).
+                    # `user.token` is a short legacy CLI session token that does
+                    # NOT authenticate to the public GraphQL API. Prefer accessToken.
+                    candidate =
+                        data.dig("user", "accessToken") ||
+                        data["accessToken"] ||
+                        data.dig("user", "token") ||
+                        data["token"] ||
                         data.dig("projects", PROJECT_ID, "token")
                     return candidate.strip if candidate.is_a?(String) && !candidate.strip.empty?
                 rescue JSON::ParserError
@@ -398,41 +404,69 @@ module Railway
 
     # ── Service Inventory ──────────────────────────────────────────────────────
     #
-    # GraphQL fragment to enumerate services + service instances for one env.
-    SERVICES_QUERY = <<~GQL
-        query ProjectServices($projectId: String!, $envId: String!) {
+    # GraphQL fragments used by snapshot/env-diff/promote/lint-prod.
+    #
+    # Railway's public schema notes (verified via introspection 2026-05):
+    #   * Project has NO `domains` field. Custom domains are reached either via
+    #     top-level `domains(projectId, environmentId, serviceId)` returning
+    #     `AllDomains { customDomains, serviceDomains }`, or via
+    #     `serviceInstance.domains` (same shape).
+    #   * Service has NO `serviceInstances` field. To get an instance's
+    #     image/startCommand/etc. for a given env, use
+    #     `serviceInstance(serviceId, environmentId)` directly.
+    #   * `serviceInstanceDeployV2` takes (serviceId, environmentId, commitSha)
+    #     ONLY — no `image` arg. To pin a service to a specific image, use
+    #     `serviceInstanceUpdate(serviceId, environmentId, input: { source: { image } })`
+    #     followed by `serviceInstanceRedeploy`.
+    #   * `Environment.variables` returns an `EnvironmentVariablesConnection`
+    #     whose edges include `node.serviceId` — we filter by service id to get
+    #     per-service env-key sets.
+    #
+    # The query below enumerates all services in the project and, for each one,
+    # the per-environment serviceInstance and that env's variables (keys only).
+    # We use GraphQL field aliases to fetch all per-service data in a single
+    # round-trip rather than N+1.
+
+    SERVICES_LIST_QUERY = <<~GQL
+        query ProjectServices($projectId: String!) {
             project(id: $projectId) {
                 id
                 name
                 services {
                     edges {
-                        node {
-                            id
-                            name
-                            serviceInstances {
-                                edges {
-                                    node {
-                                        environmentId
-                                        source { image }
-                                        startCommand
-                                        latestDeployment { id status meta }
-                                    }
-                                }
-                            }
-                        }
+                        node { id name }
                     }
                 }
-                environments {
+            }
+        }
+    GQL
+
+    SERVICE_INSTANCE_QUERY = <<~GQL
+        query ServiceInstance($serviceId: String!, $envId: String!) {
+            serviceInstance(serviceId: $serviceId, environmentId: $envId) {
+                id
+                serviceId
+                environmentId
+                startCommand
+                source { image repo }
+                latestDeployment { id status }
+                domains {
+                    customDomains { id domain }
+                    serviceDomains { id domain }
+                }
+            }
+        }
+    GQL
+
+    ENVIRONMENT_VARIABLES_QUERY = <<~GQL
+        query EnvVariables($envId: String!) {
+            environment(id: $envId) {
+                id
+                name
+                variables(first: 1000) {
                     edges {
-                        node {
-                            id
-                            name
-                            variables { edges { node { name } } }
-                        }
+                        node { name serviceId isSealed }
                     }
-                }
-                customDomains: domains {
-                    customDomains { id domain environmentId serviceId }
                 }
             }
         }
@@ -523,19 +557,28 @@ module Railway
         end
 
         def build_snapshot(env_id)
-            data = gql.query(SERVICES_QUERY,
-                projectId: PROJECT_ID, envId: env_id)
-            project = data["project"] || {}
+            # 1. List all services in the project.
+            list = gql.query(SERVICES_LIST_QUERY, projectId: PROJECT_ID)
+            service_nodes = (list.dig("project", "services", "edges") || []).map { |e| e["node"] }
 
+            # 2. Fetch the env's variables once, group keys by serviceId.
+            env_data = gql.query(ENVIRONMENT_VARIABLES_QUERY, envId: env_id)
+            keys_by_service = Hash.new { |h, k| h[k] = [] }
+            (env_data.dig("environment", "variables", "edges") || []).each do |edge|
+                n = edge["node"]
+                next unless n && n["serviceId"]
+                keys_by_service[n["serviceId"]] << n["name"]
+            end
+
+            # 3. For each service, fetch its serviceInstance for this env.
+            #    Some services may not exist in this env (returns nil); skip them.
             services = []
-            (project.dig("services", "edges") || []).each do |edge|
-                node = edge["node"]
-                instance = (node.dig("serviceInstances", "edges") || []).find do |e|
-                    e.dig("node", "environmentId") == env_id
-                end
-                next unless instance
+            service_nodes.each do |node|
+                instance_data = gql.query(SERVICE_INSTANCE_QUERY,
+                    serviceId: node["id"], envId: env_id)
+                inst = instance_data["serviceInstance"]
+                next if inst.nil?
 
-                inst = instance["node"]
                 image_ref = inst.dig("source", "image")
                 digest = nil
                 tag_ref = image_ref
@@ -543,13 +586,8 @@ module Railway
                     tag_ref, digest = image_ref.split("@", 2)
                 end
 
-                env_keys = []
-                (project.dig("environments", "edges") || []).each do |env_edge|
-                    next unless env_edge.dig("node", "id") == env_id
-                    (env_edge.dig("node", "variables", "edges") || []).each do |v|
-                        env_keys << v.dig("node", "name")
-                    end
-                end
+                custom_domains = (inst.dig("domains", "customDomains") || [])
+                    .map { |d| d["domain"] }.compact.sort
 
                 services << {
                     "name"                  => node["name"],
@@ -560,8 +598,8 @@ module Railway
                     "start_command"         => inst["startCommand"],
                     "auto_updates_disabled" => nil,
                     "latest_deployment_id"  => inst.dig("latestDeployment", "id"),
-                    "env_keys"              => env_keys.sort.uniq,
-                    "custom_domains"        => domains_for(project, env_id, node["id"]),
+                    "env_keys"              => (keys_by_service[node["id"]] || []).sort.uniq,
+                    "custom_domains"        => custom_domains,
                 }
             end
 
@@ -573,27 +611,43 @@ module Railway
                 "services"    => services.sort_by { |s| s["name"].to_s },
             }
         end
-
-        def domains_for(project, env_id, service_id)
-            (project.dig("customDomains", "customDomains") || [])
-                .select { |d| d["environmentId"] == env_id && d["serviceId"] == service_id }
-                .map { |d| d["domain"] }
-                .sort
-        end
     end
 
     # restore — given a snapshot YAML, force-redeploy each service to its
-    # captured digest via serviceInstanceDeployV2.
+    # captured digest via serviceInstanceUpdate(source.image) + redeploy.
+    #
+    # Railway's `serviceInstanceDeployV2` mutation does NOT accept an `image`
+    # arg — its signature is (serviceId, environmentId, commitSha). To pin a
+    # service to a specific image digest we must:
+    #   1. update the service instance's source.image to the desired ref
+    #   2. trigger a redeploy
     class RestoreCommand < BaseCommand
-        REDEPLOY_MUTATION = <<~GQL
-            mutation Deploy($serviceId: String!, $envId: String!, $image: String!) {
-                serviceInstanceDeployV2(
+        UPDATE_IMAGE_MUTATION = <<~GQL
+            mutation UpdateImage($serviceId: String!, $envId: String!, $image: String!) {
+                serviceInstanceUpdate(
                     serviceId: $serviceId
                     environmentId: $envId
-                    image: $image
+                    input: { source: { image: $image } }
                 )
             }
         GQL
+
+        REDEPLOY_MUTATION = <<~GQL
+            mutation Redeploy($serviceId: String!, $envId: String!) {
+                serviceInstanceRedeploy(
+                    serviceId: $serviceId
+                    environmentId: $envId
+                )
+            }
+        GQL
+
+        # Helper used by RestoreCommand, PinCommand, PromoteCommand: pin then redeploy.
+        def self.pin_and_redeploy(gql, service_id:, env_id:, image:)
+            gql.query(UPDATE_IMAGE_MUTATION,
+                serviceId: service_id, envId: env_id, image: image)
+            gql.query(REDEPLOY_MUTATION,
+                serviceId: service_id, envId: env_id)
+        end
 
         def parser
             OptionParser.new do |o|
@@ -644,10 +698,8 @@ module Railway
                     next
                 end
 
-                gql.query(REDEPLOY_MUTATION,
-                    serviceId: svc["service_id"],
-                    envId: env_id,
-                    image: image)
+                RestoreCommand.pin_and_redeploy(gql,
+                    service_id: svc["service_id"], env_id: env_id, image: image)
                 puts "redeployed #{svc['name']} -> #{image}"
             end
             0
@@ -665,8 +717,9 @@ module Railway
             }
         GQL
 
+        # deploymentRollback returns a scalar Boolean — no selection set.
         ROLLBACK_MUTATION = <<~GQL
-            mutation Rollback($id: String!) { deploymentRollback(id: $id) { id } }
+            mutation Rollback($id: String!) { deploymentRollback(id: $id) }
         GQL
 
         def parser
@@ -716,8 +769,8 @@ module Railway
             0
         end
 
-        def resolve_service_id(env_id, name)
-            data = gql.query(SERVICES_QUERY, projectId: PROJECT_ID, envId: env_id)
+        def resolve_service_id(_env_id, name)
+            data = gql.query(SERVICES_LIST_QUERY, projectId: PROJECT_ID)
             (data.dig("project", "services", "edges") || []).each do |e|
                 node = e["node"]
                 return node["id"] if node["name"] == name
@@ -879,9 +932,9 @@ module Railway
                     next
                 end
 
-                gql.query(RestoreCommand::REDEPLOY_MUTATION,
-                    serviceId: pmatch["service_id"],
-                    envId: PRODUCTION_ENV_ID,
+                RestoreCommand.pin_and_redeploy(gql,
+                    service_id: pmatch["service_id"],
+                    env_id: PRODUCTION_ENV_ID,
                     image: image)
                 puts "promoted #{svc['name']} -> #{image}"
             end
@@ -940,10 +993,8 @@ module Railway
                 return 0
             end
 
-            gql.query(RestoreCommand::REDEPLOY_MUTATION,
-                serviceId: service_id,
-                envId: env_id,
-                image: image)
+            RestoreCommand.pin_and_redeploy(gql,
+                service_id: service_id, env_id: env_id, image: image)
             puts "pinned #{options[:service]} -> #{image}"
             0
         end
