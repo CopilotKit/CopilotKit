@@ -78,7 +78,7 @@ jobs:
         env:
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           INPUT_SCOPE: ${{ inputs.scope }}
-          INPUT_MODE:  ${{ inputs.mode }}
+          INPUT_MODE: ${{ inputs.mode }}
         run: |
           set -euo pipefail
           if [ -n "$INPUT_SCOPE" ]; then
@@ -178,7 +178,7 @@ jobs:
         env:
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           INPUT_SCOPE: ${{ inputs.scope }}
-          INPUT_MODE:  ${{ inputs.mode }}
+          INPUT_MODE: ${{ inputs.mode }}
         run: |
           set -euo pipefail
           if [ -n "$INPUT_SCOPE" ]; then
