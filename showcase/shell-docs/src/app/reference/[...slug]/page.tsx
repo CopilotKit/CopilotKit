@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import type React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import matter from "gray-matter";
+import { LinkIcon } from "lucide-react";
 import { PropertyReference } from "@/components/property-reference";
 import {
   Callout,
@@ -19,14 +21,16 @@ import {
   DocsDescription,
 } from "fumadocs-ui/page";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
-import type * as PageTree from "fumadocs-core/page-tree";
+import { ReferenceVersionSelector } from "@/components/reference-version-selector";
 import {
-  REFERENCE_CONTENT_DIR,
-  loadAllReferenceItems,
+  REFERENCE_VERSIONS,
+  buildReferencePageTree,
+  referenceHref,
   referenceStaticParams,
+  referenceVersionHref,
+  resolveReferencePage,
 } from "@/lib/reference-items";
 import { stripLeadingImports } from "@/lib/docs-render";
-import { safeReadFileSync } from "@/lib/safe-fs";
 import { buildDocMetadata } from "@/lib/seo-metadata";
 
 // Self-canonical for /reference/<slug>. Reference pages are not
@@ -41,11 +45,8 @@ export async function generateMetadata({
   params: Promise<{ slug: string[] }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const slugPath = slug.join("/");
-  const canonicalPath = `/reference/${slugPath}`;
-  // Read the reference MDX directly to extract frontmatter. Reuse
-  // safeReadFileSync so a crafted slug can't escape REFERENCE_CONTENT_DIR.
-  const raw = safeReadFileSync(REFERENCE_CONTENT_DIR, `${slugPath}.mdx`);
+  const resolved = resolveReferencePage(slug);
+  const raw = resolved?.raw ?? null;
   let title: string | undefined;
   let description: string | undefined;
   if (raw !== null) {
@@ -64,7 +65,9 @@ export async function generateMetadata({
   return buildDocMetadata({
     title: title ?? slug[slug.length - 1],
     description,
-    canonicalPath,
+    canonicalPath: resolved
+      ? referenceHref(resolved.version, resolved.pageSlug)
+      : `/reference/${slug.join("/")}`,
   });
 }
 
@@ -77,6 +80,12 @@ const mdxComponents = {
   Accordions,
   Accordion,
   OpsPlatformCTA,
+  LinkIcon,
+  Frame: ({ children }: { children: React.ReactNode }) => (
+    <div className="my-6 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4">
+      {children}
+    </div>
+  ),
   // Strip unknown imports — MDX import statements become no-ops in next-mdx-remote
 };
 
@@ -90,15 +99,12 @@ export default async function ReferenceSlugPage({
   params: Promise<{ slug: string[] }>;
 }) {
   const { slug } = await params;
-  const slugPath = slug.join("/");
-  // slugPath is user-supplied (URL segments). Route the filesystem read
-  // through safeReadFileSync so crafted paths like `..%2F..%2Fsecrets`
-  // can't escape REFERENCE_CONTENT_DIR.
-  const raw = safeReadFileSync(REFERENCE_CONTENT_DIR, `${slugPath}.mdx`);
-  if (raw === null) {
+  const resolved = resolveReferencePage(slug);
+  if (resolved === null) {
     notFound();
   }
 
+  const { version, pageSlug, contentSlug, raw } = resolved;
   let content = "";
   let data: Record<string, unknown> = {};
   try {
@@ -107,7 +113,7 @@ export default async function ReferenceSlugPage({
     data = parsed.data;
   } catch (err) {
     console.error(
-      `[reference] Failed to parse frontmatter in ${slugPath}.mdx:`,
+      `[reference] Failed to parse frontmatter in ${contentSlug}.mdx:`,
       err,
     );
     notFound();
@@ -115,35 +121,28 @@ export default async function ReferenceSlugPage({
 
   const cleanedContent = stripLeadingImports(content);
 
-  const allItems = loadAllReferenceItems();
   const title =
     typeof data.title === "string" && data.title.length > 0
       ? data.title
       : slug[slug.length - 1];
   const description =
     typeof data.description === "string" ? data.description : undefined;
-
-  // Build a Fumadocs PageTree from the reference items, grouped by
-  // category. Reference's IA is its own (Components / Hooks) — we don't
-  // share the docs nav tree here.
-  const pageTree: PageTree.Root = {
-    name: "Reference",
-    children: ["Components", "Hooks"].flatMap((cat) => [
-      { type: "separator" as const, name: cat },
-      ...allItems
-        .filter((i) => i.category === cat)
-        .map(
-          (item): PageTree.Item => ({
-            type: "page",
-            name: item.title,
-            url: `/reference/${item.slug}`,
-          }),
-        ),
-    ]),
-  };
+  const pageTree = buildReferencePageTree(version);
+  const versionOptions = REFERENCE_VERSIONS.map((referenceVersion) => ({
+    version: referenceVersion,
+    href: referenceVersionHref(referenceVersion, pageSlug),
+  }));
 
   return (
-    <ShellDocsLayout tree={pageTree}>
+    <ShellDocsLayout
+      tree={pageTree}
+      banner={
+        <ReferenceVersionSelector
+          activeVersion={version}
+          options={versionOptions}
+        />
+      }
+    >
       <DocsPage
         toc={[]}
         tableOfContent={{ enabled: false }}
@@ -161,7 +160,15 @@ export default async function ReferenceSlugPage({
                 Reference
               </Link>
               {" / "}
-              <span className="capitalize">{slug[0]}</span>
+              <span>{version}</span>
+              {pageSlug && (
+                <>
+                  {" / "}
+                  <span className="capitalize">
+                    {pageSlug.split("/")[0]}
+                  </span>
+                </>
+              )}
             </div>
             <DocsTitle className="text-2xl font-bold">{title}</DocsTitle>
             {description && (
