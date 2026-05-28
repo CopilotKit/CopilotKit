@@ -164,9 +164,7 @@ export default async function ReferenceSlugPage({
               {pageSlug && (
                 <>
                   {" / "}
-                  <span className="capitalize">
-                    {pageSlug.split("/")[0]}
-                  </span>
+                  <span className="capitalize">{pageSlug.split("/")[0]}</span>
                 </>
               )}
             </div>
