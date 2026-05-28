@@ -2,11 +2,11 @@ import { logger } from "@copilotkit/shared";
 
 /**
  * Header name carrying the per-call end-user identity that the CopilotKit
- * Intelligence `/mcp` endpoint requires. Internal CopilotKit machinery — the
- * runtime stamps this onto `agent.headers` after `identifyUser` resolves,
- * and the auto-attach in `configureAgentForRequest` reads it back to gate
- * MCP-server attachment and to populate the outbound `X-Cpki-User-Id`
- * header on every MCP request. Not part of the public user API.
+ * Intelligence `/mcp` endpoint requires. Internal CopilotKit machinery —
+ * `configureAgentForRequest` resolves the user via `identifyUser` and bakes
+ * this header onto the `MCPMiddleware`'s transport config, so every outbound
+ * MCP request stamps `X-Cpki-User-Id: <userId>`. Not part of the public user
+ * API.
  *
  * @internal
  */
@@ -77,18 +77,17 @@ export interface CopilotKitIntelligenceConfig {
   /** API key for authenticating with the intelligence platform */
   apiKey: string;
   /**
-   * Enable the Intelligence platform's MCP server (bash + thread tools) on
-   * every `BuiltInAgent` run that resolves a user. The auto-attach is
-   * implemented in `configureAgentForRequest`: when this flag is `true`
-   * AND the runtime's `identifyUser` callback has placed a user-id onto
-   * the agent's forwarded headers AND the user has not already configured
-   * an MCP server pointing at the same URL, the server is appended to the
-   * agent's effective MCP server list for that run.
+   * Enable Enterprise Learning — expose the Intelligence platform's
+   * built-in tools (bash + thread/memory tools) to every agent run.
+   * Attached uniformly across agent frameworks in
+   * `configureAgentForRequest` via `@ag-ui/mcp-middleware`, with the
+   * resolved user-id and project apiKey baked into the transport headers
+   * for that request's clone.
    *
-   * Defaults to `false` — opt-in. Existing intelligence setups continue to
-   * work without the bash MCP server unless they flip this flag.
+   * Defaults to `false` — opt-in. Existing intelligence setups continue
+   * to work without these tools unless they flip this flag.
    */
-  mcpServer?: boolean;
+  enableEnterpriseLearning?: boolean;
   /**
    * Initial listener invoked after a thread is created.
    * Prefer {@link CopilotKitIntelligence.onThreadCreated} for multiple listeners.
@@ -345,7 +344,7 @@ export class CopilotKitIntelligence {
   #runnerWsUrl: string;
   #clientWsUrl: string;
   #apiKey: string;
-  #mcpServerEnabled: boolean;
+  #enterpriseLearningEnabled: boolean;
   #threadCreatedListeners = new Set<(thread: ThreadSummary) => void>();
   #threadUpdatedListeners = new Set<(thread: ThreadSummary) => void>();
   #threadDeletedListeners = new Set<(params: ThreadDeletedPayload) => void>();
@@ -357,7 +356,7 @@ export class CopilotKitIntelligence {
     this.#runnerWsUrl = deriveRunnerWsUrl(intelligenceWsUrl);
     this.#clientWsUrl = deriveClientWsUrl(intelligenceWsUrl);
     this.#apiKey = config.apiKey;
-    this.#mcpServerEnabled = config.mcpServer ?? false;
+    this.#enterpriseLearningEnabled = config.enableEnterpriseLearning ?? false;
 
     if (config.onThreadCreated) {
       this.onThreadCreated(config.onThreadCreated);
@@ -452,8 +451,8 @@ export class CopilotKitIntelligence {
   }
 
   /** @internal Used by the runtime's auto-attach to gate MCP attachment. */
-  ɵisMcpServerEnabled(): boolean {
-    return this.#mcpServerEnabled;
+  ɵisEnterpriseLearningEnabled(): boolean {
+    return this.#enterpriseLearningEnabled;
   }
 
   async #request<T>(method: string, path: string, body?: unknown): Promise<T> {
