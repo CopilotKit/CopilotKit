@@ -352,7 +352,14 @@ describe("Overlay selector integration — real UI components", () => {
     const { getByTestId, getByText } = render(
       <ComposedCell
         ctx={ctx}
-        overlays={overlaySet("links", "depth", "health", "docs", "parity", "d6")}
+        overlays={overlaySet(
+          "links",
+          "depth",
+          "health",
+          "docs",
+          "parity",
+          "d6",
+        )}
         catalogCell={catalogCell}
       />,
     );
