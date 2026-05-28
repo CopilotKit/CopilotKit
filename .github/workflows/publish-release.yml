@@ -1,30 +1,48 @@
+# release / publish
+#
+# Single npm OIDC entry point for both stable releases and prerelease canaries.
+# npm trusted publisher records for the 15 @copilotkit/* monorepo packages plus
+# @copilotkitnext/angular are registered against THIS workflow file. Matching
+# happens on the OIDC token's `workflow_ref` claim, which is always
+# publish-release.yml when this workflow is the entry point.
+#
+# Triggers:
+#   - pull_request: closed on a release/publish/<scope>/v<X.Y.Z> branch → stable
+#     release of <scope> at version <X.Y.Z> (the normal flow).
+#   - workflow_dispatch with mode=stable → manual retrigger of a failed stable
+#     release. Republishes from the latest commit on main. Only use this when
+#     the normal flow failed BEFORE npm publish succeeded.
+#   - workflow_dispatch with mode=prerelease → canary publish. Bumps versions
+#     in the build job to <X.Y.Z>-canary.<suffix>, publishes with --tag canary,
+#     skips tag push + GH Release + Notion notification.
 name: release / publish
 
 on:
   pull_request:
     types: [closed]
     branches: [main]
-  # Escape hatch for failed releases. Covers failures BEFORE the "Publish to
-  # npm" step succeeds (build errors, infra blips, git config bugs). Does
-  # NOT cover post-npm-publish failures: if npm publish already succeeded
-  # but a later step failed, the retry will fail at "Publish to npm" with
-  # an "already published" error, and the "Check for pre-existing tags"
-  # step will also block retries where the tag was pushed. For those cases,
-  # remediate by hand using release-notes.md from the merged release PR.
   workflow_dispatch:
     inputs:
       scope:
-        description: |
-          ⚠️ MANUAL RETRIGGER — republishes from the latest commit on main,
-          bypassing the normal release-PR flow. Only use this when the
-          normal flow failed BEFORE npm publish succeeded. If npm publish
-          already happened, finish the release by hand instead — dispatching
-          here will fail at "Publish to npm" with "already published".
+        description: "What to release"
         required: true
         type: choice
         options:
           - monorepo
           - angular
+      mode:
+        description: "Release mode: stable (full release with tag + GH Release) or prerelease (canary, no tag/release)"
+        required: false
+        default: stable
+        type: choice
+        options:
+          - stable
+          - prerelease
+      suffix:
+        description: "Canary suffix (only used when mode=prerelease). Falls back to timestamp if empty. Allowed: [a-zA-Z0-9._-]+"
+        required: false
+        type: string
+        default: ""
       dry-run:
         description: "Dry run (skip publish step)"
         required: false
@@ -93,6 +111,19 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Bump prerelease versions
+        if: ${{ inputs.mode == 'prerelease' }}
+        env:
+          INPUT_SCOPE: ${{ inputs.scope }}
+          INPUT_SUFFIX: ${{ inputs.suffix }}
+        run: |
+          set -euo pipefail
+          ARGS="--scope $INPUT_SCOPE"
+          if [ -n "$INPUT_SUFFIX" ]; then
+            ARGS="$ARGS --suffix $INPUT_SUFFIX"
+          fi
+          pnpm tsx scripts/release/bump-prerelease.ts $ARGS
+
       - name: Build packages
         run: pnpm run build
 
@@ -132,12 +163,9 @@ jobs:
         env:
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           INPUT_SCOPE: ${{ inputs.scope }}
-          INPUT_MODE: ${{ inputs.mode }}
-          EVENT_NAME: ${{ github.event_name }}
+          INPUT_MODE:  ${{ inputs.mode }}
         run: |
           set -euo pipefail
-          # Scope: workflow_call and workflow_dispatch both populate inputs.scope;
-          # pull_request parses scope from the release branch name.
           if [ -n "$INPUT_SCOPE" ]; then
             SCOPE="$INPUT_SCOPE"
           else
@@ -145,18 +173,12 @@ jobs:
             SCOPE=$(echo "$PR_HEAD_REF" | sed 's|release/publish/\([^/]*\)/v.*|\1|')
           fi
           if [ -z "$SCOPE" ]; then
-            echo "::error::Failed to resolve scope (event=$EVENT_NAME, input=$INPUT_SCOPE, ref=$PR_HEAD_REF)"
+            echo "::error::Failed to resolve scope (input=$INPUT_SCOPE, ref=$PR_HEAD_REF)"
             exit 1
           fi
-          # Mode: only workflow_call carries an explicit mode; everything else is stable.
-          if [ "$EVENT_NAME" = "workflow_call" ]; then
-            MODE="${INPUT_MODE:-stable}"
-          else
-            MODE="stable"
-          fi
+          MODE="${INPUT_MODE:-stable}"
           echo "scope=$SCOPE" >> "$GITHUB_OUTPUT"
-          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
-          echo "Resolved scope=$SCOPE mode=$MODE (event=$EVENT_NAME)"
+          echo "mode=$MODE"   >> "$GITHUB_OUTPUT"
 
       - name: Download workspace
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -198,7 +220,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ""
           NOTION_API_KEY: ${{ steps.meta.outputs.mode == 'stable' && secrets.NOTION_API_KEY || '' }}
-          PUBLISH_SCRIPT: ${{ inputs.publish-script || 'publish-release.ts' }}
+          PUBLISH_SCRIPT: ${{ inputs.mode == 'prerelease' && 'prerelease.ts' || 'publish-release.ts' }}
           SCOPE: ${{ steps.meta.outputs.scope }}
         run: pnpm tsx "scripts/release/$PUBLISH_SCRIPT" --scope "$SCOPE"
 
