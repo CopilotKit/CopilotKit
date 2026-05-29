@@ -439,7 +439,17 @@ module Railway
     # We capture KEYS only for env vars (never values) so snapshots are safe
     # to commit/share.
     class SnapshotIO
-        SCHEMA_VERSION = 1
+        SCHEMA_VERSION = 2
+
+        # v1: initial fields (name, service_id, image, image_tag, digest,
+        #     start_command, auto_updates_disabled, latest_deployment_id,
+        #     env_keys, custom_domains).
+        # v2: adds healthcheck_path, region, replicas, restart_policy
+        #     (for the P6 parity matrix in promote). We accept v1 reads
+        #     for backwards-compat with historical committed snapshots —
+        #     promote always uses live snapshots, but rollback-commit
+        #     replays snapshots from arbitrary SHAs.
+        SUPPORTED_VERSIONS = [1, SCHEMA_VERSION].freeze
 
         def self.write(path, snapshot)
             FileUtils.mkdir_p(File.dirname(path)) unless path == "-"
@@ -454,8 +464,8 @@ module Railway
         def self.read(path)
             raw = path == "-" ? $stdin.read : File.read(path)
             data = YAML.safe_load(raw, permitted_classes: [Time, Symbol], aliases: false)
-            unless data.is_a?(Hash) && data["version"] == SCHEMA_VERSION
-                Railway.die!("Snapshot schema mismatch (expected version=#{SCHEMA_VERSION}).")
+            unless data.is_a?(Hash) && SUPPORTED_VERSIONS.include?(data["version"])
+                Railway.die!("Snapshot schema mismatch (expected version in #{SUPPORTED_VERSIONS.inspect}).")
             end
             data
         end
@@ -507,6 +517,10 @@ module Railway
                 serviceId
                 environmentId
                 startCommand
+                healthcheckPath
+                region
+                numReplicas
+                restartPolicyType
                 source { image repo }
                 latestDeployment { id status }
                 domains {
@@ -655,6 +669,10 @@ module Railway
                     "image_tag"             => tag_ref,
                     "digest"                => digest,
                     "start_command"         => inst["startCommand"],
+                    "healthcheck_path"      => inst["healthcheckPath"],
+                    "region"                => inst["region"],
+                    "replicas"              => inst["numReplicas"],
+                    "restart_policy"        => inst["restartPolicyType"],
                     "auto_updates_disabled" => nil,
                     "latest_deployment_id"  => inst.dig("latestDeployment", "id"),
                     "env_keys"              => (keys_by_service[node["id"]] || []).sort.uniq,
@@ -1126,9 +1144,83 @@ module Railway
             (data.dig("deployments", "edges") || []).map { |e| e["node"] }
         end
 
-        # Stubs filled in by later phases; return [] so D.2 lands green.
+        # Stub — P3 lands in a later commit.
         def check_p3_staging_live_green(_staging); []; end
-        def check_p6_parity(_staging, _prod); []; end
+
+        # P6 — parity matrix.
+        #   REFUSE: startCommand, healthcheckPath, image shape.
+        #   WARN:   region, replicas, restartPolicy, env-var KEY set.
+        #   IGNORE: env-var VALUES (printed as NOTE every run; see
+        #           run_with_preflight_only).
+        def check_p6_parity(staging, prod)
+            findings = []
+            (staging["services"] || []).each do |svc|
+                pmatch = Railway.find_service(prod, svc["name"])
+                next unless pmatch  # service-set parity catches this separately.
+                name = svc["name"]
+
+                # REFUSE — startCommand
+                if svc["start_command"] != pmatch["start_command"]
+                    findings << "REFUSE: P6 (#{name}): startCommand divergence " \
+                                "(staging=#{svc['start_command'].inspect} prod=#{pmatch['start_command'].inspect})"
+                end
+
+                # REFUSE — healthcheckPath
+                if svc["healthcheck_path"] != pmatch["healthcheck_path"]
+                    findings << "REFUSE: P6 (#{name}): healthcheckPath divergence " \
+                                "(staging=#{svc['healthcheck_path'].inspect} prod=#{pmatch['healthcheck_path'].inspect})"
+                end
+
+                # REFUSE — image shape (staging=:tag mutable, prod=@sha256 pinned).
+                staging_shape = image_shape(svc["image"])
+                prod_shape    = image_shape(pmatch["image"])
+                expected_staging_shape = :tag
+                expected_prod_shape    = :digest
+                if staging_shape != expected_staging_shape || prod_shape != expected_prod_shape
+                    findings << "REFUSE: P6 (#{name}): image shape wrong " \
+                                "(staging=#{staging_shape} expected=#{expected_staging_shape}; " \
+                                "prod=#{prod_shape} expected=#{expected_prod_shape})"
+                end
+
+                # WARN — region
+                if svc["region"] != pmatch["region"]
+                    findings << "WARN: P6 (#{name}): region divergence " \
+                                "(staging=#{svc['region'].inspect} prod=#{pmatch['region'].inspect})"
+                end
+
+                # WARN — replicas
+                if svc["replicas"] != pmatch["replicas"]
+                    findings << "WARN: P6 (#{name}): replicas divergence " \
+                                "(staging=#{svc['replicas']} prod=#{pmatch['replicas']})"
+                end
+
+                # WARN — restartPolicy
+                if svc["restart_policy"] != pmatch["restart_policy"]
+                    findings << "WARN: P6 (#{name}): restartPolicy divergence " \
+                                "(staging=#{svc['restart_policy'].inspect} prod=#{pmatch['restart_policy'].inspect})"
+                end
+
+                # WARN — env var KEY set
+                staging_keys = (svc["env_keys"] || []).sort
+                prod_keys    = (pmatch["env_keys"] || []).sort
+                if staging_keys != prod_keys
+                    only_staging = staging_keys - prod_keys
+                    only_prod    = prod_keys - staging_keys
+                    findings << "WARN: P6 (#{name}): env key set divergence " \
+                                "(only-in-staging=#{only_staging.inspect} only-in-prod=#{only_prod.inspect})"
+                end
+            end
+            findings
+        end
+
+        # Classify an image ref. :tag (mutable), :digest (immutable @sha256:),
+        # :missing, or :other.
+        def image_shape(ref)
+            return :missing if ref.nil? || ref.empty?
+            return :digest  if ref.include?("@sha256:")
+            return :tag     if ref.include?(":") && ref.split(":", 2).last !~ /\A\s*\z/
+            :other
+        end
 
         def check_service_set_parity(staging, prod)
             findings = []
