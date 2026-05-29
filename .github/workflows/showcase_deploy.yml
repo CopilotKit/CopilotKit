@@ -202,7 +202,7 @@ jobs:
               -H "Authorization: Bearer $RAILWAY_TOKEN" \
               -H "Content-Type: application/json" \
               -d "{\"query\":\"query { deployments(first: 1, input: { serviceId: \\\"$SERVICE_ID\\\", environmentId: \\\"$ENV_ID\\\" }) { edges { node { id status staticUrl } } } }\"}" \
-              https://backboard.railway.com/graphql/v2 2>/dev/null)
+              https://backboard.railway.app/graphql/v2 2>/dev/null)
 
             # Surface GraphQL errors and fail fast
             ERRORS=$(echo "$RESULT" | jq -r '.errors[]?.message // empty')
