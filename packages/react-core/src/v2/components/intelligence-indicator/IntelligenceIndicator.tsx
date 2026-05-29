@@ -25,13 +25,16 @@ const CHECK_HOLD_MS = 800;
 const FADE_OUT_ANIMATION_MS = 480;
 
 /**
- * Tool-name regex patterns that trigger the indicator. Currently
- * hardcoded to the Intelligence MCP server's canonical tool name. If
- * we add per-instance customization later (e.g. a `CopilotKitProvider`
- * prop or a runtime-info field), this constant becomes the fallback.
+ * Tool-name regex patterns that trigger the indicator. Matches any tool
+ * name *containing* the Intelligence MCP server's canonical tool name, so
+ * both the bare `copilotkit_knowledge_base_shell` and the namespaced
+ * `mcp__<server>__copilotkit_knowledge_base_shell` form (emitted by
+ * `@ag-ui/mcp-middleware`) light up the pill. If we add per-instance
+ * customization later (e.g. a `CopilotKitProvider` prop or a runtime-info
+ * field), this constant becomes the fallback.
  */
 const DEFAULT_TOOL_PATTERNS: readonly RegExp[] = [
-  /^copilotkit_knowledge_base_shell$/,
+  /copilotkit_knowledge_base_shell/,
 ];
 
 type Phase = "idle" | "spinner" | "check" | "fading" | "hidden";

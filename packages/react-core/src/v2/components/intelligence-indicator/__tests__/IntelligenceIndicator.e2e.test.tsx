@@ -353,6 +353,26 @@ describe('IntelligenceIndicator — "Using CopilotKit Intelligence" (auto-mounte
     expectPillCount(1);
   });
 
+  it("condition (tool-match): renders for the namespaced mcp__ tool name", async () => {
+    const agent = makeAgent();
+    renderForIndicator(agent);
+    await screen.findByTestId("trigger-run");
+
+    await triggerRun(agent);
+    startRun(agent);
+    // `@ag-ui/mcp-middleware` namespaces MCP tools as
+    // `mcp__<server>__<tool>`; the contains-match must still light the pill.
+    emitAssistantMessageWithToolCalls(agent, "m_match", [
+      {
+        id: "tc_match",
+        name: "mcp__intelligence__copilotkit_knowledge_base_shell",
+        arg: "{}",
+      },
+    ]);
+    await waitFor(() => expectPillOn("m_match"));
+    expectPillCount(1);
+  });
+
   it("intelligence gate: does not render when copilotkit.intelligence is undefined", async () => {
     const agent = makeAgent();
     renderForIndicator(agent, { withIntelligence: false });
