@@ -34,7 +34,10 @@ const readXhrRequestBody = (
 ): unknown => {
   if (body == null) return undefined;
   if (typeof body === "string") return parseBodyText(body, null);
-  if (typeof URLSearchParams !== "undefined" && body instanceof URLSearchParams) {
+  if (
+    typeof URLSearchParams !== "undefined" &&
+    body instanceof URLSearchParams
+  ) {
     return formUrlEncodedToObject(body.toString());
   }
   if (typeof FormData !== "undefined" && body instanceof FormData) {
@@ -43,7 +46,10 @@ const readXhrRequestBody = (
   return undefined;
 };
 
-const readXhrResponse = (xhr: XMLHttpRequest, contentType: string | null): unknown => {
+const readXhrResponse = (
+  xhr: XMLHttpRequest,
+  contentType: string | null,
+): unknown => {
   try {
     if (xhr.responseType === "" || xhr.responseType === "text") {
       return parseBodyText(xhr.responseText, contentType);
@@ -80,15 +86,22 @@ export function patchXHR(bridge: AutoCaptureBridge): void {
     this: CapturingXhr,
     method: string,
     url: string | URL,
-    ...rest: unknown[]
+    async?: boolean,
+    user?: string | null,
+    password?: string | null,
   ): void {
     try {
-      this.__cpkCapture = { method: String(method), url: toAbsoluteUrl(String(url)) };
+      this.__cpkCapture = {
+        method: String(method),
+        url: toAbsoluteUrl(String(url)),
+      };
     } catch {
       // ignore — capture metadata is best-effort
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (originalOpen as any).apply(this, [method, url, ...rest]);
+    // Pass through to the original with the spec's exact signature. Using
+    // `.call` (rather than `.apply` with a rest array) lets TypeScript pick
+    // the matching overload directly, so no widening cast is needed.
+    originalOpen.call(this, method, url, async ?? true, user, password);
   };
 
   XMLHttpRequest.prototype.send = function patchedSend(
@@ -116,8 +129,7 @@ export function patchXHR(bridge: AutoCaptureBridge): void {
         }
       });
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (originalSend as any).apply(this, [body as any]);
+    originalSend.call(this, body);
   };
 
   proto[XHR_PATCHED] = true;
