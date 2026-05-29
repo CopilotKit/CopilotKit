@@ -31,6 +31,10 @@
  * --fd-banner-height is set dynamically by Banners (54px / 0px). */
 :root {
   --fd-nav-height: 56px;
+  /* Chromium renders our `scrollbar-width: thin` content wrapper gutter at
+   * 11px. BrandNav adds this to Fumadocs's 97rem layout cap so its centered
+   * shell lines up with the sidebar when the docs column starts scrolling. */
+  --shell-docs-scrollbar-gutter: 11px;
 }
 @media (min-width: 768px) {
   :root {
