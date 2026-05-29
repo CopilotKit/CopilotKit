@@ -32,70 +32,71 @@ const mockState = {
 };
 
 vi.mock("../lib/pb", () => {
-  return {
-    pbIsMisconfigured: false,
-    PB_MISCONFIG_MESSAGE: "Dashboard misconfigured (test stub)",
-    pb: {
-      filter: (raw: string, params?: Record<string, unknown>) => {
-        let out = raw;
-        if (params) {
-          for (const [k, v] of Object.entries(params)) {
-            out = out.replace(
-              new RegExp(`\\{:${k}\\}`, "g"),
-              JSON.stringify(v),
-            );
-          }
+  const pb = {
+    filter: (raw: string, params?: Record<string, unknown>) => {
+      let out = raw;
+      if (params) {
+        for (const [k, v] of Object.entries(params)) {
+          out = out.replace(
+            new RegExp(`\\{:${k}\\}`, "g"),
+            JSON.stringify(v),
+          );
         }
-        return out;
-      },
-      collection: (_name: string) => ({
-        // getFullList is used by the initial fetch (replaces paginated getList).
-        // Returns a plain array, respecting the `batch` option as a cap.
-        getFullList: vi.fn(
-          async (opts?: { batch?: number; filter?: string }) => {
-            mockState.getListCalls += 1;
-            mockState.lastInitialGetListOpts = opts;
-            if (mockState.failRemaining > 0) {
-              mockState.failRemaining -= 1;
-              throw new Error("pb-unreachable");
-            }
-            const cap = opts?.batch ?? Infinity;
-            return mockState.initial.slice(0, cap);
-          },
-        ),
-        // getList is still used for heartbeat pings (getList(1, 1)).
-        getList: vi.fn(
-          async (_page: number, _perPage: number, _opts?: unknown) => {
-            mockState.getListCalls += 1;
-            if (mockState.heartbeatFailRemaining > 0) {
-              mockState.heartbeatFailRemaining -= 1;
-              throw new Error("heartbeat-fail");
-            }
-            return {
-              items: mockState.initial.slice(0, 1),
-              page: 1,
-              perPage: 1,
-              totalItems: mockState.initial.length,
-              totalPages: 1,
-            };
-          },
-        ),
-        subscribe: vi.fn(
-          async (_topic: string, cb: Listener, opts?: unknown) => {
-            mockState.subscribeCalls += 1;
-            mockState.listener = cb;
-            mockState.lastSubscribeOpts = opts;
-            return async () => {
-              mockState.unsubscribeCalls += 1;
-              mockState.listener = null;
-            };
-          },
-        ),
-        unsubscribe: vi.fn(async () => {
-          mockState.listener = null;
-        }),
-      }),
+      }
+      return out;
     },
+    collection: (_name: string) => ({
+      // getFullList is used by the initial fetch (replaces paginated getList).
+      // Returns a plain array, respecting the `batch` option as a cap.
+      getFullList: vi.fn(
+        async (opts?: { batch?: number; filter?: string }) => {
+          mockState.getListCalls += 1;
+          mockState.lastInitialGetListOpts = opts;
+          if (mockState.failRemaining > 0) {
+            mockState.failRemaining -= 1;
+            throw new Error("pb-unreachable");
+          }
+          const cap = opts?.batch ?? Infinity;
+          return mockState.initial.slice(0, cap);
+        },
+      ),
+      // getList is still used for heartbeat pings (getList(1, 1)).
+      getList: vi.fn(
+        async (_page: number, _perPage: number, _opts?: unknown) => {
+          mockState.getListCalls += 1;
+          if (mockState.heartbeatFailRemaining > 0) {
+            mockState.heartbeatFailRemaining -= 1;
+            throw new Error("heartbeat-fail");
+          }
+          return {
+            items: mockState.initial.slice(0, 1),
+            page: 1,
+            perPage: 1,
+            totalItems: mockState.initial.length,
+            totalPages: 1,
+          };
+        },
+      ),
+      subscribe: vi.fn(
+        async (_topic: string, cb: Listener, opts?: unknown) => {
+          mockState.subscribeCalls += 1;
+          mockState.listener = cb;
+          mockState.lastSubscribeOpts = opts;
+          return async () => {
+            mockState.unsubscribeCalls += 1;
+            mockState.listener = null;
+          };
+        },
+      ),
+      unsubscribe: vi.fn(async () => {
+        mockState.listener = null;
+      }),
+    }),
+  };
+  return {
+    pbIsMisconfigured: () => false,
+    PB_MISCONFIG_MESSAGE: "Dashboard misconfigured (test stub)",
+    getPb: () => pb,
   };
 });
 
@@ -490,7 +491,7 @@ describe("useLiveStatus", () => {
     // The mocked pb.collection returns a minimal stub (see vi.mock above),
     // not a real PocketBase RecordService — casting through `unknown` to a
     // narrowed shape is the correct seam.
-    const pbHandle = pbMod.pb as unknown as {
+    const pbHandle = pbMod.getPb() as unknown as {
       collection: (name: string) => Record<string, unknown>;
     };
     const origCollection = pbHandle.collection;
