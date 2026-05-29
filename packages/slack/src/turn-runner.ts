@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { HttpAgent } from "@ag-ui/client";
 import type { WebClient } from "@slack/web-api";
 import {
@@ -284,9 +285,10 @@ export async function recoverFromStaleClick(args: {
 
   // ── 1. Resolved render — replace picker in place ──────────────────
   let pickerEventType: string | undefined;
+  let resumedThreadId: string | undefined;
   if (click.messageTs) {
     try {
-      pickerEventType = await renderResolvedFromMetadata({
+      const resolved = await renderResolvedFromMetadata({
         client,
         channel: replyTarget.channel,
         threadTs: replyTarget.threadTs,
@@ -299,6 +301,8 @@ export async function recoverFromStaleClick(args: {
         botUserId,
         conversationKey: keyOf(conversation),
       });
+      pickerEventType = resolved?.eventType;
+      resumedThreadId = resolved?.threadId;
     } catch (err) {
       console.error("[turn-runner] stale-click resolved render failed:", err);
     }
@@ -311,8 +315,25 @@ export async function recoverFromStaleClick(args: {
     // user message will pick up the context naturally.
     return;
   }
-  const threadId = `slack-${conversation.channelId}-${conversation.scope}`;
-  const agent = makeAgent(threadId);
+  // Resume on the exact thread the interrupt paused on. Threads are unique
+  // per turn (see SlackConversationStore.newThreadId), so the paused thread
+  // is whatever the picker recorded in its metadata. Fall back to the
+  // legacy stable id for pickers posted by an older bridge build that
+  // didn't persist one.
+  const agent = makeAgent(`slack-${conversation.channelId}-${conversation.scope}`);
+  if (resumedThreadId) {
+    agent.threadId = resumedThreadId;
+  } else {
+    // No threadId in the picker metadata — almost certainly a picker posted
+    // by a bridge build from before per-turn threads existed. The stable id
+    // we fall back to no longer matches any thread the runtime created, so
+    // the resume may no-op; surface it rather than letting the click look
+    // like it silently did nothing.
+    console.warn(
+      "[turn-runner] stale-click resume has no threadId in picker metadata; " +
+        "falling back to the legacy stable thread id (likely a pre-upgrade picker)",
+    );
+  }
   const renderer = createSlackEventRenderer({ client, target: replyTarget });
   try {
     await agent.runAgent(
@@ -371,7 +392,15 @@ export async function dispatchA2UIAction(args: {
     makeAgent,
   } = args;
 
-  const threadId = `slack-${conversation.channelId}-${conversation.scope}`;
+  // Fresh thread per click, matching the per-turn isolation in
+  // SlackConversationStore.newThreadId. The A2UI dispatch is self-contained
+  // — it forwards the decoded `userAction` (which carries its own
+  // surfaceId/sourceComponentId/context) for the middleware to turn into a
+  // synthesized tool-result — so it does not need the surface's originating
+  // thread. Reusing a stable id would instead let the server-side thread
+  // accumulate across clicks and re-introduce the "Message not found"
+  // balloon this package otherwise avoids.
+  const threadId = `slack-${conversation.channelId}-${conversation.scope}-${randomUUID()}`;
   const agent = makeAgent(threadId);
   const renderer = createSlackEventRenderer({
     client,
@@ -415,7 +444,7 @@ async function renderResolvedFromMetadata(args: {
   hitlRegistry: HumanInTheLoopRegistry;
   botUserId: string;
   conversationKey: string;
-}): Promise<string | undefined> {
+}): Promise<{ eventType?: string; threadId?: string } | undefined> {
   const r = (await args.client.conversations.replies({
     channel: args.channel,
     ts: args.messageTs,
@@ -435,6 +464,7 @@ async function renderResolvedFromMetadata(args: {
   if (!picker?.metadata?.event_payload) return;
   const evType = picker.metadata.event_type;
   const meta = picker.metadata.event_payload;
+  const pickerThreadId = (meta as { threadId?: string }).threadId;
 
   let resolvedRender: ReturnType<HumanInTheLoop["render"]> | undefined;
   let text = "";
@@ -534,7 +564,7 @@ async function renderResolvedFromMetadata(args: {
     click: args.responseUrl ? { responseUrl: args.responseUrl } : undefined,
     existingMessageTs: args.messageTs,
   });
-  return evType;
+  return { eventType: evType, threadId: pickerThreadId };
 }
 
 /**
@@ -690,6 +720,12 @@ async function runWithToolLoop(args: {
             event_payload: {
               handler: handler.name,
               payload: parsed.value,
+              // The turn's LangGraph threadId. Threads are now unique per
+              // turn (see SlackConversationStore.newThreadId), so a stale
+              // click after a bridge restart can only resume the *paused*
+              // thread if we persist it here — re-deriving a stable id
+              // would target a thread that never existed.
+              threadId: agent.threadId,
             },
           },
         });

@@ -1,6 +1,12 @@
 import { App, LogLevel } from "@slack/bolt";
-import { retryPolicies, type RetryOptions } from "@slack/web-api";
+// `@slack/web-api` is CommonJS; under Node ESM a named import of
+// `retryPolicies` fails ("does not provide an export named 'retryPolicies'"),
+// so import the module's default (its `module.exports`) and read the
+// preset off it. `RetryOptions` is type-only, so it's erased and safe to
+// name-import.
+import slackWebApi, { type RetryOptions } from "@slack/web-api";
 import { HttpAgent } from "@ag-ui/client";
+import { SanitizingHttpAgent } from "./sanitizing-http-agent.js";
 import { createHash } from "node:crypto";
 import { SlackConversationStore } from "./conversation-store.js";
 import { attachSlackListener } from "./slack-listener.js";
@@ -192,7 +198,8 @@ export function createSlackBridge(config: SlackBridgeConfig): SlackBridge {
     // instead of being dropped. `fiveRetriesInFiveMinutes` keeps an
     // interactive bot responsive rather than retrying for half an hour.
     clientOptions: {
-      retryConfig: config.retryConfig ?? retryPolicies.fiveRetriesInFiveMinutes,
+      retryConfig:
+        config.retryConfig ?? slackWebApi.retryPolicies.fiveRetriesInFiveMinutes,
     },
   });
 
@@ -202,7 +209,7 @@ export function createSlackBridge(config: SlackBridgeConfig): SlackBridge {
   // so the bridge just speaks raw AG-UI and trusts the runtime to
   // surface activity events.
   const makeAgent = (threadId: string): HttpAgent => {
-    const a = new HttpAgent({
+    const a = new SanitizingHttpAgent({
       url: config.agentUrl,
       headers: config.agentHeaders,
     });

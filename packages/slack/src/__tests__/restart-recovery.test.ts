@@ -297,6 +297,40 @@ describe("recoverInterruptFromStaleClick", () => {
     expect(s.runAgent).toHaveBeenCalledTimes(1);
   });
 
+  it("resumes on the threadId persisted in the picker metadata (unique-per-turn recovery)", async () => {
+    const s = makeStubs({
+      fetchMessage: {
+        ts: "1.0",
+        metadata: {
+          event_type: "copilotkit_slack_interrupt",
+          event_payload: {
+            handler: "schedule_meeting_picker",
+            payload: { topic: "Q2 1:1", attendee: "Alice" },
+            // The paused turn's unique thread, recorded when the picker
+            // was posted. Recovery must resume on *this* thread, not a
+            // re-derived stable id (which would never have existed).
+            threadId: "slack-C1-100.0-abc-123",
+          },
+        },
+      },
+    });
+    await recoverInterruptFromStaleClick({
+      ...baseArgs,
+      resumeValue: { chosen_label: "Tomorrow 2:00 PM" },
+      click: { responseUrl: "https://hooks.slack.com/x", messageTs: "1.0" },
+      interruptHandlers: [meetingHandler],
+      humanInTheLoopComponents: [],
+      hitlRegistry: s.hitlRegistry,
+      client: s.client as never,
+      makeAgent: s.makeAgent,
+      botUserId: "BOT01",
+    });
+    const agent = (s.makeAgent.mock.results[0] as { value: { threadId: string } })
+      .value;
+    expect(agent.threadId).toBe("slack-C1-100.0-abc-123");
+    expect(s.runAgent).toHaveBeenCalledTimes(1);
+  });
+
   it("when the picker has no metadata, skips resolved render but still resumes", async () => {
     const s = makeStubs({
       fetchMessage: { ts: "1.0" /* no metadata field */ },

@@ -47,7 +47,7 @@ function makeAgent() {
 }
 
 describe("SlackConversationStore", () => {
-  it("derives a stable threadId from (channelId, scope)", async () => {
+  it("mints a unique threadId per turn under a stable conversation prefix", async () => {
     const client = makeFakeClient({ replies: [] });
     const store = new SlackConversationStore({
       client: client as never,
@@ -63,9 +63,14 @@ describe("SlackConversationStore", () => {
       { channel: "C1", threadTs: "100.0" },
       () => makeAgent() as never,
     );
-    // Same conversation key → same threadId across invocations and process restarts.
-    expect(s1.threadId).toBe(s2.threadId);
-    expect(s1.threadId).toBe("slack-C1-100.0");
+    // Threads are unique per turn so the server-side LangGraph thread never
+    // accumulates internal messages across turns (the "Message not found"
+    // balloon). Slack is the durable history; each turn rebuilds from it.
+    expect(s1.threadId).not.toBe(s2.threadId);
+    // …but both carry the stable conversation prefix so the turn's origin
+    // stays identifiable (and recovery can fall back to it).
+    expect(s1.threadId).toMatch(/^slack-C1-100\.0-/);
+    expect(s2.threadId).toMatch(/^slack-C1-100\.0-/);
   });
 
   it("populates agent.messages from the thread history fetched via Slack", async () => {

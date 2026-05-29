@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { HttpAgent } from "@ag-ui/client";
 import type { WebClient } from "@slack/web-api";
 import type { ConversationKey, ReplyTarget } from "./types.js";
@@ -41,9 +42,24 @@ export class SlackConversationStore {
     return `${k.channelId}::${k.scope}`;
   }
 
-  /** Stable AG-UI threadId derived from the Slack conversation. */
-  private threadIdFor(k: ConversationKey): string {
-    return `slack-${k.channelId}-${k.scope}`;
+  /**
+   * A *fresh* AG-UI threadId per turn.
+   *
+   * We deliberately do NOT reuse a stable per-conversation threadId.
+   * Slack is our durable history (every turn is rebuilt from it via
+   * {@link fetchHistory}), so the LangGraph thread only needs to live for
+   * the duration of one turn. Reusing a stable threadId across turns lets
+   * the server-side thread accumulate the agent's *internal* messages
+   * (tool calls/results that never round-trip through Slack); on the next
+   * turn `@ag-ui/langgraph` regenerates state and the now-larger existing
+   * thread no longer matches the incoming history, surfacing as a
+   * "Message not found" failure. A unique thread per turn sidesteps that
+   * entirely. Restart-recovery for interrupts still works because the
+   * picker carries its turn's threadId in Slack message metadata (see
+   * `recoverFromStaleClick`).
+   */
+  private newThreadId(k: ConversationKey): string {
+    return `slack-${k.channelId}-${k.scope}-${randomUUID()}`;
   }
 
   /**
@@ -86,7 +102,7 @@ export class SlackConversationStore {
     replyTarget: ReplyTarget,
     makeAgent: (threadId: string) => HttpAgent,
   ): Promise<AgentSession> {
-    const threadId = this.threadIdFor(key);
+    const threadId = this.newThreadId(key);
     const agent = makeAgent(threadId);
     const history = await this.fetchHistory(key);
     (agent as unknown as { messages: AgentMessage[] }).messages = history;
