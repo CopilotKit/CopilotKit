@@ -77,16 +77,37 @@ export interface AutoCaptureUserActionsConfig {
   /** HTTP methods to capture. Default: `["POST", "PUT", "PATCH", "DELETE"]`. */
   methods?: HttpMethod[];
   /**
-   * URL patterns to capture. A string matches by substring; a `RegExp` by
-   * `.test()`. When omitted, only **same-origin** requests are captured.
+   * URL patterns to capture. A string matches by substring **except** when it
+   * is a bare hostname (e.g. `"api.foo.com"`), in which case it is matched
+   * exactly against the URL's hostname — protecting against accidental
+   * substring matches like `"api.foo.com"` matching `"api.foo.com.attacker.test"`.
+   * A `RegExp` is matched via `.test()`.
+   *
+   * Supplying `allowUrls` **replaces** the default same-origin scope (use
+   * {@link allowOrigins} if you want to add domains to the default instead).
    */
   allowUrls?: Array<string | RegExp>;
   /**
    * URL patterns to never capture. The platform's own
    * `${runtimeUrl}/user-actions` endpoint is always excluded regardless of this
-   * list (this is the loop guard and cannot be overridden).
+   * list (this is the loop guard and cannot be overridden). Matching follows
+   * the same hostname-aware rules as {@link allowUrls}.
    */
   denyUrls?: Array<string | RegExp>;
+  /**
+   * Extra origins to capture, **in addition to** the same-origin default and to
+   * any `allowUrls` (use this when you want "my own origin plus this third
+   * party" without giving up the same-origin default). Each entry is compared
+   * exactly against `new URL(request.url).origin`, so use the full origin
+   * string including protocol — e.g. `"https://api.foo.com"`.
+   */
+  allowOrigins?: string[];
+  /**
+   * Origins to never capture, regardless of any allow rule. Layered alongside
+   * {@link denyUrls}. Each entry is compared exactly against
+   * `new URL(request.url).origin`.
+   */
+  denyOrigins?: string[];
   /** Capture and record the response body. Default: `true`. */
   captureResponseBody?: boolean;
   /** Sensitive-field redaction. A built-in deny list always applies. */

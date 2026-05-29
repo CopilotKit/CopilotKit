@@ -21,9 +21,11 @@ export const DEFAULT_METHODS: readonly HttpMethod[] = [
 /** Normalized form of {@link AutoCaptureUserActionsConfig} used by the pipeline. */
 export interface ResolvedAutoCaptureConfig {
   methods: Set<string>;
-  /** `undefined` means "same-origin only". */
+  /** `undefined` means "fall back to same-origin / `allowOrigins`". */
   allowUrls?: Array<string | RegExp>;
   denyUrls: Array<string | RegExp>;
+  allowOrigins: string[];
+  denyOrigins: string[];
   captureResponseBody: boolean;
   redaction: ResolvedRedaction;
   transform?: AutoCaptureUserActionsConfig["transform"];
@@ -39,14 +41,44 @@ export function resolveConfig(
     ),
     allowUrls: config.allowUrls,
     denyUrls: config.denyUrls ?? [],
+    allowOrigins: config.allowOrigins ?? [],
+    denyOrigins: config.denyOrigins ?? [],
     captureResponseBody: config.captureResponseBody ?? true,
     redaction: resolveRedaction(config.redact),
     transform: config.transform,
   };
 }
 
-const matchesPattern = (url: string, pattern: string | RegExp): boolean =>
-  typeof pattern === "string" ? url.includes(pattern) : pattern.test(url);
+/**
+ * Bare-hostname shape — used by {@link matchesPattern} to switch from
+ * substring matching to exact-hostname matching when the pattern looks like
+ * a domain. Without this, `"api.foo.com"` would also match
+ * `"https://api.foo.com.attacker.test/x"` via plain substring.
+ */
+const BARE_HOSTNAME = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/i;
+
+const matchesPattern = (url: string, pattern: string | RegExp): boolean => {
+  if (pattern instanceof RegExp) return pattern.test(url);
+  if (BARE_HOSTNAME.test(pattern)) {
+    try {
+      return new URL(url).hostname === pattern;
+    } catch {
+      return false;
+    }
+  }
+  return url.includes(pattern);
+};
+
+/** Whether the URL's origin appears in `origins` exactly. */
+const matchesAnyOrigin = (url: string, origins: string[]): boolean => {
+  if (origins.length === 0) return false;
+  try {
+    const origin = new URL(url).origin;
+    return origins.includes(origin);
+  } catch {
+    return false;
+  }
+};
 
 const stripToOriginPath = (url: string): string => {
   try {
@@ -109,9 +141,20 @@ export function shouldCapture(
 ): boolean {
   if (!ctx.config.methods.has(method.toUpperCase())) return false;
   if (isUserActionsEndpoint(url, ctx.runtimeUrl)) return false;
+
   if (ctx.config.denyUrls.some((pattern) => matchesPattern(url, pattern))) {
     return false;
   }
+  if (matchesAnyOrigin(url, ctx.config.denyOrigins)) return false;
+
+  // Allow logic — additive across all positive rules:
+  //  * `allowOrigins` always layers on top (no footgun: it never dethrones
+  //    same-origin or `allowUrls`).
+  //  * If the caller supplied `allowUrls`, that becomes the URL-level
+  //    whitelist (replacing the same-origin default for URL-pattern
+  //    matching); origin-level allow still applies.
+  //  * Otherwise the same-origin default applies.
+  if (matchesAnyOrigin(url, ctx.config.allowOrigins)) return true;
   if (ctx.config.allowUrls) {
     return ctx.config.allowUrls.some((pattern) => matchesPattern(url, pattern));
   }

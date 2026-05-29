@@ -287,3 +287,126 @@ describe("shouldCapture precedence and casing", () => {
     ).toBe(true);
   });
 });
+
+describe("origin-level scoping (allowOrigins / denyOrigins)", () => {
+  const base = { origin: ORIGIN, runtimeUrl: RUNTIME_URL };
+
+  it("allowOrigins is additive — same-origin still captured when allowOrigins lists only a third party", () => {
+    const config = resolveConfig({ allowOrigins: ["https://api.partner.test"] });
+
+    expect(shouldCapture("POST", `${ORIGIN}/api/x`, { ...base, config })).toBe(
+      true,
+    );
+    expect(
+      shouldCapture("POST", "https://api.partner.test/v1/x", {
+        ...base,
+        config,
+      }),
+    ).toBe(true);
+    expect(
+      shouldCapture("POST", "https://other.test/x", { ...base, config }),
+    ).toBe(false);
+  });
+
+  it("allowOrigins layers on top of allowUrls (URL-level whitelist still replaces same-origin)", () => {
+    const config = resolveConfig({
+      allowUrls: ["/some-path"],
+      allowOrigins: ["https://api.partner.test"],
+    });
+
+    // allowUrls matched
+    expect(
+      shouldCapture("POST", `${ORIGIN}/some-path/x`, { ...base, config }),
+    ).toBe(true);
+    // allowOrigins matched
+    expect(
+      shouldCapture("POST", "https://api.partner.test/anything", {
+        ...base,
+        config,
+      }),
+    ).toBe(true);
+    // neither matched — allowUrls semantics applies (no same-origin default)
+    expect(
+      shouldCapture("POST", `${ORIGIN}/something-else`, { ...base, config }),
+    ).toBe(false);
+  });
+
+  it("denyOrigins excludes even a same-origin request when its origin matches", () => {
+    const config = resolveConfig({ denyOrigins: [ORIGIN] });
+
+    expect(shouldCapture("POST", `${ORIGIN}/api/x`, { ...base, config })).toBe(
+      false,
+    );
+  });
+
+  it("denyOrigins beats allowOrigins (deny rules always win)", () => {
+    const config = resolveConfig({
+      allowOrigins: ["https://api.partner.test"],
+      denyOrigins: ["https://api.partner.test"],
+    });
+
+    expect(
+      shouldCapture("POST", "https://api.partner.test/x", { ...base, config }),
+    ).toBe(false);
+  });
+});
+
+describe("string pattern matching — bare-hostname footgun", () => {
+  const base = { origin: ORIGIN, runtimeUrl: RUNTIME_URL };
+
+  it("a bare-hostname pattern matches only the exact URL hostname", () => {
+    const config = resolveConfig({ allowUrls: ["api.foo.com"] });
+
+    expect(
+      shouldCapture("POST", "https://api.foo.com/v1/x", { ...base, config }),
+    ).toBe(true);
+    // Subdomain — does not match a bare hostname.
+    expect(
+      shouldCapture("POST", "https://v2.api.foo.com/x", { ...base, config }),
+    ).toBe(false);
+    // The classic substring-attack URL — would have matched under plain
+    // `url.includes("api.foo.com")` before this change.
+    expect(
+      shouldCapture("POST", "https://api.foo.com.attacker.test/payload", {
+        ...base,
+        config,
+      }),
+    ).toBe(false);
+  });
+
+  it("path-shaped string patterns keep substring matching for backward compat", () => {
+    const config = resolveConfig({ denyUrls: ["/private"] });
+
+    expect(
+      shouldCapture("POST", `${ORIGIN}/api/private/foo`, {
+        ...base,
+        config,
+      }),
+    ).toBe(false);
+    expect(
+      shouldCapture("POST", `${ORIGIN}/api/public/foo`, {
+        ...base,
+        config,
+      }),
+    ).toBe(true);
+  });
+
+  it("the hostname-aware rule also applies to denyUrls", () => {
+    const config = resolveConfig({ denyUrls: ["api.foo.com"] });
+
+    expect(
+      shouldCapture("POST", "https://api.foo.com/x", {
+        ...base,
+        config: { ...config, allowUrls: [/.*/] },
+      }),
+    ).toBe(false);
+    // attacker URL: bare-hostname deny does NOT match it (and same-origin
+    // default doesn't include it either) — so capture rests on allowUrls
+    expect(
+      shouldCapture("POST", "https://api.foo.com.attacker.test/x", {
+        ...base,
+        config: { ...config, allowUrls: [/.*/] },
+      }),
+    ).toBe(true);
+  });
+});
