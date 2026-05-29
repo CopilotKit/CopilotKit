@@ -12,8 +12,8 @@ import { probeBaseline } from "./verify-deploy.drivers.baseline";
  * top of `probeBaseline` once the per-driver micro-task lands.
  */
 export async function probeDocs(target: ProbeTarget): Promise<ProbeOutcome> {
-    return probeBaseline(target, {
-        driverLabel: "docs",
-        healthcheckPath: "/",
-    });
+  return probeBaseline(target, {
+    driverLabel: "docs",
+    healthcheckPath: "/",
+  });
 }

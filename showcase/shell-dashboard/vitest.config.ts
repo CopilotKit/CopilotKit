@@ -13,10 +13,7 @@ export default defineConfig({
     // spawns `next build` + two `next start` invocations and is too heavy
     // for the per-file unit suite. The `.spike.test.ts` suffix scopes the
     // tests/-rooted include narrowly so visual snapshots stay out.
-    include: [
-      "src/**/*.test.{ts,tsx}",
-      "tests/**/*.spike.test.ts",
-    ],
+    include: ["src/**/*.test.{ts,tsx}", "tests/**/*.spike.test.ts"],
     exclude: ["tests/visual/**", "node_modules/**"],
   },
   resolve: {

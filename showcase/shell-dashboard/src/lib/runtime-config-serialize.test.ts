@@ -22,40 +22,40 @@ const LS = String.fromCharCode(0x2028);
 const PS = String.fromCharCode(0x2029);
 
 describe("serializeRuntimeConfig (shell-dashboard)", () => {
-    it("escapes `<` so the closing-script substring cannot appear in the output", () => {
-        const malicious = { shellUrl: "</script><script>alert(1)</script>" };
-        const serialized = serializeRuntimeConfig(malicious);
-        expect(serialized).not.toContain("</script>");
-        expect(serialized).toContain("\\u003c");
-    });
+  it("escapes `<` so the closing-script substring cannot appear in the output", () => {
+    const malicious = { shellUrl: "</script><script>alert(1)</script>" };
+    const serialized = serializeRuntimeConfig(malicious);
+    expect(serialized).not.toContain("</script>");
+    expect(serialized).toContain("\\u003c");
+  });
 
-    it("escapes U+2028 (LINE SEPARATOR) to \\u2028", () => {
-        const cfg = { shellUrl: `before${LS}after` };
-        const serialized = serializeRuntimeConfig(cfg);
-        expect(serialized).not.toContain(LS);
-        expect(serialized).toContain("\\u2028");
-    });
+  it("escapes U+2028 (LINE SEPARATOR) to \\u2028", () => {
+    const cfg = { shellUrl: `before${LS}after` };
+    const serialized = serializeRuntimeConfig(cfg);
+    expect(serialized).not.toContain(LS);
+    expect(serialized).toContain("\\u2028");
+  });
 
-    it("escapes U+2029 (PARAGRAPH SEPARATOR) to \\u2029", () => {
-        const cfg = { shellUrl: `before${PS}after` };
-        const serialized = serializeRuntimeConfig(cfg);
-        expect(serialized).not.toContain(PS);
-        expect(serialized).toContain("\\u2029");
-    });
+  it("escapes U+2029 (PARAGRAPH SEPARATOR) to \\u2029", () => {
+    const cfg = { shellUrl: `before${PS}after` };
+    const serialized = serializeRuntimeConfig(cfg);
+    expect(serialized).not.toContain(PS);
+    expect(serialized).toContain("\\u2029");
+  });
 
-    it("round-trips a normal config via JSON.parse", () => {
-        const cfg = {
-            pocketbaseUrl: "https://pb.example.com",
-            shellUrl: "https://shell.example.com",
-            opsBaseUrl: "https://ops.example.com",
-        };
-        const serialized = serializeRuntimeConfig(cfg);
-        expect(JSON.parse(serialized)).toEqual(cfg);
-    });
+  it("round-trips a normal config via JSON.parse", () => {
+    const cfg = {
+      pocketbaseUrl: "https://pb.example.com",
+      shellUrl: "https://shell.example.com",
+      opsBaseUrl: "https://ops.example.com",
+    };
+    const serialized = serializeRuntimeConfig(cfg);
+    expect(JSON.parse(serialized)).toEqual(cfg);
+  });
 
-    it("does not double-escape already-safe characters", () => {
-        const cfg = { shellUrl: "https://shell.copilotkit.ai" };
-        const serialized = serializeRuntimeConfig(cfg);
-        expect(serialized).toBe(JSON.stringify(cfg));
-    });
+  it("does not double-escape already-safe characters", () => {
+    const cfg = { shellUrl: "https://shell.copilotkit.ai" };
+    const serialized = serializeRuntimeConfig(cfg);
+    expect(serialized).toBe(JSON.stringify(cfg));
+  });
 });

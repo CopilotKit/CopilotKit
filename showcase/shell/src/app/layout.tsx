@@ -17,19 +17,26 @@ import "./globals.css";
  *     containing `</script>` (e.g. a hostile env value) would
  *     terminate the inline script and inject HTML. Escape every
  *     `<` to `<` so the substring `</script>` can never appear.
- *   - ` ` (LINE SEPARATOR) and ` ` (PARAGRAPH SEPARATOR) —
+ *   - `
+` (LINE SEPARATOR) and `
+` (PARAGRAPH SEPARATOR) —
  *     legal inside JSON strings, but a syntax error inside a JS
  *     string literal in older engines / when the page is parsed as
  *     `text/javascript`. Escape both.
  *
- * IMPORTANT: the regex sources below use explicit ` ` / ` `
+ * IMPORTANT: the regex sources below use explicit `
+` / `
+`
  * ECMAScript-Unicode escapes — the regex engine resolves the escape at
- * compile time, so `/ /` matches the actual U+2028 codepoint.
+ * compile time, so `/
+/` matches the actual U+2028 codepoint.
  * Using a literal U+2028 / U+2029 character in the regex source would
  * break the parser (those codepoints terminate a regex literal in
  * pre-ES2019 engines, and are visually invisible — easy to ship
  * accidentally). Reviewers MUST confirm these regexes are written with
- * ` ` / ` ` escapes literally.
+ * `
+` / `
+` escapes literally.
  *
  * Canonical OWASP-recommended escape for inline JSON in HTML.
  */

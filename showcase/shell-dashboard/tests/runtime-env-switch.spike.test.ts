@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { execSync, spawn, type ChildProcess } from "node:child_process";
+import { execSync, spawn } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
 import { setTimeout as wait } from "node:timers/promises";
 
 // This test boots `next build` ONCE then `next start` TWICE with two
@@ -34,98 +35,96 @@ const SHELL_DASHBOARD_DIR = import.meta.dirname + "/..";
 const BUILD_TIME_OPS_PLACEHOLDER = "http://build-placeholder.invalid";
 
 describe("Option B: one artifact, two env values, no rebuild", () => {
-    beforeAll(() => {
-        // Build ONCE. Pass a placeholder OPS_BASE_URL only so
-        // next.config.ts:rewrites() can construct its proxy entry.
-        // No POCKETBASE_URL / SHELL_URL — those are read at request
-        // time by getRuntimeConfig() and must not be required at build.
-        //
-        // Use `npm run build` (not `npx next build` directly) so the
-        // `prebuild` script runs and the generated data fixtures
-        // (`src/data/registry.json`, `catalog.json`, `docs-status.json`)
-        // exist before webpack walks the import tree.
-        execSync("npm run build", {
-            cwd: SHELL_DASHBOARD_DIR,
-            stdio: "inherit",
-            env: {
-                ...process.env,
-                NODE_ENV: "production",
-                OPS_BASE_URL: BUILD_TIME_OPS_PLACEHOLDER,
-            },
-        });
-    }, 180_000);
-
-    async function bootAndProbe(
-        port: number,
-        env: Record<string, string>,
-    ): Promise<{ pocketbaseUrl: string; shellUrl: string; opsBaseUrl: string }> {
-        const proc: ChildProcess = spawn(
-            "npx",
-            ["next", "start", "-p", String(port)],
-            {
-                cwd: SHELL_DASHBOARD_DIR,
-                env: { ...process.env, NODE_ENV: "production", ...env },
-                stdio: "pipe",
-                detached: false,
-            },
-        );
-        try {
-            // Wait for the server to be ready by polling /.
-            const deadline = Date.now() + 30_000;
-            while (Date.now() < deadline) {
-                try {
-                    const res = await fetch(`http://localhost:${port}/`);
-                    if (res.ok) break;
-                } catch {
-                    // not up yet
-                }
-                await wait(500);
-            }
-            const html = await (await fetch(`http://localhost:${port}/`)).text();
-            // Extract the inlined runtime config from the injected
-            // <script id="__showcase_config__">. The injection pattern
-            // is `window.__SHOWCASE_CONFIG__={"...":"..."};`.
-            const match = html.match(
-                /window\.__SHOWCASE_CONFIG__=(\{[^<]*?\});/,
-            );
-            if (!match) throw new Error("no __SHOWCASE_CONFIG__ in HTML");
-            // The serialized payload has < escaped as < — JSON.parse
-            // accepts it as-is for our keys (URLs don't contain <).
-            const parsed = JSON.parse(match[1]);
-            return parsed;
-        } finally {
-            proc.kill("SIGTERM");
-            // Drain — give the OS a beat to release the port before the
-            // next iteration binds it.
-            await wait(500);
-        }
-    }
-
-    it("serves env-A URLs on the first boot", async () => {
-        const cfg = await bootAndProbe(PORT_A, {
-            POCKETBASE_URL: "https://pb-env-a.example.com",
-            SHELL_URL: "https://shell-env-a.example.com",
-            OPS_BASE_URL: "https://ops-env-a.example.com",
-        });
-        expect(cfg.pocketbaseUrl).toBe("https://pb-env-a.example.com");
-        expect(cfg.shellUrl).toBe("https://shell-env-a.example.com");
-        expect(cfg.opsBaseUrl).toBe("https://ops-env-a.example.com");
-    }, 60_000);
-
-    it("serves env-B URLs on the second boot of THE SAME ARTIFACT", async () => {
-        const cfg = await bootAndProbe(PORT_B, {
-            POCKETBASE_URL: "https://pb-env-b.example.com",
-            SHELL_URL: "https://shell-env-b.example.com",
-            OPS_BASE_URL: "https://ops-env-b.example.com",
-        });
-        expect(cfg.pocketbaseUrl).toBe("https://pb-env-b.example.com");
-        expect(cfg.shellUrl).toBe("https://shell-env-b.example.com");
-        expect(cfg.opsBaseUrl).toBe("https://ops-env-b.example.com");
-    }, 60_000);
-
-    afterAll(() => {
-        // Nothing to clean — the .next/ artifact is intentionally
-        // left in place for inspection; the test doesn't touch it
-        // between runs.
+  beforeAll(() => {
+    // Build ONCE. Pass a placeholder OPS_BASE_URL only so
+    // next.config.ts:rewrites() can construct its proxy entry.
+    // No POCKETBASE_URL / SHELL_URL — those are read at request
+    // time by getRuntimeConfig() and must not be required at build.
+    //
+    // Use `npm run build` (not `npx next build` directly) so the
+    // `prebuild` script runs and the generated data fixtures
+    // (`src/data/registry.json`, `catalog.json`, `docs-status.json`)
+    // exist before webpack walks the import tree.
+    execSync("npm run build", {
+      cwd: SHELL_DASHBOARD_DIR,
+      stdio: "inherit",
+      env: {
+        ...process.env,
+        NODE_ENV: "production",
+        OPS_BASE_URL: BUILD_TIME_OPS_PLACEHOLDER,
+      },
     });
+  }, 180_000);
+
+  async function bootAndProbe(
+    port: number,
+    env: Record<string, string>,
+  ): Promise<{ pocketbaseUrl: string; shellUrl: string; opsBaseUrl: string }> {
+    const proc: ChildProcess = spawn(
+      "npx",
+      ["next", "start", "-p", String(port)],
+      {
+        cwd: SHELL_DASHBOARD_DIR,
+        env: { ...process.env, NODE_ENV: "production", ...env },
+        stdio: "pipe",
+        detached: false,
+      },
+    );
+    try {
+      // Wait for the server to be ready by polling /.
+      const deadline = Date.now() + 30_000;
+      while (Date.now() < deadline) {
+        try {
+          const res = await fetch(`http://localhost:${port}/`);
+          if (res.ok) break;
+        } catch {
+          // not up yet
+        }
+        await wait(500);
+      }
+      const html = await (await fetch(`http://localhost:${port}/`)).text();
+      // Extract the inlined runtime config from the injected
+      // <script id="__showcase_config__">. The injection pattern
+      // is `window.__SHOWCASE_CONFIG__={"...":"..."};`.
+      const match = html.match(/window\.__SHOWCASE_CONFIG__=(\{[^<]*?\});/);
+      if (!match) throw new Error("no __SHOWCASE_CONFIG__ in HTML");
+      // The serialized payload has < escaped as < — JSON.parse
+      // accepts it as-is for our keys (URLs don't contain <).
+      const parsed = JSON.parse(match[1]);
+      return parsed;
+    } finally {
+      proc.kill("SIGTERM");
+      // Drain — give the OS a beat to release the port before the
+      // next iteration binds it.
+      await wait(500);
+    }
+  }
+
+  it("serves env-A URLs on the first boot", async () => {
+    const cfg = await bootAndProbe(PORT_A, {
+      POCKETBASE_URL: "https://pb-env-a.example.com",
+      SHELL_URL: "https://shell-env-a.example.com",
+      OPS_BASE_URL: "https://ops-env-a.example.com",
+    });
+    expect(cfg.pocketbaseUrl).toBe("https://pb-env-a.example.com");
+    expect(cfg.shellUrl).toBe("https://shell-env-a.example.com");
+    expect(cfg.opsBaseUrl).toBe("https://ops-env-a.example.com");
+  }, 60_000);
+
+  it("serves env-B URLs on the second boot of THE SAME ARTIFACT", async () => {
+    const cfg = await bootAndProbe(PORT_B, {
+      POCKETBASE_URL: "https://pb-env-b.example.com",
+      SHELL_URL: "https://shell-env-b.example.com",
+      OPS_BASE_URL: "https://ops-env-b.example.com",
+    });
+    expect(cfg.pocketbaseUrl).toBe("https://pb-env-b.example.com");
+    expect(cfg.shellUrl).toBe("https://shell-env-b.example.com");
+    expect(cfg.opsBaseUrl).toBe("https://ops-env-b.example.com");
+  }, 60_000);
+
+  afterAll(() => {
+    // Nothing to clean — the .next/ artifact is intentionally
+    // left in place for inspection; the test doesn't touch it
+    // between runs.
+  });
 });

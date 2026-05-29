@@ -26,9 +26,7 @@ describe("emit-railway-envs-json", () => {
     expect(json.envIds.staging).toBe("8edfef02-ea09-4a20-8689-261f21cc2849");
     expect(json.envIds.prod).toBe("b14919f4-6417-429f-848d-c6ae2201e04f");
     expect(json.services.length).toBe(27);
-    const docs = json.services.find(
-      (s: { name: string }) => s.name === "docs",
-    );
+    const docs = json.services.find((s: { name: string }) => s.name === "docs");
     expect(docs.domains.staging).toBe("docs.staging.copilotkit.ai");
     expect(docs.domains.prod).toBe("docs.copilotkit.ai");
     expect(docs.probe.driver).toBe("docs");

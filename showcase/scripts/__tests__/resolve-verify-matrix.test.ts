@@ -30,8 +30,8 @@ import {
   okCsvToCanonicalNames,
   parseSsotServices,
   resolveVerifyMatrix,
-  type SsotService,
 } from "../resolve-verify-matrix";
+import type { SsotService } from "../resolve-verify-matrix";
 
 // Fixture SSOT services: a mix of probe.staging=true and false, with
 // both `name` and `dispatchName` populated so the intersection logic
@@ -255,7 +255,9 @@ describe("resolveVerifyMatrix", () => {
         dispatchService: "",
         ssotServices: fixtureServices,
       }),
-    ).toThrow(/::error::resolve-verify-matrix: unexpected eventName 'schedule'/);
+    ).toThrow(
+      /::error::resolve-verify-matrix: unexpected eventName 'schedule'/,
+    );
   });
 
   // ---------------------------------------------------------------------
@@ -359,7 +361,11 @@ describe("parseSsotServices", () => {
     const raw = {
       services: [
         { name: "svc-a", dispatchName: null, probe: { staging: true } },
-        { name: "svc-b", dispatchName: "dispatch-b", probe: { staging: false } },
+        {
+          name: "svc-b",
+          dispatchName: "dispatch-b",
+          probe: { staging: false },
+        },
       ],
     };
     const out = parseSsotServices(raw, "test-path");
@@ -391,7 +397,9 @@ describe("parseSsotServices", () => {
         },
         "test-path",
       ),
-    ).toThrow(/::error::SSOT test-path malformed: services\[1\] missing `name`/);
+    ).toThrow(
+      /::error::SSOT test-path malformed: services\[1\] missing `name`/,
+    );
   });
 
   it("throws when `probe` is missing", () => {
@@ -402,7 +410,9 @@ describe("parseSsotServices", () => {
         },
         "test-path",
       ),
-    ).toThrow(/::error::SSOT test-path malformed: services\[0\] \(svc-a\) missing `probe`/);
+    ).toThrow(
+      /::error::SSOT test-path malformed: services\[0\] \(svc-a\) missing `probe`/,
+    );
   });
 
   it("accepts a missing `dispatchName` (live SSOT has services without one, e.g. pocketbase) and normalizes to null", () => {
@@ -411,7 +421,11 @@ describe("parseSsotServices", () => {
         services: [
           { name: "svc-a", probe: { staging: true } },
           { name: "svc-b", dispatchName: null, probe: { staging: true } },
-          { name: "svc-c", dispatchName: "dispatch-c", probe: { staging: true } },
+          {
+            name: "svc-c",
+            dispatchName: "dispatch-c",
+            probe: { staging: true },
+          },
         ],
       },
       "test-path",

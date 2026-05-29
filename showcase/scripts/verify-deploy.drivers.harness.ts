@@ -12,8 +12,8 @@ import { probeBaseline } from "./verify-deploy.drivers.baseline";
  * the harness's `/run` API.
  */
 export async function probeHarness(target: ProbeTarget): Promise<ProbeOutcome> {
-    return probeBaseline(target, {
-        driverLabel: "harness",
-        healthcheckPath: "/health",
-    });
+  return probeBaseline(target, {
+    driverLabel: "harness",
+    healthcheckPath: "/health",
+  });
 }

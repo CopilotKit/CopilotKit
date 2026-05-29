@@ -22,8 +22,8 @@
 // Canonical OWASP-recommended escape for inline JSON in HTML.
 
 export function serializeRuntimeConfig(cfg: unknown): string {
-    return JSON.stringify(cfg)
-        .replace(new RegExp("<", "g"), "\\u003c")
-        .replace(new RegExp(" ", "g"), "\\u2028")
-        .replace(new RegExp(" ", "g"), "\\u2029");
+  return JSON.stringify(cfg)
+    .replace(new RegExp("<", "g"), "\\u003c")
+    .replace(new RegExp(" ", "g"), "\\u2028")
+    .replace(new RegExp(" ", "g"), "\\u2029");
 }

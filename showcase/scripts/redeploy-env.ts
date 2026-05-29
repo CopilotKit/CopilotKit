@@ -50,10 +50,7 @@ import {
   RAILWAY_GRAPHQL_ENDPOINT,
   sanitizeErrorBody,
 } from "./lib/railway-graphql";
-import {
-  RailwayTokenError,
-  resolveRailwayToken,
-} from "./lib/railway-token";
+import { RailwayTokenError, resolveRailwayToken } from "./lib/railway-token";
 
 const RAILWAY_API = RAILWAY_GRAPHQL_ENDPOINT;
 

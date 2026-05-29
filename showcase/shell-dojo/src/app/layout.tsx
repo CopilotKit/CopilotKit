@@ -18,7 +18,9 @@ export const metadata: Metadata = {
  *     containing `</script>` (e.g. a hostile env value) would
  *     terminate the inline script and inject HTML. Escape every
  *     `<` to `<` so the substring `</script>` can never appear.
- *   - ` ` (LINE SEPARATOR) and ` ` (PARAGRAPH SEPARATOR) —
+ *   - `
+` (LINE SEPARATOR) and `
+` (PARAGRAPH SEPARATOR) —
  *     legal inside JSON strings, but a syntax error inside a JS
  *     string literal in older engines / when the page is parsed as
  *     `text/javascript`. Escape both.

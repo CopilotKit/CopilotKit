@@ -9,9 +9,11 @@ import { probeBaseline } from "./verify-deploy.drivers.baseline";
  * `/api/health` (PocketBase's standard health endpoint). Future
  * driver-specific layer: admin login + known collection list assertion.
  */
-export async function probePocketbase(target: ProbeTarget): Promise<ProbeOutcome> {
-    return probeBaseline(target, {
-        driverLabel: "pocketbase",
-        healthcheckPath: "/api/health",
-    });
+export async function probePocketbase(
+  target: ProbeTarget,
+): Promise<ProbeOutcome> {
+  return probeBaseline(target, {
+    driverLabel: "pocketbase",
+    healthcheckPath: "/api/health",
+  });
 }

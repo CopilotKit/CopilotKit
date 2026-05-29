@@ -10,9 +10,11 @@ import { probeBaseline } from "./verify-deploy.drivers.baseline";
  * every other agent/relay service in the SSOT). Future driver-specific
  * layer: synthetic event POST + downstream-fanout confirmation.
  */
-export async function probeWebhooks(target: ProbeTarget): Promise<ProbeOutcome> {
-    return probeBaseline(target, {
-        driverLabel: "webhooks",
-        healthcheckPath: "/api/health",
-    });
+export async function probeWebhooks(
+  target: ProbeTarget,
+): Promise<ProbeOutcome> {
+  return probeBaseline(target, {
+    driverLabel: "webhooks",
+    healthcheckPath: "/api/health",
+  });
 }

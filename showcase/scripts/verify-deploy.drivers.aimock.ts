@@ -13,8 +13,8 @@ import { probeBaseline } from "./verify-deploy.drivers.baseline";
  * (POST a known prompt, assert recorded response shape).
  */
 export async function probeAimock(target: ProbeTarget): Promise<ProbeOutcome> {
-    return probeBaseline(target, {
-        driverLabel: "aimock",
-        healthcheckPath: "/health",
-    });
+  return probeBaseline(target, {
+    driverLabel: "aimock",
+    healthcheckPath: "/health",
+  });
 }

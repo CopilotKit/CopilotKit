@@ -37,10 +37,7 @@ vi.mock("../lib/pb", () => {
       let out = raw;
       if (params) {
         for (const [k, v] of Object.entries(params)) {
-          out = out.replace(
-            new RegExp(`\\{:${k}\\}`, "g"),
-            JSON.stringify(v),
-          );
+          out = out.replace(new RegExp(`\\{:${k}\\}`, "g"), JSON.stringify(v));
         }
       }
       return out;
@@ -48,18 +45,16 @@ vi.mock("../lib/pb", () => {
     collection: (_name: string) => ({
       // getFullList is used by the initial fetch (replaces paginated getList).
       // Returns a plain array, respecting the `batch` option as a cap.
-      getFullList: vi.fn(
-        async (opts?: { batch?: number; filter?: string }) => {
-          mockState.getListCalls += 1;
-          mockState.lastInitialGetListOpts = opts;
-          if (mockState.failRemaining > 0) {
-            mockState.failRemaining -= 1;
-            throw new Error("pb-unreachable");
-          }
-          const cap = opts?.batch ?? Infinity;
-          return mockState.initial.slice(0, cap);
-        },
-      ),
+      getFullList: vi.fn(async (opts?: { batch?: number; filter?: string }) => {
+        mockState.getListCalls += 1;
+        mockState.lastInitialGetListOpts = opts;
+        if (mockState.failRemaining > 0) {
+          mockState.failRemaining -= 1;
+          throw new Error("pb-unreachable");
+        }
+        const cap = opts?.batch ?? Infinity;
+        return mockState.initial.slice(0, cap);
+      }),
       // getList is still used for heartbeat pings (getList(1, 1)).
       getList: vi.fn(
         async (_page: number, _perPage: number, _opts?: unknown) => {
@@ -77,17 +72,15 @@ vi.mock("../lib/pb", () => {
           };
         },
       ),
-      subscribe: vi.fn(
-        async (_topic: string, cb: Listener, opts?: unknown) => {
-          mockState.subscribeCalls += 1;
-          mockState.listener = cb;
-          mockState.lastSubscribeOpts = opts;
-          return async () => {
-            mockState.unsubscribeCalls += 1;
-            mockState.listener = null;
-          };
-        },
-      ),
+      subscribe: vi.fn(async (_topic: string, cb: Listener, opts?: unknown) => {
+        mockState.subscribeCalls += 1;
+        mockState.listener = cb;
+        mockState.lastSubscribeOpts = opts;
+        return async () => {
+          mockState.unsubscribeCalls += 1;
+          mockState.listener = null;
+        };
+      }),
       unsubscribe: vi.fn(async () => {
         mockState.listener = null;
       }),

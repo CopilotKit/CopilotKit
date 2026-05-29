@@ -9,9 +9,11 @@ import { probeBaseline } from "./verify-deploy.drivers.baseline";
  * Future driver-specific layer: dashboard-DOM assertion (catches the
  * "rendered the 404 chrome with 200" case Next.js dev quirks produce).
  */
-export async function probeDashboard(target: ProbeTarget): Promise<ProbeOutcome> {
-    return probeBaseline(target, {
-        driverLabel: "dashboard",
-        healthcheckPath: "/",
-    });
+export async function probeDashboard(
+  target: ProbeTarget,
+): Promise<ProbeOutcome> {
+  return probeBaseline(target, {
+    driverLabel: "dashboard",
+    healthcheckPath: "/",
+  });
 }

@@ -17,8 +17,8 @@ import { probeBaseline } from "./verify-deploy.drivers.baseline";
  * bar — and crucially, NO driver remains a "not yet implemented" stub.
  */
 export async function probeShell(target: ProbeTarget): Promise<ProbeOutcome> {
-    return probeBaseline(target, {
-        driverLabel: "shell",
-        healthcheckPath: "/",
-    });
+  return probeBaseline(target, {
+    driverLabel: "shell",
+    healthcheckPath: "/",
+  });
 }

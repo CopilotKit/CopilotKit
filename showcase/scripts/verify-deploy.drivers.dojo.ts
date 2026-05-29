@@ -10,8 +10,8 @@ import { probeBaseline } from "./verify-deploy.drivers.baseline";
  * landing's known network call.
  */
 export async function probeDojo(target: ProbeTarget): Promise<ProbeOutcome> {
-    return probeBaseline(target, {
-        driverLabel: "dojo",
-        healthcheckPath: "/",
-    });
+  return probeBaseline(target, {
+    driverLabel: "dojo",
+    healthcheckPath: "/",
+  });
 }

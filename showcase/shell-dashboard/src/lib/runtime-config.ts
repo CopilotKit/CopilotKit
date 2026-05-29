@@ -16,12 +16,12 @@
 import { unstable_noStore as noStore } from "next/cache";
 
 export interface RuntimeConfig {
-    /** PocketBase backend used by the Status tab live-readers. */
-    pocketbaseUrl: string;
-    /** Showcase shell host — used to build Demo / Code / docs-shell links. */
-    shellUrl: string;
-    /** Ops API base URL — server-side rewrite target for /api/ops/*. */
-    opsBaseUrl: string;
+  /** PocketBase backend used by the Status tab live-readers. */
+  pocketbaseUrl: string;
+  /** Showcase shell host — used to build Demo / Code / docs-shell links. */
+  shellUrl: string;
+  /** Ops API base URL — server-side rewrite target for /api/ops/*. */
+  opsBaseUrl: string;
 }
 
 const PROD_INVALID_POCKETBASE_URL = "http://pocketbase.invalid";
@@ -46,33 +46,33 @@ const PROD_INVALID_SHELL_URL = "about:blank#shell-url-missing";
  * below makes this explicit at the call site.
  */
 export function getRuntimeConfig(
-    opts: { noStore?: boolean } = {},
+  opts: { noStore?: boolean } = {},
 ): RuntimeConfig {
-    if (opts.noStore !== false) noStore();
-    const isProd = process.env.NODE_ENV === "production";
+  if (opts.noStore !== false) noStore();
+  const isProd = process.env.NODE_ENV === "production";
 
-    const pocketbaseUrl = readUrl(
-        "POCKETBASE_URL",
-        isProd ? PROD_INVALID_POCKETBASE_URL : "http://127.0.0.1:8090",
-        isProd,
-    );
-    const shellUrl = readUrl(
-        "SHELL_URL",
-        isProd ? PROD_INVALID_SHELL_URL : "http://localhost:3000",
-        isProd,
-    );
-    const opsBaseUrl = readUrl(
-        "OPS_BASE_URL",
-        // shell-dashboard's next.config.ts validates OPS_BASE_URL at
-        // start time, so reaching the fallback here means something
-        // is wrong with the launch sequence. Use a sentinel that
-        // produces visible breakage rather than silently routing to
-        // a guessed host.
-        isProd ? "http://ops.invalid" : "http://localhost:9020",
-        isProd,
-    );
+  const pocketbaseUrl = readUrl(
+    "POCKETBASE_URL",
+    isProd ? PROD_INVALID_POCKETBASE_URL : "http://127.0.0.1:8090",
+    isProd,
+  );
+  const shellUrl = readUrl(
+    "SHELL_URL",
+    isProd ? PROD_INVALID_SHELL_URL : "http://localhost:3000",
+    isProd,
+  );
+  const opsBaseUrl = readUrl(
+    "OPS_BASE_URL",
+    // shell-dashboard's next.config.ts validates OPS_BASE_URL at
+    // start time, so reaching the fallback here means something
+    // is wrong with the launch sequence. Use a sentinel that
+    // produces visible breakage rather than silently routing to
+    // a guessed host.
+    isProd ? "http://ops.invalid" : "http://localhost:9020",
+    isProd,
+  );
 
-    return { pocketbaseUrl, shellUrl, opsBaseUrl };
+  return { pocketbaseUrl, shellUrl, opsBaseUrl };
 }
 
 /**
@@ -87,7 +87,7 @@ export function getRuntimeConfig(
  * and the build fails with "module not found in edge runtime."
  */
 export function getRuntimeConfigEdge(): RuntimeConfig {
-    return getRuntimeConfig({ noStore: false });
+  return getRuntimeConfig({ noStore: false });
 }
 
 // Env-name tolerance: deploy configs in the wild use either the bare
@@ -96,9 +96,9 @@ export function getRuntimeConfigEdge(): RuntimeConfig {
 // fallback to the alternate so a Railway service variable set under
 // the "wrong" name still works without redeploy.
 function altEnvName(envKey: string): string {
-    return envKey.startsWith("NEXT_PUBLIC_")
-        ? envKey.slice("NEXT_PUBLIC_".length)
-        : `NEXT_PUBLIC_${envKey}`;
+  return envKey.startsWith("NEXT_PUBLIC_")
+    ? envKey.slice("NEXT_PUBLIC_".length)
+    : `NEXT_PUBLIC_${envKey}`;
 }
 
 // Length-aware env coalesce: a deliberately-empty primary (e.g. an
@@ -106,27 +106,27 @@ function altEnvName(envKey: string): string {
 // mask a populated alternate. Treat empty-string as "unset" and fall
 // through to the alternate.
 function readEnvPair(envKey: string): string | undefined {
-    const primary = process.env[envKey];
-    if (primary && primary.length > 0) return primary;
-    const alt = process.env[altEnvName(envKey)];
-    if (alt && alt.length > 0) return alt;
-    return undefined;
+  const primary = process.env[envKey];
+  if (primary && primary.length > 0) return primary;
+  const alt = process.env[altEnvName(envKey)];
+  if (alt && alt.length > 0) return alt;
+  return undefined;
 }
 
 function readUrl(envKey: string, fallback: string, isProd: boolean): string {
-    const value = readEnvPair(envKey);
-    if (value !== undefined) return value.replace(/\/+$/, "");
-    if (isProd) {
-        // eslint-disable-next-line no-console
-        console.error(
-            `[shell-dashboard runtime-config] FATAL-CONFIG: ${envKey} is unset in a production deploy; ` +
-                `using sentinel ${fallback}. Set the env var on the Railway service.`,
-        );
-    } else {
-        // eslint-disable-next-line no-console
-        console.warn(
-            `[shell-dashboard runtime-config] ${envKey} unset; using dev fallback ${fallback}`,
-        );
-    }
-    return fallback.replace(/\/+$/, "");
+  const value = readEnvPair(envKey);
+  if (value !== undefined) return value.replace(/\/+$/, "");
+  if (isProd) {
+    // eslint-disable-next-line no-console
+    console.error(
+      `[shell-dashboard runtime-config] FATAL-CONFIG: ${envKey} is unset in a production deploy; ` +
+        `using sentinel ${fallback}. Set the env var on the Railway service.`,
+    );
+  } else {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[shell-dashboard runtime-config] ${envKey} unset; using dev fallback ${fallback}`,
+    );
+  }
+  return fallback.replace(/\/+$/, "");
 }

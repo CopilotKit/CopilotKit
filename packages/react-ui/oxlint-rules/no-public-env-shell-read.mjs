@@ -115,7 +115,11 @@ function staticKeyName(property, computed) {
   if (!computed && property.type === "Identifier") {
     return property.name;
   }
-  if (computed && property.type === "Literal" && typeof property.value === "string") {
+  if (
+    computed &&
+    property.type === "Literal" &&
+    typeof property.value === "string"
+  ) {
     return property.value;
   }
   if (
@@ -157,11 +161,19 @@ const rule = {
         // Write target: `process.env.X = ...`. The MemberExpression is the
         // LHS of an AssignmentExpression — not a read.
         const parent = node.parent;
-        if (parent && parent.type === "AssignmentExpression" && parent.left === node) {
+        if (
+          parent &&
+          parent.type === "AssignmentExpression" &&
+          parent.left === node
+        ) {
           return;
         }
         // `delete process.env.X` — not a read either.
-        if (parent && parent.type === "UnaryExpression" && parent.operator === "delete") {
+        if (
+          parent &&
+          parent.type === "UnaryExpression" &&
+          parent.operator === "delete"
+        ) {
           return;
         }
         // `update` operators (++/--): also a write, but extremely unlikely

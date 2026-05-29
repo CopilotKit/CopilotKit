@@ -149,10 +149,7 @@ export function resolveVerifyMatrix(
   // calling here, so on the CLI path this guard is defense-in-depth.
   // Direct test callers (which build their own input object) still pay
   // the runtime check, which is the point.
-  if (
-    eventName !== "workflow_run" &&
-    eventName !== "workflow_dispatch"
-  ) {
+  if (eventName !== "workflow_run" && eventName !== "workflow_dispatch") {
     throw new Error(
       `::error::resolve-verify-matrix: unexpected eventName '${eventName}' (expected 'workflow_run' or 'workflow_dispatch')`,
     );
@@ -258,10 +255,7 @@ const EMIT_SCRIPT = "showcase/scripts/emit-railway-envs-json.ts";
  * We require the exact shape we depend on, and `::error::`-prefix the
  * throw so the workflow log surfaces it as an annotation.
  */
-export function parseSsotServices(
-  raw: unknown,
-  path: string,
-): SsotService[] {
+export function parseSsotServices(raw: unknown, path: string): SsotService[] {
   if (raw === null || typeof raw !== "object") {
     throw new Error(
       `::error::SSOT ${path} malformed: top-level value is not an object`,
@@ -433,9 +427,7 @@ function main(): void {
     // Throws from this module already carry the `::error::` annotation
     // (Unknown service, unexpected eventName, SSOT malformed, SSOT
     // missing-after-regen).
-    process.stderr.write(
-      `${e instanceof Error ? e.message : String(e)}\n`,
-    );
+    process.stderr.write(`${e instanceof Error ? e.message : String(e)}\n`);
     process.exit(1);
   }
 }

@@ -14,10 +14,10 @@
 import { unstable_noStore as noStore } from "next/cache";
 
 export interface RuntimeConfig {
-    /** Canonical shell base URL — used for canonical hrefs, OG metadata, etc. */
-    baseUrl: string;
-    /** PostHog host — middleware ships seo_redirect events here. */
-    posthogHost: string;
+  /** Canonical shell base URL — used for canonical hrefs, OG metadata, etc. */
+  baseUrl: string;
+  /** PostHog host — middleware ships seo_redirect events here. */
+  posthogHost: string;
 }
 
 const PROD_INVALID_BASE_URL = "about:blank#shell-base-url-missing";
@@ -42,25 +42,22 @@ const PROD_INVALID_BASE_URL = "about:blank#shell-base-url-missing";
  * below makes this explicit at the call site.
  */
 export function getRuntimeConfig(
-    opts: { noStore?: boolean } = {},
+  opts: { noStore?: boolean } = {},
 ): RuntimeConfig {
-    if (opts.noStore !== false) noStore();
-    const isProd = process.env.NODE_ENV === "production";
+  if (opts.noStore !== false) noStore();
+  const isProd = process.env.NODE_ENV === "production";
 
-    const baseUrl = readUrl(
-        "BASE_URL",
-        isProd ? PROD_INVALID_BASE_URL : "http://localhost:3000",
-        isProd,
-    );
-    // PostHog host: legitimately absent on non-production deploys; never
-    // log a FATAL-CONFIG for it. The historic default (`eu.i.posthog.com`)
-    // matches the previous middleware behavior.
-    const posthogHost = readKey(
-        "POSTHOG_HOST",
-        "https://eu.i.posthog.com",
-    );
+  const baseUrl = readUrl(
+    "BASE_URL",
+    isProd ? PROD_INVALID_BASE_URL : "http://localhost:3000",
+    isProd,
+  );
+  // PostHog host: legitimately absent on non-production deploys; never
+  // log a FATAL-CONFIG for it. The historic default (`eu.i.posthog.com`)
+  // matches the previous middleware behavior.
+  const posthogHost = readKey("POSTHOG_HOST", "https://eu.i.posthog.com");
 
-    return { baseUrl, posthogHost };
+  return { baseUrl, posthogHost };
 }
 
 /**
@@ -75,7 +72,7 @@ export function getRuntimeConfig(
  * and the build fails with "module not found in edge runtime."
  */
 export function getRuntimeConfigEdge(): RuntimeConfig {
-    return getRuntimeConfig({ noStore: false });
+  return getRuntimeConfig({ noStore: false });
 }
 
 // Env-name tolerance: deploy configs in the wild use either the bare
@@ -84,9 +81,9 @@ export function getRuntimeConfigEdge(): RuntimeConfig {
 // to the alternate so a Railway service variable set under the "wrong"
 // name still works without redeploy.
 function altEnvName(envKey: string): string {
-    return envKey.startsWith("NEXT_PUBLIC_")
-        ? envKey.slice("NEXT_PUBLIC_".length)
-        : `NEXT_PUBLIC_${envKey}`;
+  return envKey.startsWith("NEXT_PUBLIC_")
+    ? envKey.slice("NEXT_PUBLIC_".length)
+    : `NEXT_PUBLIC_${envKey}`;
 }
 
 // Length-aware env coalesce: a deliberately-empty primary (e.g. an
@@ -94,35 +91,35 @@ function altEnvName(envKey: string): string {
 // populated alternate. Treat empty-string as "unset" and fall through to
 // the alternate.
 function readEnvPair(envKey: string): string | undefined {
-    const primary = process.env[envKey];
-    if (primary && primary.length > 0) return primary;
-    const alt = process.env[altEnvName(envKey)];
-    if (alt && alt.length > 0) return alt;
-    return undefined;
+  const primary = process.env[envKey];
+  if (primary && primary.length > 0) return primary;
+  const alt = process.env[altEnvName(envKey)];
+  if (alt && alt.length > 0) return alt;
+  return undefined;
 }
 
 function readUrl(envKey: string, fallback: string, isProd: boolean): string {
-    const value = readEnvPair(envKey);
-    if (value !== undefined) return value.replace(/\/+$/, "");
-    if (isProd) {
-        // eslint-disable-next-line no-console
-        console.error(
-            `[shell runtime-config] FATAL-CONFIG: ${envKey} is unset in a production deploy; ` +
-                `using sentinel ${fallback}. Set the env var on the Railway service.`,
-        );
-    } else {
-        // eslint-disable-next-line no-console
-        console.warn(
-            `[shell runtime-config] ${envKey} unset; using dev fallback ${fallback}`,
-        );
-    }
-    return fallback.replace(/\/+$/, "");
+  const value = readEnvPair(envKey);
+  if (value !== undefined) return value.replace(/\/+$/, "");
+  if (isProd) {
+    // eslint-disable-next-line no-console
+    console.error(
+      `[shell runtime-config] FATAL-CONFIG: ${envKey} is unset in a production deploy; ` +
+        `using sentinel ${fallback}. Set the env var on the Railway service.`,
+    );
+  } else {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[shell runtime-config] ${envKey} unset; using dev fallback ${fallback}`,
+    );
+  }
+  return fallback.replace(/\/+$/, "");
 }
 
 // Analytics keys (POSTHOG_HOST etc.) are legitimately absent on
 // non-production envs; do NOT log a FATAL-CONFIG warning when missing.
 function readKey(envKey: string, fallback: string): string {
-    const value = readEnvPair(envKey);
-    if (value !== undefined) return value.replace(/\/+$/, "");
-    return fallback.replace(/\/+$/, "");
+  const value = readEnvPair(envKey);
+  if (value !== undefined) return value.replace(/\/+$/, "");
+  return fallback.replace(/\/+$/, "");
 }

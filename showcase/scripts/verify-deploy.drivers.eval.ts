@@ -18,8 +18,8 @@ import { probeBaseline } from "./verify-deploy.drivers.baseline";
  * synthetic eval-run fixture call.
  */
 export async function probeEval(target: ProbeTarget): Promise<ProbeOutcome> {
-    return probeBaseline(target, {
-        driverLabel: "eval",
-        healthcheckPath: "/api/health",
-    });
+  return probeBaseline(target, {
+    driverLabel: "eval",
+    healthcheckPath: "/api/health",
+  });
 }

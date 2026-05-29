@@ -15,11 +15,8 @@ import {
   summarizeFailures,
   validateImage,
 } from "../verify-railway-image-refs";
-import {
-  SERVICES,
-  repoNameFor,
-  type ServiceEntry,
-} from "../railway-envs";
+import { SERVICES, repoNameFor } from "../railway-envs";
+import type { ServiceEntry } from "../railway-envs";
 
 describe("ServiceEntry gateIgnore field", () => {
   it("is optional on the type and defaults to falsy when unset", () => {
@@ -193,10 +190,7 @@ describe("WS-C: all 27 services gateValidated, with correct overrides", () => {
     // With nothing "present", every gateValidated service should
     // appear in the missing set; after C.3 that means all 27.
     const missingProd = findMissingServices("prod", new Set<string>());
-    const missingStaging = findMissingServices(
-      "staging",
-      new Set<string>(),
-    );
+    const missingStaging = findMissingServices("staging", new Set<string>());
     expect(missingProd).toHaveLength(27);
     expect(missingStaging).toHaveLength(27);
   });
@@ -224,10 +218,10 @@ describe("WS-C: shape validation for the five newly-gated services", () => {
     });
 
     it(`${key}: prod accepts the canonical @sha256 shape`, () => {
-      const v = validateImage(
-        `ghcr.io/copilotkit/${repo}${PROD_DIGEST}`,
-        { env: "prod", repoName: repo },
-      );
+      const v = validateImage(`ghcr.io/copilotkit/${repo}${PROD_DIGEST}`, {
+        env: "prod",
+        repoName: repo,
+      });
       expect(v).toBeNull();
     });
 
@@ -240,10 +234,10 @@ describe("WS-C: shape validation for the five newly-gated services", () => {
     });
 
     it(`${key}: staging rejects @sha256 (must float on :latest)`, () => {
-      const v = validateImage(
-        `ghcr.io/copilotkit/${repo}${PROD_DIGEST}`,
-        { env: "staging", repoName: repo },
-      );
+      const v = validateImage(`ghcr.io/copilotkit/${repo}${PROD_DIGEST}`, {
+        env: "staging",
+        repoName: repo,
+      });
       expect(v).not.toBeNull();
       expect(v?.reason).toMatch(/staging must float on :latest/);
     });
@@ -276,8 +270,7 @@ describe("WS-C: malformed ref negatives", () => {
     // Looks vaguely like a digest pin but is actually a *tag* whose
     // literal name starts with "sha256-". This is the closest shape
     // to the 2026-04-21 "atest" corruption and must fail loudly.
-    const bad =
-      "ghcr.io/copilotkit/showcase-shell:sha256-" + "a".repeat(64);
+    const bad = "ghcr.io/copilotkit/showcase-shell:sha256-" + "a".repeat(64);
     const v = validateImage(bad, {
       env: "prod",
       repoName: "showcase-shell",
@@ -290,8 +283,7 @@ describe("WS-C: malformed ref negatives", () => {
   });
 
   it("rejects bare `@sha256:<too-short-hex>` on prod", () => {
-    const bad =
-      "ghcr.io/copilotkit/showcase-shell@sha256:" + "a".repeat(10);
+    const bad = "ghcr.io/copilotkit/showcase-shell@sha256:" + "a".repeat(10);
     const v = validateImage(bad, {
       env: "prod",
       repoName: "showcase-shell",

@@ -9,9 +9,9 @@ import type { RuntimeConfig } from "./runtime-config";
 export type { RuntimeConfig };
 
 declare global {
-    interface Window {
-        __SHOWCASE_CONFIG__?: RuntimeConfig;
-    }
+  interface Window {
+    __SHOWCASE_CONFIG__?: RuntimeConfig;
+  }
 }
 
 /**
@@ -34,8 +34,8 @@ declare global {
 // window.__SHOWCASE_CONFIG__.
 const SSR_PLACEHOLDER_URL = "https://ssr-placeholder.invalid/";
 const SSR_PLACEHOLDER: RuntimeConfig = {
-    baseUrl: SSR_PLACEHOLDER_URL,
-    posthogHost: SSR_PLACEHOLDER_URL,
+  baseUrl: SSR_PLACEHOLDER_URL,
+  posthogHost: SSR_PLACEHOLDER_URL,
 };
 
 /**
@@ -48,21 +48,21 @@ const SSR_PLACEHOLDER: RuntimeConfig = {
  * wiring bug loudly rather than silently rendering empty URLs.
  */
 export function getRuntimeConfig(): RuntimeConfig {
-    if (typeof window === "undefined") {
-        // SSR phase — "use client" component bodies execute here too.
-        // Return placeholder; hydration will re-render with real values.
-        return SSR_PLACEHOLDER;
-    }
-    const cfg = window.__SHOWCASE_CONFIG__;
-    if (!cfg) {
-        // The root layout always emits the <script> tag, so a missing
-        // value here is a wiring bug (e.g. a route bypassed the layout,
-        // or the injection script ran with empty inputs). Surface it
-        // loudly rather than silently returning empty strings.
-        throw new Error(
-            "[runtime-config.client] window.__SHOWCASE_CONFIG__ is missing. " +
-                "The root layout must inject runtime config before client mount.",
-        );
-    }
-    return cfg;
+  if (typeof window === "undefined") {
+    // SSR phase — "use client" component bodies execute here too.
+    // Return placeholder; hydration will re-render with real values.
+    return SSR_PLACEHOLDER;
+  }
+  const cfg = window.__SHOWCASE_CONFIG__;
+  if (!cfg) {
+    // The root layout always emits the <script> tag, so a missing
+    // value here is a wiring bug (e.g. a route bypassed the layout,
+    // or the injection script ran with empty inputs). Surface it
+    // loudly rather than silently returning empty strings.
+    throw new Error(
+      "[runtime-config.client] window.__SHOWCASE_CONFIG__ is missing. " +
+        "The root layout must inject runtime config before client mount.",
+    );
+  }
+  return cfg;
 }

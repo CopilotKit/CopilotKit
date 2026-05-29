@@ -14,7 +14,7 @@
  * the `.com` host.
  */
 export const RAILWAY_GRAPHQL_ENDPOINT =
-    "https://backboard.railway.app/graphql/v2" as const;
+  "https://backboard.railway.app/graphql/v2" as const;
 
 // Fail-fast at module load if a hand-edit ever breaks the URL literal.
 new URL(RAILWAY_GRAPHQL_ENDPOINT);
@@ -37,15 +37,15 @@ export const RAILWAY_ERROR_BODY_MAX_DEFAULT = 200;
  * both consumers strip control chars at the source.
  */
 export function sanitizeErrorBody(
-    body: string,
-    max: number = RAILWAY_ERROR_BODY_MAX_DEFAULT,
+  body: string,
+  max: number = RAILWAY_ERROR_BODY_MAX_DEFAULT,
 ): string {
-    // Strip angle brackets (markdown-breaking) and control chars
-    // (newline/carriage-return/tab — break single-line log records
-    // and the markdown row redeploy-env produces). Original behavior
-    // removed `<>` without substitution; preserve that for `<>` and
-    // additionally remove `\n\r\t`.
-    const stripped = body.replace(/[<>\n\r\t]/g, "");
-    if (stripped.length <= max) return stripped;
-    return stripped.slice(0, max) + "…";
+  // Strip angle brackets (markdown-breaking) and control chars
+  // (newline/carriage-return/tab — break single-line log records
+  // and the markdown row redeploy-env produces). Original behavior
+  // removed `<>` without substitution; preserve that for `<>` and
+  // additionally remove `\n\r\t`.
+  const stripped = body.replace(/[<>\n\r\t]/g, "");
+  if (stripped.length <= max) return stripped;
+  return stripped.slice(0, max) + "…";
 }

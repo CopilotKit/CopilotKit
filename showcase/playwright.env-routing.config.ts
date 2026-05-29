@@ -18,21 +18,21 @@ import { defineConfig, devices } from "@playwright/test";
  * deploys settle.
  */
 export default defineConfig({
-    testDir: "./tests",
-    testMatch: /env-routing\.spec\.ts$/,
-    timeout: 60_000,
-    expect: { timeout: 15_000 },
-    fullyParallel: true,
-    forbidOnly: !!process.env.CI,
-    // Live-net tests can flake on transient TLS / DNS hiccups; one
-    // retry mirrors the integrations smoke config and avoids paging
-    // ops for a single jittered fetch.
-    retries: process.env.CI ? 1 : 0,
-    workers: process.env.CI ? 2 : 4,
-    reporter: process.env.CI ? "github" : "list",
-    use: {
-        ...devices["Desktop Chrome"],
-        trace: "retain-on-failure",
-        screenshot: "only-on-failure",
-    },
+  testDir: "./tests",
+  testMatch: /env-routing\.spec\.ts$/,
+  timeout: 60_000,
+  expect: { timeout: 15_000 },
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  // Live-net tests can flake on transient TLS / DNS hiccups; one
+  // retry mirrors the integrations smoke config and avoids paging
+  // ops for a single jittered fetch.
+  retries: process.env.CI ? 1 : 0,
+  workers: process.env.CI ? 2 : 4,
+  reporter: process.env.CI ? "github" : "list",
+  use: {
+    ...devices["Desktop Chrome"],
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
+  },
 });

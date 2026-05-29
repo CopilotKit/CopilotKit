@@ -39,8 +39,8 @@ export interface RuntimeConfig {}
  * future URL values into the build artifact.
  */
 export function getRuntimeConfig(
-    opts: { noStore?: boolean } = {},
+  opts: { noStore?: boolean } = {},
 ): RuntimeConfig {
-    if (opts.noStore !== false) noStore();
-    return {};
+  if (opts.noStore !== false) noStore();
+  return {};
 }

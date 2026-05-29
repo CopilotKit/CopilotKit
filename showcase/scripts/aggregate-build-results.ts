@@ -96,7 +96,10 @@ function writeGithubOutput(
     githubOutput,
     `results<<${delimiter}\n${resultsJson}\n${delimiter}\n`,
   );
-  appendFileSync(githubOutput, `any_success=${anySuccess ? "true" : "false"}\n`);
+  appendFileSync(
+    githubOutput,
+    `any_success=${anySuccess ? "true" : "false"}\n`,
+  );
 }
 
 export function run(opts: RunOptions): void {

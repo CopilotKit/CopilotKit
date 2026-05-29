@@ -16,8 +16,8 @@ import { probeBaseline } from "./verify-deploy.drivers.baseline";
  * AG-UI SSE stream opens and emits at least one TextMessageStart event.
  */
 export async function probeAgent(target: ProbeTarget): Promise<ProbeOutcome> {
-    return probeBaseline(target, {
-        driverLabel: "agent",
-        healthcheckPath: "/api/health",
-    });
+  return probeBaseline(target, {
+    driverLabel: "agent",
+    healthcheckPath: "/api/health",
+  });
 }
