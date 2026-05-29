@@ -943,6 +943,16 @@ module Railway
         # 3 retries 10s apart absorb Railway's eventual consistency.
         # `sleeper:` is injected for tests.
         def self.pin_and_verify(gql, service_id:, env_id:, image:, sleeper: ->(n) { sleep(n) })
+            # Upfront guard: this method's contract is to pin a DIGEST-form
+            # image. Pre-fix, a stray tag ref would fall through to retries
+            # (since expected_digest stayed nil and image_ok was always false)
+            # and ultimately surface as a misleading "did not observe image
+            # advance" error after 30s of futile waits.
+            unless image.include?("@sha256:")
+                raise ArgumentError,
+                    "pin_and_verify requires an @sha256:-pinned image, got #{image.inspect}"
+            end
+
             # Capture pre-update serviceInstance.updatedAt so we can gate on a
             # strict advance after the mutation (spec §7.2 P5). Image-equality
             # alone is insufficient — a no-op re-pin to the current value would
@@ -985,7 +995,12 @@ module Railway
                 last_seen_ts    = actual_ts
 
                 image_ok = expected_digest && actual_digest == expected_digest
-                ts_ok    = pre_update_ts.nil? || (actual_ts && actual_ts > pre_update_ts)
+                # Non-vacuous timestamp gate: a non-nil observed updatedAt is
+                # ALWAYS required. Pre-fix this collapsed to (pre_ts.nil? ||
+                # ...), which made the gate vacuous for new prod services and
+                # fell back to digest-equality alone — the exact weakness this
+                # gate was added to prevent.
+                ts_ok    = actual_ts && (pre_update_ts.nil? || actual_ts > pre_update_ts)
                 return inst if image_ok && ts_ok
 
                 sleeper.call(RETRY_DELAY_SEC) if i < RETRY_COUNT - 1
@@ -1125,13 +1140,27 @@ module Railway
         # never verified.
         def check_p1_ghcr_digests(staging)
             findings = []
-            @promote_refs ||= {}
+            # RESET (not memoize): a reused PromoteCommand instance running a
+            # second preflight against a different snapshot must not carry
+            # stale A-era refs into a B-era promote.
+            @promote_refs = {}
             (staging["services"] || []).each do |svc|
                 image = svc["image"] || svc["image_tag"]
-                next if image.nil? || image.empty?
+                if image.nil? || image.empty?
+                    # Make this loud — pre-fix this was a silent `next`, and
+                    # execute_promotion later emitted a misleading "internal
+                    # error" for the same service.
+                    findings << "REFUSE: P1 (#{svc['name']}): no image recorded in staging snapshot; " \
+                                "cannot promote."
+                    next
+                end
 
-                # Per-service rescue: a GHCR error on one service must not
+                # Per-service rescue: an error on one service must not
                 # discard findings already accumulated for earlier services.
+                # Broadened to StandardError — a non-GHCR error (e.g. an
+                # ArgumentError from parse_image_ref, or a network error
+                # wrapped as something else) would otherwise bypass the
+                # per-service rescue and crash the whole loop.
                 begin
                     resolved = resolved_prod_image(svc)
                     if resolved.nil?
@@ -1152,8 +1181,8 @@ module Railway
                         findings << "REFUSE: P1 (#{svc['name']}): GHCR auth failed for #{resolved}. " \
                                     "Set GHCR_TOKEN (local: 'gh auth token') or GITHUB_TOKEN (CI: workflow token with packages:read)."
                     end
-                rescue Railway::GHCR::Error => e
-                    findings << "REFUSE: P1 (#{svc['name']}): GHCR check raised #{e.class}: #{e.message}"
+                rescue StandardError => e
+                    findings << "REFUSE: P1 (#{svc['name']}): unexpected #{e.class}: #{e.message}"
                 end
             end
             findings
@@ -1179,18 +1208,24 @@ module Railway
                     next
                 end
                 # Railway's Deployment.meta is a JSON scalar that may deserialize
-                # as a String (not a Hash). Guard the dig so the race-check is
-                # a best-effort no-op when meta isn't structured — SUCCESS
-                # status above is the real gate. When the skip happens, emit a
-                # WARN so the missing race-check is visible (not silent).
+                # as a String (not a Hash). Parse it first; fall back to the
+                # WARN branch only if it is still non-Hash after the parse.
                 meta = latest["meta"]
+                meta = (JSON.parse(meta) rescue meta) if meta.is_a?(String)
                 if meta.is_a?(Hash)
                     deployed_image = meta["image"].to_s
                     deployed_digest = deployed_image.include?("@") ? deployed_image.split("@", 2).last : nil
-                    snapshot_digest = svc["digest"]
-                    if snapshot_digest && deployed_digest && deployed_digest != snapshot_digest
+                    # Compare against the digest P1 resolved+verified (recorded
+                    # in @promote_refs), NOT svc["digest"] — staging images are
+                    # tag-form, so svc["digest"] is nil and the race-check would
+                    # otherwise be dead code. P2 runs after P1 in the preflight,
+                    # so the entry must exist; if it doesn't, P1 has already
+                    # REFUSEd this service and we skip the race comparison.
+                    promote_ref = (@promote_refs || {})[svc["name"]]
+                    promote_digest = promote_ref && promote_ref.include?("@sha256:") ? promote_ref.split("@", 2).last : nil
+                    if promote_digest && deployed_digest && deployed_digest != promote_digest
                         findings << "REFUSE: P2 (#{svc['name']}): in-flight race — latest staging deployment is " \
-                                    "#{deployed_digest} but snapshot has #{snapshot_digest}. Re-snapshot and retry."
+                                    "#{deployed_digest} but P1 resolved #{promote_digest}. Re-snapshot and retry."
                     end
                 else
                     findings << "WARN: P2 (#{svc['name']}): in-flight race check skipped — " \
@@ -1203,7 +1238,11 @@ module Railway
         def fetch_latest_staging_deployments(service_id)
             data = gql.query(RollbackCommand::DEPLOYMENTS_QUERY,
                 serviceId: service_id, envId: STAGING_ENV_ID)
-            (data.dig("deployments", "edges") || []).map { |e| e["node"] }
+            nodes = (data.dig("deployments", "edges") || []).map { |e| e["node"] }
+            # Railway's deployments query has no explicit order; sort client-side
+            # by createdAt descending so `.first` is genuinely the newest. nil
+            # createdAt sorts last (treated as oldest).
+            nodes.sort_by { |n| n["createdAt"].to_s }.reverse
         end
 
         # P3 — re-probe staging live at promote time. Authoritative; CI history
@@ -1245,10 +1284,17 @@ module Railway
             # Use `tsx` (workspace dev dependency) for stdlib-free TS execution.
             # IO.popen preserves a clean child env (Kernel#`` would inherit the
             # parent shell verbatim — fine, but explicit is better for audit).
-            output = IO.popen(child_env, ["npx", "--yes", "tsx", probe_bin,
-                "--env", "staging",
-                "--services", services_arg,
-                err: [:child, :out]]) { |io| io.read }
+            # Wrap the launch in a rescue: a missing `npx` (Errno::ENOENT) or
+            # any other spawn-time failure should produce a clean REFUSE
+            # rather than a raw stack trace bubbling up out of P3.
+            begin
+                output = IO.popen(child_env, ["npx", "--yes", "tsx", probe_bin,
+                    "--env", "staging",
+                    "--services", services_arg,
+                    err: [:child, :out]]) { |io| io.read }
+            rescue Errno::ENOENT, StandardError => e
+                return { ok: false, summary: "staging probe failed to launch: #{e.class}: #{e.message}" }
+            end
             ok = $?.exitstatus == 0
             { ok: ok, summary: output.lines.last(10).join.strip }
         end
@@ -1357,22 +1403,38 @@ module Railway
         end
 
         def execute_promotion(staging, prod)
-            @promote_refs ||= {}
+            # Hard guard: @promote_refs is populated by check_p1_ghcr_digests.
+            # If it is nil, preflight did not run — refusing to silently pin
+            # nothing (which a memoize default `||= {}` would have done).
+            raise "internal error: execute_promotion invoked without preflight (@promote_refs nil)" if @promote_refs.nil?
+
+            # Pre-validation pass: every prod-matched staging service MUST
+            # have a digest-shaped @promote_refs entry BEFORE we pin anything.
+            # Pre-fix, a missing entry was detected lazily mid-loop, which
+            # could leave production partially-promoted (some services pinned
+            # to new digest, others still on prior digest). Fail fast here.
+            missing = []
+            (staging["services"] || []).each do |svc|
+                next unless Railway.find_service(prod, svc["name"])
+                ref = @promote_refs[svc["name"]]
+                if ref.nil? || !ref.include?("@sha256:")
+                    missing << "#{svc['name']}=#{ref.inspect}"
+                end
+            end
+            unless missing.empty?
+                warn "REFUSE: promote: P1-verified digest ref missing or non-digest for " \
+                     "#{missing.join(', ')} (internal error — preflight did not capture these services). " \
+                     "Refusing to pin (no mutations issued)."
+                return 1
+            end
+
             already_pinned = []
             (staging["services"] || []).each do |svc|
                 pmatch = Railway.find_service(prod, svc["name"])
                 next unless pmatch
                 # Use the EXACT ref P1 resolved+verified. Re-resolving here
-                # would risk TOCTOU on staging's mutable `:latest`. If the
-                # entry is missing, P1 either didn't run or didn't pass for
-                # this service — treat as an internal error rather than
-                # silently falling back to a tag.
+                # would risk TOCTOU on staging's mutable `:latest`.
                 image = @promote_refs[svc["name"]]
-                if image.nil?
-                    warn "P0/promote (#{svc['name']}): no P1-verified digest ref recorded; " \
-                         "refusing to pin (internal error — preflight did not capture this service)."
-                    return 1
-                end
                 if options[:dry_run]
                     puts "[dry-run] promote #{svc['name']} -> #{image}"
                     next
@@ -1384,12 +1446,17 @@ module Railway
                         image: image)
                     puts "promoted #{svc['name']} -> #{image}"
                     already_pinned << svc["name"]
-                rescue PromoteCommand::MutationError => e
-                    warn e.message
+                # Broadened rescue: a transient GraphQL or network error
+                # mid-loop must NOT crash the script (which would lose the
+                # PARTIAL-PROMOTION report — its entire reason for existing).
+                rescue PromoteCommand::MutationError, Railway::GraphQL::Error, StandardError => e
                     warn "PARTIAL PROMOTION: already pinned #{already_pinned.inspect}; " \
-                         "FAILED on #{svc['name']}: #{e.message}. " \
-                         "Production is in a mixed state — run 'bin/railway rollback-commit' " \
-                         "against the prior snapshot to revert, or re-run promote to retry."
+                         "FAILED on #{svc['name']}: #{e.class}: #{e.message}. " \
+                         "Production is in a mixed state — note that serviceInstanceUpdate " \
+                         "runs BEFORE serviceInstanceRedeploy, so #{svc['name']}'s prod " \
+                         "source.image may already be partially advanced on Railway's side. " \
+                         "Run 'bin/railway rollback-commit' against the prior snapshot to revert, " \
+                         "or re-run promote to retry."
                     return 1
                 end
             end

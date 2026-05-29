@@ -46,9 +46,10 @@ class PromoteP2Test < Minitest::Test
             { "id" => "d2", "status" => "FAILED",  "meta" => { "image" => "ghcr.io/copilotkit/x@sha256:abc" }, "createdAt" => "2026-05-28T01:00:00Z" },
             { "id" => "d1", "status" => "SUCCESS", "meta" => { "image" => "ghcr.io/copilotkit/x@sha256:abc" }, "createdAt" => "2026-05-28T00:00:00Z" },
         ] }
-        out, _ = capture_io { @rc = cmd_with(staging: staging, deployments: deps).run_with_preflight_only }
+        out, err = capture_io { @rc = cmd_with(staging: staging, deployments: deps).run_with_preflight_only }
+        combined = out + err
         assert_equal 1, @rc
-        assert_match(/REFUSE: P2.*x.*latest staging deployment.*FAILED/i, out)
+        assert_match(/REFUSE: P2.*x.*latest staging deployment.*FAILED/i, combined)
     end
 
     def test_refuses_when_latest_success_image_does_not_match
@@ -61,16 +62,17 @@ class PromoteP2Test < Minitest::Test
         deps = { "svc-1" => [
             { "id" => "d2", "status" => "SUCCESS", "meta" => { "image" => "ghcr.io/copilotkit/x@sha256:NEW" }, "createdAt" => "2026-05-28T01:00:00Z" },
         ] }
-        out, _ = capture_io { @rc = cmd_with(staging: staging, deployments: deps).run_with_preflight_only }
+        out, err = capture_io { @rc = cmd_with(staging: staging, deployments: deps).run_with_preflight_only }
+        combined = out + err
         assert_equal 1, @rc
-        assert_match(/REFUSE: P2.*in-flight.*sha256:NEW.*sha256:OLD/i, out)
+        assert_match(/REFUSE: P2.*in-flight.*sha256:NEW.*sha256:OLD/i, combined)
     end
 
     def test_does_not_crash_when_deployment_meta_is_a_string
         # Railway's Deployment.meta is a JSON scalar that can come back as a
-        # String (not a Hash). `latest.dig("meta", "image")` would raise
-        # NoMethodError on a String. Guard: skip the race-check when meta is
-        # not a Hash — SUCCESS status alone gates the deployment.
+        # String (not a Hash). After FIX-2 we PARSE it first; a non-JSON
+        # string falls back to a WARN, but MUST NOT crash and MUST NOT
+        # produce a P2 REFUSE.
         staging = { "services" => [{
             "name" => "x", "service_id" => "svc-1",
             "image" => "ghcr.io/copilotkit/x@sha256:abc", "digest" => "sha256:abc",
@@ -81,10 +83,11 @@ class PromoteP2Test < Minitest::Test
               "meta" => "raw-string-not-a-hash",
               "createdAt" => "2026-05-28T01:00:00Z" },
         ] }
-        out, _ = capture_io { cmd_with(staging: staging, deployments: deps).run_with_preflight_only }
+        out, err = capture_io { cmd_with(staging: staging, deployments: deps).run_with_preflight_only }
+        combined = out + err
         # MUST NOT crash. P2 race-check is best-effort; SUCCESS is the real gate.
-        refute_match(/REFUSE: P2/, out)
-        refute_match(/NoMethodError/, out)
+        refute_match(/REFUSE: P2/, combined)
+        refute_match(/NoMethodError/, combined)
     end
 
     def test_passes_p2_when_latest_is_success_and_image_matches
@@ -96,7 +99,8 @@ class PromoteP2Test < Minitest::Test
         deps = { "svc-1" => [
             { "id" => "d1", "status" => "SUCCESS", "meta" => { "image" => "ghcr.io/copilotkit/x@sha256:abc" }, "createdAt" => "2026-05-28T01:00:00Z" },
         ] }
-        out, _ = capture_io { cmd_with(staging: staging, deployments: deps).run_with_preflight_only }
-        refute_match(/REFUSE: P2/, out)
+        out, err = capture_io { cmd_with(staging: staging, deployments: deps).run_with_preflight_only }
+        combined = out + err
+        refute_match(/REFUSE: P2/, combined)
     end
 end

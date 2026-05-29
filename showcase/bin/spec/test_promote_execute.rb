@@ -6,43 +6,6 @@ require_relative "spec_helper"
 # concrete GHCR digest and pin THAT to prod — never a mutable tag. This is
 # the core invariant of the showcase deploy model (P6 enforces shape).
 class PromoteExecuteTest < Minitest::Test
-    # FakeGQL records every mutation so we can assert exactly what image
-    # was pinned via serviceInstanceUpdate.
-    class FakeGQL
-        def initialize; @calls = []; end
-        attr_reader :calls
-
-        def query(q, vars = {})
-            @calls << [q, vars]
-            if q.include?("serviceInstanceUpdate")
-                { "serviceInstanceUpdate" => true }
-            elsif q.include?("serviceInstanceRedeploy")
-                { "serviceInstanceRedeploy" => true }
-            elsif q.include?("ServiceInstanceRecheck") || q.include?("serviceInstance(")
-                # Return the digest-pinned ref the test expects to have
-                # been promoted, with an advanced updatedAt.
-                {
-                    "serviceInstance" => {
-                        "id" => "i",
-                        "source" => { "image" => vars[:__expected_after_image] || @after_image },
-                        "updatedAt" => "2026-05-29T00:00:01Z",
-                    },
-                }
-            else
-                {}
-            end
-        end
-
-        # Hook for pin_and_verify post-recheck — the FakeGQL needs to know
-        # what digest-pinned ref the SUT just pinned so the recheck returns
-        # an advanced image. We read the most recent serviceInstanceUpdate
-        # mutation's `image:` variable.
-        def after_image_from_last_update
-            last = @calls.reverse.find { |q, _| q.include?("serviceInstanceUpdate") }
-            last && last[1][:image]
-        end
-    end
-
     # A FakeGQL that returns the most-recently-pinned image on recheck,
     # so pin_and_verify sees the advance. Records all calls for assertions.
     class RecordingGQL
@@ -148,7 +111,11 @@ class PromoteExecuteTest < Minitest::Test
         cmd.instance_variable_set(:@ghcr, FakeGHCR.new(resolve_map: resolve_map, exists_set: exists_set))
         # Skip P2 deployments query — make fetch_latest_staging_deployments return
         # a SUCCESS deployment whose digest matches whatever we will resolve.
-        resolved_digest = resolve_map.values.first || (staging_image.include?("@") ? staging_image.split("@", 2).last : nil)
+        # Fall back to a placeholder digest so the fixture is never a malformed
+        # "...@" — the unresolvable-tag test path will REFUSE at P1 before P2
+        # consults this stub, so the placeholder value is benign.
+        resolved_digest = resolve_map.values.first ||
+            (staging_image.include?("@") ? staging_image.split("@", 2).last : "sha256:placeholder")
         cmd.define_singleton_method(:fetch_latest_staging_deployments) do |_svc_id|
             [{ "id" => "d", "status" => "SUCCESS", "meta" => { "image" => "ghcr.io/copilotkit/x@#{resolved_digest}" } }]
         end
