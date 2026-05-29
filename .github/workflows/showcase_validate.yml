@@ -661,5 +661,7 @@ jobs:
             }
       - name: Log (no Slack — webhook unset)
         if: steps.state.outputs.state == 'failure' && env.SLACK_WEBHOOK == ''
+        env:
+          REF: ${{ github.ref }}
         run: |
-          echo "::warning::showcase_validate failed on ${{ github.ref }} but SLACK_WEBHOOK_OSS_ALERTS is not set; no Slack notification sent."
+          echo "::warning::showcase_validate failed on $REF but SLACK_WEBHOOK_OSS_ALERTS is not set; no Slack notification sent."
