@@ -20,9 +20,9 @@ export default function FrontendToolsDemo() {
 }
 
 function Chat() {
-  const [background, setBackground] = useState<string>(
-    "var(--copilot-kit-background-color)",
-  );
+  // Use the canonical D5 default ("#4f46e5") so the frontend-tools probe's
+  // baseline assumption matches (see harness/src/probes/scripts/d5-frontend-tools.ts).
+  const [background, setBackground] = useState<string>("#4f46e5");
 
   useFrontendTool({
     name: "change_background",
@@ -63,7 +63,8 @@ function Chat() {
   return (
     <div
       className="flex justify-center items-center h-screen w-full"
-      data-testid="background-container"
+      data-testid="frontend-tools-background"
+      data-background-value={background}
       style={{ background }}
     >
       <div className="h-full w-full max-w-4xl">
