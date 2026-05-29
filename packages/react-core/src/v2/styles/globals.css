@@ -338,6 +338,19 @@
 .cpk-intelligence-indicator__icon {
   display: block;
   flex-shrink: 0;
+  /* The whole SVG rotates while in-progress; the dash pattern on the
+     path inside is static, so what the viewer sees is one continuous
+     arc rotating around the SVG's visual center. Rotation is removed
+     on status flip — the snap back to identity is masked by the
+     simultaneous d-morph (the shape is changing so rapidly the eye
+     does not register the angle reset). */
+  transform-origin: 7px 7px;
+  animation: cpk-intelligence-spin 0.9s linear infinite;
+}
+
+.cpk-intelligence-indicator[data-status="finished"]
+  .cpk-intelligence-indicator__icon {
+  animation: none;
 }
 
 /* ─── Icon path — d-morph + dashed-to-solid stroke ──────────────────── */
@@ -352,11 +365,11 @@
      quarter-circles, top → right → bottom → left). The fourth quarter
      is the visible "gap" in the loader. */
   d: path("M 12 3 C 17 3 21 7 21 12 C 21 17 17 21 12 21 C 7 21 3 17 3 12");
-  /* Dashed stroke + animated dashoffset = "marching ants" that read
-     as motion without rotating the SVG. */
-  stroke-dasharray: 8 4;
-  stroke-dashoffset: 0;
-  animation: cpk-intelligence-march 0.9s linear infinite;
+  /* One continuous arc + one gap, summing to roughly the path length
+     (~42 units). The static dash pattern shows as a single C-shape
+     stroke; the rotation on the SVG above makes that C appear to
+     spin around the center. */
+  stroke-dasharray: 30 14;
   /* Stage 1 — d and stroke-dasharray both interpolate over 250 ms with
      the same eased curve so the morph reads as one motion. */
   transition:
@@ -374,20 +387,15 @@
     "M 5 12.5 C 6.33 13.83 7.67 15.17 9 16.5 C 10.67 14.83 12.33 13.17 14 11.5 C 15.67 9.83 17.33 8.17 19 6.5"
   );
   /* Large first value, zero gap = solid stroke. Interpolates from
-     `8 4` over 250 ms in lock-step with the d morph. */
+     `30 14` over 250 ms in lock-step with the d morph, filling in
+     the gap that was the spinner's "open" portion. */
   stroke-dasharray: 100 0;
-  /* Stop the marching dashes. The dashoffset reverts to its base
-     value (0) instantly, but the dasharray has already transitioned
-     enough toward solid that the snap is not visible. */
-  animation: none;
 }
 
 /* ─── Keyframes ─────────────────────────────────────────────────────── */
 
-@keyframes cpk-intelligence-march {
-  /* One full dash-period (`8 + 4 = 12`) per cycle, so the dashes appear
-     to flow continuously around the path. */
+@keyframes cpk-intelligence-spin {
   to {
-    stroke-dashoffset: -12;
+    transform: rotate(360deg);
   }
 }

@@ -25,16 +25,16 @@ export interface IntelligenceIndicatorViewProps extends React.HTMLAttributes<HTM
  *
  * Single-element three-stage design:
  *  1. **In-progress.** Glassmorphism pill chrome around a 270° arc icon
- *     and the label. The arc's stroke is dashed and its dashoffset is
- *     animated continuously — "marching ants" creates the loading
- *     sensation without rotating the SVG, which is what lets the
- *     d-attribute morph land cleanly later (no rotation to snap back
- *     to zero).
+ *     and the label. The arc has a single continuous visible stroke
+ *     (one `stroke-dasharray` dash + one gap, summing to the path
+ *     length) and the whole SVG rotates — so the viewer sees one
+ *     C-shaped arc spinning around the visual center.
  *  2. **Icon morph (~250 ms).** On status flip the single icon path
- *     interpolates from the arc to a checkmark via CSS `d:` and the
- *     dashed stroke transitions to solid. Chrome and text stay at
- *     full opacity — the indicator visibly "commits" to done before
- *     anything else moves.
+ *     interpolates from the arc to a checkmark via CSS `d:` while the
+ *     dashed stroke transitions to solid (filling in the gap that was
+ *     the spinner's open portion). The SVG rotation animation is
+ *     removed; the snap back to identity is masked by the simultaneous
+ *     shape change. Chrome and text stay at full opacity throughout.
  *  3. **Settle (~400 ms, starts at +250 ms).** Chrome (background,
  *     border, shadow, backdrop-blur) fades to zero opacity. The label
  *     and icon stroke color alpha drops from 0.92 to 0.55. The text
@@ -47,9 +47,6 @@ export interface IntelligenceIndicatorViewProps extends React.HTMLAttributes<HTM
  * Both shapes are 3-segment cubic Bézier paths with matched command
  * structure (one `M` plus three `C`s), which is what makes the d
  * morph interpolate as a continuous shape change rather than snapping.
- * The arc is drawn at the SVG's natural orientation — no `transform`
- * is used anywhere on the icon, so there is no rotation state to
- * reset when the marching-ants animation is removed.
  *
  * The label is identical in both states (e.g. "Using CopilotKit
  * Intelligence"). An earlier draft swapped "Using…" → "Used…" on
