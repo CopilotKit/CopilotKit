@@ -1,5 +1,6 @@
 {
   "name": "daytona-runcode-showcase",
+  "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -20,6 +21,5 @@
     "react-syntax-highlighter": "^16.1.1",
     "typescript": "^5.7.3",
     "zod": "^3.23.8"
-  },
-  "private": true
+  }
 }
