@@ -177,3 +177,8 @@ provider mounts above any chat, supply an explicit `threadId` there:
   response.
 - Recording is fire-and-forget; the original response is returned unchanged and
   remains fully readable.
+- **HTML `<form method="POST">` submissions are not captured.** They leave
+  the page via browser navigation rather than through the patched JavaScript
+  APIs. If you want a form submission recorded, intercept it in JS (a `submit`
+  handler that calls `fetch`) and the patched `fetch` will pick it up
+  automatically.

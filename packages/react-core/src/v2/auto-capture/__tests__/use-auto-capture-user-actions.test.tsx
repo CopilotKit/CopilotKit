@@ -192,10 +192,11 @@ describe("useAutoCaptureUserActions", () => {
   });
 
   it("reflects a config change (denyUrls) on the very next request via the ref bridge", async () => {
-    const { rerender, unmount } = renderHook(
-      ({ deny }: { deny?: Array<string | RegExp> }) =>
+    type Props = { deny?: Array<string | RegExp> };
+    const { rerender, unmount } = renderHook<void, Props>(
+      ({ deny }) =>
         useAutoCaptureUserActions({ enabled: true, denyUrls: deny }),
-      { initialProps: { deny: undefined } },
+      { initialProps: {} },
     );
 
     await globalThis.fetch(`${ORIGIN}/api/keep`, { method: "POST", body: "{}" });

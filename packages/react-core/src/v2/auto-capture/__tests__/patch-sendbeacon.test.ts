@@ -40,7 +40,8 @@ afterEach(() => {
   restoreSendBeacon();
   if (originalNavigatorSendBeacon === undefined) {
     // Remove the property entirely if it didn't exist before this test.
-    delete (navigator as Navigator & { sendBeacon?: SendBeacon }).sendBeacon;
+    // Cast to a shape where the property is optional so `delete` is well-typed.
+    delete (navigator as { sendBeacon?: SendBeacon }).sendBeacon;
   } else {
     Object.defineProperty(navigator, "sendBeacon", {
       value: originalNavigatorSendBeacon,

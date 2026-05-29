@@ -81,47 +81,72 @@ export function patchXHR(bridge: AutoCaptureBridge): void {
   originalSend = XMLHttpRequest.prototype.send;
   proto[XHR_ORIGINAL_OPEN] = originalOpen;
   proto[XHR_ORIGINAL_SEND] = originalSend;
-
-  XMLHttpRequest.prototype.open = function patchedOpen(
-    this: CapturingXhr,
+  // Narrowed views of the original `open`, one per overload. TypeScript's
+  // overload resolution through `.call` defaults to the most-specific
+  // signature, so calling `.call(this, method, url)` with only two args
+  // gets routed at the 5-arg overload and errors. The two typed
+  // assignments below sit at the boundary — TS verifies each is a safe
+  // narrowing of the overloaded original — and let each call site pick
+  // the right overload precisely, with no cast.
+  const capturedOpen2: (
+    this: XMLHttpRequest,
     method: string,
     url: string | URL,
-    async?: boolean,
-    user?: string | null,
+  ) => void = originalOpen;
+  const capturedOpen5: (
+    this: XMLHttpRequest,
+    method: string,
+    url: string | URL,
+    async: boolean,
+    username?: string | null,
     password?: string | null,
+  ) => void = originalOpen;
+  const capturedSend = originalSend;
+
+  XMLHttpRequest.prototype.open = function patchedOpen(
+    method: string,
+    url: string | URL,
+    ...rest: [] | [boolean, (string | null)?, (string | null)?]
   ): void {
+    const xhr = this as CapturingXhr;
     try {
-      this.__cpkCapture = {
+      xhr.__cpkCapture = {
         method: String(method),
         url: toAbsoluteUrl(String(url)),
       };
     } catch {
       // ignore — capture metadata is best-effort
     }
-    // Pass through to the original with the spec's exact signature. Using
-    // `.call` (rather than `.apply` with a rest array) lets TypeScript pick
-    // the matching overload directly, so no widening cast is needed.
-    originalOpen.call(this, method, url, async ?? true, user, password);
+    // Branch on the rest tuple so each call site matches one of the two
+    // open overloads exactly — 2-arg or 5-arg. This preserves the caller's
+    // original call shape (so `async` stays implicit when omitted, per the
+    // XHR spec) and keeps the pass-through fully typed.
+    if (rest.length === 0) {
+      capturedOpen2.call(this, method, url);
+    } else {
+      const [async, user, password] = rest;
+      capturedOpen5.call(this, method, url, async, user, password);
+    }
   };
 
   XMLHttpRequest.prototype.send = function patchedSend(
-    this: CapturingXhr,
     body?: Document | XMLHttpRequestBodyInit | null,
   ): void {
-    const capture = this.__cpkCapture;
+    const xhr = this as CapturingXhr;
+    const capture = xhr.__cpkCapture;
     if (capture && bridge.enabled && bridge.dispatch) {
       const dispatch = bridge.dispatch;
       const start = now();
-      this.addEventListener("loadend", (event) => {
+      xhr.addEventListener("loadend", (event) => {
         try {
-          const xhr = event.currentTarget as XMLHttpRequest;
-          const contentType = xhr.getResponseHeader("content-type");
+          const target = event.currentTarget as XMLHttpRequest;
+          const contentType = target.getResponseHeader("content-type");
           dispatch({
             method: capture.method,
             url: capture.url,
             requestBody: readXhrRequestBody(body),
-            status: xhr.status,
-            responseBody: readXhrResponse(xhr, contentType),
+            status: target.status,
+            responseBody: readXhrResponse(target, contentType),
             durationMs: now() - start,
           });
         } catch {
@@ -129,7 +154,7 @@ export function patchXHR(bridge: AutoCaptureBridge): void {
         }
       });
     }
-    originalSend.call(this, body);
+    capturedSend.call(this, body);
   };
 
   proto[XHR_PATCHED] = true;
