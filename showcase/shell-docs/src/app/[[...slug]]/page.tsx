@@ -165,10 +165,8 @@ function DocsOverview() {
                 human-in-the-loop workflows on any AG-UI compatible backend.
               </p>
             </div>
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <HeroQuickstartDropdown options={quickstartOptions} />
-            </div>
-            <div className="mt-4">
               <AgentStartPrompt />
             </div>
           </div>
