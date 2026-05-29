@@ -6,7 +6,12 @@ vi.mock("../registry", () => ({
   getDocsMode: () => "generated",
 }));
 
-import { inlineSnippets, SNIPPET_MAP, SNIPPETS_DIR } from "../docs-render";
+import {
+  inlineSnippets,
+  loadDoc,
+  SNIPPET_MAP,
+  SNIPPETS_DIR,
+} from "../docs-render";
 
 let tempDir = "";
 
@@ -98,6 +103,16 @@ describe("inlineSnippets", () => {
       "RuntimeCard",
       "from slug",
       "pdx-208-runtime-multiline",
+    );
+  });
+});
+
+describe("loadDoc", () => {
+  it("resolves clean URLs to files stored under route-group folders", () => {
+    const doc = loadDoc("integrations/aws-strands/telemetry");
+
+    expect(doc?.filePath).toContain(
+      "integrations/aws-strands/(other)/telemetry/index.mdx",
     );
   });
 });
