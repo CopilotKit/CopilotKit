@@ -56,8 +56,8 @@ on:
 # whole point of the decoupling: rapid pushes to main no longer cancel
 # in-flight builds.
 
-env:
-  RAILWAY_ENV_ID: "b14919f4-6417-429f-848d-c6ae2201e04f"
+# Top-level env intentionally empty: env IDs are sourced from the
+# showcase/scripts/railway-envs.ts SSOT by the redeploy-staging job.
 
 permissions:
   contents: read
@@ -416,33 +416,60 @@ jobs:
             ghcr.io/copilotkit/${{ matrix.service.image }}:${{ github.sha }}
           build-args: ${{ steps.build-args.outputs.args }}
 
-      - name: Trigger Railway redeploy
-        if: matrix.service.railway_id != ''
+  redeploy-staging:
+    name: Trigger Railway staging redeploy
+    needs: [detect-changes, build]
+    # Run if at least one service was in the matrix AND the build job
+    # was not outright cancelled or skipped. We tolerate per-slot build
+    # failures: redeploy what we did push (the script only redeploys
+    # requested services, and slots that failed to push will simply
+    # re-pull the previous :latest — which is a no-op). However, if the
+    # build job was SKIPPED entirely (e.g. the verify-image-refs prod
+    # digest-pin gate failed, blocking build), suppress the redeploy:
+    # nothing was pushed and there is no reason to redeploy staging.
+    # Partial build failures (fail-fast: false) still surface as
+    # needs.build.result == 'failure', so the intent of redeploying what
+    # did get pushed is preserved.
+    if: ${{ !cancelled() && needs.detect-changes.outputs.has_changes == 'true' && needs.build.result != 'skipped' && needs.build.result != 'cancelled' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22.x
+      - name: Compute changed-service list from build matrix
+        id: changed
+        env:
+          MATRIX_JSON: ${{ needs.detect-changes.outputs.matrix }}
+        run: |
+          # detect-changes.outputs.matrix is a JSON array of objects, each with
+          # a dispatch_name field. We extract just those names into a CSV the
+          # redeploy-env.ts --services flag understands. resolveTargetServices()
+          # in the script accepts either SSOT keys OR dispatch_names.
+          set -euo pipefail
+          csv="$(echo "$MATRIX_JSON" | jq -r '[.[] | .dispatch_name] | join(",")')"
+          if [ -z "$csv" ]; then
+            echo "No services in matrix — skipping redeploy."
+            echo "services=" >> "$GITHUB_OUTPUT"
+          else
+            echo "services=$csv" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Computed services CSV: $csv"
+      - name: Redeploy changed services in staging
+        if: steps.changed.outputs.services != ''
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          SERVICE_ID: ${{ matrix.service.railway_id }}
-          ENV_ID: ${{ env.RAILWAY_ENV_ID }}
+          SERVICES_CSV: ${{ steps.changed.outputs.services }}
         run: |
-          # Trigger Railway to pull the freshly-pushed :latest image.
-          # Not all services have environmentPatchCommit auto-update
-          # configured, so an explicit redeploy is the reliable path.
-          RESULT=$(curl -s --retry 2 --retry-all-errors --retry-delay 1 \
-            --fail-with-body \
-            -X POST "https://backboard.railway.com/graphql/v2" \
-            -H "Authorization: Bearer $RAILWAY_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "{\"query\":\"mutation { serviceInstanceRedeploy(serviceId: \\\"$SERVICE_ID\\\", environmentId: \\\"$ENV_ID\\\") }\"}")
-          ERRORS=$(echo "$RESULT" | jq -r '.errors[]?.message // empty')
-          if [ -n "$ERRORS" ]; then
-            echo "::error::Railway redeploy failed for ${{ matrix.service.dispatch_name }}: $ERRORS"
-            exit 1
-          fi
-          OK=$(echo "$RESULT" | jq -r '.data.serviceInstanceRedeploy // false')
-          if [ "$OK" != "true" ]; then
-            echo "::error::Railway redeploy did not confirm success for ${{ matrix.service.dispatch_name }}: $RESULT"
-            exit 1
-          fi
-          echo "Railway redeploy triggered for ${{ matrix.service.dispatch_name }}"
+          # Staging is non-blocking by design: the script always exits 0
+          # and writes per-service failures into $GITHUB_STEP_SUMMARY. The
+          # verify-deploy workflow is the real release gate.
+          npx tsx showcase/scripts/redeploy-env.ts staging --services "$SERVICES_CSV"
 
   notify:
     name: Notify on failure
