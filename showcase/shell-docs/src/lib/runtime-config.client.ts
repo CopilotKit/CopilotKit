@@ -15,21 +15,42 @@ declare global {
 }
 
 /**
+ * Sentinel returned during SSR when `window` is unavailable. "use client"
+ * components in the Next.js App Router are server-side rendered on the
+ * initial request (that's how the HTML is streamed before hydration),
+ * which means their function bodies execute on the server too. We can't
+ * throw here without breaking SSR — instead we return a placeholder, and
+ * post-hydration the next render reads the real values out of
+ * window.__SHOWCASE_CONFIG__. Server components that need the live env
+ * values MUST import getRuntimeConfig from runtime-config.ts (the server
+ * variant), not this file.
+ */
+const SSR_PLACEHOLDER: RuntimeConfig = {
+  baseUrl: "",
+  shellUrl: "",
+  intelligenceSignupUrl: "",
+  posthogKey: "",
+  posthogHost: "",
+  scarfPixelId: "",
+  googleAnalyticsTrackingId: "",
+  reb2bKey: "",
+  reoKey: "",
+};
+
+/**
  * Returns the runtime config injected by the root server layout.
  *
- * Throws when called during SSR (no window). The intended call sites
- * are client components and hooks ("use client"), which only execute
- * after hydration — by which point the inline <script> has populated
- * window.__SHOWCASE_CONFIG__. If a server component needs the same
- * values, it MUST import runtime-config.ts (the server variant) — not
- * this file.
+ * During SSR (no window) returns a sentinel placeholder; client code
+ * re-reads after hydration and gets the real values. If the inline
+ * <script> never runs (a route bypassed the layout, or injection ran
+ * with empty inputs), the post-hydration read throws — surfacing the
+ * wiring bug loudly rather than silently rendering empty URLs.
  */
 export function getRuntimeConfig(): RuntimeConfig {
   if (typeof window === "undefined") {
-    throw new Error(
-      "[runtime-config.client] getRuntimeConfig() called on the server. " +
-        "Server code must import from './runtime-config' instead.",
-    );
+    // SSR phase — "use client" component bodies execute here too.
+    // Return placeholder; hydration will re-render with real values.
+    return SSR_PLACEHOLDER;
   }
   const cfg = window.__SHOWCASE_CONFIG__;
   if (!cfg) {

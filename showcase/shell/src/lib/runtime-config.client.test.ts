@@ -33,13 +33,20 @@ describe("client getRuntimeConfig (shell)", () => {
         );
     });
 
-    it("throws on the server (no window)", () => {
-        // Simulate SSR by removing window.
+    it("returns SSR sentinel placeholder when window is undefined", () => {
+        // Simulate SSR by removing window. "use client" component
+        // bodies execute on the server during SSR, so this reader
+        // MUST be SSR-safe (returns empty-string placeholders that
+        // get replaced on the next render after hydration), NOT
+        // throw — otherwise the whole server-rendered HTML 500s.
         const w = globalThis.window;
         // @ts-expect-error — deliberately removing window for the test
         delete globalThis.window;
         try {
-            expect(() => getRuntimeConfig()).toThrow(/called on the server/);
+            expect(getRuntimeConfig()).toEqual({
+                baseUrl: "",
+                posthogHost: "",
+            });
         } finally {
             (globalThis as { window?: typeof w }).window = w;
         }
