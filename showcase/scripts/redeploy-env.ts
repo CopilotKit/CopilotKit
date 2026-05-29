@@ -271,6 +271,17 @@ export async function runRedeploy(
   const names = resolveTargetServices(services).sort();
 
   const failures: Array<{ service: string; error: string }> = [];
+  // Per-service structured records — cross-workstream contract consumed
+  // by showcase_deploy.yml's `enforce-redeploy-gate` (A.7) via the
+  // REDEPLOY_SUMMARY_JSON artifact. Shape:
+  //   Array<{ service: string; status: "ok" | "error"; error?: string }>
+  // Built in parallel with the existing `failures`/`succeeded` tallies so
+  // PR #5093's exit-code computation below is untouched.
+  const records: Array<{
+    service: string;
+    status: "ok" | "error";
+    error?: string;
+  }> = [];
   let succeeded = 0;
 
   appendSummary(`## Railway redeploy — env=${env}`);
@@ -283,14 +294,17 @@ export async function runRedeploy(
       const outcome = await redeploy(entry.serviceId, envId);
       if (outcome.ok) {
         succeeded++;
+        records.push({ service: name, status: "ok" });
         process.stdout.write("OK\n");
       } else {
         failures.push({ service: name, error: outcome.error });
+        records.push({ service: name, status: "error", error: outcome.error });
         process.stdout.write(`FAIL: ${outcome.error}\n`);
       }
     } catch (e: unknown) {
       const error = e instanceof Error ? e.message : String(e);
       failures.push({ service: name, error });
+      records.push({ service: name, status: "error", error });
       process.stdout.write(`FAIL (threw): ${error}\n`);
     }
   }
@@ -317,6 +331,27 @@ export async function runRedeploy(
       appendSummary(
         "Staging redeploys are non-fatal — the verify-deploy workflow is the gate.",
       );
+    }
+  }
+
+  // A.4: optional per-service JSON summary for showcase_deploy.yml's
+  // `enforce-redeploy-gate` job. Atomic write (stage to .tmp, rename) so
+  // a CI consumer racing the writer never sees a partial file. A failure
+  // here is warn-only — PR #5093's exit-code semantics MUST NOT regress
+  // on a disk hiccup.
+  const jsonPath = process.env.REDEPLOY_SUMMARY_JSON;
+  if (jsonPath) {
+    try {
+      const tmp = `${jsonPath}.tmp`;
+      fs.writeFileSync(tmp, JSON.stringify(records, null, 2) + "\n");
+      fs.renameSync(tmp, jsonPath);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      process.stderr.write(
+        `warning: failed to write REDEPLOY_SUMMARY_JSON=${jsonPath} (${msg})\n`,
+      );
+      // Non-fatal: best-effort CI summary write; do NOT regress
+      // PR #5093's exit semantics on a disk hiccup.
     }
   }
 
