@@ -10,11 +10,13 @@
 
 import { describe, it, expect } from "vitest";
 import {
+  findMissingServices,
   findUntrackedServices,
   summarizeFailures,
 } from "../verify-railway-image-refs";
 import {
   SERVICES,
+  repoNameFor,
   type ServiceEntry,
 } from "../railway-envs";
 
@@ -150,5 +152,51 @@ describe("summarizeFailures", () => {
     });
     expect(out.shouldFail).toBe(true);
     expect(out.lines.join("\n")).toMatch(/showcase-foo/);
+  });
+});
+
+describe("WS-C: all 27 services gateValidated, with correct overrides", () => {
+  const FIVE_NEW = [
+    ["dashboard", "showcase-shell-dashboard"],
+    ["docs", "showcase-shell-docs"],
+    ["dojo", "showcase-shell-dojo"],
+    ["shell", "showcase-shell"],
+    ["harness", "showcase-harness"],
+  ] as const;
+
+  it("has 27 services in the SSOT", () => {
+    expect(Object.keys(SERVICES)).toHaveLength(27);
+  });
+
+  it("marks every service gateValidated (no Phase-2 holdouts)", () => {
+    const unvalidated = Object.entries(SERVICES)
+      .filter(([, entry]) => !entry.gateValidated)
+      .map(([name]) => name);
+    expect(unvalidated).toEqual([]);
+  });
+
+  for (const [serviceKey, expectedRepo] of FIVE_NEW) {
+    it(`resolves ${serviceKey} -> ${expectedRepo} for both envs via repoNameFor`, () => {
+      expect(repoNameFor(serviceKey, "prod")).toBe(expectedRepo);
+      expect(repoNameFor(serviceKey, "staging")).toBe(expectedRepo);
+    });
+
+    it(`carries the repoNameOverride directly on the SERVICES entry for ${serviceKey}`, () => {
+      const entry = SERVICES[serviceKey];
+      expect(entry.repoNameOverride?.prod).toBe(expectedRepo);
+      expect(entry.repoNameOverride?.staging).toBe(expectedRepo);
+    });
+  }
+
+  it("findMissingServices treats all 27 as gateValidated targets", () => {
+    // With nothing "present", every gateValidated service should
+    // appear in the missing set; after C.3 that means all 27.
+    const missingProd = findMissingServices("prod", new Set<string>());
+    const missingStaging = findMissingServices(
+      "staging",
+      new Set<string>(),
+    );
+    expect(missingProd).toHaveLength(27);
+    expect(missingStaging).toHaveLength(27);
   });
 });

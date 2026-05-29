@@ -105,13 +105,13 @@ export interface ServiceEntry {
   ciBuilt: boolean;
   /**
    * True iff `verify-railway-image-refs.ts` validates this service's
-   * image refs. The historic gate filtered to `showcase-*`-prefix
-   * services only (19 of 27). WS4 expands that to include `aimock`
-   * (always was an override target), `pocketbase`, and `webhooks` —
-   * the three first-party non-`showcase-*` services. `dashboard`,
-   * `docs`, `dojo`, `harness`, and `shell` remain unvalidated for
-   * this PR and are scoped to Phase 2 (their Railway image refs were
-   * not part of the 27/27 prod-pinning audit).
+   * image refs. As of WS-C completion this is `true` for every service
+   * in `SERVICES` — the historic Phase-2 deferral on dashboard, docs,
+   * dojo, shell, and harness has been retired. New services added to
+   * the SSOT MUST land with `gateValidated: true` (and a
+   * `repoNameOverride` if the Railway service name does not match the
+   * GHCR repo name); use the optional `gateIgnore: true` field only
+   * for deliberately-untracked third-party services.
    */
   gateValidated: boolean;
   /**
@@ -206,12 +206,15 @@ export const SERVICES: Record<
     prodInstanceId: "e68f98fa-b2ef-41cc-82f6-2ed6f9533bf3",
     stagingInstanceId: "aea7332e-17a0-4fab-921c-ed5baad2a6f2",
     ciBuilt: true,
-    gateValidated: false,
+    gateValidated: true,
     dispatchName: "shell-dashboard",
-    // No repoNameOverride here: gate validation for `dashboard`/`docs`/
-    // `dojo`/`shell` is OUT OF SCOPE for WS4. The current gate's
-    // `showcase-*`-prefix filter naturally excluded them, and we preserve
-    // that exclusion. Adding them is Phase 2 work.
+    // Railway service name is `dashboard`; GHCR repo is
+    // `showcase-shell-dashboard`. Same override for both envs:
+    // staging :latest, prod @sha256 — uniform across all services.
+    repoNameOverride: {
+      prod: "showcase-shell-dashboard",
+      staging: "showcase-shell-dashboard",
+    },
     domains: {
       staging: "dashboard.showcase.staging.copilotkit.ai",
       prod: "dashboard.showcase.copilotkit.ai",
@@ -223,8 +226,13 @@ export const SERVICES: Record<
     prodInstanceId: "b15564fc-f832-49b3-82df-fd36f298fe96",
     stagingInstanceId: "d5caa51d-73ee-4669-bfea-d87bf1488b02",
     ciBuilt: true,
-    gateValidated: false,
+    gateValidated: true,
     dispatchName: "shell-docs",
+    // Railway service name is `docs`; GHCR repo is `showcase-shell-docs`.
+    repoNameOverride: {
+      prod: "showcase-shell-docs",
+      staging: "showcase-shell-docs",
+    },
     domains: {
       staging: "docs.staging.copilotkit.ai",
       prod: "docs.copilotkit.ai",
@@ -236,8 +244,13 @@ export const SERVICES: Record<
     prodInstanceId: "2ee4f2aa-11ec-4426-9a4a-41a1ad04f16d",
     stagingInstanceId: "1284d717-0ff5-432c-9326-fab12661df61",
     ciBuilt: true,
-    gateValidated: false,
+    gateValidated: true,
     dispatchName: "shell-dojo",
+    // Railway service name is `dojo`; GHCR repo is `showcase-shell-dojo`.
+    repoNameOverride: {
+      prod: "showcase-shell-dojo",
+      staging: "showcase-shell-dojo",
+    },
     domains: {
       staging: "dojo.showcase.staging.copilotkit.ai",
       prod: "dojo.showcase.copilotkit.ai",
@@ -249,12 +262,15 @@ export const SERVICES: Record<
     prodInstanceId: "05fbcdf2-8a50-4b71-b4f6-c92c4b17e626",
     stagingInstanceId: "0811f68f-fac4-440e-a350-3a7ca5855b80",
     ciBuilt: true,
-    gateValidated: false,
+    gateValidated: true,
     dispatchName: "showcase-harness",
-    // Railway service name is `harness` (not `showcase-harness`); gate
-    // validation is deferred to Phase 2 alongside dashboard/docs/dojo/shell.
-    // ciBuilt: true, gateValidated: false — contrast with pocketbase/webhooks
-    // (ciBuilt: false, gateValidated: true).
+    // Railway service name is `harness`; GHCR repo is `showcase-harness`.
+    // ciBuilt: true, gateValidated: true — uniform with the rest of
+    // the CI-built integrations now that WS-C has flipped the five.
+    repoNameOverride: {
+      prod: "showcase-harness",
+      staging: "showcase-harness",
+    },
     domains: {
       staging: "harness-staging-2ee4.up.railway.app",
       prod: "showcase-harness-production.up.railway.app",
@@ -285,8 +301,13 @@ export const SERVICES: Record<
     prodInstanceId: "01614ccf-e109-4b30-b41b-7c5551c0a34c",
     stagingInstanceId: "25b7de41-188c-4f2e-ac07-538212eaeb91",
     ciBuilt: true,
-    gateValidated: false,
+    gateValidated: true,
     dispatchName: "shell",
+    // Railway service name is `shell`; GHCR repo is `showcase-shell`.
+    repoNameOverride: {
+      prod: "showcase-shell",
+      staging: "showcase-shell",
+    },
     domains: {
       staging: "showcase.staging.copilotkit.ai",
       prod: "showcase.copilotkit.ai",
