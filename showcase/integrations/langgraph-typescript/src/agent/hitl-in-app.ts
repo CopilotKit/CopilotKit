@@ -62,7 +62,10 @@ const SYSTEM_PROMPT =
   "prompt.";
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
-  const model = makeChatOpenAI(config, { temperature: 0, model: "gpt-4o-mini" });
+  const model = makeChatOpenAI(config, {
+    temperature: 0,
+    model: "gpt-4o-mini",
+  });
 
   const modelWithTools = model.bindTools!([
     ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),

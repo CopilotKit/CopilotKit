@@ -212,7 +212,10 @@ const generateA2uiTool = tool(
       }),
     });
 
-    const model = makeChatOpenAI(_currentConfig ?? undefined, { temperature: 0, model: "gpt-4.1" });
+    const model = makeChatOpenAI(_currentConfig ?? undefined, {
+      temperature: 0,
+      model: "gpt-4.1",
+    });
     const modelWithTool = model.bindTools!([designTool], {
       tool_choice: {
         type: "function",

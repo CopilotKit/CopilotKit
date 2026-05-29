@@ -165,7 +165,10 @@ const generateA2ui = tool(
   async ({ messages, contextEntries }, config) => {
     const prep = generateA2uiImpl({ messages, contextEntries });
 
-    const secondaryModel = makeChatOpenAI(config, { temperature: 0, model: "gpt-4.1" });
+    const secondaryModel = makeChatOpenAI(config, {
+      temperature: 0,
+      model: "gpt-4.1",
+    });
     const renderTool = tool(async () => "rendered", {
       name: "render_a2ui",
       description: "Render a dynamic A2UI v0.9 surface.",

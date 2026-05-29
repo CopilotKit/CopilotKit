@@ -151,7 +151,10 @@ function buildSystemPrompt(props: ResolvedProps): string {
 }
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
-  const model = makeChatOpenAI(config, { model: "gpt-4o-mini", temperature: 0.4 });
+  const model = makeChatOpenAI(config, {
+    model: "gpt-4o-mini",
+    temperature: 0.4,
+  });
   const props = readConfig(state, config);
   const systemPrompt = buildSystemPrompt(props);
 

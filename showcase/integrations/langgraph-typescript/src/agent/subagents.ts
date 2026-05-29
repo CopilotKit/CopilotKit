@@ -106,7 +106,10 @@ async function invokeSubAgent(
   task: string,
   config?: RunnableConfig,
 ): Promise<string> {
-  const subModel = makeChatOpenAI(config, { temperature: 0, model: "gpt-4o-mini" });
+  const subModel = makeChatOpenAI(config, {
+    temperature: 0,
+    model: "gpt-4o-mini",
+  });
   const result = await subModel.invoke([
     new SystemMessage({ content: SUB_AGENT_PROMPTS[agent] }),
     new HumanMessage({ content: task }),
@@ -318,7 +321,10 @@ const SUPERVISOR_SYSTEM_PROMPT =
   "of every sub-agent delegation.";
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
-  const model = makeChatOpenAI(config, { temperature: 0, model: "gpt-4o-mini" });
+  const model = makeChatOpenAI(config, {
+    temperature: 0,
+    model: "gpt-4o-mini",
+  });
 
   const modelWithTools = model.bindTools!([
     ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),
