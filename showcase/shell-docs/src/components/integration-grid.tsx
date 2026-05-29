@@ -2,8 +2,7 @@
 
 import React from "react";
 import { useFramework } from "./framework-provider";
-
-const SHELL_HOST = process.env.NEXT_PUBLIC_SHELL_URL ?? "http://localhost:3000";
+import { getRuntimeConfig } from "@/lib/runtime-config.client";
 
 export function IntegrationGrid({
   path,
@@ -17,6 +16,13 @@ export function IntegrationGrid({
 
   // On a framework-scoped route the user already chose a backend — hide.
   if (framework) return null;
+
+  // Shell host is now read at runtime from window.__SHOWCASE_CONFIG__
+  // (set by the root layout) so the rendered <a href> reflects the
+  // current deploy's NEXT_PUBLIC_SHELL_URL without a rebuild. Pulled
+  // after the early-return so we never call into the client reader on
+  // renders that produce no DOM.
+  const shellHost = getRuntimeConfig().shellUrl;
 
   return (
     <>
@@ -38,7 +44,7 @@ export function IntegrationGrid({
       >
         See{" "}
         <a
-          href={`${SHELL_HOST}/integrations`}
+          href={`${shellHost}/integrations`}
           style={{ color: "var(--accent)" }}
         >
           Integrations
