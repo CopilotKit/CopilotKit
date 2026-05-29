@@ -30,6 +30,30 @@ describe("verify-deploy argv parsing", () => {
             parseArgs(["--env", "staging", "--services="]),
         ).toThrow(/--services/);
     });
+
+    it("rejects --services space-form whose CSV is all empty entries (symmetry with equals-form)", () => {
+        // Bug: space-form previously only guarded `!v` on the raw next-arg,
+        // so `--services ,,` produced an empty list that fell through to a
+        // less-precise zero-targets error. Both forms must throw the same
+        // precise `--services requires a CSV value` here.
+        expect(() =>
+            parseArgs(["--env=staging", "--services", ",,"]),
+        ).toThrow(/--services requires a CSV value/);
+    });
+
+    it("rejects bare trailing --env (no following value)", () => {
+        // Bug: `argv[++i]` was undefined and we deferred to a vague
+        // `resolveEnv` error. Must throw the precise message here.
+        expect(() => parseArgs(["--env"])).toThrow(
+            /--env requires a value \(staging\|prod\)/,
+        );
+    });
+
+    it("rejects --env= with empty value (symmetry with bare trailing --env)", () => {
+        expect(() => parseArgs(["--env="])).toThrow(
+            /--env requires a value \(staging\|prod\)/,
+        );
+    });
 });
 
 describe("resolveProbeTargets", () => {

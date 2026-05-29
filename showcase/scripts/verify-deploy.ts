@@ -40,13 +40,35 @@ export function parseArgs(argv: string[]): ParsedArgs {
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
         if (a === "--env") {
-            envRaw = argv[++i];
+            const v = argv[++i];
+            // Guard a bare trailing `--env` (undefined) here so the
+            // operator gets a precise, flag-named diagnostic instead of
+            // the downstream `resolveEnv` "Unknown env" / "--env required"
+            // surface. Mirrors the same guard on `--services`.
+            if (v === undefined) {
+                throw new Error("--env requires a value (staging|prod)");
+            }
+            envRaw = v;
         } else if (a.startsWith("--env=")) {
-            envRaw = a.slice("--env=".length);
+            const v = a.slice("--env=".length);
+            // `--env=` (empty post-equals) is the equals-form twin of the
+            // bare-trailing case above; collapse both to the same precise
+            // error rather than deferring to `resolveEnv`.
+            if (v === "") {
+                throw new Error("--env requires a value (staging|prod)");
+            }
+            envRaw = v;
         } else if (a === "--services") {
             const v = argv[++i];
             if (!v) throw new Error("--services requires a CSV value");
             services = v.split(",").map((s) => s.trim()).filter(Boolean);
+            // Symmetry with the equals-form below: a raw value like `,,`
+            // or `"  "` survives the `!v` guard but produces an empty
+            // post-filter list. Throw the same precise error here so both
+            // forms behave identically.
+            if (services.length === 0) {
+                throw new Error("--services requires a CSV value");
+            }
         } else if (a.startsWith("--services=")) {
             const v = a.slice("--services=".length);
             if (!v) throw new Error("--services requires a CSV value");

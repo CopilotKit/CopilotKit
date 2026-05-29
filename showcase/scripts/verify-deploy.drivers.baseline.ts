@@ -91,9 +91,22 @@ async function releaseBody(
 ): Promise<void> {
     try {
         await res.body?.cancel?.();
-    } catch {
-        // Cancelling a body that was already consumed throws on some
-        // runtimes; that's harmless — the socket is already released.
+    } catch (e: unknown) {
+        // Expected benign case: undici throws when the body is already
+        // "locked" (a reader is attached, or it was fully read by an
+        // earlier `res.json()` / `res.text()`). In every such case the
+        // socket is already released, so this is a no-op — swallow it.
+        // Anything else is unexpected; surface it on stderr so we don't
+        // hide a real bug, but keep `releaseBody` best-effort (never
+        // propagate — undici socket release is an optimization, not a
+        // correctness invariant).
+        const msg = e instanceof Error ? e.message : String(e);
+        const locked = /lock/i.test(msg);
+        if (!locked) {
+            process.stderr.write(
+                `[verify-deploy] releaseBody: unexpected cancel error: ${msg}\n`,
+            );
+        }
     }
 }
 
