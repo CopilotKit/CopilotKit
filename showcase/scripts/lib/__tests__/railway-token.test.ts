@@ -66,4 +66,83 @@ describe("resolveRailwayTokenFromConfig", () => {
         const result = resolveRailwayTokenFromConfig(cfg, { warn });
         expect(result).toBeUndefined();
     });
+
+    it("treats whitespace-only user.accessToken as empty and falls through", () => {
+        const cfg: RailwayConfigShape = {
+            user: { accessToken: "   " },
+        };
+        const warn = vi.fn();
+        const result = resolveRailwayTokenFromConfig(cfg, { warn });
+        expect(result).toBeUndefined();
+        expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("falls through whitespace-only user.accessToken to legacy user.token with warn", () => {
+        const cfg: RailwayConfigShape = {
+            user: {
+                accessToken: "\n\t  ",
+                token: "legacy-short-token-aaaaaaaaaa",
+            },
+        };
+        const warn = vi.fn();
+        const result = resolveRailwayTokenFromConfig(cfg, { warn });
+        expect(result).toBe("legacy-short-token-aaaaaaaaaa");
+        expect(warn).toHaveBeenCalledTimes(1);
+    });
+
+    it("treats whitespace-only tokens at every layer as empty", () => {
+        const cfg: RailwayConfigShape = {
+            user: { accessToken: "  ", token: "\t" },
+            accessToken: "\n",
+            token: "   ",
+        };
+        const warn = vi.fn();
+        const result = resolveRailwayTokenFromConfig(cfg, { warn });
+        expect(result).toBeUndefined();
+        expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("returns undefined when config is null", () => {
+        const warn = vi.fn();
+        const result = resolveRailwayTokenFromConfig(null, { warn });
+        expect(result).toBeUndefined();
+        expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("returns undefined when config is undefined", () => {
+        const warn = vi.fn();
+        const result = resolveRailwayTokenFromConfig(undefined, { warn });
+        expect(result).toBeUndefined();
+        expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("returns undefined when config is a string (non-object JSON)", () => {
+        const warn = vi.fn();
+        const result = resolveRailwayTokenFromConfig(
+            "not-an-object" as unknown as RailwayConfigShape,
+            { warn },
+        );
+        expect(result).toBeUndefined();
+        expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("returns undefined when config is a number", () => {
+        const warn = vi.fn();
+        const result = resolveRailwayTokenFromConfig(
+            42 as unknown as RailwayConfigShape,
+            { warn },
+        );
+        expect(result).toBeUndefined();
+        expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("returns undefined when config is an array", () => {
+        const warn = vi.fn();
+        const result = resolveRailwayTokenFromConfig(
+            [] as unknown as RailwayConfigShape,
+            { warn },
+        );
+        expect(result).toBeUndefined();
+        expect(warn).not.toHaveBeenCalled();
+    });
 });

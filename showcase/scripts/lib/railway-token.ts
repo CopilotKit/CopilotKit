@@ -1,13 +1,16 @@
 /**
  * railway-token.ts — Shared resolver for the Railway GraphQL bearer.
  *
- * The Railway CLI stores the public-GraphQL bearer in `user.accessToken`
- * (43+ chars). The shorter `user.token` is a legacy CLI session token
- * that does NOT authenticate to the public GraphQL API. Older configs
- * still on disk have `user.token` set and `user.accessToken` empty;
- * those callers get a one-cycle deprecation warning and still work.
+ * The Railway CLI stores the public-GraphQL bearer in `user.accessToken`.
+ * The shorter `user.token` is a legacy CLI session token that does NOT
+ * authenticate to the public GraphQL API. Older configs still on disk
+ * have `user.token` set and `user.accessToken` empty; those callers get
+ * a one-cycle deprecation warning and still work.
  *
- * Resolution order mirrors `showcase/bin/railway:115-119`:
+ * Resolution order matches the first four candidates of
+ * `showcase/bin/railway` `Auth.token`; the per-project
+ * `projects.<id>.token` fallback is intentionally not honored (no
+ * project-scoped tokens here):
  *   1. user.accessToken
  *   2. accessToken (top-level)
  *   3. user.token        (legacy → warn)
@@ -35,29 +38,41 @@ const DEPRECATION_MESSAGE =
     "`user.token` / top-level `token` no longer authenticates the public " +
     "GraphQL API. The Railway CLI now writes `user.accessToken`; re-run " +
     "`railway login` to refresh ~/.railway/config.json. Support for the " +
-    "legacy field will be removed in the next release cycle.";
+    "legacy field will be removed in a future release.";
 
 function nonEmpty(v: unknown): v is string {
-    return typeof v === "string" && v.length > 0;
+    return typeof v === "string" && v.trim().length > 0;
 }
 
 export function resolveRailwayTokenFromConfig(
     config: RailwayConfigShape | null | undefined,
     deps: ResolverDeps = {},
 ): string | undefined {
-    if (!config) return undefined;
+    // Defensive guard: config originates from JSON.parse of
+    // ~/.railway/config.json (untrusted). Reject anything that isn't a
+    // plain object before property access.
+    if (config === null || config === undefined) return undefined;
+    if (typeof config !== "object") return undefined;
+    if (Array.isArray(config)) return undefined;
+
     const warn = deps.warn ?? ((m: string) => console.warn(m));
 
-    if (nonEmpty(config.user?.accessToken)) return config.user!.accessToken;
-    if (nonEmpty(config.accessToken)) return config.accessToken;
+    const userAccess = config.user?.accessToken;
+    if (nonEmpty(userAccess)) return userAccess;
 
-    if (nonEmpty(config.user?.token)) {
+    const topAccess = config.accessToken;
+    if (nonEmpty(topAccess)) return topAccess;
+
+    const userLegacy = config.user?.token;
+    if (nonEmpty(userLegacy)) {
         warn(DEPRECATION_MESSAGE);
-        return config.user!.token;
+        return userLegacy;
     }
-    if (nonEmpty(config.token)) {
+
+    const topLegacy = config.token;
+    if (nonEmpty(topLegacy)) {
         warn(DEPRECATION_MESSAGE);
-        return config.token;
+        return topLegacy;
     }
     return undefined;
 }
