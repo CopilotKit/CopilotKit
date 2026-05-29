@@ -31,8 +31,12 @@ on:
         required: false
         type: string
 
+# Serialize ALL promotes on a single input-agnostic group so concurrent runs
+# (e.g. `all` + a single-service promote) can't pin the same Railway service
+# at once; `cancel-in-progress: false` ensures an in-flight prod promote is
+# never cancelled by a newer run queued behind it.
 concurrency:
-  group: showcase-promote-${{ inputs.service }}
+  group: showcase-promote
   cancel-in-progress: false
 
 permissions:

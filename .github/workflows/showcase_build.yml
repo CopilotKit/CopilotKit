@@ -666,14 +666,28 @@ jobs:
 
   notify:
     name: Notify on failure
-    # Cover the whole build→aggregate→redeploy pipeline. `needs: [build]`
+    # Cover the whole detect→build→aggregate→redeploy pipeline. `needs: [build]`
     # alone meant a failure in aggregate-build-results or redeploy-staging
-    # produced ZERO Slack signal (verify just never ran). `if: failure()`
-    # already skips when none of the needs failed — so this still no-ops
-    # for the "no changes → build skipped" path, since skipped != failure.
-    # If `notify-all-builds-failed` also fires (genuine all-failed case),
-    # both alerts firing for the same event is acceptable per the alert SOP.
-    needs: [build, aggregate-build-results, redeploy-staging]
+    # produced ZERO Slack signal (verify just never ran). Likewise, a red
+    # in detect-changes, check-lockfile, or verify-image-refs would skip
+    # `build` (skipped != failure) so the original `needs: [build]` form
+    # also missed those pre-build red paths. Adding the early-stage jobs
+    # to `needs` extends the alert surface to the full workflow, matching
+    # the workflow-level notify pattern in showcase_promote.yml.
+    # `if: failure()` already skips when none of the needs failed — so
+    # this still no-ops for the "no changes → build skipped" path, since
+    # skipped != failure. If `notify-all-builds-failed` also fires
+    # (genuine all-failed case), both alerts firing for the same event is
+    # acceptable per the alert SOP.
+    needs:
+      [
+        detect-changes,
+        check-lockfile,
+        verify-image-refs,
+        build,
+        aggregate-build-results,
+        redeploy-staging,
+      ]
     if: failure()
     runs-on: ubuntu-latest
     permissions:
