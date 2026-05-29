@@ -17,21 +17,17 @@
  */
 
 // Single source of truth for the set of valid build outcomes. The
-// `as const` tuple drives BOTH the compile-time `BuildOutcome` union
-// AND the runtime `VALID_STATUSES` set, so adding a status in one
-// place is enforced in the other. The exhaustiveness check below
-// guarantees the tuple and the union stay in lockstep.
+// `as const` tuple drives BOTH the runtime `VALID_STATUSES` set AND
+// the compile-time `BuildOutcome` union (derived via indexed access
+// below), so the tuple is the only place a status needs to be added.
+// Since `BuildOutcome` is derived from this tuple there is no separate
+// union that could drift out of sync — no redundant exhaustiveness
+// assertion is needed.
 const BUILD_OUTCOMES = ["success", "failure", "skipped"] as const;
 
 export type BuildOutcome = (typeof BUILD_OUTCOMES)[number];
 
 const VALID_STATUSES: ReadonlySet<BuildOutcome> = new Set(BUILD_OUTCOMES);
-
-// Compile-time exhaustiveness check: if BuildOutcome ever drifts from
-// the BUILD_OUTCOMES tuple (e.g. a hand-edited union), this assignment
-// will fail to typecheck.
-const _exhaustive: ReadonlyArray<BuildOutcome> = BUILD_OUTCOMES;
-void _exhaustive;
 
 export interface ServiceBuildResult {
   service: string;
@@ -55,7 +51,7 @@ function validateServiceBuildResult(
   raw: unknown,
   contextLabel: string,
 ): ServiceBuildResult {
-  if (typeof raw !== "object" || raw === null) {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
     throw new Error(
       `${contextLabel}: expected object with {service, status}, got ${JSON.stringify(raw)}`,
     );
@@ -66,7 +62,8 @@ function validateServiceBuildResult(
       `${contextLabel}: missing required string field "service": ${JSON.stringify(raw)}`,
     );
   }
-  if (service.trim().length === 0) {
+  const trimmedService = service.trim();
+  if (trimmedService.length === 0) {
     throw new Error(
       `${contextLabel}: field "service" must be a non-empty, non-whitespace string: ${JSON.stringify(raw)}`,
     );
@@ -80,7 +77,7 @@ function validateServiceBuildResult(
       `${contextLabel}: invalid "status" (must be success|failure|skipped): ${JSON.stringify(raw)}`,
     );
   }
-  return { service, status: status as BuildOutcome };
+  return { service: trimmedService, status: status as BuildOutcome };
 }
 
 export function parseBuildOutputs(raw: string): ServiceBuildResult[] {

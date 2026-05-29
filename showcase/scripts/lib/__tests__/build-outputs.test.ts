@@ -139,6 +139,46 @@ describe("mergeBuildResultFiles", () => {
     expect(() => mergeBuildResultFiles(slotPayloads)).toThrow(/duplicate/i);
     expect(() => mergeBuildResultFiles(slotPayloads)).toThrow(/dup/);
   });
+
+  it("normalizes trailing whitespace in service to its trimmed canonical form", () => {
+    const result = mergeBuildResultFiles([
+      '{"service":"foo ","status":"success"}',
+    ]);
+    expect(result).toEqual([{ service: "foo", status: "success" }]);
+  });
+
+  it("normalizes leading whitespace in service to its trimmed canonical form", () => {
+    const result = mergeBuildResultFiles([
+      '{"service":" foo","status":"success"}',
+    ]);
+    expect(result).toEqual([{ service: "foo", status: "success" }]);
+  });
+
+  it("parseBuildOutputs also returns the trimmed canonical service", () => {
+    const json = JSON.stringify([{ service: "  bar  ", status: "success" }]);
+    expect(parseBuildOutputs(json)).toEqual([
+      { service: "bar", status: "success" },
+    ]);
+  });
+
+  it("detects duplicates that differ only by surrounding whitespace", () => {
+    const slotPayloads = [
+      '{"service":"foo","status":"failure"}',
+      '{"service":"foo ","status":"success"}',
+    ];
+    expect(() => mergeBuildResultFiles(slotPayloads)).toThrow(/duplicate/i);
+    expect(() => mergeBuildResultFiles(slotPayloads)).toThrow(/foo/);
+  });
+
+  it("rejects an array payload with a clear 'expected object' error (not 'missing service')", () => {
+    expect(() => mergeBuildResultFiles(["[]"])).toThrow(/expected object/i);
+    expect(() => mergeBuildResultFiles(["[]"])).not.toThrow(/missing/i);
+  });
+
+  it("parseBuildOutputs rejects an array nested as an entry with 'expected object'", () => {
+    const bad = JSON.stringify([[]]);
+    expect(() => parseBuildOutputs(bad)).toThrow(/expected object/i);
+  });
 });
 
 describe("shouldRedeployStaging", () => {
