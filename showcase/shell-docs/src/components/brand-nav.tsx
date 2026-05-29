@@ -112,9 +112,7 @@ export function BrandNav(_props: BrandNavProps = {}) {
               <li
                 key={link.href}
                 className={`relative h-full group ${
-                  isFreeDevAccess
-                    ? "hidden [@media(width>=960px)]:block"
-                    : ""
+                  isFreeDevAccess ? "hidden [@media(width>=960px)]:block" : ""
                 }`}
               >
                 <Link

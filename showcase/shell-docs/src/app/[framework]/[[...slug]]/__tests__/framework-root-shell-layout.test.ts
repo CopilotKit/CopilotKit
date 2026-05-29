@@ -1,7 +1,10 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const pageSource = readFileSync(new URL("../page.tsx", import.meta.url), "utf8");
+const pageSource = readFileSync(
+  new URL("../page.tsx", import.meta.url),
+  "utf8",
+);
 
 describe("FrameworkRootShell layout", () => {
   it("does not add top padding above framework landing content", () => {

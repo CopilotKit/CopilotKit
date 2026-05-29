@@ -4,7 +4,9 @@ import { describe, expect, it } from "vitest";
 const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
 
 function readPublicAsset(relativePath: string) {
-  return readFileSync(new URL(`../../../public/${relativePath}`, import.meta.url));
+  return readFileSync(
+    new URL(`../../../public/${relativePath}`, import.meta.url),
+  );
 }
 
 describe("public image assets", () => {

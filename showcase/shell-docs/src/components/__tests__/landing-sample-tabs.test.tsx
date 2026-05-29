@@ -17,8 +17,12 @@ describe("LandingSampleTabs", () => {
     expect(markup).toContain("sm:hidden");
     expect(markup).toMatch(/hidden[^"]*sm:block/);
     expect(markup).toContain("min-w-0 overflow-hidden");
-    expect(markup).toContain("Drop in a chat surface where your users already work.");
-    expect(markup).toContain("Own every pixel and still use the agent runtime.");
+    expect(markup).toContain(
+      "Drop in a chat surface where your users already work.",
+    );
+    expect(markup).toContain(
+      "Own every pixel and still use the agent runtime.",
+    );
     expect(markup).toContain("Let agents render real React components.");
     expect(markup).toContain("Connect any backend that speaks AG-UI.");
     expect(markup.indexOf("Generative UI")).toBeLessThan(
