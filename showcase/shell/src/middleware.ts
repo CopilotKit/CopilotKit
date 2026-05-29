@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { seoRedirects } from "@/lib/seo-redirects";
+import { getRuntimeConfigEdge } from "@/lib/runtime-config";
 import registry from "@/data/registry.json";
 
 // ---------------------------------------------------------------------------
@@ -38,9 +39,6 @@ for (const entry of seoRedirects) {
 // PostHog tracking via fetch (Edge Runtime compatible — no posthog-node SDK)
 // ---------------------------------------------------------------------------
 
-const POSTHOG_HOST =
-  process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://eu.i.posthog.com";
-
 let posthogKeyWarned = false;
 
 function trackRedirect(id: string, fromPath: string, toPath: string): void {
@@ -55,8 +53,13 @@ function trackRedirect(id: string, fromPath: string, toPath: string): void {
     return;
   }
 
+  // Read the PostHog host from the Edge-safe runtime config (live
+  // process.env at request time, no `next/cache` import — see
+  // getRuntimeConfigEdge in src/lib/runtime-config.ts).
+  const posthogHost = getRuntimeConfigEdge().posthogHost;
+
   // Fire-and-forget — don't await
-  fetch(`${POSTHOG_HOST}/capture/`, {
+  fetch(`${posthogHost}/capture/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
