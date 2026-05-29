@@ -22,3 +22,10 @@ export type {
   UseAttachmentsProps,
   UseAttachmentsReturn,
 } from "./use-attachments";
+export { useMessageQueue } from "./use-message-queue";
+export type {
+  UseMessageQueueOptions,
+  UseMessageQueueReturn,
+  QueuedMessage,
+  MessageQueueDispatchMode,
+} from "./use-message-queue";

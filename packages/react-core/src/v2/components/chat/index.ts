@@ -81,6 +81,11 @@ export { CopilotPopup, type CopilotPopupProps } from "./CopilotPopup";
 export { CopilotChatAttachmentQueue } from "./CopilotChatAttachmentQueue";
 export { CopilotChatAttachmentRenderer } from "./CopilotChatAttachmentRenderer";
 
+export {
+  CopilotChatMessageQueue,
+  type CopilotChatMessageQueueProps,
+} from "./CopilotChatMessageQueue";
+
 export type {
   Attachment,
   AttachmentsConfig,
