@@ -75,15 +75,20 @@ module Railway
     # `npx tsx showcase/scripts/emit-railway-envs-json.ts --check` ensures the
     # JSON artifact stays in sync with the TS SSOT on every PR. Only public
     # (non-`*.up.railway.app`) hosts are included, preserving the original set.
-    EXPECTED_DOMAINS = begin
+    # Shared SSOT load — read once at class-load, derive both EXPECTED_DOMAINS
+    # and STAGING_SERVICES from the same generated.json so they cannot drift.
+    SSOT_DATA = begin
         ssot_json = File.expand_path("../scripts/railway-envs.generated.json", __dir__)
         unless File.exist?(ssot_json)
             raise "railway-envs.generated.json not found at #{ssot_json}. " \
                   "Re-run: npx tsx showcase/scripts/emit-railway-envs-json.ts"
         end
-        data = JSON.parse(File.read(ssot_json))
+        JSON.parse(File.read(ssot_json)).freeze
+    end
+
+    EXPECTED_DOMAINS = begin
         by_env = { PRODUCTION_ENV_ID => [], STAGING_ENV_ID => [] }
-        data.fetch("services").each do |svc|
+        SSOT_DATA.fetch("services").each do |svc|
             domains = svc.fetch("domains")
             prod = domains.fetch("prod")
             staging = domains.fetch("staging")
@@ -92,6 +97,11 @@ module Railway
         end
         by_env.transform_values { |v| v.sort.uniq.freeze }.freeze
     end
+
+    # Canonical staging service names — used to validate the optional
+    # positional `bin/railway promote <service>` argument. Sourced from the
+    # same SSOT as EXPECTED_DOMAINS so they cannot drift.
+    STAGING_SERVICES = SSOT_DATA.fetch("services").map { |s| s.fetch("name") }.sort.freeze
 
     # Heuristic markers for env-scoped URLs (ignored in env-diff and promote).
     ENV_SCOPED_URL_MARKERS = [
@@ -1016,15 +1026,24 @@ module Railway
             super.merge(
                 confirm_divergence:    false,
                 require_staging_green: true,   # default-on per spec §7.2 P3
+                service:               nil,    # optional positional: restrict to ONE service
+                digest:                nil,    # override resolved prod-image ref (single-service only)
             )
         end
 
         def parser
             OptionParser.new do |o|
                 o.banner = <<~BANNER
-                    Usage: bin/railway promote [--yes] [--non-interactive] [--dry-run]
+                    Usage: bin/railway promote [SERVICE] [--digest REF] [--yes] [--non-interactive] [--dry-run]
 
                       Promote staging snapshot to production.
+
+                      SERVICE (optional positional): restrict the promote to a single
+                        staging service by name. Without it, the entire staging fleet
+                        is promoted (interactive operator use).
+                      --digest REF: pin SERVICE's prod image to REF instead of the
+                        digest resolved from staging's :latest tag. Only valid with a
+                        positional SERVICE; errors otherwise.
 
                       MOVES: image digests (resolved to @sha256: at promote time);
                              autoUpdate=disabled flag.
@@ -1039,6 +1058,7 @@ module Railway
                 o.on("--confirm-divergence", "Proceed past WARN findings (region/replicas/etc.)") { options[:confirm_divergence] = true }
                 o.on("--require-staging-green", "Require live staging probe green at promote time (default)") { options[:require_staging_green] = true }
                 o.on("--no-require-staging-green", "Skip live staging probe (NOT recommended)") { options[:require_staging_green] = false }
+                o.on("--digest REF", "Pin SERVICE's prod image to REF (requires positional SERVICE).") { |v| options[:digest] = v }
                 o.on("--yes") { options[:yes] = true }
                 o.on("--non-interactive") { options[:non_interactive] = true }
                 o.on("--dry-run") { options[:dry_run] = true }
@@ -1048,8 +1068,87 @@ module Railway
 
         def run
             parser.parse!(argv)
+
+            # Optional positional service name; remaining argv after parse! is
+            # whatever the OptionParser left behind. The workflow shape is
+            # `promote <svc> [--digest REF]` — one positional only.
+            if argv.length > 1
+                Railway.die!("promote: too many positional args #{argv.inspect}; expected at most one service name.")
+            end
+            options[:service] = argv.first if argv.first && !argv.first.empty?
+
+            # --digest is meaningful only with a positional service. Without
+            # one it would otherwise silently promote the whole fleet pinned
+            # to one (likely wrong) digest — fail fast instead.
+            if options[:digest] && options[:service].nil?
+                Railway.die!("promote: --digest requires a positional service argument " \
+                             "(e.g. `bin/railway promote <service> --digest <ref>`). " \
+                             "Refusing to promote the fleet with a single digest.")
+            end
+
+            # Validate the positional service against the SSOT
+            # (railway-envs.generated.json). Unknown names must hard-fail with
+            # the valid set listed so the operator can self-correct; falling
+            # through would silently fleet-promote (the original bug).
+            if options[:service] && !STAGING_SERVICES.include?(options[:service])
+                Railway.die!("promote: unknown service #{options[:service].inspect}. " \
+                             "Valid staging services: #{STAGING_SERVICES.join(', ')}.")
+            end
+
             capture_snapshots
+
+            # When restricted to a single service, narrow PER-SERVICE views
+            # of both snapshots BEFORE preflight so per-service checks
+            # (P1..P3/P6, critical env keys, execute_promotion) operate
+            # only on the targeted service. FLEET-SCOPED invariants
+            # (check_expected_prod_domains, check_service_set_parity) MUST
+            # continue to evaluate against the FULL un-narrowed snapshots
+            # — they describe properties of the fleet itself, not the
+            # promote target. Co-narrowing them produces two failure
+            # modes that the per-service workflow can't tolerate:
+            #
+            #   (1) check_expected_prod_domains diffs the fleet-wide
+            #       EXPECTED_DOMAINS against the union of custom_domains
+            #       in `prod["services"]`. Narrowed prod carries at most
+            #       one service's domains → the other ~4 fleet hosts look
+            #       "missing" → spurious WARN → run_with_preflight_only
+            #       refuses (workflow doesn't pass --confirm-divergence).
+            #   (2) check_service_set_parity is a fleet-shape invariant
+            #       (no env has services the other lacks); evaluating it
+            #       on the narrowed pair makes it tautological when both
+            #       contain the same single name, and only accidentally
+            #       fires in the target-absent-from-prod case.
+            #
+            # We therefore retain references to the full snapshots and
+            # only narrow when the per-service branch is taken. The
+            # fleet-scoped checks always read @full_*_snapshot; everything
+            # else reads @staging_snapshot/@prod_snapshot (narrowed when
+            # a positional service is given, full otherwise).
+            @full_staging_snapshot = @staging_snapshot
+            @full_prod_snapshot    = @prod_snapshot
+            if options[:service]
+                narrow_snapshots_to_single_service!(options[:service])
+            end
+
             run_with_preflight_only
+        end
+
+        # Narrow @staging_snapshot and @prod_snapshot to only the named
+        # service. Staging presence is mandatory (validated against SSOT
+        # already); prod absence is tolerated here so the fleet-scoped
+        # service-set-parity REFUSE (now reading @full_prod_snapshot) can
+        # surface as the user-facing error rather than a silent rc=0
+        # 'success' (find_service returns nil, so execute_promotion would
+        # otherwise skip the absent service with no mutation).
+        def narrow_snapshots_to_single_service!(name)
+            staging_match = (@staging_snapshot["services"] || []).select { |s| s["name"] == name }
+            if staging_match.empty?
+                Railway.die!("promote: service #{name.inspect} not present in staging snapshot " \
+                             "(SSOT lists it but Railway env returned no instance).")
+            end
+            @staging_snapshot = @staging_snapshot.merge("services" => staging_match)
+            prod_match = (@prod_snapshot["services"] || []).select { |s| s["name"] == name }
+            @prod_snapshot = @prod_snapshot.merge("services" => prod_match)
         end
 
         # Test seam — capture_snapshots may be skipped by injecting
@@ -1067,9 +1166,19 @@ module Railway
             findings.concat(check_p2_staging_deployments(@staging_snapshot))
             findings.concat(check_p3_staging_live_green(@staging_snapshot))
             findings.concat(check_p6_parity(@staging_snapshot, @prod_snapshot))
-            findings.concat(check_service_set_parity(@staging_snapshot, @prod_snapshot))
+            # FLEET-SCOPED invariants — must see the FULL fleet so they
+            # produce the same verdict regardless of whether this run is
+            # full-fleet or restricted to a single service. See `run` for
+            # the @full_*_snapshot rationale. When `run` was bypassed
+            # (test seam — preflight invoked directly without capture),
+            # fall back to the current snapshot views so legacy tests
+            # that only set @staging_snapshot/@prod_snapshot continue to
+            # work (full-fleet semantics = full == narrowed).
+            full_staging = @full_staging_snapshot || @staging_snapshot
+            full_prod    = @full_prod_snapshot    || @prod_snapshot
+            findings.concat(check_service_set_parity(full_staging, full_prod))
             findings.concat(check_critical_env_key_parity(@staging_snapshot, @prod_snapshot))
-            findings.concat(check_expected_prod_domains(@prod_snapshot))
+            findings.concat(check_expected_prod_domains(full_prod))
 
             # Mandatory parity-NOTE that env var VALUES are not compared.
             puts "NOTE: env var VALUES are not compared between staging and prod " \
@@ -1115,6 +1224,15 @@ module Railway
         # Returns nil if the staging tag cannot be resolved (e.g. GHCR 404 /
         # auth failed); the caller MUST refuse rather than pin a tag.
         def resolved_prod_image(svc)
+            # --digest override: when the operator supplied an explicit ref AND
+            # we are restricted to a single service, use that ref verbatim. The
+            # `run` entry-point already enforces that --digest requires a
+            # positional service, and snapshots are narrowed to that service
+            # before preflight, so `svc["name"] == options[:service]` here.
+            if options[:digest] && options[:service] && svc["name"] == options[:service]
+                return options[:digest]
+            end
+
             image = svc["image"] || svc["image_tag"]
             return nil if image.nil? || image.empty?
             return image if image.include?("@sha256:")  # already pinned
