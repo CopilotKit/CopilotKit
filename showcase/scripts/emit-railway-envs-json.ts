@@ -11,6 +11,14 @@
  *
  * Idempotent: writes only when the serialized output differs from disk.
  * CI runs this with `--check`: non-zero exit if the on-disk file is stale.
+ *
+ * Flags:
+ *   --check            Exit 1 if on-disk JSON differs from SSOT (don't write).
+ *                      Exit 2 if the read fails for any reason other than the
+ *                      file being absent (e.g. EACCES, EISDIR) — fail loud
+ *                      rather than masquerade a real error as drift.
+ *   --out=<path>       Override the output path (used by tests for hermetic
+ *                      writes). Defaults to the canonical tracked artifact.
  */
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -22,7 +30,7 @@ import {
   STAGING_ENV_ID,
 } from "./railway-envs";
 
-const OUTPUT_PATH = resolve(
+const DEFAULT_OUTPUT_PATH = resolve(
   new URL(".", import.meta.url).pathname,
   "railway-envs.generated.json",
 );
@@ -74,18 +82,38 @@ function serialize(payload: Emitted): string {
   return JSON.stringify(payload, null, 2) + "\n";
 }
 
+function parseOutPath(args: string[]): string {
+  const flag = args.find((a) => a.startsWith("--out="));
+  if (flag) return resolve(flag.slice("--out=".length));
+  return DEFAULT_OUTPUT_PATH;
+}
+
 function main(): void {
   const args = process.argv.slice(2);
   const check = args.includes("--check");
+  const outputPath = parseOutPath(args);
   const payload = buildPayload();
   const next = serialize(payload);
 
   if (check) {
     let current = "";
     try {
-      current = readFileSync(OUTPUT_PATH, "utf8");
-    } catch {
-      // file missing — treat as drift
+      current = readFileSync(outputPath, "utf8");
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code !== "ENOENT") {
+        // Non-ENOENT errors (EACCES, EISDIR, etc.) are real failures, not
+        // drift. Fail loud so CI surfaces the real cause instead of
+        // overwriting on a false signal or printing a misleading "stale"
+        // message.
+        process.stderr.write(
+          `emit-railway-envs-json: failed to read ${outputPath}: ${
+            (err as Error).message
+          }\n`,
+        );
+        process.exit(2);
+      }
+      // ENOENT — file missing, treat as drift below.
     }
     if (current !== next) {
       process.stderr.write(
@@ -97,9 +125,9 @@ function main(): void {
     return;
   }
 
-  mkdirSync(dirname(OUTPUT_PATH), { recursive: true });
-  writeFileSync(OUTPUT_PATH, next);
-  process.stdout.write(`wrote ${OUTPUT_PATH}\n`);
+  mkdirSync(dirname(outputPath), { recursive: true });
+  writeFileSync(outputPath, next);
+  process.stdout.write(`wrote ${outputPath}\n`);
 }
 
 const isMain =
