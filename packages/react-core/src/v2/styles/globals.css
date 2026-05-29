@@ -337,13 +337,34 @@
 
 .cpk-intelligence-indicator[data-status="finished"]
   .cpk-intelligence-indicator__content {
-  /* Slate-500 (`#64748b`) — the industry-standard secondary/metadata
-     color (Stripe, Linear, Claude, GitHub all land within a few hex
-     units of it). Cool neutral undertone reads as "settled info you
-     can still scan" rather than "faded out." Full alpha because the
-     gray itself carries the muted feel — layering low alpha on top
-     would tip into "too washed out to read at a glance." */
-  color: rgb(100 116 139);
+  /* True-neutral gray (`#737373`, R=G=B) at 0.8 alpha. No hue cast in
+     either direction (slate would lean blue, stone would lean warm).
+     The combination of pure-neutral hue + slight transparency reads
+     as "settled history metadata" without competing with the active
+     state for attention. */
+  color: rgb(115 115 115 / 0.8);
+}
+
+/* Label — slants on settle to read as italic-like history metadata.
+   `transform: skewX()` is used instead of `font-style: italic` because:
+   (a) font-style is a discrete property, so it would snap rather than
+   transition smoothly with the color shift; (b) real italic glyphs
+   are slightly wider than upright, causing a layout pop at the snap
+   moment. A CSS transform applies after layout — no reflow — and
+   interpolates over the same 400 ms / 250 ms-delay window as the
+   color, so the slant and the color settle as one motion. For the
+   sans-serif system fonts used by default, the browser-synthesized
+   italic is itself a slant on the upright forms, so this approach
+   matches what `font-style: italic` would have rendered anyway. */
+.cpk-intelligence-indicator__label {
+  display: inline-block;
+  transform: skewX(0deg);
+  transition: transform 400ms ease-out 250ms;
+}
+
+.cpk-intelligence-indicator[data-status="finished"]
+  .cpk-intelligence-indicator__label {
+  transform: skewX(-10deg);
 }
 
 .cpk-intelligence-indicator__icon {

@@ -5,14 +5,12 @@ import type { IntelligenceIndicatorViewProps } from "@copilotkit/react-core/v2";
 
 /**
  * `IntelligenceIndicatorView` is the presentational face of the
- * "Using CopilotKit Intelligence" indicator — the default rendered by
- * the `intelligenceIndicator` slot on `CopilotChat`. It is a two-mode
- * component that owns its own spinner ⇄ tag cross-fade:
- *
- *   - `status="in-progress"` shows the glassmorphism pill with a
- *     spinning ring while Intelligence is working.
- *   - `status="finished"` shows the compact icon + text tag that
- *     stays in chat history per turn.
+ * "CopilotKit Intelligence" indicator — the default rendered by the
+ * `intelligenceIndicator` slot on `CopilotChat`. Single-element
+ * three-stage design: glassmorphism chrome around a 270° arc that
+ * morphs to a checkmark on `status="finished"`, after which the
+ * chrome fades and the label settles to a neutral gray with a slight
+ * italic-like slant.
  *
  * The orchestration brain (`IntelligenceIndicator`) is provider- and
  * agent-driven, so it's covered by unit/e2e tests rather than stories.
@@ -44,7 +42,7 @@ const meta = {
   ],
   args: {
     message: mockMessage,
-    label: "Using CopilotKit Intelligence",
+    label: "CopilotKit Intelligence",
     status: "in-progress",
   },
 } satisfies Meta<typeof IntelligenceIndicatorView>;

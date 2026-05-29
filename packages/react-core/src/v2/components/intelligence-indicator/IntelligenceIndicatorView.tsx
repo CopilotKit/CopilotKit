@@ -19,7 +19,7 @@ export interface IntelligenceIndicatorViewProps extends React.HTMLAttributes<HTM
 }
 
 /**
- * The presentational "Using CopilotKit Intelligence" face — the default
+ * The presentational "CopilotKit Intelligence" face — the default
  * rendered by the {@link IntelligenceIndicator} brain and the default
  * value for the `intelligenceIndicator` slot.
  *
@@ -38,12 +38,13 @@ export interface IntelligenceIndicatorViewProps extends React.HTMLAttributes<HTM
  *  3. **Settle (~400 ms, starts at +250 ms).** Chrome (background,
  *     border, shadow, backdrop-blur) fades to zero opacity. The label
  *     and icon stroke color transitions from saturated purple to a
- *     neutral slate gray (industry-standard metadata color — same
- *     family as Stripe, Linear, Claude, GitHub). The text stays put
- *     — only its color changes — so there is no "bump" where the
- *     brand text disappears and reappears. The hue shift reads as a
- *     semantic class change ("active" → "settled metadata") rather
- *     than as the same content getting dimmer.
+ *     true-neutral gray at 0.8 alpha — no hue cast, reads as "settled
+ *     history metadata." The label simultaneously skews to ~10° (a
+ *     transform-based italic feel that interpolates smoothly with the
+ *     color, rather than the discrete `font-style: italic` snap that
+ *     would cause a layout pop). The label text stays put — only its
+ *     color and slant change — so there is no "bump" where the brand
+ *     text disappears and reappears.
  *
  * Hard sequence: stage 3 has a 250 ms transition-delay so it waits
  * for stage 2 to finish. Total settle time ~650 ms in production.
@@ -52,11 +53,10 @@ export interface IntelligenceIndicatorViewProps extends React.HTMLAttributes<HTM
  * structure (one `M` plus three `C`s), which is what makes the d
  * morph interpolate as a continuous shape change rather than snapping.
  *
- * The label is identical in both states (e.g. "Using CopilotKit
- * Intelligence"). An earlier draft swapped "Using…" → "Used…" on
- * finished, which caused the brand text to drift ~1 character to
- * the left during the morph because the leading verb was shorter.
- * The static check icon already carries the "done" semantic.
+ * The label is identical in both states (default "CopilotKit
+ * Intelligence"). The static check icon carries the "done" semantic;
+ * the color + slant transition does the "settle" work without needing
+ * any wording change.
  *
  * Customize via the `intelligenceIndicator` slot on `CopilotChat`:
  * a className string restyles the wrapper, a props object tweaks
@@ -104,7 +104,7 @@ export function IntelligenceIndicatorView({
               straight lines). */}
           <path className="cpk-intelligence-indicator__icon-path" />
         </svg>
-        <span>{label}</span>
+        <span className="cpk-intelligence-indicator__label">{label}</span>
       </span>
     </span>
   );

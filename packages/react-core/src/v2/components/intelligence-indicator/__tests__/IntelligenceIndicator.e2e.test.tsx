@@ -67,7 +67,7 @@ const expectIndicatorCount = (n: number): void => {
 const expectIndicatorOn = (messageId: string): void => {
   expect(
     screen.getByTestId(`cpk-intelligence-indicator-${messageId}`).textContent,
-  ).toContain("Using CopilotKit Intelligence");
+  ).toContain("CopilotKit Intelligence");
 };
 
 const expectNoIndicatorOn = (messageId: string): void => {
@@ -261,7 +261,7 @@ const expectCustomStatus = (status: "in-progress" | "finished"): void => {
   ).toBe(status);
 };
 
-describe('IntelligenceIndicator — "Using CopilotKit Intelligence" (auto-mounted)', () => {
+describe('IntelligenceIndicator — "CopilotKit Intelligence" (auto-mounted)', () => {
   const activeAgents: IsRunningAccurateMockAgent[] = [];
   const makeAgent = (): IsRunningAccurateMockAgent => {
     const agent = new IsRunningAccurateMockAgent();

@@ -49,8 +49,8 @@ export interface IntelligenceIndicatorProps {
    */
   agentId: string;
   /**
-   * Optional override for the visible label. Defaults to "Using
-   * CopilotKit Intelligence".
+   * Optional override for the visible label. Defaults to
+   * "CopilotKit Intelligence".
    */
   label?: string;
   /**
@@ -142,7 +142,7 @@ export function IntelligenceIndicator(
   const {
     message,
     agentId,
-    label = "Using CopilotKit Intelligence",
+    label = "CopilotKit Intelligence",
     intelligenceIndicator,
   } = props;
 
