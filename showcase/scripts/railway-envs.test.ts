@@ -3,18 +3,28 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   CI_BUILT_SERVICES,
+  type Domains,
   ENV_IDS,
   PRODUCTION_ENV_ID,
   PROJECT_ID,
+  type ProbeConfig,
+  type ProbeDriver,
   SERVICES,
   STAGING_ENV_ID,
   assertDispatchNamesUnique,
+  domainFor,
   instanceIdFor,
   listServiceNames,
   repoNameFor,
   resolveEnv,
   serviceForDispatchName,
 } from "./railway-envs";
+
+// Compile-time guard: ensure the Domains type alias is referenced so this
+// import is not removed by an over-eager organizer. The runtime body of
+// this assignment is unused; it exists solely to anchor the type.
+const _domainsTypeAnchor: Domains | undefined = undefined;
+void _domainsTypeAnchor;
 
 describe("railway-envs SSOT", () => {
   it("exposes the canonical project id", () => {
@@ -301,5 +311,118 @@ describe("dispatchName uniqueness invariant", () => {
       webhooks: { dispatchName: "webhooks" },
     };
     expect(() => assertDispatchNamesUnique(synthetic)).not.toThrow();
+  });
+});
+
+describe("railway-envs SSOT — domains + probe", () => {
+  it("every service exposes a domains.staging and domains.prod (no scheme)", () => {
+    for (const [name, entry] of Object.entries(SERVICES)) {
+      expect(entry.domains, `${name}.domains missing`).toBeDefined();
+      expect(entry.domains.staging, `${name}.domains.staging`).toMatch(
+        /^[A-Za-z0-9.-]+$/,
+      );
+      expect(entry.domains.prod, `${name}.domains.prod`).toMatch(
+        /^[A-Za-z0-9.-]+$/,
+      );
+      expect(
+        entry.domains.staging.startsWith("http"),
+        `${name}: staging domain must not include scheme`,
+      ).toBe(false);
+      expect(
+        entry.domains.prod.startsWith("http"),
+        `${name}: prod domain must not include scheme`,
+      ).toBe(false);
+    }
+  });
+
+  it("confirmed staging domains match the documented values", () => {
+    expect(SERVICES.pocketbase.domains.staging).toBe(
+      "pocketbase-staging-eec0.up.railway.app",
+    );
+    expect(SERVICES.harness.domains.staging).toBe(
+      "harness-staging-2ee4.up.railway.app",
+    );
+    expect(SERVICES.shell.domains.staging).toBe(
+      "showcase.staging.copilotkit.ai",
+    );
+    expect(SERVICES.docs.domains.staging).toBe("docs.staging.copilotkit.ai");
+    expect(SERVICES.dashboard.domains.staging).toBe(
+      "dashboard.showcase.staging.copilotkit.ai",
+    );
+  });
+
+  it("confirmed prod domains match the bin/railway:73-88 EXPECTED_DOMAINS", () => {
+    expect(SERVICES.shell.domains.prod).toBe("showcase.copilotkit.ai");
+    expect(SERVICES.dashboard.domains.prod).toBe(
+      "dashboard.showcase.copilotkit.ai",
+    );
+    expect(SERVICES.dojo.domains.prod).toBe("dojo.showcase.copilotkit.ai");
+    expect(SERVICES.docs.domains.prod).toBe("docs.copilotkit.ai");
+    expect(SERVICES.webhooks.domains.prod).toBe("hooks.showcase.copilotkit.ai");
+  });
+
+  it("every service exposes a probe.staging, probe.prod, probe.driver", () => {
+    const validDrivers: ProbeDriver[] = [
+      "shell",
+      "harness",
+      "eval",
+      "aimock",
+      "pocketbase",
+      "webhooks",
+      "dojo",
+      "docs",
+      "dashboard",
+      "agent",
+    ];
+    for (const [name, entry] of Object.entries(SERVICES)) {
+      expect(entry.probe, `${name}.probe missing`).toBeDefined();
+      expect(typeof entry.probe.staging).toBe("boolean");
+      expect(typeof entry.probe.prod).toBe("boolean");
+      expect(validDrivers).toContain(entry.probe.driver);
+    }
+  });
+
+  it("aimock probes BOTH envs by default (the carve-out is digest-only, not probe-skip)", () => {
+    // The aimock-prod carve-out only freezes the digest; the prod probe
+    // still runs against whatever is pinned. Spec §3 / §11.
+    expect(SERVICES.aimock.probe.prod).toBe(true);
+    expect(SERVICES.aimock.probe.staging).toBe(true);
+  });
+
+  it("domainFor returns the no-scheme host for known service+env", () => {
+    expect(domainFor("docs", "staging")).toBe("docs.staging.copilotkit.ai");
+    expect(domainFor("docs", "prod")).toBe("docs.copilotkit.ai");
+    expect(domainFor("pocketbase", "staging")).toBe(
+      "pocketbase-staging-eec0.up.railway.app",
+    );
+  });
+
+  it("domainFor throws on unknown service (no silent empty string)", () => {
+    expect(() => domainFor("nope", "staging")).toThrow(
+      /Unknown showcase service/,
+    );
+    expect(() => domainFor("nope", "prod")).toThrow(
+      /Unknown showcase service/,
+    );
+  });
+
+  it("domainFor throws on unknown env (defends against ad-hoc EnvName values)", () => {
+    // @ts-expect-error — intentionally passing a bad env at runtime.
+    expect(() => domainFor("docs", "dev")).toThrow(/Unknown env/);
+  });
+
+  it("STAGING_ENV_ID and PRODUCTION_ENV_ID are exported and stable", () => {
+    expect(STAGING_ENV_ID).toBe("8edfef02-ea09-4a20-8689-261f21cc2849");
+    expect(PRODUCTION_ENV_ID).toBe("b14919f4-6417-429f-848d-c6ae2201e04f");
+  });
+
+  it("ProbeConfig type compiles with the documented shape", () => {
+    // Compile-time guard: this object must satisfy ProbeConfig.
+    const sample: ProbeConfig = {
+      staging: true,
+      prod: false,
+      driver: "shell",
+    };
+    expect(sample.driver).toBe("shell");
   });
 });

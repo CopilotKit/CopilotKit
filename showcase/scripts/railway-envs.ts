@@ -39,6 +39,56 @@ export function resolveEnv(name: string): { env: EnvName; envId: string } {
   );
 }
 
+/**
+ * Per-env domain host (no scheme). `staging` and `prod` MUST both be set —
+ * a service that does not exist in one env should not be in the SSOT at all.
+ * `domainFor(name, env)` is the only public API; it throws on missing data.
+ */
+export interface Domains {
+  staging: string;
+  prod: string;
+}
+
+/**
+ * The probe driver selects which feature-level verifier `verify-deploy.ts`
+ * runs against a service's URL. "200 ≠ healthy": every driver does more
+ * than a naked GET. See showcase/scripts/verify-deploy.ts for the per-driver
+ * implementation; the SSOT only names the driver here.
+ *
+ * - "shell" / "docs" / "dashboard" / "dojo" — Next.js shells: load the page
+ *   and assert a known DOM string plus a known network call.
+ * - "harness" / "eval" — synthetic e2e fixture against the service's API.
+ * - "aimock" — fixture replay with deterministic-response drift check.
+ * - "pocketbase" — admin login + known collection list.
+ * - "webhooks" — synthetic event POST and downstream confirmation.
+ * - "agent" — generic agent backend (the showcase-* integration services);
+ *   feature-level fixture call into the integration's /api endpoint.
+ */
+export type ProbeDriver =
+  | "shell"
+  | "harness"
+  | "eval"
+  | "aimock"
+  | "pocketbase"
+  | "webhooks"
+  | "dojo"
+  | "docs"
+  | "dashboard"
+  | "agent";
+
+/**
+ * Per-service probe configuration. `staging:false` or `prod:false` excludes
+ * the service from verify-deploy's pass for that env (e.g. a service we
+ * deliberately don't manage in one env). The default for every entry is
+ * `staging:true, prod:true` — only the aimock-prod CARVE-OUT (spec §11)
+ * lives as a comment; the probe still runs against the pinned aimock-prod.
+ */
+export interface ProbeConfig {
+  staging: boolean;
+  prod: boolean;
+  driver: ProbeDriver;
+}
+
 export interface ServiceEntry {
   /** Railway service ID (env-independent). */
   serviceId: string;
@@ -83,6 +133,18 @@ export interface ServiceEntry {
    *                 staging: "showcase-eval-webhook"
    */
   repoNameOverride?: { prod?: string; staging?: string };
+  /**
+   * Public hosts per env, no scheme. Both must be set. `domainFor` is
+   * the only API; it throws on unknown service/env so the verify probe
+   * fails loud rather than silently probing "".
+   */
+  domains: Domains;
+  /**
+   * Verify-deploy probe configuration. `verify-deploy.ts --env <env>`
+   * iterates SERVICES and runs `driver` for every service where
+   * `probe[env] === true`.
+   */
+  probe: ProbeConfig;
 }
 
 /**
@@ -116,6 +178,11 @@ export const SERVICES: Record<
     // floats `:latest`. Both envs override to the same `showcase-aimock`
     // GHCR repo; there is no migration to the unwrapped `aimock` repo.
     repoNameOverride: { prod: "showcase-aimock", staging: "showcase-aimock" },
+    domains: {
+      staging: "aimock-staging.up.railway.app",
+      prod: "showcase-aimock-production.up.railway.app",
+    },
+    probe: { staging: true, prod: true, driver: "aimock" },
   },
   dashboard: {
     serviceId: "4d5dfd74-be61-40b2-8564-b53b7dd4c15b",
@@ -128,6 +195,11 @@ export const SERVICES: Record<
     // `dojo`/`shell` is OUT OF SCOPE for WS4. The current gate's
     // `showcase-*`-prefix filter naturally excluded them, and we preserve
     // that exclusion. Adding them is Phase 2 work.
+    domains: {
+      staging: "dashboard.showcase.staging.copilotkit.ai",
+      prod: "dashboard.showcase.copilotkit.ai",
+    },
+    probe: { staging: true, prod: true, driver: "dashboard" },
   },
   docs: {
     serviceId: "7badfb8d-4228-414c-9145-b4026803714f",
@@ -136,6 +208,11 @@ export const SERVICES: Record<
     ciBuilt: true,
     gateValidated: false,
     dispatchName: "shell-docs",
+    domains: {
+      staging: "docs.staging.copilotkit.ai",
+      prod: "docs.copilotkit.ai",
+    },
+    probe: { staging: true, prod: true, driver: "docs" },
   },
   dojo: {
     serviceId: "7ad1ece7-2228-49cd-8a78-bddf30322907",
@@ -144,6 +221,11 @@ export const SERVICES: Record<
     ciBuilt: true,
     gateValidated: false,
     dispatchName: "shell-dojo",
+    domains: {
+      staging: "dojo.showcase.staging.copilotkit.ai",
+      prod: "dojo.showcase.copilotkit.ai",
+    },
+    probe: { staging: true, prod: true, driver: "dojo" },
   },
   harness: {
     serviceId: "3a14bfed-0537-4d71-897b-7c593dca161d",
@@ -156,6 +238,11 @@ export const SERVICES: Record<
     // validation is deferred to Phase 2 alongside dashboard/docs/dojo/shell.
     // ciBuilt: true, gateValidated: false — contrast with pocketbase/webhooks
     // (ciBuilt: false, gateValidated: true).
+    domains: {
+      staging: "harness-staging-2ee4.up.railway.app",
+      prod: "showcase-harness-production.up.railway.app",
+    },
+    probe: { staging: true, prod: true, driver: "harness" },
   },
   pocketbase: {
     serviceId: "ba11e854-d695-4738-9a45-2b0776788824",
@@ -170,6 +257,11 @@ export const SERVICES: Record<
       prod: "showcase-pocketbase",
       staging: "showcase-pocketbase",
     },
+    domains: {
+      staging: "pocketbase-staging-eec0.up.railway.app",
+      prod: "showcase-pocketbase-production.up.railway.app",
+    },
+    probe: { staging: true, prod: true, driver: "pocketbase" },
   },
   shell: {
     serviceId: "40eea0da-6071-4ea8-bdb9-39afb19225ec",
@@ -178,6 +270,11 @@ export const SERVICES: Record<
     ciBuilt: true,
     gateValidated: false,
     dispatchName: "shell",
+    domains: {
+      staging: "showcase.staging.copilotkit.ai",
+      prod: "showcase.copilotkit.ai",
+    },
+    probe: { staging: true, prod: true, driver: "shell" },
   },
   "showcase-ag2": {
     serviceId: "4a37481b-f264-4eb7-a9cd-0a9ebb9ac05c",
@@ -186,6 +283,11 @@ export const SERVICES: Record<
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "ag2",
+    domains: {
+      staging: "showcase-ag2-staging.up.railway.app",
+      prod: "showcase-ag2-production.up.railway.app",
+    },
+    probe: { staging: true, prod: true, driver: "agent" },
   },
   "showcase-agno": {
     serviceId: "32cab80b-e329-45bd-9c73-c4e1ddc94305",
@@ -194,6 +296,11 @@ export const SERVICES: Record<
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "agno",
+    domains: {
+      staging: "showcase-agno-staging.up.railway.app",
+      prod: "showcase-agno-production.up.railway.app",
+    },
+    probe: { staging: true, prod: true, driver: "agent" },
   },
   "showcase-built-in-agent": {
     serviceId: "f4f8371a-bc46-45b2-b6d4-9c9af608bdbf",
@@ -202,6 +309,11 @@ export const SERVICES: Record<
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "built-in-agent",
+    domains: {
+      staging: "showcase-built-in-agent-staging.up.railway.app",
+      prod: "showcase-built-in-agent-production.up.railway.app",
+    },
+    probe: { staging: true, prod: true, driver: "agent" },
   },
   "showcase-claude-sdk-python": {
     serviceId: "b122ab65-9854-4cb2-a68e-b50ff13f7481",
@@ -210,6 +322,11 @@ export const SERVICES: Record<
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "claude-sdk-python",
+    domains: {
+      staging: "showcase-claude-sdk-python-staging.up.railway.app",
+      prod: "showcase-claude-sdk-python-production.up.railway.app",
+    },
+    probe: { staging: true, prod: true, driver: "agent" },
   },
   "showcase-claude-sdk-typescript": {
     serviceId: "18a98727-5700-44aa-b497-b60795dbbd6a",
@@ -218,6 +335,11 @@ export const SERVICES: Record<
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "claude-sdk-typescript",
+    domains: {
+      staging: "showcase-claude-sdk-typescript-staging.up.railway.app",
+      prod: "showcase-claude-sdk-typescript-production.up.railway.app",
+    },
+    probe: { staging: true, prod: true, driver: "agent" },
   },
   "showcase-crewai-crews": {
     serviceId: "0e9c284d-8d87-4fcf-9f82-6b704d7e4bd4",
@@ -226,6 +348,11 @@ export const SERVICES: Record<
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "crewai-crews",
+    domains: {
+      staging: "showcase-crewai-crews-staging.up.railway.app",
+      prod: "showcase-crewai-crews-production.up.railway.app",
+    },
+    probe: { staging: true, prod: true, driver: "agent" },
   },
   "showcase-google-adk": {
     serviceId: "87f60507-5a3d-4b8a-9e23-2b1de85d939c",
@@ -234,6 +361,11 @@ export const SERVICES: Record<
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "google-adk",
+    domains: {
+      staging: "showcase-google-adk-staging.up.railway.app",
+      prod: "showcase-google-adk-production.up.railway.app",
+    },
+    probe: { staging: true, prod: true, driver: "agent" },
   },
   "showcase-langgraph-fastapi": {
     serviceId: "06cccb5c-59f4-46b5-8adc-7113e77011a4",
@@ -242,6 +374,11 @@ export const SERVICES: Record<
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "langgraph-fastapi",
+    domains: {
+      staging: "showcase-langgraph-fastapi-staging.up.railway.app",
+      prod: "showcase-langgraph-fastapi-production.up.railway.app",
+    },
+    probe: { staging: true, prod: true, driver: "agent" },
   },
   "showcase-langgraph-python": {
     serviceId: "90d03214-4569-41b0-b4c1-6438a8a7b203",
@@ -250,6 +387,11 @@ export const SERVICES: Record<
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "langgraph-python",
+    domains: {
+      staging: "showcase-langgraph-python-staging.up.railway.app",
+      prod: "showcase-langgraph-python-production.up.railway.app",
+    },
+    probe: { staging: true, prod: true, driver: "agent" },
   },
   "showcase-langgraph-typescript": {
     serviceId: "66246d3b-a18e-46f0-be51-5f3ff7a36e5a",
@@ -258,6 +400,11 @@ export const SERVICES: Record<
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "langgraph-typescript",
+    domains: {
+      staging: "showcase-langgraph-typescript-staging.up.railway.app",
+      prod: "showcase-langgraph-typescript-production.up.railway.app",
+    },
+    probe: { staging: true, prod: true, driver: "agent" },
   },
   "showcase-langroid": {
     serviceId: "6dd9cb0a-66cc-46f1-972e-7cd74756157d",
@@ -266,6 +413,11 @@ export const SERVICES: Record<
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "langroid",
+    domains: {
+      staging: "showcase-langroid-staging.up.railway.app",
+      prod: "showcase-langroid-production.up.railway.app",
+    },
+    probe: { staging: true, prod: true, driver: "agent" },
   },
   "showcase-llamaindex": {
     serviceId: "285386e8-492d-4cb8-b632-0a7d4607378f",
@@ -274,6 +426,11 @@ export const SERVICES: Record<
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "llamaindex",
+    domains: {
+      staging: "showcase-llamaindex-staging.up.railway.app",
+      prod: "showcase-llamaindex-production.up.railway.app",
+    },
+    probe: { staging: true, prod: true, driver: "agent" },
   },
   "showcase-mastra": {
     serviceId: "d7979eb7-2405-4aab-ad21-438f4a1b08af",
@@ -282,6 +439,11 @@ export const SERVICES: Record<
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "mastra",
+    domains: {
+      staging: "showcase-mastra-staging.up.railway.app",
+      prod: "showcase-mastra-production.up.railway.app",
+    },
+    probe: { staging: true, prod: true, driver: "agent" },
   },
   "showcase-ms-agent-dotnet": {
     serviceId: "beeb2dd6-87a4-4599-aa07-0578f7bd6519",
@@ -290,6 +452,11 @@ export const SERVICES: Record<
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "ms-agent-dotnet",
+    domains: {
+      staging: "showcase-ms-agent-dotnet-staging.up.railway.app",
+      prod: "showcase-ms-agent-dotnet-production.up.railway.app",
+    },
+    probe: { staging: true, prod: true, driver: "agent" },
   },
   "showcase-ms-agent-harness-dotnet": {
     serviceId: "6343d7f9-6c3f-4c8d-9a6e-79f03d2f1e37",
@@ -298,6 +465,11 @@ export const SERVICES: Record<
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "ms-agent-harness-dotnet",
+    domains: {
+      staging: "showcase-ms-agent-harness-dotnet-staging.up.railway.app",
+      prod: "showcase-ms-agent-harness-dotnet-production.up.railway.app",
+    },
+    probe: { staging: true, prod: true, driver: "agent" },
   },
   "showcase-ms-agent-python": {
     serviceId: "655db75a-af8d-427d-a4f9-441570ae5003",
@@ -306,6 +478,11 @@ export const SERVICES: Record<
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "ms-agent-python",
+    domains: {
+      staging: "showcase-ms-agent-python-staging.up.railway.app",
+      prod: "showcase-ms-agent-python-production.up.railway.app",
+    },
+    probe: { staging: true, prod: true, driver: "agent" },
   },
   "showcase-pydantic-ai": {
     serviceId: "0a106173-2282-4887-a994-0ca276a99d69",
@@ -314,6 +491,11 @@ export const SERVICES: Record<
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "pydantic-ai",
+    domains: {
+      staging: "showcase-pydantic-ai-staging.up.railway.app",
+      prod: "showcase-pydantic-ai-production.up.railway.app",
+    },
+    probe: { staging: true, prod: true, driver: "agent" },
   },
   "showcase-spring-ai": {
     serviceId: "eed5d041-91be-4282-b414-beea00843401",
@@ -322,6 +504,11 @@ export const SERVICES: Record<
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "spring-ai",
+    domains: {
+      staging: "showcase-spring-ai-staging.up.railway.app",
+      prod: "showcase-spring-ai-production.up.railway.app",
+    },
+    probe: { staging: true, prod: true, driver: "agent" },
   },
   "showcase-strands": {
     serviceId: "92e1cfad-ad53-403f-ab2b-5ab380832232",
@@ -330,6 +517,11 @@ export const SERVICES: Record<
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "strands",
+    domains: {
+      staging: "showcase-strands-staging.up.railway.app",
+      prod: "showcase-strands-production.up.railway.app",
+    },
+    probe: { staging: true, prod: true, driver: "agent" },
   },
   webhooks: {
     serviceId: "ba6acc13-7585-41fe-a5ee-585b34a58fcd",
@@ -347,6 +539,11 @@ export const SERVICES: Record<
       prod: "showcase-eval-webhook",
       staging: "showcase-eval-webhook",
     },
+    domains: {
+      staging: "hooks.showcase.staging.copilotkit.ai",
+      prod: "hooks.showcase.copilotkit.ai",
+    },
+    probe: { staging: true, prod: true, driver: "webhooks" },
   },
 };
 
@@ -386,6 +583,41 @@ export function repoNameFor(serviceName: string, env: EnvName): string {
   if (!entry) return serviceName;
   const override = entry.repoNameOverride?.[env];
   return override ?? serviceName;
+}
+
+/**
+ * Resolve the public host (no scheme) for a (serviceName, env) pair.
+ *
+ * THROWS on unknown service. THROWS on env values outside "staging"|"prod".
+ * Never returns "" — the verify probe and any consumer reading from the
+ * SSOT must fail loud, not silently probe an empty domain.
+ *
+ * Use this from verify-deploy.ts, from any TS caller that needs the URL,
+ * and from the JSON artifact emitter that the Ruby side consumes.
+ */
+export function domainFor(serviceName: string, env: EnvName): string {
+  const entry = SERVICES[serviceName];
+  if (!entry) {
+    throw new Error(
+      `Unknown showcase service "${serviceName}". Add it to SERVICES in showcase/scripts/railway-envs.ts.`,
+    );
+  }
+  if (env !== "prod" && env !== "staging") {
+    throw new Error(
+      `Unknown env "${String(env)}" passed to domainFor. Expected "prod" or "staging".`,
+    );
+  }
+  const host = entry.domains[env];
+  if (!host || host.startsWith("http")) {
+    // Defense-in-depth: SERVICES population is asserted by the
+    // railway-envs.test.ts schema check, but if a future contributor
+    // ships a scheme-included literal or an empty host this catches it
+    // at first use instead of returning a malformed value.
+    throw new Error(
+      `Service "${serviceName}" has malformed/missing ${env} domain ("${host}").`,
+    );
+  }
+  return host;
 }
 
 /**
