@@ -1,4 +1,4 @@
-# @copilotkitnext/slack
+# @copilotkit/slack
 
 A Slack frontend for **any AG-UI agent**. Connect a Slack workspace to
 a CopilotKit Runtime, LangGraph server, or any other AG-UI HTTP
@@ -11,10 +11,12 @@ The bridge handles:
   multi-message chunking, auto-close on dangling markdown brackets,
   and Markdown → Slack mrkdwn translation (column-aligned tables, link
   syntax, etc.).
-- **Frontend tools** — `FrontendTool<ZodSchema>` declarations forwarded
-  to the agent via `runAgent({tools})`. Zod schema → JSON Schema for
-  the LLM; `safeParse` on the way back. Ships with `lookup_slack_user`
-  by default so the agent can `<@USERID>`-mention people.
+- **Frontend tools** — `FrontendTool<Schema>` declarations forwarded
+  to the agent via `runAgent({tools})`. `Schema` is any
+  [Standard Schema](https://standardschema.dev) (Zod 3.24+/v4, Valibot,
+  ArkType, …) → JSON Schema for the LLM; validated on the way back.
+  Ships with `lookup_slack_user` by default so the agent can
+  `<@USERID>`-mention people.
 - **Components** — `defineSlackComponent` is the Slack equivalent of
   React's `useComponent`. The agent calls it like a tool; the bridge
   renders Block Kit and posts.
@@ -33,69 +35,13 @@ The bridge handles:
   Restarts rebuild conversation history from `conversations.replies`
   on the next turn.
 
-The prototype ships verbatim copies of the **beautiful_chat** and
-**interrupt_agent** showcase graphs under `./agent/` as default AG-UI
-backends.
+## Running the demo
 
----
-
-## Local run
-
-Three pieces: the **Slack app** (you create it once), the **agent**
-(Python AG-UI server), and the **slack bridge**.
-
-### 1. Slack app
-
-- <https://api.slack.com/apps?new_app=1> → **From a manifest** →
-  paste `slack-app-manifest.yaml`.
-- _OAuth & Permissions_ → **Install to Workspace** → copy the `xoxb-`
-  bot token.
-- _Basic Information → App-Level Tokens_ → generate one with
-  `connections:write` → copy the `xapp-` app token.
-
-### 2. Agent
-
-One-time setup (uses [uv](https://github.com/astral-sh/uv) for Python
-3.12 + npm for Node):
-
-```bash
-cd packages/slack
-./setup-agent.sh
-```
-
-Start the AG-UI server:
-
-```bash
-export OPENAI_API_KEY=sk-...
-./agent/.venv/bin/python serve_agui.py
-```
-
-Endpoints exposed:
-
-- `http://localhost:8200/` — `beautiful_chat` (text, code blocks,
-  generative-UI tools)
-- `http://localhost:8200/interrupt` — `interrupt_agent` (LangGraph
-  `interrupt()` time-picker demo)
-
-### 3. Slack bridge
-
-```bash
-cd packages/slack
-cp .env.example .env
-# fill in SLACK_BOT_TOKEN, SLACK_APP_TOKEN, AGENT_URL
-pnpm install
-pnpm dev            # tsx watch app/index.ts
-```
-
-`AGENT_URL` points at whichever AG-UI endpoint you're testing.
-
-### 4. Try it
-
-In the Slack workspace, invite the bot to any channel and @mention it:
-
-> @CopilotKit AG-UI Bot summarize the latest changes in this repo
-
-The bot opens a thread and streams the agent's reply in place.
+This package is the **library**. A runnable end-to-end demo — a sample
+app wiring all of the above, a vendored AG-UI agent backend, and a
+live-Slack e2e harness — lives in
+[`examples/slack`](../../examples/slack). Start there to see the bridge
+working against a real workspace.
 
 ---
 
@@ -103,16 +49,20 @@ The bot opens a thread and streams the agent's reply in place.
 
 ### Defining a frontend tool
 
+`parameters` accepts any [Standard Schema](https://standardschema.dev)
+validator — Zod, Valibot, ArkType, etc. The examples below use Zod, but
+nothing in the SDK's public API is tied to it.
+
 ```ts
 import { z } from "zod";
-import { defineSlackComponent, type FrontendTool } from "@copilotkitnext/slack";
+import { type FrontendTool } from "@copilotkit/slack";
 
 const searchSchema = z.object({ q: z.string() });
 const searchTool: FrontendTool<typeof searchSchema> = {
   name: "search_docs",
   description: "Search the company knowledge base",
   parameters: searchSchema,
-  async execute({ q }, ctx) {
+  async handler({ q }, ctx) {
     return JSON.stringify(await callMyService(q));
   },
 };
@@ -202,7 +152,7 @@ import {
   createSlackBridge,
   defaultSlackTools,
   defaultSlackContext,
-} from "@copilotkitnext/slack";
+} from "@copilotkit/slack";
 
 createSlackBridge({
   agentUrl: process.env.AGENT_URL!,
@@ -217,7 +167,8 @@ createSlackBridge({
 });
 ```
 
-See `app/` for a worked example wiring all of the above.
+See [`examples/slack/app`](../../examples/slack/app) for a worked
+example wiring all of the above.
 
 ## What's not here yet
 

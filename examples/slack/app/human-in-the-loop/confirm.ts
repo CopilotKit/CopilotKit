@@ -10,7 +10,7 @@
  * The Slack-side equivalent of React's `useHumanInTheLoop`.
  */
 import { z } from "zod";
-import { defineHumanInTheLoop } from "../../src/index.js";
+import { defineHumanInTheLoop } from "@copilotkit/slack";
 
 export const confirmHitl = defineHumanInTheLoop({
   name: "confirm",

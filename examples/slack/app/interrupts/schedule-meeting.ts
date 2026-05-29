@@ -20,7 +20,7 @@
  * follow-up lands), or shows a cancelled card on cancel/timeout.
  */
 import { z } from "zod";
-import { defineInterruptHandler } from "../../src/index.js";
+import { defineInterruptHandler } from "@copilotkit/slack";
 
 export const scheduleMeetingInterrupt = defineInterruptHandler({
   name: "schedule_meeting_picker",

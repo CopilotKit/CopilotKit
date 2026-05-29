@@ -9,7 +9,13 @@ packages:
   - "examples/v2/react-native/*"
   - "examples/v2/runtime/*"
   - "examples/showcases/generative-ui-playground"
+  - "examples/slack"
   - "!examples/v1/_legacy"
+  # NOTE: `examples/slack/agent` is intentionally NOT part of this pnpm
+  # workspace. It's a vendored, standalone showcase agent (Next.js +
+  # LangGraph) that ships its own package-lock.json / pnpm-lock.yaml and
+  # builds independently (see its Dockerfile). The `examples/slack` glob
+  # is non-recursive, so the nested `agent/` package is excluded.
   - "showcase/scripts"
   - "showcase/harness"
   - "showcase/eval-webhook"

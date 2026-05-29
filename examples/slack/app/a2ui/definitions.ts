@@ -14,7 +14,7 @@
  * bridge resolves bindings at render time.
  */
 import { z } from "zod";
-import type { CatalogDefinitions } from "../../src/index.js";
+import type { CatalogDefinitions } from "@copilotkit/slack";
 
 /**
  * A "dynamic string": the agent may pass either an inline string or a

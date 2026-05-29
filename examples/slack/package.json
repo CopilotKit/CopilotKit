@@ -1,0 +1,41 @@
+{
+  "name": "slack-example",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Runnable demo for @copilotkit/slack — sample app (tools, components, HITL, interrupts, A2UI) plus a vendored AG-UI agent backend and a live-Slack e2e harness.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch app/index.ts",
+    "start": "tsx app/index.ts",
+    "runtime": "tsx runtime.ts",
+    "check-types": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "e2e": "tsx e2e/run.ts",
+    "e2e:restart": "tsx e2e/restart-recovery.ts"
+  },
+  "dependencies": {
+    "@a2ui/web_core": "0.9.0",
+    "@ag-ui/a2ui-middleware": "0.0.5",
+    "@ag-ui/client": "0.0.53",
+    "@ag-ui/core": "0.0.53",
+    "@copilotkit/core": "workspace:*",
+    "@copilotkit/runtime": "workspace:*",
+    "@copilotkit/slack": "workspace:*",
+    "@slack/bolt": "^4.2.0",
+    "@slack/types": "^2.21.1",
+    "@slack/web-api": "^7.16.0",
+    "rxjs": "^7.8.1",
+    "zod": "^3.25.76",
+    "zod-to-json-schema": "^3.25.1"
+  },
+  "devDependencies": {
+    "@copilotkit/typescript-config": "workspace:*",
+    "@types/node": "^22.10.0",
+    "dotenv": "^16.4.5",
+    "playwright": "^1.49.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.3"
+  }
+}

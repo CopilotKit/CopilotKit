@@ -22,7 +22,7 @@
  * the rest of the context fields.
  */
 import { z } from "zod";
-import type { FrontendTool } from "../../src/index.js";
+import type { FrontendTool } from "@copilotkit/slack";
 
 const helloSchema = z.object({
   recipient: z

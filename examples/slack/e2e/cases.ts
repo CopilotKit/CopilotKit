@@ -447,10 +447,11 @@ export const CASES: E2ECase[] = [
   // ── G. A2UI surface rendering ─────────────────────────────────────
   //
   // Requires AGENT_URL pointed at the `a2ui_fixed` graph
-  // (e.g. `http://localhost:8200/a2ui-fixed` via serve_agui.py) and the
-  // bridge running with `renderActivityMessages: [flightActivityRenderer]`
-  // (see `packages/slack/app/index.ts`). When the bridge is configured
-  // for a chat-only backend (default beautiful_chat at `/`), this case
+  // (e.g. `http://localhost:8200/api/copilotkit/agent/a2ui_fixed/run` via
+  // the runtime adapter) and the bridge running with
+  // `renderActivityMessages: [flightActivityRenderer]`
+  // (see `examples/slack/app/index.ts`). When the bridge is configured
+  // for a chat-only backend (default beautiful_chat), this case
   // is a no-op — the agent just emits a text reply, never an
   // activity message, and `perReplyChecks` finds no blocks.
   {

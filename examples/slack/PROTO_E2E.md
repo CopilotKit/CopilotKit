@@ -1,6 +1,6 @@
 # Proto-E2E test catalog
 
-A map of behaviours `@copilotkitnext/slack` must get right. Organised
+A map of behaviours `@copilotkit/slack` must get right. Organised
 by **technical axis**, not by product feature.
 
 ## Coverage levels

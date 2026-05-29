@@ -24,7 +24,7 @@ import {
   createCatalog,
   type CatalogDefinitions,
   type CatalogRenderers,
-} from "../../src/index.js";
+} from "@copilotkit/slack";
 
 const DynString = z.union([z.string(), z.object({ path: z.string() })]);
 

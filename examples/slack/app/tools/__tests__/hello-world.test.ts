@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { helloWorldTool } from "../hello-world.js";
-import type { FrontendToolContext } from "../../../src/index.js";
+import type { FrontendToolContext } from "@copilotkit/slack";
 
 /**
  * These tests double as a template — they show how an app can unit-test

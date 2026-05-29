@@ -7,7 +7,7 @@
  * the array into `createSlackBridge({components: appComponents})`.
  */
 import { greetingCardComponent } from "./greeting-card.js";
-import type { SlackComponent } from "../../src/index.js";
+import type { SlackComponent } from "@copilotkit/slack";
 
 export const appComponents: ReadonlyArray<SlackComponent> = [
   greetingCardComponent,

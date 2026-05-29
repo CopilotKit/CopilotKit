@@ -11,7 +11,7 @@
  * surface ends up as ~4-5 section blocks the user can read at a
  * glance in Slack.
  */
-import { createCatalog, type CatalogRenderers } from "../../src/index.js";
+import { createCatalog, type CatalogRenderers } from "@copilotkit/slack";
 import { flightDefinitions, type FlightDefinitions } from "./definitions.js";
 
 export const flightRenderers: CatalogRenderers<FlightDefinitions> = {

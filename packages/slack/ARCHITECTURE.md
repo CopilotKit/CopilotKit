@@ -1,6 +1,6 @@
 # Architecture
 
-How `@copilotkitnext/slack` is structured and **why** each boundary
+How `@copilotkit/slack` is structured and **why** each boundary
 exists.
 
 ## Design goals
@@ -21,16 +21,24 @@ exists.
 
 ## App / SDK split
 
+The SDK is the published library; the runnable demo app lives in the
+`examples/slack` package.
+
 ```
 packages/slack/
-├── src/                              # SDK — agent- and bot-agnostic
-└── app/                              # User-land — this particular Slack bot
-    ├── index.ts                      # bootstrap (env → createSlackBridge)
-    ├── tools/                        # app-specific frontend tools
-    ├── context/                      # app-specific knowledge entries
-    ├── components/                   # app-specific render-only components
-    ├── human-in-the-loop/            # app-specific interactive components
-    └── interrupts/                   # app-specific LangGraph interrupt handlers
+└── src/                              # SDK — agent- and bot-agnostic
+
+examples/slack/                       # runnable demo (slack-example)
+├── app/                              # User-land — this particular Slack bot
+│   ├── index.ts                      # bootstrap (env → createSlackBridge)
+│   ├── tools/                        # app-specific frontend tools
+│   ├── context/                      # app-specific knowledge entries
+│   ├── components/                   # app-specific render-only components
+│   ├── human-in-the-loop/            # app-specific interactive components
+│   └── interrupts/                   # app-specific LangGraph interrupt handlers
+├── agent/                            # vendored AG-UI agent backend (standalone)
+├── e2e/                              # live-Slack test harness
+└── runtime.ts                        # standalone CopilotKit Runtime for the bridge
 ```
 
 The SDK exports `defaultSlackTools` + `defaultSlackContext` so the app
@@ -132,7 +140,8 @@ src/
 ├── message-stream.ts                 # per-message chat.update queue + throttle
 ├── markdown-to-mrkdwn.ts             # md → Slack mrkdwn
 ├── auto-close-streaming.ts           # mid-stream bracket closer
-├── frontend-tools.ts                 # FrontendTool type, Zod → JSON-Schema, safeParse
+├── frontend-tools.ts                 # FrontendTool type, Standard Schema → JSON-Schema, arg validation
+├── standard-schema.ts                # schema-library-agnostic helpers (validate, toJsonSchema)
 ├── slack-component.ts                # defineSlackComponent (render-only)
 ├── human-in-the-loop.ts              # defineHumanInTheLoop, registry, applyRenderResult
 ├── interrupt.ts                      # defineInterruptHandler, CapturedInterrupt
@@ -172,7 +181,7 @@ The main loop:
    look up an `InterruptHandler`, render the picker, await the
    registry, render the resolution, then loop with `resume`.
 3. Otherwise inspect captured frontend-tool calls — execute each via
-   the tool's `execute`, append the assistant + tool result messages,
+   the tool's `handler`, append the assistant + tool result messages,
    and loop.
 4. When neither category fires, the turn is done.
 
@@ -230,19 +239,21 @@ in-flight buffer is renderable; idempotent when the real close shows up.
 
 ### `frontend-tools.ts`
 
-- `FrontendTool<Schema extends ZodType>`: name + description + Zod
-  `parameters` + `execute(args, ctx)`. The schema is converted to JSON
-  Schema (`zod-to-json-schema`, `$refStrategy: "none"`) before being
-  forwarded to the agent via `runAgent({tools})`.
-- `parseToolArgs(schema, raw)`: `safeParse`-with-pretty-errors. The
-  turn-runner uses it so `execute` only ever sees validated args;
-  validation failures return a clean JSON error to the agent.
+- `FrontendTool<Schema extends ObjectSchema>`: name + description + a
+  Standard Schema `parameters` (Zod/Valibot/ArkType/…) + `handler(args,
+ctx)`. The schema is converted to JSON Schema (native Standard JSON
+  Schema, falling back to `zod-to-json-schema` for Zod v3; `$ref`s
+  inlined) before being forwarded to the agent via `runAgent({tools})`.
+- `parseToolArgs(schema, raw)`: async Standard Schema validation with
+  pretty errors. The turn-runner awaits it so `handler` only ever sees
+  validated args; validation failures return a clean JSON error to the
+  agent.
 
 ### `slack-component.ts`
 
 `defineSlackComponent({name, description, props, fallbackText?, render})`.
 `render(props) → KnownBlock[]`. Compiles to a `FrontendTool` whose
-`execute` calls `chat.postMessage({blocks})`. Render-only — no
+`handler` calls `chat.postMessage({blocks})`. Render-only — no
 interaction.
 
 ### `human-in-the-loop.ts`
@@ -317,7 +328,7 @@ showcase Python code.
 | Agent run throws (network, etc.)                 | caught in `turn-runner`, `:warning:` posted unless intentionally aborted                                       |
 | Agent emits `RUN_ERROR`                          | `:warning:` posted via renderer (skipped on intentional abort)                                                 |
 | `on_interrupt` arrives but no handler registered | warning logged, graph stays paused                                                                             |
-| `on_interrupt` payload fails Zod validation      | warning logged, graph stays paused                                                                             |
+| `on_interrupt` payload fails schema validation   | warning logged, graph stays paused                                                                             |
 | New user turn during a HITL/interrupt wait       | wait resolves with `{kind:"cancelled"}`; previous run's partial reply gets `_(interrupted)_` suffix            |
 | Slack disconnect (Socket Mode)                   | Bolt auto-reconnects                                                                                           |
 | Process restart                                  | next turn rebuilds context from Slack history; in-flight HITL/interrupt waits are lost (registry is in-memory) |
@@ -329,9 +340,9 @@ showcase Python code.
   conversation-store fold logic, message-stream queue invariants,
   chunking, auto-close, markdown→mrkdwn, frontend-tool plumbing,
   HITL registry + lifecycle, interrupt capture, built-ins. ~400ms.
-- `app/tools/__tests__/` — example-tool test as a template for
-  unit-testing app-level tools.
-- `e2e/` — live harness. Drives Slack via `chat.postMessage` with a
+- `examples/slack/app/tools/__tests__/` — example-tool test as a
+  template for unit-testing app-level tools.
+- `examples/slack/e2e/` — live harness. Drives Slack via `chat.postMessage` with a
   user OAuth token (`xoxp-`), polls `conversations.replies` while
   streams are in flight, runs per-case assertions (text contents,
   bracket balance, block count, fallback strings, etc.).

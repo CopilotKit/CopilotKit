@@ -9,7 +9,7 @@
  * `app/index.ts`.
  */
 import { helloWorldTool } from "./hello-world.js";
-import type { FrontendTool } from "../../src/index.js";
+import type { FrontendTool } from "@copilotkit/slack";
 
 export const appTools: ReadonlyArray<FrontendTool> = [helloWorldTool];
 

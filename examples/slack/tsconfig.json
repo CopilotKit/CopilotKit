@@ -5,6 +5,6 @@
     "lib": ["es2022", "dom"],
     "types": ["node"]
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["dist", "node_modules"]
+  "include": ["app/**/*.ts", "e2e/**/*.ts", "runtime.ts"],
+  "exclude": ["node_modules", "agent"]
 }

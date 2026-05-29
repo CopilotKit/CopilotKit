@@ -35,7 +35,7 @@ export interface CreateCatalogOptions {
  * @example
  * ```ts
  * import { z } from "zod";
- * import { createCatalog } from "@copilotkitnext/slack";
+ * import { createCatalog } from "@copilotkit/slack";
  *
  * const definitions = {
  *   Greeting: {

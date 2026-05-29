@@ -13,7 +13,7 @@ import {
   createSlackBridge,
   defaultSlackTools,
   defaultSlackContext,
-} from "../src/index.js";
+} from "@copilotkit/slack";
 import { appTools } from "./tools/index.js";
 import { appContext } from "./context/app-context.js";
 import { appComponents } from "./components/index.js";

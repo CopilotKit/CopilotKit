@@ -18,7 +18,7 @@
  * `app/index.ts`).
  */
 import { z } from "zod";
-import { defineSlackComponent } from "../../src/index.js";
+import { defineSlackComponent } from "@copilotkit/slack";
 
 const greetingSchema = z.object({
   recipient: z

@@ -10,7 +10,7 @@
  * AG-UI `context` on every turn; the agent backend's CopilotKit
  * middleware surfaces them as a system-level "App Context:" message.
  */
-import type { SlackContextEntry } from "../../src/index.js";
+import type { SlackContextEntry } from "@copilotkit/slack";
 
 export const appContext: ReadonlyArray<SlackContextEntry> = [
   {

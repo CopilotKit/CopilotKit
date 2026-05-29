@@ -19,7 +19,7 @@
 import {
   createA2UIActivityRenderer,
   a2uiSchemaContext,
-} from "../../src/index.js";
+} from "@copilotkit/slack";
 import { flightCatalog } from "./renderers.js";
 import { dashboardCatalog } from "./dashboard.js";
 

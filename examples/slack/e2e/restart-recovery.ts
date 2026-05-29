@@ -43,7 +43,7 @@ import {
   defaultSlackContext,
   defaultSlackTools,
   type SlackBridge,
-} from "../src/index.js";
+} from "@copilotkit/slack";
 import { appComponents } from "../app/components/index.js";
 import { appContext } from "../app/context/app-context.js";
 import { appHitl } from "../app/human-in-the-loop/index.js";
