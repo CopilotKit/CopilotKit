@@ -9,20 +9,79 @@
  * the resulting array is uploaded as the canonical `build-results`
  * artifact for cross-workflow consumption. The deploy workflow (and the
  * redeploy guard) read this list instead of parsing job names.
+ *
+ * NOTE: the "single result.json per slot" invariant is enforced
+ * workflow-side (each matrix slot writes exactly one file before
+ * uploading its artifact); this module assumes that contract and
+ * validates only the parsed payload shape, not the filesystem layout.
  */
 
-export type BuildOutcome = "success" | "failure" | "skipped";
+// Single source of truth for the set of valid build outcomes. The
+// `as const` tuple drives BOTH the compile-time `BuildOutcome` union
+// AND the runtime `VALID_STATUSES` set, so adding a status in one
+// place is enforced in the other. The exhaustiveness check below
+// guarantees the tuple and the union stay in lockstep.
+const BUILD_OUTCOMES = ["success", "failure", "skipped"] as const;
+
+export type BuildOutcome = (typeof BUILD_OUTCOMES)[number];
+
+const VALID_STATUSES: ReadonlySet<BuildOutcome> = new Set(BUILD_OUTCOMES);
+
+// Compile-time exhaustiveness check: if BuildOutcome ever drifts from
+// the BUILD_OUTCOMES tuple (e.g. a hand-edited union), this assignment
+// will fail to typecheck.
+const _exhaustive: ReadonlyArray<BuildOutcome> = BUILD_OUTCOMES;
+void _exhaustive;
 
 export interface ServiceBuildResult {
   service: string;
   status: BuildOutcome;
 }
 
-const VALID_STATUSES: ReadonlySet<BuildOutcome> = new Set([
-  "success",
-  "failure",
-  "skipped",
-]);
+function isNonBlankString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+/**
+ * Shared validator for a single `{service, status}` payload. Used by
+ * both `parseBuildOutputs` (per array entry) and `mergeBuildResultFiles`
+ * (per slot payload) so validation rules + error wording live in one
+ * place. `contextLabel` is prefixed to every error message — callers
+ * pass something like `"parseBuildOutputs entry[3]"` or
+ * `"mergeBuildResultFiles slot[2]"` so the failure points at the
+ * offending row.
+ */
+function validateServiceBuildResult(
+  raw: unknown,
+  contextLabel: string,
+): ServiceBuildResult {
+  if (typeof raw !== "object" || raw === null) {
+    throw new Error(
+      `${contextLabel}: expected object with {service, status}, got ${JSON.stringify(raw)}`,
+    );
+  }
+  const service = (raw as { service?: unknown }).service;
+  if (typeof service !== "string") {
+    throw new Error(
+      `${contextLabel}: missing required string field "service": ${JSON.stringify(raw)}`,
+    );
+  }
+  if (service.trim().length === 0) {
+    throw new Error(
+      `${contextLabel}: field "service" must be a non-empty, non-whitespace string: ${JSON.stringify(raw)}`,
+    );
+  }
+  const status = (raw as { status?: unknown }).status;
+  if (
+    typeof status !== "string" ||
+    !VALID_STATUSES.has(status as BuildOutcome)
+  ) {
+    throw new Error(
+      `${contextLabel}: invalid "status" (must be success|failure|skipped): ${JSON.stringify(raw)}`,
+    );
+  }
+  return { service, status: status as BuildOutcome };
+}
 
 export function parseBuildOutputs(raw: string): ServiceBuildResult[] {
   let parsed: unknown;
@@ -39,32 +98,9 @@ export function parseBuildOutputs(raw: string): ServiceBuildResult[] {
   if (!Array.isArray(parsed)) {
     throw new Error("Build outputs must be a JSON array");
   }
-  const results: ServiceBuildResult[] = [];
-  for (const entry of parsed) {
-    if (
-      typeof entry !== "object" ||
-      entry === null ||
-      typeof (entry as { service?: unknown }).service !== "string"
-    ) {
-      throw new Error(
-        `Build outputs entry missing required string field "service": ${JSON.stringify(entry)}`,
-      );
-    }
-    const status = (entry as { status?: unknown }).status;
-    if (
-      typeof status !== "string" ||
-      !VALID_STATUSES.has(status as BuildOutcome)
-    ) {
-      throw new Error(
-        `Build outputs entry has invalid "status" (must be success|failure|skipped): ${JSON.stringify(entry)}`,
-      );
-    }
-    results.push({
-      service: (entry as { service: string }).service,
-      status: status as BuildOutcome,
-    });
-  }
-  return results;
+  return parsed.map((entry, idx) =>
+    validateServiceBuildResult(entry, `parseBuildOutputs entry[${idx}]`),
+  );
 }
 
 export function successSet(results: ServiceBuildResult[]): string[] {
@@ -77,14 +113,14 @@ export function successSet(results: ServiceBuildResult[]): string[] {
  * artifact named `build-result-<dispatch_name>` containing a single
  * `result.json` file. The aggregator job downloads every artifact
  * matching the `build-result-*` pattern and merges them via
- * mergeBuildResultFiles below. We refuse empty service names so the
- * per-slot artifact cannot collide with the aggregated `build-results`
- * artifact published downstream.
+ * mergeBuildResultFiles below. We refuse empty/whitespace service
+ * names so the per-slot artifact cannot collide with the aggregated
+ * `build-results` artifact published downstream.
  */
 export function buildResultArtifactName(service: string): string {
-  if (typeof service !== "string" || service.length === 0) {
+  if (!isNonBlankString(service)) {
     throw new Error(
-      "buildResultArtifactName: `service` must be a non-empty string",
+      "buildResultArtifactName: `service` must be a non-empty, non-whitespace string",
     );
   }
   return `build-result-${service}`;
@@ -96,52 +132,57 @@ export function buildResultArtifactName(service: string): string {
  * Each payload MUST be a JSON object with `service: string` and
  * `status: success|failure|skipped`. The merge is order-preserving so
  * downstream consumers can rely on stable iteration.
+ *
+ * Fails loud on duplicate `service` names across slots: a duplicate
+ * means an upstream dispatch-name collision (two slots claiming the
+ * same service), which would let a `failure` + `success` pair for the
+ * same service spuriously look like a success in `successSet`. We
+ * surface the collision instead of silently deduping.
  */
 export function mergeBuildResultFiles(
   slotPayloads: readonly string[],
 ): ServiceBuildResult[] {
-  return slotPayloads.map((raw, idx) => {
+  const merged = slotPayloads.map((raw, idx) => {
     let parsed: unknown;
     try {
       parsed = JSON.parse(raw);
     } catch (e) {
       throw new Error(
-        `mergeBuildResultFiles: slot[${idx}] is not valid JSON: ${
+        `mergeBuildResultFiles slot[${idx}]: not valid JSON: ${
           e instanceof Error ? e.message : String(e)
         }`,
         { cause: e },
       );
     }
-    if (
-      typeof parsed !== "object" ||
-      parsed === null ||
-      typeof (parsed as { service?: unknown }).service !== "string"
-    ) {
-      throw new Error(
-        `mergeBuildResultFiles: slot[${idx}] missing required string field "service": ${raw}`,
-      );
-    }
-    const status = (parsed as { status?: unknown }).status;
-    if (
-      typeof status !== "string" ||
-      !VALID_STATUSES.has(status as BuildOutcome)
-    ) {
-      throw new Error(
-        `mergeBuildResultFiles: slot[${idx}] has invalid "status" (must be success|failure|skipped): ${raw}`,
-      );
-    }
-    return {
-      service: (parsed as { service: string }).service,
-      status: status as BuildOutcome,
-    };
+    return validateServiceBuildResult(
+      parsed,
+      `mergeBuildResultFiles slot[${idx}]`,
+    );
   });
+
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const { service } of merged) {
+    if (seen.has(service)) {
+      duplicates.add(service);
+    } else {
+      seen.add(service);
+    }
+  }
+  if (duplicates.size > 0) {
+    const names = Array.from(duplicates).sort().join(", ");
+    throw new Error(
+      `mergeBuildResultFiles: duplicate service name(s) across slots: ${names}`,
+    );
+  }
+  return merged;
 }
 
 /**
  * Returns true iff at least one service in the build set finished as
- * `success`. The redeploy-staging job and the verify probe both gate on
- * this — when no service succeeded, redeploy MUST be skipped so we do
- * not re-pull the stale :latest and silently look healthy.
+ * `success`. Gates redeploy: when no service succeeded, redeploy MUST
+ * be skipped so we do not re-pull the stale `:latest` and silently
+ * look healthy.
  */
 export function shouldRedeployStaging(results: ServiceBuildResult[]): boolean {
   return results.some((r) => r.status === "success");

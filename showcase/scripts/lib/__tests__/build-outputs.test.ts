@@ -36,6 +36,24 @@ describe("build-outputs", () => {
     expect(() => parseBuildOutputs(bad)).toThrow(/status/i);
   });
 
+  it("rejects an empty service string", () => {
+    const bad = JSON.stringify([{ service: "", status: "success" }]);
+    expect(() => parseBuildOutputs(bad)).toThrow(/service/i);
+  });
+
+  it("rejects a whitespace-only service string", () => {
+    const bad = JSON.stringify([{ service: "   ", status: "success" }]);
+    expect(() => parseBuildOutputs(bad)).toThrow(/service/i);
+  });
+
+  it("error message for parseBuildOutputs includes the entry index", () => {
+    const bad = JSON.stringify([
+      { service: "ok", status: "success" },
+      { service: "x", status: "weird" },
+    ]);
+    expect(() => parseBuildOutputs(bad)).toThrow(/\[1\]/);
+  });
+
   it("successSet returns only services with status === 'success'", () => {
     expect(successSet(sample).sort()).toEqual(
       ["showcase-aimock", "showcase-mastra"].sort(),
@@ -66,6 +84,10 @@ describe("buildResultArtifactName", () => {
   it("rejects empty service names (would collide with aggregate artifact)", () => {
     expect(() => buildResultArtifactName("")).toThrow(/service/i);
   });
+
+  it("rejects whitespace-only service names", () => {
+    expect(() => buildResultArtifactName("   ")).toThrow(/service/i);
+  });
 });
 
 describe("mergeBuildResultFiles", () => {
@@ -94,6 +116,28 @@ describe("mergeBuildResultFiles", () => {
 
   it("returns an empty array when no slot payloads are provided", () => {
     expect(mergeBuildResultFiles([])).toEqual([]);
+  });
+
+  it("rejects an empty service in a slot payload", () => {
+    expect(() =>
+      mergeBuildResultFiles(['{"service":"","status":"success"}']),
+    ).toThrow(/service/i);
+  });
+
+  it("rejects a whitespace-only service in a slot payload", () => {
+    expect(() =>
+      mergeBuildResultFiles(['{"service":"   ","status":"success"}']),
+    ).toThrow(/service/i);
+  });
+
+  it("throws when duplicate service names appear across slot payloads", () => {
+    const slotPayloads = [
+      '{"service":"dup","status":"failure"}',
+      '{"service":"other","status":"success"}',
+      '{"service":"dup","status":"success"}',
+    ];
+    expect(() => mergeBuildResultFiles(slotPayloads)).toThrow(/duplicate/i);
+    expect(() => mergeBuildResultFiles(slotPayloads)).toThrow(/dup/);
   });
 });
 
