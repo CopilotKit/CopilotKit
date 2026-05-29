@@ -269,3 +269,58 @@ describe("WS-C: shape validation for the five newly-gated services", () => {
     });
   }
 });
+
+describe("WS-C: malformed ref negatives", () => {
+  it("rejects `:sha256-<hex>` on prod (missing the @ separator)", () => {
+    // Shape: ghcr.io/copilotkit/<repo>:sha256-<hex>
+    // Looks vaguely like a digest pin but is actually a *tag* whose
+    // literal name starts with "sha256-". This is the closest shape
+    // to the 2026-04-21 "atest" corruption and must fail loudly.
+    const bad =
+      "ghcr.io/copilotkit/showcase-shell:sha256-" + "a".repeat(64);
+    const v = validateImage(bad, {
+      env: "prod",
+      repoName: "showcase-shell",
+    });
+    expect(v).not.toBeNull();
+    expect(v?.image).toBe(bad);
+    // Reason must mention canonical prod shape so the operator knows
+    // exactly what to fix.
+    expect(v?.reason).toMatch(/canonical (prod )?shape/);
+  });
+
+  it("rejects bare `@sha256:<too-short-hex>` on prod", () => {
+    const bad =
+      "ghcr.io/copilotkit/showcase-shell@sha256:" + "a".repeat(10);
+    const v = validateImage(bad, {
+      env: "prod",
+      repoName: "showcase-shell",
+    });
+    expect(v).not.toBeNull();
+  });
+
+  it("rejects a truncated `atest`-style tag on staging", () => {
+    // The exact 2026-04-21 corruption shape from the script docstring.
+    const bad = "ghcr.io/copilotkit/showcase-shell-dashboardatest";
+    const v = validateImage(bad, {
+      env: "staging",
+      repoName: "showcase-shell-dashboard",
+    });
+    expect(v).not.toBeNull();
+  });
+
+  it("rejects non-ghcr.io registries on both envs", () => {
+    const prodBad =
+      "docker.io/copilotkit/showcase-shell@sha256:" + "b".repeat(64);
+    const stagingBad = "docker.io/copilotkit/showcase-shell:latest";
+    expect(
+      validateImage(prodBad, { env: "prod", repoName: "showcase-shell" }),
+    ).not.toBeNull();
+    expect(
+      validateImage(stagingBad, {
+        env: "staging",
+        repoName: "showcase-shell",
+      }),
+    ).not.toBeNull();
+  });
+});
