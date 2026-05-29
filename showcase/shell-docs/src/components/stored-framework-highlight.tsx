@@ -29,7 +29,7 @@ export function StoredFrameworkHighlight({ slug }: { slug: string }) {
       />
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute right-3 top-3 rounded-full border border-[var(--accent)] bg-[var(--accent-dim)] px-2 py-0.5 text-[11px] font-semibold text-[var(--accent)]"
+        className="pointer-events-none absolute right-3 top-3 hidden rounded-full border border-[var(--accent)] bg-[var(--accent-dim)] px-2 py-0.5 text-[11px] font-semibold text-[var(--accent)] sm:inline-flex"
       >
         Selected
       </span>

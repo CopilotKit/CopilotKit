@@ -78,14 +78,8 @@ export function BrandNav(_props: BrandNavProps = {}) {
 
   return (
     <nav className="relative hidden h-[86px] bg-[var(--bg)] px-[22px] py-3 md:block">
-      {/* Cap the BrandNav's visible chrome at the same `--fd-layout-width`
-       * (97rem) that the fumadocs docs grid uses, and center it. At
-       * wide viewports this keeps the BrandNav's left/right edges
-       * aligned with the sidebar column on the left and the docs content
-       * column on the right; at narrower viewports it's a no-op
-       * because the inner width never reaches the cap. */}
       <div
-        className="mx-auto flex h-full max-w-[1534px] items-center gap-5 rounded-lg border border-[var(--border)] px-5 shadow-[0_1px_0_rgba(1,5,7,0.03)] backdrop-blur-lg"
+        className="shell-docs-brand-nav-inner mx-auto flex h-full items-center gap-5 rounded-lg border border-[var(--border)] px-5 shadow-[0_1px_0_rgba(1,5,7,0.03)] backdrop-blur-lg"
         style={{ backgroundColor: "var(--nav-surface)" }}
       >
         <Link
@@ -112,7 +106,7 @@ export function BrandNav(_props: BrandNavProps = {}) {
               <li
                 key={link.href}
                 className={`relative h-full group ${
-                  isFreeDevAccess ? "hidden xl:block" : ""
+                  isFreeDevAccess ? "hidden [@media(width>=960px)]:block" : ""
                 }`}
               >
                 <Link

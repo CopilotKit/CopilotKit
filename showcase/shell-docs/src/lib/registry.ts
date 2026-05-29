@@ -115,7 +115,7 @@ const DOCS_ONLY_INTEGRATIONS: Integration[] = [
     copilotkit_version: "",
     backend_url: "",
     deployed: true,
-    docs_mode: "generated",
+    docs_mode: "authored",
     sort_order: 13,
     features: [],
     demos: [],
@@ -155,7 +155,7 @@ export function getIntegration(slug: string): Integration | undefined {
 const DOCS_ONLY_FRAMEWORK_MODES: Record<string, "generated" | "authored"> = {
   a2a: "generated",
   "agent-spec": "generated",
-  deepagents: "generated",
+  deepagents: "authored",
 };
 
 /**

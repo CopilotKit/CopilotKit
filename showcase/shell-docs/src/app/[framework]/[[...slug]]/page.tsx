@@ -604,7 +604,7 @@ function FrameworkRootShell({
         breadcrumb={{ enabled: false }}
         footer={{ enabled: false }}
       >
-        <div className="docs-inner-content max-w-[900px] mx-auto px-4 md:px-6 pt-2 pb-6 md:pt-3 xl:pt-4">
+        <div className="docs-inner-content max-w-[900px] mx-auto px-4 md:px-6 pt-0 pb-6">
           {children}
         </div>
       </DocsPage>

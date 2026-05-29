@@ -151,13 +151,28 @@ export function App() {
   },
 ];
 
+function findSampleTab(id: string) {
+  const tab = SAMPLE_TABS.find((sample) => sample.id === id);
+  if (!tab) {
+    throw new Error(`Unknown landing sample tab: ${id}`);
+  }
+  return tab;
+}
+
+const MOBILE_SAMPLE_TABS = [
+  findSampleTab("chat-components"),
+  findSampleTab("headless-ui"),
+  findSampleTab("generative-ui"),
+  findSampleTab("any-agent"),
+];
+
 export function LandingSampleTabs() {
   const [activeId, setActiveId] = React.useState(SAMPLE_TABS[0].id);
   const activeTab =
     SAMPLE_TABS.find((tab) => tab.id === activeId) ?? SAMPLE_TABS[0];
 
   return (
-    <section className="not-prose space-y-5">
+    <section className="not-prose space-y-4 sm:space-y-5">
       <div className="max-w-2xl">
         <h2 className="text-xl font-semibold text-[var(--text)] sm:text-2xl">
           Build your agent&apos;s user experience
@@ -168,7 +183,40 @@ export function LandingSampleTabs() {
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] shadow-[0_18px_44px_-32px_rgba(1,5,7,0.22)]">
+      <div
+        aria-label="CopilotKit mobile samples"
+        className="grid gap-2 sm:hidden"
+      >
+        {MOBILE_SAMPLE_TABS.map((tab) => {
+          const Icon = tab.icon;
+
+          return (
+            <Link
+              key={tab.id}
+              href={tab.href}
+              data-mobile-sample-card={tab.id}
+              className="group flex min-w-0 items-start gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-3.5 no-underline shadow-[0_10px_28px_-24px_rgba(1,5,7,0.26)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)]"
+            >
+              <span
+                aria-hidden="true"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]"
+              >
+                <Icon className="h-4 w-4" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold leading-snug text-[var(--text)]">
+                  {tab.label}
+                </span>
+                <span className="mt-1 block text-xs leading-relaxed text-[var(--text-muted)]">
+                  {tab.title}
+                </span>
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+
+      <div className="hidden min-w-0 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] shadow-[0_18px_44px_-32px_rgba(1,5,7,0.22)] sm:block sm:rounded-xl">
         <div className="flex h-10 items-center justify-between border-b border-[var(--border)] bg-[var(--bg-elevated)] px-4">
           <div className="flex items-center gap-2" aria-hidden="true">
             <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
@@ -181,11 +229,11 @@ export function LandingSampleTabs() {
           <div className="h-2.5 w-[46px]" aria-hidden="true" />
         </div>
 
-        <div className="grid lg:min-h-[460px] lg:grid-cols-[250px_minmax(0,1fr)]">
-          <div className="border-b border-[var(--border)] bg-[var(--bg-elevated)]/60 p-3 lg:border-b-0 lg:border-r">
+        <div className="grid min-w-0 lg:min-h-[460px] lg:grid-cols-[250px_minmax(0,1fr)]">
+          <div className="min-w-0 border-b border-[var(--border)] bg-[var(--bg-elevated)]/60 p-2 sm:p-3 lg:border-b-0 lg:border-r">
             <div
               aria-label="CopilotKit samples"
-              className="grid w-full gap-1 sm:grid-cols-2 lg:grid-cols-1"
+              className="grid w-full grid-cols-2 gap-1.5 lg:grid-cols-1"
               role="tablist"
             >
               {SAMPLE_TABS.map((tab) => {
@@ -201,7 +249,7 @@ export function LandingSampleTabs() {
                     aria-controls={`landing-sample-panel-${tab.id}`}
                     aria-selected={selected}
                     className={cn(
-                      "group flex min-h-14 items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors",
+                      "group flex min-h-11 min-w-[9.75rem] items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors sm:min-h-14 sm:min-w-0 sm:gap-3 sm:px-3 sm:py-2.5",
                       selected
                         ? "border-[var(--accent)] bg-[var(--bg-surface)] text-[var(--text)] shadow-[0_1px_2px_rgba(1,5,7,0.05)]"
                         : "border-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-surface)]/70 hover:text-[var(--text)]",
@@ -211,7 +259,7 @@ export function LandingSampleTabs() {
                   >
                     <span
                       className={cn(
-                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition-colors",
+                        "flex h-7 w-7 shrink-0 items-center justify-center rounded-md border transition-colors sm:h-8 sm:w-8",
                         selected
                           ? "border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]"
                           : "border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-muted)] group-hover:text-[var(--accent)]",
@@ -220,7 +268,7 @@ export function LandingSampleTabs() {
                       <Icon className="h-4 w-4" />
                     </span>
                     <span className="min-w-0">
-                      <span className="block text-[0.8125rem] font-medium leading-none tracking-[-0.005em]">
+                      <span className="block text-[0.8125rem] font-medium leading-tight tracking-[-0.005em]">
                         {tab.label}
                       </span>
                     </span>
@@ -233,11 +281,11 @@ export function LandingSampleTabs() {
           <div
             id={`landing-sample-panel-${activeTab.id}`}
             aria-labelledby={`landing-sample-tab-${activeTab.id}`}
-            className="flex min-h-[540px] flex-col gap-5 p-5 sm:min-h-[440px] lg:p-6"
+            className="flex min-h-0 min-w-0 flex-col gap-3 p-4 sm:min-h-[440px] sm:gap-5 sm:p-5 lg:p-6"
             role="tabpanel"
           >
             <div className="max-w-2xl">
-              <h3 className="text-xl font-semibold leading-tight text-[var(--text)]">
+              <h3 className="text-[1.0625rem] font-semibold leading-tight text-[var(--text)] sm:text-xl">
                 {activeTab.title}
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-[var(--text-muted)]">
@@ -245,7 +293,7 @@ export function LandingSampleTabs() {
               </p>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-surface)]">
+            <div className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-surface)]">
               <div className="flex h-9 items-center justify-between border-b border-[var(--border)] bg-[var(--bg-elevated)] px-3">
                 <span className="font-mono text-xs text-[var(--text-muted)]">
                   example.tsx
@@ -254,20 +302,18 @@ export function LandingSampleTabs() {
                   tsx
                 </span>
               </div>
-              <div className="h-[360px] overflow-auto sm:h-[300px] [&_figure]:my-0 [&_figure]:border-0 [&_pre]:min-h-full [&_pre]:rounded-none [&_pre]:border-0">
+              <div className="h-[260px] min-w-0 overflow-auto sm:h-[300px] [&_figure]:my-0 [&_figure]:min-w-0 [&_figure]:border-0 [&_pre]:min-h-full [&_pre]:rounded-none [&_pre]:border-0">
                 <DynamicCodeBlock lang="tsx" code={activeTab.code ?? ""} />
               </div>
             </div>
 
-            <div className="flex justify-end">
-              <div className="max-w-2xl">
-                <Link
-                  href={activeTab.href}
-                  className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-[var(--accent)] bg-[var(--accent-dim)] px-3 text-sm font-semibold text-[var(--accent)] no-underline transition-colors hover:bg-[var(--accent-light)]"
-                >
-                  {activeTab.hrefLabel}
-                </Link>
-              </div>
+            <div className="flex justify-stretch sm:justify-end">
+              <Link
+                href={activeTab.href}
+                className="inline-flex h-9 w-full shrink-0 items-center justify-center rounded-lg border border-[var(--accent)] bg-[var(--accent-dim)] px-3 text-sm font-semibold text-[var(--accent)] no-underline transition-colors hover:bg-[var(--accent-light)] sm:w-auto"
+              >
+                {activeTab.hrefLabel}
+              </Link>
             </div>
           </div>
         </div>
