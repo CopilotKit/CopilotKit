@@ -9,10 +9,14 @@ describe("Railway GraphQL host unification", () => {
     // grep across showcase/ and .github/workflows/. Use -F (literal) so
     // the dot in the pattern is not regex-interpreted. The test file
     // itself contains the forbidden literal; exclude it via --glob.
+    // Also exclude two files that legitimately reference the deprecated
+    // host in documentation/negative-assertion form (no functional use):
+    //   - railway-graphql.ts JSDoc explains the deprecated .com endpoint
+    //   - railway-graphql.test.ts asserts the endpoint is NOT .com
     let out = "";
     try {
       out = execSync(
-        `git -C ${REPO_ROOT} grep -nF "backboard.railway.com" -- showcase ':(exclude)showcase/scripts/lib/__tests__/railway-graphql.scan.test.ts' .github/workflows`,
+        `git -C ${REPO_ROOT} grep -nF "backboard.railway.com" -- showcase ':(exclude)showcase/scripts/lib/__tests__/railway-graphql.scan.test.ts' ':(exclude)showcase/scripts/lib/railway-graphql.ts' ':(exclude)showcase/scripts/lib/__tests__/railway-graphql.test.ts' .github/workflows`,
         { encoding: "utf-8" },
       );
     } catch {
