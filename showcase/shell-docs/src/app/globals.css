@@ -46,13 +46,12 @@
  * empty home-link `<a>` still occupies space at the top of the sidebar
  * column. Hide it so the framework selector (rendered via the `banner`
  * slot) sits flush at the top. */
-/* Sidebar banner (holds the framework picker). Top/horizontal padding
- * at 1rem matches the sidebar's outer 0.75rem inset visually. Bottom
- * padding is zeroed so the gap between the picker and the first nav
- * link in the scroll viewport is governed entirely by the viewport's
- * top padding (also 1rem) — keeping above/below the picker symmetric. */
+/* Sidebar banner (holds the framework picker). Keep horizontal padding at
+ * zero so the picker edge aligns with BrandNav's visible surface. The gap
+ * between the picker and the first nav link is governed by the scroll
+ * viewport's top padding below. */
 .shell-docs-sidebar > div:first-child {
-  padding: 0 1rem !important;
+  padding: 0 !important;
 }
 /* Hide the empty home-link wrapper Fumadocs ships in the desktop
  * SidebarHeader. Scoped via `:has(> a:only-child:empty)` so it ONLY
@@ -72,6 +71,16 @@
 #nd-sidebar [data-folder] > [data-folder-trigger] {
   padding-top: 0.375rem;
   padding-bottom: 0.375rem;
+}
+
+/* Fumadocs animates collapsible folder panels after mount. Because
+ * shell-docs currently mounts DocsLayout per page, route changes can
+ * replay those "open" animations for folders that are already open.
+ * SidebarFolderStatePreserver marks route-mounted panels with this
+ * attribute and removes it before a real folder-toggle click, so user
+ * interactions keep the default animation while navigation stays calm. */
+.shell-docs-sidebar [data-shell-docs-skip-initial-animation] {
+  animation: none !important;
 }
 
 /* Sidebar section headers (PageTree `separator` nodes). Fumadocs defaults
@@ -241,6 +250,7 @@ figure.shiki > div:first-child[class*="border-b"] {
 @media (max-width: 767px) {
   #nd-docs-layout {
     padding-top: var(--fd-nav-height) !important;
+    grid-template-columns: minmax(0, 1fr) !important;
   }
 }
 
@@ -359,6 +369,7 @@ figure.shiki > div:first-child[class*="border-b"] {
 @media (max-width: 767px) {
   .docs-inner-content {
     grid-column: 1 / -1;
+    max-width: 100%;
   }
 }
 
@@ -370,11 +381,11 @@ figure.shiki > div:first-child[class*="border-b"] {
   box-shadow: none !important;
 }
 
-/* Sidebar scroll viewport — 1rem padding on all sides matches the
- * sidebar's outer inset and produces a symmetric gap between the
- * picker (banner bottom: 0) and the first nav link. */
+/* Sidebar scroll viewport — keep vertical padding for the gap below the
+ * picker, but remove horizontal padding so the nav content uses the
+ * same full column width as the framework picker. */
 .shell-docs-sidebar [data-radix-scroll-area-viewport] {
-  padding: 1rem !important;
+  padding: 1rem 0 !important;
 }
 
 /* Bridge shell-docs's hand-rolled token names (--bg, --text, --accent, …)

@@ -531,28 +531,19 @@ const nextConfig: NextConfig = {
         permanent: false,
       },
 
-      // `/generative-ui/your-components/*` retired. The display-only
-      // page was a duplicate of `/generative-ui/tool-based` (same hook,
-      // same demo, same body); the interactive page duplicated the
-      // Human-in-the-Loop section. 302 while the new IA settles.
+      // Root `/generative-ui/your-components/*` pages do not exist in
+      // the unscoped docs tree, so keep those bare redirects. Do not
+      // redirect `/:framework/generative-ui/your-components/*`: several
+      // framework-scoped docs, including Built-in Agent, are authored at
+      // those paths and should render directly.
       {
         source: "/generative-ui/your-components/display-only",
         destination: "/generative-ui/tool-based",
         permanent: false,
       },
       {
-        source: "/:framework/generative-ui/your-components/display-only",
-        destination: "/:framework/generative-ui/tool-based",
-        permanent: false,
-      },
-      {
         source: "/generative-ui/your-components/interactive",
         destination: "/human-in-the-loop",
-        permanent: false,
-      },
-      {
-        source: "/:framework/generative-ui/your-components/interactive",
-        destination: "/:framework/human-in-the-loop",
         permanent: false,
       },
     ];
