@@ -47,18 +47,19 @@ describe("aggregate-build-results.run", () => {
     // touched, so no cleanup needed.
   });
 
-  it("empty INPUT_DIR → results.json=[] and any_success=false", () => {
-    run({ inputDir, outputDir, githubOutput });
-
-    const results = JSON.parse(
-      readFileSync(join(outputDir, "results.json"), "utf-8"),
+  it("empty INPUT_DIR → throws (broken artifact download — the aggregator only runs when >=1 service was scheduled)", () => {
+    // The aggregator is gated on `has_changes == 'true'` upstream, so the
+    // matrix is guaranteed non-empty by the time we run. A zero-slot input
+    // dir therefore means the per-slot artifact download produced nothing
+    // (broken download, expired artifacts, mis-scoped run-id). Silently
+    // emitting `any_success=false` with `results=[]` is indistinguishable
+    // from "all builds failed" — that's a false-green path because the
+    // deploy workflow then has no success set to intersect against and
+    // falls back to probing the full service set against stale :latest.
+    // We refuse the ambiguity and fail loud instead.
+    expect(() => run({ inputDir, outputDir, githubOutput })).toThrow(
+      /aggregate-build-results: found 0 build-result-\* slot dirs/,
     );
-    expect(results).toEqual([]);
-
-    const gh = readFileSync(githubOutput, "utf-8");
-    expect(gh).toContain("any_success=false");
-    // Heredoc form must be used even for [].
-    expect(gh).toMatch(/results<<(\S+)\n\[\]\n\1\n/);
   });
 
   it("throws naming the slot when build-result-<x>/result.json is missing", () => {

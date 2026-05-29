@@ -4,6 +4,10 @@ name: "Showcase: Promote (staging → prod)"
 # Workflow_dispatch only. Humans trigger. No automatic prod promotes.
 #
 # Order:
+#   0. resolve-targets              → expand the workflow_dispatch `service`
+#                                     input (SSOT key, dispatch_name, or
+#                                     'all') into the canonical services_csv
+#                                     consumed by every downstream job.
 #   1. verify-staging-precondition  → live-probe staging for the target service(s).
 #                                     Refuse on red (matches bin/railway
 #                                     --require-staging-green default).

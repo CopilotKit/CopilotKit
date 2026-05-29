@@ -88,7 +88,7 @@
     {
       "files": [
         "showcase/shell-docs/src/content/**",
-        "showcase/**/*runtime-config*",
+        "showcase/**/lib/runtime-config*.{ts,tsx}",
         "showcase/**/*.test.{ts,tsx}",
         "showcase/**/*.spec.{ts,tsx}"
       ],

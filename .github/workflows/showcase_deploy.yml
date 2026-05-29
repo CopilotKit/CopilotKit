@@ -2,9 +2,9 @@ name: "Showcase: Verify Deploy"
 
 # Triggered after "Showcase: Build & Push" completes. Verifies that the
 # STAGING redeploy from the build workflow actually produced healthy
-# services. Push-to-main redeploys staging only (PR #5093). This workflow
-# is the staging gate; verify-deploy.ts is the parameterized probe driven
-# off showcase/scripts/railway-envs.ts (the SSOT).
+# services. Push-to-main redeploys staging only. This workflow is the
+# staging gate; verify-deploy.ts is the parameterized probe driven off
+# showcase/scripts/railway-envs.ts (the SSOT).
 
 on:
   workflow_run:
@@ -51,6 +51,15 @@ jobs:
           node-version: 22.x
 
       - name: Download redeploy summary from build workflow
+        # Guarded to the workflow_run path; on workflow_dispatch the
+        # download is skipped and the bash `[ ! -f "$SUMMARY" ]` branch
+        # below handles the legitimate "no summary present" case.
+        # We intentionally do NOT use `continue-on-error: true` here:
+        # swallowing a genuine workflow_run artifact-download failure
+        # would land us in the same "no summary" branch, where the gate
+        # opens (`redeploy_red=false`, `ok_services=""`) and verify falls
+        # back to probing the FULL service set against stale `:latest` —
+        # masking a broken redeploy as a green deploy. Fail loud instead.
         if: github.event_name == 'workflow_run'
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
@@ -58,7 +67,6 @@ jobs:
           path: .redeploy
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
 
       - name: Gate on staging redeploy errors
         id: redeploy-gate
@@ -170,7 +178,12 @@ jobs:
     # verify so the user sees both signals (what was redeployed badly,
     # what was redeployed and is unhealthy) rather than one masking the other.
     needs: [resolve-matrix]
-    if: always() && needs.resolve-matrix.outputs.redeploy_red == 'true'
+    # Trip the gate on EITHER a per-service redeploy error OR a complete
+    # resolve-matrix failure. A resolve-matrix failure leaves the
+    # `redeploy_red` output empty (jobs that fail mid-step don't publish
+    # outputs reliably), which would otherwise let an upstream crash slip
+    # past as "not red" — a silent bypass of the gate.
+    if: always() && (needs.resolve-matrix.outputs.redeploy_red == 'true' || needs.resolve-matrix.result == 'failure')
     runs-on: ubuntu-latest
     timeout-minutes: 2
     permissions:

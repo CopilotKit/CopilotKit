@@ -108,6 +108,22 @@ export function run(opts: RunOptions): void {
     .filter((d) => d.isDirectory() && d.name.startsWith("build-result-"))
     .map((d) => d.name);
 
+  // The aggregator job is gated upstream on `has_changes == 'true'`, so the
+  // build matrix is guaranteed non-empty by the time we run. A zero-slot
+  // input dir therefore signals a BROKEN per-slot artifact download (e.g.
+  // expired artifacts, wrong run-id, transient download error) — NOT a
+  // legitimate empty build set. Silently emitting `any_success=false` with
+  // `results=[]` would be indistinguishable from "all builds failed" and
+  // would push deploy down the false-green path where it probes the full
+  // service set against stale `:latest`. Fail loud instead.
+  if (slotDirs.length === 0) {
+    throw new Error(
+      `aggregate-build-results: found 0 build-result-* slot dirs in ${inputDir} — ` +
+        `the per-slot artifact download produced nothing; this indicates a broken ` +
+        `download, not an empty build set (the job only runs when >=1 service was scheduled).`,
+    );
+  }
+
   const payloads = slotDirs.map((name) => readSlotPayload(inputDir, name));
 
   const merged = mergeBuildResultFiles(payloads);

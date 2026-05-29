@@ -57,8 +57,9 @@ on:
 # whole point of the decoupling: rapid pushes to main no longer cancel
 # in-flight builds.
 
-# Top-level env intentionally empty: env IDs are sourced from the
-# showcase/scripts/railway-envs.ts SSOT by the redeploy-staging job.
+# Top-level env intentionally empty: env IDs are resolved inside
+# showcase/scripts/redeploy-env.ts from the showcase/scripts/railway-envs.ts
+# SSOT (and its emitted railway-envs.generated.json), not by this workflow.
 
 permissions:
   contents: read
@@ -175,12 +176,15 @@ jobs:
           FILTER_CHANGES: ${{ steps.filter.outputs.changes }}
         run: |
           # Full service config as JSON
-          # Fields: dispatch_name, filter_key, context, image, railway_id, timeout, lfs, build_args, build_args_sha, build_args_branch, dockerfile, health_path
-          # health_path: explicit endpoint the verify step probes. Required
-          # for every service — no fallback. An unscoped fallback could mask
-          # a broken endpoint when an unrelated catch-all/CDN/actuator happens
-          # to 200 at the other path. Misconfigured paths are a config bug to
-          # fix in the matrix, not runtime behavior to hide.
+          # Fields: dispatch_name, filter_key, context, image, railway_id, timeout, lfs, build_args, build_args_sha, build_args_branch, dockerfile, health_path, skip_build
+          # skip_build (optional, boolean): when true, the Docker build step
+          # is skipped for this slot (image is built out-of-band by another
+          # workflow/repo). Currently used by `webhooks` (built by the
+          # showcase-eval-webhook repo's own release workflow).
+          # health_path: historical field retained in the matrix for human
+          # reference. The actual verify probe is driven by per-service
+          # drivers in verify-deploy.ts (showcase/scripts/verify-deploy.ts),
+          # NOT by this field — it is informational only at this layer.
           ALL_SERVICES='[
             {"dispatch_name":"shell","filter_key":"shell","context":".","image":"showcase-shell","railway_id":"40eea0da-6071-4ea8-bdb9-39afb19225ec","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell/Dockerfile","health_path":"/"},
             {"dispatch_name":"langgraph-python","filter_key":"langgraph_python","context":"showcase/integrations/langgraph-python","image":"showcase-langgraph-python","railway_id":"90d03214-4569-41b0-b4c1-6438a8a7b203","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
@@ -330,6 +334,12 @@ jobs:
           BUILD_ARGS_SHA: ${{ matrix.service.build_args_sha }}
           BUILD_ARGS_BRANCH: ${{ matrix.service.build_args_branch }}
         run: |
+          # set -euo pipefail: without `-e`, a transient `$GITHUB_OUTPUT`
+          # write failure (disk pressure, ENOSPC) could silently produce
+          # empty build-args and we'd ship an image without COMMIT_SHA /
+          # BRANCH baked in — invisible drift between build label and
+          # what's actually running.
+          set -euo pipefail
           ARGS=""
           if [ -n "$BUILD_ARGS_SHA" ]; then
             ARGS="COMMIT_SHA=${BUILD_ARGS_SHA}"
@@ -522,20 +532,33 @@ jobs:
         id: changed
         env:
           MATRIX_JSON: ${{ needs.detect-changes.outputs.matrix }}
+          BUILD_RESULTS_JSON: ${{ needs.aggregate-build-results.outputs.results }}
         run: |
-          # detect-changes.outputs.matrix is a JSON array of objects, each with
-          # a dispatch_name field. We extract just those names into a CSV the
-          # redeploy-env.ts --services flag understands. resolveTargetServices()
-          # in the script accepts either SSOT keys OR dispatch_names.
+          # We feed the redeploy script with the INTERSECTION of:
+          #   (a) the scheduled build matrix (detect-changes.outputs.matrix —
+          #       JSON array of objects with `dispatch_name`), and
+          #   (b) the SUCCESS set from the aggregator
+          #       (aggregate-build-results.outputs.results — JSON array of
+          #       `{service: <dispatch_name>, status: success|failure|skipped}`;
+          #       the `service` field is the dispatch_name; shape defined in
+          #       showcase/scripts/lib/build-outputs.ts).
+          # Without this intersection a service whose Docker build FAILED
+          # would still be in the redeploy CSV, Railway would re-pull its
+          # stale `:latest`, and the verify workflow would report it as a
+          # fresh, healthy deploy — a false green. Skipped slots are also
+          # excluded (only `status == "success"` qualifies).
           set -euo pipefail
-          csv="$(echo "$MATRIX_JSON" | jq -r '[.[] | .dispatch_name] | join(",")')"
+          matrix_names="$(echo "$MATRIX_JSON" | jq -r '[.[] | .dispatch_name]')"
+          success_names="$(echo "$BUILD_RESULTS_JSON" | jq -r '[.[] | select(.status == "success") | .service]')"
+          csv="$(jq -rn --argjson m "$matrix_names" --argjson s "$success_names" \
+            '($m | map(select(. as $n | $s | index($n)))) | join(",")')"
           if [ -z "$csv" ]; then
-            echo "No services in matrix — skipping redeploy."
+            echo "No services in matrix ∩ success-set — skipping redeploy."
             echo "services=" >> "$GITHUB_OUTPUT"
           else
             echo "services=$csv" >> "$GITHUB_OUTPUT"
           fi
-          echo "Computed services CSV: $csv"
+          echo "Computed services CSV (matrix ∩ build-success): $csv"
       - name: Redeploy changed services in staging
         if: steps.changed.outputs.services != ''
         env:
@@ -576,7 +599,13 @@ jobs:
     if: >-
       ${{ !cancelled()
           && needs.detect-changes.outputs.has_changes == 'true'
+          && needs.build.result == 'failure'
           && needs.aggregate-build-results.outputs.any_success == 'false' }}
+    # The `needs.build.result == 'failure'` clause guards against the case
+    # where the build job itself was SKIPPED (e.g. verify-image-refs failed
+    # upstream, so the matrix never executed). Without it, the aggregator
+    # would still report `any_success=false` and we'd Slack-spam "all
+    # builds failed" even though builds never ran — a misleading alert.
     runs-on: ubuntu-latest
     timeout-minutes: 3
     permissions:
@@ -599,7 +628,14 @@ jobs:
 
   notify:
     name: Notify on failure
-    needs: [build]
+    # Cover the whole build→aggregate→redeploy pipeline. `needs: [build]`
+    # alone meant a failure in aggregate-build-results or redeploy-staging
+    # produced ZERO Slack signal (verify just never ran). `if: failure()`
+    # already skips when none of the needs failed — so this still no-ops
+    # for the "no changes → build skipped" path, since skipped != failure.
+    # If `notify-all-builds-failed` also fires (genuine all-failed case),
+    # both alerts firing for the same event is acceptable per the alert SOP.
+    needs: [build, aggregate-build-results, redeploy-staging]
     if: failure()
     runs-on: ubuntu-latest
     permissions:
