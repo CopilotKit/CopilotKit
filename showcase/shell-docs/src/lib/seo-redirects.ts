@@ -157,17 +157,29 @@ function generateFrameworkRenames(): RedirectEntry[] {
   const entries: RedirectEntry[] = [];
   for (const fw of FRAMEWORKS) {
     const fwDest = canonicalSlug(fw);
-    // S13: concepts/* collapses to framework root
-    entries.push({
-      id: `S13w×${fw}`,
-      source: `/${fw}/concepts/:path*`,
-      destination: `/${fwDest}`,
-    });
-    entries.push({
-      id: `S13e×${fw}`,
-      source: `/${fw}/concepts`,
-      destination: `/${fwDest}`,
-    });
+    // S13: concepts/* collapses to framework root.
+    //
+    // Originally added to retire legacy `/langgraph/concepts/*` URLs
+    // (LangGraph had authored concept pages pre-cutover that the
+    // shell-docs IA removed). Only emit this when the framework slug
+    // actually renamed (legacy ≠ canonical) — for canonical-slug
+    // frameworks (`mastra`, `ag2`, `agno`, etc.) the legacy docs never
+    // had `/<fw>/concepts/*` pages, AND shell-docs now serves the
+    // agnostic `/concepts/*` content under every framework's scope
+    // (e.g. `/mastra/concepts/architecture`). Leaving the unconditional
+    // rule in place would 301 those valid agnostic-content URLs away.
+    if (fw !== fwDest) {
+      entries.push({
+        id: `S13w×${fw}`,
+        source: `/${fw}/concepts/:path*`,
+        destination: `/${fwDest}`,
+      });
+      entries.push({
+        id: `S13e×${fw}`,
+        source: `/${fw}/concepts`,
+        destination: `/${fwDest}`,
+      });
+    }
 
     for (const rename of SUBPATH_RENAMES) {
       entries.push({
