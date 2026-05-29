@@ -650,9 +650,7 @@ class TestAgentMetadata:
         )
         sdk = CopilotKitRemoteEndpoint(agents=[agent], actions=[])
 
-        info = sdk.info(
-            context={"properties": {}, "frontend_url": None, "headers": {}}
-        )
+        info = sdk.info(context={"properties": {}, "frontend_url": None, "headers": {}})
 
         assert info["agents"] == [
             {
