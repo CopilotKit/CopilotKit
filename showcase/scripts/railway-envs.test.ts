@@ -275,13 +275,24 @@ describe("webhooks SSOT entry", () => {
     expect(yml).toMatch(/"dispatch_name":"webhooks"/);
   });
 
-  it("is mirrored in showcase_deploy.yml verify dispatch choices and ALL_SERVICES", () => {
+  it("is wired into showcase_deploy.yml's verify matrix via the SSOT", () => {
+    // showcase_deploy.yml is SSOT-driven (A.7): the verify matrix is
+    // derived from railway-envs.generated.json by selecting services
+    // with `probe.staging === true`, and the workflow_dispatch input is
+    // a free-form string resolved against the SSOT (key or dispatchName).
+    // For webhooks to be probe-eligible AND human-dispatchable, the SSOT
+    // entry MUST carry probe.staging:true and a dispatchName of "webhooks".
+    expect(SERVICES.webhooks.probe.staging).toBe(true);
+    expect(SERVICES.webhooks.dispatchName).toBe("webhooks");
+    // Pin the workflow's SSOT-driven contract so a future regression
+    // back to a hardcoded matrix is caught: deploy.yml must consume the
+    // generated SSOT JSON and select on probe.staging.
     const yml = readFileSync(
       resolve(__dirname, "../../.github/workflows/showcase_deploy.yml"),
       "utf-8",
     );
-    expect(yml).toMatch(/^\s*- webhooks\s*$/m);
-    expect(yml).toMatch(/"dispatch_name":"webhooks"/);
+    expect(yml).toMatch(/railway-envs\.generated\.json/);
+    expect(yml).toMatch(/probe\.staging\s*==\s*true/);
   });
 });
 
