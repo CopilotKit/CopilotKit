@@ -3,6 +3,7 @@ import {
   buildResultArtifactName,
   mergeBuildResultFiles,
   parseBuildOutputs,
+  shouldRedeployStaging,
   successSet,
 } from "../build-outputs";
 import type { BuildOutcome, ServiceBuildResult } from "../build-outputs";
@@ -93,5 +94,29 @@ describe("mergeBuildResultFiles", () => {
 
   it("returns an empty array when no slot payloads are provided", () => {
     expect(mergeBuildResultFiles([])).toEqual([]);
+  });
+});
+
+describe("shouldRedeployStaging", () => {
+  it("returns true when at least one service succeeded", () => {
+    expect(
+      shouldRedeployStaging([
+        { service: "a", status: "success" },
+        { service: "b", status: "failure" },
+      ]),
+    ).toBe(true);
+  });
+
+  it("returns false when every service failed or was skipped", () => {
+    expect(
+      shouldRedeployStaging([
+        { service: "a", status: "failure" },
+        { service: "b", status: "skipped" },
+      ]),
+    ).toBe(false);
+  });
+
+  it("returns false on empty input", () => {
+    expect(shouldRedeployStaging([])).toBe(false);
   });
 });

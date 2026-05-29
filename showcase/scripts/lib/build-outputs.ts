@@ -136,3 +136,13 @@ export function mergeBuildResultFiles(
     };
   });
 }
+
+/**
+ * Returns true iff at least one service in the build set finished as
+ * `success`. The redeploy-staging job and the verify probe both gate on
+ * this — when no service succeeded, redeploy MUST be skipped so we do
+ * not re-pull the stale :latest and silently look healthy.
+ */
+export function shouldRedeployStaging(results: ServiceBuildResult[]): boolean {
+  return results.some((r) => r.status === "success");
+}
