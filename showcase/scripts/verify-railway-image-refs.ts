@@ -1,68 +1,227 @@
 #!/usr/bin/env npx tsx
 /**
- * verify-railway-image-refs.ts — Drift assertion for Railway showcase image refs.
+ * verify-railway-image-refs.ts — Per-env drift assertion for Railway
+ * showcase image refs.
  *
- * Fetches every service in the CopilotKit Showcase project and validates that
- * the configured Docker image reference matches the canonical GHCR form:
- *   ghcr.io/copilotkit/<service-name>:latest
+ * Fetches every service in the CopilotKit Showcase Railway project and
+ * validates the image reference configured on each env-scoped service
+ * instance against the canonical shape for that env:
+ *
+ *   STAGING : ghcr.io/copilotkit/<repo>:latest              (mutable tag)
+ *   PROD    : ghcr.io/copilotkit/<repo>@sha256:<digest>     (immutable pin)
+ *
+ * <repo> defaults to the Railway service name; per-env overrides live
+ * in railway-envs.ts via `repoNameOverride` (currently: SSOT key
+ * `aimock` overrides BOTH prod and staging to repo `showcase-aimock`
+ * — the fixture-baking wrapper is the permanent, canonical aimock
+ * image; prod must be `@sha256`-pinned, staging is `:latest`. Plus
+ * pocketbase and webhooks, which override BOTH envs to
+ * `showcase-pocketbase` and `showcase-eval-webhook` respectively).
  *
  * Backstory: on 2026-04-21, 18 production services were found with malformed
- * image refs of the form `ghcr.io/copilotkit/showcase-<slug>atest` (missing
- * the `:` before `latest`, so Docker treats `...atest` as the tag). The root
- * cause was an out-of-band MCP/manual mutation — no committed code touched
- * these refs. This script exists so any future corruption, regardless of
- * source, fails loudly and early in CI before a bad deploy goes out.
+ * image refs `ghcr.io/copilotkit/showcase-<slug>atest` (missing the `:`
+ * before `latest`, so Docker treats `...atest` as the tag). The root cause
+ * was an out-of-band MCP/manual mutation — no committed code touched them.
+ * This script exists so any future corruption fails loudly and early in CI
+ * before a bad deploy goes out.
  *
  * Usage:
  *   npx tsx showcase/scripts/verify-railway-image-refs.ts
  *
  * Requires: RAILWAY_TOKEN env var or ~/.railway/config.json
- * Exit: 0 when every service matches the canonical shape, 1 on any violation.
+ * Exit: 0 when every env-scoped instance matches; 1 on any violation.
  */
 
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import {
+  PRODUCTION_ENV_ID,
+  PROJECT_ID,
+  SERVICES,
+  STAGING_ENV_ID,
+  repoNameFor,
+} from "./railway-envs";
+import type { EnvName } from "./railway-envs";
 
 const RAILWAY_API = "https://backboard.railway.com/graphql/v2";
 
-const SHOWCASE = {
-  projectId: "6f8c6bff-a80d-4f8f-b78d-50b32bcf4479",
-  environmentId: "b14919f4-6417-429f-848d-c6ae2201e04f",
-};
+// Canonical shapes per env.
+//   Staging :latest pattern — exact-match against `<repo>:latest`.
+//   Prod    @sha256:<hex>  — exact-match against `<repo>@sha256:<64 hex>`.
+const STAGING_SHAPE = /^ghcr\.io\/copilotkit\/[a-z0-9-]+:latest$/;
+const PROD_SHAPE = /^ghcr\.io\/copilotkit\/[a-z0-9-]+@sha256:[0-9a-f]{64}$/;
 
-// Canonical shape: ghcr.io/copilotkit/<name>:latest where <name> is the
-// service name itself. This single pattern covers showcase-<slug>,
-// showcase-pocketbase, showcase-harness, and any future showcase-* service.
-// Enforcing identity between Railway service
-// name and image name (modulo the ghcr.io/copilotkit/ prefix and :latest
-// tag) is the invariant — if these ever drift apart we want to know.
-//
-// The regex accepts both `showcase-*` and bare `<name>` images to
-// accommodate services like aimock whose wrapper was eliminated — the
-// Railway service is still named `showcase-aimock` but the image is now
-// `ghcr.io/copilotkit/aimock:latest`.
-const IMAGE_SHAPE = /^ghcr\.io\/copilotkit\/[a-z0-9-]+:latest$/;
+export interface ValidateOpts {
+  env: EnvName;
+  /** Expected GHCR repo name. Caller resolves this from SERVICES + env. */
+  repoName: string;
+}
 
-// Services whose GHCR image name intentionally differs from the Railway
-// service name. After the aimock wrapper elimination (PR #128), Railway
-// pulls `ghcr.io/copilotkit/aimock:latest` directly instead of the old
-// `showcase-aimock` wrapper image. The verify job must accept this
-// divergence rather than requiring image === service name.
-const IMAGE_OVERRIDES: Record<string, string> = {
-  "showcase-aimock": "ghcr.io/copilotkit/aimock:latest",
-};
+export interface Violation {
+  service: string;
+  env: EnvName;
+  image: string | null;
+  reason: string;
+}
+
+/**
+ * Pure, unit-testable validator. Caller is responsible for resolving
+ * the expected repo name from the SERVICES map (handling per-env
+ * overrides) and passing it in here.
+ *
+ * Returns null when valid, or a Violation describing the failure.
+ * The `service` field is left blank ("") so the main loop can fill it in;
+ * tests can ignore it.
+ */
+export function validateImage(
+  image: string | null,
+  opts: ValidateOpts,
+): Violation | null {
+  const { env, repoName } = opts;
+  // Normalize empty-string to null so the reporter renders `<unset>`
+  // rather than a blank line on a missing image.
+  const normalizedImage = image === "" ? null : image;
+  if (!normalizedImage) {
+    return {
+      service: "",
+      env,
+      image: null,
+      reason:
+        "no image source configured (expected a Docker image, not a repo)",
+    };
+  }
+
+  if (env === "staging") {
+    if (!STAGING_SHAPE.test(normalizedImage)) {
+      if (!normalizedImage.startsWith("ghcr.io/copilotkit/")) {
+        return {
+          service: "",
+          env,
+          image: normalizedImage,
+          reason: `image is not on ghcr.io/copilotkit (got: ${normalizedImage}); staging expects ghcr.io/copilotkit/<repo>:latest`,
+        };
+      }
+      if (/@sha256:/.test(normalizedImage)) {
+        return {
+          service: "",
+          env,
+          image: normalizedImage,
+          reason:
+            "staging must float on :latest, found a @sha256: digest pin. Promote-back-from-prod bug?",
+        };
+      }
+      return {
+        service: "",
+        env,
+        image: normalizedImage,
+        reason:
+          "image is on ghcr.io/copilotkit but is not the `:latest` shape (staging requires the mutable :latest tag)",
+      };
+    }
+    const expected = `ghcr.io/copilotkit/${repoName}:latest`;
+    if (normalizedImage !== expected) {
+      return {
+        service: "",
+        env,
+        image: normalizedImage,
+        reason: `image repo name mismatches expected (expected exactly ${expected})`,
+      };
+    }
+    return null;
+  }
+
+  // env === "prod"
+  if (!PROD_SHAPE.test(normalizedImage)) {
+    if (!normalizedImage.startsWith("ghcr.io/copilotkit/")) {
+      return {
+        service: "",
+        env,
+        image: normalizedImage,
+        reason:
+          "does not match canonical shape ^ghcr\\.io/copilotkit/[a-z0-9-]+@sha256:[0-9a-f]{64}$",
+      };
+    }
+    if (normalizedImage.endsWith(":latest")) {
+      return {
+        service: "",
+        env,
+        image: normalizedImage,
+        reason:
+          "prod must be pinned to `@sha256:<digest>` (got `:latest`). Run `bin/railway promote` to pin from staging.",
+      };
+    }
+    return {
+      service: "",
+      env,
+      image: normalizedImage,
+      reason:
+        "does not match canonical prod shape ^ghcr\\.io/copilotkit/[a-z0-9-]+@sha256:[0-9a-f]{64}$",
+    };
+  }
+  // Validate the repo portion (everything before `@sha256:`) matches.
+  const repoPart = normalizedImage.split("@", 1)[0]; // "ghcr.io/copilotkit/<repo>"
+  const expectedRepo = `ghcr.io/copilotkit/${repoName}`;
+  if (repoPart !== expectedRepo) {
+    return {
+      service: "",
+      env,
+      image: normalizedImage,
+      reason: `image repo name mismatches expected (expected exactly ${expectedRepo}@sha256:<digest>)`,
+    };
+  }
+  return null;
+}
+
+/**
+ * Coverage assertion — returns the names of SSOT services with
+ * `gateValidated: true` that are NOT present in the Railway response
+ * for the given env. A non-empty result means the gate should fail
+ * (drift in the SSOT-vs-Railway direction: a service was deleted or
+ * renamed on Railway without updating the SSOT).
+ *
+ * Pure / unit-testable. Caller (main()) is responsible for collecting
+ * the set of seen SSOT-known service names from the Railway response.
+ *
+ * Note: `env` is accepted for symmetry and future per-env scoping,
+ * but currently the gateValidated flag is env-independent so the
+ * result does not depend on it. Result is sorted for stable output.
+ */
+export function findMissingServices(
+  _env: EnvName,
+  presentServiceNames: Set<string>,
+): string[] {
+  const missing: string[] = [];
+  for (const [name, entry] of Object.entries(SERVICES)) {
+    if (!entry.gateValidated) continue;
+    if (!presentServiceNames.has(name)) missing.push(name);
+  }
+  return missing.sort();
+}
+
+// ── Railway GraphQL plumbing ────────────────────────────────────────────
 
 function getToken(): string {
   if (process.env.RAILWAY_TOKEN) return process.env.RAILWAY_TOKEN;
-  const configPath = path.join(
-    process.env.HOME || "~",
-    ".railway",
-    "config.json",
-  );
+  const home = process.env.HOME;
+  if (!home) {
+    console.error(
+      "No Railway token found. RAILWAY_TOKEN is unset and $HOME is unset so ~/.railway/config.json cannot be located.",
+    );
+    process.exit(1);
+  }
+  const configPath = path.join(home, ".railway", "config.json");
   if (fs.existsSync(configPath)) {
-    const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-    if (config?.user?.token) return config.user.token;
+    let config: unknown;
+    try {
+      config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`Malformed ~/.railway/config.json: ${msg}`);
+      process.exit(1);
+    }
+    const token = (config as { user?: { token?: string } } | null)?.user?.token;
+    if (typeof token === "string" && token.length > 0) return token;
   }
   console.error(
     "No Railway token found. Set RAILWAY_TOKEN or run `railway login`.",
@@ -119,43 +278,6 @@ interface ProjectServicesWithInstances {
   };
 }
 
-interface Violation {
-  service: string;
-  image: string | null;
-  reason: string;
-}
-
-export function validateImage(
-  serviceName: string,
-  image: string | null,
-): Violation | null {
-  if (!image) {
-    return {
-      service: serviceName,
-      image,
-      reason:
-        "no image source configured (expected a Docker image, not a repo)",
-    };
-  }
-  if (!IMAGE_SHAPE.test(image)) {
-    return {
-      service: serviceName,
-      image,
-      reason: `does not match canonical shape ^ghcr\\.io/copilotkit/[a-z0-9-]+:latest$`,
-    };
-  }
-  const expected =
-    IMAGE_OVERRIDES[serviceName] ?? `ghcr.io/copilotkit/${serviceName}:latest`;
-  if (image !== expected) {
-    return {
-      service: serviceName,
-      image,
-      reason: `image name mismatches service name (expected exactly ${expected})`,
-    };
-  }
-  return null;
-}
-
 async function main(): Promise<void> {
   const data = await railwayGql<ProjectServicesWithInstances>(
     `query project($id: String!) {
@@ -171,47 +293,105 @@ async function main(): Promise<void> {
         }
       }
     }`,
-    { id: SHOWCASE.projectId },
+    { id: PROJECT_ID },
   );
-
-  const services = data.project.services.edges
-    .map((e) => e.node)
-    .filter((s) => s.name.startsWith("showcase-"));
 
   const violations: Violation[] = [];
   let checked = 0;
-  for (const svc of services) {
-    const instance = svc.serviceInstances.edges.find(
-      (e) => e.node.environmentId === SHOWCASE.environmentId,
-    );
-    const image = instance?.node.source?.image ?? null;
-    checked++;
-    const v = validateImage(svc.name, image);
-    if (v) violations.push(v);
+  let skipped = 0;
+  // Per-env set of SSOT-known, gateValidated service names we actually
+  // saw in the Railway response. Used post-loop for coverage assertion.
+  const seenByEnv: Record<EnvName, Set<string>> = {
+    prod: new Set<string>(),
+    staging: new Set<string>(),
+  };
+
+  for (const edge of data.project.services.edges) {
+    const svc = edge.node;
+    const entry = SERVICES[svc.name];
+
+    // Unknown-service policy (WS4): log a warning and keep the gate
+    // green. Rationale: a NEW Railway service that we haven't added to
+    // the SSOT yet is operator drift, not image-ref corruption — the
+    // image-ref gate is the wrong place to fail. (A separate "SSOT
+    // parity" check is the right shape if we ever want to fail on
+    // drift in that direction; that's out of WS4 scope.)
+    if (!entry) {
+      console.warn(
+        `⚠ Skipping unknown Railway service "${svc.name}" — add it to railway-envs.ts SERVICES if it should be verified.`,
+      );
+      continue;
+    }
+
+    // Per-WS4 gate scope: only services explicitly marked
+    // gateValidated. The historic gate filtered to `showcase-*`-prefix
+    // services; WS4 inherits that scope plus aimock + pocketbase +
+    // webhooks (set on the SSOT entry). dashboard/docs/dojo/harness/
+    // shell are deferred to Phase 2.
+    if (!entry.gateValidated) {
+      skipped++;
+      continue;
+    }
+
+    for (const env of ["prod", "staging"] as const) {
+      const envId = env === "prod" ? PRODUCTION_ENV_ID : STAGING_ENV_ID;
+      const instance = svc.serviceInstances.edges.find(
+        (e) => e.node.environmentId === envId,
+      );
+      // A gateValidated SSOT service with no serviceInstance for this
+      // env is genuine drift; don't count it as "seen" so the coverage
+      // assertion catches it.
+      if (!instance) continue;
+      seenByEnv[env].add(svc.name);
+
+      const image = instance.node.source?.image ?? null;
+
+      checked++;
+      const repoName = repoNameFor(svc.name, env);
+      const v = validateImage(image, { env, repoName });
+      if (v) {
+        violations.push({ ...v, service: svc.name });
+      }
+    }
   }
 
-  if (violations.length > 0) {
+  // Coverage assertion: a gateValidated SSOT service that did not
+  // show up in the Railway response (deleted/renamed/missing instance
+  // in that env) is drift. Fail loudly through the same path as a
+  // shape violation.
+  const missingByEnv: Record<EnvName, string[]> = {
+    prod: findMissingServices("prod", seenByEnv.prod),
+    staging: findMissingServices("staging", seenByEnv.staging),
+  };
+  const totalMissing = missingByEnv.prod.length + missingByEnv.staging.length;
+
+  if (violations.length > 0 || totalMissing > 0) {
     console.error(
-      `\n✗ Railway image-ref drift detected (${violations.length}/${checked} services)\n`,
-    );
-    console.error(
-      `Expected shape: ghcr.io/copilotkit/<service-name>:latest` +
-        ` (note the ':' before 'latest')\n`,
+      `\n✗ Railway image-ref drift detected (${violations.length} violations across ${checked} env-scoped instances; ${totalMissing} missing services; ${skipped} skipped)\n`,
     );
     for (const v of violations) {
-      console.error(`  ${v.service}`);
+      console.error(`  ✗ [${v.env}] ${v.service}`);
       console.error(`    current:  ${v.image ?? "<unset>"}`);
-      console.error(`    expected: ghcr.io/copilotkit/${v.service}:latest`);
       console.error(`    reason:   ${v.reason}`);
     }
+    for (const env of ["prod", "staging"] as const) {
+      for (const name of missingByEnv[env]) {
+        console.error(`  ✗ [${env}] ${name}`);
+        console.error(`    current:  <missing from Railway>`);
+        console.error(
+          `    reason:   gateValidated SSOT service has no serviceInstance in ${env} — was it deleted or renamed?`,
+        );
+      }
+    }
     console.error(
-      `\nFix via Railway dashboard or the showcase deploy-to-railway script.` +
-        ` A common past cause was ':' dropped from ':latest' by an out-of-band API mutation.\n`,
+      `\nFix via Railway dashboard, \`bin/railway pin\`, \`bin/railway promote\`, or \`showcase/scripts/redeploy-env.ts\`.\n`,
     );
     process.exit(1);
   }
 
-  console.log(`✓ ${checked} services verified`);
+  console.log(
+    `✓ ${checked} env-scoped instances verified (${skipped} skipped)`,
+  );
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
