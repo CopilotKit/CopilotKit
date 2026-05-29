@@ -304,6 +304,74 @@ def test_expose_state_emits_valid_json_payload():
     assert parsed == {"liked": ["a", "b"], "count": 3, "nested": {"k": "v"}}
 
 
+def test_expose_state_true_never_surfaces_forwarded_headers():
+    """``copilotkit_forwarded_headers`` is a transport-layer plumbing key — it
+    must NEVER reach the LLM prompt via the ``expose_state`` path either, even
+    when ``expose_state=True`` would otherwise serialize every non-reserved
+    top-level state key.
+    """
+    middleware = CopilotKitMiddleware(expose_state=True)
+    request = _make_request(
+        state={
+            "messages": [],
+            "liked": ["a"],
+            "copilotkit_forwarded_headers": {
+                "x-aimock-context": "showcase/d6",
+                "x-aimock-strict": "true",
+            },
+        }
+    )
+
+    seen, _ = _run_wrap(middleware, request)
+
+    body = seen.system_message.content if seen.system_message else ""
+    # The genuine user key is still surfaced.
+    assert '"liked"' in body
+    # The transport-layer wrapper and its header values are not.
+    assert "copilotkit_forwarded_headers" not in body, (
+        "copilotkit_forwarded_headers must never appear in expose_state output"
+    )
+    assert "x-aimock-context" not in body, (
+        "forwarded header values must never appear in expose_state output"
+    )
+    assert "x-aimock-strict" not in body
+    assert "showcase/d6" not in body
+
+
+def test_expose_state_allowlist_never_surfaces_forwarded_headers():
+    """``copilotkit_forwarded_headers`` must NEVER reach the LLM prompt via the
+    ``expose_state`` path — including the explicit allowlist form. The sibling
+    ``test_expose_state_allowlist_can_override_reserved_keys`` pins that users
+    CAN allowlist other reserved keys (e.g. ``thread_id``) on purpose; this key
+    is the one exception, because it is a transport-layer wrapper for forwarded
+    request headers and rendering it would leak the raw headers into the prompt.
+    """
+    middleware = CopilotKitMiddleware(
+        expose_state=frozenset({"copilotkit_forwarded_headers"})
+    )
+    request = _make_request(
+        state={
+            "messages": [],
+            "copilotkit_forwarded_headers": {
+                "x-aimock-context": "showcase/d6",
+                "x-aimock-strict": "true",
+            },
+        }
+    )
+
+    seen, _ = _run_wrap(middleware, request)
+
+    body = seen.system_message.content if seen.system_message else ""
+    assert "copilotkit_forwarded_headers" not in body, (
+        "copilotkit_forwarded_headers must never appear in allowlist output"
+    )
+    assert "x-aimock-context" not in body, (
+        "forwarded header values must never appear in allowlist output"
+    )
+    assert "x-aimock-strict" not in body
+    assert "showcase/d6" not in body
+
+
 # ---------------------------------------------------------------------------
 # Async wrapper parity
 # ---------------------------------------------------------------------------
@@ -408,6 +476,80 @@ def test_before_agent_uses_runtime_context_when_state_context_empty():
     assert result is not None
     sys_contents = _system_contents(result["messages"])
     assert any("/dashboard" in s for s in sys_contents)
+
+
+def test_before_agent_strips_copilotkit_forwarded_headers_from_runtime_context():
+    """``copilotkit_forwarded_headers`` is a transport-layer plumbing key that
+    langgraph-api auto-copies from ``configurable`` into ``context``. It must
+    never be rendered into the LLM prompt as App Context — the forwarded-headers
+    httpx conveyance path reads it from a separate ContextVar.
+
+    When that key is the ONLY thing in ``runtime.context``, ``before_agent``
+    must treat it as empty App Context and not inject an "App Context:" system
+    message at all.
+    """
+    middleware = CopilotKitMiddleware()
+    state = {"messages": [HumanMessage("hi")], "copilotkit": {}}
+    runtime = MagicMock(
+        name="runtime",
+        context={
+            "copilotkit_forwarded_headers": {
+                "x-aimock-context": "showcase/d6",
+                "x-aimock-strict": "true",
+            }
+        },
+    )
+
+    result = middleware.before_agent(state, runtime)
+
+    # Contract: when ``runtime.context`` contains ONLY
+    # ``copilotkit_forwarded_headers``, the strip leaves an empty App Context,
+    # so ``before_agent`` MUST short-circuit and return None (no App Context
+    # system message). A non-None result here means the strip regressed and
+    # the transport-layer wrapper is being injected into the prompt.
+    #
+    # NOTE: an earlier version of this test guarded the leak assertions with
+    # ``if result is not None``, which silently passed if the strip stopped
+    # short-circuiting — exactly the regression we need to catch. Assert
+    # explicitly instead.
+    assert result is None, (
+        "expected short-circuit (no App Context message) when only "
+        "copilotkit_forwarded_headers is present in runtime.context"
+    )
+
+
+def test_before_agent_strips_forwarded_headers_but_keeps_real_app_context():
+    """When ``runtime.context`` contains both a genuine app key AND the
+    transport-only ``copilotkit_forwarded_headers`` wrapper, the App Context
+    system message must still be injected with the real key, but the forwarded
+    headers must be filtered out.
+    """
+    middleware = CopilotKitMiddleware()
+    state = {"messages": [HumanMessage("hi")], "copilotkit": {}}
+    runtime = MagicMock(
+        name="runtime",
+        context={
+            "user_tier": "pro",
+            "copilotkit_forwarded_headers": {
+                "x-aimock-context": "showcase/d6",
+            },
+        },
+    )
+
+    result = middleware.before_agent(state, runtime)
+
+    assert result is not None
+    sys_contents = _system_contents(result["messages"])
+    # The genuine app context is still surfaced.
+    assert any("App Context:" in s for s in sys_contents)
+    assert any("user_tier" in s and "pro" in s for s in sys_contents)
+    # The transport-layer wrapper is stripped from the rendered prompt.
+    assert not any("copilotkit_forwarded_headers" in s for s in sys_contents), (
+        "copilotkit_forwarded_headers must be filtered out of the App Context message"
+    )
+    assert not any("x-aimock-context" in s for s in sys_contents), (
+        "forwarded header values must never appear in a system prompt"
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -16,7 +16,6 @@ description: >-
 partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/spring-ai
 copilotkit_version: 2.0.0
-backend_url: https://showcase-spring-ai-production.up.railway.app
 deployed: true
 docs_mode: hidden
 sort_order: 170
@@ -28,6 +27,7 @@ interaction_modalities:
   - embedded
   - chat
 not_supported_features:
+  - shared-state-read-write
   - shared-state-streaming
 features:
   - cli-start
@@ -53,7 +53,6 @@ features:
   - headless-complete
   - beautiful-chat
   - readonly-state-agent-context
-  - shared-state-read-write
   - subagents
   - auth
   - voice

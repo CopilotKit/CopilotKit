@@ -38,9 +38,10 @@ export interface Integration {
    * - `generated` (default): data-driven `FrameworkOverview` + agnostic
    *   root MDX merged with per-framework overrides. Kept for the three
    *   "ready" frameworks (langgraph-{python,typescript}, google-adk).
-   * - `authored`: render only the per-framework MDX tree under
+   * - `authored`: render the per-framework MDX tree under
    *   `content/docs/integrations/<docsFolder>/` with its own sidebar
-   *   (built from that folder's meta.json). No root-MDX fallback.
+   *   (built from that folder's meta.json). Root MDX may still be used
+   *   as a fallback for intentionally shared pages.
    * - `hidden`: exclude from the docs site entirely — no `/<slug>`
    *   route, no switcher entry. Single toggle for "framework has no
    *   v1 docs to port" (or otherwise should not appear in docs yet).
@@ -101,16 +102,44 @@ export interface Registry {
 
 const registry = registryData as Registry;
 
+const DOCS_ONLY_INTEGRATIONS: Integration[] = [
+  {
+    name: "Deep Agents",
+    slug: "deepagents",
+    category: "popular",
+    language: "python",
+    description:
+      "LangChain Deep Agents connected to CopilotKit chat, state, tools, and generative UI.",
+    partner_docs: null,
+    repo: "",
+    copilotkit_version: "",
+    backend_url: "",
+    deployed: true,
+    docs_mode: "generated",
+    sort_order: 13,
+    features: [],
+    demos: [],
+  },
+];
+
+function allIntegrations(): Integration[] {
+  const registeredSlugs = new Set(registry.integrations.map((i) => i.slug));
+  return [
+    ...registry.integrations,
+    ...DOCS_ONLY_INTEGRATIONS.filter((i) => !registeredSlugs.has(i.slug)),
+  ];
+}
+
 export function getRegistry(): Registry {
   return registry;
 }
 
 export function getIntegrations(): Integration[] {
-  return registry.integrations;
+  return allIntegrations();
 }
 
 export function getIntegration(slug: string): Integration | undefined {
-  return registry.integrations.find((i) => i.slug === slug);
+  return allIntegrations().find((i) => i.slug === slug);
 }
 
 /**
@@ -229,7 +258,7 @@ export function getFeatureCategories(): FeatureCategory[] {
 
 export function getIntegrationsByCategory(): Record<string, Integration[]> {
   const grouped: Record<string, Integration[]> = {};
-  for (const integration of registry.integrations) {
+  for (const integration of getIntegrations()) {
     if (!grouped[integration.category]) {
       grouped[integration.category] = [];
     }

@@ -20,7 +20,6 @@ on:
       - "pnpm-workspace.yaml"
       - ".github/workflows/showcase_validate.yml"
       - ".github/workflows/showcase_deploy.yml"
-      - ".github/workflows/showcase_smoke-monitor.yml"
 
 # Least-privilege by default. Individual jobs/steps can widen when needed.
 permissions:

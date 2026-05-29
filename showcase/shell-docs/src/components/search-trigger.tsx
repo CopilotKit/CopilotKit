@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import type { ReactNode } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Command, Search } from "lucide-react";
 import { SearchModal } from "./search-modal";
+
+const TOGGLE_SEARCH_EVENT = "shell-docs:toggle-search";
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!target || !(target instanceof HTMLElement)) return false;
@@ -13,23 +16,14 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return false;
 }
 
-export function SearchTrigger({
-  iconOnly = false,
-}: { iconOnly?: boolean } = {}) {
-  // Start as null so SSR output matches the initial client render; resolve
-  // after mount to avoid hydration mismatch flashing ⌘K → Ctrl+K on non-Mac.
-  const [isMac, setIsMac] = useState<boolean | null>(null);
+export function ShellSearchProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    const mac =
-      typeof navigator !== "undefined" && /mac/i.test(navigator.userAgent);
-    setIsMac(mac);
-  }, []);
+  const closeSearch = useCallback(() => setOpen(false), []);
+  const toggleSearch = useCallback(() => setOpen((prev) => !prev), []);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         // Don't hijack Cmd/Ctrl+K when the user is typing in an unrelated
         // input / textarea / contenteditable — only steal the shortcut when
         // focus is outside an editable element or already inside our own
@@ -40,26 +34,56 @@ export function SearchTrigger({
         if (isEditableTarget(target) && !insideSearchModal) return;
 
         e.preventDefault();
-        setOpen((prev) => !prev);
+        e.stopPropagation();
+        toggleSearch();
       }
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") closeSearch();
     }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+
+    document.addEventListener("keydown", onKeyDown, { capture: true });
+    window.addEventListener(TOGGLE_SEARCH_EVENT, toggleSearch);
+
+    return () => {
+      document.removeEventListener("keydown", onKeyDown, { capture: true });
+      window.removeEventListener(TOGGLE_SEARCH_EVENT, toggleSearch);
+    };
+  }, [closeSearch, toggleSearch]);
+
+  return (
+    <>
+      {children}
+      {open && <SearchModalWrapper onClose={closeSearch} />}
+    </>
+  );
+}
+
+function toggleShellSearch() {
+  window.dispatchEvent(new Event(TOGGLE_SEARCH_EVENT));
+}
+
+export function SearchTrigger({
+  iconOnly = false,
+}: { iconOnly?: boolean } = {}) {
+  // Start as null so SSR output matches the initial client render; resolve
+  // after mount to avoid hydration mismatch flashing ⌘K → Ctrl+K on non-Mac.
+  const [isMac, setIsMac] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const mac =
+      typeof navigator !== "undefined" && /mac/i.test(navigator.userAgent);
+    setIsMac(mac);
   }, []);
 
   if (iconOnly) {
     return (
-      <>
-        <button
-          onClick={() => setOpen((prev) => !prev)}
-          className="flex items-center justify-center w-8 h-8 rounded-md text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-colors cursor-pointer"
-          aria-label="Search"
-        >
-          <Search className="h-4 w-4" aria-hidden="true" />
-        </button>
-        {open && <SearchModalWrapper onClose={() => setOpen(false)} />}
-      </>
+      <button
+        onClick={toggleShellSearch}
+        className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-muted)] shadow-[0_1px_0_rgba(1,5,7,0.03)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
+        aria-label="Search"
+        title="Search"
+      >
+        <Search className="h-4 w-4" aria-hidden="true" />
+      </button>
     );
   }
 
@@ -68,9 +92,9 @@ export function SearchTrigger({
   return (
     <>
       <button
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={toggleShellSearch}
         aria-label="Search"
-        className="lg:min-w-[250px] xl:min-w-[300px] flex gap-2 items-center px-3 h-10 rounded-xl cursor-pointer border border-[var(--border)] bg-[var(--bg-elevated)]/70 text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-surface)] transition-colors shadow-[0_1px_0_rgba(1,5,7,0.03)]"
+        className="flex h-9 w-9 cursor-pointer items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] px-2.5 text-[var(--text-muted)] shadow-[0_1px_0_rgba(1,5,7,0.03)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)] lg:w-[220px] xl:w-[260px]"
       >
         <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
 
@@ -96,7 +120,6 @@ export function SearchTrigger({
           )}
         </span>
       </button>
-      {open && <SearchModalWrapper onClose={() => setOpen(false)} />}
     </>
   );
 }
