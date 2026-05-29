@@ -904,6 +904,74 @@ module Railway
 
     # promote — copy staging digests into production with prechecks.
     class PromoteCommand < BaseCommand
+        class MutationError < StandardError; end
+
+        SERVICE_INSTANCE_RECHECK_QUERY = <<~GQL
+            query ServiceInstanceRecheck($serviceId: String!, $envId: String!) {
+                serviceInstance(serviceId: $serviceId, environmentId: $envId) {
+                    id
+                    source { image }
+                    updatedAt
+                }
+            }
+        GQL
+
+        RETRY_COUNT     = 3
+        RETRY_DELAY_SEC = 10
+
+        # Pin + verify: confirms the boolean mutation result AND re-queries
+        # serviceInstance to confirm BOTH source.image advanced to the new
+        # digest AND updatedAt strictly advanced past the pre-mutation value.
+        # 3 retries 10s apart absorb Railway's eventual consistency.
+        # `sleeper:` is injected for tests.
+        def self.pin_and_verify(gql, service_id:, env_id:, image:, sleeper: ->(n) { sleep(n) })
+            # Capture pre-update serviceInstance.updatedAt so we can gate on a
+            # strict advance after the mutation (spec §7.2 P5). Image-equality
+            # alone is insufficient — a no-op re-pin to the current value would
+            # otherwise appear green. nil pre_ts means "no prior instance" and
+            # is treated as a permanent advance below.
+            pre_data = gql.query(SERVICE_INSTANCE_RECHECK_QUERY,
+                serviceId: service_id, envId: env_id)
+            pre_inst = pre_data && pre_data["serviceInstance"]
+            pre_update_ts = pre_inst && pre_inst["updatedAt"]
+
+            updated = gql.query(RestoreCommand::UPDATE_IMAGE_MUTATION,
+                serviceId: service_id, envId: env_id, image: image)
+            unless updated && updated["serviceInstanceUpdate"] == true
+                raise MutationError,
+                    "P5: serviceInstanceUpdate returned #{updated.inspect} (expected true) for #{service_id} -> #{image}"
+            end
+
+            gql.query(RestoreCommand::REDEPLOY_MUTATION,
+                serviceId: service_id, envId: env_id)
+
+            expected_digest = image.include?("@") ? image.split("@", 2).last : nil
+            last_seen_image = nil
+            last_seen_ts    = nil
+
+            RETRY_COUNT.times do |i|
+                data = gql.query(SERVICE_INSTANCE_RECHECK_QUERY,
+                    serviceId: service_id, envId: env_id)
+                inst = data && data["serviceInstance"]
+                actual_image  = inst && inst.dig("source", "image")
+                actual_ts     = inst && inst["updatedAt"]
+                actual_digest = actual_image && actual_image.include?("@") ? actual_image.split("@", 2).last : nil
+                last_seen_image = actual_image
+                last_seen_ts    = actual_ts
+
+                image_ok = expected_digest && actual_digest == expected_digest
+                ts_ok    = pre_update_ts.nil? || (actual_ts && actual_ts > pre_update_ts)
+                return inst if image_ok && ts_ok
+
+                sleeper.call(RETRY_DELAY_SEC) if i < RETRY_COUNT - 1
+            end
+
+            raise MutationError,
+                "P5: re-query did not observe image advance to #{image} AND updatedAt > #{pre_update_ts.inspect} " \
+                "after #{RETRY_COUNT} retries (last seen image=#{last_seen_image.inspect}, " \
+                "updatedAt=#{last_seen_ts.inspect}). Refusing to declare promote successful."
+        end
+
         def default_options
             super.merge(
                 include_startcommand:  false,
@@ -1099,12 +1167,16 @@ module Railway
                     puts "[dry-run] promote #{svc['name']} -> #{image}"
                     next
                 end
-
-                RestoreCommand.pin_and_redeploy(gql,
-                    service_id: pmatch["service_id"],
-                    env_id: PRODUCTION_ENV_ID,
-                    image: image)
-                puts "promoted #{svc['name']} -> #{image}"
+                begin
+                    PromoteCommand.pin_and_verify(gql,
+                        service_id: pmatch["service_id"],
+                        env_id: PRODUCTION_ENV_ID,
+                        image: image)
+                    puts "promoted #{svc['name']} -> #{image}"
+                rescue PromoteCommand::MutationError => e
+                    warn e.message
+                    return 1
+                end
             end
             0
         end
