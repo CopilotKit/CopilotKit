@@ -136,6 +136,53 @@ describe("resolveRailwayTokenFromConfig", () => {
         expect(warn).not.toHaveBeenCalled();
     });
 
+    it("returns the trimmed token when user.accessToken has surrounding whitespace", () => {
+        const cfg: RailwayConfigShape = {
+            user: { accessToken: "  padded-token-aaaaaaaaaaaaaaaaaaaa  " },
+        };
+        const warn = vi.fn();
+        const result = resolveRailwayTokenFromConfig(cfg, { warn });
+        expect(result).toBe("padded-token-aaaaaaaaaaaaaaaaaaaa");
+        expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("returns the trimmed token when user.accessToken has a trailing newline", () => {
+        const cfg: RailwayConfigShape = {
+            user: { accessToken: "abc-access-token-aaaaaaaaaaaaaaaaaaaa\n" },
+        };
+        const warn = vi.fn();
+        const result = resolveRailwayTokenFromConfig(cfg, { warn });
+        expect(result).toBe("abc-access-token-aaaaaaaaaaaaaaaaaaaa");
+    });
+
+    it("returns the trimmed token when top-level accessToken has surrounding whitespace", () => {
+        const cfg: RailwayConfigShape = {
+            accessToken: "\ttop-padded-aaaaaaaaaaaaaaaaaaaaaaaa\n",
+        };
+        const warn = vi.fn();
+        const result = resolveRailwayTokenFromConfig(cfg, { warn });
+        expect(result).toBe("top-padded-aaaaaaaaaaaaaaaaaaaaaaaa");
+        expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("returns the trimmed token for legacy user.token (with warn)", () => {
+        const cfg: RailwayConfigShape = {
+            user: { token: "  legacy-user-token-aaaaaaaaaa\n" },
+        };
+        const warn = vi.fn();
+        const result = resolveRailwayTokenFromConfig(cfg, { warn });
+        expect(result).toBe("legacy-user-token-aaaaaaaaaa");
+        expect(warn).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns the trimmed token for legacy top-level token (with warn)", () => {
+        const cfg: RailwayConfigShape = { token: "\nlegacy-top-aaaaaaaaa  " };
+        const warn = vi.fn();
+        const result = resolveRailwayTokenFromConfig(cfg, { warn });
+        expect(result).toBe("legacy-top-aaaaaaaaa");
+        expect(warn).toHaveBeenCalledTimes(1);
+    });
+
     it("returns undefined when config is an array", () => {
         const warn = vi.fn();
         const result = resolveRailwayTokenFromConfig(

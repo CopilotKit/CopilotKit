@@ -18,6 +18,12 @@
  *
  * Returns undefined when no usable token is present; callers print the
  * "set RAILWAY_TOKEN or run `railway login`" error.
+ *
+ * This resolver reads ONLY the parsed config object passed in and does
+ * NOT consult `process.env.RAILWAY_TOKEN` — the caller is responsible
+ * for the environment-variable lane. Any returned value is trimmed so
+ * stray whitespace/newlines from `~/.railway/config.json` never reach
+ * an `Authorization: Bearer <token>` header.
  */
 
 export interface RailwayConfigShape {
@@ -58,21 +64,21 @@ export function resolveRailwayTokenFromConfig(
     const warn = deps.warn ?? ((m: string) => console.warn(m));
 
     const userAccess = config.user?.accessToken;
-    if (nonEmpty(userAccess)) return userAccess;
+    if (nonEmpty(userAccess)) return userAccess.trim();
 
     const topAccess = config.accessToken;
-    if (nonEmpty(topAccess)) return topAccess;
+    if (nonEmpty(topAccess)) return topAccess.trim();
 
     const userLegacy = config.user?.token;
     if (nonEmpty(userLegacy)) {
         warn(DEPRECATION_MESSAGE);
-        return userLegacy;
+        return userLegacy.trim();
     }
 
     const topLegacy = config.token;
     if (nonEmpty(topLegacy)) {
         warn(DEPRECATION_MESSAGE);
-        return topLegacy;
+        return topLegacy.trim();
     }
     return undefined;
 }
