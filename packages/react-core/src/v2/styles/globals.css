@@ -230,51 +230,66 @@
   background-size: 100% 100%;
 }
 /*
- * IntelligenceIndicator — visual styles for the "Using CopilotKit
- * Intelligence" indicator. Two modes coexist in the DOM:
+ * IntelligenceIndicator — single-element, three-stage design.
  *
- *   • `.cpk-intelligence-indicator__pill`  — glassmorphism pill with
- *     a spinning ring, shown while work is in progress.
- *   • `.cpk-intelligence-indicator__tag`   — "stripped pill". Same
- *     layout, padding, font, and purple text as the pill, but the
- *     background, border, shadow, and backdrop-blur are gone and the
- *     spinning ring is replaced with a static checkmark.
+ * Layers (always in the DOM, always at full opacity for layout
+ * purposes — only individual properties animate):
  *
- * Both children stack in a single grid cell at the same `grid-area`,
- * so they overlap pixel-for-pixel and the cross-fade reads as the
- * pill's frame dissolving while the icon morphs from ring to check.
+ *   • `__chrome`   — the glassmorphism pill (bg, border, shadow,
+ *                    backdrop-blur). Absolute-positioned behind the
+ *                    content. Visible while in-progress; fades to 0
+ *                    once the icon morph completes.
+ *   • `__content`  — icon + label flex row. Stays in place across
+ *                    the whole transition. Only its `color` alpha
+ *                    drops on settle (0.92 → 0.55).
+ *   • `__icon-path` — single SVG path whose `d` morphs between a
+ *                    270° arc and a checkmark. Both shapes share the
+ *                    same 3-segment cubic Bézier topology, which is
+ *                    what makes the d interpolate cleanly. The "spin"
+ *                    is a marching-dash animation on the stroke, not
+ *                    an SVG rotation — so there is no rotation state
+ *                    to snap back to identity when the animation is
+ *                    removed at status flip.
  *
- * The cross-fade is implemented as one-shot CSS animations rather
- * than property transitions. Plain `transition`s don't fire when the
- * trigger class is already present at first paint — which is exactly
- * what happens on fast turns where the brain's `useState` lazy init
- * mounts the face directly in `finished` state. Animations always
- * play when their trigger class is applied, mount-time or otherwise.
+ * Stage timing (hard sequence — stage 2 waits for stage 1):
+ *   • Stage 1, icon morph: 0 → 250 ms.
+ *       - d interpolates arc → check
+ *       - stroke-dasharray transitions dashed → solid
+ *       - marching-dash animation is removed (`animation: none`)
+ *   • Stage 2, settle:     250 → 650 ms (transition-delay 250 ms).
+ *       - chrome opacity 1 → 0
+ *       - content color alpha 0.92 → 0.55
+ *
+ * Total ~650 ms in production. No moment exists where the icon or
+ * label is invisible, so the eye never sees a "bump."
+ *
+ * Mount-already-finished is handled implicitly: CSS transitions
+ * don't fire when the target value is the computed value at first
+ * paint, so a historical-replay turn renders directly in its
+ * settled state with no animation — which is the desired behavior.
  */
 .cpk-intelligence-indicator {
   position: relative;
-  display: grid;
-  /* Stack both children in one cell, left-aligned, vertically centered. */
-  justify-items: start;
+  display: inline-flex;
   align-items: center;
+  gap: 0.55rem;
+  padding: 0.4rem 0.85rem;
   /* Opt out of the parent flex-column's default `align-items: stretch`
      (the auto-mount lives inside `CopilotChatMessageView`'s
      `cpk:flex cpk:flex-col` container). Without this the indicator
      would stretch to the full chat width. */
   align-self: flex-start;
   margin: 0.4rem 0;
+  white-space: nowrap;
 }
 
-/* ─── In-progress pill ──────────────────────────────────────────────── */
+/* ─── Chrome layer (bg, border, shadow, backdrop-blur) ──────────────── */
 
-.cpk-intelligence-indicator__pill {
-  grid-area: 1 / 1;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  padding: 0.4rem 0.85rem;
-  border: 1px solid rgb(149 153 224 / 0.32);
+.cpk-intelligence-indicator__chrome {
+  position: absolute;
+  inset: 0;
   border-radius: 999px;
+  border: 1px solid rgb(149 153 224 / 0.32);
   background: linear-gradient(
     135deg,
     rgb(255 255 255 / 0.55) 0%,
@@ -282,120 +297,97 @@
   );
   -webkit-backdrop-filter: blur(14px) saturate(160%);
   backdrop-filter: blur(14px) saturate(160%);
-  color: rgb(91 33 182 / 0.92);
-  font-size: 0.78rem;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  white-space: nowrap;
   box-shadow:
     0 1px 2px rgb(94 100 173 / 0.06),
     0 8px 24px rgb(149 153 224 / 0.08),
     inset 0 1px 0 rgb(255 255 255 / 0.6);
-  opacity: 0;
-  animation: cpk-intelligence-pill-fade-in 280ms ease-out forwards;
-}
-
-.cpk-intelligence-indicator__pill--hidden {
-  /* Exit animation. Used in BOTH paths:
-       1. Live spinner → finished (--hidden added by React re-render).
-       2. Mount-already-finished (--hidden present at first paint).
-     A plain `transition` would skip case 2 because there'd be no value
-     change for the browser to interpolate — that's the "pop" users see. */
-  animation: cpk-intelligence-pill-exit 220ms ease-out forwards;
+  opacity: 1;
   pointer-events: none;
+  /* Stage 2 — wait 250 ms for the icon morph to complete, then fade. */
+  transition: opacity 400ms ease-out 250ms;
 }
 
-.cpk-intelligence-pill__icon {
-  display: block;
-  flex-shrink: 0;
-  color: rgb(124 58 237);
+.cpk-intelligence-indicator[data-status="finished"]
+  .cpk-intelligence-indicator__chrome {
+  opacity: 0;
 }
 
-.cpk-intelligence-pill__ring {
-  stroke: currentColor;
-  stroke-dasharray: 40 16.55;
-  stroke-dashoffset: 0;
-  transform-origin: 12px 12px;
-  animation: cpk-intelligence-pill-spin 0.9s linear infinite;
-}
+/* ─── Content layer (icon + label) ──────────────────────────────────── */
 
-/* ─── Finished "stripped pill" ──────────────────────────────────────── */
-/*
- * Same layout and text styling as the in-progress pill (padding, gap,
- * font-size, font-weight, color, letter-spacing) but with the
- * background, border, shadow, and backdrop-blur removed and the
- * spinning ring replaced with a static checkmark. The frame visibly
- * sheds while the icon morphs from ring to check.
- */
-
-.cpk-intelligence-indicator__tag {
-  grid-area: 1 / 1;
+.cpk-intelligence-indicator__content {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
-  padding: 0.4rem 0.85rem;
+  /* `color` drives both the label text and the icon stroke (which uses
+     `currentColor`). In-progress alpha 0.92, settle alpha 0.55. */
   color: rgb(91 33 182 / 0.92);
   font-size: 0.78rem;
   font-weight: 500;
   letter-spacing: 0.01em;
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
+  /* Stage 2 — same 250 ms delay as the chrome fade so they settle in
+     lock-step. */
+  transition: color 400ms ease-out 250ms;
 }
 
-.cpk-intelligence-indicator__tag--shown {
-  /* Entry animation — same mount-or-transition guarantee as the pill's
-     exit. 120 ms delay so the tag's fade-in overlaps the pill's
-     fade-out near its end, reading as one continuous morph rather
-     than two distinct swaps. */
-  animation: cpk-intelligence-tag-enter 320ms ease-out 120ms forwards;
-  pointer-events: auto;
+.cpk-intelligence-indicator[data-status="finished"]
+  .cpk-intelligence-indicator__content {
+  color: rgb(91 33 182 / 0.55);
 }
 
-.cpk-intelligence-indicator__tag--shown {
-  opacity: 1;
-  transform: scale(1);
-  pointer-events: auto;
-}
-
-.cpk-intelligence-tag__icon {
+.cpk-intelligence-indicator__icon {
   display: block;
   flex-shrink: 0;
-  /* `currentColor` so the checkmark matches the muted gray text. */
-  color: currentColor;
+}
+
+/* ─── Icon path — d-morph + dashed-to-solid stroke ──────────────────── */
+
+.cpk-intelligence-indicator__icon-path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  /* In-progress shape: a 270° arc (3 cubic Béziers approximating three
+     quarter-circles, top → right → bottom → left). The fourth quarter
+     is the visible "gap" in the loader. */
+  d: path("M 12 3 C 17 3 21 7 21 12 C 21 17 17 21 12 21 C 7 21 3 17 3 12");
+  /* Dashed stroke + animated dashoffset = "marching ants" that read
+     as motion without rotating the SVG. */
+  stroke-dasharray: 8 4;
+  stroke-dashoffset: 0;
+  animation: cpk-intelligence-march 0.9s linear infinite;
+  /* Stage 1 — d and stroke-dasharray both interpolate over 250 ms with
+     the same eased curve so the morph reads as one motion. */
+  transition:
+    d 250ms cubic-bezier(0.4, 0, 0.2, 1),
+    stroke-dasharray 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cpk-intelligence-indicator[data-status="finished"]
+  .cpk-intelligence-indicator__icon-path {
+  /* Finished shape: a checkmark expressed as 3 cubic Béziers with
+     collinear control points (so each segment renders as a straight
+     line). Three segments instead of the natural two so the topology
+     matches the 270° arc above and the d morph interpolates cleanly. */
+  d: path(
+    "M 5 12.5 C 6.33 13.83 7.67 15.17 9 16.5 C 10.67 14.83 12.33 13.17 14 11.5 C 15.67 9.83 17.33 8.17 19 6.5"
+  );
+  /* Large first value, zero gap = solid stroke. Interpolates from
+     `8 4` over 250 ms in lock-step with the d morph. */
+  stroke-dasharray: 100 0;
+  /* Stop the marching dashes. The dashoffset reverts to its base
+     value (0) instantly, but the dasharray has already transitioned
+     enough toward solid that the snap is not visible. */
+  animation: none;
 }
 
 /* ─── Keyframes ─────────────────────────────────────────────────────── */
 
-@keyframes cpk-intelligence-pill-fade-in {
-  from {
-    opacity: 0;
-  }
+@keyframes cpk-intelligence-march {
+  /* One full dash-period (`8 + 4 = 12`) per cycle, so the dashes appear
+     to flow continuously around the path. */
   to {
-    opacity: 1;
-  }
-}
-
-@keyframes cpk-intelligence-pill-exit {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
-}
-
-@keyframes cpk-intelligence-tag-enter {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes cpk-intelligence-pill-spin {
-  to {
-    transform: rotate(360deg);
+    stroke-dashoffset: -12;
   }
 }

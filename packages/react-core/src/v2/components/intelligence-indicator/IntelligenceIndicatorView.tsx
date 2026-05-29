@@ -10,7 +10,8 @@ export interface IntelligenceIndicatorViewProps extends React.HTMLAttributes<HTM
   message: Message;
   /**
    * Whether the intelligence work is still running (`in-progress`) or
-   * has settled (`finished`). Drives the spinner ⇄ tag cross-fade.
+   * has settled (`finished`). Drives the icon morph and chrome
+   * fade-out via the `data-status` attribute on the wrapper.
    */
   status: IntelligenceIndicatorStatus;
   /** The visible label, e.g. "Using CopilotKit Intelligence". */
@@ -18,39 +19,48 @@ export interface IntelligenceIndicatorViewProps extends React.HTMLAttributes<HTM
 }
 
 /**
- * If the in-progress label is a present participle ("Using …"), swap
- * it to past tense ("Used …") for the finished resting state so the
- * persistent tag reads naturally as scroll-back metadata. Other label
- * shapes pass through unchanged — slot consumers who pass a custom
- * label own its wording.
- */
-const toFinishedLabel = (label: string): string =>
-  label.replace(/^Using\s+/i, "Used ");
-
-/**
  * The presentational "Using CopilotKit Intelligence" face — the default
  * rendered by the {@link IntelligenceIndicator} brain and the default
  * value for the `intelligenceIndicator` slot.
  *
- * Two modes:
- *  - `in-progress`: a glassmorphism pill with a spinning ring (the
- *    same active visual users see while the intelligence tool runs).
- *  - `finished`: a "stripped pill" — same layout, padding, font, and
- *    purple text as the in-progress pill, but with the background,
- *    border, shadow, and backdrop-blur removed and the spinning ring
- *    swapped for a static checkmark. The frame visibly sheds while
- *    the icon morphs.
+ * Single-element three-stage design:
+ *  1. **In-progress.** Glassmorphism pill chrome around a 270° arc icon
+ *     and the label. The arc's stroke is dashed and its dashoffset is
+ *     animated continuously — "marching ants" creates the loading
+ *     sensation without rotating the SVG, which is what lets the
+ *     d-attribute morph land cleanly later (no rotation to snap back
+ *     to zero).
+ *  2. **Icon morph (~250 ms).** On status flip the single icon path
+ *     interpolates from the arc to a checkmark via CSS `d:` and the
+ *     dashed stroke transitions to solid. Chrome and text stay at
+ *     full opacity — the indicator visibly "commits" to done before
+ *     anything else moves.
+ *  3. **Settle (~400 ms, starts at +250 ms).** Chrome (background,
+ *     border, shadow, backdrop-blur) fades to zero opacity. The label
+ *     and icon stroke color alpha drops from 0.92 to 0.55. The text
+ *     stays put — only its alpha changes — so there is no "bump"
+ *     where the brand text disappears and reappears.
  *
- * Both modes coexist in the DOM at the same `grid-area` so they
- * overlap pixel-for-pixel. Status drives a cross-fade: the in-progress
- * pill fades out over 220 ms while the stripped pill fades in over
- * 320 ms with a 120 ms delay — the slight overlap reads as the frame
- * dissolving and the icon transforming rather than two distinct
- * elements being swapped.
+ * Hard sequence: stage 3 has a 250 ms transition-delay so it waits
+ * for stage 2 to finish. Total settle time ~650 ms in production.
+ *
+ * Both shapes are 3-segment cubic Bézier paths with matched command
+ * structure (one `M` plus three `C`s), which is what makes the d
+ * morph interpolate as a continuous shape change rather than snapping.
+ * The arc is drawn at the SVG's natural orientation — no `transform`
+ * is used anywhere on the icon, so there is no rotation state to
+ * reset when the marching-ants animation is removed.
+ *
+ * The label is identical in both states (e.g. "Using CopilotKit
+ * Intelligence"). An earlier draft swapped "Using…" → "Used…" on
+ * finished, which caused the brand text to drift ~1 character to
+ * the left during the morph because the leading verb was shorter.
+ * The static check icon already carries the "done" semantic.
  *
  * Customize via the `intelligenceIndicator` slot on `CopilotChat`:
- * pass a className string to restyle the default, a props object to
- * tweak it (e.g. `{ label }`), or a component to replace it entirely.
+ * a className string restyles the wrapper, a props object tweaks
+ * the default (`{ label }`), and a component replaces it entirely
+ * with full control over visuals and timing.
  */
 export function IntelligenceIndicatorView({
   message,
@@ -59,8 +69,6 @@ export function IntelligenceIndicatorView({
   className,
   ...rest
 }: IntelligenceIndicatorViewProps): React.ReactElement {
-  const isFinished = status === "finished";
-
   return (
     <span
       className={twMerge("cpk-intelligence-indicator", className)}
@@ -71,60 +79,31 @@ export function IntelligenceIndicatorView({
       title={label}
       {...rest}
     >
-      {/* In-progress pill — full opacity while spinning, shrunk and
-          faded out once status flips to finished. */}
-      <span
-        className={
-          "cpk-intelligence-indicator__pill" +
-          (isFinished ? " cpk-intelligence-indicator__pill--hidden" : "")
-        }
-        aria-hidden={isFinished || undefined}
-      >
+      {/* Chrome layer — bg, border, shadow, backdrop-blur. Sits behind
+          the content via `position: absolute; inset: 0`. Fades to zero
+          opacity once the icon morph completes. */}
+      <span className="cpk-intelligence-indicator__chrome" aria-hidden="true" />
+
+      {/* Content layer — icon + label. Stays put across the whole
+          transition; only its color alpha drops on settle. */}
+      <span className="cpk-intelligence-indicator__content">
         <svg
-          className="cpk-intelligence-pill__icon"
+          className="cpk-intelligence-indicator__icon"
           viewBox="0 0 24 24"
           width="14"
           height="14"
           aria-hidden="true"
         >
-          <circle
-            cx="12"
-            cy="12"
-            r="9"
-            fill="none"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            className="cpk-intelligence-pill__ring"
-          />
+          {/* Single path element whose `d` attribute morphs from the
+              arc to the checkmark via CSS `d:` interpolation. Both
+              shapes are 3-segment cubic Béziers; the arc is a 270°
+              quarter-by-quarter approximation of a circle, the
+              checkmark is a 2-stroke polyline split into 3 cubics
+              with collinear controls (so the segments render as
+              straight lines). */}
+          <path className="cpk-intelligence-indicator__icon-path" />
         </svg>
         <span>{label}</span>
-      </span>
-
-      {/* Finished "stripped pill" — same layout, text, and color as
-          the in-progress pill, but with no background/border/shadow,
-          and a static checkmark in place of the spinning ring. */}
-      <span
-        className={
-          "cpk-intelligence-indicator__tag" +
-          (isFinished ? " cpk-intelligence-indicator__tag--shown" : "")
-        }
-        aria-hidden={!isFinished || undefined}
-      >
-        <svg
-          className="cpk-intelligence-tag__icon"
-          viewBox="0 0 24 24"
-          width="14"
-          height="14"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M5 12.5l4 4 10-10" />
-        </svg>
-        <span>{toFinishedLabel(label)}</span>
       </span>
     </span>
   );
