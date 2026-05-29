@@ -4,9 +4,13 @@ import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import ReactGA from "react-ga4";
 import { normalizePathnameForAnalytics } from "@/lib/analytics-utils";
+import { getRuntimeConfig } from "@/lib/runtime-config.client";
 
 export function useGoogleAnalytics() {
-  const GA_ID = process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_TRACKING_ID;
+  // Tracking ID is read at render time from the runtime config injected
+  // by the root layout. Empty string disables GA — the early return
+  // below already gates on truthiness.
+  const GA_ID = getRuntimeConfig().googleAnalyticsTrackingId;
 
   if (!GA_ID) {
     return;
