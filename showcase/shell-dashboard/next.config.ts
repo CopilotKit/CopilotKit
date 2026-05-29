@@ -12,16 +12,21 @@ import type { NextConfig } from "next";
  *   2. We don't want the ops base URL inlined into the client bundle (it
  *      would also force `NEXT_PUBLIC_*` exposure semantics).
  *
- * `OPS_BASE_URL` is required at build/start. Without it the rewrite cannot
- * be constructed and the dashboard would silently render "All probes idle"
- * because every `/api/ops/probes` call would 404 against this app.
+ * `OPS_BASE_URL` is required at start. `next start` evaluates this
+ * `rewrites()` function once at process boot — without `OPS_BASE_URL`
+ * the rewrite cannot be constructed and the dashboard would silently
+ * render "All probes idle" because every `/api/ops/probes` call would
+ * 404 against this app. Under runtime-injection (workstream B) every
+ * NEXT_PUBLIC_* URL is read at request time from the Railway env, but
+ * `rewrites()` is evaluated once at start and therefore needs the env
+ * present in the running process — not at build.
  */
 const nextConfig: NextConfig = {
   async rewrites() {
     const opsBase = process.env.OPS_BASE_URL;
     if (!opsBase) {
       throw new Error(
-        "OPS_BASE_URL must be set — see showcase/RAILWAY.md " +
+        "OPS_BASE_URL must be set on this Railway service — see showcase/RAILWAY.md " +
           "(without it, /api/ops/* requests cannot proxy to showcase-harness)",
       );
     }
