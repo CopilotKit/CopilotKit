@@ -1022,8 +1022,43 @@ module Railway
             ["REFUSE: P1: GHCR check raised #{e.class}: #{e.message}"]
         end
 
-        # Stubs filled in by later phases; return [] so D.1 lands green.
-        def check_p2_staging_deployments(_staging); []; end
+        # P2 — for each staging service we are promoting, the most recent
+        # staging deployment must be SUCCESS AND its image digest must match
+        # the digest we are about to promote (otherwise a newer build is
+        # in flight; refuse to avoid the race).
+        def check_p2_staging_deployments(staging)
+            findings = []
+            (staging["services"] || []).each do |svc|
+                next if svc["service_id"].nil? || svc["image"].nil?
+                deployments = fetch_latest_staging_deployments(svc["service_id"])
+                latest = deployments.first
+                if latest.nil?
+                    findings << "REFUSE: P2 (#{svc['name']}): no staging deployments found."
+                    next
+                end
+                status = latest["status"]
+                if status != "SUCCESS"
+                    findings << "REFUSE: P2 (#{svc['name']}): latest staging deployment status is #{status}, not SUCCESS."
+                    next
+                end
+                deployed_image = latest.dig("meta", "image").to_s
+                deployed_digest = deployed_image.include?("@") ? deployed_image.split("@", 2).last : nil
+                snapshot_digest = svc["digest"]
+                if snapshot_digest && deployed_digest && deployed_digest != snapshot_digest
+                    findings << "REFUSE: P2 (#{svc['name']}): in-flight race — latest staging deployment is " \
+                                "#{deployed_digest} but snapshot has #{snapshot_digest}. Re-snapshot and retry."
+                end
+            end
+            findings
+        end
+
+        def fetch_latest_staging_deployments(service_id)
+            data = gql.query(RollbackCommand::DEPLOYMENTS_QUERY,
+                serviceId: service_id, envId: STAGING_ENV_ID)
+            (data.dig("deployments", "edges") || []).map { |e| e["node"] }
+        end
+
+        # Stubs filled in by later phases; return [] so D.2 lands green.
         def check_p3_staging_live_green(_staging); []; end
         def check_p6_parity(_staging, _prod); []; end
 

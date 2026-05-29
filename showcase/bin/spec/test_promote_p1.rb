@@ -4,8 +4,11 @@ require_relative "spec_helper"
 
 class PromoteP1Test < Minitest::Test
     # Stub gql + ghcr clients used by PromoteCommand.
-    class FakeGQL
-        def query(*); raise "GraphQL must not be touched on P1 refusal"; end
+    # Preflight checks accumulate findings before any short-circuit, so even
+    # on a P1 REFUSE the P2 deployments query is still issued. Provide a
+    # benign empty-deployments shape so the test focuses solely on P1.
+    class FakeGQLEmpty
+        def query(*); { "deployments" => { "edges" => [] } }; end
     end
 
     class FakeGHCR
@@ -27,7 +30,7 @@ class PromoteP1Test < Minitest::Test
             }],
         })
         cmd.instance_variable_set(:@prod_snapshot, { "services" => [] })
-        cmd.instance_variable_set(:@gql,  FakeGQL.new)
+        cmd.instance_variable_set(:@gql,  FakeGQLEmpty.new)
         cmd.instance_variable_set(:@ghcr, FakeGHCR.new(:missing))
 
         out, _err = capture_io { @rc = cmd.run_with_preflight_only }
@@ -41,7 +44,9 @@ class PromoteP1Test < Minitest::Test
             "services" => [{ "name" => "x", "service_id" => "s", "image" => "ghcr.io/copilotkit/x@sha256:abc", "env_keys" => [] }],
         })
         cmd.instance_variable_set(:@prod_snapshot, { "services" => [] })
-        cmd.instance_variable_set(:@gql, FakeGQL.new)
+        # All preflight checks accumulate findings before any short-circuit;
+        # P2 will still query gql, so use the benign empty fake.
+        cmd.instance_variable_set(:@gql, FakeGQLEmpty.new)
         cmd.instance_variable_set(:@ghcr, FakeGHCR.new(:auth_failed))
 
         out, _err = capture_io { @rc = cmd.run_with_preflight_only }
@@ -56,7 +61,9 @@ class PromoteP1Test < Minitest::Test
             "services" => [{ "name" => "x", "service_id" => "s", "image" => "ghcr.io/copilotkit/x@sha256:abc", "env_keys" => [] }],
         })
         cmd.instance_variable_set(:@prod_snapshot, { "services" => [] })
-        cmd.instance_variable_set(:@gql, FakeGQL.new)
+        # P1 passes here so P2 will run — use the benign empty fake so
+        # the deployments query returns [].
+        cmd.instance_variable_set(:@gql, FakeGQLEmpty.new)
         cmd.instance_variable_set(:@ghcr, FakeGHCR.new(:exists))
 
         # P1 alone should not refuse; later checks (service-set parity) will,
