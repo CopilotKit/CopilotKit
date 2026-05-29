@@ -15,7 +15,7 @@ vi.mock("@ag-ui/mcp-middleware", () => ({
 import { attachIntelligenceEnterpriseLearning } from "../agent-utils";
 import { INTELLIGENCE_USER_ID_HEADER } from "../../../intelligence-platform/client";
 import type { CopilotRuntimeLike } from "../../../core/runtime";
-import { RUNTIME_MODE_INTELLIGENCE } from "@copilotkit/shared";
+import { RUNTIME_MODE_INTELLIGENCE, logger } from "@copilotkit/shared";
 
 interface IntelligenceStub {
   ɵisEnterpriseLearningEnabled: () => boolean;
@@ -128,7 +128,8 @@ describe("attachIntelligenceEnterpriseLearning", () => {
     expect(agent.use).not.toHaveBeenCalled();
   });
 
-  it("does not attach when the agent does not expose a use() method", async () => {
+  it("warns and does not attach when the agent does not expose a use() method", async () => {
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
     const agent = {} as AbstractAgent; // no `use`
     await attachIntelligenceEnterpriseLearning({
       runtime: makeRuntime({
@@ -139,5 +140,8 @@ describe("attachIntelligenceEnterpriseLearning", () => {
       agent,
     });
     expect(mcpMiddlewareCalls).toHaveLength(0);
+    // The operator opted into the feature, so the no-op must be surfaced.
+    expect(warn).toHaveBeenCalledOnce();
+    warn.mockRestore();
   });
 });

@@ -108,7 +108,9 @@ export function configureAgentForRequest(params: {
  * auth (Bearer apiKey + resolved user-id) is baked into the transport
  * headers at attach time. If user resolution fails, attachment is
  * skipped silently — the intelligence run handler will reject the
- * request with the same error.
+ * request with the same error. Note this means `identifyUser` is
+ * resolved twice per learning-enabled run (here and in the run handler);
+ * the callback is expected to be idempotent and side-effect-free.
  *
  * Intentionally split out from `configureAgentForRequest`: this is only
  * relevant to actual agent runs, not auxiliary flows like thread-name
@@ -125,9 +127,20 @@ export async function attachIntelligenceEnterpriseLearning(params: {
 
   if (
     !isIntelligenceRuntime(runtime) ||
-    !runtime.intelligence?.ɵisEnterpriseLearningEnabled?.() ||
-    typeof agent.use !== "function"
+    !runtime.intelligence?.ɵisEnterpriseLearningEnabled?.()
   ) {
+    return;
+  }
+
+  // Enterprise learning is enabled, but this agent's framework can't take
+  // middleware — surface it rather than silently shipping a run with none
+  // of the tools the operator opted into.
+  if (typeof agent.use !== "function") {
+    logger.warn(
+      "CopilotKitIntelligence.enableEnterpriseLearning is enabled, but the agent " +
+        "does not support middleware (no `.use()` method); Intelligence tools were " +
+        "not attached for this run.",
+    );
     return;
   }
 

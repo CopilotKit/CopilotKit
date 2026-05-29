@@ -3,10 +3,10 @@ import { logger } from "@copilotkit/shared";
 /**
  * Header name carrying the per-call end-user identity that the CopilotKit
  * Intelligence `/mcp` endpoint requires. Internal CopilotKit machinery —
- * `configureAgentForRequest` resolves the user via `identifyUser` and bakes
- * this header onto the `MCPMiddleware`'s transport config, so every outbound
- * MCP request stamps `X-Cpki-User-Id: <userId>`. Not part of the public user
- * API.
+ * `attachIntelligenceEnterpriseLearning` resolves the user via `identifyUser`
+ * and bakes this header onto the `MCPMiddleware`'s transport config, so every
+ * outbound MCP request stamps `X-Cpki-User-Id: <userId>`. Not part of the
+ * public user API.
  *
  * @internal
  */
@@ -78,11 +78,11 @@ export interface CopilotKitIntelligenceConfig {
   apiKey: string;
   /**
    * Enable Enterprise Learning — expose the Intelligence platform's
-   * built-in tools (bash + thread/memory tools) to every agent run.
-   * Attached uniformly across agent frameworks in
-   * `configureAgentForRequest` via `@ag-ui/mcp-middleware`, with the
-   * resolved user-id and project apiKey baked into the transport headers
-   * for that request's clone.
+   * built-in tools (bash + thread/memory tools) to agent runs on an
+   * intelligence runtime that resolve a user. Attached uniformly across
+   * agent frameworks by `attachIntelligenceEnterpriseLearning` via
+   * `@ag-ui/mcp-middleware`, with the resolved user-id and project apiKey
+   * baked into the transport headers for that request's clone.
    *
    * Defaults to `false` — opt-in. Existing intelligence setups continue
    * to work without these tools unless they flip this flag.
@@ -445,12 +445,12 @@ export class CopilotKitIntelligence {
     return this.#apiKey;
   }
 
-  /** @internal Used by the runtime's auto-attach to populate `Authorization`. */
+  /** @internal Used by `attachIntelligenceEnterpriseLearning` to populate `Authorization`. */
   ɵgetApiKey(): string {
     return this.#apiKey;
   }
 
-  /** @internal Used by the runtime's auto-attach to gate MCP attachment. */
+  /** @internal Used by `attachIntelligenceEnterpriseLearning` to gate MCP attachment. */
   ɵisEnterpriseLearningEnabled(): boolean {
     return this.#enterpriseLearningEnabled;
   }
