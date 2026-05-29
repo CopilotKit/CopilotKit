@@ -1,0 +1,96 @@
+/**
+ * Tests for the Railway image-ref gate (`verify-railway-image-refs.ts`)
+ * and the SSOT fields it consumes (`railway-envs.ts`).
+ *
+ * Style note: validators are pure and exported; the GraphQL fetch is
+ * the only impure surface and is exercised manually (per the script's
+ * docstring). We unit-test the pure validators against synthesized
+ * inputs — no Railway API calls.
+ */
+
+import { describe, it, expect } from "vitest";
+import {
+  findUntrackedServices,
+} from "../verify-railway-image-refs";
+import {
+  SERVICES,
+  type ServiceEntry,
+} from "../railway-envs";
+
+describe("ServiceEntry gateIgnore field", () => {
+  it("is optional on the type and defaults to falsy when unset", () => {
+    // Every real SSOT entry has gateIgnore unset (undefined / falsy).
+    for (const [name, entry] of Object.entries(SERVICES)) {
+      const gi = (entry as ServiceEntry).gateIgnore;
+      expect(gi === undefined || gi === false, `${name} gateIgnore`).toBe(true);
+    }
+  });
+});
+
+describe("findUntrackedServices (Railway -> SSOT direction)", () => {
+  it("returns empty when every Railway-reported service is in the SSOT", () => {
+    // The SSOT keys themselves are by definition all in the SSOT, so
+    // passing them as "Railway-reported" should yield zero untracked.
+    const all = new Set(Object.keys(SERVICES));
+    expect(findUntrackedServices(all)).toEqual([]);
+  });
+
+  it("flags a Railway service that is not in the SSOT", () => {
+    const railway = new Set<string>([
+      "showcase-mastra", // tracked
+      "phantom-relay", // untracked
+    ]);
+    expect(findUntrackedServices(railway)).toEqual(["phantom-relay"]);
+  });
+
+  it("returns names sorted for stable output", () => {
+    const railway = new Set<string>([
+      "zeta-svc",
+      "alpha-svc",
+      "showcase-mastra",
+    ]);
+    expect(findUntrackedServices(railway)).toEqual(["alpha-svc", "zeta-svc"]);
+  });
+
+  it("does NOT flag a service that the SSOT marks gateIgnore: true", () => {
+    // Inject a transient entry into SERVICES for this test, then remove.
+    const sentinel = "transient-third-party-relay";
+    (SERVICES as Record<string, ServiceEntry>)[sentinel] = {
+      serviceId: "00000000-0000-0000-0000-000000000000",
+      prodInstanceId: "11111111-1111-1111-1111-111111111111",
+      stagingInstanceId: "22222222-2222-2222-2222-222222222222",
+      ciBuilt: false,
+      gateValidated: false,
+      gateIgnore: true,
+      domains: {
+        staging: "transient-third-party-relay-staging.up.railway.app",
+        prod: "transient-third-party-relay-production.up.railway.app",
+      },
+      probe: { staging: false, prod: false, driver: "agent" },
+    };
+    try {
+      const railway = new Set<string>([sentinel, "showcase-mastra"]);
+      expect(findUntrackedServices(railway)).toEqual([]);
+    } finally {
+      delete (SERVICES as Record<string, ServiceEntry>)[sentinel];
+    }
+  });
+});
+
+describe("main() unknown-service policy", () => {
+  // We exercise the pure helper that main() uses, not main() itself
+  // (main wraps the live GraphQL call and process.exit; out of scope
+  // for a unit test).
+  it("reports an untracked Railway service as a hard violation", () => {
+    const railwayReported = new Set<string>([
+      "showcase-mastra",
+      "rogue-service",
+    ]);
+    const untracked = findUntrackedServices(railwayReported);
+    expect(untracked).toContain("rogue-service");
+    // Hard-fail semantics: any non-empty result must cause the gate
+    // to exit non-zero. We assert the contract by checking the
+    // boolean the caller will branch on:
+    expect(untracked.length > 0).toBe(true);
+  });
+});

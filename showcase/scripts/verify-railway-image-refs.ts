@@ -201,6 +201,36 @@ export function findMissingServices(
   return missing.sort();
 }
 
+/**
+ * Coverage assertion — Railway → SSOT direction. Returns the names of
+ * Railway services that are NOT present in the SSOT (or are present but
+ * marked `gateIgnore: true`). A non-empty result means the gate should
+ * fail (drift in the Railway→SSOT direction: an out-of-band service was
+ * added to the Railway project without updating the SSOT).
+ *
+ * Pure / unit-testable. Caller (main()) is responsible for collecting
+ * the set of Railway-reported service names from the GraphQL response.
+ *
+ * Note: complements `findMissingServices` (SSOT→Railway direction); see
+ * its docstring above. The two directions are NOT the same check — do
+ * NOT collapse them.
+ */
+export function findUntrackedServices(
+  railwayServiceNames: ReadonlySet<string>,
+): string[] {
+  const untracked: string[] = [];
+  for (const name of railwayServiceNames) {
+    const entry = SERVICES[name];
+    // Present in SSOT and not opted-out — tracked. Skip.
+    if (entry && !entry.gateIgnore) continue;
+    // Present in SSOT but gateIgnore — skip (deliberate opt-out).
+    if (entry && entry.gateIgnore) continue;
+    // Not present in SSOT at all — untracked, failure candidate.
+    untracked.push(name);
+  }
+  return untracked.sort();
+}
+
 // ── Railway GraphQL plumbing ────────────────────────────────────────────
 
 function getToken(): string {

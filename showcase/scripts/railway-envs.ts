@@ -131,8 +131,25 @@ export interface ServiceEntry {
    *                 staging: "showcase-pocketbase"
    *   webhooks    — prod: "showcase-eval-webhook"
    *                 staging: "showcase-eval-webhook"
+   *   dashboard   — prod/staging: "showcase-shell-dashboard"
+   *   docs        — prod/staging: "showcase-shell-docs"
+   *   dojo        — prod/staging: "showcase-shell-dojo"
+   *   shell       — prod/staging: "showcase-shell"
+   *   harness     — prod/staging: "showcase-harness"
    */
   repoNameOverride?: { prod?: string; staging?: string };
+  /**
+   * Opt-out flag for the image-ref gate. When `true`, the gate ignores
+   * this service entirely in BOTH the SSOT→Railway direction (no
+   * "missing from Railway" failure if absent) AND the Railway→SSOT
+   * direction (no "untracked Railway service" failure if Railway has
+   * a service with this name that is not WS4-managed). Default: false.
+   *
+   * Intentionally narrow: this exists for deliberately-untracked
+   * third-party relays or one-off experimental services. The default
+   * for every WS4-managed service is `false` (omitted).
+   */
+  gateIgnore?: boolean;
   /**
    * Public hosts per env, no scheme. Both must be set. `domainFor` is
    * the only API; it throws on unknown service/env so the verify probe
