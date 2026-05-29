@@ -14,7 +14,13 @@ describe("server getRuntimeConfig (shell)", () => {
     const ORIGINAL_ENV = { ...process.env };
 
     beforeEach(() => {
-        for (const k of ["BASE_URL", "POSTHOG_HOST", "NODE_ENV"]) {
+        for (const k of [
+            "BASE_URL",
+            "POSTHOG_HOST",
+            "NEXT_PUBLIC_BASE_URL",
+            "NEXT_PUBLIC_POSTHOG_HOST",
+            "NODE_ENV",
+        ]) {
             delete (process.env as Record<string, string | undefined>)[k];
         }
     });
@@ -73,6 +79,34 @@ describe("server getRuntimeConfig (shell)", () => {
         expect(getRuntimeConfig().baseUrl).toBe("https://first.example.com");
         process.env.BASE_URL = "https://second.example.com";
         expect(getRuntimeConfig().baseUrl).toBe("https://second.example.com");
+    });
+
+    it("accepts NEXT_PUBLIC_BASE_URL as a fallback when BASE_URL is unset", () => {
+        // Deploy-config contract: the shell reads the bare name first,
+        // but tolerates the NEXT_PUBLIC_-prefixed variant so a Railway
+        // service that follows the shell-docs convention still wires
+        // through. See the readUrl fallback chain in runtime-config.ts.
+        (process.env as Record<string, string>).NODE_ENV = "production";
+        process.env.NEXT_PUBLIC_BASE_URL = "https://alt.example.com";
+        // BASE_URL deliberately unset.
+        const cfg = getRuntimeConfig();
+        expect(cfg.baseUrl).toBe("https://alt.example.com");
+    });
+
+    it("BASE_URL takes precedence over NEXT_PUBLIC_BASE_URL when both set", () => {
+        (process.env as Record<string, string>).NODE_ENV = "production";
+        process.env.BASE_URL = "https://primary.example.com";
+        process.env.NEXT_PUBLIC_BASE_URL = "https://alt.example.com";
+        const cfg = getRuntimeConfig();
+        expect(cfg.baseUrl).toBe("https://primary.example.com");
+    });
+
+    it("accepts NEXT_PUBLIC_POSTHOG_HOST as a fallback when POSTHOG_HOST is unset", () => {
+        (process.env as Record<string, string>).NODE_ENV = "production";
+        process.env.NEXT_PUBLIC_POSTHOG_HOST = "https://alt-ph.example.com";
+        process.env.BASE_URL = "https://shell.example.com";
+        const cfg = getRuntimeConfig();
+        expect(cfg.posthogHost).toBe("https://alt-ph.example.com");
     });
 
     it("getRuntimeConfigEdge skips noStore() (Edge runtime path)", async () => {

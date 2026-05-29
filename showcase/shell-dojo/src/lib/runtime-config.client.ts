@@ -2,8 +2,7 @@
 // window.__SHOWCASE_CONFIG__ which the root layout injects via an
 // inline <script> tag BEFORE React hydrates (see app/layout.tsx). This
 // is the ONLY public API for these URLs in client code — never read
-// process.env.NEXT_PUBLIC_* directly (the ESLint rule in B12 enforces
-// this).
+// process.env.NEXT_PUBLIC_* directly (an ESLint rule enforces this).
 //
 // shell-dojo's `RuntimeConfig` is intentionally empty today (no URL
 // consumers); the module exists to keep the pattern symmetric across

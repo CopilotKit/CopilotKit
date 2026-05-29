@@ -2,8 +2,7 @@
 // window.__SHOWCASE_CONFIG__ which the root layout injects via an
 // inline <script> tag BEFORE React hydrates (see app/layout.tsx). This
 // is the ONLY public API for these URLs in client code — never read
-// process.env.NEXT_PUBLIC_* directly (the ESLint rule in B12 enforces
-// this).
+// process.env.NEXT_PUBLIC_* directly (an ESLint rule enforces this).
 
 import type { RuntimeConfig } from "./runtime-config";
 
@@ -26,10 +25,18 @@ declare global {
  * values MUST import getRuntimeConfig from runtime-config.ts (the server
  * variant), not this file.
  */
+// URL fields use a parseable `https://ssr-placeholder.invalid/` sentinel
+// — NOT the empty string — because consumer components may call
+// `new URL(cfg.someUrl)` inline during render, and `new URL("")` throws
+// a TypeError that escapes the SSR response as a 500. The `.invalid`
+// TLD is reserved by RFC 2606 so the URL also can't accidentally
+// resolve. Post-hydration the next render reads the real value out of
+// window.__SHOWCASE_CONFIG__.
+const SSR_PLACEHOLDER_URL = "https://ssr-placeholder.invalid/";
 const SSR_PLACEHOLDER: RuntimeConfig = {
-    pocketbaseUrl: "",
-    shellUrl: "",
-    opsBaseUrl: "",
+    pocketbaseUrl: SSR_PLACEHOLDER_URL,
+    shellUrl: SSR_PLACEHOLDER_URL,
+    opsBaseUrl: SSR_PLACEHOLDER_URL,
 };
 
 /**

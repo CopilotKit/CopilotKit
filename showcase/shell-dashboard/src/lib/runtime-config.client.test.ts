@@ -38,18 +38,18 @@ describe("client getRuntimeConfig (shell-dashboard)", () => {
     it("returns SSR sentinel placeholder when window is undefined", () => {
         // Simulate SSR by removing window. "use client" component
         // bodies execute on the server during SSR, so this reader
-        // MUST be SSR-safe (returns empty-string placeholders that
-        // get replaced on the next render after hydration), NOT
-        // throw — otherwise the whole server-rendered HTML 500s.
+        // MUST be SSR-safe (returns parseable-URL placeholders so
+        // `new URL()` in consumers doesn't throw) and NOT throw —
+        // otherwise the whole server-rendered HTML 500s.
         const w = globalThis.window;
         // @ts-expect-error — deliberately removing window for the test
         delete globalThis.window;
         try {
-            expect(getRuntimeConfig()).toEqual({
-                pocketbaseUrl: "",
-                shellUrl: "",
-                opsBaseUrl: "",
-            });
+            const cfg = getRuntimeConfig();
+            // URL fields must be parseable.
+            expect(() => new URL(cfg.pocketbaseUrl)).not.toThrow();
+            expect(() => new URL(cfg.shellUrl)).not.toThrow();
+            expect(() => new URL(cfg.opsBaseUrl)).not.toThrow();
         } finally {
             (globalThis as { window?: typeof w }).window = w;
         }

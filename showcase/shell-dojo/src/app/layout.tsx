@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 /**
  * Serialize the runtime config for inline injection. We must
  * JSON.stringify-then-escape because the value lands inside a
- * `<script>...</script>` tag, where four substrings would otherwise
+ * `<script>...</script>` tag, where three substrings would otherwise
  * break out of (or corrupt) the parser:
  *
  *   - `<` — guards against the `</script>` breakout (XSS).

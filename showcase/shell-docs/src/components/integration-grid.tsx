@@ -46,6 +46,11 @@ export function IntegrationGrid({
         <a
           href={`${shellHost}/integrations`}
           style={{ color: "var(--accent)" }}
+          // shellHost is the SSR placeholder during server-render and the
+          // real value post-hydration (runtime-config.client.ts). React
+          // would otherwise log a hydration mismatch on this href every
+          // pageload; suppression scopes to THIS attribute mismatch only.
+          suppressHydrationWarning
         >
           Integrations
         </a>{" "}

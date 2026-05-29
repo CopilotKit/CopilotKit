@@ -11,44 +11,13 @@ import { PostHogProvider } from "@/lib/providers/posthog-provider";
 import { ScarfPixel } from "@/lib/providers/scarf-pixel";
 import { getIntegrations } from "@/lib/registry";
 import { getRuntimeConfig } from "@/lib/runtime-config";
+import { serializeRuntimeConfig } from "@/lib/runtime-config-serialize";
 import "./globals.css";
 
-/**
- * Serialize the runtime config for inline injection. We must
- * JSON.stringify-then-escape because the value lands inside a
- * `<script>...</script>` tag, where three substrings would otherwise
- * break out of (or corrupt) the parser:
- *
- *   - `<` — guards against the `</script>` breakout (XSS). JSON.stringify
- *     does NOT escape `<` by default, so a URL containing `</script>`
- *     (e.g. a hostile env value) would terminate the inline script and
- *     inject HTML. Escape every `<` to `<` so the substring
- *     `</script>` can never appear.
- *   - ` ` (LINE SEPARATOR) and ` ` (PARAGRAPH SEPARATOR) —
- *     legal inside JSON strings, but a syntax error inside a JS string
- *     literal in older engines / when the page is parsed as
- *     `text/javascript`. Escape both.
- *
- * The regex sources below are written with explicit ` ` / ` `
- * ECMAScript-Unicode escapes — the regex engine resolves the escape at
- * runtime, so the literal codepoint is matched.
- *
- * Canonical OWASP-recommended escape for inline JSON in HTML.
- */
-const LS_RE = new RegExp("\u2028", "g");
-const PS_RE = new RegExp("\u2029", "g");
-
-// Tokenizer note: writing the literal U+2028 / U+2029 codepoints inside
-// a /regex/ literal is impossible because TS treats them as line
-// terminators and the regex becomes unterminated. Constructing via
-// new RegExp("\uXXXX", "g") sidesteps the tokenizer entirely: the
-// regex engine resolves the escape at runtime.
-function serializeRuntimeConfig(cfg: unknown): string {
-  return JSON.stringify(cfg)
-    .replace(/</g, "\\u003c")
-    .replace(LS_RE, "\\u2028")
-    .replace(PS_RE, "\\u2029");
-}
+// serializeRuntimeConfig is extracted to `lib/runtime-config-serialize.ts`
+// so it can be unit-tested for the OWASP escape behavior (XSS via
+// `</script>`, U+2028/U+2029 line-terminator injection) without
+// importing the layout into the test runner.
 
 // Top-level route segments in src/app/ that must not be mistaken for
 // framework slugs by FrameworkProvider.urlFramework. If an integration

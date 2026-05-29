@@ -6,8 +6,8 @@
 // `unstable_noStore()` opts the calling segment out of Next.js's static
 // cache so reads always reflect the live env. Without it, a server
 // component that uses this could be statically rendered at build time
-// and freeze the URLs back into the artifact (the exact bug we are
-// fixing). See Next.js App Router docs on Dynamic Rendering.
+// and freeze the URLs back into the artifact — defeating the runtime
+// switch. See Next.js App Router docs on Dynamic Rendering.
 //
 // This module MUST NOT be imported from client components. The matching
 // client-side reader lives in runtime-config.client.ts and reads from
@@ -90,8 +90,19 @@ export function getRuntimeConfigEdge(): RuntimeConfig {
     return getRuntimeConfig({ noStore: false });
 }
 
+// Env-name tolerance: deploy configs in the wild use either the bare
+// name (e.g. `OPS_BASE_URL`) or the `NEXT_PUBLIC_*`-prefixed name. We
+// accept either — the primary (passed-in) name wins, with transparent
+// fallback to the alternate so a Railway service variable set under
+// the "wrong" name still works without redeploy.
+function altEnvName(envKey: string): string {
+    return envKey.startsWith("NEXT_PUBLIC_")
+        ? envKey.slice("NEXT_PUBLIC_".length)
+        : `NEXT_PUBLIC_${envKey}`;
+}
+
 function readUrl(envKey: string, fallback: string, isProd: boolean): string {
-    const value = process.env[envKey];
+    const value = process.env[envKey] ?? process.env[altEnvName(envKey)];
     if (value && value.length > 0) return value.replace(/\/+$/, "");
     if (isProd) {
         // eslint-disable-next-line no-console

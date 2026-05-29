@@ -4,8 +4,8 @@
 // only be imported from server components (and from middleware via the
 // Edge-safe wrapper below). Importing it from a client component would
 // cause Next.js to inline `next/cache` into the client bundle (build
-// fails) and would freeze the URLs back into the artifact (the exact
-// bug we are fixing). See Next.js App Router docs on Dynamic Rendering.
+// fails) and would freeze the URLs back into the artifact — defeating
+// the runtime switch. See Next.js App Router docs on Dynamic Rendering.
 //
 // This module MUST NOT be imported from client components. The matching
 // client-side reader lives in runtime-config.client.ts and reads from
@@ -78,8 +78,19 @@ export function getRuntimeConfigEdge(): RuntimeConfig {
     return getRuntimeConfig({ noStore: false });
 }
 
+// Env-name tolerance: deploy configs in the wild use either the bare
+// name (e.g. `BASE_URL`) or the `NEXT_PUBLIC_*`-prefixed name. We accept
+// either — the primary (passed-in) name wins, with transparent fallback
+// to the alternate so a Railway service variable set under the "wrong"
+// name still works without redeploy.
+function altEnvName(envKey: string): string {
+    return envKey.startsWith("NEXT_PUBLIC_")
+        ? envKey.slice("NEXT_PUBLIC_".length)
+        : `NEXT_PUBLIC_${envKey}`;
+}
+
 function readUrl(envKey: string, fallback: string, isProd: boolean): string {
-    const value = process.env[envKey];
+    const value = process.env[envKey] ?? process.env[altEnvName(envKey)];
     if (value && value.length > 0) return value.replace(/\/+$/, "");
     if (isProd) {
         // eslint-disable-next-line no-console
@@ -99,7 +110,7 @@ function readUrl(envKey: string, fallback: string, isProd: boolean): string {
 // Analytics keys (POSTHOG_HOST etc.) are legitimately absent on
 // non-production envs; do NOT log a FATAL-CONFIG warning when missing.
 function readKey(envKey: string, fallback: string): string {
-    const value = process.env[envKey];
+    const value = process.env[envKey] ?? process.env[altEnvName(envKey)];
     if (value && value.length > 0) return value.replace(/\/+$/, "");
     return fallback.replace(/\/+$/, "");
 }

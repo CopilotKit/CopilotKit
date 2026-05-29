@@ -47,20 +47,22 @@ describe("client getRuntimeConfig (shell-docs)", () => {
   it("returns SSR sentinel placeholder when window is undefined", () => {
     // Simulate SSR by removing window. "use client" component bodies
     // execute on the server during SSR, so this reader MUST be SSR-safe
-    // (returns empty-string placeholders that get replaced on the next
-    // render after hydration), NOT throw — otherwise the whole
-    // server-rendered HTML 500s.
+    // (returns parseable-URL placeholders for URL fields so `new URL()`
+    // calls in consumers don't throw, and empty strings for analytics
+    // keys so `if (key)` truthiness gates fail-closed) — NOT throw,
+    // otherwise the whole server-rendered HTML 500s.
     delete (globalThis as { window?: WindowWithConfig }).window;
-    expect(getRuntimeConfig()).toEqual({
-      baseUrl: "",
-      shellUrl: "",
-      intelligenceSignupUrl: "",
-      posthogKey: "",
-      posthogHost: "",
-      scarfPixelId: "",
-      googleAnalyticsTrackingId: "",
-      reb2bKey: "",
-      reoKey: "",
-    });
+    const cfg = getRuntimeConfig();
+    // URL fields must be parseable so `new URL()` in consumers doesn't throw.
+    expect(() => new URL(cfg.baseUrl)).not.toThrow();
+    expect(() => new URL(cfg.shellUrl)).not.toThrow();
+    expect(() => new URL(cfg.intelligenceSignupUrl)).not.toThrow();
+    expect(() => new URL(cfg.posthogHost)).not.toThrow();
+    // Analytics keys stay empty so `if (key)` gates fail-closed on SSR.
+    expect(cfg.posthogKey).toBe("");
+    expect(cfg.scarfPixelId).toBe("");
+    expect(cfg.googleAnalyticsTrackingId).toBe("");
+    expect(cfg.reb2bKey).toBe("");
+    expect(cfg.reoKey).toBe("");
   });
 });

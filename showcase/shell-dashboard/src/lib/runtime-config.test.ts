@@ -19,6 +19,9 @@ describe("server getRuntimeConfig (shell-dashboard)", () => {
             "POCKETBASE_URL",
             "SHELL_URL",
             "OPS_BASE_URL",
+            "NEXT_PUBLIC_POCKETBASE_URL",
+            "NEXT_PUBLIC_SHELL_URL",
+            "NEXT_PUBLIC_OPS_BASE_URL",
             "NODE_ENV",
         ]) {
             delete (process.env as Record<string, string | undefined>)[k];
@@ -86,6 +89,36 @@ describe("server getRuntimeConfig (shell-dashboard)", () => {
         expect(getRuntimeConfig().pocketbaseUrl).toBe("https://first.example.com");
         process.env.POCKETBASE_URL = "https://second.example.com";
         expect(getRuntimeConfig().pocketbaseUrl).toBe("https://second.example.com");
+    });
+
+    it("accepts NEXT_PUBLIC_* fallbacks when bare names are unset", () => {
+        // Deploy-config contract: shell-dashboard reads bare names first,
+        // but tolerates NEXT_PUBLIC_-prefixed variants so a Railway
+        // service that follows the shell-docs naming convention still
+        // wires through. See the readUrl fallback chain in
+        // runtime-config.ts.
+        (process.env as Record<string, string>).NODE_ENV = "production";
+        process.env.NEXT_PUBLIC_POCKETBASE_URL = "https://alt-pb.example.com";
+        process.env.NEXT_PUBLIC_SHELL_URL = "https://alt-shell.example.com";
+        process.env.NEXT_PUBLIC_OPS_BASE_URL = "https://alt-ops.example.com";
+        const cfg = getRuntimeConfig();
+        expect(cfg.pocketbaseUrl).toBe("https://alt-pb.example.com");
+        expect(cfg.shellUrl).toBe("https://alt-shell.example.com");
+        expect(cfg.opsBaseUrl).toBe("https://alt-ops.example.com");
+    });
+
+    it("bare names take precedence over NEXT_PUBLIC_ variants when both set", () => {
+        (process.env as Record<string, string>).NODE_ENV = "production";
+        process.env.POCKETBASE_URL = "https://primary-pb.example.com";
+        process.env.SHELL_URL = "https://primary-shell.example.com";
+        process.env.OPS_BASE_URL = "https://primary-ops.example.com";
+        process.env.NEXT_PUBLIC_POCKETBASE_URL = "https://alt-pb.example.com";
+        process.env.NEXT_PUBLIC_SHELL_URL = "https://alt-shell.example.com";
+        process.env.NEXT_PUBLIC_OPS_BASE_URL = "https://alt-ops.example.com";
+        const cfg = getRuntimeConfig();
+        expect(cfg.pocketbaseUrl).toBe("https://primary-pb.example.com");
+        expect(cfg.shellUrl).toBe("https://primary-shell.example.com");
+        expect(cfg.opsBaseUrl).toBe("https://primary-ops.example.com");
     });
 
     it("getRuntimeConfigEdge skips noStore() (Edge runtime path)", async () => {

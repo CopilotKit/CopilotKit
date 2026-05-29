@@ -15,6 +15,13 @@ const URL_KEYS = [
   "NEXT_PUBLIC_SHELL_URL",
   "NEXT_PUBLIC_INTELLIGENCE_SIGNUP_URL",
   "NEXT_PUBLIC_POSTHOG_HOST",
+  // Alt (bare) names — shell-docs tolerates these as a fallback so a
+  // Railway service following the shell / shell-dashboard naming
+  // convention still wires through.
+  "BASE_URL",
+  "SHELL_URL",
+  "INTELLIGENCE_SIGNUP_URL",
+  "POSTHOG_HOST",
 ] as const;
 const ANALYTICS_KEYS = [
   "NEXT_PUBLIC_POSTHOG_KEY",
@@ -98,16 +105,23 @@ describe("server getRuntimeConfig (shell-docs)", () => {
     expect(cfg.posthogHost).toBe("https://eu.i.posthog.com");
   });
 
-  it("falls back to prod sentinels and console.errors when URLs unset in production", () => {
+  it("falls back to prod sentinels and logs by severity when URLs unset in production", () => {
     (process.env as Record<string, string>).NODE_ENV = "production";
     const errs: string[] = [];
-    const spy = vi
+    const infos: string[] = [];
+    const errSpy = vi
       .spyOn(console, "error")
       .mockImplementation((m: string) => {
         errs.push(m);
       });
+    const infoSpy = vi
+      .spyOn(console, "info")
+      .mockImplementation((m: string) => {
+        infos.push(m);
+      });
     const cfg = getRuntimeConfig();
-    spy.mockRestore();
+    errSpy.mockRestore();
+    infoSpy.mockRestore();
 
     expect(cfg.baseUrl).toBe("https://docs.copilotkit.ai");
     expect(cfg.shellUrl).toBe("about:blank#shell-url-missing");
@@ -115,12 +129,28 @@ describe("server getRuntimeConfig (shell-docs)", () => {
       "https://dashboard.operations.copilotkit.ai",
     );
     expect(cfg.posthogHost).toBe("https://eu.i.posthog.com");
+    // baseUrl + shellUrl are FATAL-CONFIG severity (no legitimate prod
+    // default exists for shellUrl; baseUrl mismatches break sitemap+OG).
     expect(errs.some((m) => m.includes("NEXT_PUBLIC_BASE_URL"))).toBe(true);
     expect(errs.some((m) => m.includes("NEXT_PUBLIC_SHELL_URL"))).toBe(true);
+    // intelligenceSignupUrl + posthogHost have working prod defaults
+    // (dashboard.operations.copilotkit.ai, EU posthog cloud), so they
+    // log at info severity — not fatal — to avoid alert noise on
+    // deploys that intentionally use the default.
+    expect(
+      infos.some((m) => m.includes("NEXT_PUBLIC_INTELLIGENCE_SIGNUP_URL")),
+    ).toBe(true);
+    expect(infos.some((m) => m.includes("NEXT_PUBLIC_POSTHOG_HOST"))).toBe(
+      true,
+    );
+    // Confirm NO false-positive FATAL-CONFIG was logged for the
+    // recoverable cases.
     expect(
       errs.some((m) => m.includes("NEXT_PUBLIC_INTELLIGENCE_SIGNUP_URL")),
-    ).toBe(true);
-    expect(errs.some((m) => m.includes("NEXT_PUBLIC_POSTHOG_HOST"))).toBe(true);
+    ).toBe(false);
+    expect(errs.some((m) => m.includes("NEXT_PUBLIC_POSTHOG_HOST"))).toBe(
+      false,
+    );
   });
 
   it("returns empty strings for missing analytics keys with no console output", () => {
@@ -164,6 +194,46 @@ describe("server getRuntimeConfig (shell-docs)", () => {
 
     process.env.NEXT_PUBLIC_BASE_URL = "https://second.example.com";
     expect(getRuntimeConfig().baseUrl).toBe("https://second.example.com");
+  });
+
+  it("accepts bare-name fallbacks when NEXT_PUBLIC_* variants are unset", () => {
+    // Deploy-config contract: shell-docs reads NEXT_PUBLIC_* first,
+    // but tolerates the bare-name variant so a Railway service that
+    // follows the shell / shell-dashboard naming convention still
+    // wires through. See the readUrl fallback chain in
+    // runtime-config.ts.
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "https://alt-docs.example.com";
+    process.env.SHELL_URL = "https://alt-shell.example.com";
+    process.env.INTELLIGENCE_SIGNUP_URL = "https://alt-signup.example.com";
+    process.env.POSTHOG_HOST = "https://alt-ph.example.com";
+
+    const cfg = getRuntimeConfig();
+    expect(cfg.baseUrl).toBe("https://alt-docs.example.com");
+    expect(cfg.shellUrl).toBe("https://alt-shell.example.com");
+    expect(cfg.intelligenceSignupUrl).toBe("https://alt-signup.example.com");
+    expect(cfg.posthogHost).toBe("https://alt-ph.example.com");
+  });
+
+  it("NEXT_PUBLIC_* takes precedence over bare-name when both set", () => {
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.NEXT_PUBLIC_BASE_URL = "https://primary-docs.example.com";
+    process.env.BASE_URL = "https://alt-docs.example.com";
+    process.env.NEXT_PUBLIC_SHELL_URL = "https://primary-shell.example.com";
+    process.env.SHELL_URL = "https://alt-shell.example.com";
+    process.env.NEXT_PUBLIC_INTELLIGENCE_SIGNUP_URL =
+      "https://primary-signup.example.com";
+    process.env.INTELLIGENCE_SIGNUP_URL = "https://alt-signup.example.com";
+    process.env.NEXT_PUBLIC_POSTHOG_HOST = "https://primary-ph.example.com";
+    process.env.POSTHOG_HOST = "https://alt-ph.example.com";
+
+    const cfg = getRuntimeConfig();
+    expect(cfg.baseUrl).toBe("https://primary-docs.example.com");
+    expect(cfg.shellUrl).toBe("https://primary-shell.example.com");
+    expect(cfg.intelligenceSignupUrl).toBe(
+      "https://primary-signup.example.com",
+    );
+    expect(cfg.posthogHost).toBe("https://primary-ph.example.com");
   });
 
   it("getRuntimeConfigEdge skips noStore() (Edge runtime path)", async () => {

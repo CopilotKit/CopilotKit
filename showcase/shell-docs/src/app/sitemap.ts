@@ -30,7 +30,7 @@ import { getDocsFolder, getIntegrations } from "@/lib/registry";
 // the LIVE NEXT_PUBLIC_BASE_URL via getRuntimeConfig(). Without this
 // Next.js would statically prerender the sitemap at build time and
 // freeze whichever value `process.env.NEXT_PUBLIC_BASE_URL` had at
-// `next build` — defeating the Option B runtime-config switch.
+// `next build` — defeating the runtime-config switch.
 export const dynamic = "force-dynamic";
 
 export default function sitemap(): MetadataRoute.Sitemap {

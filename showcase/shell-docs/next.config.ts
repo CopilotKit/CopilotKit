@@ -1,15 +1,13 @@
 import type { NextConfig } from "next";
 
-// Under Option B (runtime URL injection), NEXT_PUBLIC_BASE_URL and
-// NEXT_PUBLIC_SHELL_URL are read at REQUEST time by the server
-// `getRuntimeConfig()` reader and injected into the client via
-// `window.__SHOWCASE_CONFIG__` from the root layout. They are NOT
-// build-time inputs — a single built artifact can serve staging and
-// prod by changing the Railway env vars. The previous build-time
-// `next build` validation (which threw if either var was unset) is
-// therefore removed: it would prevent the very deploy pattern Option
-// B exists to enable. Missing values are surfaced loudly at runtime
-// via `console.error` from `runtime-config.ts` instead.
+// NEXT_PUBLIC_BASE_URL and NEXT_PUBLIC_SHELL_URL are read at REQUEST
+// time by the server `getRuntimeConfig()` reader and injected into the
+// client via `window.__SHOWCASE_CONFIG__` from the root layout. They
+// are NOT build-time inputs — a single built artifact can serve staging
+// and prod by changing the Railway env vars. Any previous build-time
+// validation that threw on unset env vars would prevent that exact
+// deploy pattern. Missing values are surfaced loudly at runtime via
+// `console.error` from `runtime-config.ts` instead.
 
 const nextConfig: NextConfig = {
   images: {

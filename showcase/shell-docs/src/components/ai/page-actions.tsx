@@ -294,6 +294,11 @@ export function ViewOptionsPopover({
             href={item.href}
             rel="noreferrer noopener"
             target="_blank"
+            // item.href embeds `getClientBaseUrl()` (the SSR placeholder
+            // during server-render, real value post-hydration), so React
+            // would log a hydration mismatch on every popover anchor.
+            // Suppression scopes to this attribute mismatch only.
+            suppressHydrationWarning
             // Fire a PostHog event keyed by `target` (github, windsurf,
             // claude, chatgpt, codex, view-as-markdown, etc.) so the
             // analytics dashboard can attribute LLM-routing intent to

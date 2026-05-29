@@ -55,8 +55,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=10000
 # URL env vars (POCKETBASE_URL / SHELL_URL / OPS_BASE_URL) are read at
-# runtime by `src/lib/runtime-config.ts` from the Railway service env
-# under Option B — no Dockerfile ARG/ENV plumbing required for them.
+# runtime by `src/lib/runtime-config.ts` from the Railway service env —
+# no Dockerfile ARG/ENV plumbing required for them.
 # COMMIT_SHA / BRANCH stay build-baked because they identify the artifact,
 # not the deploy. See showcase/RAILWAY.md and runtime-config.ts.
 

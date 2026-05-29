@@ -6,20 +6,20 @@
 // `unstable_noStore()` opts the calling segment out of Next.js's static
 // cache so reads always reflect the live env. Without it, a server
 // component that uses this could be statically rendered at build time
-// and freeze the URLs back into the artifact (the exact bug we are
-// fixing). See Next.js App Router docs on Dynamic Rendering.
+// and freeze the URLs back into the artifact — defeating the runtime
+// switch. See Next.js App Router docs on Dynamic Rendering.
 //
 // This module MUST NOT be imported from client components. The matching
 // client-side reader lives in runtime-config.client.ts and reads from
 // window.__SHOWCASE_CONFIG__ which the root layout injects.
 //
-// shell-dojo today has no URL consumers (audit B0 reported zero
-// process.env.NEXT_PUBLIC_* reads). The `RuntimeConfig` interface is
-// intentionally an empty object literal — it exists to keep the
-// runtime-config / layout-injection pattern symmetric across all four
-// shells. Adding a URL later means adding a field here, reading it
-// from process.env via `readUrl`, and the client-side reader picks it
-// up automatically through the shared interface.
+// shell-dojo today has no URL consumers (zero process.env.NEXT_PUBLIC_*
+// reads in this shell). The `RuntimeConfig` interface is intentionally
+// an empty object literal — it exists to keep the runtime-config /
+// layout-injection pattern symmetric across the shells. Adding a URL
+// later means adding a field here, reading it from process.env via
+// `readUrl`, and the client-side reader picks it up automatically
+// through the shared interface.
 
 import { unstable_noStore as noStore } from "next/cache";
 

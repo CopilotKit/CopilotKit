@@ -6,8 +6,8 @@
 // `unstable_noStore()` opts the calling segment out of Next.js's static
 // cache so reads always reflect the live env. Without it, a server
 // component that uses this could be statically rendered at build time
-// and freeze the URLs back into the artifact (the exact bug Option B
-// fixes).
+// and freeze the URLs back into the artifact — which is the entire
+// reason this module exists.
 //
 // This module MUST NOT be imported from client components. The matching
 // client-side reader lives in runtime-config.client.ts and reads from
@@ -73,25 +73,30 @@ export function getRuntimeConfig(
     // reasonable sitemap rather than a sentinel URL. Logged either way.
     isProd ? PROD_BASE_URL_FALLBACK : "http://localhost:3003",
     isProd,
+    "fatal",
   );
   const shellUrl = readUrl(
     "NEXT_PUBLIC_SHELL_URL",
     isProd ? PROD_INVALID_SHELL_URL : "http://localhost:3000",
     isProd,
+    "fatal",
   );
+  // intelligenceSignupUrl: prod fallback IS a real working host
+  // (dashboard.operations.copilotkit.ai), not a sentinel — so absence is
+  // recoverable. Demote from FATAL-CONFIG to an info-level log to stop
+  // generating false-positive alerts on deploys that intentionally rely
+  // on the default. Same logic for posthogHost (EU cloud is the default).
   const intelligenceSignupUrl = readUrl(
     "NEXT_PUBLIC_INTELLIGENCE_SIGNUP_URL",
-    // Both prod and dev fall back to the canonical signup host — the
-    // historical behavior of the consumer modules (signup-link.tsx,
-    // ops-platform-cta.tsx) was to use this URL whenever the env was
-    // unset. Logged in prod only.
     PROD_DEFAULT_SIGNUP_URL,
     isProd,
+    "info",
   );
   const posthogHost = readUrl(
     "NEXT_PUBLIC_POSTHOG_HOST",
     PROD_DEFAULT_POSTHOG_HOST,
     isProd,
+    "info",
   );
 
   return {
@@ -124,15 +129,42 @@ export function getRuntimeConfigEdge(): RuntimeConfig {
   return getRuntimeConfig({ noStore: false });
 }
 
-function readUrl(envKey: string, fallback: string, isProd: boolean): string {
-  const value = process.env[envKey];
+// Env-name tolerance: deploy configs in the wild use either the bare
+// name (e.g. `BASE_URL`) or the `NEXT_PUBLIC_*`-prefixed name. We accept
+// either — the primary (passed-in) name wins, and we transparently fall
+// back to the alternate so a Railway service variable set under the
+// "wrong" name still works without redeploy. The pair is computed by
+// stripping/adding the `NEXT_PUBLIC_` prefix.
+function altEnvName(envKey: string): string {
+  return envKey.startsWith("NEXT_PUBLIC_")
+    ? envKey.slice("NEXT_PUBLIC_".length)
+    : `NEXT_PUBLIC_${envKey}`;
+}
+
+function readUrl(
+  envKey: string,
+  fallback: string,
+  isProd: boolean,
+  severity: "fatal" | "info" = "fatal",
+): string {
+  const value = process.env[envKey] ?? process.env[altEnvName(envKey)];
   if (value && value.length > 0) return value.replace(/\/+$/, "");
   if (isProd) {
-    // eslint-disable-next-line no-console
-    console.error(
-      `[runtime-config] FATAL-CONFIG: ${envKey} is unset in a production deploy; ` +
-        `using fallback ${fallback}. Set the env var on the Railway service.`,
-    );
+    if (severity === "fatal") {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[runtime-config] FATAL-CONFIG: ${envKey} is unset in a production deploy; ` +
+          `using fallback ${fallback}. Set the env var on the Railway service.`,
+      );
+    } else {
+      // info-level: legitimate prod default exists; absence is
+      // recoverable so we log but do not raise the FATAL-CONFIG flag
+      // that triggers ops alerts.
+      // eslint-disable-next-line no-console
+      console.info(
+        `[runtime-config] ${envKey} unset; using prod default ${fallback}`,
+      );
+    }
   } else {
     // eslint-disable-next-line no-console
     console.warn(
@@ -151,6 +183,6 @@ function readUrl(envKey: string, fallback: string, isProd: boolean): string {
  * intentionally analytics-disabled environments.
  */
 function readKey(envKey: string): string {
-  const value = process.env[envKey];
+  const value = process.env[envKey] ?? process.env[altEnvName(envKey)];
   return value && value.length > 0 ? value : "";
 }

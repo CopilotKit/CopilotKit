@@ -24,13 +24,27 @@ declare global {
  * window.__SHOWCASE_CONFIG__. Server components that need the live env
  * values MUST import getRuntimeConfig from runtime-config.ts (the server
  * variant), not this file.
+ *
+ * URL fields use a parseable `https://ssr-placeholder.invalid/` sentinel
+ * — NOT the empty string — because consumer components call
+ * `new URL(cfg.someUrl)` inline during render, and `new URL("")` throws
+ * a TypeError that escapes the SSR response as a 500. The `.invalid`
+ * TLD is reserved by RFC 2606 so the URL also can't accidentally
+ * resolve. The post-hydration re-read swaps in the real value and the
+ * href is fixed up before any user interaction (consumers also use
+ * `suppressHydrationWarning` to silence the benign href diff).
+ *
+ * Analytics-KEY fields STAY the empty string because every consumer
+ * gates side-effects on `if (key)` truthiness — populating them with a
+ * sentinel would erroneously start analytics during SSR.
  */
+const SSR_PLACEHOLDER_URL = "https://ssr-placeholder.invalid/";
 const SSR_PLACEHOLDER: RuntimeConfig = {
-  baseUrl: "",
-  shellUrl: "",
-  intelligenceSignupUrl: "",
+  baseUrl: SSR_PLACEHOLDER_URL,
+  shellUrl: SSR_PLACEHOLDER_URL,
+  intelligenceSignupUrl: SSR_PLACEHOLDER_URL,
   posthogKey: "",
-  posthogHost: "",
+  posthogHost: SSR_PLACEHOLDER_URL,
   scarfPixelId: "",
   googleAnalyticsTrackingId: "",
   reb2bKey: "",
