@@ -541,11 +541,30 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           SERVICES_CSV: ${{ steps.changed.outputs.services }}
+          # Bridge the per-service redeploy summary to showcase_deploy.yml's
+          # `enforce-redeploy-gate` (consumed via the `redeploy-summary`
+          # artifact, extracted to `.redeploy/summary.json`). redeploy-env.ts
+          # writes this path atomically (.tmp → rename) but does NOT create
+          # parent dirs, so the step below mkdir's `.redeploy` first.
+          REDEPLOY_SUMMARY_JSON: .redeploy/summary.json
         run: |
           # Staging is non-blocking by design: the script always exits 0
           # and writes per-service failures into $GITHUB_STEP_SUMMARY. The
           # verify-deploy workflow is the real release gate.
+          mkdir -p .redeploy
           npx tsx showcase/scripts/redeploy-env.ts staging --services "$SERVICES_CSV"
+
+      - name: Upload redeploy summary
+        if: steps.changed.outputs.services != '' && hashFiles('.redeploy/summary.json') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          # Artifact name MUST stay `redeploy-summary`: showcase_deploy.yml's
+          # `resolve-matrix` job downloads it by this exact name and reads
+          # `.redeploy/summary.json` inside.
+          name: redeploy-summary
+          path: .redeploy/summary.json
+          if-no-files-found: error
+          retention-days: 7
 
   notify-all-builds-failed:
     name: Notify all builds failed (staging unchanged)
