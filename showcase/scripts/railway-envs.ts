@@ -402,3 +402,49 @@ export function serviceForDispatchName(
   }
   return undefined;
 }
+
+/**
+ * Throw on SSOT load if any two services share the same `dispatchName`.
+ * `serviceForDispatchName` iterates `Object.entries(SERVICES)` and returns
+ * the first match — a silent collision would route redeploys to the wrong
+ * service. We fail loud at module load instead.
+ *
+ * Accepts an injected map for testing; defaults to the real SERVICES map.
+ */
+export function assertDispatchNamesUnique(
+  services: Record<string, { dispatchName?: string }> = SERVICES,
+): void {
+  const seen = new Map<string, string>(); // dispatchName -> first ssotKey
+  const collisions: Array<{
+    dispatchName: string;
+    keys: [string, string];
+  }> = [];
+  for (const [key, entry] of Object.entries(services)) {
+    const dn = entry.dispatchName;
+    if (typeof dn !== "string" || dn.length === 0) continue;
+    const prior = seen.get(dn);
+    if (prior !== undefined) {
+      collisions.push({ dispatchName: dn, keys: [prior, key] });
+    } else {
+      seen.set(dn, key);
+    }
+  }
+  if (collisions.length > 0) {
+    const lines = collisions
+      .map(
+        (c) =>
+          `  - duplicate dispatchName "${c.dispatchName}" on SSOT keys: ${c.keys[0]}, ${c.keys[1]}`,
+      )
+      .join("\n");
+    throw new Error(
+      `railway-envs SSOT invariant violated:\n${lines}\n` +
+        `Fix: each Railway service must have a unique dispatchName ` +
+        `(or no dispatchName at all for out-of-band services).`,
+    );
+  }
+}
+
+// Module-load assertion: fail any importer if the SSOT drifts into a
+// collision. Tests that exercise the invariant with synthetic input
+// call assertDispatchNamesUnique(synthetic) directly.
+assertDispatchNamesUnique();

@@ -8,6 +8,7 @@ import {
   PROJECT_ID,
   SERVICES,
   STAGING_ENV_ID,
+  assertDispatchNamesUnique,
   instanceIdFor,
   listServiceNames,
   repoNameFor,
@@ -271,5 +272,34 @@ describe("webhooks SSOT entry", () => {
     );
     expect(yml).toMatch(/^\s*- webhooks\s*$/m);
     expect(yml).toMatch(/"dispatch_name":"webhooks"/);
+  });
+});
+
+describe("dispatchName uniqueness invariant", () => {
+  it("the production SSOT has no duplicate dispatchNames", () => {
+    // This calls the invariant against the real exported SERVICES map;
+    // it MUST pass on a healthy tree.
+    expect(() => assertDispatchNamesUnique()).not.toThrow();
+  });
+
+  it("throws when two services share a dispatchName", () => {
+    // Synthetic input: same as production SERVICES but with two
+    // entries pointing at the same dispatchName "showcase-aimock".
+    const synthetic: Record<string, { dispatchName?: string }> = {
+      aimock: { dispatchName: "showcase-aimock" },
+      "showcase-aimock-dupe": { dispatchName: "showcase-aimock" },
+      mastra: { dispatchName: "mastra" },
+    };
+    expect(() => assertDispatchNamesUnique(synthetic)).toThrow(
+      /duplicate dispatchName.*showcase-aimock.*aimock.*showcase-aimock-dupe/i,
+    );
+  });
+
+  it("ignores entries without a dispatchName", () => {
+    const synthetic: Record<string, { dispatchName?: string }> = {
+      pocketbase: {}, // no dispatchName — out-of-band
+      webhooks: { dispatchName: "webhooks" },
+    };
+    expect(() => assertDispatchNamesUnique(synthetic)).not.toThrow();
   });
 });
