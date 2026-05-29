@@ -235,19 +235,28 @@
  *
  *   • `.cpk-intelligence-indicator__pill`  — glassmorphism pill with
  *     a spinning ring, shown while work is in progress.
- *   • `.cpk-intelligence-indicator__tag`   — compact icon + text tag,
- *     persistent in chat history once work completes.
+ *   • `.cpk-intelligence-indicator__tag`   — italic muted-gray "metadata
+ *     line", persistent in chat history once work completes.
  *
- * Opacity cross-fades the two modes; the tag is positioned absolutely
- * over the pill's slot so the layout doesn't jump.
+ * Both children stack in a single grid cell anchored to the left edge,
+ * so the shrink-and-settle morph rotates around a shared LEFT pivot
+ * (not a shared center). That left-aligns the finished tag to the
+ * assistant-message column instead of floating it in the middle of
+ * where the pill was.
  *
- * Violet/indigo palette ported from CopilotKit/Intelligence #155 —
- * text #5B21B6, icon #7C3AED, border #9599E0, gradient stop #EEE6FE,
- * soft shadow #5E64AD.
+ * The transitions are implemented as one-shot CSS animations rather
+ * than property transitions. Plain `transition`s don't fire when the
+ * trigger class is already present at first paint — which is exactly
+ * what happens on fast turns where the brain's `useState` lazy init
+ * mounts the face directly in `finished` state. Animations always
+ * play when their trigger class is applied, mount-time or otherwise.
  */
 .cpk-intelligence-indicator {
   position: relative;
-  display: inline-block;
+  display: grid;
+  /* Stack both children in one cell, left-aligned, vertically centered. */
+  justify-items: start;
+  align-items: center;
   /* Opt out of the parent flex-column's default `align-items: stretch`
      (the auto-mount lives inside `CopilotChatMessageView`'s
      `cpk:flex cpk:flex-col` container). Without this the indicator
@@ -259,6 +268,7 @@
 /* ─── In-progress pill ──────────────────────────────────────────────── */
 
 .cpk-intelligence-indicator__pill {
+  grid-area: 1 / 1;
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
@@ -281,26 +291,25 @@
     0 1px 2px rgb(94 100 173 / 0.06),
     0 8px 24px rgb(149 153 224 / 0.08),
     inset 0 1px 0 rgb(255 255 255 / 0.6);
-  /* Shared origin for the morph: pill shrinks to center; tag grows
-     from the same center. */
-  transform-origin: center;
+  /* Shared LEFT-edge origin: pill shrinks toward its left edge while
+     the tag grows from the same left edge. The morph reads as one
+     element transforming around a fixed pivot. */
+  transform-origin: left center;
   transform: scale(1);
   opacity: 0;
   animation: cpk-intelligence-pill-fade-in 280ms ease-out forwards;
-  /* Out-transition (to finished): shrink + fade in 220 ms.
-     Apple-style ease-out cubic for the shrink so it eases cleanly. */
-  transition:
-    opacity 220ms ease-out,
-    transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 .cpk-intelligence-indicator__pill--hidden {
-  /* `animation: none` cancels the fade-in's held `forwards` value so
-     these declarations win; the wrapper's transition then animates
-     the morph (opacity 1 → 0, scale 1 → 0.7) over 220 ms. */
-  animation: none;
-  opacity: 0;
-  transform: scale(0.7);
+  /* Exit animation. Replaces the held final value of the fade-in (via
+     the animation property swap) and drives both opacity and transform
+     to their exit values. Used in BOTH paths:
+       1. Live spinner → finished (--hidden added by React re-render).
+       2. Mount-already-finished (--hidden present at first paint).
+     A plain `transition` would skip case 2 because there'd be no value
+     change for the browser to interpolate — that's the "pop" users see. */
+  animation: cpk-intelligence-pill-exit 220ms cubic-bezier(0.22, 0.61, 0.36, 1)
+    forwards;
   pointer-events: none;
 }
 
@@ -322,14 +331,12 @@
 /*
  * Italic gray "footnote" — no border, no background, no padding.
  * Reads as scroll-back metadata so it disappears for someone passing
- * by and surfaces for someone looking. Absolutely-positioned over the
- * pill slot so the wrapper's footprint doesn't jump during the
- * shrink-and-settle morph.
+ * by and surfaces for someone looking. Stacks over the pill via grid
+ * (no position: absolute) so it sits at the same left edge.
  */
 
 .cpk-intelligence-indicator__tag {
-  position: absolute;
-  inset: 0;
+  grid-area: 1 / 1;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -339,22 +346,20 @@
   font-weight: 400;
   line-height: 1.4;
   white-space: nowrap;
-  width: -moz-fit-content;
-  width: fit-content;
-  height: -moz-fit-content;
-  height: fit-content;
-  margin: auto;
-  transform-origin: center;
+  transform-origin: left center;
   transform: scale(0.7);
   opacity: 0;
   pointer-events: none;
-  /* In-transition (to shown): scale up + fade in starting 120 ms after
-     the pill starts shrinking — the overlap creates the morph
-     illusion. Slightly longer than the pill's exit (320 ms vs 220 ms)
-     for a "settled" feel. */
-  transition:
-    opacity 320ms cubic-bezier(0.22, 0.61, 0.36, 1) 120ms,
-    transform 320ms cubic-bezier(0.22, 0.61, 0.36, 1) 120ms;
+}
+
+.cpk-intelligence-indicator__tag--shown {
+  /* Entry animation — same mount-or-transition guarantee as the pill's
+     exit. 120ms delay so the tag's grow-in overlaps the pill's shrink
+     near its end, reading as one continuous morph rather than two
+     swaps. */
+  animation: cpk-intelligence-tag-enter 320ms cubic-bezier(0.22, 0.61, 0.36, 1)
+    120ms forwards;
+  pointer-events: auto;
 }
 
 .cpk-intelligence-indicator__tag--shown {
@@ -378,6 +383,28 @@
   }
   to {
     opacity: 1;
+  }
+}
+
+@keyframes cpk-intelligence-pill-exit {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+}
+
+@keyframes cpk-intelligence-tag-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
