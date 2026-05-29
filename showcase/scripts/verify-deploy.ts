@@ -89,10 +89,78 @@ export function parseArgs(argv: string[]): ParsedArgs {
   return services === undefined ? { env } : { env, services };
 }
 
+/**
+ * Branded host type for `ProbeTarget.host`.
+ *
+ * A `Host` is a bare hostname literal (no scheme, no path, no slash) —
+ * exactly the shape `domainFor()` is documented to return. The brand is
+ * structural only: at runtime a `Host` IS a string, so it is assignable
+ * to any `string`-typed parameter (e.g. `checkHealthcheck200(host, ...)`)
+ * with no runtime cost. The point is to prevent the inverse direction —
+ * a caller cannot hand a `ProbeTarget` a scheme-included or path-bearing
+ * string without going through `asHost()`, which validates fail-loud.
+ *
+ * Co-located with `ProbeTarget` (the only structural consumer) rather
+ * than in `railway-envs.ts` to keep the brand at the verify-pipeline
+ * boundary; `domainFor()` keeps its `string` return type and we validate
+ * + brand at the point of ingress in `resolveProbeTargets`.
+ */
+export type Host = string & { readonly __brand: "Host" };
+
+/**
+ * Validate + brand a bare hostname literal as a `Host`. Throws on any
+ * scheme separator (`://`), any slash (path component), leading/trailing
+ * whitespace, or any of `@` (userinfo), `?` (query), `#` (fragment) — the
+ * verify-deploy pipeline never wants any of these — drivers always build
+ * URLs as `https://${host}${path}`, so a host carrying any of those would
+ * produce malformed URLs at the driver boundary.
+ *
+ * Overlap with `domainFor()` is partial, not full: `domainFor` re-checks
+ * scheme + empty on the normal SSOT path, but does NOT check path/slash
+ * or the whitespace/userinfo/query/fragment cases that `asHost` rejects.
+ * The override seam in `resolveProbeTargets` (test-only path that bypasses
+ * `domainFor` entirely) is what makes the `asHost` call mandatory — it is
+ * the sole ingress that gets to skip `domainFor`'s checks.
+ */
+export function asHost(value: string): Host {
+  if (value.includes("://")) {
+    throw new Error(`asHost: host must not include a scheme (got "${value}")`);
+  }
+  if (value.includes("/")) {
+    throw new Error(
+      `asHost: host must not include a path or slash (got "${value}")`,
+    );
+  }
+  if (value.length === 0) {
+    throw new Error(`asHost: host must not be empty`);
+  }
+  if (value !== value.trim()) {
+    throw new Error(
+      `asHost: host must not have leading/trailing whitespace (got "${value}")`,
+    );
+  }
+  if (value.includes("@")) {
+    throw new Error(
+      `asHost: host must not include userinfo "@" (got "${value}")`,
+    );
+  }
+  if (value.includes("?")) {
+    throw new Error(
+      `asHost: host must not include a query "?" (got "${value}")`,
+    );
+  }
+  if (value.includes("#")) {
+    throw new Error(
+      `asHost: host must not include a fragment "#" (got "${value}")`,
+    );
+  }
+  return value as Host;
+}
+
 export interface ProbeTarget {
-  name: string;
-  host: string;
-  driver: ProbeDriver;
+  readonly name: string;
+  readonly host: Host;
+  readonly driver: ProbeDriver;
 }
 
 export interface ResolveOpts {
@@ -128,14 +196,23 @@ export function resolveProbeTargets(opts: ResolveOpts): ProbeTarget[] {
     if (filter && !filter.has(name)) continue;
     if (!entry.probe[opts.env]) continue;
     const overrideDomains = opts.overrides?.[name]?.domains;
-    const host = overrideDomains
+    const rawHost = overrideDomains
       ? overrideDomains[opts.env]
       : domainFor(name, opts.env);
-    if (!host) {
+    if (!rawHost) {
       throw new Error(
         `Service "${name}" is probe-required for env "${opts.env}" but is missing a ${opts.env} domain.`,
       );
     }
+    // Brand at the verify-pipeline ingress so every downstream driver
+    // receives a `Host` (not a raw `string`). On the normal path
+    // `domainFor` already enforces scheme + empty checks, and `asHost`
+    // re-validates those (cheap redundancy). The checks that ONLY exist
+    // here — path/slash, leading/trailing whitespace, `@`/`?`/`#` — are
+    // mandatory because the override seam below (`overrideDomains`,
+    // test-only) bypasses `domainFor` entirely; `asHost` is the sole
+    // gate that catches those for both paths.
+    const host = asHost(rawHost);
     targets.push({ name, host, driver: entry.probe.driver });
   }
   return targets.sort((a, b) => a.name.localeCompare(b.name));

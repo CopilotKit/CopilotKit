@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { parseArgs, resolveProbeTargets, runVerify } from "../verify-deploy";
+import {
+  asHost,
+  parseArgs,
+  resolveProbeTargets,
+  runVerify,
+} from "../verify-deploy";
 import type { ProbeRunner } from "../verify-deploy";
 
 describe("verify-deploy argv parsing", () => {
@@ -101,6 +106,80 @@ describe("resolveProbeTargets", () => {
     expect(() =>
       resolveProbeTargets({ env: "staging", services: ["totally-fake"] }),
     ).toThrow(/unknown service/i);
+  });
+
+  it("REFUSES an override domain carrying a scheme (ingress branding wired)", () => {
+    // The override seam in `resolveProbeTargets` bypasses `domainFor`,
+    // so `asHost` is the sole ingress validator on that path. A
+    // scheme-bearing override must surface as a hard throw, proving
+    // the `asHost(rawHost)` call is actually wired in.
+    expect(() =>
+      resolveProbeTargets({
+        env: "staging",
+        services: ["docs"],
+        overrides: {
+          docs: {
+            domains: { staging: "https://docs.test", prod: "docs.test" },
+          },
+        },
+      }),
+    ).toThrow(/scheme/i);
+  });
+
+  it("REFUSES an override domain carrying a path/slash (ingress branding wired)", () => {
+    expect(() =>
+      resolveProbeTargets({
+        env: "staging",
+        services: ["docs"],
+        overrides: {
+          docs: {
+            domains: { staging: "docs.test/path", prod: "docs.test" },
+          },
+        },
+      }),
+    ).toThrow(/path|slash/i);
+  });
+});
+
+describe("asHost validator", () => {
+  it("accepts a bare hostname literal", () => {
+    expect(() => asHost("docs.example.com")).not.toThrow();
+    // Returned value IS a string at runtime (brand is structural).
+    const h = asHost("docs.example.com");
+    expect(typeof h).toBe("string");
+    expect(h).toBe("docs.example.com");
+  });
+
+  it("rejects values with a scheme separator", () => {
+    expect(() => asHost("https://x")).toThrow(/scheme/i);
+    expect(() => asHost("http://docs.example.com")).toThrow(/scheme/i);
+  });
+
+  it("rejects values containing a path or slash", () => {
+    expect(() => asHost("x/y")).toThrow(/path|slash/i);
+    expect(() => asHost("docs.example.com/")).toThrow(/path|slash/i);
+  });
+
+  it("rejects the empty string", () => {
+    expect(() => asHost("")).toThrow(/empty/i);
+  });
+
+  it("rejects leading/trailing whitespace", () => {
+    expect(() => asHost(" docs.example.com")).toThrow(/whitespace/i);
+    expect(() => asHost("docs.example.com ")).toThrow(/whitespace/i);
+    expect(() => asHost("\tdocs.example.com")).toThrow(/whitespace/i);
+  });
+
+  it("rejects userinfo '@'", () => {
+    expect(() => asHost("user@docs.example.com")).toThrow(/userinfo|@/);
+  });
+
+  it("rejects query '?'", () => {
+    expect(() => asHost("docs.example.com?x=1")).toThrow(/query|\?/);
+  });
+
+  it("rejects fragment '#'", () => {
+    expect(() => asHost("docs.example.com#frag")).toThrow(/fragment|#/);
   });
 });
 
