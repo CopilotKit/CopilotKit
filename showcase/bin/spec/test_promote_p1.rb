@@ -33,6 +33,7 @@ class PromoteP1Test < Minitest::Test
         cmd.instance_variable_set(:@gql,  FakeGQLEmpty.new)
         cmd.instance_variable_set(:@ghcr, FakeGHCR.new(:missing))
 
+        cmd.define_singleton_method(:run_staging_probe) { |services:| { ok: true, summary: "" } }
         out, _err = capture_io { @rc = cmd.run_with_preflight_only }
         assert_equal 1, @rc, "promote must exit 1 on REFUSE"
         assert_match(/REFUSE: P1.*ghcr\.io.*not found in GHCR/i, out)
@@ -49,6 +50,7 @@ class PromoteP1Test < Minitest::Test
         cmd.instance_variable_set(:@gql, FakeGQLEmpty.new)
         cmd.instance_variable_set(:@ghcr, FakeGHCR.new(:auth_failed))
 
+        cmd.define_singleton_method(:run_staging_probe) { |services:| { ok: true, summary: "" } }
         out, _err = capture_io { @rc = cmd.run_with_preflight_only }
         assert_equal 1, @rc
         assert_match(/REFUSE: P1.*GHCR.*auth/i, out)
@@ -68,6 +70,7 @@ class PromoteP1Test < Minitest::Test
 
         # P1 alone should not refuse; later checks (service-set parity) will,
         # but P1's own gate is clean for this fixture.
+        cmd.define_singleton_method(:run_staging_probe) { |services:| { ok: true, summary: "" } }
         out, _err = capture_io { cmd.run_with_preflight_only }
         refute_match(/REFUSE: P1/, out)
     end

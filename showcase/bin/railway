@@ -1144,8 +1144,52 @@ module Railway
             (data.dig("deployments", "edges") || []).map { |e| e["node"] }
         end
 
-        # Stub — P3 lands in a later commit.
-        def check_p3_staging_live_green(_staging); []; end
+        # P3 — re-probe staging live at promote time. Authoritative; CI history
+        # is not, because showcase_deploy.yml uses cancel-in-progress.
+        # Default-on; can be disabled with --no-require-staging-green.
+        def check_p3_staging_live_green(staging)
+            unless options[:require_staging_green]
+                puts "P3 SKIPPED (--no-require-staging-green set; staging is NOT being live-re-probed)."
+                return []
+            end
+            services = (staging["services"] || []).map { |s| s["name"] }.compact.uniq
+            return [] if services.empty?
+            result = run_staging_probe(services: services)
+            return [] if result[:ok]
+            ["REFUSE: P3: staging is not green for #{services.join(', ')}: #{result[:summary]}"]
+        end
+
+        # Shell out to Workstream A's parameterized probe entrypoint.
+        # Contract: exit 0 = green, non-zero = red; stdout is the human summary.
+        #
+        # Explicitly forward RAILWAY_TOKEN (the probe enumerates Railway state
+        # over GraphQL) and GHCR_TOKEN / GITHUB_TOKEN (the probe may need to
+        # cross-check GHCR for the digest under test). All three are inherited
+        # from the parent process env when set; the explicit hash below makes
+        # the dependency visible and survives any future child-env sanitizing.
+        def run_staging_probe(services:)
+            probe_bin = File.expand_path("../scripts/verify-deploy.ts", __dir__)
+            unless File.exist?(probe_bin)
+                return { ok: false, summary: "verify-deploy.ts not found at #{probe_bin} — Workstream A dependency missing." }
+            end
+            services_arg = services.join(",")
+            child_env = {
+                "RAILWAY_TOKEN" => ENV["RAILWAY_TOKEN"],
+                "GHCR_TOKEN"    => ENV["GHCR_TOKEN"],
+                "GITHUB_TOKEN"  => ENV["GITHUB_TOKEN"],
+                "PATH"          => ENV["PATH"],
+                "HOME"          => ENV["HOME"],
+            }.compact
+            # Use `tsx` (workspace dev dependency) for stdlib-free TS execution.
+            # IO.popen preserves a clean child env (Kernel#`` would inherit the
+            # parent shell verbatim — fine, but explicit is better for audit).
+            output = IO.popen(child_env, ["npx", "--yes", "tsx", probe_bin,
+                "--env", "staging",
+                "--services", services_arg,
+                err: [:child, :out]]) { |io| io.read }
+            ok = $?.exitstatus == 0
+            { ok: ok, summary: output.lines.last(10).join.strip }
+        end
 
         # P6 — parity matrix.
         #   REFUSE: startCommand, healthcheckPath, image shape.

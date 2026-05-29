@@ -27,6 +27,8 @@ class PromoteP2Test < Minitest::Test
         c.instance_variable_set(:@prod_snapshot, { "services" => [] })
         c.instance_variable_set(:@gql, FakeGQL.new(deployments))
         c.instance_variable_set(:@ghcr, Object.new.tap { |o| def o.manifest_exists(_); :exists; end })
+        # Stub P3 probe so the test does not shell out to verify-deploy.ts.
+        c.define_singleton_method(:run_staging_probe) { |services:| { ok: true, summary: "" } }
         c
     end
 
