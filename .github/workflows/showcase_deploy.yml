@@ -69,16 +69,42 @@ jobs:
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
+            // Fail loud on API error: github-script propagates unhandled
+            // rejections, which fails this step and (via the
+            // resolve-matrix.result == 'failure' clause on
+            // enforce-redeploy-gate) reds the workflow. Do NOT wrap this
+            // in try/catch — silently defaulting summary_present=false on
+            // a 5xx/403 would open the gate (skip verify) on what is
+            // actually a transient API failure, hiding a broken pipeline.
+            //
+            // Use the `name` query-param on listWorkflowRunArtifacts to
+            // ask the API to return only the redeploy-summary artifact.
+            // This makes the lookup robust to the build run uploading
+            // many artifacts (per-slot build-result-* + build-results +
+            // redeploy-summary — already ~28 today, well within per_page
+            // 100, but a future expansion past 100 would otherwise risk a
+            // false "absent" if redeploy-summary fell off the first page).
+            // The endpoint accepts `name` for an exact-match filter; we
+            // still paginate defensively in case the API returns multiple
+            // rows (e.g. an artifact with the same name re-uploaded).
             const runId = context.payload.workflow_run.id;
-            const { data } = await github.rest.actions.listWorkflowRunArtifacts({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              run_id: runId,
-              per_page: 100,
-            });
-            const present = (data.artifacts || []).some(
-              (a) => a.name === "redeploy-summary",
+            const iterator = github.paginate.iterator(
+              github.rest.actions.listWorkflowRunArtifacts,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: runId,
+                name: "redeploy-summary",
+                per_page: 100,
+              },
             );
+            let present = false;
+            for await (const page of iterator) {
+              if ((page.data || []).some((a) => a.name === "redeploy-summary")) {
+                present = true;
+                break;
+              }
+            }
             core.setOutput("summary_present", present ? "true" : "false");
             core.info(`redeploy-summary present for run ${runId}: ${present}`);
 
@@ -143,12 +169,39 @@ jobs:
         env:
           DISPATCH_SERVICE: ${{ github.event.inputs.service }}
           OK_FROM_REDEPLOY: ${{ steps.redeploy-gate.outputs.ok_services }}
+          EVENT_NAME: ${{ github.event_name }}
+          SUMMARY_PRESENT: ${{ steps.check-redeploy-summary.outputs.summary_present }}
         run: |
           set -euo pipefail
           # The SSOT JSON is canonical for service identity, domain, and
           # probe driver. The verify matrix is "every service where
           # probe.staging===true, restricted to the success-set of the
           # redeploy when present, restricted to --service when dispatched."
+          #
+          # Empty-OK_FROM_REDEPLOY has TWO distinct causes and we must
+          # NOT collapse them:
+          #   (1) workflow_run + summary artifact ABSENT — the upstream
+          #       build legitimately redeployed nothing (no buildable
+          #       service changed). There is nothing to verify; skip the
+          #       matrix entirely so `verify` doesn't probe the whole
+          #       staging fleet for a push that deployed nothing (which
+          #       would false-red the deploy workflow if any unrelated
+          #       staging service happens to be unhealthy at probe time).
+          #   (2) workflow_dispatch — manual verify-the-fleet (or a
+          #       specific --service). The fall-through below intentionally
+          #       resolves to the full probe-eligible set or the chosen
+          #       service.
+          # The workflow_run+summary-PRESENT+all-errors case is handled
+          # elsewhere: `redeploy-gate` sets redeploy_red=true and
+          # `enforce-redeploy-gate` trips RED. The empty intersection
+          # here in that case still produces has_services=false, which
+          # is fine — the gate job is what reds the workflow.
+          if [ "${EVENT_NAME:-}" = "workflow_run" ] && [ "${SUMMARY_PRESENT:-}" = "false" ]; then
+            echo "workflow_run with no redeploy-summary artifact — nothing was redeployed; skipping verify."
+            echo "services_csv=" >> "$GITHUB_OUTPUT"
+            echo "has_services=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           GENERATED="showcase/scripts/railway-envs.generated.json"
           if [ ! -f "$GENERATED" ]; then
             npx tsx showcase/scripts/emit-railway-envs-json.ts
