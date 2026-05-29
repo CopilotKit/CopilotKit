@@ -33,16 +33,28 @@ describe("useGoogleAnalytics: hooks unconditional (rules of hooks)", () => {
 
   it("does not early-return before calling hooks", () => {
     // Find the index of the first 'return;' (the bug-shape early
-    // return) and the first hook call. If the early return precedes
-    // any hook, that's the bug.
+    // return) and the first hook call.
     const earlyReturn = body.search(/if\s*\(\s*!GA_ID\s*\)\s*[{\s]*return\s*;/);
     const firstUsePathname = body.indexOf("usePathname(");
     const firstUseEffect = body.indexOf("useEffect(");
 
-    // If there's no bug-shape early return at all, the test trivially
-    // passes (the hook authoring is clean).
+    // First, the hook calls MUST exist in the source — otherwise a
+    // refactor that deleted all hooks would silently satisfy the
+    // "hooks-before-early-return" check (everything is `-1`, and the
+    // tautology branch trivially passed).
+    expect(
+      firstUsePathname,
+      "usePathname() must be called by useGoogleAnalytics",
+    ).toBeGreaterThan(-1);
+    expect(
+      firstUseEffect,
+      "useEffect() must be called by useGoogleAnalytics",
+    ).toBeGreaterThan(-1);
+
     if (earlyReturn === -1) {
-      expect(true).toBe(true);
+      // No bug-shape early return at all — the hook authoring is clean
+      // and the hooks exist. The presence-checks above are the
+      // meaningful assertions in this case (no tautology).
       return;
     }
 

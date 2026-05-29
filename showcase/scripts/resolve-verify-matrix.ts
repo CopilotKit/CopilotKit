@@ -158,7 +158,7 @@ export function resolveVerifyMatrix(
     );
   }
 
-  // FIX 7 — make the workflow_run boundary total. `check-redeploy-summary`
+  // Make the workflow_run boundary total. `check-redeploy-summary`
   // always sets `summary_present` to exactly "true" or "false"; any other
   // value here (including "" from a future step-id-rename wiring break,
   // or "True" from a case-typo) means the wiring is broken upstream, NOT

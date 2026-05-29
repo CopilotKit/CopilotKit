@@ -89,19 +89,31 @@ function altEnvName(envKey: string): string {
         : `NEXT_PUBLIC_${envKey}`;
 }
 
+// Length-aware env coalesce: a deliberately-empty primary (e.g. an
+// operator clearing `BASE_URL=""` on a Railway service) must NOT mask a
+// populated alternate. Treat empty-string as "unset" and fall through to
+// the alternate.
+function readEnvPair(envKey: string): string | undefined {
+    const primary = process.env[envKey];
+    if (primary && primary.length > 0) return primary;
+    const alt = process.env[altEnvName(envKey)];
+    if (alt && alt.length > 0) return alt;
+    return undefined;
+}
+
 function readUrl(envKey: string, fallback: string, isProd: boolean): string {
-    const value = process.env[envKey] ?? process.env[altEnvName(envKey)];
-    if (value && value.length > 0) return value.replace(/\/+$/, "");
+    const value = readEnvPair(envKey);
+    if (value !== undefined) return value.replace(/\/+$/, "");
     if (isProd) {
         // eslint-disable-next-line no-console
         console.error(
-            `[runtime-config] FATAL-CONFIG: ${envKey} is unset in a production deploy; ` +
+            `[shell runtime-config] FATAL-CONFIG: ${envKey} is unset in a production deploy; ` +
                 `using sentinel ${fallback}. Set the env var on the Railway service.`,
         );
     } else {
         // eslint-disable-next-line no-console
         console.warn(
-            `[runtime-config] ${envKey} unset; using dev fallback ${fallback}`,
+            `[shell runtime-config] ${envKey} unset; using dev fallback ${fallback}`,
         );
     }
     return fallback.replace(/\/+$/, "");
@@ -110,7 +122,7 @@ function readUrl(envKey: string, fallback: string, isProd: boolean): string {
 // Analytics keys (POSTHOG_HOST etc.) are legitimately absent on
 // non-production envs; do NOT log a FATAL-CONFIG warning when missing.
 function readKey(envKey: string, fallback: string): string {
-    const value = process.env[envKey] ?? process.env[altEnvName(envKey)];
-    if (value && value.length > 0) return value.replace(/\/+$/, "");
+    const value = readEnvPair(envKey);
+    if (value !== undefined) return value.replace(/\/+$/, "");
     return fallback.replace(/\/+$/, "");
 }

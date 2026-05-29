@@ -101,6 +101,18 @@ describe("server getRuntimeConfig (shell)", () => {
         expect(cfg.baseUrl).toBe("https://primary.example.com");
     });
 
+    it("empty-string primary does not mask a set alternate (length-aware fallback)", () => {
+        // A deliberately-empty BASE_URL must NOT win over a populated
+        // NEXT_PUBLIC_BASE_URL. The prior `??` form treated `""` as
+        // "set", masking the alternate; the length-aware form falls
+        // through to the alternate when the primary is empty.
+        (process.env as Record<string, string>).NODE_ENV = "production";
+        process.env.BASE_URL = "";
+        process.env.NEXT_PUBLIC_BASE_URL = "https://alt.example.com";
+        const cfg = getRuntimeConfig();
+        expect(cfg.baseUrl).toBe("https://alt.example.com");
+    });
+
     it("accepts NEXT_PUBLIC_POSTHOG_HOST as a fallback when POSTHOG_HOST is unset", () => {
         (process.env as Record<string, string>).NODE_ENV = "production";
         process.env.NEXT_PUBLIC_POSTHOG_HOST = "https://alt-ph.example.com";

@@ -64,10 +64,10 @@ export function getRuntimeConfig(
     const opsBaseUrl = readUrl(
         "OPS_BASE_URL",
         // shell-dashboard's next.config.ts validates OPS_BASE_URL at
-        // start time (B10), so reaching the fallback here means
-        // something is wrong with the launch sequence. Use a sentinel
-        // that produces visible breakage rather than silently routing
-        // to a guessed host.
+        // start time, so reaching the fallback here means something
+        // is wrong with the launch sequence. Use a sentinel that
+        // produces visible breakage rather than silently routing to
+        // a guessed host.
         isProd ? "http://ops.invalid" : "http://localhost:9020",
         isProd,
     );
@@ -101,19 +101,31 @@ function altEnvName(envKey: string): string {
         : `NEXT_PUBLIC_${envKey}`;
 }
 
+// Length-aware env coalesce: a deliberately-empty primary (e.g. an
+// operator clearing `OPS_BASE_URL=""` on a Railway service) must NOT
+// mask a populated alternate. Treat empty-string as "unset" and fall
+// through to the alternate.
+function readEnvPair(envKey: string): string | undefined {
+    const primary = process.env[envKey];
+    if (primary && primary.length > 0) return primary;
+    const alt = process.env[altEnvName(envKey)];
+    if (alt && alt.length > 0) return alt;
+    return undefined;
+}
+
 function readUrl(envKey: string, fallback: string, isProd: boolean): string {
-    const value = process.env[envKey] ?? process.env[altEnvName(envKey)];
-    if (value && value.length > 0) return value.replace(/\/+$/, "");
+    const value = readEnvPair(envKey);
+    if (value !== undefined) return value.replace(/\/+$/, "");
     if (isProd) {
         // eslint-disable-next-line no-console
         console.error(
-            `[runtime-config] FATAL-CONFIG: ${envKey} is unset in a production deploy; ` +
+            `[shell-dashboard runtime-config] FATAL-CONFIG: ${envKey} is unset in a production deploy; ` +
                 `using sentinel ${fallback}. Set the env var on the Railway service.`,
         );
     } else {
         // eslint-disable-next-line no-console
         console.warn(
-            `[runtime-config] ${envKey} unset; using dev fallback ${fallback}`,
+            `[shell-dashboard runtime-config] ${envKey} unset; using dev fallback ${fallback}`,
         );
     }
     return fallback.replace(/\/+$/, "");

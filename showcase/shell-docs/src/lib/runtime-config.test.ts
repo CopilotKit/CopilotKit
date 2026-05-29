@@ -108,20 +108,20 @@ describe("server getRuntimeConfig (shell-docs)", () => {
   it("falls back to prod sentinels and logs by severity when URLs unset in production", () => {
     (process.env as Record<string, string>).NODE_ENV = "production";
     const errs: string[] = [];
-    const infos: string[] = [];
+    const warns: string[] = [];
     const errSpy = vi
       .spyOn(console, "error")
       .mockImplementation((m: string) => {
         errs.push(m);
       });
-    const infoSpy = vi
-      .spyOn(console, "info")
+    const warnSpy = vi
+      .spyOn(console, "warn")
       .mockImplementation((m: string) => {
-        infos.push(m);
+        warns.push(m);
       });
     const cfg = getRuntimeConfig();
     errSpy.mockRestore();
-    infoSpy.mockRestore();
+    warnSpy.mockRestore();
 
     expect(cfg.baseUrl).toBe("https://docs.copilotkit.ai");
     expect(cfg.shellUrl).toBe("about:blank#shell-url-missing");
@@ -135,14 +135,24 @@ describe("server getRuntimeConfig (shell-docs)", () => {
     expect(errs.some((m) => m.includes("NEXT_PUBLIC_SHELL_URL"))).toBe(true);
     // intelligenceSignupUrl + posthogHost have working prod defaults
     // (dashboard.operations.copilotkit.ai, EU posthog cloud), so they
-    // log at info severity — not fatal — to avoid alert noise on
-    // deploys that intentionally use the default.
+    // log via console.warn WITHOUT the `FATAL-CONFIG:` prefix — visible
+    // in prod log streams but not raising ops alerts.
     expect(
-      infos.some((m) => m.includes("NEXT_PUBLIC_INTELLIGENCE_SIGNUP_URL")),
+      warns.some((m) => m.includes("NEXT_PUBLIC_INTELLIGENCE_SIGNUP_URL")),
     ).toBe(true);
-    expect(infos.some((m) => m.includes("NEXT_PUBLIC_POSTHOG_HOST"))).toBe(
+    expect(warns.some((m) => m.includes("NEXT_PUBLIC_POSTHOG_HOST"))).toBe(
       true,
     );
+    // The recoverable warns must NOT carry the `FATAL-CONFIG:` prefix —
+    // that prefix is what ops alert routing pattern-matches on.
+    expect(
+      warns.some(
+        (m) =>
+          m.includes("FATAL-CONFIG:") &&
+          (m.includes("NEXT_PUBLIC_INTELLIGENCE_SIGNUP_URL") ||
+            m.includes("NEXT_PUBLIC_POSTHOG_HOST")),
+      ),
+    ).toBe(false);
     // Confirm NO false-positive FATAL-CONFIG was logged for the
     // recoverable cases.
     expect(
