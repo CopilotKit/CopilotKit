@@ -235,16 +235,16 @@
  *
  *   • `.cpk-intelligence-indicator__pill`  — glassmorphism pill with
  *     a spinning ring, shown while work is in progress.
- *   • `.cpk-intelligence-indicator__tag`   — italic muted-gray "metadata
- *     line", persistent in chat history once work completes.
+ *   • `.cpk-intelligence-indicator__tag`   — "stripped pill". Same
+ *     layout, padding, font, and purple text as the pill, but the
+ *     background, border, shadow, and backdrop-blur are gone and the
+ *     spinning ring is replaced with a static checkmark.
  *
- * Both children stack in a single grid cell anchored to the left edge,
- * so the shrink-and-settle morph rotates around a shared LEFT pivot
- * (not a shared center). That left-aligns the finished tag to the
- * assistant-message column instead of floating it in the middle of
- * where the pill was.
+ * Both children stack in a single grid cell at the same `grid-area`,
+ * so they overlap pixel-for-pixel and the cross-fade reads as the
+ * pill's frame dissolving while the icon morphs from ring to check.
  *
- * The transitions are implemented as one-shot CSS animations rather
+ * The cross-fade is implemented as one-shot CSS animations rather
  * than property transitions. Plain `transition`s don't fire when the
  * trigger class is already present at first paint — which is exactly
  * what happens on fast turns where the brain's `useState` lazy init
@@ -291,25 +291,17 @@
     0 1px 2px rgb(94 100 173 / 0.06),
     0 8px 24px rgb(149 153 224 / 0.08),
     inset 0 1px 0 rgb(255 255 255 / 0.6);
-  /* Shared LEFT-edge origin: pill shrinks toward its left edge while
-     the tag grows from the same left edge. The morph reads as one
-     element transforming around a fixed pivot. */
-  transform-origin: left center;
-  transform: scale(1);
   opacity: 0;
   animation: cpk-intelligence-pill-fade-in 280ms ease-out forwards;
 }
 
 .cpk-intelligence-indicator__pill--hidden {
-  /* Exit animation. Replaces the held final value of the fade-in (via
-     the animation property swap) and drives both opacity and transform
-     to their exit values. Used in BOTH paths:
+  /* Exit animation. Used in BOTH paths:
        1. Live spinner → finished (--hidden added by React re-render).
        2. Mount-already-finished (--hidden present at first paint).
      A plain `transition` would skip case 2 because there'd be no value
      change for the browser to interpolate — that's the "pop" users see. */
-  animation: cpk-intelligence-pill-exit 220ms cubic-bezier(0.22, 0.61, 0.36, 1)
-    forwards;
+  animation: cpk-intelligence-pill-exit 220ms ease-out forwards;
   pointer-events: none;
 }
 
@@ -327,38 +319,36 @@
   animation: cpk-intelligence-pill-spin 0.9s linear infinite;
 }
 
-/* ─── Finished metadata line ────────────────────────────────────────── */
+/* ─── Finished "stripped pill" ──────────────────────────────────────── */
 /*
- * Italic gray "footnote" — no border, no background, no padding.
- * Reads as scroll-back metadata so it disappears for someone passing
- * by and surfaces for someone looking. Stacks over the pill via grid
- * (no position: absolute) so it sits at the same left edge.
+ * Same layout and text styling as the in-progress pill (padding, gap,
+ * font-size, font-weight, color, letter-spacing) but with the
+ * background, border, shadow, and backdrop-blur removed and the
+ * spinning ring replaced with a static checkmark. The frame visibly
+ * sheds while the icon morphs from ring to check.
  */
 
 .cpk-intelligence-indicator__tag {
   grid-area: 1 / 1;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  color: rgb(120 120 130 / 0.85);
-  font-size: 0.6875rem;
-  font-style: italic;
-  font-weight: 400;
-  line-height: 1.4;
+  gap: 0.55rem;
+  padding: 0.4rem 0.85rem;
+  color: rgb(91 33 182 / 0.92);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
   white-space: nowrap;
-  transform-origin: left center;
-  transform: scale(0.7);
   opacity: 0;
   pointer-events: none;
 }
 
 .cpk-intelligence-indicator__tag--shown {
   /* Entry animation — same mount-or-transition guarantee as the pill's
-     exit. 120ms delay so the tag's grow-in overlaps the pill's shrink
-     near its end, reading as one continuous morph rather than two
-     swaps. */
-  animation: cpk-intelligence-tag-enter 320ms cubic-bezier(0.22, 0.61, 0.36, 1)
-    120ms forwards;
+     exit. 120 ms delay so the tag's fade-in overlaps the pill's
+     fade-out near its end, reading as one continuous morph rather
+     than two distinct swaps. */
+  animation: cpk-intelligence-tag-enter 320ms ease-out 120ms forwards;
   pointer-events: auto;
 }
 
@@ -389,22 +379,18 @@
 @keyframes cpk-intelligence-pill-exit {
   from {
     opacity: 1;
-    transform: scale(1);
   }
   to {
     opacity: 0;
-    transform: scale(0.7);
   }
 }
 
 @keyframes cpk-intelligence-tag-enter {
   from {
     opacity: 0;
-    transform: scale(0.7);
   }
   to {
     opacity: 1;
-    transform: scale(1);
   }
 }
 

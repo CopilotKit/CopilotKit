@@ -35,17 +35,18 @@ const toFinishedLabel = (label: string): string =>
  * Two modes:
  *  - `in-progress`: a glassmorphism pill with a spinning ring (the
  *    same active visual users see while the intelligence tool runs).
- *  - `finished`: a tiny italic-gray "metadata line" — icon + past-tense
- *    label, no border, no background. Reads as a footnote attached to
- *    the assistant message rather than a status chip, so it disappears
- *    into the chrome for someone scrolling and surfaces for someone
- *    looking.
+ *  - `finished`: a "stripped pill" — same layout, padding, font, and
+ *    purple text as the in-progress pill, but with the background,
+ *    border, shadow, and backdrop-blur removed and the spinning ring
+ *    swapped for a static checkmark. The frame visibly sheds while
+ *    the icon morphs.
  *
- * Both modes coexist in the DOM; status drives a "shrink-and-settle"
- * transition where the pill scales down (1 → 0.7) from its center as
- * it fades out, and the tag scales up from the same center (0.7 → 1)
- * with a 120 ms delay — the overlap reads as one element morphing
- * rather than two elements being swapped. Total transition ~440 ms.
+ * Both modes coexist in the DOM at the same `grid-area` so they
+ * overlap pixel-for-pixel. Status drives a cross-fade: the in-progress
+ * pill fades out over 220 ms while the stripped pill fades in over
+ * 320 ms with a 120 ms delay — the slight overlap reads as the frame
+ * dissolving and the icon transforming rather than two distinct
+ * elements being swapped.
  *
  * Customize via the `intelligenceIndicator` slot on `CopilotChat`:
  * pass a className string to restyle the default, a props object to
@@ -99,8 +100,9 @@ export function IntelligenceIndicatorView({
         <span>{label}</span>
       </span>
 
-      {/* Finished metadata line — italic gray text + small checkmark,
-          no border or background. The checkmark itself is the cue. */}
+      {/* Finished "stripped pill" — same layout, text, and color as
+          the in-progress pill, but with no background/border/shadow,
+          and a static checkmark in place of the spinning ring. */}
       <span
         className={
           "cpk-intelligence-indicator__tag" +
@@ -111,11 +113,11 @@ export function IntelligenceIndicatorView({
         <svg
           className="cpk-intelligence-tag__icon"
           viewBox="0 0 24 24"
-          width="10"
-          height="10"
+          width="14"
+          height="14"
           fill="none"
           stroke="currentColor"
-          strokeWidth="3"
+          strokeWidth="2.5"
           strokeLinecap="round"
           strokeLinejoin="round"
           aria-hidden="true"
