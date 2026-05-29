@@ -263,33 +263,15 @@ export default function Page() {
       <style>{`@keyframes cpkSpin { to { transform: rotate(360deg); } }`}</style>
       <main
         style={{
-          minHeight: "100vh",
+          height: "100vh",
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
+          alignItems: "stretch",
           fontFamily: "ui-sans-serif, system-ui, sans-serif",
-          padding: "32px 16px",
-          gap: "16px",
+          padding: 0,
+          margin: 0,
         }}
       >
-        <header style={{ textAlign: "center", maxWidth: 760 }}>
-          <h1 style={{ fontSize: "1.6rem", margin: 0 }}>
-            CopilotKit x Daytona
-          </h1>
-          <p
-            style={{
-              margin: "6px 0 0",
-              color: "#475569",
-              lineHeight: 1.5,
-              fontSize: 14,
-            }}
-          >
-            CopilotKit's Built-in Agent with a <code>runCode</code> server tool
-            that executes Python, TypeScript, or JavaScript in an isolated
-            Daytona sandbox.
-          </p>
-        </header>
-
         <CopilotChatConfigurationProvider
           labels={{
             welcomeMessageText:
@@ -298,16 +280,10 @@ export default function Page() {
         >
           <section
             style={{
+              flex: 1,
+              minHeight: 0,
               width: "100%",
-              maxWidth: 820,
-              // Fill the rest of the viewport (header + paddings ≈ 160px).
-              height: "calc(100vh - 160px)",
-              minHeight: 520,
               background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              borderRadius: 14,
-              boxShadow: "0 10px 30px -12px rgba(15,23,42,0.18)",
-              overflow: "hidden",
               display: "flex",
               flexDirection: "column",
             }}
