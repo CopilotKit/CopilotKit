@@ -416,6 +416,101 @@ jobs:
             ghcr.io/copilotkit/${{ matrix.service.image }}:${{ github.sha }}
           build-args: ${{ steps.build-args.outputs.args }}
 
+      - name: Write per-slot build result
+        if: always()
+        env:
+          SERVICE: ${{ matrix.service.dispatch_name }}
+          BUILD_STATUS: ${{ job.status }}
+        run: |
+          # job.status is one of: success, failure, cancelled. Normalize
+          # cancelled→skipped to match the BuildOutcome contract in
+          # showcase/scripts/lib/build-outputs.ts. We deliberately do NOT
+          # write to $GITHUB_OUTPUT — matrix-slot outputs are not
+          # aggregable across slots in GitHub Actions, so we publish the
+          # per-slot result as an artifact instead. The downstream
+          # aggregator job downloads every `build-result-*` artifact.
+          case "$BUILD_STATUS" in
+            success) STATUS=success ;;
+            failure) STATUS=failure ;;
+            *)       STATUS=skipped ;;
+          esac
+          mkdir -p "$RUNNER_TEMP/build-result"
+          printf '{"service":"%s","status":"%s"}\n' "$SERVICE" "$STATUS" \
+            > "$RUNNER_TEMP/build-result/result.json"
+
+      - name: Upload per-slot build-result artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          # Canonical per-slot name (see buildResultArtifactName in
+          # showcase/scripts/lib/build-outputs.ts). The aggregator
+          # downloads every artifact matching `build-result-*`.
+          name: build-result-${{ matrix.service.dispatch_name }}
+          path: ${{ runner.temp }}/build-result/result.json
+          if-no-files-found: error
+          retention-days: 7
+
+  aggregate-build-results:
+    name: Aggregate build results
+    needs: [detect-changes, build]
+    if: ${{ !cancelled() && needs.detect-changes.outputs.has_changes == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    outputs:
+      results: ${{ steps.collect.outputs.results }}
+      any_success: ${{ steps.collect.outputs.any_success }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22.x
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Download all per-slot build-result artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          # `pattern` matches every per-slot artifact emitted by the
+          # build matrix. `merge-multiple: false` keeps each artifact
+          # in its own subdirectory so we can iterate them deterministically.
+          pattern: build-result-*
+          path: ${{ runner.temp }}/build-results-in
+          merge-multiple: false
+
+      - name: Collect per-service build outcomes
+        id: collect
+        env:
+          INPUT_DIR: ${{ runner.temp }}/build-results-in
+          OUTPUT_DIR: ${{ runner.temp }}/build-results-out
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUTPUT_DIR"
+          # Each per-slot artifact extracts to
+          #   $INPUT_DIR/build-result-<dispatch_name>/result.json
+          # The aggregator script (showcase/scripts/aggregate-build-results.ts)
+          # reads them, merges via the shared helper (mergeBuildResultFiles),
+          # writes $OUTPUT_DIR/results.json, and appends `results` +
+          # `any_success` to $GITHUB_OUTPUT. The contract (service +
+          # status enum) is enforced in one place (build-outputs.ts).
+          npx tsx showcase/scripts/aggregate-build-results.ts
+
+      - name: Upload aggregated build-results artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: build-results
+          path: ${{ runner.temp }}/build-results-out/results.json
+          if-no-files-found: error
+          retention-days: 7
+
   redeploy-staging:
     name: Trigger Railway staging redeploy
     needs: [detect-changes, build]

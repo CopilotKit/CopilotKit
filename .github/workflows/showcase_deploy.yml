@@ -127,20 +127,28 @@ jobs:
 
           if [ "$DISPATCH" = "all" ] || [ -z "$DISPATCH" ]; then
             if [ -n "$BUILD_RUN_ID" ]; then
-              # workflow_run trigger: discover which services the build
-              # workflow actually built by inspecting its matrix job names.
-              # Job names follow "build (<dispatch_name>, ...)" pattern.
-              JOBS_JSON=$(gh api "repos/${REPO_FULL}/actions/runs/${BUILD_RUN_ID}/jobs" --paginate 2>/dev/null \
-                | jq -cs '[.[].jobs[]?]' 2>/dev/null || echo '[]')
-              BUILD_JOBS=$(echo "$JOBS_JSON" | jq -c '[.[] | select((.name // "") | startswith("build"))]')
-              # Extract dispatch_names from successful build job names
-              BUILT_SERVICES=$(echo "$BUILD_JOBS" | jq -c '[.[] | select(.conclusion == "success") | .name | capture("^build \\((?<svc>[^,)]+)") | .svc]')
-              # Filter ALL_SERVICES to only those that were actually built
-              MATRIX=$(echo "$ALL_SERVICES" | jq -c --argjson built "$BUILT_SERVICES" '
+              # Cross-workflow handoff: locate the `build-results` artifact
+              # produced by the aggregate-build-results job of the build
+              # run, download it, and derive the verification matrix from
+              # its structured JSON. No job-name parsing.
+              ART_ID=$(gh api \
+                "repos/${REPO_FULL}/actions/runs/${BUILD_RUN_ID}/artifacts" \
+                --paginate \
+                | jq -r '[.artifacts[] | select(.name == "build-results")][0].id // empty')
+              if [ -z "$ART_ID" ]; then
+                echo "::error::Build run ${BUILD_RUN_ID} did not publish a build-results artifact. Cannot derive the verification matrix without job-name parsing — fix the aggregate-build-results job in showcase_build.yml."
+                exit 1
+              fi
+              gh api -H 'Accept: application/vnd.github+json' \
+                "repos/${REPO_FULL}/actions/artifacts/${ART_ID}/zip" \
+                > /tmp/build-results.zip
+              unzip -p /tmp/build-results.zip results.json > /tmp/results.json
+              SUCCESS_LIST=$(jq -c '[.[] | select(.status == "success") | .service]' /tmp/results.json)
+              MATRIX=$(echo "$ALL_SERVICES" | jq -c --argjson built "$SUCCESS_LIST" '
                 [.[] | select(.dispatch_name as $dn | $built | index($dn) != null)]
               ')
             else
-              # workflow_dispatch with "all": verify every service
+              # workflow_dispatch with "all": no build run to filter by — verify every service.
               MATRIX=$(echo "$ALL_SERVICES" | jq -c '.')
             fi
           else
