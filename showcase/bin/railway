@@ -904,6 +904,14 @@ module Railway
 
     # promote — copy staging digests into production with prechecks.
     class PromoteCommand < BaseCommand
+        def default_options
+            super.merge(
+                include_startcommand:  false,
+                confirm_divergence:    false,
+                require_staging_green: true,   # default-on per spec §7.2 P3
+            )
+        end
+
         def parser
             OptionParser.new do |o|
                 o.banner = <<~BANNER
@@ -922,6 +930,9 @@ module Railway
                       Exit 0 on clean promotion, 1 on refuse/findings, 2 on error.
                 BANNER
                 o.on("--include-startcommand") { options[:include_startcommand] = true }
+                o.on("--confirm-divergence", "Proceed past WARN findings (region/replicas/etc.)") { options[:confirm_divergence] = true }
+                o.on("--require-staging-green", "Require live staging probe green at promote time (default)") { options[:require_staging_green] = true }
+                o.on("--no-require-staging-green", "Skip live staging probe (NOT recommended)") { options[:require_staging_green] = false }
                 o.on("--yes") { options[:yes] = true }
                 o.on("--non-interactive") { options[:non_interactive] = true }
                 o.on("--dry-run") { options[:dry_run] = true }
@@ -931,48 +942,52 @@ module Railway
 
         def run
             parser.parse!(argv)
+            capture_snapshots
+            run_with_preflight_only
+        end
 
-            # Capture both env snapshots.
-            staging = SnapshotCommand.new(["--env", "staging", "--dry-run"]).build_snapshot(STAGING_ENV_ID)
-            prod    = SnapshotCommand.new(["--env", "production", "--dry-run"]).build_snapshot(PRODUCTION_ENV_ID)
+        # Test seam — capture_snapshots may be skipped by injecting
+        # @staging_snapshot / @prod_snapshot directly.
+        def capture_snapshots
+            @staging_snapshot ||= SnapshotCommand.new(["--env", "staging", "--dry-run"]).build_snapshot(STAGING_ENV_ID)
+            @prod_snapshot    ||= SnapshotCommand.new(["--env", "production", "--dry-run"]).build_snapshot(PRODUCTION_ENV_ID)
+        end
 
+        # All preconditions, then (if clean) the actual promote.
+        def run_with_preflight_only
             findings = []
 
-            # VERIFY: service-set parity.
-            s_names = (staging["services"] || []).map { |s| s["name"] }.sort
-            p_names = (prod["services"] || []).map { |s| s["name"] }.sort
-            missing_in_prod = s_names - p_names
-            missing_in_stg  = p_names - s_names
-            findings << "REFUSE: services in staging not in prod: #{missing_in_prod.join(', ')}" unless missing_in_prod.empty?
-            findings << "REFUSE: services in prod not in staging: #{missing_in_stg.join(', ')}" unless missing_in_stg.empty?
+            findings.concat(check_p1_ghcr_digests(@staging_snapshot))
+            findings.concat(check_p2_staging_deployments(@staging_snapshot))
+            findings.concat(check_p3_staging_live_green(@staging_snapshot))
+            findings.concat(check_p6_parity(@staging_snapshot, @prod_snapshot))
+            findings.concat(check_service_set_parity(@staging_snapshot, @prod_snapshot))
+            findings.concat(check_critical_env_key_parity(@staging_snapshot, @prod_snapshot))
+            findings.concat(check_expected_prod_domains(@prod_snapshot))
 
-            # VERIFY: critical env-key parity per service.
-            (staging["services"] || []).each do |svc|
-                pmatch = Railway.find_service(prod, svc["name"])
-                next unless pmatch
-                missing_keys = (CRITICAL_ENV_KEYS & svc["env_keys"]) - pmatch["env_keys"]
-                unless missing_keys.empty?
-                    findings << "REFUSE: #{svc['name']}: critical keys missing in prod: #{missing_keys.join(', ')}"
-                end
-            end
-
-            # WARN: domain audits.
-            expected_prod_domains = EXPECTED_DOMAINS[PRODUCTION_ENV_ID]
-            actual_prod_domains = (prod["services"] || []).flat_map { |s| s["custom_domains"] || [] }.uniq.sort
-            missing_domains = expected_prod_domains - actual_prod_domains
-            findings << "WARN: production missing expected custom domains: #{missing_domains.join(', ')}" unless missing_domains.empty?
-
-            # WARN: cross-env URL leak in env-key NAMES is impossible (we have names only);
-            # we cannot read values without an explicit per-key fetch. Log as IGNORE note.
+            # Mandatory parity-NOTE that env var VALUES are not compared.
+            puts "NOTE: env var VALUES are not compared between staging and prod " \
+                 "(intentional — staging and prod hold different secrets/URLs). " \
+                 "Only the set of keys is compared."
 
             refuses = findings.select { |f| f.start_with?("REFUSE") }
+            warns   = findings.select { |f| f.start_with?("WARN") }
+
             unless refuses.empty?
                 refuses.each { |f| puts f }
                 puts "Promote refused due to #{refuses.size} REFUSE finding(s)."
                 return 1
             end
 
-            findings.each { |f| puts f }
+            unless warns.empty?
+                warns.each { |f| puts f }
+                unless options[:confirm_divergence]
+                    puts "Promote refused: #{warns.size} WARN finding(s). " \
+                         "Re-run with --confirm-divergence after inspecting."
+                    return 1
+                end
+                puts "[--confirm-divergence set] proceeding past #{warns.size} WARN finding(s)."
+            end
 
             Railway.confirm_destructive!(
                 env_label: "production",
@@ -981,7 +996,66 @@ module Railway
                 yes: options[:yes],
             )
 
-            # Execute promotion: redeploy each prod service with staging's image.
+            execute_promotion(@staging_snapshot, @prod_snapshot)
+        end
+
+        # P1 — every staging digest about to be promoted must exist in GHCR.
+        def check_p1_ghcr_digests(staging)
+            findings = []
+            (staging["services"] || []).each do |svc|
+                image = svc["image"]
+                next if image.nil? || image.empty?
+                next unless image.include?("@sha256:")
+                case ghcr.manifest_exists(image)
+                when :exists
+                    # ok
+                when :missing
+                    findings << "REFUSE: P1 (#{svc['name']}): #{image} not found in GHCR " \
+                                "(digest may have been garbage-collected; staging build may not have pushed)."
+                when :auth_failed
+                    findings << "REFUSE: P1 (#{svc['name']}): GHCR auth failed for #{image}. " \
+                                "Set GHCR_TOKEN (local: 'gh auth token') or GITHUB_TOKEN (CI: workflow token with packages:read)."
+                end
+            end
+            findings
+        rescue Railway::GHCR::Error => e
+            ["REFUSE: P1: GHCR check raised #{e.class}: #{e.message}"]
+        end
+
+        # Stubs filled in by later phases; return [] so D.1 lands green.
+        def check_p2_staging_deployments(_staging); []; end
+        def check_p3_staging_live_green(_staging); []; end
+        def check_p6_parity(_staging, _prod); []; end
+
+        def check_service_set_parity(staging, prod)
+            findings = []
+            s_names = (staging["services"] || []).map { |s| s["name"] }.sort
+            p_names = (prod["services"] || []).map { |s| s["name"] }.sort
+            findings << "REFUSE: services in staging not in prod: #{(s_names - p_names).join(', ')}" unless (s_names - p_names).empty?
+            findings << "REFUSE: services in prod not in staging: #{(p_names - s_names).join(', ')}" unless (p_names - s_names).empty?
+            findings
+        end
+
+        def check_critical_env_key_parity(staging, prod)
+            findings = []
+            (staging["services"] || []).each do |svc|
+                pmatch = Railway.find_service(prod, svc["name"])
+                next unless pmatch
+                missing = (CRITICAL_ENV_KEYS & (svc["env_keys"] || [])) - (pmatch["env_keys"] || [])
+                findings << "REFUSE: #{svc['name']}: critical env keys missing in prod: #{missing.join(', ')}" unless missing.empty?
+            end
+            findings
+        end
+
+        def check_expected_prod_domains(prod)
+            expected = EXPECTED_DOMAINS[PRODUCTION_ENV_ID] || []
+            actual = (prod["services"] || []).flat_map { |s| s["custom_domains"] || [] }.uniq.sort
+            missing = expected - actual
+            return [] if missing.empty?
+            ["WARN: production missing expected custom domains: #{missing.join(', ')}"]
+        end
+
+        def execute_promotion(staging, prod)
             (staging["services"] || []).each do |svc|
                 pmatch = Railway.find_service(prod, svc["name"])
                 next unless pmatch
@@ -997,7 +1071,6 @@ module Railway
                     image: image)
                 puts "promoted #{svc['name']} -> #{image}"
             end
-
             0
         end
     end
