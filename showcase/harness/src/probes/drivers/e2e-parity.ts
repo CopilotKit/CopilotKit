@@ -2,45 +2,46 @@ import { promises as fs } from "node:fs";
 import { z } from "zod";
 import { truncateUtf8 } from "../../render/filters.js";
 import { showcaseShapeSchema } from "../discovery/railway-services.js";
-import {
-  D5_REGISTRY,
-  type D5BuildContext,
-  type D5FeatureType,
-  type D5Script,
-  isD5FeatureType,
+import { D5_REGISTRY, isD5FeatureType } from "../helpers/d5-registry.js";
+import type {
+  D5BuildContext,
+  D5FeatureType,
+  D5Script,
 } from "../helpers/d5-registry.js";
-import {
-  runConversation,
-  type ConversationResult,
-  type Page as RunnerPage,
+import { runConversation } from "../helpers/conversation-runner.js";
+import type {
+  ConversationResult,
+  Page as RunnerPage,
 } from "../helpers/conversation-runner.js";
-import {
-  attachSseInterceptor as defaultAttachSseInterceptor,
-  type SseCapture,
-  type SseInterceptorHandle,
+import { attachSseInterceptor as defaultAttachSseInterceptor } from "../helpers/sse-interceptor.js";
+import type {
+  SseCapture,
+  SseInterceptorHandle,
 } from "../helpers/sse-interceptor.js";
 import {
   buildSnapshot,
   serializeRelevantDom,
-  type ReferenceCapturePage,
 } from "../helpers/reference-capture.js";
+import type { ReferenceCapturePage } from "../helpers/reference-capture.js";
 import {
   compareParity,
   DEFAULT_PARITY_TOLERANCES,
-  type ParityReport,
-  type ParitySnapshot,
-  type ParityTolerances,
+} from "../helpers/parity-compare.js";
+import type {
+  ParityReport,
+  ParitySnapshot,
+  ParityTolerances,
 } from "../helpers/parity-compare.js";
 import {
   loadReferenceSnapshot,
   selectD6Targets,
-  type LoadReferenceResult,
 } from "../helpers/d6-scoping.js";
+import type { LoadReferenceResult } from "../helpers/d6-scoping.js";
 import type { ProbeDriver } from "../types.js";
 import type { ProbeContext, ProbeResult } from "../../types/index.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { defaultScriptLoader as defaultD5ScriptLoader } from "./e2e-deep.js";
+import { defaultScriptLoader as defaultD5ScriptLoader } from "./d5-single-pill.js";
 import type { Page as PlaywrightPage } from "playwright";
 import type { BrowserPool } from "../helpers/browser-pool.js";
 

@@ -7,8 +7,8 @@ description: CopilotKit integration with LlamaIndex
 partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/llamaindex
 copilotkit_version: 2.0.0
-backend_url: https://showcase-llamaindex-production.up.railway.app
 deployed: true
+docs_mode: authored
 sort_order: 110
 generative_ui:
   - constrained-explicit
@@ -196,6 +196,10 @@ demos:
     animated_preview_url:
     highlight:
       - src/agents/agent.py
+      - tools/get_weather.py
+      - tools/query_data.py
+      - tools/schedule_meeting.py
+      - tools/search_flights.py
       - src/app/demos/tool-rendering/agent.py
       - src/app/demos/tool-rendering/page.tsx
       - src/app/api/copilotkit/route.ts

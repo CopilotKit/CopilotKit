@@ -463,7 +463,7 @@ If a feature flipped red right when a deploy happened and `fail_count=1`, it's d
 **Get per-service flapping rates** from the harness API (last 10 probe runs):
 
 ```sh
-curl -s 'https://showcase-harness-production.up.railway.app/api/probes/probe:e2e-deep' | \
+curl -s 'https://showcase-harness-production.up.railway.app/api/probes/probe:d6-all-pills-e2e' | \
   python3 -c "
 import json, sys
 data = json.load(sys.stdin)
@@ -471,7 +471,7 @@ runs = [r for r in data.get('runs', []) if r.get('state') == 'completed' and r.g
 stats = {}
 for run in runs:
     for svc in run['summary'].get('services', []):
-        slug = svc.get('slug','?').replace('e2e-deep:showcase-','')
+        slug = svc.get('slug','?').replace('d6-all-pills-e2e:showcase-','')
         result = svc.get('result', '?')
         stats.setdefault(slug, {'green': 0, 'red': 0})
         stats[slug]['green' if result == 'green' else 'red'] += 1

@@ -1,32 +1,24 @@
 // <MdxCodeBlock> — `pre` override for MDX-rendered fenced code blocks.
 //
-// rehype-highlight produces `<pre><code class="hljs language-X">...</code></pre>`
-// from triple-fenced MDX blocks. By default that gives users a syntax-
-// highlighted block but NO copy button and NO file-path caption — both of
-// which the QA report flagged on the Quickstart pages.
+// Wraps the rehype-code (Shiki) output with Fumadocs's `<CodeBlock>` +
+// `<Pre>` chrome so every fenced block gets the floating Copy button and
+// — when a `title="..."` meta is supplied on the fence — the file-path
+// figcaption. The `data-title` / `data-language` data-attrs come from
+// our `transformerMeta` Shiki transformer (see `lib/rehype-code-meta.ts`)
+// which copies the title / lang onto the `<pre>` element rehype-code
+// emits.
 //
-// This component wraps the bare <pre> with the same figure chrome used by
-// <Snippet> and <DemoSource>: a header strip with the file path (when a
-// `title="..."` meta is supplied on the fence) and a CopyButton that
-// copies the raw code text. We share the `<CopyButton>` rather than
-// inventing a new one so the visual treatment matches everywhere.
-//
-// The `title` value is threaded in via `data-title` on the <pre>, which is
-// set by the `rehypeCodeMeta` plugin (see lib/rehype-code-meta.ts). The
-// plugin parses MDX fence metastrings like ```python title="main.py"`` and
-// copies the title onto the parent <pre>'s properties so this React
-// component can read it directly — rehype-highlight by itself drops the
-// metastring on the floor.
-//
-// Why client-only: <CopyButton> uses navigator.clipboard, which only exists
-// on the client. The <pre> itself is server-rendered (rehype runs at build
-// time); we just need this thin shell to be a Client Component so React
-// can attach the button's onClick handler.
+// Why Pre matters: rehype-code (Shiki) wraps each source line in
+// `<span class="line">` and tokens in colored child spans. Fumadocs's
+// `<Pre>` adds `*:flex *:flex-col` to the `<pre>` element so the line
+// spans stack as rows. Plain `<pre>` would render the inline tokens
+// fine but skip the per-line layout Fumadocs uses for line numbers,
+// diff/highlight gutters, etc.
 
 "use client";
 
 import React, { Children, isValidElement } from "react";
-import { CopyButton } from "./copy-button";
+import { CodeBlock, Pre } from "fumadocs-ui/components/codeblock";
 
 interface MdxCodeBlockProps extends React.HTMLAttributes<HTMLPreElement> {
   "data-title"?: string;
@@ -36,8 +28,9 @@ interface MdxCodeBlockProps extends React.HTMLAttributes<HTMLPreElement> {
 
 /**
  * Walk a React tree and concatenate every text leaf into a single string.
- * Used to recover the raw source of a highlighted code block (where the
- * tokens are wrapped in spans we don't want in the clipboard payload).
+ * Used to recover the raw source of a highlighted code block when we
+ * need to dedent a JSX-nested fence whose body inherited the surrounding
+ * indent.
  */
 function extractText(node: React.ReactNode): string {
   if (node === null || node === undefined || node === false) return "";
@@ -88,10 +81,6 @@ export function MdxCodeBlock(props: MdxCodeBlockProps) {
     ...rest
   } = props;
 
-  // Pull the raw code out of the <code> child for the clipboard payload.
-  // rehype-highlight always emits a single <code> child, but we walk
-  // defensively so an unhighlighted fallback (plain text child) still
-  // copies correctly.
   const rawCodeText = (() => {
     const kids = Children.toArray(children);
     const codeEl = kids.find(
@@ -105,57 +94,24 @@ export function MdxCodeBlock(props: MdxCodeBlockProps) {
     return extractText(children);
   })();
 
-  // Strip uniform JSX-nesting indent (see `dedent` doc-comment above).
-  // When `codeText !== rawCodeText`, a non-zero indent was leaking from
-  // the fence's JSX container — in that case we also need to dedent the
-  // visible <pre> body so the on-page render matches the copy payload.
-  // Otherwise the user sees correctly-indented code in clipboard but
-  // 24-sp-indented code on the page (or vice versa).
   const codeText = dedent(rawCodeText);
   const indentLeaked = codeText !== rawCodeText;
 
-  // No title and no need for chrome? Fall through to the global
-  // `.reference-content pre` styling — keeps backwards compatibility with
-  // pages that don't expect a header strip while still surfacing the copy
-  // affordance via a floating button positioned over the top-right corner.
-  const hasCaption = Boolean(title);
-
   return (
-    <figure className="mdx-code-block my-5 rounded-xl border border-[var(--border)] shadow-sm overflow-hidden bg-[var(--bg-surface)]">
-      {hasCaption && (
-        <figcaption className="flex items-center justify-between px-3 py-2 border-b border-[var(--border)] bg-[var(--bg-elevated)] text-[11px] font-mono text-[var(--text-muted)]">
-          <span className="truncate">{title}</span>
-          <div className="flex items-center gap-2 shrink-0">
-            {language && (
-              <span className="text-[var(--text-faint)]">{language}</span>
-            )}
-            <CopyButton text={codeText} />
-          </div>
-        </figcaption>
-      )}
-      <div className="relative">
-        {!hasCaption && (
-          <div className="absolute top-2 right-2 z-10">
-            <CopyButton text={codeText} />
-          </div>
+    <CodeBlock title={title}>
+      <Pre {...rest} className={className}>
+        {indentLeaked ? (
+          // Fence body was uniformly indented (JSX-nested fence). Render
+          // the dedented plain text so what's on screen matches what
+          // gets copied. We lose token highlighting on these blocks, but
+          // the alternative is indented-and-invalid code in the viewer.
+          <code className={`language-${language ?? "plaintext"}`}>
+            {codeText}
+          </code>
+        ) : (
+          children
         )}
-        <pre
-          {...rest}
-          className={`mdx-code-block__pre text-[12.5px] leading-[1.55] overflow-x-auto p-4 m-0 ${className ?? ""}`}
-        >
-          {indentLeaked ? (
-            // Fence body was uniformly indented (JSX-nested fence). Render
-            // the dedented plain text so what the user sees matches what
-            // they copy. We lose syntax highlighting on these blocks, but
-            // the alternative is indented-and-invalid code on screen.
-            <code className={`language-${language ?? "plaintext"}`}>
-              {codeText}
-            </code>
-          ) : (
-            children
-          )}
-        </pre>
-      </div>
-    </figure>
+      </Pre>
+    </CodeBlock>
   );
 }

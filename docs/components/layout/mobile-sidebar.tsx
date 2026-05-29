@@ -276,7 +276,7 @@ const MobileSidebar = ({
             className="text-left rounded-md px-3 py-2.5 mb-2 text-[14px] font-medium bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 transition-all cursor-pointer"
             aria-label="Talk to an engineer"
           >
-            Talk to an Engineer
+            Talk to an engineer
           </button>
 
           <Dropdown onSelect={handleClose} />

@@ -172,6 +172,7 @@ function HealthLayer({ model }: { model: CellModel }) {
       <TestBadge name="API" level={model.d3} />
       <TestBadge name="RT" level={model.d4} />
       <TestBadge name="CV" level={model.d5} />
+      <TestBadge name="D6" level={model.d6} />
     </div>
   );
 }
@@ -256,12 +257,34 @@ function UnifiedCellInner({ ctx, model, overlays }: UnifiedCellProps) {
  * underlying inputs are unchanged is the difference between a single PB SSE
  * delta re-rendering 1 cell vs. all ~720 cells in the matrix.
  */
+/** Shallow-compare the primitive fields of two TestLevel values. */
+function testLevelsEqual(a: TestLevel | null, b: TestLevel | null): boolean {
+  if (a === b) return true;
+  if (a == null || b == null) return false;
+  return a.exists === b.exists && a.status === b.status;
+}
+
+/** Structural comparison of CellModel scalar + per-depth primitive fields. */
+function modelsEqual(a: CellModel, b: CellModel): boolean {
+  if (a === b) return true;
+  return (
+    a.supported === b.supported &&
+    a.achievedDepth === b.achievedDepth &&
+    a.ceilingDepth === b.ceilingDepth &&
+    a.chipColor === b.chipColor &&
+    a.isRegression === b.isRegression &&
+    testLevelsEqual(a.d3, b.d3) &&
+    testLevelsEqual(a.d4, b.d4) &&
+    testLevelsEqual(a.d5, b.d5) &&
+    testLevelsEqual(a.d6, b.d6)
+  );
+}
+
 function arePropsEqual(
   prev: UnifiedCellProps,
   next: UnifiedCellProps,
 ): boolean {
   if (prev.overlays !== next.overlays) return false;
-  if (prev.model !== next.model) return false;
 
   const p = prev.ctx;
   const n = next.ctx;
@@ -276,7 +299,7 @@ function arePropsEqual(
     return false;
   }
 
-  if (p.liveStatus === n.liveStatus) return true;
+  if (p.liveStatus === n.liveStatus) return modelsEqual(prev.model, next.model);
 
   // Map identity changed -- verify only the rows this cell reads.
   const slug = p.integration.slug;
@@ -297,10 +320,12 @@ function arePropsEqual(
     directKeys.push(keyFor("d5", slug, featureId));
   }
 
+  directKeys.push(keyFor("d6", slug));
+
   for (const k of directKeys) {
     if (prev.ctx.liveStatus.get(k) !== next.ctx.liveStatus.get(k)) return false;
   }
-  return true;
+  return modelsEqual(prev.model, next.model);
 }
 
 export const UnifiedCell = memo(UnifiedCellInner, arePropsEqual);

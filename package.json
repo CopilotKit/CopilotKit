@@ -32,6 +32,8 @@
     "attw": "nx run-many -t attw --projects=packages/**",
     "check:packages": "nx run-many -t publint,attw --projects=packages/**",
     "validate:model-names": "tsx scripts/validate-doc-model-names.ts",
+    "check:plugin-skills": "tsx scripts/sync-plugin-skills.ts --check",
+    "sync:plugin-skills": "tsx scripts/sync-plugin-skills.ts",
     "parity:sync": "tsx examples/integrations/_parity/sync.ts",
     "parity:verify": "tsx examples/integrations/_parity/verify.ts",
     "parity:check": "tsx examples/integrations/_parity/verify.ts --no-color"
@@ -96,7 +98,7 @@
       "serve-static@<=1.16.0": "1.16.0",
       "prismjs@<=1.30.0": "1.30.0",
       "pino@<=10.1.1": "10.1.1",
-      "@copilotkit/license-verifier": "0.4.0",
+      "@copilotkit/license-verifier": "~0.4.2",
       "next": "^16.0.10",
       "defu@<=6.1.4": ">=6.1.5",
       "minimatch": ">=9.0.6",

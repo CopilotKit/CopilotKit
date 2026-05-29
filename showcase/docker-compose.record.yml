@@ -21,6 +21,11 @@ services:
       # under this dir. Existing baseline fixtures stay :ro from the base
       # compose; only the recording dir is writable.
       - ./aimock/d5-recorded:/showcase-fixtures/d5-recorded:rw
+      # Read-only mounts for depth-organized fixture directories so aimock
+      # can short-circuit on already-matched prompts from shared/d4/d6.
+      - ./aimock/shared:/showcase-fixtures/shared:ro
+      - ./aimock/d4:/showcase-fixtures/d4:ro
+      - ./aimock/d6:/showcase-fixtures/d6:ro
     command: [
         "--port",
         "4010",
@@ -32,17 +37,15 @@ services:
         "--provider-anthropic",
         "https://api.anthropic.com",
         # Load ONLY the recorded dir as the fixture source. The baseline
-        # d5-all.json / feature-parity.json fixtures are intentionally
-        # NOT loaded — if they were, aimock would short-circuit on
+        # depth-organized fixtures (shared/d4/d6) are intentionally NOT
+        # loaded — if they were, aimock would short-circuit on
         # already-matched prompts and never proxy them to the real
         # provider, defeating the recording pass.
-        #
-        # smoke.json is also dropped here; the langgraph-python container
-        # doesn't use it during d5 probes, only the dedicated /api/smoke
-        # route which we aren't exercising.
         #
         # First --fixtures path is the recording destination base; aimock
         # writes to `<base>/recorded/<provider>-<ts>-<uuid>.json`.
         "--fixtures",
         "/showcase-fixtures/d5-recorded",
+        "--fixtures",
+        "/showcase-fixtures/shared",
       ]

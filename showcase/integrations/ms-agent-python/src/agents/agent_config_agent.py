@@ -6,11 +6,9 @@ per turn.
 
 The CopilotKit provider's ``properties`` prop is wired through the runtime as
 ``forwardedProps`` on each AG-UI run. Because Microsoft Agent Framework agents
-are constructed with a static ``instructions`` string, we subclass
-``AgentFrameworkAgent`` and intercept ``run_agent`` to prepend a freshly-built
-system message derived from the forwarded props on every invocation. The
-underlying base agent stays static; the per-turn customization rides in as an
-extra leading message.
+store their system prompt in ``default_options["instructions"]``, we subclass
+``AgentFrameworkAgent`` and intercept ``run`` to swap in a freshly-built
+instruction string for the duration of each invocation.
 
 Invalid or missing values fall back to the corresponding ``DEFAULT_*``
 constant -- this function never raises so the demo can't deadlock on a bad
@@ -100,15 +98,12 @@ def build_system_prompt(tone: str, expertise: str, response_length: str) -> str:
 class AgentConfigFrameworkAgent(AgentFrameworkAgent):
     """AgentFrameworkAgent that rebuilds its system prompt per request.
 
-    Overrides ``run_agent`` to read ``forwardedProps`` from the AG-UI input
-    and prepend a system message carrying the tone / expertise / responseLength
-    directives before delegating to the standard orchestrator chain. Mutating
-    the ``messages`` list in ``input_data`` is the least invasive hook: the
-    downstream orchestrator treats the prepended message like any other
-    system entry and flows it into the model alongside user turns.
+    Overrides ``run`` to read ``forwardedProps`` from the AG-UI input
+    and temporarily replace the wrapped agent's ``instructions`` option before
+    delegating to the standard orchestrator chain.
     """
 
-    async def run_agent(  # type: ignore[override]
+    async def run(  # type: ignore[override]
         self,
         input_data: dict[str, Any],
     ) -> AsyncGenerator[BaseEvent, None]:
@@ -117,24 +112,22 @@ class AgentConfigFrameworkAgent(AgentFrameworkAgent):
             props["tone"], props["expertise"], props["response_length"]
         )
 
-        messages = list(input_data.get("messages") or [])
-        # Prepend the dynamic system message. Using AG-UI's on-the-wire
-        # dict shape (role/content) keeps us compatible with the message
-        # adapter without needing to import its internals.
-        messages.insert(
-            0,
-            {
-                "id": "agent-config-system",
-                "role": "system",
-                "content": system_prompt,
-            },
-        )
+        options = getattr(self.agent, "default_options", None)
+        if not isinstance(options, dict):
+            async for event in super().run(input_data):
+                yield event
+            return
 
-        patched_input = dict(input_data)
-        patched_input["messages"] = messages
-
-        async for event in super().run_agent(patched_input):
-            yield event
+        previous_instructions = options.get("instructions")
+        options["instructions"] = system_prompt
+        try:
+            async for event in super().run(input_data):
+                yield event
+        finally:
+            if previous_instructions is None:
+                options.pop("instructions", None)
+            else:
+                options["instructions"] = previous_instructions
 
 
 def create_agent_config_agent(chat_client: BaseChatClient) -> AgentConfigFrameworkAgent:
@@ -142,7 +135,7 @@ def create_agent_config_agent(chat_client: BaseChatClient) -> AgentConfigFramewo
 
     The base MS Agent Framework ``Agent`` carries only a neutral fallback
     instruction. The real behavioural steering happens in the per-request
-    system message injected by ``AgentConfigFrameworkAgent.run_agent``.
+    instruction string applied by ``AgentConfigFrameworkAgent.run``.
     """
     base_agent = Agent(
         client=chat_client,

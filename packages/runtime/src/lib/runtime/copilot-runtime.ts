@@ -13,17 +13,19 @@
  */
 
 import {
-  type Action,
-  type CopilotErrorHandler,
   CopilotKitMisuseError,
-  type MaybePromise,
-  type NonEmptyRecord,
-  type Parameter,
   readBody,
   getZodParameters,
-  type PartialBy,
   isTelemetryDisabled,
-  type DebugConfig,
+} from "@copilotkit/shared";
+import type {
+  Action,
+  CopilotErrorHandler,
+  MaybePromise,
+  NonEmptyRecord,
+  Parameter,
+  PartialBy,
+  DebugConfig,
 } from "@copilotkit/shared";
 import type { RunAgentInput } from "@ag-ui/core";
 import { aguiToGQL } from "../../graphql/message-conversion/agui-to-gql";
@@ -33,13 +35,15 @@ import type {
 } from "../../service-adapters";
 import {
   CopilotRuntime as CopilotRuntimeVNext,
-  type CopilotRuntimeOptions,
-  type CopilotRuntimeOptions as CopilotRuntimeOptionsVNext,
-  type AgentRunner,
-  type AgentsConfig,
-  type AgentsFactory,
-  type AgentFactoryContext,
   InMemoryAgentRunner,
+} from "../../v2/runtime";
+import type {
+  CopilotRuntimeOptions,
+  CopilotRuntimeOptions as CopilotRuntimeOptionsVNext,
+  AgentRunner,
+  AgentsConfig,
+  AgentsFactory,
+  AgentFactoryContext,
 } from "../../v2/runtime";
 
 export type { AgentsConfig, AgentsFactory, AgentFactoryContext };
@@ -50,11 +54,11 @@ import { logRuntimeTelemetryDisclosure } from "../telemetry-disclosure";
 import type { MessageInput } from "../../graphql/inputs/message.input";
 import type { Message } from "../../graphql/types/converted";
 
-import {
-  EndpointType,
-  type EndpointDefinition,
-  type CopilotKitEndpoint,
-  type LangGraphPlatformEndpoint,
+import { EndpointType } from "./types";
+import type {
+  EndpointDefinition,
+  CopilotKitEndpoint,
+  LangGraphPlatformEndpoint,
 } from "./types";
 
 import type {
@@ -65,13 +69,10 @@ import type {
 import type { AbstractAgent } from "@ag-ui/client";
 
 // +++ MCP Imports +++
-import {
-  type MCPClient,
-  type MCPEndpointConfig,
-  type MCPTool,
-  extractParametersFromSchema,
-} from "./mcp-tools-utils";
-import { BuiltInAgent, type BuiltInAgentClassicConfig } from "../../agent";
+import { extractParametersFromSchema } from "./mcp-tools-utils";
+import type { MCPClient, MCPEndpointConfig, MCPTool } from "./mcp-tools-utils";
+import { BuiltInAgent } from "../../agent";
+import type { BuiltInAgentClassicConfig } from "../../agent";
 // Define the function type alias here or import if defined elsewhere
 type CreateMCPClientFunction = (
   config: MCPEndpointConfig,
@@ -389,6 +390,18 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     const runner = isTelemetryDisabled()
       ? baseRunner
       : new TelemetryAgentRunner({ runner: baseRunner });
+
+    // Match license-verifier's env fallback so telemetry attribution
+    // resolves the same way as feature gating — otherwise customers who
+    // set only COPILOTKIT_LICENSE_TOKEN would get a working license but
+    // anonymous telemetry. Only used here for the telemetry setter; the
+    // v2 runtime applies the same fallback to runtimeArgs.licenseToken
+    // on its own.
+    const resolvedLicenseToken =
+      params?.licenseToken ?? process.env.COPILOTKIT_LICENSE_TOKEN;
+    if (resolvedLicenseToken) {
+      telemetry.setLicenseToken(resolvedLicenseToken);
+    }
 
     this.runtimeArgs = {
       agents: mergedAgents,

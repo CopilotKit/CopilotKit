@@ -1,7 +1,11 @@
 {
   "name": "@copilotkit/sqlite-runner",
-  "version": "1.57.2",
+  "version": "1.59.1",
   "description": "SQLite-backed agent runner for CopilotKit2",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",

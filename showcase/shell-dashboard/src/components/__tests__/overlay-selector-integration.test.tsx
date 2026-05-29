@@ -352,7 +352,14 @@ describe("Overlay selector integration — real UI components", () => {
     const { getByTestId, getByText } = render(
       <ComposedCell
         ctx={ctx}
-        overlays={overlaySet("links", "depth", "health", "docs", "parity")}
+        overlays={overlaySet(
+          "links",
+          "depth",
+          "health",
+          "docs",
+          "parity",
+          "d6",
+        )}
         catalogCell={catalogCell}
       />,
     );
@@ -370,7 +377,7 @@ describe("Overlay selector integration — real UI components", () => {
     // Verify stacking order: links, depth, health, docs
     const composedCell = getByTestId("composed-cell");
     const children = Array.from(composedCell.children);
-    expect(children.length).toBe(4); // parity adds no content layer
+    expect(children.length).toBe(4); // parity and d6 add no content layer
 
     // First child: links (contains "Demo")
     expect(children[0]?.textContent).toContain("Demo");

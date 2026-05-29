@@ -7,7 +7,8 @@
  * and the handler executes in the browser.
  */
 
-import { RunnableConfig } from "@langchain/core/runnables";
+// region: setup
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { SystemMessage } from "@langchain/core/messages";
 import { MemorySaver, START, StateGraph } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
@@ -16,6 +17,11 @@ import {
   CopilotKitStateAnnotation,
 } from "@copilotkit/sdk-js/langgraph";
 
+// CopilotKit forwards frontend tools to the agent via
+// `state.copilotkit.actions`. `CopilotKitStateAnnotation` adds that
+// channel to your graph's state; `convertActionsToDynamicStructuredTools`
+// turns the forwarded action schemas into LangChain tools you can bind
+// at model-invocation time.
 const AgentStateAnnotation = CopilotKitStateAnnotation;
 export type AgentState = typeof AgentStateAnnotation.State;
 
@@ -46,3 +52,4 @@ const memory = new MemorySaver();
 export const graph = workflow.compile({
   checkpointer: memory,
 });
+// endregion

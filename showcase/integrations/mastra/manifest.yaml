@@ -10,8 +10,8 @@ description: >-
 partner_docs: https://docs.copilotkit.ai/integrations/mastra
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/mastra
 copilotkit_version: 2.0.0
-backend_url: https://showcase-mastra-production.up.railway.app
 deployed: true
+docs_mode: authored
 sort_order: 20
 generative_ui:
   - constrained-explicit
@@ -121,6 +121,10 @@ demos:
     animated_preview_url:
     highlight:
       - src/mastra/tools/index.ts
+      - shared-tools/get-weather.ts
+      - shared-tools/query-data.ts
+      - shared-tools/schedule-meeting.ts
+      - shared-tools/search-flights.ts
       - src/app/demos/tool-rendering/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering-default-catchall

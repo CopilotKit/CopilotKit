@@ -20,7 +20,11 @@ import { BaselineTab } from "@/components/baseline-tab";
 import { DiscoveryAuthBanner } from "@/components/discovery-auth-banner";
 import type { ParityTier } from "@/components/parity-badge";
 import { getDocsStatus } from "@/lib/docs-status";
-import type { DepthDistribution } from "@/components/adaptive-stats-bar";
+import { resolveCell } from "@/lib/live-status";
+import type {
+  DepthDistribution,
+  D6Stats,
+} from "@/components/adaptive-stats-bar";
 import catalog from "@/data/catalog.json";
 import type { CatalogData } from "@/data/catalog-types";
 
@@ -171,6 +175,29 @@ export default function Page() {
     return dist;
   }, [liveStatus]);
 
+  // Compute D6 (parity-vs-reference) rollup counts across wired cells.
+  const d6Stats = useMemo((): D6Stats => {
+    let green = 0;
+    let gray = 0;
+    let red = 0;
+    for (const cell of catalogData.cells) {
+      if (cell.status !== "wired" || cell.feature === null) continue;
+      const state = resolveCell(liveStatus, cell.integration, cell.feature);
+      switch (state.d6.tone) {
+        case "green":
+          green++;
+          break;
+        case "red":
+          red++;
+          break;
+        default:
+          gray++;
+          break;
+      }
+    }
+    return { green, gray, red };
+  }, [liveStatus]);
+
   // renderCell callback wrapping UnifiedCell + buildCellModel.
   // buildCellModel is the single source of truth for cell state — it handles
   // not-supported features, ceiling detection, and chip color derivation.
@@ -259,6 +286,7 @@ export default function Page() {
                 parityStats={parityStats}
                 docsStats={docsStats}
                 depthDistribution={depthDistribution}
+                d6Stats={d6Stats}
               />
             </div>
             <FeatureGrid

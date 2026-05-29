@@ -1,93 +1,95 @@
 import Link from "next/link";
-import fs from "fs";
-import path from "path";
-import matter from "gray-matter";
+import { DocsPage } from "fumadocs-ui/page";
+import { ShellDocsLayout } from "@/components/shell-docs-layout";
+import { ReferenceVersionSelector } from "@/components/reference-version-selector";
 import {
-  REFERENCE_CONTENT_DIR,
-  loadReferenceItems,
+  REFERENCE_CATEGORIES,
+  REFERENCE_VERSIONS,
+  buildReferencePageTree,
+  loadReferenceVersionItems,
+  referenceVersionHref,
+  readReferenceIndexDescription,
 } from "@/lib/reference-items";
+import type { ReferenceCategory, ReferenceItem } from "@/lib/reference-items";
+
+function displayTitle(item: ReferenceItem): string {
+  if (item.category === "Components") return `<${item.title} />`;
+  if (item.category === "Hooks") return `${item.title}()`;
+  return item.title;
+}
+
+function categoryItems(
+  items: ReferenceItem[],
+  category: ReferenceCategory,
+): ReferenceItem[] {
+  return items.filter((item) => item.category === category);
+}
 
 export default function ReferencePage() {
-  const components = loadReferenceItems("components");
-  const hooks = loadReferenceItems("hooks");
-
-  // Also load the index page frontmatter for the intro. Guarded so a
-  // malformed frontmatter block falls back to a default rather than
-  // crashing the whole index page.
-  let intro = "API Reference for the next-generation CopilotKit React API.";
-  const indexPath = path.join(REFERENCE_CONTENT_DIR, "index.mdx");
-  if (fs.existsSync(indexPath)) {
-    try {
-      const { data } = matter(fs.readFileSync(indexPath, "utf-8"));
-      if (typeof data.description === "string" && data.description.length > 0) {
-        intro = data.description;
-      }
-    } catch (err) {
-      console.error(
-        `[reference] Failed to parse frontmatter in ${indexPath}:`,
-        err,
-      );
-    }
-  }
+  const activeVersion = "v2";
+  const allItems = loadReferenceVersionItems(activeVersion);
+  const pageTree = buildReferencePageTree(activeVersion);
+  const intro = readReferenceIndexDescription(activeVersion);
+  const versionOptions = REFERENCE_VERSIONS.map((version) => ({
+    version,
+    href: referenceVersionHref(version),
+  }));
 
   return (
-    <div className="flex-1 min-w-0 overflow-y-auto">
-      <div className="mx-auto max-w-4xl px-6 py-12">
-        <h1 className="text-2xl font-bold text-[var(--text)] mb-2">
-          API Reference
-        </h1>
-        <p className="text-[var(--text-muted)] text-sm mb-10">{intro}</p>
+    <ShellDocsLayout
+      tree={pageTree}
+      banner={
+        <ReferenceVersionSelector
+          activeVersion={activeVersion}
+          options={versionOptions}
+        />
+      }
+    >
+      <DocsPage
+        toc={[]}
+        tableOfContent={{ enabled: false }}
+        tableOfContentPopover={{ enabled: false }}
+        breadcrumb={{ enabled: false }}
+        footer={{ enabled: false }}
+      >
+        <div className="docs-inner-content mx-auto max-w-4xl px-6 py-12">
+          <h1 className="text-2xl font-bold text-[var(--text)] mb-2">
+            API Reference
+          </h1>
+          <p className="text-[var(--text-muted)] text-sm mb-10">{intro}</p>
 
-        <section className="mb-10">
-          <h2 className="text-lg font-semibold text-[var(--text)] mb-4">
-            UI Components
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {components.map((item) => (
-              <Link
-                key={item.slug}
-                href={`/reference/${item.slug}`}
-                className="block rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 hover:bg-[var(--bg-elevated)] transition-colors"
-              >
-                <div className="font-mono text-sm font-semibold text-[var(--accent)]">
-                  {"<"}
-                  {item.title}
-                  {" />"}
-                </div>
-                {item.description && (
-                  <div className="text-xs text-[var(--text-muted)] mt-1">
-                    {item.description}
-                  </div>
-                )}
-              </Link>
-            ))}
-          </div>
-        </section>
+          {REFERENCE_CATEGORIES.map((category) => {
+            const items = categoryItems(allItems, category);
+            if (items.length === 0) return null;
 
-        <section>
-          <h2 className="text-lg font-semibold text-[var(--text)] mb-4">
-            Hooks
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {hooks.map((item) => (
-              <Link
-                key={item.slug}
-                href={`/reference/${item.slug}`}
-                className="block rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 hover:bg-[var(--bg-elevated)] transition-colors"
-              >
-                <div className="font-mono text-sm font-semibold text-[var(--accent)]">
-                  {item.title}()
+            return (
+              <section key={category} className="mb-10 last:mb-0">
+                <h2 className="text-lg font-semibold text-[var(--text)] mb-4">
+                  {category === "Components" ? "UI Components" : category}
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {items.map((item) => (
+                    <Link
+                      key={item.slug}
+                      href={item.url}
+                      className="block rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 hover:bg-[var(--bg-elevated)] transition-colors"
+                    >
+                      <div className="font-mono text-sm font-semibold text-[var(--accent)]">
+                        {displayTitle(item)}
+                      </div>
+                      {item.description && (
+                        <div className="text-xs text-[var(--text-muted)] mt-1">
+                          {item.description}
+                        </div>
+                      )}
+                    </Link>
+                  ))}
                 </div>
-                {item.description && (
-                  <div className="text-xs text-[var(--text-muted)] mt-1">
-                    {item.description}
-                  </div>
-                )}
-              </Link>
-            ))}
-          </div>
-        </section>
-      </div>
-    </div>
+              </section>
+            );
+          })}
+        </div>
+      </DocsPage>
+    </ShellDocsLayout>
   );
 }

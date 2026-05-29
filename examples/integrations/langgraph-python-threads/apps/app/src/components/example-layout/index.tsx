@@ -1,8 +1,9 @@
 "use client";
 
-import { ReactNode, useState } from "react";
+import type { ReactNode } from "react";
+import { useState } from "react";
 import { ModeToggle } from "./mode-toggle";
-import { useFrontendTool } from "@copilotkit/react-core";
+import { useFrontendTool } from "@copilotkit/react-core/v2";
 
 interface ExampleLayoutProps {
   chatContent: ReactNode;

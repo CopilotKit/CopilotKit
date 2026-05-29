@@ -33,7 +33,9 @@ test.describe("HITL in chat — booking flow", () => {
 
     // The card should advertise the booking and the attendee parsed by the
     // fixture's toolCall arguments.
-    await expect(card.getByText(/With Alice/i)).toBeVisible();
+    await expect(
+      card.locator("p").filter({ hasText: /^With Alice$/i }),
+    ).toBeVisible();
 
     // At least one selectable time slot is present.
     const slots = page.locator('[data-testid="time-picker-slot"]');
@@ -59,10 +61,38 @@ test.describe("HITL in chat — booking flow", () => {
     // Agent's follow-up confirmation arrives next.
     await expect(
       page
-        .locator('[data-role="assistant"]')
+        .locator('[data-testid="copilot-assistant-message"]')
         .filter({ hasText: /Booked.*Alice/i })
         .first(),
     ).toBeVisible({ timeout: 30000 });
+  });
+
+  test("cancelling the time picker returns a denied response, not a booking confirmation", async ({
+    page,
+  }) => {
+    const input = page.getByPlaceholder("Type a message");
+    await input.fill("Schedule a 1:1 with Alice next week to review Q2 goals.");
+    await input.press("Enter");
+
+    const card = page.locator('[data-testid="time-picker-card"]');
+    await expect(card).toBeVisible({ timeout: 60000 });
+    await card.getByRole("button", { name: "None of these work" }).click();
+
+    await expect(
+      page.locator('[data-testid="time-picker-cancelled"]'),
+    ).toBeVisible({ timeout: 10000 });
+
+    const assistantMessages = page.locator(
+      '[data-testid="copilot-assistant-message"]',
+    );
+    await expect(
+      assistantMessages
+        .filter({ hasText: /Denied.*Alice|not booked/i })
+        .first(),
+    ).toBeVisible({ timeout: 30000 });
+    await expect(
+      assistantMessages.filter({ hasText: /Booked.*Alice/i }),
+    ).toHaveCount(0);
   });
 
   // The other suggestion in the demo. Same HITL flow, different
@@ -92,7 +122,7 @@ test.describe("HITL in chat — booking flow", () => {
 
     await expect(
       page
-        .locator('[data-role="assistant"]')
+        .locator('[data-testid="copilot-assistant-message"]')
         .filter({ hasText: /Booked.*sales team/i })
         .first(),
     ).toBeVisible({ timeout: 30000 });
@@ -123,10 +153,16 @@ test.describe("HITL in chat — booking flow", () => {
     await page.locator('[data-testid="time-picker-slot"]').first().click();
     await expect(
       page
-        .locator('[data-role="assistant"]')
+        .locator('[data-testid="copilot-assistant-message"]')
         .filter({ hasText: /Booked.*Alice/i })
         .first(),
     ).toBeVisible({ timeout: 30000 });
+
+    // Let the runtime fully settle after the HITL resolution before
+    // starting a second flow.  A short timed wait is more reliable
+    // than networkidle (which can resolve before LangGraph finalises
+    // thread state) and avoids a stale-state race on the next run.
+    await page.waitForTimeout(1000);
 
     // Flow 2: sales — same page, no refresh.
     await input.fill(
@@ -134,17 +170,18 @@ test.describe("HITL in chat — booking flow", () => {
     );
     await input.press("Enter");
 
-    // A SECOND picker card must appear. If the regression returns, no new
-    // card renders and the agent jumps straight to confirmation text.
-    await expect(card).toHaveCount(2, { timeout: 60000 });
-    await expect(card.last().getByText(/Sales team/i)).toBeVisible();
+    // A SECOND picker card must appear. The first card transitioned to
+    // `time-picker-picked` after Flow 1, so only the new one carries the
+    // `time-picker-card` testid.
+    await expect(card).toHaveCount(1, { timeout: 60000 });
+    await expect(card.first().getByText(/Sales team/i)).toBeVisible();
 
     // Pick a slot in the new card and verify the sales-specific
     // confirmation arrives.
     await page.locator('[data-testid="time-picker-slot"]').last().click();
     await expect(
       page
-        .locator('[data-role="assistant"]')
+        .locator('[data-testid="copilot-assistant-message"]')
         .filter({ hasText: /Booked.*sales team/i })
         .first(),
     ).toBeVisible({ timeout: 30000 });

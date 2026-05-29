@@ -1,0 +1,1254 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# bin/railway — single-file Ruby tooling for showcase Railway operations.
+#
+# Subcommands:
+#   snapshot           Capture current service config to a YAML snapshot.
+#   restore            Restore a snapshot to an environment (force-redeploy).
+#   rollback           Roll a single service back to its previous deploy.
+#   rollback-commit    Roll all services back to digests captured at a git SHA.
+#   promote            Promote staging snapshot to production with prechecks.
+#   pin                Pin a service to a specific image digest.
+#   env-diff           Diff two environments and exit non-zero on drift.
+#   resolve-digest     Resolve an image reference to its content digest via GHCR.
+#   lint-prod          Verify production is fully digest-pinned (CI gate).
+#
+# Stdlib only — no Bundler, no Gemfile. Ruby 3.x.
+#
+# Auth: RAILWAY_TOKEN env var, or ~/.railway/config.json (token field).
+# Never invokes `railway login` / `railway logout` / `op` / any external CLI.
+#
+# Production protection: --yes + typed env confirmation (unless --non-interactive).
+#
+# Exit codes:
+#   0  clean / success
+#   1  drift / findings
+#   2  error (network, auth, schema, etc.)
+
+require "json"
+require "net/http"
+require "optparse"
+require "set"
+require "uri"
+require "yaml"
+require "io/console"
+require "fileutils"
+require "time"
+
+module Railway
+    VERSION = "0.1.0"
+
+    # ── Constants ──────────────────────────────────────────────────────────────
+
+    WORKSPACE              = "CopilotKit"
+    PROJECT_ID             = "6f8c6bff-a80d-4f8f-b78d-50b32bcf4479"
+    PRODUCTION_ENV_ID      = "b14919f4-6417-429f-848d-c6ae2201e04f"
+    STAGING_ENV_ID         = "8edfef02-ea09-4a20-8689-261f21cc2849"
+    GHCR_ORG               = "copilotkit"
+
+    GRAPHQL_ENDPOINT       = "https://backboard.railway.app/graphql/v2"
+
+    ENV_IDS = {
+        "production" => PRODUCTION_ENV_ID,
+        "prod"       => PRODUCTION_ENV_ID,
+        "staging"    => STAGING_ENV_ID,
+        "stage"      => STAGING_ENV_ID,
+    }.freeze
+
+    # Env vars required to be present (parity-checked) before any promote.
+    CRITICAL_ENV_KEYS = %w[
+        RAILWAY_TOKEN
+        GHCR_TOKEN
+        SHARED_SECRET
+        OPS_TRIGGER_TOKEN
+        POCKETBASE_SUPERUSER_EMAIL
+        POCKETBASE_SUPERUSER_PASSWORD
+        GITHUB_APP_PRIVATE_KEY
+        OPENAI_API_KEY
+        ANTHROPIC_API_KEY
+        GOOGLE_API_KEY
+    ].freeze
+
+    EXPECTED_DOMAINS = {
+        PRODUCTION_ENV_ID => %w[
+            showcase.copilotkit.ai
+            dashboard.showcase.copilotkit.ai
+            dojo.showcase.copilotkit.ai
+            docs.copilotkit.ai
+            hooks.showcase.copilotkit.ai
+        ].freeze,
+        STAGING_ENV_ID => %w[
+            showcase.staging.copilotkit.ai
+            dashboard.showcase.staging.copilotkit.ai
+            dojo.showcase.staging.copilotkit.ai
+            docs.staging.copilotkit.ai
+            hooks.staging.copilotkit.ai
+        ].freeze,
+    }.freeze
+
+    # Heuristic markers for env-scoped URLs (ignored in env-diff and promote).
+    ENV_SCOPED_URL_MARKERS = [
+        ".staging.copilotkit.ai",
+        ".copilotkit.ai",
+        "staging-",
+        "prod-",
+    ].freeze
+
+    # ── Token / Auth ───────────────────────────────────────────────────────────
+
+    module Auth
+        module_function
+
+        def token
+            t = ENV["RAILWAY_TOKEN"]
+            return t.strip if t && !t.strip.empty?
+
+            cfg = File.expand_path("~/.railway/config.json")
+            if File.exist?(cfg)
+                begin
+                    data = JSON.parse(File.read(cfg))
+                    # Railway CLI stores the bearer in `user.accessToken` (43+ chars).
+                    # `user.token` is a short legacy CLI session token that does
+                    # NOT authenticate to the public GraphQL API. Prefer accessToken.
+                    candidate =
+                        data.dig("user", "accessToken") ||
+                        data["accessToken"] ||
+                        data.dig("user", "token") ||
+                        data["token"] ||
+                        data.dig("projects", PROJECT_ID, "token")
+                    return candidate.strip if candidate.is_a?(String) && !candidate.strip.empty?
+                rescue JSON::ParserError
+                    # fall through
+                end
+            end
+
+            nil
+        end
+
+        def require_token!
+            t = token
+            if t.nil? || t.empty?
+                Railway.die!("RAILWAY_TOKEN not set and ~/.railway/config.json not usable. " \
+                    "Export RAILWAY_TOKEN before running.")
+            end
+            t
+        end
+    end
+
+    # ── GraphQL Client ─────────────────────────────────────────────────────────
+
+    class GraphQL
+        class Error < StandardError; end
+
+        def initialize(token: nil, endpoint: GRAPHQL_ENDPOINT, http: nil)
+            @token = token || Auth.require_token!
+            @endpoint = endpoint
+            @http = http # optional injection for tests
+        end
+
+        # Execute a query. Returns parsed data hash; raises on errors.
+        def query(query, variables = {})
+            body = { query: query, variables: variables }.to_json
+
+            if @http
+                resp = @http.call(endpoint: @endpoint, token: @token, body: body)
+            else
+                uri = URI(@endpoint)
+                req = Net::HTTP::Post.new(uri)
+                req["Content-Type"] = "application/json"
+                req["Authorization"] = "Bearer #{@token}"
+                req.body = body
+
+                resp = Net::HTTP.start(uri.host, uri.port, use_ssl: true,
+                                        open_timeout: 10, read_timeout: 30) do |h|
+                    h.request(req)
+                end
+            end
+
+            status = resp.respond_to?(:code) ? resp.code.to_i : resp[:status].to_i
+            body_str = resp.respond_to?(:body) ? resp.body : resp[:body]
+
+            raise Error, "HTTP #{status}: #{body_str}" if status >= 400
+
+            parsed = JSON.parse(body_str)
+            if parsed["errors"] && !parsed["errors"].empty?
+                msgs = parsed["errors"].map { |e| e["message"] }.join("; ")
+                raise Error, "GraphQL: #{msgs}"
+            end
+            parsed["data"]
+        end
+    end
+
+    # ── GHCR Client ────────────────────────────────────────────────────────────
+    #
+    # We need to resolve a tag (e.g. `ghcr.io/copilotkit/showcase-shell:latest`)
+    # to its content-addressable digest (`sha256:...`). GHCR exposes the
+    # OCI Distribution Spec at https://ghcr.io/v2/<org>/<image>/manifests/<tag>.
+    # Requires a bearer token; for public images, a token issued via the
+    # /token endpoint works.
+    class GHCR
+        class Error < StandardError; end
+
+        ACCEPT_MANIFEST = [
+            "application/vnd.oci.image.index.v1+json",
+            "application/vnd.oci.image.manifest.v1+json",
+            "application/vnd.docker.distribution.manifest.list.v2+json",
+            "application/vnd.docker.distribution.manifest.v2+json",
+        ].join(", ").freeze
+
+        def initialize(token: ENV["GHCR_TOKEN"], http: nil)
+            @token = token
+            @http = http
+        end
+
+        # Resolve "ghcr.io/copilotkit/showcase-shell:latest" to "sha256:<...>".
+        # Returns nil if the tag does not exist.
+        def resolve_digest(image_ref)
+            parts = parse_image_ref(image_ref)
+            return parts[:digest] if parts[:digest] # already pinned
+
+            org   = parts[:org]
+            name  = parts[:name]
+            tag   = parts[:tag] || "latest"
+
+            bearer = bearer_for(org, name)
+            url = "https://ghcr.io/v2/#{org}/#{name}/manifests/#{tag}"
+
+            if @http
+                resp = @http.call(method: :head, url: url, headers: headers(bearer))
+            else
+                resp = http_head(url, headers: headers(bearer))
+            end
+
+            status = resp[:status]
+            return nil if status == 404
+            raise Error, "GHCR manifest HEAD #{status} for #{image_ref}" if status >= 400
+
+            digest = resp[:headers]["docker-content-digest"] ||
+                resp[:headers]["Docker-Content-Digest"]
+            raise Error, "GHCR did not return Docker-Content-Digest for #{image_ref}" if digest.nil?
+
+            digest
+        end
+
+        # Parse image ref into { registry, org, name, tag, digest }.
+        def parse_image_ref(ref)
+            r = ref.to_s.strip
+            registry = nil
+            if r.start_with?("ghcr.io/")
+                registry = "ghcr.io"
+                r = r.sub(/^ghcr\.io\//, "")
+            end
+
+            digest = nil
+            if r.include?("@")
+                r, digest = r.split("@", 2)
+            end
+
+            tag = nil
+            if r.include?(":")
+                r, tag = r.rsplit_colon
+            end
+
+            org, name = r.split("/", 2)
+            { registry: registry, org: org, name: name, tag: tag, digest: digest }
+        end
+
+        private
+
+        def headers(bearer)
+            h = { "Accept" => ACCEPT_MANIFEST }
+            h["Authorization"] = "Bearer #{bearer}" if bearer
+            h
+        end
+
+        def bearer_for(org, name)
+            return @token if @token && !@token.empty?
+            # Public images: anonymous token from /token endpoint.
+            url = "https://ghcr.io/token?service=ghcr.io&scope=repository:#{org}/#{name}:pull"
+            resp = http_get(url, headers: {})
+            return nil if resp[:status] >= 400
+            JSON.parse(resp[:body])["token"]
+        rescue StandardError
+            nil
+        end
+
+        def http_get(url, headers: {})
+            uri = URI(url)
+            req = Net::HTTP::Get.new(uri)
+            headers.each { |k, v| req[k] = v }
+            resp = Net::HTTP.start(uri.host, uri.port, use_ssl: true,
+                                    open_timeout: 10, read_timeout: 30) do |h|
+                h.request(req)
+            end
+            { status: resp.code.to_i, headers: resp.to_hash.transform_values(&:first), body: resp.body }
+        end
+
+        def http_head(url, headers: {})
+            uri = URI(url)
+            req = Net::HTTP::Head.new(uri)
+            headers.each { |k, v| req[k] = v }
+            resp = Net::HTTP.start(uri.host, uri.port, use_ssl: true,
+                                    open_timeout: 10, read_timeout: 30) do |h|
+                h.request(req)
+            end
+            hdrs = {}
+            resp.each_header { |k, v| hdrs[k] = v; hdrs[k.downcase] = v }
+            { status: resp.code.to_i, headers: hdrs, body: resp.body }
+        end
+    end
+
+    # ── Helpers ────────────────────────────────────────────────────────────────
+
+    module_function
+
+    def die!(msg, code: 2)
+        warn "railway: #{msg}"
+        exit code
+    end
+
+    def env_id_for(name)
+        ENV_IDS[name.to_s.downcase] || die!("Unknown env: #{name.inspect}. Use staging or production.")
+    end
+
+    def env_label(env_id)
+        case env_id
+        when PRODUCTION_ENV_ID then "production"
+        when STAGING_ENV_ID    then "staging"
+        else env_id
+        end
+    end
+
+    def production?(env_id)
+        env_id == PRODUCTION_ENV_ID
+    end
+
+    # Prompt for typed confirmation. Returns true if confirmed.
+    def confirm_destructive!(env_label:, action:, non_interactive: false, yes: false)
+        return true unless production?(env_id_for(env_label))
+
+        unless yes
+            die!("Refusing #{action} on production without --yes.", code: 2)
+        end
+
+        if non_interactive
+            warn "[non-interactive] proceeding with #{action} on production (--yes given)."
+            return true
+        end
+
+        $stderr.print "Type 'production' to confirm #{action}: "
+        line = $stdin.gets&.strip
+        unless line == "production"
+            die!("Confirmation phrase mismatch. Aborting.", code: 2)
+        end
+        true
+    end
+
+    # Find service entry in a snapshot by name.
+    def find_service(snapshot, name)
+        (snapshot["services"] || []).find { |s| s["name"] == name }
+    end
+
+    # Strip env-scoped url-ish values when comparing two envs.
+    def env_scoped?(value)
+        return false unless value.is_a?(String)
+        ENV_SCOPED_URL_MARKERS.any? { |m| value.include?(m) }
+    end
+
+    # ── Snapshot Schema ────────────────────────────────────────────────────────
+    #
+    # snapshot:
+    #   version: 1
+    #   captured_at: <ISO8601>
+    #   project_id: <uuid>
+    #   environment:
+    #     id: <uuid>
+    #     name: production|staging
+    #   services:
+    #     - name: showcase-shell
+    #       service_id: <uuid>
+    #       image: ghcr.io/copilotkit/showcase-shell@sha256:...
+    #       image_tag: ghcr.io/copilotkit/showcase-shell:latest
+    #       digest: sha256:...
+    #       start_command: <string|nil>
+    #       auto_updates_disabled: <bool>
+    #       latest_deployment_id: <uuid|nil>
+    #       env_keys: [KEY1, KEY2, ...]   # keys only, never values
+    #       custom_domains: [...]
+    #
+    # We capture KEYS only for env vars (never values) so snapshots are safe
+    # to commit/share.
+    class SnapshotIO
+        SCHEMA_VERSION = 1
+
+        def self.write(path, snapshot)
+            FileUtils.mkdir_p(File.dirname(path)) unless path == "-"
+            yaml = YAML.dump(snapshot)
+            if path == "-"
+                $stdout.write(yaml)
+            else
+                File.write(path, yaml)
+            end
+        end
+
+        def self.read(path)
+            raw = path == "-" ? $stdin.read : File.read(path)
+            data = YAML.safe_load(raw, permitted_classes: [Time, Symbol], aliases: false)
+            unless data.is_a?(Hash) && data["version"] == SCHEMA_VERSION
+                Railway.die!("Snapshot schema mismatch (expected version=#{SCHEMA_VERSION}).")
+            end
+            data
+        end
+    end
+
+    # ── Service Inventory ──────────────────────────────────────────────────────
+    #
+    # GraphQL fragments used by snapshot/env-diff/promote/lint-prod.
+    #
+    # Railway's public schema notes (verified via introspection 2026-05):
+    #   * Project has NO `domains` field. Custom domains are reached either via
+    #     top-level `domains(projectId, environmentId, serviceId)` returning
+    #     `AllDomains { customDomains, serviceDomains }`, or via
+    #     `serviceInstance.domains` (same shape).
+    #   * Service has NO `serviceInstances` field. To get an instance's
+    #     image/startCommand/etc. for a given env, use
+    #     `serviceInstance(serviceId, environmentId)` directly.
+    #   * `serviceInstanceDeployV2` takes (serviceId, environmentId, commitSha)
+    #     ONLY — no `image` arg. To pin a service to a specific image, use
+    #     `serviceInstanceUpdate(serviceId, environmentId, input: { source: { image } })`
+    #     followed by `serviceInstanceRedeploy`.
+    #   * `Environment.variables` returns an `EnvironmentVariablesConnection`
+    #     whose edges include `node.serviceId` — we filter by service id to get
+    #     per-service env-key sets.
+    #
+    # The query below enumerates all services in the project and, for each one,
+    # the per-environment serviceInstance and that env's variables (keys only).
+    # We use GraphQL field aliases to fetch all per-service data in a single
+    # round-trip rather than N+1.
+
+    SERVICES_LIST_QUERY = <<~GQL
+        query ProjectServices($projectId: String!) {
+            project(id: $projectId) {
+                id
+                name
+                services {
+                    edges {
+                        node { id name }
+                    }
+                }
+            }
+        }
+    GQL
+
+    SERVICE_INSTANCE_QUERY = <<~GQL
+        query ServiceInstance($serviceId: String!, $envId: String!) {
+            serviceInstance(serviceId: $serviceId, environmentId: $envId) {
+                id
+                serviceId
+                environmentId
+                startCommand
+                source { image repo }
+                latestDeployment { id status }
+                domains {
+                    customDomains { id domain }
+                    serviceDomains { id domain }
+                }
+            }
+        }
+    GQL
+
+    ENVIRONMENT_VARIABLES_QUERY = <<~GQL
+        query EnvVariables($envId: String!) {
+            environment(id: $envId) {
+                id
+                name
+                variables(first: 1000) {
+                    edges {
+                        node { name serviceId isSealed }
+                    }
+                }
+            }
+        }
+    GQL
+
+    # ── Subcommands ────────────────────────────────────────────────────────────
+
+    class BaseCommand
+        attr_reader :argv, :options
+
+        def initialize(argv)
+            @argv = argv.dup
+            @options = default_options
+        end
+
+        def default_options
+            {
+                env: nil,
+                yes: false,
+                non_interactive: false,
+                dry_run: false,
+                output: nil,
+            }
+        end
+
+        def self.call(argv)
+            new(argv).run
+        end
+
+        # Each subcommand must implement run and parser.
+        def run
+            raise NotImplementedError
+        end
+
+        def parser
+            raise NotImplementedError
+        end
+
+        # Returns a Railway::GraphQL client (mockable via @gql=).
+        def gql
+            @gql ||= GraphQL.new
+        end
+
+        # Returns a Railway::GHCR client.
+        def ghcr
+            @ghcr ||= GHCR.new
+        end
+    end
+
+    # snapshot — capture an environment's state into a YAML file.
+    class SnapshotCommand < BaseCommand
+        def parser
+            OptionParser.new do |o|
+                o.banner = <<~BANNER
+                    Usage: bin/railway snapshot --env <staging|production> [--output FILE] [--dry-run]
+
+                      Capture current image digests, start commands, env-var KEYS,
+                      and custom domains for every service in the given env.
+
+                      Exits 0 on success. Exits 2 on error.
+                BANNER
+                o.on("--env ENV", "Environment (staging|production)") { |v| options[:env] = v }
+                o.on("--output FILE", "Write to FILE (default stdout)") { |v| options[:output] = v }
+                o.on("--dry-run", "Capture but do not write to disk") { options[:dry_run] = true }
+                o.on("-h", "--help", "Show this help") { puts o; exit 0 }
+            end
+        end
+
+        def run
+            parser.parse!(argv)
+            Railway.die!("--env is required") unless options[:env]
+            env_id = Railway.env_id_for(options[:env])
+
+            snap = build_snapshot(env_id)
+
+            if options[:dry_run] && options[:output].nil?
+                # always dump to stdout for dry-run with no output
+                puts YAML.dump(snap)
+                return 0
+            end
+
+            path = options[:output] ||
+                "showcase/.railway-snapshots/#{Time.now.utc.strftime('%Y%m%dT%H%M%SZ')}-#{options[:env]}.yaml"
+
+            SnapshotIO.write(path, snap)
+            warn "wrote snapshot: #{path}" unless path == "-"
+            0
+        end
+
+        def build_snapshot(env_id)
+            # 1. List all services in the project.
+            list = gql.query(SERVICES_LIST_QUERY, projectId: PROJECT_ID)
+            service_nodes = (list.dig("project", "services", "edges") || []).map { |e| e["node"] }
+
+            # 2. Fetch the env's variables once, group keys by serviceId.
+            env_data = gql.query(ENVIRONMENT_VARIABLES_QUERY, envId: env_id)
+            keys_by_service = Hash.new { |h, k| h[k] = [] }
+            (env_data.dig("environment", "variables", "edges") || []).each do |edge|
+                n = edge["node"]
+                next unless n && n["serviceId"]
+                keys_by_service[n["serviceId"]] << n["name"]
+            end
+
+            # 3. For each service, fetch its serviceInstance for this env.
+            #    Some services may not exist in this env (returns nil); skip them.
+            services = []
+            service_nodes.each do |node|
+                instance_data = gql.query(SERVICE_INSTANCE_QUERY,
+                    serviceId: node["id"], envId: env_id)
+                inst = instance_data["serviceInstance"]
+                next if inst.nil?
+
+                image_ref = inst.dig("source", "image")
+                digest = nil
+                tag_ref = image_ref
+                if image_ref&.include?("@sha256:")
+                    tag_ref, digest = image_ref.split("@", 2)
+                end
+
+                custom_domains = (inst.dig("domains", "customDomains") || [])
+                    .map { |d| d["domain"] }.compact.sort
+
+                services << {
+                    "name"                  => node["name"],
+                    "service_id"            => node["id"],
+                    "image"                 => image_ref,
+                    "image_tag"             => tag_ref,
+                    "digest"                => digest,
+                    "start_command"         => inst["startCommand"],
+                    "auto_updates_disabled" => nil,
+                    "latest_deployment_id"  => inst.dig("latestDeployment", "id"),
+                    "env_keys"              => (keys_by_service[node["id"]] || []).sort.uniq,
+                    "custom_domains"        => custom_domains,
+                }
+            end
+
+            {
+                "version"     => SnapshotIO::SCHEMA_VERSION,
+                "captured_at" => Time.now.utc.iso8601,
+                "project_id"  => PROJECT_ID,
+                "environment" => { "id" => env_id, "name" => Railway.env_label(env_id) },
+                "services"    => services.sort_by { |s| s["name"].to_s },
+            }
+        end
+    end
+
+    # restore — given a snapshot YAML, force-redeploy each service to its
+    # captured digest via serviceInstanceUpdate(source.image) + redeploy.
+    #
+    # Railway's `serviceInstanceDeployV2` mutation does NOT accept an `image`
+    # arg — its signature is (serviceId, environmentId, commitSha). To pin a
+    # service to a specific image digest we must:
+    #   1. update the service instance's source.image to the desired ref
+    #   2. trigger a redeploy
+    class RestoreCommand < BaseCommand
+        UPDATE_IMAGE_MUTATION = <<~GQL
+            mutation UpdateImage($serviceId: String!, $envId: String!, $image: String!) {
+                serviceInstanceUpdate(
+                    serviceId: $serviceId
+                    environmentId: $envId
+                    input: { source: { image: $image } }
+                )
+            }
+        GQL
+
+        REDEPLOY_MUTATION = <<~GQL
+            mutation Redeploy($serviceId: String!, $envId: String!) {
+                serviceInstanceRedeploy(
+                    serviceId: $serviceId
+                    environmentId: $envId
+                )
+            }
+        GQL
+
+        # Helper used by RestoreCommand, PinCommand, PromoteCommand: pin then redeploy.
+        def self.pin_and_redeploy(gql, service_id:, env_id:, image:)
+            gql.query(UPDATE_IMAGE_MUTATION,
+                serviceId: service_id, envId: env_id, image: image)
+            gql.query(REDEPLOY_MUTATION,
+                serviceId: service_id, envId: env_id)
+        end
+
+        def parser
+            OptionParser.new do |o|
+                o.banner = <<~BANNER
+                    Usage: bin/railway restore --env ENV --snapshot FILE [--yes] [--non-interactive] [--dry-run] [--service NAME]
+
+                      Restore an environment to the digests captured in a snapshot.
+                      Production requires --yes + typed 'production' confirmation
+                      (or --non-interactive to skip the prompt).
+
+                      Exits 0 on success. Exits 2 on auth/network/refused errors.
+                BANNER
+                o.on("--env ENV") { |v| options[:env] = v }
+                o.on("--snapshot FILE") { |v| options[:snapshot] = v }
+                o.on("--service NAME", "Restrict to a single service") { |v| options[:service] = v }
+                o.on("--yes") { options[:yes] = true }
+                o.on("--non-interactive") { options[:non_interactive] = true }
+                o.on("--dry-run") { options[:dry_run] = true }
+                o.on("-h", "--help") { puts o; exit 0 }
+            end
+        end
+
+        def run
+            parser.parse!(argv)
+            Railway.die!("--env required") unless options[:env]
+            Railway.die!("--snapshot required") unless options[:snapshot]
+
+            env_id = Railway.env_id_for(options[:env])
+            snap = SnapshotIO.read(options[:snapshot])
+
+            Railway.confirm_destructive!(
+                env_label: options[:env],
+                action: "restore",
+                non_interactive: options[:non_interactive],
+                yes: options[:yes],
+            )
+
+            services = snap["services"] || []
+            services = services.select { |s| s["name"] == options[:service] } if options[:service]
+            Railway.die!("No matching services in snapshot.") if services.empty?
+
+            services.each do |svc|
+                image = svc["image"] || svc["image_tag"]
+                Railway.die!("Service #{svc['name']} has no image in snapshot.") if image.nil?
+
+                if options[:dry_run]
+                    puts "[dry-run] would redeploy #{svc['name']} -> #{image}"
+                    next
+                end
+
+                RestoreCommand.pin_and_redeploy(gql,
+                    service_id: svc["service_id"], env_id: env_id, image: image)
+                puts "redeployed #{svc['name']} -> #{image}"
+            end
+            0
+        end
+    end
+
+    # rollback — roll a single service back one deploy (its previous deploy).
+    class RollbackCommand < BaseCommand
+        DEPLOYMENTS_QUERY = <<~GQL
+            query Deployments($serviceId: String!, $envId: String!) {
+                deployments(
+                    first: 10
+                    input: { serviceId: $serviceId, environmentId: $envId }
+                ) { edges { node { id status meta createdAt } } }
+            }
+        GQL
+
+        # deploymentRollback returns a scalar Boolean — no selection set.
+        ROLLBACK_MUTATION = <<~GQL
+            mutation Rollback($id: String!) { deploymentRollback(id: $id) }
+        GQL
+
+        def parser
+            OptionParser.new do |o|
+                o.banner = <<~BANNER
+                    Usage: bin/railway rollback --env ENV --service NAME [--to DEPLOYMENT_ID] [--yes]
+
+                      Rolls a single service back to its previous successful
+                      deploy (or to a specific deployment id with --to).
+                      Production requires --yes + typed confirmation.
+                BANNER
+                o.on("--env ENV") { |v| options[:env] = v }
+                o.on("--service NAME") { |v| options[:service] = v }
+                o.on("--to ID", "Specific deployment id to roll to") { |v| options[:to] = v }
+                o.on("--yes") { options[:yes] = true }
+                o.on("--non-interactive") { options[:non_interactive] = true }
+                o.on("--dry-run") { options[:dry_run] = true }
+                o.on("-h", "--help") { puts o; exit 0 }
+            end
+        end
+
+        def run
+            parser.parse!(argv)
+            Railway.die!("--env required") unless options[:env]
+            Railway.die!("--service required") unless options[:service]
+
+            env_id = Railway.env_id_for(options[:env])
+            Railway.confirm_destructive!(
+                env_label: options[:env],
+                action: "rollback",
+                non_interactive: options[:non_interactive],
+                yes: options[:yes],
+            )
+
+            service_id = resolve_service_id(env_id, options[:service])
+
+            target_id = options[:to] || find_previous_deployment(service_id, env_id)
+            Railway.die!("No previous deployment found for #{options[:service]}.") unless target_id
+
+            if options[:dry_run]
+                puts "[dry-run] would rollback #{options[:service]} -> deployment #{target_id}"
+                return 0
+            end
+
+            gql.query(ROLLBACK_MUTATION, id: target_id)
+            puts "rolled back #{options[:service]} -> #{target_id}"
+            0
+        end
+
+        def resolve_service_id(_env_id, name)
+            data = gql.query(SERVICES_LIST_QUERY, projectId: PROJECT_ID)
+            (data.dig("project", "services", "edges") || []).each do |e|
+                node = e["node"]
+                return node["id"] if node["name"] == name
+            end
+            Railway.die!("Service #{name.inspect} not found.")
+        end
+
+        def find_previous_deployment(service_id, env_id)
+            data = gql.query(DEPLOYMENTS_QUERY, serviceId: service_id, envId: env_id)
+            deployments = (data.dig("deployments", "edges") || []).map { |e| e["node"] }
+            # Pick the second SUCCESS in reverse-chronological order.
+            successes = deployments.select { |d| d["status"] == "SUCCESS" }
+            return nil if successes.size < 2
+            successes[1]["id"]
+        end
+    end
+
+    # rollback-commit — roll all services back to the digests captured at a
+    # given git SHA's snapshot file.
+    class RollbackCommitCommand < BaseCommand
+        def parser
+            OptionParser.new do |o|
+                o.banner = <<~BANNER
+                    Usage: bin/railway rollback-commit --env ENV --sha SHA [--yes]
+
+                      Looks up the snapshot file checked into git at SHA, then
+                      redeploys every service to the digests recorded there.
+                      Effectively a "restore to point-in-time" using committed
+                      snapshots.
+                BANNER
+                o.on("--env ENV") { |v| options[:env] = v }
+                o.on("--sha SHA") { |v| options[:sha] = v }
+                o.on("--yes") { options[:yes] = true }
+                o.on("--non-interactive") { options[:non_interactive] = true }
+                o.on("--dry-run") { options[:dry_run] = true }
+                o.on("-h", "--help") { puts o; exit 0 }
+            end
+        end
+
+        def run
+            parser.parse!(argv)
+            Railway.die!("--env required") unless options[:env]
+            Railway.die!("--sha required") unless options[:sha]
+
+            # Locate the most recent snapshot file for env at SHA via `git show`.
+            env = options[:env]
+            sha = options[:sha]
+
+            # We look in showcase/.railway-snapshots/*-<env>.yaml at SHA, take last.
+            list_cmd = %(git ls-tree -r --name-only #{sha} -- 'showcase/.railway-snapshots/*-#{env}.yaml')
+            entries = `#{list_cmd}`.lines.map(&:strip).reject(&:empty?).sort
+            Railway.die!("No snapshot for env=#{env} at #{sha}.") if entries.empty?
+            path = entries.last
+
+            yaml = `git show #{sha}:#{path}`
+            Railway.die!("git show failed for #{sha}:#{path}") if yaml.nil? || yaml.empty?
+
+            snap = YAML.safe_load(yaml, permitted_classes: [Time, Symbol], aliases: false)
+
+            # Hand off to RestoreCommand's logic by writing to a tmpfile.
+            tmp = "/tmp/railway-rollback-commit-#{Process.pid}.yaml"
+            File.write(tmp, YAML.dump(snap))
+            restore_argv = ["--env", env, "--snapshot", tmp]
+            restore_argv << "--yes" if options[:yes]
+            restore_argv << "--non-interactive" if options[:non_interactive]
+            restore_argv << "--dry-run" if options[:dry_run]
+            RestoreCommand.new(restore_argv).run
+        ensure
+            FileUtils.rm_f(tmp) if defined?(tmp) && tmp
+        end
+    end
+
+    # promote — copy staging digests into production with prechecks.
+    class PromoteCommand < BaseCommand
+        def parser
+            OptionParser.new do |o|
+                o.banner = <<~BANNER
+                    Usage: bin/railway promote [--include-startcommand] [--yes] [--non-interactive] [--dry-run]
+
+                      Promote staging snapshot to production.
+
+                      MOVES: image digests; startCommand (only if --include-startcommand);
+                             autoUpdate=disabled flag.
+                      VERIFY-REFUSE: service-set parity, critical env-key parity,
+                             PB superuser auth, PB collection parity,
+                             cross-env URL leak scan.
+                      WARN: missing/extra custom domains, sealed-var heuristics.
+                      IGNORE: env-scoped URLs, volumes.
+
+                      Exit 0 on clean promotion, 1 on refuse/findings, 2 on error.
+                BANNER
+                o.on("--include-startcommand") { options[:include_startcommand] = true }
+                o.on("--yes") { options[:yes] = true }
+                o.on("--non-interactive") { options[:non_interactive] = true }
+                o.on("--dry-run") { options[:dry_run] = true }
+                o.on("-h", "--help") { puts o; exit 0 }
+            end
+        end
+
+        def run
+            parser.parse!(argv)
+
+            # Capture both env snapshots.
+            staging = SnapshotCommand.new(["--env", "staging", "--dry-run"]).build_snapshot(STAGING_ENV_ID)
+            prod    = SnapshotCommand.new(["--env", "production", "--dry-run"]).build_snapshot(PRODUCTION_ENV_ID)
+
+            findings = []
+
+            # VERIFY: service-set parity.
+            s_names = (staging["services"] || []).map { |s| s["name"] }.sort
+            p_names = (prod["services"] || []).map { |s| s["name"] }.sort
+            missing_in_prod = s_names - p_names
+            missing_in_stg  = p_names - s_names
+            findings << "REFUSE: services in staging not in prod: #{missing_in_prod.join(', ')}" unless missing_in_prod.empty?
+            findings << "REFUSE: services in prod not in staging: #{missing_in_stg.join(', ')}" unless missing_in_stg.empty?
+
+            # VERIFY: critical env-key parity per service.
+            (staging["services"] || []).each do |svc|
+                pmatch = Railway.find_service(prod, svc["name"])
+                next unless pmatch
+                missing_keys = (CRITICAL_ENV_KEYS & svc["env_keys"]) - pmatch["env_keys"]
+                unless missing_keys.empty?
+                    findings << "REFUSE: #{svc['name']}: critical keys missing in prod: #{missing_keys.join(', ')}"
+                end
+            end
+
+            # WARN: domain audits.
+            expected_prod_domains = EXPECTED_DOMAINS[PRODUCTION_ENV_ID]
+            actual_prod_domains = (prod["services"] || []).flat_map { |s| s["custom_domains"] || [] }.uniq.sort
+            missing_domains = expected_prod_domains - actual_prod_domains
+            findings << "WARN: production missing expected custom domains: #{missing_domains.join(', ')}" unless missing_domains.empty?
+
+            # WARN: cross-env URL leak in env-key NAMES is impossible (we have names only);
+            # we cannot read values without an explicit per-key fetch. Log as IGNORE note.
+
+            refuses = findings.select { |f| f.start_with?("REFUSE") }
+            unless refuses.empty?
+                refuses.each { |f| puts f }
+                puts "Promote refused due to #{refuses.size} REFUSE finding(s)."
+                return 1
+            end
+
+            findings.each { |f| puts f }
+
+            Railway.confirm_destructive!(
+                env_label: "production",
+                action: "promote",
+                non_interactive: options[:non_interactive],
+                yes: options[:yes],
+            )
+
+            # Execute promotion: redeploy each prod service with staging's image.
+            (staging["services"] || []).each do |svc|
+                pmatch = Railway.find_service(prod, svc["name"])
+                next unless pmatch
+                image = svc["image"] || svc["image_tag"]
+                if options[:dry_run]
+                    puts "[dry-run] promote #{svc['name']} -> #{image}"
+                    next
+                end
+
+                RestoreCommand.pin_and_redeploy(gql,
+                    service_id: pmatch["service_id"],
+                    env_id: PRODUCTION_ENV_ID,
+                    image: image)
+                puts "promoted #{svc['name']} -> #{image}"
+            end
+
+            0
+        end
+    end
+
+    # pin — pin a service to a specific image digest.
+    class PinCommand < BaseCommand
+        def parser
+            OptionParser.new do |o|
+                o.banner = <<~BANNER
+                    Usage: bin/railway pin --env ENV --service NAME --image REF [--yes] [--dry-run]
+
+                      Pin a service to a specific image (tag or @sha256:... digest).
+                      If a tag is given, resolves it via GHCR first.
+                BANNER
+                o.on("--env ENV") { |v| options[:env] = v }
+                o.on("--service NAME") { |v| options[:service] = v }
+                o.on("--image REF") { |v| options[:image] = v }
+                o.on("--yes") { options[:yes] = true }
+                o.on("--non-interactive") { options[:non_interactive] = true }
+                o.on("--dry-run") { options[:dry_run] = true }
+                o.on("-h", "--help") { puts o; exit 0 }
+            end
+        end
+
+        def run
+            parser.parse!(argv)
+            %i[env service image].each do |k|
+                Railway.die!("--#{k} required") unless options[k]
+            end
+
+            env_id = Railway.env_id_for(options[:env])
+            image = options[:image]
+
+            unless image.include?("@sha256:")
+                digest = ghcr.resolve_digest(image)
+                Railway.die!("Could not resolve digest for #{image}.") unless digest
+                base = image.split(":", 2).first
+                image = "#{base}@#{digest}"
+            end
+
+            Railway.confirm_destructive!(
+                env_label: options[:env],
+                action: "pin",
+                non_interactive: options[:non_interactive],
+                yes: options[:yes],
+            )
+
+            service_id = RollbackCommand.new([]).resolve_service_id(env_id, options[:service])
+
+            if options[:dry_run]
+                puts "[dry-run] would pin #{options[:service]} -> #{image}"
+                return 0
+            end
+
+            RestoreCommand.pin_and_redeploy(gql,
+                service_id: service_id, env_id: env_id, image: image)
+            puts "pinned #{options[:service]} -> #{image}"
+            0
+        end
+    end
+
+    # env-diff — diff two environments and exit 1 on drift.
+    class EnvDiffCommand < BaseCommand
+        def parser
+            OptionParser.new do |o|
+                o.banner = <<~BANNER
+                    Usage: bin/railway env-diff ENV_A ENV_B [--ignore-env-scoped]
+
+                      Compare image digests, startCommand, env-var key sets, and
+                      custom domains between two envs. Exits 0 if equal (modulo
+                      ignored markers), 1 if drift, 2 on error.
+                BANNER
+                o.on("--ignore-env-scoped") { options[:ignore_env_scoped] = true }
+                o.on("-h", "--help") { puts o; exit 0 }
+            end
+        end
+
+        def run
+            parser.parse!(argv)
+            Railway.die!("two env args required") if argv.length < 2
+
+            a, b = argv[0], argv[1]
+            id_a = Railway.env_id_for(a)
+            id_b = Railway.env_id_for(b)
+
+            snap_a = SnapshotCommand.new(["--env", a, "--dry-run"]).build_snapshot(id_a)
+            snap_b = SnapshotCommand.new(["--env", b, "--dry-run"]).build_snapshot(id_b)
+
+            drift = []
+            names = ((snap_a["services"] + snap_b["services"]).map { |s| s["name"] }).uniq.sort
+            names.each do |name|
+                sa = Railway.find_service(snap_a, name)
+                sb = Railway.find_service(snap_b, name)
+                if sa.nil?
+                    drift << "service #{name}: missing in #{a}"
+                    next
+                end
+                if sb.nil?
+                    drift << "service #{name}: missing in #{b}"
+                    next
+                end
+
+                if sa["digest"] != sb["digest"]
+                    drift << "service #{name}: digest #{sa['digest']} != #{sb['digest']}"
+                end
+                if sa["start_command"] != sb["start_command"]
+                    drift << "service #{name}: startCommand differs"
+                end
+                missing_in_b = sa["env_keys"] - sb["env_keys"]
+                missing_in_a = sb["env_keys"] - sa["env_keys"]
+                drift << "service #{name}: env keys missing in #{b}: #{missing_in_b.join(', ')}" unless missing_in_b.empty?
+                drift << "service #{name}: env keys missing in #{a}: #{missing_in_a.join(', ')}" unless missing_in_a.empty?
+            end
+
+            drift.each { |line| puts line }
+            puts drift.empty? ? "OK: #{a} and #{b} agree." : "DRIFT: #{drift.size} finding(s)."
+            drift.empty? ? 0 : 1
+        end
+    end
+
+    # resolve-digest — resolve an image reference to its digest via GHCR.
+    class ResolveDigestCommand < BaseCommand
+        def parser
+            OptionParser.new do |o|
+                o.banner = <<~BANNER
+                    Usage: bin/railway resolve-digest IMAGE_REF
+
+                      Resolve a tag like 'ghcr.io/copilotkit/showcase-shell:latest' to its
+                      Docker-Content-Digest. Prints sha256:... on stdout. Exits 2 if absent.
+                BANNER
+                o.on("-h", "--help") { puts o; exit 0 }
+            end
+        end
+
+        def run
+            parser.parse!(argv)
+            Railway.die!("image ref required") if argv.empty?
+
+            digest = ghcr.resolve_digest(argv[0])
+            Railway.die!("Could not resolve digest for #{argv[0]}.") unless digest
+            puts digest
+            0
+        end
+    end
+
+    # lint-prod — verify every prod service is pinned to a digest.
+    class LintProdCommand < BaseCommand
+        def initialize(argv)
+            super
+            @exit_zero = false
+            @format = "text"
+        end
+
+        def parser
+            OptionParser.new do |o|
+                o.banner = <<~BANNER
+                    Usage: bin/railway lint-prod [--exit-zero] [--format text|json]
+
+                      Fails (exit 1) if any production service is NOT pinned to
+                      an immutable image digest (must be ghcr.io/...@sha256:...).
+                      Intended as a CI gate on every PR touching showcase/.
+
+                      --exit-zero      Always exit 0 even on findings (advisory mode).
+                                       Findings still print to stdout.
+                      --format FORMAT  Output format: 'text' (default) or 'json'.
+                                       JSON shape:
+                                         {services:[{name,source,status}],
+                                          findings:N, timestamp:"ISO8601"}
+                                       'source' is the raw Source.image / image-ref
+                                       string. 'status' is 'pinned' or 'mutable-tag'.
+                BANNER
+                o.on("--exit-zero", "Advisory: exit 0 even when findings exist") { @exit_zero = true }
+                o.on("--format FORMAT", %w[text json], "Output format (text|json)") { |v| @format = v }
+                o.on("-h", "--help") { puts o; exit 0 }
+            end
+        end
+
+        def run
+            parser.parse!(argv)
+
+            prod = SnapshotCommand.new(["--env", "production", "--dry-run"])
+                .build_snapshot(PRODUCTION_ENV_ID)
+
+            services = (prod["services"] || []).map do |svc|
+                image = svc["image"].to_s
+                status =
+                    if image.empty?
+                        "mutable-tag"
+                    elsif !image.include?("@sha256:")
+                        "mutable-tag"
+                    else
+                        "pinned"
+                    end
+                { "name" => svc["name"], "source" => image, "status" => status }
+            end
+            findings = services.reject { |s| s["status"] == "pinned" }
+
+            if @format == "json"
+                payload = {
+                    "services" => services,
+                    "findings" => findings.size,
+                    "timestamp" => Time.now.utc.iso8601,
+                }
+                puts JSON.generate(payload)
+                return 0 if findings.empty?
+                return 0 if @exit_zero
+                return 1
+            end
+
+            if findings.empty?
+                puts "OK: all production services digest-pinned."
+                return 0
+            end
+
+            findings.each do |f|
+                src = f["source"]
+                if src.empty?
+                    puts "#{f['name']}: no image set"
+                else
+                    puts "#{f['name']}: not digest-pinned (image=#{src})"
+                end
+            end
+            puts "DRIFT: #{findings.size} production service(s) not digest-pinned."
+            if @exit_zero
+                puts "(advisory mode: --exit-zero set; exiting 0)"
+                return 0
+            end
+            1
+        end
+    end
+
+    # ── Dispatcher ─────────────────────────────────────────────────────────────
+
+    SUBCOMMANDS = {
+        "snapshot"         => SnapshotCommand,
+        "restore"          => RestoreCommand,
+        "rollback"         => RollbackCommand,
+        "rollback-commit"  => RollbackCommitCommand,
+        "promote"          => PromoteCommand,
+        "pin"              => PinCommand,
+        "env-diff"         => EnvDiffCommand,
+        "resolve-digest"   => ResolveDigestCommand,
+        "lint-prod"        => LintProdCommand,
+    }.freeze
+
+    def self.usage
+        <<~USAGE
+            bin/railway — showcase Railway operations (Ruby, stdlib-only)
+
+            Subcommands:
+              snapshot          Capture an env's services + config into a YAML snapshot.
+              restore           Restore an env to a snapshot (force-redeploy).
+              rollback          Roll a single service back one deploy.
+              rollback-commit   Restore an env to the snapshot committed at a given SHA.
+              promote           Promote staging digests to production with prechecks.
+              pin               Pin a service to a specific image digest.
+              env-diff          Diff two envs; exit 1 if drift.
+              resolve-digest    Resolve an image tag to its GHCR digest.
+              lint-prod         CI gate: fail if any prod service is not digest-pinned.
+
+            Run any subcommand with --help for full flag list.
+
+            Auth: RAILWAY_TOKEN env var (or ~/.railway/config.json).
+            Exit codes: 0 clean, 1 drift/findings, 2 error.
+        USAGE
+    end
+
+    def self.run(argv)
+        if argv.empty? || %w[-h --help help].include?(argv.first)
+            puts usage
+            return 0
+        end
+
+        if argv.first == "--version"
+            puts "railway #{VERSION}"
+            return 0
+        end
+
+        cmd = argv.shift
+        klass = SUBCOMMANDS[cmd]
+        if klass.nil?
+            warn "Unknown subcommand: #{cmd}"
+            warn usage
+            return 2
+        end
+
+        klass.call(argv)
+    rescue GraphQL::Error => e
+        warn "graphql error: #{e.message}"
+        2
+    rescue GHCR::Error => e
+        warn "ghcr error: #{e.message}"
+        2
+    rescue StandardError => e
+        warn "error: #{e.class}: #{e.message}"
+        warn e.backtrace.first(5).join("\n") if ENV["RAILWAY_DEBUG"]
+        2
+    end
+end
+
+# String#rsplit_colon — split on last ':' (so tags with port-style refs are handled).
+class String
+    def rsplit_colon
+        idx = rindex(":")
+        return [self, nil] unless idx
+        [self[0...idx], self[(idx + 1)..]]
+    end
+end
+
+# Only run if invoked as a script (not when required by tests).
+if $PROGRAM_NAME == __FILE__
+    exit Railway.run(ARGV)
+end

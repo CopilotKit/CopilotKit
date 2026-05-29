@@ -1,13 +1,16 @@
-import { CatchAllActionRenderProps } from "@copilotkit/react-core";
 import { useState } from "react";
 
-export type BackendToolsProps = CatchAllActionRenderProps & {
+export type BackendToolsProps = {
+  name: string;
+  parameters: unknown;
+  status: "inProgress" | "executing" | "complete";
+  result: string | undefined;
   themeColor: string;
 };
 
 export function DefaultToolComponent({
   name,
-  args,
+  parameters,
   status,
   result,
   themeColor,
@@ -39,12 +42,12 @@ export function DefaultToolComponent({
               r="10"
               stroke="currentColor"
               strokeWidth="4"
-            ></circle>
+            />
             <path
               className="opacity-75"
               fill="currentColor"
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            ></path>
+            />
           </svg>
         );
       case "complete":
@@ -85,41 +88,45 @@ export function DefaultToolComponent({
       </div>
 
       {/* Arguments */}
-      {args && Object.keys(args).length > 0 && (
-        <div className="mb-3">
-          <button
-            onClick={() => setShowArgs(!showArgs)}
-            className="flex items-center gap-2 text-white/80 text-xs font-medium mb-1.5 hover:text-white transition-colors"
-          >
-            <svg
-              className={`w-3 h-3 transition-transform ${showArgs ? "rotate-90" : ""}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+      {parameters &&
+        typeof parameters === "object" &&
+        Object.keys(parameters as Record<string, unknown>).length > 0 && (
+          <div className="mb-3">
+            <button
+              onClick={() => setShowArgs(!showArgs)}
+              className="flex items-center gap-2 text-white/80 text-xs font-medium mb-1.5 hover:text-white transition-colors"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 5l7 7-7 7"
-              />
-            </svg>
-            Arguments
-          </button>
-          {showArgs && (
-            <div className="bg-black/20 rounded p-2 space-y-1">
-              {Object.entries(args).map(([key, value]) => (
-                <div key={key} className="flex gap-2">
-                  <span className="text-white/50 text-xs">{key}:</span>
-                  <span className="text-white/80 text-xs font-mono">
-                    {JSON.stringify(value)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+              <svg
+                className={`w-3 h-3 transition-transform ${showArgs ? "rotate-90" : ""}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+              Arguments
+            </button>
+            {showArgs && (
+              <div className="bg-black/20 rounded p-2 space-y-1">
+                {Object.entries(parameters as Record<string, unknown>).map(
+                  ([key, value]) => (
+                    <div key={key} className="flex gap-2">
+                      <span className="text-white/50 text-xs">{key}:</span>
+                      <span className="text-white/80 text-xs font-mono">
+                        {JSON.stringify(value)}
+                      </span>
+                    </div>
+                  ),
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
       {/* Result */}
       {result && (

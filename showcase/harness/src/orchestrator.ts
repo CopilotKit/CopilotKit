@@ -8,7 +8,8 @@ import {
   assertSafeKey,
 } from "./storage/alert-state-store.js";
 import { createEventBus } from "./events/event-bus.js";
-import { createRuleLoader, type CompiledRule } from "./rules/rule-loader.js";
+import { createRuleLoader } from "./rules/rule-loader.js";
+import type { CompiledRule } from "./rules/rule-loader.js";
 import { createRenderer } from "./render/renderer.js";
 import { createAlertEngine } from "./alerts/alert-engine.js";
 import { createScheduler } from "./scheduler/scheduler.js";
@@ -42,7 +43,7 @@ import {
   e2eChatToolsDriver,
   createE2eSmokeDriver,
   createPooledE2eSmokeLauncher,
-} from "./probes/drivers/e2e-chat-tools.js";
+} from "./probes/drivers/d4-chat-roundtrip.js";
 import {
   e2eReadinessDriver,
   createE2eDemosDriver,
@@ -52,12 +53,12 @@ import {
   e2eDeepDriver,
   createE2eDeepDriver,
   createPooledE2eDeepLauncher,
-} from "./probes/drivers/e2e-deep.js";
+} from "./probes/drivers/d5-single-pill.js";
 import {
-  e2eParityDriver,
-  createE2eParityDriver,
-  createPooledE2eParityLauncher,
-} from "./probes/drivers/e2e-parity.js";
+  e2eFullDriver,
+  createE2eFullDriver,
+  createPooledE2eFullLauncher,
+} from "./probes/drivers/d6-all-pills.js";
 import { BrowserPool } from "./probes/helpers/browser-pool.js";
 import { qaDriver } from "./probes/drivers/qa.js";
 import { railwayServicesSource } from "./probes/discovery/railway-services.js";
@@ -952,13 +953,15 @@ export function registerAllProbeDrivers(
       }),
     );
     probeRegistry.register(
-      createE2eParityDriver({ launcher: createPooledE2eParityLauncher(pool) }),
+      createE2eFullDriver({
+        launcher: createPooledE2eFullLauncher(pool, logger),
+      }),
     );
   } else {
     probeRegistry.register(e2eChatToolsDriver);
     probeRegistry.register(e2eReadinessDriver);
     probeRegistry.register(e2eDeepDriver);
-    probeRegistry.register(e2eParityDriver);
+    probeRegistry.register(e2eFullDriver);
   }
 
   probeRegistry.register(qaDriver);

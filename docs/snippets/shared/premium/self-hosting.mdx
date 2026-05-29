@@ -21,6 +21,14 @@ CopilotKit Intelligence — the platform that powers threads, shared state, the 
 
 Plus a `database-migrations` Job, a `thread-culler` CronJob, and the usual supporting resources (Services, Ingress, HPAs, PodDisruptionBudgets, ConfigMaps, and — when ESO is enabled — ExternalSecret resources).
 
+<Callout type="info" title="User memory (closed beta)">
+The Intelligence Platform image also includes an opt-in user memory
+capability: agents can recall information from prior conversations in the
+same project (e.g. *"what did we discuss earlier?"*, *"remind me about X"*).
+Currently supported with the Built-in Agent runtime. Reach out to your
+CopilotKit contact for access; see [Configuration reference → User memory](#user-memory-closed-beta) below for the enablement variables.
+</Callout>
+
 ## When should I use this?
 
 - Your organization requires CopilotKit Intelligence to run inside your own VPC or data center for compliance, data residency, or security reasons
@@ -473,6 +481,44 @@ The tables below summarize the most common values. For every option, see `values
 | `realtimeGateway.beam.cookieSecret.name` | Secret containing the BEAM cookie | `cpki-beam-cookie` |
 
 Enabling the realtime gateway requires that either `realtimeGateway.existingSecret` is set, or that `externalSecrets.secrets.realtimeGateway.enabled` or `selfHostedSecrets.enabled` is `true` — the chart fails validation otherwise.
+
+### User memory (closed beta)
+
+<InsecurePasswordProtected password="cpki-mem-beta">
+
+User memory lets agents recall information from prior conversations in the same project. Built-in Agent runtime only today; LangGraph, Mastra, and other frameworks are in development.
+
+**What it does.** The chat agent can recall the user's prior conversations and use that recall to answer questions like:
+
+- *"What did we discuss last week?"*
+- *"Remind me what I decided about X"*
+- *"Have we covered Y before?"*
+
+**Scope.** Only the current user's conversations in the current `(organization, project)`. The agent never sees another user's conversations or another project's data, and it cannot modify what was said.
+
+**Discovery.** The agent will use the capability on its own when asked recall-style questions; for best results, add one line to your agent's `prompt` nudging it to consult its memory when relevant.
+
+**Enabling it.** Two flips, one on each side:
+
+| Where | How |
+|---|---|
+| `app-api` (platform) | Set `SL_ENABLED=true` via `appApi.env: [{ name: SL_ENABLED, value: "true" }]` in your `values.yaml`. This mounts the platform's `/mcp` endpoint on `app-api`. |
+| Your runtime / BFF | Pass `mcpServer: true` when constructing `CopilotKitIntelligence` from `@copilotkit/runtime/v2`. The runtime then auto-attaches the platform's `/mcp` endpoint to every `BuiltInAgent` run. |
+
+```typescript title="runtime.ts"
+import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+
+const intelligence = new CopilotKitIntelligence({
+  apiKey: process.env.INTELLIGENCE_API_KEY!,
+  apiUrl: process.env.INTELLIGENCE_API_URL!,
+  wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL!,
+  mcpServer: true, // [!code highlight]
+});
+```
+
+Once both flips are in place the agent gains recall on its next turn — no further application changes needed.
+
+</InsecurePasswordProtected>
 
 ### External Secrets Operator integration
 

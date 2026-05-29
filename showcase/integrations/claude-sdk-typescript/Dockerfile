@@ -1,8 +1,8 @@
 # Stage 1: Build Next.js frontend + compile TypeScript agent server
 FROM node:22-slim AS builder
 WORKDIR /app
-COPY package.json ./
-RUN npm install --legacy-peer-deps
+COPY package.json package-lock.json ./
+RUN npm ci --legacy-peer-deps
 COPY . .
 # Build Next.js frontend
 RUN npm run build

@@ -11,20 +11,33 @@
 // The page at src/app/demos/multimodal/page.tsx points its `runtimeUrl` at
 // this endpoint and sets `agent="multimodal-demo"`.
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
+import type { RunAgentInput } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
+
+class DotnetMultimodalHttpAgent extends HttpAgent {
+  run(input: RunAgentInput): ReturnType<HttpAgent["run"]> {
+    return super.run(input);
+  }
+
+  protected requestInit(input: RunAgentInput): RequestInit {
+    return super.requestInit(input);
+  }
+}
 
 function createAgent() {
   // Points at the `/multimodal` mount on the .NET backend (Program.cs:
   // `app.MapAGUI("/multimodal", ...)`).
-  return new HttpAgent({ url: `${AGENT_URL}/multimodal` });
+  return new DotnetMultimodalHttpAgent({ url: `${AGENT_URL}/multimodal` });
 }
 
 const agents: Record<string, AbstractAgent> = {

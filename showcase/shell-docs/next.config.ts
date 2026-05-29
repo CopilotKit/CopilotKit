@@ -55,10 +55,20 @@ if (!process.env.NEXT_PUBLIC_SHELL_URL) {
 
 const nextConfig: NextConfig = {
   images: {
+    // Bypass the Next.js image optimizer (`/_next/image`). The optimizer
+    // requires `sharp` at runtime, which is missing from the Railway image
+    // and breaks all `<Image>` rendering site-wide. Our CDN
+    // (`cdn.copilotkit.ai`, CloudFront/S3) ignores `?fm=webp` and serves
+    // PNG regardless, so the optimizer added no format-conversion value
+    // for CDN-hosted images. With `unoptimized`, `<Image>` renders as a
+    // plain `<img>` pointing at the source URL — visually identical for
+    // users, no sharp dependency required.
+    unoptimized: true,
     // Asset CDN for framework intro-page media (banner videos, architecture
     // diagrams, supported-feature thumbnails, framework icons). Hosts every
     // image/video referenced by `src/data/frameworks/*.ts` and any future
-    // marketing surface that pulls from the shared CDN.
+    // marketing surface that pulls from the shared CDN. Kept here for
+    // documentation and to remain valid if the optimizer is re-enabled.
     remotePatterns: [
       {
         protocol: "https",
@@ -79,6 +89,19 @@ const nextConfig: NextConfig = {
         {
           source: "/ingest/:path*",
           destination: "https://eu.i.posthog.com/:path*",
+        },
+        // Fumadocs LLM page-actions feature: every docs page is also
+        // reachable as `<path>.mdx` so LLMCopyButton/ViewOptionsPopover
+        // (and external crawlers) can fetch the raw MDX source. The
+        // route handler at `app/llms-mdx/[[...slug]]/route.ts` reuses
+        // `loadDoc()` to resolve the same content tree the page uses.
+        {
+          source: "/:path*.mdx",
+          destination: "/llms-mdx/:path*",
+        },
+        {
+          source: "/:path*.md",
+          destination: "/llms-mdx/:path*",
         },
       ],
       afterFiles: [],
@@ -121,9 +144,16 @@ const nextConfig: NextConfig = {
         destination: "/concepts/oss-vs-enterprise",
         permanent: true,
       },
+      // Quickstart needs a real backing page when hit without a stored
+      // framework. `SidebarLink` rewrites `/quickstart` → `/<framework>/quickstart`
+      // when a framework is selected; users who land here cold (or who
+      // explicitly picked the bare CopilotKit / Built-in Agent view)
+      // get the Built-in Agent quickstart by default. 308 keeps the
+      // sidebar's `/quickstart` href intact while always sending the
+      // user to a real guide.
       {
         source: "/quickstart",
-        destination: "/",
+        destination: "/built-in-agent/quickstart",
         permanent: true,
       },
 
@@ -403,7 +433,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/learn/tutorials/multi-conversation-chat",
-        destination: "/tutorials/multi-conversation-chat",
+        destination: "/",
         permanent: true,
       },
       {
@@ -477,11 +507,11 @@ const nextConfig: NextConfig = {
         destination: "/coding-agents",
         permanent: false,
       },
-      // Orphaned broken stub.
+      // Old guide now belongs in the v2 hook reference.
       {
         source: "/copilot-suggestions",
-        destination: "/",
-        permanent: false,
+        destination: "/reference/v2/hooks/useSuggestions",
+        permanent: true,
       },
       // AI-slop placeholder pulled from nav until properly authored;
       // file stays on disk for rewrite.
@@ -490,14 +520,6 @@ const nextConfig: NextConfig = {
         destination: "/generative-ui",
         permanent: false,
       },
-      // ~1-year-old migration target, no longer a meaningful jump-off
-      // point.
-      {
-        source: "/migrate/1.10.X",
-        destination: "/migrate/v2",
-        permanent: false,
-      },
-
       // ag-ui-middleware moved into the agentic-protocols group so it
       // appears in the sidebar under AG-UI rather than as an orphan
       // root page. 302 (not 301) since the new home is recent and we
@@ -506,6 +528,31 @@ const nextConfig: NextConfig = {
       {
         source: "/ag-ui-middleware",
         destination: "/agentic-protocols/ag-ui-middleware",
+        permanent: false,
+      },
+
+      // `/generative-ui/your-components/*` retired. The display-only
+      // page was a duplicate of `/generative-ui/tool-based` (same hook,
+      // same demo, same body); the interactive page duplicated the
+      // Human-in-the-Loop section. 302 while the new IA settles.
+      {
+        source: "/generative-ui/your-components/display-only",
+        destination: "/generative-ui/tool-based",
+        permanent: false,
+      },
+      {
+        source: "/:framework/generative-ui/your-components/display-only",
+        destination: "/:framework/generative-ui/tool-based",
+        permanent: false,
+      },
+      {
+        source: "/generative-ui/your-components/interactive",
+        destination: "/human-in-the-loop",
+        permanent: false,
+      },
+      {
+        source: "/:framework/generative-ui/your-components/interactive",
+        destination: "/:framework/human-in-the-loop",
         permanent: false,
       },
     ];

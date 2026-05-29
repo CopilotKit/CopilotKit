@@ -1,150 +1,98 @@
 "use client";
 
-// DocsLandingNext — the "what comes after the product overview" block on
-// the docs landing at `/`. Always renders the "Continue with {framework}"
-// pointers using `effectiveFramework` (Built-in Agent by default; the
-// user's stored pick or URL-active framework if either is set), then a
-// "Switch framework" picker grid below so other backends remain one
-// click away.
-//
-// Old behaviour: branched on `storedFramework`. Null showed a forced
-// picker, set showed "Continue with X". The forced-picker branch was a
-// dead end for fresh visitors who hadn't yet decided which backend to
-// build against. Soft-defaulting to BIA via `effectiveFramework` lets
-// us collapse the two branches into one and keep the picker as a
-// secondary affordance instead of a gate.
+// DocsLandingNext — the primary backend picker on the docs landing page.
+// The hero explains CopilotKit at the product level; this block gives the
+// visitor the next concrete action by linking every visible backend docs
+// surface from one grid.
 
 import React from "react";
 import Link from "next/link";
-import { useFramework } from "./framework-provider";
 import { StoredFrameworkHighlight } from "./stored-framework-highlight";
 import { FrameworkLogo } from "./icons/framework-icons";
-import { FRAMEWORK_CATEGORY_ORDER } from "@/lib/framework-categories";
-import {
-  getCategoryLabel,
-  getIntegration,
-  getIntegrations,
-  type Integration,
-} from "@/lib/registry";
+import { compareByDisplayOrder } from "@/lib/framework-order";
+import { getDocsMode, getIntegrations } from "@/lib/registry";
 
-function FrameworkPicker({
-  heading,
-  description,
-}: {
-  heading: string;
-  description: string;
-}) {
-  // Drop Built-in Agent: it's the soft-default the page is already
-  // rendering as, so showing it under "Switch backend" would just be a
-  // no-op tile.
+const backendDescriptions: Record<string, string> = {
+  "built-in-agent": "Use CopilotKit's in-process agent to get started fast.",
+  "langgraph-python":
+    "Python LangGraph agents with the broadest feature coverage.",
+  "langgraph-typescript": "TypeScript LangGraph agents over the AG-UI adapter.",
+  "langgraph-fastapi": "Python LangGraph agents exposed through FastAPI.",
+  deepagents: "LangChain Deep Agents connected to CopilotKit product UI.",
+  "google-adk": "Gemini-powered Google ADK agents connected through AG-UI.",
+  mastra: "TypeScript-native agents, tools, memory, and workflows.",
+  "crewai-crews": "CrewAI crews wired into CopilotKit product interfaces.",
+  "pydantic-ai": "Typed Python agents with PydanticAI and CopilotKit UI.",
+  agno: "Agno agents with tools, state, and generative UI examples.",
+  ag2: "AG2 agents with CopilotKit chat, tools, and HITL flows.",
+  llamaindex: "LlamaIndex workflows connected to CopilotKit experiences.",
+  strands: "AWS Strands agents with CopilotKit frontend primitives.",
+  "ms-agent-python": "Microsoft Agent Framework agents in Python.",
+  "ms-agent-dotnet": "Microsoft Agent Framework agents in .NET.",
+  "ms-agent-harness-dotnet": "Microsoft Agent Harness on .NET via AG-UI.",
+};
+
+function BackendGrid() {
   const integrations = getIntegrations()
-    .filter((i) => i.slug !== "built-in-agent")
-    .sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999));
-
-  // Bucket integrations by category, honoring the canonical ordering.
-  const buckets = new Map<string, Integration[]>();
-  for (const cat of FRAMEWORK_CATEGORY_ORDER) buckets.set(cat, []);
-  buckets.set("other", []);
-  for (const i of integrations) {
-    const key = buckets.has(i.category) ? i.category : "other";
-    buckets.get(key)!.push(i);
-  }
+    // `docs_mode: hidden` frameworks have no docs page — surfacing them
+    // here would link straight to a 404.
+    .filter((i) => getDocsMode(i.slug) !== "hidden")
+    .slice()
+    .sort((a, b) => {
+      if (a.slug === "built-in-agent") return -1;
+      if (b.slug === "built-in-agent") return 1;
+      return compareByDisplayOrder(a.slug, b.slug);
+    });
 
   return (
-    <section className="not-prose">
-      <h2 className="text-xl font-semibold text-[var(--text)] mb-1">
-        {heading}
-      </h2>
-      <p className="text-sm text-[var(--text-secondary)] mb-5">{description}</p>
-      {[...buckets.entries()].map(([catId, items]) => {
-        if (items.length === 0) return null;
-        const label = catId === "other" ? "Other" : getCategoryLabel(catId);
-        return (
-          <div key={catId} className="mb-6">
-            <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-3">
-              {label}
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {items.map((i) => (
-                <Link
-                  key={i.slug}
-                  href={`/${i.slug}`}
-                  className="group relative flex items-center gap-2 p-3 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] hover:shadow-sm transition-all"
-                >
-                  <FrameworkLogo
-                    slug={i.slug}
-                    fallbackSrc={i.logo}
-                    size={20}
-                    className="shrink-0 text-[var(--text-secondary)] group-hover:text-[var(--accent)]"
-                  />
-                  <span className="flex-1 min-w-0 truncate text-sm font-medium text-[var(--text)] group-hover:text-[var(--accent)]">
-                    {i.name}
-                  </span>
-                  <StoredFrameworkHighlight slug={i.slug} />
-                </Link>
-              ))}
-            </div>
-          </div>
-        );
-      })}
+    <section id="backends" className="not-prose">
+      <div className="mb-5 max-w-2xl">
+        <h2 className="text-xl font-semibold tracking-tight text-[var(--text)] sm:text-2xl">
+          Build with any agent backend
+        </h2>
+        <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
+          Start with CopilotKit's default agent or open the docs for a partner
+          framework.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {integrations.map((i) => (
+          <Link
+            key={i.slug}
+            href={
+              i.slug === "built-in-agent"
+                ? "/built-in-agent/quickstart"
+                : `/${i.slug}`
+            }
+            className="group relative flex min-h-[96px] items-start gap-3 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)]/30 p-3.5 no-underline transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-surface)]"
+          >
+            <span
+              aria-hidden="true"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-dim)] text-[var(--accent)] transition-colors group-hover:bg-[var(--accent-light)]"
+            >
+              <FrameworkLogo
+                slug={i.slug}
+                fallbackSrc={i.logo}
+                size={17}
+                className="text-[var(--accent)]"
+              />
+            </span>
+            <span className="min-w-0 flex-1 pr-20">
+              <span className="block text-sm font-semibold leading-snug text-[var(--text)] transition-colors group-hover:text-[var(--accent)]">
+                {i.name}
+              </span>
+              <span className="mt-1 line-clamp-2 block text-xs leading-relaxed text-[var(--text-muted)]">
+                {backendDescriptions[i.slug] ?? i.description}
+              </span>
+            </span>
+            <StoredFrameworkHighlight slug={i.slug} />
+          </Link>
+        ))}
+      </div>
     </section>
   );
 }
 
 export function DocsLandingNext() {
-  const { effectiveFramework } = useFramework();
-
-  const integration = getIntegration(effectiveFramework);
-  if (!integration) {
-    // Defensive: the registry has dropped the default framework. Should
-    // not happen — DEFAULT_FRAMEWORK is a known slug — but rendering
-    // the picker as a last resort beats throwing.
-    return (
-      <FrameworkPicker
-        heading="Pick your agent framework"
-        description="Pick a backend to continue."
-      />
-    );
-  }
-
-  return (
-    <div className="not-prose">
-      <h2 className="text-xl font-semibold text-[var(--text)] mb-2">
-        Continue with {integration.name}
-      </h2>
-      <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-5">
-        We&apos;ll render every code snippet using {integration.name}. Pick up
-        where you left off — or switch backends below or from the sidebar.
-      </p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-10">
-        <Link
-          href={`/${integration.slug}/quickstart`}
-          className="group flex flex-col gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 no-underline hover:border-[var(--accent)] hover:shadow-sm transition"
-        >
-          <div className="font-semibold text-[var(--text)] group-hover:text-[var(--accent)]">
-            Quickstart
-          </div>
-          <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
-            The {integration.name} quickstart guide.
-          </div>
-        </Link>
-        <Link
-          href={`/${integration.slug}`}
-          className="group flex flex-col gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 no-underline hover:border-[var(--accent)] hover:shadow-sm transition"
-        >
-          <div className="font-semibold text-[var(--text)] group-hover:text-[var(--accent)]">
-            Browse {integration.name} docs
-          </div>
-          <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
-            Every topic rendered with {integration.name} snippets.
-          </div>
-        </Link>
-      </div>
-
-      <FrameworkPicker
-        heading="Switch backend"
-        description="Pick another backend and the rest of the docs will render with its code."
-      />
-    </div>
-  );
+  return <BackendGrid />;
 }

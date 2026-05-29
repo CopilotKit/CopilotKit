@@ -71,7 +71,7 @@
 # demos so a new infra service added there lands here too during review.
 # Starters short-circuit green inside the driver (no /demos routing).
 kind: e2e_deep
-id: e2e-deep
+id: d5-single-pill-e2e
 schedule: "5,20,35,50 * * * *"
 timeout_ms: 600000
 max_concurrency: 4
@@ -109,4 +109,4 @@ discovery:
   # slug) to stay consistent with sibling driver families. The driver
   # strips `showcase-` from the name internally for the per-feature
   # side-row keys (`d5:<slug>/<featureType>`).
-  key_template: "e2e-deep:${name}"
+  key_template: "d5-single-pill-e2e:${name}"

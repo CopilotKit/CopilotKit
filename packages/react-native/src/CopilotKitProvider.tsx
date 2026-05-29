@@ -8,6 +8,7 @@ import type { CopilotKitContextValue } from "@copilotkit/react-core/v2/context";
 import { CopilotKitCoreReact } from "@copilotkit/react-core/v2/headless";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import type { DebugConfig } from "@copilotkit/shared";
+import { RenderToolProvider } from "./hooks/RenderToolContext";
 
 export interface CopilotKitNativeProviderProps {
   children: ReactNode;
@@ -223,7 +224,7 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
   return (
     <CopilotKitContext.Provider value={contextValue}>
       <LicenseContext.Provider value={licenseContextValue}>
-        {children}
+        <RenderToolProvider>{children}</RenderToolProvider>
       </LicenseContext.Provider>
     </CopilotKitContext.Provider>
   );

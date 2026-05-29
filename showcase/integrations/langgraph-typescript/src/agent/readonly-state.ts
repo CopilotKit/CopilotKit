@@ -1,24 +1,23 @@
 /**
- * LangGraph TypeScript agent backing the Readonly State (Agent Context) demo.
+ * LangGraph TypeScript agent backing the Shared State (Agent Read-Only) demo.
  *
- * Demonstrates the `useAgentContext` hook: the frontend provides READ-ONLY
- * context *to* the agent. This is the reverse direction of writable shared
- * state — the UI cannot be edited by the agent, but the agent reads this
- * context on every turn via CopilotKit's state forwarding.
+ * Demonstrates the `useAgentContext` hook from @copilotkit/react-core/v2:
+ * the frontend provides READ-ONLY context *to* the agent. This is the
+ * reverse direction of writable-shared-state — the UI cannot be edited by
+ * the agent, but the agent reads this context on every turn via
+ * CopilotKit's state forwarding, which routes the context entries into the
+ * model's message history.
  *
  * No custom state, no tools: this is the minimal shape of the
  * useAgentContext pattern. The agent just reads whatever context the
  * frontend registered and answers accordingly.
  */
 
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { SystemMessage } from "@langchain/core/messages";
 import { MemorySaver, START, StateGraph } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
-import {
-  convertActionsToDynamicStructuredTools,
-  CopilotKitStateAnnotation,
-} from "@copilotkit/sdk-js/langgraph";
+import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 
 const AgentStateAnnotation = CopilotKitStateAnnotation;
 export type AgentState = typeof AgentStateAnnotation.State;
@@ -31,20 +30,42 @@ const SYSTEM_PROMPT =
   "respect their timezone when mentioning times, and reference " +
   "recent activity when it helps you answer. Keep responses short.";
 
+// @region[agent-context-setup]
 async function chatNode(state: AgentState, config: RunnableConfig) {
-  const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o-mini" });
+  const model = new ChatOpenAI({ model: "gpt-5.4" });
 
-  const modelWithTools = model.bindTools!([
-    ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),
-  ]);
+  // Inject read-only context from useAgentContext / useCopilotReadable.
+  // Mirrors the `createAppContextBeforeAgent` logic in CopilotKitMiddleware:
+  // context may be a string or an object — stringify it and prepend as a
+  // system message right after the main system prompt.
+  const appContext = state.copilotkit?.context;
+  const isEmptyContext =
+    !appContext ||
+    (typeof appContext === "string" && appContext.trim() === "") ||
+    (typeof appContext === "object" && Object.keys(appContext).length === 0);
 
-  const response = await modelWithTools.invoke(
-    [new SystemMessage({ content: SYSTEM_PROMPT }), ...state.messages],
+  const systemMessages: SystemMessage[] = [
+    new SystemMessage({ content: SYSTEM_PROMPT }),
+  ];
+
+  if (!isEmptyContext) {
+    const contextContent =
+      typeof appContext === "string"
+        ? appContext
+        : JSON.stringify(appContext, null, 2);
+    systemMessages.push(
+      new SystemMessage({ content: `App Context:\n${contextContent}` }),
+    );
+  }
+
+  const response = await model.invoke(
+    [...systemMessages, ...state.messages],
     config,
   );
 
   return { messages: response };
 }
+// @endregion[agent-context-setup]
 
 const workflow = new StateGraph(AgentStateAnnotation)
   .addNode("chat_node", chatNode)

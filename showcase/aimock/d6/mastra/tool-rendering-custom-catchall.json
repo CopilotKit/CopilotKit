@@ -1,0 +1,76 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for mastra / tool-rendering-custom-catchall. Reuses the same tool calls as tool-rendering (weather in Tokyo + AAPL stock) but rendered through the user-supplied custom wildcard component. The probe drives two sequential prompts and asserts both render via the same [data-testid='custom-wildcard-card'] with distinct data-tool-name values.",
+    "sourceFile": "harness/src/probes/scripts/d5-tool-rendering-custom-catchall.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "custom-catchall turn 1 \u2014 weather in Tokyo. Follow-up content after get_weather tool ran. Keyed by toolCallId so it fires on iteration 2 (after tool result). MUST come before the tool-emitting fixture below.",
+      "match": {
+        "userMessage": "check Tokyo weather forecast",
+        "toolCallId": "call_d6_mastra_cc_weather_001",
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Tokyo is 22\u00b0C and partly cloudy."
+      }
+    },
+    {
+      "_comment": "custom-catchall turn 1 \u2014 weather in Tokyo, emit get_weather. Uses toolName gate for compat with both underscore and hyphen tool IDs.",
+      "match": {
+        "userMessage": "check Tokyo weather forecast",
+        "toolName": "get_weather",
+        "context": "mastra"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_mastra_cc_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "custom-catchall turn 1 \u2014 weather in Tokyo, fallback when no toolName gate matches.",
+      "match": {
+        "userMessage": "check Tokyo weather forecast",
+        "turnIndex": 0,
+        "context": "mastra"
+      },
+      "response": {
+        "content": "The weather in Tokyo is currently 22\u00b0C with partly cloudy skies and light easterly winds."
+      }
+    },
+    {
+      "_comment": "custom-catchall turn 2 \u2014 AAPL stock. Follow-up content after get_stock_price ran.",
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
+        "toolCallId": "call_d6_mastra_cc_stock_001",
+        "context": "mastra"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% on the day."
+      }
+    },
+    {
+      "_comment": "custom-catchall turn 2 \u2014 AAPL stock, emit get_stock_price tool call. Uses hasToolResult:false (not turnIndex:0) because this is the SECOND user prompt in a multi-turn flow \u2014 turnIndex would be 1, not 0.",
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
+        "hasToolResult": false,
+        "context": "mastra"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_mastra_cc_stock_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    }
+  ]
+}

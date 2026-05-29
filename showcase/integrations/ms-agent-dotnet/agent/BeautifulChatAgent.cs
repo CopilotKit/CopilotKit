@@ -1,4 +1,6 @@
 using System.ComponentModel;
+using System.ClientModel;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Agents.AI;
@@ -106,20 +108,24 @@ internal sealed class BeautifulChatAgentFactory
     private static readonly object[] _sampleFinancialData = BuildSampleFinancialData();
 
     private readonly OpenAIClient _openAiClient;
+    private readonly IConfiguration _configuration;
     private readonly JsonSerializerOptions _jsonSerializerOptions;
     private readonly ILogger _logger;
     private readonly List<BeautifulChatTodo> _todos = new();
     private readonly object _todosLock = new();
 
     public BeautifulChatAgentFactory(
+        IConfiguration configuration,
         OpenAIClient openAiClient,
         JsonSerializerOptions jsonSerializerOptions,
         ILogger<BeautifulChatAgentFactory> logger)
     {
+        ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(openAiClient);
         ArgumentNullException.ThrowIfNull(jsonSerializerOptions);
         ArgumentNullException.ThrowIfNull(logger);
 
+        _configuration = configuration;
         _openAiClient = openAiClient;
         _jsonSerializerOptions = jsonSerializerOptions;
         _logger = logger;
@@ -129,7 +135,7 @@ internal sealed class BeautifulChatAgentFactory
     {
         var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
 
-        return new ChatClientAgent(
+        var chatClientAgent = new ChatClientAgent(
             chatClient,
             name: "BeautifulChatAgent",
             description: @"You are a polished, professional demo assistant. Keep responses to 1-2 sentences.
@@ -151,6 +157,8 @@ Tool guidance:
                 AIFunctionFactory.Create(SearchFlights, options: new() { Name = "search_flights", SerializerOptions = _jsonSerializerOptions }),
                 AIFunctionFactory.Create(GenerateA2ui, options: new() { Name = "generate_a2ui", SerializerOptions = _jsonSerializerOptions })
             ]);
+
+        return new BeautifulChatStateSnapshotAgent(chatClientAgent, this, _jsonSerializerOptions, _logger);
     }
 
     // ─── Tools ──────────────────────────────────────────────────────
@@ -164,6 +172,11 @@ Tool guidance:
 
     [Description("Get the current todos.")]
     private List<BeautifulChatTodo> GetTodos()
+    {
+        return GetTodosSnapshot();
+    }
+
+    internal List<BeautifulChatTodo> GetTodosSnapshot()
     {
         lock (_todosLock)
         {
@@ -226,120 +239,93 @@ status (e.g. ""On Time"" or ""Delayed""),
 statusIcon (colored dot: ""https://placehold.co/12/22c55e/22c55e.png"" for On Time,
 ""https://placehold.co/12/eab308/eab308.png"" for Delayed),
 price (e.g. ""$289"").")]
-    private string SearchFlights([Description("The list of flights to render")] List<BeautifulChatFlight> flights)
+    private object SearchFlights([Description("The list of flights to render")] List<BeautifulChatFlight> flights)
     {
         ArgumentNullException.ThrowIfNull(flights);
         _logger.LogInformation("[beautiful-chat] search_flights: {Count}", flights.Count);
 
-        // Fixed-schema flight card layout — mirrors the LangGraph reference's
-        // `flight_schema.json`. The root Row binds one child template
-        // (`flight-card`) across the `/flights` data-model path so a single
-        // schema renders any number of flights.
-        var flightSchema = new object[]
+        // Flat literal-children layout — mirrors the LangGraph reference's
+        // `_build_flight_components`. We avoid the structural-children
+        // template form (Row.children = { componentId, path }) because the
+        // GenericBinder only expands templates correctly for components
+        // whose schema declares STRUCTURAL children — sibling demos work
+        // because their schemas use literal-string-array children. Inlining
+        // the values per-flight sidesteps the template path entirely and
+        // renders identically.
+        var components = new List<object>();
+        var flightCardIds = new List<string>();
+        for (int i = 0; i < flights.Count; i++)
         {
-            new
+            var flight = flights[i];
+            var cardId = $"flight-card-{i}";
+            flightCardIds.Add(cardId);
+            components.Add(new
             {
-                id = "root",
-                component = "Row",
-                children = new { componentId = "flight-card", path = "/flights" },
-                gap = 16,
-            },
-            new
-            {
-                id = "flight-card",
+                id = cardId,
                 component = "FlightCard",
-                airline = new { path = "airline" },
-                airlineLogo = new { path = "airlineLogo" },
-                flightNumber = new { path = "flightNumber" },
-                origin = new { path = "origin" },
-                destination = new { path = "destination" },
-                date = new { path = "date" },
-                departureTime = new { path = "departureTime" },
-                arrivalTime = new { path = "arrivalTime" },
-                duration = new { path = "duration" },
-                status = new { path = "status" },
-                price = new { path = "price" },
-                action = new
-                {
-                    @event = new
-                    {
-                        name = "book_flight",
-                        context = new
-                        {
-                            flightNumber = new { path = "flightNumber" },
-                            origin = new { path = "origin" },
-                            destination = new { path = "destination" },
-                            price = new { path = "price" },
-                        },
-                    },
-                },
-            },
+                airline = flight.Airline,
+                airlineLogo = flight.AirlineLogo,
+                flightNumber = flight.FlightNumber,
+                origin = flight.Origin,
+                destination = flight.Destination,
+                date = flight.Date,
+                departureTime = flight.DepartureTime,
+                arrivalTime = flight.ArrivalTime,
+                duration = flight.Duration,
+                status = flight.Status,
+                price = flight.Price,
+            });
+        }
+        var root = new
+        {
+            id = "root",
+            component = "Row",
+            children = flightCardIds,
+            gap = 16,
         };
+        var allComponents = new List<object> { root };
+        allComponents.AddRange(components);
 
         var operations = new object[]
         {
-            new { type = "create_surface", surfaceId = FlightSurfaceId, catalogId = CatalogId },
-            new { type = "update_components", surfaceId = FlightSurfaceId, components = flightSchema },
-            new { type = "update_data_model", surfaceId = FlightSurfaceId, data = new { flights } },
+            new { version = "v0.9", createSurface = new { surfaceId = FlightSurfaceId, catalogId = CatalogId } },
+            new { version = "v0.9", updateComponents = new { surfaceId = FlightSurfaceId, components = allComponents } },
         };
 
-        return JsonSerializer.Serialize(new { a2ui_operations = operations });
+        return new { a2ui_operations = operations };
     }
 
     [Description("Generate dynamic A2UI components based on the conversation. A secondary LLM designs the UI schema and data.")]
-    private async Task<string> GenerateA2ui(
-        [Description("A description of what UI to generate")] string userRequest,
+    private async Task<object> GenerateA2ui(
+        [Description("Conversation context to generate UI from.")] string context = "",
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(userRequest);
+        context ??= "";
 
         var errorId = Guid.NewGuid().ToString("n")[..16];
-        _logger.LogInformation("[beautiful-chat] generate_a2ui (errorId={ErrorId}) for: {Request}", errorId, userRequest);
-
-        var secondaryChatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
-
-        // The LangGraph reference passes the serialized catalog + component
-        // schemas as system context. Without the MS Agent Framework's
-        // equivalent of `runtime.state["copilotkit"]["context"]`, we embed a
-        // condensed catalog description here so the secondary LLM knows
-        // which components to emit.
-        var systemPrompt = @"You are a UI generator. Generate A2UI v0.9 components for the user's request.
-Respond with ONLY a JSON object (no markdown, no explanation) with this shape:
-{
-  ""surfaceId"": ""dynamic-surface"",
-  ""catalogId"": ""copilotkit://app-dashboard-catalog"",
-  ""components"": [<A2UI v0.9 components>],
-  ""data"": {<optional initial data>}
-}
-The root component must have id ""root"".
-Available components (from the dashboard catalog):
-- Title { text, level? }
-- Row / Column { gap?, children[] }
-- DashboardCard { title, subtitle?, child? }
-- Metric { label, value, trend?, trendValue? }
-- PieChart { data[{label, value, color?}], innerRadius? }
-- BarChart { data[{label, value}], color? }
-- Badge { text, variant? }
-- DataTable { columns[], rows[] }
-- Button { child, variant?, action? }
-- FlightCard (fixed-schema only; do not emit from dynamic generator)";
-
-        var messages = new List<ChatMessage>
-        {
-            new(ChatRole.System, systemPrompt),
-            new(ChatRole.User, userRequest),
-        };
+        var userContent = string.IsNullOrWhiteSpace(context)
+            ? "Show me a sales dashboard with total revenue, new customers, and conversion rate metrics. Include a pie chart of revenue by category and a bar chart of monthly sales."
+            : context;
+        _logger.LogInformation("[beautiful-chat] generate_a2ui (errorId={ErrorId}) for: {Request}", errorId, userContent);
 
         string? content;
         try
         {
-            var result = await secondaryChatClient.GetResponseAsync(messages, cancellationToken: cancellationToken).ConfigureAwait(false);
-            content = result.Text;
+            content = await A2uiSecondaryToolCaller.GetDesignToolArgumentsAsync(
+                _configuration,
+                "Generate a useful A2UI dashboard.",
+                userContent,
+                cancellationToken).ConfigureAwait(false);
         }
         catch (HttpRequestException ex)
         {
             _logger.LogError(ex, "[beautiful-chat] generate_a2ui (errorId={ErrorId}): transport failure", errorId);
-            return JsonSerializer.Serialize(new { error = "upstream_unavailable", errorId });
+            return SalesAgentFactory.StructuredError("upstream_unavailable", "The upstream AI service is currently unreachable. Please retry.", "Retry the request in a few seconds.", errorId);
+        }
+        catch (ClientResultException ex)
+        {
+            _logger.LogError(ex, "[beautiful-chat] generate_a2ui (errorId={ErrorId}): upstream returned error status {Status}", errorId, ex.Status);
+            return SalesAgentFactory.StructuredError("upstream_error", "The upstream AI service returned an error.", "Try rephrasing the request or retrying later.", errorId);
         }
         catch (OperationCanceledException)
         {
@@ -349,7 +335,7 @@ Available components (from the dashboard catalog):
         if (string.IsNullOrEmpty(content))
         {
             _logger.LogError("[beautiful-chat] generate_a2ui (errorId={ErrorId}): empty response", errorId);
-            return JsonSerializer.Serialize(new { error = "empty_llm_output", errorId });
+            return new { error = "empty_llm_output", errorId };
         }
 
         // Reuse the SalesAgentFactory's A2UI response builder so the JSON
@@ -384,6 +370,54 @@ Available components (from the dashboard catalog):
             new { date = "2026-03-05", category = "Revenue", subcategory = "Enterprise Subscriptions", amount = 35500, type = "income" },
             new { date = "2026-03-10", category = "Expenses", subcategory = "Engineering Salaries", amount = 46000, type = "expense" },
             new { date = "2026-03-15", category = "Revenue", subcategory = "Marketplace Sales", amount = 15800, type = "income" },
+        };
+    }
+}
+
+internal sealed class BeautifulChatStateSnapshotAgent : DelegatingAIAgent
+{
+    private readonly BeautifulChatAgentFactory _factory;
+    private readonly JsonSerializerOptions _jsonSerializerOptions;
+    private readonly ILogger _logger;
+
+    public BeautifulChatStateSnapshotAgent(
+        AIAgent innerAgent,
+        BeautifulChatAgentFactory factory,
+        JsonSerializerOptions jsonSerializerOptions,
+        ILogger logger)
+        : base(innerAgent)
+    {
+        _factory = factory;
+        _jsonSerializerOptions = jsonSerializerOptions;
+        _logger = logger;
+    }
+
+    public override Task<AgentRunResponse> RunAsync(
+        IEnumerable<ChatMessage> messages,
+        AgentThread? thread = null,
+        AgentRunOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        return RunStreamingAsync(messages, thread, options, cancellationToken).ToAgentRunResponseAsync(cancellationToken);
+    }
+
+    public override async IAsyncEnumerable<AgentRunResponseUpdate> RunStreamingAsync(
+        IEnumerable<ChatMessage> messages,
+        AgentThread? thread = null,
+        AgentRunOptions? options = null,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        await foreach (var update in InnerAgent.RunStreamingAsync(messages, thread, options, cancellationToken).ConfigureAwait(false))
+        {
+            yield return update;
+        }
+
+        var snapshot = new Dictionary<string, object?> { ["todos"] = _factory.GetTodosSnapshot() };
+        var snapshotBytes = JsonSerializer.SerializeToUtf8Bytes(snapshot, _jsonSerializerOptions);
+        _logger.LogDebug("[beautiful-chat] emitting todos state snapshot ({Bytes} bytes)", snapshotBytes.Length);
+        yield return new AgentRunResponseUpdate
+        {
+            Contents = [new DataContent(snapshotBytes, "application/json")],
         };
     }
 }

@@ -9,8 +9,8 @@ description: >-
 partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/agno
 copilotkit_version: 2.0.0
-backend_url: https://showcase-agno-production.up.railway.app
 deployed: true
+docs_mode: authored
 sort_order: 90
 generative_ui:
   - constrained-explicit
@@ -54,14 +54,14 @@ features:
   - reasoning-default-render
   - tool-rendering-reasoning-chain
   - headless-complete
-  - gen-ui-interrupt
-  - interrupt-headless
   - auth
   - beautiful-chat
   - a2ui-fixed-schema
   - declarative-gen-ui
 not_supported_features:
   - shared-state-streaming
+  - gen-ui-interrupt
+  - interrupt-headless
 agent_config_pattern: shared-state
 
 a2ui_pattern: schema-loading
@@ -93,6 +93,10 @@ demos:
     animated_preview_url:
     highlight:
       - src/agents/main.py
+      - tools/get_weather.py
+      - tools/query_data.py
+      - tools/schedule_meeting.py
+      - tools/search_flights.py
       - src/app/demos/tool-rendering/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: gen-ui-agent

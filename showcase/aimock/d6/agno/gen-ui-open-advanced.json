@@ -1,0 +1,36 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for agno / gen-ui-open-advanced — delegates to gen-ui-open.json (same file, shared fixtures)",
+    "note": "The D5 script registers fixtureFile='gen-ui-open.json' for gen-ui-open-advanced, so aimock loads gen-ui-open.json for both features. This file exists for completeness but the canonical fixtures live in gen-ui-open.json.",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-open-advanced pill — 'Inline expression evaluator'. Duplicated from gen-ui-open.json for direct-file-load scenarios where only this file is loaded.",
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "hasToolResult": false,
+        "context": "agno"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_agno_gen_ui_open_adv_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"html\":\"<!DOCTYPE html><html><head><style>body{margin:20px;font-family:monospace;background:#111;color:#0f0}input{width:100%;padding:8px;font-size:16px;background:#222;color:#0f0;border:1px solid #333}#result{margin-top:12px;padding:8px;background:#1a1a1a;border:1px solid #333;min-height:24px}</style></head><body><h3>Expression Evaluator</h3><input id='expr' placeholder='Type a JS expression...' oninput='try{document.getElementById(\\\"result\\\").textContent=eval(this.value)}catch(e){document.getElementById(\\\"result\\\").textContent=e.message}'><div id='result'></div></body></html>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "hasToolResult": true,
+        "context": "agno"
+      },
+      "response": {
+        "content": "Expression evaluator rendered above — type any JavaScript expression in the input field to see its result."
+      }
+    }
+  ]
+}

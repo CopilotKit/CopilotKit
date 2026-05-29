@@ -11,6 +11,8 @@ import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
 import { resolveWithinDir } from "./safe-fs";
+import { getDocsMode } from "./registry";
+import { isRouteGroupSegment } from "./route-groups";
 
 export const CONTENT_DIR = path.join(process.cwd(), "src/content/docs");
 export const SNIPPETS_DIR = path.join(CONTENT_DIR, "..", "snippets");
@@ -27,9 +29,60 @@ export {
 // ---------------------------------------------------------------------------
 
 export type NavNode =
-  | { type: "page"; title: string; slug: string }
-  | { type: "section"; title: string }
-  | { type: "group"; title: string; slug: string; children: NavNode[] };
+  | { type: "page"; title: string; slug: string; icon?: string }
+  | { type: "section"; title: string; icon?: string }
+  | {
+      type: "group";
+      title: string;
+      slug: string;
+      children: NavNode[];
+      defaultOpen?: boolean;
+      icon?: string;
+    };
+
+// Section headers (the all-caps separators) carry the only icons in
+// the sidebar — top-level visual scaffolding. Title comparison is
+// case-insensitive so meta.json edits don't need to match this map's
+// capitalization exactly. Update keys here when section names change
+// in `content/docs/meta.json`.
+//
+// Includes both the agnostic root sections AND per-framework
+// `docs_mode: "authored"` sections (e.g. Built-in Agent's own IA,
+// whose meta.json lives at
+// `content/docs/integrations/built-in-agent/meta.json`). Authored
+// frameworks don't merge into the root tree, so they need their own
+// section names registered here to receive icons — otherwise the
+// section header renders without a glyph and looks visually distinct
+// from the generated-mode sidebars.
+const SECTION_ICONS: Record<string, string> = {
+  // Agnostic root sections (`content/docs/meta.json`).
+  "get started": "lucide/Rocket",
+  concepts: "lucide/BookOpen",
+  "build chat uis": "lucide/MessageSquare",
+  "build generative ui": "lucide/Paintbrush",
+  "add agent powers": "lucide/Wand2",
+  runtime: "lucide/Cpu",
+  "observe & operate": "lucide/SearchCheck",
+  enterprise: "custom/copilotkit-kite",
+  deploy: "lucide/Cloud",
+  other: "lucide/MoreHorizontal",
+  // Built-in Agent (authored) sections — match the section names in
+  // `content/docs/integrations/built-in-agent/meta.json`. Adjust here
+  // when those section labels change in that meta.json.
+  "getting started": "lucide/Rocket",
+  basics: "lucide/BookOpen",
+  "generative ui": "lucide/Paintbrush",
+  "app control": "lucide/WandSparkles",
+  "built-in agent": "lucide/Bot",
+  backend: "lucide/Server",
+  "premium features": "custom/copilotkit-kite",
+  tutorials: "lucide/ListChecks",
+  troubleshooting: "lucide/LifeBuoy",
+};
+
+export function sectionIconFor(title: string): string | undefined {
+  return SECTION_ICONS[title.toLowerCase()];
+}
 
 /**
  * Extract the frontmatter block (content between leading `---` fences)
@@ -80,6 +133,13 @@ const metaCache = new Map<
   string,
   { title?: string; pages?: string[]; root?: boolean } | null
 >();
+// Tree-level cache. Even with title/meta cached, `buildNavTree` still
+// allocates ~200 NavNode objects per call and is invoked from every
+// page render (sometimes twice in the same render via DocsPageView +
+// the route's own pageTree). Keying on `${dir}|${prefix}` makes
+// repeated calls return the same array reference. Dev mode skips it
+// so meta.json edits propagate without a restart.
+const navTreeCache = new Map<string, NavNode[]>();
 
 export function readTitle(filePath: string): string | null {
   const cacheKey = path.resolve(filePath);
@@ -117,9 +177,53 @@ export function readTitle(filePath: string): string | null {
   return title;
 }
 
-export function readMeta(
-  dir: string,
-): { title?: string; pages?: string[]; root?: boolean } | null {
+// Read the `icon:` field from an MDX file's frontmatter. Mirrors
+// `readTitle` so the icon survives the same caching / extraction story
+// (frontmatter-scoped regex, dev cache bypass). Returns the raw spec
+// string (e.g. `"lucide/Paintbrush"`); the bridge resolves it to a
+// React element when building the PageTree.
+export function readIcon(filePath: string): string | null {
+  const cacheKey = `icon:${path.resolve(filePath)}`;
+  if (!isDev && titleCache.has(cacheKey)) return titleCache.get(cacheKey)!;
+  if (!fs.existsSync(filePath)) {
+    titleCache.set(cacheKey, null);
+    return null;
+  }
+  let raw: string;
+  try {
+    raw = fs.readFileSync(filePath, "utf-8");
+  } catch {
+    titleCache.set(cacheKey, null);
+    return null;
+  }
+  const fm = extractFrontmatter(raw);
+  const match = fm.match(/^icon:\s*["']?(.+?)["']?\s*$/m);
+  const icon = match ? match[1].replace(/["']$/, "") : null;
+  titleCache.set(cacheKey, icon);
+  return icon;
+}
+
+// A meta.json `pages` entry is either a string (page slug, section
+// header `---Title---`, or spread `...folder`) or an inline-folder
+// object: `{ title, pages, defaultOpen?, icon? }`. Inline folders let
+// a parent meta.json declare a folder grouping without moving the
+// underlying MDX files into a subdirectory — useful for visual
+// grouping inside a single content tier.
+export type MetaPageEntry =
+  | string
+  | {
+      title: string;
+      pages: MetaPageEntry[];
+      defaultOpen?: boolean;
+      icon?: string;
+    };
+
+export function readMeta(dir: string): {
+  title?: string;
+  pages?: MetaPageEntry[];
+  root?: boolean;
+  icon?: string;
+} | null {
   const metaPath = path.join(dir, "meta.json");
   const cacheKey = path.resolve(metaPath);
   if (!isDev && metaCache.has(cacheKey)) return metaCache.get(cacheKey)!;
@@ -144,6 +248,17 @@ export function readMeta(
 }
 
 export function buildNavTree(dir: string, prefix: string = ""): NavNode[] {
+  const cacheKey = `${path.resolve(dir)}|${prefix}`;
+  if (!isDev) {
+    const cached = navTreeCache.get(cacheKey);
+    if (cached) return cached;
+  }
+  const tree = buildNavTreeInner(dir, prefix);
+  if (!isDev) navTreeCache.set(cacheKey, tree);
+  return tree;
+}
+
+function buildNavTreeInner(dir: string, prefix: string): NavNode[] {
   const meta = readMeta(dir);
   if (!meta) return buildNavTreeFromFilesystem(dir, prefix);
 
@@ -152,12 +267,47 @@ export function buildNavTree(dir: string, prefix: string = ""): NavNode[] {
     return buildNavTreeFromFilesystem(dir, prefix);
   }
 
+  return parseMetaPages(dir, prefix, pages);
+}
+
+// Parse a meta.json `pages` array into NavNodes. Recursive: inline-folder
+// objects re-enter via the recursive call so the inner page syntax stays
+// identical to the surrounding tree.
+function parseMetaPages(
+  dir: string,
+  prefix: string,
+  pages: MetaPageEntry[],
+): NavNode[] {
   const nodes: NavNode[] = [];
 
   for (const entry of pages) {
+    // Inline-folder object: `{ title, pages, defaultOpen?, icon? }`.
+    // Lets a meta.json declare a folder grouping without moving its
+    // MDX files into a subdirectory. The inner pages re-enter this
+    // same parser (via the recursive call below) so the syntax inside
+    // an inline folder is identical to the surrounding tree.
+    if (typeof entry === "object" && entry !== null) {
+      const children = parseMetaPages(dir, prefix, entry.pages);
+      if (children.length > 0) {
+        nodes.push({
+          type: "group",
+          title: entry.title,
+          // No backing directory — slug is purely a stable key for
+          // sidebar React reconciliation. Prefix it so the React key
+          // doesn't collide with a real folder of the same name.
+          slug: `${prefix}#${entry.title}`,
+          children,
+          defaultOpen: entry.defaultOpen,
+          icon: entry.icon,
+        });
+      }
+      continue;
+    }
+
     const sectionMatch = entry.match(/^---(.+)---$/);
     if (sectionMatch) {
-      nodes.push({ type: "section", title: sectionMatch[1] });
+      const title = sectionMatch[1];
+      nodes.push({ type: "section", title, icon: sectionIconFor(title) });
       continue;
     }
 
@@ -193,6 +343,7 @@ export function buildNavTree(dir: string, prefix: string = ""): NavNode[] {
             title: isDuplicateOfSection ? "" : groupTitle,
             slug: subPrefix,
             children: subChildren,
+            icon: subMeta?.icon,
           });
         }
       }
@@ -216,14 +367,28 @@ export function buildNavTree(dir: string, prefix: string = ""): NavNode[] {
       const title = fs.existsSync(mdxFile)
         ? readTitle(mdxFile) || "Introduction"
         : "Introduction";
-      nodes.push({ type: "page", title, slug });
+      // At the docs root (no prefix), `"index"` represents the bare
+      // `/` page (the unscoped docs landing). Rewrite the slug to ""
+      // so the bridge builds `/` rather than `/index`. Inside a
+      // sub-folder, `"index"` keeps the folder-relative slug (e.g.
+      // `agentic-protocols/index`) and `buildFrameworkOverridesNav`
+      // handles the final framework-scoped rewrite separately.
+      const indexSlug = prefix ? slug : "";
+      const icon = fs.existsSync(mdxFile) ? readIcon(mdxFile) : null;
+      nodes.push({
+        type: "page",
+        title,
+        slug: indexSlug,
+        icon: icon ?? undefined,
+      });
       continue;
     }
 
     if (fs.existsSync(mdxFile)) {
       const title =
         readTitle(mdxFile) || entry.split("/").pop()!.replace(/-/g, " ");
-      nodes.push({ type: "page", title, slug });
+      const icon = readIcon(mdxFile);
+      nodes.push({ type: "page", title, slug, icon: icon ?? undefined });
     } else if (fs.existsSync(subDir) && fs.statSync(subDir).isDirectory()) {
       const subMeta = readMeta(subDir);
       if (subMeta?.root) continue;
@@ -237,11 +402,18 @@ export function buildNavTree(dir: string, prefix: string = ""): NavNode[] {
           title: groupTitle.charAt(0).toUpperCase() + groupTitle.slice(1),
           slug: subPrefix,
           children: subChildren,
+          icon: subMeta.icon,
         });
       } else if (fs.existsSync(indexFile)) {
         const title =
           readTitle(indexFile) || subMeta?.title || entry.replace(/-/g, " ");
-        nodes.push({ type: "page", title, slug: subPrefix });
+        const icon = readIcon(indexFile);
+        nodes.push({
+          type: "page",
+          title,
+          slug: subPrefix,
+          icon: icon ?? undefined,
+        });
       } else {
         const subChildren = buildNavTreeFromFilesystem(subDir, subPrefix);
         if (subChildren.length > 0) {
@@ -330,47 +502,32 @@ export function buildFrameworkOverridesNav(folder: string): NavNode[] {
   // both are present — the per-framework tree is only an escape hatch
   // for framework-specific topics, not an alternative rendering.
   const prefix = `integrations/${folder}/`;
-  const filtered: NavNode[] = [];
-  for (const node of nodes) {
+  const rewriteSlug = (slug: string): string => {
+    const stripped = slug.replace(prefix, "");
+    if (stripped === "index") return "";
+    if (stripped.endsWith("/index")) return stripped.slice(0, -"/index".length);
+    return stripped;
+  };
+  const rootEquivalentExists = (slug: string): boolean => {
+    const rootSlug = rewriteSlug(slug);
+    if (rootSlug === "") return false;
+    const rootMdx = path.join(CONTENT_DIR, `${rootSlug}.mdx`);
+    const rootIndex = path.join(CONTENT_DIR, rootSlug, "index.mdx");
+    return fs.existsSync(rootMdx) || fs.existsSync(rootIndex);
+  };
+  const rewriteNode = (node: NavNode): NavNode | null => {
     if (node.type === "page") {
-      // node.slug looks like `integrations/<folder>/<topic>`. Strip
-      // the prefix to check the root-level equivalent.
-      const rootSlug = node.slug.replace(prefix, "");
-      // Literal `"index"` is the framework-root page — it lives at the
-      // bare `/<framework>` URL, not at `/<framework>/index`. Rewrite to
-      // empty-slug so consumers (`SidebarLink`, `RenderNav`) build the
-      // correct href. The framework root never has a root-level
-      // equivalent at `CONTENT_DIR/index.mdx`, so the existence checks
-      // below would never filter it; we short-circuit instead.
-      if (rootSlug === "index") {
-        filtered.push({ ...node, slug: "" });
-        continue;
-      }
-      const rootMdx = path.join(CONTENT_DIR, `${rootSlug}.mdx`);
-      const rootIndex = path.join(CONTENT_DIR, rootSlug, "index.mdx");
-      if (fs.existsSync(rootMdx) || fs.existsSync(rootIndex)) continue;
-      // Rewrite the slug so the link points at /<framework>/<topic>,
-      // which the router resolves via its fallback to the same MDX.
-      filtered.push({ ...node, slug: rootSlug });
-    } else if (node.type === "group") {
-      // Recursively filter children of a group.
+      if (rootEquivalentExists(node.slug)) return null;
+      return { ...node, slug: rewriteSlug(node.slug) };
+    }
+    if (node.type === "group") {
       const children = node.children
-        .filter((c) => {
-          if (c.type !== "page") return true;
-          const rootSlug = c.slug.replace(prefix, "");
-          if (rootSlug === "index") return true;
-          const rootMdx = path.join(CONTENT_DIR, `${rootSlug}.mdx`);
-          const rootIndex = path.join(CONTENT_DIR, rootSlug, "index.mdx");
-          return !fs.existsSync(rootMdx) && !fs.existsSync(rootIndex);
-        })
-        .map((c) => {
-          if (c.type !== "page") return c;
-          const rootSlug = c.slug.replace(prefix, "");
-          return { ...c, slug: rootSlug === "index" ? "" : rootSlug };
-        });
+        .map(rewriteNode)
+        .filter((child): child is NavNode => child !== null);
       if (children.length > 0) {
-        filtered.push({ ...node, children });
+        return { ...node, slug: rewriteSlug(node.slug), children };
       }
+      return null;
     }
     // Intentionally drop section nodes. Per-framework meta.json files
     // tend to mirror the root tree's sections ("Getting Started",
@@ -378,7 +535,11 @@ export function buildFrameworkOverridesNav(folder: string): NavNode[] {
     // with root sections of the same name on React keys and (b) double
     // up the visual hierarchy — the override block is already wrapped
     // in a single `{frameworkName}` section by mergeFrameworkNav.
-  }
+    return null;
+  };
+  const filtered = nodes
+    .map(rewriteNode)
+    .filter((node): node is NavNode => node !== null);
 
   // Flatten empty-title wrapper groups. buildNavTree clears the title on
   // a spread-derived group when the preceding section header has the
@@ -398,6 +559,186 @@ export function buildFrameworkOverridesNav(folder: string): NavNode[] {
 }
 
 /**
+ * Build a sidebar that contains ONLY the per-framework MDX tree
+ * (no merge with root nav, no root-equivalent filtering). Authored
+ * integrations use this because their `integrations/<folder>/meta.json`
+ * is the source of truth for page order and section grouping.
+ *
+ * Slugs are rewritten to drop the `integrations/<folder>/` prefix and
+ * the literal `index` → "" rewrite, so links resolve at
+ * `/<framework>/<topic>` and the framework root at `/<framework>`.
+ */
+export function buildFrameworkOnlyNav(folder: string): NavNode[] {
+  const frameworkDir = path.join(CONTENT_DIR, "integrations", folder);
+  if (!fs.existsSync(frameworkDir)) return [];
+  const nodes = buildNavTree(frameworkDir, `integrations/${folder}`);
+  const prefix = `integrations/${folder}/`;
+
+  // Recursive slug rewrite so nested groups (e.g. `human-in-the-loop/`,
+  // `premium/`) also get the prefix stripped from their children.
+  //
+  // Two `index` cases need rewriting:
+  //   1. Top-level `index` → "" so the framework-root entry resolves to
+  //      `/<framework>` (not `/<framework>/index`).
+  //   2. Nested `<group>/index` → `<group>` so a folder's own root page
+  //      (e.g. `human-in-the-loop/index.mdx`) resolves to
+  //      `/<framework>/human-in-the-loop` (the folder URL), not
+  //      `/<framework>/human-in-the-loop/index` which 404s. Without
+  //      this rewrite the sidebar links into folder-root pages dead-end.
+  const rewrite = (node: NavNode): NavNode => {
+    if (node.type === "page") {
+      const stripped = node.slug.replace(prefix, "");
+      let slug = stripped;
+      if (stripped === "index") slug = "";
+      else if (stripped.endsWith("/index"))
+        slug = stripped.slice(0, -"/index".length);
+      return { ...node, slug };
+    }
+    if (node.type === "group") {
+      const stripped = node.slug.replace(prefix, "");
+      return {
+        ...node,
+        slug: stripped,
+        children: node.children.map(rewrite),
+      };
+    }
+    return node;
+  };
+  return nodes.map(rewrite);
+}
+
+// Map a framework slug to the section-header icon spec used by the
+// sidebar bridge. LangGraph variants (-python, -typescript, -fastapi)
+// share the LangGraph mark; other integrations have no custom mark yet
+// and fall back to no icon. Extend as we ship more.
+export function frameworkSectionIcon(framework: string): string | undefined {
+  if (framework.startsWith("langgraph")) return "custom/langgraph";
+  return undefined;
+}
+
+/**
+ * Merge per-framework overrides into the root nav tree. The override
+ * block is inserted as a labeled section right after the agent-control
+ * section in the root ordering.
+ *
+ * Authored and generated frameworks both use this merged shell so the
+ * sidebar information architecture is stable across framework switches.
+ * Content resolution still decides whether a given slug renders authored
+ * MDX first or the generated/root page first.
+ */
+export function mergeFrameworkNav(
+  rootNav: NavNode[],
+  overrideNav: NavNode[],
+  frameworkName: string,
+  frameworkIcon?: string,
+): NavNode[] {
+  if (overrideNav.length === 0) return rootNav;
+
+  // Pull the framework-root page (the "Introduction" entry from
+  // integrations/<folder>/meta.json's literal "index" slot —
+  // buildFrameworkOverridesNav rewrites its slug to "") out of the override
+  // nav so we can place it inside the global "Get Started" section instead
+  // of stranding it above all section headers as a top-level prefix.
+  const introIdx = overrideNav.findIndex(
+    (n) => n.type === "page" && n.slug === "",
+  );
+  const introNode = introIdx >= 0 ? overrideNav[introIdx] : null;
+  const remainingOverrideNav =
+    introIdx >= 0
+      ? [...overrideNav.slice(0, introIdx), ...overrideNav.slice(introIdx + 1)]
+      : overrideNav;
+
+  const sectionHeader: NavNode = {
+    type: "section",
+    title: frameworkName,
+    icon: frameworkIcon,
+  };
+  const isSection = (n: NavNode, title: string) =>
+    n.type === "section" && n.title.toLowerCase() === title.toLowerCase();
+  // Section names tried in priority order. The first match wins; the
+  // override block is inserted right before the *next* section header
+  // after the matched anchor. Update this list when the JTBD section
+  // names change in content/docs/meta.json.
+  const ANCHOR_CANDIDATES = [
+    "add agent powers",
+    "give your app agent powers",
+    "app control",
+    "agents & backends",
+    "backend",
+    "runtime",
+  ];
+  let insertAt = -1;
+  for (const anchor of ANCHOR_CANDIDATES) {
+    const anchorIdx = rootNav.findIndex((n) => isSection(n, anchor));
+    if (anchorIdx === -1) continue;
+    for (let i = anchorIdx + 1; i < rootNav.length; i++) {
+      if (rootNav[i].type === "section") {
+        insertAt = i;
+        break;
+      }
+    }
+    if (insertAt !== -1) break;
+  }
+
+  // Reconcile the rootNav's existing root-level introduction with the
+  // framework's own introNode. At a framework view we want exactly one
+  // Introduction entry, and it should link to the framework root.
+  const rootHasIntro = rootNav.some((n) => n.type === "page" && n.slug === "");
+  const rootNavWithIntro = (() => {
+    if (!introNode) return rootNav;
+    if (rootHasIntro) {
+      return rootNav.map((n) =>
+        n.type === "page" && n.slug === "" ? introNode : n,
+      );
+    }
+    const getStartedIdx = rootNav.findIndex((n) => isSection(n, "get started"));
+    if (getStartedIdx === -1) return [introNode, ...rootNav];
+    return [
+      ...rootNav.slice(0, getStartedIdx + 1),
+      introNode,
+      ...rootNav.slice(getStartedIdx + 1),
+    ];
+  })();
+
+  if (insertAt === -1) {
+    return [...rootNavWithIntro, sectionHeader, ...remainingOverrideNav];
+  }
+  const getStartedIdx = rootNav.findIndex((n) => isSection(n, "get started"));
+  const prepended = !!introNode && !rootHasIntro && getStartedIdx === -1;
+  const splicedAfterAnchor =
+    !!introNode &&
+    !rootHasIntro &&
+    getStartedIdx !== -1 &&
+    insertAt > getStartedIdx;
+  const adjustedInsertAt =
+    prepended || splicedAfterAnchor ? insertAt + 1 : insertAt;
+  return [
+    ...rootNavWithIntro.slice(0, adjustedInsertAt),
+    sectionHeader,
+    ...remainingOverrideNav,
+    ...rootNavWithIntro.slice(adjustedInsertAt),
+  ];
+}
+
+/**
+ * Build the framework-scoped sidebar IA used by generated framework
+ * routes. Generated docs share the root docs IA and layer sparse
+ * framework-specific overrides into that tree.
+ */
+export function buildFrameworkNav(
+  docsFolder: string,
+  frameworkName: string,
+  frameworkSlug: string,
+): NavNode[] {
+  return mergeFrameworkNav(
+    buildNavTree(CONTENT_DIR),
+    buildFrameworkOverridesNav(docsFolder),
+    frameworkName,
+    frameworkSectionIcon(frameworkSlug),
+  );
+}
+
+/**
  * Return the list of framework slugs whose `integrations/<folder>/`
  * tree contains an MDX file for `slugPath`. Matches either
  * `<slug>.mdx` or `<slug>/index.mdx`. Used by the framework-scoped
@@ -410,7 +751,12 @@ export function buildFrameworkOverridesNav(folder: string): NavNode[] {
  * ms-agent-dotnet/python → `microsoft-agent-framework/`) and two
  * legacy slugs were renamed after the folder existed (google-adk →
  * `adk/`, strands → `aws-strands/`). The caller supplies the
- * slug→folder resolver so this module stays registry-free.
+ * slug→folder resolver so this helper stays decoupled from the registry's
+ * docs-folder mapping.
+ *
+ * `docs_mode: hidden` frameworks are filtered out — the "Try X, Y, Z"
+ * suggestion surfaces would otherwise dead-end on a 404 (those frameworks
+ * have no `/<slug>` route by design).
  */
 export function findFrameworksWithPage(
   slugPath: string,
@@ -419,6 +765,7 @@ export function findFrameworksWithPage(
 ): string[] {
   const matches: string[] = [];
   for (const slug of integrationSlugs) {
+    if (getDocsMode(slug) === "hidden") continue;
     const folder = slugToFolder(slug);
     const mdx = path.join(
       CONTENT_DIR,
@@ -464,6 +811,7 @@ export const SNIPPET_MAP: Record<string, string> = {
   A2UI: "shared/generative-ui/a2ui.mdx",
   AgUI: "shared/backend/ag-ui.mdx",
   AGUI: "shared/backend/ag-ui.mdx", // alias of AgUI
+  BuildWithAgents: "shared/guides/build-with-agents.mdx",
   CodingAgents: "shared/coding-agents.mdx",
   CommonIssues: "shared/troubleshooting/common-issues.mdx",
   CopilotRuntime: "copilot-runtime.mdx",
@@ -493,13 +841,36 @@ export const SNIPPET_MAP: Record<string, string> = {
   SelfHosting: "shared/premium/self-hosting.mdx",
   Slots: "shared/basics/slots.mdx",
   Threads: "shared/threads/threads.mdx",
+  ToolRenderer: "shared/generative-ui/tool-rendering.mdx", // alias of ToolRendering
   ToolRendering: "shared/generative-ui/tool-rendering.mdx",
   DefaultToolRendering: "shared/guides/default-tool-rendering.mdx",
+  // Versionless aliases retained for backward compat with older MDX that
+  // emits `<MigrateTo />` / `<MigrateToV />`; both resolve to v2.
+  MigrateTo: "shared/troubleshooting/migrate-to-v2.mdx",
+  MigrateToV: "shared/troubleshooting/migrate-to-v2.mdx",
+  CopilotUI: "copilot-ui.mdx",
+  LandingCodeShowcase: "landing-code-showcase.mdx",
+  UseAgentSnippet: "use-agent.mdx",
+  InstallSDKSnippet: "install-sdk.mdx",
+  InstallPythonSDK: "install-python-sdk.mdx",
+  RunAndConnect: "coagents/run-and-connect-agent.mdx",
+  RunAndConnectSnippet: "coagents/run-and-connect-agent.mdx", // alias of RunAndConnect
+  CopilotCloudConfigureCopilotKitProvider:
+    "copilot-cloud-configure-copilotkit-provider.mdx",
+  // Historical spelling (no `Provider` suffix) still appears in tutorials.
+  CopilotCloudConfigureCopilotKit:
+    "copilot-cloud-configure-copilotkit-provider.mdx",
+  SelfHostingCopilotRuntimeCreateEndpoint:
+    "self-hosting-copilot-runtime-create-endpoint.mdx",
+  SelfHostingCopilotRuntimeConfigureCopilotKitProvider:
+    "self-hosting-copilot-runtime-configure-copilotkit-provider.mdx",
+  SelfHostingCopilotRuntimeConfigureCopilotKit:
+    "self-hosting-copilot-runtime-configure-copilotkit-provider.mdx",
 };
 
 export const SUBPATH_TO_COMPONENT: Record<string, string> = {
   "ag-ui": "AGUI",
-  "coding-agents": "CodingAgents",
+  "build-with-agents": "CodingAgents",
   "copilot-runtime": "CopilotRuntime",
   "custom-look-and-feel/headless-ui": "HeadlessUI",
   "custom-look-and-feel/slots": "Slots",
@@ -545,6 +916,14 @@ export function stripLeadingImports(source: string): string {
   let inFence = false;
   let fenceMarker: string | null = null;
   let pastHeader = false;
+  // When an `import { ... }` is split across lines, the opening line
+  // matches the single-line drop rule but the continuation lines
+  // (`  Foo,`, `} from "...";`) do not — historically those continuation
+  // lines fell into the content branch and flipped `pastHeader = true`,
+  // which then preserved every subsequent import in the MDX body and
+  // produced runtime errors like `<p>{Tab}</p>`. Track an open import
+  // explicitly so we consume continuations through the closing `from "...";`.
+  let inMultilineImport = false;
 
   for (const line of lines) {
     // Toggle fence state. Match the opening fence's marker (``` or ~~~)
@@ -568,13 +947,41 @@ export function stripLeadingImports(source: string): string {
     }
 
     if (!inFence && !pastHeader) {
+      if (inMultilineImport) {
+        // Continuation of a multi-line import block. Terminate when we
+        // see the closing `from "..."` clause (with OR without the
+        // trailing semicolon — modern style routinely omits the `;`).
+        // Don't terminate purely on `;` — a bare `;` rarely appears
+        // mid-import, and JSX expressions on subsequent body lines
+        // (`<Foo prop={a ? b : c};`) could false-match and leave us
+        // stuck consuming forever.
+        if (/\bfrom\s+["'][^"']+["']\s*;?\s*$/.test(line)) {
+          inMultilineImport = false;
+        }
+        continue;
+      }
       if (/^\s*$/.test(line)) {
         // Preserve blank lines in the header region for layout.
         out.push(line);
         continue;
       }
-      if (/^import\s+.+$/.test(line)) {
-        // Drop this top-of-file MDX import line.
+      if (/^import\b/.test(line)) {
+        // Single-line import has both `import` AND its `from "..."`
+        // (or side-effect form `import "..."`) on the same line. The
+        // optional trailing `;` is irrelevant — modern MDX docs often
+        // drop it, which was the bug behind the prior fix's regression
+        // (the prior version required `;` and so misclassified bare
+        // imports as multi-line, then silently consumed the JSX body
+        // looking for a non-existent `;` terminator).
+        const isSingleLine =
+          /\bfrom\s+["'][^"']+["']\s*;?\s*$/.test(line) ||
+          /^import\s+["'][^"']+["']\s*;?\s*$/.test(line);
+        if (isSingleLine) {
+          continue;
+        }
+        // Multi-line opener: `import {` with the `from "..."` clause
+        // on a subsequent line.
+        inMultilineImport = true;
         continue;
       }
       // First real content line flips us out of "header" mode.
@@ -587,17 +994,147 @@ export function stripLeadingImports(source: string): string {
   return out.join("\n");
 }
 
+/**
+ * Returns true if `offset` falls inside a Markdown fenced code block
+ * (```...``` or ~~~...~~~) or an inline code span (`...`) within
+ * `content`. Best-effort: scans from the start of `content` and tracks
+ * fence state line by line. Markdown requires fence markers at the start
+ * of a line (optionally preceded by up to three spaces), so we anchor on
+ * that. Used by `inlineSnippets()` to skip JSX-looking matches that
+ * appear inside example code (e.g. `<CopilotChat />` shown as runtime
+ * usage in slots.mdx) rather than as snippet imports.
+ */
+function isInsideCodeFence(content: string, offset: number): boolean {
+  // Split the text up to the match into completed lines + a possibly
+  // partial trailing line. We treat all completed lines as candidate
+  // fence boundaries and the trailing partial line as the context for
+  // inline-code (single-backtick) detection.
+  const lines = content.slice(0, offset).split("\n");
+  const completed = lines.slice(0, -1);
+  const currentLine = lines[lines.length - 1] ?? "";
+
+  // Fenced blocks: walk completed lines and toggle on matching
+  // opener/closer. CommonMark allows up to 3 leading spaces; MDX in
+  // shell-docs is more permissive — fences inside `<Step>` and other
+  // JSX containers are routinely indented 8+ spaces. Match any
+  // leading whitespace so those fences aren't missed.
+  let inFence = false;
+  let openerChar: string | null = null;
+  for (const line of completed) {
+    const fenceMatch = line.match(/^\s*(`{3,}|~{3,})/);
+    if (!fenceMatch) continue;
+    const marker = fenceMatch[1];
+    if (!inFence) {
+      inFence = true;
+      openerChar = marker[0];
+    } else if (marker[0] === openerChar) {
+      inFence = false;
+      openerChar = null;
+    }
+  }
+  if (inFence) return true;
+
+  // Inline code: count single-backtick toggles on the partial current
+  // line. A single backtick opens an inline span that closes on the
+  // next single backtick. Runs of 2+ backticks are rare in prose
+  // (literal-backtick spans) and intentionally ignored so the common
+  // `<Component />` case is caught reliably.
+  let inlineToggles = 0;
+  let i = 0;
+  while (i < currentLine.length) {
+    if (currentLine[i] !== "`") {
+      i++;
+      continue;
+    }
+    let run = 0;
+    while (i + run < currentLine.length && currentLine[i + run] === "`") {
+      run++;
+    }
+    if (run === 1) inlineToggles++;
+    i += run;
+  }
+  return inlineToggles % 2 === 1;
+}
+
+/**
+ * Names that look like JSX components (PascalCase) imported into the MDX
+ * via `import { ... }` or `import Foo` from any path. Imports from
+ * `@/snippets/...` are tracked separately so recursive snippet imports can
+ * be inlined by their import target instead of requiring every helper in
+ * SNIPPET_MAP. Other imports are treated as runtime React components
+ * resolved at render time via the docsComponents registry.
+ */
+function gatherMdxImportComponentInfo(source: string): {
+  runtimeComponentNames: Set<string>;
+  snippetRelByComponent: Map<string, string>;
+} {
+  const runtimeComponentNames = new Set<string>();
+  const snippetRelByComponent = new Map<string, string>();
+  const importRegex =
+    /^import\s+(?:type\s+)?([\s\S]*?)\s+from\s+["']([^"']+)["']\s*;?\s*$/gm;
+  let m: RegExpExecArray | null;
+  while ((m = importRegex.exec(source)) !== null) {
+    const importClause = m[1].trim();
+    const importPath = m[2];
+    const snippetRel = importPath.startsWith("@/snippets/")
+      ? importPath.slice("@/snippets/".length)
+      : null;
+    const names = componentNamesFromImportClause(importClause);
+
+    for (const name of names) {
+      if (snippetRel) {
+        snippetRelByComponent.set(name, snippetRel);
+      } else {
+        runtimeComponentNames.add(name);
+      }
+    }
+  }
+  return { runtimeComponentNames, snippetRelByComponent };
+}
+
+function componentNamesFromImportClause(importClause: string): string[] {
+  const names = new Set<string>();
+  const defaultMatch = importClause.match(/^([A-Z]\w*)\s*(?:,|$)/);
+  if (defaultMatch) names.add(defaultMatch[1]);
+
+  const namespaceMatch = importClause.match(/^\*\s+as\s+([A-Z]\w*)$/);
+  if (namespaceMatch) names.add(namespaceMatch[1]);
+
+  const namedMatch = importClause.match(/\{([^}]+)\}/);
+  if (namedMatch) {
+    for (const part of namedMatch[1].split(",")) {
+      const renamed = part.trim().split(/\s+as\s+/);
+      const name = renamed[renamed.length - 1].trim();
+      if (/^[A-Z]\w*$/.test(name)) names.add(name);
+    }
+  }
+
+  return [...names];
+}
+
 export function inlineSnippets(
   content: string,
   slugPath: string = "",
   seen: Set<string> = new Set(),
 ): string {
+  const { runtimeComponentNames, snippetRelByComponent } =
+    gatherMdxImportComponentInfo(content);
   let result = stripLeadingImports(content);
 
   result = result.replace(
     /<([A-Z]\w*)\s*(?:components=\{[^}]*\}\s*)?\/>/g,
-    (match, componentName) => {
-      let snippetRel = SNIPPET_MAP[componentName];
+    (match, componentName, offset: number, source: string) => {
+      // Skip JSX-looking strings inside code fences / inline code: those
+      // are rendered example code, not snippet imports. Suppresses the
+      // bulk of `[docs-render] snippet missing` warnings that surfaced
+      // post-cutover (e.g. <CopilotChat />, <YourApp />, <WeatherCard />
+      // shown as usage examples inside ```tsx ... ``` blocks).
+      if (isInsideCodeFence(source, offset)) {
+        return match;
+      }
+
+      let snippetRel =
+        SNIPPET_MAP[componentName] ?? snippetRelByComponent.get(componentName);
 
       if (!snippetRel && componentName === "SharedContent" && slugPath) {
         // The docs page could live at any of these URL shapes:
@@ -626,9 +1163,40 @@ export function inlineSnippets(
       }
 
       if (!snippetRel) {
+        // Components ending in `Icon` are conventionally lucide-react
+        // icons. shell-docs's MDX renders them via the `docsComponents`
+        // global registry in mdx-registry.tsx, so they're real runtime
+        // React components — not snippet imports. Skip silently rather
+        // than warn (matches the same shape as the fence-aware short
+        // circuit above for `<CopilotChat />` in prose backticks).
+        if (componentName.endsWith("Icon")) {
+          return match;
+        }
+        // Icon-library components also hit the inliner as bare JSX
+        // references (no explicit import — the registry provides them
+        // via docsComponents at render time). Lucide square-prefixed
+        // icons (SquareTerminal, SquareChartGantt, etc.), react-icons
+        // fa/si/pi prefixes, and similar PascalCase + icon-library
+        // shapes don't match the trailing-Icon filter above. Skip
+        // them by name shape so the inliner doesn't log a warning for
+        // every icon usage.
+        if (/^(Fa|Si|Pi|Square)[A-Z]/.test(componentName)) {
+          return match;
+        }
+        // Skip components the MDX explicitly imports. They're real React
+        // components rendered through the docsComponents registry at
+        // request time, not snippet references. stripLeadingImports()
+        // above removes the import line; gatherMdxImportComponentInfo()
+        // preserved the runtime import set so the inliner can tell these
+        // apart from genuine missing-snippet cases.
+        if (runtimeComponentNames.has(componentName)) {
+          return match;
+        }
         // Log so docs authors see a clean signal when a <Component />
         // reference can't be mapped to a snippet file (previously the
-        // component just silently rendered nothing).
+        // component just silently rendered nothing). Matches inside code
+        // fences are short-circuited above so this warning only fires on
+        // genuine prose-level references.
         console.warn(
           "[docs-render] snippet missing for component",
           componentName,
@@ -768,9 +1336,11 @@ const isTableSeparator = (s: string): boolean =>
   /\|/.test(s) && /^\s*[|:\- ]+\s*$/.test(s);
 
 export function convertTablesInJSX(content: string): string {
-  const tagPattern = JSX_CONTAINER_TAGS.join("|");
+  const tagPattern = [...JSX_CONTAINER_TAGS]
+    .sort((a, b) => b.length - a.length)
+    .join("|");
   const regex = new RegExp(
-    `(<(${tagPattern})[^>]*>)([\\s\\S]*?)(<\\/(?:${tagPattern})>)`,
+    `(<(${tagPattern})(?:\\s[^>]*)?>)([\\s\\S]*?)(<\\/\\2>)`,
     "g",
   );
 
@@ -790,7 +1360,7 @@ export function convertTablesInJSX(content: string): string {
       // nesting and bail — the outer match is left untouched, which
       // renders correctly via MDX's own JSX handling (tables inside
       // nested containers simply won't be promoted to HTML tables).
-      if (new RegExp(`<${tagName}[\\s>]`).test(inner)) {
+      if (new RegExp(`<${tagName}(?:\\s|>)`).test(inner)) {
         return match;
       }
       const lines = inner.split("\n");
@@ -830,9 +1400,11 @@ export function convertTablesInJSX(content: string): string {
 
 /**
  * Return the slugs of integrations that have a demo region tagged for
- * the given feature cell. Pure helper — the caller supplies the list of
- * candidate integration slugs and the demo-content map so this file
- * stays framework-agnostic and free of registry imports.
+ * the given feature cell. The caller supplies the list of candidate
+ * integration slugs and the demo-content map; this helper consults
+ * `getDocsMode` to filter `docs_mode: hidden` frameworks out of the
+ * result so cross-framework suggestions ("Try X, Y, Z") never point at
+ * a 404 page.
  *
  * Shape of `demos`: keys are `"<integrationSlug>::<cell>"`; values are
  * opaque demo records (we only check key presence here).
@@ -844,6 +1416,7 @@ export function findFrameworksWithCell(
 ): string[] {
   const matches: string[] = [];
   for (const slug of integrationSlugs) {
+    if (getDocsMode(slug) === "hidden") continue;
     if (demos[`${slug}::${cell}`]) matches.push(slug);
   }
   return matches;
@@ -859,6 +1432,74 @@ export interface DocFrontmatter {
   defaultFramework?: string;
   defaultCell?: string;
   hideTOC?: boolean;
+}
+
+function slugSegments(slugPath: string): string[] | null {
+  const segments = slugPath.split(/[\\/]+/).filter(Boolean);
+  if (segments.some((segment) => segment === "." || segment === "..")) {
+    return null;
+  }
+  return segments;
+}
+
+function routeGroupSubdirs(dir: string): string[] {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  return entries
+    .filter((entry) => entry.isDirectory() && isRouteGroupSegment(entry.name))
+    .map((entry) => entry.name);
+}
+
+function resolveDocThroughRouteGroups(
+  dir: string,
+  segments: string[],
+): string | null {
+  if (segments.length === 0) {
+    const indexPath = path.join(dir, "index.mdx");
+    return fs.existsSync(indexPath) ? indexPath : null;
+  }
+
+  const [segment, ...rest] = segments;
+  if (rest.length === 0) {
+    const mdxPath = path.join(dir, `${segment}.mdx`);
+    if (fs.existsSync(mdxPath)) return mdxPath;
+    const indexPath = path.join(dir, segment, "index.mdx");
+    if (fs.existsSync(indexPath)) return indexPath;
+  }
+
+  const directDir = path.join(dir, segment);
+  if (fs.existsSync(directDir) && fs.statSync(directDir).isDirectory()) {
+    const direct = resolveDocThroughRouteGroups(directDir, rest);
+    if (direct) return direct;
+  }
+
+  for (const routeGroup of routeGroupSubdirs(dir)) {
+    const grouped = resolveDocThroughRouteGroups(
+      path.join(dir, routeGroup),
+      segments,
+    );
+    if (grouped) return grouped;
+  }
+
+  return null;
+}
+
+function resolveRouteGroupedDocPath(slugPath: string): string | null {
+  const segments = slugSegments(slugPath);
+  if (!segments) return null;
+
+  const filePath = resolveDocThroughRouteGroups(CONTENT_DIR, segments);
+  if (!filePath) return null;
+
+  const resolved = resolveWithinDir(
+    CONTENT_DIR,
+    path.relative(CONTENT_DIR, filePath),
+  );
+  return resolved && fs.existsSync(resolved) ? resolved : null;
 }
 
 /**
@@ -884,7 +1525,12 @@ export function loadDoc(
   } else if (indexResolved && fs.existsSync(indexResolved)) {
     filePath = indexResolved;
   } else {
-    return null;
+    // Route groups such as `(other)` organize the sidebar filesystem but
+    // are not public URL segments. Resolve `/strands/telemetry` to
+    // `integrations/aws-strands/(other)/telemetry/index.mdx`.
+    const routeGroupedPath = resolveRouteGroupedDocPath(slugPath);
+    if (!routeGroupedPath) return null;
+    filePath = routeGroupedPath;
   }
 
   let source: string;
@@ -953,7 +1599,7 @@ export function buildBreadcrumbs(
   slugPath: string,
   opts: { rootLabel: string; rootHref: string | null; slugHrefPrefix: string },
 ): Breadcrumb[] {
-  const parts = slugPath.split("/");
+  const parts = slugPath ? slugPath.split("/").filter(Boolean) : [];
   const crumbs: Breadcrumb[] = [{ label: opts.rootLabel, href: opts.rootHref }];
 
   for (let i = 0; i < parts.length; i++) {

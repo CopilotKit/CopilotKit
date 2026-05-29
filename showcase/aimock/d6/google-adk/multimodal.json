@@ -1,0 +1,29 @@
+{
+    "_meta": {
+        "description": "D6 fixtures for google-adk / multimodal",
+        "sourceFile": "harness/fixtures/d5/multimodal.json",
+        "created": "2026-05-22"
+    },
+    "fixtures": [
+        {
+            "_comment": "multimodal image turn — the D5 script clicks the sample-image button then sends this prompt. The response must contain 'image' for the assertion to pass.",
+            "match": {
+                "userMessage": "describe the sample image",
+                "context": "google-adk"
+            },
+            "response": {
+                "content": "The image attachment shows a small abstract test pattern used by the multimodal demo to validate the image-upload pipeline. Successful render of this response confirms the binary attachment round-tripped through the runtime."
+            }
+        },
+        {
+            "_comment": "multimodal PDF turn — the D5 script clicks the sample-pdf button then sends this prompt. The response must contain 'document' for the assertion to pass.",
+            "match": {
+                "userMessage": "summarize the sample document",
+                "context": "google-adk"
+            },
+            "response": {
+                "content": "The PDF document contains a single test page used by the multimodal demo. Its text was flattened by pypdf on the Python side and forwarded as text content to the model. Receiving this response confirms the document upload path works."
+            }
+        }
+    ]
+}

@@ -1,6 +1,6 @@
+import type { CopilotKitError } from "@copilotkit/shared";
 import {
   Severity,
-  CopilotKitError,
   ErrorVisibility,
   CopilotKitErrorCode,
 } from "@copilotkit/shared";
@@ -223,7 +223,7 @@ export const getErrorActions = (error: CopilotKitError) => {
           label: "Show me how",
           onClick: () =>
             window.open(
-              "https://docs.copilotkit.ai/premium#how-do-i-get-access-to-premium-features",
+              "https://docs.copilotkit.ai/premium/overview#getting-access",
               "_blank",
               "noopener,noreferrer",
             ),
