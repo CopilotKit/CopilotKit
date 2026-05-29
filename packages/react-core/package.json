@@ -72,8 +72,12 @@
   "scripts": {
     "build:css": "tailwindcss -i ./src/v2/styles/globals.css -o ./dist/v2/index.css -m && node scripts/scope-preflight.mjs ./dist/v2/index.css",
     "build": "tsdown && pnpm run build:css",
+    "size": "size-limit",
+    "size:headline": "node scripts/measure-copilotchat.mjs",
+    "compat-check": "es-check es2022 --module 'dist/**/!(*.umd).{mjs,cjs,js}' && es-check es2020 'dist/**/*.umd.js'",
     "dev": "tsdown --watch",
-    "test": "vitest run",
+    "test": "vitest run && pnpm run test:scripts",
+    "test:scripts": "node --test scripts/__tests__/measure-copilotchat.test.mjs",
     "test:watch": "vitest",
     "check-types": "tsc --noEmit",
     "link:global": "pnpm link --global",
@@ -111,6 +115,7 @@
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.1.11",
+    "esbuild": "^0.27.0",
     "@tailwindcss/postcss": "^4.1.11",
     "@tailwindcss/typography": "^0.5.16",
     "@tanstack/intent": "^0.0.29",
