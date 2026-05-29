@@ -1,14 +1,10 @@
 name: "Showcase: Verify Deploy"
 
-# Triggered after "Showcase: Build & Push" completes. This workflow verifies
-# that Railway deployed the new images and that each service is healthy.
-# The build workflow triggers Railway redeploys after pushing GHCR images;
-# this workflow only verifies the result.
-#
-# This workflow CAN use cancel-in-progress: true because verification is
-# idempotent. If a newer build completes while we're still verifying an
-# older one, the newer verification supersedes — the older images are
-# already stale.
+# Triggered after "Showcase: Build & Push" completes. Verifies that the
+# STAGING redeploy from the build workflow actually produced healthy
+# services. Push-to-main redeploys staging only (PR #5093). This workflow
+# is the staging gate; verify-deploy.ts is the parameterized probe driven
+# off showcase/scripts/railway-envs.ts (the SSOT).
 
 on:
   workflow_run:
@@ -18,45 +14,14 @@ on:
   workflow_dispatch:
     inputs:
       service:
-        description: "Service to verify"
+        description: "Service to verify (SSOT key or dispatch_name; 'all' = everything probe-eligible)"
         required: false
         default: "all"
-        type: choice
-        options:
-          - all
-          - shell
-          - langgraph-python
-          - mastra
-          - crewai-crews
-          - pydantic-ai
-          - google-adk
-          - ag2
-          - agno
-          - llamaindex
-          - langgraph-fastapi
-          - langgraph-typescript
-          - langroid
-          - spring-ai
-          - strands
-          - ms-agent-python
-          - claude-sdk-typescript
-          - ms-agent-dotnet
-          - ms-agent-harness-dotnet
-          - claude-sdk-python
-          - built-in-agent
-          - shell-dojo
-          - shell-dashboard
-          - shell-docs
-          - showcase-harness
-          - showcase-aimock
-          - webhooks
+        type: string
 
 concurrency:
   group: showcase-verify-deploy
   cancel-in-progress: true
-
-env:
-  RAILWAY_ENV_ID: "b14919f4-6417-429f-848d-c6ae2201e04f"
 
 permissions:
   contents: read
@@ -64,224 +29,161 @@ permissions:
 jobs:
   resolve-matrix:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
     permissions:
       contents: read
       actions: read
-    # Only run verification when the build workflow succeeded.
-    # On workflow_dispatch, always run (workflow_run context is absent).
     if: >-
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
     outputs:
-      matrix: ${{ steps.build-matrix.outputs.matrix }}
-      has_services: ${{ steps.build-matrix.outputs.has_services }}
-      build_run_id: ${{ steps.build-matrix.outputs.build_run_id }}
-      build_run_url: ${{ steps.build-matrix.outputs.build_run_url }}
+      services_csv: ${{ steps.matrix.outputs.services_csv }}
+      has_services: ${{ steps.matrix.outputs.has_services }}
+      build_run_id: ${{ github.event.workflow_run.id }}
+      build_run_url: ${{ github.event.workflow_run.html_url }}
+      redeploy_red: ${{ steps.redeploy-gate.outputs.redeploy_red }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22.x
 
-      - name: Build verification matrix
-        id: build-matrix
+      - name: Download redeploy summary from build workflow
+        if: github.event_name == 'workflow_run'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: redeploy-summary
+          path: .redeploy
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Gate on staging redeploy errors
+        id: redeploy-gate
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DISPATCH_SERVICE: ${{ github.event.inputs.service }}
-          WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
-          WORKFLOW_RUN_URL: ${{ github.event.workflow_run.html_url }}
-          REPO_FULL: ${{ github.repository }}
         run: |
-          # Service registry: same as showcase_build.yml but only the fields
-          # needed for verification (dispatch_name, railway_id, health_path).
-          ALL_SERVICES='[
-            {"dispatch_name":"shell","railway_id":"40eea0da-6071-4ea8-bdb9-39afb19225ec","health_path":"/"},
-            {"dispatch_name":"langgraph-python","railway_id":"90d03214-4569-41b0-b4c1-6438a8a7b203","health_path":"/api/health"},
-            {"dispatch_name":"mastra","railway_id":"d7979eb7-2405-4aab-ad21-438f4a1b08af","health_path":"/api/health"},
-            {"dispatch_name":"crewai-crews","railway_id":"0e9c284d-8d87-4fcf-9f82-6b704d7e4bd4","health_path":"/api/health"},
-            {"dispatch_name":"pydantic-ai","railway_id":"0a106173-2282-4887-a994-0ca276a99d69","health_path":"/api/health"},
-            {"dispatch_name":"google-adk","railway_id":"87f60507-5a3d-4b8a-9e23-2b1de85d939c","health_path":"/api/health"},
-            {"dispatch_name":"ag2","railway_id":"4a37481b-f264-4eb7-a9cd-0a9ebb9ac05c","health_path":"/api/health"},
-            {"dispatch_name":"agno","railway_id":"32cab80b-e329-45bd-9c73-c4e1ddc94305","health_path":"/api/health"},
-            {"dispatch_name":"llamaindex","railway_id":"285386e8-492d-4cb8-b632-0a7d4607378f","health_path":"/api/health"},
-            {"dispatch_name":"langgraph-fastapi","railway_id":"06cccb5c-59f4-46b5-8adc-7113e77011a4","health_path":"/api/health"},
-            {"dispatch_name":"langgraph-typescript","railway_id":"66246d3b-a18e-46f0-be51-5f3ff7a36e5a","health_path":"/api/health"},
-            {"dispatch_name":"langroid","railway_id":"6dd9cb0a-66cc-46f1-972e-7cd74756157d","health_path":"/api/health"},
-            {"dispatch_name":"spring-ai","railway_id":"eed5d041-91be-4282-b414-beea00843401","health_path":"/api/health"},
-            {"dispatch_name":"strands","railway_id":"92e1cfad-ad53-403f-ab2b-5ab380832232","health_path":"/api/health"},
-            {"dispatch_name":"ms-agent-python","railway_id":"655db75a-af8d-427d-a4f9-441570ae5003","health_path":"/api/health"},
-            {"dispatch_name":"claude-sdk-typescript","railway_id":"18a98727-5700-44aa-b497-b60795dbbd6a","health_path":"/api/health"},
-            {"dispatch_name":"ms-agent-dotnet","railway_id":"beeb2dd6-87a4-4599-aa07-0578f7bd6519","health_path":"/api/health"},
-            {"dispatch_name":"ms-agent-harness-dotnet","railway_id":"6343d7f9-6c3f-4c8d-9a6e-79f03d2f1e37","health_path":"/api/health"},
-            {"dispatch_name":"claude-sdk-python","railway_id":"b122ab65-9854-4cb2-a68e-b50ff13f7481","health_path":"/api/health"},
-            {"dispatch_name":"built-in-agent","railway_id":"f4f8371a-bc46-45b2-b6d4-9c9af608bdbf","health_path":"/api/health"},
-            {"dispatch_name":"shell-dojo","railway_id":"7ad1ece7-2228-49cd-8a78-bddf30322907","health_path":"/"},
-            {"dispatch_name":"shell-dashboard","railway_id":"4d5dfd74-be61-40b2-8564-b53b7dd4c15b","health_path":"/"},
-            {"dispatch_name":"shell-docs","railway_id":"7badfb8d-4228-414c-9145-b4026803714f","health_path":"/"},
-            {"dispatch_name":"showcase-harness","railway_id":"3a14bfed-0537-4d71-897b-7c593dca161d","health_path":"/health"},
-            {"dispatch_name":"showcase-aimock","railway_id":"0fa0435d-8a66-46f0-84fd-e4250b580013","health_path":"/health"},
-            {"dispatch_name":"webhooks","railway_id":"ba6acc13-7585-41fe-a5ee-585b34a58fcd","health_path":"/health"}
-          ]'
-
-          DISPATCH="$DISPATCH_SERVICE"
-          BUILD_RUN_ID="$WORKFLOW_RUN_ID"
-          BUILD_RUN_URL="$WORKFLOW_RUN_URL"
-
-          if [ "$DISPATCH" = "all" ] || [ -z "$DISPATCH" ]; then
-            if [ -n "$BUILD_RUN_ID" ]; then
-              # Cross-workflow handoff: locate the `build-results` artifact
-              # produced by the aggregate-build-results job of the build
-              # run, download it, and derive the verification matrix from
-              # its structured JSON. No job-name parsing.
-              ART_ID=$(gh api \
-                "repos/${REPO_FULL}/actions/runs/${BUILD_RUN_ID}/artifacts" \
-                --paginate \
-                | jq -r '[.artifacts[] | select(.name == "build-results")][0].id // empty')
-              if [ -z "$ART_ID" ]; then
-                echo "::error::Build run ${BUILD_RUN_ID} did not publish a build-results artifact. Cannot derive the verification matrix without job-name parsing — fix the aggregate-build-results job in showcase_build.yml."
-                exit 1
-              fi
-              gh api -H 'Accept: application/vnd.github+json' \
-                "repos/${REPO_FULL}/actions/artifacts/${ART_ID}/zip" \
-                > /tmp/build-results.zip
-              unzip -p /tmp/build-results.zip results.json > /tmp/results.json
-              SUCCESS_LIST=$(jq -c '[.[] | select(.status == "success") | .service]' /tmp/results.json)
-              MATRIX=$(echo "$ALL_SERVICES" | jq -c --argjson built "$SUCCESS_LIST" '
-                [.[] | select(.dispatch_name as $dn | $built | index($dn) != null)]
-              ')
-            else
-              # workflow_dispatch with "all": no build run to filter by — verify every service.
-              MATRIX=$(echo "$ALL_SERVICES" | jq -c '.')
-            fi
+          set -euo pipefail
+          SUMMARY=".redeploy/summary.json"
+          if [ ! -f "$SUMMARY" ]; then
+            echo "No redeploy summary found (workflow_dispatch path or build did not upload). Skipping gate."
+            echo "redeploy_red=false" >> "$GITHUB_OUTPUT"
+            echo "ok_services=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Per spec §3: the workflow MUST turn red on any staging
+          # status:"error", while verify still runs against the success-set.
+          ERRORS=$(jq -c '[.[] | select(.status == "error")]' "$SUMMARY")
+          ERROR_COUNT=$(echo "$ERRORS" | jq 'length')
+          OK=$(jq -r '[.[] | select(.status == "ok") | .service] | join(",")' "$SUMMARY")
+          echo "ok_services=$OK" >> "$GITHUB_OUTPUT"
+          if [ "$ERROR_COUNT" -gt 0 ]; then
+            echo "::error::Staging redeploy reported $ERROR_COUNT per-service error(s):"
+            echo "$ERRORS" | jq -r '.[] | "  - \(.service): \(.error)"'
+            echo "redeploy_red=true" >> "$GITHUB_OUTPUT"
           else
-            # Specific service dispatch
-            MATRIX=$(echo "$ALL_SERVICES" | jq -c --arg svc "$DISPATCH" '[.[] | select(.dispatch_name == $svc)]')
+            echo "redeploy_red=false" >> "$GITHUB_OUTPUT"
           fi
 
-          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
-          if [ "$MATRIX" = "[]" ]; then
+      - name: Build verify matrix from SSOT
+        id: matrix
+        env:
+          DISPATCH_SERVICE: ${{ github.event.inputs.service }}
+          OK_FROM_REDEPLOY: ${{ steps.redeploy-gate.outputs.ok_services }}
+        run: |
+          set -euo pipefail
+          # The SSOT JSON is canonical for service identity, domain, and
+          # probe driver. The verify matrix is "every service where
+          # probe.staging===true, restricted to the success-set of the
+          # redeploy when present, restricted to --service when dispatched."
+          GENERATED="showcase/scripts/railway-envs.generated.json"
+          if [ ! -f "$GENERATED" ]; then
+            npx tsx showcase/scripts/emit-railway-envs-json.ts
+          fi
+          PROBE_ELIGIBLE=$(jq -r '.services[] | select(.probe.staging == true) | .name' "$GENERATED" | sort -u)
+          if [ -n "${OK_FROM_REDEPLOY:-}" ]; then
+            # Intersect with success-set (CSV may use dispatch_names; map to SSOT keys).
+            OK_KEYS=$(echo "$OK_FROM_REDEPLOY" | tr ',' '\n' | \
+              jq -R -s --slurpfile ssot <(jq -c '.services' "$GENERATED") '
+                split("\n") | map(select(length>0)) as $raw
+                | $ssot[0] as $svc
+                | $raw | map(. as $r | ($svc[] | select(.name == $r or .dispatchName == $r) | .name)) | unique
+              ' | jq -r '.[]')
+            PROBE_ELIGIBLE=$(comm -12 <(echo "$PROBE_ELIGIBLE") <(echo "$OK_KEYS" | sort -u))
+          fi
+          if [ "${DISPATCH_SERVICE:-all}" != "all" ] && [ -n "${DISPATCH_SERVICE:-}" ]; then
+            # Resolve dispatch input via SSOT (key or dispatchName).
+            RESOLVED=$(jq -r --arg s "$DISPATCH_SERVICE" '
+              .services[] | select(.name == $s or .dispatchName == $s) | .name
+            ' "$GENERATED" | head -n1)
+            if [ -z "$RESOLVED" ]; then
+              echo "::error::Unknown service '$DISPATCH_SERVICE' (not an SSOT key or dispatch_name)"
+              exit 1
+            fi
+            PROBE_ELIGIBLE="$RESOLVED"
+          fi
+          CSV=$(echo "$PROBE_ELIGIBLE" | tr '\n' ',' | sed 's/,$//')
+          echo "services_csv=$CSV" >> "$GITHUB_OUTPUT"
+          if [ -z "$CSV" ]; then
             echo "has_services=false" >> "$GITHUB_OUTPUT"
           else
             echo "has_services=true" >> "$GITHUB_OUTPUT"
           fi
-          echo "build_run_id=${BUILD_RUN_ID}" >> "$GITHUB_OUTPUT"
-          echo "build_run_url=${BUILD_RUN_URL}" >> "$GITHUB_OUTPUT"
 
   verify:
     needs: [resolve-matrix]
     if: needs.resolve-matrix.outputs.has_services == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     environment: railway
     permissions:
       contents: read
       actions: read
-    strategy:
-      fail-fast: false
-      matrix:
-        service: ${{ fromJSON(needs.resolve-matrix.outputs.matrix) }}
-
     steps:
-      - name: Verify deploy health
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22.x
+
+      - name: Install
+        working-directory: showcase/scripts
+        run: npm ci
+
+      - name: Run verify-deploy --env staging
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          SERVICE_ID: ${{ matrix.service.railway_id }}
-          ENV_ID: ${{ env.RAILWAY_ENV_ID }}
+          SERVICES_CSV: ${{ needs.resolve-matrix.outputs.services_csv }}
         run: |
-          # Fail fast if RAILWAY_TOKEN is not set
           if [ -z "$RAILWAY_TOKEN" ]; then
             echo "::error::RAILWAY_TOKEN is not set"
             exit 1
           fi
+          npx tsx showcase/scripts/verify-deploy.ts --env staging --services "$SERVICES_CSV"
 
-          echo "Verifying Railway deploy for ${{ matrix.service.dispatch_name }}..."
-
-          # The build workflow triggers Railway redeploys after pushing
-          # GHCR images. We poll until the service is healthy. 600s
-          # budget accommodates JVM/slow-boot services.
-          # Require 2 consecutive healthy polls before declaring success.
-          HEALTHY_STREAK=0
-          REQUIRED_STREAK=2
-          START=$(date +%s)
-          BUDGET=600
-          i=0
-          while [ $(($(date +%s) - START)) -lt "$BUDGET" ]; do
-            i=$((i + 1))
-            RESULT=$(curl -s --retry 2 --retry-all-errors --retry-delay 1 \
-              --fail-with-body \
-              -H "Authorization: Bearer $RAILWAY_TOKEN" \
-              -H "Content-Type: application/json" \
-              -d "{\"query\":\"query { deployments(first: 1, input: { serviceId: \\\"$SERVICE_ID\\\", environmentId: \\\"$ENV_ID\\\" }) { edges { node { id status staticUrl } } } }\"}" \
-              https://backboard.railway.app/graphql/v2 2>/dev/null)
-
-            # Surface GraphQL errors and fail fast
-            ERRORS=$(echo "$RESULT" | jq -r '.errors[]?.message // empty')
-            if [ -n "$ERRORS" ]; then
-              echo "::error::Railway API error: $ERRORS"
-              exit 1
-            fi
-
-            DEPLOY_ID=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.id // empty')
-            STATUS=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.status // empty')
-            DOMAIN=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.staticUrl // empty')
-            echo "Attempt $i: deploy=$DEPLOY_ID status=$STATUS domain=$DOMAIN streak=$HEALTHY_STREAK"
-
-            # Fail on any terminal failure status
-            case "$STATUS" in
-              CRASHED|FAILED|REMOVED|SKIPPED)
-                echo "::error::Service ${{ matrix.service.dispatch_name }} deploy status: $STATUS"
-                exit 1
-                ;;
-            esac
-
-            if [ "$STATUS" = "SUCCESS" ] && [ -n "$DOMAIN" ]; then
-              HEALTH_PATH="${{ matrix.service.health_path }}"
-              if [ -z "$HEALTH_PATH" ]; then
-                echo "::error::health_path not configured for service ${{ matrix.service.dispatch_name }}"
-                exit 1
-              fi
-              HEALTH_URL="https://${DOMAIN}${HEALTH_PATH}"
-              # Retry probe up to 3 times within this iteration before
-              # treating it as a genuine non-200
-              HTTP_CODE="000"
-              for probe_try in 1 2 3; do
-                HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$HEALTH_URL" 2>/dev/null || echo "000")
-                if [ "$HTTP_CODE" = "200" ]; then
-                  break
-                fi
-                if [ "$probe_try" -lt 3 ]; then
-                  echo "HTTP check: $HEALTH_URL -> $HTTP_CODE (retry $probe_try/3)"
-                  sleep 2
-                fi
-              done
-              echo "HTTP check: $HEALTH_URL -> $HTTP_CODE"
-              # Fail fast on permanent client errors
-              case "$HTTP_CODE" in
-                404|410|501)
-                  echo "::error::Service ${{ matrix.service.dispatch_name }} health endpoint returned $HTTP_CODE at $HEALTH_URL"
-                  exit 1
-                  ;;
-              esac
-              if [ "$HTTP_CODE" = "200" ]; then
-                HEALTHY_STREAK=$((HEALTHY_STREAK + 1))
-                if [ "$HEALTHY_STREAK" -ge "$REQUIRED_STREAK" ]; then
-                  echo "Service healthy ($HEALTHY_STREAK consecutive 200s)"
-                  exit 0
-                fi
-              else
-                HEALTHY_STREAK=0
-              fi
-            else
-              HEALTHY_STREAK=0
-            fi
-
-            sleep 15
-          done
-          echo "::error::Service ${{ matrix.service.dispatch_name }} did not become healthy within 600s"
+  enforce-redeploy-gate:
+    # Spec §3: workflow turns red on any per-service redeploy error, even
+    # if verify against the success-set passes. This job is independent of
+    # verify so the user sees both signals (what was redeployed badly,
+    # what was redeployed and is unhealthy) rather than one masking the other.
+    needs: [resolve-matrix]
+    if: always() && needs.resolve-matrix.outputs.redeploy_red == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: read
+    steps:
+      - name: Fail workflow on staging redeploy errors
+        run: |
+          echo "::error::One or more staging services reported status:error in the redeploy summary."
+          echo "See the resolve-matrix job's 'Gate on staging redeploy errors' step for details."
           exit 1
 
   notify-harness:
-    needs: [resolve-matrix, verify]
+    needs: [resolve-matrix, verify, enforce-redeploy-gate]
     if: always() && needs.resolve-matrix.outputs.has_services == 'true'
     permissions:
       contents: read
@@ -293,64 +195,28 @@ jobs:
         id: payload
         env:
           VERIFY_RESULT: ${{ needs.verify.result }}
-          MATRIX: ${{ needs.resolve-matrix.outputs.matrix }}
+          REDEPLOY_RESULT: ${{ needs.enforce-redeploy-gate.result }}
+          CSV: ${{ needs.resolve-matrix.outputs.services_csv }}
           BUILD_RUN_ID: ${{ needs.resolve-matrix.outputs.build_run_id }}
           BUILD_RUN_URL: ${{ needs.resolve-matrix.outputs.build_run_url }}
           RUN_ID: ${{ github.run_id }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO_FULL: ${{ github.repository }}
         run: |
           set -euo pipefail
-
-          SERVICES=$(echo "$MATRIX" | jq -c '[.[].dispatch_name]' 2>/dev/null || echo '[]')
-          SERVICES=${SERVICES:-'[]'}
-
-          if [ "${VERIFY_RESULT}" = "cancelled" ]; then
-            FAILED='[]'
-            SUCCEEDED='[]'
-            CANCELLED=true
-          elif [ "${VERIFY_RESULT}" = "success" ]; then
-            FAILED='[]'
-            SUCCEEDED="$SERVICES"
-            CANCELLED=false
+          SERVICES=$(echo "$CSV" | jq -R 'split(",") | map(select(length>0))')
+          if [ "$VERIFY_RESULT" = "success" ] && [ "$REDEPLOY_RESULT" != "failure" ]; then
+            STATE="success"
+          elif [ "$VERIFY_RESULT" = "cancelled" ]; then
+            STATE="cancelled"
           else
-            # Partial failure: query per-job conclusions from the verify matrix
-            JOBS_JSON=$(gh api "repos/${REPO_FULL}/actions/runs/${RUN_ID}/jobs" --paginate 2>/dev/null \
-              | jq -cs '[.[].jobs[]?]' 2>/dev/null || echo '[]')
-            VERIFY_JOBS=$(echo "$JOBS_JSON" | jq -c '[.[] | select((.name // "") | startswith("verify"))]' 2>/dev/null || echo '[]')
-            FAILED=$(echo "$SERVICES" | jq -c --argjson jobs "$VERIFY_JOBS" '
-              [
-                .[] as $svc
-                | $jobs[]
-                | select((.name // "") as $n | ($n | contains($svc)))
-                | select(.conclusion == "failure")
-                | $svc
-              ] | unique
-            ' 2>/dev/null || echo "$SERVICES")
-            SUCCEEDED=$(echo "$SERVICES" | jq -c --argjson jobs "$VERIFY_JOBS" '
-              [
-                .[] as $svc
-                | $jobs[]
-                | select((.name // "") as $n | ($n | contains($svc)))
-                | select(.conclusion == "success")
-                | $svc
-              ] | unique
-            ' 2>/dev/null || echo '[]')
-            CANCELLED=false
+            STATE="failure"
           fi
           PAYLOAD=$(jq -cn \
-            --arg runId "$RUN_ID" \
-            --arg runUrl "$RUN_URL" \
-            --arg buildRunId "${BUILD_RUN_ID:-}" \
-            --arg buildRunUrl "${BUILD_RUN_URL:-}" \
-            --arg gateReason "" \
+            --arg runId "$RUN_ID" --arg runUrl "$RUN_URL" \
+            --arg buildRunId "${BUILD_RUN_ID:-}" --arg buildRunUrl "${BUILD_RUN_URL:-}" \
+            --arg state "$STATE" \
             --argjson services "$SERVICES" \
-            --argjson failed "$FAILED" \
-            --argjson succeeded "$SUCCEEDED" \
-            --argjson cancelled "$CANCELLED" \
-            --argjson gateSkipped false \
-            '{runId:$runId,runUrl:$runUrl,buildRunId:$buildRunId,buildRunUrl:$buildRunUrl,services:$services,failed:$failed,succeeded:$succeeded,cancelled:$cancelled,gateSkipped:$gateSkipped,gateReason:$gateReason}')
+            '{runId:$runId,runUrl:$runUrl,buildRunId:$buildRunId,buildRunUrl:$buildRunUrl,services:$services,state:$state}')
           {
             echo "payload<<EOF_PAYLOAD"
             echo "$PAYLOAD"
@@ -369,36 +235,12 @@ jobs:
             exit 0
           fi
           TS=$(date +%s)
-          METHOD="POST"
-          WEBHOOK_PATH="/webhooks/deploy"
           BODY_SHA=$(printf '%s' "$PAYLOAD" | openssl dgst -sha256 -hex | awk '{print $2}')
-          CANONICAL="${METHOD}|${WEBHOOK_PATH}|${TS}|${BODY_SHA}"
+          CANONICAL="POST|/webhooks/deploy|${TS}|${BODY_SHA}"
           SIG=$(printf '%s' "$CANONICAL" | openssl dgst -sha256 -hmac "$SHARED_SECRET" -hex | awk '{print $2}')
-          HTTP_CODE="000"
-          ATTEMPT=0
-          MAX_ATTEMPTS=3
-          while [ "$ATTEMPT" -lt "$MAX_ATTEMPTS" ]; do
-            ATTEMPT=$((ATTEMPT + 1))
-            HTTP_CODE=$(curl -sS -o /tmp/body -w '%{http_code}' \
-              --connect-timeout 10 --max-time 30 \
-              --retry 2 --retry-all-errors --retry-delay 1 \
-              -X POST "${SHOWCASE_HARNESS_URL%/}${WEBHOOK_PATH}" \
-              -H 'content-type: application/json' \
-              -H "X-Ops-Timestamp: ${TS}" \
-              -H "X-Ops-Signature: sha256=${SIG}" \
-              --data-raw "$PAYLOAD" || echo "000")
-            echo "webhook attempt ${ATTEMPT}/${MAX_ATTEMPTS}: ${HTTP_CODE}"
-            if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "202" ]; then
-              cat /tmp/body || true
-              exit 0
-            fi
-            if [ "$ATTEMPT" -lt "$MAX_ATTEMPTS" ]; then
-              SLEEP=$((ATTEMPT * 5))
-              echo "  retrying in ${SLEEP}s..."
-              sleep "$SLEEP"
-            fi
-          done
-          echo "webhook response body (last attempt):"
-          cat /tmp/body || true
-          echo "::error::showcase-harness webhook returned ${HTTP_CODE} after ${MAX_ATTEMPTS} attempts"
-          exit 1
+          curl -sS --fail-with-body \
+            -X POST "${SHOWCASE_HARNESS_URL%/}/webhooks/deploy" \
+            -H 'content-type: application/json' \
+            -H "X-Ops-Timestamp: ${TS}" \
+            -H "X-Ops-Signature: sha256=${SIG}" \
+            --data-raw "$PAYLOAD"
