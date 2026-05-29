@@ -4,6 +4,7 @@ import {
   defineHumanInTheLoop,
   hitlToFrontendTool,
   HumanInTheLoopRegistry,
+  retryDelayMs,
 } from "../human-in-the-loop.js";
 import type { FrontendToolContext } from "../frontend-tools.js";
 
@@ -215,6 +216,34 @@ describe("hitlToFrontendTool — full lifecycle", () => {
     expect(updateFn).not.toHaveBeenCalled();
   });
 
+  it("retries a response_url POST on 429, honoring Retry-After", async () => {
+    const registry = new HumanInTheLoopRegistry();
+    const tool = hitlToFrontendTool(confirmHitl, registry);
+    const { ctx } = makeCtx();
+    // First hit is rate-limited (Retry-After: 0 → immediate retry), second succeeds.
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response("rate limited", {
+          status: 429,
+          headers: { "retry-after": "0" },
+        }),
+      )
+      .mockResolvedValueOnce(new Response("ok"));
+    (globalThis as { fetch: typeof fetch }).fetch =
+      fetchMock as unknown as typeof fetch;
+    const execPromise = tool.handler({ question: "Proceed?" }, ctx);
+    await new Promise((r) => setTimeout(r, 0));
+    const yesId = Array.from(
+      (
+        registry as unknown as { waitByAction: Map<string, unknown> }
+      ).waitByAction.keys(),
+    )[0]!;
+    registry.handleAction(yesId, { responseUrl: "https://hooks.slack.com/x" });
+    await execPromise;
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it('returns "delete" → posts delete_original via response_url (fallback: chat.delete)', async () => {
     const registry = new HumanInTheLoopRegistry();
     const tool = hitlToFrontendTool(confirmHitl, registry);
@@ -249,5 +278,28 @@ describe("hitlToFrontendTool — full lifecycle", () => {
     );
     expect(r.ok).toBe(false);
     expect(r.error).toContain("rate_limited");
+  });
+});
+
+describe("retryDelayMs (response_url Retry-After)", () => {
+  it("honors a finite Retry-After header (delta-seconds → ms)", () => {
+    expect(retryDelayMs("2", 0)).toBe(2000);
+    expect(retryDelayMs("0", 1)).toBe(0);
+  });
+
+  it("clamps a huge Retry-After so it can't hang the turn", () => {
+    // A hostile/buggy 999999s header must not sleep ~11 days.
+    expect(retryDelayMs("999999", 0)).toBe(30_000);
+  });
+
+  it("falls back to linear per-attempt backoff when the header is absent or invalid", () => {
+    expect(retryDelayMs(null, 0)).toBe(1000);
+    expect(retryDelayMs(null, 2)).toBe(3000);
+    // HTTP-date form (Slack sends delta-seconds) → NaN → fallback.
+    expect(retryDelayMs("Wed, 21 Oct 2025 07:28:00 GMT", 0)).toBe(1000);
+  });
+
+  it("treats a negative Retry-After as an immediate retry", () => {
+    expect(retryDelayMs("-5", 0)).toBe(0);
   });
 });

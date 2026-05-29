@@ -170,24 +170,62 @@ createSlackBridge({
 See [`examples/slack/app`](../../examples/slack/app) for a worked
 example wiring all of the above.
 
+## Deploying
+
+The bridge is a single long-lived Node process.
+
+- **No public URL needed (Socket Mode, the default).** It only makes
+  outbound HTTPS + a WebSocket to Slack, so it runs anywhere — a
+  container, a VM, a Fly/Render/Railway worker, a k8s `Deployment`. HTTP
+  mode (`socketMode: false`) instead needs a public endpoint and
+  `slackSigningSecret`.
+- **Stateless → restart-safe, single replica.** Slack is the source of
+  truth; the bridge keeps no durable storage and rebuilds conversation
+  context from Slack history on every turn. In-flight HITL/interrupt
+  waits live in memory, but a button click still recovers after a
+  restart because the resume value is baked into the button (see
+  [`ARCHITECTURE.md`](./ARCHITECTURE.md)). Running more than one replica
+  is possible but duplicates event handling — prefer a single instance.
+- **Secrets** — supply `slackBotToken` (`xoxb-`), `slackAppToken`
+  (`xapp-`, Socket Mode), optional `slackSigningSecret` (HTTP mode), and
+  any `agentHeaders` (agent auth) via your platform's secret store / env.
+  Never commit them.
+- **Rate limits** — Slack `429`s are retried automatically, honoring each
+  response's `Retry-After`; tune with `retryConfig`.
+- Run the **agent backend** as its own service (the AG-UI server
+  `AGENT_URL` points at). [`examples/slack`](../../examples/slack) ships
+  one (Next.js + LangGraph) with a `Dockerfile`.
+
+`AGENT_URL` can point at any AG-UI HTTP endpoint:
+
+```env
+AGENT_URL=https://your-deployment.example.com/api/copilotkit
+AGENT_AUTH_HEADER=Bearer your-token
+```
+
+## Troubleshooting
+
+- **Bot doesn't respond to @mentions** — confirm it's invited to the
+  channel; check the `app_mention` / `message.im` scopes and event
+  subscriptions in your manifest; verify `slackBotToken` / `slackAppToken`.
+- **`not_authed` / `invalid_auth`** — wrong or expired token, or the
+  `xapp-` token is missing the `connections:write` scope.
+- **Bot replies to itself / loops** — the bridge skips its own messages
+  using the bot user id it resolves at startup. If `auth.test` failed on
+  boot the guard is weaker — check the startup logs for
+  `[slack-bridge] auth.test failed`.
+- **Streaming reply stops updating mid-stream** — usually the WebClient
+  backing off a `429` (honoring `Retry-After`) or a genuinely failed
+  edit; look for `[message-stream] update failed` in the logs.
+- **An interrupt / HITL picker click does nothing** — the graph stays
+  paused when no handler matches the event name, or when the stored
+  payload fails schema validation. Check for
+  `[turn-runner] … failed validation` warnings.
+- **More logs** — set `logLevel: LogLevel.DEBUG` in `createSlackBridge`.
+
 ## What's not here yet
 
 - **Modals / shortcuts / home tab** — Block Kit inside threads only.
 - **File uploads** — both directions, deferred.
-- **Slack rate-limit handling** — current code swallows 429s; future
-  work is to respect `Retry-After`.
-- **Multi-workspace deploy** — single-workspace today.
-
-## Pointing at a different AG-UI agent
-
-```env
-# Default beautiful_chat
-AGENT_URL=http://localhost:8200/
-
-# Interrupt demo
-AGENT_URL=http://localhost:8200/interrupt
-
-# Anything that speaks AG-UI works
-AGENT_URL=https://your-deployment.example.com/api/copilotkit
-AGENT_AUTH_HEADER=Bearer your-token
-```
+- **Multi-workspace install (OAuth)** — single-workspace bot token today;
+  the customer-workspace install/OAuth path is future work.

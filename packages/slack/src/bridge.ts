@@ -1,4 +1,5 @@
 import { App, LogLevel } from "@slack/bolt";
+import { retryPolicies, type RetryOptions } from "@slack/web-api";
 import { HttpAgent } from "@ag-ui/client";
 import { createHash } from "node:crypto";
 import { SlackConversationStore } from "./conversation-store.js";
@@ -37,6 +38,14 @@ export interface SlackBridgeConfig {
   socketMode?: boolean;
   /** Bolt log level. */
   logLevel?: LogLevel;
+  /**
+   * Rate-limit retry policy for the underlying Slack `WebClient`. Slack
+   * `429`s are retried automatically, honoring each response's
+   * `Retry-After` header. Defaults to `retryPolicies.fiveRetriesInFiveMinutes`
+   * — override (e.g. with `retryPolicies.tenRetriesInAboutThirtyMinutes`)
+   * for more aggressive backoff, or pass a custom `RetryOptions`.
+   */
+  retryConfig?: RetryOptions;
   /**
    * Frontend tools the agent can call against Slack. Apps typically
    * spread `defaultSlackTools` to get `lookup_slack_user`:
@@ -175,6 +184,16 @@ export function createSlackBridge(config: SlackBridgeConfig): SlackBridge {
     signingSecret: config.slackSigningSecret,
     socketMode,
     logLevel: config.logLevel ?? LogLevel.INFO,
+    // Honor Slack's rate limits: the underlying `WebClient` automatically
+    // retries `429`s, waiting for the duration in the `Retry-After` header
+    // before each retry. Every Slack call the bridge makes (chat.update
+    // during streaming, chat.postMessage, users.list, conversations.*)
+    // goes through this client, so rate-limited calls back off and retry
+    // instead of being dropped. `fiveRetriesInFiveMinutes` keeps an
+    // interactive bot responsive rather than retrying for half an hour.
+    clientOptions: {
+      retryConfig: config.retryConfig ?? retryPolicies.fiveRetriesInFiveMinutes,
+    },
   });
 
   // `AGENT_URL` is expected to point at a CopilotKit Runtime

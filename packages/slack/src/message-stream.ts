@@ -79,8 +79,10 @@ export class MessageStream {
     try {
       await this.update(text);
     } catch (err) {
-      // Swallow: a single failed edit shouldn't sink the stream. Future
-      // appends will retry with the latest buffer.
+      // Rate-limit (429) edits are already retried by the Slack WebClient
+      // (honoring Retry-After). If we still land here the edit genuinely
+      // failed — swallow it: a single failed edit shouldn't sink the
+      // stream, and future appends retry with the latest buffer.
       console.error("[message-stream] update failed:", err);
     } finally {
       // Set lastFlushedAt *after* the update returns so the throttle

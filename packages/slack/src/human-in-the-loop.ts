@@ -379,26 +379,81 @@ export const INTERRUPT_PICKER_EVENT_TYPE = "copilotkit_slack_interrupt";
 /** Slack message-metadata `event_type` we use to mark HITL pickers. */
 export const HITL_PICKER_EVENT_TYPE = "copilotkit_slack_hitl";
 
+/** Max retries for a rate-limited (`429`) `response_url` POST. */
+const MAX_RESPONSE_URL_RETRIES = 3;
+
+/**
+ * Upper bound on how long we'll wait between `response_url` retries. The
+ * `Retry-After` header is honored but clamped: unlike the `WebClient`
+ * (which bounds *total* backoff via its retry envelope), this manual loop
+ * bounds only the retry count, so an absent/huge header must not let a
+ * single wait stall HITL resolution — and therefore the agent turn, since
+ * the resolution POST is awaited on the critical path — for minutes/days.
+ */
+const MAX_RETRY_AFTER_MS = 30_000;
+
+/**
+ * POST to a Slack `response_url`. Unlike the `WebClient` calls (which
+ * retry `429`s automatically), `response_url` is a plain webhook hit with
+ * `fetch`, so we honor `Retry-After` here ourselves: on a `429` we wait the
+ * header's duration (default 1s, growing per attempt if absent) and retry,
+ * up to {@link MAX_RESPONSE_URL_RETRIES} times. Other failures log once.
+ */
 async function postToResponseUrl(
   url: string,
   payload: Record<string, unknown>,
 ): Promise<void> {
-  try {
-    const r = await fetch(url, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (!r.ok) {
-      console.error(
-        "[hitl] response_url POST failed:",
-        r.status,
-        await r.text().catch(() => ""),
-      );
+  for (let attempt = 0; ; attempt++) {
+    let r: Response;
+    try {
+      r = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    } catch (err) {
+      console.error("[hitl] response_url POST threw:", err);
+      return;
     }
-  } catch (err) {
-    console.error("[hitl] response_url POST threw:", err);
+    if (r.ok) return;
+    if (r.status === 429 && attempt < MAX_RESPONSE_URL_RETRIES) {
+      await delay(retryDelayMs(r.headers.get("retry-after"), attempt));
+      continue;
+    }
+    console.error(
+      "[hitl] response_url POST failed:",
+      r.status,
+      await r.text().catch(() => ""),
+    );
+    return;
   }
+}
+
+/**
+ * Compute the wait before the next `response_url` retry: honor the
+ * `Retry-After` header (delta-seconds) when present and finite, otherwise
+ * back off linearly per attempt — then clamp to {@link MAX_RETRY_AFTER_MS}
+ * so a malformed/hostile header can't hang the turn. Exported for tests;
+ * not part of the package's public API.
+ */
+export function retryDelayMs(
+  retryAfterHeader: string | null,
+  attempt: number,
+): number {
+  const fromHeader = parseRetryAfterMs(retryAfterHeader);
+  const base = fromHeader ?? (attempt + 1) * 1000;
+  return Math.min(base, MAX_RETRY_AFTER_MS);
+}
+
+/** Parse a `Retry-After` header (delta-seconds) into milliseconds. */
+function parseRetryAfterMs(header: string | null): number | undefined {
+  if (!header) return undefined;
+  const seconds = Number(header);
+  return Number.isFinite(seconds) ? Math.max(0, seconds * 1000) : undefined;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
