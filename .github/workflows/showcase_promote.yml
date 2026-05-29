@@ -1,0 +1,235 @@
+name: "Showcase: Promote (staging → prod)"
+
+# Promotes the staging-tested digest of one or more services to prod.
+# Workflow_dispatch only. Humans trigger. No automatic prod promotes.
+#
+# Order:
+#   0. resolve-targets              → expand the workflow_dispatch `service`
+#                                     input (SSOT key, dispatch_name, or
+#                                     'all') into the canonical services_csv
+#                                     consumed by every downstream job.
+#   1. verify-staging-precondition  → live-probe staging for the target service(s).
+#                                     Refuse on red (matches bin/railway
+#                                     --require-staging-green default).
+#   2. promote                      → bin/railway promote <service>; runs the
+#                                     spec §7 hardening (P1..P6).
+#   3. verify-prod                  → verify-deploy.ts --env prod for the
+#                                     target service(s). Feature-level probes,
+#                                     not naked 200.
+#   4. notify                       → Slack #oss-alerts on any red. Never #engr.
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "SSOT key, dispatch_name, or 'all'"
+        required: true
+        default: "all"
+        type: string
+      digest:
+        description: "Optional digest override (default: snapshot from staging)"
+        required: false
+        type: string
+
+concurrency:
+  group: showcase-promote-${{ inputs.service }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  resolve-targets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    outputs:
+      services_csv: ${{ steps.resolve.outputs.services_csv }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22.x
+      - name: Generate SSOT artifact
+        working-directory: showcase/scripts
+        run: |
+          npm ci
+          npx tsx emit-railway-envs-json.ts
+      - name: Resolve target service set
+        id: resolve
+        env:
+          INPUT: ${{ inputs.service }}
+        run: |
+          set -euo pipefail
+          GENERATED="showcase/scripts/railway-envs.generated.json"
+          if [ "$INPUT" = "all" ]; then
+            CSV=$(jq -r '.services[] | select(.probe.prod == true) | .name' "$GENERATED" | sort -u | tr '\n' ',' | sed 's/,$//')
+          else
+            RESOLVED=$(jq -r --arg s "$INPUT" '
+              .services[] | select(.name == $s or .dispatchName == $s) | .name
+            ' "$GENERATED" | head -n1)
+            if [ -z "$RESOLVED" ]; then
+              echo "::error::Unknown service '$INPUT' (not an SSOT key or dispatch_name)"
+              exit 1
+            fi
+            CSV="$RESOLVED"
+          fi
+          echo "services_csv=$CSV" >> "$GITHUB_OUTPUT"
+
+  verify-staging-precondition:
+    needs: [resolve-targets]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: railway
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22.x
+      - working-directory: showcase/scripts
+        run: npm ci
+      - name: Live-probe staging for promote precondition
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          SERVICES_CSV: ${{ needs.resolve-targets.outputs.services_csv }}
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::error::RAILWAY_TOKEN is not set"
+            exit 1
+          fi
+          # Spec §7.2 P3: the live staging probe at promote time is
+          # authoritative. CI verify history is a leading indicator only.
+          npx tsx showcase/scripts/verify-deploy.ts --env staging --services "$SERVICES_CSV"
+
+  promote:
+    needs: [resolve-targets, verify-staging-precondition]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: railway
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@afeafc3d1ab54a631816aba4c914a0081c12ff2f # v1.310.0
+        with:
+          ruby-version: "3.3"
+          bundler-cache: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22.x
+      - working-directory: showcase/scripts
+        run: |
+          npm ci
+          npx tsx emit-railway-envs-json.ts
+      - name: bin/railway promote
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SERVICES_CSV: ${{ needs.resolve-targets.outputs.services_csv }}
+          DIGEST: ${{ inputs.digest }}
+        run: |
+          set -euo pipefail
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::error::RAILWAY_TOKEN is not set"
+            exit 1
+          fi
+          # The local promote runs each service in turn; bin/railway
+          # handles spec §7 preconditions (P1..P6). --require-staging-green
+          # is default-on; the prior job already established staging is
+          # green but we keep the script-level guard as defense in depth.
+          IFS=',' read -ra SVCS <<< "$SERVICES_CSV"
+          for svc in "${SVCS[@]}"; do
+            args=(promote "$svc")
+            if [ -n "${DIGEST:-}" ]; then
+              args+=(--digest "$DIGEST")
+            fi
+            echo "==> showcase/bin/railway ${args[*]}"
+            showcase/bin/railway "${args[@]}"
+          done
+
+  verify-prod:
+    needs: [resolve-targets, promote]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: railway
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22.x
+      - working-directory: showcase/scripts
+        run: npm ci
+      - name: Run verify-deploy --env prod
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          SERVICES_CSV: ${{ needs.resolve-targets.outputs.services_csv }}
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::error::RAILWAY_TOKEN is not set"
+            exit 1
+          fi
+          npx tsx showcase/scripts/verify-deploy.ts --env prod --services "$SERVICES_CSV"
+
+  notify:
+    # Slack #oss-alerts only. Never #engr (engr is sacred — release alerts only).
+    needs: [resolve-targets, verify-staging-precondition, promote, verify-prod]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Compute state
+        id: state
+        env:
+          PRE: ${{ needs.verify-staging-precondition.result }}
+          PROMOTE: ${{ needs.promote.result }}
+          PROD: ${{ needs.verify-prod.result }}
+          CSV: ${{ needs.resolve-targets.outputs.services_csv }}
+        run: |
+          set -euo pipefail
+          if [ "$PRE" = "success" ] && [ "$PROMOTE" = "success" ] && [ "$PROD" = "success" ]; then
+            STATE="success"; ICON=":white_check_mark:"
+          else
+            STATE="failure"; ICON=":x:"
+          fi
+          {
+            echo "state=$STATE"
+            echo "icon=$ICON"
+            echo "csv=$CSV"
+          } >> "$GITHUB_OUTPUT"
+      - name: Post to #oss-alerts
+        if: steps.state.outputs.state == 'failure'
+        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": ${{ toJSON(format(
+                '{0} *Showcase Promote Failed*\nServices: `{1}`\npre-staging={2} promote={3} verify-prod={4}\n<{5}/{6}/actions/runs/{7}|View run>',
+                steps.state.outputs.icon,
+                steps.state.outputs.csv,
+                needs.verify-staging-precondition.result,
+                needs.promote.result,
+                needs.verify-prod.result,
+                github.server_url,
+                github.repository,
+                github.run_id
+              )) }}
+            }

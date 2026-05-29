@@ -1,0 +1,308 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { parseArgs, runRedeploy, resolveTargetServices } from "./redeploy-env";
+import { SERVICES } from "./railway-envs";
+
+describe("runRedeploy", () => {
+  let consoleErrSpy: ReturnType<typeof vi.spyOn>;
+  let consoleLogSpy: ReturnType<typeof vi.spyOn>;
+  let stdoutWriteSpy: ReturnType<typeof vi.spyOn>;
+  let summary: string;
+
+  beforeEach(() => {
+    consoleErrSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    // runRedeploy's per-service progress lines go to process.stdout.write
+    // (NOT console.log); spy on that too or tests spam the terminal.
+    stdoutWriteSpy = vi
+      .spyOn(process.stdout, "write")
+      .mockImplementation(() => true);
+    summary = "";
+  });
+
+  afterEach(() => {
+    consoleErrSpy.mockRestore();
+    consoleLogSpy.mockRestore();
+    stdoutWriteSpy.mockRestore();
+  });
+
+  const appendSummary = (s: string) => {
+    summary += s + "\n";
+  };
+
+  it("default scope (no --services) targets the 25 CI-built services, NOT all 27", async () => {
+    const seenNames: string[] = [];
+    const redeploy = vi.fn(async (serviceId: string) => {
+      // Reverse-lookup the SSOT name from serviceId so the test can
+      // assert exact membership rather than counting opaquely.
+      const name = Object.entries(SERVICES).find(
+        ([, e]) => e.serviceId === serviceId,
+      )?.[0];
+      if (name) seenNames.push(name);
+      return { ok: true as const };
+    });
+
+    const result = await runRedeploy({
+      env: "staging",
+      redeploy,
+      appendSummary,
+      // services omitted → default = CI_BUILT_SERVICES
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.attempted).toBe(25);
+    expect(result.succeeded).toBe(25);
+    expect(redeploy).toHaveBeenCalledTimes(25);
+    expect(seenNames).not.toContain("pocketbase");
+    expect(seenNames).not.toContain("webhooks");
+  });
+
+  it("default whole-env staging redeploy NEVER bounces pocketbase or webhooks", async () => {
+    // Explicit anti-regression test: this exact assertion exists
+    // because the v1 of this script iterated all 27 SERVICES.
+    const seenIds = new Set<string>();
+    const redeploy = vi.fn(async (serviceId: string) => {
+      seenIds.add(serviceId);
+      return { ok: true as const };
+    });
+    await runRedeploy({ env: "staging", redeploy, appendSummary });
+    expect(seenIds.has(SERVICES.pocketbase.serviceId)).toBe(false);
+    expect(seenIds.has(SERVICES.webhooks.serviceId)).toBe(false);
+  });
+
+  it("explicit --services list targets exactly that subset", async () => {
+    const seenIds: string[] = [];
+    const redeploy = vi.fn(async (serviceId: string) => {
+      seenIds.push(serviceId);
+      return { ok: true as const };
+    });
+    const result = await runRedeploy({
+      env: "staging",
+      redeploy,
+      appendSummary,
+      services: ["showcase-mastra", "showcase-ag2"],
+    });
+    expect(result.attempted).toBe(2);
+    expect(seenIds).toEqual([
+      SERVICES["showcase-ag2"].serviceId, // alphabetical iteration
+      SERVICES["showcase-mastra"].serviceId,
+    ]);
+  });
+
+  it("targets the staging env id", async () => {
+    const calls: Array<{ environmentId: string }> = [];
+    const redeploy = vi.fn(async (_svc: string, environmentId: string) => {
+      calls.push({ environmentId });
+      return { ok: true as const };
+    });
+    await runRedeploy({
+      env: "staging",
+      redeploy,
+      appendSummary,
+      services: ["showcase-mastra"],
+    });
+    for (const c of calls) {
+      expect(c.environmentId).toBe("8edfef02-ea09-4a20-8689-261f21cc2849");
+    }
+  });
+
+  it("targets the prod env id when env=prod", async () => {
+    const calls: Array<{ environmentId: string }> = [];
+    const redeploy = vi.fn(async (_svc: string, environmentId: string) => {
+      calls.push({ environmentId });
+      return { ok: true as const };
+    });
+    await runRedeploy({
+      env: "prod",
+      redeploy,
+      appendSummary,
+      services: ["showcase-mastra"],
+    });
+    for (const c of calls) {
+      expect(c.environmentId).toBe("b14919f4-6417-429f-848d-c6ae2201e04f");
+    }
+  });
+
+  it("treats per-service failures as non-fatal and exits 0", async () => {
+    // Deterministic: fail on a specific named service so the test does
+    // not depend on the size of the default scope.
+    const failTarget = SERVICES["showcase-mastra"].serviceId;
+    const redeploy = vi.fn(async (serviceId: string) => {
+      if (serviceId === failTarget) {
+        return { ok: false as const, error: "boom" };
+      }
+      return { ok: true as const };
+    });
+
+    const result = await runRedeploy({
+      env: "staging",
+      redeploy,
+      appendSummary,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.failed).toBe(1);
+    expect(result.succeeded + result.failed).toBe(result.attempted);
+    // Failure must be visible in the summary.
+    expect(summary).toMatch(/FAIL/);
+    expect(summary).toMatch(/boom/);
+  });
+
+  it("per-service catch records non-Error throws (null, string) as failures without crashing", async () => {
+    // Catch block previously did `(e as Error).message ?? String(e)`,
+    // which throws TypeError when e is null.
+    const failTarget = SERVICES["showcase-mastra"].serviceId;
+    const redeploy = vi.fn(async (serviceId: string) => {
+      if (serviceId === failTarget) {
+        // eslint-disable-next-line @typescript-eslint/no-throw-literal
+        throw null;
+      }
+      return { ok: true as const };
+    });
+
+    const result = await runRedeploy({
+      env: "staging",
+      redeploy,
+      appendSummary,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.failed).toBe(1);
+    expect(summary).toMatch(/FAIL/);
+  });
+
+  it("env=prod returns non-zero exitCode on per-service failure", async () => {
+    // Prod isn't wired yet, but the design must NOT silently swallow
+    // prod per-service failures the way staging intentionally does.
+    const redeploy = vi.fn(async () => ({
+      ok: false as const,
+      error: "kaboom",
+    }));
+    const result = await runRedeploy({
+      env: "prod",
+      redeploy,
+      appendSummary,
+      services: ["showcase-mastra"],
+    });
+    expect(result.failed).toBe(1);
+    expect(result.exitCode).not.toBe(0);
+  });
+
+  it("env=prod returns exitCode 0 when all services succeed", async () => {
+    const redeploy = vi.fn(async () => ({ ok: true as const }));
+    const result = await runRedeploy({
+      env: "prod",
+      redeploy,
+      appendSummary,
+      services: ["showcase-mastra"],
+    });
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("reports zero failures with empty failure list in summary", async () => {
+    const redeploy = vi.fn(async () => ({ ok: true as const }));
+    await runRedeploy({ env: "staging", redeploy, appendSummary });
+    expect(summary).toMatch(/0 failed/);
+  });
+
+  it("throws on a --services entry that doesn't resolve to a known SSOT key", async () => {
+    const redeploy = vi.fn();
+    await expect(
+      runRedeploy({
+        env: "staging",
+        redeploy,
+        appendSummary,
+        services: ["nonsense"],
+      }),
+    ).rejects.toThrow(/Unknown service/);
+    expect(redeploy).not.toHaveBeenCalled();
+  });
+
+  it("rejects unknown env names", async () => {
+    const redeploy = vi.fn();
+    await expect(
+      runRedeploy({ env: "dev" as never, redeploy, appendSummary }),
+    ).rejects.toThrow(/Unknown env/);
+    expect(redeploy).not.toHaveBeenCalled();
+  });
+});
+
+describe("resolveTargetServices", () => {
+  it("accepts SSOT keys verbatim and resolves CI dispatch_names too", () => {
+    // The workflow passes detect-changes.outputs.matrix .dispatch_name
+    // values, but a human operator might pass SSOT keys directly.
+    // Both forms must resolve.
+    const resolved = resolveTargetServices([
+      "showcase-mastra", // already an SSOT key
+      "mastra", // dispatch_name → showcase-mastra
+      "shell-dashboard", // dispatch_name → dashboard
+      "showcase-aimock", // dispatch_name → aimock
+    ]);
+    expect(resolved).toEqual(["showcase-mastra", "dashboard", "aimock"]);
+    // Dedupes the duplicate showcase-mastra ↔ mastra.
+  });
+
+  it("throws on inputs that match neither SSOT keys nor dispatch_names", () => {
+    expect(() => resolveTargetServices(["mastra", "garbage"])).toThrow(
+      /Unknown service "garbage"/,
+    );
+  });
+
+  it("returns the CI_BUILT_SERVICES set sorted when given undefined", () => {
+    const resolved = resolveTargetServices(undefined);
+    expect(resolved.length).toBe(25);
+    expect(resolved).not.toContain("pocketbase");
+    expect(resolved).not.toContain("webhooks");
+  });
+});
+
+describe("parseArgs", () => {
+  it("parses bare env name", () => {
+    expect(parseArgs(["staging"])).toEqual({ env: "staging" });
+  });
+
+  it("parses --services with CSV value", () => {
+    expect(parseArgs(["staging", "--services", "mastra,ag2"])).toEqual({
+      env: "staging",
+      services: ["mastra", "ag2"],
+    });
+  });
+
+  it("parses --services=csv form", () => {
+    expect(parseArgs(["staging", "--services=mastra,ag2"])).toEqual({
+      env: "staging",
+      services: ["mastra", "ag2"],
+    });
+  });
+
+  it("throws when --services has no following value (bare flag at end)", () => {
+    expect(() => parseArgs(["staging", "--services"])).toThrow(
+      /--services requires a non-empty comma-separated value/,
+    );
+  });
+
+  it("throws when --services value is the empty string", () => {
+    expect(() => parseArgs(["staging", "--services", ""])).toThrow(
+      /--services requires a non-empty comma-separated value/,
+    );
+  });
+
+  it("throws when --services value is only commas/whitespace", () => {
+    expect(() => parseArgs(["staging", "--services", ","])).toThrow(
+      /--services requires a non-empty comma-separated value/,
+    );
+  });
+
+  it("throws when --services= value empties after split/filter", () => {
+    expect(() => parseArgs(["staging", "--services="])).toThrow(
+      /--services requires a non-empty comma-separated value/,
+    );
+  });
+
+  it("throws on unknown argument", () => {
+    expect(() => parseArgs(["staging", "--bogus"])).toThrow(/Unknown argument/);
+  });
+
+  it("throws on empty argv", () => {
+    expect(() => parseArgs([])).toThrow();
+  });
+});
