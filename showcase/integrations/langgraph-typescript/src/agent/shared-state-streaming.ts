@@ -30,6 +30,8 @@ import {
   StateGraph,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+import { makeChatOpenAI } from "./openai-headers";
+
 import {
   copilotkitCustomizeConfig,
   convertActionsToDynamicStructuredTools,
@@ -106,7 +108,7 @@ const SYSTEM_PROMPT =
   "UI renders it live as you type.";
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
-  const model = new ChatOpenAI({
+  const model = makeChatOpenAI(config, {
     model: "gpt-5.4",
     modelKwargs: { parallel_tool_calls: false },
   });

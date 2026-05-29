@@ -18,6 +18,7 @@ import {
   Annotation,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+import { makeChatOpenAI } from "./openai-headers";
 import {
   convertActionsToDynamicStructuredTools,
   CopilotKitStateAnnotation,
@@ -161,10 +162,10 @@ const searchFlights = tool(
 );
 
 const generateA2ui = tool(
-  async ({ messages, contextEntries }) => {
+  async ({ messages, contextEntries }, config) => {
     const prep = generateA2uiImpl({ messages, contextEntries });
 
-    const secondaryModel = new ChatOpenAI({ temperature: 0, model: "gpt-4.1" });
+    const secondaryModel = makeChatOpenAI(config, { temperature: 0, model: "gpt-4.1" });
     const renderTool = tool(async () => "rendered", {
       name: "render_a2ui",
       description: "Render a dynamic A2UI v0.9 surface.",
@@ -226,7 +227,7 @@ const tools = [
 // ---------------------------------------------------------------------------
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
-  const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
+  const model = makeChatOpenAI(config, { temperature: 0, model: "gpt-4o" });
 
   const modelWithTools = model.bindTools!([
     ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),

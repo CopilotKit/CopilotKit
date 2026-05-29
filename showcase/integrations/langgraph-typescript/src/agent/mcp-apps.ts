@@ -26,6 +26,8 @@ import {
   Annotation,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+import { makeChatOpenAI } from "./openai-headers";
+
 import {
   convertActionsToDynamicStructuredTools,
   CopilotKitStateAnnotation,
@@ -72,7 +74,7 @@ export type AgentState = typeof AgentStateAnnotation.State;
 async function chatNode(state: AgentState, config: RunnableConfig) {
   // gpt-4o-mini for speed — Excalidraw element emission is simple JSON and
   // we're biasing hard toward sub-30s generation.
-  const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o-mini" });
+  const model = makeChatOpenAI(config, { temperature: 0, model: "gpt-4o-mini" });
 
   // The MCP Apps middleware injects MCP tools into state.copilotkit.actions
   // alongside any frontend actions, so a single bind picks up everything.
