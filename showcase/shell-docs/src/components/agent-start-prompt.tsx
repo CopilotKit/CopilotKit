@@ -76,8 +76,10 @@ export function AgentStartPrompt() {
       // manually select the prompt text — the entire feature is paste-this-
       // into-your-agent, so a silent no-op is a dead-end UX.
       console.warn("[agent-start-prompt] clipboard write failed", err);
+      // Force-expand only on the first failure so a user who manually
+      // collapsed the panel after the error isn't yanked back open on retry.
+      if (copyState !== "error") setExpanded(true);
       setCopyState("error");
-      setExpanded(true);
       resetTimerRef.current = setTimeout(() => setCopyState("idle"), 2500);
     }
   };
@@ -140,7 +142,8 @@ export function AgentStartPrompt() {
         <div className="border-t border-[var(--border)] px-4 py-2 text-[12px]">
           <Link
             href="/build-with-agents"
-            className="inline-flex items-center gap-1 text-[var(--accent)] no-underline"
+            prefetch={false}
+            className="inline-flex items-center gap-1 rounded text-[var(--accent)] no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:underline"
           >
             Learn more about building with agents
             <svg
@@ -159,15 +162,15 @@ export function AgentStartPrompt() {
             </svg>
           </Link>
         </div>
-
-        <span aria-live="polite" className="sr-only">
-          {copied
-            ? "Prompt copied to clipboard"
-            : errored
-              ? "Clipboard blocked; select the prompt text manually"
-              : ""}
-        </span>
       </div>
+
+      <span aria-live="polite" className="sr-only">
+        {copied
+          ? "Prompt copied to clipboard"
+          : errored
+            ? "Clipboard blocked; select the prompt text manually"
+            : ""}
+      </span>
     </>
   );
 }
