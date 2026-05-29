@@ -11,6 +11,7 @@
 import { describe, it, expect } from "vitest";
 import {
   findUntrackedServices,
+  summarizeFailures,
 } from "../verify-railway-image-refs";
 import {
   SERVICES,
@@ -92,5 +93,62 @@ describe("main() unknown-service policy", () => {
     // to exit non-zero. We assert the contract by checking the
     // boolean the caller will branch on:
     expect(untracked.length > 0).toBe(true);
+  });
+});
+
+describe("summarizeFailures", () => {
+  it("includes untracked Railway services in the failure block and exits non-zero", () => {
+    const out = summarizeFailures({
+      violations: [],
+      missingByEnv: { prod: [], staging: [] },
+      untracked: ["phantom-relay"],
+      checked: 50,
+      skipped: 0,
+    });
+    expect(out.shouldFail).toBe(true);
+    expect(out.lines.join("\n")).toMatch(/phantom-relay/);
+    expect(out.lines.join("\n")).toMatch(/not in the SSOT/i);
+  });
+
+  it("does not fail when nothing is wrong", () => {
+    const out = summarizeFailures({
+      violations: [],
+      missingByEnv: { prod: [], staging: [] },
+      untracked: [],
+      checked: 54,
+      skipped: 0,
+    });
+    expect(out.shouldFail).toBe(false);
+  });
+
+  it("flags shape violations", () => {
+    const out = summarizeFailures({
+      violations: [
+        {
+          service: "showcase-mastra",
+          env: "prod",
+          image: "ghcr.io/copilotkit/showcase-mastra:latest",
+          reason: "prod must be pinned to `@sha256:<digest>` (got `:latest`)",
+        },
+      ],
+      missingByEnv: { prod: [], staging: [] },
+      untracked: [],
+      checked: 50,
+      skipped: 0,
+    });
+    expect(out.shouldFail).toBe(true);
+    expect(out.lines.join("\n")).toMatch(/showcase-mastra/);
+  });
+
+  it("flags missing services per env", () => {
+    const out = summarizeFailures({
+      violations: [],
+      missingByEnv: { prod: ["showcase-foo"], staging: [] },
+      untracked: [],
+      checked: 50,
+      skipped: 0,
+    });
+    expect(out.shouldFail).toBe(true);
+    expect(out.lines.join("\n")).toMatch(/showcase-foo/);
   });
 });

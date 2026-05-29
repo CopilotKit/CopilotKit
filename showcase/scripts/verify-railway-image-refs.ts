@@ -231,6 +231,72 @@ export function findUntrackedServices(
   return untracked.sort();
 }
 
+export interface FailureSummaryInput {
+  violations: Violation[];
+  missingByEnv: Record<EnvName, string[]>;
+  untracked: string[];
+  checked: number;
+  skipped: number;
+}
+
+export interface FailureSummaryOutput {
+  shouldFail: boolean;
+  lines: string[];
+}
+
+/**
+ * Pure failure-summary builder. Takes the three classes of finding
+ * the gate produces and returns the lines main() should print plus a
+ * boolean indicating whether to exit non-zero. Extracted from main()
+ * so it can be unit-tested without going through GraphQL.
+ *
+ * Three failure classes (all REFUSE — none are warnings):
+ *   1. shape violations (Violation[])
+ *   2. SSOT->Railway drift (gateValidated SSOT services missing on Railway)
+ *   3. Railway->SSOT drift (Railway services not in the SSOT, NOT
+ *      opted out via gateIgnore)
+ */
+export function summarizeFailures(
+  input: FailureSummaryInput,
+): FailureSummaryOutput {
+  const { violations, missingByEnv, untracked, checked, skipped } = input;
+  const totalMissing = missingByEnv.prod.length + missingByEnv.staging.length;
+  const shouldFail =
+    violations.length > 0 || totalMissing > 0 || untracked.length > 0;
+  const lines: string[] = [];
+
+  if (!shouldFail) return { shouldFail, lines };
+
+  lines.push(
+    `\n✗ Railway image-ref drift detected (${violations.length} violations across ${checked} env-scoped instances; ${totalMissing} missing services; ${untracked.length} untracked Railway services; ${skipped} skipped)\n`,
+  );
+  for (const v of violations) {
+    lines.push(`  ✗ [${v.env}] ${v.service}`);
+    lines.push(`    current:  ${v.image ?? "<unset>"}`);
+    lines.push(`    reason:   ${v.reason}`);
+  }
+  for (const env of ["prod", "staging"] as const) {
+    for (const name of missingByEnv[env]) {
+      lines.push(`  ✗ [${env}] ${name}`);
+      lines.push(`    current:  <missing from Railway>`);
+      lines.push(
+        `    reason:   gateValidated SSOT service has no serviceInstance in ${env} — was it deleted or renamed?`,
+      );
+    }
+  }
+  for (const name of untracked) {
+    lines.push(`  ✗ [railway] ${name}`);
+    lines.push(`    current:  <present on Railway, absent from SSOT>`);
+    lines.push(
+      `    reason:   Railway service "${name}" is not in the SSOT. Either add it to SERVICES in showcase/scripts/railway-envs.ts (preferred), or mark an existing entry with gateIgnore: true if it is deliberately unmanaged by WS4.`,
+    );
+  }
+  lines.push(
+    `\nFix via Railway dashboard, \`bin/railway pin\`, \`bin/railway promote\`, or \`showcase/scripts/redeploy-env.ts\`.\n`,
+  );
+  return { shouldFail, lines };
+}
+
 // ── Railway GraphQL plumbing ────────────────────────────────────────────
 
 function getToken(): string {
@@ -339,29 +405,34 @@ async function main(): Promise<void> {
     prod: new Set<string>(),
     staging: new Set<string>(),
   };
+  // Names Railway actually reported back, used post-loop for the
+  // Railway -> SSOT coverage assertion (findUntrackedServices).
+  const railwayReportedNames = new Set<string>();
 
   for (const edge of data.project.services.edges) {
     const svc = edge.node;
+    railwayReportedNames.add(svc.name);
     const entry = SERVICES[svc.name];
 
-    // Unknown-service policy (WS4): log a warning and keep the gate
-    // green. Rationale: a NEW Railway service that we haven't added to
-    // the SSOT yet is operator drift, not image-ref corruption — the
-    // image-ref gate is the wrong place to fail. (A separate "SSOT
-    // parity" check is the right shape if we ever want to fail on
-    // drift in that direction; that's out of WS4 scope.)
-    if (!entry) {
-      console.warn(
-        `⚠ Skipping unknown Railway service "${svc.name}" — add it to railway-envs.ts SERVICES if it should be verified.`,
-      );
+    // Railway -> SSOT direction is handled post-loop via
+    // findUntrackedServices(); do NOT log a warning here. An unknown
+    // service that ALSO has a shape problem will surface in the
+    // post-loop failure block under the "untracked" class, which is
+    // the right shape (we can't validate shape without an expected
+    // repo name, and there is no SSOT entry to derive one from).
+    if (!entry) continue;
+
+    // gateIgnore: deliberately unmanaged. Skip both shape validation
+    // and Railway->SSOT membership reporting (the helper also honours
+    // this flag for that direction).
+    if (entry.gateIgnore) {
+      skipped++;
       continue;
     }
 
-    // Per-WS4 gate scope: only services explicitly marked
-    // gateValidated. The historic gate filtered to `showcase-*`-prefix
-    // services; WS4 inherits that scope plus aimock + pocketbase +
-    // webhooks (set on the SSOT entry). dashboard/docs/dojo/harness/
-    // shell are deferred to Phase 2.
+    // Per-WS-C gate scope: only services explicitly marked
+    // gateValidated. After WS-C lands the 5-service flip this is
+    // every entry in SERVICES — the Phase-2 deferral is retired.
     if (!entry.gateValidated) {
       skipped++;
       continue;
@@ -389,37 +460,27 @@ async function main(): Promise<void> {
     }
   }
 
-  // Coverage assertion: a gateValidated SSOT service that did not
-  // show up in the Railway response (deleted/renamed/missing instance
-  // in that env) is drift. Fail loudly through the same path as a
-  // shape violation.
+  // Coverage assertions:
+  //   - SSOT->Railway: a gateValidated SSOT service that did not show
+  //     up in the Railway response is drift.
+  //   - Railway->SSOT: a Railway service that has no SSOT entry (and
+  //     is not opted out via gateIgnore) is drift.
   const missingByEnv: Record<EnvName, string[]> = {
     prod: findMissingServices("prod", seenByEnv.prod),
     staging: findMissingServices("staging", seenByEnv.staging),
   };
-  const totalMissing = missingByEnv.prod.length + missingByEnv.staging.length;
+  const untracked = findUntrackedServices(railwayReportedNames);
 
-  if (violations.length > 0 || totalMissing > 0) {
-    console.error(
-      `\n✗ Railway image-ref drift detected (${violations.length} violations across ${checked} env-scoped instances; ${totalMissing} missing services; ${skipped} skipped)\n`,
-    );
-    for (const v of violations) {
-      console.error(`  ✗ [${v.env}] ${v.service}`);
-      console.error(`    current:  ${v.image ?? "<unset>"}`);
-      console.error(`    reason:   ${v.reason}`);
-    }
-    for (const env of ["prod", "staging"] as const) {
-      for (const name of missingByEnv[env]) {
-        console.error(`  ✗ [${env}] ${name}`);
-        console.error(`    current:  <missing from Railway>`);
-        console.error(
-          `    reason:   gateValidated SSOT service has no serviceInstance in ${env} — was it deleted or renamed?`,
-        );
-      }
-    }
-    console.error(
-      `\nFix via Railway dashboard, \`bin/railway pin\`, \`bin/railway promote\`, or \`showcase/scripts/redeploy-env.ts\`.\n`,
-    );
+  const summary = summarizeFailures({
+    violations,
+    missingByEnv,
+    untracked,
+    checked,
+    skipped,
+  });
+
+  if (summary.shouldFail) {
+    for (const line of summary.lines) console.error(line);
     process.exit(1);
   }
 
