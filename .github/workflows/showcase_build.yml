@@ -579,17 +579,27 @@ jobs:
 
       - name: Upload redeploy summary
         # Upload is MANDATORY whenever a redeploy was attempted (services
-        # != ''). Do NOT additionally gate on hashFiles(): if redeploy-env.ts
-        # crashes before writing summary.json, the file is missing and we
-        # WANT this step to FAIL — failing here fails the redeploy-staging
-        # job → fails the build workflow → the deploy workflow's
-        # resolve-matrix.if (workflow_run.conclusion == 'success') blocks
-        # the deploy run from starting at all. That is the desired loud
-        # failure on the build side. If we additionally gated on
-        # hashFiles(), the upload would silently skip on crash, the deploy
-        # workflow would see "artifact absent" via check-redeploy-summary,
-        # treat it as "nothing redeployed", skip the gate, and ship a
-        # false-green — masking a real redeploy failure.
+        # != ''). Both failure modes red the build — no false-green path:
+        #
+        #   (A) HARD crash inside redeploy-env.ts BEFORE summary.json is
+        #       written. redeploy-env.ts writes the summary atomically
+        #       (.tmp → rename) AFTER the per-service loop completes, so
+        #       a crash leaves no file. The redeploy step itself exits
+        #       non-zero on that crash and fails the redeploy-staging
+        #       job; this upload step is then skipped entirely by
+        #       step-failure propagation. Build → red.
+        #
+        #   (B) redeploy step exits 0 but summary.json is absent (e.g. a
+        #       logic bug skipped the write). `if-no-files-found: error`
+        #       reds this step → reds the redeploy-staging job → reds the
+        #       build. The deploy workflow's resolve-matrix.if
+        #       (workflow_run.conclusion == 'success') then blocks the
+        #       deploy run from starting at all.
+        #
+        # Do NOT add hashFiles() guards here: that would silently skip
+        # the upload on (B), the deploy workflow would see "artifact
+        # absent" via check-redeploy-summary, treat it as "nothing
+        # redeployed", skip the gate, and ship a false-green.
         # The legitimate "services == '' → nothing redeployed → no upload"
         # path is preserved by the services != '' guard.
         if: steps.changed.outputs.services != ''

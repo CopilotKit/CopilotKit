@@ -171,70 +171,24 @@ jobs:
           OK_FROM_REDEPLOY: ${{ steps.redeploy-gate.outputs.ok_services }}
           EVENT_NAME: ${{ github.event_name }}
           SUMMARY_PRESENT: ${{ steps.check-redeploy-summary.outputs.summary_present }}
-        run: |
-          set -euo pipefail
-          # The SSOT JSON is canonical for service identity, domain, and
-          # probe driver. The verify matrix is "every service where
-          # probe.staging===true, restricted to the success-set of the
-          # redeploy when present, restricted to --service when dispatched."
-          #
-          # Empty-OK_FROM_REDEPLOY has TWO distinct causes and we must
-          # NOT collapse them:
-          #   (1) workflow_run + summary artifact ABSENT — the upstream
-          #       build legitimately redeployed nothing (no buildable
-          #       service changed). There is nothing to verify; skip the
-          #       matrix entirely so `verify` doesn't probe the whole
-          #       staging fleet for a push that deployed nothing (which
-          #       would false-red the deploy workflow if any unrelated
-          #       staging service happens to be unhealthy at probe time).
-          #   (2) workflow_dispatch — manual verify-the-fleet (or a
-          #       specific --service). The fall-through below intentionally
-          #       resolves to the full probe-eligible set or the chosen
-          #       service.
-          # The workflow_run+summary-PRESENT+all-errors case is handled
-          # elsewhere: `redeploy-gate` sets redeploy_red=true and
-          # `enforce-redeploy-gate` trips RED. The empty intersection
-          # here in that case still produces has_services=false, which
-          # is fine — the gate job is what reds the workflow.
-          if [ "${EVENT_NAME:-}" = "workflow_run" ] && [ "${SUMMARY_PRESENT:-}" = "false" ]; then
-            echo "workflow_run with no redeploy-summary artifact — nothing was redeployed; skipping verify."
-            echo "services_csv=" >> "$GITHUB_OUTPUT"
-            echo "has_services=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          GENERATED="showcase/scripts/railway-envs.generated.json"
-          if [ ! -f "$GENERATED" ]; then
-            npx tsx showcase/scripts/emit-railway-envs-json.ts
-          fi
-          PROBE_ELIGIBLE=$(jq -r '.services[] | select(.probe.staging == true) | .name' "$GENERATED" | sort -u)
-          if [ -n "${OK_FROM_REDEPLOY:-}" ]; then
-            # Intersect with success-set (CSV may use dispatch_names; map to SSOT keys).
-            OK_KEYS=$(echo "$OK_FROM_REDEPLOY" | tr ',' '\n' | \
-              jq -R -s --slurpfile ssot <(jq -c '.services' "$GENERATED") '
-                split("\n") | map(select(length>0)) as $raw
-                | $ssot[0] as $svc
-                | $raw | map(. as $r | ($svc[] | select(.name == $r or .dispatchName == $r) | .name)) | unique
-              ' | jq -r '.[]')
-            PROBE_ELIGIBLE=$(comm -12 <(echo "$PROBE_ELIGIBLE") <(echo "$OK_KEYS" | sort -u))
-          fi
-          if [ "${DISPATCH_SERVICE:-all}" != "all" ] && [ -n "${DISPATCH_SERVICE:-}" ]; then
-            # Resolve dispatch input via SSOT (key or dispatchName).
-            RESOLVED=$(jq -r --arg s "$DISPATCH_SERVICE" '
-              .services[] | select(.name == $s or .dispatchName == $s) | .name
-            ' "$GENERATED" | head -n1)
-            if [ -z "$RESOLVED" ]; then
-              echo "::error::Unknown service '$DISPATCH_SERVICE' (not an SSOT key or dispatch_name)"
-              exit 1
-            fi
-            PROBE_ELIGIBLE="$RESOLVED"
-          fi
-          CSV=$(echo "$PROBE_ELIGIBLE" | tr '\n' ',' | sed 's/,$//')
-          echo "services_csv=$CSV" >> "$GITHUB_OUTPUT"
-          if [ -z "$CSV" ]; then
-            echo "has_services=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_services=true" >> "$GITHUB_OUTPUT"
-          fi
+        # The decision-table that picks the verify matrix lives in
+        # showcase/scripts/resolve-verify-matrix.ts (pure function +
+        # unit tests). Summary of cases:
+        #   - workflow_dispatch + 'all'/empty  → full probe-eligible set.
+        #   - workflow_dispatch + specific svc → just that service
+        #                                        (unknown name → error exit).
+        #   - workflow_run + summary_present=false → has_services=false
+        #                                            (build redeployed nothing).
+        #   - workflow_run + summary_present=true + ok empty
+        #       → has_services=false. Every service errored on redeploy;
+        #         the success-set is empty so there is nothing to verify.
+        #         `enforce-redeploy-gate` independently reds the workflow
+        #         on redeploy_red=true, so this case is already loud.
+        #   - workflow_run + summary_present=true + ok non-empty
+        #       → intersect ok_services (SSOT key OR dispatchName aliases)
+        #         with probe.staging-eligible SSOT services. has_services
+        #         reflects CSV emptiness.
+        run: npx tsx showcase/scripts/resolve-verify-matrix.ts
 
   verify:
     needs: [resolve-matrix]
