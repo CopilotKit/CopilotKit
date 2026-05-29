@@ -609,6 +609,13 @@ jobs:
         # gating, and `if-no-files-found: error` on `always()` then trips
         # because summary.json was never written. So neither relaxation
         # alone opens a false-green window.
+        #
+        # However, swapping the guard to `if: always()` would ALSO red the
+        # legitimate `services == ''` (nothing-to-redeploy) path — no
+        # summary.json is written there either, so `if-no-files-found:
+        # error` would trip on every push that didn't redeploy anything.
+        # Net effect: trades the (already-closed) false-green risk for a
+        # false-red on every non-buildable push. Don't do it.
         if: steps.changed.outputs.services != ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

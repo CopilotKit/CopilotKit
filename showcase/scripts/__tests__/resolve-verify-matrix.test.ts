@@ -257,6 +257,58 @@ describe("resolveVerifyMatrix", () => {
       }),
     ).toThrow(/::error::resolve-verify-matrix: unexpected eventName 'schedule'/);
   });
+
+  // ---------------------------------------------------------------------
+  // FIX 7 — make the workflow_run boundary total. summaryPresent MUST be
+  // exactly "true" or "false" on workflow_run (check-redeploy-summary
+  // always sets one of the two). Any other value (including the empty
+  // string from a future step-id-rename wiring break, or "True" from a
+  // case-typo) used to fall through to the intersection branch and
+  // silently emit has_services=false — indistinguishable from a
+  // legitimate skip. Throw instead. workflow_dispatch ignores
+  // summaryPresent and must NOT throw.
+  // ---------------------------------------------------------------------
+  it("workflow_run + summaryPresent='' → throws (boundary is total)", () => {
+    expect(() =>
+      resolveVerifyMatrix({
+        eventName: "workflow_run",
+        summaryPresent: "",
+        okFromRedeploy: "",
+        dispatchService: "",
+        ssotServices: fixtureServices,
+      }),
+    ).toThrow(
+      /::error::resolve-verify-matrix: workflow_run requires summary_present in \{true,false\}, got ''/,
+    );
+  });
+
+  it("workflow_run + summaryPresent='True' (case typo) → throws", () => {
+    expect(() =>
+      resolveVerifyMatrix({
+        eventName: "workflow_run",
+        summaryPresent: "True",
+        okFromRedeploy: "",
+        dispatchService: "",
+        ssotServices: fixtureServices,
+      }),
+    ).toThrow(
+      /::error::resolve-verify-matrix: workflow_run requires summary_present in \{true,false\}, got 'True'/,
+    );
+  });
+
+  it("workflow_dispatch ignores summaryPresent (any value) — does NOT throw on empty", () => {
+    // workflow_dispatch path never reads summaryPresent; it must keep
+    // working even when the wrapper passes the default "".
+    const out = resolveVerifyMatrix({
+      eventName: "workflow_dispatch",
+      summaryPresent: "",
+      okFromRedeploy: "",
+      dispatchService: "all",
+      ssotServices: fixtureServices,
+    });
+    expect(out.servicesCsv).toBe("svc-a,svc-b,svc-c,svc-d");
+    expect(out.hasServices).toBe(true);
+  });
 });
 
 // -------------------------------------------------------------------------

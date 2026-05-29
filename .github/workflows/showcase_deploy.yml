@@ -154,13 +154,17 @@ jobs:
           # silently yields empty → redeploy_red=false AND ok_services=""
           # → resolve-verify-matrix skips verify on a real unverified
           # redeploy = green CI on a broken release. Refuse the ambiguity:
-          # if the file has entries but none carry an ok|error status,
-          # fail loud here so enforce-redeploy-gate reds the workflow
-          # (resolve-matrix.result == 'failure' fans into the gate).
+          # if the file has entries but ANY entry is missing a valid
+          # ok|error status (partial drift — some rows on the legacy schema,
+          # some on the new one), fail loud here so enforce-redeploy-gate
+          # reds the workflow (resolve-matrix.result == 'failure' fans into
+          # the gate). The previous TOTAL>0 && WITH_STATUS==0 check was
+          # all-or-nothing and silently dropped the drifted rows on a mixed
+          # summary.
           TOTAL=$(jq 'length' "$SUMMARY")
           WITH_STATUS=$(jq '[.[] | select(.status == "ok" or .status == "error")] | length' "$SUMMARY")
-          if [ "$TOTAL" -gt 0 ] && [ "$WITH_STATUS" -eq 0 ]; then
-            echo "::error::summary.json has $TOTAL entries but none with status ok|error (schema drift?)"
+          if [ "$TOTAL" -gt 0 ] && [ "$WITH_STATUS" -lt "$TOTAL" ]; then
+            echo "::error::summary.json shape drift: $WITH_STATUS of $TOTAL entries have status ok|error"
             exit 1
           fi
           # Per spec §3: the workflow MUST turn red on any staging
@@ -203,9 +207,10 @@ jobs:
         #       → intersect ok_services (SSOT key OR dispatchName aliases)
         #         with probe.staging-eligible SSOT services. has_services
         #         reflects CSV emptiness. When the intersection collapses
-        #         to empty (e.g. every ok service is non-probe-eligible),
-        #         verify is skipped and `enforce-redeploy-gate` reds the
-        #         workflow independently on redeploy_red=true.
+        #         to empty, verify is skipped; if there were per-service
+        #         errors, enforce-redeploy-gate reds the workflow — otherwise
+        #         the run is correctly green (every redeploy succeeded, just
+        #         none probe-eligible).
         run: npx tsx showcase/scripts/resolve-verify-matrix.ts
 
   verify:

@@ -23,7 +23,7 @@
  *   3. workflow_dispatch + no summary → full probe-eligible set, has_services=true.
  *   4. workflow_dispatch + service=<unknown> → non-zero exit, stderr ::error::Unknown service.
  */
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -55,35 +55,22 @@ function runCli(env: Record<string, string>): SpawnResult {
     GITHUB_OUTPUT: outputPath,
     ...env,
   };
-  try {
-    execFileSync("npx", ["tsx", SCRIPT], {
-      cwd: REPO_ROOT,
-      env: fullEnv,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    return {
-      status: 0,
-      stderr: "",
-      output: readFileSync(outputPath, "utf-8"),
-    };
-  } catch (e) {
-    // execFileSync throws on non-zero exit; the thrown error carries
-    // `.status` and `.stderr` (Buffer when stdio captures).
-    const err = e as {
-      status?: number;
-      stderr?: Buffer | string;
-    };
-    return {
-      status: typeof err.status === "number" ? err.status : 1,
-      stderr:
-        typeof err.stderr === "string"
-          ? err.stderr
-          : err.stderr
-            ? err.stderr.toString("utf-8")
-            : "",
-      output: readFileSync(outputPath, "utf-8"),
-    };
-  }
+  // spawnSync (rather than execFileSync) so we capture stderr on BOTH
+  // zero and non-zero exit. execFileSync exposes stderr only on throw,
+  // which means the ::warning:: drift path (exit 0 + stderr text) is
+  // invisible to the test harness. spawnSync returns a single object
+  // regardless of status, so we inspect `status` and `stderr` directly.
+  const res = spawnSync("npx", ["tsx", SCRIPT], {
+    cwd: REPO_ROOT,
+    env: fullEnv,
+    stdio: ["ignore", "pipe", "pipe"],
+    encoding: "utf-8",
+  });
+  return {
+    status: typeof res.status === "number" ? res.status : 1,
+    stderr: typeof res.stderr === "string" ? res.stderr : "",
+    output: readFileSync(outputPath, "utf-8"),
+  };
 }
 
 // Pull two real probe-eligible names off the actual SSOT so the test
@@ -122,22 +109,135 @@ describe("resolve-verify-matrix CLI (end-to-end against real SSOT)", () => {
   it(
     "workflow_run + summary_present + two real ok_services → sorted CSV + has_services=true",
     () => {
-      const probe = realProbeEligibleNames();
-      // Pick TWO probe-eligible names. Use a CSV order that is NOT
-      // already sorted so the sort-on-intersection assertion is real.
-      // probe[0] sorts before probe[1] (alphabetical); feed reversed.
-      const picked = [probe[0], probe[1]];
-      const reversedCsv = `${picked[1]},${picked[0]}`;
-      const sortedCsv = picked.join(",");
+      // Hard-code two real, stable probe-eligible SSOT names rather than
+      // picking probe[0]/probe[1] off the live list. The earlier
+      // probe-index version was tautological: it pulled sorted names from
+      // the SSOT, reversed them, fed them back, and asserted the resolver
+      // re-sorted to the same order — which would silently pass even on a
+      // resolver that did nothing (because probe[0] < probe[1] is the
+      // ALREADY-sorted SSOT order). Also: if the SSOT ever shrank to <2
+      // probe-eligible entries, the test would silently assert
+      // `services_csv=undefined,undefined`.
+      //
+      // `aimock` and `harness` are foundational infra services (not
+      // integration slots), so they will not churn out of the SSOT. We
+      // assert they're both still probe-eligible at runtime; if either
+      // ever leaves, this test fails LOUD with a specific message rather
+      // than silently degrading.
+      const probe = new Set(realProbeEligibleNames());
+      expect(probe.has("aimock")).toBe(true);
+      expect(probe.has("harness")).toBe(true);
+      // Feed unsorted so the sort-on-intersection assertion is real:
+      // "harness,aimock" must come out as "aimock,harness".
       const r = runCli({
         EVENT_NAME: "workflow_run",
         SUMMARY_PRESENT: "true",
-        OK_FROM_REDEPLOY: reversedCsv,
+        OK_FROM_REDEPLOY: "harness,aimock",
         DISPATCH_SERVICE: "",
       });
       expect(r.status).toBe(0);
-      expect(r.output).toBe(
-        `services_csv=${sortedCsv}\nhas_services=true\n`,
+      expect(r.output).toBe("services_csv=aimock,harness\nhas_services=true\n");
+    },
+    30_000,
+  );
+
+  // -----------------------------------------------------------------------
+  // FIX 3 — surface SSOT/build drift via ::warning::ok_services tokens
+  // dropped (no SSOT match). The intersection logic already silently drops
+  // unmatched tokens from the verify matrix; the WARNING is the entire
+  // drift-detection contract operators rely on to notice that a redeploy
+  // reported success for a service the SSOT has forgotten about (or vice
+  // versa). Without coverage here it could silently regress to "no warning
+  // emitted" and the gate would keep working while losing its early-warning
+  // signal.
+  // -----------------------------------------------------------------------
+  it(
+    "workflow_run + ok_services with bogus token → ::warning:: lists dropped tokens, real ones still verify",
+    () => {
+      const r = runCli({
+        EVENT_NAME: "workflow_run",
+        SUMMARY_PRESENT: "true",
+        // `svc-bogus` is not in the SSOT under any spelling; `aimock` is
+        // a real probe-eligible service. The verify CSV must drop the
+        // bogus token AND the wrapper must `::warning::` so the dropped
+        // token surfaces in the workflow log as an annotation.
+        OK_FROM_REDEPLOY: "svc-bogus,aimock",
+        DISPATCH_SERVICE: "",
+      });
+      expect(r.status).toBe(0);
+      expect(r.output).toContain("services_csv=aimock\n");
+      expect(r.output).toContain("has_services=true\n");
+      expect(r.stderr).toMatch(
+        /::warning::ok_services tokens dropped \(no SSOT match\): svc-bogus/,
+      );
+    },
+    30_000,
+  );
+
+  // -----------------------------------------------------------------------
+  // FIX 5 — EVENT_NAME must be exactly 'workflow_run' or 'workflow_dispatch'.
+  // The CLI used to do an unchecked `as` cast on EVENT_NAME, so a typo or
+  // accidental new trigger ('push', 'schedule') would compile-pass at the
+  // type layer and only fail deep inside the resolver. Make the boundary
+  // total: a narrowing helper rejects unknown EVENT_NAME values up front,
+  // matching the resolver's own runtime guard with a SINGLE consistent
+  // story (type system + runtime agree).
+  // -----------------------------------------------------------------------
+  it(
+    "EVENT_NAME=push → non-zero exit with ::error::resolve-verify-matrix: unexpected EVENT_NAME",
+    () => {
+      const r = runCli({
+        EVENT_NAME: "push",
+        SUMMARY_PRESENT: "",
+        OK_FROM_REDEPLOY: "",
+        DISPATCH_SERVICE: "",
+      });
+      expect(r.status).not.toBe(0);
+      expect(r.stderr).toMatch(
+        /::error::resolve-verify-matrix: unexpected EVENT_NAME 'push'/,
+      );
+    },
+    30_000,
+  );
+
+  // -----------------------------------------------------------------------
+  // FIX 7 — workflow_run requires SUMMARY_PRESENT to be exactly "true" or
+  // "false". The check-redeploy-summary step always sets one of those two
+  // values, so any other input (including "" from a step-id wiring break,
+  // or "True" from a case-typo) means the wiring is broken and the gate
+  // would silently fall through to the intersection branch. Fail loud
+  // rather than silently emitting has_services=false on a real redeploy.
+  // workflow_dispatch ignores SUMMARY_PRESENT and must NOT trigger this.
+  // -----------------------------------------------------------------------
+  it(
+    "EVENT_NAME=workflow_run + SUMMARY_PRESENT='' → non-zero exit with workflow_run requires summary_present",
+    () => {
+      const r = runCli({
+        EVENT_NAME: "workflow_run",
+        SUMMARY_PRESENT: "",
+        OK_FROM_REDEPLOY: "",
+        DISPATCH_SERVICE: "",
+      });
+      expect(r.status).not.toBe(0);
+      expect(r.stderr).toMatch(
+        /::error::resolve-verify-matrix: workflow_run requires summary_present in \{true,false\}, got ''/,
+      );
+    },
+    30_000,
+  );
+
+  it(
+    "EVENT_NAME=workflow_run + SUMMARY_PRESENT='True' (case typo) → non-zero exit",
+    () => {
+      const r = runCli({
+        EVENT_NAME: "workflow_run",
+        SUMMARY_PRESENT: "True",
+        OK_FROM_REDEPLOY: "",
+        DISPATCH_SERVICE: "",
+      });
+      expect(r.status).not.toBe(0);
+      expect(r.stderr).toMatch(
+        /::error::resolve-verify-matrix: workflow_run requires summary_present in \{true,false\}, got 'True'/,
       );
     },
     30_000,

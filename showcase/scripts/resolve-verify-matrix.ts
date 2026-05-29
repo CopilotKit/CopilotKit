@@ -144,12 +144,37 @@ export function resolveVerifyMatrix(
   // explicitly handled — the prior fall-through to the workflow_run
   // intersection branch silently emitted has_services=false for both,
   // indistinguishable from a legit "no summary, nothing to verify" skip.
+  //
+  // The CLI wrapper narrows EVENT_NAME via `asSupportedEventName` before
+  // calling here, so on the CLI path this guard is defense-in-depth.
+  // Direct test callers (which build their own input object) still pay
+  // the runtime check, which is the point.
   if (
     eventName !== "workflow_run" &&
     eventName !== "workflow_dispatch"
   ) {
     throw new Error(
       `::error::resolve-verify-matrix: unexpected eventName '${eventName}' (expected 'workflow_run' or 'workflow_dispatch')`,
+    );
+  }
+
+  // FIX 7 — make the workflow_run boundary total. `check-redeploy-summary`
+  // always sets `summary_present` to exactly "true" or "false"; any other
+  // value here (including "" from a future step-id-rename wiring break,
+  // or "True" from a case-typo) means the wiring is broken upstream, NOT
+  // a legitimate skip. Without this guard, an empty/garbage summaryPresent
+  // falls through to the workflow_run intersection branch — which silently
+  // emits has_services=false on what may be a real redeploy. Throw instead
+  // so enforce-redeploy-gate (which fans in on resolve-matrix.result ==
+  // 'failure') reds the workflow.
+  // workflow_dispatch ignores summaryPresent and must NOT trip this guard.
+  if (
+    eventName === "workflow_run" &&
+    summaryPresent !== "true" &&
+    summaryPresent !== "false"
+  ) {
+    throw new Error(
+      `::error::resolve-verify-matrix: workflow_run requires summary_present in {true,false}, got '${summaryPresent}'`,
     );
   }
 
@@ -221,12 +246,17 @@ const SSOT_JSON = "showcase/scripts/railway-envs.generated.json";
 const EMIT_SCRIPT = "showcase/scripts/emit-railway-envs-json.ts";
 
 /**
- * Validate the parsed SSOT JSON shape. A truncated or schema-drifted
- * SSOT (emitter crashed mid-write, or someone renamed `probe.staging`)
- * parses fine but silently shrinks/empties the probe-eligible set,
- * which the resolver then propagates as a false-green skip. We require
- * the shape we depend on, and `::error::`-prefix the throw so the
- * workflow log surfaces it as an annotation.
+ * Validate the parsed SSOT JSON shape. Two distinct failure modes to
+ * guard against:
+ *   - SCHEMA DRIFT (e.g. someone renamed `probe.staging`): the JSON
+ *     parses fine but silently empties the probe-eligible set, which
+ *     the resolver would otherwise propagate as a false-green skip.
+ *   - TRUNCATION (emitter crashed mid-write): either fails `JSON.parse`
+ *     outright (loud) or — if the truncation happened to land on a
+ *     valid-JSON boundary — leaves an empty `services` array, caught
+ *     here by the non-empty check.
+ * We require the exact shape we depend on, and `::error::`-prefix the
+ * throw so the workflow log surfaces it as an annotation.
  */
 export function parseSsotServices(
   raw: unknown,
@@ -326,6 +356,24 @@ function requireEnv(name: string): string {
   return v;
 }
 
+/**
+ * Narrow a raw env-string EVENT_NAME into the resolver's literal union.
+ * Replaces the prior `as 'workflow_run' | 'workflow_dispatch'` unchecked
+ * cast — the type system and runtime now tell the same story. The
+ * resolver itself ALSO guards eventName, but doing the narrowing here
+ * means the CLI path fails loud at the boundary with a wrapper-specific
+ * `::error::` annotation (EVENT_NAME, not eventName) before the resolver
+ * is even called.
+ */
+function asSupportedEventName(s: string): SupportedEventName {
+  if (s !== "workflow_run" && s !== "workflow_dispatch") {
+    throw new Error(
+      `::error::resolve-verify-matrix: unexpected EVENT_NAME '${s}' (expected 'workflow_run' or 'workflow_dispatch')`,
+    );
+  }
+  return s;
+}
+
 function writeGithubOutput(
   githubOutput: string,
   servicesCsv: string,
@@ -349,13 +397,13 @@ function main(): void {
   const dispatchService = process.env.DISPATCH_SERVICE ?? "";
 
   try {
-    // Narrow the raw env-string to the resolver's literal union. The
-    // resolver itself also fails loud on unknown eventName (FIX 3) — the
-    // cast just satisfies the type system; runtime validation lives in
-    // the resolver so both call paths (tests + CLI) share one guard.
-    const eventName = eventNameRaw as
-      | "workflow_run"
-      | "workflow_dispatch";
+    // Narrow the raw env-string to the resolver's literal union. Replaces
+    // the prior unchecked `as` cast — the narrowing helper throws on
+    // unexpected EVENT_NAME with a wrapper-specific `::error::`
+    // annotation, so the type system and runtime tell the same story.
+    // The resolver's internal eventName guard becomes defense-in-depth
+    // for direct (test) callers that construct input objects by hand.
+    const eventName: SupportedEventName = asSupportedEventName(eventNameRaw);
 
     const ssotServices = loadSsotServices();
 
@@ -392,17 +440,17 @@ function main(): void {
   }
 }
 
-const invokedDirectly = (() => {
-  try {
-    return (
-      typeof process !== "undefined" &&
-      Array.isArray(process.argv) &&
-      process.argv[1] === fileURLToPath(import.meta.url)
-    );
-  } catch {
-    return false;
-  }
-})();
+// Detect "this module is the entrypoint" — used to gate the CLI bottom
+// half so tests can `import` the pure resolver without triggering env
+// reads or filesystem IO. Intentionally NO try/catch: an ESM-interop
+// failure here (e.g. `fileURLToPath` rejects `import.meta.url`) used to
+// silently return false → CLI no-ops → $GITHUB_OUTPUT never written →
+// downstream `verify:` step skips (false-green). Let it crash loud
+// instead; the workflow surfaces the stack and the gate stays honest.
+const invokedDirectly =
+  typeof process !== "undefined" &&
+  Array.isArray(process.argv) &&
+  process.argv[1] === fileURLToPath(import.meta.url);
 
 if (invokedDirectly) {
   main();
