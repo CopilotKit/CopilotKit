@@ -513,19 +513,24 @@ jobs:
 
   redeploy-staging:
     name: Trigger Railway staging redeploy
-    needs: [detect-changes, build]
+    needs: [detect-changes, build, aggregate-build-results]
     # Run if at least one service was in the matrix AND the build job
-    # was not outright cancelled or skipped. We tolerate per-slot build
-    # failures: redeploy what we did push (the script only redeploys
-    # requested services, and slots that failed to push will simply
-    # re-pull the previous :latest — which is a no-op). However, if the
-    # build job was SKIPPED entirely (e.g. the verify-image-refs prod
-    # digest-pin gate failed, blocking build), suppress the redeploy:
-    # nothing was pushed and there is no reason to redeploy staging.
-    # Partial build failures (fail-fast: false) still surface as
-    # needs.build.result == 'failure', so the intent of redeploying what
-    # did get pushed is preserved.
-    if: ${{ !cancelled() && needs.detect-changes.outputs.has_changes == 'true' && needs.build.result != 'skipped' && needs.build.result != 'cancelled' }}
+    # was not outright cancelled or skipped AND at least one slot
+    # succeeded (per aggregate-build-results.outputs.any_success). The
+    # any_success guard is the explicit "do not redeploy when nothing
+    # was pushed" check — without it, an all-failed build run would
+    # still kick a redeploy that just re-pulls the stale :latest and
+    # silently looks healthy. The skipped/cancelled checks on the build
+    # job still cover the "verify-image-refs gate blocked the build job
+    # entirely" path. Partial build failures (fail-fast: false) still
+    # surface as needs.build.result == 'failure' with any_success ==
+    # 'true', so redeploying what did get pushed is preserved.
+    if: >-
+      ${{ !cancelled()
+          && needs.detect-changes.outputs.has_changes == 'true'
+          && needs.build.result != 'skipped'
+          && needs.build.result != 'cancelled'
+          && needs.aggregate-build-results.outputs.any_success == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -565,6 +570,37 @@ jobs:
           # and writes per-service failures into $GITHUB_STEP_SUMMARY. The
           # verify-deploy workflow is the real release gate.
           npx tsx showcase/scripts/redeploy-env.ts staging --services "$SERVICES_CSV"
+
+  notify-all-builds-failed:
+    name: Notify all builds failed (staging unchanged)
+    needs: [detect-changes, build, aggregate-build-results]
+    # Explicit "everything failed; nothing redeployed" signal — distinct
+    # from the `notify:` job below which fires on any build-job failure
+    # (some slots may still have succeeded in that case). Both jobs can
+    # fire; that's intentional and matches the Slack alert SOP.
+    if: >-
+      ${{ !cancelled()
+          && needs.detect-changes.outputs.has_changes == 'true'
+          && needs.aggregate-build-results.outputs.any_success == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+    steps:
+      - name: Mark workflow red (no service succeeded)
+        run: |
+          echo "::error::All builds failed for this run; staging redeploy skipped; :latest unchanged."
+          exit 1
+      - name: Slack #oss-alerts
+        if: always() && env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ${{ toJSON(format(':x: *Showcase: all builds failed*\nstaging unchanged (no redeploy)\nCommit: `{0}` by {1}\n<https://github.com/{2}/actions/runs/{3}|View run>', github.sha, github.actor, github.repository, github.run_id)) }} }
 
   notify:
     name: Notify on failure
