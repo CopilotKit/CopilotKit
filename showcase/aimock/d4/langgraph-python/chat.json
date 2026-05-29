@@ -69,7 +69,7 @@
         "context": "langgraph-python"
       },
       "response": {
-        "content": "The current weather in Tokyo is 22°C with partly cloudy skies. Humidity is at 65% with light winds from the east at 12 km/h. Perfect weather for a walk outside!"
+        "content": "The current weather in San Francisco is 68°F and sunny with light winds. Perfect weather for a walk outside!"
       }
     },
     {
@@ -266,8 +266,9 @@
       }
     },
     {
+      "_comment": "D4 probe sends 'What's the weather in San Francisco?'. Narrowed userMessage to 'weather in San Francisco' so this no longer shadows D6 tool-rendering pills that contain the substring 'weather' (e.g. 'Chain a few tools ... weather in Tokyo'). Args also realigned to the get_weather(location) Pydantic schema with the SF location the probe actually asks for.",
       "match": {
-        "userMessage": "weather",
+        "userMessage": "weather in San Francisco",
         "hasToolResult": false,
         "context": "langgraph-python"
       },
@@ -276,7 +277,7 @@
           {
             "id": "call_fp_get_weather_001",
             "name": "get_weather",
-            "arguments": "{\"location\":\"Tokyo\"}"
+            "arguments": "{\"location\":\"San Francisco\"}"
           }
         ]
       }
@@ -473,8 +474,9 @@
       }
     },
     {
+      "_comment": "Realigned args to match search_flights(origin, destination) Pydantic schema in tool_rendering_agent.py — the demo D4 probes through /demos/tool-rendering. The prior {flights:[...]} shape was a leftover from beautiful-chat's search_flights(flights:list[Flight]) tool — that tool only exists on the beautiful-chat agent, not on tool-rendering. With the wrong shape the tool errored with Pydantic 'origin/destination: Field required', which suppressed the tool card and broke D6 tool-rendering pills that share this prompt. Narrowed userMessage to 'Find flights from SFO to JFK.' (note trailing period — verbatim D4 probe + basic tool-rendering pill prompt) so this no longer shadows the D6 reasoning-chain pill 'Find flights from SFO to JFK and show me the weather there.' (no period after JFK).",
       "match": {
-        "userMessage": "flights from SFO to JFK",
+        "userMessage": "Find flights from SFO to JFK.",
         "hasToolResult": false,
         "context": "langgraph-python"
       },
@@ -483,7 +485,7 @@
           {
             "id": "call_fp_search_flights_001",
             "name": "search_flights",
-            "arguments": "{\"flights\":[{\"airline\":\"United Airlines\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=united.com&sz=128\",\"flightNumber\":\"UA123\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"08:00\",\"arrivalTime\":\"16:30\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$349\",\"currency\":\"USD\"},{\"airline\":\"Delta\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=delta.com&sz=128\",\"flightNumber\":\"DL456\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"10:15\",\"arrivalTime\":\"18:45\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$289\",\"currency\":\"USD\"}]}"
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\"}"
           }
         ]
       }
@@ -514,11 +516,12 @@
       }
     },
     {
-      "_comment": "Large chunkSize keeps the manage_todos args (with 4-byte UTF-8 emoji) as a single SSE chunk. aimock chunks via JavaScript .slice() which operates on UTF-16 code units; emoji surrogate pairs split mid-codepoint produce unpaired surrogates that strict pydantic deserializers (e.g. agent_framework_ag_ui) reject with PydanticSerializationError.",
+      "_comment": "Large chunkSize keeps the manage_todos args (with 4-byte UTF-8 emoji) as a single SSE chunk. aimock chunks via JavaScript .slice() which operates on UTF-16 code units; emoji surrogate pairs split mid-codepoint produce unpaired surrogates that strict pydantic deserializers (e.g. agent_framework_ag_ui) reject with PydanticSerializationError. chunkSize MUST live at the fixture root (alongside match/response) — server.ts:681 reads `fixture.chunkSize`, NOT `response.chunkSize`.",
       "match": {
         "toolCallId": "call_fp_beautiful_chat_enable_app_mode_001",
         "context": "langgraph-python"
       },
+      "chunkSize": 9999,
       "response": {
         "toolCalls": [
           {
@@ -630,8 +633,9 @@
       }
     },
     {
+      "_comment": "D4 toolbar 'Summarize' button — further narrowed from 'Summarize the' to 'Summarize the sales pipeline' (verbatim D4 toolbar probe). The prior 'Summarize the' still matched the D6 subagents pill 'Summarize the current state of reusable rockets...' and the response (sales-pipeline summary) is wildly off-topic for a subagents probe, breaking the subagents e2e regression test for the delegations reducer. 'Summarize the sales pipeline' is unique to the D4 toolbar probe.",
       "match": {
-        "userMessage": "summarize",
+        "userMessage": "Summarize the sales pipeline",
         "context": "langgraph-python"
       },
       "response": {
@@ -657,8 +661,9 @@
       }
     },
     {
+      "_comment": "D4 toolbar 'Detailed' button — tightened from bare 'detailed' so it doesn't shadow d6 agent-config 'responseLength:detailed — describe agent context per your config'. Anchored on the longer phrase that the d4 button actually sends.",
       "match": {
-        "userMessage": "detailed",
+        "userMessage": "Make this more detailed",
         "context": "langgraph-python"
       },
       "response": {
@@ -876,8 +881,9 @@
       }
     },
     {
+      "_comment": "Narrowed from bare 'Roll a 20-sided die' to 'Roll a 20-sided die for me' so it no longer shadows the D6 tool-rendering pill 'Roll a 20-sided die.' (which chains 5 roll_d20 calls). The d4/d5-reasoning-chain probe uses the 'for me' phrasing.",
       "match": {
-        "userMessage": "Roll a 20-sided die",
+        "userMessage": "Roll a 20-sided die for me",
         "hasToolResult": false,
         "context": "langgraph-python"
       },
@@ -931,9 +937,9 @@
       }
     },
     {
-      "_comment": "Pilot cell suggestion — 'Give me a fun fact.' (prebuilt-sidebar)",
+      "_comment": "Pilot cell suggestion — 'Give me a fun fact.' (prebuilt-sidebar). Narrowed userMessage from bare 'fun fact' to 'fun fact for the prebuilt sidebar' so it ONLY matches a hypothetical sidebar-specific probe (none currently exists; this entry is preserved as a structural placeholder). The narrow gate prevents this from shadowing the D6 headless-simple pill 'Give me a fun fact.' which expects a DIFFERENT leading phrase ('A fun fact: Honey never spoils!') and is tested by tests/e2e/headless-simple.spec.ts. Substring matching is forward-only — no current pill prompt contains 'fun fact for the prebuilt sidebar' so this is effectively disabled.",
       "match": {
-        "userMessage": "fun fact",
+        "userMessage": "fun fact for the prebuilt sidebar",
         "context": "langgraph-python"
       },
       "response": {
@@ -951,9 +957,9 @@
       }
     },
     {
-      "_comment": "Pilot cell suggestion — 'Say hi!' (prebuilt-sidebar). Anchored on 'Say hi' so it matches the sidebar greeting without colliding with the longer popup variant above.",
+      "_comment": "Pilot cell suggestion — 'Say hi!' (prebuilt-sidebar). Narrowed userMessage from 'Say hi' to 'Say hi!' (with exclamation — verbatim prebuilt-sidebar pill text) so this no longer shadows the D6 shared-state-read-write pill 'Say hi and introduce yourself.' (no exclamation, different intended response). The exclamation is unique to the prebuilt-sidebar pill among current LGP demos.",
       "match": {
-        "userMessage": "Say hi",
+        "userMessage": "Say hi!",
         "context": "langgraph-python"
       },
       "response": {

@@ -1,121 +1,189 @@
 {
   "_meta": {
-    "description": "D6 fixtures for langgraph-python / gen-ui-declarative",
-    "sourceFile": "d5-gen-ui-declarative.ts",
-    "created": "2026-05-22"
+    "description": "D6 fixtures for langgraph-python / gen-ui-declarative (A2UI Dynamic Schema)",
+    "_note": "Agent uses a two-stage A2UI pattern (src/agents/a2ui_dynamic.py): (1) outer agent has only one tool, `generate_a2ui` (no args). (2) `generate_a2ui` internally invokes a secondary LLM bound to `_design_a2ui_surface` with `tool_choice` forced; that secondary call has tools=[_design_a2ui_surface] and emits the A2UI components payload. (3) After the tool returns, the outer agent emits a one-sentence narration. Fixtures must therefore cover three LLM calls per pill: (a) outer turn 1 \u2192 emit generate_a2ui toolcall; (b) inner secondary call \u2192 emit _design_a2ui_surface toolcall with the flat catalog components; (c) outer turn 2 (post tool result) \u2192 narration. The inner secondary call is discriminated by `toolName: '_design_a2ui_surface'` because the user prompt is identical across both outer+inner calls in the same pill (the inner secondary LLM is invoked with the same conversation messages minus the last assistant message).",
+    "created": "2026-05-28"
   },
   "fixtures": [
     {
-      "_comment": "gen-ui-declarative pill 1: KPI dashboard — render_a2ui emitting Card + Metric catalog components. The demo's declarative renderer materialises [data-testid='declarative-card'] and [data-testid='declarative-metric'].",
+      "_comment": "pill 1 KPI \u2014 inner secondary LLM (tools=[_design_a2ui_surface], tool_choice forced) emits the flat A2UI components. Discriminated by toolName so it wins over the outer generate_a2ui fixture whose userMessage matches the same prompt.",
       "match": {
-        "userMessage": "Show me a quick KPI dashboard with 3-4 metrics (revenue, signups, churn).",
-        "hasToolResult": false,
+        "userMessage": "Show me a quick KPI dashboard",
+        "toolName": "_design_a2ui_surface"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_kpi_design_001",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\":\"kpi-dashboard\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Card\",\"title\":\"KPI Dashboard\",\"subtitle\":\"Last 30 days\",\"child\":\"metrics-col\"},{\"id\":\"metrics-col\",\"component\":\"Column\",\"children\":[\"m-rev\",\"m-sign\",\"m-churn\",\"m-mrr\"],\"gap\":12},{\"id\":\"m-rev\",\"component\":\"Metric\",\"label\":\"Revenue\",\"value\":\"$1.2M\",\"trend\":\"up\"},{\"id\":\"m-sign\",\"component\":\"Metric\",\"label\":\"Signups\",\"value\":\"8,420\",\"trend\":\"up\"},{\"id\":\"m-churn\",\"component\":\"Metric\",\"label\":\"Churn\",\"value\":\"2.1%\",\"trend\":\"down\"},{\"id\":\"m-mrr\",\"component\":\"Metric\",\"label\":\"MRR\",\"value\":\"$98K\",\"trend\":\"up\"}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill 1 KPI \u2014 outer agent narration after generate_a2ui returns.",
+      "match": {
+        "context": "langgraph-python",
+        "toolCallId": "call_d6_decl_kpi_outer_001"
+      },
+      "response": {
+        "content": "KPI dashboard rendered."
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill 1 KPI \u2014 outer agent emits generate_a2ui (no args).",
+      "match": {
+        "userMessage": "Show me a quick KPI dashboard",
         "context": "langgraph-python"
       },
       "response": {
         "toolCalls": [
           {
-            "id": "call_d6_declarative_kpi_001",
-            "name": "render_a2ui",
-            "arguments": "{\"components\":[{\"type\":\"Card\",\"title\":\"KPI Dashboard\",\"children\":[{\"type\":\"Metric\",\"label\":\"Revenue\",\"value\":\"$1.2M\",\"change\":\"+15%\"},{\"type\":\"Metric\",\"label\":\"Signups\",\"value\":\"8,420\",\"change\":\"+22%\"},{\"type\":\"Metric\",\"label\":\"Churn\",\"value\":\"2.1%\",\"change\":\"-0.3%\"},{\"type\":\"Metric\",\"label\":\"MRR\",\"value\":\"$98K\",\"change\":\"+11%\"}]}]}"
+            "id": "call_d6_decl_kpi_outer_001",
+            "name": "generate_a2ui",
+            "arguments": "{}"
           }
         ]
-      }
+      },
+      "chunkSize": 9999
     },
     {
-      "_comment": "gen-ui-declarative pill 1 follow-up after render_a2ui returns.",
+      "_comment": "pill 2 pie chart \u2014 inner secondary LLM emits PieChart catalog component.",
       "match": {
-        "userMessage": "Show me a quick KPI dashboard with 3-4 metrics (revenue, signups, churn).",
-        "toolCallId": "call_d6_declarative_kpi_001",
-        "context": "langgraph-python"
+        "userMessage": "pie chart of sales by region",
+        "toolName": "_design_a2ui_surface"
       },
       "response": {
-        "content": "KPI dashboard rendered with four metrics — revenue, signups, churn, and MRR."
-      }
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_pie_design_001",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\":\"sales-pie\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"PieChart\",\"title\":\"Sales by Region\",\"data\":[{\"label\":\"North America\",\"value\":45},{\"label\":\"Europe\",\"value\":28},{\"label\":\"Asia-Pacific\",\"value\":18},{\"label\":\"Other\",\"value\":9}]}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
     },
     {
-      "_comment": "gen-ui-declarative pill 2: Pie chart — render_a2ui emitting PieChart. Materialises [data-testid='declarative-pie-chart'].",
+      "_comment": "pill 2 pie chart \u2014 outer agent narration.",
       "match": {
-        "userMessage": "Show a pie chart of sales by region.",
-        "hasToolResult": false,
+        "context": "langgraph-python",
+        "toolCallId": "call_d6_decl_pie_outer_001"
+      },
+      "response": {
+        "content": "Pie chart rendered."
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill 2 pie chart \u2014 outer agent emits generate_a2ui.",
+      "match": {
+        "userMessage": "pie chart of sales by region",
         "context": "langgraph-python"
       },
       "response": {
         "toolCalls": [
           {
-            "id": "call_d6_declarative_pie_001",
-            "name": "render_a2ui",
-            "arguments": "{\"components\":[{\"type\":\"PieChart\",\"title\":\"Sales by Region\",\"data\":[{\"label\":\"North America\",\"value\":45},{\"label\":\"Europe\",\"value\":28},{\"label\":\"Asia-Pacific\",\"value\":18},{\"label\":\"Other\",\"value\":9}]}]}"
+            "id": "call_d6_decl_pie_outer_001",
+            "name": "generate_a2ui",
+            "arguments": "{}"
           }
         ]
-      }
+      },
+      "chunkSize": 9999
     },
     {
-      "_comment": "gen-ui-declarative pill 2 follow-up.",
+      "_comment": "pill 3 bar chart \u2014 inner secondary LLM emits BarChart catalog component.",
       "match": {
-        "userMessage": "Show a pie chart of sales by region.",
-        "toolCallId": "call_d6_declarative_pie_001",
-        "context": "langgraph-python"
+        "userMessage": "bar chart of quarterly revenue",
+        "toolName": "_design_a2ui_surface"
       },
       "response": {
-        "content": "Pie chart rendered — North America leads at 45%, followed by Europe at 28%."
-      }
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_bar_design_001",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\":\"quarterly-rev\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"BarChart\",\"title\":\"Quarterly Revenue\",\"data\":[{\"label\":\"Q1\",\"value\":280000},{\"label\":\"Q2\",\"value\":310000},{\"label\":\"Q3\",\"value\":295000},{\"label\":\"Q4\",\"value\":340000}]}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
     },
     {
-      "_comment": "gen-ui-declarative pill 3: Bar chart — render_a2ui emitting BarChart. Materialises [data-testid='declarative-bar-chart'].",
+      "_comment": "pill 3 bar chart \u2014 outer agent narration.",
       "match": {
-        "userMessage": "Render a bar chart of quarterly revenue.",
-        "hasToolResult": false,
+        "context": "langgraph-python",
+        "toolCallId": "call_d6_decl_bar_outer_001"
+      },
+      "response": {
+        "content": "Bar chart rendered."
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill 3 bar chart \u2014 outer agent emits generate_a2ui.",
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
         "context": "langgraph-python"
       },
       "response": {
         "toolCalls": [
           {
-            "id": "call_d6_declarative_bar_001",
-            "name": "render_a2ui",
-            "arguments": "{\"components\":[{\"type\":\"BarChart\",\"title\":\"Quarterly Revenue\",\"data\":[{\"label\":\"Q1\",\"value\":280000},{\"label\":\"Q2\",\"value\":310000},{\"label\":\"Q3\",\"value\":295000},{\"label\":\"Q4\",\"value\":340000}]}]}"
+            "id": "call_d6_decl_bar_outer_001",
+            "name": "generate_a2ui",
+            "arguments": "{}"
           }
         ]
-      }
+      },
+      "chunkSize": 9999
     },
     {
-      "_comment": "gen-ui-declarative pill 3 follow-up.",
+      "_comment": "pill 4 status report \u2014 inner secondary LLM emits StatusBadges grouped in a root Column.",
       "match": {
-        "userMessage": "Render a bar chart of quarterly revenue.",
-        "toolCallId": "call_d6_declarative_bar_001",
-        "context": "langgraph-python"
+        "userMessage": "status report on system health",
+        "toolName": "_design_a2ui_surface"
       },
       "response": {
-        "content": "Bar chart rendered — Q4 revenue peaked at $340K."
-      }
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_status_design_001",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\":\"sys-status\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Card\",\"title\":\"System health\",\"subtitle\":\"All services\",\"child\":\"badges-col\"},{\"id\":\"badges-col\",\"component\":\"Column\",\"children\":[\"sb-api\",\"sb-db\",\"sb-bg\"],\"gap\":8},{\"id\":\"sb-api\",\"component\":\"StatusBadge\",\"text\":\"API: healthy (p99 42ms)\",\"variant\":\"success\"},{\"id\":\"sb-db\",\"component\":\"StatusBadge\",\"text\":\"Database: healthy (replication lag 0.2s)\",\"variant\":\"success\"},{\"id\":\"sb-bg\",\"component\":\"StatusBadge\",\"text\":\"Background Workers: degraded (queue depth 1247)\",\"variant\":\"warning\"}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
     },
     {
-      "_comment": "gen-ui-declarative pill 4: Status report — render_a2ui emitting StatusBadge. Materialises [data-testid='declarative-status-badge']. This is the distinguishing testid that proves the status-report pill rendered its own catalog component (not leftover from earlier pills).",
+      "_comment": "pill 4 status report \u2014 outer agent narration.",
       "match": {
-        "userMessage": "Give me a status report on system health — API, database, and background workers.",
-        "hasToolResult": false,
+        "context": "langgraph-python",
+        "toolCallId": "call_d6_decl_status_outer_001"
+      },
+      "response": {
+        "content": "System health status rendered."
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill 4 status report \u2014 outer agent emits generate_a2ui.",
+      "match": {
+        "userMessage": "status report on system health",
         "context": "langgraph-python"
       },
       "response": {
         "toolCalls": [
           {
-            "id": "call_d6_declarative_status_001",
-            "name": "render_a2ui",
-            "arguments": "{\"components\":[{\"type\":\"StatusBadge\",\"label\":\"API\",\"status\":\"healthy\",\"detail\":\"p99 latency 42ms\"},{\"type\":\"StatusBadge\",\"label\":\"Database\",\"status\":\"healthy\",\"detail\":\"replication lag 0.2s\"},{\"type\":\"StatusBadge\",\"label\":\"Background Workers\",\"status\":\"degraded\",\"detail\":\"queue depth 1,247 — draining slowly\"}]}"
+            "id": "call_d6_decl_status_outer_001",
+            "name": "generate_a2ui",
+            "arguments": "{}"
           }
         ]
-      }
-    },
-    {
-      "_comment": "gen-ui-declarative pill 4 follow-up.",
-      "match": {
-        "userMessage": "Give me a status report on system health — API, database, and background workers.",
-        "toolCallId": "call_d6_declarative_status_001",
-        "context": "langgraph-python"
       },
-      "response": {
-        "content": "Status report rendered — API and Database are healthy, Background Workers are degraded with elevated queue depth."
-      }
+      "chunkSize": 9999
     }
   ]
 }
