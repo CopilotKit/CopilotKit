@@ -1,4 +1,10 @@
-import { openai } from "@ai-sdk/openai";
+// Header-forwarding shim: the ag-ui/mastra adapter does not propagate
+// inbound x-* headers (e.g. x-aimock-context) to the Vercel AI SDK provider.
+// `@/mastra/_header_forwarding` re-exports `openai` with a fetch wrapper
+// that merges ALS-bound headers into every outbound LLM call. The
+// CopilotKit route is responsible for binding the per-request snapshot via
+// `withForwardedHeaders(req, () => handleRequest(req))`.
+import { openai } from "@/mastra/_header_forwarding";
 import { Agent } from "@mastra/core/agent";
 import {
   weatherTool,

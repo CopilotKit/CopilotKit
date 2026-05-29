@@ -8,6 +8,11 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { mastra } from "@/mastra";
+// `withForwardedHeaders` binds inbound x-* headers (e.g. x-aimock-context)
+// into an AsyncLocalStorage scope so the wrapped @ai-sdk/openai provider's
+// fetch can re-attach them on outbound LLM calls. Required because the
+// @ag-ui/mastra adapter does not forward inbound headers to Vercel AI SDK.
+import { withForwardedHeaders } from "@/mastra/_header_forwarding";
 
 // We use ExperimentalEmptyAdapter because Mastra agents drive the LLM
 // themselves — the CopilotKit runtime only brokers AG-UI events between
@@ -457,45 +462,49 @@ function wrapStreamingResponse(response: Response): Response {
 //      handleRequest leaks (no consumer ever reads it).
 //   3. Mid-stream errors (thrown after response headers have been flushed)
 //      — caught inside the TransformStream in `wrapStreamingResponse`.
-export const POST = async (req: NextRequest) => {
-  let response: Response | undefined;
-  try {
-    const runtime = new CopilotRuntime({
-      agents: getAgents(),
-    });
-
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      runtime,
-      serviceAdapter,
-      endpoint: "/api/copilotkit",
-    });
-
-    response = await handleRequest(req);
-  } catch (err) {
-    const errorId = logRouteError(err, "setup");
-    return NextResponse.json(
-      { error: "internal runtime error", errorId },
-      { status: 500 },
-    );
-  }
-
-  try {
-    return wrapStreamingResponse(response);
-  } catch (err) {
-    // `wrapStreamingResponse` threw synchronously (e.g. malformed
-    // `response.headers`). The upstream ReadableStream has been produced
-    // but nobody is going to consume it — cancel it explicitly to release
-    // whatever resources the runtime holds open behind the body. Swallow
-    // errors from cancel itself; we're already on the 500 path.
+export const POST = async (req: NextRequest) =>
+  // Bind inbound x-* headers into ALS for the duration of this request so
+  // the wrapped @ai-sdk/openai provider's fetch can attach them on every
+  // outbound LLM call (e.g. x-aimock-context for aimock fixture matching).
+  withForwardedHeaders(req, async () => {
+    let response: Response | undefined;
     try {
-      await response.body?.cancel();
-    } catch {
-      // best-effort cleanup; the primary error is already being logged below
+      const runtime = new CopilotRuntime({
+        agents: getAgents(),
+      });
+
+      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+        runtime,
+        serviceAdapter,
+        endpoint: "/api/copilotkit",
+      });
+
+      response = await handleRequest(req);
+    } catch (err) {
+      const errorId = logRouteError(err, "setup");
+      return NextResponse.json(
+        { error: "internal runtime error", errorId },
+        { status: 500 },
+      );
     }
-    const errorId = logRouteError(err, "setup");
-    return NextResponse.json(
-      { error: "internal runtime error", errorId },
-      { status: 500 },
-    );
-  }
-};
+
+    try {
+      return wrapStreamingResponse(response);
+    } catch (err) {
+      // `wrapStreamingResponse` threw synchronously (e.g. malformed
+      // `response.headers`). The upstream ReadableStream has been produced
+      // but nobody is going to consume it — cancel it explicitly to release
+      // whatever resources the runtime holds open behind the body. Swallow
+      // errors from cancel itself; we're already on the 500 path.
+      try {
+        await response.body?.cancel();
+      } catch {
+        // best-effort cleanup; the primary error is already being logged below
+      }
+      const errorId = logRouteError(err, "setup");
+      return NextResponse.json(
+        { error: "internal runtime error", errorId },
+        { status: 500 },
+      );
+    }
+  });
