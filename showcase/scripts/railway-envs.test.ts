@@ -245,3 +245,31 @@ describe("railway-envs SSOT", () => {
     }
   });
 });
+
+describe("webhooks SSOT entry", () => {
+  it("has a dispatchName", () => {
+    expect(SERVICES.webhooks).toBeDefined();
+    expect(SERVICES.webhooks.dispatchName).toBe("webhooks");
+  });
+
+  it("is mirrored in showcase_build.yml dispatch choices", () => {
+    const yml = readFileSync(
+      resolve(__dirname, "../../.github/workflows/showcase_build.yml"),
+      "utf-8",
+    );
+    // The workflow_dispatch.inputs.service options list MUST include
+    // the SSOT dispatchName for webhooks so humans can target it.
+    expect(yml).toMatch(/^\s*- webhooks\s*$/m);
+    // The ALL_SERVICES matrix MUST include a webhooks entry.
+    expect(yml).toMatch(/"dispatch_name":"webhooks"/);
+  });
+
+  it("is mirrored in showcase_deploy.yml verify dispatch choices and ALL_SERVICES", () => {
+    const yml = readFileSync(
+      resolve(__dirname, "../../.github/workflows/showcase_deploy.yml"),
+      "utf-8",
+    );
+    expect(yml).toMatch(/^\s*- webhooks\s*$/m);
+    expect(yml).toMatch(/"dispatch_name":"webhooks"/);
+  });
+});

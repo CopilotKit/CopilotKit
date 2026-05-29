@@ -51,6 +51,7 @@ on:
           - shell-docs
           - showcase-harness
           - showcase-aimock
+          - webhooks
 
 # No top-level concurrency group. Every build run completes. This is the
 # whole point of the decoupling: rapid pushes to main no longer cancel
@@ -156,6 +157,14 @@ jobs:
               - 'showcase/integrations/*/manifest.yaml'
             showcase_aimock:
               - 'showcase/aimock/**'
+            webhooks:
+              # Sentinel pattern that cannot match any in-tree path.
+              # The webhooks GHCR image is built by the showcase-eval-webhook
+              # repo's own release workflow, so we never want a push-driven
+              # build run to include it. workflow_dispatch can still target
+              # webhooks explicitly via the service input — that path skips
+              # paths-filter entirely.
+              - 'showcase/__no_match_webhooks_built_out_of_band__'
 
       - name: Build service matrix
         id: build-matrix
@@ -197,7 +206,8 @@ jobs:
             {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","railway_id":"4d5dfd74-be61-40b2-8564-b53b7dd4c15b","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","build_args_pb_url":"https://showcase-pocketbase-production.up.railway.app","build_args_shell_url":"https://showcase.copilotkit.ai","build_args_ops_url":"https://showcase-harness-production.up.railway.app","dockerfile":"showcase/shell-dashboard/Dockerfile","health_path":"/"},
             {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","railway_id":"7badfb8d-4228-414c-9145-b4026803714f","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","build_args_base_url":"https://docs.copilotkit.ai","build_args_shell_url":"https://showcase.copilotkit.ai","build_args_analytics":"yes","dockerfile":"showcase/shell-docs/Dockerfile","health_path":"/"},
             {"dispatch_name":"showcase-harness","filter_key":"showcase_harness","context":".","image":"showcase-harness","railway_id":"3a14bfed-0537-4d71-897b-7c593dca161d","timeout":20,"lfs":false,"build_args":"","dockerfile":"showcase/harness/Dockerfile","health_path":"/health"},
-            {"dispatch_name":"showcase-aimock","filter_key":"showcase_aimock","context":"showcase/aimock","image":"showcase-aimock","railway_id":"0fa0435d-8a66-46f0-84fd-e4250b580013","timeout":5,"lfs":false,"build_args":"","dockerfile":"showcase/aimock/Dockerfile","health_path":"/health"}
+            {"dispatch_name":"showcase-aimock","filter_key":"showcase_aimock","context":"showcase/aimock","image":"showcase-aimock","railway_id":"0fa0435d-8a66-46f0-84fd-e4250b580013","timeout":5,"lfs":false,"build_args":"","dockerfile":"showcase/aimock/Dockerfile","health_path":"/health"},
+            {"dispatch_name":"webhooks","filter_key":"webhooks","context":".","image":"showcase-eval-webhook","railway_id":"ba6acc13-7585-41fe-a5ee-585b34a58fcd","timeout":5,"lfs":false,"build_args":"","dockerfile":"","health_path":"/health","skip_build":true}
           ]'
 
           DISPATCH="$DISPATCH_SERVICE"
@@ -401,6 +411,7 @@ jobs:
           done
 
       - name: Build and push
+        if: ${{ matrix.service.skip_build != true }}
         uses: depot/build-push-action@98e78adca7817480b8185f474a400b451d74e287 # v1.18.0
         with:
           project: m2kw2wmmcp

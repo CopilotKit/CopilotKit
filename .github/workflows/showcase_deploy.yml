@@ -49,6 +49,7 @@ on:
           - shell-docs
           - showcase-harness
           - showcase-aimock
+          - webhooks
 
 concurrency:
   group: showcase-verify-deploy
@@ -118,7 +119,8 @@ jobs:
             {"dispatch_name":"shell-dashboard","railway_id":"4d5dfd74-be61-40b2-8564-b53b7dd4c15b","health_path":"/"},
             {"dispatch_name":"shell-docs","railway_id":"7badfb8d-4228-414c-9145-b4026803714f","health_path":"/"},
             {"dispatch_name":"showcase-harness","railway_id":"3a14bfed-0537-4d71-897b-7c593dca161d","health_path":"/health"},
-            {"dispatch_name":"showcase-aimock","railway_id":"0fa0435d-8a66-46f0-84fd-e4250b580013","health_path":"/health"}
+            {"dispatch_name":"showcase-aimock","railway_id":"0fa0435d-8a66-46f0-84fd-e4250b580013","health_path":"/health"},
+            {"dispatch_name":"webhooks","railway_id":"ba6acc13-7585-41fe-a5ee-585b34a58fcd","health_path":"/health"}
           ]'
 
           DISPATCH="$DISPATCH_SERVICE"

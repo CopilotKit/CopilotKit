@@ -335,11 +335,14 @@ export const SERVICES: Record<
     serviceId: "ba6acc13-7585-41fe-a5ee-585b34a58fcd",
     prodInstanceId: "d82ef5b4-3bfd-462e-9436-3d5dbca8681a",
     stagingInstanceId: "450e87e0-aba5-4aba-afaf-15f4deab03f0",
+    ciBuilt: false,
+    gateValidated: true,
+    dispatchName: "webhooks",
     // webhooks is a first-party ghcr.io/copilotkit/ image, but its
     // GHCR repo name is `showcase-eval-webhook` (NOT `webhooks`), and
     // it is built by a separate release workflow — not showcase_build.yml.
-    ciBuilt: false,
-    gateValidated: true,
+    // The dispatch_name entry below exists so humans can redeploy/verify
+    // webhooks from CI on demand; the build slot is no-op.
     repoNameOverride: {
       prod: "showcase-eval-webhook",
       staging: "showcase-eval-webhook",
