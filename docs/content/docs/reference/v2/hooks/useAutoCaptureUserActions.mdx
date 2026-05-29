@@ -6,9 +6,10 @@ description: "Automatically record mutating HTTP requests as user actions"
 ## Overview
 
 `useAutoCaptureUserActions` turns on **automatic** user-action capture for the
-subtree it is mounted in. While enabled, the browser's global `fetch` and
-`XMLHttpRequest` are patched so that mutating requests (`POST`/`PUT`/`PATCH`/
-`DELETE` by default) are recorded as user actions through the same pipeline as
+subtree it is mounted in. While enabled, the browser's global `fetch`,
+`XMLHttpRequest`, and `navigator.sendBeacon` are patched so that mutating
+requests (`POST`/`PUT`/`PATCH`/`DELETE` by default, plus every `sendBeacon`
+call) are recorded as user actions through the same pipeline as
 [`useRecordUserAction`](/reference/v2/hooks/useRecordUserAction) — no per-site
 instrumentation.
 

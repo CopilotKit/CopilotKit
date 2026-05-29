@@ -10,6 +10,8 @@ const FETCH_ORIGINAL = Symbol.for("copilotkit.autoCapture.fetchOriginal");
 const XHR_PATCHED = Symbol.for("copilotkit.autoCapture.xhrPatched");
 const XHR_ORIGINAL_OPEN = Symbol.for("copilotkit.autoCapture.xhrOriginalOpen");
 const XHR_ORIGINAL_SEND = Symbol.for("copilotkit.autoCapture.xhrOriginalSend");
+const SB_PATCHED = Symbol.for("copilotkit.autoCapture.sendBeaconPatched");
+const SB_ORIGINAL = Symbol.for("copilotkit.autoCapture.sendBeaconOriginal");
 
 export function resetAutoCaptureGlobals(): void {
   const f = globalThis.fetch as unknown as Record<symbol, unknown>;
@@ -29,5 +31,16 @@ export function resetAutoCaptureGlobals(): void {
     delete proto[XHR_PATCHED];
     delete proto[XHR_ORIGINAL_OPEN];
     delete proto[XHR_ORIGINAL_SEND];
+  }
+
+  if (
+    typeof navigator !== "undefined"
+    && typeof navigator.sendBeacon === "function"
+  ) {
+    const sb = navigator.sendBeacon as unknown as Record<symbol, unknown>;
+    if (typeof sb[SB_ORIGINAL] === "function") {
+      navigator.sendBeacon = sb[SB_ORIGINAL] as typeof navigator.sendBeacon;
+    }
+    delete sb[SB_PATCHED];
   }
 }

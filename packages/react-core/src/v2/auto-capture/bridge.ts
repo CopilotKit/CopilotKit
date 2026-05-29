@@ -1,4 +1,5 @@
 import { patchFetch, restoreFetch } from "./patch-fetch";
+import { patchSendBeacon, restoreSendBeacon } from "./patch-sendbeacon";
 import { patchXHR, restoreXHR } from "./patch-xhr";
 import type { RawExchange } from "./types";
 
@@ -34,6 +35,7 @@ export function installAutoCapturePatches(): void {
   if (installCount === 1) {
     patchFetch(bridge);
     patchXHR(bridge);
+    patchSendBeacon(bridge);
   }
   bridge.enabled = true;
 }
@@ -49,6 +51,7 @@ export function uninstallAutoCapturePatches(): void {
   if (installCount === 0) {
     restoreFetch();
     restoreXHR();
+    restoreSendBeacon();
     bridge.enabled = false;
     bridge.dispatch = null;
   }
