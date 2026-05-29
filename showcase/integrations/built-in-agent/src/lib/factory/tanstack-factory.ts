@@ -7,6 +7,11 @@ import { z } from "zod";
 import { stateTools } from "./state-tools";
 import { baseServerTools } from "./server-tools";
 import { buildSubagentTools } from "./subagent-tools";
+// Custom fetch that injects ALS-bound inbound x-* headers (e.g.
+// x-aimock-context) onto every outbound OpenAI call. Required so aimock
+// can match fixtures by integration context. See ../header-forwarding.ts
+// for the full rationale; mirrors the Mastra precedent.
+import { forwardingFetch } from "../header-forwarding";
 
 /**
  * Convert a JSON Schema object to a Zod schema (shallow — handles the
@@ -230,7 +235,11 @@ export function createBuiltInAgent() {
         );
 
       const stream = chat({
-        adapter: openaiText("gpt-4o"),
+        // Inject forwardingFetch so the OpenAI client picks up inbound
+        // x-* headers (e.g. x-aimock-context) bound into ALS by the
+        // route handler. Without this, /v1/responses calls to aimock
+        // miss every fixture (404) and the D6 subset goes 0/6.
+        adapter: openaiText("gpt-4o", { fetch: forwardingFetch }),
         messages,
         systemPrompts,
         tools: [...serverTools, ...frontendTools],
