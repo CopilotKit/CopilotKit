@@ -140,6 +140,21 @@ module Railway
             end
             t
         end
+
+        # GHCR bearer. Distinct from the Railway token (Auth.token).
+        # Resolution order:
+        #   1. GHCR_TOKEN — explicit PAT (local dev or CI override).
+        #   2. GITHUB_TOKEN — GitHub Actions automatic token (needs packages:read).
+        # Returns nil if no token is available; caller MUST refuse rather than
+        # silently fall through to anonymous (which works for public images but
+        # not for digest-existence verification against private repos).
+        def ghcr_token
+            t = ENV["GHCR_TOKEN"]
+            return t.strip if t && !t.strip.empty?
+            t = ENV["GITHUB_TOKEN"]
+            return t.strip if t && !t.strip.empty?
+            nil
+        end
     end
 
     # ── GraphQL Client ─────────────────────────────────────────────────────────
@@ -203,7 +218,7 @@ module Railway
             "application/vnd.docker.distribution.manifest.v2+json",
         ].join(", ").freeze
 
-        def initialize(token: ENV["GHCR_TOKEN"], http: nil)
+        def initialize(token: Railway::Auth.ghcr_token, http: nil)
             @token = token
             @http = http
         end
@@ -236,6 +251,44 @@ module Railway
             raise Error, "GHCR did not return Docker-Content-Digest for #{image_ref}" if digest.nil?
 
             digest
+        end
+
+        # Verify a digest-pinned image exists in GHCR. Returns:
+        #   :exists       — HEAD returned 200.
+        #   :missing      — HEAD returned 404 (digest GC'd or never built).
+        #   :auth_failed  — HEAD returned 401/403 (token missing/insufficient).
+        # Raises GHCR::Error on 5xx or transport failure.
+        #
+        # The caller MUST pass an image ref already pinned to @sha256:<digest>;
+        # this is the "P1 precondition" check from the showcase deploy spec, not
+        # a tag-resolution. We do not chase a tag here — we verify the exact
+        # bytes about to be pinned to prod.
+        def manifest_exists(image_ref)
+            parts = parse_image_ref(image_ref)
+            digest = parts[:digest]
+            raise ArgumentError, "manifest_exists requires a digest-pinned ref, got #{image_ref}" if digest.nil?
+
+            org  = parts[:org]
+            name = parts[:name]
+
+            bearer = bearer_for(org, name)
+            url = "https://ghcr.io/v2/#{org}/#{name}/manifests/#{digest}"
+
+            resp =
+                if @http
+                    @http.call(method: :head, url: url, headers: headers(bearer))
+                else
+                    http_head(url, headers: headers(bearer))
+                end
+
+            status = resp[:status]
+            case status
+            when 200       then :exists
+            when 404       then :missing
+            when 401, 403  then :auth_failed
+            else
+                raise Error, "GHCR manifest HEAD #{status} for #{image_ref}"
+            end
         end
 
         # Parse image ref into { registry, org, name, tag, digest }.
