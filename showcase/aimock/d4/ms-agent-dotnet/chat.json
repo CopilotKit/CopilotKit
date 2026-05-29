@@ -630,8 +630,9 @@
       }
     },
     {
+      "_comment": "D4 toolbar 'Summarize' button — tightened from bare 'summarize' to 'Summarize the' (capital, anchor) so it doesn't shadow d6 fixtures whose user prompts happen to contain the word 'summarize' mid-sentence (e.g. gen-ui-agent pill 3 'Research our top competitor and summarize their strengths and weaknesses').",
       "match": {
-        "userMessage": "summarize",
+        "userMessage": "Summarize the",
         "context": "ms-agent-dotnet"
       },
       "response": {

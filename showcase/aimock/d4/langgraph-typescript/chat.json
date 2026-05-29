@@ -630,8 +630,9 @@
       }
     },
     {
+      "_comment": "D4 toolbar 'Summarize' button — tightened from bare 'summarize' to 'Summarize the' (capital, anchor) so it doesn't shadow d6 fixtures whose user prompts happen to contain the word 'summarize' mid-sentence (e.g. gen-ui-agent pill 3 'Research our top competitor and summarize their strengths and weaknesses').",
       "match": {
-        "userMessage": "summarize",
+        "userMessage": "Summarize the",
         "context": "langgraph-typescript"
       },
       "response": {
@@ -657,8 +658,9 @@
       }
     },
     {
+      "_comment": "D4 toolbar 'Detailed' button — tightened from bare 'detailed' so it doesn't shadow d6 agent-config 'responseLength:detailed — describe agent context per your config'. Anchored on the longer phrase that the d4 button actually sends.",
       "match": {
-        "userMessage": "detailed",
+        "userMessage": "Make this more detailed",
         "context": "langgraph-typescript"
       },
       "response": {

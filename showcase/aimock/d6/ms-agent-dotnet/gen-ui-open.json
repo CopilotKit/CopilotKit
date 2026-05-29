@@ -1,14 +1,14 @@
 {
   "_meta": {
-    "description": "D6 fixtures for ms-agent-dotnet / gen-ui-open (basic + advanced)",
-    "sourceFile": "d5-gen-ui-open.ts, d5-gen-ui-open-advanced.ts",
+    "description": "D6 fixtures for ms-agent-dotnet / gen-ui-open basic (advanced moved to gen-ui-open-advanced.json)",
+    "sourceFile": "d5-gen-ui-open.ts + d5-gen-ui-open-advanced.ts",
     "created": "2026-05-22"
   },
   "fixtures": [
     {
-      "_comment": "gen-ui-open basic pill — 3D axis visualization. The agent emits generateSandboxedUi with an HTML+CSS srcdoc payload that the demo renders in an iframe[srcdoc]. The srcdoc must be >=100 chars for the assertion to pass.",
+      "_comment": "gen-ui-open \u2014 3D axis visualization pill. The agent calls generateSandboxedUi which renders an iframe[srcdoc] with a non-trivial HTML payload (>= 100 chars). The probe asserts iframe presence + srcdoc length.",
       "match": {
-        "userMessage": "3D axis visualization",
+        "userMessage": "3D axis visualization (model airplane)",
         "hasToolResult": false,
         "context": "ms-agent-dotnet"
       },
@@ -17,46 +17,20 @@
           {
             "id": "call_d6_open_genui_3d_001",
             "name": "generateSandboxedUi",
-            "arguments": "{\"html\":\"<div style='padding:24px;font-family:system-ui;background:#0f172a;color:#e2e8f0;min-height:200px'><h3 style='margin:0 0 12px'>3D Axis Visualization</h3><svg viewBox='0 0 200 200' width='180' height='180'><line x1='100' y1='180' x2='100' y2='20' stroke='#ef4444' stroke-width='2'/><text x='105' y='25' fill='#ef4444' font-size='12'>Y</text><line x1='20' y1='140' x2='180' y2='140' stroke='#22c55e' stroke-width='2'/><text x='175' y='135' fill='#22c55e' font-size='12'>X</text><line x1='40' y1='170' x2='160' y2='110' stroke='#3b82f6' stroke-width='2'/><text x='155' y='108' fill='#3b82f6' font-size='12'>Z</text><circle cx='100' cy='140' r='3' fill='white'/></svg><p style='margin:8px 0 0;font-size:13px;color:#94a3b8'>Model airplane orientation axes — X (green), Y (red), Z (blue)</p></div>\",\"css\":\"body{margin:0}\",\"initialHeight\":320}"
+            "arguments": "{\"initialHeight\":400,\"placeholderMessages\":[\"Rendering 3D axis visualization\u2026\"],\"css\":\"body{margin:0;background:#0f172a;display:flex;justify-content:center;align-items:center;height:100vh;font-family:system-ui}canvas{border-radius:8px;box-shadow:0 4px 24px rgba(0,0,0,.4)}#info{position:absolute;top:12px;left:12px;color:#94a3b8;font-size:12px}\",\"html\":\"<div id=\\\"info\\\">3D Axis \u2014 Model Airplane</div><canvas id=\\\"c\\\" width=\\\"400\\\" height=\\\"300\\\"></canvas>\",\"jsFunctions\":\"(function(){var c=document.getElementById('c');var ctx=c.getContext('2d');var cx=200,cy=150;function draw(t){ctx.clearRect(0,0,400,300);ctx.strokeStyle='#ef4444';ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(t)*80,cy-Math.sin(t)*40);ctx.stroke();ctx.strokeStyle='#22c55e';ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx,cy-80);ctx.stroke();ctx.strokeStyle='#3b82f6';ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx-Math.sin(t)*60,cy-Math.cos(t)*30);ctx.stroke();ctx.fillStyle='#e2e8f0';ctx.font='10px system-ui';ctx.fillText('X',cx+Math.cos(t)*85,cy-Math.sin(t)*40);ctx.fillText('Y',cx-6,cy-85);ctx.fillText('Z',cx-Math.sin(t)*65,cy-Math.cos(t)*30);requestAnimationFrame(function(){draw(t+0.01);});}draw(0);})();\"}"
           }
         ]
       }
     },
     {
+      "_comment": "gen-ui-open \u2014 follow-up content after generateSandboxedUi returns.",
       "match": {
-        "userMessage": "3D axis visualization",
+        "userMessage": "3D axis visualization (model airplane)",
         "toolCallId": "call_d6_open_genui_3d_001",
         "context": "ms-agent-dotnet"
       },
       "response": {
-        "content": "3D axis visualization rendered — showing X, Y, and Z orientation axes for a model airplane."
-      }
-    },
-    {
-      "_comment": "gen-ui-open-advanced pill — Inline expression evaluator. The advanced demo renders the payload in a sandboxed iframe with allow-scripts. The assertion checks for iframe[sandbox*='allow-scripts'] or [data-testid='gen-ui-open-advanced-iframe'].",
-      "match": {
-        "userMessage": "Inline expression evaluator",
-        "hasToolResult": false,
-        "context": "ms-agent-dotnet"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d6_open_genui_eval_001",
-            "name": "generateSandboxedUi",
-            "arguments": "{\"html\":\"<div style='padding:16px;font-family:monospace;background:#1e293b;color:#e2e8f0;min-height:120px'><h4 style='margin:0 0 8px;color:#38bdf8'>Expression Evaluator</h4><input id='expr' type='text' placeholder='e.g. 2+2' style='width:90%;padding:8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:4px;font-family:monospace'/><div id='result' style='margin-top:8px;padding:8px;background:#0f172a;border-radius:4px;min-height:20px'></div></div>\",\"css\":\"body{margin:0}\",\"jsFunctions\":\"(function(){var input=document.getElementById('expr');var result=document.getElementById('result');input.addEventListener('keydown',function(e){if(e.key==='Enter'){try{result.textContent='= '+eval(input.value)}catch(err){result.textContent='Error: '+err.message}}});})()\",\"initialHeight\":200}"
-          }
-        ]
-      }
-    },
-    {
-      "match": {
-        "userMessage": "Inline expression evaluator",
-        "toolCallId": "call_d6_open_genui_eval_001",
-        "context": "ms-agent-dotnet"
-      },
-      "response": {
-        "content": "Expression evaluator rendered in a sandboxed iframe — type a math expression and press Enter to evaluate."
+        "content": "3D axis visualization rendered above \u2014 the canvas shows rotating X (red), Y (green), and Z (blue) axes representing the model airplane's orientation."
       }
     }
   ]

@@ -1,213 +1,87 @@
 {
   "_meta": {
     "description": "D6 fixtures for langgraph-typescript / tool-rendering-custom-catchall",
-    "sourceFile": "langgraph-typescript/tool-rendering.json (same pills, custom wildcard renderer)",
-    "copiedFrom": "langgraph-typescript/tool-rendering.json",
-    "created": "2026-05-22"
+    "sourceFile": "d5-tool-rendering-custom-catchall.ts",
+    "created": "2026-05-22",
+    "copiedFrom": "langgraph-python"
   },
   "fixtures": [
     {
-      "_comment": "custom-catchall pill: Chain tools — follow-up after all 3 tools ran. Matches whichever of the 3 chain-tools tool_call_ids appears last.",
+      "_comment": "tool-rendering-custom-catchall \u2014 weather in Tokyo follow-up. After get_weather tool result returns, emit narrated content. MUST come before the tool-emitting fixture so iteration 2 hits this branch.",
       "match": {
-        "userMessage": "Chain a few tools in this single turn",
-        "toolCallId": "call_tr_chain_roll_001",
+        "userMessage": "check Tokyo weather forecast",
+        "toolCallId": "call_d6_cc_weather_001",
         "context": "langgraph-typescript"
       },
       "response": {
-        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+        "content": "Tokyo is 22\u00b0C and partly cloudy \u2014 rendered through the custom wildcard catchall."
       }
     },
     {
+      "_comment": "tool-rendering-custom-catchall \u2014 weather in Tokyo (first turn). Emits get_weather tool call. The custom wildcard renderer fires for this tool and renders [data-testid='custom-wildcard-card'][data-tool-name='get_weather'].",
       "match": {
-        "userMessage": "Chain a few tools in this single turn",
-        "toolCallId": "call_tr_chain_flights_001",
-        "context": "langgraph-typescript"
-      },
-      "response": {
-        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "Chain a few tools in this single turn",
-        "toolCallId": "call_tr_chain_weather_001",
-        "context": "langgraph-typescript"
-      },
-      "response": {
-        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
-      }
-    },
-    {
-      "_comment": "custom-catchall pill: Chain tools — emit 3 tool calls in one turn.",
-      "match": {
-        "userMessage": "Chain a few tools in this single turn",
-        "turnIndex": 0,
+        "userMessage": "check Tokyo weather forecast",
+        "toolName": "get_weather",
         "context": "langgraph-typescript"
       },
       "response": {
         "toolCalls": [
           {
-            "id": "call_tr_chain_weather_001",
+            "id": "call_d6_cc_weather_001",
             "name": "get_weather",
             "arguments": "{\"location\":\"Tokyo\"}"
-          },
-          {
-            "id": "call_tr_chain_flights_001",
-            "name": "search_flights",
-            "arguments": "{\"origin\":\"SFO\",\"destination\":\"Tokyo\"}"
-          },
-          {
-            "id": "call_tr_chain_roll_001",
-            "name": "roll_d20",
-            "arguments": "{\"value\":11}"
           }
         ]
       }
     },
     {
-      "_comment": "custom-catchall pill: Weather in SF — follow-up after get_weather ran.",
+      "_comment": "tool-rendering-custom-catchall \u2014 weather in Tokyo fallback when no get_weather tool registered.",
       "match": {
-        "userMessage": "What's the weather in San Francisco?",
-        "toolCallId": "call_tr_weather_sf_001",
-        "context": "langgraph-typescript"
-      },
-      "response": {
-        "content": "San Francisco is currently 68°F and sunny with light winds."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "What's the weather in San Francisco?",
+        "userMessage": "check Tokyo weather forecast",
         "turnIndex": 0,
         "context": "langgraph-typescript"
       },
       "response": {
+        "content": "The weather in Tokyo is currently 22\u00b0C with partly cloudy skies."
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall \u2014 AAPL stock price follow-up. After get_stock_price tool result returns. MUST come before the tool-emitting fixture.",
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
+        "toolCallId": "call_d6_cc_stock_001",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% \u2014 rendered through the custom wildcard catchall."
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall \u2014 AAPL stock price (second turn). Emits get_stock_price tool call. The custom wildcard renderer fires for this DIFFERENT tool and renders [data-testid='custom-wildcard-card'][data-tool-name='get_stock_price']. The cross-tool assertion verifies both tool names rendered through the same testid.",
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
+        "toolName": "get_stock_price",
+        "context": "langgraph-typescript"
+      },
+      "response": {
         "toolCalls": [
           {
-            "id": "call_tr_weather_sf_001",
-            "name": "get_weather",
-            "arguments": "{\"location\":\"San Francisco\"}"
+            "id": "call_d6_cc_stock_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
           }
         ]
       }
     },
     {
-      "_comment": "custom-catchall pill: Find flights — second leg.",
+      "_comment": "tool-rendering-custom-catchall \u2014 AAPL fallback when no get_stock_price tool registered.",
       "match": {
-        "userMessage": "Find flights from SFO to JFK.",
-        "toolCallId": "call_tr_flights_sfo_jfk_001",
-        "context": "langgraph-typescript"
-      },
-      "response": {
-        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289)."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "Find flights from SFO to JFK.",
+        "userMessage": "What's the current price of AAPL?",
         "turnIndex": 0,
         "context": "langgraph-typescript"
       },
       "response": {
-        "toolCalls": [
-          {
-            "id": "call_tr_flights_sfo_jfk_001",
-            "name": "search_flights",
-            "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\"}"
-          }
-        ]
-      }
-    },
-    {
-      "_comment": "custom-catchall pill: Roll a d20 — 5-roll chain via toolCallId. Seq: 7→14→3→19→20.",
-      "match": {
-        "userMessage": "Roll a 20-sided die.",
-        "toolCallId": "call_tr_d20_seq_001",
-        "context": "langgraph-typescript"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_tr_d20_seq_002",
-            "name": "roll_d20",
-            "arguments": "{\"value\":14}"
-          }
-        ]
-      }
-    },
-    {
-      "match": {
-        "userMessage": "Roll a 20-sided die.",
-        "toolCallId": "call_tr_d20_seq_002",
-        "context": "langgraph-typescript"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_tr_d20_seq_003",
-            "name": "roll_d20",
-            "arguments": "{\"value\":3}"
-          }
-        ]
-      }
-    },
-    {
-      "match": {
-        "userMessage": "Roll a 20-sided die.",
-        "toolCallId": "call_tr_d20_seq_003",
-        "context": "langgraph-typescript"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_tr_d20_seq_004",
-            "name": "roll_d20",
-            "arguments": "{\"value\":19}"
-          }
-        ]
-      }
-    },
-    {
-      "match": {
-        "userMessage": "Roll a 20-sided die.",
-        "toolCallId": "call_tr_d20_seq_004",
-        "context": "langgraph-typescript"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_tr_d20_seq_005",
-            "name": "roll_d20",
-            "arguments": "{\"value\":20}"
-          }
-        ]
-      }
-    },
-    {
-      "match": {
-        "userMessage": "Roll a 20-sided die.",
-        "toolCallId": "call_tr_d20_seq_005",
-        "context": "langgraph-typescript"
-      },
-      "response": {
-        "content": "Rolled the d20 five times — landed on 20 on the final roll."
-      }
-    },
-    {
-      "_comment": "First roll — initial user prompt, no prior d20 tool result.",
-      "match": {
-        "userMessage": "Roll a 20-sided die.",
-        "turnIndex": 0,
-        "context": "langgraph-typescript"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_tr_d20_seq_001",
-            "name": "roll_d20",
-            "arguments": "{\"value\":7}"
-          }
-        ]
+        "content": "AAPL is trading at $338.37, down 2.96% on the day."
       }
     }
   ]

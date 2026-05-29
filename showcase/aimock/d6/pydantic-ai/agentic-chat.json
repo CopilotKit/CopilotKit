@@ -7,9 +7,9 @@
   },
   "fixtures": [
     {
+      "_comment": "agentic-chat turn 1 — goldfish name. No turnIndex gate: the probe sends 3 sequential turns in one thread; turnIndex would restrict this to the first turn only, causing turns 2-3 to fall through to proxy.",
       "match": {
         "userMessage": "good name for a goldfish",
-        "turnIndex": 0,
         "context": "pydantic-ai"
       },
       "response": {
@@ -17,9 +17,9 @@
       }
     },
     {
+      "_comment": "agentic-chat turn 2 — tank name. No turnIndex gate (multi-turn conversation).",
       "match": {
         "userMessage": "name for its tank",
-        "turnIndex": 0,
         "context": "pydantic-ai"
       },
       "response": {
@@ -27,9 +27,9 @@
       }
     },
     {
+      "_comment": "agentic-chat turn 3 — recall. No turnIndex gate (multi-turn conversation).",
       "match": {
         "userMessage": "what we named the goldfish",
-        "turnIndex": 0,
         "context": "pydantic-ai"
       },
       "response": {

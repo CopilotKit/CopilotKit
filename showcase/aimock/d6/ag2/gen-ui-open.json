@@ -1,41 +1,40 @@
 {
   "_meta": {
     "description": "D6 fixtures for ag2 / gen-ui-open + gen-ui-open-advanced",
-    "sourceFile": "d5-gen-ui-open.ts, d5-gen-ui-open-advanced.ts",
-    "owner": "d6-blitz-2026-05-26",
-    "notes": "Authored to match D5 scripts + ag2 adapter request shape. gen-ui-open asserts iframe[srcdoc] with length >= 100 chars. gen-ui-open-advanced asserts iframe with sandbox='allow-scripts'. Both share this fixture file per the D5 registry (fixtureFile: 'gen-ui-open.json')."
+    "sourceFile": "d5-gen-ui-open.ts + d5-gen-ui-open-advanced.ts",
+    "created": "2026-05-22"
   },
   "fixtures": [
     {
-      "_comment": "gen-ui-open basic pill — 3D axis visualization. The response must include generateSandboxedUi tool call or inline srcdoc content that produces an iframe[srcdoc] with >= 100 chars.",
+      "_comment": "gen-ui-open — 3D axis visualization pill. The agent calls generateSandboxedUi which renders an iframe[srcdoc] with a non-trivial HTML payload (>= 100 chars). The probe asserts iframe presence + srcdoc length.",
       "match": {
-        "userMessage": "3D axis visualization",
+        "userMessage": "3D axis visualization (model airplane)",
         "hasToolResult": false,
         "context": "ag2"
       },
       "response": {
         "toolCalls": [
           {
-            "id": "call_d5_gen_ui_open_3d_001",
+            "id": "call_d6_open_genui_3d_001",
             "name": "generateSandboxedUi",
-            "arguments": "{\"srcdoc\":\"<!DOCTYPE html><html><head><style>body{margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#1a1a2e;font-family:monospace}canvas{border:1px solid #333}</style></head><body><canvas id=c width=400 height=400></canvas><script>const c=document.getElementById('c'),x=c.getContext('2d');x.strokeStyle='#e94560';x.beginPath();x.moveTo(200,350);x.lineTo(200,50);x.stroke();x.strokeStyle='#0f3460';x.beginPath();x.moveTo(50,250);x.lineTo(350,250);x.stroke();x.strokeStyle='#16213e';x.beginPath();x.moveTo(100,350);x.lineTo(300,150);x.stroke();x.fillStyle='#fff';x.font='14px monospace';x.fillText('Y',205,60);x.fillText('X',340,265);x.fillText('Z',290,155);x.fillText('3D Axis Visualization',110,30)</script></body></html>\"}"
+            "arguments": "{\"initialHeight\":400,\"placeholderMessages\":[\"Rendering 3D axis visualization…\"],\"css\":\"body{margin:0;background:#0f172a;display:flex;justify-content:center;align-items:center;height:100vh;font-family:system-ui}canvas{border-radius:8px;box-shadow:0 4px 24px rgba(0,0,0,.4)}#info{position:absolute;top:12px;left:12px;color:#94a3b8;font-size:12px}\",\"html\":\"<div id=\\\"info\\\">3D Axis — Model Airplane</div><canvas id=\\\"c\\\" width=\\\"400\\\" height=\\\"300\\\"></canvas>\",\"jsFunctions\":\"(function(){var c=document.getElementById('c');var ctx=c.getContext('2d');var cx=200,cy=150;function draw(t){ctx.clearRect(0,0,400,300);ctx.strokeStyle='#ef4444';ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(t)*80,cy-Math.sin(t)*40);ctx.stroke();ctx.strokeStyle='#22c55e';ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx,cy-80);ctx.stroke();ctx.strokeStyle='#3b82f6';ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx-Math.sin(t)*60,cy-Math.cos(t)*30);ctx.stroke();ctx.fillStyle='#e2e8f0';ctx.font='10px system-ui';ctx.fillText('X',cx+Math.cos(t)*85,cy-Math.sin(t)*40);ctx.fillText('Y',cx-6,cy-85);ctx.fillText('Z',cx-Math.sin(t)*65,cy-Math.cos(t)*30);requestAnimationFrame(function(){draw(t+0.01);});}draw(0);})();\"}"
           }
         ]
       }
     },
     {
-      "_comment": "gen-ui-open basic pill — follow-up after generateSandboxedUi result.",
+      "_comment": "gen-ui-open — follow-up content after generateSandboxedUi returns.",
       "match": {
-        "userMessage": "3D axis visualization",
-        "hasToolResult": true,
+        "userMessage": "3D axis visualization (model airplane)",
+        "toolCallId": "call_d6_open_genui_3d_001",
         "context": "ag2"
       },
       "response": {
-        "content": "3D axis visualization rendered above — X (blue), Y (red), and Z (gray) axes drawn on a dark canvas."
+        "content": "3D axis visualization rendered above — the canvas shows rotating X (red), Y (green), and Z (blue) axes representing the model airplane's orientation."
       }
     },
     {
-      "_comment": "gen-ui-open-advanced pill — Inline expression evaluator. Emits generateSandboxedUi with a sandbox='allow-scripts' iframe. The D5 probe asserts the iframe mounts via [data-testid='gen-ui-open-advanced-iframe'] or iframe[sandbox*='allow-scripts'].",
+      "_comment": "gen-ui-open-advanced — Inline expression evaluator pill. The agent calls generateSandboxedUi with sandbox-functions, producing a sandboxed iframe with allow-scripts. The probe asserts iframe[sandbox*='allow-scripts'] is present.",
       "match": {
         "userMessage": "Inline expression evaluator",
         "hasToolResult": false,
@@ -44,22 +43,22 @@
       "response": {
         "toolCalls": [
           {
-            "id": "call_d5_gen_ui_open_adv_eval_001",
+            "id": "call_d6_open_genui_advanced_eval_001",
             "name": "generateSandboxedUi",
-            "arguments": "{\"srcdoc\":\"<!DOCTYPE html><html><head><style>body{margin:0;padding:20px;background:#0d1117;color:#c9d1d9;font-family:monospace}input{width:100%;padding:8px;background:#161b22;border:1px solid #30363d;color:#c9d1d9;border-radius:4px;font-size:16px}#result{margin-top:12px;padding:12px;background:#161b22;border-radius:4px;min-height:40px}h3{color:#58a6ff;margin:0 0 12px}</style></head><body><h3>Expression Evaluator</h3><input id=expr placeholder='Enter expression (e.g. 2+2)' oninput='try{document.getElementById(\\\"result\\\").textContent=\\\"= \\\"+eval(this.value)}catch(e){document.getElementById(\\\"result\\\").textContent=\\\"...\\\"}'/><div id=result>...</div></body></html>\"}"
+            "arguments": "{\"initialHeight\":320,\"placeholderMessages\":[\"Building expression evaluator…\"],\"css\":\"body{margin:0;font-family:monospace;background:#1e293b;color:#e2e8f0;padding:16px}input{width:100%;padding:8px;background:#0f172a;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-family:monospace;font-size:14px;box-sizing:border-box}#result{margin-top:12px;padding:12px;background:#0f172a;border-radius:4px;min-height:24px;font-size:16px}label{display:block;margin-bottom:6px;color:#94a3b8;font-size:12px}\",\"html\":\"<label>Expression</label><input id=\\\"expr\\\" placeholder=\\\"e.g. 2 + 2 * 3\\\" /><div id=\\\"result\\\">—</div>\",\"jsFunctions\":\"(function(){var input=document.getElementById('expr');var result=document.getElementById('result');input.addEventListener('input',async function(){var val=input.value.trim();if(!val){result.textContent='—';return;}try{var res=await Websandbox.connection.remote.evaluateExpression({expression:val});result.textContent=res&&res.ok?String(res.value):'err';}catch(e){result.textContent='err';}});})();\"}"
           }
         ]
       }
     },
     {
-      "_comment": "gen-ui-open-advanced pill — follow-up after generateSandboxedUi result.",
+      "_comment": "gen-ui-open-advanced — follow-up content after generateSandboxedUi returns.",
       "match": {
         "userMessage": "Inline expression evaluator",
-        "hasToolResult": true,
+        "toolCallId": "call_d6_open_genui_advanced_eval_001",
         "context": "ag2"
       },
       "response": {
-        "content": "Expression evaluator rendered above — type any JavaScript expression and see the result live."
+        "content": "Expression evaluator rendered — type any math expression and it evaluates in real time via the sandbox bridge."
       }
     }
   ]

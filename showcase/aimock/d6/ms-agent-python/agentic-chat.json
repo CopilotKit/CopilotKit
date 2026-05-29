@@ -7,9 +7,9 @@
   },
   "fixtures": [
     {
+      "_comment": "agentic-chat turn 1 — goldfish name. No turnIndex gate: probe sends 3 sequential turns in one thread; turnIndex would restrict to turn 1 and cause turns 2-3 to 503. Mirrors langgraph-python.",
       "match": {
         "userMessage": "good name for a goldfish",
-        "turnIndex": 0,
         "context": "ms-agent-python"
       },
       "response": {
@@ -17,9 +17,9 @@
       }
     },
     {
+      "_comment": "agentic-chat turn 2 — tank name. No turnIndex gate (multi-turn conversation).",
       "match": {
         "userMessage": "name for its tank",
-        "turnIndex": 0,
         "context": "ms-agent-python"
       },
       "response": {
@@ -27,9 +27,9 @@
       }
     },
     {
+      "_comment": "agentic-chat turn 3 — recall. No turnIndex gate (multi-turn conversation).",
       "match": {
         "userMessage": "what we named the goldfish",
-        "turnIndex": 0,
         "context": "ms-agent-python"
       },
       "response": {

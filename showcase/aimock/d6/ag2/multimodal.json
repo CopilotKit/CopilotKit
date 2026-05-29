@@ -2,12 +2,11 @@
   "_meta": {
     "description": "D6 fixtures for ag2 / multimodal",
     "sourceFile": "d5-multimodal.ts",
-    "owner": "d6-blitz-2026-05-26",
-    "notes": "Authored to match D5 script + ag2 adapter request shape. Two turns: image sample button (auto-sent) and PDF sample button (auto-sent). The D5 probe uses skipSend:true — the sample buttons auto-send via agent.addMessage. Assertion checks transcript for 'image' / 'document' keywords."
+    "created": "2026-05-22"
   },
   "fixtures": [
     {
-      "_comment": "multimodal image turn — the sample-image button auto-sends 'describe the sample image'. Response must contain the keyword 'image' for the buildModalityAssertion to pass.",
+      "_comment": "multimodal — sample image turn. The probe clicks 'Try with sample image' which auto-sends via agent.addMessage. The assertion checks the assistant transcript contains the keyword 'image'. The userMessage here matches the agentic-chat fixture for 'describe the sample image' which is the message the sample-attachment-buttons component dispatches.",
       "match": {
         "userMessage": "describe the sample image",
         "turnIndex": 0,
@@ -18,7 +17,7 @@
       }
     },
     {
-      "_comment": "multimodal PDF turn — the sample-pdf button auto-sends 'summarize the sample document'. Response must contain the keyword 'document' for the buildModalityAssertion to pass.",
+      "_comment": "multimodal — sample PDF turn. The probe clicks 'Try with sample PDF' which auto-sends. The assertion checks the assistant transcript contains the keyword 'document'.",
       "match": {
         "userMessage": "summarize the sample document",
         "turnIndex": 0,
