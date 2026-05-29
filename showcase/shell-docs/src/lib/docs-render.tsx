@@ -12,6 +12,7 @@ import path from "path";
 import matter from "gray-matter";
 import { resolveWithinDir } from "./safe-fs";
 import { getDocsMode } from "./registry";
+import { isRouteGroupSegment } from "./route-groups";
 
 export const CONTENT_DIR = path.join(process.cwd(), "src/content/docs");
 export const SNIPPETS_DIR = path.join(CONTENT_DIR, "..", "snippets");
@@ -559,10 +560,9 @@ export function buildFrameworkOverridesNav(folder: string): NavNode[] {
 
 /**
  * Build a sidebar that contains ONLY the per-framework MDX tree
- * (no merge with root nav, no root-equivalent filtering). Retained for
- * diagnostics and any callers that need to inspect a package-owned IA
- * directly; framework routes use `buildFrameworkNav` so authored and
- * generated modes share the same sidebar structure.
+ * (no merge with root nav, no root-equivalent filtering). Authored
+ * integrations use this because their `integrations/<folder>/meta.json`
+ * is the source of truth for page order and section grouping.
  *
  * Slugs are rewritten to drop the `integrations/<folder>/` prefix and
  * the literal `index` → "" rewrite, so links resolve at
@@ -721,9 +721,9 @@ export function mergeFrameworkNav(
 }
 
 /**
- * Build the framework-scoped sidebar IA used by every framework route.
- * This is intentionally independent of docs_mode: generated/authored
- * controls MDX resolution, not navigation structure.
+ * Build the framework-scoped sidebar IA used by generated framework
+ * routes. Generated docs share the root docs IA and layer sparse
+ * framework-specific overrides into that tree.
  */
 export function buildFrameworkNav(
   docsFolder: string,
@@ -1434,6 +1434,74 @@ export interface DocFrontmatter {
   hideTOC?: boolean;
 }
 
+function slugSegments(slugPath: string): string[] | null {
+  const segments = slugPath.split(/[\\/]+/).filter(Boolean);
+  if (segments.some((segment) => segment === "." || segment === "..")) {
+    return null;
+  }
+  return segments;
+}
+
+function routeGroupSubdirs(dir: string): string[] {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  return entries
+    .filter((entry) => entry.isDirectory() && isRouteGroupSegment(entry.name))
+    .map((entry) => entry.name);
+}
+
+function resolveDocThroughRouteGroups(
+  dir: string,
+  segments: string[],
+): string | null {
+  if (segments.length === 0) {
+    const indexPath = path.join(dir, "index.mdx");
+    return fs.existsSync(indexPath) ? indexPath : null;
+  }
+
+  const [segment, ...rest] = segments;
+  if (rest.length === 0) {
+    const mdxPath = path.join(dir, `${segment}.mdx`);
+    if (fs.existsSync(mdxPath)) return mdxPath;
+    const indexPath = path.join(dir, segment, "index.mdx");
+    if (fs.existsSync(indexPath)) return indexPath;
+  }
+
+  const directDir = path.join(dir, segment);
+  if (fs.existsSync(directDir) && fs.statSync(directDir).isDirectory()) {
+    const direct = resolveDocThroughRouteGroups(directDir, rest);
+    if (direct) return direct;
+  }
+
+  for (const routeGroup of routeGroupSubdirs(dir)) {
+    const grouped = resolveDocThroughRouteGroups(
+      path.join(dir, routeGroup),
+      segments,
+    );
+    if (grouped) return grouped;
+  }
+
+  return null;
+}
+
+function resolveRouteGroupedDocPath(slugPath: string): string | null {
+  const segments = slugSegments(slugPath);
+  if (!segments) return null;
+
+  const filePath = resolveDocThroughRouteGroups(CONTENT_DIR, segments);
+  if (!filePath) return null;
+
+  const resolved = resolveWithinDir(
+    CONTENT_DIR,
+    path.relative(CONTENT_DIR, filePath),
+  );
+  return resolved && fs.existsSync(resolved) ? resolved : null;
+}
+
 /**
  * Load an MDX file by slug and return its raw source + parsed frontmatter
  * metadata for rendering. Returns null when the file doesn't exist.
@@ -1457,7 +1525,12 @@ export function loadDoc(
   } else if (indexResolved && fs.existsSync(indexResolved)) {
     filePath = indexResolved;
   } else {
-    return null;
+    // Route groups such as `(other)` organize the sidebar filesystem but
+    // are not public URL segments. Resolve `/strands/telemetry` to
+    // `integrations/aws-strands/(other)/telemetry/index.mdx`.
+    const routeGroupedPath = resolveRouteGroupedDocPath(slugPath);
+    if (!routeGroupedPath) return null;
+    filePath = routeGroupedPath;
   }
 
   let source: string;

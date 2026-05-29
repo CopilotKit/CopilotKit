@@ -433,7 +433,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/learn/tutorials/multi-conversation-chat",
-        destination: "/tutorials/multi-conversation-chat",
+        destination: "/",
         permanent: true,
       },
       {
@@ -507,11 +507,11 @@ const nextConfig: NextConfig = {
         destination: "/coding-agents",
         permanent: false,
       },
-      // Orphaned broken stub.
+      // Old guide now belongs in the v2 hook reference.
       {
         source: "/copilot-suggestions",
-        destination: "/",
-        permanent: false,
+        destination: "/reference/v2/hooks/useSuggestions",
+        permanent: true,
       },
       // AI-slop placeholder pulled from nav until properly authored;
       // file stays on disk for rewrite.
@@ -520,14 +520,6 @@ const nextConfig: NextConfig = {
         destination: "/generative-ui",
         permanent: false,
       },
-      // ~1-year-old migration target, no longer a meaningful jump-off
-      // point.
-      {
-        source: "/migrate/1.10.X",
-        destination: "/migrate/v2",
-        permanent: false,
-      },
-
       // ag-ui-middleware moved into the agentic-protocols group so it
       // appears in the sidebar under AG-UI rather than as an orphan
       // root page. 302 (not 301) since the new home is recent and we
