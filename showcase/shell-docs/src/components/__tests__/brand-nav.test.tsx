@@ -11,11 +11,11 @@ const globalsCss = readFileSync(
 );
 
 describe("BrandNav layout", () => {
-  it("uses the same desktop layout cap as the docs grid", () => {
-    expect(globalsCss).toContain("--shell-docs-scrollbar-gutter: 11px;");
-    expect(brandNavSource).toContain(
-      "max-w-[calc(97rem+var(--shell-docs-scrollbar-gutter))]",
-    );
+  it("uses a CSS class for the same desktop layout cap as the docs grid", () => {
+    expect(brandNavSource).toContain("shell-docs-brand-nav-inner");
+    expect(globalsCss).toContain(".shell-docs-brand-nav-inner");
+    expect(globalsCss).toContain("max-width: calc(97rem + 11px);");
+    expect(brandNavSource).not.toContain("max-w-[calc(");
     expect(brandNavSource).not.toContain("max-w-[1534px]");
   });
 });

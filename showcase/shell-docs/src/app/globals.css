@@ -31,15 +31,19 @@
  * --fd-banner-height is set dynamically by Banners (54px / 0px). */
 :root {
   --fd-nav-height: 56px;
-  /* Chromium renders our `scrollbar-width: thin` content wrapper gutter at
-   * 11px. BrandNav adds this to Fumadocs's 97rem layout cap so its centered
-   * shell lines up with the sidebar when the docs column starts scrolling. */
-  --shell-docs-scrollbar-gutter: 11px;
 }
 @media (min-width: 768px) {
   :root {
     --fd-nav-height: 88px;
   }
+}
+
+/* BrandNav's desktop surface uses the same 97rem track as the Fumadocs
+ * docs grid plus Chromium's 11px `scrollbar-width: thin` gutter. Keep this
+ * as ordinary CSS: Tailwind does not emit the equivalent calc/var arbitrary
+ * max-width utility, which would leave the header full-width on wide screens. */
+.shell-docs-brand-nav-inner {
+  max-width: calc(97rem + 11px);
 }
 
 /* shell-docs sidebar overrides.

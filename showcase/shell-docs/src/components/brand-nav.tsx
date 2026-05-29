@@ -78,12 +78,8 @@ export function BrandNav(_props: BrandNavProps = {}) {
 
   return (
     <nav className="relative hidden h-[86px] bg-[var(--bg)] px-[22px] py-3 md:block">
-      {/* Cap the BrandNav against the same 97rem content track that the
-       * fumadocs docs grid uses, plus the content wrapper's thin scrollbar
-       * gutter. Without the gutter, the centered nav drifts inward once
-       * wide viewports hit the max-width cap. */}
       <div
-        className="mx-auto flex h-full max-w-[calc(97rem+var(--shell-docs-scrollbar-gutter))] items-center gap-5 rounded-lg border border-[var(--border)] px-5 shadow-[0_1px_0_rgba(1,5,7,0.03)] backdrop-blur-lg"
+        className="shell-docs-brand-nav-inner mx-auto flex h-full items-center gap-5 rounded-lg border border-[var(--border)] px-5 shadow-[0_1px_0_rgba(1,5,7,0.03)] backdrop-blur-lg"
         style={{ backgroundColor: "var(--nav-surface)" }}
       >
         <Link
