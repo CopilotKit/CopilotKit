@@ -1,8 +1,10 @@
 "use client";
 
 import {
+  CopilotChat,
+  CopilotChatConfigurationProvider,
   CopilotKitProvider,
-  CopilotSidebar,
+  useConfigureSuggestions,
   useRenderTool,
 } from "@copilotkit/react-core/v2";
 import { useEffect, useRef } from "react";
@@ -51,15 +53,14 @@ const sandboxTag: React.CSSProperties = {
   letterSpacing: 0.2,
 };
 
-// Fixed-height (~6 lines) scrollable container that wraps the syntax-highlighted code.
+// Tall fixed-height (~12 lines) scrollable code pane — the visual emphasis of the demo.
 const codeScroller: React.CSSProperties = {
-  height: "9em", // ~6 lines @ 12px / 1.5 line-height
+  height: "18em",
   overflow: "auto",
   borderRadius: 6,
   background: "#1e1e1e", // matches vscDarkPlus
   border: "1px solid #1e1e1e",
 };
-// SyntaxHighlighter is told to fill the scroller — its internal <pre> shouldn't add margins.
 const codeHighlighterStyle: React.CSSProperties = {
   margin: 0,
   padding: "8px 10px",
@@ -67,23 +68,15 @@ const codeHighlighterStyle: React.CSSProperties = {
   fontSize: 12,
   lineHeight: 1.5,
 };
-const codeLabel: React.CSSProperties = {
+const labelStyle: React.CSSProperties = {
   fontSize: 11,
   color: "#94a3b8",
   fontWeight: 400,
-  marginTop: 0,
   marginBottom: 4,
   letterSpacing: 0.3,
 };
-const resultLabel: React.CSSProperties = {
-  fontSize: 11,
-  color: "#94a3b8",
-  fontWeight: 400,
-  marginTop: 8,
-  marginBottom: 4,
-  letterSpacing: 0.3,
-};
-// Fixed-height (~3 lines) scrollable result pane.
+const codeLabel: React.CSSProperties = { ...labelStyle, marginTop: 0 };
+const resultLabel: React.CSSProperties = { ...labelStyle, marginTop: 10 };
 const resultPane: React.CSSProperties = {
   height: "4.6em",
   overflow: "auto",
@@ -116,7 +109,6 @@ function Spinner() {
   );
 }
 
-// Subcomponent so we can use hooks (auto-scroll while code streams).
 function RunCodeCard({
   status,
   parameters,
@@ -132,9 +124,6 @@ function RunCodeCard({
   const language = parameters?.language ?? "python";
   const code = parameters?.code ?? "";
 
-  // Auto-scroll the code pane to follow streaming, but only if the user is
-  // already at (near) the bottom — otherwise we'd yank them down while they
-  // were reading earlier lines.
   const codeRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = codeRef.current;
@@ -194,7 +183,6 @@ function RunCodeCard({
     );
   }
 
-  // complete — result is a JSON-serialized { stdout, exitCode } string.
   let stdout = "";
   let exitCode = 0;
   try {
@@ -240,6 +228,31 @@ function RegisterRenderers() {
     },
     [],
   );
+
+  // Starter pills under the input — descriptive titles, kept available across
+  // the conversation so users can try each language without scrolling back.
+  useConfigureSuggestions(
+    {
+      available: "always",
+      suggestions: [
+        {
+          title: "Python — Zoo animals",
+          message: "Run a Python snippet listing 20 popular zoo animals",
+        },
+        {
+          title: "TypeScript — Fibonacci numbers",
+          message:
+            "Run TypeScript that builds an array of the first 10 Fibonacci numbers and logs the JSON",
+        },
+        {
+          title: "JavaScript — Current timestamp",
+          message: "Run JavaScript that logs the current timestamp",
+        },
+      ],
+    },
+    [],
+  );
+
   return null;
 }
 
@@ -254,27 +267,56 @@ export default function Page() {
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          justifyContent: "center",
           fontFamily: "ui-sans-serif, system-ui, sans-serif",
-          padding: "2rem",
-          textAlign: "center",
-          gap: "0.75rem",
+          padding: "32px 16px",
+          gap: "16px",
           background: "linear-gradient(160deg,#f8fafc,#eef2ff)",
         }}
       >
-        <h1 style={{ fontSize: "1.75rem", margin: 0 }}>CopilotKit × Daytona</h1>
-        <p style={{ maxWidth: 560, color: "#475569", lineHeight: 1.6 }}>
-          This is the CopilotKit built-in agent with one extra server tool:{" "}
-          <code>runCode</code>, which executes Python, TypeScript, or JavaScript
-          in an isolated Daytona sandbox. Open the chat and ask it to run
-          something — e.g.{" "}
-          <em>
-            “run a Python snippet that prints the first 10 Fibonacci numbers”
-          </em>{" "}
-          or <em>“run JavaScript that logs Date.now().”</em>
-        </p>
+        <header style={{ textAlign: "center", maxWidth: 760 }}>
+          <h1 style={{ fontSize: "1.6rem", margin: 0 }}>
+            CopilotKit × Daytona
+          </h1>
+          <p
+            style={{
+              margin: "6px 0 0",
+              color: "#475569",
+              lineHeight: 1.5,
+              fontSize: 14,
+            }}
+          >
+            CopilotKit's Built-in Agent with a <code>runCode</code> server tool
+            that executes Python, TypeScript, or JavaScript in an isolated
+            Daytona sandbox.
+          </p>
+        </header>
+
+        <CopilotChatConfigurationProvider
+          labels={{
+            welcomeMessageText:
+              "Ready to run code in a Daytona sandbox. Try a starter below, or describe what you'd like to execute.",
+          }}
+        >
+          <section
+            style={{
+              width: "100%",
+              maxWidth: 820,
+              // Fill the rest of the viewport (header + paddings ≈ 160px).
+              height: "calc(100vh - 160px)",
+              minHeight: 520,
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: 14,
+              boxShadow: "0 10px 30px -12px rgba(15,23,42,0.18)",
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <CopilotChat />
+          </section>
+        </CopilotChatConfigurationProvider>
       </main>
-      <CopilotSidebar defaultOpen />
     </CopilotKitProvider>
   );
 }
