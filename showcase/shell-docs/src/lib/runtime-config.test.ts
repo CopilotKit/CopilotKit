@@ -43,7 +43,11 @@ describe("server getRuntimeConfig (shell-docs)", () => {
   });
 
   it("returns env values when all are set (production)", () => {
-    process.env.NODE_ENV = "production";
+    // NODE_ENV is typed as `"development" | "production" | "test"` and
+    // marked read-only in modern @types/node. The runtime-config reader
+    // only checks the string value, so writing through a record cast is
+    // safe and matches the pattern used in other shell-docs tests.
+    (process.env as Record<string, string>).NODE_ENV = "production";
     process.env.NEXT_PUBLIC_BASE_URL = "https://docs.copilotkit.ai";
     process.env.NEXT_PUBLIC_SHELL_URL = "https://showcase.copilotkit.ai";
     process.env.NEXT_PUBLIC_INTELLIGENCE_SIGNUP_URL =
@@ -69,7 +73,7 @@ describe("server getRuntimeConfig (shell-docs)", () => {
   });
 
   it("strips trailing slashes from URLs", () => {
-    process.env.NODE_ENV = "production";
+    (process.env as Record<string, string>).NODE_ENV = "production";
     process.env.NEXT_PUBLIC_BASE_URL = "https://docs.example.com/";
     process.env.NEXT_PUBLIC_SHELL_URL = "https://shell.example.com//";
     process.env.NEXT_PUBLIC_INTELLIGENCE_SIGNUP_URL =
@@ -84,7 +88,7 @@ describe("server getRuntimeConfig (shell-docs)", () => {
   });
 
   it("falls back to dev defaults when URLs are unset in non-production", () => {
-    process.env.NODE_ENV = "development";
+    (process.env as Record<string, string>).NODE_ENV = "development";
     const cfg = getRuntimeConfig();
     expect(cfg.baseUrl).toBe("http://localhost:3003");
     expect(cfg.shellUrl).toBe("http://localhost:3000");
@@ -95,7 +99,7 @@ describe("server getRuntimeConfig (shell-docs)", () => {
   });
 
   it("falls back to prod sentinels and console.errors when URLs unset in production", () => {
-    process.env.NODE_ENV = "production";
+    (process.env as Record<string, string>).NODE_ENV = "production";
     const errs: string[] = [];
     const spy = vi
       .spyOn(console, "error")
@@ -120,7 +124,7 @@ describe("server getRuntimeConfig (shell-docs)", () => {
   });
 
   it("returns empty strings for missing analytics keys with no console output", () => {
-    process.env.NODE_ENV = "production";
+    (process.env as Record<string, string>).NODE_ENV = "production";
     process.env.NEXT_PUBLIC_BASE_URL = "https://docs.copilotkit.ai";
     process.env.NEXT_PUBLIC_SHELL_URL = "https://showcase.copilotkit.ai";
 
@@ -149,7 +153,7 @@ describe("server getRuntimeConfig (shell-docs)", () => {
   });
 
   it("reads live process.env on each call (no module-load freeze)", () => {
-    process.env.NODE_ENV = "production";
+    (process.env as Record<string, string>).NODE_ENV = "production";
     process.env.NEXT_PUBLIC_BASE_URL = "https://first.example.com";
     process.env.NEXT_PUBLIC_SHELL_URL = "https://shell.example.com";
     process.env.NEXT_PUBLIC_INTELLIGENCE_SIGNUP_URL =
@@ -165,7 +169,7 @@ describe("server getRuntimeConfig (shell-docs)", () => {
   it("getRuntimeConfigEdge skips noStore() (Edge runtime path)", async () => {
     const cacheMod = await import("next/cache");
     const noStoreSpy = vi.spyOn(cacheMod, "unstable_noStore");
-    process.env.NODE_ENV = "production";
+    (process.env as Record<string, string>).NODE_ENV = "production";
     process.env.NEXT_PUBLIC_BASE_URL = "https://edge.example.com";
     process.env.NEXT_PUBLIC_SHELL_URL = "https://edge-shell.example.com";
     process.env.NEXT_PUBLIC_INTELLIGENCE_SIGNUP_URL =

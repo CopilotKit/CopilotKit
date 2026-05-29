@@ -10,7 +10,45 @@ import { ShellSearchProvider } from "@/components/search-trigger";
 import { PostHogProvider } from "@/lib/providers/posthog-provider";
 import { ScarfPixel } from "@/lib/providers/scarf-pixel";
 import { getIntegrations } from "@/lib/registry";
+import { getRuntimeConfig } from "@/lib/runtime-config";
 import "./globals.css";
+
+/**
+ * Serialize the runtime config for inline injection. We must
+ * JSON.stringify-then-escape because the value lands inside a
+ * `<script>...</script>` tag, where three substrings would otherwise
+ * break out of (or corrupt) the parser:
+ *
+ *   - `<` — guards against the `</script>` breakout (XSS). JSON.stringify
+ *     does NOT escape `<` by default, so a URL containing `</script>`
+ *     (e.g. a hostile env value) would terminate the inline script and
+ *     inject HTML. Escape every `<` to `<` so the substring
+ *     `</script>` can never appear.
+ *   - ` ` (LINE SEPARATOR) and ` ` (PARAGRAPH SEPARATOR) —
+ *     legal inside JSON strings, but a syntax error inside a JS string
+ *     literal in older engines / when the page is parsed as
+ *     `text/javascript`. Escape both.
+ *
+ * The regex sources below are written with explicit ` ` / ` `
+ * ECMAScript-Unicode escapes — the regex engine resolves the escape at
+ * runtime, so the literal codepoint is matched.
+ *
+ * Canonical OWASP-recommended escape for inline JSON in HTML.
+ */
+const LS_RE = new RegExp("\u2028", "g");
+const PS_RE = new RegExp("\u2029", "g");
+
+// Tokenizer note: writing the literal U+2028 / U+2029 codepoints inside
+// a /regex/ literal is impossible because TS treats them as line
+// terminators and the regex becomes unterminated. Constructing via
+// new RegExp("\uXXXX", "g") sidesteps the tokenizer entirely: the
+// regex engine resolves the escape at runtime.
+function serializeRuntimeConfig(cfg: unknown): string {
+  return JSON.stringify(cfg)
+    .replace(/</g, "\\u003c")
+    .replace(LS_RE, "\\u2028")
+    .replace(PS_RE, "\\u2029");
+}
 
 // Top-level route segments in src/app/ that must not be mistaken for
 // framework slugs by FrameworkProvider.urlFramework. If an integration
@@ -78,8 +116,14 @@ export default function RootLayout({
         ? "unknown"
         : rawSha.slice(0, 7);
 
-  const REO_KEY = process.env.NEXT_PUBLIC_REO_KEY;
-  const REB2B_KEY = process.env.NEXT_PUBLIC_REB2B_KEY;
+  // Server-side: read live env at request time. `unstable_noStore()`
+  // inside getRuntimeConfig opts this segment out of the static
+  // cache so the inline <script> below always reflects the current
+  // Railway env vars.
+  const runtimeConfig = getRuntimeConfig();
+  const injection = `window.__SHOWCASE_CONFIG__=${serializeRuntimeConfig(runtimeConfig)};`;
+  const REO_KEY = runtimeConfig.reoKey;
+  const REB2B_KEY = runtimeConfig.reb2bKey;
 
   return (
     // suppressHydrationWarning is required because the inline theme-init
@@ -95,6 +139,19 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        {/* MUST be the first child of <head>. Every client component
+         * reads window.__SHOWCASE_CONFIG__ during hydration; populating
+         * it from a raw inline <script> guarantees the value is set
+         * before the parser reaches any next-script beforeInteractive
+         * block (those run after the parser passes our inline script).
+         * Using a plain <script> rather than next/script also avoids
+         * the deferred-execution semantics of `strategy="beforeInteractive"`
+         * — `beforeInteractive` runs before hydration but AFTER raw
+         * parse-time scripts. */}
+        <script
+          id="__showcase_config__"
+          dangerouslySetInnerHTML={{ __html: injection }}
+        />
         {/* Apply the persisted theme before first paint to avoid a
          * light-flash on dark-preferring loads. Reads `localStorage.theme`
          * and falls back to `prefers-color-scheme` when the persisted
