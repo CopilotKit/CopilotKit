@@ -4,10 +4,17 @@
 // reveals a copyable AI onboarding prompt. The prompt instructs the user's
 // coding agent to install the CopilotKit skills, use `copilotkit-setup`,
 // and ask 4 onboarding questions before scaffolding the project.
+//
+// Layout contract: this component returns three siblings (pill, body, sr-only
+// status). It must be placed inside a `sm:flex-wrap sm:flex-row` container so
+// the body's `sm:basis-full` can break onto its own row at >=sm; on mobile the
+// parent's `flex-col` stacks them naturally. The pill is `w-full sm:w-auto`
+// to align with sibling `w-full sm:w-fit` controls (e.g. HeroQuickstartDropdown)
+// on small viewports.
 
 import React from "react";
 import Link from "next/link";
-import { Check, ChevronDown, Copy, Sparkles } from "lucide-react";
+import { Check, ChevronDown, Copy, Sparkles, X } from "lucide-react";
 
 const PROMPT = `Help me get started with CopilotKit — the frontend stack for AI agents and generative UI.
 
@@ -28,9 +35,11 @@ Please ask me the following questions one at a time:
 
 Once you have my answers, use the installed skills to guide me through setup step by step.`;
 
+type CopyState = "idle" | "copied" | "error";
+
 export function AgentStartPrompt() {
   const [expanded, setExpanded] = React.useState(false);
-  const [copied, setCopied] = React.useState(false);
+  const [copyState, setCopyState] = React.useState<CopyState>("idle");
   const bodyId = React.useId();
   const resetTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -43,6 +52,14 @@ export function AgentStartPrompt() {
     [],
   );
 
+  const copied = copyState === "copied";
+  const errored = copyState === "error";
+
+  let copyLabel: string;
+  if (copied) copyLabel = "Copied prompt";
+  else if (errored) copyLabel = "Copy blocked; select the prompt text manually";
+  else copyLabel = "Copy prompt";
+
   const onCopy = async () => {
     if (resetTimerRef.current) {
       clearTimeout(resetTimerRef.current);
@@ -50,22 +67,30 @@ export function AgentStartPrompt() {
     }
     try {
       await navigator.clipboard.writeText(PROMPT);
-      setCopied(true);
-      resetTimerRef.current = setTimeout(() => setCopied(false), 1500);
+      setCopyState("copied");
+      resetTimerRef.current = setTimeout(() => setCopyState("idle"), 1500);
     } catch (err) {
+      // Clipboard blocked (insecure context, sandboxed iframe, permissions
+      // policy, in-app webview, or older browser without navigator.clipboard).
+      // Surface the failure visually AND force the panel open so the user can
+      // manually select the prompt text — the entire feature is paste-this-
+      // into-your-agent, so a silent no-op is a dead-end UX.
       console.warn("[agent-start-prompt] clipboard write failed", err);
+      setCopyState("error");
+      setExpanded(true);
+      resetTimerRef.current = setTimeout(() => setCopyState("idle"), 2500);
     }
   };
 
   return (
     <>
-      <div className="group flex h-11 min-w-0 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] px-3 transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)]">
+      <div className="group flex h-11 w-full min-w-0 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] px-3 transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] sm:w-auto">
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
           aria-controls={bodyId}
-          className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 border-0 bg-transparent p-0 text-left"
+          className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded border-0 bg-transparent p-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
         >
           <Sparkles
             className="h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]"
@@ -87,49 +112,62 @@ export function AgentStartPrompt() {
         <button
           type="button"
           onClick={onCopy}
-          aria-label={copied ? "Copied prompt" : "Copy prompt"}
-          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--bg-elevated)] text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent)]"
+          aria-label={copyLabel}
+          className={`inline-flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md border bg-[var(--bg-elevated)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+            errored
+              ? "border-red-500 text-red-500"
+              : "border-[var(--border)] text-[var(--text-muted)] group-hover:text-[var(--accent)]"
+          }`}
         >
           {copied ? (
             <Check className="h-3.5 w-3.5" />
+          ) : errored ? (
+            <X className="h-3.5 w-3.5" />
           ) : (
             <Copy className="h-3.5 w-3.5" />
           )}
         </button>
       </div>
 
-      {expanded && (
-        <div
-          id={bodyId}
-          className="w-full overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] sm:basis-full"
-        >
-          <pre className="m-0 whitespace-pre-wrap break-words bg-transparent px-4 py-3 font-mono text-[12px] leading-[1.65] text-[var(--text-secondary)]">
-            {PROMPT}
-          </pre>
-          <div className="border-t border-[var(--border)] px-4 py-2 text-[12px]">
-            <Link
-              href="/build-with-agents"
-              className="inline-flex items-center gap-1 text-[var(--accent)] no-underline"
+      <div
+        id={bodyId}
+        hidden={!expanded}
+        className="w-full overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] sm:basis-full"
+      >
+        <pre className="m-0 whitespace-pre-wrap break-words bg-transparent px-4 py-3 font-mono text-[12px] leading-[1.65] text-[var(--text-secondary)]">
+          {PROMPT}
+        </pre>
+        <div className="border-t border-[var(--border)] px-4 py-2 text-[12px]">
+          <Link
+            href="/build-with-agents"
+            className="inline-flex items-center gap-1 text-[var(--accent)] no-underline"
+          >
+            Learn more about building with agents
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
             >
-              Learn more about building with agents
-              <svg
-                width="10"
-                height="10"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <line x1="5" y1="12" x2="19" y2="12" />
-                <polyline points="12 5 19 12 12 19" />
-              </svg>
-            </Link>
-          </div>
+              <line x1="5" y1="12" x2="19" y2="12" />
+              <polyline points="12 5 19 12 12 19" />
+            </svg>
+          </Link>
         </div>
-      )}
+
+        <span aria-live="polite" className="sr-only">
+          {copied
+            ? "Prompt copied to clipboard"
+            : errored
+              ? "Clipboard blocked; select the prompt text manually"
+              : ""}
+        </span>
+      </div>
     </>
   );
 }
