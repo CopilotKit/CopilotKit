@@ -77,10 +77,22 @@ const SPEC_DIR = path.resolve(
   WORKSPACE_ROOT,
   "showcase/integrations/langgraph-python/tests/e2e",
 );
-const FIXTURE_FILE = path.resolve(
-  WORKSPACE_ROOT,
-  "showcase/aimock/feature-parity.json",
-);
+
+/**
+ * After the D4/D6 reorg the monolithic `feature-parity.json` was split into
+ * per-integration files under `showcase/aimock/{d4,d6}/<integration>/*.json`
+ * plus a depth-agnostic `showcase/aimock/shared/*.json` bucket. For the
+ * langgraph-python coverage check we union every fixture from:
+ *   - showcase/aimock/d4/langgraph-python/*.json
+ *   - showcase/aimock/d6/langgraph-python/*.json
+ *   - showcase/aimock/shared/*.json (no-context, matches any integration)
+ * and run the same substring-coverage rule across the union.
+ */
+const FIXTURE_DIRS = [
+  path.resolve(WORKSPACE_ROOT, "showcase/aimock/d4/langgraph-python"),
+  path.resolve(WORKSPACE_ROOT, "showcase/aimock/d6/langgraph-python"),
+  path.resolve(WORKSPACE_ROOT, "showcase/aimock/shared"),
+];
 
 /**
  * Threshold below which a prompt is trivially short enough that its
@@ -259,11 +271,47 @@ function isCovered(prompt: string, fixtures: Fixture[]): boolean {
   return false;
 }
 
+/**
+ * Load and union all fixtures from the per-integration + shared dirs.
+ * Each file is expected to be `{fixtures: [...]}` (the same shape the old
+ * monolithic feature-parity.json used).
+ *
+ * Missing fixture DIRECTORIES are a hard error (the reorg layout is
+ * load-bearing). Files present but lacking a `fixtures` array are silently
+ * skipped (defensive against schema drift; no such files exist today).
+ */
+async function loadAllFixtures(dirs: string[]): Promise<Fixture[]> {
+  const out: Fixture[] = [];
+  for (const dir of dirs) {
+    let entries: string[];
+    try {
+      entries = await fs.readdir(dir);
+    } catch (err) {
+      // Missing dir is a hard error — the reorg layout is load-bearing.
+      throw new Error(
+        `aimock fixture dir not found: ${dir} (${(err as Error).message})`,
+      );
+    }
+    const jsonFiles = entries.filter((e) => e.endsWith(".json"));
+    for (const file of jsonFiles) {
+      const fullPath = path.join(dir, file);
+      const raw = await fs.readFile(fullPath, "utf8");
+      const parsed = JSON.parse(raw) as Partial<FeatureParityFile>;
+      if (!parsed || !Array.isArray(parsed.fixtures)) {
+        // Skip files that don't carry a fixtures array (defensive — no
+        // such files exist today but the schema is informally enforced).
+        continue;
+      }
+      out.push(...parsed.fixtures);
+    }
+  }
+  return out;
+}
+
 describe("aimock feature-parity fixture coverage for langgraph-python E2E specs", () => {
   it("every extracted chat prompt has a matching fixture", async () => {
-    // Load fixtures.
-    const fixtureRaw = await fs.readFile(FIXTURE_FILE, "utf8");
-    const { fixtures } = JSON.parse(fixtureRaw) as FeatureParityFile;
+    // Load fixtures from the D4/D6 per-integration dirs + shared bucket.
+    const fixtures = await loadAllFixtures(FIXTURE_DIRS);
     expect(Array.isArray(fixtures)).toBe(true);
     expect(fixtures.length).toBeGreaterThan(0);
 
@@ -298,8 +346,11 @@ describe("aimock feature-parity fixture coverage for langgraph-python E2E specs"
         .join("\n");
       throw new Error(
         `Found ${uncovered.length} langgraph-python spec prompt(s) without matching aimock fixtures.\n` +
-          `Add a fixture entry (match.userMessage substring + deterministic response) to\n` +
-          `showcase/aimock/feature-parity.json for each:\n\n${listing}\n\n` +
+          `Add a fixture entry (match.userMessage substring + deterministic response) to one of:\n` +
+          `  - showcase/aimock/d4/langgraph-python/<file>.json\n` +
+          `  - showcase/aimock/d6/langgraph-python/<file>.json\n` +
+          `  - showcase/aimock/shared/<file>.json (no-context, depth-agnostic)\n\n` +
+          `${listing}\n\n` +
           `Total prompts scanned: ${allPrompts.length}. Specs scanned: ${specFiles.length}.`,
       );
     }
