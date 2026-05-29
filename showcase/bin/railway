@@ -960,8 +960,15 @@ module Railway
                     "P5: serviceInstanceUpdate returned #{updated.inspect} (expected true) for #{service_id} -> #{image}"
             end
 
-            gql.query(RestoreCommand::REDEPLOY_MUTATION,
+            # Symmetric assertion: serviceInstanceUpdate has already advanced
+            # source.image+updatedAt, so a failed redeploy could otherwise
+            # sneak through verification. Require truthy redeploy result.
+            redeployed = gql.query(RestoreCommand::REDEPLOY_MUTATION,
                 serviceId: service_id, envId: env_id)
+            unless redeployed && redeployed["serviceInstanceRedeploy"]
+                raise MutationError,
+                    "P5: serviceInstanceRedeploy returned #{redeployed.inspect} (expected truthy) for #{service_id} -> #{image}"
+            end
 
             expected_digest = image.include?("@") ? image.split("@", 2).last : nil
             last_seen_image = nil
@@ -1110,33 +1117,46 @@ module Railway
         # P1 — every staging digest about to be promoted must exist in GHCR.
         # Verifies the DIGEST-form ref that will actually be pinned to prod
         # (resolves tag refs first; refuses if the tag can't be resolved).
+        #
+        # Side-effect: populates @promote_refs (service_name => digest-pinned
+        # ref) so execute_promotion pins the EXACT ref P1 verified — staging
+        # `:latest` is mutable, so a second resolve_digest could return a
+        # different digest (TOCTOU) and prod would be pinned to a digest P1
+        # never verified.
         def check_p1_ghcr_digests(staging)
             findings = []
+            @promote_refs ||= {}
             (staging["services"] || []).each do |svc|
                 image = svc["image"] || svc["image_tag"]
                 next if image.nil? || image.empty?
 
-                resolved = resolved_prod_image(svc)
-                if resolved.nil?
-                    findings << "REFUSE: P1 (#{svc['name']}): cannot resolve #{image} to a GHCR digest; " \
-                                "refusing to pin prod to a mutable tag."
-                    next
-                end
+                # Per-service rescue: a GHCR error on one service must not
+                # discard findings already accumulated for earlier services.
+                begin
+                    resolved = resolved_prod_image(svc)
+                    if resolved.nil?
+                        findings << "REFUSE: P1 (#{svc['name']}): cannot resolve #{image} to a GHCR digest; " \
+                                    "refusing to pin prod to a mutable tag."
+                        next
+                    end
 
-                case ghcr.manifest_exists(resolved)
-                when :exists
-                    # ok
-                when :missing
-                    findings << "REFUSE: P1 (#{svc['name']}): #{resolved} not found in GHCR " \
-                                "(digest may have been garbage-collected; staging build may not have pushed)."
-                when :auth_failed
-                    findings << "REFUSE: P1 (#{svc['name']}): GHCR auth failed for #{resolved}. " \
-                                "Set GHCR_TOKEN (local: 'gh auth token') or GITHUB_TOKEN (CI: workflow token with packages:read)."
+                    case ghcr.manifest_exists(resolved)
+                    when :exists
+                        # Record the verified ref for use by execute_promotion
+                        # — guarantees pin parity with what P1 verified.
+                        @promote_refs[svc["name"]] = resolved
+                    when :missing
+                        findings << "REFUSE: P1 (#{svc['name']}): #{resolved} not found in GHCR " \
+                                    "(digest may have been garbage-collected; staging build may not have pushed)."
+                    when :auth_failed
+                        findings << "REFUSE: P1 (#{svc['name']}): GHCR auth failed for #{resolved}. " \
+                                    "Set GHCR_TOKEN (local: 'gh auth token') or GITHUB_TOKEN (CI: workflow token with packages:read)."
+                    end
+                rescue Railway::GHCR::Error => e
+                    findings << "REFUSE: P1 (#{svc['name']}): GHCR check raised #{e.class}: #{e.message}"
                 end
             end
             findings
-        rescue Railway::GHCR::Error => e
-            ["REFUSE: P1: GHCR check raised #{e.class}: #{e.message}"]
         end
 
         # P2 — for each staging service we are promoting, the most recent
@@ -1161,14 +1181,20 @@ module Railway
                 # Railway's Deployment.meta is a JSON scalar that may deserialize
                 # as a String (not a Hash). Guard the dig so the race-check is
                 # a best-effort no-op when meta isn't structured — SUCCESS
-                # status above is the real gate.
+                # status above is the real gate. When the skip happens, emit a
+                # WARN so the missing race-check is visible (not silent).
                 meta = latest["meta"]
-                deployed_image = meta.is_a?(Hash) ? meta["image"].to_s : ""
-                deployed_digest = deployed_image.include?("@") ? deployed_image.split("@", 2).last : nil
-                snapshot_digest = svc["digest"]
-                if snapshot_digest && deployed_digest && deployed_digest != snapshot_digest
-                    findings << "REFUSE: P2 (#{svc['name']}): in-flight race — latest staging deployment is " \
-                                "#{deployed_digest} but snapshot has #{snapshot_digest}. Re-snapshot and retry."
+                if meta.is_a?(Hash)
+                    deployed_image = meta["image"].to_s
+                    deployed_digest = deployed_image.include?("@") ? deployed_image.split("@", 2).last : nil
+                    snapshot_digest = svc["digest"]
+                    if snapshot_digest && deployed_digest && deployed_digest != snapshot_digest
+                        findings << "REFUSE: P2 (#{svc['name']}): in-flight race — latest staging deployment is " \
+                                    "#{deployed_digest} but snapshot has #{snapshot_digest}. Re-snapshot and retry."
+                    end
+                else
+                    findings << "WARN: P2 (#{svc['name']}): in-flight race check skipped — " \
+                                "deployment meta is #{meta.class}, expected Hash."
                 end
             end
             findings
@@ -1331,17 +1357,20 @@ module Railway
         end
 
         def execute_promotion(staging, prod)
+            @promote_refs ||= {}
+            already_pinned = []
             (staging["services"] || []).each do |svc|
                 pmatch = Railway.find_service(prod, svc["name"])
                 next unless pmatch
-                # Resolve staging tag → GHCR digest BEFORE pinning. Pinning a
-                # mutable tag (`:latest`) to prod would defeat the immutable-
-                # prod invariant; refuse rather than guess.
-                image = resolved_prod_image(svc)
+                # Use the EXACT ref P1 resolved+verified. Re-resolving here
+                # would risk TOCTOU on staging's mutable `:latest`. If the
+                # entry is missing, P1 either didn't run or didn't pass for
+                # this service — treat as an internal error rather than
+                # silently falling back to a tag.
+                image = @promote_refs[svc["name"]]
                 if image.nil?
-                    src = svc["image"] || svc["image_tag"]
-                    warn "P0/promote (#{svc['name']}): cannot resolve #{src} to a GHCR digest; " \
-                         "refusing to pin prod to a mutable tag."
+                    warn "P0/promote (#{svc['name']}): no P1-verified digest ref recorded; " \
+                         "refusing to pin (internal error — preflight did not capture this service)."
                     return 1
                 end
                 if options[:dry_run]
@@ -1354,8 +1383,13 @@ module Railway
                         env_id: PRODUCTION_ENV_ID,
                         image: image)
                     puts "promoted #{svc['name']} -> #{image}"
+                    already_pinned << svc["name"]
                 rescue PromoteCommand::MutationError => e
                     warn e.message
+                    warn "PARTIAL PROMOTION: already pinned #{already_pinned.inspect}; " \
+                         "FAILED on #{svc['name']}: #{e.message}. " \
+                         "Production is in a mixed state — run 'bin/railway rollback-commit' " \
+                         "against the prior snapshot to revert, or re-run promote to retry."
                     return 1
                 end
             end
