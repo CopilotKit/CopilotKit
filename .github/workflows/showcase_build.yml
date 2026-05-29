@@ -602,6 +602,13 @@ jobs:
         # redeployed", skip the gate, and ship a false-green.
         # The legitimate "services == '' → nothing redeployed → no upload"
         # path is preserved by the services != '' guard.
+        #
+        # If a future change ever switches this step to `if: always()`,
+        # `if-no-files-found: error` STILL reds path (A): the redeploy
+        # step's non-zero exit on a HARD crash is independent of upload
+        # gating, and `if-no-files-found: error` on `always()` then trips
+        # because summary.json was never written. So neither relaxation
+        # alone opens a false-green window.
         if: steps.changed.outputs.services != ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

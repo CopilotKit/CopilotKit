@@ -139,8 +139,6 @@ jobs:
 
       - name: Gate on staging redeploy errors
         id: redeploy-gate
-        env:
-          DISPATCH_SERVICE: ${{ github.event.inputs.service }}
         run: |
           set -euo pipefail
           SUMMARY=".redeploy/summary.json"
@@ -149,6 +147,21 @@ jobs:
             echo "redeploy_red=false" >> "$GITHUB_OUTPUT"
             echo "ok_services=" >> "$GITHUB_OUTPUT"
             exit 0
+          fi
+          # Shape guard: redeploy-env.ts writes per-entry `status` of
+          # exactly "ok" or "error". If the schema ever drifts (e.g.
+          # `status`→`state`, `ok`→`success`) every `select(.status==...)`
+          # silently yields empty → redeploy_red=false AND ok_services=""
+          # → resolve-verify-matrix skips verify on a real unverified
+          # redeploy = green CI on a broken release. Refuse the ambiguity:
+          # if the file has entries but none carry an ok|error status,
+          # fail loud here so enforce-redeploy-gate reds the workflow
+          # (resolve-matrix.result == 'failure' fans into the gate).
+          TOTAL=$(jq 'length' "$SUMMARY")
+          WITH_STATUS=$(jq '[.[] | select(.status == "ok" or .status == "error")] | length' "$SUMMARY")
+          if [ "$TOTAL" -gt 0 ] && [ "$WITH_STATUS" -eq 0 ]; then
+            echo "::error::summary.json has $TOTAL entries but none with status ok|error (schema drift?)"
+            exit 1
           fi
           # Per spec §3: the workflow MUST turn red on any staging
           # status:"error", while verify still runs against the success-set.
@@ -180,14 +193,19 @@ jobs:
         #   - workflow_run + summary_present=false → has_services=false
         #                                            (build redeployed nothing).
         #   - workflow_run + summary_present=true + ok empty
-        #       → has_services=false. Every service errored on redeploy;
-        #         the success-set is empty so there is nothing to verify.
-        #         `enforce-redeploy-gate` independently reds the workflow
-        #         on redeploy_red=true, so this case is already loud.
+        #       → has_services=false (success-set empty; verify is skipped).
+        #         In practice redeploy-env.ts only emits status ok|error,
+        #         so this branch implies redeploy_red=true and
+        #         enforce-redeploy-gate reds the workflow independently —
+        #         skipping verify here is correct (no ok services left to
+        #         probe; the gate has already turned the workflow red).
         #   - workflow_run + summary_present=true + ok non-empty
         #       → intersect ok_services (SSOT key OR dispatchName aliases)
         #         with probe.staging-eligible SSOT services. has_services
-        #         reflects CSV emptiness.
+        #         reflects CSV emptiness. When the intersection collapses
+        #         to empty (e.g. every ok service is non-probe-eligible),
+        #         verify is skipped and `enforce-redeploy-gate` reds the
+        #         workflow independently on redeploy_red=true.
         run: npx tsx showcase/scripts/resolve-verify-matrix.ts
 
   verify:

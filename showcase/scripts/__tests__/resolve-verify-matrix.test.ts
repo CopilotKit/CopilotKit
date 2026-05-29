@@ -27,6 +27,8 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  okCsvToCanonicalNames,
+  parseSsotServices,
   resolveVerifyMatrix,
   type SsotService,
 } from "../resolve-verify-matrix";
@@ -235,5 +237,169 @@ describe("resolveVerifyMatrix", () => {
     });
     expect(out.servicesCsv).toBe("svc-a,svc-b");
     expect(out.hasServices).toBe(true);
+  });
+
+  // ---------------------------------------------------------------------
+  // FIX 3 — unknown eventName must throw rather than silently falling
+  // through to the workflow_run intersection branch. A typo or unexpected
+  // trigger today produces a SILENT skip (intersection of "" with probe-
+  // eligible = empty → has_services=false) which is indistinguishable from
+  // the legitimate "summary absent, nothing to verify" path.
+  // ---------------------------------------------------------------------
+  it("unknown eventName → throws with ::error:: annotation (fail-loud)", () => {
+    expect(() =>
+      resolveVerifyMatrix({
+        eventName: "schedule",
+        summaryPresent: "",
+        okFromRedeploy: "",
+        dispatchService: "",
+        ssotServices: fixtureServices,
+      }),
+    ).toThrow(/::error::resolve-verify-matrix: unexpected eventName 'schedule'/);
+  });
+});
+
+// -------------------------------------------------------------------------
+// FIX 4 — okCsvToCanonicalNames: trim tokens and report unmatched tokens.
+// The redeploy-gate bash emits `join(",")` which produces no spaces today,
+// but any future change to the bash (or a human-driven workflow_dispatch
+// caller that hand-types a CSV) that adds spaces silently dropped tokens
+// because `"a, b".split(",")` yields ["a", " b"] and " b" matches nothing.
+// We trim before matching, and surface unknown tokens so the CLI wrapper
+// can `::warning::` on SSOT/build drift (the function itself stays pure).
+// -------------------------------------------------------------------------
+describe("okCsvToCanonicalNames", () => {
+  it("trims whitespace around tokens — 'svc-a, svc-c' == 'svc-a,svc-c'", () => {
+    const a = okCsvToCanonicalNames("svc-a, svc-c", fixtureServices);
+    const b = okCsvToCanonicalNames("svc-a,svc-c", fixtureServices);
+    expect(Array.from(a.canonical).sort()).toEqual(["svc-a", "svc-c"]);
+    expect(Array.from(b.canonical).sort()).toEqual(["svc-a", "svc-c"]);
+    expect(a.dropped).toEqual([]);
+    expect(b.dropped).toEqual([]);
+  });
+
+  it("reports tokens that match no SSOT service in `dropped`", () => {
+    const out = okCsvToCanonicalNames(
+      "svc-a,not-a-real-service,svc-b",
+      fixtureServices,
+    );
+    expect(Array.from(out.canonical).sort()).toEqual(["svc-a", "svc-b"]);
+    expect(out.dropped).toEqual(["not-a-real-service"]);
+  });
+
+  it("ignores empty tokens (e.g. trailing comma) without reporting them as dropped", () => {
+    const out = okCsvToCanonicalNames("svc-a,,svc-b,", fixtureServices);
+    expect(Array.from(out.canonical).sort()).toEqual(["svc-a", "svc-b"]);
+    expect(out.dropped).toEqual([]);
+  });
+});
+
+// -------------------------------------------------------------------------
+// FIX 1 — parseSsotServices: validate the SSOT shape rather than blindly
+// casting JSON.parse() output. A truncated/drifted SSOT (emitter crashed
+// mid-write, or schema renamed) parses but silently shrinks/empties the
+// probe-eligible set → real redeploys go unverified, or verify is skipped
+// on a real redeploy. We refuse the ambiguity and throw with a
+// ::error::-prefixed message.
+// -------------------------------------------------------------------------
+describe("parseSsotServices", () => {
+  it("accepts a well-formed SSOT and returns the services array", () => {
+    const raw = {
+      services: [
+        { name: "svc-a", dispatchName: null, probe: { staging: true } },
+        { name: "svc-b", dispatchName: "dispatch-b", probe: { staging: false } },
+      ],
+    };
+    const out = parseSsotServices(raw, "test-path");
+    expect(out).toHaveLength(2);
+    expect(out[0].name).toBe("svc-a");
+    expect(out[1].probe.staging).toBe(false);
+  });
+
+  it("throws when `services` is not an array", () => {
+    expect(() =>
+      parseSsotServices({ services: { not: "an array" } }, "test-path"),
+    ).toThrow(/::error::SSOT test-path malformed: `services` is not an array/);
+  });
+
+  it("throws when `services` is an empty array (emitter crashed mid-write)", () => {
+    expect(() => parseSsotServices({ services: [] }, "test-path")).toThrow(
+      /::error::SSOT test-path malformed: `services` is empty/,
+    );
+  });
+
+  it("throws when a service entry has no `name`", () => {
+    expect(() =>
+      parseSsotServices(
+        {
+          services: [
+            { name: "svc-a", dispatchName: null, probe: { staging: true } },
+            { dispatchName: null, probe: { staging: true } },
+          ],
+        },
+        "test-path",
+      ),
+    ).toThrow(/::error::SSOT test-path malformed: services\[1\] missing `name`/);
+  });
+
+  it("throws when `probe` is missing", () => {
+    expect(() =>
+      parseSsotServices(
+        {
+          services: [{ name: "svc-a", dispatchName: null }],
+        },
+        "test-path",
+      ),
+    ).toThrow(/::error::SSOT test-path malformed: services\[0\] \(svc-a\) missing `probe`/);
+  });
+
+  it("accepts a missing `dispatchName` (live SSOT has services without one, e.g. pocketbase) and normalizes to null", () => {
+    const out = parseSsotServices(
+      {
+        services: [
+          { name: "svc-a", probe: { staging: true } },
+          { name: "svc-b", dispatchName: null, probe: { staging: true } },
+          { name: "svc-c", dispatchName: "dispatch-c", probe: { staging: true } },
+        ],
+      },
+      "test-path",
+    );
+    expect(out[0].dispatchName).toBeNull();
+    expect(out[1].dispatchName).toBeNull();
+    expect(out[2].dispatchName).toBe("dispatch-c");
+  });
+
+  it("throws when `dispatchName` is set to a non-string non-null value", () => {
+    expect(() =>
+      parseSsotServices(
+        {
+          services: [
+            { name: "svc-a", dispatchName: 42, probe: { staging: true } },
+          ],
+        },
+        "test-path",
+      ),
+    ).toThrow(
+      /::error::SSOT test-path malformed: services\[0\] \(svc-a\) `dispatchName` must be string, null, or absent/,
+    );
+  });
+
+  it("throws when `probe.staging` is not a boolean", () => {
+    expect(() =>
+      parseSsotServices(
+        {
+          services: [
+            {
+              name: "svc-a",
+              dispatchName: null,
+              probe: { staging: "true" },
+            },
+          ],
+        },
+        "test-path",
+      ),
+    ).toThrow(
+      /::error::SSOT test-path malformed: services\[0\] \(svc-a\) `probe.staging` is not boolean/,
+    );
   });
 });
