@@ -36,7 +36,6 @@
  */
 
 import fs from "fs";
-import path from "path";
 import { fileURLToPath } from "url";
 import {
   CI_BUILT_SERVICES,
@@ -47,51 +46,34 @@ import {
   serviceForDispatchName,
 } from "./railway-envs";
 import type { EnvName } from "./railway-envs";
-import { RAILWAY_GRAPHQL_ENDPOINT } from "./lib/railway-graphql";
-import { resolveRailwayTokenFromConfig } from "./lib/railway-token";
+import {
+  RAILWAY_GRAPHQL_ENDPOINT,
+  sanitizeErrorBody,
+} from "./lib/railway-graphql";
+import {
+  RailwayTokenError,
+  resolveRailwayToken,
+} from "./lib/railway-token";
 
 const RAILWAY_API = RAILWAY_GRAPHQL_ENDPOINT;
-const RAILWAY_ERROR_BODY_MAX = 200;
-
-function getToken(): string {
-  if (process.env.RAILWAY_TOKEN) return process.env.RAILWAY_TOKEN;
-  const home = process.env.HOME;
-  if (!home) {
-    console.error(
-      "No Railway token found. RAILWAY_TOKEN is unset and $HOME is unset so ~/.railway/config.json cannot be located.",
-    );
-    process.exit(1);
-  }
-  const configPath = path.join(home, ".railway", "config.json");
-  if (fs.existsSync(configPath)) {
-    let config: unknown;
-    try {
-      config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error(`Malformed ~/.railway/config.json: ${msg}`);
-      process.exit(1);
-    }
-    const token = resolveRailwayTokenFromConfig(
-      config as Parameters<typeof resolveRailwayTokenFromConfig>[0],
-    );
-    if (typeof token === "string" && token.length > 0) return token;
-  }
-  console.error(
-    "No Railway token found. Set RAILWAY_TOKEN or run `railway login`.",
-  );
-  process.exit(1);
-}
 
 /**
- * Truncate a Railway API error body for inclusion in the markdown summary.
- * Railway/Cloudflare error responses can be multi-KB HTML pages; strip the
- * angle brackets that would break the markdown table and cap at ~200 chars.
+ * Resolve the Railway bearer token for this run. Wraps the shared
+ * `resolveRailwayToken` envelope and maps any RailwayTokenError onto
+ * the script's exit-1 contract for operator/config errors. The shared
+ * helper never calls process.exit — exit-code mapping lives HERE so the
+ * helper stays unit-testable.
  */
-function sanitizeErrorBody(body: string): string {
-  const stripped = body.replace(/[<>]/g, "");
-  if (stripped.length <= RAILWAY_ERROR_BODY_MAX) return stripped;
-  return stripped.slice(0, RAILWAY_ERROR_BODY_MAX) + "…";
+function getToken(): string {
+  try {
+    return resolveRailwayToken().token;
+  } catch (e) {
+    if (e instanceof RailwayTokenError) {
+      console.error(e.message);
+      process.exit(1);
+    }
+    throw e;
+  }
 }
 
 export interface RedeployResult {

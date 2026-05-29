@@ -32,8 +32,6 @@
  * Exit: 0 when every env-scoped instance matches; 1 on any violation.
  */
 
-import fs from "fs";
-import path from "path";
 import { fileURLToPath } from "url";
 import {
   PRODUCTION_ENV_ID,
@@ -43,8 +41,14 @@ import {
   repoNameFor,
 } from "./railway-envs";
 import type { EnvName } from "./railway-envs";
-import { RAILWAY_GRAPHQL_ENDPOINT } from "./lib/railway-graphql";
-import { resolveRailwayTokenFromConfig } from "./lib/railway-token";
+import {
+  RAILWAY_GRAPHQL_ENDPOINT,
+  sanitizeErrorBody,
+} from "./lib/railway-graphql";
+import {
+  RailwayTokenError,
+  resolveRailwayToken,
+} from "./lib/railway-token";
 
 const RAILWAY_API = RAILWAY_GRAPHQL_ENDPOINT;
 
@@ -221,11 +225,9 @@ export function findUntrackedServices(
   const untracked: string[] = [];
   for (const name of railwayServiceNames) {
     const entry = SERVICES[name];
-    // Present in SSOT and not opted-out — tracked. Skip.
-    if (entry && !entry.gateIgnore) continue;
-    // Present in SSOT but gateIgnore — skip (deliberate opt-out).
-    if (entry && entry.gateIgnore) continue;
-    // Not present in SSOT at all — untracked, failure candidate.
+    // Any SSOT entry — gateIgnored or not — is known/accounted-for in
+    // the Railway->SSOT direction. Only absence from the SSOT counts.
+    if (entry) continue;
     untracked.push(name);
   }
   return untracked.sort();
@@ -299,34 +301,22 @@ export function summarizeFailures(
 
 // ── Railway GraphQL plumbing ────────────────────────────────────────────
 
+/**
+ * Resolve the Railway bearer token for this run. Wraps the shared
+ * `resolveRailwayToken` envelope and maps any RailwayTokenError onto
+ * the script's exit-1 contract (operator/config error). The shared
+ * helper never calls process.exit — exit-code mapping lives HERE.
+ */
 function getToken(): string {
-  if (process.env.RAILWAY_TOKEN) return process.env.RAILWAY_TOKEN;
-  const home = process.env.HOME;
-  if (!home) {
-    console.error(
-      "No Railway token found. RAILWAY_TOKEN is unset and $HOME is unset so ~/.railway/config.json cannot be located.",
-    );
-    process.exit(1);
-  }
-  const configPath = path.join(home, ".railway", "config.json");
-  if (fs.existsSync(configPath)) {
-    let config: unknown;
-    try {
-      config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error(`Malformed ~/.railway/config.json: ${msg}`);
+  try {
+    return resolveRailwayToken().token;
+  } catch (e) {
+    if (e instanceof RailwayTokenError) {
+      console.error(e.message);
       process.exit(1);
     }
-    const token = resolveRailwayTokenFromConfig(
-      config as Parameters<typeof resolveRailwayTokenFromConfig>[0],
-    );
-    if (typeof token === "string" && token.length > 0) return token;
+    throw e;
   }
-  console.error(
-    "No Railway token found. Set RAILWAY_TOKEN or run `railway login`.",
-  );
-  process.exit(1);
 }
 
 async function railwayGql<T = unknown>(
@@ -343,7 +333,11 @@ async function railwayGql<T = unknown>(
     body: JSON.stringify({ query, variables }),
   });
   if (!res.ok) {
-    throw new Error(`Railway API error: ${res.status} ${await res.text()}`);
+    // sanitize: Cloudflare WAF blocks return multi-KB HTML pages —
+    // strip angle brackets + control chars and cap at the shared
+    // default to keep CI logs readable.
+    const body = sanitizeErrorBody(await res.text());
+    throw new Error(`Railway API error: ${res.status} ${body}`);
   }
   const json = (await res.json()) as {
     data?: T;
@@ -358,6 +352,9 @@ async function railwayGql<T = unknown>(
 }
 
 interface ProjectServicesWithInstances {
+  // Railway returns project: null (no GraphQL `errors` block) when the
+  // PROJECT_ID is wrong OR the token lacks access — type accordingly so
+  // the null-check in main() is enforced by the compiler.
   project: {
     services: {
       edges: Array<{
@@ -375,7 +372,7 @@ interface ProjectServicesWithInstances {
         };
       }>;
     };
-  };
+  } | null;
 }
 
 async function main(): Promise<void> {
@@ -395,6 +392,15 @@ async function main(): Promise<void> {
     }`,
     { id: PROJECT_ID },
   );
+
+  // Railway returns project: null with NO `errors` array when PROJECT_ID
+  // is wrong or the token lacks access — without this guard, reading
+  // `data.project.services` throws a confusing TypeError.
+  if (data.project === null || data.project === undefined) {
+    throw new Error(
+      `Railway project ${PROJECT_ID} returned null — check PROJECT_ID and that the Railway token has access to this project.`,
+    );
+  }
 
   const violations: Violation[] = [];
   let checked = 0;

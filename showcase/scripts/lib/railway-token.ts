@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import path from "node:path";
+
 /**
  * railway-token.ts — Shared resolver for the Railway GraphQL bearer.
  *
@@ -81,4 +84,119 @@ export function resolveRailwayTokenFromConfig(
         return topLegacy.trim();
     }
     return undefined;
+}
+
+/**
+ * Failure-mode codes for resolveRailwayToken. Each is a distinct,
+ * actionable diagnostic so callers (and operators reading CI logs) can
+ * tell exactly WHY token resolution failed:
+ *
+ *   NO_HOME            : $HOME is unset (so ~/.railway/config.json can't
+ *                        be located) AND RAILWAY_TOKEN is also unset.
+ *   NO_FILE            : $HOME is set but ~/.railway/config.json does
+ *                        not exist (and env-var is unset).
+ *   MALFORMED          : ~/.railway/config.json exists but JSON.parse
+ *                        threw.
+ *   NO_TOKEN_IN_CONFIG : ~/.railway/config.json exists and parses OK
+ *                        but contains no usable token at any of the
+ *                        four known layers. (Closes the silent-token-
+ *                        fallthrough diagnostic gap where the operator
+ *                        previously saw the generic "No Railway token
+ *                        found" with no hint the file was inspected.)
+ */
+export type RailwayTokenErrorCode =
+    | "NO_HOME"
+    | "NO_FILE"
+    | "MALFORMED"
+    | "NO_TOKEN_IN_CONFIG";
+
+export class RailwayTokenError extends Error {
+    readonly code: RailwayTokenErrorCode;
+    constructor(code: RailwayTokenErrorCode, message: string) {
+        super(message);
+        this.name = "RailwayTokenError";
+        this.code = code;
+    }
+}
+
+export interface ResolveRailwayTokenOptions extends ResolverDeps {
+    /** Override $HOME lookup (testing only). */
+    home?: string;
+    /** Override env-var lookup (testing only). */
+    env?: NodeJS.ProcessEnv;
+    /** Filesystem injection (testing only). */
+    fs?: Pick<typeof fs, "existsSync" | "readFileSync">;
+}
+
+export interface RailwayTokenResolution {
+    token: string;
+    source: "env" | "config";
+}
+
+/**
+ * Unified entrypoint shared by redeploy-env.ts and
+ * verify-railway-image-refs.ts. Encapsulates the previously-duplicated
+ * getToken() envelope so the four failure modes can have distinct,
+ * actionable diagnostics in one place.
+ *
+ * Resolution order:
+ *   1. process.env.RAILWAY_TOKEN  (returned with source="env")
+ *   2. ~/.railway/config.json via resolveRailwayTokenFromConfig
+ *      (returned with source="config")
+ *
+ * Throws RailwayTokenError with a discriminator `.code` for each failure
+ * mode (NO_HOME / NO_FILE / MALFORMED / NO_TOKEN_IN_CONFIG). NEVER calls
+ * process.exit — the script entrypoint is responsible for mapping the
+ * error to a non-zero exit code so this function stays unit-testable.
+ */
+export function resolveRailwayToken(
+    opts: ResolveRailwayTokenOptions = {},
+): RailwayTokenResolution {
+    const env = opts.env ?? process.env;
+    const fsImpl = opts.fs ?? fs;
+
+    const envToken = env.RAILWAY_TOKEN;
+    if (typeof envToken === "string" && envToken.length > 0) {
+        return { token: envToken, source: "env" };
+    }
+
+    const home = opts.home ?? env.HOME;
+    if (!home) {
+        throw new RailwayTokenError(
+            "NO_HOME",
+            "No Railway token found. RAILWAY_TOKEN is unset and $HOME is unset so ~/.railway/config.json cannot be located.",
+        );
+    }
+
+    const configPath = path.join(home, ".railway", "config.json");
+    if (!fsImpl.existsSync(configPath)) {
+        throw new RailwayTokenError(
+            "NO_FILE",
+            "No Railway token found. Set RAILWAY_TOKEN or run `railway login`.",
+        );
+    }
+
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(fsImpl.readFileSync(configPath, "utf-8"));
+    } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        throw new RailwayTokenError(
+            "MALFORMED",
+            `Malformed ~/.railway/config.json: ${msg}`,
+        );
+    }
+
+    const token = resolveRailwayTokenFromConfig(
+        parsed as RailwayConfigShape | null | undefined,
+        opts,
+    );
+    if (typeof token === "string" && token.length > 0) {
+        return { token, source: "config" };
+    }
+
+    throw new RailwayTokenError(
+        "NO_TOKEN_IN_CONFIG",
+        "No Railway token found: ~/.railway/config.json was found and parsed but contains no usable token (user.accessToken / accessToken / user.token / token). Set RAILWAY_TOKEN or re-run `railway login`.",
+    );
 }
