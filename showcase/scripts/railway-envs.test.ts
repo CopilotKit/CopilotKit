@@ -422,6 +422,37 @@ describe("railway-envs SSOT — domains + probe", () => {
     expect(() => domainFor("docs", "dev")).toThrow(/Unknown env/);
   });
 
+  it("domainFor scheme guard rejects scheme-included literals but accepts http*-prefixed hosts", () => {
+    // The guard is intended to reject `http://...` / `https://...` literals
+    // accidentally pasted into the SSOT — NOT to reject any host whose name
+    // happens to begin with the letters "http" (e.g. `httpd-...`, `httpbin...`).
+    // Discriminator is the scheme separator `://`, not a `startsWith("http")`
+    // prefix check.
+    const saved = SERVICES.docs.domains.staging;
+    try {
+      // Regression: malformed `http://`-style literal MUST still throw.
+      (SERVICES.docs.domains as { staging: string }).staging =
+        "http://docs.staging.copilotkit.ai";
+      expect(() => domainFor("docs", "staging")).toThrow(
+        /malformed\/missing staging domain/,
+      );
+      (SERVICES.docs.domains as { staging: string }).staging =
+        "https://docs.staging.copilotkit.ai";
+      expect(() => domainFor("docs", "staging")).toThrow(
+        /malformed\/missing staging domain/,
+      );
+      // Positive: a hypothetical `httpd-`-prefixed host MUST be accepted.
+      (SERVICES.docs.domains as { staging: string }).staging =
+        "httpd-staging.up.railway.app";
+      expect(domainFor("docs", "staging")).toBe("httpd-staging.up.railway.app");
+      (SERVICES.docs.domains as { staging: string }).staging =
+        "httpbin.example.com";
+      expect(domainFor("docs", "staging")).toBe("httpbin.example.com");
+    } finally {
+      (SERVICES.docs.domains as { staging: string }).staging = saved;
+    }
+  });
+
   it("STAGING_ENV_ID and PRODUCTION_ENV_ID are exported and stable", () => {
     expect(STAGING_ENV_ID).toBe("8edfef02-ea09-4a20-8689-261f21cc2849");
     expect(PRODUCTION_ENV_ID).toBe("b14919f4-6417-429f-848d-c6ae2201e04f");

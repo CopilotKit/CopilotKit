@@ -646,11 +646,14 @@ export function domainFor(serviceName: string, env: EnvName): string {
     );
   }
   const host = entry.domains[env];
-  if (!host || host.startsWith("http")) {
+  if (!host || host.includes("://")) {
     // Defense-in-depth: SERVICES population is asserted by the
     // railway-envs.test.ts schema check, but if a future contributor
     // ships a scheme-included literal or an empty host this catches it
-    // at first use instead of returning a malformed value.
+    // at first use instead of returning a malformed value. We test for
+    // the scheme separator `://` rather than `startsWith("http")` so we
+    // don't false-reject legitimate hosts whose name happens to begin
+    // with the letters "http" (e.g. `httpd-…`, `httpbin…`).
     throw new Error(
       `Service "${serviceName}" has malformed/missing ${env} domain ("${host}").`,
     );
