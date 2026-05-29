@@ -12,10 +12,8 @@ import { RAILWAY_GRAPHQL_ENDPOINT } from "./lib/railway-graphql";
 import { resolveRailwayTokenFromConfig } from "./lib/railway-token";
 
 /**
- * Shared baseline implementation for every `verify-deploy` driver. Per
- * the completion bar agreed in the cross-workstream contract
- * (`~/.claude/specs/2026-05-28-showcase-pipeline-completion-plan.md`),
- * every driver must enforce the same two minimum invariants before any
+ * Shared baseline implementation for every `verify-deploy` driver. Every
+ * driver must enforce the same two minimum invariants before any
  * driver-specific feature-level checks run:
  *
  *   1. **deployment-SUCCESS** — query Railway GraphQL
@@ -30,11 +28,11 @@ import { resolveRailwayTokenFromConfig } from "./lib/railway-token";
  *
  * Each driver wraps `probeBaseline` with its own `driverLabel` and a
  * sensible `healthcheckPath` for that service shape (Next.js shells use
- * `/`, agent backends use `/api/health`, etc.; mirrors the per-service
- * `health_path` table in `.github/workflows/showcase_deploy.yml`). The
- * "200 ≠ healthy" rule (spec §3.5) is still owed to the per-driver
- * feature-level extensions (DOM string, fixture replay, admin login,
- * etc.) — `probeBaseline` is the floor, not the ceiling.
+ * `/`, agent backends use `/api/health`, etc.; matches the Railway
+ * healthcheck config set by `deploy-to-railway.ts`). The
+ * "200 ≠ healthy" rule is still owed to the per-driver feature-level
+ * extensions (DOM string, fixture replay, admin login, etc.) —
+ * `probeBaseline` is the floor, not the ceiling.
  *
  * Network seams (`fetchImpl`, `getRailwayToken`) are injected so tests
  * can run fully offline. Production callers omit them and get the real
@@ -68,7 +66,36 @@ export type FetchLike = (
     status: number;
     text(): Promise<string>;
     json(): Promise<unknown>;
+    /**
+     * Optional WHATWG body — exposed so we can drain/cancel it after
+     * reading status. Undici (Node's fetch impl) leaks sockets when the
+     * body is not consumed or cancelled. Test seams that return a plain
+     * stub omit this field; production fetch always populates it.
+     */
+    body?: { cancel?: () => Promise<void> } | null;
 }>;
+
+function isAbortError(e: unknown): boolean {
+    if (!e || typeof e !== "object") return false;
+    const name = (e as { name?: unknown }).name;
+    return name === "AbortError";
+}
+
+/**
+ * Drain/cancel an HTTP response body so undici releases the socket.
+ * Safe on stubs (test seams) that lack a body — we only cancel when
+ * the runtime supplies one.
+ */
+async function releaseBody(
+    res: Awaited<ReturnType<FetchLike>>,
+): Promise<void> {
+    try {
+        await res.body?.cancel?.();
+    } catch {
+        // Cancelling a body that was already consumed throws on some
+        // runtimes; that's harmless — the socket is already released.
+    }
+}
 
 export interface BaselineOpts {
     /** Short driver-name tag woven into every error string for grep-ability. */
@@ -108,10 +135,37 @@ export function defaultGetRailwayToken(): string | undefined {
     if (!home) return undefined;
     const configPath = path.join(home, ".railway", "config.json");
     if (!fs.existsSync(configPath)) return undefined;
+    let raw: string;
+    try {
+        raw = fs.readFileSync(configPath, "utf-8");
+    } catch (err: unknown) {
+        // ENOENT is the legitimate "no config file" path (TOCTOU between
+        // existsSync and readFileSync) — return undefined silently.
+        // Any OTHER error (EACCES, EISDIR, EIO, ...) is a configuration
+        // problem the operator needs to see; do NOT swallow it. Mirrors
+        // the read-vs-parse split in lib/railway-token.ts::resolveRailwayToken
+        // (NO_FILE vs MALFORMED) — here we keep returning undefined so the
+        // caller's "no token" failure path still fires, but with a clear
+        // stderr diagnostic identifying the offending config path.
+        const code = (err as NodeJS.ErrnoException | undefined)?.code;
+        if (code === "ENOENT") return undefined;
+        const msg = err instanceof Error ? err.message : String(err);
+        process.stderr.write(
+            `[verify-deploy] failed to read Railway config at ${configPath}: ${msg}\n`,
+        );
+        return undefined;
+    }
     let config: unknown;
     try {
-        config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-    } catch {
+        config = JSON.parse(raw);
+    } catch (err: unknown) {
+        // Malformed JSON is distinct from a missing file — surface the
+        // diagnostic, then return undefined so the caller's no-token path
+        // produces a clean probe failure rather than crashing verify-deploy.
+        const msg = err instanceof Error ? err.message : String(err);
+        process.stderr.write(
+            `[verify-deploy] malformed JSON in Railway config at ${configPath}: ${msg}\n`,
+        );
         return undefined;
     }
     return resolveRailwayTokenFromConfig(
@@ -170,8 +224,15 @@ export async function checkDeploymentSuccess(
     fetchImpl: FetchLike,
     timeoutMs: number,
     driverLabel: string,
+    serviceName?: string,
 ): Promise<string | undefined> {
     const environmentId = envIdFor(env);
+    // Tag identifies the offending service in multi-service runs. When
+    // the caller does not supply a name we fall back to the serviceId so
+    // a Railway operator can still grep the diagnostic to a target.
+    const tag = serviceName
+        ? `service="${serviceName}" (serviceId=${serviceId})`
+        : `serviceId=${serviceId}`;
     const query = `query latestDeployment($serviceId: String!, $environmentId: String!) {
   deployments(first: 1, input: { serviceId: $serviceId, environmentId: $environmentId }) {
     edges { node { id status } }
@@ -196,31 +257,38 @@ export async function checkDeploymentSuccess(
             timeoutMs,
         );
     } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        return `${driverLabel}: Railway GraphQL fetch failed: ${msg}`;
+        const msg = isAbortError(e)
+            ? `timed out after ${timeoutMs}ms`
+            : e instanceof Error
+                ? e.message
+                : String(e);
+        return `${driverLabel}: Railway GraphQL fetch failed [${tag}]: ${msg}`;
     }
     if (!res.ok) {
         const body = (await res.text()).slice(0, 200);
-        return `${driverLabel}: Railway GraphQL HTTP ${res.status}: ${body}`;
+        return `${driverLabel}: Railway GraphQL HTTP ${res.status} [${tag}]: ${body}`;
     }
     let json: RailwayDeploymentsResponse;
     try {
         json = (await res.json()) as RailwayDeploymentsResponse;
     } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
-        return `${driverLabel}: Railway GraphQL JSON parse failed: ${msg}`;
+        // Release the body in the error path even if json() partially
+        // consumed it — undici will leak the socket otherwise.
+        await releaseBody(res);
+        return `${driverLabel}: Railway GraphQL JSON parse failed [${tag}]: ${msg}`;
     }
     if (json.errors?.length) {
-        return `${driverLabel}: Railway GraphQL errors: ${json.errors
+        return `${driverLabel}: Railway GraphQL errors [${tag}]: ${json.errors
             .map((e) => e.message)
             .join("; ")}`;
     }
     const node = json.data?.deployments?.edges?.[0]?.node;
     if (!node) {
-        return `${driverLabel}: Railway returned no deployments for ${env}`;
+        return `${driverLabel}: Railway returned no deployments for ${env} [${tag}]`;
     }
     if (node.status !== "SUCCESS") {
-        return `${driverLabel}: latest ${env} deployment status="${node.status}" (expected SUCCESS)`;
+        return `${driverLabel}: latest ${env} deployment status="${node.status}" (expected SUCCESS) [${tag}]`;
     }
     return undefined;
 }
@@ -246,12 +314,22 @@ export async function checkHealthcheck200(
             timeoutMs,
         );
     } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
+        // The AbortController abort surfaces as a generic "The operation
+        // was aborted" — substitute an actionable, timeout-aware message.
+        const msg = isAbortError(e)
+            ? `timed out after ${timeoutMs}ms`
+            : e instanceof Error
+                ? e.message
+                : String(e);
         return `${driverLabel}: healthcheck GET ${url} failed: ${msg}`;
     }
+    // We only need the status, not the body — drain/cancel it so undici
+    // releases the socket. Applies on BOTH the 200 and non-200 branches.
     if (res.status !== 200) {
+        await releaseBody(res);
         return `${driverLabel}: healthcheck GET ${url} returned HTTP ${res.status} (expected 200)`;
     }
+    await releaseBody(res);
     return undefined;
 }
 
@@ -291,7 +369,7 @@ export async function probeBaseline(
     if (!token) {
         return {
             ok: false,
-            error: `${opts.driverLabel}: no Railway token (set RAILWAY_TOKEN or run \`railway login\`)`,
+            error: `${opts.driverLabel}: no Railway token (set RAILWAY_TOKEN — Railway workspace token)`,
         };
     }
 
@@ -302,6 +380,7 @@ export async function probeBaseline(
         fetchImpl,
         timeoutMs,
         opts.driverLabel,
+        target.name,
     );
     if (deployErr) return { ok: false, error: deployErr };
 

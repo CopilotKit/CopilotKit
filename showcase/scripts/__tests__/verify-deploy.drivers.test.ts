@@ -14,9 +14,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { SERVICES } from "../railway-envs";
 import type { ProbeTarget } from "../verify-deploy";
+import fs from "fs";
+import os from "os";
+import path from "path";
 import {
     checkDeploymentSuccess,
     checkHealthcheck200,
+    defaultGetRailwayToken,
     envForTarget,
     probeBaseline,
     type FetchLike,
@@ -72,6 +76,78 @@ function gqlDeploymentResponse(status: string): ReturnType<FetchLike> {
         }),
     );
 }
+
+describe("defaultGetRailwayToken non-ENOENT errors are NOT swallowed", () => {
+    it("surfaces a clear diagnostic on non-ENOENT read errors (e.g. EISDIR via directory at config path)", () => {
+        // Point HOME at a tmpdir where ~/.railway/config.json is itself a
+        // directory — fs.readFileSync raises EISDIR. The previous bare
+        // `catch {}` swallowed it; the fix must NOT silently return
+        // undefined without a diagnostic on stderr identifying the path.
+        const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "verify-deploy-token-"));
+        const railwayDir = path.join(tmpHome, ".railway");
+        fs.mkdirSync(railwayDir, { recursive: true });
+        // Make config.json a directory (not a file).
+        fs.mkdirSync(path.join(railwayDir, "config.json"));
+
+        const origHome = process.env.HOME;
+        const origToken = process.env.RAILWAY_TOKEN;
+        delete process.env.RAILWAY_TOKEN;
+        process.env.HOME = tmpHome;
+
+        const stderr: string[] = [];
+        const realWrite = process.stderr.write.bind(process.stderr);
+        (process.stderr as unknown as { write: typeof process.stderr.write }).write =
+            ((chunk: string | Uint8Array): boolean => {
+                stderr.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8"));
+                return true;
+            }) as typeof process.stderr.write;
+        try {
+            const out = defaultGetRailwayToken();
+            expect(out).toBeUndefined();
+            const joined = stderr.join("");
+            // The fix must log a diagnostic identifying the config path
+            // and the error — bare `catch {}` printed nothing.
+            expect(joined).toMatch(/config\.json/);
+            expect(joined).toMatch(/EISDIR|directory|read/i);
+        } finally {
+            (process.stderr as unknown as { write: typeof process.stderr.write }).write = realWrite;
+            if (origHome === undefined) delete process.env.HOME;
+            else process.env.HOME = origHome;
+            if (origToken === undefined) delete process.env.RAILWAY_TOKEN;
+            else process.env.RAILWAY_TOKEN = origToken;
+            try { fs.rmSync(tmpHome, { recursive: true, force: true }); } catch { /* cleanup */ }
+        }
+    });
+
+    it("treats ENOENT (missing config file) as the legitimate no-token path (silent undefined)", () => {
+        const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "verify-deploy-token-"));
+        const origHome = process.env.HOME;
+        const origToken = process.env.RAILWAY_TOKEN;
+        delete process.env.RAILWAY_TOKEN;
+        process.env.HOME = tmpHome;
+
+        const stderr: string[] = [];
+        const realWrite = process.stderr.write.bind(process.stderr);
+        (process.stderr as unknown as { write: typeof process.stderr.write }).write =
+            ((chunk: string | Uint8Array): boolean => {
+                stderr.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8"));
+                return true;
+            }) as typeof process.stderr.write;
+        try {
+            const out = defaultGetRailwayToken();
+            expect(out).toBeUndefined();
+            // ENOENT is the legitimate no-token path — no diagnostic spam.
+            expect(stderr.join("")).toBe("");
+        } finally {
+            (process.stderr as unknown as { write: typeof process.stderr.write }).write = realWrite;
+            if (origHome === undefined) delete process.env.HOME;
+            else process.env.HOME = origHome;
+            if (origToken === undefined) delete process.env.RAILWAY_TOKEN;
+            else process.env.RAILWAY_TOKEN = origToken;
+            try { fs.rmSync(tmpHome, { recursive: true, force: true }); } catch { /* cleanup */ }
+        }
+    });
+});
 
 describe("envForTarget", () => {
     it("returns 'staging' when host matches the SSOT staging domain", () => {

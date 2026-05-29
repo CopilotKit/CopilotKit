@@ -49,7 +49,11 @@ export function parseArgs(argv: string[]): ParsedArgs {
             services = v.split(",").map((s) => s.trim()).filter(Boolean);
         } else if (a.startsWith("--services=")) {
             const v = a.slice("--services=".length);
+            if (!v) throw new Error("--services requires a CSV value");
             services = v.split(",").map((s) => s.trim()).filter(Boolean);
+            if (services.length === 0) {
+                throw new Error("--services requires a CSV value");
+            }
         } else {
             throw new Error(`Unknown argument: ${a}`);
         }
@@ -77,6 +81,25 @@ export interface ResolveOpts {
 export function resolveProbeTargets(opts: ResolveOpts): ProbeTarget[] {
     const targets: ProbeTarget[] = [];
     const filter = opts.services ? new Set(opts.services) : undefined;
+    // Validate user-supplied service names against the SSOT BEFORE
+    // filtering — a typo (`docss`) or a name that's not probe-eligible
+    // for the target env must surface as a clear, distinct error, not a
+    // silent zero-targets vacuous green.
+    if (filter) {
+        for (const name of filter) {
+            const entry = SERVICES[name];
+            if (!entry) {
+                throw new Error(
+                    `unknown service "${name}" (not in SSOT). Run \`bin/showcase services\` to list known names.`,
+                );
+            }
+            if (!entry.probe[opts.env]) {
+                throw new Error(
+                    `service "${name}" is not probe-eligible for env "${opts.env}" (probe.${opts.env}=false in SSOT)`,
+                );
+            }
+        }
+    }
     for (const [name, entry] of Object.entries(SERVICES)) {
         if (filter && !filter.has(name)) continue;
         if (!entry.probe[opts.env]) continue;
@@ -115,6 +138,26 @@ export async function runVerify(opts: VerifyOpts): Promise<VerifySummary> {
     const runner = opts.runner ?? runDriver;
     const passed: Array<{ name: string }> = [];
     const failed: Array<{ name: string; error: string }> = [];
+
+    // Zero-targets is NEVER a success. A verify gate that prints
+    // "targets=0" and exits 0 is the worst outcome — a vacuous green.
+    // Fail loud with a clear diagnostic so the operator knows the run
+    // verified nothing.
+    if (targets.length === 0) {
+        const error =
+            `no probe-required services resolved for env "${opts.env}" — ` +
+            `check --services and SSOT probe flags`;
+        process.stdout.write(
+            `verify-deploy --env=${opts.env} targets=0 (FAIL)\n`,
+        );
+        process.stdout.write(`  ${error}\n`);
+        return {
+            env: opts.env,
+            passed,
+            failed: [{ name: "(zero-targets)", error }],
+            exitCode: 1,
+        };
+    }
 
     process.stdout.write(
         `verify-deploy --env=${opts.env} targets=${targets.length}\n`,

@@ -23,31 +23,41 @@ export type ProbeRunner = (target: ProbeTarget) => Promise<ProbeOutcome>;
  * until the new driver is wired up.
  */
 export async function runDriver(target: ProbeTarget): Promise<ProbeOutcome> {
-    switch (target.driver) {
-        case "shell":
-            return (await import("./verify-deploy.drivers.shell")).probeShell(target);
-        case "docs":
-            return (await import("./verify-deploy.drivers.docs")).probeDocs(target);
-        case "dashboard":
-            return (await import("./verify-deploy.drivers.dashboard")).probeDashboard(target);
-        case "dojo":
-            return (await import("./verify-deploy.drivers.dojo")).probeDojo(target);
-        case "harness":
-            return (await import("./verify-deploy.drivers.harness")).probeHarness(target);
-        case "eval":
-            return (await import("./verify-deploy.drivers.eval")).probeEval(target);
-        case "aimock":
-            return (await import("./verify-deploy.drivers.aimock")).probeAimock(target);
-        case "pocketbase":
-            return (await import("./verify-deploy.drivers.pocketbase")).probePocketbase(target);
-        case "webhooks":
-            return (await import("./verify-deploy.drivers.webhooks")).probeWebhooks(target);
-        case "agent":
-            return (await import("./verify-deploy.drivers.agent")).probeAgent(target);
-        default: {
-            const exhaustive: never = target.driver;
-            return { ok: false, error: `unknown driver: ${String(exhaustive)}` };
+    try {
+        switch (target.driver) {
+            case "shell":
+                return (await import("./verify-deploy.drivers.shell")).probeShell(target);
+            case "docs":
+                return (await import("./verify-deploy.drivers.docs")).probeDocs(target);
+            case "dashboard":
+                return (await import("./verify-deploy.drivers.dashboard")).probeDashboard(target);
+            case "dojo":
+                return (await import("./verify-deploy.drivers.dojo")).probeDojo(target);
+            case "harness":
+                return (await import("./verify-deploy.drivers.harness")).probeHarness(target);
+            case "eval":
+                return (await import("./verify-deploy.drivers.eval")).probeEval(target);
+            case "aimock":
+                return (await import("./verify-deploy.drivers.aimock")).probeAimock(target);
+            case "pocketbase":
+                return (await import("./verify-deploy.drivers.pocketbase")).probePocketbase(target);
+            case "webhooks":
+                return (await import("./verify-deploy.drivers.webhooks")).probeWebhooks(target);
+            case "agent":
+                return (await import("./verify-deploy.drivers.agent")).probeAgent(target);
+            default: {
+                const exhaustive: never = target.driver;
+                return { ok: false, error: `unknown driver: ${String(exhaustive)}` };
+            }
         }
+    } catch (e: unknown) {
+        // A missing/broken driver module (e.g. `Cannot find module ...`)
+        // or any other throw inside dynamic import must NOT escape — the
+        // doc-comment contract is "drivers never throw across the
+        // boundary". Wrap with the driver label so the diagnostic is
+        // actionable in a multi-service run.
+        const msg = e instanceof Error ? e.message : String(e);
+        return { ok: false, error: `runDriver(${target.driver}): ${msg}` };
     }
 }
 
