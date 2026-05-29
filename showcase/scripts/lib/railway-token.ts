@@ -155,16 +155,25 @@ export function resolveRailwayToken(
     const env = opts.env ?? process.env;
     const fsImpl = opts.fs ?? fs;
 
+    // Trim the env-var lane to honor the module's no-whitespace-in-header
+    // invariant. A `RAILWAY_TOKEN` secret with a trailing newline (common
+    // from `op read`/heredoc/shell export) would otherwise be returned
+    // verbatim and produce an invalid `Authorization: Bearer <token>\n`
+    // header → silent Railway 401. A whitespace-only value is treated as
+    // UNSET (falls through to the config-file lane).
     const envToken = env.RAILWAY_TOKEN;
-    if (typeof envToken === "string" && envToken.length > 0) {
-        return { token: envToken, source: "env" };
+    if (typeof envToken === "string") {
+        const trimmed = envToken.trim();
+        if (trimmed.length > 0) {
+            return { token: trimmed, source: "env" };
+        }
     }
 
     const home = opts.home ?? env.HOME;
     if (!home) {
         throw new RailwayTokenError(
             "NO_HOME",
-            "No Railway token found. RAILWAY_TOKEN is unset and $HOME is unset so ~/.railway/config.json cannot be located.",
+            "No Railway token found. RAILWAY_TOKEN is unset (or whitespace-only) and $HOME is unset so ~/.railway/config.json cannot be located.",
         );
     }
 

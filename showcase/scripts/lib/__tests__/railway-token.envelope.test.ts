@@ -60,11 +60,48 @@ describe("resolveRailwayToken (envelope)", () => {
         expect(() => resolveRailwayToken()).toThrow(RailwayTokenError);
         try {
             resolveRailwayToken();
+            throw new Error("should have thrown");
         } catch (e) {
             expect(e).toBeInstanceOf(RailwayTokenError);
             const err = e as RailwayTokenError;
             expect(err.code).toBe("NO_HOME");
             expect(err.message).toMatch(/\$HOME/);
+        }
+    });
+
+    it("trims RAILWAY_TOKEN env var (padded with whitespace/newline)", () => {
+        process.env.RAILWAY_TOKEN =
+            "  padded-token-xxxxxxxxxxxxxxxxxxxxxxxx\n";
+        const result = resolveRailwayToken();
+        expect(result.token).toBe("padded-token-xxxxxxxxxxxxxxxxxxxxxxxx");
+        expect(result.source).toBe("env");
+    });
+
+    it("treats whitespace-only RAILWAY_TOKEN as UNSET and falls through to config", () => {
+        process.env.RAILWAY_TOKEN = "   ";
+        mkdirSync(join(dir, ".railway"));
+        writeFileSync(
+            join(dir, ".railway", "config.json"),
+            JSON.stringify({
+                user: { accessToken: "from-config-bbbbbbbbbbbbbbbbbbbbbbbb" },
+            }),
+        );
+        const result = resolveRailwayToken();
+        expect(result.token).toBe("from-config-bbbbbbbbbbbbbbbbbbbbbbbb");
+        expect(result.source).toBe("config");
+    });
+
+    it("treats whitespace-only RAILWAY_TOKEN as UNSET and surfaces NO_FILE when no config exists", () => {
+        process.env.RAILWAY_TOKEN = "   \n";
+        try {
+            resolveRailwayToken();
+            throw new Error("should have thrown");
+        } catch (e) {
+            expect(e).toBeInstanceOf(RailwayTokenError);
+            const err = e as RailwayTokenError;
+            // Must NOT be returned as source="env" with a whitespace token —
+            // that produces invalid Bearer headers and silent 401s.
+            expect(err.code).toBe("NO_FILE");
         }
     });
 

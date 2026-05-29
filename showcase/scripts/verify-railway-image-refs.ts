@@ -207,10 +207,10 @@ export function findMissingServices(
 
 /**
  * Coverage assertion — Railway → SSOT direction. Returns the names of
- * Railway services that are NOT present in the SSOT (or are present but
- * marked `gateIgnore: true`). A non-empty result means the gate should
- * fail (drift in the Railway→SSOT direction: an out-of-band service was
- * added to the Railway project without updating the SSOT).
+ * Railway services that are NOT present in the SSOT. A non-empty result
+ * means the gate should fail (drift in the Railway→SSOT direction: an
+ * out-of-band service was added to the Railway project without updating
+ * the SSOT).
  *
  * Pure / unit-testable. Caller (main()) is responsible for collecting
  * the set of Railway-reported service names from the GraphQL response.
