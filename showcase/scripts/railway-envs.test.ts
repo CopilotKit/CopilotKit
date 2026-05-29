@@ -3,12 +3,9 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   CI_BUILT_SERVICES,
-  type Domains,
   ENV_IDS,
   PRODUCTION_ENV_ID,
   PROJECT_ID,
-  type ProbeConfig,
-  type ProbeDriver,
   SERVICES,
   STAGING_ENV_ID,
   assertDispatchNamesUnique,
@@ -19,6 +16,7 @@ import {
   resolveEnv,
   serviceForDispatchName,
 } from "./railway-envs";
+import type { Domains, ProbeConfig, ProbeDriver } from "./railway-envs";
 
 // Compile-time guard: ensure the Domains type alias is referenced so this
 // import is not removed by an over-eager organizer. The runtime body of
@@ -285,14 +283,40 @@ describe("webhooks SSOT entry", () => {
     expect(SERVICES.webhooks.probe.staging).toBe(true);
     expect(SERVICES.webhooks.dispatchName).toBe("webhooks");
     // Pin the workflow's SSOT-driven contract so a future regression
-    // back to a hardcoded matrix is caught: deploy.yml must consume the
-    // generated SSOT JSON and select on probe.staging.
+    // back to a hardcoded matrix is caught. The matrix-building logic
+    // was extracted out of inline bash into
+    // showcase/scripts/resolve-verify-matrix.ts (the prior inline
+    // bash+jq produced two confirmed bugs across CR rounds, so the
+    // contract now lives in a pure, unit-tested TS module). The deploy
+    // workflow MUST invoke that script — that is the SSOT-consumption
+    // hand-off. The script itself MUST read
+    // `railway-envs.generated.json` and filter on `probe.staging===true`
+    // — that is the SSOT-consumption mechanism. Pinning both halves
+    // catches the two regression shapes that matter: (a) deploy.yml
+    // silently dropping the script call (back to a hardcoded matrix
+    // or inline jq) and (b) the script being kept but the SSOT/probe
+    // contract being weakened inside it.
     const yml = readFileSync(
       resolve(__dirname, "../../.github/workflows/showcase_deploy.yml"),
       "utf-8",
     );
-    expect(yml).toMatch(/railway-envs\.generated\.json/);
-    expect(yml).toMatch(/probe\.staging\s*==\s*true/);
+    expect(
+      yml,
+      "showcase_deploy.yml must invoke resolve-verify-matrix.ts to build the verify matrix from the SSOT",
+    ).toMatch(/resolve-verify-matrix\.ts/);
+
+    const resolver = readFileSync(
+      resolve(__dirname, "./resolve-verify-matrix.ts"),
+      "utf-8",
+    );
+    expect(
+      resolver,
+      "resolve-verify-matrix.ts must consume railway-envs.generated.json (the SSOT JSON)",
+    ).toMatch(/railway-envs\.generated\.json/);
+    expect(
+      resolver,
+      "resolve-verify-matrix.ts must select probe-eligible services on probe.staging===true",
+    ).toMatch(/probe\.staging\s*===\s*true/);
   });
 });
 
@@ -412,9 +436,7 @@ describe("railway-envs SSOT — domains + probe", () => {
     expect(() => domainFor("nope", "staging")).toThrow(
       /Unknown showcase service/,
     );
-    expect(() => domainFor("nope", "prod")).toThrow(
-      /Unknown showcase service/,
-    );
+    expect(() => domainFor("nope", "prod")).toThrow(/Unknown showcase service/);
   });
 
   it("domainFor throws on unknown env (defends against ad-hoc EnvName values)", () => {
