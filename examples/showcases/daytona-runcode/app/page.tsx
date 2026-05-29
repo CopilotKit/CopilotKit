@@ -270,12 +270,11 @@ export default function Page() {
           fontFamily: "ui-sans-serif, system-ui, sans-serif",
           padding: "32px 16px",
           gap: "16px",
-          background: "linear-gradient(160deg,#f8fafc,#eef2ff)",
         }}
       >
         <header style={{ textAlign: "center", maxWidth: 760 }}>
           <h1 style={{ fontSize: "1.6rem", margin: 0 }}>
-            CopilotKit × Daytona
+            CopilotKit x Daytona
           </h1>
           <p
             style={{
