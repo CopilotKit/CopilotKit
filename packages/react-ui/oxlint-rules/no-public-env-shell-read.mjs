@@ -32,8 +32,22 @@
  *   - assignment LHS:          process.env.NEXT_PUBLIC_X = "..."
  *   - delete:                  delete process.env.NEXT_PUBLIC_X
  *
- * Out of scope (would require scope-tracking; documented as a known gap):
+ * Out of scope (deliberately NOT covered — documented here so the gaps are
+ * auditable rather than implicit):
  *   - aliasing:                const e = process.env; e.NEXT_PUBLIC_X
+ *                              (requires scope/flow tracking)
+ *   - bulk-iteration reads:    Object.keys(process.env), Object.values(process.env),
+ *                              Object.entries(process.env), for-in over process.env,
+ *                              spread `{...process.env}` — these read the whole
+ *                              env object without naming a key statically
+ *   - rest-pattern destructure: `const { ...rest } = process.env` — same shape
+ *                              as the iteration case (no static key in source)
+ *   - compound-assignment LHS: `process.env.X += "..."` — currently treated as
+ *                              an AssignmentExpression with operator !== "="
+ *                              (i.e. NOT flagged); fine in practice because
+ *                              showcase code does not append to env vars
+ *   - update operators:        `process.env.X++` / `process.env.X--` —
+ *                              defensively bailed; not flagged
  *
  * Scope is enforced via `overrides[].files` in `.oxlintrc.json` (shell
  * source trees only; `.mdx` content, runtime-config implementation files,
@@ -47,7 +61,12 @@
  * copilotkit oxlint plugin instead.
  */
 
-const BANNED_KEYS = new Set([
+// Exported so the table-driven test in
+// `showcase/scripts/__tests__/lint-rule-no-public-env.test.ts` can iterate
+// the rule's own banned set rather than hand-mirroring it (any drift would
+// silently weaken coverage). The exported value is the same Set the rule
+// uses internally — they cannot diverge.
+export const BANNED_KEYS = new Set([
   "NEXT_PUBLIC_POCKETBASE_URL",
   "NEXT_PUBLIC_SHELL_URL",
   "NEXT_PUBLIC_BASE_URL",
@@ -62,10 +81,17 @@ const BANNED_KEYS = new Set([
 ]);
 
 /**
- * True iff `node` is the `process.env` member expression (covers both
- * `process.env` and `process?.env`). All read forms hang off this anchor.
+ * True iff `node` (after unwrapping a wrapping `ChainExpression`) is the
+ * `process.env` member expression. All read forms hang off this anchor:
+ *   - bare:               process.env.X
+ *   - optional chain:     process?.env.X / process.env?.X / process?.env?.X
+ * Some parser flavors wrap the whole optional chain in a `ChainExpression`
+ * whose `.expression` is the MemberExpression we want to match; others
+ * surface the MemberExpression directly with `optional: true`. We accept
+ * both shapes by stripping the wrapper first.
  */
 function isProcessEnv(node) {
+  if (node && node.type === "ChainExpression") node = node.expression;
   if (!node || node.type !== "MemberExpression") return false;
   if (node.computed) return false;
   if (!node.object || node.object.type !== "Identifier") return false;
@@ -164,14 +190,13 @@ const rule = {
         if (!node.id || node.id.type !== "ObjectPattern") return;
         for (const prop of node.id.properties) {
           if (!prop || prop.type !== "Property") continue;
-          // The `key` is the source name on process.env; that's what
-          // we test against BANNED_KEYS regardless of any local alias.
-          if (prop.computed) continue;
-          const k = prop.key;
-          let keyName = null;
-          if (k && k.type === "Identifier") keyName = k.name;
-          else if (k && k.type === "Literal" && typeof k.value === "string")
-            keyName = k.value;
+          // The `key` is the source name on process.env; that's what we
+          // test against BANNED_KEYS regardless of any local alias. We
+          // route through staticKeyName() so the computed-string-key form
+          // `{ ["NEXT_PUBLIC_X"]: y } = process.env` and the no-expression
+          // template form `{ [`NEXT_PUBLIC_X`]: y } = process.env` are
+          // caught with the same parity as the bracket-member read.
+          const keyName = staticKeyName(prop.key, prop.computed);
           if (!keyName) continue;
           if (!BANNED_KEYS.has(keyName)) continue;
           context.report({ node: prop, messageId: "forbiddenRead" });

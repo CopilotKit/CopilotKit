@@ -50,17 +50,60 @@ jobs:
         with:
           node-version: 22.x
 
-      - name: Download redeploy summary from build workflow
-        # Guarded to the workflow_run path; on workflow_dispatch the
-        # download is skipped and the bash `[ ! -f "$SUMMARY" ]` branch
-        # below handles the legitimate "no summary present" case.
-        # We intentionally do NOT use `continue-on-error: true` here:
-        # swallowing a genuine workflow_run artifact-download failure
-        # would land us in the same "no summary" branch, where the gate
-        # opens (`redeploy_red=false`, `ok_services=""`) and verify falls
-        # back to probing the FULL service set against stale `:latest` —
-        # masking a broken redeploy as a green deploy. Fail loud instead.
+      - name: Check whether build uploaded a redeploy-summary artifact
+        id: check-redeploy-summary
+        # `actions/download-artifact@v4` with a `name:` HARD-FAILS when the
+        # named artifact does not exist. The artifact legitimately does
+        # NOT exist whenever the upstream build ran but redeployed nothing
+        # — e.g. a push touching `showcase/**` that fires the build's
+        # `paths:` filter, but `detect-changes` finds no buildable service
+        # changed, so `redeploy-staging` is skipped and never uploads.
+        # The build still concludes `success`, so this workflow fires on
+        # `workflow_run` and `resolve-matrix` runs. Without this pre-check
+        # the unguarded download would fail the job and (via
+        # `enforce-redeploy-gate` tripping on `result == 'failure'`) flip
+        # the whole deploy workflow RED — a false-red on a routine
+        # showcase-docs/script-only change. Listing artifacts via the API
+        # only requires `actions: read`, which `resolve-matrix` already has.
         if: github.event_name == 'workflow_run'
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            const runId = context.payload.workflow_run.id;
+            const { data } = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: runId,
+              per_page: 100,
+            });
+            const present = (data.artifacts || []).some(
+              (a) => a.name === "redeploy-summary",
+            );
+            core.setOutput("summary_present", present ? "true" : "false");
+            core.info(`redeploy-summary present for run ${runId}: ${present}`);
+
+      - name: Download redeploy summary from build workflow
+        # Three cases now handled distinctly:
+        #   (a) workflow_dispatch — no `workflow_run` payload exists; the
+        #       download is skipped and the bash `[ ! -f "$SUMMARY" ]`
+        #       branch below treats it as "nothing to gate" (correct: a
+        #       manual dispatch is not gated by a build's per-service set).
+        #   (b) workflow_run + artifact absent — the upstream build
+        #       redeployed nothing (e.g. no service had buildable
+        #       changes); the precheck reports `summary_present=false`,
+        #       the download is skipped, and the bash branch no-ops the
+        #       gate. The deploy workflow should NOT red here — there is
+        #       nothing to gate.
+        #   (c) workflow_run + artifact PRESENT — we always attempt the
+        #       download. We intentionally do NOT set
+        #       `continue-on-error: true`: if the artifact exists but the
+        #       download genuinely fails (network/permission), silently
+        #       opening the gate would let verify probe the FULL service
+        #       set against stale `:latest` and mask a broken redeploy as
+        #       a green deploy. Fail loud instead.
+        if: >-
+          github.event_name == 'workflow_run' &&
+          steps.check-redeploy-summary.outputs.summary_present == 'true'
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: redeploy-summary

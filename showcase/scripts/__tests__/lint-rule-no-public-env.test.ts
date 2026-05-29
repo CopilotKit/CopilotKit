@@ -2,29 +2,39 @@ import { afterEach, describe, expect, it } from "vitest";
 import { execSync } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 // Repo root is two directories above this test file
 // (showcase/scripts/__tests__/X -> showcase/scripts -> showcase -> <repo>).
 const REPO_ROOT = resolve(import.meta.dirname, "..", "..", "..");
 const CONFIG_PATH = join(REPO_ROOT, ".oxlintrc.json");
+const RULE_MODULE_PATH = join(
+    REPO_ROOT,
+    "packages",
+    "react-ui",
+    "oxlint-rules",
+    "no-public-env-shell-read.mjs",
+);
 
-// Mirror of BANNED_KEYS in no-public-env-shell-read.mjs. We assert every
-// banned key is flagged so adding a new key to the rule without adding it
-// here trips the test — the assertion is "the rule is exhaustively
-// table-driven" rather than "any single key is flagged".
-const BANNED_KEYS = [
-    "NEXT_PUBLIC_POCKETBASE_URL",
-    "NEXT_PUBLIC_SHELL_URL",
-    "NEXT_PUBLIC_BASE_URL",
-    "NEXT_PUBLIC_OPS_BASE_URL",
-    "NEXT_PUBLIC_INTELLIGENCE_SIGNUP_URL",
-    "NEXT_PUBLIC_POSTHOG_KEY",
-    "NEXT_PUBLIC_POSTHOG_HOST",
-    "NEXT_PUBLIC_SCARF_PIXEL_ID",
-    "NEXT_PUBLIC_GOOGLE_ANALYTICS_TRACKING_ID",
-    "NEXT_PUBLIC_REB2B_KEY",
-    "NEXT_PUBLIC_REO_KEY",
-] as const;
+// Import BANNED_KEYS from the rule module itself (rather than hand-mirroring
+// the list) so the table-driven coverage cannot drift from the rule's true
+// banned set. If someone adds a new banned key to the rule and forgets the
+// test, the test set still expands automatically; if someone removes a key
+// from the rule, the test set contracts. The assertion is "the rule is
+// exhaustively table-driven against its own banned set."
+const ruleModule = (await import(
+    pathToFileURL(RULE_MODULE_PATH).href
+)) as { BANNED_KEYS: Set<string> };
+if (
+    !ruleModule.BANNED_KEYS ||
+    !(ruleModule.BANNED_KEYS instanceof Set) ||
+    ruleModule.BANNED_KEYS.size === 0
+) {
+    throw new Error(
+        `Rule module did not export a non-empty BANNED_KEYS Set: ${RULE_MODULE_PATH}`,
+    );
+}
+const BANNED_KEYS = [...ruleModule.BANNED_KEYS] as readonly string[];
 
 const ALLOWED_KEYS = [
     "NEXT_PUBLIC_COMMIT_SHA",
@@ -167,6 +177,31 @@ describe("oxlint copilotkit/no-public-env-shell-read NEXT_PUBLIC_* guard", () =>
             expect(r.combined).toMatch(/no-public-env-shell-read/);
         });
 
+        it('flags const { ["NEXT_PUBLIC_SHELL_URL"]: x } = process.env (destructuring with computed string key)', () => {
+            // Parity with the bracket-member form: the destructuring branch
+            // must apply the same staticKeyName() recognition as the member
+            // branch, otherwise a computed string key sneaks through.
+            const target = shellFixturePath("bad-destructure-computed-string");
+            stageFile(
+                target,
+                `const { ["NEXT_PUBLIC_SHELL_URL"]: x } = process.env;\nexport const y = x;\n`,
+            );
+            const r = runOxlint(target);
+            expect(r.exitCode).not.toBe(0);
+            expect(r.combined).toMatch(/no-public-env-shell-read/);
+        });
+
+        it("flags const { [`NEXT_PUBLIC_SHELL_URL`]: x } = process.env (destructuring with no-expression template key)", () => {
+            const target = shellFixturePath("bad-destructure-computed-template");
+            stageFile(
+                target,
+                "const { [`NEXT_PUBLIC_SHELL_URL`]: x } = process.env;\nexport const y = x;\n",
+            );
+            const r = runOxlint(target);
+            expect(r.exitCode).not.toBe(0);
+            expect(r.combined).toMatch(/no-public-env-shell-read/);
+        });
+
         it("does NOT flag process.env.NEXT_PUBLIC_SHELL_URL = ... (assignment LHS)", () => {
             // Writes (test/runtime overrides) are intentionally not flagged.
             const target = shellFixturePath("ok-assign");
@@ -230,6 +265,44 @@ describe("oxlint copilotkit/no-public-env-shell-read NEXT_PUBLIC_* guard", () =>
                 REPO_ROOT,
                 "showcase",
                 "shell-docs",
+                "src",
+                "__bad.lintfixture.tsx",
+            );
+            stageFile(
+                target,
+                `export const x = process.env.NEXT_PUBLIC_SHELL_URL;\n`,
+            );
+            const r = runOxlint(target);
+            expect(r.exitCode).not.toBe(0);
+            expect(r.combined).toMatch(/no-public-env-shell-read/);
+        });
+
+        it("DOES flag inside shell/src (shell-tree)", () => {
+            // The override list in .oxlintrc.json includes showcase/shell/src/**;
+            // exercise that branch explicitly so a future override-list edit that
+            // accidentally drops `shell` is caught.
+            const target = join(
+                REPO_ROOT,
+                "showcase",
+                "shell",
+                "src",
+                "__bad.lintfixture.tsx",
+            );
+            stageFile(
+                target,
+                `export const x = process.env.NEXT_PUBLIC_SHELL_URL;\n`,
+            );
+            const r = runOxlint(target);
+            expect(r.exitCode).not.toBe(0);
+            expect(r.combined).toMatch(/no-public-env-shell-read/);
+        });
+
+        it("DOES flag inside shell-dojo/src (shell-tree)", () => {
+            // Same as above for the dojo shell tree.
+            const target = join(
+                REPO_ROOT,
+                "showcase",
+                "shell-dojo",
                 "src",
                 "__bad.lintfixture.tsx",
             );
