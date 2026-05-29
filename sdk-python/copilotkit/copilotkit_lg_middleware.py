@@ -509,7 +509,9 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         # via ``_extract_forwarded_headers_from_config``).
         if isinstance(app_context, dict):
             app_context = {
-                k: v for k, v in app_context.items() if k != "copilotkit_forwarded_headers"
+                k: v
+                for k, v in app_context.items()
+                if k != "copilotkit_forwarded_headers"
             }
 
         # Check if app_context is missing or empty

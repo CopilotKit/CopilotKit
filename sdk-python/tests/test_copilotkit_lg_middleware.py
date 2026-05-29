@@ -544,12 +544,12 @@ def test_before_agent_strips_forwarded_headers_but_keeps_real_app_context():
     assert any("App Context:" in s for s in sys_contents)
     assert any("user_tier" in s and "pro" in s for s in sys_contents)
     # The transport-layer wrapper is stripped from the rendered prompt.
-    assert not any(
-        "copilotkit_forwarded_headers" in s for s in sys_contents
-    ), "copilotkit_forwarded_headers must be filtered out of the App Context message"
-    assert not any(
-        "x-aimock-context" in s for s in sys_contents
-    ), "forwarded header values must never appear in a system prompt"
+    assert not any("copilotkit_forwarded_headers" in s for s in sys_contents), (
+        "copilotkit_forwarded_headers must be filtered out of the App Context message"
+    )
+    assert not any("x-aimock-context" in s for s in sys_contents), (
+        "forwarded header values must never appear in a system prompt"
+    )
 
 
 # ---------------------------------------------------------------------------
