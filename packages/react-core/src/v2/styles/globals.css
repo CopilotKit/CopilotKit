@@ -320,7 +320,12 @@
   align-items: center;
   gap: 0.55rem;
   /* `color` drives both the label text and the icon stroke (which uses
-     `currentColor`). In-progress alpha 0.92, settle alpha 0.55. */
+     `currentColor`). In-progress is a saturated purple at high alpha
+     (the active "this is happening now" state); finished transitions
+     all the way to a neutral slate gray (settled metadata — "a tool
+     call happened here"). The hue shift, not just an alpha drop, is
+     what makes the finished state read as a different semantic class
+     of content rather than just a dimmed version of the active one. */
   color: rgb(91 33 182 / 0.92);
   font-size: 0.78rem;
   font-weight: 500;
@@ -332,7 +337,13 @@
 
 .cpk-intelligence-indicator[data-status="finished"]
   .cpk-intelligence-indicator__content {
-  color: rgb(91 33 182 / 0.55);
+  /* Slate-500 (`#64748b`) — the industry-standard secondary/metadata
+     color (Stripe, Linear, Claude, GitHub all land within a few hex
+     units of it). Cool neutral undertone reads as "settled info you
+     can still scan" rather than "faded out." Full alpha because the
+     gray itself carries the muted feel — layering low alpha on top
+     would tip into "too washed out to read at a glance." */
+  color: rgb(100 116 139);
 }
 
 .cpk-intelligence-indicator__icon {

@@ -37,9 +37,13 @@ export interface IntelligenceIndicatorViewProps extends React.HTMLAttributes<HTM
  *     shape change. Chrome and text stay at full opacity throughout.
  *  3. **Settle (~400 ms, starts at +250 ms).** Chrome (background,
  *     border, shadow, backdrop-blur) fades to zero opacity. The label
- *     and icon stroke color alpha drops from 0.92 to 0.55. The text
- *     stays put — only its alpha changes — so there is no "bump"
- *     where the brand text disappears and reappears.
+ *     and icon stroke color transitions from saturated purple to a
+ *     neutral slate gray (industry-standard metadata color — same
+ *     family as Stripe, Linear, Claude, GitHub). The text stays put
+ *     — only its color changes — so there is no "bump" where the
+ *     brand text disappears and reappears. The hue shift reads as a
+ *     semantic class change ("active" → "settled metadata") rather
+ *     than as the same content getting dimmer.
  *
  * Hard sequence: stage 3 has a 250 ms transition-delay so it waits
  * for stage 2 to finish. Total settle time ~650 ms in production.
