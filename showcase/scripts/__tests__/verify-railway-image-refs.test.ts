@@ -13,6 +13,7 @@ import {
   findMissingServices,
   findUntrackedServices,
   summarizeFailures,
+  validateImage,
 } from "../verify-railway-image-refs";
 import {
   SERVICES,
@@ -199,4 +200,72 @@ describe("WS-C: all 27 services gateValidated, with correct overrides", () => {
     expect(missingProd).toHaveLength(27);
     expect(missingStaging).toHaveLength(27);
   });
+});
+
+describe("WS-C: shape validation for the five newly-gated services", () => {
+  const PROD_DIGEST = "@sha256:" + "a".repeat(64);
+
+  const FIVE_NEW = [
+    { key: "dashboard", repo: "showcase-shell-dashboard" },
+    { key: "docs", repo: "showcase-shell-docs" },
+    { key: "dojo", repo: "showcase-shell-dojo" },
+    { key: "shell", repo: "showcase-shell" },
+    { key: "harness", repo: "showcase-harness" },
+  ] as const;
+
+  for (const { key, repo } of FIVE_NEW) {
+    it(`${key}: prod requires @sha256, :latest on prod fails`, () => {
+      const v = validateImage(`ghcr.io/copilotkit/${repo}:latest`, {
+        env: "prod",
+        repoName: repo,
+      });
+      expect(v).not.toBeNull();
+      expect(v?.reason).toMatch(/prod must be pinned to `@sha256:<digest>`/);
+    });
+
+    it(`${key}: prod accepts the canonical @sha256 shape`, () => {
+      const v = validateImage(
+        `ghcr.io/copilotkit/${repo}${PROD_DIGEST}`,
+        { env: "prod", repoName: repo },
+      );
+      expect(v).toBeNull();
+    });
+
+    it(`${key}: staging accepts :latest on the correct repo`, () => {
+      const v = validateImage(`ghcr.io/copilotkit/${repo}:latest`, {
+        env: "staging",
+        repoName: repo,
+      });
+      expect(v).toBeNull();
+    });
+
+    it(`${key}: staging rejects @sha256 (must float on :latest)`, () => {
+      const v = validateImage(
+        `ghcr.io/copilotkit/${repo}${PROD_DIGEST}`,
+        { env: "staging", repoName: repo },
+      );
+      expect(v).not.toBeNull();
+      expect(v?.reason).toMatch(/staging must float on :latest/);
+    });
+
+    it(`${key}: rejects the wrong GHCR repo name on prod`, () => {
+      // E.g. ghcr.io/copilotkit/dashboard@sha256:... — what the gate
+      // would see if someone added gateValidated:true without the
+      // matching repoNameOverride. Repo NAME must match override.
+      const wrongRepo = `ghcr.io/copilotkit/${key}${PROD_DIGEST}`;
+      const v = validateImage(wrongRepo, { env: "prod", repoName: repo });
+      expect(v).not.toBeNull();
+      expect(v?.reason).toMatch(/image repo name mismatches expected/);
+    });
+
+    it(`${key}: rejects the wrong GHCR repo name on staging`, () => {
+      const wrongRepo = `ghcr.io/copilotkit/${key}:latest`;
+      const v = validateImage(wrongRepo, {
+        env: "staging",
+        repoName: repo,
+      });
+      expect(v).not.toBeNull();
+      expect(v?.reason).toMatch(/image repo name mismatches expected/);
+    });
+  }
 });
