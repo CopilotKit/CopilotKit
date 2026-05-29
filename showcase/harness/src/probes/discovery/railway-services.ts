@@ -229,7 +229,7 @@ const ConfigSchema = z
   })
   .passthrough();
 
-const ENDPOINT = "https://backboard.railway.com/graphql/v2";
+const ENDPOINT = "https://backboard.railway.app/graphql/v2";
 
 // Zod shapes for the GraphQL responses. Kept in-file (not exported) so the
 // schema errors carry consistent paths in their messages.
