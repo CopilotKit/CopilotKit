@@ -18,6 +18,16 @@ export interface IntelligenceIndicatorViewProps extends React.HTMLAttributes<HTM
 }
 
 /**
+ * If the in-progress label is a present participle ("Using …"), swap
+ * it to past tense ("Used …") for the finished resting state so the
+ * persistent tag reads naturally as scroll-back metadata. Other label
+ * shapes pass through unchanged — slot consumers who pass a custom
+ * label own its wording.
+ */
+const toFinishedLabel = (label: string): string =>
+  label.replace(/^Using\s+/i, "Used ");
+
+/**
  * The presentational "Using CopilotKit Intelligence" face — the default
  * rendered by the {@link IntelligenceIndicator} brain and the default
  * value for the `intelligenceIndicator` slot.
@@ -25,15 +35,17 @@ export interface IntelligenceIndicatorViewProps extends React.HTMLAttributes<HTM
  * Two modes:
  *  - `in-progress`: a glassmorphism pill with a spinning ring (the
  *    same active visual users see while the intelligence tool runs).
- *  - `finished`: a compact icon + text tag — visibly demoted so it
- *    sits quietly in chat history per turn without competing with the
- *    agent's answer. The tag's checkmark icon is the completion cue.
+ *  - `finished`: a tiny italic-gray "metadata line" — icon + past-tense
+ *    label, no border, no background. Reads as a footnote attached to
+ *    the assistant message rather than a status chip, so it disappears
+ *    into the chrome for someone scrolling and surfaces for someone
+ *    looking.
  *
- * Both modes coexist in the DOM; status drives an opacity cross-fade
- * so the swap reads as one smooth transition rather than two distinct
- * mounts. The wrapper is `position: relative` and the tag is
- * positioned absolutely over the pill's slot so the layout doesn't
- * jump between two differently-sized elements.
+ * Both modes coexist in the DOM; status drives a "shrink-and-settle"
+ * transition where the pill scales down (1 → 0.7) from its center as
+ * it fades out, and the tag scales up from the same center (0.7 → 1)
+ * with a 120 ms delay — the overlap reads as one element morphing
+ * rather than two elements being swapped. Total transition ~440 ms.
  *
  * Customize via the `intelligenceIndicator` slot on `CopilotChat`:
  * pass a className string to restyle the default, a props object to
@@ -58,8 +70,8 @@ export function IntelligenceIndicatorView({
       title={label}
       {...rest}
     >
-      {/* In-progress pill — full opacity while spinning, faded out
-          once status flips to finished. */}
+      {/* In-progress pill — full opacity while spinning, shrunk and
+          faded out once status flips to finished. */}
       <span
         className={
           "cpk-intelligence-indicator__pill" +
@@ -87,8 +99,8 @@ export function IntelligenceIndicatorView({
         <span>{label}</span>
       </span>
 
-      {/* Finished tag — compact icon + text, faded in once work
-          completes. The checkmark is the completion cue. */}
+      {/* Finished metadata line — italic gray text + small checkmark,
+          no border or background. The checkmark itself is the cue. */}
       <span
         className={
           "cpk-intelligence-indicator__tag" +
@@ -99,18 +111,18 @@ export function IntelligenceIndicatorView({
         <svg
           className="cpk-intelligence-tag__icon"
           viewBox="0 0 24 24"
-          width="12"
-          height="12"
+          width="10"
+          height="10"
           fill="none"
           stroke="currentColor"
-          strokeWidth="2.5"
+          strokeWidth="3"
           strokeLinecap="round"
           strokeLinejoin="round"
           aria-hidden="true"
         >
           <path d="M5 12.5l4 4 10-10" />
         </svg>
-        <span>{label}</span>
+        <span>{toFinishedLabel(label)}</span>
       </span>
     </span>
   );
