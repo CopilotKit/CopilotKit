@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { pb, pbIsMisconfigured, PB_MISCONFIG_MESSAGE } from "../lib/pb";
+import { getPb, pbIsMisconfigured, PB_MISCONFIG_MESSAGE } from "../lib/pb";
 import type { StatusRow } from "../lib/live-status";
 import { upsertByKey } from "../lib/live-status";
 
@@ -54,7 +54,7 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
     // sentinel URL with retries. Surface a clear user-facing error to the
     // UI banner immediately so operators see the actual root cause rather
     // than a generic DNS failure.
-    if (pbIsMisconfigured) {
+    if (pbIsMisconfigured()) {
       // Clear any previously-cached rows so downstream consumers (resolveCell)
       // don't render stale-green lies behind an offline banner (spec §5.3).
       setRows([]);
@@ -63,6 +63,7 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
       return;
     }
 
+    const pb = getPb();
     let alive = true;
     let attempts = 0;
     let cancel: (() => void) | null = null;

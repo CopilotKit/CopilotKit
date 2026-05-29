@@ -1,0 +1,61 @@
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
+
+import { FrameworkOverview } from "../framework-overview";
+import type { FrameworkOverviewData } from "@/data/frameworks/types";
+
+const overviewData: FrameworkOverviewData = {
+  slug: "langgraph-python",
+  frameworkName: "LangChain",
+  iconKey: "langgraph",
+  header: "Bring your LangChain agents to your users",
+  subheader: "Build rich, interactive, agent-powered applications.",
+  guideLink: "/langgraph-python/quickstart",
+  initCommand: "npx copilotkit@latest init",
+  featuresLink: "/langgraph-python",
+  supportedFeatures: [],
+  liveDemos: [],
+};
+
+describe("FrameworkOverview", () => {
+  it("renders the quickstart CTA in the shell-docs outline style", () => {
+    const markup = renderToStaticMarkup(
+      <FrameworkOverview
+        data={overviewData}
+        currentFramework="langgraph-python"
+      />,
+    );
+
+    expect(markup).toContain("Start the quickstart");
+    expect(markup).toContain("border-[var(--accent)]");
+    expect(markup).toContain("bg-[var(--accent-dim)]");
+    expect(markup).toContain("text-[var(--accent)]");
+    expect(markup).not.toContain("bg-[var(--accent)]");
+    expect(markup).not.toContain("text-white");
+  });
+
+  it("renders the framework identity icon in accent purple", () => {
+    const markup = renderToStaticMarkup(
+      <FrameworkOverview
+        data={overviewData}
+        currentFramework="langgraph-python"
+      />,
+    );
+
+    expect(markup).toContain(
+      "flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]",
+    );
+  });
+
+  it("does not add top padding before the framework hero", () => {
+    const markup = renderToStaticMarkup(
+      <FrameworkOverview
+        data={overviewData}
+        currentFramework="langgraph-python"
+      />,
+    );
+
+    expect(markup).toContain('class="pb-8 sm:pb-12"');
+    expect(markup).not.toContain("pt-2 sm:pt-4");
+  });
+});

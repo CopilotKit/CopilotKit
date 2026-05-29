@@ -23,6 +23,7 @@
     "mcp-servers",
     "model-selection",
     "advanced-configuration",
+    "telemetry",
     "---Backend---",
     "copilot-runtime", "custom-agent", "ag-ui",
     "---Premium Features---",

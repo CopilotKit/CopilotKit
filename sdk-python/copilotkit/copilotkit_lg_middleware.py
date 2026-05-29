@@ -154,6 +154,10 @@ _RESERVED_STATE_KEYS = frozenset(
     {
         "messages",
         "copilotkit",
+        # Transport-layer plumbing: forwarded request headers conveyed via a
+        # separate ContextVar to the httpx hook. MUST never be rendered into
+        # the LLM prompt — neither via App Context nor via expose_state.
+        "copilotkit_forwarded_headers",
         "ag-ui",
         "tools",
         "structured_response",
@@ -218,7 +222,17 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         if self._expose_state is False:
             return None
         if isinstance(self._expose_state, frozenset):
-            keys: list[str] = [k for k in self._expose_state if k in state]
+            # Allowlist branch: honor user intent for other reserved keys
+            # (e.g. ``thread_id``) so the override test in this suite still
+            # passes, but hard-exclude ``copilotkit_forwarded_headers`` —
+            # rendering it would leak the raw forwarded request headers into
+            # the LLM prompt, which is what the reserved-keys comment above
+            # promises will never happen "via App Context nor via expose_state".
+            keys: list[str] = [
+                k
+                for k in self._expose_state
+                if k in state and k != "copilotkit_forwarded_headers"
+            ]
         else:
             keys = [
                 k
@@ -486,6 +500,19 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         app_context = copilotkit_state.get("context") or getattr(
             runtime, "context", None
         )
+
+        # Strip the reserved transport-layer key ``copilotkit_forwarded_headers``
+        # so it is never rendered into the LLM prompt. langgraph-api auto-copies
+        # ``config.configurable`` into ``runtime.context``, which means the
+        # forwarded-headers wrapper dict shows up here even though it is only
+        # meant for the httpx hook (which reads it from a separate ContextVar
+        # via ``_extract_forwarded_headers_from_config``).
+        if isinstance(app_context, dict):
+            app_context = {
+                k: v
+                for k, v in app_context.items()
+                if k != "copilotkit_forwarded_headers"
+            }
 
         # Check if app_context is missing or empty
         if not app_context:

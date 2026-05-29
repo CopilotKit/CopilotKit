@@ -12,6 +12,7 @@ import path from "path";
 import matter from "gray-matter";
 import { resolveWithinDir } from "./safe-fs";
 import { getDocsMode } from "./registry";
+import { isRouteGroupSegment } from "./route-groups";
 
 export const CONTENT_DIR = path.join(process.cwd(), "src/content/docs");
 export const SNIPPETS_DIR = path.join(CONTENT_DIR, "..", "snippets");
@@ -603,7 +604,83 @@ export function buildFrameworkOnlyNav(folder: string): NavNode[] {
     }
     return node;
   };
-  return nodes.map(rewrite);
+  return appendSharedRootSections(nodes.map(rewrite));
+}
+
+const SHARED_ROOT_SECTIONS = ["Platforms"];
+
+function sectionRange(
+  navTree: NavNode[],
+  sectionTitle: string,
+): { start: number; end: number } | null {
+  const start = navTree.findIndex(
+    (node) =>
+      node.type === "section" &&
+      node.title.toLowerCase() === sectionTitle.toLowerCase(),
+  );
+  if (start === -1) return null;
+
+  const nextSection = navTree.findIndex(
+    (node, index) => index > start && node.type === "section",
+  );
+  return { start, end: nextSection === -1 ? navTree.length : nextSection };
+}
+
+function hasPageSlug(navTree: NavNode[], slug: string): boolean {
+  return navTree.some((node) => {
+    if (node.type === "page") return node.slug === slug;
+    if (node.type === "group") return hasPageSlug(node.children, slug);
+    return false;
+  });
+}
+
+function filterMissingPages(node: NavNode, navTree: NavNode[]): NavNode | null {
+  if (node.type === "page") {
+    return hasPageSlug(navTree, node.slug) ? null : node;
+  }
+  if (node.type === "group") {
+    const children = node.children
+      .map((child) => filterMissingPages(child, navTree))
+      .filter((child): child is NavNode => child !== null);
+    return children.length > 0 ? { ...node, children } : null;
+  }
+  return node;
+}
+
+/**
+ * Authored framework sidebars own their page order, but some root docs
+ * sections are global product guidance rather than framework IA. Keep
+ * those shared sections in every framework sidebar without duplicating
+ * entries across each authored integration's meta.json.
+ */
+function appendSharedRootSections(navTree: NavNode[]): NavNode[] {
+  let nextNavTree = navTree;
+  const rootNavTree = buildNavTree(CONTENT_DIR);
+
+  for (const sectionTitle of SHARED_ROOT_SECTIONS) {
+    const rootRange = sectionRange(rootNavTree, sectionTitle);
+    if (!rootRange) continue;
+
+    const section = rootNavTree[rootRange.start];
+    const missingNodes = rootNavTree
+      .slice(rootRange.start + 1, rootRange.end)
+      .map((node) => filterMissingPages(node, nextNavTree))
+      .filter((node): node is NavNode => node !== null);
+    if (missingNodes.length === 0) continue;
+
+    const existingRange = sectionRange(nextNavTree, sectionTitle);
+    if (existingRange) {
+      nextNavTree = [
+        ...nextNavTree.slice(0, existingRange.end),
+        ...missingNodes,
+        ...nextNavTree.slice(existingRange.end),
+      ];
+    } else {
+      nextNavTree = [...nextNavTree, section, ...missingNodes];
+    }
+  }
+
+  return nextNavTree;
 }
 
 // Map a framework slug to the section-header icon spec used by the
@@ -1433,6 +1510,74 @@ export interface DocFrontmatter {
   hideTOC?: boolean;
 }
 
+function slugSegments(slugPath: string): string[] | null {
+  const segments = slugPath.split(/[\\/]+/).filter(Boolean);
+  if (segments.some((segment) => segment === "." || segment === "..")) {
+    return null;
+  }
+  return segments;
+}
+
+function routeGroupSubdirs(dir: string): string[] {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  return entries
+    .filter((entry) => entry.isDirectory() && isRouteGroupSegment(entry.name))
+    .map((entry) => entry.name);
+}
+
+function resolveDocThroughRouteGroups(
+  dir: string,
+  segments: string[],
+): string | null {
+  if (segments.length === 0) {
+    const indexPath = path.join(dir, "index.mdx");
+    return fs.existsSync(indexPath) ? indexPath : null;
+  }
+
+  const [segment, ...rest] = segments;
+  if (rest.length === 0) {
+    const mdxPath = path.join(dir, `${segment}.mdx`);
+    if (fs.existsSync(mdxPath)) return mdxPath;
+    const indexPath = path.join(dir, segment, "index.mdx");
+    if (fs.existsSync(indexPath)) return indexPath;
+  }
+
+  const directDir = path.join(dir, segment);
+  if (fs.existsSync(directDir) && fs.statSync(directDir).isDirectory()) {
+    const direct = resolveDocThroughRouteGroups(directDir, rest);
+    if (direct) return direct;
+  }
+
+  for (const routeGroup of routeGroupSubdirs(dir)) {
+    const grouped = resolveDocThroughRouteGroups(
+      path.join(dir, routeGroup),
+      segments,
+    );
+    if (grouped) return grouped;
+  }
+
+  return null;
+}
+
+function resolveRouteGroupedDocPath(slugPath: string): string | null {
+  const segments = slugSegments(slugPath);
+  if (!segments) return null;
+
+  const filePath = resolveDocThroughRouteGroups(CONTENT_DIR, segments);
+  if (!filePath) return null;
+
+  const resolved = resolveWithinDir(
+    CONTENT_DIR,
+    path.relative(CONTENT_DIR, filePath),
+  );
+  return resolved && fs.existsSync(resolved) ? resolved : null;
+}
+
 /**
  * Load an MDX file by slug and return its raw source + parsed frontmatter
  * metadata for rendering. Returns null when the file doesn't exist.
@@ -1456,7 +1601,12 @@ export function loadDoc(
   } else if (indexResolved && fs.existsSync(indexResolved)) {
     filePath = indexResolved;
   } else {
-    return null;
+    // Route groups such as `(other)` organize the sidebar filesystem but
+    // are not public URL segments. Resolve `/strands/telemetry` to
+    // `integrations/aws-strands/(other)/telemetry/index.mdx`.
+    const routeGroupedPath = resolveRouteGroupedDocPath(slugPath);
+    if (!routeGroupedPath) return null;
+    filePath = routeGroupedPath;
   }
 
   let source: string;

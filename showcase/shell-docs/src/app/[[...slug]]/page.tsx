@@ -8,17 +8,10 @@
 
 import React from "react";
 import type { Metadata } from "next";
-import Link from "next/link";
-import {
-  ArrowRight,
-  Blocks,
-  Bot,
-  Braces,
-  Code2,
-  MessageSquare,
-  Workflow,
-} from "lucide-react";
 import { DocsLandingNext } from "@/components/docs-landing-next";
+import { HeroCommandCopy } from "@/components/hero-command-copy";
+import { HeroQuickstartDropdown } from "@/components/hero-quickstart-dropdown";
+import { LandingSampleTabs } from "@/components/landing-sample-tabs";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
@@ -28,8 +21,14 @@ import {
   buildFrameworkOnlyNav,
   loadDoc,
 } from "@/lib/docs-render";
+import { compareByDisplayOrder } from "@/lib/framework-order";
 import { navTreeToPageTree } from "@/lib/page-tree-bridge";
-import { getDocsFolder, getDocsMode, getIntegration } from "@/lib/registry";
+import {
+  getDocsFolder,
+  getDocsMode,
+  getIntegration,
+  getIntegrations,
+} from "@/lib/registry";
 import { buildDocMetadata } from "@/lib/seo-metadata";
 
 // Force dynamic rendering so unknown slugs reliably return HTTP 404
@@ -44,6 +43,7 @@ export const dynamic = "force-dynamic";
 // here keeps the sidebar tree on `/` identical to what the user sees
 // after clicking any Built-in Agent sidebar link.
 const HOME_DEFAULT_FRAMEWORK = "built-in-agent";
+const CREATE_COMMAND = "npx copilotkit@latest create";
 
 // Per-framework self-canonical: each variant of a doc page declares
 // itself canonical so search engines index every framework's quickstart
@@ -123,159 +123,60 @@ function DocsOverview() {
     ...pageTree,
     children: rewriteUrls(pageTree.children),
   };
-  const homeIntegration = getIntegration(HOME_DEFAULT_FRAMEWORK);
-  const stackItems = [
-    {
-      label: "Frontend",
-      title: "React UX primitives",
-      detail: "Chat, generative UI, shared state, and HITL controls.",
-      icon: <MessageSquare className="h-4 w-4" />,
-    },
-    {
-      label: "Runtime",
-      title: "AG-UI transport",
-      detail: "Event streams, tools, state snapshots, and observability.",
-      icon: <Workflow className="h-4 w-4" />,
-    },
-    {
-      label: "Agent",
-      title: "Any backend",
-      detail: "LangGraph, ADK, Mastra, CrewAI, PydanticAI, and more.",
-      icon: <Bot className="h-4 w-4" />,
-    },
-  ];
-  const primaryCards = [
-    {
-      href: "/built-in-agent/quickstart",
-      title: "Start building",
-      body: "Create a working CopilotKit app with the built-in agent.",
-      icon: <Code2 className="h-4 w-4" />,
-    },
-    {
-      href: "/built-in-agent/generative-ui/tool-rendering",
-      title: "Render agent UI",
-      body: "Turn tool calls and state into first-class React components.",
-      icon: <Blocks className="h-4 w-4" />,
-    },
-    {
-      href: "/reference",
-      title: "API Reference",
-      body: "Hooks, components, runtime config, and integration APIs.",
-      icon: <Braces className="h-4 w-4" />,
-    },
-  ];
+  const quickstartOptions = getIntegrations()
+    .filter((i) => getDocsMode(i.slug) !== "hidden")
+    .slice()
+    .sort((a, b) => {
+      if (a.slug === HOME_DEFAULT_FRAMEWORK) return -1;
+      if (b.slug === HOME_DEFAULT_FRAMEWORK) return 1;
+      return compareByDisplayOrder(a.slug, b.slug);
+    })
+    .map((i) => ({
+      slug: i.slug,
+      name: i.slug === HOME_DEFAULT_FRAMEWORK ? "CopilotKit (Default)" : i.name,
+      logo: i.logo ?? null,
+      href: `/${i.slug}/quickstart`,
+    }));
 
   return (
     <ShellDocsLayout tree={homePageTree} banner={<SidebarFrameworkSelector />}>
-      <div className="docs-inner-content max-w-[1040px] mx-auto px-4 md:px-6 pt-2 pb-6 md:pt-3 xl:pt-4">
-        <section className="pt-7 sm:pt-10 pb-8 sm:pb-10">
-          <div className="mb-7 flex flex-col gap-5">
-            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1.5 text-[11px] font-semibold uppercase text-[var(--text-muted)]">
-              <FrameworkLogo
-                slug={HOME_DEFAULT_FRAMEWORK}
-                fallbackSrc={homeIntegration?.logo}
-                size={14}
-                className="text-[var(--accent)]"
-              />
-              Frontend stack for agents
-            </div>
+      <div className="docs-inner-content max-w-[1040px] mx-auto px-4 md:px-6 pt-0 pb-6">
+        <section className="relative border-b border-[var(--border)] pb-6 sm:pb-7">
+          <div className="flex max-w-[765px] flex-col">
             <div>
-              <h1 className="max-w-4xl text-[2.45rem] sm:text-[3.25rem] font-semibold text-[var(--text)] tracking-tight leading-[1.02]">
-                CopilotKit connects agent backends to real product interfaces.
+              <div className="mb-5 flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text)]">
+                  <FrameworkLogo
+                    slug={HOME_DEFAULT_FRAMEWORK}
+                    className="h-5 w-5"
+                  />
+                </div>
+                <span className="text-sm font-semibold tracking-tight text-[var(--text)] sm:text-base">
+                  Documentation
+                </span>
+              </div>
+              <h1 className="max-w-[24ch] text-[2rem] font-semibold leading-[1.08] tracking-[-0.02em] text-[var(--text)] sm:text-[2.5rem]">
+                CopilotKit
               </h1>
-              <p className="mt-5 max-w-3xl text-base sm:text-lg text-[var(--text-secondary)] leading-relaxed">
-                Build chat, generative UI, shared state, canvas apps, and
-                human-in-the-loop workflows on top of LangGraph, Google ADK,
-                Mastra, PydanticAI, CrewAI, the built-in agent, or any AG-UI
-                compatible backend.
+              <p className="mt-3 max-w-[58ch] text-lg font-medium leading-snug text-[var(--text-muted)] sm:text-[1.375rem]">
+                The frontend stack for agentic user experience.
+              </p>
+              <p className="mt-4 max-w-[58ch] text-base leading-[1.55] text-[var(--text-secondary)] sm:text-lg">
+                Build production chat, generative UI, shared state, and
+                human-in-the-loop workflows on any AG-UI compatible backend.
               </p>
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Link
-                href="/built-in-agent/quickstart"
-                className="inline-flex h-10 w-fit items-center gap-2 rounded-full bg-[var(--text)] px-4 text-sm font-semibold text-[var(--bg-surface)] no-underline transition-opacity hover:opacity-90"
-              >
-                Start with the built-in agent
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-              <div className="flex min-w-0 items-center rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2">
-                <code className="font-mono text-sm text-[var(--text)] overflow-x-auto whitespace-nowrap">
-                  npx copilotkit@latest create
-                </code>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] p-4 sm:p-5">
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-              {stackItems.map((item) => (
-                <div
-                  key={item.label}
-                  className="rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)]/45 p-4"
-                >
-                  <div className="mb-4 flex items-center justify-between">
-                    <span className="text-[11px] font-semibold uppercase text-[var(--text-muted)]">
-                      {item.label}
-                    </span>
-                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--accent)]">
-                      {item.icon}
-                    </span>
-                  </div>
-                  <div className="text-sm font-semibold text-[var(--text)]">
-                    {item.title}
-                  </div>
-                  <p className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)]">
-                    {item.detail}
-                  </p>
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)]/45 p-3 text-[12px] text-[var(--text-muted)]">
-              {[
-                "LangGraph",
-                "Google ADK",
-                "Mastra",
-                "PydanticAI",
-                "CrewAI",
-                "AG-UI",
-              ].map((label) => (
-                <span
-                  key={label}
-                  className="rounded-full border border-[var(--border)] bg-[var(--bg-surface)] px-2.5 py-1 font-medium text-[var(--text-secondary)]"
-                >
-                  {label}
-                </span>
-              ))}
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <HeroQuickstartDropdown options={quickstartOptions} />
+              <HeroCommandCopy command={CREATE_COMMAND} />
             </div>
           </div>
         </section>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-          {primaryCards.map((card) => (
-            <Link
-              key={card.href}
-              href={card.href}
-              className="group flex min-h-[148px] flex-col justify-between rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] p-5 no-underline hover:border-[var(--accent)] transition-colors"
-            >
-              <div className="flex items-center justify-between">
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] text-[var(--accent)]">
-                  {card.icon}
-                </span>
-                <ArrowRight className="h-4 w-4 text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors" />
-              </div>
-              <div>
-                <div className="font-semibold text-[var(--text)]">
-                  {card.title}
-                </div>
-                <div className="mt-1 text-sm text-[var(--text-secondary)] leading-relaxed">
-                  {card.body}
-                </div>
-              </div>
-            </Link>
-          ))}
+        <div className="space-y-10 pt-8">
+          <LandingSampleTabs />
+          <DocsLandingNext />
         </div>
-
-        <DocsLandingNext />
       </div>
     </ShellDocsLayout>
   );

@@ -6,7 +6,15 @@ vi.mock("../registry", () => ({
   getDocsMode: () => "generated",
 }));
 
-import { inlineSnippets, SNIPPET_MAP, SNIPPETS_DIR } from "../docs-render";
+import {
+  buildFrameworkNav,
+  buildFrameworkOnlyNav,
+  inlineSnippets,
+  loadDoc,
+  SNIPPET_MAP,
+  SNIPPETS_DIR,
+} from "../docs-render";
+import type { NavNode } from "../docs-render";
 
 let tempDir = "";
 
@@ -25,6 +33,18 @@ function writeSnippet(filename: string, body: string): string {
   const filePath = path.join(tempDir, filename);
   fs.writeFileSync(filePath, body);
   return path.relative(SNIPPETS_DIR, filePath);
+}
+
+function hasSectionPage(navTree: NavNode[], section: string, page: string) {
+  let inSection = false;
+  for (const node of navTree) {
+    if (node.type === "section") {
+      inSection = node.title === section;
+      continue;
+    }
+    if (inSection && node.type === "page" && node.title === page) return true;
+  }
+  return false;
 }
 
 describe("inlineSnippets", () => {
@@ -99,5 +119,33 @@ describe("inlineSnippets", () => {
       "from slug",
       "pdx-208-runtime-multiline",
     );
+  });
+});
+
+describe("loadDoc", () => {
+  it("resolves clean URLs to files stored under route-group folders", () => {
+    const doc = loadDoc("integrations/aws-strands/telemetry");
+
+    expect(doc?.filePath).toContain(
+      "integrations/aws-strands/(other)/telemetry/index.mdx",
+    );
+  });
+});
+
+describe("framework nav", () => {
+  it("includes the shared React Native platform guide in generated framework nav", () => {
+    const navTree = buildFrameworkNav(
+      "langgraph",
+      "LangGraph (Python)",
+      "langgraph-python",
+    );
+
+    expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(true);
+  });
+
+  it("includes the shared React Native platform guide in authored framework nav", () => {
+    const navTree = buildFrameworkOnlyNav("built-in-agent");
+
+    expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(true);
   });
 });

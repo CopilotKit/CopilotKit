@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/react-core",
-  "version": "1.58.0",
+  "version": "1.59.1",
   "private": false,
   "keywords": [
     "ai",
@@ -31,29 +31,17 @@
   ],
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
-  "types": "./dist/index.d.mts",
+  "types": "./dist/index.d.cts",
   "unpkg": "./dist/index.umd.js",
   "jsdelivr": "./dist/index.umd.js",
   "exports": {
     ".": {
-      "import": {
-        "types": "./dist/index.d.mts",
-        "default": "./dist/index.mjs"
-      },
-      "require": {
-        "types": "./dist/index.d.cts",
-        "default": "./dist/index.cjs"
-      }
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
     },
     "./v2": {
-      "import": {
-        "types": "./dist/v2/index.d.mts",
-        "default": "./dist/v2/index.mjs"
-      },
-      "require": {
-        "types": "./dist/v2/index.d.cts",
-        "default": "./dist/v2/index.cjs"
-      }
+      "import": "./dist/v2/index.mjs",
+      "require": "./dist/v2/index.cjs"
     },
     "./package.json": "./package.json",
     "./v2/context": {

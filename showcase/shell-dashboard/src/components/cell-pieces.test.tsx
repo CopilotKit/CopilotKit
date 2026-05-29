@@ -21,8 +21,8 @@ const mockState = {
   fetchCount: 0,
 };
 
-vi.mock("../lib/pb", () => ({
-  pb: {
+vi.mock("../lib/pb", () => {
+  const pb = {
     filter: (raw: string) => raw,
     collection: () => ({
       getList: vi.fn(async () => {
@@ -30,10 +30,13 @@ vi.mock("../lib/pb", () => ({
         return { items: mockState.history.slice(0, 1), totalItems: 1 };
       }),
     }),
-  },
-  pbIsMisconfigured: false,
-  PB_MISCONFIG_MESSAGE: "",
-}));
+  };
+  return {
+    getPb: () => pb,
+    pbIsMisconfigured: () => false,
+    PB_MISCONFIG_MESSAGE: "",
+  };
+});
 
 beforeEach(() => {
   mockState.history = [];

@@ -202,11 +202,11 @@ export function FrameworkOverview({
         {/* =========================================================
              HERO
              ========================================================= */}
-        <header className="pt-2 sm:pt-4 pb-8 sm:pb-12">
+        <header className="pb-8 sm:pb-12">
           {/* Framework identity: icon + name in a horizontal lockup. */}
           <div className="flex items-center gap-3 mb-5">
             {hasIcon && (
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text)]">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]">
                 {iconOverride ??
                   (IconComponent ? (
                     <IconComponent className="h-6 w-6" />
@@ -227,18 +227,16 @@ export function FrameworkOverview({
             {subheader}
           </p>
 
-          {/* Action cluster: accent CTA + copy-command chip. The Live
+          {/* Action cluster: docs-style CTA + copy-command chip. The Live
               feature viewer link was dropped — the demo iframe below
               already covers "see it running" intent. */}
           <div className="mt-7 flex flex-col sm:flex-row sm:items-center gap-3">
-            <Link href={guideLink} className="no-underline group">
-              <button
-                type="button"
-                className="inline-flex w-full sm:w-auto items-center justify-center gap-2 h-11 px-4 rounded-lg bg-[var(--accent)] hover:brightness-110 text-white font-medium text-[13.5px] transition-[filter] duration-200"
-              >
-                Start the quickstart
-                <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-              </button>
+            <Link
+              href={guideLink}
+              className="group inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-[var(--accent)] bg-[var(--accent-dim)] px-4 text-[13.5px] font-semibold text-[var(--accent)] no-underline transition-colors hover:bg-[var(--accent-light)] sm:w-auto"
+            >
+              Start the quickstart
+              <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
             </Link>
 
             <button

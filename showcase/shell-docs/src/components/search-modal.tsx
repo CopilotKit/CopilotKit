@@ -8,11 +8,14 @@ import { DEFAULT_FRAMEWORK, useFramework } from "./framework-provider";
 import { FrameworkLogo } from "./icons/framework-icons";
 import { compareByDisplayOrder } from "@/lib/framework-order";
 import type { Registry } from "@/lib/registry";
+import { getRuntimeConfig } from "@/lib/runtime-config.client";
 
 // Integrations explorer + per-integration demo pages live on the shell
 // host (showcase.copilotkit.ai), not on shell-docs. Search results that
-// surface an integration or one of its demos route there directly.
-const SHELL_HOST = process.env.NEXT_PUBLIC_SHELL_URL ?? "http://localhost:3000";
+// surface an integration or one of its demos route there directly. The
+// shell host is now read at runtime from window.__SHOWCASE_CONFIG__
+// (set by the root layout) so a single built artifact can serve
+// staging vs prod without rebuilding — see lib/runtime-config.client.
 
 type SearchResultType =
   | "integration"
@@ -125,9 +128,9 @@ function frameworkDocsHref(framework: string, topic: string): string {
   return topic ? `/${framework}/${topic}` : `/${framework}`;
 }
 
-function normalizeHref(href: string): string {
+function normalizeHref(href: string, shellHost: string): string {
   if (href === "/integrations" || href === "/matrix") {
-    return `${SHELL_HOST}${href}`;
+    return `${shellHost}${href}`;
   }
   if (href.startsWith("/docs/")) {
     return href.slice("/docs".length) || "/";
@@ -274,6 +277,13 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
     [setStoredFramework],
   );
 
+  // Read the shell host once per render from the runtime config injected
+  // into window by the root layout. Pulled inside the component (not at
+  // module top) because the value only exists after hydration and the
+  // client reader throws on the server. Threaded into normalizeHref()
+  // and the integration href below so neither one re-reads window.
+  const shellHost = getRuntimeConfig().shellUrl;
+
   const results = useMemo(() => {
     if (!query.trim()) return [];
 
@@ -339,7 +349,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
           docsGroups.set(docsTopic, {
             topic: docsTopic,
             entry: p,
-            href: normalizeHref(p.href),
+            href: normalizeHref(p.href, shellHost),
           });
         }
         continue;
@@ -352,7 +362,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
           title: p.title,
           subtitle: p.subtitle,
           section: p.section,
-          href: normalizeHref(p.href),
+          href: normalizeHref(p.href, shellHost),
         });
       }
     }
@@ -387,7 +397,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
             type: "integration",
             title: i.name,
             subtitle: (i.description || "").slice(0, 80),
-            href: `${SHELL_HOST}/integrations/${i.slug}`,
+            href: `${shellHost}/integrations/${i.slug}`,
           });
         }
       }
@@ -408,7 +418,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
     return dedupeResults(items)
       .sort((a, b) => scoreResult(a, q) - scoreResult(b, q))
       .slice(0, 12);
-  }, [query, registryData, selectedFramework, frameworkOptions]);
+  }, [query, registryData, selectedFramework, frameworkOptions, shellHost]);
 
   useEffect(() => {
     setSelectedIndex((idx) =>

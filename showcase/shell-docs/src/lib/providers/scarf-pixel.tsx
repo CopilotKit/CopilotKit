@@ -1,9 +1,12 @@
 "use client";
 
 import React from "react";
+import { getRuntimeConfig } from "@/lib/runtime-config.client";
 
 export function ScarfPixel() {
-  const SCARF_PIXEL_ID = process.env.NEXT_PUBLIC_SCARF_PIXEL_ID;
+  // Pixel ID from the runtime config injected by the root layout —
+  // empty string disables the pixel (consumer no-ops on falsy).
+  const SCARF_PIXEL_ID = getRuntimeConfig().scarfPixelId;
   if (!SCARF_PIXEL_ID) return null;
   return (
     <img

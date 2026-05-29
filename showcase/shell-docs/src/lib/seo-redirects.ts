@@ -42,6 +42,7 @@ const FRAMEWORKS = [
   "pydantic-ai",
   "llamaindex",
   "mastra",
+  "deepagents",
   "agent-spec",
   "ag2",
   "microsoft-agent-framework",
@@ -156,17 +157,29 @@ function generateFrameworkRenames(): RedirectEntry[] {
   const entries: RedirectEntry[] = [];
   for (const fw of FRAMEWORKS) {
     const fwDest = canonicalSlug(fw);
-    // S13: concepts/* collapses to framework root
-    entries.push({
-      id: `S13w×${fw}`,
-      source: `/${fw}/concepts/:path*`,
-      destination: `/${fwDest}`,
-    });
-    entries.push({
-      id: `S13e×${fw}`,
-      source: `/${fw}/concepts`,
-      destination: `/${fwDest}`,
-    });
+    // S13: concepts/* collapses to framework root.
+    //
+    // Originally added to retire legacy `/langgraph/concepts/*` URLs
+    // (LangGraph had authored concept pages pre-cutover that the
+    // shell-docs IA removed). Only emit this when the framework slug
+    // actually renamed (legacy ≠ canonical) — for canonical-slug
+    // frameworks (`mastra`, `ag2`, `agno`, etc.) the legacy docs never
+    // had `/<fw>/concepts/*` pages, AND shell-docs now serves the
+    // agnostic `/concepts/*` content under every framework's scope
+    // (e.g. `/mastra/concepts/architecture`). Leaving the unconditional
+    // rule in place would 301 those valid agnostic-content URLs away.
+    if (fw !== fwDest) {
+      entries.push({
+        id: `S13w×${fw}`,
+        source: `/${fw}/concepts/:path*`,
+        destination: `/${fwDest}`,
+      });
+      entries.push({
+        id: `S13e×${fw}`,
+        source: `/${fw}/concepts`,
+        destination: `/${fwDest}`,
+      });
+    }
 
     for (const rename of SUBPATH_RENAMES) {
       entries.push({
@@ -469,15 +482,17 @@ const ROOT_RENAMES: RedirectEntry[] = [
   {
     id: "R13",
     source: "/copilot-suggestions",
-    destination: "/prebuilt-components",
+    destination: "/reference/v2/hooks/useSuggestions",
   },
-  // /direct-to-llm and /integrations/built-in-agent → built-in-agent (BIA canonical)
+  // /direct-to-llm keeps its BIA canonical path, but the retired
+  // /integrations/built-in-agent landing route should go home.
   { id: "R14", source: "/direct-to-llm", destination: "/built-in-agent" },
   {
     id: "R15",
     source: "/integrations/built-in-agent",
-    destination: "/built-in-agent",
+    destination: "/",
   },
+  { id: "R16A", source: "/integrations", destination: "/" },
   { id: "R18", source: "/mcp", destination: "/build-with-agents" },
   { id: "R19", source: "/vibe-coding-mcp", destination: "/build-with-agents" },
   {
@@ -668,12 +683,12 @@ const MOVED_ROOT_REDIRECTS: RedirectEntry[] = [
     source: "/getting-started/quickstart-chatbot",
     destination: "/quickstart",
   },
-  // /telemetry was a one-off legacy page. Send to the home page rather
-  // than 404 since the topic has no current canonical home.
+  // /telemetry was a one-off legacy page. It now lives under the
+  // built-in-agent docs where runtime configuration pages are grouped.
   {
     id: "MV-telemetry",
     source: "/telemetry",
-    destination: "/",
+    destination: "/built-in-agent/telemetry",
   },
   // /reference/hooks/useCoAgent — useCoAgent (v1) was renamed to
   // useAgent (v2). External links still point at the old name.
@@ -858,13 +873,28 @@ const MIGRATION_GUIDES: RedirectEntry[] = [
   { id: "MG1", source: "/migration-guides", destination: "/migrate/v2" },
   { id: "MG2", source: "/migration-guides/v2", destination: "/migrate/v2" },
   {
+    id: "MG2a",
+    source: "/migration-guides/migrate-to-v2",
+    destination: "/migrate/v2",
+  },
+  {
     id: "MG3",
     source: "/migration-guides/1.10.X",
-    destination: "/migrate/v2",
+    destination: "/migrate/1.10.X",
+  },
+  {
+    id: "MG3a",
+    source: "/migration-guides/migrate-to-1.10.X",
+    destination: "/migrate/1.10.X",
   },
   {
     id: "MG4",
     source: "/migration-guides/1.8.2",
+    destination: "/migrate/1.8.2",
+  },
+  {
+    id: "MG4a",
+    source: "/migration-guides/migrate-to-1.8.2",
     destination: "/migrate/1.8.2",
   },
 ];
@@ -984,11 +1014,6 @@ const WILDCARD_REDIRECTS: RedirectEntry[] = [
   },
   { id: "T1-unscoped-root", source: "/tutorials", destination: "/" },
   // Category 1: Pattern rules (bulk coverage)
-  {
-    id: "P10",
-    source: "/reference/v1/:path*",
-    destination: "/reference/v2/:path*",
-  },
   {
     id: "P11",
     source: "/guides/:path*",

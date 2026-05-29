@@ -18,12 +18,13 @@ import fs from "fs";
 import path from "path";
 import yaml from "yaml";
 import { fileURLToPath } from "url";
+import { RAILWAY_GRAPHQL_ENDPOINT } from "./lib/railway-graphql";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const PACKAGES_DIR = path.join(ROOT, "integrations");
 
-const RAILWAY_API = "https://backboard.railway.com/graphql/v2";
+const RAILWAY_API = RAILWAY_GRAPHQL_ENDPOINT;
 
 const SHOWCASE = {
   projectId: "6f8c6bff-a80d-4f8f-b78d-50b32bcf4479",

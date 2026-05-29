@@ -11,6 +11,7 @@
 export const FRAMEWORK_DISPLAY_ORDER: readonly string[] = [
   "langgraph-python",
   "langgraph-typescript",
+  "deepagents",
   "google-adk",
   "strands",
   "mastra",

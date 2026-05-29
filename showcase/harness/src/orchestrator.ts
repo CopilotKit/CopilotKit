@@ -1241,7 +1241,7 @@ export function buildCronProbeResolver(
 /**
  * Minimal Railway GraphQL adapter used by the aimock-wiring probe.
  * Lists services in a project and fetches per-service env-var values
- * for a given environment. Endpoint: https://backboard.railway.com/graphql/v2.
+ * for a given environment. Endpoint: https://backboard.railway.app/graphql/v2.
  *
  * Routes through the shared `makeGql` helper exported from
  * `probes/discovery/railway-services.ts` so error taxonomy (Auth /

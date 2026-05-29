@@ -2011,7 +2011,7 @@ export function updateWorkflows(args: CLIArgs) {
             echo "::error::Railway placeholders not replaced" >&2
             exit 1
           fi
-          curl -sf -X POST https://backboard.railway.com/graphql/v2 \\
+          curl -sf -X POST https://backboard.railway.app/graphql/v2 \\
             -H "Authorization: Bearer \${{ secrets.RAILWAY_TOKEN }}" \\
             -H "Content-Type: application/json" \\
             -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \\"RAILWAY_SERVICE_ID\\", environmentId: \\"RAILWAY_ENVIRONMENT_ID\\") }"}' \\
