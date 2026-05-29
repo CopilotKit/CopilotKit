@@ -1,0 +1,622 @@
+/**
+ * Red-green tests for the baseline `verify-deploy` driver impls.
+ *
+ * Drivers were originally stubs that returned `{ ok: false, error: "...
+ * not yet implemented ..." }`. These tests pin the agreed completion
+ * bar: every driver performs the two baseline checks (Railway
+ * deployment-SUCCESS via GraphQL + healthcheck HTTP 200) before any
+ * driver-specific extension runs.
+ *
+ * Network seams (`fetchImpl`, `getRailwayToken`) are injected so the
+ * suite runs fully offline. These are NOT LLM calls — plain vi-fn stubs
+ * are appropriate; aimock is not used here.
+ */
+import { describe, expect, it, vi } from "vitest";
+import { SERVICES } from "../railway-envs";
+import type { ProbeTarget } from "../verify-deploy";
+import {
+    checkDeploymentSuccess,
+    checkHealthcheck200,
+    envForTarget,
+    probeBaseline,
+    type FetchLike,
+} from "../verify-deploy.drivers.baseline";
+import { probeShell } from "../verify-deploy.drivers.shell";
+import { probeDocs } from "../verify-deploy.drivers.docs";
+import { probeDashboard } from "../verify-deploy.drivers.dashboard";
+import { probeDojo } from "../verify-deploy.drivers.dojo";
+import { probeHarness } from "../verify-deploy.drivers.harness";
+import { probeEval } from "../verify-deploy.drivers.eval";
+import { probeAimock } from "../verify-deploy.drivers.aimock";
+import { probePocketbase } from "../verify-deploy.drivers.pocketbase";
+import { probeWebhooks } from "../verify-deploy.drivers.webhooks";
+import { probeAgent } from "../verify-deploy.drivers.agent";
+
+const TOKEN = "tok_test_abcdef";
+
+function mkResponse(body: {
+    status?: number;
+    json?: unknown;
+    text?: string;
+    ok?: boolean;
+}): Awaited<ReturnType<FetchLike>> {
+    const status = body.status ?? 200;
+    return {
+        ok: body.ok ?? (status >= 200 && status < 300),
+        status,
+        async text() {
+            return body.text ?? JSON.stringify(body.json ?? {});
+        },
+        async json() {
+            return body.json ?? {};
+        },
+    };
+}
+
+function makeFetch(
+    handler: (url: string, init?: Parameters<FetchLike>[1]) => ReturnType<FetchLike>,
+): FetchLike {
+    return vi.fn(handler);
+}
+
+function gqlDeploymentResponse(status: string): ReturnType<FetchLike> {
+    return Promise.resolve(
+        mkResponse({
+            json: {
+                data: {
+                    deployments: {
+                        edges: [{ node: { id: "d1", status } }],
+                    },
+                },
+            },
+        }),
+    );
+}
+
+describe("envForTarget", () => {
+    it("returns 'staging' when host matches the SSOT staging domain", () => {
+        const t: ProbeTarget = {
+            name: "docs",
+            host: SERVICES.docs.domains.staging,
+            driver: "docs",
+        };
+        expect(envForTarget(t)).toBe("staging");
+    });
+
+    it("returns 'prod' when host matches the SSOT prod domain", () => {
+        const t: ProbeTarget = {
+            name: "docs",
+            host: SERVICES.docs.domains.prod,
+            driver: "docs",
+        };
+        expect(envForTarget(t)).toBe("prod");
+    });
+
+    it("returns undefined for unknown host or unknown service", () => {
+        expect(
+            envForTarget({ name: "docs", host: "bogus.example", driver: "docs" }),
+        ).toBeUndefined();
+        expect(
+            envForTarget({ name: "nonsuch", host: "x", driver: "docs" }),
+        ).toBeUndefined();
+    });
+});
+
+describe("checkDeploymentSuccess", () => {
+    it("returns undefined when Railway reports SUCCESS", async () => {
+        const fetchImpl = makeFetch(() => gqlDeploymentResponse("SUCCESS"));
+        const err = await checkDeploymentSuccess(
+            "svc-id",
+            "staging",
+            TOKEN,
+            fetchImpl,
+            5000,
+            "shell",
+        );
+        expect(err).toBeUndefined();
+    });
+
+    it("returns an error string when status is not SUCCESS", async () => {
+        const fetchImpl = makeFetch(() => gqlDeploymentResponse("CRASHED"));
+        const err = await checkDeploymentSuccess(
+            "svc-id",
+            "prod",
+            TOKEN,
+            fetchImpl,
+            5000,
+            "shell",
+        );
+        expect(err).toMatch(/CRASHED/);
+        expect(err).toMatch(/prod/);
+    });
+
+    it("returns an error when GraphQL returns errors[]", async () => {
+        const fetchImpl = makeFetch(() =>
+            Promise.resolve(
+                mkResponse({ json: { errors: [{ message: "bad token" }] } }),
+            ),
+        );
+        const err = await checkDeploymentSuccess(
+            "svc-id",
+            "staging",
+            TOKEN,
+            fetchImpl,
+            5000,
+            "shell",
+        );
+        expect(err).toMatch(/bad token/);
+    });
+
+    it("returns an error on HTTP non-2xx", async () => {
+        const fetchImpl = makeFetch(() =>
+            Promise.resolve(mkResponse({ status: 401, text: "unauthorized" })),
+        );
+        const err = await checkDeploymentSuccess(
+            "svc-id",
+            "staging",
+            TOKEN,
+            fetchImpl,
+            5000,
+            "shell",
+        );
+        expect(err).toMatch(/401/);
+    });
+
+    it("returns an error when no deployment edge exists", async () => {
+        const fetchImpl = makeFetch(() =>
+            Promise.resolve(
+                mkResponse({ json: { data: { deployments: { edges: [] } } } }),
+            ),
+        );
+        const err = await checkDeploymentSuccess(
+            "svc-id",
+            "staging",
+            TOKEN,
+            fetchImpl,
+            5000,
+            "shell",
+        );
+        expect(err).toMatch(/no deployments/);
+    });
+
+    it("sends the Authorization bearer + serviceId/environmentId variables", async () => {
+        const calls: Array<{ url: string; body: unknown; auth?: string }> = [];
+        const fetchImpl = makeFetch((url, init) => {
+            calls.push({
+                url,
+                body: JSON.parse(String(init?.body ?? "{}")),
+                auth: init?.headers?.Authorization,
+            });
+            return gqlDeploymentResponse("SUCCESS");
+        });
+        await checkDeploymentSuccess(
+            "svc-123",
+            "staging",
+            TOKEN,
+            fetchImpl,
+            5000,
+            "shell",
+        );
+        expect(calls).toHaveLength(1);
+        expect(calls[0].url).toMatch(/backboard\.railway\.app\/graphql\/v2/);
+        expect(calls[0].auth).toBe(`Bearer ${TOKEN}`);
+        const body = calls[0].body as {
+            query: string;
+            variables: { serviceId: string; environmentId: string };
+        };
+        expect(body.query).toMatch(/deployments\(first: 1/);
+        expect(body.variables.serviceId).toBe("svc-123");
+        expect(body.variables.environmentId).toMatch(/^[0-9a-f-]{36}$/);
+    });
+});
+
+describe("checkHealthcheck200", () => {
+    it("returns undefined on HTTP 200", async () => {
+        const fetchImpl = makeFetch(() =>
+            Promise.resolve(mkResponse({ status: 200 })),
+        );
+        const err = await checkHealthcheck200(
+            "docs.example",
+            "/",
+            fetchImpl,
+            5000,
+            "docs",
+        );
+        expect(err).toBeUndefined();
+    });
+
+    it("returns an error string on non-200", async () => {
+        const fetchImpl = makeFetch(() =>
+            Promise.resolve(mkResponse({ status: 503 })),
+        );
+        const err = await checkHealthcheck200(
+            "docs.example",
+            "/",
+            fetchImpl,
+            5000,
+            "docs",
+        );
+        expect(err).toMatch(/503/);
+        expect(err).toMatch(/docs/);
+    });
+
+    it("composes https + host + path correctly", async () => {
+        const calls: string[] = [];
+        const fetchImpl = makeFetch((url) => {
+            calls.push(url);
+            return Promise.resolve(mkResponse({ status: 200 }));
+        });
+        await checkHealthcheck200(
+            "showcase-aimock-production.up.railway.app",
+            "/health",
+            fetchImpl,
+            5000,
+            "aimock",
+        );
+        expect(calls[0]).toBe(
+            "https://showcase-aimock-production.up.railway.app/health",
+        );
+    });
+
+    it("returns an error on fetch throw", async () => {
+        const fetchImpl = makeFetch(() =>
+            Promise.reject(new Error("ECONNREFUSED")),
+        );
+        const err = await checkHealthcheck200(
+            "docs.example",
+            "/",
+            fetchImpl,
+            5000,
+            "docs",
+        );
+        expect(err).toMatch(/ECONNREFUSED/);
+    });
+});
+
+describe("probeBaseline", () => {
+    function okFetch(): FetchLike {
+        return makeFetch((url) => {
+            if (url.includes("/graphql/v2"))
+                return gqlDeploymentResponse("SUCCESS");
+            return Promise.resolve(mkResponse({ status: 200 }));
+        });
+    }
+
+    it("returns ok when GraphQL = SUCCESS and healthcheck = 200", async () => {
+        const out = await probeBaseline(
+            {
+                name: "docs",
+                host: SERVICES.docs.domains.staging,
+                driver: "docs",
+            },
+            {
+                driverLabel: "docs",
+                healthcheckPath: "/",
+                fetchImpl: okFetch(),
+                getRailwayToken: () => TOKEN,
+            },
+        );
+        expect(out).toEqual({ ok: true });
+    });
+
+    it("fails loud when env cannot be resolved from host", async () => {
+        const out = await probeBaseline(
+            { name: "docs", host: "wrong.example", driver: "docs" },
+            {
+                driverLabel: "docs",
+                healthcheckPath: "/",
+                fetchImpl: okFetch(),
+                getRailwayToken: () => TOKEN,
+            },
+        );
+        expect(out.ok).toBe(false);
+        if (out.ok === false) {
+            expect(out.error).toMatch(/cannot resolve env/);
+        }
+    });
+
+    it("fails loud when no Railway token is available", async () => {
+        const out = await probeBaseline(
+            {
+                name: "docs",
+                host: SERVICES.docs.domains.staging,
+                driver: "docs",
+            },
+            {
+                driverLabel: "docs",
+                healthcheckPath: "/",
+                fetchImpl: okFetch(),
+                getRailwayToken: () => undefined,
+            },
+        );
+        expect(out.ok).toBe(false);
+        if (out.ok === false) {
+            expect(out.error).toMatch(/no Railway token/);
+        }
+    });
+
+    it("fails on deployment status != SUCCESS", async () => {
+        const fetchImpl = makeFetch((url) => {
+            if (url.includes("/graphql/v2"))
+                return gqlDeploymentResponse("CRASHED");
+            return Promise.resolve(mkResponse({ status: 200 }));
+        });
+        const out = await probeBaseline(
+            {
+                name: "docs",
+                host: SERVICES.docs.domains.staging,
+                driver: "docs",
+            },
+            {
+                driverLabel: "docs",
+                healthcheckPath: "/",
+                fetchImpl,
+                getRailwayToken: () => TOKEN,
+            },
+        );
+        expect(out.ok).toBe(false);
+        if (out.ok === false) expect(out.error).toMatch(/CRASHED/);
+    });
+
+    it("fails on healthcheck != 200", async () => {
+        const fetchImpl = makeFetch((url) => {
+            if (url.includes("/graphql/v2"))
+                return gqlDeploymentResponse("SUCCESS");
+            return Promise.resolve(mkResponse({ status: 502 }));
+        });
+        const out = await probeBaseline(
+            {
+                name: "docs",
+                host: SERVICES.docs.domains.staging,
+                driver: "docs",
+            },
+            {
+                driverLabel: "docs",
+                healthcheckPath: "/",
+                fetchImpl,
+                getRailwayToken: () => TOKEN,
+            },
+        );
+        expect(out.ok).toBe(false);
+        if (out.ok === false) expect(out.error).toMatch(/502/);
+    });
+});
+
+/**
+ * Per-driver tests. Each driver exports a probeX(target) that takes ONLY
+ * the target; the test seam is via `globalThis.fetch` + `RAILWAY_TOKEN`
+ * env var. We stub both for the duration of each test.
+ *
+ * What we pin per driver:
+ *   - It is no longer a "not yet implemented" stub.
+ *   - It calls Railway GraphQL with the SSOT serviceId for the matched
+ *     env, expecting `SUCCESS`.
+ *   - It hits the healthcheck URL appropriate to its service shape.
+ *   - It returns `{ok:true}` on a green baseline, `{ok:false}` on red.
+ */
+function withGlobalSeam(
+    fetchImpl: FetchLike,
+    token: string | undefined,
+    fn: () => Promise<void>,
+): Promise<void> {
+    const realFetch = globalThis.fetch;
+    const realToken = process.env.RAILWAY_TOKEN;
+    (globalThis as unknown as { fetch: FetchLike }).fetch = fetchImpl;
+    if (token === undefined) delete process.env.RAILWAY_TOKEN;
+    else process.env.RAILWAY_TOKEN = token;
+    return fn().finally(() => {
+        (globalThis as unknown as { fetch: typeof fetch }).fetch = realFetch;
+        if (realToken === undefined) delete process.env.RAILWAY_TOKEN;
+        else process.env.RAILWAY_TOKEN = realToken;
+    });
+}
+
+type DriverFn = (target: ProbeTarget) => Promise<
+    { ok: true } | { ok: false; error: string }
+>;
+
+interface DriverCase {
+    label: string;
+    driver: DriverFn;
+    service: keyof typeof SERVICES;
+    enumLiteral: string;
+    expectedHealthPath: string;
+}
+
+const DRIVER_CASES: DriverCase[] = [
+    {
+        label: "shell",
+        driver: probeShell,
+        service: "shell",
+        enumLiteral: "shell",
+        expectedHealthPath: "/",
+    },
+    {
+        label: "docs",
+        driver: probeDocs,
+        service: "docs",
+        enumLiteral: "docs",
+        expectedHealthPath: "/",
+    },
+    {
+        label: "dashboard",
+        driver: probeDashboard,
+        service: "dashboard",
+        enumLiteral: "dashboard",
+        expectedHealthPath: "/",
+    },
+    {
+        label: "dojo",
+        driver: probeDojo,
+        service: "dojo",
+        enumLiteral: "dojo",
+        expectedHealthPath: "/",
+    },
+    {
+        label: "harness",
+        driver: probeHarness,
+        service: "harness",
+        enumLiteral: "harness",
+        expectedHealthPath: "/health",
+    },
+    {
+        label: "aimock",
+        driver: probeAimock,
+        service: "aimock",
+        enumLiteral: "aimock",
+        expectedHealthPath: "/health",
+    },
+    {
+        label: "pocketbase",
+        driver: probePocketbase,
+        service: "pocketbase",
+        enumLiteral: "pocketbase",
+        expectedHealthPath: "/api/health",
+    },
+    {
+        label: "webhooks",
+        driver: probeWebhooks,
+        service: "webhooks",
+        enumLiteral: "webhooks",
+        expectedHealthPath: "/api/health",
+    },
+    {
+        // No service in the SSOT currently uses the `eval` driver literal,
+        // but the enum literal exists in railway-envs.ts and the dispatch
+        // switch wires probeEval. We still need probeEval to be a working
+        // impl. Test it by routing through any real SSOT service —
+        // probeEval's behavior is structurally identical to the agent
+        // driver; we use `harness` as the host carrier since it's the
+        // smallest standalone API surface in the SSOT.
+        label: "eval",
+        driver: probeEval,
+        service: "harness",
+        enumLiteral: "eval",
+        expectedHealthPath: "/api/health",
+    },
+    {
+        label: "agent",
+        driver: probeAgent,
+        service: "showcase-mastra",
+        enumLiteral: "agent",
+        expectedHealthPath: "/api/health",
+    },
+];
+
+describe.each(DRIVER_CASES)(
+    "$label driver",
+    ({ label, driver, service, expectedHealthPath }) => {
+        it("is no longer a 'not yet implemented' stub", async () => {
+            // GREEN baseline against the live seam.
+            const entry = SERVICES[service];
+            if (!entry) {
+                throw new Error(
+                    `test setup: SERVICES["${service}"] is missing — update DRIVER_CASES`,
+                );
+            }
+            const fetchImpl = makeFetch((url) => {
+                if (url.includes("/graphql/v2"))
+                    return gqlDeploymentResponse("SUCCESS");
+                return Promise.resolve(mkResponse({ status: 200 }));
+            });
+            await withGlobalSeam(fetchImpl, TOKEN, async () => {
+                const out = await driver({
+                    name: service,
+                    host: entry.domains.staging,
+                    driver: label as ProbeTarget["driver"],
+                });
+                expect(out.ok).toBe(true);
+                if (out.ok === false) {
+                    // Specifically reject the legacy stub message — that
+                    // was the bug we're fixing.
+                    expect(out.error).not.toMatch(/not yet implemented/);
+                }
+            });
+        });
+
+        it("hits the expected healthcheck path", async () => {
+            const entry = SERVICES[service];
+            if (!entry) throw new Error("test setup");
+            const seen: string[] = [];
+            const fetchImpl = makeFetch((url) => {
+                seen.push(url);
+                if (url.includes("/graphql/v2"))
+                    return gqlDeploymentResponse("SUCCESS");
+                return Promise.resolve(mkResponse({ status: 200 }));
+            });
+            await withGlobalSeam(fetchImpl, TOKEN, async () => {
+                await driver({
+                    name: service,
+                    host: entry.domains.prod,
+                    driver: label as ProbeTarget["driver"],
+                });
+            });
+            const healthUrls = seen.filter(
+                (u) => !u.includes("/graphql/v2"),
+            );
+            expect(healthUrls).toHaveLength(1);
+            expect(healthUrls[0]).toBe(
+                `https://${entry.domains.prod}${expectedHealthPath}`,
+            );
+        });
+
+        it("queries Railway with the SSOT serviceId for the resolved env", async () => {
+            const entry = SERVICES[service];
+            if (!entry) throw new Error("test setup");
+            let gqlBody: { variables?: { serviceId?: string } } | undefined;
+            const fetchImpl = makeFetch((url, init) => {
+                if (url.includes("/graphql/v2")) {
+                    gqlBody = JSON.parse(String(init?.body ?? "{}"));
+                    return gqlDeploymentResponse("SUCCESS");
+                }
+                return Promise.resolve(mkResponse({ status: 200 }));
+            });
+            await withGlobalSeam(fetchImpl, TOKEN, async () => {
+                await driver({
+                    name: service,
+                    host: entry.domains.staging,
+                    driver: label as ProbeTarget["driver"],
+                });
+            });
+            expect(gqlBody?.variables?.serviceId).toBe(entry.serviceId);
+        });
+
+        it("fails on CRASHED deployment status", async () => {
+            const entry = SERVICES[service];
+            if (!entry) throw new Error("test setup");
+            const fetchImpl = makeFetch((url) => {
+                if (url.includes("/graphql/v2"))
+                    return gqlDeploymentResponse("CRASHED");
+                return Promise.resolve(mkResponse({ status: 200 }));
+            });
+            await withGlobalSeam(fetchImpl, TOKEN, async () => {
+                const out = await driver({
+                    name: service,
+                    host: entry.domains.staging,
+                    driver: label as ProbeTarget["driver"],
+                });
+                expect(out.ok).toBe(false);
+                if (out.ok === false) expect(out.error).toMatch(/CRASHED/);
+            });
+        });
+
+        it("fails on healthcheck != 200", async () => {
+            const entry = SERVICES[service];
+            if (!entry) throw new Error("test setup");
+            const fetchImpl = makeFetch((url) => {
+                if (url.includes("/graphql/v2"))
+                    return gqlDeploymentResponse("SUCCESS");
+                return Promise.resolve(mkResponse({ status: 502 }));
+            });
+            await withGlobalSeam(fetchImpl, TOKEN, async () => {
+                const out = await driver({
+                    name: service,
+                    host: entry.domains.staging,
+                    driver: label as ProbeTarget["driver"],
+                });
+                expect(out.ok).toBe(false);
+                if (out.ok === false) expect(out.error).toMatch(/502/);
+            });
+        });
+    },
+);

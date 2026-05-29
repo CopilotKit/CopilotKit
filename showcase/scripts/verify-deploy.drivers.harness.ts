@@ -1,13 +1,19 @@
 import type { ProbeTarget } from "./verify-deploy";
 import type { ProbeOutcome } from "./verify-deploy.drivers";
+import { probeBaseline } from "./verify-deploy.drivers.baseline";
 
 /**
- * Feature-level verifier for showcase-harness. Per spec §3.5: synthetic
- * e2e fixture call against the service's API. Stub fails loud.
+ * Feature-level verifier for the `showcase-harness` API service.
+ *
+ * Baseline (this commit): Railway deployment-SUCCESS + HTTP 200 on
+ * `/health` (the harness's documented healthcheck path; mirrors the
+ * `health_path` table in `.github/workflows/showcase_deploy.yml`).
+ * Future driver-specific layer: synthetic e2e fixture call against
+ * the harness's `/run` API.
  */
 export async function probeHarness(target: ProbeTarget): Promise<ProbeOutcome> {
-    return {
-        ok: false,
-        error: `harness driver not yet implemented for ${target.name} (${target.host})`,
-    };
+    return probeBaseline(target, {
+        driverLabel: "harness",
+        healthcheckPath: "/health",
+    });
 }
