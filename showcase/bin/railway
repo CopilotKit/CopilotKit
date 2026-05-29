@@ -70,22 +70,28 @@ module Railway
         GOOGLE_API_KEY
     ].freeze
 
-    EXPECTED_DOMAINS = {
-        PRODUCTION_ENV_ID => %w[
-            showcase.copilotkit.ai
-            dashboard.showcase.copilotkit.ai
-            dojo.showcase.copilotkit.ai
-            docs.copilotkit.ai
-            hooks.showcase.copilotkit.ai
-        ].freeze,
-        STAGING_ENV_ID => %w[
-            showcase.staging.copilotkit.ai
-            dashboard.showcase.staging.copilotkit.ai
-            dojo.showcase.staging.copilotkit.ai
-            docs.staging.copilotkit.ai
-            hooks.staging.copilotkit.ai
-        ].freeze,
-    }.freeze
+    # EXPECTED_DOMAINS is derived from showcase/scripts/railway-envs.generated.json
+    # (canonical source: showcase/scripts/railway-envs.ts). The CI guard
+    # `npx tsx showcase/scripts/emit-railway-envs-json.ts --check` ensures the
+    # JSON artifact stays in sync with the TS SSOT on every PR. Only public
+    # (non-`*.up.railway.app`) hosts are included, preserving the original set.
+    EXPECTED_DOMAINS = begin
+        ssot_json = File.expand_path("../scripts/railway-envs.generated.json", __dir__)
+        unless File.exist?(ssot_json)
+            raise "railway-envs.generated.json not found at #{ssot_json}. " \
+                  "Re-run: npx tsx showcase/scripts/emit-railway-envs-json.ts"
+        end
+        data = JSON.parse(File.read(ssot_json))
+        by_env = { PRODUCTION_ENV_ID => [], STAGING_ENV_ID => [] }
+        data.fetch("services").each do |svc|
+            domains = svc.fetch("domains")
+            prod = domains.fetch("prod")
+            staging = domains.fetch("staging")
+            by_env[PRODUCTION_ENV_ID] << prod unless prod.end_with?(".up.railway.app")
+            by_env[STAGING_ENV_ID] << staging unless staging.end_with?(".up.railway.app")
+        end
+        by_env.transform_values { |v| v.sort.uniq.freeze }.freeze
+    end
 
     # Heuristic markers for env-scoped URLs (ignored in env-diff and promote).
     ENV_SCOPED_URL_MARKERS = [
