@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextFetchEvent, NextRequest } from "next/server";
 import { seoRedirects } from "@/lib/seo-redirects";
+import { stripRouteGroupSegmentsFromPathname } from "@/lib/route-groups";
 import registry from "@/data/registry.json";
 
 // ---------------------------------------------------------------------------
@@ -172,6 +173,14 @@ export function middleware(
   event: NextFetchEvent,
 ): NextResponse {
   const { pathname } = request.nextUrl;
+
+  const routeGroupFreePath = stripRouteGroupSegmentsFromPathname(pathname);
+  if (routeGroupFreePath !== pathname) {
+    trackRedirect("route-group-strip", pathname, routeGroupFreePath);
+    const url = request.nextUrl.clone();
+    url.pathname = routeGroupFreePath;
+    return NextResponse.redirect(url, 301);
+  }
 
   // 1. Redirect lookup.
   //
