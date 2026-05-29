@@ -26,7 +26,11 @@ class PromoteP2Test < Minitest::Test
         c.instance_variable_set(:@staging_snapshot, staging)
         c.instance_variable_set(:@prod_snapshot, { "services" => [] })
         c.instance_variable_set(:@gql, FakeGQL.new(deployments))
-        c.instance_variable_set(:@ghcr, Object.new.tap { |o| def o.manifest_exists(_); :exists; end })
+        c.instance_variable_set(:@ghcr, Object.new.tap do |o|
+            def o.manifest_exists(_); :exists; end
+            def o.resolve_digest(ref); ref.include?("@sha256:") ? ref.split("@", 2).last : "sha256:fake"; end
+            def o.parse_image_ref(ref); Railway::GHCR.allocate.parse_image_ref(ref); end
+        end)
         # Stub P3 probe so the test does not shell out to verify-deploy.ts.
         c.define_singleton_method(:run_staging_probe) { |services:| { ok: true, summary: "" } }
         c
@@ -60,6 +64,27 @@ class PromoteP2Test < Minitest::Test
         out, _ = capture_io { @rc = cmd_with(staging: staging, deployments: deps).run_with_preflight_only }
         assert_equal 1, @rc
         assert_match(/REFUSE: P2.*in-flight.*sha256:NEW.*sha256:OLD/i, out)
+    end
+
+    def test_does_not_crash_when_deployment_meta_is_a_string
+        # Railway's Deployment.meta is a JSON scalar that can come back as a
+        # String (not a Hash). `latest.dig("meta", "image")` would raise
+        # NoMethodError on a String. Guard: skip the race-check when meta is
+        # not a Hash — SUCCESS status alone gates the deployment.
+        staging = { "services" => [{
+            "name" => "x", "service_id" => "svc-1",
+            "image" => "ghcr.io/copilotkit/x@sha256:abc", "digest" => "sha256:abc",
+            "env_keys" => [],
+        }] }
+        deps = { "svc-1" => [
+            { "id" => "d1", "status" => "SUCCESS",
+              "meta" => "raw-string-not-a-hash",
+              "createdAt" => "2026-05-28T01:00:00Z" },
+        ] }
+        out, _ = capture_io { cmd_with(staging: staging, deployments: deps).run_with_preflight_only }
+        # MUST NOT crash. P2 race-check is best-effort; SUCCESS is the real gate.
+        refute_match(/REFUSE: P2/, out)
+        refute_match(/NoMethodError/, out)
     end
 
     def test_passes_p2_when_latest_is_success_and_image_matches

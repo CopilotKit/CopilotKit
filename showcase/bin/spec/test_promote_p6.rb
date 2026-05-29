@@ -14,7 +14,11 @@ class PromoteP6Test < Minitest::Test
         c.instance_variable_set(:@staging_snapshot, staging)
         c.instance_variable_set(:@prod_snapshot, prod)
         c.instance_variable_set(:@gql, Object.new.tap { |o| def o.query(*); { "deployments" => { "edges" => [{ "node" => { "id" => "d", "status" => "SUCCESS", "meta" => { "image" => "ghcr.io/copilotkit/x@sha256:abc" } } }] } }; end })
-        c.instance_variable_set(:@ghcr, Object.new.tap { |o| def o.manifest_exists(_); :exists; end })
+        c.instance_variable_set(:@ghcr, Object.new.tap do |o|
+            def o.manifest_exists(_); :exists; end
+            def o.resolve_digest(ref); ref.include?("@sha256:") ? ref.split("@", 2).last : "sha256:abc"; end
+            def o.parse_image_ref(ref); Railway::GHCR.allocate.parse_image_ref(ref); end
+        end)
         c.define_singleton_method(:run_staging_probe) { |services:| { ok: true, summary: "" } }
         c
     end
@@ -80,8 +84,13 @@ class PromoteP6Test < Minitest::Test
     def test_warns_proceed_with_confirm_divergence
         st = { "services" => [staging_svc("region" => "us-west")] }
         pr = { "services" => [prod_svc(   "region" => "us-east")] }
-        # capture_destructive_confirmation: --non-interactive + --yes bypasses prompt
-        out, _ = capture_io { cmd_with(st, pr, flag: "--confirm-divergence").run_with_preflight_only }
+        # capture_destructive_confirmation: --non-interactive + --yes bypasses prompt.
+        # Stub execute_promotion to isolate the WARN-proceed gate from the
+        # real mutation path (which would chase under-stubbed gql).
+        c = cmd_with(st, pr, flag: "--confirm-divergence")
+        c.define_singleton_method(:execute_promotion) { |_st, _pr| 0 }
+        out, _ = capture_io { @rc = c.run_with_preflight_only }
+        assert_equal 0, @rc, "WARN-proceed path with --confirm-divergence must exit 0"
         assert_match(/WARN.*x.*region/i, out)
         assert_match(/proceeding past .* WARN finding/i, out)
     end

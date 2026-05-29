@@ -14,6 +14,15 @@ class PromoteP1Test < Minitest::Test
     class FakeGHCR
         def initialize(result); @result = result; end
         def manifest_exists(_ref); @result; end
+        # Tag refs resolve to a synthetic digest; digest refs pass through.
+        # Returning a stable digest makes the resolved ref deterministic so
+        # the existing P1 tests (which staged digest-pinned images) continue
+        # to verify the same code path.
+        def resolve_digest(ref)
+            return ref.split("@", 2).last if ref.include?("@sha256:")
+            "sha256:fake_resolved_digest"
+        end
+        def parse_image_ref(ref); Railway::GHCR.allocate.parse_image_ref(ref); end
     end
 
     def test_refuses_when_digest_missing_in_ghcr

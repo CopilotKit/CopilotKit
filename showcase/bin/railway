@@ -992,7 +992,6 @@ module Railway
 
         def default_options
             super.merge(
-                include_startcommand:  false,
                 confirm_divergence:    false,
                 require_staging_green: true,   # default-on per spec §7.2 P3
             )
@@ -1001,21 +1000,20 @@ module Railway
         def parser
             OptionParser.new do |o|
                 o.banner = <<~BANNER
-                    Usage: bin/railway promote [--include-startcommand] [--yes] [--non-interactive] [--dry-run]
+                    Usage: bin/railway promote [--yes] [--non-interactive] [--dry-run]
 
                       Promote staging snapshot to production.
 
-                      MOVES: image digests; startCommand (only if --include-startcommand);
+                      MOVES: image digests (resolved to @sha256: at promote time);
                              autoUpdate=disabled flag.
                       VERIFY-REFUSE: service-set parity, critical env-key parity,
-                             PB superuser auth, PB collection parity,
-                             cross-env URL leak scan.
+                             startCommand parity, PB superuser auth,
+                             PB collection parity, cross-env URL leak scan.
                       WARN: missing/extra custom domains, sealed-var heuristics.
                       IGNORE: env-scoped URLs, volumes.
 
                       Exit 0 on clean promotion, 1 on refuse/findings, 2 on error.
                 BANNER
-                o.on("--include-startcommand") { options[:include_startcommand] = true }
                 o.on("--confirm-divergence", "Proceed past WARN findings (region/replicas/etc.)") { options[:confirm_divergence] = true }
                 o.on("--require-staging-green", "Require live staging probe green at promote time (default)") { options[:require_staging_green] = true }
                 o.on("--no-require-staging-green", "Skip live staging probe (NOT recommended)") { options[:require_staging_green] = false }
@@ -1085,21 +1083,54 @@ module Railway
             execute_promotion(@staging_snapshot, @prod_snapshot)
         end
 
+        # Resolve a staging service's image to the DIGEST-form ref that should
+        # be pinned to prod. The showcase deploy model is STAGING = mutable
+        # `:latest` tag, PROD = immutable `@sha256:<digest>`. Pinning prod to
+        # a tag would defeat the entire pipeline invariant — and verify-railway-
+        # image-refs PROD_SHAPE would later REFUSE.
+        #
+        # Returns the canonical `<ghcr.io/org/name>@sha256:<digest>` ref.
+        # Returns nil if the staging tag cannot be resolved (e.g. GHCR 404 /
+        # auth failed); the caller MUST refuse rather than pin a tag.
+        def resolved_prod_image(svc)
+            image = svc["image"] || svc["image_tag"]
+            return nil if image.nil? || image.empty?
+            return image if image.include?("@sha256:")  # already pinned
+
+            digest = ghcr.resolve_digest(image)
+            return nil if digest.nil?
+
+            # Strip the tag (`:latest`) and append the digest. parse_image_ref
+            # returns the structured parts; rebuild the canonical pinned ref.
+            parts = ghcr.parse_image_ref(image)
+            registry = parts[:registry] || "ghcr.io"
+            "#{registry}/#{parts[:org]}/#{parts[:name]}@#{digest}"
+        end
+
         # P1 — every staging digest about to be promoted must exist in GHCR.
+        # Verifies the DIGEST-form ref that will actually be pinned to prod
+        # (resolves tag refs first; refuses if the tag can't be resolved).
         def check_p1_ghcr_digests(staging)
             findings = []
             (staging["services"] || []).each do |svc|
-                image = svc["image"]
+                image = svc["image"] || svc["image_tag"]
                 next if image.nil? || image.empty?
-                next unless image.include?("@sha256:")
-                case ghcr.manifest_exists(image)
+
+                resolved = resolved_prod_image(svc)
+                if resolved.nil?
+                    findings << "REFUSE: P1 (#{svc['name']}): cannot resolve #{image} to a GHCR digest; " \
+                                "refusing to pin prod to a mutable tag."
+                    next
+                end
+
+                case ghcr.manifest_exists(resolved)
                 when :exists
                     # ok
                 when :missing
-                    findings << "REFUSE: P1 (#{svc['name']}): #{image} not found in GHCR " \
+                    findings << "REFUSE: P1 (#{svc['name']}): #{resolved} not found in GHCR " \
                                 "(digest may have been garbage-collected; staging build may not have pushed)."
                 when :auth_failed
-                    findings << "REFUSE: P1 (#{svc['name']}): GHCR auth failed for #{image}. " \
+                    findings << "REFUSE: P1 (#{svc['name']}): GHCR auth failed for #{resolved}. " \
                                 "Set GHCR_TOKEN (local: 'gh auth token') or GITHUB_TOKEN (CI: workflow token with packages:read)."
                 end
             end
@@ -1127,7 +1158,12 @@ module Railway
                     findings << "REFUSE: P2 (#{svc['name']}): latest staging deployment status is #{status}, not SUCCESS."
                     next
                 end
-                deployed_image = latest.dig("meta", "image").to_s
+                # Railway's Deployment.meta is a JSON scalar that may deserialize
+                # as a String (not a Hash). Guard the dig so the race-check is
+                # a best-effort no-op when meta isn't structured — SUCCESS
+                # status above is the real gate.
+                meta = latest["meta"]
+                deployed_image = meta.is_a?(Hash) ? meta["image"].to_s : ""
                 deployed_digest = deployed_image.include?("@") ? deployed_image.split("@", 2).last : nil
                 snapshot_digest = svc["digest"]
                 if snapshot_digest && deployed_digest && deployed_digest != snapshot_digest
@@ -1298,7 +1334,16 @@ module Railway
             (staging["services"] || []).each do |svc|
                 pmatch = Railway.find_service(prod, svc["name"])
                 next unless pmatch
-                image = svc["image"] || svc["image_tag"]
+                # Resolve staging tag → GHCR digest BEFORE pinning. Pinning a
+                # mutable tag (`:latest`) to prod would defeat the immutable-
+                # prod invariant; refuse rather than guess.
+                image = resolved_prod_image(svc)
+                if image.nil?
+                    src = svc["image"] || svc["image_tag"]
+                    warn "P0/promote (#{svc['name']}): cannot resolve #{src} to a GHCR digest; " \
+                         "refusing to pin prod to a mutable tag."
+                    return 1
+                end
                 if options[:dry_run]
                     puts "[dry-run] promote #{svc['name']} -> #{image}"
                     next

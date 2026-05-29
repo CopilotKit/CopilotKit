@@ -4,13 +4,20 @@ require_relative "spec_helper"
 
 class GHCRTokenTest < Minitest::Test
     def setup
-        @prior_github = ENV.delete("GITHUB_TOKEN")
-        @prior_ghcr   = ENV.delete("GHCR_TOKEN")
+        @prior_github  = ENV.delete("GITHUB_TOKEN")
+        @prior_ghcr    = ENV.delete("GHCR_TOKEN")
+        @prior_railway = ENV.delete("RAILWAY_TOKEN")
     end
 
     def teardown
-        ENV["GITHUB_TOKEN"] = @prior_github if @prior_github
-        ENV["GHCR_TOKEN"]   = @prior_ghcr   if @prior_ghcr
+        # Unconditionally delete any test-set values so they don't leak across
+        # tests, THEN re-set the saved priors if those were present.
+        ENV.delete("GITHUB_TOKEN")
+        ENV.delete("GHCR_TOKEN")
+        ENV.delete("RAILWAY_TOKEN")
+        ENV["GITHUB_TOKEN"]  = @prior_github  if @prior_github
+        ENV["GHCR_TOKEN"]    = @prior_ghcr    if @prior_ghcr
+        ENV["RAILWAY_TOKEN"] = @prior_railway if @prior_railway
     end
 
     def test_prefers_explicit_ghcr_token

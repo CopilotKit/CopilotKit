@@ -29,7 +29,11 @@ class PromoteP3Test < Minitest::Test
             }],
         })
         c.instance_variable_set(:@gql, Object.new.tap { |o| def o.query(*); { "deployments" => { "edges" => [{ "node" => { "id" => "d", "status" => "SUCCESS", "meta" => { "image" => "ghcr.io/copilotkit/x@sha256:abc" } } }] } }; end })
-        c.instance_variable_set(:@ghcr, Object.new.tap { |o| def o.manifest_exists(_); :exists; end })
+        c.instance_variable_set(:@ghcr, Object.new.tap do |o|
+            def o.manifest_exists(_); :exists; end
+            def o.resolve_digest(ref); ref.include?("@sha256:") ? ref.split("@", 2).last : "sha256:abc"; end
+            def o.parse_image_ref(ref); Railway::GHCR.allocate.parse_image_ref(ref); end
+        end)
         # Inject the probe result as a stub.
         c.define_singleton_method(:run_staging_probe) { |services:| probe_result }
         c
@@ -44,6 +48,11 @@ class PromoteP3Test < Minitest::Test
 
     def test_skips_probe_when_no_require_staging_green
         cmd = make_cmd(probe_result: { ok: false, summary: "would have failed" }, flag: "--no-require-staging-green")
+        # Fail LOUD if the skip path ever calls the probe — the probe stub
+        # must be unreachable under --no-require-staging-green.
+        cmd.define_singleton_method(:run_staging_probe) do |services:|
+            raise "probe must not run under --no-require-staging-green"
+        end
         out, _ = capture_io { cmd.run_with_preflight_only }
         refute_match(/REFUSE: P3/, out)
         assert_match(/P3 SKIPPED.*--no-require-staging-green/, out)
