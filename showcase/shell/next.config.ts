@@ -70,8 +70,11 @@ const DOCS_HOST = "https://docs.showcase.copilotkit.ai";
 
 const nextConfig: NextConfig = {
   env: {
-    NEXT_PUBLIC_BASE_URL:
-      process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000",
+    // NEXT_PUBLIC_BASE_URL intentionally NOT listed here: it must be
+    // read at request time via runtime-config (otherwise `next build`
+    // re-bakes the build-time value into every chunk). NEXT_PUBLIC_LOCAL_BACKENDS
+    // is fine to bake because it is computed from `shared/local-ports.json`
+    // (a JSON file on disk, not an env var) and only used in local-dev.
     NEXT_PUBLIC_LOCAL_BACKENDS: localBackendsEnv(),
   },
   serverExternalPackages: ["@copilotkit/runtime", "@copilotkitnext/runtime"],
