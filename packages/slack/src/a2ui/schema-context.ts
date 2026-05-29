@@ -1,4 +1,4 @@
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { toJsonSchema } from "../standard-schema.js";
 import type { Catalog } from "./types.js";
 import type { SlackContextEntry } from "../frontend-tools.js";
 
@@ -39,10 +39,7 @@ export function a2uiSchemaContext(
   const schemas = catalogs.map((c) => {
     const components: Record<string, Record<string, unknown>> = {};
     for (const [name, def] of Object.entries(c.definitions)) {
-      const schema = zodToJsonSchema(def.props as any, {
-        $refStrategy: "none",
-        target: "jsonSchema7",
-      }) as Record<string, unknown>;
+      const schema = toJsonSchema(def.props);
       // Inject the description into the JSON-schema-level description
       // field so the LLM sees the per-component prose alongside the
       // structural shape.

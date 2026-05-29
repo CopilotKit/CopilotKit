@@ -58,13 +58,13 @@ export interface SlackBridgeConfig {
   context?: ReadonlyArray<SlackContextEntry>;
   /**
    * Agent-renderable components. Each one is sugar over a frontend tool
-   * whose `execute` posts a Block Kit message via `chat.postMessage`.
+   * whose `handler` posts a Block Kit message via `chat.postMessage`.
    * The Slack-side equivalent of React's `useComponent`.
    */
   components?: ReadonlyArray<SlackComponent>;
   /**
    * Human-in-the-loop components — interactive Block Kit messages whose
-   * `execute` posts blocks and then waits for the user to click a
+   * `handler` posts blocks and then waits for the user to click a
    * button. The Slack-side equivalent of React's `useHumanInTheLoop`.
    * Clicks fire `block_actions` events which the bridge routes back to
    * the waiting tool call, so the agent run continues with the

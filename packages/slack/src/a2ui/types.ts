@@ -9,7 +9,7 @@ import type {
 } from "@a2ui/web_core/v0_9";
 
 /**
- * A2UI catalog primitives for `@copilotkitnext/slack`.
+ * A2UI catalog primitives for `@copilotkit/slack`.
  *
  * The Slack package consumes `@a2ui/web_core` for the heavy lifting
  * (operation processing, surface state, data-model bindings, child
@@ -20,6 +20,16 @@ import type {
  * `CatalogDefinitions` is intentionally platform-agnostic — apps can
  * (and should) share the same definitions module between a web
  * frontend and the Slack bot.
+ *
+ * NOTE: Unlike the rest of this SDK (tools, components, HITL,
+ * interrupts — all schema-library-agnostic via Standard Schema), A2UI
+ * catalog props are typed as **Zod** objects. This is an upstream
+ * constraint: `@a2ui/web_core`'s `GenericBinder` introspects the schema
+ * at render time to resolve `{ path }` data bindings and child lists,
+ * and its `InferredComponentApiSchemaType` is Zod-shaped. Loosening this
+ * to `StandardSchemaV1` would type-check but break binding resolution at
+ * runtime for non-Zod libraries — so we keep the type honest until
+ * web_core accepts Standard Schema directly.
  */
 
 /**
@@ -29,7 +39,11 @@ import type {
 export interface CatalogComponentDefinition<
   T extends ZodRawShape = ZodRawShape,
 > {
-  /** Zod schema for the component's props. */
+  /**
+   * Zod object schema for the component's props. Zod specifically (not
+   * any Standard Schema) — see the file-level note: `@a2ui/web_core`'s
+   * binder requires it.
+   */
   props: ZodObject<T>;
   /** Human-readable description shown to the agent so it picks well. */
   description?: string;

@@ -10,6 +10,7 @@ import {
   selectActivityRenderer,
   type ActivityMessageRenderer,
 } from "./activity-message-renderer.js";
+import { validateSchema } from "./standard-schema.js";
 
 /**
  * The display-transform applied to every streaming chunk before it hits
@@ -196,28 +197,6 @@ export function createSlackEventRenderer(args: {
   };
 
   const subscriber: AgentSubscriber = {
-    // TEMP debug
-    onRunStartedEvent({ event }) {
-      console.log("[DBG] onRunStartedEvent thread=%s", event.threadId);
-    },
-    onRunFinishedEvent({ event }) {
-      console.log("[DBG] onRunFinishedEvent");
-    },
-    onToolCallStartEvent({ event }) {
-      console.log("[DBG] onToolCallStartEvent name=%s", event.toolCallName);
-    },
-    onToolCallResultEvent({ event }) {
-      console.log(
-        "[DBG] onToolCallResultEvent content=%s",
-        String(event.content).slice(0, 200),
-      );
-    },
-    onActivityDeltaEvent({ event }) {
-      console.log(
-        "[DBG] onActivityDeltaEvent activityType=%s",
-        event.activityType,
-      );
-    },
     // ── 1. Text streaming ──────────────────────────────────────────────
     onTextMessageStartEvent({ event }) {
       if (aborted) return;
@@ -329,14 +308,14 @@ export function createSlackEventRenderer(args: {
       if (!e.name || !interruptEventNames.has(e.name)) return;
       // LangGraph's AG-UI adapter ships the interrupt value as a JSON
       // string in some shapes (and as an object in others). Normalize
-      // here so downstream Zod validation always sees the parsed shape.
+      // here so downstream schema validation always sees the parsed shape.
       let value = e.value;
       if (typeof value === "string") {
         try {
           value = JSON.parse(value);
         } catch {
-          // Leave it as a string — the handler's Zod schema will reject
-          // it explicitly with a clearer error.
+          // Leave it as a string — the handler's schema will reject it
+          // explicitly with a clearer error.
         }
       }
       pendingInterrupt = { eventName: e.name, value };
@@ -344,11 +323,6 @@ export function createSlackEventRenderer(args: {
 
     // ── 4. Activity messages (A2UI surfaces + any custom activity type) ─
     async onActivitySnapshotEvent({ event }) {
-      console.log(
-        "[slack-renderer] onActivitySnapshotEvent activityType=%s id=%s",
-        event.activityType,
-        event.messageId,
-      );
       if (aborted) return;
       if (activityRenderers.length === 0) return;
       const renderer = selectActivityRenderer(
@@ -363,16 +337,16 @@ export function createSlackEventRenderer(args: {
       // surface (or worse, crashing the run).
       let content: unknown = event.content;
       if (renderer.content) {
-        const parsed = renderer.content.safeParse(event.content);
-        if (!parsed.success) {
+        const parsed = await validateSchema(renderer.content, event.content);
+        if (!parsed.ok) {
           console.warn(
             "[slack-renderer] activity '%s' content failed schema: %s",
             event.activityType,
-            parsed.error?.message ?? "unknown error",
+            parsed.error,
           );
           return;
         }
-        content = parsed.data;
+        content = parsed.value;
       }
 
       const activityMessage: ActivityMessage = {

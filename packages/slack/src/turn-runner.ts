@@ -14,6 +14,7 @@ import {
   type FrontendToolContext,
   type SlackContextEntry,
 } from "./frontend-tools.js";
+import { validateSchema } from "./standard-schema.js";
 import {
   applyRenderResult,
   HITL_PICKER_EVENT_TYPE,
@@ -448,15 +449,22 @@ async function renderResolvedFromMetadata(args: {
     if (!handlerName) return;
     const handler = args.interruptHandlers.find((h) => h.name === handlerName);
     if (!handler) return;
-    const parsed = handler.payload.safeParse(
+    const parsed = await validateSchema(
+      handler.payload,
       (meta as { payload?: unknown }).payload,
     );
-    if (!parsed.success) return;
+    if (!parsed.ok) {
+      console.warn(
+        "[turn-runner] interrupt resolve payload failed validation:",
+        parsed.error,
+      );
+      return;
+    }
     try {
       resolvedRender = handler.render(
         {
           status: "resolved",
-          payload: parsed.data,
+          payload: parsed.value,
           value: args.resumeValue,
         } as never,
         sharedApi,
@@ -469,7 +477,7 @@ async function renderResolvedFromMetadata(args: {
       return;
     }
     text = handler.fallbackText
-      ? handler.fallbackText(parsed.data)
+      ? handler.fallbackText(parsed.value)
       : handler.description;
   } else if (evType === HITL_PICKER_EVENT_TYPE) {
     const handlerName = (meta as { handler?: string }).handler;
@@ -478,15 +486,22 @@ async function renderResolvedFromMetadata(args: {
       (c) => c.name === handlerName,
     );
     if (!component) return;
-    const parsedProps = component.props.safeParse(
+    const parsedProps = await validateSchema(
+      component.props,
       (meta as { props?: unknown }).props,
     );
-    if (!parsedProps.success) return;
+    if (!parsedProps.ok) {
+      console.warn(
+        "[turn-runner] HITL resolve props failed validation:",
+        parsedProps.error,
+      );
+      return;
+    }
     try {
       resolvedRender = component.render(
         {
           status: "resolved",
-          props: parsedProps.data,
+          props: parsedProps.value,
           value: args.resumeValue,
         } as never,
         sharedApi,
@@ -499,7 +514,7 @@ async function renderResolvedFromMetadata(args: {
       return;
     }
     text = component.fallbackText
-      ? component.fallbackText(parsedProps.data)
+      ? component.fallbackText(parsedProps.value)
       : component.description;
   } else {
     // Unknown picker type — leave it alone.
@@ -623,23 +638,23 @@ async function runWithToolLoop(args: {
         );
         return;
       }
-      const parsed = handler.payload.safeParse(pending.value);
-      if (!parsed.success) {
+      const parsed = await validateSchema(handler.payload, pending.value);
+      if (!parsed.ok) {
         console.warn(
           "[turn-runner] interrupt payload failed validation:",
-          parsed.error.message,
+          parsed.error,
         );
         return;
       }
 
       const text = handler.fallbackText
-        ? handler.fallbackText(parsed.data)
+        ? handler.fallbackText(parsed.value)
         : handler.description;
 
       // ── 1a. Initial render (pending state) ────────────────────────
       const pendingActionMap = new Map<string, unknown>();
       const pendingResult = handler.render(
-        { status: "pending", payload: parsed.data } as never,
+        { status: "pending", payload: parsed.value } as never,
         {
           respond(value: unknown) {
             const id = hitlRegistry.mintActionId();
@@ -674,7 +689,7 @@ async function runWithToolLoop(args: {
             event_type: INTERRUPT_PICKER_EVENT_TYPE,
             event_payload: {
               handler: handler.name,
-              payload: parsed.data as Record<string, unknown>,
+              payload: parsed.value,
             },
           },
         });
@@ -695,10 +710,10 @@ async function runWithToolLoop(args: {
         result.kind === "resolved"
           ? {
               status: "resolved" as const,
-              payload: parsed.data,
+              payload: parsed.value,
               value: result.value,
             }
-          : { status: result.kind, payload: parsed.data };
+          : { status: result.kind, payload: parsed.value };
       let resolvedRender;
       try {
         resolvedRender = handler.render(resolvedState as never, {
@@ -750,7 +765,7 @@ async function runWithToolLoop(args: {
 
     for (const call of calls) {
       const tool = tools.get(call.toolCallName)!;
-      const parsed = parseToolArgs(tool.parameters, call.toolCallArgs);
+      const parsed = await parseToolArgs(tool.parameters, call.toolCallArgs);
       let result: string;
       if (!parsed.ok) {
         result = JSON.stringify({

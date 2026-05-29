@@ -1,5 +1,5 @@
 import type { KnownBlock } from "@slack/types";
-import type { z } from "zod";
+import type { ObjectSchema, InferSchemaOutput } from "./standard-schema.js";
 import type { FrontendTool, FrontendToolContext } from "./frontend-tools.js";
 
 /**
@@ -28,15 +28,17 @@ import type { FrontendTool, FrontendToolContext } from "./frontend-tools.js";
  *
  * Contrast with `defineSlackComponent` (render-only, no interactivity).
  */
-export interface HumanInTheLoop<PropsSchema extends z.ZodType = z.ZodType> {
+export interface HumanInTheLoop<
+  PropsSchema extends ObjectSchema = ObjectSchema,
+> {
   /** Unique tool-name the agent sees. */
   name: string;
   /** What the LLM reads when deciding to pick this component. */
   description: string;
-  /** Zod schema for the props the agent passes in. */
+  /** Standard Schema (Zod, Valibot, ArkType, …) for the props. */
   props: PropsSchema;
   /** Plain-text fallback (notifications). Falls back to `description`. */
-  fallbackText?(props: z.infer<PropsSchema>): string;
+  fallbackText?(props: InferSchemaOutput<PropsSchema>): string;
   /**
    * Build the Block Kit message for the current state. Called once on
    * initial post (`status: "pending"`) and again on each resolution.
@@ -68,11 +70,11 @@ export interface HumanInTheLoop<PropsSchema extends z.ZodType = z.ZodType> {
  * bound to the clicked element via `api.respond(value)` — typed as
  * `unknown` (you typed the `respond(...)` calls; narrow at the call site).
  */
-export type HitlRenderState<P extends z.ZodType> =
-  | { status: "pending"; props: z.infer<P> }
-  | { status: "cancelled"; props: z.infer<P> }
-  | { status: "timeout"; props: z.infer<P> }
-  | { status: "resolved"; props: z.infer<P>; value: unknown };
+export type HitlRenderState<P extends ObjectSchema> =
+  | { status: "pending"; props: InferSchemaOutput<P> }
+  | { status: "cancelled"; props: InferSchemaOutput<P> }
+  | { status: "timeout"; props: InferSchemaOutput<P> }
+  | { status: "resolved"; props: InferSchemaOutput<P>; value: unknown };
 
 /** Return shape from `render` — controls what happens to the Slack message. */
 export type HitlRenderResult = KnownBlock[] | "delete" | "noop";
@@ -104,7 +106,7 @@ export type HitlResult =
  * Identity factory — returns the component back, but lets TS infer the
  * `PropsSchema` generic from the `props` field.
  */
-export function defineHumanInTheLoop<PropsSchema extends z.ZodType>(
+export function defineHumanInTheLoop<PropsSchema extends ObjectSchema>(
   h: HumanInTheLoop<PropsSchema>,
 ): HumanInTheLoop<PropsSchema> {
   return h;
@@ -401,7 +403,7 @@ async function postToResponseUrl(
 
 /**
  * Adapt a human-in-the-loop component into a regular `FrontendTool` —
- * the LLM sees it as a normal callable. The tool's `execute`:
+ * the LLM sees it as a normal callable. The tool's `handler`:
  *
  *   1. Renders the initial `"pending"` state and posts via `chat.postMessage`.
  *   2. Awaits the registry's wait.
@@ -411,7 +413,7 @@ async function postToResponseUrl(
  *   4. Returns the wait result as a JSON tool result so the agent can
  *      branch on `{kind: "resolved", value}` vs timeout / cancel.
  */
-export function hitlToFrontendTool<PropsSchema extends z.ZodType>(
+export function hitlToFrontendTool<PropsSchema extends ObjectSchema>(
   h: HumanInTheLoop<PropsSchema>,
   registry: HumanInTheLoopRegistry,
 ): FrontendTool<PropsSchema> {

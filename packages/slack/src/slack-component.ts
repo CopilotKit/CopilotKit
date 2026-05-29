@@ -1,11 +1,11 @@
 import type { KnownBlock } from "@slack/types";
-import type { z } from "zod";
+import type { ObjectSchema, InferSchemaOutput } from "./standard-schema.js";
 import type { FrontendTool, FrontendToolContext } from "./frontend-tools.js";
 
 /**
  * A Slack-renderable component. The agent-side parallel to React's
- * `useComponent`: the developer declares props (as a Zod schema) and a
- * `render` function that turns those props into Slack Block Kit. The
+ * `useComponent`: the developer declares props (as a Standard Schema)
+ * and a `render` function that turns those props into Slack Block Kit. The
  * bridge advertises the component to the agent as a regular tool;
  * when the agent calls it, the bridge runs `render` and posts the
  * resulting blocks via `chat.postMessage` in the current thread/DM.
@@ -14,7 +14,7 @@ import type { FrontendTool, FrontendToolContext } from "./frontend-tools.js";
  * everything is just a callable. The render-as-Block-Kit behavior is
  * entirely a bridge concern.
  */
-export interface SlackComponent<Schema extends z.ZodType = z.ZodType> {
+export interface SlackComponent<Schema extends ObjectSchema = ObjectSchema> {
   /** Unique tool-name the agent sees. snake_case is the convention. */
   name: string;
   /**
@@ -22,7 +22,7 @@ export interface SlackComponent<Schema extends z.ZodType = z.ZodType> {
    * component based on this, so be specific about *when* to use it.
    */
   description: string;
-  /** Zod schema describing the component's props. */
+  /** Standard Schema (Zod, Valibot, ArkType, …) describing the props. */
   props: Schema;
   /**
    * Plain-text fallback for mobile notifications and screen readers.
@@ -33,12 +33,12 @@ export interface SlackComponent<Schema extends z.ZodType = z.ZodType> {
    * (Declared as a method, not an arrow property, so component subtype
    * assignability stays clean: arrow-property function types are
    * checked contravariantly under `strictFunctionTypes`, which makes
-   * `SlackComponent<MyZodSchema>` not assignable to
-   * `SlackComponent<ZodType>` — method syntax is bivariant.)
+   * `SlackComponent<MySchema>` not assignable to
+   * `SlackComponent<ObjectSchema>` — method syntax is bivariant.)
    */
-  fallbackText?(props: z.infer<Schema>): string;
+  fallbackText?(props: InferSchemaOutput<Schema>): string;
   /** Pure function: typed props in, Slack Block Kit blocks out. */
-  render(props: z.infer<Schema>): KnownBlock[];
+  render(props: InferSchemaOutput<Schema>): KnownBlock[];
 }
 
 /**
@@ -47,7 +47,7 @@ export interface SlackComponent<Schema extends z.ZodType = z.ZodType> {
  * explicitly. Mirrors the `defineConfig` / `defineComponent` pattern
  * common in TS libraries.
  */
-export function defineSlackComponent<Schema extends z.ZodType>(
+export function defineSlackComponent<Schema extends ObjectSchema>(
   c: SlackComponent<Schema>,
 ): SlackComponent<Schema> {
   return c;
@@ -58,7 +58,7 @@ export function defineSlackComponent<Schema extends z.ZodType>(
  * register. The tool's `handler` renders the blocks and posts a Slack
  * message; the agent receives an ack JSON it can quote / react to.
  */
-export function componentToFrontendTool<Schema extends z.ZodType>(
+export function componentToFrontendTool<Schema extends ObjectSchema>(
   c: SlackComponent<Schema>,
 ): FrontendTool<Schema> {
   return {
@@ -73,9 +73,9 @@ export function componentToFrontendTool<Schema extends z.ZodType>(
   };
 }
 
-function resolveFallbackText<Schema extends z.ZodType>(
+function resolveFallbackText<Schema extends ObjectSchema>(
   c: SlackComponent<Schema>,
-  props: z.infer<Schema>,
+  props: InferSchemaOutput<Schema>,
 ): string {
   if (c.fallbackText) return c.fallbackText(props);
   return c.description;

@@ -1,6 +1,6 @@
 import type { KnownBlock } from "@slack/types";
 import type { ActivityMessage } from "@ag-ui/core";
-import type { z } from "zod";
+import type { StandardSchemaV1 } from "./standard-schema.js";
 
 /**
  * The Slack-side analogue of `ReactActivityMessageRenderer` from
@@ -29,12 +29,12 @@ export interface ActivityMessageRenderer<TContent = Record<string, unknown>> {
    */
   agentId?: string;
   /**
-   * Optional schema for the activity content payload. When provided,
-   * the bridge `safeParse`s the incoming `content` before calling
-   * `render` so renderers see a typed payload. When omitted, the
-   * raw `content` record is passed through as-is.
+   * Optional Standard Schema for the activity content payload. When
+   * provided, the bridge validates the incoming `content` before calling
+   * `render` so renderers see a typed payload. When omitted, the raw
+   * `content` record is passed through as-is.
    */
-  content?: z.ZodType<TContent>;
+  content?: StandardSchemaV1<unknown, TContent>;
   /**
    * Render the activity message as Slack Block Kit. The bridge posts
    * the returned blocks via `chat.postMessage` (or `chat.update` if

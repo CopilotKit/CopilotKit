@@ -1,7 +1,13 @@
 import type { WebClient } from "@slack/web-api";
-import type { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import type { FrontendTool as CoreFrontendTool } from "@copilotkit/core";
+import {
+  type StandardSchemaV1,
+  type InferSchemaOutput,
+  type ObjectSchema,
+  type SchemaParseResult,
+  toJsonSchema,
+  validateSchema,
+} from "./standard-schema.js";
 
 /**
  * A Slack frontend tool — the same `FrontendTool<T>` shape used by
@@ -19,15 +25,16 @@ import type { FrontendTool as CoreFrontendTool } from "@copilotkit/core";
  *     (look up a user, post a Block Kit surface, react to a message,
  *     etc.).
  *
- * `Schema` here is a Zod schema (which already implements
- * `StandardSchemaV1`, the type core declares for `parameters`), so
- * authors write tools the way they always have — but consumers of
- * the slack package can also accept any `CoreFrontendTool<T>` without
- * a shape mismatch (modulo the ctx widening; bridge-supplied tools
- * see the full slack ctx).
+ * `Schema` is any [Standard Schema](https://standardschema.dev)
+ * validator — Zod (v3.24+ or v4), Valibot, ArkType, etc. — the same
+ * type `@copilotkit/core` declares for `parameters`. Authors pick the
+ * validation library they like; consumers of the slack package can
+ * also accept any `CoreFrontendTool<T>` without a shape mismatch
+ * (modulo the ctx widening; bridge-supplied tools see the full slack
+ * ctx).
  */
-export type FrontendTool<Schema extends z.ZodType = z.ZodType> = Omit<
-  CoreFrontendTool<z.infer<Schema>>,
+export type FrontendTool<Schema extends ObjectSchema = ObjectSchema> = Omit<
+  CoreFrontendTool<InferSchemaOutput<Schema>>,
   "handler" | "parameters"
 > & {
   parameters: Schema;
@@ -38,7 +45,7 @@ export type FrontendTool<Schema extends z.ZodType = z.ZodType> = Omit<
    * raw text the tool result (skip stringification).
    */
   handler(
-    args: z.infer<Schema>,
+    args: InferSchemaOutput<Schema>,
     ctx: FrontendToolContext,
   ): Promise<unknown> | unknown;
 };
@@ -96,46 +103,33 @@ export interface SlackContextEntry {
 
 /**
  * Convert the catalog into the AG-UI tool-descriptor shape the agent
- * sees. Zod schemas become JSON Schema; everything else passes
- * through.
+ * sees. Each tool's Standard Schema becomes JSON Schema (see
+ * {@link toJsonSchema}).
  */
 export function toAgentToolDescriptors(
   tools: ReadonlyArray<FrontendTool>,
 ): AgentToolDescriptor[] {
-  return tools.map((t) => {
-    const jsonSchema = zodToJsonSchema(t.parameters, {
-      // Inline everything — most LLM tool-call APIs reject `$ref`-style
-      // composite schemas. The slight bloat is fine for our handful of
-      // tools.
-      $refStrategy: "none",
-      target: "jsonSchema7",
-    }) as Record<string, unknown>;
-    return {
-      name: t.name,
-      description: t.description ?? "",
-      parameters: jsonSchema,
-    };
-  });
+  return tools.map((t) => ({
+    name: t.name,
+    description: t.description ?? "",
+    parameters: toJsonSchema(t.parameters),
+  }));
 }
 
 /**
  * Parse the raw tool-call args coming back from the agent through the
- * tool's schema. Returns `{ok: true, value}` on success, `{ok: false,
- * error}` on validation failure — the caller (turn-runner) turns the
- * error into a JSON tool result so the agent can recover.
+ * tool's Standard Schema. Returns `{ok: true, value}` on success,
+ * `{ok: false, error}` on validation failure — the caller (turn-runner)
+ * turns the error into a JSON tool result so the agent can recover.
+ *
+ * Async because Standard Schema validators may resolve asynchronously
+ * (sync validators like Zod/Valibot resolve immediately).
  */
-export function parseToolArgs<Schema extends z.ZodType>(
+export function parseToolArgs<Schema extends StandardSchemaV1>(
   schema: Schema,
   rawArgs: unknown,
-): { ok: true; value: z.infer<Schema> } | { ok: false; error: string } {
-  const result = schema.safeParse(rawArgs);
-  if (result.success) return { ok: true, value: result.data };
-  return {
-    ok: false,
-    error: result.error.issues
-      .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
-      .join("; "),
-  };
+): Promise<SchemaParseResult<InferSchemaOutput<Schema>>> {
+  return validateSchema(schema, rawArgs);
 }
 
 /**
