@@ -47,8 +47,10 @@ import {
   serviceForDispatchName,
 } from "./railway-envs";
 import type { EnvName } from "./railway-envs";
+import { RAILWAY_GRAPHQL_ENDPOINT } from "./lib/railway-graphql";
+import { resolveRailwayTokenFromConfig } from "./lib/railway-token";
 
-const RAILWAY_API = "https://backboard.railway.com/graphql/v2";
+const RAILWAY_API = RAILWAY_GRAPHQL_ENDPOINT;
 const RAILWAY_ERROR_BODY_MAX = 200;
 
 function getToken(): string {
@@ -70,7 +72,9 @@ function getToken(): string {
       console.error(`Malformed ~/.railway/config.json: ${msg}`);
       process.exit(1);
     }
-    const token = (config as { user?: { token?: string } } | null)?.user?.token;
+    const token = resolveRailwayTokenFromConfig(
+      config as Parameters<typeof resolveRailwayTokenFromConfig>[0],
+    );
     if (typeof token === "string" && token.length > 0) return token;
   }
   console.error(
