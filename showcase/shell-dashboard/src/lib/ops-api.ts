@@ -10,13 +10,10 @@
  *
  * `baseUrl` resolution order (per call):
  *   1. explicit `baseUrl` param (overrides everything; used in tests + SSR)
- *   2. `process.env.NEXT_PUBLIC_OPS_BASE_URL` — opt-in escape hatch for
- *      direct cross-origin calls; production does NOT use this because
- *      showcase-harness has no CORS allowlist. Note: Next inlines `NEXT_PUBLIC_*`
- *      into the client bundle at build time, but this module ALSO runs in
- *      SSR + tests where `process.env` is read live at call time — so
- *      `delete process.env.NEXT_PUBLIC_OPS_BASE_URL` in a test does take
- *      effect on subsequent `resolveBaseUrl()` calls.
+ *   2. `runtimeConfig.opsBaseUrl` (read from `window.__SHOWCASE_CONFIG__`,
+ *      populated at request time by the root layout's inline <script>) —
+ *      opt-in escape hatch for direct cross-origin calls; production does
+ *      NOT set this because showcase-harness has no CORS allowlist.
  *   3. `/api/ops` — same-origin path served by the Next.js rewrite in
  *      `next.config.ts`. This is the production contract, not a guess: the
  *      rewrite forwards `/api/ops/:path*` to `${OPS_BASE_URL}/api/:path*`
@@ -135,22 +132,41 @@ export interface TriggerResponse {
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────
 
+import { getRuntimeConfig } from "./runtime-config.client";
+
 const FALLBACK_BASE_URL = "/api/ops";
 
 /**
- * Resolve the API base URL with the precedence documented at the top of
- * this module. Trailing slashes are stripped so callers don't end up with
- * a double-slash like `http://host//probes` that some servers reject.
+ * Resolve the API base URL with this precedence:
+ *  1. explicit `baseUrl` param — used in tests + SSR.
+ *  2. `runtimeConfig.opsBaseUrl` — set by the env when a deploy wants
+ *     direct cross-origin calls (e.g. local dev hitting a remote
+ *     harness). Production deploys leave this empty so the call stays
+ *     same-origin via the next.config.ts rewrite.
+ *  3. `/api/ops` — same-origin path served by the Next.js rewrite.
  *
- * `NEXT_PUBLIC_OPS_BASE_URL` is treated as missing when it is undefined,
- * empty, or whitespace-only. `??` only falls through on `null`/`undefined`,
- * so without this an env var set to `""` would silently produce
- * `baseUrl === ""` and URLs like `"/probes"` (no `/api/ops` prefix) — a
- * silent failure mode where the dashboard hits its own origin and 404s.
+ * Whitespace-only and empty values are treated as missing — the same
+ * defensive trim as the prior `process.env.NEXT_PUBLIC_OPS_BASE_URL?.trim()`
+ * pattern, preserving the "do not silently 404 against own origin" guard.
  */
 function resolveBaseUrl(explicit?: string): string {
-  const envBase = process.env.NEXT_PUBLIC_OPS_BASE_URL?.trim();
-  const raw = explicit ?? (envBase || undefined) ?? FALLBACK_BASE_URL;
+  // On the server (SSR) there is no window. `getRuntimeConfig` (client
+  // variant) throws in that case — we MUST fall back to the same-origin
+  // path or the explicit override. In a browser the root layout's
+  // inline <script> populates `window.__SHOWCASE_CONFIG__` before any
+  // client code runs; if it's missing (wiring bug, or a test that
+  // forgot to set it) we treat that as "no override" rather than
+  // throwing here, since the same-origin rewrite is the safe default.
+  let envBase: string | undefined;
+  if (typeof window !== "undefined") {
+    try {
+      const trimmed = getRuntimeConfig().opsBaseUrl?.trim();
+      if (trimmed && trimmed.length > 0) envBase = trimmed;
+    } catch {
+      // window.__SHOWCASE_CONFIG__ missing — fall through to FALLBACK_BASE_URL.
+    }
+  }
+  const raw = explicit ?? envBase ?? FALLBACK_BASE_URL;
   return raw.replace(/\/+$/, "");
 }
 

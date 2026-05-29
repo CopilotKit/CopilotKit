@@ -10,7 +10,14 @@ import { ShellSearchProvider } from "@/components/search-trigger";
 import { PostHogProvider } from "@/lib/providers/posthog-provider";
 import { ScarfPixel } from "@/lib/providers/scarf-pixel";
 import { getIntegrations } from "@/lib/registry";
+import { getRuntimeConfig } from "@/lib/runtime-config";
+import { serializeRuntimeConfig } from "@/lib/runtime-config-serialize";
 import "./globals.css";
+
+// serializeRuntimeConfig is extracted to `lib/runtime-config-serialize.ts`
+// so it can be unit-tested for the OWASP escape behavior (XSS via
+// `</script>`, U+2028/U+2029 line-terminator injection) without
+// importing the layout into the test runner.
 
 // Top-level route segments in src/app/ that must not be mistaken for
 // framework slugs by FrameworkProvider.urlFramework. If an integration
@@ -78,8 +85,14 @@ export default function RootLayout({
         ? "unknown"
         : rawSha.slice(0, 7);
 
-  const REO_KEY = process.env.NEXT_PUBLIC_REO_KEY;
-  const REB2B_KEY = process.env.NEXT_PUBLIC_REB2B_KEY;
+  // Server-side: read live env at request time. `unstable_noStore()`
+  // inside getRuntimeConfig opts this segment out of the static
+  // cache so the inline <script> below always reflects the current
+  // Railway env vars.
+  const runtimeConfig = getRuntimeConfig();
+  const injection = `window.__SHOWCASE_CONFIG__=${serializeRuntimeConfig(runtimeConfig)};`;
+  const REO_KEY = runtimeConfig.reoKey;
+  const REB2B_KEY = runtimeConfig.reb2bKey;
 
   return (
     // suppressHydrationWarning is required because the inline theme-init
@@ -95,6 +108,19 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        {/* MUST be the first child of <head>. Every client component
+         * reads window.__SHOWCASE_CONFIG__ during hydration; populating
+         * it from a raw inline <script> guarantees the value is set
+         * before the parser reaches any next-script beforeInteractive
+         * block (those run after the parser passes our inline script).
+         * Using a plain <script> rather than next/script also avoids
+         * the deferred-execution semantics of `strategy="beforeInteractive"`
+         * — `beforeInteractive` runs before hydration but AFTER raw
+         * parse-time scripts. */}
+        <script
+          id="__showcase_config__"
+          dangerouslySetInnerHTML={{ __html: injection }}
+        />
         {/* Apply the persisted theme before first paint to avoid a
          * light-flash on dark-preferring loads. Reads `localStorage.theme`
          * and falls back to `prefers-color-scheme` when the persisted

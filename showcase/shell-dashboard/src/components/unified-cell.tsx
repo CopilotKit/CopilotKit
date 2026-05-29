@@ -258,10 +258,7 @@ function UnifiedCellInner({ ctx, model, overlays }: UnifiedCellProps) {
  * delta re-rendering 1 cell vs. all ~720 cells in the matrix.
  */
 /** Shallow-compare the primitive fields of two TestLevel values. */
-function testLevelsEqual(
-  a: TestLevel | null,
-  b: TestLevel | null,
-): boolean {
+function testLevelsEqual(a: TestLevel | null, b: TestLevel | null): boolean {
   if (a === b) return true;
   if (a == null || b == null) return false;
   return a.exists === b.exists && a.status === b.status;

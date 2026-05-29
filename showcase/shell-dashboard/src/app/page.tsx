@@ -21,7 +21,10 @@ import { DiscoveryAuthBanner } from "@/components/discovery-auth-banner";
 import type { ParityTier } from "@/components/parity-badge";
 import { getDocsStatus } from "@/lib/docs-status";
 import { resolveCell } from "@/lib/live-status";
-import type { DepthDistribution, D6Stats } from "@/components/adaptive-stats-bar";
+import type {
+  DepthDistribution,
+  D6Stats,
+} from "@/components/adaptive-stats-bar";
 import catalog from "@/data/catalog.json";
 import type { CatalogData } from "@/data/catalog-types";
 

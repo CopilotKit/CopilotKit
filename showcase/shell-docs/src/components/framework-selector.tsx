@@ -2,10 +2,9 @@
 
 // FrameworkSelector — persistent "agentic backend" dropdown that anchors
 // the docs experience. Opens a panel listing every registry integration
-// grouped by category. Selecting an entry navigates to
-// `/<framework>/<current-feature>` when the page is framework-scopable,
-// otherwise to `/<framework>` (the framework's landing page, which is
-// itself a docs route under the catch-all).
+// grouped by category. Selecting an entry navigates to `/<framework>`:
+// changing backends is a pivot into that framework's overview, not an
+// attempt to preserve the current page's feature slug.
 
 import React, { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -40,33 +39,6 @@ export interface FrameworkSelectorProps {
   variant?: "topbar" | "sidebar";
 }
 
-/**
- * Strip a known framework prefix off the pathname. Returns the remainder
- * slug (no leading slash) or `null` when the path isn't framework-scoped.
- *
- * Only inspects the FIRST path segment — we deliberately do NOT recurse
- * into deeper segments so paths like `/<fw>/<fw>/x` preserve the inner
- * `<fw>/x` as the tail (the inner segment is part of the feature slug,
- * not a framework switch).
- */
-function stripFrameworkPrefix(
-  pathname: string,
-  knownFrameworks: string[],
-): string | null {
-  const parts = pathname.split("/").filter(Boolean);
-  if (parts.length === 0) return null;
-  // Guard: only the first segment is considered a framework prefix.
-  if (!knownFrameworks.includes(parts[0])) return null;
-  return parts.slice(1).join("/");
-}
-
-/** Strip the `/docs` prefix off the pathname to get the feature slug. */
-function stripDocsPrefix(pathname: string): string | null {
-  const parts = pathname.split("/").filter(Boolean);
-  if (parts[0] !== "docs") return null;
-  return parts.slice(1).join("/");
-}
-
 export function FrameworkSelector({
   options,
   categoryOrder,
@@ -76,8 +48,7 @@ export function FrameworkSelector({
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const posthog = usePostHog();
-  const { effectiveFramework, knownFrameworks, setStoredFramework } =
-    useFramework();
+  const { effectiveFramework, setStoredFramework } = useFramework();
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -128,29 +99,6 @@ export function FrameworkSelector({
     isSidebar && opt.slug === "built-in-agent" ? "CopilotKit" : opt.name;
   const label = current ? displayNameFor(current) : "Pick an agentic backend";
 
-  // Compute the target href for a given framework option given the current
-  // path. Preserves feature slug when possible.
-  function hrefFor(slug: string): string {
-    // Case 1: currently on /<existing-framework>/<rest>
-    const frameworkTail = stripFrameworkPrefix(pathname, knownFrameworks);
-    if (frameworkTail !== null) {
-      return frameworkTail ? `/${slug}/${frameworkTail}` : `/${slug}`;
-    }
-    // Case 2: currently on /docs/<rest> — switch to framework-scoped (legacy)
-    const docsTail = stripDocsPrefix(pathname);
-    if (docsTail !== null && docsTail.length > 0) {
-      return `/${slug}/${docsTail}`;
-    }
-    // Case 3: currently on /<unscoped-slug> (e.g. /quickstart) — preserve the
-    // feature slug so switching frameworks keeps the user on the same topic.
-    const unscopedTail = pathname.split("/").filter(Boolean).join("/");
-    if (unscopedTail) {
-      return `/${slug}/${unscopedTail}`;
-    }
-    // Fallback: framework landing page
-    return `/${slug}`;
-  }
-
   function selectFramework(slug: string) {
     setStoredFramework(slug);
     // Fire a PostHog event so analytics dashboards can see which
@@ -172,7 +120,11 @@ export function FrameworkSelector({
     // page, not a forward navigation. Using `push` clutters the back
     // stack with every framework the user clicked through, which makes
     // the browser Back button useless. `replace` keeps history sane.
-    router.replace(hrefFor(slug));
+    // Framework changes intentionally drop the current feature slug. The
+    // selector is a backend pivot, so landing on the framework root gives
+    // readers the right overview before they drill into framework-specific
+    // docs.
+    router.replace(`/${slug}`);
     setOpen(false);
   }
 

@@ -22,20 +22,23 @@ import ClaudeIcon from "@/components/icons/claude";
 import ClaudeCodeIcon from "@/components/icons/claude-code";
 import CodexIcon from "@/components/icons/codex";
 import WindsurfIcon from "@/components/icons/windsurf";
+import { getRuntimeConfig } from "@/lib/runtime-config.client";
 
 /**
- * Resolve the canonical base URL on the client. Inlined here (instead of
- * imported from `@/lib/sitemap-helpers`) because that module also pulls
- * in `fs` / `path` / `gray-matter` for sitemap generation — Node-only
- * deps that fail the Next.js client bundle when this `"use client"`
- * component reaches for them. The env var contract is identical:
- * `NEXT_PUBLIC_BASE_URL` (set in production), prod fallback otherwise,
- * with trailing slash stripped so callers can concatenate
+ * Resolve the canonical base URL on the client. Reads from
+ * window.__SHOWCASE_CONFIG__ (populated by the root layout's inline
+ * <script>) so the rendered absolute URL reflects the current deploy's
+ * NEXT_PUBLIC_BASE_URL without rebuilding the artifact. The runtime
+ * reader already strips trailing slashes so callers can concatenate
  * `${BASE}${path}` safely.
+ *
+ * Still inlined here (rather than reaching into `@/lib/sitemap-helpers`)
+ * because that module also pulls in `fs` / `path` / `gray-matter` for
+ * sitemap generation — Node-only deps that fail the client bundle when
+ * a `"use client"` component reaches for them.
  */
 function getClientBaseUrl(): string {
-  const raw = process.env.NEXT_PUBLIC_BASE_URL || "https://docs.copilotkit.ai";
-  return raw.replace(/\/+$/, "");
+  return getRuntimeConfig().baseUrl;
 }
 
 // Module-scoped cache of resolved markdown bodies. Survives navigations
@@ -291,6 +294,11 @@ export function ViewOptionsPopover({
             href={item.href}
             rel="noreferrer noopener"
             target="_blank"
+            // item.href embeds `getClientBaseUrl()` (the SSR placeholder
+            // during server-render, real value post-hydration), so React
+            // would log a hydration mismatch on every popover anchor.
+            // Suppression scopes to this attribute mismatch only.
+            suppressHydrationWarning
             // Fire a PostHog event keyed by `target` (github, windsurf,
             // claude, chatgpt, codex, view-as-markdown, etc.) so the
             // analytics dashboard can attribute LLM-routing intent to

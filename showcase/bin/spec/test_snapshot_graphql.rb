@@ -59,15 +59,21 @@ class SnapshotGraphqlTest < Minitest::Test
         }
     end
 
-    def service_instance_response(image:, start_cmd: nil, domains: [])
+    def service_instance_response(image:, start_cmd: nil, domains: [],
+                                  healthcheck_path: nil, region: nil,
+                                  num_replicas: nil, restart_policy: nil)
         {
             "serviceInstance" => {
-                "id"               => "inst-#{image[/sha256:[a-f0-9]+/] || 'tag'}",
-                "serviceId"        => "svc-aimock",
-                "environmentId"    => Railway::PRODUCTION_ENV_ID,
-                "startCommand"     => start_cmd,
-                "source"           => { "image" => image, "repo" => nil },
-                "latestDeployment" => { "id" => "dep-1", "status" => "SUCCESS" },
+                "id"                 => "inst-#{image[/sha256:[a-f0-9]+/] || 'tag'}",
+                "serviceId"          => "svc-aimock",
+                "environmentId"      => Railway::PRODUCTION_ENV_ID,
+                "startCommand"       => start_cmd,
+                "healthcheckPath"    => healthcheck_path,
+                "region"             => region,
+                "numReplicas"        => num_replicas,
+                "restartPolicyType"  => restart_policy,
+                "source"             => { "image" => image, "repo" => nil },
+                "latestDeployment"   => { "id" => "dep-1", "status" => "SUCCESS" },
                 "domains" => {
                     "customDomains"  => domains.map { |d| { "id" => "cd-#{d}", "domain" => d } },
                     "serviceDomains" => [],
@@ -101,7 +107,7 @@ class SnapshotGraphqlTest < Minitest::Test
 
         snap = cmd.build_snapshot(Railway::PRODUCTION_ENV_ID)
 
-        assert_equal 1, snap["version"]
+        assert_equal 2, snap["version"]
         assert_equal 2, snap["services"].length
 
         aimock = snap["services"].find { |s| s["name"] == "aimock" }
@@ -168,6 +174,68 @@ class SnapshotGraphqlTest < Minitest::Test
         assert_match(/serviceInstanceUpdate\s*\(/, Railway::RestoreCommand::UPDATE_IMAGE_MUTATION)
         assert_match(/source:\s*\{\s*image:/, Railway::RestoreCommand::UPDATE_IMAGE_MUTATION)
         assert_match(/serviceInstanceRedeploy\s*\(/, Railway::RestoreCommand::REDEPLOY_MUTATION)
+    end
+
+    def test_snapshot_v2_captures_healthcheck_region_replicas_restart_policy
+        # P6 parity-matrix needs these four fields on every snapshot service.
+        # Snapshot schema is v2; SnapshotCommand#build_snapshot must map them
+        # from the new SERVICE_INSTANCE_QUERY selection set.
+        fake = FakeGQL.new(
+            "ProjectServices" => services_list_response,
+            "EnvVariables"    => env_vars_response_with_per_service_keys,
+            "ServiceInstance" => lambda do |vars|
+                if vars[:serviceId] == "svc-aimock"
+                    service_instance_response(
+                        image: "ghcr.io/copilotkit/showcase-aimock@sha256:cafef00d",
+                        start_cmd: "node /app/dist/cli.js",
+                        domains: ["aimock.showcase.copilotkit.ai"],
+                        healthcheck_path: "/healthz",
+                        region: "us-west2",
+                        num_replicas: 2,
+                        restart_policy: "ON_FAILURE",
+                    )
+                else
+                    service_instance_response(
+                        image: "ghcr.io/copilotkit/showcase-shell@sha256:beef1234",
+                        healthcheck_path: "/health",
+                        region: "us-east1",
+                        num_replicas: 1,
+                        restart_policy: "ALWAYS",
+                    )
+                end
+            end,
+        )
+
+        cmd = Railway::SnapshotCommand.new(["--env", "production", "--dry-run"])
+        cmd.instance_variable_set(:@gql, fake)
+        snap = cmd.build_snapshot(Railway::PRODUCTION_ENV_ID)
+
+        aimock = snap["services"].find { |s| s["name"] == "aimock" }
+        assert_equal "/healthz",    aimock["healthcheck_path"]
+        assert_equal "us-west2",    aimock["region"]
+        assert_equal 2,             aimock["replicas"]
+        assert_equal "ON_FAILURE",  aimock["restart_policy"]
+
+        shell = snap["services"].find { |s| s["name"] == "shell" }
+        assert_equal "/health",   shell["healthcheck_path"]
+        assert_equal "us-east1",  shell["region"]
+        assert_equal 1,           shell["replicas"]
+        assert_equal "ALWAYS",    shell["restart_policy"]
+    end
+
+    def test_snapshot_io_read_accepts_v1_and_v2_snapshots
+        # rollback-commit replays historical snapshots from arbitrary git SHAs,
+        # so SnapshotIO.read MUST stay backwards-compat with v1 even though
+        # all NEW snapshots are written as v2.
+        require "tempfile"
+        [1, 2].each do |ver|
+            Tempfile.create(["snap-v#{ver}", ".yaml"]) do |f|
+                f.write(YAML.dump("version" => ver, "services" => []))
+                f.flush
+                snap = Railway::SnapshotIO.read(f.path)
+                assert_equal ver, snap["version"]
+            end
+        end
     end
 
     def test_deploymentRollback_mutation_has_no_selection_set_because_it_returns_boolean
