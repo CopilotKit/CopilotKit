@@ -8,7 +8,10 @@ vi.mock("next/cache", () => ({
   unstable_noStore: () => {},
 }));
 
-import { getRuntimeConfig, getRuntimeConfigForMiddleware } from "./runtime-config";
+import {
+  getRuntimeConfig,
+  getRuntimeConfigForMiddleware,
+} from "./runtime-config";
 
 const URL_KEYS = [
   "NEXT_PUBLIC_BASE_URL",
