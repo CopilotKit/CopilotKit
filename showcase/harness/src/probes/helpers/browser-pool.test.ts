@@ -117,12 +117,10 @@ function makeFakeLogger(): {
 }
 
 /**
- * `recycleSlot` kicks off an async relaunch via a fire-and-forget IIFE.
- * Tests that observe post-recycle state need to await the in-flight
- * promise to settle. `shutdown()` already awaits `inFlightRecycles`, so
- * this helper is just `await pool.shutdown()` from the test side; here
- * we use a small drain helper for tests that want to observe state
- * without tearing the pool down.
+ * Flush pending microtasks `times` times so post-recycle state settles
+ * enough to observe without tearing the pool down. It does NOT advance real
+ * `setTimeout` backoff timers — tests that depend on backoff elapsing use
+ * `waitFor` instead.
  */
 async function drainMicrotasks(times = 5): Promise<void> {
   for (let i = 0; i < times; i++) {
@@ -316,13 +314,17 @@ describe("BrowserPool dead-instance detection", () => {
     await pool.shutdown();
   });
 
-  it("re-initializes the pool when every slot has been lost (size reaches 0)", async () => {
-    // 2-slot pool. Both browsers crash and EVERY relaunch attempt fails for
-    // both slots, driving the pool to size 0 so the backstop reinit() path
-    // is actually exercised. Each slot makes RELAUNCH_MAX_ATTEMPTS (=3)
-    // launch calls during recycle, so for 2 slots that is launch calls 3..8
-    // (init used calls 1 and 2). Failing 3..8 exhausts all retries and
-    // evicts both slots to leave size 0. Call 9 (the reinit) succeeds.
+  it("recovers a fully-parked pool (all slots relaunchPending, size 0) via the lazy relaunchPendingSlots path on the next acquire", async () => {
+    // 2-slot pool. Both browsers crash and EVERY immediate relaunch attempt
+    // fails for both slots. Each slot makes RELAUNCH_MAX_ATTEMPTS (=3) launch
+    // calls during recycle, so for 2 slots that is launch calls 3..8 (init
+    // used calls 1 and 2). Failing 3..8 exhausts every immediate retry and
+    // parks BOTH slots as `relaunchPending` — they are NOT evicted from
+    // `this.slots` (capacity is preserved), so `stats().size` reads 0 during
+    // the outage while the slots stay parked. Recovery is therefore via the
+    // lazy `relaunchPendingSlots()` path on the next acquire (launch call 9
+    // succeeds), NOT the `reinit()` backstop (which only fires when
+    // `this.slots` is truly empty). This test asserts that actual mechanism.
     const { launchBrowser, launched } = makeFakeLauncher({
       failAtCalls: [3, 4, 5, 6, 7, 8],
     });
@@ -334,17 +336,17 @@ describe("BrowserPool dead-instance detection", () => {
     launched[0]!.__crash();
     launched[1]!.__crash();
     // The recycle uses real setTimeout backoff between attempts, so give it
-    // a wall-clock window to exhaust all retries and park/evict both slots.
+    // a wall-clock window to exhaust all retries and park both slots.
     await waitFor(() => pool.stats().size === 0, 5_000);
 
-    // Precondition: prove the pool actually drained to zero so reinit() is
-    // the path under test (the old [3,4] fixture self-healed on attempt 2
-    // and never reached this state — the test was vacuous).
+    // Precondition: every slot is parked, so live capacity (`size`) reads 0
+    // during the outage. The slots themselves are retained — recovery comes
+    // through the relaunchPending path, not a from-scratch reinit.
     expect(pool.stats().size).toBe(0);
 
-    // With size 0, the next acquire() must trigger the backstop reinit
-    // (launch call 9 succeeds) and hand back a live browser instead of
-    // hanging until timeout.
+    // The next acquire() recovers the parked slots via relaunchPendingSlots
+    // (launch call 9 succeeds) and hands back a live browser instead of
+    // hanging until timeout. `size` returns to non-zero once recovered.
     const acquired = await pool.acquire(5_000);
     expect(acquired).toBeDefined();
     expect((acquired as unknown as FakeBrowser).isConnected()).toBe(true);

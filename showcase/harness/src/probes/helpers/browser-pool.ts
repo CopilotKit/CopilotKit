@@ -178,18 +178,32 @@ export class BrowserPool {
    */
   private track(promise: Promise<void>): Promise<void> {
     this.inFlightRecycles.add(promise);
-    promise.finally(() => {
-      this.inFlightRecycles.delete(promise);
-    });
-    return promise;
+    // Chain the cleanup onto what we return (and await), and absorb any throw
+    // with a logged `.catch` so it can never surface as an unhandled
+    // rejection. The inner methods swallow their own launch errors today, but
+    // a future throw inside reinitInner/relaunchPendingSlotsInner must stay
+    // contained — a recovery launch failing is non-fatal to the pool.
+    return promise
+      .catch((err: unknown) => {
+        this.logger?.info("browser-pool.recovery-failed", {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      })
+      .finally(() => {
+        this.inFlightRecycles.delete(promise);
+      });
   }
 
   /**
-   * Backstop re-initialization. Called from `acquire()` when the pool has
-   * drained to zero slots. Re-launches up to `poolSize` browsers, tolerating
-   * partial failure — even one fresh slot lets a waiting probe proceed. A
-   * total failure here surfaces to the caller via the normal acquire
-   * timeout / waiter-reject path rather than wedging the pool forever.
+   * Backstop re-initialization for the truly-empty pool. Called from
+   * `acquire()` only when `this.slots` is empty — i.e. nothing was ever
+   * launched (init never ran / launched nothing). This is NOT the all-slots-
+   * crashed recovery path: failed recycles keep their slots in `this.slots`
+   * (parked `relaunchPending`) and are recovered by `relaunchPendingSlots()`,
+   * so they never reach this backstop. Re-launches up to `poolSize` browsers,
+   * tolerating partial failure — even one fresh slot lets a waiting probe
+   * proceed. A total failure here surfaces to the caller via the normal
+   * acquire timeout / waiter-reject path rather than wedging the pool forever.
    */
   private async reinit(): Promise<void> {
     if (this.isShutdown || this.launchBrowser === undefined) return;
@@ -209,7 +223,10 @@ export class BrowserPool {
       try {
         const browser = await this.launchBrowser();
         if (this.isShutdown) {
-          await this.closeBrowser(browser, this.slots.length);
+          // This browser was never added to `this.slots`, so there is no real
+          // originating slot index. Pass -1 rather than a fabricated index
+          // (`this.slots.length`) that would masquerade as a live slot.
+          await this.closeBrowser(browser, -1);
           return;
         }
         const slot: Slot = { browser, contextCount: 0 };
@@ -321,10 +338,14 @@ export class BrowserPool {
       throw new Error("BrowserPool is shut down");
     }
 
-    // Backstop: if every slot has been lost (e.g. a burst of crashes whose
-    // relaunches all failed), the pool would otherwise be permanently empty
-    // and every acquire would time out. Re-initialize from scratch so the
-    // pool self-heals instead of draining to nothing.
+    // Backstop: only when `this.slots` is truly empty — nothing was ever
+    // launched (init() never ran or launched nothing) — does the pool have no
+    // slot to recover, so reinit from scratch. NOTE: a burst of crashes whose
+    // relaunches all fail does NOT empty `this.slots`; those slots are kept
+    // and parked as `relaunchPending`, and are recovered below via
+    // `relaunchPendingSlots()`, not here. (`stats().size` may read 0 in that
+    // state, but `size` does not gate this backstop — `this.slots.length`
+    // does.)
     if (this.slots.length === 0) {
       await this.reinit();
     } else {
@@ -452,9 +473,12 @@ export class BrowserPool {
   stats(): BrowserPoolStats {
     // `size` counts only live (non-pending) capacity. A slot parked as
     // `relaunchPending` holds a dead browser and is being recovered lazily,
-    // so it is not usable capacity and must not inflate `size`/`inUse`. This
-    // also makes the empty-pool backstop observable: when every slot is
-    // pending, `size` reads 0 (the condition under which acquire() recovers).
+    // so it is not usable capacity and must not inflate `size`/`inUse`. When
+    // every slot is pending, `size` reads 0 — that surfaces the outage to
+    // callers, but it is NOT what gates recovery. The parked slots remain in
+    // `this.slots`, so `acquire()` recovers them via `relaunchPendingSlots()`
+    // (the `this.slots.length === 0` reinit backstop is a separate
+    // never-launched case), not via this size reading.
     const liveSlots = this.slots.filter((s) => !s.relaunchPending);
     const availableCount = this.available.length;
     return {
