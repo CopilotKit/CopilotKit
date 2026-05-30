@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Card rendered for the synthetic `request_tool_approval` tool call that
+ * Card rendered for the synthetic `request_approval` tool call that
  * our app-side `ApprovalContentWireBridge` emits whenever Harness's
  * `ToolApprovalAgent` queues a `ToolApprovalRequestContent`.
  *
@@ -22,8 +22,17 @@ import {
   UseAgentUpdate,
 } from "@copilotkit/react-core/v2";
 
-import { PrimitiveWrapperBadge } from "@/components/control-room/PrimitiveWrapperBadge";
 import { CONTROL_ROOM_AGENT_NAME } from "@/hooks/use-control-room-state";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
 
 interface ApprovalRequestPayload {
   approval_id?: string;
@@ -79,7 +88,7 @@ export function HarnessApprovalCard({
   const initialState: LocalState =
     status === "complete" ? "resolved" : "pending";
   const [localState, setLocalState] = useState<LocalState>(initialState);
-  const [rememberChoice, setRememberChoice] = useState(false);
+  const [rememberChoice, setRememberChoice] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Detect whether the agent has already resolved this approval in the
@@ -145,92 +154,80 @@ export function HarnessApprovalCard({
   const isWaiting = canAct;
 
   return (
-    <div className="cr-tool-card" data-waiting={isWaiting ? "true" : undefined}>
-      {isWaiting && (
-        <div
-          className="flex items-center gap-2 border border-[var(--cr-amber)] bg-[color-mix(in_oklab,var(--cr-amber)_18%,var(--cr-surface-3))] px-3 py-1.5 text-[10.5px] font-semibold uppercase tracking-[0.18em] text-[var(--cr-amber)]"
-          style={{ fontFamily: "var(--cr-font-mono)" }}
-        >
-          <span aria-hidden>⏸</span>
-          <span>
-            Harness wants to call “{toolName}” — Approve or Reject to continue.
-          </span>
+    <Card
+      size="sm"
+      className={cn(
+        "my-3 max-w-3xl rounded-xl py-4 shadow-none ring-border",
+        isWaiting && "cr-pulse",
+      )}
+    >
+      <CardHeader>
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle className="mr-auto text-sm">
+            Approval · {toolName}
+          </CardTitle>
+          <StatusChip state={effectiveState} />
         </div>
-      )}
-      <header className="cr-tool-card__header">
-        <h3 className="cr-tool-card__title">Approval · {toolName}</h3>
-        <StatusChip state={effectiveState} />
-        <PrimitiveWrapperBadge />
-      </header>
-      <section className="cr-tool-card__section">
-        <div className="cr-tool-card__label">Proposed arguments</div>
-        <pre className="cr-pre max-h-[200px]">
-          {Object.keys(toolArgs).length === 0
-            ? "{}"
-            : JSON.stringify(toolArgs, null, 2)}
-        </pre>
-      </section>
-      {error && (
-        <p
-          className="text-[10.5px] uppercase tracking-[0.18em] text-[var(--cr-red)]"
-          style={{ fontFamily: "var(--cr-font-mono)" }}
-        >
-          {error}
-        </p>
-      )}
-      {effectiveState === "resolved" && !upstreamResolved && (
-        <p
-          className="text-[10.5px] uppercase tracking-[0.18em] text-[var(--cr-muted)]"
-          style={{ fontFamily: "var(--cr-font-mono)" }}
-        >
-          Already resolved this session.
-        </p>
-      )}
-      {(canAct || effectiveState === "submitting") && (
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => void submit(true)}
-              disabled={!canAct}
-              className="cr-btn"
-              data-variant="primary"
-            >
-              {effectiveState === "submitting" ? "Submitting…" : "Approve"}
-            </button>
-            <button
-              type="button"
-              onClick={() => void submit(false)}
-              disabled={!canAct}
-              className="cr-btn"
-              data-variant="ghost"
-            >
-              Reject
-            </button>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {isWaiting && (
+          <Badge variant="secondary" className="w-fit">
+            Harness wants to call {toolName}; approve or reject to continue
+          </Badge>
+        )}
+        <section className="space-y-1.5">
+          <div className="text-xs font-medium text-muted-foreground">
+            Proposed arguments
           </div>
-          <label
-            className="flex cursor-pointer items-center gap-2 text-[10.5px] uppercase tracking-[0.18em] text-[var(--cr-muted-2)]"
-            style={{ fontFamily: "var(--cr-font-mono)" }}
-          >
-            <input
-              type="checkbox"
-              checked={rememberChoice}
-              onChange={(event) => setRememberChoice(event.target.checked)}
-              disabled={!canAct}
-              className="accent-[var(--cr-amber)]"
-            />
-            Don’t ask again this session for “{toolName}”
-          </label>
-        </div>
-      )}
-      <p
-        className="text-[10px] uppercase tracking-[0.18em] text-[var(--cr-muted)]"
-        style={{ fontFamily: "var(--cr-font-mono)" }}
-      >
-        Approval rule persists in Harness session state ·{" "}
-        <code>{approvalId ?? "no-id"}</code>
-      </p>
-    </div>
+          <pre className="max-h-[200px] overflow-auto rounded-lg border bg-muted p-3 font-mono text-xs">
+            {Object.keys(toolArgs).length === 0
+              ? "{}"
+              : JSON.stringify(toolArgs, null, 2)}
+          </pre>
+        </section>
+        {error && <p className="text-xs text-destructive">{error}</p>}
+        {effectiveState === "resolved" && !upstreamResolved && (
+          <p className="text-xs text-muted-foreground">
+            Already resolved this session.
+          </p>
+        )}
+        {(canAct || effectiveState === "submitting") && (
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                onClick={() => void submit(true)}
+                disabled={!canAct}
+                size="sm"
+              >
+                {effectiveState === "submitting" ? "Submitting..." : "Approve"}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void submit(false)}
+                disabled={!canAct}
+                variant="outline"
+                size="sm"
+              >
+                Reject
+              </Button>
+            </div>
+            <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+              <Checkbox
+                checked={rememberChoice}
+                onCheckedChange={(checked) => setRememberChoice(checked === true)}
+                disabled={!canAct}
+              />
+              Remember approval for {toolName} this session
+            </label>
+          </div>
+        )}
+        <p className="text-xs text-muted-foreground">
+          Approval rule persists in Harness session state ·{" "}
+          <code>{approvalId ?? "no-id"}</code>
+        </p>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -256,8 +253,17 @@ function StatusChip({ state }: { state: LocalState }) {
             ? "resolved"
             : "waiting";
   return (
-    <span className="cr-chip" data-tone={tone}>
+    <Badge
+      variant={
+        state === "approved"
+          ? "default"
+          : state === "rejected"
+            ? "destructive"
+            : "outline"
+      }
+      className="text-[10px]"
+    >
       {label}
-    </span>
+    </Badge>
   );
 }

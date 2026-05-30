@@ -1,16 +1,13 @@
-/**
- * Compact "wrapper" chip used on inspector cards whose data is delivered
- * through an app-owned shim rather than a native AG-UI primitive. The full
- * explanation lives in the hover tooltip so the chip itself can stay tiny.
- */
+import { Badge } from "@/components/ui/badge";
 
 export function PrimitiveWrapperBadge() {
   return (
-    <span
-      className="cr-wrapper-badge"
+    <Badge
+      variant="outline"
+      className="h-5 text-[10px]"
       title="Live wrapper — app-owned implementation pending native Harness AG-UI support."
     >
       wrapper
-    </span>
+    </Badge>
   );
 }

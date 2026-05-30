@@ -3,6 +3,18 @@ import type { ReactNode } from "react";
 
 import "@copilotkit/react-ui/v2/styles.css";
 import "./globals.css";
+import { Inter, Geist_Mono } from "next/font/google";
+import { cn } from "@/lib/utils";
+
+const geistMonoHeading = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-heading",
+});
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-sans",
+});
 
 export const metadata: Metadata = {
   title: "MS Agent Harness Control Room",
@@ -16,19 +28,10 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@500;600;700&display=swap"
-          rel="stylesheet"
-        />
-      </head>
+    <html
+      lang="en"
+      className={cn("font-sans", inter.variable, geistMonoHeading.variable)}
+    >
       <body>{children}</body>
     </html>
   );

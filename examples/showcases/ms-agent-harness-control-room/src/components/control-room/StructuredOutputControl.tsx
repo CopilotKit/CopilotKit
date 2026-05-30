@@ -16,6 +16,14 @@
 
 import { useSendUserMessage } from "@/hooks/use-control-room-state";
 import { fixtureDiagnosisResponseFormat } from "@/lib/fixture-diagnosis-schema";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 const DIAGNOSIS_PROMPT =
   "Emit a structured diagnosis of the current fixture: " +
@@ -34,23 +42,28 @@ export function StructuredOutputControl() {
   };
 
   return (
-    <div>
-      <h3 className="cr-heading mb-2">Structured output</h3>
-      <button
-        type="button"
-        onClick={runStructured}
-        disabled={isRunning}
-        className="cr-btn w-full"
-        data-variant="ghost"
-      >
-        Run structured diagnosis
-      </button>
-      <p
-        className="mt-2 text-[10px] uppercase leading-snug tracking-[0.18em] text-[var(--cr-muted)]"
-        style={{ fontFamily: "var(--cr-font-mono)" }}
-      >
-        Per-turn JSON schema · pinned via forwardedProps
-      </p>
-    </div>
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle>Structured output</CardTitle>
+        <CardDescription>
+          Ask for a JSON diagnosis using the pinned schema.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <Button
+          type="button"
+          onClick={runStructured}
+          disabled={isRunning}
+          className="w-full"
+          variant="outline"
+          size="sm"
+        >
+          Run structured diagnosis
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          Uses per-turn `forwardedProps.responseFormat`.
+        </p>
+      </CardContent>
+    </Card>
   );
 }

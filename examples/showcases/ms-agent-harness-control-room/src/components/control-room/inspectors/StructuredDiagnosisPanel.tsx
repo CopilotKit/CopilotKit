@@ -24,60 +24,88 @@
  */
 
 import { useControlRoomAgentState } from "@/hooks/use-control-room-state";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export function StructuredDiagnosisPanel() {
   const { structuredDiagnosis } = useControlRoomAgentState();
 
   return (
-    <div className="cr-card">
-      <h3 className="cr-heading mb-2">Structured diagnosis</h3>
-      {!structuredDiagnosis ? (
-        <p
-          className="text-[10.5px] uppercase leading-snug tracking-[0.18em] text-[var(--cr-muted)]"
-          style={{ fontFamily: "var(--cr-font-mono)" }}
-        >
-          No structured response yet · trigger one via the left pane
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle>Structured diagnosis</CardTitle>
+        <CardDescription>
+          Latest schema-constrained diagnosis from the agent.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {!structuredDiagnosis ? (
+          <p className="text-xs text-muted-foreground">
+            No structured response yet. Trigger one from this drawer.
+          </p>
+        ) : (
+          <dl className="space-y-3 text-sm">
+            <div className="space-y-1">
+              <dt className="text-xs font-medium text-muted-foreground">
+                Summary
+              </dt>
+              <dd className="leading-snug text-foreground">
+                {structuredDiagnosis.payload.summary}
+              </dd>
+            </div>
+            <div className="space-y-1">
+              <dt className="text-xs font-medium text-muted-foreground">
+                Fix file
+              </dt>
+              <dd>
+                <Badge variant="outline">
+                  {structuredDiagnosis.payload.fix.file}
+                </Badge>
+              </dd>
+            </div>
+            <div className="space-y-1">
+              <dt className="text-xs font-medium text-muted-foreground">
+                Change
+              </dt>
+              <dd className="leading-snug text-foreground">
+                {structuredDiagnosis.payload.fix.change}
+              </dd>
+            </div>
+            <div className="space-y-1">
+              <dt className="text-xs font-medium text-muted-foreground">
+                Verify
+              </dt>
+              <dd className="flex flex-wrap gap-2">
+                <Badge variant="outline">
+                  pnpm_run ·{" "}
+                  {structuredDiagnosis.payload.verification.test_command}
+                </Badge>
+                <Badge
+                  variant="outline"
+                  className={
+                    structuredDiagnosis.payload.verification
+                      .expected_exit_code === 0
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      : "border-amber-200 bg-amber-50 text-amber-700"
+                  }
+                >
+                  exit{" "}
+                  {structuredDiagnosis.payload.verification.expected_exit_code}
+                </Badge>
+              </dd>
+            </div>
+          </dl>
+        )}
+        <p className="text-xs text-muted-foreground">
+          Per-turn directive via `forwardedProps.responseFormat`.
         </p>
-      ) : (
-        <dl className="cr-dl">
-          <dt>Summary</dt>
-          <dd className="leading-snug">
-            {structuredDiagnosis.payload.summary}
-          </dd>
-          <dt>Fix file</dt>
-          <dd className="text-[var(--cr-amber)]">
-            {structuredDiagnosis.payload.fix.file}
-          </dd>
-          <dt>Change</dt>
-          <dd className="leading-snug">
-            {structuredDiagnosis.payload.fix.change}
-          </dd>
-          <dt>Verify</dt>
-          <dd>
-            <span className="cr-chip" style={{ fontSize: "10px" }}>
-              pnpm_run · {structuredDiagnosis.payload.verification.test_command}
-            </span>
-            <span
-              className="ml-2 cr-chip"
-              style={{ fontSize: "10px" }}
-              data-tone={
-                structuredDiagnosis.payload.verification.expected_exit_code ===
-                0
-                  ? "emerald"
-                  : "amber"
-              }
-            >
-              exit {structuredDiagnosis.payload.verification.expected_exit_code}
-            </span>
-          </dd>
-        </dl>
-      )}
-      <p
-        className="mt-3 text-[10px] uppercase tracking-[0.18em] text-[var(--cr-muted)]"
-        style={{ fontFamily: "var(--cr-font-mono)" }}
-      >
-        Per-turn directive via `forwardedProps.responseFormat`
-      </p>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

@@ -6,14 +6,18 @@
  */
 
 import { useControlRoomAgentState } from "@/hooks/use-control-room-state";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function MemoryPanel() {
   const agentState = useControlRoomAgentState();
   const entries = Array.isArray(agentState.memory) ? agentState.memory : [];
 
   return (
-    <div className="cr-card">
-      <h3 className="cr-heading mb-2">Memory</h3>
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle>Memory</CardTitle>
+      </CardHeader>
+      <CardContent>
       {entries.length === 0 ? (
         <p
           className="text-[10.5px] uppercase tracking-[0.18em] text-[var(--cr-muted)]"
@@ -50,6 +54,7 @@ export function MemoryPanel() {
           </tbody>
         </table>
       )}
-    </div>
+      </CardContent>
+    </Card>
   );
 }

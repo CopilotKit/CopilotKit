@@ -16,6 +16,14 @@ import {
   useControlRoomLocal,
 } from "@/hooks/use-control-room-state";
 import type { ControlRoomObserverSnapshotDto } from "@/lib/control-room-types";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 function ObserverCard({
   title,
@@ -25,13 +33,15 @@ function ObserverCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="cr-card">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h3 className="cr-heading">{title}</h3>
-        <PrimitiveWrapperBadge />
-      </div>
-      {children}
-    </div>
+    <Card size="sm">
+      <CardHeader>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle>{title}</CardTitle>
+          <PrimitiveWrapperBadge />
+        </div>
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
   );
 }
 
@@ -44,11 +54,8 @@ export function RepoObserverPanel() {
         <dt>Files tracked</dt>
         <dd>{observers?.repo_file_count ?? "—"}</dd>
       </dl>
-      <p
-        className="mt-2 text-[10px] uppercase tracking-[0.18em] text-[var(--cr-muted)]"
-        style={{ fontFamily: "var(--cr-font-mono)" }}
-      >
-        Recent paths via `observer_snapshot` tool
+      <p className="mt-2 text-xs text-muted-foreground">
+        Recent paths come from Harness file-access events.
       </p>
     </ObserverCard>
   );
@@ -79,11 +86,8 @@ export function TestObserverPanel() {
 export function ToolObserverPanel() {
   return (
     <ObserverCard title="Tool observer">
-      <p
-        className="text-[10px] uppercase leading-snug tracking-[0.18em] text-[var(--cr-muted)]"
-        style={{ fontFamily: "var(--cr-font-mono)" }}
-      >
-        Tool-call summaries surface inline in the workstream when fired
+      <p className="text-xs text-muted-foreground">
+        Tool-call summaries appear inline in the workstream when fired.
       </p>
     </ObserverCard>
   );
@@ -92,11 +96,8 @@ export function ToolObserverPanel() {
 export function StateObserverPanel() {
   return (
     <ObserverCard title="State observer">
-      <p
-        className="text-[10px] uppercase leading-snug tracking-[0.18em] text-[var(--cr-muted)]"
-        style={{ fontFamily: "var(--cr-font-mono)" }}
-      >
-        Latest snapshot validity reports through `observer_snapshot`
+      <p className="text-xs text-muted-foreground">
+        Snapshot status comes from the latest Harness state and tool events.
       </p>
     </ObserverCard>
   );
@@ -109,27 +110,29 @@ export function FeatureAutodetectPanel() {
     live_wrappers?: string[];
   } | null;
   return (
-    <div className="cr-card">
-      <h3 className="cr-heading mb-2">Feature autodetection</h3>
-      {!support ? (
-        <p
-          className="text-[10px] uppercase tracking-[0.18em] text-[var(--cr-muted)]"
-          style={{ fontFamily: "var(--cr-font-mono)" }}
-        >
-          Awaiting capability handshake…
-        </p>
-      ) : (
-        <>
-          <FeatureList label="Native" items={support.native ?? []} />
-          <div className="mt-3">
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle>Feature autodetection</CardTitle>
+        <CardDescription>
+          Capabilities exposed by the current endpoint.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {!support ? (
+          <p className="text-xs text-muted-foreground">
+            Awaiting capability handshake.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            <FeatureList label="Native" items={support.native ?? []} />
             <FeatureList
               label="Live wrappers"
               items={support.live_wrappers ?? []}
             />
           </div>
-        </>
-      )}
-    </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -137,29 +140,27 @@ function FeatureList({ label, items }: { label: string; items: string[] }) {
   const safe = Array.isArray(items) ? items : [];
   return (
     <div>
-      <div
-        className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--cr-muted-2)]"
-        style={{ fontFamily: "var(--cr-font-mono)" }}
-      >
+      <div className="text-xs font-medium text-muted-foreground">
         {label}
       </div>
       {safe.length === 0 ? (
-        <p
-          className="mt-1 text-[10.5px] uppercase tracking-[0.18em] text-[var(--cr-muted)]"
-          style={{ fontFamily: "var(--cr-font-mono)" }}
-        >
-          (none)
+        <p className="mt-1 text-xs text-muted-foreground">
+          None reported.
         </p>
       ) : (
         <ul className="mt-1.5 flex flex-wrap gap-1.5">
           {safe.map((item) => (
-            <li
-              key={item}
-              className="cr-chip"
-              style={{ fontSize: "9.5px" }}
-              data-tone={label === "Native" ? "emerald" : undefined}
-            >
-              {item}
+            <li key={item}>
+              <Badge
+                variant="outline"
+                className={
+                  label === "Native"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : undefined
+                }
+              >
+                {item}
+              </Badge>
             </li>
           ))}
         </ul>

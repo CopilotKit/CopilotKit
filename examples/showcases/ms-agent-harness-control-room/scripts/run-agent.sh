@@ -9,11 +9,11 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
-if [ ! -f ".env" ] && [ -z "$GITHUB_TOKEN" ]; then
+if [ ! -f ".env" ] && [ -z "$OPENAI_API_KEY" ]; then
     echo ""
-    echo "ERROR: GITHUB_TOKEN is not set."
+    echo "ERROR: OPENAI_API_KEY is not set."
     echo "  cp .env.example .env"
-    echo "  then put a GitHub Models token in .env (gh auth token will print one)."
+    echo "  then put an OpenAI API key in .env."
     echo ""
     exit 1
 fi

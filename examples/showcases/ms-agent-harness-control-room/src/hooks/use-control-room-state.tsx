@@ -11,11 +11,11 @@
  *     and a reconnect counter that children can bump. None of this is
  *     replicated to the agent — it's pure UI.
  *
- *  2. **Live agent state** — owned by the Microsoft Agent Harness providers
- *     (Todo, AgentMode, FileMemory, etc.) and exposed via v2's `useAgent` hook
- *     which subscribes to `state` change notifications from `@ag-ui/client`'s
- *     `AbstractAgent`. We re-export a thin helper `useControlRoomAgentState`
- *     so panels don't need to wire `UseAgentUpdate.OnStateChanged` each time.
+ *  2. **Live agent evidence** — owned by the Microsoft Agent Harness providers
+ *     (Todo, AgentMode, FileMemory, etc.) and reconstructed from AG-UI
+ *     messages until Harness providers emit native STATE_SNAPSHOT /
+ *     STATE_DELTA events. We re-export a thin helper
+ *     `useControlRoomAgentState` so panels don't need to scan messages.
  */
 
 import {
@@ -47,6 +47,13 @@ export const CONTROL_ROOM_INITIAL_STATE: ControlRoomStateSnapshot = {
   mode: "Plan",
   todos: [],
   memory: [],
+  approvals: {
+    total: 0,
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+    lastToolName: null,
+  },
   observers: null,
   features: null,
 };
@@ -208,6 +215,7 @@ function deriveAgentSnapshot(
   const mode = deriveMode(calls);
   const todos = deriveTodos(calls);
   const memory = deriveMemory(calls);
+  const approvals = deriveApprovals(calls);
   const skills = deriveSkills(calls);
   const observers = deriveObservers(calls);
   const structuredDiagnosis = deriveStructuredDiagnosis(msgArray);
@@ -217,6 +225,7 @@ function deriveAgentSnapshot(
     mode,
     todos,
     memory,
+    approvals,
     skills,
     structuredDiagnosis,
     observers,
@@ -355,6 +364,45 @@ function deriveMemory(
     }
   }
   return [...entries.entries()].map(([key, value]) => ({ key, value }));
+}
+
+function deriveApprovals(
+  calls: ToolCallSnapshot[],
+): ControlRoomStateSnapshot["approvals"] {
+  let total = 0;
+  let approved = 0;
+  let rejected = 0;
+  let lastToolName: string | null = null;
+
+  for (const call of calls) {
+    if (call.name !== "request_approval") continue;
+    total += 1;
+    const payload = parseApprovalRequest(call.args);
+    if (payload?.function_name) lastToolName = payload.function_name;
+
+    if (!call.result) continue;
+    const parsed = safeJsonParse(call.result) as {
+      approved?: boolean;
+    } | null;
+    if (parsed?.approved === true) approved += 1;
+    if (parsed?.approved === false) rejected += 1;
+  }
+
+  return {
+    total,
+    pending: Math.max(0, total - approved - rejected),
+    approved,
+    rejected,
+    lastToolName,
+  };
+}
+
+function parseApprovalRequest(args: Record<string, unknown>): {
+  function_name?: string;
+} | null {
+  const raw = args.request_json;
+  if (typeof raw !== "string") return null;
+  return safeJsonParse(raw) as { function_name?: string } | null;
 }
 
 function deriveSkills(

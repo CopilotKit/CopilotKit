@@ -13,6 +13,15 @@ import type { FormEvent } from "react";
 
 import { useControlRoomLocal } from "@/hooks/use-control-room-state";
 import { isAllowedEndpoint, normalizeEndpoint } from "@/lib/endpoint";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 
 export function EndpointSelector() {
   const { localState, setEndpoint } = useControlRoomLocal();
@@ -34,42 +43,37 @@ export function EndpointSelector() {
   };
 
   return (
-    <div>
-      <h3 className="cr-heading mb-2">Endpoint</h3>
-      <p
-        className="mb-2 truncate text-[11px] text-[var(--cr-muted-2)]"
-        style={{ fontFamily: "var(--cr-font-mono)" }}
-        title={localState.currentEndpoint}
-      >
-        {localState.currentEndpoint}
-      </p>
-      <form onSubmit={onSubmit} className="flex gap-2">
-        <input
-          type="url"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder="http://localhost:8000/"
-          spellCheck={false}
-          className="cr-input min-w-0 flex-1"
-        />
-        <button
-          type="submit"
-          disabled={draft.trim().length === 0}
-          className="cr-btn"
-          data-variant="primary"
-        >
-          Connect
-        </button>
-      </form>
-      {error ? (
-        <p
-          className="mt-2 text-[10.5px] text-[var(--cr-red)]"
-          role="alert"
-          style={{ fontFamily: "var(--cr-font-mono)" }}
-        >
-          {error}
-        </p>
-      ) : null}
-    </div>
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle>Endpoint</CardTitle>
+        <CardDescription className="truncate" title={localState.currentEndpoint}>
+          Current: {localState.currentEndpoint}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <form onSubmit={onSubmit} className="flex gap-2">
+          <Input
+            type="url"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="http://localhost:8000/"
+            spellCheck={false}
+            className="min-w-0 flex-1"
+          />
+          <Button
+            type="submit"
+            disabled={draft.trim().length === 0}
+            size="sm"
+          >
+            Connect
+          </Button>
+        </form>
+        {error ? (
+          <p className="text-xs text-destructive" role="alert">
+            {error}
+          </p>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }

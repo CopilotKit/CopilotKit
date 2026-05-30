@@ -22,7 +22,7 @@ export function CodeBlock({
 }: CodeBlockProps) {
   return (
     <div
-      className={`overflow-auto rounded border border-[var(--cr-rule)] bg-[var(--cr-surface-3)] text-[11.5px] leading-snug ${className}`}
+      className={`overflow-auto rounded-lg border border-zinc-800 bg-zinc-950 text-[11.5px] leading-snug text-zinc-50 ${className}`}
       style={{ maxHeight, fontFamily: "var(--cr-font-mono)" }}
     >
       <ShikiHighlighter

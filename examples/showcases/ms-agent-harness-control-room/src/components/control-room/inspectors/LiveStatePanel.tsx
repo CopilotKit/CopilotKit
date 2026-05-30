@@ -10,14 +10,18 @@
  */
 
 import { useControlRoomAgentState } from "@/hooks/use-control-room-state";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function LiveStatePanel() {
   const agentState = useControlRoomAgentState();
   const observers = agentState.observers ?? null;
 
   return (
-    <div className="cr-card">
-      <h3 className="cr-heading mb-2">Live state</h3>
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle>Live state</CardTitle>
+      </CardHeader>
+      <CardContent>
       <dl className="cr-dl">
         <dt>Mode</dt>
         <dd>{agentState.mode}</dd>
@@ -34,6 +38,7 @@ export function LiveStatePanel() {
               : "no"}
         </dd>
       </dl>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

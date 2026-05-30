@@ -7,14 +7,19 @@
 
 import { useControlRoomAgentState } from "@/hooks/use-control-room-state";
 import type { ControlRoomTodo } from "@/lib/control-room-types";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function TodoPanel() {
   const agentState = useControlRoomAgentState();
   const todos = Array.isArray(agentState.todos) ? agentState.todos : [];
 
   return (
-    <div className="cr-card">
-      <h3 className="cr-heading mb-2">Todos</h3>
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle>Todos</CardTitle>
+      </CardHeader>
+      <CardContent>
       {todos.length === 0 ? (
         <p
           className="text-[10.5px] uppercase tracking-[0.18em] text-[var(--cr-muted)]"
@@ -29,7 +34,8 @@ export function TodoPanel() {
           ))}
         </ul>
       )}
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -48,9 +54,12 @@ function TodoRow({ todo }: { todo: ControlRoomTodo }) {
         : "queued";
   return (
     <li className="flex items-start gap-2 text-[11.5px] leading-snug">
-      <span className="cr-chip" data-tone={tone}>
+      <Badge
+        variant={tone === "emerald" ? "default" : "outline"}
+        className="shrink-0 text-[10px]"
+      >
         {label}
-      </span>
+      </Badge>
       <span
         className={
           todo.status === "completed"

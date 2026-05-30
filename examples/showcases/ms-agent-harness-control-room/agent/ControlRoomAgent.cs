@@ -11,9 +11,9 @@ namespace MsAgentHarnessControlRoom.Agent;
 /// <summary>
 /// Builds the Control Room agent on top of the Microsoft Agent Harness, wired to
 /// OpenAI's Responses API. Harness pre-configures the AgentMode, Todo,
-/// FileMemory, ToolApproval, AgentSkills, and Shell providers — so this factory
-/// only supplies the chat client, the fixture-focused instructions, and an
-/// OpenAI-direct API key.
+/// FileAccess, FileMemory, ToolApproval, and AgentSkills providers — so this
+/// factory supplies the chat client, fixture-focused instructions, and one
+/// narrow approval-gated `pnpm_run` shell substitute.
 /// </summary>
 internal sealed class ControlRoomAgentFactory
 {
@@ -81,7 +81,7 @@ internal sealed class ControlRoomAgentFactory
         // Gate every pnpm_run invocation through Harness's ToolApprovalAgent.
         // The wrapper makes the function emit a ToolApprovalRequestContent on
         // each call; our ApprovalContentWireBridge converts that into a
-        // synthetic `request_tool_approval` tool call so it crosses the
+        // synthetic `request_approval` tool call so it crosses the
         // AG-UI wire and a Harness approval card renders in the cockpit.
         var gatedPnpmTool = new ApprovalRequiredAIFunction(pnpmTool);
 
@@ -93,10 +93,8 @@ internal sealed class ControlRoomAgentFactory
                 Name = AgentName,
                 Description =
                     "Control Room agent — plans, executes, and self-checks fixes against a " +
-                    "fixture repository with HITL approvals on every shell command, file " +
-                    "write, and patch application.",
-                // Sandbox file access to the fixture root; HITL approvals are
-                // enabled by default for any write. FileAccessProvider rejects
+                    "fixture repository with HITL approvals on every shell command.",
+                // Sandbox file access to the fixture root. FileAccessProvider rejects
                 // reads and writes outside this directory.
                 FileAccessStore = new FileSystemAgentFileStore(fixtureRoot),
                 // File memory lives in a separate directory so it survives
@@ -112,7 +110,7 @@ internal sealed class ControlRoomAgentFactory
             });
 
         // Outermost wrapper: app-owned content-bridge that converts
-        // ToolApprovalRequestContent ↔ a synthetic `request_tool_approval`
+        // ToolApprovalRequestContent ↔ a synthetic `request_approval`
         // function-call so the AG-UI wire (which only serialises function-
         // calls + text) can carry the approval flow end-to-end.
         return new ApprovalContentWireBridge(harnessAgent);
@@ -218,7 +216,39 @@ internal sealed class ControlRoomAgentFactory
             ?? AppContext.BaseDirectory;
         var fixtureRoot = Path.Combine(exampleRoot, ".control-room-fixture");
         Directory.CreateDirectory(fixtureRoot);
+        SeedFixtureIfEmpty(exampleRoot, fixtureRoot);
         return fixtureRoot;
+    }
+
+    private static void SeedFixtureIfEmpty(string exampleRoot, string fixtureRoot)
+    {
+        if (Directory.EnumerateFileSystemEntries(fixtureRoot).Any())
+        {
+            return;
+        }
+
+        var templateRoot = Path.Combine(exampleRoot, "fixture-template");
+        if (!Directory.Exists(templateRoot))
+        {
+            return;
+        }
+
+        CopyDirectory(templateRoot, fixtureRoot);
+    }
+
+    private static void CopyDirectory(string source, string destination)
+    {
+        foreach (var dir in Directory.EnumerateDirectories(source, "*", SearchOption.AllDirectories))
+        {
+            Directory.CreateDirectory(Path.Combine(destination, Path.GetRelativePath(source, dir)));
+        }
+
+        foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+        {
+            var dest = Path.Combine(destination, Path.GetRelativePath(source, file));
+            Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+            File.Copy(file, dest, overwrite: true);
+        }
     }
 
     private static string BuildInstructions() => """
@@ -234,18 +264,18 @@ internal sealed class ControlRoomAgentFactory
 
         ## Workflow
 
-        1. Inspect the fixture: list files, read `src/calculator.ts` and
-           `src/calculator.test.ts`. Identify the bug.
+        1. Inspect the fixture: list files, read `calculator.ts` and
+           `calculator.test.ts`. Identify the bug.
         2. Capture your plan as todos (Harness's TodoProvider).
-        3. Switch into Act mode and propose a minimal patch. Request approval
-           before applying.
+        3. Switch into Act mode and apply the minimal patch to `calculator.ts`.
         4. After the patch lands, call the `pnpm_run` tool with command "test".
            If it reports missing dependencies, first run `pnpm_run` with
            command "install", then re-run "test".
         5. Call `pnpm_run` with command "test:coverage" for the final
            verification.
-        6. Switch to Review mode. Save a short post-mortem to file memory so it
-           survives compaction.
+        6. Save a short review/handoff post-mortem to file memory so it
+           survives compaction. The Harness mode provider currently exposes
+           Plan and Act/Execute modes; do not claim a separate Review mode.
 
         ## Tools
 

@@ -1,22 +1,34 @@
 "use client";
 
 /**
- * Card rendered for `command_run_registered` tool calls.
+ * Card rendered for shell tool calls, including the Harness-gated `pnpm_run`
+ * function used by the stage fixture.
  *
  * The Control Room agent's shell-execution path is a *live wrapper*: the
- * agent gates `shell.execute` behind an approval primitive and runs the
- * resolved command on the host. That wrapper status is surfaced via the
+ * agent gates `pnpm_run` behind Harness's ToolApproval primitive and runs the
+ * resolved command in the fixture sandbox. That wrapper status is surfaced via the
  * `<PrimitiveWrapperBadge />`.
  */
 
-import { PrimitiveWrapperBadge } from "@/components/control-room/PrimitiveWrapperBadge";
 import { CodeBlock } from "@/components/control-room/renderers/CodeBlock";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import type { CommandExecutionResult } from "@/lib/control-room-types";
 
 interface ShellOutputCardProps {
-  args?: { command_name?: string; approval_token?: string };
+  args?: { command?: string; command_name?: string; approval_token?: string };
   status?: string;
-  result?: CommandExecutionResult;
+  result?: CommandExecutionResult & {
+    exitCode?: number;
+    timedOut?: boolean;
+    stdout?: string;
+    stderr?: string;
+  };
 }
 
 const TRUNCATION_MARKER = "[truncated to 12000 chars]";
@@ -26,48 +38,56 @@ export function ShellOutputCard({
   status,
   result,
 }: ShellOutputCardProps) {
-  // Hide the card while the underlying tool is still in flight — at this point
-  // the matching command_request_approval card is what the user should be
-  // focused on. Rendering a "waiting" placeholder here just looks like a second
-  // step is independently progressing, which confuses the approval gate.
+  // Hide the card while the underlying tool is still in flight. The approval
+  // card is the important presenter moment; a second "waiting" shell card
+  // makes the gate look like two independent steps.
   if (!result && status !== "complete") {
     return null;
   }
 
-  const commandLabel = args?.command_name ?? result?.command ?? "shell command";
-  const exitCode = result?.exit_code;
-  const timedOut = result?.timed_out ?? false;
+  const commandLabel =
+    args?.command ?? args?.command_name ?? result?.command ?? "shell command";
+  const exitCode = result?.exit_code ?? result?.exitCode;
+  const timedOut = result?.timed_out ?? result?.timedOut ?? false;
   const stdout = result?.stdout ?? "";
   const stderr = result?.stderr ?? "";
   const showTruncation =
     stdout.includes(TRUNCATION_MARKER) || stderr.includes(TRUNCATION_MARKER);
 
   return (
-    <div className="cr-tool-card">
-      <header className="cr-tool-card__header">
-        <h3 className="cr-tool-card__title">Shell · {commandLabel}</h3>
-        <StatusBadge status={status} success={result?.success} />
-        <PrimitiveWrapperBadge />
-      </header>
-      <dl className="cr-dl">
-        <dt>Exit code</dt>
-        <dd>{exitCode == null ? "—" : exitCode}</dd>
-        <dt>Timed out</dt>
-        <dd>{timedOut ? "yes" : "no"}</dd>
-      </dl>
-      {showTruncation && (
-        <p
-          className="text-[10.5px] uppercase tracking-[0.18em] text-[var(--cr-amber)]"
-          style={{ fontFamily: "var(--cr-font-mono)" }}
-        >
-          Output truncated to 12000 chars by the live wrapper.
-        </p>
-      )}
-      {stdout.length > 0 && <OutputBlock label="stdout" body={stdout} />}
-      {stderr.length > 0 && (
-        <OutputBlock label="stderr" body={stderr} tone="error" />
-      )}
-    </div>
+    <Card
+      size="sm"
+      className="my-3 max-w-3xl rounded-xl py-4 shadow-none ring-border"
+    >
+      <CardHeader>
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle className="mr-auto text-sm">
+            Shell · {commandLabel}
+          </CardTitle>
+          <StatusBadge
+            status={status}
+            success={result?.success ?? exitCode === 0}
+          />
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
+          <dt className="text-muted-foreground">Exit code</dt>
+          <dd>{exitCode == null ? "—" : exitCode}</dd>
+          <dt className="text-muted-foreground">Timed out</dt>
+          <dd>{timedOut ? "yes" : "no"}</dd>
+        </dl>
+        {showTruncation && (
+          <Badge variant="secondary" className="w-fit">
+            Output truncated to 12000 chars by the live wrapper
+          </Badge>
+        )}
+        {stdout.length > 0 && <OutputBlock label="stdout" body={stdout} />}
+        {stderr.length > 0 && (
+          <OutputBlock label="stderr" body={stderr} tone="error" />
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -95,9 +115,20 @@ function StatusBadge({
           ? "amber"
           : undefined;
   return (
-    <span className="cr-chip" data-tone={tone}>
+    <Badge
+      variant="outline"
+      className={
+        tone === "emerald"
+          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+          : tone === "red"
+            ? "border-red-200 bg-red-50 text-red-700"
+            : tone === "amber"
+              ? "border-amber-200 bg-amber-50 text-amber-700"
+              : undefined
+      }
+    >
       {label}
-    </span>
+    </Badge>
   );
 }
 
@@ -111,8 +142,8 @@ function OutputBlock({
   tone?: "error";
 }) {
   return (
-    <section className="cr-tool-card__section">
-      <div className="cr-tool-card__label">{label}</div>
+    <section className="space-y-1.5">
+      <div className="text-xs font-medium text-muted-foreground">{label}</div>
       <CodeBlock
         code={body}
         language="bash"

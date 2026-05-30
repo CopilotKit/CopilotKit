@@ -9,6 +9,15 @@
  * dependency just for this showcase demo.
  */
 
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { CodeBlock } from "@/components/control-room/renderers/CodeBlock";
+
 interface GeneratedResultCardProps {
   args?: {
     title?: string;
@@ -40,35 +49,38 @@ export function GeneratedResultCard({
   const showSpinner = status !== "complete" && !result;
 
   return (
-    <div className="cr-tool-card">
-      <header className="cr-tool-card__header">
-        <h3 className="cr-tool-card__title">{title}</h3>
-        <StatusPill status={cardStatus} />
-      </header>
-      <section className="cr-tool-card__section">
-        <div className="cr-tool-card__label">
-          Markdown source (rendered as plain text)
+    <Card
+      size="sm"
+      className="my-3 max-w-3xl rounded-xl py-4 shadow-none ring-border"
+    >
+      <CardHeader>
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle className="mr-auto text-sm">{title}</CardTitle>
+          <StatusPill status={cardStatus} />
         </div>
-        {showSpinner ? (
-          <p
-            className="text-[10.5px] uppercase tracking-[0.18em] text-[var(--cr-muted)]"
-            style={{ fontFamily: "var(--cr-font-mono)" }}
-          >
-            Awaiting generated output…
-          </p>
-        ) : (
-          <pre className="cr-pre max-h-[320px]">{body || "(empty body)"}</pre>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <section className="space-y-1.5">
+          <div className="text-xs font-medium text-muted-foreground">
+            Markdown source
+          </div>
+          {showSpinner ? (
+            <p className="text-xs text-muted-foreground">
+              Awaiting generated output...
+            </p>
+          ) : (
+            <CodeBlock
+              code={body || "(empty body)"}
+              language="markdown"
+              maxHeight={320}
+            />
+          )}
+        </section>
+        {timestamp && (
+          <p className="text-xs text-muted-foreground">Emitted at {timestamp}</p>
         )}
-      </section>
-      {timestamp && (
-        <p
-          className="text-[10px] uppercase tracking-[0.18em] text-[var(--cr-muted)]"
-          style={{ fontFamily: "var(--cr-font-mono)" }}
-        >
-          Emitted at {timestamp}
-        </p>
-      )}
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -76,8 +88,17 @@ function StatusPill({ status }: { status: string }) {
   const tone =
     status === "success" ? "emerald" : status === "failure" ? "red" : "amber";
   return (
-    <span className="cr-chip" data-tone={tone}>
+    <Badge
+      variant="outline"
+      className={
+        tone === "emerald"
+          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+          : tone === "red"
+            ? "border-red-200 bg-red-50 text-red-700"
+            : "border-amber-200 bg-amber-50 text-amber-700"
+      }
+    >
       {status}
-    </span>
+    </Badge>
   );
 }

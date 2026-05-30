@@ -10,7 +10,7 @@
  * and any future agent that exposes its own tool names.
  *
  * Known tool names get a dedicated card. The canonical approval path is
- * the synthetic `request_tool_approval` call emitted by our app-side
+ * the synthetic `request_approval` call emitted by our app-side
  * `ApprovalContentWireBridge` — it carries Harness's
  * `ToolApprovalRequestContent` across the AG-UI wire and renders through
  * `<HarnessApprovalCard>`. The legacy `repo_propose_patch` /
@@ -24,7 +24,13 @@
 import { useRenderTool } from "@copilotkit/react-core/v2";
 
 import { CONTROL_ROOM_AGENT_NAME } from "@/hooks/use-control-room-state";
-import { PrimitiveWrapperBadge } from "@/components/control-room/PrimitiveWrapperBadge";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { CodeBlock } from "./CodeBlock";
 import { DiffProposalCard } from "./DiffProposalCard";
 import { FileReadCard } from "./FileReadCard";
@@ -66,9 +72,10 @@ export function ToolRendererRegistry() {
         case "shell_execute":
         case "command_run_registered":
         case "shell_run":
+        case "pnpm_run":
           return (
             <ShellOutputCard
-              args={args as { command_name?: string }}
+              args={args as { command?: string; command_name?: string }}
               status={status}
               result={parsedResult as never}
             />
@@ -76,9 +83,12 @@ export function ToolRendererRegistry() {
 
         case "file_read":
         case "repo_read_file":
+        case "FileAccess_ReadFile":
           return (
             <FileReadCard
-              args={args as { relative_path?: string }}
+              args={
+                args as { relative_path?: string; fileName?: string; path?: string }
+              }
               status={status}
               result={parsedResult as never}
             />
@@ -149,38 +159,65 @@ function GenericToolCard({
           ? "cyan"
           : undefined;
   return (
-    <div className="cr-tool-card">
-      <header className="cr-tool-card__header">
-        <h3 className="cr-tool-card__title">Tool · {name}</h3>
-        <span className="cr-chip" data-tone={statusTone}>
-          {status}
-        </span>
-        <PrimitiveWrapperBadge />
-      </header>
-      {args !== undefined && (
-        <section className="cr-tool-card__section">
-          <div className="cr-tool-card__label">args</div>
-          <CodeBlock
-            code={JSON.stringify(args, null, 2)}
-            language="json"
-            maxHeight={220}
-          />
-        </section>
-      )}
-      {result !== undefined && (
-        <section className="cr-tool-card__section">
-          <div className="cr-tool-card__label">result</div>
-          <CodeBlock
-            code={
-              typeof result === "string"
-                ? result
-                : JSON.stringify(result, null, 2)
-            }
-            language="json"
-            maxHeight={260}
-          />
-        </section>
-      )}
-    </div>
+    <Card
+      size="sm"
+      className="my-2 max-w-3xl rounded-xl py-3 shadow-none ring-border opacity-75"
+    >
+      <details>
+        <summary className="cursor-pointer list-none">
+          <CardHeader>
+            <div className="flex flex-wrap items-center gap-2">
+              <CardTitle className="mr-auto text-sm">
+                Harness event · {name}
+              </CardTitle>
+              <Badge
+                variant="outline"
+                className={
+                  statusTone === "emerald"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : statusTone === "amber"
+                      ? "border-amber-200 bg-amber-50 text-amber-700"
+                      : statusTone === "cyan"
+                        ? "border-cyan-200 bg-cyan-50 text-cyan-700"
+                        : undefined
+                }
+              >
+                {status}
+              </Badge>
+            </div>
+          </CardHeader>
+        </summary>
+        <CardContent className="space-y-3">
+          {args !== undefined && (
+            <section className="space-y-1.5">
+              <div className="text-xs font-medium text-muted-foreground">
+                args
+              </div>
+              <CodeBlock
+                code={JSON.stringify(args, null, 2)}
+                language="json"
+                maxHeight={180}
+              />
+            </section>
+          )}
+          {result !== undefined && (
+            <section className="space-y-1.5">
+              <div className="text-xs font-medium text-muted-foreground">
+                result
+              </div>
+              <CodeBlock
+                code={
+                  typeof result === "string"
+                    ? result
+                    : JSON.stringify(result, null, 2)
+                }
+                language="json"
+                maxHeight={220}
+              />
+            </section>
+          )}
+        </CardContent>
+      </details>
+    </Card>
   );
 }

@@ -9,6 +9,14 @@
  */
 
 import { useSendUserMessage } from "@/hooks/use-control-room-state";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 const COMMANDS = [
   {
@@ -39,31 +47,35 @@ export function CommandControls() {
   const { send, isRunning } = useSendUserMessage();
 
   return (
-    <div>
-      <h3 className="cr-heading mb-2">Commands</h3>
-      <div className="grid grid-cols-2 gap-1.5">
-        {COMMANDS.map((command) => (
-          <button
-            key={command.id}
-            type="button"
-            title={`Ask the agent to run ${command.id} via pnpm_run.`}
-            onClick={() => void send(command.prompt)}
-            disabled={isRunning}
-            className="cr-btn"
-            data-variant="ghost"
-          >
-            {command.label}
-          </button>
-        ))}
-      </div>
-      <p
-        className="mt-2 text-[10px] uppercase leading-snug tracking-[0.18em] text-[var(--cr-muted)]"
-        style={{ fontFamily: "var(--cr-font-mono)" }}
-      >
-        {isRunning
-          ? "Agent busy · queue after current run"
-          : "Approval-gated · request via chat"}
-      </p>
-    </div>
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle>Commands</CardTitle>
+        <CardDescription>
+          Shortcuts for approval-gated fixture commands.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          {COMMANDS.map((command) => (
+            <Button
+              key={command.id}
+              type="button"
+              title={`Ask the agent to run ${command.id} via pnpm_run.`}
+              onClick={() => void send(command.prompt)}
+              disabled={isRunning}
+              variant="outline"
+              size="sm"
+            >
+              {command.label}
+            </Button>
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {isRunning
+            ? "Agent is busy. Request after the current run finishes."
+            : "Requests are sent through chat and still use Harness approvals."}
+        </p>
+      </CardContent>
+    </Card>
   );
 }

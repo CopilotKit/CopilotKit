@@ -11,11 +11,11 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b 1
 )
 
-if not exist ".env" if "%GITHUB_TOKEN%"=="" (
+if not exist ".env" if "%OPENAI_API_KEY%"=="" (
     echo.
-    echo ERROR: GITHUB_TOKEN is not set.
+    echo ERROR: OPENAI_API_KEY is not set.
     echo   copy .env.example .env
-    echo   then put a GitHub Models token in .env ^(gh auth token will print one^).
+    echo   then put an OpenAI API key in .env.
     echo.
     exit /b 1
 )

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Plan / Act / Review mode toggle.
+ * Plan / Act mode toggle.
  *
  * The displayed value is derived from the latest `AgentMode_Set` /
  * `AgentMode_Get` tool call. Clicking a mode sends a user chat message
@@ -14,13 +14,21 @@ import {
   useSendUserMessage,
 } from "@/hooks/use-control-room-state";
 import type { ControlRoomMode } from "@/lib/control-room-types";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
-const MODES: ControlRoomMode[] = ["Plan", "Act", "Review"];
+const MODES: ControlRoomMode[] = ["Plan", "Act"];
 
 const PROMPT: Record<ControlRoomMode, string> = {
   Plan: "Please switch to plan mode.",
   Act: "Please switch to execute (act) mode and continue.",
-  Review: "Please switch to review mode for handoff.",
+  Review: "Please save the review handoff to memory.",
 };
 
 export function ModeControls() {
@@ -34,35 +42,41 @@ export function ModeControls() {
   };
 
   return (
-    <div>
-      <h3 className="cr-heading mb-2">Mode</h3>
-      <div
-        role="radiogroup"
-        aria-label="Control room mode"
-        className="cr-mode-toggle"
-      >
-        {MODES.map((mode) => (
-          <button
-            key={mode}
-            type="button"
-            role="radio"
-            aria-checked={mode === current}
-            onClick={() => handleSelect(mode)}
-            disabled={isRunning}
-            data-active={mode === current ? "true" : undefined}
-          >
-            {mode}
-          </button>
-        ))}
-      </div>
-      <p
-        className="mt-2 text-[10px] uppercase tracking-[0.18em] text-[var(--cr-muted)]"
-        style={{ fontFamily: "var(--cr-font-mono)" }}
-      >
-        {isRunning
-          ? "Agent busy · mode change after current run"
-          : "Click to ask the agent to switch modes"}
-      </p>
-    </div>
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle>Mode</CardTitle>
+        <CardDescription>
+          Ask the Harness agent to plan or execute.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div
+          role="radiogroup"
+          aria-label="Control room mode"
+          className="flex gap-2 rounded-2xl border bg-muted/50 p-1"
+        >
+          {MODES.map((mode) => (
+            <Button
+              key={mode}
+              type="button"
+              role="radio"
+              aria-checked={mode === current}
+              onClick={() => handleSelect(mode)}
+              disabled={isRunning}
+              variant={mode === current ? "default" : "ghost"}
+              size="sm"
+              className="flex-1"
+            >
+              {mode}
+            </Button>
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {isRunning
+            ? "Agent is busy. Change mode after the current run."
+            : "The agent owns the AgentModeProvider state."}
+        </p>
+      </CardContent>
+    </Card>
   );
 }

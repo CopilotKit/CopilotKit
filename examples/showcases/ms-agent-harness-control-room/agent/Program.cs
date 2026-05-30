@@ -15,14 +15,39 @@ var app = builder.Build();
 app.UseCors();
 
 // Build the Harness-backed Control Room agent. AsHarnessAgent pre-configures
-// AgentMode, Todo, FileMemory, ToolApproval, AgentSkills, and Shell providers,
-// and MapAGUI projects all of those over AG-UI to the cockpit.
+// AgentMode, Todo, FileAccess, FileMemory, ToolApproval, and AgentSkills
+// providers. The app adds a narrow pnpm_run function because the matching
+// signed Shell package is one of the documented upstream gaps.
 var agentFactory = new MsAgentHarnessControlRoom.Agent.ControlRoomAgentFactory(builder.Configuration);
 var agent = agentFactory.CreateControlRoomAgent();
 
 // Liveness probe — Next.js and humans alike use this to confirm the container
 // is up before driving the cockpit.
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+
+// Capability probe for the cockpit's feature autodetection panel. Some of
+// these are native Harness providers; the rest are app-owned wrappers that
+// keep the demo honest while upstream AG-UI event support catches up.
+app.MapGet("/features", () => Results.Ok(new
+{
+    native = new[]
+    {
+        "TodoListProvider",
+        "AgentModeProvider",
+        "FileAccessProvider",
+        "FileMemoryProvider",
+        "ToolApprovalAgent",
+        "AgentSkillsProvider",
+    },
+    live_wrappers = new[]
+    {
+        "RepoObserver",
+        "TestObserver",
+        "ToolObserver",
+        "StateObserver",
+        "pnpm_run",
+    },
+}));
 
 // Fixture-reset is the only non-AG-UI app concern Harness doesn't own. We just
 // wipe the active fixture directory; Harness's FileAccessProvider will see the

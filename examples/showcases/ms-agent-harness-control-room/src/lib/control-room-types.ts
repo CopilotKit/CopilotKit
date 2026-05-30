@@ -30,6 +30,14 @@ export interface ControlRoomObserverSnapshotDto {
   latest_test_success?: boolean | null;
 }
 
+export interface ControlRoomApprovalSummary {
+  total: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+  lastToolName?: string | null;
+}
+
 export interface ControlRoomSkill {
   /** Stable identifier — matches the `skillName` arg on Harness tool calls. */
   name: string;
@@ -54,6 +62,7 @@ export interface ControlRoomStateSnapshot {
   mode: ControlRoomMode;
   todos: ControlRoomTodo[];
   memory: ControlRoomMemoryEntry[];
+  approvals?: ControlRoomApprovalSummary;
   skills?: ControlRoomSkill[];
   structuredDiagnosis?: StructuredDiagnosisRecord | null;
   observers?: ControlRoomObserverSnapshotDto | null;
