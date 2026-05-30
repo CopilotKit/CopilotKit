@@ -59,8 +59,8 @@ const agentNames = [
   // post-#4271 demos — each lives on a dedicated runtime, but we register
   // their agent ids here so probes against the shared runtime resolve
   // without 404s.
-  "byoc_json_render",
-  "byoc-hashbrown-demo",
+  "declarative_json_render",
+  "declarative-hashbrown-demo",
   "multimodal-demo",
   "voice-demo",
   "agent-config-demo",
@@ -74,8 +74,11 @@ const agentNames = [
   "tool-rendering-default-catchall",
   "tool-rendering-custom-catchall",
   "tool-rendering-reasoning-chain",
-  "agentic-chat-reasoning",
-  "reasoning-default-render",
+  // Reasoning variants — both share the same pass-through agent; differ
+  // only in whether the frontend overrides the `messageView.reasoningMessage`
+  // slot. Mirrors the canonical LGP topology.
+  "reasoning-default",
+  "reasoning-custom",
 ];
 
 const agents: Record<string, AbstractAgent> = {};

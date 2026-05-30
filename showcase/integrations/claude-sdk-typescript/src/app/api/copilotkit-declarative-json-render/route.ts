@@ -1,12 +1,10 @@
 /**
- * Dedicated runtime for reasoning demos
- * (`reasoning-default`, `reasoning-custom`,
- * `tool-rendering-reasoning-chain`).
+ * Dedicated runtime for the Declarative JSON Render demo.
  *
- * Proxies to the Claude agent_server's `/reasoning` endpoint, which enables
- * Anthropic extended thinking and forwards `thinking_delta` events as AG-UI
- * REASONING_MESSAGE_* events. Model defaults to Claude 3.7 Sonnet — override
- * via `CLAUDE_REASONING_MODEL`.
+ * Proxies to the Claude agent_server's `/byoc-json-render` endpoint, which
+ * swaps in a system prompt instructing Claude to emit a `@json-render/react`
+ * flat-spec JSON object. Isolated from the shared `/api/copilotkit` runtime
+ * so the declarative-render system prompt cannot leak into other demos.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -19,15 +17,10 @@ import { AbstractAgent, HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-function createReasoningAgent() {
-  return new HttpAgent({ url: `${AGENT_URL}/reasoning` });
-}
-
 const agents: Record<string, AbstractAgent> = {
-  "reasoning-default": createReasoningAgent(),
-  "reasoning-custom": createReasoningAgent(),
-  "tool-rendering-reasoning-chain": createReasoningAgent(),
-  default: createReasoningAgent(),
+  declarative_json_render: new HttpAgent({
+    url: `${AGENT_URL}/byoc-json-render`,
+  }),
 };
 
 const runtime = new CopilotRuntime({
@@ -38,7 +31,7 @@ const runtime = new CopilotRuntime({
 export const POST = async (req: NextRequest) => {
   try {
     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-reasoning",
+      endpoint: "/api/copilotkit-declarative-json-render",
       serviceAdapter: new ExperimentalEmptyAdapter(),
       runtime,
     });
