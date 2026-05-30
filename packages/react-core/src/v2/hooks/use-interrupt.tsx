@@ -220,7 +220,10 @@ export function useInterrupt<
 
   const resolve = useCallback(
     (response: unknown) => {
-      setPendingEvent(null);
+      // Do NOT synchronously clear pendingEvent here — onRunStartedEvent
+      // already clears it when the resume run begins. Clearing synchronously
+      // unmounts the card before commit, which previously forced consumers
+      // to wrap their resolve() in a 500ms setTimeout to keep the UI alive.
       copilotkit.runAgent({
         agent,
         forwardedProps: {
@@ -234,6 +237,18 @@ export function useInterrupt<
     [agent, copilotkit],
   );
 
+  // Stabilize consumer-supplied callbacks behind refs so inline lambdas
+  // (a new identity every parent render) do NOT churn the element memo
+  // identity or the handler effect. Without this, every dep-churn cycle
+  // would re-run the publish effect's cleanup, racing a stale `null` past
+  // the new element and unmounting the in-chat card on each render.
+  const renderRef = useRef(config.render);
+  renderRef.current = config.render;
+  const enabledRef = useRef(config.enabled);
+  enabledRef.current = config.enabled;
+  const handlerRef = useRef(config.handler);
+  handlerRef.current = config.handler;
+
   useEffect(() => {
     // No interrupt to process — reset any stale handler result from a previous interrupt
     if (!pendingEvent) {
@@ -241,11 +256,11 @@ export function useInterrupt<
       return;
     }
     // Interrupt exists but the consumer's filter rejects it — treat as no-op
-    if (config.enabled && !config.enabled(pendingEvent)) {
+    if (enabledRef.current && !enabledRef.current(pendingEvent)) {
       setHandlerResult(null);
       return;
     }
-    const handler = config.handler;
+    const handler = handlerRef.current;
     // No handler provided — skip straight to rendering with a null result
     if (!handler) {
       setHandlerResult(null);
@@ -274,27 +289,36 @@ export function useInterrupt<
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingEvent, config.enabled, config.handler, resolve]);
+  }, [pendingEvent, resolve]);
 
   const element = useMemo(() => {
     if (!pendingEvent) return null;
-    if (config.enabled && !config.enabled(pendingEvent)) return null;
+    if (enabledRef.current && !enabledRef.current(pendingEvent)) return null;
 
-    return config.render({
+    return renderRef.current({
       event: pendingEvent,
       result: handlerResult,
       resolve,
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingEvent, handlerResult, config.enabled, config.render, resolve]);
+  }, [pendingEvent, handlerResult, resolve]);
 
-  // Publish to core for in-chat rendering
+  // Publish to core for in-chat rendering. Publish-only — do NOT nullify
+  // on dep churn; the element memo already returns null when pendingEvent
+  // is null (the legitimate clear path: onRunStartedEvent / onRunFailed).
   useEffect(() => {
     if (config.renderInChat === false) return;
     copilotkit.setInterruptElement(element);
-    return () => copilotkit.setInterruptElement(null);
   }, [element, config.renderInChat, copilotkit]);
+
+  // Nullify on true unmount only. Separate effect with empty deps so the
+  // cleanup runs exactly once when the component is removed from the tree.
+  useEffect(() => {
+    if (config.renderInChat === false) return;
+    return () => {
+      copilotkit.setInterruptElement(null);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Only return element when rendering outside chat
   if (config.renderInChat === false) {
