@@ -388,7 +388,10 @@ describe("useDefaultRenderTool", () => {
     });
 
     expect(customRender).toHaveBeenCalledTimes(1);
-    const forwarded = customRender.mock.calls[0]?.[0] as Record<string, unknown>;
+    const forwarded = customRender.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
     expect(forwarded.parameters).toEqual({ query: "copilot" });
     expect(forwarded.status).toBe("complete");
     expect(forwarded.toolCallId).toBe("tc-adapt-1");

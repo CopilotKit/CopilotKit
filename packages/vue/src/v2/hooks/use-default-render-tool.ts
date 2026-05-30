@@ -66,8 +66,7 @@ type AdaptInput = {
 };
 
 function adaptRendererProps(raw: AdaptInput): DefaultRenderProps {
-  const parameters =
-    raw.parameters !== undefined ? raw.parameters : raw.args;
+  const parameters = raw.parameters !== undefined ? raw.parameters : raw.args;
   const rawStatus = raw.status;
   const status: DefaultRenderProps["status"] =
     rawStatus === "inProgress" ||
