@@ -2,7 +2,6 @@
   "_meta": {
     "description": "D6 fixtures for google-adk / mcp-apps",
     "sourceFile": "d5-all.json",
-    "copiedFrom": "langgraph-python",
     "created": "2026-05-21"
   },
   "fixtures": [
@@ -13,7 +12,7 @@
         "context": "google-adk"
       },
       "response": {
-        "content": "Sketched a three-box system diagram (Client → Server → Database). Tap the iframe to open it in Excalidraw."
+        "content": "Sketched a three-box system diagram (Client \u2192 Server \u2192 Database). Tap the iframe to open it in Excalidraw."
       }
     },
     {
@@ -42,7 +41,7 @@
         "context": "google-adk"
       },
       "response": {
-        "content": "Drew a three-step flowchart (Start → Process → End). Tap the iframe to open it in Excalidraw."
+        "content": "Drew a three-step flowchart (Start \u2192 Process \u2192 End). Tap the iframe to open it in Excalidraw."
       }
     },
     {
@@ -52,7 +51,7 @@
         "context": "google-adk"
       },
       "response": {
-        "content": "Sketched a simple system diagram for you above — three boxes (frontend, runtime, agent) connected by arrows showing the request flow. Ask if you'd like a different shape or more detail."
+        "content": "Sketched a simple system diagram for you above \u2014 three boxes (frontend, runtime, agent) connected by arrows showing the request flow. Ask if you'd like a different shape or more detail."
       }
     }
   ]
