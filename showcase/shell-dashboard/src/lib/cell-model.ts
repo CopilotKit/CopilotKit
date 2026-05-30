@@ -131,9 +131,18 @@ function resolveD4(live: LiveStatusMap, slug: string): TestLevel {
  * would let a fresh-green sub-row win the all-green tie and hide a stale-green
  * sibling, re-introducing the false-green. Downgrading each green-but-stale
  * sub-row first means ANY stale-green sub-row forces the family to amber,
- * independent of `CATALOG_TO_D5_KEY` order — matching `depth-utils.ts`
- * `isD5Green`, which requires EVERY sub-key to be green-AND-fresh. Only green
- * is downgraded; a stale red/degraded sub-row already signals a problem.
+ * independent of `CATALOG_TO_D5_KEY` order. Only green is downgraded; a stale
+ * red/degraded sub-row already signals a problem.
+ *
+ * NOTE on missing sub-rows: this fold only considers sub-rows that are PRESENT
+ * — a missing row is SKIPPED (`if (!row) continue;`), not treated as failing.
+ * So a multi-key family with only some sub-rows emitted can still be credited
+ * green from those present rows. This DIVERGES from `depth-utils.ts`
+ * `isD5Green`, which uses `d5Keys.every(...)` and therefore requires every
+ * mapped key to be present AND green-and-fresh; a missing row makes the whole
+ * family non-green there. The per-row stale-green→degraded downgrade IS
+ * mirrored between the two; only the partial-emission (missing-row) handling
+ * differs.
  */
 function resolveD5(
   live: LiveStatusMap,
