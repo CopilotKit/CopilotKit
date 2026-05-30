@@ -76,7 +76,9 @@ const agentNames = [
 // HeaderForwardingHTTPMiddleware then propagates it to Gemini via the
 // httpx/aiohttp event hooks installed at import time. See
 // `src/lib/header-forwarding.ts` for the shared helper.
-function buildAgents(headers: Record<string, string>): Record<string, AbstractAgent> {
+function buildAgents(
+  headers: Record<string, string>,
+): Record<string, AbstractAgent> {
   const agents: Record<string, AbstractAgent> = {};
   for (const name of agentNames) {
     agents[name] = new HttpAgent({ url: `${AGENT_URL}/${name}`, headers });
