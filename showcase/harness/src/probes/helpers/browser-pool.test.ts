@@ -367,13 +367,15 @@ describe("BrowserPool dead-instance detection", () => {
     await pool.shutdown();
   });
 
-  it("delivers a fresh browser to a parked waiter once a deferred relaunch succeeds, without a second acquire()", async () => {
+  it("recovers a parked slot on the next acquire() after every immediate relaunch failed", async () => {
     // Single-slot pool. The browser crashes and EVERY immediate relaunch
-    // attempt fails (launch calls 2..4 — RELAUNCH_MAX_ATTEMPTS=3), so the
-    // slot is parked relaunchPending and the original acquire() is left as a
-    // queued waiter. A LATER launch (call 5) succeeds. The waiter must be
-    // served by the deferred/rescheduled relaunch WITHOUT the test issuing a
-    // second acquire() to drive recovery (guards bug #1 and #3).
+    // attempt fails (launch calls 2..4 — RELAUNCH_MAX_ATTEMPTS=3), so the slot
+    // is parked relaunchPending. There is no background timer to recover it;
+    // recovery is lazy. A LATER launch (call 5) succeeds, and the NEXT
+    // acquire() must drive `relaunchPendingSlots()` to relaunch the slot and
+    // hand back a fresh, connected browser. This replaces the old
+    // deferred-timer test that asserted a waiter was served WITHOUT a second
+    // acquire() — that behavior intentionally no longer holds.
     const { launchBrowser, launched } = makeFakeLauncher({
       failAtCalls: [2, 3, 4],
     });
@@ -388,13 +390,14 @@ describe("BrowserPool dead-instance detection", () => {
     expect(held).toBe(launched[0] as unknown as Browser);
     (held as unknown as FakeBrowser).__crash();
 
-    // Park an acquire as a waiter. With the only slot dead/pending and no
-    // available browser, this returns a pending promise.
-    const waiterPromise = pool.acquire(5_000);
+    // Wait until the recycle has fully exhausted its immediate retries and
+    // parked the slot — live capacity reads 0 and nothing is recovering it.
+    await waitFor(() => pool.stats().size === 0, 3_000);
 
-    // Do NOT call acquire() again. The deferred relaunch must reschedule
-    // (call 5 succeeds) and hand the fresh browser directly to the waiter.
-    const recovered = await waiterPromise;
+    // The next acquire() drives the lazy recovery: relaunchPendingSlots
+    // re-attempts the launch (call 5 succeeds) and the parked/waiting caller
+    // gets a fresh connected browser.
+    const recovered = await pool.acquire(5_000);
     expect(recovered).toBeDefined();
     expect((recovered as unknown as FakeBrowser).isConnected()).toBe(true);
     expect((recovered as unknown as FakeBrowser).__id).toBe(
@@ -406,11 +409,10 @@ describe("BrowserPool dead-instance detection", () => {
 
   it("does not double-publish a relaunchPending slot when recovery is driven concurrently", async () => {
     // Drive a single slot into relaunchPending (all immediate retries fail),
-    // then trigger TWO concurrent recovery drivers: a deferred relaunch (a
-    // queued waiter schedules it) racing an acquire()-driven relaunch. With a
-    // re-entry guard the slot is launched exactly once and its fresh browser
-    // is handed to exactly one acquirer — never published to `available`
-    // twice nor handed to two probes (guards bug #2).
+    // then trigger TWO concurrent acquire()-driven relaunches racing for the
+    // same slot. With a re-entry guard the slot is launched exactly once and
+    // its fresh browser is handed to exactly one acquirer — never published to
+    // `available` twice nor handed to two probes (guards bug #2).
     const { launchBrowser, launched } = makeFakeLauncher({
       failAtCalls: [2, 3, 4],
     });
@@ -420,14 +422,20 @@ describe("BrowserPool dead-instance detection", () => {
 
     const held = await pool.acquire();
     (held as unknown as FakeBrowser).__crash();
-    // Let the immediate recycle retries (calls 2..4) exhaust and park the
-    // slot as relaunchPending before we drive concurrent recovery. No
-    // `.catch` swallow here — if the precondition never settles, the test
-    // must fail loudly rather than proceed on stale state.
-    await waitFor(() => pool.stats().available === 0, 3_000);
+    // Let the immediate recycle retries (calls 2..4) exhaust and PARK the slot
+    // as relaunchPending before we drive concurrent recovery. We wait on
+    // `size === 0` (slot parked, recycle fully done) rather than
+    // `available === 0` — `available` is already 0 the instant the only
+    // browser was handed out, so it would let the race start while the recycle
+    // is still in flight and the slot is not yet pending. No `.catch` swallow
+    // here — if the precondition never settles, the test must fail loudly
+    // rather than proceed on stale state.
+    await waitFor(() => pool.stats().size === 0, 3_000);
 
-    // Two acquirers race for the single recovering slot. The fresh browser
-    // must go to exactly one of them; the loser stays parked as a waiter.
+    // Two acquirers race for the single recovering slot, each driving
+    // relaunchPendingSlots. The fresh browser must go to exactly one of them;
+    // the loser stays parked as a waiter (it has no timer to recover it and
+    // will reject on shutdown).
     const a = pool.acquire(5_000);
     const b = pool.acquire(5_000);
 
@@ -457,21 +465,19 @@ describe("BrowserPool dead-instance detection", () => {
     await Promise.allSettled([a, b]);
   });
 
-  it("serves a waiter that parks AFTER a recycle has already fully failed, without a second acquire()", async () => {
-    // Bug #1 guard. A single-slot pool. The browser crashes via a
-    // `disconnected` event while NO acquire is waiting and NO waiter is
-    // queued. The recycle exhausts all immediate retries (calls 2..4 fail)
-    // and parks the slot relaunchPending. recycleSlot's own
-    // scheduleDeferredRelaunch(1) early-returns because waiters is empty at
-    // that instant — so nothing has armed the deferred loop.
+  it("recovers a parked slot via a later acquire() even when an intervening acquire()'s relaunch also failed", async () => {
+    // Lazy-recovery guard. A single-slot pool. The browser crashes via a
+    // `disconnected` event while NO acquire is waiting. The recycle exhausts
+    // all immediate retries (calls 2..4 fail) and parks the slot
+    // relaunchPending. There is no background timer — recovery is purely
+    // acquire()-driven.
     //
-    // ONLY THEN does an acquire() run. Its leading relaunchPendingSlots()
-    // attempt (call 5) ALSO fails — so it does NOT serve the waiter inline —
-    // and the acquire falls through and parks a waiter. The ONLY thing that
-    // can now re-arm the deferred loop and eventually serve that waiter (when
-    // call 6 succeeds) is the acquire-kick on the waiter-push path. Pre-fix
-    // (no acquire-kick) nothing re-arms the loop and the waiter hangs until
-    // its acquire timeout. The test issues NO second acquire to drive recovery.
+    // A first acquire()'s leading relaunchPendingSlots() attempt (call 5) ALSO
+    // fails, so that acquire parks a waiter and eventually times out (no timer
+    // re-arms recovery). A LATER acquire() then drives relaunchPendingSlots
+    // again (call 6 succeeds) and gets the fresh connected browser. This proves
+    // the on-demand recovery is robust to a failed intervening relaunch — the
+    // harness probes continuously, so a subsequent probe tick recovers.
     const { launchBrowser, launched } = makeFakeLauncher({
       failAtCalls: [2, 3, 4, 5],
     });
@@ -480,21 +486,25 @@ describe("BrowserPool dead-instance detection", () => {
     await pool.init();
     expect(launched).toHaveLength(1);
 
-    // Crash the idle browser. No waiter is queued, so the recycle's deferred
-    // relaunch kick is a no-op; the slot just parks relaunchPending.
+    // Crash the idle browser. The recycle exhausts immediate retries and parks
+    // the slot relaunchPending (no waiter queued, no timer to recover it).
     launched[0]!.__crash();
     // Wait until the recycle has fully exhausted its immediate retries and
-    // parked the slot — i.e. live capacity reads 0 and recovery is dormant
-    // (no deferred loop armed, because no waiter was queued).
+    // parked the slot — i.e. live capacity reads 0.
     await waitFor(() => pool.stats().size === 0, 3_000);
 
-    // NOW park a waiter. acquire()'s leading relaunchPendingSlots attempt is
-    // call 5, which fails, so the waiter parks unserved. Only the acquire-kick
-    // re-arms the deferred loop; call 6 then succeeds and serves the waiter.
+    // First acquire(): its leading relaunchPendingSlots attempt is call 5,
+    // which fails, so it parks a waiter that hits its (short) timeout — no
+    // timer re-arms recovery, which is the intended lazy behavior.
+    await expect(pool.acquire(50)).rejects.toThrow(
+      "BrowserPool acquire timeout",
+    );
+
+    // A LATER acquire() drives relaunchPendingSlots again; call 6 succeeds and
+    // the parked slot is recovered with a fresh connected browser.
     const recovered = await pool.acquire(5_000);
     expect(recovered).toBeDefined();
     expect((recovered as unknown as FakeBrowser).isConnected()).toBe(true);
-    // The waiter is served by the single successful relaunch (call 6).
     expect((recovered as unknown as FakeBrowser).__id).toBe(
       launched[launched.length - 1]!.__id,
     );

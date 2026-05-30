@@ -24,14 +24,6 @@ const RELAUNCH_MAX_ATTEMPTS = 3;
 /** Base backoff between relaunch attempts; doubles each attempt. */
 const RELAUNCH_BACKOFF_BASE_MS = 250;
 
-/**
- * Upper bound for the deferred-relaunch backoff. The deferred path keeps
- * retrying (not one-shot) while pending slots and queued waiters coexist, so
- * the backoff is capped to avoid an unbounded delay between attempts while a
- * waiter is stranded.
- */
-const RELAUNCH_BACKOFF_MAX_MS = 5_000;
-
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -76,16 +68,11 @@ export class BrowserPool {
   private recyclingSlots = new Set<Slot>();
   // Re-entry guard for the relaunchPending recovery path. A slot is marked
   // here while its lazy relaunch is in flight so two concurrent invocations
-  // (an acquire()-driven call racing the deferred timer) cannot both launch
-  // a browser for the same slot — which would leak one process and/or
-  // publish the slot to `available` twice.
+  // (an acquire()-driven relaunch racing a late `disconnected` fire that
+  // re-enters recycleSlot for the same slot) cannot both launch a browser for
+  // the same slot — which would leak one process and/or publish the slot to
+  // `available` twice.
   private relaunchingSlots = new Set<Slot>();
-  // True while a deferred-relaunch timer loop is live. The loop can be
-  // (re)started from two places — recycleSlot (when all immediate retries
-  // fail with a waiter queued) and acquire() (when a waiter parks while a
-  // slot is still pending). This boolean makes scheduling idempotent so the
-  // two kick sites can never spawn two concurrent timer loops.
-  private deferredRelaunchActive = false;
   private isShutdown = false;
   private readonly logger?: PoolLogger;
   private readonly injectedLaunchBrowser?: LaunchBrowser;
@@ -270,15 +257,16 @@ export class BrowserPool {
    * is preserved; here we lazily replace its dead browser with a fresh one.
    * A still-failing launch leaves the slot pending for the next acquire.
    *
-   * Two concerns this method must own (the deferred timer in recycleSlot and
-   * an acquire()-driven call can run concurrently):
+   * Two concerns this method must own (a late `disconnected` fire for a
+   * pending slot's OLD browser can re-enter `recycleSlot` while an
+   * acquire()-driven call is relaunching the same slot):
    *   - Re-entry: `relaunchingSlots` marks a slot before its `await` so a
    *     racing invocation skips it — otherwise both launch a browser, the
    *     second overwrites `slot.browser` (leaking the first) and/or the slot
    *     is handed to two acquirers.
    *   - Handoff: a fresh browser is delivered to a queued waiter first
-   *     (`handOff`) so the recycle's deferred relaunch actually serves the
-   *     waiter that scheduled it, instead of only pushing to `available`.
+   *     (`handOff`) so the relaunch actually serves the waiter parked by the
+   *     acquire that drove it, instead of only pushing to `available`.
    */
   private async relaunchPendingSlots(): Promise<void> {
     if (this.isShutdown) return;
@@ -319,68 +307,6 @@ export class BrowserPool {
         this.relaunchingSlots.delete(slot);
       }
     }
-  }
-
-  /**
-   * Self-rescheduling deferred relaunch. Re-attempts `relaunchPendingSlots`
-   * with bounded exponential backoff and reschedules itself as long as a
-   * waiter is still parked AND a pending slot remains to serve it. This
-   * replaces the old one-shot timer, which stranded the waiter for its full
-   * acquire timeout if the single deferred attempt also failed.
-   *
-   * Two kick sites drive this loop and must not spawn duplicate timers:
-   *   - `recycleSlot` kicks it the moment all immediate relaunch attempts
-   *     fail with a waiter already queued.
-   *   - `acquire()` kicks it when a waiter parks AFTER a recycle has already
-   *     failed (the recycle's own `scheduleDeferredRelaunch(1)` early-returned
-   *     because no waiter was queued at that instant; nothing else re-arms the
-   *     loop, so that waiter would hang to its acquire timeout).
-   *
-   * The `deferredRelaunchActive` boolean makes scheduling idempotent: it is
-   * set when a loop is armed and cleared only when the loop stops (shutdown,
-   * no waiters, or no pending slot), so the two kick sites can never run two
-   * concurrent timer loops. Stops on shutdown, when no waiters remain, or when
-   * no slot is still pending.
-   */
-  private scheduleDeferredRelaunch(attempt: number): void {
-    if (this.isShutdown || this.waiters.length === 0) return;
-    if (!this.slots.some((s) => s.relaunchPending)) return;
-    // Idempotent guard: a loop is already armed, so the existing timer will
-    // reschedule itself — do not start a second one.
-    if (this.deferredRelaunchActive) return;
-    this.deferredRelaunchActive = true;
-    this.runDeferredRelaunch(attempt);
-  }
-
-  /** Arm a single backoff timer for the active deferred-relaunch loop. */
-  private runDeferredRelaunch(attempt: number): void {
-    const backoff = Math.min(
-      RELAUNCH_BACKOFF_BASE_MS * 2 ** (attempt - 1),
-      RELAUNCH_BACKOFF_MAX_MS,
-    );
-    setTimeout(() => {
-      if (
-        this.isShutdown ||
-        this.waiters.length === 0 ||
-        !this.slots.some((s) => s.relaunchPending)
-      ) {
-        this.deferredRelaunchActive = false;
-        return;
-      }
-      void this.relaunchPendingSlots().finally(() => {
-        // Reschedule only if a waiter is still unserved and a pending slot
-        // remains — otherwise recovery is done or there is nothing to retry.
-        if (
-          !this.isShutdown &&
-          this.waiters.length > 0 &&
-          this.slots.some((s) => s.relaunchPending)
-        ) {
-          this.runDeferredRelaunch(attempt + 1);
-        } else {
-          this.deferredRelaunchActive = false;
-        }
-      });
-    }, backoff);
   }
 
   async acquire(timeoutMs = 30_000): Promise<Browser> {
@@ -450,22 +376,13 @@ export class BrowserPool {
 
       this.waiters.push(waiter);
 
-      // Re-arm the deferred relaunch if this waiter parked AFTER a recycle had
-      // already failed. A recycle triggered by a `disconnected` event or a
-      // zombie-skip can fully exhaust its immediate retries with NO waiter
-      // queued — its own `scheduleDeferredRelaunch(1)` early-returns because
-      // `this.waiters` was empty at that instant. This acquire then parks its
-      // waiter a moment later (the push happens AFTER the synchronous zombie
-      // loop above), and nothing else re-arms the loop, so the waiter would
-      // hang to its acquire timeout even though a pending slot is recoverable.
-      // The idempotent guard inside scheduleDeferredRelaunch ensures this kick
-      // and the recycle-kick can't spawn two concurrent timer loops.
-      if (
-        this.relaunchingSlots.size > 0 ||
-        this.slots.some((s) => s.relaunchPending)
-      ) {
-        this.scheduleDeferredRelaunch(1);
-      }
+      // No timer re-arms recovery here. A parked waiter is served by the next
+      // acquire()/release()-driven relaunch: the harness probes continuously,
+      // so a fresh probe tick drives `relaunchPendingSlots()` (via acquire) or
+      // `handOff` (via release) and serves this waiter. In the degenerate idle
+      // case the waiter hits its bounded `timeoutMs` and the caller retries on
+      // the next tick — the no-eviction + lazy-recovery design already prevents
+      // the pool from draining permanently to 0.
     });
   }
 
@@ -551,7 +468,9 @@ export class BrowserPool {
     return {
       size: liveSlots.length,
       available: availableCount,
-      inUse: liveSlots.length - availableCount,
+      // Clamp to 0 so a future invariant break (availableCount exceeding
+      // liveSlots.length) can never surface as a negative gauge.
+      inUse: Math.max(0, liveSlots.length - availableCount),
       totalRecycles: this.totalRecycles,
     };
   }
@@ -670,12 +589,11 @@ export class BrowserPool {
         error: lastErr instanceof Error ? lastErr.message : String(lastErr),
       });
 
-      // A waiter may already be queued (an acquire() that found no live slot
-      // returned a pending promise). Nothing else will wake it, so kick off a
-      // self-rescheduling deferred relaunch that keeps retrying with bounded
-      // backoff while pending slots AND waiters coexist — a one-shot attempt
-      // would strand the waiter if that single retry also failed.
-      this.scheduleDeferredRelaunch(1);
+      // Leave the slot parked as `relaunchPending` — no timer kick. The next
+      // `acquire()` re-attempts the launch via `relaunchPendingSlots()` and a
+      // release-driven recycle recovers via `handOff`, so a queued waiter is
+      // served by the next probe tick (or, in the degenerate idle case, the
+      // caller retries after the waiter's bounded acquire timeout).
     })();
 
     this.inFlightRecycles.add(recyclePromise);
