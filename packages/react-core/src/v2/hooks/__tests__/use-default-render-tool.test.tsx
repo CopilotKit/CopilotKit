@@ -40,6 +40,62 @@ describe("useDefaultRenderTool", () => {
     expect(typeof config.render).toBe("function");
   });
 
+  it("forwards toolCallId to custom wildcard render function", () => {
+    // Note: source DefaultRenderProps omits toolCallId, but the wrapper
+    // passes the render through untouched and useRenderTool forwards
+    // toolCallId at runtime. This test locks that behavior.
+    const customRender = vi.fn(
+      (_props: {
+        name: string;
+        parameters: unknown;
+        status: "inProgress" | "executing" | "complete";
+        result: string | undefined;
+      }) => <div data-testid="custom">custom</div>,
+    );
+
+    const Harness: React.FC = () => {
+      useDefaultRenderTool({
+        render: customRender,
+      });
+      return null;
+    };
+
+    render(<Harness />);
+
+    expect(mockUseRenderTool).toHaveBeenCalledTimes(1);
+    const [config] = mockUseRenderTool.mock.calls[0] as [
+      {
+        name: string;
+        render: (props: {
+          name: string;
+          toolCallId: string;
+          parameters: unknown;
+          status: string;
+          result: string | undefined;
+        }) => React.ReactElement;
+      },
+    ];
+
+    config.render({
+      name: "searchDocs",
+      toolCallId: "tc-forwarded-1",
+      parameters: { query: "copilot" },
+      status: "executing",
+      result: undefined,
+    });
+
+    expect(customRender).toHaveBeenCalledTimes(1);
+    // The statically-declared DefaultRenderProps omits toolCallId, but the
+    // hook forwards it at runtime — that's what this test locks. Cast
+    // through unknown to read the runtime-only field.
+    const forwardedProps = customRender.mock.calls[0][0] as unknown as {
+      toolCallId: string;
+    };
+    expect(forwardedProps).toMatchObject({
+      toolCallId: "tc-forwarded-1",
+    });
+  });
+
   it("forwards custom render function and deps", () => {
     const customRender = vi.fn(() => <div data-testid="custom">custom</div>);
     const deps = ["compact"] as const;
