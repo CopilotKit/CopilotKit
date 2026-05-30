@@ -6,7 +6,10 @@ import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurati
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { partialJSONParse } from "@copilotkit/shared";
 import type { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
-import { DefaultToolCallRenderer } from "./use-default-render-tool";
+import {
+  DefaultToolCallRenderer,
+  mapToolCallStatus,
+} from "./use-default-render-tool";
 
 export interface UseRenderToolCallProps {
   toolCall: ToolCall;
@@ -184,6 +187,12 @@ export function useRenderToolCall() {
 // `DefaultToolCallRenderer` signature (`{ name, toolCallId, parameters,
 // status, result }`) so the latter can be used as a zero-config fallback
 // when no `*` renderer is registered.
+//
+// Status mapping is delegated to `mapToolCallStatus` (an explicit switch
+// over the `ToolCallStatus` enum with a logged fallback for unknown /
+// future values). Keeping the mapping in one place ensures
+// `useDefaultRenderTool`'s opt-in render path and this zero-config
+// fallback agree on the documented string-union surface.
 function defaultToolCallRenderAdapter(props: {
   name: string;
   args: unknown;
@@ -191,19 +200,23 @@ function defaultToolCallRenderAdapter(props: {
   result: string | undefined;
   toolCallId: string;
 }): React.ReactElement {
-  const status =
-    props.status === ToolCallStatus.Complete
-      ? "complete"
-      : props.status === ToolCallStatus.Executing
-        ? "executing"
-        : "inProgress";
   return (
     <DefaultToolCallRenderer
       name={props.name}
       toolCallId={props.toolCallId}
       parameters={props.args}
-      status={status}
+      status={mapToolCallStatus(props.status)}
       result={props.result}
     />
   );
 }
+
+/**
+ * Test-only export so the adapter's status-mapping + logging behavior can
+ * be exercised directly without rebuilding the full provider/render
+ * pipeline. Not part of the package public API.
+ *
+ * @internal
+ */
+export const __testOnly_defaultToolCallRenderAdapter =
+  defaultToolCallRenderAdapter;
