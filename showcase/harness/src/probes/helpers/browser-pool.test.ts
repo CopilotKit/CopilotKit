@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Browser } from "playwright";
-import { BrowserPool, type LaunchBrowser } from "./browser-pool.js";
+import { BrowserPool } from "./browser-pool.js";
+import type { LaunchBrowser } from "./browser-pool.js";
 
 /**
  * Minimal `Browser` stand-in that exposes the surface BrowserPool actually
@@ -74,12 +75,18 @@ interface FakeLauncher {
   launched: FakeBrowser[];
 }
 
-function makeFakeLauncher(opts?: { failAt?: number }): FakeLauncher {
+function makeFakeLauncher(opts?: {
+  failAt?: number;
+  failAtCalls?: number[];
+}): FakeLauncher {
   const launched: FakeBrowser[] = [];
   let callCount = 0;
   const launchBrowser = async (): Promise<Browser> => {
     callCount++;
-    if (opts?.failAt !== undefined && callCount === opts.failAt) {
+    if (
+      (opts?.failAt !== undefined && callCount === opts.failAt) ||
+      opts?.failAtCalls?.includes(callCount)
+    ) {
       throw new Error("simulated launch failure");
     }
     const b = makeFakeBrowser();
@@ -256,6 +263,63 @@ describe("BrowserPool dead-instance detection", () => {
     const next = await pool.acquire();
     expect(next).toBe(launched[1] as unknown as Browser);
     expect((next as unknown as FakeBrowser).isConnected()).toBe(true);
+
+    await pool.shutdown();
+  });
+
+  it("recovers after a transient relaunch failure instead of permanently shrinking the pool to 0", async () => {
+    // Single-slot pool. The browser crashes; the recycle's relaunch fails
+    // ONCE (the 2nd launch call), then a subsequent launch succeeds. The
+    // pool must NOT permanently evict the slot — it must keep capacity and
+    // self-heal so a later acquire() still returns a live browser.
+    const { launchBrowser, launched } = makeFakeLauncher({ failAtCalls: [2] });
+    const { logger } = makeFakeLogger();
+    const pool = new BrowserPool(1, 100, logger, launchBrowser);
+    await pool.init();
+    expect(launched).toHaveLength(1);
+
+    // Crash the only browser. The disconnect-driven recycle relaunches, but
+    // launch #2 throws (the simulated transient failure).
+    launched[0]!.__crash();
+    await drainMicrotasks(30);
+
+    // BUG: the old code spliced the slot out of `this.slots` on launch
+    // failure, leaving size 0 forever. The pool must instead retain or
+    // re-create the slot so capacity recovers.
+    const acquired = await pool.acquire(5_000);
+    expect(acquired).toBeDefined();
+    expect((acquired as unknown as FakeBrowser).isConnected()).toBe(true);
+
+    // Pool reports non-zero size again — it healed rather than draining.
+    expect(pool.stats().size).toBeGreaterThan(0);
+
+    await pool.shutdown();
+  });
+
+  it("re-initializes the pool when every slot has been lost (size reaches 0)", async () => {
+    // 2-slot pool. Both browsers crash and BOTH relaunches fail (launch
+    // calls 3 and 4), driving the pool to size 0. The next acquire() must
+    // trigger a backstop re-init rather than hanging until timeout.
+    const { launchBrowser, launched } = makeFakeLauncher({
+      failAtCalls: [3, 4],
+    });
+    const { logger } = makeFakeLogger();
+    const pool = new BrowserPool(2, 100, logger, launchBrowser);
+    await pool.init();
+    expect(launched).toHaveLength(2);
+
+    launched[0]!.__crash();
+    launched[1]!.__crash();
+    await drainMicrotasks(30);
+
+    // Both relaunches failed — without a backstop the pool is permanently
+    // empty and every future acquire() times out. With the fix, acquire()
+    // re-initializes the pool (launch calls 5+ succeed) and hands back a
+    // live browser.
+    const acquired = await pool.acquire(5_000);
+    expect(acquired).toBeDefined();
+    expect((acquired as unknown as FakeBrowser).isConnected()).toBe(true);
+    expect(pool.stats().size).toBeGreaterThan(0);
 
     await pool.shutdown();
   });
