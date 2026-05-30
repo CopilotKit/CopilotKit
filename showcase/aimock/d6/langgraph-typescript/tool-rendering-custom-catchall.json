@@ -39,11 +39,10 @@
       }
     },
     {
-      "_comment": "Chain tools first turn \u2014 emit 3 tool calls (weather Tokyo + flights SFO->Tokyo + roll_d20=11). No turnIndex gate so multi-pill sessions work.",
+      "_comment": "Chain tools first turn \u2014 emit 3 tool calls (weather Tokyo + flights SFO->Tokyo + roll_d20=11). No turnIndex / hasToolResult gate: in multi-pill demo sessions prior clicks leave tool results in the thread, which would skip this fixture and fall through to tool-rendering.json's \"weather in Tokyo\" matcher (substring of this prompt). The toolCallId fixtures above eat iteration 2 via last-message tool_call_id gating, so removing the hasToolResult gate is safe.",
       "match": {
         "userMessage": "Chain a few tools in this single turn",
-        "context": "langgraph-typescript",
-        "hasToolResult": false
+        "context": "langgraph-typescript"
       },
       "response": {
         "toolCalls": [

@@ -38,11 +38,10 @@
       }
     },
     {
-      "_comment": "tool-rendering pill: Chain tools \u2014 emit 3 tool calls in one assistant turn (get_weather Tokyo + search_flights SFO->Tokyo + roll_d20=11). MUST appear before the bare 'weather in Tokyo' fixture below; substring match would otherwise leak into this prompt. No hasToolResult gate: in multi-pill demo sessions prior clicks leave tool results in the thread, which previously caused this fixture to be skipped in favour of the follow-up content fixture and the pill rendered no cards.",
+      "_comment": "tool-rendering pill: Chain tools \u2014 emit 3 tool calls in one assistant turn (get_weather Tokyo + search_flights SFO->Tokyo + roll_d20=11). MUST appear before the bare 'weather in Tokyo' fixture below; substring match would otherwise leak into this prompt. No hasToolResult gate: in multi-pill demo sessions prior clicks leave tool results in the thread, which would skip this fixture and fall through to the bare \"weather in Tokyo\" fixture (substring leak). The toolCallId fixtures above eat iteration 2 via last-message tool_call_id gating, so the gate is unnecessary.",
       "match": {
         "userMessage": "Chain a few tools in this single turn",
-        "context": "langgraph-typescript",
-        "hasToolResult": false
+        "context": "langgraph-typescript"
       },
       "response": {
         "toolCalls": [
