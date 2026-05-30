@@ -18,6 +18,10 @@
   },
   "type": "module",
   "sideEffects": [
+    "./src/index.ts",
+    "./src/polyfills.ts",
+    "./src/polyfills/**/*",
+    "./src/streaming-fetch.ts",
     "./dist/index.*",
     "./dist/polyfills.*",
     "./dist/polyfills/**/*"
