@@ -7,14 +7,14 @@
   },
   "fixtures": [
     {
-      "_comment": "default-catchall pill: Chain tools — follow-up after all 3 tools ran.",
+      "_comment": "default-catchall pill: Chain tools \u2014 follow-up after all 3 tools ran.",
       "match": {
         "userMessage": "Chain a few tools in this single turn",
         "toolCallId": "call_tr_chain_roll_001",
         "context": "langgraph-typescript"
       },
       "response": {
-        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+        "content": "Done \u2014 Tokyo is sunny, three flights found, and the d20 came up 11."
       }
     },
     {
@@ -24,7 +24,7 @@
         "context": "langgraph-typescript"
       },
       "response": {
-        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+        "content": "Done \u2014 Tokyo is sunny, three flights found, and the d20 came up 11."
       }
     },
     {
@@ -34,15 +34,15 @@
         "context": "langgraph-typescript"
       },
       "response": {
-        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+        "content": "Done \u2014 Tokyo is sunny, three flights found, and the d20 came up 11."
       }
     },
     {
-      "_comment": "default-catchall pill: Chain tools — emit 3 tool calls in one turn.",
+      "_comment": "default-catchall pill: Chain tools \u2014 emit 3 tool calls in one turn.",
       "match": {
         "userMessage": "Chain a few tools in this single turn",
-        "turnIndex": 0,
-        "context": "langgraph-typescript"
+        "context": "langgraph-typescript",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -65,20 +65,19 @@
       }
     },
     {
-      "_comment": "default-catchall pill: Weather in SF — follow-up after get_weather ran.",
+      "_comment": "default-catchall pill: Weather in SF \u2014 follow-up after get_weather ran.",
       "match": {
         "userMessage": "What's the weather in San Francisco?",
         "toolCallId": "call_tr_weather_sf_001",
         "context": "langgraph-typescript"
       },
       "response": {
-        "content": "San Francisco is currently 68°F and sunny with light winds."
+        "content": "San Francisco is currently 68\u00b0F and sunny with light winds."
       }
     },
     {
       "match": {
         "userMessage": "What's the weather in San Francisco?",
-        "turnIndex": 0,
         "context": "langgraph-typescript"
       },
       "response": {
@@ -92,20 +91,19 @@
       }
     },
     {
-      "_comment": "default-catchall pill: Find flights — second leg.",
+      "_comment": "default-catchall pill: Find flights \u2014 second leg.",
       "match": {
         "userMessage": "Find flights from SFO to JFK.",
         "toolCallId": "call_tr_flights_sfo_jfk_001",
         "context": "langgraph-typescript"
       },
       "response": {
-        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289)."
+        "content": "Three flights from SFO to JFK \u2014 United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289)."
       }
     },
     {
       "match": {
         "userMessage": "Find flights from SFO to JFK.",
-        "turnIndex": 0,
         "context": "langgraph-typescript"
       },
       "response": {
@@ -119,7 +117,7 @@
       }
     },
     {
-      "_comment": "default-catchall pill: Roll a d20 — 5-roll chain via toolCallId. Seq: 7→14→3→19→20.",
+      "_comment": "default-catchall pill: Roll a d20 \u2014 5-roll chain via toolCallId. Seq: 7\u219214\u21923\u219219\u219220.",
       "match": {
         "userMessage": "Roll a 20-sided die.",
         "toolCallId": "call_tr_d20_seq_001",
@@ -190,14 +188,13 @@
         "context": "langgraph-typescript"
       },
       "response": {
-        "content": "Rolled the d20 five times — landed on 20 on the final roll."
+        "content": "Rolled the d20 five times \u2014 landed on 20 on the final roll."
       }
     },
     {
-      "_comment": "First roll — initial user prompt, no prior d20 tool result.",
+      "_comment": "First roll \u2014 initial user prompt, no prior d20 tool result.",
       "match": {
         "userMessage": "Roll a 20-sided die.",
-        "turnIndex": 0,
         "context": "langgraph-typescript"
       },
       "response": {

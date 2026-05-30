@@ -14,7 +14,7 @@
         "context": "langgraph-typescript"
       },
       "response": {
-        "content": "Tokyo is sunny right now \u2014 about 68\u00b0F with light winds. Want a forecast?"
+        "content": "Tokyo is 22\u00b0C and partly cloudy."
       }
     },
     {
@@ -24,7 +24,7 @@
         "context": "langgraph-typescript"
       },
       "response": {
-        "content": "AAPL is at $189.42, up 1.27% on the day."
+        "content": "AAPL is trading at $189.42, up 1.27% on the day."
       }
     },
     {
@@ -50,7 +50,7 @@
     {
       "_comment": "headless-complete weather pill toolcall \u2014 emit get_weather for Tokyo. Probe sends 'What's the weather in Tokyo?'. Only userMessage+context discriminators because narration fixtures above (toolCallId) already win once the tool result lands.",
       "match": {
-        "userMessage": "weather in Tokyo",
+        "userMessage": "weather in Tokyo?",
         "context": "langgraph-typescript"
       },
       "response": {
@@ -66,7 +66,7 @@
     {
       "_comment": "headless-complete stock pill toolcall \u2014 emit get_stock_price for AAPL. Probe sends \"What's the price of AAPL right now?\".",
       "match": {
-        "userMessage": "price of AAPL",
+        "userMessage": "AAPL trading at",
         "context": "langgraph-typescript"
       },
       "response": {

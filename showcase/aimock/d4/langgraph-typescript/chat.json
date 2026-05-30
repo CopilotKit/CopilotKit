@@ -267,7 +267,7 @@
     },
     {
       "match": {
-        "userMessage": "weather",
+        "userMessage": "_d4_unused_weather_probe_tokyo",
         "hasToolResult": false,
         "context": "langgraph-typescript"
       },
@@ -474,7 +474,7 @@
     },
     {
       "match": {
-        "userMessage": "flights from SFO to JFK",
+        "userMessage": "flights from SFO to JFK for next Tuesday",
         "hasToolResult": false,
         "context": "langgraph-typescript"
       },
@@ -630,9 +630,9 @@
       }
     },
     {
-      "_comment": "D4 toolbar 'Summarize' button — tightened from bare 'summarize' to 'Summarize the' (capital, anchor) so it doesn't shadow d6 fixtures whose user prompts happen to contain the word 'summarize' mid-sentence (e.g. gen-ui-agent pill 3 'Research our top competitor and summarize their strengths and weaknesses').",
+      "_comment": "D4 toolbar 'Summarize' button — further narrowed from 'Summarize the' to 'Summarize the sales pipeline' (verbatim D4 toolbar probe). The prior 'Summarize the' still matched the D6 subagents pill 'Summarize the current state of reusable rockets...' and the response (sales-pipeline summary) is wildly off-topic for a subagents probe, breaking the subagents e2e regression test for the delegations reducer. 'Summarize the sales pipeline' is unique to the D4 toolbar probe. Mirrors the LGP fix.",
       "match": {
-        "userMessage": "Summarize the",
+        "userMessage": "Summarize the sales pipeline",
         "context": "langgraph-typescript"
       },
       "response": {
@@ -878,8 +878,9 @@
       }
     },
     {
+      "_comment": "Narrowed from bare 'Roll a 20-sided die' to 'Roll a 20-sided die for me' so it no longer shadows the D6 tool-rendering / tool-rendering-default-catchall pill 'Roll a 20-sided die.' (which chains 5 roll_d20 calls). The d4/d5-reasoning-chain probe uses the 'for me' phrasing. Mirrors the LGP fix.",
       "match": {
-        "userMessage": "Roll a 20-sided die",
+        "userMessage": "Roll a 20-sided die for me",
         "hasToolResult": false,
         "context": "langgraph-typescript"
       },
@@ -939,7 +940,7 @@
         "context": "langgraph-typescript"
       },
       "response": {
-        "content": "Here's a fun fact: honey never spoils. Archaeologists have found 3,000-year-old honey in Egyptian tombs that was still perfectly edible. Its low moisture content and acidic pH create an environment where bacteria and microorganisms simply cannot survive."
+        "content": "A fun fact: Honey never spoils! Archaeologists have found 3,000-year-old honey in Egyptian tombs that was still perfectly edible. Its low moisture content and acidic pH create an environment where bacteria and microorganisms simply cannot survive."
       }
     },
     {
@@ -953,9 +954,9 @@
       }
     },
     {
-      "_comment": "Pilot cell suggestion — 'Say hi!' (prebuilt-sidebar). Anchored on 'Say hi' so it matches the sidebar greeting without colliding with the longer popup variant above.",
+      "_comment": "Pilot cell suggestion — 'Say hi!' (prebuilt-sidebar). Narrowed userMessage from 'Say hi' to 'Say hi!' (with exclamation — verbatim prebuilt-sidebar pill text) so this no longer shadows the D6 shared-state-read-write pill 'Say hi and introduce yourself.' (no exclamation, different intended response). The exclamation is unique to the prebuilt-sidebar pill among current LGT demos. Mirrors the LGP fix.",
       "match": {
-        "userMessage": "Say hi",
+        "userMessage": "Say hi!",
         "context": "langgraph-typescript"
       },
       "response": {
