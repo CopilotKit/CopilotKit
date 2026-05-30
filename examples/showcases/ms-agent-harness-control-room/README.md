@@ -2,9 +2,9 @@
 
 A standalone AG-UI demo that exercises CopilotKit Harness primitives against a bundled local C# Control Room agent — or any remote AG-UI Harness endpoint you point it at.
 
-The cockpit is a stage-ready guided repair flow wired into a tiny fixture repo with a seeded failing test. A presenter advances through explicit steps while the live workstream and evidence panel show Harness mode, todos, memory, file access, shell execution, approvals, skills, and feature support as they update over AG-UI.
+The cockpit is a showcase for Microsoft Agent Harness augmented by CopilotKit. A presenter starts from CopilotChat suggestions that demonstrate Harness planning, todos, skills, memory, file access, shell execution, approvals, and verification while CopilotKit renders AG-UI tool evidence, generative UI, and HITL approval cards inline.
 
-For the presenter checklist and Notion requirement audit, see [STAGE_RUNBOOK.md](./STAGE_RUNBOOK.md).
+For the presenter checklist and Notion requirement audit, see [SHOWCASE_RUNBOOK.md](./SHOWCASE_RUNBOOK.md).
 
 ## Prerequisites
 
@@ -33,26 +33,28 @@ pnpm dev
 - **Next UI** on http://localhost:3000.
 - **Local C# agent** in Docker on http://localhost:8000. The first run builds the image (a couple of minutes); subsequent runs are fast.
 
-Open http://localhost:3000 and you should see the guided repair flow.
+Open http://localhost:3000 and you should see the Agent Harness showcase.
 
 ## What you'll see
 
-- **Left pane:** a numbered Stage Rail: Connect, Plan, Inspect, Fix, Approve + Run, Verify, Review. Each step sends a precise prompt to the Harness agent.
-- **Center pane:** the live AG-UI workstream. Tool cards, approval cards, file reads, shell output, and final summaries stream inline as the agent works.
-- **Right pane:** compact Harness Evidence: mode, todos, files, latest test, approvals, memory, skills, and feature support.
-- **Advanced drawer:** endpoint switching, raw command shortcuts, fixture reset, structured output, manual skill loading, and feature autodetection details.
+- **Showcase drawer:** a left-opening two-pane ShadCN sidebar. The icon rail switches between Generative UI, Harness State, and Settings. It defaults to the Generative UI catalog.
+- **Center pane:** the live CopilotChat AG-UI workstream. Starter suggestions launch happy-path demos for plans, health tables, calendars, capability charts, approvals, tests, and handoff.
+- **State panel:** compact Harness evidence: mode, todos, files, latest test, approvals, memory, skills, and feature support.
+- **Settings panel:** endpoint switching, command shortcuts, fixture reset, structured output, manual skill loading, and feature autodetection details.
 
 App-owned wrappers that exist because the underlying Harness + AG-UI primitive isn't yet native are labeled with a small amber badge reading **"Live wrapper: pending native Harness AG-UI support"**. Native Harness primitives are still shown honestly; until `STATE_SNAPSHOT` / `STATE_DELTA` ships upstream, the UI derives mode, todos, memory, approvals, skills, and observers from AG-UI messages.
 
-## The demo story
+## Suggested demo paths
 
-1. Confirm **Connect** is online. Use **Reset** if you want to restore the seeded failing fixture.
-2. Click **Plan**. Harness loads the `fixture-diagnosis` skill, switches to planning mode, and publishes the todo list.
-3. Click **Inspect**. The agent lists and reads `calculator.ts` and `calculator.test.ts`, then identifies the bug.
-4. Click **Fix**. The agent switches to Act mode and applies the minimal calculator patch.
-5. Click **Approve + Run**. The real Harness approval card appears before the shell tool runs. The approval checkbox defaults to remembering the approved tool for the current session, so a missing-dependencies install and rerun can continue without hiding the safety mechanism.
-6. Click **Verify**. The agent runs `test:coverage` and leaves the pass/fail result in the workstream.
-7. Click **Review**. Harness saves a short handoff post-mortem to file memory.
+Use the CopilotChat starter suggestions instead of presenter step buttons:
+
+1. **Plan repair + health table:** loads the diagnosis skill, switches to Plan mode, inspects the fixture, creates todos, and renders a health table plus Harness summary.
+2. **Estimate timeline:** turns the current plan into a calendar estimate rendered with generative UI.
+3. **Show capability coverage:** presents planning, todos, skills, memory, file access, shell tools, approvals, and verification as capability and usage charts.
+4. **Run with approval readiness:** switches to Act mode, applies the minimal patch, shows an approval readiness form, and runs the approval-gated test command.
+5. **Verify and hand off:** runs coverage, saves a memory handoff, and renders coverage, handoff, and summary components.
+
+The real Harness approval card appears before shell tools run. The approval checkbox defaults to remembering the approved tool for the current session, so a missing-dependencies install and rerun can continue without hiding the safety mechanism.
 
 The seeded bug: `calculator.ts` has `add(a, b)` returning `a - b`. The expected fix is the obvious one.
 
@@ -78,7 +80,7 @@ CopilotKit uses the selected URL directly through `selfManagedAgents`; Next.js i
 
 ## Fixture reset
 
-Click **Reset** in the Stage Rail or Advanced drawer (or call `POST /api/fixture/reset` directly). The agent:
+Click **Reset** in the Settings panel (or call `POST /api/fixture/reset` directly). The agent:
 
 - Deletes `/app/.control-room-fixture` inside the container.
 - Copies `fixture-template/` back into place — restoring the seeded failing test.
@@ -131,14 +133,14 @@ curl -X POST http://localhost:3000/api/fixture/reset
 
 Then open http://localhost:3000 and:
 
-- UI loads with Stage Rail, live workstream, and Harness Evidence panes.
+- UI loads with the left-side showcase drawer control and CopilotChat workstream.
 - Local endpoint connects by default.
-- The Stage Rail steps complete the demo story end-to-end.
+- The starter suggestions launch the happy-path MAH + CopilotKit demo flows.
 - A real Harness approval card appears before shell execution, and remembered approval reduces repeated clicks for the same session.
 - Shell output, file read, and final result cards render in the center pane.
 - Tests pass after rerun; coverage output appears.
-- Todo, state, skill, memory, approval, and test evidence update in the right pane.
-- Advanced drawer exposes endpoint switching, command shortcuts, structured output, skills, and feature support.
+- Todo, state, skill, memory, approval, and test evidence update in the State panel.
+- Settings exposes endpoint switching, command shortcuts, structured output, skills, and feature support.
 - Fixture reset returns the repo to the failing state.
 - Entering `http://example.com/` is rejected; entering `https://example.com/` is accepted.
 - After stopping and restarting `pnpm dev`, **Reconnect** in Advanced controls reattaches the cockpit to the new agent process.
@@ -149,7 +151,7 @@ Then open http://localhost:3000 and:
 ┌──────────────────────────────────────────────────────────────────────────┐
 │  Browser (http://localhost:3000)                                          │
 │  ┌─────────────────────────────────────────────────────────────────────┐ │
-│  │  React guided cockpit                                                │ │
+│  │  React showcase cockpit                                              │ │
 │  │  └─ <CopilotKitProvider selfManagedAgents={{                         │ │
 │  │       control_room_agent: new HttpAgent({ url: currentEndpoint }) }}> │ │
 │  └─────────────────────────────────────────────────────────────────────┘ │

@@ -38,7 +38,6 @@ import { z } from "zod";
 
 import { useComponent } from "@copilotkit/react-core/v2";
 
-import { topRailButtonClass } from "@/components/control-room/top-rail-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -66,14 +65,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import {
   Table,
@@ -84,11 +75,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { CONTROL_ROOM_AGENT_NAME } from "@/hooks/use-control-room-state";
 import { cn } from "@/lib/utils";
 
@@ -493,7 +479,11 @@ export function GenerativeUIRegistry() {
   );
 }
 
-export function GenerativeUICatalogDrawer() {
+export function GenerativeUICatalogPanel({
+  className,
+}: {
+  className?: string;
+}) {
   const [query, setQuery] = useState("");
   const { enabled, enabledItems, setEnabled, enableAll, disableAll } =
     useGenerativeUICatalog();
@@ -508,76 +498,58 @@ export function GenerativeUICatalogDrawer() {
   }, [query]);
 
   return (
-    <Sheet>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <SheetTrigger asChild>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              aria-label="Generative UI"
-              className={topRailButtonClass("violet")}
-            >
-              <ChartNoAxesCombined />
-            </Button>
-          </SheetTrigger>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" align="center" sideOffset={8}>
-          Generative UI
-        </TooltipContent>
-      </Tooltip>
-      <SheetContent className="w-[560px] max-w-[96vw] overflow-y-auto p-0 sm:max-w-[560px]">
-        <SheetHeader className="border-b px-5 py-4 pr-14">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <SheetTitle>Generative UI</SheetTitle>
-              <SheetDescription>
-                Enable the components the Harness agent can render in chat.
-              </SheetDescription>
-            </div>
-            <Badge variant="secondary" className="shrink-0">
-              {enabledItems.length} enabled
-            </Badge>
+    <div className={cn("flex h-full min-h-0 flex-col", className)}>
+      <header className="border-b px-5 py-4 pr-14">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold tracking-tight">
+              Generative UI
+            </h2>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+              Enable the components the Harness agent can render in chat.
+            </p>
           </div>
-        </SheetHeader>
-        <div className="space-y-4 bg-muted/25 p-5">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search charts, forms, calendar..."
-              className="pl-9"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Button type="button" variant="outline" onClick={enableAll}>
-              Enable all
-            </Button>
-            <Button type="button" variant="outline" onClick={disableAll}>
-              Disable all
-            </Button>
-          </div>
-          <Separator />
-          <div className="space-y-3">
-            {filteredItems.map((item) => (
-              <CatalogItemRow
-                key={item.id}
-                item={item}
-                enabled={enabled[item.id]}
-                onEnabledChange={(checked) => setEnabled(item.id, checked)}
-              />
-            ))}
-            {filteredItems.length === 0 ? (
-              <div className="rounded-2xl border bg-background p-5 text-sm text-muted-foreground">
-                No components match that search.
-              </div>
-            ) : null}
-          </div>
+          <Badge variant="secondary" className="shrink-0">
+            {enabledItems.length} enabled
+          </Badge>
         </div>
-      </SheetContent>
-    </Sheet>
+      </header>
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-muted/25 p-5">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search charts, forms, calendar..."
+            className="pl-9"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Button type="button" variant="outline" onClick={enableAll}>
+            Enable all
+          </Button>
+          <Button type="button" variant="outline" onClick={disableAll}>
+            Disable all
+          </Button>
+        </div>
+        <Separator />
+        <div className="space-y-3">
+          {filteredItems.map((item) => (
+            <CatalogItemRow
+              key={item.id}
+              item={item}
+              enabled={enabled[item.id]}
+              onEnabledChange={(checked) => setEnabled(item.id, checked)}
+            />
+          ))}
+          {filteredItems.length === 0 ? (
+            <div className="rounded-2xl border bg-background p-5 text-sm text-muted-foreground">
+              No components match that search.
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -709,7 +681,7 @@ function RepairTrendChartRegistration() {
     agentId: CONTROL_ROOM_AGENT_NAME,
     parameters: RepairTrendChartProps,
     description:
-      "Use this when the audience should see progress over the guided repair flow. Prefer it after running tests or coverage. Use stages such as Plan, Inspect, Fix, Run, Verify, and Review.",
+      "Use this when the audience should see progress over a Harness run. Prefer it after tests or coverage. Use labels such as Plan, Inspect, Patch, Test, Verify, and Handoff.",
     render: RepairTrendChart,
   });
   return null;

@@ -15,18 +15,14 @@ import type { ReactNode } from "react";
 
 import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 import { HttpAgent } from "@ag-ui/client";
-import { ClipboardList, Code2 } from "lucide-react";
+import { PanelLeft } from "lucide-react";
 
 import { CenterWorkstream } from "@/components/control-room/CenterWorkstream";
 import {
-  GenerativeUICatalogDrawer,
   GenerativeUICatalogProvider,
   GenerativeUIRegistry,
 } from "@/components/control-room/GenerativeUICatalog";
-import { LeftControlPanel } from "@/components/control-room/LeftControlPanel";
-import { RightInspectorPanel } from "@/components/control-room/RightInspectorPanel";
-import { AdvancedControlsDrawer, StageRail } from "@/components/control-room/StageRail";
-import { topRailButtonClass } from "@/components/control-room/top-rail-button";
+import { ShowcaseSidebar } from "@/components/control-room/ShowcaseSidebar";
 import { ToolRendererRegistry } from "@/components/control-room/renderers/ToolRendererRegistry";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,13 +31,9 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 import {
-  Tooltip,
-  TooltipContent,
   TooltipProvider,
-  TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
   CONTROL_ROOM_AGENT_NAME,
@@ -84,11 +76,8 @@ export function ControlRoomApp() {
 function ThreePaneLayout() {
   return (
     <div className="cockpit-shell flex h-[100dvh] flex-col p-2">
-      <TopIconRail />
-      <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-1 gap-2 lg:grid-cols-[380px_minmax(0,1fr)]">
-        <Pane className="hidden lg:flex">
-          <LeftControlPanel />
-        </Pane>
+      <ShowcaseDrawer />
+      <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-1 gap-2">
         <Pane>
           <CenterWorkstream />
         </Pane>
@@ -97,82 +86,54 @@ function ThreePaneLayout() {
   );
 }
 
-function TopIconRail() {
-  return (
-    <div className="absolute right-3 top-3 z-10 flex gap-1 rounded-2xl border bg-background/95 p-1 shadow-sm backdrop-blur lg:right-4 lg:top-4">
-      <MobileStepsDrawer />
-      <StateDrawer />
-      <GenerativeUICatalogDrawer />
-      <AdvancedControlsDrawer iconOnly />
-    </div>
-  );
-}
+function ShowcaseDrawer() {
+  const [open, setOpen] = useState(false);
 
-function MobileStepsDrawer() {
   return (
-    <Sheet>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <SheetTrigger asChild>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              aria-label="Steps"
-              className={cn("lg:hidden", topRailButtonClass("indigo"))}
-            >
-              <ClipboardList />
-            </Button>
-          </SheetTrigger>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" align="center" sideOffset={8}>
-          Steps
-        </TooltipContent>
-      </Tooltip>
-      <SheetContent className="w-[360px] max-w-[94vw] overflow-hidden p-0 sm:max-w-[420px]">
+    <Sheet open={open} onOpenChange={setOpen}>
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        aria-label="Showcase sidebar"
+        title="Showcase"
+        onClick={() => setOpen(true)}
+        className="absolute left-3 top-3 z-10 rounded-2xl bg-background/95 shadow-sm backdrop-blur"
+      >
+        <PanelLeft className="text-primary" />
+      </Button>
+      <SheetContent side="left" className="w-[96vw] max-w-[96vw] overflow-hidden p-0 sm:max-w-[560px]">
         <SheetHeader className="border-b px-5 py-4">
-          <SheetTitle>Guided steps</SheetTitle>
+          <SheetTitle>
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="flex min-w-0 items-center gap-2">
+                <img
+                  src="/brand/copilotkit-color.svg"
+                  alt=""
+                  aria-hidden
+                  className="size-4 shrink-0"
+                />
+                <span>CopilotKit</span>
+              </span>
+              <span className="h-4 w-px shrink-0 bg-border" aria-hidden />
+              <span className="flex min-w-0 items-center gap-2">
+                <img
+                  src="/brand/microsoft-color.svg"
+                  alt=""
+                  aria-hidden
+                  className="size-4 shrink-0"
+                />
+                <span>Microsoft</span>
+              </span>
+            </span>
+          </SheetTitle>
           <SheetDescription>
-            Presenter flow for the repair demo.
+            Agent Harness showcase controls.
           </SheetDescription>
         </SheetHeader>
         <div className="min-h-0 flex-1">
-          <StageRail inDrawer />
+          <ShowcaseSidebar />
         </div>
-      </SheetContent>
-    </Sheet>
-  );
-}
-
-function StateDrawer() {
-  return (
-    <Sheet>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <SheetTrigger asChild>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              aria-label="State"
-              className={topRailButtonClass("cyan")}
-            >
-              <Code2 />
-            </Button>
-          </SheetTrigger>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" align="center" sideOffset={8}>
-          State
-        </TooltipContent>
-      </Tooltip>
-      <SheetContent className="w-[420px] max-w-[92vw] overflow-y-auto p-0 sm:max-w-[420px]">
-        <SheetHeader className="border-b px-5 py-4">
-          <SheetTitle>Harness Evidence</SheetTitle>
-          <SheetDescription>
-            Live state from the current Agent Harness run.
-          </SheetDescription>
-        </SheetHeader>
-        <RightInspectorPanel />
       </SheetContent>
     </Sheet>
   );
