@@ -13,20 +13,6 @@ type DefaultRenderProps = {
 };
 
 /**
- * Shape that `CopilotChatToolCallsView` actually passes a registered `*`
- * renderer: `{ name, toolCallId, args, status: ToolCallStatus, result }`.
- * `useDefaultRenderTool` wraps user `config.render` so it sees the
- * documented `DefaultRenderProps` shape instead.
- */
-type RawRendererProps = {
-  name: string;
-  toolCallId: string;
-  args: unknown;
-  status: ToolCallStatus;
-  result: string | undefined;
-};
-
-/**
  * Module-level dedup set so an unknown status value only emits a console
  * warning the FIRST time we encounter it. Otherwise a stuck/unmapped status
  * would log on every re-render (potentially many per second).
@@ -63,7 +49,7 @@ function mapToolCallStatus(
 }
 
 /**
- * Convert framework-internal RawRendererProps (`args`, enum status) to the
+ * Convert framework-internal raw renderer props (`args`, enum status) to the
  * documented DefaultRenderProps shape. Idempotent on already-documented input
  * — if the caller passes `parameters` and a string-union `status`, those win.
  */
