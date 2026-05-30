@@ -42,6 +42,8 @@ jobs:
       build_run_id: ${{ github.event.workflow_run.id }}
       build_run_url: ${{ github.event.workflow_run.html_url }}
       redeploy_red: ${{ steps.redeploy-gate.outputs.redeploy_red }}
+      ok_services: ${{ steps.redeploy-gate.outputs.ok_services }}
+      failed_services: ${{ steps.redeploy-gate.outputs.failed_services }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -144,8 +146,11 @@ jobs:
           SUMMARY=".redeploy/summary.json"
           if [ ! -f "$SUMMARY" ]; then
             echo "No redeploy summary found (workflow_dispatch path or build did not upload). Skipping gate."
-            echo "redeploy_red=false" >> "$GITHUB_OUTPUT"
-            echo "ok_services=" >> "$GITHUB_OUTPUT"
+            {
+              echo "redeploy_red=false"
+              echo "ok_services="
+              echo "failed_services="
+            } >> "$GITHUB_OUTPUT"
             exit 0
           fi
           # Shape guard: redeploy-env.ts writes per-entry `status` of
@@ -172,7 +177,9 @@ jobs:
           ERRORS=$(jq -c '[.[] | select(.status == "error")]' "$SUMMARY")
           ERROR_COUNT=$(echo "$ERRORS" | jq 'length')
           OK=$(jq -r '[.[] | select(.status == "ok") | .service] | join(",")' "$SUMMARY")
+          FAILED=$(jq -r '[.[] | select(.status == "error") | .service] | join(",")' "$SUMMARY")
           echo "ok_services=$OK" >> "$GITHUB_OUTPUT"
+          echo "failed_services=$FAILED" >> "$GITHUB_OUTPUT"
           if [ "$ERROR_COUNT" -gt 0 ]; then
             echo "::error::Staging redeploy reported $ERROR_COUNT per-service error(s):"
             echo "$ERRORS" | jq -r '.[] | "  - \(.service): \(.error)"'
@@ -281,28 +288,59 @@ jobs:
         id: payload
         env:
           VERIFY_RESULT: ${{ needs.verify.result }}
-          REDEPLOY_RESULT: ${{ needs.enforce-redeploy-gate.result }}
-          CSV: ${{ needs.resolve-matrix.outputs.services_csv }}
+          OK_SERVICES: ${{ needs.resolve-matrix.outputs.ok_services }}
+          FAILED_SERVICES: ${{ needs.resolve-matrix.outputs.failed_services }}
           BUILD_RUN_ID: ${{ needs.resolve-matrix.outputs.build_run_id }}
           BUILD_RUN_URL: ${{ needs.resolve-matrix.outputs.build_run_url }}
           RUN_ID: ${{ github.run_id }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        # Build the payload to match the harness ingest schema at
+        # showcase/harness/src/http/webhooks/deploy.ts (`.strict()`):
+        #   {runId, runUrl, buildRunId?, buildRunUrl?, services[], succeeded[], failed[], cancelled}
+        # No `state` key — the schema rejects unknown fields. State is
+        # derived downstream from (failed.length, cancelled, succeeded).
+        #   - succeeded = ok_services from the redeploy gate
+        #   - failed    = failed_services from the redeploy gate
+        #   - services  = union (full attempted set, per deploy.ts:307)
+        #   - cancelled = verify job conclusion == "cancelled"
+        # jq -R/split handles empty CSV → [] safely.
         run: |
           set -euo pipefail
-          SERVICES=$(echo "$CSV" | jq -R 'split(",") | map(select(length>0))')
-          if [ "$VERIFY_RESULT" = "success" ] && [ "$REDEPLOY_RESULT" != "failure" ]; then
-            STATE="success"
-          elif [ "$VERIFY_RESULT" = "cancelled" ]; then
-            STATE="cancelled"
+          # `echo` (not printf '%s') so empty CSV → newline → jq -R reads
+          # an empty record → split produces [""] → filter to []. Without
+          # the trailing newline jq sees no records and --argjson barfs
+          # on the empty string.
+          SUCCEEDED=$(echo "${OK_SERVICES:-}" | jq -R 'split(",") | map(select(length>0))')
+          FAILED=$(echo "${FAILED_SERVICES:-}" | jq -R 'split(",") | map(select(length>0))')
+          if [ "$VERIFY_RESULT" = "cancelled" ]; then
+            CANCELLED="true"
           else
-            STATE="failure"
+            CANCELLED="false"
           fi
+          # buildRunId/buildRunUrl are .url()-validated in the harness
+          # Zod schema, so we must omit them entirely when empty rather
+          # than emit "" (which fails .url()). Same for runUrl: only
+          # emit it if non-empty (it's optional in the schema). The base
+          # object always carries runId + succeeded/failed/services/cancelled;
+          # we conditionally splice in the optional keys.
           PAYLOAD=$(jq -cn \
-            --arg runId "$RUN_ID" --arg runUrl "$RUN_URL" \
+            --arg runId "$RUN_ID" --arg runUrl "${RUN_URL:-}" \
             --arg buildRunId "${BUILD_RUN_ID:-}" --arg buildRunUrl "${BUILD_RUN_URL:-}" \
-            --arg state "$STATE" \
-            --argjson services "$SERVICES" \
-            '{runId:$runId,runUrl:$runUrl,buildRunId:$buildRunId,buildRunUrl:$buildRunUrl,services:$services,state:$state}')
+            --argjson succeeded "$SUCCEEDED" \
+            --argjson failed "$FAILED" \
+            --argjson cancelled "$CANCELLED" \
+            '
+            {
+              runId: $runId,
+              services: ($succeeded + $failed | unique),
+              succeeded: $succeeded,
+              failed: $failed,
+              cancelled: $cancelled
+            }
+            + (if $runUrl == "" then {} else {runUrl: $runUrl} end)
+            + (if $buildRunId == "" then {} else {buildRunId: $buildRunId} end)
+            + (if $buildRunUrl == "" then {} else {buildRunUrl: $buildRunUrl} end)
+            ')
           {
             echo "payload<<EOF_PAYLOAD"
             echo "$PAYLOAD"
