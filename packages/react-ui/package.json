@@ -44,6 +44,8 @@
   "scripts": {
     "build:css": "node -e \"const fs=require('fs');fs.mkdirSync('./dist/v2',{recursive:true});fs.cpSync('./src/v2/styles.css','./dist/v2/index.css')\"",
     "build": "tsdown && pnpm run build:css",
+    "size": "size-limit",
+    "compat-check": "es-check es2022 --module 'dist/**/!(*.umd).{mjs,cjs,js}' && es-check es2018 'dist/**/*.umd.js'",
     "dev": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest",
