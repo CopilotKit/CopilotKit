@@ -150,4 +150,55 @@ describe("useDefaultRenderTool", () => {
     expect(screen.getByText("Result")).toBeDefined();
     expect(screen.getByText("done")).toBeDefined();
   });
+
+  it("default renderer emits stable copilot-tool-render testid and metadata attrs", () => {
+    const Harness: React.FC = () => {
+      useDefaultRenderTool();
+      return null;
+    };
+
+    render(<Harness />);
+
+    const [config] = mockUseRenderTool.mock.calls[0] as [
+      {
+        render: (props: {
+          name: string;
+          parameters: unknown;
+          status: string;
+          result: string | undefined;
+        }) => React.ReactElement;
+      },
+    ];
+
+    const DefaultRenderer = config.render as React.ComponentType<{
+      name: string;
+      parameters: unknown;
+      status: string;
+      result: string | undefined;
+    }>;
+
+    render(
+      <DefaultRenderer
+        name="searchDocs"
+        parameters={{ query: "copilot" }}
+        status="complete"
+        result="ok"
+      />,
+    );
+
+    const wrapper = screen.getByTestId("copilot-tool-render");
+    expect(wrapper).toBeDefined();
+    expect(wrapper.getAttribute("data-tool-name")).toBe("searchDocs");
+    expect(wrapper.getAttribute("data-status")).toBe("complete");
+    expect(wrapper.getAttribute("data-args")).toBe(
+      JSON.stringify({ query: "copilot" }),
+    );
+    expect(wrapper.getAttribute("data-result")).toBe("ok");
+    expect(screen.getByTestId("copilot-tool-render-name").textContent).toBe(
+      "searchDocs",
+    );
+    expect(screen.getByTestId("copilot-tool-render-status").textContent).toBe(
+      "Done",
+    );
+  });
 });

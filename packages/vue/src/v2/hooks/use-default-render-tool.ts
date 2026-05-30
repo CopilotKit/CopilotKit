@@ -49,59 +49,91 @@ const DefaultToolCallRenderer = defineComponent({
           ? "Done"
           : props.status;
 
-      return h("div", { style: { marginTop: "8px", paddingBottom: "8px" } }, [
-        h(
-          "div",
-          {
-            style: {
-              borderRadius: "12px",
-              border: "1px solid #e4e4e7",
-              backgroundColor: "#fafafa",
-              padding: "14px 16px",
-            },
-          },
-          [
-            h(
-              "button",
-              {
-                type: "button",
-                onClick: () => {
-                  isExpanded.value = !isExpanded.value;
-                },
-                style: {
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: "10px",
-                  cursor: "pointer",
-                  border: "none",
-                  padding: 0,
-                  margin: 0,
-                  background: "transparent",
-                  textAlign: "left",
-                },
+      return h(
+        "div",
+        {
+          "data-testid": "copilot-tool-render",
+          "data-tool-name": props.name,
+          "data-status": props.status,
+          "data-args": safeStringifyForAttr(props.parameters),
+          "data-result": safeStringifyForAttr(props.result),
+          style: { marginTop: "8px", paddingBottom: "8px" },
+        },
+        [
+          h(
+            "div",
+            {
+              style: {
+                borderRadius: "12px",
+                border: "1px solid #e4e4e7",
+                backgroundColor: "#fafafa",
+                padding: "14px 16px",
               },
-              [
-                h("span", { style: { fontWeight: "600" } }, props.name),
-                h("span", statusLabel),
-              ],
-            ),
-            isExpanded.value
-              ? h("div", { style: { marginTop: "12px" } }, [
-                  h("div", "Arguments"),
-                  h("pre", JSON.stringify(props.parameters ?? {}, null, 2)),
-                  props.result !== undefined
-                    ? h("div", [h("div", "Result"), h("pre", props.result)])
-                    : null,
-                ])
-              : null,
-          ],
-        ),
-      ]);
+            },
+            [
+              h(
+                "button",
+                {
+                  type: "button",
+                  onClick: () => {
+                    isExpanded.value = !isExpanded.value;
+                  },
+                  style: {
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "10px",
+                    cursor: "pointer",
+                    border: "none",
+                    padding: 0,
+                    margin: 0,
+                    background: "transparent",
+                    textAlign: "left",
+                  },
+                },
+                [
+                  h(
+                    "span",
+                    {
+                      "data-testid": "copilot-tool-render-name",
+                      style: { fontWeight: "600" },
+                    },
+                    props.name,
+                  ),
+                  h(
+                    "span",
+                    { "data-testid": "copilot-tool-render-status" },
+                    statusLabel,
+                  ),
+                ],
+              ),
+              isExpanded.value
+                ? h("div", { style: { marginTop: "12px" } }, [
+                    h("div", "Arguments"),
+                    h("pre", JSON.stringify(props.parameters ?? {}, null, 2)),
+                    props.result !== undefined
+                      ? h("div", [h("div", "Result"), h("pre", props.result)])
+                      : null,
+                  ])
+                : null,
+            ],
+          ),
+        ],
+      );
     };
   },
 });
+
+function safeStringifyForAttr(value: unknown): string {
+  if (value === undefined || value === null) return "";
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
 
 export function useDefaultRenderTool(
   config?: {
