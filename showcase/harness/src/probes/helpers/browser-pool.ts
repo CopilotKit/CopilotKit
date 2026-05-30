@@ -279,6 +279,17 @@ export class BrowserPool {
     );
     for (const slot of pending) {
       if (this.isShutdown) return;
+      // Re-validate against the once-captured `pending` snapshot before
+      // claiming the slot. A concurrent invocation (a second acquire()-driven
+      // relaunch, or a late `disconnected` re-entering recycleSlot) may have
+      // claimed this slot (isSlotBusy) or already recovered it
+      // (relaunchPending cleared) during a prior iteration's `await`. Without
+      // this check-then-set — with NO `await` between the check and the
+      // `add` — both invocations would launch a fresh browser for the same
+      // slot, the second overwriting `slot.browser` (leaking the first
+      // process) and double-publishing via handOff. Mirrors recycleSlot's
+      // `if (this.isSlotBusy(slot)) return;` guard.
+      if (this.isSlotBusy(slot) || !slot.relaunchPending) continue;
       // Mark before the await so a concurrent invocation skips this slot.
       this.relaunchingSlots.add(slot);
       try {
@@ -503,6 +514,14 @@ export class BrowserPool {
   }
 
   private recycleSlot(slot: Slot): void {
+    // Gate entry on shutdown so a late recycle cannot register a fresh promise
+    // in `inFlightRecycles` AFTER shutdown() snapshotted that set via
+    // `Array.from`, which would let its fresh browser escape the drain. The
+    // disconnect handler already checks isShutdown, but recycleSlot has other
+    // entry points (acquire()'s zombie scan, release()'s dead-slot check), so
+    // harden the function itself. Matches the isShutdown gating reinit() and
+    // relaunchPendingSlots() already do at their entry points.
+    if (this.isShutdown) return;
     // Re-entry guard: a second call for the same slot is a no-op. This must
     // honor BOTH recovery sets (via isSlotBusy), not just recyclingSlots — a
     // slot parked relaunchPending still holds its OLD dead browser in
@@ -597,9 +616,21 @@ export class BrowserPool {
     })();
 
     this.inFlightRecycles.add(recyclePromise);
-    recyclePromise.finally(() => {
-      this.recyclingSlots.delete(slot);
-      this.inFlightRecycles.delete(recyclePromise);
-    });
+    // Absorb any throw with a logged `.catch` before the `.finally`, mirroring
+    // track(). The IIFE swallows its own launch errors today, but a future
+    // synchronous throw (e.g. handOff/attachDisconnectHandler/browserToSlot.set)
+    // must stay contained — a recycle failing is non-fatal to the pool and must
+    // never surface as an unhandled rejection.
+    recyclePromise
+      .catch((err: unknown) => {
+        this.logger?.info("browser-pool.recycle-failed", {
+          slotIndex: this.slots.indexOf(slot),
+          error: err instanceof Error ? err.message : String(err),
+        });
+      })
+      .finally(() => {
+        this.recyclingSlots.delete(slot);
+        this.inFlightRecycles.delete(recyclePromise);
+      });
   }
 }

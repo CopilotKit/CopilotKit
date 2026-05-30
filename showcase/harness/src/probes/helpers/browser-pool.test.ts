@@ -596,6 +596,110 @@ describe("BrowserPool dead-instance detection", () => {
     await pool.shutdown();
   });
 
+  it("launches exactly one fresh browser per slot when two pending slots are recovered by two concurrent relaunchPendingSlots invocations", async () => {
+    // Bug #1 guard (multi-slot reachable double-launch). relaunchPendingSlots
+    // snapshots `pending` ONCE then loops. With >=2 pending slots and two
+    // concurrent acquire()-driven invocations:
+    //   - invocation 1 snapshots [A, B], processes A (adds A to
+    //     relaunchingSlots, awaits A's gated launch);
+    //   - invocation 2 starts during that await, snapshots [B] (A is now
+    //     busy), claims B and relaunches it;
+    //   - invocation 1's A launch resolves; its loop advances to B and — with
+    //     NO in-loop re-check — re-adds B and launches a SECOND browser for B,
+    //     overwriting slot.browser (leaking the first) and double-publishing.
+    // The in-loop `if (this.isSlotBusy(slot) || !slot.relaunchPending)
+    // continue;` makes invocation 1 skip B, so EXACTLY ONE fresh browser is
+    // launched per slot.
+    //
+    // Deterministic race: gate every recovery launch (calls 9+) so we can
+    // interleave the two invocations precisely.
+    const launched: FakeBrowser[] = [];
+    let callCount = 0;
+    // One resolver per gated recovery launch; we release them in order.
+    const gateResolvers: Array<() => void> = [];
+    const gateFor = (): Promise<void> =>
+      new Promise<void>((resolve) => {
+        gateResolvers.push(resolve);
+      });
+    // init = calls 1,2; the two slots' immediate recycle retries
+    // (RELAUNCH_MAX_ATTEMPTS=3 each) = calls 3..8, all fail to park both slots.
+    // Recovery relaunches are calls 9 and 10, both gated.
+    const failCalls = new Set([3, 4, 5, 6, 7, 8]);
+    const launchBrowser: LaunchBrowser = async () => {
+      callCount++;
+      if (failCalls.has(callCount)) {
+        throw new Error("simulated launch failure");
+      }
+      if (callCount >= 9) {
+        await gateFor();
+      }
+      const b = makeFakeBrowser();
+      launched.push(b);
+      return b as unknown as Browser;
+    };
+    const { logger } = makeFakeLogger();
+    const pool = new BrowserPool(2, 100, logger, launchBrowser);
+    await pool.init();
+    expect(launched).toHaveLength(2);
+
+    // Park BOTH slots as relaunchPending: crash both, let all immediate
+    // retries (calls 3..8) exhaust. Live capacity drops to 0 while both slots
+    // stay in this.slots.
+    launched[0]!.__crash();
+    launched[1]!.__crash();
+    await waitFor(() => pool.stats().size === 0, 5_000);
+    expect(pool.stats().size).toBe(0);
+
+    // Drive two concurrent relaunchPendingSlots invocations via two acquire()s.
+    const a = pool.acquire(5_000);
+    const b = pool.acquire(5_000);
+
+    // Let both invocations run up to their first gated launch. Invocation 1
+    // snapshots [slotA, slotB], claims slotA, awaits its launch (call 9).
+    // Invocation 2 then snapshots [slotB] (slotA busy), claims slotB, awaits
+    // its launch (call 10). Wait until BOTH gated launches are pending.
+    await waitFor(() => gateResolvers.length >= 2, 3_000);
+
+    // Release both gated launches. Invocation 1's slotA launch (call 9) and
+    // invocation 2's slotB launch (call 10) resolve. Invocation 1's loop then
+    // advances to slotB: WITHOUT the in-loop guard it would launch a SECOND
+    // browser for slotB (a 3rd gated launch, call 11). WITH the guard it skips
+    // slotB (now busy / no longer pending).
+    gateResolvers[0]!();
+    gateResolvers[1]!();
+    await drainMicrotasks(30);
+
+    // Give any erroneous third launch a chance to register its gate so a leak
+    // would surface as a 3rd pending resolver.
+    await drainMicrotasks(30);
+
+    const first = await Promise.race([a, b]);
+    expect(first).toBeDefined();
+    expect((first as unknown as FakeBrowser).isConnected()).toBe(true);
+
+    // Exactly two fresh browsers beyond init — one per slot, no leaked
+    // double-launch for the contended slot. (A third gated launch from the
+    // unguarded re-entry would still be parked on its gate and not yet in
+    // `launched`, so additionally assert no 3rd gate was ever requested.)
+    const freshBeyondInit = launched.slice(2);
+    expect(freshBeyondInit.length).toBe(2);
+    expect(gateResolvers.length).toBe(2);
+
+    // Pin exact-once: both acquirers are served by the two fresh launches, and
+    // each fresh browser maps to a distinct slot (no slot.browser overwrite).
+    const both = await Promise.all([a, b]);
+    const servedIds = both.map((br) => (br as unknown as FakeBrowser).__id);
+    const freshIds = freshBeyondInit.map((br) => br.__id);
+    expect(new Set(servedIds)).toEqual(new Set(freshIds));
+
+    // Two live slots recovered, never double-published into available.
+    expect(pool.stats().size).toBe(2);
+    expect(pool.stats().available).toBeLessThanOrEqual(2);
+
+    await pool.shutdown();
+    await Promise.allSettled([a, b]);
+  });
+
   it("shutdown() does not loop the disconnect handler when closing slot browsers", async () => {
     const { launchBrowser, launched } = makeFakeLauncher();
     const { logger, events } = makeFakeLogger();
