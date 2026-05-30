@@ -14,6 +14,21 @@ require_relative "spec_helper"
 class RollbackCommitInjectionTest < Minitest::Test
     # Capture every IO.popen invocation issued during the test so we can both
     # stub out git AND assert that injection attempts never reach a subprocess.
+    #
+    # Hardening notes:
+    #   * `expected_subcmds` is the set of git subcommands the test
+    #     explicitly configured (via PopenSpy.responses or PopenSpy.exits).
+    #     Any `git <subcmd>` call NOT in that set raises UnexpectedPopen
+    #     instead of silently returning nil — so a future code path that
+    #     starts shelling out to e.g. `git rev-parse` is caught loudly
+    #     at the boundary rather than producing a confusing downstream
+    #     YAML.safe_load failure on an empty string.
+    #   * `exits` yields an honest `$?.exitstatus` for the configured code
+    #     by shelling to a tiny `ruby -e "exit N"` — `true`/`false` only
+    #     produce 0/1 and so failed to surface bugs sensitive to the
+    #     specific code (e.g. git's 128 for "bad object").
+    class UnexpectedPopen < StandardError; end
+
     module PopenSpy
         @calls = []
         @responses = {}
@@ -31,6 +46,32 @@ class RollbackCommitInjectionTest < Minitest::Test
 
             def record(args)
                 @calls << args
+            end
+
+            # Subcommands the current test has explicitly accounted for.
+            # A response of "" or an exit of 0 counts as an explicit
+            # opt-in: the test author has thought about that subcmd.
+            def expected_subcmds
+                (@responses.keys + @exits.keys).uniq
+            end
+
+            # Set $?.exitstatus to `code` by running a real, short-lived
+            # subprocess that exits with that code. Using `system("true")`
+            # / `system("false")` only ever yields 0 or 1 — too lossy for
+            # bug-fidelity assertions (e.g. git's exit 128 on bad object).
+            def stamp_exit_status!(code)
+                # `ruby -e "exit N"` is portable across CI runners and
+                # avoids relying on shell builtins. Suppress stderr just
+                # in case (shouldn't print anything, but defensive).
+                # Fail loud if the spawn itself fails: `system` returns
+                # `nil` on exec failure (command-not-found / interpreter
+                # unresolvable), in which case `$?` reflects a
+                # ~127 exec failure rather than the configured code and
+                # silently corrupts the spy contract. `false` (the
+                # child ran and exited non-zero with the configured
+                # code) is the happy path here and must NOT raise.
+                result = system(RbConfig.ruby, "-e", "exit #{Integer(code)}", out: File::NULL, err: File::NULL)
+                raise "stamp_exit_status! failed to spawn #{RbConfig.ruby}" if result.nil?
             end
         end
     end
@@ -67,6 +108,13 @@ class RollbackCommitInjectionTest < Minitest::Test
         #   IO.popen(["git", "ls-tree", ...], err: [:child, :out]) { |io| io.read }
         # We intercept that and return canned output keyed by the first non-git
         # subcommand ("ls-tree" or "show").
+        #
+        # Hardening: any `git <subcmd>` NOT in PopenSpy.expected_subcmds
+        # raises UnexpectedPopen. That makes "a new subprocess shows up
+        # in the code path" a loud failure instead of a silent nil read.
+        # Non-git popens fall through to the real implementation (we
+        # want to keep e.g. minitest's own bookkeeping intact, though
+        # nothing currently relies on it).
         @original_popen = IO.method(:popen)
         spy = PopenSpy
         IO.singleton_class.send(:define_method, :popen) do |*args, **kwargs, &block|
@@ -74,12 +122,21 @@ class RollbackCommitInjectionTest < Minitest::Test
             argv = args.first
             if argv.is_a?(Array) && argv.first == "git"
                 subcmd = argv[1]
+                unless spy.expected_subcmds.include?(subcmd)
+                    raise UnexpectedPopen,
+                        "PopenSpy received an UNEXPECTED `git #{subcmd}` invocation. " \
+                        "The test only configured: #{spy.expected_subcmds.inspect}. " \
+                        "If this is a legitimate new subprocess, opt in by setting " \
+                        "PopenSpy.responses[#{subcmd.inspect}] (and/or exits) in " \
+                        "the test setup. Full argv: #{argv.inspect}"
+                end
                 response = spy.responses[subcmd] || ""
-                # Set $? to the per-subcommand desired status. Use a real
-                # subprocess (true/false) so $?.exitstatus reflects 0 or 1
-                # the way the real `git` call would.
-                exit_code = spy.exits[subcmd]
-                system(exit_code == 0 || exit_code.nil? ? "true" : "false")
+                # Stamp $?.exitstatus with the configured code (default 0).
+                # Critical for tests asserting on the *specific* exit code
+                # (e.g. git's 128 for "fatal: bad object") rather than a
+                # generic 0/1 success/fail.
+                exit_code = spy.exits[subcmd] || 0
+                spy.stamp_exit_status!(exit_code)
                 # Mimic the block form used by the production code.
                 if block
                     require "stringio"
@@ -234,5 +291,60 @@ class RollbackCommitInjectionTest < Minitest::Test
         assert_empty PopenSpy.calls.select { |c| c.first.is_a?(Array) && c.first.first == "git" },
             "no git subprocess should be spawned for unknown --env"
         refute FakeRestore.ran
+    end
+
+    # ── PopenSpy self-test: hardening guarantees ──────────────────────────
+    #
+    # These tests pin the spy's own contract so it can't silently rot.
+    # The spy is the only thing standing between a future subprocess
+    # addition and a test that "passes" with a wrong answer.
+
+    # If the production code adds a NEW git subprocess (e.g. rev-parse)
+    # without the test opting in, the spy must raise — not silently
+    # return nil/"" which would corrupt downstream assertions.
+    def test_popen_spy_raises_on_unexpected_git_subcommand
+        # Only "ls-tree" and "show" are configured here.
+        PopenSpy.responses["ls-tree"] = ""
+        PopenSpy.responses["show"] = ""
+
+        # Direct invocation simulates the "new subprocess slipped in"
+        # scenario without needing to add a real call site to railway.
+        err = assert_raises(UnexpectedPopen) do
+            IO.popen(["git", "rev-parse", "HEAD"], err: [:child, :out]) { |io| io.read }
+        end
+        assert_match(/UNEXPECTED `git rev-parse`/, err.message,
+            "spy must name the offending subcommand in its error")
+        assert_match(/ls-tree/, err.message,
+            "spy must list the configured subcommands so the operator " \
+            "can decide whether to opt the new one in")
+    end
+
+    # Exit-code fidelity: configuring `exits["show"] = 128` must yield
+    # an honest `$?.exitstatus == 128`, not a generic 1. The git-show
+    # failure-gate test depends on this fidelity to be a meaningful
+    # regression test of the gate (a gate keyed on `!= 0` would pass
+    # against a fake 1, but a gate keyed on `== 128` would not).
+    def test_popen_spy_stamps_real_exit_status_for_configured_code
+        PopenSpy.responses["show"] = "fatal: whatever\n"
+        PopenSpy.exits["show"] = 128
+
+        IO.popen(["git", "show", "abc1234:foo"], err: [:child, :out]) { |io| io.read }
+        assert_equal 128, $?.exitstatus,
+            "PopenSpy.stamp_exit_status! must reflect the *configured* " \
+            "exit code in $?.exitstatus (got #{$?.exitstatus.inspect}). " \
+            "Without this, tests asserting on specific git exit codes " \
+            "(e.g. 128 for bad object) are vacuous."
+    end
+
+    # Default behaviour: when `exits[subcmd]` is unset, the call must
+    # behave like a successful git invocation (`$?.exitstatus == 0`).
+    def test_popen_spy_defaults_to_exit_zero_when_exits_unset
+        PopenSpy.responses["ls-tree"] = "snap.yaml\n"
+
+        IO.popen(["git", "ls-tree", "abc1234"], err: [:child, :out]) { |io| io.read }
+        assert_equal 0, $?.exitstatus,
+            "default exit status for an un-configured subcmd response " \
+            "must be 0 (success), matching how real git behaves on a " \
+            "successful call"
     end
 end

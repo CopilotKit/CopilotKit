@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { promises as fs } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -277,10 +278,12 @@ function isCovered(prompt: string, fixtures: Fixture[]): boolean {
  * monolithic feature-parity.json used).
  *
  * Missing fixture DIRECTORIES are a hard error (the reorg layout is
- * load-bearing). Files present but lacking a `fixtures` array are silently
- * skipped (defensive against schema drift; no such files exist today).
+ * load-bearing). Files present but lacking a `fixtures` array are ALSO a
+ * hard error — fail loud against schema drift rather than silently skipping.
+ * Malformed JSON is rethrown with the offending file path so operators can
+ * identify the source file immediately.
  */
-async function loadAllFixtures(dirs: string[]): Promise<Fixture[]> {
+export async function loadAllFixtures(dirs: string[]): Promise<Fixture[]> {
   const out: Fixture[] = [];
   for (const dir of dirs) {
     let entries: string[];
@@ -290,17 +293,27 @@ async function loadAllFixtures(dirs: string[]): Promise<Fixture[]> {
       // Missing dir is a hard error — the reorg layout is load-bearing.
       throw new Error(
         `aimock fixture dir not found: ${dir} (${(err as Error).message})`,
+        { cause: err },
       );
     }
     const jsonFiles = entries.filter((e) => e.endsWith(".json"));
     for (const file of jsonFiles) {
       const fullPath = path.join(dir, file);
-      const raw = await fs.readFile(fullPath, "utf8");
-      const parsed = JSON.parse(raw) as Partial<FeatureParityFile>;
+      let parsed: Partial<FeatureParityFile>;
+      try {
+        const raw = await fs.readFile(fullPath, "utf8");
+        parsed = JSON.parse(raw) as Partial<FeatureParityFile>;
+      } catch (err) {
+        const msg = (err as Error).message;
+        throw new Error(`failed to parse fixture file ${fullPath}: ${msg}`, {
+          cause: err,
+        });
+      }
       if (!parsed || !Array.isArray(parsed.fixtures)) {
-        // Skip files that don't carry a fixtures array (defensive — no
-        // such files exist today but the schema is informally enforced).
-        continue;
+        // Schema drift is a hard error — every fixture file MUST carry a
+        // `fixtures` array. Matches the "missing dir is a hard error"
+        // stance above.
+        throw new Error(`fixture file missing 'fixtures' array: ${fullPath}`);
       }
       out.push(...parsed.fixtures);
     }
@@ -360,5 +373,51 @@ describe("aimock feature-parity fixture coverage for langgraph-python E2E specs"
     // trivially. Floor chosen from the current count (roughly 50+) with
     // margin for future pruning.
     expect(allPrompts.length).toBeGreaterThanOrEqual(30);
+  });
+});
+
+/**
+ * Fail-loud coverage for the two throw branches in `loadAllFixtures`.
+ *
+ * These tests exist because the loader was hardened to throw (rather than
+ * silently `continue`) on (a) malformed JSON and (b) a file missing the
+ * `fixtures` array. Without these tests, a future revert to silent-skip
+ * would pass CI green. Each test isolates a temp dir, writes the offending
+ * file, calls the helper directly, and asserts the rejection message
+ * mentions both the failure mode and the file path.
+ */
+describe("loadAllFixtures fail-loud", () => {
+  it("throws with file path when a fixture file has malformed JSON", async () => {
+    const tmpDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), "aimock-fixture-malformed-"),
+    );
+    try {
+      const badPath = path.join(tmpDir, "bad.json");
+      await fs.writeFile(badPath, "{ not valid json", "utf8");
+
+      await expect(loadAllFixtures([tmpDir])).rejects.toThrow(
+        /failed to parse fixture file/,
+      );
+      await expect(loadAllFixtures([tmpDir])).rejects.toThrow(badPath);
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("throws with file path when a fixture file is missing the 'fixtures' array", async () => {
+    const tmpDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), "aimock-fixture-missing-"),
+    );
+    try {
+      const badPath = path.join(tmpDir, "no-fixtures.json");
+      await fs.writeFile(badPath, JSON.stringify({ notFixtures: [] }), "utf8");
+
+      await expect(loadAllFixtures([tmpDir])).rejects.toThrow(
+        /missing 'fixtures' array/,
+      );
+      await expect(loadAllFixtures([tmpDir])).rejects.toThrow(badPath);
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
   });
 });
