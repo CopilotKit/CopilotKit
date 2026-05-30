@@ -18,10 +18,9 @@
       }
     },
     {
-      "_comment": "D5 fixture for /demos/shared-state-read (recipe-editor) turn 2. Reply mentions recipe-context tokens so the probe's soft assertion lands.",
+      "_comment": "D5 fixture for /demos/shared-state-read (recipe-editor) turn 2. Reply mentions recipe-context tokens so the probe's soft assertion lands. No turnIndex gate — multi-turn probe; turnIndex would 503 on turn 2.",
       "match": {
         "userMessage": "healthier with more vegetables",
-        "turnIndex": 0,
         "context": "ms-agent-python"
       },
       "response": {

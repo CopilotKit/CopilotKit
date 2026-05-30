@@ -23,7 +23,6 @@ not_supported_features:
 features:
   - cli-start
   - agentic-chat
-  - agentic-chat-reasoning
   - beautiful-chat
   - prebuilt-sidebar
   - prebuilt-popup
@@ -43,7 +42,8 @@ features:
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
   - tool-rendering-reasoning-chain
-  - reasoning-default-render
+  - reasoning-custom
+  - reasoning-default
   - declarative-gen-ui
   - gen-ui-agent
   - gen-ui-tool-based
@@ -52,8 +52,8 @@ features:
   - readonly-state-agent-context
   - open-gen-ui
   - open-gen-ui-advanced
-  - byoc-json-render
-  - byoc-hashbrown
+  - declarative-json-render
+  - declarative-hashbrown
   - mcp-apps
   - multimodal
   - voice
@@ -306,34 +306,34 @@ demos:
       - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
       - src/app/demos/open-gen-ui-advanced/suggestions.ts
       - src/app/api/copilotkit-ogui/route.ts
-  - id: byoc-json-render
-    name: "BYOC: json-render"
-    description: Bring-your-own-catalog generative UI via @json-render/react
+  - id: declarative-json-render
+    name: "Declarative UI: json-render"
+    description: Declarative generative UI via @json-render/react — Claude emits a flat element-tree spec the renderer consumes
     tags:
       - generative-ui
-    route: /demos/byoc-json-render
+    route: /demos/declarative-json-render
     animated_preview_url:
     highlight:
       - src/agent_server.ts
       - src/agent/byoc-json-render-prompt.ts
-      - src/app/demos/byoc-json-render/page.tsx
-      - src/app/demos/byoc-json-render/json-render-renderer.tsx
-      - src/app/demos/byoc-json-render/catalog.ts
-      - src/app/demos/byoc-json-render/registry.tsx
-      - src/app/api/copilotkit-byoc-json-render/route.ts
-  - id: byoc-hashbrown
-    name: "BYOC: hashbrown"
-    description: Bring-your-own-catalog streaming UI via @hashbrownai/react useJsonParser
+      - src/app/demos/declarative-json-render/page.tsx
+      - src/app/demos/declarative-json-render/json-render-renderer.tsx
+      - src/app/demos/declarative-json-render/catalog.ts
+      - src/app/demos/declarative-json-render/registry.tsx
+      - src/app/api/copilotkit-declarative-json-render/route.ts
+  - id: declarative-hashbrown
+    name: "Declarative UI: Hashbrown"
+    description: Declarative streaming UI via @hashbrownai/react useJsonParser — Claude emits a catalog-constrained UI envelope
     tags:
       - generative-ui
-    route: /demos/byoc-hashbrown
+    route: /demos/declarative-hashbrown
     animated_preview_url:
     highlight:
       - src/agent_server.ts
       - src/agent/byoc-hashbrown-prompt.ts
-      - src/app/demos/byoc-hashbrown/page.tsx
-      - src/app/demos/byoc-hashbrown/hashbrown-renderer.tsx
-      - src/app/api/copilotkit-byoc-hashbrown/route.ts
+      - src/app/demos/declarative-hashbrown/page.tsx
+      - src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx
+      - src/app/api/copilotkit-declarative-hashbrown/route.ts
   - id: mcp-apps
     name: MCP Apps
     description: MCP server-driven UI via activity renderers — runtime auto-applies the MCP Apps middleware and the built-in MCPAppsActivityRenderer paints sandboxed iframes inline in the chat
@@ -416,28 +416,30 @@ demos:
       - src/app/demos/tool-rendering-custom-catchall/page.tsx
       - src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx
       - src/app/api/copilotkit/route.ts
-  - id: agentic-chat-reasoning
-    name: "Agentic Chat (Reasoning)"
-    description: Custom reasoningMessage slot renders Claude extended-thinking deltas as AG-UI REASONING_MESSAGE_* events
-    tags:
-      - agent-capabilities
-    route: /demos/agentic-chat-reasoning
-    animated_preview_url:
-    highlight:
-      - src/agent_server.ts
-      - src/app/demos/agentic-chat-reasoning/page.tsx
-      - src/app/demos/agentic-chat-reasoning/reasoning-block.tsx
-      - src/app/api/copilotkit-reasoning/route.ts
-  - id: reasoning-default-render
-    name: Reasoning (Default Render)
+  - id: reasoning-default
+    name: Reasoning (Default)
     description: Built-in CopilotChatReasoningMessage card paints Claude extended-thinking output — zero custom slots
     tags:
       - agent-capabilities
-    route: /demos/reasoning-default-render
+    route: /demos/reasoning-default
     animated_preview_url:
     highlight:
       - src/agent_server.ts
-      - src/app/demos/reasoning-default-render/page.tsx
+      - src/app/demos/reasoning-default/page.tsx
+      - src/app/demos/reasoning-default/suggestions.ts
+      - src/app/api/copilotkit-reasoning/route.ts
+  - id: reasoning-custom
+    name: Reasoning (Custom)
+    description: Custom reasoningMessage slot renders Claude extended-thinking deltas as a tagged amber banner
+    tags:
+      - agent-capabilities
+    route: /demos/reasoning-custom
+    animated_preview_url:
+    highlight:
+      - src/agent_server.ts
+      - src/app/demos/reasoning-custom/page.tsx
+      - src/app/demos/reasoning-custom/reasoning-block.tsx
+      - src/app/demos/reasoning-custom/suggestions.ts
       - src/app/api/copilotkit-reasoning/route.ts
   - id: tool-rendering-reasoning-chain
     name: "Tool Rendering: Reasoning Chain"

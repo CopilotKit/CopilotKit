@@ -36,6 +36,17 @@ import json
 import sys
 from typing import Any
 
+# ORDER-CRITICAL: install the global httpx hook BEFORE any agent module
+# (and before crewai / litellm / openai) imports. CrewAI / litellm
+# construct httpx clients per-call; this patch ensures every new client
+# auto-attaches the forwarded-header hook on construction.
+from agents._header_forwarding import (
+    HeaderForwardingHTTPMiddleware,
+    install_global_httpx_hook,
+)
+
+install_global_httpx_hook()
+
 from ag_ui_crewai.endpoint import (
     add_crewai_crew_fastapi_endpoint,
     add_crewai_flow_fastapi_endpoint,
@@ -378,6 +389,12 @@ class ForwardedPropsASGIMiddleware:
 
 app.add_middleware(HealthMiddleware)
 app.add_middleware(ForwardedPropsASGIMiddleware)
+
+# Capture inbound CopilotKit ``x-*`` headers (e.g. ``x-aimock-context``)
+# into a per-request ContextVar so any outbound LLM/provider httpx call
+# made inside the request scope copies them onto its outbound request.
+# Paired with ``install_global_httpx_hook`` at the top of this file.
+app.add_middleware(HeaderForwardingHTTPMiddleware)
 
 # CORS: `allow_origins=["*"]` is intentional for this LOCAL DEMO / SHOWCASE
 # STARTER package. The agent server binds to localhost:8000 during `pnpm dev`

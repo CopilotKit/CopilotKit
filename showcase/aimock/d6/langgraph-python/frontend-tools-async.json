@@ -37,10 +37,9 @@
       }
     },
     {
-      "_comment": "frontend-tools-async — project-planning pill. 1st turn: query_notes tool call. Specific match wins over the broad 'plan' fixture in feature-parity.json (d5-all.json loads first).",
+      "_comment": "frontend-tools-async — project-planning pill. 1st turn: query_notes tool call. Specific match wins over the broad 'plan' fixture in feature-parity.json (d5-all.json loads first). turnIndex gate dropped — the multi-pill sequential e2e (frontend-tools-async.spec.ts:149) clicks earlier pills first, leaving prior tool/assistant turns in the thread, so this user message is no longer at turnIndex 0. The toolCallId-keyed follow-up fixture above still wins for iteration 2 (last message is tool with that id); this fixture only fires when last-message.role=user.",
       "match": {
         "userMessage": "Find my notes about project planning",
-        "turnIndex": 0,
         "context": "langgraph-python"
       },
       "response": {
@@ -65,10 +64,9 @@
       }
     },
     {
-      "_comment": "frontend-tools-async — auth pill. 1st turn: query_notes tool call. Beats the showcase-assistant catch-all in feature-parity.json by virtue of d5-all.json's load order and a longer specific substring match.",
+      "_comment": "frontend-tools-async — auth pill. 1st turn: query_notes tool call. Beats the showcase-assistant catch-all in feature-parity.json by virtue of d5-all.json's load order and a longer specific substring match. turnIndex gate dropped — multi-pill sequential e2e leaves prior turns in the thread before this pill is clicked, so the prompt is no longer at turnIndex 0. The toolCallId-keyed follow-up above still wins for iteration 2.",
       "match": {
         "userMessage": "Search my notes for anything related to auth",
-        "turnIndex": 0,
         "context": "langgraph-python"
       },
       "response": {
@@ -93,10 +91,9 @@
       }
     },
     {
-      "_comment": "frontend-tools-async — reading pill. 1st turn: query_notes tool call.",
+      "_comment": "frontend-tools-async — reading pill. 1st turn: query_notes tool call. turnIndex gate dropped — multi-pill sequential e2e leaves prior turns in the thread before this pill is clicked, so the prompt is no longer at turnIndex 0. The toolCallId-keyed follow-up above still wins for iteration 2.",
       "match": {
         "userMessage": "Do I have any notes tagged reading",
-        "turnIndex": 0,
         "context": "langgraph-python"
       },
       "response": {

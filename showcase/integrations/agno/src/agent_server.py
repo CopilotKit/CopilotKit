@@ -20,6 +20,16 @@ import os
 import uuid
 from typing import Any, AsyncIterator, List, Optional, Set, Union
 
+# ORDER-CRITICAL: install the global httpx hook BEFORE any agent module
+# imports. Agno constructs its ``OpenAIChat`` client at agent-module
+# import time, so the patch must be in place before those imports run.
+from agents._header_forwarding import (
+    HeaderForwardingHTTPMiddleware,
+    install_global_httpx_hook,
+)
+
+install_global_httpx_hook()
+
 import dotenv
 from ag_ui.core import (
     BaseEvent,
@@ -723,6 +733,12 @@ class HealthMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(HealthMiddleware)
+
+# Capture inbound CopilotKit ``x-*`` headers (e.g. ``x-aimock-context``) so
+# downstream LLM/provider httpx calls inside the request scope copy them
+# onto their outbound requests. Paired with ``install_global_httpx_hook``
+# at the top of this file.
+app.add_middleware(HeaderForwardingHTTPMiddleware)
 
 
 def main():

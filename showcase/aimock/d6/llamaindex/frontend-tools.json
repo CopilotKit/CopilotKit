@@ -17,10 +17,9 @@
       }
     },
     {
-      "_comment": "frontend-tools 'Sunset' pill — 1st leg: emit change_background tool call only. NB: do NOT include `content` here. agent_framework_openai's ChatCompletions client splits an assistant message that carries BOTH `content` and `tool_calls` into two separate history entries (one with content, one with tool_calls), so on the follow-up leg aimock sees the standalone content message and re-matches THIS fixture by `userMessage` substring → another change_background tool call → infinite loop. The toolCallId-keyed follow-up fixture immediately above provides the post-tool narration text.",
+      "_comment": "frontend-tools 'Sunset' pill — 1st leg: emit change_background tool call only. The toolCallId-keyed follow-up fixture above is ordered first, so it catches the second-leg request (after tool result). This fixture only matches the first-leg request (before tool execution). No turnIndex gate — the 3-pill probe sends sequential turns; turnIndex would restrict to the first turn.",
       "match": {
         "userMessage": "Make the background a sunset gradient",
-        "turnIndex": 0,
         "context": "llamaindex"
       },
       "response": {
@@ -46,10 +45,9 @@
       }
     },
     {
-      "_comment": "frontend-tools 'Forest' pill — 1st leg: emit change_background tool call only. See the Sunset fixture above for why we drop `content`.",
+      "_comment": "frontend-tools 'Forest' pill — 1st leg: emit change_background tool call only. No turnIndex gate — multi-turn probe.",
       "match": {
         "userMessage": "deep green forest gradient",
-        "turnIndex": 0,
         "context": "llamaindex"
       },
       "response": {
@@ -75,10 +73,9 @@
       }
     },
     {
-      "_comment": "frontend-tools 'Cosmic' pill — 1st leg: emit change_background tool call only. See the Sunset fixture above for why we drop `content`.",
+      "_comment": "frontend-tools 'Cosmic' pill — 1st leg: emit change_background tool call only. No turnIndex gate — multi-turn probe.",
       "match": {
         "userMessage": "navy → magenta cosmic gradient",
-        "turnIndex": 0,
         "context": "llamaindex"
       },
       "response": {

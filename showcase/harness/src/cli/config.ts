@@ -32,10 +32,12 @@ export function loadConfig(): LocalConfig {
 
   return {
     showcaseDir: SHOWCASE_DIR,
-    composeFile: path.join(SHOWCASE_DIR, "docker-compose.local.yml"),
+    composeFile:
+      process.env.SHOWCASE_COMPOSE_FILE ||
+      path.join(SHOWCASE_DIR, "docker-compose.local.yml"),
     localPorts,
     pocketbase: {
-      url: "http://localhost:8090",
+      url: process.env.POCKETBASE_URL_LOCAL || "http://localhost:8090",
       // PB 0.22+ rejects `admin@localhost` (single-label TLD) as an invalid
       // email. Use a valid format that the PB validator accepts. The
       // matching admin account is created in the entrypoint / migrations
@@ -44,9 +46,11 @@ export function loadConfig(): LocalConfig {
       email: "admin@localhost.dev",
       password: "showcase-local-dev",
     },
-    aimockUrl: "http://localhost:4010",
-    dashboardUrl: "http://localhost:3200",
-    dashboardPort: 3200,
+    // When --isolate offsets the aimock host port, honor env overrides so the
+    // harness's host-side references point at the per-project aimock.
+    aimockUrl: process.env.AIMOCK_URL_LOCAL || "http://localhost:4010",
+    dashboardUrl: process.env.DASHBOARD_URL_LOCAL || "http://localhost:3200",
+    dashboardPort: Number(process.env.DASHBOARD_PORT_LOCAL) || 3200,
   };
 }
 

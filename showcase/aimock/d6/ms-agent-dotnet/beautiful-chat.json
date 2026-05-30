@@ -2,7 +2,6 @@
   "_meta": {
     "description": "D6 fixtures for ms-agent-dotnet / beautiful-chat",
     "sourceFile": "d5-all.json",
-    "copiedFrom": "langgraph-python",
     "created": "2026-05-21"
   },
   "fixtures": [
@@ -108,6 +107,32 @@
       },
       "response": {
         "content": "Theme toggled."
+      }
+    },
+    {
+      "_comment": "beautiful-chat 'Search Flights (A2UI Fixed Schema)' pill — sends 'Find flights from SFO to JFK for next Tuesday.'. Beautiful-chat's search_flights tool takes `flights: list[Flight]` (NOT the {origin,destination} shape used by tool_rendering_agent). Test asserts United Airlines + $349 + Delta + $289 are visible. Narrowed userMessage to 'for next Tuesday' so this stays scoped to the beautiful-chat pill (the tool-rendering basic + reasoning-chain pills both lack that phrase). hasToolResult:false gates this to the initial user turn; the follow-up content fixture below catches iteration 2 via toolCallId.",
+      "match": {
+        "userMessage": "for next Tuesday",
+        "hasToolResult": false,
+        "context": "ms-agent-dotnet"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_bc_search_flights_001",
+            "name": "search_flights",
+            "arguments": "{\"flights\":[{\"airline\":\"United Airlines\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=united.com&sz=128\",\"flightNumber\":\"UA231\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, May 6\",\"departureTime\":\"08:00\",\"arrivalTime\":\"16:30\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$349\",\"currency\":\"USD\"},{\"airline\":\"Delta\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=delta.com&sz=128\",\"flightNumber\":\"DL412\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, May 6\",\"departureTime\":\"10:15\",\"arrivalTime\":\"18:45\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$289\",\"currency\":\"USD\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d6_bc_search_flights_001",
+        "context": "ms-agent-dotnet"
+      },
+      "response": {
+        "content": "Two flights shown above — United at $349 (08:00) and Delta at $289 (10:15), both on time."
       }
     }
   ]

@@ -27,10 +27,12 @@
     "lucide-react": "^0.469.0",
     "next": "^15.5.15",
     "openai": "^4.0.0",
+    "radix-ui": "^1.4.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^2.15.0",
     "tailwind-merge": "^2.6.0",
+    "yaml": "^2.8.4",
     "zod": "^3.24.0"
   },
   "devDependencies": {

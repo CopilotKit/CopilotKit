@@ -42,6 +42,8 @@ import {
   Annotation,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+import type { RunnableConfig } from "@langchain/core/runnables";
+import { makeChatOpenAI } from "./openai-headers";
 import {
   convertActionsToDynamicStructuredTools,
   CopilotKitStateAnnotation,
@@ -156,6 +158,7 @@ function renderA2uiOperations(operations: unknown[]): string {
 // This is safe because LangGraph TS runs graph nodes sequentially within a
 // single thread — no concurrent writes to this variable for the same run.
 let _currentState: AgentState | null = null;
+let _currentConfig: RunnableConfig | null = null;
 
 /**
  * `generate_a2ui` — real LangChain tool invoked by ToolNode.
@@ -209,7 +212,10 @@ const generateA2uiTool = tool(
       }),
     });
 
-    const model = new ChatOpenAI({ temperature: 0, model: "gpt-4.1" });
+    const model = makeChatOpenAI(_currentConfig ?? undefined, {
+      temperature: 0,
+      model: "gpt-4.1",
+    });
     const modelWithTool = model.bindTools!([designTool], {
       tool_choice: {
         type: "function",
@@ -320,8 +326,8 @@ const tools = [generateA2uiTool];
 // `OnToolEnd` events fire and the AG-UI adapter emits `TOOL_CALL_RESULT`.
 const _toolNode = new ToolNode(tools);
 
-async function chatNode(state: AgentState) {
-  const model = new ChatOpenAI({ temperature: 0, model: "gpt-4.1" });
+async function chatNode(state: AgentState, config: RunnableConfig) {
+  const model = makeChatOpenAI(config, { temperature: 0, model: "gpt-4.1" });
 
   const modelWithTools = model.bindTools!([
     ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),
@@ -353,10 +359,12 @@ async function stateAwareToolNode(
   config: Record<string, unknown>,
 ) {
   _currentState = state;
+  _currentConfig = config as RunnableConfig;
   try {
     return await _toolNode.invoke(state, config);
   } finally {
     _currentState = null;
+    _currentConfig = null;
   }
 }
 

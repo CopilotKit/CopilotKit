@@ -87,10 +87,10 @@ agents["hitl-in-chat"] = new HttpAgent({
 
 // Reasoning trio — both reasoning cells share the same backend agent
 // (custom-slot vs default-slot is a frontend-only distinction).
-agents["agentic-chat-reasoning"] = new HttpAgent({
+agents["reasoning-custom"] = new HttpAgent({
   url: `${AGENT_URL}/reasoning/`,
 });
-agents["reasoning-default-render"] = new HttpAgent({
+agents["reasoning-default"] = new HttpAgent({
   url: `${AGENT_URL}/reasoning/`,
 });
 agents["tool-rendering-reasoning-chain"] = new HttpAgent({

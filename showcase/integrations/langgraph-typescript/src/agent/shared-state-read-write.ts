@@ -35,6 +35,8 @@ import {
   StateGraph,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+import { makeChatOpenAI } from "./openai-headers";
+
 import {
   convertActionsToDynamicStructuredTools,
   CopilotKitStateAnnotation,
@@ -163,7 +165,7 @@ function buildPreferencesMessage(
 // @endregion[preferences-injector]
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
-  const model = new ChatOpenAI({
+  const model = makeChatOpenAI(config, {
     temperature: 0,
     model: "gpt-4o-mini",
     modelKwargs: { parallel_tool_calls: false },

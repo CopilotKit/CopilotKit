@@ -220,9 +220,9 @@
       }
     },
     {
-      "_comment": "readonly-state-agent-context — 'Suggest next steps' pill. Non-gated fallback matching the pill's exact message text.",
+      "_comment": "readonly-state-agent-context — feature-parity stub. Narrowed userMessage to 'recent activity for the feature-parity probe' so it no longer shadows the more-specific D6 readonly-state.json matcher (verbatim pill prompt 'Based on my recent activity, what should I try next?'). Mirrors the LGP fix — the alphabetical fixture-load order puts _from-feature-parity.json before readonly-state.json, and aimock's matchFixture returns first-match (no scoring) so the broad matcher wins unless narrowed.",
       "match": {
-        "userMessage": "Based on my recent activity, what should I try next",
+        "userMessage": "recent activity for the feature-parity probe",
         "context": "langgraph-typescript"
       },
       "response": {

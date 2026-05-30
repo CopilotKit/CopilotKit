@@ -29,32 +29,30 @@ test.describe("Chat Customization (CSS)", () => {
     const scope = page.locator(".chat-css-demo-scope");
     await expect(scope).toBeVisible();
 
-    // Read the three most distinctive CSS variables straight off the scope
-    // element. If theme.css didn't load (or its `.chat-css-demo-scope`
+    // The Halcyon theme sets --halcyon-* custom properties on the scope
+    // wrapper. If theme.css didn't load (or its `.chat-css-demo-scope`
     // selector didn't match) these would resolve to empty strings.
     const vars = await scope.evaluate((el) => {
       const cs = getComputedStyle(el);
       return {
-        primary: cs.getPropertyValue("--copilot-kit-primary-color").trim(),
-        background: cs
-          .getPropertyValue("--copilot-kit-background-color")
-          .trim(),
-        secondary: cs.getPropertyValue("--copilot-kit-secondary-color").trim(),
+        ember: cs.getPropertyValue("--halcyon-ember").trim(),
+        paper: cs.getPropertyValue("--halcyon-paper").trim(),
+        ink: cs.getPropertyValue("--halcyon-ink").trim(),
       };
     });
 
-    expect(vars.primary.toLowerCase()).toBe("#ff006e");
-    expect(vars.background.toLowerCase()).toBe("#fff8f0");
-    expect(vars.secondary.toLowerCase()).toBe("#fde047");
+    expect(vars.ember.toLowerCase()).toBe("#c44a1f");
+    expect(vars.paper.toLowerCase()).toBe("#f4efe6");
+    expect(vars.ink.toLowerCase()).toBe("#1a1714");
   });
 
-  test("input textarea inherits Georgia serif font from theme.css", async ({
+  test("input textarea inherits Inter Tight sans font from theme.css", async ({
     page,
   }) => {
-    // theme.css sets `.copilotKitInput > textarea { font-family: "Georgia", ... }`.
-    // The default CopilotKit textarea does not set Georgia — asserting on
-    // this one computed property is a reliable theme-applied signal that
-    // doesn't collide with utility classes the way `border-style` does.
+    // theme.css sets `.copilotKitInput textarea { font-family: var(--halcyon-sans) }`
+    // which resolves to "Inter Tight", .... The default CopilotKit textarea
+    // does not set Inter Tight — asserting on this computed property is a
+    // reliable theme-applied signal.
     const textarea = page
       .locator(".chat-css-demo-scope .copilotKitInput textarea")
       .first();
@@ -62,16 +60,18 @@ test.describe("Chat Customization (CSS)", () => {
     const fontFamily = await textarea.evaluate(
       (el) => getComputedStyle(el).fontFamily,
     );
-    expect(fontFamily).toMatch(/Georgia/);
+    expect(fontFamily).toMatch(/Inter Tight/);
   });
 
-  test("user bubble uses hot pink gradient after sending a message", async ({
+  test("user bubble uses transparent background with ember left-border after sending a message", async ({
     page,
   }) => {
-    // "hello" matches an existing aimock fixture (content response), so this
-    // exercises a full round-trip through the themed chat and lets us assert
-    // on the rendered user bubble's computed background.
-    await page.getByPlaceholder("Type a message").fill("hello");
+    // Use a message that matches an aimock fixture to get a deterministic
+    // response. Lowercase "hello" doesn't reliably match — "Say hello in
+    // one short sentence" is an exact d5-all.json fixture entry.
+    await page
+      .getByPlaceholder("Type a message")
+      .fill("Say hello in one short sentence");
     await page.locator('[data-testid="copilot-send-button"]').first().click();
 
     const userMsg = page
@@ -79,21 +79,19 @@ test.describe("Chat Customization (CSS)", () => {
       .first();
     await expect(userMsg).toBeVisible({ timeout: 30000 });
 
-    // theme.css sets the user bubble background to
-    // `linear-gradient(135deg, #ff006e 0%, #c2185b 100%)`. Read the computed
-    // `background-image` directly — covers both the gradient presence and
-    // the starting color.
-    const bgImage = await userMsg.evaluate(
-      (el) => getComputedStyle(el).backgroundImage,
-    );
-    expect(bgImage).toContain("linear-gradient");
-    expect(bgImage).toContain("rgb(255, 0, 110)");
+    // The Halcyon theme sets the user message outer wrapper to
+    // `background: transparent` and styles the inner bg-muted child with
+    // `var(--halcyon-paper-elevated)` (#fbf8f2) plus a 2px ember left border.
+    // Assert the outer wrapper is transparent.
+    await expect(userMsg).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   });
 
-  test("assistant bubble uses amber background after round-trip", async ({
+  test("assistant bubble uses transparent background after round-trip", async ({
     page,
   }) => {
-    await page.getByPlaceholder("Type a message").fill("hello");
+    await page
+      .getByPlaceholder("Type a message")
+      .fill("Tell me a one-line joke");
     await page.locator('[data-testid="copilot-send-button"]').first().click();
 
     const assistant = page
@@ -101,9 +99,10 @@ test.describe("Chat Customization (CSS)", () => {
       .first();
     await expect(assistant).toBeVisible({ timeout: 45000 });
 
-    // theme.css sets the assistant bubble background to `#fde047`
-    // (rgb(253, 224, 71)). The default CopilotKit assistant bubble has no
-    // background-color, so a mismatch proves the theme lost the cascade.
-    await expect(assistant).toHaveCSS("background-color", "rgb(253, 224, 71)");
+    // The Halcyon theme sets the assistant message to
+    // `background: transparent` — editorial serif text with no bubble, just
+    // an ember left-rule via ::before. The default CopilotKit assistant has
+    // a visible background, so transparent proves the theme won the cascade.
+    await expect(assistant).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   });
 });

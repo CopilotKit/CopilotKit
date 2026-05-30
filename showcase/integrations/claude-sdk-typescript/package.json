@@ -30,6 +30,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^2.15.0",
+    "yaml": "^2.8.4",
     "zod": "^3.24.0"
   },
   "devDependencies": {

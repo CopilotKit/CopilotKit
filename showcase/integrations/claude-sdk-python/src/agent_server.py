@@ -37,6 +37,19 @@ import os
 from collections.abc import AsyncIterator, Callable
 from typing import Any
 
+# ORDER-CRITICAL: install the global httpx hook BEFORE any agent module
+# (and before the ``anthropic`` SDK) imports. The Claude SDK Python
+# integration constructs ``anthropic.AsyncAnthropic`` inside ``run_agent``
+# per request, but installing the hook at module-import time guarantees
+# every future httpx client (including sub-agent calls) auto-attaches the
+# forwarded-header hook.
+from agents._header_forwarding import (
+    HeaderForwardingHTTPMiddleware,
+    install_global_httpx_hook,
+)
+
+install_global_httpx_hook()
+
 import uvicorn
 from ag_ui.core import RunAgentInput
 from dotenv import load_dotenv

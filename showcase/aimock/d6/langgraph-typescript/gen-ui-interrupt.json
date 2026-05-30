@@ -2,14 +2,36 @@
   "_meta": {
     "description": "D6 fixtures for langgraph-typescript / gen-ui-interrupt",
     "sourceFile": "harness/fixtures/d5/gen-ui-interrupt.json",
-    "copiedFrom": "langgraph-python",
-    "created": "2026-05-22"
+    "created": "2026-05-21",
+    "copiedFrom": "langgraph-python"
   },
   "fixtures": [
     {
-      "_comment": "gen-ui-interrupt sales-call pill \u2014 first leg: schedule_meeting tool call triggers interrupt(...). The toolName gate ensures this matches only when schedule_meeting is in the tool list.",
+      "_comment": "gen-ui-interrupt sales-call pill \u2014 second leg: confirmation after user picks a slot and resolve fires. Keyed by toolCallId so it only matches when the prior tool result is being fed back. Placed BEFORE first-leg so toolCallId matching takes precedence over toolName matching.",
       "match": {
-        "userMessage": "introductory sales team call",
+        "userMessage": "intro call with the sales team",
+        "toolCallId": "call_d5_schedule_sales_001",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "Booked: Sales intro call confirmed for the slot you picked."
+      }
+    },
+    {
+      "_comment": "gen-ui-interrupt alice-1on1 pill \u2014 second leg: confirmation after user picks a slot. Placed BEFORE first-leg so toolCallId matching takes precedence.",
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolCallId": "call_d5_schedule_alice_001",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "Scheduled: 1:1 with Alice locked in for the slot you picked."
+      }
+    },
+    {
+      "_comment": "gen-ui-interrupt sales-call pill \u2014 first leg: schedule_meeting tool call triggers Python agent's interrupt(...). The toolName gate ensures this matches only when schedule_meeting is in the tool list (the agent must declare it).",
+      "match": {
+        "userMessage": "intro call with the sales team",
         "toolName": "schedule_meeting",
         "context": "langgraph-typescript"
       },
@@ -38,31 +60,9 @@
       }
     },
     {
-      "_comment": "gen-ui-interrupt sales-call pill \u2014 cancelled leg.",
-      "match": {
-        "userMessage": "introductory sales team call",
-        "toolCallId": "call_d5_schedule_sales_001__cancelled",
-        "context": "langgraph-typescript"
-      },
-      "response": {
-        "content": "Denied \u2014 the sales intro call was not booked because no time slot was selected."
-      }
-    },
-    {
-      "_comment": "gen-ui-interrupt sales-call pill \u2014 second leg: confirmation after user picks a slot and resolve fires.",
-      "match": {
-        "userMessage": "introductory sales team call",
-        "toolCallId": "call_d5_schedule_sales_001",
-        "context": "langgraph-typescript"
-      },
-      "response": {
-        "content": "Booked: Sales intro call confirmed for the slot you picked."
-      }
-    },
-    {
       "_comment": "gen-ui-interrupt alice-1on1 pill \u2014 first leg: schedule_meeting tool call.",
       "match": {
-        "userMessage": "one-on-one with Alice",
+        "userMessage": "1:1 with Alice",
         "toolName": "schedule_meeting",
         "context": "langgraph-typescript"
       },
@@ -88,28 +88,6 @@
             }
           }
         ]
-      }
-    },
-    {
-      "_comment": "gen-ui-interrupt alice-1on1 pill \u2014 cancelled leg.",
-      "match": {
-        "userMessage": "one-on-one with Alice",
-        "toolCallId": "call_d5_schedule_alice_001__cancelled",
-        "context": "langgraph-typescript"
-      },
-      "response": {
-        "content": "Denied \u2014 the 1:1 with Alice was not scheduled because no time slot was selected."
-      }
-    },
-    {
-      "_comment": "gen-ui-interrupt alice-1on1 pill \u2014 second leg: confirmation after user picks a slot.",
-      "match": {
-        "userMessage": "one-on-one with Alice",
-        "toolCallId": "call_d5_schedule_alice_001",
-        "context": "langgraph-typescript"
-      },
-      "response": {
-        "content": "Scheduled: 1:1 with Alice locked in for the slot you picked."
       }
     }
   ]

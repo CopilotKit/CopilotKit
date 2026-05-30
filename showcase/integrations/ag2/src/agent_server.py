@@ -18,6 +18,26 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 from dotenv import load_dotenv
 
+# ORDER-CRITICAL: install the global httpx hook BEFORE any agent module
+# imports. The autogen / openai SDK construct their httpx client lazily
+# per-call, but other integrations construct at module-import time;
+# keeping the patch at the top of agent_server.py is the consistent
+# placement across all Python showcase integrations and is harmless here.
+from agents._header_forwarding import (
+    HeaderForwardingHTTPMiddleware,
+    install_executor_contextvar_propagation,
+    install_global_httpx_hook,
+)
+
+install_global_httpx_hook()
+# AG2-specific: autogen's ConversableAgent.a_generate_oai_reply dispatches
+# the underlying sync LLM call onto the default ThreadPoolExecutor via
+# loop.run_in_executor(...), which does NOT propagate ContextVars to the
+# worker thread. Without this, the forwarded-header ContextVar set on the
+# inbound request task is empty by the time the outbound httpx hook fires,
+# and aimock can't match the right fixture for the request.
+install_executor_contextvar_propagation()
+
 from agents.agent import stream as default_stream
 from agents.a2ui_dynamic import a2ui_dynamic_app
 from agents.a2ui_fixed import a2ui_fixed_app
@@ -58,6 +78,14 @@ class HealthMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(HealthMiddleware)
+
+# Capture inbound CopilotKit `x-*` headers (e.g. `x-aimock-context`) into a
+# per-request ContextVar so any outbound LLM/provider httpx call made inside
+# the request scope copies them onto its outbound request. Installed BEFORE
+# the CORS middleware so the ContextVar is populated for the inner
+# handler. The matching `install_httpx_hook(...)` call lives next to each
+# LLM client construction site (see `agents/agent.py`).
+app.add_middleware(HeaderForwardingHTTPMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

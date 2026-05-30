@@ -23,32 +23,35 @@ import {
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
+import { extractForwardedHeaders } from "@/lib/header-forwarding";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-const agentConfigAgent = new HttpAgent({
-  url: `${AGENT_URL}/agent_config`,
-});
-
-const agents: Record<string, HttpAgent> = {
-  // The page's <CopilotKit agent="agent-config-demo"> resolves here.
-  "agent-config-demo": agentConfigAgent,
-  // Internal components (headless-chat, example-canvas) call `useAgent()`
-  // with no args, which defaults to agentId "default". Alias to the same
-  // agent so those component hooks resolve instead of throwing
-  // "Agent 'default' not found".
-  default: agentConfigAgent,
-};
-
-const runtime = new CopilotRuntime({
-  // @ts-expect-error -- Published CopilotRuntime agents type wraps Record in
-  // MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in
-  // source, pending release.
-  agents,
-});
-
 export const POST = async (req: NextRequest) => {
   try {
+    // Per-request agent build conveys inbound `x-aimock-context` (and any
+    // other x-* header) to the Python agent_server. See
+    // `src/lib/header-forwarding.ts` for the rationale.
+    const headers = extractForwardedHeaders(req);
+    const agentConfigAgent = new HttpAgent({
+      url: `${AGENT_URL}/agent_config`,
+      headers,
+    });
+
+    const agents: Record<string, HttpAgent> = {
+      // The page's <CopilotKit agent="agent-config-demo"> resolves here.
+      "agent-config-demo": agentConfigAgent,
+      // Internal components (headless-chat, example-canvas) call `useAgent()`
+      // with no args, which defaults to agentId "default". Alias to the same
+      // agent so those component hooks resolve instead of throwing
+      // "Agent 'default' not found".
+      default: agentConfigAgent,
+    };
+
+    const runtime = new CopilotRuntime({
+      agents,
+    });
+
     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
       endpoint: "/api/copilotkit-agent-config",
       serviceAdapter: new ExperimentalEmptyAdapter(),

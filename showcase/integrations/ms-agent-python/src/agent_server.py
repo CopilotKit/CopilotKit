@@ -9,6 +9,18 @@ from __future__ import annotations
 
 import os
 
+# ORDER-CRITICAL: install the global httpx hook BEFORE any agent module /
+# agent_framework / agent_framework_openai imports. The
+# ``OpenAIChatCompletionClient`` constructs its httpx client at
+# ``_build_chat_client()`` time below — which runs at module-import scope
+# (line ~79) — so the patch must be in place before that import resolves.
+from agents._header_forwarding import (
+    HeaderForwardingHTTPMiddleware,
+    install_global_httpx_hook,
+)
+
+install_global_httpx_hook()
+
 import uvicorn
 from agent_framework import BaseChatClient
 from agent_framework_openai import OpenAIChatCompletionClient
@@ -127,6 +139,12 @@ class HealthMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(HealthMiddleware)
+
+# Capture inbound CopilotKit ``x-*`` headers (e.g. ``x-aimock-context``)
+# into a per-request ContextVar so any outbound LLM/provider httpx call
+# made inside the request scope copies them onto its outbound request.
+# Paired with ``install_global_httpx_hook`` at the top of this file.
+app.add_middleware(HeaderForwardingHTTPMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

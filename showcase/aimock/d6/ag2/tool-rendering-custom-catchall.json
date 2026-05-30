@@ -2,32 +2,31 @@
   "_meta": {
     "description": "D6 fixtures for ag2 / tool-rendering-custom-catchall",
     "sourceFile": "d5-tool-rendering-custom-catchall.ts",
-    "owner": "d6-blitz-2026-05-26",
-    "notes": "Authored to match D5 script + ag2 adapter request shape. Two prompts driving two different tools (get_weather, get_stock_price). The custom wildcard renderer fires for both. Cross-tool assertion: same testid (custom-wildcard-card) renders with distinct data-tool-name values."
+    "created": "2026-05-22"
   },
   "fixtures": [
     {
-      "_comment": "custom-catchall: weather in Tokyo \u2014 follow-up after get_weather tool result. Must come before the tool-emitting fixture (first-match-wins).",
+      "_comment": "tool-rendering-custom-catchall \u2014 weather in Tokyo follow-up. After get_weather tool result returns, emit narrated content. MUST come before the tool-emitting fixture so iteration 2 hits this branch.",
       "match": {
         "userMessage": "check Tokyo weather forecast",
-        "toolCallId": "call_d5_cc_weather_001",
+        "toolCallId": "call_d6_cc_weather_001",
         "context": "ag2"
       },
       "response": {
-        "content": "Tokyo is 22\u00b0C and partly cloudy \u2014 the custom wildcard renderer displayed the weather card."
+        "content": "Tokyo is 22\u00b0C and partly cloudy \u2014 rendered through the custom wildcard catchall."
       }
     },
     {
-      "_comment": "custom-catchall: weather in Tokyo \u2014 emit get_weather tool call. The custom wildcard renderer (custom-wildcard-card testid) fires for this tool.",
+      "_comment": "tool-rendering-custom-catchall \u2014 weather in Tokyo (first turn). Emits get_weather tool call. The custom wildcard renderer fires for this tool and renders [data-testid='custom-wildcard-card'][data-tool-name='get_weather'].",
       "match": {
         "userMessage": "check Tokyo weather forecast",
-        "turnIndex": 0,
+        "toolName": "get_weather",
         "context": "ag2"
       },
       "response": {
         "toolCalls": [
           {
-            "id": "call_d5_cc_weather_001",
+            "id": "call_d6_cc_weather_001",
             "name": "get_weather",
             "arguments": "{\"location\":\"Tokyo\"}"
           }
@@ -35,31 +34,53 @@
       }
     },
     {
-      "_comment": "custom-catchall: AAPL stock price \u2014 follow-up after get_stock_price tool result. Must come before the tool-emitting fixture.",
+      "_comment": "tool-rendering-custom-catchall \u2014 weather in Tokyo fallback when no get_weather tool registered.",
       "match": {
-        "userMessage": "What's the current price of AAPL?",
-        "toolCallId": "call_d5_cc_stock_001",
+        "userMessage": "check Tokyo weather forecast",
+        "turnIndex": 0,
         "context": "ag2"
       },
       "response": {
-        "content": "AAPL is trading at $338.37 \u2014 the custom wildcard renderer displayed the stock card."
+        "content": "The weather in Tokyo is currently 22\u00b0C with partly cloudy skies."
       }
     },
     {
-      "_comment": "custom-catchall: AAPL stock price \u2014 emit get_stock_price tool call. The custom wildcard renderer (custom-wildcard-card testid) fires for this tool too, proving the wildcard catches all.",
+      "_comment": "tool-rendering-custom-catchall \u2014 AAPL stock price follow-up. After get_stock_price tool result returns. MUST come before the tool-emitting fixture.",
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
+        "toolCallId": "call_d6_cc_stock_001",
+        "context": "ag2"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% \u2014 rendered through the custom wildcard catchall."
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall \u2014 AAPL stock price (second turn). Emits get_stock_price tool call. The custom wildcard renderer fires for this DIFFERENT tool and renders [data-testid='custom-wildcard-card'][data-tool-name='get_stock_price']. The cross-tool assertion verifies both tool names rendered through the same testid.",
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
+        "toolName": "get_stock_price",
+        "context": "ag2"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_cc_stock_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall \u2014 AAPL fallback when no get_stock_price tool registered.",
       "match": {
         "userMessage": "What's the current price of AAPL?",
         "turnIndex": 0,
         "context": "ag2"
       },
       "response": {
-        "toolCalls": [
-          {
-            "id": "call_d5_cc_stock_001",
-            "name": "get_stock_price",
-            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
-          }
-        ]
+        "content": "AAPL is trading at $338.37, down 2.96% on the day."
       }
     }
   ]

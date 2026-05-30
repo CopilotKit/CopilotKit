@@ -67,7 +67,6 @@
     {
       "match": {
         "userMessage": "favorite color",
-        "turnIndex": 0,
         "context": "claude-sdk-python"
       },
       "response": {

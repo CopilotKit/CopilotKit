@@ -2,12 +2,11 @@
   "_meta": {
     "description": "D6 fixtures for google-adk / reasoning",
     "sourceFile": "d5-all.json",
-    "copiedFrom": "langgraph-python",
     "created": "2026-05-21"
   },
   "fixtures": [
     {
-      "_comment": "reasoning-default e2e test pill prompt. Substring 'sky appears blue' matches 'Explain step by step why the sky appears blue during the day but red at sunset.' Includes a `reasoning` field so aimock emits REASONING_MESSAGE_* events; without it the built-in CopilotChatReasoningMessage 'Thinking…/Thought for…' label never lands.",
+      "_comment": "reasoning-default e2e test pill prompt. Substring 'sky appears blue' matches 'Explain step by step why the sky appears blue during the day but red at sunset.' Includes a `reasoning` field so aimock emits REASONING_MESSAGE_* events; without it the built-in CopilotChatReasoningMessage 'Thinking\u2026/Thought for\u2026' label never lands.",
       "match": {
         "userMessage": "sky appears blue",
         "turnIndex": 0,

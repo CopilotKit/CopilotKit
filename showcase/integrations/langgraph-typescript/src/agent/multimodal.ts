@@ -30,6 +30,8 @@ import {
   Annotation,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+import { makeChatOpenAI } from "./openai-headers";
+
 import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 import pdfParse from "pdf-parse";
 
@@ -135,7 +137,7 @@ async function rewriteMessages(
 async function chatNode(state: AgentState, config: RunnableConfig) {
   // gpt-4o is the vision-capable default; temperature kept low for
   // deterministic image-Q&A behavior.
-  const model = new ChatOpenAI({ model: "gpt-4o", temperature: 0.2 });
+  const model = makeChatOpenAI(config, { model: "gpt-4o", temperature: 0.2 });
 
   const messages = await rewriteMessages(state.messages);
 
