@@ -124,12 +124,16 @@ function resolveD4(live: LiveStatusMap, slug: string): TestLevel {
  * suffixes. When multiple sub-keys exist (e.g. `beautiful-chat` fans out
  * to 5 pills), worst-state wins.
  *
- * Staleness applies the same downgrade as `resolveD3`: a green D5 row whose
- * `observed_at` is older than `E2E_STALE_AFTER_MS` is downgraded to `amber`
- * (degraded). When the driver stops writing, a frozen-green row would
- * otherwise credit D5 forever — the same false-green mode one dimension up.
- * Only green is downgraded; a stale red/degraded row already signals a
- * problem and is left as-is.
+ * Staleness applies the same downgrade as `resolveD3`, but PER SUB-ROW and
+ * BEFORE the worst-state fold: a green D5 sub-row whose `observed_at` is
+ * older than `E2E_STALE_AFTER_MS` is treated as `degraded` while folding.
+ * This matters because `green` is the LOWEST rank — folding raw states first
+ * would let a fresh-green sub-row win the all-green tie and hide a stale-green
+ * sibling, re-introducing the false-green. Downgrading each green-but-stale
+ * sub-row first means ANY stale-green sub-row forces the family to amber,
+ * independent of `CATALOG_TO_D5_KEY` order — matching `depth-utils.ts`
+ * `isD5Green`, which requires EVERY sub-key to be green-AND-fresh. Only green
+ * is downgraded; a stale red/degraded sub-row already signals a problem.
  */
 function resolveD5(
   live: LiveStatusMap,
@@ -144,29 +148,37 @@ function resolveD5(
     return { exists: false, status: null, row: null };
   }
 
-  let worst: StatusRow | null = null;
+  let worstRow: StatusRow | null = null;
+  let worstState: State | null = null;
   for (const d5Key of d5Keys) {
     const row = live.get(keyFor("d5", slug, d5Key)) ?? null;
     if (!row) continue;
-    if (!worst || STATE_RANK[row.state] > STATE_RANK[worst.state]) {
-      worst = row;
+    // Per-row staleness downgrade applied BEFORE the fold: a green sub-row
+    // that is stale folds in as `degraded` so it can never win the all-green
+    // tie and mask a fresh-green sibling.
+    const effectiveState: State =
+      row.state === "green" && isStale(row, now, E2E_STALE_AFTER_MS)
+        ? "degraded"
+        : row.state;
+    if (
+      worstState === null ||
+      STATE_RANK[effectiveState] > STATE_RANK[worstState]
+    ) {
+      worstRow = row;
+      worstState = effectiveState;
     }
   }
 
-  if (!worst) {
+  if (!worstRow || worstState === null) {
     // Keys are mapped but no rows emitted yet — test exists but has no
     // data. Treat as exists=true so ceilingDepth reflects it.
     return { exists: true, status: null, row: null };
   }
 
-  if (worst.state === "green" && isStale(worst, now, E2E_STALE_AFTER_MS)) {
-    return { exists: true, status: "amber", row: worst };
-  }
-
   return {
     exists: true,
-    status: stateToTestStatus(worst.state),
-    row: worst,
+    status: stateToTestStatus(worstState),
+    row: worstRow,
   };
 }
 

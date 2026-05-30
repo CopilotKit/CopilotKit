@@ -732,5 +732,76 @@ describe("buildCellModel", () => {
       );
       expect(model.d5?.status).toBe("red");
     });
+
+    // ── Multi-key D5: stale-green sub-row must not be masked by the fold ──
+    // `resolveD5` reduces sub-keys to a "worst" row, but green is the LOWEST
+    // rank — so among all-green sub-rows a fresh-green can win the tie. If
+    // staleness were checked only on the post-fold winner, a stale-green
+    // sibling would be silently masked → false-green. The downgrade must be
+    // per-row (before the fold), so ANY stale-green sub-row forces amber,
+    // independent of CATALOG_TO_D5_KEY ordering.
+    describe("multi-key D5: one stale-green + one fresh-green sub-row", () => {
+      // beautiful-chat maps to 5 D5 sub-keys (see CATALOG_TO_D5_KEY). We make
+      // exactly one stale-green and the rest fresh-green so the only signal
+      // is the stale sibling — which must downgrade the whole family.
+      const STALE_SUBKEY = "beautiful-chat-bar-chart";
+      const FRESH_SUBKEYS = [
+        "beautiful-chat-toggle-theme",
+        "beautiful-chat-pie-chart",
+        "beautiful-chat-search-flights",
+        "beautiful-chat-schedule-meeting",
+      ];
+
+      function buildRows(staleFirst: boolean): StatusRow[] {
+        const base = [
+          rowAtAge(
+            keyFor("e2e", "agno", "beautiful-chat"),
+            "e2e",
+            FRESH,
+            "green",
+          ),
+          rowAtAge(keyFor("chat", "agno"), "chat", FRESH, "green"),
+        ];
+        const staleRow = rowAtAge(
+          keyFor("d5", "agno", STALE_SUBKEY),
+          "d5",
+          STALE,
+          "green",
+        );
+        const freshRows = FRESH_SUBKEYS.map((sk) =>
+          rowAtAge(keyFor("d5", "agno", sk), "d5", FRESH, "green"),
+        );
+        // Vary insertion order to prove the result does not depend on which
+        // green sub-row the fold encounters first.
+        return staleFirst
+          ? [...base, staleRow, ...freshRows]
+          : [...base, ...freshRows, staleRow];
+      }
+
+      it("downgrades to amber when the stale sub-row is folded FIRST", () => {
+        const model = buildCellModel(
+          mapOf(buildRows(true)),
+          wiredInput("agno", "beautiful-chat"),
+          NOW,
+        );
+        // Stale-green sibling must force the family off green.
+        expect(model.d5?.status).toBe("amber");
+        // Depth ladder must not credit D5.
+        expect(model.achievedDepth).toBe(4);
+        // D5 not green, D6 absent → red.
+        expect(model.chipColor).toBe("red");
+      });
+
+      it("downgrades to amber when the stale sub-row is folded LAST", () => {
+        const model = buildCellModel(
+          mapOf(buildRows(false)),
+          wiredInput("agno", "beautiful-chat"),
+          NOW,
+        );
+        expect(model.d5?.status).toBe("amber");
+        expect(model.achievedDepth).toBe(4);
+        expect(model.chipColor).toBe("red");
+      });
+    });
   });
 });
