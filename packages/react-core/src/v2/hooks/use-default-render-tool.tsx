@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { ToolCallStatus } from "@copilotkit/core";
 import { useRenderTool } from "./use-render-tool";
 
 export type DefaultRenderProps = {
@@ -13,6 +14,68 @@ export type DefaultRenderProps = {
   /** The tool call result string, available only when `status` is `"complete"`. */
   result: string | undefined;
 };
+
+/**
+ * Shape that `useRenderToolCall` actually invokes a registered `*` renderer
+ * with: `{ name, toolCallId, args, status: ToolCallStatus, result }`.
+ *
+ * `useDefaultRenderTool` accepts user `config.render` typed against the
+ * documented {@link DefaultRenderProps}, then wraps it via {@link adaptRendererProps}
+ * so the user's function receives the documented shape — not the raw
+ * framework-internal one.
+ */
+type RawRendererProps = {
+  name: string;
+  toolCallId: string;
+  args: unknown;
+  status: ToolCallStatus;
+  result: string | undefined;
+};
+
+/**
+ * Map a {@link ToolCallStatus} enum value to the documented string-union
+ * status the {@link DefaultRenderProps} contract exposes. Unknown / future
+ * enum members log a warning and fall back to `"inProgress"`.
+ */
+export function mapToolCallStatus(
+  status: ToolCallStatus,
+): DefaultRenderProps["status"] {
+  switch (status) {
+    case ToolCallStatus.Complete:
+      return "complete";
+    case ToolCallStatus.Executing:
+      return "executing";
+    case ToolCallStatus.InProgress:
+      return "inProgress";
+    default:
+      // Surface unknown / future enum values so callers know their custom
+      // renderer is being invoked with an unmapped status. Fall back to
+      // "inProgress" — the safest treat-as-pending default.
+      console.warn(
+        `[CopilotKit] Unknown ToolCallStatus "${String(
+          status,
+        )}" in default tool-call renderer; falling back to "inProgress".`,
+      );
+      return "inProgress";
+  }
+}
+
+/**
+ * Convert the framework-internal renderer props (`args`, enum status) into
+ * the documented {@link DefaultRenderProps} shape (`parameters`, string-union
+ * status) so a user `config.render` always sees the documented contract.
+ */
+export function adaptRendererProps(
+  props: RawRendererProps,
+): DefaultRenderProps {
+  return {
+    name: props.name,
+    toolCallId: props.toolCallId,
+    parameters: props.args,
+    status: mapToolCallStatus(props.status),
+    result: props.result,
+  };
+}
 
 /**
  * Registers a wildcard (`"*"`) tool-call renderer via `useRenderTool`.
@@ -56,30 +119,59 @@ export function useDefaultRenderTool(
   },
   deps?: ReadonlyArray<unknown>,
 ): void {
+  const userRender = config?.render;
+
+  // When the caller supplies their own render, wrap it so it receives the
+  // documented {@link DefaultRenderProps} (parameters, string-union status)
+  // even though `useRenderToolCall` invokes the registered render with the
+  // framework-internal `{ args, status: ToolCallStatus, ... }` shape.
+  const registered: (props: RawRendererProps) => React.ReactElement = userRender
+    ? (raw) => userRender(adaptRendererProps(raw))
+    : (raw) => <DefaultToolCallRenderer {...adaptRendererProps(raw)} />;
+
   useRenderTool(
     {
       name: "*",
-      render: config?.render ?? DefaultToolCallRenderer,
+      // `useRenderTool` types the render with the raw framework signature;
+      // the wrapper above adapts to the documented shape. We cast through
+      // `unknown` to bridge the public type without `as any`.
+      render: registered as unknown as (props: unknown) => React.ReactElement,
     },
     deps,
   );
 }
 
+/**
+ * Guarded JSON.stringify used inside the expanded `<pre>` blocks. A circular
+ * reference would otherwise crash the entire React tree on render.
+ */
+function safeStringifyForPre(value: unknown): string {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch (err) {
+    console.warn(
+      "[CopilotKit] Failed to JSON.stringify tool-call payload for default renderer; falling back to String():",
+      err,
+    );
+    try {
+      return String(value);
+    } catch {
+      return "[unserializable]";
+    }
+  }
+}
+
 export function DefaultToolCallRenderer({
   name,
+  toolCallId,
   parameters,
   status,
   result,
 }: DefaultRenderProps): React.ReactElement {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const statusString = String(status) as
-    | "inProgress"
-    | "executing"
-    | "complete";
-  const isActive =
-    statusString === "inProgress" || statusString === "executing";
-  const isComplete = statusString === "complete";
+  const isActive = status === "inProgress" || status === "executing";
+  const isComplete = status === "complete";
 
   const statusLabel = isActive ? "Running" : isComplete ? "Done" : status;
   const dotColor = isActive ? "#f59e0b" : isComplete ? "#10b981" : "#a1a1aa";
@@ -90,7 +182,8 @@ export function DefaultToolCallRenderer({
     <div
       data-testid="copilot-tool-render"
       data-tool-name={name}
-      data-status={statusString}
+      data-tool-call-id={toolCallId}
+      data-status={status}
       data-args={safeStringifyForAttr(parameters)}
       data-result={safeStringifyForAttr(result)}
       style={{
@@ -106,8 +199,12 @@ export function DefaultToolCallRenderer({
           padding: "14px 16px",
         }}
       >
-        {/* Header row — always visible */}
-        <div
+        {/* Header row — always visible. A real <button> with aria-expanded
+            and reset styles so it visually matches the previous <div> but
+            is keyboard-accessible (Enter/Space toggle natively). */}
+        <button
+          type="button"
+          aria-expanded={isExpanded}
           onClick={() => setIsExpanded(!isExpanded)}
           style={{
             display: "flex",
@@ -116,6 +213,14 @@ export function DefaultToolCallRenderer({
             gap: "10px",
             cursor: "pointer",
             userSelect: "none",
+            width: "100%",
+            border: "none",
+            padding: 0,
+            margin: 0,
+            background: "transparent",
+            textAlign: "left",
+            font: "inherit",
+            color: "inherit",
           }}
         >
           <div
@@ -187,7 +292,7 @@ export function DefaultToolCallRenderer({
           >
             {statusLabel}
           </span>
-        </div>
+        </button>
 
         {/* Expandable details */}
         {isExpanded && (
@@ -218,7 +323,7 @@ export function DefaultToolCallRenderer({
                   wordBreak: "break-word",
                 }}
               >
-                {JSON.stringify(parameters ?? {}, null, 2)}
+                {safeStringifyForPre(parameters ?? {})}
               </pre>
             </div>
 
@@ -251,7 +356,7 @@ export function DefaultToolCallRenderer({
                 >
                   {typeof result === "string"
                     ? result
-                    : JSON.stringify(result, null, 2)}
+                    : safeStringifyForPre(result)}
                 </pre>
               </div>
             )}
@@ -267,7 +372,15 @@ function safeStringifyForAttr(value: unknown): string {
   if (typeof value === "string") return value;
   try {
     return JSON.stringify(value);
-  } catch {
-    return String(value);
+  } catch (err) {
+    console.warn(
+      "[CopilotKit] Failed to JSON.stringify tool-call payload for data-* attribute; falling back to String():",
+      err,
+    );
+    try {
+      return String(value);
+    } catch {
+      return "";
+    }
   }
 }
