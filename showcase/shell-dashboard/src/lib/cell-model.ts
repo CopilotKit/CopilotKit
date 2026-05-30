@@ -17,6 +17,20 @@ import { keyFor, CATALOG_TO_D5_KEY } from "./live-status";
 export type TestStatus = "green" | "red" | "amber" | null;
 export type ChipColor = "green" | "amber" | "red" | "gray";
 
+/**
+ * Staleness window for the `e2e:` dimension. The e2e-demos driver writes
+ * `e2e:<slug>/<feature>` rows hourly (`schedule: "10 * * * *"`, see
+ * harness/config/probes/e2e-demos.yml). When the driver stops writing
+ * (a wedged browser pool, a dead probe pipeline), the last row freezes —
+ * a green row then reads as a healthy D3 forever, masking the outage as a
+ * false-green. Mirroring the original ">6h stale" model (see
+ * live-status.ts), a green e2e row whose `observed_at` is older than this
+ * window is downgraded to `degraded` (amber) so the staleness surfaces
+ * instead of presenting as green. 6h tolerates several missed hourly ticks
+ * before flagging, avoiding flapping on a single skipped run.
+ */
+export const E2E_STALE_AFTER_MS = 6 * 60 * 60 * 1000;
+
 export interface TestLevel {
   exists: boolean;
   status: TestStatus;
@@ -109,29 +123,62 @@ function resolveD4(live: LiveStatusMap, slug: string): TestLevel {
  * Uses `CATALOG_TO_D5_KEY` to map catalog feature IDs to D5 PB row key
  * suffixes. When multiple sub-keys exist (e.g. `beautiful-chat` fans out
  * to 5 pills), worst-state wins.
+ *
+ * Staleness applies the same downgrade as `resolveD3`, but PER SUB-ROW and
+ * BEFORE the worst-state fold: a green D5 sub-row whose `observed_at` is
+ * older than `E2E_STALE_AFTER_MS` is treated as `degraded` while folding.
+ * This matters because `green` is the LOWEST rank — folding raw states first
+ * would let a fresh-green sub-row win the all-green tie and hide a stale-green
+ * sibling, re-introducing the false-green. Downgrading each green-but-stale
+ * sub-row first means ANY stale-green sub-row forces the family to amber,
+ * independent of `CATALOG_TO_D5_KEY` order. Only green is downgraded; a stale
+ * red/degraded sub-row already signals a problem.
+ *
+ * NOTE on missing sub-rows: this fold only considers sub-rows that are PRESENT
+ * — a missing row is SKIPPED (`if (!row) continue;`), not treated as failing.
+ * So a multi-key family with only some sub-rows emitted can still be credited
+ * green from those present rows. This DIVERGES from `depth-utils.ts`
+ * `isD5Green`, which uses `d5Keys.every(...)` and therefore requires every
+ * mapped key to be present AND green-and-fresh; a missing row makes the whole
+ * family non-green there. The per-row stale-green→degraded downgrade IS
+ * mirrored between the two; only the partial-emission (missing-row) handling
+ * differs.
  */
 function resolveD5(
   live: LiveStatusMap,
   slug: string,
   featureId: string,
+  now: number,
 ): TestLevel {
   const d5Keys = CATALOG_TO_D5_KEY[featureId];
 
-  // No mapping and no fallback row → test doesn't exist for this feature.
+  // No mapping → test doesn't exist for this feature.
   if (!d5Keys || d5Keys.length === 0) {
     return { exists: false, status: null, row: null };
   }
 
-  let worst: StatusRow | null = null;
+  let worstRow: StatusRow | null = null;
+  let worstState: State | null = null;
   for (const d5Key of d5Keys) {
     const row = live.get(keyFor("d5", slug, d5Key)) ?? null;
     if (!row) continue;
-    if (!worst || STATE_RANK[row.state] > STATE_RANK[worst.state]) {
-      worst = row;
+    // Per-row staleness downgrade applied BEFORE the fold: a green sub-row
+    // that is stale folds in as `degraded` so it can never win the all-green
+    // tie and mask a fresh-green sibling.
+    const effectiveState: State =
+      row.state === "green" && isStale(row, now, E2E_STALE_AFTER_MS)
+        ? "degraded"
+        : row.state;
+    if (
+      worstState === null ||
+      STATE_RANK[effectiveState] > STATE_RANK[worstState]
+    ) {
+      worstRow = row;
+      worstState = effectiveState;
     }
   }
 
-  if (!worst) {
+  if (!worstRow || worstState === null) {
     // Keys are mapped but no rows emitted yet — test exists but has no
     // data. Treat as exists=true so ceilingDepth reflects it.
     return { exists: true, status: null, row: null };
@@ -139,22 +186,43 @@ function resolveD5(
 
   return {
     exists: true,
-    status: stateToTestStatus(worst.state),
-    row: worst,
+    status: stateToTestStatus(worstState),
+    row: worstRow,
   };
 }
 
 /**
+ * Determine whether a row's `observed_at` is older than `maxAgeMs` relative
+ * to `now`. An unparseable/missing timestamp is treated as NOT stale —
+ * staleness must be a positive signal, never inferred from bad data.
+ */
+function isStale(row: StatusRow, now: number, maxAgeMs: number): boolean {
+  const observedMs = Date.parse(row.observed_at);
+  if (Number.isNaN(observedMs)) return false;
+  return now - observedMs > maxAgeMs;
+}
+
+/**
  * Resolve the D3 (API / e2e) test level for `(slug, featureId)`.
+ *
+ * A green e2e row that has not been refreshed within `E2E_STALE_AFTER_MS`
+ * is downgraded to `amber` (degraded): the driver has stopped writing, so
+ * the frozen-green row is no longer trustworthy evidence of health. Only
+ * green is downgraded — a stale red/degraded row already signals a problem
+ * and is left as-is.
  */
 function resolveD3(
   live: LiveStatusMap,
   slug: string,
   featureId: string,
+  now: number,
 ): TestLevel {
   const row = live.get(keyFor("e2e", slug, featureId)) ?? null;
   if (!row) {
     return { exists: false, status: null, row: null };
+  }
+  if (row.state === "green" && isStale(row, now, E2E_STALE_AFTER_MS)) {
+    return { exists: true, status: "amber", row };
   }
   return {
     exists: true,
@@ -169,11 +237,19 @@ function resolveD3(
  * D6 is an aggregate integration-level signal (`d6:<slug>`), NOT per-cell.
  * The e2e-full driver emits a single row per integration that covers
  * the entire parity comparison against the reference implementation.
+ *
+ * Staleness applies the same downgrade as `resolveD3`: a green D6 row whose
+ * `observed_at` is older than `E2E_STALE_AFTER_MS` is downgraded to `amber`
+ * (degraded), so a frozen-green row from a stalled driver no longer credits
+ * D6 forever. Only green is downgraded; stale red/degraded is left as-is.
  */
-function resolveD6(live: LiveStatusMap, slug: string): TestLevel {
+function resolveD6(live: LiveStatusMap, slug: string, now: number): TestLevel {
   const row = live.get(keyFor("d6", slug)) ?? null;
   if (!row) {
     return { exists: false, status: null, row: null };
+  }
+  if (row.state === "green" && isStale(row, now, E2E_STALE_AFTER_MS)) {
+    return { exists: true, status: "amber", row };
   }
   return {
     exists: true,
@@ -210,6 +286,7 @@ const UNSUPPORTED: CellModel = {
 export function buildCellModel(
   live: LiveStatusMap,
   input: CellModelInput,
+  now: number = Date.now(),
 ): CellModel {
   const { slug, featureId, isSupported, isWired } = input;
 
@@ -234,10 +311,10 @@ export function buildCellModel(
   }
 
   // ── Wired + supported: resolve each depth independently ───────────
-  const d3 = resolveD3(live, slug, featureId);
+  const d3 = resolveD3(live, slug, featureId, now);
   const d4 = resolveD4(live, slug);
-  const d5 = resolveD5(live, slug, featureId);
-  const d6 = resolveD6(live, slug);
+  const d5 = resolveD5(live, slug, featureId, now);
+  const d6 = resolveD6(live, slug, now);
 
   // ceilingDepth: highest CONTIGUOUS depth where a test EXISTS.
   // D4 only counts if D3 exists; D5 only counts if D4 counts; D6 only

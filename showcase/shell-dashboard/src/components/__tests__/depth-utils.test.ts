@@ -1,16 +1,24 @@
 /**
- * Unit tests for depth derivation utility.
- * Parameterized: all D0-D6 combos, short-circuit on red, unshipped returns D0.
+ * Unit tests for the depth-derivation utility (deriveDepth).
+ * Covers the D0-D6 ladder walk, short-circuit on non-green, unshipped/
+ * unsupported handling, maxPossible/isRegression computation, multi-key D5
+ * mappings, and D5/D6 staleness downgrades.
  */
 import { describe, it, expect } from "vitest";
 import { deriveDepth } from "../depth-utils";
 import type { CatalogCell } from "../depth-utils";
 import type { LiveStatusMap, StatusRow } from "@/lib/live-status";
 
+// Default `observed_at` is recent so green rows are not treated as stale by
+// the e2e staleness downgrade (see depth-utils.ts / cell-model.ts). Tests
+// that exercise staleness pass an explicit timestamp.
+const FRESH_OBSERVED_AT = new Date().toISOString();
+
 function row(
   key: string,
   dimension: string,
   state: StatusRow["state"],
+  observedAt: string = FRESH_OBSERVED_AT,
 ): StatusRow {
   return {
     id: `id-${key}`,
@@ -18,8 +26,8 @@ function row(
     dimension,
     state,
     signal: {},
-    observed_at: "2026-04-20T00:00:00Z",
-    transitioned_at: "2026-04-20T00:00:00Z",
+    observed_at: observedAt,
+    transitioned_at: observedAt,
     fail_count: 0,
     first_failure_at: null,
   };
@@ -362,6 +370,69 @@ describe("deriveDepth", () => {
     ]);
     const result = deriveDepth(c, live);
     expect(result.achieved).toBe(6);
+  });
+
+  // ── D5/D6 staleness mirrors cell-model.ts (both consumers agree) ──
+  describe("D5/D6 staleness downgrade", () => {
+    const NOW = Date.parse("2026-05-30T12:00:00Z");
+    const STALE_AT = new Date(NOW - 7 * 60 * 60 * 1000).toISOString();
+    const FRESH_AT = new Date(NOW - 60 * 1000).toISOString();
+
+    it("does not credit D5 when its green row is stale", () => {
+      const c = cell("lgp", "agentic-chat");
+      const live = mapOf([
+        row("health:lgp", "health", "green", FRESH_AT),
+        row("agent:lgp", "agent", "green", FRESH_AT),
+        row("e2e:lgp/agentic-chat", "e2e", "green", FRESH_AT),
+        row("chat:lgp", "chat", "green", FRESH_AT),
+        row("d5:lgp/agentic-chat", "d5", "green", STALE_AT),
+      ]);
+      const result = deriveDepth(c, live, NOW);
+      // Stale green D5 must not advance past D4.
+      expect(result.achieved).toBe(4);
+    });
+
+    it("credits D5 when its green row is fresh", () => {
+      const c = cell("lgp", "agentic-chat");
+      const live = mapOf([
+        row("health:lgp", "health", "green", FRESH_AT),
+        row("agent:lgp", "agent", "green", FRESH_AT),
+        row("e2e:lgp/agentic-chat", "e2e", "green", FRESH_AT),
+        row("chat:lgp", "chat", "green", FRESH_AT),
+        row("d5:lgp/agentic-chat", "d5", "green", FRESH_AT),
+      ]);
+      const result = deriveDepth(c, live, NOW);
+      expect(result.achieved).toBe(5);
+    });
+
+    it("does not credit D6 when its green row is stale", () => {
+      const c = cell("lgp", "agentic-chat");
+      const live = mapOf([
+        row("health:lgp", "health", "green", FRESH_AT),
+        row("agent:lgp", "agent", "green", FRESH_AT),
+        row("e2e:lgp/agentic-chat", "e2e", "green", FRESH_AT),
+        row("chat:lgp", "chat", "green", FRESH_AT),
+        row("d5:lgp/agentic-chat", "d5", "green", FRESH_AT),
+        row("d6:lgp", "d6", "green", STALE_AT),
+      ]);
+      const result = deriveDepth(c, live, NOW);
+      // Stale green D6 must not advance past D5.
+      expect(result.achieved).toBe(5);
+    });
+
+    it("credits D6 when its green row is fresh", () => {
+      const c = cell("lgp", "agentic-chat");
+      const live = mapOf([
+        row("health:lgp", "health", "green", FRESH_AT),
+        row("agent:lgp", "agent", "green", FRESH_AT),
+        row("e2e:lgp/agentic-chat", "e2e", "green", FRESH_AT),
+        row("chat:lgp", "chat", "green", FRESH_AT),
+        row("d5:lgp/agentic-chat", "d5", "green", FRESH_AT),
+        row("d6:lgp", "d6", "green", FRESH_AT),
+      ]);
+      const result = deriveDepth(c, live, NOW);
+      expect(result.achieved).toBe(6);
+    });
   });
 
   it("returns D4 for feature with no D5 mapping", () => {
