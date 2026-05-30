@@ -123,15 +123,23 @@ function resolveD4(live: LiveStatusMap, slug: string): TestLevel {
  * Uses `CATALOG_TO_D5_KEY` to map catalog feature IDs to D5 PB row key
  * suffixes. When multiple sub-keys exist (e.g. `beautiful-chat` fans out
  * to 5 pills), worst-state wins.
+ *
+ * Staleness applies the same downgrade as `resolveD3`: a green D5 row whose
+ * `observed_at` is older than `E2E_STALE_AFTER_MS` is downgraded to `amber`
+ * (degraded). When the driver stops writing, a frozen-green row would
+ * otherwise credit D5 forever — the same false-green mode one dimension up.
+ * Only green is downgraded; a stale red/degraded row already signals a
+ * problem and is left as-is.
  */
 function resolveD5(
   live: LiveStatusMap,
   slug: string,
   featureId: string,
+  now: number,
 ): TestLevel {
   const d5Keys = CATALOG_TO_D5_KEY[featureId];
 
-  // No mapping and no fallback row → test doesn't exist for this feature.
+  // No mapping → test doesn't exist for this feature.
   if (!d5Keys || d5Keys.length === 0) {
     return { exists: false, status: null, row: null };
   }
@@ -149,6 +157,10 @@ function resolveD5(
     // Keys are mapped but no rows emitted yet — test exists but has no
     // data. Treat as exists=true so ceilingDepth reflects it.
     return { exists: true, status: null, row: null };
+  }
+
+  if (worst.state === "green" && isStale(worst, now, E2E_STALE_AFTER_MS)) {
+    return { exists: true, status: "amber", row: worst };
   }
 
   return {
@@ -204,11 +216,19 @@ function resolveD3(
  * D6 is an aggregate integration-level signal (`d6:<slug>`), NOT per-cell.
  * The e2e-full driver emits a single row per integration that covers
  * the entire parity comparison against the reference implementation.
+ *
+ * Staleness applies the same downgrade as `resolveD3`: a green D6 row whose
+ * `observed_at` is older than `E2E_STALE_AFTER_MS` is downgraded to `amber`
+ * (degraded), so a frozen-green row from a stalled driver no longer credits
+ * D6 forever. Only green is downgraded; stale red/degraded is left as-is.
  */
-function resolveD6(live: LiveStatusMap, slug: string): TestLevel {
+function resolveD6(live: LiveStatusMap, slug: string, now: number): TestLevel {
   const row = live.get(keyFor("d6", slug)) ?? null;
   if (!row) {
     return { exists: false, status: null, row: null };
+  }
+  if (row.state === "green" && isStale(row, now, E2E_STALE_AFTER_MS)) {
+    return { exists: true, status: "amber", row };
   }
   return {
     exists: true,
@@ -272,8 +292,8 @@ export function buildCellModel(
   // ── Wired + supported: resolve each depth independently ───────────
   const d3 = resolveD3(live, slug, featureId, now);
   const d4 = resolveD4(live, slug);
-  const d5 = resolveD5(live, slug, featureId);
-  const d6 = resolveD6(live, slug);
+  const d5 = resolveD5(live, slug, featureId, now);
+  const d6 = resolveD6(live, slug, now);
 
   // ceilingDepth: highest CONTIGUOUS depth where a test EXISTS.
   // D4 only counts if D3 exists; D5 only counts if D4 counts; D6 only

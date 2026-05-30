@@ -64,6 +64,22 @@ function isGreen(live: LiveStatusMap, key: string): boolean {
   return row?.state === "green";
 }
 
+/**
+ * A row counts as green only when it is green AND fresh. A frozen-green row
+ * from a stalled driver must NOT credit its depth — the same false-green
+ * staleness downgrade `cell-model.ts` applies to D3/D5/D6, mirrored here so
+ * both consumers agree.
+ */
+function isGreenAndFresh(
+  live: LiveStatusMap,
+  key: string,
+  now: number,
+): boolean {
+  const row = live.get(key);
+  if (row?.state !== "green") return false;
+  return !isRowStale(row, now, E2E_STALE_AFTER_MS);
+}
+
 /** Row is stale if `observed_at` is older than `maxAgeMs` relative to `now`. */
 function isRowStale(row: StatusRow, now: number, maxAgeMs: number): boolean {
   const observedMs = Date.parse(row.observed_at);
@@ -89,13 +105,16 @@ function isE2eGreenAndFresh(
 }
 
 /**
- * Check whether all D5 PB rows for a given (slug, catalogFeatureId) are green.
- * Returns false if the feature has no D5 mapping or any mapped row is missing/non-green.
+ * Check whether all D5 PB rows for a given (slug, catalogFeatureId) are green
+ * AND fresh. Returns false if the feature has no D5 mapping or any mapped row
+ * is missing/non-green/stale. The staleness gate mirrors `cell-model.ts` so a
+ * frozen-green CV row from a stalled driver no longer credits D5.
  */
 function isD5Green(
   live: LiveStatusMap,
   slug: string,
   featureId: string,
+  now: number,
 ): boolean {
   const d5Keys = CATALOG_TO_D5_KEY[featureId];
   // No D5 mapping = no CV test exists for this feature = cannot be D5.
@@ -104,7 +123,9 @@ function isD5Green(
   if (!d5Keys || d5Keys.length === 0) {
     return false;
   }
-  return d5Keys.every((d5Key) => isGreen(live, keyFor("d5", slug, d5Key)));
+  return d5Keys.every((d5Key) =>
+    isGreenAndFresh(live, keyFor("d5", slug, d5Key), now),
+  );
 }
 
 /**
@@ -236,7 +257,7 @@ export function deriveDepth(
   achieved = 4;
 
   // D5: d5:<slug>/<d5FeatureType> green (per-cell, mapped via CATALOG_TO_D5_KEY)
-  if (!isD5Green(live, cell.integration, cell.feature)) {
+  if (!isD5Green(live, cell.integration, cell.feature, now)) {
     return {
       achieved,
       maxPossible,
@@ -247,7 +268,7 @@ export function deriveDepth(
   achieved = 5;
 
   // D6: d6:<slug> green (integration-scoped aggregate)
-  if (isGreen(live, keyFor("d6", cell.integration))) {
+  if (isGreenAndFresh(live, keyFor("d6", cell.integration), now)) {
     achieved = 6;
   }
 
