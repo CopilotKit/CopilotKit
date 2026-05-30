@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import { useRenderTool } from "./use-render-tool";
 
-type DefaultRenderProps = {
+export type DefaultRenderProps = {
   /** The name of the tool being called. */
   name: string;
+  /** The id of the tool call being rendered. */
+  toolCallId: string;
   /** The parsed parameters passed to the tool call. */
   parameters: unknown;
   /** Current execution status of the tool call. */

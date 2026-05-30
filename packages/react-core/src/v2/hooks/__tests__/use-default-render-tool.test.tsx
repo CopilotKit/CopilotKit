@@ -2,6 +2,7 @@ import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useDefaultRenderTool } from "../use-default-render-tool";
+import type { DefaultRenderProps } from "../use-default-render-tool";
 import { useRenderTool } from "../use-render-tool";
 
 vi.mock("../use-render-tool", () => ({
@@ -38,6 +39,45 @@ describe("useDefaultRenderTool", () => {
 
     expect(config.name).toBe("*");
     expect(typeof config.render).toBe("function");
+  });
+
+  it("forwards toolCallId to custom wildcard render function", () => {
+    // Verifies useDefaultRenderTool passes the user's render through untouched,
+    // so toolCallId given to the registered render reaches the custom render fn.
+    const customRender = vi.fn((_props: DefaultRenderProps) => (
+      <div data-testid="custom">custom</div>
+    ));
+
+    const Harness: React.FC = () => {
+      useDefaultRenderTool({
+        render: customRender,
+      });
+      return null;
+    };
+
+    render(<Harness />);
+
+    expect(mockUseRenderTool).toHaveBeenCalledTimes(1);
+    const [config] = mockUseRenderTool.mock.calls[0] as [
+      {
+        name: string;
+        render: (props: DefaultRenderProps) => React.ReactElement;
+      },
+    ];
+
+    config.render({
+      name: "searchDocs",
+      toolCallId: "tc-forwarded-1",
+      parameters: { query: "copilot" },
+      status: "executing",
+      result: undefined,
+    });
+
+    expect(customRender).toHaveBeenCalledTimes(1);
+    const forwardedProps = customRender.mock.calls[0][0];
+    expect(forwardedProps).toMatchObject({
+      toolCallId: "tc-forwarded-1",
+    });
   });
 
   it("forwards custom render function and deps", () => {
@@ -77,25 +117,17 @@ describe("useDefaultRenderTool", () => {
 
     const [config] = mockUseRenderTool.mock.calls[0] as [
       {
-        render: (props: {
-          name: string;
-          parameters: unknown;
-          status: string;
-          result: string | undefined;
-        }) => React.ReactElement;
+        render: (props: DefaultRenderProps) => React.ReactElement;
       },
     ];
 
-    const DefaultRenderer = config.render as React.ComponentType<{
-      name: string;
-      parameters: unknown;
-      status: string;
-      result: string | undefined;
-    }>;
+    const DefaultRenderer =
+      config.render as React.ComponentType<DefaultRenderProps>;
 
     render(
       <DefaultRenderer
         name="searchDocs"
+        toolCallId="tc-default-executing"
         parameters={{ query: "copilot" }}
         status="executing"
         result={undefined}
@@ -120,25 +152,17 @@ describe("useDefaultRenderTool", () => {
 
     const [config] = mockUseRenderTool.mock.calls[0] as [
       {
-        render: (props: {
-          name: string;
-          parameters: unknown;
-          status: string;
-          result: string | undefined;
-        }) => React.ReactElement;
+        render: (props: DefaultRenderProps) => React.ReactElement;
       },
     ];
 
-    const DefaultRenderer = config.render as React.ComponentType<{
-      name: string;
-      parameters: unknown;
-      status: string;
-      result: string | undefined;
-    }>;
+    const DefaultRenderer =
+      config.render as React.ComponentType<DefaultRenderProps>;
 
     render(
       <DefaultRenderer
         name="searchDocs"
+        toolCallId="tc-default-complete"
         parameters={{ query: "copilot" }}
         status="complete"
         result="done"
@@ -149,5 +173,48 @@ describe("useDefaultRenderTool", () => {
     fireEvent.click(screen.getByText("searchDocs"));
     expect(screen.getByText("Result")).toBeDefined();
     expect(screen.getByText("done")).toBeDefined();
+  });
+
+  it("default renderer emits stable copilot-tool-render testid and metadata attrs", () => {
+    const Harness: React.FC = () => {
+      useDefaultRenderTool();
+      return null;
+    };
+
+    render(<Harness />);
+
+    const [config] = mockUseRenderTool.mock.calls[0] as [
+      {
+        render: (props: DefaultRenderProps) => React.ReactElement;
+      },
+    ];
+
+    const DefaultRenderer =
+      config.render as React.ComponentType<DefaultRenderProps>;
+
+    render(
+      <DefaultRenderer
+        name="searchDocs"
+        toolCallId="tc-default-testid"
+        parameters={{ query: "copilot" }}
+        status="complete"
+        result="ok"
+      />,
+    );
+
+    const wrapper = screen.getByTestId("copilot-tool-render");
+    expect(wrapper).toBeDefined();
+    expect(wrapper.getAttribute("data-tool-name")).toBe("searchDocs");
+    expect(wrapper.getAttribute("data-status")).toBe("complete");
+    expect(wrapper.getAttribute("data-args")).toBe(
+      JSON.stringify({ query: "copilot" }),
+    );
+    expect(wrapper.getAttribute("data-result")).toBe("ok");
+    expect(screen.getByTestId("copilot-tool-render-name").textContent).toBe(
+      "searchDocs",
+    );
+    expect(screen.getByTestId("copilot-tool-render-status").textContent).toBe(
+      "Done",
+    );
   });
 });

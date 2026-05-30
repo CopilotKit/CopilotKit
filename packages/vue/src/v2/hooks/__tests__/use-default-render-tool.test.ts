@@ -46,7 +46,7 @@ describe("useDefaultRenderTool", () => {
 
   it("forwards custom render function and deps", () => {
     const customRender = vi.fn(() => "custom");
-    const deps = ["compact"] as const;
+    const deps = [() => "compact"];
 
     const Harness = defineComponent({
       setup() {
@@ -54,7 +54,7 @@ describe("useDefaultRenderTool", () => {
           {
             render: customRender,
           },
-          deps as unknown as any[],
+          deps,
         );
         return {};
       },
@@ -210,5 +210,49 @@ describe("useDefaultRenderTool", () => {
     await fireEvent.click(screen.getByText("searchDocs"));
     expect(screen.getByText("Result")).toBeDefined();
     expect(screen.getByText("done")).toBeDefined();
+  });
+
+  it("default renderer emits stable copilot-tool-render testid and metadata attrs", () => {
+    const Harness = defineComponent({
+      setup() {
+        useDefaultRenderTool();
+        return {};
+      },
+      template: `<div />`,
+    });
+
+    render(Harness);
+
+    const [config] = mockUseRenderTool.mock.calls[0] as [
+      {
+        render: unknown;
+      },
+    ];
+
+    const DefaultRenderer = config.render;
+    render(DefaultRenderer as any, {
+      props: {
+        name: "searchDocs",
+        toolCallId: "tc-testid-1",
+        parameters: { query: "copilot" },
+        status: "complete",
+        result: "ok",
+      },
+    });
+
+    const wrapper = screen.getByTestId("copilot-tool-render");
+    expect(wrapper).toBeDefined();
+    expect(wrapper.getAttribute("data-tool-name")).toBe("searchDocs");
+    expect(wrapper.getAttribute("data-status")).toBe("complete");
+    expect(wrapper.getAttribute("data-args")).toBe(
+      JSON.stringify({ query: "copilot" }),
+    );
+    expect(wrapper.getAttribute("data-result")).toBe("ok");
+    expect(screen.getByTestId("copilot-tool-render-name").textContent).toBe(
+      "searchDocs",
+    );
+    expect(screen.getByTestId("copilot-tool-render-status").textContent).toBe(
+      "Done",
+    );
   });
 });
