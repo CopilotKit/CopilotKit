@@ -27,9 +27,17 @@ type RawRendererProps = {
 };
 
 /**
+ * Module-level dedup set so an unknown status value only emits a console
+ * warning the FIRST time we encounter it. Otherwise a stuck/unmapped status
+ * would log on every re-render (potentially many per second).
+ */
+const warnedUnknownStatuses = new Set<string>();
+
+/**
  * Map a {@link ToolCallStatus} enum value to the documented string-union
  * status the {@link DefaultRenderProps} contract exposes. Unknown / future
- * enum members log a warning and fall back to `"inProgress"`.
+ * enum members log a warning (once per distinct value) and fall back to
+ * `"inProgress"`.
  */
 function mapToolCallStatus(
   status: ToolCallStatus,
@@ -41,13 +49,16 @@ function mapToolCallStatus(
       return "executing";
     case ToolCallStatus.InProgress:
       return "inProgress";
-    default:
-      console.warn(
-        `[CopilotKit] Unknown ToolCallStatus "${String(
-          status,
-        )}" in default tool-call renderer; falling back to "inProgress".`,
-      );
+    default: {
+      const key = String(status);
+      if (!warnedUnknownStatuses.has(key)) {
+        warnedUnknownStatuses.add(key);
+        console.warn(
+          `[CopilotKit] Unknown ToolCallStatus "${key}" in default tool-call renderer; falling back to "inProgress".`,
+        );
+      }
       return "inProgress";
+    }
   }
 }
 
@@ -97,7 +108,11 @@ function safeStringifyForPre(value: unknown): string {
     );
     try {
       return String(value);
-    } catch {
+    } catch (innerErr) {
+      console.warn(
+        "[CopilotKit] safeStringifyForPre: value could not be stringified:",
+        innerErr,
+      );
       return "[unserializable]";
     }
   }
@@ -123,7 +138,11 @@ const DefaultToolCallRenderer = defineComponent({
       required: true,
     },
     result: {
-      type: String,
+      // Typeless on purpose: the renderer body handles both string results
+      // and structured (object) results via `safeStringifyForPre`. Declaring
+      // `type: String` would trip Vue's dev-mode prop-type warning on every
+      // non-string result and make the defensive branch unreachable.
+      type: null,
       required: false,
       default: undefined,
     },
@@ -239,7 +258,11 @@ function safeStringifyForAttr(value: unknown): string {
     );
     try {
       return String(value);
-    } catch {
+    } catch (innerErr) {
+      console.warn(
+        "[CopilotKit] safeStringifyForAttr: value could not be stringified:",
+        innerErr,
+      );
       return "";
     }
   }
@@ -259,9 +282,11 @@ export function useDefaultRenderTool(
   // documented {@link DefaultRenderProps} shape regardless of whether the
   // call site passes `args + enum status` (CopilotChatToolCallsView's core
   // path) or `parameters + string status` (an already-adapted call site).
-  // Component-typed renders are not wrapped: Vue's <component :is> binds
-  // attrs by name, so we keep the component reference intact and let Vue
-  // pass through whichever attrs the call site supplies.
+  // Component-typed renders are also wrapped — Vue would bind whatever attrs
+  // the call site passes, which means a component-typed render would receive
+  // the raw `{ args, status: <enum> }` shape instead of the documented
+  // `{ parameters, status: <string-union> }` shape. Wrap so the user
+  // component sees `DefaultRenderProps`.
   let registeredRender:
     | ((props: DefaultRenderProps) => VNodeChild)
     | Component<DefaultRenderProps>;
@@ -273,7 +298,17 @@ export function useDefaultRenderTool(
       return fn(adapted);
     }) as (props: DefaultRenderProps) => VNodeChild;
   } else if (userRender) {
-    registeredRender = userRender;
+    const userComponent = userRender;
+    registeredRender = ((rawProps: AdaptInput) => {
+      const adapted = adaptRendererProps(rawProps);
+      return h(userComponent as Component, {
+        name: adapted.name,
+        toolCallId: adapted.toolCallId,
+        parameters: adapted.parameters,
+        status: adapted.status,
+        result: adapted.result,
+      });
+    }) as (props: DefaultRenderProps) => VNodeChild;
   } else {
     registeredRender = ((rawProps: AdaptInput) => {
       const adapted = adaptRendererProps(rawProps);
