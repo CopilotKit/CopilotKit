@@ -42,14 +42,6 @@ export default function Home() {
           <p>Reading agent state from UI</p>
         </a>
         <a
-          key="shared-state-write"
-          href="/demos/shared-state-write"
-          className="demo-card"
-        >
-          <h3>Shared State (Writing)</h3>
-          <p>Writing to agent state from UI</p>
-        </a>
-        <a
           key="shared-state-streaming"
           href="/demos/shared-state-streaming"
           className="demo-card"
