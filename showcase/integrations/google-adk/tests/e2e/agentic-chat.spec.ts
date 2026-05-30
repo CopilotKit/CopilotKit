@@ -51,6 +51,12 @@ test.describe("Agentic Chat", () => {
       page.locator('[data-testid="copilot-assistant-message"]').first(),
     ).toBeVisible({ timeout: 30000 });
 
+    // Wait for the chat to settle (suggestions reappear after the assistant
+    // finishes streaming) before sending the follow-up message.
+    await expect(
+      page.getByRole("button", { name: "Write a sonnet" }),
+    ).toBeVisible({ timeout: 10000 });
+
     await input.fill("What name did I just give you?");
     await input.press("Enter");
 
