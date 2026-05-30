@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextFetchEvent, NextRequest } from "next/server";
 import { seoRedirects } from "@/lib/seo-redirects";
 import { stripRouteGroupSegmentsFromPathname } from "@/lib/route-groups";
-import { getRuntimeConfigEdge } from "@/lib/runtime-config";
+import { getRuntimeConfigForMiddleware } from "@/lib/runtime-config";
 import registry from "@/data/registry.json";
 
 // ---------------------------------------------------------------------------
@@ -67,7 +67,7 @@ for (const entry of seoRedirects) {
 // changing NEXT_PUBLIC_POSTHOG_HOST. The reader applies the same
 // `https://eu.i.posthog.com` fallback used before.
 function getPosthogHost(): string {
-  return getRuntimeConfigEdge().posthogHost;
+  return getRuntimeConfigForMiddleware().posthogHost;
 }
 const DISTINCT_ID_COOKIE = "ph_distinct_id";
 // ~2 years — long enough to meaningfully track returning visitors.

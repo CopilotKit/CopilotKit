@@ -8,7 +8,7 @@ vi.mock("next/cache", () => ({
   unstable_noStore: () => {},
 }));
 
-import { getRuntimeConfig, getRuntimeConfigEdge } from "./runtime-config";
+import { getRuntimeConfig, getRuntimeConfigForMiddleware } from "./runtime-config";
 
 const URL_KEYS = [
   "NEXT_PUBLIC_BASE_URL",
@@ -246,7 +246,7 @@ describe("server getRuntimeConfig (shell-docs)", () => {
     expect(cfg.posthogHost).toBe("https://primary-ph.example.com");
   });
 
-  it("getRuntimeConfigEdge skips noStore() (Edge runtime path)", async () => {
+  it("getRuntimeConfigForMiddleware skips noStore() (Edge runtime path)", async () => {
     const cacheMod = await import("next/cache");
     const noStoreSpy = vi.spyOn(cacheMod, "unstable_noStore");
     (process.env as Record<string, string>).NODE_ENV = "production";
@@ -256,7 +256,7 @@ describe("server getRuntimeConfig (shell-docs)", () => {
       "https://edge-signup.example.com";
     process.env.NEXT_PUBLIC_POSTHOG_HOST = "https://edge-ph.example.com";
 
-    const cfg = getRuntimeConfigEdge();
+    const cfg = getRuntimeConfigForMiddleware();
     expect(cfg.baseUrl).toBe("https://edge.example.com");
     expect(noStoreSpy).not.toHaveBeenCalled();
 
