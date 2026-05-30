@@ -344,6 +344,64 @@ describe("buildCellModel", () => {
       // D6-ceiling: D5 green but D6 absent → amber
       expect(model.chipColor).toBe("amber");
     });
+
+    it("does not credit D5 green when one mapped sub-row is MISSING (strict)", () => {
+      // beautiful-chat maps to 5 sub-keys; emit only 4 (bar-chart missing).
+      // A missing mapped sub-row means the family is unverified, so D5 must
+      // NOT be credited green — it returns status:null (no-data), matching
+      // `isD5Green`'s `every(...)`. achievedDepth caps below 5; A1 renders
+      // the unverified ladder gray.
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "beautiful-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("d5", "agno", "beautiful-chat-toggle-theme"), "d5", "green"),
+        row(keyFor("d5", "agno", "beautiful-chat-pie-chart"), "d5", "green"),
+        // beautiful-chat-bar-chart intentionally omitted.
+        row(
+          keyFor("d5", "agno", "beautiful-chat-search-flights"),
+          "d5",
+          "green",
+        ),
+        row(
+          keyFor("d5", "agno", "beautiful-chat-schedule-meeting"),
+          "d5",
+          "green",
+        ),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "beautiful-chat"));
+      expect(model.d5!.exists).toBe(true);
+      // Missing sub-row → no-data, NOT green and NOT red.
+      expect(model.d5!.status).toBeNull();
+      expect(model.achievedDepth).toBe(4);
+      // Unverified ladder (D5 null), D6 absent → gray.
+      expect(model.chipColor).toBe("gray");
+    });
+
+    it("still reports red when a present sub-row is red even if another is missing", () => {
+      // A present red sub-row signals a real failure regardless of a missing
+      // sibling — red dominates no-data.
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "beautiful-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("d5", "agno", "beautiful-chat-toggle-theme"), "d5", "green"),
+        row(keyFor("d5", "agno", "beautiful-chat-pie-chart"), "d5", "red"),
+        // bar-chart missing; one present sub-row is red.
+        row(
+          keyFor("d5", "agno", "beautiful-chat-search-flights"),
+          "d5",
+          "green",
+        ),
+        row(
+          keyFor("d5", "agno", "beautiful-chat-schedule-meeting"),
+          "d5",
+          "green",
+        ),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "beautiful-chat"));
+      expect(model.d5!.status).toBe("red");
+      expect(model.achievedDepth).toBe(4);
+      expect(model.chipColor).toBe("red");
+    });
   });
 
   // ── No live data at all → D0 gray ──────────────────────────────────

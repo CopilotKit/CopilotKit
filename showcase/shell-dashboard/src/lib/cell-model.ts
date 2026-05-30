@@ -169,15 +169,13 @@ function resolveD4(live: LiveStatusMap, slug: string, now: number): TestLevel {
  * independent of `CATALOG_TO_D5_KEY` order. Only green is downgraded; a stale
  * red/degraded sub-row already signals a problem.
  *
- * NOTE on missing sub-rows: this fold only considers sub-rows that are PRESENT
- * — a missing row is SKIPPED (`if (!row) continue;`), not treated as failing.
- * So a multi-key family with only some sub-rows emitted can still be credited
- * green from those present rows. This DIVERGES from `depth-utils.ts`
- * `isD5Green`, which uses `d5Keys.every(...)` and therefore requires every
- * mapped key to be present AND green-and-fresh; a missing row makes the whole
- * family non-green there. The per-row stale-green→degraded downgrade IS
- * mirrored between the two; only the partial-emission (missing-row) handling
- * differs.
+ * STRICT on missing sub-rows: a multi-key family is credited green ONLY when
+ * EVERY mapped sub-row is present and green-and-fresh — a missing mapped
+ * sub-row forces the family out of green and resolves to `status: null`
+ * (no-data/unverified), so `achievedDepth` caps below 5 and the chip renders
+ * gray. A present RED sub-row still yields red (red dominates no-data). This
+ * matches `depth-utils.ts` `isD5Green`, which uses `d5Keys.every(...)`; both
+ * consumers now agree on partial-emission handling.
  */
 function resolveD5(
   live: LiveStatusMap,
@@ -194,9 +192,16 @@ function resolveD5(
 
   let worstRow: StatusRow | null = null;
   let worstState: State | null = null;
+  let anyMissing = false;
   for (const d5Key of d5Keys) {
     const row = live.get(keyFor("d5", slug, d5Key)) ?? null;
-    if (!row) continue;
+    if (!row) {
+      // STRICT: a missing mapped sub-row means the family is unverified —
+      // it can no longer be credited green. Mirrors `isD5Green`'s
+      // `every(...)` in depth-utils.ts so both consumers agree.
+      anyMissing = true;
+      continue;
+    }
     // Per-row staleness downgrade applied BEFORE the fold: a green sub-row
     // that is stale folds in as `degraded` so it can never win the all-green
     // tie and mask a fresh-green sibling.
@@ -216,6 +221,15 @@ function resolveD5(
   if (!worstRow || worstState === null) {
     // Keys are mapped but no rows emitted yet — test exists but has no
     // data. Treat as exists=true so ceilingDepth reflects it.
+    return { exists: true, status: null, row: null };
+  }
+
+  // STRICT missing-sub-row handling: when a mapped sub-row is absent the
+  // family is unverified. A present RED sub-row still signals a real failure
+  // (red dominates no-data), but a present green/degraded fold must NOT be
+  // credited — collapse it to no-data (status: null) so achievedDepth caps
+  // below 5 and the chip renders gray, not a false-green/amber.
+  if (anyMissing && worstState !== "red") {
     return { exists: true, status: null, row: null };
   }
 
