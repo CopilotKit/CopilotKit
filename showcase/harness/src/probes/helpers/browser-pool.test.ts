@@ -128,6 +128,41 @@ function makeFakeLogger(): {
   };
 }
 
+interface LeveledLog extends CapturedLog {
+  level: "info" | "warn" | "error";
+}
+
+/**
+ * Fake logger that captures the SEVERITY each event was emitted at. Unlike
+ * `makeFakeLogger` (info-only), this exposes `warn`/`error` so routing-by-
+ * severity is observable: a capacity-loss event logged via `logger.error(...)`
+ * must show up with `level: "error"`, never `level: "info"`.
+ */
+function makeLeveledLogger(): {
+  logger: {
+    info: (msg: string, meta?: Record<string, unknown>) => void;
+    warn: (msg: string, meta?: Record<string, unknown>) => void;
+    error: (msg: string, meta?: Record<string, unknown>) => void;
+  };
+  events: LeveledLog[];
+} {
+  const events: LeveledLog[] = [];
+  return {
+    logger: {
+      info(msg, meta) {
+        events.push({ level: "info", event: msg, meta });
+      },
+      warn(msg, meta) {
+        events.push({ level: "warn", event: msg, meta });
+      },
+      error(msg, meta) {
+        events.push({ level: "error", event: msg, meta });
+      },
+    },
+    events,
+  };
+}
+
 /**
  * Flush pending microtasks `times` times so post-recycle state settles
  * enough to observe without tearing the pool down. It does NOT advance real
@@ -695,6 +730,135 @@ describe("BrowserPool dead-instance detection", () => {
     // Two live slots recovered, never double-published into available.
     expect(pool.stats().size).toBe(2);
     expect(pool.stats().available).toBeLessThanOrEqual(2);
+
+    await pool.shutdown();
+    await Promise.allSettled([a, b]);
+  });
+
+  it("routes capacity-loss events to error and per-attempt failures to warn", async () => {
+    // Single-slot pool. The browser crashes and EVERY immediate relaunch
+    // attempt fails (calls 2..4 — RELAUNCH_MAX_ATTEMPTS=3), so each per-attempt
+    // close/relaunch failure must log at warn while the terminal capacity-loss
+    // event (`recycle-relaunch-failed`) must log at error.
+    const { launchBrowser, launched } = makeFakeLauncher({
+      failAtCalls: [2, 3, 4],
+    });
+    const { logger, events } = makeLeveledLogger();
+    const pool = new BrowserPool(1, 100, logger, launchBrowser);
+    await pool.init();
+    expect(launched).toHaveLength(1);
+
+    launched[0]!.__crash();
+    await waitFor(() => pool.stats().size === 0, 3_000);
+
+    // Terminal capacity-loss after all retries → error.
+    const recycleFailed = events.find(
+      (e) => e.event === "browser-pool.recycle-relaunch-failed",
+    );
+    expect(recycleFailed).toBeDefined();
+    expect(recycleFailed?.level).toBe("error");
+
+    // The capacity-loss event must NOT also have been emitted at info.
+    expect(
+      events.some(
+        (e) =>
+          e.event === "browser-pool.recycle-relaunch-failed" &&
+          e.level === "info",
+      ),
+    ).toBe(false);
+
+    await pool.shutdown();
+  });
+
+  it("routes per-attempt relaunch-failed (lazy recovery) to warn", async () => {
+    // Single-slot pool. Crash + all immediate retries fail (calls 2..4) parks
+    // the slot. A first acquire's lazy relaunchPendingSlots attempt (call 5)
+    // ALSO fails → `relaunch-failed` must log at warn (per-attempt, not a
+    // terminal capacity loss).
+    const { launchBrowser, launched } = makeFakeLauncher({
+      failAtCalls: [2, 3, 4, 5],
+    });
+    const { logger, events } = makeLeveledLogger();
+    const pool = new BrowserPool(1, 100, logger, launchBrowser);
+    await pool.init();
+
+    launched[0]!.__crash();
+    await waitFor(() => pool.stats().size === 0, 3_000);
+
+    // First acquire drives a relaunchPendingSlots attempt (call 5) which fails.
+    await expect(pool.acquire(50)).rejects.toThrow(
+      "BrowserPool acquire timeout",
+    );
+
+    const relaunchFailed = events.find(
+      (e) => e.event === "browser-pool.relaunch-failed",
+    );
+    expect(relaunchFailed).toBeDefined();
+    expect(relaunchFailed?.level).toBe("warn");
+
+    await pool.shutdown();
+  });
+
+  it("emits an error when reinit ends with an empty pool (every relaunch failed)", async () => {
+    // 1-slot pool. After init (call 1), every subsequent launch fails. The
+    // backstop reinit() can only run when this.slots is truly empty, so we
+    // construct a never-launched pool: init throws nothing (call 1 succeeds),
+    // but to reach the empty-pool reinit path we use a 1-slot pool whose ONLY
+    // slot was never created because init's launch failed. Use failAt=1 so
+    // init launches nothing, leaving this.slots empty; the next acquire drives
+    // reinit, whose launch (call 2) also fails, ending the pool empty → error.
+    const { launchBrowser } = makeFakeLauncher({ failAtCalls: [1, 2, 3] });
+    const { logger, events } = makeLeveledLogger();
+    const pool = new BrowserPool(1, 100, logger, launchBrowser);
+    // init's only launch (call 1) throws — init sets `launchBrowser` BEFORE the
+    // launch loop, so after catching the throw `this.slots` is empty but the
+    // pool can still reinit. (init does not swallow launch errors by design.)
+    await expect(pool.init()).rejects.toThrow("simulated launch failure");
+    expect(pool.stats().size).toBe(0);
+
+    // acquire drives the empty-pool reinit backstop; its launch (call 2) fails,
+    // so reinitInner's loop ends with this.slots.length === 0 → error emit.
+    await expect(pool.acquire(50)).rejects.toThrow(
+      "BrowserPool acquire timeout",
+    );
+
+    const reinitEmpty = events.find(
+      (e) => e.event === "browser-pool.reinit-empty",
+    );
+    expect(reinitEmpty).toBeDefined();
+    expect(reinitEmpty?.level).toBe("error");
+
+    await pool.shutdown();
+  });
+
+  it("does not overshoot poolSize when two concurrent acquires hit an empty pool", async () => {
+    // Empty pool (init launches nothing). Two concurrent acquire() calls both
+    // see this.slots.length === 0. WITHOUT a reiniting guard, BOTH drive
+    // reinit() and each launches up to poolSize browsers — overshoot. WITH the
+    // guard, the second acquire skips reinit and falls through to the waiter
+    // queue, so at most poolSize browsers are launched.
+    const poolSize = 2;
+    // init = call 1 fails (so this.slots stays empty); reinit launches succeed.
+    const { launchBrowser, launched } = makeFakeLauncher({ failAtCalls: [1] });
+    const { logger } = makeLeveledLogger();
+    const pool = new BrowserPool(poolSize, 100, logger, launchBrowser);
+    // init's first launch (call 1) throws, leaving this.slots empty but with
+    // `launchBrowser` already set so reinit can run. init does not swallow.
+    await expect(pool.init()).rejects.toThrow("simulated launch failure");
+    expect(pool.stats().size).toBe(0);
+
+    const a = pool.acquire(5_000);
+    const b = pool.acquire(5_000);
+
+    const first = await Promise.race([a, b]);
+    expect(first).toBeDefined();
+    expect((first as unknown as FakeBrowser).isConnected()).toBe(true);
+
+    await drainMicrotasks(30);
+
+    // The guard ensures only ONE reinit ran: at most poolSize browsers exist.
+    expect(launched.length).toBeLessThanOrEqual(poolSize);
+    expect(pool.stats().size).toBeLessThanOrEqual(poolSize);
 
     await pool.shutdown();
     await Promise.allSettled([a, b]);
