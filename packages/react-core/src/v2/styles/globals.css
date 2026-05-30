@@ -297,6 +297,15 @@
   [data-copilotkit] [data-streamdown="code-block-download-button"] {
     @apply cpk:cursor-pointer cpk:p-1 cpk:text-muted-foreground cpk:transition-all cpk:hover:text-foreground cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50;
   }
+
+  [data-copilotkit] [data-streamdown="mermaid-block"] {
+    @apply cpk:relative cpk:my-4 cpk:h-auto cpk:rounded-xl cpk:border cpk:border-border cpk:p-4;
+  }
+
+  [data-copilotkit] [data-streamdown="subscript"],
+  [data-copilotkit] [data-streamdown="superscript"] {
+    @apply cpk:text-sm;
+  }
 }
 
 /* Minimal scrollbar for WebKit browsers (Chrome, Safari, Edge) */

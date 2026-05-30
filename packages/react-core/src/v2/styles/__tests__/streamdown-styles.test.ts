@@ -19,5 +19,14 @@ describe("Streamdown styles", () => {
     expect(globalsCss).toContain(
       '[data-copilotkit] [data-streamdown="code-block"]',
     );
+    expect(globalsCss).toContain(
+      '[data-copilotkit] [data-streamdown="mermaid-block"]',
+    );
+    expect(globalsCss).toContain(
+      '[data-copilotkit] [data-streamdown="subscript"]',
+    );
+    expect(globalsCss).toContain(
+      '[data-copilotkit] [data-streamdown="superscript"]',
+    );
   });
 });
