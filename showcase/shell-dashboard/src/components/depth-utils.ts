@@ -66,9 +66,10 @@ function isGreen(live: LiveStatusMap, key: string): boolean {
 
 /**
  * A row counts as green only when it is green AND fresh. A frozen-green row
- * from a stalled driver must NOT credit its depth — the same false-green
- * staleness downgrade `cell-model.ts` applies to D3/D5/D6, mirrored here so
- * both consumers agree.
+ * from a stalled driver must NOT credit its depth — otherwise the depth ladder
+ * reads a dead probe pipeline as a false-green (e.g. a D3 e2e signal whose
+ * driver stopped writing). Mirrors the staleness downgrade `cell-model.ts`
+ * applies to D3/D5/D6 so both consumers agree.
  */
 function isGreenAndFresh(
   live: LiveStatusMap,
@@ -85,23 +86,6 @@ function isRowStale(row: StatusRow, now: number, maxAgeMs: number): boolean {
   const observedMs = Date.parse(row.observed_at);
   if (Number.isNaN(observedMs)) return false;
   return now - observedMs > maxAgeMs;
-}
-
-/**
- * The e2e (D3) signal counts as green only when a green row exists AND it
- * has been refreshed within the staleness window. A frozen green row from a
- * driver that stopped writing must NOT credit D3 — otherwise the depth
- * ladder reads a dead probe pipeline as a false-green D3. Mirrors the
- * staleness downgrade in cell-model.ts so both consumers agree.
- */
-function isE2eGreenAndFresh(
-  live: LiveStatusMap,
-  key: string,
-  now: number,
-): boolean {
-  const row = live.get(key);
-  if (row?.state !== "green") return false;
-  return !isRowStale(row, now, E2E_STALE_AFTER_MS);
 }
 
 /**
@@ -228,11 +212,7 @@ export function deriveDepth(
     };
   }
   if (
-    !isE2eGreenAndFresh(
-      live,
-      keyFor("e2e", cell.integration, cell.feature),
-      now,
-    )
+    !isGreenAndFresh(live, keyFor("e2e", cell.integration, cell.feature), now)
   ) {
     return {
       achieved,
