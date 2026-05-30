@@ -2,6 +2,7 @@ import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useDefaultRenderTool } from "../use-default-render-tool";
+import type { DefaultRenderProps } from "../use-default-render-tool";
 import { useRenderTool } from "../use-render-tool";
 
 vi.mock("../use-render-tool", () => ({
@@ -41,17 +42,12 @@ describe("useDefaultRenderTool", () => {
   });
 
   it("forwards toolCallId to custom wildcard render function", () => {
-    // Note: source DefaultRenderProps omits toolCallId, but the wrapper
-    // passes the render through untouched and useRenderTool forwards
-    // toolCallId at runtime. This test locks that behavior.
-    const customRender = vi.fn(
-      (_props: {
-        name: string;
-        parameters: unknown;
-        status: "inProgress" | "executing" | "complete";
-        result: string | undefined;
-      }) => <div data-testid="custom">custom</div>,
-    );
+    // DefaultRenderProps declares toolCallId, and useRenderTool forwards
+    // it at runtime via the spread in its render adapter. This test locks
+    // that behavior end-to-end.
+    const customRender = vi.fn((_props: DefaultRenderProps) => (
+      <div data-testid="custom">custom</div>
+    ));
 
     const Harness: React.FC = () => {
       useDefaultRenderTool({
@@ -66,13 +62,7 @@ describe("useDefaultRenderTool", () => {
     const [config] = mockUseRenderTool.mock.calls[0] as [
       {
         name: string;
-        render: (props: {
-          name: string;
-          toolCallId: string;
-          parameters: unknown;
-          status: string;
-          result: string | undefined;
-        }) => React.ReactElement;
+        render: (props: DefaultRenderProps) => React.ReactElement;
       },
     ];
 
@@ -85,12 +75,7 @@ describe("useDefaultRenderTool", () => {
     });
 
     expect(customRender).toHaveBeenCalledTimes(1);
-    // The statically-declared DefaultRenderProps omits toolCallId, but the
-    // hook forwards it at runtime — that's what this test locks. Cast
-    // through unknown to read the runtime-only field.
-    const forwardedProps = customRender.mock.calls[0][0] as unknown as {
-      toolCallId: string;
-    };
+    const forwardedProps = customRender.mock.calls[0][0];
     expect(forwardedProps).toMatchObject({
       toolCallId: "tc-forwarded-1",
     });
