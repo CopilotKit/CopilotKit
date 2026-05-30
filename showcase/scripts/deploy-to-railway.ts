@@ -39,10 +39,19 @@ const SHOWCASE = {
  * the script's exit-1 contract for operator/config errors. The shared
  * helper never calls process.exit — exit-code mapping lives HERE so the
  * helper stays unit-testable.
+ *
+ * Memoized at module scope so the Railway config isn't re-read and the
+ * deprecation warning isn't re-emitted on every GraphQL request. A
+ * failure is NOT cached — the first call's error still maps to exit 1
+ * (or rethrows for non-RailwayTokenError), so a transient/operator
+ * error remains fail-loud and a subsequent run gets a fresh resolution.
  */
+let cachedToken: string | undefined;
 function getToken(): string {
+  if (cachedToken) return cachedToken;
   try {
-    return resolveRailwayToken().token;
+    cachedToken = resolveRailwayToken().token;
+    return cachedToken;
   } catch (e) {
     if (e instanceof RailwayTokenError) {
       console.error(e.message);
@@ -206,8 +215,8 @@ async function createService(slug: string): Promise<void> {
     // GITHUB_ACTOR for CI contexts). Fail loud rather than baking a
     // personal handle into the script.
     const ghcrUser = (
-      process.env.GHCR_USERNAME ??
-      process.env.GITHUB_ACTOR ??
+      process.env.GHCR_USERNAME ||
+      process.env.GITHUB_ACTOR ||
       ""
     ).trim();
     if (!ghcrUser) {
