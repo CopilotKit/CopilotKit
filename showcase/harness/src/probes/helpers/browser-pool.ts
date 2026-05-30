@@ -80,6 +80,12 @@ export class BrowserPool {
   // a browser for the same slot — which would leak one process and/or
   // publish the slot to `available` twice.
   private relaunchingSlots = new Set<Slot>();
+  // True while a deferred-relaunch timer loop is live. The loop can be
+  // (re)started from two places — recycleSlot (when all immediate retries
+  // fail with a waiter queued) and acquire() (when a waiter parks while a
+  // slot is still pending). This boolean makes scheduling idempotent so the
+  // two kick sites can never spawn two concurrent timer loops.
+  private deferredRelaunchActive = false;
   private isShutdown = false;
   private readonly logger?: PoolLogger;
   private readonly injectedLaunchBrowser?: LaunchBrowser;
@@ -245,6 +251,20 @@ export class BrowserPool {
   }
 
   /**
+   * A slot is "busy" while either recovery path owns it: `recycleSlot` (which
+   * tracks via `recyclingSlots`) or `relaunchPendingSlotsInner` (which tracks
+   * via `relaunchingSlots`). The two sets guard disjoint entry points, so each
+   * entry point must consult BOTH — otherwise a late `disconnected` fire for a
+   * pending slot's OLD browser would re-enter `recycleSlot` while
+   * `relaunchPendingSlots` is concurrently relaunching the same slot, and both
+   * would launch a fresh browser (the second swap overwrites `slot.browser`,
+   * leaking the first process and/or double-publishing the slot).
+   */
+  private isSlotBusy(slot: Slot): boolean {
+    return this.recyclingSlots.has(slot) || this.relaunchingSlots.has(slot);
+  }
+
+  /**
    * Re-attempt the launch for every slot parked as `relaunchPending`. Each
    * such slot was retained (not evicted) after a failed recycle so capacity
    * is preserved; here we lazily replace its dead browser with a fresh one.
@@ -267,7 +287,7 @@ export class BrowserPool {
 
   private async relaunchPendingSlotsInner(): Promise<void> {
     const pending = this.slots.filter(
-      (s) => s.relaunchPending && !this.relaunchingSlots.has(s),
+      (s) => s.relaunchPending && !this.isSlotBusy(s),
     );
     for (const slot of pending) {
       if (this.isShutdown) return;
@@ -302,23 +322,51 @@ export class BrowserPool {
   }
 
   /**
-   * Self-rescheduling deferred relaunch. A failed recycle schedules this when
-   * a waiter is already queued; it re-attempts `relaunchPendingSlots` with
-   * bounded exponential backoff and reschedules itself as long as a waiter is
-   * still parked AND a pending slot remains to serve it. This replaces the
-   * old one-shot timer, which stranded the waiter for its full acquire
-   * timeout if the single deferred attempt also failed. Stops on shutdown,
-   * when no waiters remain, or when no slot is still pending.
+   * Self-rescheduling deferred relaunch. Re-attempts `relaunchPendingSlots`
+   * with bounded exponential backoff and reschedules itself as long as a
+   * waiter is still parked AND a pending slot remains to serve it. This
+   * replaces the old one-shot timer, which stranded the waiter for its full
+   * acquire timeout if the single deferred attempt also failed.
+   *
+   * Two kick sites drive this loop and must not spawn duplicate timers:
+   *   - `recycleSlot` kicks it the moment all immediate relaunch attempts
+   *     fail with a waiter already queued.
+   *   - `acquire()` kicks it when a waiter parks AFTER a recycle has already
+   *     failed (the recycle's own `scheduleDeferredRelaunch(1)` early-returned
+   *     because no waiter was queued at that instant; nothing else re-arms the
+   *     loop, so that waiter would hang to its acquire timeout).
+   *
+   * The `deferredRelaunchActive` boolean makes scheduling idempotent: it is
+   * set when a loop is armed and cleared only when the loop stops (shutdown,
+   * no waiters, or no pending slot), so the two kick sites can never run two
+   * concurrent timer loops. Stops on shutdown, when no waiters remain, or when
+   * no slot is still pending.
    */
   private scheduleDeferredRelaunch(attempt: number): void {
     if (this.isShutdown || this.waiters.length === 0) return;
+    if (!this.slots.some((s) => s.relaunchPending)) return;
+    // Idempotent guard: a loop is already armed, so the existing timer will
+    // reschedule itself — do not start a second one.
+    if (this.deferredRelaunchActive) return;
+    this.deferredRelaunchActive = true;
+    this.runDeferredRelaunch(attempt);
+  }
+
+  /** Arm a single backoff timer for the active deferred-relaunch loop. */
+  private runDeferredRelaunch(attempt: number): void {
     const backoff = Math.min(
       RELAUNCH_BACKOFF_BASE_MS * 2 ** (attempt - 1),
       RELAUNCH_BACKOFF_MAX_MS,
     );
     setTimeout(() => {
-      if (this.isShutdown || this.waiters.length === 0) return;
-      if (!this.slots.some((s) => s.relaunchPending)) return;
+      if (
+        this.isShutdown ||
+        this.waiters.length === 0 ||
+        !this.slots.some((s) => s.relaunchPending)
+      ) {
+        this.deferredRelaunchActive = false;
+        return;
+      }
       void this.relaunchPendingSlots().finally(() => {
         // Reschedule only if a waiter is still unserved and a pending slot
         // remains — otherwise recovery is done or there is nothing to retry.
@@ -327,7 +375,9 @@ export class BrowserPool {
           this.waiters.length > 0 &&
           this.slots.some((s) => s.relaunchPending)
         ) {
-          this.scheduleDeferredRelaunch(attempt + 1);
+          this.runDeferredRelaunch(attempt + 1);
+        } else {
+          this.deferredRelaunchActive = false;
         }
       });
     }, backoff);
@@ -399,6 +449,23 @@ export class BrowserPool {
       };
 
       this.waiters.push(waiter);
+
+      // Re-arm the deferred relaunch if this waiter parked AFTER a recycle had
+      // already failed. A recycle triggered by a `disconnected` event or a
+      // zombie-skip can fully exhaust its immediate retries with NO waiter
+      // queued — its own `scheduleDeferredRelaunch(1)` early-returns because
+      // `this.waiters` was empty at that instant. This acquire then parks its
+      // waiter a moment later (the push happens AFTER the synchronous zombie
+      // loop above), and nothing else re-arms the loop, so the waiter would
+      // hang to its acquire timeout even though a pending slot is recoverable.
+      // The idempotent guard inside scheduleDeferredRelaunch ensures this kick
+      // and the recycle-kick can't spawn two concurrent timer loops.
+      if (
+        this.relaunchingSlots.size > 0 ||
+        this.slots.some((s) => s.relaunchPending)
+      ) {
+        this.scheduleDeferredRelaunch(1);
+      }
     });
   }
 
@@ -517,12 +584,16 @@ export class BrowserPool {
   }
 
   private recycleSlot(slot: Slot): void {
-    // Re-entry guard: a second call for the same slot (e.g. zombie-skip in
-    // acquire() racing the disconnect handler) is a no-op. Without this,
-    // both call sites would launch a fresh browser and the second would
-    // overwrite `slot.browser` while the first's relaunch was still in
-    // flight, leaking one browser process.
-    if (this.recyclingSlots.has(slot)) return;
+    // Re-entry guard: a second call for the same slot is a no-op. This must
+    // honor BOTH recovery sets (via isSlotBusy), not just recyclingSlots — a
+    // slot parked relaunchPending still holds its OLD dead browser in
+    // `slot.browser` and is still in `this.slots`, so a late `disconnected`
+    // fire for that old browser passes the handler's guards and reaches here
+    // while `relaunchPendingSlots` may already be relaunching the same slot.
+    // Without consulting relaunchingSlots, both would launch a fresh browser
+    // and the second swap would overwrite `slot.browser`, leaking one process
+    // and/or double-publishing the slot.
+    if (this.isSlotBusy(slot)) return;
     this.recyclingSlots.add(slot);
 
     this.totalRecycles++;
