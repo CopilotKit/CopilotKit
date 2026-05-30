@@ -42,9 +42,8 @@ describe("useDefaultRenderTool", () => {
   });
 
   it("forwards toolCallId to custom wildcard render function", () => {
-    // DefaultRenderProps declares toolCallId, and useRenderTool forwards
-    // it at runtime via the spread in its render adapter. This test locks
-    // that behavior end-to-end.
+    // Verifies useDefaultRenderTool passes the user's render through untouched,
+    // so toolCallId given to the registered render reaches the custom render fn.
     const customRender = vi.fn((_props: DefaultRenderProps) => (
       <div data-testid="custom">custom</div>
     ));

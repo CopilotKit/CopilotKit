@@ -46,7 +46,7 @@ describe("useDefaultRenderTool", () => {
 
   it("forwards custom render function and deps", () => {
     const customRender = vi.fn(() => "custom");
-    const deps = ["compact"] as const;
+    const deps = [() => "compact"];
 
     const Harness = defineComponent({
       setup() {
@@ -54,7 +54,7 @@ describe("useDefaultRenderTool", () => {
           {
             render: customRender,
           },
-          deps as unknown as any[],
+          deps,
         );
         return {};
       },
