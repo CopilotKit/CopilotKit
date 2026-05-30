@@ -95,32 +95,50 @@ export function parseArgs(argv: string[]): ParsedArgs {
  * A `Host` is a bare hostname literal (no scheme, no path, no slash) —
  * exactly the shape `domainFor()` is documented to return. The brand is
  * structural only: at runtime a `Host` IS a string, so it is assignable
- * to any `string`-typed parameter (e.g. `checkHealthcheck200(host, ...)`)
- * with no runtime cost. The point is to prevent the inverse direction —
- * a caller cannot hand a `ProbeTarget` a scheme-included or path-bearing
- * string without going through `asHost()`, which validates fail-loud.
+ * to any `string`-typed parameter with no runtime cost. The point is to
+ * prevent the inverse direction — a caller cannot hand a `ProbeTarget` a
+ * scheme-included or path-bearing string without going through
+ * `asHost()`, which validates fail-loud.
+ *
+ * The brand uses a non-exported `unique symbol`, so a stray
+ * `"foo" as Host` cast from outside this module is a type error — the
+ * brand symbol is not in scope. `asHost()` is the sole legitimate
+ * constructor.
  *
  * Co-located with `ProbeTarget` (the only structural consumer) rather
  * than in `railway-envs.ts` to keep the brand at the verify-pipeline
  * boundary; `domainFor()` keeps its `string` return type and we validate
  * + brand at the point of ingress in `resolveProbeTargets`.
  */
-export type Host = string & { readonly __brand: "Host" };
+declare const HostBrand: unique symbol;
+export type Host = string & { readonly [HostBrand]: true };
 
 /**
- * Validate + brand a bare hostname literal as a `Host`. Throws on any
- * scheme separator (`://`), any slash (path component), leading/trailing
- * whitespace, or any of `@` (userinfo), `?` (query), `#` (fragment) — the
- * verify-deploy pipeline never wants any of these — drivers always build
- * URLs as `https://${host}${path}`, so a host carrying any of those would
- * produce malformed URLs at the driver boundary.
+ * Validate + brand a bare hostname literal as a `Host`. Rejects, with a
+ * precise diagnostic per case:
+ *   - any scheme separator (`://`)
+ *   - any slash (path component)
+ *   - the empty string
+ *   - leading/trailing whitespace
+ *   - `@` (userinfo), `?` (query), `#` (fragment)
+ *   - any ASCII control character (`\x00-\x1f`, `\x7f` — e.g. `\n`, `\r`)
+ *   - any `:` character (typically a `:port` suffix — bare hostnames
+ *     from `domainFor` never contain a colon; ports are not part of
+ *     the contract)
+ *   - any character outside the DNS-label charset `[A-Za-z0-9.-]`
+ *     (positive shape check — rejects unicode, `_`, `!`, etc.)
+ *
+ * The verify-deploy pipeline never wants any of these — drivers always
+ * build URLs as `https://${host}${path}`, so a host carrying any of
+ * the above would produce malformed URLs at the driver boundary.
  *
  * Overlap with `domainFor()` is partial, not full: `domainFor` re-checks
  * scheme + empty on the normal SSOT path, but does NOT check path/slash
- * or the whitespace/userinfo/query/fragment cases that `asHost` rejects.
- * The override seam in `resolveProbeTargets` (test-only path that bypasses
- * `domainFor` entirely) is what makes the `asHost` call mandatory — it is
- * the sole ingress that gets to skip `domainFor`'s checks.
+ * or the whitespace/userinfo/query/fragment/control/port/charset cases
+ * that `asHost` rejects. The override seam in `resolveProbeTargets`
+ * (test-only path that bypasses `domainFor` entirely) is what makes the
+ * `asHost` call mandatory — it is the sole ingress that gets to skip
+ * `domainFor`'s checks.
  */
 export function asHost(value: string): Host {
   if (value.includes("://")) {
@@ -152,6 +170,29 @@ export function asHost(value: string): Host {
   if (value.includes("#")) {
     throw new Error(
       `asHost: host must not include a fragment "#" (got "${value}")`,
+    );
+  }
+  // eslint-disable-next-line no-control-regex
+  if (/[\x00-\x1f\x7f]/.test(value)) {
+    throw new Error(
+      `asHost: host must not include control characters (got ${JSON.stringify(value)})`,
+    );
+  }
+  // Port suffix: verify-pipeline hosts from `domainFor` are bare
+  // hostnames. A `:port` here would produce `https://host:port/path`
+  // — well-formed but outside the contract — so reject it loudly so
+  // callers feed a bare hostname (the SSOT shape).
+  if (value.includes(":")) {
+    throw new Error(
+      `asHost: host must not include a port suffix (got "${value}")`,
+    );
+  }
+  // Positive DNS-label charset check. Anchored so any single invalid
+  // character (space, `_`, unicode, etc.) is rejected. Combined with
+  // the negative rules above, this leaves only `[A-Za-z0-9.-]+`.
+  if (!/^[A-Za-z0-9.-]+$/.test(value)) {
+    throw new Error(
+      `asHost: host must match DNS-label charset [A-Za-z0-9.-] (got "${value}")`,
     );
   }
   return value as Host;
@@ -208,10 +249,11 @@ export function resolveProbeTargets(opts: ResolveOpts): ProbeTarget[] {
     // receives a `Host` (not a raw `string`). On the normal path
     // `domainFor` already enforces scheme + empty checks, and `asHost`
     // re-validates those (cheap redundancy). The checks that ONLY exist
-    // here — path/slash, leading/trailing whitespace, `@`/`?`/`#` — are
-    // mandatory because the override seam below (`overrideDomains`,
-    // test-only) bypasses `domainFor` entirely; `asHost` is the sole
-    // gate that catches those for both paths.
+    // here — path/slash, leading/trailing whitespace, `@`/`?`/`#`,
+    // control chars, port suffix, DNS-label charset — are mandatory
+    // because the override seam above (`overrideDomains`, test-only)
+    // bypasses `domainFor` entirely; `asHost` is the sole gate that
+    // catches those for both paths.
     const host = asHost(rawHost);
     targets.push({ name, host, driver: entry.probe.driver });
   }

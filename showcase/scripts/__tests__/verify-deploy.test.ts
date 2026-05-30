@@ -181,6 +181,40 @@ describe("asHost validator", () => {
   it("rejects fragment '#'", () => {
     expect(() => asHost("docs.example.com#frag")).toThrow(/fragment|#/);
   });
+
+  it("rejects ASCII control characters (newline, CR, NUL, tab inside)", () => {
+    // These would survive the trim() check (because the offending
+    // char is interior, not leading/trailing) but must still be
+    // caught by the explicit control-char rule. NUL is the classic
+    // injection vector; newline/CR can cause header smuggling at any
+    // downstream `https://${host}/...` composition.
+    expect(() => asHost("docs.example\ncom")).toThrow(/control/i);
+    expect(() => asHost("docs.example\rcom")).toThrow(/control/i);
+    expect(() => asHost("docs.example\x00com")).toThrow(/control/i);
+    expect(() => asHost("docs.example\x7fcom")).toThrow(/control/i);
+    expect(() => asHost("docs.example\tcom")).toThrow(/control/i);
+  });
+
+  it("rejects a ':port' suffix", () => {
+    // domainFor() returns bare hostnames; ports are not part of the
+    // verify-pipeline contract. Reject with a precise diagnostic.
+    expect(() => asHost("docs.example.com:8080")).toThrow(/port/i);
+    expect(() => asHost("localhost:3000")).toThrow(/port/i);
+  });
+
+  it("rejects characters outside the DNS-label charset", () => {
+    // Underscore, unicode — none are in [A-Za-z0-9.-]. Leading/trailing
+    // whitespace is caught earlier by the trim check; interior
+    // whitespace is rejected here by the charset rule. `:` is caught
+    // by the port suffix check.
+    expect(() => asHost("docs_example.com")).toThrow(/charset|DNS/);
+    expect(() => asHost("docs.exämple.com")).toThrow(/charset|DNS/);
+    expect(() => asHost("docs!example.com")).toThrow(/charset|DNS/);
+    // Pure positive: real SSOT-shape hostnames still pass.
+    expect(() => asHost("docs.example.com")).not.toThrow();
+    expect(() => asHost("a-b.c-d.example")).not.toThrow();
+    expect(() => asHost("harness-staging-2ee4.up.railway.app")).not.toThrow();
+  });
 });
 
 describe("runVerify driver dispatch", () => {
