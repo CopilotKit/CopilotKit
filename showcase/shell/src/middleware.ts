@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { seoRedirects } from "@/lib/seo-redirects";
-import { getRuntimeConfigEdge } from "@/lib/runtime-config";
+import { getRuntimeConfigForMiddleware } from "@/lib/runtime-config";
 import registry from "@/data/registry.json";
 
 // ---------------------------------------------------------------------------
@@ -55,8 +55,8 @@ function trackRedirect(id: string, fromPath: string, toPath: string): void {
 
   // Read the PostHog host from the Edge-safe runtime config (live
   // process.env at request time, no `next/cache` import — see
-  // getRuntimeConfigEdge in src/lib/runtime-config.ts).
-  const posthogHost = getRuntimeConfigEdge().posthogHost;
+  // getRuntimeConfigForMiddleware in src/lib/runtime-config.ts).
+  const posthogHost = getRuntimeConfigForMiddleware().posthogHost;
 
   // Fire-and-forget — don't await
   fetch(`${posthogHost}/capture/`, {

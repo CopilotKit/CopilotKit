@@ -119,15 +119,15 @@ describe("server getRuntimeConfig (shell)", () => {
     expect(cfg.posthogHost).toBe("https://alt-ph.example.com");
   });
 
-  it("getRuntimeConfigEdge skips noStore() (Edge runtime path)", async () => {
+  it("getRuntimeConfigForMiddleware skips noStore() (Edge runtime path)", async () => {
     const cacheMod = await import("next/cache");
     const noStoreSpy = vi.spyOn(cacheMod, "unstable_noStore");
     (process.env as Record<string, string>).NODE_ENV = "production";
     process.env.BASE_URL = "https://edge.example.com";
     process.env.POSTHOG_HOST = "https://edge-posthog.example.com";
 
-    const { getRuntimeConfigEdge } = await import("./runtime-config");
-    const cfg = getRuntimeConfigEdge();
+    const { getRuntimeConfigForMiddleware } = await import("./runtime-config");
+    const cfg = getRuntimeConfigForMiddleware();
     expect(cfg.baseUrl).toBe("https://edge.example.com");
     expect(noStoreSpy).not.toHaveBeenCalled();
 

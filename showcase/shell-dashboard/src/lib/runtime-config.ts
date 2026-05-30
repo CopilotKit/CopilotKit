@@ -42,7 +42,7 @@ const PROD_INVALID_SHELL_URL = "about:blank#shell-url-missing";
  * the build artifact. The Edge runtime (middleware) MUST pass
  * `{ noStore: false }` — `unstable_noStore()` is unavailable there, and
  * middleware always runs per-request by definition so there is no
- * static cache to opt out of. The thin `getRuntimeConfigEdge()` wrapper
+ * static cache to opt out of. The thin `getRuntimeConfigForMiddleware()` wrapper
  * below makes this explicit at the call site.
  */
 export function getRuntimeConfig(
@@ -86,7 +86,7 @@ export function getRuntimeConfig(
  * `getRuntimeConfig` — otherwise the Edge bundle pulls in `next/cache`
  * and the build fails with "module not found in edge runtime."
  */
-export function getRuntimeConfigEdge(): RuntimeConfig {
+export function getRuntimeConfigForMiddleware(): RuntimeConfig {
   return getRuntimeConfig({ noStore: false });
 }
 

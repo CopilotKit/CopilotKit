@@ -120,7 +120,7 @@ describe("server getRuntimeConfig (shell-dashboard)", () => {
     expect(cfg.opsBaseUrl).toBe("https://primary-ops.example.com");
   });
 
-  it("getRuntimeConfigEdge skips noStore() (Edge runtime path)", async () => {
+  it("getRuntimeConfigForMiddleware skips noStore() (Edge runtime path)", async () => {
     // Confirm the Edge wrapper passes `{ noStore: false }`.
     // Reach into the mocked module to assert noStore was NOT called
     // on this path, while the default getRuntimeConfig() above DID
@@ -132,8 +132,8 @@ describe("server getRuntimeConfig (shell-dashboard)", () => {
     process.env.SHELL_URL = "https://edge-shell.example.com";
     process.env.OPS_BASE_URL = "https://edge-ops.example.com";
 
-    const { getRuntimeConfigEdge } = await import("./runtime-config");
-    const cfg = getRuntimeConfigEdge();
+    const { getRuntimeConfigForMiddleware } = await import("./runtime-config");
+    const cfg = getRuntimeConfigForMiddleware();
     expect(cfg.pocketbaseUrl).toBe("https://edge.example.com");
     expect(noStoreSpy).not.toHaveBeenCalled();
 
