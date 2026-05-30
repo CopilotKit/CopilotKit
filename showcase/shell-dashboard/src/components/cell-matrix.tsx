@@ -315,9 +315,7 @@ export function CellMatrix({
           isSupported: !isNotSupported,
           isWired: cell.status === "wired" || cell.status === "stub",
         });
-        return (
-          model.ceilingDepth > 0 && model.achievedDepth < model.ceilingDepth
-        );
+        return model.isRegression;
       });
     }
     return true;

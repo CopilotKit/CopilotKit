@@ -669,14 +669,54 @@ describe("buildCellModel", () => {
     });
   });
 
-  // ── isRegression is always false (stub for future) ─────────────────
+  // ── isRegression: achievedDepth below ceilingDepth ─────────────────
   describe("isRegression", () => {
-    it("is always false in current implementation", () => {
+    it("is true when achievedDepth < ceilingDepth (D3 red, tests exist)", () => {
+      // D3 red → achievedDepth=0; D3 exists → ceilingDepth=3 → regression.
       const live = mapOf([
         row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "red"),
       ]);
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.achievedDepth).toBe(0);
+      expect(model.ceilingDepth).toBe(3);
+      expect(model.isRegression).toBe(true);
+    });
+
+    it("is false when achievedDepth === ceilingDepth (cell at its ceiling)", () => {
+      // D3 green, no D4/D5 mapped → achieved=3, ceiling=3 → no regression.
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "no-d5-feature"), "e2e", "green"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "no-d5-feature"));
+      expect(model.achievedDepth).toBe(3);
+      expect(model.ceilingDepth).toBe(3);
       expect(model.isRegression).toBe(false);
+    });
+
+    it("is false when ceilingDepth === 0 (no tests exist at all)", () => {
+      const model = buildCellModel(
+        mapOf([]),
+        wiredInput("agno", "no-d5-feature"),
+      );
+      expect(model.ceilingDepth).toBe(0);
+      expect(model.isRegression).toBe(false);
+    });
+
+    it("is false for unsupported and not-wired cells", () => {
+      const unsupported = buildCellModel(mapOf([]), {
+        slug: "agno",
+        featureId: "agentic-chat",
+        isSupported: false,
+        isWired: false,
+      });
+      expect(unsupported.isRegression).toBe(false);
+      const notWired = buildCellModel(mapOf([]), {
+        slug: "agno",
+        featureId: "agentic-chat",
+        isSupported: true,
+        isWired: false,
+      });
+      expect(notWired.isRegression).toBe(false);
     });
   });
 

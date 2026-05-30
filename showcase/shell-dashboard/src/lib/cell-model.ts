@@ -439,6 +439,10 @@ export function buildCellModel(
     chipColor = "red";
   }
 
+  // isRegression: a cell has slid below its own ceiling — tests exist
+  // (ceilingDepth > 0) but the contiguous passing depth is short of them.
+  const isRegression = ceilingDepth > 0 && achievedDepth < ceilingDepth;
+
   return {
     supported: true,
     d3,
@@ -448,6 +452,6 @@ export function buildCellModel(
     achievedDepth,
     ceilingDepth,
     chipColor,
-    isRegression: false,
+    isRegression,
   };
 }
