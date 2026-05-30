@@ -248,6 +248,29 @@ export function useInterrupt<
   enabledRef.current = config.enabled;
   const handlerRef = useRef(config.handler);
   handlerRef.current = config.handler;
+  // F4: mirror `resolve` behind a ref so the handler effect does not depend
+  // on resolve's identity. Without this, churn in [agent, copilotkit]
+  // (resolve's deps) would re-run the effect for the same pendingEvent and
+  // double-invoke the consumer handler.
+  const resolveRef = useRef(resolve);
+  resolveRef.current = resolve;
+
+  // F5: predicate evaluator that treats a throw as "disabled" (false) and
+  // logs the error. Called from both the handler effect and the element
+  // memo, neither of which may crash the React tree on a consumer bug.
+  const isEnabled = (event: InterruptEvent): boolean => {
+    const predicate = enabledRef.current;
+    if (!predicate) return true;
+    try {
+      return predicate(event);
+    } catch (err) {
+      console.error(
+        "[CopilotKit] useInterrupt enabled predicate threw; treating interrupt as disabled:",
+        err,
+      );
+      return false;
+    }
+  };
 
   useEffect(() => {
     // No interrupt to process — reset any stale handler result from a previous interrupt
@@ -255,8 +278,9 @@ export function useInterrupt<
       setHandlerResult(null);
       return;
     }
-    // Interrupt exists but the consumer's filter rejects it — treat as no-op
-    if (enabledRef.current && !enabledRef.current(pendingEvent)) {
+    // Interrupt exists but the consumer's filter rejects it — treat as no-op.
+    // F5: a throw from the predicate is treated as "disabled".
+    if (!isEnabled(pendingEvent)) {
       setHandlerResult(null);
       return;
     }
@@ -268,10 +292,25 @@ export function useInterrupt<
     }
 
     let cancelled = false;
-    const maybePromise = handler({
-      event: pendingEvent,
-      resolve,
-    });
+    // F3: a synchronous throw from the consumer handler must not escape the
+    // effect. Honor the documented contract ("Rejecting/throwing falls back
+    // to `result = null`") at the sync branch too.
+    let maybePromise: ReturnType<typeof handler>;
+    try {
+      maybePromise = handler({
+        event: pendingEvent,
+        resolve: resolveRef.current,
+      });
+    } catch (err) {
+      console.error(
+        "[CopilotKit] useInterrupt handler threw; result will be null:",
+        err,
+      );
+      if (!cancelled) setHandlerResult(null);
+      return () => {
+        cancelled = true;
+      };
+    }
 
     // If the handler returns a promise/thenable, wait for resolution before setting result.
     if (isPromiseLike(maybePromise)) {
@@ -279,7 +318,13 @@ export function useInterrupt<
         .then((resolved) => {
           if (!cancelled) setHandlerResult(resolved);
         })
-        .catch(() => {
+        .catch((err) => {
+          // F3 (companion): log the async failure so it isn't silently
+          // swallowed, while preserving the documented null-fallback.
+          console.error(
+            "[CopilotKit] useInterrupt handler rejected; result will be null:",
+            err,
+          );
           if (!cancelled) setHandlerResult(null);
         });
     } else {
@@ -289,11 +334,15 @@ export function useInterrupt<
     return () => {
       cancelled = true;
     };
-  }, [pendingEvent, resolve]);
+    // F4: depend ONLY on pendingEvent. resolve is read via resolveRef so
+    // identity churn in [agent, copilotkit] cannot double-fire the handler.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingEvent]);
 
   const element = useMemo(() => {
     if (!pendingEvent) return null;
-    if (enabledRef.current && !enabledRef.current(pendingEvent)) return null;
+    // F5: throwing predicate → disabled.
+    if (!isEnabled(pendingEvent)) return null;
 
     return renderRef.current({
       event: pendingEvent,

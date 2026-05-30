@@ -1,6 +1,6 @@
 import React from "react";
 import { act, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useInterrupt } from "../use-interrupt";
 import { useCopilotKit } from "../../context";
 import { useAgent } from "../use-agent";
@@ -57,6 +57,12 @@ describe("useInterrupt", () => {
     });
 
     mockUseAgent.mockReturnValue({ agent: mockAgent });
+  });
+
+  afterEach(() => {
+    // F21: clean up the test-only global installed by the 2nd-interrupt
+    // BugHarness so it cannot leak across tests.
+    delete (globalThis as { __forceRerender?: () => void }).__forceRerender;
   });
 
   function Harness({
@@ -520,5 +526,108 @@ describe("useInterrupt", () => {
     expect(tail.some((v) => v === null)).toBe(false);
 
     unmount();
+  });
+
+  it("falls back to null result when sync handler throws (no crash)", () => {
+    // F3: a synchronous throw from the consumer's handler must NOT escape the
+    // hook's effect and crash the React tree. The JSDoc on `handler` states
+    // "Rejecting/throwing falls back to `result = null`" — this enforces the
+    // sync branch matches the documented contract.
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const handler = vi.fn(() => {
+      throw new Error("sync-boom");
+    });
+
+    expect(() => {
+      render(<Harness renderInChat={false} handler={handler} />);
+      emitInterrupt("sync-throw");
+    }).not.toThrow();
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("interrupt").textContent).toContain(
+      "no-result:sync-throw",
+    );
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it("logs and falls back to null when async handler rejects", async () => {
+    // F3 (companion): the async rejection path was previously swallowed
+    // silently. It must log via console.error so the failure is diagnosable
+    // while still honoring the documented null-fallback.
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    render(
+      <Harness
+        renderInChat={false}
+        handler={() => Promise.reject(new Error("async-boom"))}
+      />,
+    );
+
+    emitInterrupt("async-throw");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("interrupt").textContent).toContain(
+        "no-result:async-throw",
+      );
+    });
+
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it("runs handler exactly once when resolve identity changes mid-interrupt", () => {
+    // F4: the handler effect must not re-invoke the consumer handler when
+    // only `resolve`'s identity churns (e.g. because the underlying agent or
+    // copilotkit reference changes). Pin the handler effect to `pendingEvent`
+    // so a single interrupt → a single handler invocation, regardless of how
+    // many times resolve's identity flips while the interrupt is pending.
+    const handler = vi.fn(({ event }) => `handled:${String(event.value)}`);
+
+    // We render twice with two different `agent` identities. The second
+    // useAgent return updates the mock so `resolve` (deps: [agent, copilotkit])
+    // gets a new identity. The handler effect must NOT re-run for the same
+    // pendingEvent.
+    const agentA = { ...mockAgent, id: "agent-a" };
+    const agentB = { ...mockAgent, id: "agent-b" };
+    mockUseAgent.mockReturnValue({ agent: agentA });
+
+    const { rerender } = render(
+      <Harness renderInChat={false} handler={handler} />,
+    );
+
+    emitInterrupt("once");
+    expect(handler).toHaveBeenCalledTimes(1);
+
+    // Swap the agent identity to churn resolve's identity, then re-render.
+    mockUseAgent.mockReturnValue({ agent: agentB });
+    act(() => {
+      rerender(<Harness renderInChat={false} handler={handler} />);
+    });
+
+    // pendingEvent unchanged → handler must NOT fire again.
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats interrupt as disabled when enabled predicate throws", () => {
+    // F5: a throwing enabled predicate must NOT crash the tree at either
+    // call site (handler effect or element memo). On throw the interrupt is
+    // treated as disabled — no handler invocation, no element rendered.
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const handler = vi.fn(() => "should-not-run");
+    const enabled = vi.fn(() => {
+      throw new Error("predicate-boom");
+    });
+
+    expect(() => {
+      render(
+        <Harness renderInChat={false} enabled={enabled} handler={handler} />,
+      );
+      emitInterrupt("filtered");
+    }).not.toThrow();
+
+    expect(handler).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("interrupt")).toBeNull();
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 });
