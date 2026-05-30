@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildCellModel } from "../cell-model";
+import { buildCellModel, E2E_STALE_AFTER_MS } from "../cell-model";
 import type { CellModelInput } from "../cell-model";
 import type { LiveStatusMap, StatusRow, State } from "../live-status";
 import { keyFor } from "../live-status";
@@ -7,6 +7,11 @@ import { keyFor } from "../live-status";
 // ---------------------------------------------------------------------------
 // Test helpers
 // ---------------------------------------------------------------------------
+
+// Default `observed_at` is recent so green rows are not treated as stale by
+// the e2e staleness downgrade (resolveD3). The staleness tests below pass an
+// explicit `observed_at` override to exercise the downgrade.
+const FRESH_OBSERVED_AT = new Date().toISOString();
 
 function row(
   key: string,
@@ -20,10 +25,10 @@ function row(
     dimension,
     state,
     signal: {},
-    observed_at: "2026-04-20T00:00:00Z",
-    transitioned_at: "2026-04-20T00:00:00Z",
+    observed_at: FRESH_OBSERVED_AT,
+    transitioned_at: FRESH_OBSERVED_AT,
     fail_count: state === "red" ? 1 : 0,
-    first_failure_at: state === "red" ? "2026-04-20T00:00:00Z" : null,
+    first_failure_at: state === "red" ? FRESH_OBSERVED_AT : null,
     ...overrides,
   };
 }
@@ -554,6 +559,68 @@ describe("buildCellModel", () => {
       ]);
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
       expect(model.isRegression).toBe(false);
+    });
+  });
+
+  // ── e2e staleness downgrade (false-green D3 bug) ────────────────────
+  // When the e2e driver stops writing `e2e:<slug>/<feature>` rows, the
+  // last green row freezes and the depth ladder reads it as healthy → a
+  // false-green D3 that masks a dead probe pipeline. A green e2e row older
+  // than the staleness window must be downgraded to degraded (amber).
+  describe("e2e staleness downgrade", () => {
+    const NOW = Date.parse("2026-05-30T12:00:00Z");
+
+    function e2eRowAtAge(ageMs: number, state: State = "green") {
+      const observedAt = new Date(NOW - ageMs).toISOString();
+      return row(keyFor("e2e", "agno", "agentic-chat"), "e2e", state, {
+        observed_at: observedAt,
+        transitioned_at: observedAt,
+      });
+    }
+
+    it("downgrades a stale green e2e row to amber instead of green", () => {
+      const live = mapOf([
+        // e2e last observed well past the staleness window.
+        e2eRowAtAge(E2E_STALE_AFTER_MS + 60 * 60 * 1000, "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      // Stale green must NOT present as a healthy D3.
+      expect(model.d3?.status).toBe("amber");
+      // A stale-amber D3 fails the D1-D4 gate → chip is red, not green.
+      expect(model.chipColor).not.toBe("green");
+      // achievedDepth must not credit D3 when the e2e signal is stale.
+      expect(model.achievedDepth).toBe(0);
+    });
+
+    it("keeps a fresh green e2e row green", () => {
+      const live = mapOf([
+        e2eRowAtAge(60 * 1000, "green"), // observed 1 min ago — fresh
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      expect(model.d3?.status).toBe("green");
+      // Only D3 (e2e) is green here, no D4 row → achievedDepth caps at 3.
+      expect(model.achievedDepth).toBe(3);
+    });
+
+    it("leaves a stale RED e2e row red (staleness only downgrades green)", () => {
+      const live = mapOf([
+        e2eRowAtAge(E2E_STALE_AFTER_MS + 60 * 60 * 1000, "red"),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      expect(model.d3?.status).toBe("red");
     });
   });
 });

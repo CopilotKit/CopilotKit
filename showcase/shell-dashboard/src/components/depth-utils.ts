@@ -17,7 +17,8 @@
  * Short-circuits: if any level is not green, stop there.
  */
 import { keyFor, CATALOG_TO_D5_KEY } from "@/lib/live-status";
-import type { LiveStatusMap } from "@/lib/live-status";
+import type { LiveStatusMap, StatusRow } from "@/lib/live-status";
+import { E2E_STALE_AFTER_MS } from "@/lib/cell-model";
 
 /** Minimal catalog cell shape consumed by depth derivation. */
 export interface CatalogCell {
@@ -61,6 +62,30 @@ export interface DepthResult {
 function isGreen(live: LiveStatusMap, key: string): boolean {
   const row = live.get(key);
   return row?.state === "green";
+}
+
+/** Row is stale if `observed_at` is older than `maxAgeMs` relative to `now`. */
+function isRowStale(row: StatusRow, now: number, maxAgeMs: number): boolean {
+  const observedMs = Date.parse(row.observed_at);
+  if (Number.isNaN(observedMs)) return false;
+  return now - observedMs > maxAgeMs;
+}
+
+/**
+ * The e2e (D3) signal counts as green only when a green row exists AND it
+ * has been refreshed within the staleness window. A frozen green row from a
+ * driver that stopped writing must NOT credit D3 — otherwise the depth
+ * ladder reads a dead probe pipeline as a false-green D3. Mirrors the
+ * staleness downgrade in cell-model.ts so both consumers agree.
+ */
+function isE2eGreenAndFresh(
+  live: LiveStatusMap,
+  key: string,
+  now: number,
+): boolean {
+  const row = live.get(key);
+  if (row?.state !== "green") return false;
+  return !isRowStale(row, now, E2E_STALE_AFTER_MS);
 }
 
 /**
@@ -124,6 +149,7 @@ function computeMaxPossible(cell: CatalogCell): AchievedDepth {
 export function deriveDepth(
   cell: CatalogCell,
   live: LiveStatusMap,
+  now: number = Date.now(),
 ): DepthResult {
   const maxPossible = computeMaxPossible(cell);
 
@@ -180,7 +206,13 @@ export function deriveDepth(
       unsupported: false,
     };
   }
-  if (!isGreen(live, keyFor("e2e", cell.integration, cell.feature))) {
+  if (
+    !isE2eGreenAndFresh(
+      live,
+      keyFor("e2e", cell.integration, cell.feature),
+      now,
+    )
+  ) {
     return {
       achieved,
       maxPossible,

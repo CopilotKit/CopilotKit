@@ -17,6 +17,20 @@ import { keyFor, CATALOG_TO_D5_KEY } from "./live-status";
 export type TestStatus = "green" | "red" | "amber" | null;
 export type ChipColor = "green" | "amber" | "red" | "gray";
 
+/**
+ * Staleness window for the `e2e:` dimension. The e2e-demos driver writes
+ * `e2e:<slug>/<feature>` rows hourly (`schedule: "10 * * * *"`, see
+ * harness/config/probes/e2e-demos.yml). When the driver stops writing
+ * (a wedged browser pool, a dead probe pipeline), the last row freezes —
+ * a green row then reads as a healthy D3 forever, masking the outage as a
+ * false-green. Mirroring the original ">6h stale" model (see
+ * live-status.ts), a green e2e row whose `observed_at` is older than this
+ * window is downgraded to `degraded` (amber) so the staleness surfaces
+ * instead of presenting as green. 6h tolerates several missed hourly ticks
+ * before flagging, avoiding flapping on a single skipped run.
+ */
+export const E2E_STALE_AFTER_MS = 6 * 60 * 60 * 1000;
+
 export interface TestLevel {
   exists: boolean;
   status: TestStatus;
@@ -145,16 +159,37 @@ function resolveD5(
 }
 
 /**
+ * Determine whether a row's `observed_at` is older than `maxAgeMs` relative
+ * to `now`. An unparseable/missing timestamp is treated as NOT stale —
+ * staleness must be a positive signal, never inferred from bad data.
+ */
+function isStale(row: StatusRow, now: number, maxAgeMs: number): boolean {
+  const observedMs = Date.parse(row.observed_at);
+  if (Number.isNaN(observedMs)) return false;
+  return now - observedMs > maxAgeMs;
+}
+
+/**
  * Resolve the D3 (API / e2e) test level for `(slug, featureId)`.
+ *
+ * A green e2e row that has not been refreshed within `E2E_STALE_AFTER_MS`
+ * is downgraded to `amber` (degraded): the driver has stopped writing, so
+ * the frozen-green row is no longer trustworthy evidence of health. Only
+ * green is downgraded — a stale red/degraded row already signals a problem
+ * and is left as-is.
  */
 function resolveD3(
   live: LiveStatusMap,
   slug: string,
   featureId: string,
+  now: number,
 ): TestLevel {
   const row = live.get(keyFor("e2e", slug, featureId)) ?? null;
   if (!row) {
     return { exists: false, status: null, row: null };
+  }
+  if (row.state === "green" && isStale(row, now, E2E_STALE_AFTER_MS)) {
+    return { exists: true, status: "amber", row };
   }
   return {
     exists: true,
@@ -210,6 +245,7 @@ const UNSUPPORTED: CellModel = {
 export function buildCellModel(
   live: LiveStatusMap,
   input: CellModelInput,
+  now: number = Date.now(),
 ): CellModel {
   const { slug, featureId, isSupported, isWired } = input;
 
@@ -234,7 +270,7 @@ export function buildCellModel(
   }
 
   // ── Wired + supported: resolve each depth independently ───────────
-  const d3 = resolveD3(live, slug, featureId);
+  const d3 = resolveD3(live, slug, featureId, now);
   const d4 = resolveD4(live, slug);
   const d5 = resolveD5(live, slug, featureId);
   const d6 = resolveD6(live, slug);

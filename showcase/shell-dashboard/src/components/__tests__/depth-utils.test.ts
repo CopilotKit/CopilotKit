@@ -7,10 +7,16 @@ import { deriveDepth } from "../depth-utils";
 import type { CatalogCell } from "../depth-utils";
 import type { LiveStatusMap, StatusRow } from "@/lib/live-status";
 
+// Default `observed_at` is recent so green rows are not treated as stale by
+// the e2e staleness downgrade (see depth-utils.ts / cell-model.ts). Tests
+// that exercise staleness pass an explicit timestamp.
+const FRESH_OBSERVED_AT = new Date().toISOString();
+
 function row(
   key: string,
   dimension: string,
   state: StatusRow["state"],
+  observedAt: string = FRESH_OBSERVED_AT,
 ): StatusRow {
   return {
     id: `id-${key}`,
@@ -18,8 +24,8 @@ function row(
     dimension,
     state,
     signal: {},
-    observed_at: "2026-04-20T00:00:00Z",
-    transitioned_at: "2026-04-20T00:00:00Z",
+    observed_at: observedAt,
+    transitioned_at: observedAt,
     fail_count: 0,
     first_failure_at: null,
   };
