@@ -24,6 +24,14 @@ const RELAUNCH_MAX_ATTEMPTS = 3;
 /** Base backoff between relaunch attempts; doubles each attempt. */
 const RELAUNCH_BACKOFF_BASE_MS = 250;
 
+/**
+ * Upper bound for the deferred-relaunch backoff. The deferred path keeps
+ * retrying (not one-shot) while pending slots and queued waiters coexist, so
+ * the backoff is capped to avoid an unbounded delay between attempts while a
+ * waiter is stranded.
+ */
+const RELAUNCH_BACKOFF_MAX_MS = 5_000;
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -66,6 +74,12 @@ export class BrowserPool {
   private totalRecycles = 0;
   private inFlightRecycles = new Set<Promise<void>>();
   private recyclingSlots = new Set<Slot>();
+  // Re-entry guard for the relaunchPending recovery path. A slot is marked
+  // here while its lazy relaunch is in flight so two concurrent invocations
+  // (an acquire()-driven call racing the deferred timer) cannot both launch
+  // a browser for the same slot — which would leak one process and/or
+  // publish the slot to `available` twice.
+  private relaunchingSlots = new Set<Slot>();
   private isShutdown = false;
   private readonly logger?: PoolLogger;
   private readonly injectedLaunchBrowser?: LaunchBrowser;
@@ -120,6 +134,57 @@ export class BrowserPool {
   private launchBrowser!: LaunchBrowser;
 
   /**
+   * Single waiter-first handoff used by every slot-recovery path (reinit,
+   * recycle success, relaunchPendingSlots). A freshly launched browser must
+   * go to a queued waiter if one exists — otherwise the waiter is stranded
+   * until its acquire timeout while a live browser sits idle in `available`.
+   * Only when there is no waiter does the slot land in `available` (guarded
+   * by `includes` so a slot is never published twice).
+   */
+  private handOff(slot: Slot, browser: Browser): void {
+    const waiter = this.waiters.shift();
+    if (waiter) {
+      waiter.resolve(browser);
+    } else if (!this.available.includes(slot)) {
+      this.available.push(slot);
+    }
+  }
+
+  /**
+   * Close a browser, routing any failure through the structured logger with
+   * the originating slot index instead of silently swallowing it. A close
+   * failure is non-fatal (the process may have already crashed) but must be
+   * visible to the harness log/Sentry pipeline.
+   */
+  private async closeBrowser(
+    browser: Browser,
+    slotIndex: number,
+  ): Promise<void> {
+    try {
+      await browser.close();
+    } catch (err) {
+      this.logger?.info("browser-pool.close-failed", {
+        slotIndex,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  /**
+   * Track an in-flight recovery launch (reinit / relaunchPendingSlots) so
+   * `shutdown()` can drain it. Without this, a launch that resolves AFTER
+   * shutdown has awaited `inFlightRecycles` leaks a browser the pool never
+   * closes.
+   */
+  private track(promise: Promise<void>): Promise<void> {
+    this.inFlightRecycles.add(promise);
+    promise.finally(() => {
+      this.inFlightRecycles.delete(promise);
+    });
+    return promise;
+  }
+
+  /**
    * Backstop re-initialization. Called from `acquire()` when the pool has
    * drained to zero slots. Re-launches up to `poolSize` browsers, tolerating
    * partial failure — even one fresh slot lets a waiting probe proceed. A
@@ -128,6 +193,13 @@ export class BrowserPool {
    */
   private async reinit(): Promise<void> {
     if (this.isShutdown || this.launchBrowser === undefined) return;
+    // Track the whole reinit so a shutdown racing this launch loop drains it
+    // before closing slots, rather than leaking a browser that resolves after
+    // shutdown already awaited the in-flight set.
+    await this.track(this.reinitInner());
+  }
+
+  private async reinitInner(): Promise<void> {
     this.logger?.info("browser-pool.reinit", { poolSize: this.poolSize });
     for (
       let i = 0;
@@ -137,23 +209,20 @@ export class BrowserPool {
       try {
         const browser = await this.launchBrowser();
         if (this.isShutdown) {
-          await browser.close().catch(() => {});
+          await this.closeBrowser(browser, this.slots.length);
           return;
         }
         const slot: Slot = { browser, contextCount: 0 };
         this.slots.push(slot);
         this.browserToSlot.set(browser, slot);
         this.attachDisconnectHandler(slot, browser);
-        const waiter = this.waiters.shift();
-        if (waiter) {
-          waiter.resolve(browser);
-        } else {
-          this.available.push(slot);
-        }
+        this.handOff(slot, browser);
       } catch (err) {
         // Best effort — keep trying the remaining slots. If none succeed
         // the pool stays empty and the next acquire retries reinit.
-        console.error("[BrowserPool] reinit launch failed:", err);
+        this.logger?.info("browser-pool.reinit-failed", {
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
   }
@@ -163,16 +232,34 @@ export class BrowserPool {
    * such slot was retained (not evicted) after a failed recycle so capacity
    * is preserved; here we lazily replace its dead browser with a fresh one.
    * A still-failing launch leaves the slot pending for the next acquire.
+   *
+   * Two concerns this method must own (the deferred timer in recycleSlot and
+   * an acquire()-driven call can run concurrently):
+   *   - Re-entry: `relaunchingSlots` marks a slot before its `await` so a
+   *     racing invocation skips it — otherwise both launch a browser, the
+   *     second overwrites `slot.browser` (leaking the first) and/or the slot
+   *     is handed to two acquirers.
+   *   - Handoff: a fresh browser is delivered to a queued waiter first
+   *     (`handOff`) so the recycle's deferred relaunch actually serves the
+   *     waiter that scheduled it, instead of only pushing to `available`.
    */
   private async relaunchPendingSlots(): Promise<void> {
     if (this.isShutdown) return;
-    const pending = this.slots.filter((s) => s.relaunchPending);
+    await this.track(this.relaunchPendingSlotsInner());
+  }
+
+  private async relaunchPendingSlotsInner(): Promise<void> {
+    const pending = this.slots.filter(
+      (s) => s.relaunchPending && !this.relaunchingSlots.has(s),
+    );
     for (const slot of pending) {
       if (this.isShutdown) return;
+      // Mark before the await so a concurrent invocation skips this slot.
+      this.relaunchingSlots.add(slot);
       try {
         const fresh = await this.launchBrowser();
         if (this.isShutdown) {
-          await fresh.close().catch(() => {});
+          await this.closeBrowser(fresh, this.slots.indexOf(slot));
           return;
         }
         this.browserToSlot.delete(slot.browser);
@@ -181,17 +268,52 @@ export class BrowserPool {
         slot.relaunchPending = false;
         this.browserToSlot.set(fresh, slot);
         this.attachDisconnectHandler(slot, fresh);
-        if (!this.available.includes(slot)) {
-          this.available.push(slot);
-        }
+        this.handOff(slot, fresh);
         this.logger?.info("browser-pool.relaunch-recovered", {
           slotIndex: this.slots.indexOf(slot),
         });
       } catch (err) {
         // Still failing — leave it pending for the next acquire to retry.
-        console.error("[BrowserPool] pending-slot relaunch failed:", err);
+        this.logger?.info("browser-pool.relaunch-failed", {
+          slotIndex: this.slots.indexOf(slot),
+          error: err instanceof Error ? err.message : String(err),
+        });
+      } finally {
+        this.relaunchingSlots.delete(slot);
       }
     }
+  }
+
+  /**
+   * Self-rescheduling deferred relaunch. A failed recycle schedules this when
+   * a waiter is already queued; it re-attempts `relaunchPendingSlots` with
+   * bounded exponential backoff and reschedules itself as long as a waiter is
+   * still parked AND a pending slot remains to serve it. This replaces the
+   * old one-shot timer, which stranded the waiter for its full acquire
+   * timeout if the single deferred attempt also failed. Stops on shutdown,
+   * when no waiters remain, or when no slot is still pending.
+   */
+  private scheduleDeferredRelaunch(attempt: number): void {
+    if (this.isShutdown || this.waiters.length === 0) return;
+    const backoff = Math.min(
+      RELAUNCH_BACKOFF_BASE_MS * 2 ** (attempt - 1),
+      RELAUNCH_BACKOFF_MAX_MS,
+    );
+    setTimeout(() => {
+      if (this.isShutdown || this.waiters.length === 0) return;
+      if (!this.slots.some((s) => s.relaunchPending)) return;
+      void this.relaunchPendingSlots().finally(() => {
+        // Reschedule only if a waiter is still unserved and a pending slot
+        // remains — otherwise recovery is done or there is nothing to retry.
+        if (
+          !this.isShutdown &&
+          this.waiters.length > 0 &&
+          this.slots.some((s) => s.relaunchPending)
+        ) {
+          this.scheduleDeferredRelaunch(attempt + 1);
+        }
+      });
+    }, backoff);
   }
 
   async acquire(timeoutMs = 30_000): Promise<Browser> {
@@ -314,9 +436,11 @@ export class BrowserPool {
       await Promise.allSettled(Array.from(this.inFlightRecycles));
     }
 
-    // Close every browser we know about.
-    const closers = this.slots.map((slot) =>
-      slot.browser.close().catch(() => {}),
+    // Close every browser we know about. Route through closeBrowser so a
+    // close failure is logged with its slot index rather than silently
+    // swallowed.
+    const closers = this.slots.map((slot, idx) =>
+      this.closeBrowser(slot.browser, idx),
     );
     await Promise.allSettled(closers);
 
@@ -326,11 +450,17 @@ export class BrowserPool {
   }
 
   stats(): BrowserPoolStats {
+    // `size` counts only live (non-pending) capacity. A slot parked as
+    // `relaunchPending` holds a dead browser and is being recovered lazily,
+    // so it is not usable capacity and must not inflate `size`/`inUse`. This
+    // also makes the empty-pool backstop observable: when every slot is
+    // pending, `size` reads 0 (the condition under which acquire() recovers).
+    const liveSlots = this.slots.filter((s) => !s.relaunchPending);
     const availableCount = this.available.length;
     return {
-      size: this.slots.length,
+      size: liveSlots.length,
       available: availableCount,
-      inUse: this.slots.length - availableCount,
+      inUse: liveSlots.length - availableCount,
       totalRecycles: this.totalRecycles,
     };
   }
@@ -394,11 +524,7 @@ export class BrowserPool {
     const oldBrowser = slot.browser;
 
     const recyclePromise = (async () => {
-      try {
-        await oldBrowser.close();
-      } catch {
-        // Best effort — the browser may have already crashed.
-      }
+      await this.closeBrowser(oldBrowser, slotIdx);
 
       if (this.isShutdown) return;
 
@@ -416,7 +542,7 @@ export class BrowserPool {
           if (this.isShutdown) {
             // Shutdown was initiated while we were launching. Close the
             // fresh browser and don't hand it to anyone.
-            await fresh.close().catch(() => {});
+            await this.closeBrowser(fresh, this.slots.indexOf(slot));
             return;
           }
 
@@ -426,12 +552,7 @@ export class BrowserPool {
           this.browserToSlot.set(fresh, slot);
           this.attachDisconnectHandler(slot, fresh);
 
-          const waiter = this.waiters.shift();
-          if (waiter) {
-            waiter.resolve(fresh);
-          } else {
-            this.available.push(slot);
-          }
+          this.handOff(slot, fresh);
           return;
         } catch (err) {
           lastErr = err;
@@ -447,23 +568,19 @@ export class BrowserPool {
       // launch (see relaunchPendingSlots), and the empty-pool backstop in
       // acquire() re-initializes if every slot ends up pending/lost.
       slot.relaunchPending = true;
-      console.error(
-        `[BrowserPool] recycleSlot relaunch failed after ${RELAUNCH_MAX_ATTEMPTS} attempts ` +
-          `(slot ${this.slots.indexOf(slot)} parked for lazy retry, pool size ${this.slots.length}):`,
-        lastErr,
-      );
+      this.logger?.info("browser-pool.recycle-relaunch-failed", {
+        slotIndex: this.slots.indexOf(slot),
+        attempts: RELAUNCH_MAX_ATTEMPTS,
+        poolSize: this.slots.length,
+        error: lastErr instanceof Error ? lastErr.message : String(lastErr),
+      });
 
-      // A waiter may already be queued (an acquire() that found no live
-      // slot returned a pending promise). Nothing else will wake it, so
-      // schedule a deferred relaunch attempt to serve pending waiters
-      // rather than leaving them to time out. Best-effort and outside the
-      // current recycle promise so it doesn't block shutdown's drain.
-      if (this.waiters.length > 0 && !this.isShutdown) {
-        setTimeout(() => {
-          if (this.isShutdown || this.waiters.length === 0) return;
-          void this.relaunchPendingSlots();
-        }, RELAUNCH_BACKOFF_BASE_MS);
-      }
+      // A waiter may already be queued (an acquire() that found no live slot
+      // returned a pending promise). Nothing else will wake it, so kick off a
+      // self-rescheduling deferred relaunch that keeps retrying with bounded
+      // backoff while pending slots AND waiters coexist — a one-shot attempt
+      // would strand the waiter if that single retry also failed.
+      this.scheduleDeferredRelaunch(1);
     })();
 
     this.inFlightRecycles.add(recyclePromise);

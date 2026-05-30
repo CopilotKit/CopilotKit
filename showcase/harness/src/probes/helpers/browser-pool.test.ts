@@ -130,6 +130,26 @@ async function drainMicrotasks(times = 5): Promise<void> {
   }
 }
 
+/**
+ * Poll `predicate` until it returns true or `timeoutMs` elapses. The pool's
+ * recycle/relaunch paths use real `setTimeout` backoff, so state transitions
+ * (slot eviction, relaunchPending parking, deferred recovery) settle over
+ * wall-clock time rather than microtasks. Rejects on timeout so a test that
+ * relies on a precondition fails loudly instead of asserting on stale state.
+ */
+async function waitFor(
+  predicate: () => boolean,
+  timeoutMs = 3_000,
+): Promise<void> {
+  const start = Date.now();
+  while (!predicate()) {
+    if (Date.now() - start > timeoutMs) {
+      throw new Error("waitFor timed out");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
 describe("BrowserPool dead-instance detection", () => {
   it("registers a disconnected listener on each browser at init and recycles when one fires", async () => {
     const { launchBrowser, launched } = makeFakeLauncher();
@@ -297,11 +317,14 @@ describe("BrowserPool dead-instance detection", () => {
   });
 
   it("re-initializes the pool when every slot has been lost (size reaches 0)", async () => {
-    // 2-slot pool. Both browsers crash and BOTH relaunches fail (launch
-    // calls 3 and 4), driving the pool to size 0. The next acquire() must
-    // trigger a backstop re-init rather than hanging until timeout.
+    // 2-slot pool. Both browsers crash and EVERY relaunch attempt fails for
+    // both slots, driving the pool to size 0 so the backstop reinit() path
+    // is actually exercised. Each slot makes RELAUNCH_MAX_ATTEMPTS (=3)
+    // launch calls during recycle, so for 2 slots that is launch calls 3..8
+    // (init used calls 1 and 2). Failing 3..8 exhausts all retries and
+    // evicts both slots to leave size 0. Call 9 (the reinit) succeeds.
     const { launchBrowser, launched } = makeFakeLauncher({
-      failAtCalls: [3, 4],
+      failAtCalls: [3, 4, 5, 6, 7, 8],
     });
     const { logger } = makeFakeLogger();
     const pool = new BrowserPool(2, 100, logger, launchBrowser);
@@ -310,18 +333,104 @@ describe("BrowserPool dead-instance detection", () => {
 
     launched[0]!.__crash();
     launched[1]!.__crash();
-    await drainMicrotasks(30);
+    // The recycle uses real setTimeout backoff between attempts, so give it
+    // a wall-clock window to exhaust all retries and park/evict both slots.
+    await waitFor(() => pool.stats().size === 0, 5_000);
 
-    // Both relaunches failed — without a backstop the pool is permanently
-    // empty and every future acquire() times out. With the fix, acquire()
-    // re-initializes the pool (launch calls 5+ succeed) and hands back a
-    // live browser.
+    // Precondition: prove the pool actually drained to zero so reinit() is
+    // the path under test (the old [3,4] fixture self-healed on attempt 2
+    // and never reached this state — the test was vacuous).
+    expect(pool.stats().size).toBe(0);
+
+    // With size 0, the next acquire() must trigger the backstop reinit
+    // (launch call 9 succeeds) and hand back a live browser instead of
+    // hanging until timeout.
     const acquired = await pool.acquire(5_000);
     expect(acquired).toBeDefined();
     expect((acquired as unknown as FakeBrowser).isConnected()).toBe(true);
     expect(pool.stats().size).toBeGreaterThan(0);
 
     await pool.shutdown();
+  });
+
+  it("delivers a fresh browser to a parked waiter once a deferred relaunch succeeds, without a second acquire()", async () => {
+    // Single-slot pool. The browser crashes and EVERY immediate relaunch
+    // attempt fails (launch calls 2..4 — RELAUNCH_MAX_ATTEMPTS=3), so the
+    // slot is parked relaunchPending and the original acquire() is left as a
+    // queued waiter. A LATER launch (call 5) succeeds. The waiter must be
+    // served by the deferred/rescheduled relaunch WITHOUT the test issuing a
+    // second acquire() to drive recovery (guards bug #1 and #3).
+    const { launchBrowser, launched } = makeFakeLauncher({
+      failAtCalls: [2, 3, 4],
+    });
+    const { logger } = makeFakeLogger();
+    const pool = new BrowserPool(1, 100, logger, launchBrowser);
+    await pool.init();
+    expect(launched).toHaveLength(1);
+
+    // Hand out the only browser, then crash it while held. The disconnect
+    // recycle relaunches but calls 2..4 all fail, parking the slot.
+    const held = await pool.acquire();
+    expect(held).toBe(launched[0] as unknown as Browser);
+    (held as unknown as FakeBrowser).__crash();
+
+    // Park an acquire as a waiter. With the only slot dead/pending and no
+    // available browser, this returns a pending promise.
+    const waiterPromise = pool.acquire(5_000);
+
+    // Do NOT call acquire() again. The deferred relaunch must reschedule
+    // (call 5 succeeds) and hand the fresh browser directly to the waiter.
+    const recovered = await waiterPromise;
+    expect(recovered).toBeDefined();
+    expect((recovered as unknown as FakeBrowser).isConnected()).toBe(true);
+    expect((recovered as unknown as FakeBrowser).__id).toBe(
+      launched[launched.length - 1]!.__id,
+    );
+
+    await pool.shutdown();
+  });
+
+  it("does not double-publish a relaunchPending slot when recovery is driven concurrently", async () => {
+    // Drive a single slot into relaunchPending (all immediate retries fail),
+    // then trigger TWO concurrent recovery drivers: a deferred relaunch (a
+    // queued waiter schedules it) racing an acquire()-driven relaunch. With a
+    // re-entry guard the slot is launched exactly once and its fresh browser
+    // is handed to exactly one acquirer — never published to `available`
+    // twice nor handed to two probes (guards bug #2).
+    const { launchBrowser, launched } = makeFakeLauncher({
+      failAtCalls: [2, 3, 4],
+    });
+    const { logger } = makeFakeLogger();
+    const pool = new BrowserPool(1, 100, logger, launchBrowser);
+    await pool.init();
+
+    const held = await pool.acquire();
+    (held as unknown as FakeBrowser).__crash();
+    // Let the immediate recycle retries (calls 2..4) exhaust and park the
+    // slot as relaunchPending before we drive concurrent recovery.
+    await waitFor(() => pool.stats().available === 0, 3_000).catch(() => {});
+
+    // Two acquirers race for the single recovering slot. The fresh browser
+    // must go to exactly one of them; the loser stays parked as a waiter.
+    const a = pool.acquire(5_000);
+    const b = pool.acquire(5_000);
+
+    const first = await Promise.race([a, b]);
+    expect(first).toBeDefined();
+    expect((first as unknown as FakeBrowser).isConnected()).toBe(true);
+
+    // Exactly one fresh browser (the successful relaunch, call 5) was
+    // created beyond init — no leaked second launch from a re-entrant relaunch.
+    const freshBeyondInit = launched.slice(1);
+    expect(freshBeyondInit.length).toBe(1);
+
+    // The single slot must never appear twice in `available`.
+    expect(pool.stats().available).toBeLessThanOrEqual(1);
+    expect(pool.stats().size).toBe(1);
+
+    await pool.shutdown();
+    // The loser waiter rejects on shutdown; swallow it.
+    await Promise.allSettled([a, b]);
   });
 
   it("shutdown() does not loop the disconnect handler when closing slot browsers", async () => {
