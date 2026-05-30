@@ -118,25 +118,17 @@ describe("useDefaultRenderTool", () => {
 
     const [config] = mockUseRenderTool.mock.calls[0] as [
       {
-        render: (props: {
-          name: string;
-          parameters: unknown;
-          status: string;
-          result: string | undefined;
-        }) => React.ReactElement;
+        render: (props: DefaultRenderProps) => React.ReactElement;
       },
     ];
 
-    const DefaultRenderer = config.render as React.ComponentType<{
-      name: string;
-      parameters: unknown;
-      status: string;
-      result: string | undefined;
-    }>;
+    const DefaultRenderer =
+      config.render as React.ComponentType<DefaultRenderProps>;
 
     render(
       <DefaultRenderer
         name="searchDocs"
+        toolCallId="tc-default-executing"
         parameters={{ query: "copilot" }}
         status="executing"
         result={undefined}
@@ -161,25 +153,17 @@ describe("useDefaultRenderTool", () => {
 
     const [config] = mockUseRenderTool.mock.calls[0] as [
       {
-        render: (props: {
-          name: string;
-          parameters: unknown;
-          status: string;
-          result: string | undefined;
-        }) => React.ReactElement;
+        render: (props: DefaultRenderProps) => React.ReactElement;
       },
     ];
 
-    const DefaultRenderer = config.render as React.ComponentType<{
-      name: string;
-      parameters: unknown;
-      status: string;
-      result: string | undefined;
-    }>;
+    const DefaultRenderer =
+      config.render as React.ComponentType<DefaultRenderProps>;
 
     render(
       <DefaultRenderer
         name="searchDocs"
+        toolCallId="tc-default-complete"
         parameters={{ query: "copilot" }}
         status="complete"
         result="done"
@@ -202,25 +186,17 @@ describe("useDefaultRenderTool", () => {
 
     const [config] = mockUseRenderTool.mock.calls[0] as [
       {
-        render: (props: {
-          name: string;
-          parameters: unknown;
-          status: string;
-          result: string | undefined;
-        }) => React.ReactElement;
+        render: (props: DefaultRenderProps) => React.ReactElement;
       },
     ];
 
-    const DefaultRenderer = config.render as React.ComponentType<{
-      name: string;
-      parameters: unknown;
-      status: string;
-      result: string | undefined;
-    }>;
+    const DefaultRenderer =
+      config.render as React.ComponentType<DefaultRenderProps>;
 
     render(
       <DefaultRenderer
         name="searchDocs"
+        toolCallId="tc-default-testid"
         parameters={{ query: "copilot" }}
         status="complete"
         result="ok"
