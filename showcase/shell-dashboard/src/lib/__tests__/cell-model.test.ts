@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildCellModel } from "../cell-model";
+import { buildCellModel, E2E_STALE_AFTER_MS } from "../cell-model";
 import type { CellModelInput } from "../cell-model";
 import type { LiveStatusMap, StatusRow, State } from "../live-status";
 import { keyFor } from "../live-status";
@@ -7,6 +7,11 @@ import { keyFor } from "../live-status";
 // ---------------------------------------------------------------------------
 // Test helpers
 // ---------------------------------------------------------------------------
+
+// Default `observed_at` is recent so green rows are not treated as stale by
+// the e2e staleness downgrade (resolveD3). The staleness tests below pass an
+// explicit `observed_at` override to exercise the downgrade.
+const FRESH_OBSERVED_AT = new Date().toISOString();
 
 function row(
   key: string,
@@ -20,10 +25,10 @@ function row(
     dimension,
     state,
     signal: {},
-    observed_at: "2026-04-20T00:00:00Z",
-    transitioned_at: "2026-04-20T00:00:00Z",
+    observed_at: FRESH_OBSERVED_AT,
+    transitioned_at: FRESH_OBSERVED_AT,
     fail_count: state === "red" ? 1 : 0,
-    first_failure_at: state === "red" ? "2026-04-20T00:00:00Z" : null,
+    first_failure_at: state === "red" ? FRESH_OBSERVED_AT : null,
     ...overrides,
   };
 }
@@ -165,7 +170,7 @@ describe("buildCellModel", () => {
     });
   });
 
-  // ── D3+D4 pass, D5 exists but fails → amber chip ───────────────────
+  // ── D3+D4 pass, D5 exists but fails → red chip ─────────────────────
   describe("D3+D4 pass, D5 exists but fails", () => {
     it("returns red chip (D6-ceiling: D5 red, D6 absent)", () => {
       const live = mapOf([
@@ -554,6 +559,249 @@ describe("buildCellModel", () => {
       ]);
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
       expect(model.isRegression).toBe(false);
+    });
+  });
+
+  // ── e2e staleness downgrade (false-green D3 bug) ────────────────────
+  // When the e2e driver stops writing `e2e:<slug>/<feature>` rows, the
+  // last green row freezes and the depth ladder reads it as healthy → a
+  // false-green D3 that masks a dead probe pipeline. A green e2e row older
+  // than the staleness window must be downgraded to degraded (amber).
+  describe("e2e staleness downgrade", () => {
+    const NOW = Date.parse("2026-05-30T12:00:00Z");
+
+    function e2eRowAtAge(ageMs: number, state: State = "green") {
+      const observedAt = new Date(NOW - ageMs).toISOString();
+      return row(keyFor("e2e", "agno", "agentic-chat"), "e2e", state, {
+        observed_at: observedAt,
+        transitioned_at: observedAt,
+      });
+    }
+
+    it("downgrades a stale green e2e row to amber instead of green", () => {
+      const live = mapOf([
+        // e2e last observed well past the staleness window.
+        e2eRowAtAge(E2E_STALE_AFTER_MS + 60 * 60 * 1000, "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      // Stale green must NOT present as a healthy D3.
+      expect(model.d3?.status).toBe("amber");
+      // A stale-amber D3 fails the D1-D4 gate → chip is red, not green.
+      expect(model.chipColor).not.toBe("green");
+      // achievedDepth must not credit D3 when the e2e signal is stale.
+      expect(model.achievedDepth).toBe(0);
+    });
+
+    it("keeps a fresh green e2e row green", () => {
+      const live = mapOf([
+        e2eRowAtAge(60 * 1000, "green"), // observed 1 min ago — fresh
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      expect(model.d3?.status).toBe("green");
+      // Only D3 (e2e) is green here, no D4 row → achievedDepth caps at 3.
+      expect(model.achievedDepth).toBe(3);
+    });
+
+    it("leaves a stale RED e2e row red (staleness only downgrades green)", () => {
+      const live = mapOf([
+        e2eRowAtAge(E2E_STALE_AFTER_MS + 60 * 60 * 1000, "red"),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      expect(model.d3?.status).toBe("red");
+    });
+  });
+
+  // ── D5/D6 staleness downgrade (same false-green mode, one dimension up) ──
+  // A frozen-green D5/D6 row from a stalled driver must be downgraded the
+  // same way D3 is, so it no longer credits the depth ladder / ceiling.
+  describe("D5/D6 staleness downgrade", () => {
+    const NOW = Date.parse("2026-05-30T12:00:00Z");
+
+    function rowAtAge(
+      key: string,
+      dimension: string,
+      ageMs: number,
+      state: State = "green",
+    ) {
+      const observedAt = new Date(NOW - ageMs).toISOString();
+      return row(key, dimension, state, {
+        observed_at: observedAt,
+        transitioned_at: observedAt,
+      });
+    }
+
+    const STALE = E2E_STALE_AFTER_MS + 60 * 60 * 1000;
+    const FRESH = 60 * 1000;
+
+    it("downgrades a stale green D5 row to amber (no longer credits D5/ceiling)", () => {
+      const live = mapOf([
+        rowAtAge(keyFor("e2e", "agno", "agentic-chat"), "e2e", FRESH, "green"),
+        rowAtAge(keyFor("chat", "agno"), "chat", FRESH, "green"),
+        rowAtAge(keyFor("d5", "agno", "agentic-chat"), "d5", STALE, "green"),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      // Stale green D5 must NOT present as a healthy D5.
+      expect(model.d5?.status).toBe("amber");
+      // Depth ladder must not credit D5 when the signal is stale.
+      expect(model.achievedDepth).toBe(4);
+      // Chip: D5 not green, D6 absent → red (no longer amber-on-green-D5).
+      expect(model.chipColor).toBe("red");
+    });
+
+    it("keeps a fresh green D5 row green", () => {
+      const live = mapOf([
+        rowAtAge(keyFor("e2e", "agno", "agentic-chat"), "e2e", FRESH, "green"),
+        rowAtAge(keyFor("chat", "agno"), "chat", FRESH, "green"),
+        rowAtAge(keyFor("d5", "agno", "agentic-chat"), "d5", FRESH, "green"),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      expect(model.d5?.status).toBe("green");
+      expect(model.achievedDepth).toBe(5);
+      // D5 green but no D6 → amber.
+      expect(model.chipColor).toBe("amber");
+    });
+
+    it("downgrades a stale green D6 row to amber (no longer credits D6/green chip)", () => {
+      const live = mapOf([
+        rowAtAge(keyFor("e2e", "agno", "agentic-chat"), "e2e", FRESH, "green"),
+        rowAtAge(keyFor("chat", "agno"), "chat", FRESH, "green"),
+        rowAtAge(keyFor("d5", "agno", "agentic-chat"), "d5", FRESH, "green"),
+        rowAtAge(keyFor("d6", "agno"), "d6", STALE, "green"),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      // Stale green D6 must NOT present as a healthy D6.
+      expect(model.d6?.status).toBe("amber");
+      // Depth ladder must not credit D6 when the signal is stale.
+      expect(model.achievedDepth).toBe(5);
+      // D5 green but D6 not green → amber, not green.
+      expect(model.chipColor).toBe("amber");
+    });
+
+    it("keeps a fresh green D6 row green", () => {
+      const live = mapOf([
+        rowAtAge(keyFor("e2e", "agno", "agentic-chat"), "e2e", FRESH, "green"),
+        rowAtAge(keyFor("chat", "agno"), "chat", FRESH, "green"),
+        rowAtAge(keyFor("d5", "agno", "agentic-chat"), "d5", FRESH, "green"),
+        rowAtAge(keyFor("d6", "agno"), "d6", FRESH, "green"),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      expect(model.d6?.status).toBe("green");
+      expect(model.achievedDepth).toBe(6);
+      expect(model.chipColor).toBe("green");
+    });
+
+    it("leaves a stale RED D5 row red (staleness only downgrades green)", () => {
+      const live = mapOf([
+        rowAtAge(keyFor("e2e", "agno", "agentic-chat"), "e2e", FRESH, "green"),
+        rowAtAge(keyFor("chat", "agno"), "chat", FRESH, "green"),
+        rowAtAge(keyFor("d5", "agno", "agentic-chat"), "d5", STALE, "red"),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      expect(model.d5?.status).toBe("red");
+    });
+
+    // ── Multi-key D5: stale-green sub-row must not be masked by the fold ──
+    // `resolveD5` reduces sub-keys to a "worst" row, but green is the LOWEST
+    // rank — so among all-green sub-rows a fresh-green can win the tie. If
+    // staleness were checked only on the post-fold winner, a stale-green
+    // sibling would be silently masked → false-green. The downgrade must be
+    // per-row (before the fold), so ANY stale-green sub-row forces amber,
+    // independent of CATALOG_TO_D5_KEY ordering.
+    describe("multi-key D5: one stale-green + one fresh-green sub-row", () => {
+      // beautiful-chat maps to 5 D5 sub-keys (see CATALOG_TO_D5_KEY). We make
+      // exactly one stale-green and the rest fresh-green so the only signal
+      // is the stale sibling — which must downgrade the whole family.
+      const STALE_SUBKEY = "beautiful-chat-bar-chart";
+      const FRESH_SUBKEYS = [
+        "beautiful-chat-toggle-theme",
+        "beautiful-chat-pie-chart",
+        "beautiful-chat-search-flights",
+        "beautiful-chat-schedule-meeting",
+      ];
+
+      function buildRows(staleFirst: boolean): StatusRow[] {
+        const base = [
+          rowAtAge(
+            keyFor("e2e", "agno", "beautiful-chat"),
+            "e2e",
+            FRESH,
+            "green",
+          ),
+          rowAtAge(keyFor("chat", "agno"), "chat", FRESH, "green"),
+        ];
+        const staleRow = rowAtAge(
+          keyFor("d5", "agno", STALE_SUBKEY),
+          "d5",
+          STALE,
+          "green",
+        );
+        const freshRows = FRESH_SUBKEYS.map((sk) =>
+          rowAtAge(keyFor("d5", "agno", sk), "d5", FRESH, "green"),
+        );
+        // Vary insertion order to prove the result does not depend on which
+        // green sub-row the fold encounters first.
+        return staleFirst
+          ? [...base, staleRow, ...freshRows]
+          : [...base, ...freshRows, staleRow];
+      }
+
+      it("downgrades to amber when the stale sub-row is folded FIRST", () => {
+        const model = buildCellModel(
+          mapOf(buildRows(true)),
+          wiredInput("agno", "beautiful-chat"),
+          NOW,
+        );
+        // Stale-green sibling must force the family off green.
+        expect(model.d5?.status).toBe("amber");
+        // Depth ladder must not credit D5.
+        expect(model.achievedDepth).toBe(4);
+        // D5 not green, D6 absent → red.
+        expect(model.chipColor).toBe("red");
+      });
+
+      it("downgrades to amber when the stale sub-row is folded LAST", () => {
+        const model = buildCellModel(
+          mapOf(buildRows(false)),
+          wiredInput("agno", "beautiful-chat"),
+          NOW,
+        );
+        expect(model.d5?.status).toBe("amber");
+        expect(model.achievedDepth).toBe(4);
+        expect(model.chipColor).toBe("red");
+      });
     });
   });
 });

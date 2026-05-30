@@ -31,6 +31,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+// Recent timestamp so green e2e rows are not treated as stale by the
+// staleness downgrade in cell-model.ts (which compares against Date.now()).
+const FRESH_OBSERVED_AT = new Date().toISOString();
+
 function row(
   key: string,
   dimension: string,
@@ -42,8 +46,8 @@ function row(
     dimension,
     state,
     signal: {},
-    observed_at: "2026-04-20T00:00:00Z",
-    transitioned_at: "2026-04-20T00:00:00Z",
+    observed_at: FRESH_OBSERVED_AT,
+    transitioned_at: FRESH_OBSERVED_AT,
     fail_count: 0,
     first_failure_at: null,
   };
