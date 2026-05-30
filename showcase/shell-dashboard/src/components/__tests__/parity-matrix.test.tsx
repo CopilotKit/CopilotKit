@@ -30,6 +30,11 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+// Fresh timestamp so green rows are not tripped by the D1/D2/D4 staleness
+// downgrade (deriveDepth defaults `now` to Date.now()). These tests assert
+// achieved depth, not staleness, so the rows must read as recently observed.
+const FRESH_OBSERVED_AT = new Date().toISOString();
+
 function row(
   key: string,
   dimension: string,
@@ -41,8 +46,8 @@ function row(
     dimension,
     state,
     signal: {},
-    observed_at: "2026-04-20T00:00:00Z",
-    transitioned_at: "2026-04-20T00:00:00Z",
+    observed_at: FRESH_OBSERVED_AT,
+    transitioned_at: FRESH_OBSERVED_AT,
     fail_count: 0,
     first_failure_at: null,
   };

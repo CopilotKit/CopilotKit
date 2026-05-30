@@ -435,6 +435,108 @@ describe("deriveDepth", () => {
     });
   });
 
+  // ── D1/D2/D4 staleness downgrade (per-driver windows) ──
+  // Liveness (D1/D2) and real-time (D4) green rows from a stalled driver
+  // must not credit their depth. D1/D2 use LIVENESS_STALE_AFTER_MS (45m),
+  // D4 uses D4_STALE_AFTER_MS (1h); both mirror cell-model.ts.
+  describe("D1/D2/D4 staleness downgrade", () => {
+    const NOW = Date.parse("2026-05-30T12:00:00Z");
+    // Stale past every window in use (e2e 6h is the widest).
+    const STALE_AT = new Date(NOW - 7 * 60 * 60 * 1000).toISOString();
+    const FRESH_AT = new Date(NOW - 60 * 1000).toISOString();
+    // Older than 45m (D1/D2 window) but within the D4 1h window — proves the
+    // windows are independent: D1/D2 downgrade here while D4 would not.
+    const STALE_LIVENESS_AT = new Date(NOW - 50 * 60 * 1000).toISOString();
+    // Older than 1h (D4 window).
+    const STALE_D4_AT = new Date(NOW - 70 * 60 * 1000).toISOString();
+
+    it("does not credit D1 when its green health row is stale", () => {
+      const c = cell("lgp", "agentic-chat");
+      const live = mapOf([
+        row("health:lgp", "health", "green", STALE_LIVENESS_AT),
+        row("agent:lgp", "agent", "green", FRESH_AT),
+      ]);
+      const result = deriveDepth(c, live, NOW);
+      // Stale green health → D1 not credited → achieved caps at D0.
+      expect(result.achieved).toBe(0);
+    });
+
+    it("credits D1 when its green health row is fresh", () => {
+      const c = cell("lgp", "agentic-chat");
+      const live = mapOf([row("health:lgp", "health", "green", FRESH_AT)]);
+      const result = deriveDepth(c, live, NOW);
+      expect(result.achieved).toBe(1);
+    });
+
+    it("does not credit D2 when its green agent row is stale", () => {
+      const c = cell("lgp", "agentic-chat");
+      const live = mapOf([
+        row("health:lgp", "health", "green", FRESH_AT),
+        row("agent:lgp", "agent", "green", STALE_LIVENESS_AT),
+      ]);
+      const result = deriveDepth(c, live, NOW);
+      // Stale green agent → D2 not credited → caps at D1.
+      expect(result.achieved).toBe(1);
+    });
+
+    it("credits D2 when its green agent row is fresh", () => {
+      const c = cell("lgp", "agentic-chat");
+      const live = mapOf([
+        row("health:lgp", "health", "green", FRESH_AT),
+        row("agent:lgp", "agent", "green", FRESH_AT),
+      ]);
+      const result = deriveDepth(c, live, NOW);
+      expect(result.achieved).toBe(2);
+    });
+
+    it("does not credit D4 when its green chat row is stale", () => {
+      const c = cell("lgp", "agentic-chat");
+      const live = mapOf([
+        row("health:lgp", "health", "green", FRESH_AT),
+        row("agent:lgp", "agent", "green", FRESH_AT),
+        row("e2e:lgp/agentic-chat", "e2e", "green", FRESH_AT),
+        row("chat:lgp", "chat", "green", STALE_D4_AT),
+      ]);
+      const result = deriveDepth(c, live, NOW);
+      // Stale green chat → D4 not credited → caps at D3.
+      expect(result.achieved).toBe(3);
+    });
+
+    it("credits D4 when its green chat row is fresh", () => {
+      const c = cell("lgp", "agentic-chat");
+      const live = mapOf([
+        row("health:lgp", "health", "green", FRESH_AT),
+        row("agent:lgp", "agent", "green", FRESH_AT),
+        row("e2e:lgp/agentic-chat", "e2e", "green", FRESH_AT),
+        row("chat:lgp", "chat", "green", FRESH_AT),
+      ]);
+      const result = deriveDepth(c, live, NOW);
+      expect(result.achieved).toBe(4);
+    });
+
+    it("D1/D2 window is tighter than D4: a 50m-old D4 row would still count", () => {
+      // A chat row 50m old is stale for liveness (45m) but fresh for D4 (1h).
+      // This guards against collapsing the two windows into one constant.
+      const c = cell("lgp", "agentic-chat");
+      const live = mapOf([
+        row("health:lgp", "health", "green", FRESH_AT),
+        row("agent:lgp", "agent", "green", FRESH_AT),
+        row("e2e:lgp/agentic-chat", "e2e", "green", FRESH_AT),
+        row("chat:lgp", "chat", "green", STALE_LIVENESS_AT),
+      ]);
+      const result = deriveDepth(c, live, NOW);
+      // 50m < D4's 1h window → D4 still credited.
+      expect(result.achieved).toBe(4);
+    });
+
+    it("leaves a stale RED liveness row red (no false-credit either way)", () => {
+      const c = cell("lgp", "agentic-chat");
+      const live = mapOf([row("health:lgp", "health", "red", STALE_AT)]);
+      const result = deriveDepth(c, live, NOW);
+      expect(result.achieved).toBe(0);
+    });
+  });
+
   it("returns D4 for feature with no D5 mapping", () => {
     const c = cell("lgp", "unknown-feature");
     const live = mapOf([
