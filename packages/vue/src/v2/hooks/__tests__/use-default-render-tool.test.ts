@@ -246,7 +246,9 @@ describe("useDefaultRenderTool", () => {
     // The "result" prop must be typeless so non-string values do not trip
     // Vue's runtime type validator (dev-mode warn).
     const offending = warnSpy.mock.calls.filter((call) =>
-      String(call[0] ?? "").includes('Invalid prop: type check failed for prop "result"'),
+      String(call[0] ?? "").includes(
+        'Invalid prop: type check failed for prop "result"',
+      ),
     );
     expect(offending.length).toBe(0);
     warnSpy.mockRestore();
