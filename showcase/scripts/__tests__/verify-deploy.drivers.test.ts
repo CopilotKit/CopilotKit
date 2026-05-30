@@ -14,6 +14,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { SERVICES } from "../railway-envs";
 import type { ProbeTarget } from "../verify-deploy";
+// Tests construct `ProbeTarget.host` via `asHost(...)` to satisfy the
+// `Host` brand — the same validator the runtime ingress uses.
+import { asHost } from "../verify-deploy";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -178,7 +181,7 @@ describe("envForTarget", () => {
   it("returns 'staging' when host matches the SSOT staging domain", () => {
     const t: ProbeTarget = {
       name: "docs",
-      host: SERVICES.docs.domains.staging,
+      host: asHost(SERVICES.docs.domains.staging),
       driver: "docs",
     };
     expect(envForTarget(t)).toBe("staging");
@@ -187,7 +190,7 @@ describe("envForTarget", () => {
   it("returns 'prod' when host matches the SSOT prod domain", () => {
     const t: ProbeTarget = {
       name: "docs",
-      host: SERVICES.docs.domains.prod,
+      host: asHost(SERVICES.docs.domains.prod),
       driver: "docs",
     };
     expect(envForTarget(t)).toBe("prod");
@@ -195,10 +198,14 @@ describe("envForTarget", () => {
 
   it("returns undefined for unknown host or unknown service", () => {
     expect(
-      envForTarget({ name: "docs", host: "bogus.example", driver: "docs" }),
+      envForTarget({
+        name: "docs",
+        host: asHost("bogus.example"),
+        driver: "docs",
+      }),
     ).toBeUndefined();
     expect(
-      envForTarget({ name: "nonsuch", host: "x", driver: "docs" }),
+      envForTarget({ name: "nonsuch", host: asHost("x"), driver: "docs" }),
     ).toBeUndefined();
   });
 });
@@ -386,7 +393,7 @@ describe("probeBaseline", () => {
     const out = await probeBaseline(
       {
         name: "docs",
-        host: SERVICES.docs.domains.staging,
+        host: asHost(SERVICES.docs.domains.staging),
         driver: "docs",
       },
       {
@@ -401,7 +408,7 @@ describe("probeBaseline", () => {
 
   it("fails loud when env cannot be resolved from host", async () => {
     const out = await probeBaseline(
-      { name: "docs", host: "wrong.example", driver: "docs" },
+      { name: "docs", host: asHost("wrong.example"), driver: "docs" },
       {
         driverLabel: "docs",
         healthcheckPath: "/",
@@ -419,7 +426,7 @@ describe("probeBaseline", () => {
     const out = await probeBaseline(
       {
         name: "docs",
-        host: SERVICES.docs.domains.staging,
+        host: asHost(SERVICES.docs.domains.staging),
         driver: "docs",
       },
       {
@@ -443,7 +450,7 @@ describe("probeBaseline", () => {
     const out = await probeBaseline(
       {
         name: "docs",
-        host: SERVICES.docs.domains.staging,
+        host: asHost(SERVICES.docs.domains.staging),
         driver: "docs",
       },
       {
@@ -465,7 +472,7 @@ describe("probeBaseline", () => {
     const out = await probeBaseline(
       {
         name: "docs",
-        host: SERVICES.docs.domains.staging,
+        host: asHost(SERVICES.docs.domains.staging),
         driver: "docs",
       },
       {
@@ -620,7 +627,7 @@ describe.each(DRIVER_CASES)(
       await withGlobalSeam(fetchImpl, TOKEN, async () => {
         const out = await driver({
           name: service,
-          host: entry.domains.staging,
+          host: asHost(entry.domains.staging),
           driver: label as ProbeTarget["driver"],
         });
         expect(out.ok).toBe(true);
@@ -645,7 +652,7 @@ describe.each(DRIVER_CASES)(
       await withGlobalSeam(fetchImpl, TOKEN, async () => {
         await driver({
           name: service,
-          host: entry.domains.prod,
+          host: asHost(entry.domains.prod),
           driver: label as ProbeTarget["driver"],
         });
       });
@@ -670,7 +677,7 @@ describe.each(DRIVER_CASES)(
       await withGlobalSeam(fetchImpl, TOKEN, async () => {
         await driver({
           name: service,
-          host: entry.domains.staging,
+          host: asHost(entry.domains.staging),
           driver: label as ProbeTarget["driver"],
         });
       });
@@ -688,7 +695,7 @@ describe.each(DRIVER_CASES)(
       await withGlobalSeam(fetchImpl, TOKEN, async () => {
         const out = await driver({
           name: service,
-          host: entry.domains.staging,
+          host: asHost(entry.domains.staging),
           driver: label as ProbeTarget["driver"],
         });
         expect(out.ok).toBe(false);
@@ -707,7 +714,7 @@ describe.each(DRIVER_CASES)(
       await withGlobalSeam(fetchImpl, TOKEN, async () => {
         const out = await driver({
           name: service,
-          host: entry.domains.staging,
+          host: asHost(entry.domains.staging),
           driver: label as ProbeTarget["driver"],
         });
         expect(out.ok).toBe(false);

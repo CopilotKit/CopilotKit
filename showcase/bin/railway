@@ -906,13 +906,33 @@ module Railway
             env = options[:env]
             sha = options[:sha]
 
+            # Input validation BEFORE invoking git — these values flow into
+            # subprocess invocations and an attacker-controlled `--sha` or
+            # `--env` must not be able to inject shell or git arguments.
+            # `sha` must look like a git object name (7-40 lowercase hex).
+            # `env` must resolve via Railway.env_id_for, which constrains it
+            # to the known set ("staging"/"stage"/"production"/"prod"); on miss
+            # it calls Railway.die! itself.
+            unless sha.is_a?(String) && sha.match?(/\A[0-9a-f]{7,40}\z/)
+                Railway.die!("--sha must be a 7-40 char lowercase hex git SHA " \
+                    "(got #{sha.inspect}).")
+            end
+            Railway.env_id_for(env)  # dies with "Unknown env: ..." if invalid.
+
             # We look in showcase/.railway-snapshots/*-<env>.yaml at SHA, take last.
-            list_cmd = %(git ls-tree -r --name-only #{sha} -- 'showcase/.railway-snapshots/*-#{env}.yaml')
-            entries = `#{list_cmd}`.lines.map(&:strip).reject(&:empty?).sort
+            # IO.popen with an argv array (no shell string) so sha/env are
+            # passed as literal argv to git — never parsed by a shell.
+            pathspec = "showcase/.railway-snapshots/*-#{env}.yaml"
+            ls_out = IO.popen(["git", "ls-tree", "-r", "--name-only", sha, "--", pathspec],
+                err: [:child, :out]) { |io| io.read }
+            Railway.die!("git ls-tree failed for #{sha}") unless $?.exitstatus == 0
+            entries = ls_out.lines.map(&:strip).reject(&:empty?).sort
             Railway.die!("No snapshot for env=#{env} at #{sha}.") if entries.empty?
             path = entries.last
 
-            yaml = `git show #{sha}:#{path}`
+            yaml = IO.popen(["git", "show", "#{sha}:#{path}"],
+                err: [:child, :out]) { |io| io.read }
+            Railway.die!("git show failed for #{sha}:#{path}") unless $?.exitstatus == 0
             Railway.die!("git show failed for #{sha}:#{path}") if yaml.nil? || yaml.empty?
 
             snap = YAML.safe_load(yaml, permitted_classes: [Time, Symbol], aliases: false)
@@ -1120,10 +1140,12 @@ module Railway
             #       fires in the target-absent-from-prod case.
             #
             # We therefore retain references to the full snapshots and
-            # only narrow when the per-service branch is taken. The
-            # fleet-scoped checks always read @full_*_snapshot; everything
-            # else reads @staging_snapshot/@prod_snapshot (narrowed when
-            # a positional service is given, full otherwise).
+            # only narrow when the per-service branch is taken. Reads go
+            # through the fleet_*/target_* accessors below so the
+            # fleet-scoped vs per-service distinction is enforced by
+            # method name (not by comment, as it was before — two prior
+            # regressions came from reading the wrong ivar in a
+            # fleet-scoped check).
             @full_staging_snapshot = @staging_snapshot
             @full_prod_snapshot    = @prod_snapshot
             if options[:service]
@@ -1136,9 +1158,9 @@ module Railway
         # Narrow @staging_snapshot and @prod_snapshot to only the named
         # service. Staging presence is mandatory (validated against SSOT
         # already); prod absence is tolerated here so the fleet-scoped
-        # service-set-parity REFUSE (now reading @full_prod_snapshot) can
-        # surface as the user-facing error rather than a silent rc=0
-        # 'success' (find_service returns nil, so execute_promotion would
+        # service-set-parity REFUSE (comparing fleet_staging vs fleet_prod) can surface as
+        # the user-facing error rather than a silent rc=0 'success'
+        # (find_service returns nil, so execute_promotion would
         # otherwise skip the absent service with no mutation).
         def narrow_snapshots_to_single_service!(name)
             staging_match = (@staging_snapshot["services"] || []).select { |s| s["name"] == name }
@@ -1158,27 +1180,71 @@ module Railway
             @prod_snapshot    ||= SnapshotCommand.new(["--env", "production", "--dry-run"]).build_snapshot(PRODUCTION_ENV_ID)
         end
 
+        # ── Snapshot accessors ─────────────────────────────────────────────
+        #
+        # The fleet-vs-target distinction is load-bearing. A "fleet" view
+        # is the FULL un-narrowed snapshot (every service in the env). A
+        # "target" view is the snapshot scoped to whatever this promote
+        # run actually targets — narrowed to one service when the
+        # operator passed a positional service argument, equal to the
+        # fleet view otherwise.
+        #
+        # Use:
+        #   fleet_staging / fleet_prod   — for FLEET-SHAPE invariants
+        #     (service-set parity, expected prod domain set). These
+        #     answer questions about the env itself, not the promote
+        #     target, and must produce the same verdict regardless of
+        #     whether this run is full-fleet or single-service.
+        #   target_staging / target_prod — for PER-SERVICE checks
+        #     (P1..P3/P6, critical env-key parity, execute_promotion,
+        #     resolved_prod_image). These iterate the services we are
+        #     actually about to promote.
+        #
+        # The `|| @*` fallback preserves the existing test seam: legacy
+        # promote tests stub @staging_snapshot/@prod_snapshot directly
+        # and invoke run_with_preflight_only without going through `run`
+        # (which is what sets @full_*). For those tests full == narrowed
+        # by construction (full-fleet semantics), so falling back to the
+        # target view is correct.
+        # Below: fleet_* / target_* accessors are intentionally private to this
+        # class (PromoteCommand-internal views of the snapshots). A matching
+        # `public` toggle after target_prod restores default visibility for the
+        # subsequent run_with_preflight_only / check_* methods.
+        private
+
+        def fleet_staging
+            @full_staging_snapshot || @staging_snapshot
+        end
+
+        def fleet_prod
+            @full_prod_snapshot || @prod_snapshot
+        end
+
+        def target_staging
+            @staging_snapshot
+        end
+
+        def target_prod
+            @prod_snapshot
+        end
+
+        public
+
         # All preconditions, then (if clean) the actual promote.
         def run_with_preflight_only
             findings = []
 
-            findings.concat(check_p1_ghcr_digests(@staging_snapshot))
-            findings.concat(check_p2_staging_deployments(@staging_snapshot))
-            findings.concat(check_p3_staging_live_green(@staging_snapshot))
-            findings.concat(check_p6_parity(@staging_snapshot, @prod_snapshot))
+            findings.concat(check_p1_ghcr_digests(target_staging))
+            findings.concat(check_p2_staging_deployments(target_staging))
+            findings.concat(check_p3_staging_live_green(target_staging))
+            findings.concat(check_p6_parity(target_staging, target_prod))
             # FLEET-SCOPED invariants — must see the FULL fleet so they
             # produce the same verdict regardless of whether this run is
             # full-fleet or restricted to a single service. See `run` for
-            # the @full_*_snapshot rationale. When `run` was bypassed
-            # (test seam — preflight invoked directly without capture),
-            # fall back to the current snapshot views so legacy tests
-            # that only set @staging_snapshot/@prod_snapshot continue to
-            # work (full-fleet semantics = full == narrowed).
-            full_staging = @full_staging_snapshot || @staging_snapshot
-            full_prod    = @full_prod_snapshot    || @prod_snapshot
-            findings.concat(check_service_set_parity(full_staging, full_prod))
-            findings.concat(check_critical_env_key_parity(@staging_snapshot, @prod_snapshot))
-            findings.concat(check_expected_prod_domains(full_prod))
+            # the fleet_* rationale.
+            findings.concat(check_service_set_parity(fleet_staging, fleet_prod))
+            findings.concat(check_critical_env_key_parity(target_staging, target_prod))
+            findings.concat(check_expected_prod_domains(fleet_prod))
 
             # Mandatory parity-NOTE that env var VALUES are not compared.
             puts "NOTE: env var VALUES are not compared between staging and prod " \
@@ -1211,7 +1277,7 @@ module Railway
                 yes: options[:yes],
             )
 
-            execute_promotion(@staging_snapshot, @prod_snapshot)
+            execute_promotion(target_staging, target_prod)
         end
 
         # Resolve a staging service's image to the DIGEST-form ref that should
