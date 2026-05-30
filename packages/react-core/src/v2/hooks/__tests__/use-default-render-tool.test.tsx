@@ -297,6 +297,56 @@ describe("useDefaultRenderTool", () => {
     expect(forwarded.result).toBe("ok");
   });
 
+  // F9: warn-on-unknown-status is deduplicated per distinct value.
+  it("warns at most once for the same unknown status across renders", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const customRender = vi.fn((_props: DefaultRenderProps) => (
+      <div data-testid="custom">custom</div>
+    ));
+
+    const Harness: React.FC = () => {
+      useDefaultRenderTool({ render: customRender });
+      return null;
+    };
+
+    render(<Harness />);
+
+    const [config] = mockUseRenderTool.mock.calls[0] as [
+      {
+        render: (props: {
+          name: string;
+          toolCallId: string;
+          args: unknown;
+          status: string;
+          result: string | undefined;
+        }) => React.ReactElement;
+      },
+    ];
+
+    // Pick a status string that is NOT in the ToolCallStatus enum. Use a
+    // unique sentinel per-test so other tests can't pre-warm the dedup Set.
+    const unknownStatus = "react-unknown-status-abc";
+
+    for (let i = 0; i < 3; i++) {
+      config.render({
+        name: "searchDocs",
+        toolCallId: `tc-unknown-${i}`,
+        args: {},
+        status: unknownStatus as unknown as Parameters<
+          typeof config.render
+        >[0]["status"],
+        result: undefined,
+      });
+    }
+
+    const matching = warnSpy.mock.calls.filter((call) =>
+      String(call[0] ?? "").includes(unknownStatus),
+    );
+    expect(matching.length).toBe(1);
+    warnSpy.mockRestore();
+  });
+
   // Fix #5: circular-ref parameters must not crash the render; safe-stringify logs.
   it("default renderer survives circular-ref parameters and logs", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -322,7 +372,8 @@ describe("useDefaultRenderTool", () => {
 
     // Expand to force the <pre> JSON.stringify path to execute.
     const nameNode = screen.getByTestId("copilot-tool-render-name");
-    const headerButton = nameNode.closest("button") ?? nameNode.parentElement;
+    const headerButton = nameNode.closest("button");
+    expect(headerButton).not.toBeNull();
     expect(() => fireEvent.click(headerButton!)).not.toThrow();
 
     expect(warnSpy).toHaveBeenCalled();

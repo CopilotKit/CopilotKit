@@ -33,9 +33,17 @@ type RawRendererProps = {
 };
 
 /**
+ * Module-level dedup set so an unknown status value only emits a console
+ * warning the FIRST time we encounter it. Otherwise a stuck/unmapped status
+ * would log on every re-render (potentially many per second).
+ */
+const warnedUnknownStatuses = new Set<string>();
+
+/**
  * Map a {@link ToolCallStatus} enum value to the documented string-union
  * status the {@link DefaultRenderProps} contract exposes. Unknown / future
- * enum members log a warning and fall back to `"inProgress"`.
+ * enum members log a warning (once per distinct value) and fall back to
+ * `"inProgress"`.
  */
 export function mapToolCallStatus(
   status: ToolCallStatus,
@@ -47,16 +55,20 @@ export function mapToolCallStatus(
       return "executing";
     case ToolCallStatus.InProgress:
       return "inProgress";
-    default:
+    default: {
       // Surface unknown / future enum values so callers know their custom
       // renderer is being invoked with an unmapped status. Fall back to
-      // "inProgress" — the safest treat-as-pending default.
-      console.warn(
-        `[CopilotKit] Unknown ToolCallStatus "${String(
-          status,
-        )}" in default tool-call renderer; falling back to "inProgress".`,
-      );
+      // "inProgress" — the safest treat-as-pending default. Dedup by value
+      // so a stuck unmapped status doesn't spam console on every render.
+      const key = String(status);
+      if (!warnedUnknownStatuses.has(key)) {
+        warnedUnknownStatuses.add(key);
+        console.warn(
+          `[CopilotKit] Unknown ToolCallStatus "${key}" in default tool-call renderer; falling back to "inProgress".`,
+        );
+      }
       return "inProgress";
+    }
   }
 }
 
@@ -155,7 +167,11 @@ function safeStringifyForPre(value: unknown): string {
     );
     try {
       return String(value);
-    } catch {
+    } catch (innerErr) {
+      console.warn(
+        "[CopilotKit] safeStringifyForPre: value could not be stringified:",
+        innerErr,
+      );
       return "[unserializable]";
     }
   }
@@ -379,7 +395,11 @@ function safeStringifyForAttr(value: unknown): string {
     );
     try {
       return String(value);
-    } catch {
+    } catch (innerErr) {
+      console.warn(
+        "[CopilotKit] safeStringifyForAttr: value could not be stringified:",
+        innerErr,
+      );
       return "";
     }
   }
