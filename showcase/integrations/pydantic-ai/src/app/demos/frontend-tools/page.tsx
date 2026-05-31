@@ -36,7 +36,7 @@ function Chat() {
 
   return (
     <Background background={background}>
-      <CopilotSidebar agentId="frontend_tools" defaultOpen />
+      <CopilotSidebar agentId="frontend-tools" defaultOpen />
     </Background>
   );
 }
