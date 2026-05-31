@@ -229,14 +229,16 @@ function resolveD5Row(
   now: number = Date.now(),
 ): StatusRow | null {
   const d5Keys = CATALOG_TO_D5_KEY[featureId];
-  // Unmapped feature: fall back to a direct `d5:<slug>/<featureId>` row. This
-  // is a different code path from the mapped fan-out — some features
-  // legitimately have a direct d5 key — so we return it as-is (it still flows
-  // through buildBadge's staleness pass). cell-model.ts `resolveD5` returns
-  // "not exists" for unmapped features, but here the direct-key fallback is
-  // intentional and does not affect the mapped-family STRICT semantics below.
-  if (!d5Keys) {
-    return live.get(keyFor("d5", slug, featureId)) ?? null;
+  // Unmapped / empty-map feature: no CV test exists, so return null (gray
+  // no-data badge) to match cell-model.ts `resolveD5` (returns exists:false)
+  // and depth-utils.ts `isD5Green` (returns false). There is NO direct-key
+  // fallback — a feature with real D5 coverage must be in CATALOG_TO_D5_KEY.
+  // A direct `d5:<slug>/<featureId>` fallback was removed because it could
+  // resolve a green badge from a stale/shared PB row, granting D5 to a cell
+  // the chip and depth derivation both treat as having no CV test, so the
+  // badge and chip would visibly contradict each other.
+  if (!d5Keys || d5Keys.length === 0) {
+    return null;
   }
   // Per-sub-row stale-green→degraded fold applied BEFORE the worst-state
   // comparison (mirrors cell-model.ts `resolveD5`): any stale-green sub-row

@@ -356,20 +356,24 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     // (e2e is also required); rollup is "gray" and the red d5/d6 rows
     // must not promote it to red.
     // D6 uses integration-scoped aggregate keys (d6:<slug>), not per-feature.
+    // `agentic-chat` is a real CATALOG_TO_D5_KEY entry (single-key family);
+    // its d5 row resolves through resolveD5Row's mapped path.
     const live = mapOf([
       row("health:agno", "health", "green"),
-      row("d5:agno/ac", "d5", "red"),
+      row("d5:agno/agentic-chat", "d5", "red"),
       row("d6:agno", "d6", "red"),
     ]);
-    const c = resolveCell(live, "agno", "ac");
+    const c = resolveCell(live, "agno", "agentic-chat");
     expect(c.rollup).toBe("gray");
     expect(c.d5.tone).toBe("red");
     expect(c.d6.tone).toBe("red");
   });
 
   it("d5 degraded renders amber tone with '~' label (not green check)", () => {
-    const live = mapOf([row("d5:agno/ac", "d5", "degraded")]);
-    const c = resolveCell(live, "agno", "ac");
+    // `agentic-chat` is a mapped single-key D5 family; a degraded sub-row
+    // folds through resolveD5Row's worst-state path to amber.
+    const live = mapOf([row("d5:agno/agentic-chat", "d5", "degraded")]);
+    const c = resolveCell(live, "agno", "agentic-chat");
     expect(c.d5.tone).toBe("amber");
     expect(c.d5.label).toBe("~");
   });
@@ -486,6 +490,25 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     const c = resolveCell(live, "agno", "beautiful-chat");
     expect(c.d5.tone).toBe("red");
     expect(c.d5.label).toBe("✗");
+  });
+
+  // ── unmapped feature: no direct-key fallback (mirrors cell-model.ts
+  //    resolveD5 / depth-utils.ts isD5Green) ──
+  // A feature NOT in CATALOG_TO_D5_KEY has no CV test, so its D5 badge must
+  // be gray "?" even when a direct `d5:<slug>/<featureId>` row exists in the
+  // map. Pre-fix, resolveD5Row fell back to the direct key and rendered the
+  // row's tone (green), contradicting the coverage chip (resolveD5 returns
+  // exists:false) and deriveDepth (isD5Green returns false). The fallback was
+  // removed from isD5Green because it "could resolve true from stale/shared
+  // PB rows, granting D5 to cells without CV tests" — resolveD5Row must match.
+  it("d5 unmapped feature: present direct-key row does NOT render green (matches chip)", () => {
+    // `some-unmapped-feature` is intentionally absent from CATALOG_TO_D5_KEY.
+    const live = mapOf([row("d5:agno/some-unmapped-feature", "d5", "green")]);
+    const c = resolveCell(live, "agno", "some-unmapped-feature");
+    expect(c.d5.tone).not.toBe("green");
+    expect(c.d5.tone).toBe("gray");
+    expect(c.d5.label).toBe("?");
+    expect(c.d5.row).toBeNull();
   });
 
   it("d5 multi-key fan-out: stale-green sub-row listed FIRST folds to amber (order-independent)", () => {
