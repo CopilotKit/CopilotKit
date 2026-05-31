@@ -3706,4 +3706,119 @@ describe("buildProbeInvoker", () => {
     expect(persisted.total).toBe(persisted.passed + persisted.failed);
     expect(persisted.failed).toBeGreaterThanOrEqual(1);
   });
+
+  // ----------------------------------------------------------------------
+  // Service-startup stagger — protects against the d6 Chromium-spawn
+  // thundering herd that crashes the BrowserPool when many services fan
+  // out into pool.acquire() in the same JS tick. The stagger spaces
+  // worker-zero..N-1's FIRST pull over `(N-1)*staggerMs`, so per-Chromium
+  // thread-spawn bursts don't trip the container's PID/thread ceiling.
+  // ----------------------------------------------------------------------
+  it("staggers worker first-pull start times across the fan-out", async () => {
+    const inputSchema = z.object({ key: z.string() });
+    const startTimes: number[] = [];
+    // Each driver run hangs long enough that every worker's FIRST pull
+    // happens before any of them finish — that's the regime where the
+    // stagger actually matters (it spaces the per-service Chromium
+    // launches, not the steady-state cursor draining).
+    const HOLD_MS = 500;
+    const driver: ProbeDriver<z.infer<typeof inputSchema>, { ok: true }> = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        startTimes.push(Date.now());
+        await new Promise((r) => setTimeout(r, HOLD_MS));
+        return {
+          key: input.key,
+          state: "green",
+          signal: { ok: true },
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const targets = Array.from({ length: 4 }, (_, i) => ({
+      key: `smoke:t${i}`,
+    }));
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke-stagger",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      targets,
+    };
+    const { writer, writes } = mkWriter();
+    const STAGGER = 50;
+    const invoker = buildProbeInvoker(cfg, {
+      driver,
+      schedulerId: cfg.id,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      ...BASE_DEPS,
+      // Override the default 300ms to keep the test fast; uses real timers
+      // so a small positive value is enough to assert ordering.
+      env: { SERVICE_STARTUP_STAGGER_MS: String(STAGGER) } as Readonly<
+        Record<string, string | undefined>
+      >,
+    });
+    await invoker();
+    expect(writes).toHaveLength(4);
+    expect(startTimes).toHaveLength(4);
+    // Worker 0 starts immediately; workers 1..N-1 each delayed by their
+    // index * stagger. Assert monotonic non-decreasing start times and a
+    // spread between first and last that is at least (N-1) * stagger
+    // less a small jitter margin. Use a generous lower bound so this is
+    // not flaky under CI scheduling jitter.
+    for (let i = 1; i < startTimes.length; i++) {
+      expect(startTimes[i]!).toBeGreaterThanOrEqual(startTimes[i - 1]!);
+    }
+    const totalSpread = startTimes[3]! - startTimes[0]!;
+    // (4 workers - 1) * 50ms = 150ms expected spread; allow 60% floor for
+    // CI scheduling jitter on slow runners.
+    expect(totalSpread).toBeGreaterThanOrEqual(Math.floor(3 * STAGGER * 0.6));
+  });
+
+  it("disables stagger when SERVICE_STARTUP_STAGGER_MS=0", async () => {
+    const inputSchema = z.object({ key: z.string() });
+    const startTimes: number[] = [];
+    const driver: ProbeDriver<z.infer<typeof inputSchema>, { ok: true }> = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        startTimes.push(Date.now());
+        return {
+          key: input.key,
+          state: "green",
+          signal: { ok: true },
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const targets = Array.from({ length: 4 }, (_, i) => ({
+      key: `smoke:t${i}`,
+    }));
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke-no-stagger",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      targets,
+    };
+    const { writer } = mkWriter();
+    const invoker = buildProbeInvoker(cfg, {
+      driver,
+      schedulerId: cfg.id,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      ...BASE_DEPS,
+      env: { SERVICE_STARTUP_STAGGER_MS: "0" } as Readonly<
+        Record<string, string | undefined>
+      >,
+    });
+    await invoker();
+    // With stagger=0 every worker pulls its first input in the same
+    // microtask flush — the spread is bounded by JS scheduling latency
+    // for sibling promises, well under any meaningful stagger value.
+    const totalSpread = startTimes[3]! - startTimes[0]!;
+    expect(totalSpread).toBeLessThan(50);
+  });
 });

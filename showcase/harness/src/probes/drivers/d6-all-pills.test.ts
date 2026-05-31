@@ -20,6 +20,8 @@ import {
 } from "../helpers/d5-registry.js";
 import type { D5Script } from "../helpers/d5-registry.js";
 import { logger } from "../../logger.js";
+import type { Browser } from "playwright";
+import type { BrowserPool } from "../helpers/browser-pool.js";
 import type {
   ProbeContext,
   ProbeResult,
@@ -527,4 +529,114 @@ describe("e2e-full driver", () => {
       expect(() => sem.release()).toThrow();
     });
   });
+
+  // --------------------------------------------------------------------
+  // Defensive re-acquire on disconnected browser. The pool's own
+  // acquire() skips zombies whose `disconnected` event has already
+  // fired, but a browser can also die in the narrow window AFTER
+  // acquire() returns it but BEFORE the caller hands it to
+  // `browser.newContext()` — most commonly during the D6 service
+  // fan-out's Chromium-spawn burst when fork() returns EAGAIN. The
+  // launcher must release-and-re-acquire so the entire service's
+  // ~40 features don't all fail with "Target page, context or
+  // browser has been closed".
+  // --------------------------------------------------------------------
+  describe("createPooledE2eFullLauncher", () => {
+    it("releases and re-acquires when acquire() returns a disconnected browser", async () => {
+      const dead = makeFakeBrowserish(false);
+      const fresh = makeFakeBrowserish(true);
+      const acquired: FakeBrowserish[] = [];
+      const released: FakeBrowserish[] = [];
+      let nextIdx = 0;
+      const queue = [dead, fresh];
+      const fakePool = {
+        async acquire() {
+          const b = queue[nextIdx++]!;
+          acquired.push(b);
+          return b as unknown as Browser;
+        },
+        release(b: unknown) {
+          released.push(b as FakeBrowserish);
+        },
+        stats() {
+          return { size: 1, available: 0, inUse: 1, totalRecycles: 0 };
+        },
+      };
+      const warnings: Array<{ event: string; meta?: unknown }> = [];
+      const warnLogger = {
+        warn: (event: string, meta?: Record<string, unknown>) =>
+          warnings.push({ event, meta }),
+      };
+      const launcher = createPooledE2eFullLauncher(
+        fakePool as unknown as BrowserPool,
+        warnLogger,
+      );
+      const browser = await launcher();
+      // Must have acquired twice (dead, then fresh) and released the
+      // dead instance back to the pool exactly once.
+      expect(acquired).toHaveLength(2);
+      expect(acquired[0]).toBe(dead);
+      expect(acquired[1]).toBe(fresh);
+      expect(released).toHaveLength(1);
+      expect(released[0]).toBe(dead);
+      // The launcher must return a usable E2eFullBrowser; smoke-test
+      // newContext() to confirm we got back the FRESH instance.
+      await browser.newContext();
+      // Diagnostic warn surfaced so operators can correlate.
+      expect(warnings.map((w) => w.event)).toContain(
+        "probe.e2e-full.pool-acquire-dead",
+      );
+    });
+
+    it("does not re-acquire when the first acquire returns a healthy browser", async () => {
+      const healthy = makeFakeBrowserish(true);
+      const acquired: FakeBrowserish[] = [];
+      const released: FakeBrowserish[] = [];
+      const fakePool = {
+        async acquire() {
+          acquired.push(healthy);
+          return healthy as unknown as Browser;
+        },
+        release(b: unknown) {
+          released.push(b as FakeBrowserish);
+        },
+        stats() {
+          return { size: 1, available: 0, inUse: 1, totalRecycles: 0 };
+        },
+      };
+      const launcher = createPooledE2eFullLauncher(
+        fakePool as unknown as BrowserPool,
+      );
+      await launcher();
+      expect(acquired).toHaveLength(1);
+      expect(released).toHaveLength(0);
+    });
+  });
 });
+
+// Module-scoped helpers for the createPooledE2eFullLauncher tests above —
+// lifted out of the describe so oxlint's consistent-function-scoping is
+// satisfied (the factory captures no parent state).
+interface FakeBrowserish {
+  connected: boolean;
+  newContext(): Promise<{
+    close(): Promise<void>;
+    newPage(): Promise<unknown>;
+  }>;
+  isConnected(): boolean;
+}
+
+function makeFakeBrowserish(connected: boolean): FakeBrowserish {
+  return {
+    connected,
+    isConnected() {
+      return this.connected;
+    },
+    async newContext() {
+      return {
+        close: async () => {},
+        newPage: async () => ({}),
+      };
+    },
+  };
+}
