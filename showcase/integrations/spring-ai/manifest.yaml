@@ -29,6 +29,7 @@ interaction_modalities:
 not_supported_features:
   - shared-state-read-write
   - shared-state-streaming
+  - byoc-json-render
 features:
   - cli-start
   - agentic-chat
@@ -65,7 +66,6 @@ features:
   - tool-rendering
   - mcp-apps
   - byoc-hashbrown
-  - byoc-json-render
   - gen-ui-interrupt
   - interrupt-headless
 a2ui_pattern: schema-inline

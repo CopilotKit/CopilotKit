@@ -26,6 +26,11 @@ managed_platform:
   url: https://mastra.ai/cloud
 not_supported_features:
   - shared-state-streaming
+  - gen-ui-interrupt
+  - interrupt-headless
+  - agentic-chat-reasoning
+  - reasoning-default-render
+  - tool-rendering-reasoning-chain
 features:
   - cli-start
   - agentic-chat
@@ -43,8 +48,6 @@ features:
   - headless-simple
   - frontend-tools
   - frontend-tools-async
-  - agentic-chat-reasoning
-  - reasoning-default-render
   - agent-config
   - declarative-gen-ui
   - a2ui-fixed-schema
@@ -63,9 +66,6 @@ features:
   - hitl
   - hitl-in-chat-booking
   - mcp-apps
-  - tool-rendering-reasoning-chain
-  - gen-ui-interrupt
-  - interrupt-headless
 a2ui_pattern: llm-driven
 agent_config_pattern: shared-state
 auth_pattern: runtime-onrequest

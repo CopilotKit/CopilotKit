@@ -23,6 +23,9 @@ managed_platform:
   url: https://crewai.com/amp
 not_supported_features:
   - shared-state-streaming
+  - gen-ui-interrupt
+  - interrupt-headless
+  - mcp-apps
 features:
   - cli-start
   - agentic-chat
@@ -60,9 +63,6 @@ features:
   - byoc-hashbrown
   - byoc-json-render
   - beautiful-chat
-  - mcp-apps
-  - gen-ui-interrupt
-  - interrupt-headless
 a2ui_pattern: schema-loading
 agent_config_pattern: shared-state
 auth_pattern: runtime-onrequest

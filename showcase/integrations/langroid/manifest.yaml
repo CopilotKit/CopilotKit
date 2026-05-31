@@ -21,6 +21,8 @@ interaction_modalities:
 not_supported_features:
   - shared-state-read-write
   - shared-state-streaming
+  - mcp-apps
+  - tool-rendering-reasoning-chain
 features:
   - cli-start
   - agentic-chat
@@ -48,14 +50,12 @@ features:
   - agent-config
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
-  - tool-rendering-reasoning-chain
   - open-gen-ui
   - open-gen-ui-advanced
   - voice
   - multimodal
   - byoc-hashbrown
   - byoc-json-render
-  - mcp-apps
   - beautiful-chat
   - a2ui-fixed-schema
   - gen-ui-interrupt
