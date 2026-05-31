@@ -17,12 +17,13 @@
  * Short-circuits: if any level is not green, stop there.
  */
 import { keyFor, CATALOG_TO_D5_KEY } from "@/lib/live-status";
-import type { LiveStatusMap, StatusRow } from "@/lib/live-status";
+import type { LiveStatusMap } from "@/lib/live-status";
 import {
   E2E_STALE_AFTER_MS,
   D4_STALE_AFTER_MS,
   LIVENESS_STALE_AFTER_MS,
-} from "@/lib/cell-model";
+  isStale,
+} from "@/lib/staleness";
 
 /** Minimal catalog cell shape consumed by depth derivation. */
 export interface CatalogCell {
@@ -82,14 +83,7 @@ function isGreenAndFresh(
 ): boolean {
   const row = live.get(key);
   if (row?.state !== "green") return false;
-  return !isRowStale(row, now, maxAgeMs);
-}
-
-/** Row is stale if `observed_at` is older than `maxAgeMs` relative to `now`. */
-function isRowStale(row: StatusRow, now: number, maxAgeMs: number): boolean {
-  const observedMs = Date.parse(row.observed_at);
-  if (Number.isNaN(observedMs)) return false;
-  return now - observedMs > maxAgeMs;
+  return !isStale(row, now, maxAgeMs);
 }
 
 /**
