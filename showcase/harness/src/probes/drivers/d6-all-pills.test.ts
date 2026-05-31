@@ -327,6 +327,120 @@ describe("e2e-full driver", () => {
     });
   });
 
+  // NSF (not_supported_features) reclassification: when an integration's
+  // manifest declares a feature in `not_supported_features` (framework
+  // primitive gap, not a regression), the driver must NOT count a failing
+  // probe on that feature as red. Instead, the feature is partitioned
+  // out before script resolution and emitted as a green side row with
+  // `errorClass: "skipped-incapable"`. The aggregate carries them in
+  // `skipped[]` AND an explicit `incapable[]` subset.
+  describe("NSF (not_supported_features) reclassification", () => {
+    it("reclassifies an NSF feature with no registered script as skipped-incapable (green), NOT red", async () => {
+      // No script registered for `gen-ui-interrupt`. Pre-NSF behaviour:
+      // missingScript red. Post-NSF: feature is in notSupportedFeatures
+      // → emitted as green side row, included in skipped[] + incapable[],
+      // never reaches the failed[] list, aggregate stays green.
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+
+      const driver = createE2eFullDriver({
+        launcher: async () => makeBrowser(),
+        scriptLoader: noopScriptLoader(),
+      });
+      const result = await driver.run(makeCtx({ writer }), {
+        key: "d6-all-pills-e2e:showcase-test-slug",
+        backendUrl: "https://test.example.com",
+        features: ["gen-ui-interrupt"],
+        notSupportedFeatures: ["gen-ui-interrupt"],
+      });
+
+      // Aggregate must be green — the only requested feature is NSF.
+      expect(result.state).toBe("green");
+
+      const signal = result.signal as E2eFullAggregateSignal;
+      expect(signal.failed).toEqual([]);
+      expect(signal.skipped).toContain("gen-ui-interrupt");
+      expect(signal.incapable).toEqual(["gen-ui-interrupt"]);
+
+      // Aggregate side row honors the same reclassification.
+      const aggRow = sideEmits.find((r) => r.key === "d6:test-slug");
+      expect(aggRow).toBeDefined();
+      expect(aggRow!.state).toBe("green");
+
+      // Per-feature side row is green with skipped-incapable class.
+      const ftRow = sideEmits.find(
+        (r) => r.key === "d6:test-slug/gen-ui-interrupt",
+      );
+      expect(ftRow).toBeDefined();
+      expect(ftRow!.state).toBe("green");
+      const ftSignal = ftRow!.signal as E2eFullFeatureSignal;
+      expect(ftSignal.errorClass).toBe("skipped-incapable");
+      expect(ftSignal.note).toContain("not supported");
+    });
+
+    it("keeps capable features running while NSF feature is skipped", async () => {
+      // agentic-chat (capable) passes, gen-ui-interrupt (NSF) is skipped.
+      // Aggregate stays green; passed=1; skipped=[gen-ui-interrupt];
+      // incapable=[gen-ui-interrupt]; failed=[].
+      registerD5Script(makeScript(["agentic-chat"]));
+
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+
+      const driver = createE2eFullDriver({
+        launcher: async () => makeBrowser(),
+        scriptLoader: noopScriptLoader(),
+      });
+      const result = await driver.run(makeCtx({ writer }), {
+        key: "d6-all-pills-e2e:showcase-test-slug",
+        backendUrl: "https://test.example.com",
+        features: ["agentic-chat", "gen-ui-interrupt"],
+        notSupportedFeatures: ["gen-ui-interrupt"],
+      });
+
+      expect(result.state).toBe("green");
+      const signal = result.signal as E2eFullAggregateSignal;
+      expect(signal.passed).toBe(1);
+      expect(signal.failed).toEqual([]);
+      expect(signal.skipped).toEqual(["gen-ui-interrupt"]);
+      expect(signal.incapable).toEqual(["gen-ui-interrupt"]);
+    });
+
+    it("does NOT affect features outside the NSF set", async () => {
+      // agentic-chat is NOT in NSF but has no script — must still go red.
+      // This guards against accidentally treating NSF as a global allow.
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+
+      const driver = createE2eFullDriver({
+        launcher: async () => makeBrowser(),
+        scriptLoader: noopScriptLoader(),
+      });
+      const result = await driver.run(makeCtx({ writer }), {
+        key: "d6-all-pills-e2e:showcase-test-slug",
+        backendUrl: "https://test.example.com",
+        features: ["agentic-chat"],
+        notSupportedFeatures: ["gen-ui-interrupt"],
+      });
+
+      expect(result.state).toBe("red");
+      const signal = result.signal as E2eFullAggregateSignal;
+      expect(signal.failed).toContain("agentic-chat");
+    });
+  });
+
   describe("deploy-churn grace window", () => {
     it("skips with green when deploy is recent", async () => {
       registerD5Script(makeScript(["agentic-chat"]));

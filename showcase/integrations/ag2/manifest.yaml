@@ -19,6 +19,8 @@ generative_ui:
   - a2ui-dynamic-schema
 not_supported_features:
   - shared-state-streaming
+  - gen-ui-interrupt
+  - interrupt-headless
 interaction_modalities:
   - sidebar
   - embedded
@@ -54,8 +56,6 @@ features:
   - frontend-tools-async
   - shared-state-read-write
   - subagents
-  - gen-ui-interrupt
-  - interrupt-headless
   - auth
   - agent-config
   - voice

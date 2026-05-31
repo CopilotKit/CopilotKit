@@ -20,6 +20,9 @@ interaction_modalities:
   - chat
 not_supported_features:
   - shared-state-streaming
+  - gen-ui-interrupt
+  - interrupt-headless
+  - hitl-in-chat-booking
 features:
   - beautiful-chat
   - cli-start
@@ -32,7 +35,6 @@ features:
   - frontend-tools
   - frontend-tools-async
   - hitl-in-chat
-  - hitl-in-chat-booking
   - hitl-in-app
   - hitl
   - tool-rendering
@@ -58,8 +60,6 @@ features:
   - headless-simple
   - headless-complete
   - readonly-state-agent-context
-  - gen-ui-interrupt
-  - interrupt-headless
 a2ui_pattern: schema-loading
 interrupt_pattern: promise-based
 agent_config_pattern: shared-state
