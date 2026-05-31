@@ -501,7 +501,7 @@ export function createE2eFullDriver(
       const requestedFeatures = featureSource.filter(isKnownFeatureType);
 
       if (requestedFeatures.length === 0) {
-        return {
+        const aggregateResult: ProbeResult<E2eFullAggregateSignal> = {
           key: input.key,
           state: "green",
           signal: {
@@ -516,6 +516,8 @@ export function createE2eFullDriver(
           },
           observedAt,
         };
+        await emitAggregate(ctx, slug, aggregateResult);
+        return aggregateResult;
       }
 
       // Deploy-churn grace window
@@ -548,7 +550,7 @@ export function createE2eFullDriver(
               });
             }
 
-            return {
+            const aggregateResult: ProbeResult<E2eFullAggregateSignal> = {
               key: input.key,
               state: "green",
               signal: {
@@ -563,6 +565,8 @@ export function createE2eFullDriver(
               },
               observedAt,
             };
+            await emitAggregate(ctx, slug, aggregateResult);
+            return aggregateResult;
           }
         }
       }
@@ -644,7 +648,7 @@ export function createE2eFullDriver(
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           ctx.logger.warn("probe.e2e-full.launcher-error", { slug, err: msg });
-          return {
+          const aggregateResult: ProbeResult<E2eFullAggregateSignal> = {
             key: input.key,
             state: "red",
             signal: {
@@ -660,6 +664,8 @@ export function createE2eFullDriver(
             },
             observedAt,
           };
+          await emitAggregate(ctx, slug, aggregateResult);
+          return aggregateResult;
         }
 
         // Emit red side rows for missing-script features upfront.
@@ -695,7 +701,7 @@ export function createE2eFullDriver(
 
         // If nothing is runnable but we have missing scripts, that's a red.
         if (runnable.length === 0 && missingScript.length > 0) {
-          return {
+          const aggregateResult: ProbeResult<E2eFullAggregateSignal> = {
             key: input.key,
             state: "red",
             signal: {
@@ -712,11 +718,13 @@ export function createE2eFullDriver(
             },
             observedAt,
           };
+          await emitAggregate(ctx, slug, aggregateResult);
+          return aggregateResult;
         }
 
         // If nothing is runnable and everything was filtered, green.
         if (runnable.length === 0) {
-          return {
+          const aggregateResult: ProbeResult<E2eFullAggregateSignal> = {
             key: input.key,
             state: "green",
             signal: {
@@ -731,6 +739,8 @@ export function createE2eFullDriver(
             },
             observedAt,
           };
+          await emitAggregate(ctx, slug, aggregateResult);
+          return aggregateResult;
         }
 
         // Run features with bounded parallelism.
@@ -1001,7 +1011,7 @@ export function createE2eFullDriver(
           state: aggregateGreen ? "green" : "red",
           durationMs: Date.now() - serviceStart,
         });
-        return {
+        const aggregateResult: ProbeResult<E2eFullAggregateSignal> = {
           key: input.key,
           state: aggregateGreen ? "green" : "red",
           signal: {
@@ -1017,6 +1027,12 @@ export function createE2eFullDriver(
           },
           observedAt,
         };
+        // Unconditional dashboard-contract emit: even if features failed
+        // or timed out, the dashboard's D6 column needs a `d6:<slug>` row
+        // to display red (vs blank). Placed after the loop so per-feature
+        // timeouts inside the loop can never skip it.
+        await emitAggregate(ctx, slug, aggregateResult);
+        return aggregateResult;
       } finally {
         clearTimeout(timeoutHandle);
         if (externalAbort) {
@@ -1344,6 +1360,45 @@ async function sideEmit(
   } catch (err) {
     ctx.logger.error("probe.e2e-full.side-emit-writer-failed", {
       key: result.key,
+      err: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+/**
+ * Emit the integration-scoped aggregate `d6:<slug>` side row consumed
+ * by the showcase dashboard. The dashboard reads this exact key (see
+ * `shell-dashboard/src/lib/live-status.ts` and
+ * `shell-dashboard/src/components/depth-utils.ts`). The CLI driver path
+ * (cli/targets.ts -> `key: d6:<slug>`) produces this shape as its
+ * primary return; the cron path's primary key is
+ * `d6-all-pills-e2e:<name>`, so without this explicit side-emit the
+ * dashboard's D6 column stays permanently blank.
+ *
+ * Best-effort and isolated from primary-return semantics: failures here
+ * are logged by `ctx.writer.write` but never propagate to the caller.
+ */
+async function emitAggregate(
+  ctx: ProbeContext,
+  slug: string,
+  result: ProbeResult<E2eFullAggregateSignal>,
+): Promise<void> {
+  if (!ctx.writer) {
+    ctx.logger.warn("probe.e2e-full.aggregate-writer-missing", {
+      key: `d6:${slug}`,
+    });
+    return;
+  }
+  try {
+    await ctx.writer.write({
+      key: `d6:${slug}`,
+      state: result.state,
+      signal: result.signal,
+      observedAt: result.observedAt,
+    });
+  } catch (err) {
+    ctx.logger.error("probe.e2e-full.aggregate-emit-failed", {
+      key: `d6:${slug}`,
       err: err instanceof Error ? err.message : String(err),
     });
   }
