@@ -161,6 +161,22 @@ describe("deriveDepth", () => {
     expect(result.achieved).toBe(4);
   });
 
+  it("D4 worst-state wins: green chat + red tools does NOT achieve D4", () => {
+    // Unification D: D4 was `chatGreen || toolsGreen` (OR), which credited
+    // D4 even when one half was red. Match cell-model's resolveD4 worst-
+    // state-wins — a red tools row pulls D4 down so achieved caps at D3.
+    const c = cell("lgp", "agentic-chat");
+    const live = mapOf([
+      row("health:lgp", "health", "green"),
+      row("agent:lgp", "agent", "green"),
+      row("e2e:lgp/agentic-chat", "e2e", "green"),
+      row("chat:lgp", "chat", "green"),
+      row("tools:lgp", "tools", "red"),
+    ]);
+    const result = deriveDepth(c, live);
+    expect(result.achieved).toBe(3);
+  });
+
   it("short-circuits: D1 red means D0 even if D2+ green", () => {
     const c = cell("lgp", "agentic-chat");
     const live = mapOf([

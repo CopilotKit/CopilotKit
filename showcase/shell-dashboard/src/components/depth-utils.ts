@@ -87,6 +87,29 @@ function isGreenAndFresh(
 }
 
 /**
+ * Check whether D4 (real-time chat/tools) is green for a given slug, using
+ * worst-state-wins semantics that mirror `cell-model.ts` `resolveD4`: D4 is
+ * green only when at least one of `chat:<slug>` / `tools:<slug>` is present
+ * AND every present row is green-and-fresh. A present red/degraded/stale row
+ * pulls D4 down even if its sibling is green — the old `chatGreen ||
+ * toolsGreen` OR wrongly credited D4 when one half was failing.
+ */
+function isD4Green(live: LiveStatusMap, slug: string, now: number): boolean {
+  const chatRow = live.get(keyFor("chat", slug)) ?? null;
+  const toolsRow = live.get(keyFor("tools", slug)) ?? null;
+  // Neither present → D4 has no evidence, not achieved.
+  if (!chatRow && !toolsRow) return false;
+  // Every present row must be green-and-fresh (worst-state wins).
+  for (const present of [chatRow, toolsRow]) {
+    if (!present) continue;
+    if (!isGreenAndFresh(live, present.key, now, D4_STALE_AFTER_MS)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
  * Check whether all D5 PB rows for a given (slug, catalogFeatureId) are green
  * AND fresh. Returns false if the feature has no D5 mapping or any mapped row
  * is missing/non-green/stale. The staleness gate mirrors `cell-model.ts` so a
@@ -235,20 +258,13 @@ export function deriveDepth(
   }
   achieved = 3;
 
-  // D4: chat:<slug> OR tools:<slug> green (real-time window)
-  const chatGreen = isGreenAndFresh(
-    live,
-    keyFor("chat", cell.integration),
-    now,
-    D4_STALE_AFTER_MS,
-  );
-  const toolsGreen = isGreenAndFresh(
-    live,
-    keyFor("tools", cell.integration),
-    now,
-    D4_STALE_AFTER_MS,
-  );
-  if (!(chatGreen || toolsGreen)) {
+  // D4: chat:<slug> + tools:<slug>, worst-state wins (real-time window).
+  // Mirrors cell-model.ts `resolveD4`: a present green chat with a present
+  // red tools yields a NOT-green D4 (the old `chatGreen || toolsGreen` OR
+  // credited D4 even when one half was failing). A present row that is not
+  // green-and-fresh pulls D4 down; D4 is achieved only when at least one
+  // chat/tools row is present and EVERY present row is green-and-fresh.
+  if (!isD4Green(live, cell.integration, now)) {
     return {
       achieved,
       maxPossible,
