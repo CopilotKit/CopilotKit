@@ -333,7 +333,27 @@ export function createPooledE2eFullLauncher(
   logger?: { warn(event: string, meta?: Record<string, unknown>): void },
 ): E2eFullBrowserLauncher {
   return async (abortSignal?: AbortSignal): Promise<E2eFullBrowser> => {
-    const browser = await pool.acquire();
+    let browser = await pool.acquire();
+
+    // Defensive re-acquire: the pool's acquire() skips zombie slots whose
+    // browser is already disconnected, but a browser can also die in the
+    // narrow window AFTER acquire() returns it but BEFORE we hand it to
+    // `browser.newContext()` — most commonly during the D6 service fan-out's
+    // Chromium-spawn burst, when the kernel returns EAGAIN on fork and a
+    // recently-handed-out chromium dies between this caller and its first
+    // newContext call. Without this guard, the dead browser dooms an entire
+    // service's ~40 features ("Target page, context or browser has been
+    // closed" on every single feature). One re-acquire is enough — release
+    // routes the dead instance back into the pool where its `isConnected`
+    // check + `recycleSlot` recovery take over.
+    if (!browser.isConnected()) {
+      logger?.warn("probe.e2e-full.pool-acquire-dead", {
+        poolAvailable: pool.stats().available,
+        poolInUse: pool.stats().inUse,
+      });
+      pool.release(browser);
+      browser = await pool.acquire();
+    }
 
     let forceReleased = false;
     const openContexts = new Set<{ close(): Promise<void> }>();
