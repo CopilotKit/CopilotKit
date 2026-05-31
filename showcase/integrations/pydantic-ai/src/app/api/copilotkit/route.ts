@@ -41,6 +41,7 @@ const agentNames = [
   // Frontend tool demos
   "frontend-tools",
   "frontend-tools-async",
+  "threadid-frontend-tool-roundtrip",
   "hitl-in-app",
   "hitl-in-chat",
   // Generative UI demos

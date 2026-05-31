@@ -8,10 +8,8 @@
 // rendered by the built-in `CopilotChatReasoningMessage` component
 // (Thinking… / Thought for X header with an expandable content region).
 //
-// Both demos share the dedicated Claude extended-thinking runtime
-// (`/api/copilotkit-reasoning` → agent_server's `/reasoning` endpoint)
-// so `thinking_delta` events flow as AG-UI REASONING_MESSAGE_*. The only
-// difference between the two demos is whether the
+// Both demos share the same backend (`reasoning_agent` graph) and the
+// same runtime URL (/api/copilotkit). The only difference is whether the
 // `messageView.reasoningMessage` slot is overridden.
 
 import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";

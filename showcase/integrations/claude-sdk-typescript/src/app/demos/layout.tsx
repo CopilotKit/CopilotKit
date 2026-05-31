@@ -39,11 +39,11 @@ export async function generateMetadata(): Promise<Metadata> {
   const pathname = h.get("x-pathname") ?? "";
   const match = pathname.match(/^\/demos\/([^/]+)/);
   const slug = match?.[1];
-  if (!slug) return { title: "Claude Agent SDK - TypeScript" };
+  if (!slug) return { title: "LangChain - Python" };
 
   const index = loadDemoIndex();
   const demoName = index.get(slug) ?? titleCase(slug);
-  return { title: `Claude Agent SDK - TypeScript - ${demoName}` };
+  return { title: `LangChain - Python - ${demoName}` };
 }
 
 export default function DemosLayout({

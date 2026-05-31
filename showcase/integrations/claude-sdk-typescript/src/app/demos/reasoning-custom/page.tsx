@@ -3,12 +3,11 @@
 // Reasoning — Custom
 //
 // Pairs with `reasoning-default` so users can compare default vs custom
-// reasoning rendering side by side. Both demos share the dedicated
-// Claude extended-thinking runtime (`/api/copilotkit-reasoning` →
-// agent_server's `/reasoning` endpoint) so `thinking_delta` events flow
-// as AG-UI REASONING_MESSAGE_*. This cell overrides the
-// `reasoningMessage` slot on the `messageView` slot with `ReasoningBlock`
-// — a tagged amber banner that emphasizes the agent's thinking chain.
+// reasoning rendering side by side. Both demos share the same backend
+// (`reasoning_agent` graph) and runtime URL (/api/copilotkit). This cell
+// overrides the `reasoningMessage` slot on the `messageView` slot with
+// `ReasoningBlock` — a tagged amber banner that emphasizes the agent's
+// thinking chain.
 //
 // Reasoning is a first-class message type in v2: see
 // packages/react-core/src/v2/components/chat/CopilotChatMessageView.tsx,

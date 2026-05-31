@@ -114,7 +114,7 @@ demos:
     highlight:
       - src/agent_server.ts
       - src/app/demos/chat-slots/page.tsx
-      - src/app/demos/chat-slots/custom-welcome-screen.tsx
+      - src/app/demos/chat-slots/slot-wrappers.tsx
       - src/app/api/copilotkit/route.ts
   - id: chat-customization-css
     name: Chat Customization (CSS)
@@ -231,7 +231,7 @@ demos:
     highlight:
       - src/agent_server.ts
       - src/app/demos/gen-ui-tool-based/page.tsx
-      - src/app/demos/gen-ui-tool-based/agent.ts
+      - src/app/demos/gen-ui-tool-based/bar-chart.tsx
       - src/app/api/copilotkit/route.ts
   - id: shared-state-streaming
     name: State Streaming
@@ -497,7 +497,7 @@ demos:
     highlight:
       - src/agent_server.ts
       - src/app/demos/gen-ui-interrupt/page.tsx
-      - src/app/demos/gen-ui-interrupt/time-picker-card.tsx
+      - src/app/demos/gen-ui-interrupt/_components/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: interrupt-headless
     name: Headless Interrupt (testing)
@@ -520,8 +520,8 @@ demos:
     highlight:
       - src/agent/headless-complete-prompt.ts
       - src/app/demos/headless-complete/page.tsx
-      - src/app/demos/headless-complete/tool-renderers.tsx
-      - src/app/demos/headless-complete/use-rendered-messages.tsx
+      - src/app/demos/headless-complete/chat/chat.tsx
+      - src/app/demos/headless-complete/hooks/use-tool-renderers.tsx
       - src/app/api/copilotkit-headless-complete/route.ts
   - id: a2ui-fixed-schema
     name: A2UI (Fixed Schema)
