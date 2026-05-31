@@ -7,6 +7,12 @@ import {
 } from "./live-status";
 import type { LiveStatusMap, StatusRow } from "./live-status";
 import { formatTs } from "./format-ts";
+import { E2E_STALE_AFTER_MS, LIVENESS_STALE_AFTER_MS } from "./staleness";
+
+// A recent timestamp so green rows are not treated as stale by the
+// staleness downgrade in resolveCell (which compares against Date.now()).
+// Mirrors the FRESH_OBSERVED_AT pattern in compute-tally-detail.test.tsx.
+const FRESH_OBSERVED_AT = new Date().toISOString();
 
 function row(
   key: string,
@@ -20,10 +26,10 @@ function row(
     dimension,
     state,
     signal: {},
-    observed_at: "2026-04-20T00:00:00Z",
-    transitioned_at: "2026-04-20T00:00:00Z",
+    observed_at: FRESH_OBSERVED_AT,
+    transitioned_at: FRESH_OBSERVED_AT,
     fail_count: state === "red" ? 1 : 0,
-    first_failure_at: state === "red" ? "2026-04-20T00:00:00Z" : null,
+    first_failure_at: state === "red" ? FRESH_OBSERVED_AT : null,
     ...overrides,
   };
 }
@@ -440,6 +446,131 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
       row("d5:agno/beautiful-chat-schedule-meeting", "d5", "green"),
     ]);
     expect(resolveCell(live, "agno", "beautiful-chat").d5.tone).toBe("green");
+  });
+});
+
+describe("resolveCell — staleness downgrade (unification A)", () => {
+  // A fixed `now` so the stale/fresh boundary is deterministic.
+  const NOW = Date.parse("2026-05-30T00:00:00Z");
+  const freshAt = (ageMs: number): string =>
+    new Date(NOW - ageMs).toISOString();
+
+  it("stale-green e2e → rollup not-green + e2e badge amber", () => {
+    // e2e uses the 6h window. A green e2e row older than that must downgrade
+    // to amber so the frozen-green driver no longer credits D3.
+    const live = mapOf([
+      row("health:agno", "health", "green", { observed_at: freshAt(0) }),
+      row("e2e:agno/ac", "e2e", "green", {
+        observed_at: freshAt(E2E_STALE_AFTER_MS + 60 * 60 * 1000),
+      }),
+    ]);
+    const c = resolveCell(live, "agno", "ac", { now: NOW });
+    expect(c.rollup).not.toBe("green");
+    expect(c.rollup).toBe("amber");
+    expect(c.e2e.tone).toBe("amber");
+  });
+
+  it("fresh-green e2e + fresh-green health → stays green", () => {
+    const live = mapOf([
+      row("health:agno", "health", "green", { observed_at: freshAt(0) }),
+      row("e2e:agno/ac", "e2e", "green", { observed_at: freshAt(0) }),
+    ]);
+    const c = resolveCell(live, "agno", "ac", { now: NOW });
+    expect(c.rollup).toBe("green");
+    expect(c.e2e.tone).toBe("green");
+    expect(c.health.tone).toBe("green");
+  });
+
+  it("stale-green health → rollup not-green + health badge amber (45m window)", () => {
+    // health uses the tighter liveness window. A green health row just past
+    // 45m downgrades; an e2e row inside its 6h window stays green.
+    const live = mapOf([
+      row("health:agno", "health", "green", {
+        observed_at: freshAt(LIVENESS_STALE_AFTER_MS + 60 * 1000),
+      }),
+      row("e2e:agno/ac", "e2e", "green", { observed_at: freshAt(0) }),
+    ]);
+    const c = resolveCell(live, "agno", "ac", { now: NOW });
+    expect(c.rollup).not.toBe("green");
+    expect(c.rollup).toBe("amber");
+    expect(c.health.tone).toBe("amber");
+  });
+
+  it("per-dimension windows: e2e green at 1h is NOT stale (under 6h)", () => {
+    // 1h is well within the e2e window — must stay green.
+    const live = mapOf([
+      row("health:agno", "health", "green", { observed_at: freshAt(0) }),
+      row("e2e:agno/ac", "e2e", "green", {
+        observed_at: freshAt(60 * 60 * 1000),
+      }),
+    ]);
+    const c = resolveCell(live, "agno", "ac", { now: NOW });
+    expect(c.rollup).toBe("green");
+    expect(c.e2e.tone).toBe("green");
+  });
+
+  it("per-dimension windows: health green at 1h IS stale (over 45m)", () => {
+    // 1h exceeds the liveness window — health must downgrade even though the
+    // same age would be fresh for e2e.
+    const live = mapOf([
+      row("health:agno", "health", "green", {
+        observed_at: freshAt(60 * 60 * 1000),
+      }),
+      row("e2e:agno/ac", "e2e", "green", { observed_at: freshAt(0) }),
+    ]);
+    const c = resolveCell(live, "agno", "ac", { now: NOW });
+    expect(c.health.tone).toBe("amber");
+    expect(c.rollup).toBe("amber");
+  });
+
+  it("stale-green d5 badge downgrades to amber (per-sub-row fold, 6h window)", () => {
+    // resolveD5Row applies the per-sub-row stale fold BEFORE worst-state, so
+    // any stale-green sub-row forces the family amber.
+    const live = mapOf([
+      row("d5:agno/beautiful-chat-toggle-theme", "d5", "green", {
+        observed_at: freshAt(0),
+      }),
+      row("d5:agno/beautiful-chat-pie-chart", "d5", "green", {
+        observed_at: freshAt(E2E_STALE_AFTER_MS + 60 * 60 * 1000),
+      }),
+    ]);
+    const c = resolveCell(live, "agno", "beautiful-chat", { now: NOW });
+    expect(c.d5.tone).toBe("amber");
+  });
+
+  it("stale-green d6 badge downgrades to amber (6h window)", () => {
+    const live = mapOf([
+      row("d6:agno", "d6", "green", {
+        observed_at: freshAt(E2E_STALE_AFTER_MS + 60 * 60 * 1000),
+      }),
+    ]);
+    const c = resolveCell(live, "agno", "ac", { now: NOW });
+    expect(c.d6.tone).toBe("amber");
+  });
+
+  it("stale-green smoke / d2 badges downgrade to amber (45m window)", () => {
+    const live = mapOf([
+      row("smoke:agno", "smoke", "green", {
+        observed_at: freshAt(LIVENESS_STALE_AFTER_MS + 60 * 1000),
+      }),
+      row("agent:agno", "agent", "green", {
+        observed_at: freshAt(LIVENESS_STALE_AFTER_MS + 60 * 1000),
+      }),
+    ]);
+    const c = resolveCell(live, "agno", "ac", { now: NOW });
+    expect(c.smoke.tone).toBe("amber");
+    expect(c.d2.tone).toBe("amber");
+  });
+
+  it("stale RED row is left as-is (only green is downgraded)", () => {
+    const live = mapOf([
+      row("e2e:agno/ac", "e2e", "red", {
+        observed_at: freshAt(E2E_STALE_AFTER_MS + 60 * 60 * 1000),
+      }),
+    ]);
+    const c = resolveCell(live, "agno", "ac", { now: NOW });
+    expect(c.e2e.tone).toBe("red");
+    expect(c.rollup).toBe("red");
   });
 });
 

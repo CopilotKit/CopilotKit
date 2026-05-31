@@ -282,6 +282,9 @@ export function CellMatrix({
   // Filter features based on mode
   const filterFeatureRow = (featureId: string): boolean => {
     if (filter === "all" || filter === "reference") return true;
+    // Single `now` per filter pass so the gaps `resolveCell` and the
+    // regressions `buildCellModel` agree on which green rows are stale.
+    const now = Date.now();
     if (filter === "wired") {
       return visibleIntegrations.some((int) => {
         const cell = cellIndex.get(`${int.slug}/${featureId}`);
@@ -298,7 +301,9 @@ export function CellMatrix({
         if (cell.status === "unsupported") return false;
         // Red probes = functional gap (cell exists but failing)
         if (cell.feature !== null) {
-          const cellState = resolveCell(liveStatus, int.slug, cell.feature);
+          const cellState = resolveCell(liveStatus, int.slug, cell.feature, {
+            now,
+          });
           if (cellState.rollup === "red") return true;
         }
         return false;
@@ -309,12 +314,16 @@ export function CellMatrix({
         const cell = cellIndex.get(`${int.slug}/${featureId}`);
         if (!cell) return false;
         const isNotSupported = cell.status === "unsupported";
-        const model = buildCellModel(liveStatus, {
-          slug: int.slug,
-          featureId,
-          isSupported: !isNotSupported,
-          isWired: cell.status === "wired" || cell.status === "stub",
-        });
+        const model = buildCellModel(
+          liveStatus,
+          {
+            slug: int.slug,
+            featureId,
+            isSupported: !isNotSupported,
+            isWired: cell.status === "wired" || cell.status === "stub",
+          },
+          now,
+        );
         return model.isRegression;
       });
     }

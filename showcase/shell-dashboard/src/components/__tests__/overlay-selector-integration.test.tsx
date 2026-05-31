@@ -53,6 +53,10 @@ vi.mock("@/data/docs-status.json", () => ({
 // Helpers
 // ---------------------------------------------------------------------------
 
+// A recent timestamp so green rows are not treated as stale by the
+// staleness downgrade in resolveCell (compares against Date.now()).
+const FRESH_OBSERVED_AT = new Date().toISOString();
+
 function makeStatusRow(
   dimension: string,
   slug: string,
@@ -68,8 +72,8 @@ function makeStatusRow(
     dimension,
     state,
     signal: null,
-    observed_at: "2026-04-20T00:00:00Z",
-    transitioned_at: "2026-04-20T00:00:00Z",
+    observed_at: FRESH_OBSERVED_AT,
+    transitioned_at: FRESH_OBSERVED_AT,
     fail_count: 0,
     first_failure_at: null,
   };

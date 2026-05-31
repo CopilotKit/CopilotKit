@@ -13,6 +13,11 @@
  */
 
 import { formatTs } from "./format-ts";
+import {
+  E2E_STALE_AFTER_MS,
+  LIVENESS_STALE_AFTER_MS,
+  isStale,
+} from "./staleness";
 
 export type State = "green" | "red" | "degraded";
 
@@ -204,21 +209,42 @@ const D5_STATE_RANK: Readonly<Record<State, number>> = {
   green: 1,
 };
 
+/**
+ * Effective state for staleness folding: a green row whose `observed_at` is
+ * older than `maxAgeMs` folds in as `degraded`, so a frozen-green driver can
+ * never win the all-green tie and mask a fresh-green sibling. Only green is
+ * downgraded — a stale red/degraded row already signals a problem. Mirrors
+ * `cell-model.ts`'s per-row stale-green downgrade.
+ */
+function effectiveState(row: StatusRow, now: number, maxAgeMs: number): State {
+  return row.state === "green" && isStale(row, now, maxAgeMs)
+    ? "degraded"
+    : row.state;
+}
+
 function resolveD5Row(
   live: LiveStatusMap,
   slug: string,
   featureId: string,
+  now: number = Date.now(),
 ): StatusRow | null {
   const d5Keys = CATALOG_TO_D5_KEY[featureId];
   if (!d5Keys) {
     return live.get(keyFor("d5", slug, featureId)) ?? null;
   }
+  // Per-sub-row stale-green→degraded fold applied BEFORE the worst-state
+  // comparison (mirrors cell-model.ts `resolveD5`): any stale-green sub-row
+  // folds in as degraded so it can never win the all-green tie and mask a
+  // fresh-green sibling. D5 uses the e2e (6h) window.
   let worst: StatusRow | null = null;
+  let worstState: State | null = null;
   for (const d5Key of d5Keys) {
     const row = live.get(keyFor("d5", slug, d5Key)) ?? null;
     if (!row) continue;
-    if (!worst || D5_STATE_RANK[row.state] > D5_STATE_RANK[worst.state]) {
+    const eff = effectiveState(row, now, E2E_STALE_AFTER_MS);
+    if (worstState === null || D5_STATE_RANK[eff] > D5_STATE_RANK[worstState]) {
       worst = row;
+      worstState = eff;
     }
   }
   return worst;
@@ -373,6 +399,40 @@ export interface ResolveCellOptions {
    * overridden to "dashboard offline (§5.3)".
    */
   connection?: ConnectionStatus;
+  /**
+   * Reference time for staleness downgrade, defaulting to `Date.now()`.
+   * Co-rendering call sites thread the SAME `now` they pass to
+   * `buildCellModel` so the chip and the badges agree on which green rows
+   * are stale.
+   */
+  now?: number;
+}
+
+/**
+ * Build a `BadgeRender` for one dimension, applying the stale-green→degraded
+ * downgrade: a green row older than `maxAgeMs` renders amber with the "stale"
+ * tooltip, so a frozen-green driver no longer presents as healthy. The
+ * downgrade affects only the rendered tone/label/tooltip — `.row` retains the
+ * ORIGINAL row so consumers still have the raw producer data. A missing row,
+ * or a non-green row, passes through unchanged.
+ */
+function buildBadge(
+  dim: LiveDimension,
+  row: StatusRow | null,
+  now: number,
+  maxAgeMs: number,
+  connection: ConnectionStatus,
+): BadgeRender {
+  const effRow: StatusRow | null =
+    row && row.state === "green" && isStale(row, now, maxAgeMs)
+      ? { ...row, state: "degraded" }
+      : row;
+  return {
+    tone: rowTone(effRow),
+    label: formatLabel(dim, effRow),
+    tooltip: formatTooltip(dim, effRow, connection),
+    row,
+  };
 }
 
 /**
@@ -394,6 +454,7 @@ export function resolveCell(
   opts: ResolveCellOptions = {},
 ): CellState {
   const connection: ConnectionStatus = opts.connection ?? "live";
+  const now: number = opts.now ?? Date.now();
 
   const healthRow = live.get(keyFor("health", slug)) ?? null;
   const e2eRow = live.get(keyFor("e2e", slug, featureId)) ?? null;
@@ -415,15 +476,25 @@ export function resolveCell(
   // (alert engine routes them independently, same model as smoke). A
   // missing row resolves to a gray "?" badge, which is the expected
   // resting state for D6 cells outside their weekly-rotation slot.
-  const d5Row = resolveD5Row(live, slug, featureId);
+  const d5Row = resolveD5Row(live, slug, featureId, now);
   // D6 probe writes aggregate keys d6:<slug>, not per-cell d6:<slug>/<featureId>.
   const d6Row = live.get(keyFor("d6", slug)) ?? null;
 
   // Rollup contributors: health + e2e (Decision #7: smokeRow dropped).
-  const contributors: Array<StatusRow | null> = [healthRow, e2eRow];
-  const toneSet = contributors.map(rowTone);
-  const hasAnyRed = toneSet.includes("red");
-  const hasAnyAmber = toneSet.includes("amber");
+  // Each contributor's stale-green is downgraded to degraded BEFORE tone
+  // derivation, using its own window — health uses the liveness (45m) window,
+  // e2e uses the e2e (6h) window — so a frozen-green driver can no longer
+  // roll the cell up to green. Only green is downgraded; a stale red/degraded
+  // row already signals a problem and is left as-is.
+  const healthEff = healthRow
+    ? effectiveState(healthRow, now, LIVENESS_STALE_AFTER_MS)
+    : null;
+  const e2eEff = e2eRow
+    ? effectiveState(e2eRow, now, E2E_STALE_AFTER_MS)
+    : null;
+  const contributorStates: Array<State | null> = [healthEff, e2eEff];
+  const hasAnyRed = contributorStates.includes("red");
+  const hasAnyAmber = contributorStates.includes("degraded");
   // `allGreen` is gated on `connection !== "error"` to avoid the stale-green
   // lie (spec §5.3): when the SSE stream has gone dark, any cached green
   // rows are by definition stale and must NOT be presented as authoritative
@@ -436,9 +507,7 @@ export function resolveCell(
   // e2e probe has actually ticked, which is a different flavour of the
   // stale-green lie.
   const allGreen =
-    connection !== "error" &&
-    healthRow?.state === "green" &&
-    e2eRow?.state === "green";
+    connection !== "error" && healthEff === "green" && e2eEff === "green";
 
   let rollup: BadgeTone;
   if (hasAnyRed) {
@@ -455,43 +524,27 @@ export function resolveCell(
     rollup = "gray";
   }
 
+  // Per-badge stale-green downgrade windows: e2e/d5/d6 use the e2e (6h)
+  // window; health/d2(agent)/smoke use the tighter liveness (45m) window.
   return {
-    e2e: {
-      tone: rowTone(e2eRow),
-      label: formatLabel("e2e", e2eRow),
-      tooltip: formatTooltip("e2e", e2eRow, connection),
-      row: e2eRow,
-    },
-    smoke: {
-      tone: rowTone(smokeRow),
-      label: formatLabel("smoke", smokeRow),
-      tooltip: formatTooltip("smoke", smokeRow, connection),
-      row: smokeRow,
-    },
-    health: {
-      tone: rowTone(healthRow),
-      label: formatLabel("health", healthRow),
-      tooltip: formatTooltip("health", healthRow, connection),
-      row: healthRow,
-    },
-    d2: {
-      tone: rowTone(agentRow),
-      label: formatLabel("agent", agentRow),
-      tooltip: formatTooltip("agent", agentRow, connection),
-      row: agentRow,
-    },
-    d5: {
-      tone: rowTone(d5Row),
-      label: formatLabel("d5", d5Row),
-      tooltip: formatTooltip("d5", d5Row, connection),
-      row: d5Row,
-    },
-    d6: {
-      tone: rowTone(d6Row),
-      label: formatLabel("d6", d6Row),
-      tooltip: formatTooltip("d6", d6Row, connection),
-      row: d6Row,
-    },
+    e2e: buildBadge("e2e", e2eRow, now, E2E_STALE_AFTER_MS, connection),
+    smoke: buildBadge(
+      "smoke",
+      smokeRow,
+      now,
+      LIVENESS_STALE_AFTER_MS,
+      connection,
+    ),
+    health: buildBadge(
+      "health",
+      healthRow,
+      now,
+      LIVENESS_STALE_AFTER_MS,
+      connection,
+    ),
+    d2: buildBadge("agent", agentRow, now, LIVENESS_STALE_AFTER_MS, connection),
+    d5: buildBadge("d5", d5Row, now, E2E_STALE_AFTER_MS, connection),
+    d6: buildBadge("d6", d6Row, now, E2E_STALE_AFTER_MS, connection),
     rollup,
   };
 }
