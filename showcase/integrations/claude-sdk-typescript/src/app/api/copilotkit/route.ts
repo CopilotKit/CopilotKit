@@ -61,6 +61,7 @@ const agentNames = [
   // without 404s.
   "declarative_json_render",
   "declarative-hashbrown-demo",
+  "beautiful-chat",
   "multimodal-demo",
   "voice-demo",
   "agent-config-demo",
