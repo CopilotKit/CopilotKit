@@ -229,6 +229,12 @@ function resolveD5Row(
   now: number = Date.now(),
 ): StatusRow | null {
   const d5Keys = CATALOG_TO_D5_KEY[featureId];
+  // Unmapped feature: fall back to a direct `d5:<slug>/<featureId>` row. This
+  // is a different code path from the mapped fan-out — some features
+  // legitimately have a direct d5 key — so we return it as-is (it still flows
+  // through buildBadge's staleness pass). cell-model.ts `resolveD5` returns
+  // "not exists" for unmapped features, but here the direct-key fallback is
+  // intentional and does not affect the mapped-family STRICT semantics below.
   if (!d5Keys) {
     return live.get(keyFor("d5", slug, featureId)) ?? null;
   }
@@ -236,16 +242,33 @@ function resolveD5Row(
   // comparison (mirrors cell-model.ts `resolveD5`): any stale-green sub-row
   // folds in as degraded so it can never win the all-green tie and mask a
   // fresh-green sibling. D5 uses the e2e (6h) window.
+  //
+  // STRICT on missing sub-rows (mirrors cell-model.ts `resolveD5` and
+  // depth-utils.ts `isD5Green`'s `every(...)`): a multi-key family is credited
+  // green ONLY when EVERY mapped sub-row is present. A missing mapped sub-row
+  // (`anyMissing`) forces the family out of green and resolves to `null`
+  // (no-data → gray badge) UNLESS a present sub-row is red — a present red
+  // signals a real failure and dominates no-data.
   let worst: StatusRow | null = null;
   let worstState: State | null = null;
+  let anyMissing = false;
   for (const d5Key of d5Keys) {
     const row = live.get(keyFor("d5", slug, d5Key)) ?? null;
-    if (!row) continue;
+    if (!row) {
+      anyMissing = true;
+      continue;
+    }
     const eff = effectiveState(row, now, E2E_STALE_AFTER_MS);
     if (worstState === null || D5_STATE_RANK[eff] > D5_STATE_RANK[worstState]) {
       worst = row;
       worstState = eff;
     }
+  }
+  // A missing mapped sub-row makes the family unverified: collapse a
+  // present green/degraded fold to no-data (null). A present red still
+  // dominates (returns the red row).
+  if (anyMissing && worstState !== "red") {
+    return null;
   }
   return worst;
 }
@@ -412,9 +435,12 @@ export interface ResolveCellOptions {
  * Build a `BadgeRender` for one dimension, applying the stale-green→degraded
  * downgrade: a green row older than `maxAgeMs` renders amber with the "stale"
  * tooltip, so a frozen-green driver no longer presents as healthy. The
- * downgrade affects only the rendered tone/label/tooltip — `.row` retains the
- * ORIGINAL row so consumers still have the raw producer data. A missing row,
- * or a non-green row, passes through unchanged.
+ * returned `.row` is the EFFECTIVE (downgraded) row so `.row.state` agrees
+ * with `.tone` — a consumer reading `.row.state` sees `degraded`, not a
+ * latent false-green. Only `.state` is rewritten; the spread preserves all
+ * other producer fields (`fail_count`, `first_failure_at`, `observed_at`,
+ * `signal`) so drilldown metadata is unaffected. A missing row, or a
+ * non-green row, passes through unchanged.
  */
 function buildBadge(
   dim: LiveDimension,
@@ -431,7 +457,7 @@ function buildBadge(
     tone: rowTone(effRow),
     label: formatLabel(dim, effRow),
     tooltip: formatTooltip(dim, effRow, connection),
-    row,
+    row: effRow,
   };
 }
 

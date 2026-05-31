@@ -412,9 +412,15 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     // Pre-fix regression: only `red` could replace `worst`, so a degraded
     // row encountered after a green row was silently dropped and the
     // badge stayed green. With the fix, degraded > green wins.
+    // All 5 mapped sub-rows are present (STRICT requires a full family before
+    // a non-red fold is credited) so the fold — not missing handling — is
+    // what's under test.
     const liveGreenFirst = mapOf([
       row("d5:agno/beautiful-chat-toggle-theme", "d5", "green"),
       row("d5:agno/beautiful-chat-pie-chart", "d5", "degraded"),
+      row("d5:agno/beautiful-chat-bar-chart", "d5", "green"),
+      row("d5:agno/beautiful-chat-search-flights", "d5", "green"),
+      row("d5:agno/beautiful-chat-schedule-meeting", "d5", "green"),
     ]);
     expect(resolveCell(liveGreenFirst, "agno", "beautiful-chat").d5.tone).toBe(
       "amber",
@@ -423,6 +429,9 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     const liveDegradedFirst = mapOf([
       row("d5:agno/beautiful-chat-toggle-theme", "d5", "degraded"),
       row("d5:agno/beautiful-chat-pie-chart", "d5", "green"),
+      row("d5:agno/beautiful-chat-bar-chart", "d5", "green"),
+      row("d5:agno/beautiful-chat-search-flights", "d5", "green"),
+      row("d5:agno/beautiful-chat-schedule-meeting", "d5", "green"),
     ]);
     expect(
       resolveCell(liveDegradedFirst, "agno", "beautiful-chat").d5.tone,
@@ -446,6 +455,71 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
       row("d5:agno/beautiful-chat-schedule-meeting", "d5", "green"),
     ]);
     expect(resolveCell(live, "agno", "beautiful-chat").d5.tone).toBe("green");
+  });
+
+  // ── STRICT missing-sub-row handling (mirrors cell-model.ts resolveD5) ──
+  // A multi-key family is credited green ONLY when EVERY mapped sub-row is
+  // present and (post-stale) green. A missing mapped sub-row makes the family
+  // unverified → no-data (gray "?"), NOT a green badge. A present red still
+  // dominates no-data and surfaces red. This matches buildCellModel's D5.
+  it("d5 multi-key fan-out: one present-green + missing sub-rows → NOT green (gray no-data)", () => {
+    // beautiful-chat maps to 5 sub-keys; emit only 1 (one present-green,
+    // four missing). Pre-fix this rendered a false-green d5 badge while
+    // buildCellModel's D5 rendered gray.
+    const live = mapOf([
+      row("d5:agno/beautiful-chat-toggle-theme", "d5", "green"),
+      // pie-chart, bar-chart, search-flights, schedule-meeting omitted.
+    ]);
+    const c = resolveCell(live, "agno", "beautiful-chat");
+    expect(c.d5.tone).not.toBe("green");
+    expect(c.d5.tone).toBe("gray");
+    expect(c.d5.label).toBe("?");
+    expect(c.d5.row).toBeNull();
+  });
+
+  it("d5 multi-key fan-out: present-red + a missing sub-row → red (red dominates no-data)", () => {
+    const live = mapOf([
+      row("d5:agno/beautiful-chat-toggle-theme", "d5", "green"),
+      row("d5:agno/beautiful-chat-pie-chart", "d5", "red"),
+      // bar-chart, search-flights, schedule-meeting omitted.
+    ]);
+    const c = resolveCell(live, "agno", "beautiful-chat");
+    expect(c.d5.tone).toBe("red");
+    expect(c.d5.label).toBe("✗");
+  });
+
+  it("d5 multi-key fan-out: stale-green sub-row listed FIRST folds to amber (order-independent)", () => {
+    // Mirrors cell-model.test.ts's staleFirst coverage to pin order-
+    // independence of the stale fold. A stale-green sub-row listed FIRST must
+    // still force the full (otherwise-fresh-green) family to amber — the fold
+    // does not depend on CATALOG_TO_D5_KEY order. All 5 sub-rows present so
+    // STRICT missing handling is satisfied and the fold is what's exercised.
+    const NOW = Date.parse("2026-05-30T00:00:00Z");
+    const staleAt = new Date(
+      NOW - (E2E_STALE_AFTER_MS + 60 * 60 * 1000),
+    ).toISOString();
+    const freshAt = new Date(NOW).toISOString();
+    const live = mapOf([
+      // Stale-green listed FIRST.
+      row("d5:agno/beautiful-chat-toggle-theme", "d5", "green", {
+        observed_at: staleAt,
+      }),
+      row("d5:agno/beautiful-chat-pie-chart", "d5", "green", {
+        observed_at: freshAt,
+      }),
+      row("d5:agno/beautiful-chat-bar-chart", "d5", "green", {
+        observed_at: freshAt,
+      }),
+      row("d5:agno/beautiful-chat-search-flights", "d5", "green", {
+        observed_at: freshAt,
+      }),
+      row("d5:agno/beautiful-chat-schedule-meeting", "d5", "green", {
+        observed_at: freshAt,
+      }),
+    ]);
+    const c = resolveCell(live, "agno", "beautiful-chat", { now: NOW });
+    expect(c.d5.tone).not.toBe("green");
+    expect(c.d5.tone).toBe("amber");
   });
 });
 
@@ -525,13 +599,24 @@ describe("resolveCell — staleness downgrade (unification A)", () => {
 
   it("stale-green d5 badge downgrades to amber (per-sub-row fold, 6h window)", () => {
     // resolveD5Row applies the per-sub-row stale fold BEFORE worst-state, so
-    // any stale-green sub-row forces the family amber.
+    // any stale-green sub-row forces the family amber. All 5 mapped sub-rows
+    // are present so STRICT missing handling is satisfied and the stale fold
+    // is what's under test.
     const live = mapOf([
       row("d5:agno/beautiful-chat-toggle-theme", "d5", "green", {
         observed_at: freshAt(0),
       }),
       row("d5:agno/beautiful-chat-pie-chart", "d5", "green", {
         observed_at: freshAt(E2E_STALE_AFTER_MS + 60 * 60 * 1000),
+      }),
+      row("d5:agno/beautiful-chat-bar-chart", "d5", "green", {
+        observed_at: freshAt(0),
+      }),
+      row("d5:agno/beautiful-chat-search-flights", "d5", "green", {
+        observed_at: freshAt(0),
+      }),
+      row("d5:agno/beautiful-chat-schedule-meeting", "d5", "green", {
+        observed_at: freshAt(0),
       }),
     ]);
     const c = resolveCell(live, "agno", "beautiful-chat", { now: NOW });
@@ -560,6 +645,23 @@ describe("resolveCell — staleness downgrade (unification A)", () => {
     const c = resolveCell(live, "agno", "ac", { now: NOW });
     expect(c.smoke.tone).toBe("amber");
     expect(c.d2.tone).toBe("amber");
+  });
+
+  it("stale-green badge returns the EFFECTIVE (downgraded) row, not the raw green row", () => {
+    // buildBadge must return row: effRow so .row.state agrees with .tone.
+    // Pre-fix the badge had tone:"amber" while badge.row.state==="green" —
+    // a latent false-green any consumer reading .row.state would hit.
+    const live = mapOf([
+      row("e2e:agno/ac", "e2e", "green", {
+        observed_at: freshAt(E2E_STALE_AFTER_MS + 60 * 60 * 1000),
+      }),
+    ]);
+    const c = resolveCell(live, "agno", "ac", { now: NOW });
+    expect(c.e2e.tone).toBe("amber");
+    expect(c.e2e.row?.state).toBe("degraded");
+    expect(c.e2e.row?.state).not.toBe("green");
+    // Drilldown metadata preserved by the spread.
+    expect(c.e2e.row?.key).toBe("e2e:agno/ac");
   });
 
   it("stale RED row is left as-is (only green is downgraded)", () => {
