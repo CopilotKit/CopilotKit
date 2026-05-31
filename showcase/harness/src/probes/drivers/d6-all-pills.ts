@@ -66,6 +66,14 @@ const inputSchema = z
     name: z.string().optional(),
     features: z.array(z.string()).optional(),
     demos: z.array(z.string()).optional(),
+    /**
+     * Integration's manifest `not_supported_features` set. Features in
+     * this list are architecturally incapable on the framework, NOT
+     * regressions. The driver reclassifies them as `skipped-incapable`
+     * (green side-row + `skipped[]` in the aggregate) instead of running
+     * a probe that would always fail and report red.
+     */
+    notSupportedFeatures: z.array(z.string()).optional(),
     shape: showcaseShapeSchema.optional(),
     deployedAt: z.string().optional(),
   })
@@ -100,6 +108,14 @@ export interface E2eFullFeatureSignal {
 /**
  * Aggregate signal carried on the primary `d6:<slug>` row.
  * Green only if ALL features pass.
+ *
+ * `skipped` is a union of three reasons: filtered-by-trigger (operator
+ * intent), deploy-churn (transient deploy state), and incapable
+ * (manifest `not_supported_features` — framework primitive gap). The
+ * driver does NOT distinguish them in the aggregate count because they
+ * all share the "not counted as red" semantic. `incapable` is broken
+ * out separately so dashboard / operators can tell genuine architectural
+ * skips apart from operational ones.
  */
 export interface E2eFullAggregateSignal {
   shape: "package";
@@ -109,6 +125,14 @@ export interface E2eFullAggregateSignal {
   passed: number;
   failed: string[];
   skipped: string[];
+  /**
+   * Subset of `skipped` representing manifest `not_supported_features`
+   * — features the integration's framework architecturally cannot
+   * support. Distinct from operational skips (deploy-churn, trigger
+   * filter). Empty when the manifest declares no NSF or no requested
+   * feature intersects it.
+   */
+  incapable?: string[];
   note?: string;
   errorDesc?: string;
   failureSummary?: string;
@@ -500,6 +524,26 @@ export function createE2eFullDriver(
 
       const requestedFeatures = featureSource.filter(isKnownFeatureType);
 
+      // NSF reclassification: features the integration's manifest
+      // declares in `not_supported_features` are architecturally
+      // incapable on this framework. Partition them out BEFORE script
+      // resolution / runnable filtering so they're never attempted —
+      // a stub demo page would fail every assertion and report red,
+      // but the framework gap is the cause, not a regression. Emit
+      // them as green side-rows with `errorClass: "skipped-incapable"`
+      // and surface in the aggregate via `incapable[]` (a subset of
+      // `skipped[]`).
+      const incapableSet = new Set<string>(input.notSupportedFeatures ?? []);
+      const incapableFeatures: D5FeatureType[] = [];
+      const capableRequestedFeatures: D5FeatureType[] = [];
+      for (const ft of requestedFeatures) {
+        if (incapableSet.has(ft)) {
+          incapableFeatures.push(ft);
+        } else {
+          capableRequestedFeatures.push(ft);
+        }
+      }
+
       if (requestedFeatures.length === 0) {
         const aggregateResult: ProbeResult<E2eFullAggregateSignal> = {
           key: input.key,
@@ -591,9 +635,11 @@ export function createE2eFullDriver(
       // D6 strict missing-script handling: features without a registered
       // script FAIL with red (unlike D5 which skips with green). Missing
       // scripts in D6 are coverage gaps that must surface immediately.
+      // Incapable features (NSF) are excluded from this check entirely
+      // — they're emitted as green side-rows below.
       const missingScript: string[] = [];
       let runnable: D5FeatureType[] = [];
-      for (const ft of requestedFeatures) {
+      for (const ft of capableRequestedFeatures) {
         if (D5_REGISTRY.has(ft)) {
           runnable.push(ft);
         } else {
@@ -658,7 +704,11 @@ export function createE2eFullDriver(
               total: requestedFeatures.length,
               passed: 0,
               failed: [],
-              skipped: [],
+              skipped: [...incapableFeatures.map(String)],
+              incapable:
+                incapableFeatures.length > 0
+                  ? incapableFeatures.map(String)
+                  : undefined,
               errorDesc: "launcher-error",
               failureSummary: truncateUtf8(msg, 1200),
             },
@@ -699,6 +749,26 @@ export function createE2eFullDriver(
           });
         }
 
+        // Emit green side rows for NSF-incapable features. Distinct
+        // `errorClass: "skipped-incapable"` so log scrapers can
+        // distinguish manifest-declared framework gaps from operational
+        // skips. State is green so the dashboard does NOT count these
+        // as red, but the side-row carries the reason for auditability.
+        for (const ft of incapableFeatures) {
+          await sideEmit(ctx, {
+            key: `d6:${slug}/${ft}`,
+            state: "green",
+            signal: {
+              slug,
+              featureType: ft,
+              backendUrl,
+              errorClass: "skipped-incapable",
+              note: "skipped: not supported by integration (manifest.not_supported_features)",
+            },
+            observedAt: ctx.now().toISOString(),
+          });
+        }
+
         // If nothing is runnable but we have missing scripts, that's a red.
         if (runnable.length === 0 && missingScript.length > 0) {
           const aggregateResult: ProbeResult<E2eFullAggregateSignal> = {
@@ -711,7 +781,11 @@ export function createE2eFullDriver(
               total: requestedFeatures.length,
               passed: 0,
               failed: missingScript,
-              skipped: filteredByTrigger,
+              skipped: [...filteredByTrigger, ...incapableFeatures],
+              incapable:
+                incapableFeatures.length > 0
+                  ? incapableFeatures.map(String)
+                  : undefined,
               failureSummary: missingScript
                 .map((ft) => `${ft}: no script registered`)
                 .join("; "),
@@ -734,8 +808,15 @@ export function createE2eFullDriver(
               total: requestedFeatures.length,
               passed: 0,
               failed: [],
-              skipped: filteredByTrigger,
-              note: "all runnable features filtered by trigger",
+              skipped: [...filteredByTrigger, ...incapableFeatures],
+              incapable:
+                incapableFeatures.length > 0
+                  ? incapableFeatures.map(String)
+                  : undefined,
+              note:
+                filteredByTrigger.length > 0
+                  ? "all runnable features filtered by trigger"
+                  : "all requested features are NSF-incapable",
             },
             observedAt,
           };
@@ -1006,7 +1087,8 @@ export function createE2eFullDriver(
           slug,
           passed,
           failed: failed.length,
-          skipped: filteredByTrigger.length,
+          skipped: filteredByTrigger.length + incapableFeatures.length,
+          incapable: incapableFeatures.length,
           total: requestedFeatures.length,
           state: aggregateGreen ? "green" : "red",
           durationMs: Date.now() - serviceStart,
@@ -1021,7 +1103,11 @@ export function createE2eFullDriver(
             total: requestedFeatures.length,
             passed,
             failed,
-            skipped: filteredByTrigger,
+            skipped: [...filteredByTrigger, ...incapableFeatures],
+            incapable:
+              incapableFeatures.length > 0
+                ? incapableFeatures.map(String)
+                : undefined,
             failureSummary:
               featureErrors.length > 0 ? featureErrors.join("; ") : undefined,
           },
