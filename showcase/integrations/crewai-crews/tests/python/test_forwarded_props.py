@@ -222,6 +222,7 @@ def _stub_agent_server_deps():
         "byoc_hashbrown_agent",
         "byoc_json_render_agent",
         "declarative_gen_ui",
+        "gen_ui_agent",
         "interrupt_crew",
         "mcp_apps_agent",
         "shared_state_read_write",
@@ -258,6 +259,7 @@ def _stub_agent_server_deps():
     )
     setattr(sys.modules["agents.subagents"], "subagents_flow", object())
     setattr(sys.modules["agents.tool_rendering"], "tool_rendering_flow", object())
+    setattr(sys.modules["agents.gen_ui_agent"], "gen_ui_agent_flow", object())
 
     # agent_server imports the header-forwarding helpers at top level and calls
     # install_global_httpx_hook() at import time, then mounts
