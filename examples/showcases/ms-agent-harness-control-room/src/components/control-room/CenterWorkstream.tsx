@@ -69,6 +69,7 @@ export function CenterWorkstream() {
       <CopilotChat
         agentId={CONTROL_ROOM_AGENT_NAME}
         className="h-full w-full"
+        input={{ showDisclaimer: false }}
         messageView={chatMessageView}
         labels={{
           modalHeaderTitle: "Control Room",

@@ -39,7 +39,6 @@ import { z } from "zod";
 import { useComponent } from "@copilotkit/react-core/v2";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Card,
@@ -58,7 +57,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -485,14 +483,11 @@ export function GenerativeUIRegistry() {
 
 export function GenerativeUICatalogPanel({
   className,
-  tabsSlot,
 }: {
   className?: string;
-  tabsSlot?: ReactNode;
 }) {
   const [query, setQuery] = useState("");
-  const { enabled, setEnabled, enableAll, disableAll } =
-    useGenerativeUICatalog();
+  const { enabled, setEnabled } = useGenerativeUICatalog();
   const filteredItems = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     if (!normalizedQuery) return GENERATIVE_UI_CATALOG;
@@ -505,7 +500,6 @@ export function GenerativeUICatalogPanel({
 
   return (
     <div className={cn("flex h-full min-h-0 flex-col", className)}>
-      {tabsSlot}
       <ScrollArea className="min-h-0 flex-1 bg-muted/25">
         <div className="space-y-4 p-5 pb-8">
           <div className="relative">
@@ -517,15 +511,6 @@ export function GenerativeUICatalogPanel({
               className="pl-9"
             />
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Button type="button" variant="outline" onClick={enableAll}>
-              Enable all
-            </Button>
-            <Button type="button" variant="outline" onClick={disableAll}>
-              Disable all
-            </Button>
-          </div>
-          <Separator />
           <div className="space-y-3">
             {filteredItems.map((item) => (
               <CatalogItemRow

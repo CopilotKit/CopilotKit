@@ -258,7 +258,7 @@ a {
   overflow: hidden;
   background: var(--cr-surface);
   border: 1px solid var(--cr-border);
-  border-radius: 12px;
+  border-radius: 22px;
   box-shadow: var(--cr-shadow-sm);
 }
 

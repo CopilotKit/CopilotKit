@@ -121,32 +121,6 @@ function ShowcaseDrawer() {
 function ShowcaseSidebarFrame({ className }: { className?: string }) {
   return (
     <div className={cn("flex h-full min-h-0 flex-col", className)}>
-      <header className="border-b px-5 py-4">
-        <div className="flex min-w-0 items-center gap-2 text-sm font-semibold tracking-tight">
-          <span className="flex min-w-0 items-center gap-2">
-            <img
-              src="/brand/copilotkit-color.svg"
-              alt=""
-              aria-hidden
-              className="size-4 shrink-0"
-            />
-            <span>CopilotKit</span>
-          </span>
-          <span className="h-4 w-px shrink-0 bg-border" aria-hidden />
-          <span className="flex min-w-0 items-center gap-2">
-            <img
-              src="/brand/microsoft-color.svg"
-              alt=""
-              aria-hidden
-              className="size-4 shrink-0"
-            />
-            <span>Microsoft</span>
-          </span>
-        </div>
-        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-          Harness plans, patches, approves, and verifies a seeded repair.
-        </p>
-      </header>
       <div className="min-h-0 flex-1">
         <ShowcaseSidebar />
       </div>
