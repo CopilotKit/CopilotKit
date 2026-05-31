@@ -21,6 +21,7 @@ import {
 // Re-export the dedicated tool sets defined in their own modules so the
 // barrel keeps a single import surface for callers under `@/mastra/tools`.
 export { setNotesTool } from "./shared-state-read-write";
+export { setStepsTool } from "./gen-ui-agent";
 export {
   researchAgentTool,
   writingAgentTool,

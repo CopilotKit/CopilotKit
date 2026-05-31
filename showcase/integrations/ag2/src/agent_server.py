@@ -45,6 +45,7 @@ from agents.agent_config_agent import agent_config_app
 from agents.beautiful_chat import beautiful_chat_app
 from agents.byoc_hashbrown_agent import byoc_hashbrown_app
 from agents.byoc_json_render_agent import byoc_json_render_app
+from agents.gen_ui_agent import gen_ui_agent_app
 from agents.headless_complete import headless_complete_app
 from agents.mcp_apps_agent import mcp_apps_app
 from agents.multimodal_agent import multimodal_app
@@ -101,6 +102,7 @@ app.add_middleware(
 app.mount("/shared-state-read-write", shared_state_read_write_app)
 app.mount("/subagents", subagents_app)
 app.mount("/headless-complete", headless_complete_app)
+app.mount("/gen-ui-agent", gen_ui_agent_app)
 app.mount("/declarative-gen-ui", a2ui_dynamic_app)
 app.mount("/a2ui-fixed-schema", a2ui_fixed_app)
 app.mount("/beautiful-chat", beautiful_chat_app)
