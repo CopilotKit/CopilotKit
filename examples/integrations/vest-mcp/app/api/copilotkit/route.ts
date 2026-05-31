@@ -16,7 +16,7 @@ const middlewares = [
     mcpServers: [
       {
         type: "http",
-        url: "https://app.getvest.ai/mcp",
+        url: "https://mcp.getvest.ai/mcp",
         serverId: "vest", // Recommended: stable identifier
       },
     ],
@@ -24,16 +24,16 @@ const middlewares = [
   // 1.2. More middlewares can be added here
 ];
 
-// 2. Create the agent. Vest exposes tools such as search_tools,
-//    get_cashback_estimate and get_stack — the agent can call them to
+// 2. Create the agent. Vest exposes tools such as vest_search_tools,
+//    vest_estimate_cashback and vest_build_stack — the agent can call them to
 //    recommend SaaS tools and surface live cashback offers instead of guessing.
 const agent = new BuiltInAgent({
   model: "openai/gpt-4o",
   prompt:
     "You are an assistant that helps users pick AI/SaaS tools. " +
-    "Use the Vest tools to search the catalog (search_tools), " +
-    "estimate cashback (get_cashback_estimate) and build a stack " +
-    "(get_stack) instead of relying on training data.",
+    "Use the Vest tools to search the catalog (vest_search_tools), " +
+    "estimate cashback (vest_estimate_cashback) and build a stack " +
+    "(vest_build_stack) instead of relying on training data.",
 });
 
 // 3. Apply the middleware to the agent

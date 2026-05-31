@@ -64,7 +64,7 @@ new MCPAppsMiddleware({
   mcpServers: [
     {
       type: "http",
-      url: "https://app.getvest.ai/mcp",
+      url: "https://mcp.getvest.ai/mcp",
       serverId: "vest",
     },
   ],
@@ -76,21 +76,20 @@ tools and can call them like any other tool. The available tools include:
 
 | Tool | What it does |
 | --- | --- |
-| `search_tools` | Search the Vest catalog of AI tools with cashback rewards |
-| `get_tool` | Look up details for a specific tool |
-| `get_cashback_estimate` | Estimate cashback for a tool / spend |
-| `get_stack` | Recommend a stack of tools for a use case |
-| `get_vest_link` | Generate a tracked signup link |
-| `get_wallet` | Look up the connected Vest account / wallet |
-| `submit_tool` | Request a tool be added to the catalog |
+| `vest_search_tools` | Search and browse the Vest cashback catalog of AI tools |
+| `vest_build_stack` | Recommend a curated stack of tools for a user goal |
+| `vest_estimate_cashback` | Estimate cashback for an AI tool subscription |
+| `vest_get_signup_link` | Generate a tracked signup link for a tool |
+| `vest_get_account` | Get the authenticated user's Vest account / wallet |
+| `vest_submit_tool_request` | Request a tool be added to the catalog |
 
-> Tool names above are taken from the live `tools/list` on `https://app.getvest.ai/mcp`.
+> Tool names above are taken from the live `tools/list` on `https://mcp.getvest.ai/mcp`.
 
 Some Vest tools ship MCP UI resources, so CopilotKit renders the interaction
 inline in the chat.
 
 ## Documentation
 
-- [Vest MCP docs](https://app.getvest.ai/docs/mcp)
+- [Vest MCP docs](https://docs.getvest.ai/mcp)
 - [CopilotKit MCP Apps integration](https://docs.copilotkit.ai/integrations/built-in-agent/generative-ui/mcp-apps)
 - [`@ag-ui/mcp-apps-middleware`](https://www.npmjs.com/package/@ag-ui/mcp-apps-middleware)
