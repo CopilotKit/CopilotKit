@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   createE2eFullDriver,
   createPooledE2eFullLauncher,
@@ -137,8 +137,8 @@ describe("e2e-full driver", () => {
       expect(typeof createPooledE2eFullLauncher).toBe("function");
     });
 
-    it("exports FEATURE_CONCURRENCY_D6 = 4", () => {
-      expect(FEATURE_CONCURRENCY_D6).toBe(4);
+    it("exports FEATURE_CONCURRENCY_D6 = 2 (lowered from 4 to reduce hung-context memory pressure)", () => {
+      expect(FEATURE_CONCURRENCY_D6).toBe(2);
     });
 
     it("exports e2eFullDriver default instance", () => {
@@ -527,6 +527,164 @@ describe("e2e-full driver", () => {
     it("throws on release without acquire", () => {
       const sem = new Semaphore(1);
       expect(() => sem.release()).toThrow();
+    });
+  });
+
+  // --------------------------------------------------------------------
+  // Between-features browser recycle (cascade isolation).
+  //
+  // A single hung feature (e.g. missing aimock fixture loops to the
+  // 5-min `featureTimeoutMs`) can accumulate enough hung-context
+  // memory to OOM-kill the shared per-service Chromium subprocess.
+  // Once dead, every subsequent `newContext()` on the same handle
+  // throws "Target page, context or browser has been closed" and
+  // wipes the rest of the service's ~40 features with that same
+  // error — destroying per-feature D6 signal.
+  //
+  // Fix: the per-service feature loop checks `browser.isConnected()`
+  // before each feature and recycles (close + relaunch) when dead.
+  // It also recycles proactively after a `feature-timeout` result so
+  // the next feature on this worker does not inherit the pressure.
+  // --------------------------------------------------------------------
+  describe("between-features browser recycle (cascade isolation)", () => {
+    function makeDeadAfterNCallsBrowser(
+      script: PageScript,
+      callsBeforeDeath: number,
+    ): E2eFullBrowser & { connected: boolean; newContextCalls: number } {
+      // Tracks newContext calls. Returns alive contexts for the first
+      // `callsBeforeDeath` calls and flips `connected` to false
+      // immediately after the Nth call returns — mimicking a
+      // Chromium that survives long enough to hand out one context
+      // but is OOM-killed shortly after (e.g. the contended hung-
+      // context memory pressure pattern). Subsequent newContext
+      // calls throw the same error Playwright surfaces when the
+      // underlying chromium has been killed.
+      const b = {
+        connected: true,
+        newContextCalls: 0,
+        async newContext() {
+          b.newContextCalls++;
+          if (b.newContextCalls > callsBeforeDeath) {
+            b.connected = false;
+            throw new Error("Target page, context or browser has been closed");
+          }
+          const ctx = makeContext({ pageScript: script });
+          // Flip to dead immediately AFTER this returned context is
+          // wired up. The next isConnected() check (between
+          // features) will observe the dead handle.
+          if (b.newContextCalls >= callsBeforeDeath) {
+            b.connected = false;
+          }
+          return ctx;
+        },
+        async close() {
+          b.connected = false;
+        },
+        isConnected() {
+          return b.connected;
+        },
+      };
+      return b;
+    }
+
+    // The driver's per-service feature concurrency is env-overridable
+    // via FEATURE_CONCURRENCY_D6; force it to 1 here so the
+    // recycle-between-features semantics is exercised
+    // deterministically (worker 1 finishes before worker 2 starts).
+    // Without this the two workers would run in parallel against the
+    // SAME browser and both grab newContext before the dead check
+    // fires, masking the recycle path.
+    beforeEach(() => {
+      vi.stubEnv("FEATURE_CONCURRENCY_D6", "1");
+    });
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it("swaps to a fresh browser when the current handle is disconnected before next feature", async () => {
+      registerD5Script(makeScript(["agentic-chat"]));
+      registerD5Script(makeScript(["tool-rendering"]));
+
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+
+      // First browser handles exactly 1 newContext call, then "dies"
+      // (mimics OOM-killed Chromium). Second browser is healthy. The
+      // launcher hands them out in sequence; the driver's
+      // between-features check must trigger the second launcher call.
+      const browsers: ReturnType<typeof makeDeadAfterNCallsBrowser>[] = [
+        makeDeadAfterNCallsBrowser({}, 1),
+        makeDeadAfterNCallsBrowser({}, 100),
+      ];
+      let launcherCalls = 0;
+      const driver = createE2eFullDriver({
+        launcher: async () => {
+          const b = browsers[launcherCalls++];
+          if (!b) throw new Error("launcher called more times than expected");
+          return b;
+        },
+        scriptLoader: noopScriptLoader(),
+        featureTimeoutMs: 5_000,
+      });
+
+      await driver.run(makeCtx({ writer }), {
+        key: "d6-all-pills-e2e:showcase-test-slug",
+        backendUrl: "https://test.example.com",
+        features: ["agentic-chat", "tool-rendering"],
+      });
+
+      // The recycle must have triggered at least one extra launcher
+      // call so the second feature got a live browser.
+      expect(launcherCalls).toBeGreaterThanOrEqual(2);
+
+      // Critical assertion: the second feature got newContext off
+      // the FRESH browser, not the dead one.
+      expect(browsers[1]!.newContextCalls).toBeGreaterThanOrEqual(1);
+
+      // Aggregate row exists (driver completed without bailing).
+      const aggRow = sideEmits.find((r) => r.key === "d6:test-slug");
+      expect(aggRow).toBeDefined();
+    });
+
+    it("caps recycle attempts per service to avoid infinite loops on a poisoned pool", async () => {
+      // Every launcher returns a browser that dies on first
+      // newContext. Without a cap the driver would recycle forever
+      // and never make progress. The cap is
+      // MAX_BROWSER_RECYCLES_PER_SERVICE (5) — total launcher calls
+      // = 1 initial + up to 5 recycles = 6 max.
+      registerD5Script(makeScript(["agentic-chat"]));
+      registerD5Script(makeScript(["tool-rendering"]));
+      registerD5Script(makeScript(["shared-state-read"]));
+
+      const writer: ProbeResultWriter = {
+        write: async () => {},
+      };
+
+      let launcherCalls = 0;
+      const driver = createE2eFullDriver({
+        launcher: async () => {
+          launcherCalls++;
+          return makeDeadAfterNCallsBrowser({}, 0);
+        },
+        scriptLoader: noopScriptLoader(),
+        featureTimeoutMs: 5_000,
+      });
+
+      await driver.run(makeCtx({ writer }), {
+        key: "d6-all-pills-e2e:showcase-test-slug",
+        backendUrl: "https://test.example.com",
+        features: ["agentic-chat", "tool-rendering", "shared-state-read"],
+      });
+
+      // Initial acquire + at most MAX_BROWSER_RECYCLES_PER_SERVICE
+      // recycles. Anything significantly beyond that indicates the
+      // cap is broken (e.g. 10+ would mean per-feature unlimited
+      // recycle).
+      expect(launcherCalls).toBeLessThanOrEqual(10);
     });
   });
 
