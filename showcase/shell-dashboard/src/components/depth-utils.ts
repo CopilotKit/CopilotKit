@@ -18,7 +18,11 @@
  */
 import { keyFor, CATALOG_TO_D5_KEY } from "@/lib/live-status";
 import type { LiveStatusMap, StatusRow } from "@/lib/live-status";
-import { E2E_STALE_AFTER_MS } from "@/lib/cell-model";
+import {
+  E2E_STALE_AFTER_MS,
+  D4_STALE_AFTER_MS,
+  LIVENESS_STALE_AFTER_MS,
+} from "@/lib/cell-model";
 
 /** Minimal catalog cell shape consumed by depth derivation. */
 export interface CatalogCell {
@@ -59,26 +63,26 @@ export interface DepthResult {
   unsupported: boolean;
 }
 
-function isGreen(live: LiveStatusMap, key: string): boolean {
-  const row = live.get(key);
-  return row?.state === "green";
-}
-
 /**
  * A row counts as green only when it is green AND fresh. A frozen-green row
  * from a stalled driver must NOT credit its depth — otherwise the depth ladder
  * reads a dead probe pipeline as a false-green (e.g. a D3 e2e signal whose
  * driver stopped writing). Mirrors the staleness downgrade `cell-model.ts`
- * applies to D3/D5/D6 so both consumers agree.
+ * applies to every dimension so both consumers agree.
+ *
+ * Each dimension supplies its own staleness window: D1/D2 (liveness) use
+ * `LIVENESS_STALE_AFTER_MS`, D4 uses `D4_STALE_AFTER_MS`, and D3/D5/D6 use the
+ * default `E2E_STALE_AFTER_MS`.
  */
 function isGreenAndFresh(
   live: LiveStatusMap,
   key: string,
   now: number,
+  maxAgeMs: number = E2E_STALE_AFTER_MS,
 ): boolean {
   const row = live.get(key);
   if (row?.state !== "green") return false;
-  return !isRowStale(row, now, E2E_STALE_AFTER_MS);
+  return !isRowStale(row, now, maxAgeMs);
 }
 
 /** Row is stale if `observed_at` is older than `maxAgeMs` relative to `now`. */
@@ -179,8 +183,15 @@ export function deriveDepth(
   // D0: cell exists (wired or stub) — always true if we reach here.
   let achieved: AchievedDepth = 0;
 
-  // D1: health:<slug> green
-  if (!isGreen(live, keyFor("health", cell.integration))) {
+  // D1: health:<slug> green (liveness window)
+  if (
+    !isGreenAndFresh(
+      live,
+      keyFor("health", cell.integration),
+      now,
+      LIVENESS_STALE_AFTER_MS,
+    )
+  ) {
     return {
       achieved,
       maxPossible,
@@ -190,8 +201,15 @@ export function deriveDepth(
   }
   achieved = 1;
 
-  // D2: agent:<slug> green
-  if (!isGreen(live, keyFor("agent", cell.integration))) {
+  // D2: agent:<slug> green (liveness window)
+  if (
+    !isGreenAndFresh(
+      live,
+      keyFor("agent", cell.integration),
+      now,
+      LIVENESS_STALE_AFTER_MS,
+    )
+  ) {
     return {
       achieved,
       maxPossible,
@@ -223,9 +241,19 @@ export function deriveDepth(
   }
   achieved = 3;
 
-  // D4: chat:<slug> OR tools:<slug> green (integration-scoped)
-  const chatGreen = isGreen(live, keyFor("chat", cell.integration));
-  const toolsGreen = isGreen(live, keyFor("tools", cell.integration));
+  // D4: chat:<slug> OR tools:<slug> green (real-time window)
+  const chatGreen = isGreenAndFresh(
+    live,
+    keyFor("chat", cell.integration),
+    now,
+    D4_STALE_AFTER_MS,
+  );
+  const toolsGreen = isGreenAndFresh(
+    live,
+    keyFor("tools", cell.integration),
+    now,
+    D4_STALE_AFTER_MS,
+  );
   if (!(chatGreen || toolsGreen)) {
     return {
       achieved,

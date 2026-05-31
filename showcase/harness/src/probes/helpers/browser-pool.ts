@@ -42,11 +42,17 @@ export interface BrowserPoolStats {
 
 /**
  * Minimal logger surface the pool uses for lifecycle events. Matches the
- * harness-wide `Logger` interface but only the `info` method is required.
- * Optional so existing callers (tests, legacy boot paths) don't break.
+ * harness-wide `Logger` interface but only the `info` method is required;
+ * `warn`/`error` are OPTIONAL so existing callers (tests, legacy boot paths)
+ * that inject a bare-`info` fake still type-check. The concrete harness logger
+ * implements all three (warn/error route to stderr → Sentry), so capacity-loss
+ * events emitted via `error` reach the alert pipeline instead of being buried
+ * at info. Call the optional methods safely: `this.logger?.warn?.(...)`.
  */
 interface PoolLogger {
   info(msg: string, meta?: Record<string, unknown>): void;
+  warn?(msg: string, meta?: Record<string, unknown>): void;
+  error?(msg: string, meta?: Record<string, unknown>): void;
 }
 
 /**
@@ -73,6 +79,15 @@ export class BrowserPool {
   // the same slot — which would leak one process and/or publish the slot to
   // `available` twice.
   private relaunchingSlots = new Set<Slot>();
+  // Re-entry guard for the empty-pool reinit backstop, mirroring the
+  // relaunchingSlots/recyclingSlots idiom. Two concurrent acquire() calls
+  // against a truly-empty pool (this.slots.length === 0) would each drive
+  // reinit() and each launch up to poolSize browsers — overshooting capacity.
+  // Setting this synchronously before reinit's first await makes the second
+  // acquire skip reinit and fall through to the waiter queue, where the first
+  // reinit's handOff serves it. Cleared in a finally so a thrown reinit can't
+  // wedge the guard set forever.
+  private reiniting = false;
   private isShutdown = false;
   private readonly logger?: PoolLogger;
   private readonly injectedLaunchBrowser?: LaunchBrowser;
@@ -156,7 +171,7 @@ export class BrowserPool {
     try {
       await browser.close();
     } catch (err) {
-      this.logger?.info("browser-pool.close-failed", {
+      this.logger?.warn?.("browser-pool.close-failed", {
         slotIndex,
         error: err instanceof Error ? err.message : String(err),
       });
@@ -178,7 +193,7 @@ export class BrowserPool {
     // contained — a recovery launch failing is non-fatal to the pool.
     return promise
       .catch((err: unknown) => {
-        this.logger?.info("browser-pool.recovery-failed", {
+        this.logger?.error?.("browser-pool.recovery-failed", {
           error: err instanceof Error ? err.message : String(err),
         });
       })
@@ -200,10 +215,20 @@ export class BrowserPool {
    */
   private async reinit(): Promise<void> {
     if (this.isShutdown || this.launchBrowser === undefined) return;
-    // Track the whole reinit so a shutdown racing this launch loop drains it
-    // before closing slots, rather than leaking a browser that resolves after
-    // shutdown already awaited the in-flight set.
-    await this.track(this.reinitInner());
+    // Set the concurrent-entry guard SYNCHRONOUSLY before the first `await`
+    // (before `this.track(...)`) so a second acquire reaching its empty-pool
+    // check while this reinit is in flight skips reinit and parks a waiter
+    // instead of launching its own duplicate set of browsers. Cleared in the
+    // `finally` so a thrown reinit can't leave the guard latched forever.
+    this.reiniting = true;
+    try {
+      // Track the whole reinit so a shutdown racing this launch loop drains it
+      // before closing slots, rather than leaking a browser that resolves after
+      // shutdown already awaited the in-flight set.
+      await this.track(this.reinitInner());
+    } finally {
+      this.reiniting = false;
+    }
   }
 
   private async reinitInner(): Promise<void> {
@@ -229,11 +254,24 @@ export class BrowserPool {
         this.handOff(slot, browser);
       } catch (err) {
         // Best effort — keep trying the remaining slots. If none succeed
-        // the pool stays empty and the next acquire retries reinit.
-        this.logger?.info("browser-pool.reinit-failed", {
+        // the pool stays empty and the next acquire retries reinit. Per-attempt
+        // failure is a warn: a single slot failing to relaunch is recoverable
+        // (other slots may succeed, or a later acquire retries).
+        this.logger?.warn?.("browser-pool.reinit-failed", {
           error: err instanceof Error ? err.message : String(err),
         });
       }
+    }
+
+    // The genuine empty-pool capacity-loss signal: reinit ran but every launch
+    // failed, so the pool ends with zero slots. Unlike the per-attempt warn
+    // above, this is the terminal "pool ended empty" outage and must reach the
+    // error/Sentry pipeline. Per-attempt reinit-failed stays warn (recoverable);
+    // this distinct end-of-loop emit fires once when the backstop drained empty.
+    if (this.slots.length === 0) {
+      this.logger?.error?.("browser-pool.reinit-empty", {
+        poolSize: this.poolSize,
+      });
     }
   }
 
@@ -309,8 +347,10 @@ export class BrowserPool {
           slotIndex: this.slots.indexOf(slot),
         });
       } catch (err) {
-        // Still failing — leave it pending for the next acquire to retry.
-        this.logger?.info("browser-pool.relaunch-failed", {
+        // Still failing — leave it pending for the next acquire to retry. This
+        // is a per-attempt failure (the slot stays parked and recoverable), so
+        // warn rather than error.
+        this.logger?.warn?.("browser-pool.relaunch-failed", {
           slotIndex: this.slots.indexOf(slot),
           error: err instanceof Error ? err.message : String(err),
         });
@@ -333,9 +373,9 @@ export class BrowserPool {
     // `relaunchPendingSlots()`, not here. (`stats().size` may read 0 in that
     // state, but `size` does not gate this backstop — `this.slots.length`
     // does.)
-    if (this.slots.length === 0) {
+    if (this.slots.length === 0 && !this.reiniting) {
       await this.reinit();
-    } else {
+    } else if (this.slots.length > 0) {
       // Lazily relaunch any slot whose last relaunch failed. This is the
       // recovery path for a transient launch failure: the slot was kept
       // (capacity preserved) but parked as `relaunchPending`; the next
@@ -343,6 +383,11 @@ export class BrowserPool {
       // normal available-slot scan.
       await this.relaunchPendingSlots();
     }
+    // The remaining case — `slots.length === 0 && this.reiniting` — is the
+    // concurrent-acquire skip: another acquire's reinit is already launching
+    // up to poolSize browsers, so this call does NOT launch its own duplicate
+    // set. It falls through to the waiter-queue path below; the in-flight
+    // reinit's `handOff` serves this waiter as soon as a fresh browser lands.
 
     // Skip zombie slots whose browser has disconnected but whose disconnect
     // handler hasn't yet completed the recycle. Without this loop, a single
@@ -601,7 +646,10 @@ export class BrowserPool {
       // launch (see relaunchPendingSlots), and the empty-pool backstop in
       // acquire() re-initializes if every slot ends up pending/lost.
       slot.relaunchPending = true;
-      this.logger?.info("browser-pool.recycle-relaunch-failed", {
+      // Capacity loss after exhausting ALL immediate retries — the slot is now
+      // parked dead and only a later lazy acquire can recover it. This is a
+      // genuine capacity-loss signal that must reach error/Sentry, not info.
+      this.logger?.error?.("browser-pool.recycle-relaunch-failed", {
         slotIndex: this.slots.indexOf(slot),
         attempts: RELAUNCH_MAX_ATTEMPTS,
         poolSize: this.slots.length,
@@ -623,7 +671,7 @@ export class BrowserPool {
     // never surface as an unhandled rejection.
     recyclePromise
       .catch((err: unknown) => {
-        this.logger?.info("browser-pool.recycle-failed", {
+        this.logger?.error?.("browser-pool.recycle-failed", {
           slotIndex: this.slots.indexOf(slot),
           error: err instanceof Error ? err.message : String(err),
         });

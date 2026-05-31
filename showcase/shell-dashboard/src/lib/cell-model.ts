@@ -31,6 +31,25 @@ export type ChipColor = "green" | "amber" | "red" | "gray";
  */
 export const E2E_STALE_AFTER_MS = 6 * 60 * 60 * 1000;
 
+/**
+ * Staleness window for the D4 (real-time chat/tools) dimension. The
+ * `chat:<slug>`/`tools:<slug>` drivers write on their own cadence; a
+ * frozen-green D4 row from a stalled driver must NOT credit D4 forever. A
+ * green D4 row older than this window is downgraded to `degraded` (amber) so
+ * the staleness surfaces, mirroring the D3/D5/D6 downgrade. Not env-tunable.
+ */
+export const D4_STALE_AFTER_MS = 60 * 60 * 1000;
+
+/**
+ * Staleness window for the D1/D2 (liveness — `health:<slug>`/`agent:<slug>`)
+ * dimensions. Tighter than the e2e window because liveness probes are the
+ * most frequently written signals; a frozen-green liveness row is a strong
+ * stalled-driver indicator. Consumed by `depth-utils.ts` (cell-model has no
+ * D1/D2 resolution — D3's failure implicitly covers the D1/D2 gate). Not
+ * env-tunable.
+ */
+export const LIVENESS_STALE_AFTER_MS = 45 * 60 * 1000;
+
 export interface TestLevel {
   exists: boolean;
   status: TestStatus;
@@ -89,8 +108,16 @@ const STATE_RANK: Readonly<Record<State, number>> = {
  *
  * D4 checks both `chat:<slug>` and `tools:<slug>`. When both exist the
  * worst-state wins — a green chat + red tools yields red D4, not green.
+ *
+ * Staleness applies the same downgrade as `resolveD3`, but PER ROW and
+ * BEFORE the worst-state fold (mirroring `resolveD5`): a green chat/tools
+ * row whose `observed_at` is older than `D4_STALE_AFTER_MS` is treated as
+ * `degraded` while folding. Folding raw states first would let a fresh-green
+ * row win the all-green tie and hide a stale-green sibling, re-introducing
+ * the false-green. Only green is downgraded; a stale red/degraded row already
+ * signals a problem.
  */
-function resolveD4(live: LiveStatusMap, slug: string): TestLevel {
+function resolveD4(live: LiveStatusMap, slug: string, now: number): TestLevel {
   const chatRow = live.get(keyFor("chat", slug)) ?? null;
   const toolsRow = live.get(keyFor("tools", slug)) ?? null;
 
@@ -98,21 +125,29 @@ function resolveD4(live: LiveStatusMap, slug: string): TestLevel {
     return { exists: false, status: null, row: null };
   }
 
-  // Pick the worst row when both exist.
-  let winner: StatusRow;
-  if (chatRow && toolsRow) {
-    winner =
-      STATE_RANK[toolsRow.state] > STATE_RANK[chatRow.state]
-        ? toolsRow
-        : chatRow;
-  } else {
-    winner = (chatRow ?? toolsRow)!;
+  // Fold to the worst effective state across present rows, applying the
+  // per-row stale-green→degraded downgrade before comparing.
+  let winner: StatusRow | null = null;
+  let worstState: State | null = null;
+  for (const candidate of [chatRow, toolsRow]) {
+    if (!candidate) continue;
+    const effectiveState: State =
+      candidate.state === "green" && isStale(candidate, now, D4_STALE_AFTER_MS)
+        ? "degraded"
+        : candidate.state;
+    if (
+      worstState === null ||
+      STATE_RANK[effectiveState] > STATE_RANK[worstState]
+    ) {
+      winner = candidate;
+      worstState = effectiveState;
+    }
   }
 
   return {
     exists: true,
-    status: stateToTestStatus(winner.state),
-    row: winner,
+    status: stateToTestStatus(worstState!),
+    row: winner!,
   };
 }
 
@@ -134,15 +169,13 @@ function resolveD4(live: LiveStatusMap, slug: string): TestLevel {
  * independent of `CATALOG_TO_D5_KEY` order. Only green is downgraded; a stale
  * red/degraded sub-row already signals a problem.
  *
- * NOTE on missing sub-rows: this fold only considers sub-rows that are PRESENT
- * — a missing row is SKIPPED (`if (!row) continue;`), not treated as failing.
- * So a multi-key family with only some sub-rows emitted can still be credited
- * green from those present rows. This DIVERGES from `depth-utils.ts`
- * `isD5Green`, which uses `d5Keys.every(...)` and therefore requires every
- * mapped key to be present AND green-and-fresh; a missing row makes the whole
- * family non-green there. The per-row stale-green→degraded downgrade IS
- * mirrored between the two; only the partial-emission (missing-row) handling
- * differs.
+ * STRICT on missing sub-rows: a multi-key family is credited green ONLY when
+ * EVERY mapped sub-row is present and green-and-fresh — a missing mapped
+ * sub-row forces the family out of green and resolves to `status: null`
+ * (no-data/unverified), so `achievedDepth` caps below 5 and the chip renders
+ * gray. A present RED sub-row still yields red (red dominates no-data). This
+ * matches `depth-utils.ts` `isD5Green`, which uses `d5Keys.every(...)`; both
+ * consumers now agree on partial-emission handling.
  */
 function resolveD5(
   live: LiveStatusMap,
@@ -159,9 +192,16 @@ function resolveD5(
 
   let worstRow: StatusRow | null = null;
   let worstState: State | null = null;
+  let anyMissing = false;
   for (const d5Key of d5Keys) {
     const row = live.get(keyFor("d5", slug, d5Key)) ?? null;
-    if (!row) continue;
+    if (!row) {
+      // STRICT: a missing mapped sub-row means the family is unverified —
+      // it can no longer be credited green. Mirrors `isD5Green`'s
+      // `every(...)` in depth-utils.ts so both consumers agree.
+      anyMissing = true;
+      continue;
+    }
     // Per-row staleness downgrade applied BEFORE the fold: a green sub-row
     // that is stale folds in as `degraded` so it can never win the all-green
     // tie and mask a fresh-green sibling.
@@ -181,6 +221,15 @@ function resolveD5(
   if (!worstRow || worstState === null) {
     // Keys are mapped but no rows emitted yet — test exists but has no
     // data. Treat as exists=true so ceilingDepth reflects it.
+    return { exists: true, status: null, row: null };
+  }
+
+  // STRICT missing-sub-row handling: when a mapped sub-row is absent the
+  // family is unverified. A present RED sub-row still signals a real failure
+  // (red dominates no-data), but a present green/degraded fold must NOT be
+  // credited — collapse it to no-data (status: null) so achievedDepth caps
+  // below 5 and the chip renders gray, not a false-green/amber.
+  if (anyMissing && worstState !== "red") {
     return { exists: true, status: null, row: null };
   }
 
@@ -312,7 +361,7 @@ export function buildCellModel(
 
   // ── Wired + supported: resolve each depth independently ───────────
   const d3 = resolveD3(live, slug, featureId, now);
-  const d4 = resolveD4(live, slug);
+  const d4 = resolveD4(live, slug, now);
   const d5 = resolveD5(live, slug, featureId, now);
   const d6 = resolveD6(live, slug, now);
 
@@ -347,25 +396,52 @@ export function buildCellModel(
     }
   }
 
-  // chipColor derivation — D6-ceiling algorithm:
-  // NOTE: D1/D2 (liveness) failure causes D3 (e2e-demos) to also fail,
-  // so checking d3.status implicitly covers the D1/D2 gate.
+  // chipColor derivation — contiguous-ladder algorithm.
+  //
+  // Green is the strict reward for an INTACT verification ladder; a higher
+  // level (D6) can never paint over a broken/unverified lower level (D5).
+  // NOTE: D1/D2 (liveness) failure causes D3 (e2e-demos) to also fail, so
+  // checking d3.status implicitly covers the D1/D2 gate.
+  //
+  // Decision table over (d1d4GateFails, d5.exists, d5.status, d6.status):
+  //   gate fails                                  → red  (gate dominates)
+  //   D5 unmapped (!d5.exists), no D6             → gray (ceiling is D4)
+  //   D5 green + D6 green                         → green
+  //   D5 green + D6 red/amber/missing             → amber
+  //   D5 red/amber + (any D6)                     → red  (broken ladder)
+  //   D5 null  + D6 red                           → red
+  //   D5 null  + D6 green/amber/missing           → gray (unverified ladder)
   const d1d4GateFails =
     (d3.exists && d3.status !== "green") ||
     (d4.exists && d4.status !== "green");
 
   let chipColor: ChipColor;
   if (d1d4GateFails) {
+    // A failing/stale D1-D4 gate dominates everything below it.
     chipColor = "red";
-  } else if (d6.status === "green") {
-    chipColor = "green";
+  } else if (!d5.exists) {
+    // D5 is not mapped for this feature → ceiling is D4 and D6 is not its
+    // gate. Green requires a contiguous D5, so an unmapped D5 never paints
+    // green. With the gate passing this resolves to gray (cell sits at its
+    // D4 ceiling with no further verification), unless a present D6 row is
+    // explicitly failing — which still surfaces as red.
+    chipColor = d6.exists && d6.status !== "green" ? "red" : "gray";
   } else if (d5.status === "green") {
-    chipColor = "amber";
-  } else if (!d5.exists && !d6.exists) {
-    chipColor = "gray";
+    // Mapped D5 is green → ladder intact up to D5. D6 decides green vs amber.
+    chipColor = d6.status === "green" ? "green" : "amber";
+  } else if (d5.status === null) {
+    // Mapped D5 has no data → ladder unverified. A red D6 still signals a
+    // real failure; otherwise treat as no-data (gray), never green.
+    chipColor = d6.status === "red" ? "red" : "gray";
   } else {
+    // Mapped D5 is red or stale-amber → ladder broken at D5. Red wins over
+    // any D6 outcome (including a green aggregate).
     chipColor = "red";
   }
+
+  // isRegression: a cell has slid below its own ceiling — tests exist
+  // (ceilingDepth > 0) but the contiguous passing depth is short of them.
+  const isRegression = ceilingDepth > 0 && achievedDepth < ceilingDepth;
 
   return {
     supported: true,
@@ -376,6 +452,6 @@ export function buildCellModel(
     achievedDepth,
     ceilingDepth,
     chipColor,
-    isRegression: false,
+    isRegression,
   };
 }
