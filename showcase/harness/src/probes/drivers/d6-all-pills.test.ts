@@ -254,6 +254,79 @@ describe("e2e-full driver", () => {
     });
   });
 
+  // Regression guard: the dashboard reads the integration-scoped aggregate
+  // row `d6:<slug>` (see shell-dashboard/src/lib/live-status.ts:420 and
+  // shell-dashboard/src/components/depth-utils.ts:218). The cron driver
+  // path (input.key = "d6-all-pills-e2e:<name>") does NOT propagate that
+  // key as its primary result, so the driver must explicitly side-emit
+  // a `d6:<slug>` row carrying the aggregate signal — matching the
+  // CLI path's shape (cli/targets.ts:328 -> key: `d6:${slug}`).
+  describe("aggregate d6:<slug> side row (dashboard read contract)", () => {
+    it("emits d6:<slug> green aggregate when all features pass", async () => {
+      registerD5Script(makeScript(["agentic-chat"]));
+
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+
+      const driver = createE2eFullDriver({
+        launcher: async () => makeBrowser(),
+        scriptLoader: noopScriptLoader(),
+      });
+      // Use the cron-shape key (d6-all-pills-e2e:<name>) — the bug only
+      // manifests on this path because the CLI path's primary key is
+      // already d6:<slug>.
+      const result = await driver.run(makeCtx({ writer }), {
+        key: "d6-all-pills-e2e:showcase-test-slug",
+        backendUrl: "https://test.example.com",
+        features: ["agentic-chat"],
+      });
+
+      expect(result.state).toBe("green");
+
+      const aggRow = sideEmits.find((r) => r.key === "d6:test-slug");
+      expect(aggRow).toBeDefined();
+      expect(aggRow!.state).toBe("green");
+      const aggSignal = aggRow!.signal as E2eFullAggregateSignal;
+      expect(aggSignal.slug).toBe("test-slug");
+      expect(aggSignal.passed).toBe(1);
+      expect(aggSignal.failed).toEqual([]);
+      expect(aggSignal.total).toBe(1);
+    });
+
+    it("emits d6:<slug> red aggregate when any feature fails (missing script)", async () => {
+      // No script registered — agentic-chat will fail with missing-script red.
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+
+      const driver = createE2eFullDriver({
+        launcher: async () => makeBrowser(),
+        scriptLoader: noopScriptLoader(),
+      });
+      const result = await driver.run(makeCtx({ writer }), {
+        key: "d6-all-pills-e2e:showcase-test-slug",
+        backendUrl: "https://test.example.com",
+        features: ["agentic-chat"],
+      });
+
+      expect(result.state).toBe("red");
+
+      const aggRow = sideEmits.find((r) => r.key === "d6:test-slug");
+      expect(aggRow).toBeDefined();
+      expect(aggRow!.state).toBe("red");
+      const aggSignal = aggRow!.signal as E2eFullAggregateSignal;
+      expect(aggSignal.slug).toBe("test-slug");
+      expect(aggSignal.failed).toContain("agentic-chat");
+    });
+  });
+
   describe("deploy-churn grace window", () => {
     it("skips with green when deploy is recent", async () => {
       registerD5Script(makeScript(["agentic-chat"]));
