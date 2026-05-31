@@ -13,12 +13,16 @@
 # -- Cadence: hourly at :40 --
 #
 # Avoids e2e-demos at :10, D5 at :05/:20/:35/:50. With BROWSER_POOL_SIZE=10
-# and FEATURE_CONCURRENCY=4, estimated runtime ~7-10 min.
+# and FEATURE_CONCURRENCY_D6=2 (lowered from 4 because 4 concurrent
+# hung 5-min contexts on the shared per-service Chromium OOM-killed
+# the subprocess and cascaded "browser closed" across the rest of
+# that service's features — see drivers/d6-all-pills.ts), estimated
+# runtime ~10-14 min.
 #
 # -- timeout_ms: 600_000 (10 min) --
 # -- max_concurrency: 8 --
 #
-# 8 services x 4 features = 32 concurrent contexts on 10 browsers.
+# 8 services x 2 features = 16 concurrent contexts on 10 browsers.
 kind: e2e_d6
 id: d6-all-pills-e2e
 schedule: "40 * * * *"
