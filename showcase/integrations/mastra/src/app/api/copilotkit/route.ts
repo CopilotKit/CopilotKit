@@ -88,6 +88,7 @@ export const demoAgentNames = [
 const demoAgentIdOverrides: Partial<Record<DemoAgentName, string>> = {
   "headless-complete": "headlessCompleteAgent",
   "shared-state-read-write": "sharedStateReadWriteAgent",
+  "gen-ui-agent": "genUiAgent",
   subagents: "subagentsSupervisorAgent",
   "gen-ui-interrupt": "interruptAgent",
   "interrupt-headless": "interruptAgent",
@@ -108,6 +109,7 @@ export type LocalMastraAgentName =
   | "weatherAgent"
   | "headlessCompleteAgent"
   | "sharedStateReadWriteAgent"
+  | "genUiAgent"
   | "subagentsSupervisorAgent"
   | "interruptAgent"
   | "multimodalAgent"
@@ -160,6 +162,11 @@ export function buildAgents(
       "sharedStateReadWriteAgent missing from Mastra config — required for shared-state-read-write demo alias",
     );
   }
+  if (!baseLocalAgents.genUiAgent) {
+    throw new Error(
+      "genUiAgent missing from Mastra config — required for gen-ui-agent demo alias",
+    );
+  }
   if (!baseLocalAgents.subagentsSupervisorAgent) {
     throw new Error(
       "subagentsSupervisorAgent missing from Mastra config — required for subagents demo alias",
@@ -202,6 +209,14 @@ export function buildAgents(
     throw new Error(
       "getLocalAgent returned null for sharedStateReadWriteAgent",
     );
+  }
+  const genUiAgentInstance = getLocalAgent({
+    mastra: mastraInstance,
+    agentId: "genUiAgent",
+    resourceId: "mastra-genUiAgent",
+  });
+  if (!genUiAgentInstance) {
+    throw new Error("getLocalAgent returned null for genUiAgent");
   }
   const subagentsSupervisorAgentInstance = getLocalAgent({
     mastra: mastraInstance,
@@ -247,6 +262,7 @@ export function buildAgents(
     weatherAgent: baseLocalAgents.weatherAgent,
     headlessCompleteAgent: headlessCompleteAgentInstance,
     sharedStateReadWriteAgent: sharedStateRWAgentInstance,
+    genUiAgent: genUiAgentInstance,
     subagentsSupervisorAgent: subagentsSupervisorAgentInstance,
     interruptAgent: interruptAgentInstance,
     multimodalAgent: multimodalAgentInstance,
@@ -291,6 +307,7 @@ export function buildAgents(
     "sharedStateReadWriteAgent",
     "mastra-sharedStateReadWriteAgent",
   );
+  resourceIdByAgent.set("genUiAgent", "mastra-genUiAgent");
   resourceIdByAgent.set(
     "subagentsSupervisorAgent",
     "mastra-subagentsSupervisorAgent",

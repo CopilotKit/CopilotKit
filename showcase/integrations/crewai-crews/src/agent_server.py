@@ -63,6 +63,7 @@ from agents.byoc_json_render_agent import ByocJsonRender
 from agents.declarative_gen_ui import DeclarativeGenUI
 from agents.mcp_apps_agent import MCPApps
 from agents.interrupt_crew import InterruptScheduling
+from agents.gen_ui_agent import gen_ui_agent_flow
 from agents.shared_state_read_write import shared_state_read_write_flow
 from agents.subagents import subagents_flow
 
@@ -434,6 +435,7 @@ add_crewai_flow_fastapi_endpoint(
     app, shared_state_read_write_flow, "/shared-state-read-write"
 )
 add_crewai_flow_fastapi_endpoint(app, subagents_flow, "/subagents")
+add_crewai_flow_fastapi_endpoint(app, gen_ui_agent_flow, "/gen-ui-agent")
 if tool_rendering_flow is not None:
     add_crewai_flow_fastapi_endpoint(app, tool_rendering_flow, "/tool-rendering")
 

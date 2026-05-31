@@ -4,38 +4,33 @@ import React from "react";
 
 // Rich per-tool renderer for the `search_flights` backend tool.
 //
-// The Agno main + reasoning agents expose `search_flights(flights: list[dict])`,
-// where each flight carries: airline, airlineLogo, flightNumber, origin,
-// destination, date, departureTime, arrivalTime, duration, status, statusColor,
-// price, currency. See `showcase/shared/python/tools/search_flights.py` for the
-// canonical shape.
+// Registered in page.tsx via `useRenderTool({ name: "search_flights", ... })`,
+// this card shows the search origin/destination and a short list of
+// flight results. It only renders once the backend returns; while the
+// tool is still running it shows a compact loading state so the chat
+// doesn't look frozen.
 
 export interface Flight {
   airline?: string;
-  airlineLogo?: string;
-  flightNumber?: string;
-  origin?: string;
-  destination?: string;
-  date?: string;
-  departureTime?: string;
-  arrivalTime?: string;
-  duration?: string;
-  status?: string;
-  statusColor?: string;
-  price?: string;
-  currency?: string;
+  flight?: string;
+  depart?: string;
+  arrive?: string;
+  price_usd?: number;
 }
 
 export interface FlightListCardProps {
   loading: boolean;
+  origin: string;
+  destination: string;
   flights: Flight[];
 }
 
-export function FlightListCard({ loading, flights }: FlightListCardProps) {
-  const first = flights[0];
-  const origin = first?.origin ?? "";
-  const destination = first?.destination ?? "";
-
+export function FlightListCard({
+  loading,
+  origin,
+  destination,
+  flights,
+}: FlightListCardProps) {
   return (
     <div
       data-testid="flight-list-card"
@@ -81,7 +76,7 @@ export function FlightListCard({ loading, flights }: FlightListCardProps) {
           ) : (
             flights.map((f, i) => (
               <li
-                key={`${f.flightNumber ?? "flight"}-${i}`}
+                key={`${f.flight ?? "flight"}-${i}`}
                 data-testid="flight-row"
                 className="flex items-center justify-between rounded-xl border border-[#E9E9EF] bg-[#FAFAFC] px-3 py-2.5 text-sm"
               >
@@ -89,16 +84,15 @@ export function FlightListCard({ loading, flights }: FlightListCardProps) {
                   <div className="font-medium text-[#010507]">
                     {f.airline ?? "—"}{" "}
                     <span className="font-mono text-xs text-[#838389]">
-                      {f.flightNumber ?? ""}
+                      {f.flight ?? ""}
                     </span>
                   </div>
                   <div className="text-xs text-[#57575B] mt-0.5">
-                    {f.departureTime ?? "?"} → {f.arrivalTime ?? "?"}
-                    {f.duration ? ` · ${f.duration}` : ""}
+                    {f.depart ?? "?"} → {f.arrive ?? "?"}
                   </div>
                 </div>
                 <div className="font-mono text-sm font-medium text-[#189370]">
-                  {f.price ?? "—"}
+                  {f.price_usd !== undefined ? `$${f.price_usd}` : "—"}
                 </div>
               </li>
             ))
