@@ -292,13 +292,15 @@ describe("CellMatrix", () => {
   it("filters to rows with regressions when filter=regressions", () => {
     // Uses buildCellModel D3/D4/D5 depth model (not the old D0-D6 ladder).
     //
-    // lgp/agentic-chat: e2e row GREEN (D3 passes), chat row GREEN (D4 passes),
-    //   but "agentic-chat" has a CATALOG_TO_D5_KEY mapping so ceiling=5.
-    //   No D5 PB rows → D5 status=null → achieved=4 < ceiling=5 → REGRESSION.
+    // lgp/agentic-chat: e2e GREEN (D3), chat GREEN (D4), and an EMITTED RED
+    //   D5 row. "agentic-chat" maps to a CATALOG_TO_D5_KEY so ceiling=5;
+    //   achieved=4 < ceiling=5 AND the next rung (D5) has emitted data
+    //   (status='red') → genuine REGRESSION (unification C requires emitted
+    //   data above achievedDepth, so a no-data D5 would NOT count).
     //
-    // lgp/no-d5-feature: e2e row GREEN (D3 passes), chat row GREEN (D4 passes),
-    //   "no-d5-feature" has NO CATALOG_TO_D5_KEY mapping → ceiling=4.
-    //   achieved=4 === ceiling=4 → NOT a regression.
+    // lgp/no-d5-feature: e2e GREEN (D3), chat GREEN (D4), "no-d5-feature" has
+    //   NO CATALOG_TO_D5_KEY mapping → ceiling=4. achieved=4 === ceiling=4 →
+    //   NOT a regression.
     const regressFeatures = [
       { id: "agentic-chat", name: "Agentic Chat", category: "chat-ui" },
       { id: "no-d5-feature", name: "No D5 Feature", category: "platform" },
@@ -331,6 +333,9 @@ describe("CellMatrix", () => {
       row("e2e:lgp/agentic-chat", "e2e", "green"),
       row("e2e:lgp/no-d5-feature", "e2e", "green"),
       row("chat:lgp", "chat", "green"),
+      // Emitted RED D5 keeps agentic-chat a genuine regression under the
+      // refined (unification C) rule — a missing D5 row would be no-data.
+      row("d5:lgp/agentic-chat", "d5", "red"),
     ]);
     const oneIntegration = [
       { slug: "lgp", name: "LangGraph Python", tier: "reference" as const },
@@ -347,7 +352,7 @@ describe("CellMatrix", () => {
         referenceSlug="lgp"
       />,
     );
-    // agentic-chat: achieved=4 < ceiling=5 → regression → visible
+    // agentic-chat: achieved=4 < ceiling=5, D5 emitted red → regression → visible
     expect(queryByText("Agentic Chat")).not.toBeNull();
     // no-d5-feature: achieved=4 === ceiling=4 → at ceiling → hidden
     expect(queryByText("No D5 Feature")).toBeNull();

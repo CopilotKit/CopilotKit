@@ -405,9 +405,32 @@ export function buildCellModel(
     chipColor = "red";
   }
 
-  // isRegression: a cell has slid below its own ceiling — tests exist
-  // (ceilingDepth > 0) but the contiguous passing depth is short of them.
-  const isRegression = ceilingDepth > 0 && achievedDepth < ceilingDepth;
+  // isRegression: a cell has slid below its own ceiling. Beyond
+  // `achievedDepth < ceilingDepth`, the NEXT rung above `achievedDepth` must
+  // have EMITTED data — `exists && status !== null` — for the slide-back to
+  // be real. A mapped-but-unemitted D5 (e.g. achieved=4, ceiling=5, but
+  // `d5.status === null` because no d5 rows have ticked) is no-data, not a
+  // regression: flagging it would paint every D5-mapped cell amber the moment
+  // its D5 driver hasn't run yet. A present RED/AMBER next rung (status !==
+  // null) still counts — that is a genuine failure below the ceiling.
+  //
+  // Next-rung map by achievedDepth: 0→d3, 3→d4, 4→d5, 5→d6.
+  const nextRung: TestLevel | null =
+    achievedDepth === 0
+      ? d3
+      : achievedDepth === 3
+        ? d4
+        : achievedDepth === 4
+          ? d5
+          : achievedDepth === 5
+            ? d6
+            : null;
+  const isRegression =
+    ceilingDepth > 0 &&
+    achievedDepth < ceilingDepth &&
+    nextRung !== null &&
+    nextRung.exists &&
+    nextRung.status !== null;
 
   return {
     supported: true,
