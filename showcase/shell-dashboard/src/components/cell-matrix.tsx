@@ -87,6 +87,14 @@ interface CategorySectionProps {
   selectedCell: SelectedCell | null;
   onCellClick: (cell: SelectedCell | null) => void;
   connection: ConnectionStatus;
+  /**
+   * Single reference time shared with the parent's filter pass so the
+   * render-path `buildCellModel` and the filter `buildCellModel`/`resolveCell`
+   * agree on which green rows are stale — a cell the filter included can no
+   * longer render a different staleness state because its render `now` crossed
+   * a window boundary milliseconds later.
+   */
+  now: number;
 }
 
 function CategorySection({
@@ -100,6 +108,7 @@ function CategorySection({
   selectedCell,
   onCellClick,
   connection,
+  now,
 }: CategorySectionProps) {
   const { isOpen, toggle } = useCollapsible({
     name: cat.name,
@@ -144,12 +153,16 @@ function CategorySection({
             {visibleIntegrations.map((int) => {
               const cell = cellIndex.get(`${int.slug}/${feature.id}`);
               const isNotSupported = cell?.status === "unsupported";
-              const model = buildCellModel(liveStatus, {
-                slug: int.slug,
-                featureId: feature.id,
-                isSupported: !isNotSupported,
-                isWired: cell?.status === "wired" || cell?.status === "stub",
-              });
+              const model = buildCellModel(
+                liveStatus,
+                {
+                  slug: int.slug,
+                  featureId: feature.id,
+                  isSupported: !isNotSupported,
+                  isWired: cell?.status === "wired" || cell?.status === "stub",
+                },
+                now,
+              );
               const cellStatus = !model.supported
                 ? "unsupported"
                 : (cell?.status ?? "unshipped");
@@ -269,6 +282,15 @@ export function CellMatrix({
     return idx;
   }, [cells]);
 
+  // Single reference time captured once per data update (keyed on
+  // `liveStatus`) and shared by the filter pass AND the render-path
+  // `buildCellModel` below. Threading ONE `now` keeps the chip and the
+  // badges in lockstep: a cell the filter included renders the SAME
+  // staleness state, instead of re-deriving against a fresh `Date.now()`
+  // that may have crossed a window boundary milliseconds later. Mirrors
+  // the single-`now` discipline in cells-view.tsx's stats pass.
+  const now = useMemo(() => Date.now(), [liveStatus]);
+
   // Group features by category
   const featuresByCategory = useMemo(() => {
     return categories
@@ -282,6 +304,10 @@ export function CellMatrix({
   // Filter features based on mode
   const filterFeatureRow = (featureId: string): boolean => {
     if (filter === "all" || filter === "reference") return true;
+    // Reuse the single `now` hoisted to CellMatrix scope so the gaps
+    // `resolveCell` / regressions `buildCellModel` filter pass and the
+    // render-path `buildCellModel` (in CategorySection) all agree on which
+    // green rows are stale.
     if (filter === "wired") {
       return visibleIntegrations.some((int) => {
         const cell = cellIndex.get(`${int.slug}/${featureId}`);
@@ -298,7 +324,9 @@ export function CellMatrix({
         if (cell.status === "unsupported") return false;
         // Red probes = functional gap (cell exists but failing)
         if (cell.feature !== null) {
-          const cellState = resolveCell(liveStatus, int.slug, cell.feature);
+          const cellState = resolveCell(liveStatus, int.slug, cell.feature, {
+            now,
+          });
           if (cellState.rollup === "red") return true;
         }
         return false;
@@ -309,12 +337,16 @@ export function CellMatrix({
         const cell = cellIndex.get(`${int.slug}/${featureId}`);
         if (!cell) return false;
         const isNotSupported = cell.status === "unsupported";
-        const model = buildCellModel(liveStatus, {
-          slug: int.slug,
-          featureId,
-          isSupported: !isNotSupported,
-          isWired: cell.status === "wired" || cell.status === "stub",
-        });
+        const model = buildCellModel(
+          liveStatus,
+          {
+            slug: int.slug,
+            featureId,
+            isSupported: !isNotSupported,
+            isWired: cell.status === "wired" || cell.status === "stub",
+          },
+          now,
+        );
         return model.isRegression;
       });
     }
@@ -369,6 +401,7 @@ export function CellMatrix({
                 selectedCell={selectedCell}
                 onCellClick={handleCellClick}
                 connection={connection}
+                now={now}
               />
             );
           })}

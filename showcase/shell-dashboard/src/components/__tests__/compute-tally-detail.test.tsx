@@ -233,6 +233,69 @@ describe("computeColumnTallyDetail", () => {
     expect(result.unknown).toBe(false);
   });
 
+  it("green D3+D4 + red D5 → red bucket with dimension 'health'", () => {
+    // Exercises the feature-grid `dimension:"health"` branch: a D5 row that
+    // exists with a non-null, non-green status classifies the failure as a
+    // live-conversation ("health") failure, not a page-load ("e2e") one. The
+    // broken D5 ladder makes chipColor red.
+    const integration = makeIntegration("h-int", ["agentic-chat"]);
+    const features = [makeFeature("agentic-chat", "Feature A")];
+    const liveStatus: LiveStatusMap = new Map([
+      [
+        "e2e:h-int/agentic-chat",
+        makeRow("e2e:h-int/agentic-chat", "e2e", "green"),
+      ],
+      // chat green → D4 green (tools absent, worst-state skips it)
+      ["chat:h-int", makeRow("chat:h-int", "chat", "green")],
+      // d5 red → ladder broken at D5 → chipColor red, dimension health
+      ["d5:h-int/agentic-chat", makeRow("d5:h-int/agentic-chat", "d5", "red")],
+    ]);
+
+    const result = computeColumnTallyDetail(
+      integration,
+      features,
+      liveStatus,
+      "live",
+    );
+
+    expect(result.unknown).toBe(false);
+    expect(result.green).toEqual([]);
+    expect(result.amber).toEqual([]);
+    expect(result.red).toEqual([
+      { label: "Feature A", dimension: "health", featureId: "agentic-chat" },
+    ]);
+  });
+
+  it("green D3 + red D4 → red bucket with dimension 'health'", () => {
+    // A red D4 (real-time chat/tools) row exists with a non-null, non-green
+    // status → the failing D1-D4 gate paints the chip red, and the
+    // `dimension:"health"` branch classifies it as a live-roundtrip failure.
+    const integration = makeIntegration("h2-int", ["agentic-chat"]);
+    const features = [makeFeature("agentic-chat", "Feature A")];
+    const liveStatus: LiveStatusMap = new Map([
+      [
+        "e2e:h2-int/agentic-chat",
+        makeRow("e2e:h2-int/agentic-chat", "e2e", "green"),
+      ],
+      // chat red → D4 red → gate fails → chipColor red, dimension health
+      ["chat:h2-int", makeRow("chat:h2-int", "chat", "red")],
+    ]);
+
+    const result = computeColumnTallyDetail(
+      integration,
+      features,
+      liveStatus,
+      "live",
+    );
+
+    expect(result.unknown).toBe(false);
+    expect(result.green).toEqual([]);
+    expect(result.amber).toEqual([]);
+    expect(result.red).toEqual([
+      { label: "Feature A", dimension: "health", featureId: "agentic-chat" },
+    ]);
+  });
+
   it("not_supported_features are gray and excluded", () => {
     const integration = {
       ...makeIntegration("ns-int", ["agentic-chat", "tool-rendering"]),

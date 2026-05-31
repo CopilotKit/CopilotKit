@@ -9,6 +9,16 @@
 
 import type { LiveStatusMap, StatusRow, State } from "./live-status";
 import { keyFor, CATALOG_TO_D5_KEY } from "./live-status";
+import { E2E_STALE_AFTER_MS, D4_STALE_AFTER_MS, isStale } from "./staleness";
+
+// Re-export the staleness windows so existing consumers that import them from
+// this module (e.g. `cell-model.test.ts`) keep resolving — the canonical
+// definitions now live in `./staleness`.
+export {
+  E2E_STALE_AFTER_MS,
+  D4_STALE_AFTER_MS,
+  LIVENESS_STALE_AFTER_MS,
+} from "./staleness";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -16,39 +26,6 @@ import { keyFor, CATALOG_TO_D5_KEY } from "./live-status";
 
 export type TestStatus = "green" | "red" | "amber" | null;
 export type ChipColor = "green" | "amber" | "red" | "gray";
-
-/**
- * Staleness window for the `e2e:` dimension. The e2e-demos driver writes
- * `e2e:<slug>/<feature>` rows hourly (`schedule: "10 * * * *"`, see
- * harness/config/probes/e2e-demos.yml). When the driver stops writing
- * (a wedged browser pool, a dead probe pipeline), the last row freezes —
- * a green row then reads as a healthy D3 forever, masking the outage as a
- * false-green. Mirroring the original ">6h stale" model (see
- * live-status.ts), a green e2e row whose `observed_at` is older than this
- * window is downgraded to `degraded` (amber) so the staleness surfaces
- * instead of presenting as green. 6h tolerates several missed hourly ticks
- * before flagging, avoiding flapping on a single skipped run.
- */
-export const E2E_STALE_AFTER_MS = 6 * 60 * 60 * 1000;
-
-/**
- * Staleness window for the D4 (real-time chat/tools) dimension. The
- * `chat:<slug>`/`tools:<slug>` drivers write on their own cadence; a
- * frozen-green D4 row from a stalled driver must NOT credit D4 forever. A
- * green D4 row older than this window is downgraded to `degraded` (amber) so
- * the staleness surfaces, mirroring the D3/D5/D6 downgrade. Not env-tunable.
- */
-export const D4_STALE_AFTER_MS = 60 * 60 * 1000;
-
-/**
- * Staleness window for the D1/D2 (liveness — `health:<slug>`/`agent:<slug>`)
- * dimensions. Tighter than the e2e window because liveness probes are the
- * most frequently written signals; a frozen-green liveness row is a strong
- * stalled-driver indicator. Consumed by `depth-utils.ts` (cell-model has no
- * D1/D2 resolution — D3's failure implicitly covers the D1/D2 gate). Not
- * env-tunable.
- */
-export const LIVENESS_STALE_AFTER_MS = 45 * 60 * 1000;
 
 export interface TestLevel {
   exists: boolean;
@@ -241,17 +218,6 @@ function resolveD5(
 }
 
 /**
- * Determine whether a row's `observed_at` is older than `maxAgeMs` relative
- * to `now`. An unparseable/missing timestamp is treated as NOT stale —
- * staleness must be a positive signal, never inferred from bad data.
- */
-function isStale(row: StatusRow, now: number, maxAgeMs: number): boolean {
-  const observedMs = Date.parse(row.observed_at);
-  if (Number.isNaN(observedMs)) return false;
-  return now - observedMs > maxAgeMs;
-}
-
-/**
  * Resolve the D3 (API / e2e) test level for `(slug, featureId)`.
  *
  * A green e2e row that has not been refreshed within `E2E_STALE_AFTER_MS`
@@ -439,9 +405,32 @@ export function buildCellModel(
     chipColor = "red";
   }
 
-  // isRegression: a cell has slid below its own ceiling — tests exist
-  // (ceilingDepth > 0) but the contiguous passing depth is short of them.
-  const isRegression = ceilingDepth > 0 && achievedDepth < ceilingDepth;
+  // isRegression: a cell has slid below its own ceiling. Beyond
+  // `achievedDepth < ceilingDepth`, the NEXT rung above `achievedDepth` must
+  // have EMITTED data — `exists && status !== null` — for the slide-back to
+  // be real. A mapped-but-unemitted D5 (e.g. achieved=4, ceiling=5, but
+  // `d5.status === null` because no d5 rows have ticked) is no-data, not a
+  // regression: flagging it would paint every D5-mapped cell amber the moment
+  // its D5 driver hasn't run yet. A present RED/AMBER next rung (status !==
+  // null) still counts — that is a genuine failure below the ceiling.
+  //
+  // Next-rung map by achievedDepth: 0→d3, 3→d4, 4→d5, 5→d6.
+  const nextRung: TestLevel | null =
+    achievedDepth === 0
+      ? d3
+      : achievedDepth === 3
+        ? d4
+        : achievedDepth === 4
+          ? d5
+          : achievedDepth === 5
+            ? d6
+            : null;
+  const isRegression =
+    ceilingDepth > 0 &&
+    achievedDepth < ceilingDepth &&
+    nextRung !== null &&
+    nextRung.exists &&
+    nextRung.status !== null;
 
   return {
     supported: true,

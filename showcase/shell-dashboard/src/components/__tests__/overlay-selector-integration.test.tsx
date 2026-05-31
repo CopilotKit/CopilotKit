@@ -53,6 +53,10 @@ vi.mock("@/data/docs-status.json", () => ({
 // Helpers
 // ---------------------------------------------------------------------------
 
+// A recent timestamp so green rows are not treated as stale by the
+// staleness downgrade in resolveCell (compares against Date.now()).
+const FRESH_OBSERVED_AT = new Date().toISOString();
+
 function makeStatusRow(
   dimension: string,
   slug: string,
@@ -68,8 +72,8 @@ function makeStatusRow(
     dimension,
     state,
     signal: null,
-    observed_at: "2026-04-20T00:00:00Z",
-    transitioned_at: "2026-04-20T00:00:00Z",
+    observed_at: FRESH_OBSERVED_AT,
+    transitioned_at: FRESH_OBSERVED_AT,
     fail_count: 0,
     first_failure_at: null,
   };
@@ -247,7 +251,21 @@ describe("Overlay selector integration — real UI components", () => {
   // 3. Health only — the critical case (no docs indicators must appear)
   // -------------------------------------------------------------------------
   it("health only: API/RT/CV badges visible, NO docs indicators", () => {
-    const ctx = makeCtx();
+    // `agentic-chat` is a real CATALOG_TO_D5_KEY entry, so its d5 row resolves
+    // green and the CV badge renders. An UNMAPPED feature's CV badge is gray
+    // "?" and hidden by design (resolveD5Row returns null for unmapped
+    // features, matching resolveD5 / isD5Green) — "don't show tests that
+    // don't exist".
+    const ctx = makeCtx({
+      feature: {
+        id: "agentic-chat",
+        name: "Agentic Chat",
+        category: "chat-ui",
+        description: "Agentic chat feature",
+        kind: "primary",
+      },
+      liveStatus: buildLiveStatusMap("next", "agentic-chat"),
+    });
     const { getByTestId, getByText, queryByText, queryByTestId } = render(
       <ComposedCell ctx={ctx} overlays={overlaySet("health")} />,
     );
@@ -320,7 +338,20 @@ describe("Overlay selector integration — real UI components", () => {
   // 6. Health + Docs — both badges AND docs indicators visible
   // -------------------------------------------------------------------------
   it("health + docs: badges AND docs indicators both visible", () => {
-    const ctx = makeCtx();
+    // `agentic-chat` is a real CATALOG_TO_D5_KEY entry so the CV badge has a
+    // resolved (green) d5 row to render; an unmapped feature's CV badge is
+    // hidden by design. The docs-status mock also covers `agentic-chat`, so
+    // the docs-og / docs-shell indicators still resolve.
+    const ctx = makeCtx({
+      feature: {
+        id: "agentic-chat",
+        name: "Agentic Chat",
+        category: "chat-ui",
+        description: "Agentic chat feature",
+        kind: "primary",
+      },
+      liveStatus: buildLiveStatusMap("next", "agentic-chat"),
+    });
     const { getByTestId, getByText, queryByText, queryByTestId } = render(
       <ComposedCell ctx={ctx} overlays={overlaySet("health", "docs")} />,
     );

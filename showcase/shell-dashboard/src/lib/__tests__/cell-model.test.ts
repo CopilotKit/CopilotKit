@@ -718,6 +718,41 @@ describe("buildCellModel", () => {
       });
       expect(notWired.isRegression).toBe(false);
     });
+
+    // ── refinement (unification C): the next rung above achievedDepth must
+    //    have EMITTED data (exists && status !== null) for a cell to count
+    //    as a regression. A mapped-but-unemitted D5 (status === null) is
+    //    no-data, not a slide-back. ──
+    it("is FALSE when the next rung (D5) is mapped but has no emitted data", () => {
+      // D3 green + D4 green, D5 mapped but NO d5 rows emitted →
+      // achieved=4, ceiling=5, d5.exists=true but d5.status===null.
+      // No data above achieved → NOT a regression.
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.achievedDepth).toBe(4);
+      expect(model.ceilingDepth).toBe(5);
+      expect(model.d5?.exists).toBe(true);
+      expect(model.d5?.status).toBeNull();
+      expect(model.isRegression).toBe(false);
+    });
+
+    it("is TRUE when the next rung (D5) is below ceiling AND emitted red data", () => {
+      // D3 green + D4 green + D5 red → achieved=4, ceiling=5, and d5 has
+      // emitted (status==='red'). A real slide-back → regression.
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "red"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.achievedDepth).toBe(4);
+      expect(model.ceilingDepth).toBe(5);
+      expect(model.d5?.status).toBe("red");
+      expect(model.isRegression).toBe(true);
+    });
   });
 
   // ── e2e staleness downgrade (false-green D3 bug) ────────────────────
