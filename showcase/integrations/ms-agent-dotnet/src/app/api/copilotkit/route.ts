@@ -18,7 +18,26 @@ console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
 
 function createAgent(path = "/") {
-  return new HttpAgent({ url: `${AGENT_URL}${path}` });
+  const agent = new HttpAgent({ url: `${AGENT_URL}${path}` });
+  // Universal strip middleware (no decision-suffix). Runs as the first
+  // registered middleware so EVERY outbound request carries clean
+  // canonical toolCallIds (the replay-safe `__ck_run_<uuid>` suffix is
+  // removed) before any agent-specific middleware sees the input.
+  // Decision suffixing (`__approved` / `__rejected` / `__cancelled`)
+  // is intentionally NOT applied here — only `createReplaySafeAgent`
+  // does that, because the suffix is non-idempotent and the inner
+  // replay-safe middleware re-runs the same logic after this one.
+  agent.use(
+    new FunctionMiddleware((input, next) => {
+      return next.run({
+        ...input,
+        messages: (input.messages ?? []).map(
+          stripReplaySafeToolCallIdsFromMessage,
+        ),
+      });
+    }),
+  );
+  return agent;
 }
 
 function stripReplaySafeToolCallId(id: string): string {
@@ -45,15 +64,36 @@ function stripReplaySafeToolCallIdsFromMessage(message: unknown): unknown {
     changed = true;
   }
 
-  if (Array.isArray(next.toolCalls)) {
-    next.toolCalls = next.toolCalls.map((toolCall) => {
-      if (!toolCall || typeof toolCall !== "object") return toolCall;
-      const call = { ...(toolCall as Record<string, unknown>) };
-      if (typeof call.id === "string") {
-        call.id = stripReplaySafeToolCallId(call.id);
+  // Strip on BOTH the camelCase (AG-UI canonical) and snake_case (OpenAI
+  // wire format) tool-call arrays. Some runtimes / message converters
+  // pass the OpenAI shape through unchanged; without this branch the
+  // replay-safe `__ck_run_<uuid>` suffix slips through to aimock and
+  // toolCallId-keyed fixtures fail to match on follow-up turns.
+  const stripToolCallArrayEntry = (toolCall: unknown) => {
+    if (!toolCall || typeof toolCall !== "object") return toolCall;
+    const call = { ...(toolCall as Record<string, unknown>) };
+    if (typeof call.id === "string") {
+      call.id = stripReplaySafeToolCallId(call.id);
+    }
+    // OpenAI nests the tool_call_id under `function` in some shapes; strip
+    // there too just to keep the surface clean before aimock sees it.
+    if (call.function && typeof call.function === "object") {
+      const fn = { ...(call.function as Record<string, unknown>) };
+      if (typeof fn.tool_call_id === "string") {
+        fn.tool_call_id = stripReplaySafeToolCallId(fn.tool_call_id);
+        call.function = fn;
       }
-      return call;
-    });
+    }
+    return call;
+  };
+
+  if (Array.isArray(next.toolCalls)) {
+    next.toolCalls = next.toolCalls.map(stripToolCallArrayEntry);
+    changed = true;
+  }
+
+  if (Array.isArray(next.tool_calls)) {
+    next.tool_calls = next.tool_calls.map(stripToolCallArrayEntry);
     changed = true;
   }
 
@@ -200,18 +240,25 @@ function applyToolResultDecisionSuffix(
     }
   }
 
-  if (Array.isArray(next.toolCalls)) {
-    next.toolCalls = next.toolCalls.map((toolCall) => {
-      if (!toolCall || typeof toolCall !== "object") return toolCall;
-      const call = { ...(toolCall as Record<string, unknown>) };
-      if (typeof call.id === "string") {
-        const decision = decisionsByToolCallId.get(call.id);
-        if (decision) {
-          call.id = makeDecisionToolCallId(call.id, decision);
-        }
+  const suffixArrayEntry = (toolCall: unknown) => {
+    if (!toolCall || typeof toolCall !== "object") return toolCall;
+    const call = { ...(toolCall as Record<string, unknown>) };
+    if (typeof call.id === "string") {
+      const decision = decisionsByToolCallId.get(call.id);
+      if (decision) {
+        call.id = makeDecisionToolCallId(call.id, decision);
       }
-      return call;
-    });
+    }
+    return call;
+  };
+
+  if (Array.isArray(next.toolCalls)) {
+    next.toolCalls = next.toolCalls.map(suffixArrayEntry);
+    changed = true;
+  }
+
+  if (Array.isArray(next.tool_calls)) {
+    next.tool_calls = next.tool_calls.map(suffixArrayEntry);
     changed = true;
   }
 
@@ -377,6 +424,9 @@ function createGenUiAgent() {
 
   agent.use(
     new FunctionMiddleware((input, next) => {
+      // The outer createAgent middleware already stripped replay-safe ids
+      // on inbound messages, so this middleware only needs to wire the
+      // gen-ui-agent's STATE_SNAPSHOT bridging from set_steps tool args.
       return new Observable<BaseEvent>((subscriber) => {
         const setStepsToolCallIds = new Set<string>();
         const argsByToolCallId = new Map<string, string>();
@@ -459,6 +509,9 @@ function createReadonlyContextAgent() {
 
   agent.use(
     new FunctionMiddleware((input, next) => {
+      // The outer createAgent middleware already stripped replay-safe ids
+      // on `input.messages`, so the injected system message rides along
+      // with already-canonicalised toolCallIds.
       const contextMessage = buildContextSystemMessage(
         (input as { context?: unknown }).context,
       );
@@ -488,6 +541,9 @@ function createSharedStateReadWriteAgent() {
 
   agent.use(
     new FunctionMiddleware((input, next) => {
+      // The outer createAgent middleware already stripped replay-safe ids
+      // on `input.messages`; the injected shared-state system message
+      // rides along with already-canonicalised toolCallIds.
       return next.run({
         ...input,
         messages: [
@@ -518,6 +574,10 @@ function createReasoningAgent(path = "/reasoning") {
   // only accepts user/assistant/system/tool roles.
   agent.use(
     new FunctionMiddleware((input, next) => {
+      // The outer createAgent middleware already stripped replay-safe ids
+      // on inbound messages. Here we additionally drop reasoning-role
+      // messages because the .NET AG-UI host's input mapper rejects
+      // them (it only accepts user/assistant/system/tool roles).
       const sanitizedInput = {
         ...input,
         messages: input.messages?.filter(
