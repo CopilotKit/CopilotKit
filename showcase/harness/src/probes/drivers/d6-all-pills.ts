@@ -179,16 +179,6 @@ export interface E2eFullBrowser {
     extraHTTPHeaders?: Record<string, string>;
   }): Promise<E2eFullBrowserContext>;
   close(): Promise<void>;
-  /**
-   * Optional liveness probe. Pooled launchers and the default Playwright
-   * launcher both expose this; tests/fakes may omit it (treated as alive
-   * by callers via `?? true`). Used by the driver's between-features
-   * cascade-isolation check: a single hung feature can OOM-kill the
-   * shared chromium subprocess, after which every subsequent
-   * `newContext()` on the dead handle throws "browser closed" — recycle
-   * the pooled handle BEFORE the next feature acquires its context.
-   */
-  isConnected?(): boolean;
 }
 
 export type E2eFullBrowserLauncher = (
@@ -214,48 +204,10 @@ const DEFAULT_PAGE_TIMEOUT_MS = 30 * 1000;
 const DEFAULT_FEATURE_TIMEOUT_MS = 5 * 60 * 1000;
 
 /**
- * D6 per-service feature concurrency.
- *
- * Was 4 (matching D6's full-matrix wall-clock budget). Lowered to 2
- * because 4 concurrent features each holding a 5-min hung context (the
- * worst case: a feature whose aimock fixture is missing loops to the
- * `featureTimeoutMs` wall-clock) accumulate enough loaded-page +
- * SSE/DOM state to OOM-kill the shared Chromium subprocess. Once
- * Chromium dies, every remaining `newContext()` on that handle fails
- * with "Target page, context or browser has been closed" and wipes the
- * rest of the service's ~40 features. Halving the in-flight context
- * count roughly halves the simultaneous hung-context memory pressure;
- * wall-clock per service rises modestly but per-feature signal quality
- * (the actual ask of D6) matters more here.
- *
- * Operators can override via `FEATURE_CONCURRENCY_D6` env (see
- * `resolveFeatureConcurrencyD6`).
+ * D6 runs 4 features concurrently (vs D5's 2). Higher parallelism
+ * because D6 is the full matrix and needs to complete within budget.
  */
-export const FEATURE_CONCURRENCY_D6 = 2;
-
-/**
- * Cap on between-features browser-recycle attempts per service. A
- * single hung-feature timeout is the expected case (one recycle).
- * Repeated recycles within one service indicate the pool itself is
- * unhealthy — bail out rather than spin recycling forever.
- */
-export const MAX_BROWSER_RECYCLES_PER_SERVICE = 5;
-
-/**
- * Resolve the effective feature concurrency for a D6 service run.
- * Reads `FEATURE_CONCURRENCY_D6` from the supplied env map (defaults to
- * `process.env`) and falls back to the `FEATURE_CONCURRENCY_D6`
- * constant when unset/invalid. Clamped to >= 1.
- */
-export function resolveFeatureConcurrencyD6(
-  env: NodeJS.ProcessEnv = process.env,
-): number {
-  const raw = env.FEATURE_CONCURRENCY_D6;
-  if (raw === undefined || raw === "") return FEATURE_CONCURRENCY_D6;
-  const parsed = parseInt(raw, 10);
-  if (!Number.isFinite(parsed) || parsed < 1) return FEATURE_CONCURRENCY_D6;
-  return parsed;
-}
+export const FEATURE_CONCURRENCY_D6 = 4;
 
 /**
  * Inline counting semaphore — gates concurrent access to a bounded
@@ -373,7 +325,6 @@ const defaultLauncher: E2eFullBrowserLauncher =
         };
       },
       close: () => browser.close(),
-      isConnected: () => browser.isConnected(),
     };
   };
 
@@ -511,7 +462,6 @@ export function createPooledE2eFullLauncher(
         if (forceReleased) return;
         pool.release(browser);
       },
-      isConnected: () => browser.isConnected(),
     };
   };
 }
@@ -894,86 +844,9 @@ export function createE2eFullDriver(
           return aggregateResult;
         }
 
-        // Run features with bounded parallelism. Concurrency is
-        // env-overridable (FEATURE_CONCURRENCY_D6) — see resolver
-        // comment near the constant.
-        const featureConcurrency = resolveFeatureConcurrencyD6();
-        const sem = new Semaphore(featureConcurrency);
-
-        // Shared, mutable handle to the current pooled browser. A
-        // single hung feature (e.g. missing aimock fixture loops to
-        // `featureTimeoutMs`) can accumulate enough hung-context
-        // memory to OOM-kill the shared Chromium subprocess; once
-        // dead, every subsequent `newContext()` on the same handle
-        // throws "Target page, context or browser has been closed"
-        // and wipes the rest of the service's features. The
-        // between-features check below detects the dead handle and
-        // single-flight recycles it (release + relauncher) before
-        // the next feature acquires its context, isolating the
-        // cascade to just the feature(s) that hung.
-        const handle: { current: E2eFullBrowser } = { current: browser! };
-        let recycleAttempts = 0;
-        let recycleInFlight: Promise<void> | null = null;
-
-        const recycleBrowser = async (reason: string): Promise<void> => {
-          // Single-flight: if a recycle is already running, await it.
-          // The waiter gets the swapped handle without launching a
-          // duplicate browser.
-          if (recycleInFlight) {
-            await recycleInFlight;
-            return;
-          }
-          if (recycleAttempts >= MAX_BROWSER_RECYCLES_PER_SERVICE) {
-            ctx.logger.warn("probe.e2e-full.recycle-cap-reached", {
-              slug,
-              attempts: recycleAttempts,
-              cap: MAX_BROWSER_RECYCLES_PER_SERVICE,
-              reason,
-            });
-            return;
-          }
-          recycleAttempts++;
-          ctx.logger.warn("probe.e2e-full.between-features-recycle", {
-            slug,
-            attempt: recycleAttempts,
-            cap: MAX_BROWSER_RECYCLES_PER_SERVICE,
-            reason,
-          });
-          recycleInFlight = (async () => {
-            const stale = handle.current;
-            try {
-              await stale.close();
-            } catch (err) {
-              // Stale browser is dead/disconnected — close failure
-              // is expected and non-fatal; the launcher's release
-              // path routes the dead instance back to the pool where
-              // its isConnected check + recycleSlot recovery takes
-              // over.
-              ctx.logger.warn("probe.e2e-full.recycle-close-failed", {
-                slug,
-                err: err instanceof Error ? err.message : String(err),
-              });
-            }
-            try {
-              handle.current = await launcher(abort.signal);
-            } catch (err) {
-              // Relaunch failed (pool empty / chromium spawn EAGAIN /
-              // abort fired). Leave handle.current pointing at the
-              // stale browser; subsequent features will fail-fast on
-              // newContext and we won't infinite-loop because of the
-              // attempts cap above.
-              ctx.logger.warn("probe.e2e-full.recycle-relaunch-failed", {
-                slug,
-                err: err instanceof Error ? err.message : String(err),
-              });
-            }
-          })();
-          try {
-            await recycleInFlight;
-          } finally {
-            recycleInFlight = null;
-          }
-        };
+        // Run features with bounded parallelism.
+        const sem = new Semaphore(FEATURE_CONCURRENCY_D6);
+        const browserRef: E2eFullBrowser = browser!;
 
         const featurePromises = runnable.map(async (ft) => {
           const sideKey = `d6:${slug}/${ft}`;
@@ -1021,18 +894,6 @@ export function createE2eFullDriver(
               };
             }
 
-            // Between-features cascade isolation: if the shared
-            // pooled browser died during a prior feature (typically a
-            // 5-min hung context that OOM-killed Chromium), recycle
-            // it BEFORE this feature acquires its context. Without
-            // this, `runFeature -> browser.newContext()` would throw
-            // "Target page, context or browser has been closed" and
-            // every remaining feature in the service would fail with
-            // that same error.
-            if (handle.current.isConnected?.() === false) {
-              await recycleBrowser("dead-handle-pre-feature");
-            }
-
             const featureAbort = new AbortController();
             const onParentAbort = (): void => featureAbort.abort();
             if (abort.signal.aborted) featureAbort.abort();
@@ -1056,11 +917,7 @@ export function createE2eFullDriver(
               try {
                 return await Promise.race([
                   runFeature({
-                    // Read handle.current at call-time, not capture-
-                    // time: a between-features recycle may have
-                    // swapped the live browser since this worker was
-                    // scheduled.
-                    browser: handle.current,
+                    browser: browserRef,
                     url,
                     slug,
                     featureType: ft,
@@ -1127,21 +984,6 @@ export function createE2eFullDriver(
               }
             } finally {
               abort.signal.removeEventListener("abort", onParentAbort);
-            }
-
-            // Proactive recycle after a feature-timeout: the hung
-            // context may still be holding memory inside the shared
-            // Chromium even after `featureAbort.abort()` (Playwright's
-            // abort tears down the context asynchronously). Recycling
-            // here drops the pressure before the next feature on this
-            // worker starts, and is cheap on the happy path because
-            // the cap + single-flight guard prevents runaway.
-            if (
-              !featureResult.ok &&
-              featureResult.errorClass === "feature-timeout" &&
-              !abort.signal.aborted
-            ) {
-              await recycleBrowser("post-feature-timeout");
             }
 
             if (featureResult.ok) {
