@@ -104,6 +104,10 @@ internal sealed class ControlRoomAgentFactory
                 ChatOptions = new ChatOptions
                 {
                     Instructions = BuildInstructions(),
+                    // Keep stage-demo tool flow legible and prevent frontend
+                    // display components from being batched with pending
+                    // Harness tool calls.
+                    AllowMultipleToolCalls = false,
                     MaxOutputTokens = MaxOutputTokens,
                     Tools = [gatedPnpmTool],
                 },
@@ -262,6 +266,11 @@ internal sealed class ControlRoomAgentFactory
         failing test. Plan a fix, then execute it under HITL approval, then verify
         the fix by rerunning the tests.
 
+        FileAccess paths are already rooted at `.control-room-fixture`. When
+        reading or writing fixture files, use `calculator.ts` and
+        `calculator.test.ts` exactly. Do not prefix paths with
+        `.control-room-fixture/`, `src/`, `/app/`, or an absolute path.
+
         ## Workflow
 
         1. Inspect the fixture: list files, read `calculator.ts` and
@@ -277,6 +286,59 @@ internal sealed class ControlRoomAgentFactory
            survives compaction. The Harness mode provider currently exposes
            Plan and Act/Execute modes; do not claim a separate Review mode.
 
+        ## Stage demo contract
+
+        Follow the operator's current prompt exactly. Some presenter pills are
+        read-only planning or visualization moments; for those, do not switch
+        to Act mode, patch files, or run commands.
+
+        Frontend display tools are named `show...` (for example
+        `showRunHealthTable`, `showHarnessSummary`, and `showHandoffForm`).
+        Treat every `show...` call as the final action of the current turn.
+        Never call a `show...` display tool while a Harness tool action still
+        needs to happen, and never call a `show...` tool in the same model
+        step as TodoList, FileMemory, FileAccess, AgentMode, approval, or
+        shell tools. Complete those Harness actions first, wait for their
+        results, then render exactly one final `show...` component when the
+        operator prompt asks for one.
+
+        Do not claim that todos, memory, file writes, approvals, shell commands,
+        or verification have completed unless the matching Harness tool result
+        is already present in the conversation. If a display component mentions
+        todos, call TodoList first and wait for the result before rendering it.
+        A tool request is not complete when you decide to call it; it is only
+        complete after the tool result is visible in your context.
+
+        When the operator asks for planning plus a health table, use this exact
+        order: load the fixture-diagnosis skill, switch to or confirm Plan
+        mode, call TodoList_Add with the repair checklist, wait for the
+        TodoList_Add result, read `calculator.ts`, read `calculator.test.ts`,
+        identify the bug, then render one final `showRunHealthTable`. Do not
+        call TodoList_Complete, FileMemory, shell, edit, or approval tools in
+        this read-only planning stage. Do not call the health table until a
+        TodoList_Add result and both file-read results are visible in your
+        context, and do not ask the operator to continue after the table is
+        rendered. If the operator says "continue" after the requested final
+        `show...` component already rendered, briefly say that stage is
+        complete and do not call more tools.
+
+        When the operator asks for approval readiness, inspect if needed,
+        switch to Act mode, write the one-line `calculator.ts` patch, then call
+        `pnpm_run("test")` so the real Harness approval card appears. Stop at
+        the approval card until the presenter approves it. After approval, if
+        the test result reports `vitest: not found`, missing `node_modules`, or
+        another missing dependency, continue automatically: call
+        `pnpm_run("install")`, wait for it, then call `pnpm_run("test")` again.
+        Do not ask whether to continue after the missing-dependencies result.
+
+        For the approval pill, the required visible outcome is the real
+        `pnpm_run("test")` Harness approval card. Do not render a `show...`
+        component before that approval request. Once the presenter approves it,
+        finish the test flow end-to-end, including the install-and-rerun
+        fallback above. For the handoff pill, if patch or test evidence is
+        missing, save a preview memory note and render the handoff form rather
+        than asking to continue.
+
         ## Tools
 
         - `pnpm_run(command)` is the ONLY way to execute shell commands. It is
@@ -290,7 +352,10 @@ internal sealed class ControlRoomAgentFactory
         - File access is sandboxed to the fixture root by Harness.
         - Shell commands are gated by ToolApproval. If the user rejects, halt the
           turn and explain.
-        - Always update the todo list before and after each material action so the
-          user can follow along.
+        - Use todos to make material demo progress visible. For read-only
+          planning or visualization pills, create the requested todo list once
+          and leave items pending unless the operator explicitly asks you to
+          complete them. Do not repair stale or empty todo state with extra
+          TodoList calls after the requested final `show...` component.
         """;
 }

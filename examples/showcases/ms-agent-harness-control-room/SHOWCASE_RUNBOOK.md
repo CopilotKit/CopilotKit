@@ -15,26 +15,34 @@ deliberately one-click entry points rather than presenter step buttons.
 1. **Plan repair + health table**
    - Shows Harness planning mode, skill loading, file inspection, and todo
      creation.
-   - Expected UI: `showRunHealthTable` and `showHarnessSummary`.
+   - Expected UI: one final `showRunHealthTable` after the todo tool finishes.
 
 2. **Estimate timeline**
    - Shows how the same Harness state can drive a schedule view.
-   - Expected UI: `showRepairCalendar` plus a short summary.
+   - Expected UI: one final `showRepairCalendar`.
 
 3. **Show capability coverage**
    - Shows MAH as an orchestrator instead of only a bug-fix agent.
-   - Expected UI: `showCapabilityRadar` and `showToolUsageDonut`.
+   - Expected UI: one final `showCapabilityRadar`.
 
 4. **Run with approval readiness**
-   - Applies the minimal calculator fix, then shows a readiness form before the
-     real approval-gated shell command.
-   - Expected UI: `showApprovalReadinessForm`, real Harness approval card, and
-     `showRepairTrendChart`.
+   - Applies the minimal calculator fix, then asks for the real
+     approval-gated shell command. After the presenter approves, the agent
+     continues through the missing-dependencies install fallback, reruns tests,
+     runs coverage, and saves memory.
+   - Expected UI: real Harness approval card for `pnpm_run("test")`, followed
+     by green `install`, `test`, `test:coverage`, and memory evidence when the
+     approval is accepted.
 
 5. **Verify and hand off**
-   - Runs coverage, saves a short handoff to memory, and summarizes the result.
-   - Expected UI: `showCoverageAreaChart`, `showHandoffForm`, and
-     `showHarnessSummary`.
+   - Saves a short handoff to memory and summarizes the current verified or
+     pending result.
+   - Expected UI: one final `showHandoffForm` after the memory write finishes.
+
+Display components are intentionally terminal for a turn. The agent must finish
+Harness tool calls first, then render one `show...` component as the last
+action. This keeps backend Harness evidence and CopilotKit generative UI from
+competing in the same model step.
 
 The seeded bug is still simple by design: `calculator.ts` has `add(a, b)`
 returning `a - b`. The expected patch is `a + b`.

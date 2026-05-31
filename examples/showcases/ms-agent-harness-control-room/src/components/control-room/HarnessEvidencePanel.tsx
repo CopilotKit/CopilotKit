@@ -17,6 +17,7 @@ import {
   useControlRoomAgentState,
   useControlRoomLocal,
 } from "@/hooks/use-control-room-state";
+import { cn } from "@/lib/utils";
 
 export function HarnessEvidencePanel() {
   const agentState = useControlRoomAgentState();
@@ -27,7 +28,7 @@ export function HarnessEvidencePanel() {
   const featureSupport = localState.featureSupport;
 
   return (
-    <div className="flex h-full flex-col gap-3 p-4">
+    <div className="flex h-full w-full min-w-0 max-w-full flex-col gap-3 overflow-hidden p-4">
       <EvidenceMetric
         icon={<Brain size={16} />}
         label="Mode"
@@ -114,7 +115,7 @@ export function HarnessEvidencePanel() {
         }
       />
 
-      <Card>
+      <Card className="min-w-0 max-w-full">
         <CardHeader className="p-4 pb-2">
           <CardTitle className="text-sm">Feature support</CardTitle>
         </CardHeader>
@@ -146,8 +147,8 @@ function EvidenceMetric({
   tone?: "amber" | "emerald" | "cyan" | "red";
 }) {
   return (
-    <Card size="sm" className="px-3">
-      <div className="flex items-center gap-3">
+    <Card size="sm" className="min-w-0 max-w-full px-3">
+      <div className="flex min-w-0 items-center gap-3">
         <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border bg-muted text-muted-foreground">
           {icon}
         </div>
@@ -181,8 +182,12 @@ function EvidenceBadge({
             ? "border-cyan-200 bg-cyan-50 text-cyan-700"
             : "";
   return (
-    <Badge variant="outline" className={className}>
-      {children}
+    <Badge
+      variant="outline"
+      className={cn("min-w-0 max-w-[8rem] shrink justify-start", className)}
+      title={typeof children === "string" ? children : undefined}
+    >
+      <span className="min-w-0 truncate">{children}</span>
     </Badge>
   );
 }
@@ -204,18 +209,20 @@ function FeatureChips({ label, items }: { label: string; items: string[] }) {
           Awaiting health probe
         </p>
       ) : (
-        <ul className="mt-1.5 flex flex-wrap gap-1.5">
+        <ul className="mt-1.5 flex min-w-0 max-w-full flex-wrap gap-1.5 overflow-hidden">
           {items.slice(0, 6).map((item) => (
-            <li key={item}>
+            <li key={item} className="min-w-0 max-w-full">
               <Badge
                 variant="outline"
-                className={
+                className={cn(
+                  "max-w-full justify-start",
                   label === "Native"
                     ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                    : undefined
-                }
+                    : undefined,
+                )}
+                title={item}
               >
-                {item}
+                <span className="min-w-0 truncate">{item}</span>
               </Badge>
             </li>
           ))}

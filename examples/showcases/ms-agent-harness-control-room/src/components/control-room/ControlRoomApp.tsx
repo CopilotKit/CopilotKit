@@ -77,7 +77,10 @@ function ThreePaneLayout() {
   return (
     <div className="cockpit-shell flex h-[100dvh] flex-col p-2">
       <ShowcaseDrawer />
-      <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-1 gap-2">
+      <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-1 gap-2 lg:grid-cols-[420px_minmax(0,1fr)]">
+        <Pane className="hidden lg:flex">
+          <ShowcaseSidebarFrame />
+        </Pane>
         <Pane>
           <CenterWorkstream />
         </Pane>
@@ -98,44 +101,56 @@ function ShowcaseDrawer() {
         aria-label="Showcase sidebar"
         title="Showcase"
         onClick={() => setOpen(true)}
-        className="absolute left-3 top-3 z-10 rounded-2xl bg-background/95 shadow-sm backdrop-blur"
+        className="absolute left-3 top-3 z-10 rounded-2xl bg-background/95 shadow-sm backdrop-blur lg:hidden"
       >
         <PanelLeft className="text-primary" />
       </Button>
       <SheetContent side="left" className="w-[96vw] max-w-[96vw] overflow-hidden p-0 sm:max-w-[560px]">
-        <SheetHeader className="border-b px-5 py-4">
-          <SheetTitle>
-            <span className="flex min-w-0 items-center gap-2">
-              <span className="flex min-w-0 items-center gap-2">
-                <img
-                  src="/brand/copilotkit-color.svg"
-                  alt=""
-                  aria-hidden
-                  className="size-4 shrink-0"
-                />
-                <span>CopilotKit</span>
-              </span>
-              <span className="h-4 w-px shrink-0 bg-border" aria-hidden />
-              <span className="flex min-w-0 items-center gap-2">
-                <img
-                  src="/brand/microsoft-color.svg"
-                  alt=""
-                  aria-hidden
-                  className="size-4 shrink-0"
-                />
-                <span>Microsoft</span>
-              </span>
-            </span>
-          </SheetTitle>
+        <SheetHeader className="sr-only">
+          <SheetTitle>CopilotKit and Microsoft guided repair demo</SheetTitle>
           <SheetDescription>
-            Agent Harness showcase controls.
+            Harness plans, patches, approves, and verifies a seeded repair.
           </SheetDescription>
         </SheetHeader>
-        <div className="min-h-0 flex-1">
-          <ShowcaseSidebar />
-        </div>
+        <ShowcaseSidebarFrame className="h-full" />
       </SheetContent>
     </Sheet>
+  );
+}
+
+function ShowcaseSidebarFrame({ className }: { className?: string }) {
+  return (
+    <div className={cn("flex h-full min-h-0 flex-col", className)}>
+      <header className="border-b px-5 py-4">
+        <div className="flex min-w-0 items-center gap-2 text-sm font-semibold tracking-tight">
+          <span className="flex min-w-0 items-center gap-2">
+            <img
+              src="/brand/copilotkit-color.svg"
+              alt=""
+              aria-hidden
+              className="size-4 shrink-0"
+            />
+            <span>CopilotKit</span>
+          </span>
+          <span className="h-4 w-px shrink-0 bg-border" aria-hidden />
+          <span className="flex min-w-0 items-center gap-2">
+            <img
+              src="/brand/microsoft-color.svg"
+              alt=""
+              aria-hidden
+              className="size-4 shrink-0"
+            />
+            <span>Microsoft</span>
+          </span>
+        </div>
+        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+          Harness plans, patches, approves, and verifies a seeded repair.
+        </p>
+      </header>
+      <div className="min-h-0 flex-1">
+        <ShowcaseSidebar />
+      </div>
+    </div>
   );
 }
 

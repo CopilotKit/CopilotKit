@@ -47,6 +47,26 @@
   --cr-cyan: #0891b2;
   --cr-red: var(--destructive);
   --cr-magenta: #7c3aed;
+  --cr-action-indigo: #5f5cf6;
+  --cr-action-blue: #0078d4;
+  --cr-action-gradient: linear-gradient(
+    135deg,
+    #7470ff 0%,
+    var(--cr-action-indigo) 48%,
+    var(--cr-action-blue) 100%
+  );
+  --cr-action-gradient-hover: linear-gradient(
+    135deg,
+    #6662f4 0%,
+    #524df0 46%,
+    #006cbe 100%
+  );
+  --cr-action-shadow:
+    0 8px 18px -12px rgba(0, 120, 212, 0.72),
+    0 4px 12px -10px rgba(95, 92, 246, 0.72);
+  --cr-action-shadow-hover:
+    0 10px 22px -12px rgba(0, 120, 212, 0.82),
+    0 5px 14px -10px rgba(95, 92, 246, 0.8);
 
   --cr-font-sans:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
@@ -62,11 +82,11 @@
   --cr-shadow-lg:
     0 10px 15px -3px rgb(0 0 0 / 0.06),
     0 4px 6px -4px rgb(0 0 0 / 0.06);
-  --chart-1: oklch(0.785 0.115 274.713);
-  --chart-2: oklch(0.585 0.233 277.117);
-  --chart-3: oklch(0.511 0.262 276.966);
-  --chart-4: oklch(0.457 0.24 277.023);
-  --chart-5: oklch(0.398 0.195 277.366);
+  --chart-1: #bec2ff;
+  --chart-2: var(--cr-action-indigo);
+  --chart-3: var(--cr-action-blue);
+  --chart-4: #54a4f2;
+  --chart-5: #85ecce;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: var(--primary);
@@ -153,6 +173,11 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+input,
+select,
+textarea {
   color: inherit;
 }
 
@@ -163,6 +188,39 @@ button {
 button:disabled,
 [aria-disabled="true"] {
   cursor: not-allowed;
+}
+
+[data-slot="button"][data-variant="default"] {
+  background-color: var(--cr-action-indigo);
+  background-image: var(--cr-action-gradient);
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: var(--cr-action-shadow);
+  color: #ffffff !important;
+}
+
+[data-slot="button"][data-variant="default"]:hover {
+  background-image: var(--cr-action-gradient-hover);
+  box-shadow: var(--cr-action-shadow-hover);
+}
+
+[data-slot="button"][data-variant="default"]:disabled,
+[data-slot="button"][data-variant="default"][aria-disabled="true"] {
+  box-shadow: none;
+  filter: saturate(0.78);
+}
+
+.copilotKitInput button[data-slot="button"]:not(:disabled) {
+  background-color: var(--cr-action-indigo) !important;
+  background-image: var(--cr-action-gradient) !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  box-shadow: var(--cr-action-shadow) !important;
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+.copilotKitInput button[data-slot="button"]:not(:disabled):hover {
+  background-image: var(--cr-action-gradient-hover) !important;
+  box-shadow: var(--cr-action-shadow-hover) !important;
 }
 
 :focus {
@@ -333,11 +391,11 @@ a {
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.785 0.115 274.713);
-  --chart-2: oklch(0.585 0.233 277.117);
-  --chart-3: oklch(0.511 0.262 276.966);
-  --chart-4: oklch(0.457 0.24 277.023);
-  --chart-5: oklch(0.398 0.195 277.366);
+  --chart-1: #bec2ff;
+  --chart-2: var(--cr-action-indigo);
+  --chart-3: var(--cr-action-blue);
+  --chart-4: #54a4f2;
+  --chart-5: #85ecce;
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.585 0.233 277.117);

@@ -57,6 +57,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
   Select,
@@ -278,6 +279,9 @@ const HandoffFormProps = z.object({
     .describe("Follow-up items captured during review."),
 });
 
+const DISPLAY_COMPONENT_FINAL_ACTION =
+  "This is a display-only component. Use it only as the final action of the current response, after every required Harness tool result is complete. Never call it in the same model step as a pending mode change, todo update, file read, file write, memory write, approval request, or shell command. Never use it to claim todos, memory, files, tests, approval, or shell work unless the matching Harness tool result is already present in the conversation.";
+
 export const GENERATIVE_UI_CATALOG = [
   {
     id: "summary",
@@ -481,11 +485,13 @@ export function GenerativeUIRegistry() {
 
 export function GenerativeUICatalogPanel({
   className,
+  tabsSlot,
 }: {
   className?: string;
+  tabsSlot?: ReactNode;
 }) {
   const [query, setQuery] = useState("");
-  const { enabled, enabledItems, setEnabled, enableAll, disableAll } =
+  const { enabled, setEnabled, enableAll, disableAll } =
     useGenerativeUICatalog();
   const filteredItems = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -499,56 +505,44 @@ export function GenerativeUICatalogPanel({
 
   return (
     <div className={cn("flex h-full min-h-0 flex-col", className)}>
-      <header className="border-b px-5 py-4 pr-14">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="text-base font-semibold tracking-tight">
-              Generative UI
-            </h2>
-            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-              Enable the components the Harness agent can render in chat.
-            </p>
-          </div>
-          <Badge variant="secondary" className="shrink-0">
-            {enabledItems.length} enabled
-          </Badge>
-        </div>
-      </header>
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-muted/25 p-5">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search charts, forms, calendar..."
-            className="pl-9"
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <Button type="button" variant="outline" onClick={enableAll}>
-            Enable all
-          </Button>
-          <Button type="button" variant="outline" onClick={disableAll}>
-            Disable all
-          </Button>
-        </div>
-        <Separator />
-        <div className="space-y-3">
-          {filteredItems.map((item) => (
-            <CatalogItemRow
-              key={item.id}
-              item={item}
-              enabled={enabled[item.id]}
-              onEnabledChange={(checked) => setEnabled(item.id, checked)}
+      {tabsSlot}
+      <ScrollArea className="min-h-0 flex-1 bg-muted/25">
+        <div className="space-y-4 p-5 pb-8">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search charts, forms, calendar..."
+              className="pl-9"
             />
-          ))}
-          {filteredItems.length === 0 ? (
-            <div className="rounded-2xl border bg-background p-5 text-sm text-muted-foreground">
-              No components match that search.
-            </div>
-          ) : null}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Button type="button" variant="outline" onClick={enableAll}>
+              Enable all
+            </Button>
+            <Button type="button" variant="outline" onClick={disableAll}>
+              Disable all
+            </Button>
+          </div>
+          <Separator />
+          <div className="space-y-3">
+            {filteredItems.map((item) => (
+              <CatalogItemRow
+                key={item.id}
+                item={item}
+                enabled={enabled[item.id]}
+                onEnabledChange={(checked) => setEnabled(item.id, checked)}
+              />
+            ))}
+            {filteredItems.length === 0 ? (
+              <div className="rounded-2xl border bg-background p-5 text-sm text-muted-foreground">
+                No components match that search.
+              </div>
+            ) : null}
+          </div>
         </div>
-      </div>
+      </ScrollArea>
     </div>
   );
 }
@@ -668,8 +662,9 @@ function HarnessSummaryRegistration() {
     name: "showHarnessSummary",
     agentId: CONTROL_ROOM_AGENT_NAME,
     parameters: HarnessSummaryProps,
+    followUp: false,
     description:
-      "Use this for concise stage status summaries. Prefer it after planning, after a patch, after a test run, and during the final review. Populate metrics with Harness-specific values such as mode, todos, files, approvals, last test, and memory.",
+      `${DISPLAY_COMPONENT_FINAL_ACTION} Use this for concise stage status summaries after planning, after a patch, after a test run, or during final review. Populate metrics with Harness-specific values such as mode, todos, files, approvals, last test, and memory.`,
     render: HarnessSummaryCard,
   });
   return null;
@@ -680,8 +675,9 @@ function RepairTrendChartRegistration() {
     name: "showRepairTrendChart",
     agentId: CONTROL_ROOM_AGENT_NAME,
     parameters: RepairTrendChartProps,
+    followUp: false,
     description:
-      "Use this when the audience should see progress over a Harness run. Prefer it after tests or coverage. Use labels such as Plan, Inspect, Patch, Test, Verify, and Handoff.",
+      `${DISPLAY_COMPONENT_FINAL_ACTION} Use this when the audience should see progress over a Harness run after tests or coverage. Use labels such as Plan, Inspect, Patch, Test, Verify, and Handoff.`,
     render: RepairTrendChart,
   });
   return null;
@@ -692,8 +688,9 @@ function CoverageAreaChartRegistration() {
     name: "showCoverageAreaChart",
     agentId: CONTROL_ROOM_AGENT_NAME,
     parameters: CoverageAreaChartProps,
+    followUp: false,
     description:
-      "Use this area chart when the audience should see confidence rising or failures dropping across Plan, Inspect, Fix, Run, and Verify. Prefer it during verification and final review.",
+      `${DISPLAY_COMPONENT_FINAL_ACTION} Use this area chart when the audience should see confidence rising or failures dropping across Plan, Inspect, Fix, Run, and Verify. Prefer it during verification and final review.`,
     render: CoverageAreaChart,
   });
   return null;
@@ -704,8 +701,9 @@ function WorkstreamStackedAreaRegistration() {
     name: "showWorkstreamStackedArea",
     agentId: CONTROL_ROOM_AGENT_NAME,
     parameters: WorkstreamStackedAreaProps,
+    followUp: false,
     description:
-      "Use this stacked area chart when the audience should see the mix of tool calls, evidence, and approvals across the guided repair stages.",
+      `${DISPLAY_COMPONENT_FINAL_ACTION} Use this stacked area chart when the audience should see the mix of tool calls, evidence, and approvals across the guided repair stages.`,
     render: WorkstreamStackedArea,
   });
   return null;
@@ -716,8 +714,9 @@ function ToolUsageDonutRegistration() {
     name: "showToolUsageDonut",
     agentId: CONTROL_ROOM_AGENT_NAME,
     parameters: ToolUsageDonutProps,
+    followUp: false,
     description:
-      "Use this donut chart when the audience should understand which Harness capabilities dominated the run: file reads, shell tools, approvals, memory, or todos.",
+      `${DISPLAY_COMPONENT_FINAL_ACTION} Use this donut chart when the audience should understand which Harness capabilities dominated the run: file reads, shell tools, approvals, memory, or todos.`,
     render: ToolUsageDonut,
   });
   return null;
@@ -728,8 +727,9 @@ function CapabilityRadarRegistration() {
     name: "showCapabilityRadar",
     agentId: CONTROL_ROOM_AGENT_NAME,
     parameters: CapabilityRadarProps,
+    followUp: false,
     description:
-      "Use this radar chart for a capability-tour moment: planning, todos, memory, tools, approvals, files, and verification.",
+      `${DISPLAY_COMPONENT_FINAL_ACTION} Use this radar chart for a capability-tour moment: planning, todos, memory, tools, approvals, files, and verification.`,
     render: CapabilityRadar,
   });
   return null;
@@ -740,8 +740,9 @@ function ApprovalRadialRegistration() {
     name: "showApprovalRadial",
     agentId: CONTROL_ROOM_AGENT_NAME,
     parameters: ApprovalRadialProps,
+    followUp: false,
     description:
-      "Use this radial chart for compact progress moments such as approval readiness, verification confidence, or stage completion.",
+      `${DISPLAY_COMPONENT_FINAL_ACTION} Use this radial chart for compact progress moments such as approval readiness, verification confidence, or stage completion.`,
     render: ApprovalRadial,
   });
   return null;
@@ -752,8 +753,9 @@ function RepairCalendarRegistration() {
     name: "showRepairCalendar",
     agentId: CONTROL_ROOM_AGENT_NAME,
     parameters: RepairCalendarProps,
+    followUp: false,
     description:
-      "Use this to show a dated presenter timeline, approval window, or verification handoff schedule. Choose realistic ISO dates and keep labels short enough for a stage demo.",
+      `${DISPLAY_COMPONENT_FINAL_ACTION} Use this to show a dated presenter timeline, approval window, or verification handoff schedule. Choose realistic ISO dates and keep labels short enough for a stage demo.`,
     render: RepairCalendar,
   });
   return null;
@@ -764,8 +766,9 @@ function ApprovalReadinessFormRegistration() {
     name: "showApprovalReadinessForm",
     agentId: CONTROL_ROOM_AGENT_NAME,
     parameters: ApprovalReadinessFormProps,
+    followUp: false,
     description:
-      "Use this form-style component immediately before approval-gated shell or file actions. It should show the command, risk level, and readiness checks for the presenter.",
+      `${DISPLAY_COMPONENT_FINAL_ACTION} Use this form-style component only when the current turn is explicitly a readiness preview, not when the real Harness approval card is required. It should show the command, risk level, and readiness checks for the presenter.`,
     render: ApprovalReadinessForm,
   });
   return null;
@@ -776,8 +779,9 @@ function HandoffFormRegistration() {
     name: "showHandoffForm",
     agentId: CONTROL_ROOM_AGENT_NAME,
     parameters: HandoffFormProps,
+    followUp: false,
     description:
-      "Use this form-style component during the Review step after saving memory. It should summarize owner, notes, and follow-up items for handoff.",
+      `${DISPLAY_COMPONENT_FINAL_ACTION} Use this form-style component during handoff after memory has already been saved. It should summarize owner, notes, and follow-up items for handoff.`,
     render: HandoffForm,
   });
   return null;
@@ -788,8 +792,9 @@ function FileImpactMapRegistration() {
     name: "showFileImpactMap",
     agentId: CONTROL_ROOM_AGENT_NAME,
     parameters: FileImpactMapProps,
+    followUp: false,
     description:
-      "Use this after inspecting or patching files. Show only top-level fixture paths such as calculator.ts and calculator.test.ts, risk level, and why each file matters.",
+      `${DISPLAY_COMPONENT_FINAL_ACTION} Use this after inspecting or patching files. Show only top-level fixture paths such as calculator.ts and calculator.test.ts, risk level, and why each file matters.`,
     render: FileImpactMap,
   });
   return null;
@@ -800,8 +805,9 @@ function RunHealthTableRegistration() {
     name: "showRunHealthTable",
     agentId: CONTROL_ROOM_AGENT_NAME,
     parameters: RunHealthTableProps,
+    followUp: false,
     description:
-      "Use this table when the audience should see run health as rows: tests, coverage, typecheck, approvals, files, and memory with status and progress.",
+      `${DISPLAY_COMPONENT_FINAL_ACTION} Use this table when the audience should see run health as rows: tests, coverage, typecheck, approvals, files, and memory with status and progress.`,
     render: RunHealthTable,
   });
   return null;
@@ -849,7 +855,7 @@ function HarnessSummaryCard({
 const repairTrendConfig = {
   tests: { label: "Tests", color: "var(--chart-2)" },
   files: { label: "Files", color: "var(--chart-3)" },
-  approvals: { label: "Approvals", color: "var(--chart-4)" },
+  approvals: { label: "Approvals", color: "var(--chart-5)" },
 } satisfies ChartConfig;
 
 function RepairTrendChart({
@@ -950,7 +956,7 @@ function CoverageAreaChart({
 const workstreamStackConfig = {
   toolCalls: { label: "Tool calls", color: "var(--chart-2)" },
   evidence: { label: "Evidence", color: "var(--chart-3)" },
-  approvals: { label: "Approvals", color: "var(--chart-4)" },
+  approvals: { label: "Approvals", color: "var(--chart-5)" },
 } satisfies ChartConfig;
 
 function WorkstreamStackedArea({
@@ -1007,19 +1013,19 @@ function WorkstreamStackedArea({
 
 const toolUsageConfig = {
   value: { label: "Usage" },
-  files: { label: "Files", color: "var(--chart-2)" },
-  shell: { label: "Shell", color: "var(--chart-3)" },
-  approvals: { label: "Approvals", color: "var(--chart-4)" },
-  memory: { label: "Memory", color: "var(--chart-5)" },
-  todos: { label: "Todos", color: "var(--chart-1)" },
+  files: { label: "Files", color: "var(--chart-3)" },
+  shell: { label: "Shell", color: "var(--chart-2)" },
+  approvals: { label: "Approvals", color: "var(--chart-5)" },
+  memory: { label: "Memory", color: "var(--chart-1)" },
+  todos: { label: "Todos", color: "var(--chart-4)" },
 } satisfies ChartConfig;
 
 const donutColors = [
   "var(--chart-2)",
   "var(--chart-3)",
-  "var(--chart-4)",
   "var(--chart-5)",
   "var(--chart-1)",
+  "var(--chart-4)",
 ];
 
 function ToolUsageDonut({
@@ -1488,7 +1494,7 @@ function RepairTrendPreview() {
       <div className="grid grid-cols-3 gap-2 text-[10px] text-muted-foreground">
         <LegendDot color="var(--chart-2)" label="Tests" />
         <LegendDot color="var(--chart-3)" label="Files" />
-        <LegendDot color="var(--chart-4)" label="Approvals" />
+        <LegendDot color="var(--chart-5)" label="Approvals" />
       </div>
     </CatalogPreviewFrame>
   );
@@ -1582,8 +1588,8 @@ function WorkstreamStackedAreaPreview() {
 
 function ToolUsageDonutPreview() {
   const data = [
-    { name: "Files", value: 4, fill: "var(--chart-2)" },
-    { name: "Shell", value: 2, fill: "var(--chart-3)" },
+    { name: "Files", value: 4, fill: "var(--chart-3)" },
+    { name: "Shell", value: 2, fill: "var(--chart-2)" },
     { name: "Memory", value: 1, fill: "var(--chart-5)" },
   ];
   return (

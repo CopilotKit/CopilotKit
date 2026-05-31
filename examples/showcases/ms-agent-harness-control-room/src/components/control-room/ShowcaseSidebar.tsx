@@ -6,7 +6,12 @@ import {
   RotateCcw,
   Settings,
 } from "lucide-react";
-import { useMemo, useState, type ComponentType } from "react";
+import {
+  useMemo,
+  useState,
+  type ComponentType,
+  type ReactNode,
+} from "react";
 
 import { CommandControls } from "@/components/control-room/CommandControls";
 import { ConnectionStatus } from "@/components/control-room/ConnectionStatus";
@@ -18,7 +23,6 @@ import { StructuredDiagnosisPanel } from "@/components/control-room/inspectors/S
 import { ModeControls } from "@/components/control-room/ModeControls";
 import { RightInspectorPanel } from "@/components/control-room/RightInspectorPanel";
 import { StructuredOutputControl } from "@/components/control-room/StructuredOutputControl";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -29,10 +33,10 @@ import {
 } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import {
   useControlRoomLocal,
 } from "@/hooks/use-control-room-state";
@@ -51,24 +55,24 @@ const SIDEBAR_PANELS: Array<{
 }> = [
   {
     id: "generative",
-    label: "Generative UI",
+    label: "Chat UI",
     description: "Components the agent can render in chat.",
     icon: ChartNoAxesCombined,
-    tone: "text-violet-600 bg-violet-50 border-violet-200",
+    tone: "border-violet-200 bg-violet-50 text-violet-600",
   },
   {
     id: "state",
-    label: "State",
+    label: "Evidence",
     description: "Live Harness mode, todos, files, approvals, and memory.",
     icon: Code2,
-    tone: "text-cyan-700 bg-cyan-50 border-cyan-200",
+    tone: "border-cyan-200 bg-cyan-50 text-cyan-700",
   },
   {
     id: "settings",
-    label: "Settings",
+    label: "Setup",
     description: "Endpoint, commands, structured output, and skills.",
     icon: Settings,
-    tone: "text-slate-700 bg-slate-50 border-slate-200",
+    tone: "border-slate-200 bg-slate-50 text-slate-700",
   },
 ];
 
@@ -89,78 +93,79 @@ export function ShowcaseSidebar({
   return (
     <div
       className={cn(
-        "flex h-full min-h-0 overflow-hidden bg-background",
+        "flex h-full min-h-0 flex-col overflow-hidden bg-background",
         className,
       )}
     >
       <ConnectionStatus />
-      <aside className="flex w-16 shrink-0 flex-col items-center border-r bg-muted/25 p-3">
-        <nav className="flex flex-1 flex-col items-center gap-2">
-          {SIDEBAR_PANELS.map((panel) => {
-            const Icon = panel.icon;
-            const isActive = panel.id === activePanelId;
-            return (
-              <Tooltip key={panel.id}>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant={isActive ? "default" : "outline"}
-                    size="icon"
-                    aria-label={panel.label}
-                    aria-current={isActive ? "page" : undefined}
-                    onClick={() => setActivePanelId(panel.id)}
-                    className={cn(
-                      "size-9 rounded-2xl shadow-sm",
-                      !isActive && panel.tone,
-                    )}
-                  >
-                    <Icon className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right" align="center" sideOffset={10}>
-                  {panel.label}
-                </TooltipContent>
-              </Tooltip>
-            );
-          })}
-        </nav>
-      </aside>
-      <section className="flex min-w-0 flex-1 flex-col">
+      <Tabs
+        value={activePanelId}
+        onValueChange={(value) => setActivePanelId(value as ShowcasePanelId)}
+        className="min-h-0 flex-1 gap-0"
+      >
         {activePanel.id === "generative" ? (
-          <GenerativeUICatalogPanel />
+          <GenerativeUICatalogPanel tabsSlot={<PanelTabs />} />
         ) : activePanel.id === "state" ? (
-          <StatePanel />
+          <StatePanel tabsSlot={<PanelTabs />} />
         ) : (
-          <AdvancedControlsPanel />
+          <AdvancedControlsPanel tabsSlot={<PanelTabs />} />
         )}
-      </section>
+      </Tabs>
     </div>
   );
 }
 
-function StatePanel() {
+function PanelTabs() {
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <PanelHeader
-        title="Harness state"
-        description="Live Agent Harness evidence grouped for the demo."
-        badge="AG-UI"
-      />
-      <ScrollArea className="min-h-0 flex-1 bg-muted/25">
-        <RightInspectorPanel />
+    <div className="border-b bg-muted/25 px-4 py-2.5">
+      <TabsList className="grid !h-9 w-full grid-cols-3 gap-1 overflow-hidden rounded-xl bg-muted p-1">
+        {SIDEBAR_PANELS.map((panel) => {
+          const Icon = panel.icon;
+          return (
+            <TabsTrigger
+              key={panel.id}
+              value={panel.id}
+              aria-label={panel.label}
+              title={panel.description}
+              className="h-7 min-w-0 justify-center gap-1.5 rounded-lg px-2 py-0 text-center text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            >
+              <span
+                className={cn(
+                  "flex size-5 shrink-0 items-center justify-center rounded-full border",
+                  panel.tone,
+                )}
+                aria-hidden
+              >
+                <Icon className="size-3" />
+              </span>
+              <span className="min-w-0 truncate">
+                {panel.label}
+              </span>
+            </TabsTrigger>
+          );
+        })}
+      </TabsList>
+    </div>
+  );
+}
+
+function StatePanel({ tabsSlot }: { tabsSlot: ReactNode }) {
+  return (
+    <div className="flex h-full min-h-0 min-w-0 max-w-full flex-col overflow-hidden">
+      {tabsSlot}
+      <ScrollArea className="min-h-0 min-w-0 flex-1 overflow-hidden bg-muted/25">
+        <div className="min-w-0 max-w-full overflow-hidden">
+          <RightInspectorPanel />
+        </div>
       </ScrollArea>
     </div>
   );
 }
 
-export function AdvancedControlsPanel() {
+export function AdvancedControlsPanel({ tabsSlot }: { tabsSlot: ReactNode }) {
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <PanelHeader
-        title="Settings"
-        description="Tools for setup, manual runs, structured output, and skills."
-        badge="Advanced"
-      />
+      {tabsSlot}
       <ScrollArea className="min-h-0 flex-1 bg-muted/25">
         <div className="space-y-4 p-4">
           <EndpointSelector />
@@ -185,30 +190,6 @@ export function AdvancedControlsPanel() {
         </div>
       </ScrollArea>
     </div>
-  );
-}
-
-function PanelHeader({
-  title,
-  description,
-  badge,
-}: {
-  title: string;
-  description: string;
-  badge: string;
-}) {
-  return (
-    <header className="flex items-start justify-between gap-3 border-b px-5 py-4">
-      <div className="min-w-0">
-        <h2 className="text-base font-semibold tracking-tight">{title}</h2>
-        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-          {description}
-        </p>
-      </div>
-      <Badge variant="secondary" className="shrink-0">
-        {badge}
-      </Badge>
-    </header>
   );
 }
 

@@ -10,8 +10,11 @@ description: |
 
 # Fixture diagnosis
 
-The fixture repo is a tiny Vitest project under `.control-room-fixture/`
-exposing three functions in `calculator.ts`:
+The fixture repo is a tiny Vitest project exposed to Harness file tools as the
+current file sandbox. Use the top-level paths `calculator.ts` and
+`calculator.test.ts`; do not prefix them with `.control-room-fixture/`, `src/`,
+`/app/`, or an absolute path. The fixture exposes three functions in
+`calculator.ts`:
 
 - `add(a, b)`
 - `subtract(a, b)`
@@ -26,12 +29,17 @@ The accompanying tests in `calculator.test.ts` expect:
 ## Procedure
 
 Important path rule: `calculator.ts` and `calculator.test.ts` are at the
-fixture repo root. Do not use or mention `.control-room-fixture/src/...`;
-there is no `src/` directory in the stage fixture.
+fixture repo root from the perspective of `FileAccess_ReadFile` and
+`FileAccess_WriteFile`. Use those exact paths.
+
+Follow the operator's current prompt. If the prompt says to inspect, plan, or
+visualize without editing or running commands, stop before the patch/test steps
+below and do only the requested read-only work.
 
 1. Read `calculator.ts` and `calculator.test.ts` with
    `FileAccess_ReadFile` to understand the current contract.
-2. Run `pnpm_run("test")` to reproduce the failure. If you see
+2. Run `pnpm_run("test")` to reproduce the failure only when the operator asks
+   to execute or verify. If you see
    `vitest: not found`, run `pnpm_run("install")` first.
 3. Patch `calculator.ts` with the minimal change needed to satisfy
    the test expectations. Prefer `FileAccess_WriteFile`.

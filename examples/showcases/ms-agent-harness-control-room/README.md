@@ -48,11 +48,15 @@ App-owned wrappers that exist because the underlying Harness + AG-UI primitive i
 
 Use the CopilotChat starter suggestions instead of presenter step buttons:
 
-1. **Plan repair + health table:** loads the diagnosis skill, switches to Plan mode, inspects the fixture, creates todos, and renders a health table plus Harness summary.
-2. **Estimate timeline:** turns the current plan into a calendar estimate rendered with generative UI.
-3. **Show capability coverage:** presents planning, todos, skills, memory, file access, shell tools, approvals, and verification as capability and usage charts.
-4. **Run with approval readiness:** switches to Act mode, applies the minimal patch, shows an approval readiness form, and runs the approval-gated test command.
-5. **Verify and hand off:** runs coverage, saves a memory handoff, and renders coverage, handoff, and summary components.
+1. **Plan repair + health table:** loads the diagnosis skill, switches to Plan mode, inspects the fixture, creates todos, and renders one final health table.
+2. **Estimate timeline:** turns the current plan into one final calendar estimate.
+3. **Show capability coverage:** presents planning, todos, skills, memory, file access, shell tools, approvals, and verification as one capability chart.
+4. **Run with approval readiness:** switches to Act mode, applies the minimal patch, shows the real approval-gated `pnpm_run("test")` card, then continues after approval through install, test, coverage, and memory if the reset fixture is missing dependencies.
+5. **Verify and hand off:** saves a memory handoff and renders one final handoff component.
+
+Each `show...` generative UI component is terminal for its turn. The agent
+finishes Harness tool calls first, then renders a single final component so tool
+evidence does not get stranded mid-stream.
 
 The real Harness approval card appears before shell tools run. The approval checkbox defaults to remembering the approved tool for the current session, so a missing-dependencies install and rerun can continue without hiding the safety mechanism.
 
