@@ -385,6 +385,53 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
     await pool.shutdown();
   });
 
+  // A1 — release/serve/recycle race. A release that crosses the recycleAfter
+  // boundary WHILE a waiter is queued must NOT hygiene-recycle the freed entry:
+  // serveNextWaiter() reserves + asynchronously opens a context on that same
+  // entry, and a recycle fired on the now-stale synchronous snapshot would tear
+  // the browser out from under the just-served waiter. The hygiene recycle must
+  // defer to a later genuinely-idle release.
+  it("does NOT hygiene-recycle on a boundary-crossing release while a waiter is queued (serve wins)", async () => {
+    const { launchBrowser, launched } = makeFakeLauncher();
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 1,
+      recycleAfter: 1, // the very first served context makes the entry eligible
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+    expect(launched.length).toBe(1);
+
+    // Fill the cap with one context → servedContexts becomes 1 (>= recycleAfter).
+    const c1 = await pool.acquire();
+    expect(pool.stats().inUse).toBe(1);
+
+    // Queue a waiter past the cap.
+    let c2: BrowserContext | undefined;
+    const pending = pool.acquire().then((c) => (c2 = c));
+    await drainMicrotasks();
+    expect(c2).toBeUndefined();
+
+    // Release c1: it crosses recycleAfter=1 while idle (shouldRecycle would be
+    // true) BUT a waiter is queued, so the waiter must be served onto the SAME
+    // browser and NO recycle may fire.
+    await pool.release(c1);
+    await pending;
+
+    expect(c2).toBeDefined();
+    // No recycle, no relaunch — the waiter is served on the original browser.
+    expect(pool.stats().totalRecycles).toBe(0);
+    expect(launched.length).toBe(1);
+    expect(launched[0]!.isConnected()).toBe(true);
+    // The served context lives on the original browser.
+    expect(launched[0]!.__contexts.map((x) => x.__id)).toContain(ctxId(c2!));
+    expect(pool.stats().inUse).toBe(1);
+
+    await pool.release(c2!);
+    await pool.shutdown();
+  });
+
   it("does NOT hygiene-recycle while the browser still has live contexts", async () => {
     const { launchBrowser, launched } = makeFakeLauncher();
     const pool = new BrowserPool({
@@ -664,6 +711,50 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
     for (const r of [r1, r2]) {
       if (r.status === "fulfilled") await pool.release(r.value);
     }
+    await pool.shutdown();
+  });
+
+  // A2 — acquire() retry path: a SECOND consecutive newContext failure (a
+  // second browser dying in the same EAGAIN burst) must enqueue the caller as
+  // a waiter and let recovery fulfill it gracefully, NOT reject hard. The first
+  // attempt throws → recycle + re-reserve + retry onto the other browser; the
+  // retry ALSO throws → the fix recycles the retry browser and pends a waiter
+  // that resolves once the recycle relaunch lands.
+  it("enqueues the caller (no hard reject) when the acquire retry's newContext also fails", async () => {
+    // Both initial browsers (launch calls 1 + 2) throw on newContext. Their
+    // recycle relaunches (calls 3 + 4) succeed and drain the queued waiter.
+    const { launchBrowser, launched } = makeFakeLauncher({
+      newContextThrowsForCalls: [1, 2],
+    });
+    const { logger, events } = makeLeveledLogger();
+    const pool = new BrowserPool({
+      browsers: 2,
+      maxContexts: 2,
+      logger,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+    expect(launched.length).toBe(2);
+
+    // Single acquire: first attempt throws → retry onto the other browser →
+    // retry ALSO throws. The fix must enqueue rather than reject. Give a
+    // generous timeout so the recovery relaunch resolves it.
+    const ctx = await pool.acquire(undefined, 2_000);
+    expect(ctx).toBeDefined();
+
+    // Both original browsers were recycled (their newContext threw); the
+    // relaunched ones served the waiter — no hard rejection reached the caller.
+    expect(pool.stats().totalRecycles).toBeGreaterThanOrEqual(2);
+    expect(launched.length).toBe(4); // 2 init + 2 relaunch
+    // The retry-failure path logged its dedicated warn (proves we hit it).
+    expect(
+      events.some(
+        (e) => e.event === "browser-pool.acquire-retry-newcontext-failed",
+      ),
+    ).toBe(true);
+
+    await pool.release(ctx);
     await pool.shutdown();
   });
 

@@ -440,8 +440,27 @@ export class BrowserPool {
       }
       const retry = this.pickLeastLoaded();
       if (retry) {
-        const context = await this.openContextOn(retry, options);
-        return context;
+        try {
+          const context = await this.openContextOn(retry, options);
+          return context;
+        } catch (retryErr) {
+          // A SECOND browser died in the same EAGAIN burst — the exact
+          // scenario this module exists to survive. openContextOn already
+          // rolled the re-reservation back on this throw, so accounting is
+          // safe; mirror the first-attempt recovery: recycle `retry` and pend
+          // a waiter so the caller is gracefully enqueued (served when a
+          // context frees / a recovery relaunch lands) instead of receiving a
+          // hard rejection. Do NOT re-reserve here — the rollback already
+          // happened, and enqueueWaiter pends without a reservation (the
+          // waiter re-reserves when served).
+          this.logger?.warn?.("browser-pool.acquire-retry-newcontext-failed", {
+            browserIndex: this.browsers.indexOf(retry),
+            error:
+              retryErr instanceof Error ? retryErr.message : String(retryErr),
+          });
+          this.recycleBrowser(retry);
+          return this.enqueueWaiter(options, timeoutMs);
+        }
       }
       // No other live browser — give the re-reservation back and pend a
       // waiter; recovery fulfills it.
@@ -494,6 +513,21 @@ export class BrowserPool {
    * browser's recycle and re-queues the waiter at the FRONT so ordering is
    * preserved.
    */
+  /**
+   * Fire-and-forget recursive re-serve. The recursive `serveNextWaiter()`
+   * calls inside `serveNextWaiter` itself are not awaited (they re-enter to
+   * drain the next waiter after a dead-waiter skip / orphan close), so a future
+   * throw would surface as an unhandled promise rejection. Route any failure to
+   * the structured logger instead.
+   */
+  private scheduleServeNextWaiter(): void {
+    this.serveNextWaiter().catch((err: unknown) => {
+      this.logger?.error?.("browser-pool.serve-waiter-unhandled", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
+  }
+
   private async serveNextWaiter(): Promise<void> {
     if (this.waiters.length === 0) return;
     const entry = this.pickLeastLoaded();
@@ -514,7 +548,7 @@ export class BrowserPool {
     // waiter. Roll the reservation back and serve the next one instead.
     if (waiter.settled) {
       this.releaseReservation();
-      if (this.waiters.length > 0) void this.serveNextWaiter();
+      if (this.waiters.length > 0) this.scheduleServeNextWaiter();
       return;
     }
 
@@ -548,7 +582,7 @@ export class BrowserPool {
       this.logger?.warn?.("browser-pool.serve-waiter-orphan-closed", {
         browserIndex: this.browsers.indexOf(entry),
       });
-      if (this.waiters.length > 0) void this.serveNextWaiter();
+      if (this.waiters.length > 0) this.scheduleServeNextWaiter();
       return;
     }
 
@@ -595,16 +629,31 @@ export class BrowserPool {
     await context.close().catch(() => {});
 
     // Keep the cap saturated: if a waiter is queued, hand it a fresh context
-    // on the least-loaded live browser now that capacity freed up.
-    if (this.waiters.length > 0) {
-      void this.serveNextWaiter();
+    // on the least-loaded live browser now that capacity freed up. Capture
+    // whether a waiter was queued BEFORE serving it: serveNextWaiter() may
+    // reserve + asynchronously open a context on THIS just-freed entry, which
+    // would race the hygiene recycle below (the recycle snapshot was taken
+    // synchronously above and is now stale — recycling would tear the browser
+    // out from under the just-served waiter, intermittently failing/stalling a
+    // probe under load).
+    const hadWaiter = this.waiters.length > 0;
+    if (hadWaiter) {
+      this.serveNextWaiter().catch((err: unknown) => {
+        this.logger?.error?.("browser-pool.serve-waiter-unhandled", {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
     }
 
     // Hygiene recycle: once a browser has served enough contexts AND is idle
     // (no live contexts), replace its process to bound memory/handle drift.
     // This is the RARE path — it fires at most once per `recycleAfter`
-    // contexts per browser and never on a busy browser.
-    if (shouldRecycle) {
+    // contexts per browser and never on a busy browser. Gate on `!hadWaiter`:
+    // when a waiter was just served onto this freed slot, defer the hygiene
+    // recycle to a later genuinely-idle release rather than recycle the
+    // browser out from under the just-served waiter. The hygiene recycle is
+    // the rare path, so deferring it is harmless.
+    if (shouldRecycle && !hadWaiter) {
       this.recycleBrowser(entry);
     }
   }
@@ -727,13 +776,21 @@ export class BrowserPool {
         entry.liveContexts.clear();
         entry.recycling = false;
         this.attachDisconnectHandler(entry, fresh);
-        // Drain queued waiters onto the freshly-launched browser.
+        // Drain queued waiters onto the freshly-launched browser. Guard
+        // forward progress: serveNextWaiter() can return WITHOUT consuming a
+        // waiter (pickLeastLoaded() momentarily undefined / reserveSlot()
+        // false) while isConnected() still reports true — without the guard the
+        // loop would busy-spin, yielding only to microtasks. Break the instant
+        // a serve made no progress (waiter count unchanged); a later release or
+        // recovery handoff drains the remaining waiters.
         while (
           this.waiters.length > 0 &&
           this.liveContextCount < this.maxContexts &&
           entry.browser.isConnected()
         ) {
+          const before = this.waiters.length;
           await this.serveNextWaiter();
+          if (this.waiters.length >= before) break;
         }
       } catch (err) {
         // Launch failed — evict the entry so it does not masquerade as live
