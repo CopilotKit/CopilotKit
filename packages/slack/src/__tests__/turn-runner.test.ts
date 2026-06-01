@@ -30,6 +30,16 @@ function makeFakeClient() {
         },
       ),
     },
+    users: {
+      info: vi.fn(async ({ user }: { user: string }) => ({
+        ok: true,
+        user: {
+          id: user,
+          real_name: "Alem Tuzlak",
+          profile: { display_name: "Alem", email: "alem@copilotkit.ai" },
+        },
+      })),
+    },
   };
   return { client, posts, updates };
 }
@@ -117,6 +127,82 @@ describe("turn-runner", () => {
 
     // Tidy: let the second run finish so vitest's open-handle warning is silent.
     b.finishRun();
+  });
+
+  it("forwards the requesting Slack user to the agent as context (per-user identity)", async () => {
+    const a = makeFakeAgent();
+    const store = fakeStore();
+    (store.getOrCreate as ReturnType<typeof vi.fn>).mockImplementation(
+      async (key, replyTarget) => ({
+        threadId: "x",
+        agent: a.agent,
+        replyTarget,
+      }),
+    );
+    const runTurn = createTurnRunner({
+      store,
+      makeAgent: () => a.agent,
+      context: [{ description: "App", value: "static app context" }],
+    });
+    const fake = makeFakeClient();
+
+    await runTurn(
+      {
+        conversation: { channelId: "C1", scope: "100.0" },
+        replyTarget: { channel: "C1", threadTs: "100.0" },
+        userText: "what are my issues?",
+        senderUserId: "U_ALEM",
+      },
+      fake.client as never,
+    );
+
+    const firstArg = (a.agent.runAgent as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as {
+      context: Array<{ description: string; value: string }>;
+    };
+    const sender = firstArg.context.find(
+      (e) => e.description === "Requesting Slack user",
+    );
+    expect(sender).toBeDefined();
+    expect(sender?.value).toContain("<@U_ALEM>");
+    // The bridge resolves the sender's profile and bakes the email into the
+    // context so the agent can match them to Linear/Notion without a lookup.
+    expect(sender?.value).toContain("alem@copilotkit.ai");
+    // The static app context is still forwarded alongside it.
+    expect(firstArg.context.some((e) => e.description === "App")).toBe(true);
+
+    a.finishRun();
+  });
+
+  it("omits the requesting-user context entry when no sender id is present", async () => {
+    const a = makeFakeAgent();
+    const store = fakeStore();
+    (store.getOrCreate as ReturnType<typeof vi.fn>).mockImplementation(
+      async (key, replyTarget) => ({
+        threadId: "x",
+        agent: a.agent,
+        replyTarget,
+      }),
+    );
+    const runTurn = createTurnRunner({ store, makeAgent: () => a.agent });
+    const fake = makeFakeClient();
+
+    await runTurn(
+      {
+        conversation: { channelId: "C1", scope: "100.0" },
+        replyTarget: { channel: "C1", threadTs: "100.0" },
+        userText: "hi",
+      },
+      fake.client as never,
+    );
+
+    const firstArg = (a.agent.runAgent as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as { context: Array<{ description: string }> };
+    expect(
+      firstArg.context.some((e) => e.description === "Requesting Slack user"),
+    ).toBe(false);
+
+    a.finishRun();
   });
 
   it("interrupt: real (non-abort) errors still surface as :warning:", async () => {

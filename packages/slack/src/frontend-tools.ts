@@ -70,6 +70,12 @@ export interface FrontendToolContext {
   threadTs?: string;
   botUserId: string;
   /**
+   * Slack user id of the person who sent the message this turn is handling
+   * (the requester). Lets a tool act on their behalf — e.g. resolve "my"
+   * to this user. Absent if the originating event carried no user.
+   */
+  senderUserId?: string;
+  /**
    * Stable key identifying the conversation this turn belongs to —
    * `${channelId}::${scope}` where scope is the thread ts or
    * `DM_SCOPE`. Used by human-in-the-loop tools to register pending

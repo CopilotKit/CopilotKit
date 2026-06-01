@@ -33,4 +33,11 @@ export interface IncomingTurn {
   conversation: ConversationKey;
   replyTarget: ReplyTarget;
   userText: string;
+  /**
+   * Slack user id of the person who sent this message (the requester).
+   * Surfaced to the agent so it can act on behalf of the right person —
+   * e.g. scope "my issues" to them, or assign created work to them.
+   * Absent only if the originating event carried no user (rare).
+   */
+  senderUserId?: string;
 }

@@ -85,6 +85,54 @@ const DEFAULT_MAX_TOOL_ITERATIONS = 6;
 
 const keyOf = (k: ConversationKey): string => `${k.channelId}::${k.scope}`;
 
+/** Resolved identity of the requester, baked into per-turn context. */
+interface SenderProfile {
+  id: string;
+  name?: string;
+  email?: string;
+}
+
+// users.info is stable per user for the life of a process; cache it so we
+// don't re-fetch the requester's profile on every message.
+const senderProfileCache = new Map<string, SenderProfile>();
+
+/**
+ * Resolve a Slack user id to a display name + email so the agent can match
+ * the requester to their Linear/Notion account. Best-effort: on any error
+ * (e.g. missing `users:read.email`) we return just the id, and the agent
+ * degrades to id-only.
+ */
+async function resolveSenderProfile(
+  client: WebClient,
+  userId: string,
+): Promise<SenderProfile> {
+  const cached = senderProfileCache.get(userId);
+  if (cached) return cached;
+  let profile: SenderProfile = { id: userId };
+  try {
+    const r = (await client.users.info({ user: userId })) as {
+      user?: {
+        real_name?: string;
+        profile?: { real_name?: string; display_name?: string; email?: string };
+      };
+    };
+    const u = r.user;
+    profile = {
+      id: userId,
+      name:
+        u?.profile?.display_name ||
+        u?.profile?.real_name ||
+        u?.real_name ||
+        undefined,
+      email: u?.profile?.email || undefined,
+    };
+  } catch (err) {
+    console.error("[turn-runner] users.info for sender failed:", err);
+  }
+  senderProfileCache.set(userId, profile);
+  return profile;
+}
+
 /**
  * Generate a fresh message id. Standalone fn so tests can monkey-patch
  * via the global (or we can swap to crypto.randomUUID).
@@ -183,6 +231,31 @@ export function createTurnRunner(config: TurnRunnerConfig) {
       completion: undefined as unknown as Promise<void>,
     };
 
+    // Per-turn context: tell the agent who sent this message so it can act
+    // on their behalf ("my issues", assign-to-me, etc.). We resolve the
+    // sender's name + email here (rather than making the agent look it up)
+    // so the requester identity is unambiguous and always present.
+    const sender = turn.senderUserId
+      ? await resolveSenderProfile(client, turn.senderUserId)
+      : undefined;
+    const turnContext = sender
+      ? [
+          {
+            description: "Requesting Slack user",
+            value:
+              `This message was sent by ${
+                sender.name ? `${sender.name} ` : ""
+              }<@${sender.id}>${
+                sender.email ? ` (email: ${sender.email})` : ""
+              }. When the user says "me", "my", "mine", or "I", they mean this ` +
+              `person. Use their email/name to match them to their Linear/Notion ` +
+              `account: scope "my issues" to them (filter Linear by this ` +
+              `assignee), and assign issues you create on their behalf to them.`,
+          },
+          ...contextEntries,
+        ]
+      : contextEntries;
+
     entry.completion = (async () => {
       try {
         await runWithToolLoop({
@@ -190,7 +263,7 @@ export function createTurnRunner(config: TurnRunnerConfig) {
           renderer,
           tools: toolRegistry,
           toolDescriptors,
-          context: contextEntries,
+          context: turnContext,
           maxIters,
           toolCtx: {
             client,
@@ -198,6 +271,7 @@ export function createTurnRunner(config: TurnRunnerConfig) {
             threadTs: turn.replyTarget.threadTs,
             botUserId: config.botUserId ?? "",
             conversationKey: key,
+            senderUserId: turn.senderUserId,
           },
           isAborted: () => entry.aborted,
           interruptHandlers,

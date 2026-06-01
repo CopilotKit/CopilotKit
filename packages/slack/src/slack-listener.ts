@@ -65,6 +65,7 @@ export function attachSlackListener(config: ListenerConfig): void {
         conversation: { channelId: command.channel_id, scope },
         replyTarget: { channel: command.channel_id },
         userText,
+        senderUserId: command.user_id,
       },
       client,
     );
@@ -79,6 +80,7 @@ export function attachSlackListener(config: ListenerConfig): void {
         conversation: { channelId: event.channel, scope: threadTs },
         replyTarget: { channel: event.channel, threadTs },
         userText,
+        senderUserId: event.user,
       },
       client,
     );
@@ -98,6 +100,7 @@ export function attachSlackListener(config: ListenerConfig): void {
           conversation: { channelId: message.channel, scope: DM_SCOPE },
           replyTarget: { channel: message.channel },
           userText: text,
+          senderUserId: message.user,
         },
         client,
       );
@@ -125,6 +128,7 @@ export function attachSlackListener(config: ListenerConfig): void {
         conversation: { channelId: message.channel, scope: message.thread_ts },
         replyTarget: { channel: message.channel, threadTs: message.thread_ts },
         userText: stripMentions(text),
+        senderUserId: message.user,
       },
       client,
     );

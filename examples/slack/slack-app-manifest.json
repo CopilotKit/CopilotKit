@@ -37,6 +37,7 @@
         "im:read",
         "mpim:read",
         "users:read",
+        "users:read.email",
         "team:read",
         "chat:write",
         "chat:write.public",
