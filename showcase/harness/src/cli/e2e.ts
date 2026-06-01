@@ -143,7 +143,9 @@ export function buildE2eCommand(
   // When JSON capture is requested, chain the json reporter onto the human
   // `line` reporter so operators still see live progress AND we get a
   // machine-readable report. Otherwise keep the bare line reporter.
-  const reporter = opts.jsonOutputFile ? "--reporter=line,json" : "--reporter=line";
+  const reporter = opts.jsonOutputFile
+    ? "--reporter=line,json"
+    : "--reporter=line";
   args.push(reporter, `--workers=${workers}`, `--retries=${retries}`);
   if (opts.headed) {
     args.push("--headed");
@@ -208,7 +210,7 @@ export function runE2e(
   } catch (err) {
     const code =
       typeof (err as { status?: unknown }).status === "number"
-        ? ((err as { status: number }).status)
+        ? (err as { status: number }).status
         : 1;
     return { exitCode: code };
   }

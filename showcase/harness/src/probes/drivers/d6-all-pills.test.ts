@@ -65,11 +65,19 @@ function fakeRunAndParse(
 
 /** A pass row for a spec file. */
 function pass(specFile: string): SpecFileResult {
-  return { specFile, cases: [{ title: "t", status: "passed" }], fileVerdict: "pass" };
+  return {
+    specFile,
+    cases: [{ title: "t", status: "passed" }],
+    fileVerdict: "pass",
+  };
 }
 /** A red row for a spec file. */
 function red(specFile: string): SpecFileResult {
-  return { specFile, cases: [{ title: "t", status: "failed" }], fileVerdict: "red" };
+  return {
+    specFile,
+    cases: [{ title: "t", status: "failed" }],
+    fileVerdict: "red",
+  };
 }
 
 /** All 38 mapped gold specs as PASS rows — the LGP all-green shape. */
@@ -222,15 +230,15 @@ describe("e2e-full driver (spec-driven)", () => {
       // signal.aggregateState.
       expect(result.state).not.toBe("green");
       expect(result.state).toBe("error");
-      expect(
-        (result.signal as E2eFullAggregateSignal).aggregateState,
-      ).toBe("unknown");
+      expect((result.signal as E2eFullAggregateSignal).aggregateState).toBe(
+        "unknown",
+      );
 
       const aggRow = sideEmits.find((r) => r.key === "d6:langgraph-python");
       expect(aggRow!.state).toBe("error");
-      expect(
-        (aggRow!.signal as E2eFullAggregateSignal).aggregateState,
-      ).toBe("unknown");
+      expect((aggRow!.signal as E2eFullAggregateSignal).aggregateState).toBe(
+        "unknown",
+      );
 
       // Every per-cell side row is unknown — none manufactured green.
       const sideRows = sideEmits.filter((r) =>
@@ -266,9 +274,9 @@ describe("e2e-full driver (spec-driven)", () => {
 
       expect(result.state).not.toBe("green");
       expect(result.state).toBe("error");
-      expect(
-        (result.signal as E2eFullAggregateSignal).aggregateState,
-      ).toBe("unknown");
+      expect((result.signal as E2eFullAggregateSignal).aggregateState).toBe(
+        "unknown",
+      );
       const aggRow = sideEmits.find((r) => r.key === "d6:langgraph-python");
       expect(aggRow!.state).toBe("error");
     });
@@ -449,7 +457,9 @@ describe("Semaphore", () => {
 describe("createPooledE2eFullLauncher", () => {
   it("checks out a pooled context per newContext() and moves inUse by 1", async () => {
     const pool = makeFakeContextPool(4);
-    const launcher = createPooledE2eFullLauncher(pool as unknown as BrowserPool);
+    const launcher = createPooledE2eFullLauncher(
+      pool as unknown as BrowserPool,
+    );
     const browser = await launcher();
     expect(pool.stats().inUse).toBe(0);
     const ctx = await browser.newContext();
@@ -461,7 +471,9 @@ describe("createPooledE2eFullLauncher", () => {
 
   it("forwards newContext(opts).extraHTTPHeaders into pool.acquire", async () => {
     const pool = makeFakeContextPool(4);
-    const launcher = createPooledE2eFullLauncher(pool as unknown as BrowserPool);
+    const launcher = createPooledE2eFullLauncher(
+      pool as unknown as BrowserPool,
+    );
     const browser = await launcher();
     await browser.newContext({
       extraHTTPHeaders: {
@@ -479,7 +491,9 @@ describe("createPooledE2eFullLauncher", () => {
 
   it("closes open contexts on abort (each releasing its pooled context)", async () => {
     const pool = makeFakeContextPool(4);
-    const launcher = createPooledE2eFullLauncher(pool as unknown as BrowserPool);
+    const launcher = createPooledE2eFullLauncher(
+      pool as unknown as BrowserPool,
+    );
     const ac = new AbortController();
     const browser = await launcher(ac.signal);
     const ctx = await browser.newContext();
@@ -493,7 +507,9 @@ describe("createPooledE2eFullLauncher", () => {
 
   it("launcher-level close is a no-op (contexts release themselves)", async () => {
     const pool = makeFakeContextPool(4);
-    const launcher = createPooledE2eFullLauncher(pool as unknown as BrowserPool);
+    const launcher = createPooledE2eFullLauncher(
+      pool as unknown as BrowserPool,
+    );
     const browser = await launcher();
     const ctx = await browser.newContext();
     await ctx.close();

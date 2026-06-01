@@ -14,11 +14,7 @@
  * `declaredSkips` entry points.
  */
 import { describe, it, expect } from "vitest";
-import {
-  isSkipped,
-  declaredSkips,
-  loadSkipList,
-} from "./skip-list.js";
+import { isSkipped, declaredSkips, loadSkipList } from "./skip-list.js";
 
 describe("skip-list loader", () => {
   it("isSkipped is true only for a declared <slug, spec-file> pair", () => {
@@ -46,9 +42,9 @@ describe("skip-list loader", () => {
   });
 
   it("throws at load when an entry is not a .spec.ts filename", () => {
-    expect(() =>
-      loadSkipList({ "google-adk": ["not-a-spec"] }),
-    ).toThrow(/\.spec\.ts/);
+    expect(() => loadSkipList({ "google-adk": ["not-a-spec"] })).toThrow(
+      /\.spec\.ts/,
+    );
   });
 
   it("throws at load when a slug's value is not an array", () => {

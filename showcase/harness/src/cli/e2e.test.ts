@@ -22,12 +22,16 @@ vi.mock("node:fs", async (importOriginal) => {
   return { ...patched, default: patched };
 });
 
-import { buildE2eCommand, resolveIntegrationDir, runE2eAndParse } from "./e2e.js";
+import {
+  buildE2eCommand,
+  resolveIntegrationDir,
+  runE2eAndParse,
+} from "./e2e.js";
 import type { LocalConfig } from "./config.js";
 
 const config = {
   showcaseDir: "/repo/showcase",
-  localPorts: { "langgraph-python": 3100, "mastra": 3104 },
+  localPorts: { "langgraph-python": 3100, mastra: 3104 },
 } as unknown as LocalConfig;
 
 beforeEach(() => {
@@ -119,9 +123,9 @@ describe("buildE2eCommand", () => {
   });
 
   it("throws for a slug with no local port mapping", () => {
-    expect(() =>
-      buildE2eCommand("ghost-slug", { tier: "d6" }, config),
-    ).toThrow(/No local port mapping/);
+    expect(() => buildE2eCommand("ghost-slug", { tier: "d6" }, config)).toThrow(
+      /No local port mapping/,
+    );
   });
 
   it("uses baseUrlOverride and never touches the port map when set", () => {

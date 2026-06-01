@@ -41,9 +41,7 @@ test.describe("Human in the Loop", () => {
 
   test("page loads with chat input and no step selector", async ({ page }) => {
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
-    await expect(
-      page.locator('[data-testid="select-steps"]'),
-    ).toHaveCount(0);
+    await expect(page.locator('[data-testid="select-steps"]')).toHaveCount(0);
   });
 
   test("task request shows a step selector with checkboxes", async ({
@@ -68,9 +66,7 @@ test.describe("Human in the Loop", () => {
     ).not.toBeEmpty();
 
     // The card shows an N/N selected count and an action button.
-    await expect(
-      stepSelector.getByText(/\d+\/\d+\s*selected/),
-    ).toBeVisible();
+    await expect(stepSelector.getByText(/\d+\/\d+\s*selected/)).toBeVisible();
     await expect(stepSelector.locator("button").first()).toBeVisible();
   });
 

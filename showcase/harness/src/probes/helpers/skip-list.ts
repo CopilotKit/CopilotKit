@@ -72,9 +72,10 @@ export function loadSkipList(source: Record<string, string[]>): SkipList {
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SKIP_LIST_PATH = path.resolve(HERE, "skip-list.json");
 
-const RAW = JSON.parse(
-  fs.readFileSync(SKIP_LIST_PATH, "utf8"),
-) as Record<string, string[]>;
+const RAW = JSON.parse(fs.readFileSync(SKIP_LIST_PATH, "utf8")) as Record<
+  string,
+  string[]
+>;
 
 const DEFAULT_SKIP_LIST = loadSkipList(RAW);
 

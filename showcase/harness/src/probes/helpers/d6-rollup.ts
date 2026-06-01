@@ -32,10 +32,7 @@
  * diagnostic side rows are keyed `d6:<slug>/<column>` by the driver, not
  * here).
  */
-import {
-  allMappedSpecFiles,
-  mapSpecFileToCell,
-} from "./spec-cell-mapping.js";
+import { allMappedSpecFiles, mapSpecFileToCell } from "./spec-cell-mapping.js";
 import type { SpecFileResult } from "./pw-json-reporter.js";
 
 export type CellState = "green" | "red" | "unknown" | "skipped";

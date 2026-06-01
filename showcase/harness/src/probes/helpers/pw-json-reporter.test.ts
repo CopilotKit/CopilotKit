@@ -79,7 +79,9 @@ describe("parsePlaywrightJson", () => {
       suites: [
         {
           file: "agentic-chat.spec.ts",
-          specs: [{ title: "top", tests: [{ results: [{ status: "passed" }] }] }],
+          specs: [
+            { title: "top", tests: [{ results: [{ status: "passed" }] }] },
+          ],
           suites: [
             {
               file: "agentic-chat.spec.ts",

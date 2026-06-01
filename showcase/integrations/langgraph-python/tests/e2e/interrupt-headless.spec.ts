@@ -39,9 +39,7 @@ test.describe("Interrupt Headless", () => {
     page,
   }) => {
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
-    await expect(
-      page.getByTestId("interrupt-headless-empty"),
-    ).toBeVisible();
+    await expect(page.getByTestId("interrupt-headless-empty")).toBeVisible();
     await expect(
       page.locator('[data-testid="interrupt-headless-popup"]'),
     ).toHaveCount(0);

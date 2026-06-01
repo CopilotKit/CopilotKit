@@ -21,10 +21,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { rollupCells } from "./d6-rollup.js";
-import {
-  allMappedSpecFiles,
-  mapSpecFileToCell,
-} from "./spec-cell-mapping.js";
+import { allMappedSpecFiles, mapSpecFileToCell } from "./spec-cell-mapping.js";
 
 const SLUG = "langgraph-python";
 const MAPPED_FILE_COUNT = allMappedSpecFiles().length;
