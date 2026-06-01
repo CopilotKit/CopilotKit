@@ -40,6 +40,10 @@ function resolveBadge(
     case "degraded":
       tone = "amber";
       break;
+    case "unknown":
+      // No pass evidence → neutral gray (never green/red).
+      tone = "gray";
+      break;
     default: {
       const _exhaustive: never = row.state;
       void _exhaustive;

@@ -65,6 +65,10 @@ function stateToTestStatus(state: State): TestStatus {
       return "red";
     case "degraded":
       return "amber";
+    case "unknown":
+      // No pass evidence → no-data (gray chip). Caps achieved depth at the
+      // rung below and never credits a pass.
+      return null;
     default: {
       const _exhaustive: never = state;
       void _exhaustive;
@@ -78,6 +82,10 @@ const STATE_RANK: Readonly<Record<State, number>> = {
   red: 3,
   degraded: 2,
   green: 1,
+  // `unknown` is no-evidence: lowest rank so it never wins the worst-state
+  // fold. `stateToTestStatus("unknown")` returns null (no-data), so a cell
+  // resolving to `unknown` caps below its ceiling rather than crediting green.
+  unknown: 0,
 };
 
 /**
@@ -172,10 +180,13 @@ function resolveD5(
   let anyMissing = false;
   for (const d5Key of d5Keys) {
     const row = live.get(keyFor("d5", slug, d5Key)) ?? null;
-    if (!row) {
+    if (!row || row.state === "unknown") {
       // STRICT: a missing mapped sub-row means the family is unverified —
       // it can no longer be credited green. Mirrors `isD5Green`'s
-      // `every(...)` in depth-utils.ts so both consumers agree.
+      // `every(...)` in depth-utils.ts so both consumers agree. A
+      // present-but-`unknown` sub-row is no-evidence and is treated
+      // identically (mirrors `resolveD5Row` in live-status.ts), so a green
+      // sibling can't mask it into a false-green family.
       anyMissing = true;
       continue;
     }

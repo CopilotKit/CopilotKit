@@ -19,7 +19,12 @@ import {
   isStale,
 } from "./staleness";
 
-export type State = "green" | "red" | "degraded";
+// `unknown` is the harness's neutral no-pass-evidence projection for D6
+// cells (replacing a false-green-retaining `error` projection). The
+// dashboard redeclares `State` independently of the harness, so the member
+// is added here too. It must render as a distinct NON-green, NON-red gray
+// tone and is never credited as a pass.
+export type State = "green" | "red" | "degraded" | "unknown";
 
 export interface StatusRow {
   id: string;
@@ -207,6 +212,11 @@ const D5_STATE_RANK: Readonly<Record<State, number>> = {
   red: 3,
   degraded: 2,
   green: 1,
+  // `unknown` is no-evidence: it must NEVER win worst-state (rank 0 < green),
+  // so it can't promote a family. A present `unknown` sub-row is handled
+  // like a missing one in `resolveD5Row` — it collapses the family to
+  // no-data (gray) rather than being credited green.
+  unknown: 0,
 };
 
 /**
@@ -256,7 +266,12 @@ function resolveD5Row(
   let anyMissing = false;
   for (const d5Key of d5Keys) {
     const row = live.get(keyFor("d5", slug, d5Key)) ?? null;
-    if (!row) {
+    // A present-but-`unknown` sub-row is no-evidence: treat it exactly like a
+    // missing sub-row so the family collapses to no-data (gray) instead of
+    // being credited green by its green siblings. A present red still
+    // dominates (handled by the `anyMissing && worstState !== "red"` guard
+    // below).
+    if (!row || row.state === "unknown") {
       anyMissing = true;
       continue;
     }
@@ -284,6 +299,9 @@ function rowTone(row: StatusRow | null): BadgeTone {
       return "amber";
     case "green":
       return "green";
+    case "unknown":
+      // No pass evidence → neutral gray (distinct from both green and red).
+      return "gray";
     default: {
       // Exhaustiveness check: if `State` gains a new variant the type
       // checker fails this assignment, forcing every consumer (tone,
@@ -314,6 +332,9 @@ function formatLabel(dim: LiveDimension, row: StatusRow | null): string {
     if (row.state === "green") return "up";
     if (row.state === "red") return "down";
     if (row.state === "degraded") return "stale";
+    // `unknown` is no-evidence → render the no-data glyph, same as a
+    // missing row, so it never reads as a green "up".
+    if (row.state === "unknown") return "?";
     // Exhaustiveness check for `health` dim — see rowTone() comment.
     const _exhaustive: never = row.state;
     void _exhaustive;
@@ -329,6 +350,9 @@ function formatLabel(dim: LiveDimension, row: StatusRow | null): string {
       return "~";
     case "green":
       return "✓";
+    case "unknown":
+      // No pass evidence → the no-data glyph, never a green "✓".
+      return "?";
     default: {
       // Exhaustiveness check (mirrors rowTone). Returning "?" instead of
       // a silent "✓" prevents an unmapped future state from being
@@ -403,6 +427,10 @@ function formatTooltip(
       const sig = summarizeSignal(row.signal);
       return sig ? `${base} — ${sig}` : base;
     }
+    case "unknown":
+      // No pass evidence yet — surface the last producer tick so operators
+      // know when the cell was last evaluated without crediting a pass.
+      return `${dim} no evidence — last run ${formatTs(row.observed_at)}`;
     default: {
       // Exhaustiveness check: forces the switch to be updated when a
       // new `State` variant lands. Returns a loud fallback instead of
