@@ -94,7 +94,7 @@
     "@ag-ui/encoder": "0.0.53",
     "@ag-ui/langgraph": "0.0.31",
     "@ag-ui/mcp-apps-middleware": "0.0.3",
-    "@ag-ui/mcp-middleware": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-middleware@0b0e2792",
+    "@ag-ui/mcp-middleware": "0.0.1",
     "@ai-sdk/anthropic": "^3.0.49",
     "@ai-sdk/google": "^3.0.33",
     "@ai-sdk/google-vertex": "^3.0.97",
