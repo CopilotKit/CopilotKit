@@ -3,6 +3,7 @@
   "icon": "lucide/RefreshCw",
   "pages": [
     "migrate-to-v2",
+    "migrate-markdown-renderer",
     "migrate-attachments",
     "migrate-to-1.10.X",
     "migrate-to-1.8.2"
