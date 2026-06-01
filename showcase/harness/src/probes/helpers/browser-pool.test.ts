@@ -199,7 +199,7 @@ describe("BrowserPool dead-instance detection", () => {
   it("registers a disconnected listener on each browser at init and recycles when one fires", async () => {
     const { launchBrowser, launched } = makeFakeLauncher();
     const { logger, events } = makeFakeLogger();
-    const pool = new BrowserPool(2, 100, logger, launchBrowser);
+    const pool = new BrowserPool(2, 100, logger, launchBrowser, 0);
     await pool.init();
     expect(launched).toHaveLength(2);
 
@@ -223,7 +223,7 @@ describe("BrowserPool dead-instance detection", () => {
   it("acquire() skips a silently-disconnected slot and returns the next live one", async () => {
     const { launchBrowser, launched } = makeFakeLauncher();
     const { logger, events } = makeFakeLogger();
-    const pool = new BrowserPool(2, 100, logger, launchBrowser);
+    const pool = new BrowserPool(2, 100, logger, launchBrowser, 0);
     await pool.init();
 
     const slot0Browser = launched[0]!;
@@ -245,7 +245,7 @@ describe("BrowserPool dead-instance detection", () => {
 
   it("acquire() recycles every zombie slot and falls through to the waiter path when no live slots remain", async () => {
     const { launchBrowser, launched } = makeFakeLauncher();
-    const pool = new BrowserPool(2, 100, undefined, launchBrowser);
+    const pool = new BrowserPool(2, 100, undefined, launchBrowser, 0);
     await pool.init();
 
     launched[0]!.__silentlyDisconnect();
@@ -268,7 +268,7 @@ describe("BrowserPool dead-instance detection", () => {
 
   it("disconnected event during in-use slot triggers a recycle that delivers a fresh browser to the next acquire", async () => {
     const { launchBrowser, launched } = makeFakeLauncher();
-    const pool = new BrowserPool(1, 100, undefined, launchBrowser);
+    const pool = new BrowserPool(1, 100, undefined, launchBrowser, 0);
     await pool.init();
 
     const browser = await pool.acquire();
@@ -287,7 +287,7 @@ describe("BrowserPool dead-instance detection", () => {
 
   it("does not double-recycle when both the disconnect event and the on-acquire zombie check fire for the same slot", async () => {
     const { launchBrowser, launched } = makeFakeLauncher();
-    const pool = new BrowserPool(1, 100, undefined, launchBrowser);
+    const pool = new BrowserPool(1, 100, undefined, launchBrowser, 0);
     await pool.init();
 
     // Crash fires disconnect AND flips isConnected false.
@@ -307,7 +307,7 @@ describe("BrowserPool dead-instance detection", () => {
   it("release() of a slot whose browser disconnected after acquire still recycles instead of returning a dead browser to available", async () => {
     const { launchBrowser, launched } = makeFakeLauncher();
     const { logger, events } = makeFakeLogger();
-    const pool = new BrowserPool(1, 100, logger, launchBrowser);
+    const pool = new BrowserPool(1, 100, logger, launchBrowser, 0);
     await pool.init();
 
     const browser = await pool.acquire();
@@ -339,7 +339,7 @@ describe("BrowserPool dead-instance detection", () => {
     // self-heal so a later acquire() still returns a live browser.
     const { launchBrowser, launched } = makeFakeLauncher({ failAtCalls: [2] });
     const { logger } = makeFakeLogger();
-    const pool = new BrowserPool(1, 100, logger, launchBrowser);
+    const pool = new BrowserPool(1, 100, logger, launchBrowser, 0);
     await pool.init();
     expect(launched).toHaveLength(1);
 
@@ -376,7 +376,7 @@ describe("BrowserPool dead-instance detection", () => {
       failAtCalls: [3, 4, 5, 6, 7, 8],
     });
     const { logger } = makeFakeLogger();
-    const pool = new BrowserPool(2, 100, logger, launchBrowser);
+    const pool = new BrowserPool(2, 100, logger, launchBrowser, 0);
     await pool.init();
     expect(launched).toHaveLength(2);
 
@@ -415,7 +415,7 @@ describe("BrowserPool dead-instance detection", () => {
       failAtCalls: [2, 3, 4],
     });
     const { logger } = makeFakeLogger();
-    const pool = new BrowserPool(1, 100, logger, launchBrowser);
+    const pool = new BrowserPool(1, 100, logger, launchBrowser, 0);
     await pool.init();
     expect(launched).toHaveLength(1);
 
@@ -452,7 +452,10 @@ describe("BrowserPool dead-instance detection", () => {
       failAtCalls: [2, 3, 4],
     });
     const { logger } = makeFakeLogger();
-    const pool = new BrowserPool(1, 100, logger, launchBrowser);
+    // Stagger 0 keeps the test fast; the launch-serialization gate's
+    // concurrency-1 guarantee (the property under test here, that the slot is
+    // launched exactly once) holds independent of the stagger length.
+    const pool = new BrowserPool(1, 100, logger, launchBrowser, 0);
     await pool.init();
 
     const held = await pool.acquire();
@@ -468,14 +471,27 @@ describe("BrowserPool dead-instance detection", () => {
     await waitFor(() => pool.stats().size === 0, 3_000);
 
     // Two acquirers race for the single recovering slot, each driving
-    // relaunchPendingSlots. The fresh browser must go to exactly one of them;
-    // the loser stays parked as a waiter (it has no timer to recover it and
-    // will reject on shutdown).
-    const a = pool.acquire(5_000);
-    const b = pool.acquire(5_000);
+    // relaunchPendingSlots. With the launch-serialization gate, exactly one of
+    // them claims the slot (relaunchingSlots) and drives the single gated
+    // launch; the other skips (slot busy) and parks as a waiter. The freshly
+    // launched browser is handed off to one of the two — the WINNER — and the
+    // LOSER is left parked. The loser uses a SHORT timeout so this test stays
+    // fast: a parked waiter is only rejected by `shutdown()`, and the gate's
+    // extra `await` can let the loser register its waiter AFTER `shutdown()`
+    // has already drained the waiter set, in which case only its own timeout
+    // frees it. We assert the WINNER got exactly the one fresh launch; the
+    // loser's fate (short-timeout reject) is not the property under test.
+    const a = pool.acquire(150);
+    const b = pool.acquire(150);
 
-    const first = await Promise.race([a, b]);
-    expect(first).toBeDefined();
+    const settled = await Promise.allSettled([a, b]);
+    const fulfilled = settled.filter(
+      (s): s is PromiseFulfilledResult<Browser> => s.status === "fulfilled",
+    );
+    // Exactly one acquirer was served (the single slot can serve only one
+    // before being re-held); the other parked and timed out.
+    expect(fulfilled).toHaveLength(1);
+    const first = fulfilled[0]!.value;
     expect((first as unknown as FakeBrowser).isConnected()).toBe(true);
 
     // Exactly one fresh browser (the successful relaunch, call 5) was
@@ -496,8 +512,6 @@ describe("BrowserPool dead-instance detection", () => {
     expect(pool.stats().size).toBe(1);
 
     await pool.shutdown();
-    // The loser waiter rejects on shutdown; swallow it.
-    await Promise.allSettled([a, b]);
   });
 
   it("recovers a parked slot via a later acquire() even when an intervening acquire()'s relaunch also failed", async () => {
@@ -517,7 +531,7 @@ describe("BrowserPool dead-instance detection", () => {
       failAtCalls: [2, 3, 4, 5],
     });
     const { logger } = makeFakeLogger();
-    const pool = new BrowserPool(1, 100, logger, launchBrowser);
+    const pool = new BrowserPool(1, 100, logger, launchBrowser, 0);
     await pool.init();
     expect(launched).toHaveLength(1);
 
@@ -583,7 +597,7 @@ describe("BrowserPool dead-instance detection", () => {
       return b as unknown as Browser;
     };
     const { logger } = makeFakeLogger();
-    const pool = new BrowserPool(1, 100, logger, launchBrowser);
+    const pool = new BrowserPool(1, 100, logger, launchBrowser, 0);
     await pool.init();
     expect(launched).toHaveLength(1);
     const oldBrowser = launched[0]!;
@@ -646,34 +660,42 @@ describe("BrowserPool dead-instance detection", () => {
     // continue;` makes invocation 1 skip B, so EXACTLY ONE fresh browser is
     // launched per slot.
     //
-    // Deterministic race: gate every recovery launch (calls 9+) so we can
-    // interleave the two invocations precisely.
+    // Deterministic race, ADAPTED for the launch-serialization gate. The gate
+    // funnels EVERY launch through a concurrency-1 serializer, so two recovery
+    // launches can never be in flight (running rawLaunchBrowser) at the same
+    // instant. We therefore gate ONLY the FIRST recovery launch (call 9, slot
+    // A driven by invocation 1). While that launch is gated/held, invocation 2
+    // runs, snapshots pending as [slot B] (slot A is busy in relaunchingSlots),
+    // and CLAIMS slot B (adds it to relaunchingSlots) before its own launch
+    // (call 10) queues behind call 9 in the gate chain. Releasing call 9 lets
+    // invocation 1's loop advance to slot B — where the in-loop guard
+    // `if (this.isSlotBusy(slot) || !slot.relaunchPending) continue;` MUST skip
+    // it (B is busy / no longer pending), so EXACTLY ONE fresh browser is
+    // launched per slot. Stagger 0 keeps the chain advancing fast.
     const launched: FakeBrowser[] = [];
     let callCount = 0;
-    // One resolver per gated recovery launch; we release them in order.
-    const gateResolvers: Array<() => void> = [];
-    const gateFor = (): Promise<void> =>
-      new Promise<void>((resolve) => {
-        gateResolvers.push(resolve);
-      });
+    let releaseCall9: (() => void) | undefined;
+    const call9Gate = new Promise<void>((resolve) => {
+      releaseCall9 = resolve;
+    });
     // init = calls 1,2; the two slots' immediate recycle retries
     // (RELAUNCH_MAX_ATTEMPTS=3 each) = calls 3..8, all fail to park both slots.
-    // Recovery relaunches are calls 9 and 10, both gated.
+    // Recovery relaunches are calls 9 (gated) and 10.
     const failCalls = new Set([3, 4, 5, 6, 7, 8]);
     const launchBrowser: LaunchBrowser = async () => {
       callCount++;
       if (failCalls.has(callCount)) {
         throw new Error("simulated launch failure");
       }
-      if (callCount >= 9) {
-        await gateFor();
+      if (callCount === 9) {
+        await call9Gate;
       }
       const b = makeFakeBrowser();
       launched.push(b);
       return b as unknown as Browser;
     };
     const { logger } = makeFakeLogger();
-    const pool = new BrowserPool(2, 100, logger, launchBrowser);
+    const pool = new BrowserPool(2, 100, logger, launchBrowser, 0);
     await pool.init();
     expect(launched).toHaveLength(2);
 
@@ -686,43 +708,43 @@ describe("BrowserPool dead-instance detection", () => {
     expect(pool.stats().size).toBe(0);
 
     // Drive two concurrent relaunchPendingSlots invocations via two acquire()s.
+    // Invocation 1 (a) snapshots [slotA, slotB], claims slotA, and its slotA
+    // launch (call 9) blocks on the gate. Invocation 2 (b) then runs: it
+    // snapshots [slotB] (slotA busy), claims slotB, and its slotB launch (call
+    // 10) is queued in the serialization chain BEHIND the gated call 9.
     const a = pool.acquire(5_000);
     const b = pool.acquire(5_000);
 
-    // Let both invocations run up to their first gated launch. Invocation 1
-    // snapshots [slotA, slotB], claims slotA, awaits its launch (call 9).
-    // Invocation 2 then snapshots [slotB] (slotA busy), claims slotB, awaits
-    // its launch (call 10). Wait until BOTH gated launches are pending.
-    await waitFor(() => gateResolvers.length >= 2, 3_000);
-
-    // Release both gated launches. Invocation 1's slotA launch (call 9) and
-    // invocation 2's slotB launch (call 10) resolve. Invocation 1's loop then
-    // advances to slotB: WITHOUT the in-loop guard it would launch a SECOND
-    // browser for slotB (a 3rd gated launch, call 11). WITH the guard it skips
-    // slotB (now busy / no longer pending).
-    gateResolvers[0]!();
-    gateResolvers[1]!();
+    // Wait until call 9 is actually in flight (gated) — i.e. invocation 1 has
+    // claimed slotA and reached its launch. By this point invocation 2 has had
+    // the chance to claim slotB. Drain microtasks so invocation 2's synchronous
+    // claim-then-queue has run before we release call 9.
+    await waitFor(() => callCount >= 9, 3_000);
     await drainMicrotasks(30);
 
-    // Give any erroneous third launch a chance to register its gate so a leak
-    // would surface as a 3rd pending resolver.
+    // Release call 9. Invocation 1's slotA launch resolves; its loop advances
+    // to slotB. WITHOUT the in-loop guard it would launch a SECOND browser for
+    // slotB (a 3rd launch, call 11). WITH the guard it skips slotB (busy / no
+    // longer pending). Call 10 (invocation 2's slotB launch) then runs.
+    releaseCall9!();
+
+    // Both acquirers must be served — one per slot — and exactly two fresh
+    // browsers launched beyond init (no leaked third launch for the contended
+    // slot).
+    const both = await Promise.all([a, b]);
+    both.forEach((br) =>
+      expect((br as unknown as FakeBrowser).isConnected()).toBe(true),
+    );
+
     await drainMicrotasks(30);
 
-    const first = await Promise.race([a, b]);
-    expect(first).toBeDefined();
-    expect((first as unknown as FakeBrowser).isConnected()).toBe(true);
-
-    // Exactly two fresh browsers beyond init — one per slot, no leaked
-    // double-launch for the contended slot. (A third gated launch from the
-    // unguarded re-entry would still be parked on its gate and not yet in
-    // `launched`, so additionally assert no 3rd gate was ever requested.)
     const freshBeyondInit = launched.slice(2);
     expect(freshBeyondInit.length).toBe(2);
-    expect(gateResolvers.length).toBe(2);
+    // No erroneous third launch was ever attempted for the contended slot.
+    expect(callCount).toBe(10);
 
     // Pin exact-once: both acquirers are served by the two fresh launches, and
     // each fresh browser maps to a distinct slot (no slot.browser overwrite).
-    const both = await Promise.all([a, b]);
     const servedIds = both.map((br) => (br as unknown as FakeBrowser).__id);
     const freshIds = freshBeyondInit.map((br) => br.__id);
     expect(new Set(servedIds)).toEqual(new Set(freshIds));
@@ -744,7 +766,7 @@ describe("BrowserPool dead-instance detection", () => {
       failAtCalls: [2, 3, 4],
     });
     const { logger, events } = makeLeveledLogger();
-    const pool = new BrowserPool(1, 100, logger, launchBrowser);
+    const pool = new BrowserPool(1, 100, logger, launchBrowser, 0);
     await pool.init();
     expect(launched).toHaveLength(1);
 
@@ -779,7 +801,7 @@ describe("BrowserPool dead-instance detection", () => {
       failAtCalls: [2, 3, 4, 5],
     });
     const { logger, events } = makeLeveledLogger();
-    const pool = new BrowserPool(1, 100, logger, launchBrowser);
+    const pool = new BrowserPool(1, 100, logger, launchBrowser, 0);
     await pool.init();
 
     launched[0]!.__crash();
@@ -809,7 +831,7 @@ describe("BrowserPool dead-instance detection", () => {
     // reinit, whose launch (call 2) also fails, ending the pool empty → error.
     const { launchBrowser } = makeFakeLauncher({ failAtCalls: [1, 2, 3] });
     const { logger, events } = makeLeveledLogger();
-    const pool = new BrowserPool(1, 100, logger, launchBrowser);
+    const pool = new BrowserPool(1, 100, logger, launchBrowser, 0);
     // init's only launch (call 1) throws — init sets `launchBrowser` BEFORE the
     // launch loop, so after catching the throw `this.slots` is empty but the
     // pool can still reinit. (init does not swallow launch errors by design.)
@@ -841,7 +863,7 @@ describe("BrowserPool dead-instance detection", () => {
     // init = call 1 fails (so this.slots stays empty); reinit launches succeed.
     const { launchBrowser, launched } = makeFakeLauncher({ failAtCalls: [1] });
     const { logger } = makeLeveledLogger();
-    const pool = new BrowserPool(poolSize, 100, logger, launchBrowser);
+    const pool = new BrowserPool(poolSize, 100, logger, launchBrowser, 0);
     // init's first launch (call 1) throws, leaving this.slots empty but with
     // `launchBrowser` already set so reinit can run. init does not swallow.
     await expect(pool.init()).rejects.toThrow("simulated launch failure");
@@ -867,7 +889,7 @@ describe("BrowserPool dead-instance detection", () => {
   it("shutdown() does not loop the disconnect handler when closing slot browsers", async () => {
     const { launchBrowser, launched } = makeFakeLauncher();
     const { logger, events } = makeFakeLogger();
-    const pool = new BrowserPool(2, 100, logger, launchBrowser);
+    const pool = new BrowserPool(2, 100, logger, launchBrowser, 0);
     await pool.init();
 
     await pool.shutdown();
@@ -880,5 +902,152 @@ describe("BrowserPool dead-instance detection", () => {
     ).toHaveLength(0);
     expect(launched[0]!.__closeCount).toBeGreaterThan(0);
     expect(launched[1]!.__closeCount).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * A launcher that records, for every chromium launch the pool drives, the
+ * wall-clock start time and the number of launches in flight at the moment
+ * this one entered. Used to prove the launch-serialization gate funnels
+ * EVERY launch (init fill, recycle relaunch, lazy relaunchPending) through a
+ * single concurrency-1 gate with a stagger between settled launches.
+ *
+ * `launchDurationMs` makes each fake launch take measurable wall time so an
+ * un-gated burst would overlap (inFlight > 1) — the assertion that
+ * `maxConcurrent === 1` is only meaningful when launches actually overlap
+ * without the gate.
+ */
+function makeRecordingLauncher(opts?: { launchDurationMs?: number }): {
+  launchBrowser: LaunchBrowser;
+  starts: number[];
+  maxConcurrent: number;
+  launched: FakeBrowser[];
+} {
+  const launchDurationMs = opts?.launchDurationMs ?? 20;
+  const starts: number[] = [];
+  const launched: FakeBrowser[] = [];
+  let inFlight = 0;
+  const rec = {
+    launchBrowser: (async (): Promise<Browser> => {
+      starts.push(Date.now());
+      inFlight++;
+      if (inFlight > rec.maxConcurrent) rec.maxConcurrent = inFlight;
+      await new Promise((resolve) => setTimeout(resolve, launchDurationMs));
+      inFlight--;
+      const b = makeFakeBrowser();
+      launched.push(b);
+      return b as unknown as Browser;
+    }) as LaunchBrowser,
+    starts,
+    maxConcurrent: 0,
+    launched,
+  };
+  return rec;
+}
+
+describe("BrowserPool launch serialization gate", () => {
+  it("serializes the initial-fill burst to concurrency 1 and staggers each launch", async () => {
+    // A burst of N near-simultaneous chromium.launch() calls (the initial
+    // pool fill) must NOT overlap — on the Railway staging container a burst
+    // spikes PID demand past the ~1000 ceiling and trips pthread_create
+    // EAGAIN / "Zygote could not fork". The gate funnels every launch through
+    // a concurrency-1 serializer and waits a stagger after each settles.
+    const staggerMs = 30;
+    const rec = makeRecordingLauncher({ launchDurationMs: 20 });
+    const pool = new BrowserPool(
+      6,
+      100,
+      undefined,
+      rec.launchBrowser,
+      staggerMs,
+    );
+    await pool.init();
+
+    // Every one of the 6 initial-fill launches happened.
+    expect(rec.launched).toHaveLength(6);
+
+    // Strict serialization: never two chromium launches in flight at once.
+    expect(rec.maxConcurrent).toBe(1);
+
+    // Consecutive launch starts are spaced at least `staggerMs` apart (the
+    // gate waits AFTER each launch settles before the next may start). Allow a
+    // small scheduler-jitter tolerance below the nominal stagger.
+    const tolerance = 5;
+    for (let i = 1; i < rec.starts.length; i++) {
+      const gap = rec.starts[i]! - rec.starts[i - 1]!;
+      expect(gap).toBeGreaterThanOrEqual(staggerMs - tolerance);
+    }
+
+    await pool.shutdown();
+  });
+
+  it("serializes a burst of simultaneous recycle/relaunch triggers to concurrency 1", async () => {
+    // Recycle bursts (many slots crashing and relaunching near-simultaneously)
+    // are the OTHER PID-spike source the gate must cover. Fill a pool, crash
+    // every browser at once so all disconnect-driven recycles fire together,
+    // and assert their relaunches never overlap.
+    const staggerMs = 20;
+    const rec = makeRecordingLauncher({ launchDurationMs: 20 });
+    const pool = new BrowserPool(
+      5,
+      100,
+      undefined,
+      rec.launchBrowser,
+      staggerMs,
+    );
+    await pool.init();
+    expect(rec.launched).toHaveLength(5);
+
+    // Crash all 5 at once — every recycle's relaunch is triggered in the same
+    // tick, the classic burst the gate must serialize.
+    for (const b of rec.launched.slice(0, 5)) b.__crash();
+
+    // Wait until all 5 relaunches have completed (10 total launches).
+    await waitFor(() => rec.launched.length >= 10, 5_000);
+
+    // No two launches (fill OR relaunch) ever overlapped.
+    expect(rec.maxConcurrent).toBe(1);
+
+    await pool.shutdown();
+  });
+
+  it("honors BROWSER_LAUNCH_STAGGER_MS env var as the default stagger", async () => {
+    // The stagger is env-tunable on staging without a code change. With no
+    // explicit constructor override, the pool reads BROWSER_LAUNCH_STAGGER_MS.
+    const prev = process.env.BROWSER_LAUNCH_STAGGER_MS;
+    process.env.BROWSER_LAUNCH_STAGGER_MS = "25";
+    try {
+      const rec = makeRecordingLauncher({ launchDurationMs: 10 });
+      // No 5th arg → stagger comes from the env var.
+      const pool = new BrowserPool(4, 100, undefined, rec.launchBrowser);
+      await pool.init();
+
+      expect(rec.launched).toHaveLength(4);
+      expect(rec.maxConcurrent).toBe(1);
+      const tolerance = 5;
+      for (let i = 1; i < rec.starts.length; i++) {
+        const gap = rec.starts[i]! - rec.starts[i - 1]!;
+        expect(gap).toBeGreaterThanOrEqual(25 - tolerance);
+      }
+
+      await pool.shutdown();
+    } finally {
+      if (prev === undefined) delete process.env.BROWSER_LAUNCH_STAGGER_MS;
+      else process.env.BROWSER_LAUNCH_STAGGER_MS = prev;
+    }
+  });
+
+  it("still serializes (concurrency 1) when the stagger is set to 0", async () => {
+    // A zero stagger keeps tests fast but MUST still serialize: the gate's
+    // concurrency-1 guarantee is independent of the wait. Proves the gate is
+    // not merely a sleep — it is a real one-at-a-time mutex.
+    const rec = makeRecordingLauncher({ launchDurationMs: 15 });
+    const pool = new BrowserPool(8, 100, undefined, rec.launchBrowser, 0);
+    await pool.init();
+
+    expect(rec.launched).toHaveLength(8);
+    expect(rec.maxConcurrent).toBe(1);
+
+    await pool.shutdown();
   });
 });
