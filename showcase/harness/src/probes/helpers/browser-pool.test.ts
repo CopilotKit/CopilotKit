@@ -1037,6 +1037,56 @@ describe("BrowserPool launch serialization gate", () => {
     }
   });
 
+  it("falls back to the default stagger when the explicit arg is negative (does not silently disable)", async () => {
+    // A negative explicit constructor arg must fall back to the DEFAULT
+    // stagger (150ms) — the same contract the env var already honors — NOT
+    // clamp to 0 and silently disable the stagger. Disabling the stagger
+    // reintroduces the PID-spike the gate exists to prevent. Only 2 launches
+    // so the ~150ms wait stays cheap.
+    const rec = makeRecordingLauncher({ launchDurationMs: 10 });
+    // -50 is negative → must be rejected and fall back to the 150ms default.
+    const pool = new BrowserPool(
+      2,
+      undefined,
+      undefined,
+      rec.launchBrowser,
+      -50,
+    );
+    await pool.init();
+
+    expect(rec.launched).toHaveLength(2);
+    expect(rec.maxConcurrent).toBe(1);
+
+    // The two launches must be spaced by roughly the DEFAULT stagger (150ms),
+    // proving the stagger was NOT disabled. Allow scheduler-jitter tolerance.
+    const gap = rec.starts[1]! - rec.starts[0]!;
+    expect(gap).toBeGreaterThanOrEqual(140);
+
+    await pool.shutdown();
+  });
+
+  it("falls back to the default stagger when the explicit arg is NaN", async () => {
+    // A non-numeric (NaN) explicit constructor arg must also fall back to the
+    // DEFAULT stagger rather than disabling it.
+    const rec = makeRecordingLauncher({ launchDurationMs: 10 });
+    const pool = new BrowserPool(
+      2,
+      undefined,
+      undefined,
+      rec.launchBrowser,
+      NaN,
+    );
+    await pool.init();
+
+    expect(rec.launched).toHaveLength(2);
+    expect(rec.maxConcurrent).toBe(1);
+
+    const gap = rec.starts[1]! - rec.starts[0]!;
+    expect(gap).toBeGreaterThanOrEqual(140);
+
+    await pool.shutdown();
+  });
+
   it("still serializes (concurrency 1) when the stagger is set to 0", async () => {
     // A zero stagger keeps tests fast but MUST still serialize: the gate's
     // concurrency-1 guarantee is independent of the wait. Proves the gate is

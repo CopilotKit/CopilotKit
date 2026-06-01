@@ -149,17 +149,26 @@ export class BrowserPool {
 
     // Explicit constructor arg (tests inject a tiny value to stay fast) wins;
     // otherwise the env var (staging tuning) wins; otherwise the default. A
-    // negative or non-numeric value falls back to the default rather than
-    // disabling the stagger silently.
+    // negative or non-numeric value — from EITHER source — falls back to the
+    // default rather than disabling the stagger silently. (Disabling the
+    // stagger reintroduces the launch-burst PID spike the gate exists to
+    // prevent.) Note that an explicit `0` IS valid and intentionally disables
+    // the wait (tests rely on it); only negative/NaN args are rejected.
     const envStagger = process.env.BROWSER_LAUNCH_STAGGER_MS
       ? parseInt(process.env.BROWSER_LAUNCH_STAGGER_MS, 10)
       : undefined;
-    const resolvedStagger =
-      launchStaggerMs ??
-      (envStagger !== undefined && !Number.isNaN(envStagger) && envStagger >= 0
+    const validExplicit =
+      launchStaggerMs !== undefined &&
+      !Number.isNaN(launchStaggerMs) &&
+      launchStaggerMs >= 0
+        ? launchStaggerMs
+        : undefined;
+    const validEnv =
+      envStagger !== undefined && !Number.isNaN(envStagger) && envStagger >= 0
         ? envStagger
-        : DEFAULT_BROWSER_LAUNCH_STAGGER_MS);
-    this.launchStaggerMs = resolvedStagger >= 0 ? resolvedStagger : 0;
+        : undefined;
+    this.launchStaggerMs =
+      validExplicit ?? validEnv ?? DEFAULT_BROWSER_LAUNCH_STAGGER_MS;
   }
 
   async init(): Promise<void> {
