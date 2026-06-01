@@ -374,39 +374,52 @@ export function createPooledE2eParityLauncher(
     // pooled context back to the pool, freeing a context slot.
     const openContexts = new Set<{ close(): Promise<void> }>();
 
+    const onAbort = (): void => {
+      if (aborted) return;
+      aborted = true;
+      const ctxCount = openContexts.size;
+      const stats = pool.stats();
+      logger?.warn("probe.e2e-parity.pool-abort-release", {
+        openContexts: ctxCount,
+        poolAvailable: stats.available,
+        poolInUse: stats.inUse,
+        poolSize: stats.size,
+      });
+      const contextClosePromises = Array.from(openContexts).map((ctx) =>
+        ctx.close().catch(() => {}),
+      );
+      void Promise.allSettled(contextClosePromises).then(() => {
+        logger?.warn("probe.e2e-parity.pool-abort-released", {
+          closedContexts: ctxCount,
+          poolAvailable: pool.stats().available,
+        });
+      });
+    };
+    // Capture the listener so launcher-level close() can detach it: without
+    // removeEventListener a post-completion abort would fire onAbort after the
+    // run returned, leaking the listener for the signal's lifetime.
+    let detachAbort: (() => void) | undefined;
     if (abortSignal) {
-      const onAbort = (): void => {
-        if (aborted) return;
-        aborted = true;
-        const ctxCount = openContexts.size;
-        const stats = pool.stats();
-        logger?.warn("probe.e2e-parity.pool-abort-release", {
-          openContexts: ctxCount,
-          poolAvailable: stats.available,
-          poolInUse: stats.inUse,
-          poolSize: stats.size,
-        });
-        const contextClosePromises = Array.from(openContexts).map((ctx) =>
-          ctx.close().catch(() => {}),
-        );
-        void Promise.allSettled(contextClosePromises).then(() => {
-          logger?.warn("probe.e2e-parity.pool-abort-released", {
-            closedContexts: ctxCount,
-            poolAvailable: pool.stats().available,
-          });
-        });
-      };
       if (abortSignal.aborted) {
         aborted = true;
         logger?.warn("probe.e2e-parity.pool-pre-aborted-release");
       } else {
         abortSignal.addEventListener("abort", onAbort, { once: true });
+        detachAbort = () => abortSignal.removeEventListener("abort", onAbort);
       }
     }
 
     return {
       async newContext(): Promise<E2eParityBrowserContext> {
         const ctx = await pool.acquire();
+        // If the signal was already aborted at launcher construction (the
+        // pre-aborted branch never attached the live abort listener), a context
+        // opened now would never be closed by the abort path. Release it
+        // immediately and refuse so it cannot leak into a torn-down run.
+        if (aborted) {
+          await pool.release(ctx).catch(() => {});
+          throw new Error("e2e-parity launcher aborted");
+        }
         const ctxHandle = { close: () => pool.release(ctx) };
         openContexts.add(ctxHandle);
         return {
@@ -416,10 +429,17 @@ export function createPooledE2eParityLauncher(
             wrapped.asPlaywrightPage = (): PlaywrightPage => page;
             return wrapped;
           },
-          close: () => ctxHandle.close(),
+          close: async () => {
+            openContexts.delete(ctxHandle);
+            await ctxHandle.close();
+          },
         };
       },
-      close: async () => {},
+      // Launcher-level close detaches the abort listener so a post-completion
+      // abort can't fire onAbort after the run returned.
+      close: async () => {
+        detachAbort?.();
+      },
     };
   };
 }

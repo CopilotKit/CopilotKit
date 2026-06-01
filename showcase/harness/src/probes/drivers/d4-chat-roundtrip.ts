@@ -29,9 +29,12 @@ import type { ProbeContext, ProbeResult } from "../../types/index.js";
  *
  * In-process vs spawn: the orchestrator already runs as a long-lived Node
  * process with `playwright` installed (see Dockerfile). Launching chromium
- * directly via `playwright.chromium.launch()` gives us first-class
- * AbortSignal propagation into `page.close()` / `browser.close()` rather
- * than having to kill a child process.
+ * directly via `playwright.chromium.launch()` keeps the browser in-process
+ * rather than having to kill a child process. Note: the `defaultLauncher`
+ * does NOT wire the AbortSignal — it dedicates a chromium per call and lets
+ * the driver's teardown close it. The POOLED launcher
+ * (`createPooledE2eSmokeLauncher`) is the path that actually re-targets abort
+ * onto open contexts for prompt pool release.
  *
  * Pluggable launcher: the production default imports `playwright` lazily
  * so the driver module loads cleanly in environments without chromium
@@ -291,33 +294,40 @@ export function createPooledE2eSmokeLauncher(
     // pooled context back to the pool, freeing a context slot.
     const openContexts = new Set<{ close(): Promise<void> }>();
 
+    const onAbort = (): void => {
+      if (aborted) return;
+      aborted = true;
+      const ctxCount = openContexts.size;
+      const stats = pool.stats();
+      logger?.warn("probe.e2e-smoke.pool-abort-release", {
+        openContexts: ctxCount,
+        poolAvailable: stats.available,
+        poolInUse: stats.inUse,
+        poolSize: stats.size,
+      });
+      const contextClosePromises = Array.from(openContexts).map((ctx) =>
+        ctx.close().catch(() => {}),
+      );
+      void Promise.allSettled(contextClosePromises).then(() => {
+        logger?.warn("probe.e2e-smoke.pool-abort-released", {
+          closedContexts: ctxCount,
+          poolAvailable: pool.stats().available,
+        });
+      });
+    };
+    // Capture the listener so launcher-level close() can detach it: without
+    // removeEventListener a post-completion abort would fire onAbort after the
+    // run returned (closing nothing, but leaking the listener for the signal's
+    // lifetime).
+    let detachAbort: (() => void) | undefined;
     if (abortSignal) {
-      const onAbort = (): void => {
-        if (aborted) return;
-        aborted = true;
-        const ctxCount = openContexts.size;
-        const stats = pool.stats();
-        logger?.warn("probe.e2e-smoke.pool-abort-release", {
-          openContexts: ctxCount,
-          poolAvailable: stats.available,
-          poolInUse: stats.inUse,
-          poolSize: stats.size,
-        });
-        const contextClosePromises = Array.from(openContexts).map((ctx) =>
-          ctx.close().catch(() => {}),
-        );
-        void Promise.allSettled(contextClosePromises).then(() => {
-          logger?.warn("probe.e2e-smoke.pool-abort-released", {
-            closedContexts: ctxCount,
-            poolAvailable: pool.stats().available,
-          });
-        });
-      };
       if (abortSignal.aborted) {
         aborted = true;
         logger?.warn("probe.e2e-smoke.pool-pre-aborted-release");
       } else {
         abortSignal.addEventListener("abort", onAbort, { once: true });
+        detachAbort = () =>
+          abortSignal.removeEventListener("abort", onAbort);
       }
     }
 
@@ -328,6 +338,14 @@ export function createPooledE2eSmokeLauncher(
         const ctx = await pool.acquire({
           extraHTTPHeaders: ctxOpts?.extraHTTPHeaders,
         });
+        // If the signal was already aborted at launcher construction (the
+        // pre-aborted branch never attached the live abort listener), a context
+        // opened now would never be closed by the abort path. Release it
+        // immediately and refuse so it cannot leak into a torn-down run.
+        if (aborted) {
+          await pool.release(ctx).catch(() => {});
+          throw new Error("e2e-smoke launcher aborted");
+        }
         const ctxHandle = { close: () => pool.release(ctx) };
         openContexts.add(ctxHandle);
         return {
@@ -343,12 +361,19 @@ export function createPooledE2eSmokeLauncher(
               close: () => page.close(),
             };
           },
-          close: () => ctxHandle.close(),
+          close: async () => {
+            openContexts.delete(ctxHandle);
+            await ctxHandle.close();
+          },
         };
       },
-      // Launcher-level close is a no-op: contexts are released individually via
-      // each context-wrapper's close(). There is no Browser held to release.
-      close: async () => {},
+      // Launcher-level close releases nothing itself — contexts are released
+      // individually via each context-wrapper's close() — but it detaches the
+      // abort listener so a post-completion abort can't fire onAbort after the
+      // run returned. There is no Browser held to release.
+      close: async () => {
+        detachAbort?.();
+      },
     };
   };
 }

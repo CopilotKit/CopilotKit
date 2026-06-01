@@ -64,18 +64,17 @@ function makePage(script: PageScript = {}): E2ePage {
       }
     },
     async textContent(sel) {
-      if (sel === '[data-testid="copilot-assistant-message"]:last-of-type') {
-        return script.assistantText ?? "";
-      }
+      // The driver reads the assistant message via `evaluate()` (see below),
+      // NOT `textContent(:last-of-type)`, so only the `body` read remains.
       if (sel === "body") {
         return script.bodyText ?? "";
       }
       return "";
     },
     async evaluate<R>(fn: () => R): Promise<R> {
-      // The evaluate() call in the driver reads the last assistant
-      // message's textContent via querySelectorAll. In the fake we
-      // return the same assistantText the old textContent path used.
+      // The driver's evaluate() reads the last assistant message's
+      // textContent via querySelectorAll and returns a string. The fake
+      // returns the scripted assistantText as that string.
       return (script.assistantText ?? "") as unknown as R;
     },
     async close() {
@@ -624,29 +623,58 @@ describe("createPooledE2eSmokeLauncher context checkout + abort release", () => 
     await browser.close(); // no-op
     expect(pool._releaseLog).toHaveLength(1);
   });
+
+  // A3 — a normal close() must remove the context from the abort tracking set
+  // so a SUBSEQUENT abort does not re-release it (double release). Before the
+  // fix, close() released but never `openContexts.delete(ctxHandle)`, so abort
+  // closed the already-released context a second time — driving the pool's
+  // inUse negative with a non-idempotent pool. The fix (delete-on-close + an
+  // idempotent pool) keeps the release count accurate at exactly 1 and inUse
+  // at 0.
+  it("does not double-release a normally-closed context on a later abort", async () => {
+    const pool = makeFakeContextPool(4);
+    const launcher = createPooledE2eSmokeLauncher(
+      pool as unknown as BrowserPool,
+    );
+    const ac = new AbortController();
+    const browser = await launcher(ac.signal);
+    const ctx = await browser.newContext();
+    await ctx.newPage();
+    expect(pool.stats().inUse).toBe(1);
+
+    // Normal close first — releases the context exactly once.
+    await ctx.close();
+    expect(pool.stats().inUse).toBe(0);
+    expect(pool._releaseLog).toHaveLength(1);
+
+    // Now abort. The already-closed context must NOT be released again.
+    ac.abort();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(pool._releaseLog).toHaveLength(1); // still exactly one release
+    expect(pool.stats().inUse).toBe(0); // never driven negative
+  });
 });
 
 // Module-scoped fake context-pool for the createPooledE2eSmokeLauncher tests
 // above — mirrors d6-all-pills.test.ts's helper. Tracks per-CONTEXT
-// acquire/release and the contextOptions each acquire was called with. The
-// release() is idempotent on the inUse counter only in the sense that the
-// real BrowserPool.release is a no-op on a context that's already been
-// released; here each ctxHandle.close() routes to one release call, and the
-// launcher's abort path closes each open context exactly once.
+// acquire/release and the contextOptions each acquire was called with.
+// release() is IDEMPOTENT, mirroring the real BrowserPool.release: it tracks a
+// `liveContexts` Set and no-ops on an unknown / already-released context so a
+// double release can never drive the inUse counter negative and silently mask
+// a double-release bug.
 function makeFakeContextPool(maxContexts: number) {
   let nextCtxId = 0;
-  let live = 0;
+  const liveContexts = new Set<object>();
   const releaseLog: number[] = [];
   const acquireOptions: Array<
     { extraHTTPHeaders?: Record<string, string> } | undefined
   > = [];
   return {
     async acquire(options?: { extraHTTPHeaders?: Record<string, string> }) {
-      if (live >= maxContexts) throw new Error("FakePool: at cap");
+      if (liveContexts.size >= maxContexts) throw new Error("FakePool: at cap");
       const id = nextCtxId++;
-      live++;
       acquireOptions.push(options);
-      return {
+      const ctx = {
         __id: id,
         async newPage() {
           return {
@@ -661,18 +689,23 @@ function makeFakeContextPool(maxContexts: number) {
           } as unknown;
         },
         async close() {},
-      } as unknown as Browser;
+      };
+      liveContexts.add(ctx);
+      return ctx as unknown as Browser;
     },
     async release(ctx: unknown) {
-      const c = ctx as { __id: number };
-      releaseLog.push(c.__id);
-      live--;
+      // Unknown / double release — no-op, mirroring BrowserPool.release.
+      if (typeof ctx !== "object" || ctx === null || !liveContexts.has(ctx)) {
+        return;
+      }
+      liveContexts.delete(ctx);
+      releaseLog.push((ctx as { __id: number }).__id);
     },
     stats() {
       return {
         size: maxContexts,
-        available: maxContexts - live,
-        inUse: live,
+        available: maxContexts - liveContexts.size,
+        inUse: liveContexts.size,
         totalRecycles: 0,
       };
     },

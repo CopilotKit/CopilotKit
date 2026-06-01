@@ -478,33 +478,38 @@ export function createPooledE2eDeepLauncher(
     // pooled context back to the pool, freeing a context slot.
     const openContexts = new Set<{ close(): Promise<void> }>();
 
+    const onAbort = (): void => {
+      if (aborted) return;
+      aborted = true;
+      const ctxCount = openContexts.size;
+      const stats = pool.stats();
+      logger?.warn("probe.e2e-deep.pool-abort-release", {
+        openContexts: ctxCount,
+        poolAvailable: stats.available,
+        poolInUse: stats.inUse,
+        poolSize: stats.size,
+      });
+      const contextClosePromises = Array.from(openContexts).map((ctx) =>
+        ctx.close().catch(() => {}),
+      );
+      void Promise.allSettled(contextClosePromises).then(() => {
+        logger?.warn("probe.e2e-deep.pool-abort-released", {
+          closedContexts: ctxCount,
+          poolAvailable: pool.stats().available,
+        });
+      });
+    };
+    // Capture the listener so launcher-level close() can detach it: without
+    // removeEventListener a post-completion abort would fire onAbort after the
+    // run returned, leaking the listener for the signal's lifetime.
+    let detachAbort: (() => void) | undefined;
     if (abortSignal) {
-      const onAbort = (): void => {
-        if (aborted) return;
-        aborted = true;
-        const ctxCount = openContexts.size;
-        const stats = pool.stats();
-        logger?.warn("probe.e2e-deep.pool-abort-release", {
-          openContexts: ctxCount,
-          poolAvailable: stats.available,
-          poolInUse: stats.inUse,
-          poolSize: stats.size,
-        });
-        const contextClosePromises = Array.from(openContexts).map((ctx) =>
-          ctx.close().catch(() => {}),
-        );
-        void Promise.allSettled(contextClosePromises).then(() => {
-          logger?.warn("probe.e2e-deep.pool-abort-released", {
-            closedContexts: ctxCount,
-            poolAvailable: pool.stats().available,
-          });
-        });
-      };
       if (abortSignal.aborted) {
         aborted = true;
         logger?.warn("probe.e2e-deep.pool-pre-aborted-release");
       } else {
         abortSignal.addEventListener("abort", onAbort, { once: true });
+        detachAbort = () => abortSignal.removeEventListener("abort", onAbort);
       }
     }
 
@@ -515,6 +520,14 @@ export function createPooledE2eDeepLauncher(
         const ctx = await pool.acquire({
           extraHTTPHeaders: contextOpts?.extraHTTPHeaders,
         });
+        // If the signal was already aborted at launcher construction (the
+        // pre-aborted branch never attached the live abort listener), a context
+        // opened now would never be closed by the abort path. Release it
+        // immediately and refuse so it cannot leak into a torn-down run.
+        if (aborted) {
+          await pool.release(ctx).catch(() => {});
+          throw new Error("e2e-deep launcher aborted");
+        }
         const ctxHandle = { close: () => pool.release(ctx) };
         openContexts.add(ctxHandle);
         return {
@@ -573,8 +586,12 @@ export function createPooledE2eDeepLauncher(
           },
         };
       },
-      // Launcher-level close is a no-op: each context releases itself.
-      close: async () => {},
+      // Launcher-level close releases nothing itself (each context releases
+      // itself) but detaches the abort listener so a post-completion abort
+      // can't fire onAbort after the run returned.
+      close: async () => {
+        detachAbort?.();
+      },
     };
   };
 }

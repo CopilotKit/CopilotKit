@@ -1573,20 +1573,19 @@ describe("createPooledE2eParityLauncher context checkout + abort release", () =>
 
 // Module-scoped fake context-pool for the createPooledE2eParityLauncher
 // tests above — mirrors d6-all-pills.test.ts's helper. Tracks per-CONTEXT
-// acquire/release. The real BrowserPool.release is a no-op on an
-// already-released context; here each ctxHandle.close() routes to one
-// release call, and the launcher's abort path closes each open context
-// exactly once.
+// acquire/release. release() is IDEMPOTENT, mirroring the real
+// BrowserPool.release: it tracks a `liveContexts` Set and no-ops on an unknown
+// / already-released context so a double release can never drive the inUse
+// counter negative and silently mask a double-release bug.
 function makeFakeContextPool(maxContexts: number) {
   let nextCtxId = 0;
-  let live = 0;
+  const liveContexts = new Set<object>();
   const releaseLog: number[] = [];
   return {
     async acquire() {
-      if (live >= maxContexts) throw new Error("FakePool: at cap");
+      if (liveContexts.size >= maxContexts) throw new Error("FakePool: at cap");
       const id = nextCtxId++;
-      live++;
-      return {
+      const ctx = {
         __id: id,
         async newPage() {
           return {
@@ -1608,18 +1607,23 @@ function makeFakeContextPool(maxContexts: number) {
           } as unknown;
         },
         async close() {},
-      } as unknown as Browser;
+      };
+      liveContexts.add(ctx);
+      return ctx as unknown as Browser;
     },
     async release(ctx: unknown) {
-      const c = ctx as { __id: number };
-      releaseLog.push(c.__id);
-      live--;
+      // Unknown / double release — no-op, mirroring BrowserPool.release.
+      if (typeof ctx !== "object" || ctx === null || !liveContexts.has(ctx)) {
+        return;
+      }
+      liveContexts.delete(ctx);
+      releaseLog.push((ctx as { __id: number }).__id);
     },
     stats() {
       return {
         size: maxContexts,
-        available: maxContexts - live,
-        inUse: live,
+        available: maxContexts - liveContexts.size,
+        inUse: liveContexts.size,
         totalRecycles: 0,
       };
     },
