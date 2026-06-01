@@ -44,7 +44,8 @@ describe("server getRuntimeConfig (shell-dashboard)", () => {
     process.env.OPS_BASE_URL = "https://harness-staging-2ee4.up.railway.app";
     // Client direct override — explicit opt-in, sourced from the
     // NEXT_PUBLIC_OPS_DIRECT_BASE_URL var.
-    process.env.NEXT_PUBLIC_OPS_DIRECT_BASE_URL = "https://ops-direct.example.com";
+    process.env.NEXT_PUBLIC_OPS_DIRECT_BASE_URL =
+      "https://ops-direct.example.com";
     expect(getRuntimeConfig()).toEqual({
       pocketbaseUrl: "https://pocketbase-staging-eec0.up.railway.app",
       shellUrl: "https://showcase.staging.copilotkit.ai",

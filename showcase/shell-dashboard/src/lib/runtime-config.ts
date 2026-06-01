@@ -81,9 +81,7 @@ export function getRuntimeConfig(
   // proxy unless a developer explicitly opts in. No sentinel and no
   // FATAL-CONFIG: an unset override is the normal production case, not a
   // misconfiguration.
-  const opsBaseUrl = (
-    process.env.NEXT_PUBLIC_OPS_DIRECT_BASE_URL ?? ""
-  )
+  const opsBaseUrl = (process.env.NEXT_PUBLIC_OPS_DIRECT_BASE_URL ?? "")
     .trim()
     .replace(/\/+$/, "");
 
