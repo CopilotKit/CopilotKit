@@ -325,8 +325,9 @@ describe("recoverInterruptFromStaleClick", () => {
       makeAgent: s.makeAgent,
       botUserId: "BOT01",
     });
-    const agent = (s.makeAgent.mock.results[0] as { value: { threadId: string } })
-      .value;
+    const agent = (
+      s.makeAgent.mock.results[0] as { value: { threadId: string } }
+    ).value;
     expect(agent.threadId).toBe("slack-C1-100.0-abc-123");
     expect(s.runAgent).toHaveBeenCalledTimes(1);
   });

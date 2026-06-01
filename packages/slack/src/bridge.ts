@@ -199,7 +199,8 @@ export function createSlackBridge(config: SlackBridgeConfig): SlackBridge {
     // interactive bot responsive rather than retrying for half an hour.
     clientOptions: {
       retryConfig:
-        config.retryConfig ?? slackWebApi.retryPolicies.fiveRetriesInFiveMinutes,
+        config.retryConfig ??
+        slackWebApi.retryPolicies.fiveRetriesInFiveMinutes,
     },
   });
 

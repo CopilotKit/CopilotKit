@@ -320,7 +320,9 @@ export async function recoverFromStaleClick(args: {
   // is whatever the picker recorded in its metadata. Fall back to the
   // legacy stable id for pickers posted by an older bridge build that
   // didn't persist one.
-  const agent = makeAgent(`slack-${conversation.channelId}-${conversation.scope}`);
+  const agent = makeAgent(
+    `slack-${conversation.channelId}-${conversation.scope}`,
+  );
   if (resumedThreadId) {
     agent.threadId = resumedThreadId;
   } else {
