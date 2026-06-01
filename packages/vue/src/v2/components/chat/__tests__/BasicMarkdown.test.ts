@@ -52,4 +52,18 @@ describe("BasicMarkdown.vue", () => {
     const w = mount(BasicMarkdown, { props: { content: "" } });
     expect(w.text()).toBe("");
   });
+
+  it("rejects data:image/svg+xml image src (SVG script vector)", () => {
+    const w = mount(BasicMarkdown, {
+      props: { content: "![x](data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=)" },
+    });
+    expect(w.find("img").attributes("src")).toBeUndefined();
+  });
+
+  it("still allows data:image/png image src", () => {
+    const w = mount(BasicMarkdown, {
+      props: { content: "![x](data:image/png;base64,iVBORw0KGgo=)" },
+    });
+    expect(w.find("img").attributes("src")).toContain("data:image/png");
+  });
 });

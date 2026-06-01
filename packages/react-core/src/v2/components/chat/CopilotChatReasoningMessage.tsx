@@ -222,6 +222,8 @@ export namespace CopilotChatReasoningMessage {
         {...contentProps}
       >
         <div className="cpk:text-sm cpk:text-muted-foreground">
+          {/* Reasoning content always uses the built-in basic renderer; the
+              pluggable provider renderer applies to assistant messages only. */}
           <BasicMarkdownRenderer
             content={typeof contentChildren === "string" ? contentChildren : ""}
           />

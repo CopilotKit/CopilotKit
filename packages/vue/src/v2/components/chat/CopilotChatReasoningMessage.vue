@@ -227,6 +227,8 @@ function toggleOpen() {
             >
               <div v-if="hasContent || isStreaming" class="cpk:pb-2 cpk:pt-1">
                 <div class="cpk:text-sm cpk:text-muted-foreground">
+                  <!-- Reasoning content always uses the built-in basic renderer; the
+                       pluggable provider renderer applies to assistant messages only. -->
                   <BasicMarkdown :content="normalizedContent" />
                   <span
                     v-if="isStreaming && hasContent"

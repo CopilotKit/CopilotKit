@@ -11,7 +11,7 @@ const tokens = computed(() => parseMarkdown(props.content ?? ""));
 
 // Allowlist URL schemes to prevent XSS via javascript:/data:/vbscript: URIs.
 const SAFE_HREF = /^(https?:|mailto:|tel:|#|\/|\.\/|\.\.\/)/i;
-const SAFE_IMG_SRC = /^(https?:|data:image\/|\/|\.\/|\.\.\/)/i;
+const SAFE_IMG_SRC = /^(https?:|data:image\/(?!svg)|\/|\.\/|\.\.\/)/i;
 
 function sanitizeHref(href: string | undefined): string | undefined {
   if (!href) return undefined;

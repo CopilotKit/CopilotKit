@@ -102,4 +102,20 @@ describe("BasicMarkdownRenderer", () => {
     expect(ol?.getAttribute("start")).toBe("3");
     expect(container.querySelectorAll("li")).toHaveLength(2);
   });
+
+  it("rejects data:image/svg+xml image src (SVG script vector)", () => {
+    const { container } = render(
+      <BasicMarkdownRenderer content={"![x](data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=)"} />,
+    );
+    const img = container.querySelector("img");
+    expect(img).toBeTruthy();
+    expect(img?.getAttribute("src")).toBeNull();
+  });
+
+  it("still allows data:image/png image src", () => {
+    const { container } = render(
+      <BasicMarkdownRenderer content={"![x](data:image/png;base64,iVBORw0KGgo=)"} />,
+    );
+    expect(container.querySelector("img")?.getAttribute("src")).toContain("data:image/png");
+  });
 });

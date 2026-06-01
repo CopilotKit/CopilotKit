@@ -78,11 +78,18 @@ export function CopilotChatAssistantMessage({
   const DefaultMarkdownRenderer =
     providerRenderer ?? CopilotChatAssistantMessage.MarkdownRenderer;
 
+  // Don't show toolbar if message has no content (only tool calls)
+  const hasContent = !!(message.content && message.content.trim().length > 0);
+  const isLatestAssistantMessage =
+    message.role === "assistant" &&
+    messages?.[messages.length - 1]?.id === message.id;
+
   const boundMarkdownRenderer = renderSlot(
     markdownRenderer,
     DefaultMarkdownRenderer,
     {
       content: message.content || "",
+      isStreaming: !!(isRunning && isLatestAssistantMessage),
     },
   );
 
@@ -157,11 +164,6 @@ export function CopilotChatAssistantMessage({
     },
   );
 
-  // Don't show toolbar if message has no content (only tool calls)
-  const hasContent = !!(message.content && message.content.trim().length > 0);
-  const isLatestAssistantMessage =
-    message.role === "assistant" &&
-    messages?.[messages.length - 1]?.id === message.id;
   const shouldShowToolbar =
     toolbarVisible && hasContent && !(isRunning && isLatestAssistantMessage);
 

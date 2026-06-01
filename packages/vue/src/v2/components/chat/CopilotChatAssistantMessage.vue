@@ -244,6 +244,7 @@ onBeforeUnmount(() => {
           :is="ActiveMarkdownRenderer"
           v-if="hasContent"
           :content="normalizedContent"
+          :is-streaming="isRunning && isLatestAssistantMessage"
         />
       </slot>
 

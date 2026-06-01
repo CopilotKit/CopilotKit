@@ -8,7 +8,7 @@ import type { MarkdownRendererProps } from "../../providers/MarkdownRendererCont
 // markdown links. Mirrors the safe-prefix behavior the previous streamdown
 // renderer enforced. Relative/anchor/mailto/tel links are allowed.
 const SAFE_HREF = /^(https?:|mailto:|tel:|#|\/|\.\/|\.\.\/)/i;
-const SAFE_IMG_SRC = /^(https?:|data:image\/|\/|\.\/|\.\.\/)/i;
+const SAFE_IMG_SRC = /^(https?:|data:image\/(?!svg)|\/|\.\/|\.\.\/)/i;
 
 function sanitizeHref(href: string | undefined): string | undefined {
   if (!href) return undefined;
