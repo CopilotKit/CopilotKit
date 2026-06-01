@@ -1574,6 +1574,11 @@ describe("e2e-deep deploy-churn grace window", () => {
 // `feature-timeout` verdict while runFeature keeps running and holding its
 // context; context teardown then completes a tick later.
 // ---------------------------------------------------------------------
+/** Module-scoped timer helper (oxlint consistent-function-scoping). */
+function testSleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 /**
  * Launcher whose contexts simulate pooled checkout: `newContext` increments
  * a live counter (tracking peak), each context's page `goto` resolves only
@@ -1589,8 +1594,6 @@ function makeSlowTeardownLauncher(opts: {
   state: { live: number; peakLive: number; opened: number; closed: number };
 } {
   const state = { live: 0, peakLive: 0, opened: 0, closed: 0 };
-  const sleep = (ms: number): Promise<void> =>
-    new Promise((r) => setTimeout(r, ms));
   const browser: E2eDeepBrowser = {
     async newContext(): Promise<E2eDeepBrowserContext> {
       state.live++;
@@ -1609,7 +1612,7 @@ function makeSlowTeardownLauncher(opts: {
               // Hang past the per-feature timeout so the synthetic
               // feature-timeout verdict resolves while this runFeature
               // (and its held context) is still in flight.
-              await sleep(opts.gotoDelayMs);
+              await testSleep(opts.gotoDelayMs);
             },
             async waitForSelector() {},
             async fill() {},
@@ -1626,7 +1629,7 @@ function makeSlowTeardownLauncher(opts: {
         },
         async close() {
           // The orphan window: the context stays live until this resolves.
-          await sleep(opts.closeDelayMs);
+          await testSleep(opts.closeDelayMs);
           state.live--;
           state.closed++;
         },
@@ -1717,8 +1720,6 @@ function makeRetryLauncher(opts: { attempt1DelayMs: number }): {
   state: { opened: number };
 } {
   const state = { opened: 0 };
-  const sleep = (ms: number): Promise<void> =>
-    new Promise((r) => setTimeout(r, ms));
   const browser: E2eDeepBrowser = {
     async newContext(): Promise<E2eDeepBrowserContext> {
       const attempt = ++state.opened;
@@ -1729,7 +1730,7 @@ function makeRetryLauncher(opts: { attempt1DelayMs: number }): {
             async goto() {
               if (attempt === 1) {
                 // Burn > RETRY_MIN_DURATION_MS, then fail retry-eligibly.
-                await sleep(opts.attempt1DelayMs);
+                await testSleep(opts.attempt1DelayMs);
                 throw new Error("nav blip (retryable)");
               }
             },

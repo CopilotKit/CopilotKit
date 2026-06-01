@@ -688,6 +688,11 @@ function makeFakeContextPool(maxContexts: number) {
 // feature acquire a context while the orphan still holds one → live
 // contexts exceed FEATURE_CONCURRENCY_D6's budget. Mirrors the d5 test.
 // ---------------------------------------------------------------------
+/** Module-scoped timer helper (oxlint consistent-function-scoping). */
+function testSleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 /**
  * Launcher whose contexts simulate pooled checkout: `newContext`
  * increments a live counter (tracking peak), each context's page `goto`
@@ -703,8 +708,6 @@ function makeSlowTeardownLauncherFull(opts: {
   state: { live: number; peakLive: number; opened: number; closed: number };
 } {
   const state = { live: 0, peakLive: 0, opened: 0, closed: 0 };
-  const sleep = (ms: number): Promise<void> =>
-    new Promise((r) => setTimeout(r, ms));
   const browser: E2eFullBrowser = {
     async newContext(): Promise<E2eFullBrowserContext> {
       state.live++;
@@ -718,7 +721,7 @@ function makeSlowTeardownLauncherFull(opts: {
           let messageCount = 0;
           return {
             async goto() {
-              await sleep(opts.gotoDelayMs);
+              await testSleep(opts.gotoDelayMs);
             },
             async waitForSelector() {},
             async fill() {},
@@ -735,7 +738,7 @@ function makeSlowTeardownLauncherFull(opts: {
         },
         async close() {
           // The orphan window: the context stays live until this resolves.
-          await sleep(opts.closeDelayMs);
+          await testSleep(opts.closeDelayMs);
           state.live--;
           state.closed++;
         },
@@ -820,8 +823,6 @@ function makeRetryLauncherFull(opts: { attempt1DelayMs: number }): {
   state: { opened: number };
 } {
   const state = { opened: 0 };
-  const sleep = (ms: number): Promise<void> =>
-    new Promise((r) => setTimeout(r, ms));
   const browser: E2eFullBrowser = {
     async newContext(): Promise<E2eFullBrowserContext> {
       const attempt = ++state.opened;
@@ -831,7 +832,7 @@ function makeRetryLauncherFull(opts: { attempt1DelayMs: number }): {
           return {
             async goto() {
               if (attempt === 1) {
-                await sleep(opts.attempt1DelayMs);
+                await testSleep(opts.attempt1DelayMs);
                 throw new Error("nav blip (retryable)");
               }
             },
