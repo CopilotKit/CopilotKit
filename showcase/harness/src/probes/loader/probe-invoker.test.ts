@@ -2428,6 +2428,10 @@ describe("buildProbeInvoker", () => {
   function fakeRunWriter(): {
     writer: ProbeRunWriter;
     starts: Array<{ probeId: string; startedAt: number; triggered: boolean }>;
+    updates: Array<{
+      id: string;
+      summary: { total: number; passed: number; failed: number } | null;
+    }>;
     finishes: Array<{
       id: string;
       finishedAt: number;
@@ -2440,6 +2444,10 @@ describe("buildProbeInvoker", () => {
       startedAt: number;
       triggered: boolean;
     }> = [];
+    const updates: Array<{
+      id: string;
+      summary: { total: number; passed: number; failed: number } | null;
+    }> = [];
     const finishes: Array<{
       id: string;
       finishedAt: number;
@@ -2451,6 +2459,19 @@ describe("buildProbeInvoker", () => {
       async start(opts) {
         starts.push(opts);
         return { id: `run-${nextId++}` };
+      },
+      async update(opts) {
+        updates.push({
+          id: opts.id,
+          summary:
+            opts.summary === null
+              ? null
+              : {
+                  total: opts.summary.total,
+                  passed: opts.summary.passed,
+                  failed: opts.summary.failed,
+                },
+        });
       },
       async finish(opts) {
         finishes.push({
@@ -2471,7 +2492,7 @@ describe("buildProbeInvoker", () => {
         return [];
       },
     };
-    return { writer, starts, finishes };
+    return { writer, starts, updates, finishes };
   }
 
   it("registers a ProbeRunTracker on the scheduler entry while the handler runs and clears it after", async () => {
@@ -2735,6 +2756,65 @@ describe("buildProbeInvoker", () => {
   });
 
   // ---------------------------------------------------------------------
+  // Partial-rollup-on-abort: incrementally persist the partial summary to
+  // the probe_runs row as each target completes. Without this, a run that
+  // dies mid-flight (orchestrator process killed during a pool-churn
+  // burst) leaves a bare `running` row carrying NO partial counts — the
+  // boot-time sweep then has nothing to preserve and the dashboard shows
+  // `failed / total:0` even though dozens of features actually passed.
+  // ---------------------------------------------------------------------
+  it("incrementally persists partial summary via runWriter.update as targets complete", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        const key = (input as { key: string }).key;
+        return {
+          key,
+          state: key.endsWith("bad") ? "red" : "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      // Serialize so the update sequence is deterministic.
+      max_concurrency: 1,
+      targets: [{ key: "smoke:a" }, { key: "smoke:b" }, { key: "smoke:bad" }],
+    };
+    const { writer } = mkWriter();
+    const sched = fakeScheduler();
+    const rw = fakeRunWriter();
+    await buildProbeInvoker(cfg, {
+      driver,
+      schedulerId: cfg.id,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      scheduler: sched.scheduler,
+      runWriter: rw.writer,
+      ...BASE_DEPS,
+    })();
+    // One update per completed target, each carrying the running partial
+    // tally so an orphaned row reflects real progress.
+    expect(rw.updates.map((u) => u.summary)).toEqual([
+      { total: 3, passed: 1, failed: 0 },
+      { total: 3, passed: 2, failed: 0 },
+      { total: 3, passed: 2, failed: 1 },
+    ]);
+    // All updates target the same row created by start().
+    expect(rw.updates.every((u) => u.id === "run-1")).toBe(true);
+    // The final summary still lands via finish().
+    expect(rw.finishes[0]).toMatchObject({
+      state: "completed",
+      summary: { total: 3, passed: 2, failed: 1 },
+    });
+  });
+
+  // ---------------------------------------------------------------------
   // R3-A.3: orphan-risk warn log when runWriter.start fails
   // ---------------------------------------------------------------------
   // When PB's `start()` fails after the row may have been created at the PB
@@ -2769,6 +2849,7 @@ describe("buildProbeInvoker", () => {
     const sched = fakeScheduler();
     const failingWriter: ProbeRunWriter = {
       start: vi.fn().mockRejectedValue(new Error("network blip")),
+      update: vi.fn().mockResolvedValue(undefined),
       finish: vi.fn().mockResolvedValue(undefined),
       recent: vi.fn().mockResolvedValue([]),
     };
@@ -2829,6 +2910,7 @@ describe("buildProbeInvoker", () => {
     const sched = fakeScheduler();
     const failingWriter: ProbeRunWriter = {
       start: vi.fn().mockRejectedValue(new Error("PB down")),
+      update: vi.fn().mockResolvedValue(undefined),
       finish: vi.fn().mockResolvedValue(undefined),
       recent: vi.fn().mockResolvedValue([]),
     };
@@ -2872,6 +2954,7 @@ describe("buildProbeInvoker", () => {
     const sched = fakeScheduler();
     const failingFinish: ProbeRunWriter = {
       start: vi.fn().mockResolvedValue({ id: "run-x" }),
+      update: vi.fn().mockResolvedValue(undefined),
       finish: vi.fn().mockRejectedValue(new Error("PB down")),
       recent: vi.fn().mockResolvedValue([]),
     };
