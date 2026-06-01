@@ -6,11 +6,17 @@ import { test, expect } from "@playwright/test";
 // The HITL demo wires BOTH a `useInterrupt` render (StepSelector — "Select
 // Steps" / "Perform Steps") and a `useHumanInTheLoop` tool (StepsFeedback —
 // "Review Steps" / Reject / Confirm). Which one surfaces depends on what the
-// `human_in_the_loop` backend emits. Against the d6 aimock fixture
-// (langgraph-python "trip to mars"), the agent emits a `generate_task_steps`
-// tool call, so the `useHumanInTheLoop` StepsFeedback card renders. Both
-// renders share the same testids — `select-steps`, `step-item`, `step-text` —
-// so this spec asserts on those rather than on a single flow's button labels.
+// `human_in_the_loop` backend emits. Against the d6 aimock fixtures, the
+// "trip to mars" prompt is served from
+// showcase/aimock/d6/langgraph-python/render-a2ui.json (NOT hitl-in-chat.json,
+// which has no "mars" entry): that file holds the `generate_task_steps` tool
+// call + the "Great choices!" approve-branch response, so the
+// `useHumanInTheLoop` StepsFeedback card renders. aimock matches by
+// context+userMessage substring across ALL loaded LGP fixtures, so this spec
+// works via that cross-fixture coupling even though its prompt lives in a
+// differently-named fixture. Both renders share the same testids —
+// `select-steps`, `step-item`, `step-text` — so this spec asserts on those
+// rather than on a single flow's button labels.
 //
 // Ported from showcase/integrations/{llamaindex,mastra}/tests/e2e/hitl.spec.ts
 // (identical across both), which were authored flow-agnostic precisely so the
