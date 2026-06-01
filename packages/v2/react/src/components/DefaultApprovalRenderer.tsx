@@ -1,11 +1,81 @@
 import { ToolCallStatus } from "@copilotkitnext/core";
 import { useState } from "react";
 
+/**
+ * Checks if this tool call is a Microsoft Agent Framework "request_approval" call.
+ * MAF sends approval requests with a specific structure:
+ * { request: { approval_id, function_name, function_arguments, message } }
+ */
+function isMAFApproval(name: string, args: Record<string, unknown>): boolean {
+  return name === "request_approval" && args?.request != null;
+}
+
+/**
+ * Extracts the display-friendly function name from MAF approval args,
+ * falling back to the raw tool call name.
+ */
+function getDisplayName(name: string, args: Record<string, unknown>): string {
+  if (isMAFApproval(name, args)) {
+    const request = args.request as Record<string, unknown>;
+    return (request.function_name as string) ?? name;
+  }
+  return name;
+}
+
+/**
+ * Extracts the relevant arguments to display.
+ * For MAF approvals, shows the original function's arguments, not the wrapper.
+ */
+function getDisplayArgs(
+  name: string,
+  args: Record<string, unknown>,
+): Record<string, unknown> {
+  if (isMAFApproval(name, args)) {
+    const request = args.request as Record<string, unknown>;
+    return (request.function_arguments as Record<string, unknown>) ?? {};
+  }
+  return args;
+}
+
+/**
+ * Extracts the human-readable message from MAF approval requests.
+ */
+function getApprovalMessage(
+  name: string,
+  args: Record<string, unknown>,
+): string | undefined {
+  if (isMAFApproval(name, args)) {
+    const request = args.request as Record<string, unknown>;
+    return request.message as string | undefined;
+  }
+  return undefined;
+}
+
+/**
+ * Builds the proper response format.
+ * For MAF: { approval_id, approved: boolean }
+ * For generic: "approved" | "denied"
+ */
+export function buildApprovalResponse(
+  name: string,
+  args: Record<string, unknown>,
+  decision: "approved" | "denied",
+): unknown {
+  if (isMAFApproval(name, args)) {
+    const request = args.request as Record<string, unknown>;
+    return {
+      approval_id: request.approval_id,
+      approved: decision === "approved",
+    };
+  }
+  return decision;
+}
+
 export interface DefaultApprovalRendererProps {
   name: string;
   args: Record<string, unknown>;
   status: ToolCallStatus;
-  result: string | undefined;
+  result: unknown;
   respond?: (result: unknown) => Promise<void>;
 }
 
@@ -13,6 +83,11 @@ export interface DefaultApprovalRendererProps {
  * A generic approve/deny UI for unregistered tool calls that require user confirmation.
  * Rendered automatically when `defaultApproval` is enabled on CopilotKitProvider and
  * a backend tool call arrives without a matching `useHumanInTheLoop` registration.
+ *
+ * Supports Microsoft Agent Framework's `ApprovalRequiredAIFunction` pattern:
+ * - Detects `"request_approval"` tool calls and extracts the original function details
+ * - Returns responses in MAF's expected format: `{ approval_id, approved: boolean }`
+ * - Displays the human-readable `message` field when available
  */
 export function DefaultApprovalRenderer({
   name,
@@ -30,8 +105,28 @@ export function DefaultApprovalRenderer({
   const isExecuting = statusString === "executing";
   const isComplete = statusString === "complete";
 
-  const approved = isComplete && result === "approved";
+  // Determine if result indicates approval (works for both MAF and generic)
+  // Result may be: "approved", '{"approval_id":"...","approved":true}', or an object
+  const approved = isComplete && (() => {
+    if (result === "approved") return true;
+    if (typeof result === "object" && result !== null) {
+      return (result as Record<string, unknown>).approved === true;
+    }
+    if (typeof result === "string") {
+      try {
+        const parsed = JSON.parse(result);
+        return parsed.approved === true;
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  })();
   const denied = isComplete && !approved;
+
+  const displayName = getDisplayName(name, args);
+  const displayArgs = getDisplayArgs(name, args);
+  const approvalMessage = getApprovalMessage(name, args);
 
   return (
     <div className="cpk:mt-2 cpk:pb-2">
@@ -58,16 +153,30 @@ export function DefaultApprovalRenderer({
 
         {/* Tool name and description */}
         <div className="cpk:mb-3">
-          <p className="cpk:text-sm cpk:text-zinc-700 cpk:dark:text-zinc-300">
-            The agent wants to execute{" "}
-            <span className="cpk:font-mono cpk:text-xs cpk:bg-zinc-100 cpk:dark:bg-zinc-800 cpk:px-1.5 cpk:py-0.5 cpk:rounded">
-              {name}
-            </span>
-          </p>
+          {approvalMessage ? (
+            <div>
+              <p className="cpk:text-sm cpk:text-zinc-700 cpk:dark:text-zinc-300">
+                {approvalMessage}
+              </p>
+              <p className="cpk:mt-1 cpk:text-xs cpk:text-zinc-500 cpk:dark:text-zinc-400">
+                Function:{" "}
+                <span className="cpk:font-mono cpk:bg-zinc-100 cpk:dark:bg-zinc-800 cpk:px-1.5 cpk:py-0.5 cpk:rounded">
+                  {displayName}
+                </span>
+              </p>
+            </div>
+          ) : (
+            <p className="cpk:text-sm cpk:text-zinc-700 cpk:dark:text-zinc-300">
+              The agent wants to execute{" "}
+              <span className="cpk:font-mono cpk:text-xs cpk:bg-zinc-100 cpk:dark:bg-zinc-800 cpk:px-1.5 cpk:py-0.5 cpk:rounded">
+                {displayName}
+              </span>
+            </p>
+          )}
         </div>
 
         {/* Expandable arguments */}
-        {args && Object.keys(args).length > 0 && (
+        {displayArgs && Object.keys(displayArgs).length > 0 && (
           <div className="cpk:mb-3">
             <button
               type="button"
@@ -78,7 +187,7 @@ export function DefaultApprovalRenderer({
             </button>
             {isExpanded && (
               <pre className="cpk:mt-2 cpk:max-h-48 cpk:overflow-auto cpk:rounded-md cpk:bg-zinc-50 cpk:dark:bg-zinc-800/60 cpk:p-3 cpk:text-xs cpk:leading-relaxed cpk:text-zinc-800 cpk:dark:text-zinc-200 cpk:whitespace-pre-wrap cpk:break-words">
-                {JSON.stringify(args, null, 2)}
+                {JSON.stringify(displayArgs, null, 2)}
               </pre>
             )}
           </div>
@@ -90,14 +199,14 @@ export function DefaultApprovalRenderer({
             <button
               type="button"
               className="cpk:flex-1 cpk:rounded-lg cpk:bg-emerald-600 cpk:px-3 cpk:py-2 cpk:text-sm cpk:font-medium cpk:text-white cpk:hover:bg-emerald-700 cpk:transition-colors"
-              onClick={() => respond("approved")}
+              onClick={() => respond(buildApprovalResponse(name, args, "approved"))}
             >
               Approve
             </button>
             <button
               type="button"
               className="cpk:flex-1 cpk:rounded-lg cpk:bg-red-600 cpk:px-3 cpk:py-2 cpk:text-sm cpk:font-medium cpk:text-white cpk:hover:bg-red-700 cpk:transition-colors"
-              onClick={() => respond("denied")}
+              onClick={() => respond(buildApprovalResponse(name, args, "denied"))}
             >
               Deny
             </button>
