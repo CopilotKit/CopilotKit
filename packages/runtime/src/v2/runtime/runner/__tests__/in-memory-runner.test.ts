@@ -13,7 +13,7 @@ import type {
   ToolCallResultEvent,
 } from "@ag-ui/client";
 import { AbstractAgent, EventType } from "@ag-ui/client";
-import { EMPTY, firstValueFrom } from "rxjs";
+import { EMPTY, firstValueFrom, from } from "rxjs";
 import { toArray } from "rxjs/operators";
 
 const stripTerminalEvents = (events: BaseEvent[]) =>
