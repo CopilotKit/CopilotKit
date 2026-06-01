@@ -168,27 +168,42 @@ async function proxy(
 
 type RouteContext = { params: Promise<{ path: string[] }> };
 
-export async function GET(req: NextRequest, ctx: RouteContext): Promise<Response> {
+export async function GET(
+  req: NextRequest,
+  ctx: RouteContext,
+): Promise<Response> {
   const { path } = await ctx.params;
   return proxy(req, path);
 }
 
-export async function POST(req: NextRequest, ctx: RouteContext): Promise<Response> {
+export async function POST(
+  req: NextRequest,
+  ctx: RouteContext,
+): Promise<Response> {
   const { path } = await ctx.params;
   return proxy(req, path);
 }
 
-export async function PUT(req: NextRequest, ctx: RouteContext): Promise<Response> {
+export async function PUT(
+  req: NextRequest,
+  ctx: RouteContext,
+): Promise<Response> {
   const { path } = await ctx.params;
   return proxy(req, path);
 }
 
-export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<Response> {
+export async function PATCH(
+  req: NextRequest,
+  ctx: RouteContext,
+): Promise<Response> {
   const { path } = await ctx.params;
   return proxy(req, path);
 }
 
-export async function DELETE(req: NextRequest, ctx: RouteContext): Promise<Response> {
+export async function DELETE(
+  req: NextRequest,
+  ctx: RouteContext,
+): Promise<Response> {
   const { path } = await ctx.params;
   return proxy(req, path);
 }

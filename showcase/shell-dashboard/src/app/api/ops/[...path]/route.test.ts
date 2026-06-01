@@ -73,14 +73,19 @@ describe("/api/ops proxy Route Handler", () => {
 
     const calledUrl = String(fetchSpy.mock.calls[0]![0]);
     // Trailing slash on base normalized away; single /api; query preserved.
-    expect(calledUrl).toBe("https://harness.example.com/api/probes/abc?limit=5");
+    expect(calledUrl).toBe(
+      "https://harness.example.com/api/probes/abc?limit=5",
+    );
   });
 
   it("reads OPS_BASE_URL at REQUEST time, not at module load", async () => {
     fetchSpy.mockResolvedValue(new Response("{}", { status: 200 }));
 
     process.env.OPS_BASE_URL = "https://first.example.com";
-    await GET(makeRequest("http://dashboard.local/api/ops/probes"), ctx(["probes"]));
+    await GET(
+      makeRequest("http://dashboard.local/api/ops/probes"),
+      ctx(["probes"]),
+    );
     expect(String(fetchSpy.mock.calls[0]![0])).toBe(
       "https://first.example.com/api/probes",
     );
@@ -88,7 +93,10 @@ describe("/api/ops proxy Route Handler", () => {
     // Change the env between requests — the second call must pick up the
     // new value, proving per-request resolution (no build/module freeze).
     process.env.OPS_BASE_URL = "https://second.example.com";
-    await GET(makeRequest("http://dashboard.local/api/ops/probes"), ctx(["probes"]));
+    await GET(
+      makeRequest("http://dashboard.local/api/ops/probes"),
+      ctx(["probes"]),
+    );
     expect(String(fetchSpy.mock.calls[1]![0])).toBe(
       "https://second.example.com/api/probes",
     );
