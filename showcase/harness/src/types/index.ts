@@ -14,6 +14,31 @@ export type State = "green" | "red" | "degraded" | "unknown";
 export type ProbeState = State | "error";
 
 /**
+ * Runtime mirror of the `State` union. Needed because string-literal unions
+ * are erased at compile time and the migration-drift guard
+ * (`state-enum-drift.test.ts`) must ENUMERATE the persisted-state members at
+ * run time to prove every one is also a value in the PocketBase `status` /
+ * `status_history` `state` select enum. If a member is added to `State`
+ * without widening the PB enum, the success-path write 400s and fails-closed
+ * SILENTLY — a green cell retains green forever (the D6 false-green this PR
+ * kills, resurrected via schema drift).
+ *
+ * The `satisfies readonly State[]` clause makes the array unable to contain a
+ * NON-State value, and the `Exclude` line below makes the build FAIL if a new
+ * `State` member is NOT listed here — so the array can never silently drift
+ * out of lockstep with the type.
+ */
+export const STATE_VALUES = ["green", "red", "degraded", "unknown"] as const satisfies readonly State[];
+// Exhaustiveness guard: resolves to `never` only when every `State` member is
+// present in STATE_VALUES. If a member is missing this becomes the missing
+// literal and the assignment to `never` is a compile error.
+const _STATE_EXHAUSTIVE: never = undefined as unknown as Exclude<
+  State,
+  (typeof STATE_VALUES)[number]
+>;
+void _STATE_EXHAUSTIVE;
+
+/**
  * R25 A1: single source of truth for the known `Dimension` literal set.
  * The Zod enum in `src/rules/schema.ts` is derived from this array so rule
  * YAML authors who typo a dimension (e.g. `"smokee"`) are rejected at load
@@ -96,6 +121,29 @@ export type Transition =
   // status_history PB enum also carries this value so history writes for an
   // unknown tick don't 400. See transition-detector.ts.
   | "cleared";
+
+/**
+ * Runtime mirror of the `Transition` union — same rationale as STATE_VALUES.
+ * The migration-drift guard enumerates these at run time to prove every
+ * member is a value in the PocketBase `status_history.transition` select
+ * enum; a `transition` value the enum rejects 400s the history create and
+ * fails-closed silently. `satisfies` + the `Exclude<…, never>` guard below
+ * keep the array locked to the type.
+ */
+export const TRANSITION_VALUES = [
+  "first",
+  "green_to_red",
+  "red_to_green",
+  "sustained_red",
+  "sustained_green",
+  "error",
+  "cleared",
+] as const satisfies readonly Transition[];
+const _TRANSITION_EXHAUSTIVE: never = undefined as unknown as Exclude<
+  Transition,
+  (typeof TRANSITION_VALUES)[number]
+>;
+void _TRANSITION_EXHAUSTIVE;
 
 export interface ProbeResult<Signal = unknown> {
   key: string;
