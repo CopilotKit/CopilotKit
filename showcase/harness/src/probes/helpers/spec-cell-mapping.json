@@ -18,6 +18,8 @@
   "headless-simple.spec.ts": "headless-simple",
   "hitl-in-app.spec.ts": "hitl-in-app",
   "hitl-in-chat.spec.ts": "hitl-in-chat",
+  "hitl.spec.ts": "hitl",
+  "interrupt-headless.spec.ts": "interrupt-headless",
   "mcp-apps.spec.ts": "mcp-apps",
   "multimodal.spec.ts": "multimodal",
   "open-gen-ui-advanced.spec.ts": "open-gen-ui-advanced",
