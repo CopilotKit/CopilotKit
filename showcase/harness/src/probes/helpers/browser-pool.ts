@@ -24,6 +24,25 @@ const RELAUNCH_MAX_ATTEMPTS = 3;
 /** Base backoff between relaunch attempts; doubles each attempt. */
 const RELAUNCH_BACKOFF_BASE_MS = 250;
 
+/**
+ * Default delay the launch-serialization gate waits AFTER each chromium
+ * launch settles before the next launch may start. Tunable on staging via
+ * the `BROWSER_LAUNCH_STAGGER_MS` env var without a code change.
+ *
+ * WHY: the harness drives chromium launches in BURSTS (initial pool fill,
+ * recycle relaunches, lazy relaunchPending recovery, reinit backstop). Each
+ * headless chromium spawns ~50 PIDs (threads count against the container's
+ * ~1000-PID ceiling), so a burst of many simultaneous `chromium.launch()`
+ * calls transiently spikes PID demand far above the eventual steady state and
+ * trips `pthread_create: Resource temporarily unavailable (11)` /
+ * "Zygote could not fork" — every browser fails to launch and a d6 run goes
+ * 0/18. Funneling every launch through a concurrency-1 gate with a stagger
+ * spaces the spawns so the transient spike never exceeds the ceiling, WITHOUT
+ * reducing the eventual pool size. Cold-start pays a one-time warm cost; the
+ * pool warms once and steady-state acquires are instant.
+ */
+const DEFAULT_BROWSER_LAUNCH_STAGGER_MS = 150;
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -92,6 +111,19 @@ export class BrowserPool {
   private readonly logger?: PoolLogger;
   private readonly injectedLaunchBrowser?: LaunchBrowser;
 
+  // Launch-serialization gate. Every chromium launch — no matter which path
+  // triggers it (init fill, acquire-time relaunch, recycle relaunch, reinit
+  // backstop, deferred/pending relaunch) — is funneled through `launchBrowser`,
+  // which chains onto `launchChain` so strictly ONE launch runs at a time and a
+  // `launchStaggerMs` delay elapses after each settles before the next starts.
+  private readonly launchStaggerMs: number;
+  // Tail of the serialized-launch promise chain. Each gated launch awaits the
+  // current tail, runs, staggers, then becomes the new tail — so launches run
+  // one-at-a-time in arrival order. Rejections are swallowed on the CHAIN
+  // (`.catch`) so one failed launch never poisons the queue; the real result
+  // (value or throw) is still surfaced to that launch's own caller.
+  private launchChain: Promise<unknown> = Promise.resolve();
+
   // Tracks which Browser instance maps to which Slot, so release() can find
   // the slot in O(1) even after the slot was removed from `available`.
   private browserToSlot = new Map<Browser, Slot>();
@@ -101,6 +133,7 @@ export class BrowserPool {
     recycleAfter?: number,
     logger?: PoolLogger,
     launchBrowser?: LaunchBrowser,
+    launchStaggerMs?: number,
   ) {
     this.poolSize = size;
     this.logger = logger;
@@ -113,33 +146,119 @@ export class BrowserPool {
       (envRecycle !== undefined && !Number.isNaN(envRecycle)
         ? envRecycle
         : 100);
+
+    // Explicit constructor arg (tests inject a tiny value to stay fast) wins;
+    // otherwise the env var (staging tuning) wins; otherwise the default. A
+    // negative or non-numeric value — from EITHER source — falls back to the
+    // default rather than disabling the stagger silently. (Disabling the
+    // stagger reintroduces the launch-burst PID spike the gate exists to
+    // prevent.) Note that an explicit `0` IS valid and intentionally disables
+    // the wait (tests rely on it); only negative/NaN args are rejected.
+    const envStagger = process.env.BROWSER_LAUNCH_STAGGER_MS
+      ? parseInt(process.env.BROWSER_LAUNCH_STAGGER_MS, 10)
+      : undefined;
+    const validExplicit =
+      launchStaggerMs !== undefined &&
+      !Number.isNaN(launchStaggerMs) &&
+      launchStaggerMs >= 0
+        ? launchStaggerMs
+        : undefined;
+    const validEnv =
+      envStagger !== undefined && !Number.isNaN(envStagger) && envStagger >= 0
+        ? envStagger
+        : undefined;
+    this.launchStaggerMs =
+      validExplicit ?? validEnv ?? DEFAULT_BROWSER_LAUNCH_STAGGER_MS;
   }
 
   async init(): Promise<void> {
     if (this.injectedLaunchBrowser) {
-      this.launchBrowser = this.injectedLaunchBrowser;
+      this.rawLaunchBrowser = this.injectedLaunchBrowser;
     } else {
       const { chromium } =
         (await import("playwright")) as typeof import("playwright");
-      this.launchBrowser = () =>
+      this.rawLaunchBrowser = () =>
         chromium.launch({
           headless: true,
           args: ["--no-sandbox", "--disable-dev-shm-usage"],
         });
     }
 
-    for (let i = 0; i < this.poolSize; i++) {
-      const browser = await this.launchBrowser();
-      const slot: Slot = { browser, contextCount: 0 };
-      this.slots.push(slot);
-      this.available.push(slot);
-      this.browserToSlot.set(browser, slot);
-      this.attachDisconnectHandler(slot, browser);
+    try {
+      for (let i = 0; i < this.poolSize; i++) {
+        const browser = await this.launchBrowser();
+        const slot: Slot = { browser, contextCount: 0 };
+        this.slots.push(slot);
+        this.available.push(slot);
+        this.browserToSlot.set(browser, slot);
+        this.attachDisconnectHandler(slot, browser);
+      }
+    } catch (err) {
+      // A mid-fill launch failure (the PID-ceiling pthread_create EAGAIN /
+      // "Zygote could not fork" this gate exists to survive) must not leak the
+      // browsers already launched on iterations 0..N-1: callers see a rejected
+      // init() and commonly never call shutdown(), so those live chromium
+      // processes would leak permanently and accelerate PID exhaustion. Reset
+      // the pool's internal state BEFORE closing (so a `disconnected` fire from
+      // a close cannot re-enter the recycle path via the slot's disconnect
+      // handler — same ordering shutdown() relies on), then close each launched
+      // browser (closeBrowser logs its own failures) and re-throw to preserve
+      // init()'s reject-on-failure contract.
+      const launched = this.slots;
+      this.slots = [];
+      this.available = [];
+      this.browserToSlot.clear();
+      await Promise.allSettled(
+        launched.map((slot, idx) => this.closeBrowser(slot.browser, idx)),
+      );
+      throw err;
     }
   }
 
-  // Assigned during init() after the dynamic import resolves.
-  private launchBrowser!: LaunchBrowser;
+  // The un-gated launcher. Assigned during init() — either the injected fake
+  // (tests) or the real `chromium.launch` wrapper (production). Never called
+  // directly by the pool's lifecycle paths; they all go through
+  // `launchBrowser()`, which serializes via the gate.
+  private rawLaunchBrowser!: LaunchBrowser;
+
+  /**
+   * The single launch seam every pool path routes through (init fill,
+   * acquire-time relaunch, recycle relaunch, reinit backstop, lazy
+   * relaunchPending recovery). It chains onto `launchChain` so that AT MOST
+   * ONE `rawLaunchBrowser()` is in flight at a time across the whole pool, and
+   * a `launchStaggerMs` delay elapses after each launch settles before the
+   * next one begins. This spaces chromium process spawns so a burst never
+   * spikes PID demand past the container ceiling (`pthread_create` EAGAIN /
+   * "Zygote could not fork"), WITHOUT reducing the eventual pool size.
+   *
+   * The caller's `result` resolves the instant `rawLaunchBrowser()` settles —
+   * the stagger does NOT delay the launch's own caller (it must get its
+   * browser as soon as the process is up). The stagger instead gates only the
+   * NEXT launch: the chain tail (`launchChain`) is advanced to a promise that
+   * resolves `launchStaggerMs` AFTER this launch settled, so the following
+   * gated launch cannot begin its `rawLaunchBrowser()` until that window
+   * elapses. The chain swallows failures (`.catch`) so one failed launch does
+   * not poison the queue for subsequent launches; the failing launch's own
+   * caller still receives the rejection via the returned `result` promise. The
+   * stagger applies whether the launch resolved or threw — a failed launch is
+   * just as PID-costly to retry, so the next one must be spaced too.
+   */
+  private launchBrowser = (): Promise<Browser> => {
+    // `gate` is the prior tail: this launch's rawLaunchBrowser() waits for it,
+    // guaranteeing concurrency 1. We capture it before reassigning the tail.
+    const gate = this.launchChain;
+    const result = gate.then(() => this.rawLaunchBrowser());
+    // Advance the tail to "this launch settled (ok or not), THEN staggered".
+    // The next launch chains off THIS, so it cannot start until the stagger
+    // window after this launch settles. `.catch` keeps a thrown launch from
+    // breaking the chain; the throw is still surfaced to `result`'s caller.
+    this.launchChain = result
+      .catch(() => undefined)
+      .then(() =>
+        this.launchStaggerMs > 0 ? delay(this.launchStaggerMs) : undefined,
+      );
+    return result;
+  };
 
   /**
    * Single waiter-first handoff used by every slot-recovery path (reinit,
@@ -214,7 +333,10 @@ export class BrowserPool {
    * acquire timeout / waiter-reject path rather than wedging the pool forever.
    */
   private async reinit(): Promise<void> {
-    if (this.isShutdown || this.launchBrowser === undefined) return;
+    // `rawLaunchBrowser` is the gate's underlying launcher, assigned by
+    // init(). Guard on it (not the always-defined `launchBrowser` arrow) so
+    // reinit is a no-op when init never ran — there is nothing to launch with.
+    if (this.isShutdown || this.rawLaunchBrowser === undefined) return;
     // Set the concurrent-entry guard SYNCHRONOUSLY before the first `await`
     // (before `this.track(...)`) so a second acquire reaching its empty-pool
     // check while this reinit is in flight skips reinit and parks a waiter
