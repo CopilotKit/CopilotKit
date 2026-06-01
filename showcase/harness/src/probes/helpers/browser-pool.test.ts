@@ -872,4 +872,282 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
     await pool.release(held);
     await pool.shutdown();
   });
+
+  // ── RECYCLE-VS-IN-FLIGHT-OPEN INVARIANT MATRIX ────────────────────────────
+  // One structural invariant closes a whole class of recycle-vs-concurrent-
+  // operation races: a context being opened in `openContextOn` has taken a cap
+  // reservation BEFORE its `await newContext()` but is added to
+  // `entry.liveContexts` only AFTER the await resolves. During that window
+  // `liveContexts.size` undercounts, so any recycle/idle decision made off
+  // `liveContexts.size` alone is blind to the in-flight open. The fix adds a
+  // per-entry `pendingOpens` counter and a single `isEntryIdle` predicate that
+  // every recycle/idle decision consults, an orphan guard in `openContextOn`
+  // for the entry-recycled-mid-await case, and a `recyclePending` flag so a
+  // deferred hygiene recycle still fires at the next idle release under
+  // sustained waiter pressure. The cases below are parametrized over the two
+  // faces of the gap (in-flight open invisible to recycle; deferred recycle
+  // starved) and the belt-and-suspenders orphan path.
+
+  // MATRIX (a) — a hygiene recycle does NOT fire while an `openContextOn` is in
+  // flight on that entry. recycleAfter=1 makes the entry eligible after one
+  // served context; a SECOND open is parked in newContext() (pendingOpens=1,
+  // not yet in liveContexts) when the boundary-crossing release lands. The
+  // pre-fix `liveContexts.size === 0` idle check reads the entry as idle and
+  // hygiene-recycles it OUT FROM UNDER the in-flight open (RED). The fix's
+  // `isEntryRecyclable` (pendingOpens === 0) defers it.
+  it("MATRIX(a): does NOT hygiene-recycle while an openContextOn is in flight on that entry", async () => {
+    const { launchBrowser, launched } = makeFakeLauncher({
+      deferNewContextForCalls: [1],
+    });
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 2,
+      recycleAfter: 1, // first served context makes the entry eligible
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+    expect(launched.length).toBe(1);
+
+    // Open c1 (parked) → release the park so c1 becomes live; servedContexts=1.
+    const c1p = pool.acquire();
+    await drainMicrotasks();
+    launched[0]!.__releaseNewContexts();
+    const c1 = await c1p;
+    expect(pool.stats().inUse).toBe(1);
+
+    // Start a SECOND acquire — it parks in newContext() (deferred), so its open
+    // is IN FLIGHT (pendingOpens=1) but it is NOT yet in liveContexts.
+    let c2: BrowserContext | undefined;
+    const c2p = pool.acquire().then((c) => (c2 = c));
+    await drainMicrotasks();
+    expect(c2).toBeUndefined();
+    expect(launched[0]!.__pendingNewContexts).toBe(1);
+
+    // Release c1: servedContexts(1) >= recycleAfter(1) and (pre-fix) liveContexts
+    // is now empty, so the pre-fix code hygiene-recycles immediately — tearing
+    // the browser down under the in-flight c2 open.
+    await pool.release(c1);
+    await drainMicrotasks();
+
+    // INVARIANT: no recycle fired while the open was in flight.
+    expect(pool.stats().totalRecycles).toBe(0);
+    expect(launched.length).toBe(1);
+    expect(launched[0]!.isConnected()).toBe(true);
+
+    // Let the in-flight open resolve; c2 lands live on the SAME original browser.
+    launched[0]!.__releaseNewContexts();
+    await c2p;
+    expect(c2).toBeDefined();
+    expect(launched[0]!.__contexts.map((x) => x.__id)).toContain(ctxId(c2!));
+    expect(pool.stats().inUse).toBe(1);
+
+    await pool.release(c2!);
+    await pool.shutdown();
+  });
+
+  // MATRIX (b) — an `openContextOn` whose entry is recycled MID-AWAIT closes the
+  // freshly-opened orphan + rolls back the count (no cap leak, no dead context
+  // handed out). A held context keeps the entry from being idle; the open is
+  // parked; we CRASH the browser mid-open (recovery recycle reassigns
+  // entry.browser). When the parked newContext() resolves, the orphan guard
+  // (entry.browser !== browserBefore / !isConnected) closes it, rolls back the
+  // reservation, and surfaces a failure so acquire's retry path enqueues. The
+  // pre-fix code adds the orphan to liveContexts on a dead/replaced browser,
+  // leaking a cap slot and handing out a dead context (RED).
+  it("MATRIX(b): closes the orphan + rolls back the count when an open's entry is recycled mid-await", async () => {
+    const { launchBrowser, launched } = makeFakeLauncher({
+      // Browser 1 (init) defers newContext; its relaunch (call 2) does not, so
+      // the enqueued caller is eventually served on the fresh browser.
+      deferNewContextForCalls: [1],
+    });
+    const { logger, events } = makeLeveledLogger();
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 2,
+      recycleAfter: 1000, // hygiene out of the picture; this is the crash path
+      logger,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+    expect(launched.length).toBe(1);
+
+    // Start an acquire — parks in newContext() on browser 0 (pendingOpens=1).
+    let acquired: BrowserContext | undefined;
+    const acquireP = pool
+      .acquire(undefined, 2_000)
+      .then((c) => (acquired = c))
+      .catch(() => {});
+    await drainMicrotasks();
+    expect(launched[0]!.__pendingNewContexts).toBe(1);
+    expect(pool.stats().inUse).toBe(1); // reservation taken for the in-flight open
+
+    // CRASH browser 0 while its open is in flight → recovery recycle reassigns
+    // entry.browser to a fresh process (launch call 2) and drains waiters.
+    launched[0]!.__crash();
+    await waitFor(() => launched.length === 2);
+
+    // Now resolve the parked open on the ORIGINAL (now-dead/replaced) browser.
+    // The orphan guard must close it, roll back the reservation, and surface a
+    // failure (acquire then enqueues + the relaunch serves the caller).
+    launched[0]!.__releaseNewContexts();
+    await drainMicrotasks();
+
+    // The caller is eventually served once a fresh (non-deferred) browser is
+    // available. Drain any parked opens on the relaunched browsers so the
+    // enqueued caller resolves, then await it.
+    await waitFor(() => {
+      for (const b of launched.slice(1)) {
+        if (b.__pendingNewContexts > 0) b.__releaseNewContexts();
+      }
+      return acquired !== undefined;
+    });
+    await acquireP;
+
+    // The orphan guard logged its dedicated warn (proves we hit it).
+    expect(
+      events.some((e) => e.event === "browser-pool.open-orphaned-by-recycle"),
+    ).toBe(true);
+
+    // NO cap leak: the orphaned open's reservation was rolled back. The only
+    // live context is the one served on a fresh browser.
+    expect(acquired).toBeDefined();
+    expect(pool.stats().inUse).toBe(1);
+    // The orphan context on the ORIGINAL (dead) browser was closed, never
+    // handed out — no open-but-not-closed context lingers on it.
+    const origOrphans = launched[0]!.__contexts.filter(
+      (c) => c.__closeCount === 0,
+    );
+    expect(origOrphans.length).toBe(0);
+    // The handed-out context is NOT the orphan from the dead original browser.
+    expect(launched[0]!.__contexts.map((x) => x.__id)).not.toContain(
+      ctxId(acquired!),
+    );
+    // It lives on a live (recycled/fresh) browser that is connected.
+    const owner = launched.find((b) =>
+      b.__contexts.some((c) => c.__id === ctxId(acquired!)),
+    );
+    expect(owner).toBeDefined();
+    expect(owner!.__id).not.toBe(launched[0]!.__id);
+    expect(owner!.isConnected()).toBe(true);
+
+    await pool.release(acquired!);
+    await pool.shutdown();
+  });
+
+  // MATRIX (c) — a hygiene recycle that becomes eligible on a release while a
+  // concurrent open is in flight (pendingOpens=1) must NOT fire during the open,
+  // and the eligibility must NOT be lost: it fires at the next safe idle
+  // release (recyclePending honored). This is the GAP-2 face — the eligible
+  // recycle is deferred while the entry is busy with an in-flight open, and the
+  // fix carries the intent forward rather than dropping it.
+  //
+  // The pre-fix idle check is `liveContexts.size === 0` and is blind to the
+  // in-flight open, so on the boundary-crossing release (which has NO queued
+  // waiter → the pre-fix `!hadWaiter` gate is satisfied) it FIRES the hygiene
+  // recycle DURING the concurrent open — tearing the browser down under it
+  // (RED). The fix's `isEntryRecyclable` (pendingOpens===0) defers it and
+  // `recyclePending` makes it fire at the next idle release instead.
+  it("MATRIX(c): an eligible hygiene recycle defers past an in-flight open and fires at the next idle release", async () => {
+    const { launchBrowser, launched } = makeFakeLauncher({
+      deferNewContextForCalls: [1], // browser0 defers every newContext
+    });
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 3,
+      recycleAfter: 1, // eligible after the first served context
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+    expect(launched.length).toBe(1);
+
+    // Open c0 (parked) → release park → c0 live; served0=1 (>= recycleAfter).
+    const c0p = pool.acquire();
+    await drainMicrotasks();
+    launched[0]!.__releaseNewContexts();
+    const c0 = await c0p;
+    expect(pool.stats().inUse).toBe(1);
+
+    // Start a CONCURRENT acquire c1 — it reserves a slot and parks in
+    // newContext() (deferred). pendingOpens=1, NOT yet in liveContexts. NO
+    // waiter is queued (cap=3 has room), so the boundary-crossing release below
+    // has hadWaiter=false.
+    let c1: BrowserContext | undefined;
+    const c1p = pool.acquire().then((c) => (c1 = c));
+    await drainMicrotasks();
+    expect(c1).toBeUndefined();
+    expect(launched[0]!.__pendingNewContexts).toBe(1);
+
+    // Release c0: servedContexts(1) >= recycleAfter(1); the pre-fix idle check
+    // (liveContexts.size===0, blind to pendingOpens) is satisfied and there is
+    // NO waiter, so the pre-fix code FIRES the hygiene recycle here — DURING
+    // c1's in-flight open.
+    await pool.release(c0);
+    await drainMicrotasks();
+
+    // INVARIANT: no recycle fired while c1's open is in flight.
+    expect(launched[0]!.__pendingNewContexts).toBe(1); // c1 still opening
+    expect(pool.stats().totalRecycles).toBe(0);
+    expect(launched[0]!.isConnected()).toBe(true);
+
+    // Let c1's open complete → c1 live on the original browser, served0=2.
+    launched[0]!.__releaseNewContexts();
+    await c1p;
+    expect(c1).toBeDefined();
+    expect(launched[0]!.__contexts.map((x) => x.__id)).toContain(ctxId(c1!));
+    // The recycle was deferred, not dropped.
+    expect(pool.stats().totalRecycles).toBe(0);
+
+    // Release c1 with no waiter queued → entry genuinely idle + recycle pending
+    // → the deferred hygiene recycle fires at this safe idle point.
+    await pool.release(c1!);
+    await waitFor(() => launched.length === 2);
+    expect(pool.stats().totalRecycles).toBe(1);
+    expect(launched.length).toBe(2);
+
+    await pool.shutdown();
+  });
+
+  // MATRIX (d) — the prior serve-vs-recycle guard still holds: a
+  // boundary-crossing release WHILE a waiter is queued must serve the waiter
+  // onto the SAME browser and NOT recycle it out from under the just-served
+  // waiter. (Mirrors A1; re-asserted here so the recyclePending mechanics added
+  // for (c) did not regress the deferral.)
+  it("MATRIX(d): does NOT recycle out from under a just-served waiter (serve-vs-recycle guard preserved)", async () => {
+    const { launchBrowser, launched } = makeFakeLauncher();
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 1,
+      recycleAfter: 1,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+    expect(launched.length).toBe(1);
+
+    const c1 = await pool.acquire();
+    expect(pool.stats().inUse).toBe(1);
+
+    let c2: BrowserContext | undefined;
+    const c2p = pool.acquire().then((c) => (c2 = c));
+    await drainMicrotasks();
+    expect(c2).toBeUndefined();
+
+    // The boundary-crossing release serves the waiter, does NOT recycle.
+    await pool.release(c1);
+    await c2p;
+
+    expect(c2).toBeDefined();
+    expect(pool.stats().totalRecycles).toBe(0);
+    expect(launched.length).toBe(1);
+    expect(launched[0]!.isConnected()).toBe(true);
+    // The served context lives on the original (un-recycled) browser.
+    expect(launched[0]!.__contexts.map((x) => x.__id)).toContain(ctxId(c2!));
+    expect(pool.stats().inUse).toBe(1);
+
+    await pool.release(c2!);
+    await pool.shutdown();
+  });
 });

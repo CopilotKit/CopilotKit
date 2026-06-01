@@ -94,6 +94,25 @@ interface BrowserEntry {
   /** True while this entry is being torn down + relaunched. acquire() skips
    *  a recycling entry so a context is never opened on a dying browser. */
   recycling: boolean;
+  /** Count of `openContextOn` calls currently IN FLIGHT on this entry —
+   *  incremented BEFORE the `await browser.newContext()` and decremented in
+   *  BOTH the success and failure paths. This closes the window where a
+   *  context has taken a cap reservation but is not yet in `liveContexts`:
+   *  during that await `liveContexts.size` undercounts, so any recycle/idle
+   *  decision made off `liveContexts.size` alone is blind to the in-flight
+   *  open. Every idle/recycle predicate MUST consult `pendingOpens` (via
+   *  `isEntryIdle`) so a hygiene recycle never tears the browser down under an
+   *  in-flight open. */
+  pendingOpens: number;
+  /** Set true when a `release()` computed `shouldRecycle` true but DEFERRED
+   *  the hygiene recycle because a waiter was just served onto the freed slot
+   *  (the `!hadWaiter` guard). Under sustained saturation a waiter is queued at
+   *  nearly every release, so that guard would otherwise STARVE the hygiene
+   *  recycle forever. This flag carries the pending intent forward: the next
+   *  release that finds the entry genuinely idle (no live contexts, no pending
+   *  opens) fires the deferred recycle and clears the flag — closing the
+   *  starvation without recycling out from under a just-served waiter. */
+  recyclePending: boolean;
 }
 
 export interface BrowserPoolOptions {
@@ -225,6 +244,8 @@ export class BrowserPool {
           liveContexts: new Set(),
           servedContexts: 0,
           recycling: false,
+          pendingOpens: 0,
+          recyclePending: false,
         };
         this.browsers.push(entry);
         this.attachDisconnectHandler(entry, browser);
@@ -350,6 +371,30 @@ export class BrowserPool {
   }
 
   /**
+   * SINGLE idle predicate every recycle/teardown decision consults. An entry
+   * is idle ONLY when it has neither a live (checked-out) context NOR an open
+   * in flight. The `pendingOpens` term is the structural fix: a context that
+   * has taken a reservation but is still awaiting `newContext()` is not yet in
+   * `liveContexts`, so `liveContexts.size === 0` alone would read a busy entry
+   * as idle and let a hygiene recycle tear the browser down mid-open. Consult
+   * THIS, never `liveContexts.size === 0` directly, for any idle decision.
+   */
+  private isEntryIdle(entry: BrowserEntry): boolean {
+    return entry.liveContexts.size === 0 && entry.pendingOpens === 0;
+  }
+
+  /**
+   * True when a NON-crash (hygiene) recycle may safely fire for this entry: it
+   * must be genuinely idle (`isEntryIdle`) AND not already recycling. The crash
+   * path does NOT use this — a disconnected/dead browser is recycled regardless
+   * of in-flight opens (those opens will fail against the dead browser and roll
+   * themselves back).
+   */
+  private isEntryRecyclable(entry: BrowserEntry): boolean {
+    return !entry.recycling && this.isEntryIdle(entry);
+  }
+
+  /**
    * Open a context on the given live browser against a reservation the caller
    * ALREADY took via `reserveSlot()`. Centralizes the `X-AIMock-Strict` default
    * header. On success the reservation is converted into a tracked live context
@@ -365,9 +410,18 @@ export class BrowserPool {
     entry: BrowserEntry,
     options?: ContextOptions,
   ): Promise<BrowserContext> {
+    // Capture the browser instance BEFORE the await. If the entry is recycled
+    // mid-open, `entry.browser` is reassigned to a fresh process — the context
+    // we get back belongs to a browser that is being / has been torn down, so
+    // it must not be handed out or counted. Mark the in-flight open so any
+    // concurrent recycle/idle decision (`isEntryIdle`) sees it and does NOT
+    // treat the entry as idle during this await window.
+    const browserBefore = entry.browser;
+    entry.pendingOpens++;
+
     let context: BrowserContext;
     try {
-      context = await entry.browser.newContext({
+      context = await browserBefore.newContext({
         extraHTTPHeaders: {
           "X-AIMock-Strict": "true",
           ...options?.extraHTTPHeaders,
@@ -375,12 +429,37 @@ export class BrowserPool {
       });
     } catch (err) {
       // The open failed — give the reserved slot back so it does not bleed
-      // capacity permanently.
+      // capacity permanently, and clear the in-flight marker.
+      entry.pendingOpens--;
       this.releaseReservation();
       throw err;
     }
+
+    // BELT-AND-SUSPENDERS for the recycle-vs-open race: the entry may have been
+    // recycled (crash recovery or a hygiene recycle that fired before this
+    // counter was consulted) WHILE the newContext() above was in flight. If so
+    // the freshly-opened context is an orphan on a torn-down browser — closing
+    // or otherwise counting it would corrupt the cap and could hand a dead
+    // context to a holder. Detect that state, close the orphan, roll back the
+    // reservation + the in-flight marker, and surface as a failure so the
+    // caller's retry/enqueue path handles it.
+    if (
+      entry.recycling ||
+      entry.browser !== browserBefore ||
+      !browserBefore.isConnected()
+    ) {
+      entry.pendingOpens--;
+      this.releaseReservation();
+      void context.close().catch(() => {});
+      this.logger?.warn?.("browser-pool.open-orphaned-by-recycle", {
+        browserIndex: this.browsers.indexOf(entry),
+      });
+      throw new Error("browser-pool: context open orphaned by recycle");
+    }
+
     // Convert the held reservation into a tracked live context. The reservation
     // already incremented liveContextCount, so do NOT increment again here.
+    entry.pendingOpens--;
     entry.liveContexts.add(context);
     entry.servedContexts++;
     this.contextToBrowser.set(context, entry);
@@ -619,10 +698,12 @@ export class BrowserPool {
 
     // Hygiene-recycle decision, captured SYNCHRONOUSLY against current state
     // (no await gap above could have mutated liveContexts since the decrement).
+    // `isEntryRecyclable` consults BOTH liveContexts AND pendingOpens, so an
+    // in-flight open keeps the entry off the recycle path even though it isn't
+    // yet in liveContexts.
     const shouldRecycle =
       entry.servedContexts >= this.recycleAfter &&
-      entry.liveContexts.size === 0 &&
-      !entry.recycling;
+      this.isEntryRecyclable(entry);
 
     // Close the released context AFTER the accounting/decision so the close
     // await cannot straddle them. Best-effort; failure is non-fatal.
@@ -646,15 +727,37 @@ export class BrowserPool {
     }
 
     // Hygiene recycle: once a browser has served enough contexts AND is idle
-    // (no live contexts), replace its process to bound memory/handle drift.
-    // This is the RARE path — it fires at most once per `recycleAfter`
-    // contexts per browser and never on a busy browser. Gate on `!hadWaiter`:
-    // when a waiter was just served onto this freed slot, defer the hygiene
-    // recycle to a later genuinely-idle release rather than recycle the
-    // browser out from under the just-served waiter. The hygiene recycle is
-    // the rare path, so deferring it is harmless.
-    if (shouldRecycle && !hadWaiter) {
-      this.recycleBrowser(entry);
+    // (no live contexts, no in-flight opens), replace its process to bound
+    // memory/handle drift. This is the RARE path — it fires at most once per
+    // `recycleAfter` contexts per browser and never on a busy browser.
+    //
+    // The `!hadWaiter` guard (a prior fix) defers the recycle when a waiter was
+    // just served onto this freed slot, so the browser is not torn down under
+    // the just-served waiter. But under SUSTAINED saturation a waiter is queued
+    // at nearly every release, so on its own that guard STARVES the hygiene
+    // recycle — the documented memory/handle-drift bound is never met exactly
+    // when it matters. We close that without reintroducing the serve-vs-recycle
+    // race by carrying the deferred intent on `entry.recyclePending`:
+    //
+    //   - if shouldRecycle this round but a waiter was served, set the flag and
+    //     defer (do not recycle now);
+    //   - on EVERY release, if the entry is now genuinely recyclable (idle, no
+    //     pending opens, not already recycling) AND either shouldRecycle this
+    //     round OR a recycle is pending, fire it and clear the flag.
+    //
+    // Serving a waiter is asynchronous (`serveNextWaiter` reserves + opens on
+    // the next tick), so right after a serve the entry is NOT idle — either a
+    // live context exists or `pendingOpens > 0` — and `isEntryRecyclable`
+    // returns false, naturally deferring to the next genuinely-idle release.
+    if (shouldRecycle && hadWaiter) {
+      entry.recyclePending = true;
+    }
+    if (
+      this.isEntryRecyclable(entry) &&
+      (shouldRecycle || entry.recyclePending)
+    ) {
+      entry.recyclePending = false;
+      this.recycleBrowser(entry, "hygiene");
     }
   }
 
@@ -733,10 +836,31 @@ export class BrowserPool {
    * so their probe fails (bounded blast radius — only this browser's
    * contexts). On launch failure the entry is evicted; if that empties the
    * browser set while waiters are queued, every waiter is rejected.
+   *
+   * `reason` distinguishes a genuine crash/disconnect (the browser is already
+   * dead) from a hygiene recycle (the browser is healthy, we are replacing it
+   * proactively to bound drift). A HYGIENE recycle must NEVER tear down an
+   * entry with an in-flight open (`pendingOpens > 0`): the freshly-opening
+   * context would land on a browser we are about to close, becoming a dead
+   * context counted against the cap. `release()` already gates the hygiene call
+   * on `isEntryRecyclable` (pendingOpens === 0), but we re-check here as
+   * defense-in-depth and bail. The CRASH path proceeds regardless — the browser
+   * is dead anyway, and the in-flight open's own newContext()/orphan-guard
+   * rolls itself back.
    */
-  private recycleBrowser(entry: BrowserEntry): void {
+  private recycleBrowser(
+    entry: BrowserEntry,
+    reason: "crash" | "hygiene" = "crash",
+  ): void {
     if (this.isShutdown) return;
     if (entry.recycling) return;
+    // Hygiene recycle never proceeds against an in-flight open — defer it (the
+    // pending intent is carried on `recyclePending`, which the next idle
+    // release will honor). The crash path is exempt: the browser is dead.
+    if (reason === "hygiene" && entry.pendingOpens > 0) {
+      entry.recyclePending = true;
+      return;
+    }
     entry.recycling = true;
     this.totalRecycles++;
 
@@ -775,6 +899,9 @@ export class BrowserPool {
         entry.servedContexts = 0;
         entry.liveContexts.clear();
         entry.recycling = false;
+        // The deferred-recycle intent was satisfied by THIS recycle — clear it
+        // so the fresh browser does not inherit a stale "recycle me" flag.
+        entry.recyclePending = false;
         this.attachDisconnectHandler(entry, fresh);
         // Drain queued waiters onto the freshly-launched browser. Guard
         // forward progress: serveNextWaiter() can return WITHOUT consuming a
