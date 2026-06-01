@@ -1,49 +1,65 @@
 import { describe, it, expect } from "vitest";
-import type { Browser } from "playwright";
+import type { Browser, BrowserContext } from "playwright";
 import { BrowserPool } from "./browser-pool.js";
 import type { LaunchBrowser } from "./browser-pool.js";
 
 /**
- * Minimal `Browser` stand-in that exposes the surface BrowserPool actually
- * uses (`isConnected`, `on`, `close`, `newContext`) plus test-only hooks
- * for simulating chromium lifecycle events:
+ * Minimal `BrowserContext` stand-in. Tracks close + the extraHTTPHeaders the
+ * pool opened it with so tests can assert header centralization + forwarding.
+ */
+interface FakeContext {
+  readonly __id: number;
+  readonly __headers?: Record<string, string>;
+  close(): Promise<void>;
+  readonly __closeCount: number;
+  /** When set, close() parks until __releaseClose() is called — lets a test
+   *  hold a release()'s `await context.close()` open while a concurrent
+   *  acquire interleaves (drives the release/recycle straddle race). */
+  __deferClose(): void;
+  __releaseClose(): void;
+}
+
+/**
+ * Minimal `Browser` stand-in that exposes the surface BrowserPool uses
+ * (`isConnected`, `on`, `close`, `newContext`) plus test hooks:
  *
- *   - `__crash()`           — fires the `disconnected` event AND flips
- *                             `isConnected` false. Mirrors a real chromium
- *                             that died and notified Playwright cleanly.
- *   - `__silentlyDisconnect()` — flips `isConnected` false but does NOT
- *                             fire `disconnected`. Mirrors a process that
- *                             died without Playwright noticing in time
- *                             (e.g. WebSocket hung), so the pool's only
- *                             defense is the on-acquire health check.
+ *   - `__crash()` — fires `disconnected` AND flips `isConnected` false.
+ *   - `__silentlyDisconnect()` — flips `isConnected` false WITHOUT firing.
  */
 interface FakeBrowser {
   readonly __id: number;
   isConnected(): boolean;
   on(event: string, handler: (...args: unknown[]) => void): void;
   close(): Promise<void>;
-  newContext(): Promise<{ close(): Promise<void> }>;
+  newContext(opts?: {
+    extraHTTPHeaders?: Record<string, string>;
+  }): Promise<FakeContext>;
   __crash(): void;
   __silentlyDisconnect(): void;
-  /**
-   * Re-fire the `disconnected` event WITHOUT touching `isConnected`. Models a
-   * delayed/duplicate disconnect delivery for an already-dead browser — e.g.
-   * Playwright drains a late `disconnected` for an OLD browser instance after
-   * the slot has already been parked and is being relaunched. `__crash` can
-   * only fire once (it no-ops when already disconnected), so this is the hook
-   * for the "late disconnect races concurrent relaunch" race.
-   */
-  __fireDisconnectLate(): void;
   readonly __closeCount: number;
+  readonly __contexts: FakeContext[];
+  /** Release ALL pending deferred newContext() calls (see `deferNewContext`). */
+  __releaseNewContexts(): void;
+  /** Number of newContext() calls currently parked awaiting release. */
+  readonly __pendingNewContexts: number;
 }
 
 let nextBrowserId = 0;
+let nextContextId = 0;
 
-function makeFakeBrowser(): FakeBrowser {
+function makeFakeBrowser(opts?: {
+  newContextThrows?: boolean;
+  /** When true, newContext() does NOT resolve until __releaseNewContexts() is
+   *  called. Lets a test park an in-flight context-open across an await so a
+   *  concurrent acquire/release/timeout can interleave deterministically. */
+  deferNewContext?: boolean;
+}): FakeBrowser {
   const id = nextBrowserId++;
   let connected = true;
   let closeCount = 0;
+  const contexts: FakeContext[] = [];
   const handlers = new Map<string, Array<(...args: unknown[]) => void>>();
+  const pendingReleases: Array<() => void> = [];
   const fire = (event: string): void => {
     for (const h of handlers.get(event) ?? []) h();
   };
@@ -51,6 +67,16 @@ function makeFakeBrowser(): FakeBrowser {
     __id: id,
     get __closeCount() {
       return closeCount;
+    },
+    get __contexts() {
+      return contexts;
+    },
+    get __pendingNewContexts() {
+      return pendingReleases.length;
+    },
+    __releaseNewContexts() {
+      const toRelease = pendingReleases.splice(0, pendingReleases.length);
+      for (const r of toRelease) r();
     },
     isConnected: () => connected,
     on(event, handler) {
@@ -64,8 +90,42 @@ function makeFakeBrowser(): FakeBrowser {
       connected = false;
       if (wasConnected) fire("disconnected");
     },
-    async newContext() {
-      return { close: async () => {} };
+    async newContext(ctxOpts) {
+      if (opts?.newContextThrows) {
+        throw new Error("simulated newContext failure");
+      }
+      if (opts?.deferNewContext) {
+        await new Promise<void>((resolve) => pendingReleases.push(resolve));
+      }
+      const ctxId = nextContextId++;
+      let ctxCloseCount = 0;
+      let deferClose = false;
+      let pendingClose: (() => void) | undefined;
+      const ctx: FakeContext = {
+        __id: ctxId,
+        __headers: ctxOpts?.extraHTTPHeaders,
+        get __closeCount() {
+          return ctxCloseCount;
+        },
+        __deferClose() {
+          deferClose = true;
+        },
+        __releaseClose() {
+          const r = pendingClose;
+          pendingClose = undefined;
+          r?.();
+        },
+        async close() {
+          if (deferClose) {
+            await new Promise<void>((resolve) => {
+              pendingClose = resolve;
+            });
+          }
+          ctxCloseCount++;
+        },
+      };
+      contexts.push(ctx);
+      return ctx;
     },
     __crash() {
       if (connected) {
@@ -76,9 +136,6 @@ function makeFakeBrowser(): FakeBrowser {
     __silentlyDisconnect() {
       connected = false;
     },
-    __fireDisconnectLate() {
-      fire("disconnected");
-    },
   };
 }
 
@@ -88,56 +145,35 @@ interface FakeLauncher {
 }
 
 function makeFakeLauncher(opts?: {
-  failAt?: number;
   failAtCalls?: number[];
+  newContextThrowsForCalls?: number[];
+  /** 1-based launch-call indices whose browser should DEFER every
+   *  newContext() until __releaseNewContexts() is called. */
+  deferNewContextForCalls?: number[];
 }): FakeLauncher {
   const launched: FakeBrowser[] = [];
   let callCount = 0;
   const launchBrowser = async (): Promise<Browser> => {
     callCount++;
-    if (
-      (opts?.failAt !== undefined && callCount === opts.failAt) ||
-      opts?.failAtCalls?.includes(callCount)
-    ) {
+    if (opts?.failAtCalls?.includes(callCount)) {
       throw new Error("simulated launch failure");
     }
-    const b = makeFakeBrowser();
+    const b = makeFakeBrowser({
+      newContextThrows: opts?.newContextThrowsForCalls?.includes(callCount),
+      deferNewContext: opts?.deferNewContextForCalls?.includes(callCount),
+    });
     launched.push(b);
     return b as unknown as Browser;
   };
   return { launchBrowser, launched };
 }
 
-interface CapturedLog {
+interface LeveledLog {
+  level: "info" | "warn" | "error";
   event: string;
   meta?: Record<string, unknown>;
 }
 
-function makeFakeLogger(): {
-  logger: { info: (msg: string, meta?: Record<string, unknown>) => void };
-  events: CapturedLog[];
-} {
-  const events: CapturedLog[] = [];
-  return {
-    logger: {
-      info(msg, meta) {
-        events.push({ event: msg, meta });
-      },
-    },
-    events,
-  };
-}
-
-interface LeveledLog extends CapturedLog {
-  level: "info" | "warn" | "error";
-}
-
-/**
- * Fake logger that captures the SEVERITY each event was emitted at. Unlike
- * `makeFakeLogger` (info-only), this exposes `warn`/`error` so routing-by-
- * severity is observable: a capacity-loss event logged via `logger.error(...)`
- * must show up with `level: "error"`, never `level: "info"`.
- */
 function makeLeveledLogger(): {
   logger: {
     info: (msg: string, meta?: Record<string, unknown>) => void;
@@ -149,1338 +185,969 @@ function makeLeveledLogger(): {
   const events: LeveledLog[] = [];
   return {
     logger: {
-      info(msg, meta) {
-        events.push({ level: "info", event: msg, meta });
-      },
-      warn(msg, meta) {
-        events.push({ level: "warn", event: msg, meta });
-      },
-      error(msg, meta) {
-        events.push({ level: "error", event: msg, meta });
-      },
+      info: (event, meta) => events.push({ level: "info", event, meta }),
+      warn: (event, meta) => events.push({ level: "warn", event, meta }),
+      error: (event, meta) => events.push({ level: "error", event, meta }),
     },
     events,
   };
 }
 
-/**
- * Flush pending microtasks `times` times so post-recycle state settles
- * enough to observe without tearing the pool down. It does NOT advance real
- * `setTimeout` backoff timers — tests that depend on backoff elapsing use
- * `waitFor` instead.
- */
-async function drainMicrotasks(times = 5): Promise<void> {
-  for (let i = 0; i < times; i++) {
-    await Promise.resolve();
-  }
+async function drainMicrotasks(times = 10): Promise<void> {
+  for (let i = 0; i < times; i++) await Promise.resolve();
 }
 
-/**
- * Poll `predicate` until it returns true or `timeoutMs` elapses. The pool's
- * recycle/relaunch paths use real `setTimeout` backoff, so state transitions
- * (slot eviction, relaunchPending parking, deferred recovery) settle over
- * wall-clock time rather than microtasks. Rejects on timeout so a test that
- * relies on a precondition fails loudly instead of asserting on stale state.
- */
 async function waitFor(
   predicate: () => boolean,
   timeoutMs = 3_000,
 ): Promise<void> {
   const start = Date.now();
   while (!predicate()) {
-    if (Date.now() - start > timeoutMs) {
-      throw new Error("waitFor timed out");
-    }
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    if (Date.now() - start > timeoutMs) throw new Error("waitFor timed out");
+    await new Promise((resolve) => setTimeout(resolve, 5));
   }
 }
 
-describe("BrowserPool dead-instance detection", () => {
-  it("registers a disconnected listener on each browser at init and recycles when one fires", async () => {
+const ctxId = (c: BrowserContext): number => (c as unknown as FakeContext).__id;
+
+describe("BrowserPool — context pooling over fixed browser set", () => {
+  // CASE 1 — THE load-bearing assertion: no process fork on the hot path.
+  it("does NOT fork a browser process across many acquire/release cycles (launched stays == N)", async () => {
     const { launchBrowser, launched } = makeFakeLauncher();
-    const { logger, events } = makeFakeLogger();
-    const pool = new BrowserPool(2, 100, logger, launchBrowser, 0);
-    await pool.init();
-    expect(launched).toHaveLength(2);
-
-    // Crash slot 0's browser. The disconnected listener should fire and
-    // kick recycle, which launches a fresh browser (the 3rd one).
-    launched[0]!.__crash();
-    await drainMicrotasks();
-
-    const disconnected = events.find(
-      (e) => e.event === "browser-pool.disconnected",
-    );
-    expect(disconnected).toBeDefined();
-    expect(disconnected?.meta).toEqual({ slotIndex: 0 });
-
-    await pool.shutdown();
-    // After shutdown awaits the in-flight recycle, the fresh launch must
-    // have completed.
-    expect(launched.length).toBeGreaterThanOrEqual(3);
-  });
-
-  it("acquire() skips a silently-disconnected slot and returns the next live one", async () => {
-    const { launchBrowser, launched } = makeFakeLauncher();
-    const { logger, events } = makeFakeLogger();
-    const pool = new BrowserPool(2, 100, logger, launchBrowser, 0);
-    await pool.init();
-
-    const slot0Browser = launched[0]!;
-    const slot1Browser = launched[1]!;
-
-    // Silent disconnect: `isConnected` flips false without firing the
-    // event. acquire() must still skip it.
-    slot0Browser.__silentlyDisconnect();
-
-    const acquired = await pool.acquire();
-    expect(acquired).toBe(slot1Browser as unknown as Browser);
-
-    expect(
-      events.some((e) => e.event === "browser-pool.skipped-dead-slot"),
-    ).toBe(true);
-
-    await pool.shutdown();
-  });
-
-  it("acquire() recycles every zombie slot and falls through to the waiter path when no live slots remain", async () => {
-    const { launchBrowser, launched } = makeFakeLauncher();
-    const pool = new BrowserPool(2, 100, undefined, launchBrowser, 0);
-    await pool.init();
-
-    launched[0]!.__silentlyDisconnect();
-    launched[1]!.__silentlyDisconnect();
-
-    // Both available slots are zombies. acquire() should kick recycle on
-    // each and return a Promise that resolves once a recycled browser
-    // becomes available.
-    const acquirePromise = pool.acquire();
-
-    await drainMicrotasks(20);
-
-    const acquired = await acquirePromise;
-    // The fresh launch is browser #2 or #3 — either is fine.
-    const fresh = launched.slice(2);
-    expect(fresh).toContain(acquired as unknown as FakeBrowser);
-
-    await pool.shutdown();
-  });
-
-  it("disconnected event during in-use slot triggers a recycle that delivers a fresh browser to the next acquire", async () => {
-    const { launchBrowser, launched } = makeFakeLauncher();
-    const pool = new BrowserPool(1, 100, undefined, launchBrowser, 0);
-    await pool.init();
-
-    const browser = await pool.acquire();
-    expect(browser).toBe(launched[0] as unknown as Browser);
-
-    // Simulate chromium dying while the probe still holds the browser.
-    launched[0]!.__crash();
-    await drainMicrotasks(20);
-
-    const next = await pool.acquire();
-    expect(next).not.toBe(browser);
-    expect(next).toBe(launched[launched.length - 1] as unknown as Browser);
-
-    await pool.shutdown();
-  });
-
-  it("does not double-recycle when both the disconnect event and the on-acquire zombie check fire for the same slot", async () => {
-    const { launchBrowser, launched } = makeFakeLauncher();
-    const pool = new BrowserPool(1, 100, undefined, launchBrowser, 0);
-    await pool.init();
-
-    // Crash fires disconnect AND flips isConnected false.
-    launched[0]!.__crash();
-    // Acquire while the recycle is still in flight — sees nothing in
-    // available, falls through to waiter path. The disconnect-driven
-    // recycle delivers the fresh browser to the waiter.
-    const acquired = await pool.acquire();
-
-    // Exactly one fresh browser was launched (the recycle replacement).
-    expect(launched.length).toBe(2);
-    expect(acquired).toBe(launched[1] as unknown as Browser);
-
-    await pool.shutdown();
-  });
-
-  it("release() of a slot whose browser disconnected after acquire still recycles instead of returning a dead browser to available", async () => {
-    const { launchBrowser, launched } = makeFakeLauncher();
-    const { logger, events } = makeFakeLogger();
-    const pool = new BrowserPool(1, 100, logger, launchBrowser, 0);
-    await pool.init();
-
-    const browser = await pool.acquire();
-    // Silent disconnect: no event fires. The pool only learns the slot
-    // is dead at the next isConnected check — which the patched
-    // release() now performs before re-queuing.
-    (browser as unknown as FakeBrowser).__silentlyDisconnect();
-    pool.release(browser);
-
-    await drainMicrotasks(20);
-
-    expect(
-      events.some((e) => e.event === "browser-pool.release-dead-slot"),
-    ).toBe(true);
-    // A fresh browser was launched; the dead one was not re-queued.
-    expect(launched.length).toBe(2);
-
-    const next = await pool.acquire();
-    expect(next).toBe(launched[1] as unknown as Browser);
-    expect((next as unknown as FakeBrowser).isConnected()).toBe(true);
-
-    await pool.shutdown();
-  });
-
-  it("does not double-publish a slot to available when the same live browser is released twice", async () => {
-    // Bug #1 guard. release(browser) looks the slot up via browserToSlot; a
-    // still-live slot (not recycled) survives a SECOND release(sameBrowser),
-    // and the no-waiter branch used to `this.available.push(slot)`
-    // UNCONDITIONALLY — so the slot appeared twice in `available` and the next
-    // two acquires handed the SAME browser to two probes. handOff already
-    // guards this with `!this.available.includes(slot)`; release must too.
-    // Single-slot pool so the only slot's publication count is directly
-    // observable: a double-push duplicates the SOLE slot in `available`.
-    const { launchBrowser, launched } = makeFakeLauncher();
-    const pool = new BrowserPool(1, 100, undefined, launchBrowser, 0);
-    await pool.init();
-
-    const browser = await pool.acquire();
-    expect(browser).toBe(launched[0] as unknown as Browser);
-
-    // Double-release the SAME live browser. The second release must be a
-    // no-op for `available` (the slot is already queued) — not a second push.
-    pool.release(browser);
-    pool.release(browser);
-
-    // The single slot must appear in `available` exactly once after the
-    // double-release — never twice.
-    expect(pool.stats().available).toBe(1);
-
-    // First acquire draws the (single) slot, emptying `available`. With the
-    // double-push the duplicate would remain, so a SECOND immediate acquire
-    // would wrongly hand out the SAME browser to a concurrent probe; with the
-    // guard `available` is empty and the second acquire parks as a waiter.
-    const first = await pool.acquire();
-    expect(first).toBe(launched[0] as unknown as Browser);
-
-    await expect(pool.acquire(50)).rejects.toThrow(
-      "BrowserPool acquire timeout",
-    );
-
-    await pool.shutdown();
-  });
-
-  it("does not hand the SAME live browser to two waiters when it is released twice while waiters are queued", async () => {
-    // Bug guard (idempotent release on the WAITER path). release(browser)
-    // routes a live return through handOff(slot, slot.browser). handOff's
-    // waiter branch is `const w = this.waiters.shift(); if (w) w.resolve(b)`
-    // with NO idempotency guard. A SECOND release(sameLiveBrowser) still finds
-    // the slot in browserToSlot (a live slot is never deleted), passes the
-    // contextCount/isConnected checks, calls handOff again, shifts a SECOND
-    // waiter and resolves it with the SAME browser — two probes driving one
-    // chromium. The existing `!available.includes(slot)` guard only covers the
-    // NO-waiter branch; the waiter branch was unguarded. Checked-out tracking
-    // makes the second release a no-op on BOTH paths.
-    //
-    // Single-slot pool so the only live browser's publication is directly
-    // observable. Acquire it (checking it out), queue TWO waiters, then
-    // double-release the SAME browser. Only ONE waiter may be served with it;
-    // the second release is a no-op so the second waiter stays pending until
-    // its own timeout.
-    const { launchBrowser, launched } = makeFakeLauncher();
-    const pool = new BrowserPool(1, 100, undefined, launchBrowser, 0);
-    await pool.init();
-
-    const browser = await pool.acquire();
-    expect(browser).toBe(launched[0] as unknown as Browser);
-
-    // Queue two waiters (no available slots — the only browser is held).
-    const waiterA = pool.acquire(5_000);
-    const waiterB = pool.acquire(150);
-    await drainMicrotasks();
-
-    // Double-release the SAME live browser. The first release serves waiterA;
-    // the second MUST be a no-op (the slot is no longer checked out), so it
-    // must NOT shift and resolve waiterB with the same browser.
-    pool.release(browser);
-    pool.release(browser);
-
-    const settled = await Promise.allSettled([waiterA, waiterB]);
-    // waiterA was served with the live browser.
-    expect(settled[0]!.status).toBe("fulfilled");
-    expect((settled[0] as PromiseFulfilledResult<Browser>).value).toBe(
-      launched[0] as unknown as Browser,
-    );
-    // waiterB must NOT have been resolved with the same browser — it stays
-    // pending and times out. With the bug it would resolve with launched[0].
-    expect(settled[1]!.status).toBe("rejected");
-    expect((settled[1] as PromiseRejectedResult).reason).toMatchObject({
-      message: "BrowserPool acquire timeout",
+    const pool = new BrowserPool({
+      browsers: 3,
+      maxContexts: 24,
+      recycleAfter: 300,
+      launchBrowser,
+      launchStaggerMs: 0,
     });
+    await pool.init();
+    expect(launched.length).toBe(3);
 
-    // Exactly one browser was ever launched — no fresh one, and the single one
-    // was handed to exactly one waiter.
-    expect(launched).toHaveLength(1);
+    // Acquire/release many contexts across many cycles. The OLD pool forked
+    // on the 100th release (recycleAfter); the new pool never forks here.
+    for (let i = 0; i < 250; i++) {
+      const ctx = await pool.acquire();
+      await pool.release(ctx);
+    }
 
+    expect(launched.length).toBe(3); // init only — zero forks on the hot path
     await pool.shutdown();
   });
 
-  it("reports stats().inUse from actually-checked-out slots, decrementing on release", async () => {
-    // inUse must reflect slots currently handed to a caller, derived from the
-    // checked-out set, not the `liveSlots.length - available` subtraction.
-    const { launchBrowser } = makeFakeLauncher();
-    const pool = new BrowserPool(2, 100, undefined, launchBrowser, 0);
+  // CASE 2 — release(ctx) closes the context, no relaunch.
+  it("release(ctx) closes the context and does not relaunch", async () => {
+    const { launchBrowser, launched } = makeFakeLauncher();
+    const pool = new BrowserPool({
+      browsers: 2,
+      maxContexts: 10,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+    const ctx = await pool.acquire();
+    const fake = ctx as unknown as FakeContext;
+    expect(fake.__closeCount).toBe(0);
+    await pool.release(ctx);
+    expect(fake.__closeCount).toBe(1);
+    expect(launched.length).toBe(2);
+    await pool.shutdown();
+  });
+
+  // CASE 3 — maxContexts cap + FIFO waiter; launched never grows.
+  it("enforces maxContexts and serves a pending FIFO waiter on release without forking", async () => {
+    const { launchBrowser, launched } = makeFakeLauncher();
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 2,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
     await pool.init();
 
-    expect(pool.stats().inUse).toBe(0);
-    expect(pool.stats().available).toBe(2);
-
-    const a = await pool.acquire();
-    expect(pool.stats().inUse).toBe(1);
-    expect(pool.stats().available).toBe(1);
-
-    const b = await pool.acquire();
+    const c1 = await pool.acquire();
+    const c2 = await pool.acquire();
     expect(pool.stats().inUse).toBe(2);
     expect(pool.stats().available).toBe(0);
 
-    pool.release(a);
-    expect(pool.stats().inUse).toBe(1);
-    expect(pool.stats().available).toBe(1);
+    // Third acquire pends past the cap.
+    let c3: BrowserContext | undefined;
+    const pending = pool.acquire().then((c) => (c3 = c));
+    await drainMicrotasks();
+    expect(c3).toBeUndefined();
 
-    // Idempotent: a second release of the same browser must not drive inUse
-    // negative or otherwise corrupt the count.
-    pool.release(a);
-    expect(pool.stats().inUse).toBe(1);
-    expect(pool.stats().available).toBe(1);
+    // Release frees one — the waiter is served.
+    await pool.release(c1);
+    await pending;
+    expect(c3).toBeDefined();
+    expect(pool.stats().inUse).toBe(2);
+    expect(launched.length).toBe(1); // never grew
 
-    pool.release(b);
-    expect(pool.stats().inUse).toBe(0);
-    expect(pool.stats().available).toBe(2);
-
+    await pool.release(c2);
+    await pool.release(c3!);
     await pool.shutdown();
   });
 
-  it("recovers after a transient relaunch failure instead of permanently shrinking the pool to 0", async () => {
-    // Single-slot pool. The browser crashes; the recycle's relaunch fails
-    // ONCE (the 2nd launch call), then a subsequent launch succeeds. The
-    // pool must NOT permanently evict the slot — it must keep capacity and
-    // self-heal so a later acquire() still returns a live browser.
-    const { launchBrowser, launched } = makeFakeLauncher({ failAtCalls: [2] });
-    const { logger } = makeFakeLogger();
-    const pool = new BrowserPool(1, 100, logger, launchBrowser, 0);
-    await pool.init();
-    expect(launched).toHaveLength(1);
-
-    // Crash the only browser. The disconnect-driven recycle relaunches, but
-    // launch #2 throws (the simulated transient failure).
-    launched[0]!.__crash();
-    await drainMicrotasks(30);
-
-    // BUG: the old code spliced the slot out of `this.slots` on launch
-    // failure, leaving size 0 forever. The pool must instead retain or
-    // re-create the slot so capacity recovers.
-    const acquired = await pool.acquire(5_000);
-    expect(acquired).toBeDefined();
-    expect((acquired as unknown as FakeBrowser).isConnected()).toBe(true);
-
-    // Pool reports non-zero size again — it healed rather than draining.
-    expect(pool.stats().size).toBeGreaterThan(0);
-
-    await pool.shutdown();
-  });
-
-  it("does not hand a queued waiter a browser that is already disconnected at handoff time", async () => {
-    // Bug #2 guard. The acquire() available-scan recycles a zombie before
-    // handing it out, but the WAITER-served path (handOff) used to
-    // `waiter.resolve(browser)` with NO liveness check. So a browser that
-    // silently disconnected in the window between launch and handoff could be
-    // delivered to a waiting probe. handOff (and release's waiter branch) must
-    // check `browser.isConnected()` before resolving; if dead, recycle the
-    // slot and leave the waiter queued so a LIVE browser serves it.
-    //
-    // Single-slot pool. Crash the only browser to drive a recycle. The
-    // recycle's first relaunch (call 2) returns a browser that is BORN DEAD
-    // (silently disconnected the instant it is launched), so at handOff time
-    // it reports isConnected() === false. A waiter is queued before the
-    // handoff. The waiter must NOT be resolved with the dead browser; instead
-    // the slot recycles again and call 3 (a live browser) serves the waiter.
-    const launched: FakeBrowser[] = [];
-    let callCount = 0;
-    let releaseRelaunch: (() => void) | undefined;
-    const relaunchGate = new Promise<void>((resolve) => {
-      releaseRelaunch = resolve;
-    });
-    const launchBrowser: LaunchBrowser = async () => {
-      callCount++;
-      const b = makeFakeBrowser();
-      launched.push(b);
-      if (callCount === 2) {
-        // The recycle replacement is born dead: it launches, then silently
-        // disconnects before the pool hands it to the waiter. Gate it so we
-        // can queue a waiter before the handoff runs.
-        await relaunchGate;
-        b.__silentlyDisconnect();
-      }
-      return b as unknown as Browser;
-    };
-    const { logger } = makeFakeLogger();
-    const pool = new BrowserPool(1, 100, logger, launchBrowser, 0);
-    await pool.init();
-    expect(launched).toHaveLength(1);
-
-    // Crash the only browser; the disconnect-driven recycle starts and its
-    // relaunch (call 2) blocks on the gate.
-    launched[0]!.__crash();
-    await waitFor(() => callCount >= 2, 3_000);
-
-    // Queue a waiter while the (born-dead) relaunch is gated. acquire sees no
-    // available slot and parks this waiter.
-    const acquirePromise = pool.acquire(5_000);
-    await drainMicrotasks(10);
-
-    // Release the gated relaunch. The fresh browser is born dead, so handOff
-    // must NOT resolve the waiter with it — it parks the slot relaunchPending
-    // (the slot is busy in the recycle path) and leaves the waiter QUEUED.
-    releaseRelaunch!();
-    await drainMicrotasks(20);
-
-    // The recycle path is busy at handoff time, so recovery is lazy: a
-    // subsequent acquire() drives relaunchPendingSlots, relaunches (call 3 —
-    // live), and serves the still-queued ORIGINAL waiter via handOff (FIFO).
-    // This second acquire's own waiter then times out (single slot already
-    // re-held), but the original `acquirePromise` resolves with the LIVE
-    // browser. (Driving recovery on the next probe tick is the pool's
-    // intended lazy-recovery contract.)
-    const second = pool.acquire(50);
-
-    const acquired = await acquirePromise;
-    expect((acquired as unknown as FakeBrowser).isConnected()).toBe(true);
-    // The waiter was served a LIVE browser, never the born-dead call-2 one.
-    expect((acquired as unknown as FakeBrowser).__id).not.toBe(
-      launched[1]!.__id,
-    );
-
-    await expect(second).rejects.toThrow("BrowserPool acquire timeout");
-
-    await pool.shutdown();
-  });
-
-  it("recovers a fully-parked pool (all slots relaunchPending, size 0) via the lazy relaunchPendingSlots path on the next acquire", async () => {
-    // 2-slot pool. Both browsers crash and EVERY immediate relaunch attempt
-    // fails for both slots. Each slot makes RELAUNCH_MAX_ATTEMPTS (=3) launch
-    // calls during recycle, so for 2 slots that is launch calls 3..8 (init
-    // used calls 1 and 2). Failing 3..8 exhausts every immediate retry and
-    // parks BOTH slots as `relaunchPending` — they are NOT evicted from
-    // `this.slots` (capacity is preserved), so `stats().size` reads 0 during
-    // the outage while the slots stay parked. Recovery is therefore via the
-    // lazy `relaunchPendingSlots()` path on the next acquire (launch call 9
-    // succeeds), NOT the `reinit()` backstop (which only fires when
-    // `this.slots` is truly empty). This test asserts that actual mechanism.
-    const { launchBrowser, launched } = makeFakeLauncher({
-      failAtCalls: [3, 4, 5, 6, 7, 8],
-    });
-    const { logger } = makeFakeLogger();
-    const pool = new BrowserPool(2, 100, logger, launchBrowser, 0);
-    await pool.init();
-    expect(launched).toHaveLength(2);
-
-    launched[0]!.__crash();
-    launched[1]!.__crash();
-    // The recycle uses real setTimeout backoff between attempts, so give it
-    // a wall-clock window to exhaust all retries and park both slots.
-    await waitFor(() => pool.stats().size === 0, 5_000);
-
-    // Precondition: every slot is parked, so live capacity (`size`) reads 0
-    // during the outage. The slots themselves are retained — recovery comes
-    // through the relaunchPending path, not a from-scratch reinit.
-    expect(pool.stats().size).toBe(0);
-
-    // The next acquire() recovers the parked slots via relaunchPendingSlots
-    // (launch call 9 succeeds) and hands back a live browser instead of
-    // hanging until timeout. `size` returns to non-zero once recovered.
-    const acquired = await pool.acquire(5_000);
-    expect(acquired).toBeDefined();
-    expect((acquired as unknown as FakeBrowser).isConnected()).toBe(true);
-    expect(pool.stats().size).toBeGreaterThan(0);
-
-    await pool.shutdown();
-  });
-
-  it("recovers a parked slot on the next acquire() after every immediate relaunch failed", async () => {
-    // Single-slot pool. The browser crashes and EVERY immediate relaunch
-    // attempt fails (launch calls 2..4 — RELAUNCH_MAX_ATTEMPTS=3), so the slot
-    // is parked relaunchPending. There is no background timer to recover it;
-    // recovery is lazy. A LATER launch (call 5) succeeds, and the NEXT
-    // acquire() must drive `relaunchPendingSlots()` to relaunch the slot and
-    // hand back a fresh, connected browser. This replaces the old
-    // deferred-timer test that asserted a waiter was served WITHOUT a second
-    // acquire() — that behavior intentionally no longer holds.
-    const { launchBrowser, launched } = makeFakeLauncher({
-      failAtCalls: [2, 3, 4],
-    });
-    const { logger } = makeFakeLogger();
-    const pool = new BrowserPool(1, 100, logger, launchBrowser, 0);
-    await pool.init();
-    expect(launched).toHaveLength(1);
-
-    // Hand out the only browser, then crash it while held. The disconnect
-    // recycle relaunches but calls 2..4 all fail, parking the slot.
-    const held = await pool.acquire();
-    expect(held).toBe(launched[0] as unknown as Browser);
-    (held as unknown as FakeBrowser).__crash();
-
-    // Wait until the recycle has fully exhausted its immediate retries and
-    // parked the slot — live capacity reads 0 and nothing is recovering it.
-    await waitFor(() => pool.stats().size === 0, 3_000);
-
-    // The next acquire() drives the lazy recovery: relaunchPendingSlots
-    // re-attempts the launch (call 5 succeeds) and the parked/waiting caller
-    // gets a fresh connected browser.
-    const recovered = await pool.acquire(5_000);
-    expect(recovered).toBeDefined();
-    expect((recovered as unknown as FakeBrowser).isConnected()).toBe(true);
-    expect((recovered as unknown as FakeBrowser).__id).toBe(
-      launched[launched.length - 1]!.__id,
-    );
-
-    await pool.shutdown();
-  });
-
-  it("does not double-publish a relaunchPending slot when recovery is driven concurrently", async () => {
-    // Drive a single slot into relaunchPending (all immediate retries fail),
-    // then trigger TWO concurrent acquire()-driven relaunches racing for the
-    // same slot. With a re-entry guard the slot is launched exactly once and
-    // its fresh browser is handed to exactly one acquirer — never published to
-    // `available` twice nor handed to two probes (guards bug #2).
-    const { launchBrowser, launched } = makeFakeLauncher({
-      failAtCalls: [2, 3, 4],
-    });
-    const { logger } = makeFakeLogger();
-    // Stagger 0 keeps the test fast; the launch-serialization gate's
-    // concurrency-1 guarantee (the property under test here, that the slot is
-    // launched exactly once) holds independent of the stagger length.
-    const pool = new BrowserPool(1, 100, logger, launchBrowser, 0);
-    await pool.init();
-
-    const held = await pool.acquire();
-    (held as unknown as FakeBrowser).__crash();
-    // Let the immediate recycle retries (calls 2..4) exhaust and PARK the slot
-    // as relaunchPending before we drive concurrent recovery. We wait on
-    // `size === 0` (slot parked, recycle fully done) rather than
-    // `available === 0` — `available` is already 0 the instant the only
-    // browser was handed out, so it would let the race start while the recycle
-    // is still in flight and the slot is not yet pending. No `.catch` swallow
-    // here — if the precondition never settles, the test must fail loudly
-    // rather than proceed on stale state.
-    await waitFor(() => pool.stats().size === 0, 3_000);
-
-    // Two acquirers race for the single recovering slot, each driving
-    // relaunchPendingSlots. With the launch-serialization gate, exactly one of
-    // them claims the slot (relaunchingSlots) and drives the single gated
-    // launch; the other skips (slot busy) and parks as a waiter. The freshly
-    // launched browser is handed off to one of the two — the WINNER — and the
-    // LOSER is left parked. The loser uses a SHORT timeout so this test stays
-    // fast: a parked waiter is only rejected by `shutdown()`, and the gate's
-    // extra `await` can let the loser register its waiter AFTER `shutdown()`
-    // has already drained the waiter set, in which case only its own timeout
-    // frees it. We assert the WINNER got exactly the one fresh launch; the
-    // loser's fate (short-timeout reject) is not the property under test.
-    const a = pool.acquire(150);
-    const b = pool.acquire(150);
-
-    const settled = await Promise.allSettled([a, b]);
-    const fulfilled = settled.filter(
-      (s): s is PromiseFulfilledResult<Browser> => s.status === "fulfilled",
-    );
-    // Exactly one acquirer was served (the single slot can serve only one
-    // before being re-held); the other parked and timed out.
-    expect(fulfilled).toHaveLength(1);
-    const first = fulfilled[0]!.value;
-    expect((first as unknown as FakeBrowser).isConnected()).toBe(true);
-
-    // Exactly one fresh browser (the successful relaunch, call 5) was
-    // created beyond init — no leaked second launch from a re-entrant relaunch.
-    const freshBeyondInit = launched.slice(1);
-    expect(freshBeyondInit.length).toBe(1);
-
-    // Exact-once: the browser handed to the winning acquirer must BE that
-    // single fresh launch. Asserting only `length === 1` can pass even if the
-    // winner were served some other instance; pinning the id proves the slot
-    // was launched once and that launch is exactly what got served.
-    expect((first as unknown as FakeBrowser).__id).toBe(
-      freshBeyondInit[0]!.__id,
-    );
-
-    // The single slot must never appear twice in `available`.
-    expect(pool.stats().available).toBeLessThanOrEqual(1);
-    expect(pool.stats().size).toBe(1);
-
-    await pool.shutdown();
-  });
-
-  it("recovers a parked slot via a later acquire() even when an intervening acquire()'s relaunch also failed", async () => {
-    // Lazy-recovery guard. A single-slot pool. The browser crashes via a
-    // `disconnected` event while NO acquire is waiting. The recycle exhausts
-    // all immediate retries (calls 2..4 fail) and parks the slot
-    // relaunchPending. There is no background timer — recovery is purely
-    // acquire()-driven.
-    //
-    // A first acquire()'s leading relaunchPendingSlots() attempt (call 5) ALSO
-    // fails, so that acquire parks a waiter and eventually times out (no timer
-    // re-arms recovery). A LATER acquire() then drives relaunchPendingSlots
-    // again (call 6 succeeds) and gets the fresh connected browser. This proves
-    // the on-demand recovery is robust to a failed intervening relaunch — the
-    // harness probes continuously, so a subsequent probe tick recovers.
-    const { launchBrowser, launched } = makeFakeLauncher({
-      failAtCalls: [2, 3, 4, 5],
-    });
-    const { logger } = makeFakeLogger();
-    const pool = new BrowserPool(1, 100, logger, launchBrowser, 0);
-    await pool.init();
-    expect(launched).toHaveLength(1);
-
-    // Crash the idle browser. The recycle exhausts immediate retries and parks
-    // the slot relaunchPending (no waiter queued, no timer to recover it).
-    launched[0]!.__crash();
-    // Wait until the recycle has fully exhausted its immediate retries and
-    // parked the slot — i.e. live capacity reads 0.
-    await waitFor(() => pool.stats().size === 0, 3_000);
-
-    // First acquire(): its leading relaunchPendingSlots attempt is call 5,
-    // which fails, so it parks a waiter that hits its (short) timeout — no
-    // timer re-arms recovery, which is the intended lazy behavior.
-    await expect(pool.acquire(50)).rejects.toThrow(
-      "BrowserPool acquire timeout",
-    );
-
-    // A LATER acquire() drives relaunchPendingSlots again; call 6 succeeds and
-    // the parked slot is recovered with a fresh connected browser.
-    const recovered = await pool.acquire(5_000);
-    expect(recovered).toBeDefined();
-    expect((recovered as unknown as FakeBrowser).isConnected()).toBe(true);
-    expect((recovered as unknown as FakeBrowser).__id).toBe(
-      launched[launched.length - 1]!.__id,
-    );
-
-    await pool.shutdown();
-  });
-
-  it("launches exactly one fresh browser when a late disconnect for an OLD browser races relaunchPendingSlots relaunching the same slot", async () => {
-    // Bug #2 guard. A slot parked relaunchPending still holds its OLD (dead)
-    // browser as slot.browser and is still in this.slots. relaunchPendingSlots
-    // begins relaunching it (slot enters relaunchingSlots, NOT recyclingSlots).
-    // While that relaunch is in flight, a LATE `disconnected` fire for the OLD
-    // browser passes the disconnect handler's guards (slot.browser === old,
-    // slots.includes(slot)) and reaches recycleSlot. The OLD guard only
-    // consulted recyclingSlots, so recycleSlot would proceed and launch a
-    // SECOND fresh browser — leaking one process / double-swapping slot.browser.
-    // isSlotBusy (which also checks relaunchingSlots) must make recycleSlot a
-    // no-op so exactly ONE fresh browser is launched and not double-published.
-    //
-    // Deterministic race: gate the relaunchPendingSlots launch so the slot is
-    // mid-relaunch (in relaunchingSlots) when we re-fire the old disconnect.
-    const launched: FakeBrowser[] = [];
-    let callCount = 0;
-    let releaseRelaunch: (() => void) | undefined;
-    const relaunchGate = new Promise<void>((resolve) => {
-      releaseRelaunch = resolve;
-    });
-    // init = call 1; recycle's 3 immediate retries = calls 2..4 (all fail) to
-    // park the slot; the relaunchPendingSlots relaunch = call 5, which we gate.
-    const failCalls = new Set([2, 3, 4]);
-    const launchBrowser: LaunchBrowser = async () => {
-      callCount++;
-      if (failCalls.has(callCount)) {
-        throw new Error("simulated launch failure");
-      }
-      if (callCount === 5) {
-        await relaunchGate;
-      }
-      const b = makeFakeBrowser();
-      launched.push(b);
-      return b as unknown as Browser;
-    };
-    const { logger } = makeFakeLogger();
-    const pool = new BrowserPool(1, 100, logger, launchBrowser, 0);
-    await pool.init();
-    expect(launched).toHaveLength(1);
-    const oldBrowser = launched[0]!;
-
-    // Crash the only browser. The disconnect-driven recycle relaunches, but
-    // calls 2..4 all fail, parking the slot relaunchPending. slot.browser is
-    // still oldBrowser (no successful swap), and the slot remains in
-    // this.slots — so a future disconnect for oldBrowser is still routed here.
-    oldBrowser.__crash();
-    await waitFor(() => pool.stats().size === 0, 3_000);
-
-    // Drive relaunchPendingSlots via an acquire(): it picks the pending slot,
-    // adds it to relaunchingSlots, and awaits the gated launch (call 5).
-    const acquirePromise = pool.acquire(5_000);
-    await drainMicrotasks(10);
-
-    // Now fire a LATE disconnect for the OLD browser while the relaunch is
-    // gated and the slot sits in relaunchingSlots (but NOT recyclingSlots).
-    // `__crash` already fired once and no-ops now, so re-fire the event
-    // directly to model the delayed delivery. Without the cross-set guard this
-    // re-enters recycleSlot and launches a second browser; with isSlotBusy it
-    // is a no-op (slot.browser is still oldBrowser, so handler guards pass).
-    oldBrowser.__fireDisconnectLate();
-    await drainMicrotasks(10);
-
-    // Release the gated relaunch; the single fresh browser is delivered.
-    releaseRelaunch!();
-    const acquired = await acquirePromise;
-    expect(acquired).toBeDefined();
-    expect((acquired as unknown as FakeBrowser).isConnected()).toBe(true);
-
-    // Let any erroneously-spawned second recycle settle so a leak would show.
-    await drainMicrotasks(20);
-
-    // Exactly ONE fresh browser beyond init — the late disconnect did not
-    // launch a second. No leaked process, no double-publish.
-    const freshBeyondInit = launched.slice(1);
-    expect(freshBeyondInit.length).toBe(1);
-    expect((acquired as unknown as FakeBrowser).__id).toBe(
-      freshBeyondInit[0]!.__id,
-    );
-    expect(pool.stats().available).toBeLessThanOrEqual(1);
-    expect(pool.stats().size).toBe(1);
-
-    await pool.shutdown();
-  });
-
-  it("launches exactly one fresh browser per slot when two pending slots are recovered by two concurrent relaunchPendingSlots invocations", async () => {
-    // Bug #1 guard (multi-slot reachable double-launch). relaunchPendingSlots
-    // snapshots `pending` ONCE then loops. With >=2 pending slots and two
-    // concurrent acquire()-driven invocations:
-    //   - invocation 1 snapshots [A, B], processes A (adds A to
-    //     relaunchingSlots, awaits A's gated launch);
-    //   - invocation 2 starts during that await, snapshots [B] (A is now
-    //     busy), claims B and relaunches it;
-    //   - invocation 1's A launch resolves; its loop advances to B and — with
-    //     NO in-loop re-check — re-adds B and launches a SECOND browser for B,
-    //     overwriting slot.browser (leaking the first) and double-publishing.
-    // The in-loop `if (this.isSlotBusy(slot) || !slot.relaunchPending)
-    // continue;` makes invocation 1 skip B, so EXACTLY ONE fresh browser is
-    // launched per slot.
-    //
-    // Deterministic race, ADAPTED for the launch-serialization gate. The gate
-    // funnels EVERY launch through a concurrency-1 serializer, so two recovery
-    // launches can never be in flight (running rawLaunchBrowser) at the same
-    // instant. We therefore gate ONLY the FIRST recovery launch (call 9, slot
-    // A driven by invocation 1). While that launch is gated/held, invocation 2
-    // runs, snapshots pending as [slot B] (slot A is busy in relaunchingSlots),
-    // and CLAIMS slot B (adds it to relaunchingSlots) before its own launch
-    // (call 10) queues behind call 9 in the gate chain. Releasing call 9 lets
-    // invocation 1's loop advance to slot B — where the in-loop guard
-    // `if (this.isSlotBusy(slot) || !slot.relaunchPending) continue;` MUST skip
-    // it (B is busy / no longer pending), so EXACTLY ONE fresh browser is
-    // launched per slot. Stagger 0 keeps the chain advancing fast.
-    const launched: FakeBrowser[] = [];
-    let callCount = 0;
-    let releaseCall9: (() => void) | undefined;
-    const call9Gate = new Promise<void>((resolve) => {
-      releaseCall9 = resolve;
-    });
-    // init = calls 1,2; the two slots' immediate recycle retries
-    // (RELAUNCH_MAX_ATTEMPTS=3 each) = calls 3..8, all fail to park both slots.
-    // Recovery relaunches are calls 9 (gated) and 10.
-    const failCalls = new Set([3, 4, 5, 6, 7, 8]);
-    const launchBrowser: LaunchBrowser = async () => {
-      callCount++;
-      if (failCalls.has(callCount)) {
-        throw new Error("simulated launch failure");
-      }
-      if (callCount === 9) {
-        await call9Gate;
-      }
-      const b = makeFakeBrowser();
-      launched.push(b);
-      return b as unknown as Browser;
-    };
-    const { logger } = makeFakeLogger();
-    const pool = new BrowserPool(2, 100, logger, launchBrowser, 0);
-    await pool.init();
-    expect(launched).toHaveLength(2);
-
-    // Park BOTH slots as relaunchPending: crash both, let all immediate
-    // retries (calls 3..8) exhaust. Live capacity drops to 0 while both slots
-    // stay in this.slots.
-    launched[0]!.__crash();
-    launched[1]!.__crash();
-    await waitFor(() => pool.stats().size === 0, 5_000);
-    expect(pool.stats().size).toBe(0);
-
-    // Drive two concurrent relaunchPendingSlots invocations via two acquire()s.
-    // Invocation 1 (a) snapshots [slotA, slotB], claims slotA, and its slotA
-    // launch (call 9) blocks on the gate. Invocation 2 (b) then runs: it
-    // snapshots [slotB] (slotA busy), claims slotB, and its slotB launch (call
-    // 10) is queued in the serialization chain BEHIND the gated call 9.
-    const a = pool.acquire(5_000);
-    const b = pool.acquire(5_000);
-
-    // Wait until call 9 is actually in flight (gated) — i.e. invocation 1 has
-    // claimed slotA and reached its launch. By this point invocation 2 has had
-    // the chance to claim slotB. Drain microtasks so invocation 2's synchronous
-    // claim-then-queue has run before we release call 9.
-    await waitFor(() => callCount >= 9, 3_000);
-    await drainMicrotasks(30);
-
-    // Release call 9. Invocation 1's slotA launch resolves; its loop advances
-    // to slotB. WITHOUT the in-loop guard it would launch a SECOND browser for
-    // slotB (a 3rd launch, call 11). WITH the guard it skips slotB (busy / no
-    // longer pending). Call 10 (invocation 2's slotB launch) then runs.
-    releaseCall9!();
-
-    // Both acquirers must be served — one per slot — and exactly two fresh
-    // browsers launched beyond init (no leaked third launch for the contended
-    // slot).
-    const both = await Promise.all([a, b]);
-    both.forEach((br) =>
-      expect((br as unknown as FakeBrowser).isConnected()).toBe(true),
-    );
-
-    await drainMicrotasks(30);
-
-    const freshBeyondInit = launched.slice(2);
-    expect(freshBeyondInit.length).toBe(2);
-    // No erroneous third launch was ever attempted for the contended slot.
-    expect(callCount).toBe(10);
-
-    // Pin exact-once: both acquirers are served by the two fresh launches, and
-    // each fresh browser maps to a distinct slot (no slot.browser overwrite).
-    const servedIds = both.map((br) => (br as unknown as FakeBrowser).__id);
-    const freshIds = freshBeyondInit.map((br) => br.__id);
-    expect(new Set(servedIds)).toEqual(new Set(freshIds));
-
-    // Two live slots recovered, never double-published into available.
-    expect(pool.stats().size).toBe(2);
-    expect(pool.stats().available).toBeLessThanOrEqual(2);
-
-    await pool.shutdown();
-    await Promise.allSettled([a, b]);
-  });
-
-  it("routes capacity-loss events to error and per-attempt failures to warn", async () => {
-    // Single-slot pool. The browser crashes and EVERY immediate relaunch
-    // attempt fails (calls 2..4 — RELAUNCH_MAX_ATTEMPTS=3), so each per-attempt
-    // close/relaunch failure must log at warn while the terminal capacity-loss
-    // event (`recycle-relaunch-failed`) must log at error.
-    const { launchBrowser, launched } = makeFakeLauncher({
-      failAtCalls: [2, 3, 4],
-    });
-    const { logger, events } = makeLeveledLogger();
-    const pool = new BrowserPool(1, 100, logger, launchBrowser, 0);
-    await pool.init();
-    expect(launched).toHaveLength(1);
-
-    launched[0]!.__crash();
-    await waitFor(() => pool.stats().size === 0, 3_000);
-
-    // Terminal capacity-loss after all retries → error.
-    const recycleFailed = events.find(
-      (e) => e.event === "browser-pool.recycle-relaunch-failed",
-    );
-    expect(recycleFailed).toBeDefined();
-    expect(recycleFailed?.level).toBe("error");
-
-    // The capacity-loss event must NOT also have been emitted at info.
-    expect(
-      events.some(
-        (e) =>
-          e.event === "browser-pool.recycle-relaunch-failed" &&
-          e.level === "info",
-      ),
-    ).toBe(false);
-
-    await pool.shutdown();
-  });
-
-  it("routes per-attempt relaunch-failed (lazy recovery) to warn", async () => {
-    // Single-slot pool. Crash + all immediate retries fail (calls 2..4) parks
-    // the slot. A first acquire's lazy relaunchPendingSlots attempt (call 5)
-    // ALSO fails → `relaunch-failed` must log at warn (per-attempt, not a
-    // terminal capacity loss).
-    const { launchBrowser, launched } = makeFakeLauncher({
-      failAtCalls: [2, 3, 4, 5],
-    });
-    const { logger, events } = makeLeveledLogger();
-    const pool = new BrowserPool(1, 100, logger, launchBrowser, 0);
-    await pool.init();
-
-    launched[0]!.__crash();
-    await waitFor(() => pool.stats().size === 0, 3_000);
-
-    // First acquire drives a relaunchPendingSlots attempt (call 5) which fails.
-    await expect(pool.acquire(50)).rejects.toThrow(
-      "BrowserPool acquire timeout",
-    );
-
-    const relaunchFailed = events.find(
-      (e) => e.event === "browser-pool.relaunch-failed",
-    );
-    expect(relaunchFailed).toBeDefined();
-    expect(relaunchFailed?.level).toBe("warn");
-
-    await pool.shutdown();
-  });
-
-  it("emits an error when reinit ends with an empty pool (every relaunch failed)", async () => {
-    // 1-slot pool. After init (call 1), every subsequent launch fails. The
-    // backstop reinit() can only run when this.slots is truly empty, so we
-    // construct a never-launched pool: init throws nothing (call 1 succeeds),
-    // but to reach the empty-pool reinit path we use a 1-slot pool whose ONLY
-    // slot was never created because init's launch failed. Use failAt=1 so
-    // init launches nothing, leaving this.slots empty; the next acquire drives
-    // reinit, whose launch (call 2) also fails, ending the pool empty → error.
-    const { launchBrowser } = makeFakeLauncher({ failAtCalls: [1, 2, 3] });
-    const { logger, events } = makeLeveledLogger();
-    const pool = new BrowserPool(1, 100, logger, launchBrowser, 0);
-    // init's only launch (call 1) throws — init sets `launchBrowser` BEFORE the
-    // launch loop, so after catching the throw `this.slots` is empty but the
-    // pool can still reinit. (init does not swallow launch errors by design.)
-    await expect(pool.init()).rejects.toThrow("simulated launch failure");
-    expect(pool.stats().size).toBe(0);
-
-    // acquire drives the empty-pool reinit backstop; its launch (call 2) fails,
-    // so reinitInner's loop ends with this.slots.length === 0 → error emit.
-    await expect(pool.acquire(50)).rejects.toThrow(
-      "BrowserPool acquire timeout",
-    );
-
-    const reinitEmpty = events.find(
-      (e) => e.event === "browser-pool.reinit-empty",
-    );
-    expect(reinitEmpty).toBeDefined();
-    expect(reinitEmpty?.level).toBe("error");
-
-    await pool.shutdown();
-  });
-
-  it("closes browsers already launched when a later init() fill launch throws", async () => {
-    // Multi-slot pool. The fill loop launches calls 1 and 2 successfully, then
-    // call 3 throws (PID-ceiling pthread_create EAGAIN / "Zygote could not
-    // fork" under launch pressure — the exact failure this file exists to
-    // survive). init() must REJECT, but the 2 browsers already launched must
-    // be CLOSED rather than leaked, and the pool's internal state must reset to
-    // empty so a half-initialized pool cannot result. The existing init-failure
-    // tests use a 1-slot pool or first-launch-fails (nothing launched yet),
-    // which is why this partial-fill leak was missed.
-    const { launchBrowser, launched } = makeFakeLauncher({ failAtCalls: [3] });
-    const { logger } = makeLeveledLogger();
-    const pool = new BrowserPool(4, 100, logger, launchBrowser, 0);
-
-    await expect(pool.init()).rejects.toThrow("simulated launch failure");
-
-    // Calls 1 and 2 succeeded before call 3 threw, so two browsers were live.
-    expect(launched).toHaveLength(2);
-    // Both must have been closed during the failed-fill cleanup — not leaked.
-    expect(launched[0]!.__closeCount).toBeGreaterThan(0);
-    expect(launched[1]!.__closeCount).toBeGreaterThan(0);
-    // The pool must be empty after rejection — no half-initialized state.
-    expect(pool.stats().size).toBe(0);
-    expect(pool.stats().available).toBe(0);
-  });
-
-  it("does not overshoot poolSize when two concurrent acquires hit an empty pool", async () => {
-    // Empty pool (init launches nothing). Two concurrent acquire() calls both
-    // see this.slots.length === 0. WITHOUT a reiniting guard, BOTH drive
-    // reinit() and each launches up to poolSize browsers — overshoot. WITH the
-    // guard, the second acquire skips reinit and falls through to the waiter
-    // queue, so at most poolSize browsers are launched.
-    const poolSize = 2;
-    // init = call 1 fails (so this.slots stays empty); reinit launches succeed.
-    const { launchBrowser, launched } = makeFakeLauncher({ failAtCalls: [1] });
-    const { logger } = makeLeveledLogger();
-    const pool = new BrowserPool(poolSize, 100, logger, launchBrowser, 0);
-    // init's first launch (call 1) throws, leaving this.slots empty but with
-    // `launchBrowser` already set so reinit can run. init does not swallow.
-    await expect(pool.init()).rejects.toThrow("simulated launch failure");
-    expect(pool.stats().size).toBe(0);
-
-    const a = pool.acquire(5_000);
-    const b = pool.acquire(5_000);
-
-    const first = await Promise.race([a, b]);
-    expect(first).toBeDefined();
-    expect((first as unknown as FakeBrowser).isConnected()).toBe(true);
-
-    await drainMicrotasks(30);
-
-    // The guard ensures only ONE reinit ran: at most poolSize browsers exist.
-    expect(launched.length).toBeLessThanOrEqual(poolSize);
-    expect(pool.stats().size).toBeLessThanOrEqual(poolSize);
-
-    await pool.shutdown();
-    await Promise.allSettled([a, b]);
-  });
-
-  it("tracks the SAME wrapper object it removes, so awaiting the tracked promise waits for its cleanup", async () => {
-    // Bug #3 guard. track(promise) added the RAW inner promise to
-    // inFlightRecycles, while the wrapper it returned (and the inner methods
-    // await) was `promise.catch(...).finally(() => delete(promise))`. shutdown
-    // drains `Array.from(inFlightRecycles)` — i.e. the RAW promise, which
-    // settles one or more microtasks BEFORE the wrapper's `.finally` cleanup
-    // runs. So a consumer that awaits the EXACT object in the set (as shutdown
-    // does) is NOT guaranteed the cleanup has run when that await resolves —
-    // the drain under-waits. recycleSlot does this correctly (adds and removes
-    // the same recyclePromise object). The fix makes track add/return the SAME
-    // wrapper, so the object shutdown awaits is the very wrapper whose
-    // `.finally` removes it — when it settles, the cleanup has run.
-    //
-    // Behavioral RED that does NOT depend on microtask luck: grab the exact
-    // object stored in inFlightRecycles (what shutdown awaits), await THAT
-    // object, then SYNCHRONOUSLY assert the set is empty. With the fix the set
-    // element IS the wrapper, so its `.finally` ran by the time the await
-    // resolves → set empty. With the bug the set element is the RAW promise,
-    // which resolves BEFORE the wrapper's `.finally` → set still has 1 entry at
-    // that synchronous checkpoint. The private set is read reflectively
-    // (white-box) per the bug's nature: raw-vs-wrapper is otherwise
-    // unobservable because the inner recovery methods swallow their own errors.
-    const launched: FakeBrowser[] = [];
-    let callCount = 0;
-    let releaseReinit: (() => void) | undefined;
-    const reinitGate = new Promise<void>((resolve) => {
-      releaseReinit = resolve;
-    });
-    const launchBrowser: LaunchBrowser = async () => {
-      callCount++;
-      // init's launch (call 1) fails so this.slots stays empty → the next
-      // acquire drives the reinit() backstop, whose launch (call 2) we gate.
-      if (callCount === 1) {
-        throw new Error("simulated launch failure");
-      }
-      if (callCount === 2) {
-        await reinitGate;
-      }
-      const b = makeFakeBrowser();
-      launched.push(b);
-      return b as unknown as Browser;
-    };
-    const { logger } = makeFakeLogger();
-    const pool = new BrowserPool(1, 100, logger, launchBrowser, 0);
-    // init's only launch (call 1) throws → this.slots empty, but rawLaunchBrowser
-    // is set so the empty-pool reinit backstop can run.
-    await expect(pool.init()).rejects.toThrow("simulated launch failure");
-
-    // Drive the reinit backstop via an acquire; its launch (call 2) blocks on
-    // the gate, so a tracked recovery promise is in flight. A short timeout so
-    // the waiter (acquire re-queues after reinit returns) rejects promptly
-    // instead of hanging the test.
-    const acquirePromise = pool.acquire(100);
-    await waitFor(() => callCount >= 2, 3_000);
-
-    const inFlight = (pool as unknown as { inFlightRecycles: Set<unknown> })
-      .inFlightRecycles;
-    expect(inFlight.size).toBe(1);
-
-    // The exact object shutdown would await — the single tracked entry.
-    const tracked = Array.from(inFlight)[0] as Promise<unknown>;
-
-    // Release the gated launch so the tracked recovery settles.
-    releaseReinit!();
-
-    // Await the EXACT tracked object, then synchronously check the set. With
-    // the fix this object is the wrapper whose `.finally` removed it → empty.
-    // With the bug it is the raw promise, which settles before cleanup → not
-    // yet empty.
-    await tracked;
-    expect(inFlight.size).toBe(0);
-
-    await pool.shutdown();
-    await Promise.allSettled([acquirePromise]);
-  });
-
-  it("shutdown() does not loop the disconnect handler when closing slot browsers", async () => {
+  // CASE 4 — least-loaded assignment across N browsers.
+  it("assigns contexts to the least-loaded live browser", async () => {
     const { launchBrowser, launched } = makeFakeLauncher();
-    const { logger, events } = makeFakeLogger();
-    const pool = new BrowserPool(2, 100, logger, launchBrowser, 0);
+    const pool = new BrowserPool({
+      browsers: 3,
+      maxContexts: 30,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
     await pool.init();
 
-    await pool.shutdown();
+    // First 3 acquires should each land on a distinct browser (all start at 0).
+    const c1 = await pool.acquire();
+    const c2 = await pool.acquire();
+    const c3 = await pool.acquire();
+    const owners = launched.map((b) => b.__contexts.length);
+    expect(owners).toEqual([1, 1, 1]);
 
-    // shutdown closes both browsers, which fires disconnected on the fakes.
-    // The handler must early-return on isShutdown so no relaunches happen.
+    // 4th acquire goes to a browser tied at the minimum (1 each → first).
+    await pool.acquire();
+    const after = launched.map((b) => b.__contexts.length).sort();
+    expect(after).toEqual([1, 1, 2]);
+
+    void c1;
+    void c2;
+    void c3;
+    await pool.shutdown();
+  });
+
+  // CASE 5 — browser crash: its contexts removed, ONE relaunch, subsequent
+  // acquire served by a live browser, blast radius = only its contexts.
+  it("recovers from a browser crash with exactly one relaunch and bounded blast radius", async () => {
+    const { launchBrowser, launched } = makeFakeLauncher();
+    const { logger } = makeLeveledLogger();
+    const pool = new BrowserPool({
+      browsers: 2,
+      maxContexts: 10,
+      logger,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
     expect(launched.length).toBe(2);
-    expect(
-      events.filter((e) => e.event === "browser-pool.recycle"),
-    ).toHaveLength(0);
-    expect(launched[0]!.__closeCount).toBeGreaterThan(0);
-    expect(launched[1]!.__closeCount).toBeGreaterThan(0);
-  });
-});
 
-/**
- * A launcher that records, for every chromium launch the pool drives, the
- * wall-clock start time and the number of launches in flight at the moment
- * this one entered. Used to prove the launch-serialization gate funnels
- * EVERY launch (init fill, recycle relaunch, lazy relaunchPending) through a
- * single concurrency-1 gate with a stagger between settled launches.
- *
- * `launchDurationMs` makes each fake launch take measurable wall time so an
- * un-gated burst would overlap (inFlight > 1) — the assertion that
- * `maxConcurrent === 1` is only meaningful when launches actually overlap
- * without the gate.
- */
-function makeRecordingLauncher(opts?: { launchDurationMs?: number }): {
-  launchBrowser: LaunchBrowser;
-  starts: number[];
-  maxConcurrent: number;
-  launched: FakeBrowser[];
-} {
-  const launchDurationMs = opts?.launchDurationMs ?? 20;
-  const starts: number[] = [];
-  const launched: FakeBrowser[] = [];
-  let inFlight = 0;
-  const rec = {
-    launchBrowser: (async (): Promise<Browser> => {
-      starts.push(Date.now());
-      inFlight++;
-      if (inFlight > rec.maxConcurrent) rec.maxConcurrent = inFlight;
-      await new Promise((resolve) => setTimeout(resolve, launchDurationMs));
-      inFlight--;
-      const b = makeFakeBrowser();
-      launched.push(b);
-      return b as unknown as Browser;
-    }) as LaunchBrowser,
-    starts,
-    maxConcurrent: 0,
-    launched,
-  };
-  return rec;
-}
+    // Acquire one context on each browser.
+    const c1 = await pool.acquire();
+    const c2 = await pool.acquire();
+    expect(pool.stats().inUse).toBe(2);
 
-describe("BrowserPool waiter-served release-leak (CR finding)", () => {
-  it("recovers the slot when the served waiter releases the browser in its own awaited continuation", async () => {
-    // CR finding (7-agent confirmation round): release() was made idempotent
-    // via the `checkedOut` Set. In handOff's waiter branch the slot's
-    // `checkedOut.add(slot)` is DEFERRED via queueMicrotask (microtask M),
-    // while `waiter.resolve(browser)` runs synchronously right after. The
-    // worry: the served waiter's await-continuation (call it C) calls
-    // `release(browser)` BEFORE M runs, so release hits `!checkedOut.has(slot)`
-    // → no-ops → the slot is ORPHANED (never returned to `available`,
-    // contextCount never advances) = permanent capacity leak.
-    //
-    // Counter-claim: M is queued BEFORE resolve(), and resolve() schedules C,
-    // so by microtask FIFO M runs before C — making the leak unreachable. This
-    // test settles that timing claim empirically.
-    //
-    // Scenario: single-slot pool. A holder owns the only browser; a waiter is
-    // parked. The holder releases, which serves the waiter via handOff. In the
-    // WAITER'S OWN awaited continuation we immediately (synchronously, in that
-    // continuation's frame) release the served browser back to the pool. If the
-    // leak is real, that release no-ops and the slot is lost; if FIFO holds, the
-    // slot is recovered and lands back in `available`.
-    const { launchBrowser, launched } = makeFakeLauncher();
-    const pool = new BrowserPool(1, 100, undefined, launchBrowser, 0);
-    await pool.init();
+    // Crash the browser that owns c1 (browser 0).
+    launched[0]!.__crash();
+    await waitFor(() => launched.length === 3); // exactly one relaunch
 
-    // Holder takes the only browser; slot is now checked out, none available.
-    const holderBrowser = await pool.acquire();
-    expect(holderBrowser).toBe(launched[0] as unknown as Browser);
-    expect(pool.stats().available).toBe(0);
+    expect(launched.length).toBe(3);
+    // The crashed browser's context was dropped from accounting; c2 survives.
     expect(pool.stats().inUse).toBe(1);
 
-    // Park a waiter. Its continuation models a real probe: await the acquire,
-    // then synchronously release the browser it was served — exactly the frame
-    // the finding targets (C running before microtask M).
-    let waiterReleased = false;
-    const waiterFlow = (async () => {
-      const servedBrowser = await pool.acquire(5_000);
-      // Synchronous release inside the waiter's own continuation frame.
-      pool.release(servedBrowser);
-      waiterReleased = true;
-      return servedBrowser;
-    })();
+    // A subsequent acquire is served by a live browser (no throw).
+    const c3 = await pool.acquire();
+    expect(c3).toBeDefined();
 
-    // Let the waiter park before the holder releases.
+    await pool.release(c2);
+    await pool.release(c3);
+    void c1;
+    await pool.shutdown();
+  });
+
+  // CASE 6 — hygiene recycle fires exactly once and ONLY when idle.
+  it("hygiene-recycles a browser once it has served recycleAfter contexts AND is idle", async () => {
+    const { launchBrowser, launched } = makeFakeLauncher();
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 10,
+      recycleAfter: 3,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+    expect(launched.length).toBe(1);
+
+    // Serve 2 contexts (below threshold) → no relaunch.
+    for (let i = 0; i < 2; i++) {
+      const c = await pool.acquire();
+      await pool.release(c);
+    }
+    await drainMicrotasks();
+    expect(launched.length).toBe(1);
+
+    // The 3rd release crosses recycleAfter=3 while idle → exactly one recycle.
+    const c = await pool.acquire();
+    await pool.release(c);
+    await waitFor(() => launched.length === 2);
+    expect(launched.length).toBe(2);
+
+    await pool.shutdown();
+  });
+
+  // A1 — release/serve/recycle race. A release that crosses the recycleAfter
+  // boundary WHILE a waiter is queued must NOT hygiene-recycle the freed entry:
+  // serveNextWaiter() reserves + asynchronously opens a context on that same
+  // entry, and a recycle fired on the now-stale synchronous snapshot would tear
+  // the browser out from under the just-served waiter. The hygiene recycle must
+  // defer to a later genuinely-idle release.
+  it("does NOT hygiene-recycle on a boundary-crossing release while a waiter is queued (serve wins)", async () => {
+    const { launchBrowser, launched } = makeFakeLauncher();
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 1,
+      recycleAfter: 1, // the very first served context makes the entry eligible
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+    expect(launched.length).toBe(1);
+
+    // Fill the cap with one context → servedContexts becomes 1 (>= recycleAfter).
+    const c1 = await pool.acquire();
+    expect(pool.stats().inUse).toBe(1);
+
+    // Queue a waiter past the cap.
+    let c2: BrowserContext | undefined;
+    const pending = pool.acquire().then((c) => (c2 = c));
+    await drainMicrotasks();
+    expect(c2).toBeUndefined();
+
+    // Release c1: it crosses recycleAfter=1 while idle (shouldRecycle would be
+    // true) BUT a waiter is queued, so the waiter must be served onto the SAME
+    // browser and NO recycle may fire.
+    await pool.release(c1);
+    await pending;
+
+    expect(c2).toBeDefined();
+    // No recycle, no relaunch — the waiter is served on the original browser.
+    expect(pool.stats().totalRecycles).toBe(0);
+    expect(launched.length).toBe(1);
+    expect(launched[0]!.isConnected()).toBe(true);
+    // The served context lives on the original browser.
+    expect(launched[0]!.__contexts.map((x) => x.__id)).toContain(ctxId(c2!));
+    expect(pool.stats().inUse).toBe(1);
+
+    await pool.release(c2!);
+    await pool.shutdown();
+  });
+
+  it("does NOT hygiene-recycle while the browser still has live contexts", async () => {
+    const { launchBrowser, launched } = makeFakeLauncher();
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 10,
+      recycleAfter: 2,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+
+    // Hold one context open while crossing the threshold via others.
+    const held = await pool.acquire();
+    const a = await pool.acquire();
+    await pool.release(a);
+    const b = await pool.acquire();
+    await pool.release(b);
+    await drainMicrotasks();
+    // servedContexts >= 2 but a live context is held → no recycle yet.
+    expect(launched.length).toBe(1);
+
+    await pool.release(held);
+    await pool.shutdown();
+  });
+
+  // CASE 7 — never hands out a context on a recycling/disconnected browser.
+  it("never opens a context on a disconnected browser", async () => {
+    const { launchBrowser, launched } = makeFakeLauncher();
+    const pool = new BrowserPool({
+      browsers: 2,
+      maxContexts: 10,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+
+    // Silently disconnect browser 0 (no event) — acquire must skip it.
+    launched[0]!.__silentlyDisconnect();
+    const c1 = await pool.acquire();
+    // Context must have been opened on the live browser (index 1).
+    expect(launched[1]!.__contexts.map((x) => x.__id)).toContain(ctxId(c1));
+    expect(launched[0]!.__contexts.length).toBe(0);
+
+    await pool.release(c1);
+    await pool.shutdown();
+  });
+
+  // CASE 8 — shutdown rejects waiters, awaits in-flight recycle, closes all,
+  // no relaunch loop.
+  it("shutdown rejects queued waiters and closes all browsers", async () => {
+    const { launchBrowser, launched } = makeFakeLauncher();
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 1,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+
+    const c1 = await pool.acquire();
+    // Pend a waiter past the cap.
+    let rejected: Error | undefined;
+    const pending = pool.acquire().catch((e: Error) => (rejected = e));
     await drainMicrotasks();
 
-    // Holder releases — handOff serves the parked waiter with the live browser,
-    // deferring `checkedOut.add(slot)` to microtask M and resolving the waiter
-    // synchronously. The waiter's continuation C then releases the browser.
-    pool.release(holderBrowser);
+    await pool.shutdown();
+    await pending;
+    expect(rejected).toBeInstanceOf(Error);
+    expect(launched[0]!.__closeCount).toBeGreaterThanOrEqual(1);
+    void c1;
+  });
 
-    // Drain everything so M and C have both run.
-    const servedBrowser = await waiterFlow;
-    await drainMicrotasks(20);
+  // CASE 9 — stats() semantics.
+  it("reports stats with maxContexts size and live-context-derived counters", async () => {
+    const { launchBrowser } = makeFakeLauncher();
+    const pool = new BrowserPool({
+      browsers: 2,
+      maxContexts: 5,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
 
-    expect(waiterReleased).toBe(true);
-    expect(servedBrowser).toBe(launched[0] as unknown as Browser);
+    expect(pool.stats()).toEqual({
+      size: 5,
+      available: 5,
+      inUse: 0,
+      totalRecycles: 0,
+    });
 
-    // THE ASSERTION THAT SETTLES IT: the slot must have been RECOVERED by the
-    // waiter's release. If the leak is real, available stays 0 and inUse stays
-    // pinned at 1 (orphaned slot) — capacity permanently lost.
-    expect(pool.stats().available).toBe(1);
+    const c1 = await pool.acquire();
+    const c2 = await pool.acquire();
+    expect(pool.stats()).toEqual({
+      size: 5,
+      available: 3,
+      inUse: 2,
+      totalRecycles: 0,
+    });
+
+    await pool.release(c1);
+    expect(pool.stats()).toEqual({
+      size: 5,
+      available: 4,
+      inUse: 1,
+      totalRecycles: 0,
+    });
+
+    await pool.release(c2);
+    await pool.shutdown();
+  });
+
+  // Header centralization: X-AIMock-Strict default + caller header merge.
+  it("centralizes X-AIMock-Strict and merges caller-supplied headers", async () => {
+    const { launchBrowser } = makeFakeLauncher();
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 5,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+
+    const ctx = await pool.acquire({
+      extraHTTPHeaders: {
+        "X-AIMock-Context": "slug-a",
+        "X-Test-Id": "d4-slug-a",
+      },
+    });
+    const headers = (ctx as unknown as FakeContext).__headers;
+    expect(headers).toEqual({
+      "X-AIMock-Strict": "true",
+      "X-AIMock-Context": "slug-a",
+      "X-Test-Id": "d4-slug-a",
+    });
+
+    await pool.release(ctx);
+    await pool.shutdown();
+  });
+
+  // Double / unknown release is a no-op.
+  it("double release is a no-op", async () => {
+    const { launchBrowser } = makeFakeLauncher();
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 5,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+
+    const ctx = await pool.acquire();
+    await pool.release(ctx);
     expect(pool.stats().inUse).toBe(0);
-
-    // And the recovered slot must be re-acquirable (back in rotation), proving
-    // it is genuinely usable capacity, not a phantom available count.
-    const reacquired = await pool.acquire(1_000);
-    expect(reacquired).toBe(launched[0] as unknown as Browser);
-    expect(pool.stats().inUse).toBe(1);
-
-    // No fresh browser was ever launched — the single one cycled correctly.
-    expect(launched).toHaveLength(1);
-
+    // Second release must not drive inUse negative.
+    await pool.release(ctx);
+    expect(pool.stats().inUse).toBe(0);
     await pool.shutdown();
   });
-});
 
-describe("BrowserPool launch serialization gate", () => {
-  it("serializes the initial-fill burst to concurrency 1 and staggers each launch", async () => {
-    // A burst of N near-simultaneous chromium.launch() calls (the initial
-    // pool fill) must NOT overlap — on the Railway staging container a burst
-    // spikes PID demand past the ~1000 ceiling and trips pthread_create
-    // EAGAIN / "Zygote could not fork". The gate funnels every launch through
-    // a concurrency-1 serializer and waits a stagger after each settles.
-    const staggerMs = 30;
-    const rec = makeRecordingLauncher({ launchDurationMs: 20 });
-    const pool = new BrowserPool(
-      6,
-      100,
-      undefined,
-      rec.launchBrowser,
-      staggerMs,
-    );
+  // acquire after shutdown throws.
+  it("acquire after shutdown throws", async () => {
+    const { launchBrowser } = makeFakeLauncher();
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 5,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
     await pool.init();
-
-    // Every one of the 6 initial-fill launches happened.
-    expect(rec.launched).toHaveLength(6);
-
-    // Strict serialization: never two chromium launches in flight at once.
-    expect(rec.maxConcurrent).toBe(1);
-
-    // Consecutive launch starts are spaced at least `staggerMs` apart (the
-    // gate waits AFTER each launch settles before the next may start). Allow a
-    // small scheduler-jitter tolerance below the nominal stagger.
-    const tolerance = 5;
-    for (let i = 1; i < rec.starts.length; i++) {
-      const gap = rec.starts[i]! - rec.starts[i - 1]!;
-      expect(gap).toBeGreaterThanOrEqual(staggerMs - tolerance);
-    }
-
     await pool.shutdown();
+    await expect(pool.acquire()).rejects.toThrow(/shut down/);
   });
 
-  it("serializes a burst of simultaneous recycle/relaunch triggers to concurrency 1", async () => {
-    // Recycle bursts (many slots crashing and relaunching near-simultaneously)
-    // are the OTHER PID-spike source the gate must cover. Fill a pool, crash
-    // every browser at once so all disconnect-driven recycles fire together,
-    // and assert their relaunches never overlap.
-    const staggerMs = 20;
-    const rec = makeRecordingLauncher({ launchDurationMs: 20 });
-    const pool = new BrowserPool(
-      5,
-      100,
-      undefined,
-      rec.launchBrowser,
-      staggerMs,
-    );
-    await pool.init();
-    expect(rec.launched).toHaveLength(5);
-
-    // Crash all 5 at once — every recycle's relaunch is triggered in the same
-    // tick, the classic burst the gate must serialize.
-    for (const b of rec.launched.slice(0, 5)) b.__crash();
-
-    // Wait until all 5 relaunches have completed (10 total launches).
-    await waitFor(() => rec.launched.length >= 10, 5_000);
-
-    // No two launches (fill OR relaunch) ever overlapped.
-    expect(rec.maxConcurrent).toBe(1);
-
-    await pool.shutdown();
-  });
-
-  it("honors BROWSER_LAUNCH_STAGGER_MS env var as the default stagger", async () => {
-    // The stagger is env-tunable on staging without a code change. With no
-    // explicit constructor override, the pool reads BROWSER_LAUNCH_STAGGER_MS.
-    const prev = process.env.BROWSER_LAUNCH_STAGGER_MS;
-    process.env.BROWSER_LAUNCH_STAGGER_MS = "25";
+  // env fallback: BROWSER_POOL_SIZE seeds browser count when BROWSERS unset.
+  it("falls back to BROWSER_POOL_SIZE for browser count when BROWSER_POOL_BROWSERS is unset", async () => {
+    const prevBrowsers = process.env.BROWSER_POOL_BROWSERS;
+    const prevSize = process.env.BROWSER_POOL_SIZE;
+    delete process.env.BROWSER_POOL_BROWSERS;
+    process.env.BROWSER_POOL_SIZE = "2";
     try {
-      const rec = makeRecordingLauncher({ launchDurationMs: 10 });
-      // No 5th arg → stagger comes from the env var.
-      const pool = new BrowserPool(4, 100, undefined, rec.launchBrowser);
+      const { launchBrowser, launched } = makeFakeLauncher();
+      const pool = new BrowserPool({ launchBrowser, launchStaggerMs: 0 });
       await pool.init();
-
-      expect(rec.launched).toHaveLength(4);
-      expect(rec.maxConcurrent).toBe(1);
-      const tolerance = 5;
-      for (let i = 1; i < rec.starts.length; i++) {
-        const gap = rec.starts[i]! - rec.starts[i - 1]!;
-        expect(gap).toBeGreaterThanOrEqual(25 - tolerance);
-      }
-
+      expect(launched.length).toBe(2);
       await pool.shutdown();
     } finally {
-      if (prev === undefined) delete process.env.BROWSER_LAUNCH_STAGGER_MS;
-      else process.env.BROWSER_LAUNCH_STAGGER_MS = prev;
+      if (prevBrowsers === undefined) delete process.env.BROWSER_POOL_BROWSERS;
+      else process.env.BROWSER_POOL_BROWSERS = prevBrowsers;
+      if (prevSize === undefined) delete process.env.BROWSER_POOL_SIZE;
+      else process.env.BROWSER_POOL_SIZE = prevSize;
     }
   });
 
-  it("falls back to the default stagger when the explicit arg is negative (does not silently disable)", async () => {
-    // A negative explicit constructor arg must fall back to the DEFAULT
-    // stagger (150ms) — the same contract the env var already honors — NOT
-    // clamp to 0 and silently disable the stagger. Disabling the stagger
-    // reintroduces the PID-spike the gate exists to prevent. Only 2 launches
-    // so the ~150ms wait stays cheap.
-    const rec = makeRecordingLauncher({ launchDurationMs: 10 });
-    // -50 is negative → must be rejected and fall back to the 150ms default.
-    const pool = new BrowserPool(
-      2,
-      undefined,
-      undefined,
-      rec.launchBrowser,
-      -50,
-    );
+  // ── CONCURRENT-PATH RACE REGRESSIONS ──────────────────────────────────────
+  // The cases above are all SEQUENTIAL (await each acquire before the next),
+  // which is exactly why the check-then-await-then-mutate races never showed.
+  // These drive concurrent / interleaved paths.
+
+  // RACE A — N concurrent acquire() never exceed maxContexts. With a SYNC
+  // reservation the cap holds even when every acquire passes its check during
+  // one another's newContext() await. Use a deferred-newContext browser so all
+  // acquires sit in newContext() simultaneously, then assert no overshoot.
+  it("N concurrent acquire() never exceed maxContexts (no cap overshoot)", async () => {
+    const { launchBrowser, launched } = makeFakeLauncher({
+      // The single init browser defers newContext so all acquires park in the
+      // await together — the window the old code overshot in.
+      deferNewContextForCalls: [1],
+    });
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 2,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
     await pool.init();
 
-    expect(rec.launched).toHaveLength(2);
-    expect(rec.maxConcurrent).toBe(1);
+    // Fire 5 concurrent acquires at a cap of 2.
+    const acquires = Array.from({ length: 5 }, () => pool.acquire());
+    await drainMicrotasks();
 
-    // The two launches must be spaced by roughly the DEFAULT stagger (150ms),
-    // proving the stagger was NOT disabled. Allow scheduler-jitter tolerance.
-    const gap = rec.starts[1]! - rec.starts[0]!;
-    expect(gap).toBeGreaterThanOrEqual(140);
+    // With a synchronous reservation, AT MOST maxContexts newContext() calls
+    // are ever in flight. The old code let all 5 pass the check and call
+    // newContext() → overshoot.
+    expect(launched[0]!.__pendingNewContexts).toBeLessThanOrEqual(2);
+
+    // Release the parked opens; the 2 reserved ones resolve, the rest pend.
+    launched[0]!.__releaseNewContexts();
+    await drainMicrotasks();
+
+    expect(pool.stats().inUse).toBe(2);
+    expect(pool.stats().available).toBe(0);
+    expect(pool.stats().inUse).toBeLessThanOrEqual(2);
+
+    // Total contexts ever opened on the browser must never exceed the cap
+    // while 3 acquires are still pending as waiters.
+    expect(launched[0]!.__contexts.length).toBeLessThanOrEqual(2);
+
+    await pool.shutdown();
+    // The 3 still-pending acquires reject on shutdown; swallow them.
+    await Promise.allSettled(acquires);
+  });
+
+  // RACE B — the newContext-failure retry path must respect the cap. The retry
+  // branch in acquire() previously called openContextOn() with no cap re-check;
+  // under the reservation model the retry reuses the held reservation and never
+  // overshoots.
+  it("the newContext-failure retry path respects maxContexts", async () => {
+    // Two browsers: browser 1 (launch call 1) throws on newContext so the first
+    // acquire fails-and-retries onto browser 2 (launch call 2). Concurrent
+    // acquires must still not exceed the cap across the retry.
+    const { launchBrowser, launched } = makeFakeLauncher({
+      newContextThrowsForCalls: [1],
+    });
+    const pool = new BrowserPool({
+      browsers: 2,
+      maxContexts: 1,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+
+    // Two concurrent acquires at a cap of 1. The first may hit browser 1
+    // (throws) and retry onto browser 2; the second must NOT also open on
+    // browser 2 past the cap.
+    const [r1, r2] = await Promise.allSettled([
+      pool.acquire(undefined, 200),
+      pool.acquire(undefined, 200),
+    ]);
+    await drainMicrotasks();
+
+    // Exactly one context should be live (cap=1); the other pends/times out.
+    expect(pool.stats().inUse).toBeLessThanOrEqual(1);
+    const totalLive = launched.reduce((n, b) => n + b.__contexts.length, 0);
+    expect(totalLive).toBeLessThanOrEqual(1);
+
+    // Clean up whichever acquire succeeded.
+    for (const r of [r1, r2]) {
+      if (r.status === "fulfilled") await pool.release(r.value);
+    }
+    await pool.shutdown();
+  });
+
+  // A2 — acquire() retry path: a SECOND consecutive newContext failure (a
+  // second browser dying in the same EAGAIN burst) must enqueue the caller as
+  // a waiter and let recovery fulfill it gracefully, NOT reject hard. The first
+  // attempt throws → recycle + re-reserve + retry onto the other browser; the
+  // retry ALSO throws → the fix recycles the retry browser and pends a waiter
+  // that resolves once the recycle relaunch lands.
+  it("enqueues the caller (no hard reject) when the acquire retry's newContext also fails", async () => {
+    // Both initial browsers (launch calls 1 + 2) throw on newContext. Their
+    // recycle relaunches (calls 3 + 4) succeed and drain the queued waiter.
+    const { launchBrowser, launched } = makeFakeLauncher({
+      newContextThrowsForCalls: [1, 2],
+    });
+    const { logger, events } = makeLeveledLogger();
+    const pool = new BrowserPool({
+      browsers: 2,
+      maxContexts: 2,
+      logger,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+    expect(launched.length).toBe(2);
+
+    // Single acquire: first attempt throws → retry onto the other browser →
+    // retry ALSO throws. The fix must enqueue rather than reject. Give a
+    // generous timeout so the recovery relaunch resolves it.
+    const ctx = await pool.acquire(undefined, 2_000);
+    expect(ctx).toBeDefined();
+
+    // Both original browsers were recycled (their newContext threw); the
+    // relaunched ones served the waiter — no hard rejection reached the caller.
+    expect(pool.stats().totalRecycles).toBeGreaterThanOrEqual(2);
+    expect(launched.length).toBe(4); // 2 init + 2 relaunch
+    // The retry-failure path logged its dedicated warn (proves we hit it).
+    expect(
+      events.some(
+        (e) => e.event === "browser-pool.acquire-retry-newcontext-failed",
+      ),
+    ).toBe(true);
+
+    await pool.release(ctx);
+    await pool.shutdown();
+  });
+
+  // RACE C — a waiter that times out WHILE serveNextWaiter is opening its
+  // context must NOT leak the freshly-opened context. The orphan must be closed
+  // and the count rolled back.
+  it("does not leak a context when a waiter times out mid-serveNextWaiter", async () => {
+    const { launchBrowser, launched } = makeFakeLauncher({
+      deferNewContextForCalls: [1],
+    });
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 1,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+
+    // Fill the cap with one context (parked open → release it).
+    const c1p = pool.acquire();
+    await drainMicrotasks();
+    launched[0]!.__releaseNewContexts();
+    const c1 = await c1p;
+    expect(pool.stats().inUse).toBe(1);
+
+    // Enqueue a waiter with a SHORT timeout — it pends past the cap.
+    let waiterRejected: Error | undefined;
+    const waiterP = pool
+      .acquire(undefined, 20)
+      .catch((e: Error) => (waiterRejected = e));
+    await drainMicrotasks();
+
+    // Release c1 → serveNextWaiter() picks the waiter, calls newContext()
+    // (parked, deferred). While that open is in flight, let the waiter's
+    // 20ms timeout fire.
+    await pool.release(c1);
+    await drainMicrotasks();
+    await new Promise((r) => setTimeout(r, 40)); // waiter times out now
+    expect(waiterRejected).toBeInstanceOf(Error);
+
+    // Now let the parked newContext() for the dead waiter resolve.
+    launched[0]!.__releaseNewContexts();
+    await drainMicrotasks();
+
+    // The orphan context must have been CLOSED and the count rolled back to 0.
+    // Old code: resolve() no-ops on the settled waiter → context leaks, count
+    // stuck at 1.
+    expect(pool.stats().inUse).toBe(0);
+    expect(pool.stats().available).toBe(1);
+    // Every context ever opened on the browser must be closed.
+    const openButNotClosed = launched[0]!.__contexts.filter(
+      (c) => c.__closeCount === 0,
+    );
+    expect(openButNotClosed.length).toBe(0);
 
     await pool.shutdown();
   });
 
-  it("falls back to the default stagger when the explicit arg is NaN", async () => {
-    // A non-numeric (NaN) explicit constructor arg must also fall back to the
-    // DEFAULT stagger rather than disabling it.
-    const rec = makeRecordingLauncher({ launchDurationMs: 10 });
-    const pool = new BrowserPool(
-      2,
-      undefined,
-      undefined,
-      rec.launchBrowser,
-      NaN,
-    );
+  // RACE D — release/recycle interleave must NOT recycle a browser that still
+  // has (or concurrently gains) a live context. With the fix, release() does
+  // its bookkeeping (delete + decrement) and evaluates the idle-recycle
+  // decision off purely SYNCHRONOUS state, with no await straddling the
+  // decrement and the size check, and only THEN awaits context.close(). A
+  // concurrent acquire that lands while a parked close is in flight therefore
+  // cannot be abandoned by a spurious recycle: the recycle decision was already
+  // taken against the true live-set, and a busy browser is never recycled.
+  //
+  // This is a forward regression GUARD for the close/accounting reorder. (It
+  // holds on the pre-fix code too, because the pre-fix order kept the released
+  // context IN the live set across its close-await — conservative, never
+  // reading a false-idle. The reorder makes the no-await-gap invariant explicit
+  // and machine-checkable so a future edit that re-introduces an await between
+  // the decrement and the size check is caught here.)
+  it("release evaluates the idle-recycle decision on synchronous state and never recycles a busy browser (close/accounting reorder)", async () => {
+    const { launchBrowser, launched } = makeFakeLauncher();
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 5,
+      recycleAfter: 1, // eligible after the very first served context
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
     await pool.init();
+    expect(launched.length).toBe(1);
 
-    expect(rec.launched).toHaveLength(2);
-    expect(rec.maxConcurrent).toBe(1);
+    // Hold one context open for the entire test so the browser is NEVER idle —
+    // a recycle would be spurious and would abandon `held`.
+    const held = await pool.acquire();
+    // Serve + release a second context so servedContexts crosses recycleAfter=1.
+    const c1 = await pool.acquire();
+    expect(pool.stats().inUse).toBe(2);
 
-    const gap = rec.starts[1]! - rec.starts[0]!;
-    expect(gap).toBeGreaterThanOrEqual(140);
+    // Park c1's close so release(c1) straddles its `await context.close()`.
+    (c1 as unknown as FakeContext).__deferClose();
+    const release1 = pool.release(c1);
+    await drainMicrotasks();
+
+    // While that close is parked, acquire + release ANOTHER context. The
+    // browser is busy throughout (held is live) so no release may recycle it.
+    const c2 = await pool.acquire();
+    await pool.release(c2);
+    await drainMicrotasks();
+
+    // Let c1's parked close finish.
+    (c1 as unknown as FakeContext).__releaseClose();
+    await release1;
+    await drainMicrotasks();
+
+    // `held` is still live; its browser must NOT have been recycled.
+    expect(pool.stats().totalRecycles).toBe(0);
+    expect(launched.length).toBe(1);
+    expect(launched[0]!.isConnected()).toBe(true);
+    expect(pool.stats().inUse).toBe(1); // only `held` remains
+
+    await pool.release(held);
+    await pool.shutdown();
+  });
+
+  // ── RECYCLE-VS-IN-FLIGHT-OPEN INVARIANT MATRIX ────────────────────────────
+  // One structural invariant closes a whole class of recycle-vs-concurrent-
+  // operation races: a context being opened in `openContextOn` has taken a cap
+  // reservation BEFORE its `await newContext()` but is added to
+  // `entry.liveContexts` only AFTER the await resolves. During that window
+  // `liveContexts.size` undercounts, so any recycle/idle decision made off
+  // `liveContexts.size` alone is blind to the in-flight open. The fix adds a
+  // per-entry `pendingOpens` counter and a single `isEntryIdle` predicate that
+  // every recycle/idle decision consults, an orphan guard in `openContextOn`
+  // for the entry-recycled-mid-await case, and a `recyclePending` flag so a
+  // deferred hygiene recycle still fires at the next idle release under
+  // sustained waiter pressure. The cases below are parametrized over the two
+  // faces of the gap (in-flight open invisible to recycle; deferred recycle
+  // starved) and the belt-and-suspenders orphan path.
+
+  // MATRIX (a) — a hygiene recycle does NOT fire while an `openContextOn` is in
+  // flight on that entry. recycleAfter=1 makes the entry eligible after one
+  // served context; a SECOND open is parked in newContext() (pendingOpens=1,
+  // not yet in liveContexts) when the boundary-crossing release lands. The
+  // pre-fix `liveContexts.size === 0` idle check reads the entry as idle and
+  // hygiene-recycles it OUT FROM UNDER the in-flight open (RED). The fix's
+  // `isEntryRecyclable` (pendingOpens === 0) defers it.
+  it("MATRIX(a): does NOT hygiene-recycle while an openContextOn is in flight on that entry", async () => {
+    const { launchBrowser, launched } = makeFakeLauncher({
+      deferNewContextForCalls: [1],
+    });
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 2,
+      recycleAfter: 1, // first served context makes the entry eligible
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+    expect(launched.length).toBe(1);
+
+    // Open c1 (parked) → release the park so c1 becomes live; servedContexts=1.
+    const c1p = pool.acquire();
+    await drainMicrotasks();
+    launched[0]!.__releaseNewContexts();
+    const c1 = await c1p;
+    expect(pool.stats().inUse).toBe(1);
+
+    // Start a SECOND acquire — it parks in newContext() (deferred), so its open
+    // is IN FLIGHT (pendingOpens=1) but it is NOT yet in liveContexts.
+    let c2: BrowserContext | undefined;
+    const c2p = pool.acquire().then((c) => (c2 = c));
+    await drainMicrotasks();
+    expect(c2).toBeUndefined();
+    expect(launched[0]!.__pendingNewContexts).toBe(1);
+
+    // Release c1: servedContexts(1) >= recycleAfter(1) and (pre-fix) liveContexts
+    // is now empty, so the pre-fix code hygiene-recycles immediately — tearing
+    // the browser down under the in-flight c2 open.
+    await pool.release(c1);
+    await drainMicrotasks();
+
+    // INVARIANT: no recycle fired while the open was in flight.
+    expect(pool.stats().totalRecycles).toBe(0);
+    expect(launched.length).toBe(1);
+    expect(launched[0]!.isConnected()).toBe(true);
+
+    // Let the in-flight open resolve; c2 lands live on the SAME original browser.
+    launched[0]!.__releaseNewContexts();
+    await c2p;
+    expect(c2).toBeDefined();
+    expect(launched[0]!.__contexts.map((x) => x.__id)).toContain(ctxId(c2!));
+    expect(pool.stats().inUse).toBe(1);
+
+    await pool.release(c2!);
+    await pool.shutdown();
+  });
+
+  // MATRIX (b) — an `openContextOn` whose entry is recycled MID-AWAIT closes the
+  // freshly-opened orphan + rolls back the count (no cap leak, no dead context
+  // handed out). A held context keeps the entry from being idle; the open is
+  // parked; we CRASH the browser mid-open (recovery recycle reassigns
+  // entry.browser). When the parked newContext() resolves, the orphan guard
+  // (entry.browser !== browserBefore / !isConnected) closes it, rolls back the
+  // reservation, and surfaces a failure so acquire's retry path enqueues. The
+  // pre-fix code adds the orphan to liveContexts on a dead/replaced browser,
+  // leaking a cap slot and handing out a dead context (RED).
+  it("MATRIX(b): closes the orphan + rolls back the count when an open's entry is recycled mid-await", async () => {
+    const { launchBrowser, launched } = makeFakeLauncher({
+      // Browser 1 (init) defers newContext; its relaunch (call 2) does not, so
+      // the enqueued caller is eventually served on the fresh browser.
+      deferNewContextForCalls: [1],
+    });
+    const { logger, events } = makeLeveledLogger();
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 2,
+      recycleAfter: 1000, // hygiene out of the picture; this is the crash path
+      logger,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+    expect(launched.length).toBe(1);
+
+    // Start an acquire — parks in newContext() on browser 0 (pendingOpens=1).
+    let acquired: BrowserContext | undefined;
+    const acquireP = pool
+      .acquire(undefined, 2_000)
+      .then((c) => (acquired = c))
+      .catch(() => {});
+    await drainMicrotasks();
+    expect(launched[0]!.__pendingNewContexts).toBe(1);
+    expect(pool.stats().inUse).toBe(1); // reservation taken for the in-flight open
+
+    // CRASH browser 0 while its open is in flight → recovery recycle reassigns
+    // entry.browser to a fresh process (launch call 2) and drains waiters.
+    launched[0]!.__crash();
+    await waitFor(() => launched.length === 2);
+
+    // Now resolve the parked open on the ORIGINAL (now-dead/replaced) browser.
+    // The orphan guard must close it, roll back the reservation, and surface a
+    // failure (acquire then enqueues + the relaunch serves the caller).
+    launched[0]!.__releaseNewContexts();
+    await drainMicrotasks();
+
+    // The caller is eventually served once a fresh (non-deferred) browser is
+    // available. Drain any parked opens on the relaunched browsers so the
+    // enqueued caller resolves, then await it.
+    await waitFor(() => {
+      for (const b of launched.slice(1)) {
+        if (b.__pendingNewContexts > 0) b.__releaseNewContexts();
+      }
+      return acquired !== undefined;
+    });
+    await acquireP;
+
+    // The orphan guard logged its dedicated warn (proves we hit it).
+    expect(
+      events.some((e) => e.event === "browser-pool.open-orphaned-by-recycle"),
+    ).toBe(true);
+
+    // NO cap leak: the orphaned open's reservation was rolled back. The only
+    // live context is the one served on a fresh browser.
+    expect(acquired).toBeDefined();
+    expect(pool.stats().inUse).toBe(1);
+    // The orphan context on the ORIGINAL (dead) browser was closed, never
+    // handed out — no open-but-not-closed context lingers on it.
+    const origOrphans = launched[0]!.__contexts.filter(
+      (c) => c.__closeCount === 0,
+    );
+    expect(origOrphans.length).toBe(0);
+    // The handed-out context is NOT the orphan from the dead original browser.
+    expect(launched[0]!.__contexts.map((x) => x.__id)).not.toContain(
+      ctxId(acquired!),
+    );
+    // It lives on a live (recycled/fresh) browser that is connected.
+    const owner = launched.find((b) =>
+      b.__contexts.some((c) => c.__id === ctxId(acquired!)),
+    );
+    expect(owner).toBeDefined();
+    expect(owner!.__id).not.toBe(launched[0]!.__id);
+    expect(owner!.isConnected()).toBe(true);
+
+    await pool.release(acquired!);
+    await pool.shutdown();
+  });
+
+  // MATRIX (c) — a hygiene recycle that becomes eligible on a release while a
+  // concurrent open is in flight (pendingOpens=1) must NOT fire during the open,
+  // and the eligibility must NOT be lost: it fires at the next safe idle
+  // release (recyclePending honored). This is the GAP-2 face — the eligible
+  // recycle is deferred while the entry is busy with an in-flight open, and the
+  // fix carries the intent forward rather than dropping it.
+  //
+  // The pre-fix idle check is `liveContexts.size === 0` and is blind to the
+  // in-flight open, so on the boundary-crossing release (which has NO queued
+  // waiter → the pre-fix `!hadWaiter` gate is satisfied) it FIRES the hygiene
+  // recycle DURING the concurrent open — tearing the browser down under it
+  // (RED). The fix's `isEntryRecyclable` (pendingOpens===0) defers it and
+  // `recyclePending` makes it fire at the next idle release instead.
+  it("MATRIX(c): an eligible hygiene recycle defers past an in-flight open and fires at the next idle release", async () => {
+    const { launchBrowser, launched } = makeFakeLauncher({
+      deferNewContextForCalls: [1], // browser0 defers every newContext
+    });
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 3,
+      recycleAfter: 1, // eligible after the first served context
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+    expect(launched.length).toBe(1);
+
+    // Open c0 (parked) → release park → c0 live; served0=1 (>= recycleAfter).
+    const c0p = pool.acquire();
+    await drainMicrotasks();
+    launched[0]!.__releaseNewContexts();
+    const c0 = await c0p;
+    expect(pool.stats().inUse).toBe(1);
+
+    // Start a CONCURRENT acquire c1 — it reserves a slot and parks in
+    // newContext() (deferred). pendingOpens=1, NOT yet in liveContexts. NO
+    // waiter is queued (cap=3 has room), so the boundary-crossing release below
+    // has hadWaiter=false.
+    let c1: BrowserContext | undefined;
+    const c1p = pool.acquire().then((c) => (c1 = c));
+    await drainMicrotasks();
+    expect(c1).toBeUndefined();
+    expect(launched[0]!.__pendingNewContexts).toBe(1);
+
+    // Release c0: servedContexts(1) >= recycleAfter(1); the pre-fix idle check
+    // (liveContexts.size===0, blind to pendingOpens) is satisfied and there is
+    // NO waiter, so the pre-fix code FIRES the hygiene recycle here — DURING
+    // c1's in-flight open.
+    await pool.release(c0);
+    await drainMicrotasks();
+
+    // INVARIANT: no recycle fired while c1's open is in flight.
+    expect(launched[0]!.__pendingNewContexts).toBe(1); // c1 still opening
+    expect(pool.stats().totalRecycles).toBe(0);
+    expect(launched[0]!.isConnected()).toBe(true);
+
+    // Let c1's open complete → c1 live on the original browser, served0=2.
+    launched[0]!.__releaseNewContexts();
+    await c1p;
+    expect(c1).toBeDefined();
+    expect(launched[0]!.__contexts.map((x) => x.__id)).toContain(ctxId(c1!));
+    // The recycle was deferred, not dropped.
+    expect(pool.stats().totalRecycles).toBe(0);
+
+    // Release c1 with no waiter queued → entry genuinely idle + recycle pending
+    // → the deferred hygiene recycle fires at this safe idle point.
+    await pool.release(c1!);
+    await waitFor(() => launched.length === 2);
+    expect(pool.stats().totalRecycles).toBe(1);
+    expect(launched.length).toBe(2);
 
     await pool.shutdown();
   });
 
-  it("still serializes (concurrency 1) when the stagger is set to 0", async () => {
-    // A zero stagger keeps tests fast but MUST still serialize: the gate's
-    // concurrency-1 guarantee is independent of the wait. Proves the gate is
-    // not merely a sleep — it is a real one-at-a-time mutex.
-    const rec = makeRecordingLauncher({ launchDurationMs: 15 });
-    const pool = new BrowserPool(8, 100, undefined, rec.launchBrowser, 0);
+  // MATRIX (d) — the prior serve-vs-recycle guard still holds: a
+  // boundary-crossing release WHILE a waiter is queued must serve the waiter
+  // onto the SAME browser and NOT recycle it out from under the just-served
+  // waiter. (Mirrors A1; re-asserted here so the recyclePending mechanics added
+  // for (c) did not regress the deferral.)
+  it("MATRIX(d): does NOT recycle out from under a just-served waiter (serve-vs-recycle guard preserved)", async () => {
+    const { launchBrowser, launched } = makeFakeLauncher();
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 1,
+      recycleAfter: 1,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
     await pool.init();
+    expect(launched.length).toBe(1);
 
-    expect(rec.launched).toHaveLength(8);
-    expect(rec.maxConcurrent).toBe(1);
+    const c1 = await pool.acquire();
+    expect(pool.stats().inUse).toBe(1);
 
+    let c2: BrowserContext | undefined;
+    const c2p = pool.acquire().then((c) => (c2 = c));
+    await drainMicrotasks();
+    expect(c2).toBeUndefined();
+
+    // The boundary-crossing release serves the waiter, does NOT recycle.
+    await pool.release(c1);
+    await c2p;
+
+    expect(c2).toBeDefined();
+    expect(pool.stats().totalRecycles).toBe(0);
+    expect(launched.length).toBe(1);
+    expect(launched[0]!.isConnected()).toBe(true);
+    // The served context lives on the original (un-recycled) browser.
+    expect(launched[0]!.__contexts.map((x) => x.__id)).toContain(ctxId(c2!));
+    expect(pool.stats().inUse).toBe(1);
+
+    await pool.release(c2!);
     await pool.shutdown();
   });
 });

@@ -333,60 +333,50 @@ export function createPooledE2eFullLauncher(
   logger?: { warn(event: string, meta?: Record<string, unknown>): void },
 ): E2eFullBrowserLauncher {
   return async (abortSignal?: AbortSignal): Promise<E2eFullBrowser> => {
-    let browser = await pool.acquire();
-
-    // Defensive re-acquire: the pool's acquire() skips zombie slots whose
-    // browser is already disconnected, but a browser can also die in the
-    // narrow window AFTER acquire() returns it but BEFORE we hand it to
-    // `browser.newContext()` — most commonly during the D6 service fan-out's
-    // Chromium-spawn burst, when the kernel returns EAGAIN on fork and a
-    // recently-handed-out chromium dies between this caller and its first
-    // newContext call. Without this guard, the dead browser dooms an entire
-    // service's ~40 features ("Target page, context or browser has been
-    // closed" on every single feature). One re-acquire is enough — release
-    // routes the dead instance back into the pool where its `isConnected`
-    // check + `recycleSlot` recovery take over.
-    if (!browser.isConnected()) {
-      logger?.warn("probe.e2e-full.pool-acquire-dead", {
-        poolAvailable: pool.stats().available,
-        poolInUse: pool.stats().inUse,
-      });
-      pool.release(browser);
-      browser = await pool.acquire();
-    }
-
-    let forceReleased = false;
+    // CONTEXT-POOLED model: each newContext() checks out a pooled
+    // BrowserContext (X-AIMock-Strict centralized in the pool; per-feature
+    // X-AIMock-Context / X-Test-Id flow through `contextOpts`) and the
+    // wrapper's close() releases it. The dead-browser re-acquire dance is
+    // gone: the pool only opens contexts on live browsers (acquire skips
+    // recycling/disconnected browsers and retries on another if newContext
+    // throws), so a dead process can never be handed to a feature. The abort
+    // closure re-targets onto the open contexts: on abort it closes each
+    // (each close() releases its pooled context). There is no Browser held.
+    let aborted = false;
     const openContexts = new Set<{ close(): Promise<void> }>();
 
+    const onAbort = (): void => {
+      if (aborted) return;
+      aborted = true;
+      const ctxCount = openContexts.size;
+      const stats = pool.stats();
+      logger?.warn("probe.e2e-full.pool-abort-release", {
+        openContexts: ctxCount,
+        poolAvailable: stats.available,
+        poolInUse: stats.inUse,
+        poolSize: stats.size,
+      });
+      const contextClosePromises = Array.from(openContexts).map((ctx) =>
+        ctx.close().catch(() => {}),
+      );
+      void Promise.allSettled(contextClosePromises).then(() => {
+        logger?.warn("probe.e2e-full.pool-abort-released", {
+          closedContexts: ctxCount,
+          poolAvailable: pool.stats().available,
+        });
+      });
+    };
+    // Capture the listener so launcher-level close() can detach it: without
+    // removeEventListener a post-completion abort would fire onAbort after the
+    // run returned, leaking the listener for the signal's lifetime.
+    let detachAbort: (() => void) | undefined;
     if (abortSignal) {
-      const onAbort = (): void => {
-        if (forceReleased) return;
-        forceReleased = true;
-        const ctxCount = openContexts.size;
-        const stats = pool.stats();
-        logger?.warn("probe.e2e-full.pool-abort-release", {
-          openContexts: ctxCount,
-          poolAvailable: stats.available,
-          poolInUse: stats.inUse,
-          poolSize: stats.size,
-        });
-        const contextClosePromises = Array.from(openContexts).map((ctx) =>
-          ctx.close().catch(() => {}),
-        );
-        void Promise.allSettled(contextClosePromises).then(() => {
-          pool.release(browser);
-          logger?.warn("probe.e2e-full.pool-abort-released", {
-            closedContexts: ctxCount,
-            poolAvailable: pool.stats().available,
-          });
-        });
-      };
       if (abortSignal.aborted) {
-        forceReleased = true;
+        aborted = true;
         logger?.warn("probe.e2e-full.pool-pre-aborted-release");
-        pool.release(browser);
       } else {
         abortSignal.addEventListener("abort", onAbort, { once: true });
+        detachAbort = () => abortSignal.removeEventListener("abort", onAbort);
       }
     }
 
@@ -394,13 +384,18 @@ export function createPooledE2eFullLauncher(
       async newContext(contextOpts?: {
         extraHTTPHeaders?: Record<string, string>;
       }): Promise<E2eFullBrowserContext> {
-        const ctx = await browser.newContext({
-          extraHTTPHeaders: {
-            "X-AIMock-Strict": "true",
-            ...contextOpts?.extraHTTPHeaders,
-          },
+        const ctx = await pool.acquire({
+          extraHTTPHeaders: contextOpts?.extraHTTPHeaders,
         });
-        const ctxHandle = { close: () => ctx.close() };
+        // If the signal was already aborted at launcher construction (the
+        // pre-aborted branch never attached the live abort listener), a context
+        // opened now would never be closed by the abort path. Release it
+        // immediately and refuse so it cannot leak into a torn-down run.
+        if (aborted) {
+          await pool.release(ctx).catch(() => {});
+          throw new Error("e2e-full launcher aborted");
+        }
+        const ctxHandle = { close: () => pool.release(ctx) };
         openContexts.add(ctxHandle);
         return {
           async newPage(): Promise<E2eFullPage> {
@@ -454,13 +449,15 @@ export function createPooledE2eFullLauncher(
           },
           close: async () => {
             openContexts.delete(ctxHandle);
-            await ctx.close();
+            await pool.release(ctx);
           },
         };
       },
+      // Launcher-level close releases nothing itself (each context releases
+      // itself) but detaches the abort listener so a post-completion abort
+      // can't fire onAbort after the run returned.
       close: async () => {
-        if (forceReleased) return;
-        pool.release(browser);
+        detachAbort?.();
       },
     };
   };
@@ -724,7 +721,7 @@ export function createE2eFullDriver(
               total: requestedFeatures.length,
               passed: 0,
               failed: [],
-              skipped: [...incapableFeatures.map(String)],
+              skipped: incapableFeatures.map(String),
               incapable:
                 incapableFeatures.length > 0
                   ? incapableFeatures.map(String)
@@ -858,6 +855,18 @@ export function createE2eFullDriver(
 
           await sem.acquire();
           const featureStart = Date.now();
+          // In-flight runFeature promises that may still be holding a
+          // pooled BrowserContext after the Promise.race resolves. On
+          // the feature-timeout path the race resolves a synthetic
+          // result while the real runFeature keeps running until its
+          // abort-driven teardown closes the context (→ pool.release).
+          // We gate sem.release() (outer finally) on these settling so
+          // the freed slot can't be re-acquired while an orphan still
+          // holds a context, which would push live pooled contexts past
+          // the FEATURE_CONCURRENCY-bounded budget.
+          const inFlightRunFeatures: Array<
+            Promise<Awaited<ReturnType<typeof runFeature>>>
+          > = [];
           try {
             if (abort.signal.aborted) {
               await sideEmit(ctx, {
@@ -914,26 +923,47 @@ export function createE2eFullDriver(
               Awaited<ReturnType<typeof runFeature>>
             > => {
               let featureTimer: ReturnType<typeof setTimeout> | undefined;
+              // Per-attempt child controller. It aborts when the parent
+              // (`featureAbort`) fires OR when THIS attempt's timer wins,
+              // so aborting one attempt never poisons the next — the
+              // retry attempt gets a fresh, un-aborted signal. Without
+              // this, a single shared controller aborted by attempt 1
+              // would make attempt 2's runFeature return immediately with
+              // `aborted before start` (a silent no-op retry).
+              const attemptAbort = new AbortController();
+              const onParentAbortChild = (): void => attemptAbort.abort();
+              if (featureAbort.signal.aborted) attemptAbort.abort();
+              else
+                featureAbort.signal.addEventListener(
+                  "abort",
+                  onParentAbortChild,
+                  { once: true },
+                );
+              const runFeaturePromise = runFeature({
+                browser: browserRef,
+                url,
+                slug,
+                featureType: ft,
+                pageTimeoutMs,
+                script,
+                buildCtx: {
+                  integrationSlug: slug,
+                  featureType: ft,
+                  baseUrl: backendUrl,
+                },
+                abortSignal: attemptAbort.signal,
+                logger: ctx.logger,
+              });
+              inFlightRunFeatures.push(runFeaturePromise);
               try {
                 return await Promise.race([
-                  runFeature({
-                    browser: browserRef,
-                    url,
-                    slug,
-                    featureType: ft,
-                    pageTimeoutMs,
-                    script,
-                    buildCtx: {
-                      integrationSlug: slug,
-                      featureType: ft,
-                      baseUrl: backendUrl,
-                    },
-                    abortSignal: featureAbort.signal,
-                    logger: ctx.logger,
-                  }),
+                  runFeaturePromise,
                   new Promise<Awaited<ReturnType<typeof runFeature>>>(
                     (resolve) => {
                       featureTimer = setTimeout(() => {
+                        // Abort the parent so the launcher's open-context
+                        // teardown runs; this also aborts the child via
+                        // the listener above.
                         featureAbort.abort();
                         resolve({
                           ok: false,
@@ -946,6 +976,10 @@ export function createE2eFullDriver(
                 ]);
               } finally {
                 if (featureTimer) clearTimeout(featureTimer);
+                featureAbort.signal.removeEventListener(
+                  "abort",
+                  onParentAbortChild,
+                );
               }
             };
 
@@ -1045,6 +1079,14 @@ export function createE2eFullDriver(
               };
             }
           } finally {
+            // Gate slot release on the real teardown of any in-flight
+            // runFeature. On the timeout path the synthetic verdict has
+            // already been returned to the caller above; here we only
+            // wait for the abandoned runFeature's context teardown (its
+            // own finally → context.close() → pool.release) to settle so
+            // the slot isn't handed to a new feature while an orphan
+            // still holds a pooled context.
+            await Promise.allSettled(inFlightRunFeatures);
             sem.release();
           }
         });

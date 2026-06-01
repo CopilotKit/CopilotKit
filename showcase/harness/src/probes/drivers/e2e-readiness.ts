@@ -207,30 +207,37 @@ const DEFAULT_PAGE_TIMEOUT_MS = 30 * 1000;
 const TIMEOUT_ENV_VAR = "E2E_DEMOS_TIMEOUT_MS";
 
 /**
- * Structural-ready selectors tried in order. First match wins; a demo is
- * considered green if any one resolves within the page timeout. Kept as a
- * const array so the production config and the unit tests agree on the
- * exact ordering — a refactor that re-orders the list surfaces as a test
- * diff.
+ * Structural-ready selectors. A demo is considered green if ANY one of these
+ * resolves within the page timeout — they are combined into a single compound
+ * CSS selector (`READY_SELECTOR_COMPOUND`) and matched simultaneously by one
+ * `waitForSelector` call, so there is no per-selector ordering at match time.
+ * Kept as a const array so the production config and the unit tests agree on
+ * the exact set — a refactor that adds/removes an entry surfaces as a test
+ * diff. The list-order rationale below is for human readability only.
  *
- * Ordering rationale (kept in lockstep with `conversation-runner.ts`'s
+ * Selector rationale (kept in lockstep with `conversation-runner.ts`'s
  * CHAT_INPUT_SELECTORS — this driver only checks visibility so the
- * div-wrapper testid wouldn't actually break it, but matching ordering
+ * div-wrapper testid wouldn't actually break it, but matching the set
  * keeps a single mental model for both probes):
  *   1. CopilotKit V2 canonical textarea testid — the actual `<textarea>`
  *      inside the V2 chat input. Strictest, fillable signal.
  *   2. Scoped descendant — any `<textarea>` nested under the V2 wrapper
  *      `[data-testid="copilot-chat-input"]`, for V2 UIs whose textarea
  *      doesn't carry its own testid.
- *   3. Bare `textarea` — covers V1 CopilotKit and generic chat UIs whose
+ *   3. V2 chat-toggle testid — the launcher button for popup/sidebar UIs
+ *      whose composer mounts only after the panel opens.
+ *   4. Bare `textarea` — covers V1 CopilotKit and generic chat UIs whose
  *      composer is a plain `<textarea>` without a testid.
- *   4. Default placeholder — input-element composers whose UI uses
+ *   5. Default placeholder — input-element composers whose UI uses
  *      `<input placeholder="Type a message">` instead of a textarea.
- *   5-6. Generic chat-affordance fallbacks. Custom-composer demos (e.g.
- *      `headless-simple`, `headless-complete`) build their own UI on top
- *      of `useAgent`, so they lack both the testid and the default
- *      placeholder but still render a text input / ARIA textbox. A match
- *      on any of these is enough structural evidence that the demo
+ *   6-7. Generic chat-affordance fallbacks (`input[type="text"]`,
+ *      `[role="textbox"]`). Custom-composer demos (e.g. `headless-simple`,
+ *      `headless-complete`) build their own UI on top of `useAgent`, so they
+ *      lack both the testid and the default placeholder but still render a
+ *      text input / ARIA textbox.
+ *   8. Auth sign-in card — `/demos/auth` renders a sign-in surface BEFORE the
+ *      chat input mounts; the testid signals "demo route booted" pre-auth.
+ *      A match on any of these is enough structural evidence that the demo
  *      route booted.
  */
 const READY_SELECTORS = [
@@ -294,58 +301,69 @@ export function createPooledE2eDemosLauncher(
   logger?: { warn(event: string, meta?: Record<string, unknown>): void },
 ): E2eDemosBrowserLauncher {
   return async (abortSignal?: AbortSignal): Promise<E2eDemosBrowser> => {
-    const browser = await pool.acquire();
-
-    // Track whether the browser was force-released by an abort so the
-    // driver's normal `browser.close()` in the finally block doesn't
-    // double-release the same slot. Mirrors createPooledE2eDeepLauncher's
-    // pattern (see e2e-deep.ts) — pool starvation under outer-timeout was
-    // the documented motivation there and the same race exists here:
-    // Promise.race in the invoker abandons the driver promise but the
-    // driver continues iterating demos with the pooled browser held until
-    // the loop drains. Without this listener the slot stays in-use across
-    // probe ticks and the next tick can't acquire it.
-    let forceReleased = false;
+    // CONTEXT-POOLED model: each newContext() checks out a pooled
+    // BrowserContext (X-AIMock-Strict centralized in the pool) and the
+    // wrapper's close() releases it. The abort closure re-targets onto the
+    // open contexts: on abort it closes each one (each close() releases its
+    // pooled context). There is no Browser held to release. This still solves
+    // the pool-starvation race — Promise.race in the invoker abandons the
+    // driver promise while the driver continues iterating demos with pooled
+    // contexts held; without this listener those contexts stay in-use across
+    // probe ticks and the cap stays saturated.
+    let aborted = false;
     const openContexts = new Set<{ close(): Promise<void> }>();
 
+    const closeAllOpenContexts = (): void => {
+      if (aborted) return;
+      aborted = true;
+      const ctxCount = openContexts.size;
+      const stats = pool.stats();
+      logger?.warn("probe.e2e-demos.pool-abort-release", {
+        openContexts: ctxCount,
+        poolAvailable: stats.available,
+        poolInUse: stats.inUse,
+        poolSize: stats.size,
+      });
+      const contextClosePromises = Array.from(openContexts).map((ctx) =>
+        ctx.close().catch(() => {}),
+      );
+      void Promise.allSettled(contextClosePromises).then(() => {
+        logger?.warn("probe.e2e-demos.pool-abort-released", {
+          closedContexts: ctxCount,
+          poolAvailable: pool.stats().available,
+        });
+      });
+    };
+
+    // Capture the listener so launcher-level close() can detach it: without
+    // removeEventListener a post-completion abort would fire the handler after
+    // the run returned, leaking the listener for the signal's lifetime.
+    let detachAbort: (() => void) | undefined;
     if (abortSignal) {
-      const onAbort = (): void => {
-        if (forceReleased) return;
-        forceReleased = true;
-        const ctxCount = openContexts.size;
-        const stats = pool.stats();
-        logger?.warn("probe.e2e-demos.pool-abort-release", {
-          openContexts: ctxCount,
-          poolAvailable: stats.available,
-          poolInUse: stats.inUse,
-          poolSize: stats.size,
-        });
-        const contextClosePromises = Array.from(openContexts).map((ctx) =>
-          ctx.close().catch(() => {}),
-        );
-        void Promise.allSettled(contextClosePromises).then(() => {
-          pool.release(browser);
-          logger?.warn("probe.e2e-demos.pool-abort-released", {
-            closedContexts: ctxCount,
-            poolAvailable: pool.stats().available,
-          });
-        });
-      };
       if (abortSignal.aborted) {
-        forceReleased = true;
+        aborted = true;
         logger?.warn("probe.e2e-demos.pool-pre-aborted-release");
-        pool.release(browser);
       } else {
-        abortSignal.addEventListener("abort", onAbort, { once: true });
+        abortSignal.addEventListener("abort", closeAllOpenContexts, {
+          once: true,
+        });
+        detachAbort = () =>
+          abortSignal.removeEventListener("abort", closeAllOpenContexts);
       }
     }
 
     return {
       async newContext(): Promise<E2eDemosBrowserContext> {
-        const ctx = await browser.newContext({
-          extraHTTPHeaders: { "X-AIMock-Strict": "true" },
-        });
-        const ctxHandle = { close: () => ctx.close() };
+        const ctx = await pool.acquire();
+        // If the signal was already aborted at launcher construction (the
+        // pre-aborted branch never attached the live abort listener), a context
+        // opened now would never be closed by the abort path. Release it
+        // immediately and refuse so it cannot leak into a torn-down run.
+        if (aborted) {
+          await pool.release(ctx).catch(() => {});
+          throw new Error("e2e-demos launcher aborted");
+        }
+        const ctxHandle = { close: () => pool.release(ctx) };
         openContexts.add(ctxHandle);
         return {
           async newPage(): Promise<E2eDemosPage> {
@@ -358,13 +376,15 @@ export function createPooledE2eDemosLauncher(
           },
           close: async () => {
             openContexts.delete(ctxHandle);
-            await ctx.close();
+            await pool.release(ctx);
           },
         };
       },
+      // Launcher-level close releases nothing itself (each context releases
+      // itself) but detaches the abort listener so a post-completion abort
+      // can't fire the handler after the run returned.
       close: async () => {
-        if (forceReleased) return;
-        pool.release(browser);
+        detachAbort?.();
       },
     };
   };
@@ -872,6 +892,22 @@ async function runDemo(opts: {
   try {
     context = await browser.newContext();
     page = await context.newPage();
+    // Pre-goto budget check: `remaining() === 0` means the per-demo
+    // deadline is already exhausted (e.g. pool.acquire() blocked on a
+    // waiter for the whole budget). Playwright treats `timeout: 0` as
+    // WAIT FOREVER, so issuing the goto with a zero timeout would hang
+    // indefinitely and defeat the deadline. Bail to the same
+    // selector-timeout result the post-wait path emits instead.
+    if (remaining() <= 0) {
+      return {
+        ok: false,
+        errorClass: "selector-timeout",
+        errorDesc: truncateUtf8(
+          `per-demo deadline exceeded after ${pageTimeoutMs}ms`,
+          1200,
+        ),
+      };
+    }
     try {
       await page.goto(url, {
         waitUntil: "domcontentloaded",
@@ -893,6 +929,20 @@ async function runDemo(opts: {
     // when the first didn't match.
     if (abortSignal.aborted) {
       throw new DOMException("aborted", "AbortError");
+    }
+    // Pre-selector budget check: same `timeout: 0` === wait-forever hazard
+    // as the goto above. If the goto consumed the entire budget, bail to a
+    // selector-timeout result rather than issuing a forever-wait selector
+    // call.
+    if (remaining() <= 0) {
+      return {
+        ok: false,
+        errorClass: "selector-timeout",
+        errorDesc: truncateUtf8(
+          `per-demo deadline exceeded after ${pageTimeoutMs}ms`,
+          1200,
+        ),
+      };
     }
     try {
       await page.waitForSelector(READY_SELECTOR_COMPOUND, {

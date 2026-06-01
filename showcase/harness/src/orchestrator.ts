@@ -283,23 +283,49 @@ export async function boot(opts: BootOptions = {}): Promise<{
     });
   }
 
-  const poolSize = process.env.BROWSER_POOL_SIZE
-    ? parseInt(process.env.BROWSER_POOL_SIZE, 10) || 4
-    : 4;
-  const browserPool = new BrowserPool(poolSize, undefined, logger);
+  // Context-pooled BrowserPool: a fixed small set of long-lived browser
+  // PROCESSES (browsers) with a global cap on concurrently-live CONTEXTS
+  // (maxContexts). BROWSER_POOL_BROWSERS is the process count (legacy
+  // BROWSER_POOL_SIZE retained as a fallback, but its meaning shifts from
+  // "concurrent browsers" to "base browser process count"); deploy env should
+  // move to BROWSER_POOL_BROWSERS=3 + BROWSER_POOL_MAX_CONTEXTS=24.
+  // Do NOT pre-parse the env here with Number(...): Number("abc") is NaN, and
+  // because NaN is not nullish the constructor's `options.browsers ?? <env/default>`
+  // would keep NaN — yielding browserCount = NaN, so init()'s `for (i=0; i<NaN; ...)`
+  // never iterates and ZERO browsers launch (every acquire then times out). The
+  // BrowserPool constructor already reads BROWSER_POOL_BROWSERS / BROWSER_POOL_SIZE /
+  // BROWSER_POOL_MAX_CONTEXTS from process.env with parseInt + NaN/>0 guards and
+  // sensible defaults, so pass only `logger` and let it own numeric resolution.
+  const browserPool = new BrowserPool({ logger });
   let browserPoolReady = false;
   try {
     await browserPool.init();
     browserPoolReady = true;
     try {
+      // Only stamp `recovered: true` when a prior degraded (red) state
+      // actually existed — on a cold first boot nothing was recovered, so a
+      // blanket `recovered: true` would misreport a phantom recovery. Probe
+      // for the prior state and emit a neutral healthy signal otherwise.
+      // statusReader failure here must not break the healthy write, so treat
+      // an unreadable prior state as "no prior degraded state".
+      const priorState = await statusReader
+        .getStateByKey("system:browser-pool-degraded")
+        .catch(() => null);
+      const recovered = priorState === "red";
       await writer.write({
         key: "system:browser-pool-degraded",
         state: "green",
-        signal: { recovered: true, recoveredAt: new Date().toISOString() },
+        signal: recovered
+          ? { recovered: true, recoveredAt: new Date().toISOString() }
+          : { healthy: true, healthyAt: new Date().toISOString() },
         observedAt: new Date().toISOString(),
       });
-    } catch {
-      // best-effort -- pool is healthy, status write failure is non-critical
+    } catch (writeErr) {
+      // best-effort -- pool is healthy, status write failure is non-critical.
+      // Warn (matching the failure path) instead of swallowing silently.
+      logger.warn("boot.browser-pool-status-write-failed", {
+        error: writeErr instanceof Error ? writeErr.message : String(writeErr),
+      });
     }
   } catch (err) {
     logger.error("boot.browser-pool-init-failed", { error: String(err) });
@@ -940,7 +966,9 @@ export function registerAllProbeDrivers(
 
   if (pool) {
     probeRegistry.register(
-      createE2eSmokeDriver({ launcher: createPooledE2eSmokeLauncher(pool) }),
+      createE2eSmokeDriver({
+        launcher: createPooledE2eSmokeLauncher(pool, logger),
+      }),
     );
     probeRegistry.register(
       createE2eDemosDriver({

@@ -541,102 +541,359 @@ describe("e2e-full driver", () => {
   // ~40 features don't all fail with "Target page, context or
   // browser has been closed".
   // --------------------------------------------------------------------
+  // Context-pool migration: the pooled launcher checks out a pooled
+  // CONTEXT per newContext() (pool.acquire) and releases it on close
+  // (pool.release). No Browser is held, so the dead-browser re-acquire
+  // dance is gone — the pool only opens contexts on live browsers. Each
+  // acquire moves inUse by 1, per-feature headers forward into acquire,
+  // and abort closes open contexts (each releasing its context).
   describe("createPooledE2eFullLauncher", () => {
-    it("releases and re-acquires when acquire() returns a disconnected browser", async () => {
-      const dead = makeFakeBrowserish(false);
-      const fresh = makeFakeBrowserish(true);
-      const acquired: FakeBrowserish[] = [];
-      const released: FakeBrowserish[] = [];
-      let nextIdx = 0;
-      const queue = [dead, fresh];
-      const fakePool = {
-        async acquire() {
-          const b = queue[nextIdx++]!;
-          acquired.push(b);
-          return b as unknown as Browser;
-        },
-        release(b: unknown) {
-          released.push(b as FakeBrowserish);
-        },
-        stats() {
-          return { size: 1, available: 0, inUse: 1, totalRecycles: 0 };
-        },
-      };
-      const warnings: Array<{ event: string; meta?: unknown }> = [];
-      const warnLogger = {
-        warn: (event: string, meta?: Record<string, unknown>) =>
-          warnings.push({ event, meta }),
-      };
+    it("checks out a pooled context per newContext() and moves inUse by 1", async () => {
+      const pool = makeFakeContextPool(4);
       const launcher = createPooledE2eFullLauncher(
-        fakePool as unknown as BrowserPool,
-        warnLogger,
+        pool as unknown as BrowserPool,
       );
       const browser = await launcher();
-      // Must have acquired twice (dead, then fresh) and released the
-      // dead instance back to the pool exactly once.
-      expect(acquired).toHaveLength(2);
-      expect(acquired[0]).toBe(dead);
-      expect(acquired[1]).toBe(fresh);
-      expect(released).toHaveLength(1);
-      expect(released[0]).toBe(dead);
-      // The launcher must return a usable E2eFullBrowser; smoke-test
-      // newContext() to confirm we got back the FRESH instance.
-      await browser.newContext();
-      // Diagnostic warn surfaced so operators can correlate.
-      expect(warnings.map((w) => w.event)).toContain(
-        "probe.e2e-full.pool-acquire-dead",
-      );
+      expect(pool.stats().inUse).toBe(0);
+      const ctx = await browser.newContext();
+      expect(pool.stats().inUse).toBe(1);
+      await ctx.close();
+      expect(pool.stats().inUse).toBe(0);
+      expect(pool._releaseLog).toHaveLength(1);
     });
 
-    it("does not re-acquire when the first acquire returns a healthy browser", async () => {
-      const healthy = makeFakeBrowserish(true);
-      const acquired: FakeBrowserish[] = [];
-      const released: FakeBrowserish[] = [];
-      const fakePool = {
-        async acquire() {
-          acquired.push(healthy);
-          return healthy as unknown as Browser;
-        },
-        release(b: unknown) {
-          released.push(b as FakeBrowserish);
-        },
-        stats() {
-          return { size: 1, available: 0, inUse: 1, totalRecycles: 0 };
-        },
-      };
+    it("forwards newContext(opts).extraHTTPHeaders into pool.acquire", async () => {
+      const pool = makeFakeContextPool(4);
       const launcher = createPooledE2eFullLauncher(
-        fakePool as unknown as BrowserPool,
+        pool as unknown as BrowserPool,
       );
-      await launcher();
-      expect(acquired).toHaveLength(1);
-      expect(released).toHaveLength(0);
+      const browser = await launcher();
+      await browser.newContext({
+        extraHTTPHeaders: {
+          "X-AIMock-Context": "slug-d6",
+          "X-Test-Id": "d6-slug-d6",
+        },
+      });
+      expect(pool._acquireOptions[0]).toEqual({
+        extraHTTPHeaders: {
+          "X-AIMock-Context": "slug-d6",
+          "X-Test-Id": "d6-slug-d6",
+        },
+      });
+    });
+
+    it("closes open contexts on abort (each releasing its pooled context)", async () => {
+      const pool = makeFakeContextPool(4);
+      const launcher = createPooledE2eFullLauncher(
+        pool as unknown as BrowserPool,
+      );
+      const ac = new AbortController();
+      const browser = await launcher(ac.signal);
+      const ctx = await browser.newContext();
+      await ctx.newPage();
+      expect(pool.stats().inUse).toBe(1);
+      ac.abort();
+      await new Promise((r) => setTimeout(r, 10));
+      expect(pool._releaseLog).toHaveLength(1);
+      expect(pool.stats().inUse).toBe(0);
+    });
+
+    it("launcher-level close is a no-op (contexts release themselves)", async () => {
+      const pool = makeFakeContextPool(4);
+      const launcher = createPooledE2eFullLauncher(
+        pool as unknown as BrowserPool,
+      );
+      const browser = await launcher();
+      const ctx = await browser.newContext();
+      await ctx.close();
+      await browser.close(); // no-op
+      expect(pool._releaseLog).toHaveLength(1);
     });
   });
 });
 
-// Module-scoped helpers for the createPooledE2eFullLauncher tests above —
-// lifted out of the describe so oxlint's consistent-function-scoping is
-// satisfied (the factory captures no parent state).
-interface FakeBrowserish {
-  connected: boolean;
-  newContext(): Promise<{
-    close(): Promise<void>;
-    newPage(): Promise<unknown>;
-  }>;
-  isConnected(): boolean;
-}
-
-function makeFakeBrowserish(connected: boolean): FakeBrowserish {
+// Module-scoped fake context-pool for the createPooledE2eFullLauncher tests
+// above — lifted out of the describe so oxlint's consistent-function-scoping
+// is satisfied (the factory captures no parent state). Tracks per-CONTEXT
+// acquire/release and the contextOptions each acquire was called with.
+function makeFakeContextPool(maxContexts: number) {
+  let nextCtxId = 0;
+  // Track the set of currently-live contexts so release fidelity matches
+  // the real BrowserPool: an unknown / double release is a no-op (does
+  // NOT decrement the count). The previous unconditional decrement could
+  // drive `live` negative and silently mask a double-release bug.
+  const liveContexts = new Set<object>();
+  const releaseLog: number[] = [];
+  const acquireOptions: Array<
+    { extraHTTPHeaders?: Record<string, string> } | undefined
+  > = [];
   return {
-    connected,
-    isConnected() {
-      return this.connected;
-    },
-    async newContext() {
-      return {
-        close: async () => {},
-        newPage: async () => ({}),
+    async acquire(options?: { extraHTTPHeaders?: Record<string, string> }) {
+      if (liveContexts.size >= maxContexts) throw new Error("FakePool: at cap");
+      const id = nextCtxId++;
+      acquireOptions.push(options);
+      const ctx = {
+        __id: id,
+        async newPage() {
+          return {
+            on: () => {},
+            waitForSelector: async () => {},
+            fill: async () => {},
+            press: async () => {},
+            evaluate: async () => 0,
+            goto: async () => {},
+            close: async () => {},
+            click: async () => {},
+            waitForFunction: async () => {},
+            isClosed: () => false,
+            locator: () => ({ count: async () => 0 }),
+            route: async () => {},
+            unroute: async () => {},
+          } as unknown;
+        },
+        async close() {},
       };
+      liveContexts.add(ctx);
+      return ctx as unknown as Browser;
+    },
+    async release(ctx: unknown) {
+      // Unknown / double release — no-op, mirroring BrowserPool.release.
+      if (typeof ctx !== "object" || ctx === null || !liveContexts.has(ctx)) {
+        return;
+      }
+      liveContexts.delete(ctx);
+      releaseLog.push((ctx as { __id: number }).__id);
+    },
+    stats() {
+      return {
+        size: maxContexts,
+        available: maxContexts - liveContexts.size,
+        inUse: liveContexts.size,
+        totalRecycles: 0,
+      };
+    },
+    get _releaseLog() {
+      return releaseLog;
+    },
+    get _acquireOptions() {
+      return acquireOptions;
     },
   };
 }
+
+// ---------------------------------------------------------------------
+// Pooled-context budget (e2e-full): feature-timeout must NOT free the
+// semaphore slot until the orphaned (still-in-flight) runFeature's
+// context is actually released. Otherwise a freed slot lets a new
+// feature acquire a context while the orphan still holds one → live
+// contexts exceed FEATURE_CONCURRENCY_D6's budget. Mirrors the d5 test.
+// ---------------------------------------------------------------------
+/** Module-scoped timer helper (oxlint consistent-function-scoping). */
+function testSleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * Launcher whose contexts simulate pooled checkout: `newContext`
+ * increments a live counter (tracking peak), each context's page `goto`
+ * resolves only after `gotoDelayMs`, and `close()` resolves only after
+ * `closeDelayMs` (the orphan window). Module-scoped for oxlint's
+ * consistent-function-scoping.
+ */
+function makeSlowTeardownLauncherFull(opts: {
+  gotoDelayMs: number;
+  closeDelayMs: number;
+}): {
+  launcher: () => Promise<E2eFullBrowser>;
+  state: { live: number; peakLive: number; opened: number; closed: number };
+} {
+  const state = { live: 0, peakLive: 0, opened: 0, closed: 0 };
+  const browser: E2eFullBrowser = {
+    async newContext(): Promise<E2eFullBrowserContext> {
+      state.live++;
+      state.opened++;
+      if (state.live > state.peakLive) state.peakLive = state.live;
+      return {
+        async newPage(): Promise<E2eFullPage> {
+          // Growing-count contract so the conversation settles quickly
+          // (no 30s response timeout): runFeature then reaches its
+          // finally and calls the (deliberately slow) context.close().
+          let messageCount = 0;
+          return {
+            async goto() {
+              await testSleep(opts.gotoDelayMs);
+            },
+            async waitForSelector() {},
+            async fill() {},
+            async press() {
+              messageCount++;
+            },
+            async evaluate<R>() {
+              return messageCount as unknown as R;
+            },
+            async click() {},
+            async waitForFunction() {},
+            async close() {},
+          };
+        },
+        async close() {
+          // The orphan window: the context stays live until this resolves.
+          await testSleep(opts.closeDelayMs);
+          state.live--;
+          state.closed++;
+        },
+      };
+    },
+    async close() {},
+  };
+  return { launcher: async () => browser, state };
+}
+
+describe("e2e-full feature-timeout pooled-context budget", () => {
+  beforeEach(() => {
+    __clearD5RegistryForTesting();
+  });
+
+  it("does not exceed FEATURE_CONCURRENCY_D6 live contexts when features time out (slot release gated on orphan teardown)", async () => {
+    // FEATURE_CONCURRENCY_D6 features acquire slots and time out (goto
+    // hangs past featureTimeoutMs) but keep holding their contexts until
+    // close() resolves. One extra feature waits in the semaphore queue.
+    // If the slot is freed at timeout BEFORE the orphan's context is
+    // released, the queued feature acquires an over-budget context →
+    // peakLive > FEATURE_CONCURRENCY_D6. Gating slot release on the
+    // in-flight runFeature settling keeps peakLive <= the budget.
+    const conc = FEATURE_CONCURRENCY_D6;
+    const featureTypes = [
+      "agentic-chat",
+      "tool-rendering",
+      "shared-state-read",
+      "shared-state-write",
+      "hitl-text-input",
+    ] as const;
+    expect(featureTypes.length).toBeGreaterThan(conc);
+
+    for (const ft of featureTypes) {
+      registerD5Script(makeScript([ft]));
+    }
+
+    const { launcher, state } = makeSlowTeardownLauncherFull({
+      gotoDelayMs: 60,
+      closeDelayMs: 80,
+    });
+
+    const driver = createE2eFullDriver({
+      launcher,
+      scriptLoader: noopScriptLoader(),
+      featureTimeoutMs: 20,
+    });
+    const sideEmits: ProbeResult<unknown>[] = [];
+    const writer: ProbeResultWriter = {
+      write: async (r) => {
+        sideEmits.push(r);
+      },
+    };
+
+    await driver.run(makeCtx({ writer }), {
+      key: "d6-all-pills-e2e:showcase-test-slug",
+      backendUrl: "https://test.example.com",
+      features: [...featureTypes],
+    });
+
+    expect(state.opened).toBe(featureTypes.length);
+    expect(state.peakLive).toBeLessThanOrEqual(conc);
+    expect(state.live).toBe(0); // all released by the time run() resolves
+  }, 20_000);
+});
+
+// ---------------------------------------------------------------------
+// Per-feature retry uses an isolated AbortController per attempt (e2e-full):
+// a retry after a RETRY-ELIGIBLE failure must actually execute the second
+// attempt rather than being short-circuited by a poisoned (pre-aborted)
+// signal. Observed via context-open count: runFeature returns `abort`
+// WITHOUT opening a context if entered with an aborted signal, so a
+// poisoned retry opens only ONE context; a healthy retry opens TWO.
+// ---------------------------------------------------------------------
+/**
+ * Launcher whose first context FAILS with a retry-eligible `goto-error`
+ * (goto rejects after >RETRY_MIN_DURATION_MS) and whose second SUCCEEDS.
+ * Tracks contexts opened (one per executed attempt).
+ */
+function makeRetryLauncherFull(opts: { attempt1DelayMs: number }): {
+  launcher: () => Promise<E2eFullBrowser>;
+  state: { opened: number };
+} {
+  const state = { opened: 0 };
+  const browser: E2eFullBrowser = {
+    async newContext(): Promise<E2eFullBrowserContext> {
+      const attempt = ++state.opened;
+      return {
+        async newPage(): Promise<E2eFullPage> {
+          let messageCount = 0;
+          return {
+            async goto() {
+              if (attempt === 1) {
+                await testSleep(opts.attempt1DelayMs);
+                throw new Error("nav blip (retryable)");
+              }
+            },
+            async waitForSelector() {},
+            async fill() {},
+            async press() {
+              messageCount++;
+            },
+            async evaluate<R>() {
+              return messageCount as unknown as R;
+            },
+            async click() {},
+            async waitForFunction() {},
+            async close() {},
+          };
+        },
+        async close() {},
+      };
+    },
+    async close() {},
+  };
+  return { launcher: async () => browser, state };
+}
+
+describe("e2e-full per-feature retry signal isolation", () => {
+  beforeEach(() => {
+    __clearD5RegistryForTesting();
+  });
+
+  it("executes the second attempt after a retry-eligible failure (fresh, non-aborted signal)", async () => {
+    // Attempt 1 fails retry-eligibly (goto-error) after
+    // >= RETRY_MIN_DURATION_MS (2s); attempt 2 succeeds. The retry must
+    // run with a fresh, un-aborted signal — observed by TWO contexts
+    // being opened (a poisoned/aborted retry would open only one).
+    registerD5Script(makeScript(["agentic-chat"]));
+
+    const { launcher, state } = makeRetryLauncherFull({
+      attempt1DelayMs: 2_100,
+    });
+
+    const driver = createE2eFullDriver({
+      launcher,
+      scriptLoader: noopScriptLoader(),
+      featureTimeoutMs: 30_000, // above attempt durations — no timeout
+    });
+    const sideEmits: ProbeResult<unknown>[] = [];
+    const writer: ProbeResultWriter = {
+      write: async (r) => {
+        sideEmits.push(r);
+      },
+    };
+
+    await driver.run(makeCtx({ writer }), {
+      key: "d6-all-pills-e2e:showcase-test-slug",
+      backendUrl: "https://test.example.com",
+      features: ["agentic-chat"],
+    });
+
+    // Two attempts executed → two contexts opened.
+    expect(state.opened).toBe(2);
+    const aggRow = sideEmits.find((r) => r.key === "d6:test-slug");
+    expect(aggRow?.state).toBe("green");
+  }, 15_000);
+});
