@@ -16,9 +16,14 @@
  * layer.
  *
  * Validation is strict and fails LOUD at load: every value must be an
- * array of `.spec.ts` filenames. A malformed manifest is an operator
- * error that must surface immediately, not silently degrade to
- * "nothing skipped".
+ * array of `.spec.ts` filenames, AND every skipped filename must be a
+ * member of the gold mapping (`allMappedSpecFiles()`). A malformed
+ * manifest is an operator error that must surface immediately, not
+ * silently degrade to "nothing skipped". The mapping cross-check guards
+ * against a typo (e.g. `voce.spec.ts` for `voice.spec.ts`): the rollup
+ * only iterates `allMappedSpecFiles()`, so a bogus skip would otherwise
+ * match no cell and silently no-op, leaving the real cell red/unknown
+ * and defeating the reviewer-signoff intent.
  *
  * The JSON is read via `fs`/`JSON.parse` (matching `spec-cell-mapping`
  * and the sibling `d5-mapping-drift` readers) rather than an
@@ -27,6 +32,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { allMappedSpecFiles } from "./spec-cell-mapping.js";
 
 export interface SkipList {
   isSkipped(slug: string, specFile: string): boolean;
@@ -39,6 +45,7 @@ export interface SkipList {
  */
 export function loadSkipList(source: Record<string, string[]>): SkipList {
   const table: Record<string, ReadonlySet<string>> = {};
+  const known = new Set(allMappedSpecFiles());
 
   for (const [slug, files] of Object.entries(source)) {
     if (!Array.isArray(files)) {
@@ -52,6 +59,14 @@ export function loadSkipList(source: Record<string, string[]>): SkipList {
           `skip-list: "${slug}" → ${JSON.stringify(
             file,
           )} is not a .spec.ts filename`,
+        );
+      }
+      if (!known.has(file)) {
+        throw new Error(
+          `skip-list: "${slug}" → ${JSON.stringify(
+            file,
+          )} is not a known gold spec file (not in allMappedSpecFiles()). ` +
+            `A skip for an unknown spec silently matches no cell — check for a typo.`,
         );
       }
     }

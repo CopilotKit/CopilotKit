@@ -47,6 +47,21 @@ describe("skip-list loader", () => {
     );
   });
 
+  it("throws at load when a skip names a spec not in the gold mapping (typo guard)", () => {
+    // `voce.spec.ts` is a typo for the real `voice.spec.ts`; without
+    // cross-validation the bogus skip silently matches no cell and the
+    // intended skip is a no-op — defeating the reviewer-signoff intent.
+    expect(() =>
+      loadSkipList({ "langgraph-python": ["voce.spec.ts"] }),
+    ).toThrow(/voce\.spec\.ts/);
+    // The correctly-spelled spec IS in the mapping and loads fine.
+    expect(() =>
+      loadSkipList({ "langgraph-python": ["voice.spec.ts"] }),
+    ).not.toThrow();
+    // Empty manifest still loads.
+    expect(() => loadSkipList({})).not.toThrow();
+  });
+
   it("throws at load when a slug's value is not an array", () => {
     expect(() =>
       loadSkipList({ "google-adk": "voice.spec.ts" as unknown as string[] }),
