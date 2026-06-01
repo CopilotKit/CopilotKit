@@ -289,13 +289,14 @@ export async function boot(opts: BootOptions = {}): Promise<{
   // BROWSER_POOL_SIZE retained as a fallback, but its meaning shifts from
   // "concurrent browsers" to "base browser process count"); deploy env should
   // move to BROWSER_POOL_BROWSERS=3 + BROWSER_POOL_MAX_CONTEXTS=24.
-  const browserPool = new BrowserPool({
-    browsers: Number(
-      process.env.BROWSER_POOL_BROWSERS ?? process.env.BROWSER_POOL_SIZE ?? 3,
-    ),
-    maxContexts: Number(process.env.BROWSER_POOL_MAX_CONTEXTS ?? 24),
-    logger,
-  });
+  // Do NOT pre-parse the env here with Number(...): Number("abc") is NaN, and
+  // because NaN is not nullish the constructor's `options.browsers ?? <env/default>`
+  // would keep NaN — yielding browserCount = NaN, so init()'s `for (i=0; i<NaN; ...)`
+  // never iterates and ZERO browsers launch (every acquire then times out). The
+  // BrowserPool constructor already reads BROWSER_POOL_BROWSERS / BROWSER_POOL_SIZE /
+  // BROWSER_POOL_MAX_CONTEXTS from process.env with parseInt + NaN/>0 guards and
+  // sensible defaults, so pass only `logger` and let it own numeric resolution.
+  const browserPool = new BrowserPool({ logger });
   let browserPoolReady = false;
   try {
     await browserPool.init();
