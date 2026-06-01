@@ -421,7 +421,15 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter {
     let firstFailureAt: string | null = existing?.first_failure_at ?? null;
     if (transition === "green_to_red" || transition === "first") {
       firstFailureAt = nowRed ? result.observedAt : null;
-    } else if (transition === "red_to_green") {
+    } else if (transition === "red_to_green" || transition === "cleared") {
+      // `cleared`: a red/degraded cell going to the neutral `unknown`
+      // ("no-evidence") state. The failure window is over (the cell is no
+      // longer red), so clear first_failure_at the same way red_to_green
+      // does — otherwise the row persists state=unknown / fail_count=0 with
+      // a STALE first_failure_at carried forward from the prior red, which
+      // the dashboard's "red for N minutes" widget would misread. `cleared`
+      // never fires an alert (not in StringTriggerEnum), so this is purely a
+      // bookkeeping reset, not a recovery signal.
       firstFailureAt = null;
     } else if (transition === "sustained_red" && firstFailureAt === null) {
       // Legacy record: status row exists and is red, but has no

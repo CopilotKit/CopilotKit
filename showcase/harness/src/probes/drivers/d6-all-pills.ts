@@ -86,10 +86,12 @@ export interface E2eFullFeatureSignal {
   /**
    * The PRECISE fail-closed rollup verdict for this cell:
    * `green` | `red` | `unknown` | `skipped`. The emitted `ProbeResult.state`
-   * is a fail-closed projection of this onto the narrower `ProbeState`
-   * vocabulary (both `unknown` AND `skipped` → neutral, NON-green `error`),
-   * but `cellState` carries the unprojected truth for the dashboard rollup
-   * and audit. A green `cellState` is the ONLY value that greens the cell.
+   * is a fail-closed projection of this onto the `ProbeState` vocabulary
+   * (`unknown` maps 1:1 onto the neutral no-evidence `unknown` ProbeState;
+   * `skipped` — which has no ProbeState of its own — collapses onto the same
+   * neutral `unknown`), but `cellState` carries the unprojected truth for the
+   * dashboard rollup and audit. A green `cellState` is the ONLY value that
+   * greens the cell.
    */
   cellState?: CellRollup["state"];
   url?: string;
@@ -106,7 +108,9 @@ export interface E2eFullFeatureSignal {
 
 /**
  * Aggregate signal carried on the primary `d6:<slug>` row.
- * Green only if ALL features pass.
+ * Green iff every non-skipped cell is green; skipped cells are neutral (they
+ * neither block green nor count as red). Any red cell makes the aggregate
+ * red; any missing/untrustworthy cell with no red makes it `unknown`.
  *
  * `skipped` carries the column names of cells the spec-driven driver
  * declared "not applicable" via the skip-list (see `declaredSkips(slug)`).
@@ -126,14 +130,17 @@ export interface E2eFullAggregateSignal {
   failureSummary?: string;
   /**
    * Column names of cells in the PRECISE `unknown` rollup state. `unknown`
-   * and `skipped` have no `ProbeState` equivalent; this list lets the
-   * dashboard render the true breakdown even though the emitted
-   * `ProbeResult.state` projects onto the narrower vocabulary.
+   * now has a 1:1 `ProbeState` equivalent (the neutral no-evidence state),
+   * but `skipped` does not — this list lets the dashboard render the true
+   * breakdown (distinguishing a declared skip from a no-evidence unknown)
+   * even though both project onto the same `unknown` ProbeState.
    */
   unknown?: string[];
   /**
    * The PRECISE aggregate rollup verdict: `green` | `red` | `unknown`. The
-   * emitted `ProbeResult.state` projects `unknown` → `error` (fail-closed).
+   * emitted `ProbeResult.state` carries `unknown` through directly (it is a
+   * real, neutral `ProbeState` whose writer success path overwrites the cell
+   * — fail-closed: never green without a real PASS).
    */
   aggregateState?: "green" | "red" | "unknown";
 }
@@ -530,14 +537,17 @@ export function createE2eFullDriver(
               ageMs,
               graceMs: DEPLOY_CHURN_GRACE_MS,
             });
-            // FAIL-CLOSED during deploy churn: emit `error` (the writer's
-            // error branch refreshes observed_at WITHOUT mutating the
-            // persisted color or fail_count — so a deploy in progress never
-            // greens a cell and never trips a false red). The precise verdict
-            // rides in `aggregateState: "unknown"`.
+            // FAIL-CLOSED during deploy churn: emit the neutral `unknown`
+            // ("no-evidence") state. The writer's SUCCESS path OVERWRITES the
+            // row's state to `unknown` and resets fail_count — so a deploy in
+            // progress neither greens a cell nor trips a false red, AND a
+            // previously-green cell loses its green (the prior bug projected
+            // this onto ProbeState `"error"`, whose error branch CARRIED the
+            // green forward → false-green). The precise verdict still rides in
+            // `aggregateState: "unknown"`.
             const aggregateResult: ProbeResult<E2eFullAggregateSignal> = {
               key: input.key,
-              state: "error",
+              state: "unknown",
               signal: {
                 shape: "package",
                 slug,
@@ -621,21 +631,25 @@ export function createE2eFullDriver(
         : rawCells;
 
       // ---- Emit one side row per cell (d6:<slug>/<column>) --------------
-      // FAIL-CLOSED projection onto the narrower `ProbeState` vocabulary:
+      // FAIL-CLOSED projection onto the `ProbeState` vocabulary:
       //   green   → "green"
       //   red     → "red"
-      //   unknown → "error"  (loud, non-green; the writer's error branch
-      //                       never greens and never mutates fail_count)
-      //   skipped → "error"  (NON-green neutral — a skip must NEVER project
-      //                       to green. The dashboard's `StatusRow.state`
-      //                       (live-status.ts) is 3-valued green/red/degraded
-      //                       and does NOT read `signal.cellState`, so a
-      //                       "green" projection here would render a skipped
-      //                       spec as a REAL pass. We route it onto the same
-      //                       neutral `error` path as `unknown` so it can't
-      //                       read as a pass; the dedicated dashboard skip
-      //                       tone is a separate follow-up. `cellState:
-      //                       "skipped"` is still carried for audit.
+      //   unknown → "unknown"  (the neutral "no-evidence" state — the writer's
+      //                         SUCCESS path OVERWRITES the cell's persisted
+      //                         state to `unknown` and resets fail_count, so a
+      //                         previously-green cell loses its green instead
+      //                         of carrying it forward. Pre-fix this projected
+      //                         to `"error"`, whose error branch CARRIED the
+      //                         prior green forward → false-green.)
+      //   skipped → "unknown"  (NON-green neutral — a skip must NEVER project
+      //                         to green. The dashboard's `StatusRow.state`
+      //                         (live-status.ts) is read directly, so a
+      //                         "green" projection here would render a skipped
+      //                         spec as a REAL pass. We route it onto the same
+      //                         neutral `unknown` path so it can't read as a
+      //                         pass; `cellState: "skipped"` is still carried
+      //                         for audit so the dashboard can render a
+      //                         dedicated skip tone.
       // The unprojected `cellState` is carried in the signal as the source
       // of truth; the projection NEVER turns a non-green cell into green.
       for (const cell of cells) {
@@ -644,7 +658,7 @@ export function createE2eFullDriver(
             ? "green"
             : cell.state === "red"
               ? "red"
-              : "error"; // unknown OR skipped → neutral, NON-green
+              : "unknown"; // unknown OR skipped → neutral, NON-green
         await sideEmit(ctx, {
           key: `d6:${slug}/${cell.cellColumn}`,
           state: projected,
@@ -712,10 +726,13 @@ export function createE2eFullDriver(
         aggregateState = "unknown";
       }
 
-      // FAIL-CLOSED projection onto `ProbeState`: unknown → "error"
-      // (never green). The precise verdict rides in `signal.aggregateState`.
-      const projectedState: ProbeState =
-        aggregateState === "unknown" ? "error" : aggregateState;
+      // FAIL-CLOSED projection onto `ProbeState`: the aggregate `unknown`
+      // verdict projects to the neutral `unknown` ProbeState (never green).
+      // The writer's success path OVERWRITES the persisted state to `unknown`
+      // (resetting fail_count) so a previously-green aggregate loses its green
+      // — the prior bug projected to `"error"`, carrying the green forward.
+      // The precise verdict also rides in `signal.aggregateState`.
+      const projectedState: ProbeState = aggregateState;
 
       ctx.logger.info("probe.e2e-full.suite-complete", {
         slug,

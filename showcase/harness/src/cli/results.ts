@@ -42,12 +42,13 @@ const DIM = "\x1b[2m";
 function stateColor(state: ProbeState): string {
   if (state === "green") return GREEN;
   if (state === "red" || state === "error") return RED;
-  return YELLOW; // degraded
+  return YELLOW; // degraded | unknown (neutral "no-evidence")
 }
 
 function stateIcon(state: ProbeState): string {
   if (state === "green") return "\u2713"; // checkmark
   if (state === "red" || state === "error") return "\u2717"; // x-mark
+  if (state === "unknown") return "?"; // neutral "no-evidence"
   return "~"; // degraded
 }
 
@@ -141,8 +142,14 @@ export function probeResultToTerminal(
       signal.failureSummary.length > 0
     ) {
       error = signal.failureSummary;
+    } else if (result.state === "error") {
+      error = "probe error";
+    } else if (result.state === "unknown") {
+      // Neutral "no-evidence" state — not a failure; label it distinctly so
+      // the CLI doesn't render a no-evidence cell as a hard "failed".
+      error = "no evidence";
     } else {
-      error = result.state === "error" ? "probe error" : "failed";
+      error = "failed";
     }
   }
 

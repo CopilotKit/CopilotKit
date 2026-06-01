@@ -607,10 +607,12 @@ export function buildProbeInvoker(
         // ProbeState → tracker-result mapping:
         //   green     → tracker.complete(slug, "green")  passed++
         //   degraded  → tracker.complete(slug, "yellow") failed++  (degraded contributes to failure count for surfacing)
+        //   unknown   → tracker.complete(slug, "yellow") failed++  (neutral "no-evidence" — NOT a real failure, but non-green so it surfaces under `failed`)
         //   red       → tracker.complete(slug, "red")    failed++
         //   error     → tracker.fail(slug, errorDesc)    failed++
-        // The summary's `failed` count rolls up degraded + red + error so
-        // the scheduler-side `lastRunSummary` reflects "anything not green".
+        // The summary's `failed` count rolls up degraded + unknown + red +
+        // error so the scheduler-side `lastRunSummary` reflects "anything not
+        // green".
         if (result.state === "error") {
           const errDesc =
             (result.signal as { errorDesc?: string } | undefined)?.errorDesc ??
@@ -620,7 +622,11 @@ export function buildProbeInvoker(
         } else if (result.state === "green") {
           tracker.complete(key, "green");
           passed++;
-        } else if (result.state === "degraded") {
+        } else if (result.state === "degraded" || result.state === "unknown") {
+          // `unknown` is the neutral "no-evidence" state — display it as the
+          // neutral `yellow` tone (NOT `red`: a no-evidence cell is not a real
+          // failure). The State widening (types/index.ts) forced this branch:
+          // without it the `else` below would mislabel `unknown` as `red`.
           tracker.complete(key, "yellow");
           failed++;
         } else {

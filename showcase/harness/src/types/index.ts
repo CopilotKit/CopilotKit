@@ -1,4 +1,16 @@
-export type State = "green" | "red" | "degraded";
+// `unknown` is the NEUTRAL "no-evidence" persisted state: a cell for which
+// the probe ran but produced no trustworthy verdict (a D6 run that errored or
+// exited non-zero, a declared skip, a deploy-churn grace skip). It is a REAL
+// persisted State — the status-writer's SUCCESS path overwrites the row's
+// `state` to `unknown` and resets `fail_count` to 0 — so a previously-green
+// cell that goes unknown loses its green instead of carrying it forward.
+// Pre-fix the drivers projected these onto ProbeState `"error"`, which the
+// writer's ERROR branch persisted by CARRYING the prior colour forward +
+// refreshing observed_at → a green cell going unknown RETAINED its green
+// (false-green). `unknown` is neither green nor red: it does not pass, does
+// not count toward flap/fail tracking, and (via the `cleared` transition)
+// fires no alert.
+export type State = "green" | "red" | "degraded" | "unknown";
 export type ProbeState = State | "error";
 
 /**
@@ -76,7 +88,14 @@ export type Transition =
   | "red_to_green"
   | "sustained_red"
   | "sustained_green"
-  | "error";
+  | "error"
+  // `cleared`: any prior world-state → the neutral `unknown` ("no-evidence")
+  // state. Deliberately NOT a member of StringTriggerEnum (rules/schema.ts),
+  // so no rule can declare it as a trigger — a green→unknown or red→unknown
+  // move therefore fires NO alert (no spurious green-recovery, no red). The
+  // status_history PB enum also carries this value so history writes for an
+  // unknown tick don't 400. See transition-detector.ts.
+  | "cleared";
 
 export interface ProbeResult<Signal = unknown> {
   key: string;

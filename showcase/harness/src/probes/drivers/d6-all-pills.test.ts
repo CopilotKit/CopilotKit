@@ -19,7 +19,11 @@ import type {
   ProbeContext,
   ProbeResult,
   ProbeResultWriter,
+  StatusRecord,
 } from "../../types/index.js";
+import { createStatusWriter } from "../../writers/status-writer.js";
+import { createEventBus } from "../../events/event-bus.js";
+import type { PbClient } from "../../storage/pb-client.js";
 import type { SpecFileResult } from "../helpers/pw-json-reporter.js";
 import {
   allMappedSpecFiles,
@@ -251,18 +255,18 @@ describe("e2e-full driver (spec-driven)", () => {
         backendUrl: "https://lgp.example.com",
       });
 
-      // The aggregate must NOT be green. UNKNOWN projects onto the
-      // fail-closed `error` ProbeState (the writer's error branch never
-      // greens and never resets fail_count); the precise verdict is on
-      // signal.aggregateState.
+      // The aggregate must NOT be green. UNKNOWN projects onto the neutral
+      // no-evidence `unknown` ProbeState (the writer's success path overwrites
+      // the cell and resets fail_count — never greens, never carries a prior
+      // green forward); the precise verdict is on signal.aggregateState.
       expect(result.state).not.toBe("green");
-      expect(result.state).toBe("error");
+      expect(result.state).toBe("unknown");
       expect((result.signal as E2eFullAggregateSignal).aggregateState).toBe(
         "unknown",
       );
 
       const aggRow = sideEmits.find((r) => r.key === "d6:langgraph-python");
-      expect(aggRow!.state).toBe("error");
+      expect(aggRow!.state).toBe("unknown");
       expect((aggRow!.signal as E2eFullAggregateSignal).aggregateState).toBe(
         "unknown",
       );
@@ -276,7 +280,7 @@ describe("e2e-full driver (spec-driven)", () => {
       expect(
         sideRows.every(
           (r) =>
-            r.state === "error" &&
+            r.state === "unknown" &&
             (r.signal as E2eFullFeatureSignal).cellState === "unknown",
         ),
       ).toBe(true);
@@ -300,12 +304,12 @@ describe("e2e-full driver (spec-driven)", () => {
       });
 
       expect(result.state).not.toBe("green");
-      expect(result.state).toBe("error");
+      expect(result.state).toBe("unknown");
       expect((result.signal as E2eFullAggregateSignal).aggregateState).toBe(
         "unknown",
       );
       const aggRow = sideEmits.find((r) => r.key === "d6:langgraph-python");
-      expect(aggRow!.state).toBe("error");
+      expect(aggRow!.state).toBe("unknown");
     });
 
     it("a partial result (only some specs ran) → ran cells green, the rest UNKNOWN, aggregate UNKNOWN", async () => {
@@ -317,8 +321,8 @@ describe("e2e-full driver (spec-driven)", () => {
         backendUrl: "https://lgp.example.com",
       });
       // One green cell, the rest unknown → aggregate is NOT green (projects
-      // to the fail-closed `error` ProbeState; aggregateState is "unknown").
-      expect(result.state).toBe("error");
+      // to the neutral `unknown` ProbeState; aggregateState is "unknown").
+      expect(result.state).toBe("unknown");
       const signal = result.signal as E2eFullAggregateSignal;
       expect(signal.aggregateState).toBe("unknown");
       expect(signal.passed).toBe(1);
@@ -445,12 +449,13 @@ describe("e2e-full driver (spec-driven)", () => {
       const voiceRow = sideEmits.find(
         (r) => r.key === `d6:langgraph-python/${skipColumn}`,
       );
-      // A skip projects to a NON-GREEN neutral ProbeState (never a false
-      // green — the dashboard's StatusRow.state never reads cellState), but
-      // carries the precise `cellState: "skipped"` so it's never confused
-      // with a real pass and the dedicated skip tone is a follow-up.
+      // A skip projects to the NON-GREEN neutral `unknown` ProbeState (never
+      // a false green — the dashboard's StatusRow.state never reads
+      // cellState), but carries the precise `cellState: "skipped"` so it's
+      // never confused with a real pass and the dashboard can render a
+      // dedicated skip tone off cellState.
       expect(voiceRow!.state).not.toBe("green");
-      expect(voiceRow!.state).toBe("error");
+      expect(voiceRow!.state).toBe("unknown");
       expect((voiceRow!.signal as E2eFullFeatureSignal).cellState).toBe(
         "skipped",
       );
@@ -484,10 +489,10 @@ describe("e2e-full driver (spec-driven)", () => {
         (r) => r.key === `d6:langgraph-python/${skipColumn}`,
       );
       // Even though voice had a RED row, the declared skip wins: a NON-GREEN
-      // neutral side-row carrying cellState "skipped" — never red, never a
-      // false green.
+      // neutral `unknown` side-row carrying cellState "skipped" — never red,
+      // never a false green.
       expect(voiceRow!.state).not.toBe("green");
-      expect(voiceRow!.state).toBe("error");
+      expect(voiceRow!.state).toBe("unknown");
       expect((voiceRow!.signal as E2eFullFeatureSignal).cellState).toBe(
         "skipped",
       );
@@ -548,9 +553,17 @@ describe("e2e-full driver (spec-driven)", () => {
         deployedAt,
       });
       // During the grace window we do NOT run the suite and do NOT green/red.
+      // The aggregate is the neutral `unknown` ("no-evidence") state — the
+      // writer's success path overwrites the cell and never carries a prior
+      // green forward (pre-fix this emitted "error", which the error branch
+      // carried green forward → false-green during a deploy).
       expect(capture.calls).toHaveLength(0);
+      expect(result.state).toBe("unknown");
       expect(result.state).not.toBe("green");
       expect(result.state).not.toBe("red");
+      expect((result.signal as E2eFullAggregateSignal).aggregateState).toBe(
+        "unknown",
+      );
       expect(result.signal.note).toContain("deploy");
     });
   });
@@ -570,6 +583,139 @@ describe("e2e-full driver (spec-driven)", () => {
       const signal = result.signal as E2eFullAggregateSignal;
       expect(signal.slug).toBe("langgraph-python");
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// END-TO-END: D6 unknown cell → status-writer OVERWRITES a pre-seeded green.
+//
+// This is the load-bearing regression for the false-green defect. Before the
+// fix, a d6 run that produced no trustworthy verdict projected its aggregate
+// onto ProbeState "error"; the writer's ERROR branch carried the prior green
+// forward + refreshed observed_at, so a previously-green row STAYED green.
+// Now the driver emits a neutral `state:"unknown"`, the writer's SUCCESS path
+// OVERWRITES `state` to `unknown`, and the green is gone.
+// ---------------------------------------------------------------------------
+function inMemoryPb(): {
+  pb: PbClient;
+  rows: Map<string, StatusRecord>;
+} {
+  const rows = new Map<string, StatusRecord>();
+  const history: unknown[] = [];
+  const pb: PbClient = {
+    async getOne() {
+      return null;
+    },
+    async getFirst<T>(collection: string, filter: string): Promise<T | null> {
+      if (collection !== "status") return null;
+      const m = filter.match(/key = "(.+)"/);
+      if (!m) return null;
+      return (rows.get(m[1]!) as unknown as T) ?? null;
+    },
+    async list() {
+      return { page: 1, perPage: 0, totalPages: 0, totalItems: 0, items: [] };
+    },
+    async create<T>(
+      collection: string,
+      record: Record<string, unknown>,
+    ): Promise<T> {
+      if (collection === "status") {
+        const r = record as unknown as StatusRecord;
+        const id = `r-${rows.size + 1}`;
+        rows.set(r.key, { ...r, id });
+        return rows.get(r.key) as unknown as T;
+      }
+      history.push(record);
+      return record as unknown as T;
+    },
+    async update<T>(
+      collection: string,
+      id: string,
+      record: Record<string, unknown>,
+    ): Promise<T> {
+      if (collection === "status") {
+        const existing = [...rows.values()].find((r) => r.id === id);
+        if (existing) {
+          const merged = { ...existing, ...(record as Partial<StatusRecord>) };
+          rows.set(merged.key, merged);
+          return merged as unknown as T;
+        }
+      }
+      return record as unknown as T;
+    },
+    async upsertByField<T>(
+      collection: string,
+      field: string,
+      value: string,
+      record: Record<string, unknown>,
+    ): Promise<T> {
+      const existing = await pb.getFirst<StatusRecord>(
+        collection,
+        `${field} = ${JSON.stringify(value)}`,
+      );
+      if (existing?.id) return pb.update<T>(collection, existing.id, record);
+      return pb.create<T>(collection, { ...record, [field]: value });
+    },
+    async delete() {},
+    async deleteByFilter() {
+      return 0;
+    },
+    async health() {
+      return true;
+    },
+    async createBackup() {},
+    async downloadBackup() {
+      return new Uint8Array();
+    },
+    async deleteBackup() {},
+  };
+  return { pb, rows };
+}
+
+describe("D6 unknown → writer overwrites pre-seeded green (end-to-end)", () => {
+  it("a driver run with an unknown aggregate overwrites a green row to unknown (not false-green)", async () => {
+    const { pb, rows } = inMemoryPb();
+    const writer = createStatusWriter({ pb, bus: createEventBus(), logger });
+    const key = "d6:langgraph-python";
+
+    // Pre-seed a GREEN row for the aggregate key (an earlier all-pass run).
+    rows.set(key, {
+      id: "seed-1",
+      key,
+      dimension: "d6",
+      state: "green",
+      signal: {},
+      observed_at: "2024-12-31T00:00:00Z",
+      transitioned_at: "2024-12-31T00:00:00Z",
+      fail_count: 0,
+      first_failure_at: null,
+    });
+    expect(rows.get(key)!.state).toBe("green");
+
+    // Drive a run that produces NO trustworthy verdict (parser returned
+    // nothing) → the aggregate ProbeResult.state is the neutral `unknown`.
+    const driver = createE2eFullDriver({ runAndParse: fakeRunAndParse([]) });
+    const result = await driver.run(makeCtx(), {
+      key,
+      backendUrl: "https://lgp.example.com",
+    });
+    expect(result.state).toBe("unknown");
+
+    // Route the driver's primary ProbeResult through the real writer.
+    const outcome = await writer.write(result);
+
+    // The persisted row is OVERWRITTEN to `unknown` — the prior green is gone.
+    expect(rows.get(key)!.state).toBe("unknown");
+    expect(rows.get(key)!.state).not.toBe("green");
+    expect(outcome.newState).toBe("unknown");
+    // Neutral `cleared` transition (no alert), fail_count reset, observed_at
+    // refreshed to the unknown tick.
+    expect(outcome.transition).toBe("cleared");
+    expect(rows.get(key)!.fail_count).toBe(0);
+    // observed_at refreshed to the unknown tick (the run's observedAt),
+    // distinct from the seeded row's 2024 timestamp.
+    expect(rows.get(key)!.observed_at).toBe(result.observedAt);
+    expect(rows.get(key)!.observed_at).not.toBe("2024-12-31T00:00:00Z");
   });
 });
 

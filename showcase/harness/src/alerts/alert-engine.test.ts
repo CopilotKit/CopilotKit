@@ -76,7 +76,7 @@ function baseRule(overrides: Partial<CompiledRule> = {}): CompiledRule {
 }
 
 function probeRes(
-  state: "green" | "red" | "degraded" | "error",
+  state: "green" | "red" | "degraded" | "error" | "unknown",
   slug = "mastra",
 ): ProbeResult<unknown> {
   return {
@@ -134,6 +134,49 @@ describe("alert-engine", () => {
     await Promise.resolve();
     await new Promise((r) => setImmediate(r));
     expect(tgt.sent).toHaveLength(1);
+  });
+
+  // ---- neutral `cleared` transition (D6 no-evidence unknown state) -------
+  // A green→unknown / red→unknown move emits transition `cleared`, which is
+  // deliberately NOT a member of StringTriggerEnum. No rule can declare it,
+  // so it must fire NO alert: no spurious green-recovery on green→unknown,
+  // no spurious red on red→unknown.
+  it("green→unknown (cleared) fires NO alert — no spurious green-recovery", async () => {
+    const e = engine();
+    e.start();
+    e.reload([baseRule()]);
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: "green",
+        newState: "unknown",
+        transition: "cleared",
+        failCount: 0,
+        firstFailureAt: null,
+      },
+      result: probeRes("unknown"),
+    });
+    await Promise.resolve();
+    await new Promise((r) => setImmediate(r));
+    expect(tgt.sent).toHaveLength(0);
+  });
+
+  it("red→unknown (cleared) fires NO alert — no spurious red, no recovery", async () => {
+    const e = engine();
+    e.start();
+    e.reload([baseRule()]);
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: "red",
+        newState: "unknown",
+        transition: "cleared",
+        failCount: 0,
+        firstFailureAt: null,
+      },
+      result: probeRes("unknown"),
+    });
+    await Promise.resolve();
+    await new Promise((r) => setImmediate(r));
+    expect(tgt.sent).toHaveLength(0);
   });
 
   it("does NOT dispatch unrelated transition", async () => {

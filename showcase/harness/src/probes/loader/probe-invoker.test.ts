@@ -2650,6 +2650,64 @@ describe("buildProbeInvoker", () => {
     expect(summary).toEqual({ total: 3, passed: 2, failed: 1 });
   });
 
+  it("a neutral `unknown` primary state writes state=unknown, tracks 'yellow', counts as non-passed (not red)", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "e2e_d6",
+      inputSchema,
+      async run(ctx, input) {
+        const key = (input as { key: string }).key;
+        // `:u` → neutral no-evidence unknown; `:g` → green.
+        return {
+          key,
+          state: key.endsWith(":u") ? "unknown" : "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "e2e_d6",
+      id: "d6",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      targets: [{ key: "d6:g" }, { key: "d6:u" }],
+    };
+    const { writer, writes } = mkWriter();
+    const sched = fakeScheduler();
+    const rw = fakeRunWriter();
+    let capturedTracker: ProbeRunTracker | null = null;
+    const origSet = sched.scheduler.setEntryTracker;
+    sched.scheduler.setEntryTracker = (id, tracker) => {
+      if (tracker && capturedTracker === null) capturedTracker = tracker;
+      origSet(id, tracker);
+    };
+    const summary = await buildProbeInvoker(cfg, {
+      driver,
+      schedulerId: cfg.id,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      scheduler: sched.scheduler,
+      runWriter: rw.writer,
+      ...BASE_DEPS,
+    })();
+
+    // The neutral unknown tick is written through with its real state — the
+    // writer's success path persists it (overwriting any prior green).
+    const u = writes.find((w) => w.key === "d6:u");
+    expect(u?.state).toBe("unknown");
+
+    // The run tracker records `unknown` as the neutral `yellow` display
+    // result — NOT `red` (a no-evidence cell is not a real failure).
+    const snap = capturedTracker!.snapshot();
+    const uSvc = snap.services.find((s) => s.slug === "d6:u");
+    expect(uSvc?.result).toBe("yellow");
+
+    // `unknown` is non-green, so it rolls up under `failed` ("anything not
+    // green") in the summary — consistent with degraded.
+    expect(summary).toEqual({ total: 2, passed: 1, failed: 1 });
+  });
+
   it("invokes runWriter.start at run start and runWriter.finish with state='completed' on success", async () => {
     const inputSchema = z.object({ key: z.string() }).passthrough();
     const driver: ProbeDriver = {

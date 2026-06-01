@@ -90,7 +90,7 @@ function fakePb(): {
 }
 
 function probeResult(
-  state: "green" | "red" | "degraded" | "error",
+  state: "green" | "red" | "degraded" | "error" | "unknown",
 ): ProbeResult<unknown> {
   return {
     key: "smoke:mastra",
@@ -193,6 +193,84 @@ describe("status-writer", () => {
         (h) => (h as { transition: string }).transition === "error",
       ),
     ).toBe(true);
+  });
+
+  // ---- neutral "no-evidence" unknown state (D6 neutral) ------------------
+  // The defect: a previously-green cell that goes `unknown` used to project
+  // to ProbeState "error", which the writer's ERROR branch persisted by
+  // CARRYING the prior green forward + refreshing observed_at (false-green).
+  // `unknown` is now a real persisted State that flows down the SUCCESS path
+  // and OVERWRITES the row's state, resetting fail_count and refreshing
+  // observed_at — never carrying the prior green.
+  describe("neutral unknown state", () => {
+    it("green→unknown OVERWRITES state to unknown via the success path (not the error branch)", async () => {
+      const bus = createEventBus();
+      const received: Array<{
+        outcome: { transition: string; newState: string };
+      }> = [];
+      bus.on("status.changed", (p) => received.push(p));
+      const writer = createStatusWriter({ pb: env.pb, bus, logger });
+      await writer.write({
+        ...probeResult("green"),
+        observedAt: "2026-04-20T00:00:00Z",
+      });
+      const out = await writer.write({
+        ...probeResult("unknown"),
+        observedAt: "2026-04-20T00:05:00Z",
+      });
+
+      // Success path: the row's persisted state is OVERWRITTEN to unknown —
+      // the prior green is NOT carried forward (no false-green).
+      const row = env.rows.get("smoke:mastra")!;
+      expect(row.state).toBe("unknown");
+      expect(out.newState).toBe("unknown");
+      // Neutral transition: `cleared` — fires no alert (not in StringTriggerEnum).
+      expect(out.transition).toBe("cleared");
+      // fail_count resets to 0 (unknown is non-red).
+      expect(out.failCount).toBe(0);
+      expect(row.fail_count).toBe(0);
+      expect(row.first_failure_at).toBeNull();
+      // observed_at is refreshed to the unknown tick's timestamp.
+      expect(row.observed_at).toBe("2026-04-20T00:05:00Z");
+      // Success-path: NOT the error branch, so no errorStatePrev is set.
+      expect(out.errorStatePrev).toBeUndefined();
+      // history records the neutral cleared transition (not "error").
+      expect(
+        env.history.some(
+          (h) => (h as { transition: string }).transition === "cleared",
+        ),
+      ).toBe(true);
+      // status.changed fired once for the green seed + once for the unknown.
+      expect(received).toHaveLength(2);
+      expect(received[1]!.outcome.transition).toBe("cleared");
+      expect(received[1]!.outcome.newState).toBe("unknown");
+    });
+
+    it("red→unknown resets fail_count and clears first_failure_at (non-red)", async () => {
+      const writer = createStatusWriter({
+        pb: env.pb,
+        bus: createEventBus(),
+        logger,
+      });
+      await writer.write({
+        ...probeResult("red"),
+        observedAt: "2026-04-20T00:00:00Z",
+      });
+      await writer.write({
+        ...probeResult("red"),
+        observedAt: "2026-04-20T00:05:00Z",
+      });
+      const out = await writer.write({
+        ...probeResult("unknown"),
+        observedAt: "2026-04-20T00:10:00Z",
+      });
+      const row = env.rows.get("smoke:mastra")!;
+      expect(row.state).toBe("unknown");
+      expect(out.transition).toBe("cleared");
+      expect(out.failCount).toBe(0);
+      expect(row.fail_count).toBe(0);
+      expect(row.first_failure_at).toBeNull();
+    });
   });
 
   it("emits status.changed with outcome + result", async () => {
