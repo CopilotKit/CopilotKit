@@ -50,6 +50,13 @@ export interface CopilotKitProviderProps {
     includeSchema?: boolean;
   };
   /**
+   * Global markdown renderer component for assistant/reasoning messages.
+   * Accepts `{ content: string; isStreaming?: boolean }`. Overrides the built-in
+   * basic renderer; a per-message slot still wins. Plug in your own to restore
+   * rich rendering.
+   */
+  markdownRenderer?: Component;
+  /**
    * Default anchor corner for the inspector button and window.
    * Only used on first load before the user drags to a custom position.
    * Defaults to `{ horizontal: "right", vertical: "top" }`.
