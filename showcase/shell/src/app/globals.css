@@ -3,75 +3,112 @@
 @import "highlight.js/styles/github.css";
 
 :root {
-  --bg: #fafaf9;
+  /* Backgrounds — match reference (oklch(0.9038 0.0149 286.1) ≈ #e6e6ec).
+   * Shell keeps a slightly lighter cast so code blocks on white surface
+   * still read well; key is that it's the same cool-gray family. */
+  --bg: #eaeaee;
   --bg-surface: #ffffff;
-  --bg-elevated: #f5f5f3;
-  --bg-hover: #eeeeeb;
-  --border: #e5e5e0;
-  --border-dim: #f0f0ec;
-  --text: #1a1a18;
-  --text-secondary: #57574f;
-  --text-muted: #8a8a80;
-  --text-faint: #b5b5ad;
-  --accent: #7c3aed;
-  --accent-light: #ede9fe;
-  --accent-dim: rgba(124, 58, 237, 0.06);
+  --bg-elevated: #f1f1f6;
+  --bg-hover: #e5e5eb;
+  --border: #d9d9e0;
+  --border-dim: #e9e9ef;
+  --sidebar: #efeff3;
+  --text: #010507;
+  --text-secondary: #2b3238;
+  --text-muted: #6a7079;
+  --text-faint: #a3a8af;
+  /* Reference primary is oklch(0.55 0.25 285) — a blue-violet. Hex approx. */
+  --accent: #5a3cd1;
+  --accent-light: #ebe7fa;
+  --accent-dim: rgba(90, 60, 209, 0.06);
   --blue: #1a5fb4;
-  --violet: #7c3aed;
-  --violet-light: #ede9fe;
+  --violet: #5a3cd1;
+  --violet-light: #ebe7fa;
+
+  /* Font stacks — fed by next/font CSS variables in layout.tsx with
+   * safe fallbacks for environments where the font fails to load.
+   * We expose them under `--font-prose`/`--font-code` and use those
+   * names in component CSS so Tailwind's own `--font-sans`/`--font-mono`
+   * theme tokens don't collide. */
+  --font-docs-prose:
+    var(--font-prose, "Plus Jakarta Sans"), -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, sans-serif;
+  --font-docs-code:
+    var(--font-mono, "Spline Sans Mono"), ui-monospace, SFMono-Regular,
+    "SF Mono", Menlo, monospace;
 }
 
+html,
 body {
   background: var(--bg);
   color: var(--text);
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-docs-prose);
+  font-feature-settings: "cv11", "ss01";
+  letter-spacing: -0.005em;
 }
 
-/* Reference content (MDX) typography */
+/* Code font inherits Spline Sans Mono via CSS variable */
+code,
+pre,
+kbd,
+samp {
+  font-family: var(--font-docs-code);
+}
+
+/* Reference content (MDX) typography — calibrated against docs.copilotkit.ai.
+ * The reference uses fumadocs' default prose scale: body ~15px, h2 ~1.5rem
+ * with tighter tracking, and tonally-darker headings than body. */
+.reference-content {
+  font-size: 0.9375rem; /* 15px */
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+
 .reference-content h2 {
-  font-size: 1.25rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: var(--text);
-  margin-top: 2rem;
+  margin-top: 2.5rem;
   margin-bottom: 0.75rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+  letter-spacing: -0.015em;
 }
 
 .reference-content h3 {
-  font-size: 1rem;
+  font-size: 1.125rem;
   font-weight: 600;
   color: var(--text);
-  margin-top: 1.5rem;
+  margin-top: 2rem;
   margin-bottom: 0.5rem;
+  letter-spacing: -0.01em;
 }
 
 .reference-content h4 {
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 600;
-  color: var(--text-secondary);
-  margin-top: 1rem;
+  color: var(--text);
+  margin-top: 1.25rem;
   margin-bottom: 0.25rem;
 }
 
 .reference-content p {
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   color: var(--text-secondary);
-  line-height: 1.625;
-  margin-bottom: 0.75rem;
+  line-height: 1.7;
+  margin-bottom: 1rem;
 }
 
 .reference-content ul,
 .reference-content ol {
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   color: var(--text-secondary);
-  padding-left: 1.25rem;
-  margin-bottom: 0.75rem;
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+  line-height: 1.65;
 }
 
 .reference-content li {
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.375rem;
 }
 
 .reference-content ul {
@@ -87,18 +124,22 @@ body {
   background: var(--bg-elevated);
   padding: 0.125rem 0.375rem;
   border-radius: 0.25rem;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-family: var(--font-docs-code);
+  color: var(--text);
 }
 
+/* Bare <pre> fallback (when an MDX page uses a triple-fence rather than
+ * <Snippet>). Mirrors the chrome on <Snippet>'s figure so pages look
+ * consistent whether the code is live-from-cell or inline. */
 .reference-content pre {
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 0.5rem;
   padding: 1rem;
   overflow-x: auto;
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
   font-size: 0.8125rem;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .reference-content pre code {

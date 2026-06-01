@@ -1,0 +1,12 @@
+---
+title: Built-in Agent
+description: CopilotKit's no-external-process agent backend — runs the agent loop in-process via the runtime, no separate framework or service required.
+icon: "lucide/Server"
+doc_type: explanation
+---
+
+The Built-in Agent is the simplest agent backend CopilotKit ships. Instead of proxying to an external framework process (LangGraph, Mastra, etc.), it instantiates `BuiltInAgent({ model, tools, prompt })` inside your runtime and runs the agent loop in-process. No separate agent server, no external framework install — direct connection to OpenAI / Anthropic / Google or any AI-SDK model with full support for tools, generative UI, and shared state.
+
+For the full BIA-scoped guides — quickstart, server tools, MCP servers, model selection, advanced configuration — see [`/built-in-agent`](/built-in-agent).
+
+{/* TODO: Placeholder. Expand with a one-page summary suitable for the "Agents & Backends" section: when to choose BIA vs an external framework, model support matrix, what BIA does and doesn't support (no subagents, no native HITL primitive), and a link out to the full BIA docs. */}

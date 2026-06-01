@@ -1,0 +1,162 @@
+---
+title: "Dynamic Schema A2UI"
+description: "LLM-generated A2UI — a secondary LLM creates both the schema and data from any prompt."
+---
+In the dynamic-schema approach, a secondary LLM generates the entire UI — schema, data, and layout — based on the conversation context. This is the most flexible approach: the agent can render any UI for any request without pre-defined schemas.
+
+## How it works
+
+1. The primary LLM decides to call `generate_a2ui`
+2. Inside the tool, a secondary LLM generates a `render_a2ui` tool call with components, data, and layout
+3. The tool call arguments stream through LangGraph as `TOOL_CALL_ARGS` events
+4. The A2UI middleware intercepts these events and renders cards progressively as they stream in
+
+## Implementation
+
+<Steps>
+<Step>
+### Define the render tool schema (Python)
+
+This LangChain tool defines the shape the secondary LLM must produce. It's never actually executed — it's just a schema for `bind_tools`:
+
+```python title="apps/agent/src/a2ui_dynamic_schema.py"
+from langchain.tools import tool
+
+@tool
+def render_a2ui(
+    surfaceId: str,
+    components: list[dict],
+    root: str,
+    items: list[dict],
+    actionHandlers: dict | None = None,
+) -> str:
+    """Render a dynamic A2UI surface with progressive streaming."""
+    return "rendered"
+```
+</Step>
+
+<Step>
+### Define the generation tool
+
+This is the tool the primary LLM calls. It invokes a secondary LLM that generates the full A2UI:
+
+```python title="apps/agent/src/a2ui_dynamic_schema.py"
+from langchain.tools import tool, ToolRuntime
+from langchain_core.messages import SystemMessage
+from langchain_openai import ChatOpenAI
+from copilotkit.a2ui import a2ui_prompt
+
+A2UI_GENERATION_PROMPT = a2ui_prompt()
+
+@tool()
+def generate_a2ui(runtime: ToolRuntime) -> str:
+    """Generate dynamic A2UI components based on the conversation."""
+    messages = runtime.state["messages"][:-1]
+
+    model = ChatOpenAI(model="gpt-4.1")
+    model_with_tool = model.bind_tools(
+        [render_a2ui],
+        tool_choice="render_a2ui",
+    )
+
+    response = model_with_tool.invoke(
+        [SystemMessage(content=A2UI_GENERATION_PROMPT), *messages],
+    )
+
+    tool_call = response.tool_calls[0]
+    args = tool_call["args"]
+    return f"Rendered A2UI surface '{args.get('surfaceId')}'."
+```
+
+The `a2ui_prompt()` helper builds a system prompt with the A2UI JSON schema reference and design guidelines. You can customize it:
+
+```python
+# Custom design guidelines
+prompt = a2ui_prompt(design_guidelines="Use a minimal, monochrome aesthetic.")
+```
+</Step>
+
+<Step>
+### Register the tool
+
+```python title="apps/agent/main.py"
+from deepagents import create_deep_agent
+from src.a2ui_dynamic_schema import generate_a2ui
+
+agent = create_deep_agent(
+    tools=[generate_a2ui, ...],
+    ...
+)
+```
+</Step>
+
+<Step>
+### Configure the runtime (TypeScript)
+
+Enable A2UI in your CopilotRuntime. The middleware auto-detects `render_a2ui` tool calls:
+
+```typescript title="app/api/copilotkit/route.ts"
+const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+  a2ui: {
+    injectA2UITool: true,
+  },
+});
+```
+</Step>
+</Steps>
+
+## Progressive streaming
+
+The secondary LLM's `render_a2ui` tool call streams through LangGraph as `TOOL_CALL_ARGS` events. The A2UI middleware:
+
+1. Extracts the `components` array as it streams — waits for the full schema before rendering
+2. Extracts `surfaceId` and `root` from the partial JSON
+3. Once the schema is complete, emits `surfaceUpdate` + `beginRendering`
+4. Extracts complete `items` objects progressively and emits `dataModelUpdate` for each
+5. Cards appear one by one as data streams in
+
+## Built-in progress indicator
+
+CopilotKit includes a built-in progress indicator that shows while the schema is being generated. It appears automatically and hides once data items start streaming.
+
+To replace it with a custom component, see the [Advanced — Custom A2UI Progress Renderer](./advanced#custom-a2ui-progress-renderer) guide.
+
+## Action handlers in dynamic schemas
+
+With dynamic schemas, the secondary LLM can generate action handlers as part of the `render_a2ui` tool call. The `actionHandlers` parameter is optional — if the LLM includes buttons with actions in the component tree, it can also include matching handlers:
+
+```python
+# The render_a2ui tool schema includes actionHandlers
+@lc_tool
+def render_a2ui(
+    surfaceId: str,
+    components: list[dict],
+    root: str,
+    items: list[dict],
+    actionHandlers: dict | None = None,  # LLM can generate these
+) -> str:
+    """Render a dynamic A2UI surface with progressive streaming."""
+    return "rendered"
+```
+
+The `a2ui_prompt()` generation guidelines instruct the LLM on how to produce valid action handlers alongside buttons. You don't need to configure anything extra — if the LLM generates them, they work automatically.
+
+For frontend-side action handling with `useA2UIActionHandler`, see [Advanced — Action Handlers](./advanced#action-handlers).
+
+## Customizing the generation prompt
+
+The `a2ui_prompt()` function accepts two optional arguments:
+
+```python
+from copilotkit.a2ui import a2ui_prompt
+
+prompt = a2ui_prompt(
+    generation_guidelines="...",  # How to call the tool, path rules, data format
+    design_guidelines="...",       # Visual design rules, component hierarchy
+)
+```
+
+<Callout type="info">
+The generation prompt includes the full A2UI JSON schema reference and guidelines for producing valid A2UI output. The secondary LLM uses this to generate components, data bindings, and action handlers.
+</Callout>

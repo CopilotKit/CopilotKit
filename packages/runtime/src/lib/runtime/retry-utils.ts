@@ -7,6 +7,8 @@ export const RETRY_CONFIG = {
   maxDelayMs: 5000,
   // HTTP status codes that should be retried
   retryableStatusCodes: [502, 503, 504, 408, 429],
+  // Maximum Retry-After value (in seconds) we're willing to honor
+  maxRetryAfterSeconds: 60,
   // Network error patterns that should be retried
   retryableErrorMessages: [
     "fetch failed",
@@ -44,6 +46,28 @@ export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Parse the Retry-After header value into milliseconds.
+// Returns undefined if the header is missing or unparseable.
+export function parseRetryAfter(response: Response): number | undefined {
+  const retryAfter = response.headers.get("Retry-After");
+  if (!retryAfter) return undefined;
+
+  // Try as seconds (integer)
+  const seconds = Number(retryAfter);
+  if (!Number.isNaN(seconds) && seconds >= 0) {
+    return seconds * 1000;
+  }
+
+  // Try as HTTP-date
+  const date = Date.parse(retryAfter);
+  if (!Number.isNaN(date)) {
+    const delayMs = date - Date.now();
+    return delayMs > 0 ? delayMs : 0;
+  }
+
+  return undefined;
+}
+
 // Calculate exponential backoff delay
 export function calculateDelay(attempt: number): number {
   const delay = RETRY_CONFIG.baseDelayMs * Math.pow(2, attempt);
@@ -67,7 +91,23 @@ export async function fetchWithRetry(
         isRetryableError(null, response) &&
         attempt < RETRY_CONFIG.maxRetries
       ) {
-        const delay = calculateDelay(attempt);
+        let delay = calculateDelay(attempt);
+
+        // Honor Retry-After header on 429 responses
+        if (response.status === 429) {
+          const retryAfterMs = parseRetryAfter(response);
+          if (retryAfterMs !== undefined) {
+            const maxMs = RETRY_CONFIG.maxRetryAfterSeconds * 1000;
+            if (retryAfterMs > maxMs) {
+              throw new Error(
+                `Server requested Retry-After of ${Math.ceil(retryAfterMs / 1000)}s ` +
+                  `which exceeds the maximum of ${RETRY_CONFIG.maxRetryAfterSeconds}s`,
+              );
+            }
+            delay = retryAfterMs;
+          }
+        }
+
         logger?.warn(
           `Request to ${url} failed with status ${response.status}. ` +
             `Retrying attempt ${attempt + 1}/${RETRY_CONFIG.maxRetries + 1} in ${delay}ms.`,

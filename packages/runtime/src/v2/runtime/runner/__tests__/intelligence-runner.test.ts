@@ -286,6 +286,49 @@ describe("IntelligenceAgentRunner", () => {
       expect(ch.pushLog[2].payload.metadata.cpki_event_seq).toBe(3);
     });
 
+    it("overrides conflicting event thread and run ownership before pushing to the channel", async () => {
+      const threadId = "t-canonical";
+      const input = createRunInput({ threadId, runId: "r-canonical" });
+
+      const agent = new MockAgent([
+        {
+          type: EventType.RUN_STARTED,
+          threadId: "backend-thread",
+          runId: "backend-run",
+        } as RunStartedEvent,
+        {
+          type: EventType.RUN_FINISHED,
+          threadId: "backend-thread",
+          runId: "backend-run",
+        } as RunFinishedEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
+
+      await eventsPromise;
+
+      expect(ch.pushLog.map((entry) => entry.payload)).toEqual([
+        expect.objectContaining({
+          type: EventType.RUN_STARTED,
+          threadId,
+          runId: input.runId,
+          thread_id: threadId,
+          run_id: input.runId,
+        }),
+        expect.objectContaining({
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: input.runId,
+          thread_id: threadId,
+          run_id: input.runId,
+        }),
+      ]);
+    });
+
     it("rewrites RUN_STARTED input.messages to the unseen persisted subset", async () => {
       const threadId = "t-persisted-input";
       const input = createRunInput({
@@ -442,7 +485,14 @@ describe("IntelligenceAgentRunner", () => {
         (p) => p.payload?.type === EventType.RUN_ERROR,
       );
       expect(errorPush).toBeDefined();
-      expect(errorPush!.payload.message).toBe("Something went wrong");
+      expect(errorPush!.payload).toMatchObject({
+        type: EventType.RUN_ERROR,
+        message: "Something went wrong",
+        threadId,
+        runId: input.runId,
+        thread_id: threadId,
+        run_id: input.runId,
+      });
     });
 
     it("finalizes open message streams before completing", async () => {
@@ -569,10 +619,9 @@ describe("IntelligenceAgentRunner", () => {
     });
   });
 
-  describe("run with joinCode", () => {
-    it("uses joinCode for the channel topic when provided", async () => {
+  describe("run channel ownership", () => {
+    it("uses runId for the ingestion channel topic", async () => {
       const threadId = "t-jc";
-      const joinCode = "join-abc-123";
       const input = createRunInput({ threadId, runId: "r-jc" });
       const agent = new MockAgent([
         {
@@ -583,15 +632,16 @@ describe("IntelligenceAgentRunner", () => {
       ]);
 
       const eventsPromise = collectEvents(
-        runner.run({ threadId, agent, input, joinCode }),
+        runner.run({ threadId, agent, input }),
       );
       const ch = mockChannels[0];
-      expect(ch.topic).toBe(`ingestion:${joinCode}`);
+      expect(ch.topic).toBe("ingestion:r-jc");
+      expect(ch.params).toEqual({ thread_id: threadId, run_id: "r-jc" });
       ch.triggerJoin("ok");
       await eventsPromise;
     });
 
-    it("falls back to threadId when joinCode is not provided", async () => {
+    it("keeps pushed event payload ownership on canonical threadId and runId", async () => {
       const threadId = "t-no-jc";
       const input = createRunInput({ threadId, runId: "r-no-jc" });
       const agent = new MockAgent([
@@ -606,9 +656,17 @@ describe("IntelligenceAgentRunner", () => {
         runner.run({ threadId, agent, input }),
       );
       const ch = mockChannels[0];
-      expect(ch.topic).toBe(`ingestion:${threadId}`);
       ch.triggerJoin("ok");
       await eventsPromise;
+
+      expect(ch.pushLog[0].payload).toEqual(
+        expect.objectContaining({
+          threadId,
+          runId: "r-no-jc",
+          thread_id: threadId,
+          run_id: "r-no-jc",
+        }),
+      );
     });
   });
 

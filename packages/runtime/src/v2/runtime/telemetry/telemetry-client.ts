@@ -1,8 +1,6 @@
-import { Analytics } from "@segment/analytics-node";
-import { AnalyticsEvents } from "./events";
-import { flattenObject } from "./utils";
-import { v4 as uuidv4 } from "uuid";
-import scarfClient from "./scarf-client";
+import type { AnalyticsEvents } from "./events";
+import { lambdaClient, parseAndWarnTelemetryId } from "@copilotkit/shared";
+import * as packageJson from "../../../../package.json";
 
 export function isTelemetryDisabled(): boolean {
   return (
@@ -17,11 +15,22 @@ export function isTelemetryDisabled(): boolean {
 }
 
 export class TelemetryClient {
-  segment: Analytics | undefined;
-  globalProperties: Record<string, any> = {};
   private telemetryDisabled: boolean = false;
+  // Client-side sampling rate for anonymous events. Identified callers
+  // (license token with telemetry_id) bypass the gate. Default 0.05
+  // caps anonymous OSS-runtime egress; identified customers send at
+  // full fidelity. Override via COPILOTKIT_TELEMETRY_SAMPLE_RATE.
   private sampleRate: number = 0.05;
-  private anonymousId = `anon_${uuidv4()}`;
+  // EIP / Intelligence license token (Ed25519-signed JWT). The lambda
+  // client decodes its payload to read telemetry_id for the
+  // X-CopilotKit-Telemetry-Id header. Set once at runtime construction
+  // via setLicenseToken; absent values produce anonymous sends.
+  private licenseToken: string | null = null;
+  // Parsed telemetry_id from the license-token JWT payload. Cached at
+  // setLicenseToken time so `capture()` can branch on identified vs
+  // anonymous without re-parsing per event. Null when the token is
+  // absent or yielded no telemetry_id.
+  private telemetryId: string | null = null;
 
   constructor({
     telemetryDisabled,
@@ -31,73 +40,35 @@ export class TelemetryClient {
     sampleRate?: number;
   } = {}) {
     this.telemetryDisabled = telemetryDisabled ?? isTelemetryDisabled();
-
-    if (this.telemetryDisabled) {
-      this.setSampleRate(sampleRate);
-      return;
-    }
-
     this.setSampleRate(sampleRate);
-
-    const writeKey =
-      process.env.COPILOTKIT_SEGMENT_WRITE_KEY ||
-      "n7XAZtQCGS2v1vvBy3LgBCv2h3Y8whja";
-
-    this.segment = new Analytics({
-      writeKey,
-    });
   }
 
   private shouldSendEvent() {
-    if (this.telemetryDisabled) {
-      return false;
-    }
-    const randomNumber = Math.random();
-    return randomNumber < this.sampleRate;
+    if (this.sampleRate >= 1) return true;
+    return Math.random() < this.sampleRate;
+  }
+
+  setLicenseToken(licenseToken: string) {
+    this.licenseToken = licenseToken;
+    this.telemetryId = parseAndWarnTelemetryId(licenseToken);
   }
 
   async capture<K extends keyof AnalyticsEvents>(
     event: K,
     properties: AnalyticsEvents[K],
   ) {
-    if (!this.shouldSendEvent()) {
-      return;
-    }
+    if (this.telemetryDisabled) return;
+    // Anonymous callers are gated by sampleRate; identified callers
+    // (telemetry_id present) bypass the gate and always send.
+    if (!this.telemetryId && !this.shouldSendEvent()) return;
 
-    const flattenedProperties = flattenObject(properties);
-    const propertiesWithGlobal = {
-      ...this.globalProperties,
-      ...flattenedProperties,
-    };
-    const orderedPropertiesWithGlobal = Object.keys(propertiesWithGlobal)
-      .sort()
-      .reduce(
-        (obj, key) => {
-          obj[key] = propertiesWithGlobal[key];
-          return obj;
-        },
-        {} as Record<string, any>,
-      );
-
-    if (this.segment) {
-      this.segment.track({
-        anonymousId: this.anonymousId,
-        event,
-        properties: { ...orderedPropertiesWithGlobal },
-      });
-    }
-
-    await scarfClient.logEvent({
+    await lambdaClient.send({
       event,
+      properties: properties as Record<string, unknown>,
+      packageName: packageJson.name,
+      packageVersion: packageJson.version,
+      licenseToken: this.licenseToken ?? undefined,
     });
-  }
-
-  setGlobalProperties(properties: Record<string, any>) {
-    const flattenedProperties = flattenObject(properties);
-    this.globalProperties = {
-      ...this.globalProperties,
-      ...flattenedProperties,
-    };
   }
 
   private setSampleRate(sampleRate: number | undefined) {
@@ -109,16 +80,14 @@ export class TelemetryClient {
       _sampleRate = parseFloat(process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE);
     }
 
-    if (_sampleRate < 0 || _sampleRate > 1) {
+    // Number.isNaN guards against parseFloat("nonsense") slipping past the
+    // range check (all NaN comparisons are false), which would silently
+    // drop every anonymous event with no signal.
+    if (Number.isNaN(_sampleRate) || _sampleRate < 0 || _sampleRate > 1) {
       throw new Error("Sample rate must be between 0 and 1");
     }
 
     this.sampleRate = _sampleRate;
-    this.setGlobalProperties({
-      sampleRate: this.sampleRate,
-      sampleRateAdjustmentFactor: 1 - this.sampleRate,
-      sampleWeight: 1 / this.sampleRate,
-    });
   }
 }
 

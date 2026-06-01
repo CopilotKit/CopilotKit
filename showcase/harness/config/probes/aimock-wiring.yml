@@ -1,0 +1,17 @@
+# Probe: aimock-wiring
+#
+# Verifies every LLM-calling showcase service has its OpenAI/Anthropic base
+# URL pointed at showcase-aimock. Single-target probe — the driver fans out
+# internally to every Railway service (minus the exclusion list), which is
+# why `target` is a single synthetic entry rather than `targets: [...]`.
+#
+# Schedule mirrors the pre-existing cron cadence from orchestrator.ts
+# (every 6 hours at the top of the hour). The accompanying alert rule
+# `config/alerts/aimock-wiring-drift.yml` adds a `cron_only` trigger on
+# the same schedule so a long green-run still produces a heartbeat tick
+# the alert-engine can reason about.
+kind: aimock_wiring
+id: aimock-wiring
+schedule: "0 */6 * * *"
+target:
+  key: "aimock_wiring:global"

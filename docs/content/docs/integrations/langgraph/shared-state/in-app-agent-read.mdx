@@ -66,14 +66,15 @@ state updates, you can reflect these updates natively in your application.
       </Tab>
       <Tab value="TypeScript">
         ```ts title="agent-js/src/agent.ts"
-        import { Annotation } from "@langchain/langgraph";
-        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+        import { StateSchema } from "@langchain/langgraph";
+        import { CopilotKitStateSchema } from "@copilotkit/sdk-js/langgraph";
+        import { z } from "zod";
 
-        export const AgentStateAnnotation = Annotation.Root({
-            language: Annotation<"english" | "spanish">,
-            ...CopilotKitStateAnnotation.spec,
+        export const AgentStateSchema = new StateSchema({
+            language: z.enum(["english", "spanish"]).default("english"),
+            ...CopilotKitStateSchema.fields,
         });
-        export type AgentState = typeof AgentStateAnnotation.State;
+        export type AgentState = typeof AgentStateSchema.State;
 
         async function chat_node(state: AgentState, config: RunnableConfig) {
           // If language is not defined, use a default value.

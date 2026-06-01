@@ -2,6 +2,7 @@ export * from "./types";
 export * from "./utils";
 export * from "./constants";
 export * from "./telemetry";
+export * from "./debug";
 export * from "./standard-schema";
 export * from "./attachments";
 
@@ -59,3 +60,5 @@ export {
   A2UI_DEFAULT_GENERATION_GUIDELINES,
   A2UI_DEFAULT_DESIGN_GUIDELINES,
 } from "./a2ui-prompts";
+
+export type { DebugEventEnvelope } from "./debug-event-envelope";

@@ -15,12 +15,7 @@ load_dotenv()
 from a2a.server.apps import A2AStarletteApplication
 from a2a.server.request_handlers import DefaultRequestHandler
 from a2a.server.tasks import InMemoryTaskStore
-from a2a.types import (
-    AgentCapabilities,
-    AgentCard,
-    AgentSkill,
-    Message
-)
+from a2a.types import AgentCapabilities, AgentCard, AgentSkill, Message
 from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.events import EventQueue
 from a2a.utils import new_agent_text_message
@@ -159,16 +154,16 @@ class ItineraryAgent:
         except json.JSONDecodeError as e:
             print(f"❌ JSON parsing error: {e}")
             print(f"Content: {content}")
-            state["itinerary"] = json.dumps({
-                "error": "Failed to generate structured itinerary",
-                "raw_content": content[:200]
-            })
+            state["itinerary"] = json.dumps(
+                {
+                    "error": "Failed to generate structured itinerary",
+                    "raw_content": content[:200],
+                }
+            )
             state["structured_itinerary"] = None
         except Exception as e:
             print(f"❌ Validation error: {e}")
-            state["itinerary"] = json.dumps({
-                "error": f"Validation failed: {str(e)}"
-            })
+            state["itinerary"] = json.dumps({"error": f"Validation failed: {str(e)}"})
             state["structured_itinerary"] = None
 
         return state
@@ -176,12 +171,9 @@ class ItineraryAgent:
     async def invoke(self, message: Message) -> str:
         message_text = message.parts[0].root.text
         print("Invoking itinerary agent with message: ", message_text)
-        result = self.graph.invoke({
-            "message": message_text,
-            "destination": "",
-            "days": 3,
-            "itinerary": ""
-        })
+        result = self.graph.invoke(
+            {"message": message_text, "destination": "", "days": 3, "itinerary": ""}
+        )
 
         return result["itinerary"]
 
@@ -189,25 +181,25 @@ class ItineraryAgent:
 port = int(os.getenv("ITINERARY_PORT", 9001))
 
 skill = AgentSkill(
-    id='itinerary_agent',
-    name='Itinerary Planning Agent',
-    description='Creates detailed day-by-day travel itineraries using LangGraph',
-    tags=['travel', 'itinerary', 'langgraph'],
+    id="itinerary_agent",
+    name="Itinerary Planning Agent",
+    description="Creates detailed day-by-day travel itineraries using LangGraph",
+    tags=["travel", "itinerary", "langgraph"],
     examples=[
-        'Create a 3-day itinerary for Tokyo',
-        'Plan a week-long trip to Paris',
-        'What should I do in New York for 5 days?'
+        "Create a 3-day itinerary for Tokyo",
+        "Plan a week-long trip to Paris",
+        "What should I do in New York for 5 days?",
     ],
 )
 
 cardUrl = os.getenv("RENDER_EXTERNAL_URL", f"http://localhost:{port}")
 public_agent_card = AgentCard(
-    name='Itinerary Agent',
-    description='LangGraph-powered agent that creates detailed day-by-day travel itineraries in plain text format with activities and meal recommendations.',
+    name="Itinerary Agent",
+    description="LangGraph-powered agent that creates detailed day-by-day travel itineraries in plain text format with activities and meal recommendations.",
     url=cardUrl,
-    version='1.0.0',
-    defaultInputModes=['text'],
-    defaultOutputModes=['text'],
+    version="1.0.0",
+    defaultInputModes=["text"],
+    defaultOutputModes=["text"],
     capabilities=AgentCapabilities(streaming=True),
     skills=[skill],
     supportsAuthenticatedExtendedCard=False,
@@ -226,10 +218,8 @@ class ItineraryAgentExecutor(AgentExecutor):
         result = await self.agent.invoke(context.message)
         await event_queue.enqueue_event(new_agent_text_message(result))
 
-    async def cancel(
-        self, context: RequestContext, event_queue: EventQueue
-    ) -> None:
-        raise Exception('cancel not supported')
+    async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
+        raise Exception("cancel not supported")
 
 
 def main():
@@ -250,8 +240,8 @@ def main():
     )
 
     print(f"🗺️  Starting Itinerary Agent (LangGraph + A2A) on http://0.0.0.0:{port}")
-    uvicorn.run(server.build(), host='0.0.0.0', port=port)
+    uvicorn.run(server.build(), host="0.0.0.0", port=port)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

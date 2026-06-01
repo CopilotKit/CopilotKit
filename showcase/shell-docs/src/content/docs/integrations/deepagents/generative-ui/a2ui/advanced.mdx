@@ -1,0 +1,237 @@
+---
+title: "Advanced"
+description: "Custom progress rendering, frontend action handlers, and advanced A2UI configuration."
+---
+## Custom A2UI Progress Renderer
+
+When using [Dynamic Schema A2UI](./dynamic-schema), a secondary LLM generates the UI schema and data. This takes a few seconds — during which CopilotKit shows a built-in progress indicator.
+
+You can replace the built-in indicator with your own component using `useRenderTool`.
+
+### How it works
+
+The dynamic schema flow calls a tool named `render_a2ui` under the hood. While the tool call is in progress (`status === "inProgress"`), your custom renderer is shown. Once the A2UI surface starts rendering (`status === "complete"`), your component is hidden and the actual surface takes over.
+
+### Implementation
+
+<Steps>
+<Step>
+### Create a progress component
+
+```tsx title="src/components/a2ui-progress.tsx"
+"use client";
+
+import { memo } from "react";
+
+interface A2UIProgressProps {
+  parameters: Record<string, unknown>;
+}
+
+export const A2UIProgress = memo(function A2UIProgress({
+  parameters,
+}: A2UIProgressProps) {
+  // You can inspect `parameters` to show partial progress.
+  // As the LLM streams, `parameters.components` and `parameters.items`
+  // will progressively populate.
+  const componentCount = Array.isArray(parameters?.components)
+    ? parameters.components.length
+    : 0;
+  const itemCount = Array.isArray(parameters?.items)
+    ? parameters.items.length
+    : 0;
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+      <div className="flex items-center gap-2 text-sm text-gray-600">
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+        <span>Building interface...</span>
+      </div>
+      {componentCount > 0 && (
+        <p className="mt-2 text-xs text-gray-500">
+          {componentCount} components, {itemCount} items
+        </p>
+      )}
+    </div>
+  );
+});
+```
+</Step>
+
+<Step>
+### Register the renderer
+
+Use `useRenderTool` to intercept the `render_a2ui` tool call and show your component while it's in progress:
+
+```tsx title="src/hooks/use-a2ui-progress.tsx"
+"use client";
+
+import { useRenderTool } from "@copilotkit/react-core/v2";
+import { z } from "zod";
+import { A2UIProgress } from "@/components/a2ui-progress";
+
+export function useA2UIProgress() {
+  useRenderTool(
+    {
+      name: "render_a2ui",
+      parameters: z.any(),
+      render: ({ status, parameters }) => {
+        // Hide when complete — the A2UI surface renderer takes over
+        if (status === "complete") return <></>;
+        return <A2UIProgress parameters={parameters ?? {}} />;
+      },
+    },
+    [],
+  );
+}
+```
+</Step>
+
+<Step>
+### Call the hook in your page
+
+```tsx title="src/app/page.tsx"
+"use client";
+
+import { useA2UIProgress } from "@/hooks/use-a2ui-progress";
+
+function Chat() {
+  useA2UIProgress();
+
+  return <CopilotChat className="flex-1" />;
+}
+```
+</Step>
+</Steps>
+
+<Callout type="info">
+The `parameters` object updates progressively as the LLM streams the `render_a2ui` tool call. You can use this to show a skeleton that fills in as components and data arrive.
+</Callout>
+
+### What's in `parameters`?
+
+As the secondary LLM generates the A2UI surface, the `parameters` object accumulates:
+
+| Field | Type | Description |
+|---|---|---|
+| `surfaceId` | `string` | Unique ID for this surface |
+| `components` | `array` | The component tree (schema) — arrives first |
+| `root` | `string` | Root component ID |
+| `items` | `array` | Data items — arrive after the schema |
+| `actionHandlers` | `object` | Optional button action handlers |
+
+A common pattern is to show a skeleton layout once `components` has data, then show item count as `items` streams in.
+
+## Action Handlers
+
+Each A2UI approach has its own way to declare action handlers on the agent side — see the individual guides for [Fixed Schema](./fixed-schema#adding-interactivity-action-handlers), [Streaming](./fixed-schema-streaming#adding-interactivity-action-handlers), and [Dynamic Schema](./dynamic-schema#action-handlers-in-dynamic-schemas).
+
+This section covers the frontend-side APIs for custom handling, the resolution chain, and the schema button format.
+
+### Schema button with action context
+
+The A2UI schema defines buttons with action names and data-bound context fields. When the button is clicked, the context values are resolved from the data model for that specific item:
+
+```json
+{
+  "Button": {
+    "label": "Book",
+    "action": {
+      "name": "book_flight",
+      "context": [
+        { "key": "flightNumber", "value": { "path": "/flightNumber" } },
+        { "key": "price", "value": { "path": "/price" } }
+      ]
+    }
+  }
+}
+```
+
+The resulting `A2UIUserAction` will include the resolved context:
+
+```typescript
+{
+  name: "book_flight",
+  surfaceId: "flight-search-results",
+  sourceComponentId: "button-123",
+  context: { flightNumber: "AA100", price: "$350" },
+  dataContextPath: "/flights/0",
+}
+```
+
+### `useA2UIActionHandler` hook (frontend)
+
+For custom frontend logic, register a handler with `useA2UIActionHandler`. Your handler receives every action and the pre-declared ops (if any), and decides whether to handle it:
+
+```tsx
+import { useA2UIActionHandler } from "@copilotkit/react-core/v2";
+
+// Handle a specific action with custom ops
+useA2UIActionHandler((action, declaredOps) => {
+  if (action.name === "book_flight") {
+    // Return custom operations
+    return [
+      { surfaceUpdate: { surfaceId: action.surfaceId, components: mySchema } },
+      { beginRendering: { surfaceId: action.surfaceId, root: "root" } },
+    ];
+  }
+  return null; // skip — let other handlers or fallback try
+});
+
+// Delegate to pre-declared ops from the agent
+useA2UIActionHandler((action, declaredOps) => {
+  if (action.name === "book_flight") return declaredOps;
+  return null;
+});
+
+// Handle all actions on a specific surface
+useA2UIActionHandler((action, declaredOps) => {
+  if (action.surfaceId === "my-surface") return declaredOps;
+  return null;
+});
+```
+
+### Resolution order
+
+The default orchestrator resolves actions in this order:
+
+1. **Hook handlers** — registered via `useA2UIActionHandler`. Each receives `(action, declaredOps)`. The first handler that returns a non-empty operations array wins.
+2. **Pre-declared ops** — if no hook handles the action, falls back to the agent's `action_handlers` (exact name match first, then `"*"` catch-all).
+
+This means pre-declared ops work out of the box, and hooks can override or extend them when needed.
+
+### Custom orchestrator (full control)
+
+To completely replace the resolution logic, pass a custom `onAction` to `createA2UIMessageRenderer`:
+
+```tsx
+import {
+  createA2UIMessageRenderer,
+  resolveDeclaredOps,
+} from "@copilotkit/react-core/v2";
+
+const activityRenderers = [
+  createA2UIMessageRenderer({
+    theme,
+    onAction: (action, handlers, declaredHandlers) => {
+      // Custom dispatch logic — you control everything
+      const declaredOps = resolveDeclaredOps(action, declaredHandlers);
+
+      // Example: always use declared ops, ignore hooks
+      return declaredOps;
+    },
+  }),
+];
+```
+
+### Types reference
+
+| Type | Description |
+|---|---|
+| `A2UIUserAction` | Dispatched action: `{ name, surfaceId, sourceComponentId, context?, dataContextPath? }` |
+| `A2UIOps` | `Array<Record<string, unknown>>` — array of A2UI operations |
+| `A2UIDeclaredOps` | `A2UIOps \| null` — resolved pre-declared ops, or null if no match |
+| `A2UIActionHandler` | `(action: A2UIUserAction, declaredOps: A2UIDeclaredOps) => A2UIOps \| null` |
+| `A2UIActionOrchestrator` | `(action, handlers, declaredHandlers) => A2UIOps \| null` — full control |
+| `resolveDeclaredOps` | Helper: resolves exact match or `"*"` catch-all from declared handlers map |
+| `defaultActionOrchestrator` | The built-in orchestrator — hooks first, then declared fallback |
+

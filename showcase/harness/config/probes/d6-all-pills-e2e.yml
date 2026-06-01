@@ -1,0 +1,60 @@
+# Probe: d6-all-pills-e2e (D6 -- "everything works" completeness)
+#
+# Drives a Playwright multi-turn conversation through EVERY demo cell
+# for each showcase Railway service. Where e2e-deep (D5) picks ONE
+# representative per feature type, this probe runs ALL cells.
+#
+# Rows emitted per driver invocation:
+#   - Primary `d6-all-pills-e2e:<name>`  Aggregate ProbeResult.
+#   - Side    `d6:<slug>`                Green only if ALL cells pass.
+#   - Side    `d6:<slug>/<demoId>`       Per-cell diagnostic (not consumed
+#                                        by dashboard rollup).
+#
+# -- Cadence: hourly at :40 --
+#
+# Avoids e2e-demos at :10, D5 at :05/:20/:35/:50. With BROWSER_POOL_SIZE=10
+# and FEATURE_CONCURRENCY=4, estimated runtime ~7-10 min.
+#
+# -- timeout_ms: 600_000 (10 min) --
+# -- max_concurrency: 8 --
+#
+# 8 services x 4 features = 32 concurrent contexts on 10 browsers.
+kind: e2e_d6
+id: d6-all-pills-e2e
+schedule: "40 * * * *"
+timeout_ms: 600000
+max_concurrency: 8
+discovery:
+  source: railway-services
+  filter:
+    namePrefix: "showcase-"
+    nameExcludes:
+      - showcase-aimock
+      - showcase-harness
+      - showcase-pocketbase
+      - showcase-shell
+      - showcase-shell-dashboard
+      - showcase-shell-docs
+      - showcase-shell-dojo
+      # Harness service for .NET integration testing — not a demo service,
+      # deployed: false in manifest, no aimock wiring yet.
+      - showcase-ms-agent-harness-dotnet
+      # Decommissioned starters
+      - showcase-starter-ag2
+      - showcase-starter-agno
+      - showcase-starter-claude-sdk-python
+      - showcase-starter-claude-sdk-typescript
+      - showcase-starter-crewai-crews
+      - showcase-starter-google-adk
+      - showcase-starter-langgraph-fastapi
+      - showcase-starter-langgraph-python
+      - showcase-starter-langgraph-typescript
+      - showcase-starter-langroid
+      - showcase-starter-llamaindex
+      - showcase-starter-mastra
+      - showcase-starter-ms-agent-dotnet
+      - showcase-starter-ms-agent-python
+      - showcase-starter-pydantic-ai
+      - showcase-starter-spring-ai
+      - showcase-starter-strands
+  key_template: "d6-all-pills-e2e:${name}"

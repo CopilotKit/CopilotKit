@@ -119,7 +119,7 @@ If an example auto-opens Copilot UI / triggers calls, prefer adding a query para
 
 Workflow:
 
-- `.github/workflows/e2e_examples.yml`
+- `.github/workflows/test_e2e-legacy-v1.yml`
 
 It runs a matrix of:
 
@@ -153,4 +153,4 @@ Artifacts:
 3. Run locally:
    - `EXAMPLE=<example> pnpm test`
 4. Add the example name to the CI matrix in:
-   - `.github/workflows/e2e_examples.yml`
+   - `.github/workflows/test_e2e-legacy-v1.yml`

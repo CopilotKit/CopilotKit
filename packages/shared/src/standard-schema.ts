@@ -48,9 +48,10 @@ function hasStandardJsonSchema(
  * Strategy:
  * 1. If the schema implements Standard JSON Schema V1 (`~standard.jsonSchema`),
  *    call `schema['~standard'].jsonSchema.input({ target: 'draft-07' })`.
- * 2. If the schema is a Zod v3 schema (`~standard.vendor === 'zod'`), use the
+ * 2. If the schema exposes a `toJSONSchema()` method (Zod v4), call it directly.
+ * 3. If the schema is a Zod v3 schema (`~standard.vendor === 'zod'`), use the
  *    injected `zodToJsonSchema()` function.
- * 3. Otherwise throw a descriptive error.
+ * 4. Otherwise throw a descriptive error.
  */
 export function schemaToJsonSchema(
   schema: StandardSchemaV1,
@@ -61,7 +62,12 @@ export function schemaToJsonSchema(
     return schema["~standard"].jsonSchema.input({ target: "draft-07" });
   }
 
-  // 2. Zod v3 fallback
+  // 2. Zod v4 native — exposes toJSONSchema() on the schema itself
+  if (typeof (schema as any).toJSONSchema === "function") {
+    return (schema as any).toJSONSchema() as Record<string, unknown>;
+  }
+
+  // 3. Zod v3 fallback
   const vendor = schema["~standard"].vendor;
   if (vendor === "zod" && options?.zodToJsonSchema) {
     return options.zodToJsonSchema(schema, { $refStrategy: "none" });

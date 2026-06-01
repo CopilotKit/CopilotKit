@@ -1,0 +1,37 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for spring-ai / byoc (declarative-hashbrown / json-render)",
+    "sourceScript": "d5-byoc.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "byoc hashbrown pill — the demo renders metric cards + charts from structured JSON output. hasToolResult:false on toolCalls.",
+      "match": {
+        "userMessage": "Q4 sales dashboard",
+        "hasToolResult": false,
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_byoc_dashboard_001",
+            "name": "render_dashboard",
+            "arguments": "{\"metrics\":[{\"label\":\"Total Revenue\",\"value\":\"$2.4M\",\"change\":\"+12%\"},{\"label\":\"New Customers\",\"value\":\"1,847\",\"change\":\"+8%\"},{\"label\":\"Churn Rate\",\"value\":\"2.1%\",\"change\":\"-0.3%\"}],\"charts\":[{\"type\":\"pie\",\"title\":\"Revenue by Segment\",\"data\":[{\"label\":\"Enterprise\",\"value\":1200000},{\"label\":\"Mid-Market\",\"value\":720000},{\"label\":\"SMB\",\"value\":480000}]},{\"type\":\"bar\",\"title\":\"Monthly Revenue\",\"data\":[{\"label\":\"Oct\",\"value\":750000},{\"label\":\"Nov\",\"value\":800000},{\"label\":\"Dec\",\"value\":850000}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "byoc hashbrown pill — follow-up after tool result.",
+      "match": {
+        "userMessage": "Q4 sales dashboard",
+        "hasToolResult": true,
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "Q4 sales dashboard rendered above with revenue metrics, a pie chart of revenue by segment, and a bar chart of monthly revenue."
+      }
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "_meta": {
+    "description": "Depth-agnostic common fixtures. No context field -- matches any integration.",
+    "created": "2026-05-20"
+  },
+  "fixtures": [
+    {
+      "_comment": "Generic greeting — shared across all integrations. Narrowed userMessage from bare 'hello' (substring match) to 'hello world' so it no longer shadows D6 pills whose prompts contain 'hello' as a substring (e.g. langgraph-python headless-simple sends 'Say hello in one short sentence.'). 'hello world' is not used by any current demo pill, so the fixture is effectively a structural placeholder that still serves as a manual-typing fallback.",
+      "match": { "userMessage": "hello world" },
+      "response": { "content": "Hello! How can I help you today?" }
+    }
+  ]
+}

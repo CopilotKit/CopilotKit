@@ -1,0 +1,10 @@
+agent-framework-ag-ui>=1.0.0b251117
+agent-framework-openai>=1.0.0rc6
+httpx>=0.28.0
+langchain-openai>=1.1.0
+langchain-core>=0.3.0
+python-dotenv==1.0.1
+uvicorn==0.37.0
+fastapi>=0.115.0
+starlette<1.0.0
+pypdf>=4.0.0,<7.0.0

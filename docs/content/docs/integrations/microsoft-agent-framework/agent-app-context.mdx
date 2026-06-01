@@ -127,20 +127,20 @@ This context can then be shared with your AG-UI server and agent logic.
             ```
           </Tab>
           <Tab value="Python">
-            ```python title="agent/src/agent.py"
+            ```python title="main.py (excerpt)"
 
-            from agent_framework import ChatAgent, ChatClientProtocol
+            from agent_framework import Agent, SupportsChatGetResponse
             from agent_framework.ag_ui import AgentFrameworkAgent
 
 
-            def create_agent(chat_client: ChatClientProtocol) -> AgentFrameworkAgent:
+            def create_agent(chat_client: SupportsChatGetResponse) -> AgentFrameworkAgent:
                 """
                 Minimal agent for agent app context demo (frontend context is forwarded automatically).
                 """
-                base_agent = ChatAgent(
+                base_agent = Agent(
                     name="sample_agent",
                     instructions="You are a helpful assistant.",
-                    chat_client=chat_client,
+                    client=chat_client,
                 )
 
                 return AgentFrameworkAgent(

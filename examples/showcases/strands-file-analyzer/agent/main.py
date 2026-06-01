@@ -8,43 +8,50 @@ import re
 import uuid
 from typing import List, Optional
 
+
 # Enable Strands logging to see LLM calls and tool execution
 class BinaryDataRedactingFilter(logging.Filter):
     """Redact binary/base64 data from log messages to keep logs readable."""
 
     # Match base64 strings (100+ chars)
-    BASE64_PATTERN = re.compile(r'[A-Za-z0-9+/=]{100,}')
+    BASE64_PATTERN = re.compile(r"[A-Za-z0-9+/=]{100,}")
     # Match byte literals like b'...' with 50+ chars
     BYTES_LITERAL_PATTERN = re.compile(r"b'[^']{50,}'")
     # Match hex escapes like \x00\x01... (20+ escapes)
-    HEX_ESCAPE_PATTERN = re.compile(r'(\\x[0-9a-fA-F]{2}){20,}')
+    HEX_ESCAPE_PATTERN = re.compile(r"(\\x[0-9a-fA-F]{2}){20,}")
     # Match PDF raw content patterns
-    PDF_STREAM_PATTERN = re.compile(r'stream\s*[\s\S]{100,}?\s*endstream', re.IGNORECASE)
+    PDF_STREAM_PATTERN = re.compile(
+        r"stream\s*[\s\S]{100,}?\s*endstream", re.IGNORECASE
+    )
 
     def _redact(self, text: str) -> str:
         """Redact binary blobs from text."""
         if not isinstance(text, str):
             text = str(text)
-        text = self.BASE64_PATTERN.sub('[BASE64_DATA]', text)
+        text = self.BASE64_PATTERN.sub("[BASE64_DATA]", text)
         text = self.BYTES_LITERAL_PATTERN.sub("[BYTES_DATA]", text)
-        text = self.HEX_ESCAPE_PATTERN.sub('[HEX_DATA]', text)
-        text = self.PDF_STREAM_PATTERN.sub('[PDF_STREAM]', text)
+        text = self.HEX_ESCAPE_PATTERN.sub("[HEX_DATA]", text)
+        text = self.PDF_STREAM_PATTERN.sub("[PDF_STREAM]", text)
         return text
 
     def filter(self, record):
         try:
             # Redact msg if it's a string
-            if hasattr(record, 'msg') and isinstance(record.msg, str):
+            if hasattr(record, "msg") and isinstance(record.msg, str):
                 record.msg = self._redact(record.msg)
 
             # Redact args if present (handles % formatting)
-            if hasattr(record, 'args') and record.args:
+            if hasattr(record, "args") and record.args:
                 if isinstance(record.args, dict):
-                    record.args = {k: self._redact(v) if isinstance(v, str) else v
-                                  for k, v in record.args.items()}
+                    record.args = {
+                        k: self._redact(v) if isinstance(v, str) else v
+                        for k, v in record.args.items()
+                    }
                 elif isinstance(record.args, tuple):
-                    record.args = tuple(self._redact(a) if isinstance(a, str) else a
-                                       for a in record.args)
+                    record.args = tuple(
+                        self._redact(a) if isinstance(a, str) else a
+                        for a in record.args
+                    )
         except Exception:
             pass  # Don't break logging if redaction fails
         return True
@@ -55,9 +62,9 @@ class RedactingFormatter(logging.Formatter):
     """Formatter that redacts binary data from final formatted message."""
 
     REDACT_PATTERNS = [
-        (re.compile(r'[A-Za-z0-9+/=]{100,}'), '[BASE64_DATA]'),
-        (re.compile(r"b'[^']{50,}'"), '[BYTES_DATA]'),
-        (re.compile(r'(\\x[0-9a-fA-F]{2}){20,}'), '[HEX_DATA]'),
+        (re.compile(r"[A-Za-z0-9+/=]{100,}"), "[BASE64_DATA]"),
+        (re.compile(r"b'[^']{50,}'"), "[BYTES_DATA]"),
+        (re.compile(r"(\\x[0-9a-fA-F]{2}){20,}"), "[HEX_DATA]"),
     ]
 
     def format(self, record):
@@ -179,25 +186,38 @@ class SummaryContent(BaseModel):
                             "items": {
                                 "type": "object",
                                 "properties": {
-                                    "title": {"type": "string", "description": "Short title"},
-                                    "description": {"type": "string", "description": "Details"},
-                                    "severity": {"type": "string", "enum": ["low", "medium", "high", "critical"]}
+                                    "title": {
+                                        "type": "string",
+                                        "description": "Short title",
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "description": "Details",
+                                    },
+                                    "severity": {
+                                        "type": "string",
+                                        "enum": ["low", "medium", "high", "critical"],
+                                    },
                                 },
-                                "required": ["title", "description", "severity"]
-                            }
+                                "required": ["title", "description", "severity"],
+                            },
                         }
                     },
-                    "required": ["findings"]
+                    "required": ["findings"],
                 }
             },
-            "required": ["findings_list"]
+            "required": ["findings_list"],
         }
     }
 )
 def update_findings(findings_list: dict) -> Optional[str]:
     """Update the Key Findings panel in the dashboard."""
-    findings = findings_list.get("findings", []) if isinstance(findings_list, dict) else []
-    logging.getLogger("agent.frontend").info(f"update_findings called with {len(findings)} findings")
+    findings = (
+        findings_list.get("findings", []) if isinstance(findings_list, dict) else []
+    )
+    logging.getLogger("agent.frontend").info(
+        f"update_findings called with {len(findings)} findings"
+    )
     return None
 
 
@@ -214,25 +234,40 @@ def update_findings(findings_list: dict) -> Optional[str]:
                             "items": {
                                 "type": "object",
                                 "properties": {
-                                    "location": {"type": "string", "description": "Where in document"},
-                                    "speculation": {"type": "string", "description": "What might be hidden"},
-                                    "confidence": {"type": "integer", "description": "0-100"}
+                                    "location": {
+                                        "type": "string",
+                                        "description": "Where in document",
+                                    },
+                                    "speculation": {
+                                        "type": "string",
+                                        "description": "What might be hidden",
+                                    },
+                                    "confidence": {
+                                        "type": "integer",
+                                        "description": "0-100",
+                                    },
                                 },
-                                "required": ["location", "speculation", "confidence"]
-                            }
+                                "required": ["location", "speculation", "confidence"],
+                            },
                         }
                     },
-                    "required": ["redacted_items"]
+                    "required": ["redacted_items"],
                 }
             },
-            "required": ["redacted_list"]
+            "required": ["redacted_list"],
         }
     }
 )
 def update_redacted(redacted_list: dict) -> Optional[str]:
     """Update the Redacted Content panel in the dashboard."""
-    items = redacted_list.get("redacted_items", []) if isinstance(redacted_list, dict) else []
-    logging.getLogger("agent.frontend").info(f"update_redacted called with {len(items)} items")
+    items = (
+        redacted_list.get("redacted_items", [])
+        if isinstance(redacted_list, dict)
+        else []
+    )
+    logging.getLogger("agent.frontend").info(
+        f"update_redacted called with {len(items)} items"
+    )
     return None
 
 
@@ -249,23 +284,28 @@ def update_redacted(redacted_list: dict) -> Optional[str]:
                             "items": {
                                 "type": "object",
                                 "properties": {
-                                    "content": {"type": "string", "description": "Tweet text (max 280 chars)"}
+                                    "content": {
+                                        "type": "string",
+                                        "description": "Tweet text (max 280 chars)",
+                                    }
                                 },
-                                "required": ["content"]
-                            }
+                                "required": ["content"],
+                            },
                         }
                     },
-                    "required": ["tweets"]
+                    "required": ["tweets"],
                 }
             },
-            "required": ["tweets_list"]
+            "required": ["tweets_list"],
         }
     }
 )
 def update_tweets(tweets_list: dict) -> Optional[str]:
     """Update the Tweets panel in the dashboard."""
     tweets = tweets_list.get("tweets", []) if isinstance(tweets_list, dict) else []
-    logging.getLogger("agent.frontend").info(f"update_tweets called with {len(tweets)} tweets")
+    logging.getLogger("agent.frontend").info(
+        f"update_tweets called with {len(tweets)} tweets"
+    )
     return None
 
 
@@ -277,19 +317,26 @@ def update_tweets(tweets_list: dict) -> Optional[str]:
                 "summary_content": {
                     "type": "object",
                     "properties": {
-                        "summary": {"type": "string", "description": "Executive summary text"}
+                        "summary": {
+                            "type": "string",
+                            "description": "Executive summary text",
+                        }
                     },
-                    "required": ["summary"]
+                    "required": ["summary"],
                 }
             },
-            "required": ["summary_content"]
+            "required": ["summary_content"],
         }
     }
 )
 def update_summary(summary_content: dict) -> Optional[str]:
     """Update the Summary panel in the dashboard."""
-    summary = summary_content.get("summary", "") if isinstance(summary_content, dict) else ""
-    logging.getLogger("agent.frontend").info(f"update_summary called with {len(summary)} chars")
+    summary = (
+        summary_content.get("summary", "") if isinstance(summary_content, dict) else ""
+    )
+    logging.getLogger("agent.frontend").info(
+        f"update_summary called with {len(summary)} chars"
+    )
     return None
 
 
@@ -308,7 +355,9 @@ def build_investigator_prompt(input_data, user_message: str):
     _reset_state_accumulator()
 
     state_dict = getattr(input_data, "state", None)
-    logger.debug(f"State keys: {list(state_dict.keys()) if isinstance(state_dict, dict) else 'None'}")
+    logger.debug(
+        f"State keys: {list(state_dict.keys()) if isinstance(state_dict, dict) else 'None'}"
+    )
 
     context_parts = []
     extracted_texts = []
@@ -327,7 +376,9 @@ def build_investigator_prompt(input_data, user_message: str):
             try:
                 pdf_bytes = base64.b64decode(base64_data)
                 file_size_mb = len(pdf_bytes) / (1024 * 1024)
-                logger.info(f"Extracting text from PDF: {file_name} ({file_size_mb:.1f}MB)")
+                logger.info(
+                    f"Extracting text from PDF: {file_name} ({file_size_mb:.1f}MB)"
+                )
 
                 text = extract_text_from_pdf(pdf_bytes, file_name)
                 if text:
@@ -412,18 +463,22 @@ async def findings_state_from_args(context):
         if isinstance(tool_input, str):
             tool_input = json.loads(tool_input)
         findings_data = tool_input.get("findings_list", tool_input)
-        raw_findings = findings_data.get("findings", []) if isinstance(findings_data, dict) else []
+        raw_findings = (
+            findings_data.get("findings", []) if isinstance(findings_data, dict) else []
+        )
 
         # Ensure each finding has required fields (id, title, description, severity)
         findings = []
         for f in raw_findings:
             if isinstance(f, dict):
-                findings.append({
-                    "id": f.get("id", str(uuid.uuid4())[:8]),
-                    "title": f.get("title", "Finding"),
-                    "description": f.get("description", ""),
-                    "severity": f.get("severity", "medium"),
-                })
+                findings.append(
+                    {
+                        "id": f.get("id", str(uuid.uuid4())[:8]),
+                        "title": f.get("title", "Finding"),
+                        "description": f.get("description", ""),
+                        "severity": f.get("severity", "medium"),
+                    }
+                )
 
         # Add to accumulator for parallel tool calls
         _accumulate_state_update("findings", findings)
@@ -433,7 +488,9 @@ async def findings_state_from_args(context):
         current_state["findings"] = findings
         return current_state
     except Exception as e:
-        logging.getLogger("agent.state").warning(f"findings_state_from_args failed: {e}")
+        logging.getLogger("agent.state").warning(
+            f"findings_state_from_args failed: {e}"
+        )
         return None
 
 
@@ -444,18 +501,24 @@ async def redacted_state_from_args(context):
         if isinstance(tool_input, str):
             tool_input = json.loads(tool_input)
         redacted_data = tool_input.get("redacted_list", tool_input)
-        raw_redacted = redacted_data.get("redacted_items", []) if isinstance(redacted_data, dict) else []
+        raw_redacted = (
+            redacted_data.get("redacted_items", [])
+            if isinstance(redacted_data, dict)
+            else []
+        )
 
         # Ensure each redacted item has required fields (id, location, speculation, confidence)
         redacted = []
         for r in raw_redacted:
             if isinstance(r, dict):
-                redacted.append({
-                    "id": r.get("id", str(uuid.uuid4())[:8]),
-                    "location": r.get("location", "Unknown"),
-                    "speculation": r.get("speculation", ""),
-                    "confidence": r.get("confidence", 50),
-                })
+                redacted.append(
+                    {
+                        "id": r.get("id", str(uuid.uuid4())[:8]),
+                        "location": r.get("location", "Unknown"),
+                        "speculation": r.get("speculation", ""),
+                        "confidence": r.get("confidence", 50),
+                    }
+                )
 
         # Add to accumulator for parallel tool calls
         _accumulate_state_update("redactedContent", redacted)
@@ -465,7 +528,9 @@ async def redacted_state_from_args(context):
         current_state["redactedContent"] = redacted
         return current_state
     except Exception as e:
-        logging.getLogger("agent.state").warning(f"redacted_state_from_args failed: {e}")
+        logging.getLogger("agent.state").warning(
+            f"redacted_state_from_args failed: {e}"
+        )
         return None
 
 
@@ -476,20 +541,26 @@ async def tweets_state_from_args(context):
         if isinstance(tool_input, str):
             tool_input = json.loads(tool_input)
         tweets_data = tool_input.get("tweets_list", tool_input)
-        raw_tweets = tweets_data.get("tweets", []) if isinstance(tweets_data, dict) else []
+        raw_tweets = (
+            tweets_data.get("tweets", []) if isinstance(tweets_data, dict) else []
+        )
 
         # Ensure each tweet has required fields (id, content, posted)
         # LLM may not provide id or posted, so add defaults
         tweets = []
         for i, t in enumerate(raw_tweets):
             if isinstance(t, dict):
-                tweets.append({
-                    "id": t.get("id", str(uuid.uuid4())[:8]),
-                    "content": t.get("content", ""),
-                    "posted": t.get("posted", False),
-                })
+                tweets.append(
+                    {
+                        "id": t.get("id", str(uuid.uuid4())[:8]),
+                        "content": t.get("content", ""),
+                        "posted": t.get("posted", False),
+                    }
+                )
             else:
-                tweets.append({"id": str(uuid.uuid4())[:8], "content": str(t), "posted": False})
+                tweets.append(
+                    {"id": str(uuid.uuid4())[:8], "content": str(t), "posted": False}
+                )
 
         # Add to accumulator for parallel tool calls
         _accumulate_state_update("tweets", tweets)
@@ -510,7 +581,11 @@ async def summary_state_from_args(context):
         if isinstance(tool_input, str):
             tool_input = json.loads(tool_input)
         summary_data = tool_input.get("summary_content", tool_input)
-        summary = summary_data.get("summary", "") if isinstance(summary_data, dict) else str(summary_data)
+        summary = (
+            summary_data.get("summary", "")
+            if isinstance(summary_data, dict)
+            else str(summary_data)
+        )
 
         # Add to accumulator for parallel tool calls
         _accumulate_state_update("summary", summary)
@@ -558,7 +633,7 @@ region = os.getenv("AWS_REGION", "us-west-1")
 boto_config = Config(
     region_name=region,
     connect_timeout=300,  # 5 minutes
-    read_timeout=300,     # 5 minutes
+    read_timeout=300,  # 5 minutes
 )
 
 model = BedrockModel(

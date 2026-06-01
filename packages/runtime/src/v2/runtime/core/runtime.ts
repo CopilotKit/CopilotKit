@@ -9,6 +9,11 @@ import {
   createLicenseChecker,
   type LicenseChecker,
 } from "@copilotkit/license-verifier";
+import {
+  type ResolvedDebugConfig,
+  resolveDebugConfig,
+  type DebugConfig,
+} from "@copilotkit/shared";
 import { AbstractAgent } from "@ag-ui/client";
 import type { MCPClientConfig } from "@ag-ui/mcp-apps-middleware";
 import { A2UIMiddlewareConfig } from "@ag-ui/a2ui-middleware";
@@ -17,11 +22,15 @@ import type {
   BeforeRequestMiddleware,
   AfterRequestMiddleware,
 } from "./middleware";
+import { createLogger, type CopilotRuntimeLogger } from "../../../lib/logger";
+import { logRuntimeTelemetryDisclosure } from "../../../lib/telemetry-disclosure";
 import { TranscriptionService } from "../transcription-service/transcription-service";
+import { DebugEventBus } from "./debug-event-bus";
 import { AgentRunner } from "../runner/agent-runner";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 import { CopilotKitIntelligence } from "../intelligence-platform";
+import telemetry from "../telemetry/telemetry-client";
 
 export const VERSION = pkg.version;
 
@@ -128,10 +137,13 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
   afterRequestMiddleware?: AfterRequestMiddleware;
   /** Signed license token for server-side feature verification. Falls back to COPILOTKIT_LICENSE_TOKEN env var. */
   licenseToken?: string;
+  /** Enable debug logging for the event pipeline. */
+  debug?: DebugConfig;
 }
 
 export interface CopilotRuntimeUser {
   id: string;
+  name: string;
 }
 
 export type IdentifyUserCallback = (
@@ -181,6 +193,9 @@ export interface CopilotRuntimeLike {
   identifyUser?: IdentifyUserCallback;
   mode: RuntimeMode;
   licenseChecker?: LicenseChecker;
+  debugEventBus?: DebugEventBus;
+  debug: ResolvedDebugConfig;
+  debugLogger?: CopilotRuntimeLogger;
 }
 
 export interface CopilotSseRuntimeLike extends CopilotRuntimeLike {
@@ -208,11 +223,16 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public mcpApps: CopilotRuntimeOptions["mcpApps"];
   public openGenerativeUI: CopilotRuntimeOptions["openGenerativeUI"];
   public licenseChecker?: LicenseChecker;
+  public readonly debugEventBus?: DebugEventBus;
+  public debug: ResolvedDebugConfig;
+  public debugLogger?: CopilotRuntimeLogger;
 
   abstract readonly intelligence?: CopilotKitIntelligence;
   abstract readonly mode: RuntimeMode;
 
   constructor(options: BaseCopilotRuntimeOptions, runner: AgentRunner) {
+    logRuntimeTelemetryDisclosure();
+
     const {
       agents,
       transcriptionService,
@@ -231,6 +251,17 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     this.mcpApps = mcpApps;
     this.openGenerativeUI = openGenerativeUI;
     this.runner = runner;
+
+    if (process.env.NODE_ENV !== "production") {
+      this.debugEventBus = new DebugEventBus();
+    }
+    this.debug = resolveDebugConfig(options.debug);
+    if (this.debug.enabled) {
+      this.debugLogger = createLogger({
+        level: "debug",
+        component: "copilotkit-debug",
+      });
+    }
   }
 }
 
@@ -276,7 +307,16 @@ export class CopilotIntelligenceRuntime
     this.intelligence = options.intelligence;
     this.identifyUser = options.identifyUser;
     this.generateThreadNames = options.generateThreadNames ?? true;
-    this.licenseChecker = createLicenseChecker(options.licenseToken);
+    // Match license-verifier's env fallback so telemetry attribution
+    // resolves the same way as feature gating — otherwise customers who
+    // set only COPILOTKIT_LICENSE_TOKEN would get a working license but
+    // anonymous telemetry.
+    const licenseToken =
+      options.licenseToken ?? process.env.COPILOTKIT_LICENSE_TOKEN;
+    this.licenseChecker = createLicenseChecker(licenseToken);
+    if (licenseToken) {
+      telemetry.setLicenseToken(licenseToken);
+    }
     this.lockTtlSeconds = Math.min(
       options.lockTtlSeconds ?? 20,
       CopilotIntelligenceRuntime.MAX_LOCK_TTL_SECONDS,
@@ -386,5 +426,17 @@ export class CopilotRuntime implements CopilotRuntimeLike {
 
   get licenseChecker() {
     return this.delegate.licenseChecker;
+  }
+
+  get debugEventBus() {
+    return this.delegate.debugEventBus;
+  }
+
+  get debug(): ResolvedDebugConfig {
+    return this.delegate.debug;
+  }
+
+  get debugLogger(): CopilotRuntimeLogger | undefined {
+    return this.delegate.debugLogger;
   }
 }

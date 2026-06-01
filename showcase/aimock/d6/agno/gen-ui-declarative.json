@@ -1,0 +1,117 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for agno / gen-ui-declarative",
+    "sourceFile": "d5-gen-ui-declarative.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "kpi-dashboard pill — must trigger render_a2ui with Metric + Card catalog components. The probe asserts declarative-card and declarative-metric testids mount.",
+      "match": {
+        "userMessage": "KPI dashboard with 3-4 metrics",
+        "hasToolResult": false,
+        "context": "agno"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_agno_render_a2ui_kpi_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"Card\",\"props\":{\"title\":\"KPI Dashboard\"}},{\"type\":\"Metric\",\"props\":{\"label\":\"Revenue\",\"value\":\"$4.2M\",\"change\":\"+12%\"}},{\"type\":\"Metric\",\"props\":{\"label\":\"Signups\",\"value\":\"1,847\",\"change\":\"+8%\"}},{\"type\":\"Metric\",\"props\":{\"label\":\"Churn\",\"value\":\"2.3%\",\"change\":\"-0.5%\"}}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "KPI dashboard with 3-4 metrics",
+        "hasToolResult": true,
+        "context": "agno"
+      },
+      "response": {
+        "content": "KPI dashboard rendered above with revenue, signups, and churn metrics."
+      }
+    },
+    {
+      "_comment": "pie-chart pill — must trigger render_a2ui with PieChart catalog component. The probe asserts declarative-pie-chart testid mounts.",
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "hasToolResult": false,
+        "context": "agno"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_agno_render_a2ui_pie_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"PieChart\",\"props\":{\"title\":\"Sales by Region\",\"data\":[{\"label\":\"North America\",\"value\":42},{\"label\":\"Europe\",\"value\":28},{\"label\":\"Asia-Pacific\",\"value\":20},{\"label\":\"Other\",\"value\":10}]}}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "hasToolResult": true,
+        "context": "agno"
+      },
+      "response": {
+        "content": "Pie chart rendered above showing sales distribution across regions."
+      }
+    },
+    {
+      "_comment": "bar-chart pill — must trigger render_a2ui with BarChart catalog component. The probe asserts declarative-bar-chart testid mounts.",
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "hasToolResult": false,
+        "context": "agno"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_agno_render_a2ui_bar_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"BarChart\",\"props\":{\"title\":\"Quarterly Revenue\",\"data\":[{\"label\":\"Q1\",\"value\":800000},{\"label\":\"Q2\",\"value\":950000},{\"label\":\"Q3\",\"value\":1100000},{\"label\":\"Q4\",\"value\":1250000}]}}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "hasToolResult": true,
+        "context": "agno"
+      },
+      "response": {
+        "content": "Bar chart rendered above showing quarterly revenue trend."
+      }
+    },
+    {
+      "_comment": "status-report pill — must trigger render_a2ui with StatusBadge catalog component. The probe asserts declarative-status-badge testid mounts (this is the distinguishing signal).",
+      "match": {
+        "userMessage": "status report on system health",
+        "hasToolResult": false,
+        "context": "agno"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_agno_render_a2ui_status_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"StatusBadge\",\"props\":{\"label\":\"API\",\"status\":\"healthy\"}},{\"type\":\"StatusBadge\",\"props\":{\"label\":\"Database\",\"status\":\"healthy\"}},{\"type\":\"StatusBadge\",\"props\":{\"label\":\"Background Workers\",\"status\":\"degraded\"}}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "status report on system health",
+        "hasToolResult": true,
+        "context": "agno"
+      },
+      "response": {
+        "content": "System health report rendered above. API and database are healthy; background workers are degraded."
+      }
+    }
+  ]
+}

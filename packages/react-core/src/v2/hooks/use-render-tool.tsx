@@ -1,12 +1,13 @@
 import { useEffect } from "react";
 import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
-import { useCopilotKit } from "../providers/CopilotKitProvider";
+import { useCopilotKit } from "../context";
 import { defineToolCallRenderer } from "../types/defineToolCallRenderer";
 
 const EMPTY_DEPS: ReadonlyArray<unknown> = [];
 
 export interface RenderToolInProgressProps<S extends StandardSchemaV1> {
   name: string;
+  toolCallId: string;
   parameters: Partial<InferSchemaOutput<S>>;
   status: "inProgress";
   result: undefined;
@@ -14,6 +15,7 @@ export interface RenderToolInProgressProps<S extends StandardSchemaV1> {
 
 export interface RenderToolExecutingProps<S extends StandardSchemaV1> {
   name: string;
+  toolCallId: string;
   parameters: InferSchemaOutput<S>;
   status: "executing";
   result: undefined;
@@ -21,6 +23,7 @@ export interface RenderToolExecutingProps<S extends StandardSchemaV1> {
 
 export interface RenderToolCompleteProps<S extends StandardSchemaV1> {
   name: string;
+  toolCallId: string;
   parameters: InferSchemaOutput<S>;
   status: "complete";
   result: string;
@@ -177,5 +180,5 @@ export function useRenderTool<S extends StandardSchemaV1>(
     copilotkit.addHookRenderToolCall(renderer);
 
     // No cleanup removal — keeps renderer for chat history, same as useFrontendTool
-  }, [config.name, copilotkit, extraDeps.length, ...extraDeps]);
+  }, [config.name, copilotkit, JSON.stringify(extraDeps)]);
 }

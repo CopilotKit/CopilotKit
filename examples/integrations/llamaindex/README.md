@@ -5,27 +5,25 @@ This is a starter template for building AI agents using [LlamaIndex](https://lla
 ## Prerequisites
 
 - Node.js 18+
-- Python 3.8+
+- Python 3.9+
 - OpenAI API Key (for the LlamaIndex agent)
 - [uv](https://docs.astral.sh/uv/getting-started/installation/)
 - Any of the following package managers:
-  - pnpm (recommended)
-  - npm
-  - yarn
-  - bun
-
-> **Note:** This repository ignores lock files (package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb) to avoid conflicts between different package managers. Each developer should generate their own lock file using their preferred package manager. After that, make sure to delete it from the .gitignore.
+  - npm (default)
+  - [pnpm](https://pnpm.io/installation)
+  - [yarn](https://classic.yarnpkg.com/lang/en/docs/install/)
+  - [bun](https://bun.sh/)
 
 ## Getting Started
 
 1. Install dependencies using your preferred package manager:
 
 ```bash
-# Using pnpm (recommended)
-pnpm install
-
-# Using npm
+# Using npm (default)
 npm install
+
+# Using pnpm
+pnpm install
 
 # Using yarn
 yarn install
@@ -34,36 +32,22 @@ yarn install
 bun install
 ```
 
-2. Install Python dependencies for the LlamaIndex agent:
+This also installs the Python agent dependencies via `uv sync`.
 
-```bash
-# Using pnpm
-pnpm install:agent
-
-# Using npm
-npm run install:agent
-
-# Using yarn
-yarn install:agent
-
-# Using bun
-bun run install:agent
-```
-
-3. Set up your OpenAI API key:
+2. Set up your OpenAI API key:
 
 ```bash
 export OPENAI_API_KEY="your-openai-api-key-here"
 ```
 
-4. Start the development server:
+3. Start the development server:
 
 ```bash
+# Using npm (default)
+npm run dev
+
 # Using pnpm
 pnpm dev
-
-# Using npm
-npm run dev
 
 # Using yarn
 yarn dev
@@ -116,7 +100,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 If you see "I'm having trouble connecting to my tools", make sure:
 
-1. The LlamaIndex agent is running on port 8000
+1. The LlamaIndex agent is running on port 9000
 2. Your OpenAI API key is set correctly
 3. Both servers started successfully
 

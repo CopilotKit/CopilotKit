@@ -47,6 +47,7 @@ def _make_tool_event(metadata: dict) -> ToolCallStartEvent:
 
 # ---------- Bug 1: dict metadata reading via .get() ----------
 
+
 class TestDictMetadataReading:
     """raw_event is a dict — metadata must be read with .get(), not getattr()."""
 
@@ -84,6 +85,7 @@ class TestDictMetadataReading:
 
 # ---------- Bug 2: filtered returns None, not "" ----------
 
+
 class TestFilteredReturnValue:
     """Filtered events must return None (not empty string) to avoid encoder crash."""
 
@@ -101,6 +103,7 @@ class TestFilteredReturnValue:
 
 
 # ---------- run() filters out None values ----------
+
 
 class TestRunFiltersNone:
     """The run() override must strip None values from the event stream."""
@@ -121,9 +124,7 @@ class TestRunFiltersNone:
             "run",
             new=mock_super_run,
         ):
-            results = asyncio.get_event_loop().run_until_complete(
-                _collect_async_gen(agent.run(MagicMock()))
-            )
+            results = asyncio.run(_collect_async_gen(agent.run(MagicMock())))
 
         assert results == [real_event, real_event]
         assert None not in results
@@ -135,3 +136,59 @@ async def _collect_async_gen(agen):
     async for item in agen:
         items.append(item)
     return items
+
+
+# ---------- Edge cases: missing / None rawEvent ----------
+
+
+class TestMissingOrNoneRawEvent:
+    """Events where rawEvent is absent or None should pass through to super() without crashing."""
+
+    def test_none_raw_event_passes_through(self, agent):
+        """Event with raw_event=None should not crash and should pass through."""
+        event = TextMessageContentEvent(
+            messageId="msg-1",
+            delta="hello",
+            rawEvent=None,
+        )
+        # Should not raise and should call super() (returning non-None)
+        result = agent._dispatch_event(event)
+        assert result is not None
+
+    def test_event_without_raw_event_attr_passes_through(self, agent):
+        """If raw_event attribute is missing entirely, should pass through."""
+        # TextMessageStartEvent has rawEvent as optional, passing None simulates missing
+        event = TextMessageStartEvent(
+            messageId="msg-1",
+            role="assistant",
+            rawEvent=None,
+        )
+        result = agent._dispatch_event(event)
+        assert result is not None
+
+
+# ---------- Edge cases: None values for emit metadata keys ----------
+
+
+class TestNoneEmitMetadataValues:
+    """None values for emit metadata keys should NOT filter events (only False filters)."""
+
+    def test_none_emit_messages_does_not_filter(self, agent):
+        """copilotkit:emit-messages=None should not suppress text events (only False does)."""
+        event = _make_text_event({"copilotkit:emit-messages": None})
+        result = agent._dispatch_event(event)
+        assert result is not None, (
+            "None value should not filter — only False suppresses"
+        )
+
+    def test_none_emit_tool_calls_does_not_filter(self, agent):
+        """copilotkit:emit-tool-calls=None should not suppress tool events."""
+        event = _make_tool_event({"copilotkit:emit-tool-calls": None})
+        result = agent._dispatch_event(event)
+        assert result is not None
+
+    def test_zero_emit_messages_does_not_filter(self, agent):
+        """0 (falsy but not False) should not suppress text events (only False does)."""
+        event = _make_text_event({"copilotkit:emit-messages": 0})
+        result = agent._dispatch_event(event)
+        assert result is not None

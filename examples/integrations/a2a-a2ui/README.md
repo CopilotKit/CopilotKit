@@ -11,23 +11,21 @@ This is a starter template for building AI agents that use [A2UI](https://a2ui.o
 - uv
 - Node.js 20+
 - Any of the following package managers:
-  - pnpm (recommended)
-  - npm
-  - yarn
-  - bun
-
-> **Note:** This repository ignores lock files (package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb) to avoid conflicts between different package managers. Each developer should generate their own lock file using their preferred package manager. After that, make sure to delete it from the .gitignore.
+  - npm (default)
+  - [pnpm](https://pnpm.io/installation)
+  - [yarn](https://classic.yarnpkg.com/lang/en/docs/install/)
+  - [bun](https://bun.sh/)
 
 ## Getting Started
 
 1. Install dependencies using your preferred package manager:
 
 ```bash
-# Using pnpm (recommended)
-pnpm install
-
-# Using npm
+# Using npm (default)
 npm install
+
+# Using pnpm
+pnpm install
 
 # Using yarn
 yarn install
@@ -38,7 +36,7 @@ bun install
 
 > **Note:** This will automatically setup the Python environment as well.
 >
-> If you have manual isseus, you can run:
+> If you have manual issues, you can run:
 >
 > ```sh
 > npm run install:agent
@@ -55,11 +53,11 @@ GEMENI_API_KEY=sk-...your-openai-key-here...
 4. Start the development server:
 
 ```bash
+# Using npm (default)
+npm run dev
+
 # Using pnpm
 pnpm dev
-
-# Using npm
-npm run dev
 
 # Using yarn
 yarn dev
@@ -77,15 +75,14 @@ The following scripts can also be run using your preferred package manager:
 - `dev` - Starts both UI and agent servers in development mode
 - `dev:debug` - Starts development servers with debug logging enabled
 - `dev:ui` - Starts only the Next.js UI server
-- `dev:agent` - Starts only the PydanticAI agent server
+- `dev:agent` - Starts only the A2A agent server
 - `build` - Builds the Next.js application for production
 - `start` - Starts the production server
-- `lint` - Runs ESLint for code linting
 - `install:agent` - Installs Python dependencies for the agent
 
 ## Documentation
 
-The main UI component is in `src/app/page.tsx`, but most of the UI comes from from the agent in the form of A2UI declarative components. To see and edit the components it can generate, look in `agent/prompt_builder.py`.
+The main UI component is in `app/page.tsx`, but most of the UI comes from from the agent in the form of A2UI declarative components. To see and edit the components it can generate, look in `agent/prompt_builder.py`.
 To generate new components, try the [A2UI Composer](https://a2ui-editor.ag-ui.com)
 
 ## 📚 Documentation

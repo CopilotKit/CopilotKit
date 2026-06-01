@@ -1,0 +1,326 @@
+// Shared helpers for walking and resolving the `src/content/reference/`
+// tree. The v2 reference lives at the root for backwards-compatible
+// `/reference/<slug>` URLs and is also exposed as `/reference/v2/<slug>`.
+// The v1 reference is nested under `src/content/reference/v1`.
+
+import fs from "fs";
+import path from "path";
+import matter from "gray-matter";
+import type * as PageTree from "fumadocs-core/page-tree";
+import { safeExistsSync, safeReadFileSync } from "@/lib/safe-fs";
+
+export const REFERENCE_CONTENT_DIR = path.join(
+  process.cwd(),
+  "src/content/reference",
+);
+
+export const REFERENCE_VERSIONS = ["v2", "v1"] as const;
+export type ReferenceVersion = (typeof REFERENCE_VERSIONS)[number];
+
+export const REFERENCE_CATEGORIES = [
+  "Components",
+  "Hooks",
+  "Classes",
+  "SDKs",
+] as const;
+export type ReferenceCategory = (typeof REFERENCE_CATEGORIES)[number];
+
+type ReferenceSubdir = "components" | "hooks" | "classes" | "sdk";
+
+const VERSION_SUBDIRS: Record<ReferenceVersion, ReferenceSubdir[]> = {
+  v2: ["components", "hooks", "sdk"],
+  v1: ["components", "hooks", "classes", "sdk"],
+};
+
+const CATEGORY_BY_SUBDIR: Record<ReferenceSubdir, ReferenceCategory> = {
+  components: "Components",
+  hooks: "Hooks",
+  classes: "Classes",
+  sdk: "SDKs",
+};
+
+export type ReferenceItem = {
+  /** Version-relative slug, e.g. `components/chat` or `hooks/useAgent`. */
+  slug: string;
+  title: string;
+  description?: string;
+  category: ReferenceCategory;
+  version: ReferenceVersion;
+  url: string;
+};
+
+export type ResolvedReferencePage = {
+  version: ReferenceVersion;
+  pageSlug: string;
+  contentSlug: string;
+  raw: string;
+};
+
+function isProd(): boolean {
+  return process.env.NODE_ENV === "production";
+}
+
+function versionDir(version: ReferenceVersion): string {
+  return version === "v1"
+    ? path.join(REFERENCE_CONTENT_DIR, "v1")
+    : REFERENCE_CONTENT_DIR;
+}
+
+function versionRelativePrefix(version: ReferenceVersion): string {
+  return version === "v1" ? "v1/" : "";
+}
+
+export function referenceHref(
+  version: ReferenceVersion,
+  pageSlug?: string,
+): string {
+  const cleanSlug = pageSlug?.replace(/^\/+|\/+$/g, "");
+  const suffix = cleanSlug ? `/${cleanSlug}` : "";
+  return `/reference/${version}${suffix}`;
+}
+
+function contentSlugForPage(
+  version: ReferenceVersion,
+  pageSlug: string,
+): string {
+  const prefix = versionRelativePrefix(version);
+  return `${prefix}${pageSlug || "index"}`;
+}
+
+function pageExists(version: ReferenceVersion, pageSlug: string): boolean {
+  const contentSlug = contentSlugForPage(version, pageSlug);
+  return (
+    safeExistsSync(REFERENCE_CONTENT_DIR, `${contentSlug}.mdx`) ||
+    safeExistsSync(REFERENCE_CONTENT_DIR, `${contentSlug}/index.mdx`)
+  );
+}
+
+export function referenceVersionHref(
+  version: ReferenceVersion,
+  currentPageSlug?: string,
+): string {
+  const cleanSlug = currentPageSlug?.replace(/^\/+|\/+$/g, "") ?? "";
+  return referenceHref(
+    version,
+    cleanSlug && pageExists(version, cleanSlug) ? cleanSlug : undefined,
+  );
+}
+
+/**
+ * Recursively collect `.mdx` files under `dir` and return paths relative
+ * to `dir` without the `.mdx` extension. Directory index pages are kept
+ * as `folder/index` here and normalized later.
+ */
+function walkMdx(dir: string, prefix: string = ""): string[] {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch (err) {
+    console.error(`[reference-items] Failed to read dir ${dir}:`, err);
+    return [];
+  }
+
+  const out: string[] = [];
+  for (const entry of entries) {
+    if (entry.name.startsWith(".") || entry.name === "meta.json") continue;
+    const childAbs = path.join(dir, entry.name);
+    const childRel = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) {
+      out.push(...walkMdx(childAbs, childRel));
+    } else if (entry.isFile() && entry.name.endsWith(".mdx")) {
+      out.push(childRel.replace(/\.mdx$/, ""));
+    }
+  }
+  return out;
+}
+
+function normalizeRouteSlug(subdir: ReferenceSubdir, relSlug: string): string {
+  const normalized = relSlug.endsWith("/index")
+    ? relSlug.slice(0, -"/index".length)
+    : relSlug;
+  return normalized === "index" ? subdir : `${subdir}/${normalized}`;
+}
+
+function fallbackTitle(routeSlug: string): string {
+  return routeSlug.split("/").filter(Boolean).pop() ?? routeSlug;
+}
+
+function loadSubdirItems(
+  version: ReferenceVersion,
+  subdir: ReferenceSubdir,
+): ReferenceItem[] {
+  const dir = path.join(versionDir(version), subdir);
+  if (!fs.existsSync(dir)) return [];
+
+  const items: ReferenceItem[] = [];
+  const seenSlugs = new Set<string>();
+
+  for (const relSlug of walkMdx(dir)) {
+    const routeSlug = normalizeRouteSlug(subdir, relSlug);
+    if (seenSlugs.has(routeSlug)) continue;
+    seenSlugs.add(routeSlug);
+
+    const filePath = path.join(dir, `${relSlug}.mdx`);
+    let raw: string;
+    try {
+      raw = fs.readFileSync(filePath, "utf-8");
+    } catch (err) {
+      console.error(`[reference-items] Failed to read ${filePath}:`, err);
+      continue;
+    }
+
+    let data: Record<string, unknown> = {};
+    try {
+      ({ data } = matter(raw));
+    } catch (err) {
+      console.error(
+        `[reference-items] Failed to parse frontmatter in ${filePath}:`,
+        err,
+      );
+      continue;
+    }
+
+    items.push({
+      slug: routeSlug,
+      title:
+        typeof data.title === "string" && data.title.length > 0
+          ? data.title
+          : fallbackTitle(routeSlug),
+      description:
+        typeof data.description === "string" ? data.description : undefined,
+      category: CATEGORY_BY_SUBDIR[subdir],
+      version,
+      url: referenceHref(version, routeSlug),
+    });
+  }
+
+  return items;
+}
+
+const itemsCache = new Map<string, ReferenceItem[]>();
+
+export function loadReferenceItems(
+  version: ReferenceVersion,
+  subdir: ReferenceSubdir,
+): ReferenceItem[] {
+  const cacheKey = `${version}:${subdir}`;
+  if (isProd()) {
+    const cached = itemsCache.get(cacheKey);
+    if (cached) return cached;
+  }
+
+  const items = loadSubdirItems(version, subdir);
+  if (isProd()) itemsCache.set(cacheKey, items);
+  return items;
+}
+
+export function loadReferenceVersionItems(
+  version: ReferenceVersion,
+): ReferenceItem[] {
+  return VERSION_SUBDIRS[version].flatMap((subdir) =>
+    loadReferenceItems(version, subdir),
+  );
+}
+
+export function buildReferencePageTree(
+  version: ReferenceVersion,
+): PageTree.Root {
+  const allItems = loadReferenceVersionItems(version);
+  return {
+    name: "Reference",
+    children: REFERENCE_CATEGORIES.flatMap((category) => {
+      const categoryItems = allItems.filter(
+        (item) => item.category === category,
+      );
+      if (categoryItems.length === 0) return [];
+      return [
+        { type: "separator" as const, name: category },
+        ...categoryItems.map(
+          (item): PageTree.Item => ({
+            type: "page",
+            name: item.title,
+            url: item.url,
+          }),
+        ),
+      ];
+    }),
+  };
+}
+
+function splitVersionedSlug(slugPath: string): {
+  version: ReferenceVersion;
+  pageSlug: string;
+} {
+  if (slugPath === "v1" || slugPath.startsWith("v1/")) {
+    return { version: "v1", pageSlug: slugPath.replace(/^v1\/?/, "") };
+  }
+  if (slugPath === "v2" || slugPath.startsWith("v2/")) {
+    return { version: "v2", pageSlug: slugPath.replace(/^v2\/?/, "") };
+  }
+  return { version: "v2", pageSlug: slugPath };
+}
+
+export function resolveReferencePage(
+  slug: string[],
+): ResolvedReferencePage | null {
+  const slugPath = slug.join("/");
+  const { version, pageSlug } = splitVersionedSlug(slugPath);
+  const contentSlug = contentSlugForPage(version, pageSlug);
+  const raw =
+    safeReadFileSync(REFERENCE_CONTENT_DIR, `${contentSlug}.mdx`) ??
+    safeReadFileSync(REFERENCE_CONTENT_DIR, `${contentSlug}/index.mdx`);
+
+  if (raw === null) return null;
+  return {
+    version,
+    pageSlug,
+    contentSlug,
+    raw,
+  };
+}
+
+export function readReferenceIndexDescription(
+  version: ReferenceVersion,
+): string {
+  const fallback =
+    version === "v1"
+      ? "API Reference for CopilotKit's components, classes and hooks."
+      : "API Reference for the next-generation CopilotKit React API.";
+  const raw = safeReadFileSync(
+    REFERENCE_CONTENT_DIR,
+    `${versionRelativePrefix(version)}index.mdx`,
+  );
+  if (raw === null) return fallback;
+
+  try {
+    const { data } = matter(raw);
+    return typeof data.description === "string" && data.description.length > 0
+      ? data.description
+      : fallback;
+  } catch (err) {
+    console.error(
+      `[reference] Failed to parse ${version} index frontmatter:`,
+      err,
+    );
+    return fallback;
+  }
+}
+
+export function referenceStaticParams(): { slug: string[] }[] {
+  const params = new Map<string, string[]>();
+  const add = (slug: string[]) => params.set(slug.join("/"), slug);
+
+  add(["v1"]);
+  add(["v2"]);
+
+  for (const version of REFERENCE_VERSIONS) {
+    for (const item of loadReferenceVersionItems(version)) {
+      add([version, ...item.slug.split("/")]);
+      if (version === "v2") {
+        add(item.slug.split("/"));
+      }
+    }
+  }
+
+  return [...params.values()].map((slug) => ({ slug }));
+}

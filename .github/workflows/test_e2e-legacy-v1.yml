@@ -1,0 +1,140 @@
+name: test / e2e / legacy-v1
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "examples/**"
+      - ".github/workflows/test_e2e-legacy-v1.yml"
+      - ".changeset"
+  pull_request:
+    branches: [main]
+    paths:
+      - "examples/**"
+      - ".github/workflows/test_e2e-legacy-v1.yml"
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to run the workflow on"
+        required: true
+        default: "main"
+        type: string
+
+env:
+  NX_VERBOSE_LOGGING: true
+  NX_CI_EXECUTION_ID: ${{ github.head_ref }}-${{ github.sha }}-${{ github.run_attempt }}
+  NX_CI_EXECUTION_ENV: "E2E Examples"
+
+# Least-privilege by default. Individual jobs/steps can widen when needed.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  examples:
+    name: ${{ matrix.example }}
+    runs-on: depot-ubuntu-24.04-4
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      # id-token: write is required for Depot OIDC auth (runs-on: depot-ubuntu-*).
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        example:
+          - form-filling
+          - travel
+          - research-canvas
+          - chat-with-your-data
+          - state-machine
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          lfs: true
+          ref: ${{ github.event.inputs.branch || github.ref }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        # Omit `version:` so pnpm/action-setup inherits from the repo's
+        # `packageManager` field in package.json (via corepack).
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+
+      - name: Detect fork PR
+        id: fork-check
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO_FULL: ${{ github.repository }}
+        run: |
+          if [[ "$EVENT_NAME" == "pull_request" && \
+                "$PR_HEAD_REPO" != "$REPO_FULL" ]]; then
+            echo "prefix=fork-" >> "$GITHUB_OUTPUT"
+          else
+            echo "prefix=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Cache pnpm store
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ${{ steps.pnpm-store.outputs.STORE_PATH }}
+          key: ${{ steps.fork-check.outputs.prefix }}${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ steps.fork-check.outputs.prefix }}${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure Nx Cloud environment
+        run: |
+          echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-e2e-examples-${{ matrix.example }}" >> $GITHUB_ENV
+          echo "NX_CLOUD_NO_TIMEOUTS=true" >> $GITHUB_ENV
+          echo "NX_CLOUD_DISTRIBUTED_EXECUTION=false" >> $GITHUB_ENV
+          echo "NX_NO_CLOUD=true" >> $GITHUB_ENV
+
+      - name: Build CopilotKit
+        id: build-cpk
+        run: pnpm build
+
+      - name: Install e2e dependencies
+        working-directory: examples/e2e
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: examples/e2e
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run e2e tests
+        working-directory: examples/e2e
+        env:
+          EXAMPLE: ${{ matrix.example }}
+          CI: "true"
+          OPENAI_API_KEY: test
+          NEXT_PUBLIC_CPK_PUBLIC_API_KEY: ""
+          NEXT_PUBLIC_COPILOT_PUBLIC_API_KEY: ""
+          LANGSMITH_API_KEY: ""
+        run: pnpm test
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: examples-e2e-${{ matrix.example }}
+          path: |
+            examples/e2e/test-results/**/*
+            examples/e2e/playwright-report/**/*
+          retention-days: 7

@@ -1,0 +1,5 @@
+{
+  "title": "Multi-Agent",
+  "icon": "lucide/Network",
+  "pages": ["subagents"]
+}

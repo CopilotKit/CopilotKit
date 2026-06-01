@@ -1,0 +1,12 @@
+[tool.poetry]
+name = "sample"
+version = "0.0.1"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+langgraph = "0.2.14"
+copilotkit = "1.10.0"
+pydantic-ai = "0.0.20"
+
+[tool.poetry.dev-dependencies]
+pytest = "8.0.0"

@@ -14,6 +14,7 @@
 export const INTEGRATION_ORDER = [
   "built-in-agent",
   "langgraph",
+  "deepagents",
   "adk",
   "microsoft-agent-framework",
   "aws-strands",
@@ -51,6 +52,11 @@ export const INTEGRATION_METADATA: Record<
     label: "LangChain",
     href: "/langgraph",
     description: "Build and deploy stateful AI agents with LangChain.",
+  },
+  deepagents: {
+    label: "Deep Agents",
+    href: "/deepagents",
+    description: "Build sophisticated AI agents with LangChain's Deep Agents framework.",
   },
   adk: {
     label: "ADK",

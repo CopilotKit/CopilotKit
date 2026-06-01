@@ -2,13 +2,13 @@ import React from "react";
 import { render } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { AbstractAgent } from "@ag-ui/client";
-import { useCopilotKit } from "../../providers/CopilotKitProvider";
+import { useCopilotKit } from "../../context";
 import { MockStepwiseAgent } from "../../__tests__/utils/test-helpers";
 import { useAgent } from "../use-agent";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 
-// Mock the CopilotKitProvider to control copilotkit state directly
-vi.mock("../../providers/CopilotKitProvider", () => ({
+// Mock the CopilotKit context to control copilotkit state directly
+vi.mock("../../context", () => ({
   useCopilotKit: vi.fn(),
 }));
 
@@ -29,6 +29,10 @@ describe("useAgent stability during runtime connection", () => {
     runtimeTransport: string;
     headers: Record<string, string>;
     agents: Record<string, AbstractAgent>;
+    subscribeToAgentWithOptions: (
+      agent: AbstractAgent,
+      subscriber: any,
+    ) => { unsubscribe: () => void };
   };
 
   beforeEach(() => {
@@ -40,6 +44,8 @@ describe("useAgent stability during runtime connection", () => {
       runtimeTransport: "rest",
       headers: {},
       agents: {},
+      subscribeToAgentWithOptions: (agent, subscriber) =>
+        agent.subscribe(subscriber),
     };
 
     mockUseCopilotKit.mockReturnValue({

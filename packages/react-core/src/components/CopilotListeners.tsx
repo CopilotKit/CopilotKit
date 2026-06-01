@@ -60,15 +60,26 @@ const usePredictStateSubscription = (agent?: AbstractAgent) => {
   }, [agent, getSubscriber]);
 };
 
-export function CopilotListeners() {
-  const { copilotkit } = useCopilotKit();
+function CopilotListenersAgentSubscription() {
   const existingConfig = useCopilotChatConfiguration();
   const resolvedAgentId = existingConfig?.agentId;
-  const { setBannerError } = useToast();
 
   const { agent } = useAgent({ agentId: resolvedAgentId });
 
   usePredictStateSubscription(agent);
+
+  return null;
+}
+
+export function CopilotListeners() {
+  const { copilotkit } = useCopilotKit();
+  const { setBannerError } = useToast();
+
+  // Only render the agent subscription when agents are registered or a runtime
+  // is configured. Without this guard, useAgent() throws when the agents map is
+  // empty and no runtimeUrl is set (#3249).
+  const hasAgents = Object.keys(copilotkit.agents ?? {}).length > 0;
+  const hasRuntime = copilotkit.runtimeUrl !== undefined;
 
   useEffect(() => {
     const subscriber: CopilotKitCoreSubscriber = {
@@ -122,5 +133,5 @@ export function CopilotListeners() {
     };
   }, [copilotkit?.subscribe]);
 
-  return null;
+  return hasAgents || hasRuntime ? <CopilotListenersAgentSubscription /> : null;
 }

@@ -22,6 +22,12 @@ interface Violation {
 
 const DOCS_DIR = path.resolve(__dirname, "../docs");
 const ALLOWLIST_PATH = path.join(DOCS_DIR, "model-allowlist.json");
+// Additional roots to scan. The main legacy Nextra tree under `docs/` is the
+// primary canonical home, but the new shell-docs surface (`showcase/shell-docs/`)
+// is now also authored content and must obey the same allowlist.
+const EXTRA_DOCS_DIRS = [
+  path.resolve(__dirname, "../showcase/shell-docs/src/content"),
+];
 
 // Provider prefixes stripped before matching (e.g. "openai/gpt-4o" -> "gpt-4o")
 const PROVIDER_PREFIXES = [
@@ -274,6 +280,10 @@ function main() {
   }
 
   const violations = validateFiles(DOCS_DIR, ALLOWLIST_PATH);
+  for (const extra of EXTRA_DOCS_DIRS) {
+    if (!fs.existsSync(extra)) continue;
+    violations.push(...validateFiles(extra, ALLOWLIST_PATH));
+  }
 
   if (violations.length === 0) {
     console.log("All model names in docs are valid.");

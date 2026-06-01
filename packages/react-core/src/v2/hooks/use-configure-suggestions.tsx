@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { useCopilotKit } from "../providers/CopilotKitProvider";
+import { useCopilotKit } from "../context";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
-import {
+import type {
   DynamicSuggestionsConfig,
   StaticSuggestionsConfig,
   SuggestionsConfig,
@@ -106,21 +106,36 @@ export function useConfigureSuggestions(
   const isGlobalConfig =
     rawConsumerAgentId === undefined || rawConsumerAgentId === "*";
 
+  const isDynamicConfigType = useMemo(
+    () => !!normalizedConfig && "instructions" in normalizedConfig,
+    [normalizedConfig],
+  );
+
   const requestReload = useCallback(() => {
     if (!normalizedConfig) {
       return;
     }
 
     if (isGlobalConfig) {
+      const seen = new Set<string>();
       const agents = Object.values(copilotkit.agents ?? {});
       for (const entry of agents) {
         const agentId = entry.agentId;
         if (!agentId) {
           continue;
         }
+        seen.add(agentId);
         if (!entry.isRunning) {
           copilotkit.reloadSuggestions(agentId);
         }
+      }
+      // Also reload for the chat's resolved consumer agent. The registry can
+      // be empty at this point (e.g. runtime info still loading), in which
+      // case the loop above wouldn't have fired for the agent the user is
+      // actually chatting with — and the welcome screen would render with
+      // no suggestions until they navigate away and back.
+      if (targetAgentId && !seen.has(targetAgentId)) {
+        copilotkit.reloadSuggestions(targetAgentId);
       }
       return;
     }
@@ -169,6 +184,40 @@ export function useConfigureSuggestions(
     }
     requestReload();
   }, [extraDeps.length, normalizedConfig, requestReload, ...extraDeps]);
+
+  // When agents arrive after the initial render (runtime info just landed),
+  // re-request a reload so dynamic configs that need a real agent can finally
+  // generate.  Skip for static configs — they don't need an agent and the
+  // initial mount reload already handled them.  Skip when the target agent
+  // is already in the registry — the initial reload already covered it, and
+  // re-firing on every subsequent `onAgentsChanged` (e.g. dev-mode hot
+  // reloads, sibling chat configs mounting) would stack overlapping
+  // generations.
+  useEffect(() => {
+    if (!normalizedConfig || !isDynamicConfigType) return;
+    if (!targetAgentId) return;
+
+    const initiallyPresent = !!copilotkit.getAgent(targetAgentId);
+    if (initiallyPresent) return;
+
+    const subscription = copilotkit.subscribe({
+      onAgentsChanged: () => {
+        if (copilotkit.getAgent(targetAgentId)) {
+          requestReload();
+          subscription.unsubscribe();
+        }
+      },
+    });
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [
+    copilotkit,
+    normalizedConfig,
+    isDynamicConfigType,
+    targetAgentId,
+    requestReload,
+  ]);
 }
 
 function isDynamicConfig(

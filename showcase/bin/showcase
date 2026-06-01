@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+# showcase — unified CLI for the CopilotKit showcase platform.
+#
+# Dispatches to built-in compose commands (up, down, build, ps, ports, logs)
+# and to plugin commands defined in scripts/cli/cmd-*.sh files.
+
+set -euo pipefail
+
+# ── Bootstrap ────────────────────────────────────────────────────────────────
+
+BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SHOWCASE_ROOT="$(cd "$BIN_DIR/.." && pwd)"
+export SHOWCASE_ROOT
+
+# shellcheck source=../scripts/cli/_common.sh
+source "$SHOWCASE_ROOT/scripts/cli/_common.sh"
+
+# ── Auto-discover plugin commands (cmd-*.sh) ─────────────────────────────────
+
+# Plugin names and their descriptions, stored as parallel arrays for bash 3
+# compatibility (no associative arrays on macOS default bash).
+_plugin_names=()
+_plugin_descs=()
+
+for cmd_file in "$SHOWCASE_ROOT"/scripts/cli/cmd-*.sh; do
+  [ -f "$cmd_file" ] || continue
+  # shellcheck disable=SC1090
+  source "$cmd_file"
+  # Extract command name: cmd-foo-bar.sh → foo-bar
+  _name="$(basename "$cmd_file" .sh)"
+  _name="${_name#cmd-}"
+  _plugin_names+=("$_name")
+  # Each cmd file should define CMD_<NAME>_DESC (dashes→underscores, uppercased)
+  # e.g. cmd-aimock-rebuild.sh defines CMD_AIMOCK_REBUILD_DESC
+  _desc_var="CMD_${_name//-/_}"
+  _desc_var="$(echo "$_desc_var" | tr '[:lower:]' '[:upper:]')_DESC"
+  _plugin_descs+=("${!_desc_var:-}")
+done
+
+# ── Built-in commands ────────────────────────────────────────────────────────
+
+cmd_up() {
+  require_env
+  trap restore_symlinks EXIT
+  stage_shared
+  $COMPOSE_CMD up -d --build "$@"
+}
+
+cmd_down() {
+  $COMPOSE_CMD down "$@"
+}
+
+cmd_build() {
+  trap restore_symlinks EXIT
+  stage_shared
+  $COMPOSE_CMD build "$@"
+}
+
+cmd_ps() {
+  $COMPOSE_CMD ps "$@"
+}
+
+cmd_ports() {
+  if command -v jq &>/dev/null; then
+    jq -r 'to_entries[] | "\(.key)\t→ localhost:\(.value)"' "$PORTS_FILE"
+  else
+    cat "$PORTS_FILE"
+  fi
+}
+
+# ── Usage ────────────────────────────────────────────────────────────────────
+
+usage() {
+  cat <<'HEADER'
+Usage: showcase <command> [options]
+
+Core commands:
+  up [slug...]      Start containers (rebuilds if source changed)
+  down [slug...]    Stop containers
+  build [slug...]   Build Docker images
+  ps                Show running containers
+  ports             Print slug → host port mapping
+HEADER
+
+  # Print plugin commands if any are loaded
+  if [ ${#_plugin_names[@]} -gt 0 ]; then
+    echo ""
+    echo "Plugin commands:"
+    local i
+    for i in "${!_plugin_names[@]}"; do
+      printf "  %-17s %s\n" "${_plugin_names[$i]}" "${_plugin_descs[$i]}"
+    done
+  fi
+
+  cat <<'FOOTER'
+
+Run 'showcase <command> --help' for details on a specific command.
+FOOTER
+}
+
+# ── Dispatch ─────────────────────────────────────────────────────────────────
+
+subcmd="${1:-}"
+shift || true
+
+case "$subcmd" in
+  ""|"-h"|"--help"|"help")
+    usage
+    [ -z "$subcmd" ] && exit 1
+    exit 0
+    ;;
+  eval)
+    exec npx tsx "$SHOWCASE_ROOT/harness/src/cli.ts" eval "$@"
+    ;;
+  *)
+    # Convert dashes to underscores for function lookup: foo-bar → cmd_foo_bar
+    func_name="cmd_${subcmd//-/_}"
+    if type "$func_name" 2>/dev/null | head -1 | grep -q 'function'; then
+      "$func_name" "$@"
+    else
+      echo "Unknown command: $subcmd" >&2
+      echo ""
+      usage
+      exit 1
+    fi
+    ;;
+esac

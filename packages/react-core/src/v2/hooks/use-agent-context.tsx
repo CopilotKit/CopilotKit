@@ -1,4 +1,4 @@
-import { useCopilotKit } from "../providers/CopilotKitProvider";
+import { useCopilotKit } from "../context";
 import { useLayoutEffect, useMemo } from "react";
 
 /**

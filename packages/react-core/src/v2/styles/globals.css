@@ -229,3 +229,121 @@
   background-repeat: no-repeat;
   background-size: 100% 100%;
 }
+/*
+ * IntelligenceIndicator pill — visual styles ported from
+ * CopilotKit/Intelligence #155.
+ *
+ * Violet/indigo glassmorphism — text #5B21B6, icon #7C3AED, border
+ * #9599E0, gradient stop #EEE6FE, soft shadow #5E64AD.
+ */
+.cpk-intelligence-pill {
+  display: inline-flex;
+  /* Opt out of the parent flex-column's default `align-items: stretch`
+     (the auto-mount lives inside `CopilotChatMessageView`'s
+     `cpk:flex cpk:flex-col` container). Without this the pill would
+     stretch to the full chat width even though `inline-flex` is
+     supposed to shrink to its content. */
+  align-self: flex-start;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0.4rem 0;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid rgb(149 153 224 / 0.32);
+  border-radius: 999px;
+  background: linear-gradient(
+    135deg,
+    rgb(255 255 255 / 0.55) 0%,
+    rgb(238 230 254 / 0.55) 100%
+  );
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  color: rgb(91 33 182 / 0.92);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  box-shadow:
+    0 1px 2px rgb(94 100 173 / 0.06),
+    0 8px 24px rgb(149 153 224 / 0.08),
+    inset 0 1px 0 rgb(255 255 255 / 0.6);
+  opacity: 0;
+  transform: translateY(2px);
+  animation: cpk-intelligence-pill-fade-in 280ms ease-out forwards;
+}
+
+.cpk-intelligence-pill--fading {
+  /* Switching the `animation` property cancels the in-flight fade-in
+     and replaces the held final-value (opacity:1 from `forwards`) with
+     this fade-out keyframe set. Plain `opacity: 0` declarations would
+     otherwise lose to the animation's held value. */
+  animation: cpk-intelligence-pill-fade-out 480ms ease-out forwards;
+  pointer-events: none;
+}
+
+.cpk-intelligence-pill__icon {
+  display: block;
+  flex-shrink: 0;
+  color: rgb(124 58 237);
+}
+
+.cpk-intelligence-pill__ring {
+  stroke: currentColor;
+  stroke-dasharray: 40 16.55;
+  stroke-dashoffset: 0;
+  transform-origin: 12px 12px;
+  animation: cpk-intelligence-pill-spin 0.9s linear infinite;
+  transition: stroke-dasharray 320ms ease-out;
+}
+
+.cpk-intelligence-pill__ring--done {
+  stroke-dasharray: 56.55 0;
+  animation: none;
+}
+
+.cpk-intelligence-pill__check {
+  stroke: currentColor;
+  stroke-dasharray: 12;
+  stroke-dashoffset: 12;
+  /* Opacity zero hides the rounded `stroke-linecap` end-cap that would
+     otherwise leak through as a stationary dot at path end (16, 9.5)
+     during spinner phase. The `dasharray + dashoffset` zeroes the
+     visible stroke length, but the cap is drawn at the dash boundary
+     regardless, so we need opacity to fully hide it. */
+  opacity: 0;
+  transition:
+    stroke-dashoffset 320ms ease-out 200ms,
+    opacity 200ms ease-out 200ms;
+}
+
+.cpk-intelligence-pill__check--shown {
+  stroke-dashoffset: 0;
+  opacity: 1;
+}
+
+@keyframes cpk-intelligence-pill-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cpk-intelligence-pill-fade-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes cpk-intelligence-pill-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

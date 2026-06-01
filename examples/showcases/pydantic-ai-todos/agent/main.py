@@ -17,6 +17,7 @@ from pydantic_ai.ag_ui import StateDeps
 logfire_token = os.getenv("LOGFIRE_TOKEN")
 if logfire_token:
     import logfire
+
     logfire.configure(token=logfire_token)
     logfire.instrument_pydantic_ai()
 
@@ -27,6 +28,7 @@ app = agent.to_ag_ui(deps=StateDeps(TodoState()))
 
 if __name__ == "__main__":
     import uvicorn
+
     # Enable auto-reload for development (set DEBUG=true in .env)
     enable_auto_reload = os.getenv("DEBUG") == "true"
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=enable_auto_reload)

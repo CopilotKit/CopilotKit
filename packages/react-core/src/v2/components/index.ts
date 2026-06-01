@@ -5,3 +5,4 @@ export * from "./chat";
 export * from "./WildcardToolCallRender";
 export * from "./CopilotKitInspector";
 export * from "./MCPAppsActivityRenderer";
+export * from "./intelligence-indicator";

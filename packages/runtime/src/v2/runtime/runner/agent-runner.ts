@@ -10,7 +10,6 @@ export interface AgentRunnerRunRequest {
   threadId: string;
   agent: AbstractAgent;
   input: RunAgentInput;
-  joinCode?: string;
   persistedInputMessages?: Message[];
 }
 

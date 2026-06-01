@@ -1,0 +1,24 @@
+id: chat-red-fleet
+name: "Fleet-wide chat-red escalation"
+owner: "@oss"
+
+# Cross-service aggregation for the L3 chat-turn dimension. Mirrors
+# smoke-red-fleet.yml — see that file's comments for rationale and timing.
+signal:
+  dimension: chat
+
+triggers:
+  - green_to_red
+  - sustained_red
+
+# A7: groupBy omitted; signal.dimension already partitions traffic. See
+# smoke-red-fleet.yml for rationale and buildBucketKey for the mechanics.
+aggregation:
+  windowMs: 120000
+  minMatches: 3
+  template: |
+    <!channel> chat red across fleet — {{count}} services: {{services}}
+
+conditions:
+  rate_limit:
+    window: 10m

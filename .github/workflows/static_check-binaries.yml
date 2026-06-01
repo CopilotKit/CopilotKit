@@ -8,13 +8,29 @@ permissions:
   contents: read
 
 jobs:
-  check-binaries:
+  check-config-files:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Check build config allowlist
+        run: bash .github/scripts/check-config-allowlist.sh
+
+  check-binaries:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Check for binary and build artifacts
         env:
@@ -60,10 +76,10 @@ jobs:
           while IFS= read -r file; do
             if [ -f "$file" ]; then
               case "$file" in
-                pnpm-lock.yaml|*/package-lock.json|*/poetry.lock) continue ;;
+                pnpm-lock.yaml|*/pnpm-lock.yaml|*/package-lock.json|*/poetry.lock) continue ;;
                 assets/*|docs/public/*|examples/*/preview.gif|examples/*/assets/*) continue ;;
                 .github/actions/*/dist/*) continue ;;
-                showcase/shell/src/data/*|showcase/shell-dojolike/src/data/demo-content.json) continue ;;
+                showcase/shell/src/data/*|showcase/shell-docs/src/data/*|showcase/shell-dojo/src/data/demo-content.json) continue ;;
               esac
               SIZE=$(wc -c < "$file" | tr -d ' ')
               if [ "$SIZE" -gt 1048576 ]; then

@@ -4,9 +4,6 @@ import type { AbstractAgent } from "@ag-ui/client";
 import type { FrontendTool } from "@copilotkit/core";
 import type React from "react";
 import {
-  createContext,
-  useContext,
-  type ReactNode,
   useMemo,
   useEffect,
   useLayoutEffect,
@@ -14,14 +11,18 @@ import {
   useRef,
   useState,
 } from "react";
+import type { ReactNode } from "react";
+// Context extracted to ../context.ts for cross-platform reuse (React Native)
+import { CopilotKitContext, LicenseContext } from "../context";
+import type { CopilotKitContextValue } from "../context";
+export type { CopilotKitContextValue } from "../context";
+export { CopilotKitContext, useLicenseContext } from "../context";
 import { z } from "zod";
 import { CopilotKitInspector } from "../components/CopilotKitInspector";
 import type { Anchor } from "@copilotkit/web-inspector";
 import { LicenseWarningBanner } from "../components/license-warning-banner";
-import {
-  createLicenseContextValue,
-  type LicenseContextValue,
-} from "@copilotkit/shared";
+import { createLicenseContextValue } from "@copilotkit/shared";
+import type { LicenseContextValue, DebugConfig } from "@copilotkit/shared";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import {
   MCPAppsActivityContentSchema,
@@ -55,6 +56,11 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 
 const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
 const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
+// Stable frozen defaults keep provider effects from re-running just because a
+// caller omitted an object prop on a rerender.
+const EMPTY_HEADERS: Readonly<Record<string, string>> = Object.freeze({});
+const EMPTY_PROPERTIES: Readonly<Record<string, unknown>> = Object.freeze({});
+const EMPTY_AGENTS: Readonly<Record<string, AbstractAgent>> = Object.freeze({});
 
 const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follow these design principles inspired by shadcn/ui:
 
@@ -80,34 +86,6 @@ const GENERATE_SANDBOXED_UI_DESCRIPTION =
   "3. html (streams in live — the user watches the UI build as HTML is generated)\n" +
   "4. jsFunctions (reusable helper functions)\n" +
   "5. jsExpressions (applied one-by-one — the user sees each expression take effect)";
-
-// Define the context value interface - idiomatic React naming
-export interface CopilotKitContextValue {
-  copilotkit: CopilotKitCoreReact;
-  /**
-   * Set of tool call IDs currently being executed.
-   * This is tracked at the provider level to ensure tool execution events
-   * are captured even before child components mount.
-   */
-  executingToolCallIds: ReadonlySet<string>;
-}
-
-// Empty set for default context value
-const EMPTY_SET: ReadonlySet<string> = new Set();
-
-// Create the CopilotKit context
-const CopilotKitContext = createContext<CopilotKitContextValue>({
-  copilotkit: null!,
-  executingToolCallIds: EMPTY_SET,
-});
-
-const LicenseContext = createContext<LicenseContextValue>(
-  createLicenseContextValue(null),
-);
-
-export const useLicenseContext = (): LicenseContextValue =>
-  useContext(LicenseContext);
-
 // Provider props interface
 export interface CopilotKitProviderProps {
   children: ReactNode;
@@ -234,6 +212,10 @@ export interface CopilotKitProviderProps {
    * Defaults to `{ horizontal: "right", vertical: "top" }`.
    */
   inspectorDefaultAnchor?: Anchor;
+  /**
+   * Enable debug logging for the client-side event pipeline.
+   */
+  debug?: DebugConfig;
 }
 
 // Small helper to normalize array props to a stable reference and warn
@@ -263,14 +245,14 @@ function useStableArrayProp<T>(
 export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   children,
   runtimeUrl,
-  headers: headersProp = {},
+  headers: headersProp = EMPTY_HEADERS,
   credentials,
   publicApiKey,
   publicLicenseKey,
   licenseToken,
-  properties = {},
-  agents__unsafe_dev_only: agents = {},
-  selfManagedAgents = {},
+  properties = EMPTY_PROPERTIES,
+  agents__unsafe_dev_only: agents = EMPTY_AGENTS,
+  selfManagedAgents = EMPTY_AGENTS,
   renderToolCalls,
   renderActivityMessages,
   renderCustomMessages,
@@ -283,6 +265,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   a2ui,
   defaultThrottleMs,
   inspectorDefaultAnchor,
+  debug,
 }) => {
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
   const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
@@ -554,6 +537,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       renderToolCalls: allRenderToolCalls,
       renderActivityMessages: allActivityRenderers,
       renderCustomMessages: renderCustomMessagesList,
+      debug,
     });
     // Set initial defaultThrottleMs synchronously so child hooks see the
     // correct value on their first render (before useEffect fires).
@@ -635,15 +619,17 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [onError]);
 
   useEffect(() => {
-    if (!onErrorRef.current) return;
-
     const subscription = copilotkit.subscribe({
       onError: (event) => {
-        onErrorRef.current?.({
-          error: event.error,
-          code: event.code,
-          context: event.context,
-        });
+        if (onErrorRef.current) {
+          onErrorRef.current(event);
+        } else {
+          console.error(
+            `[CopilotKit] Error (${event.code}):`,
+            event.error,
+            event.context ?? {},
+          );
+        }
       },
     });
 
@@ -665,6 +651,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     copilotkit.setCredentials(credentials);
     copilotkit.setProperties(properties);
     copilotkit.setAgents__unsafe_dev_only(mergedAgents);
+    copilotkit.setDebug(debug);
   }, [
     copilotkit,
     chatApiEndpoint,
@@ -673,6 +660,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     properties,
     mergedAgents,
     useSingleEndpoint,
+    debug,
   ]);
 
   // Sync render/tool arrays to the stable instance via setters.
@@ -711,19 +699,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, []);
 
   // Sync defaultThrottleMs to the core instance on prop changes.
-  // Initial value is set synchronously during instance creation (below the
-  // ref init) so child hooks see the correct value on their first render.
+  // Initial value is set synchronously during instance creation (inside the
+  // ref-init block above) so child hooks see the correct value on first render.
   // This effect handles subsequent updates when the prop changes.
   useEffect(() => {
-    if (
-      defaultThrottleMs !== undefined &&
-      (!Number.isFinite(defaultThrottleMs) || defaultThrottleMs < 0)
-    ) {
-      console.error(
-        `CopilotKitProvider: defaultThrottleMs must be a non-negative finite number, got ${defaultThrottleMs}. ` +
-          `useAgent hooks without an explicit throttleMs will fall back to unthrottled.`,
-      );
-    }
     copilotkit.setDefaultThrottleMs(defaultThrottleMs);
   }, [copilotkit, defaultThrottleMs]);
 
@@ -816,25 +795,5 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   );
 };
 
-// Hook to use the CopilotKit instance - returns the full context value
-export const useCopilotKit = (): CopilotKitContextValue => {
-  const context = useContext(CopilotKitContext);
-  const [, forceUpdate] = useReducer((x) => x + 1, 0);
-
-  if (!context) {
-    throw new Error("useCopilotKit must be used within CopilotKitProvider");
-  }
-  useEffect(() => {
-    const subscription = context.copilotkit.subscribe({
-      onRuntimeConnectionStatusChanged: () => {
-        forceUpdate();
-      },
-    });
-    return () => {
-      subscription.unsubscribe();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return context;
-};
+// Re-export useCopilotKit from context for backward compatibility
+export { useCopilotKit } from "../context";

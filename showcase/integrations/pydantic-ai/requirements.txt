@@ -1,0 +1,8 @@
+pydantic-ai-slim[ag-ui,openai]==1.0.18
+ag-ui-protocol==0.1.9
+python-dotenv==1.0.1
+uvicorn==0.37.0
+fastapi>=0.115.0
+logfire>=4.10.0
+starlette<1.0.0
+pypdf>=4.0.0,<7.0.0

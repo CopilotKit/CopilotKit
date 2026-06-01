@@ -1,0 +1,23 @@
+{
+  "_comment": "D5 multi-turn fixture for /demos/agentic-chat against LangGraph Python (LGP). The agent has no backend tools (see src/agents/agentic_chat.py) — it is a plain conversational agent. Three turns: greeting → follow-up that depends on prior context → memory check that depends on the whole conversation. userMessage matches are unique substrings of each turn so first-match-wins ordering is unambiguous. Turn 1 must NOT match a substring that also appears in turns 2/3.",
+  "fixtures": [
+    {
+      "match": { "userMessage": "good name for a goldfish" },
+      "response": {
+        "content": "How about Bubbles? It is friendly, classic, and easy to call out at the tank. If you want alternatives: Goldie, Finley, or Mango."
+      }
+    },
+    {
+      "match": { "userMessage": "name for its tank" },
+      "response": {
+        "content": "Following the Bubbles theme, you could call the tank The Bubble Bowl. It pairs naturally with the goldfish's name and keeps the playful tone."
+      }
+    },
+    {
+      "match": { "userMessage": "what we named the goldfish" },
+      "response": {
+        "content": "We named the goldfish Bubbles, and the tank The Bubble Bowl."
+      }
+    }
+  ]
+}

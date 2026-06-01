@@ -32,6 +32,11 @@ export interface IntelligenceAgentRunnerOptions {
   maxRejoinMs?: number;
 }
 
+export interface RunnerStartupBoundary {
+  events: Observable<BaseEvent>;
+  startup: Promise<void>;
+}
+
 interface ThreadState {
   socket: Socket;
   channel: Channel;
@@ -95,20 +100,31 @@ export class IntelligenceAgentRunner extends AgentRunner {
     request: AgentRunnerRunRequest,
     state: ThreadState,
   ): Record<string, unknown> {
-    const canonicalEvent = this.stampRunnerMetadata(event, state);
+    const canonicalEvent = this.stampRunnerMetadata(
+      this.stampCanonicalRunOwnership(event, request),
+      state,
+    );
     const payload = {
       ...(canonicalEvent as Record<string, unknown>),
     };
 
-    payload.thread_id ??= request.threadId;
-
-    const runId = payload.runId ?? payload.run_id ?? request.input.runId;
-
-    if (runId) {
-      payload.run_id = runId;
-    }
+    payload.threadId = request.threadId;
+    payload.runId = request.input.runId;
+    payload.thread_id = request.threadId;
+    payload.run_id = request.input.runId;
 
     return payload;
+  }
+
+  private stampCanonicalRunOwnership(
+    event: BaseEvent,
+    request: AgentRunnerRunRequest,
+  ): BaseEvent {
+    return {
+      ...(event as BaseEvent & Record<string, unknown>),
+      threadId: request.threadId,
+      runId: request.input.runId,
+    } as BaseEvent;
   }
 
   private stampRunnerMetadata(event: BaseEvent, state: ThreadState): BaseEvent {
@@ -142,7 +158,36 @@ export class IntelligenceAgentRunner extends AgentRunner {
   }
 
   run(request: AgentRunnerRunRequest): Observable<BaseEvent> {
-    const { threadId, agent, input, joinCode } = request;
+    return this.createRunObservable(request);
+  }
+
+  runWithStartupBoundary(
+    request: AgentRunnerRunRequest,
+  ): RunnerStartupBoundary {
+    let resolveStartup: (() => void) | undefined;
+    let rejectStartup: ((reason: Error) => void) | undefined;
+    const startup = new Promise<void>((resolve, reject) => {
+      resolveStartup = resolve;
+      rejectStartup = reject;
+    });
+
+    return {
+      events: this.createRunObservable(request, {
+        resolveStartup: () => resolveStartup?.(),
+        rejectStartup: (error) => rejectStartup?.(error),
+      }),
+      startup,
+    };
+  }
+
+  private createRunObservable(
+    request: AgentRunnerRunRequest,
+    startupBoundary?: {
+      resolveStartup: () => void;
+      rejectStartup: (error: Error) => void;
+    },
+  ): Observable<BaseEvent> {
+    const { threadId, agent, input } = request;
 
     const existing = this.threads.get(threadId);
     if (existing?.isRunning) {
@@ -152,9 +197,9 @@ export class IntelligenceAgentRunner extends AgentRunner {
     return new Observable((observer) => {
       const socket = this.createSocket();
 
-      const channelTopic = joinCode ?? threadId;
-      const channel = socket.channel(`ingestion:${channelTopic}`, {
-        runId: input.runId,
+      const channel = socket.channel(`ingestion:${input.runId}`, {
+        thread_id: threadId,
+        run_id: input.runId,
       });
 
       const state: ThreadState = {
@@ -218,30 +263,37 @@ export class IntelligenceAgentRunner extends AgentRunner {
       channel
         .join()
         .receive("ok", () => {
+          startupBoundary?.resolveStartup();
           this.executeAgentRun(request, state, threadId).subscribe({
             complete: () => observer.complete(),
           });
         })
         .receive("error", (resp) => {
+          const error = new Error(
+            `Failed to join channel: ${JSON.stringify(resp)}`,
+          );
           const errorEvent = {
             type: EventType.RUN_ERROR,
-            message: `Failed to join channel: ${JSON.stringify(resp)}`,
+            message: error.message,
             code: "CHANNEL_JOIN_ERROR",
           } as BaseEvent;
           observer.next(errorEvent);
           state.currentEvents.push(errorEvent);
           this.removeThread(threadId);
+          startupBoundary?.rejectStartup(error);
           observer.complete();
         })
         .receive("timeout", () => {
+          const error = new Error("Timed out joining channel");
           const errorEvent = {
             type: EventType.RUN_ERROR,
-            message: "Timed out joining channel",
+            message: error.message,
             code: "CHANNEL_JOIN_TIMEOUT",
           } as BaseEvent;
           observer.next(errorEvent);
           state.currentEvents.push(errorEvent);
           this.removeThread(threadId);
+          startupBoundary?.rejectStartup(error);
           observer.complete();
         });
 
@@ -327,7 +379,10 @@ export class IntelligenceAgentRunner extends AgentRunner {
   ): Observable<void> {
     const { currentEvents, channel } = state;
     const pushCanonicalEvent = (event: BaseEvent): void => {
-      const canonicalEvent = this.stampRunnerMetadata(event, state);
+      const canonicalEvent = this.stampRunnerMetadata(
+        this.stampCanonicalRunOwnership(event, request),
+        state,
+      );
       currentEvents.push(canonicalEvent);
 
       if (canonicalEvent.type === EventType.RUN_STARTED) {
@@ -355,8 +410,12 @@ export class IntelligenceAgentRunner extends AgentRunner {
           threadId: request.threadId,
           runId: request.input.runId,
         }),
+        threadId: request.threadId,
+        runId: request.input.runId,
         input: {
           ...baseInput,
+          threadId: request.threadId,
+          runId: request.input.runId,
           ...(persistedInputMessages !== undefined
             ? { messages: persistedInputMessages }
             : {}),

@@ -3,7 +3,8 @@ services:
     image: ghcr.io/copilotkit/aimock:latest
     volumes:
       - ./fixtures:/fixtures:ro
-    command: ["--fixtures", "/fixtures", "--host", "0.0.0.0"]
+    command:
+      ["--fixtures", "/fixtures", "--host", "0.0.0.0", "--validate-on-load"]
 
   agent:
     build:
@@ -66,7 +67,7 @@ services:
       [
         "bash",
         "-c",
-        "cd /tests && npm install --no-audit --no-fund 2>/dev/null && npx playwright install chromium --with-deps 2>/dev/null && npx playwright test starter-smoke --reporter=list",
+        "cd /tests && npm install --no-audit --no-fund 2>/dev/null && npx playwright install chromium && npx playwright test starter-smoke --reporter=list",
       ]
 
 volumes:

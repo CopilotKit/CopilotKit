@@ -1,0 +1,43 @@
+{
+  "framework": "crewai-crews",
+  "features": {
+    "agentic-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/prebuilt-components",
+      "shell_docs_path": "/prebuilt-components"
+    },
+    "hitl-in-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/human-in-the-loop",
+      "shell_docs_path": "/generative-ui/your-components/interactive"
+    },
+    "tool-rendering": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/generative-ui/tool-rendering",
+      "shell_docs_path": "/generative-ui/tool-rendering"
+    },
+    "gen-ui-tool-based": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/generative-ui/your-components/display-only",
+      "shell_docs_path": "/generative-ui/your-components/display-only"
+    },
+    "gen-ui-agent": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/generative-ui/state-rendering",
+      "shell_docs_path": "/generative-ui/state-rendering"
+    },
+    "shared-state-read-write": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/shared-state/in-app-agent-write",
+      "shell_docs_path": "/shared-state"
+    },
+    "shared-state-streaming": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/shared-state/predictive-state-updates",
+      "shell_docs_path": "/shared-state"
+    },
+    "subagents": {
+      "og_docs_url": null,
+      "shell_docs_path": "/multi-agent/subagents"
+    }
+  },
+  "missing": [
+    {
+      "feature": "subagents",
+      "reason": "/crewai-crews/multi-agent-flows on docs.copilotkit.ai 308-redirects through /crewai-flows/multi-agent-flows to /crewai-flows — a different product (CrewAI Flows, not CrewAI Crews). OG left null (renders red) rather than pointing at the wrong-product overview; shell points at the unified /multi-agent/subagents content."
+    }
+  ]
+}

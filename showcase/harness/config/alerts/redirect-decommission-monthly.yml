@@ -1,0 +1,33 @@
+id: redirect-decommission-monthly
+name: "Monthly SEO redirect decommission candidates"
+owner: "@growth"
+
+signal:
+  dimension: redirect_decommission
+
+triggers:
+  - cron_only:
+      schedule: "0 9 1 * *"
+
+# NOTE: the alert-engine suppress DSL does NOT support dot-access — only
+# flat identifiers. The probe emits `signal.hasCandidates` (boolean) and
+# `signal.probeErrored` (boolean, surfaced when the audit itself failed);
+# both are aliased into flat identifiers by alert-engine's suppress-var
+# construction AND declared in rule-loader's SUPPRESS_VALIDATION_VARS.
+#
+# HF13-E2: the original `hasCandidates != true` expression suppressed both
+# "probe ran, found nothing" (correct silence) AND "probe failed, returned
+# hasCandidates=false as a default" (silent audit failure). Widen to also
+# require `probeErrored != true` so a failed audit fires instead of being
+# suppressed as "no candidates".
+conditions:
+  suppress:
+    when: hasCandidates != true && probeErrored != true
+
+targets:
+  - kind: slack_webhook
+    webhook: oss_alerts
+
+template:
+  text: |
+    {{#signal.probeErrored}}:warning: *Redirect-decommission audit failed*: {{signal.probeErrorDesc}}{{/signal.probeErrored}}{{^signal.probeErrored}}{{{ signal.body }}}{{/signal.probeErrored}}

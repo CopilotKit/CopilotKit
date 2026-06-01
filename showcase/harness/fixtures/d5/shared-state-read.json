@@ -1,0 +1,17 @@
+{
+  "_comment": "D5 fixture for /demos/shared-state-read (LangGraph Python). The recipe-editor demo uses the NEUTRAL DEFAULT agent (no tools, no state schema) and publishes a RecipeAgentState via agent.setState() from the frontend form. The agent reads the recipe context in its conversation but does not mutate it. Two chip prompts probed: 'Create a delicious Italian pasta recipe.' and 'Make the recipe healthier with more vegetables.' — text-only fixtures (no tool calls). Substring matching on 'Italian pasta recipe' and 'healthier with more vegetables' is unique enough across the whole d5-all.json bundle. The replies intentionally include recipe-context tokens (recipe / pasta / italian / vegetable / ingredient / healthy) so the probe's turn-2 soft signal lands.",
+  "fixtures": [
+    {
+      "match": { "userMessage": "Italian pasta recipe" },
+      "response": {
+        "content": "Great choice — looking at your current recipe state, I'd build an Italian pasta around the existing ingredients: a quick spaghetti aglio e olio, finishing with parmesan and a squeeze of lemon. Want me to suggest substitutions or adjust the cooking time?"
+      }
+    },
+    {
+      "match": { "userMessage": "healthier with more vegetables" },
+      "response": {
+        "content": "Here are a few healthier ingredient additions for the recipe: roasted bell peppers, baby spinach folded in at the end, and cherry tomatoes for brightness. The Italian flavor profile holds up well, and the vegetable swap keeps the dish lighter without losing the comfort of pasta."
+      }
+    }
+  ]
+}

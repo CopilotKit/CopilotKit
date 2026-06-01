@@ -1,5 +1,16 @@
 import { logger } from "@copilotkit/shared";
-import type { BaseEvent } from "@ag-ui/client";
+
+/**
+ * Header name carrying the per-call end-user identity that the CopilotKit
+ * Intelligence `/mcp` endpoint requires. Internal CopilotKit machinery — the
+ * runtime stamps this onto `agent.headers` after `identifyUser` resolves,
+ * and the auto-attach in `configureAgentForRequest` reads it back to gate
+ * MCP-server attachment and to populate the outbound `X-Cpki-User-Id`
+ * header on every MCP request. Not part of the public user API.
+ *
+ * @internal
+ */
+export const INTELLIGENCE_USER_ID_HEADER = "x-cpki-user-id";
 
 /**
  * Error thrown when an Intelligence platform HTTP request returns a non-2xx
@@ -42,7 +53,6 @@ export class PlatformRequestError extends Error {
  *   apiUrl: "https://api.copilotkit.ai",
  *   wsUrl: "wss://api.copilotkit.ai",
  *   apiKey: process.env.COPILOTKIT_API_KEY!,
- *   organizationId: process.env.COPILOTKIT_ORGANIZATION_ID!,
  * });
  *
  * const runtime = new CopilotRuntime({
@@ -66,8 +76,19 @@ export interface CopilotKitIntelligenceConfig {
   wsUrl: string;
   /** API key for authenticating with the intelligence platform */
   apiKey: string;
-  /** Organization identifier used for self-hosted Intelligence instances */
-  organizationId: string;
+  /**
+   * Enable the Intelligence platform's MCP server (bash + thread tools) on
+   * every `BuiltInAgent` run that resolves a user. The auto-attach is
+   * implemented in `configureAgentForRequest`: when this flag is `true`
+   * AND the runtime's `identifyUser` callback has placed a user-id onto
+   * the agent's forwarded headers AND the user has not already configured
+   * an MCP server pointing at the same URL, the server is appended to the
+   * agent's effective MCP server list for that run.
+   *
+   * Defaults to `false` — opt-in. Existing intelligence setups continue to
+   * work without the bash MCP server unless they flip this flag.
+   */
+  mcpServer?: boolean;
   /**
    * Initial listener invoked after a thread is created.
    * Prefer {@link CopilotKitIntelligence.onThreadCreated} for multiple listeners.
@@ -153,10 +174,12 @@ export interface CreateThreadRequest {
 
 /** Credentials returned when locking or joining a thread's realtime channel. */
 export interface ThreadConnectionResponse {
+  /** Canonical platform thread identifier for the run or connection. */
+  threadId: string;
+  /** Canonical platform run identifier for an active run lock. */
+  runId?: string;
   /** Short-lived token for authenticating the Phoenix channel join. */
   joinToken: string;
-  /** Optional join code that can be shared with other clients to join the same channel. */
-  joinCode?: string;
   /** Lock metadata echoed back by the platform. */
   lock?: ThreadLockInfo;
 }
@@ -169,23 +192,12 @@ export interface SubscribeToThreadsResponse {
   joinToken: string;
 }
 
-export interface ConnectThreadBootstrapResponse {
-  mode: "bootstrap";
-  latestEventId: string | null;
-  events: BaseEvent[];
-}
+export type ConnectThreadResponse = ThreadConnectionResponse | null;
 
-export interface ConnectThreadLiveResponse {
-  mode: "live";
-  joinToken: string;
-  joinFromEventId: string | null;
-  events: BaseEvent[];
+export interface AcquireThreadLockResponse extends ThreadConnectionResponse {
+  /** Canonical platform run identifier for the acquired lock. */
+  runId: string;
 }
-
-export type ConnectThreadResponse =
-  | ConnectThreadBootstrapResponse
-  | ConnectThreadLiveResponse
-  | null;
 
 /** A single message within a thread's persisted history. */
 export interface ThreadMessage {
@@ -211,10 +223,45 @@ export interface ThreadMessagesResponse {
   messages: ThreadMessage[];
 }
 
+/**
+ * Persisted AG-UI event for the inspector's debugging views. The platform
+ * stores raw events keyed by run; the `_inspect` route returns them in
+ * replay order (oldest first) across every run that targeted the thread.
+ */
+export interface ThreadInspectEvent {
+  type: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Response from {@link CopilotKitIntelligence.getThreadEvents}. Mirrors the
+ * `ThreadEventsResult` shape returned by the platform's
+ * `GET /api/_inspect/threads/:id/events` endpoint.
+ */
+export interface ThreadEventsResponse {
+  events: ThreadInspectEvent[];
+  /** Row IDs the platform failed to decode (raw column corrupted). */
+  decodeErrorRowIds: string[];
+  /** True when the platform hit its per-thread event cap. */
+  truncated: boolean;
+}
+
+/**
+ * Response from {@link CopilotKitIntelligence.getThreadState}. Mirrors the
+ * discriminated `ThreadStateResult` returned by the platform's
+ * `GET /api/_inspect/threads/:id/state` endpoint, which folds RFC 6902
+ * STATE_DELTA events on top of the latest STATE_SNAPSHOT.
+ */
+export type ThreadStateResponse =
+  | { kind: "no-snapshot" }
+  | { kind: "snapshot-decode-error" }
+  | { kind: "snapshot"; state: unknown; skippedDeltas: number };
+
 export interface AcquireThreadLockRequest {
   threadId: string;
   runId: string;
   userId: string;
+  agentId: string;
   /** Custom Redis key prefix for the lock (default: "thread"). */
   lockKeyPrefix?: string;
   /** Lock TTL in seconds. When set, the lock auto-expires after this duration. */
@@ -228,6 +275,11 @@ export interface RenewThreadLockRequest {
   ttlSeconds: number;
   /** Must match the prefix used when acquiring. */
   lockKeyPrefix?: string;
+}
+
+export interface CleanupThreadLockRequest {
+  threadId: string;
+  runId: string;
 }
 
 export interface RenewThreadLockResponse {
@@ -248,7 +300,7 @@ export class CopilotKitIntelligence {
   #runnerWsUrl: string;
   #clientWsUrl: string;
   #apiKey: string;
-  #organizationId: string;
+  #mcpServerEnabled: boolean;
   #threadCreatedListeners = new Set<(thread: ThreadSummary) => void>();
   #threadUpdatedListeners = new Set<(thread: ThreadSummary) => void>();
   #threadDeletedListeners = new Set<(params: ThreadDeletedPayload) => void>();
@@ -260,7 +312,7 @@ export class CopilotKitIntelligence {
     this.#runnerWsUrl = deriveRunnerWsUrl(intelligenceWsUrl);
     this.#clientWsUrl = deriveClientWsUrl(intelligenceWsUrl);
     this.#apiKey = config.apiKey;
-    this.#organizationId = config.organizationId;
+    this.#mcpServerEnabled = config.mcpServer ?? false;
 
     if (config.onThreadCreated) {
       this.onThreadCreated(config.onThreadCreated);
@@ -345,12 +397,18 @@ export class CopilotKitIntelligence {
     return this.#clientWsUrl;
   }
 
-  ɵgetOrganizationId(): string {
-    return this.#organizationId;
-  }
-
   ɵgetRunnerAuthToken(): string {
     return this.#apiKey;
+  }
+
+  /** @internal Used by the runtime's auto-attach to populate `Authorization`. */
+  ɵgetApiKey(): string {
+    return this.#apiKey;
+  }
+
+  /** @internal Used by the runtime's auto-attach to gate MCP attachment. */
+  ɵisMcpServerEnabled(): boolean {
+    return this.#mcpServerEnabled;
   }
 
   async #request<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -359,7 +417,6 @@ export class CopilotKitIntelligence {
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.#apiKey}`,
       "Content-Type": "application/json",
-      "X-Organization-Id": this.#organizationId,
     };
 
     const response = await fetch(url, {
@@ -400,7 +457,7 @@ export class CopilotKitIntelligence {
 
     for (const callback of listeners) {
       try {
-        void (callback as (p: typeof payload) => void)(payload);
+        (callback as (p: typeof payload) => void)(payload);
       } catch (error) {
         logger.error(
           { err: error, callbackName, payload },
@@ -571,6 +628,48 @@ export class CopilotKitIntelligence {
   }
 
   /**
+   * Fetch the persisted AG-UI event stream for a thread.
+   *
+   * Backed by the platform's `GET /api/_inspect/threads/:id/events`
+   * introspection endpoint (see Intelligence PR #144). Events are returned
+   * in replay order across every run that targeted the thread. The
+   * `_inspect/` prefix flags this as debug-only — production code paths
+   * must not depend on it.
+   *
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async getThreadEvents(params: {
+    threadId: string;
+  }): Promise<ThreadEventsResponse> {
+    return this.#request<ThreadEventsResponse>(
+      "GET",
+      `/api/_inspect/threads/${encodeURIComponent(params.threadId)}/events`,
+    );
+  }
+
+  /**
+   * Fetch the current agent state for a thread.
+   *
+   * Backed by the platform's `GET /api/_inspect/threads/:id/state`
+   * introspection endpoint (see Intelligence PR #144). The platform folds
+   * RFC 6902 STATE_DELTA events on top of the latest STATE_SNAPSHOT, so
+   * the returned state reflects the thread's current state — not just the
+   * last snapshot. The discriminated response distinguishes "no snapshot
+   * persisted yet" from "snapshot present" so consumers can render the
+   * correct empty state.
+   *
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async getThreadState(params: {
+    threadId: string;
+  }): Promise<ThreadStateResponse> {
+    return this.#request<ThreadStateResponse>(
+      "GET",
+      `/api/_inspect/threads/${encodeURIComponent(params.threadId)}/state`,
+    );
+  }
+
+  /**
    * Mark a thread as archived.
    *
    * Archived threads are excluded from {@link listThreads} results.
@@ -616,19 +715,30 @@ export class CopilotKitIntelligence {
 
   async ɵacquireThreadLock(
     params: AcquireThreadLockRequest,
-  ): Promise<ThreadConnectionResponse> {
-    return this.#request<ThreadConnectionResponse>(
+  ): Promise<AcquireThreadLockResponse> {
+    return this.#request<AcquireThreadLockResponse>(
       "POST",
       `/api/threads/${encodeURIComponent(params.threadId)}/lock`,
       {
         runId: params.runId,
         userId: params.userId,
+        agentId: params.agentId,
         ...(params.lockKeyPrefix !== undefined
           ? { lockKeyPrefix: params.lockKeyPrefix }
           : {}),
         ...(params.ttlSeconds !== undefined
           ? { ttlSeconds: params.ttlSeconds }
           : {}),
+      },
+    );
+  }
+
+  async ɵcleanupThreadLock(params: CleanupThreadLockRequest): Promise<void> {
+    return this.#request<void>(
+      "DELETE",
+      `/api/threads/${encodeURIComponent(params.threadId)}/lock`,
+      {
+        runId: params.runId,
       },
     );
   }
@@ -663,16 +773,16 @@ export class CopilotKitIntelligence {
   async ɵconnectThread(params: {
     threadId: string;
     userId: string;
-    lastSeenEventId?: string | null;
+    agentId: string;
   }): Promise<ConnectThreadResponse> {
-    const result = await this.#request<
-      ConnectThreadBootstrapResponse | ConnectThreadLiveResponse
-    >("POST", `/api/threads/${encodeURIComponent(params.threadId)}/connect`, {
-      userId: params.userId,
-      ...(params.lastSeenEventId !== undefined
-        ? { lastSeenEventId: params.lastSeenEventId }
-        : {}),
-    });
+    const result = await this.#request<ThreadConnectionResponse>(
+      "POST",
+      `/api/threads/${encodeURIComponent(params.threadId)}/connect`,
+      {
+        userId: params.userId,
+        agentId: params.agentId,
+      },
+    );
 
     // request() returns undefined for empty/204 responses
     return result ?? null;

@@ -1,0 +1,33 @@
+# Probe: version-drift (per-package)
+#
+# Discovery-driven fan-out: the `pnpm-packages` source enumerates every
+# workspace package, and the driver checks each against npmjs/pypi for
+# upstream drift. One ProbeResult per package is written — the status
+# writer's per-key tracking means individual packages green/red
+# independently and the weekly alert rule aggregates across them.
+#
+# Schedule: Mondays at 09:00 UTC (same cadence as the legacy aggregate
+# weekly probe in orchestrator.ts). If the registry queue is large
+# enough that the tick overruns, the next tick is simply skipped —
+# Croner's overlap protection handles that.
+#
+# timeout_ms / max_concurrency: 10s per package is generous for the
+# small JSON responses (<2KB) npmjs and pypi return; 5 concurrent
+# is well below either registry's anonymous rate limit but high
+# enough that 50 packages finish inside a few seconds rather than
+# a minute of serial waiting.
+#
+# pathPrefix filter: scope to `packages/` so examples/ and showcase/
+# don't get probed every tick. Those paths are tested independently;
+# mixing them into the weekly drift feed would flood the alert
+# channel with false-positives for pinned-on-purpose demo deps.
+kind: version_drift
+id: version-drift-weekly
+schedule: "0 9 * * 1"
+timeout_ms: 10000
+max_concurrency: 5
+discovery:
+  source: pnpm-packages
+  filter:
+    pathPrefix: "packages/"
+  key_template: "version_drift:${name}"

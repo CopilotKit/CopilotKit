@@ -67,3 +67,47 @@ Multiple agents can be registered in a single `CopilotRuntime`. Each agent gets 
 ### Middleware
 
 `CopilotRuntime` supports `beforeRequestMiddleware` and `afterRequestMiddleware` for cross-cutting concerns like authentication, logging, and request/response transformation.
+
+## Debug Mode
+
+CopilotKit includes a built-in debug mode for both the runtime and client that provides detailed logging of the AG-UI event pipeline.
+
+### Enabling Debug Mode
+
+**Runtime (server-side):**
+
+```ts
+const runtime = new CopilotRuntime({
+  debug: true, // Full debug output with Pino structured logging
+});
+```
+
+**Client (React):**
+
+```tsx
+<CopilotKit debug={true} runtimeUrl="...">
+  {children}
+</CopilotKit>
+```
+
+### Granular Configuration
+
+Both accept a config object for fine-grained control:
+
+```ts
+debug: {
+  events: true,    // Log every event emitted/received (default: true)
+  lifecycle: true,  // Log request/run lifecycle (default: true)
+  verbose: false,   // Log full payloads vs summaries (default: false in object form, true in boolean form)
+}
+```
+
+### What Gets Logged
+
+**Runtime:** Agent run started, SSE stream opened/completed/errored, every AG-UI event emitted (with Pino structured logger).
+
+**Client:** The debug configuration is forwarded to the AG-UI transport layer (`transformChunks`). CopilotKit itself does not currently emit client-side `console.debug` calls — the flag configures the underlying AG-UI event pipeline for transport-level debug output.
+
+### Architecture
+
+The `DebugConfig` type and `resolveDebugConfig()` normalizer live in `@copilotkit/shared`. The runtime and client toggles are independent — enabling one does not affect the other.

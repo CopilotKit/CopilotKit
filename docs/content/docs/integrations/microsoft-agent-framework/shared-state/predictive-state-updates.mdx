@@ -56,9 +56,7 @@ When the tool completes, the agent emits a final state snapshot. Any predictive 
       </Tab>
       <Tab value="Python">
         ```python title="agent/src/agent.py (excerpt)"
-        from typing import Dict
-
-        STATE_SCHEMA: Dict[str, object] = {
+        STATE_SCHEMA: dict[str, object] = {
             "observed_steps": {
                 "type": "array",
                 "items": {"type": "string"},
@@ -192,13 +190,13 @@ When the tool completes, the agent emits a final state snapshot. Any predictive 
       <Tab value="Python">
         ```python title="agent/src/agent.py (excerpt)"
         from __future__ import annotations
-        from typing import Annotated, Dict
-        from agent_framework import ChatAgent, ChatClientProtocol, ai_function
+        from typing import Annotated
+        from agent_framework import Agent, SupportsChatGetResponse, tool
         from agent_framework_ag_ui import AgentFrameworkAgent
         from pydantic import Field
 
         # 1) Define state schema for AG-UI
-        STATE_SCHEMA: Dict[str, object] = {
+        STATE_SCHEMA: dict[str, object] = {
             "observed_steps": {
                 "type": "array",
                 "items": {"type": "string"},
@@ -207,7 +205,7 @@ When the tool completes, the agent emits a final state snapshot. Any predictive 
         }
 
         # 2) Predictive state mapping: observed_steps <- step_progress.steps
-        PREDICT_STATE_CONFIG: Dict[str, Dict[str, str]] = {
+        PREDICT_STATE_CONFIG: dict[str, dict[str, str]] = {
             "observed_steps": {
                 "tool": "step_progress",
                 "tool_argument": "steps",
@@ -215,20 +213,17 @@ When the tool completes, the agent emits a final state snapshot. Any predictive 
         }
 
         # 3) Tool that the LLM will call with step updates
-        @ai_function(
-            name="step_progress",
-            description="Report current step progress."
-        )
+        @tool
         def step_progress(
             steps: Annotated[list[str], Field(description="Steps completed so far")]
         ) -> str:
             return "Progress received."
 
-        def create_agent(chat_client: ChatClientProtocol) -> AgentFrameworkAgent:
-            base = ChatAgent(
+        def create_agent(chat_client: SupportsChatGetResponse) -> AgentFrameworkAgent:
+            base = Agent(
                 name="sample_agent",
                 instructions="You are a task performer. Report progress using step_progress.",
-                chat_client=chat_client,
+                client=chat_client,
                 tools=[step_progress],
             )
             return AgentFrameworkAgent(

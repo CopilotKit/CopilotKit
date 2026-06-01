@@ -167,14 +167,24 @@ export async function parseSSEResponse(
         break;
       }
 
-      case "TOOL_CALL_RESULT":
+      case "TOOL_CALL_RESULT": {
+        // langchain-mcp-adapters may send content as an array of
+        // {type:"text", text:string} objects instead of a plain string.
+        let resultContent = event.content;
+        if (Array.isArray(resultContent)) {
+          resultContent = resultContent
+            .filter((part: any) => part && typeof part.text === "string")
+            .map((part: any) => part.text)
+            .join("");
+        }
         messagesById.set(event.messageId, {
           id: event.messageId,
           role: "tool",
-          content: event.content,
+          content: resultContent,
           toolCallId: event.toolCallId,
         });
         break;
+      }
     }
   }
 

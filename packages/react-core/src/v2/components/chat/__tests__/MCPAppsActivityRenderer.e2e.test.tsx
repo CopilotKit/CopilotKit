@@ -8,7 +8,7 @@
  * 4. Tool calls proxied back through the agent
  */
 import { fireEvent, screen, waitFor, act } from "@testing-library/react";
-import { z } from "zod";
+import type { z } from "zod";
 import { vi } from "vitest";
 import {
   activitySnapshotEvent,
@@ -21,15 +21,11 @@ import {
   MCPAppsActivityType,
   MCPAppsActivityContentSchema,
 } from "../../../components/MCPAppsActivityRenderer";
-import { ReactActivityMessageRenderer } from "../../../types";
-import {
-  AbstractAgent,
-  RunAgentInput,
-  RunAgentResult,
-  BaseEvent,
-  EventType,
-} from "@ag-ui/client";
-import { Observable, Subject } from "rxjs";
+import type { ReactActivityMessageRenderer } from "../../../types";
+import type { RunAgentInput, RunAgentResult, BaseEvent } from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { Observable } from "rxjs";
+import { Subject } from "rxjs";
 
 /**
  * Mock agent that intercepts runAgent calls for proxied MCP requests
@@ -569,6 +565,37 @@ describe("MCP Apps Activity Renderer E2E", () => {
       const toolInputResult =
         MCPAppsActivityContentSchema.safeParse(withToolInput);
       expect(toolInputResult.success).toBe(true);
+    });
+
+    // Field-contract guard for GH #4295. The schema must use the two-argument
+    // z.record(z.string(), z.unknown()) form: Zod 4 made the key schema
+    // mandatory, so the single-argument form is a compile-time error (TS2554)
+    // when built against Zod 4. Runtime parsing is unaffected under both Zod
+    // majors, so this test only guards the field contract (string keys, mixed
+    // value types preserved). The single-arg form itself is prevented at author
+    // time by the copilotkit/no-single-arg-zod-record lint rule, since no
+    // runtime test can reproduce a purely type-level incompatibility.
+    it("preserves non-empty toolInput records of mixed value types", () => {
+      const baseContent = {
+        resourceUri: "ui://server/resource",
+        serverHash: "hash123",
+        result: { isError: false },
+      };
+
+      const withToolInput = {
+        ...baseContent,
+        toolInput: { stringArg: "value", numberArg: 42, nested: { a: 1 } },
+      };
+      const result = MCPAppsActivityContentSchema.safeParse(withToolInput);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.toolInput).toEqual(withToolInput.toolInput);
+      }
+
+      const withEmptyToolInput = { ...baseContent, toolInput: {} };
+      expect(
+        MCPAppsActivityContentSchema.safeParse(withEmptyToolInput).success,
+      ).toBe(true);
     });
 
     it("rejects invalid activity content", () => {

@@ -6,6 +6,15 @@
  *   - validate-redirects.ts (verifies 301s + destinations)
  *   - redirect-decommission-report.ts (cross-references PostHog traffic)
  *
+ * Destinations target the shell-docs routing surface, which serves at
+ * the host root (no `/docs/` prefix) and uses the registry framework
+ * slugs (e.g. `langgraph-python`, `google-adk`, `strands`,
+ * `ms-agent-dotnet`, `crewai-crews`, `built-in-agent`). Legacy upstream
+ * URLs that used the old slugs (`langgraph`, `adk`, `aws-strands`,
+ * `microsoft-agent-framework`, `crewai-flows`, `unselected`) are
+ * rewritten here so the historic SEO surface keeps redirecting cleanly
+ * to the new canonical homes.
+ *
  * Spec & Inventory: https://www.notion.so/33c3aa38185281d7b243c5cf0a7c14cb
  */
 
@@ -22,6 +31,9 @@ export interface RedirectEntry {
 // Constants
 // ---------------------------------------------------------------------------
 
+// Historical framework slugs that appear in legacy upstream URLs.
+// These are the slugs the SEO surface SAW pre-cutover — destinations are
+// remapped via SLUG_RENAMES below to the canonical shell-docs slugs.
 const FRAMEWORKS = [
   "langgraph",
   "adk",
@@ -35,8 +47,26 @@ const FRAMEWORKS = [
   "microsoft-agent-framework",
   "aws-strands",
   "a2a",
-  "built-in-agent",
+  "unselected",
 ] as const;
+
+/**
+ * Map from legacy framework slug → canonical shell-docs slug.
+ * Slugs not listed here keep the same value in destinations.
+ */
+const SLUG_RENAMES: Record<string, string> = {
+  langgraph: "langgraph-python",
+  adk: "google-adk",
+  "aws-strands": "strands",
+  "microsoft-agent-framework": "ms-agent-dotnet",
+  "crewai-flows": "crewai-crews",
+  unselected: "built-in-agent",
+};
+
+/** Resolve a legacy framework slug to its canonical shell-docs slug. */
+function canonicalSlug(legacy: string): string {
+  return SLUG_RENAMES[legacy] ?? legacy;
+}
 
 /** Per-framework subpath renames (Category 5 in spec). Applied to ALL 13 frameworks. */
 const SUBPATH_RENAMES: { specId: string; from: string; to: string }[] = [
@@ -94,23 +124,24 @@ const SUBPATH_RENAMES: { specId: string; from: string; to: string }[] = [
 function generateFrameworkRenames(): RedirectEntry[] {
   const entries: RedirectEntry[] = [];
   for (const fw of FRAMEWORKS) {
+    const fwDest = canonicalSlug(fw);
     // S13: concepts/* collapses to framework root
     entries.push({
       id: `S13w×${fw}`,
       source: `/${fw}/concepts/:path*`,
-      destination: `/docs/integrations/${fw}`,
+      destination: `/${fwDest}`,
     });
     entries.push({
       id: `S13e×${fw}`,
       source: `/${fw}/concepts`,
-      destination: `/docs/integrations/${fw}`,
+      destination: `/${fwDest}`,
     });
 
     for (const rename of SUBPATH_RENAMES) {
       entries.push({
         id: `${rename.specId}×${fw}`,
         source: `/${fw}/${rename.from}`,
-        destination: `/docs/integrations/${fw}/${rename.to}`,
+        destination: `/${fwDest}/${rename.to}`,
       });
     }
   }
@@ -125,134 +156,124 @@ const DEEP_COAGENTS: RedirectEntry[] = [
   {
     id: "D1",
     source: "/coagents/tutorials/ai-travel-app/overview",
-    destination: "/docs/integrations/langgraph/tutorials/ai-travel-app",
+    destination: "/langgraph-python/tutorials/ai-travel-app",
   },
   {
     id: "D2",
     source: "/coagents/chat-ui/hitl/json-hitl",
-    destination:
-      "/docs/integrations/langgraph/human-in-the-loop/interrupt-flow",
+    destination: "/langgraph-python/human-in-the-loop/interrupt-flow",
   },
   {
     id: "D3",
     source: "/coagents/react-ui/frontend-functions",
-    destination:
-      "/docs/integrations/langgraph/human-in-the-loop/interrupt-flow",
+    destination: "/langgraph-python/human-in-the-loop/interrupt-flow",
   },
   {
     id: "D4",
     source: "/coagents/chat-ui/render-agent-state",
-    destination:
-      "/docs/integrations/langgraph/generative-ui/your-components/display-only",
+    destination: "/langgraph-python/generative-ui/your-components/display-only",
   },
   {
     id: "D5",
     source: "/coagents/chat-ui/hitl",
-    destination:
-      "/docs/integrations/langgraph/human-in-the-loop/interrupt-flow",
+    destination: "/langgraph-python/human-in-the-loop/interrupt-flow",
   },
   {
     id: "D6",
     source: "/coagents/chat-ui/hitl/interrupt-flow",
-    destination:
-      "/docs/integrations/langgraph/human-in-the-loop/interrupt-flow",
+    destination: "/langgraph-python/human-in-the-loop/interrupt-flow",
   },
   {
     id: "D7",
     source: "/coagents/chat-ui/loading-message-history",
     destination:
-      "/docs/integrations/langgraph/advanced/persistence/loading-message-history",
+      "/langgraph-python/advanced/persistence/loading-message-history",
   },
   {
     id: "D8",
     source: "/coagents/react-ui/in-app-agent-read",
-    destination: "/docs/integrations/langgraph/shared-state/in-app-agent-read",
+    destination: "/langgraph-python/shared-state/in-app-agent-read",
   },
   {
     id: "D9",
     source: "/coagents/react-ui/in-app-agent-write",
-    destination: "/docs/integrations/langgraph/shared-state/in-app-agent-write",
+    destination: "/langgraph-python/shared-state/in-app-agent-write",
   },
   {
     id: "D10",
     source: "/coagents/react-ui/hitl",
-    destination:
-      "/docs/integrations/langgraph/human-in-the-loop/interrupt-flow",
+    destination: "/langgraph-python/human-in-the-loop/interrupt-flow",
   },
   {
     id: "D11",
     source: "/coagents/advanced/router-mode-agent-lock",
-    destination: "/docs/integrations/langgraph",
+    destination: "/langgraph-python",
   },
   {
     id: "D12",
     source: "/coagents/advanced/intermediate-state-streaming",
-    destination:
-      "/docs/integrations/langgraph/shared-state/predictive-state-updates",
+    destination: "/langgraph-python/shared-state/predictive-state-updates",
   },
   {
     id: "D13",
     source: "/coagents/shared-state/intermediate-state-streaming",
-    destination:
-      "/docs/integrations/langgraph/shared-state/predictive-state-updates",
+    destination: "/langgraph-python/shared-state/predictive-state-updates",
   },
   {
     id: "D14",
     source: "/coagents/advanced/manually-emitting-messages",
-    destination: "/docs/integrations/langgraph/advanced/emit-messages",
+    destination: "/langgraph-python/advanced/emit-messages",
   },
   {
     id: "D15",
     source: "/coagents/advanced/copilotkit-state",
-    destination: "/docs/integrations/langgraph/frontend-tools",
+    destination: "/langgraph-python/frontend-tools",
   },
   {
     id: "D16",
     source: "/coagents/advanced/message-persistence",
-    destination:
-      "/docs/integrations/langgraph/advanced/persistence/message-persistence",
+    destination: "/langgraph-python/advanced/persistence/message-persistence",
   },
   {
     id: "D17",
     source: "/coagents/advanced/loading-message-history",
     destination:
-      "/docs/integrations/langgraph/advanced/persistence/loading-message-history",
+      "/langgraph-python/advanced/persistence/loading-message-history",
   },
   {
     id: "D18",
     source: "/coagents/advanced/loading-agent-state",
-    destination:
-      "/docs/integrations/langgraph/advanced/persistence/loading-agent-state",
+    destination: "/langgraph-python/advanced/persistence/loading-agent-state",
   },
   {
     id: "D19",
     source: "/coagents/advanced/state-streaming",
-    destination: "/docs/integrations/langgraph/shared-state",
+    destination: "/langgraph-python/shared-state",
   },
   {
     id: "D20",
     source: "/coagents/concepts/state",
-    destination: "/docs/integrations/langgraph/shared-state",
+    destination: "/langgraph-python/shared-state",
   },
   {
     id: "D21",
     source: "/coagents/concepts/human-in-the-loop",
-    destination: "/docs/integrations/langgraph/human-in-the-loop",
+    destination: "/langgraph-python/human-in-the-loop",
   },
   {
     id: "D22",
     source: "/coagents/concepts/multi-agent-flows",
-    destination: "/docs/integrations/langgraph",
+    destination: "/langgraph-python",
   },
   {
     id: "D23",
     source: "/coagents/quickstart/langgraph",
-    destination: "/docs/integrations/langgraph/quickstart",
+    destination: "/langgraph-python/quickstart",
   },
   {
     id: "D24",
     source: "/coagents/shared-state/state-inputs-outputs",
-    destination: "/docs/integrations/langgraph/shared-state/workflow-execution",
+    destination: "/langgraph-python/shared-state/workflow-execution",
   },
 ];
 
@@ -264,92 +285,88 @@ const SPECIFIC_FRAMEWORK: RedirectEntry[] = [
   {
     id: "F1",
     source: "/langgraph/quickstart/langgraph",
-    destination: "/docs/integrations/langgraph/quickstart",
+    destination: "/langgraph-python/quickstart",
   },
   {
     id: "F2",
     source: "/crewai-flows/quickstart/crewai",
-    destination: "/docs/integrations/crewai-flows/quickstart",
+    destination: "/crewai-crews/quickstart",
   },
   {
     id: "F3",
     source: "/mastra/quickstart/mastra",
-    destination: "/docs/integrations/mastra/quickstart",
+    destination: "/mastra/quickstart",
   },
   {
     id: "F4",
     source: "/ag2/quickstart/ag2",
-    destination: "/docs/integrations/ag2/quickstart",
+    destination: "/ag2/quickstart",
   },
   {
     id: "F5",
     source: "/agno/quickstart/agno",
-    destination: "/docs/integrations/agno/quickstart",
+    destination: "/agno/quickstart",
   },
   {
     id: "F6",
     source: "/pydantic-ai/quickstart/pydantic-ai",
-    destination: "/docs/integrations/pydantic-ai/quickstart",
+    destination: "/pydantic-ai/quickstart",
   },
   {
     id: "F7",
     source: "/adk/quickstart/adk",
-    destination: "/docs/integrations/adk/quickstart",
+    destination: "/google-adk/quickstart",
   },
   {
     id: "F8",
     source: "/langgraph/generative-ui/display",
-    destination:
-      "/docs/integrations/langgraph/generative-ui/your-components/display-only",
+    destination: "/langgraph-python/generative-ui/your-components/display-only",
   },
   {
     id: "F9",
     source: "/langgraph/generative-ui/interactive/interrupt-based",
     destination:
-      "/docs/integrations/langgraph/generative-ui/your-components/interrupt-based",
+      "/langgraph-python/generative-ui/your-components/interrupt-based",
   },
   {
     id: "F10",
     source: "/langgraph/generative-ui/interactive/client-side",
-    destination:
-      "/docs/integrations/langgraph/generative-ui/your-components/interactive",
+    destination: "/langgraph-python/generative-ui/your-components/interactive",
   },
   {
     id: "F11",
     source: "/langgraph/human-in-the-loop/node-flow",
-    destination:
-      "/docs/integrations/langgraph/human-in-the-loop/interrupt-flow",
+    destination: "/langgraph-python/human-in-the-loop/interrupt-flow",
   },
   {
     id: "F12",
     source: "/langgraph/human-in-the-loop/prebuilt-agents",
-    destination: "/docs/integrations/langgraph/prebuilt-components",
+    destination: "/langgraph-python/prebuilt-components",
   },
   {
     id: "F13",
     source: "/aws-strands/human-in-the-loop",
-    destination: "/docs/human-in-the-loop",
+    destination: "/human-in-the-loop",
   },
   {
     id: "F14",
     source: "/adk/shared-state/state-inputs-outputs",
-    destination: "/docs/integrations/adk/shared-state/workflow-execution",
+    destination: "/google-adk/shared-state/workflow-execution",
   },
   {
     id: "F15",
     source: "/langgraph/shared-state/state-inputs-outputs",
-    destination: "/docs/integrations/langgraph/shared-state/workflow-execution",
+    destination: "/langgraph-python/shared-state/workflow-execution",
   },
   {
     id: "F16",
     source: "/llamaindex/shared-state/state-inputs-outputs",
-    destination:
-      "/docs/integrations/llamaindex/shared-state/workflow-execution",
+    destination: "/llamaindex/shared-state/workflow-execution",
   },
   {
     id: "F20",
     source: "/direct-to-llm/guides/mcp",
-    destination: "/docs/built-in-agent/coding-agents",
+    destination: "/built-in-agent/coding-agents",
   },
 ];
 
@@ -358,126 +375,131 @@ const SPECIFIC_FRAMEWORK: RedirectEntry[] = [
 // ---------------------------------------------------------------------------
 
 const ROOT_RENAMES: RedirectEntry[] = [
-  { id: "R1", source: "/api", destination: "/reference" },
-  { id: "R2", source: "/docs/api", destination: "/reference" },
-  { id: "R3", source: "/api-reference", destination: "/reference" },
-  { id: "R4", source: "/getting-started", destination: "/docs/quickstart" },
-  { id: "R5", source: "/start", destination: "/docs/quickstart" },
+  { id: "R1", source: "/api", destination: "/reference/v2" },
+  { id: "R2", source: "/docs/api", destination: "/reference/v2" },
+  { id: "R3", source: "/api-reference", destination: "/reference/v2" },
+  { id: "R4", source: "/getting-started", destination: "/" },
+  { id: "R5", source: "/start", destination: "/" },
   {
     id: "R6",
     source: "/frontend-actions",
-    destination: "/docs/frontend-tools",
+    destination: "/frontend-tools",
   },
   {
     id: "R7",
     source: "/generative-ui",
-    destination: "/docs/generative-ui/your-components/display-only",
+    destination: "/generative-ui/your-components/display-only",
   },
   {
     id: "R8",
     source: "/generative-ui/display",
-    destination: "/docs/generative-ui/your-components/display-only",
+    destination: "/generative-ui/your-components/display-only",
   },
   {
     id: "R9",
     source: "/generative-ui/interactive",
-    destination: "/docs/generative-ui/your-components/interactive",
+    destination: "/generative-ui/your-components/interactive",
   },
   {
     id: "R10",
     source: "/agentic-chat-ui",
-    destination: "/docs/prebuilt-components",
+    destination: "/prebuilt-components",
   },
   {
     id: "R11",
     source: "/headless",
-    destination: "/docs/custom-look-and-feel/headless-ui",
+    destination: "/custom-look-and-feel/headless-ui",
   },
   {
     id: "R12",
     source: "/coding-agent-setup",
-    destination: "/docs/coding-agents",
+    destination: "/coding-agents",
   },
   {
     id: "R13",
     source: "/copilot-suggestions",
-    destination: "/docs/prebuilt-components",
+    destination: "/prebuilt-components",
   },
-  { id: "R14", source: "/direct-to-llm", destination: "/docs/built-in-agent" },
-  { id: "R15", source: "/builtin-agent", destination: "/docs/built-in-agent" },
-  { id: "R18", source: "/mcp", destination: "/docs/coding-agents" },
-  { id: "R19", source: "/vibe-coding-mcp", destination: "/docs/coding-agents" },
+  // /direct-to-llm and /integrations/built-in-agent → built-in-agent (BIA canonical)
+  { id: "R14", source: "/direct-to-llm", destination: "/built-in-agent" },
+  {
+    id: "R15",
+    source: "/integrations/built-in-agent",
+    destination: "/built-in-agent",
+  },
+  { id: "R18", source: "/mcp", destination: "/coding-agents" },
+  { id: "R19", source: "/vibe-coding-mcp", destination: "/coding-agents" },
   {
     id: "R20",
     source: "/agentic-protocols",
-    destination: "/docs/learn/agentic-protocols",
+    destination: "/agentic-protocols",
   },
   {
     id: "R21",
     source: "/ag-ui-protocol",
-    destination: "/docs/learn/ag-ui-protocol",
+    destination: "/agentic-protocols/ag-ui",
   },
   {
     id: "R22",
     source: "/connect-mcp-servers",
-    destination: "/docs/learn/connect-mcp-servers",
+    destination: "/agentic-protocols/mcp",
   },
   {
     id: "R23",
     source: "/a2a-protocol",
-    destination: "/docs/learn/a2a-protocol",
+    destination: "/agentic-protocols/a2a",
   },
   {
     id: "R24",
     source: "/architecture",
-    destination: "/docs/learn/architecture",
+    destination: "/concepts/architecture",
   },
   {
     id: "R25",
     source: "/runtime-server-adapter",
-    destination: "/docs/backend/copilot-runtime",
+    destination: "/backend/copilot-runtime",
   },
   {
     id: "R27",
     source: "/whats-new/v1-50",
-    destination: "/docs/learn/whats-new/v1-50",
+    destination: "/whats-new/v1-50",
   },
   // Manual overrides (Category 7) — root-level doc pages
-  { id: "M2", source: "/quickstart", destination: "/docs/quickstart" },
-  { id: "M3", source: "/faq", destination: "/docs/faq" },
-  { id: "M4", source: "/frontend-tools", destination: "/docs/frontend-tools" },
+  { id: "M2", source: "/quickstart", destination: "/" },
+  { id: "M3", source: "/faq", destination: "/faq" },
+  { id: "M4", source: "/frontend-tools", destination: "/frontend-tools" },
   {
     id: "M5",
     source: "/human-in-the-loop",
-    destination: "/docs/human-in-the-loop",
+    destination: "/human-in-the-loop",
   },
   {
     id: "M6",
     source: "/prebuilt-components",
-    destination: "/docs/prebuilt-components",
+    destination: "/prebuilt-components",
   },
-  { id: "M7", source: "/coding-agents", destination: "/docs/coding-agents" },
-  { id: "M8", source: "/telemetry", destination: "/docs/telemetry" },
+  { id: "M7", source: "/coding-agents", destination: "/coding-agents" },
+  { id: "M8", source: "/telemetry", destination: "/telemetry" },
   // Broken link fixes (B1-B3)
   {
     id: "B1",
     source: "/guides/custom-look-and-feel/bring-your-own-components",
-    destination: "/docs/custom-look-and-feel/slots",
+    destination: "/custom-look-and-feel/slots",
   },
   {
     id: "B2",
     source: "/guides/self-hosting",
-    destination: "/docs/backend/copilot-runtime",
+    destination: "/backend/copilot-runtime",
   },
   {
     id: "B3",
     source: "/guides/backend-actions/remote-backend-endpoint",
-    destination: "/docs/backend/copilot-runtime",
+    destination: "/backend/copilot-runtime",
   },
 ];
 
 // ---------------------------------------------------------------------------
-// Category 2: Legacy Redirect Chains (coagents -> langgraph, crewai-crews -> crewai-flows)
+// Category 2: Legacy Redirect Chains (coagents -> langgraph-python, crewai-crews -> crewai-crews)
 // Specific entries BEFORE the catch-all wildcards
 // ---------------------------------------------------------------------------
 
@@ -485,64 +507,194 @@ const LEGACY_CHAINS_EXACT: RedirectEntry[] = [
   {
     id: "L1",
     source: "/coagents",
-    destination: "/docs/integrations/langgraph",
+    destination: "/langgraph-python",
   },
   {
     id: "L2",
     source: "/coagents/quickstart",
-    destination: "/docs/integrations/langgraph/quickstart",
+    destination: "/langgraph-python/quickstart",
   },
   {
     id: "L3",
     source: "/coagents/frontend-actions",
-    destination: "/docs/integrations/langgraph/frontend-tools",
+    destination: "/langgraph-python/frontend-tools",
   },
   {
     id: "L4",
     source: "/coagents/generative-ui",
-    destination: "/docs/integrations/langgraph/generative-ui",
+    destination: "/langgraph-python/generative-ui",
   },
   {
     id: "L5",
     source: "/coagents/human-in-the-loop",
-    destination: "/docs/integrations/langgraph/human-in-the-loop",
+    destination: "/langgraph-python/human-in-the-loop",
   },
   {
     id: "L6",
     source: "/coagents/multi-agent-flows",
-    destination: "/docs/integrations/langgraph/multi-agent-flows",
+    destination: "/langgraph-python/multi-agent-flows",
   },
   {
     id: "L7",
     source: "/coagents/persistence",
-    destination: "/docs/integrations/langgraph/advanced/persistence",
+    destination: "/langgraph-python/advanced/persistence",
   },
   {
     id: "L8",
     source: "/coagents/shared-state",
-    destination: "/docs/integrations/langgraph/shared-state",
+    destination: "/langgraph-python/shared-state",
   },
   {
     id: "L9",
     source: "/coagents/concepts",
-    destination: "/docs/integrations/langgraph",
+    destination: "/langgraph-python",
   },
   {
     id: "L10",
     source: "/coagents/tutorials",
-    destination: "/docs/integrations/langgraph/tutorials",
+    destination: "/langgraph-python/tutorials",
   },
   {
     id: "L11",
     source: "/coagents/videos",
-    destination: "/docs/integrations/langgraph/videos",
+    destination: "/langgraph-python/videos",
   },
+  // /crewai-crews is now the canonical slug — historical /crewai-crews
+  // URLs land directly on the new framework root.
   {
     id: "L14",
     source: "/crewai-crews",
-    destination: "/docs/integrations/crewai-flows",
+    destination: "/crewai-crews",
   },
 ];
+
+// ---------------------------------------------------------------------------
+// /docs/integrations/* — legacy SHELL routing surface
+// shell-docs serves at the host root with no /docs/ prefix, so any
+// upstream URL still pointing at /docs/integrations/{fw}/... must 301
+// to /{fw-slug}/... (with the slug rename applied).
+// ---------------------------------------------------------------------------
+
+const DOCS_INTEGRATIONS_RENAMES: RedirectEntry[] = FRAMEWORKS.flatMap((fw) => {
+  const fwDest = canonicalSlug(fw);
+  return [
+    {
+      id: `DI-wild×${fw}`,
+      source: `/docs/integrations/${fw}/:path*`,
+      destination: `/${fwDest}/:path*`,
+    },
+    {
+      id: `DI-root×${fw}`,
+      source: `/docs/integrations/${fw}`,
+      destination: `/${fwDest}`,
+    },
+  ];
+});
+
+const DOCS_INTEGRATIONS_INDEX: RedirectEntry[] = [
+  {
+    id: "DI-index",
+    source: "/docs/integrations",
+    destination: "/",
+  },
+  {
+    id: "DI-index-wild",
+    source: "/docs/integrations/:path*",
+    destination: "/:path*",
+  },
+];
+
+// ---------------------------------------------------------------------------
+// /docs/* — legacy SHELL routing prefix on root pages
+// shell-docs has no /docs/ prefix, so /docs/foo → /foo.
+// ---------------------------------------------------------------------------
+
+const DOCS_PREFIX: RedirectEntry[] = [
+  // /docs as a bare path lands on the home.
+  { id: "DOCS-root", source: "/docs", destination: "/" },
+  // Catch-all comes LAST — see WILDCARD_REDIRECTS for placement.
+];
+
+// ---------------------------------------------------------------------------
+// /migration-guides/* → /migrate/* (4 URLs)
+// ---------------------------------------------------------------------------
+
+const MIGRATION_GUIDES: RedirectEntry[] = [
+  { id: "MG1", source: "/migration-guides", destination: "/migrate/v2" },
+  { id: "MG2", source: "/migration-guides/v2", destination: "/migrate/v2" },
+  {
+    id: "MG3",
+    source: "/migration-guides/1.10.X",
+    destination: "/migrate/v2",
+  },
+  {
+    id: "MG4",
+    source: "/migration-guides/1.8.2",
+    destination: "/migrate/1.8.2",
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Folder-index redirects for shell-docs folders that lack an index.mdx.
+// These hit when a user navigates to the bare folder URL — without an
+// index page Next.js would 404. Each folder URL 301s to a sensible
+// representative inner page.
+// ---------------------------------------------------------------------------
+
+const FOLDER_INDEX: RedirectEntry[] = [
+  {
+    id: "FI-troubleshooting",
+    source: "/troubleshooting",
+    destination: "/troubleshooting/common-issues",
+  },
+  {
+    id: "FI-migrate",
+    // Mirrors the existing /migrate → /migrate/v2 entry in
+    // showcase/shell-docs/next.config.ts, kept here so the SHELL host's
+    // middleware also covers it during the cutover.
+    source: "/migrate",
+    destination: "/migrate/v2",
+  },
+  {
+    id: "FI-premium",
+    source: "/premium",
+    destination: "/premium/overview",
+  },
+  {
+    id: "FI-concepts",
+    source: "/concepts",
+    destination: "/concepts/architecture",
+  },
+  {
+    id: "FI-reference",
+    // /reference is served by app/reference/[...slug] which has no index;
+    // v2 is the active reference set.
+    source: "/reference",
+    destination: "/reference/v2",
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Slug-rename catch-alls — bare /{old-slug}/* → /{new-slug}/*
+// Covers upstream URLs that hit a renamed framework root or any
+// subpath that isn't already matched by the more specific entries
+// above.
+// ---------------------------------------------------------------------------
+
+const SLUG_RENAME_REDIRECTS: RedirectEntry[] = Object.entries(
+  SLUG_RENAMES,
+).flatMap(([oldSlug, newSlug]) => [
+  {
+    id: `SR-wild×${oldSlug}`,
+    source: `/${oldSlug}/:path*`,
+    destination: `/${newSlug}/:path*`,
+  },
+  {
+    id: `SR-root×${oldSlug}`,
+    source: `/${oldSlug}`,
+    destination: `/${newSlug}`,
+  },
+]);
 
 // ---------------------------------------------------------------------------
 // Wildcard redirects (legacy chains + pattern rules)
@@ -554,87 +706,91 @@ const WILDCARD_REDIRECTS: RedirectEntry[] = [
   {
     id: "L12",
     source: "/coagents/:path*",
-    destination: "/docs/integrations/langgraph/:path*",
+    destination: "/langgraph-python/:path*",
   },
   {
     id: "L13",
     source: "/crewai-crews/:path*",
-    destination: "/docs/integrations/crewai-flows/:path*",
+    destination: "/crewai-crews/:path*",
   },
-  // Category 4 wildcards
+  // Category 4 wildcards — direct-to-llm and /integrations/built-in-agent retire to BIA
   {
     id: "R16",
     source: "/direct-to-llm/:path*",
-    destination: "/docs/built-in-agent/:path*",
+    destination: "/built-in-agent/:path*",
   },
   {
     id: "R17",
-    source: "/builtin-agent/:path*",
-    destination: "/docs/built-in-agent/:path*",
+    source: "/integrations/built-in-agent/:path*",
+    destination: "/built-in-agent/:path*",
   },
-  { id: "R26", source: "/shared/:path*", destination: "/docs/:path*" },
+  { id: "R26", source: "/shared/:path*", destination: "/:path*" },
   // Category 6 wildcards
   {
     id: "F17",
     source: "/generative-ui/direct-to-llm/:path*",
-    destination: "/docs/built-in-agent/:path*",
+    destination: "/built-in-agent/:path*",
   },
   {
     id: "F18",
     source: "/generative-ui/langgraph/:path*",
-    destination: "/docs/integrations/langgraph/:path*",
+    destination: "/langgraph-python/:path*",
   },
   {
     id: "F19",
     source: "/generative-ui-specs/:path*",
-    destination: "/docs/generative-ui/specs/:path*",
+    destination: "/generative-ui/specs/:path*",
   },
   // Category 1: Pattern rules (bulk coverage)
   {
     id: "P9",
     source: "/reference/v2/:path*",
-    destination: "/reference/:path*",
+    destination: "/reference/v2/:path*",
   },
-  { id: "P10", source: "/reference/v1/:path*", destination: "/reference" },
+  { id: "P10", source: "/reference/v1/:path*", destination: "/reference/v2" },
   {
     id: "P11",
     source: "/guides/:path*",
-    destination: "/docs/built-in-agent/guides/:path*",
+    destination: "/built-in-agent/guides/:path*",
   },
-  { id: "P12", source: "/backend/:path*", destination: "/docs/backend/:path*" },
-  { id: "P3", source: "/learn/:path*", destination: "/docs/learn/:path*" },
+  { id: "P12", source: "/backend/:path*", destination: "/backend/:path*" },
+  { id: "P3", source: "/learn/:path*", destination: "/concepts/:path*" },
   {
     id: "P4",
     source: "/troubleshooting/:path*",
-    destination: "/docs/troubleshooting/:path*",
+    destination: "/troubleshooting/:path*",
   },
   {
     id: "P5",
     source: "/custom-look-and-feel/:path*",
-    destination: "/docs/custom-look-and-feel/:path*",
+    destination: "/custom-look-and-feel/:path*",
   },
   {
     id: "P6",
     source: "/generative-ui/:path*",
-    destination: "/docs/generative-ui/:path*",
+    destination: "/generative-ui/:path*",
   },
-  { id: "P7", source: "/premium/:path*", destination: "/docs/premium/:path*" },
+  { id: "P7", source: "/premium/:path*", destination: "/premium/:path*" },
   {
     id: "P8",
     source: "/contributing/:path*",
-    destination: "/docs/contributing/:path*",
+    destination: "/contributing/:path*",
   },
   // P1 + P2: Per-framework catch-alls (MUST be last — they match any /{framework}/*)
+  // Source is the legacy slug; destination uses canonical slug.
   ...FRAMEWORKS.map((fw) => ({
     id: `P1×${fw}`,
     source: `/${fw}/:path*`,
-    destination: `/docs/integrations/${fw}/:path*`,
+    destination: `/${canonicalSlug(fw)}/:path*`,
   })),
   ...FRAMEWORKS.map((fw) => ({
     id: `P2×${fw}`,
     source: `/${fw}`,
-    destination: `/docs/integrations/${fw}`,
+    destination: `/${canonicalSlug(fw)}`,
   })),
+  // /docs/* generic catch-all (must come AFTER /docs/integrations/* so
+  // the more specific /docs/integrations entries match first).
+  { id: "DOCS-wild", source: "/docs/:path*", destination: "/:path*" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -648,8 +804,16 @@ export const seoRedirects: RedirectEntry[] = [
   ...SPECIFIC_FRAMEWORK,
   ...ROOT_RENAMES,
   ...LEGACY_CHAINS_EXACT,
+  ...DOCS_INTEGRATIONS_INDEX.filter((e) => !e.source.includes(":path*")),
+  ...DOCS_INTEGRATIONS_RENAMES.filter((e) => !e.source.includes(":path*")),
+  ...DOCS_PREFIX,
+  ...MIGRATION_GUIDES,
+  ...FOLDER_INDEX,
   // 2. Generated per-framework subpath renames (exact paths)
   ...generateFrameworkRenames(),
-  // 3. Wildcard catch-alls last
+  // 3. Wildcard catch-alls last — order matters: most-specific wildcard first
+  ...DOCS_INTEGRATIONS_RENAMES.filter((e) => e.source.includes(":path*")),
+  ...DOCS_INTEGRATIONS_INDEX.filter((e) => e.source.includes(":path*")),
+  ...SLUG_RENAME_REDIRECTS,
   ...WILDCARD_REDIRECTS,
 ];

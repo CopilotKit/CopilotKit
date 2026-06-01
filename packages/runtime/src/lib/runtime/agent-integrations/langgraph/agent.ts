@@ -1,17 +1,20 @@
-import { map, Observable } from "rxjs";
+import type { Observable } from "rxjs";
+import { map } from "rxjs";
 import { LangGraphEventTypes } from "../../../../agents/langgraph/events";
-import { BaseEvent, RawEvent } from "@ag-ui/core";
+import type { BaseEvent, RawEvent } from "@ag-ui/core";
+import type {
+  ProcessedEvents,
+  SchemaKeys,
+  StateEnrichment,
+} from "@ag-ui/langgraph";
 import {
   LangGraphAgent as AGUILangGraphAgent,
   LangGraphHttpAgent,
   type LangGraphAgentConfig,
-  ProcessedEvents,
-  SchemaKeys,
   type State,
-  StateEnrichment,
 } from "@ag-ui/langgraph";
-import { Message as LangGraphMessage } from "@langchain/langgraph-sdk/dist/types.messages";
-import { ThreadState } from "@langchain/langgraph-sdk";
+import type { Message as LangGraphMessage } from "@langchain/langgraph-sdk/dist/types.messages";
+import type { ThreadState } from "@langchain/langgraph-sdk";
 
 interface CopilotKitStateEnrichment {
   copilotkit: {
@@ -20,15 +23,16 @@ interface CopilotKitStateEnrichment {
   };
 }
 
-import { RunAgentInput, EventType, CustomEvent } from "@ag-ui/client";
+import type { RunAgentInput, CustomEvent } from "@ag-ui/client";
+import { EventType } from "@ag-ui/client";
 
 // Import and re-export from separate file to maintain API compatibility
-import {
-  CustomEventNames,
+import type {
   TextMessageEvents,
   ToolCallEvents,
   PredictStateTool,
 } from "./consts";
+import { CustomEventNames } from "./consts";
 export { CustomEventNames };
 
 export class LangGraphAgent extends AGUILangGraphAgent {
@@ -154,7 +158,24 @@ export class LangGraphAgent extends AGUILangGraphAgent {
 
   // @ts-ignore
   run(input: RunAgentInput): Observable<BaseEvent> {
-    return super.run(input).pipe(
+    // @ag-ui/langgraph's message converter throws "message role is not
+    // supported." on any role it doesn't enumerate (user|assistant|system|tool).
+    // Reasoning-stream agents (e.g. OpenAI Responses API with reasoning summaries)
+    // emit AG-UI messages with role:"reasoning" that the client then replays on
+    // subsequent turns; without this filter the second turn crashes before the
+    // model is ever called.
+    const messages = (input.messages ?? []).filter(
+      (m: { role?: string }) => m?.role !== "reasoning",
+    );
+    const enrichedInput = {
+      ...input,
+      messages,
+      forwardedProps: {
+        ...input.forwardedProps,
+        streamSubgraphs: input.forwardedProps?.streamSubgraphs ?? true,
+      },
+    };
+    return super.run(enrichedInput).pipe(
       map((processedEvent) => {
         // Turn raw event into emit state snapshot from tool call event
         if (processedEvent.type === EventType.RAW) {

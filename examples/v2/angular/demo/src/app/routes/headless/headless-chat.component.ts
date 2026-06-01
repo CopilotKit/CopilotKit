@@ -1,3 +1,4 @@
+import type { OnDestroy, OnInit } from "@angular/core";
 import {
   Component,
   ChangeDetectionStrategy,
@@ -5,24 +6,22 @@ import {
   inject,
   input,
   signal,
-  OnDestroy,
-  OnInit,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
+import type {
+  HumanInTheLoopToolCall,
+  HumanInTheLoopToolRenderer,
+} from "@copilotkitnext/angular";
 import {
   connectAgentContext,
   CopilotKit,
-  HumanInTheLoopToolCall,
-  HumanInTheLoopToolRenderer,
   injectAgentStore,
   registerHumanInTheLoop,
-} from "@copilotkit/angular";
-import { RenderToolCalls } from "@copilotkit/angular";
-import {
-  WEB_INSPECTOR_TAG,
-  type WebInspectorElement,
-} from "@copilotkit/web-inspector";
+} from "@copilotkitnext/angular";
+import { RenderToolCalls } from "@copilotkitnext/angular";
+import { WEB_INSPECTOR_TAG } from "@copilotkit/web-inspector";
+import type { WebInspectorElement } from "@copilotkit/web-inspector";
 import { z } from "zod";
 
 @Component({
@@ -123,6 +122,20 @@ export class RequireApprovalComponent implements HumanInTheLoopToolRenderer {
         >
           Send
         </button>
+        <button
+          type="button"
+          (click)="clearThreads()"
+          style="
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+            background: #ffffff;
+            color: #374151;
+            cursor: pointer;
+          "
+        >
+          Clear threads
+        </button>
       </form>
     </div>
   `,
@@ -179,6 +192,25 @@ export class HeadlessChatComponent implements OnInit, OnDestroy {
       this.inspectorElement.remove();
     }
     this.inspectorElement = null;
+  }
+
+  async clearThreads() {
+    const runtimeUrl = this.copilotkit.core?.runtimeUrl;
+    if (!runtimeUrl) return;
+    const url = runtimeUrl.replace(/\/$/, "");
+    try {
+      const res = await fetch(`${url}/threads/clear`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        console.error(
+          `Failed to clear threads: HTTP ${res.status} ${res.statusText}`,
+        );
+      }
+    } catch (err) {
+      console.error("Failed to clear threads", err);
+    }
   }
 
   async send() {

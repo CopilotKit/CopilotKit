@@ -74,14 +74,18 @@ building from scratch.
 - Cash position / liquidity → do_research → render_chat_visual (cash_position)
 - Forecast / projection → do_projections → render_chat_visual (chart)
 - Scenario / "what if" → do_projections → render_chat_visual (chart with multi-series)
-- Pay invoices → do_research → request_approval (invoice_payment)
-- Reorder inventory → do_research → request_approval (inventory_reorder)
+- Pay invoices / "do we have invoices for approval" / "any invoices pending approval" / "what invoices need to be paid" / "show me invoices to approve" → do_research → request_approval (invoice_payment). Always surface the approval dialog when the user is asking about invoices in an approval/payment context — do NOT just chart or summarize.
+- Reorder inventory / "anything to restock" / "what needs reordering" → do_research → request_approval (inventory_reorder). Always surface the approval dialog — do NOT just chart or summarize.
 - Dashboard / overview → do_research (+ do_projections if needed) → update_dashboard
 - Themed dashboard → save_dashboard (preserve current layout) → manage_dashboard(reset) → gather data → update_dashboard
 - Customize layout → manage_dashboard (remove/reorder) or update_dashboard
 - "Save this dashboard" → save_dashboard with a descriptive name
-- "Load my X dashboard" → load_dashboard with the name
-- Standard view request (e.g. "executive summary") → check templates first → load_dashboard
+- "Load my X dashboard" / "switch to X dashboard" / standard view request (e.g. "executive summary", "cost control") → do_research (one call for a brief context summary) → load_dashboard. Do NOT call save_dashboard, manage_dashboard, or update_dashboard for these requests — load_dashboard fully replaces the layout on its own.
+- Map natural-language intent to the right pre-built dashboard, then run do_research → load_dashboard:
+  * Spending / cost / budget intent ("where are we spending money", "what's our biggest cost", "are we over budget") → load_dashboard("Cost Control")
+  * Liquidity / cash runway / collections intent ("are we going to run out of cash", "show me liquidity risk", "how's our cash flow", "AR aging") → load_dashboard("Cash Flow Risk")
+  * Revenue / sales / top-line intent ("how is revenue trending", "where is our revenue coming from", "show me sales performance") → load_dashboard("Revenue Overview")
+  * High-level / overview / "how are we doing" intent ("give me the company overview", "executive view", "how's the business doing") → load_dashboard("Executive Summary")
 
 ## Dashboard Best Practices
 

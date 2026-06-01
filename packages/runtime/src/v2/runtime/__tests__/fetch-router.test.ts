@@ -90,6 +90,52 @@ describe("fetch-router", () => {
       });
     });
 
+    it("matches GET /threads/:threadId/events", () => {
+      const result = matchRoute(
+        "/api/copilotkit/threads/thread-abc/events",
+        basePath,
+      );
+      expect(result).toEqual({
+        method: "threads/events",
+        threadId: "thread-abc",
+      });
+    });
+
+    it("matches GET /threads/:threadId/events with URL-encoded threadId", () => {
+      const result = matchRoute(
+        "/api/copilotkit/threads/thread%2F123/events",
+        basePath,
+      );
+      expect(result).toEqual({
+        method: "threads/events",
+        threadId: "thread/123",
+      });
+    });
+
+    it("matches GET /threads/:threadId/state", () => {
+      const result = matchRoute(
+        "/api/copilotkit/threads/thread-abc/state",
+        basePath,
+      );
+      expect(result).toEqual({
+        method: "threads/state",
+        threadId: "thread-abc",
+      });
+    });
+
+    it("matches POST /threads/clear (and does not collide with threads/update)", () => {
+      // Critical: the threads/update route also matches /threads/:threadId,
+      // so we must verify that "/threads/clear" never falls through to that
+      // arm with threadId="clear". The router has explicit guards (the
+      // segment[len-1] !== "clear" check) — this test pins them.
+      const result = matchRoute("/api/copilotkit/threads/clear", basePath);
+      expect(result).toEqual({ method: "threads/clear" });
+      expect(result).not.toEqual({
+        method: "threads/update",
+        threadId: "clear",
+      });
+    });
+
     it("handles URL-encoded threadId in thread routes", () => {
       const result = matchRoute(
         "/api/copilotkit/threads/thread%2F123",
@@ -134,6 +180,11 @@ describe("fetch-router", () => {
     it("matches basePath with just root /", () => {
       const result = matchRoute("/info", "/");
       expect(result).toEqual({ method: "info" });
+    });
+
+    it("matches GET /cpk-debug-events", () => {
+      const result = matchRoute("/api/copilotkit/cpk-debug-events", basePath);
+      expect(result).toEqual({ method: "cpk-debug-events" });
     });
   });
 
@@ -203,6 +254,23 @@ describe("fetch-router", () => {
     it("works with deeply nested mount prefix", () => {
       const result = matchRoute("/api/v2/copilotkit/agent/a1/run");
       expect(result).toEqual({ method: "agent/run", agentId: "a1" });
+    });
+
+    it("matches /cpk-debug-events suffix", () => {
+      const result = matchRoute("/api/copilotkit/cpk-debug-events");
+      expect(result).toEqual({ method: "cpk-debug-events" });
+    });
+
+    it("matches bare /cpk-debug-events", () => {
+      const result = matchRoute("/cpk-debug-events");
+      expect(result).toEqual({ method: "cpk-debug-events" });
+    });
+  });
+
+  describe("cpk-debug-events route with basePath", () => {
+    it("matches /cpk-debug-events with /api basePath", () => {
+      const result = matchRoute("/api/cpk-debug-events", "/api");
+      expect(result).toEqual({ method: "cpk-debug-events" });
     });
   });
 });

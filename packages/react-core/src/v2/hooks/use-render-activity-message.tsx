@@ -3,12 +3,10 @@ import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { useCopilotKit, useCopilotChatConfiguration } from "../providers";
 import { useCallback, useMemo } from "react";
 import { ReactActivityMessageRenderer } from "../types";
-import { getThreadClone } from "./use-agent";
 
 export function useRenderActivityMessage() {
   const { copilotkit } = useCopilotKit();
-  const config = useCopilotChatConfiguration();
-  const agentId = config?.agentId ?? DEFAULT_AGENT_ID;
+  const agentId = useCopilotChatConfiguration()?.agentId ?? DEFAULT_AGENT_ID;
 
   const renderers = copilotkit.renderActivityMessages;
 
@@ -52,13 +50,7 @@ export function useRenderActivityMessage() {
       }
 
       const Component = renderer.render;
-      // Prefer the per-thread clone so that handleAction in ReactSurfaceHost
-      // calls runAgent on the same agent instance that CopilotChat renders from.
-      // Without this, button clicks accumulate messages on the registry agent
-      // while CopilotChat displays from the clone — responses appear to vanish.
-      const registryAgent = copilotkit.getAgent(agentId);
-      const agent =
-        getThreadClone(registryAgent, config?.threadId) ?? registryAgent;
+      const agent = copilotkit.getAgent(agentId);
 
       return (
         <Component
@@ -70,7 +62,7 @@ export function useRenderActivityMessage() {
         />
       );
     },
-    [agentId, config?.threadId, copilotkit, findRenderer],
+    [agentId, copilotkit, findRenderer],
   );
 
   return useMemo(

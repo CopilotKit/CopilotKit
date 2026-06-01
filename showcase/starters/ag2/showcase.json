@@ -1,8 +1,0 @@
-{
-  "slug": "ag2",
-  "name": "AG2",
-  "language": "python",
-  "agentDir": "agent",
-  "agentPort": 8123,
-  "generated": true
-}

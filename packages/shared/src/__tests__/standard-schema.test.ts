@@ -210,6 +210,98 @@ describe("schemaToJsonSchema", () => {
     });
   });
 
+  describe("Zod v4 schemas (via toJSONSchema method)", () => {
+    it("calls toJSONSchema() when the method exists on the schema", () => {
+      const expectedOutput = {
+        type: "object",
+        properties: { name: { type: "string" } },
+        required: ["name"],
+      };
+
+      const mockZod4Schema: StandardSchemaV1 = {
+        "~standard": {
+          version: 1,
+          vendor: "zod",
+          validate: (value: unknown) => ({ value }),
+        },
+        toJSONSchema: () => expectedOutput,
+      } as any;
+
+      const result = schemaToJsonSchema(mockZod4Schema);
+      expect(result).toEqual(expectedOutput);
+    });
+
+    it("uses toJSONSchema() even without zodToJsonSchema option", () => {
+      const mockZod4Schema: StandardSchemaV1 = {
+        "~standard": {
+          version: 1,
+          vendor: "zod",
+          validate: (value: unknown) => ({ value }),
+        },
+        toJSONSchema: () => ({
+          type: "object",
+          properties: { city: { type: "string" } },
+        }),
+      } as any;
+
+      // No options passed — toJSONSchema() should still work
+      const result = schemaToJsonSchema(mockZod4Schema);
+      expect(result).toHaveProperty("properties.city.type", "string");
+    });
+
+    it("prefers toJSONSchema() over zodToJsonSchema fallback for Zod v4", () => {
+      const mockZod4Schema: StandardSchemaV1 = {
+        "~standard": {
+          version: 1,
+          vendor: "zod",
+          validate: (value: unknown) => ({ value }),
+        },
+        toJSONSchema: () => ({
+          type: "object",
+          properties: { fromNative: { type: "boolean" } },
+        }),
+      } as any;
+
+      const zodFallback = () => ({
+        type: "object",
+        properties: { fromFallback: { type: "boolean" } },
+      });
+
+      const result = schemaToJsonSchema(mockZod4Schema, {
+        zodToJsonSchema: zodFallback,
+      });
+
+      expect(result).toHaveProperty("properties.fromNative");
+      expect(result).not.toHaveProperty("properties.fromFallback");
+    });
+
+    it("prefers ~standard.jsonSchema over toJSONSchema()", () => {
+      const mockSchema = {
+        "~standard": {
+          version: 1,
+          vendor: "zod",
+          validate: (value: unknown) => ({ value }),
+          jsonSchema: {
+            input: () => ({
+              type: "object",
+              properties: { fromStandard: { type: "boolean" } },
+            }),
+          },
+        },
+        toJSONSchema: () => ({
+          type: "object",
+          properties: { fromToJSONSchema: { type: "boolean" } },
+        }),
+      };
+
+      const result = schemaToJsonSchema(mockSchema);
+
+      // Standard JSON Schema V1 should take priority
+      expect(result).toHaveProperty("properties.fromStandard");
+      expect(result).not.toHaveProperty("properties.fromToJSONSchema");
+    });
+  });
+
   describe("Error handling", () => {
     it("throws when schema has no jsonSchema support and no zodToJsonSchema", () => {
       const mockSchema: StandardSchemaV1 = {

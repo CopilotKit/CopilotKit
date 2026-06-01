@@ -12,7 +12,7 @@ In the fixed-schema approach, you design the UI schema once (in a JSON file or u
 
 1. Schema is loaded from a JSON file at startup
 2. Agent tool receives data from the LLM (e.g., flight search results)
-3. Tool returns `a2ui.render()` with surfaceUpdate + dataModelUpdate + beginRendering
+3. Tool returns `a2ui.render()` with createSurface + updateComponents + updateDataModel
 4. The A2UI middleware intercepts the tool result and renders the surface
 
 ## Implementation
@@ -65,23 +65,22 @@ def search_flights(flights: list[Flight]) -> str:
     """Search for flights and display results as rich cards."""
     return a2ui.render(
         operations=[
-            a2ui.surface_update(SURFACE_ID, FLIGHT_SCHEMA),
-            a2ui.data_model_update(SURFACE_ID, {"flights": flights}),
-            a2ui.begin_rendering(SURFACE_ID, "root"),
+            a2ui.create_surface(SURFACE_ID),
+            a2ui.update_components(SURFACE_ID, FLIGHT_SCHEMA),
+            a2ui.update_data_model(SURFACE_ID, {"flights": flights}),
         ],
         action_handlers={
             # Exact match: fires when a button with action.name="book_flight" is clicked
             "book_flight": [
-                a2ui.surface_update(SURFACE_ID, BOOKED_SCHEMA),
-                a2ui.data_model_update(SURFACE_ID, {
+                a2ui.update_components(SURFACE_ID, BOOKED_SCHEMA),
+                a2ui.update_data_model(SURFACE_ID, {
                     "title": "Booking Confirmed",
                     "detail": "Your flight has been booked.",
                 }),
-                a2ui.begin_rendering(SURFACE_ID, "root"),
             ],
             # Catch-all: fires for any button action without a specific match
             "*": [
-                a2ui.data_model_update(SURFACE_ID, {
+                a2ui.update_data_model(SURFACE_ID, {
                     "status": "Action received",
                 }),
             ],
@@ -111,14 +110,12 @@ agent = create_agent(
 <Step>
 ### Configure the runtime (TypeScript)
 
-Enable A2UI in your CopilotRuntime:
+Enable A2UI in your CopilotRuntime. The middleware auto-detects A2UI operations in any tool result, so no tool injection is needed here — the agent's `search_flights` tool returns them directly.
 
 ```typescript title="app/api/copilotkit/route.ts"
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
-  a2ui: {
-    injectA2UITool: true,
-  },
+  a2ui: {},
 });
 ```
 </Step>

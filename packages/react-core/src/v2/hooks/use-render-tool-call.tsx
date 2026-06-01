@@ -1,11 +1,15 @@
 import React, { useCallback, useMemo, useSyncExternalStore } from "react";
-import { ToolCall, ToolMessage } from "@ag-ui/core";
+import type { ToolCall, ToolMessage } from "@ag-ui/core";
 import { ToolCallStatus } from "@copilotkit/core";
-import { useCopilotKit } from "../providers/CopilotKitProvider";
+import { useCopilotKit } from "../context";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { partialJSONParse } from "@copilotkit/shared";
-import { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
+import type { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
+import {
+  DefaultToolCallRenderer,
+  mapToolCallStatus,
+} from "./use-default-render-tool";
 
 export interface UseRenderToolCallProps {
   toolCall: ToolCall;
@@ -47,6 +51,7 @@ const ToolCallRenderer = React.memo(
       return (
         <RenderComponent
           name={toolName}
+          toolCallId={toolCall.id}
           args={args}
           status={ToolCallStatus.Complete}
           result={toolMessage.content}
@@ -56,6 +61,7 @@ const ToolCallRenderer = React.memo(
       return (
         <RenderComponent
           name={toolName}
+          toolCallId={toolCall.id}
           args={args}
           status={ToolCallStatus.Executing}
           result={undefined}
@@ -65,6 +71,7 @@ const ToolCallRenderer = React.memo(
       return (
         <RenderComponent
           name={toolName}
+          toolCallId={toolCall.id}
           args={args}
           status={ToolCallStatus.InProgress}
           result={undefined}
@@ -150,11 +157,12 @@ export function useRenderToolCall() {
         exactMatches[0] ||
         renderToolCalls.find((rc) => rc.name === "*");
 
-      if (!renderConfig) {
-        return null;
-      }
-
-      const RenderComponent = renderConfig.render;
+      // Fall back to the framework's built-in default tool-call renderer
+      // when neither a per-tool nor a wildcard renderer has been
+      // registered. This makes "zero custom renderers" demos paint tool
+      // calls out-of-the-box instead of going invisible.
+      const RenderComponent = (renderConfig?.render ??
+        defaultToolCallRenderAdapter) as ReactToolCallRenderer<unknown>["render"];
       const isExecuting = executingToolCallIds.has(toolCall.id);
 
       // Use the memoized ToolCallRenderer component to prevent unnecessary re-renders
@@ -173,3 +181,42 @@ export function useRenderToolCall() {
 
   return renderToolCall;
 }
+
+// Adapter that bridges the ReactToolCallRenderer signature
+// (`{ name, args, status, result, toolCallId }`) to the
+// `DefaultToolCallRenderer` signature (`{ name, toolCallId, parameters,
+// status, result }`) so the latter can be used as a zero-config fallback
+// when no `*` renderer is registered.
+//
+// Status mapping is delegated to `mapToolCallStatus` (an explicit switch
+// over the `ToolCallStatus` enum with a logged fallback for unknown /
+// future values). Keeping the mapping in one place ensures
+// `useDefaultRenderTool`'s opt-in render path and this zero-config
+// fallback agree on the documented string-union surface.
+function defaultToolCallRenderAdapter(props: {
+  name: string;
+  args: unknown;
+  status: ToolCallStatus;
+  result: string | undefined;
+  toolCallId: string;
+}): React.ReactElement {
+  return (
+    <DefaultToolCallRenderer
+      name={props.name}
+      toolCallId={props.toolCallId}
+      parameters={props.args}
+      status={mapToolCallStatus(props.status)}
+      result={props.result}
+    />
+  );
+}
+
+/**
+ * Test-only export so the adapter's status-mapping + logging behavior can
+ * be exercised directly without rebuilding the full provider/render
+ * pipeline. Not part of the package public API.
+ *
+ * @internal
+ */
+export const __testOnly_defaultToolCallRenderAdapter =
+  defaultToolCallRenderAdapter;

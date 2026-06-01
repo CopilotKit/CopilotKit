@@ -37,7 +37,9 @@ from google.genai import types
 
 
 class BudgetCategory(BaseModel):
-    category: str = Field(description="Budget category name (e.g., Accommodation, Food)")
+    category: str = Field(
+        description="Budget category name (e.g., Accommodation, Food)"
+    )
     amount: float = Field(description="Amount in USD")
     percentage: float = Field(description="Percentage of total budget")
 
@@ -52,7 +54,7 @@ class StructuredBudget(BaseModel):
 class BudgetAgent:
     def __init__(self):
         self._agent = self._build_agent()
-        self._user_id = 'remote_agent'
+        self._user_id = "remote_agent"
         self._runner = Runner(
             app_name=self._agent.name,
             agent=self._agent,
@@ -63,12 +65,12 @@ class BudgetAgent:
 
     def _build_agent(self) -> LlmAgent:
         # Use native Gemini model directly
-        model_name = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
+        model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
         return LlmAgent(
             model=model_name,
-            name='budget_agent',
-            description='An agent that estimates travel costs and creates detailed budget breakdowns',
+            name="budget_agent",
+            description="An agent that estimates travel costs and creates detailed budget breakdowns",
             instruction="""
 You are a travel budget planning agent. Your role is to estimate realistic travel budgets based on user requests.
 
@@ -128,9 +130,7 @@ Return ONLY valid JSON, no markdown code blocks, no other text.
             session_id=session_id,
         )
 
-        content = types.Content(
-            role='user', parts=[types.Part.from_text(text=query)]
-        )
+        content = types.Content(role="user", parts=[types.Part.from_text(text=query)])
 
         if session is None:
             session = await self._runner.session_service.create_session(
@@ -140,11 +140,9 @@ Return ONLY valid JSON, no markdown code blocks, no other text.
                 session_id=session_id,
             )
 
-        response_text = ''
+        response_text = ""
         async for event in self._runner.run_async(
-            user_id=self._user_id,
-            session_id=session.id,
-            new_message=content
+            user_id=self._user_id, session_id=session.id, new_message=content
         ):
             if event.is_final_response():
                 if (
@@ -152,7 +150,7 @@ Return ONLY valid JSON, no markdown code blocks, no other text.
                     and event.content.parts
                     and event.content.parts[0].text
                 ):
-                    response_text = '\n'.join(
+                    response_text = "\n".join(
                         [p.text for p in event.content.parts if p.text]
                     )
                 break
@@ -173,39 +171,39 @@ Return ONLY valid JSON, no markdown code blocks, no other text.
         except json.JSONDecodeError as e:
             print(f"❌ JSON parsing error: {e}")
             print(f"Content: {content_str}")
-            return json.dumps({
-                "error": "Failed to generate structured budget",
-                "raw_content": content_str[:200]
-            })
+            return json.dumps(
+                {
+                    "error": "Failed to generate structured budget",
+                    "raw_content": content_str[:200],
+                }
+            )
         except Exception as e:
             print(f"❌ Validation error: {e}")
-            return json.dumps({
-                "error": f"Validation failed: {str(e)}"
-            })
+            return json.dumps({"error": f"Validation failed: {str(e)}"})
 
 
 port = int(os.getenv("BUDGET_PORT", 9002))
 
 skill = AgentSkill(
-    id='budget_agent',
-    name='Budget Planning Agent',
-    description='Estimates travel costs and creates detailed budget breakdowns using ADK',
-    tags=['travel', 'budget', 'finance', 'adk'],
+    id="budget_agent",
+    name="Budget Planning Agent",
+    description="Estimates travel costs and creates detailed budget breakdowns using ADK",
+    tags=["travel", "budget", "finance", "adk"],
     examples=[
-        'Estimate the budget for a 3-day trip to Tokyo',
-        'How much would a week in Paris cost?',
-        'Create a budget for my New York trip'
+        "Estimate the budget for a 3-day trip to Tokyo",
+        "How much would a week in Paris cost?",
+        "Create a budget for my New York trip",
     ],
 )
 
 cardUrl = os.getenv("RENDER_EXTERNAL_URL", f"http://localhost:{port}")
 public_agent_card = AgentCard(
-    name='Budget Agent',
-    description='ADK-powered agent that estimates travel budgets and creates cost breakdowns',
+    name="Budget Agent",
+    description="ADK-powered agent that estimates travel budgets and creates cost breakdowns",
     url=cardUrl,
-    version='1.0.0',
-    defaultInputModes=['text'],
-    defaultOutputModes=['text'],
+    version="1.0.0",
+    defaultInputModes=["text"],
+    defaultOutputModes=["text"],
     capabilities=AgentCapabilities(streaming=True),
     skills=[skill],
     supportsAuthenticatedExtendedCard=False,
@@ -222,14 +220,12 @@ class BudgetAgentExecutor(AgentExecutor):
         event_queue: EventQueue,
     ) -> None:
         query = context.get_user_input()
-        session_id = getattr(context, 'context_id', 'default_session')
+        session_id = getattr(context, "context_id", "default_session")
         final_content = await self.agent.invoke(query, session_id)
         await event_queue.enqueue_event(new_agent_text_message(final_content))
 
-    async def cancel(
-        self, context: RequestContext, event_queue: EventQueue
-    ) -> None:
-        raise Exception('cancel not supported')
+    async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
+        raise Exception("cancel not supported")
 
 
 def main():
@@ -254,8 +250,8 @@ def main():
     print(f"💰 Starting Budget Agent (ADK + A2A) on http://0.0.0.0:{port}")
     print(f"   Agent: {public_agent_card.name}")
     print(f"   Description: {public_agent_card.description}")
-    uvicorn.run(server.build(), host='0.0.0.0', port=port)
+    uvicorn.run(server.build(), host="0.0.0.0", port=port)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

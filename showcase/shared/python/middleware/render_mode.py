@@ -7,8 +7,6 @@ and adapts agent output accordingly:
 - **a2ui**: no changes (agent decides when to call generate_a2ui tool)
 - **json-render**: append JSONL instruction to system prompt
 - **hashbrown**: apply ``response_format`` with the ``output_schema`` from context
-- **open-genui**: append instruction telling agent to generate complete HTML/JS/CSS
-
 The ``apply_render_mode`` function is a ``@wrap_model_call`` decorator for
 LangGraph agents that plugs into the CopilotKit middleware chain.
 """
@@ -28,7 +26,7 @@ JSONL_RENDER_INSTRUCTION = (
     "\n\n## Output format — JSONL spec patches\n"
     "You MUST emit your UI updates as JSONL (one JSON object per line) inside\n"
     "a fenced code block with the ``spec`` language tag. Each line is a patch\n"
-    "object with at minimum an ``op`` field (\"add\", \"replace\", \"remove\")\n"
+    'object with at minimum an ``op`` field ("add", "replace", "remove")\n'
     "and a ``path`` field (JSON-Pointer into the component tree).\n\n"
     "Example:\n"
     "```spec\n"
@@ -39,27 +37,11 @@ JSONL_RENDER_INSTRUCTION = (
     "parse each line and apply the patches incrementally.\n"
 )
 
-OPEN_GENUI_INSTRUCTION = (
-    "\n\n## Output format — Open GenUI\n"
-    "You MUST generate a complete, self-contained HTML document that includes\n"
-    "all necessary CSS and JavaScript inline. The document should render a\n"
-    "fully functional dashboard or UI component as requested.\n\n"
-    "Requirements:\n"
-    "- Use a single ``<html>`` document with ``<style>`` and ``<script>`` tags\n"
-    "- All styles must be inline or in a ``<style>`` block (no external sheets)\n"
-    "- All interactivity must be in a ``<script>`` block (no external scripts)\n"
-    "- The UI must be responsive and visually polished\n"
-    "- Wrap the entire output in a fenced code block with the ``html`` tag\n\n"
-    "```html\n"
-    "<!DOCTYPE html>\n"
-    "<html>...</html>\n"
-    "```\n"
-)
-
 
 # ---------------------------------------------------------------------------
 # Context extraction helpers
 # ---------------------------------------------------------------------------
+
 
 def get_render_mode(context: list[dict[str, Any]]) -> str:
     """Extract render_mode from CopilotKit context entries.
@@ -96,23 +78,22 @@ def get_output_schema(context: list[dict[str, Any]]) -> dict[str, Any] | None:
 # Prompt augmentation
 # ---------------------------------------------------------------------------
 
+
 def apply_render_mode_prompt(system_prompt: str, render_mode: str) -> str:
     """Return *system_prompt* with render-mode instructions appended.
 
     For ``tool-based`` and ``a2ui`` modes the prompt is returned unchanged.
-    For ``json-render`` and ``open-genui`` the relevant instruction block is
-    appended.
+    For ``json-render`` the relevant instruction block is appended.
     """
     if render_mode == "json-render":
         return system_prompt + JSONL_RENDER_INSTRUCTION
-    if render_mode == "open-genui":
-        return system_prompt + OPEN_GENUI_INSTRUCTION
     return system_prompt
 
 
 # ---------------------------------------------------------------------------
 # LangGraph @wrap_model_call decorator
 # ---------------------------------------------------------------------------
+
 
 def apply_render_mode(fn=None):
     """``@wrap_model_call`` middleware that adapts the model request.
@@ -130,7 +111,6 @@ def apply_render_mode(fn=None):
 
     * **tool-based / a2ui** -- pass through unchanged.
     * **json-render** -- prepend JSONL instruction to system messages.
-    * **open-genui** -- prepend Open-GenUI instruction to system messages.
     * **hashbrown** -- set ``response_format`` with the ``output_schema``
       extracted from context.
     """
@@ -155,7 +135,7 @@ def apply_render_mode(fn=None):
         render_mode = get_render_mode(copilot_context)
 
         # --- Prompt-injection modes ----------------------------------------
-        if render_mode in ("json-render", "open-genui"):
+        if render_mode == "json-render":
             messages = list(getattr(request, "messages", []))
             augmented = []
             for msg in messages:

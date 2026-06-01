@@ -1,0 +1,15 @@
+[
+  { "redirect_id": "D1", "count": 5432 },
+  { "redirect_id": "D2", "count": 2891 },
+  { "redirect_id": "L1", "count": 1502 },
+  { "redirect_id": "L2", "count": 844 },
+  { "redirect_id": "S1×langgraph", "count": 612 },
+  { "redirect_id": "S1×adk", "count": 407 },
+  { "redirect_id": "S1×agno", "count": 311 },
+  { "redirect_id": "P1×langgraph", "count": 220 },
+  { "redirect_id": "P1×adk", "count": 157 },
+  { "redirect_id": "P1×agno", "count": 99 },
+  { "redirect_id": "P1×crewai-flows", "count": 42 },
+  { "redirect_id": "R1", "count": 17 },
+  { "redirect_id": "R2", "count": 3 }
+]

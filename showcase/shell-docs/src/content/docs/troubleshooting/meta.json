@@ -1,0 +1,11 @@
+{
+  "title": "Troubleshooting",
+  "pages": [
+    "common-issues",
+    "error-debugging",
+    "debug-mode",
+    "event-inspector",
+    "hook-explorer",
+    "observability-connectors"
+  ]
+}

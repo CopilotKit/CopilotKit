@@ -1,0 +1,21 @@
+node_modules/
+.next/
+.env.local
+.env
+*.pyc
+__pycache__/
+.venv/
+dist/
+playwright-report/
+test-results/
+
+# Shared modules (copied by CI)
+shared_frontend/
+shared_python/
+shared_typescript/
+
+# Persistent Mastra working-memory store (per-package SQLite file)
+mastra-memory.db
+mastra-memory.db-journal
+mastra-memory.db-wal
+mastra-memory.db-shm

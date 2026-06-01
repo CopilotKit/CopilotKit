@@ -1,0 +1,11 @@
+{
+  "_comment": "D5 fixture for /demos/prebuilt-popup. The demo mounts <CopilotPopup defaultOpen={true} /> over a static main-content page. The D5 assertion verifies (a) the popup root '.copilotKitPopup' is rendered (it auto-opens via defaultOpen), and (b) sending a message inside the popup yields an assistant response inside the popup surface. Backend is the LGP default helpful-assistant agent. One-turn fixture — substring 'hi from the popup test' is unique.",
+  "fixtures": [
+    {
+      "match": { "userMessage": "hi from the popup test" },
+      "response": {
+        "content": "Hello from the popup — the CopilotPopup prebuilt component is wired up and reachable. The launcher floats in the corner and the chat sits in an overlay panel."
+      }
+    }
+  ]
+}

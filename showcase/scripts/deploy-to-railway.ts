@@ -18,35 +18,47 @@ import fs from "fs";
 import path from "path";
 import yaml from "yaml";
 import { fileURLToPath } from "url";
+import { RAILWAY_GRAPHQL_ENDPOINT } from "./lib/railway-graphql";
+import { RailwayTokenError, resolveRailwayToken } from "./lib/railway-token";
+import { PROJECT_ID, PRODUCTION_ENV_ID } from "./railway-envs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-const PACKAGES_DIR = path.join(ROOT, "packages");
+const PACKAGES_DIR = path.join(ROOT, "integrations");
 
-const RAILWAY_API = "https://backboard.railway.com/graphql/v2";
+const RAILWAY_API = RAILWAY_GRAPHQL_ENDPOINT;
 
 const SHOWCASE = {
-  projectId: "6f8c6bff-a80d-4f8f-b78d-50b32bcf4479",
-  environmentId: "b14919f4-6417-429f-848d-c6ae2201e04f",
+  projectId: PROJECT_ID,
+  environmentId: PRODUCTION_ENV_ID,
 };
 
+/**
+ * Resolve the Railway bearer token for this run. Wraps the shared
+ * `resolveRailwayToken` envelope and maps any RailwayTokenError onto
+ * the script's exit-1 contract for operator/config errors. The shared
+ * helper never calls process.exit — exit-code mapping lives HERE so the
+ * helper stays unit-testable.
+ *
+ * Memoized at module scope so the Railway config isn't re-read and the
+ * deprecation warning isn't re-emitted on every GraphQL request. A
+ * failure is NOT cached — the first call's error still maps to exit 1
+ * (or rethrows for non-RailwayTokenError), so a transient/operator
+ * error remains fail-loud and a subsequent run gets a fresh resolution.
+ */
+let cachedToken: string | undefined;
 function getToken(): string {
-  if (process.env.RAILWAY_TOKEN) return process.env.RAILWAY_TOKEN;
-
-  const configPath = path.join(
-    process.env.HOME || "~",
-    ".railway",
-    "config.json",
-  );
-  if (fs.existsSync(configPath)) {
-    const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-    if (config?.user?.token) return config.user.token;
+  if (cachedToken) return cachedToken;
+  try {
+    cachedToken = resolveRailwayToken().token;
+    return cachedToken;
+  } catch (e) {
+    if (e instanceof RailwayTokenError) {
+      console.error(e.message);
+      process.exit(1);
+    }
+    throw e;
   }
-
-  console.error(
-    "No Railway token found. Set RAILWAY_TOKEN or run `railway login`.",
-  );
-  process.exit(1);
 }
 
 async function railwayGql<T = unknown>(
@@ -199,8 +211,22 @@ async function createService(slug: string): Promise<void> {
     region: "us-west1",
   };
   if (githubToken) {
+    // GHCR registry username: read from env (GHCR_USERNAME preferred, then
+    // GITHUB_ACTOR for CI contexts). Fail loud rather than baking a
+    // personal handle into the script.
+    const ghcrUser = (
+      process.env.GHCR_USERNAME ||
+      process.env.GITHUB_ACTOR ||
+      ""
+    ).trim();
+    if (!ghcrUser) {
+      console.error(
+        "GITHUB_TOKEN is set but no GHCR username is available. Set GHCR_USERNAME (or GITHUB_ACTOR in CI) to the username the token is issued to.",
+      );
+      process.exit(1);
+    }
     instanceInput.registryCredentials = {
-      username: "jpr5",
+      username: ghcrUser,
       password: githubToken,
     };
   }

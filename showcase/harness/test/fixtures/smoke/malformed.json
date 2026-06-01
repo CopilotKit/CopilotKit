@@ -1,0 +1,10 @@
+{
+  "_fixture": {
+    "description": "A 200 OK that serves an HTML error page — typical Railway edge misroute where the requested service is ingress-routed but the backing deployment returned HTML instead of the expected JSON. The driver treats this as red with `malformed body: <JSON.parse reason>` so operators see the actual shape of the wrongness, not a bare 'seemed fine'."
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "text/html"
+  },
+  "bodyRaw": "<!DOCTYPE html><html><head><title>404: This page could not be found.</title></head><body><h1>404</h1><p>This page could not be found.</p></body></html>"
+}

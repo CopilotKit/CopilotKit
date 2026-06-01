@@ -1,64 +1,50 @@
-# Dockerfile for the LangGraph JS Next.js frontend.
-# Builds from the monorepo root so pnpm workspaces resolve correctly.
+# Dockerfile for Next.js App
 FROM node:22-alpine AS base
 
+# Install dependencies only when needed
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
 
 WORKDIR /app
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
-
-# Copy monorepo package files
-COPY package.json pnpm-workspace.yaml ./
-COPY apps/web/package.json ./apps/web/
-COPY apps/agent/package.json ./apps/agent/
-COPY turbo.json ./
+# Copy package files
+COPY package.json ./
 
 # Install dependencies
-RUN pnpm install --no-frozen-lockfile
+RUN npm install --ignore-scripts
 
-# Build stage
+# Build the application
 FROM base AS builder
 WORKDIR /app
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
-
+# Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
-COPY --from=deps /app/apps/agent/node_modules ./apps/agent/node_modules
 
+# Copy source code
 COPY . .
 
-# Add standalone output + ignoreBuildErrors + turbopack root for monorepo
-RUN node -e "\
-const fs=require('fs'); const f='apps/web/next.config.ts'; \
-let c=fs.readFileSync(f,'utf8'); \
-if(!c.includes('standalone')){c=c.replace('};','  output: \"standalone\",\n};');} \
-if(!c.includes('ignoreBuildErrors')){c=c.replace('};','  typescript: { ignoreBuildErrors: true },\n};');} \
-if(!c.includes('turbopack')){c=c.replace('};','  turbopack: { root: \"../..\" },\n};');} \
-fs.writeFileSync(f,c);"
+# Build the Next.js app
+RUN npx next build
 
-ENV NODE_OPTIONS="--max-old-space-size=4096"
-RUN pnpm --filter web build
-
-# Production stage
+# Production image
 FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV PORT=3000
-ENV HOSTNAME=0.0.0.0
 
-RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
 
-# Copy standalone build output
-COPY --from=builder /app/apps/web/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
+# Copy built application
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 USER nextjs
 
 EXPOSE 3000
 
-CMD ["node", "apps/web/server.js"]
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+CMD ["node", "server.js"]

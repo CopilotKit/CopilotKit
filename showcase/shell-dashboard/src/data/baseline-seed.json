@@ -1,0 +1,6709 @@
+[
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "beautiful-chat",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "beautiful-chat",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "beautiful-chat",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "beautiful-chat",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "beautiful-chat",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "beautiful-chat",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "beautiful-chat",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "beautiful-chat",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "beautiful-chat",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "beautiful-chat",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "beautiful-chat",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "beautiful-chat",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "beautiful-chat",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "beautiful-chat",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "beautiful-chat",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "beautiful-chat",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "beautiful-chat",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "beautiful-chat",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "beautiful-chat",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "beautiful-chat",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "beautiful-chat",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "beautiful-chat",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "beautiful-chat",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "beautiful-chat",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "beautiful-chat",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "pre-built:-copilotchat",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "pre-built:-copilotchat",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "pre-built:-copilotchat",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "pre-built:-copilotchat",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "pre-built:-copilotchat",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "pre-built:-copilotchat",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "pre-built:-copilotchat",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "pre-built:-copilotchat",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "pre-built:-copilotchat",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "pre-built:-copilotchat",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "pre-built:-copilotchat",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "pre-built:-copilotchat",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "pre-built:-copilotchat",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "pre-built:-copilotchat",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "pre-built:-copilotchat",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "pre-built:-copilotchat",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "pre-built:-copilotchat",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "pre-built:-copilotchat",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "pre-built:-copilotchat",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "pre-built:-copilotchat",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "pre-built:-copilotchat",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "pre-built:-copilotchat",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "pre-built:-copilotchat",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "pre-built:-copilotchat",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "pre-built:-copilotchat",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "pre-built:-sidebar",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "pre-built:-sidebar",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "pre-built:-sidebar",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "pre-built:-sidebar",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "pre-built:-sidebar",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "pre-built:-sidebar",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "pre-built:-sidebar",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "pre-built:-sidebar",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "pre-built:-sidebar",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "pre-built:-sidebar",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "pre-built:-sidebar",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "pre-built:-sidebar",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "pre-built:-sidebar",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "pre-built:-sidebar",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "pre-built:-sidebar",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "pre-built:-sidebar",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "pre-built:-sidebar",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "pre-built:-sidebar",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "pre-built:-sidebar",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "pre-built:-sidebar",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "pre-built:-sidebar",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "pre-built:-sidebar",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "pre-built:-sidebar",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "pre-built:-sidebar",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "pre-built:-sidebar",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "pre-built:-popup",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "pre-built:-popup",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "pre-built:-popup",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "pre-built:-popup",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "pre-built:-popup",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "pre-built:-popup",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "pre-built:-popup",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "pre-built:-popup",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "pre-built:-popup",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "pre-built:-popup",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "pre-built:-popup",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "pre-built:-popup",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "pre-built:-popup",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "pre-built:-popup",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "pre-built:-popup",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "pre-built:-popup",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "pre-built:-popup",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "pre-built:-popup",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "pre-built:-popup",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "pre-built:-popup",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "pre-built:-popup",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "pre-built:-popup",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "pre-built:-popup",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "pre-built:-popup",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "pre-built:-popup",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "chat-customization-slots",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "chat-customization-slots",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "chat-customization-slots",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "chat-customization-slots",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "chat-customization-slots",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "chat-customization-slots",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "chat-customization-slots",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "chat-customization-slots",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "chat-customization-slots",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "chat-customization-slots",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "chat-customization-slots",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "chat-customization-slots",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "chat-customization-slots",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "chat-customization-slots",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "chat-customization-slots",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "chat-customization-slots",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "chat-customization-slots",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "chat-customization-slots",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "chat-customization-slots",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "chat-customization-slots",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "chat-customization-slots",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "chat-customization-slots",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "chat-customization-slots",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "chat-customization-slots",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "chat-customization-slots",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "chat-customization-css",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "chat-customization-css",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "chat-customization-css",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "chat-customization-css",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "chat-customization-css",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "chat-customization-css",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "chat-customization-css",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "chat-customization-css",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "chat-customization-css",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "chat-customization-css",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "chat-customization-css",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "chat-customization-css",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "chat-customization-css",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "chat-customization-css",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "chat-customization-css",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "chat-customization-css",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "chat-customization-css",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "chat-customization-css",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "chat-customization-css",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "chat-customization-css",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "chat-customization-css",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "chat-customization-css",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "chat-customization-css",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "chat-customization-css",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "chat-customization-css",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "headless-chat-simple",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "headless-chat-simple",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "headless-chat-simple",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "headless-chat-simple",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "headless-chat-simple",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "headless-chat-simple",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "headless-chat-simple",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "headless-chat-simple",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "headless-chat-simple",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "headless-chat-simple",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "headless-chat-simple",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "headless-chat-simple",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "headless-chat-simple",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "headless-chat-simple",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "headless-chat-simple",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "headless-chat-simple",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "headless-chat-simple",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "headless-chat-simple",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "headless-chat-simple",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "headless-chat-simple",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "headless-chat-simple",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "headless-chat-simple",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "headless-chat-simple",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "headless-chat-simple",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "headless-chat-simple",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "headless-chat-complete",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "headless-chat-complete",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "headless-chat-complete",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "headless-chat-complete",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "headless-chat-complete",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "headless-chat-complete",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "headless-chat-complete",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "headless-chat-complete",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "headless-chat-complete",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "headless-chat-complete",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "headless-chat-complete",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "headless-chat-complete",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "headless-chat-complete",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "headless-chat-complete",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "headless-chat-complete",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "headless-chat-complete",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "headless-chat-complete",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "headless-chat-complete",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "headless-chat-complete",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "headless-chat-complete",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "headless-chat-complete",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "headless-chat-complete",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "headless-chat-complete",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "headless-chat-complete",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "headless-chat-complete",
+    "status": "possible",
+    "tags": [
+      "cpk",
+      "agui"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "controlled-gen-ui-display",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "controlled-gen-ui-display",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "controlled-gen-ui-display",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "controlled-gen-ui-display",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "controlled-gen-ui-display",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "controlled-gen-ui-display",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "controlled-gen-ui-display",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "controlled-gen-ui-display",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "controlled-gen-ui-display",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "controlled-gen-ui-display",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "controlled-gen-ui-display",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "controlled-gen-ui-display",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "controlled-gen-ui-display",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "controlled-gen-ui-display",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "controlled-gen-ui-display",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "controlled-gen-ui-display",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "controlled-gen-ui-display",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "controlled-gen-ui-display",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "controlled-gen-ui-display",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "controlled-gen-ui-display",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "controlled-gen-ui-display",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "controlled-gen-ui-display",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "controlled-gen-ui-display",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "controlled-gen-ui-display",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "controlled-gen-ui-display",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "declarative-generative-ui-a2ui-dynamic-schema",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "declarative-generative-ui-a2ui-dynamic-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "declarative-generative-ui-a2ui-dynamic-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "declarative-generative-ui-a2ui-dynamic-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "declarative-generative-ui-a2ui-dynamic-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "declarative-generative-ui-a2ui-dynamic-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "declarative-generative-ui-a2ui-dynamic-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "declarative-generative-ui-a2ui-dynamic-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "declarative-generative-ui-a2ui-dynamic-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "declarative-generative-ui-a2ui-dynamic-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "declarative-generative-ui-a2ui-dynamic-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "declarative-generative-ui-a2ui-dynamic-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "declarative-generative-ui-a2ui-dynamic-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "declarative-generative-ui-a2ui-dynamic-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "declarative-generative-ui-a2ui-dynamic-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "declarative-generative-ui-a2ui-dynamic-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "declarative-generative-ui-a2ui-dynamic-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "declarative-generative-ui-a2ui-dynamic-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "declarative-generative-ui-a2ui-dynamic-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "declarative-generative-ui-a2ui-dynamic-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "declarative-generative-ui-a2ui-dynamic-schema",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "declarative-generative-ui-a2ui-dynamic-schema",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "declarative-generative-ui-a2ui-dynamic-schema",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "declarative-generative-ui-a2ui-dynamic-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "declarative-generative-ui-a2ui-dynamic-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "declarative-generative-ui-a2ui-fixed-schema",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "declarative-generative-ui-a2ui-fixed-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "declarative-generative-ui-a2ui-fixed-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "declarative-generative-ui-a2ui-fixed-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "declarative-generative-ui-a2ui-fixed-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "declarative-generative-ui-a2ui-fixed-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "declarative-generative-ui-a2ui-fixed-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "declarative-generative-ui-a2ui-fixed-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "declarative-generative-ui-a2ui-fixed-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "declarative-generative-ui-a2ui-fixed-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "declarative-generative-ui-a2ui-fixed-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "declarative-generative-ui-a2ui-fixed-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "declarative-generative-ui-a2ui-fixed-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "declarative-generative-ui-a2ui-fixed-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "declarative-generative-ui-a2ui-fixed-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "declarative-generative-ui-a2ui-fixed-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "declarative-generative-ui-a2ui-fixed-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "declarative-generative-ui-a2ui-fixed-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "declarative-generative-ui-a2ui-fixed-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "declarative-generative-ui-a2ui-fixed-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "declarative-generative-ui-a2ui-fixed-schema",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "declarative-generative-ui-a2ui-fixed-schema",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "declarative-generative-ui-a2ui-fixed-schema",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "declarative-generative-ui-a2ui-fixed-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "declarative-generative-ui-a2ui-fixed-schema",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "mcp-apps",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "mcp-apps",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "mcp-apps",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "mcp-apps",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "mcp-apps",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "mcp-apps",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "mcp-apps",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "mcp-apps",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "mcp-apps",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "mcp-apps",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "mcp-apps",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "mcp-apps",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "mcp-apps",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "mcp-apps",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "mcp-apps",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "mcp-apps",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "mcp-apps",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "mcp-apps",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "mcp-apps",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "mcp-apps",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "mcp-apps",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "mcp-apps",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "mcp-apps",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "mcp-apps",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "mcp-apps",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "fully-open-ended-generative-ui",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "fully-open-ended-generative-ui",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "fully-open-ended-generative-ui",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "fully-open-ended-generative-ui",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "fully-open-ended-generative-ui",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "fully-open-ended-generative-ui",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "fully-open-ended-generative-ui",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "fully-open-ended-generative-ui",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "fully-open-ended-generative-ui",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "fully-open-ended-generative-ui",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "fully-open-ended-generative-ui",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "fully-open-ended-generative-ui",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "fully-open-ended-generative-ui",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "fully-open-ended-generative-ui",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "fully-open-ended-generative-ui",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "fully-open-ended-generative-ui",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "fully-open-ended-generative-ui",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "fully-open-ended-generative-ui",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "fully-open-ended-generative-ui",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "fully-open-ended-generative-ui",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "fully-open-ended-generative-ui",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "fully-open-ended-generative-ui",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "fully-open-ended-generative-ui",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "fully-open-ended-generative-ui",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "fully-open-ended-generative-ui",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "open-ended-gen-ui-advanced-with-frontend-function-calling",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "open-ended-gen-ui-advanced-with-frontend-function-calling",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "open-ended-gen-ui-advanced-with-frontend-function-calling",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "open-ended-gen-ui-advanced-with-frontend-function-calling",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "open-ended-gen-ui-advanced-with-frontend-function-calling",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "open-ended-gen-ui-advanced-with-frontend-function-calling",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "open-ended-gen-ui-advanced-with-frontend-function-calling",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "open-ended-gen-ui-advanced-with-frontend-function-calling",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "open-ended-gen-ui-advanced-with-frontend-function-calling",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "open-ended-gen-ui-advanced-with-frontend-function-calling",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "open-ended-gen-ui-advanced-with-frontend-function-calling",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "open-ended-gen-ui-advanced-with-frontend-function-calling",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "open-ended-gen-ui-advanced-with-frontend-function-calling",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "open-ended-gen-ui-advanced-with-frontend-function-calling",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "open-ended-gen-ui-advanced-with-frontend-function-calling",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "open-ended-gen-ui-advanced-with-frontend-function-calling",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "open-ended-gen-ui-advanced-with-frontend-function-calling",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "open-ended-gen-ui-advanced-with-frontend-function-calling",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "open-ended-gen-ui-advanced-with-frontend-function-calling",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "open-ended-gen-ui-advanced-with-frontend-function-calling",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "open-ended-gen-ui-advanced-with-frontend-function-calling",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "open-ended-gen-ui-advanced-with-frontend-function-calling",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "open-ended-gen-ui-advanced-with-frontend-function-calling",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "open-ended-gen-ui-advanced-with-frontend-function-calling",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "open-ended-gen-ui-advanced-with-frontend-function-calling",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "tool-rendering-default-catch-all",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "tool-rendering-default-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "tool-rendering-default-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "tool-rendering-default-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "tool-rendering-default-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "tool-rendering-default-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "tool-rendering-default-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "tool-rendering-default-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "tool-rendering-default-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "tool-rendering-default-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "tool-rendering-default-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "tool-rendering-default-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "tool-rendering-default-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "tool-rendering-default-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "tool-rendering-default-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "tool-rendering-default-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "tool-rendering-default-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "tool-rendering-default-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "tool-rendering-default-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "tool-rendering-default-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "tool-rendering-default-catch-all",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "tool-rendering-default-catch-all",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "tool-rendering-default-catch-all",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "tool-rendering-default-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "tool-rendering-default-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "tool-rendering-custom-catch-all",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "tool-rendering-custom-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "tool-rendering-custom-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "tool-rendering-custom-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "tool-rendering-custom-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "tool-rendering-custom-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "tool-rendering-custom-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "tool-rendering-custom-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "tool-rendering-custom-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "tool-rendering-custom-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "tool-rendering-custom-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "tool-rendering-custom-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "tool-rendering-custom-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "tool-rendering-custom-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "tool-rendering-custom-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "tool-rendering-custom-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "tool-rendering-custom-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "tool-rendering-custom-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "tool-rendering-custom-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "tool-rendering-custom-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "tool-rendering-custom-catch-all",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "tool-rendering-custom-catch-all",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "tool-rendering-custom-catch-all",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "tool-rendering-custom-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "tool-rendering-custom-catch-all",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "tool-rendering",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "tool-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "tool-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "tool-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "tool-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "tool-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "tool-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "tool-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "tool-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "tool-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "tool-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "tool-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "tool-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "tool-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "tool-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "tool-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "tool-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "tool-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "tool-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "tool-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "tool-rendering",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "tool-rendering",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "tool-rendering",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "tool-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "tool-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs",
+      "tests"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "in-chat-hitl-usehumanintheloop-ergonomic-api",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "in-chat-hitl-usehumanintheloop-ergonomic-api",
+    "status": "impossible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "in-chat-hitl-usehumanintheloop-ergonomic-api",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "in-chat-hitl-usehumanintheloop-ergonomic-api",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "in-chat-hitl-usehumanintheloop-ergonomic-api",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "in-chat-hitl-usehumanintheloop-ergonomic-api",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "in-chat-hitl-usehumanintheloop-ergonomic-api",
+    "status": "impossible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "in-chat-hitl-usehumanintheloop-ergonomic-api",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "in-chat-hitl-usehumanintheloop-ergonomic-api",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "in-chat-hitl-usehumanintheloop-ergonomic-api",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "in-chat-hitl-usehumanintheloop-ergonomic-api",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "in-chat-hitl-usehumanintheloop-ergonomic-api",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "in-chat-hitl-usehumanintheloop-ergonomic-api",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "in-chat-hitl-usehumanintheloop-ergonomic-api",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "in-chat-hitl-usehumanintheloop-ergonomic-api",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "in-chat-hitl-usehumanintheloop-ergonomic-api",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "in-chat-hitl-usehumanintheloop-ergonomic-api",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "in-chat-hitl-usehumanintheloop-ergonomic-api",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "in-chat-hitl-usehumanintheloop-ergonomic-api",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "in-chat-hitl-usehumanintheloop-ergonomic-api",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "in-chat-hitl-usehumanintheloop-ergonomic-api",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "in-chat-hitl-usehumanintheloop-ergonomic-api",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "in-chat-hitl-usehumanintheloop-ergonomic-api",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "in-chat-hitl-usehumanintheloop-ergonomic-api",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "in-chat-hitl-usehumanintheloop-ergonomic-api",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "in-chat-hitl-booking",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "in-chat-hitl-booking",
+    "status": "impossible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "in-chat-hitl-booking",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "in-chat-hitl-booking",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "in-chat-hitl-booking",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "in-chat-hitl-booking",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "in-chat-hitl-booking",
+    "status": "impossible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "in-chat-hitl-booking",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "in-chat-hitl-booking",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "in-chat-hitl-booking",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "in-chat-hitl-booking",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "in-chat-hitl-booking",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "in-chat-hitl-booking",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "in-chat-hitl-booking",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "in-chat-hitl-booking",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "in-chat-hitl-booking",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "in-chat-hitl-booking",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "in-chat-hitl-booking",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "in-chat-hitl-booking",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "in-chat-hitl-booking",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "in-chat-hitl-booking",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "in-chat-hitl-booking",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "in-chat-hitl-booking",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "in-chat-hitl-booking",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "in-chat-hitl-booking",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "in-chat-human-in-the-loop-original",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "in-chat-human-in-the-loop-original",
+    "status": "impossible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "in-chat-human-in-the-loop-original",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "in-chat-human-in-the-loop-original",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "in-chat-human-in-the-loop-original",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "in-chat-human-in-the-loop-original",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "in-chat-human-in-the-loop-original",
+    "status": "impossible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "in-chat-human-in-the-loop-original",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "in-chat-human-in-the-loop-original",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "in-chat-human-in-the-loop-original",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "in-chat-human-in-the-loop-original",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "in-chat-human-in-the-loop-original",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "in-chat-human-in-the-loop-original",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "in-chat-human-in-the-loop-original",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "in-chat-human-in-the-loop-original",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "in-chat-human-in-the-loop-original",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "in-chat-human-in-the-loop-original",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "in-chat-human-in-the-loop-original",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "in-chat-human-in-the-loop-original",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "in-chat-human-in-the-loop-original",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "in-chat-human-in-the-loop-original",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "in-chat-human-in-the-loop-original",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "in-chat-human-in-the-loop-original",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "in-chat-human-in-the-loop-original",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "in-chat-human-in-the-loop-original",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "in-app-human-in-the-loop-frontend-tools-async-hitl",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "in-app-human-in-the-loop-frontend-tools-async-hitl",
+    "status": "impossible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "in-app-human-in-the-loop-frontend-tools-async-hitl",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "in-app-human-in-the-loop-frontend-tools-async-hitl",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "in-app-human-in-the-loop-frontend-tools-async-hitl",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "in-app-human-in-the-loop-frontend-tools-async-hitl",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "in-app-human-in-the-loop-frontend-tools-async-hitl",
+    "status": "impossible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "in-app-human-in-the-loop-frontend-tools-async-hitl",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "in-app-human-in-the-loop-frontend-tools-async-hitl",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "in-app-human-in-the-loop-frontend-tools-async-hitl",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "in-app-human-in-the-loop-frontend-tools-async-hitl",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "in-app-human-in-the-loop-frontend-tools-async-hitl",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "in-app-human-in-the-loop-frontend-tools-async-hitl",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "in-app-human-in-the-loop-frontend-tools-async-hitl",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "in-app-human-in-the-loop-frontend-tools-async-hitl",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "in-app-human-in-the-loop-frontend-tools-async-hitl",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "in-app-human-in-the-loop-frontend-tools-async-hitl",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "in-app-human-in-the-loop-frontend-tools-async-hitl",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "in-app-human-in-the-loop-frontend-tools-async-hitl",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "in-app-human-in-the-loop-frontend-tools-async-hitl",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "in-app-human-in-the-loop-frontend-tools-async-hitl",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "in-app-human-in-the-loop-frontend-tools-async-hitl",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "in-app-human-in-the-loop-frontend-tools-async-hitl",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "in-app-human-in-the-loop-frontend-tools-async-hitl",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "in-app-human-in-the-loop-frontend-tools-async-hitl",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "in-chat-hitl-useinterrupt-low-level-primitive",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "in-chat-hitl-useinterrupt-low-level-primitive",
+    "status": "impossible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "in-chat-hitl-useinterrupt-low-level-primitive",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "in-chat-hitl-useinterrupt-low-level-primitive",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "in-chat-hitl-useinterrupt-low-level-primitive",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "in-chat-hitl-useinterrupt-low-level-primitive",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "in-chat-hitl-useinterrupt-low-level-primitive",
+    "status": "impossible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "in-chat-hitl-useinterrupt-low-level-primitive",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "in-chat-hitl-useinterrupt-low-level-primitive",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "in-chat-hitl-useinterrupt-low-level-primitive",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "in-chat-hitl-useinterrupt-low-level-primitive",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "in-chat-hitl-useinterrupt-low-level-primitive",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "in-chat-hitl-useinterrupt-low-level-primitive",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "in-chat-hitl-useinterrupt-low-level-primitive",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "in-chat-hitl-useinterrupt-low-level-primitive",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "in-chat-hitl-useinterrupt-low-level-primitive",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "in-chat-hitl-useinterrupt-low-level-primitive",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "in-chat-hitl-useinterrupt-low-level-primitive",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "in-chat-hitl-useinterrupt-low-level-primitive",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "in-chat-hitl-useinterrupt-low-level-primitive",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "in-chat-hitl-useinterrupt-low-level-primitive",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "in-chat-hitl-useinterrupt-low-level-primitive",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "in-chat-hitl-useinterrupt-low-level-primitive",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "in-chat-hitl-useinterrupt-low-level-primitive",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "in-chat-hitl-useinterrupt-low-level-primitive",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "reasoning",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "reasoning",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "reasoning",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "reasoning",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "reasoning",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "reasoning",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "reasoning",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "reasoning",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "reasoning",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "reasoning",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "reasoning",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "reasoning",
+    "status": "unknown",
+    "tags": []
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "reasoning",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "reasoning",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "reasoning",
+    "status": "unknown",
+    "tags": []
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "reasoning",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "reasoning",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "reasoning",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "reasoning",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "reasoning",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "reasoning",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "reasoning",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "reasoning",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "reasoning",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "reasoning",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "file-attachments",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "file-attachments",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "file-attachments",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "file-attachments",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "file-attachments",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "file-attachments",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "file-attachments",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "file-attachments",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "file-attachments",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "file-attachments",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "file-attachments",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "file-attachments",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "file-attachments",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "file-attachments",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "file-attachments",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "file-attachments",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "file-attachments",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "file-attachments",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "file-attachments",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "file-attachments",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "file-attachments",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "file-attachments",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "file-attachments",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "file-attachments",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "file-attachments",
+    "status": "possible",
+    "tags": [
+      "cpk"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "shared-state-read-write",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "shared-state-read-write",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "shared-state-read-write",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "shared-state-read-write",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "shared-state-read-write",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "shared-state-read-write",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "shared-state-read-write",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "shared-state-read-write",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "shared-state-read-write",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "shared-state-read-write",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "shared-state-read-write",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "shared-state-read-write",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "shared-state-read-write",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "shared-state-read-write",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "shared-state-read-write",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "shared-state-read-write",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "shared-state-read-write",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "shared-state-read-write",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "shared-state-read-write",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "shared-state-read-write",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "shared-state-read-write",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "shared-state-read-write",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "shared-state-read-write",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "shared-state-read-write",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "shared-state-read-write",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "agentic-generative-ui-in-chat-state-rendering",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "agentic-generative-ui-in-chat-state-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs"
+    ]
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "agentic-generative-ui-in-chat-state-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs"
+    ]
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "agentic-generative-ui-in-chat-state-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs"
+    ]
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "agentic-generative-ui-in-chat-state-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs"
+    ]
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "agentic-generative-ui-in-chat-state-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs"
+    ]
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "agentic-generative-ui-in-chat-state-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs"
+    ]
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "agentic-generative-ui-in-chat-state-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "agentic-generative-ui-in-chat-state-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "agentic-generative-ui-in-chat-state-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs"
+    ]
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "agentic-generative-ui-in-chat-state-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs"
+    ]
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "agentic-generative-ui-in-chat-state-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs"
+    ]
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "agentic-generative-ui-in-chat-state-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs"
+    ]
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "agentic-generative-ui-in-chat-state-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs"
+    ]
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "agentic-generative-ui-in-chat-state-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs"
+    ]
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "agentic-generative-ui-in-chat-state-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "agentic-generative-ui-in-chat-state-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "agentic-generative-ui-in-chat-state-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs"
+    ]
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "agentic-generative-ui-in-chat-state-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs"
+    ]
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "agentic-generative-ui-in-chat-state-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs"
+    ]
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "agentic-generative-ui-in-chat-state-rendering",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "agentic-generative-ui-in-chat-state-rendering",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "agentic-generative-ui-in-chat-state-rendering",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "agentic-generative-ui-in-chat-state-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "agentic-generative-ui-in-chat-state-rendering",
+    "status": "possible",
+    "tags": [
+      "demo",
+      "docs"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "state-streaming",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "state-streaming",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "state-streaming",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "state-streaming",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "state-streaming",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "state-streaming",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "state-streaming",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "state-streaming",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "state-streaming",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "state-streaming",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "state-streaming",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "state-streaming",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "state-streaming",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "state-streaming",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "state-streaming",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "state-streaming",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "state-streaming",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "state-streaming",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "state-streaming",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "state-streaming",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "state-streaming",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "state-streaming",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "state-streaming",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "state-streaming",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "state-streaming",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "frontend-tools-in-app-actions",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "frontend-tools-in-app-actions",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "frontend-tools-in-app-actions",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "frontend-tools-in-app-actions",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "frontend-tools-in-app-actions",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "frontend-tools-in-app-actions",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "frontend-tools-in-app-actions",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "frontend-tools-in-app-actions",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "frontend-tools-in-app-actions",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "frontend-tools-in-app-actions",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "frontend-tools-in-app-actions",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "frontend-tools-in-app-actions",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "frontend-tools-in-app-actions",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "frontend-tools-in-app-actions",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "frontend-tools-in-app-actions",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "frontend-tools-in-app-actions",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "frontend-tools-in-app-actions",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "frontend-tools-in-app-actions",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "frontend-tools-in-app-actions",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "frontend-tools-in-app-actions",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "frontend-tools-in-app-actions",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "frontend-tools-in-app-actions",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "frontend-tools-in-app-actions",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "frontend-tools-in-app-actions",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "frontend-tools-in-app-actions",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "frontend-tools-async",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "frontend-tools-async",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "frontend-tools-async",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "frontend-tools-async",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "frontend-tools-async",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "frontend-tools-async",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "frontend-tools-async",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "frontend-tools-async",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "frontend-tools-async",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "frontend-tools-async",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "frontend-tools-async",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "frontend-tools-async",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "frontend-tools-async",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "frontend-tools-async",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "frontend-tools-async",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "frontend-tools-async",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "frontend-tools-async",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "frontend-tools-async",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "frontend-tools-async",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "frontend-tools-async",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "frontend-tools-async",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "frontend-tools-async",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "frontend-tools-async",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "frontend-tools-async",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "frontend-tools-async",
+    "status": "possible",
+    "tags": [
+      "demo"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "readonly-state-agent-context",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "readonly-state-agent-context",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "readonly-state-agent-context",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "readonly-state-agent-context",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "readonly-state-agent-context",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "readonly-state-agent-context",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "readonly-state-agent-context",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "readonly-state-agent-context",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "readonly-state-agent-context",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "readonly-state-agent-context",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "readonly-state-agent-context",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "readonly-state-agent-context",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "readonly-state-agent-context",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "readonly-state-agent-context",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "readonly-state-agent-context",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "readonly-state-agent-context",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "readonly-state-agent-context",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "readonly-state-agent-context",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "readonly-state-agent-context",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "readonly-state-agent-context",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "readonly-state-agent-context",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "readonly-state-agent-context",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "readonly-state-agent-context",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "readonly-state-agent-context",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "readonly-state-agent-context",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "sub-agents",
+    "status": "works",
+    "tags": []
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "sub-agents",
+    "status": "possible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "sub-agents",
+    "status": "possible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "sub-agents",
+    "status": "possible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "sub-agents",
+    "status": "possible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "sub-agents",
+    "status": "possible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "sub-agents",
+    "status": "impossible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "sub-agents",
+    "status": "possible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "sub-agents",
+    "status": "possible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "sub-agents",
+    "status": "possible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "sub-agents",
+    "status": "possible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "sub-agents",
+    "status": "impossible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "sub-agents",
+    "status": "possible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "sub-agents",
+    "status": "possible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "sub-agents",
+    "status": "possible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "sub-agents",
+    "status": "possible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "sub-agents",
+    "status": "possible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "sub-agents",
+    "status": "possible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "sub-agents",
+    "status": "possible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "sub-agents",
+    "status": "possible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "sub-agents",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "sub-agents",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "sub-agents",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "sub-agents",
+    "status": "possible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "sub-agents",
+    "status": "possible",
+    "tags": [
+      "int"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "byoc-hashbrown",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "byoc-hashbrown",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "byoc-hashbrown",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "byoc-hashbrown",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "byoc-hashbrown",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "byoc-hashbrown",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "byoc-hashbrown",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "byoc-hashbrown",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "byoc-hashbrown",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "byoc-hashbrown",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "byoc-hashbrown",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "byoc-hashbrown",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "byoc-hashbrown",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "byoc-hashbrown",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "byoc-hashbrown",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "byoc-hashbrown",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "byoc-hashbrown",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "byoc-hashbrown",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "byoc-hashbrown",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "byoc-hashbrown",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "byoc-hashbrown",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "byoc-hashbrown",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "byoc-hashbrown",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "byoc-hashbrown",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "byoc-hashbrown",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-python",
+    "featureSlug": "byoc-json-render",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "google-adk",
+    "featureSlug": "byoc-json-render",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "maf-python",
+    "featureSlug": "byoc-json-render",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "maf-dotnet",
+    "featureSlug": "byoc-json-render",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "strands",
+    "featureSlug": "byoc-json-render",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "mastra",
+    "featureSlug": "byoc-json-render",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "crewai",
+    "featureSlug": "byoc-json-render",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "pydanticai",
+    "featureSlug": "byoc-json-render",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-python",
+    "featureSlug": "byoc-json-render",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "claude-agents-sdk-ts",
+    "featureSlug": "byoc-json-render",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "agno",
+    "featureSlug": "byoc-json-render",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "ag2",
+    "featureSlug": "byoc-json-render",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "llamaindex",
+    "featureSlug": "byoc-json-render",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "spring-ai",
+    "featureSlug": "byoc-json-render",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langroid",
+    "featureSlug": "byoc-json-render",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "built-in-agent",
+    "featureSlug": "byoc-json-render",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-langgraph",
+    "featureSlug": "byoc-json-render",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "aws-fast-strands",
+    "featureSlug": "byoc-json-render",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "deep-agents",
+    "featureSlug": "byoc-json-render",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "oracle-open-agent-spec",
+    "featureSlug": "byoc-json-render",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "openai-agents-sdk",
+    "featureSlug": "byoc-json-render",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "n8n",
+    "featureSlug": "byoc-json-render",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "cloudflare",
+    "featureSlug": "byoc-json-render",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-typescript",
+    "featureSlug": "byoc-json-render",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  },
+  {
+    "partnerSlug": "langchain-fastapi",
+    "featureSlug": "byoc-json-render",
+    "status": "possible",
+    "tags": [
+      "all"
+    ]
+  }
+]

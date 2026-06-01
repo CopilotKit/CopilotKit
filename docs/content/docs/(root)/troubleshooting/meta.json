@@ -1,6 +1,9 @@
 {
   "pages": [
     "error-debugging",
+    "event-inspector",
+    "hook-explorer",
+    "debug-mode",
     "observability-connectors",
     "common-issues"
   ]

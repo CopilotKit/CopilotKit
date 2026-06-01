@@ -1,0 +1,39 @@
+id: smoke-red-fleet
+name: "Fleet-wide smoke-red escalation"
+owner: "@oss"
+
+# Cross-service aggregation (plan Item 4). When N >= 3 smoke-red signals land
+# within a 2-minute window — covers one 90s probe tick plus slack — the engine
+# emits ONE composite channel ping instead of N per-service red-ticks. The
+# per-service smoke-red-tick YAML still fires its own alert (routed to the
+# same channel via the rate-limit / dedupe gates); the fleet rule exists
+# specifically to page on-call when the problem is fleet-wide rather than
+# per-starter.
+signal:
+  dimension: smoke
+
+# Fleet aggregation is for red-only signals. `red_to_green` recoveries do NOT
+# ingest (see alert-engine.ts aggregation ingress — A1); declaring it here
+# would be decorative but misleading.
+triggers:
+  - green_to_red
+  - sustained_red
+
+# A7: groupBy omitted — the rule's `signal.dimension: smoke` already partitions
+# traffic to smoke-only events, so there's no finer partition to apply. The
+# bucket key collapses to `rule.id` alone (see buildBucketKey in aggregation.ts).
+aggregation:
+  # windowMs: 2 min — one probe tick (90s) plus slack for signal arrival jitter.
+  windowMs: 120000
+  minMatches: 3
+  # The channel-ping token below is intentional and load-bearing: per-service
+  # red-tick YAMLs no longer page channel; this rule is the single pager.
+  template: |
+    <!channel> smoke red across fleet — {{count}} services: {{services}}
+
+# rate_limit.window spans multiple aggregation windows so back-to-back 2-minute
+# buckets with the same groupValues collapse to one dispatch. Composite dedupe
+# key is stable across windows (see buildCompositeDedupeKey in aggregation.ts).
+conditions:
+  rate_limit:
+    window: 10m

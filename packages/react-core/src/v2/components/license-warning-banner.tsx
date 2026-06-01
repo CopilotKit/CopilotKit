@@ -1,4 +1,9 @@
-import React from "react";
+import React, { useEffect } from "react";
+
+// Total reserved vertical space for the fixed license banner: banner height
+// (~36px) + bottom offset (8px) + visual gap above the chat input (~8px).
+const LICENSE_BANNER_OFFSET_PX = 52;
+const LICENSE_BANNER_OFFSET_VAR = "--copilotkit-license-banner-offset";
 
 interface LicenseWarningBannerProps {
   type:
@@ -72,6 +77,20 @@ function BannerShell({
   actionUrl: string;
   onDismiss?: () => void;
 }) {
+  // Publish the banner's reserved bottom offset so the chat input can lift
+  // itself above it via padding-bottom: var(--copilotkit-license-banner-offset).
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    root.style.setProperty(
+      LICENSE_BANNER_OFFSET_VAR,
+      `${LICENSE_BANNER_OFFSET_PX}px`,
+    );
+    return () => {
+      root.style.removeProperty(LICENSE_BANNER_OFFSET_VAR);
+    };
+  }, []);
+
   return (
     <div style={{ ...BANNER_STYLES.base, ...getSeverityStyle(severity) }}>
       <span>{message}</span>

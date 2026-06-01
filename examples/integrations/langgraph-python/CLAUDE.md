@@ -19,34 +19,36 @@ This uses CopilotKit's **v2 agent state pattern** where state lives in the agent
 
 ## Architecture
 
-This is a **Turborepo monorepo** with three apps:
+This is a **flat npm project** with a Next.js frontend at the root and a Python agent in `agent/`.
 
 ### Repository Structure
 
 ```
-apps/
-├── app/                         # Next.js frontend
-│   ├── src/
-│   │   ├── app/
-│   │   │   ├── page.tsx        # Main page - wires up all components
-│   │   │   └── api/copilotkit/ # CopilotKit API route
-│   │   ├── components/
-│   │   │   ├── canvas/         # Todo list UI
-│   │   │   │   ├── index.tsx   # Canvas container
-│   │   │   │   ├── todo-list.tsx    # Todo list with columns
-│   │   │   │   ├── todo-column.tsx  # Column (pending/completed)
-│   │   │   │   └── todo-card.tsx    # Individual todo card
-│   │   │   ├── example-layout/ # Layout: chat + canvas side-by-side
-│   │   │   └── generative-ui/  # Example generative UI components
-│   │   └── hooks/
-│   │       ├── use-generative-ui-examples.tsx  # Example CopilotKit patterns
-│   │       └── use-example-suggestions.tsx     # Chat suggestions
-├── agent/                       # LangGraph Python agent
-│   ├── main.py                  # Agent entry point
+├── src/
+│   ├── app/
+│   │   ├── page.tsx              # Main page - wires up all components
+│   │   └── api/copilotkit/       # CopilotKit API route
+│   ├── components/
+│   │   ├── canvas/               # Todo list UI
+│   │   │   ├── index.tsx         # Canvas container
+│   │   │   ├── todo-list.tsx     # Todo list with columns
+│   │   │   ├── todo-column.tsx   # Column (pending/completed)
+│   │   │   └── todo-card.tsx     # Individual todo card
+│   │   ├── example-layout/       # Layout: chat + canvas side-by-side
+│   │   └── generative-ui/        # Example generative UI components
+│   └── hooks/
+│       ├── use-generative-ui-examples.tsx  # Example CopilotKit patterns
+│       └── use-example-suggestions.tsx     # Chat suggestions
+├── agent/                         # LangGraph Python agent
+│   ├── main.py                    # Agent entry point
 │   └── src/
-│       ├── todos.py             # Todo tools and state schema
-│       └── query.py             # Example data query tool
-└── mcp/                         # MCP (Model Context Protocol) integration
+│       ├── todos.py               # Todo tools and state schema
+│       └── query.py               # Example data query tool
+├── scripts/                       # Agent setup and run scripts
+│   ├── setup-agent.sh / .bat
+│   └── run-agent.sh / .bat
+├── package.json                   # Root project config (npm + concurrently)
+└── next.config.ts
 ```
 
 ## Key Pattern: Agent State with CopilotKit v2
@@ -58,7 +60,7 @@ The todo list uses **CopilotKit v2's agent state pattern** where state lives in 
 1. **Agent defines state schema and tools** (Python)
 
    ```python
-   # apps/agent/src/todos.py
+   # agent/src/todos.py
    class Todo(TypedDict):
        id: str
        title: str
@@ -78,7 +80,7 @@ The todo list uses **CopilotKit v2's agent state pattern** where state lives in 
 2. **Frontend reads from agent state**
 
    ```typescript
-   // apps/app/src/components/canvas/index.tsx
+   // src/components/canvas/index.tsx
    const { agent } = useAgent();
 
    return (
@@ -120,7 +122,7 @@ The todo list uses **CopilotKit v2's agent state pattern** where state lives in 
 
 ### Agent Backend
 
-**Agent Definition** (`apps/agent/main.py`):
+**Agent Definition** (`agent/main.py`):
 
 ```python
 from langchain.agents import create_agent
@@ -136,7 +138,7 @@ agent = create_agent(
 )
 ```
 
-**Todo Tools** (`apps/agent/src/todos.py`):
+**Todo Tools** (`agent/src/todos.py`):
 
 ```python
 @tool
@@ -161,7 +163,7 @@ def get_todos(runtime: ToolRuntime):
 
 ### Frontend
 
-**Canvas Component** (`apps/app/src/components/canvas/index.tsx`):
+**Canvas Component** (`src/components/canvas/index.tsx`):
 
 ```typescript
 export function Canvas() {
@@ -182,7 +184,7 @@ export function Canvas() {
 }
 ```
 
-**Todo List** (`apps/app/src/components/canvas/todo-list.tsx`):
+**Todo List** (`src/components/canvas/todo-list.tsx`):
 
 ```typescript
 export function TodoList({ todos, onUpdate, isAgentRunning }: TodoListProps) {
@@ -225,37 +227,32 @@ export function TodoList({ todos, onUpdate, isAgentRunning }: TodoListProps) {
 - **Frontend**: Next.js 16, React 19, TailwindCSS 4
 - **Agent**: LangGraph (Python), OpenAI GPT-5.2
 - **CopilotKit**: React hooks for agent integration (v2)
-- **Monorepo**: Turborepo with pnpm workspaces
-- **Other**: MCP (Model Context Protocol) integration, Recharts for generative UI examples
+- **Build**: npm with concurrently for parallel dev processes
+- **Other**: Recharts for generative UI examples
 
 ## Development
 
-This is a Turborepo monorepo using pnpm workspaces.
-
 ```bash
-# Install dependencies (all apps)
-pnpm install
+# Install dependencies (also sets up agent via postinstall)
+npm install
 
-# Start all apps (app, agent, mcp)
-pnpm dev
+# Start both frontend and agent
+npm run dev
 
 # Start individually
-pnpm dev:app    # Next.js frontend on port 3000
-pnpm dev:agent  # LangGraph agent on port 8123
-pnpm dev:mcp    # MCP server
+npm run dev:ui      # Next.js frontend on port 3000
+npm run dev:agent   # LangGraph agent on port 8123
 
-# Build all apps
-pnpm build
-
-# Lint all apps
-pnpm lint
+# Build
+npm run build
 ```
 
 ### Environment Setup
 
 ```bash
-# Set OpenAI API key for the agent
-echo 'OPENAI_API_KEY=your-key-here' > apps/agent/.env
+# Set OpenAI API key
+cp .env.example .env
+# Edit .env and add your OPENAI_API_KEY
 ```
 
 ## Design Principles
@@ -264,18 +261,6 @@ echo 'OPENAI_API_KEY=your-key-here' > apps/agent/.env
 2. **CopilotKit v2 patterns** - Uses modern agent state management
 3. **Template-first** - Code is meant to be forked and extended
 4. **Showcasing agent-driven UI** - Demonstrates AI manipulating application state beyond chat
-
-## Future Enhancements
-
-Possible extensions to demonstrate more CopilotKit capabilities:
-
-- Todo categories/tags/priorities
-- Agent-driven task organization (auto-categorize, suggest priorities)
-- Due dates and reminders
-- Subtasks and dependencies
-- Export/import todo lists
-- Undo/redo with state history
-- Real-time collaboration
 
 ---
 

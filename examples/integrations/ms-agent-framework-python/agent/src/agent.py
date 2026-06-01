@@ -50,7 +50,12 @@ def update_proverbs(
     description="Share a quick weather update for a location. Use this to render the frontend weather card.",
 )
 def get_weather(
-    location: Annotated[str, Field(description="The city or region to describe. Use fully spelled out names.")],
+    location: Annotated[
+        str,
+        Field(
+            description="The city or region to describe. Use fully spelled out names."
+        ),
+    ],
 ) -> str:
     """Return a short natural language weather summary."""
     normalized = location.strip().title() or "the requested location"

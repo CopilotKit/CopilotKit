@@ -1,0 +1,55 @@
+{
+  "framework": "claude-sdk-python",
+  "features": {
+    "agentic-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/agentic-chat-ui",
+      "shell_docs_path": "/prebuilt-components"
+    },
+    "hitl-in-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/human-in-the-loop",
+      "shell_docs_path": "/generative-ui/your-components/interactive"
+    },
+    "tool-rendering": {
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/tool-rendering",
+      "shell_docs_path": "/generative-ui/tool-rendering"
+    },
+    "gen-ui-tool-based": {
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/your-components/display-only",
+      "shell_docs_path": "/generative-ui/your-components/display-only"
+    },
+    "gen-ui-agent": {
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/state-rendering",
+      "shell_docs_path": "/generative-ui/state-rendering"
+    },
+    "shared-state-read-write": {
+      "og_docs_url": "https://docs.copilotkit.ai/shared-state",
+      "shell_docs_path": "/shared-state"
+    },
+    "shared-state-streaming": {
+      "og_docs_url": "https://docs.copilotkit.ai/shared-state",
+      "shell_docs_path": "/shared-state"
+    },
+    "subagents": {
+      "og_docs_url": null,
+      "shell_docs_path": "/multi-agent/subagents"
+    }
+  },
+  "missing": [
+    {
+      "feature": "agentic-chat",
+      "reason": "No claude-sdk-python- or claude-sdk-scoped docs exist; no /agentic-chat root page. Falling back to /agentic-chat-ui (og) and /prebuilt-components (shell /unselected/prebuilt-components.mdx)."
+    },
+    {
+      "feature": "hitl-in-chat",
+      "reason": "No framework-scoped docs. Root /human-in-the-loop exists and is used for og. Shell /unselected/human-in-the-loop.mdx is missing — using /generative-ui/your-components/interactive which is the closest match (interactive components HITL in chat)."
+    },
+    {
+      "feature": "shared-state-streaming",
+      "reason": "No dedicated streaming doc; root /shared-state/streaming and /shared-state/predictive-state-updates both 404 (og and shell). Falling back to parent /shared-state for both og and shell."
+    },
+    {
+      "feature": "subagents",
+      "reason": "No claude-sdk-scoped or framework-agnostic indexable subagents/multi-agent overview page exists on docs.copilotkit.ai. OG left null (renders red) rather than pointing at a soft-404; shell points at the unified /multi-agent/subagents content."
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+name: security / zizmor
+
+# zizmor runs static analysis over every workflow under .github/workflows
+# looking for the well-known classes of GitHub Actions footguns: template
+# injection from untrusted input, dangerous triggers like
+# `pull_request_target`, unpinned `uses:` refs, excessive token scopes,
+# secret exfil via job outputs, and a long tail of others.
+#
+# Findings at `low` confidence and above fail the job, so this acts as a
+# blocking PR check. To deliberately allow a finding, suppress it in
+# `.github/zizmor.yml` with a justification — never silently ignore.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/**"
+      - ".github/actions/**"
+      - ".github/zizmor.yml"
+      - ".github/dependabot.yml"
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+      - ".github/actions/**"
+      - ".github/zizmor.yml"
+      - ".github/dependabot.yml"
+  schedule:
+    # Catch findings introduced by newly-published advisories even when no
+    # workflow file changed this week.
+    - cron: "0 9 * * 1"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  zizmor:
+    name: Static analysis (zizmor)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      # SARIF upload requires `security-events: write`, but we currently
+      # rely on the action's own annotations. Keep contents:read only.
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Run zizmor
+        # `min-severity: low` blocks PRs on the broadest set of findings
+        # without flagging hypothetical-only `informational` notes. Drop
+        # to `medium` if low-severity churn becomes a problem.
+        uses: zizmorcore/zizmor-action@5f14fd08f7cf1cb1609c1e344975f152c7ee938d # v0.5.6
+        with:
+          min-severity: low
+          advanced-security: false
+          config: .github/zizmor.yml

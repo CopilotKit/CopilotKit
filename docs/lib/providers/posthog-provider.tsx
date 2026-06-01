@@ -7,7 +7,11 @@ import { usePathname } from "next/navigation";
 import { normalizePathnameForAnalytics } from "@/lib/analytics-utils";
 
 const POSTHOG_KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY;
-const POSTHOG_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST;
+// Reverse-proxied via /ingest/* rewrites in next.config.mjs so requests
+// flow through docs.copilotkit.ai instead of *.i.posthog.com — bypasses
+// ad blockers / tracking-protection that target the PostHog hostname.
+const POSTHOG_HOST = "/ingest";
+const POSTHOG_UI_HOST = "https://eu.posthog.com";
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -24,12 +28,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize PostHog once (only on mount)
   useEffect(() => {
-    if (
-      POSTHOG_KEY &&
-      POSTHOG_HOST &&
-      !posthog?.__loaded &&
-      !isInitializedRef.current
-    ) {
+    if (POSTHOG_KEY && !posthog?.__loaded && !isInitializedRef.current) {
       isInitializedRef.current = true;
 
       // Read sessionId from URL at initialization time
@@ -94,6 +93,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
 
         posthog.init(POSTHOG_KEY, {
           api_host: POSTHOG_HOST,
+          ui_host: POSTHOG_UI_HOST,
           person_profiles: "identified_only",
           bootstrap: initSessionId
             ? {
@@ -104,6 +104,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
           capture_pageview: false,
           // Reduce network requests by batching
           request_batching: true,
+          capture_dead_clicks: false,
           // Don't enable debug mode - it causes too much logging
         });
       } catch (error) {
@@ -117,7 +118,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
 
   // Capture pageview only after PostHog is initialized
   useEffect(() => {
-    if (POSTHOG_KEY && POSTHOG_HOST && posthog?.__loaded) {
+    if (POSTHOG_KEY && posthog?.__loaded) {
       try {
         const normalizedPathname = normalizePathnameForAnalytics(pathname);
         posthog.capture("$pageview", {

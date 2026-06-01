@@ -69,14 +69,17 @@ class TestMultiPartContentList:
         assert result[0]["content"] == "Sample png file"
 
     def test_empty_list_returns_empty_content(self):
-        """Empty content list should produce empty string, not crash."""
+        """Empty content list should produce assistant message with empty string."""
         msg = AIMessage(
             id="ai-5",
             content=[],
         )
         result = langchain_messages_to_copilotkit([msg])
-        # Empty content means message is not included (content is falsy)
-        assert len(result) == 0
+        # Assistant messages are always emitted (even with empty content)
+        # so that tool call entries can reference them via parentMessageId.
+        assert len(result) == 1
+        assert result[0]["content"] == ""
+        assert result[0]["role"] == "assistant"
 
     def test_single_text_dict_in_list(self):
         """Single text dict in a list should still be extracted."""

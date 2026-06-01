@@ -1,0 +1,10 @@
+{
+  "_fixture": {
+    "description": "404 with an empty body — typical Railway-edge response when the service is down and the platform is serving its own 'no such service' page. Driver marks red with exactly `http 404` (no body suffix), so the alert template stays short and readable."
+  },
+  "status": 404,
+  "headers": {
+    "content-type": "text/plain"
+  },
+  "body": ""
+}

@@ -12,8 +12,8 @@ export const setPlan = createTool({
     initialized: z.literal(true),
     steps: z.array(z.string()),
   }),
-  execute: async ({ context }) => {
-    return { initialized: true as const, steps: context.steps };
+  execute: async ({ steps }) => {
+    return { initialized: true as const, steps };
   },
 });
 
@@ -37,12 +37,12 @@ export const updatePlanProgress = createTool({
     status: z.string(),
     note: z.string().nullable(),
   }),
-  execute: async ({ context }) => {
+  execute: async ({ step_index, status, note }) => {
     return {
       updated: true as const,
-      index: context.step_index,
-      status: context.status,
-      note: context.note ?? null,
+      index: step_index,
+      status,
+      note: note ?? null,
     };
   },
 });

@@ -2,7 +2,7 @@
  * Prepare a release: bump versions, generate raw release notes.
  * Runs inside the "create release PR" workflow.
  *
- * Usage: tsx scripts/release/prepare-release.ts --bump <patch|minor|major> --scope <monorepo|cli|angular> [--dry-run]
+ * Usage: tsx scripts/release/prepare-release.ts --bump <patch|minor|major> --scope <monorepo|angular> [--dry-run]
  */
 
 import fs from "fs";
@@ -67,7 +67,7 @@ function generateRawReleaseNotes(
   return lines.join("\n");
 }
 
-const VALID_SCOPES = ["monorepo", "cli", "angular"];
+const VALID_SCOPES = ["monorepo", "angular"];
 
 function main() {
   const argv = process.argv.slice(2);
@@ -83,7 +83,7 @@ function main() {
 
   if (!bumpLevel || !["patch", "minor", "major"].includes(bumpLevel)) {
     console.error(
-      "Usage: prepare-release.ts --bump <patch|minor|major> --scope <monorepo|cli|angular>",
+      "Usage: prepare-release.ts --bump <patch|minor|major> --scope <monorepo|angular>",
     );
     process.exit(1);
   }

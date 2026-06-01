@@ -1,0 +1,13 @@
+{
+  "_comment": "D5 fixture for /demos/headless-simple. Single chip prompt round-trips plain text (the simple template intentionally has no tool calls or gen-UI). The chip's literal label (`Say hello in one short sentence.`) IS the userMessage that aimock matches on — see d5-headless-simple.ts:SAMPLE_CHIP_LABEL.",
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "Say hello in one short sentence."
+      },
+      "response": {
+        "content": "Hi there — happy to help."
+      }
+    }
+  ]
+}

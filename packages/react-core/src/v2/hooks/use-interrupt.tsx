@@ -5,7 +5,7 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import { useCopilotKit } from "../providers/CopilotKitProvider";
+import { useCopilotKit } from "../context";
 import { useAgent } from "./use-agent";
 import type {
   InterruptEvent,
@@ -220,7 +220,10 @@ export function useInterrupt<
 
   const resolve = useCallback(
     (response: unknown) => {
-      setPendingEvent(null);
+      // Do NOT synchronously clear pendingEvent here — onRunStartedEvent
+      // already clears it when the resume run begins. Clearing synchronously
+      // unmounts the card before commit, which previously forced consumers
+      // to wrap their resolve() in a 500ms setTimeout to keep the UI alive.
       copilotkit.runAgent({
         agent,
         forwardedProps: {
@@ -234,18 +237,54 @@ export function useInterrupt<
     [agent, copilotkit],
   );
 
+  // Stabilize consumer-supplied callbacks behind refs so inline lambdas
+  // (a new identity every parent render) do NOT churn the element memo
+  // identity or the handler effect. Without this, every dep-churn cycle
+  // would re-run the publish effect's cleanup, racing a stale `null` past
+  // the new element and unmounting the in-chat card on each render.
+  const renderRef = useRef(config.render);
+  renderRef.current = config.render;
+  const enabledRef = useRef(config.enabled);
+  enabledRef.current = config.enabled;
+  const handlerRef = useRef(config.handler);
+  handlerRef.current = config.handler;
+  // F4: mirror `resolve` behind a ref so the handler effect does not depend
+  // on resolve's identity. Without this, churn in [agent, copilotkit]
+  // (resolve's deps) would re-run the effect for the same pendingEvent and
+  // double-invoke the consumer handler.
+  const resolveRef = useRef(resolve);
+  resolveRef.current = resolve;
+
+  // F5: predicate evaluator that treats a throw as "disabled" (false) and
+  // logs the error. Called from both the handler effect and the element
+  // memo, neither of which may crash the React tree on a consumer bug.
+  const isEnabled = (event: InterruptEvent): boolean => {
+    const predicate = enabledRef.current;
+    if (!predicate) return true;
+    try {
+      return predicate(event);
+    } catch (err) {
+      console.error(
+        "[CopilotKit] useInterrupt enabled predicate threw; treating interrupt as disabled:",
+        err,
+      );
+      return false;
+    }
+  };
+
   useEffect(() => {
     // No interrupt to process — reset any stale handler result from a previous interrupt
     if (!pendingEvent) {
       setHandlerResult(null);
       return;
     }
-    // Interrupt exists but the consumer's filter rejects it — treat as no-op
-    if (config.enabled && !config.enabled(pendingEvent)) {
+    // Interrupt exists but the consumer's filter rejects it — treat as no-op.
+    // F5: a throw from the predicate is treated as "disabled".
+    if (!isEnabled(pendingEvent)) {
       setHandlerResult(null);
       return;
     }
-    const handler = config.handler;
+    const handler = handlerRef.current;
     // No handler provided — skip straight to rendering with a null result
     if (!handler) {
       setHandlerResult(null);
@@ -253,10 +292,25 @@ export function useInterrupt<
     }
 
     let cancelled = false;
-    const maybePromise = handler({
-      event: pendingEvent,
-      resolve,
-    });
+    // F3: a synchronous throw from the consumer handler must not escape the
+    // effect. Honor the documented contract ("Rejecting/throwing falls back
+    // to `result = null`") at the sync branch too.
+    let maybePromise: ReturnType<typeof handler>;
+    try {
+      maybePromise = handler({
+        event: pendingEvent,
+        resolve: resolveRef.current,
+      });
+    } catch (err) {
+      console.error(
+        "[CopilotKit] useInterrupt handler threw; result will be null:",
+        err,
+      );
+      if (!cancelled) setHandlerResult(null);
+      return () => {
+        cancelled = true;
+      };
+    }
 
     // If the handler returns a promise/thenable, wait for resolution before setting result.
     if (isPromiseLike(maybePromise)) {
@@ -264,7 +318,13 @@ export function useInterrupt<
         .then((resolved) => {
           if (!cancelled) setHandlerResult(resolved);
         })
-        .catch(() => {
+        .catch((err) => {
+          // F3 (companion): log the async failure so it isn't silently
+          // swallowed, while preserving the documented null-fallback.
+          console.error(
+            "[CopilotKit] useInterrupt handler rejected; result will be null:",
+            err,
+          );
           if (!cancelled) setHandlerResult(null);
         });
     } else {
@@ -274,27 +334,40 @@ export function useInterrupt<
     return () => {
       cancelled = true;
     };
+    // F4: depend ONLY on pendingEvent. resolve is read via resolveRef so
+    // identity churn in [agent, copilotkit] cannot double-fire the handler.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingEvent, config.enabled, config.handler, resolve]);
+  }, [pendingEvent]);
 
   const element = useMemo(() => {
     if (!pendingEvent) return null;
-    if (config.enabled && !config.enabled(pendingEvent)) return null;
+    // F5: throwing predicate → disabled.
+    if (!isEnabled(pendingEvent)) return null;
 
-    return config.render({
+    return renderRef.current({
       event: pendingEvent,
       result: handlerResult,
       resolve,
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingEvent, handlerResult, config.enabled, config.render, resolve]);
+  }, [pendingEvent, handlerResult, resolve]);
 
-  // Publish to core for in-chat rendering
+  // Publish to core for in-chat rendering. Publish-only — do NOT nullify
+  // on dep churn; the element memo already returns null when pendingEvent
+  // is null (the legitimate clear path: onRunStartedEvent / onRunFailed).
   useEffect(() => {
     if (config.renderInChat === false) return;
     copilotkit.setInterruptElement(element);
-    return () => copilotkit.setInterruptElement(null);
   }, [element, config.renderInChat, copilotkit]);
+
+  // Nullify on true unmount only. Separate effect with empty deps so the
+  // cleanup runs exactly once when the component is removed from the tree.
+  useEffect(() => {
+    if (config.renderInChat === false) return;
+    return () => {
+      copilotkit.setInterruptElement(null);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Only return element when rendering outside chat
   if (config.renderInChat === false) {

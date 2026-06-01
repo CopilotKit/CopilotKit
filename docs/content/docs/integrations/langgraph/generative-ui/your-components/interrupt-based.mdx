@@ -73,17 +73,18 @@ We're going to have the agent ask us to name it, so we'll need a state property 
     <Tab value="TypeScript">
         ```typescript title="agent-js/src/agent.ts"
         // ...
-        import { Annotation } from "@langchain/langgraph";
-        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+        import { StateSchema } from "@langchain/langgraph";
+        import { CopilotKitStateSchema } from "@copilotkit/sdk-js/langgraph";
+        import { z } from "zod";
         // ...
 
         // This is the state of the agent.
         // It inherits from the CopilotKitState properties from CopilotKit.
-        export const AgentStateAnnotation = Annotation.Root({
-          agentName: Annotation<string>,
-          ...CopilotKitStateAnnotation.spec,
+        export const AgentStateSchema = new StateSchema({
+          agentName: z.string(),
+          ...CopilotKitStateSchema.fields,
         });
-        export type AgentState = typeof AgentStateAnnotation.State;
+        export type AgentState = typeof AgentStateSchema.State;
         ```
     </Tab>
 </Tabs>
@@ -139,11 +140,11 @@ We're going to have the agent ask us to name it, so we'll need a state property 
             import { ChatOpenAI } from "@langchain/openai";
 
             // add the agent state definition from the previous step
-            export const AgentStateAnnotation = Annotation.Root({
-                agentName: Annotation<string>,
-                ...CopilotKitStateAnnotation.spec,
+            export const AgentStateSchema = new StateSchema({
+                agentName: z.string(),
+                ...CopilotKitStateSchema.fields,
             });
-            export type AgentState = typeof AgentStateAnnotation.State;
+            export type AgentState = typeof AgentStateSchema.State;
 
             async function chat_node(state: AgentState, config: RunnableConfig) {
                 const agentName = state.agentName
@@ -176,6 +177,10 @@ We're going to have the agent ask us to name it, so we'll need a state property 
 
     To do this, we'll use the `useInterrupt` hook, give it a component to render, and then call `resolve` with the user's response.
 
+    <Callout type="warn">
+      **`agentId` must match a runtime-registered agent.** If you omit `agentId`, the hook assumes `"default"`. If the IDs don't match, the interrupt will never fire.
+    </Callout>
+
     ```tsx title="app/page.tsx"
     import { useInterrupt } from "@copilotkit/react-core/v2"; // [!code highlight]
     // ...
@@ -185,6 +190,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
     // [!code highlight:15]
     // styles omitted for brevity
     useInterrupt({
+        agentId: "starterAgent",
         render: ({ event, resolve }) => (
             <div>
                 <p>{event.value}</p>
@@ -326,6 +332,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
             // ...
             // [!code highlight:13]
             useInterrupt({
+                agentId: "starterAgent",
                 enabled: ({ eventValue }) => eventValue.type === 'ask',
                 render: ({ event, resolve }) => (
                     <AskComponent question={event.value.content} onAnswer={answer => resolve(answer)} />
@@ -333,6 +340,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
             });
 
             useInterrupt({
+                agentId: "starterAgent",
                 enabled: ({ eventValue }) => eventValue.type === 'approval',
                 render: ({ event, resolve }) => (
                     <ApproveComponent content={event.value.content} onAnswer={answer => resolve(answer)} />
@@ -371,6 +379,7 @@ const YourMainContent = () => {
     // styles omitted for brevity
     // [!code highlight:28]
     useInterrupt({
+        agentId: "starterAgent",
         handler: async ({ result, event, resolve }) => {
             const { department } = await getUserByEmail(userEmail)
             if (event.value.accessDepartment === department || department === 'admin') {

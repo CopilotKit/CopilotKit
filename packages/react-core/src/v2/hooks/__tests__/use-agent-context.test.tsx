@@ -2,10 +2,10 @@ import React, { useState } from "react";
 import { render, act } from "@testing-library/react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { useAgentContext, type AgentContextInput } from "../use-agent-context";
-import { useCopilotKit } from "../../providers/CopilotKitProvider";
+import { useCopilotKit } from "../../context";
 
-// Mock the CopilotKitProvider
-vi.mock("../../providers/CopilotKitProvider", () => ({
+// Mock the CopilotKit context
+vi.mock("../../context", () => ({
   useCopilotKit: vi.fn(),
 }));
 

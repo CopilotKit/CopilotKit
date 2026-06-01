@@ -8,7 +8,7 @@
 
 [Docs](https://docs.copilotkit.ai/?ref=github_readme) ·
 [Examples](https://www.copilotkit.ai/examples) ·
-[Copilot Cloud](https://cloud.copilotkit.ai?ref=github_readme) ·
+[Enterprise Intelligence Platform](https://go.copilotkit.ai/enterprise-intelligence-platform) ·
 [Discord](https://discord.gg/6dffbvGU3D?ref=github_readme)
 
 </div>
@@ -25,7 +25,7 @@ Build **agent-native applications** with generative UI, shared state, and human-
   </a>
 
   <a href="https://github.com/copilotkit/copilotkit/blob/main/LICENSE" target="_blank">
-    <img src="https://img.shields.io/github/license/copilotkit/copilotkit?color=%236963ff&label=License" alt="MIT">
+    <img src="assets/license-badge.svg" alt="License: MIT" height="20">
   </a>
 
   <a href="https://discord.gg/6dffbvGU3D" target="_blank">
@@ -53,9 +53,11 @@ Build **agent-native applications** with generative UI, shared state, and human-
 
 CopilotKit is a best-in-class SDK for building full-stack agentic applications, Generative UI, and chat applications.
 
-We are the company behind the **AG-UI Protocol**, adopted by Google, LangChain, AWS, Microsoft, Mastra, PydanticAI, and more!
+We are the company behind the **[AG-UI Protocol](https://github.com/ag-ui-protocol/ag-ui)** - adopted by Google, LangChain, AWS, Microsoft, Mastra, PydanticAI, and more!
 
-https://github.com/user-attachments/assets/de5bcc17-1b51-4092-9a85-42971ecc1f4c
+https://github.com/user-attachments/assets/72b7b4f3-b6e7-460c-a932-5746fe3c8db3
+
+<div align="center"> Add AI to your app in 1 minute</div>
 
 **Features:**
 
@@ -192,6 +194,39 @@ Here are a few useful resources to help you get started:
 - For documentation-related contributions, [check out the documentation contributions guide](https://docs.copilotkit.ai/contributing/docs-contributions?ref=github_readme).
 
 - Want to contribute but not sure how? [Join our Discord](https://discord.gg/6dffbvGU3D) and we'll help you out!
+
+## Install as a Claude Code plugin
+
+The CopilotKit monorepo doubles as a Claude Code plugin — all 9 skills (3 package meta-skills + 6 lifecycle journey skills) are available once installed.
+
+Add the repo as a Claude Code marketplace:
+
+```bash
+claude plugin marketplace add https://github.com/CopilotKit/CopilotKit
+claude plugin install copilotkit
+```
+
+Skills are discovered from `skills/<slug>/SKILL.md` at the repo root. The three package meta-skills (`runtime`, `react-core`, `a2ui-renderer`) are **generated mirrors** of the source-of-truth files at `packages/<pkg>/skills/<pkg>/` — do not edit the mirror directly. To update content, edit the source under `packages/*/skills/` and run:
+
+```bash
+pnpm sync:plugin-skills
+```
+
+A lefthook pre-commit check (`pnpm check:plugin-skills`) rejects commits that drift the mirror. The plugin version is pinned to `packages/runtime/package.json` and is also kept in sync by the same script.
+
+### Skill inventory
+
+| Slug                     | Type      | Source                                         |
+| ------------------------ | --------- | ---------------------------------------------- |
+| `runtime`                | core      | `packages/runtime/skills/runtime/`             |
+| `react-core`             | framework | `packages/react-core/skills/react-core/`       |
+| `a2ui-renderer`          | framework | `packages/a2ui-renderer/skills/a2ui-renderer/` |
+| `0-to-working-chat`      | lifecycle | `skills/0-to-working-chat/`                    |
+| `spa-without-runtime`    | lifecycle | `skills/spa-without-runtime/`                  |
+| `go-to-production`       | lifecycle | `skills/go-to-production/`                     |
+| `scale-to-multi-agent`   | lifecycle | `skills/scale-to-multi-agent/`                 |
+| `v1-to-v2-migration`     | lifecycle | `skills/v1-to-v2-migration/`                   |
+| `debug-and-troubleshoot` | lifecycle | `skills/debug-and-troubleshoot/`               |
 
 ## 📄 License
 

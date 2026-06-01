@@ -1,0 +1,53 @@
+{
+  "_comment": "D5 fixture for /demos/gen-ui-tool-based. Two integration families: (1) langgraph-python registers render_pie_chart via useComponent (PieChart SVG donut); (2) all other integrations register generate_haiku via useFrontendTool (HaikuCard div). Uses hasToolResult matching: aimock checks for role:tool messages in the request to disambiguate multi-turn fixtures sharing the same userMessage. Fixtures ordered by hasToolResult false→true for readability.",
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "Show me a pie chart of revenue by category",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_render_pie_chart_001",
+            "name": "render_pie_chart",
+            "arguments": "{\"title\":\"Revenue by Category\",\"description\":\"Revenue breakdown by product category (Q4)\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a pie chart of revenue by category",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Pie chart rendered above — Electronics is the largest slice, followed by Clothing, Food, and Books."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Write me a haiku about nature",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_generate_haiku_001",
+            "name": "generate_haiku",
+            "arguments": "{\"japanese\":[\"古池や\",\"蛙飛び込む\",\"水の音\"],\"english\":[\"An old silent pond\",\"A frog jumps into the pond\",\"Splash! Silence again.\"],\"image_name\":\"Mount_Fuji_Lake_Reflection_Cherry_Blossoms_Sakura_Spring.jpg\",\"gradient\":\"linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Write me a haiku about nature",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Haiku generated above — a beautiful verse about nature with an accompanying image."
+      }
+    }
+  ]
+}

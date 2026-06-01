@@ -1,0 +1,83 @@
+{
+  "_comment": "D5 fixture for /demos/frontend-tools. Three per-pill prompts (Sunset/Forest/Cosmic) drive the `change_background` frontend tool. Each pill has TWO entries: a first-turn (matches by userMessage substring AND no toolCall-id present in the most recent tool message) and a follow-up (matches by userMessage substring AND a static toolCallId). Both criteria are combined so a follow-up never cross-matches a different pill (the matcher iterates top-to-bottom and uses first-match-wins; a follow-up keyed only on toolCallId would re-match the next pill's first-turn request because the prior tool result is still the latest tool message in history). Substrings 'Make the background a sunset gradient', 'deep green forest gradient', 'navy → magenta cosmic gradient' are unique per pill. See showcase/harness/fixtures/d5/README.md (\"Mid-loop re-invocations after a tool call\").",
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "Make the background a sunset gradient",
+        "toolCallId": "call_d5_change_background_sunset"
+      },
+      "response": {
+        "content": "Done — sunset gradient is live."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Make the background a sunset gradient"
+      },
+      "response": {
+        "content": "Sunset gradient applied — warm orange-to-rose blend.",
+        "toolCalls": [
+          {
+            "id": "call_d5_change_background_sunset",
+            "name": "change_background",
+            "arguments": {
+              "background": "linear-gradient(135deg, #ff7e5f 0%, #feb47b 50%, #ff6b6b 100%)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "deep green forest gradient",
+        "toolCallId": "call_d5_change_background_forest"
+      },
+      "response": {
+        "content": "Done — forest gradient is live."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "deep green forest gradient"
+      },
+      "response": {
+        "content": "Forest gradient applied — deep green hues.",
+        "toolCalls": [
+          {
+            "id": "call_d5_change_background_forest",
+            "name": "change_background",
+            "arguments": {
+              "background": "linear-gradient(135deg, #0a3d2e 0%, #166534 50%, #059669 100%)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "navy → magenta cosmic gradient",
+        "toolCallId": "call_d5_change_background_cosmic"
+      },
+      "response": {
+        "content": "Done — cosmic gradient is live."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "navy → magenta cosmic gradient"
+      },
+      "response": {
+        "content": "Cosmic gradient applied — navy fading to magenta.",
+        "toolCalls": [
+          {
+            "id": "call_d5_change_background_cosmic",
+            "name": "change_background",
+            "arguments": {
+              "background": "linear-gradient(135deg, #1e3a8a 0%, #6b21a8 50%, #9333ea 100%)"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

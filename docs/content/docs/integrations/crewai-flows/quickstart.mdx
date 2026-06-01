@@ -41,6 +41,14 @@ import CopilotUI from "@/snippets/copilot-ui.mdx";
   muted
 />
 
+<OpsPlatformCTA
+  variant="card"
+  title="Ship CrewAI Flows to production"
+  body="Add persistent threads, observability, and the inspector with the Enterprise Intelligence Platform."
+  ctaLabel="Create a free account"
+  surface="docs_crewai_flows_quickstart"
+/>
+
 ## Prerequisites
 
 Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/flows/first-flow) deployed on [CrewAI Enterprise](https://docs.crewai.com/enterprise/introduction). If you're looking for a sample flows, check out this [example agentic chat implementation](https://github.com/suhasdeshpande/agentic_chat).
@@ -48,18 +56,21 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
 ## Getting started
 
 <Steps>
-<TailoredContent
-    className="step"
-    id="path"
-    header={
-        <div>
-            <p className="text-xl font-semibold">How do you want to get started?</p>
-            <p className="text-base">
-                Bootstrap with the new <span className="text-indigo-500 dark:text-indigo-400">CopilotKit CLI (Beta)</span> or code along with us to get started.
-            </p>
-        </div>
-    }
->
+<Step>
+    ### Create a free account
+
+    <SignupLink surface="docs_crewai_flows_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads, observability, and the inspector.
+</Step>
+
+<Step>
+    ### How do you want to get started?
+
+    Bootstrap with the new CopilotKit CLI (Beta) or code along with us to get started.
+
+    <TailoredContent
+        className="step"
+        id="path"
+    >
     {/*
     <TailoredContentOption
         id="cli"
@@ -239,6 +250,7 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
         </Step>
     </TailoredContentOption>
     </TailoredContent>
+</Step>
 
 </Steps>
 
@@ -275,3 +287,4 @@ can help you build power agent native applications.
     icon={<WrenchIcon />}
   />
 </Cards>
+

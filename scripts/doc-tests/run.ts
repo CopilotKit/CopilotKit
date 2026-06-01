@@ -39,7 +39,7 @@ const DEFAULT_ENV: Record<string, string> = {
   OPENAI_BASE_URL: "http://localhost:4010",
 };
 
-const SERVER_TIMEOUT_MS = 15_000;
+const SERVER_TIMEOUT_MS = 30_000;
 const SERVER_POLL_MS = 500;
 const SCRIPT_TIMEOUT_MS = 30_000;
 
