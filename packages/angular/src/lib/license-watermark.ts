@@ -1,3 +1,7 @@
+// The license watermark is currently disabled. The implementation below is
+// kept intact so it can be re-enabled by flipping this flag back to `true`.
+export const LICENSE_WATERMARK_ENABLED = false;
+
 const WATERMARK_ID = "copilotkit-license-watermark";
 const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
 const LICENSE_KEY_REGEX = /^ck_pub_[0-9a-f]{32}$/i;
@@ -9,6 +13,10 @@ function hasValidLicenseHeader(headers?: Record<string, string>): boolean {
 }
 
 export function ensureLicenseWatermark(headers?: Record<string, string>): void {
+  if (!LICENSE_WATERMARK_ENABLED) {
+    return;
+  }
+
   if (typeof document === "undefined" || hasValidLicenseHeader(headers)) {
     return;
   }
