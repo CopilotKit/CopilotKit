@@ -2,8 +2,9 @@
   "compilerOptions": {
     "target": "ES2022",
     "useDefineForClassFields": false,
+    "esModuleInterop": true,
     "module": "ES2020",
-    "moduleResolution": "Node",
+    "moduleResolution": "bundler",
     "strict": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
