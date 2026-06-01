@@ -1,0 +1,159 @@
+---
+title: "useDefaultApproval"
+description: "Automatically renders a generic approve/deny UI for any unregistered backend tool call, enabling seamless human-in-the-loop workflows with AG-UI backends"
+---
+
+## Overview
+
+`useDefaultApproval` registers a wildcard (`*`) frontend tool that catches any backend tool call without a matching `useHumanInTheLoop` or `useFrontendTool` registration. When activated via the `defaultApproval` prop on `CopilotKitProvider`, it renders a built-in approval card with approve/deny buttons for every unregistered tool call.
+
+This hook is specifically designed for integration with Microsoft Agent Framework's `ApprovalRequiredAIFunction` pattern, where backend tools marked with `approval_mode="always_require"` emit `"request_approval"` tool calls over the AG-UI protocol. It automatically detects MAF's structured approval requests, extracts the original function name and arguments, and returns responses in the expected format.
+
+## Activation
+
+`useDefaultApproval` is not called directly. Instead, enable it via the `defaultApproval` prop on `CopilotKitProvider`:
+
+```tsx
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+
+function App() {
+  return (
+    <CopilotKitProvider defaultApproval={true}>
+      {/* Your app */}
+    </CopilotKitProvider>
+  );
+}
+```
+
+When `defaultApproval={true}`, the provider internally renders a `DefaultApprovalProvider` component that calls `useDefaultApproval`.
+
+## How It Works
+
+### Generic Tool Calls
+
+For any unregistered tool call (e.g., `"delete_record"`), the UI shows:
+- The tool name
+- Expandable arguments viewer
+- Approve / Deny buttons
+- Result state (Approved / Denied) after user interaction
+
+The response is a plain string: `"approved"` or `"denied"`.
+
+### Microsoft Agent Framework (MAF) Tool Calls
+
+When the tool name is `"request_approval"` and the arguments contain MAF's structured format:
+
+```json
+{
+  "request": {
+    "approval_id": "approval_abc123",
+    "function_name": "SendEmail",
+    "function_arguments": { "to": "user@example.com", "subject": "Meeting" },
+    "message": "Approve execution of 'SendEmail'?"
+  }
+}
+```
+
+The UI automatically:
+- Displays the human-readable `message` field as the prompt
+- Shows the original `function_name` (not `"request_approval"`)
+- Shows the original `function_arguments` in the expandable viewer
+- Returns the MAF-compatible response format: `{ approval_id: "approval_abc123", approved: true }`
+
+This enables seamless interop between CopilotKit frontends and .NET/Python backends using `ApprovalRequiredAIFunction`.
+
+## Usage
+
+### Basic: Automatic Approval for All Unregistered Tools
+
+```tsx
+import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core/v2";
+
+function App() {
+  return (
+    <CopilotKitProvider
+      agents={{ myAgent }}
+      defaultApproval={true}
+    >
+      <CopilotChat />
+    </CopilotKitProvider>
+  );
+}
+```
+
+### Combined with Explicit Registrations
+
+You can use `defaultApproval` alongside specific `useHumanInTheLoop` registrations. Explicitly registered tools take priority; only unmatched tools fall through to the default approval UI.
+
+```tsx
+import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
+import { z } from "zod";
+
+function MyComponent() {
+  // This tool gets a custom UI
+  useHumanInTheLoop({
+    name: "transfer_funds",
+    description: "Confirm fund transfer",
+    parameters: z.object({
+      amount: z.number(),
+      to: z.string(),
+    }),
+    render: ({ args, status, respond }) => {
+      // Custom rich UI for transfers...
+    },
+  });
+
+  // All OTHER unregistered tools (e.g., "delete_record", "send_email")
+  // get the generic default approval UI automatically
+  return <div>...</div>;
+}
+```
+
+### With Microsoft Agent Framework Backend
+
+When your backend uses MAF's `ApprovalRequiredAIFunction`:
+
+```csharp
+// .NET backend
+AITool[] tools = [new ApprovalRequiredAIFunction(AIFunctionFactory.Create(SendEmail))];
+```
+
+Or Python:
+
+```python
+# Python backend
+@tool(approval_mode="always_require")
+def send_email(to: str, subject: str, body: str) -> str:
+    """Send an email to the specified recipient."""
+    return f"Email sent to {to}"
+```
+
+The frontend automatically handles the approval flow without any additional registration:
+
+```tsx
+<CopilotKitProvider defaultApproval={true}>
+  <CopilotChat />
+</CopilotKitProvider>
+```
+
+## Behavior
+
+- **Wildcard matching**: Registers a `*` frontend tool that matches any tool name not already registered by `useHumanInTheLoop` or `useFrontendTool`.
+- **MAF protocol awareness**: Automatically detects `"request_approval"` tool calls and extracts the nested function details.
+- **Blocks agent execution**: Like `useHumanInTheLoop`, the agent pauses until the user clicks Approve or Deny.
+- **Built-in UI**: Ships a styled approval card with expandable arguments, no custom component needed.
+- **Priority**: Explicit tool registrations always take precedence over the wildcard default.
+- **Opt-in**: Must be enabled via `defaultApproval={true}` on `CopilotKitProvider`. Disabled by default.
+
+## Response Formats
+
+| Tool Call Type | Response on Approve | Response on Deny |
+|---|---|---|
+| Generic (any name) | `"approved"` | `"denied"` |
+| MAF (`"request_approval"`) | `{ approval_id: "...", approved: true }` | `{ approval_id: "...", approved: false }` |
+
+## Related
+
+- [`useHumanInTheLoop`](/reference/v2/hooks/useHumanInTheLoop) -- for custom per-tool approval UI
+- [`useFrontendTool`](/reference/v2/hooks/useFrontendTool) -- for tools with automated handlers
+- [Microsoft Learn: Human-in-the-Loop with AG-UI](https://learn.microsoft.com/agent-framework/integrations/ag-ui/human-in-the-loop) -- MAF documentation

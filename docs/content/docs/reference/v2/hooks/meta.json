@@ -12,6 +12,7 @@
     "---Frontend Tools---",
     "useFrontendTool",
     "useHumanInTheLoop",
+    "useDefaultApproval",
     "---Suggestions---",
     "useSuggestions",
     "useConfigureSuggestions",
