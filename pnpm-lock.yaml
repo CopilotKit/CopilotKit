@@ -2209,9 +2209,6 @@ importers:
       lucide-react:
         specifier: ^0.525.0
         version: 0.525.0(react@19.2.3)
-      react-markdown:
-        specifier: ^8.0.7
-        version: 8.0.7(@types/react@19.1.8)(react@19.2.3)
       rxjs:
         specifier: 7.8.1
         version: 7.8.1
