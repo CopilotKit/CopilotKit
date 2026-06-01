@@ -32,7 +32,7 @@ Use shared state when you want to facilitate collaboration between your agent an
 
 ## Reading agent state
 
-<FrameworkSetup concept="agent-setup" />
+<FrameworkSetup concept="shared-state-setup" />
 
 Subscribe a component to the agent's state with `useAgent`. Any time the agent
 mutates its state — for example via a tool call — the hook fires and your UI
@@ -72,7 +72,7 @@ long-running tool call appears as one big burst at the end. State streaming
 forwards a specific tool argument straight into a state key *as it's being
 generated*, so the UI can watch the answer assemble token-by-token.
 
-<Snippet region="state-streaming-middleware" cell="shared-state-streaming" title="backend — StateStreamingMiddleware" />
+<Snippet region="state-streaming-middleware" cell="shared-state-streaming" title="backend — streaming state update" />
 
 See **[State streaming](/shared-state/streaming)** for the full walkthrough,
 including the corresponding `useAgent` subscription on the frontend.

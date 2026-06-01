@@ -2,19 +2,41 @@
   "_meta": {
     "description": "D6 fixtures for pydantic-ai / interrupt-headless",
     "sourceFile": "harness/fixtures/d5/interrupt-headless.json",
-    "created": "2026-05-22"
+    "created": "2026-05-21",
+    "copiedFrom": "langgraph-python"
   },
   "fixtures": [
     {
-      "_comment": "interrupt-headless sales-call pill \u2014 first leg: schedule_meeting tool call triggers Python agent's interrupt(...).",
+      "_comment": "interrupt-headless sales-call pill — second leg: confirmation after user picks a slot. Placed BEFORE first-leg so toolCallId matching takes precedence over toolName matching.",
       "match": {
-        "userMessage": "introductory sales team call",
-        "toolName": "schedule_meeting",
-        "hasToolResult": false,
+        "userMessage": "intro call with the sales team",
+        "toolCallId": "call_d5_schedule_sales_001",
         "context": "pydantic-ai"
       },
       "response": {
-        "content": "Sure \u2014 let me check available times.",
+        "content": "Booked: Sales intro call confirmed for the slot you picked."
+      }
+    },
+    {
+      "_comment": "interrupt-headless alice-1on1 pill — second leg: confirmation after user picks a slot. Placed BEFORE first-leg so toolCallId matching takes precedence.",
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolCallId": "call_d5_schedule_alice_001",
+        "context": "pydantic-ai"
+      },
+      "response": {
+        "content": "Scheduled: 1:1 with Alice locked in for the slot you picked."
+      }
+    },
+    {
+      "_comment": "interrupt-headless sales-call pill — first leg: schedule_meeting tool call triggers interrupt(...). Same agent/prompts as gen-ui-interrupt but different frontend (useHeadlessInterrupt renders in app surface pane, not inline).",
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "toolName": "schedule_meeting",
+        "context": "pydantic-ai"
+      },
+      "response": {
+        "content": "Sure — let me check available times.",
         "toolCalls": [
           {
             "id": "call_d5_schedule_sales_001",
@@ -38,43 +60,20 @@
       }
     },
     {
-      "_comment": "interrupt-headless sales-call pill \u2014 cancelled leg.",
+      "_comment": "interrupt-headless alice-1on1 pill — first leg: schedule_meeting tool call.",
       "match": {
-        "userMessage": "introductory sales team call",
-        "toolCallId": "call_d5_schedule_sales_001__cancelled",
-        "context": "pydantic-ai"
-      },
-      "response": {
-        "content": "Denied \u2014 the sales intro call was not booked because no time slot was selected."
-      }
-    },
-    {
-      "_comment": "interrupt-headless sales-call pill \u2014 second leg: confirmation after user picks a slot.",
-      "match": {
-        "userMessage": "introductory sales team call",
-        "toolCallId": "call_d5_schedule_sales_001",
-        "context": "pydantic-ai"
-      },
-      "response": {
-        "content": "Booked: Sales intro call confirmed for the slot you picked."
-      }
-    },
-    {
-      "_comment": "interrupt-headless alice-1on1 pill \u2014 first leg: schedule_meeting tool call.",
-      "match": {
-        "userMessage": "one-on-one with Alice",
+        "userMessage": "1:1 with Alice",
         "toolName": "schedule_meeting",
-        "hasToolResult": false,
         "context": "pydantic-ai"
       },
       "response": {
-        "content": "Got it \u2014 pulling up next-week slots.",
+        "content": "Got it — pulling up next-week slots.",
         "toolCalls": [
           {
             "id": "call_d5_schedule_alice_001",
             "name": "schedule_meeting",
             "arguments": {
-              "topic": "1:1 with Alice \u2014 Q2 goals",
+              "topic": "1:1 with Alice — Q2 goals",
               "attendee": "Alice",
               "slots": [
                 {
@@ -89,28 +88,6 @@
             }
           }
         ]
-      }
-    },
-    {
-      "_comment": "interrupt-headless alice-1on1 pill \u2014 cancelled leg.",
-      "match": {
-        "userMessage": "one-on-one with Alice",
-        "toolCallId": "call_d5_schedule_alice_001__cancelled",
-        "context": "pydantic-ai"
-      },
-      "response": {
-        "content": "Denied \u2014 the 1:1 with Alice was not scheduled because no time slot was selected."
-      }
-    },
-    {
-      "_comment": "interrupt-headless alice-1on1 pill \u2014 second leg: confirmation after user picks a slot.",
-      "match": {
-        "userMessage": "one-on-one with Alice",
-        "toolCallId": "call_d5_schedule_alice_001",
-        "context": "pydantic-ai"
-      },
-      "response": {
-        "content": "Scheduled: 1:1 with Alice locked in for the slot you picked."
       }
     }
   ]

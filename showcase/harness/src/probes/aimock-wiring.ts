@@ -43,23 +43,37 @@ export const SEALED_SENTINEL = "__SEALED__";
  */
 
 /**
- * Exact service names we do NOT check for aimock wiring. The aimock service
+ * Service names we do NOT check for aimock wiring. The aimock service
  * itself has no upstream to route through, and shell/pocketbase/harness are pure
  * infra with no LLM callers.
  *
- * Exact match (not prefix) is load-bearing: prefix-matching on "showcase-aimock"
- * would false-exclude a hypothetical "showcase-aimock-pinger-mock-for-test"
- * AND prevent it from showing up as unwired. Keep this list in sync with the
- * Railway service roster whenever new infra services are added.
+ * Entries are stored in their `showcase-`-prefixed form. The exclusion check
+ * (`isExcluded`) normalizes inputs by stripping a leading `showcase-` so a
+ * bare deployed name (e.g. `harness`, `shell`, `aimock`) matches the same
+ * canonical entry as the prefixed form (`showcase-harness`, …). This is
+ * load-bearing: actual deployed Railway service names in the production
+ * project are BARE — without the strip, every bare infra service would have
+ * been counted as unwired (no `*_BASE_URL` overrides because they are not
+ * LLM callers) and the probe would have stayed red forever.
+ *
+ * Match is still effectively EXACT post-strip (not prefix): a hypothetical
+ * `showcase-aimock-pinger-mock-for-test` strips to `aimock-pinger-mock-for-test`,
+ * which is NOT in the set, so it would correctly surface as unwired. Keep
+ * this list in sync with the Railway service roster whenever new infra
+ * services are added.
  */
 const EXCLUDE_SERVICES: ReadonlySet<string> = new Set([
   "showcase-aimock",
   "showcase-shell",
   "showcase-shell-dashboard",
+  "showcase-dashboard",
   "showcase-shell-docs",
+  "showcase-docs",
   "showcase-shell-dojo",
+  "showcase-dojo",
   "showcase-pocketbase",
   "showcase-harness",
+  "showcase-webhooks",
   "showcase-ms-agent-harness-dotnet",
   "showcase-starter-ag2",
   "showcase-starter-agno",
@@ -169,7 +183,15 @@ export interface AimockWiringSignal {
 const ERRORED_PREVIEW_MAX = 5;
 
 function isExcluded(name: string): boolean {
-  return EXCLUDE_SERVICES.has(name);
+  // Match either the literal name or its `showcase-`-prefixed form. Railway
+  // service names in the production project are BARE (`harness`, `shell`,
+  // `aimock`, …) while EXCLUDE_SERVICES is keyed by the `showcase-`-prefixed
+  // form for historical reasons (the legacy local-dev project named services
+  // with that prefix). Comparing both forms keeps the set robust to either
+  // naming convention without forcing operators to maintain two parallel
+  // sets that can drift.
+  if (EXCLUDE_SERVICES.has(name)) return true;
+  return EXCLUDE_SERVICES.has(`showcase-${name}`);
 }
 
 /**

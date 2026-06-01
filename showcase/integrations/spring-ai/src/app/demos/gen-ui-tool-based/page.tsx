@@ -1,31 +1,15 @@
 "use client";
 
-// Tool-Based Generative UI for Spring AI.
-// The Spring backend exposes tools (e.g. query_data); the frontend registers
-// per-tool component renderers via `useComponent`. When the Spring agent calls
-// a render tool with chart-shaped args, the matching React component renders
-// inline in the chat.
-//
-// Spring AI's ChatClient streams arguments and the renderer handles partial
-// args via Zod's safeParse fallback path, mirroring the LangGraph variant.
-
+// @region[bar-chart-renderer]
 import React from "react";
 import {
-  CopilotKit,
   CopilotChat,
+  CopilotKit,
   useComponent,
-  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { BarChart, barChartPropsSchema } from "./bar-chart";
 import { PieChart, pieChartPropsSchema } from "./pie-chart";
-
-export default function GenUiToolBasedDemo() {
-  return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-tool-based">
-      <Chat />
-    </CopilotKit>
-  );
-}
+import { useSuggestions } from "./suggestions";
 
 function Chat() {
   useComponent({
@@ -34,31 +18,18 @@ function Chat() {
     parameters: barChartPropsSchema,
     render: BarChart,
   });
+  // @endregion[bar-chart-renderer]
 
+  // @region[pie-chart-renderer]
   useComponent({
     name: "render_pie_chart",
     description: "Display a pie chart with labeled numeric values.",
     parameters: pieChartPropsSchema,
     render: PieChart,
   });
+  // @endregion[pie-chart-renderer]
 
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Sales bar chart",
-        message: "Show me a bar chart of quarterly sales for Q1, Q2, Q3, Q4.",
-      },
-      {
-        title: "Traffic pie chart",
-        message: "Show me a pie chart of website traffic by source.",
-      },
-      {
-        title: "Market share",
-        message: "Show a pie chart of smartphone market share by brand.",
-      },
-    ],
-    available: "always",
-  });
+  useSuggestions();
 
   return (
     <div className="flex justify-center items-center h-screen w-full">
@@ -69,5 +40,13 @@ function Chat() {
         />
       </div>
     </div>
+  );
+}
+
+export default function ControlledGenUiDemo() {
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-tool-based">
+      <Chat />
+    </CopilotKit>
   );
 }

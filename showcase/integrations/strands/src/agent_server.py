@@ -90,6 +90,17 @@ def _assert_instrumentor_patched() -> None:
 
 _assert_instrumentor_patched()
 
+# ORDER-CRITICAL: install the global httpx hook BEFORE any agent module
+# imports. Strands' ``OpenAIModel`` constructs its httpx client at
+# ``build_showcase_agent()`` time below (run at module-import scope), so
+# the patch must be in place before the agent imports resolve.
+from agents._header_forwarding import (  # noqa: E402
+    HeaderForwardingHTTPMiddleware,
+    install_global_httpx_hook,
+)
+
+install_global_httpx_hook()
+
 import uvicorn  # noqa: E402  (kept after patch for consistent import-ordering policy)
 from dotenv import load_dotenv  # noqa: E402
 from starlette.middleware.base import BaseHTTPMiddleware  # noqa: E402
@@ -131,6 +142,12 @@ class HealthMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(HealthMiddleware)
+
+# Capture inbound CopilotKit ``x-*`` headers (e.g. ``x-aimock-context``)
+# into a per-request ContextVar so any outbound LLM/provider httpx call
+# made inside the request scope copies them onto its outbound request.
+# Paired with ``install_global_httpx_hook`` above.
+app.add_middleware(HeaderForwardingHTTPMiddleware)
 
 
 def main():

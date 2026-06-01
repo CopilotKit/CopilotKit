@@ -7,7 +7,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --legacy-peer-deps
 COPY src/ ./src/
 COPY public/ ./public/
-COPY next.config.ts tsconfig.json postcss.config.mjs ./
+COPY next.config.ts tsconfig.json postcss.config.mjs manifest.yaml ./
 RUN npm run build
 
 # Stage 2: Build Python venv with agent deps

@@ -17,18 +17,18 @@
       }
     },
     {
-      "_comment": "shared-state-read-write — Greet pill. Matches on userMessage only; the systemMessage gate was too fragile (the middleware's output format varies by CopilotKit runtime version and system prompt ordering).",
+      "_comment": "shared-state-read-write \u2014 Greet pill. Matches on userMessage only; the systemMessage gate was too fragile (the middleware's output format varies by CopilotKit runtime version and system prompt ordering).",
       "match": {
         "userMessage": "Say hi and introduce yourself",
         "turnIndex": 0,
         "context": "claude-sdk-typescript"
       },
       "response": {
-        "content": "Hi — I'm your shared-state co-pilot. Your Preferences panel (name, tone, language, interests) is fed to me on every turn, and I jot notes back into the Agent Scratch Pad via set_notes so the UI re-renders. Try setting your name or asking me to remember something."
+        "content": "Hi \u2014 I'm your shared-state co-pilot. Your Preferences panel (name, tone, language, interests) is fed to me on every turn, and I jot notes back into the Agent Scratch Pad via set_notes so the UI re-renders. Try setting your name or asking me to remember something."
       }
     },
     {
-      "_comment": "shared-state-read-write — Plan-a-weekend pill. Same no-systemMessage gate as the Greet pill.",
+      "_comment": "shared-state-read-write \u2014 Plan-a-weekend pill. Same no-systemMessage gate as the Greet pill.",
       "match": {
         "userMessage": "weekend plan based on my interests",
         "turnIndex": 0,
@@ -61,17 +61,16 @@
         "context": "claude-sdk-typescript"
       },
       "response": {
-        "content": "Got it — I have noted that your favorite color is blue."
+        "content": "Got it \u2014 I have noted that your favorite color is blue."
       }
     },
     {
       "match": {
         "userMessage": "favorite color",
-        "turnIndex": 0,
         "context": "claude-sdk-typescript"
       },
       "response": {
-        "content": "Your favorite color is blue — I noted it earlier."
+        "content": "Your favorite color is blue \u2014 I noted it earlier."
       }
     }
   ]

@@ -22,6 +22,7 @@ import {
 import { getLocalAgent } from "@ag-ui/mastra";
 import { mastra } from "@/mastra";
 import { DEMO_AUTH_HEADER } from "@/app/demos/auth/demo-token";
+import { withForwardedHeaders } from "@/mastra/_header_forwarding";
 
 // Reuse the shared `weatherAgent` for the authenticated path. The point of
 // this demo is the gate mechanism, not per-user agent branching.
@@ -77,5 +78,7 @@ const handler = createCopilotRuntimeHandler({
 // Next.js App Router bindings. The handler is framework-agnostic — it takes
 // a web Request and returns a web Response — so it drops straight into the
 // POST/GET exports without any adapter shim.
-export const POST = (req: NextRequest) => handler(req);
-export const GET = (req: NextRequest) => handler(req);
+export const POST = (req: NextRequest) =>
+  withForwardedHeaders(req, () => handler(req));
+export const GET = (req: NextRequest) =>
+  withForwardedHeaders(req, () => handler(req));

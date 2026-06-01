@@ -30,8 +30,10 @@ FROM node:22-slim AS frontend
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --legacy-peer-deps
-COPY next.config.ts tsconfig.json postcss.config.mjs ./
+COPY next.config.ts tsconfig.json postcss.config.mjs manifest.yaml ./
 COPY src/app/ src/app/
+COPY src/components/ src/components/
+COPY src/lib/ src/lib/
 COPY public/ public/
 RUN npm run build
 

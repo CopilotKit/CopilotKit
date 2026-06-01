@@ -2,7 +2,6 @@
   "_meta": {
     "description": "D6 fixtures for google-adk / hitl-in-chat",
     "sourceFile": "d5-all.json",
-    "copiedFrom": "langgraph-python",
     "created": "2026-05-21"
   },
   "fixtures": [
@@ -29,7 +28,7 @@
         "context": "google-adk"
       },
       "response": {
-        "content": "Booked Alice's onboarding call for the time you selected — calendar invite is on its way."
+        "content": "Booked Alice's onboarding call for the time you selected \u2014 calendar invite is on its way."
       }
     },
     {
@@ -94,7 +93,7 @@
           {
             "name": "schedule_meeting",
             "arguments": {
-              "topic": "1:1 with Alice — Q2 goals",
+              "topic": "1:1 with Alice \u2014 Q2 goals",
               "attendee": "Alice",
               "slots": [
                 {

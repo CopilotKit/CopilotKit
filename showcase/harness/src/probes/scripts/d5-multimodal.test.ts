@@ -70,8 +70,13 @@ describe("d5-multimodal script", () => {
     };
     const turns = buildTurns(ctx);
     expect(turns).toHaveLength(2);
-    expect(turns[0]!.input).toBe("describe the sample image");
-    expect(turns[1]!.input).toBe("summarize the sample document");
+    // These `input` values are auto-send button sentinels emitted by the
+    // in-app shim when the preFill hook clicks the sample-attachment
+    // buttons — they are NOT natural-language prompts the user types.
+    // Don't "fix" these expectations back to prose; the shim's auto-send
+    // path is what's under test here.
+    expect(turns[0]!.input).toBe("image-sample-button (auto-sent)");
+    expect(turns[1]!.input).toBe("pdf-sample-button (auto-sent)");
   });
 
   it("buildTurns wires preFill on both turns", () => {

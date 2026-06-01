@@ -113,6 +113,50 @@ describe("aimock-wiring probe", () => {
     expect(r.signal.wiredCount).toBe(0);
   });
 
+  it("excludes BARE-named Railway infra services (no `showcase-` prefix)", async () => {
+    // Regression: actual deployed Railway service names are bare
+    // (`harness`, `shell`, `dashboard`, `docs`, `dojo`, `pocketbase`,
+    // `webhooks`, `aimock`) but EXCLUDE_SERVICES only listed the
+    // `showcase-`-prefixed form, so the probe counted all infra services
+    // as unwired and went red on staging/prod despite aimock being
+    // correctly wired. Both forms must be treated as excluded.
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [
+          { name: "aimock" },
+          { name: "harness" },
+          { name: "shell" },
+          { name: "dashboard" },
+          { name: "docs" },
+          { name: "dojo" },
+          { name: "pocketbase" },
+          { name: "webhooks" },
+        ],
+        // None of these have aimock base URLs — all are non-LLM infra
+        // and must be excluded regardless of bare-vs-prefixed naming.
+        getServiceEnv: async () => ({}),
+      },
+      ctx,
+    );
+    expect(r.state).toBe("green");
+    expect(r.signal.unwired).toEqual([]);
+    expect(r.signal.wiredCount).toBe(0);
+  });
+
+  it("excludes bare-named ms-agent-harness-dotnet (non-LLM infra)", async () => {
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [{ name: "ms-agent-harness-dotnet" }],
+        getServiceEnv: async () => ({}),
+      },
+      ctx,
+    );
+    expect(r.state).toBe("green");
+    expect(r.signal.unwired).toEqual([]);
+  });
+
   it("does NOT false-exclude services that merely share a prefix with infra names", async () => {
     // Regression: a prefix-based match on `showcase-aimock` would incorrectly
     // exclude `showcase-aimock-pinger-mock-for-test` (or any hypothetical

@@ -30,6 +30,8 @@ RUN cd scripts && node node_modules/tsx/dist/cli.mjs generate-registry.ts \
 
 FROM node:20-slim AS runner
 WORKDIR /app
+ARG COMMIT_SHA=unknown
+ARG BRANCH=unknown
 ENV NODE_ENV=production
 ENV PORT=10000
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}

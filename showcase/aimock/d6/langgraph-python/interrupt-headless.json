@@ -6,6 +6,28 @@
   },
   "fixtures": [
     {
+      "_comment": "interrupt-headless sales-call pill — second leg: confirmation after user picks a slot. Placed BEFORE first-leg so toolCallId matching takes precedence over toolName matching.",
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "toolCallId": "call_d5_schedule_sales_001",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "Booked: Sales intro call confirmed for the slot you picked."
+      }
+    },
+    {
+      "_comment": "interrupt-headless alice-1on1 pill — second leg: confirmation after user picks a slot. Placed BEFORE first-leg so toolCallId matching takes precedence.",
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolCallId": "call_d5_schedule_alice_001",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "Scheduled: 1:1 with Alice locked in for the slot you picked."
+      }
+    },
+    {
       "_comment": "interrupt-headless sales-call pill — first leg: schedule_meeting tool call triggers interrupt(...). Same agent/prompts as gen-ui-interrupt but different frontend (useHeadlessInterrupt renders in app surface pane, not inline).",
       "match": {
         "userMessage": "intro call with the sales team",
@@ -31,17 +53,6 @@
       }
     },
     {
-      "_comment": "interrupt-headless sales-call pill — second leg: confirmation after user picks a slot.",
-      "match": {
-        "userMessage": "intro call with the sales team",
-        "toolCallId": "call_d5_schedule_sales_001",
-        "context": "langgraph-python"
-      },
-      "response": {
-        "content": "Booked: Sales intro call confirmed for the slot you picked."
-      }
-    },
-    {
       "_comment": "interrupt-headless alice-1on1 pill — first leg: schedule_meeting tool call.",
       "match": {
         "userMessage": "1:1 with Alice",
@@ -64,17 +75,6 @@
             }
           }
         ]
-      }
-    },
-    {
-      "_comment": "interrupt-headless alice-1on1 pill — second leg: confirmation after user picks a slot.",
-      "match": {
-        "userMessage": "1:1 with Alice",
-        "toolCallId": "call_d5_schedule_alice_001",
-        "context": "langgraph-python"
-      },
-      "response": {
-        "content": "Scheduled: 1:1 with Alice locked in for the slot you picked."
       }
     }
   ]

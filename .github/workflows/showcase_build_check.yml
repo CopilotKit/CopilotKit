@@ -9,9 +9,11 @@ on:
   pull_request:
     paths:
       - "showcase/**"
+      - ".github/workflows/showcase_build.yml"
+      - ".github/workflows/showcase_build_check.yml"
 
 concurrency:
-  group: showcase-build-check-${{ github.head_ref }}
+  group: showcase-build-check-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 permissions:
@@ -36,6 +38,9 @@ jobs:
         id: filter
         with:
           filters: |
+            workflow_config:
+              - '.github/workflows/showcase_build.yml'
+              - '.github/workflows/showcase_build_check.yml'
             shell:
               - 'showcase/shell/**'
               - 'showcase/shared/**'
@@ -94,6 +99,9 @@ jobs:
               - 'showcase/shared/**'
               - 'showcase/scripts/**'
               - 'showcase/integrations/*/manifest.yaml'
+              - 'showcase/integrations/*/docs-links.json'
+              - 'showcase/integrations/*/docs/setup/**'
+              - 'showcase/integrations/*/src/**'
             showcase_harness:
               - 'showcase/harness/**'
               - 'showcase/shared/**'
@@ -139,24 +147,23 @@ jobs:
             {"dispatch_name":"claude-sdk-python","filter_key":"claude_sdk_python","context":"showcase/integrations/claude-sdk-python","image":"showcase-claude-sdk-python","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"built-in-agent","filter_key":"built_in_agent","context":"showcase/integrations/built-in-agent","image":"showcase-built-in-agent","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"shell-dojo","filter_key":"shell_dojo","context":".","image":"showcase-shell-dojo","timeout":10,"lfs":false,"build_args":"","dockerfile":"showcase/shell-dojo/Dockerfile"},
-            {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","build_args_pb_url":"https://showcase-pocketbase-production.up.railway.app","build_args_shell_url":"https://showcase.copilotkit.ai","build_args_ops_url":"https://showcase-harness-production.up.railway.app","dockerfile":"showcase/shell-dashboard/Dockerfile"},
+            {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-dashboard/Dockerfile"},
             {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-docs/Dockerfile"},
             {"dispatch_name":"showcase-harness","filter_key":"showcase_harness","context":".","image":"showcase-harness","timeout":20,"lfs":false,"build_args":"","dockerfile":"showcase/harness/Dockerfile"},
             {"dispatch_name":"showcase-aimock","filter_key":"showcase_aimock","context":"showcase/aimock","image":"showcase-aimock","timeout":5,"lfs":false,"build_args":"","dockerfile":"showcase/aimock/Dockerfile"}
           ]'
 
-          # Substitute trusted PR head sha/ref into JSON placeholders.
-          # Routed through env: above to satisfy zizmor template-injection check.
-          # Note: PR_HEAD_REF is attacker-controllable (fork branch name) but is only
-          # consumed as a Docker build-arg label inside the isolated build context.
-          ALL_SERVICES="${ALL_SERVICES//__GH_SHA__/$PR_HEAD_SHA}"
-          ALL_SERVICES="${ALL_SERVICES//__GH_REF_NAME__/$PR_HEAD_REF}"
-
           CHANGES="${FILTER_CHANGES:-[]}"
 
-          # PR event only — filter to changed services
-          MATRIX=$(echo "$ALL_SERVICES" | jq -c --argjson changes "$CHANGES" '
-            [.[] | (.filter_key as $fk | select(
+          # PR event only — filter to changed services. Use jq --arg for
+          # untrusted PR metadata so branch names are encoded as JSON data,
+          # not interpolated into shell source.
+          MATRIX=$(echo "$ALL_SERVICES" | jq -c --argjson changes "$CHANGES" --arg sha "$PR_HEAD_SHA" --arg ref "$PR_HEAD_REF" '
+            [.[] |
+              if .build_args_sha == "__GH_SHA__" then .build_args_sha = $sha else . end |
+              if .build_args_branch == "__GH_REF_NAME__" then .build_args_branch = $ref else . end |
+              (.filter_key as $fk | select(
+              ($changes | index("workflow_config") != null) or
               ($changes | index($fk) != null)
             ))]
           ')
@@ -193,20 +200,14 @@ jobs:
 
       - name: Prepare build args
         id: build-args
+        env:
+          BUILD_ARGS_SHA: ${{ matrix.service.build_args_sha }}
+          BUILD_ARGS_BRANCH: ${{ matrix.service.build_args_branch }}
         run: |
           ARGS=""
-          if [ -n "${{ matrix.service.build_args_sha }}" ]; then
-            ARGS="COMMIT_SHA=${{ matrix.service.build_args_sha }}"
-            ARGS="${ARGS}"$'\n'"BRANCH=${{ matrix.service.build_args_branch }}"
-          fi
-          if [ -n "${{ matrix.service.build_args_pb_url }}" ]; then
-            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_POCKETBASE_URL=${{ matrix.service.build_args_pb_url }}"
-          fi
-          if [ -n "${{ matrix.service.build_args_shell_url }}" ]; then
-            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_SHELL_URL=${{ matrix.service.build_args_shell_url }}"
-          fi
-          if [ -n "${{ matrix.service.build_args_ops_url }}" ]; then
-            ARGS="${ARGS:+${ARGS}$'\n'}OPS_BASE_URL=${{ matrix.service.build_args_ops_url }}"
+          if [ -n "$BUILD_ARGS_SHA" ]; then
+            ARGS="COMMIT_SHA=${BUILD_ARGS_SHA}"
+            ARGS="${ARGS}"$'\n'"BRANCH=${BUILD_ARGS_BRANCH}"
           fi
           # Use delimiter to safely pass multiline value
           echo "args<<BUILDARGS_EOF" >> $GITHUB_OUTPUT
@@ -239,7 +240,7 @@ jobs:
           done
 
       - name: Build Docker image (no push)
-        uses: depot/build-push-action@5f3b3c2e5a00f0093de47f657aeaefcedff27d18 # v1.17.0
+        uses: depot/build-push-action@98e78adca7817480b8185f474a400b451d74e287 # v1.18.0
         with:
           project: m2kw2wmmcp
           context: ${{ matrix.service.context }}

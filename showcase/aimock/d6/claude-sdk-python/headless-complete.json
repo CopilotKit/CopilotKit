@@ -40,14 +40,13 @@
         "context": "claude-sdk-python"
       },
       "response": {
-        "content": "Here is the chart of revenue over the last six months — quarterly revenue grew steadily, peaking in June."
+        "content": "Here is the chart of revenue over the last six months \u2014 quarterly revenue grew steadily, peaking in June."
       }
     },
     {
       "_comment": "headless-complete revenue chart pill: locks the deterministic chart leading phrase. Two-turn fixture: turn 1 emits the get_revenue_chart tool call (no parameters per the python tool); turn 2 emits the narration that the headless message-assistant bubble renders alongside the ChartCard.",
       "match": {
         "userMessage": "chart of revenue over the last six months",
-        "turnIndex": 0,
         "context": "claude-sdk-python"
       },
       "response": {
@@ -93,7 +92,6 @@
     {
       "match": {
         "userMessage": "ship the demo on Friday",
-        "turnIndex": 0,
         "context": "claude-sdk-python"
       },
       "response": {

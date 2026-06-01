@@ -2,7 +2,8 @@
   "_meta": {
     "description": "D6 fixtures for ms-agent-python / gen-ui-agent",
     "sourceFile": "frontend-tools-async.json (extracted)",
-    "created": "2026-05-21"
+    "created": "2026-05-29",
+    "copiedFrom": "langgraph-python"
   },
   "fixtures": [
     {
@@ -11,8 +12,9 @@
         "context": "ms-agent-python"
       },
       "response": {
-        "content": "All three launch steps complete. Goals defined, marketing aligned, post-launch metrics tracked — ready to ship."
-      }
+        "content": "All three launch steps complete. Goals defined, marketing aligned, post-launch metrics tracked \u2014 ready to ship."
+      },
+      "chunkSize": 9999
     },
     {
       "match": {
@@ -27,7 +29,8 @@
             "arguments": "{\"steps\":[{\"id\":\"launch-1\",\"title\":\"Define launch goals and audience\",\"status\":\"completed\"},{\"id\":\"launch-2\",\"title\":\"Coordinate marketing and PR rollout\",\"status\":\"completed\"},{\"id\":\"launch-3\",\"title\":\"Track post-launch metrics for week 1\",\"status\":\"completed\"}]}"
           }
         ]
-      }
+      },
+      "chunkSize": 9999
     },
     {
       "match": {
@@ -42,7 +45,8 @@
             "arguments": "{\"steps\":[{\"id\":\"launch-1\",\"title\":\"Define launch goals and audience\",\"status\":\"completed\"},{\"id\":\"launch-2\",\"title\":\"Coordinate marketing and PR rollout\",\"status\":\"completed\"},{\"id\":\"launch-3\",\"title\":\"Track post-launch metrics for week 1\",\"status\":\"in_progress\"}]}"
           }
         ]
-      }
+      },
+      "chunkSize": 9999
     },
     {
       "match": {
@@ -57,7 +61,8 @@
             "arguments": "{\"steps\":[{\"id\":\"launch-1\",\"title\":\"Define launch goals and audience\",\"status\":\"completed\"},{\"id\":\"launch-2\",\"title\":\"Coordinate marketing and PR rollout\",\"status\":\"completed\"},{\"id\":\"launch-3\",\"title\":\"Track post-launch metrics for week 1\",\"status\":\"pending\"}]}"
           }
         ]
-      }
+      },
+      "chunkSize": 9999
     },
     {
       "match": {
@@ -72,7 +77,8 @@
             "arguments": "{\"steps\":[{\"id\":\"launch-1\",\"title\":\"Define launch goals and audience\",\"status\":\"completed\"},{\"id\":\"launch-2\",\"title\":\"Coordinate marketing and PR rollout\",\"status\":\"in_progress\"},{\"id\":\"launch-3\",\"title\":\"Track post-launch metrics for week 1\",\"status\":\"pending\"}]}"
           }
         ]
-      }
+      },
+      "chunkSize": 9999
     },
     {
       "match": {
@@ -87,7 +93,8 @@
             "arguments": "{\"steps\":[{\"id\":\"launch-1\",\"title\":\"Define launch goals and audience\",\"status\":\"completed\"},{\"id\":\"launch-2\",\"title\":\"Coordinate marketing and PR rollout\",\"status\":\"pending\"},{\"id\":\"launch-3\",\"title\":\"Track post-launch metrics for week 1\",\"status\":\"pending\"}]}"
           }
         ]
-      }
+      },
+      "chunkSize": 9999
     },
     {
       "match": {
@@ -102,7 +109,8 @@
             "arguments": "{\"steps\":[{\"id\":\"launch-1\",\"title\":\"Define launch goals and audience\",\"status\":\"in_progress\"},{\"id\":\"launch-2\",\"title\":\"Coordinate marketing and PR rollout\",\"status\":\"pending\"},{\"id\":\"launch-3\",\"title\":\"Track post-launch metrics for week 1\",\"status\":\"pending\"}]}"
           }
         ]
-      }
+      },
+      "chunkSize": 9999
     },
     {
       "match": {
@@ -117,7 +125,8 @@
             "arguments": "{\"steps\":[{\"id\":\"launch-1\",\"title\":\"Define launch goals and audience\",\"status\":\"pending\"},{\"id\":\"launch-2\",\"title\":\"Coordinate marketing and PR rollout\",\"status\":\"pending\"},{\"id\":\"launch-3\",\"title\":\"Track post-launch metrics for week 1\",\"status\":\"pending\"}]}"
           }
         ]
-      }
+      },
+      "chunkSize": 9999
     },
     {
       "match": {
@@ -126,7 +135,8 @@
       },
       "response": {
         "content": "Offsite locked in. Venue booked, agenda set, travel and meals arranged."
-      }
+      },
+      "chunkSize": 9999
     },
     {
       "match": {
@@ -141,7 +151,8 @@
             "arguments": "{\"steps\":[{\"id\":\"offsite-1\",\"title\":\"Reserve venue near downtown for 30 engineers\",\"status\":\"completed\"},{\"id\":\"offsite-2\",\"title\":\"Build day-by-day agenda with workshop slots\",\"status\":\"completed\"},{\"id\":\"offsite-3\",\"title\":\"Arrange travel, lodging and group meals\",\"status\":\"completed\"}]}"
           }
         ]
-      }
+      },
+      "chunkSize": 9999
     },
     {
       "match": {
@@ -156,7 +167,8 @@
             "arguments": "{\"steps\":[{\"id\":\"offsite-1\",\"title\":\"Reserve venue near downtown for 30 engineers\",\"status\":\"completed\"},{\"id\":\"offsite-2\",\"title\":\"Build day-by-day agenda with workshop slots\",\"status\":\"completed\"},{\"id\":\"offsite-3\",\"title\":\"Arrange travel, lodging and group meals\",\"status\":\"in_progress\"}]}"
           }
         ]
-      }
+      },
+      "chunkSize": 9999
     },
     {
       "match": {
@@ -171,7 +183,8 @@
             "arguments": "{\"steps\":[{\"id\":\"offsite-1\",\"title\":\"Reserve venue near downtown for 30 engineers\",\"status\":\"completed\"},{\"id\":\"offsite-2\",\"title\":\"Build day-by-day agenda with workshop slots\",\"status\":\"completed\"},{\"id\":\"offsite-3\",\"title\":\"Arrange travel, lodging and group meals\",\"status\":\"pending\"}]}"
           }
         ]
-      }
+      },
+      "chunkSize": 9999
     },
     {
       "match": {
@@ -186,7 +199,8 @@
             "arguments": "{\"steps\":[{\"id\":\"offsite-1\",\"title\":\"Reserve venue near downtown for 30 engineers\",\"status\":\"completed\"},{\"id\":\"offsite-2\",\"title\":\"Build day-by-day agenda with workshop slots\",\"status\":\"in_progress\"},{\"id\":\"offsite-3\",\"title\":\"Arrange travel, lodging and group meals\",\"status\":\"pending\"}]}"
           }
         ]
-      }
+      },
+      "chunkSize": 9999
     },
     {
       "match": {
@@ -201,7 +215,8 @@
             "arguments": "{\"steps\":[{\"id\":\"offsite-1\",\"title\":\"Reserve venue near downtown for 30 engineers\",\"status\":\"completed\"},{\"id\":\"offsite-2\",\"title\":\"Build day-by-day agenda with workshop slots\",\"status\":\"pending\"},{\"id\":\"offsite-3\",\"title\":\"Arrange travel, lodging and group meals\",\"status\":\"pending\"}]}"
           }
         ]
-      }
+      },
+      "chunkSize": 9999
     },
     {
       "match": {
@@ -216,7 +231,8 @@
             "arguments": "{\"steps\":[{\"id\":\"offsite-1\",\"title\":\"Reserve venue near downtown for 30 engineers\",\"status\":\"in_progress\"},{\"id\":\"offsite-2\",\"title\":\"Build day-by-day agenda with workshop slots\",\"status\":\"pending\"},{\"id\":\"offsite-3\",\"title\":\"Arrange travel, lodging and group meals\",\"status\":\"pending\"}]}"
           }
         ]
-      }
+      },
+      "chunkSize": 9999
     },
     {
       "match": {
@@ -231,7 +247,8 @@
             "arguments": "{\"steps\":[{\"id\":\"offsite-1\",\"title\":\"Reserve venue near downtown for 30 engineers\",\"status\":\"pending\"},{\"id\":\"offsite-2\",\"title\":\"Build day-by-day agenda with workshop slots\",\"status\":\"pending\"},{\"id\":\"offsite-3\",\"title\":\"Arrange travel, lodging and group meals\",\"status\":\"pending\"}]}"
           }
         ]
-      }
+      },
+      "chunkSize": 9999
     },
     {
       "match": {
@@ -240,7 +257,8 @@
       },
       "response": {
         "content": "Competitor brief assembled. Surface mapped, themes summarized, exploitable weaknesses identified."
-      }
+      },
+      "chunkSize": 9999
     },
     {
       "match": {
@@ -255,7 +273,8 @@
             "arguments": "{\"steps\":[{\"id\":\"comp-1\",\"title\":\"Map competitor product surface and pricing tiers\",\"status\":\"completed\"},{\"id\":\"comp-2\",\"title\":\"Summarize their public differentiation themes\",\"status\":\"completed\"},{\"id\":\"comp-3\",\"title\":\"Identify weaknesses our positioning can exploit\",\"status\":\"completed\"}]}"
           }
         ]
-      }
+      },
+      "chunkSize": 9999
     },
     {
       "match": {
@@ -270,7 +289,8 @@
             "arguments": "{\"steps\":[{\"id\":\"comp-1\",\"title\":\"Map competitor product surface and pricing tiers\",\"status\":\"completed\"},{\"id\":\"comp-2\",\"title\":\"Summarize their public differentiation themes\",\"status\":\"completed\"},{\"id\":\"comp-3\",\"title\":\"Identify weaknesses our positioning can exploit\",\"status\":\"in_progress\"}]}"
           }
         ]
-      }
+      },
+      "chunkSize": 9999
     },
     {
       "match": {
@@ -285,7 +305,8 @@
             "arguments": "{\"steps\":[{\"id\":\"comp-1\",\"title\":\"Map competitor product surface and pricing tiers\",\"status\":\"completed\"},{\"id\":\"comp-2\",\"title\":\"Summarize their public differentiation themes\",\"status\":\"completed\"},{\"id\":\"comp-3\",\"title\":\"Identify weaknesses our positioning can exploit\",\"status\":\"pending\"}]}"
           }
         ]
-      }
+      },
+      "chunkSize": 9999
     },
     {
       "match": {
@@ -300,7 +321,8 @@
             "arguments": "{\"steps\":[{\"id\":\"comp-1\",\"title\":\"Map competitor product surface and pricing tiers\",\"status\":\"completed\"},{\"id\":\"comp-2\",\"title\":\"Summarize their public differentiation themes\",\"status\":\"in_progress\"},{\"id\":\"comp-3\",\"title\":\"Identify weaknesses our positioning can exploit\",\"status\":\"pending\"}]}"
           }
         ]
-      }
+      },
+      "chunkSize": 9999
     },
     {
       "match": {
@@ -315,7 +337,8 @@
             "arguments": "{\"steps\":[{\"id\":\"comp-1\",\"title\":\"Map competitor product surface and pricing tiers\",\"status\":\"completed\"},{\"id\":\"comp-2\",\"title\":\"Summarize their public differentiation themes\",\"status\":\"pending\"},{\"id\":\"comp-3\",\"title\":\"Identify weaknesses our positioning can exploit\",\"status\":\"pending\"}]}"
           }
         ]
-      }
+      },
+      "chunkSize": 9999
     },
     {
       "match": {
@@ -330,7 +353,8 @@
             "arguments": "{\"steps\":[{\"id\":\"comp-1\",\"title\":\"Map competitor product surface and pricing tiers\",\"status\":\"in_progress\"},{\"id\":\"comp-2\",\"title\":\"Summarize their public differentiation themes\",\"status\":\"pending\"},{\"id\":\"comp-3\",\"title\":\"Identify weaknesses our positioning can exploit\",\"status\":\"pending\"}]}"
           }
         ]
-      }
+      },
+      "chunkSize": 9999
     },
     {
       "match": {
@@ -345,7 +369,8 @@
             "arguments": "{\"steps\":[{\"id\":\"comp-1\",\"title\":\"Map competitor product surface and pricing tiers\",\"status\":\"pending\"},{\"id\":\"comp-2\",\"title\":\"Summarize their public differentiation themes\",\"status\":\"pending\"},{\"id\":\"comp-3\",\"title\":\"Identify weaknesses our positioning can exploit\",\"status\":\"pending\"}]}"
           }
         ]
-      }
+      },
+      "chunkSize": 9999
     }
   ]
 }

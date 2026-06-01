@@ -20,7 +20,6 @@ on:
       - "pnpm-workspace.yaml"
       - ".github/workflows/showcase_validate.yml"
       - ".github/workflows/showcase_deploy.yml"
-      - ".github/workflows/showcase_smoke-monitor.yml"
 
 # Least-privilege by default. Individual jobs/steps can widen when needed.
 permissions:
@@ -604,3 +603,65 @@ jobs:
             echo "::warning::No showcase/integrations/*/tests/python/ directories found"
           fi
           exit "$failed"
+
+  notify:
+    # Slack #oss-alerts on any red. Never #engr (engr is sacred — release alerts only).
+    # Mirrors the workflow-level notify pattern in showcase_promote.yml so
+    # red runs surface uniformly across the showcase pipeline. The validate
+    # job has its own inline (and richer) push-only notifier that extracts
+    # the failing step + error excerpt; this job is the workflow-level
+    # safety net that also covers the python-unit-tests matrix job — which
+    # otherwise had no Slack signal at all. Webhook empty-guard mirrors
+    # promote.yml so an unset SLACK_WEBHOOK_OSS_ALERTS secret does not
+    # break the shell or red the workflow on this step.
+    needs: [validate, python-unit-tests]
+    if: always() && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      actions: read
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+    steps:
+      - name: Compute state
+        id: state
+        env:
+          VALIDATE: ${{ needs.validate.result }}
+          PYTEST: ${{ needs.python-unit-tests.result }}
+        run: |
+          set -euo pipefail
+          if [ "$VALIDATE" = "success" ] && [ "$PYTEST" = "success" ]; then
+            STATE="success"; ICON=":white_check_mark:"
+          else
+            STATE="failure"; ICON=":x:"
+          fi
+          {
+            echo "state=$STATE"
+            echo "icon=$ICON"
+          } >> "$GITHUB_OUTPUT"
+      - name: Post to #oss-alerts
+        if: steps.state.outputs.state == 'failure' && env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": ${{ toJSON(format(
+                '{0} *showcase_validate failed on {1}*\nvalidate={2} python-unit-tests={3}\n<{4}/{5}/actions/runs/{6}|View run>',
+                steps.state.outputs.icon,
+                github.ref,
+                needs.validate.result,
+                needs.python-unit-tests.result,
+                github.server_url,
+                github.repository,
+                github.run_id
+              )) }}
+            }
+      - name: Log (no Slack — webhook unset)
+        if: steps.state.outputs.state == 'failure' && env.SLACK_WEBHOOK == ''
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          echo "::warning::showcase_validate failed on $REF but SLACK_WEBHOOK_OSS_ALERTS is not set; no Slack notification sent."

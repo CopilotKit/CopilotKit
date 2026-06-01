@@ -16,6 +16,10 @@ import { computeColumnTallyDetail } from "@/components/feature-grid";
 /*  Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
+// Recent timestamp so green e2e rows are not treated as stale by the
+// staleness downgrade in cell-model.ts (which compares against Date.now()).
+const FRESH_OBSERVED_AT = new Date().toISOString();
+
 function makeRow(
   key: string,
   dimension: string,
@@ -27,8 +31,8 @@ function makeRow(
     dimension,
     state,
     signal: null,
-    observed_at: "2026-04-28T00:00:00Z",
-    transitioned_at: "2026-04-28T00:00:00Z",
+    observed_at: FRESH_OBSERVED_AT,
+    transitioned_at: FRESH_OBSERVED_AT,
     fail_count: 0,
     first_failure_at: null,
   };
@@ -91,16 +95,36 @@ describe("computeColumnTallyDetail", () => {
   });
 
   it("green D6 cells land in green bucket", () => {
-    const integration = makeIntegration("my-int", ["feat-a", "feat-b"]);
+    // Use feature IDs with a D5 mapping (agentic-chat, tool-rendering) so the
+    // verification ladder is contiguous to D5. Green requires an intact
+    // ladder: a green D6 cannot paint green over a missing/red D5.
+    const integration = makeIntegration("my-int", [
+      "agentic-chat",
+      "tool-rendering",
+    ]);
     const features = [
-      makeFeature("feat-a", "Feature A"),
-      makeFeature("feat-b", "Feature B"),
+      makeFeature("agentic-chat", "Feature A"),
+      makeFeature("tool-rendering", "Feature B"),
     ];
 
-    // Both features have green D3 + green D6 → chipColor=green (D6-ceiling)
+    // Both features: green D3 + green D5 + green D6 → chipColor=green.
     const liveStatus: LiveStatusMap = new Map([
-      ["e2e:my-int/feat-a", makeRow("e2e:my-int/feat-a", "e2e", "green")],
-      ["e2e:my-int/feat-b", makeRow("e2e:my-int/feat-b", "e2e", "green")],
+      [
+        "e2e:my-int/agentic-chat",
+        makeRow("e2e:my-int/agentic-chat", "e2e", "green"),
+      ],
+      [
+        "e2e:my-int/tool-rendering",
+        makeRow("e2e:my-int/tool-rendering", "e2e", "green"),
+      ],
+      [
+        "d5:my-int/agentic-chat",
+        makeRow("d5:my-int/agentic-chat", "d5", "green"),
+      ],
+      [
+        "d5:my-int/tool-rendering",
+        makeRow("d5:my-int/tool-rendering", "d5", "green"),
+      ],
       ["d6:my-int", makeRow("d6:my-int", "d6", "green")],
     ]);
 
@@ -113,8 +137,8 @@ describe("computeColumnTallyDetail", () => {
 
     expect(result.unknown).toBe(false);
     expect(result.green).toEqual([
-      { label: "Feature A", dimension: "e2e", featureId: "feat-a" },
-      { label: "Feature B", dimension: "e2e", featureId: "feat-b" },
+      { label: "Feature A", dimension: "e2e", featureId: "agentic-chat" },
+      { label: "Feature B", dimension: "e2e", featureId: "tool-rendering" },
     ]);
     expect(result.amber).toEqual([]);
     expect(result.red).toEqual([]);
@@ -150,16 +174,23 @@ describe("computeColumnTallyDetail", () => {
   });
 
   it("features without demos are gray (unwired) and excluded", () => {
-    // Integration only has demo for feat-1, not feat-2
-    const integration = makeIntegration("partial", ["feat-1"]);
+    // Integration only has a demo for agentic-chat, not tool-rendering.
+    const integration = makeIntegration("partial", ["agentic-chat"]);
     const features = [
-      makeFeature("feat-1", "Feature 1"),
-      makeFeature("feat-2", "Feature 2"),
+      makeFeature("agentic-chat", "Feature 1"),
+      makeFeature("tool-rendering", "Feature 2"),
     ];
 
-    // D3=green + D6=green → chipColor=green (D6-ceiling algorithm)
+    // agentic-chat: green D3 + green D5 + green D6 → green (intact ladder).
     const liveStatus: LiveStatusMap = new Map([
-      ["e2e:partial/feat-1", makeRow("e2e:partial/feat-1", "e2e", "green")],
+      [
+        "e2e:partial/agentic-chat",
+        makeRow("e2e:partial/agentic-chat", "e2e", "green"),
+      ],
+      [
+        "d5:partial/agentic-chat",
+        makeRow("d5:partial/agentic-chat", "d5", "green"),
+      ],
       ["d6:partial", makeRow("d6:partial", "d6", "green")],
     ]);
 
@@ -171,9 +202,10 @@ describe("computeColumnTallyDetail", () => {
     );
 
     expect(result.unknown).toBe(false);
-    // feat-1: wired + D3=green + D6=green → green; feat-2: unwired → gray
+    // agentic-chat: wired + intact green ladder → green; tool-rendering:
+    // unwired → gray.
     expect(result.green).toEqual([
-      { label: "Feature 1", dimension: "e2e", featureId: "feat-1" },
+      { label: "Feature 1", dimension: "e2e", featureId: "agentic-chat" },
     ]);
     expect(result.amber).toEqual([]);
     expect(result.red).toEqual([]);
@@ -201,20 +233,93 @@ describe("computeColumnTallyDetail", () => {
     expect(result.unknown).toBe(false);
   });
 
+  it("green D3+D4 + red D5 → red bucket with dimension 'health'", () => {
+    // Exercises the feature-grid `dimension:"health"` branch: a D5 row that
+    // exists with a non-null, non-green status classifies the failure as a
+    // live-conversation ("health") failure, not a page-load ("e2e") one. The
+    // broken D5 ladder makes chipColor red.
+    const integration = makeIntegration("h-int", ["agentic-chat"]);
+    const features = [makeFeature("agentic-chat", "Feature A")];
+    const liveStatus: LiveStatusMap = new Map([
+      [
+        "e2e:h-int/agentic-chat",
+        makeRow("e2e:h-int/agentic-chat", "e2e", "green"),
+      ],
+      // chat green → D4 green (tools absent, worst-state skips it)
+      ["chat:h-int", makeRow("chat:h-int", "chat", "green")],
+      // d5 red → ladder broken at D5 → chipColor red, dimension health
+      ["d5:h-int/agentic-chat", makeRow("d5:h-int/agentic-chat", "d5", "red")],
+    ]);
+
+    const result = computeColumnTallyDetail(
+      integration,
+      features,
+      liveStatus,
+      "live",
+    );
+
+    expect(result.unknown).toBe(false);
+    expect(result.green).toEqual([]);
+    expect(result.amber).toEqual([]);
+    expect(result.red).toEqual([
+      { label: "Feature A", dimension: "health", featureId: "agentic-chat" },
+    ]);
+  });
+
+  it("green D3 + red D4 → red bucket with dimension 'health'", () => {
+    // A red D4 (real-time chat/tools) row exists with a non-null, non-green
+    // status → the failing D1-D4 gate paints the chip red, and the
+    // `dimension:"health"` branch classifies it as a live-roundtrip failure.
+    const integration = makeIntegration("h2-int", ["agentic-chat"]);
+    const features = [makeFeature("agentic-chat", "Feature A")];
+    const liveStatus: LiveStatusMap = new Map([
+      [
+        "e2e:h2-int/agentic-chat",
+        makeRow("e2e:h2-int/agentic-chat", "e2e", "green"),
+      ],
+      // chat red → D4 red → gate fails → chipColor red, dimension health
+      ["chat:h2-int", makeRow("chat:h2-int", "chat", "red")],
+    ]);
+
+    const result = computeColumnTallyDetail(
+      integration,
+      features,
+      liveStatus,
+      "live",
+    );
+
+    expect(result.unknown).toBe(false);
+    expect(result.green).toEqual([]);
+    expect(result.amber).toEqual([]);
+    expect(result.red).toEqual([
+      { label: "Feature A", dimension: "health", featureId: "agentic-chat" },
+    ]);
+  });
+
   it("not_supported_features are gray and excluded", () => {
     const integration = {
-      ...makeIntegration("ns-int", ["feat-a", "feat-b"]),
-      not_supported_features: ["feat-b"],
+      ...makeIntegration("ns-int", ["agentic-chat", "tool-rendering"]),
+      not_supported_features: ["tool-rendering"],
     };
     const features = [
-      makeFeature("feat-a", "Feature A"),
-      makeFeature("feat-b", "Feature B"),
+      makeFeature("agentic-chat", "Feature A"),
+      makeFeature("tool-rendering", "Feature B"),
     ];
 
-    // D3=green + D6=green → chipColor=green for supported features
+    // agentic-chat: green D3 + green D5 + green D6 → green (intact ladder).
     const liveStatus: LiveStatusMap = new Map([
-      ["e2e:ns-int/feat-a", makeRow("e2e:ns-int/feat-a", "e2e", "green")],
-      ["e2e:ns-int/feat-b", makeRow("e2e:ns-int/feat-b", "e2e", "green")],
+      [
+        "e2e:ns-int/agentic-chat",
+        makeRow("e2e:ns-int/agentic-chat", "e2e", "green"),
+      ],
+      [
+        "e2e:ns-int/tool-rendering",
+        makeRow("e2e:ns-int/tool-rendering", "e2e", "green"),
+      ],
+      [
+        "d5:ns-int/agentic-chat",
+        makeRow("d5:ns-int/agentic-chat", "d5", "green"),
+      ],
       ["d6:ns-int", makeRow("d6:ns-int", "d6", "green")],
     ]);
 
@@ -226,9 +331,10 @@ describe("computeColumnTallyDetail", () => {
     );
 
     expect(result.unknown).toBe(false);
-    // feat-a: D3+D6 green → green; feat-b: unsupported → gray → excluded
+    // agentic-chat: intact green ladder → green; tool-rendering: unsupported
+    // → gray → excluded.
     expect(result.green).toEqual([
-      { label: "Feature A", dimension: "e2e", featureId: "feat-a" },
+      { label: "Feature A", dimension: "e2e", featureId: "agentic-chat" },
     ]);
     expect(result.amber).toEqual([]);
     expect(result.red).toEqual([]);

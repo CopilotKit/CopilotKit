@@ -28,7 +28,6 @@ const sharedAgentNames = [
   "human_in_the_loop",
   "tool-rendering",
   "gen-ui-tool-based",
-  "gen-ui-agent",
   "shared-state-read",
   "shared-state-write",
   "shared-state-streaming",
@@ -59,6 +58,7 @@ const dedicatedAgents: Record<string, string> = {
   "headless-complete": "/headless-complete/",
   "tool-rendering-reasoning-chain": "/tool-rendering-reasoning-chain/",
   "agent-config-demo": "/agent-config/",
+  "gen-ui-agent": "/gen-ui-agent/",
 };
 
 // Interrupt-adapted demos: gen-ui-interrupt and interrupt-headless share the

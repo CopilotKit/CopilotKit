@@ -2,7 +2,6 @@
   "_meta": {
     "description": "D6 fixtures for ag2 / shared-state-read",
     "sourceFile": "d5-all.json",
-    "copiedFrom": "langgraph-python",
     "created": "2026-05-21"
   },
   "fixtures": [
@@ -21,7 +20,6 @@
       "_comment": "D5 fixture for /demos/shared-state-read (recipe-editor) turn 2. Reply mentions recipe-context tokens so the probe's soft assertion lands.",
       "match": {
         "userMessage": "healthier with more vegetables",
-        "turnIndex": 0,
         "context": "ag2"
       },
       "response": {

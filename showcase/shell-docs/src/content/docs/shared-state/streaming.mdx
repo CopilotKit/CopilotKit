@@ -33,17 +33,19 @@ real time. Common shapes:
 Without streaming, the user stares at a spinner. With streaming, they
 see the answer grow token-by-token.
 
-## The backend: one middleware, one StateItem
+## The backend: one streaming state mapping
 
-<FrameworkSetup concept="agent-setup" />
+<FrameworkSetup concept="state-streaming-setup" />
 
-The canonical pattern for prebuilt agents is `StateStreamingMiddleware`.
-It takes one or more `StateItem(...)` entries, each mapping a tool
-argument to a state key. When the LLM streams that argument, CopilotKit
-writes every partial value into shared state before the tool even
-finishes executing.
+The backend pattern is always the same: map one streaming tool argument
+to one shared-state key. In Python prebuilt agents, that is
+`StateStreamingMiddleware` with one or more `StateItem(...)` entries.
+TypeScript graphs use `copilotkitCustomizeConfig` with an
+`emitIntermediateState` mapping for the same shape. When the LLM streams that
+argument, CopilotKit writes every partial value into shared state before the
+tool even finishes executing.
 
-<Snippet region="state-streaming-middleware" title="backend/agent.py — StateStreamingMiddleware" />
+<Snippet region="state-streaming-middleware" title="backend — streaming state mapping" />
 
 A few things to note:
 
@@ -74,4 +76,4 @@ indicator.
 - **[Agent read-only context](/shared-state/agent-readonly)** —
   for the inverse, UI → agent one-way channel.
 
-<IntegrationGrid path="shared-state/predictive-state-updates" />
+<IntegrationGrid path="shared-state/streaming" exclude={["agno", "agent-spec", "spring-ai", "langroid"]} />

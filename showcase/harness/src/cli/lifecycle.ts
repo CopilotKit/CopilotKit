@@ -16,7 +16,13 @@ const log = createLogger({ component: "lifecycle" });
 //   cli/ -> src/ -> ops/ -> showcase/
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SHOWCASE_DIR = path.resolve(__dirname, "../../..");
-const COMPOSE_FILE = path.join(SHOWCASE_DIR, "docker-compose.local.yml");
+// Honor SHOWCASE_COMPOSE_FILE env var (set by isolation overlay) so the harness
+// uses the offset/renamed temp compose file instead of the checked-in original.
+// Without this override, every `docker compose` call would target the default
+// project's compose file → concurrent --isolate runs collide on container names.
+const COMPOSE_FILE =
+  process.env.SHOWCASE_COMPOSE_FILE ||
+  path.join(SHOWCASE_DIR, "docker-compose.local.yml");
 const INTEGRATIONS_DIR = path.join(SHOWCASE_DIR, "integrations");
 // Honor LOCAL_PORTS_FILE env var (set by isolation overlay) so the harness
 // reads offset ports from a temp file instead of the checked-in original.
@@ -24,11 +30,17 @@ const PORTS_FILE =
   process.env.LOCAL_PORTS_FILE ||
   path.join(SHOWCASE_DIR, "shared/local-ports.json");
 
-/** Well-known infra service ports that aren't in local-ports.json. */
+/** Well-known infra service ports that aren't in local-ports.json.
+ *
+ * Honor SHOWCASE_INFRA_PORT_OFFSET (set by --isolate) so health checks hit
+ * the offset host ports of the isolated stack instead of the default
+ * project's :4010/:8090/:3200 (which would silently report "healthy"
+ * against the WRONG containers). */
+const _INFRA_OFFSET = Number(process.env.SHOWCASE_INFRA_PORT_OFFSET) || 0;
 const INFRA_PORTS: Record<string, number> = {
-  aimock: 4010,
-  pocketbase: 8090,
-  dashboard: 3200,
+  aimock: 4010 + _INFRA_OFFSET,
+  pocketbase: 8090 + _INFRA_OFFSET,
+  dashboard: 3200 + _INFRA_OFFSET,
 };
 
 /** Health-check endpoint overrides per service type. */
@@ -38,8 +50,10 @@ const HEALTH_ENDPOINTS: Record<string, string> = {
   dashboard: "/",
 };
 
-/** Default health endpoint for integration services. */
-const DEFAULT_HEALTH_ENDPOINT = "/health";
+/** Default health endpoint for integration services.
+ *  Matches the compose-level integration healthcheck
+ *  (`curl -f http://localhost:10000/api/health`) in docker-compose.local.yml. */
+const DEFAULT_HEALTH_ENDPOINT = "/api/health";
 
 export interface LifecycleOptions {
   verbose?: boolean;
@@ -583,7 +597,12 @@ export async function healthCheck(
   services: string[],
 ): Promise<Map<string, boolean>> {
   const results = new Map<string, boolean>();
-  const maxWaitMs = 30_000;
+  // Honor SHOWCASE_HEALTHCHECK_TIMEOUT_MS so cold-start isolated stacks
+  // (slower than the warm default project) have time to come up. Default
+  // bumped from 30s to 90s — Next.js + Python/JVM agents commonly need 60s+
+  // on first boot inside a fresh project.
+  const maxWaitMs =
+    Number(process.env.SHOWCASE_HEALTHCHECK_TIMEOUT_MS) || 90_000;
   const intervalMs = 2_000;
 
   log.info("running health checks", { services });

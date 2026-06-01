@@ -6,17 +6,18 @@
   },
   "fixtures": [
     {
-      "_comment": "tool-rendering-default-catchall \u2014 weather in Tokyo via get_weather. The built-in default catchall renderer fires and renders [data-testid='copilot-tool-render'][data-tool-name='get_weather'] with a status pill. Follow-up content keyed on toolCallId.",
+      "_comment": "tool-rendering-default-catchall — weather in Tokyo follow-up. After get_weather tool result returns, emit narrated content. MUST come before the tool-emitting fixture so iteration 2 hits this branch. The built-in default renderer renders [data-testid='copilot-tool-render'][data-tool-name='get_weather'] with a status pill [data-testid='copilot-tool-render-status'].",
       "match": {
         "userMessage": "check Tokyo weather forecast",
         "toolCallId": "call_d6_dc_weather_001",
         "context": "ms-agent-dotnet"
       },
       "response": {
-        "content": "Tokyo is 22\u00b0C and partly cloudy."
+        "content": "Tokyo is 22°C and partly cloudy — the default catchall renderer displayed the tool card above."
       }
     },
     {
+      "_comment": "tool-rendering-default-catchall — weather in Tokyo (first turn). Emits get_weather tool call that the built-in default catchall renderer handles.",
       "match": {
         "userMessage": "check Tokyo weather forecast",
         "toolName": "get_weather",
@@ -29,20 +30,18 @@
             "name": "get_weather",
             "arguments": "{\"location\":\"Tokyo\"}"
           }
-        ],
-        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions.",
-        "content": "Looking up the weather in Tokyo for you."
+        ]
       }
     },
     {
-      "_comment": "Final fallback when the agent has neither get_weather nor get-weather registered",
+      "_comment": "tool-rendering-default-catchall — weather in Tokyo fallback when no get_weather tool registered.",
       "match": {
         "userMessage": "check Tokyo weather forecast",
         "turnIndex": 0,
         "context": "ms-agent-dotnet"
       },
       "response": {
-        "content": "The weather in Tokyo is currently 22\u00b0C with partly cloudy skies and light easterly winds."
+        "content": "The weather in Tokyo is currently 22°C with partly cloudy skies and light easterly winds."
       }
     }
   ]

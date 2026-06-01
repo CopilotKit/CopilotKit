@@ -206,7 +206,15 @@ describe("fixture collision detection", () => {
     // pre-existing demo fixtures (render-a2ui, agentic-chat, tool-rendering,
     // gen-ui-tool-based) for the same integration. At runtime these are
     // disambiguated by the active demo / probe path.
-    const KNOWN_DUPLICATE_CEILING = 230;
+    //
+    // Bumped 230 → 276 (+46) when the gen-ui-headless-complete.json alias was
+    // added across all 18 slugs. The gen-ui-headless-complete probe references
+    // a dedicated fixtureFile but drives the same 4 headless-complete pills
+    // (weather/stock/highlight/revenue), so its 8 fixtures per slug share
+    // match keys with the pre-existing headless-complete.json for that
+    // context. These are disambiguated at runtime by the probe's fixtureFile
+    // / demo route, exactly like the other cross-feature key overlaps above.
+    const KNOWN_DUPLICATE_CEILING = 276;
 
     const collisions: string[] = [];
 

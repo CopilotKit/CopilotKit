@@ -40,7 +40,6 @@
       "_comment": "tool-rendering-reasoning-chain pill 1 (stocks) — first leg: emit get_stock_price(AAPL). The `Compare AAPL and MSFT stocks` substring is unique to this demo's pill prompt — other integrations' reasoning-chain demos still send the older `How is AAPL doing?` prompt — so we don't need a tool-name gate and the fixture stays scoped to langgraph-python without affecting fleet-wide aimock traffic. MUST appear before the bare 'AAPL' fixtures later in this file.",
       "match": {
         "userMessage": "Compare AAPL and MSFT stocks",
-        "turnIndex": 0,
         "context": "crewai-crews"
       },
       "response": {
@@ -89,7 +88,6 @@
       "_comment": "tool-rendering-reasoning-chain pill 2 (dice) — first leg: emit roll_dice(sides=20). Unique substring 'compare it to a smaller one' keeps us scoped to this demo (other integrations' dice pills still send 'Roll a 20-sided die for me.' and fall through to the older 5x roll_d20 fixtures further down). NB: aimock's `toolName` gate is a tool-LIST gate, not a tool-CALL gate; we don't use it here because the reasoning-chain agents across the fleet all register `roll_dice`, so a `toolName: roll_dice` claim would NOT have distinguished this demo from the others.",
       "match": {
         "userMessage": "compare it to a smaller one",
-        "turnIndex": 0,
         "context": "crewai-crews"
       },
       "response": {
@@ -138,7 +136,6 @@
       "_comment": "tool-rendering-reasoning-chain pill 3 (flights + destination weather) — first leg: emit search_flights(SFO,JFK). The 'show me the weather there' substring is unique to this demo's pill, so the basic tool-rendering demo's bare 'Find flights from SFO to JFK.' prompt (and the equivalent prompts in other integrations' reasoning-chain demos that have not yet been ported to the chained phrasing) flow through to the basic single-tool flights fixture later in the file.",
       "match": {
         "userMessage": "show me the weather there",
-        "turnIndex": 0,
         "context": "crewai-crews"
       },
       "response": {

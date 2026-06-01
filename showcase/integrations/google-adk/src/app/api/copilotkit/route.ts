@@ -7,6 +7,7 @@ import {
 } from "@copilotkit/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
+import { extractForwardedHeaders } from "@/lib/header-forwarding";
 
 // The agent backend runs as a separate process on port 8000.
 // agent_server.py mounts ONE ADKAgent middleware per demo at /<agent_name>;
@@ -67,26 +68,43 @@ const agentNames = [
   "mcp-apps",
 ];
 
-const agents: Record<string, AbstractAgent> = {};
-for (const name of agentNames) {
-  agents[name] = new HttpAgent({ url: `${AGENT_URL}/${name}` });
+// Build agents per-request so we can inject inbound x-* headers (e.g.
+// x-aimock-context) into the outbound HTTP call to the Python agent_server.
+// HttpAgent's `requestInit` spreads `this.headers` into the outbound fetch,
+// so populating `headers` from `req.headers` before `handleRequest` runs
+// is sufficient to convey the header to the Python backend, where
+// HeaderForwardingHTTPMiddleware then propagates it to Gemini via the
+// httpx/aiohttp event hooks installed at import time. See
+// `src/lib/header-forwarding.ts` for the shared helper.
+function buildAgents(
+  headers: Record<string, string>,
+): Record<string, AbstractAgent> {
+  const agents: Record<string, AbstractAgent> = {};
+  for (const name of agentNames) {
+    agents[name] = new HttpAgent({ url: `${AGENT_URL}/${name}`, headers });
+  }
+  return agents;
 }
 
-const runtime = new CopilotRuntime({
-  // @ts-expect-error -- Published CopilotRuntime agents type wraps Record in
-  // MaybePromise<NonEmptyRecord<...>> which rejects plain Records;
-  // fixed in source, pending release.
-  agents,
-});
-
-const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-  endpoint: "/api/copilotkit",
-  serviceAdapter: new ExperimentalEmptyAdapter(),
-  runtime,
-});
+// Module-load cache used only for the agent_count health probe — never
+// receives request headers, so it is not used for actual POST traffic.
+const healthProbeAgents = buildAgents({});
 
 export const POST = async (req: NextRequest) => {
   try {
+    const forwardedHeaders = extractForwardedHeaders(req);
+    const agents = buildAgents(forwardedHeaders);
+
+    const runtime = new CopilotRuntime({
+      agents,
+    });
+
+    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+      endpoint: "/api/copilotkit",
+      serviceAdapter: new ExperimentalEmptyAdapter(),
+      runtime,
+    });
+
     return await handleRequest(req);
   } catch (error: unknown) {
     console.error("[copilotkit]", error);
@@ -112,7 +130,7 @@ export const GET = async () => {
     status: "ok",
     agent_url: AGENT_URL,
     agent_status: agentStatus,
-    agent_count: Object.keys(agents).length,
+    agent_count: Object.keys(healthProbeAgents).length,
     env: {
       GOOGLE_API_KEY: process.env.GOOGLE_API_KEY ? "set" : "NOT SET",
       NODE_ENV: process.env.NODE_ENV,

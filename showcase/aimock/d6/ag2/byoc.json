@@ -1,37 +1,36 @@
 {
   "_meta": {
-    "description": "D6 fixtures for ag2 / byoc (bring-your-own-component)",
+    "description": "D6 fixtures for ag2 / byoc (declarative-hashbrown)",
     "sourceFile": "d5-byoc.ts",
-    "owner": "d6-blitz-2026-05-26",
-    "notes": "Authored to match D5 script + ag2 adapter request shape. The probe sends the hashbrown pill prompt and asserts metric-card + chart testids render. The response must be a JSON-shaped payload the demo's custom renderer can parse."
+    "created": "2026-05-22"
   },
   "fixtures": [
     {
-      "_comment": "byoc hashbrown pill — Sales dashboard. The demo's custom renderer parses structured JSON from the assistant response to materialize metric cards and charts. The response must contain data the renderer recognizes.",
+      "_comment": "byoc (declarative-hashbrown) — Sales Dashboard pill. The agent returns structured JSON that the BYOC custom renderer parses into metric cards + charts. The response must include enough structure for the demo renderer to materialise [data-testid='metric-card'] and [data-testid='bar-chart'] or [data-testid='pie-chart'].",
       "match": {
-        "userMessage": "Show me a Q4 sales dashboard",
+        "userMessage": "Show me a Q4 sales dashboard. Include a total-revenue metric card, a pie chart of revenue by segment, and a bar chart of monthly revenue.",
         "hasToolResult": false,
         "context": "ag2"
       },
       "response": {
         "toolCalls": [
           {
-            "id": "call_d5_byoc_render_001",
+            "id": "call_d6_byoc_dashboard_001",
             "name": "render_dashboard",
-            "arguments": "{\"metrics\":[{\"label\":\"Total Revenue\",\"value\":\"$2.4M\",\"change\":\"+12%\"},{\"label\":\"New Customers\",\"value\":\"1,847\",\"change\":\"+8%\"},{\"label\":\"Conversion Rate\",\"value\":\"3.2%\",\"change\":\"+0.4%\"}],\"charts\":[{\"type\":\"bar\",\"title\":\"Monthly Revenue\",\"data\":[{\"month\":\"Oct\",\"value\":780000},{\"month\":\"Nov\",\"value\":820000},{\"month\":\"Dec\",\"value\":800000}]},{\"type\":\"pie\",\"title\":\"Revenue by Segment\",\"data\":[{\"label\":\"Enterprise\",\"value\":1200000},{\"label\":\"Mid-Market\",\"value\":720000},{\"label\":\"SMB\",\"value\":480000}]}]}"
+            "arguments": "{\"metrics\":[{\"label\":\"Total Revenue\",\"value\":\"$2.4M\",\"change\":\"+12%\"},{\"label\":\"New Customers\",\"value\":\"1,847\",\"change\":\"+8%\"},{\"label\":\"Conversion Rate\",\"value\":\"3.2%\",\"change\":\"+0.4%\"}],\"charts\":[{\"type\":\"pie\",\"title\":\"Revenue by Segment\",\"data\":[{\"label\":\"Enterprise\",\"value\":1200000},{\"label\":\"Mid-Market\",\"value\":720000},{\"label\":\"SMB\",\"value\":480000}]},{\"type\":\"bar\",\"title\":\"Monthly Revenue\",\"data\":[{\"label\":\"Oct\",\"value\":780000},{\"label\":\"Nov\",\"value\":810000},{\"label\":\"Dec\",\"value\":810000}]}]}"
           }
         ]
       }
     },
     {
-      "_comment": "byoc hashbrown pill — follow-up after render_dashboard tool result.",
+      "_comment": "byoc — follow-up content after render_dashboard tool result returns.",
       "match": {
-        "userMessage": "Show me a Q4 sales dashboard",
-        "hasToolResult": true,
+        "userMessage": "Show me a Q4 sales dashboard. Include a total-revenue metric card, a pie chart of revenue by segment, and a bar chart of monthly revenue.",
+        "toolCallId": "call_d6_byoc_dashboard_001",
         "context": "ag2"
       },
       "response": {
-        "content": "Dashboard rendered above — Q4 total revenue hit $2.4M with a 12% increase. The bar chart shows monthly revenue and the pie chart breaks down revenue by segment."
+        "content": "Q4 sales dashboard rendered above — total revenue hit $2.4M (+12%), with Enterprise leading segment revenue. Monthly trend shows steady growth across Oct-Dec."
       }
     }
   ]

@@ -2,40 +2,41 @@ import { promises as fs } from "node:fs";
 import { z } from "zod";
 import { truncateUtf8 } from "../../render/filters.js";
 import { showcaseShapeSchema } from "../discovery/railway-services.js";
-import {
-  D5_REGISTRY,
-  type D5BuildContext,
-  type D5FeatureType,
-  type D5Script,
-  isD5FeatureType,
+import { D5_REGISTRY, isD5FeatureType } from "../helpers/d5-registry.js";
+import type {
+  D5BuildContext,
+  D5FeatureType,
+  D5Script,
 } from "../helpers/d5-registry.js";
-import {
-  runConversation,
-  type ConversationResult,
-  type Page as RunnerPage,
+import { runConversation } from "../helpers/conversation-runner.js";
+import type {
+  ConversationResult,
+  Page as RunnerPage,
 } from "../helpers/conversation-runner.js";
-import {
-  attachSseInterceptor as defaultAttachSseInterceptor,
-  type SseCapture,
-  type SseInterceptorHandle,
+import { attachSseInterceptor as defaultAttachSseInterceptor } from "../helpers/sse-interceptor.js";
+import type {
+  SseCapture,
+  SseInterceptorHandle,
 } from "../helpers/sse-interceptor.js";
 import {
   buildSnapshot,
   serializeRelevantDom,
-  type ReferenceCapturePage,
 } from "../helpers/reference-capture.js";
+import type { ReferenceCapturePage } from "../helpers/reference-capture.js";
 import {
   compareParity,
   DEFAULT_PARITY_TOLERANCES,
-  type ParityReport,
-  type ParitySnapshot,
-  type ParityTolerances,
+} from "../helpers/parity-compare.js";
+import type {
+  ParityReport,
+  ParitySnapshot,
+  ParityTolerances,
 } from "../helpers/parity-compare.js";
 import {
   loadReferenceSnapshot,
   selectD6Targets,
-  type LoadReferenceResult,
 } from "../helpers/d6-scoping.js";
+import type { LoadReferenceResult } from "../helpers/d6-scoping.js";
 import type { ProbeDriver } from "../types.js";
 import type { ProbeContext, ProbeResult } from "../../types/index.js";
 import path from "node:path";
@@ -209,7 +210,9 @@ export interface E2eParityBrowser {
   close(): Promise<void>;
 }
 
-export type E2eParityBrowserLauncher = () => Promise<E2eParityBrowser>;
+export type E2eParityBrowserLauncher = (
+  abortSignal?: AbortSignal,
+) => Promise<E2eParityBrowser>;
 
 /** SSE interceptor injection. Tests stub; default = the real CDP one. */
 export type E2eParityAttachInterceptor = (
@@ -354,14 +357,71 @@ const defaultLauncher: E2eParityBrowserLauncher =
 
 export function createPooledE2eParityLauncher(
   pool: BrowserPool,
+  logger?: { warn(event: string, meta?: Record<string, unknown>): void },
 ): E2eParityBrowserLauncher {
-  return async (): Promise<E2eParityBrowser> => {
-    const browser = await pool.acquire();
+  return async (abortSignal?: AbortSignal): Promise<E2eParityBrowser> => {
+    // CONTEXT-POOLED model: each newContext() checks out a pooled
+    // BrowserContext (X-AIMock-Strict centralized in the pool) and the
+    // wrapper's close() releases it. The abort closure re-targets onto the
+    // open contexts: on abort it closes each (each close() releases its
+    // pooled context). There is no Browser held; launcher close is a no-op.
+    // Without this listener those contexts stay in-use across probe ticks
+    // when the invoker's Promise.race abandons the driver on hard-timeout /
+    // external abort, saturating the pool and starving later ticks.
+    let aborted = false;
+
+    // Track open contexts so abort can close them. Each close() releases the
+    // pooled context back to the pool, freeing a context slot.
+    const openContexts = new Set<{ close(): Promise<void> }>();
+
+    const onAbort = (): void => {
+      if (aborted) return;
+      aborted = true;
+      const ctxCount = openContexts.size;
+      const stats = pool.stats();
+      logger?.warn("probe.e2e-parity.pool-abort-release", {
+        openContexts: ctxCount,
+        poolAvailable: stats.available,
+        poolInUse: stats.inUse,
+        poolSize: stats.size,
+      });
+      const contextClosePromises = Array.from(openContexts).map((ctx) =>
+        ctx.close().catch(() => {}),
+      );
+      void Promise.allSettled(contextClosePromises).then(() => {
+        logger?.warn("probe.e2e-parity.pool-abort-released", {
+          closedContexts: ctxCount,
+          poolAvailable: pool.stats().available,
+        });
+      });
+    };
+    // Capture the listener so launcher-level close() can detach it: without
+    // removeEventListener a post-completion abort would fire onAbort after the
+    // run returned, leaking the listener for the signal's lifetime.
+    let detachAbort: (() => void) | undefined;
+    if (abortSignal) {
+      if (abortSignal.aborted) {
+        aborted = true;
+        logger?.warn("probe.e2e-parity.pool-pre-aborted-release");
+      } else {
+        abortSignal.addEventListener("abort", onAbort, { once: true });
+        detachAbort = () => abortSignal.removeEventListener("abort", onAbort);
+      }
+    }
+
     return {
       async newContext(): Promise<E2eParityBrowserContext> {
-        const ctx = await browser.newContext({
-          extraHTTPHeaders: { "X-AIMock-Strict": "true" },
-        });
+        const ctx = await pool.acquire();
+        // If the signal was already aborted at launcher construction (the
+        // pre-aborted branch never attached the live abort listener), a context
+        // opened now would never be closed by the abort path. Release it
+        // immediately and refuse so it cannot leak into a torn-down run.
+        if (aborted) {
+          await pool.release(ctx).catch(() => {});
+          throw new Error("e2e-parity launcher aborted");
+        }
+        const ctxHandle = { close: () => pool.release(ctx) };
+        openContexts.add(ctxHandle);
         return {
           async newPage(): Promise<E2eParityPage> {
             const page = await ctx.newPage();
@@ -369,11 +429,16 @@ export function createPooledE2eParityLauncher(
             wrapped.asPlaywrightPage = (): PlaywrightPage => page;
             return wrapped;
           },
-          close: () => ctx.close(),
+          close: async () => {
+            openContexts.delete(ctxHandle);
+            await ctxHandle.close();
+          },
         };
       },
+      // Launcher-level close detaches the abort listener so a post-completion
+      // abort can't fire onAbort after the run returned.
       close: async () => {
-        pool.release(browser);
+        detachAbort?.();
       },
     };
   };
@@ -897,7 +962,7 @@ export function createE2eParityDriver(
 
       try {
         try {
-          browser = await launcher();
+          browser = await launcher(abort.signal);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           ctx.logger.warn("probe.e2e-parity.launcher-error", {

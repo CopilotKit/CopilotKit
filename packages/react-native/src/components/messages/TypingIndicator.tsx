@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react";
-import { View, Animated, StyleSheet, type ViewStyle } from "react-native";
+import { View, Animated, StyleSheet } from "react-native";
+import type { ViewStyle } from "react-native";
 
 /**
  * Props for the TypingIndicator component.
@@ -75,6 +76,7 @@ export function TypingIndicator({ style }: TypingIndicatorProps) {
 
   return (
     <View
+      testID="copilot-loading-cursor"
       style={[styles.container, style]}
       accessibilityLabel="Typing indicator"
       accessibilityRole="text"

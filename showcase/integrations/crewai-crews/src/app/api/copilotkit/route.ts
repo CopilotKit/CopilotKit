@@ -69,6 +69,13 @@ for (const name of agentNames) {
 // frontend UX differs (inline in chat vs. external popup).
 agents["gen-ui-interrupt"] = createAgent("/interrupt-adapted");
 agents["interrupt-headless"] = createAgent("/interrupt-adapted");
+// gen-ui-agent routes to a dedicated CrewAI Flow backend that owns the
+// `set_steps` tool + per-call STATE_SNAPSHOT emit (see
+// src/agents/gen_ui_agent.py). The shared LatestAiDevelopment crew on "/"
+// cannot host this demo because ChatWithCrewFlow does not surface
+// per-tool state mutations to the AG-UI bridge — same architectural
+// reason as shared-state-read-write and subagents.
+agents["gen-ui-agent"] = createAgent("/gen-ui-agent");
 agents["default"] = createAgent();
 
 console.log(
