@@ -1,5 +1,5 @@
 import { Component } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import { HeadlessChatComponent } from "./routes/headless/headless-chat.component";
 import { CustomInputChatComponent } from "./routes/custom-input/custom-input-chat.component";
 import { DefaultChatComponent } from "./routes/default/default-chat.component";
@@ -9,7 +9,6 @@ import { CoPilotPortComponent } from "./routes/ukg-port/co-pilot-port.component"
   selector: "app-root",
   standalone: true,
   imports: [
-    CommonModule,
     HeadlessChatComponent,
     CustomInputChatComponent,
     DefaultChatComponent,
@@ -26,18 +25,18 @@ import { CoPilotPortComponent } from "./routes/ukg-port/co-pilot-port.component"
         display: block;
       "
     >
-      <ng-container *ngIf="isHeadless">
-        <headless-chat></headless-chat>
-      </ng-container>
-      <ng-container *ngIf="isCustomInput">
-        <nextgen-custom-input-chat></nextgen-custom-input-chat>
-      </ng-container>
-      <ng-container *ngIf="!isHeadless && !isCustomInput && !isUkgPort">
-        <default-chat></default-chat>
-      </ng-container>
-      <ng-container *ngIf="isUkgPort">
-        <ukg-co-pilot-port></ukg-co-pilot-port>
-      </ng-container>
+      @if (isHeadless) {
+        <headless-chat />
+      }
+      @if (isCustomInput) {
+        <nextgen-custom-input-chat />
+      }
+      @if (!isHeadless && !isCustomInput && !isUkgPort) {
+        <default-chat />
+      }
+      @if (isUkgPort) {
+        <ukg-co-pilot-port />
+      }
     </div>
   `,
 })

@@ -1,0 +1,9 @@
+[mcp_servers.copilotkit-docs]
+url = "https://mcp.copilotkit.ai/mcp"
+
+[mcp_servers.nx-mcp]
+command = "npx"
+args = [
+    "nx",
+    "mcp",
+]
