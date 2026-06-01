@@ -103,6 +103,67 @@ describe("parsePlaywrightJson", () => {
     expect(r[0]?.cases).toHaveLength(2);
   });
 
+  it("a collected-but-never-ran case (empty results) taints the file to unknown, never pass", () => {
+    // A run interrupted/aborted before this case executes leaves the case
+    // collected with empty `results`. Dropping it silently would collapse
+    // [passed, never-ran] → [passed] → pass, manufacturing green from a
+    // partial run. Fail-closed: the file must be `unknown`, not pass.
+    const partial = {
+      suites: [
+        {
+          file: "aborted.spec.ts",
+          specs: [
+            { title: "t1", tests: [{ results: [{ status: "passed" }] }] },
+            { title: "t2", tests: [{ results: [] }] },
+          ],
+        },
+      ],
+    };
+    const r = parsePlaywrightJson(partial);
+    expect(r.find((x) => x.specFile === "aborted.spec.ts")?.fileVerdict).toBe(
+      "unknown",
+    );
+  });
+
+  it("a failed sibling still wins over a never-ran case → red", () => {
+    const partialWithFail = {
+      suites: [
+        {
+          file: "aborted-fail.spec.ts",
+          specs: [
+            { title: "t1", tests: [{ results: [{ status: "failed" }] }] },
+            { title: "t2", tests: [{ results: [] }] },
+          ],
+        },
+      ],
+    };
+    const r = parsePlaywrightJson(partialWithFail);
+    expect(
+      r.find((x) => x.specFile === "aborted-fail.spec.ts")?.fileVerdict,
+    ).toBe("red");
+  });
+
+  it("retry where the last result passes → pass (retried-pass preserved)", () => {
+    const retried = {
+      suites: [
+        {
+          file: "retry.spec.ts",
+          specs: [
+            { title: "t1", tests: [{ results: [{ status: "passed" }] }] },
+            {
+              title: "t2",
+              tests: [{ results: [{ status: "failed" }, { status: "passed" }] }],
+            },
+          ],
+        },
+      ],
+    };
+    const r = parsePlaywrightJson(retried);
+    expect(r.find((x) => x.specFile === "retry.spec.ts")?.fileVerdict).toBe(
+      "pass",
+    );
+  });
+
   it("a file with only skipped cases is unknown, never pass", () => {
     const skipped = {
       suites: [

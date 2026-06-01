@@ -11,11 +11,13 @@
  * the `shared-state-*` family) are each their OWN column/cell.
  *
  * The column vocabulary is the feature-registry feature ids
- * (`showcase/shared/feature-registry.json`); 37 of the 38 gold spec
+ * (`showcase/shared/feature-registry.json`); all but one of the gold spec
  * stems match a registry id verbatim. The one exception,
  * `threadid-frontend-tool-roundtrip`, has no registry id today and is
  * mapped to its own stem as a distinct column (flagged for the Step 3b
- * one-time human reconciliation — see the mapping JSON / plan).
+ * one-time human reconciliation — see the mapping JSON / plan). The exact
+ * stem count is enforced dynamically by the mapping test, not asserted
+ * here, so this comment does not drift as gold specs are added.
  *
  * The mapping JSON is read via `fs`/`JSON.parse` rather than an
  * `import ... with { type: "json" }` attribute: the harness has no
