@@ -12,8 +12,13 @@
  *   1. explicit `baseUrl` param (overrides everything; used in tests + SSR)
  *   2. `runtimeConfig.opsBaseUrl` (read from `window.__SHOWCASE_CONFIG__`,
  *      populated at request time by the root layout's inline <script>) —
- *      opt-in escape hatch for direct cross-origin calls; production does
- *      NOT set this because showcase-harness has no CORS allowlist.
+ *      opt-in escape hatch for direct cross-origin calls, sourced from the
+ *      client-intended `NEXT_PUBLIC_OPS_DIRECT_BASE_URL` env var. This is
+ *      DISTINCT from the server proxy target `OPS_BASE_URL` (read only by
+ *      the Route Handler). It defaults to "" — including in production —
+ *      so the client falls through to step 3; the harness URL is never
+ *      injected into the client bundle (showcase-harness has no CORS
+ *      allowlist, so a direct cross-origin call would be blocked).
  *   3. `/api/ops` — same-origin path served by the Route Handler in
  *      `src/app/api/ops/[...path]/route.ts`. This is the production
  *      contract, not a guess: the handler forwards `/api/ops/<path>` to
@@ -140,11 +145,13 @@ const FALLBACK_BASE_URL = "/api/ops";
 /**
  * Resolve the API base URL with this precedence:
  *  1. explicit `baseUrl` param — used in tests + SSR.
- *  2. `runtimeConfig.opsBaseUrl` — set by the env when a deploy wants
+ *  2. `runtimeConfig.opsBaseUrl` — the client DIRECT override, sourced
+ *     from `NEXT_PUBLIC_OPS_DIRECT_BASE_URL`, for deploys that want
  *     direct cross-origin calls (e.g. local dev hitting a remote
- *     harness). Production deploys leave this empty so the call stays
- *     same-origin via the next.config.ts rewrite.
- *  3. `/api/ops` — same-origin path served by the Route Handler.
+ *     harness). Production leaves this empty (it is NOT the server proxy
+ *     target `OPS_BASE_URL`) so the call stays same-origin via step 3.
+ *  3. `/api/ops` — same-origin path served by the Route Handler, which
+ *     forwards to `${OPS_BASE_URL}/api/<path>` server-side.
  *
  * Whitespace-only and empty values are treated as missing — the same
  * defensive trim as the prior `process.env.NEXT_PUBLIC_OPS_BASE_URL?.trim()`
