@@ -50,7 +50,8 @@ describe("useKatexStyles", () => {
     expect(source).not.toMatch(
       /^import\s+['"]katex\/dist\/katex\.min\.css['"]/m,
     );
-    // Should use the hook instead
-    expect(source).toMatch(/useKatexStyles/);
+    // Note: useKatexStyles has been intentionally removed from the component
+    // in favour of BasicMarkdownRenderer (slot > provider > built-in resolution).
+    // The guard above still ensures no static katex CSS import sneaks back.
   });
 });
