@@ -14,11 +14,12 @@
  *      populated at request time by the root layout's inline <script>) —
  *      opt-in escape hatch for direct cross-origin calls; production does
  *      NOT set this because showcase-harness has no CORS allowlist.
- *   3. `/api/ops` — same-origin path served by the Next.js rewrite in
- *      `next.config.ts`. This is the production contract, not a guess: the
- *      rewrite forwards `/api/ops/:path*` to `${OPS_BASE_URL}/api/:path*`
- *      on the server side, so the browser only ever sees same-origin calls
- *      and `OPS_BASE_URL` stays out of the client bundle.
+ *   3. `/api/ops` — same-origin path served by the Route Handler in
+ *      `src/app/api/ops/[...path]/route.ts`. This is the production
+ *      contract, not a guess: the handler forwards `/api/ops/<path>` to
+ *      `${OPS_BASE_URL}/api/<path>` on the server side (reading
+ *      `OPS_BASE_URL` at request time), so the browser only ever sees
+ *      same-origin calls and `OPS_BASE_URL` stays out of the client bundle.
  *
  * The trigger token is supplied by the caller (typically read from
  * `process.env.NEXT_PUBLIC_OPS_TRIGGER_TOKEN` at the React layer).
@@ -143,7 +144,7 @@ const FALLBACK_BASE_URL = "/api/ops";
  *     direct cross-origin calls (e.g. local dev hitting a remote
  *     harness). Production deploys leave this empty so the call stays
  *     same-origin via the next.config.ts rewrite.
- *  3. `/api/ops` — same-origin path served by the Next.js rewrite.
+ *  3. `/api/ops` — same-origin path served by the Route Handler.
  *
  * Whitespace-only and empty values are treated as missing — the same
  * defensive trim as the prior `process.env.NEXT_PUBLIC_OPS_BASE_URL?.trim()`
