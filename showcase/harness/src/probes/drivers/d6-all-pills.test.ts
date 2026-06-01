@@ -52,14 +52,19 @@ function makeCtx(overrides?: {
   };
 }
 
-/** A `runAndParse` that returns a fixed scripted spec-result set. */
+/**
+ * A `runAndParse` that returns a fixed scripted spec-result set. `exitCode`
+ * defaults to 0 (a clean run); pass a non-zero value to exercise the
+ * fail-closed exit-code path.
+ */
 function fakeRunAndParse(
   specResults: SpecFileResult[],
   capture?: { calls: Parameters<D6RunAndParse>[0][] },
+  exitCode = 0,
 ): D6RunAndParse {
   return async (args) => {
     capture?.calls.push(args);
-    return { specResults };
+    return { exitCode, specResults };
   };
 }
 
@@ -135,6 +140,28 @@ describe("e2e-full driver (spec-driven)", () => {
       expect(capture.calls[0]!.slug).toBe("langgraph-python");
       expect(capture.calls[0]!.backendUrl).toBe("https://lgp.example.com");
       expect(capture.calls[0]!.retries).toBe(1);
+    });
+
+    it("Fix 3: does NOT forward a dead abortSignal into runAndParse", async () => {
+      // The sync execFileSync path cannot honor an AbortSignal, so the driver
+      // must not advertise one by forwarding it. The args carry exactly the
+      // fields the contract supports — no `abortSignal`.
+      const capture = { calls: [] as Parameters<D6RunAndParse>[0][] };
+      const driver = createE2eFullDriver({
+        runAndParse: fakeRunAndParse(allPassRows(), capture),
+      });
+      await driver.run(makeCtx(), {
+        key: "d6:langgraph-python",
+        backendUrl: "https://lgp.example.com",
+      });
+      expect(capture.calls).toHaveLength(1);
+      // The args carry exactly the contract's fields — no `abortSignal`. This
+      // also guards the runtime shape (a defunct signal must not be forwarded).
+      expect(Object.keys(capture.calls[0]!).sort()).toEqual([
+        "backendUrl",
+        "retries",
+        "slug",
+      ]);
     });
 
     it("all-pass JSON → all cells green and aggregate green", async () => {
@@ -299,6 +326,93 @@ describe("e2e-full driver (spec-driven)", () => {
     });
   });
 
+  // ---- FAIL-CLOSED on non-zero run exit code (Fix 2) ---------------------
+  // A Playwright run can exit non-zero for reasons that never render as a
+  // per-spec `failed` row (global-setup/webServer/fixture failure, worker
+  // crash/SIGSEGV, `--max-failures` abort) while STILL emitting green rows
+  // for the specs that ran. Honoring exitCode keeps those pass-rows from
+  // manufacturing green cells.
+  describe("non-zero exit code (untrustworthy run)", () => {
+    it("exitCode!==0 + all-pass rows → cells UNKNOWN, aggregate non-green", async () => {
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+      const driver = createE2eFullDriver({
+        // All specs reported PASS, but the process exited non-zero — the run
+        // is untrustworthy. Pass-rows must NOT green their cells.
+        runAndParse: fakeRunAndParse(allPassRows(), undefined, 1),
+      });
+      const result = await driver.run(makeCtx({ writer }), {
+        key: "d6:langgraph-python",
+        backendUrl: "https://lgp.example.com",
+      });
+
+      // Aggregate is non-green; the precise verdict is "unknown".
+      expect(result.state).not.toBe("green");
+      expect((result.signal as E2eFullAggregateSignal).aggregateState).toBe(
+        "unknown",
+      );
+
+      // Every would-be-green cell is now UNKNOWN (projects to "error"); none
+      // manufactured green.
+      const sideRows = sideEmits.filter((r) =>
+        r.key.startsWith("d6:langgraph-python/"),
+      );
+      expect(sideRows.some((r) => r.state === "green")).toBe(false);
+      expect(
+        sideRows.every(
+          (r) => (r.signal as E2eFullFeatureSignal).cellState === "unknown",
+        ),
+      ).toBe(true);
+    });
+
+    it("exitCode!==0 + a red row → that cell stays RED (a real failure is still a failure)", async () => {
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+      const rows = allMappedSpecFiles().map((f) =>
+        f === "frontend-tools.spec.ts" ? red(f) : pass(f),
+      );
+      const driver = createE2eFullDriver({
+        runAndParse: fakeRunAndParse(rows, undefined, 1),
+      });
+      const result = await driver.run(makeCtx({ writer }), {
+        key: "d6:langgraph-python",
+        backendUrl: "https://lgp.example.com",
+      });
+
+      const ftRow = sideEmits.find(
+        (r) => r.key === "d6:langgraph-python/frontend-tools",
+      );
+      // A red row under a non-zero exit stays red — downgrading red→unknown
+      // would HIDE a real failure.
+      expect(ftRow!.state).toBe("red");
+      expect((ftRow!.signal as E2eFullFeatureSignal).cellState).toBe("red");
+      // Aggregate is red (a real failure dominates).
+      expect(result.state).toBe("red");
+    });
+
+    it("exitCode===0 + all-pass → green (unchanged baseline)", async () => {
+      const driver = createE2eFullDriver({
+        runAndParse: fakeRunAndParse(allPassRows(), undefined, 0),
+      });
+      const result = await driver.run(makeCtx(), {
+        key: "d6:langgraph-python",
+        backendUrl: "https://lgp.example.com",
+      });
+      expect(result.state).toBe("green");
+      expect((result.signal as E2eFullAggregateSignal).aggregateState).toBe(
+        "green",
+      );
+    });
+  });
+
   // ---- SKIPPED specs -----------------------------------------------------
   describe("declared skips", () => {
     it("a declared-skipped spec → skipped cell (neutral), aggregate green if everything else passes", async () => {
@@ -331,9 +445,12 @@ describe("e2e-full driver (spec-driven)", () => {
       const voiceRow = sideEmits.find(
         (r) => r.key === `d6:langgraph-python/${skipColumn}`,
       );
-      // A skip projects to a NEUTRAL green-side-row, but carries the precise
-      // `cellState: "skipped"` so it's never confused with a real pass.
-      expect(voiceRow!.state).toBe("green");
+      // A skip projects to a NON-GREEN neutral ProbeState (never a false
+      // green — the dashboard's StatusRow.state never reads cellState), but
+      // carries the precise `cellState: "skipped"` so it's never confused
+      // with a real pass and the dedicated skip tone is a follow-up.
+      expect(voiceRow!.state).not.toBe("green");
+      expect(voiceRow!.state).toBe("error");
       expect((voiceRow!.signal as E2eFullFeatureSignal).cellState).toBe(
         "skipped",
       );
@@ -366,14 +483,52 @@ describe("e2e-full driver (spec-driven)", () => {
       const voiceRow = sideEmits.find(
         (r) => r.key === `d6:langgraph-python/${skipColumn}`,
       );
-      // Even though voice had a RED row, the declared skip wins: neutral
-      // green-side-row carrying cellState "skipped" — never red.
-      expect(voiceRow!.state).toBe("green");
+      // Even though voice had a RED row, the declared skip wins: a NON-GREEN
+      // neutral side-row carrying cellState "skipped" — never red, never a
+      // false green.
+      expect(voiceRow!.state).not.toBe("green");
+      expect(voiceRow!.state).toBe("error");
       expect((voiceRow!.signal as E2eFullFeatureSignal).cellState).toBe(
         "skipped",
       );
       // Everything else passes → aggregate green (skip is neutral, not red).
       expect(result.state).toBe("green");
+    });
+
+    it("Fix 1: a skipped cell's emitted ProbeResult.state is NEVER green (no false-green channel)", async () => {
+      // The dashboard's StatusRow.state is 3-valued (green/red/degraded) and
+      // does NOT read signal.cellState. So projecting a skip → ProbeState
+      // "green" would render a skipped spec as a real pass. This guard locks
+      // the projection to a NON-green neutral state.
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+      const rows = allMappedSpecFiles()
+        .filter((f) => f !== "voice.spec.ts")
+        .map((f) => pass(f));
+      const skipColumn = mapSpecFileToCell("voice.spec.ts");
+      const driver = createE2eFullDriver({
+        runAndParse: fakeRunAndParse(rows),
+        declaredSkipsImpl: () => ["voice.spec.ts"],
+      });
+      await driver.run(makeCtx({ writer }), {
+        key: "d6:langgraph-python",
+        backendUrl: "https://lgp.example.com",
+      });
+
+      const skipRow = sideEmits.find(
+        (r) => r.key === `d6:langgraph-python/${skipColumn}`,
+      );
+      expect(skipRow).toBeDefined();
+      // The load-bearing invariant: a skip's emitted ProbeState is never green.
+      expect(skipRow!.state).not.toBe("green");
+      // cellState audit truth is preserved.
+      expect((skipRow!.signal as E2eFullFeatureSignal).cellState).toBe(
+        "skipped",
+      );
     });
   });
 

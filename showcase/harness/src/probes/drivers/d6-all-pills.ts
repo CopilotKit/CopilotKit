@@ -43,9 +43,10 @@ import { declaredSkips as defaultDeclaredSkips } from "../helpers/skip-list.js";
  * aggregate is UNKNOWN — NEVER green. There is no node-counting / settle
  * heuristic anywhere in this path.
  *
- * The conversation-runner is intentionally NOT imported here — its retirement
- * from the codebase is a later task; the D6 path simply no longer routes
- * through it.
+ * The conversation-runner is referenced here ONLY for its `Page` type (a
+ * type-only import — erased at runtime); the runtime DOM-node-counting
+ * heuristic path is NOT used by the D6 spec-driven flow. Full retirement of
+ * the conversation-runner from the codebase is a later task.
  */
 
 /**
@@ -63,14 +64,6 @@ const inputSchema = z
     name: z.string().optional(),
     features: z.array(z.string()).optional(),
     demos: z.array(z.string()).optional(),
-    /**
-     * Integration's manifest `not_supported_features` set. Features in
-     * this list are architecturally incapable on the framework, NOT
-     * regressions. The driver reclassifies them as `skipped-incapable`
-     * (green side-row + `skipped[]` in the aggregate) instead of running
-     * a probe that would always fail and report red.
-     */
-    notSupportedFeatures: z.array(z.string()).optional(),
     shape: showcaseShapeSchema.optional(),
     deployedAt: z.string().optional(),
   })
@@ -94,9 +87,9 @@ export interface E2eFullFeatureSignal {
    * The PRECISE fail-closed rollup verdict for this cell:
    * `green` | `red` | `unknown` | `skipped`. The emitted `ProbeResult.state`
    * is a fail-closed projection of this onto the narrower `ProbeState`
-   * vocabulary (unknown → `error`; skipped → neutral green-side-row), but
-   * `cellState` carries the unprojected truth for the dashboard rollup and
-   * audit. A green `cellState` is the ONLY value that greens the cell.
+   * vocabulary (both `unknown` AND `skipped` → neutral, NON-green `error`),
+   * but `cellState` carries the unprojected truth for the dashboard rollup
+   * and audit. A green `cellState` is the ONLY value that greens the cell.
    */
   cellState?: CellRollup["state"];
   url?: string;
@@ -115,13 +108,10 @@ export interface E2eFullFeatureSignal {
  * Aggregate signal carried on the primary `d6:<slug>` row.
  * Green only if ALL features pass.
  *
- * `skipped` is a union of three reasons: filtered-by-trigger (operator
- * intent), deploy-churn (transient deploy state), and incapable
- * (manifest `not_supported_features` — framework primitive gap). The
- * driver does NOT distinguish them in the aggregate count because they
- * all share the "not counted as red" semantic. `incapable` is broken
- * out separately so dashboard / operators can tell genuine architectural
- * skips apart from operational ones.
+ * `skipped` carries the column names of cells the spec-driven driver
+ * declared "not applicable" via the skip-list (see `declaredSkips(slug)`).
+ * Skips come ONLY from the skip-list — they are neutral (not counted as
+ * red, do not block green).
  */
 export interface E2eFullAggregateSignal {
   shape: "package";
@@ -131,22 +121,14 @@ export interface E2eFullAggregateSignal {
   passed: number;
   failed: string[];
   skipped: string[];
-  /**
-   * Subset of `skipped` representing manifest `not_supported_features`
-   * — features the integration's framework architecturally cannot
-   * support. Distinct from operational skips (deploy-churn, trigger
-   * filter). Empty when the manifest declares no NSF or no requested
-   * feature intersects it.
-   */
-  incapable?: string[];
   note?: string;
   errorDesc?: string;
   failureSummary?: string;
   /**
-   * Counts of cells in each PRECISE rollup state. `unknown` and `skipped`
-   * have no `ProbeState` equivalent; these counts let the dashboard render
-   * the true breakdown even though the emitted `ProbeResult.state` projects
-   * onto the narrower vocabulary.
+   * Column names of cells in the PRECISE `unknown` rollup state. `unknown`
+   * and `skipped` have no `ProbeState` equivalent; this list lets the
+   * dashboard render the true breakdown even though the emitted
+   * `ProbeResult.state` projects onto the narrower vocabulary.
    */
   unknown?: string[];
   /**
@@ -158,7 +140,7 @@ export interface E2eFullAggregateSignal {
 
 /**
  * Minimal page surface the driver depends on. Same shape as E2eDeepPage
- * from e2e-deep.ts.
+ * from d5-single-pill.ts.
  */
 export interface E2eFullPage extends Page {
   goto(
@@ -218,8 +200,6 @@ export interface D6RunAndParseArgs {
    * PASS counts green); strict validation/CI uses `0`.
    */
   retries: number;
-  /** Cancellation signal forwarded from the probe context. */
-  abortSignal?: AbortSignal;
 }
 
 /**
@@ -228,12 +208,21 @@ export interface D6RunAndParseArgs {
  * default wraps `runE2eAndParse` (cli/e2e.ts). Injected in tests so the
  * driver is exercised against scripted results without spawning Playwright.
  *
- * FAIL-CLOSED contract: an errored/empty run returns `{ specResults: [] }`
- * (or throws) — the driver maps that to all-UNKNOWN cells, never green.
+ * FAIL-CLOSED contract: an errored/empty run returns `{ exitCode, specResults:
+ * [] }` (or throws) — the driver maps that to all-UNKNOWN cells, never green.
+ *
+ * `exitCode` is the run's process exit status. A non-zero exit is treated as
+ * UNTRUSTWORTHY even when per-spec rows report PASS: a Playwright run can exit
+ * non-zero for reasons that never render as a per-spec `failed` row
+ * (global-setup / webServer / fixture failure, worker crash/SIGSEGV,
+ * `--max-failures` abort) while still emitting green rows for the specs that
+ * ran. The driver therefore downgrades any would-be-green cell to `unknown`
+ * when `exitCode !== 0` (red rows stay red — a real failure is still a
+ * failure).
  */
 export type D6RunAndParse = (
   args: D6RunAndParseArgs,
-) => Promise<{ specResults: SpecFileResult[] }>;
+) => Promise<{ exitCode: number; specResults: SpecFileResult[] }>;
 
 export interface E2eFullDriverDeps {
   launcher?: E2eFullBrowserLauncher;
@@ -264,7 +253,7 @@ export const FEATURE_CONCURRENCY_D6 = 4;
 
 /**
  * Inline counting semaphore — gates concurrent access to a bounded
- * resource (here: browser contexts). Same implementation as e2e-deep.
+ * resource (here: browser contexts). Same implementation as d5-single-pill.
  */
 export class Semaphore {
   private queue: (() => void)[] = [];
@@ -430,7 +419,7 @@ export function createPooledE2eFullLauncher(
 }
 
 /**
- * D5 script file matcher — reused from e2e-deep for the shared script
+ * D5 script file matcher — reused from d5-single-pill for the shared script
  * loader. Accepts `d5-<name>.{js,ts}` but rejects test files, .d.ts,
  * and non-d5 prefixed files.
  */
@@ -439,7 +428,7 @@ export const D5_SCRIPT_FILE_MATCHER =
 
 /**
  * Default script loader — scans `<driverDir>/../scripts/` for D5 script
- * files. Same as e2e-deep's loader.
+ * files. Same as d5-single-pill's loader.
  */
 export const defaultScriptLoader: E2eFullScriptLoader = async (
   ctx: ProbeContext,
@@ -497,12 +486,12 @@ const defaultRunAndParse: D6RunAndParse = async ({
     import("../../cli/config.js"),
   ]);
   const config = loadConfig();
-  const { specResults } = runE2eAndParse(
+  const { exitCode, specResults } = runE2eAndParse(
     slug,
     { tier: "d6", retries, baseUrlOverride: backendUrl },
     config,
   );
-  return { specResults };
+  return { exitCode, specResults };
 };
 
 export function createE2eFullDriver(
@@ -575,6 +564,11 @@ export function createE2eFullDriver(
       // error here yields empty specResults → all-UNKNOWN cells, never green.
       const runStart = Date.now();
       let specResults: SpecFileResult[] = [];
+      // Defaults to 0 (trustworthy); a non-zero exit OR a thrown error makes
+      // the run untrustworthy. We seed it to a non-zero sentinel on throw so
+      // the same downgrade path applies. A clean run overwrites it with the
+      // real (zero) exit code.
+      let exitCode = 0;
       let runError: string | undefined;
       ctx.logger.info("probe.e2e-full.suite-start", { slug, backendUrl });
       try {
@@ -582,11 +576,12 @@ export function createE2eFullDriver(
           slug,
           backendUrl,
           retries: 1,
-          abortSignal: ctx.abortSignal,
         });
         specResults = parsed.specResults;
+        exitCode = parsed.exitCode;
       } catch (err) {
         runError = err instanceof Error ? err.message : String(err);
+        exitCode = 1; // a thrown runner is an untrustworthy (non-zero) run
         ctx.logger.warn("probe.e2e-full.suite-error", {
           slug,
           err: truncateUtf8(runError, 1200),
@@ -594,11 +589,36 @@ export function createE2eFullDriver(
         // specResults stays [] → rollup yields all-UNKNOWN (fail-closed).
       }
 
+      // FAIL-CLOSED on a non-zero exit: a Playwright run can exit non-zero for
+      // reasons that never render as a per-spec `failed` row (global-setup /
+      // webServer / fixture failure, worker crash/SIGSEGV, `--max-failures`
+      // abort) while STILL emitting green rows for the specs that ran. Treat
+      // the whole run as untrustworthy — any cell that would be `green` from a
+      // mere pass-row becomes `unknown` instead. Red rows stay red (a real
+      // failure is still a failure) and skips stay skipped.
+      const runUntrustworthy = exitCode !== 0;
+      if (runUntrustworthy) {
+        ctx.logger.warn("probe.e2e-full.nonzero-exit", { slug, exitCode });
+      }
+
       // ---- Fail-closed rollup ------------------------------------------
       // The driver injects the declared-skip list; the rollup is PURE and
       // never reads the loader itself.
       const skipped = declaredSkipsImpl(slug);
-      const cells: CellRollup[] = rollupCells({ slug, specResults, skipped });
+      const rawCells: CellRollup[] = rollupCells({
+        slug,
+        specResults,
+        skipped,
+      });
+      // Apply the non-zero-exit downgrade uniformly here so the side-emit loop
+      // and the aggregate computation below both see the corrected verdicts: a
+      // `green` cell from an untrustworthy run is demoted to `unknown` (never
+      // green); `red`/`unknown`/`skipped` cells are unchanged.
+      const cells: CellRollup[] = runUntrustworthy
+        ? rawCells.map((cell) =>
+            cell.state === "green" ? { ...cell, state: "unknown" } : cell,
+          )
+        : rawCells;
 
       // ---- Emit one side row per cell (d6:<slug>/<column>) --------------
       // FAIL-CLOSED projection onto the narrower `ProbeState` vocabulary:
@@ -606,10 +626,16 @@ export function createE2eFullDriver(
       //   red     → "red"
       //   unknown → "error"  (loud, non-green; the writer's error branch
       //                       never greens and never mutates fail_count)
-      //   skipped → "green"  (neutral green-side-row, matching the legacy
-      //                       skip convention) BUT carrying cellState:
-      //                       "skipped" so the dashboard renders it as a
-      //                       distinct skip, never as a real pass.
+      //   skipped → "error"  (NON-green neutral — a skip must NEVER project
+      //                       to green. The dashboard's `StatusRow.state`
+      //                       (live-status.ts) is 3-valued green/red/degraded
+      //                       and does NOT read `signal.cellState`, so a
+      //                       "green" projection here would render a skipped
+      //                       spec as a REAL pass. We route it onto the same
+      //                       neutral `error` path as `unknown` so it can't
+      //                       read as a pass; the dedicated dashboard skip
+      //                       tone is a separate follow-up. `cellState:
+      //                       "skipped"` is still carried for audit.
       // The unprojected `cellState` is carried in the signal as the source
       // of truth; the projection NEVER turns a non-green cell into green.
       for (const cell of cells) {
@@ -618,9 +644,7 @@ export function createE2eFullDriver(
             ? "green"
             : cell.state === "red"
               ? "red"
-              : cell.state === "skipped"
-                ? "green"
-                : "error"; // unknown
+              : "error"; // unknown OR skipped → neutral, NON-green
         await sideEmit(ctx, {
           key: `d6:${slug}/${cell.cellColumn}`,
           state: projected,
@@ -641,7 +665,9 @@ export function createE2eFullDriver(
                 : cell.state === "unknown"
                   ? runError
                     ? "e2e run error — no parseable result"
-                    : "no PASS row for this spec"
+                    : runUntrustworthy
+                      ? `pass cell downgraded — e2e run exited non-zero (code ${exitCode})`
+                      : "no PASS row for this spec"
                   : undefined,
           },
           observedAt: ctx.now().toISOString(),
@@ -720,8 +746,14 @@ export function createE2eFullDriver(
               ? redColumns.map((c) => `${c}: spec failed`).join("; ")
               : runError
                 ? `e2e run error: ${truncateUtf8(runError, 600)}`
-                : undefined,
-          errorDesc: runError ? "suite-error" : undefined,
+                : runUntrustworthy
+                  ? `e2e run exited non-zero (code ${exitCode}) with no failed-spec row — run untrustworthy, pass cells downgraded to unknown`
+                  : undefined,
+          errorDesc: runError
+            ? "suite-error"
+            : runUntrustworthy
+              ? "nonzero-exit"
+              : undefined,
         },
         observedAt,
       };
