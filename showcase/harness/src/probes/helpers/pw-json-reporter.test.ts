@@ -152,7 +152,9 @@ describe("parsePlaywrightJson", () => {
             { title: "t1", tests: [{ results: [{ status: "passed" }] }] },
             {
               title: "t2",
-              tests: [{ results: [{ status: "failed" }, { status: "passed" }] }],
+              tests: [
+                { results: [{ status: "failed" }, { status: "passed" }] },
+              ],
             },
           ],
         },
