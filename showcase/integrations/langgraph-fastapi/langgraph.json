@@ -1,5 +1,10 @@
 {
   "dependencies": ["."],
+  "http": {
+    "configurable_headers": {
+      "include": ["x-*"]
+    }
+  },
   "graphs": {
     "sample_agent": "./src/agents/src/agent.py:graph",
     "beautiful_chat": "./src/agents/src/beautiful_chat.py:graph",
