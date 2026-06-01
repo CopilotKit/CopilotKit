@@ -46,7 +46,10 @@ export function EndpointSelector() {
     <Card size="sm">
       <CardHeader>
         <CardTitle>Endpoint</CardTitle>
-        <CardDescription className="truncate" title={localState.currentEndpoint}>
+        <CardDescription
+          className="truncate"
+          title={localState.currentEndpoint}
+        >
           Current: {localState.currentEndpoint}
         </CardDescription>
       </CardHeader>
@@ -60,11 +63,7 @@ export function EndpointSelector() {
             spellCheck={false}
             className="min-w-0 flex-1"
           />
-          <Button
-            type="submit"
-            disabled={draft.trim().length === 0}
-            size="sm"
-          >
+          <Button type="submit" disabled={draft.trim().length === 0} size="sm">
             Connect
           </Button>
         </form>

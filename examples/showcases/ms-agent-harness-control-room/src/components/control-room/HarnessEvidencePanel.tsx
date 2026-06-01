@@ -49,7 +49,10 @@ export function HarnessEvidencePanel() {
         detail={
           agentState.todos.length === 0
             ? "Awaiting plan"
-            : agentState.todos.map((todo) => todo.label).slice(0, 2).join(" · ")
+            : agentState.todos
+                .map((todo) => todo.label)
+                .slice(0, 2)
+                .join(" · ")
         }
       />
       <EvidenceMetric
@@ -154,9 +157,7 @@ function EvidenceMetric({
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium text-foreground">{label}</div>
-          <div className="truncate text-xs text-muted-foreground">
-            {detail}
-          </div>
+          <div className="truncate text-xs text-muted-foreground">{detail}</div>
         </div>
         <EvidenceBadge tone={tone}>{value}</EvidenceBadge>
       </div>

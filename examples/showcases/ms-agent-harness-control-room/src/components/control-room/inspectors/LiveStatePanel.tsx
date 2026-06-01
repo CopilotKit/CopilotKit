@@ -22,22 +22,22 @@ export function LiveStatePanel() {
         <CardTitle>Live state</CardTitle>
       </CardHeader>
       <CardContent>
-      <dl className="cr-dl">
-        <dt>Mode</dt>
-        <dd>{agentState.mode}</dd>
-        <dt>Repo files</dt>
-        <dd>{observers?.repo_file_count ?? "—"}</dd>
-        <dt>Last test</dt>
-        <dd>{observers?.latest_test_command ?? "—"}</dd>
-        <dt>Last test ok</dt>
-        <dd>
-          {observers?.latest_test_success == null
-            ? "—"
-            : observers.latest_test_success
-              ? "yes"
-              : "no"}
-        </dd>
-      </dl>
+        <dl className="cr-dl">
+          <dt>Mode</dt>
+          <dd>{agentState.mode}</dd>
+          <dt>Repo files</dt>
+          <dd>{observers?.repo_file_count ?? "—"}</dd>
+          <dt>Last test</dt>
+          <dd>{observers?.latest_test_command ?? "—"}</dd>
+          <dt>Last test ok</dt>
+          <dd>
+            {observers?.latest_test_success == null
+              ? "—"
+              : observers.latest_test_success
+                ? "yes"
+                : "no"}
+          </dd>
+        </dl>
       </CardContent>
     </Card>
   );

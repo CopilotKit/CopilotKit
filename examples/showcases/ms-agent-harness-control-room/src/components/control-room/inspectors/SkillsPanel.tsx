@@ -120,9 +120,7 @@ function SkillRow({ skill }: { skill: ControlRoomSkill }) {
           </span>
         ) : null}
       </span>
-      <span className="text-muted-foreground">
-        ×{skill.invocations}
-      </span>
+      <span className="text-muted-foreground">×{skill.invocations}</span>
     </li>
   );
 }
