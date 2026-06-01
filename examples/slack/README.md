@@ -105,6 +105,27 @@ Invite the bot to a channel and @mention it:
 
 > @CopilotKit Triage write this thread up as a Notion postmortem
 
+## Per-user identity
+
+The bridge forwards the **requesting Slack user** (resolved to name + email)
+to the agent each turn, so the bot acts on behalf of whoever's asking:
+"my issues" is scoped to you, and issues it files are assigned to you. This
+needs the `users:read.email` scope (already in the manifest — reinstall the
+app once after adding it).
+
+Caveat: a single API key can't forge Linear's `creator`, so created issues
+are *authored* by the bot and *assigned* to the requester. True per-user
+attribution (and reliable Notion personalization) needs per-user OAuth —
+see the design notes.
+
+## Live "thinking" indicator
+
+As soon as a run starts, the bot posts a `⏳ thinking…` message with animated
+dots so there's no dead air while it reasons or calls Linear/Notion. The
+streamed reply reuses that message (dots → answer); if the first output is a
+card or a confirm picker, the placeholder is removed. It's part of
+`@copilotkit/slack`, on by default.
+
 ## Deploying
 
 There's nothing local-only here: the bridge and the runtime are plain

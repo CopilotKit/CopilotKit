@@ -170,6 +170,80 @@ export function createSlackEventRenderer(args: {
    */
   let pendingInterrupt: CapturedInterrupt | undefined;
 
+  // ── "Thinking…" indicator ───────────────────────────────────────────
+  // Posted as soon as a run starts so there's no dead air while the agent
+  // reasons / calls MCP before its first token. The streamed text reply
+  // REUSES this message (the dots morph straight into the answer); if the
+  // first visible output is something else (a component, a HITL picker, an
+  // activity surface) the placeholder is removed instead. `runAgent` fires
+  // once per tool-loop iteration, so we (re)post on each RUN_STARTED and
+  // clear on each RUN_FINISHED — giving a "thinking" beat between steps.
+  let thinkingTs: string | undefined;
+  let thinkingTimer: ReturnType<typeof setInterval> | undefined;
+  let thinkingClaimed = false;
+
+  const stopThinkingTimer = () => {
+    if (thinkingTimer) {
+      clearInterval(thinkingTimer);
+      thinkingTimer = undefined;
+    }
+  };
+
+  const startThinking = async () => {
+    if (aborted || thinkingTs || thinkingClaimed) return;
+    try {
+      const posted = await client.chat.postMessage({
+        channel: target.channel,
+        thread_ts: target.threadTs,
+        text: ":hourglass_flowing_sand:  _thinking…_",
+      });
+      if (!posted.ts) return;
+      thinkingTs = posted.ts;
+      let frame = 0;
+      thinkingTimer = setInterval(() => {
+        if (thinkingClaimed || !thinkingTs) return;
+        frame = (frame + 1) % 3;
+        const dots = ".".repeat(frame + 1);
+        void client.chat
+          .update({
+            channel: target.channel,
+            ts: thinkingTs,
+            text: `:hourglass_flowing_sand:  _thinking${dots}_`,
+          })
+          .catch(() => {});
+      }, 1200);
+    } catch (err) {
+      console.error("[slack-renderer] thinking placeholder failed:", err);
+    }
+  };
+
+  // Hand the standing placeholder to the text stream so its dots become the
+  // reply. Returns the ts once; afterwards the message belongs to the stream.
+  const claimThinking = (): string | undefined => {
+    if (thinkingTs && !thinkingClaimed) {
+      thinkingClaimed = true;
+      stopThinkingTimer();
+      const ts = thinkingTs;
+      thinkingTs = undefined;
+      return ts;
+    }
+    return undefined;
+  };
+
+  // Remove the placeholder if it's still standing and wasn't claimed by text.
+  const clearThinking = async () => {
+    stopThinkingTimer();
+    const ts = thinkingTs;
+    thinkingTs = undefined;
+    if (ts && !thinkingClaimed) {
+      try {
+        await client.chat.delete({ channel: target.channel, ts });
+      } catch {
+        /* best-effort: the message may already be gone */
+      }
+    }
+  };
+
   const ensureStream = (
     messageId: string,
   ): ChunkedMessageStream | undefined => {
@@ -178,6 +252,17 @@ export function createSlackEventRenderer(args: {
     if (!s) {
       s = new ChunkedMessageStream({
         postPlaceholder: async (text) => {
+          // Reuse the "thinking…" message if one is standing — the dots
+          // morph straight into the streamed reply (no extra message).
+          const claimed = claimThinking();
+          if (claimed) {
+            await client.chat.update({
+              channel: target.channel,
+              ts: claimed,
+              text,
+            });
+            return claimed;
+          }
           const posted = await client.chat.postMessage({
             channel: target.channel,
             thread_ts: target.threadTs,
@@ -197,6 +282,18 @@ export function createSlackEventRenderer(args: {
   };
 
   const subscriber: AgentSubscriber = {
+    // ── 0. Run lifecycle: thinking indicator ───────────────────────────
+    async onRunStartedEvent() {
+      if (aborted) return;
+      await startThinking();
+    },
+    async onRunFinishedEvent() {
+      // If the run produced a streamed reply it already claimed the
+      // placeholder; otherwise (tool/component/HITL output, or nothing)
+      // this removes the leftover "thinking…" bubble.
+      await clearThinking();
+    },
+
     // ── 1. Text streaming ──────────────────────────────────────────────
     onTextMessageStartEvent({ event }) {
       if (aborted) return;
@@ -232,6 +329,7 @@ export function createSlackEventRenderer(args: {
       if (!toolStatusAllowed(event.toolCallName)) return;
       if (toolStatusTs.has(event.toolCallId)) return;
       try {
+        await clearThinking();
         const posted = await client.chat.postMessage({
           channel: target.channel,
           thread_ts: target.threadTs,
@@ -372,6 +470,7 @@ export function createSlackEventRenderer(args: {
       const existingTs = activityTs.get(event.messageId);
       const fallbackText = `[${event.activityType}]`;
       try {
+        if (!existingTs) await clearThinking();
         if (existingTs) {
           await client.chat.update({
             channel: target.channel,
@@ -398,6 +497,7 @@ export function createSlackEventRenderer(args: {
       // Don't post a warning if we're the ones aborting the run; the
       // `_(interrupted)_` marker on the partial reply is the user-visible
       // signal in that case.
+      await clearThinking();
       if (aborted) return;
       try {
         await client.chat.postMessage({
@@ -424,6 +524,9 @@ export function createSlackEventRenderer(args: {
       // abort) see the flag and bail.
       if (aborted) return;
       aborted = true;
+      // Drop any standing "thinking…" bubble; the interrupted marker (or
+      // the next turn) is the user-visible signal now.
+      await clearThinking();
       // For each in-flight text-message stream, append the interrupted
       // marker and drain. Streams that have no content yet are silently
       // dropped (the bot never posted anything for them).
