@@ -20,7 +20,8 @@ export interface RuntimeConfig {
   pocketbaseUrl: string;
   /** Showcase shell host — used to build Demo / Code / docs-shell links. */
   shellUrl: string;
-  /** Ops API base URL — server-side rewrite target for /api/ops/*. */
+  /** Ops API base URL — request-time proxy target for /api/ops/* (served
+   * by the Route Handler at src/app/api/ops/[...path]/route.ts). */
   opsBaseUrl: string;
 }
 
@@ -63,11 +64,11 @@ export function getRuntimeConfig(
   );
   const opsBaseUrl = readUrl(
     "OPS_BASE_URL",
-    // shell-dashboard's next.config.ts validates OPS_BASE_URL at
-    // start time, so reaching the fallback here means something
-    // is wrong with the launch sequence. Use a sentinel that
-    // produces visible breakage rather than silently routing to
-    // a guessed host.
+    // The /api/ops proxy Route Handler reads OPS_BASE_URL directly at
+    // request time and returns a 503 when it is unset, so reaching this
+    // fallback only matters for any server component that surfaces the
+    // configured value. Use a sentinel that produces visible breakage
+    // rather than silently routing to a guessed host.
     isProd ? "http://ops.invalid" : "http://localhost:9020",
     isProd,
   );
