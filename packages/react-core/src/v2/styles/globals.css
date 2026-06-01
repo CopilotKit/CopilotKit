@@ -1,8 +1,6 @@
 @import "tailwindcss" prefix(cpk);
 @plugin "@tailwindcss/typography";
 @source "../**/*.{ts,tsx}";
-@source "../../../../node_modules/streamdown/dist/index.js";
-
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
@@ -174,10 +172,6 @@
       touch-action: pan-y;
     }
   }
-}
-
-[data-copilotkit] div[data-streamdown="code-block"] > pre {
-  @apply cpk:mt-0 cpk:mb-0;
 }
 
 /* Minimal scrollbar for WebKit browsers (Chrome, Safari, Edge) */

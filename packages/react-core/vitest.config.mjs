@@ -14,7 +14,7 @@ export default defineConfig({
     silent: true,
     server: {
       deps: {
-        inline: ["react-markdown", "streamdown", "@copilotkit"],
+        inline: ["react-markdown", "@copilotkit"],
       },
     },
     css: {

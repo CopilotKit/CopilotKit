@@ -181,8 +181,6 @@ export default defineConfig([
         clsx: "clsx",
         "@radix-ui/react-tooltip": "RadixReactTooltip",
         "@radix-ui/react-dropdown-menu": "RadixReactDropdownMenu",
-        "katex/dist/katex.min.css": "katexCss",
-        streamdown: "streamdown",
         "@lit-labs/react": "LitLabsReact",
         "use-stick-to-bottom": "useStickToBottom",
         "ts-deepmerge": "tsDeepmerge",
