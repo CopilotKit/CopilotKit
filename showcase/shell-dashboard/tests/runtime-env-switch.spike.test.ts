@@ -12,10 +12,11 @@ import { setTimeout as wait } from "node:timers/promises";
 // into the bundle), this test fails because the first boot's URL
 // values leak into the second boot's HTML.
 //
-// One nuance vs the original spike: shell-dashboard's next.config.ts
-// `rewrites()` reads OPS_BASE_URL and Next.js evaluates rewrites at
-// build time (not only at start). So we DO pass an OPS_BASE_URL at
-// build — but the value is a sentinel placeholder that no boot uses.
+// The /api/ops/* proxy is served by the Route Handler at
+// `src/app/api/ops/[...path]/route.ts`, which reads OPS_BASE_URL from
+// process.env at REQUEST time — so the build does NOT need OPS_BASE_URL
+// at all. We still pass a sentinel placeholder at build to prove the
+// build tolerates (and ignores) it; no boot ever uses that value.
 // The properties under test (the inlined __SHOWCASE_CONFIG__ script
 // emitted by `src/app/layout.tsx`) are read from process.env at
 // request time by `getRuntimeConfig()` and therefore reflect the
@@ -29,17 +30,19 @@ const PORT_B = 3802;
 // resolution.
 const SHELL_DASHBOARD_DIR = import.meta.dirname + "/..";
 
-// Sentinel used ONLY to satisfy next.config.ts rewrites() during
-// `next build`. Per-boot env vars below override this for the
-// __SHOWCASE_CONFIG__ injection that the test actually asserts on.
+// Sentinel passed at `next build` time purely to prove the build
+// tolerates and ignores it (the proxy now resolves OPS_BASE_URL at
+// request time in the Route Handler, not at build). Per-boot env vars
+// below drive the __SHOWCASE_CONFIG__ injection the test asserts on.
 const BUILD_TIME_OPS_PLACEHOLDER = "http://build-placeholder.invalid";
 
 describe("Option B: one artifact, two env values, no rebuild", () => {
   beforeAll(() => {
-    // Build ONCE. Pass a placeholder OPS_BASE_URL only so
-    // next.config.ts:rewrites() can construct its proxy entry.
-    // No POCKETBASE_URL / SHELL_URL — those are read at request
-    // time by getRuntimeConfig() and must not be required at build.
+    // Build ONCE. The placeholder OPS_BASE_URL is passed only to prove
+    // the build ignores it — the /api/ops proxy resolves OPS_BASE_URL at
+    // request time in the Route Handler. No POCKETBASE_URL / SHELL_URL —
+    // those are read at request time by getRuntimeConfig() and must not
+    // be required at build.
     //
     // Use `npm run build` (not `npx next build` directly) so the
     // `prebuild` script runs and the generated data fixtures
@@ -104,11 +107,18 @@ describe("Option B: one artifact, two env values, no rebuild", () => {
     const cfg = await bootAndProbe(PORT_A, {
       POCKETBASE_URL: "https://pb-env-a.example.com",
       SHELL_URL: "https://shell-env-a.example.com",
+      // Server proxy target (read by the Route Handler) — must NOT leak
+      // into the injected client config.
       OPS_BASE_URL: "https://ops-env-a.example.com",
+      // Client-direct override (opt-in) — THIS is what flows into the
+      // injected __SHOWCASE_CONFIG__.opsBaseUrl.
+      NEXT_PUBLIC_OPS_DIRECT_BASE_URL: "https://ops-direct-env-a.example.com",
     });
     expect(cfg.pocketbaseUrl).toBe("https://pb-env-a.example.com");
     expect(cfg.shellUrl).toBe("https://shell-env-a.example.com");
-    expect(cfg.opsBaseUrl).toBe("https://ops-env-a.example.com");
+    // opsBaseUrl reflects the client-direct override, NOT the server
+    // proxy target OPS_BASE_URL.
+    expect(cfg.opsBaseUrl).toBe("https://ops-direct-env-a.example.com");
   }, 60_000);
 
   it("serves env-B URLs on the second boot of THE SAME ARTIFACT", async () => {
@@ -116,10 +126,25 @@ describe("Option B: one artifact, two env values, no rebuild", () => {
       POCKETBASE_URL: "https://pb-env-b.example.com",
       SHELL_URL: "https://shell-env-b.example.com",
       OPS_BASE_URL: "https://ops-env-b.example.com",
+      NEXT_PUBLIC_OPS_DIRECT_BASE_URL: "https://ops-direct-env-b.example.com",
     });
     expect(cfg.pocketbaseUrl).toBe("https://pb-env-b.example.com");
     expect(cfg.shellUrl).toBe("https://shell-env-b.example.com");
-    expect(cfg.opsBaseUrl).toBe("https://ops-env-b.example.com");
+    expect(cfg.opsBaseUrl).toBe("https://ops-direct-env-b.example.com");
+  }, 60_000);
+
+  it("does NOT leak the server proxy target OPS_BASE_URL into the client config", async () => {
+    // Regression for the staging no-data bug: a deploy that sets ONLY
+    // OPS_BASE_URL (server proxy target) and no client-direct override
+    // must inject an EMPTY opsBaseUrl so the client falls through to the
+    // same-origin /api/ops proxy instead of fetching the harness
+    // cross-origin (CORS-blocked + wrong path).
+    const cfg = await bootAndProbe(PORT_A, {
+      POCKETBASE_URL: "https://pb-leak.example.com",
+      SHELL_URL: "https://shell-leak.example.com",
+      OPS_BASE_URL: "https://harness-should-not-leak.example.com",
+    });
+    expect(cfg.opsBaseUrl).toBe("");
   }, 60_000);
 
   afterAll(() => {

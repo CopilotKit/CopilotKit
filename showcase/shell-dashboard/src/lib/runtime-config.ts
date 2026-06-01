@@ -20,7 +20,19 @@ export interface RuntimeConfig {
   pocketbaseUrl: string;
   /** Showcase shell host — used to build Demo / Code / docs-shell links. */
   shellUrl: string;
-  /** Ops API base URL — server-side rewrite target for /api/ops/*. */
+  /**
+   * Client DIRECT ops base URL — an opt-in escape hatch for direct
+   * cross-origin calls (e.g. local dev hitting a remote harness),
+   * sourced from `NEXT_PUBLIC_OPS_DIRECT_BASE_URL`. Defaults to "" so
+   * `ops-api.ts:resolveBaseUrl()` falls through to the same-origin
+   * `/api/ops` proxy.
+   *
+   * This is DISTINCT from the server proxy target `OPS_BASE_URL`, which
+   * is read directly (server-only) by the Route Handler at
+   * `src/app/api/ops/[...path]/route.ts` and is intentionally NEVER
+   * injected into the client config — leaking it makes the browser fetch
+   * the harness cross-origin (CORS-blocked, wrong path).
+   */
   opsBaseUrl: string;
 }
 
@@ -61,16 +73,17 @@ export function getRuntimeConfig(
     isProd ? PROD_INVALID_SHELL_URL : "http://localhost:3000",
     isProd,
   );
-  const opsBaseUrl = readUrl(
-    "OPS_BASE_URL",
-    // shell-dashboard's next.config.ts validates OPS_BASE_URL at
-    // start time, so reaching the fallback here means something
-    // is wrong with the launch sequence. Use a sentinel that
-    // produces visible breakage rather than silently routing to
-    // a guessed host.
-    isProd ? "http://ops.invalid" : "http://localhost:9020",
-    isProd,
-  );
+  // Client DIRECT ops override — opt-in escape hatch for direct
+  // cross-origin calls. Sourced ONLY from the NEXT_PUBLIC_-prefixed
+  // client-intended name (NOT the bare server proxy target OPS_BASE_URL,
+  // which the Route Handler reads server-side). Defaults to "" in every
+  // environment so the client falls through to the same-origin /api/ops
+  // proxy unless a developer explicitly opts in. No sentinel and no
+  // FATAL-CONFIG: an unset override is the normal production case, not a
+  // misconfiguration.
+  const opsBaseUrl = (process.env.NEXT_PUBLIC_OPS_DIRECT_BASE_URL ?? "")
+    .trim()
+    .replace(/\/+$/, "");
 
   return { pocketbaseUrl, shellUrl, opsBaseUrl };
 }
