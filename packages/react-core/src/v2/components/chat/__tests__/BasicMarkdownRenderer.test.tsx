@@ -105,7 +105,9 @@ describe("BasicMarkdownRenderer", () => {
 
   it("rejects data:image/svg+xml image src (SVG script vector)", () => {
     const { container } = render(
-      <BasicMarkdownRenderer content={"![x](data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=)"} />,
+      <BasicMarkdownRenderer
+        content={"![x](data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=)"}
+      />,
     );
     const img = container.querySelector("img");
     expect(img).toBeTruthy();
@@ -114,8 +116,12 @@ describe("BasicMarkdownRenderer", () => {
 
   it("still allows data:image/png image src", () => {
     const { container } = render(
-      <BasicMarkdownRenderer content={"![x](data:image/png;base64,iVBORw0KGgo=)"} />,
+      <BasicMarkdownRenderer
+        content={"![x](data:image/png;base64,iVBORw0KGgo=)"}
+      />,
     );
-    expect(container.querySelector("img")?.getAttribute("src")).toContain("data:image/png");
+    expect(container.querySelector("img")?.getAttribute("src")).toContain(
+      "data:image/png",
+    );
   });
 });

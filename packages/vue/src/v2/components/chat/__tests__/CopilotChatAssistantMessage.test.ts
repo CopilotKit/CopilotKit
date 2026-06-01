@@ -1064,5 +1064,4 @@ describe("CopilotChatAssistantMessage", () => {
       expect(screen.queryByRole("button", { name: /copy/i })).toBeNull();
     });
   });
-
 });

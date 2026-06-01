@@ -13,16 +13,53 @@ export interface CopilotMarkdownProps {
 }
 
 export const defaultMarkdownStyles: MarkdownStyle = {
-  paragraph: { fontSize: 16, lineHeight: 24, color: "#1a1a1a", marginTop: 4, marginBottom: 4 },
-  h1: { fontSize: 24, fontWeight: "bold", marginTop: 12, marginBottom: 8, color: "#111111" },
-  h2: { fontSize: 20, fontWeight: "bold", marginTop: 10, marginBottom: 6, color: "#111111" },
-  h3: { fontSize: 18, fontWeight: "600", marginTop: 8, marginBottom: 4, color: "#222222" },
+  paragraph: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: "#1a1a1a",
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  h1: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginTop: 12,
+    marginBottom: 8,
+    color: "#111111",
+  },
+  h2: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginTop: 10,
+    marginBottom: 6,
+    color: "#111111",
+  },
+  h3: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginTop: 8,
+    marginBottom: 4,
+    color: "#222222",
+  },
   strong: { fontWeight: "bold" },
   em: { fontStyle: "italic" },
   link: { color: "#0066cc", textDecorationLine: "underline" },
-  blockquote: { backgroundColor: "#f5f5f5", borderLeftWidth: 4, borderLeftColor: "#cccccc", paddingLeft: 12, marginVertical: 4 },
+  blockquote: {
+    backgroundColor: "#f5f5f5",
+    borderLeftWidth: 4,
+    borderLeftColor: "#cccccc",
+    paddingLeft: 12,
+    marginVertical: 4,
+  },
   code: { backgroundColor: "#f0f0f0", fontFamily: "monospace", fontSize: 14 },
-  codeBlock: { backgroundColor: "#f0f0f0", borderRadius: 8, padding: 12, fontFamily: "monospace", fontSize: 14, marginVertical: 4 },
+  codeBlock: {
+    backgroundColor: "#f0f0f0",
+    borderRadius: 8,
+    padding: 12,
+    fontFamily: "monospace",
+    fontSize: 14,
+    marginVertical: 4,
+  },
   list: { marginTop: 4, marginBottom: 4 },
 };
 
@@ -38,15 +75,37 @@ function inlineText(
           ? inlineText((t as any).tokens, s)
           : (t as any).text;
       case "strong":
-        return <Text key={i} style={s.strong}>{inlineText((t as any).tokens, s)}</Text>;
+        return (
+          <Text key={i} style={s.strong}>
+            {inlineText((t as any).tokens, s)}
+          </Text>
+        );
       case "em":
-        return <Text key={i} style={s.em}>{inlineText((t as any).tokens, s)}</Text>;
+        return (
+          <Text key={i} style={s.em}>
+            {inlineText((t as any).tokens, s)}
+          </Text>
+        );
       case "del":
-        return <Text key={i} style={{ textDecorationLine: "line-through" }}>{inlineText((t as any).tokens, s)}</Text>;
+        return (
+          <Text key={i} style={{ textDecorationLine: "line-through" }}>
+            {inlineText((t as any).tokens, s)}
+          </Text>
+        );
       case "codespan":
-        return <Text key={i} style={s.code}>{(t as any).text}</Text>;
+        return (
+          <Text key={i} style={s.code}>
+            {(t as any).text}
+          </Text>
+        );
       case "link":
-        return <Text key={i} style={s.link}>{(t as any).tokens ? inlineText((t as any).tokens, s) : (t as any).text}</Text>;
+        return (
+          <Text key={i} style={s.link}>
+            {(t as any).tokens
+              ? inlineText((t as any).tokens, s)
+              : (t as any).text}
+          </Text>
+        );
       case "escape":
         return (t as any).text;
       default:
@@ -55,7 +114,13 @@ function inlineText(
   });
 }
 
-function Block({ token, s }: { token: MarkdownToken; s: MarkdownStyle }): React.ReactElement | null {
+function Block({
+  token,
+  s,
+}: {
+  token: MarkdownToken;
+  s: MarkdownStyle;
+}): React.ReactElement | null {
   switch (token.type) {
     case "space":
       return null;
@@ -65,13 +130,17 @@ function Block({ token, s }: { token: MarkdownToken; s: MarkdownStyle }): React.
       return <Text style={style}>{inlineText((token as any).tokens, s)}</Text>;
     }
     case "paragraph":
-      return <Text style={s.paragraph}>{inlineText((token as any).tokens, s)}</Text>;
+      return (
+        <Text style={s.paragraph}>{inlineText((token as any).tokens, s)}</Text>
+      );
     case "blockquote":
       return (
         <View style={s.blockquote}>
-          {(((token as any).tokens as MarkdownToken[] | undefined) ?? []).map((t, i) => (
-            <Block key={i} token={t} s={s} />
-          ))}
+          {(((token as any).tokens as MarkdownToken[] | undefined) ?? []).map(
+            (t, i) => (
+              <Block key={i} token={t} s={s} />
+            ),
+          )}
         </View>
       );
     case "code":
@@ -83,9 +152,13 @@ function Block({ token, s }: { token: MarkdownToken; s: MarkdownStyle }): React.
     case "list":
       return (
         <View style={s.list}>
-          {(((token as any).items as Array<{ tokens?: MarkdownToken[] }>) ?? []).map((item, i) => (
+          {(
+            ((token as any).items as Array<{ tokens?: MarkdownToken[] }>) ?? []
+          ).map((item, i) => (
             <View key={i} style={{ flexDirection: "row" }}>
-              <Text style={s.paragraph}>{(token as any).ordered ? `${i + 1}. ` : "• "}</Text>
+              <Text style={s.paragraph}>
+                {(token as any).ordered ? `${i + 1}. ` : "• "}
+              </Text>
               <View style={{ flex: 1 }}>
                 {(item.tokens ?? []).map((t, j) => (
                   <Block key={j} token={t} s={s} />
@@ -96,9 +169,17 @@ function Block({ token, s }: { token: MarkdownToken; s: MarkdownStyle }): React.
         </View>
       );
     case "text":
-      return <Text style={s.paragraph}>{(token as any).tokens ? inlineText((token as any).tokens, s) : (token as any).text}</Text>;
+      return (
+        <Text style={s.paragraph}>
+          {(token as any).tokens
+            ? inlineText((token as any).tokens, s)
+            : (token as any).text}
+        </Text>
+      );
     default:
-      return "text" in token ? <Text style={s.paragraph}>{(token as any).text}</Text> : null;
+      return "text" in token ? (
+        <Text style={s.paragraph}>{(token as any).text}</Text>
+      ) : null;
   }
 }
 
@@ -109,7 +190,8 @@ function Block({ token, s }: { token: MarkdownToken; s: MarkdownStyle }): React.
  */
 export function CopilotMarkdown({ content, style }: CopilotMarkdownProps) {
   const mergedStyles = useMemo(
-    () => (style ? { ...defaultMarkdownStyles, ...style } : defaultMarkdownStyles),
+    () =>
+      style ? { ...defaultMarkdownStyles, ...style } : defaultMarkdownStyles,
     [style],
   );
   const tokens = useMemo(() => parseMarkdown(content ?? ""), [content]);

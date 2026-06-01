@@ -46,7 +46,10 @@ describe("CopilotChatAssistantMessage markdown resolution", () => {
   it("lets the slot override the provider renderer", () => {
     wrap(
       <MarkdownRendererProvider renderer={ProviderRenderer}>
-        <CopilotChatAssistantMessage message={msg} markdownRenderer={SlotRenderer} />
+        <CopilotChatAssistantMessage
+          message={msg}
+          markdownRenderer={SlotRenderer}
+        />
       </MarkdownRendererProvider>,
     );
     expect(screen.queryByTestId("provider-renderer")).toBeNull();

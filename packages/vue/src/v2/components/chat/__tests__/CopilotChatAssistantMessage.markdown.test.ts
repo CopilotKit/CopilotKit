@@ -21,11 +21,9 @@ const Providers = (inner: object) =>
     },
     render() {
       return h(CopilotKitProvider, { runtimeUrl: "/api/copilotkit" }, () => [
-        h(
-          CopilotChatConfigurationProvider,
-          { threadId: "test-thread" },
-          () => [h(inner)],
-        ),
+        h(CopilotChatConfigurationProvider, { threadId: "test-thread" }, () => [
+          h(inner),
+        ]),
       ]);
     },
   });

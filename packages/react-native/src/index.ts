@@ -136,4 +136,7 @@ export type {
 
 // Built-in markdown renderer
 export { CopilotMarkdown, defaultMarkdownStyles } from "./components/Markdown";
-export type { CopilotMarkdownProps, MarkdownStyle } from "./components/Markdown";
+export type {
+  CopilotMarkdownProps,
+  MarkdownStyle,
+} from "./components/Markdown";

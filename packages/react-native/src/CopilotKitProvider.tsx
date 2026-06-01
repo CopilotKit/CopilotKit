@@ -9,7 +9,10 @@ import { CopilotKitCoreReact } from "@copilotkit/react-core/v2/headless";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import type { DebugConfig } from "@copilotkit/shared";
 import { RenderToolProvider } from "./hooks/RenderToolContext";
-import { MarkdownRendererProvider, type NativeMarkdownRenderer } from "./components/MarkdownRendererContext";
+import {
+  MarkdownRendererProvider,
+  type NativeMarkdownRenderer,
+} from "./components/MarkdownRendererContext";
 
 export interface CopilotKitNativeProviderProps {
   children: ReactNode;
@@ -233,10 +236,10 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     <CopilotKitContext.Provider value={contextValue}>
       <LicenseContext.Provider value={licenseContextValue}>
         <RenderToolProvider>
-            <MarkdownRendererProvider renderer={markdownRenderer}>
-              {children}
-            </MarkdownRendererProvider>
-          </RenderToolProvider>
+          <MarkdownRendererProvider renderer={markdownRenderer}>
+            {children}
+          </MarkdownRendererProvider>
+        </RenderToolProvider>
       </LicenseContext.Provider>
     </CopilotKitContext.Provider>
   );

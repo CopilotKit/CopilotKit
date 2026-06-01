@@ -57,16 +57,28 @@ function renderInline(tokens: MarkdownToken[] | undefined): React.ReactNode {
         return <del key={i}>{renderInline((token as any).tokens)}</del>;
       case "codespan":
         return (
-          <code key={i} className="cpk:rounded cpk:bg-black/5 cpk:px-1 cpk:py-0.5">
+          <code
+            key={i}
+            className="cpk:rounded cpk:bg-black/5 cpk:px-1 cpk:py-0.5"
+          >
             {(token as { text: string }).text}
           </code>
         );
       case "br":
         return <br key={i} />;
       case "link": {
-        const l = token as { href: string; tokens?: MarkdownToken[]; text: string };
+        const l = token as {
+          href: string;
+          tokens?: MarkdownToken[];
+          text: string;
+        };
         return (
-          <a key={i} href={sanitizeHref(l.href)} target="_blank" rel="noopener noreferrer">
+          <a
+            key={i}
+            href={sanitizeHref(l.href)}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             {l.tokens ? renderInline(l.tokens) : l.text}
           </a>
         );
@@ -74,26 +86,34 @@ function renderInline(tokens: MarkdownToken[] | undefined): React.ReactNode {
       case "image": {
         const img = token as { href: string; text: string };
         return (
-          <img key={i} src={sanitizeImgSrc(img.href)} alt={img.text} className="cpk:max-w-full" />
+          <img
+            key={i}
+            src={sanitizeImgSrc(img.href)}
+            alt={img.text}
+            className="cpk:max-w-full"
+          />
         );
       }
       case "escape":
         return (token as { text: string }).text;
       default:
-        return "text" in token
-          ? (token as { text: string }).text
-          : null;
+        return "text" in token ? (token as { text: string }).text : null;
     }
   });
 }
 
-function BlockToken({ token }: { token: MarkdownToken }): React.ReactElement | null {
+function BlockToken({
+  token,
+}: {
+  token: MarkdownToken;
+}): React.ReactElement | null {
   switch (token.type) {
     case "space":
       return null;
     case "heading": {
       const h = token as { depth: number; tokens?: MarkdownToken[] };
-      const Tag = `h${Math.min(Math.max(h.depth, 1), 6)}` as keyof JSX.IntrinsicElements;
+      const Tag =
+        `h${Math.min(Math.max(h.depth, 1), 6)}` as keyof JSX.IntrinsicElements;
       return <Tag>{renderInline(h.tokens)}</Tag>;
     }
     case "paragraph":
@@ -101,9 +121,11 @@ function BlockToken({ token }: { token: MarkdownToken }): React.ReactElement | n
     case "blockquote":
       return (
         <blockquote>
-          {(((token as any).tokens as MarkdownToken[] | undefined) ?? []).map((t, i) => (
-            <BlockToken key={i} token={t} />
-          ))}
+          {(((token as any).tokens as MarkdownToken[] | undefined) ?? []).map(
+            (t, i) => (
+              <BlockToken key={i} token={t} />
+            ),
+          )}
         </blockquote>
       );
     case "code": {

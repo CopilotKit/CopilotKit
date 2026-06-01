@@ -15,7 +15,10 @@ describe("parseMarkdown", () => {
 
   it("parses fenced code with a language", () => {
     const tokens = parseMarkdown("```ts\nconst x = 1;\n```");
-    const code = tokens.find((t) => t.type === "code") as { lang?: string; text: string };
+    const code = tokens.find((t) => t.type === "code") as {
+      lang?: string;
+      text: string;
+    };
     expect(code).toBeDefined();
     expect(code.lang).toBe("ts");
     expect(code.text).toContain("const x = 1;");

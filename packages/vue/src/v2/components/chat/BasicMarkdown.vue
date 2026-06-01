@@ -86,22 +86,31 @@ function block(t: MarkdownToken): VNode | null {
           .filter(Boolean),
       );
     case "code":
-      return h(
-        "pre",
-        { class: "cpk:overflow-x-auto cpk:rounded-lg cpk:p-3" },
-        [h("code", { "data-language": (t as any).lang || undefined }, (t as any).text)],
-      );
+      return h("pre", { class: "cpk:overflow-x-auto cpk:rounded-lg cpk:p-3" }, [
+        h(
+          "code",
+          { "data-language": (t as any).lang || undefined },
+          (t as any).text,
+        ),
+      ]);
     case "hr":
       return h("hr");
     case "list": {
       const list = t as any;
       const items = list.items.map((it: any) =>
-        h("li", ((it.tokens as MarkdownToken[] | undefined) ?? [])
-          .map(block)
-          .filter(Boolean)),
+        h(
+          "li",
+          ((it.tokens as MarkdownToken[] | undefined) ?? [])
+            .map(block)
+            .filter(Boolean),
+        ),
       );
       return list.ordered
-        ? h("ol", { start: typeof list.start === "number" ? list.start : undefined }, items)
+        ? h(
+            "ol",
+            { start: typeof list.start === "number" ? list.start : undefined },
+            items,
+          )
         : h("ul", items);
     }
     case "table": {
@@ -127,7 +136,10 @@ function block(t: MarkdownToken): VNode | null {
       ]);
     }
     case "text":
-      return h("p", (t as any).tokens ? inline((t as any).tokens) : (t as any).text);
+      return h(
+        "p",
+        (t as any).tokens ? inline((t as any).tokens) : (t as any).text,
+      );
     default:
       return "text" in t ? h("span", (t as any).text) : null;
   }

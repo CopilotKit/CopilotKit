@@ -218,9 +218,7 @@ export namespace CopilotChatAssistantMessage {
   export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     content,
     className,
-  }) => (
-    <BasicMarkdownRenderer content={content ?? ""} className={className} />
-  );
+  }) => <BasicMarkdownRenderer content={content ?? ""} className={className} />;
 
   export const Toolbar: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
     className,
