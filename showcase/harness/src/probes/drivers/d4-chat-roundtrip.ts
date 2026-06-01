@@ -326,8 +326,7 @@ export function createPooledE2eSmokeLauncher(
         logger?.warn("probe.e2e-smoke.pool-pre-aborted-release");
       } else {
         abortSignal.addEventListener("abort", onAbort, { once: true });
-        detachAbort = () =>
-          abortSignal.removeEventListener("abort", onAbort);
+        detachAbort = () => abortSignal.removeEventListener("abort", onAbort);
       }
     }
 
