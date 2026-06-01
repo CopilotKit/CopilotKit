@@ -853,6 +853,31 @@ describe("BrowserPool dead-instance detection", () => {
     await pool.shutdown();
   });
 
+  it("closes browsers already launched when a later init() fill launch throws", async () => {
+    // Multi-slot pool. The fill loop launches calls 1 and 2 successfully, then
+    // call 3 throws (PID-ceiling pthread_create EAGAIN / "Zygote could not
+    // fork" under launch pressure — the exact failure this file exists to
+    // survive). init() must REJECT, but the 2 browsers already launched must
+    // be CLOSED rather than leaked, and the pool's internal state must reset to
+    // empty so a half-initialized pool cannot result. The existing init-failure
+    // tests use a 1-slot pool or first-launch-fails (nothing launched yet),
+    // which is why this partial-fill leak was missed.
+    const { launchBrowser, launched } = makeFakeLauncher({ failAtCalls: [3] });
+    const { logger } = makeLeveledLogger();
+    const pool = new BrowserPool(4, 100, logger, launchBrowser, 0);
+
+    await expect(pool.init()).rejects.toThrow("simulated launch failure");
+
+    // Calls 1 and 2 succeeded before call 3 threw, so two browsers were live.
+    expect(launched).toHaveLength(2);
+    // Both must have been closed during the failed-fill cleanup — not leaked.
+    expect(launched[0]!.__closeCount).toBeGreaterThan(0);
+    expect(launched[1]!.__closeCount).toBeGreaterThan(0);
+    // The pool must be empty after rejection — no half-initialized state.
+    expect(pool.stats().size).toBe(0);
+    expect(pool.stats().available).toBe(0);
+  });
+
   it("does not overshoot poolSize when two concurrent acquires hit an empty pool", async () => {
     // Empty pool (init launches nothing). Two concurrent acquire() calls both
     // see this.slots.length === 0. WITHOUT a reiniting guard, BOTH drive

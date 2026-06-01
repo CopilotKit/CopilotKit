@@ -184,13 +184,34 @@ export class BrowserPool {
         });
     }
 
-    for (let i = 0; i < this.poolSize; i++) {
-      const browser = await this.launchBrowser();
-      const slot: Slot = { browser, contextCount: 0 };
-      this.slots.push(slot);
-      this.available.push(slot);
-      this.browserToSlot.set(browser, slot);
-      this.attachDisconnectHandler(slot, browser);
+    try {
+      for (let i = 0; i < this.poolSize; i++) {
+        const browser = await this.launchBrowser();
+        const slot: Slot = { browser, contextCount: 0 };
+        this.slots.push(slot);
+        this.available.push(slot);
+        this.browserToSlot.set(browser, slot);
+        this.attachDisconnectHandler(slot, browser);
+      }
+    } catch (err) {
+      // A mid-fill launch failure (the PID-ceiling pthread_create EAGAIN /
+      // "Zygote could not fork" this gate exists to survive) must not leak the
+      // browsers already launched on iterations 0..N-1: callers see a rejected
+      // init() and commonly never call shutdown(), so those live chromium
+      // processes would leak permanently and accelerate PID exhaustion. Reset
+      // the pool's internal state BEFORE closing (so a `disconnected` fire from
+      // a close cannot re-enter the recycle path via the slot's disconnect
+      // handler — same ordering shutdown() relies on), then close each launched
+      // browser (closeBrowser logs its own failures) and re-throw to preserve
+      // init()'s reject-on-failure contract.
+      const launched = this.slots;
+      this.slots = [];
+      this.available = [];
+      this.browserToSlot.clear();
+      await Promise.allSettled(
+        launched.map((slot, idx) => this.closeBrowser(slot.browser, idx)),
+      );
+      throw err;
     }
   }
 
