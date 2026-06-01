@@ -9,6 +9,10 @@ import { CopilotKitCoreReact } from "@copilotkit/react-core/v2/headless";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import type { DebugConfig } from "@copilotkit/shared";
 import { RenderToolProvider } from "./hooks/RenderToolContext";
+import {
+  MarkdownRendererProvider,
+  type NativeMarkdownRenderer,
+} from "./components/MarkdownRendererContext";
 
 export interface CopilotKitNativeProviderProps {
   children: ReactNode;
@@ -44,6 +48,12 @@ export interface CopilotKitNativeProviderProps {
    * subscriptions. Individual subscriptions can override with their own `throttleMs`.
    */
   defaultThrottleMs?: number;
+  /**
+   * Custom markdown renderer component. When provided, CopilotKit will use this
+   * instead of the built-in token-walking renderer. Receives `content` (markdown
+   * string) and optional `isStreaming` flag.
+   */
+  markdownRenderer?: NativeMarkdownRenderer;
   // Cloud features (publicApiKey, licenseToken) — not yet supported on React Native
 }
 
@@ -80,6 +90,7 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
   onError,
   debug,
   defaultThrottleMs,
+  markdownRenderer,
 }) => {
   // Resolve headers from function or static object (matches web provider pattern)
   const resolvedHeaders =
@@ -224,7 +235,11 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
   return (
     <CopilotKitContext.Provider value={contextValue}>
       <LicenseContext.Provider value={licenseContextValue}>
-        <RenderToolProvider>{children}</RenderToolProvider>
+        <RenderToolProvider>
+          <MarkdownRendererProvider renderer={markdownRenderer}>
+            {children}
+          </MarkdownRendererProvider>
+        </RenderToolProvider>
       </LicenseContext.Provider>
     </CopilotKitContext.Provider>
   );

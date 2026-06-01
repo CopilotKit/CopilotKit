@@ -19,3 +19,4 @@ export {
   type CopilotChatConfigurationValue,
 } from "./types";
 export type { CopilotKitContextValue } from "./keys";
+export * from "./markdown-renderer";

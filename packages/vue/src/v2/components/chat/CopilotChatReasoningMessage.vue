@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import type { Message, ReasoningMessage } from "@ag-ui/core";
-import { StreamMarkdown } from "streamdown-vue";
 import { IconChevronRight } from "../icons";
+import BasicMarkdown from "./BasicMarkdown.vue";
 
 const props = withDefaults(
   defineProps<{
@@ -227,7 +227,9 @@ function toggleOpen() {
             >
               <div v-if="hasContent || isStreaming" class="cpk:pb-2 cpk:pt-1">
                 <div class="cpk:text-sm cpk:text-muted-foreground">
-                  <StreamMarkdown :content="normalizedContent" />
+                  <!-- Reasoning content always uses the built-in basic renderer; the
+                       pluggable provider renderer applies to assistant messages only. -->
+                  <BasicMarkdown :content="normalizedContent" />
                   <span
                     v-if="isStreaming && hasContent"
                     class="cpk:inline-flex cpk:items-center cpk:ml-1 cpk:align-middle"

@@ -25,7 +25,6 @@ export default defineConfig({
     "@copilotkit/shared",
     "@ag-ui/client",
     "@gorhom/bottom-sheet",
-    "react-native-streamdown",
     "react-native-gesture-handler",
     "react-native-reanimated",
     "react-native-enriched-markdown",

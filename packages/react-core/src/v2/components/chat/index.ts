@@ -1,3 +1,5 @@
+export { BasicMarkdownRenderer } from "./BasicMarkdownRenderer";
+
 export {
   default as CopilotChatInput,
   type CopilotChatInputProps,

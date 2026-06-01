@@ -19,9 +19,12 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "../../components/ui/tooltip";
-import { useKatexStyles } from "../../hooks/useKatexStyles";
 import { WithSlots, renderSlot } from "../../lib/slots";
-import { Streamdown } from "streamdown";
+import { BasicMarkdownRenderer } from "./BasicMarkdownRenderer";
+import {
+  useMarkdownRenderer,
+  type MarkdownRendererProps,
+} from "../../providers/MarkdownRendererContext";
 import { copyToClipboard } from "@copilotkit/shared";
 import CopilotChatToolCallsView from "./CopilotChatToolCallsView";
 
@@ -71,13 +74,22 @@ export function CopilotChatAssistantMessage({
   className,
   ...props
 }: CopilotChatAssistantMessageProps) {
-  useKatexStyles();
+  const providerRenderer = useMarkdownRenderer();
+  const DefaultMarkdownRenderer =
+    providerRenderer ?? CopilotChatAssistantMessage.MarkdownRenderer;
+
+  // Don't show toolbar if message has no content (only tool calls)
+  const hasContent = !!(message.content && message.content.trim().length > 0);
+  const isLatestAssistantMessage =
+    message.role === "assistant" &&
+    messages?.[messages.length - 1]?.id === message.id;
 
   const boundMarkdownRenderer = renderSlot(
     markdownRenderer,
-    CopilotChatAssistantMessage.MarkdownRenderer,
+    DefaultMarkdownRenderer,
     {
       content: message.content || "",
+      isStreaming: !!(isRunning && isLatestAssistantMessage),
     },
   );
 
@@ -152,11 +164,6 @@ export function CopilotChatAssistantMessage({
     },
   );
 
-  // Don't show toolbar if message has no content (only tool calls)
-  const hasContent = !!(message.content && message.content.trim().length > 0);
-  const isLatestAssistantMessage =
-    message.role === "assistant" &&
-    messages?.[messages.length - 1]?.id === message.id;
   const shouldShowToolbar =
     toolbarVisible && hasContent && !(isRunning && isLatestAssistantMessage);
 
@@ -208,15 +215,10 @@ export function CopilotChatAssistantMessage({
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace CopilotChatAssistantMessage {
-  export const MarkdownRenderer: React.FC<
-    Omit<React.ComponentProps<typeof Streamdown>, "children"> & {
-      content: string;
-    }
-  > = ({ content, className, ...props }) => (
-    <Streamdown className={className} {...props}>
-      {content ?? ""}
-    </Streamdown>
-  );
+  export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
+    content,
+    className,
+  }) => <BasicMarkdownRenderer content={content ?? ""} className={className} />;
 
   export const Toolbar: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
     className,

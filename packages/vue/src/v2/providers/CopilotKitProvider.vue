@@ -34,6 +34,7 @@ import {
   MCPAppsActivityType,
 } from "../components/MCPAppsActivityRenderer";
 import { CopilotKitKey, SandboxFunctionsKey } from "./keys";
+import { MARKDOWN_RENDERER_KEY } from "./markdown-renderer";
 import {
   LicenseContextKey,
   createLicenseContextValue,
@@ -614,6 +615,7 @@ provide(CopilotKitKey, {
   a2uiIncludeSchema,
 });
 provide(SandboxFunctionsKey, sandboxFunctions);
+provide(MARKDOWN_RENDERER_KEY, props.markdownRenderer);
 
 // License context — driven by server-reported `/info` license status.
 // Stays at the permissive default (`createLicenseContextValue(null)`)

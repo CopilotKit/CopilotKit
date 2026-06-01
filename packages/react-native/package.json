@@ -99,7 +99,6 @@
     "react-native": ">=0.70",
     "react-native-gesture-handler": ">=2.0.0",
     "react-native-reanimated": ">=3.0.0",
-    "react-native-streamdown": ">=0.1.0",
     "zod": ">=3.0.0"
   },
   "peerDependenciesMeta": {
@@ -116,9 +115,6 @@
       "optional": true
     },
     "react-native-reanimated": {
-      "optional": true
-    },
-    "react-native-streamdown": {
       "optional": true
     },
     "zod": {

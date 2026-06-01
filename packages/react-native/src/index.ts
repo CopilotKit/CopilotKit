@@ -123,3 +123,20 @@ export {
   useRenderToolRegistry,
 } from "./hooks/RenderToolContext";
 export type { RenderToolProps } from "./hooks/RenderToolContext";
+
+// Pluggable markdown renderer context
+export {
+  MarkdownRendererProvider,
+  useMarkdownRenderer,
+} from "./components/MarkdownRendererContext";
+export type {
+  NativeMarkdownRenderer,
+  NativeMarkdownRendererProps,
+} from "./components/MarkdownRendererContext";
+
+// Built-in markdown renderer
+export { CopilotMarkdown, defaultMarkdownStyles } from "./components/Markdown";
+export type {
+  CopilotMarkdownProps,
+  MarkdownStyle,
+} from "./components/Markdown";

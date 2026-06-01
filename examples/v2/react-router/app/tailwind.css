@@ -1,1 +1,5 @@
 @import "tailwindcss";
+
+/* The pluggable-renderer demo plugs in `streamdown` (see app/lib/markdown-renderers.tsx).
+   Scan its dist so Tailwind generates the utility classes streamdown renders with. */
+@source "../node_modules/streamdown/dist";
