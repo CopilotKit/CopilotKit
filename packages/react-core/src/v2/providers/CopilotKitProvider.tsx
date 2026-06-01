@@ -51,6 +51,10 @@ import type { ReactHumanInTheLoop } from "../types/human-in-the-loop";
 import type { ReactCustomMessageRenderer } from "../types/react-custom-message-renderer";
 import type { SandboxFunction } from "../types/sandbox-function";
 import { SandboxFunctionsContext } from "./SandboxFunctionsContext";
+import {
+  MarkdownRendererProvider,
+  type MarkdownRenderer,
+} from "./MarkdownRendererContext";
 import { schemaToJsonSchema } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
@@ -115,6 +119,13 @@ export interface CopilotKitProviderProps {
   renderToolCalls?: ReactToolCallRenderer<any>[];
   renderActivityMessages?: ReactActivityMessageRenderer<any>[];
   renderCustomMessages?: ReactCustomMessageRenderer[];
+  /**
+   * Global markdown renderer used by assistant/reasoning messages. Overrides the
+   * built-in basic renderer. A per-message `markdownRenderer` slot still wins
+   * over this. Plug in your own (e.g. a streamdown wrapper) to restore rich
+   * rendering — CopilotKit ships only the basic renderer.
+   */
+  markdownRenderer?: MarkdownRenderer;
   frontendTools?: ReactFrontendTool[];
   humanInTheLoop?: ReactHumanInTheLoop[];
   /**
@@ -256,6 +267,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   renderToolCalls,
   renderActivityMessages,
   renderCustomMessages,
+  markdownRenderer,
   frontendTools,
   humanInTheLoop,
   openGenerativeUI,
@@ -769,7 +781,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
               includeSchema={a2ui?.includeSchema}
             />
           )}
-          {children}
+          <MarkdownRendererProvider renderer={markdownRenderer}>
+            {children}
+          </MarkdownRendererProvider>
           {shouldRenderInspector ? (
             <CopilotKitInspector
               core={copilotkit}
