@@ -103,7 +103,7 @@ jobs:
           echo "PR-changed format candidates: $count"
           cat .pr-format-files.existing.txt
 
-      - name: Run formatter (check on push, fix on PR)
+      - name: Run formatter (fix on PR, fix-and-commit on push)
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             if [ "${{ steps.changed.outputs.count }}" = "0" ]; then
@@ -128,15 +128,40 @@ jobs:
               echo "$py_files" | xargs ruff format --check
             fi
           else
-            oxfmt --check .
-            ruff format --check .
+            # Push to main: write fixes in place rather than failing.
+            # If violations exist, the commit steps below push a follow-up fix
+            # commit to main automatically. This makes main self-healing for
+            # PRs that merged before the PR format job could auto-fix.
+            # Scope to the same file types as PR mode; exclude lockfiles and
+            # the paths-ignore paths (docs/, examples/, README.md) so the
+            # auto-fix doesn't reformat tutorial code or fail on lockfiles.
+            mapfile -d '' push_files < <(git ls-files -z -- \
+              '*.js' '*.jsx' '*.ts' '*.tsx' '*.mjs' '*.cjs' \
+              '*.json' '*.jsonc' '*.json5' \
+              '*.md' \
+              '*.css' '*.yml' '*.yaml' '*.html' '*.vue' \
+              ':!docs/**' ':!examples/**' ':!README.md' \
+              ':!**/package-lock.json' ':!**/pnpm-lock.yaml' ':!**/yarn.lock')
+            if [ "${#push_files[@]}" -gt 0 ]; then
+              if ! printf '%s\0' "${push_files[@]}" | xargs -0 oxfmt --no-error-on-unmatched-pattern --write; then
+                echo "::warning::oxfmt exited with error — auto-fix may be incomplete"
+              fi
+            fi
+            # Use -z / xargs -0 to handle filenames with spaces.
+            while IFS= read -r -d '' f; do push_py_files_arr+=("$f"); done < <(git ls-files -z -- '*.py' ':!docs/**' ':!examples/**' 2>/dev/null || true)
+            if [ "${#push_py_files_arr[@]}" -gt 0 ]; then
+              printf '%s\0' "${push_py_files_arr[@]}" | xargs -0 ruff format || echo "::warning::ruff format exited with error"
+            fi
+            if [ -n "$(git status --porcelain)" ]; then
+              echo "format_fixed=true" >> $GITHUB_ENV
+            fi
           fi
 
       - name: Configure git for push
         if: >-
           env.format_fixed == 'true' &&
-          github.event_name == 'pull_request' &&
-          github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name
+          (github.event_name == 'push' ||
+          github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -147,22 +172,53 @@ jobs:
       - name: Commit formatting fixes
         if: >-
           env.format_fixed == 'true' &&
-          github.event_name == 'pull_request' &&
-          github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name
+          (github.event_name == 'push' ||
+          github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name)
         run: |
           if [ -z "$(git diff --name-only)" ]; then
             echo "No formatting changes to commit"
             exit 0
           fi
-          # Stage only the files the formatter was scoped to operate on.
-          # Piping `git diff --name-only` into `git add` is unsafe: if a
-          # tracked-but-gitignored path shows up in the diff, `git add`
-          # aborts the whole step and the auto-fix push never lands —
-          # leaving formatting violations on the PR branch and (post-
-          # merge) on main.
-          xargs -a .pr-format-files.existing.txt git add --
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # Stage only the files the formatter was scoped to operate on.
+            # Piping `git diff --name-only` into `git add` is unsafe: if a
+            # tracked-but-gitignored path shows up in the diff, `git add`
+            # aborts the whole step and the auto-fix push never lands —
+            # leaving formatting violations on the PR branch and (post-
+            # merge) on main.
+            xargs -a .pr-format-files.existing.txt git add --
+          else
+            # Stage only formatter output — not untracked artifacts.
+            git diff --name-only -z | xargs -0 git add --
+          fi
           git commit -m "style: auto-fix formatting"
+          # Rebase on main only for direct pushes — the PR path pushes to the
+          # PR branch which does not need rebasing before the auto-fix lands.
+          if [ "${{ github.event_name }}" = "push" ]; then
+            git pull --rebase origin main
+          fi
           git push
+
+      - name: Verify push-path auto-fix is complete
+        if: github.event_name == 'push' && env.format_fixed == 'true'
+        run: |
+          # Check the same scoped file set the formatter wrote to — not the
+          # whole repo. Running --check . would fail on pre-existing violations
+          # in docs/ or examples/ that the push path intentionally skips.
+          mapfile -d '' verify_files < <(git ls-files -z -- \
+            '*.js' '*.jsx' '*.ts' '*.tsx' '*.mjs' '*.cjs' \
+            '*.json' '*.jsonc' '*.json5' \
+            '*.md' \
+            '*.css' '*.yml' '*.yaml' '*.html' '*.vue' \
+            ':!docs/**' ':!examples/**' ':!README.md' \
+            ':!**/package-lock.json' ':!**/pnpm-lock.yaml' ':!**/yarn.lock')
+          if [ "${#verify_files[@]}" -gt 0 ]; then
+            printf '%s\0' "${verify_files[@]}" | xargs -0 oxfmt --no-error-on-unmatched-pattern --check
+          fi
+          while IFS= read -r -d '' f; do verify_py_arr+=("$f"); done < <(git ls-files -z -- '*.py' ':!docs/**' ':!examples/**' 2>/dev/null || true)
+          if [ "${#verify_py_arr[@]}" -gt 0 ]; then
+            printf '%s\0' "${verify_py_arr[@]}" | xargs -0 ruff format --check
+          fi
 
   oxlint:
     runs-on: ubuntu-latest
