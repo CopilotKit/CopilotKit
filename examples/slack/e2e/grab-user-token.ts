@@ -9,7 +9,8 @@
  * Uses the persistent playwright profile under ./e2e/.chrome-profile/.
  */
 import "dotenv/config";
-import { chromium, type Page } from "playwright";
+import { chromium } from "playwright";
+import type { Page } from "playwright";
 import { readFileSync, writeFileSync } from "node:fs";
 
 const PROFILE_DIR = "./e2e/.chrome-profile";

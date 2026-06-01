@@ -1,8 +1,9 @@
 /**
  * This file is the Slack agent _application_ — user-land code, not SDK
- * code. The companion `agent/` directory holds the (Python) AG-UI agent
- * backend; this directory holds everything that runs on the Slack side
- * of the bridge for this specific bot.
+ * code. The companion `runtime.ts` holds the AG-UI agent backend (a
+ * CopilotKit `BuiltInAgent` wired to the Linear + Notion MCP servers);
+ * this directory holds everything that runs on the Slack side of the
+ * bridge for this specific bot.
  *
  * Defaults are not auto-applied — you spread them explicitly. That's
  * deliberate: there's no hidden behavior, and the canonical pattern
@@ -18,8 +19,6 @@ import { appTools } from "./tools/index.js";
 import { appContext } from "./context/app-context.js";
 import { appComponents } from "./components/index.js";
 import { appHitl } from "./human-in-the-loop/index.js";
-import { appInterruptHandlers } from "./interrupts/index.js";
-import { a2uiActivityRenderer, a2uiSchema } from "./a2ui/index.js";
 
 const required = (name: string): string => {
   const v = process.env[name];
@@ -42,34 +41,21 @@ async function main() {
     // `defaultSlackContext` ships tagging/mrkdwn/thread-model guidance.
     // Spread both, then add anything app-specific on top.
     tools: [...defaultSlackTools, ...appTools],
-    // Spread `a2uiSchema` so the agent's secondary LLM (dynamic A2UI
-    // mode) sees the catalog: component names, prop schemas,
-    // descriptions. Required to drive dynamic surfaces; harmless for
-    // fixed-schema agents (they ignore it).
-    context: [...defaultSlackContext, a2uiSchema, ...appContext],
+    // `defaultSlackContext` ships tagging/mrkdwn/thread-model guidance;
+    // `appContext` adds this bot's identity and triage policy.
+    context: [...defaultSlackContext, ...appContext],
     // Agent-renderable Block Kit components (the Slack equivalent of
     // React's `useComponent`). The bridge auto-converts each to a
-    // frontend tool whose `execute` posts the rendered blocks.
+    // frontend tool whose `execute` posts the rendered blocks — here,
+    // the issue_list and page_list cards.
     components: appComponents,
     // Interactive components (the Slack equivalent of React's
     // `useHumanInTheLoop`). The agent calls these like tools; they
     // render Block Kit buttons and the tool call blocks until the user
     // clicks. The bridge then resolves with the chosen action so the
-    // agent run continues with the user's decision in scope.
+    // agent run continues with the user's decision in scope — here, the
+    // confirm_write gate in front of every Linear/Notion write.
     humanInTheLoopComponents: appHitl,
-    // LangGraph `interrupt()` handlers (the Slack equivalent of React's
-    // `useInterrupt`). When the agent graph pauses at an `interrupt()`
-    // call, the bridge dispatches to a matching handler to render a
-    // Block Kit picker; clicks resume the graph via forwardedProps.command.
-    interruptHandlers: appInterruptHandlers,
-    // Activity-message renderers — agent emits AG-UI ActivityMessages
-    // (e.g. `activityType: "a2ui-surface"`); the bridge looks up a
-    // matching renderer and posts the resulting Block Kit blocks.
-    // A2UI is one well-known activity type; a single
-    // `createA2UIActivityRenderer({ catalog: [...] })` can drive
-    // multiple A2UI catalogs (fixed flight + dynamic dashboard)
-    // routed by `catalogId`. See `app/a2ui/index.ts`.
-    renderActivityMessages: [a2uiActivityRenderer],
   });
 
   await bridge.start();

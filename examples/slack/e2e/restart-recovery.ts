@@ -1,24 +1,20 @@
 /**
- * End-to-end test: bridge-restart-recovery for LangGraph interrupts and
- * HITL components.
+ * End-to-end test: bridge-restart-recovery for HITL components.
  *
  * Verifies that after a bridge restart between picker-post and click,
  * the picker is still actionable. Slack is the source of truth for
  * both the bound resume value (`button.value`) AND the dispatch
  * context (`message.metadata.event_payload.{handler, ...}`).
  *
- * Two scenarios:
+ * Scenario:
  *
- *   • **interrupt** — LangGraph `interrupt()` from `schedule_meeting`.
- *     Resume mechanism: `runAgent({forwardedProps:{command:{resume}}})`
- *     thaws the paused checkpoint.
+ *   • **HITL** — `defineHumanInTheLoop` frontend tool (`confirm_write`).
+ *     Resume mechanism: `runAgent({forwardedProps:{command:{resume}}})`,
+ *     which the CopilotKit middleware turns into a tool-result message
+ *     for the intercepted frontend-tool call. This is the "approve the
+ *     write 20 minutes later, after a deploy restarted the bot" story.
  *
- *   • **HITL** — `defineHumanInTheLoop` frontend tool (`confirm`).
- *     Resume mechanism: same `runAgent` forwarded-props resume, which
- *     the CopilotKit middleware turns into a tool-result message for
- *     the intercepted frontend-tool call.
- *
- * Flow per scenario:
+ * Flow:
  *
  *   1. Spawn bridge instance #1 (in-process). Start it.
  *   2. Post a user prompt that triggers the picker.
@@ -42,12 +38,11 @@ import {
   createSlackBridge,
   defaultSlackContext,
   defaultSlackTools,
-  type SlackBridge,
 } from "@copilotkit/slack";
+import type { SlackBridge } from "@copilotkit/slack";
 import { appComponents } from "../app/components/index.js";
 import { appContext } from "../app/context/app-context.js";
 import { appHitl } from "../app/human-in-the-loop/index.js";
-import { appInterruptHandlers } from "../app/interrupts/index.js";
 import { appTools } from "../app/tools/index.js";
 import { postAsUser, threadReplies, BOT_USER_ID } from "./slack-api.js";
 
@@ -71,7 +66,6 @@ function makeBridge() {
     context: [...defaultSlackContext, ...appContext],
     components: appComponents,
     humanInTheLoopComponents: appHitl,
-    interruptHandlers: appInterruptHandlers,
   });
 }
 
@@ -402,28 +396,8 @@ async function runScenario(args: {
 
 async function main() {
   await runScenario({
-    label: "interrupt-restart",
-    prompt: `<@${BOT_USER_ID}> please book a 1:1 with Alice next week to review Q2 goals.`,
-    pickerEventType: "copilotkit_slack_interrupt",
-    pickButton: (buttons) => {
-      const b = buttons.find((btn) => {
-        try {
-          const v = JSON.parse(btn.value);
-          return v && typeof v === "object" && "chosen_label" in v;
-        } catch {
-          return false;
-        }
-      });
-      if (!b) throw new Error("no time-slot button found");
-      return b;
-    },
-    replyRegex: /scheduled|booked/i,
-    resolvedTextRegex: /booked/i,
-  });
-
-  await runScenario({
     label: "hitl-restart",
-    prompt: `<@${BOT_USER_ID}> use the confirm component to ask me whether to proceed with deleting all my files. Use exactly the question 'Proceed with deleting all files?'`,
+    prompt: `<@${BOT_USER_ID}> file a Linear issue titled "Checkout 500s under load" with a one-line description. Use the confirm_write tool to ask me to approve it first.`,
     pickerEventType: "copilotkit_slack_hitl",
     pickButton: (buttons) => {
       const b = buttons.find((btn) => {
@@ -434,17 +408,18 @@ async function main() {
           return false;
         }
       });
-      if (!b) throw new Error("no Yes button found");
+      if (!b) throw new Error("no Create (confirmed:true) button found");
       return b;
     },
-    // HITL's LangGraph thread is RUN_FINISHED — no agent reply on this
-    // turn; just the resolved-render replacement of the picker.
+    // After the user approves, the agent goes on to perform the write and
+    // reply — but the resolved-render replacement of the picker is the
+    // deterministic signal this test asserts on.
     replyRegex: undefined,
-    resolvedTextRegex: /confirmed|declined/i,
+    resolvedTextRegex: /approved|declined/i,
   });
 
   console.log("\n══════ ALL GREEN ══════");
-  console.log("Both interrupt and HITL restart-recovery scenarios passed.");
+  console.log("HITL restart-recovery scenario passed.");
 }
 
 main().catch((err) => {

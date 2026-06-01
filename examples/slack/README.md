@@ -1,103 +1,122 @@
-# slack-example
+# slack-example — on-call triage assistant
 
-Runnable demo for [`@copilotkit/slack`](../../packages/slack) — connect
-a Slack workspace to an AG-UI agent.
+A runnable demo for [`@copilotkit/slack`](../../packages/slack): a Slack
+bot that turns incident chatter into tracked work. It connects to
+**Linear** and **Notion** over MCP and can:
 
-This example contains:
+- **Query Linear** — _"what's open in CPK this cycle?"_ → renders issues
+  as a Block Kit card.
+- **File a Linear issue** — _"file this thread as a bug"_ → drafts the
+  issue, asks you to **confirm**, then creates it.
+- **Find Notion pages** — _"find the runbook for the auth outage"_ →
+  renders matching pages with links.
+- **Write a postmortem** — _"write this thread up as a Notion doc"_ →
+  reads the thread, summarizes, **confirms**, then creates the page.
 
-- **`app/`** — a sample bridge app wiring frontend tools, render-only
-  components, human-in-the-loop pickers, LangGraph interrupt handlers,
-  and an A2UI catalog.
-- **`agent/`** — a vendored, standalone AG-UI agent backend (the
-  **beautiful_chat** + **interrupt_agent** showcase graphs). Ships its
-  own lockfile and builds independently of the pnpm workspace.
-- **`e2e/`** — a live-Slack test harness that sends real messages to a
-  test channel and asserts on the streamed replies, plus a
-  kill-and-restart recovery scenario.
-- **`runtime.ts`** — a standalone CopilotKit Runtime that adapts the
-  LangGraph agents to AG-UI for the bridge (an alternative to the
-  agent's Next.js routes; run with `pnpm runtime`).
+Every write goes through a human-in-the-loop **`confirm_write`** picker —
+and because the picker encodes its resume payload into Slack itself, a
+click still works minutes later, even after a deploy restarted the bot.
+
+## How it fits together
+
+```
+Slack  ──@mention──▶  bridge (app/)  ──AG-UI──▶  runtime (runtime.ts)
+                                                   │  BuiltInAgent (LLM)
+                                                   ├── Linear  MCP  (hosted)
+                                                   └── Notion  MCP  (sidecar)
+```
+
+- **`app/`** — the Slack-side bot: the `read_thread` tool, the
+  `issue_list` / `page_list` Block Kit components, the `confirm_write`
+  HITL gate, and the bot's context. This is the file you'd copy to start
+  your own bot.
+- **`runtime.ts`** — the agent backend: a single CopilotKit
+  `BuiltInAgent` (LLM + Linear/Notion MCP), served over AG-UI. No Python,
+  no LangGraph.
+- **`e2e/`** — a live-Slack test harness (sends real messages to a test
+  channel) plus a kill-and-restart recovery scenario for the
+  `confirm_write` picker.
 
 ## Local run
 
-Three pieces: the **Slack app** (created once), the **agent** (AG-UI
-server), and the **slack bridge** (this example's `app/`).
+Four pieces: the **Slack app** (created once), the optional **Notion MCP
+sidecar**, the **agent** (`runtime.ts`), and the **bridge** (`app/`).
 
 ### 1. Slack app
 
-- <https://api.slack.com/apps?new_app=1> → **From a manifest** →
-  paste `slack-app-manifest.yaml`.
+- <https://api.slack.com/apps?new_app=1> → **From a manifest** → paste
+  `slack-app-manifest.yaml`.
 - _OAuth & Permissions_ → **Install to Workspace** → copy the `xoxb-`
   bot token.
 - _Basic Information → App-Level Tokens_ → generate one with
   `connections:write` → copy the `xapp-` app token.
 
-### 2. Agent
-
-One-time setup (uses [uv](https://github.com/astral-sh/uv) for Python
-3.12 + npm for Node):
-
-```bash
-cd examples/slack
-./setup-agent.sh
-```
-
-Start the agent backend — a Next.js app (port 3000) wrapping a LangGraph
-dev server (port 8123):
-
-```bash
-cd agent
-source .venv/bin/activate
-export OPENAI_API_KEY=sk-...
-npm run dev          # Next.js :3000 + LangGraph :8123
-```
-
-The Next.js app exposes one AG-UI route per graph under
-`/api/copilotkit-*`, e.g. `http://localhost:3000/api/copilotkit-beautiful-chat`.
-
-Optional: `pnpm runtime` (`tsx runtime.ts`) runs a standalone CopilotKit
-Runtime adapter on port 8200 that proxies straight to the LangGraph dev
-server (`http://localhost:8200/api/copilotkit/agent/<graphId>/run`) — use
-it instead of the Next.js routes when you want the runtime to apply the
-A2UI middleware stack itself.
-
-### 3. Slack bridge
+### 2. Credentials
 
 ```bash
 cp .env.example .env
-# fill in SLACK_BOT_TOKEN, SLACK_APP_TOKEN, AGENT_URL
+# Fill in:
+#   SLACK_BOT_TOKEN / SLACK_APP_TOKEN
+#   OPENAI_API_KEY  (or ANTHROPIC_API_KEY / GOOGLE_API_KEY + AGENT_MODEL)
+#   LINEAR_API_KEY          (linear.app → Settings → API → Personal API keys)
+#   NOTION_TOKEN            (notion.so → Settings → Connections → integrations)
+#   NOTION_MCP_AUTH_TOKEN   (any strong string; shared between the sidecar and the agent)
+```
+
+Linear and Notion are independent — set only the ones you want; the agent
+wires up whichever credentials are present.
+
+### 3. Notion MCP sidecar (only if using Notion)
+
+The agent talks to Notion through the official MCP server, run locally as
+a Streamable-HTTP sidecar:
+
+```bash
 pnpm install        # from the repo root
+pnpm notion-mcp     # serves http://127.0.0.1:3001/mcp
+```
+
+Linear needs no sidecar — its hosted MCP accepts the API key directly.
+
+### 4. Agent
+
+```bash
+pnpm runtime        # CopilotKit runtime on :8200, agent "triage"
+```
+
+Exposes `http://localhost:8200/api/copilotkit/agent/triage/run` — the
+default `AGENT_URL`.
+
+### 5. Bridge
+
+```bash
 pnpm dev            # tsx watch app/index.ts
 ```
 
-`AGENT_URL` points at whichever AG-UI endpoint you're testing:
+### 6. Try it
 
-```env
-# Default beautiful_chat (Next.js route — matches .env.example)
-AGENT_URL=http://localhost:3000/api/copilotkit-beautiful-chat
+Invite the bot to a channel and @mention it:
 
-# Via the standalone runtime adapter (pnpm runtime, port 8200)
-AGENT_URL=http://localhost:8200/api/copilotkit/agent/beautiful_chat/run
+> @CopilotKit Triage what are the open CPK issues this cycle?
 
-# Anything that speaks AG-UI works
-AGENT_URL=https://your-deployment.example.com/api/copilotkit
-AGENT_AUTH_HEADER=Bearer your-token
-```
+> @CopilotKit Triage file this thread as a bug in CPK
 
-### 4. Try it
+> @CopilotKit Triage find the runbook for our last auth outage
 
-In the Slack workspace, invite the bot to any channel and @mention it:
+> @CopilotKit Triage write this thread up as a Notion postmortem
 
-> @CopilotKit AG-UI Bot summarize the latest changes in this repo
+## Deploying
 
-The bot opens a thread and streams the agent's reply in place.
+There's nothing local-only here: the bridge and the runtime are plain
+Node processes, and every connection is env-driven. Deploy the runtime
+and bridge, set the same env vars, and (for Notion) run the
+`@notionhq/notion-mcp-server` sidecar alongside the runtime with
+`NOTION_MCP_URL` pointed at it.
 
 ## Tests
 
 ```bash
-pnpm test            # app unit tests
-pnpm e2e             # live-Slack case catalog (needs a real workspace + agent)
-pnpm e2e:restart     # kill + restart + click recovery scenario
+pnpm test            # unit tests (read_thread, components)
+pnpm e2e             # live-Slack case catalog (needs a real workspace + creds)
+pnpm e2e:restart     # kill + restart + click recovery for the confirm_write picker
 ```
-
-See [`PROTO_E2E.md`](./PROTO_E2E.md) for the e2e harness design.

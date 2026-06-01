@@ -259,10 +259,11 @@ export const CASES: E2ECase[] = [
   },
 
   // ── E. Frontend tools & context ───────────────────────────────────
-  // Note: the showcase `beautiful_chat` agent has a strong "1-2 sentences"
-  // system prompt that overrides our nudge toward proactively calling tools,
-  // so E-tag-1 directs the tool use explicitly. E-context-1 verifies the
-  // context entries themselves arrive at the LLM.
+  // These exercise the Slack-side primitives (lookup_slack_user tagging,
+  // the issue_list/page_list components, the confirm_write HITL gate) and
+  // verify the context entries arrive at the LLM. The Linear/Notion cases
+  // need real MCP credentials (see .env.example) — without them the agent
+  // can chat but can't read or write, and those cases no-op.
   {
     name: "E-tag-1 — agent uses lookup_slack_user to tag Atai in its reply",
     prompt:
@@ -292,60 +293,100 @@ export const CASES: E2ECase[] = [
     },
   },
   {
-    name: "E-component-1 — agent renders a Slack component as a Block Kit card",
+    name: "E-component-1 — agent renders the issue_list component as a Block Kit card",
+    // Needs Linear MCP creds: the agent pulls issues, then renders them via
+    // the issue_list component (a separate blocks message in the thread).
     prompt:
-      "<@U0B45V75NNR> use the greeting_card component to render a fancy greeting " +
-      'for Atai with the message "welcome to the showcase!" and the :wave: emoji.',
+      "<@U0B45V75NNR> show me the open issues in the CPK team this cycle, " +
+      "and render them with the issue_list component.",
     sampleIntervalMs: 700,
-    maxWaitMs: 30_000,
+    maxWaitMs: 45_000,
     expectations: {
-      // The component posts a separate blocks message in the thread. Our
-      // harness reads via conversations.replies which includes block-only
-      // messages — we just need at least one bot reply whose text matches
-      // the fallback string (which Slack also stores on blocks messages).
-      perReplyChecks: (replies) => {
+      // conversations.replies includes block-only messages. We assert that
+      // at least one bot reply carries a section block whose mrkdwn looks
+      // like an issue row (a CPK-NNN identifier).
+      perReplyChecks: (_replies, raw) => {
         const errs: string[] = [];
-        const joined = replies.join("\n");
-        // The fallback contains the recipient + message verbatim.
-        if (!joined.toLowerCase().includes("welcome to the showcase")) {
-          errs.push("no bot reply contained the component's fallback text");
+        const allBlocks = raw.flatMap(
+          (m) => (m["blocks"] as Array<Record<string, any>> | undefined) ?? [],
+        );
+        const hasIssueRow = allBlocks.some(
+          (b) =>
+            b["type"] === "section" &&
+            /CPK-\d+/.test(
+              String((b["text"] as { text?: string } | undefined)?.text ?? ""),
+            ),
+        );
+        if (!hasIssueRow) {
+          errs.push(
+            "no issue_list section block with a CPK-NNN identifier was rendered",
+          );
         }
         return errs;
       },
     },
   },
   {
-    name: "E-restart-1 — interrupt picker has resume values encoded in button.value (survives bridge restart)",
-    // Triggers an interrupt; once the picker lands, we read it back via
-    // conversations.replies and verify every time-slot button carries a
-    // JSON-encoded resume payload in its `value` field. That's what
-    // Slack stores, and what the bridge would decode on a "stale click"
-    // after a restart — proves the structural recovery story.
+    name: "E-notion-1 — agent searches Notion and renders the page_list component",
+    // Needs Notion MCP creds.
     prompt:
-      "<@U0B45V75NNR> please book a 1:1 with Alice next week to review Q2 goals.",
+      "<@U0B45V75NNR> find any Notion runbooks or postmortems related to a " +
+      "production outage and render them with the page_list component.",
     sampleIntervalMs: 700,
-    maxWaitMs: 15_000,
+    maxWaitMs: 45_000,
     expectations: {
-      perReplyChecks: (replies, raw) => {
+      perReplyChecks: (_replies, raw) => {
         const errs: string[] = [];
-        const pickerMsg = raw.find((m) =>
-          (m.blocks ?? []).some((b: { type?: string }) => b.type === "header"),
+        const allBlocks = raw.flatMap(
+          (m) => (m["blocks"] as Array<Record<string, any>> | undefined) ?? [],
         );
-        if (!pickerMsg) {
-          errs.push("never posted a picker message");
-          return errs;
+        const hasPageRow = allBlocks.some(
+          (b) =>
+            b["type"] === "section" &&
+            String(
+              (b["text"] as { text?: string } | undefined)?.text ?? "",
+            ).includes(":page_facing_up:"),
+        );
+        if (!hasPageRow) {
+          errs.push("no page_list section block was rendered");
         }
+        return errs;
+      },
+    },
+  },
+  {
+    name: "E-restart-1 — confirm_write picker has resume values encoded in button.value (survives bridge restart)",
+    // The agent must call confirm_write before any write. Once the picker
+    // lands, we read it back via conversations.replies and verify each
+    // button carries a JSON-encoded resume payload in its `value` field.
+    // That's what Slack stores and what the bridge decodes on a "stale
+    // click" after a restart — the durable-action story. (The full
+    // kill→restart→click cycle is covered by e2e/restart-recovery.ts.)
+    prompt:
+      '<@U0B45V75NNR> file a Linear issue titled "Checkout 500s under load". ' +
+      "Use the confirm_write tool to ask me to approve it first.",
+    sampleIntervalMs: 700,
+    maxWaitMs: 20_000,
+    expectations: {
+      perReplyChecks: (_replies, raw) => {
+        const errs: string[] = [];
         const buttons: Array<{ action_id?: string; value?: string }> = [];
-        for (const b of pickerMsg.blocks ?? []) {
-          if (b.type === "actions" && Array.isArray(b.elements)) {
-            for (const el of b.elements) {
-              if (el?.type === "button") buttons.push(el);
+        for (const m of raw) {
+          for (const b of m.blocks ?? []) {
+            if (b.type === "actions" && Array.isArray(b.elements)) {
+              for (const el of b.elements) {
+                if (el?.type === "button") buttons.push(el);
+              }
             }
           }
         }
-        if (buttons.length < 3) {
-          errs.push(`expected ≥3 time-slot buttons; got ${buttons.length}`);
+        if (buttons.length < 2) {
+          errs.push(
+            `expected ≥2 confirm_write buttons (Create/Cancel); got ${buttons.length}`,
+          );
+          return errs;
         }
+        let sawConfirmTrue = false;
         for (const btn of buttons) {
           if (!btn.value) {
             errs.push(`button action_id=${btn.action_id} has no value field`);
@@ -353,16 +394,13 @@ export const CASES: E2ECase[] = [
           }
           try {
             const decoded = JSON.parse(btn.value);
-            const text = decoded;
-            // The picker buttons bind either {chosen_time, chosen_label}
-            // or {cancelled: true}. Both shapes verify the round-trip.
-            const ok =
-              (text &&
-                typeof text === "object" &&
-                "chosen_time" in text &&
-                "chosen_label" in text) ||
-              (text && typeof text === "object" && "cancelled" in text);
-            if (!ok) {
+            if (
+              decoded &&
+              typeof decoded === "object" &&
+              "confirmed" in decoded
+            ) {
+              if (decoded.confirmed === true) sawConfirmTrue = true;
+            } else {
               errs.push(
                 `button action_id=${btn.action_id} decoded to unexpected shape: ${btn.value}`,
               );
@@ -373,32 +411,35 @@ export const CASES: E2ECase[] = [
             );
           }
         }
+        if (!sawConfirmTrue) {
+          errs.push(
+            "no button encoded { confirmed: true } (the Create button)",
+          );
+        }
         return errs;
       },
     },
   },
   {
-    name: "E-hitl-1 — agent renders an interactive HITL Block Kit message",
-    // Verifies the human-in-the-loop component renders into the thread. We
+    name: "E-hitl-1 — agent renders the confirm_write HITL Block Kit message",
+    // Verifies the human-in-the-loop gate renders into the thread. We
     // can't simulate the button click via Slack's API, so this case only
     // asserts that the Block Kit message lands; the click→resolve flow
-    // is covered by unit tests in src/__tests__/human-in-the-loop.test.ts.
-    // Note: the agent's run will be left dangling on the HITL wait for
-    // up to 5 min (the component's timeoutMs) — that's accepted here.
+    // is covered by unit tests in the slack package, and the full
+    // restart cycle by e2e/restart-recovery.ts. The agent's run will be
+    // left dangling on the HITL wait for up to the component's timeoutMs.
     prompt:
-      "<@U0B45V75NNR> use the confirm component to ask me whether to proceed " +
-      "with deleting all my files. Use exactly the question 'Proceed with deleting all files?'",
+      '<@U0B45V75NNR> file a Linear issue titled "Test from e2e". Call the ' +
+      "confirm_write tool to ask me to approve it before creating anything.",
     sampleIntervalMs: 700,
-    maxWaitMs: 12_000,
+    maxWaitMs: 20_000,
     expectations: {
       perReplyChecks: (replies) => {
         const errs: string[] = [];
-        const joined = replies.join("\n");
-        // The HITL fallback for our confirm component is "Confirm: <question>".
-        if (!joined.toLowerCase().includes("confirm:")) {
-          errs.push(
-            "no bot reply contained the HITL fallback 'Confirm:' prefix",
-          );
+        const joined = replies.join("\n").toLowerCase();
+        // The HITL fallback for confirm_write is "Approve: <action>".
+        if (!joined.includes("approve")) {
+          errs.push("no bot reply contained the confirm_write 'Approve' text");
         }
         return errs;
       },
@@ -442,187 +483,5 @@ export const CASES: E2ECase[] = [
     prompt: "<@U0B45V75NNR> please respond just ONCE and stop",
     // The harness edits the just-sent message and verifies bot does not produce a second reply.
     expectations: { minLength: 2 },
-  },
-
-  // ── G. A2UI surface rendering ─────────────────────────────────────
-  //
-  // Requires AGENT_URL pointed at the `a2ui_fixed` graph
-  // (e.g. `http://localhost:8200/api/copilotkit/agent/a2ui_fixed/run` via
-  // the runtime adapter) and the bridge running with
-  // `renderActivityMessages: [flightActivityRenderer]`
-  // (see `examples/slack/app/index.ts`). When the bridge is configured
-  // for a chat-only backend (default beautiful_chat), this case
-  // is a no-op — the agent just emits a text reply, never an
-  // activity message, and `perReplyChecks` finds no blocks.
-  {
-    name: "G1 — A2UI flight surface renders as Block Kit",
-    prompt:
-      "<@U0B45V75NNR> show me a flight from SFO to JFK on United for $289",
-    sampleIntervalMs: 700,
-    maxWaitMs: 30_000,
-    expectations: {
-      perReplyChecks: (_replies, raw) => {
-        const failures: string[] = [];
-
-        // Look across ALL replies in the thread — the bot produces one
-        // post per surface plus a separate text reply, and either
-        // ordering is acceptable.
-        const allBlocks = raw.flatMap(
-          (m) => (m["blocks"] as Array<Record<string, any>> | undefined) ?? [],
-        );
-        if (allBlocks.length === 0) {
-          failures.push(
-            "expected at least one Block Kit reply (no `blocks` field on any reply)",
-          );
-          return failures;
-        }
-
-        // Header block from the flight schema's `Title` ("Flight Details").
-        const header = allBlocks.find(
-          (b) =>
-            b["type"] === "header" &&
-            String((b["text"] as { text?: string } | undefined)?.text ?? "")
-              .toLowerCase()
-              .includes("flight"),
-        );
-        if (!header)
-          failures.push(
-            "expected a header block whose text mentions 'flight' (Title component)",
-          );
-
-        // SFO airport code (from data-model binding /origin).
-        const sfo = allBlocks.find(
-          (b) =>
-            b["type"] === "section" &&
-            String(
-              (b["text"] as { text?: string } | undefined)?.text ?? "",
-            ).includes("SFO"),
-        );
-        if (!sfo) failures.push("expected a section block containing 'SFO'");
-
-        // JFK airport code (binding /destination).
-        const jfk = allBlocks.find(
-          (b) =>
-            b["type"] === "section" &&
-            String(
-              (b["text"] as { text?: string } | undefined)?.text ?? "",
-            ).includes("JFK"),
-        );
-        if (!jfk) failures.push("expected a section block containing 'JFK'");
-
-        // AirlineBadge — context block with airline name.
-        const airline = allBlocks.find(
-          (b) =>
-            b["type"] === "context" &&
-            JSON.stringify(b["elements"]).toLowerCase().includes("united"),
-        );
-        if (!airline)
-          failures.push(
-            "expected a context block (AirlineBadge) mentioning 'United'",
-          );
-
-        // PriceTag — section with the price.
-        const price = allBlocks.find(
-          (b) =>
-            b["type"] === "section" &&
-            String(
-              (b["text"] as { text?: string } | undefined)?.text ?? "",
-            ).includes("$289"),
-        );
-        if (!price) failures.push("expected a section block containing '$289'");
-
-        // Book-flight button — actions block with a button that has an
-        // encoded `value` (set by `dispatch.encodeAction(action)` in the
-        // Button renderer).
-        const actions = allBlocks.find((b) => b["type"] === "actions");
-        const button = (
-          (actions?.["elements"] as Array<Record<string, any>> | undefined) ??
-          []
-        ).find(
-          (e) =>
-            e["type"] === "button" &&
-            String((e["text"] as { text?: string } | undefined)?.text ?? "")
-              .toLowerCase()
-              .includes("book"),
-        );
-        if (!button)
-          failures.push(
-            "expected an actions block with a button labeled like 'Book' (Button + child Text)",
-          );
-        else if (!button["value"]) {
-          failures.push(
-            "Book-flight button missing `value` — `dispatch.encodeAction` didn't fire",
-          );
-        }
-
-        return failures;
-      },
-    },
-  },
-
-  // G2 — A2UI DYNAMIC SCHEMA: agent's secondary LLM generates the
-  // component tree on the fly from the registered catalog. Requires
-  // AGENT_URL pointed at `a2ui_dynamic` (the agent has a
-  // `generate_a2ui` tool that invokes a secondary LLM bound to the
-  // catalog schema and emits an `a2ui_operations` container).
-  //
-  // The bridge's dashboard catalog
-  // (`app/a2ui/dashboard.ts`, catalogId `declarative-gen-ui-catalog`)
-  // ships Title / Text / Row / Column / DashboardCard / Metric /
-  // Badge / DataTable / Button. The prompt steers the agent toward
-  // those primitives.
-  //
-  // Current status (2026-05-17): a2ui_dynamic graph runs and the
-  // tools node fires (visible in langgraph log) but no
-  // ActivitySnapshot reaches the bridge — under investigation.
-  // Predicate checks for the BLOCKS produced; will fail until that's
-  // resolved upstream.
-  {
-    name: "G2 — A2UI dynamic dashboard renders as Block Kit",
-    prompt:
-      "<@U0B45V75NNR> give me a Q2 project status dashboard with two " +
-      'metrics: "Migration to V2" at 78% complete (status: success), ' +
-      'and "Onboarding revamp" at 42% (status: warning).',
-    sampleIntervalMs: 1000,
-    maxWaitMs: 45_000,
-    expectations: {
-      perReplyChecks: (_replies, raw) => {
-        const failures: string[] = [];
-        const allBlocks = raw.flatMap(
-          (m) => (m["blocks"] as Array<Record<string, any>> | undefined) ?? [],
-        );
-        if (allBlocks.length === 0) {
-          failures.push(
-            "expected at least one Block Kit reply (no `blocks` field on any reply)",
-          );
-          return failures;
-        }
-        // Look for at least one Metric (section with a "*Label*: value"
-        // pattern) — the prompt asks for two but we don't pin the exact
-        // count since the LLM may consolidate or split.
-        const hasMetric = allBlocks.some(
-          (b) =>
-            b["type"] === "section" &&
-            /^\*[^*]+\*:\s/.test(
-              String((b["text"] as { text?: string } | undefined)?.text ?? ""),
-            ),
-        );
-        if (!hasMetric)
-          failures.push("expected at least one Metric-shaped section block");
-        // Look for at least one Badge (context block with colored emoji
-        // prefix). Variant set to success/warning should produce
-        // `:large_green_circle:` / `:large_yellow_circle:`.
-        const hasBadge = allBlocks.some(
-          (b) =>
-            b["type"] === "context" &&
-            JSON.stringify(b["elements"]).match(
-              /:(large_green_circle|large_yellow_circle|red_circle):/,
-            ) != null,
-        );
-        if (!hasBadge)
-          failures.push("expected at least one Badge context block");
-        return failures;
-      },
-    },
   },
 ];

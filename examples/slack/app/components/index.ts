@@ -1,16 +1,16 @@
 /**
  * App-specific Slack components — agent-renderable Block Kit cards.
- * Universal-Slack components (if any) would live in `src/`; this is for
- * components specific to this particular bot.
  *
  * Add new components here, re-export through `appComponents`, then wire
  * the array into `createSlackBridge({components: appComponents})`.
  */
-import { greetingCardComponent } from "./greeting-card.js";
+import { issueListComponent } from "./issue-list.js";
+import { pageListComponent } from "./page-list.js";
 import type { SlackComponent } from "@copilotkit/slack";
 
 export const appComponents: ReadonlyArray<SlackComponent> = [
-  greetingCardComponent,
+  issueListComponent,
+  pageListComponent,
 ];
 
-export { greetingCardComponent };
+export { issueListComponent, pageListComponent };

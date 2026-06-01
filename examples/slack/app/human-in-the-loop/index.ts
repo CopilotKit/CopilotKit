@@ -7,11 +7,11 @@
  * wire the array into `createSlackBridge({humanInTheLoopComponents:
  * appHitl})` in `app/index.ts`.
  */
-import { confirmHitl } from "./confirm.js";
+import { confirmWriteHitl } from "./confirm-write.js";
 
 // Infer the array type from the elements — preserves each handler's
 // per-action payload typing all the way to the SDK's bridge config,
 // which uses `HumanInTheLoop<any, any>` so the assignment widens cleanly.
-export const appHitl = [confirmHitl];
+export const appHitl = [confirmWriteHitl];
 
-export { confirmHitl };
+export { confirmWriteHitl };

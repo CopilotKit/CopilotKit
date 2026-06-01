@@ -1,10 +1,10 @@
 display_information:
-  name: CopilotKit AG-UI Bot
-  description: Bridges Slack to any AG-UI agent (CopilotKit Runtime, LangGraph, etc.)
+  name: CopilotKit Triage
+  description: On-call triage assistant — query/file Linear issues and find/write Notion pages from Slack.
   background_color: "#1a1a1a"
 features:
   bot_user:
-    display_name: CopilotKit AG-UI Bot
+    display_name: CopilotKit Triage
     always_online: true
   slash_commands:
     - command: /agent

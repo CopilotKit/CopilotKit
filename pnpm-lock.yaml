@@ -267,21 +267,6 @@ importers:
 
   examples/slack:
     dependencies:
-      '@a2ui/web_core':
-        specifier: 0.9.0
-        version: 0.9.0
-      '@ag-ui/a2ui-middleware':
-        specifier: 0.0.5
-        version: 0.0.5(@ag-ui/client@0.0.53)(rxjs@7.8.1)
-      '@ag-ui/client':
-        specifier: 0.0.53
-        version: 0.0.53
-      '@ag-ui/core':
-        specifier: 0.0.53
-        version: 0.0.53
-      '@copilotkit/core':
-        specifier: workspace:*
-        version: link:../../packages/core
       '@copilotkit/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
@@ -294,22 +279,16 @@ importers:
       '@slack/types':
         specifier: ^2.21.1
         version: 2.21.1
-      '@slack/web-api':
-        specifier: ^7.16.0
-        version: 7.16.0
-      rxjs:
-        specifier: ^7.8.1
-        version: 7.8.1
       zod:
         specifier: '>=3.22.3'
         version: 3.25.76
-      zod-to-json-schema:
-        specifier: ^3.25.1
-        version: 3.25.1(zod@3.25.76)
     devDependencies:
       '@copilotkit/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config
+      '@notionhq/notion-mcp-server':
+        specifier: ^2.2.1
+        version: 2.2.1(@cfworker/json-schema@4.1.1)(js-yaml@4.1.1)
       '@types/node':
         specifier: ^22.10.0
         version: 22.19.11
@@ -8226,6 +8205,10 @@ packages:
     resolution: {integrity: sha512-nn5ozdjYQpUCZlWGuxcJY/KpxkWQs4DcbMCmKojjyrYDEAGy4Ce19NN4v5MduafTwJlbKc99UA8YhSVqq9yPZA==}
     engines: {node: '>=12.4.0'}
 
+  '@notionhq/notion-mcp-server@2.2.1':
+    resolution: {integrity: sha512-Fw3ErV73sEI+ZrnOycR+5Lk8Ig6hEBy3EuyMlIEpb+DS18i3X1sxTWeyIC4ph1RjPVfoDAPrAREhnmMMzlG/oQ==}
+    hasBin: true
+
   '@npmcli/agent@3.0.0':
     resolution: {integrity: sha512-S79NdEgDQd/NGCay6TCoVzXSj74skRZIKJcpJjC5lOq34SZzyI6MqtiiWoiVWoVrTcGjNeC4ipbh1VIHlpfF5Q==}
     engines: {node: ^18.17.0 || >=20.5.0}
@@ -13237,6 +13220,9 @@ packages:
   batch@0.6.1:
     resolution: {integrity: sha512-x+VAiMRL6UPkx+kudNvxTl6hB2XNNCG2r+7wixVfIYwu/2HKRXimwQyaumLjMveWvT2Hkd/cAJw+QBMfJ/EKVw==}
 
+  bath-es5@3.0.3:
+    resolution: {integrity: sha512-PdCioDToH3t84lP40kUFCKWCOCH389Dl1kbC8FGoqOwamxsmqxxnJSXdkTOsPoNHXjem4+sJ+bbNoQm5zeCqxg==}
+
   beasties@0.3.2:
     resolution: {integrity: sha512-p4AF8uYzm9Fwu8m/hSVTCPXrRBPmB34hQpHsec2KOaR9CZmgoU8IOv4Cvwq4hgz2p4hLMNbsdNl5XeA6XbAQwA==}
     engines: {node: '>=14.0.0'}
@@ -14623,6 +14609,9 @@ packages:
   dequal@2.0.3:
     resolution: {integrity: sha512-0je+qPKHEMohvfRTCEo3CrPG6cAzAYgmzKyxRiYSSDkS6eGJdyVJm7WaYA5ECaAD9wLB2T4EEeymA5aFVcYXCA==}
     engines: {node: '>=6'}
+
+  dereference-json-schema@0.2.2:
+    resolution: {integrity: sha512-w8dUsJyrzH4Zsj8W/tKcjLsmcTKXfdNf+n3BBm1SAfnqpaCodgEUWqQGJ+pNb9NOqPwYMGvUnZZ8nQfeFjJlbQ==}
 
   des.js@1.1.0:
     resolution: {integrity: sha512-r17GxjhUCjSRy8aiJpr8/UadFIzMzJGexI3Nmz4ADi9LYSFx4gTBp80+NaX/YsXWWLhpZ7v/v/ubEc/bCNfKwg==}
@@ -19528,6 +19517,15 @@ packages:
         optional: true
       zod:
         optional: true
+
+  openapi-client-axios@7.9.0:
+    resolution: {integrity: sha512-1VRBbbNQTz6pAWFALXrqr88GclEb+LirqbzmLnFzqOlnCFC2Ao5Gv4JYf783+A8PQbEAu5Or4Rg32RaetllnwA==}
+    peerDependencies:
+      axios: '>=1.15.0'
+      js-yaml: '>=4.1.1'
+
+  openapi-schema-validator@12.1.3:
+    resolution: {integrity: sha512-xTHOmxU/VQGUgo7Cm0jhwbklOKobXby+/237EG967+3TQEYJztMgX9Q5UE2taZKwyKPUq0j11dngpGjUuxz1hQ==}
 
   openapi-types@12.1.3:
     resolution: {integrity: sha512-N4YtSYJqghVu4iek2ZUvcN/0aqH1kRDuNqzcycDxhOUpg7GdvLa2F3DgS6yBNhInhv2r/6I0Flkn7CqL8+nIcw==}
@@ -31488,6 +31486,26 @@ snapshots:
 
   '@nolyfill/is-core-module@1.0.39': {}
 
+  '@notionhq/notion-mcp-server@2.2.1(@cfworker/json-schema@4.1.1)(js-yaml@4.1.1)':
+    dependencies:
+      '@modelcontextprotocol/sdk': 1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
+      axios: 1.15.2(debug@4.4.3)
+      express: 5.2.1
+      form-data: 4.0.5
+      mustache: 4.2.0
+      node-fetch: 3.3.2
+      openapi-client-axios: 7.9.0(axios@1.15.2)(js-yaml@4.1.1)
+      openapi-schema-validator: 12.1.3
+      openapi-types: 12.1.3
+      which: 5.0.0
+      yargs: 17.7.2
+      zod: 3.25.76
+    transitivePeerDependencies:
+      - '@cfworker/json-schema'
+      - debug
+      - js-yaml
+      - supports-color
+
   '@npmcli/agent@3.0.0':
     dependencies:
       agent-base: 7.1.4
@@ -37833,6 +37851,8 @@ snapshots:
 
   batch@0.6.1: {}
 
+  bath-es5@3.0.3: {}
+
   beasties@0.3.2:
     dependencies:
       css-select: 5.2.2
@@ -39519,6 +39539,8 @@ snapshots:
   deprecation@2.3.1: {}
 
   dequal@2.0.3: {}
+
+  dereference-json-schema@0.2.2: {}
 
   des.js@1.1.0:
     dependencies:
@@ -46635,6 +46657,21 @@ snapshots:
     optionalDependencies:
       ws: 8.19.0
       zod: 3.25.76
+
+  openapi-client-axios@7.9.0(axios@1.15.2)(js-yaml@4.1.1):
+    dependencies:
+      axios: 1.15.2(debug@4.4.3)
+      bath-es5: 3.0.3
+      dereference-json-schema: 0.2.2
+      js-yaml: 4.1.1
+      openapi-types: 12.1.3
+
+  openapi-schema-validator@12.1.3:
+    dependencies:
+      ajv: 8.20.0
+      ajv-formats: 2.1.1(ajv@8.20.0)
+      lodash.merge: 4.6.2
+      openapi-types: 12.1.3
 
   openapi-types@12.1.3: {}
 

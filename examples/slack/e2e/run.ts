@@ -13,7 +13,8 @@
 import "dotenv/config";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { CASES, type E2ECase } from "./cases.js";
+import { CASES } from "./cases.js";
+import type { E2ECase } from "./cases.js";
 import {
   postAsUser,
   watchForReply,

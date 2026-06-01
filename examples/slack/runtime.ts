@@ -1,70 +1,155 @@
 /**
- * Standalone CopilotKit Runtime for the Slack bridge.
+ * Agent backend for the Slack triage assistant.
  *
- * Replaces the earlier `serve_agui.py` thin AG-UI wrapper. The runtime
- * is the canonical adapter between the LangGraph agents and an AG-UI
- * client (the Slack bridge's HttpAgent). Critically, it auto-applies
- * the middleware stack the showcase agents expect — `A2UIMiddleware`
- * in particular, configured with `injectA2UITool: false` so the
- * dynamic-schema agent's own `generate_a2ui` tool stays in scope.
+ * This is the brain behind the Slack bridge: a single CopilotKit
+ * `BuiltInAgent` (LLM + MCP) served over AG-UI by a `CopilotSseRuntime`.
+ * It replaces the old vendored Python/LangGraph showcase backend — there
+ * is no Python, no `langgraph dev`, no A2UI middleware. Everything is a
+ * few dozen lines of TypeScript.
  *
- * Going via `LangGraphAgent` (which proxies to the local `langgraph
- * dev` server on 8123) keeps the agents as published in the showcase —
- * we do NOT import the Python graphs directly. This mirrors the
- * production Next.js routes under `agent/src/app/api/copilotkit-*`.
+ * What it does
+ * ------------
+ * The agent connects to **Linear** and **Notion** via their MCP servers
+ * and acts as an on-call / triage assistant inside Slack: it pulls and
+ * files Linear issues, finds Notion runbooks, and writes incident
+ * threads up as Notion postmortems. The data access is entirely MCP —
+ * the agent discovers the available tools (list/search/create issues,
+ * search/create pages) from each server at runtime.
  *
- * Exposed routes (multi-route mode under `basePath = "/api/copilotkit"`):
- *   - POST /api/copilotkit/agent/:agentId/run     — what the bridge POSTs to
- *   - GET  /api/copilotkit/info
- *   - …others (connect, stop, threads — unused by the bridge today)
+ * The Slack-side primitives (read_thread, the confirm_write HITL picker,
+ * the issue/page Block Kit components) are forwarded to the agent as
+ * client-provided tools by the bridge on every run — see `app/index.ts`.
  *
- * Set the bridge's `AGENT_URL` to e.g.
- *   http://localhost:8200/api/copilotkit/agent/a2ui_dynamic/run
+ * Auth & deployment
+ * -----------------
+ * Every connection is env-driven, so the same process runs locally and
+ * deployed — only the env differs (see `.env.example`):
+ *
+ *   - Linear: the hosted MCP accepts a raw API key as a bearer token, so
+ *     we connect straight to `LINEAR_MCP_URL` with `LINEAR_API_KEY`.
+ *   - Notion: run the official `@notionhq/notion-mcp-server` as a
+ *     Streamable-HTTP sidecar (`pnpm notion-mcp` locally, a second
+ *     process/container in prod) and point `NOTION_MCP_URL` /
+ *     `NOTION_MCP_AUTH_TOKEN` at it.
+ *
+ * A server is only wired up when its credentials are present, so the bot
+ * runs Linear-only, Notion-only, or both.
+ *
+ * Exposed route (the bridge's `AGENT_URL`):
+ *   POST http://localhost:8200/api/copilotkit/agent/triage/run
  */
 import "dotenv/config";
 import { createServer } from "node:http";
-import { CopilotSseRuntime } from "@copilotkit/runtime/v2";
+import {
+  BuiltInAgent,
+  CopilotSseRuntime,
+  resolveModel,
+} from "@copilotkit/runtime/v2";
+import type {
+  BuiltInAgentModel,
+  MCPClientConfig,
+} from "@copilotkit/runtime/v2";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
-import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 
-const LANGGRAPH_URL =
-  process.env["LANGGRAPH_DEPLOYMENT_URL"] ?? "http://localhost:8123";
-
-function makeLgAgent(graphId: string) {
-  return new LangGraphAgent({
-    deploymentUrl: LANGGRAPH_URL,
-    graphId,
-    langsmithApiKey: process.env["LANGSMITH_API_KEY"] ?? "",
-    assistantConfig: { recursion_limit: 100 },
-  });
+/**
+ * An HTTP MCP server that injects a static `Authorization: Bearer` on
+ * every outbound request. `MCPClientConfigHTTP` has no `headers` field;
+ * the SDK's documented extension point is `options.fetch`, so we wrap
+ * `fetch` to set the header (mirrors how the runtime injects its own
+ * intelligence-MCP credentials).
+ */
+function bearerMcpServer(url: string, token: string): MCPClientConfig {
+  return {
+    type: "http",
+    url,
+    options: {
+      fetch: async (req, init) => {
+        const headers = new Headers(init?.headers);
+        headers.set("Authorization", `Bearer ${token}`);
+        return globalThis.fetch(req, { ...init, headers });
+      },
+    },
+  };
 }
 
-// One CopilotRuntime serves every agent the bridge might want — the
-// path discriminator (`/agent/:agentId/run`) selects which one runs.
-//
-// `a2ui.injectA2UITool: false` matches the showcase config: the
-// dynamic agent ships its OWN `generate_a2ui` tool; auto-injecting a
-// runtime `render_a2ui` on top would duplicate the slot and confuse
-// the LLM (this is what the showcase routes call out explicitly).
+const LINEAR_TEAM_KEY = process.env["LINEAR_TEAM_KEY"] ?? "CPK";
+
+const mcpServers: MCPClientConfig[] = [];
+
+if (process.env["LINEAR_API_KEY"]) {
+  mcpServers.push(
+    bearerMcpServer(
+      process.env["LINEAR_MCP_URL"] ?? "https://mcp.linear.app/mcp",
+      process.env["LINEAR_API_KEY"],
+    ),
+  );
+}
+
+if (process.env["NOTION_MCP_AUTH_TOKEN"]) {
+  mcpServers.push(
+    bearerMcpServer(
+      process.env["NOTION_MCP_URL"] ?? "http://127.0.0.1:3001/mcp",
+      process.env["NOTION_MCP_AUTH_TOKEN"],
+    ),
+  );
+}
+
+if (mcpServers.length === 0) {
+  console.warn(
+    "[slack-runtime] No MCP servers configured. Set LINEAR_API_KEY and/or " +
+      "NOTION_MCP_AUTH_TOKEN in .env — without them the bot can chat but " +
+      "can't read or write Linear/Notion.",
+  );
+}
+
+const SYSTEM_PROMPT = [
+  "You are an on-call triage assistant living in a Slack workspace. You help",
+  "an engineering team turn incident chatter into tracked work: you pull and",
+  "file Linear issues, find Notion runbooks, and write incident threads up as",
+  "Notion postmortems.",
+  "",
+  "Data access:",
+  "- Linear and Notion are connected via MCP. Use those tools to search, read,",
+  `  and create issues and pages. The default Linear team is "${LINEAR_TEAM_KEY}"`,
+  "  unless the user names another team.",
+  "- To act on a Slack conversation (e.g. 'write this thread up'), call the",
+  "  read_thread tool to fetch the messages first — never invent thread content.",
+  "",
+  "Rendering: when you return a list of Linear issues or Notion pages, render it",
+  "with the issue_list / page_list component so it lands as a clean Block Kit",
+  "card. Keep plain prose short — Slack, not an essay.",
+  "",
+  "WRITE GATING (important): before you create or modify anything in Linear or",
+  "Notion (creating an issue, creating a page, etc.), you MUST call the",
+  "confirm_write tool with a one-line summary of exactly what you're about to do",
+  "and wait for the user's confirmation. Only perform the write if the user",
+  "confirms. If they decline, acknowledge and stop. Reads (search/list/get) never",
+  "need confirmation.",
+].join("\n");
+
+const model =
+  (process.env["AGENT_MODEL"] as BuiltInAgentModel) ?? "openai/gpt-4.1";
+
+// Fail loud at startup on a misspelled provider/model rather than on the
+// first agent invocation. (The model's API key is read from env at run time.)
+try {
+  resolveModel(model);
+} catch (err) {
+  console.error(`[slack-runtime] invalid AGENT_MODEL "${model}":`, err);
+  process.exit(1);
+}
+
+const agent = new BuiltInAgent({
+  model,
+  // Triage chains several MCP calls per turn (search -> read -> confirm ->
+  // create), so give the agent room to loop.
+  maxSteps: Number(process.env["AGENT_MAX_STEPS"] ?? 12),
+  mcpServers,
+  prompt: SYSTEM_PROMPT,
+});
+
 const runtime = new CopilotSseRuntime({
-  agents: {
-    a2ui_dynamic: makeLgAgent("a2ui_dynamic"),
-    a2ui_fixed: makeLgAgent("a2ui_fixed"),
-    beautiful_chat: makeLgAgent("beautiful_chat"),
-    interrupt_agent: makeLgAgent("interrupt_agent"),
-  },
-  a2ui: {
-    // The showcase `a2ui_dynamic` agent exposes a custom outer tool
-    // named `generate_a2ui` (it doesn't use the canonical `render_a2ui`
-    // tool name the middleware defaults to). Pass that name explicitly
-    // so the middleware tracks the streaming args and synthesizes
-    // ACTIVITY_SNAPSHOT events from them. The middleware ALSO has a
-    // tool-result fallback that detects `{a2ui_operations: [...]}` in
-    // any tool result content, but the fast path is more reliable for
-    // the secondary-LLM-emitted designs.
-    injectA2UITool: false,
-    a2uiToolNames: ["generate_a2ui"],
-  },
+  agents: { triage: agent },
 });
 
 const listener = createCopilotNodeListener({
@@ -76,9 +161,15 @@ const listener = createCopilotNodeListener({
 const port = Number(process.env["PORT"] ?? 8200);
 createServer(listener).listen(port, () => {
   console.log(
-    `[slack-runtime] CopilotKit runtime listening on http://localhost:${port}/api/copilotkit/agent/<agentId>/run`,
+    `[slack-runtime] listening on http://localhost:${port}/api/copilotkit/agent/triage/run`,
   );
+  const connected = [
+    process.env["LINEAR_API_KEY"] ? "Linear" : null,
+    process.env["NOTION_MCP_AUTH_TOKEN"] ? "Notion" : null,
+  ].filter(Boolean);
   console.log(
-    "[slack-runtime] registered agents: a2ui_dynamic, a2ui_fixed, beautiful_chat, interrupt_agent",
+    `[slack-runtime] agent "triage" ready · MCP: ${
+      connected.length ? connected.join(", ") : "none"
+    }`,
   );
 });
