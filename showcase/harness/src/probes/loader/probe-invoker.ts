@@ -634,6 +634,27 @@ export function buildProbeInvoker(
           state: result.state,
           durationMs: Date.now() - targetStart,
         });
+        // Partial-rollup persistence: stamp the running partial tally onto
+        // the probe_runs row as each target completes so an orphaned row
+        // (process killed mid-run during a pool-churn burst) reflects real
+        // progress instead of a null summary. The boot-time sweep then
+        // preserves this partial rollup rather than zeroing it. Best-effort:
+        // a runWriter hiccup must never tank the probe tick — finish() in
+        // the finally block is still the authoritative final write.
+        if (runWriter && runRowId !== null) {
+          try {
+            await runWriter.update({
+              id: runRowId,
+              summary: { total: inputs.length, passed, failed },
+            });
+          } catch (err) {
+            logger.error("probe.run-writer-update-failed", {
+              probeId: cfg.id,
+              runId: runRowId,
+              err: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
         try {
           await writer.write(result);
         } catch (err) {
