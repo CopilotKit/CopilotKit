@@ -650,7 +650,7 @@ describe("e2e-demos driver", () => {
     });
 
     expect(result.state).toBe("red");
-    // Single compound selector tried (not 6 individual ones).
+    // Single compound selector tried (not the individual selectors one-by-one).
     expect(selectorsTried).toHaveLength(1);
     expect(selectorsTried[0]).toContain(
       '[data-testid="copilot-chat-textarea"]',
@@ -1063,13 +1063,13 @@ describe("e2e-demos driver", () => {
     expect(sig?.errorClass).not.toBe("abort");
   });
 
-  // --- C7: selector-loop is abort-responsive ---------------------------
+  // --- C7: the single compound selector wait is abort-responsive -------
 
-  it("aborts mid-selector-loop without walking all 6 selectors", async () => {
-    // Slow waitForSelector + cap fires mid-loop. Without the abort
-    // check between iterations, the worst case is 6*pageTimeoutMs per
-    // demo. Assert the loop bails after a small constant number of
-    // selectors (< 6) once the cap fires.
+  it("aborts during the compound selector wait (single waitForSelector call)", async () => {
+    // The driver issues ONE compound waitForSelector covering all ready
+    // selectors at once (no per-selector loop). A slow compound wait plus a
+    // fired cap must surface as a red result rather than blocking for the
+    // full pageTimeoutMs. Assert exactly the one compound call was made.
     const selectorsTried: string[] = [];
     let resolveFirstSel!: () => void;
     const firstSelGate = new Promise<void>((r) => {
@@ -1133,11 +1133,11 @@ describe("e2e-demos driver", () => {
     const result = await runP;
 
     expect(result.state).toBe("red");
-    // Strict: only the first selector should have been attempted; the
-    // mid-loop abort check must bail before the second iteration runs.
-    expect(selectorsTried.length).toBeLessThan(5);
+    // Compound design: exactly ONE waitForSelector call is made (the single
+    // compound selector), never a per-selector walk.
+    expect(selectorsTried).toHaveLength(1);
     // Side row must reflect either abort or selector-error/timeout, NOT
-    // a wall-clock-bloated six-selector walk.
+    // a wall-clock-bloated multi-selector walk.
     const sideRow = writes.find((w) => w.key === "e2e:abort-mid-loop/d1");
     const sig = sideRow?.signal as { errorClass?: string };
     expect(["abort", "selector-error", "selector-timeout"]).toContain(

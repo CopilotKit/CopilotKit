@@ -207,30 +207,37 @@ const DEFAULT_PAGE_TIMEOUT_MS = 30 * 1000;
 const TIMEOUT_ENV_VAR = "E2E_DEMOS_TIMEOUT_MS";
 
 /**
- * Structural-ready selectors tried in order. First match wins; a demo is
- * considered green if any one resolves within the page timeout. Kept as a
- * const array so the production config and the unit tests agree on the
- * exact ordering — a refactor that re-orders the list surfaces as a test
- * diff.
+ * Structural-ready selectors. A demo is considered green if ANY one of these
+ * resolves within the page timeout — they are combined into a single compound
+ * CSS selector (`READY_SELECTOR_COMPOUND`) and matched simultaneously by one
+ * `waitForSelector` call, so there is no per-selector ordering at match time.
+ * Kept as a const array so the production config and the unit tests agree on
+ * the exact set — a refactor that adds/removes an entry surfaces as a test
+ * diff. The list-order rationale below is for human readability only.
  *
- * Ordering rationale (kept in lockstep with `conversation-runner.ts`'s
+ * Selector rationale (kept in lockstep with `conversation-runner.ts`'s
  * CHAT_INPUT_SELECTORS — this driver only checks visibility so the
- * div-wrapper testid wouldn't actually break it, but matching ordering
+ * div-wrapper testid wouldn't actually break it, but matching the set
  * keeps a single mental model for both probes):
  *   1. CopilotKit V2 canonical textarea testid — the actual `<textarea>`
  *      inside the V2 chat input. Strictest, fillable signal.
  *   2. Scoped descendant — any `<textarea>` nested under the V2 wrapper
  *      `[data-testid="copilot-chat-input"]`, for V2 UIs whose textarea
  *      doesn't carry its own testid.
- *   3. Bare `textarea` — covers V1 CopilotKit and generic chat UIs whose
+ *   3. V2 chat-toggle testid — the launcher button for popup/sidebar UIs
+ *      whose composer mounts only after the panel opens.
+ *   4. Bare `textarea` — covers V1 CopilotKit and generic chat UIs whose
  *      composer is a plain `<textarea>` without a testid.
- *   4. Default placeholder — input-element composers whose UI uses
+ *   5. Default placeholder — input-element composers whose UI uses
  *      `<input placeholder="Type a message">` instead of a textarea.
- *   5-6. Generic chat-affordance fallbacks. Custom-composer demos (e.g.
- *      `headless-simple`, `headless-complete`) build their own UI on top
- *      of `useAgent`, so they lack both the testid and the default
- *      placeholder but still render a text input / ARIA textbox. A match
- *      on any of these is enough structural evidence that the demo
+ *   6-7. Generic chat-affordance fallbacks (`input[type="text"]`,
+ *      `[role="textbox"]`). Custom-composer demos (e.g. `headless-simple`,
+ *      `headless-complete`) build their own UI on top of `useAgent`, so they
+ *      lack both the testid and the default placeholder but still render a
+ *      text input / ARIA textbox.
+ *   8. Auth sign-in card — `/demos/auth` renders a sign-in surface BEFORE the
+ *      chat input mounts; the testid signals "demo route booted" pre-auth.
+ *      A match on any of these is enough structural evidence that the demo
  *      route booted.
  */
 const READY_SELECTORS = [
@@ -328,6 +335,10 @@ export function createPooledE2eDemosLauncher(
       });
     };
 
+    // Capture the listener so launcher-level close() can detach it: without
+    // removeEventListener a post-completion abort would fire the handler after
+    // the run returned, leaking the listener for the signal's lifetime.
+    let detachAbort: (() => void) | undefined;
     if (abortSignal) {
       if (abortSignal.aborted) {
         aborted = true;
@@ -336,12 +347,22 @@ export function createPooledE2eDemosLauncher(
         abortSignal.addEventListener("abort", closeAllOpenContexts, {
           once: true,
         });
+        detachAbort = () =>
+          abortSignal.removeEventListener("abort", closeAllOpenContexts);
       }
     }
 
     return {
       async newContext(): Promise<E2eDemosBrowserContext> {
         const ctx = await pool.acquire();
+        // If the signal was already aborted at launcher construction (the
+        // pre-aborted branch never attached the live abort listener), a context
+        // opened now would never be closed by the abort path. Release it
+        // immediately and refuse so it cannot leak into a torn-down run.
+        if (aborted) {
+          await pool.release(ctx).catch(() => {});
+          throw new Error("e2e-demos launcher aborted");
+        }
         const ctxHandle = { close: () => pool.release(ctx) };
         openContexts.add(ctxHandle);
         return {
@@ -359,8 +380,12 @@ export function createPooledE2eDemosLauncher(
           },
         };
       },
-      // Launcher-level close is a no-op: each context releases itself.
-      close: async () => {},
+      // Launcher-level close releases nothing itself (each context releases
+      // itself) but detaches the abort listener so a post-completion abort
+      // can't fire the handler after the run returned.
+      close: async () => {
+        detachAbort?.();
+      },
     };
   };
 }
