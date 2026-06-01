@@ -23,7 +23,6 @@ export type {
 } from "./use-attachments";
 export { useKeyboardHeight } from "./use-keyboard-height";
 export type { KeyboardState } from "./use-keyboard-height";
-export { useKatexStyles } from "./use-katex-styles";
 export { useCapabilities } from "./use-capabilities";
 export { useRenderCustomMessages } from "./use-render-custom-messages";
 export { useRenderActivityMessage } from "./use-render-activity-message";

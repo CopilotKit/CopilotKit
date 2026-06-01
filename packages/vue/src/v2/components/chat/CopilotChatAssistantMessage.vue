@@ -25,10 +25,6 @@ import type {
   CopilotChatAssistantMessageToolCallsViewSlotProps,
   CopilotChatAssistantMessageToolbarSlotProps,
 } from "./types";
-import { useKatexStyles } from "../../hooks/use-katex-styles";
-
-useKatexStyles();
-
 const props = withDefaults(
   defineProps<{
     message: AssistantMessage;
