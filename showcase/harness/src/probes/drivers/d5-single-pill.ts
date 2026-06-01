@@ -965,6 +965,18 @@ export function createE2eDeepDriver(
 
           await sem.acquire();
           const featureStart = Date.now();
+          // In-flight runFeature promises that may still be holding a
+          // pooled BrowserContext after the Promise.race resolves. On
+          // the feature-timeout path the race resolves a synthetic
+          // result while the real runFeature keeps running until its
+          // abort-driven teardown closes the context (→ pool.release).
+          // We gate sem.release() (outer finally) on these settling so
+          // the freed slot can't be re-acquired while an orphan still
+          // holds a context, which would push live pooled contexts past
+          // the FEATURE_CONCURRENCY-bounded budget.
+          const inFlightRunFeatures: Array<
+            Promise<Awaited<ReturnType<typeof runFeature>>>
+          > = [];
           try {
             if (abort.signal.aborted) {
               await sideEmit(ctx, {
@@ -1064,23 +1076,44 @@ export function createE2eDeepDriver(
               Awaited<ReturnType<typeof runFeature>>
             > => {
               let featureTimer: ReturnType<typeof setTimeout> | undefined;
+              // Per-attempt child controller. It aborts when the parent
+              // (`featureAbort`) fires OR when THIS attempt's timer wins,
+              // so aborting one attempt never poisons the next — the
+              // retry attempt gets a fresh, un-aborted signal. Without
+              // this, a single shared controller aborted by attempt 1
+              // would make attempt 2's runFeature return immediately with
+              // `aborted before start` (a silent no-op retry).
+              const attemptAbort = new AbortController();
+              const onParentAbortChild = (): void => attemptAbort.abort();
+              if (featureAbort.signal.aborted) attemptAbort.abort();
+              else
+                featureAbort.signal.addEventListener(
+                  "abort",
+                  onParentAbortChild,
+                  { once: true },
+                );
+              const runFeaturePromise = runFeature({
+                browser: browserRef,
+                url,
+                pageTimeoutMs,
+                script,
+                buildCtx: {
+                  integrationSlug: slug,
+                  featureType: ft,
+                  baseUrl: backendUrl,
+                },
+                abortSignal: attemptAbort.signal,
+              });
+              inFlightRunFeatures.push(runFeaturePromise);
               try {
                 return await Promise.race([
-                  runFeature({
-                    browser: browserRef,
-                    url,
-                    pageTimeoutMs,
-                    script,
-                    buildCtx: {
-                      integrationSlug: slug,
-                      featureType: ft,
-                      baseUrl: backendUrl,
-                    },
-                    abortSignal: featureAbort.signal,
-                  }),
+                  runFeaturePromise,
                   new Promise<Awaited<ReturnType<typeof runFeature>>>(
                     (resolve) => {
                       featureTimer = setTimeout(() => {
+                        // Abort the parent so the launcher's open-context
+                        // teardown runs; this also aborts the child via
+                        // the listener above.
                         featureAbort.abort();
                         resolve({
                           ok: false,
@@ -1093,6 +1126,10 @@ export function createE2eDeepDriver(
                 ]);
               } finally {
                 if (featureTimer) clearTimeout(featureTimer);
+                featureAbort.signal.removeEventListener(
+                  "abort",
+                  onParentAbortChild,
+                );
               }
             };
 
@@ -1192,6 +1229,14 @@ export function createE2eDeepDriver(
               };
             }
           } finally {
+            // Gate slot release on the real teardown of any in-flight
+            // runFeature. On the timeout path the synthetic verdict has
+            // already been returned to the caller above; here we only
+            // wait for the abandoned runFeature's context teardown (its
+            // own finally → context.close() → pool.release) to settle so
+            // the slot isn't handed to a new feature while an orphan
+            // still holds a pooled context.
+            await Promise.allSettled(inFlightRunFeatures);
             sem.release();
           }
         });
