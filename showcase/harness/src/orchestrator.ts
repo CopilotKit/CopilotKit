@@ -302,14 +302,30 @@ export async function boot(opts: BootOptions = {}): Promise<{
     await browserPool.init();
     browserPoolReady = true;
     try {
+      // Only stamp `recovered: true` when a prior degraded (red) state
+      // actually existed — on a cold first boot nothing was recovered, so a
+      // blanket `recovered: true` would misreport a phantom recovery. Probe
+      // for the prior state and emit a neutral healthy signal otherwise.
+      // statusReader failure here must not break the healthy write, so treat
+      // an unreadable prior state as "no prior degraded state".
+      const priorState = await statusReader
+        .getStateByKey("system:browser-pool-degraded")
+        .catch(() => null);
+      const recovered = priorState === "red";
       await writer.write({
         key: "system:browser-pool-degraded",
         state: "green",
-        signal: { recovered: true, recoveredAt: new Date().toISOString() },
+        signal: recovered
+          ? { recovered: true, recoveredAt: new Date().toISOString() }
+          : { healthy: true, healthyAt: new Date().toISOString() },
         observedAt: new Date().toISOString(),
       });
-    } catch {
-      // best-effort -- pool is healthy, status write failure is non-critical
+    } catch (writeErr) {
+      // best-effort -- pool is healthy, status write failure is non-critical.
+      // Warn (matching the failure path) instead of swallowing silently.
+      logger.warn("boot.browser-pool-status-write-failed", {
+        error: writeErr instanceof Error ? writeErr.message : String(writeErr),
+      });
     }
   } catch (err) {
     logger.error("boot.browser-pool-init-failed", { error: String(err) });
