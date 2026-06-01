@@ -128,6 +128,17 @@ export class BrowserPool {
   // the slot in O(1) even after the slot was removed from `available`.
   private browserToSlot = new Map<Browser, Slot>();
 
+  // Slots whose browser is currently handed out to a caller (acquire's
+  // available-scan return, or a handOff that resolved a waiter). A slot enters
+  // this set exactly when its browser is delivered to a holder and leaves it
+  // exactly when that holder releases it (or the slot is recycled). It is the
+  // idempotency anchor for release(): a release() whose slot is NOT in this set
+  // is a double/foreign return and must be a no-op, so the same live browser
+  // can never be handed to two waiters via handOff's unguarded waiter branch.
+  // It also backs `stats().inUse` directly (the count of checked-out slots),
+  // which is more precise than the prior `liveSlots - available` subtraction.
+  private checkedOut = new Set<Slot>();
+
   constructor(
     size = 4,
     recycleAfter?: number,
@@ -262,15 +273,78 @@ export class BrowserPool {
 
   /**
    * Single waiter-first handoff used by every slot-recovery path (reinit,
-   * recycle success, relaunchPendingSlots). A freshly launched browser must
-   * go to a queued waiter if one exists — otherwise the waiter is stranded
-   * until its acquire timeout while a live browser sits idle in `available`.
-   * Only when there is no waiter does the slot land in `available` (guarded
-   * by `includes` so a slot is never published twice).
+   * recycle success, relaunchPendingSlots) AND by release(). A freshly
+   * launched (or just-released) browser must go to a queued waiter if one
+   * exists — otherwise the waiter is stranded until its acquire timeout while
+   * a live browser sits idle in `available`. Only when there is no waiter
+   * does the slot land in `available` (guarded by `includes` so a slot is
+   * never published twice).
+   *
+   * Liveness gate: the acquire() available-scan recycles a zombie
+   * (`!isConnected()`) before handing it out, but the waiter-served path
+   * historically did not — so a browser that silently disconnected in the
+   * window between launch/release and this handoff could be delivered to a
+   * waiting probe. Before resolving a waiter (or publishing to `available`),
+   * check `isConnected()`. If the browser is dead, do NOT hand it out: leave
+   * the waiter QUEUED (so a live browser serves it) and route the slot back
+   * into recovery —
+   *   - if the slot is idle (release()'s path), `recycleSlot` re-launches it
+   *     immediately and its eventual handOff serves the still-queued waiter;
+   *   - if the slot is already owned by a recovery path (recycle IIFE /
+   *     relaunchPendingSlots, where `isSlotBusy` is true and `recycleSlot`
+   *     would no-op), park it `relaunchPending` so the next acquire's
+   *     `relaunchPendingSlots` re-launches and serves the queued waiter.
+   * Either way the waiter is never dropped and a dead browser is never
+   * handed out.
    */
   private handOff(slot: Slot, browser: Browser): void {
+    if (!browser.isConnected()) {
+      // warn, not info: this is a capacity-affecting event — it strands a
+      // queued waiter (kept queued, served later by a live browser) and routes
+      // the slot back into recovery. It must reach the warn/Sentry alert
+      // pipeline, consistent with reinit-empty / recycle-relaunch-failed.
+      this.logger?.warn?.("browser-pool.handoff-dead-browser", {
+        slotIndex: this.slots.indexOf(slot),
+      });
+      // Keep the waiter queued — do NOT shift it. Route the slot back into
+      // recovery so a live browser serves the waiter on a later tick.
+      if (this.isSlotBusy(slot)) {
+        slot.relaunchPending = true;
+      } else {
+        this.recycleSlot(slot);
+      }
+      return;
+    }
     const waiter = this.waiters.shift();
     if (waiter) {
+      // The waiter is now the slot's holder, so its eventual release() is the
+      // one (and only) release that may return this slot. Mark it checked out —
+      // but DEFER the mark to a microtask. release() calls handOff synchronously
+      // (the live-slot return path), so a re-add HERE would make the slot
+      // checked-out again WITHIN the same synchronous frame as a double
+      // `release(sameBrowser)`: the original holder's second release would then
+      // pass the `checkedOut.has(slot)` guard and steal THIS waiter's
+      // release-right, shifting and resolving a second waiter with the same
+      // browser. Deferring the re-add to a microtask keeps the slot un-checked
+      // through the rest of the current synchronous frame (so the second
+      // release is a no-op) while still marking it long before the waiter — a
+      // distinct task scheduled by `resolve()` — could ever release it. (A
+      // recycle/shutdown that supersedes this handoff between now and the
+      // microtask clears `checkedOut` for the slot, so the deferred add cannot
+      // resurrect a stale checkout: it only re-checks the slot is still the
+      // live holder's by re-confirming the browser still maps to it.)
+      // LOAD-BEARING ordering (covered by the "waiter-served release does not
+      // leak the slot" control-mutant test): the checkedOut.add MUST be
+      // enqueued via queueMicrotask BEFORE waiter.resolve so it runs before the
+      // waiter's resolve continuation (microtask FIFO). Do NOT refactor to
+      // setTimeout or extra .then hops — any reordering re-opens the
+      // double-serve race the mutant test guards against.
+      const waitingBrowser = browser;
+      queueMicrotask(() => {
+        if (this.browserToSlot.get(waitingBrowser) === slot) {
+          this.checkedOut.add(slot);
+        }
+      });
       waiter.resolve(browser);
     } else if (!this.available.includes(slot)) {
       this.available.push(slot);
@@ -304,21 +378,36 @@ export class BrowserPool {
    * closes.
    */
   private track(promise: Promise<void>): Promise<void> {
-    this.inFlightRecycles.add(promise);
-    // Chain the cleanup onto what we return (and await), and absorb any throw
-    // with a logged `.catch` so it can never surface as an unhandled
-    // rejection. The inner methods swallow their own launch errors today, but
-    // a future throw inside reinitInner/relaunchPendingSlotsInner must stay
-    // contained — a recovery launch failing is non-fatal to the pool.
-    return promise
+    // Build the wrapper FIRST, then track and return the SAME wrapper object.
+    // Tracking the raw `promise` while returning a distinct wrapper would let
+    // `shutdown()`'s `Array.from(inFlightRecycles)` drain await the RAW promise
+    // — which settles BEFORE the wrapper's `.catch`/`.finally` post-settle work
+    // runs — so the drain would under-wait and shutdown could proceed before
+    // this recovery's cleanup completed. Adding/removing the SAME object means
+    // shutdown awaits the wrapper (including its cleanup).
+    //
+    // Note recycleSlot does NOT follow this same-object pattern: it adds the
+    // RAW IIFE `recyclePromise` to `inFlightRecycles` and its `.catch`/`.finally`
+    // is a SEPARATE chain. That is fine there because shutdown awaits the IIFE,
+    // whose body performs the real recovery work — only the inert post-shutdown
+    // set-cleanup in the detached `.finally` is under-waited, which is harmless.
+    // Here, by contrast, the wrapper's `.catch`/`.finally` is the only thing
+    // tracked, so it must be the SAME object that is added and removed.
+    // The `.catch` absorbs any throw with a logged event so it can never
+    // surface as an unhandled rejection (the inner methods swallow their own
+    // launch errors today, but a future throw must stay contained — a recovery
+    // launch failing is non-fatal to the pool).
+    const wrapped: Promise<void> = promise
       .catch((err: unknown) => {
         this.logger?.error?.("browser-pool.recovery-failed", {
           error: err instanceof Error ? err.message : String(err),
         });
       })
       .finally(() => {
-        this.inFlightRecycles.delete(promise);
+        this.inFlightRecycles.delete(wrapped);
       });
+    this.inFlightRecycles.add(wrapped);
+    return wrapped;
   }
 
   /**
@@ -514,15 +603,19 @@ export class BrowserPool {
     // Skip zombie slots whose browser has disconnected but whose disconnect
     // handler hasn't yet completed the recycle. Without this loop, a single
     // dead chromium process locks every probe that draws its slot until
-    // either the harness restarts or 100 release-cycles trigger the
+    // either the harness restarts or `recycleAfter` release-cycles trigger the
     // contextCount-based recycle. Each zombie is kicked into recycle so the
     // pool self-heals across ticks.
     while (this.available.length > 0) {
       const slot = this.available.shift()!;
       if (slot.browser.isConnected()) {
+        // This slot is now handed to the caller — mark it checked out so its
+        // matching release() is the single return that may re-publish it, and
+        // a duplicate release() is a no-op.
+        this.checkedOut.add(slot);
         this.logger?.info("browser-pool.acquire", {
           available: this.available.length,
-          inUse: this.slots.length - this.available.length,
+          inUse: this.checkedOut.size,
         });
         return slot.browser;
       }
@@ -572,6 +665,20 @@ export class BrowserPool {
     // Browser was already recycled or doesn't belong to this pool.
     if (!slot) return;
 
+    // Idempotency guard covering BOTH return paths. A live slot is never
+    // removed from `browserToSlot`, so a SECOND release(sameLiveBrowser) still
+    // resolves the slot here and — without this check — would re-enter handOff,
+    // shift a SECOND waiter, and resolve it with the SAME browser (two probes
+    // driving one chromium). The `!available.includes(slot)` guard inside
+    // handOff only covers the no-waiter branch; this guard closes the waiter
+    // branch too. A release whose slot is not currently checked out is a
+    // double release (or a foreign/stale reference) and must be a no-op. The
+    // matching `add` happens when the slot is handed out (acquire's scan or
+    // handOff's waiter branch); clearing it here makes the first release the
+    // only one that proceeds.
+    if (!this.checkedOut.has(slot)) return;
+    this.checkedOut.delete(slot);
+
     slot.contextCount++;
 
     if (slot.contextCount >= this.recycleAfter) {
@@ -592,12 +699,18 @@ export class BrowserPool {
       return;
     }
 
-    const waiter = this.waiters.shift();
-    if (waiter) {
-      waiter.resolve(slot.browser);
-    } else {
-      this.available.push(slot);
-    }
+    // Route the live-slot return through the shared waiter-first handoff so
+    // there is ONE waiter-served path with ONE set of invariants: the
+    // `!available.includes(slot)` guard (a double release() of a still-live
+    // slot looks the slot up successfully BOTH times — the slot was never
+    // recycled, so it stays in browserToSlot — and an unconditional push would
+    // publish it to `available` twice, handing the SAME browser to two probes)
+    // AND the `isConnected()` liveness gate (the release-time check above is
+    // synchronous, but handOff re-checks before resolving so a dead browser is
+    // never delivered to a waiter on this path either). The slot is idle here
+    // (not in any recovery set), so a dead-browser handoff recycles it
+    // immediately rather than parking it pending.
+    this.handOff(slot, slot.browser);
     const s = this.stats();
     this.logger?.info("browser-pool.release", {
       available: s.available,
@@ -630,12 +743,15 @@ export class BrowserPool {
     this.slots = [];
     this.available = [];
     this.browserToSlot.clear();
+    this.checkedOut.clear();
   }
 
   stats(): BrowserPoolStats {
     // `size` counts only live (non-pending) capacity. A slot parked as
     // `relaunchPending` holds a dead browser and is being recovered lazily,
-    // so it is not usable capacity and must not inflate `size`/`inUse`. When
+    // so it is not usable capacity and must not inflate `size`. (`inUse` is NOT
+    // filtered by `relaunchPending` — it derives from `this.checkedOut.size`
+    // below, the set of slots actually handed to a caller.) When
     // every slot is pending, `size` reads 0 — that surfaces the outage to
     // callers, but it is NOT what gates recovery. The parked slots remain in
     // `this.slots`, so `acquire()` recovers them via `relaunchPendingSlots()`
@@ -646,9 +762,13 @@ export class BrowserPool {
     return {
       size: liveSlots.length,
       available: availableCount,
-      // Clamp to 0 so a future invariant break (availableCount exceeding
-      // liveSlots.length) can never surface as a negative gauge.
-      inUse: Math.max(0, liveSlots.length - availableCount),
+      // Derive `inUse` from the explicit checked-out set — the slots actually
+      // handed to a caller right now — rather than the `liveSlots - available`
+      // subtraction, which was inconsistently filtered (e.g. a slot mid-recycle
+      // is neither live-counted the same way nor in `available`, skewing the
+      // difference). `checkedOut` is maintained at every checkout/return/recycle
+      // site, so its size is the precise in-use gauge.
+      inUse: this.checkedOut.size,
       totalRecycles: this.totalRecycles,
     };
   }
@@ -700,6 +820,15 @@ export class BrowserPool {
     // and/or double-publishing the slot.
     if (this.isSlotBusy(slot)) return;
     this.recyclingSlots.add(slot);
+
+    // A recycled slot's OLD browser is no longer a usable checkout: whether it
+    // was in-use (disconnect-during-hold) or idle (acquire's zombie scan), the
+    // slot is being torn down and relaunched. Clear it so the set never leaks a
+    // stale entry across recycle (a fresh browser starts NOT checked out until
+    // re-acquired or handed to a waiter via the relaunch's handOff). release()
+    // paths that route here (contextCount/dead-slot) already cleared it; this
+    // covers the other entry points (disconnect handler, acquire zombie scan).
+    this.checkedOut.delete(slot);
 
     this.totalRecycles++;
     const slotIdx = this.slots.indexOf(slot);
