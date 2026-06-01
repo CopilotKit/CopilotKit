@@ -2,13 +2,18 @@ import { describe, it, expect } from "vitest";
 import {
   e2eChatToolsDriver,
   createE2eSmokeDriver,
-  type E2eBrowser,
-  type E2eBrowserContext,
-  type E2ePage,
-  type E2eSmokeLevelSignal,
-  type E2eSmokePackageSignal,
-  type E2eSmokeSignal,
+  createPooledE2eSmokeLauncher,
 } from "./d4-chat-roundtrip.js";
+import type {
+  E2eBrowser,
+  E2eBrowserContext,
+  E2ePage,
+  E2eSmokeLevelSignal,
+  E2eSmokePackageSignal,
+  E2eSmokeSignal,
+} from "./d4-chat-roundtrip.js";
+import type { BrowserPool } from "../helpers/browser-pool.js";
+import type { Browser } from "playwright";
 import { logger } from "../../logger.js";
 import type { ProbeContext, ProbeResult } from "../../types/index.js";
 
@@ -546,6 +551,139 @@ describe("e2eChatToolsDriver package shape: deriveSlug + demosResolver", () => {
     expect(sig.l4).toBe("skipped");
   });
 });
+
+// --- Pooled launcher: context checkout + abort release -------------------
+//
+// Context-pool migration: createPooledE2eSmokeLauncher checks out a pooled
+// CONTEXT per newContext() (pool.acquire) and releases it on close
+// (pool.release). No Browser is held. The leak this guards: on a driver
+// hard-timeout / external abort the invoker's Promise.race abandons the
+// driver while it keeps running with pooled contexts held; without the
+// abort listener those contexts stay inUse across probe ticks, saturating
+// the pool. The abort closure closes each open context (each releasing its
+// pooled context), returning inUse to 0.
+describe("createPooledE2eSmokeLauncher context checkout + abort release", () => {
+  it("checks out a pooled context per newContext() and moves inUse by 1", async () => {
+    const pool = makeFakeContextPool(4);
+    const launcher = createPooledE2eSmokeLauncher(
+      pool as unknown as BrowserPool,
+    );
+    const browser = await launcher();
+    expect(pool.stats().inUse).toBe(0);
+    const ctx = await browser.newContext();
+    expect(pool.stats().inUse).toBe(1);
+    await ctx.close();
+    expect(pool.stats().inUse).toBe(0);
+    expect(pool._releaseLog).toHaveLength(1);
+  });
+
+  it("forwards newContext(opts).extraHTTPHeaders into pool.acquire", async () => {
+    const pool = makeFakeContextPool(4);
+    const launcher = createPooledE2eSmokeLauncher(
+      pool as unknown as BrowserPool,
+    );
+    const browser = await launcher();
+    await browser.newContext({
+      extraHTTPHeaders: {
+        "X-AIMock-Context": "slug-d4",
+        "X-Test-Id": "d4-slug-d4",
+      },
+    });
+    expect(pool._acquireOptions[0]).toEqual({
+      extraHTTPHeaders: {
+        "X-AIMock-Context": "slug-d4",
+        "X-Test-Id": "d4-slug-d4",
+      },
+    });
+  });
+
+  it("closes open contexts on abort (each releasing its pooled context)", async () => {
+    const pool = makeFakeContextPool(4);
+    const launcher = createPooledE2eSmokeLauncher(
+      pool as unknown as BrowserPool,
+    );
+    const ac = new AbortController();
+    const browser = await launcher(ac.signal);
+    const ctx = await browser.newContext();
+    await ctx.newPage();
+    expect(pool.stats().inUse).toBe(1);
+    ac.abort();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(pool._releaseLog).toHaveLength(1);
+    expect(pool.stats().inUse).toBe(0);
+  });
+
+  it("launcher-level close is a no-op (contexts release themselves)", async () => {
+    const pool = makeFakeContextPool(4);
+    const launcher = createPooledE2eSmokeLauncher(
+      pool as unknown as BrowserPool,
+    );
+    const browser = await launcher();
+    const ctx = await browser.newContext();
+    await ctx.close();
+    await browser.close(); // no-op
+    expect(pool._releaseLog).toHaveLength(1);
+  });
+});
+
+// Module-scoped fake context-pool for the createPooledE2eSmokeLauncher tests
+// above — mirrors d6-all-pills.test.ts's helper. Tracks per-CONTEXT
+// acquire/release and the contextOptions each acquire was called with. The
+// release() is idempotent on the inUse counter only in the sense that the
+// real BrowserPool.release is a no-op on a context that's already been
+// released; here each ctxHandle.close() routes to one release call, and the
+// launcher's abort path closes each open context exactly once.
+function makeFakeContextPool(maxContexts: number) {
+  let nextCtxId = 0;
+  let live = 0;
+  const releaseLog: number[] = [];
+  const acquireOptions: Array<
+    { extraHTTPHeaders?: Record<string, string> } | undefined
+  > = [];
+  return {
+    async acquire(options?: { extraHTTPHeaders?: Record<string, string> }) {
+      if (live >= maxContexts) throw new Error("FakePool: at cap");
+      const id = nextCtxId++;
+      live++;
+      acquireOptions.push(options);
+      return {
+        __id: id,
+        async newPage() {
+          return {
+            on: () => {},
+            goto: async () => {},
+            type: async () => {},
+            press: async () => {},
+            waitForSelector: async () => {},
+            textContent: async () => null,
+            evaluate: async () => 0,
+            close: async () => {},
+          } as unknown;
+        },
+        async close() {},
+      } as unknown as Browser;
+    },
+    async release(ctx: unknown) {
+      const c = ctx as { __id: number };
+      releaseLog.push(c.__id);
+      live--;
+    },
+    stats() {
+      return {
+        size: maxContexts,
+        available: maxContexts - live,
+        inUse: live,
+        totalRecycles: 0,
+      };
+    },
+    get _releaseLog() {
+      return releaseLog;
+    },
+    get _acquireOptions() {
+      return acquireOptions;
+    },
+  };
+}
 
 describe("e2eChatToolsDriver module export", () => {
   it("module-level e2eChatToolsDriver has kind === 'e2e_smoke'", () => {

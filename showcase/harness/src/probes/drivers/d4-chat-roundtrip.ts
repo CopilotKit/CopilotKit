@@ -165,7 +165,9 @@ export interface E2eBrowser {
  * dynamically imports `playwright` and calls `chromium.launch()`; tests
  * substitute a fake that returns a scripted E2eBrowser.
  */
-export type E2eBrowserLauncher = () => Promise<E2eBrowser>;
+export type E2eBrowserLauncher = (
+  abortSignal?: AbortSignal,
+) => Promise<E2eBrowser>;
 
 /**
  * Resolver that maps a Railway service slug to its `demos` array, used
@@ -270,13 +272,55 @@ const defaultLauncher: E2eBrowserLauncher = async (): Promise<E2eBrowser> => {
 
 export function createPooledE2eSmokeLauncher(
   pool: BrowserPool,
+  logger?: { warn(event: string, meta?: Record<string, unknown>): void },
 ): E2eBrowserLauncher {
-  return async (): Promise<E2eBrowser> => {
+  return async (abortSignal?: AbortSignal): Promise<E2eBrowser> => {
     // CONTEXT-POOLED model: the launcher no longer acquires a Browser. Each
     // `newContext()` checks out a pooled BrowserContext on a shared long-lived
     // browser process (`pool.acquire`), and the wrapper's `close()` returns it
     // (`pool.release`). The pool centralizes the X-AIMock-Strict default header;
     // per-probe headers (X-AIMock-Context, X-Test-Id) flow through `ctxOpts`.
+    // The abort closure re-targets onto the open contexts: on abort it closes
+    // each (each close() releases its pooled context). Without this listener
+    // those contexts stay in-use across probe ticks when the invoker's
+    // Promise.race abandons the driver on hard-timeout / external abort,
+    // saturating the pool and starving later ticks.
+    let aborted = false;
+
+    // Track open contexts so abort can close them. Each close() releases the
+    // pooled context back to the pool, freeing a context slot.
+    const openContexts = new Set<{ close(): Promise<void> }>();
+
+    if (abortSignal) {
+      const onAbort = (): void => {
+        if (aborted) return;
+        aborted = true;
+        const ctxCount = openContexts.size;
+        const stats = pool.stats();
+        logger?.warn("probe.e2e-smoke.pool-abort-release", {
+          openContexts: ctxCount,
+          poolAvailable: stats.available,
+          poolInUse: stats.inUse,
+          poolSize: stats.size,
+        });
+        const contextClosePromises = Array.from(openContexts).map((ctx) =>
+          ctx.close().catch(() => {}),
+        );
+        void Promise.allSettled(contextClosePromises).then(() => {
+          logger?.warn("probe.e2e-smoke.pool-abort-released", {
+            closedContexts: ctxCount,
+            poolAvailable: pool.stats().available,
+          });
+        });
+      };
+      if (abortSignal.aborted) {
+        aborted = true;
+        logger?.warn("probe.e2e-smoke.pool-pre-aborted-release");
+      } else {
+        abortSignal.addEventListener("abort", onAbort, { once: true });
+      }
+    }
+
     return {
       async newContext(ctxOpts?: {
         extraHTTPHeaders?: Record<string, string>;
@@ -284,6 +328,8 @@ export function createPooledE2eSmokeLauncher(
         const ctx = await pool.acquire({
           extraHTTPHeaders: ctxOpts?.extraHTTPHeaders,
         });
+        const ctxHandle = { close: () => pool.release(ctx) };
+        openContexts.add(ctxHandle);
         return {
           async newPage(): Promise<E2ePage> {
             const page = await ctx.newPage();
@@ -297,7 +343,7 @@ export function createPooledE2eSmokeLauncher(
               close: () => page.close(),
             };
           },
-          close: () => pool.release(ctx),
+          close: () => ctxHandle.close(),
         };
       },
       // Launcher-level close is a no-op: contexts are released individually via
@@ -436,7 +482,7 @@ export function createE2eSmokeDriver(
 
       try {
         try {
-          browser = await launcher();
+          browser = await launcher(abort.signal);
         } catch (err) {
           // If the driver's hard-timeout fired first and aborted a
           // launcher that observes the signal, surface the timeout path

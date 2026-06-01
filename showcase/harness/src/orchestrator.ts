@@ -950,7 +950,9 @@ export function registerAllProbeDrivers(
 
   if (pool) {
     probeRegistry.register(
-      createE2eSmokeDriver({ launcher: createPooledE2eSmokeLauncher(pool) }),
+      createE2eSmokeDriver({
+        launcher: createPooledE2eSmokeLauncher(pool, logger),
+      }),
     );
     probeRegistry.register(
       createE2eDemosDriver({

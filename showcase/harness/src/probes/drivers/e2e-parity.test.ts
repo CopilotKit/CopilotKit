@@ -5,19 +5,23 @@ import path from "node:path";
 import {
   createDefaultFleetResolver,
   createE2eParityDriver,
+  createPooledE2eParityLauncher,
   e2eParityDriver,
-  type E2eParityAggregateSignal,
-  type E2eParityBrowser,
-  type E2eParityBrowserContext,
-  type E2eParityFeatureSignal,
-  type E2eParityPage,
 } from "./e2e-parity.js";
+import type {
+  E2eParityAggregateSignal,
+  E2eParityBrowser,
+  E2eParityBrowserContext,
+  E2eParityFeatureSignal,
+  E2eParityPage,
+} from "./e2e-parity.js";
+import type { BrowserPool } from "../helpers/browser-pool.js";
+import type { Browser } from "playwright";
 import {
   __clearD5RegistryForTesting,
   registerD5Script,
-  type D5FeatureType,
-  type D5Script,
 } from "../helpers/d5-registry.js";
+import type { D5FeatureType, D5Script } from "../helpers/d5-registry.js";
 import type { ParitySnapshot } from "../helpers/parity-compare.js";
 import type { LoadReferenceResult } from "../helpers/d6-scoping.js";
 import type {
@@ -1512,3 +1516,115 @@ describe("createDefaultFleetResolver", () => {
     await fs.rm(dir, { recursive: true, force: true });
   });
 });
+
+// --- Pooled launcher: context checkout + abort release -------------------
+//
+// Context-pool migration: createPooledE2eParityLauncher checks out a pooled
+// CONTEXT per newContext() (pool.acquire) and releases it on close
+// (pool.release). No Browser is held. The leak this guards: on a driver
+// hard-timeout / external abort the invoker's Promise.race abandons the
+// driver while it keeps running with pooled contexts held; without the
+// abort listener those contexts stay inUse across probe ticks, saturating
+// the pool. The abort closure closes each open context (each releasing its
+// pooled context), returning inUse to 0.
+describe("createPooledE2eParityLauncher context checkout + abort release", () => {
+  it("checks out a pooled context per newContext() and moves inUse by 1", async () => {
+    const pool = makeFakeContextPool(4);
+    const launcher = createPooledE2eParityLauncher(
+      pool as unknown as BrowserPool,
+    );
+    const browser = await launcher();
+    expect(pool.stats().inUse).toBe(0);
+    const ctx = await browser.newContext();
+    expect(pool.stats().inUse).toBe(1);
+    await ctx.close();
+    expect(pool.stats().inUse).toBe(0);
+    expect(pool._releaseLog).toHaveLength(1);
+  });
+
+  it("closes open contexts on abort (each releasing its pooled context)", async () => {
+    const pool = makeFakeContextPool(4);
+    const launcher = createPooledE2eParityLauncher(
+      pool as unknown as BrowserPool,
+    );
+    const ac = new AbortController();
+    const browser = await launcher(ac.signal);
+    const ctx = await browser.newContext();
+    await ctx.newPage();
+    expect(pool.stats().inUse).toBe(1);
+    ac.abort();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(pool._releaseLog).toHaveLength(1);
+    expect(pool.stats().inUse).toBe(0);
+  });
+
+  it("launcher-level close is a no-op (contexts release themselves)", async () => {
+    const pool = makeFakeContextPool(4);
+    const launcher = createPooledE2eParityLauncher(
+      pool as unknown as BrowserPool,
+    );
+    const browser = await launcher();
+    const ctx = await browser.newContext();
+    await ctx.close();
+    await browser.close(); // no-op
+    expect(pool._releaseLog).toHaveLength(1);
+  });
+});
+
+// Module-scoped fake context-pool for the createPooledE2eParityLauncher
+// tests above — mirrors d6-all-pills.test.ts's helper. Tracks per-CONTEXT
+// acquire/release. The real BrowserPool.release is a no-op on an
+// already-released context; here each ctxHandle.close() routes to one
+// release call, and the launcher's abort path closes each open context
+// exactly once.
+function makeFakeContextPool(maxContexts: number) {
+  let nextCtxId = 0;
+  let live = 0;
+  const releaseLog: number[] = [];
+  return {
+    async acquire() {
+      if (live >= maxContexts) throw new Error("FakePool: at cap");
+      const id = nextCtxId++;
+      live++;
+      return {
+        __id: id,
+        async newPage() {
+          return {
+            on: () => {},
+            waitForSelector: async () => {},
+            fill: async () => {},
+            press: async () => {},
+            evaluate: async () => 0,
+            inputValue: async () => "",
+            goto: async () => {},
+            close: async () => {},
+            click: async () => {},
+            waitForFunction: async () => {},
+            isClosed: () => false,
+            locator: () => ({ count: async () => 0 }),
+            route: async () => {},
+            unroute: async () => {},
+            context: () => ({}),
+          } as unknown;
+        },
+        async close() {},
+      } as unknown as Browser;
+    },
+    async release(ctx: unknown) {
+      const c = ctx as { __id: number };
+      releaseLog.push(c.__id);
+      live--;
+    },
+    stats() {
+      return {
+        size: maxContexts,
+        available: maxContexts - live,
+        inUse: live,
+        totalRecycles: 0,
+      };
+    },
+    get _releaseLog() {
+      return releaseLog;
+    },
+  };
+}

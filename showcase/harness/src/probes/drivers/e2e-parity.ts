@@ -210,7 +210,9 @@ export interface E2eParityBrowser {
   close(): Promise<void>;
 }
 
-export type E2eParityBrowserLauncher = () => Promise<E2eParityBrowser>;
+export type E2eParityBrowserLauncher = (
+  abortSignal?: AbortSignal,
+) => Promise<E2eParityBrowser>;
 
 /** SSE interceptor injection. Tests stub; default = the real CDP one. */
 export type E2eParityAttachInterceptor = (
@@ -355,15 +357,58 @@ const defaultLauncher: E2eParityBrowserLauncher =
 
 export function createPooledE2eParityLauncher(
   pool: BrowserPool,
+  logger?: { warn(event: string, meta?: Record<string, unknown>): void },
 ): E2eParityBrowserLauncher {
-  return async (): Promise<E2eParityBrowser> => {
+  return async (abortSignal?: AbortSignal): Promise<E2eParityBrowser> => {
     // CONTEXT-POOLED model: each newContext() checks out a pooled
     // BrowserContext (X-AIMock-Strict centralized in the pool) and the
-    // wrapper's close() releases it. No Browser is held; launcher close is a
-    // no-op.
+    // wrapper's close() releases it. The abort closure re-targets onto the
+    // open contexts: on abort it closes each (each close() releases its
+    // pooled context). There is no Browser held; launcher close is a no-op.
+    // Without this listener those contexts stay in-use across probe ticks
+    // when the invoker's Promise.race abandons the driver on hard-timeout /
+    // external abort, saturating the pool and starving later ticks.
+    let aborted = false;
+
+    // Track open contexts so abort can close them. Each close() releases the
+    // pooled context back to the pool, freeing a context slot.
+    const openContexts = new Set<{ close(): Promise<void> }>();
+
+    if (abortSignal) {
+      const onAbort = (): void => {
+        if (aborted) return;
+        aborted = true;
+        const ctxCount = openContexts.size;
+        const stats = pool.stats();
+        logger?.warn("probe.e2e-parity.pool-abort-release", {
+          openContexts: ctxCount,
+          poolAvailable: stats.available,
+          poolInUse: stats.inUse,
+          poolSize: stats.size,
+        });
+        const contextClosePromises = Array.from(openContexts).map((ctx) =>
+          ctx.close().catch(() => {}),
+        );
+        void Promise.allSettled(contextClosePromises).then(() => {
+          logger?.warn("probe.e2e-parity.pool-abort-released", {
+            closedContexts: ctxCount,
+            poolAvailable: pool.stats().available,
+          });
+        });
+      };
+      if (abortSignal.aborted) {
+        aborted = true;
+        logger?.warn("probe.e2e-parity.pool-pre-aborted-release");
+      } else {
+        abortSignal.addEventListener("abort", onAbort, { once: true });
+      }
+    }
+
     return {
       async newContext(): Promise<E2eParityBrowserContext> {
         const ctx = await pool.acquire();
+        const ctxHandle = { close: () => pool.release(ctx) };
+        openContexts.add(ctxHandle);
         return {
           async newPage(): Promise<E2eParityPage> {
             const page = await ctx.newPage();
@@ -371,7 +416,7 @@ export function createPooledE2eParityLauncher(
             wrapped.asPlaywrightPage = (): PlaywrightPage => page;
             return wrapped;
           },
-          close: () => pool.release(ctx),
+          close: () => ctxHandle.close(),
         };
       },
       close: async () => {},
@@ -897,7 +942,7 @@ export function createE2eParityDriver(
 
       try {
         try {
-          browser = await launcher();
+          browser = await launcher(abort.signal);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           ctx.logger.warn("probe.e2e-parity.launcher-error", {
