@@ -34,8 +34,30 @@ if (!notionToken) {
 // (default http://127.0.0.1:3001/mcp).
 const port = process.env["NOTION_MCP_PORT"] ?? "3001";
 
+// Notion's REST API requires a `Notion-Version` header. Authenticate via
+// OPENAPI_MCP_HEADERS (carrying BOTH Authorization and Notion-Version) rather
+// than NOTION_TOKEN: when NOTION_TOKEN is set the server builds its own auth
+// header and omits the version, so the API rejects every call with
+// 400 `missing_version`. We deliberately do NOT pass NOTION_TOKEN below.
+const notionVersion = process.env["NOTION_VERSION"] ?? "2022-06-28";
+const openApiHeaders = JSON.stringify({
+  Authorization: `Bearer ${notionToken}`,
+  "Notion-Version": notionVersion,
+});
+
+// OPENAPI_MCP_HEADERS is the sole Notion auth source. NOTION_TOKEN must be
+// absent from the child env (dotenv loaded it into process.env, so delete it
+// after the spread) — if present, the server ignores OPENAPI_MCP_HEADERS and
+// drops the Notion-Version header.
+const childEnv = {
+  ...process.env,
+  OPENAPI_MCP_HEADERS: openApiHeaders,
+  AUTH_TOKEN: authToken,
+};
+delete childEnv["NOTION_TOKEN"];
+
 const child = spawn(
-  process.platform === "win32" ? "npx.cmd" : "npx",
+  "npx",
   [
     "-y",
     "@notionhq/notion-mcp-server",
@@ -48,7 +70,11 @@ const child = spawn(
   ],
   {
     stdio: "inherit",
-    env: { ...process.env, NOTION_TOKEN: notionToken, AUTH_TOKEN: authToken },
+    // shell:true so Windows resolves `npx` -> `npx.cmd`. Node refuses to
+    // spawn `.cmd`/`.bat` directly without a shell (CVE-2024-27980), which
+    // otherwise fails with `spawn EINVAL`.
+    shell: true,
+    env: childEnv,
   },
 );
 
