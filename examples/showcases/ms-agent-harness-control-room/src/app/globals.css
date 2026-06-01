@@ -67,6 +67,23 @@
   --cr-action-shadow-hover:
     0 10px 22px -12px rgba(0, 120, 212, 0.82),
     0 5px 14px -10px rgba(95, 92, 246, 0.8);
+  --cr-chart-indigo: #635cff;
+  --cr-chart-blue: #0784d8;
+  --cr-chart-mint: #72e6ca;
+  --cr-chart-lavender: #b7a7ff;
+  --cr-chart-sky: #66b7f5;
+  --cr-graph-paper:
+    linear-gradient(
+      to right,
+      color-mix(in oklab, var(--cr-action-blue) 13%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--cr-action-indigo) 11%, transparent) 1px,
+      transparent 1px
+    );
+  --cr-graph-paper-size: 28px 28px;
 
   --cr-font-sans:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
@@ -80,13 +97,12 @@
   --cr-shadow-md:
     0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.08);
   --cr-shadow-lg:
-    0 10px 15px -3px rgb(0 0 0 / 0.06),
-    0 4px 6px -4px rgb(0 0 0 / 0.06);
-  --chart-1: #bec2ff;
-  --chart-2: var(--cr-action-indigo);
-  --chart-3: var(--cr-action-blue);
-  --chart-4: #54a4f2;
-  --chart-5: #85ecce;
+    0 10px 15px -3px rgb(0 0 0 / 0.06), 0 4px 6px -4px rgb(0 0 0 / 0.06);
+  --chart-1: var(--cr-chart-lavender);
+  --chart-2: var(--cr-chart-indigo);
+  --chart-3: var(--cr-chart-blue);
+  --chart-4: var(--cr-chart-sky);
+  --chart-5: var(--cr-chart-mint);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: var(--primary);
@@ -192,15 +208,16 @@ button:disabled,
 
 [data-slot="button"][data-variant="default"] {
   background-color: var(--cr-action-indigo);
-  background-image: var(--cr-action-gradient);
-  border-color: rgba(255, 255, 255, 0.28);
-  box-shadow: var(--cr-action-shadow);
+  background-image: none;
+  border-color: transparent;
+  box-shadow: none;
   color: #ffffff !important;
 }
 
 [data-slot="button"][data-variant="default"]:hover {
-  background-image: var(--cr-action-gradient-hover);
-  box-shadow: var(--cr-action-shadow-hover);
+  background-color: color-mix(in oklab, var(--cr-action-indigo) 88%, black);
+  background-image: none;
+  box-shadow: none;
 }
 
 [data-slot="button"][data-variant="default"]:disabled,
@@ -211,16 +228,21 @@ button:disabled,
 
 .copilotKitInput button[data-slot="button"]:not(:disabled) {
   background-color: var(--cr-action-indigo) !important;
-  background-image: var(--cr-action-gradient) !important;
-  border-color: rgba(255, 255, 255, 0.28) !important;
-  box-shadow: var(--cr-action-shadow) !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
   color: #ffffff !important;
   opacity: 1 !important;
 }
 
 .copilotKitInput button[data-slot="button"]:not(:disabled):hover {
-  background-image: var(--cr-action-gradient-hover) !important;
-  box-shadow: var(--cr-action-shadow-hover) !important;
+  background-color: color-mix(
+    in oklab,
+    var(--cr-action-indigo) 88%,
+    black
+  ) !important;
+  background-image: none !important;
+  box-shadow: none !important;
 }
 
 :focus {
@@ -247,8 +269,25 @@ a {
   overflow: hidden;
   isolation: isolate;
   background:
-    linear-gradient(135deg, color-mix(in oklab, var(--primary) 9%, transparent) 0%, transparent 34%),
-    linear-gradient(180deg, var(--background) 0%, var(--muted) 100%);
+    var(--cr-graph-paper),
+    radial-gradient(
+      circle at 0% 0%,
+      color-mix(in oklab, var(--cr-action-indigo) 6%, transparent) 0,
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 100% 0%,
+      color-mix(in oklab, var(--cr-action-blue) 5%, transparent) 0,
+      transparent 38%
+    ),
+    linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--background) 96%, var(--cr-action-indigo) 4%) 0%,
+      var(--background) 48%,
+      color-mix(in oklab, var(--background) 96%, var(--cr-action-blue) 4%) 100%
+    );
+  background-size:
+    var(--cr-graph-paper-size), var(--cr-graph-paper-size), auto, auto, auto;
 }
 
 .cockpit-panel {
@@ -264,6 +303,59 @@ a {
 
 .cockpit-panel:nth-child(2) {
   background: var(--cr-surface);
+}
+
+.cr-chat-panel {
+  background:
+    var(--cr-graph-paper),
+    linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--background) 98%, var(--cr-action-indigo) 2%) 0%,
+      color-mix(in oklab, var(--background) 99%, var(--cr-action-blue) 1%) 100%
+    );
+  background-size: var(--cr-graph-paper-size), var(--cr-graph-paper-size), auto;
+}
+
+.cr-desktop-layout {
+  display: none !important;
+}
+
+.cr-mobile-layout {
+  display: grid !important;
+}
+
+.cr-mobile-only {
+  display: inline-flex !important;
+}
+
+@media (min-width: 1024px) {
+  .cr-desktop-layout {
+    display: flex !important;
+  }
+
+  .cr-mobile-layout,
+  .cr-mobile-only {
+    display: none !important;
+  }
+}
+
+.showcase-brand-card {
+  background: linear-gradient(
+    135deg,
+    var(--cr-action-indigo) 0%,
+    color-mix(in oklab, var(--cr-action-indigo) 45%, var(--cr-action-blue)) 48%,
+    var(--cr-action-blue) 100%
+  );
+  color: #ffffff;
+  border-color: color-mix(in oklab, var(--cr-action-blue) 45%, var(--border));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 1px 0 rgba(15, 23, 42, 0.04);
+}
+
+.harness-settings-scroll [data-slot="scroll-area-viewport"] > div {
+  display: block !important;
+  min-width: 0 !important;
 }
 
 .copilotKitMessages button[aria-label*="Copy"],
@@ -391,11 +483,11 @@ a {
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
-  --chart-1: #bec2ff;
-  --chart-2: var(--cr-action-indigo);
-  --chart-3: var(--cr-action-blue);
-  --chart-4: #54a4f2;
-  --chart-5: #85ecce;
+  --chart-1: var(--cr-chart-lavender);
+  --chart-2: var(--cr-chart-indigo);
+  --chart-3: var(--cr-chart-blue);
+  --chart-4: var(--cr-chart-sky);
+  --chart-5: var(--cr-chart-mint);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.585 0.233 277.117);

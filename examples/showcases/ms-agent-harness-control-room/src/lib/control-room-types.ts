@@ -52,8 +52,8 @@ export interface ControlRoomSkill {
 export interface StructuredDiagnosisRecord {
   /** ID of the assistant message that carried the structured response. */
   messageId: string;
-  /** Parsed JSON payload — typed against the FixtureDiagnosis schema. */
-  payload: import("./fixture-diagnosis-schema").FixtureDiagnosis;
+  /** Parsed JSON payload — typed against the workspace report schema. */
+  payload: import("./workspace-report-schema").WorkspaceReport;
   /** Original raw text from the assistant message (kept for the inspector). */
   raw: string;
 }

@@ -12,40 +12,33 @@ operable, and generative over AG-UI.**
 Use the CopilotChat starter suggestions as the primary demo surface. They are
 deliberately one-click entry points rather than presenter step buttons.
 
-1. **Plan repair + health table**
-   - Shows Harness planning mode, skill loading, file inspection, and todo
-     creation.
-   - Expected UI: one final `showRunHealthTable` after the todo tool finishes.
+1. **Explore workspace**
+   - Shows Harness file access, workspace orientation, and state summary.
+   - Expected UI: one final `showHarnessSummary`.
 
-2. **Estimate timeline**
-   - Shows how the same Harness state can drive a schedule view.
-   - Expected UI: one final `showRepairCalendar`.
+2. **Chart sample data**
+   - Shows the agent reading seed CSV data and using generative UI to visualize
+     it.
+   - Expected UI: one final chart component.
 
-3. **Show capability coverage**
-   - Shows MAH as an orchestrator instead of only a bug-fix agent.
-   - Expected UI: one final `showCapabilityRadar`.
+3. **Plan an improvement**
+   - Shows planning mode, todos, file inspection, and a run-health style status
+     view without editing files.
+   - Expected UI: one final `showRunHealthTable`.
 
-4. **Run with approval readiness**
-   - Applies the minimal calculator fix, then asks for the real
-     approval-gated shell command. After the presenter approves, the agent
-     continues through the missing-dependencies install fallback, reruns tests,
-     runs coverage, and saves memory.
-   - Expected UI: real Harness approval card for `pnpm_run("test")`, followed
-     by green `install`, `test`, `test:coverage`, and memory evidence when the
-     approval is accepted.
+4. **Preview approval**
+   - Shows the approval form UI without running shell commands.
+   - Expected UI: one final `showApprovalReadinessForm`.
 
-5. **Verify and hand off**
-   - Saves a short handoff to memory and summarizes the current verified or
-     pending result.
+5. **Create handoff**
+   - Saves a short handoff to memory when useful and summarizes the current
+     workspace state.
    - Expected UI: one final `showHandoffForm` after the memory write finishes.
 
 Display components are intentionally terminal for a turn. The agent must finish
 Harness tool calls first, then render one `show...` component as the last
 action. This keeps backend Harness evidence and CopilotKit generative UI from
 competing in the same model step.
-
-The seeded bug is still simple by design: `calculator.ts` has `add(a, b)`
-returning `a - b`. The expected patch is `a + b`.
 
 ## Showcase Drawer
 
@@ -60,30 +53,30 @@ switching, manual commands, structured output, skills, or feature details.
 
 ## Requirement Audit
 
-| Requirement | Status | Evidence |
-| --- | --- | --- |
-| Reference Harness agent in C# wrapped with MAF AG-UI | Done | `agent/ControlRoomAgent.cs`, `agent/Program.cs`, `MapAGUI("/")` |
-| Agentic chat | Done | `CopilotKitProvider` uses `selfManagedAgents` with `HttpAgent` |
-| Backend/tool rendering | Done | `ToolRendererRegistry` handles Harness approval, `pnpm_run`, file reads, generated result, and generic events |
-| HITL approvals | Done | `ApprovalContentWireBridge.cs` plus `HarnessApprovalCard.tsx` |
-| Agentic generative UI | Done | `useComponent` registrations in `GenerativeUICatalog.tsx` |
-| Shared state | Partial, honest workaround | Harness provider state is derived from AG-UI messages in `use-control-room-state.tsx` |
-| Predictive state updates | Upstream blocked | Requires native Harness `STATE_SNAPSHOT` / `STATE_DELTA` emission |
-| Shell execution | Done through safe substitute | `pnpm_run` allow-lists `install`, `test`, `test:coverage`, `typecheck` and is approval-gated |
-| File access | Done | Harness `FileAccessStore` is sandboxed to `.control-room-fixture` |
-| File memory | Done | Harness `FileMemoryStore`; handoff suggestion saves memory |
-| Skills | Done | `fixture-diagnosis` skill and `SkillsPanel` |
-| Tool approvals with remember session | Done | `HarnessApprovalCard` sends `always_approve` when remember is checked |
-| Mode display/toggle | Done | State panel plus Settings `ModeControls` |
-| Todos panel | Done | State panel plus derived todo state |
-| Commands primitive | Done, demoted | `CommandControls` lives in Settings |
-| Observers primitive | Done, summarized | State panel plus Settings feature details |
-| Feature autodetection | Done | agent `/features` endpoint feeds `ConnectionStatus` and State panel |
-| Local/remote endpoint switching | Done, demoted | Settings `EndpointSelector`; direct `HttpAgent` wiring |
-| Terminal shell renderer | Done | `ShellOutputCard` renders `pnpm_run` output |
-| File viewer/diff renderer | Done | `FileReadCard`; legacy `DiffProposalCard` is display-only fallback |
-| Structured output on demand | Done, demoted | `StructuredOutputControl` and `StructuredDiagnosisPanel` in Settings |
-| Codact/Hyperlite renderer | Upstream/product blocked | Surface is still undefined in the Notion doc |
+| Requirement                                          | Status                       | Evidence                                                                                                      |
+| ---------------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Reference Harness agent in C# wrapped with MAF AG-UI | Done                         | `agent/ControlRoomAgent.cs`, `agent/Program.cs`, `MapAGUI("/")`                                               |
+| Agentic chat                                         | Done                         | `CopilotKitProvider` uses `selfManagedAgents` with `HttpAgent`                                                |
+| Backend/tool rendering                               | Done                         | `ToolRendererRegistry` handles Harness approval, `pnpm_run`, file reads, generated result, and generic events |
+| HITL approvals                                       | Done                         | `ApprovalContentWireBridge.cs` plus `HarnessApprovalCard.tsx`                                                 |
+| Agentic generative UI                                | Done                         | `useComponent` registrations in `GenerativeUICatalog.tsx`                                                     |
+| Shared state                                         | Partial, honest workaround   | Harness provider state is derived from AG-UI messages in `use-control-room-state.tsx`                         |
+| Predictive state updates                             | Upstream blocked             | Requires native Harness `STATE_SNAPSHOT` / `STATE_DELTA` emission                                             |
+| Shell execution                                      | Done through safe substitute | `pnpm_run` allow-lists `install`, `test`, `test:coverage`, `typecheck`, `data:summary` and is approval-gated  |
+| File access                                          | Done                         | Harness `FileAccessStore` is sandboxed to `.control-room-fixture`                                             |
+| File memory                                          | Done                         | Harness `FileMemoryStore`; handoff suggestion saves memory                                                    |
+| Skills                                               | Done                         | `workspace-analysis` skill and `SkillsPanel`                                                                  |
+| Tool approvals with remember session                 | Done                         | `HarnessApprovalCard` sends `always_approve` when remember is checked                                         |
+| Mode display/toggle                                  | Done                         | State panel plus Settings `ModeControls`                                                                      |
+| Todos panel                                          | Done                         | State panel plus derived todo state                                                                           |
+| Commands primitive                                   | Done, demoted                | `CommandControls` lives in Settings                                                                           |
+| Observers primitive                                  | Done, summarized             | State panel plus Settings feature details                                                                     |
+| Feature autodetection                                | Done                         | agent `/features` endpoint feeds `ConnectionStatus` and State panel                                           |
+| Local/remote endpoint switching                      | Done, demoted                | Settings `EndpointSelector`; direct `HttpAgent` wiring                                                        |
+| Terminal shell renderer                              | Done                         | `ShellOutputCard` renders `pnpm_run` output                                                                   |
+| File viewer/diff renderer                            | Done                         | `FileReadCard`; legacy `DiffProposalCard` is display-only fallback                                            |
+| Structured output on demand                          | Done, demoted                | `StructuredOutputControl` and `StructuredDiagnosisPanel` in Settings                                          |
+| Codact/Hyperlite renderer                            | Upstream/product blocked     | Surface is still undefined in the Notion doc                                                                  |
 
 ## Upstream Asks
 
@@ -122,6 +115,6 @@ Browser rehearsal should show:
   feature support
 - the Settings panel exposes endpoint switching, commands, structured output,
   skills, and feature support
-- one visible Harness approval for `pnpm_run("test")`
-- file cards for `calculator.ts` and `calculator.test.ts`
-- shell cards for `test` and `test:coverage`
+- one visible Harness approval for an allowed `pnpm_run` command when command execution is requested
+- file cards for workspace files such as `README.md`, `src/metrics.ts`, or `data/revenue.csv`
+- shell cards for `test`, `test:coverage`, `typecheck`, or `data:summary`

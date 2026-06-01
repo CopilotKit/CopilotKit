@@ -39,9 +39,9 @@ export function StructuredDiagnosisPanel() {
   return (
     <Card size="sm">
       <CardHeader>
-        <CardTitle>Structured diagnosis</CardTitle>
+        <CardTitle>Structured report</CardTitle>
         <CardDescription>
-          Latest schema-constrained diagnosis from the agent.
+          Latest schema-constrained workspace report from the agent.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -61,7 +61,7 @@ export function StructuredDiagnosisPanel() {
             </div>
             <div className="space-y-1">
               <dt className="text-xs font-medium text-muted-foreground">
-                Fix file
+                Focus file
               </dt>
               <dd>
                 <Badge variant="outline">
@@ -71,7 +71,7 @@ export function StructuredDiagnosisPanel() {
             </div>
             <div className="space-y-1">
               <dt className="text-xs font-medium text-muted-foreground">
-                Change
+                Recommendation
               </dt>
               <dd className="leading-snug text-foreground">
                 {structuredDiagnosis.payload.fix.change}

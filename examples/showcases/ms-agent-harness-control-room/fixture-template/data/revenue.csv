@@ -1,0 +1,11 @@
+month,product,revenue,users,region
+Jan,Core,12000,220,NA
+Feb,Core,13250,240,NA
+Mar,Core,15000,260,NA
+Jan,Teams,8400,150,EU
+Feb,Teams,9100,168,EU
+Mar,Teams,10400,190,EU
+Jan,Analytics,6400,88,APAC
+Feb,Analytics,7200,96,APAC
+Mar,Analytics,8100,110,APAC
+

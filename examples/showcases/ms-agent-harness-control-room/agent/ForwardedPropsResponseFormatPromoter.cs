@@ -28,8 +28,8 @@ namespace MsAgentHarnessControlRoom.Agent;
 ///     "responseFormat": {
 ///       "type": "json_schema",
 ///       "json_schema": {
-///         "name": "FixtureDiagnosis",
-///         "description": "Structured diagnosis emitted by the agent.",
+///         "name": "WorkspaceReport",
+///         "description": "Structured workspace report emitted by the agent.",
 ///         "schema": { /* JSON Schema draft 2020-12 */ },
 ///         "strict": true
 ///       }

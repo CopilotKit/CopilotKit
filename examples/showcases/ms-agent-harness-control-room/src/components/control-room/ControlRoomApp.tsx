@@ -3,28 +3,37 @@
 /**
  * Root client component for the MS Agent Harness Control Room cockpit.
  *
- * Wires CopilotKit v2 directly to the Harness agent over AG-UI. There is no
- * Next.js runtime middleman: `selfManagedAgents` accepts an `HttpAgent`
- * pointed straight at the agent's `/` endpoint. The agent's URL is held in
- * React state so the endpoint selector can repoint the cockpit at any
- * AG-UI-speaking host.
+ * Wires CopilotKit v2 to the local runtime, which proxies to the selected
+ * Harness AG-UI endpoint. The endpoint remains client-selectable, but runtime
+ * middleware can now enable A2UI and Open Generative UI.
  */
 
-import { useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import type { ReactNode } from "react";
 
 import { CopilotKitProvider } from "@copilotkit/react-core/v2";
-import { HttpAgent } from "@ag-ui/client";
 import { PanelLeft } from "lucide-react";
 
-import { CenterWorkstream } from "@/components/control-room/CenterWorkstream";
+import {
+  CenterWorkstream,
+  ControlRoomSuggestions,
+} from "@/components/control-room/CenterWorkstream";
+import { controlRoomA2UICatalog } from "@/components/control-room/a2ui-catalog";
 import {
   GenerativeUICatalogProvider,
   GenerativeUIRegistry,
 } from "@/components/control-room/GenerativeUICatalog";
-import { ShowcaseSidebar } from "@/components/control-room/ShowcaseSidebar";
+import {
+  HarnessSettingsDialog,
+  ShowcaseSidebar,
+} from "@/components/control-room/ShowcaseSidebar";
 import { ToolRendererRegistry } from "@/components/control-room/renderers/ToolRendererRegistry";
 import { Button } from "@/components/ui/button";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
 import {
   Sheet,
   SheetContent,
@@ -32,31 +41,32 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import {
-  TooltipProvider,
-} from "@/components/ui/tooltip";
-import {
-  CONTROL_ROOM_AGENT_NAME,
-  ControlRoomProvider,
-} from "@/hooks/use-control-room-state";
-import { DEFAULT_ENDPOINT } from "@/lib/endpoint";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { ControlRoomProvider } from "@/hooks/use-control-room-state";
+import { CONTROL_ROOM_ENDPOINT_HEADER, DEFAULT_ENDPOINT } from "@/lib/endpoint";
 import { cn } from "@/lib/utils";
 
 export function ControlRoomApp() {
   const [currentEndpoint, setCurrentEndpoint] =
     useState<string>(DEFAULT_ENDPOINT);
 
-  // Rebuild the HttpAgent each time the endpoint changes; passing the same
-  // instance across renders is fine, but a new endpoint requires a new agent.
-  const agents = useMemo(
+  const runtimeHeaders = useCallback(
     () => ({
-      [CONTROL_ROOM_AGENT_NAME]: new HttpAgent({ url: currentEndpoint }),
+      [CONTROL_ROOM_ENDPOINT_HEADER]: currentEndpoint,
     }),
     [currentEndpoint],
   );
 
   return (
-    <CopilotKitProvider selfManagedAgents={agents}>
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      useSingleEndpoint={false}
+      headers={runtimeHeaders}
+      a2ui={{
+        catalog: controlRoomA2UICatalog,
+      }}
+      openGenerativeUI={{}}
+    >
       <ControlRoomProvider
         currentEndpoint={currentEndpoint}
         setCurrentEndpoint={setCurrentEndpoint}
@@ -65,6 +75,7 @@ export function ControlRoomApp() {
           <ToolRendererRegistry />
           <GenerativeUIRegistry />
           <TooltipProvider>
+            <ControlRoomSuggestions />
             <ThreePaneLayout />
           </TooltipProvider>
         </GenerativeUICatalogProvider>
@@ -75,16 +86,47 @@ export function ControlRoomApp() {
 
 function ThreePaneLayout() {
   return (
-    <div className="cockpit-shell flex h-[100dvh] flex-col p-2">
+    <div className="cockpit-shell flex h-[100dvh] flex-col p-3 md:p-4">
       <ShowcaseDrawer />
-      <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-1 gap-2 lg:grid-cols-[420px_minmax(0,1fr)]">
-        <Pane className="hidden lg:flex">
-          <ShowcaseSidebarFrame />
-        </Pane>
-        <Pane>
+      <div className="pointer-events-none absolute right-5 top-5 z-20">
+        <div className="pointer-events-auto">
+          <HarnessSettingsDialog />
+        </div>
+      </div>
+      <div className="cr-mobile-layout grid min-h-0 flex-1 grid-cols-1 grid-rows-1">
+        <Pane className="cr-chat-panel">
           <CenterWorkstream />
         </Pane>
       </div>
+      <ResizablePanelGroup
+        id="control-room-desktop-layout"
+        orientation="horizontal"
+        className="cr-desktop-layout min-h-0 flex-1"
+      >
+        <ResizablePanel
+          id="control-room-showcase-sidebar"
+          defaultSize="26%"
+          minSize="320px"
+          maxSize="640px"
+        >
+          <Pane className="h-full">
+            <ShowcaseSidebarFrame />
+          </Pane>
+        </ResizablePanel>
+        <ResizableHandle
+          id="control-room-sidebar-resize"
+          className="w-2 shrink-0 border-0 bg-transparent transition-colors after:bg-transparent hover:bg-primary/5 hover:after:bg-transparent focus-visible:bg-primary/10"
+        />
+        <ResizablePanel
+          id="control-room-chat-panel"
+          defaultSize="74%"
+          minSize="520px"
+        >
+          <Pane className="cr-chat-panel h-full">
+            <CenterWorkstream />
+          </Pane>
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   );
 }
@@ -101,15 +143,18 @@ function ShowcaseDrawer() {
         aria-label="Showcase sidebar"
         title="Showcase"
         onClick={() => setOpen(true)}
-        className="absolute left-3 top-3 z-10 rounded-2xl bg-background/95 shadow-sm backdrop-blur lg:hidden"
+        className="cr-mobile-only absolute left-3 top-3 z-10 rounded-2xl bg-background/95 shadow-sm backdrop-blur"
       >
         <PanelLeft className="text-primary" />
       </Button>
-      <SheetContent side="left" className="w-[96vw] max-w-[96vw] overflow-hidden p-0 sm:max-w-[560px]">
+      <SheetContent
+        side="left"
+        className="w-[80vw] max-w-[80vw] overflow-hidden p-0 data-[side=left]:w-[80vw] sm:w-[560px] sm:max-w-[560px] data-[side=left]:sm:w-[560px] data-[side=left]:sm:max-w-[560px]"
+      >
         <SheetHeader className="sr-only">
-          <SheetTitle>CopilotKit and Microsoft guided repair demo</SheetTitle>
+          <SheetTitle>CopilotKit and Microsoft workspace demo</SheetTitle>
           <SheetDescription>
-            Harness plans, patches, approves, and verifies a seeded repair.
+            Harness reads, plans, approves, runs, and renders workspace UI.
           </SheetDescription>
         </SheetHeader>
         <ShowcaseSidebarFrame className="h-full" />

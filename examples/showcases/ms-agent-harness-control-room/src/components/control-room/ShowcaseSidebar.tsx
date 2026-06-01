@@ -41,11 +41,7 @@ import type { FixtureResetResult } from "@/lib/control-room-types";
 import { CONTROL_ROOM_ENDPOINT_HEADER } from "@/lib/endpoint";
 import { cn } from "@/lib/utils";
 
-export function ShowcaseSidebar({
-  className,
-}: {
-  className?: string;
-}) {
+export function ShowcaseSidebar({ className }: { className?: string }) {
   return (
     <div
       className={cn(
@@ -62,10 +58,9 @@ export function ShowcaseSidebar({
 
 function ShowcaseHeader() {
   return (
-    <header className="m-3 mb-2 rounded-[24px] border bg-background px-4 py-3 shadow-sm">
-      <div className="flex min-w-0 items-center justify-between gap-3">
+    <header className="showcase-brand-card shrink-0 border-b px-12 py-3 sm:px-4">
+      <div className="flex min-w-0 items-center justify-center">
         <BrandLockup />
-        <HarnessSettingsDialog />
       </div>
     </header>
   );
@@ -73,31 +68,31 @@ function ShowcaseHeader() {
 
 function BrandLockup() {
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-2 text-sm font-semibold tracking-tight">
+    <div className="flex min-w-0 items-center justify-center gap-2 text-[13px] font-semibold tracking-tight text-white sm:text-sm">
       <span className="flex min-w-0 items-center gap-2">
-        <img
-          src="/brand/copilotkit-color.svg"
-          alt=""
+        <span
+          className="flex size-5 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-white/45"
           aria-hidden
-          className="size-4 shrink-0"
-        />
+        >
+          <img src="/brand/copilotkit-color.svg" alt="" className="size-3.5" />
+        </span>
         <span className="truncate">CopilotKit</span>
       </span>
-      <span className="h-4 w-px shrink-0 bg-border" aria-hidden />
+      <span className="h-4 w-px shrink-0 bg-white/35" aria-hidden />
       <span className="flex min-w-0 items-center gap-2">
-        <img
-          src="/brand/microsoft-color.svg"
-          alt=""
+        <span
+          className="flex size-5 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-white/45"
           aria-hidden
-          className="size-4 shrink-0"
-        />
+        >
+          <img src="/brand/microsoft-color.svg" alt="" className="size-3.5" />
+        </span>
         <span className="truncate">Microsoft</span>
       </span>
     </div>
   );
 }
 
-function HarnessSettingsDialog() {
+export function HarnessSettingsDialog() {
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -105,22 +100,22 @@ function HarnessSettingsDialog() {
           type="button"
           variant="outline"
           size="icon-sm"
-          className="shrink-0 rounded-full"
+          className="shrink-0 rounded-full text-primary hover:text-primary aria-expanded:text-primary"
           aria-label="Open Harness settings"
           title="Settings"
         >
-          <SettingsIcon className="text-slate-700" />
+          <SettingsIcon />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[88vh] max-w-3xl gap-0 overflow-hidden p-0">
-        <DialogHeader className="border-b px-6 py-5 pr-14">
+      <DialogContent className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] gap-0 overflow-hidden p-0 sm:max-h-[88vh] sm:w-full sm:max-w-3xl">
+        <DialogHeader className="min-w-0 overflow-hidden border-b px-5 py-4 pr-14 text-left sm:px-6 sm:py-5">
           <DialogTitle>Harness controls</DialogTitle>
-          <DialogDescription>
-            Agent state and setup tools for the guided repair demo.
+          <DialogDescription className="max-w-full leading-relaxed">
+            Agent state and setup tools for the workspace demo.
           </DialogDescription>
         </DialogHeader>
-        <ScrollArea className="max-h-[calc(88vh-86px)]">
-          <div className="p-4">
+        <ScrollArea className="harness-settings-scroll max-h-[calc(100dvh-7rem)] overflow-x-hidden sm:max-h-[calc(88vh-86px)]">
+          <div className="p-3 sm:p-4">
             <Accordion
               type="multiple"
               defaultValue={["agent", "settings"]}
@@ -128,12 +123,10 @@ function HarnessSettingsDialog() {
             >
               <AccordionItem
                 value="agent"
-                className="overflow-hidden rounded-3xl border bg-background px-4 shadow-sm"
+                className="min-w-0 overflow-hidden rounded-3xl border bg-background px-3 shadow-sm sm:px-4"
               >
-                <AccordionTrigger className="text-base">
-                  Agent
-                </AccordionTrigger>
-                <AccordionContent className="pb-4">
+                <AccordionTrigger className="text-base">Agent</AccordionTrigger>
+                <AccordionContent className="min-w-0 pb-3 sm:pb-4">
                   <div className="min-w-0 overflow-hidden rounded-2xl bg-muted/25">
                     <RightInspectorPanel />
                   </div>
@@ -141,12 +134,12 @@ function HarnessSettingsDialog() {
               </AccordionItem>
               <AccordionItem
                 value="settings"
-                className="overflow-hidden rounded-3xl border bg-background px-4 shadow-sm"
+                className="min-w-0 overflow-hidden rounded-3xl border bg-background px-3 shadow-sm sm:px-4"
               >
                 <AccordionTrigger className="text-base">
                   Settings
                 </AccordionTrigger>
-                <AccordionContent className="pb-4">
+                <AccordionContent className="min-w-0 pb-3 sm:pb-4">
                   <SettingsControls />
                 </AccordionContent>
               </AccordionItem>

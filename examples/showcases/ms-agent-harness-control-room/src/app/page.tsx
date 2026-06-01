@@ -1,5 +1,5 @@
-import { ControlRoomApp } from "@/components/control-room/ControlRoomApp";
+import { ClientOnlyControlRoom } from "@/components/control-room/ClientOnlyControlRoom";
 
 export default function Page() {
-  return <ControlRoomApp />;
+  return <ClientOnlyControlRoom />;
 }

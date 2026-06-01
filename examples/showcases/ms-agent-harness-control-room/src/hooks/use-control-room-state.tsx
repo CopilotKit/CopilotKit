@@ -37,10 +37,11 @@ import type {
   ControlRoomFeatureSupport,
   ControlRoomStateSnapshot,
 } from "@/lib/control-room-types";
-import { parseFixtureDiagnosis } from "@/lib/fixture-diagnosis-schema";
+import { CONTROL_ROOM_AGENT_NAME } from "@/lib/control-room-agent";
+import { parseWorkspaceReport } from "@/lib/workspace-report-schema";
 
 /** Agent name registered on the Harness backend (Program.cs / ControlRoomAgent.cs). */
-export const CONTROL_ROOM_AGENT_NAME = "control_room_agent";
+export { CONTROL_ROOM_AGENT_NAME };
 
 /** Default snapshot shown before the agent has emitted any state. */
 export const CONTROL_ROOM_INITIAL_STATE: ControlRoomStateSnapshot = {
@@ -491,7 +492,7 @@ function deriveStructuredDiagnosis(
   messages: ReadonlyArray<unknown>,
 ): ControlRoomStateSnapshot["structuredDiagnosis"] {
   // Walk back through assistant messages looking for the latest one whose
-  // content parses as a `FixtureDiagnosis`. Tool-using turns produce
+  // content parses as a workspace report. Tool-using turns produce
   // intermediate assistant messages without final text; only the terminal
   // assistant message carries the schema-constrained JSON.
   for (let i = messages.length - 1; i >= 0; i -= 1) {
@@ -503,7 +504,7 @@ function deriveStructuredDiagnosis(
     ) {
       continue;
     }
-    const payload = parseFixtureDiagnosis(m.content);
+    const payload = parseWorkspaceReport(m.content);
     if (payload) {
       return { messageId: m.id ?? "", payload, raw: m.content };
     }

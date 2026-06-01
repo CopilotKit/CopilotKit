@@ -1,18 +1,18 @@
 /**
- * JSON-Schema describing the structured diagnosis the operator can ask the
+ * JSON-Schema describing the structured workspace report the operator can ask the
  * agent for via the per-turn `forwardedProps.responseFormat` directive.
  *
  * Kept inline (not pulled from Zod) so the wire shape is unambiguous and the
  * UI can render fields without inferring TS types.
  */
-export const FIXTURE_DIAGNOSIS_SCHEMA = {
+export const WORKSPACE_REPORT_SCHEMA = {
   type: "object",
   additionalProperties: false,
   required: ["summary", "fix", "verification"],
   properties: {
     summary: {
       type: "string",
-      description: "One-paragraph summary of the bug observed in the fixture.",
+      description: "One-paragraph summary of the current workspace or request.",
     },
     fix: {
       type: "object",
@@ -22,11 +22,12 @@ export const FIXTURE_DIAGNOSIS_SCHEMA = {
         file: {
           type: "string",
           description:
-            "Path of the file that needs to change, relative to fixture root.",
+            "Workspace-relative file or data path relevant to the recommendation.",
         },
         change: {
           type: "string",
-          description: "Minimal description of the change required.",
+          description:
+            "Minimal recommendation, next step, or change to consider.",
         },
       },
     },
@@ -37,27 +38,27 @@ export const FIXTURE_DIAGNOSIS_SCHEMA = {
       properties: {
         test_command: {
           type: "string",
-          description: 'pnpm script to run (e.g. "test" or "test:coverage").',
+          description:
+            'pnpm command to run when execution is requested (e.g. "test", "typecheck", or "data:summary").',
         },
         expected_exit_code: {
           type: "integer",
-          description:
-            "Exit code the test command should return after the fix.",
+          description: "Expected exit code when the command succeeds.",
         },
       },
     },
   },
 } as const;
 
-export interface FixtureDiagnosis {
+export interface WorkspaceReport {
   summary: string;
   fix: { file: string; change: string };
   verification: { test_command: string; expected_exit_code: number };
 }
 
-export function parseFixtureDiagnosis(raw: string): FixtureDiagnosis | null {
+export function parseWorkspaceReport(raw: string): WorkspaceReport | null {
   try {
-    const parsed = JSON.parse(raw) as Partial<FixtureDiagnosis>;
+    const parsed = JSON.parse(raw) as Partial<WorkspaceReport>;
     if (
       typeof parsed.summary === "string" &&
       parsed.fix &&
@@ -67,7 +68,7 @@ export function parseFixtureDiagnosis(raw: string): FixtureDiagnosis | null {
       typeof parsed.verification.test_command === "string" &&
       typeof parsed.verification.expected_exit_code === "number"
     ) {
-      return parsed as FixtureDiagnosis;
+      return parsed as WorkspaceReport;
     }
     return null;
   } catch {
@@ -76,14 +77,14 @@ export function parseFixtureDiagnosis(raw: string): FixtureDiagnosis | null {
 }
 
 /** Forms the OpenAI-shaped responseFormat payload to pass via forwardedProps. */
-export function fixtureDiagnosisResponseFormat() {
+export function workspaceReportResponseFormat() {
   return {
     type: "json_schema" as const,
     json_schema: {
-      name: "FixtureDiagnosis",
+      name: "WorkspaceReport",
       description:
-        "Structured diagnosis emitted by the Control Room agent for a fixture test failure.",
-      schema: FIXTURE_DIAGNOSIS_SCHEMA,
+        "Structured workspace report emitted by the Control Room agent.",
+      schema: WORKSPACE_REPORT_SCHEMA,
       strict: true,
     },
   };

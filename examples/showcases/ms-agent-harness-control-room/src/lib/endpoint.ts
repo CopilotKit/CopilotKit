@@ -81,14 +81,12 @@ export function normalizeEndpoint(url: string): string {
 }
 
 /**
- * Reads the optional `x-control-room-endpoint` header off `req`, validates and
- * normalizes it, and returns either the resolved endpoint or a 400 response
- * for the caller to return directly.
+ * Resolves an optional endpoint header value into the active agent endpoint.
+ * This keeps all runtime and proxy routes on the same validation rules.
  */
-export function resolveEndpoint(
-  req: NextRequest,
+export function resolveEndpointHeader(
+  headerValue: string | null,
 ): { endpoint: string } | { errorResponse: NextResponse } {
-  const headerValue = req.headers.get(CONTROL_ROOM_ENDPOINT_HEADER);
   if (!headerValue) {
     return { endpoint: DEFAULT_ENDPOINT };
   }
@@ -101,4 +99,15 @@ export function resolveEndpoint(
     };
   }
   return { endpoint: normalizeEndpoint(headerValue) };
+}
+
+/**
+ * Reads the optional `x-control-room-endpoint` header off `req`, validates and
+ * normalizes it, and returns either the resolved endpoint or a 400 response
+ * for the caller to return directly.
+ */
+export function resolveEndpoint(
+  req: NextRequest,
+): { endpoint: string } | { errorResponse: NextResponse } {
+  return resolveEndpointHeader(req.headers.get(CONTROL_ROOM_ENDPOINT_HEADER));
 }

@@ -2,7 +2,7 @@
 
 A standalone AG-UI demo that exercises CopilotKit Harness primitives against a bundled local C# Control Room agent — or any remote AG-UI Harness endpoint you point it at.
 
-The cockpit is a showcase for Microsoft Agent Harness augmented by CopilotKit. A presenter starts from CopilotChat suggestions that demonstrate Harness planning, todos, skills, memory, file access, shell execution, approvals, and verification while CopilotKit renders AG-UI tool evidence, generative UI, and HITL approval cards inline.
+The cockpit is a showcase for Microsoft Agent Harness augmented by CopilotKit. A presenter starts from CopilotChat suggestions that demonstrate Harness planning, todos, skills, memory, file access, sample data, shell execution, approvals, and verification while CopilotKit renders AG-UI tool evidence, generative UI, and HITL approval cards inline.
 
 For the presenter checklist and Notion requirement audit, see [SHOWCASE_RUNBOOK.md](./SHOWCASE_RUNBOOK.md).
 
@@ -38,7 +38,7 @@ Open http://localhost:3000 and you should see the Agent Harness showcase.
 ## What you'll see
 
 - **Showcase drawer:** a left-opening two-pane ShadCN sidebar. The icon rail switches between Generative UI, Harness State, and Settings. It defaults to the Generative UI catalog.
-- **Center pane:** the live CopilotChat AG-UI workstream. Starter suggestions launch happy-path demos for plans, health tables, calendars, capability charts, approvals, tests, and handoff.
+- **Center pane:** the live CopilotChat AG-UI workstream. Starter suggestions launch generic workspace demos for orientation, charts, planning, approvals, and handoff.
 - **State panel:** compact Harness evidence: mode, todos, files, latest test, approvals, memory, skills, and feature support.
 - **Settings panel:** endpoint switching, command shortcuts, fixture reset, structured output, manual skill loading, and feature autodetection details.
 
@@ -48,19 +48,17 @@ App-owned wrappers that exist because the underlying Harness + AG-UI primitive i
 
 Use the CopilotChat starter suggestions instead of presenter step buttons:
 
-1. **Plan repair + health table:** loads the diagnosis skill, switches to Plan mode, inspects the fixture, creates todos, and renders one final health table.
-2. **Estimate timeline:** turns the current plan into one final calendar estimate.
-3. **Show capability coverage:** presents planning, todos, skills, memory, file access, shell tools, approvals, and verification as one capability chart.
-4. **Run with approval readiness:** switches to Act mode, applies the minimal patch, shows the real approval-gated `pnpm_run("test")` card, then continues after approval through install, test, coverage, and memory if the reset fixture is missing dependencies.
-5. **Verify and hand off:** saves a memory handoff and renders one final handoff component.
+1. **Explore workspace:** reads the workspace and renders one final Harness Summary.
+2. **Chart sample data:** reads `data/revenue.csv` and renders one final chart.
+3. **Plan an improvement:** inspects the workspace, creates a small todo list, and renders one final health table.
+4. **Preview approval:** shows a display preview of a Harness approval surface without running commands.
+5. **Create handoff:** saves a concise memory note when useful and renders one final handoff component.
 
 Each `show...` generative UI component is terminal for its turn. The agent
 finishes Harness tool calls first, then renders a single final component so tool
 evidence does not get stranded mid-stream.
 
 The real Harness approval card appears before shell tools run. The approval checkbox defaults to remembering the approved tool for the current session, so a missing-dependencies install and rerun can continue without hiding the safety mechanism.
-
-The seeded bug: `calculator.ts` has `add(a, b)` returning `a - b`. The expected fix is the obvious one.
 
 ## Endpoint switching
 
@@ -87,12 +85,12 @@ CopilotKit uses the selected URL directly through `selfManagedAgents`; Next.js i
 Click **Reset** in the Settings panel (or call `POST /api/fixture/reset` directly). The agent:
 
 - Deletes `/app/.control-room-fixture` inside the container.
-- Copies `fixture-template/` back into place — restoring the seeded failing test.
+- Copies `fixture-template/` back into place — restoring the seeded TypeScript/data workspace.
 
 The active fixture lives in the container's writable layer and is wiped whenever you `docker compose down`. Containment is enforced server-side:
 
 - File access is rejected for any path outside the active fixture root.
-- Only four shell commands are allowed: `install`, `test`, `test:coverage`, `typecheck` — each runs `pnpm <command>` in the fixture root.
+- Only approved shell commands are allowed: `install`, `test`, `test:coverage`, `typecheck`, and `data:summary` — each runs inside the fixture root.
 - Shell execution through `pnpm_run` requires a Harness approval. File writes remain sandboxed to the fixture root.
 - Stdout/stderr are truncated at 12,000 characters per call.
 

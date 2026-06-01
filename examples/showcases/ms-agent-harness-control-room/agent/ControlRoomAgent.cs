@@ -2,6 +2,7 @@ using System.ClientModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using OpenAI;
@@ -12,8 +13,8 @@ namespace MsAgentHarnessControlRoom.Agent;
 /// Builds the Control Room agent on top of the Microsoft Agent Harness, wired to
 /// OpenAI's Responses API. Harness pre-configures the AgentMode, Todo,
 /// FileAccess, FileMemory, ToolApproval, and AgentSkills providers — so this
-/// factory supplies the chat client, fixture-focused instructions, and one
-/// narrow approval-gated `pnpm_run` shell substitute.
+/// factory supplies the chat client, workspace-oriented instructions, and one
+/// approval-gated `pnpm_run` workspace command tool.
 /// </summary>
 internal sealed class ControlRoomAgentFactory
 {
@@ -54,7 +55,7 @@ internal sealed class ControlRoomAgentFactory
         IChatClient chatClient = new ForwardedPropsResponseFormatPromoter(
             openAiClient.GetResponsesClient().AsIChatClient(modelId));
 
-        // The fixture lives in the container's writable layer; Harness's
+        // The demo workspace lives in the container's writable layer; Harness's
         // FileMemoryProvider gets its own subdirectory so memory survives
         // separately from the working repo.
         var fixtureRoot = ResolveFixtureRoot();
@@ -64,7 +65,7 @@ internal sealed class ControlRoomAgentFactory
         // Harness's `ShellExecutor` is intentionally null in this build —
         // see docs/superpowers/gap-analysis/2026-05-26-ag-ui-harness-gap.md
         // for why. To keep the demo runnable end-to-end we register a single
-        // narrow AIFunction that runs the four fixture pnpm scripts inside
+        // narrow AIFunction that runs approved workspace pnpm scripts inside
         // the container. The function is registered on ChatOptions.Tools, so
         // the agent invokes it like any tool call; Harness's ToolApproval
         // wrapper still gates it.
@@ -74,8 +75,8 @@ internal sealed class ControlRoomAgentFactory
             {
                 Name = "pnpm_run",
                 Description =
-                    "Run one of the four allowed pnpm scripts inside the fixture repo: " +
-                    "install, test, test:coverage, typecheck. Returns exit code + stdout + stderr.",
+                    "Run one approved pnpm command inside the demo workspace: " +
+                    "install, test, test:coverage, typecheck, or data:summary. Returns exit code + stdout + stderr.",
             });
 
         // Gate every pnpm_run invocation through Harness's ToolApprovalAgent.
@@ -84,6 +85,16 @@ internal sealed class ControlRoomAgentFactory
         // synthetic `request_approval` tool call so it crosses the
         // AG-UI wire and a Harness approval card renders in the cockpit.
         var gatedPnpmTool = new ApprovalRequiredAIFunction(pnpmTool);
+        var a2uiTool = AIFunctionFactory.Create(
+            RenderA2UI,
+            new AIFunctionFactoryOptions
+            {
+                Name = "render_control_room_a2ui",
+                Description =
+                    "Render one local A2UI component as the final display action. " +
+                    "Supported components: HarnessSummary, BarChart, LineChart, AreaChart, DonutChart, DataTable, FileList. " +
+                    "Use literal values only; do not use path bindings. Returns A2UI operations for the local catalog.",
+            });
 
         var harnessAgent = chatClient.AsHarnessAgent(
             MaxContextWindowTokens,
@@ -92,8 +103,8 @@ internal sealed class ControlRoomAgentFactory
             {
                 Name = AgentName,
                 Description =
-                    "Control Room agent — plans, executes, and self-checks fixes against a " +
-                    "fixture repository with HITL approvals on every shell command.",
+                    "Control Room agent — answers workspace questions, reads code and data, plans work, " +
+                    "and uses HITL-approved commands when execution is requested.",
                 // Sandbox file access to the fixture root. FileAccessProvider rejects
                 // reads and writes outside this directory.
                 FileAccessStore = new FileSystemAgentFileStore(fixtureRoot),
@@ -109,7 +120,7 @@ internal sealed class ControlRoomAgentFactory
                     // Harness tool calls.
                     AllowMultipleToolCalls = false,
                     MaxOutputTokens = MaxOutputTokens,
-                    Tools = [gatedPnpmTool],
+                    Tools = [gatedPnpmTool, a2uiTool],
                 },
             });
 
@@ -121,24 +132,24 @@ internal sealed class ControlRoomAgentFactory
     }
 
     /// <summary>
-    /// Runs one of the four allowed pnpm scripts (`install`, `test`,
-    /// `test:coverage`, `typecheck`) in the fixture working directory, with a
+    /// Runs one approved pnpm command (`install`, `test`, `test:coverage`,
+    /// `typecheck`, `data:summary`) in the fixture working directory, with a
     /// hard timeout and stdout/stderr captured. Harness's ToolApproval wrapper
     /// fires the approval gate before this is invoked.
     /// </summary>
     private static async Task<PnpmCommandResult> RunPnpmCommand(
         string fixtureRoot,
-        [Description("One of: install | test | test:coverage | typecheck")] string command,
+        [Description("One of: install | test | test:coverage | typecheck | data:summary")] string command,
         CancellationToken cancellationToken)
     {
-        if (command is not ("install" or "test" or "test:coverage" or "typecheck"))
+        if (command is not ("install" or "test" or "test:coverage" or "typecheck" or "data:summary"))
         {
             return new PnpmCommandResult(
                 Command: command,
                 ExitCode: -1,
                 TimedOut: false,
                 Stdout: "",
-                Stderr: $"Refusing to run '{command}'. Allowed: install, test, test:coverage, typecheck.");
+                Stderr: $"Refusing to run '{command}'. Allowed: install, test, test:coverage, typecheck, data:summary.");
         }
 
         var psi = new ProcessStartInfo
@@ -210,6 +221,143 @@ internal sealed class ControlRoomAgentFactory
         string Stdout,
         string Stderr);
 
+    private const string A2UICatalogId = "copilotkit://ms-agent-harness-control-room";
+
+    private static string RenderA2UI(
+        [Description("One of: HarnessSummary | BarChart | LineChart | AreaChart | DonutChart | DataTable | FileList.")]
+        string component,
+        [Description("Short component title.")]
+        string? title = null,
+        [Description("One concise supporting sentence.")]
+        string? description = null,
+        [Description("Metrics for HarnessSummary. Two to six items.")]
+        List<A2UIMetric>? metrics = null,
+        [Description("Category data for BarChart, LineChart, and DonutChart. Two to eight items.")]
+        List<A2UICategoryPoint>? data = null,
+        [Description("Trend data for AreaChart. Two to eight items.")]
+        List<A2UIAreaPoint>? areaData = null,
+        [Description("Rows for DataTable. Two to eight items.")]
+        List<A2UITableRow>? rows = null,
+        [Description("Files for FileList. One to eight items.")]
+        List<A2UIFileItem>? files = null)
+    {
+        var supportedComponents = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "HarnessSummary",
+            "BarChart",
+            "LineChart",
+            "AreaChart",
+            "DonutChart",
+            "DataTable",
+            "FileList",
+        };
+
+        if (!supportedComponents.Contains(component))
+        {
+            return JsonSerializer.Serialize(new
+            {
+                error = $"Unsupported A2UI component '{component}'. Use one of: {string.Join(", ", supportedComponents)}."
+            });
+        }
+
+        var surfaceId = $"control-room-{component.ToLowerInvariant()}-{Guid.NewGuid():N}";
+        var root = new Dictionary<string, object?>
+        {
+            ["id"] = "root",
+            ["component"] = component,
+        };
+
+        if (!string.IsNullOrWhiteSpace(title)) root["title"] = title;
+        if (!string.IsNullOrWhiteSpace(description)) root["description"] = description;
+
+        switch (component)
+        {
+            case "HarnessSummary":
+                root["metrics"] = metrics is { Count: > 0 }
+                    ? metrics
+                    : new List<A2UIMetric>
+                    {
+                        new("Mode", "plan", "Read-only display"),
+                        new("Surface", "A2UI", "Local catalog"),
+                        new("Status", "ready", "Rendered by Harness"),
+                    };
+                break;
+            case "BarChart":
+            case "LineChart":
+            case "DonutChart":
+                root["data"] = data is { Count: > 0 }
+                    ? data
+                    : new List<A2UICategoryPoint>
+                    {
+                        new("Jan", 12),
+                        new("Feb", 18),
+                        new("Mar", 24),
+                    };
+                break;
+            case "AreaChart":
+                root["data"] = areaData is { Count: > 0 }
+                    ? areaData
+                    : new List<A2UIAreaPoint>
+                    {
+                        new("Plan", 1, 0),
+                        new("Inspect", 2, 1),
+                        new("Verify", 3, 2),
+                    };
+                break;
+            case "DataTable":
+                root["rows"] = rows is { Count: > 0 }
+                    ? rows
+                    : new List<A2UITableRow>
+                    {
+                        new("Mode", "pass", "Plan", "Read-only"),
+                        new("Files", "pass", "2", "Available"),
+                        new("Chart", "pass", "A2UI", "Rendered"),
+                    };
+                break;
+            case "FileList":
+                root["files"] = files is { Count: > 0 }
+                    ? files
+                    : new List<A2UIFileItem>
+                    {
+                        new("README.md", "read", "Workspace orientation"),
+                        new("data/revenue.csv", "available", "Sample chart data"),
+                    };
+                break;
+        }
+
+        var operations = new object[]
+        {
+            new Dictionary<string, object?>
+            {
+                ["version"] = "v0.9",
+                ["createSurface"] = new Dictionary<string, object?>
+                {
+                    ["surfaceId"] = surfaceId,
+                    ["catalogId"] = A2UICatalogId,
+                },
+            },
+            new Dictionary<string, object?>
+            {
+                ["version"] = "v0.9",
+                ["updateComponents"] = new Dictionary<string, object?>
+                {
+                    ["surfaceId"] = surfaceId,
+                    ["components"] = new[] { root },
+                },
+            },
+        };
+
+        return JsonSerializer.Serialize(
+            new Dictionary<string, object?> { ["a2ui_operations"] = operations },
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+    }
+
+    internal sealed record A2UIMetric(string Label, string Value, string? Detail = null);
+    internal sealed record A2UICategoryPoint(string Label, double Value);
+    internal sealed record A2UIAreaPoint(string Label, double Primary, double? Secondary = null);
+    internal sealed record A2UITableRow(string Label, string? Status = null, string? Value = null, string? Detail = null);
+    internal sealed record A2UIFileItem(string Path, string? Status = null, string? Detail = null);
+
     private static string ResolveFixtureRoot()
     {
         // CONTROL_ROOM_EXAMPLE_ROOT lets the Docker image place fixture-template at a
@@ -260,47 +408,62 @@ internal sealed class ControlRoomAgentFactory
         planning mode, todos, file memory, tool approval, shell access, and file
         access all pre-configured.
 
-        ## The task
+        ## Workspace
 
-        The fixture repository at `.control-room-fixture` contains a deliberately
-        failing test. Plan a fix, then execute it under HITL approval, then verify
-        the fix by rerunning the tests.
+        The workspace at `.control-room-fixture` is a small TypeScript project
+        with source code, tests, scripts, and sample CSV data. It is meant to
+        demonstrate general agent-focused work: reading code, inspecting data,
+        planning changes, rendering UI, and using approvals before commands.
 
-        FileAccess paths are already rooted at `.control-room-fixture`. When
-        reading or writing fixture files, use `calculator.ts` and
-        `calculator.test.ts` exactly. Do not prefix paths with
-        `.control-room-fixture/`, `src/`, `/app/`, or an absolute path.
+        FileAccess paths are already rooted at `.control-room-fixture`. Use
+        relative paths such as `README.md`, `src/metrics.ts`,
+        `data/revenue.csv`, and `data/incidents.csv`. Do not prefix paths with
+        `.control-room-fixture/`, `/app/`, or an absolute path.
 
-        ## Workflow
+        ## Default behavior
 
-        1. Inspect the fixture: list files, read `calculator.ts` and
-           `calculator.test.ts`. Identify the bug.
-        2. Capture your plan as todos (Harness's TodoProvider).
-        3. Switch into Act mode and apply the minimal patch to `calculator.ts`.
-        4. After the patch lands, call the `pnpm_run` tool with command "test".
-           If it reports missing dependencies, first run `pnpm_run` with
-           command "install", then re-run "test".
-        5. Call `pnpm_run` with command "test:coverage" for the final
-           verification.
-        6. Save a short review/handoff post-mortem to file memory so it
-           survives compaction. The Harness mode provider currently exposes
-           Plan and Act/Execute modes; do not claim a separate Review mode.
+        - If the operator asks a general question, answer directly.
+        - If the operator asks about the workspace, code, tests, or data,
+          inspect the relevant files first.
+        - Use todos for multi-step work so progress is visible in Harness.
+        - Use file memory for durable notes, handoffs, or summaries when the
+          operator asks for persistence.
+        - Stay in Plan mode for read-only analysis and previews. Switch to Act
+          mode before edits or command execution.
+        - Do not edit files or run commands unless the operator asks for that
+          level of action.
 
         ## Stage demo contract
 
         Follow the operator's current prompt exactly. Some presenter pills are
         read-only planning or visualization moments; for those, do not switch
-        to Act mode, patch files, or run commands.
+        to Act mode, edit files, or run commands.
 
         Frontend display tools are named `show...` (for example
-        `showRunHealthTable`, `showHarnessSummary`, and `showHandoffForm`).
-        Treat every `show...` call as the final action of the current turn.
-        Never call a `show...` display tool while a Harness tool action still
-        needs to happen, and never call a `show...` tool in the same model
-        step as TodoList, FileMemory, FileAccess, AgentMode, approval, or
-        shell tools. Complete those Harness actions first, wait for their
-        results, then render exactly one final `show...` component when the
-        operator prompt asks for one.
+        `showBarChart`, `showLineChart`, `showAreaChart`,
+        `showHarnessSummary`, and `showHandoffForm`). Open Generative UI and
+        A2UI-generated UI are display surfaces too. For A2UI, use only the
+        local `copilotkit://ms-agent-harness-control-room` catalog components:
+        `HarnessSummary`, `BarChart`, `LineChart`, `AreaChart`, `DonutChart`,
+        `DataTable`, and `FileList`. Do not emit A2UI operations for the
+        public basic catalog URL. For A2UI, call
+        `render_control_room_a2ui` with one supported component name and
+        literal prop values only. The tool owns the surface id, local catalog
+        id, and A2UI operation envelope. Do not call any tool named
+        `render_a2ui`, do not pass `catalogId`, and do not hand-write
+        `a2ui_operations`. Treat every display call as the final action of the
+        current turn. Never call a display tool while a Harness tool action
+        still needs to happen, and never call a display tool in the same model
+        step as TodoList, FileMemory, FileAccess, AgentMode, approval, or shell
+        tools. Complete those Harness actions first, wait for their results,
+        then render exactly one final display component when the operator
+        prompt asks for one.
+
+        For workspace orientation prompts that ask for a final Harness Summary,
+        the required Harness work is: load the workspace-analysis skill, read
+        `README.md`, list the top-level files, and finish any todo updates.
+        `showHarnessSummary` is not final until those results are visible. Once
+        it is rendered, stop without additional text or tool calls.
 
         Do not claim that todos, memory, file writes, approvals, shell commands,
         or verification have completed unless the matching Harness tool result
@@ -309,53 +472,36 @@ internal sealed class ControlRoomAgentFactory
         A tool request is not complete when you decide to call it; it is only
         complete after the tool result is visible in your context.
 
-        When the operator asks for planning plus a health table, use this exact
-        order: load the fixture-diagnosis skill, switch to or confirm Plan
-        mode, call TodoList_Add with the repair checklist, wait for the
-        TodoList_Add result, read `calculator.ts`, read `calculator.test.ts`,
-        identify the bug, then render one final `showRunHealthTable`. Do not
-        call TodoList_Complete, FileMemory, shell, edit, or approval tools in
-        this read-only planning stage. Do not call the health table until a
-        TodoList_Add result and both file-read results are visible in your
-        context, and do not ask the operator to continue after the table is
-        rendered. If the operator says "continue" after the requested final
-        `show...` component already rendered, briefly say that stage is
-        complete and do not call more tools.
+        If the operator asks for a simple chart, form, table, calendar, or other
+        visual demo, render the relevant `show...` component with small,
+        illustrative data. If the prompt mentions workspace data or a file path,
+        read that file first and wait for the FileAccess result before rendering
+        any display component. If the file cannot be read, explain the problem
+        and stop instead of rendering guessed data.
 
-        When the operator asks for approval readiness, inspect if needed,
-        switch to Act mode, write the one-line `calculator.ts` patch, then call
-        `pnpm_run("test")` so the real Harness approval card appears. Stop at
-        the approval card until the presenter approves it. After approval, if
-        the test result reports `vitest: not found`, missing `node_modules`, or
-        another missing dependency, continue automatically: call
-        `pnpm_run("install")`, wait for it, then call `pnpm_run("test")` again.
-        Do not ask whether to continue after the missing-dependencies result.
-
-        For the approval pill, the required visible outcome is the real
-        `pnpm_run("test")` Harness approval card. Do not render a `show...`
-        component before that approval request. Once the presenter approves it,
-        finish the test flow end-to-end, including the install-and-rerun
-        fallback above. For the handoff pill, if patch or test evidence is
-        missing, save a preview memory note and render the handoff form rather
-        than asking to continue.
+        If the operator asks to run or verify something, use `pnpm_run` so the
+        real Harness approval card appears. Stop at the approval card until the
+        presenter approves it. After approval, if the command reports missing
+        dependencies, continue automatically: call `pnpm_run("install")`, wait
+        for it, then call the original command again.
 
         ## Tools
 
         - `pnpm_run(command)` is the ONLY way to execute shell commands. It is
-          locked to the four allowed scripts (install, test, test:coverage,
-          typecheck). Harness's ToolApproval gate fires before each invocation,
-          so the user sees an approval card. Do not attempt any other shell
-          execution — there is no general shell tool in this build.
+          locked to approved commands: install, test, test:coverage,
+          typecheck, and data:summary. Harness's ToolApproval gate fires before
+          each invocation, so the user sees an approval card. Do not attempt
+          any other shell execution — there is no general shell tool in this
+          build.
 
         ## Rules
 
-        - File access is sandboxed to the fixture root by Harness.
+        - File access is sandboxed to the workspace root by Harness.
         - Shell commands are gated by ToolApproval. If the user rejects, halt the
           turn and explain.
-        - Use todos to make material demo progress visible. For read-only
-          planning or visualization pills, create the requested todo list once
-          and leave items pending unless the operator explicitly asks you to
-          complete them. Do not repair stale or empty todo state with extra
-          TodoList calls after the requested final `show...` component.
+        - Use the workspace-analysis skill when a request benefits from a
+          structured read-first workflow.
+        - For read-only visualization prompts, keep the interaction complete:
+          do the needed reads first, render one final component, then stop.
         """;
 }
