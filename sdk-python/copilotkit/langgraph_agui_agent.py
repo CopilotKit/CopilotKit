@@ -68,6 +68,33 @@ class LangGraphAGUIAgent(LangGraphAgent):
     ):
         super().__init__(name=name, graph=graph, description=description, config=config)
         self.constant_schema_keys = self.constant_schema_keys + ["copilotkit"]
+        self._tool_call_names: Dict[str, str] = {}
+
+    def _should_emit_tool_call(
+        self,
+        emit_tool_calls: Union[bool, str, List[str]],
+        event,
+    ) -> bool:
+        """Check if a tool call event should be emitted based on the emit_tool_calls config."""
+        if isinstance(emit_tool_calls, bool):
+            return emit_tool_calls
+
+        # Get the tool call name from the event or the tracked mapping
+        tool_call_name = None
+        if hasattr(event, 'tool_call_name'):
+            tool_call_name = event.tool_call_name
+        elif hasattr(event, 'tool_call_id'):
+            tool_call_name = self._tool_call_names.get(event.tool_call_id)
+
+        if tool_call_name is None:
+            return True
+
+        if isinstance(emit_tool_calls, str):
+            return emit_tool_calls == tool_call_name
+        if isinstance(emit_tool_calls, list):
+            return tool_call_name in emit_tool_calls
+
+        return True
 
     def _dispatch_event(self, event) -> str:
         """Override the dispatch event method to handle custom CopilotKit events and filtering.
@@ -226,6 +253,10 @@ class LangGraphAGUIAgent(LangGraphAgent):
                 EventType.TOOL_CALL_END,
             ]
 
+            # Track tool call names for filtering by name
+            if event.type == EventType.TOOL_CALL_START and hasattr(event, 'tool_call_id') and hasattr(event, 'tool_call_name'):
+                self._tool_call_names[event.tool_call_id] = event.tool_call_name
+
             # Handle both dict and object cases for raw_event
             # See: https://github.com/CopilotKit/CopilotKit/issues/2066
             metadata = (
@@ -235,7 +266,8 @@ class LangGraphAGUIAgent(LangGraphAgent):
             ) or {}
 
             if "copilotkit:emit-tool-calls" in metadata:
-                if metadata["copilotkit:emit-tool-calls"] is False and is_tool_event:
+                emit_tool_calls = metadata["copilotkit:emit-tool-calls"]
+                if is_tool_event and not self._should_emit_tool_call(emit_tool_calls, event):
                     return None  # Don't dispatch this event
 
             if "copilotkit:emit-messages" in metadata:
