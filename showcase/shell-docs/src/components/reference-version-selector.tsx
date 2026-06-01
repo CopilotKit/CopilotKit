@@ -3,17 +3,21 @@
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import type { ReferenceVersion } from "@/lib/reference-items";
 
-export type ReferenceVersion = "v2" | "v1";
+export type { ReferenceVersion };
 
 export type ReferenceVersionOption = {
   version: ReferenceVersion;
   href: string;
 };
 
+// The selector now switches between SDKs, not just React versions. Labels
+// are user-facing; keep them in sync with REFERENCE_VERSIONS.
 const VERSION_LABELS: Record<ReferenceVersion, string> = {
-  v2: "v2",
-  v1: "v1",
+  v2: "React v2",
+  v1: "React v1",
+  core: "Core (TypeScript)",
 };
 
 export function ReferenceVersionSelector({
@@ -75,7 +79,7 @@ export function ReferenceVersionSelector({
               {VERSION_LABELS[activeVersion]}
             </span>
             <span className="mt-0.5 block text-[9px] uppercase leading-tight tracking-wider text-[var(--text-faint)]">
-              API version
+              SDK
             </span>
           </span>
           <ChevronDown className="mr-0.5 h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]" />
@@ -93,7 +97,8 @@ export function ReferenceVersionSelector({
                 <Link
                   key={version}
                   href={href}
-                  aria-current={active ? "page" : undefined}
+                  role="option"
+                  aria-selected={active}
                   onClick={() => setOpen(false)}
                   className={[
                     "flex w-full items-center gap-2 rounded px-2 py-1.5 text-[13px] transition-colors",
