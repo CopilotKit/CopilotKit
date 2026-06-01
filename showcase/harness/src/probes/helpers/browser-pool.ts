@@ -38,6 +38,12 @@ interface Waiter {
   /** Context options stored so a freshly-created context for this waiter
    *  carries the headers the original acquire() requested. */
   options?: ContextOptions;
+  /** Set true the instant this waiter settles via EITHER the timeout-reject
+   *  wrapper OR the resolve wrapper. `serveNextWaiter` consults it AFTER its
+   *  `await openContextOn` so a context opened for a waiter that timed out
+   *  mid-open is closed + rolled back instead of orphaned (a leak that
+   *  permanently bleeds capacity). */
+  settled: boolean;
 }
 
 export interface BrowserPoolStats {
@@ -316,24 +322,67 @@ export class BrowserPool {
   }
 
   /**
-   * Open a context on the given live browser, centralizing the
-   * `X-AIMock-Strict` default header, and track it. Increments the served and
-   * live counters. The caller is responsible for having confirmed capacity
-   * and a live browser.
+   * Synchronously RESERVE one slot against the cap, with NO await between the
+   * check and the increment. This is the synchronization primitive that makes
+   * the cap hold under concurrency: because JS is single-threaded, an
+   * increment that is synchronous with its bound check cannot be interleaved by
+   * another `acquire`, so concurrent acquires can never collectively pass the
+   * check and overshoot `maxContexts` the way a check-then-`await`-then-mutate
+   * sequence could. Returns `true` if a slot was reserved (`liveContextCount`
+   * now reflects it as in-use), `false` if at cap. Every successful reservation
+   * MUST be matched by exactly one of: a context tracked via
+   * `trackOpenedContext` (the reservation becomes a live context), or a
+   * rollback via `releaseReservation` (the open failed / was orphaned).
+   */
+  private reserveSlot(): boolean {
+    if (this.liveContextCount >= this.maxContexts) return false;
+    this.liveContextCount++;
+    return true;
+  }
+
+  /**
+   * Roll back a reservation (or a live-context decrement), clamped at 0 so a
+   * future double-decrement / double-release can never drive the count
+   * negative and desync `stats()`.
+   */
+  private releaseReservation(): void {
+    if (this.liveContextCount > 0) this.liveContextCount--;
+  }
+
+  /**
+   * Open a context on the given live browser against a reservation the caller
+   * ALREADY took via `reserveSlot()`. Centralizes the `X-AIMock-Strict` default
+   * header. On success the reservation is converted into a tracked live context
+   * (the reservation already counted it in `liveContextCount`, so no second
+   * increment). On `newContext()` failure the reservation is rolled back and
+   * the error re-thrown — the caller decides whether to retry (it must
+   * re-reserve) or give up.
+   *
+   * PRECONDITION: the caller holds a reservation. This method never checks the
+   * cap itself; the cap is enforced synchronously at `reserveSlot()`.
    */
   private async openContextOn(
     entry: BrowserEntry,
     options?: ContextOptions,
   ): Promise<BrowserContext> {
-    const context = await entry.browser.newContext({
-      extraHTTPHeaders: {
-        "X-AIMock-Strict": "true",
-        ...options?.extraHTTPHeaders,
-      },
-    });
+    let context: BrowserContext;
+    try {
+      context = await entry.browser.newContext({
+        extraHTTPHeaders: {
+          "X-AIMock-Strict": "true",
+          ...options?.extraHTTPHeaders,
+        },
+      });
+    } catch (err) {
+      // The open failed — give the reserved slot back so it does not bleed
+      // capacity permanently.
+      this.releaseReservation();
+      throw err;
+    }
+    // Convert the held reservation into a tracked live context. The reservation
+    // already incremented liveContextCount, so do NOT increment again here.
     entry.liveContexts.add(context);
     entry.servedContexts++;
-    this.liveContextCount++;
     this.contextToBrowser.set(context, entry);
     return context;
   }
@@ -349,14 +398,22 @@ export class BrowserPool {
     // At-cap → pend a FIFO waiter carrying this acquire's options. release()
     // (or a recovery handoff) creates a fresh context for it when capacity
     // frees up, keeping the cap saturated.
-    if (this.liveContextCount >= this.maxContexts) {
+    //
+    // SYNCHRONOUS RESERVATION: take the slot before any await. If reserveSlot()
+    // returns false we are at cap and pend a waiter (the waiter re-reserves
+    // when served). Because the check-and-increment in reserveSlot() has no
+    // await between them, concurrent acquires cannot collectively overshoot the
+    // cap during one another's newContext() awaits.
+    if (!this.reserveSlot()) {
       return this.enqueueWaiter(options, timeoutMs);
     }
 
     const entry = this.pickLeastLoaded();
     if (!entry) {
-      // No live browser right now (all recycling / disconnected). Enqueue a
-      // waiter — crash recovery's relaunch fulfills it on the next tick.
+      // No live browser right now (all recycling / disconnected). Give the
+      // reservation back and enqueue a waiter — crash recovery's relaunch
+      // re-reserves and fulfills it on the next tick.
+      this.releaseReservation();
       return this.enqueueWaiter(options, timeoutMs);
     }
 
@@ -368,19 +425,27 @@ export class BrowserPool {
       });
       return context;
     } catch (err) {
-      // The browser died between pickLeastLoaded and newContext. Kick its
-      // recycle and retry ONCE on another live browser.
+      // The browser died between pickLeastLoaded and newContext. openContextOn
+      // already rolled the reservation back on failure, so RE-RESERVE before
+      // the retry — this keeps the retry path cap-correct instead of opening a
+      // context with no reservation behind it.
       this.logger?.warn?.("browser-pool.acquire-newcontext-failed", {
         browserIndex: this.browsers.indexOf(entry),
         error: err instanceof Error ? err.message : String(err),
       });
       this.recycleBrowser(entry);
+      if (!this.reserveSlot()) {
+        // Another concurrent acquire took the freed slot first — pend a waiter.
+        return this.enqueueWaiter(options, timeoutMs);
+      }
       const retry = this.pickLeastLoaded();
       if (retry) {
         const context = await this.openContextOn(retry, options);
         return context;
       }
-      // No other live browser — pend a waiter; recovery fulfills it.
+      // No other live browser — give the re-reservation back and pend a
+      // waiter; recovery fulfills it.
+      this.releaseReservation();
       return this.enqueueWaiter(options, timeoutMs);
     }
   }
@@ -395,20 +460,26 @@ export class BrowserPool {
     timeoutMs: number,
   ): Promise<BrowserContext> {
     return new Promise<BrowserContext>((resolve, reject) => {
-      const waiter: Waiter = { resolve, reject, options };
+      const waiter: Waiter = { resolve, reject, options, settled: false };
       const timer = setTimeout(() => {
         const idx = this.waiters.indexOf(waiter);
         if (idx !== -1) this.waiters.splice(idx, 1);
+        // Mark settled BEFORE rejecting so a serveNextWaiter() that already
+        // shift()ed this waiter and is mid-`await openContextOn` observes the
+        // dead state and closes/rolls back the context instead of orphaning it.
+        waiter.settled = true;
         reject(new Error("BrowserPool acquire timeout"));
       }, timeoutMs);
       const origResolve = waiter.resolve;
       const origReject = waiter.reject;
       waiter.resolve = (context) => {
         clearTimeout(timer);
+        waiter.settled = true;
         origResolve(context);
       };
       waiter.reject = (err) => {
         clearTimeout(timer);
+        waiter.settled = true;
         origReject(err);
       };
       this.waiters.push(waiter);
@@ -427,20 +498,61 @@ export class BrowserPool {
     if (this.waiters.length === 0) return;
     const entry = this.pickLeastLoaded();
     if (!entry) return; // No live browser — waiter served by a later relaunch.
+
+    // SYNCHRONOUS RESERVATION before shifting + opening. A waiter only exists
+    // because acquire() rolled back its reservation when it pended, so the slot
+    // must be re-reserved here. If we cannot reserve we are at cap (a concurrent
+    // release + recycle-drain both tried to serve) — leave the waiter queued for
+    // the next freed slot rather than overshoot.
+    if (!this.reserveSlot()) return;
+
     const waiter = this.waiters.shift()!;
+
+    // The waiter may have settled (timed out) between being enqueued and being
+    // shifted here — if so it is already off the queue handled by the timeout
+    // splice OR was the head; either way do NOT open a context for a dead
+    // waiter. Roll the reservation back and serve the next one instead.
+    if (waiter.settled) {
+      this.releaseReservation();
+      if (this.waiters.length > 0) void this.serveNextWaiter();
+      return;
+    }
+
+    let context: BrowserContext;
     try {
-      const context = await this.openContextOn(entry, waiter.options);
-      waiter.resolve(context);
+      context = await this.openContextOn(entry, waiter.options);
     } catch (err) {
       this.logger?.warn?.("browser-pool.serve-waiter-failed", {
         browserIndex: this.browsers.indexOf(entry),
         error: err instanceof Error ? err.message : String(err),
       });
-      // Re-queue at the front so FIFO order is preserved, then recycle the
-      // dead browser. Its relaunch handoff re-attempts the queued waiters.
+      // openContextOn already rolled the reservation back on failure. Re-queue
+      // at the front so FIFO order is preserved, then recycle the dead browser.
+      // Its relaunch handoff re-attempts the queued waiters (which re-reserve).
       this.waiters.unshift(waiter);
       this.recycleBrowser(entry);
+      return;
     }
+
+    // DEAD-WAITER ORPHAN GUARD: the waiter may have timed out WHILE the
+    // newContext() above was in flight. Its resolve() would now no-op, so the
+    // freshly-opened context would be counted in liveContextCount yet never
+    // released — a permanent capacity bleed. Detect the settled waiter, CLOSE
+    // the orphan context, roll back its accounting, and serve the next waiter
+    // with the freed slot instead.
+    if (waiter.settled) {
+      this.contextToBrowser.delete(context);
+      entry.liveContexts.delete(context);
+      this.releaseReservation();
+      void context.close().catch(() => {});
+      this.logger?.warn?.("browser-pool.serve-waiter-orphan-closed", {
+        browserIndex: this.browsers.indexOf(entry),
+      });
+      if (this.waiters.length > 0) void this.serveNextWaiter();
+      return;
+    }
+
+    waiter.resolve(context);
   }
 
   async release(context: BrowserContext): Promise<void> {
@@ -454,15 +566,33 @@ export class BrowserPool {
     // Unknown / double release — no-op.
     if (!entry) return;
 
-    await context.close().catch(() => {});
+    // SYNCHRONOUS ACCOUNTING FIRST, then close(). The unfixed code awaited
+    // `context.close()` BEFORE this bookkeeping + the idle-recycle decision, so
+    // a concurrent acquire/openContextOn could interleave during the close
+    // await and the recycle decision could be evaluated against stale state.
+    // Doing the bookkeeping AND evaluating the idle-recycle decision off purely
+    // SYNCHRONOUS state — with no await between the decrement and the size
+    // check — removes that window: a new context cannot sneak in between the
+    // decrement and the decision.
     this.contextToBrowser.delete(context);
     entry.liveContexts.delete(context);
-    this.liveContextCount--;
+    this.releaseReservation();
 
     this.logger?.info("browser-pool.release", {
       available: this.maxContexts - this.liveContextCount,
       inUse: this.liveContextCount,
     });
+
+    // Hygiene-recycle decision, captured SYNCHRONOUSLY against current state
+    // (no await gap above could have mutated liveContexts since the decrement).
+    const shouldRecycle =
+      entry.servedContexts >= this.recycleAfter &&
+      entry.liveContexts.size === 0 &&
+      !entry.recycling;
+
+    // Close the released context AFTER the accounting/decision so the close
+    // await cannot straddle them. Best-effort; failure is non-fatal.
+    await context.close().catch(() => {});
 
     // Keep the cap saturated: if a waiter is queued, hand it a fresh context
     // on the least-loaded live browser now that capacity freed up.
@@ -474,11 +604,7 @@ export class BrowserPool {
     // (no live contexts), replace its process to bound memory/handle drift.
     // This is the RARE path — it fires at most once per `recycleAfter`
     // contexts per browser and never on a busy browser.
-    if (
-      entry.servedContexts >= this.recycleAfter &&
-      entry.liveContexts.size === 0 &&
-      !entry.recycling
-    ) {
+    if (shouldRecycle) {
       this.recycleBrowser(entry);
     }
   }
@@ -575,10 +701,11 @@ export class BrowserPool {
 
     // Drop the abandoned live contexts from the global lookup + count so a
     // later release() of a stale reference is a no-op and the cap accounting
-    // stays accurate.
+    // stays accurate. Clamp each decrement (releaseReservation) so the count
+    // can never go negative if a context was concurrently released.
     for (const ctx of entry.liveContexts) {
       this.contextToBrowser.delete(ctx);
-      this.liveContextCount--;
+      this.releaseReservation();
     }
     entry.liveContexts.clear();
 
@@ -636,7 +763,12 @@ export class BrowserPool {
         });
       })
       .finally(() => {
-        entry.recycling = false;
+        // Do NOT reset `entry.recycling` here. Each path already leaves it
+        // correct: the success path cleared it (and reattached the entry as a
+        // live, non-recycling browser); the eviction path spliced the entry out
+        // of `this.browsers` entirely, so flipping `recycling` back to false
+        // would wrongly resurrect a dead entry as eligible. Only drop the
+        // in-flight tracking handle here.
         this.inFlightRecycles.delete(recyclePromise);
       });
   }
