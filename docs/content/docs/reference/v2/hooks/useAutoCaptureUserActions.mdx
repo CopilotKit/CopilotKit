@@ -1,0 +1,184 @@
+---
+title: "useAutoCaptureUserActions"
+description: "Automatically record mutating HTTP requests as user actions"
+---
+
+## Overview
+
+`useAutoCaptureUserActions` turns on **automatic** user-action capture for the
+subtree it is mounted in. While enabled, the browser's global `fetch`,
+`XMLHttpRequest`, and `navigator.sendBeacon` are patched so that mutating
+requests (`POST`/`PUT`/`PATCH`/`DELETE` by default, plus every `sendBeacon`
+call) are recorded as user actions through the same pipeline as
+[`useRecordUserAction`](/reference/v2/hooks/useRecordUserAction) — no per-site
+instrumentation.
+
+It is **off by default**: if the hook (or the `autoCaptureUserActions` provider
+prop) is never used, `fetch`/`XMLHttpRequest` are never touched. The patch is
+installed lazily on first use and fully restored when the last consumer
+unmounts.
+
+Mount the hook **inside a chat** (e.g. `<CopilotChat>`) to attribute captures to
+the current thread automatically; otherwise pass an explicit `threadId`.
+
+## Signature
+
+```tsx
+import { useAutoCaptureUserActions } from "@copilotkit/react-core/v2";
+
+function useAutoCaptureUserActions(config?: AutoCaptureUserActionsConfig): void;
+```
+
+## Parameters
+
+<PropertyReference name="config" type="AutoCaptureUserActionsConfig">
+  Capture configuration. All fields are optional.
+
+  <PropertyReference name="enabled" type="boolean" default="true">
+    Master switch. Capture is active unless this is explicitly `false`.
+  </PropertyReference>
+
+  <PropertyReference name="methods" type="HttpMethod[]" default='["POST","PUT","PATCH","DELETE"]'>
+    HTTP methods to capture. Add `"GET"` etc. to widen.
+  </PropertyReference>
+
+  <PropertyReference name="allowUrls" type="(string | RegExp)[]">
+    URL patterns to capture. A `RegExp` is matched via `.test()`. A `string`
+    is matched by substring **except** when it looks like a bare hostname
+    (e.g. `"api.foo.com"`), in which case it is matched **exactly** against
+    the URL's hostname — this prevents accidental matches like
+    `"api.foo.com"` also matching `"api.foo.com.attacker.test"`. Supplying
+    `allowUrls` replaces the default same-origin scope; use `allowOrigins`
+    if you want to add origins on top of the default instead.
+  </PropertyReference>
+
+  <PropertyReference name="denyUrls" type="(string | RegExp)[]">
+    URL patterns to never capture, matched with the same hostname-aware
+    rules as `allowUrls`. The platform's own `${runtimeUrl}/user-actions`
+    endpoint is always excluded regardless of this list (loop prevention).
+  </PropertyReference>
+
+  <PropertyReference name="allowOrigins" type="string[]">
+    Extra origins to capture, **in addition to** the same-origin default
+    and to any `allowUrls`. Use this for "my own origin plus this third
+    party" without giving up the same-origin default. Each entry is
+    compared exactly against `new URL(request.url).origin`, so include the
+    full origin string — e.g. `"https://api.foo.com"`.
+  </PropertyReference>
+
+  <PropertyReference name="denyOrigins" type="string[]">
+    Origins to never capture, regardless of any allow rule. Layered alongside
+    `denyUrls`. Each entry is compared exactly against
+    `new URL(request.url).origin`.
+  </PropertyReference>
+
+  <PropertyReference name="captureResponseBody" type="boolean" default="true">
+    Record the response body (status, body, duration) alongside the request.
+  </PropertyReference>
+
+  <PropertyReference name="redact" type="{ keys?: string[]; replaceWith?: string | null }">
+    Sensitive-field redaction. A built-in deny list (`password`, `token`,
+    `authorization`, `apiKey`, `cardNumber`, `cvv`, `ssn`, …) always applies,
+    matched case-insensitively across request bodies, response bodies, and query
+    strings. `keys` are merged in. `replaceWith` masks the value (default
+    `"***"`) or removes the key entirely when `null`. Request/response **headers
+    are never captured**.
+  </PropertyReference>
+
+  <PropertyReference name="threadId" type="string | (() => string)">
+    Thread the captured actions are recorded under. Overrides the current chat
+    thread. When omitted, the current chat thread (from the surrounding
+    `CopilotChatConfigurationProvider`) is used; if neither is available the
+    capture is skipped with a one-time console warning.
+  </PropertyReference>
+
+  <PropertyReference name="transform" type="(request: CapturedRequest) => AutoCapturedUserAction | null">
+    Redact-first override. Receives an **already-redacted** `CapturedRequest`
+    (`{ method, url, requestBody, status, responseBody, durationMs }`) and returns
+    the action to record, or `null` to skip this request. When omitted, a default
+    mapping is used: `title = "<METHOD> <pathname>"`, `newData = requestBody`,
+    and url/status/duration (plus the response body) in `metadata`.
+  </PropertyReference>
+</PropertyReference>
+
+## Return Value
+
+Returns `void`. The hook only manages the global patch lifecycle.
+
+## Example
+
+```tsx
+import {
+  CopilotChat,
+  useAutoCaptureUserActions,
+} from "@copilotkit/react-core/v2";
+
+function CheckoutAssistant() {
+  // Captures same-origin mutations against the current chat thread.
+  useAutoCaptureUserActions({
+    redact: { keys: ["taxId"] },
+  });
+
+  return <CopilotChat />;
+}
+```
+
+### Filtering transport noise
+
+CopilotKit's own runtime issues bookkeeping POSTs that look like user-initiated
+mutations to a same-origin patch — most notably
+`/api/copilotkit/agent/<id>/connect` fires on chat mount and reconnect, so it
+matches the default scope (same-origin + mutating method) and gets captured.
+These are usually not user-meaningful events; skip them with `denyUrls`:
+
+```tsx
+useAutoCaptureUserActions({
+  denyUrls: [/\/connect$/],
+});
+```
+
+The platform's own `${runtimeUrl}/user-actions` endpoint is always excluded
+regardless of `denyUrls` (the unconditional loop guard).
+
+### Custom mapping
+
+```tsx
+useAutoCaptureUserActions({
+  transform: (request) => {
+    // request is already redacted
+    if (request.status >= 400) return null; // skip failures
+    return {
+      title: `${request.method} ${new URL(request.url).pathname}`,
+      newData: request.requestBody,
+      metadata: { status: request.status },
+    };
+  },
+});
+```
+
+## Provider prop
+
+For app-wide capture you can also enable it on the provider. Because the
+provider mounts above any chat, supply an explicit `threadId` there:
+
+```tsx
+<CopilotKitProvider
+  runtimeUrl="/api/copilotkit"
+  autoCaptureUserActions={{ enabled: true, threadId: () => mySessionId }}
+>
+  {children}
+</CopilotKitProvider>
+```
+
+## Notes
+
+- Capture is **best-effort and never throws** into your app: a failed capture
+  (parse error, recorder rejection) never affects the original request or its
+  response.
+- Recording is fire-and-forget; the original response is returned unchanged and
+  remains fully readable.
+- **HTML `<form method="POST">` submissions are not captured.** They leave
+  the page via browser navigation rather than through the patched JavaScript
+  APIs. If you want a form submission recorded, intercept it in JS (a `submit`
+  handler that calls `fetch`) and the patched `fetch` will pick it up
+  automatically.
