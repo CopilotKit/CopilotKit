@@ -1382,6 +1382,127 @@ describe("e2e-demos driver", () => {
     expect(failLogs).toHaveLength(1);
     expect(failLogs[0]?.meta?.errName).toBe("Error");
   });
+
+  // --- C13: exhausted per-demo budget must NOT pass timeout:0 -----------
+  //
+  // The per-demo wall-clock budget is `remaining() = max(0, deadline - now)`.
+  // When the budget is already exhausted at the goto/waitForSelector call
+  // site (now MUCH more reachable since pool.acquire() can block ~30s on a
+  // waiter), `remaining()` returns 0. Passing `timeout: 0` to Playwright's
+  // page.goto / page.waitForSelector means WAIT FOREVER — defeating the
+  // per-demo deadline and hanging the whole tick.
+  //
+  // This Playwright-faithful fake reproduces that contract: a `timeout: 0`
+  // (or absent) goto/waitForSelector NEVER resolves; a positive timeout
+  // rejects after that many ms. The driver MUST bail to a timeout result
+  // promptly instead of issuing a forever-wait call.
+  it("bails to a timeout result instead of passing timeout:0 when the per-demo budget is exhausted", async () => {
+    const gotoTimeouts: Array<number | undefined> = [];
+    const selectorTimeouts: Array<number | undefined> = [];
+
+    // Mirrors Playwright's `timeout: 0` === wait-forever semantics. A
+    // zero/absent timeout returns a never-settling promise; a positive
+    // timeout rejects after that delay.
+    function timeoutOrHang(
+      label: string,
+      timeout: number | undefined,
+    ): Promise<never> {
+      if (timeout === undefined || timeout <= 0) {
+        // Wait forever — exactly Playwright's timeout:0 behaviour.
+        return new Promise<never>(() => {});
+      }
+      return new Promise<never>((_resolve, reject) => {
+        setTimeout(
+          () => reject(new Error(`${label} timeout ${timeout}ms exceeded`)),
+          timeout,
+        );
+      });
+    }
+
+    const pwFaithfulPage: E2eDemosPage = {
+      async goto(_url, opts) {
+        gotoTimeouts.push(opts?.timeout);
+        return timeoutOrHang("goto", opts?.timeout);
+      },
+      async waitForSelector(_sel, opts) {
+        selectorTimeouts.push(opts?.timeout);
+        return timeoutOrHang("waitForSelector", opts?.timeout);
+      },
+      async close() {
+        /* no-op */
+      },
+    };
+    const pwFaithfulBrowser: E2eDemosBrowser = {
+      async newContext() {
+        return {
+          async newPage() {
+            return pwFaithfulPage;
+          },
+          async close() {
+            /* no-op */
+          },
+        };
+      },
+      async close() {
+        /* no-op */
+      },
+    };
+
+    const driver = createE2eDemosDriver({
+      launcher: async () => pwFaithfulBrowser,
+      // Generous outer cap so the abort race does NOT mask the bug — the
+      // per-demo deadline (pageTimeoutMs:0) is what must short-circuit.
+      timeoutMs: 60_000,
+      // Zero per-demo budget → deadline is already in the past at the goto
+      // call site → remaining() === 0.
+      pageTimeoutMs: 0,
+    });
+    const { writer, writes } = mkWriter();
+
+    const runP = driver.run(mkCtx(writer), {
+      key: "e2e-demos:budget-exhausted",
+      name: "showcase-budget-exhausted",
+      publicUrl: "https://showcase-budget-exhausted.example.com",
+      demos: ["d1"],
+      shape: "package",
+    });
+
+    // Watchdog: the run MUST resolve promptly. On the buggy code it issues
+    // `timeout: 0` and hangs forever, so this race surfaces the defect
+    // deterministically without a 30s wall-clock wait.
+    const watchdog = new Promise<"HANG">((resolve) => {
+      setTimeout(() => resolve("HANG"), 1_000);
+    });
+    const outcome = await Promise.race([
+      runP.then(() => "RESOLVED" as const),
+      watchdog,
+    ]);
+    expect(outcome).toBe("RESOLVED");
+
+    const result = await runP;
+    // Aggregate red — the single demo could not be verified in its budget.
+    expect(result.state).toBe("red");
+    const sig = result.signal as E2eDemosAggregateSignal;
+    expect(sig.failed).toEqual(["d1"]);
+
+    // The demo's side row must carry a timeout-class failure, NOT a
+    // forever-hang.
+    const sideRow = writes.find((w) => w.key === "e2e:budget-exhausted/d1");
+    expect(sideRow?.state).toBe("red");
+    const rowSig = sideRow?.signal as { errorClass?: string };
+    expect(["selector-timeout", "goto-error", "abort"]).toContain(
+      rowSig?.errorClass,
+    );
+
+    // CRITICAL: no goto/waitForSelector call may have been issued with a
+    // non-positive timeout. A 0 / undefined timeout is the forever-hang bug.
+    for (const t of gotoTimeouts) {
+      expect(typeof t === "number" && t > 0).toBe(true);
+    }
+    for (const t of selectorTimeouts) {
+      expect(typeof t === "number" && t > 0).toBe(true);
+    }
+  });
 });
 
 // --- Integration: shortest-service-first dispatch ------------------------
@@ -1696,18 +1817,22 @@ describe("shortest-service-first dispatch (integration)", () => {
  */
 function makeDemosFakeContextPool(maxContexts: number) {
   let nextCtxId = 0;
-  let live = 0;
   const releaseLog: number[] = [];
   const acquireLog: number[] = [];
   const forks = 0; // a real pool forks only at init; a fake never re-forks here
+  // Track the SET of currently-live contexts (not a bare counter) so the
+  // fake mirrors the real `BrowserPool.release` contract: release of a
+  // context not currently live (unknown / double release) is a no-op and
+  // must NOT decrement the live count. A bare counter would silently go
+  // negative on a double-release, masking launcher double-release bugs.
+  const liveContexts = new Set<unknown>();
 
   return {
     async acquire(): Promise<unknown> {
-      if (live >= maxContexts) throw new Error("FakePool: at cap");
+      if (liveContexts.size >= maxContexts) throw new Error("FakePool: at cap");
       const id = nextCtxId++;
-      live++;
       acquireLog.push(id);
-      return {
+      const ctx = {
         __id: id,
         async newPage() {
           return {
@@ -1718,17 +1843,22 @@ function makeDemosFakeContextPool(maxContexts: number) {
         },
         async close() {},
       };
+      liveContexts.add(ctx);
+      return ctx;
     },
     async release(ctx: unknown): Promise<void> {
+      // Mirror BrowserPool.release: unknown / double release is a no-op.
+      // Only contexts currently checked out decrement the live set + log.
+      if (!liveContexts.has(ctx)) return;
+      liveContexts.delete(ctx);
       const c = ctx as { __id: number };
       releaseLog.push(c.__id);
-      live--;
     },
     stats() {
       return {
         size: maxContexts,
-        available: maxContexts - live,
-        inUse: live,
+        available: maxContexts - liveContexts.size,
+        inUse: liveContexts.size,
         totalRecycles: 0,
       };
     },

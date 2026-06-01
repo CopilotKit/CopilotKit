@@ -867,6 +867,22 @@ async function runDemo(opts: {
   try {
     context = await browser.newContext();
     page = await context.newPage();
+    // Pre-goto budget check: `remaining() === 0` means the per-demo
+    // deadline is already exhausted (e.g. pool.acquire() blocked on a
+    // waiter for the whole budget). Playwright treats `timeout: 0` as
+    // WAIT FOREVER, so issuing the goto with a zero timeout would hang
+    // indefinitely and defeat the deadline. Bail to the same
+    // selector-timeout result the post-wait path emits instead.
+    if (remaining() <= 0) {
+      return {
+        ok: false,
+        errorClass: "selector-timeout",
+        errorDesc: truncateUtf8(
+          `per-demo deadline exceeded after ${pageTimeoutMs}ms`,
+          1200,
+        ),
+      };
+    }
     try {
       await page.goto(url, {
         waitUntil: "domcontentloaded",
@@ -888,6 +904,20 @@ async function runDemo(opts: {
     // when the first didn't match.
     if (abortSignal.aborted) {
       throw new DOMException("aborted", "AbortError");
+    }
+    // Pre-selector budget check: same `timeout: 0` === wait-forever hazard
+    // as the goto above. If the goto consumed the entire budget, bail to a
+    // selector-timeout result rather than issuing a forever-wait selector
+    // call.
+    if (remaining() <= 0) {
+      return {
+        ok: false,
+        errorClass: "selector-timeout",
+        errorDesc: truncateUtf8(
+          `per-demo deadline exceeded after ${pageTimeoutMs}ms`,
+          1200,
+        ),
+      };
     }
     try {
       await page.waitForSelector(READY_SELECTOR_COMPOUND, {
