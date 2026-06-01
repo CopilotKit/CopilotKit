@@ -7,17 +7,19 @@ import {
   e2eDeepDriver,
   FEATURE_CONCURRENCY,
   Semaphore,
-  type E2eDeepAggregateSignal,
-  type E2eDeepBrowser,
-  type E2eDeepBrowserContext,
-  type E2eDeepFeatureSignal,
-  type E2eDeepPage,
+} from "./d5-single-pill.js";
+import type {
+  E2eDeepAggregateSignal,
+  E2eDeepBrowser,
+  E2eDeepBrowserContext,
+  E2eDeepFeatureSignal,
+  E2eDeepPage,
 } from "./d5-single-pill.js";
 import {
   __clearD5RegistryForTesting,
   registerD5Script,
-  type D5Script,
 } from "../helpers/d5-registry.js";
+import type { D5Script } from "../helpers/d5-registry.js";
 import { logger } from "../../logger.js";
 import type {
   ProbeContext,
@@ -1089,148 +1091,121 @@ describe("e2e-deep graceful degradation (FEATURE_CONCURRENCY=1 equivalent)", () 
 });
 
 // ---------------------------------------------------------------------
-// Pool starvation fix — verifies that createPooledE2eDeepLauncher
-// releases browsers back to the pool when the abort signal fires,
-// preventing cascading starvation when Promise.race abandons the
-// driver promise on timeout.
+// Context-pool migration: createPooledE2eDeepLauncher now checks out a
+// pooled CONTEXT per newContext() (pool.acquire) and releases it on close
+// (pool.release). maxContexts (reinterpreted POOL_SIZE) is the global cap;
+// each context acquire/release moves inUse by 1. On abort the launcher
+// closes its open contexts (each releasing its context) — NO browser fork.
+// The per-feature X-AIMock-Context / X-Test-Id headers must flow through
+// to pool.acquire so aimock routing still works.
 // ---------------------------------------------------------------------
-describe("createPooledE2eDeepLauncher abort release", () => {
-  /**
-   * Minimal fake pool that tracks acquire/release calls. Uses a simple
-   * array of fake browsers with an available/in-use split. The fake
-   * browsers satisfy the Playwright Browser interface just enough for
-   * the pooled launcher to call newContext() on them.
-   */
-  function makeFakePool(size: number) {
-    interface FakeBrowser {
-      id: number;
-      newContext(): Promise<{
-        newPage(): Promise<{
-          on: (event: string, handler: (...args: unknown[]) => void) => void;
-          waitForSelector: () => Promise<void>;
-          fill: () => Promise<void>;
-          press: () => Promise<void>;
-          evaluate: () => Promise<unknown>;
-          goto: () => Promise<void>;
-          close: () => Promise<void>;
-          click: () => Promise<void>;
-          waitForFunction: () => Promise<void>;
-        }>;
-        close(): Promise<void>;
-      }>;
-      close(): Promise<void>;
-    }
+/**
+ * Fake context-pool tracking per-CONTEXT acquire/release and the
+ * contextOptions each acquire was called with (so header forwarding is
+ * observable). `maxContexts` is the global cap. Module-scoped so oxlint's
+ * consistent-function-scoping is satisfied (captures no parent state).
+ */
+function makeDeepFakeContextPool(maxContexts: number) {
+  let nextCtxId = 0;
+  let live = 0;
+  const releaseLog: number[] = [];
+  const acquireLog: number[] = [];
+  const acquireOptions: Array<
+    { extraHTTPHeaders?: Record<string, string> } | undefined
+  > = [];
 
-    const browsers: FakeBrowser[] = [];
-    for (let i = 0; i < size; i++) {
-      let contextsClosed = 0;
-      browsers.push({
-        id: i,
-        async newContext() {
+  return {
+    async acquire(options?: {
+      extraHTTPHeaders?: Record<string, string>;
+    }): Promise<unknown> {
+      if (live >= maxContexts) throw new Error("FakePool: at cap");
+      const id = nextCtxId++;
+      live++;
+      acquireLog.push(id);
+      acquireOptions.push(options);
+      return {
+        __id: id,
+        async newPage() {
           return {
-            async newPage() {
-              return {
-                on: () => {},
-                waitForSelector: async () => {},
-                fill: async () => {},
-                press: async () => {},
-                evaluate: async () => 0,
-                goto: async () => {},
-                close: async () => {},
-                click: async () => {},
-                waitForFunction: async () => {},
-              };
-            },
-            async close() {
-              contextsClosed++;
-            },
+            on: () => {},
+            waitForSelector: async () => {},
+            fill: async () => {},
+            press: async () => {},
+            evaluate: async () => 0,
+            goto: async () => {},
+            close: async () => {},
+            click: async () => {},
+            waitForFunction: async () => {},
           };
         },
         async close() {},
-      });
-    }
+      };
+    },
+    async release(ctx: unknown): Promise<void> {
+      const c = ctx as { __id: number };
+      releaseLog.push(c.__id);
+      live--;
+    },
+    stats() {
+      return {
+        size: maxContexts,
+        available: maxContexts - live,
+        inUse: live,
+        totalRecycles: 0,
+      };
+    },
+    get _releaseLog() {
+      return releaseLog;
+    },
+    get _acquireLog() {
+      return acquireLog;
+    },
+    get _acquireOptions() {
+      return acquireOptions;
+    },
+  };
+}
 
-    const available = [...browsers];
-    const releaseLog: number[] = [];
-    const acquireLog: number[] = [];
-
-    const pool = {
-      async acquire(): Promise<unknown> {
-        const browser = available.shift();
-        if (!browser) throw new Error("FakePool: no browsers available");
-        acquireLog.push(browser.id);
-        return browser;
-      },
-      release(browser: unknown): void {
-        const fb = browser as FakeBrowser;
-        releaseLog.push(fb.id);
-        available.push(fb);
-      },
-      stats() {
-        return {
-          size,
-          available: available.length,
-          inUse: size - available.length,
-          totalRecycles: 0,
-        };
-      },
-      // Expose internals for assertions.
-      get _available() {
-        return available;
-      },
-      get _releaseLog() {
-        return releaseLog;
-      },
-      get _acquireLog() {
-        return acquireLog;
-      },
-    };
-
-    return pool;
-  }
-
-  it("releases browser back to pool when abort signal fires (prevents starvation)", async () => {
-    const pool = makeFakePool(2);
-    // Cast: the fake pool satisfies BrowserPool structurally for the
-    // subset of methods createPooledE2eDeepLauncher uses.
+describe("createPooledE2eDeepLauncher context checkout + abort release", () => {
+  it("checks out one context per newContext() and moves inUse by 1", async () => {
+    const pool = makeDeepFakeContextPool(4);
     const launcher = createPooledE2eDeepLauncher(
       pool as unknown as import("../helpers/browser-pool.js").BrowserPool,
     );
+    const browser = await launcher();
+    expect(pool.stats().inUse).toBe(0);
 
-    // Acquire both browsers through the launcher.
-    const abortCtrl1 = new AbortController();
-    const abortCtrl2 = new AbortController();
-    const browser1 = await launcher(abortCtrl1.signal);
-    const browser2 = await launcher(abortCtrl2.signal);
+    const ctx = await browser.newContext();
+    expect(pool.stats().inUse).toBe(1);
+    expect(pool.stats().available).toBe(3);
 
-    // Both browsers are now in use — pool should have 0 available.
-    expect(pool.stats().available).toBe(0);
-    expect(pool.stats().inUse).toBe(2);
-
-    // Simulate timeout: abort signal fires for browser1.
-    abortCtrl1.abort();
-
-    // Give the abort handler's async context-close + release a tick.
-    await new Promise((r) => setTimeout(r, 10));
-
-    // Browser1 should be released back to the pool.
-    expect(pool._releaseLog).toContain(0);
-    expect(pool.stats().available).toBe(1);
-
-    // The driver's finally block eventually calls browser.close() —
-    // verify it's a no-op (doesn't double-release).
-    await browser1.close();
-    // Still only 1 release for browser 0.
-    expect(pool._releaseLog.filter((id) => id === 0)).toHaveLength(1);
-
-    // Browser2 is still held — normal close releases it.
-    await browser2.close();
-    expect(pool._releaseLog).toContain(1);
-    expect(pool.stats().available).toBe(2);
+    await ctx.close();
+    expect(pool.stats().inUse).toBe(0);
+    expect(pool._releaseLog).toHaveLength(1);
   });
 
-  it("closes open contexts before releasing on abort", async () => {
-    const pool = makeFakePool(1);
+  it("forwards newContext(opts).extraHTTPHeaders into pool.acquire", async () => {
+    const pool = makeDeepFakeContextPool(2);
+    const launcher = createPooledE2eDeepLauncher(
+      pool as unknown as import("../helpers/browser-pool.js").BrowserPool,
+    );
+    const browser = await launcher();
+    await browser.newContext({
+      extraHTTPHeaders: {
+        "X-AIMock-Context": "slug-x",
+        "X-Test-Id": "d5-slug-x",
+      },
+    });
+    expect(pool._acquireOptions[0]).toEqual({
+      extraHTTPHeaders: {
+        "X-AIMock-Context": "slug-x",
+        "X-Test-Id": "d5-slug-x",
+      },
+    });
+  });
+
+  it("closes open contexts on abort (each releasing its pooled context)", async () => {
+    const pool = makeDeepFakeContextPool(2);
     const launcher = createPooledE2eDeepLauncher(
       pool as unknown as import("../helpers/browser-pool.js").BrowserPool,
     );
@@ -1238,103 +1213,27 @@ describe("createPooledE2eDeepLauncher abort release", () => {
     const abortCtrl = new AbortController();
     const browser = await launcher(abortCtrl.signal);
 
-    // Open a context (simulates the driver opening a page).
     const ctx = await browser.newContext();
     const _page = await ctx.newPage();
+    expect(pool.stats().inUse).toBe(1);
 
-    // Abort fires — should close context then release.
     abortCtrl.abort();
     await new Promise((r) => setTimeout(r, 10));
 
-    // Browser released back to pool.
     expect(pool._releaseLog).toHaveLength(1);
-    expect(pool.stats().available).toBe(1);
+    expect(pool.stats().inUse).toBe(0);
   });
 
-  it("handles already-aborted signal (releases immediately)", async () => {
-    const pool = makeFakePool(1);
+  it("launcher-level close is a no-op (contexts release themselves)", async () => {
+    const pool = makeDeepFakeContextPool(2);
     const launcher = createPooledE2eDeepLauncher(
       pool as unknown as import("../helpers/browser-pool.js").BrowserPool,
     );
-
-    // Pre-aborted signal.
-    const abortCtrl = new AbortController();
-    abortCtrl.abort();
-
-    const browser = await launcher(abortCtrl.signal);
-
-    // Should be released immediately (synchronously after acquire).
-    expect(pool._releaseLog).toHaveLength(1);
-    expect(pool.stats().available).toBe(1);
-
-    // Driver's close is a no-op.
-    await browser.close();
-    expect(pool._releaseLog).toHaveLength(1);
-  });
-
-  it("full pool starvation scenario: all slots acquired, timeout releases them for next run", async () => {
-    const POOL_SIZE = 4;
-    const pool = makeFakePool(POOL_SIZE);
-    const launcher = createPooledE2eDeepLauncher(
-      pool as unknown as import("../helpers/browser-pool.js").BrowserPool,
-    );
-
-    // Simulate a probe run that acquires all 4 pool slots.
-    const abortCtrls = Array.from(
-      { length: POOL_SIZE },
-      () => new AbortController(),
-    );
-    const browsers = await Promise.all(
-      abortCtrls.map((ac) => launcher(ac.signal)),
-    );
-
-    // Pool is fully exhausted.
-    expect(pool.stats().available).toBe(0);
-    expect(pool.stats().inUse).toBe(POOL_SIZE);
-
-    // Simulate timeout: abort all signals (as the invoker would).
-    for (const ac of abortCtrls) ac.abort();
-    await new Promise((r) => setTimeout(r, 20));
-
-    // All browsers should be released back to the pool.
-    expect(pool.stats().available).toBe(POOL_SIZE);
-    expect(pool._releaseLog).toHaveLength(POOL_SIZE);
-
-    // Next probe run can now acquire all 4 browsers.
-    const nextAbortCtrls = Array.from(
-      { length: POOL_SIZE },
-      () => new AbortController(),
-    );
-    const nextBrowsers = await Promise.all(
-      nextAbortCtrls.map((ac) => launcher(ac.signal)),
-    );
-    expect(pool.stats().available).toBe(0);
-    expect(pool.stats().inUse).toBe(POOL_SIZE);
-
-    // Clean up: normal close for the second run.
-    for (const b of nextBrowsers) await b.close();
-    expect(pool.stats().available).toBe(POOL_SIZE);
-
-    // Driver's finally block for the first run — all no-ops.
-    for (const b of browsers) await b.close();
-    // No extra releases — still POOL_SIZE total from the abort +
-    // POOL_SIZE from the second run's normal close.
-    expect(pool._releaseLog).toHaveLength(POOL_SIZE * 2);
-  });
-
-  it("no-abort path: browser released normally via close()", async () => {
-    const pool = makeFakePool(1);
-    const launcher = createPooledE2eDeepLauncher(
-      pool as unknown as import("../helpers/browser-pool.js").BrowserPool,
-    );
-
-    // No abort signal at all (backwards compat with defaultLauncher).
     const browser = await launcher();
-    expect(pool.stats().available).toBe(0);
-
-    await browser.close();
+    const ctx = await browser.newContext();
+    await ctx.close();
+    await browser.close(); // no-op
     expect(pool._releaseLog).toHaveLength(1);
-    expect(pool.stats().available).toBe(1);
   });
 });
 

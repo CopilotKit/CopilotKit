@@ -7,10 +7,12 @@ import {
   e2eReadinessDriver,
   createE2eDemosDriver,
   createPooledE2eDemosLauncher,
-  type E2eDemosBrowser,
-  type E2eDemosBrowserContext,
-  type E2eDemosPage,
-  type E2eDemosAggregateSignal,
+} from "./e2e-readiness.js";
+import type {
+  E2eDemosBrowser,
+  E2eDemosBrowserContext,
+  E2eDemosPage,
+  E2eDemosAggregateSignal,
 } from "./e2e-readiness.js";
 import { buildProbeInvoker } from "../loader/probe-invoker.js";
 import { createDiscoveryRegistry } from "../discovery/index.js";
@@ -1679,116 +1681,91 @@ describe("shortest-service-first dispatch (integration)", () => {
 });
 
 // ---------------------------------------------------------------------
-// Pool starvation parity with createPooledE2eDeepLauncher (ed0933e5c).
-// e2e-demos shares the same Promise.race-driven outer-timeout pattern
-// as e2e-deep, so it needs the same abort-driven release path or a hung
-// service holds its slot until the orphaned driver promise drains.
+// Context-pool migration: the pooled launcher now checks out a pooled
+// CONTEXT per newContext() (pool.acquire) and releases it on close
+// (pool.release). maxContexts is the global cap (reinterpreted POOL_SIZE).
+// Each context acquire/release moves inUse by 1; on abort the launcher
+// closes its open contexts (each releasing its context) — NO browser fork.
 // ---------------------------------------------------------------------
-describe("createPooledE2eDemosLauncher abort release", () => {
-  /**
-   * Minimal fake pool tracking acquire/release calls. Mirrors the shape
-   * used by createPooledE2eDeepLauncher's tests so the two pooled launchers
-   * exercise an analogous fixture.
-   */
-  function makeFakePool(size: number) {
-    interface FakeBrowser {
-      id: number;
-      newContext(): Promise<{
-        newPage(): Promise<{
-          goto(): Promise<void>;
-          waitForSelector(): Promise<void>;
-          close(): Promise<void>;
-        }>;
-        close(): Promise<void>;
-      }>;
-      close(): Promise<void>;
-    }
+/**
+ * Fake context-pool tracking per-CONTEXT acquire/release. `maxContexts`
+ * is the global cap; acquire() hands out a fresh fake context (its own
+ * newPage + identity) and release(ctx) returns it. Module-scoped so
+ * oxlint's consistent-function-scoping is satisfied (captures no parent
+ * state).
+ */
+function makeDemosFakeContextPool(maxContexts: number) {
+  let nextCtxId = 0;
+  let live = 0;
+  const releaseLog: number[] = [];
+  const acquireLog: number[] = [];
+  const forks = 0; // a real pool forks only at init; a fake never re-forks here
 
-    const browsers: FakeBrowser[] = [];
-    for (let i = 0; i < size; i++) {
-      browsers.push({
-        id: i,
-        async newContext() {
+  return {
+    async acquire(): Promise<unknown> {
+      if (live >= maxContexts) throw new Error("FakePool: at cap");
+      const id = nextCtxId++;
+      live++;
+      acquireLog.push(id);
+      return {
+        __id: id,
+        async newPage() {
           return {
-            async newPage() {
-              return {
-                async goto() {},
-                async waitForSelector() {},
-                async close() {},
-              };
-            },
+            async goto() {},
+            async waitForSelector() {},
             async close() {},
           };
         },
         async close() {},
-      });
-    }
+      };
+    },
+    async release(ctx: unknown): Promise<void> {
+      const c = ctx as { __id: number };
+      releaseLog.push(c.__id);
+      live--;
+    },
+    stats() {
+      return {
+        size: maxContexts,
+        available: maxContexts - live,
+        inUse: live,
+        totalRecycles: 0,
+      };
+    },
+    get _releaseLog() {
+      return releaseLog;
+    },
+    get _acquireLog() {
+      return acquireLog;
+    },
+    get _forks() {
+      return forks;
+    },
+  };
+}
 
-    const available = [...browsers];
-    const releaseLog: number[] = [];
-    const acquireLog: number[] = [];
-
-    return {
-      async acquire(): Promise<unknown> {
-        const browser = available.shift();
-        if (!browser) throw new Error("FakePool: no browsers available");
-        acquireLog.push(browser.id);
-        return browser;
-      },
-      release(browser: unknown): void {
-        const fb = browser as FakeBrowser;
-        releaseLog.push(fb.id);
-        available.push(fb);
-      },
-      stats() {
-        return {
-          size,
-          available: available.length,
-          inUse: size - available.length,
-          totalRecycles: 0,
-        };
-      },
-      get _releaseLog() {
-        return releaseLog;
-      },
-      get _acquireLog() {
-        return acquireLog;
-      },
-    };
-  }
-
-  it("releases the pooled browser when the abort signal fires (prevents starvation)", async () => {
-    const pool = makeFakePool(2);
+describe("createPooledE2eDemosLauncher context checkout + abort release", () => {
+  it("checks out one context per newContext() and moves inUse by 1", async () => {
+    const pool = makeDemosFakeContextPool(4);
     const launcher = createPooledE2eDemosLauncher(
       pool as unknown as import("../helpers/browser-pool.js").BrowserPool,
     );
+    const browser = await launcher();
+    expect(pool.stats().inUse).toBe(0);
 
-    const ac1 = new AbortController();
-    const ac2 = new AbortController();
-    const browser1 = await launcher(ac1.signal);
-    const browser2 = await launcher(ac2.signal);
+    const ctx = await browser.newContext();
+    expect(pool.stats().inUse).toBe(1);
+    expect(pool.stats().available).toBe(3);
 
-    expect(pool.stats().available).toBe(0);
-    expect(pool.stats().inUse).toBe(2);
-
-    ac1.abort();
-    await new Promise((r) => setTimeout(r, 10));
-
-    expect(pool._releaseLog).toContain(0);
-    expect(pool.stats().available).toBe(1);
-
-    // Driver's finally-block close is a no-op after force-release.
-    await browser1.close();
-    expect(pool._releaseLog.filter((id) => id === 0)).toHaveLength(1);
-
-    // Browser2 still held — normal close releases it.
-    await browser2.close();
-    expect(pool._releaseLog).toContain(1);
-    expect(pool.stats().available).toBe(2);
+    await ctx.close();
+    expect(pool.stats().inUse).toBe(0);
+    expect(pool._releaseLog).toHaveLength(1);
+    // No process fork on the hot path.
+    expect(pool._forks).toBe(0);
   });
 
-  it("closes open contexts before releasing on abort", async () => {
-    const pool = makeFakePool(1);
+  it("closes open contexts on abort (each releasing its pooled context)", async () => {
+    const pool = makeDemosFakeContextPool(2);
     const launcher = createPooledE2eDemosLauncher(
       pool as unknown as import("../helpers/browser-pool.js").BrowserPool,
     );
@@ -1797,68 +1774,27 @@ describe("createPooledE2eDemosLauncher abort release", () => {
     const browser = await launcher(ac.signal);
 
     const ctx = await browser.newContext();
-    const _page = await ctx.newPage();
+    await ctx.newPage();
+    expect(pool.stats().inUse).toBe(1);
 
     ac.abort();
     await new Promise((r) => setTimeout(r, 10));
 
+    // The open context was closed → released back to the pool.
     expect(pool._releaseLog).toHaveLength(1);
-    expect(pool.stats().available).toBe(1);
+    expect(pool.stats().inUse).toBe(0);
   });
 
-  it("handles already-aborted signal (releases immediately)", async () => {
-    const pool = makeFakePool(1);
+  it("launcher-level close is a no-op (contexts release themselves)", async () => {
+    const pool = makeDemosFakeContextPool(2);
     const launcher = createPooledE2eDemosLauncher(
       pool as unknown as import("../helpers/browser-pool.js").BrowserPool,
     );
-
-    const ac = new AbortController();
-    ac.abort();
-
-    const browser = await launcher(ac.signal);
-
-    // Released synchronously after acquire (no waiting on abort event).
+    const browser = await launcher();
+    const ctx = await browser.newContext();
+    await ctx.close();
+    await browser.close(); // no-op
+    // Exactly one release — from the context's own close, not the launcher.
     expect(pool._releaseLog).toHaveLength(1);
-    expect(pool.stats().available).toBe(1);
-
-    await browser.close();
-    expect(pool._releaseLog).toHaveLength(1);
-  });
-
-  it("full pool starvation scenario: all slots acquired, abort releases them for the next run", async () => {
-    const POOL_SIZE = 4;
-    const pool = makeFakePool(POOL_SIZE);
-    const launcher = createPooledE2eDemosLauncher(
-      pool as unknown as import("../helpers/browser-pool.js").BrowserPool,
-    );
-
-    const acs = Array.from({ length: POOL_SIZE }, () => new AbortController());
-    const browsers = await Promise.all(acs.map((ac) => launcher(ac.signal)));
-
-    expect(pool.stats().available).toBe(0);
-    expect(pool.stats().inUse).toBe(POOL_SIZE);
-
-    for (const ac of acs) ac.abort();
-    await new Promise((r) => setTimeout(r, 20));
-
-    expect(pool.stats().available).toBe(POOL_SIZE);
-    expect(pool._releaseLog).toHaveLength(POOL_SIZE);
-
-    // Next run can acquire all slots immediately.
-    const nextAcs = Array.from(
-      { length: POOL_SIZE },
-      () => new AbortController(),
-    );
-    const nextBrowsers = await Promise.all(
-      nextAcs.map((ac) => launcher(ac.signal)),
-    );
-    expect(pool.stats().available).toBe(0);
-    expect(pool.stats().inUse).toBe(POOL_SIZE);
-
-    for (const b of nextBrowsers) await b.close();
-    for (const b of browsers) await b.close();
-    // POOL_SIZE releases from abort + POOL_SIZE from the second run's
-    // normal close. The first run's normal close is a no-op.
-    expect(pool._releaseLog).toHaveLength(POOL_SIZE * 2);
   });
 });

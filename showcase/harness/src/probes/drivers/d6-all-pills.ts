@@ -333,35 +333,22 @@ export function createPooledE2eFullLauncher(
   logger?: { warn(event: string, meta?: Record<string, unknown>): void },
 ): E2eFullBrowserLauncher {
   return async (abortSignal?: AbortSignal): Promise<E2eFullBrowser> => {
-    let browser = await pool.acquire();
-
-    // Defensive re-acquire: the pool's acquire() skips zombie slots whose
-    // browser is already disconnected, but a browser can also die in the
-    // narrow window AFTER acquire() returns it but BEFORE we hand it to
-    // `browser.newContext()` — most commonly during the D6 service fan-out's
-    // Chromium-spawn burst, when the kernel returns EAGAIN on fork and a
-    // recently-handed-out chromium dies between this caller and its first
-    // newContext call. Without this guard, the dead browser dooms an entire
-    // service's ~40 features ("Target page, context or browser has been
-    // closed" on every single feature). One re-acquire is enough — release
-    // routes the dead instance back into the pool where its `isConnected`
-    // check + `recycleSlot` recovery take over.
-    if (!browser.isConnected()) {
-      logger?.warn("probe.e2e-full.pool-acquire-dead", {
-        poolAvailable: pool.stats().available,
-        poolInUse: pool.stats().inUse,
-      });
-      pool.release(browser);
-      browser = await pool.acquire();
-    }
-
-    let forceReleased = false;
+    // CONTEXT-POOLED model: each newContext() checks out a pooled
+    // BrowserContext (X-AIMock-Strict centralized in the pool; per-feature
+    // X-AIMock-Context / X-Test-Id flow through `contextOpts`) and the
+    // wrapper's close() releases it. The dead-browser re-acquire dance is
+    // gone: the pool only opens contexts on live browsers (acquire skips
+    // recycling/disconnected browsers and retries on another if newContext
+    // throws), so a dead process can never be handed to a feature. The abort
+    // closure re-targets onto the open contexts: on abort it closes each
+    // (each close() releases its pooled context). There is no Browser held.
+    let aborted = false;
     const openContexts = new Set<{ close(): Promise<void> }>();
 
     if (abortSignal) {
       const onAbort = (): void => {
-        if (forceReleased) return;
-        forceReleased = true;
+        if (aborted) return;
+        aborted = true;
         const ctxCount = openContexts.size;
         const stats = pool.stats();
         logger?.warn("probe.e2e-full.pool-abort-release", {
@@ -374,7 +361,6 @@ export function createPooledE2eFullLauncher(
           ctx.close().catch(() => {}),
         );
         void Promise.allSettled(contextClosePromises).then(() => {
-          pool.release(browser);
           logger?.warn("probe.e2e-full.pool-abort-released", {
             closedContexts: ctxCount,
             poolAvailable: pool.stats().available,
@@ -382,9 +368,8 @@ export function createPooledE2eFullLauncher(
         });
       };
       if (abortSignal.aborted) {
-        forceReleased = true;
+        aborted = true;
         logger?.warn("probe.e2e-full.pool-pre-aborted-release");
-        pool.release(browser);
       } else {
         abortSignal.addEventListener("abort", onAbort, { once: true });
       }
@@ -394,13 +379,10 @@ export function createPooledE2eFullLauncher(
       async newContext(contextOpts?: {
         extraHTTPHeaders?: Record<string, string>;
       }): Promise<E2eFullBrowserContext> {
-        const ctx = await browser.newContext({
-          extraHTTPHeaders: {
-            "X-AIMock-Strict": "true",
-            ...contextOpts?.extraHTTPHeaders,
-          },
+        const ctx = await pool.acquire({
+          extraHTTPHeaders: contextOpts?.extraHTTPHeaders,
         });
-        const ctxHandle = { close: () => ctx.close() };
+        const ctxHandle = { close: () => pool.release(ctx) };
         openContexts.add(ctxHandle);
         return {
           async newPage(): Promise<E2eFullPage> {
@@ -454,14 +436,12 @@ export function createPooledE2eFullLauncher(
           },
           close: async () => {
             openContexts.delete(ctxHandle);
-            await ctx.close();
+            await pool.release(ctx);
           },
         };
       },
-      close: async () => {
-        if (forceReleased) return;
-        pool.release(browser);
-      },
+      // Launcher-level close is a no-op: each context releases itself.
+      close: async () => {},
     };
   };
 }
@@ -724,7 +704,7 @@ export function createE2eFullDriver(
               total: requestedFeatures.length,
               passed: 0,
               failed: [],
-              skipped: [...incapableFeatures.map(String)],
+              skipped: incapableFeatures.map(String),
               incapable:
                 incapableFeatures.length > 0
                   ? incapableFeatures.map(String)

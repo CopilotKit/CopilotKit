@@ -463,31 +463,25 @@ export function createPooledE2eDeepLauncher(
   logger?: { warn(event: string, meta?: Record<string, unknown>): void },
 ): E2eDeepBrowserLauncher {
   return async (abortSignal?: AbortSignal): Promise<E2eDeepBrowser> => {
-    const browser = await pool.acquire();
+    // CONTEXT-POOLED model: each newContext() checks out a pooled
+    // BrowserContext (X-AIMock-Strict centralized in the pool; per-feature
+    // X-AIMock-Context / X-Test-Id flow through `contextOpts`) and the
+    // wrapper's close() releases it. The abort closure re-targets onto the
+    // open contexts: on abort it closes each (each close() releases its
+    // pooled context). There is no Browser held. This still solves the
+    // pool-starvation race — Promise.race in the invoker abandons the driver
+    // promise while it keeps running with pooled contexts held; without this
+    // listener those contexts stay in-use across probe ticks.
+    let aborted = false;
 
-    // Track whether the browser was force-released by an abort so the
-    // driver's normal `browser.close()` in the finally block doesn't
-    // double-release (BrowserPool.release is a no-op for unknown refs
-    // after the browserToSlot entry is removed, but the close() would
-    // fail on an already-closed browser without the guard).
-    let forceReleased = false;
-
-    // Track open browser contexts so abort can close them before
-    // releasing the browser back to the pool. Without this, orphaned
-    // contexts keep the browser busy and the pool slot is effectively
-    // dead until the contexts are GC'd or the browser process crashes.
+    // Track open contexts so abort can close them. Each close() releases the
+    // pooled context back to the pool, freeing a context slot.
     const openContexts = new Set<{ close(): Promise<void> }>();
 
-    // Abort listener: when the invoker's timeout fires, the abort
-    // signal triggers. Force-close all open contexts and release the
-    // browser back to the pool immediately so the next probe run can
-    // acquire it. This prevents pool starvation when Promise.race
-    // abandons the driver promise but the driver keeps running with
-    // the pooled browser held.
     if (abortSignal) {
       const onAbort = (): void => {
-        if (forceReleased) return;
-        forceReleased = true;
+        if (aborted) return;
+        aborted = true;
         const ctxCount = openContexts.size;
         const stats = pool.stats();
         logger?.warn("probe.e2e-deep.pool-abort-release", {
@@ -500,7 +494,6 @@ export function createPooledE2eDeepLauncher(
           ctx.close().catch(() => {}),
         );
         void Promise.allSettled(contextClosePromises).then(() => {
-          pool.release(browser);
           logger?.warn("probe.e2e-deep.pool-abort-released", {
             closedContexts: ctxCount,
             poolAvailable: pool.stats().available,
@@ -508,9 +501,8 @@ export function createPooledE2eDeepLauncher(
         });
       };
       if (abortSignal.aborted) {
-        forceReleased = true;
+        aborted = true;
         logger?.warn("probe.e2e-deep.pool-pre-aborted-release");
-        pool.release(browser);
       } else {
         abortSignal.addEventListener("abort", onAbort, { once: true });
       }
@@ -520,13 +512,10 @@ export function createPooledE2eDeepLauncher(
       async newContext(contextOpts?: {
         extraHTTPHeaders?: Record<string, string>;
       }): Promise<E2eDeepBrowserContext> {
-        const ctx = await browser.newContext({
-          extraHTTPHeaders: {
-            "X-AIMock-Strict": "true",
-            ...contextOpts?.extraHTTPHeaders,
-          },
+        const ctx = await pool.acquire({
+          extraHTTPHeaders: contextOpts?.extraHTTPHeaders,
         });
-        const ctxHandle = { close: () => ctx.close() };
+        const ctxHandle = { close: () => pool.release(ctx) };
         openContexts.add(ctxHandle);
         return {
           async newPage(): Promise<E2eDeepPage> {
@@ -580,14 +569,12 @@ export function createPooledE2eDeepLauncher(
           },
           close: async () => {
             openContexts.delete(ctxHandle);
-            await ctx.close();
+            await pool.release(ctx);
           },
         };
       },
-      close: async () => {
-        if (forceReleased) return;
-        pool.release(browser);
-      },
+      // Launcher-level close is a no-op: each context releases itself.
+      close: async () => {},
     };
   };
 }

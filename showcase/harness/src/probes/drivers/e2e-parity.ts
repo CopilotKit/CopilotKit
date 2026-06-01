@@ -2,40 +2,41 @@ import { promises as fs } from "node:fs";
 import { z } from "zod";
 import { truncateUtf8 } from "../../render/filters.js";
 import { showcaseShapeSchema } from "../discovery/railway-services.js";
-import {
-  D5_REGISTRY,
-  type D5BuildContext,
-  type D5FeatureType,
-  type D5Script,
-  isD5FeatureType,
+import { D5_REGISTRY, isD5FeatureType } from "../helpers/d5-registry.js";
+import type {
+  D5BuildContext,
+  D5FeatureType,
+  D5Script,
 } from "../helpers/d5-registry.js";
-import {
-  runConversation,
-  type ConversationResult,
-  type Page as RunnerPage,
+import { runConversation } from "../helpers/conversation-runner.js";
+import type {
+  ConversationResult,
+  Page as RunnerPage,
 } from "../helpers/conversation-runner.js";
-import {
-  attachSseInterceptor as defaultAttachSseInterceptor,
-  type SseCapture,
-  type SseInterceptorHandle,
+import { attachSseInterceptor as defaultAttachSseInterceptor } from "../helpers/sse-interceptor.js";
+import type {
+  SseCapture,
+  SseInterceptorHandle,
 } from "../helpers/sse-interceptor.js";
 import {
   buildSnapshot,
   serializeRelevantDom,
-  type ReferenceCapturePage,
 } from "../helpers/reference-capture.js";
+import type { ReferenceCapturePage } from "../helpers/reference-capture.js";
 import {
   compareParity,
   DEFAULT_PARITY_TOLERANCES,
-  type ParityReport,
-  type ParitySnapshot,
-  type ParityTolerances,
+} from "../helpers/parity-compare.js";
+import type {
+  ParityReport,
+  ParitySnapshot,
+  ParityTolerances,
 } from "../helpers/parity-compare.js";
 import {
   loadReferenceSnapshot,
   selectD6Targets,
-  type LoadReferenceResult,
 } from "../helpers/d6-scoping.js";
+import type { LoadReferenceResult } from "../helpers/d6-scoping.js";
 import type { ProbeDriver } from "../types.js";
 import type { ProbeContext, ProbeResult } from "../../types/index.js";
 import path from "node:path";
@@ -356,12 +357,13 @@ export function createPooledE2eParityLauncher(
   pool: BrowserPool,
 ): E2eParityBrowserLauncher {
   return async (): Promise<E2eParityBrowser> => {
-    const browser = await pool.acquire();
+    // CONTEXT-POOLED model: each newContext() checks out a pooled
+    // BrowserContext (X-AIMock-Strict centralized in the pool) and the
+    // wrapper's close() releases it. No Browser is held; launcher close is a
+    // no-op.
     return {
       async newContext(): Promise<E2eParityBrowserContext> {
-        const ctx = await browser.newContext({
-          extraHTTPHeaders: { "X-AIMock-Strict": "true" },
-        });
+        const ctx = await pool.acquire();
         return {
           async newPage(): Promise<E2eParityPage> {
             const page = await ctx.newPage();
@@ -369,12 +371,10 @@ export function createPooledE2eParityLauncher(
             wrapped.asPlaywrightPage = (): PlaywrightPage => page;
             return wrapped;
           },
-          close: () => ctx.close(),
+          close: () => pool.release(ctx),
         };
       },
-      close: async () => {
-        pool.release(browser);
-      },
+      close: async () => {},
     };
   };
 }

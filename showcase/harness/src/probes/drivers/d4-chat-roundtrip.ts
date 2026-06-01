@@ -272,16 +272,17 @@ export function createPooledE2eSmokeLauncher(
   pool: BrowserPool,
 ): E2eBrowserLauncher {
   return async (): Promise<E2eBrowser> => {
-    const browser = await pool.acquire();
+    // CONTEXT-POOLED model: the launcher no longer acquires a Browser. Each
+    // `newContext()` checks out a pooled BrowserContext on a shared long-lived
+    // browser process (`pool.acquire`), and the wrapper's `close()` returns it
+    // (`pool.release`). The pool centralizes the X-AIMock-Strict default header;
+    // per-probe headers (X-AIMock-Context, X-Test-Id) flow through `ctxOpts`.
     return {
       async newContext(ctxOpts?: {
         extraHTTPHeaders?: Record<string, string>;
       }): Promise<E2eBrowserContext> {
-        const ctx = await browser.newContext({
-          extraHTTPHeaders: {
-            "X-AIMock-Strict": "true",
-            ...ctxOpts?.extraHTTPHeaders,
-          },
+        const ctx = await pool.acquire({
+          extraHTTPHeaders: ctxOpts?.extraHTTPHeaders,
         });
         return {
           async newPage(): Promise<E2ePage> {
@@ -296,12 +297,12 @@ export function createPooledE2eSmokeLauncher(
               close: () => page.close(),
             };
           },
-          close: () => ctx.close(),
+          close: () => pool.release(ctx),
         };
       },
-      close: async () => {
-        pool.release(browser);
-      },
+      // Launcher-level close is a no-op: contexts are released individually via
+      // each context-wrapper's close(). There is no Browser held to release.
+      close: async () => {},
     };
   };
 }

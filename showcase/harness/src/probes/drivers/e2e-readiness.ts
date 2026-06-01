@@ -294,58 +294,55 @@ export function createPooledE2eDemosLauncher(
   logger?: { warn(event: string, meta?: Record<string, unknown>): void },
 ): E2eDemosBrowserLauncher {
   return async (abortSignal?: AbortSignal): Promise<E2eDemosBrowser> => {
-    const browser = await pool.acquire();
-
-    // Track whether the browser was force-released by an abort so the
-    // driver's normal `browser.close()` in the finally block doesn't
-    // double-release the same slot. Mirrors createPooledE2eDeepLauncher's
-    // pattern (see e2e-deep.ts) — pool starvation under outer-timeout was
-    // the documented motivation there and the same race exists here:
-    // Promise.race in the invoker abandons the driver promise but the
-    // driver continues iterating demos with the pooled browser held until
-    // the loop drains. Without this listener the slot stays in-use across
-    // probe ticks and the next tick can't acquire it.
-    let forceReleased = false;
+    // CONTEXT-POOLED model: each newContext() checks out a pooled
+    // BrowserContext (X-AIMock-Strict centralized in the pool) and the
+    // wrapper's close() releases it. The abort closure re-targets onto the
+    // open contexts: on abort it closes each one (each close() releases its
+    // pooled context). There is no Browser held to release. This still solves
+    // the pool-starvation race — Promise.race in the invoker abandons the
+    // driver promise while the driver continues iterating demos with pooled
+    // contexts held; without this listener those contexts stay in-use across
+    // probe ticks and the cap stays saturated.
+    let aborted = false;
     const openContexts = new Set<{ close(): Promise<void> }>();
 
+    const closeAllOpenContexts = (): void => {
+      if (aborted) return;
+      aborted = true;
+      const ctxCount = openContexts.size;
+      const stats = pool.stats();
+      logger?.warn("probe.e2e-demos.pool-abort-release", {
+        openContexts: ctxCount,
+        poolAvailable: stats.available,
+        poolInUse: stats.inUse,
+        poolSize: stats.size,
+      });
+      const contextClosePromises = Array.from(openContexts).map((ctx) =>
+        ctx.close().catch(() => {}),
+      );
+      void Promise.allSettled(contextClosePromises).then(() => {
+        logger?.warn("probe.e2e-demos.pool-abort-released", {
+          closedContexts: ctxCount,
+          poolAvailable: pool.stats().available,
+        });
+      });
+    };
+
     if (abortSignal) {
-      const onAbort = (): void => {
-        if (forceReleased) return;
-        forceReleased = true;
-        const ctxCount = openContexts.size;
-        const stats = pool.stats();
-        logger?.warn("probe.e2e-demos.pool-abort-release", {
-          openContexts: ctxCount,
-          poolAvailable: stats.available,
-          poolInUse: stats.inUse,
-          poolSize: stats.size,
-        });
-        const contextClosePromises = Array.from(openContexts).map((ctx) =>
-          ctx.close().catch(() => {}),
-        );
-        void Promise.allSettled(contextClosePromises).then(() => {
-          pool.release(browser);
-          logger?.warn("probe.e2e-demos.pool-abort-released", {
-            closedContexts: ctxCount,
-            poolAvailable: pool.stats().available,
-          });
-        });
-      };
       if (abortSignal.aborted) {
-        forceReleased = true;
+        aborted = true;
         logger?.warn("probe.e2e-demos.pool-pre-aborted-release");
-        pool.release(browser);
       } else {
-        abortSignal.addEventListener("abort", onAbort, { once: true });
+        abortSignal.addEventListener("abort", closeAllOpenContexts, {
+          once: true,
+        });
       }
     }
 
     return {
       async newContext(): Promise<E2eDemosBrowserContext> {
-        const ctx = await browser.newContext({
-          extraHTTPHeaders: { "X-AIMock-Strict": "true" },
-        });
-        const ctxHandle = { close: () => ctx.close() };
+        const ctx = await pool.acquire();
+        const ctxHandle = { close: () => pool.release(ctx) };
         openContexts.add(ctxHandle);
         return {
           async newPage(): Promise<E2eDemosPage> {
@@ -358,14 +355,12 @@ export function createPooledE2eDemosLauncher(
           },
           close: async () => {
             openContexts.delete(ctxHandle);
-            await ctx.close();
+            await pool.release(ctx);
           },
         };
       },
-      close: async () => {
-        if (forceReleased) return;
-        pool.release(browser);
-      },
+      // Launcher-level close is a no-op: each context releases itself.
+      close: async () => {},
     };
   };
 }

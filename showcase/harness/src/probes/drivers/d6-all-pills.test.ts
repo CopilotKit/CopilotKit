@@ -541,102 +541,134 @@ describe("e2e-full driver", () => {
   // ~40 features don't all fail with "Target page, context or
   // browser has been closed".
   // --------------------------------------------------------------------
+  // Context-pool migration: the pooled launcher checks out a pooled
+  // CONTEXT per newContext() (pool.acquire) and releases it on close
+  // (pool.release). No Browser is held, so the dead-browser re-acquire
+  // dance is gone — the pool only opens contexts on live browsers. Each
+  // acquire moves inUse by 1, per-feature headers forward into acquire,
+  // and abort closes open contexts (each releasing its context).
   describe("createPooledE2eFullLauncher", () => {
-    it("releases and re-acquires when acquire() returns a disconnected browser", async () => {
-      const dead = makeFakeBrowserish(false);
-      const fresh = makeFakeBrowserish(true);
-      const acquired: FakeBrowserish[] = [];
-      const released: FakeBrowserish[] = [];
-      let nextIdx = 0;
-      const queue = [dead, fresh];
-      const fakePool = {
-        async acquire() {
-          const b = queue[nextIdx++]!;
-          acquired.push(b);
-          return b as unknown as Browser;
-        },
-        release(b: unknown) {
-          released.push(b as FakeBrowserish);
-        },
-        stats() {
-          return { size: 1, available: 0, inUse: 1, totalRecycles: 0 };
-        },
-      };
-      const warnings: Array<{ event: string; meta?: unknown }> = [];
-      const warnLogger = {
-        warn: (event: string, meta?: Record<string, unknown>) =>
-          warnings.push({ event, meta }),
-      };
+    it("checks out a pooled context per newContext() and moves inUse by 1", async () => {
+      const pool = makeFakeContextPool(4);
       const launcher = createPooledE2eFullLauncher(
-        fakePool as unknown as BrowserPool,
-        warnLogger,
+        pool as unknown as BrowserPool,
       );
       const browser = await launcher();
-      // Must have acquired twice (dead, then fresh) and released the
-      // dead instance back to the pool exactly once.
-      expect(acquired).toHaveLength(2);
-      expect(acquired[0]).toBe(dead);
-      expect(acquired[1]).toBe(fresh);
-      expect(released).toHaveLength(1);
-      expect(released[0]).toBe(dead);
-      // The launcher must return a usable E2eFullBrowser; smoke-test
-      // newContext() to confirm we got back the FRESH instance.
-      await browser.newContext();
-      // Diagnostic warn surfaced so operators can correlate.
-      expect(warnings.map((w) => w.event)).toContain(
-        "probe.e2e-full.pool-acquire-dead",
-      );
+      expect(pool.stats().inUse).toBe(0);
+      const ctx = await browser.newContext();
+      expect(pool.stats().inUse).toBe(1);
+      await ctx.close();
+      expect(pool.stats().inUse).toBe(0);
+      expect(pool._releaseLog).toHaveLength(1);
     });
 
-    it("does not re-acquire when the first acquire returns a healthy browser", async () => {
-      const healthy = makeFakeBrowserish(true);
-      const acquired: FakeBrowserish[] = [];
-      const released: FakeBrowserish[] = [];
-      const fakePool = {
-        async acquire() {
-          acquired.push(healthy);
-          return healthy as unknown as Browser;
-        },
-        release(b: unknown) {
-          released.push(b as FakeBrowserish);
-        },
-        stats() {
-          return { size: 1, available: 0, inUse: 1, totalRecycles: 0 };
-        },
-      };
+    it("forwards newContext(opts).extraHTTPHeaders into pool.acquire", async () => {
+      const pool = makeFakeContextPool(4);
       const launcher = createPooledE2eFullLauncher(
-        fakePool as unknown as BrowserPool,
+        pool as unknown as BrowserPool,
       );
-      await launcher();
-      expect(acquired).toHaveLength(1);
-      expect(released).toHaveLength(0);
+      const browser = await launcher();
+      await browser.newContext({
+        extraHTTPHeaders: {
+          "X-AIMock-Context": "slug-d6",
+          "X-Test-Id": "d6-slug-d6",
+        },
+      });
+      expect(pool._acquireOptions[0]).toEqual({
+        extraHTTPHeaders: {
+          "X-AIMock-Context": "slug-d6",
+          "X-Test-Id": "d6-slug-d6",
+        },
+      });
+    });
+
+    it("closes open contexts on abort (each releasing its pooled context)", async () => {
+      const pool = makeFakeContextPool(4);
+      const launcher = createPooledE2eFullLauncher(
+        pool as unknown as BrowserPool,
+      );
+      const ac = new AbortController();
+      const browser = await launcher(ac.signal);
+      const ctx = await browser.newContext();
+      await ctx.newPage();
+      expect(pool.stats().inUse).toBe(1);
+      ac.abort();
+      await new Promise((r) => setTimeout(r, 10));
+      expect(pool._releaseLog).toHaveLength(1);
+      expect(pool.stats().inUse).toBe(0);
+    });
+
+    it("launcher-level close is a no-op (contexts release themselves)", async () => {
+      const pool = makeFakeContextPool(4);
+      const launcher = createPooledE2eFullLauncher(
+        pool as unknown as BrowserPool,
+      );
+      const browser = await launcher();
+      const ctx = await browser.newContext();
+      await ctx.close();
+      await browser.close(); // no-op
+      expect(pool._releaseLog).toHaveLength(1);
     });
   });
 });
 
-// Module-scoped helpers for the createPooledE2eFullLauncher tests above —
-// lifted out of the describe so oxlint's consistent-function-scoping is
-// satisfied (the factory captures no parent state).
-interface FakeBrowserish {
-  connected: boolean;
-  newContext(): Promise<{
-    close(): Promise<void>;
-    newPage(): Promise<unknown>;
-  }>;
-  isConnected(): boolean;
-}
-
-function makeFakeBrowserish(connected: boolean): FakeBrowserish {
+// Module-scoped fake context-pool for the createPooledE2eFullLauncher tests
+// above — lifted out of the describe so oxlint's consistent-function-scoping
+// is satisfied (the factory captures no parent state). Tracks per-CONTEXT
+// acquire/release and the contextOptions each acquire was called with.
+function makeFakeContextPool(maxContexts: number) {
+  let nextCtxId = 0;
+  let live = 0;
+  const releaseLog: number[] = [];
+  const acquireOptions: Array<
+    { extraHTTPHeaders?: Record<string, string> } | undefined
+  > = [];
   return {
-    connected,
-    isConnected() {
-      return this.connected;
-    },
-    async newContext() {
+    async acquire(options?: { extraHTTPHeaders?: Record<string, string> }) {
+      if (live >= maxContexts) throw new Error("FakePool: at cap");
+      const id = nextCtxId++;
+      live++;
+      acquireOptions.push(options);
       return {
-        close: async () => {},
-        newPage: async () => ({}),
+        __id: id,
+        async newPage() {
+          return {
+            on: () => {},
+            waitForSelector: async () => {},
+            fill: async () => {},
+            press: async () => {},
+            evaluate: async () => 0,
+            goto: async () => {},
+            close: async () => {},
+            click: async () => {},
+            waitForFunction: async () => {},
+            isClosed: () => false,
+            locator: () => ({ count: async () => 0 }),
+            route: async () => {},
+            unroute: async () => {},
+          } as unknown;
+        },
+        async close() {},
+      } as unknown as Browser;
+    },
+    async release(ctx: unknown) {
+      const c = ctx as { __id: number };
+      releaseLog.push(c.__id);
+      live--;
+    },
+    stats() {
+      return {
+        size: maxContexts,
+        available: maxContexts - live,
+        inUse: live,
+        totalRecycles: 0,
       };
+    },
+    get _releaseLog() {
+      return releaseLog;
+    },
+    get _acquireOptions() {
+      return acquireOptions;
     },
   };
 }
