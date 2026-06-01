@@ -131,7 +131,7 @@ function BlockToken({
     case "code": {
       const c = token as { text: string; lang?: string };
       return (
-        <pre className="cpk:overflow-x-auto cpk:rounded-lg cpk:bg-black/5 cpk:p-3">
+        <pre className="cpk:overflow-x-auto cpk:rounded-lg cpk:bg-muted cpk:text-foreground cpk:p-3">
           <code data-language={c.lang || undefined}>{c.text}</code>
         </pre>
       );
