@@ -3,5 +3,6 @@
 
 export * from "./chat";
 export * from "./WildcardToolCallRender";
+export * from "./DefaultApprovalRenderer";
 export * from "./CopilotKitInspector";
 export * from "./MCPAppsActivityRenderer";

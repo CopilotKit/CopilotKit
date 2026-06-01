@@ -128,6 +128,7 @@ export function renderWithCopilotKit({
   renderActivityMessages,
   frontendTools,
   humanInTheLoop,
+  defaultApproval,
   agentId,
   threadId,
   children,
@@ -139,6 +140,7 @@ export function renderWithCopilotKit({
   renderActivityMessages?: ReactActivityMessageRenderer<any>[];
   frontendTools?: any[];
   humanInTheLoop?: any[];
+  defaultApproval?: boolean;
   agentId?: string;
   threadId?: string;
   children?: React.ReactNode;
@@ -155,6 +157,7 @@ export function renderWithCopilotKit({
       renderActivityMessages={renderActivityMessages}
       frontendTools={frontendTools}
       humanInTheLoop={humanInTheLoop}
+      defaultApproval={defaultApproval}
     >
       <CopilotChatConfigurationProvider
         agentId={resolvedAgentId}

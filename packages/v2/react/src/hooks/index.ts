@@ -7,6 +7,7 @@ export { useComponent } from "./use-component";
 export { useRenderTool } from "./use-render-tool";
 export { useDefaultRenderTool } from "./use-default-render-tool";
 export { useHumanInTheLoop } from "./use-human-in-the-loop";
+export { useDefaultApproval } from "./use-default-approval";
 export { useAgent, UseAgentUpdate } from "./use-agent";
 export { useAgentContext } from "./use-agent-context";
 export type { AgentContextInput, JsonSerializable } from "./use-agent-context";

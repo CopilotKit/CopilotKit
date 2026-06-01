@@ -15,6 +15,7 @@ import {
 } from "react";
 import { z } from "zod";
 import { CopilotKitInspector } from "../components/CopilotKitInspector";
+import { DefaultApprovalProvider } from "../components/DefaultApprovalProvider";
 import {
   MCPAppsActivityContentSchema,
   MCPAppsActivityRenderer,
@@ -78,6 +79,15 @@ export interface CopilotKitProviderProps {
   frontendTools?: ReactFrontendTool[];
   humanInTheLoop?: ReactHumanInTheLoop[];
   showDevConsole?: boolean | "auto";
+  /**
+   * When enabled, automatically renders a generic approve/deny UI for any
+   * backend tool call that has no matching `useHumanInTheLoop` or `useFrontendTool`
+   * registration. This enables seamless handling of Microsoft Agent Framework's
+   * `ApprovalRequiredAIFunction` without requiring manual frontend tool registration.
+   *
+   * @default false
+   */
+  defaultApproval?: boolean;
 }
 
 // Small helper to normalize array props to a stable reference and warn
@@ -119,6 +129,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   frontendTools,
   humanInTheLoop,
   showDevConsole = false,
+  defaultApproval = false,
   useSingleEndpoint = false,
 }) => {
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
@@ -407,6 +418,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
         executingToolCallIds,
       }}
     >
+      {defaultApproval && <DefaultApprovalProvider />}
       {children}
       {shouldRenderInspector ? <CopilotKitInspector core={copilotkit} /> : null}
     </CopilotKitContext.Provider>
