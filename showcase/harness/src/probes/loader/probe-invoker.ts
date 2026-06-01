@@ -23,6 +23,47 @@ import type { ProbeRunWriter, ProbeRunSummary } from "../run-history.js";
 const SYNTHETIC_ERROR_MSG_BUDGET = 1200;
 
 /**
+ * Per-worker startup stagger (ms) for the fan-out loop below. When a
+ * probe like d6-all-pills-e2e fans `max_concurrency` workers out across
+ * its discovered services in the same JS tick, each worker
+ * immediately drives a `pool.acquire()` that launches a Chromium
+ * (~50 threads/procs each). With 8 simultaneous workers the kernel
+ * sees ~400 thread spawns inside a 4ms window on top of an already-
+ * warm 10-browser pool, and the container hits its PID/thread ceiling
+ * — fork/pthread_create returns EAGAIN, Chromium processes die, and
+ * per-feature `browser.newContext()` fails with "Target page, context
+ * or browser has been closed" so the whole run aborts at T+2s.
+ *
+ * The fix is to spread the FIRST `pool.acquire()` of each worker out
+ * over `(concurrency - 1) * STAGGER_MS` so the per-Chromium thread-spawn
+ * bursts overlap rather than collide. Subsequent iterations of the same
+ * worker run at full speed — this only delays the initial fan-out
+ * (worker `i` waits `i * stagger` before pulling its first input), so
+ * wall-clock throughput is preserved.
+ *
+ * Env-overridable: `SERVICE_STARTUP_STAGGER_MS` (parsed as int; non-finite
+ * or negative values fall through to the default). Set to `0` to disable.
+ *
+ * Default chosen to spread 8 workers across ~2.1s — small relative to
+ * the 10-minute D6 budget but large enough that each Chromium's
+ * thread-spawn burst (~150ms in practice) is done before the next
+ * starts.
+ */
+const DEFAULT_SERVICE_STARTUP_STAGGER_MS = 300;
+
+function resolveStaggerMs(
+  env: Readonly<Record<string, string | undefined>>,
+): number {
+  const raw = env.SERVICE_STARTUP_STAGGER_MS;
+  if (raw === undefined) return DEFAULT_SERVICE_STARTUP_STAGGER_MS;
+  const parsed = parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return DEFAULT_SERVICE_STARTUP_STAGGER_MS;
+  }
+  return parsed;
+}
+
+/**
  * B7: minimal scheduler surface the invoker needs. Re-typed inline rather
  * than imported from `../scheduler/scheduler.ts` to keep this module
  * dependency-light (the full `Scheduler` interface owns cron + lifecycle
@@ -517,8 +558,22 @@ export function buildProbeInvoker(
     // Hand-rolled bounded pool. Each worker pulls from a shared index so
     // N workers process the M inputs cooperatively — no Promise.all
     // stampede even when M >> N.
+    //
+    // Per-worker startup stagger: worker `i` sleeps `i * staggerMs` before
+    // its first pull so the per-service `pool.acquire()` Chromium-launch
+    // bursts (~50 threads/procs each) don't pile up inside a single JS
+    // tick and trip the container's PID/thread ceiling. See
+    // `DEFAULT_SERVICE_STARTUP_STAGGER_MS` for the full rationale. Only the
+    // FIRST iteration of each worker is staggered — subsequent iterations
+    // run at full speed so wall-clock throughput is unchanged.
+    const staggerMs = resolveStaggerMs(env);
     let cursor = 0;
-    const runOne = async (): Promise<void> => {
+    const runOne = async (workerIndex: number): Promise<void> => {
+      if (staggerMs > 0 && workerIndex > 0) {
+        await new Promise<void>((resolve) =>
+          setTimeout(resolve, workerIndex * staggerMs),
+        );
+      }
       while (cursor < inputs.length) {
         // Invariant: `idx < inputs.length` from the loop precondition,
         // so `inputs[idx]` is always defined. Non-null assertion avoids
@@ -579,6 +634,27 @@ export function buildProbeInvoker(
           state: result.state,
           durationMs: Date.now() - targetStart,
         });
+        // Partial-rollup persistence: stamp the running partial tally onto
+        // the probe_runs row as each target completes so an orphaned row
+        // (process killed mid-run during a pool-churn burst) reflects real
+        // progress instead of a null summary. The boot-time sweep then
+        // preserves this partial rollup rather than zeroing it. Best-effort:
+        // a runWriter hiccup must never tank the probe tick — finish() in
+        // the finally block is still the authoritative final write.
+        if (runWriter && runRowId !== null) {
+          try {
+            await runWriter.update({
+              id: runRowId,
+              summary: { total: inputs.length, passed, failed },
+            });
+          } catch (err) {
+            logger.error("probe.run-writer-update-failed", {
+              probeId: cfg.id,
+              runId: runRowId,
+              err: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
         try {
           await writer.write(result);
         } catch (err) {
@@ -611,7 +687,7 @@ export function buildProbeInvoker(
       if (resolved.ok) {
         const workers = Array.from(
           { length: Math.min(concurrency, Math.max(inputs.length, 1)) },
-          () => runOne(),
+          (_, i) => runOne(i),
         );
         await Promise.all(workers);
       }

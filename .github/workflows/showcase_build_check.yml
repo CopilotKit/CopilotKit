@@ -147,8 +147,8 @@ jobs:
             {"dispatch_name":"claude-sdk-python","filter_key":"claude_sdk_python","context":"showcase/integrations/claude-sdk-python","image":"showcase-claude-sdk-python","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"built-in-agent","filter_key":"built_in_agent","context":"showcase/integrations/built-in-agent","image":"showcase-built-in-agent","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"shell-dojo","filter_key":"shell_dojo","context":".","image":"showcase-shell-dojo","timeout":10,"lfs":false,"build_args":"","dockerfile":"showcase/shell-dojo/Dockerfile"},
-            {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","build_args_pb_url":"https://showcase-pocketbase-production.up.railway.app","build_args_shell_url":"https://showcase.copilotkit.ai","build_args_ops_url":"https://showcase-harness-production.up.railway.app","dockerfile":"showcase/shell-dashboard/Dockerfile"},
-            {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","build_args_base_url":"https://docs.copilotkit.ai","build_args_shell_url":"https://showcase.copilotkit.ai","build_args_analytics":"yes","dockerfile":"showcase/shell-docs/Dockerfile"},
+            {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-dashboard/Dockerfile"},
+            {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-docs/Dockerfile"},
             {"dispatch_name":"showcase-harness","filter_key":"showcase_harness","context":".","image":"showcase-harness","timeout":20,"lfs":false,"build_args":"","dockerfile":"showcase/harness/Dockerfile"},
             {"dispatch_name":"showcase-aimock","filter_key":"showcase_aimock","context":"showcase/aimock","image":"showcase-aimock","timeout":5,"lfs":false,"build_args":"","dockerfile":"showcase/aimock/Dockerfile"}
           ]'
@@ -203,35 +203,11 @@ jobs:
         env:
           BUILD_ARGS_SHA: ${{ matrix.service.build_args_sha }}
           BUILD_ARGS_BRANCH: ${{ matrix.service.build_args_branch }}
-          BUILD_ARGS_PB_URL: ${{ matrix.service.build_args_pb_url }}
-          BUILD_ARGS_BASE_URL: ${{ matrix.service.build_args_base_url }}
-          BUILD_ARGS_SHELL_URL: ${{ matrix.service.build_args_shell_url }}
-          BUILD_ARGS_OPS_URL: ${{ matrix.service.build_args_ops_url }}
-          BUILD_ARGS_ANALYTICS: ${{ matrix.service.build_args_analytics }}
         run: |
           ARGS=""
           if [ -n "$BUILD_ARGS_SHA" ]; then
             ARGS="COMMIT_SHA=${BUILD_ARGS_SHA}"
             ARGS="${ARGS}"$'\n'"BRANCH=${BUILD_ARGS_BRANCH}"
-          fi
-          if [ -n "$BUILD_ARGS_PB_URL" ]; then
-            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_POCKETBASE_URL=${BUILD_ARGS_PB_URL}"
-          fi
-          if [ -n "$BUILD_ARGS_BASE_URL" ]; then
-            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_BASE_URL=${BUILD_ARGS_BASE_URL}"
-          fi
-          if [ -n "$BUILD_ARGS_SHELL_URL" ]; then
-            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_SHELL_URL=${BUILD_ARGS_SHELL_URL}"
-          fi
-          if [ -n "$BUILD_ARGS_OPS_URL" ]; then
-            ARGS="${ARGS:+${ARGS}$'\n'}OPS_BASE_URL=${BUILD_ARGS_OPS_URL}"
-          fi
-          if [ "$BUILD_ARGS_ANALYTICS" = "yes" ]; then
-            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_POSTHOG_KEY=pr-build"
-            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_REB2B_KEY=pr-build"
-            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_SCARF_PIXEL_ID=pr-build"
-            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_REO_KEY=pr-build"
-            ARGS="${ARGS:+${ARGS}$'\n'}NEXT_PUBLIC_GOOGLE_ANALYTICS_TRACKING_ID=G-PRBUILD"
           fi
           # Use delimiter to safely pass multiline value
           echo "args<<BUILDARGS_EOF" >> $GITHUB_OUTPUT

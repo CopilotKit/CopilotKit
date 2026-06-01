@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/a2ui-renderer",
-  "version": "1.59.1",
+  "version": "1.59.2",
   "private": false,
   "description": "A2UI Renderer for CopilotKit - render A2UI surfaces in React applications",
   "keywords": [
@@ -41,6 +41,7 @@
   },
   "scripts": {
     "build": "tsdown",
+    "compat-check": "es-check es2022 --module 'dist/**/!(*.umd).{mjs,cjs,js}' && es-check es2018 'dist/**/*.umd.js'",
     "check-types": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",

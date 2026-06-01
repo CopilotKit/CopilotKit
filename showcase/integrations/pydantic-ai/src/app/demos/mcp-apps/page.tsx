@@ -12,24 +12,15 @@
  * renders the sandboxed iframe inline in the chat — no app-side renderer
  * registration required.
  *
- * The PydanticAI agent itself is a no-tools agent (see
- * `src/agents/mcp_apps_agent.py`) — the runtime injects the remote MCP
- * server's tools into each request via the mcpApps middleware, and
- * PydanticAI's AG-UI bridge surfaces them to the model on each run.
- *
- * This cell points at the public Excalidraw MCP app
- * (https://mcp.excalidraw.com).
+ * This cell points at the public Excalidraw MCP app (https://mcp.excalidraw.com).
  *
  * Reference:
  * https://docs.copilotkit.ai/integrations/langgraph/generative-ui/mcp-apps
  */
 
 import React from "react";
-import {
-  CopilotKit,
-  CopilotChat,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core/v2";
+import { Chat } from "./chat";
 
 export default function MCPAppsDemo() {
   // @region[no-frontend-renderer-needed]
@@ -46,23 +37,4 @@ export default function MCPAppsDemo() {
     </CopilotKit>
   );
   // @endregion[no-frontend-renderer-needed]
-}
-
-function Chat() {
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Draw a flowchart",
-        message: "Use Excalidraw to draw a simple flowchart with three steps.",
-      },
-      {
-        title: "Sketch a system diagram",
-        message:
-          "Open Excalidraw and sketch a system diagram with a client, server, and database.",
-      },
-    ],
-    available: "always",
-  });
-
-  return <CopilotChat agentId="mcp-apps" className="h-full rounded-2xl" />;
 }

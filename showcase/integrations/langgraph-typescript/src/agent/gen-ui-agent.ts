@@ -26,6 +26,8 @@ import {
   StateGraph,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+import { makeChatOpenAI } from "./openai-headers";
+
 import {
   convertActionsToDynamicStructuredTools,
   CopilotKitStateAnnotation,
@@ -132,7 +134,10 @@ const SYSTEM_PROMPT =
 // ---------------------------------------------------------------------------
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
-  const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o-mini" });
+  const model = makeChatOpenAI(config, {
+    temperature: 0,
+    model: "gpt-4o-mini",
+  });
 
   const modelWithTools = model.bindTools!([
     ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),

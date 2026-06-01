@@ -79,7 +79,7 @@ export const flightDefinitions = {
           z.object({
             event: z.object({
               name: z.string(),
-              context: z.record(z.any()).optional(),
+              context: z.record(z.string(), z.any()).optional(),
             }),
           }),
           z.null(),

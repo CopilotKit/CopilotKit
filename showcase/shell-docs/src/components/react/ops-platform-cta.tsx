@@ -1,6 +1,7 @@
 "use client";
 
 import { CopilotKitMark } from "@/components/copilotkit-mark";
+import { getRuntimeConfig } from "@/lib/runtime-config.client";
 
 // Icons inlined as SVG so this component avoids a lucide-react dep
 // (shell-docs deliberately keeps icon usage minimal — see mdx-registry's
@@ -47,11 +48,6 @@ function Info({ className }: { className?: string }) {
   );
 }
 
-const DEFAULT_SIGNUP_URL = "https://dashboard.operations.copilotkit.ai/";
-
-const SIGNUP_URL =
-  process.env.NEXT_PUBLIC_INTELLIGENCE_SIGNUP_URL || DEFAULT_SIGNUP_URL;
-
 export type OpsPlatformCTAVariant = "tile" | "inline" | "card" | "info";
 
 export interface OpsPlatformCTAProps {
@@ -73,7 +69,12 @@ export interface OpsPlatformCTAProps {
 }
 
 function buildHref(surface: string): string {
-  const url = new URL(SIGNUP_URL);
+  // Signup URL is read at render time from the runtime config injected
+  // by the root layout — see signup-link.tsx and lib/runtime-config.ts
+  // for the full plumbing rationale. Keeps a single artifact retargetable
+  // across Railway envs without rebuild.
+  const signupUrl = getRuntimeConfig().intelligenceSignupUrl;
+  const url = new URL(signupUrl);
   url.searchParams.set("utm_source", "docs");
   url.searchParams.set("utm_medium", "cta");
   url.searchParams.set("utm_campaign", "intelligence");

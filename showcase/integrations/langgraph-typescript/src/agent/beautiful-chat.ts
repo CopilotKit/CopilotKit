@@ -36,6 +36,7 @@ import {
   StateGraph,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+import { makeChatOpenAI } from "./openai-headers";
 import {
   convertActionsToDynamicStructuredTools,
   copilotkitEmitState,
@@ -239,7 +240,10 @@ const generateA2ui = tool(
     // Secondary LLM designs a dynamic A2UI surface. Context is not threaded
     // through ToolNode by default, so we run a simple one-shot call that
     // mirrors the python agent's contract without direct state access.
-    const secondaryModel = new ChatOpenAI({ temperature: 0, model: "gpt-4.1" });
+    const secondaryModel = makeChatOpenAI(_config, {
+      temperature: 0,
+      model: "gpt-4.1",
+    });
     const renderTool = tool(async () => "rendered", {
       name: "render_a2ui",
       description: "Render a dynamic A2UI v0.9 surface.",
@@ -308,7 +312,7 @@ Tool guidance:
 `;
 
 async function chatNode(state: BeautifulChatState, config: RunnableConfig) {
-  const model = new ChatOpenAI({
+  const model = makeChatOpenAI(config, {
     temperature: 0,
     model: "gpt-4o",
     modelKwargs: { parallel_tool_calls: false },

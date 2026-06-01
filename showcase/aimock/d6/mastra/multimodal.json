@@ -2,13 +2,15 @@
   "_meta": {
     "description": "D6 fixtures for mastra / multimodal",
     "sourceFile": "harness/fixtures/d5/multimodal.json",
-    "created": "2026-05-22"
+    "created": "2026-05-22",
+    "note": "ported from multimodal (langgraph-python); context rewritten to mastra"
   },
   "fixtures": [
     {
-      "_comment": "multimodal image pill — describe the sample image attachment. The probe clicks the sample-image button to attach the bundled sample.png, then sends this query.",
+      "_comment": "multimodal \u2014 sample image turn. The probe clicks 'Try with sample image' which auto-sends via agent.addMessage. The assertion checks the assistant transcript contains the keyword 'image'. The userMessage here matches the agentic-chat fixture for 'describe the sample image' which is the message the sample-attachment-buttons component dispatches.",
       "match": {
         "userMessage": "describe the sample image",
+        "turnIndex": 0,
         "context": "mastra"
       },
       "response": {
@@ -16,9 +18,10 @@
       }
     },
     {
-      "_comment": "multimodal PDF pill — summarize the sample document.",
+      "_comment": "multimodal \u2014 sample PDF turn. The probe clicks 'Try with sample PDF' which auto-sends. The assertion checks the assistant transcript contains the keyword 'document'.",
       "match": {
         "userMessage": "summarize the sample document",
+        "turnIndex": 0,
         "context": "mastra"
       },
       "response": {

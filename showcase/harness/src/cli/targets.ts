@@ -23,6 +23,13 @@ interface Manifest {
   name: string;
   demos: Array<{ id: string; features?: string[] }>;
   features?: string[];
+  /**
+   * Features the integration's framework architecturally cannot support
+   * (e.g. lacks graph-interrupt API). Propagated to D6 driver inputs so
+   * the harness reclassifies probe failures on these features as
+   * `skipped-incapable` instead of counting them as red.
+   */
+  not_supported_features?: string[];
   deployed?: boolean;
 }
 
@@ -88,6 +95,12 @@ export interface FullInput {
   backendUrl: string;
   name: string;
   demos: string[];
+  /**
+   * Manifest `not_supported_features` set — forwarded so the driver
+   * reclassifies failing probes on these features as `skipped-incapable`
+   * instead of red. Empty/undefined when the manifest omits the field.
+   */
+  notSupportedFeatures?: string[];
   shape: "package";
 }
 
@@ -178,6 +191,15 @@ export function loadManifest(slug: string, config: LocalConfig): Manifest {
     );
   }
 
+  if (
+    manifest.not_supported_features !== undefined &&
+    !Array.isArray(manifest.not_supported_features)
+  ) {
+    throw new Error(
+      `Invalid "not_supported_features" in manifest for ${slug}: expected array`,
+    );
+  }
+
   return {
     slug: manifest.slug as string,
     name: (manifest.name as string) ?? slug,
@@ -186,6 +208,9 @@ export function loadManifest(slug: string, config: LocalConfig): Manifest {
       : [],
     features: Array.isArray(manifest.features)
       ? (manifest.features as string[])
+      : undefined,
+    not_supported_features: Array.isArray(manifest.not_supported_features)
+      ? (manifest.not_supported_features as string[])
       : undefined,
     deployed: manifest.deployed as boolean | undefined,
   };
@@ -329,6 +354,7 @@ export function buildFullInputs(
         backendUrl: getPackageUrl(slug, config),
         name: manifest.name,
         demos: features,
+        notSupportedFeatures: manifest.not_supported_features,
         shape: "package" as const,
       };
     })

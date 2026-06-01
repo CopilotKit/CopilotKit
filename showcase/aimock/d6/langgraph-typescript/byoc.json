@@ -24,16 +24,6 @@
       "response": {
         "content": "{\"component\":\"DealList\",\"props\":{\"title\":\"Open Deals\"},\"children\":[{\"component\":\"DealCard\",\"props\":{\"name\":\"Acme Corp — Platform License\",\"value\":\"$120K\",\"stage\":\"Negotiation\",\"probability\":\"75%\"}},{\"component\":\"DealCard\",\"props\":{\"name\":\"Globex Inc — Annual Support\",\"value\":\"$85K\",\"stage\":\"Proposal\",\"probability\":\"60%\"}},{\"component\":\"DealCard\",\"props\":{\"name\":\"Initech — Migration\",\"value\":\"$200K\",\"stage\":\"Discovery\",\"probability\":\"40%\"}}]}"
       }
-    },
-    {
-      "_comment": "byoc-json-render pill: KPI dashboard — returns flat element-map JSON consumed by @json-render/react.",
-      "match": {
-        "userMessage": "KPI dashboard",
-        "context": "langgraph-typescript"
-      },
-      "response": {
-        "content": "{\"root\":\"dashboard\",\"elements\":{\"dashboard\":{\"type\":\"Column\",\"props\":{\"gap\":12},\"children\":[\"metric-revenue\",\"metric-signups\",\"metric-churn\"]},\"metric-revenue\":{\"type\":\"MetricCard\",\"props\":{\"label\":\"Revenue\",\"value\":\"$1.2M\",\"trend\":\"+15% vs last quarter\"}},\"metric-signups\":{\"type\":\"MetricCard\",\"props\":{\"label\":\"Signups\",\"value\":\"4,820\",\"trend\":\"+22% vs last quarter\"}},\"metric-churn\":{\"type\":\"MetricCard\",\"props\":{\"label\":\"Churn\",\"value\":\"2.1%\",\"trend\":\"-0.3% vs last quarter\"}}}}"
-      }
     }
   ]
 }

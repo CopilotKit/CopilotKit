@@ -98,6 +98,54 @@ export const ASSISTANT_MESSAGE_FALLBACK_SELECTOR =
 export const ASSISTANT_MESSAGE_HEADLESS_SELECTOR =
   '[data-message-role="assistant"]';
 
+/**
+ * Stable testid rendered by `@copilotkit/react-core` and
+ * `@copilotkit/react-ui` whenever a chat turn ERRORS (the `ErrorMessage`
+ * chat bubble, the `UsageBanner`, and the toast `BannerErrorDisplay` all
+ * carry it — merged in CopilotKit #5110). When this banner becomes
+ * visible during the assistant-settle wait, the turn has failed and the
+ * runner can fast-fail instead of burning the full response timeout.
+ */
+export const ERROR_BANNER_SELECTOR = '[data-testid="copilot-error-banner"]';
+
+/**
+ * Max characters of banner text to embed in the thrown
+ * `AssistantErroredError` message. This cap is for LOG HYGIENE ONLY — error
+ * banners can carry very long copy (stack-ish detail, repeated retry text)
+ * and we don't want to dump the whole thing into the runner's failure log.
+ *
+ * Critically, this truncation is applied ONLY when shaping the thrown
+ * message — NOT to the value `waitForAssistantSettled` compares across polls
+ * to re-arm fast-fail. Comparing truncated text would make two DIFFERENT
+ * errors that share a 300-char prefix (e.g. identical human copy + differing
+ * request-id/suffix) look equal, suppressing the fast-fail and forcing the
+ * full settle timeout. The comparison therefore uses the FULL banner text;
+ * see `readErrorBanner` (returns untruncated text) and the `textChanged`
+ * check in `waitForAssistantSettled`.
+ */
+const BANNER_MESSAGE_MAX_LENGTH = 300;
+
+/**
+ * Distinguished error thrown by `waitForAssistantSettled` when the chat
+ * error banner becomes visible during the settle wait. Carrying its own
+ * type lets callers tell a fast errored turn apart from a slow settle
+ * timeout. The conversation runner maps any thrown turn error to the
+ * driver's `conversation-error` classification, so an errored turn is
+ * reported as a (fast) `conversation-error` rather than waiting out the
+ * timeout and racing the wall-clock `feature-timeout`.
+ */
+export class AssistantErroredError extends Error {
+  constructor(bannerText?: string) {
+    const detail = bannerText?.trim().slice(0, BANNER_MESSAGE_MAX_LENGTH);
+    super(
+      detail
+        ? `chat errored: copilot-error-banner visible — ${detail}`
+        : "chat errored: copilot-error-banner visible",
+    );
+    this.name = "AssistantErroredError";
+  }
+}
+
 /** Max attempts for the fill+press verify-and-retry loop. */
 const SEND_VERIFY_MAX_ATTEMPTS = 3;
 /** How long to wait after pressing Enter before checking for a user message. */
@@ -752,6 +800,66 @@ async function readMessageCount(page: Page): Promise<number> {
 }
 
 /**
+ * Read whether a chat error banner (`[data-testid="copilot-error-banner"]`)
+ * is currently VISIBLE in the page, and return its FULL text when present.
+ * Visibility (not mere presence) matters: a banner kept in the DOM but
+ * hidden (`display:none` / zero-size / `visibility:hidden`) is not an
+ * active error. Returns `{ visible: false }` on any read error so a
+ * transient DOM hiccup never spuriously fast-fails a turn.
+ *
+ * Returns the UNTRUNCATED `textContent` on purpose: `waitForAssistantSettled`
+ * compares this text across polls to re-arm fast-fail, and truncating here
+ * would make two distinct errors sharing a long common prefix compare equal
+ * (suppressing the fast-fail). The length cap for log hygiene is applied
+ * downstream, only when building the thrown `AssistantErroredError` message
+ * (`BANNER_MESSAGE_MAX_LENGTH`).
+ *
+ * Reached via the same type-erased `globalThis` indirection as
+ * `readMessageCount` because the package tsconfig excludes the `dom` lib.
+ */
+async function readErrorBanner(
+  page: Page,
+): Promise<{ visible: boolean; text?: string }> {
+  try {
+    return await page.evaluate(() => {
+      const win = globalThis as unknown as {
+        document: {
+          querySelector(sel: string): {
+            textContent: string | null;
+            getBoundingClientRect(): { width: number; height: number };
+          } | null;
+        };
+        getComputedStyle(el: unknown): {
+          display: string;
+          visibility: string;
+        };
+      };
+      const el = win.document.querySelector(
+        '[data-testid="copilot-error-banner"]',
+      );
+      if (!el) return { visible: false };
+      const style = win.getComputedStyle(el);
+      if (style.display === "none" || style.visibility === "hidden") {
+        return { visible: false };
+      }
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) {
+        return { visible: false };
+      }
+      return {
+        visible: true,
+        // FULL text — see docstring. Truncation happens only when shaping
+        // the thrown AssistantErroredError message, never on the value
+        // compared across polls to re-arm fast-fail.
+        text: el.textContent ?? "",
+      };
+    });
+  } catch {
+    return { visible: false };
+  }
+}
+
+/**
  * Block until the assistant-message count has grown past `baselineCount`
  * AND remained stable for `settleMs`, OR until `timeoutMs` elapses.
  * Returns the final stable count on success. Throws a `timeout` Error
@@ -761,6 +869,47 @@ async function readMessageCount(page: Page): Promise<number> {
  * timestamp of the most recent count change. If the current poll's
  * count is positive, has surpassed baseline, and `now - lastChangeAt
  * >= settleMs`, the response has settled.
+ *
+ * Fast-fail (ONE unified rule). Each poll also checks the chat error banner
+ * (`[data-testid="copilot-error-banner"]`). We snapshot the banner's
+ * visibility AND text ONCE at the turn's baseline (`bannerVisibleAtBaseline`,
+ * `bannerTextAtBaseline`), then each poll compute a single boolean:
+ *
+ *   errorStateNow = banner.visible &&
+ *                   (!bannerVisibleAtBaseline ||
+ *                    banner.text !== bannerTextAtBaseline)
+ *
+ * i.e. "an error banner is present in a state that DIFFERS from baseline".
+ * This single condition covers BOTH a brand-new banner (none at baseline)
+ * AND a persisted banner whose text changed — and it stays true even if the
+ * banner text keeps mutating each poll (a retry countdown, a live timestamp,
+ * a rotating request-id), because it only requires "differs from baseline",
+ * not a stable exact value across polls.
+ *
+ * We fast-fail (throw `AssistantErroredError`) only when ALL of:
+ *   (a) `errorStateNow` is true on 2 CONSECUTIVE polls. A single consecutive
+ *       counter debounces BOTH the new-banner and changed-banner cases; any
+ *       poll where `errorStateNow` is false resets it to 0. A single isolated
+ *       differs-from-baseline poll (a transient toast flicker, a one-poll
+ *       text glitch on a succeeding turn) therefore does NOT fire.
+ *   (b) the assistant has NOT produced a response this turn — the message
+ *       count has NOT grown past `baselineCount`. Success-in-flight wins: if
+ *       `current > baselineCount`, we never fast-fail (a non-fatal warning
+ *       banner alongside a real answer must not force-fail the turn); the
+ *       settle path governs instead.
+ *
+ * CopilotKit error banners persist across turns, so a stale same-text banner
+ * left over from a prior turn keeps `errorStateNow` false (text == baseline,
+ * banner was visible at baseline) and is intentionally NOT treated as this
+ * turn's error. The full (untruncated) banner text is compared — truncation
+ * applies only to the thrown message (`BANNER_MESSAGE_MAX_LENGTH`) — so two
+ * errors diverging only after the first 300 chars still differ from baseline.
+ *
+ * Inherent (now much smaller) limitation: a differs-from-baseline state that
+ * flickers true for only single ISOLATED polls (never 2 in a row) won't fire,
+ * and a brand-new error whose banner text is byte-identical to a persisted
+ * stale banner cannot be distinguished from it (both keep `errorStateNow`
+ * false). Both fall back to the settle/timeout path. This is intended.
  */
 async function waitForAssistantSettled(opts: {
   page: Page;
@@ -774,18 +923,82 @@ async function waitForAssistantSettled(opts: {
   let lastChangeAt = Date.now();
   let pollCount = 0;
   let lastLoggedCount = lastCount;
+  // Snapshot the error banner's visibility AND text ONCE BEFORE this turn's
+  // response arrives. A pre-existing (stale) banner must not be mistaken for
+  // this turn's error — but because CopilotKit banners persist across turns,
+  // a boolean "was it visible" snapshot alone would disable fast-fail for the
+  // whole turn whenever any banner lingered. Capturing the text lets the
+  // unified `errorStateNow` condition re-arm on a NEW or text-CHANGED banner
+  // even while a stale same-text banner is still on screen.
+  const baselineBanner = await readErrorBanner(page);
+  const bannerVisibleAtBaseline = baselineBanner.visible;
+  const bannerTextAtBaseline = baselineBanner.text;
+  // Single debounce counter shared by BOTH the new-banner and changed-banner
+  // cases: the number of CONSECUTIVE polls on which `errorStateNow` has been
+  // true. Any poll where `errorStateNow` is false resets it to 0. Fast-fail
+  // fires once it reaches 2 — see the unified rule in the docstring above.
+  let consecutiveErrorPolls = 0;
 
   console.debug("[conversation-runner] waitForAssistantSettled — start", {
     baselineCount,
     initialCount: lastCount,
     settleMs,
     timeoutMs,
+    bannerVisibleAtBaseline,
+    bannerTextAtBaseline,
   });
 
   while (Date.now() < deadline) {
     await sleep(POLL_INTERVAL_MS);
+
     const current = await readMessageCount(page);
     pollCount++;
+
+    // Unified fast-fail rule. Compute a single boolean: an error banner is
+    // present in a state that DIFFERS from baseline (a brand-new banner, OR a
+    // persisted banner whose text changed). This stays true even if the text
+    // keeps mutating each poll, since it only requires "differs from
+    // baseline", not a stable exact value.
+    const banner = await readErrorBanner(page);
+    const errorStateNow =
+      banner.visible &&
+      (!bannerVisibleAtBaseline || banner.text !== bannerTextAtBaseline);
+
+    // Condition (b): success-in-flight wins. If the assistant produced a
+    // response this turn (count grew past baseline), NEVER fast-fail — a
+    // non-fatal warning banner alongside a real answer must not force-fail
+    // the turn; the settle path governs. A produced response also disarms
+    // the consecutive-error counter so a banner that appears only after the
+    // response can't retroactively fire.
+    if (current > baselineCount) {
+      consecutiveErrorPolls = 0;
+    } else if (errorStateNow) {
+      // Condition (a): require 2 CONSECUTIVE differs-from-baseline polls
+      // before fast-failing, so a single isolated flicker (a transient toast,
+      // a one-poll text glitch on a succeeding turn) does not raise a spurious
+      // error.
+      consecutiveErrorPolls++;
+      if (consecutiveErrorPolls >= 2) {
+        console.debug(
+          "[conversation-runner] waitForAssistantSettled — error banner differs from baseline across 2 consecutive polls (no response produced), fast-failing",
+          {
+            baselineCount,
+            lastCount,
+            current,
+            pollCount,
+            elapsedMs: Date.now() - (deadline - timeoutMs),
+            bannerText: banner.text,
+            baselineBannerText: bannerTextAtBaseline,
+            bannerVisibleAtBaseline,
+          },
+        );
+        throw new AssistantErroredError(banner.text);
+      }
+    } else {
+      // No differing error state this poll → disarm the debounce.
+      consecutiveErrorPolls = 0;
+    }
+
     if (current !== lastCount) {
       console.debug(
         "[conversation-runner] waitForAssistantSettled — message count changed",

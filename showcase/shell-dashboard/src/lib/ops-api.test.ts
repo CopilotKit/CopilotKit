@@ -7,9 +7,10 @@
  *   - GET  <base>/probes/<id>             → { probe, runs }
  *   - POST <base>/probes/<id>/trigger     → TriggerResponse
  *
- * `baseUrl` resolution order is: explicit param → NEXT_PUBLIC_OPS_BASE_URL
- * → fallback `/api/ops` (proxy). The trigger token is supplied per-call;
- * the client just attaches it as a Bearer header.
+ * `baseUrl` resolution order is: explicit param → runtimeConfig.opsBaseUrl
+ * (from `window.__SHOWCASE_CONFIG__`) → fallback `/api/ops` (proxy). The
+ * trigger token is supplied per-call; the client just attaches it as a
+ * Bearer header.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
@@ -72,9 +73,11 @@ let fetchSpy: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   fetchSpy = vi.fn();
   vi.stubGlobal("fetch", fetchSpy);
-  // Reset env across tests so explicit-param vs env-var resolution is
-  // exercised cleanly.
-  delete process.env.NEXT_PUBLIC_OPS_BASE_URL;
+  // Reset runtime config across tests so explicit-param vs env-var
+  // resolution is exercised cleanly. The runtime config is normally
+  // injected by the root layout into `window.__SHOWCASE_CONFIG__`.
+  delete (window as Window & { __SHOWCASE_CONFIG__?: unknown })
+    .__SHOWCASE_CONFIG__;
 });
 
 afterEach(() => {
@@ -99,8 +102,13 @@ describe("fetchProbes", () => {
     expect(String(url)).toBe("/api/ops/probes");
   });
 
-  it("uses NEXT_PUBLIC_OPS_BASE_URL when explicit param omitted", async () => {
-    process.env.NEXT_PUBLIC_OPS_BASE_URL = "https://ops.example.com";
+  it("uses runtimeConfig.opsBaseUrl when explicit param omitted", async () => {
+    (window as Window & { __SHOWCASE_CONFIG__?: unknown }).__SHOWCASE_CONFIG__ =
+      {
+        pocketbaseUrl: "",
+        shellUrl: "",
+        opsBaseUrl: "https://ops.example.com",
+      };
     fetchSpy.mockResolvedValue(jsonResponse(emptyProbesResponse()));
     await fetchProbes();
     const [url] = fetchSpy.mock.calls[0]!;

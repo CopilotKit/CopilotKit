@@ -1,165 +1,256 @@
-interface DemoLink {
-  id: string;
-  href: string;
-  title: string;
-  description: string;
-}
+import fs from "node:fs";
+import path from "node:path";
+import { parse } from "yaml";
 
-const DEMOS: DemoLink[] = [
-  {
-    id: "agentic-chat",
-    href: "/demos/agentic-chat",
-    title: "Agentic Chat",
-    description: "Natural conversation with frontend tool execution",
-  },
-  {
-    id: "hitl",
-    href: "/demos/hitl",
-    title: "Human in the Loop (original)",
-    description: "User approves agent actions before execution",
-  },
-  {
-    id: "hitl-in-chat",
-    href: "/demos/hitl-in-chat",
-    title: "HITL In-Chat (useHumanInTheLoop)",
-    description: "Inline chat approval via the ergonomic hook",
-  },
-  {
-    id: "hitl-in-app",
-    href: "/demos/hitl-in-app",
-    title: "HITL In-App",
-    description: "App-level modal approval via async frontend tool",
-  },
-  {
-    id: "tool-rendering",
-    href: "/demos/tool-rendering",
-    title: "Tool Rendering",
-    description: "Backend agent tools rendered as UI components",
-  },
-  {
-    id: "tool-rendering-default-catchall",
-    href: "/demos/tool-rendering-default-catchall",
-    title: "Tool Rendering (Default Catch-all)",
-    description: "Built-in default tool-call card",
-  },
-  {
-    id: "tool-rendering-custom-catchall",
-    href: "/demos/tool-rendering-custom-catchall",
-    title: "Tool Rendering (Custom Catch-all)",
-    description: "Single branded wildcard renderer",
-  },
-  {
-    id: "gen-ui-tool-based",
-    href: "/demos/gen-ui-tool-based",
-    title: "Tool-Based Generative UI",
-    description: "Agent uses tools to trigger UI generation",
-  },
-  {
-    id: "gen-ui-agent",
-    href: "/demos/gen-ui-agent",
-    title: "Agentic Generative UI",
-    description: "Long-running agent tasks with generated UI",
-  },
-  {
-    id: "shared-state-read-write",
-    href: "/demos/shared-state-read-write",
-    title: "Shared State (Read + Write)",
-    description: "Bidirectional agent state",
-  },
-  {
-    id: "shared-state-streaming",
-    href: "/demos/shared-state-streaming",
-    title: "State Streaming",
-    description: "Per-token state delta streaming",
-  },
-  {
-    id: "readonly-state-agent-context",
-    href: "/demos/readonly-state-agent-context",
-    title: "Readonly State (Agent Context)",
-    description: "Read-only context via useAgentContext",
-  },
-  {
-    id: "subagents",
-    href: "/demos/subagents",
-    title: "Sub-Agents",
-    description: "Multiple agents with visible task delegation",
-  },
-  {
-    id: "prebuilt-sidebar",
-    href: "/demos/prebuilt-sidebar",
-    title: "Pre-Built Sidebar",
-    description: "Docked <CopilotSidebar />",
-  },
-  {
-    id: "prebuilt-popup",
-    href: "/demos/prebuilt-popup",
-    title: "Pre-Built Popup",
-    description: "Floating <CopilotPopup />",
-  },
-  {
-    id: "chat-slots",
-    href: "/demos/chat-slots",
-    title: "Chat Slots",
-    description: "Customize CopilotChat via slot system",
-  },
-  {
-    id: "chat-customization-css",
-    href: "/demos/chat-customization-css",
-    title: "Chat Customization (CSS)",
-    description: "Theming via CopilotKitCSSProperties",
-  },
-  {
-    id: "headless-simple",
-    href: "/demos/headless-simple",
-    title: "Headless Chat (Simple)",
-    description: "Minimal custom chat surface on useAgent",
-  },
-  {
-    id: "frontend-tools",
-    href: "/demos/frontend-tools",
-    title: "Frontend Tools",
-    description: "Client-side handlers via useFrontendTool",
-  },
-  {
-    id: "frontend-tools-async",
-    href: "/demos/frontend-tools-async",
-    title: "Frontend Tools (Async)",
-    description: "Async handler + render output",
-  },
-  {
-    id: "agentic-chat-reasoning",
-    href: "/demos/agentic-chat-reasoning",
-    title: "Reasoning",
-    description: "Visible reasoning chain via slot override",
-  },
-  {
-    id: "reasoning-default-render",
-    href: "/demos/reasoning-default-render",
-    title: "Reasoning (Default Render)",
-    description: "Built-in CopilotChatReasoningMessage",
-  },
-  {
-    id: "agent-config",
-    href: "/demos/agent-config",
-    title: "Agent Config",
-    description: "Forward config (tone/expertise/length) via context",
-  },
+type Demo = {
+  id: string;
+  name: string;
+  description?: string;
+  route?: string;
+  command?: string;
+  tags?: string[];
+};
+
+type Manifest = {
+  name: string;
+  slug: string;
+  description?: string;
+  features?: string[];
+  demos: Demo[];
+};
+
+const TAG_ORDER = [
+  "chat-ui",
+  "interactivity",
+  "generative-ui",
+  "agent-capabilities",
+  "agent-state",
+  "multi-agent",
+  "headless",
+  "platform",
+  "other",
 ];
 
+const TAG_LABELS: Record<string, string> = {
+  "chat-ui": "Chat UI",
+  interactivity: "Interactivity",
+  "generative-ui": "Generative UI",
+  "agent-capabilities": "Agent Capabilities",
+  "agent-state": "Agent State",
+  "multi-agent": "Multi-Agent",
+  headless: "Headless",
+  platform: "Platform",
+  other: "Other",
+};
+
+function loadManifest(): Manifest {
+  const manifestPath = path.join(process.cwd(), "manifest.yaml");
+  return parse(fs.readFileSync(manifestPath, "utf8")) as Manifest;
+}
+
+function groupByTag(
+  demos: Demo[],
+  features: string[],
+): { tag: string; demos: Demo[] }[] {
+  // Demos within each tag follow `manifest.features` ordering — that's
+  // the team's curated "first-impression" arc (polished flagship →
+  // simplest start → variants). Demos missing from the features list
+  // fall to the end of their tag.
+  const featureIndex = new Map(features.map((id, i) => [id, i]));
+  const orderOf = (id: string) =>
+    featureIndex.get(id) ?? Number.MAX_SAFE_INTEGER;
+
+  const map = new Map<string, Demo[]>();
+  for (const demo of demos) {
+    const tag = demo.tags?.[0] ?? "other";
+    if (!map.has(tag)) map.set(tag, []);
+    map.get(tag)!.push(demo);
+  }
+  for (const list of map.values()) {
+    list.sort((a, b) => orderOf(a.id) - orderOf(b.id));
+  }
+  const tags = Array.from(map.keys()).sort((a, b) => {
+    const ai = TAG_ORDER.indexOf(a);
+    const bi = TAG_ORDER.indexOf(b);
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  });
+  return tags.map((tag) => ({ tag, demos: map.get(tag)! }));
+}
+
 export default function Home() {
+  const manifest = loadManifest();
+  const runnable = (manifest.demos ?? []).filter((d) => d.route);
+  const groups = groupByTag(runnable, manifest.features ?? []);
+
   return (
-    <main style={{ padding: "2rem", maxWidth: "900px", margin: "0 auto" }}>
-      <h1>Mastra</h1>
-      <p>Integration ID: mastra</p>
-      <h2 style={{ marginTop: "2rem" }}>Demos</h2>
-      <div style={{ display: "grid", gap: "1rem", marginTop: "1rem" }}>
-        {DEMOS.map((d) => (
-          <a key={d.id} href={d.href} className="demo-card">
-            <h3>{d.title}</h3>
-            <p>{d.description}</p>
-          </a>
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        overflowY: "auto",
+        background: "var(--background)",
+        color: "var(--foreground)",
+      }}
+    >
+      <main
+        style={{
+          maxWidth: "980px",
+          margin: "0 auto",
+          padding: "3rem 1.5rem 4rem",
+        }}
+      >
+        <header
+          style={{
+            paddingBottom: "1.5rem",
+            borderBottom: "1px solid var(--border)",
+            marginBottom: "2rem",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "0.75rem",
+              fontWeight: 600,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: "var(--muted-foreground)",
+              marginBottom: "0.5rem",
+            }}
+          >
+            CopilotKit Showcase
+          </div>
+          <h1
+            style={{
+              fontSize: "2.25rem",
+              fontWeight: 700,
+              letterSpacing: "-0.02em",
+              margin: 0,
+            }}
+          >
+            {manifest.name}
+          </h1>
+          <p
+            style={{
+              color: "var(--muted-foreground)",
+              fontSize: "1rem",
+              lineHeight: 1.6,
+              marginTop: "0.75rem",
+              maxWidth: "62ch",
+            }}
+          >
+            {manifest.description ??
+              "Browse runnable demos for this integration."}
+          </p>
+          <div
+            style={{
+              display: "flex",
+              gap: "0.5rem",
+              marginTop: "1rem",
+              fontSize: "0.8125rem",
+              color: "var(--muted-foreground)",
+            }}
+          >
+            <span>
+              <strong style={{ color: "var(--foreground)" }}>
+                {runnable.length}
+              </strong>{" "}
+              demos
+            </span>
+            <span>·</span>
+            <span>{groups.length} categories</span>
+            <span>·</span>
+            <span>
+              integration{" "}
+              <code
+                style={{
+                  background: "var(--muted)",
+                  padding: "0.125rem 0.4rem",
+                  borderRadius: "0.375rem",
+                  fontSize: "0.8125rem",
+                }}
+              >
+                {manifest.slug}
+              </code>
+            </span>
+          </div>
+        </header>
+
+        {groups.map(({ tag, demos }) => (
+          <section key={tag} style={{ marginBottom: "2.5rem" }}>
+            <h2
+              style={{
+                fontSize: "0.8125rem",
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                color: "var(--muted-foreground)",
+                margin: "0 0 0.875rem",
+              }}
+            >
+              {TAG_LABELS[tag] ?? tag.replace(/-/g, " ")}
+              <span
+                style={{
+                  marginLeft: "0.5rem",
+                  fontWeight: 400,
+                  color: "var(--muted-foreground)",
+                  opacity: 0.6,
+                }}
+              >
+                {demos.length}
+              </span>
+            </h2>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+                gap: "0.75rem",
+              }}
+            >
+              {demos.map((demo) => (
+                <a key={demo.id} href={demo.route} className="demo-card">
+                  <h3
+                    style={{
+                      fontSize: "1rem",
+                      fontWeight: 600,
+                      letterSpacing: "-0.01em",
+                      margin: "0 0 0.375rem",
+                      color: "var(--foreground)",
+                    }}
+                  >
+                    {demo.name}
+                  </h3>
+                  {demo.description && (
+                    <p
+                      style={{
+                        fontSize: "0.8125rem",
+                        lineHeight: 1.5,
+                        color: "var(--muted-foreground)",
+                        margin: 0,
+                        display: "-webkit-box",
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                      }}
+                    >
+                      {demo.description}
+                    </p>
+                  )}
+                  <div
+                    style={{
+                      marginTop: "0.75rem",
+                      fontFamily: "ui-monospace, monospace",
+                      fontSize: "0.75rem",
+                      color: "var(--muted-foreground)",
+                      opacity: 0.7,
+                    }}
+                  >
+                    {demo.route}
+                  </div>
+                </a>
+              ))}
+            </div>
+          </section>
         ))}
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }

@@ -32,6 +32,16 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 from dotenv import load_dotenv
 
+# ORDER-CRITICAL: install the global httpx hook BEFORE any agent module
+# imports. PydanticAI's ``OpenAIResponsesModel`` constructs its httpx
+# client at agent-module import time.
+from agents._header_forwarding import (
+    HeaderForwardingHTTPMiddleware,
+    install_global_httpx_hook,
+)
+
+install_global_httpx_hook()
+
 from agents.agent import SalesTodosState, StateDeps, agent
 from agents.open_gen_ui_agent import agent as open_gen_ui_agent
 from agents.open_gen_ui_advanced_agent import agent as open_gen_ui_advanced_agent
@@ -80,6 +90,12 @@ class HealthMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(HealthMiddleware)
+
+# Capture inbound CopilotKit ``x-*`` headers (e.g. ``x-aimock-context``)
+# into a per-request ContextVar so any outbound LLM/provider httpx call
+# made inside the request scope copies them onto its outbound request.
+# Paired with ``install_global_httpx_hook`` at the top of this file.
+app.add_middleware(HeaderForwardingHTTPMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

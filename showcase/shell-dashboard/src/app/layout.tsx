@@ -1,5 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import { getRuntimeConfig } from "@/lib/runtime-config";
+import { serializeRuntimeConfig } from "@/lib/runtime-config-serialize";
 
 export const metadata: Metadata = {
   title: "CopilotKit Internal Showcase",
@@ -31,14 +33,37 @@ const themeInitScript = `
 })();
 `;
 
+// serializeRuntimeConfig is extracted to `lib/runtime-config-serialize.ts`
+// so it can be unit-tested for the OWASP escape behavior (XSS via
+// `</script>`, U+2028/U+2029 line-terminator injection) without
+// importing the layout into the test runner.
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Server-side: read live env at request time. `unstable_noStore()`
+  // inside getRuntimeConfig opts this segment out of the static
+  // cache so the inline <script> below always reflects the current
+  // Railway env vars.
+  const runtimeConfig = getRuntimeConfig();
+  const injection = `window.__SHOWCASE_CONFIG__=${serializeRuntimeConfig(runtimeConfig)};`;
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/*
+         * Order matters: __showcase_config__ MUST run before any
+         * client component reads window.__SHOWCASE_CONFIG__. We
+         * put it FIRST in <head>, before the theme-init script
+         * (which has no dependency on it) and well before
+         * <body> where client components mount.
+         */}
+        <script
+          id="__showcase_config__"
+          dangerouslySetInnerHTML={{ __html: injection }}
+        />
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>

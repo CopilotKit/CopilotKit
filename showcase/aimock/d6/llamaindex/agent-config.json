@@ -9,7 +9,6 @@
       "_comment": "agent-config tone:professional — value-A turn. Must differ from tone:casual response to pass the text-diff assertion.",
       "match": {
         "userMessage": "tone:professional — introduce yourself per your config",
-        "turnIndex": 0,
         "context": "llamaindex"
       },
       "response": {
@@ -20,7 +19,6 @@
       "_comment": "agent-config tone:casual — value-B turn. Must differ from tone:professional response.",
       "match": {
         "userMessage": "tone:casual — introduce yourself per your config",
-        "turnIndex": 0,
         "context": "llamaindex"
       },
       "response": {
@@ -31,7 +29,6 @@
       "_comment": "agent-config expertise:beginner — value-A turn. Must differ from expertise:expert response.",
       "match": {
         "userMessage": "expertise:beginner — explain how copilotkit works per your config",
-        "turnIndex": 0,
         "context": "llamaindex"
       },
       "response": {
@@ -42,7 +39,6 @@
       "_comment": "agent-config expertise:expert — value-B turn. Must differ from expertise:beginner response.",
       "match": {
         "userMessage": "expertise:expert — explain how copilotkit works per your config",
-        "turnIndex": 0,
         "context": "llamaindex"
       },
       "response": {
@@ -53,7 +49,6 @@
       "_comment": "agent-config responseLength:concise — value-A turn. Must be shorter than responseLength:detailed by >= 80 chars.",
       "match": {
         "userMessage": "responseLength:concise — describe agent context per your config",
-        "turnIndex": 0,
         "context": "llamaindex"
       },
       "response": {
@@ -64,7 +59,6 @@
       "_comment": "agent-config responseLength:detailed — value-B turn. Must exceed concise by >= 80 chars (RESPONSE_LENGTH_DELTA_MIN).",
       "match": {
         "userMessage": "responseLength:detailed — describe agent context per your config",
-        "turnIndex": 0,
         "context": "llamaindex"
       },
       "response": {

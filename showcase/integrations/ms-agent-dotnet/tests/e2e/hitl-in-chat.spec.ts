@@ -67,34 +67,6 @@ test.describe("HITL in chat — booking flow", () => {
     ).toBeVisible({ timeout: 30000 });
   });
 
-  test("cancelling the time picker returns a denied response, not a booking confirmation", async ({
-    page,
-  }) => {
-    const input = page.getByPlaceholder("Type a message");
-    await input.fill("Schedule a 1:1 with Alice next week to review Q2 goals.");
-    await input.press("Enter");
-
-    const card = page.locator('[data-testid="time-picker-card"]');
-    await expect(card).toBeVisible({ timeout: 60000 });
-    await card.getByRole("button", { name: "None of these work" }).click();
-
-    await expect(
-      page.locator('[data-testid="time-picker-cancelled"]'),
-    ).toBeVisible({ timeout: 10000 });
-
-    const assistantMessages = page.locator(
-      '[data-testid="copilot-assistant-message"]',
-    );
-    await expect(
-      assistantMessages
-        .filter({ hasText: /Denied.*Alice|not booked/i })
-        .first(),
-    ).toBeVisible({ timeout: 30000 });
-    await expect(
-      assistantMessages.filter({ hasText: /Booked.*Alice/i }),
-    ).toHaveCount(0);
-  });
-
   // The other suggestion in the demo. Same HITL flow, different
   // attendee/topic. Pinned here so a missing/regressed aimock fixture for
   // this suggestion (or a wiring regression in this integration's

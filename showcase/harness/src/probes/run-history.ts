@@ -64,6 +64,18 @@ export interface ProbeRunWriter {
     triggered: boolean;
   }): Promise<{ id: string }>;
   /**
+   * Persist a partial rollup onto a still-`running` row WITHOUT marking it
+   * terminal. Called incrementally as each fan-out target completes so an
+   * orphaned row (orchestrator process killed mid-run — e.g. a pool-churn
+   * burst) already carries the partial per-service results the run had
+   * computed. Without this, a `running` row that never reaches `finish()`
+   * has a null summary, and the boot-time `sweepStaleRuns` has nothing to
+   * preserve — the dashboard then shows `failed / total:0` even though
+   * dozens of features actually passed. State stays `running`; only
+   * `summary` is updated. Best-effort, like `finish()`.
+   */
+  update(opts: { id: string; summary: ProbeRunSummary }): Promise<void>;
+  /**
    * Mark a row finished. `duration_ms` is computed from
    * `finishedAt - row.started_at` (read off the persisted row, not from a
    * caller-supplied startedAt) so the contract holds even if the caller
@@ -124,6 +136,27 @@ export function createProbeRunWriter(pb: PbClient): ProbeRunWriter {
         summary: null,
       });
       return { id: created.id };
+    },
+
+    async update(opts) {
+      // Refresh only the partial summary on a still-running row. We leave
+      // `state`, `finished_at`, and `duration_ms` untouched so this can be
+      // called repeatedly mid-run without prematurely marking the row
+      // terminal. The row must exist (start() created it); a missing row
+      // means the caller is updating an id it never created — surface it
+      // rather than silently writing junk, mirroring finish()'s guard.
+      const existing = await pb.getOne<ProbeRunRow>(
+        PROBE_RUNS_COLLECTION,
+        opts.id,
+      );
+      if (!existing) {
+        // eslint-disable-next-line no-console
+        console.warn("run-history.update: row missing", { runId: opts.id });
+        return;
+      }
+      await pb.update<ProbeRunRow>(PROBE_RUNS_COLLECTION, opts.id, {
+        summary: opts.summary,
+      });
     },
 
     async finish(opts) {
@@ -202,11 +235,29 @@ export async function sweepStaleRuns(
   let swept = 0;
   for (const row of stale.items) {
     try {
+      // Partial-rollup preservation: an orphaned `running` row may already
+      // carry the partial per-service rollup the invoker persisted
+      // incrementally (`runWriter.update`) before the process died. Marking
+      // the run `failed` is correct (it WAS aborted), but clobbering the
+      // summary to `{0,0,0}` discards real work — a 578s D6 run with dozens
+      // of green features would surface as `failed / total:0`. Keep the
+      // existing summary when present; fall back to an explicit empty
+      // rollup only for rows that died before any target completed.
+      const summary = row.summary ?? { total: 0, passed: 0, failed: 0 };
+      // Derive a real duration from the persisted started_at when possible
+      // so a preserved partial run still reports how long it actually ran.
+      const finishedAt = Date.now();
+      const startedAtMs = row.started_at
+        ? Date.parse(row.started_at)
+        : Number.NaN;
+      const durationMs = Number.isFinite(startedAtMs)
+        ? finishedAt - startedAtMs
+        : null;
       await pb.update<ProbeRunRow>(PROBE_RUNS_COLLECTION, row.id, {
         state: "failed",
-        finished_at: new Date().toISOString(),
-        duration_ms: null,
-        summary: { total: 0, passed: 0, failed: 0 },
+        finished_at: new Date(finishedAt).toISOString(),
+        duration_ms: durationMs,
+        summary,
       });
       swept++;
     } catch {

@@ -38,7 +38,6 @@
       "_comment": "default-catchall: weather in Tokyo \u2014 fallback when get_weather tool not registered.",
       "match": {
         "userMessage": "check Tokyo weather forecast",
-        "turnIndex": 0,
         "context": "claude-sdk-python"
       },
       "response": {

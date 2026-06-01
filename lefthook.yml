@@ -57,9 +57,16 @@ pre-commit:
       run: |
         set -- {staged_files}
         if [ "$#" -gt 0 ]; then
-          pnpm exec oxlint --fix "$@" &&
-          pnpm exec oxfmt --write "$@" ;
-          ruff format "$@" 2>/dev/null || true
+          pnpm exec oxlint --fix "$@"
+          # Defense-in-depth: filter package.json from explicit oxfmt args even though
+          # .oxfmtrc.json ignorePatterns covers it. Explicit-path invocations bypass the
+          # pattern in some tool versions; the shell filter makes the exclusion unconditional.
+          fmt_files=""; for f in "$@"; do case "$f" in */package.json|package.json) ;; *) fmt_files="$fmt_files $f" ;; esac; done
+          [ -n "$fmt_files" ] && pnpm exec oxfmt --write $fmt_files
+          # ruff v0.9+ formats JSON with trailing commas (JSONC), which breaks
+          # pnpm's JSON parser in the sync-lockfile hook. Scope it to .py only.
+          py_files=""; for f in "$@"; do case "$f" in *.py) py_files="$py_files $f";; esac; done
+          [ -n "$py_files" ] && ruff format $py_files 2>/dev/null || true
         fi
       stage_fixed: true
     test-and-check-packages:

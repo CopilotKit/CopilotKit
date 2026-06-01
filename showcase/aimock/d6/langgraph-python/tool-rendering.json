@@ -37,10 +37,9 @@
       }
     },
     {
-      "_comment": "tool-rendering pill: Chain tools — emit 3 tool calls in one assistant turn (get_weather Tokyo + search_flights SFO->Tokyo + roll_d20=11). MUST appear before the bare 'weather in Tokyo' fixture below; substring match would otherwise leak into this prompt. No hasToolResult gate: in multi-pill demo sessions prior clicks leave tool results in the thread, which previously caused this fixture to be skipped in favour of the follow-up content fixture and the pill rendered no cards.",
+      "_comment": "tool-rendering pill: Chain tools — emit 3 tool calls in one assistant turn (get_weather Tokyo + search_flights SFO->Tokyo + roll_d20=11). MUST appear before the bare 'weather in Tokyo' fixture below; substring match would otherwise leak into this prompt. No hasToolResult / turnIndex gate: in multi-pill demo sessions prior clicks leave tool results AND additional user turns in the thread, which previously caused this fixture to be skipped (turnIndex no longer 0 after sibling pills, hasToolResult breaks once prior pills emitted tool results) — the chain-tools toolCallId fixtures above already eat iteration 2 via last-message tool_call_id gating, so removing the turnIndex gate is safe.",
       "match": {
         "userMessage": "Chain a few tools in this single turn",
-        "turnIndex": 0,
         "context": "langgraph-python"
       },
       "response": {
@@ -113,9 +112,10 @@
       }
     },
     {
+      "_comment": "AAPL — first leg: emit get_stock_price tool call. turnIndex:0 gate REMOVED — the D5 tool-rendering-custom-catchall probe runs 'weather in Tokyo' first then sends 'What's the current price of AAPL?', so the AAPL leg fires at turnIndex>=2 (multi-pill thread). Replaced with hasToolResult:false: matches when the last message is a user prompt (not a tool result), which keeps the first-leg fixture from re-firing after the follow-up content already lands. The toolCallId follow-up fixture above wins on iteration 2 (last message is tool with id call_tr_stock_aapl_001).",
       "match": {
         "userMessage": "What's the current price of AAPL?",
-        "turnIndex": 0,
+        "hasToolResult": false,
         "context": "langgraph-python"
       },
       "response": {
@@ -204,10 +204,9 @@
       }
     },
     {
-      "_comment": "First roll. Matches the initial user prompt (no prior d20 tool result in this chain yet). Comes after the toolCallId-chained fixtures above so iterations 2-6 of the loop hit those first.",
+      "_comment": "First roll. Matches the initial user prompt (no prior d20 tool result in this chain yet). Comes after the toolCallId-chained fixtures above so iterations 2-6 of the loop hit those first. turnIndex dropped: the multi-pill sequential e2e test clicks 'Find flights' first which leaves prior turns in the thread, so a new 'Roll a 20-sided die.' user message is no longer at turnIndex 0. The toolCallId-chained fixtures still take precedence for iterations 2-6 because their last-message gate (role=tool with the chained id) only matches mid-chain — this fixture only matches when last-message.role=user.",
       "match": {
         "userMessage": "Roll a 20-sided die.",
-        "turnIndex": 0,
         "context": "langgraph-python"
       },
       "response": {
@@ -290,9 +289,10 @@
       }
     },
     {
+      "_comment": "AAPL — first leg: emit get_stock_price tool call. turnIndex:0 gate REMOVED — the D5 tool-rendering-custom-catchall probe runs 'weather in Tokyo' first then sends 'What's the current price of AAPL?', so the AAPL leg fires at turnIndex>=2 (multi-pill thread). Replaced turnIndex:0 with hasToolResult:false: matches when the last message is a user prompt (not a tool result), which keeps the first-leg fixture from re-firing after the follow-up content already lands. The toolCallId follow-up fixture above wins on iteration 2 (last message is tool with id call_d5_get_stock_price_001).",
       "match": {
         "userMessage": "AAPL",
-        "turnIndex": 0,
+        "hasToolResult": false,
         "context": "langgraph-python"
       },
       "response": {

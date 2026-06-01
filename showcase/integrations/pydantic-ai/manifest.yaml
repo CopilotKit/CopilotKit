@@ -48,14 +48,14 @@ features:
   - a2ui-fixed-schema
   - headless-complete
   - beautiful-chat
-  - byoc-json-render
-  - byoc-hashbrown
+  - declarative-json-render
+  - declarative-hashbrown
   - multimodal
   - voice
   - agent-config
   - auth
-  - agentic-chat-reasoning
-  - reasoning-default-render
+  - reasoning-default
+  - reasoning-custom
   - tool-rendering-reasoning-chain
   - mcp-apps
   - gen-ui-interrupt
@@ -114,9 +114,7 @@ demos:
     highlight:
       - src/agents/agent.py
       - src/app/demos/chat-slots/page.tsx
-      - src/app/demos/chat-slots/custom-welcome-screen.tsx
-      - src/app/demos/chat-slots/custom-assistant-message.tsx
-      - src/app/demos/chat-slots/custom-disclaimer.tsx
+      - src/app/demos/chat-slots/slot-wrappers.tsx
       - src/app/api/copilotkit/route.ts
   - id: chat-customization-css
     name: Chat Customization (CSS)
@@ -382,9 +380,15 @@ demos:
     highlight:
       - src/agents/headless_complete.py
       - src/app/demos/headless-complete/page.tsx
-      - src/app/demos/headless-complete/message-list.tsx
-      - src/app/demos/headless-complete/use-rendered-messages.tsx
-      - src/app/demos/headless-complete/tool-renderers.tsx
+      - src/app/demos/headless-complete/chat/chat.tsx
+      - src/app/demos/headless-complete/hooks/use-tool-renderers.tsx
+      - src/app/demos/headless-complete/hooks/use-frontend-components.ts
+      - src/app/demos/headless-complete/hooks/use-headless-suggestions.ts
+      - src/app/demos/headless-complete/attachments/use-attachments-config.ts
+      - src/app/demos/headless-complete/tools/weather-card.tsx
+      - src/app/demos/headless-complete/tools/stock-card.tsx
+      - src/app/demos/headless-complete/tools/chart-card.tsx
+      - src/app/demos/headless-complete/tools/highlight-note.tsx
       - src/app/api/copilotkit/route.ts
   - id: beautiful-chat
     name: Beautiful Chat
@@ -405,32 +409,33 @@ demos:
       - src/app/demos/beautiful-chat/hooks/use-generative-ui-examples.tsx
       - src/app/demos/beautiful-chat/hooks/use-example-suggestions.tsx
       - src/app/api/copilotkit-beautiful-chat/route.ts
-  - id: byoc-json-render
-    name: "BYOC: json-render"
-    description: BYOC (bring-your-own-components) demo rendering a streaming JSON spec via @json-render/react against a Zod-validated catalog
+  - id: declarative-json-render
+    name: "Declarative UI: json-render"
+    description: Streaming hierarchical JSON UI spec rendered via @json-render/react, with a Zod-validated catalog (MetricCard + PieChart + BarChart)
     tags:
       - generative-ui
-    route: /demos/byoc-json-render
+    route: /demos/declarative-json-render
     animated_preview_url:
     highlight:
       - src/agents/byoc_json_render_agent.py
-      - src/app/demos/byoc-json-render/page.tsx
-      - src/app/demos/byoc-json-render/json-render-renderer.tsx
-      - src/app/demos/byoc-json-render/catalog.ts
-      - src/app/demos/byoc-json-render/registry.tsx
-      - src/app/api/copilotkit-byoc-json-render/route.ts
-  - id: byoc-hashbrown
-    name: "BYOC: Hashbrown"
-    description: BYOC demo using @hashbrownai/react's useJsonParser + useUiKit for progressive streaming-JSON UI rendering
+      - src/app/demos/declarative-json-render/page.tsx
+      - src/app/demos/declarative-json-render/json-render-renderer.tsx
+      - src/app/demos/declarative-json-render/registry.tsx
+      - src/app/demos/declarative-json-render/catalog.ts
+      - src/app/api/copilotkit-declarative-json-render/route.ts
+  - id: declarative-hashbrown
+    name: "Declarative UI: Hashbrown"
+    description: Streaming structured output via @hashbrownai/react, rendering a sales dashboard catalog (MetricCard + PieChart + BarChart)
     tags:
       - generative-ui
-    route: /demos/byoc-hashbrown
+    route: /demos/declarative-hashbrown
     animated_preview_url:
     highlight:
       - src/agents/byoc_hashbrown_agent.py
-      - src/app/demos/byoc-hashbrown/page.tsx
-      - src/app/demos/byoc-hashbrown/hashbrown-renderer.tsx
-      - src/app/api/copilotkit-byoc-hashbrown/route.ts
+      - src/app/demos/declarative-hashbrown/page.tsx
+      - src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx
+      - src/app/demos/declarative-hashbrown/suggestions.ts
+      - src/app/api/copilotkit-declarative-hashbrown/route.ts
   - id: multimodal
     name: Multimodal Attachments
     description: Image + PDF attachments via CopilotChat — images flow natively to GPT-4o vision; PDFs flatten to text via pypdf
@@ -478,30 +483,28 @@ demos:
       - src/app/demos/auth/auth-banner.tsx
       - src/app/demos/auth/use-demo-auth.ts
       - src/app/api/copilotkit-auth/[[...slug]]/route.ts
-  - id: agentic-chat-reasoning
-    name: Agentic Chat (Reasoning)
-    description: Reasoning chain rendered via a custom amber slot — backed by a gpt-5 reasoning model whose Responses-API reasoning items the AG-UI bridge translates to REASONING events
+  - id: reasoning-default
+    name: "Reasoning: Default"
+    description: Built-in CopilotChatReasoningMessage rendering with no slot override.
     tags:
       - chat-ui
-    route: /demos/agentic-chat-reasoning
-    animated_preview_url:
+    route: /demos/reasoning-default
     highlight:
+      - src/app/demos/reasoning-default/page.tsx
+      - src/app/demos/reasoning-default/suggestions.ts
       - src/agents/reasoning_agent.py
-      - src/app/demos/agentic-chat-reasoning/page.tsx
-      - src/app/demos/agentic-chat-reasoning/reasoning-block.tsx
-      - src/app/demos/agentic-chat-reasoning/README.md
       - src/app/api/copilotkit/route.ts
-  - id: reasoning-default-render
-    name: Reasoning (Default Render)
-    description: Built-in CopilotChatReasoningMessage card rendering REASONING events emitted by a gpt-5 reasoning agent — zero-config frontend
+  - id: reasoning-custom
+    name: "Reasoning: Custom"
+    description: Visible reasoning/thinking chain alongside the final answer
     tags:
       - chat-ui
-    route: /demos/reasoning-default-render
+    route: /demos/reasoning-custom
     animated_preview_url:
     highlight:
+      - src/app/demos/reasoning-custom/page.tsx
+      - src/app/demos/reasoning-custom/reasoning-block.tsx
       - src/agents/reasoning_agent.py
-      - src/app/demos/reasoning-default-render/page.tsx
-      - src/app/demos/reasoning-default-render/README.md
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering-reasoning-chain
     name: Tool Rendering (Reasoning Chain)
@@ -517,7 +520,6 @@ demos:
       - src/app/demos/tool-rendering-reasoning-chain/weather-card.tsx
       - src/app/demos/tool-rendering-reasoning-chain/flight-list-card.tsx
       - src/app/demos/tool-rendering-reasoning-chain/custom-catchall-renderer.tsx
-      - src/app/demos/tool-rendering-reasoning-chain/README.md
       - src/app/api/copilotkit/route.ts
   - id: mcp-apps
     name: MCP Apps
@@ -540,7 +542,7 @@ demos:
     highlight:
       - src/agents/interrupt_agent.py
       - src/app/demos/gen-ui-interrupt/page.tsx
-      - src/app/demos/gen-ui-interrupt/time-picker-card.tsx
+      - src/app/demos/gen-ui-interrupt/_components/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: interrupt-headless
     name: Headless Interrupt (testing)

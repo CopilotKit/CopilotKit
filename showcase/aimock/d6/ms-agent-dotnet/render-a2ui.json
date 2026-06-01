@@ -105,6 +105,30 @@
       }
     },
     {
+      "_comment": "hitl reject branch — when the user clicks Reject on the Review Steps card, the route in src/app/api/copilotkit/route.ts decorates the inbound tool_call_id with a `__rejected` suffix (see applyToolResultDecisionSuffix). This fixture matches the post-tool-result turn keyed on the suffixed id so aimock returns the reject narration instead of the approval narration. The hitl.spec.ts assertion checks for 'will not execute the Mars trip plan' (substring) and explicitly asserts the approval text 'Great choices!' is NOT present.",
+      "match": {
+        "userMessage": "trip to mars",
+        "toolCallId": "call_d5_generate_steps_001__rejected",
+        "hasToolResult": true,
+        "context": "ms-agent-dotnet"
+      },
+      "response": {
+        "content": "Understood — I will not execute the Mars trip plan. The steps were rejected, so nothing was run. Send the pill again when you are ready to review a fresh plan."
+      }
+    },
+    {
+      "_comment": "hitl approve branch — when the user clicks Approve/Confirm, the route applies an `__approved` suffix; this fixture mirrors the legacy approval narration so the approve flow continues to land the 'Great choices!' substring. The bare `hasToolResult: true` fallback below stays as a safety net for any path where the decision suffix is not applied (e.g. cancellations or future runtime variants).",
+      "match": {
+        "userMessage": "trip to mars",
+        "toolCallId": "call_d5_generate_steps_001__approved",
+        "hasToolResult": true,
+        "context": "ms-agent-dotnet"
+      },
+      "response": {
+        "content": "Great choices! I will proceed with executing the selected steps for your trip to Mars. Let me work through each one."
+      }
+    },
+    {
       "match": {
         "userMessage": "trip to mars",
         "hasToolResult": true,

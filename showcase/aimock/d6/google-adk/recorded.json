@@ -2,7 +2,6 @@
   "_meta": {
     "description": "D6 fixtures for google-adk / recorded",
     "sourceFile": "d5-all.json",
-    "copiedFrom": "langgraph-python",
     "created": "2026-05-21"
   },
   "fixtures": [
@@ -142,7 +141,7 @@
         "context": "google-adk"
       },
       "response": {
-        "content": "The weather in Tokyo is currently 68°F, with 55% humidity, a wind speed of 10 mph, and sunny conditions."
+        "content": "The weather in Tokyo is currently 68\u00b0F, with 55% humidity, a wind speed of 10 mph, and sunny conditions."
       }
     }
   ]

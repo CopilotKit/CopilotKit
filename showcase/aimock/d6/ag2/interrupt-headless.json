@@ -1,47 +1,14 @@
 {
   "_meta": {
     "description": "D6 fixtures for ag2 / interrupt-headless",
-    "sourceFile": "d5-interrupt-headless.ts",
-    "copiedFrom": "langgraph-python",
-    "owner": "d6-blitz-2026-05-26",
-    "notes": "Mirrors langgraph-python structure with context=ag2. Same schedule_meeting interrupt pattern as gen-ui-interrupt but frontend uses useHeadlessInterrupt (popup in app surface pane, not inline in chat)."
+    "sourceFile": "harness/fixtures/d5/interrupt-headless.json",
+    "created": "2026-05-21"
   },
   "fixtures": [
     {
-      "_comment": "interrupt-headless sales-call pill \u2014 first leg: schedule_meeting tool call triggers interrupt(). Frontend useHeadlessInterrupt renders popup in app surface.",
+      "_comment": "interrupt-headless sales-call pill — second leg: confirmation after user picks a slot. Placed BEFORE first-leg so toolCallId matching takes precedence over toolName matching.",
       "match": {
-        "userMessage": "introductory sales team call",
-        "toolName": "schedule_meeting",
-        "context": "ag2"
-      },
-      "response": {
-        "content": "Sure \u2014 let me check available times.",
-        "toolCalls": [
-          {
-            "id": "call_d5_schedule_sales_001",
-            "name": "schedule_meeting",
-            "arguments": {
-              "topic": "Sales intro call",
-              "attendee": "Sales team",
-              "slots": [
-                {
-                  "label": "Mon 10:00 AM",
-                  "iso": "2026-05-11T10:00:00Z"
-                },
-                {
-                  "label": "Tue 2:00 PM",
-                  "iso": "2026-05-12T14:00:00Z"
-                }
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
-      "_comment": "interrupt-headless sales-call pill \u2014 second leg: confirmation after user picks a slot and resolve fires.",
-      "match": {
-        "userMessage": "introductory sales team call",
+        "userMessage": "intro call with the sales team",
         "toolCallId": "call_d5_schedule_sales_001",
         "context": "ag2"
       },
@@ -50,30 +17,35 @@
       }
     },
     {
-      "_comment": "interrupt-headless alice-1on1 pill \u2014 first leg: schedule_meeting tool call.",
+      "_comment": "interrupt-headless alice-1on1 pill — second leg: confirmation after user picks a slot. Placed BEFORE first-leg so toolCallId matching takes precedence.",
       "match": {
-        "userMessage": "one-on-one with Alice",
+        "userMessage": "1:1 with Alice",
+        "toolCallId": "call_d5_schedule_alice_001",
+        "context": "ag2"
+      },
+      "response": {
+        "content": "Scheduled: 1:1 with Alice locked in for the slot you picked."
+      }
+    },
+    {
+      "_comment": "interrupt-headless sales-call pill — first leg: schedule_meeting tool call triggers interrupt(...). Same agent/prompts as gen-ui-interrupt but different frontend (useHeadlessInterrupt renders in app surface pane, not inline).",
+      "match": {
+        "userMessage": "intro call with the sales team",
         "toolName": "schedule_meeting",
         "context": "ag2"
       },
       "response": {
-        "content": "Got it \u2014 pulling up next-week slots.",
+        "content": "Sure — let me check available times.",
         "toolCalls": [
           {
-            "id": "call_d5_schedule_alice_001",
+            "id": "call_d5_schedule_sales_001",
             "name": "schedule_meeting",
             "arguments": {
-              "topic": "1:1 with Alice \u2014 Q2 goals",
-              "attendee": "Alice",
+              "topic": "Sales intro call",
+              "attendee": "Sales team",
               "slots": [
-                {
-                  "label": "Wed 11:00 AM",
-                  "iso": "2026-05-13T11:00:00Z"
-                },
-                {
-                  "label": "Thu 3:30 PM",
-                  "iso": "2026-05-14T15:30:00Z"
-                }
+                { "label": "Mon 10:00 AM", "iso": "2026-05-11T10:00:00Z" },
+                { "label": "Tue 2:00 PM", "iso": "2026-05-12T14:00:00Z" }
               ]
             }
           }
@@ -81,14 +53,28 @@
       }
     },
     {
-      "_comment": "interrupt-headless alice-1on1 pill \u2014 second leg: confirmation after user picks a slot.",
+      "_comment": "interrupt-headless alice-1on1 pill — first leg: schedule_meeting tool call.",
       "match": {
-        "userMessage": "one-on-one with Alice",
-        "toolCallId": "call_d5_schedule_alice_001",
+        "userMessage": "1:1 with Alice",
+        "toolName": "schedule_meeting",
         "context": "ag2"
       },
       "response": {
-        "content": "Scheduled: 1:1 with Alice locked in for the slot you picked."
+        "content": "Got it — pulling up next-week slots.",
+        "toolCalls": [
+          {
+            "id": "call_d5_schedule_alice_001",
+            "name": "schedule_meeting",
+            "arguments": {
+              "topic": "1:1 with Alice — Q2 goals",
+              "attendee": "Alice",
+              "slots": [
+                { "label": "Wed 11:00 AM", "iso": "2026-05-13T11:00:00Z" },
+                { "label": "Thu 3:30 PM", "iso": "2026-05-14T15:30:00Z" }
+              ]
+            }
+          }
+        ]
       }
     }
   ]

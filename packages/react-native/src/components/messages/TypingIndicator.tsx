@@ -76,6 +76,7 @@ export function TypingIndicator({ style }: TypingIndicatorProps) {
 
   return (
     <View
+      testID="copilot-loading-cursor"
       style={[styles.container, style]}
       accessibilityLabel="Typing indicator"
       accessibilityRole="text"

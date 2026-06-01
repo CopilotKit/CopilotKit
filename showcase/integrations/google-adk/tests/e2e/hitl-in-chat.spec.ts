@@ -33,7 +33,9 @@ test.describe("HITL in chat — booking flow", () => {
 
     // The card should advertise the booking and the attendee parsed by the
     // fixture's toolCall arguments.
-    await expect(card.getByText(/With Alice/i)).toBeVisible();
+    await expect(
+      card.locator("p").filter({ hasText: /^With Alice$/i }),
+    ).toBeVisible();
 
     // At least one selectable time slot is present.
     const slots = page.locator('[data-testid="time-picker-slot"]');
@@ -128,16 +130,23 @@ test.describe("HITL in chat — booking flow", () => {
         .first(),
     ).toBeVisible({ timeout: 30000 });
 
+    // Let the runtime fully settle after the HITL resolution before
+    // starting a second flow.  A short timed wait is more reliable
+    // than networkidle (which can resolve before LangGraph finalises
+    // thread state) and avoids a stale-state race on the next run.
+    await page.waitForTimeout(1000);
+
     // Flow 2: sales — same page, no refresh.
     await input.fill(
       "Please book an intro call with the sales team to discuss pricing.",
     );
     await input.press("Enter");
 
-    // A SECOND picker card must appear. If the regression returns, no new
-    // card renders and the agent jumps straight to confirmation text.
-    await expect(card).toHaveCount(2, { timeout: 60000 });
-    await expect(card.last().getByText(/Sales team/i)).toBeVisible();
+    // A SECOND picker card must appear. The first card transitioned to
+    // `time-picker-picked` after Flow 1, so only the new one carries the
+    // `time-picker-card` testid.
+    await expect(card).toHaveCount(1, { timeout: 60000 });
+    await expect(card.first().getByText(/Sales team/i)).toBeVisible();
 
     // Pick a slot in the new card and verify the sales-specific
     // confirmation arrives.

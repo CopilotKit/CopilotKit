@@ -55,7 +55,7 @@ function BackendGrid() {
           framework.
         </p>
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] sm:gap-3">
         {integrations.map((i) => (
           <Link
             key={i.slug}
@@ -64,7 +64,7 @@ function BackendGrid() {
                 ? "/built-in-agent/quickstart"
                 : `/${i.slug}`
             }
-            className="group relative flex min-h-[96px] items-start gap-3 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)]/30 p-3.5 no-underline transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-surface)]"
+            className="group relative flex min-h-[84px] items-start gap-3 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)]/30 p-3.5 no-underline transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-surface)] sm:min-h-[96px]"
           >
             <span
               aria-hidden="true"
@@ -77,7 +77,7 @@ function BackendGrid() {
                 className="text-[var(--accent)]"
               />
             </span>
-            <span className="min-w-0 flex-1 pr-20">
+            <span className="min-w-0 flex-1 sm:pr-2">
               <span className="block text-sm font-semibold leading-snug text-[var(--text)] transition-colors group-hover:text-[var(--accent)]">
                 {i.name}
               </span>

@@ -22,6 +22,8 @@ import {
   Annotation,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+import { makeChatOpenAI } from "./openai-headers";
+
 import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 
 type Tone = "professional" | "casual" | "enthusiastic";
@@ -149,7 +151,10 @@ function buildSystemPrompt(props: ResolvedProps): string {
 }
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
-  const model = new ChatOpenAI({ model: "gpt-4o-mini", temperature: 0.4 });
+  const model = makeChatOpenAI(config, {
+    model: "gpt-4o-mini",
+    temperature: 0.4,
+  });
   const props = readConfig(state, config);
   const systemPrompt = buildSystemPrompt(props);
 

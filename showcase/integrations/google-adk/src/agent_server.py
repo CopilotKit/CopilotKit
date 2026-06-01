@@ -23,6 +23,17 @@ in-stream STATE_DELTA path used by useAgent, just not via the optional
 """
 
 import os
+
+# ORDER-CRITICAL: install the global httpx hook BEFORE any ``agents.*``
+# import. ADK / google-genai construct Gemini's httpx client during agent
+# module import, so the patch must be in place before those imports run.
+from agents._header_forwarding import (
+    HeaderForwardingHTTPMiddleware,
+    install_global_httpx_hook,
+)
+
+install_global_httpx_hook()
+
 import uvicorn
 from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
 from fastapi import FastAPI
@@ -49,6 +60,11 @@ class HealthMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(HealthMiddleware)
+
+# Forward inbound x-* headers onto outbound httpx calls so aimock fixture
+# matching sees the in-flight test's ``x-aimock-context``. Paired with
+# ``install_global_httpx_hook`` above for clients constructed lazily.
+app.add_middleware(HeaderForwardingHTTPMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

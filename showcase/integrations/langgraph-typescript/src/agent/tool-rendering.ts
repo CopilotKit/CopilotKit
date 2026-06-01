@@ -24,6 +24,8 @@ import {
   StateGraph,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+import { makeChatOpenAI } from "./openai-headers";
+
 import {
   convertActionsToDynamicStructuredTools,
   CopilotKitStateAnnotation,
@@ -187,7 +189,7 @@ const tools = [getWeather, searchFlights, getStockPrice, rollD20];
 // ---------------------------------------------------------------------------
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
-  const model = new ChatOpenAI({ model: "gpt-5.4" });
+  const model = makeChatOpenAI(config, { model: "gpt-5.4" });
 
   const modelWithTools = model.bindTools!([
     ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),

@@ -604,7 +604,83 @@ export function buildFrameworkOnlyNav(folder: string): NavNode[] {
     }
     return node;
   };
-  return nodes.map(rewrite);
+  return appendSharedRootSections(nodes.map(rewrite));
+}
+
+const SHARED_ROOT_SECTIONS = ["Platforms"];
+
+function sectionRange(
+  navTree: NavNode[],
+  sectionTitle: string,
+): { start: number; end: number } | null {
+  const start = navTree.findIndex(
+    (node) =>
+      node.type === "section" &&
+      node.title.toLowerCase() === sectionTitle.toLowerCase(),
+  );
+  if (start === -1) return null;
+
+  const nextSection = navTree.findIndex(
+    (node, index) => index > start && node.type === "section",
+  );
+  return { start, end: nextSection === -1 ? navTree.length : nextSection };
+}
+
+function hasPageSlug(navTree: NavNode[], slug: string): boolean {
+  return navTree.some((node) => {
+    if (node.type === "page") return node.slug === slug;
+    if (node.type === "group") return hasPageSlug(node.children, slug);
+    return false;
+  });
+}
+
+function filterMissingPages(node: NavNode, navTree: NavNode[]): NavNode | null {
+  if (node.type === "page") {
+    return hasPageSlug(navTree, node.slug) ? null : node;
+  }
+  if (node.type === "group") {
+    const children = node.children
+      .map((child) => filterMissingPages(child, navTree))
+      .filter((child): child is NavNode => child !== null);
+    return children.length > 0 ? { ...node, children } : null;
+  }
+  return node;
+}
+
+/**
+ * Authored framework sidebars own their page order, but some root docs
+ * sections are global product guidance rather than framework IA. Keep
+ * those shared sections in every framework sidebar without duplicating
+ * entries across each authored integration's meta.json.
+ */
+function appendSharedRootSections(navTree: NavNode[]): NavNode[] {
+  let nextNavTree = navTree;
+  const rootNavTree = buildNavTree(CONTENT_DIR);
+
+  for (const sectionTitle of SHARED_ROOT_SECTIONS) {
+    const rootRange = sectionRange(rootNavTree, sectionTitle);
+    if (!rootRange) continue;
+
+    const section = rootNavTree[rootRange.start];
+    const missingNodes = rootNavTree
+      .slice(rootRange.start + 1, rootRange.end)
+      .map((node) => filterMissingPages(node, nextNavTree))
+      .filter((node): node is NavNode => node !== null);
+    if (missingNodes.length === 0) continue;
+
+    const existingRange = sectionRange(nextNavTree, sectionTitle);
+    if (existingRange) {
+      nextNavTree = [
+        ...nextNavTree.slice(0, existingRange.end),
+        ...missingNodes,
+        ...nextNavTree.slice(existingRange.end),
+      ];
+    } else {
+      nextNavTree = [...nextNavTree, section, ...missingNodes];
+    }
+  }
+
+  return nextNavTree;
 }
 
 // Map a framework slug to the section-header icon spec used by the

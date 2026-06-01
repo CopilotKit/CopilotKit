@@ -21,6 +21,8 @@ import {
   Annotation,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+import { makeChatOpenAI } from "./openai-headers";
+
 import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 
 // `@hashbrownai/react`'s `useJsonParser(content, kit.schema)` expects the
@@ -98,7 +100,7 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
   // so locking the model to JSON at the API layer keeps the wire
   // contract honest. Passed via `modelKwargs` so it survives the
   // LangChain → OpenAI chat-completions mapping.
-  const model = new ChatOpenAI({
+  const model = makeChatOpenAI(config, {
     model: "gpt-4o-mini",
     modelKwargs: { response_format: { type: "json_object" } },
   });

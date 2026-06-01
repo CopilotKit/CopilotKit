@@ -65,9 +65,9 @@
       }
     },
     {
+      "_comment": "shared-state-write turn 2 — recall. No turnIndex gate: this is turn 2 of a 2-turn probe (turn 1 = set_notes, turn 2 = recall).",
       "match": {
         "userMessage": "favorite color",
-        "turnIndex": 0,
         "context": "llamaindex"
       },
       "response": {

@@ -1,149 +1,65 @@
 {
-    "_meta": {
-        "description": "D6 fixtures for google-adk / gen-ui-open (open-gen-ui demo)",
-        "sourceFile": "harness/fixtures/d5/gen-ui-open.json",
-        "created": "2026-05-22"
+  "_meta": {
+    "description": "D6 fixtures for google-adk / gen-ui-open + gen-ui-open-advanced",
+    "sourceFile": "d5-gen-ui-open.ts + d5-gen-ui-open-advanced.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-open \u2014 3D axis visualization pill. The agent calls generateSandboxedUi which renders an iframe[srcdoc] with a non-trivial HTML payload (>= 100 chars). The probe asserts iframe presence + srcdoc length.",
+      "match": {
+        "userMessage": "3D axis visualization (model airplane)",
+        "hasToolResult": false,
+        "context": "google-adk"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_open_genui_3d_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":400,\"placeholderMessages\":[\"Rendering 3D axis visualization\u2026\"],\"css\":\"body{margin:0;background:#0f172a;display:flex;justify-content:center;align-items:center;height:100vh;font-family:system-ui}canvas{border-radius:8px;box-shadow:0 4px 24px rgba(0,0,0,.4)}#info{position:absolute;top:12px;left:12px;color:#94a3b8;font-size:12px}\",\"html\":\"<div id=\\\"info\\\">3D Axis \u2014 Model Airplane</div><canvas id=\\\"c\\\" width=\\\"400\\\" height=\\\"300\\\"></canvas>\",\"jsFunctions\":\"(function(){var c=document.getElementById('c');var ctx=c.getContext('2d');var cx=200,cy=150;function draw(t){ctx.clearRect(0,0,400,300);ctx.strokeStyle='#ef4444';ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(t)*80,cy-Math.sin(t)*40);ctx.stroke();ctx.strokeStyle='#22c55e';ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx,cy-80);ctx.stroke();ctx.strokeStyle='#3b82f6';ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx-Math.sin(t)*60,cy-Math.cos(t)*30);ctx.stroke();ctx.fillStyle='#e2e8f0';ctx.font='10px system-ui';ctx.fillText('X',cx+Math.cos(t)*85,cy-Math.sin(t)*40);ctx.fillText('Y',cx-6,cy-85);ctx.fillText('Z',cx-Math.sin(t)*65,cy-Math.cos(t)*30);requestAnimationFrame(function(){draw(t+0.01);});}draw(0);})();\"}"
+          }
+        ]
+      }
     },
-    "fixtures": [
-        {
-            "_comment": "gen-ui-open 3D axis pill — emit generateSandboxedUi tool call with inline SVG. hasToolResult:false on toolCalls fixtures per D6 convention.",
-            "match": {
-                "userMessage": "3D axis visualization (model airplane)",
-                "hasToolResult": false,
-                "context": "google-adk"
-            },
-            "response": {
-                "toolCalls": [
-                    {
-                        "id": "call_d6_open_gen_ui_3d_axis_001",
-                        "name": "generateSandboxedUi",
-                        "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing 3D axis scene…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}\",\"html\":\"<div class=\\\"wrap\\\"><h1>3D axis visualization (pitch / yaw / roll)</h1><svg width=\\\"320\\\" height=\\\"260\\\" viewBox=\\\"-80 -80 160 160\\\" data-testid=\\\"ogui-3d-axis\\\"><line x1=\\\"-60\\\" y1=\\\"0\\\" x2=\\\"60\\\" y2=\\\"0\\\" stroke=\\\"#f59e0b\\\"/><line x1=\\\"0\\\" y1=\\\"-60\\\" x2=\\\"0\\\" y2=\\\"60\\\" stroke=\\\"#6366f1\\\"/><line x1=\\\"-40\\\" y1=\\\"40\\\" x2=\\\"40\\\" y2=\\\"-40\\\" stroke=\\\"#10b981\\\"/><text x=\\\"62\\\" y=\\\"4\\\" font-size=\\\"8\\\" fill=\\\"#f59e0b\\\">X pitch</text><text x=\\\"4\\\" y=\\\"-62\\\" font-size=\\\"8\\\" fill=\\\"#6366f1\\\">Y yaw</text><text x=\\\"42\\\" y=\\\"-42\\\" font-size=\\\"8\\\" fill=\\\"#10b981\\\">Z roll</text></svg></div>\"}"
-                    }
-                ]
-            }
-        },
-        {
-            "_comment": "gen-ui-open 3D axis pill — follow-up after generateSandboxedUi tool result.",
-            "match": {
-                "userMessage": "3D axis visualization (model airplane)",
-                "hasToolResult": true,
-                "context": "google-adk"
-            },
-            "response": {
-                "content": "Here's the 3D axis visualization showing pitch, yaw, and roll axes for a model airplane."
-            }
-        },
-        {
-            "_comment": "gen-ui-open neural network pill — emit generateSandboxedUi.",
-            "match": {
-                "userMessage": "How a neural network works",
-                "hasToolResult": false,
-                "context": "google-adk"
-            },
-            "response": {
-                "toolCalls": [
-                    {
-                        "id": "call_d6_open_gen_ui_neural_001",
-                        "name": "generateSandboxedUi",
-                        "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing neural network forward pass…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}circle{fill:#6366f1}\",\"html\":\"<div class=\\\"wrap\\\"><h1>Forward pass: input → hidden → output</h1><svg width=\\\"320\\\" height=\\\"220\\\" data-testid=\\\"ogui-neural-net\\\"><g><circle cx=\\\"40\\\" cy=\\\"40\\\" r=\\\"8\\\"/><circle cx=\\\"40\\\" cy=\\\"90\\\" r=\\\"8\\\"/><circle cx=\\\"40\\\" cy=\\\"140\\\" r=\\\"8\\\"/><circle cx=\\\"40\\\" cy=\\\"190\\\" r=\\\"8\\\"/></g><g fill=\\\"#a78bfa\\\"><circle cx=\\\"160\\\" cy=\\\"30\\\" r=\\\"8\\\"/><circle cx=\\\"160\\\" cy=\\\"75\\\" r=\\\"8\\\"/><circle cx=\\\"160\\\" cy=\\\"115\\\" r=\\\"8\\\"/><circle cx=\\\"160\\\" cy=\\\"155\\\" r=\\\"8\\\"/><circle cx=\\\"160\\\" cy=\\\"195\\\" r=\\\"8\\\"/></g><g fill=\\\"#10b981\\\"><circle cx=\\\"280\\\" cy=\\\"80\\\" r=\\\"8\\\"/><circle cx=\\\"280\\\" cy=\\\"140\\\" r=\\\"8\\\"/></g></svg></div>\"}"
-                    }
-                ]
-            }
-        },
-        {
-            "_comment": "gen-ui-open neural network pill — follow-up.",
-            "match": {
-                "userMessage": "How a neural network works",
-                "hasToolResult": true,
-                "context": "google-adk"
-            },
-            "response": {
-                "content": "The visualization shows a simple feed-forward neural network with input, hidden, and output layers."
-            }
-        },
-        {
-            "_comment": "gen-ui-open quicksort pill — emit generateSandboxedUi.",
-            "match": {
-                "userMessage": "Quicksort visualization",
-                "hasToolResult": false,
-                "context": "google-adk"
-            },
-            "response": {
-                "toolCalls": [
-                    {
-                        "id": "call_d6_open_gen_ui_quicksort_001",
-                        "name": "generateSandboxedUi",
-                        "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing quicksort animation…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}rect{fill:#64748b}\",\"html\":\"<div class=\\\"wrap\\\"><h1>Quicksort: partition around pivot</h1><svg width=\\\"320\\\" height=\\\"220\\\" data-testid=\\\"ogui-quicksort\\\"><rect x=\\\"10\\\"  y=\\\"170\\\" width=\\\"24\\\" height=\\\"40\\\"/><rect x=\\\"40\\\"  y=\\\"130\\\" width=\\\"24\\\" height=\\\"80\\\"/><rect x=\\\"70\\\"  y=\\\"100\\\" width=\\\"24\\\" height=\\\"110\\\"/><rect x=\\\"100\\\" y=\\\"60\\\"  width=\\\"24\\\" height=\\\"150\\\" fill=\\\"#f59e0b\\\"/><rect x=\\\"130\\\" y=\\\"80\\\"  width=\\\"24\\\" height=\\\"130\\\" fill=\\\"#6366f1\\\"/><rect x=\\\"160\\\" y=\\\"110\\\" width=\\\"24\\\" height=\\\"100\\\"/><rect x=\\\"190\\\" y=\\\"50\\\"  width=\\\"24\\\" height=\\\"160\\\"/><rect x=\\\"220\\\" y=\\\"90\\\"  width=\\\"24\\\" height=\\\"120\\\"/><rect x=\\\"250\\\" y=\\\"140\\\" width=\\\"24\\\" height=\\\"70\\\"/><rect x=\\\"280\\\" y=\\\"160\\\" width=\\\"24\\\" height=\\\"50\\\"/></svg></div>\"}"
-                    }
-                ]
-            }
-        },
-        {
-            "_comment": "gen-ui-open quicksort pill — follow-up.",
-            "match": {
-                "userMessage": "Quicksort visualization",
-                "hasToolResult": true,
-                "context": "google-adk"
-            },
-            "response": {
-                "content": "The quicksort visualization shows an array being partitioned around a pivot element highlighted in amber."
-            }
-        },
-        {
-            "_comment": "gen-ui-open Fourier pill — emit generateSandboxedUi.",
-            "match": {
-                "userMessage": "Fourier: square wave from sines",
-                "hasToolResult": false,
-                "context": "google-adk"
-            },
-            "response": {
-                "toolCalls": [
-                    {
-                        "id": "call_d6_open_gen_ui_fourier_001",
-                        "name": "generateSandboxedUi",
-                        "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing Fourier series animation…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}\",\"html\":\"<div class=\\\"wrap\\\"><h1>Fourier series: square wave</h1><svg width=\\\"320\\\" height=\\\"220\\\" viewBox=\\\"0 -60 320 120\\\" data-testid=\\\"ogui-fourier\\\"><circle cx=\\\"60\\\" cy=\\\"0\\\" r=\\\"40\\\" stroke=\\\"#6366f1\\\" fill=\\\"none\\\"/><circle cx=\\\"60\\\" cy=\\\"0\\\" r=\\\"13\\\" stroke=\\\"#a78bfa\\\" fill=\\\"none\\\"/><circle cx=\\\"60\\\" cy=\\\"0\\\" r=\\\"8\\\"  stroke=\\\"#c4b5fd\\\" fill=\\\"none\\\"/><path d=\\\"M120 0 L300 0\\\" stroke=\\\"#10b981\\\" fill=\\\"none\\\"/></svg></div>\"}"
-                    }
-                ]
-            }
-        },
-        {
-            "_comment": "gen-ui-open Fourier pill — follow-up.",
-            "match": {
-                "userMessage": "Fourier: square wave from sines",
-                "hasToolResult": true,
-                "context": "google-adk"
-            },
-            "response": {
-                "content": "The Fourier series visualization shows how a square wave is approximated by summing sine harmonics of decreasing amplitude."
-            }
-        },
-        {
-            "_comment": "gen-ui-open Calculator pill — emit generateSandboxedUi.",
-            "match": {
-                "userMessage": "Calculator (calls evaluateExpression)",
-                "hasToolResult": false,
-                "context": "google-adk"
-            },
-            "response": {
-                "toolCalls": [
-                    {
-                        "id": "call_d6_open_gen_ui_calc_001",
-                        "name": "generateSandboxedUi",
-                        "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing calculator UI…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px;max-width:240px}.display{background:#1e293b;padding:8px;border-radius:8px;margin-bottom:8px;font-family:monospace;text-align:right}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}button{padding:10px;background:#334155;border:0;color:#e2e8f0;border-radius:6px;font-size:14px}\",\"html\":\"<div class=\\\"wrap\\\" data-testid=\\\"ogui-calculator\\\"><div class=\\\"display\\\" id=\\\"d\\\">0</div><div class=\\\"grid\\\"><button>7</button><button>8</button><button>9</button><button>+</button><button>4</button><button>5</button><button>6</button><button>-</button><button>1</button><button>2</button><button>3</button><button>*</button><button>0</button><button>.</button><button id=\\\"eq\\\">=</button><button>/</button></div></div>\"}"
-                    }
-                ]
-            }
-        },
-        {
-            "_comment": "gen-ui-open Calculator pill — follow-up.",
-            "match": {
-                "userMessage": "Calculator (calls evaluateExpression)",
-                "hasToolResult": true,
-                "context": "google-adk"
-            },
-            "response": {
-                "content": "Calculator rendered — use the number pad and operators to build expressions, then press = to evaluate."
-            }
-        }
-    ]
+    {
+      "_comment": "gen-ui-open \u2014 follow-up content after generateSandboxedUi returns.",
+      "match": {
+        "userMessage": "3D axis visualization (model airplane)",
+        "toolCallId": "call_d6_open_genui_3d_001",
+        "context": "google-adk"
+      },
+      "response": {
+        "content": "3D axis visualization rendered above \u2014 the canvas shows rotating X (red), Y (green), and Z (blue) axes representing the model airplane's orientation."
+      }
+    },
+    {
+      "_comment": "gen-ui-open-advanced \u2014 Inline expression evaluator pill. The agent calls generateSandboxedUi with sandbox-functions, producing a sandboxed iframe with allow-scripts. The probe asserts iframe[sandbox*='allow-scripts'] is present.",
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "hasToolResult": false,
+        "context": "google-adk"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_open_genui_advanced_eval_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":320,\"placeholderMessages\":[\"Composing expression evaluator\u2026\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.card{padding:16px;background:#1e293b;border-radius:12px;margin:16px}input{width:100%;padding:8px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;border-radius:6px;box-sizing:border-box}button{margin-top:8px;padding:8px 16px;background:#6366f1;border:0;color:#fff;border-radius:6px;cursor:pointer}.out{margin-top:8px;font-size:12px;color:#94a3b8}\",\"html\":\"<div class=\\\"card\\\" data-testid=\\\"ogui-inline-eval\\\"><h2>Inline expression evaluator</h2><input id=\\\"in\\\" placeholder=\\\"e.g. 2 + 2\\\"/><button id=\\\"go\\\">Evaluate</button><div class=\\\"out\\\" id=\\\"out\\\">awaiting input\u2026</div></div>\",\"jsFunctions\":\"(function(){var input=document.getElementById('in');var out=document.getElementById('out');var go=document.getElementById('go');async function run(){var expr=input.value;out.textContent='evaluating\u2026';var res=await Websandbox.connection.remote.evaluateExpression({expression:expr});out.textContent=res&&res.ok?'= '+res.value:'error: '+res.error;}go.addEventListener('click',run);input.addEventListener('keydown',function(e){if(e.key==='Enter')run();});})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-open-advanced \u2014 follow-up content after generateSandboxedUi returns.",
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "toolCallId": "call_d6_open_genui_advanced_eval_001",
+        "context": "google-adk"
+      },
+      "response": {
+        "content": "Expression evaluator rendered \u2014 type any math expression and it evaluates in real time via the sandbox bridge."
+      }
+    }
+  ]
 }

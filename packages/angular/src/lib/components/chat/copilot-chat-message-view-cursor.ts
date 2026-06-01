@@ -19,7 +19,7 @@ import { cn } from "../../utils";
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
-    <div [class]="computedClass()"></div>
+    <div data-testid="copilot-loading-cursor" [class]="computedClass()"></div>
   `,
 })
 export class CopilotChatMessageViewCursor {
