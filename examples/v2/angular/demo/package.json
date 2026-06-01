@@ -15,14 +15,14 @@
     "@ag-ui/core": "0.0.51",
     "@ag-ui/encoder": "0.0.51",
     "@ag-ui/proto": "0.0.51",
-    "@angular/animations": "^19.0.0",
-    "@angular/cdk": "^19.0.0",
-    "@angular/common": "^19.0.0",
-    "@angular/compiler": "^19.0.0",
-    "@angular/core": "^19.0.0",
-    "@angular/forms": "^19.0.0",
-    "@angular/platform-browser": "^19.0.0",
-    "@angular/platform-browser-dynamic": "^19.0.0",
+    "@angular/animations": "^21.2.15",
+    "@angular/cdk": "^21.2.13",
+    "@angular/common": "^21.2.15",
+    "@angular/compiler": "^21.2.15",
+    "@angular/core": "^21.2.15",
+    "@angular/forms": "^21.2.15",
+    "@angular/platform-browser": "^21.2.15",
+    "@angular/platform-browser-dynamic": "^21.2.15",
     "@copilotkit/angular": "link:../../../../packages/angular",
     "@copilotkit/web-inspector": "workspace:*",
     "@copilotkitnext/angular": "workspace:*",
@@ -36,15 +36,14 @@
     "untruncate-json": "^0.0.1",
     "uuid": "^11.1.0",
     "zod": "^3.25.75",
-    "zod-to-json-schema": "^3.24.6",
-    "zone.js": "^0.14.0"
+    "zod-to-json-schema": "^3.24.6"
   },
   "devDependencies": {
-    "@angular-devkit/build-angular": "^19.0.0",
-    "@angular/cli": "^19.0.0",
-    "@angular/compiler-cli": "^19.0.0",
+    "@angular/build": "^21.2.13",
+    "@angular/cli": "^21.2.13",
+    "@angular/compiler-cli": "^21.2.15",
     "nodemon": "^3.1.7",
     "rimraf": "^6.0.1",
-    "typescript": "5.8.2"
+    "typescript": "5.9.3"
   }
 }
