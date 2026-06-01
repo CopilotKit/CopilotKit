@@ -8,8 +8,15 @@ import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import { handle } from "hono/vercel";
 import OpenAI from "openai";
 
+const openRouterApiKey = process.env.OPENROUTER_API_KEY?.trim();
+const openAIApiKey = process.env.OPENAI_API_KEY?.trim();
+
 const determineModel = () => {
-  if (process.env.OPENAI_API_KEY?.trim()) {
+  if (openRouterApiKey) {
+    process.env.OPENAI_BASE_URL ??= "https://openrouter.ai/api/v1";
+    return `openai/${process.env.OPENROUTER_MODEL?.trim() || "openai/gpt-4o-mini"}`;
+  }
+  if (openAIApiKey) {
     return "openai/gpt-5.2";
   }
   if (process.env.ANTHROPIC_API_KEY?.trim()) {
@@ -24,11 +31,15 @@ const determineModel = () => {
 
 const builtInAgent = new BuiltInAgent({
   model: determineModel(),
+  ...(openRouterApiKey ? { apiKey: openRouterApiKey } : {}),
   prompt:
     "You are a helpful AI assistant. Use reasoning to answer the user's question. If you don't know the answer, say you don't know.",
   providerOptions: {
-    openai: { reasoningEffort: "high", reasoningSummary: "detailed" },
-    ...(!process.env.OPENAI_API_KEY?.trim() &&
+    ...(openAIApiKey
+      ? { openai: { reasoningEffort: "high", reasoningSummary: "detailed" } }
+      : {}),
+    ...(!openAIApiKey &&
+      !openRouterApiKey &&
       !!process.env.ANTHROPIC_API_KEY?.trim() && {
         anthropic: { thinking: { type: "enabled", budgetTokens: 5000 } },
       }),
@@ -36,9 +47,9 @@ const builtInAgent = new BuiltInAgent({
 });
 
 // Set up transcription service if OpenAI API key is available
-const transcriptionService = process.env.OPENAI_API_KEY?.trim()
+const transcriptionService = openAIApiKey
   ? new TranscriptionServiceOpenAI({
-      openai: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
+      openai: new OpenAI({ apiKey: openAIApiKey }),
     })
   : undefined;
 
