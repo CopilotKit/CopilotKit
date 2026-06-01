@@ -283,10 +283,19 @@ export async function boot(opts: BootOptions = {}): Promise<{
     });
   }
 
-  const poolSize = process.env.BROWSER_POOL_SIZE
-    ? parseInt(process.env.BROWSER_POOL_SIZE, 10) || 4
-    : 4;
-  const browserPool = new BrowserPool(poolSize, undefined, logger);
+  // Context-pooled BrowserPool: a fixed small set of long-lived browser
+  // PROCESSES (browsers) with a global cap on concurrently-live CONTEXTS
+  // (maxContexts). BROWSER_POOL_BROWSERS is the process count (legacy
+  // BROWSER_POOL_SIZE retained as a fallback, but its meaning shifts from
+  // "concurrent browsers" to "base browser process count"); deploy env should
+  // move to BROWSER_POOL_BROWSERS=3 + BROWSER_POOL_MAX_CONTEXTS=24.
+  const browserPool = new BrowserPool({
+    browsers: Number(
+      process.env.BROWSER_POOL_BROWSERS ?? process.env.BROWSER_POOL_SIZE ?? 3,
+    ),
+    maxContexts: Number(process.env.BROWSER_POOL_MAX_CONTEXTS ?? 24),
+    logger,
+  });
   let browserPoolReady = false;
   try {
     await browserPool.init();
