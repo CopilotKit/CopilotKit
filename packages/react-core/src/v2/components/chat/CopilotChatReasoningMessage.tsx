@@ -2,7 +2,7 @@ import { ReasoningMessage, Message } from "@ag-ui/core";
 import { useState, useEffect, useRef } from "react";
 import { ChevronRight } from "lucide-react";
 import { twMerge } from "tailwind-merge";
-import { Streamdown } from "streamdown";
+import { BasicMarkdownRenderer } from "./BasicMarkdownRenderer";
 import { WithSlots, renderSlot } from "../../lib/slots";
 
 export type CopilotChatReasoningMessageProps = WithSlots<
@@ -222,9 +222,9 @@ export namespace CopilotChatReasoningMessage {
         {...contentProps}
       >
         <div className="cpk:text-sm cpk:text-muted-foreground">
-          <Streamdown>
-            {typeof contentChildren === "string" ? contentChildren : ""}
-          </Streamdown>
+          <BasicMarkdownRenderer
+            content={typeof contentChildren === "string" ? contentChildren : ""}
+          />
           {isStreaming && hasContent && (
             <span className="cpk:inline-flex cpk:items-center cpk:ml-1 cpk:align-middle">
               <span className="cpk:w-2 cpk:h-2 cpk:rounded-full cpk:bg-muted-foreground cpk:animate-pulse-cursor" />
