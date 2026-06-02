@@ -160,12 +160,21 @@ export function computeColumnTallyDetail(
 
 /**
  * Resolve the shell URL used to build Demo / Code / docs-shell links.
- * Reads from the runtime config injected by the root layout. The
- * sentinel `about:blank#shell-url-missing` is set inside
- * runtime-config.ts when the env var is missing in production —
- * visibly broken links, not silent localhost rendering.
+ *
+ * Prefers the server-threaded value (passed as `serverShellUrl` from the
+ * server component wrapper that reads `SHELL_URL` at request time). This
+ * is the authoritative source: it is the REAL host during SSR, so anchors
+ * are built correctly in the initial HTML — crawlers and no-JS clients get
+ * working links, and the `https://ssr-placeholder.invalid/` sentinel never
+ * leaks into the rendered DOM.
+ *
+ * Falls back to the CLIENT runtime config (`window.__SHOWCASE_CONFIG__`)
+ * only when no server value was threaded (e.g. a stray client-only caller).
+ * That fallback returns the SSR sentinel during server render, so the
+ * server-threaded path is strongly preferred and is what `page.tsx` wires.
  */
-function resolveShellUrl(): string {
+function resolveShellUrl(serverShellUrl?: string): string {
+  if (serverShellUrl) return serverShellUrl;
   return getRuntimeConfig().shellUrl;
 }
 
@@ -375,6 +384,14 @@ export interface FeatureGridProps {
   subtitle?: string;
   renderCell: CellRenderer;
   minColWidth?: number;
+  /**
+   * Shell host resolved server-side (request-time `SHELL_URL`) and threaded
+   * down from the server component wrapper. When provided, Demo / Code links
+   * are built with the REAL host during SSR — no `ssr-placeholder.invalid`
+   * sentinel in the HTML, and links work pre-hydration. Falls back to the
+   * client runtime config when omitted.
+   */
+  shellUrl?: string;
   /** Merged live-status map from all subscribed dimensions (lifted to page). */
   liveStatus: LiveStatusMap;
   /** Aggregated SSE connection status (lifted to page). */
@@ -394,8 +411,9 @@ export function FeatureGrid({
   connection,
   overlays,
   catalog,
+  shellUrl: serverShellUrl,
 }: FeatureGridProps) {
-  const shellUrl = resolveShellUrl();
+  const shellUrl = resolveShellUrl(serverShellUrl);
   // `getIntegrations()` / `getFeatures()` call `.sort()` / array spread on
   // every invocation, returning a fresh array identity. Memoize once per
   // mount so downstream `useMemo`s keyed on these arrays don't identity-
