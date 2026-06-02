@@ -5,10 +5,11 @@ import type { NextRequest } from "next/server";
 // Add note to transaction / update status
 export const PUT = async (
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) => {
   try {
-    const existing = store.findTransaction(params.id);
+    const { id } = await params;
+    const existing = store.findTransaction(id);
     if (!existing) {
       return new Response(JSON.stringify({ error: "Transaction not found" }), {
         status: 404,
@@ -24,7 +25,7 @@ export const PUT = async (
         date: new Date().toISOString().split("T")[0],
       };
     }
-    const updated = store.updateTransaction(params.id, patch);
+    const updated = store.updateTransaction(id, patch);
     return new Response(JSON.stringify(updated), { status: 201 });
   } catch (error) {
     console.error("PUT Request error", error);

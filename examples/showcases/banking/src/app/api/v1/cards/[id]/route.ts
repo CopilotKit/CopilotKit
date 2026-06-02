@@ -3,10 +3,10 @@ import * as store from "@/lib/store";
 
 export const PUT = async (
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) => {
   try {
-    const cardId = params.id;
+    const { id: cardId } = await params;
     // Handle pin or card limit change
     const body = await req.json();
     console.info(

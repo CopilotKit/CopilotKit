@@ -4,9 +4,10 @@ import type { NextRequest } from "next/server";
 // Get policy per card
 export const GET = async (
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) => {
-  const card = store.findCard(params.id);
+  const { id } = await params;
+  const card = store.findCard(id);
   if (!card) {
     return new Response(JSON.stringify({ error: "Card not found" }), {
       status: 404,
@@ -21,10 +22,11 @@ export const GET = async (
 // Assign policy
 export const POST = async (
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) => {
   try {
-    const card = store.findCard(params.id);
+    const { id } = await params;
+    const card = store.findCard(id);
     if (!card) {
       return new Response(JSON.stringify({ error: "Card not found" }), {
         status: 404,
@@ -32,7 +34,7 @@ export const POST = async (
     }
     const body = await req.json();
     const { policyId } = body;
-    const updated = store.assignPolicyToCard(params.id, policyId);
+    const updated = store.assignPolicyToCard(id, policyId);
     return new Response(JSON.stringify(updated), { status: 201 });
   } catch (error) {
     console.error("POST Request error", error);

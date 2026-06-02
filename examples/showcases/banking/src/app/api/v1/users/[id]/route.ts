@@ -3,13 +3,14 @@ import * as store from "@/lib/store";
 
 export const PUT = async (
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) => {
   try {
+    const { id } = await params;
     // Handle role/team change
     const body = await req.json();
     const { team, role } = body;
-    const updated = store.updateMember(params.id, { team, role });
+    const updated = store.updateMember(id, { team, role });
     if (!updated) {
       return new Response(JSON.stringify({ error: "User not found" }), {
         status: 404,
@@ -23,10 +24,11 @@ export const PUT = async (
 
 export const DELETE = async (
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) => {
   try {
-    const remaining = store.removeMember(params.id);
+    const { id } = await params;
+    const remaining = store.removeMember(id);
     if (!remaining) {
       return new Response(JSON.stringify({ error: "User not found" }), {
         status: 404,
