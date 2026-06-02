@@ -2,7 +2,7 @@
 // Feature matrix: composable overlay-driven 2-tab layout.
 // Matrix tab: overlay toggles control which visual layers render.
 // Ops tab: probe status grid (unchanged from legacy).
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FeatureGrid } from "@/components/feature-grid";
 import type { CellContext } from "@/components/feature-grid";
 import { StatusTab } from "@/components/status-tab";
@@ -13,18 +13,18 @@ import { useOverlays } from "@/hooks/useOverlays";
 import { OverlayToggleBar } from "@/components/overlay-toggle-bar";
 import { UnifiedCell } from "@/components/unified-cell";
 import { buildCellModel } from "@/lib/cell-model";
+import {
+  computeHealthStats,
+  computeParityStats,
+  computeDepthDistribution,
+  computeD6Stats,
+} from "@/lib/page-stats";
 import { AdaptiveStatsBar } from "@/components/adaptive-stats-bar";
 import { AdaptiveLegend } from "@/components/adaptive-legend";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BaselineTab } from "@/components/baseline-tab";
 import { DiscoveryAuthBanner } from "@/components/discovery-auth-banner";
-import type { ParityTier } from "@/components/parity-badge";
 import { getDocsStatus } from "@/lib/docs-status";
-import { resolveCell } from "@/lib/live-status";
-import type {
-  DepthDistribution,
-  D6Stats,
-} from "@/components/adaptive-stats-bar";
 import catalog from "@/data/catalog.json";
 import type { CatalogData } from "@/data/catalog-types";
 
@@ -44,6 +44,27 @@ export default function Page() {
   );
 
   const connection = allStatus.status;
+
+  // Wall-clock tick: forces staleness re-evaluation even when no SSE delta
+  // arrives. Without this, a wedged pipeline (no new rows) would never
+  // re-sample time, so a frozen-green cell could never downgrade to stale.
+  // One interval, 60s cadence (well under the staleness window), cleared on
+  // unmount. Bumping `tick` only invalidates the `now` memo below, so the
+  // re-render is cheap — the same recompute that already runs on every SSE
+  // delta.
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Single reference time shared by EVERY staleness-deriving call below
+  // (healthStats, depthDistribution, d6Stats, renderCell). Re-sampled when
+  // live-status changes OR the 60s `tick` fires, so chips and stats agree on
+  // which green rows are stale instead of each defaulting to its own
+  // `Date.now()` that may have crossed a window boundary milliseconds later.
+  // Mirrors the single-`now` discipline in cell-matrix.tsx.
+  const now = useMemo(() => Date.now(), [liveStatus, tick]);
 
   // R2-D.1: real probe wiring. `useProbes` polls the ops API every 10s and
   // feeds the schedule grid; `useTriggerProbe` POSTs to /trigger with the
@@ -77,57 +98,17 @@ export default function Page() {
   } = useOverlays();
 
   // Compute health stats using buildCellModel — single source of truth for
-  // chip color, so the stats bar matches what's visually displayed in the table.
-  const healthStats = useMemo(() => {
-    let green = 0;
-    let amber = 0;
-    let red = 0;
-    for (const cell of catalogData.cells) {
-      if (cell.status !== "wired" || cell.feature === null) continue;
-      // "wired" status implies supported — no need to check unsupported here
-      const model = buildCellModel(liveStatus, {
-        slug: cell.integration,
-        featureId: cell.feature,
-        isSupported: true,
-        isWired: true,
-      });
-      switch (model.chipColor) {
-        case "green":
-          green++;
-          break;
-        case "amber":
-          amber++;
-          break;
-        case "red":
-          red++;
-          break;
-        case "gray":
-          green++;
-          break; // no data yet, not a failure
-      }
-    }
-    return { green, amber, red };
-  }, [liveStatus]);
+  // chip color, so the stats bar matches what's visually displayed in the
+  // table. A gray chip (no data yet) is tracked as `noData`, NOT folded into
+  // green, so the bar agrees with the matrix it summarizes.
+  const healthStats = useMemo(
+    () => computeHealthStats(catalogData.cells, liveStatus, now),
+    [liveStatus, now],
+  );
 
-  // Compute parity tier counts
-  const parityStats = useMemo(() => {
-    const counts: Record<ParityTier, number> = {
-      reference: 0,
-      at_parity: 0,
-      partial: 0,
-      minimal: 0,
-      not_wired: 0,
-    };
-    // Count unique integrations by tier
-    const seen = new Set<string>();
-    for (const cell of catalogData.cells) {
-      if (!seen.has(cell.integration)) {
-        seen.add(cell.integration);
-        counts[cell.parity_tier as ParityTier]++;
-      }
-    }
-    return counts;
-  }, []);
+  // Compute parity tier counts (validates tier before indexing — fail-loud
+  // on unknown tiers rather than producing NaN).
+  const parityStats = useMemo(() => computeParityStats(catalogData.cells), []);
 
   // Compute docs reachability stats from unique feature IDs
   const docsStats = useMemo(() => {
@@ -150,53 +131,20 @@ export default function Page() {
   }, []);
 
   // Compute depth distribution across all wired cells — re-derives whenever
-  // live-status changes since depth is a function of probe states.
-  const depthDistribution = useMemo((): DepthDistribution => {
-    const dist: DepthDistribution = {
-      d5: 0,
-      d4: 0,
-      d3: 0,
-      d2: 0,
-      d1: 0,
-      d0: 0,
-    };
-    for (const cell of catalogData.cells) {
-      if (cell.status !== "wired" || cell.feature === null) continue;
-      // "wired" status implies supported — no need to check unsupported here
-      const model = buildCellModel(liveStatus, {
-        slug: cell.integration,
-        featureId: cell.feature,
-        isSupported: true,
-        isWired: true,
-      });
-      const key = `d${model.achievedDepth}` as keyof DepthDistribution;
-      dist[key]++;
-    }
-    return dist;
-  }, [liveStatus]);
+  // live-status changes since depth is a function of probe states. Uses an
+  // exhaustive achievedDepth→key map so D6-achieved cells land in the `d6`
+  // bucket (the old string cast dropped them).
+  const depthDistribution = useMemo(
+    () => computeDepthDistribution(catalogData.cells, liveStatus, now),
+    [liveStatus, now],
+  );
 
-  // Compute D6 (parity-vs-reference) rollup counts across wired cells.
-  const d6Stats = useMemo((): D6Stats => {
-    let green = 0;
-    let gray = 0;
-    let red = 0;
-    for (const cell of catalogData.cells) {
-      if (cell.status !== "wired" || cell.feature === null) continue;
-      const state = resolveCell(liveStatus, cell.integration, cell.feature);
-      switch (state.d6.tone) {
-        case "green":
-          green++;
-          break;
-        case "red":
-          red++;
-          break;
-        default:
-          gray++;
-          break;
-      }
-    }
-    return { green, gray, red };
-  }, [liveStatus]);
+  // Compute D6 (parity-vs-reference) rollup counts across wired cells —
+  // degraded/stale D6 surfaces distinctly instead of folding into gray.
+  const d6Stats = useMemo(
+    () => computeD6Stats(catalogData.cells, liveStatus, now),
+    [liveStatus, now],
+  );
 
   // renderCell callback wrapping UnifiedCell + buildCellModel.
   // buildCellModel is the single source of truth for cell state — it handles
@@ -207,15 +155,19 @@ export default function Page() {
         ctx.integration.not_supported_features?.includes(ctx.feature.id) ??
         false
       );
-      const model = buildCellModel(ctx.liveStatus, {
-        slug: ctx.integration.slug,
-        featureId: ctx.feature.id,
-        isSupported,
-        isWired: true, // renderCell only called when demo exists
-      });
+      const model = buildCellModel(
+        ctx.liveStatus,
+        {
+          slug: ctx.integration.slug,
+          featureId: ctx.feature.id,
+          isSupported,
+          isWired: true, // renderCell only called when demo exists
+        },
+        now,
+      );
       return <UnifiedCell ctx={ctx} model={model} overlays={overlays} />;
     },
-    [overlays],
+    [overlays, now],
   );
 
   return (

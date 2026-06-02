@@ -374,7 +374,7 @@ describe("deriveDepth", () => {
     expect(result.achieved).toBe(4);
   });
 
-  it("returns D6 when D0-D5 green plus D6 green (aggregate key)", () => {
+  it("returns D6 when D0-D5 green plus D6 green (per-cell key)", () => {
     const c = cell("lgp", "agentic-chat");
     const live = mapOf([
       row("health:lgp", "health", "green"),
@@ -382,7 +382,7 @@ describe("deriveDepth", () => {
       row("e2e:lgp/agentic-chat", "e2e", "green"),
       row("chat:lgp", "chat", "green"),
       row("d5:lgp/agentic-chat", "d5", "green"),
-      row("d6:lgp", "d6", "green"),
+      row("d6:lgp/agentic-chat", "d6", "green"),
     ]);
     const result = deriveDepth(c, live);
     expect(result.achieved).toBe(6);
@@ -429,7 +429,7 @@ describe("deriveDepth", () => {
         row("e2e:lgp/agentic-chat", "e2e", "green", FRESH_AT),
         row("chat:lgp", "chat", "green", FRESH_AT),
         row("d5:lgp/agentic-chat", "d5", "green", FRESH_AT),
-        row("d6:lgp", "d6", "green", STALE_AT),
+        row("d6:lgp/agentic-chat", "d6", "green", STALE_AT),
       ]);
       const result = deriveDepth(c, live, NOW);
       // Stale green D6 must not advance past D5.
@@ -444,7 +444,7 @@ describe("deriveDepth", () => {
         row("e2e:lgp/agentic-chat", "e2e", "green", FRESH_AT),
         row("chat:lgp", "chat", "green", FRESH_AT),
         row("d5:lgp/agentic-chat", "d5", "green", FRESH_AT),
-        row("d6:lgp", "d6", "green", FRESH_AT),
+        row("d6:lgp/agentic-chat", "d6", "green", FRESH_AT),
       ]);
       const result = deriveDepth(c, live, NOW);
       expect(result.achieved).toBe(6);
@@ -592,7 +592,7 @@ describe("deriveDepth", () => {
         row("e2e:lgp/agentic-chat", "e2e", "green"),
         row("chat:lgp", "chat", "green"),
         row("d5:lgp/agentic-chat", "d5", "green"),
-        row("d6:lgp", "d6", "green"),
+        row("d6:lgp/agentic-chat", "d6", "green"),
       ]);
       const result = deriveDepth(c, live);
       expect(result.achieved).toBe(6);
@@ -694,6 +694,20 @@ describe("deriveDepth", () => {
 
     it("unshipped → maxPossible=0, no regression", () => {
       const c = cell("lgp", "agentic-chat", "unshipped");
+      const live = mapOf([]);
+      const result = deriveDepth(c, live);
+      expect(result.achieved).toBe(0);
+      expect(result.maxPossible).toBe(0);
+      expect(result.isRegression).toBe(false);
+    });
+
+    it("stub with no live data → maxPossible=0, NOT a regression (stub = not-yet-wired)", () => {
+      // A `stub` cell is "not yet wired", not "regressed". Treating it like
+      // `unshipped` (maxPossible=0) means a stub with no probe data does not
+      // light up the regression indicator. Pre-fix, computeMaxPossible gave a
+      // stub the same 4/6 ceiling as a wired cell, so achieved=0 < maxPossible
+      // falsely flagged isRegression.
+      const c = cell("lgp", "agentic-chat", "stub");
       const live = mapOf([]);
       const result = deriveDepth(c, live);
       expect(result.achieved).toBe(0);

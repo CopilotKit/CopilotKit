@@ -189,15 +189,16 @@ describe("buildCellModel", () => {
       expect(model.d5!.exists).toBe(true);
       expect(model.d5!.status).toBe("red");
       expect(model.achievedDepth).toBe(4);
-      expect(model.ceilingDepth).toBe(5);
-      // D6-ceiling: D5 not green, D6 absent → red
+      // agentic-chat is D6-mapped, so D6 EXISTS (mapped, unemitted) → ceiling 6.
+      expect(model.ceilingDepth).toBe(6);
+      // D6-ceiling: D5 not green → broken ladder → red
       expect(model.chipColor).toBe("red");
     });
   });
 
   // ── All three pass → D5 green ───────────────────────────────────────
   describe("D3+D4+D5 pass, no D6", () => {
-    it("returns amber chip (D6-ceiling: D5 green but D6 absent)", () => {
+    it("returns amber chip (D6-ceiling: D5 green but D6 unemitted)", () => {
       const live = mapOf([
         row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
         row(keyFor("chat", "agno"), "chat", "green"),
@@ -205,7 +206,8 @@ describe("buildCellModel", () => {
       ]);
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
       expect(model.achievedDepth).toBe(5);
-      expect(model.ceilingDepth).toBe(5);
+      // agentic-chat is D6-mapped, so D6 EXISTS (mapped, unemitted) → ceiling 6.
+      expect(model.ceilingDepth).toBe(6);
       // D6-ceiling: D5 green but D6 not green → amber
       expect(model.chipColor).toBe("amber");
     });
@@ -222,7 +224,8 @@ describe("buildCellModel", () => {
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
       expect(model.d3!.status).toBe("red");
       expect(model.achievedDepth).toBe(0);
-      expect(model.ceilingDepth).toBe(5);
+      // agentic-chat is D6-mapped, so D6 EXISTS (mapped, unemitted) → ceiling 6.
+      expect(model.ceilingDepth).toBe(6);
       // tests exist (ceiling > 0) but none pass → red
       expect(model.chipColor).toBe("red");
     });
@@ -315,8 +318,10 @@ describe("buildCellModel", () => {
       expect(model.d5!.status).toBe("red");
       // D5 is red → achievedDepth stops at D4
       expect(model.achievedDepth).toBe(4);
-      expect(model.ceilingDepth).toBe(5);
-      // D6-ceiling: D5 not green, D6 absent → red
+      // beautiful-chat is D6-mapped (same featureType bridge as D5), so D6
+      // EXISTS (mapped, unemitted → status null) → ceiling is 6.
+      expect(model.ceilingDepth).toBe(6);
+      // D6-ceiling: D5 not green → broken ladder → red
       expect(model.chipColor).toBe("red");
     });
 
@@ -487,7 +492,8 @@ describe("buildCellModel", () => {
       ]);
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
       expect(model.achievedDepth).toBe(3);
-      expect(model.ceilingDepth).toBe(5);
+      // agentic-chat is D6-mapped, so D6 EXISTS (mapped, unemitted) → ceiling 6.
+      expect(model.ceilingDepth).toBe(6);
       // D6-ceiling: D4 red → gate failure → red
       expect(model.chipColor).toBe("red");
     });
@@ -508,7 +514,7 @@ describe("buildCellModel", () => {
         row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
         row(keyFor("chat", "agno"), "chat", "green"),
         row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
-        row(keyFor("d6", "agno"), "d6", "green"),
+        row(keyFor("d6", "agno", "agentic-chat"), "d6", "green"),
       ]);
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
       expect(model.d6!.exists).toBe(true);
@@ -521,7 +527,7 @@ describe("buildCellModel", () => {
         row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
         row(keyFor("chat", "agno"), "chat", "green"),
         row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
-        row(keyFor("d6", "agno"), "d6", "red"),
+        row(keyFor("d6", "agno", "agentic-chat"), "d6", "red"),
       ]);
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
       expect(model.d5!.status).toBe("green");
@@ -530,7 +536,7 @@ describe("buildCellModel", () => {
       expect(model.chipColor).toBe("amber");
     });
 
-    it("D5 green + D6 missing → amber", () => {
+    it("D5 green + D6 unemitted → amber", () => {
       const live = mapOf([
         row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
         row(keyFor("chat", "agno"), "chat", "green"),
@@ -538,8 +544,10 @@ describe("buildCellModel", () => {
       ]);
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
       expect(model.d5!.status).toBe("green");
-      expect(model.d6!.exists).toBe(false);
-      // D5 green but D6 absent → amber
+      // agentic-chat is D6-mapped → D6 EXISTS but has no emitted data.
+      expect(model.d6!.exists).toBe(true);
+      expect(model.d6!.status).toBeNull();
+      // D5 green but D6 not green (no-data) → amber
       expect(model.chipColor).toBe("amber");
     });
 
@@ -548,7 +556,7 @@ describe("buildCellModel", () => {
         row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "red"),
         row(keyFor("chat", "agno"), "chat", "green"),
         row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
-        row(keyFor("d6", "agno"), "d6", "green"),
+        row(keyFor("d6", "agno", "agentic-chat"), "d6", "green"),
       ]);
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
       expect(model.d3!.status).toBe("red");
@@ -574,7 +582,7 @@ describe("buildCellModel", () => {
         row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
         row(keyFor("chat", "agno"), "chat", "green"),
         row(keyFor("d5", "agno", "agentic-chat"), "d5", "red"),
-        row(keyFor("d6", "agno"), "d6", "red"),
+        row(keyFor("d6", "agno", "agentic-chat"), "d6", "red"),
       ]);
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
       expect(model.d5!.status).toBe("red");
@@ -585,13 +593,13 @@ describe("buildCellModel", () => {
 
     it("D5 red + D6 green → red (contiguous-ladder gate)", () => {
       // A red D5 below a green D6 must NOT paint green: the verification
-      // ladder is broken at D5, so D6's aggregate pass is not trustworthy
+      // ladder is broken at D5, so D6's per-cell pass is not trustworthy
       // evidence of this cell's health. Red wins.
       const live = mapOf([
         row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
         row(keyFor("chat", "agno"), "chat", "green"),
         row(keyFor("d5", "agno", "agentic-chat"), "d5", "red"),
-        row(keyFor("d6", "agno"), "d6", "green"),
+        row(keyFor("d6", "agno", "agentic-chat"), "d6", "green"),
       ]);
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
       expect(model.d5!.status).toBe("red");
@@ -605,7 +613,7 @@ describe("buildCellModel", () => {
       const live = mapOf([
         row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
         row(keyFor("chat", "agno"), "chat", "green"),
-        row(keyFor("d6", "agno"), "d6", "green"),
+        row(keyFor("d6", "agno", "agentic-chat"), "d6", "green"),
       ]);
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
       expect(model.d5!.exists).toBe(true);
@@ -618,7 +626,7 @@ describe("buildCellModel", () => {
       const live = mapOf([
         row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
         row(keyFor("chat", "agno"), "chat", "green"),
-        row(keyFor("d6", "agno"), "d6", "red"),
+        row(keyFor("d6", "agno", "agentic-chat"), "d6", "red"),
       ]);
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
       expect(model.d5!.status).toBeNull();
@@ -626,34 +634,43 @@ describe("buildCellModel", () => {
       expect(model.chipColor).toBe("red");
     });
 
-    it("D5 null + D6 missing → gray (no data)", () => {
+    it("D5 null + D6 unemitted → gray (no data)", () => {
       const live = mapOf([
         row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
         row(keyFor("chat", "agno"), "chat", "green"),
       ]);
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
       expect(model.d5!.status).toBeNull();
-      expect(model.d6!.exists).toBe(false);
+      // agentic-chat is D6-mapped → D6 EXISTS but has no emitted data.
+      expect(model.d6!.exists).toBe(true);
+      expect(model.d6!.status).toBeNull();
       expect(model.chipColor).toBe("gray");
     });
 
-    it("D6 uses aggregate key not per-cell", () => {
-      // D6 is keyed by slug only (d6:<slug>), not per-feature.
-      // Two different features on the same slug should see the same D6 row.
+    it("D6 uses per-cell keys, not the integration aggregate", () => {
+      // D6 is keyed per-feature (d6:<slug>/<featureType>), NOT by slug only.
+      // Two different features on the same slug resolve INDEPENDENT D6 rows;
+      // the aggregate `d6:<slug>` (here red) is not consulted.
       const live = mapOf([
         row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
-        row(keyFor("e2e", "agno", "beautiful-chat"), "e2e", "green"),
-        row(keyFor("d6", "agno"), "d6", "green"),
+        row(keyFor("e2e", "agno", "voice"), "e2e", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
+        row(keyFor("d5", "agno", "voice"), "d5", "green"),
+        // Aggregate is red but must NOT be read…
+        row(keyFor("d6", "agno"), "d6", "red"),
+        // …per-cell rows differ between the two features.
+        row(keyFor("d6", "agno", "agentic-chat"), "d6", "green"),
+        row(keyFor("d6", "agno", "voice"), "d6", "red"),
       ]);
       const modelA = buildCellModel(live, wiredInput("agno", "agentic-chat"));
-      const modelB = buildCellModel(live, wiredInput("agno", "beautiful-chat"));
-      // Both cells resolve the same D6 row
-      expect(modelA.d6!.exists).toBe(true);
+      const modelB = buildCellModel(live, wiredInput("agno", "voice"));
+      // Each cell resolves its OWN per-cell row.
       expect(modelA.d6!.status).toBe("green");
-      expect(modelB.d6!.exists).toBe(true);
-      expect(modelB.d6!.status).toBe("green");
-      // Same underlying row object
-      expect(modelA.d6!.row).toBe(modelB.d6!.row);
+      expect(modelB.d6!.status).toBe("red");
+      // Distinct underlying rows (not a shared aggregate).
+      expect(modelA.d6!.row?.key).toBe("d6:agno/agentic-chat");
+      expect(modelB.d6!.row?.key).toBe("d6:agno/voice");
+      expect(modelA.d6!.row).not.toBe(modelB.d6!.row);
     });
 
     it("ceilingDepth is 6 when D6 data exists", () => {
@@ -661,11 +678,181 @@ describe("buildCellModel", () => {
         row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
         row(keyFor("chat", "agno"), "chat", "green"),
         row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
-        row(keyFor("d6", "agno"), "d6", "green"),
+        row(keyFor("d6", "agno", "agentic-chat"), "d6", "green"),
       ]);
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
       expect(model.ceilingDepth).toBe(6);
       expect(model.achievedDepth).toBe(6);
+    });
+  });
+
+  // ── D6 PER-CELL resolution (bug fix: was reading the integration
+  //    aggregate `d6:<slug>`, painting genuinely-green cells red) ───────
+  describe("D6 per-cell resolution (bug fix)", () => {
+    it("resolves GREEN from the per-cell row even when the aggregate d6:<slug> is RED", () => {
+      // The whole bug: aggregate `d6:agno` is RED (some OTHER cell failed),
+      // but THIS cell's per-cell row `d6:agno/agentic-chat` is GREEN. The
+      // cell must read its own per-cell row → green, NOT the red aggregate.
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
+        // Aggregate is red (a different cell in the column failed)…
+        row(keyFor("d6", "agno"), "d6", "red"),
+        // …but this cell's per-cell parity row passed.
+        row(keyFor("d6", "agno", "agentic-chat"), "d6", "green"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.d6!.exists).toBe(true);
+      expect(model.d6!.status).toBe("green");
+      // Resolved row is the PER-CELL row, not the aggregate.
+      expect(model.d6!.row?.key).toBe("d6:agno/agentic-chat");
+      // D5 green + D6 green → green chip.
+      expect(model.chipColor).toBe("green");
+    });
+
+    it("resolves RED from the per-cell row even when the aggregate d6:<slug> is GREEN", () => {
+      // Inverse: aggregate happens to be green but THIS cell's per-cell row
+      // is red. The cell must surface its own red, not the green aggregate.
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
+        row(keyFor("d6", "agno"), "d6", "green"),
+        row(keyFor("d6", "agno", "agentic-chat"), "d6", "red"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.d6!.status).toBe("red");
+      expect(model.d6!.row?.key).toBe("d6:agno/agentic-chat");
+      // D5 green + per-cell D6 red → amber (D6 is above D5 in the ladder).
+      expect(model.chipColor).toBe("amber");
+    });
+
+    it("two features on the same slug resolve DIFFERENT per-cell D6 rows", () => {
+      // The aggregate model made every cell in a column identical. Per-cell
+      // rows let a green cell sit next to a red cell in the same integration.
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("e2e", "agno", "voice"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
+        row(keyFor("d5", "agno", "voice"), "d5", "green"),
+        // aggregate red, but per-cell rows differ:
+        row(keyFor("d6", "agno"), "d6", "red"),
+        row(keyFor("d6", "agno", "agentic-chat"), "d6", "red"),
+        row(keyFor("d6", "agno", "voice"), "d6", "green"),
+      ]);
+      const modelChat = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+      );
+      const modelVoice = buildCellModel(live, wiredInput("agno", "voice"));
+      expect(modelChat.d6!.status).toBe("red");
+      expect(modelVoice.d6!.status).toBe("green");
+      // Distinct underlying rows — not the shared aggregate.
+      expect(modelChat.d6!.row?.key).toBe("d6:agno/agentic-chat");
+      expect(modelVoice.d6!.row?.key).toBe("d6:agno/voice");
+      expect(modelChat.d6!.row).not.toBe(modelVoice.d6!.row);
+      // Voice is fully green at D6; chat caps at amber on its red D6.
+      expect(modelVoice.chipColor).toBe("green");
+      expect(modelChat.chipColor).toBe("amber");
+    });
+
+    it("does NOT credit D6 green when one mapped per-cell sub-row is MISSING (strict, mirrors resolveD5)", () => {
+      // beautiful-chat maps to 5 D6 sub-keys (same featureTypes as D5). Emit
+      // only 4 per-cell D6 rows (bar-chart missing). A missing mapped sub-row
+      // means the family is unverified → D6 status null (no-data), NOT green.
+      // Mirrors resolveD5's strict missing-sub-row handling.
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "beautiful-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        // All 5 D5 sub-rows green so the cell reaches D5.
+        row(keyFor("d5", "agno", "beautiful-chat-toggle-theme"), "d5", "green"),
+        row(keyFor("d5", "agno", "beautiful-chat-pie-chart"), "d5", "green"),
+        row(keyFor("d5", "agno", "beautiful-chat-bar-chart"), "d5", "green"),
+        row(
+          keyFor("d5", "agno", "beautiful-chat-search-flights"),
+          "d5",
+          "green",
+        ),
+        row(
+          keyFor("d5", "agno", "beautiful-chat-schedule-meeting"),
+          "d5",
+          "green",
+        ),
+        // D6: only 4 of 5 per-cell rows present (bar-chart omitted).
+        row(keyFor("d6", "agno", "beautiful-chat-toggle-theme"), "d6", "green"),
+        row(keyFor("d6", "agno", "beautiful-chat-pie-chart"), "d6", "green"),
+        row(
+          keyFor("d6", "agno", "beautiful-chat-search-flights"),
+          "d6",
+          "green",
+        ),
+        row(
+          keyFor("d6", "agno", "beautiful-chat-schedule-meeting"),
+          "d6",
+          "green",
+        ),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "beautiful-chat"));
+      expect(model.d6!.exists).toBe(true);
+      // Missing sub-row → no-data, NOT green and NOT red.
+      expect(model.d6!.status).toBeNull();
+      // D5 green but D6 unverified (no-data) → amber (ladder intact to D5).
+      expect(model.chipColor).toBe("amber");
+      expect(model.achievedDepth).toBe(5);
+    });
+
+    it("still reports D6 red when a present per-cell sub-row is red even if another is missing", () => {
+      // A present red D6 sub-row signals a real parity failure regardless of a
+      // missing sibling — red dominates no-data (mirrors resolveD5).
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "beautiful-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("d5", "agno", "beautiful-chat-toggle-theme"), "d5", "green"),
+        row(keyFor("d5", "agno", "beautiful-chat-pie-chart"), "d5", "green"),
+        row(keyFor("d5", "agno", "beautiful-chat-bar-chart"), "d5", "green"),
+        row(
+          keyFor("d5", "agno", "beautiful-chat-search-flights"),
+          "d5",
+          "green",
+        ),
+        row(
+          keyFor("d5", "agno", "beautiful-chat-schedule-meeting"),
+          "d5",
+          "green",
+        ),
+        // D6: one present sub-row is red, bar-chart missing.
+        row(keyFor("d6", "agno", "beautiful-chat-toggle-theme"), "d6", "green"),
+        row(keyFor("d6", "agno", "beautiful-chat-pie-chart"), "d6", "red"),
+        row(
+          keyFor("d6", "agno", "beautiful-chat-search-flights"),
+          "d6",
+          "green",
+        ),
+        row(
+          keyFor("d6", "agno", "beautiful-chat-schedule-meeting"),
+          "d6",
+          "green",
+        ),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "beautiful-chat"));
+      expect(model.d6!.status).toBe("red");
+      // D5 green + per-cell D6 red → amber.
+      expect(model.chipColor).toBe("amber");
+    });
+
+    it("unmapped feature has no D6 test (exists:false)", () => {
+      // A featureId absent from CATALOG_TO_D5_KEY has no per-cell D6 row,
+      // so D6 does not exist for it — mirrors resolveD5's unmapped handling.
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "no-d5-feature"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        // A stray aggregate row must NOT be picked up for the unmapped cell.
+        row(keyFor("d6", "agno"), "d6", "green"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "no-d5-feature"));
+      expect(model.d6!.exists).toBe(false);
     });
   });
 
@@ -725,23 +912,25 @@ describe("buildCellModel", () => {
     //    no-data, not a slide-back. ──
     it("is FALSE when the next rung (D5) is mapped but has no emitted data", () => {
       // D3 green + D4 green, D5 mapped but NO d5 rows emitted →
-      // achieved=4, ceiling=5, d5.exists=true but d5.status===null.
-      // No data above achieved → NOT a regression.
+      // achieved=4, d5.exists=true but d5.status===null. (ceiling is 6 since
+      // agentic-chat is also D6-mapped.) The next rung above achieved (D5)
+      // has no emitted data → NOT a regression.
       const live = mapOf([
         row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
         row(keyFor("chat", "agno"), "chat", "green"),
       ]);
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
       expect(model.achievedDepth).toBe(4);
-      expect(model.ceilingDepth).toBe(5);
+      expect(model.ceilingDepth).toBe(6);
       expect(model.d5?.exists).toBe(true);
       expect(model.d5?.status).toBeNull();
       expect(model.isRegression).toBe(false);
     });
 
     it("is TRUE when the next rung (D5) is below ceiling AND emitted red data", () => {
-      // D3 green + D4 green + D5 red → achieved=4, ceiling=5, and d5 has
-      // emitted (status==='red'). A real slide-back → regression.
+      // D3 green + D4 green + D5 red → achieved=4, and d5 has emitted
+      // (status==='red'). (ceiling is 6 since agentic-chat is also D6-mapped.)
+      // A real slide-back at the next rung → regression.
       const live = mapOf([
         row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
         row(keyFor("chat", "agno"), "chat", "green"),
@@ -749,7 +938,7 @@ describe("buildCellModel", () => {
       ]);
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
       expect(model.achievedDepth).toBe(4);
-      expect(model.ceilingDepth).toBe(5);
+      expect(model.ceilingDepth).toBe(6);
       expect(model.d5?.status).toBe("red");
       expect(model.isRegression).toBe(true);
     });
@@ -880,7 +1069,7 @@ describe("buildCellModel", () => {
         rowAtAge(keyFor("e2e", "agno", "agentic-chat"), "e2e", FRESH, "green"),
         rowAtAge(keyFor("chat", "agno"), "chat", FRESH, "green"),
         rowAtAge(keyFor("d5", "agno", "agentic-chat"), "d5", FRESH, "green"),
-        rowAtAge(keyFor("d6", "agno"), "d6", STALE, "green"),
+        rowAtAge(keyFor("d6", "agno", "agentic-chat"), "d6", STALE, "green"),
       ]);
       const model = buildCellModel(
         live,
@@ -900,7 +1089,7 @@ describe("buildCellModel", () => {
         rowAtAge(keyFor("e2e", "agno", "agentic-chat"), "e2e", FRESH, "green"),
         rowAtAge(keyFor("chat", "agno"), "chat", FRESH, "green"),
         rowAtAge(keyFor("d5", "agno", "agentic-chat"), "d5", FRESH, "green"),
-        rowAtAge(keyFor("d6", "agno"), "d6", FRESH, "green"),
+        rowAtAge(keyFor("d6", "agno", "agentic-chat"), "d6", FRESH, "green"),
       ]);
       const model = buildCellModel(
         live,
@@ -1066,6 +1255,139 @@ describe("buildCellModel", () => {
         NOW,
       );
       expect(model.d4?.status).toBe("red");
+    });
+  });
+
+  // ── Effective-row invariant: .row.state must AGREE with .status ─────
+  // The returned `.row` must be the EFFECTIVE (stale-downgraded) row, so
+  // `stateToTestStatus(.row.state) === .status`. This mirrors the invariant
+  // in live-status.ts `buildBadge`, whose returned `.row` is the effective
+  // row (`{ ...row, state: "degraded" }`). Previously resolveD4/D5/D6 returned
+  // the RAW status row while `.status` was derived from the stale-downgraded
+  // effective state, so a stale-green fold reported `.row.state === "green"`
+  // but `.status === "amber"` — an internal contradiction.
+  describe("effective-row invariant (.row.state agrees with .status)", () => {
+    const NOW = Date.parse("2026-05-30T12:00:00Z");
+
+    function rowAtAge(
+      key: string,
+      dimension: string,
+      ageMs: number,
+      state: State = "green",
+    ) {
+      const observedAt = new Date(NOW - ageMs).toISOString();
+      return row(key, dimension, state, {
+        observed_at: observedAt,
+        transitioned_at: observedAt,
+      });
+    }
+
+    const E2E_STALE = E2E_STALE_AFTER_MS + 60 * 60 * 1000;
+    const D4_STALE = D4_STALE_AFTER_MS + 60 * 1000;
+    const FRESH = 60 * 1000;
+
+    it("D4: stale-green folds to amber and .row.state matches .status", () => {
+      const live = mapOf([
+        rowAtAge(keyFor("e2e", "agno", "agentic-chat"), "e2e", FRESH, "green"),
+        rowAtAge(keyFor("chat", "agno"), "chat", D4_STALE, "green"),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      expect(model.d4?.status).toBe("amber");
+      // The effective row must reflect the downgrade, not the raw green state.
+      expect(model.d4?.row?.state).toBe("degraded");
+    });
+
+    it("D5: stale-green folds to amber and .row.state matches .status", () => {
+      const live = mapOf([
+        rowAtAge(keyFor("e2e", "agno", "agentic-chat"), "e2e", FRESH, "green"),
+        rowAtAge(keyFor("chat", "agno"), "chat", FRESH, "green"),
+        rowAtAge(
+          keyFor("d5", "agno", "agentic-chat"),
+          "d5",
+          E2E_STALE,
+          "green",
+        ),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      expect(model.d5?.status).toBe("amber");
+      expect(model.d5?.row?.state).toBe("degraded");
+    });
+
+    it("D6: stale-green folds to amber and .row.state matches .status", () => {
+      const live = mapOf([
+        rowAtAge(keyFor("e2e", "agno", "agentic-chat"), "e2e", FRESH, "green"),
+        rowAtAge(keyFor("chat", "agno"), "chat", FRESH, "green"),
+        rowAtAge(keyFor("d5", "agno", "agentic-chat"), "d5", FRESH, "green"),
+        rowAtAge(
+          keyFor("d6", "agno", "agentic-chat"),
+          "d6",
+          E2E_STALE,
+          "green",
+        ),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      expect(model.d6?.status).toBe("amber");
+      expect(model.d6?.row?.state).toBe("degraded");
+    });
+
+    it("D5: fresh-green keeps the raw row (no spurious downgrade)", () => {
+      const live = mapOf([
+        rowAtAge(keyFor("e2e", "agno", "agentic-chat"), "e2e", FRESH, "green"),
+        rowAtAge(keyFor("chat", "agno"), "chat", FRESH, "green"),
+        rowAtAge(keyFor("d5", "agno", "agentic-chat"), "d5", FRESH, "green"),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      expect(model.d5?.status).toBe("green");
+      // Fresh green is not downgraded: .row.state stays green.
+      expect(model.d5?.row?.state).toBe("green");
+    });
+  });
+
+  // ── CHARACTERIZATION: buildCellModel does NOT read health:/agent: rows ──
+  // resolveD3 credits D3 from the `e2e:<slug>/<feature>` row ALONE. The
+  // implicit "D1/D2 gate" (a failing liveness probe drags e2e down) is a
+  // PRODUCER-SIDE invariant: the e2e driver is expected not to emit green
+  // when health/agent are red. buildCellModel itself never consults the
+  // health:/agent: rows, so a fresh-green e2e row credits D3 even when a
+  // health/agent row is red or absent. This test PINS that documented
+  // current behavior; it does NOT assert a new requirement.
+  describe("D1/D2 gate is a producer invariant (characterization)", () => {
+    it("credits D3 from a fresh-green e2e row even when health: is RED", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "no-d5-feature"), "e2e", "green"),
+        // A red liveness/agent row is present but buildCellModel ignores it.
+        row(keyFor("health", "agno"), "health", "red"),
+        row(keyFor("agent", "agno"), "agent", "red"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "no-d5-feature"));
+      // D3 is credited from e2e alone — health/agent rows are not consulted.
+      expect(model.d3!.status).toBe("green");
+      expect(model.achievedDepth).toBe(3);
+    });
+
+    it("credits D3 from a fresh-green e2e row even when health:/agent: are ABSENT", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "no-d5-feature"), "e2e", "green"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "no-d5-feature"));
+      expect(model.d3!.status).toBe("green");
+      expect(model.achievedDepth).toBe(3);
     });
   });
 });

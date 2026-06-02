@@ -405,6 +405,26 @@ describe("UnifiedCell", () => {
       expect(getByTestId("unified-cell-empty")).toBeInTheDocument();
       expect(queryByTestId("unified-cell")).not.toBeInTheDocument();
     });
+
+    // ── d6 is a content-bearing overlay (surfaces depth + health) ─────
+    // Regression guard: a {d6}-only set must NOT render a blank cell even
+    // though only adaptive-stats-bar reads overlays.has("d6"). Per-cell the
+    // d6 pill surfaces the depth chip + health badges (incl. the D6 badge).
+    it("renders depth + health content (not blank) for a {d6}-only overlay set", () => {
+      const ctx = makeCtx();
+      const model = makeModel({ d6: makeLevel(true, "green") });
+      const { getByTestId, queryByTestId } = render(
+        <UnifiedCell ctx={ctx} model={model} overlays={overlaySet("d6")} />,
+      );
+
+      // Cell is NOT the blank-empty placeholder.
+      expect(queryByTestId("unified-cell-empty")).not.toBeInTheDocument();
+      expect(getByTestId("unified-cell")).toBeInTheDocument();
+      // Depth + health content surfaces, including the D6 badge.
+      expect(getByTestId("depth-layer")).toBeInTheDocument();
+      expect(getByTestId("health-layer")).toBeInTheDocument();
+      expect(getByTestId("mock-badge-D6")).toBeInTheDocument();
+    });
   });
 
   // ── Additional coverage ───────────────────────────────────────────

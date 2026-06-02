@@ -211,9 +211,17 @@ function UnifiedCellInner({ ctx, model, overlays }: UnifiedCellProps) {
   const isDocsOnly = ctx.feature.kind === "docs-only";
   const isTesting = ctx.feature.kind === "testing";
   const hasLinks = overlays.has("links");
-  const hasDepth = overlays.has("depth");
   const hasHealth = overlays.has("health");
   const hasDocs = overlays.has("docs");
+
+  // The d6 pill is primarily a stats-bar overlay (only AdaptiveStatsBar reads
+  // overlays.has("d6")). Per-cell it has no section of its own, so a
+  // {d6}-only set would otherwise produce a blank matrix (hasContent false).
+  // Treat d6 as content-bearing for the cell by surfacing the depth chip +
+  // health badges (the health row already renders the per-cell D6 badge), so
+  // an active d6 pill always shows meaningful per-cell content.
+  const hasD6 = overlays.has("d6");
+  const hasDepth = overlays.has("depth") || hasD6;
 
   // docs-only features: only links and docs layers, no depth or health.
   if (isDocsOnly) {
@@ -232,8 +240,11 @@ function UnifiedCellInner({ ctx, model, overlays }: UnifiedCellProps) {
     );
   }
 
+  // d6 surfaces the health row too, so its per-cell D6 badge is visible.
+  const showHealth = hasHealth || hasD6;
+
   // Check if any layer will produce content
-  const hasContent = hasLinks || hasDepth || hasHealth || hasDocs;
+  const hasContent = hasLinks || hasDepth || showHealth || hasDocs;
 
   if (!hasContent) {
     return <div data-testid="unified-cell-empty" />;
@@ -246,7 +257,7 @@ function UnifiedCellInner({ ctx, model, overlays }: UnifiedCellProps) {
     >
       {hasLinks && <LinksLayer ctx={ctx} />}
       {hasDepth && <DepthLayer ctx={ctx} model={model} />}
-      {hasHealth && !ctx.demo.command && <HealthLayer model={model} />}
+      {showHealth && !ctx.demo.command && <HealthLayer model={model} />}
       {hasDocs && <DocsLayer ctx={ctx} />}
     </div>
   );
@@ -310,17 +321,20 @@ function arePropsEqual(
     keyFor("tools", slug),
   ];
 
-  // Add D5 sub-keys from CATALOG_TO_D5_KEY
-  const d5Keys = CATALOG_TO_D5_KEY[featureId];
-  if (d5Keys && d5Keys.length > 0) {
-    for (const d5Key of d5Keys) {
-      directKeys.push(keyFor("d5", slug, d5Key));
+  // Add D5 + D6 sub-keys from CATALOG_TO_D5_KEY. D6 is per-cell (not the
+  // integration aggregate), resolved through the SAME featureType bridge as
+  // D5 — see resolveD6Row/resolveD6. Keep in sync with resolveCell +
+  // buildCellModel. An unmapped feature contributes no D5/D6 keys: the
+  // resolvers (resolveD5/resolveD6) return exists:false and never read a
+  // direct `d5:/d6:<slug>/<featureId>` key, so there is no direct-key
+  // fallback to watch here.
+  const featureKeys = CATALOG_TO_D5_KEY[featureId];
+  if (featureKeys && featureKeys.length > 0) {
+    for (const ft of featureKeys) {
+      directKeys.push(keyFor("d5", slug, ft));
+      directKeys.push(keyFor("d6", slug, ft));
     }
-  } else {
-    directKeys.push(keyFor("d5", slug, featureId));
   }
-
-  directKeys.push(keyFor("d6", slug));
 
   for (const k of directKeys) {
     if (prev.ctx.liveStatus.get(k) !== next.ctx.liveStatus.get(k)) return false;

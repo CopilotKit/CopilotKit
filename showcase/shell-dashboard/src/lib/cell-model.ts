@@ -103,7 +103,10 @@ function resolveD4(live: LiveStatusMap, slug: string, now: number): TestLevel {
   }
 
   // Fold to the worst effective state across present rows, applying the
-  // per-row stale-green→degraded downgrade before comparing.
+  // per-row stale-green→degraded downgrade before comparing. The winner row
+  // is stored in its EFFECTIVE (downgraded) form so `.row.state` agrees with
+  // `.status` — mirroring `buildBadge` in live-status.ts, whose returned
+  // `.row` is the effective row.
   let winner: StatusRow | null = null;
   let worstState: State | null = null;
   for (const candidate of [chatRow, toolsRow]) {
@@ -116,15 +119,24 @@ function resolveD4(live: LiveStatusMap, slug: string, now: number): TestLevel {
       worstState === null ||
       STATE_RANK[effectiveState] > STATE_RANK[worstState]
     ) {
-      winner = candidate;
+      winner =
+        effectiveState === candidate.state
+          ? candidate
+          : { ...candidate, state: effectiveState };
       worstState = effectiveState;
     }
   }
 
+  if (!winner || worstState === null) {
+    // Both rows present-checked above, so this is unreachable in practice;
+    // guard anyway instead of asserting (mirrors resolveD5/resolveD6).
+    return { exists: true, status: null, row: null };
+  }
+
   return {
     exists: true,
-    status: stateToTestStatus(worstState!),
-    row: winner!,
+    status: stateToTestStatus(worstState),
+    row: winner,
   };
 }
 
@@ -190,7 +202,10 @@ function resolveD5(
       worstState === null ||
       STATE_RANK[effectiveState] > STATE_RANK[worstState]
     ) {
-      worstRow = row;
+      // Store the EFFECTIVE (downgraded) row so `.row.state` agrees with
+      // `.status` — mirrors `buildBadge` in live-status.ts.
+      worstRow =
+        effectiveState === row.state ? row : { ...row, state: effectiveState };
       worstState = effectiveState;
     }
   }
@@ -225,6 +240,11 @@ function resolveD5(
  * the frozen-green row is no longer trustworthy evidence of health. Only
  * green is downgraded — a stale red/degraded row already signals a problem
  * and is left as-is.
+ *
+ * PRODUCER-INVARIANT ASSUMPTION: the implicit D1/D2 gate is enforced
+ * upstream, not here — this resolver credits D3 from the `e2e:<slug>/<feature>`
+ * row ALONE and never consults the `health:<slug>`/`agent:<slug>` rows. The
+ * e2e driver is expected not to emit green when liveness is red.
  */
 function resolveD3(
   live: LiveStatusMap,
@@ -247,29 +267,96 @@ function resolveD3(
 }
 
 /**
- * Resolve the D6 (parity-vs-reference) test level for `slug`.
+ * Resolve the D6 (parity-vs-reference) test level for `(slug, featureId)`.
  *
- * D6 is an aggregate integration-level signal (`d6:<slug>`), NOT per-cell.
- * The e2e-full driver emits a single row per integration that covers
- * the entire parity comparison against the reference implementation.
+ * D6 is PER-CELL, not an integration aggregate. The `e2e-parity` driver
+ * emits one `d6:<slug>/<featureType>` row per featureType (mirroring D5's
+ * keyspace — both fan out over `demosToFeatureTypes`), PLUS a single
+ * integration-level aggregate `d6:<slug>` row. The aggregate is red whenever
+ * ANY cell fails, so resolving cells against it would paint genuinely-green
+ * cells red. This resolver therefore reads the PER-CELL row, mapped through
+ * `CATALOG_TO_D5_KEY` (the same catalog-featureId → featureType bridge D5
+ * uses); the aggregate `d6:<slug>` row no longer drives per-cell rendering.
  *
- * Staleness applies the same downgrade as `resolveD3`: a green D6 row whose
- * `observed_at` is older than `E2E_STALE_AFTER_MS` is downgraded to `amber`
- * (degraded), so a frozen-green row from a stalled driver no longer credits
- * D6 forever. Only green is downgraded; stale red/degraded is left as-is.
+ * Mirrors `resolveD5` exactly:
+ *
+ * Staleness applies the same downgrade as `resolveD3`, but PER SUB-ROW and
+ * BEFORE the worst-state fold: a green D6 sub-row whose `observed_at` is older
+ * than `E2E_STALE_AFTER_MS` is treated as `degraded` while folding, so a
+ * fresh-green sub-row can never win the all-green tie and mask a stale-green
+ * sibling. Only green is downgraded; a stale red/degraded sub-row already
+ * signals a problem.
+ *
+ * STRICT on missing sub-rows: a multi-key family is credited green ONLY when
+ * EVERY mapped sub-row is present and green-and-fresh — a missing mapped
+ * sub-row forces the family out of green and resolves to `status: null`
+ * (no-data/unverified). A present RED sub-row still yields red (red dominates
+ * no-data). This matches `depth-utils.ts` `isD6Green`, which uses
+ * `d6Keys.every(...)`, and the identical handling in `resolveD5`.
  */
-function resolveD6(live: LiveStatusMap, slug: string, now: number): TestLevel {
-  const row = live.get(keyFor("d6", slug)) ?? null;
-  if (!row) {
+function resolveD6(
+  live: LiveStatusMap,
+  slug: string,
+  featureId: string,
+  now: number,
+): TestLevel {
+  const d6Keys = CATALOG_TO_D5_KEY[featureId];
+
+  // No mapping → test doesn't exist for this feature.
+  if (!d6Keys || d6Keys.length === 0) {
     return { exists: false, status: null, row: null };
   }
-  if (row.state === "green" && isStale(row, now, E2E_STALE_AFTER_MS)) {
-    return { exists: true, status: "amber", row };
+
+  let worstRow: StatusRow | null = null;
+  let worstState: State | null = null;
+  let anyMissing = false;
+  for (const d6Key of d6Keys) {
+    const row = live.get(keyFor("d6", slug, d6Key)) ?? null;
+    if (!row) {
+      // STRICT: a missing mapped sub-row means the family is unverified —
+      // it can no longer be credited green. Mirrors `isD6Green`'s
+      // `every(...)` in depth-utils.ts so both consumers agree.
+      anyMissing = true;
+      continue;
+    }
+    // Per-row staleness downgrade applied BEFORE the fold: a green sub-row
+    // that is stale folds in as `degraded` so it can never win the all-green
+    // tie and mask a fresh-green sibling.
+    const effectiveState: State =
+      row.state === "green" && isStale(row, now, E2E_STALE_AFTER_MS)
+        ? "degraded"
+        : row.state;
+    if (
+      worstState === null ||
+      STATE_RANK[effectiveState] > STATE_RANK[worstState]
+    ) {
+      // Store the EFFECTIVE (downgraded) row so `.row.state` agrees with
+      // `.status` — mirrors `buildBadge` in live-status.ts.
+      worstRow =
+        effectiveState === row.state ? row : { ...row, state: effectiveState };
+      worstState = effectiveState;
+    }
   }
+
+  if (!worstRow || worstState === null) {
+    // Keys are mapped but no rows emitted yet — test exists but has no
+    // data. Treat as exists=true so ceilingDepth reflects it.
+    return { exists: true, status: null, row: null };
+  }
+
+  // STRICT missing-sub-row handling: when a mapped sub-row is absent the
+  // family is unverified. A present RED sub-row still signals a real failure
+  // (red dominates no-data), but a present green/degraded fold must NOT be
+  // credited — collapse it to no-data (status: null) so the chip renders
+  // gray/amber per the ladder, not a false-green.
+  if (anyMissing && worstState !== "red") {
+    return { exists: true, status: null, row: null };
+  }
+
   return {
     exists: true,
-    status: stateToTestStatus(row.state),
-    row,
+    status: stateToTestStatus(worstState),
+    row: worstRow,
   };
 }
 
@@ -329,7 +416,7 @@ export function buildCellModel(
   const d3 = resolveD3(live, slug, featureId, now);
   const d4 = resolveD4(live, slug, now);
   const d5 = resolveD5(live, slug, featureId, now);
-  const d6 = resolveD6(live, slug, now);
+  const d6 = resolveD6(live, slug, featureId, now);
 
   // ceilingDepth: highest CONTIGUOUS depth where a test EXISTS.
   // D4 only counts if D3 exists; D5 only counts if D4 counts; D6 only
