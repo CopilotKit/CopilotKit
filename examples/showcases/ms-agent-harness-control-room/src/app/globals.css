@@ -30,6 +30,34 @@
   --cr-surface-2: var(--muted);
   --cr-surface-3: var(--popover);
   --cr-overlay: rgba(244, 244, 245, 0.72);
+  --cr-panel-tint: #f4f7ff;
+  --cr-panel-tint-strong: #edf3ff;
+  --cr-chat-surface: #ffffff;
+  --cr-sidebar-surface: linear-gradient(
+    180deg,
+    color-mix(in oklab, #ffffff 91%, var(--cr-action-indigo) 4%) 0%,
+    color-mix(in oklab, #ffffff 90%, var(--cr-action-blue) 5%) 100%
+  );
+  --cr-card-bg: rgba(255, 255, 255, 0.78);
+  --cr-card-bg-hover: rgba(255, 255, 255, 0.92);
+  --cr-card-border: color-mix(in oklab, var(--cr-action-indigo) 16%, white);
+  --cr-card-border-active: color-mix(
+    in oklab,
+    var(--cr-action-blue) 34%,
+    white
+  );
+  --cr-grid-line: color-mix(in oklab, var(--cr-action-blue) 20%, transparent);
+  --cr-grid-line-strong: color-mix(
+    in oklab,
+    var(--cr-action-indigo) 18%,
+    transparent
+  );
+  --cr-pill-bg: color-mix(in oklab, #ffffff 84%, var(--cr-action-blue) 8%);
+  --cr-pill-border: color-mix(in oklab, var(--cr-action-blue) 30%, white);
+  --cr-pill-fg: #172033;
+  --cr-control-bg: color-mix(in oklab, #ffffff 78%, var(--cr-action-blue) 10%);
+  --cr-control-border: color-mix(in oklab, var(--cr-action-indigo) 28%, white);
+  --cr-control-fg: #233052;
 
   --cr-border: var(--border);
   --cr-border-strong: var(--border);
@@ -73,16 +101,8 @@
   --cr-chart-lavender: #b7a7ff;
   --cr-chart-sky: #66b7f5;
   --cr-graph-paper:
-    linear-gradient(
-      to right,
-      color-mix(in oklab, var(--cr-action-blue) 13%, transparent) 1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      to bottom,
-      color-mix(in oklab, var(--cr-action-indigo) 11%, transparent) 1px,
-      transparent 1px
-    );
+    linear-gradient(to right, var(--cr-grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--cr-grid-line-strong) 1px, transparent 1px);
   --cr-graph-paper-size: 28px 28px;
 
   --cr-font-sans:
@@ -135,8 +155,8 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --font-heading: var(--cr-font-display);
-  --font-sans: var(--cr-font-sans);
+  --font-heading: var(--font-heading);
+  --font-sans: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -165,13 +185,13 @@
 
 html {
   min-height: 100%;
-  background: var(--cr-bg);
+  background: var(--cr-panel-tint);
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--cr-bg);
+  background: var(--cr-panel-tint);
   color: var(--cr-fg);
   font-family: var(--cr-font-sans);
   text-rendering: optimizeLegibility;
@@ -271,20 +291,20 @@ a {
   background:
     var(--cr-graph-paper),
     radial-gradient(
-      circle at 0% 0%,
-      color-mix(in oklab, var(--cr-action-indigo) 6%, transparent) 0,
-      transparent 34%
+      circle 920px at 8% 0%,
+      color-mix(in oklab, var(--cr-action-indigo) 10%, transparent) 0,
+      transparent 44%
     ),
     radial-gradient(
-      circle at 100% 0%,
-      color-mix(in oklab, var(--cr-action-blue) 5%, transparent) 0,
-      transparent 38%
+      circle 900px at 96% 6%,
+      color-mix(in oklab, var(--cr-action-blue) 10%, transparent) 0,
+      transparent 48%
     ),
     linear-gradient(
       135deg,
-      color-mix(in oklab, var(--background) 96%, var(--cr-action-indigo) 4%) 0%,
-      var(--background) 48%,
-      color-mix(in oklab, var(--background) 96%, var(--cr-action-blue) 4%) 100%
+      color-mix(in oklab, #ffffff 83%, var(--cr-action-indigo) 11%) 0%,
+      color-mix(in oklab, #ffffff 91%, var(--cr-action-blue) 5%) 46%,
+      color-mix(in oklab, #ffffff 84%, var(--cr-action-blue) 11%) 100%
     );
   background-size:
     var(--cr-graph-paper-size), var(--cr-graph-paper-size), auto, auto, auto;
@@ -295,25 +315,29 @@ a {
   z-index: 1;
   min-width: 0;
   overflow: hidden;
-  background: var(--cr-surface);
-  border: 1px solid var(--cr-border);
+  background: var(--cr-sidebar-surface);
+  border: 1px solid color-mix(in oklab, var(--cr-action-blue) 28%, white);
   border-radius: 22px;
-  box-shadow: var(--cr-shadow-sm);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.8) inset,
+    0 0 0 1px rgba(255, 255, 255, 0.76),
+    0 18px 44px -28px rgba(28, 75, 160, 0.48);
 }
 
 .cockpit-panel:nth-child(2) {
-  background: var(--cr-surface);
+  background: var(--cr-chat-surface);
 }
 
 .cr-chat-panel {
-  background:
-    var(--cr-graph-paper),
-    linear-gradient(
-      135deg,
-      color-mix(in oklab, var(--background) 98%, var(--cr-action-indigo) 2%) 0%,
-      color-mix(in oklab, var(--background) 99%, var(--cr-action-blue) 1%) 100%
-    );
-  background-size: var(--cr-graph-paper-size), var(--cr-graph-paper-size), auto;
+  background: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    color-mix(in oklab, #ffffff 94%, var(--cr-action-blue) 3%) 100%
+  );
+  border-color: color-mix(in oklab, var(--cr-action-blue) 18%, white);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.92) inset,
+    0 18px 42px -34px rgba(28, 75, 160, 0.32);
 }
 
 .cr-desktop-layout {
@@ -370,6 +394,160 @@ a {
     var(--cr-action-blue) 100%
   );
   border-color: transparent;
+}
+
+[data-slot="checkbox"][data-state="checked"],
+[data-slot="checkbox"][data-checked] {
+  background: linear-gradient(
+    135deg,
+    var(--cr-action-indigo) 0%,
+    color-mix(in oklab, var(--cr-action-indigo) 45%, var(--cr-action-blue)) 48%,
+    var(--cr-action-blue) 100%
+  ) !important;
+  border-color: transparent !important;
+  color: #ffffff !important;
+}
+
+.cr-catalog-surface {
+  background: var(--cr-sidebar-surface);
+  box-shadow: inset -1px 0 0
+    color-mix(in oklab, var(--cr-action-blue) 18%, white);
+}
+
+.cr-catalog-fade-top {
+  background: linear-gradient(
+    to bottom,
+    var(--cr-panel-tint) 0%,
+    color-mix(in oklab, var(--cr-panel-tint) 72%, transparent) 54%,
+    transparent 100%
+  );
+}
+
+.cr-catalog-fade-bottom {
+  background: linear-gradient(
+    to top,
+    var(--cr-panel-tint) 0%,
+    color-mix(in oklab, var(--cr-panel-tint) 74%, transparent) 58%,
+    transparent 100%
+  );
+}
+
+.cr-catalog-search {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: color-mix(in oklab, var(--cr-action-blue) 22%, white);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 10px 22px -18px rgba(35, 85, 175, 0.5);
+}
+
+.cr-catalog-search:focus-within {
+  border-color: color-mix(
+    in oklab,
+    var(--cr-action-indigo) 40%,
+    var(--cr-action-blue)
+  );
+  box-shadow:
+    0 0 0 4px color-mix(in oklab, var(--cr-action-indigo) 14%, transparent),
+    0 12px 26px -20px rgba(35, 85, 175, 0.6);
+}
+
+.cr-catalog-rule {
+  background: color-mix(in oklab, var(--cr-action-blue) 18%, white);
+}
+
+.cr-catalog-card {
+  background: var(--cr-card-bg);
+  border-color: var(--cr-card-border);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.75) inset;
+}
+
+.cr-catalog-card:hover {
+  background: var(--cr-card-bg-hover);
+  border-color: color-mix(in oklab, var(--cr-action-blue) 28%, white);
+}
+
+.cr-catalog-card-active {
+  background: #ffffff;
+  border-color: var(--cr-card-border-active);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.82) inset,
+    0 10px 24px -24px rgba(35, 85, 175, 0.5);
+}
+
+.cr-catalog-preview {
+  background: color-mix(in oklab, #ffffff 78%, var(--cr-action-blue) 5%);
+  border-color: color-mix(in oklab, var(--cr-action-blue) 17%, white);
+}
+
+.cr-try-button {
+  background: linear-gradient(
+    135deg,
+    var(--cr-action-indigo) 0%,
+    color-mix(in oklab, var(--cr-action-indigo) 45%, var(--cr-action-blue)) 48%,
+    var(--cr-action-blue) 100%
+  ) !important;
+  border-color: transparent !important;
+  color: #ffffff !important;
+  font-size: 11.5px !important;
+  line-height: 1 !important;
+  box-shadow: none !important;
+}
+
+.cr-try-button:hover:not(:disabled) {
+  background: linear-gradient(
+    135deg,
+    #6662f4 0%,
+    color-mix(in oklab, #524df0 45%, #006cbe) 48%,
+    #006cbe 100%
+  ) !important;
+  border-color: transparent !important;
+  color: #ffffff !important;
+}
+
+.cr-mode-switch-label {
+  color: color-mix(in oklab, #172033 70%, var(--cr-action-blue));
+}
+
+.cr-chat-suggestion[data-slot="suggestion-pill"] {
+  background: linear-gradient(
+    135deg,
+    var(--cr-action-indigo) 0%,
+    color-mix(in oklab, var(--cr-action-indigo) 45%, var(--cr-action-blue)) 48%,
+    var(--cr-action-blue) 100%
+  ) !important;
+  border-color: transparent !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.18) inset,
+    0 9px 20px -16px rgba(0, 120, 212, 0.72);
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease,
+    filter 140ms ease !important;
+}
+
+.cr-chat-suggestion[data-slot="suggestion-pill"]:hover {
+  background: linear-gradient(
+    135deg,
+    #6662f4 0%,
+    color-mix(in oklab, #524df0 45%, #006cbe) 48%,
+    #006cbe 100%
+  ) !important;
+  border-color: transparent !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.26) inset,
+    0 0 0 2px color-mix(in oklab, var(--cr-action-blue) 22%, transparent),
+    0 14px 26px -14px rgba(0, 120, 212, 0.82) !important;
+  filter: saturate(1.12) brightness(1.04);
+  transform: translateY(-1px);
+}
+
+.cr-chat-suggestion[data-slot="suggestion-pill"]:focus-visible {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.26) inset,
+    0 0 0 3px color-mix(in oklab, var(--cr-action-indigo) 22%, transparent),
+    0 14px 26px -14px rgba(0, 120, 212, 0.82) !important;
 }
 
 .harness-settings-scroll [data-slot="scroll-area-viewport"] > div {

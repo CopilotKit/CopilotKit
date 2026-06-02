@@ -814,57 +814,59 @@ export function GenerativeUICatalogPanel({
 
   return (
     <div className={cn("flex h-full min-h-0 flex-col", className)}>
-      <div className="relative min-h-0 flex-1 overflow-hidden bg-background">
-        <ScrollArea className="h-full">
-          <div className="space-y-3 px-4 pb-7 pt-4">
-            <div className="flex h-7 items-center justify-between gap-3">
-              <CatalogPresetPopover
-                enabled={enabled}
-                onApplyPreset={setEnabledItems}
-              />
-              <RenderingModeControls
-                a2uiEnabled={localState.a2uiEnabled}
-                openGenerativeUIEnabled={localState.openGenerativeUIEnabled}
-                onA2UIEnabledChange={setA2UIEnabled}
-                onOpenGenerativeUIEnabledChange={setOpenGenerativeUIEnabled}
-              />
-            </div>
-            <div className="group relative flex h-11 min-w-0 items-center gap-2 rounded-xl border border-border/80 bg-card px-3.5 shadow-sm transition-colors focus-within:border-primary/40 focus-within:ring-4 focus-within:ring-primary/10">
-              <span className="grid size-5 shrink-0 place-items-center rounded-md bg-primary/10 text-primary transition-colors group-focus-within:bg-primary/15">
-                <Search className="size-3.5" />
-              </span>
-              <Input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search components"
-                className="h-full min-w-0 border-0 bg-transparent px-0 py-0 text-[15px] shadow-none placeholder:text-muted-foreground/80 focus-visible:border-0 focus-visible:ring-0"
-              />
-            </div>
-            <div className="-mx-4 px-4 py-1.5">
-              <Separator />
-            </div>
-            <div className="space-y-3">
-              {filteredItems.map((item) => (
-                <CatalogItemRow
-                  key={item.id}
-                  item={item}
-                  enabled={enabled[item.id]}
-                  onEnabledChange={(checked) => setEnabled(item.id, checked)}
-                  onTry={() => void tryComponent(item)}
-                  isTryingDisabled={isRunning || !renderingEnabled}
-                  renderingEnabled={renderingEnabled}
-                />
-              ))}
-              {filteredItems.length === 0 ? (
-                <div className="rounded-xl border bg-card p-5 text-sm text-muted-foreground">
-                  No components match that search.
-                </div>
-              ) : null}
-            </div>
+      <div className="cr-catalog-surface relative flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="space-y-3 px-4 pb-3 pt-4">
+          <div className="flex h-7 items-center justify-between gap-3">
+            <CatalogPresetPopover
+              enabled={enabled}
+              onApplyPreset={setEnabledItems}
+            />
+            <RenderingModeControls
+              a2uiEnabled={localState.a2uiEnabled}
+              openGenerativeUIEnabled={localState.openGenerativeUIEnabled}
+              onA2UIEnabledChange={setA2UIEnabled}
+              onOpenGenerativeUIEnabledChange={setOpenGenerativeUIEnabled}
+            />
           </div>
-        </ScrollArea>
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-5 bg-gradient-to-b from-background via-background/80 to-transparent" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-7 bg-gradient-to-t from-background via-background/85 to-transparent" />
+          <div className="cr-catalog-search group relative flex h-11 min-w-0 items-center gap-2 rounded-xl border px-3.5 transition-colors">
+            <span className="grid size-5 shrink-0 place-items-center rounded-md bg-primary/10 text-primary transition-colors group-focus-within:bg-primary/15">
+              <Search className="size-3.5" />
+            </span>
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search components"
+              className="h-full min-w-0 border-0 bg-transparent px-0 py-0 text-[15px] shadow-none placeholder:text-muted-foreground/80 focus-visible:border-0 focus-visible:ring-0"
+            />
+          </div>
+        </div>
+        <Separator className="cr-catalog-rule shrink-0" />
+        <div className="relative min-h-0 flex-1">
+          <ScrollArea className="h-full">
+            <div className="space-y-3 px-4 pb-7 pt-3">
+              <div className="space-y-3">
+                {filteredItems.map((item) => (
+                  <CatalogItemRow
+                    key={item.id}
+                    item={item}
+                    enabled={enabled[item.id]}
+                    onEnabledChange={(checked) => setEnabled(item.id, checked)}
+                    onTry={() => void tryComponent(item)}
+                    isTryingDisabled={isRunning || !renderingEnabled}
+                    renderingEnabled={renderingEnabled}
+                  />
+                ))}
+                {filteredItems.length === 0 ? (
+                  <div className="cr-catalog-card rounded-xl border p-5 text-sm text-muted-foreground">
+                    No components match that search.
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </ScrollArea>
+          <div className="cr-catalog-fade-top pointer-events-none absolute inset-x-0 top-0 z-10 h-5" />
+          <div className="cr-catalog-fade-bottom pointer-events-none absolute inset-x-0 bottom-0 z-10 h-7" />
+        </div>
       </div>
     </div>
   );
@@ -1005,7 +1007,7 @@ function RenderingModeSwitch({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <label className="flex h-6 min-w-0 items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+        <label className="cr-mode-switch-label flex h-6 min-w-0 items-center gap-1.5 text-[11px] font-medium">
           <Switch
             size="sm"
             checked={enabled}
@@ -1048,8 +1050,8 @@ function CatalogItemRow({
   return (
     <div
       className={cn(
-        "grid min-w-0 gap-3 overflow-hidden rounded-2xl border bg-card p-4 shadow-sm transition-colors hover:bg-muted/20",
-        enabled ? "border-border" : "border-border/80",
+        "cr-catalog-card grid min-w-0 gap-3 overflow-hidden rounded-2xl border p-4 transition-colors",
+        enabled ? "cr-catalog-card-active" : undefined,
       )}
     >
       <div className="flex min-w-0 items-center gap-3">
@@ -1077,7 +1079,7 @@ function CatalogItemRow({
               : `Ask the agent to render ${item.label}.`
           }
           variant="outline"
-          className="h-7 shrink-0 rounded-lg px-2.5 text-xs shadow-none"
+          className="cr-try-button h-4 shrink-0 rounded-md px-1.5 text-[11.5px] leading-none shadow-none [&_svg]:size-2.5"
         >
           <Play className="size-3" />
           Try
@@ -1101,7 +1103,7 @@ function CatalogPreviewFrame({
   return (
     <div
       className={cn(
-        "flex w-full min-w-0 flex-col items-center overflow-hidden rounded-xl border bg-muted/20 p-3",
+        "cr-catalog-preview flex w-full min-w-0 flex-col items-center overflow-hidden rounded-xl border p-3",
         className,
       )}
     >
