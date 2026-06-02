@@ -49,7 +49,10 @@ export interface E2eRunOptions {
   /** Worker count override (default 1 — deterministic against shared stack). */
   workers?: number;
   /**
-   * Retry count override (default 0). Two intended values:
+   * Retry count override. When unset, the default is applied in
+   * `buildE2eCommand` (the `opts.retries ?? <default>` resolution) — see the
+   * worker/retry resolution there for the authoritative value. Two intended
+   * caller values:
    *   - `0` (STRICT) — validation/CI and the LGP gate. No flake masking; a
    *     single failure is RED.
    *   - `1` (PRODUCTION probe path) — the live D6 driver. A retried PASS
@@ -118,6 +121,28 @@ export function resolveIntegrationDir(
 // ---------------------------------------------------------------------------
 
 /**
+ * Resolve the default Playwright worker count when no explicit override is
+ * supplied. Honors the `D6_WORKERS` env knob (used by the strict gate and the
+ * compiled-dist probe path to parallelize), otherwise scales to the host:
+ * `ceil(cpuCount / 2)`, floored at 4 so even small machines parallelize.
+ *
+ * A non-numeric or non-positive `D6_WORKERS` is ignored (falls through to the
+ * host-scaled default) — never collapses to 0, which Playwright reinterprets
+ * as "use all cores" and would silently over-subscribe the browser pool.
+ */
+export function resolveDefaultWorkers(): number {
+  const raw = process.env.D6_WORKERS;
+  if (raw !== undefined) {
+    const parsed = Number.parseInt(raw, 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  const cpus = os.cpus()?.length ?? 4;
+  return Math.max(4, Math.ceil(cpus / 2));
+}
+
+/**
  * Build the concrete Playwright invocation for an integration e2e run.
  *
  * Resolves BASE_URL from the integration's local host port (same source as
@@ -133,7 +158,15 @@ export function buildE2eCommand(
   const cwd = resolveIntegrationDir(slug, config);
   const baseUrl = opts.baseUrlOverride ?? getPackageUrl(slug, config);
 
-  const workers = opts.workers ?? 1;
+  // Worker count resolution order:
+  //   1. explicit `opts.workers` (caller override — e.g. a test pinning 1)
+  //   2. `D6_WORKERS` env (operator/gate knob — parallelizes the strict gate
+  //      AND the compiled-dist probe path, which both flow through here without
+  //      passing `workers`)
+  //   3. parallel default scaled to the host: ceil(cpus/2), floored at 4
+  // A non-numeric / non-positive `D6_WORKERS` falls back to the default rather
+  // than silently collapsing to 0 (which Playwright treats as "all cores").
+  const workers = opts.workers ?? resolveDefaultWorkers();
   const retries = opts.retries ?? 0;
 
   const args = ["playwright", "test"];
@@ -162,6 +195,18 @@ export function buildE2eCommand(
   if (opts.jsonOutputFile) {
     // Playwright writes the json reporter's output to this path.
     env.PLAYWRIGHT_JSON_OUTPUT_NAME = opts.jsonOutputFile;
+  }
+  // Single-path browser-server endpoint. When the harness has started its one
+  // owned `chromium.launchServer()` (orchestrator boot), it publishes the live
+  // ws endpoint as `PLAYWRIGHT_WS_ENDPOINT`. Threading it into the spawned
+  // `npx playwright test` env lets the integration's playwright.config.ts
+  // `use.connectOptions.wsEndpoint` connect every worker to that ONE server, so
+  // the MAIN browser-process count is pinned to the server count regardless of
+  // `--workers`. Absent (no server started — e.g. the human CLI path) → the
+  // specs launch their own browsers as before.
+  const wsEndpoint = process.env.PLAYWRIGHT_WS_ENDPOINT;
+  if (wsEndpoint) {
+    env.PLAYWRIGHT_WS_ENDPOINT = wsEndpoint;
   }
 
   return {

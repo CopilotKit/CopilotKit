@@ -183,6 +183,29 @@ describe("buildE2eCommand", () => {
     expect(cmd.args).not.toContain("--reporter=line,json");
     expect(cmd.env.PLAYWRIGHT_JSON_OUTPUT_NAME).toBeUndefined();
   });
+
+  it("threads PLAYWRIGHT_WS_ENDPOINT into the env when the env var is set", () => {
+    const prev = process.env.PLAYWRIGHT_WS_ENDPOINT;
+    process.env.PLAYWRIGHT_WS_ENDPOINT = "ws://127.0.0.1:9999/abc123";
+    try {
+      const cmd = buildE2eCommand("langgraph-python", { tier: "d6" }, config);
+      expect(cmd.env.PLAYWRIGHT_WS_ENDPOINT).toBe("ws://127.0.0.1:9999/abc123");
+    } finally {
+      if (prev === undefined) delete process.env.PLAYWRIGHT_WS_ENDPOINT;
+      else process.env.PLAYWRIGHT_WS_ENDPOINT = prev;
+    }
+  });
+
+  it("omits PLAYWRIGHT_WS_ENDPOINT from the env when the env var is unset", () => {
+    const prev = process.env.PLAYWRIGHT_WS_ENDPOINT;
+    delete process.env.PLAYWRIGHT_WS_ENDPOINT;
+    try {
+      const cmd = buildE2eCommand("langgraph-python", { tier: "d6" }, config);
+      expect(cmd.env.PLAYWRIGHT_WS_ENDPOINT).toBeUndefined();
+    } finally {
+      if (prev !== undefined) process.env.PLAYWRIGHT_WS_ENDPOINT = prev;
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
