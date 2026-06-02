@@ -1,37 +1,31 @@
-import { data } from "../../data";
-import { NextRequest } from "next/server";
+import * as store from "@/lib/store";
+import type { Transaction } from "../../data";
+import type { NextRequest } from "next/server";
 
-// Add note to transaction
+// Add note to transaction / update status
 export const PUT = async (
   req: NextRequest,
   { params }: { params: { id: string } },
 ) => {
   try {
-    const transaction = data.transactions.find(
-      (transaction) => transaction.id === params.id,
-    );
-    if (!transaction) {
+    const existing = store.findTransaction(params.id);
+    if (!existing) {
       return new Response(JSON.stringify({ error: "Transaction not found" }), {
         status: 404,
       });
     }
     const body = await req.json();
-    const { content, userId, ...newTransactionDetails } = body;
-    const newTransaction = { ...transaction, ...newTransactionDetails };
+    const { content, userId, ...rest } = body;
+    const patch: Partial<Transaction> = { ...rest };
     if (content && userId) {
-      newTransaction.note = {
+      patch.note = {
         content,
         userId,
         date: new Date().toISOString().split("T")[0],
       };
     }
-    data.transactions = data.transactions.map((transaction) => {
-      if (transaction.id === params.id) {
-        return newTransaction;
-      }
-      return transaction;
-    });
-    return new Response(JSON.stringify(newTransaction), { status: 201 });
+    const updated = store.updateTransaction(params.id, patch);
+    return new Response(JSON.stringify(updated), { status: 201 });
   } catch (error) {
     console.error("PUT Request error", error);
   }
