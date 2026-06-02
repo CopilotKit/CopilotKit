@@ -4,9 +4,7 @@ import {
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 import { OpenAI } from "openai";
-import { NextRequest } from "next/server";
-import { FEDEX_MSA } from "@/lib/fake-msa";
-import { PERMISSIONS } from "../v1/permissions";
+import type { NextRequest } from "next/server";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const llmAdapter = new OpenAIAdapter({
@@ -15,26 +13,7 @@ const llmAdapter = new OpenAIAdapter({
 });
 
 const runtime = new CopilotRuntime({
-  actions: ({ properties }) => {
-    if (!PERMISSIONS.READ_MSA.includes(properties.userRole)) {
-      return [];
-    }
-    return [
-      {
-        name: "queryVendorMSA",
-        description:
-          "Query MSA documents for a specific vendor. Call this if the user has any question specific to a vendor.",
-        parameters: [
-          {
-            name: "vendorName",
-          },
-        ],
-        handler() {
-          return FEDEX_MSA;
-        },
-      },
-    ];
-  },
+  actions: () => [],
 });
 
 export const POST = async (req: NextRequest) => {
