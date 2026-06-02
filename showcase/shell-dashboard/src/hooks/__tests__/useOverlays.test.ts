@@ -13,14 +13,19 @@ beforeEach(() => {
   hashValue = "";
   storageMap.clear();
 
-  // Stub location.hash as a getter/setter so the hook can both read and write.
-  vi.stubGlobal("location", {
-    ...window.location,
-    get hash() {
-      return hashValue;
-    },
-    set hash(v: string) {
-      hashValue = v.startsWith("#") ? v : `#${v}`;
+  // Stub window.location.hash explicitly (the hook reads window.location.hash).
+  // jsdom makes window === globalThis, but defining on window keeps the
+  // read-path genuinely exercised and robust to that assumption changing.
+  Object.defineProperty(window, "location", {
+    configurable: true,
+    value: {
+      ...window.location,
+      get hash() {
+        return hashValue;
+      },
+      set hash(v: string) {
+        hashValue = v.startsWith("#") ? v : `#${v}`;
+      },
     },
   });
 
@@ -346,6 +351,63 @@ describe("useOverlays", () => {
     });
 
     expect(result.current.activeTab).toBe("matrix");
+  });
+
+  // Extra: setTab persists overlays to localStorage (symmetry with toggle)
+  it("setTab persists overlays to localStorage", async () => {
+    const useOverlays = await importHook();
+    const { result } = renderHook(() => useOverlays());
+
+    // Default set is links + health + depth. Switching tabs should persist
+    // the current overlay set just like toggle/updateOverlays do.
+    storageMap.delete("dashboard:overlays");
+
+    act(() => {
+      result.current.setTab("ops");
+    });
+
+    const stored = storageMap.get("dashboard:overlays");
+    expect(stored).toBeDefined();
+    const parsed: Overlay[] = JSON.parse(stored!);
+    expect(parsed).toContain("links");
+    expect(parsed).toContain("health");
+    expect(parsed).toContain("depth");
+  });
+
+  // Extra: #baseline hash resolves to the baseline tab
+  it("hash #baseline sets tab to baseline", async () => {
+    hashValue = "#baseline";
+    const useOverlays = await importHook();
+    const { result } = renderHook(() => useOverlays());
+
+    expect(result.current.activeTab).toBe("baseline");
+  });
+
+  // Extra: selectProbe leaves tab + hash consistent (ops probe drilldown)
+  it("selectProbe leaves tab and hash consistent", async () => {
+    const useOverlays = await importHook();
+    const { result } = renderHook(() => useOverlays());
+
+    act(() => {
+      result.current.setTab("ops");
+    });
+    expect(result.current.activeTab).toBe("ops");
+
+    act(() => {
+      result.current.selectProbe("probe-123");
+    });
+
+    expect(result.current.activeTab).toBe("ops");
+    expect(result.current.selectedProbeId).toBe("probe-123");
+    expect(hashValue).toBe("#ops:probe=probe-123");
+
+    // Clearing the probe returns to a plain #ops hash, still on ops tab.
+    act(() => {
+      result.current.selectProbe(null);
+    });
+    expect(result.current.activeTab).toBe("ops");
+    expect(result.current.selectedProbeId).toBeNull();
+    expect(hashValue).toBe("#ops");
   });
 
   // Extra: localStorage fallback when no hash present
