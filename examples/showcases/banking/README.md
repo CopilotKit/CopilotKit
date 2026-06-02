@@ -56,10 +56,6 @@ The app handles unsupported actions by redirecting users to the relevant page, o
 
 This feature is implemented in `copilot-context.tsx` as `navigateToPageAndPerform`.
 
-## SQL Query Generator
-
-The SQL query generator at `/sql` leverages co-pilot chat with Generative UI to convert user questions into SQL queries. Users can pose questions like "Show me all transactions for my visa ending with 4242" or "Let's find the pending transaction for the policy assigned to the card ending with 4242" and receive a corresponding SQL query. The query can be copied or executed directly (execution functionality is currently unavailable).
-
 ## Backend and data
 
 The `/api/v1` path serves as the primary endpoint for API requests, handling various routes that interact with the application's data. Notably, the `data.ts` file contains hardcoded data that is utilized throughout the application.
