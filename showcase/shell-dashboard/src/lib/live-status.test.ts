@@ -55,17 +55,21 @@ describe("keyFor", () => {
     // the dashboard MUST match the producer shape.
     expect(keyFor("d5", "agno", "agentic-chat")).toBe("d5:agno/agentic-chat");
   });
-  it("d6 uses integration-scoped key (no featureId)", () => {
-    // Driver `e2e-full` emits one row per integration (`d6:<slug>`),
-    // not per cell — the dashboard looks up d6 without featureId.
-    expect(keyFor("d6", "agno")).toBe("d6:agno");
-  });
-  it("d6 keyFor still supports featureId for generic helper coverage", () => {
-    // keyFor is a generic helper — it CAN produce per-feature d6 keys,
-    // but production D6 lookups use integration-scoped keys only.
+  it("d6 uses the per-cell key shape production reads", () => {
+    // Driver `e2e-parity` emits one `d6:<slug>/<featureType>` row per cell
+    // (the same featureType keyspace D5 uses, mapped via CATALOG_TO_D5_KEY),
+    // and the dashboard resolves D6 PER-CELL against that key — see
+    // resolveD6Row. This is the shape per-cell rendering actually looks up.
     expect(keyFor("d6", "agno", "tool-rendering")).toBe(
       "d6:agno/tool-rendering",
     );
+  });
+  it("d6 aggregate key shape still exists but is NOT what per-cell rendering reads", () => {
+    // keyFor CAN still produce the bare `d6:<slug>` aggregate key, and the
+    // `e2e-parity` driver still emits a single aggregate row that is red
+    // whenever ANY cell fails. But resolveD6Row never reads it — per-cell
+    // badges resolve the mapped `d6:<slug>/<featureType>` row instead.
+    expect(keyFor("d6", "agno")).toBe("d6:agno");
   });
   it("throws when slug contains ':' (lookup-map collision guard)", () => {
     expect(() => keyFor("smoke", "bad:slug")).toThrow(/must not contain/);
@@ -398,9 +402,15 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
   // red > degraded > green — so a single amber pill turns the badge
   // amber instead of staying green behind a co-iterated green sibling.
   it("d5 multi-key fan-out: red beats green when red comes after green", () => {
+    // All 5 mapped sub-rows present so the worst-state fold — not STRICT
+    // missing handling — is what credits red. (A red still dominates a
+    // missing sub-row, but emitting the full family pins the fold ordering.)
     const live = mapOf([
       row("d5:agno/beautiful-chat-toggle-theme", "d5", "green"),
       row("d5:agno/beautiful-chat-pie-chart", "d5", "red"),
+      row("d5:agno/beautiful-chat-bar-chart", "d5", "green"),
+      row("d5:agno/beautiful-chat-search-flights", "d5", "green"),
+      row("d5:agno/beautiful-chat-schedule-meeting", "d5", "green"),
     ]);
     const c = resolveCell(live, "agno", "beautiful-chat");
     expect(c.d5.tone).toBe("red");
@@ -408,9 +418,15 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
   });
 
   it("d5 multi-key fan-out: red beats green when red comes BEFORE green", () => {
+    // All 5 mapped sub-rows present so the worst-state fold — not STRICT
+    // missing handling — is what credits red, with red listed FIRST to pin
+    // order-independence of the fold.
     const live = mapOf([
       row("d5:agno/beautiful-chat-toggle-theme", "d5", "red"),
       row("d5:agno/beautiful-chat-pie-chart", "d5", "green"),
+      row("d5:agno/beautiful-chat-bar-chart", "d5", "green"),
+      row("d5:agno/beautiful-chat-search-flights", "d5", "green"),
+      row("d5:agno/beautiful-chat-schedule-meeting", "d5", "green"),
     ]);
     const c = resolveCell(live, "agno", "beautiful-chat");
     expect(c.d5.tone).toBe("red");

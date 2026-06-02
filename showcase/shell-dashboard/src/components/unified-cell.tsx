@@ -313,16 +313,16 @@ function arePropsEqual(
   // Add D5 + D6 sub-keys from CATALOG_TO_D5_KEY. D6 is per-cell (not the
   // integration aggregate), resolved through the SAME featureType bridge as
   // D5 — see resolveD6Row/resolveD6. Keep in sync with resolveCell +
-  // buildCellModel.
+  // buildCellModel. An unmapped feature contributes no D5/D6 keys: the
+  // resolvers (resolveD5/resolveD6) return exists:false and never read a
+  // direct `d5:/d6:<slug>/<featureId>` key, so there is no direct-key
+  // fallback to watch here.
   const featureKeys = CATALOG_TO_D5_KEY[featureId];
   if (featureKeys && featureKeys.length > 0) {
     for (const ft of featureKeys) {
       directKeys.push(keyFor("d5", slug, ft));
       directKeys.push(keyFor("d6", slug, ft));
     }
-  } else {
-    directKeys.push(keyFor("d5", slug, featureId));
-    directKeys.push(keyFor("d6", slug, featureId));
   }
 
   for (const k of directKeys) {
