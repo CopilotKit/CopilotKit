@@ -22,6 +22,11 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # core:build exceeds the default V8 heap on CI and OOMs during "Build
+  # packages"; match the repo's known-good value (used by the e2e workflow).
+  NODE_OPTIONS: "--max-old-space-size=8192"
+
 jobs:
   compat-check:
     runs-on: ubuntu-latest
