@@ -26,8 +26,10 @@ import {
   buildE2eCommand,
   resolveIntegrationDir,
   runE2eAndParse,
+  spawnE2e,
 } from "./e2e.js";
 import type { LocalConfig } from "./config.js";
+import type { E2eCommand } from "./e2e.js";
 
 const config = {
   showcaseDir: "/repo/showcase",
@@ -216,7 +218,7 @@ describe("buildE2eCommand", () => {
 // parseable JSON yields specResults: [] (the rollup maps absence → unknown).
 // ---------------------------------------------------------------------------
 describe("runE2eAndParse", () => {
-  it("parses the Playwright JSON temp file into specResults and returns the exit code", () => {
+  it("parses the Playwright JSON temp file into specResults and returns the exit code", async () => {
     const reportFixture = {
       suites: [
         {
@@ -235,15 +237,20 @@ describe("runE2eAndParse", () => {
     };
 
     let capturedJsonPath: string | undefined;
-    const result = runE2eAndParse("langgraph-python", { retries: 1 }, config, {
-      // Inject the runner so the test never spawns Playwright: it writes the
-      // fixture JSON to the path the command targets, then returns exit code.
-      execImpl: (_cmd, jsonOutputFile) => {
-        capturedJsonPath = jsonOutputFile;
-        realFs.writeFileSync(jsonOutputFile, JSON.stringify(reportFixture));
-        return 1; // a failing run
+    const result = await runE2eAndParse(
+      "langgraph-python",
+      { retries: 1 },
+      config,
+      {
+        // Inject the runner so the test never spawns Playwright: it writes the
+        // fixture JSON to the path the command targets, then returns exit code.
+        execImpl: (_cmd, jsonOutputFile) => {
+          capturedJsonPath = jsonOutputFile;
+          realFs.writeFileSync(jsonOutputFile, JSON.stringify(reportFixture));
+          return 1; // a failing run
+        },
       },
-    });
+    );
 
     expect(capturedJsonPath).toBeDefined();
     expect(result.exitCode).toBe(1);
@@ -257,12 +264,74 @@ describe("runE2eAndParse", () => {
     expect(frontend?.fileVerdict).toBe("red");
   });
 
-  it("fail-closed: returns empty specResults when no JSON is produced (run errored)", () => {
-    const result = runE2eAndParse("langgraph-python", { retries: 1 }, config, {
-      // Never writes the JSON file — simulates a crash before any report.
-      execImpl: () => 1,
-    });
+  it("fail-closed: returns empty specResults when no JSON is produced (run errored)", async () => {
+    const result = await runE2eAndParse(
+      "langgraph-python",
+      { retries: 1 },
+      config,
+      {
+        // Never writes the JSON file — simulates a crash before any report.
+        execImpl: () => 1,
+      },
+    );
     expect(result.specResults).toEqual([]);
     expect(result.exitCode).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// spawnE2e — the async, NON-BLOCKING run primitive. The single-path D6 design
+// hosts the one `chromium.launchServer()` IN the orchestrator process; if the
+// e2e run blocks the event loop (the old `execFileSync` bug), launchServer can
+// never service the spawned workers' WS-upgrade handshakes and the run
+// deadlocks. These tests prove the run yields the event loop AND preserves the
+// exit-code contract the fail-closed rollup depends on.
+// ---------------------------------------------------------------------------
+/** Build an E2eCommand that runs `node -e <script>` (no Playwright needed). */
+function nodeCmd(script: string): E2eCommand {
+  return {
+    command: process.execPath, // the running node binary — always present
+    args: ["-e", script],
+    cwd: process.cwd(),
+    env: {},
+  };
+}
+
+describe("spawnE2e (non-blocking run)", () => {
+  it("does NOT block the event loop while the child runs (concurrent timer keeps ticking)", async () => {
+    // The child sleeps ~200ms before exiting 0. If the run blocked the event
+    // loop (old execFileSync), the interval below could not fire during it.
+    const runPromise = spawnE2e(
+      nodeCmd("setTimeout(() => process.exit(0), 200)"),
+    );
+
+    // A concurrent timer that only advances if the event loop is responsive.
+    let ticks = 0;
+    const timer = setInterval(() => {
+      ticks++;
+    }, 20);
+
+    const exitCode = await runPromise;
+    clearInterval(timer);
+
+    // GREEN (async spawn): the loop stayed live → the timer fired several times
+    // during the ~200ms run. RED (old sync execFileSync) → ticks would be 0.
+    expect(ticks).toBeGreaterThanOrEqual(3);
+    expect(exitCode).toBe(0);
+  });
+
+  it("resolves with the child's non-zero exit code (rollup depends on this)", async () => {
+    const exitCode = await spawnE2e(nodeCmd("process.exit(7)"));
+    expect(exitCode).toBe(7);
+  });
+
+  it("maps a spawn error (missing binary) to exit code 1, never rejects", async () => {
+    const exitCode = await spawnE2e({
+      command: "definitely-not-a-real-binary-xyz",
+      args: [],
+      cwd: process.cwd(),
+      env: {},
+    });
+    expect(exitCode).toBe(1);
   });
 });

@@ -61,7 +61,7 @@ const emitted: ProbeResult<unknown>[] = [];
 // against the raw Playwright result.
 let lastSpecResults: { specFile: string; fileVerdict: string; cases: unknown[] }[] = [];
 const strictRunAndParse: D6RunAndParse = async (args: D6RunAndParseArgs) => {
-  const { exitCode, specResults } = runE2eAndParse(
+  const { exitCode, specResults } = await runE2eAndParse(
     args.slug,
     {
       tier: "d6",

@@ -23,7 +23,7 @@
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
-import { execFileSync } from "node:child_process";
+import { spawn } from "node:child_process";
 
 import type { LocalConfig } from "./config.js";
 import { getPackageUrl } from "./config.js";
@@ -239,38 +239,76 @@ export interface E2eResult {
 }
 
 /**
+ * Spawn the built Playwright command ASYNCHRONOUSLY and resolve with its exit
+ * code. CRITICAL: this MUST be async (`spawn` + awaited `close`), never the
+ * old synchronous `execFileSync`.
+ *
+ * Rationale (the deadlock this fixes): the single-path D6 design hosts ONE
+ * `chromium.launchServer()` IN THE ORCHESTRATOR PROCESS and publishes its ws
+ * endpoint as `PLAYWRIGHT_WS_ENDPOINT`. The spawned `npx playwright test`
+ * workers connect back to that in-process server via a WebSocket upgrade. A
+ * synchronous `execFileSync` would BLOCK the orchestrator's Node event loop
+ * for the entire run, so the in-process launchServer could never service the
+ * workers' WS-upgrade handshakes — the workers' `connect()` would hang and the
+ * whole run would deadlock. Using `spawn` + `await` keeps the event loop live
+ * (servicing launchServer WS upgrades) while the Playwright subprocess runs.
+ *
+ * Resolves (never rejects) with the child's exit code so callers control flow
+ * via the code rather than a throw. A signal-killed child (null exit code) or
+ * a spawn error both map to `1`.
+ *
+ * Exported for the non-blocking regression test, which asserts a concurrent
+ * timer keeps ticking while a real child process runs through here (proving
+ * the event loop is NOT blocked, unlike the old `execFileSync`).
+ */
+export function spawnE2e(cmd: E2eCommand): Promise<number> {
+  return new Promise<number>((resolve) => {
+    const child = spawn(cmd.command, cmd.args, {
+      cwd: cmd.cwd,
+      stdio: "inherit",
+      env: { ...process.env, ...cmd.env },
+    });
+
+    let settled = false;
+    const finish = (code: number) => {
+      if (settled) return;
+      settled = true;
+      resolve(code);
+    };
+
+    // `spawn` can emit `error` (e.g. ENOENT) without ever emitting `close`.
+    child.on("error", () => finish(1));
+    child.on("close", (code) => {
+      // `code` is null when the child was killed by a signal — treat as failure.
+      finish(typeof code === "number" ? code : 1);
+    });
+  });
+}
+
+/**
  * Run the integration's Playwright e2e suite. Streams Playwright output to
  * the parent stdio (so the user sees live progress) and returns the exit
  * code rather than throwing, so the CLI layer controls `process.exit`.
+ *
+ * ASYNC: the run is spawned non-blocking (see `spawnE2e`) so the Node event
+ * loop stays responsive while the subprocess runs.
  */
-export function runE2e(
+export async function runE2e(
   slug: string,
   opts: E2eRunOptions,
   config: LocalConfig,
-): E2eResult {
+): Promise<E2eResult> {
   const tier = opts.tier ?? "d6";
-  const { command, args, cwd, env } = buildE2eCommand(slug, opts, config);
+  const cmd = buildE2eCommand(slug, opts, config);
 
-  const baseUrl = env.BASE_URL;
+  const baseUrl = cmd.env.BASE_URL;
   const filterDesc = opts.grep ? ` -g "${opts.grep}"` : "";
   console.log(
     `\x1b[36m▸ e2e ${slug} (${tier}) → ${baseUrl}${filterDesc}\x1b[0m`,
   );
 
-  try {
-    execFileSync(command, args, {
-      cwd,
-      stdio: "inherit",
-      env: { ...process.env, ...env },
-    });
-    return { exitCode: 0 };
-  } catch (err) {
-    const code =
-      typeof (err as { status?: unknown }).status === "number"
-        ? (err as { status: number }).status
-        : 1;
-    return { exitCode: code };
-  }
+  const exitCode = await spawnE2e(cmd);
+  return { exitCode };
 }
 
 // ---------------------------------------------------------------------------
@@ -291,11 +329,15 @@ export interface E2eParsedResult extends E2eResult {
  * Injection seam for `runE2eAndParse` so the probe-driver and unit tests can
  * substitute the process spawn. `execImpl` runs the built Playwright command
  * (which is configured to write its JSON report to `jsonOutputFile`) and
- * returns the process exit code; the default spawns Playwright via
- * `execFileSync`.
+ * returns the process exit code (synchronously OR as a Promise); the default
+ * spawns Playwright ASYNCHRONOUSLY via `spawn` (see `spawnE2e`) so the Node
+ * event loop stays responsive while the subprocess runs.
  */
 export interface RunE2eAndParseDeps {
-  execImpl?: (cmd: E2eCommand, jsonOutputFile: string) => number;
+  execImpl?: (
+    cmd: E2eCommand,
+    jsonOutputFile: string,
+  ) => number | Promise<number>;
 }
 
 /**
@@ -312,37 +354,27 @@ export interface RunE2eAndParseDeps {
  * an absent per-spec row as `unknown` (never green) — so a failed run can
  * never green a cell through this path.
  */
-export function runE2eAndParse(
+export async function runE2eAndParse(
   slug: string,
   opts: E2eRunOptions,
   config: LocalConfig,
   deps: RunE2eAndParseDeps = {},
-): E2eParsedResult {
+): Promise<E2eParsedResult> {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "d6-e2e-"));
   const jsonOutputFile = path.join(tmpDir, "report.json");
 
   const cmd = buildE2eCommand(slug, { ...opts, jsonOutputFile }, config);
 
+  // Default exec is the ASYNC, non-blocking spawn — see `spawnE2e` for why a
+  // synchronous exec here would deadlock the in-process launchServer.
   const execImpl =
     deps.execImpl ??
-    ((c: E2eCommand, _jsonFile: string): number => {
-      try {
-        execFileSync(c.command, c.args, {
-          cwd: c.cwd,
-          stdio: "inherit",
-          env: { ...process.env, ...c.env },
-        });
-        return 0;
-      } catch (err) {
-        return typeof (err as { status?: unknown }).status === "number"
-          ? (err as { status: number }).status
-          : 1;
-      }
-    });
+    ((c: E2eCommand, _jsonFile: string): Promise<number> => spawnE2e(c));
 
   let exitCode: number;
   try {
-    exitCode = execImpl(cmd, jsonOutputFile);
+    // `execImpl` may return a number or a Promise<number>; `await` handles both.
+    exitCode = await execImpl(cmd, jsonOutputFile);
   } catch {
     // The runner itself threw (not just a non-zero exit) — treat as a failed
     // run with no parseable results.

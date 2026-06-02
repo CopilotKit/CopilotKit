@@ -341,7 +341,7 @@ const defaultRunAndParse: D6RunAndParse = async ({
     import("../../cli/config.js"),
   ]);
   const config = loadConfig();
-  const { exitCode, specResults } = runE2eAndParse(
+  const { exitCode, specResults } = await runE2eAndParse(
     slug,
     { tier: "d6", retries, baseUrlOverride: backendUrl },
     config,
