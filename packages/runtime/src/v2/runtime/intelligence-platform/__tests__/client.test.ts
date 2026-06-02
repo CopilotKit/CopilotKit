@@ -604,8 +604,7 @@ describe("CopilotKitIntelligence", () => {
       userId: "user-1",
       threadId: "thread-1",
       title: "Renamed project",
-      previousData: { name: "Foo" },
-      newData: { name: "Bar" },
+      data: { previous: { name: "Foo" }, next: { name: "Bar" } },
       metadata: { source: "settings-page" },
       clientEventId: "0190a1b2-c3d4-7890-abcd-ef1234567890",
     };
@@ -643,8 +642,7 @@ describe("CopilotKitIntelligence", () => {
         userId: "user-1",
         threadId: "thread-1",
         title: "Renamed project",
-        previousData: { name: "Foo" },
-        newData: { name: "Bar" },
+        data: { previous: { name: "Foo" }, next: { name: "Bar" } },
         metadata: { source: "settings-page" },
         clientEventId: validParams.clientEventId,
       });
@@ -708,6 +706,42 @@ describe("CopilotKitIntelligence", () => {
       await expect(client.recordUserAction(validParams)).rejects.toMatchObject({
         status: 502,
       });
+    });
+
+    it("forwards learningContainer (string) verbatim in the request body", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
+
+      await client.recordUserAction({
+        ...validParams,
+        learningContainer: "user",
+      });
+
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(JSON.parse(opts.body).learningContainer).toBe("user");
+    });
+
+    it("forwards learningContainer (array) verbatim in the request body", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
+
+      await client.recordUserAction({
+        ...validParams,
+        learningContainer: ["user", "organization"],
+      });
+
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(JSON.parse(opts.body).learningContainer).toEqual([
+        "user",
+        "organization",
+      ]);
+    });
+
+    it("omits learningContainer from the body when not provided", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
+
+      await client.recordUserAction(validParams);
+
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(JSON.parse(opts.body).learningContainer).toBeUndefined();
     });
   });
 });

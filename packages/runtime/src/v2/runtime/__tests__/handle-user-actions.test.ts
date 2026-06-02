@@ -36,8 +36,7 @@ describe("handleRecordUserAction", () => {
     threadId: "thread-1",
     title: "Renamed project",
     description: "User renamed Foo to Bar",
-    previousData: { name: "Foo" },
-    newData: { name: "Bar" },
+    data: { previous: { name: "Foo" }, next: { name: "Bar" } },
     metadata: { source: "settings-page" },
   });
 
@@ -80,8 +79,7 @@ describe("handleRecordUserAction", () => {
         threadId: "thread-1",
         title: "Renamed project",
         description: "User renamed Foo to Bar",
-        previousData: { name: "Foo" },
-        newData: { name: "Bar" },
+        data: { previous: { name: "Foo" }, next: { name: "Bar" } },
         metadata: { source: "settings-page" },
         clientEventId: "0190a1b2-c3d4-7890-abcd-ef1234567890",
       }),
@@ -217,6 +215,76 @@ describe("handleRecordUserAction", () => {
     // than passing through as a record. Pin this so a future refactor
     // can't accidentally re-introduce the bug.
     expect(recordUserAction.mock.calls[0]![0].metadata).toBeUndefined();
+  });
+
+  it("forwards learningContainer (string) through to intelligence.recordUserAction", async () => {
+    const recordUserAction = vi
+      .fn()
+      .mockResolvedValue({ id: "1", duplicate: false });
+    const runtime = createIntelligenceRuntime({
+      intelligence: { recordUserAction },
+    });
+    await handleRecordUserAction({
+      runtime,
+      request: buildRequest({ ...validBody(), learningContainer: "user" }),
+    });
+    expect(recordUserAction).toHaveBeenCalledWith(
+      expect.objectContaining({ learningContainer: "user" }),
+    );
+  });
+
+  it("forwards learningContainer (array) through to intelligence.recordUserAction", async () => {
+    const recordUserAction = vi
+      .fn()
+      .mockResolvedValue({ id: "1", duplicate: false });
+    const runtime = createIntelligenceRuntime({
+      intelligence: { recordUserAction },
+    });
+    await handleRecordUserAction({
+      runtime,
+      request: buildRequest({
+        ...validBody(),
+        learningContainer: ["user", "organization"],
+      }),
+    });
+    expect(recordUserAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        learningContainer: ["user", "organization"],
+      }),
+    );
+  });
+
+  it("omits learningContainer from the forward call when not provided", async () => {
+    const recordUserAction = vi
+      .fn()
+      .mockResolvedValue({ id: "1", duplicate: false });
+    const runtime = createIntelligenceRuntime({
+      intelligence: { recordUserAction },
+    });
+    await handleRecordUserAction({
+      runtime,
+      request: buildRequest(validBody()),
+    });
+    expect(
+      recordUserAction.mock.calls[0]![0].learningContainer,
+    ).toBeUndefined();
+  });
+
+  it("forwards a malformed learningContainer (non-string, non-array) verbatim so the platform's Zod boundary is the single source of validation", async () => {
+    const recordUserAction = vi
+      .fn()
+      .mockResolvedValue({ id: "1", duplicate: false });
+    const runtime = createIntelligenceRuntime({
+      intelligence: { recordUserAction },
+    });
+    await handleRecordUserAction({
+      runtime,
+      request: buildRequest({ ...validBody(), learningContainer: 123 }),
+    });
+    // The runtime no longer silently rewrites bad input to `undefined`
+    // (which would silently land the platform default). The malformed
+    // value flows through; Intelligence's Zod rejects it with 400.
+    expect(recordUserAction.mock.calls[0]![0].learningContainer).toBe(123);
   });
 
   it("returns the duplicate=true payload verbatim from the platform", async () => {

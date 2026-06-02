@@ -1,25 +1,25 @@
 import { useCallback } from "react";
 import { useCopilotChatConfiguration } from "../providers";
 import {
-  RecordUserActionInput,
-  RecordUserActionResult,
-  useRecordUserAction,
-} from "./use-record-user-action";
+  LearnFromUserActionInput,
+  LearnFromUserActionResult,
+  useLearnFromUserAction,
+} from "./use-learn-from-user-action";
 
 /**
- * Input to {@link UseRecordUserActionInCurrentThreadRecorder} — same as
- * {@link RecordUserActionInput} minus `threadId`, which is sourced from
+ * Input to {@link UseLearnFromUserActionInCurrentThreadRecorder} — same as
+ * {@link LearnFromUserActionInput} minus `threadId`, which is sourced from
  * the surrounding `<CopilotChatConfigurationProvider>` at call time.
  */
-export type RecordUserActionInCurrentThreadInput = Omit<
-  RecordUserActionInput,
+export type LearnFromUserActionInCurrentThreadInput = Omit<
+  LearnFromUserActionInput,
   "threadId"
 >;
 
-/** Recorder function returned by {@link useRecordUserActionInCurrentThread}. */
-export type UseRecordUserActionInCurrentThreadRecorder = (
-  input: RecordUserActionInCurrentThreadInput,
-) => Promise<RecordUserActionResult>;
+/** Recorder function returned by {@link useLearnFromUserActionInCurrentThread}. */
+export type UseLearnFromUserActionInCurrentThreadRecorder = (
+  input: LearnFromUserActionInCurrentThreadInput,
+) => Promise<LearnFromUserActionResult>;
 
 /**
  * Record a user UI interaction against the **current chat's** thread. The
@@ -30,11 +30,11 @@ export type UseRecordUserActionInCurrentThreadRecorder = (
  *
  * Throws on **call** (not on mount) when there is no chat-config provider
  * in scope — matches the "throw on call when runtimeUrl is missing"
- * behavior of {@link useRecordUserAction}. Mounting the hook in a branch
+ * behavior of {@link useLearnFromUserAction}. Mounting the hook in a branch
  * that never fires is harmless.
  *
  * The recorder does NOT accept a `threadId` override. If you need to
- * record against an explicit thread, use {@link useRecordUserAction}
+ * record against an explicit thread, use {@link useLearnFromUserAction}
  * directly — two hooks, two crisp contracts, no mode confusion.
  *
  * This hook always uses `config.threadId`, regardless of whether the
@@ -46,16 +46,15 @@ export type UseRecordUserActionInCurrentThreadRecorder = (
  *
  * @example
  * ```tsx
- * import { useRecordUserActionInCurrentThread } from "@copilotkit/react-core";
+ * import { useLearnFromUserActionInCurrentThread } from "@copilotkit/react-core";
  *
  * function SettingsPanel() {
- *   const recordUserAction = useRecordUserActionInCurrentThread();
+ *   const learnFromUserAction = useLearnFromUserActionInCurrentThread();
  *
  *   const onRename = (oldName: string, newName: string) => {
- *     void recordUserAction({
+ *     void learnFromUserAction({
  *       title: "Renamed project",
- *       previousData: { name: oldName },
- *       newData: { name: newName },
+ *       data: { previous: { name: oldName }, next: { name: newName } },
  *     });
  *   };
  *
@@ -63,24 +62,24 @@ export type UseRecordUserActionInCurrentThreadRecorder = (
  * }
  * ```
  */
-export function useRecordUserActionInCurrentThread(): UseRecordUserActionInCurrentThreadRecorder {
+export function useLearnFromUserActionInCurrentThread(): UseLearnFromUserActionInCurrentThreadRecorder {
   const config = useCopilotChatConfiguration();
-  const recordUserAction = useRecordUserAction();
+  const learnFromUserAction = useLearnFromUserAction();
 
   return useCallback(
     async (
-      input: RecordUserActionInCurrentThreadInput,
-    ): Promise<RecordUserActionResult> => {
+      input: LearnFromUserActionInCurrentThreadInput,
+    ): Promise<LearnFromUserActionResult> => {
       const threadId = config?.threadId;
       if (!threadId) {
         throw new Error(
-          "useRecordUserActionInCurrentThread: no CopilotChatConfigurationProvider in scope. " +
+          "useLearnFromUserActionInCurrentThread: no CopilotChatConfigurationProvider in scope. " +
             "Wrap the call site in <CopilotChat>, <CopilotSidebar>, or <CopilotChatConfigurationProvider>, " +
-            "or use `useRecordUserAction()` and pass `threadId` explicitly.",
+            "or use `useLearnFromUserAction()` and pass `threadId` explicitly.",
         );
       }
-      return recordUserAction({ ...input, threadId });
+      return learnFromUserAction({ ...input, threadId });
     },
-    [config?.threadId, recordUserAction],
+    [config?.threadId, learnFromUserAction],
   );
 }

@@ -213,17 +213,23 @@ export interface RecordUserActionRequest {
   title?: string | null;
   /** Optional longer explanation. */
   description?: string | null;
-  /** Optional snapshot of state before the action. JSON-serializable. */
-  previousData?: unknown;
-  /** Optional snapshot of state after the action. JSON-serializable. */
-  newData?: unknown;
+  /** Free-form JSON-serializable snapshot describing the action. */
+  data?: unknown;
+  /**
+   * Learning container(s) for this action. Forwarded verbatim to the
+   * platform, which is the single authoritative validator: well-formed
+   * input is `string | string[]` (non-empty strings, non-empty array);
+   * the platform defaults to `["organization"]` when the field is
+   * omitted entirely, and 400s on malformed values.
+   */
+  learningContainer?: unknown;
   /** Optional caller-defined metadata. Stored verbatim. */
   metadata?: Record<string, unknown> | null;
   /** ISO-8601 client-asserted timestamp. Defaults to server NOW() when absent. */
   occurredAt?: string;
   /**
    * Caller-supplied idempotency key (any RFC-compliant UUID; the
-   * frontend hook `useRecordUserAction` auto-generates one per call,
+   * frontend hook `useLearnFromUserAction` auto-generates one per call,
    * so retries are safe by default). Every call hits the platform's
    * idempotent PUT endpoint; a retry with the same id collapses to
    * the original row.

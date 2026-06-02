@@ -1,9 +1,9 @@
 import { logger } from "@copilotkit/shared";
-import {
+import type {
   CopilotIntelligenceRuntimeLike,
   CopilotRuntimeLike,
-  isIntelligenceRuntime,
 } from "../../core/runtime";
+import { isIntelligenceRuntime } from "../../core/runtime";
 import { PlatformRequestError } from "../../intelligence-platform/client";
 import { errorResponse, isHandlerResponse } from "../shared/json-response";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
@@ -17,8 +17,15 @@ interface RecordUserActionBody {
   threadId: string;
   title?: string | null;
   description?: string | null;
-  previousData?: unknown;
-  newData?: unknown;
+  data?: unknown;
+  /**
+   * Forwarded verbatim to the platform; Intelligence is the single
+   * authoritative validator and rejects malformed values (non-string,
+   * non-array, empty string, empty array, array with empty elements)
+   * with 400. The runtime intentionally does not type-guard this field
+   * to avoid silently rewriting bad input into the platform default.
+   */
+  learningContainer?: unknown;
   metadata?: Record<string, unknown> | null;
   occurredAt?: string;
   clientEventId: string;
@@ -55,7 +62,7 @@ function isNonEmptyString(value: unknown): value is string {
  * `POST /user-actions` handler.
  *
  * Three-tier flow:
- *   useRecordUserAction() (frontend)
+ *   useLearnFromUserAction() (frontend)
  *     → POST ${runtimeUrl}/user-actions
  *     → this handler resolves the Intel user from BFF auth
  *     → intelligence.recordUserAction(...)
@@ -90,8 +97,8 @@ export async function handleRecordUserAction({
       threadId: parsed.threadId,
       title: parsed.title,
       description: parsed.description,
-      previousData: parsed.previousData,
-      newData: parsed.newData,
+      data: parsed.data,
+      learningContainer: parsed.learningContainer,
       metadata: parsed.metadata,
       occurredAt: parsed.occurredAt,
       clientEventId: parsed.clientEventId,
@@ -144,8 +151,8 @@ function parseRecordUserActionBody(
           : isNonEmptyString(body.description)
             ? body.description
             : undefined,
-    previousData: body.previousData,
-    newData: body.newData,
+    data: body.data,
+    learningContainer: body.learningContainer,
     metadata:
       body.metadata === undefined
         ? undefined
