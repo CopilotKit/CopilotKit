@@ -112,10 +112,10 @@
       }
     },
     {
-      "_comment": "AAPL — first leg: emit get_stock_price tool call. turnIndex:0 gate REMOVED — the D5 tool-rendering-custom-catchall probe runs 'weather in Tokyo' first then sends 'What's the current price of AAPL?', so the AAPL leg fires at turnIndex>=2 (multi-pill thread). Replaced with hasToolResult:false: matches when the last message is a user prompt (not a tool result), which keeps the first-leg fixture from re-firing after the follow-up content already lands. The toolCallId follow-up fixture above wins on iteration 2 (last message is tool with id call_tr_stock_aapl_001).",
+      "_comment": "AAPL — first leg: emit get_stock_price tool call. Gated on toolName:get_stock_price (same pattern as the sibling weather/chain first-leg fixtures) rather than hasToolResult:false. The D5 tool-rendering-custom-catchall probe runs 'weather in Tokyo' first, which leaves a get_weather tool result in the thread; the aimock router implements hasToolResult as messages.some(m=>m.role==='tool'), so hasToolResult is permanently true on the AAPL turn and a hasToolResult:false gate could never match (→ no_fixture_match → 503 → 30s timeout). toolName fires whenever get_stock_price is registered (always, here) regardless of prior tool results. The toolCallId follow-up fixture above still wins on iteration 2 (last message is tool with id call_tr_stock_aapl_001), so this fixture only emits on the first leg.",
       "match": {
         "userMessage": "What's the current price of AAPL?",
-        "hasToolResult": false,
+        "toolName": "get_stock_price",
         "context": "langgraph-python"
       },
       "response": {
