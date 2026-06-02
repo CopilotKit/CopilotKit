@@ -14,4 +14,7 @@ services:
       # Optional: override the chat model. Default mirrors Wesley's Harness samples.
       # Other valid choices on a 5-tier key: gpt-5, gpt-5-mini, gpt-5.1, gpt-5.4.
       OPENAI_MODEL_ID: ${OPENAI_MODEL_ID:-gpt-5.4}
+      # Optional latency tuning for streaming demo turns.
+      CONTROL_ROOM_REASONING_EFFORT: ${CONTROL_ROOM_REASONING_EFFORT:-none}
+      CONTROL_ROOM_MAX_OUTPUT_TOKENS: ${CONTROL_ROOM_MAX_OUTPUT_TOKENS:-2048}
       ASPNETCORE_ENVIRONMENT: Development
