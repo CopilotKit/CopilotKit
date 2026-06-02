@@ -45,7 +45,6 @@ const FEATURED_DEMO_IDS: readonly string[] = [
   "agentic-chat",
   "chat-customization-css",
   "headless-simple",
-  "gen-ui-tool-based",
   "declarative-gen-ui",
   "mcp-apps",
   "open-gen-ui",
@@ -54,12 +53,29 @@ const FEATURED_DEMO_IDS: readonly string[] = [
 
 // Per-integration extras appended after the base list above.
 // Demos that the integration hasn't wired are silently skipped.
+//
+// `gen-ui-tool-based` (Controlled Generative UI) is scoped here rather than
+// in the global list (OSS-137): the controlled-gen-UI product treatment
+// — reliable sample-data rendering + the "Controlled Generative UI" pill —
+// is only polished for LangGraph Python and Google ADK so far. The other
+// integrations still expose the demo in its category section; it just
+// isn't promoted into Featured until the treatment scales to them.
 const EXTRA_FEATURED_BY_INTEGRATION: Readonly<
   Record<string, readonly string[]>
 > = {
-  "langgraph-python": ["hitl-in-chat", "hitl-in-app", "gen-ui-interrupt"],
+  "langgraph-python": [
+    "gen-ui-tool-based",
+    "hitl-in-chat",
+    "hitl-in-app",
+    "gen-ui-interrupt",
+  ],
   "langgraph-fastapi": ["hitl-in-chat", "hitl-in-app", "gen-ui-interrupt"],
-  "google-adk": ["hitl-in-chat", "hitl-in-app", "gen-ui-interrupt"],
+  "google-adk": [
+    "gen-ui-tool-based",
+    "hitl-in-chat",
+    "hitl-in-app",
+    "gen-ui-interrupt",
+  ],
 };
 
 const FEATURED_CATEGORY: FeatureCategory = {
