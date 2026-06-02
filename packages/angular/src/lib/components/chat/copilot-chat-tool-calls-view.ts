@@ -12,6 +12,7 @@ import { RenderToolCalls } from "../../render-tool-calls";
     <copilot-render-tool-calls
       [message]="message()"
       [messages]="messages()"
+      [agentId]="agentId()"
       [isLoading]="isLoading()"
     >
     </copilot-render-tool-calls>
@@ -20,5 +21,6 @@ import { RenderToolCalls } from "../../render-tool-calls";
 export class CopilotChatToolCallsView {
   readonly message = input.required<AssistantMessage>();
   readonly messages = input.required<Message[]>();
+  readonly agentId = input<string | undefined>();
   readonly isLoading = input<boolean>(false);
 }

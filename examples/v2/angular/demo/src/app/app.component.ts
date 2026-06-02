@@ -1,53 +1,60 @@
-import { Component } from "@angular/core";
+import { Component, inject } from "@angular/core";
+import { toSignal } from "@angular/core/rxjs-interop";
+import {
+  ActivatedRoute,
+  NavigationEnd,
+  Router,
+  RouterOutlet,
+} from "@angular/router";
+import { filter, map, startWith } from "rxjs";
 
-import { HeadlessChatComponent } from "./routes/headless/headless-chat.component";
-import { CustomInputChatComponent } from "./routes/custom-input/custom-input-chat.component";
-import { DefaultChatComponent } from "./routes/default/default-chat.component";
-import { CoPilotPortComponent } from "./routes/ukg-port/co-pilot-port.component";
+import { DemoWebInspectorComponent } from "./components/demo-web-inspector.component";
 
 @Component({
   selector: "app-root",
   standalone: true,
-  imports: [
-    HeadlessChatComponent,
-    CustomInputChatComponent,
-    DefaultChatComponent,
-    CoPilotPortComponent,
-  ],
+  imports: [RouterOutlet, DemoWebInspectorComponent],
   template: `
-    <div
-      style="
-        height: 100vh;
-        width: 100vw;
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-        display: block;
-      "
-    >
-      @if (isHeadless) {
-        <headless-chat />
-      }
-      @if (isCustomInput) {
-        <nextgen-custom-input-chat />
-      }
-      @if (!isHeadless && !isCustomInput && !isUkgPort) {
-        <default-chat />
-      }
-      @if (isUkgPort) {
-        <ukg-co-pilot-port />
+    <div class="demo-shell">
+      <router-outlet />
+      @if (showInspector()) {
+        <angular-demo-web-inspector />
       }
     </div>
   `,
+  styles: `
+    .demo-shell {
+      height: 100vh;
+      width: 100vw;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      display: block;
+    }
+  `,
 })
 export class AppComponent {
-  isHeadless =
-    typeof window !== "undefined" &&
-    window.location?.pathname.startsWith("/headless");
-  isCustomInput =
-    typeof window !== "undefined" &&
-    window.location?.pathname.startsWith("/custom-input");
-  isUkgPort =
-    typeof window !== "undefined" &&
-    window.location?.pathname.startsWith("/ukg-port");
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+
+  /**
+   * The web inspector is shown on every route except those that opt out via
+   * `data: { inspector: false }` (currently the headless route).
+   */
+  protected readonly showInspector = toSignal(
+    this.router.events.pipe(
+      filter((event) => event instanceof NavigationEnd),
+      map(() => this.inspectorEnabled()),
+      startWith(this.inspectorEnabled()),
+    ),
+    { initialValue: true },
+  );
+
+  private inspectorEnabled(): boolean {
+    let route = this.route;
+    while (route.firstChild) {
+      route = route.firstChild;
+    }
+    return route.snapshot.data["inspector"] !== false;
+  }
 }

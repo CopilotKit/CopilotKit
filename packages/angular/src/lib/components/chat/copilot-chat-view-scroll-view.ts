@@ -34,6 +34,7 @@ import { takeUntil } from "rxjs/operators";
 @Component({
   standalone: true,
   selector: "copilot-chat-view-scroll-view",
+  host: { class: "cpk:block cpk:flex-1 cpk:min-h-0" },
   imports: [
     CommonModule,
     ScrollingModule,
@@ -48,25 +49,27 @@ import { takeUntil } from "rxjs/operators";
     @if (!hasMounted()) {
       <!-- SSR/Initial render without stick-to-bottom -->
       <div
-        class="h-full max-h-full flex flex-col min-h-0 overflow-y-scroll overflow-x-hidden"
+        class="cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:flex-1 cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden"
       >
-        <div class="px-4 sm:px-0">
+        <div class="cpk:px-4 cpk:sm:px-0">
           <ng-content></ng-content>
         </div>
       </div>
     } @else if (!autoScroll()) {
       <!-- Manual scroll mode -->
-      <div class="h-full max-h-full flex flex-col min-h-0 relative">
+      <div
+        class="cpk:h-[calc(100vh-9rem)] cpk:flex cpk:flex-col cpk:min-h-0 cpk:relative"
+      >
         <div
           #scrollContainer
           cdkScrollable
           [class]="computedClass()"
-          class="overflow-y-scroll overflow-x-hidden"
+          class="cpk:flex-1 cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden"
         >
-          <div #contentContainer class="px-4 sm:px-0">
+          <div #contentContainer class="cpk:px-4 cpk:sm:px-0">
             <!-- Content with padding-bottom matching React -->
             <div [style.padding-bottom.px]="paddingBottom()">
-              <div class="max-w-3xl mx-auto">
+              <div class="cpk:max-w-3xl cpk:mx-auto">
                 @if (messageView()) {
                   <copilot-slot
                     [slot]="messageView()"
@@ -77,6 +80,7 @@ import { takeUntil } from "rxjs/operators";
                 } @else {
                   <copilot-chat-message-view
                     [messages]="messages()"
+                    [agentId]="agentId()"
                     [inputClass]="messageViewClass()"
                     [showCursor]="showCursor()"
                     (assistantMessageThumbsUp)="
@@ -104,7 +108,7 @@ import { takeUntil } from "rxjs/operators";
         <!-- Scroll to bottom button for manual mode, OUTSIDE scrollable content -->
         @if (showScrollButton() && !isResizing()) {
           <div
-            class="absolute inset-x-0 flex justify-center z-30"
+            class="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30"
             [style.bottom.px]="inputContainerHeight() + 16"
           >
             <copilot-slot
@@ -119,7 +123,9 @@ import { takeUntil } from "rxjs/operators";
       </div>
     } @else {
       <!-- Auto-scroll mode with StickToBottom directive -->
-      <div class="h-full max-h-full flex flex-col min-h-0 relative">
+      <div
+        class="cpk:h-[calc(100vh-9rem)] cpk:flex cpk:flex-col cpk:min-h-0 cpk:relative"
+      >
         <div
           #scrollContainer
           cdkScrollable
@@ -131,13 +137,13 @@ import { takeUntil } from "rxjs/operators";
           [resizeBehavior]="'smooth'"
           (isAtBottomChange)="onIsAtBottomChange($event)"
           [class]="computedClass()"
-          class="overflow-y-scroll overflow-x-hidden"
+          class="cpk:flex-1 cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden"
         >
           <!-- Scrollable content wrapper -->
-          <div class="px-4 sm:px-0">
+          <div class="cpk:px-4 cpk:sm:px-0">
             <!-- Content with padding-bottom matching React -->
             <div [style.padding-bottom.px]="paddingBottom()">
-              <div class="max-w-3xl mx-auto">
+              <div class="cpk:max-w-3xl cpk:mx-auto">
                 @if (messageView()) {
                   <copilot-slot
                     [slot]="messageView()"
@@ -148,6 +154,7 @@ import { takeUntil } from "rxjs/operators";
                 } @else {
                   <copilot-chat-message-view
                     [messages]="messages()"
+                    [agentId]="agentId()"
                     [inputClass]="messageViewClass()"
                     [showCursor]="showCursor()"
                     (assistantMessageThumbsUp)="
@@ -175,7 +182,7 @@ import { takeUntil } from "rxjs/operators";
         <!-- Scroll to bottom button - hidden during resize, OUTSIDE scrollable content -->
         @if (!isAtBottom() && !isResizing()) {
           <div
-            class="absolute inset-x-0 flex justify-center z-30"
+            class="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30"
             [style.bottom.px]="inputContainerHeight() + 16"
           >
             <copilot-slot
@@ -203,6 +210,7 @@ export class CopilotChatViewScrollView
   isResizing = input<boolean>(false);
   inputClass = input<string | undefined>();
   messages = input<Message[]>([]);
+  agentId = input<string | undefined>();
   messageView = input<any | undefined>();
   messageViewClass = input<string | undefined>();
   showCursor = input<boolean>(false);
@@ -322,6 +330,7 @@ export class CopilotChatViewScrollView
   messageViewContext(): any {
     return {
       messages: this.messages(),
+      agentId: this.agentId(),
       inputClass: this.messageViewClass(),
       showCursor: this.showCursor(),
     };

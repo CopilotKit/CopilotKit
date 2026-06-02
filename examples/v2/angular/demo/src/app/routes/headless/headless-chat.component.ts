@@ -75,7 +75,7 @@ export class RequireApprovalComponent implements HumanInTheLoopToolRenderer {
             @if (m.role === "assistant") {
               <copilot-render-tool-calls
                 [message]="m"
-                [messages]="messages() ?? []"
+                [messages]="messages()"
                 [isLoading]="isRunning()"
               />
             }

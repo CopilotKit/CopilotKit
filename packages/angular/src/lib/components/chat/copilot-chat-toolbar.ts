@@ -27,7 +27,7 @@ export class CopilotChatToolbar {
 
   readonly computedClass = computed(() => {
     const baseClasses =
-      "w-full h-[60px] bg-transparent flex items-center justify-between";
+      "cpk:w-full cpk:h-[60px] cpk:bg-transparent cpk:flex cpk:items-center cpk:justify-between";
     return cn(baseClasses, this.inputClass());
   });
 }
