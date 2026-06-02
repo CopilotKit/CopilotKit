@@ -114,6 +114,36 @@ describe("computeDepthDistribution — D6 (Finding #1)", () => {
     expect(dist.d6).toBe(1);
     expect(dist.d0).toBe(1);
   });
+
+  it("lands a wired-but-unverified cell in d0 and sums to the wired total", () => {
+    // Three wired cells: one reaches D6, two have no live data → D0.
+    const d6Cell = wiredCell({ integration: "agno", feature: "agentic-chat" });
+    const d0CellA = wiredCell({ integration: "mastra", feature: "agentic-chat" });
+    const d0CellB = wiredCell({ integration: "crewai", feature: "agentic-chat" });
+    // A non-wired cell must NOT be counted toward the wired total.
+    const stub = wiredCell({ integration: "x", feature: "agentic-chat", status: "stub" });
+    const cells = [d6Cell, d0CellA, d0CellB, stub];
+    const live = mapOf(fullDepth6Rows("agno", "agentic-chat"));
+    const now = Date.parse(FRESH);
+
+    const dist = computeDepthDistribution(cells, live, now);
+
+    // The two no-data wired cells land in d0 (visible, not vanished).
+    expect(dist.d0).toBe(2);
+    expect(dist.d6).toBe(1);
+
+    // The distribution exposes EXACTLY the reachable buckets — no dead d1/d2
+    // keys that buildCellModel().achievedDepth (0|3|4|5|6) can never populate.
+    expect(Object.keys(dist).sort()).toEqual(["d0", "d3", "d4", "d5", "d6"]);
+
+    // Every bucket sums to the count of wired cells (3), not including the stub.
+    const wiredCount = cells.filter(
+      (c) => c.status === "wired" && c.feature !== null,
+    ).length;
+    const total = Object.values(dist).reduce((a, b) => a + b, 0);
+    expect(total).toBe(wiredCount);
+    expect(total).toBe(3);
+  });
 });
 
 // ---------------------------------------------------------------------------

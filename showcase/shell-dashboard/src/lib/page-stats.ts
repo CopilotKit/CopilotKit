@@ -69,6 +69,14 @@ const DEPTH_TO_KEY: Record<0 | 3 | 4 | 5 | 6, keyof DepthDistribution> = {
  * A gray chip (no data yet) is counted as `noData`, NOT green: the matrix shows
  * gray, so folding it into green would make the stats bar disagree with the
  * matrix it summarizes.
+ *
+ * NO DEDUP (unlike `computeParityStats`/docsStats): `catalogData.cells` is
+ * one row per grid cell — an `(integration, feature)` pair is unique across the
+ * catalog (verified: 0 duplicate pairs). Health is a PER-CELL signal, so every
+ * wired cell is counted exactly once. `computeParityStats` dedups by
+ * `integration` because parity is per-integration (many cells share one slug),
+ * and docsStats dedups by `feature` because docs are per-feature; neither
+ * applies to a genuinely per-cell rollup.
  */
 export function computeHealthStats(
   cells: readonly CatalogCell[],
@@ -166,8 +174,6 @@ export function computeDepthDistribution(
     d5: 0,
     d4: 0,
     d3: 0,
-    d2: 0,
-    d1: 0,
     d0: 0,
   };
   for (const cell of cells) {
